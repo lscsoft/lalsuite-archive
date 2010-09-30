@@ -5,6 +5,11 @@ import types
 import sys
 import os
 
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
 try:
   from glue.segments import segment, segmentlist
 except:
@@ -169,23 +174,23 @@ def daily_ihope_cache(start,end,ifo,cluster=None):
   """
 
   #== daily path
-  ihope_daily_path = '/archive/home/cbc/ihope_daily_new'
+  ihope_daily_path = '/archive/home/cbc/ihope_daily'
 
   #== set clustering tag
-  if cluster==None:
+  if cluster==None or cluster.upper()=='UNCLUSTERED':
     cluster_tag='UNCLUSTERED'
-  elif cluster=='100ms':
+  elif cluster.upper()=='100MS':
     cluster_tag='100MILLISEC_CLUSTERED'
-  elif cluster=='30ms':
+  elif cluster.upper()=='30MS':
     cluster_tag='30MILLISEC_CLUSTERED'
-  elif cluster=='16s':
+  elif cluster.upper()=='16S':
     cluster_tag='16SEC_CLUSTERED'
 
   #== work out days
   day_start = int(GetCommandOutput('tconvert `tconvert '+str(start)+\
                                    ' -f %D`')[0])
   duration = end-start
-  num_days = int(round((duration)/86400))
+  num_days = int(round((int(duration))/86400))
   #== generate array of days
   day_end = day_start+num_days*86400
   while day_end<end:
@@ -219,14 +224,25 @@ def grab_effective_distance(cache,time=False):
   time=[]
   #== grab data
   for file in cache:
-    data = GetCommandOutput('''ligolw_print -t summ_value '''+\
-                            '''-c start_time -c end_time -c name -c value '''+\
-                               file+''' | grep inspiral_effective_distance'''+\
-                            ''' | awk 'NR==1' | cut -f1,2,4 -d,''')[0]\
-               .replace('\n','')
-    start,end,dist = [float(num) for num in data.split(',')]
-    time.append((start+end)/2)
-    distance.append(dist)
+    try:
+      xmldoc = utils.load_filename(file,gz=file.endswith("gz"))
+      value_table = table.get_table(xmldoc,lsctables.SummValueTable.tableName)
+      for line in value_table:
+        if line.name == 'inspiral_effective_distance':
+          distance.append(line.value)
+          time.append((line.start_time+line.end_time)/2)
+          break
 
+      #data = GetCommandOutput('''ligolw_print -t summ_value '''+\
+      #                       '''-c start_time -c end_time -c name -c value '''+\
+      #                          file+''' | grep inspiral_effective_distance'''+\
+      #                        ''' | awk 'NR==1' | cut -f1,2,4 -d,''')[0]\
+      #           .replace('\n','')
+      #start,end,dist = [float(num) for num in data.split(',')]
+      #time.append((start+end)/2)
+      #distance.append(dist)
+
+    except:
+      continue
   if time:  return distance,time
   else:  return distance

@@ -158,7 +158,9 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014,"H1H2L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,947260815,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",948672015,961545687,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",961545687,999999999,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2aRerun/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
@@ -407,7 +409,7 @@ export X509_USER_PROXY=`pwd`/proxy.pem
 /opt/exp_software/virgo/lscsoft/etc/LSCdataFind --observatory $1 --gps-start-time $2 --gps-end-time $3 --url-type file --lal-cache --type $4 --output $5
 outputCache=$5
 outputQcache=${outputCache/.cache/.qcache}
-/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/convertlalcache $5 %s-%s-$outputQcache
+/storage/gpfs_virgo3/virgo/omega/omega_r3270_glnxa64_binary/bin/convertlalcache $5 %s-%s-$outputQcache
 		"""%(dir,tag_base))
 		submit_script.close()
 		os.chmod('remoteDatafind_'+dir+'_'+tag_base+'.sh',0755)
@@ -442,8 +444,9 @@ class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
 		submit_script.write("""#!/bin/bash
 . /opt/exp_software/virgo/etc/virgo-env.sh
 . /opt/glite/etc/profile.d/grid-env.sh
+. /storage/gpfs_virgo3/virgo/omega/omega_env.sh
 export X509_USER_PROXY=`pwd`/proxy.pem
-/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+/storage/gpfs_virgo3/virgo/omega/omega_r3270_glnxa64_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
 tar -czf %s-%s-$4.tgz $3
 		"""%(dir,tag_base))
@@ -740,6 +743,56 @@ class mcmcJob(pipeline.CondorDAGJob, FUJob):
 		self.__universe = "standard"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+##############################################################################
+# jobs class for setting a spinmcmc run
+
+class spinmcmcJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	A job to set up a spinmcmc run
+	"""
+	def __init__(self,opts,cp,dir='',tag_base=''):
+		self.__executable = string.strip(cp.get('fu-condor','spinmcmc'))
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "standard"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+
+##############################################################################
+# jobs class for setting a the plotting of mcmc results
+
+class plotmcmcJob(pipeline.CondorDAGJob, FUJob):
+        """
+        A job to set up a plotmcmc run
+        """
+        def __init__(self,opts,cp,dir='',tag_base=''):
+                """
+                """
+                self.__executable = string.strip(cp.get('fu-condor','plotmcmc'))
+                self.name = os.path.split(self.__executable.rstrip('/'))[1]
+                self.__universe = "vanilla"
+                pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+##############################################################################
+# jobs class for setting a the plotting of spinmcmc results
+
+class plotspinmcmcJob(pipeline.CondorDAGJob, FUJob):
+        """
+        A job to set up a plotspinmcmc run
+        """
+        def __init__(self,opts,cp,dir='',tag_base=''):
+                """
+                """
+                self.__executable = string.strip(cp.get('fu-condor','plotspinmcmc'))
+                self.name = os.path.split(self.__executable.rstrip('/'))[1]
+                self.__universe = "vanilla"
+                pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+                self.add_condor_cmd('getenv','True')
+                self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
 
 #############################################################################
 ###### CONDOR NODE CLASSES ##################################################
@@ -1211,7 +1264,13 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		#add parents and put node in dag
+# 		# Wed-Aug-25-2010:201008251418 Added Pre & Post
+# 		# scripts depends on value of output-path
+# 		patchScript=create_default_config().which("followup_InspiralDataMover.sh")
+# 		self.set_pre_script("%s %s"%(patchScript,job.outputPath))
+# 		self.set_post_script("%s %s"%(patchScript,job.outputPath))
+# 		# End temporary additions Wed-Aug-25-2010:201008251421 
+# 		#add parents and put node in dag
 		for node in p_nodes:
 			if node.validNode:
 				self.add_parent(node)
@@ -1315,9 +1374,10 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("window",cp.get('findFlags','window'))
 		if cp.has_option('findFlags','estimate-background'):
 			self.add_var_opt("estimate-background",cp.get('findFlags','estimate-background'))
-		if cp.has_option('findFlags','background-location'):			
+		if cp.has_option('findFlags','background-location'):
 			self.add_var_opt("background-location",cp.get('findFlags','background-location'))
-
+		if cp.has_option('findFlags','blind'):
+			self.add_var_opt("blind",cp.get('findFlags','blind'))
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
 		#IFO arg string
@@ -1373,9 +1433,10 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("window",cp.get('findVetoes','window'))
 		if cp.has_option('findVetoes','estimate-background'):
 			self.add_var_opt("estimate-background",cp.get('findVetoes','estimate-background'))
-		if cp.has_option('findFlags','background-location'):			
+		if cp.has_option('findVetoes','background-location'):
 			self.add_var_opt("background-location",cp.get('findVetoes','background-location'))
-
+		if cp.has_option('findVetoes','blind'):
+			self.add_var_opt("blind",cp.get('findVetoes','blind'))
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
 		#IFO arg string
@@ -1880,12 +1941,248 @@ class mcmcNode(pipeline.CondorDAGNode, FUNode):
 
 		self.add_var_opt("importanceresample",10000)
 
-		self.id = job.name.upper() + '-' + self.ifonames + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
-		outputName = job.outputPath + '/' + self.id
-		self.add_var_opt("outfilename",outputName)
+		self.id = job.name.upper() + '-' + self.ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
+		self.outputName = job.outputPath + '/' + self.id
+		self.add_var_opt("outfilename",self.outputName)
 
+		self.start_time = min(chunk_start_list.values())
+		self.end_time = max(chunk_end_list.values())
 		self.output_cache = []
-		self.output_cache.append(lal.CacheEntry(self.ifonames, job.name.upper(), segments.segment(min(chunk_start_list.values()),max(chunk_end_list.values())), "file://localhost/"+outputName+".csv"))
+		self.output_cache.append(lal.CacheEntry(self.ifonames.replace(",",""), job.name.upper(), segments.segment(self.start_time,self.end_time), "file://localhost/"+self.outputName+".csv"))
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		if opts.enable_bayesian:
+			for node in p_nodes:
+				if node.validNode:
+					self.add_parent(node)
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
+
+##############################################################################
+# node class for running the spinmcmc code
+
+class spinmcmcNode(pipeline.CondorDAGNode, FUNode):
+	"""
+	Runs a SPIN MCMC job
+	"""
+	def __init__(self,dag,job,cp,opts,coinc,frame_cache_list,p_nodes):
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		iterations = string.strip(cp.get('fu-spinmcmc','iterations'))
+		tbefore = string.strip(cp.get('fu-spinmcmc','tbefore'))
+		tafter = string.strip(cp.get('fu-spinmcmc','tafter'))
+
+		IFOs = coinc.ifos_set
+		self.ifonames = coinc.instruments
+		sngl_insp_string = "sngl_inspiral_coh"
+
+		channelNames = ""
+		ifoString = ""
+		chunk_end_list={}
+		chunk_start_list={}
+		for itf in IFOs:
+			sngl = eval("coinc." + sngl_insp_string + "[\'" + itf + "\']")
+			for row in sngl.process_params:
+				param = row.param.strip("-")
+				value = row.value
+				if param == 'channel-name':
+					channel = value
+				if param == 'gps-end-time':
+					chunk_end = value
+				if param == 'gps-start-time':
+					chunk_start = value
+			channelNames += channel + ","
+			ifoString += itf + ","
+			chunk_end_list[itf] = int(chunk_end)
+			chunk_start_list[itf] = int(chunk_start)
+
+		ifoString = ifoString.replace("H1","1")
+		ifoString = ifoString.replace("L1","2")
+		ifoString = ifoString.replace("V1","3")
+		self.add_var_opt("network","["+ifoString.strip(",")+"]")
+
+		self.ifoRef = coinc.max_trigger_ifo()
+
+		self.add_var_opt("nIter",iterations)
+                self.add_var_opt("tc","%0.3f"%coinc.sngl_inspiral[self.ifoRef].time)
+		self.add_var_opt("beforetc",tbefore)
+		self.add_var_opt("aftertc",tafter)
+
+		param_mchirp = coinc.sngl_inspiral[self.ifoRef].row.mchirp
+		param_eta = coinc.sngl_inspiral[self.ifoRef].row.eta
+		param_distance = coinc.sngl_inspiral[self.ifoRef].row.eff_distance
+
+		self.add_var_opt("mChirp",param_mchirp)
+		self.add_var_opt("eta",param_eta)
+		self.add_var_opt("dist",param_distance)
+
+		cacheFiles = ""
+		for frameCache in frame_cache_list:
+			cacheFiles += frameCache + ","
+		self.add_var_opt("cache","["+cacheFiles.strip(",")+"]")
+		self.add_var_opt("channel","["+channelNames.strip(",")+"]")
+
+#FIX ME: FOR NOW WE ARE LETTING THE CODE CHOSING AUTOMATICALLY THE DATA SEGMENT ON WHICH THE PSD IS COMPUTED
+#		psdEstimateStart = ""
+#		psdEstimateEnd = ""
+#		for itf in IFOs:
+#			datainchunk_before = int(coinc.sngl_inspiral[self.ifoRef].time) - 75 - 64 - chunk_start_list[itf]
+#			datainchunk_after = chunk_end_list[itf] - 64 - int(coinc.sngl_inspiral[self.ifoRef].time) - 32
+#			if datainchunk_after > datainchunk_before:
+#				psdEstimateStart += str(int(coinc.sngl_inspiral[self.ifoRef].time) + 32) + ","
+#				psdEstimateEnd += str(chunk_end_list[itf] - 64) + ","
+#			else:
+#				psdEstimateStart += str(chunk_start_list[itf] + 64) + ","
+#				psdEstimateEnd += str(int(coinc.sngl_inspiral[self.ifoRef].time) - 75) + ","
+#		self.add_var_opt("psdestimatestart","["+psdEstimateStart.strip(",")+"]")
+#		self.add_var_opt("psdestimateend","["+psdEstimateEnd.strip(",")+"]")
+
+
+		self.id = job.name.upper() + '-' + self.ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id))
+		#FIXME: WHAT IS THE ACTUAL OUTPUT FILE?
+ 		self.outputName = job.outputPath + '/' + self.id
+		self.add_var_opt("outputPath",job.outputPath)
+
+                self.start_time = min(chunk_start_list.values())
+                self.end_time = max(chunk_end_list.values())
+                self.output_cache = []
+                self.output_cache.append(lal.CacheEntry(self.ifonames.replace(",",""), job.name.upper(), segments.segment(self.start_time,self.end_time), "file://localhost/"+self.outputName))
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		if opts.enable_bayesian:
+			for node in p_nodes:
+				if node.validNode:
+					self.add_parent(node)
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
+
+
+##############################################################################
+# node class for running the plotting of the mcmc results
+
+class plotmcmcNode(pipeline.CondorDAGNode, FUNode):
+        """
+        Runs a plotmcmc job
+        """
+	def __init__(self,job,coinc,cp,opts,dag,ifo,ifonames,p_nodes):
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		if job.tag_base=="sngl":
+			sngl_insp_string = "sngl_inspiral"
+		else:
+			sngl_insp_string = "sngl_inspiral_coh"
+
+		sngl = eval("coinc." + sngl_insp_string + "[\'" + ifo + "\']")
+
+		if cp.has_option('fu-plotmcmc','burnin'):
+			burnin = string.strip(cp.get('fu-plotmcmc','burnin'))
+			if burnin.strip():
+				self.add_var_opt("burnin",burnin)
+
+		plot_routine = string.strip(cp.get('fu-plotmcmc','plot_routine'))
+		executable = string.strip(cp.get('fu-plotmcmc','executable'))
+
+		#FIXME: add a if statement to treat differently the injections. Reference values for injections should be the injected params.
+		gps = sngl.time
+		mchirp = sngl.row.mchirp
+		eta = sngl.row.eta
+		distance = sngl.row.eff_distance
+		phi = "0.0"
+
+		self.add_var_opt("plot-routine",plot_routine)
+		self.add_var_opt("executable",executable)
+		self.add_var_opt("reference-time",gps)
+		self.add_var_opt("reference-mchirp",mchirp)
+		self.add_var_opt("reference-eta",eta)
+		self.add_var_opt("reference-distance",distance)
+		self.add_var_opt("reference-phi",phi)
+
+		# get the list of MCMC .txt files to be used as input
+		mcmcfilelist = ""
+		for node in p_nodes:
+			mcmcfilelist += node.outputName + '.csv,'
+		self.add_var_opt("mcmc-file",mcmcfilelist.strip(','))
+
+		self.id = job.name.upper() + '-' + ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id))
+		self.add_var_opt("identity",self.id)
+
+		self.add_var_opt("output-path",job.outputPath)
+		self.output_cache = lal.CacheEntry(ifonames.replace(",",""), job.name.upper(), segments.segment(p_nodes[0].start_time,p_nodes[0].end_time), "file://localhost/"+job.outputPath+"/"+self.id)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		if opts.enable_bayesian:
+			for node in p_nodes:
+				if node.validNode:
+					self.add_parent(node)
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
+
+
+##############################################################################
+# node class for running the plotting of the spin mcmc results
+
+class plotspinmcmcNode(pipeline.CondorDAGNode, FUNode):
+
+	def __init__(self,job,coinc,cp,opts,dag,ifo,ifonames,p_nodes):
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		sngl_insp_string = "sngl_inspiral_coh"
+
+		sngl = eval("coinc." + sngl_insp_string + "[\'" + ifo + "\']")
+
+		plot_routine = string.strip(cp.get('fu-plotmcmc','plot_routine'))
+		executable = string.strip(cp.get('fu-plotmcmc','executable'))
+
+		#FIXME: add a if statement to treat differently the injections. Reference values for injections should be the injected params.
+		gps = sngl.time
+		mchirp = sngl.row.mchirp
+		eta = sngl.row.eta
+		distance = sngl.row.eff_distance
+		#FIXME: HOW TO SETUP CORRECTLY THE FOLLOWING PARAMETERS?
+		phi = "0.0"
+		a_spin1 = "0.5"
+		cs_th_sp1 = "0.1"
+		phi_spin1 = "0.4"
+		a_spin2 = "0.5"
+		cs_th_sp2 = "0.5"
+		phi_spin2 = "0.3"
+
+		self.add_var_opt("plot-routine",plot_routine)
+		self.add_var_opt("executable",executable)
+		self.add_var_opt("reference-time",gps)
+		self.add_var_opt("reference-mchirp",mchirp)
+		self.add_var_opt("reference-eta",eta)
+		self.add_var_opt("reference-distance",distance)
+		self.add_var_opt("reference-phi",phi)
+		self.add_var_opt("reference-a_spin1",a_spin1)
+		self.add_var_opt("reference-a_spin2",a_spin2)
+		self.add_var_opt("reference-phi_spin1",phi_spin1)
+		self.add_var_opt("reference-phi_spin2",phi_spin2)
+		self.add_var_opt("reference-cs_th_sp1",cs_th_sp1)
+		self.add_var_opt("reference-cs_th_sp2",cs_th_sp2)
+
+		# get the list of MCMC .txt files to be used as input
+		mcmcfilelist = ""
+		for node in p_nodes:
+			mcmcfilelist += node.outputName
+		self.add_var_opt("mcmc-file",mcmcfilelist.strip(','))
+
+		self.id = job.name.upper() + '-' + ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id))
+		self.add_var_opt("identity",self.id)
+
+		self.add_var_opt("output-path",job.outputPath)
+		self.output_cache = lal.CacheEntry(ifonames.replace(",",""), job.name.upper(), segments.segment(p_nodes[0].start_time,p_nodes[0].end_time), "file://localhost/"+job.outputPath+"/"+self.id)
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
@@ -1980,6 +2277,9 @@ class create_default_config(object):
                 cp.set("fu-condor","vetoflags", self.which("followupQueryVeto.py"))
                 cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		cp.set("fu-condor","mcmc", self.which("lalapps_followupMcmc"))
+		cp.set("fu-condor","spinmcmc", self.which("lalapps_spinspiral"))
+		cp.set("fu-condor","plotmcmc", self.which("plotmcmc.py"))
+		cp.set("fu-condor","plotspinmcmc", self.which("plotspinmcmc.py"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		#cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 		self.set_qscan_executable()
@@ -1990,7 +2290,8 @@ class create_default_config(object):
 		cp.add_section("makeCheckListWiki")
 		cp.set("makeCheckListWiki","universe","local")
 		cp.set("makeCheckListWiki","location",os.getcwd())
-		cp.set("makeCheckListWiki","ini-file",self.ini_file)
+		#Store full abs path in ini file!
+		cp.set("makeCheckListWiki","ini-file",os.path.abspath(self.ini_file))
 		
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
@@ -2078,6 +2379,14 @@ class create_default_config(object):
 
 		# FU-PLOTMCMC SECTION
 		cp.add_section("fu-plotmcmc")
+		cp.set("fu-plotmcmc","plot_routine",self.__find_routine("mcmcsummary.R","R SCRIPT FOR MCMC PLOTS"))
+		cp.set("fu-plotmcmc","executable","/usr/bin/R")
+
+		# FU-SPINMCMC SECTION
+                cp.add_section("fu-spinmcmc")
+		cp.set("fu-spinmcmc","iterations","1000000")
+		cp.set("fu-spinmcmc","tbefore","30")
+		cp.set("fu-spinmcmc","tafter","1")
 
 		# REMOTE JOBS SECTION
 		cp.add_section("fu-remote-jobs")
@@ -2111,6 +2420,9 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_time_slides","20")
+		cp.set("condor-max-jobs","lalapps_spinspiral_coh_full_data","20")
+		cp.set("condor-max-jobs","lalapps_spinspiral_coh_playground","20")
+		cp.set("condor-max-jobs","lalapps_spinspiral_coh_time_slides","20")
 
 		# Following comments relate to default options
 		# Generate by FUNode.__conditionalLoadDefaults__ method
@@ -2139,9 +2451,9 @@ class create_default_config(object):
 	def set_qscan_executable(self):
 		host = get_hostname()
 		if 'phy.syr.edu' in host:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")
 		else:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")		
+			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")		
 
 	def __config_name(self,ifo,type):
 		fileMap={
@@ -2163,6 +2475,20 @@ class create_default_config(object):
 		out = path.replace('bin','share/lalapps') + '/' + config
 		if not os.path.isfile(out):
 			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (config, out)
+			raise ValueError
+			sys.exit(1)
+		return out
+
+	def __find_routine(self,script,description):
+		path = self.which('lalapps_inspiral')
+                if path: path = os.path.split(path)[0]
+		else:
+			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (script, path)
+			raise ValueError
+                        sys.exit(1)
+		out = path.replace('bin','share/lalapps') + '/' + script
+		if not os.path.isfile(out):
+			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (script, out)
 			raise ValueError
 			sys.exit(1)
 		return out

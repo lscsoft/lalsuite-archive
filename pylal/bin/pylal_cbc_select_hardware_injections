@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # This program is used to produce lists of successfully performed hardware injections
 # Copyright (C) 2010 John Veitch
@@ -48,7 +48,7 @@ parser.add_option("-I","--H2",action="store_true",default=False,help="Check Hanf
 parser.add_option("-L","--L1",action="store_true",default=False,help="Check Livingston")
 parser.add_option("-V","--V1",action="store_true",default=False,help="Check Virgo")
 parser.add_option("-s","--segment-db",metavar="segment_url",default="https://segdb.ligo.caltech.edu",help="URL of segment database")
-
+parser.add_option("-N","--ignore-science",action="store_true",default=False,help="Disable check that detector is in science mode")
 
 opts,args=parser.parse_args()
 
@@ -74,18 +74,26 @@ for ifo in ['H1','H2','L1','V1']:
 		if ifo=='V1':
 			segname='INJECTION_INSPIRAL'
 			scisegname='ITF_SCIENCEMODE'
+			version=1
 		else:
 			segname='DMT-INJECTION_INSPIRAL'
 			scisegname='DMT-SCIENCE'
+			version=1
 		segments[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
-				starttime, endtime, ifo, segname)[0]
-		scisegs[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
-				starttime,endtime,ifo,scisegname)[0]
+				starttime, endtime, ifo, segname, version=version)[0]
+		if not opts.ignore_science:
+			scisegs[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
+				starttime,endtime,ifo,scisegname, version=version)[0]
 		
 # Create SimInspiralTable for output
 outtable=lsctables.New(lsctables.SimInspiralTable)
 # Append the successful injections to the new table
-successful=filter(lambda a:checkInjection(segments,a) and checkInjection(scisegs,a), injections)
+if opts.ignore_science:
+	filterfunc=lambda a:checkInjection(segments,a)
+else:
+	filterfunc=lambda a:checkInjection(segments,a) and checkInjection(scisegs,a)
+
+successful=filter(filterfunc, injections)
 for inj in successful: outtable.append(inj)
 
 # Create output document

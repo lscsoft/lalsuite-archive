@@ -98,22 +98,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
-# Use C segments module
-#
-
-
-def use___segments(modulename):
-	from glue import __segments
-	modulename.segments.infinity = __segments.infinity
-	modulename.segments.NegInfinity = __segments.NegInfinity
-	modulename.segments.PosInfinity = __segments.PosInfinity
-	modulename.segments.segment = __segments.segment
-	modulename.segments.segmentlist = __segments.segmentlist
-use___segments(llwapp)
-use___segments(lsctables)
-
-
-#
 # Utilities
 #
 
@@ -463,24 +447,14 @@ def ligolw_rinca(
 	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.time_slide_index, verbose = verbose)
 
 	#
-	# loop over the items in time_slide_graph.head, producing all of
-	# those n-tuple coincidences
+	# retrieve all coincidences, apply the final n-tuple compare func
+	# and record the survivors
 	#
 
-	if verbose:
-		print >>sys.stderr, "constructing coincs for target offset vectors ..."
-	for n, node in enumerate(time_slide_graph.head):
-		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
-		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
-			ntuple = tuple(sngl_index[id] for id in coinc)
-			if not ntuple_comparefunc(ntuple, node.offset_vector):
-				coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)
-		if small_coincs:
-			for coinc in node.unused_coincs:
-				ntuple = tuple(sngl_index[id] for id in coinc)
-				if not ntuple_comparefunc(ntuple, node.offset_vector):
-					coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)
+	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, include_small_coincs = small_coincs, verbose = verbose):
+		ntuple = tuple(sngl_index[id] for id in coinc)
+		if not ntuple_comparefunc(ntuple, node.offset_vector):
+			coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)
 
 	#
 	# remove time offsets from events
