@@ -272,7 +272,7 @@ class upper_limit(object):
      BBH 5.0 pm 1.0 msun
      NSBH 1.35 pm 0.04 - 5.0 pm 1.0 msun
     """
-    if self.minmass < 1.31 and 35.00 > self.maxmass > 6.00:
+    if self.minmass < 1.31 and 35.00 >= self.maxmass > 6.00:
       binEdges = [self.minmass,1.31,1.39,4.00,6.00,self.maxmass]
       self.lowmass_bins = rate.NDBins((rate.IrregularBins(binEdges),rate.IrregularBins(binEdges)))
     else:
@@ -608,7 +608,7 @@ class upper_limit(object):
       else: dbin = dbin_in
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
-      if bin_type == "Mass1_Mass2" or bin_type == "Low_Mass":
+      if bin_type == "Mass1_Mass2":
         rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin)
       if bin_type == "Total_Mass":
         rArrays = self.sort_into_1D_mass_bins(rArrays,total_mass,new_found,f_dist,new_missed,m_dist,dbin)
