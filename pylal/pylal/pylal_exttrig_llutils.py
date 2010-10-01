@@ -934,6 +934,7 @@ class GRB(object):
     self.starttime = None
     self.endtime = None
     self.openbox = False
+    self.openbox_fap = None
     
     # prepare the DAG instances
     self.dag = {'onoff':None, 'inj':None}
