@@ -152,7 +152,7 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 
 class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
-	validcolumns = {"total_mass":"real_8","chirp_mass":"real_8","mass1":"real_8","mass2":"real_8", #FIXME add units?
+	validcolumns = {"total_mass":"lstring","chirp_mass":"lstring","mass1":"lstring","mass2":"lstring", #FIXME add units?
                         "range_in_Mpc":"real_8","lambda_ratio":"real_8","fractional_error_in_volume":"real_8",
 			"upper_limit":"real_8","marginalized_upper_limit":"real_8",
 			"livetime_in_seconds":"real_8", # FIXME alan doesn't want this as a column
@@ -270,16 +270,16 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 
         if bin_type == "Mass1_Mass2":
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-          row.mass1 = mbin[0]
-          row.mass2 = mbin[1]
+          row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+          row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
           columnList = ['mass1','mass2']
 
         # in the oneD case, print every row (there aren't that many)
         if bin_type == "Total_Mass":
-          row.total_mass = mbin[0]
+          row.total_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           columnList = ['total_mass']
         if bin_type == "Chirp_Mass":
-          row.chirp_mass = mbin[0]
+          row.chirp_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           columnList = ['chirp_mass']
         row.range_in_Mpc = (sec_in_yr*vA[mbin]/ltA[mbin] /(4*numpy.pi/3) )**(1./3)
         row.fractional_error_in_volume = vA2[mbin]**0.5 / vA[mbin]
@@ -582,17 +582,18 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       # only print out a few of the most interesting rows
       if bin_type == "Mass1_Mass2":
         if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-        row.mass1 = mbin[0]
-        row.mass2 = mbin[1]
+        row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+        row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
         columnList = ['mass1','mass2']
 
       # in the oneD case, print every row (there aren't that many)
       if bin_type == "Total_Mass":
-        row.total_mass = mbin[0]
+        row.total_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
         columnList = ['total_mass']
       if bin_type == "Chirp_Mass":
-        row.chirp_mass = mbin[0]
+        row.chirp_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
         columnList = ['chirp_mass']
+
       row.range_in_Mpc = (sec_in_yr*total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3)
       row.fractional_error_in_volume = total_err[mbin]**0.5 / total_vol[mbin]
       row.injections_found = total_found[mbin]
