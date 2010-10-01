@@ -67,11 +67,19 @@ for grb in monitor_list:
       os.chmod(path, 365)
       grb.openbox = True
       txt += 'opened.'
-      
+     
+      # set the smallest FAP value 
+      result = peu.obtain_results(grb)
+      grb.openbox_fap = result
+ 
     if opts.close:
       os.chmod(path, 0)
       grb.openbox = False
       txt += 'closed.'
+
+      # set the FAP value to None
+      grb.openbox_fap = None
+
     print txt
 
 # rewrite the files
