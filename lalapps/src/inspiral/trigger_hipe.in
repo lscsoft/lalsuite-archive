@@ -270,7 +270,7 @@ class hipe_run(object):
     # run inspiral_hipe
     cmd = [cp.get("condor", "inspiral_hipe")] + self._hipe_args \
            + ["--" + stage for stage in self._stages]
-    subprocess.call(cmd, stdout=subprocess.PIPE)
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     if self._verbose:
         print " ".join(cmd)
 
@@ -280,6 +280,9 @@ class hipe_run(object):
         os.rmdir("cache")
       if not os.path.exists("cache"):
         os.symlink("../datafind/cache", "cache")
+
+    # if inspiral_hipe is still running, wait for it
+    process.communicate()
 
     # set inspinj jobs to run in the local universe
     inspinj_sub_files = glob.glob("*inspinj*.sub")
