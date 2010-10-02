@@ -339,7 +339,7 @@ class upper_limit(object):
 
     if opts.bin_by_m1m2:
       if self.lowmass_bins is not None: #FIXME I still find dealing with lowmass confusing
-        self.mass_bins["Mass1_Mass2"] = self.lowmass_bins
+        self.mass_bins["Mass1_Mass2"] = self.m1m2_mass_bins # FIXME
       else:
         self.mass_bins["Mass1_Mass2"] = self.m1m2_mass_bins
 
