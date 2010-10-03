@@ -152,6 +152,12 @@ def load_time_slides(filename, verbose = False, gz = False):
 	is synchronized with the result, so that the next ID it generates
 	will be immediately following the IDs listed in the dictionary
 	returned by this function.
+
+	Note also that this utility function should not be how applications
+	that perform multiple manipulations with an XML file obtain the
+	time slide table's contents since this function re-parses the file
+	from scratch.  Instead, from the glue.ligolw package use
+	table.get_table(...).as_dict().
 	"""
 	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz")), lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()
@@ -465,6 +471,25 @@ def time_slide_normalize(time_slide, **kwargs):
 #
 # =============================================================================
 #
+
+
+def offset_vector_str(offset_vector, compact = False):
+	"""
+	A function to dispaly an offset vector in human-readable form.
+	Example uses include constructing verbosity messages in programs,
+	and generating labels for dot graphs.
+
+	Example:
+
+	>>> offsetvector = {"H1": -10.0, "L1": 0.1}
+	>>> offset_vector_str(offsetvector)
+	'H1 = -10 s, L1 = +0.1 s'
+	>>> offset_vector_str(offsetvector, compact = True)
+	'H1=-10,L1=0.1'
+	"""
+	if compact:
+		return ",".join(("%s=%.5g" % x) for x in sorted(offset_vector.items()))
+	return ", ".join(("%s = %+.16g s" % x) for x in sorted(offset_vector.items()))
 
 
 def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):

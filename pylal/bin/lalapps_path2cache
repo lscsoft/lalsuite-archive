@@ -33,6 +33,7 @@ from optparse import OptionParser
 
 
 from glue import lal
+from glue import segments
 from pylal import git_version
 
 
@@ -101,7 +102,7 @@ else:
 
 
 path_count = 0
-total_duration = 0
+seglists = segments.segmentlistdict()
 
 
 #
@@ -124,8 +125,12 @@ for line in input:
 	print >>output, str(cache_entry)
 	path_count += 1
 	if cache_entry.segment is not None:
-		total_duration += abs(cache_entry.segment)
+		seglists |= cache_entry.to_segmentlistdict().coalesce()
 
 
 if options.verbose:
-	print >>sys.stderr, "number of paths: %d\ntotal duration: %s" % (path_count, str(total_duration))
+	print >>sys.stderr, "Size of cache: %d URLs" % path_count
+	for instrument, seglist in seglists.items():
+		print >>sys.stderr, "Interval spanned by %s: [%s s ... %s s) (%s s total)" % (instrument, str(seglist[0][0]), str(seglist[-1][1]), str(abs(seglist)))
+	span = seglists.union(seglists)
+	print >>sys.stderr, "Interval spanned by union: [%s s ... %s s) (%s s total)" % (str(span[0][0]), str(span[-1][1]), str(abs(span)))

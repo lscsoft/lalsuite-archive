@@ -228,6 +228,7 @@ for coinc in coincs:
     skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,fnames['posterior'],None,fnames['galaxy'])
   else:
     print >>sys.stdout, 'Unable to localize.'
+    sys.exit(1)
   if coinc.is_injection:
     print >>sys.stdout, 'Recording injection data...'
     #NB: using the *recovered* snr for the snr dependent threshold

@@ -855,11 +855,11 @@ class segmentlistdict(dict):
 	[segment(5, 10.0)]
 	>>> x.offsets["H1"] = 6
 	>>> x.intersection(["H1", "H2"])
-	[segment(11.0, 15)]
+	[segment(6.0, 15)]
 	>>> c = x.extract_common(["H1", "H2"])
 	>>> c.offsets.clear()
 	>>> c
-	{'H2': [segment(11.0, 15)], 'H1': [segment(5.0, 9.0)]}
+	{'H2': [segment(6.0, 15)], 'H1': [segment(0.0, 9.0)]}
 	"""
 	def __init__(self, *args):
 		dict.__init__(self, *args)
@@ -867,7 +867,7 @@ class segmentlistdict(dict):
 		if args and isinstance(args[0], self.__class__):
 			dict.update(self.offsets, args[0].offsets)
 
-	def copy(self):
+	def copy(self, keys = None):
 		"""
 		Return a copy of the segmentlistdict object.  The return
 		value is a new object with a new offsets attribute, with
@@ -875,33 +875,40 @@ class segmentlistdict(dict):
 		segment lists.  Modifications made to the offset dictionary
 		or segmentlists in the object returned by this method will
 		not affect the original, but without using much memory
-		until such modifications are made.
+		until such modifications are made.  If the optional keys
+		argument is not None, then should be an iterable of keys
+		and only those segmentlists will be copied (KeyError is
+		raised if any of those keys are not in the
+		segmentlistdict).
 
 		More details.  There are two "built-in" ways to create a
-		working copy of a segmentlist object.  The first is to
-		initialize a new object from an existing one with
+		copy of a segmentlist object.  The first is to initialize a
+		new object from an existing one with
 
+		>>> old = segmentlistdict()
 		>>> new = segmentlistdict(old)
 
-		This creates a working copy of the dictionary, but not of
-		its contents.  That is, this creates new with references to
-		the segmentlists in old, so changes to the segmentlists in
-		either new or old are reflected in both.  The second method
-		is
+		This creates a copy of the dictionary, but not of its
+		contents.  That is, this creates new with references to the
+		segmentlists in old, therefore changes to the segmentlists
+		in either new or old are reflected in both.  The second
+		method is
 
 		>>> new = old.copy()
 
-		This creates a working copy of the dictionary and of the
+		This creates a copy of the dictionary and of the
 		segmentlists, but with references to the segment objects in
 		the original segmentlists.  Since segments are immutable,
 		this effectively creates a completely independent working
 		copy but without the memory cost of a full duplication of
 		the data.
 		"""
+		if keys is None:
+			keys = self
 		new = self.__class__()
-		for key, value in self.iteritems():
-			new[key] = shallowcopy(value)
-		dict.update(new.offsets, self.offsets)
+		for key in keys:
+			new[key] = shallowcopy(self[key])
+			dict.__setitem__(new.offsets, key, self.offsets[key])
 		return new
 
 	def __setitem__(self, key, value):

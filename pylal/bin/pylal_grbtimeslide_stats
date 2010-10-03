@@ -57,7 +57,6 @@ from pylal import git_version
 from pylal import grbsummary
 from pylal import plotutils
 from pylal import rate
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 ##############################################################################
 # utility functions
@@ -209,9 +208,8 @@ parser.add_option( "--buffer-seg", action="store", type="string",
 parser.add_option( "--offsource-seg", action="store", type="string",
     default=None,
     help="segwizard-formatted file containing offsource segments")
-parser.add_option("--ifos", action="callback", type="string",
-    callback=comma_delimited,
-    help="comma-separated list of IFOs in lower case")
+parser.add_option("--ifos", type="string",
+    help="used IFsO written together, like H1V1")
 parser.add_option("--numloudesttable", action="store", type="int", default="-1",
     help="number of loudest coincident triggers to be displayed in the Loudest triggers table, defaults at -1")
 parser.add_option("", "--gps-start-time", type="int",
@@ -264,8 +262,7 @@ if any("SLIDE" not in entry.description for entry in offsource_cache):
   total_num_slides += 1
 
 
-off_segs = segmentsUtils.fromsegwizard(open(opts.offsource_seg),
-                                      coltype=int)
+off_segs = grbsummary.get_segs_from_doc(offsource_doc).extent()
 on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
                                       coltype=int)
 buffer_segs = segmentsUtils.fromsegwizard(open(opts.buffer_seg),
@@ -276,7 +273,7 @@ num_trials = abs(off_segs) // trial_len
 num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
 ##veto segments for IFOs
-ifo_list = opts.ifos
+ifo_list = set(opts.ifos[2*i:2*i+2].lower() for i in range(len(opts.ifos)/2))
 veto_segs = {}
 for ifo in ifo_list:
   veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
@@ -297,15 +294,14 @@ mc_bins = rate.IrregularBins(opts.mc_boundaries)
 
 ##############################################################################
 #set the extents of offsource and buffer
-extent_off = off_segs.extent()
 extent_buffer = buffer_segs.extent()
 
 #do trial bins
-bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
+bins = rate.LinearBins(off_segs[0], off_segs[1], num_trials)
 
 #build veto masks to left and right and then merge them
-veto_mask_left = grbsummary.get_veto_mask(extent_off[0], extent_buffer[0], trial_len, veto_segs)
-veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], extent_off[1], trial_len, veto_segs)
+veto_mask_left = grbsummary.get_veto_mask(off_segs[0], extent_buffer[0], trial_len, veto_segs)
+veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], off_segs[1], trial_len, veto_segs)
 trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials), dtype=numpy.bool8)
 buffer_mask = numpy.ones(num_trials_buffers_onsource, dtype=numpy.bool8)
 
