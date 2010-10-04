@@ -568,7 +568,6 @@ setup(
 		os.path.join("bin", "qsub_wscanlite.sh"),
 		os.path.join("bin", "search_volume_by_m1_m2"),
 		os.path.join("bin", "search_upper_limit_by_m1_m2"),
-		os.path.join("bin", "search_volume_by_s1_s2"),
 		os.path.join("bin", "search_upper_limit_by_s1_s2"),
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
