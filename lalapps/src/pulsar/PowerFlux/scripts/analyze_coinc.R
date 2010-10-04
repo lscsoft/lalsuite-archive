@@ -228,6 +228,10 @@ coincidences<-do.call(rbind, L)
 
 cat(con=LOG, "Found", dim(coincidences)[1], "coincidences\n")
 
+write.table(coincidences, p(output.dir, "/raw_snr_coincidences.csv"), row.names=FALSE, col.names=TRUE, sep="\t")
+
+cat(con=LOG, "Wrote ", dim(coincidences)[1], "coincidences to raw_snr_coincidences.csv\n")
+
 #
 # Note: full S5 uses spindown reference time of 846885755
 #  Early S5 used 818880650
@@ -329,6 +333,8 @@ P<-order(-ExtraStats$SNR.H1L1, -pmin(ExtraStats$SNR.H1, ExtraStats$SNR.L1), Extr
 
 
 ExtraStats[P,"Primary"]<- !duplicated(ExtraStats[P, "Group"])
+
+cat("Found", sum(ExtraStats[,"Primary"]), "primary outliers\n")
 
 for(i in 1:dim(ExtraStats)[1]) {
 
