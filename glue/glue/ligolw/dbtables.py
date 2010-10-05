@@ -44,6 +44,7 @@ import warnings
 
 
 from glue import git_version
+from glue import offsetvector
 from glue import segments
 from glue.ligolw import ilwd
 from glue.ligolw import ligolw
@@ -780,7 +781,7 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		return dict((ilwd.get_ilwdchar(id), dict((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
+		return dict((ilwd.get_ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
 
 	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
