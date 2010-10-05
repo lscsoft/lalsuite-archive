@@ -1079,8 +1079,7 @@ def getSciSegs(ifo=None,
   segment_definer AS x, segment AS y \
   WHERE x.name = segment_definer.name AND \
   x.segment_def_id = y.segment_def_id AND \
-  y.segment_def_cdb = x.creator_db) AND \
-  NOT (segment.start_time > %s OR  %s > segment.end_time)  \
+  y.segment_def_cdb = x.creator_db) \
   ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
   """
   #Determine who to query if not specified.
@@ -1097,7 +1096,7 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Error Message :\t %s \n"%(errMsg))
     return None
   try:
-    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart,gpsStop,gpsStart)
+    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart)
     engine=query_engine.LdbdQueryEngine(connection)
     queryResult=engine.query(sqlQuery)
   except Exception, errMsg:
@@ -2395,7 +2394,7 @@ defaulting to %s\n"%(self.serverURL))
     ( x.name = segment_definer.name AND \
     x.ifos = segment_definer.ifos AND \
     x.creator_db = segment.segment_def_cdb ) \
-    AND y.segment_def_cdb = x.creator_db  \ 
+    AND y.segment_def_cdb = x.creator_db \
     AND y.segment_def_id = x.segment_def_id ) \
     AND NOT (segment.start_time > %s OR %s > segment.end_time) \
     ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
