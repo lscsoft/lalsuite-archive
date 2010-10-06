@@ -89,7 +89,7 @@ def get_signal_vetoes(trigger,bankq=0,bankn=0,autoq=0,auton=0,chiq=0,chin=0,sigm
   else:
     sbvs['BestNR5'] = sbvs['BestNR4']
 
-  if trigger.chisq_h1 < 4 or trigger.chisq_l < 4:
+  if trigger.chisq_h1 < 4 or trigger.chisq_v < 4:
     sbvs['BestNR8'] = 0
   else:
     sbvs['BestNR8'] = sbvs['BestNR5']
