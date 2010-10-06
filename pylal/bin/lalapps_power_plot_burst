@@ -134,9 +134,9 @@ lsctables.SnglBurstTable.append = snglburst_append
 #
 
 
-class ConfidenceVsTime(SnglBurstUtils.BurstPlot):
+class ConfidenceVsTime(object):
 	def __init__(self, ifo):
-		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Confidence")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("GPS Time (s)", "Confidence")
 		self.ifo = ifo
 		self.x = []
 		self.y = []
@@ -165,9 +165,9 @@ class ConfidenceVsTime(SnglBurstUtils.BurstPlot):
 #
 
 
-class ConfidenceVsFrequencyScatter(SnglBurstUtils.BurstPlot):
+class ConfidenceVsFrequencyScatter(object):
 	def __init__(self, ifo):
-		SnglBurstUtils.BurstPlot.__init__(self, "Peak Frequency (Hz)", "Confidence")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Peak Frequency (Hz)", "Confidence")
 		self.ifo = ifo
 		self.x = []
 		self.y = []
@@ -193,9 +193,9 @@ class ConfidenceVsFrequencyScatter(SnglBurstUtils.BurstPlot):
 #
 
 
-class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
+class RateVsPeakFreq(object):
 	def __init__(self, ifo, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, "Peak Frequency (Hz)", "Trigger Rate Spectral Density (triggers / s / Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Peak Frequency (Hz)", "Trigger Rate Spectral Density (triggers / s / Hz)")
 		self.ifo = ifo
 		# 21 bins per filter width
 		bins = int(float(abs(interval)) / width) * 21
@@ -226,9 +226,9 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 #
 
 
-class Durations(SnglBurstUtils.BurstPlot):
+class Durations(object):
 	def __init__(self, ifo):
-		SnglBurstUtils.BurstPlot.__init__(self, "Duration (s)", "Trigger Count")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Duration (s)", "Trigger Count")
 		self.ifo = ifo
 		self.bins = {}
 
@@ -255,9 +255,9 @@ class Durations(SnglBurstUtils.BurstPlot):
 #
 
 
-class Delays(SnglBurstUtils.BurstPlot):
+class Delays(object):
 	def __init__(self, ifo, width, max):
-		SnglBurstUtils.BurstPlot.__init__(self, "Delay (s)", "Count / Delay")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Delay (s)", "Count / Delay")
 		self.ifo = ifo
 		# 21 bins per filter width
 		interval = segments.segment(0, max + 2)
@@ -296,9 +296,9 @@ class Delays(SnglBurstUtils.BurstPlot):
 #
 
 
-class RateVsSNR(SnglBurstUtils.BurstPlot):
+class RateVsSNR(object):
 	def __init__(self, ifo):
-		SnglBurstUtils.BurstPlot.__init__(self, "SNR", "Trigger Rate (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("SNR", "Trigger Rate (Hz)")
 		self.ifo = ifo
 		self.x = []
 		self.seglist = segments.segmentlist()
@@ -325,9 +325,9 @@ class RateVsSNR(SnglBurstUtils.BurstPlot):
 #
 
 
-class RateVsConfidence(SnglBurstUtils.BurstPlot):
+class RateVsConfidence(object):
 	def __init__(self, ifo):
-		SnglBurstUtils.BurstPlot.__init__(self, "Confidence", "Trigger Rate (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Confidence", "Trigger Rate (Hz)")
 		self.ifo = ifo
 		self.x = []
 		self.seglist = segments.segmentlist()
@@ -354,9 +354,9 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 #
 
 
-class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
+class TimeFrequencyPlane(object):
 	def __init__(self, ifo):
-		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Frequency (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("GPS Time (s)", "Frequency (Hz)")
 		self.ifo = ifo
 		self.seglist = segments.segmentlist()
 

@@ -5,10 +5,18 @@
 import os
 import sys
 import commands
-from glue import nmi.opts
+
+from optparse import OptionParser
+
 
 # define common options (e.g., -v -q -h) 
-parser = nmi.opts.OptionParserInit()
+parser = OptionParser(version="%prog $Id$")
+parser.add_option("-v", "--verbose",
+                  action="store_true", dest="verbose", default=False,
+                  help="print verbose status messages to stdout")
+parser.add_option("-q", "--quiet",
+                  action="store_false", dest="verbose",
+                  help="don't print status messages to stdout")
 
 # define custom options
 parser.add_option("-r", "--git-repo", dest="git_repo",

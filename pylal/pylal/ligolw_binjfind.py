@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006-2010  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -179,7 +179,7 @@ class DocContents(object):
 		# time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglbursttable.getColumnByName("ifo"), 0.0), create_new = process)
+		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglbursttable.getColumnByName("ifo"), 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
 
 		#
 		# get coinc_definer rows for sim_* <--> sngl_burst coincs

@@ -68,10 +68,11 @@ Optional OPTIONS:\n \
 [--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior chirp masses\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
 [--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
-[--ampOrder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
+[--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
+[--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\
 [--timeslide\t:\tTimeslide data]\n[--studentt\t:\tuse student-t likelihood function]\n \
-[--RA FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use (DEGREES)]\n \
-[ --GRB\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
+[--ra FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use (DEGREES)]\n \
+[--grb\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
 [--distMax FLOAT (100)\t:\tMaximum distance to use]\n \
 [--deta FLOAT\t:\twidth of eta window]\n \
 [--dt FLOAT (0.01)\t:\ttime window (0.01s)]\n \
@@ -80,6 +81,11 @@ Optional OPTIONS:\n \
 [--version\t:\tPrint version information and exit]\n \
 [--help\t:\tPrint this message]\n"
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 extern CHAR outfile[FILENAME_MAX];
 extern double etawindow;
@@ -131,7 +137,7 @@ int decohereflag=0;
 REAL8 offset=0.0;
 extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
-
+INT4 phaseOrder=4;
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 
@@ -185,7 +191,7 @@ void initialise(int argc, char *argv[]){
 		{"XMLfile",required_argument,0,'X'},
 		{"Nmcmc",required_argument,0,'M'},
 		{"Nruns",required_argument,0,'r'},
-		{"GRB",no_argument,0,'b'},
+		{"grb",no_argument,0,'b'},
 		{"out",required_argument,0,'o'},
 		{"inj",required_argument,0,'j'},
 		{"fake",no_argument,0,'F'},
@@ -201,14 +207,15 @@ void initialise(int argc, char *argv[]){
 		{"approximant",required_argument,0,'A'},
 		{"timeslide",no_argument,0,'L'},
 		{"studentt",no_argument,0,'l'},
-		{"RA",required_argument,0,'O'},
+		{"ra",required_argument,0,'O'},
 		{"dec",required_argument,0,'a'},
 		{"SNRfac",required_argument,0,14},
 		{"skyloc",no_argument,0,13},
 		{"channel",required_argument,0,'C'},
 		{"highmass",no_argument,0,15},
 		{"decohere",required_argument,0,16},
-		{"ampOrder",required_argument,0,17},
+		{"amporder",required_argument,0,17},
+		{"phaseorder",required_argument,0,20},
 		{"Dmin",required_argument,0,18},
 		{"Dmax",required_argument,0,19},
 		{"version",no_argument,0,'V'},
@@ -245,6 +252,9 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 15:
 			HighMassFlag=1;
+			break;
+		case 20:
+			phaseOrder=atoi(optarg);
 			break;
 		case 'i': /* This type of arragement builds a list of file names for later use */
 			if(nCache==0) CacheFileNames=malloc(sizeof(char *));
@@ -404,7 +414,7 @@ int main( int argc, char *argv[])
 	INT4 stride=0;
 	REAL8 strideDur=0.0;
 	REAL8 evidence=0;
-	INT4 segnum=0;
+	INT4 UNUSED segnum=0;
 	RandomParams *randparam=NULL;
 	RandomParams *datarandparam=NULL;
 	REAL4 TSoffset;
@@ -822,6 +832,62 @@ int main( int argc, char *argv[])
 	}
 	inputMCMC.ampOrder=ampOrder;
 
+	if(phaseOrder>7 && inputMCMC.approximant!=EOBNR)
+	{
+		fprintf(stderr,"Error: Cannot go above 3.5PN in phase using this template!\n");
+		exit(1);
+	}
+	switch(phaseOrder)
+	{
+		case 0:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_NEWTONIAN;
+			break;
+		}
+		case 1:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_HALF;
+			break;
+		}
+		case 2:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_ONE;
+			break;
+		}
+		case 3:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_ONE_POINT_FIVE;
+			break;
+		}
+		case 4:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_TWO;
+			break;
+		}
+		case 5:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_TWO_POINT_FIVE;
+			break;
+		}
+		case 6:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_THREE;
+			break;
+		}
+		case 7:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
+			break;
+		}
+		case 8:
+		{
+			inputMCMC.phaseOrder=LAL_PNORDER_PSEUDO_FOUR;
+			break;
+		}
+		default:
+			inputMCMC.phaseOrder=LAL_PNORDER_TWO;
+	}
+
 	/* Set the initialisation and likelihood functions */
 	if(SkyPatch) {inputMCMC.funcInit = NestInitSkyPatch; goto doneinit;}
 	if(SkyLocFlag) {inputMCMC.funcInit = NestInitSkyLoc; goto doneinit;}
@@ -939,7 +1005,7 @@ void NestInitGRB(LALMCMCParameter *parameter, void *iT){
 	XLALMCMCAddParam(parameter,"long",trueLong,trueLong-0.5*deltaLong,trueLong+0.5*deltaLong,-1);
 	XLALMCMCAddParam(parameter,"lat",trueLat,trueLat-0.5*deltaLat,trueLat+0.5*deltaLat,-1);
 
-	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 
 
@@ -972,18 +1038,18 @@ void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"distMpc", 99.0*gsl_rng_uniform(RNG)+1.0, 1.0, 100.0, 0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
-	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 	return;
 }
 
-void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitSkyPatch(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.01;
 	double mcmin,mcmax;
 	double deltaLong=0.001;
 	double deltaLat=0.001;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	fprintf(stderr,"Using longitude = %f, latitude = %f\n",manual_RA,manual_dec);
@@ -1002,16 +1068,16 @@ void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"distMpc", 99.0*gsl_rng_uniform(RNG)+1.0, 1.0, 100.0, 0);
 	XLALMCMCAddParam(parameter,"long",manual_RA,manual_RA-0.5*deltaLong,manual_RA+0.5*deltaLong,-1);
 	XLALMCMCAddParam(parameter,"lat",manual_dec,manual_dec-0.5*deltaLat,manual_dec+0.5*deltaLat,-1);
-	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG), 0, LAL_PI, 1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 	return;
 }
 
-void NestInitManual(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitManual(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.03;
 	double mcmin,mcmax;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
@@ -1029,17 +1095,17 @@ void NestInitManual(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(100.0)-log(1.0)),log(1.0),log(100.0),0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
-	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 
 	return;
 }
 
-void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitManualIMRB(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.03;
 	double mcmin,mcmax;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
@@ -1064,7 +1130,7 @@ void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(100.0)-log(1.0)),log(1.0),log(100.0),0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
-	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 
     XLALMCMCAddParam(parameter,"spin1z",(spin1zmax-spin1zmin)*gsl_rng_uniform(RNG)+spin1zmin,spin1zmin,spin1zmax,0);
@@ -1072,11 +1138,11 @@ void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT)
 	return;
 }
 
-void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitManualIMRBChi(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.03;
 	double mcmin,mcmax;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
@@ -1098,7 +1164,7 @@ void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(100.0)-log(1.0)),log(1.0),log(100.0),0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
-	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 
     XLALMCMCAddParam(parameter,"chiSpin",(chiSpinmax-chiSpinmin)*gsl_rng_uniform(RNG)+chiSpinmin,chiSpinmin,chiSpinmax,0);
@@ -1106,10 +1172,10 @@ void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT)
     return;
 }
 
-void NestInitNINJAManual(LALMCMCParameter *parameter, void *iT){
+/* FIXME: parameter iT is unused */
+void NestInitNINJAManual(LALMCMCParameter *parameter, void UNUSED *iT){
 	REAL8 trg_time,mcmin,mcmax;
 	REAL4 localetawin;
-	iT=NULL;
 	parameter->param = NULL;
 	parameter->dimension = 0;
 	trg_time = manual_end_time;
@@ -1133,7 +1199,7 @@ void NestInitNINJAManual(LALMCMCParameter *parameter, void *iT){
 	XLALMCMCAddParam(parameter, "distMpc", 499.0*gsl_rng_uniform(RNG)+1.0, 1.0, 500.0, 0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
-	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 
 
@@ -1143,8 +1209,8 @@ void NestInitNINJAManual(LALMCMCParameter *parameter, void *iT){
 void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	REAL8 trg_time;
 	SimInspiralTable *injTable = (SimInspiralTable *)iT;
-	REAL4 mtot,eta,mwindow,localetawin;
-	REAL8 mc,mcmin,mcmax,lmmin,lmmax;
+	REAL4 UNUSED mtot, UNUSED eta, UNUSED mwindow, localetawin;
+	REAL8 UNUSED mc, mcmin, mcmax, lmmin, lmmax;
 	parameter->param = NULL;
 	parameter->dimension = 0;
 	trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
@@ -1176,7 +1242,7 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	XLALMCMCAddParam(parameter,"long",gsl_rng_uniform(RNG)*LAL_TWOPI,0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat", acos(2.0*gsl_rng_uniform(RNG)-1.0)-LAL_PI/2.0,-LAL_PI/2.0,LAL_PI/2.0,0);
 
-	XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI/2.0,0,LAL_PI/2.0,0);
+	XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI,0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
 
 

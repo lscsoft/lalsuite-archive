@@ -22,6 +22,19 @@ __date__ = git_version.date
 Module to provide veto tools for DQ work.
 """
 
+# =============================================================================
+# Function to execute shell command and get output
+# =============================================================================
+def GetCommandOutput(command):
+  # == function to execute bash commands and return the stdout and error status
+  stdin, out, err = os.popen3(command)
+  pid, status = os.wait()
+  this_output = out.read()
+  stdin.close()
+  out.close()
+  err.close()
+  return this_output, status
+
 # ==============================================================================
 # Function to load segments from an xml file
 # ==============================================================================
@@ -97,25 +110,30 @@ def grab_segments(start,end,flag):
 
   #== construct segment query
   segment_cmd = "ligolw_segment_query --query-segments"+\
-      " --segment_url https://segdb.ligo.caltech.edu"+\
+      " --segment-url https://segdb.ligo.caltech.edu"+\
       " --include-segments "+flag+\
-      " --gps-start-time "+str(start)+\
-      " --gps-end-time "+str(end)+\
+      " --gps-start-time "+str(int(start))+\
+      " --gps-end-time "+str(int(end))+\
     ''' | ligolw_print -t segment -c start_time -c end_time --delimiter " "'''
   #== run segment query
-  segs = GetCommandOutput(segment_cmd)
+  segs,status = GetCommandOutput(segment_cmd)
 
   #== construct segments as structure
   seglist=[]
-  segs=segs.split('\n')
-  for seg in segs:
-    if seg=='':  continue
-    try:
-      [seg_start,seg_end]=seg.split(' ')
-      seglist.append(segment(int(seg_start),int(seg_end)))
-    except:  continue
+  if status==0:
+    segs=segs.split('\n')
+    for seg in segs:
+      if seg=='':  continue
+      try:
+        [seg_start,seg_end]=seg.split(' ')
+        seglist.append(segment(int(seg_start),int(seg_end)))
+      except:  continue
+    seglist = segmentlist(seglist)
+  else:
+    print >>sys.stderr, "Warning: Call to ligolw_segment_query failed with "+\
+                        "command:"
+    print >>sys.stderr, "\n"+segment_cmd+"\n"
 
-  seglist = segmentlist([seglist])
   return seglist
 
 # =============================================================================
@@ -129,10 +147,9 @@ def coinc_segments(start,end,ifos):
     for ifo_2 in ifos:
       if ifos.index(ifo_2)>ifos.index(ifo_1):
         doubles.append(ifo_1+ifo_2)
-        if triple_coinc is True:
-          for ifo_3 in ifos:
-             if ifos.index(ifo_3)>ifos.index(ifo_2):
-               triples.append(ifo_1+ifo_2+ifo_3)
+        for ifo_3 in ifos:
+          if ifos.index(ifo_3)>ifos.index(ifo_2):
+            triples.append(ifo_1+ifo_2+ifo_3)
 
   segments={}
   double_segments={}
@@ -143,8 +160,8 @@ def coinc_segments(start,end,ifos):
                   'L1':'L1:DMT-SCIENCE',\
                   'V1':'V1:ITF_SCIENCEMODE'}
   for ifo in ifos:
-    segments[ifo] = grab_segments(gps_start,\
-                                  gps_end,\
+    segments[ifo] = grab_segments(start,\
+                                  end,\
                                   science_flag[ifo])
   #== grab double-coincidence segments
   for double in doubles:
@@ -161,8 +178,16 @@ def coinc_segments(start,end,ifos):
     triple_segments[triple] = segments[ifo_1] & segments[ifo_2] \
                                               & segments[ifo_3]
 
-  return segments,double_segments,triple_segments
+  for double in doubles:
+    for triple in triples:
+      double_segments[double] = double_segments[double]-triple_segments[triple]
 
+  if triples:
+    return segments,double_segments,triple_segments
+  if doubles:
+    return segments,double_segments
+  else:
+    return segments
 # =============================================================================
 # Function to calculate duty cycle and analysable time given segmentlist
 # =============================================================================
