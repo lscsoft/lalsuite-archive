@@ -53,14 +53,14 @@ F<-data[,"frequency"]==0
 F[is.na(F)]<-TRUE
 cat("Found", sum(F), "masked entries\n")
 data[F, "Comment"]<-p(data[F, "Comment"], " masked")
-data[F, "frequency"]<-data[F, "frequency_orig"]
-data[F, "spindown"]<-data[F, "spindown_orig"]
-data[F, "ra"]<-data[F, "ra_orig"]
-data[F, "dec"]<-data[F, "dec_orig"]
-data[F, "snr"]<-data[F, "snr_orig"]
-data[F, "ul"]<-data[F, "ul_orig"]
-data[F, "iota"]<-data[F, "iota_orig"]
-data[F, "psi"]<-data[F, "psi_orig"]
+data[F, "frequency"]<-0
+data[F, "spindown"]<- -100
+data[F, "ra"]<- -10
+data[F, "dec"]<- -10
+data[F, "snr"]<- -10
+data[F, "ul"]<- -1
+data[F, "iota"]<- -10
+data[F, "psi"]<- -10
 
 data.same.segment<-data[data$set==data$set_orig,,drop=FALSE]
 
@@ -72,7 +72,7 @@ data.combined<-data.combined[order(data.combined[,"line_id_orig"], -data.combine
 
 cat("Combined data has", dim(data.combined)[1], "rows\n")
 
-F<-abs(data.combined[,"frequency"]-data.combined[,"frequency_orig"])<FrequencyTolerance
+F<-(abs(data.combined[,"frequency"]-data.combined[,"frequency_orig"])<FrequencyTolerance) & (data.combined[,"frequency"]>0)
 F[is.na(F)]<-FALSE
 
 cat(sum(F), "have passed frequency cut\n")

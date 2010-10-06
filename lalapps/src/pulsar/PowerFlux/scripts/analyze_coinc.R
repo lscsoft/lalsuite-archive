@@ -29,6 +29,15 @@ ecliptic_dist<-function(ra1, dec1, ra2, dec2) {
 	return(sqrt((x-a*ecliptic_pole[1])^2+(y-a*ecliptic_pole[2])^2+(z-a*ecliptic_pole[3])^2))
 	}
 
+mysql_ecliptic_dist<-function(ra1, dec1, ra2, dec2) {
+	x<-p("(cos(", ra1, ")*cos(", dec1, ")-cos(", ra2, ")*cos(", dec2, "))")
+	y<-p("(sin(", ra1, ")*cos(", dec1, ")-sin(", ra2, ")*cos(", dec2, "))")
+	z<-p("(sin(", dec1, ")-sin(", dec2, "))")
+	
+	a<- p("(", x, "*", ecliptic_pole[1], "+", y, "*", ecliptic_pole[2], "+", z, "*", ecliptic_pole[3], ")")
+	return(p("sqrt(POW((", x, "-", a, "*", ecliptic_pole[1], "), 2)+POW((", y, "-", a, "*", ecliptic_pole[2], "),2)+POW((", z, "-", a, "*", ecliptic_pole[3], "),2))"))
+	}
+
 # Adapted from Joe's matlab script
 ifo_A2<-function(ra, dec, iota, psi, gamma, lambda) {
 	# equations from JKS
@@ -74,7 +83,7 @@ dbGetQuery<-function(con, query) {
 	res<-dbSendQuery(con, query)
 	L<-list()
 	while(!dbHasCompleted(res)) {
-		a<-fetch(res, 10000)
+		a<-fetch(res, FetchChunk)
 
 		L[[length(L)+1]]<-a
 		}
@@ -91,17 +100,20 @@ dbGetQueryCoinc<-function(con, query) {
 	res<-dbSendQuery(con, query)
 	L<-list()
 	while(!dbHasCompleted(res)) {
-		a<-fetch(res, 25000)
+		a<-fetch(res, FetchChunk)
 
 		coincidences<-a
 
 		if(length(coincidences)[1]<1 || dim(coincidences)[1]<1)next
 
 		names(coincidences)<-p(names(coincidences), rep(c("", "_H1", "_L1"), each=dim(coincidences)[2]/3))
-		FDist<- ecliptic_dist(coincidences[,"ra"], coincidences[,"dec"], coincidences[,"ra_H1"], coincidences[,"dec_H1"])<(LocationTolerance) &
-			ecliptic_dist(coincidences[,"ra"], coincidences[,"dec"], coincidences[,"ra_L1"], coincidences[,"dec_L1"])<(LocationTolerance) 
+		FDist<- ecliptic_dist(coincidences[,"ra"], coincidences[,"dec"], coincidences[,"ra_H1"], coincidences[,"dec_H1"])<(LocationTolerance(coincidences[,"frequency"])) &
+			ecliptic_dist(coincidences[,"ra"], coincidences[,"dec"], coincidences[,"ra_L1"], coincidences[,"dec_L1"])<(LocationTolerance(coincidences[,"frequency"])) 
 		FDist[is.na(FDist)]<-FALSE
 		coincidences<-coincidences[FDist,,drop=FALSE]
+
+		#cat("Found", dim(coincidences)[1],"coincidences out of", dim(a)[1], "rows fetched\n")
+
 		if(dim(coincidences)[1]<1)next
 
 #		if(dim(coincidences)[1]>1000) {
@@ -182,7 +194,7 @@ start_png("coinc_max_snr.png", width=600, height=600)
 print(xyplot(pmin(max_snr, 50)~I(F0INDEX*FrequencyTolerance), high_bands))
 dev.off()
 
-start_png("coinc_count.start_png", width=600, height=600)
+start_png("coinc_count_start.png", width=600, height=600)
 print(xyplot(count~I(F0INDEX*FrequencyTolerance), high_bands))
 dev.off()
 
@@ -204,8 +216,15 @@ for(i in 1:dim(high_bands)[1]) {
 
 	c_table<-p("SELECT * FROM `", CoincTableName, "` WHERE `set`='", Segment, "_LLO' AND kind='snr' AND snr>", high_bands[i, "snr_cutoff_ifo"], " AND F0INDEX IN (", fidx, ", ", fidx+1, ", ", fidx-1, ")",  " AND frequency_bin>=20 AND frequency_bin<=480")
 
-	coincidences<-dbGetQueryCoinc(con, p("SELECT * FROM (", a_table, ") a, (", b_table, ") b, (", c_table, ") c WHERE a.snr>b.snr AND a.snr>c.snr AND abs(a.frequency-b.frequency)<", FrequencyTolerance, " AND abs(a.frequency-c.frequency)<", FrequencyTolerance, " AND abs(a.`dec`-b.`dec`)<", DecTolerance, " AND abs(a.`dec`-c.`dec`)<", DecTolerance, " AND abs(a.spindown-b.spindown)<", SpindownTolerance, " AND abs(a.spindown-c.spindown)<", SpindownTolerance))
+	coincidences<-dbGetQueryCoinc(con, p("SELECT * FROM (", a_table, ") a, (", b_table, ") b, (", c_table, ") c
+		WHERE a.snr>b.snr AND a.snr>c.snr 
+			AND abs(a.frequency-b.frequency)<", FrequencyTolerance, " AND abs(a.frequency-c.frequency)<", FrequencyTolerance,
+			" AND abs(a.spindown-b.spindown)<", SpindownTolerance, " AND abs(a.spindown-c.spindown)<", SpindownTolerance,
+			" AND (", mysql_ecliptic_dist("a.ra", "a.`dec`", "b.ra", "b.`dec`"), "<", LocationTolerance(high_bands[i, "F0INDEX"]*FrequencyTolerance), ")",
+			" AND (", mysql_ecliptic_dist("a.ra", "a.`dec`", "c.ra", "c.`dec`"), "<", LocationTolerance(high_bands[i, "F0INDEX"]*FrequencyTolerance), ")"
+			))
 	if(length(coincidences)<1 || dim(coincidences)[1]<1)next
+#			" AND abs(a.`dec`-b.`dec`)<", DecTolerance, " AND abs(a.`dec`-c.`dec`)<", DecTolerance,
 
 # 	names(coincidences)<-p(names(coincidences), rep(c("", "_H1", "_L1"), each=dim(coincidences)[2]/3))
 # 	FDist<- ecliptic_dist(coincidences[,"ra"], coincidences[,"dec"], coincidences[,"ra_H1"], coincidences[,"dec_H1"])<(LocationTolerance) &
@@ -226,11 +245,12 @@ for(i in 1:dim(high_bands)[1]) {
 
 coincidences<-do.call(rbind, L)
 
-cat(con=LOG, "Found", dim(coincidences)[1], "coincidences\n")
+cat(file=LOG, "Found", dim(coincidences)[1], "coincidences\n")
 
 write.table(coincidences, p(output.dir, "/raw_snr_coincidences.csv"), row.names=FALSE, col.names=TRUE, sep="\t")
 
-cat(con=LOG, "Wrote ", dim(coincidences)[1], "coincidences to raw_snr_coincidences.csv\n")
+cat(file=LOG, "Wrote ", dim(coincidences)[1], "coincidences to raw_snr_coincidences.csv\n")
+cat("Wrote ", dim(coincidences)[1], "coincidences to raw_snr_coincidences.csv\n")
 
 #
 # Note: full S5 uses spindown reference time of 846885755
@@ -336,9 +356,16 @@ ExtraStats[P,"Primary"]<- !duplicated(ExtraStats[P, "Group"])
 
 cat("Found", sum(ExtraStats[,"Primary"]), "primary outliers\n")
 
+if(TrimToPrimary) {
+	cat("Trimming coincidences to primary outliers only\n")
+	coincidences<-coincidences[ExtraStats[, "Primary"]>0,,drop=FALSE]
+	ExtraStats<-ExtraStats[ExtraStats[, "Primary"]>0,,drop=FALSE]
+	}
+
 for(i in 1:dim(ExtraStats)[1]) {
 
-	if(ExtraStats[i, "Comment"]!="" && ExtraStats[i, "Primary"]<1)next
+	#if(ExtraStats[i, "Comment"]!="" && ExtraStats[i, "Primary"]<1)next
+	if(ExtraStats[i, "Primary"]<1)next
 	cat(".")
 	FOINDEX_list<- p((coincidences[i, "F0INDEX"]-MaxF0INDEXTolerance):(coincidences[i, "F0INDEX"]+MaxF0INDEXTolerance), collapse=", ")
 	ra<-coincidences[i, "ra"]
@@ -403,82 +430,84 @@ ReducedData[F,"Comment"]<-p(ReducedData[F,"Comment"], " single_ifo_max")
 
 ReducedData<-ReducedData[order(ReducedData[,"SNR.H1L1"], pmin(ReducedData[,"SNR.H1"], ReducedData[,"SNR.L1"]), decreasing=TRUE),,drop=FALSE]
 
+ReducedData[,"line_id"]<-1:(dim(ReducedData)[1])
+
 write.table(ReducedData, p(output.dir, "/coinc_snr_coincidences_reduced.csv"), row.names=FALSE, col.names=TRUE, sep="\t")
 
 dag<-file("dag.followup", open="w")
 for(i in 1:dim(ReducedData)[1]) {
 	firstbin<-round(ReducedData[i, "f0"]*1800-250)
 	cat(file=dag, "JOB D", i, " condor\n", sep="")
-	cat(file=dag, "VARS D", i, " PID=\"", i, "\" RA=\"", ReducedData[i, "ra"], "\" DEC=\"", ReducedData[i, "dec"], "\" SPINDOWN=\"", ReducedData[i, "fdot"], "\" SPINDOWN_SWEEP_START=\"", ReducedData[i, "fdot"]-DagSpindownOffset, "\" F0=\"", ReducedData[i, "f0"], "\"  FIRSTBIN=\"", firstbin, "\" DATASET=\"", DagDataset(firstbin), "\"\n", sep="")
+	cat(file=dag, "VARS D", i, " PID=\"", i, "\" LABEL=\"", ReducedData[i, "line_id"], "\" RA=\"", ReducedData[i, "ra"], "\" DEC=\"", ReducedData[i, "dec"], "\" RADIUS=\"", FollowupRadius(ReducedData[i, "f0"]), "\" SPINDOWN=\"", ReducedData[i, "fdot"], "\" SPINDOWN_SWEEP_START=\"", ReducedData[i, "fdot"]-DagSpindownOffset, "\" F0=\"", ReducedData[i, "f0"], "\"  FIRSTBIN=\"", firstbin, "\" DATASET=\"", DagDataset(firstbin), "\"\n", sep="")
 	}
 close(dag)
 
-start_png("coinc_snr_coincidences_f0fdot.start_png", width=600, height=600)
+start_png("coinc_snr_coincidences_f0fdot.png", width=600, height=600)
 print(xyplot(spindown~frequency, coincidences))
 dev.off()
 
-start_png("coinc_snr_coincidences_sky.start_png", width=600, height=600)
+start_png("coinc_snr_coincidences_sky.png", width=600, height=600)
 print(xyplot(I(-dec)~I(-ra), coincidences))
 dev.off()
 
 
-start_png("coinc_max_m1_neg_hist.start_png", width=600, height=600)
+start_png("coinc_max_m1_neg_hist.png", width=600, height=600)
 print(histogram(~max_m1_neg, coincidences, nint=50))
 dev.off()
 
-start_png("coinc_min_m1_neg_hist.start_png", width=600, height=600)
+start_png("coinc_min_m1_neg_hist.png", width=600, height=600)
 print(histogram(~min_m1_neg, coincidences, nint=50))
 dev.off()
 
-start_png("coinc_max_m3_neg_hist.start_png", width=600, height=600)
+start_png("coinc_max_m3_neg_hist.png", width=600, height=600)
 print(histogram(~max_m3_neg, coincidences, nint=50))
 dev.off()
 
-start_png("coinc_min_m3_neg_hist.start_png", width=600, height=600)
+start_png("coinc_min_m3_neg_hist.png", width=600, height=600)
 print(histogram(~min_m3_neg, coincidences, nint=50))
 dev.off()
 
-start_png("coinc_max_m4_hist.start_png", width=600, height=600)
+start_png("coinc_max_m4_hist.png", width=600, height=600)
 print(histogram(~max_m4, coincidences, nint=50))
 dev.off()
 
-start_png("coinc_min_m4_hist.start_png", width=600, height=600)
+start_png("coinc_min_m4_hist.png", width=600, height=600)
 print(histogram(~min_m4, coincidences, nint=50))
 dev.off()
 
-start_png("coinc_snr_coincidences_sky_marked_by_mark.start_png", width=1024, height=1024)
+start_png("coinc_snr_coincidences_sky_marked_by_mark.png", width=1024, height=1024)
 print(xyplot(I(-dec)~I(-ra)|ExtraStats$Comment[ExtraStats$Comment!=""], coincidences[ExtraStats$Comment!="",,drop=FALSE], pch="+"))
 dev.off()
 
-start_png("coinc_snr_coincidences_f0snr_unmarked.start_png", width=600, height=600)
+start_png("coinc_snr_coincidences_f0snr_unmarked.png", width=600, height=600)
 print(xyplot(snr~frequency, coincidences[ExtraStats$Comment=="",,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_f0minsnr_unmarked.start_png", width=600, height=600)
+start_png("coinc_snr_coincidences_f0minsnr_unmarked.png", width=600, height=600)
 print(xyplot(pmin(snr_H1, snr_L1)~frequency, coincidences[ExtraStats$Comment=="",,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_f0fdot_unmarked.start_png", width=600, height=600)
+start_png("coinc_snr_coincidences_f0fdot_unmarked.png", width=600, height=600)
 print(xyplot(spindown~frequency, coincidences[ExtraStats$Comment=="",,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_sky_unmarked.start_png", width=600, height=600)
+start_png("coinc_snr_coincidences_sky_unmarked.png", width=600, height=600)
 print(xyplot(I(-dec)~I(-ra), coincidences[ExtraStats$Comment=="",,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_sky_unmarked_by_f0.start_png", width=1024, height=1024)
+start_png("coinc_snr_coincidences_sky_unmarked_by_f0.png", width=1024, height=1024)
 print(xyplot(I(-dec)~I(-ra)|as.character(round(frequency*4)/4), coincidences[ExtraStats$Comment=="",,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_snr_unmarked_by_f0.start_png", width=1024, height=1024)
+start_png("coinc_snr_coincidences_snr_unmarked_by_f0.png", width=1024, height=1024)
 print(xyplot(snr_H1~snr_L1|as.character(round(frequency*4)/4), coincidences[ExtraStats$Comment=="",,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_snr_hist_unmarked.start_png", width=600, height=600)
+start_png("coinc_snr_coincidences_snr_hist_unmarked.png", width=600, height=600)
 print(histogram(~pmin(snr_H1, snr_L1), coincidences[ExtraStats$Comment=="",,drop=FALSE], nint=20))
 dev.off()
 
-start_png("coinc_snr_coincidences_sky_unmarked_by_f0_overlayed.start_png", width=1024, height=1024)
+start_png("coinc_snr_coincidences_sky_unmarked_by_f0_overlayed.png", width=1024, height=1024)
 X<-FullData[ExtraStats$Comment=="",,drop=FALSE]
 X[,"fgroup"]<-round(X$frequency*4)/4
 plot(-X$ra, -X$dec, type="n")
@@ -490,15 +519,15 @@ for(i in 1:length(Groups)) {
 	}
 dev.off()
 
-start_png("coinc_snr_coincidences_sky_unmarked_largesnr_by_f0.start_png", width=1024, height=1024)
+start_png("coinc_snr_coincidences_sky_unmarked_largesnr_by_f0.png", width=1024, height=1024)
 print(xyplot(I(-dec)~I(-ra)|as.character(round(frequency*4)/4), coincidences[ExtraStats$Comment=="" & pmin(coincidences$snr_L1, coincidences$snr_H1)>CoincMinSNRCutoff,,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_snr_unmarked_largesnr_by_f0.start_png", width=1024, height=1024)
+start_png("coinc_snr_coincidences_snr_unmarked_largesnr_by_f0.png", width=1024, height=1024)
 print(xyplot(snr_H1~snr_L1|as.character(round(frequency*4)/4), coincidences[ExtraStats$Comment=="" & pmin(coincidences$snr_L1, coincidences$snr_H1)>CoincMinSNRCutoff,,drop=FALSE]))
 dev.off()
 
-start_png("coinc_snr_coincidences_sky_unmarked_largesnr_by_f0_overlayed.start_png", width=1024, height=1024)
+start_png("coinc_snr_coincidences_sky_unmarked_largesnr_by_f0_overlayed.png", width=1024, height=1024)
 X<-FullData[ExtraStats$Comment==""  & pmin(coincidences$snr_L1, coincidences$snr_H1)>CoincMinSNRCutoff,,drop=FALSE]
 X[,"fgroup"]<-round(X$frequency*4)/4
 plot(-X$ra, -X$dec, type="n")
