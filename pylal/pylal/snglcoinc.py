@@ -276,7 +276,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	try:
 		thresholds = thresholds[(eventlista.instrument, eventlistb.instrument)]
 	except KeyError, e:
-		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % str(e)
+		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % e.args[0]
 	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
 
 	# for each event in the shortest list
@@ -309,13 +309,13 @@ class TimeSlideGraphNode(object):
 	def __init__(self, offset_vector, time_slide_id = None):
 		self.time_slide_id = time_slide_id
 		self.offset_vector = offset_vector
-		self.deltas = frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items())
+		self.deltas = frozenset(offset_vector.deltas.items())
 		self.components = None
 		self.coincs = None
 		self.unused_coincs = set()
 
 	def name(self):
-		return ligolw_tisi.offset_vector_str(self.offset_vector, compact = True)
+		return self.offset_vector.__str__(compact = True)
 
 	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
 		#
@@ -325,7 +325,7 @@ class TimeSlideGraphNode(object):
 
 		if self.coincs is not None:
 			if verbose:
-				print >>sys.stderr, "\treusing %s" % ligolw_tisi.offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\treusing %s" % str(self.offset_vector)
 			return self.coincs
 
 		#
@@ -334,7 +334,7 @@ class TimeSlideGraphNode(object):
 
 		if self.components is None:
 			if verbose:
-				print >>sys.stderr, "\tconstructing %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\tconstructing %s ..." % str(self.offset_vector)
 			#
 			# can we do it?
 			#
@@ -379,7 +379,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tgetting coincs from %s ..." % ligolw_tisi.offset_vector_str(self.components[0].offset_vector)
+				print >>sys.stderr, "\tgetting coincs from %s ..." % str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -422,7 +422,7 @@ class TimeSlideGraphNode(object):
 			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
-			print >>sys.stderr, "\tassembling %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
+			print >>sys.stderr, "\tassembling %s ..." % str(self.offset_vector)
 		# magic:  we can form all n-instrument coincs by knowing
 		# just three sets of the (n-1)-instrument coincs no matter
 		# what n is (n > 2).  note that we pass verbose=False
@@ -570,7 +570,7 @@ class TimeSlideGraph(object):
 				# leaf nodes have no components
 				continue
 			for node in nodes:
-				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
+				component_deltas = set(frozenset(offset_vector.deltas.items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
 				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), key = lambda x: sorted(x.offset_vector)))
 
 		#
@@ -589,7 +589,7 @@ class TimeSlideGraph(object):
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
 		for n, node in enumerate(self.head):
 			if verbose:
-				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(self.head), ligolw_tisi.offset_vector_str(node.offset_vector))
+				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(self.head), str(node.offset_vector))
 			if include_small_coincs:
 				# note that unused_coincs must be retrieved
 				# after the call to .get_coincs() because
@@ -658,7 +658,7 @@ class CoincTables(object):
 		# FIXME:  I believe the arithmetic in the time slide graph
 		# construction can be cleaned up so that this isn't
 		# required.  when that is fixed, remove this
-		self.time_slide_index = dict((time_slide_id, dict((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
+		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""

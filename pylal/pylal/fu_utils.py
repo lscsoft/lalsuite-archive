@@ -2496,7 +2496,12 @@ defaulting to %s\n"%(self.serverURL))
       return
     else:
       self.__backgroundPoints__=int(pointCount)
-    return
+
+  def getPicklePointer(self):
+    """
+    Returns the pickle to be used by function.
+    """
+    return self.__backgroundPickle__
 
   def resetPicklePointer(self,filename=None):
     """
