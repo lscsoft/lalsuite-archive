@@ -517,7 +517,7 @@ if trigFiles:
       seglist = segmentsUtils.fromsegwizard(open(veto_file))
       inspTriggers = inspTriggers.veto(seglist)
       nevents = len(inspTriggers)
-  comments += InspiralUtils.message(opts,
+    comments += InspiralUtils.message(opts,
       'Inspiral triggers: %d before vetos, %d after vetos (%d vetoed)' % \
         (n_before_vetos, nevents, n_before_vetos - nevents))
   if nevents:
@@ -591,7 +591,7 @@ if injFiles:
       seglist = segmentsUtils.fromsegwizard(open(veto_file))
       injTriggers = injTriggers.veto(seglist)
       ninj_events = len(injTriggers)
-  comments += InspiralUtils.message(opts,
+    comments += InspiralUtils.message(opts,
       'Injection triggers: %d before vetos, %d after vetos (%d vetoed)' % \
         (ninj_before_vetos, ninj_events, ninj_before_vetos - ninj_events))
   if ninj_events:

@@ -1,0 +1,163 @@
+#!/usr/bin/python
+
+from __future__ import division
+
+import os,sys
+import matplotlib
+matplotlib.use('Agg')
+import pylab
+import glob
+from optparse import OptionParser
+from pylal import SimInspiralUtils
+from pylal import MultiInspiralUtils
+from glue.ligolw import ilwd
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal.coh_PTF_pyutils import *
+
+usage = ""
+
+parser = OptionParser( usage )
+
+parser.add_option("-r", "--run-directory",action="store",type="string",\
+    default=None,\
+    help="The location of the run directory")
+parser.add_option("-n", "--grb-name",action="store",type="string",\
+    default=None,\
+    help="Name of the GRB such as 090802")
+parser.add_option("-i","--ifo-tag",action="store",type="string",\
+    default=None,\
+    help="The ifo tag, H1L1 or H1L1V1 for instance")
+parser.add_option("-N","--num-files",action="store",type="int",\
+    default=0,help="The number of files the injections are split into")
+parser.add_option("-I","--inj-name",action="store",type="string",\
+    default=None,\
+    help="The name of the injection run such as injectionsTaylorFull")
+parser.add_option("-W","--time-window",action="store",type="float",\
+    default=0,help="The cluster time window")
+
+(opts,args) = parser.parse_args()
+
+if not opts.run_directory:
+  print "must provide run directory"
+  sys.exit(1)
+
+if not opts.grb_name:
+  print "must provide GRB name"
+  sys.exit(1)
+
+if not opts.ifo_tag:
+  print "must provide ifo tag"
+  sys.exit(1)
+
+if not opts.inj_name:
+  print "must provide inj name"
+  sys.exit(1)
+
+if opts.num_files < 1:
+  print "num_files must be given and greater than 0"
+  sys.exit(1)
+
+if not opts.time_window > 0:
+  print "time window must be given and greater than 0"
+  sys.exit(1)
+
+# The next lines should be changed as appropriate by the user
+runDir = os.path.join(opts.run_directory,opts.inj_name)
+injRun = opts.inj_name
+GRBnum = opts.grb_name
+numInj = opts.num_files
+timeWindow = opts.time_window
+ifoTag = opts.ifo_tag
+segTimes = readSegFiles(opts.run_directory)
+print segTimes
+bufferStart = int(segTimes["buffer_start"])
+bufferEnd = int(segTimes["buffer_end"])
+onSourceStart = int(segTimes["on_start"])
+onSourceEnd = int(segTimes["on_end"])
+offSourceStart = int(segTimes["off_start"])
+offSourceEnd = int(segTimes["off_end"])
+
+objectList = []
+numFound = 0
+exampleFile = ''
+
+# Begin by reading in injections and determining if injection is found
+for num in xrange(1,numInj+1):
+  injFile = runDir + '/' + 'HL-INJECTION_GRB' + GRBnum + '_' + injRun + '_'
+  injFile += str(num)
+  injFile += '-*-2190.xml'
+  injFileList = glob.glob(injFile)
+  if len(injFileList) == 1:
+    injFile = injFileList[0]
+  elif len(injFileList) == 0:
+    print "WARNING: Cannot file injection file " + injFile
+  else:
+    print "ERROR: multiple files found matching string " + injFile
+    print injFileList
+    raise ValueError , ""
+  trigFileglob = runDir + '/' + ifoTag + '-COH_PTF_INSPIRAL_FIRST_*_GRB' + GRBnum + '_' + injRun + '_'
+  trigFileglob += str(num)
+  trigFileglob += '-*-2176.xml.gz'
+  trigFiles = glob.glob(trigFileglob)
+  if not trigFiles:
+    print "WARNING: cannot find any files matching " + trigFileglob
+  if os.path.isfile(injFile) and trigFiles:
+    if not exampleFile:
+      exampleFile = trigFiles[0]
+    print "Processing injection" , num
+    currInjs = SimInspiralUtils.ReadSimInspiralFromFiles([injFile])
+    currTrigs =  MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+    for currInj in currInjs:
+      if (currInj.geocent_end_time < bufferStart) or (currInj.geocent_end_time > bufferEnd):
+        currObject = {}
+        currObject['inj'] = currInj
+        currObject['trig'] = None
+        currObject['found'] = False
+        for currTrig in currTrigs:
+          injTime = currInj.geocent_end_time + currInj.geocent_end_time_ns*1E-9
+          trigTime = currTrig.end_time + currTrig.end_time_ns*1E-9
+          if ( (injTime-trigTime).__abs__() < timeWindow):
+            if ( currObject['trig'] == None ):
+              currObject['trig'] = currTrig
+              currObject['found'] = True
+              numFound += 1
+            elif (currObject['trig'].snr < currTrig.snr):
+              currObject['trig'] = currTrig
+        objectList.append(currObject)
+
+foundInjs = lsctables.New(lsctables.SimInspiralTable)
+missedInjs = lsctables.New(lsctables.SimInspiralTable)
+foundTrigs = lsctables.New(lsctables.MultiInspiralTable)
+
+eventCount = 0
+
+for object in objectList:
+  if not object['found']:
+    object['inj'].simulation_id = ilwd.get_ilwdchar("sim_inspiral:simulation_id:"+str(eventCount))
+    missedInjs.append(object['inj'])
+  else:
+    object['inj'].simulation_id = ilwd.get_ilwdchar("sim_inspiral:simulation_id:"+str(eventCount))
+    object['trig'].event_id = ilwd.get_ilwdchar("multi_inspiral:event_id:"+str(eventCount))
+    foundInjs.append(object['inj'])
+    foundTrigs.append(object['trig'])
+  eventCount += 1
+  
+print "Number of found injections: ",len(foundInjs)
+print "Number of triggers associated to found injections: ",len(foundTrigs)
+print "Number of missed injections: ", len(missedInjs)
+
+xmlFile = utils.load_filename(exampleFile,\
+                 gz = exampleFile.endswith("gz"))
+oldMultiTable = table.get_table(xmlFile,"multi_inspiral")
+xmlFile.childNodes[0].removeChild(oldMultiTable)
+xmlFile.childNodes[0].appendChild(foundTrigs)
+xmlFile.childNodes[0].appendChild(foundInjs)
+utils.write_filename(xmlFile,"cohPTF_GRB" + GRBnum+ '_' + injRun + "_FOUND_INJECTIONS.xml")
+xmlFile.childNodes[0].removeChild(foundTrigs)
+xmlFile.childNodes[0].removeChild(foundInjs)
+xmlFile.childNodes[0].appendChild(missedInjs)
+utils.write_filename(xmlFile,"cohPTF_GRB" + GRBnum+ '_' + injRun + "_MISSED_INJECTIONS.xml")
+

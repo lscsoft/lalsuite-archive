@@ -97,7 +97,12 @@ def coinc_params_func(events, offsetvector):
 		dA = math.log10(abs(event1.amplitude / event2.amplitude))
 		params["%sdA" % prefix] = (dA,)
 
-		df = float((event1.central_freq + 0.5*event1.bandwidth - event2.central_freq - 0.5*event2.bandwidth)/(event1.central_freq + 0.5*event1.bandwidth + event2.central_freq + 0.5*event2.bandwidth))
+		# f_cut = central_freq + bandwidth/2
+		f_cut1 = event1.central_freq + event1.bandwidth / 2
+		f_cut2 = event2.central_freq + event2.bandwidth / 2
+		# FIXME:  should be
+		#df = float((f_cut1 - f_cut2) / ((f_cut1 + f_cut2) / 2))
+		df = float((f_cut1 - f_cut2) / (f_cut1 + f_cut2))
 		params["%sdf" % prefix] = (df,)
 
 	#
@@ -172,7 +177,7 @@ class DistributionsStats(object):
 		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
 		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
-		"nevents": rate.tophat_window(1)
+		"nevents": rate.tophat_window(1)	# no-op
 	}
 
 	def __init__(self):
@@ -265,21 +270,23 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 #
 
 
-def get_coincparamsdistributions(xmldoc):
+def get_coincparamsdistributions(xmldoc, seglists = None):
 	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
+	if seglists is not None:
+		seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
 	return coincparamsdistributions
 
 
-def load_likelihood_data(filenames, verbose = False):
+def load_likelihood_data(filenames, seglists = None, verbose = False):
 	coincparamsdistributions = None
 	for n, filename in enumerate(filenames):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 		xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = verbose)
 		if coincparamsdistributions is None:
-			coincparamsdistributions = get_coincparamsdistributions(xmldoc)
+			coincparamsdistributions = get_coincparamsdistributions(xmldoc, seglists = seglists)
 		else:
-			coincparamsdistributions += get_coincparamsdistributions(xmldoc)
+			coincparamsdistributions += get_coincparamsdistributions(xmldoc, seglists = seglists)
 		xmldoc.unlink()
 	return coincparamsdistributions
 

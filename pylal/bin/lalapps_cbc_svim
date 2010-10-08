@@ -22,8 +22,10 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw import table
+from glue.ligolw import array
 from glue import segmentsUtils
 from glue import lal
+from glue import iterutils
 
 from pylal import db_thinca_rings
 from pylal import llwapp
@@ -32,11 +34,21 @@ from pylal import SimInspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal import git_version
-__author__ = "Chad Hanna <channa@ligo.caltech.edu>"
+__author__ = "Stephen Privitera <sprivite@caltech.edu>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
+
+
+# FIXME this should come from a constants package
+# Astronomers use Julian year
+secs_in_year = 31557600.0
+
+
+def edges(bins):
+  """Get the boundary points of a rate.NDBins object."""
+  return tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(bins.lower(),bins.upper()) )
 
 def total_mass(m1,m2):
   return numpy.array(m1)+numpy.array(m2)
@@ -73,20 +85,23 @@ class upper_limit(object):
     dbtables.DBTable_set_connection(connection)
     xmldoc = dbtables.get_xml(connection)
 
+    # figure out which instrument sets to use
     self.get_instruments(connection)      #find out which instruments were on at all during search
-    self.get_livetime(connection)         #get the livetime for each set of instruments
-    self.get_segments(connection)         #get single ifo segments with vetoes applied
-    self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
+    self.set_instruments_to_calculate()   #figure out which instrument sets the user wants us to use
+
+    # take care of mass binning
     self.get_total_mass_bins(connection)  #determine the total mass ranges and binning for this calculation
     self.get_m1m2_mass_bins(connection)   #determine the component mass ranges and binning for this calculation
     self.get_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
+    self.get_lowmass_bins()               #set up BNS,BBH, and BHNS bins if lowmass injections were used
+    self.set_bins_to_calculate()          #figure out which mass bins the user wants us to use
+
+    # get the rest of the goodies
+    self.get_livetime(connection)         #get the livetime for each set of instruments
+    self.get_segments(connection)         #get single ifo segments with vetoes applied
+    self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
     self.get_far_thresholds(connection)   #determine FAR to use for computing search volume
     self.get_gps_times_duration(connection)
-
-    # these are the supported mass binning types
-    self.mass_bins = {"M1M2":self.m1m2_mass_bins,
-                      "MTOTAL":self.total_mass_bins,
-                      "MCHIRP":self.chirp_mass_bins}
 
     # close db connection
     connection.commit()
@@ -229,14 +244,17 @@ class upper_limit(object):
        print >>sys.stdout,"\tmaximum component: %g solar masses" % self.maxmass
 
     mass1Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
-    mass2Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
+    maxm2 = numpy.min(mass1Bin.upper()[mass1Bin.upper() > self.maxtotal/2]) # just to make plots prettier
+    m2bins = int(self.opts.mass_bins/2) + numpy.mod(self.opts.mass_bins,2) # ensures equal bin width in m2 as in m1
+    mass2Bin = rate.LinearBins(self.minmass,maxm2,m2bins)
+
     self.m1m2_mass_bins = rate.NDBins( (mass1Bin,mass2Bin) )
 
     return self.m1m2_mass_bins
 
 
   def get_chirp_mass_bins(self):
-    min_mchirp = numpy.min(chirp_mass(self.minmass,self.minmass))
+    min_mchirp = numpy.min(chirp_mass(self.minmass,self.mintotal-self.minmass))
     max_mchirp = numpy.max(chirp_mass(self.maxtotal/2,self.maxtotal/2))
 
     if self.opts.verbose:
@@ -247,6 +265,20 @@ class upper_limit(object):
 
     return self.chirp_mass_bins
 
+
+  def get_lowmass_bins(self):
+    """Check to see if lowmass injections were used. If so, set up the canonical three bins:
+     BNS 1.35 pm 0.04 msun
+     BBH 5.0 pm 1.0 msun
+     NSBH 1.35 pm 0.04 - 5.0 pm 1.0 msun
+    """
+    if self.minmass < 1.31 and 35.00 >= self.maxmass > 6.00:
+      binEdges = [self.minmass,1.31,1.39,4.00,6.00,self.maxmass]
+      self.lowmass_bins = rate.NDBins((rate.IrregularBins(binEdges),rate.IrregularBins(binEdges)))
+    else:
+      self.lowmass_bins = None
+
+    return self.lowmass_bins
 
   def get_far_thresholds(self, connection):
     """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
@@ -293,11 +325,25 @@ class upper_limit(object):
   def set_instruments_to_calculate(self):
     if not opts.instruments: return self.instruments
     if opts.instruments in self.instruments:
-      return frozenset(lsctables.instrument_set_from_ifos(i[0]))
+      self.instruments = [opts.instruments]
     else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
-      return []
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(opts.instruments))
+      self.instruments = []
 
+    return self.instruments
+
+  def set_bins_to_calculate(self):
+    self.mass_bins = {}
+    if opts.bin_by_total_mass: self.mass_bins["Total_Mass"] = self.total_mass_bins
+    if opts.bin_by_chirp_mass: self.mass_bins["Chirp_Mass"] = self.chirp_mass_bins
+
+    if opts.bin_by_m1m2:
+      if self.lowmass_bins is not None: #FIXME I still find dealing with lowmass confusing
+        self.mass_bins["Mass1_Mass2"] = self.m1m2_mass_bins # FIXME
+      else:
+        self.mass_bins["Mass1_Mass2"] = self.m1m2_mass_bins
+
+    return self.mass_bins
 
   def get_volume_derivative(self,instruments,bin_type):
     """
@@ -320,15 +366,13 @@ class upper_limit(object):
     found, missed = self.get_injections(instruments, FAR=float("inf"))
     dbin = rate.LogarithmicBins(min([l.distance for l in found]),max([l.distance for l in found]), int(self.opts.dist_bins))
 
-    # FIXME is this the same as self.livetime[instruments]??
-    livetime = float(abs(self.zero_lag_segments[instruments]))
+    livetime = float(abs(self.zero_lag_segments[instruments]))/secs_in_year
 
     FARh = FAR*100000
     FARl = FAR*0.001
     nbins = 5
     FARS = rate.LogarithmicBins(FARl, FARh, nbins)
     vA = []
-    vA2 = []
 
     for far in FARS.centres():
       vAt, vA2t, fm = self.twoD_SearchVolume(instruments,bin_type,dbin_in=dbin,FAR=far,bootnum=1)
@@ -343,13 +387,15 @@ class upper_limit(object):
     if self.opts.verbose:
       dim = len(mass_bins)
       if dim == 1:
-        for m in mass_bins.centres()[0]:
-          print >>sys.stdout,"\t\tvolume derivative in bin centered on %g Msun: %g (units?)" % (m, volDeriv[(m,)])
+        print >>sys.stdout,"\t\t%s (Msun)\tLambda" % bin_type
+        for m_low,m_high in zip(mass_bins.lower()[0],mass_bins.upper()[0]):
+          print >>sys.stdout,"\t\t%.2f-%.2f\t%f" % (m_low,m_high, volDeriv[(m_low,)])
       if dim == 2:
-        for m1 in mass_bins.centres()[0]:
-          for m2 in mass_bins.centres()[1]:
-            if m1<=m2 and m1+m2<self.maxtotal and m1+m2>self.mintotal:
-              print >>sys.stdout,"\t\tvolume derivative in bin centered on %g-%g Msun: %g (units?)" % (m1,m2,volDeriv[(m1,m2)])
+        print >>sys.stdout,"\t\tM1 (Msun)\tM2 (Msun)\tLambda"
+        for m1_low,m1_high in zip(mass_bins.lower()[0],mass_bins.upper()[0]):
+          for m2_low,m2_high in zip(mass_bins.lower()[1],mass_bins.upper()[1]):
+            if m1_low<=m2_low and m1_low+m2_low<self.maxtotal and m1_high+m2_high>self.mintotal:
+              print >>sys.stdout,"\t\t%.2f-%.2f\t%.2f-%.2f\t%f" % (m1_low,m1_high,m2_low,m2_high,volDeriv[(m1_low,m2_low)])
 
     return volDeriv
 
@@ -562,11 +608,11 @@ class upper_limit(object):
       else: dbin = dbin_in
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
-      if bin_type == "M1M2":
+      if bin_type == "Mass1_Mass2":
         rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin)
-      if bin_type == "MTOTAL":
+      if bin_type == "Total_Mass":
         rArrays = self.sort_into_1D_mass_bins(rArrays,total_mass,new_found,f_dist,new_missed,m_dist,dbin)
-      if bin_type == "MCHIRP":
+      if bin_type == "Chirp_Mass":
         rArrays = self.sort_into_1D_mass_bins(rArrays,chirp_mass,new_found,f_dist,new_missed,m_dist,dbin)
       # THIS IS WHERE THE CODE STOPS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
 
@@ -622,15 +668,17 @@ class upper_limit(object):
 
     if verbose:
       mean_range = (3./(4*numpy.pi) *volArray.array)**(1./3)
-      error_range = (3./(4*numpy.pi)*volArray2.array**0.5)**(1./3)
+      error_range = (mean_range/3) *(volArray2.array**0.5/volArray.array)
       if dim == 1:
-        for m in mass_bins.centres()[0]:
-          print >>sys.stdout,"\t\trange in bin centered on %g Msun: %g pm %g Mpc" % (m, mean_range[mass_bins[(m,)]],error_range[mass_bins[(m,)]])
+        print >>sys.stdout,"\t\t%s (Msun)\tRange (Mpc)" % bin_type
+        for m_low,m_high in zip(mass_bins.lower()[0],mass_bins.upper()[0]):
+          print >>sys.stdout,"\t\t%.2f-%.2f\t%.2f pm %.2f" % (m_low,m_high, mean_range[mass_bins[(m_low,)]],error_range[mass_bins[(m_low,)]])
       if dim == 2:
-        for m1 in mass_bins.centres()[0]:
-          for m2 in mass_bins.centres()[1]:
-            if m1<=m2 and self.mintotal < m1+m2 and m1+m2 < self.maxtotal:
-              print >>sys.stdout,"\t\trange in bin centered on %g-%g Msun: %g pm %g Mpc" % (m1,m2, mean_range[mass_bins[(m1,m2)]],error_range[mass_bins[(m1,m2)]])
+        print >>sys.stdout,"\t\tM1 (Msun)\tM2 (Msun)\tRange (Mpc)"
+        for m1_low,m1_high in zip(mass_bins.lower()[0],mass_bins.upper()[0]):
+          for m2_low,m2_high in zip(mass_bins.lower()[1],mass_bins.upper()[1]):
+            if m1_low<=m2_low and m1_low+m2_low<self.maxtotal and m1_high+m2_high>self.mintotal:
+              print >>sys.stdout,"\t\t%.2f-%.2f\t%.2f-%.2f\t%.2f pm %.2f" % (m1_low,m1_high,m2_low,m2_high,mean_range[mass_bins[(m1_low,m2_low)]],error_range[mass_bins[(m1_low,m2_low)]])
 
     volArray.array *= self.livetime[instruments]
     volArray2.array *= self.livetime[instruments]**2
@@ -684,16 +732,19 @@ class upper_limit(object):
     # and increment the numerator there by one
     for i, l in enumerate(found_dist):
       tbin = rArrays[dbin[found_dist[i]]]
-      if f_m1[i] <= f_m2[i]: # exploit m1/m2 symmetry to improve statistics
+      if f_m1[i] >= f_m2[i]: # exploit m1/m2 symmetry to improve statistics
         tbin.incnumerator( (f_m1[i], f_m2[i]) )
       else:
         tbin.incnumerator( (f_m2[i], f_m1[i]) )
 
-    # for each found injection, find the m1-m2-d bin it corresponds to
+    # for each missed injection, find the m1-m2-d bin it corresponds to
     # and increment the denominator there by one
     for i, l in enumerate(missed_dist):
       tbin = rArrays[dbin[missed_dist[i]]]
-      tbin.incdenominator( (m_m1[i], m_m2[i]) )
+      if m_m1[i] >= m_m2[i]: # exploit m1/m2 symmetry to improve statistics
+        tbin.incdenominator( (m_m1[i], m_m2[i]) )
+      else:
+        tbin.incdenominator( (m_m2[i], m_m1[i]) )
 
     return rArrays
 
@@ -715,37 +766,52 @@ class upper_limit(object):
 
 
 def parse_command_line():
-  parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] database", description = "%prog computes mass/mass upperlimit")
+  parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] database", description = "%prog computes the sensitive search volume as a function of mass for the search results described by the input database.")
 
-  parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of iterations to compute mean and variance of volume MUST BE GREATER THAN 1 TO GET USABLE NUMBERS, a good number is 10000")
+  # These options can be used to control how much computing the program actually does.
+  # Limiting the computations can be useful for parallelizing the workflow.
+  parser.add_option("--bin-by-total-mass", default = False, action = "store_true", help = "Compute the search volume as a function of total mass.")
+  parser.add_option("--bin-by-chirp-mass", default = False, action = "store_true", help = "Compute the search volume as a function of chirp mass.")
+  parser.add_option("--bin-by-m1m2", default = False, action = "store_true", help = "Compute the search volume as a function of component masses.")
+  parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
+
+  # These options control the volume uncertainty estimation.
+  parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of bootstrap trials to use for computing the mean and variance of the search volume. A good number is 10000.")
   parser.add_option("--bootstrap-seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the bootstrap resampling. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
-  parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
-  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-  parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
-  parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
   parser.add_option("--dist-err", default = 0.197, metavar = "float", type = "float", help = "When bootstrapping, simulate a random calibration error on distance of the specified magnitude.")
   parser.add_option("--dist-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
+
+  # Binning options. A large number of distance bins is needed for accurate numerical integration.
+  parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
   parser.add_option("--mass-bins", default = 11, metavar = "integer", type = "int", help = "Number of mass bins along 1 dimension (Note the total number of mass bins will generally be less than --mass-bins * --mass-bins once the actual parameter space is carved out)")
+
+  # Options to control the FAR used for computing the search volume. The default behavior is to use
+  # the FAR of the loudest non-playground event.
   parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event.")
   parser.add_option("--use-expected-loudest-event", default=False, action = "store_true", help = "Instead of using the observed FAR for the loudest event, estimate the FAR based on livetime. This option overrides the --far option.")
+
+  # Techincal options which the general user won't care about
+  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--veto-segments-name", default = "vetoes", help = "Set the name of the veto segments to use from the XML document.")
+  parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
   parser.add_option("--output-cache", default = None, help = "Name of output cache file. If none is specified, then no cache file will be written.")
+
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
 
   opts, filenames = parser.parse_args()
 
-  if opts.instruments: opts.instruments = lsctables.instrument_set_from_ifos(opts.instruments)
+  if opts.instruments is not None:
+    opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
+
   if len(filenames) != 1:
     print >>sys.stderr, "must specify exactly one database file"
     sys.exit(1)
 
+  if not opts.bin_by_total_mass and not opts.bin_by_chirp_mass and not opts.bin_by_m1m2:
+    opts.bin_by_total_mass = True # choose a default binning method
+
   return opts, filenames[0]
-
-# FIXME this should come from a constants package
-# Astronomers use Julian year
-secs_in_year = 31557600.0
-
 
 
 ############################ MAIN PROGRAM #####################################
@@ -761,21 +827,14 @@ UL = upper_limit(database, opts)
 cache_list = []
 
 #loop over the requested instruments
-for instruments in UL.set_instruments_to_calculate():
-
-  xmldoc = ligolw.Document()
-  child = xmldoc.appendChild(ligolw.LIGO_LW())
-
+for instruments in UL.instruments:
   for bin_type in UL.mass_bins:
-
-    # put these calculation into a unique ligolw element
-    #child = child.appendChild(ligolw.LIGO_LW())
 
     #compute volume derivitive
     dvA = UL.get_volume_derivative(instruments,bin_type)
 
     #compute volume first and second moments
-    vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=True)
+    vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=opts.verbose)
 
     # convert to distance
     distance = UL.distance_from_4volume(vA,instruments)
@@ -788,21 +847,34 @@ for instruments in UL.set_instruments_to_calculate():
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
 
     #write out the results to the xml file
-    child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeFirstMoment"+bin_type))
-    child.appendChild(rate.binned_array_to_xml(vA2, "SearchvolumeSecondMoment"+bin_type))
-    child.appendChild(rate.binned_array_to_xml(dvA, "SearchvolumeDerivative"+bin_type))
-    child.appendChild(rate.binned_array_to_xml(distance, "SearchvolumeDistance"+bin_type))
-    child.appendChild(rate.binned_array_to_xml(fm.numerator, "SearchvolumeFoundInjections"+bin_type))
-    child.appendChild(rate.binned_array_to_xml(fm.denominator, "SearchvolumeMissedInjections"+bin_type))
-    child.appendChild(rate.binned_array_to_xml(ltA, "SearchvolumeLiveTime"+bin_type)) #FIXME do we still need this?
+    xmldoc = ligolw.Document()
+    child = xmldoc.appendChild(ligolw.LIGO_LW())
 
-  output_filename = "%s-SEARCH_VOLUME-%s.xml" % ("".join(sorted(list(instruments))),opts.output_name_tag)
+    dim = len(UL.mass_bins[bin_type])
+    for j in range(dim):
+      xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
+      xml.appendChild(array.from_array(u"array", edges(UL.mass_bins[bin_type])[j]))
+      child.appendChild(xml)
 
-  utils.write_filename(xmldoc, output_filename)
-  cache_list.append( lal.CacheEntry( "".join(sorted(list(instruments))),
-                                     "SEARCH_VOLUME",
-                                     segments.segment(UL.start_time, UL.end_time),
-                                     "file://localhost%s/%s" % (os.getcwd(),output_filename) ) )
+    output_arrays = {"SearchVolumeFirstMoment":vA.array,
+                     "SearchVolumeSecondMoment":vA2.array,
+                     "SearchVolumeDerivative":dvA.array,
+                     "SearchVolumeDistance":distance.array,
+                     "SearchVolumeFoundInjections":fm.numerator.array,
+                     "SearchVolumeMissedInjections":fm.denominator.array,
+                     "SearchVolumeLiveTime":ltA.array}
+    for arr in output_arrays:
+      xml = ligolw.LIGO_LW({u"Name": u"binned_array:%s" % arr})
+      xml.appendChild(array.from_array(u"array",output_arrays[arr]))
+      child.appendChild(xml)
+
+    output_filename = "%s-SEARCH_VOLUME-%s-BINNED_BY_%s.xml" % ("".join(sorted(list(instruments))),opts.output_name_tag,bin_type.upper())
+
+    utils.write_filename(xmldoc, output_filename)
+    cache_list.append( lal.CacheEntry( "".join(sorted(list(instruments))),
+                                       bin_type,
+                                       segments.segment(UL.start_time, UL.end_time),
+                                       "file://localhost%s/%s" % (os.getcwd(),output_filename) ) )
 
 
 # write cache file

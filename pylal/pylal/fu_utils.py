@@ -1049,14 +1049,16 @@ def getSciSegs(ifo=None,
   x=getSciSegs(gpsStart=987654321,gpsStop=876543210)
   A query failure will give an error but no records found for the
   options specified will return an empty glue.pipeline.ScienceData()
-  segment list.
+  segment list.  We restrict the max version query to operate only
+  over the segment interval requested not all know segments!
   Returns a data structure of type glue.pipeine.ScienceData()
   """
   if sum([x==None for x in (ifo,gpsStart,gpsStop)])>0:
     sys.stderr.write("Invalid arguments given to getSciSegs.\n")
     return None
   ifo=ifo.strip()
-  query01 ="""SELECT segment.start_time, \
+  query01 ="""SELECT \
+  segment.start_time, \
   segment.end_time \
   FROM segment, segment_definer \
   WHERE \
@@ -1065,8 +1067,12 @@ def getSciSegs(ifo=None,
   segment_definer.name = '%s' AND \
   segment_definer.ifos = '%s' AND \
   NOT (segment.start_time > %s OR  %s > segment.end_time) AND \
-  segment_definer.version = (SELECT MAX(x.version) FROM \
-  segment_definer AS x WHERE x.name = segment_definer.name )\
+  segment_definer.version = (SELECT MAX(sd.version) FROM \
+  segment_definer AS sd, segment_summary AS ss WHERE \
+  sd.name = segment_definer.name AND \
+  sd.segment_def_id = ss.segment_def_id AND \
+  NOT (ss.start_time > %s OR %s > ss.end_time)) \
+  ORDER BY segment.start_time \
   """
   #Determine who to query if not specified.
   if serverURL == None:
@@ -1082,7 +1088,7 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Error Message :\t %s \n"%(errMsg))
     return None
   try:
-    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart)
+    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart,gpsStop,gpsStart)
     engine=query_engine.LdbdQueryEngine(connection)
     queryResult=engine.query(sqlQuery)
   except Exception, errMsg:
@@ -2365,7 +2371,8 @@ defaulting to %s\n"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
     self.resultList=list()
-    self.dqvQuery= """SELECT \
+    #New more robust query
+    self.dqvQuery="""SELECT \
     segment_definer.ifos, \
     segment_definer.name, \
     segment_definer.version, \
@@ -2374,14 +2381,17 @@ defaulting to %s\n"%(self.serverURL))
     segment.end_time \
     FROM segment,segment_definer \
     WHERE \
-    segment_definer.segment_def_id = segment.segment_def_id \
-    AND segment_definer.version = (SELECT MAX(x.version) \
-    FROM segment_definer AS x WHERE \
-    ( x.name = segment_definer.name AND \
-    x.ifos = segment_definer.ifos )) \
-    AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
-    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
+    segment_definer.segment_def_id = segment.segment_def_id AND \
+    segment_definer.creator_db = segment.segment_def_cdb AND \
+    NOT (segment.start_time > %s OR %s > segment.end_time) AND \
+    segment_definer.version = \
+    (SELECT MAX(sd.version) \
+    FROM segment_definer AS sd, segment_summary as ss WHERE \
+    segment_definer.ifos = sd.ifos AND \
+    segment_definer.name = sd.name AND \
+    sd.segment_def_id = ss.segment_def_id AND \
+    NOT (ss.start_time > %s OR %s > ss.end_time)) \
+    ORDER BY segment_definer.ifos,segment_definer.name,segment.start_time \
     """
     tmpBlind=""
     for blindFlag in self.__blindFlags__:
@@ -2486,7 +2496,12 @@ defaulting to %s\n"%(self.serverURL))
       return
     else:
       self.__backgroundPoints__=int(pointCount)
-    return
+
+  def getPicklePointer(self):
+    """
+    Returns the pickle to be used by function.
+    """
+    return self.__backgroundPickle__
 
   def resetPicklePointer(self,filename=None):
     """
@@ -2541,6 +2556,7 @@ defaulting to %s\n"%(self.serverURL))
     behavior
     """
     return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
+
   def __connectToSegmentDB__(self,serverURL=None):
     """
     Private method to execute connection to segment DB
@@ -2602,13 +2618,11 @@ defaulting to %s\n"%(self.serverURL))
       self.triggerTime = float(triggerTime)
     gpsEnd=int(triggerTime)+int(backWindow)
     gpsStart=int(triggerTime)-int(frontWindow)
-    #If this is a blinded check use blined query
+    #If this is a blinded check use blinded query
     if self.__blinded__:
-      pass
-      sqlString=self.dqvQueryBlinded%(gpsEnd,gpsStart)
+      self.resultList=self.query(self.dqvQueryBlinded%(gpsEnd,gpsStart,gpsEnd,gpsStart))
     else:
-      sqlString=self.dqvQuery%(gpsEnd,gpsStart)
-    self.resultList=self.query(sqlString)
+      self.resultList=self.query(self.dqvQuery%(gpsEnd,gpsStart,gpsEnd,gpsStart))
     if len(self.resultList) < 1:
       sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
     #Coalesce the segments for each DQ flag
@@ -2745,7 +2759,7 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
     self.__connectToSegmentDB__()
     for myIfo,myTimes in self.__backgroundTimesDict__.iteritems():
       for myTime in myTimes:
-        myQuery=self.dqvQuery%(myTime,myTime)
+        myQuery=self.dqvQuery%(myTime,myTime,myTime,myTime)
         #Insert befor "ORDER BY"
         myQueryA,myQueryB=myQuery.split("ORDER BY",1)
         myQuery=myQueryA+\

@@ -45,6 +45,7 @@ except NameError:
 
 from glue import git_version
 from glue import iterutils
+from glue import offsetvector
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
@@ -1417,6 +1418,7 @@ class CoincInspiralTable(table.Table):
 		"end_time_ns": "int_4s",
 		"mass": "real_8",
 		"mchirp": "real_8",
+		"minimum_duration": "real_8",
 		"snr": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8"
@@ -1696,6 +1698,9 @@ class MultiInspiralTable(table.Table):
 
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
+
+        def get_end(self):
+                return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
@@ -2432,7 +2437,7 @@ class TimeSlideTable(table.Table):
 		d = {}
 		for row in self:
 			if row.time_slide_id not in d:
-				d[row.time_slide_id] = {}
+				d[row.time_slide_id] = offsetvector.offsetvector()
 			if row.instrument in d[row.time_slide_id]:
 				raise KeyError, "%s: duplicate instrument %s" % (row.time_slide_id, row.instrument)
 			d[row.time_slide_id][row.instrument] = row.offset
