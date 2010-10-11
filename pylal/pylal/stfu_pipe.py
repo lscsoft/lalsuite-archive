@@ -1636,7 +1636,6 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("cohsnr-threshold",cp.get('chia','cohsnr-threshold'))
 		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
-		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
 		self.add_var_opt("cdata-length",1.0)
 		self.add_var_opt("user-tag",user_tag)
 		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
@@ -1672,14 +1671,14 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
 
                 if chia_node:
-		        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		        self.output_file_name = "%s/%s-CHIA_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
                 else:
-                        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
-		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
-		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                        self.output_file_name = "%s/%s-CHIA_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.output_frame_file = "%s/%s-CHIA_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 
- 		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
- 		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
+ 		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
+ 		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
 
 
 		self.output_cache = []
@@ -1697,7 +1696,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
 		arg_str = ''
 		for ifo,sngl in inspiral_node_dict.items():
-			arg_str += " --" + ifo.upper()+"-framefile " + sngl.output_frame_file
+			arg_str += " --" + ifo.lower()+"-framefile " + sngl.output_frame_file
 
 		self.add_var_arg(arg_str)
 
@@ -1847,7 +1846,7 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 			self.invalidate()
 
 		for ifo, insp in insp_node_dict.items():
-			self.add_var_arg("--"+ifo.upper()+"-framefile "+ insp.output_frame_file)
+			self.add_var_arg("--"+ifo.lower()+"-framefile "+ insp.output_frame_file)
 
 
 ##############################################################################
