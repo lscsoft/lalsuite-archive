@@ -72,6 +72,25 @@ def scanTreeFnMatch(parentPath='.',levels=int(100),filemask='*'):
           matchingFiles.append(myFile)
   return matchingFiles
 
+def __patchFrameTypeDef__(frametype=None,ifo=None,gpstime=None):
+  """
+  Temporary patch function, to adjust specfied frame type used in
+  searching the filesystem for files to display in followup.
+  """
+  if frametype == None:
+    return None
+  if gpstime == None:
+    return None
+  if ifo == None:
+    return None
+  endOfS5=int(875232014)
+  new=None
+  if int(gpstime)<=endOfS5:
+    if not frametype.lower().startswith(ifo.lower()):
+      orig=frametype
+      new=ifo+"_"+frametype
+    return new
+
 class findFileType(object):
   """
   Initialized with a file structure and coinc data it can return a
@@ -84,7 +103,7 @@ class findFileType(object):
     else:
       self.fsys=fStructure
       self.coinc=myCoinc
-
+  
   def __readZranks__(self,myFilename=None):
     """
     Takes a file and returns a structure (list) of information from
@@ -202,8 +221,8 @@ class findFileType(object):
     for sngl in self.coinc.sngls:
       #Determine file type
       frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-      if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      #Patch
+      frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
       myMaskIndex="*/%s/*/%s/index.html"%(frametype,sngl.time)
       myMaskPNG="*/%s/*/%s/*.png"%(frametype,sngl.time)
       myMaskSummary="*/%s/*/%s/*summary.txt"%(frametype,sngl.time)
@@ -219,8 +238,8 @@ class findFileType(object):
     for sngl in self.coinc.sngls:
       #Determine file type
       frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-      if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      #Patch
+      frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
       frametype = frametype + "_SEIS"
       myMaskIndex="*/%s*/%s/*.html"%(frametype,sngl.time)
       myMaskPNG="*/%s*/%s/*.png"%(frametype,sngl.time)
@@ -1073,8 +1092,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'hoft')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
                                        "*/%s/*/%s/*index.html"%(frametype,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
@@ -1120,8 +1138,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
     if sngl.ifo == "V1":
       chankey = "Em_SE"
     else:
@@ -1142,7 +1159,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         if chankey in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
-      sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
+      sys.stdout.write("Omega scan summary file not found or seen empty for %s. ...continuing...\n"%sngl.ifo)
     #Search for analyzeQscan files
     timeString=str(float(sngl.time)).replace(".","_")
     indexDictAQ[sngl.ifo]=fnmatch.filter(filesAnalyze,\
@@ -1206,8 +1223,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
     if sngl.ifo == "V1":
       chankeyseis = "Em_SE"
       chankeyenv = "Em_"
@@ -1237,7 +1253,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         if chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
-      sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
+      sys.stdout.write("Omega scan summary file not found or seen empty for %s. ...continuing...\n"%sngl.ifo)
     #Select associated analyzeQscans
     timeString=str(float(sngl.time)).replace(".","_")
     for myFile in fnmatch.filter(filesAnalyze,\
@@ -1304,8 +1320,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   filesAnalyze=wikiFileFinder.get_analyzeQscan_RDS()
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
     if sngl.ifo == "V1":
       chankeyseis = "Em_SE"
       chankeyenv = "Em_"
@@ -1335,7 +1350,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         if not chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
-      sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
+      sys.stdout.write("Omega scan summary file not found or seen empty for %s. ...continuing...\n"%sngl.ifo)
     #Select associated analyzeQscans
     timeString=str(float(sngl.time)).replace(".","_")    
     for myFile in fnmatch.filter(filesAnalyze,\
@@ -1846,20 +1861,20 @@ for listsDone,coincFile in enumerate(coincList):
   allSources['pipe'].extend(myFileFinderPipeTree.get_all())
   allSources['omega'].extend(myFileFinderOmegaTree.get_all())
   #Copy the files in allSource to CHECKLIST dir if not in publicationDirectory
-  pud=os.path.abspath(publication_directory)
-  minFileCount=1
-  for key,fileList in allSources.items():
-    if len(fileList) > minFileCount:
-      commonPath=os.path.commonprefix(fileList)
-      for singleFile in fileList:
-        if not singleFile.__contains__(pud):
-          myDestFile=singleFile.replace(commonPath,myDestPath+"/")
-          if not os.path.exists(os.path.split(myDestFile)[0]):
-            os.makedirs(os.path.split(myDestFile)[0])
-          shutil.copy2(singleFile,myDestFile)
-    else:
-      sys.stdout.write("Warning: Scanning (%s) found %s files.\n"%\
-                       (key,len(fileList)))
+#   pud=os.path.abspath(publication_directory)
+#   minFileCount=1
+#   for key,fileList in allSources.items():
+#     if len(fileList) > minFileCount:
+#       commonPath=os.path.commonprefix(fileList)
+#       for singleFile in fileList:
+#         if not singleFile.__contains__(pud):
+#           myDestFile=singleFile.replace(commonPath,myDestPath+"/")
+#           if not os.path.exists(os.path.split(myDestFile)[0]):
+#             os.makedirs(os.path.split(myDestFile)[0])
+#           shutil.copy2(singleFile,myDestFile)
+#     else:
+#       sys.stdout.write("Warning: Scanning (%s) found %s files.\n"%\
+#                        (key,len(fileList)))
   # Create list of files used for checklist generation
   checklistTree=scanTreeFnMatch(myDestPath+"/",filemask="*")
   fileTree=list()
