@@ -1862,20 +1862,20 @@ for listsDone,coincFile in enumerate(coincList):
   allSources['pipe'].extend(myFileFinderPipeTree.get_all())
   allSources['omega'].extend(myFileFinderOmegaTree.get_all())
   #Copy the files in allSource to CHECKLIST dir if not in publicationDirectory
-#   pud=os.path.abspath(publication_directory)
-#   minFileCount=1
-#   for key,fileList in allSources.items():
-#     if len(fileList) > minFileCount:
-#       commonPath=os.path.commonprefix(fileList)
-#       for singleFile in fileList:
-#         if not singleFile.__contains__(pud):
-#           myDestFile=singleFile.replace(commonPath,myDestPath+"/")
-#           if not os.path.exists(os.path.split(myDestFile)[0]):
-#             os.makedirs(os.path.split(myDestFile)[0])
-#           shutil.copy2(singleFile,myDestFile)
-#     else:
-#       sys.stdout.write("Warning: Scanning (%s) found %s files.\n"%\
-#                        (key,len(fileList)))
+  pud=os.path.abspath(publication_directory)
+  minFileCount=1
+  for key,fileList in allSources.items():
+    if len(fileList) > minFileCount:
+      commonPath=os.path.commonprefix(fileList)
+      for singleFile in fileList:
+        if not singleFile.__contains__(pud):
+          myDestFile=singleFile.replace(commonPath,myDestPath+"/")
+          if not os.path.exists(os.path.split(myDestFile)[0]):
+            os.makedirs(os.path.split(myDestFile)[0])
+          shutil.copy2(singleFile,myDestFile)
+    else:
+      sys.stdout.write("Warning: Scanning (%s) found %s files.\n"%\
+                       (key,len(fileList)))
   # Create list of files used for checklist generation
   checklistTree=scanTreeFnMatch(myDestPath+"/",filemask="*")
   fileTree=list()
