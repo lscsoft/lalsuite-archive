@@ -511,10 +511,10 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
       for j in range(0,len(ifoTag)-1,2):
         ifo = ifoTag[j:j+2]
         page.td('<b>'+ifo+' snr</b>') 
-      page.td('<b>chirp mass</b>')
+      page.td('<b>chirp mass (M_sun)</b>')
       page.td('<b>eta</b>')
-      page.td('<b>mass1</b>')
-      page.td('<b>mass2</b>')
+      page.td('<b>mass1 (M_sun)</b>')
+      page.td('<b>mass2 (M_sun)</b>')
       page.tr.close()
       page.tr()
       page.td(end_time)
@@ -538,16 +538,16 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
       page.add('<table bgcolor=yellow border=1px>')
       page.tr()
       #page.td('<b>Distance</b>')
-      page.td('<b>Eff. dist. (H1)</b>')
-      page.td('<b>Eff. dist. (H2)</b>')
-      page.td('<b>Eff. dist. (H1-H2)</b>')
-      page.td('<b>Eff. dist. (L1)</b>')
-      page.td('<b>Eff. dist. (V1)</b>')
-      page.td('<b>theta</b>')
-      page.td('<b>phi</b>')
-      page.td('<b>Polarization</b>')
-      page.td('<b>Inclination</b>')
-      page.td('<b>Coal. phase</b>')
+      page.td('<b>Eff. dist. (H1, Mpc)</b>')
+      page.td('<b>Eff. dist. (H2, Mpc)</b>')
+      page.td('<b>Eff. dist. (H1-H2, Mpc)</b>')
+      page.td('<b>Eff. dist. (L1, Mpc)</b>')
+      page.td('<b>Eff. dist. (V1, Mpc)</b>')
+      #page.td('<b>Dec (deg)</b>')
+      #page.td('<b>RA (hr)</b>')
+      #page.td('<b>Polarization (deg)</b>')
+      #page.td('<b>Inclination (deg)</b>')
+      #page.td('<b>Coal. phase (deg)</b>')
       page.tr.close()
       page.tr()
       #page.td(eff_distance)
@@ -556,11 +556,11 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
       page.td(eff_dist_h1h2)
       page.td(eff_dist_l)
       page.td(eff_dist_v)
-      page.td(dec)
-      page.td(ra)
-      page.td(polarization)
-      page.td(inclination)
-      page.td(coa_phase)
+      #page.td(dec)
+      #page.td(ra)
+      #page.td(polarization)
+      #page.td(inclination)
+      #page.td(coa_phase)
       page.tr.close()
       page.table.close()
       page.hr()
@@ -642,16 +642,16 @@ parser.add_option("","--gps-end-time",action="store",
     type="int",  metavar=" GPSENDTIME",
     help="gps end time (for naming figure and output files")
 
-parser.add_option("","--H1-framefile", action="store",type="string", \
+parser.add_option("","--h1-framefile", action="store",type="string", \
     metavar=" FILE",help="use H1 frame-file")
 
-parser.add_option("","--H2-framefile", action="store",type="string", \
+parser.add_option("","--h2-framefile", action="store",type="string", \
     metavar=" FILE",help="use H2 frame-file")
 
-parser.add_option("","--L1-framefile", action="store",type="string", \
+parser.add_option("","--l1-framefile", action="store",type="string", \
     metavar=" FILE",help="use L1 frame-file")
 
-parser.add_option("","--V1-framefile", action="store",type="string", \
+parser.add_option("","--v1-framefile", action="store",type="string", \
     metavar=" FILE",help="use V1 frame-file")
 
 command_line = sys.argv[1:]
@@ -672,7 +672,7 @@ if not opts.chiaXmlFile:
   print >> sys.stderr, "Use --chiaXmlFile XML to specify a file"
   sys.exit(1)
 
-frameDict = {'H1': opts.H1_framefile, 'H2': opts.H2_framefile, 'L1': opts.L1_framefile, 'V1': opts.V1_framefile}
+frameDict = {'H1': opts.h1_framefile, 'H2': opts.h2_framefile, 'L1': opts.l1_framefile, 'V1': opts.v1_framefile}
 
 #opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 opts.prefix = opts.ifo_times + "-" + __prog__ + "_" + opts.ifo_tag + "_" + opts.user_tag
