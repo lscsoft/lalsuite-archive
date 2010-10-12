@@ -1092,7 +1092,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'hoft')
-    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
+    #For HofT frame type strings vary differently than other search strings!
+    #frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time) #(NoPatchNeeded)
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
                                        "*/%s/*/%s/*index.html"%(frametype,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
