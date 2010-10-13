@@ -178,13 +178,11 @@ high_bands<- dbGetQuery(con, p("SELECT F0INDEX, MAX(snr) as max_snr, COUNT(*) as
 cat("Found", dim(high_bands)[1], "indices with SNR >", AllSNRCutoff, "\n")
 print(high_bands[order(-high_bands[,"count"]),,drop=FALSE][1:10, ])
 
-#ExcludeBands<-c(108.9, 193.4, 393.4)
-ExcludeBands<-c()
-for(f0 in ExcludeBands) {
-	F<- abs(high_bands[,"F0INDEX"]*FrequencyTolerance-f0)<0.25
+for(i in 1:dim(ExcludeBands)[1]) {
+	F<- abs(high_bands[,"F0INDEX"]*FrequencyTolerance-ExcludeBands[i, "frequency"])< ExcludeBands[i, "width"]
 	high_bands<-high_bands[!F,,drop=FALSE]
 	}
-cat(dim(high_bands)[1], "remain after excluding", p(ExcludeBands, collapse=" "), "bands\n")
+cat(dim(high_bands)[1], "remain after excluding", p(ExcludeBands[,"frequency"], collapse=" "), "bands\n")
 high_bands<-high_bands[order(high_bands[,"F0INDEX"]),,drop=FALSE]
 # F<- abs( (high_bands*FrequencyTolerance+1.25) %% 60.0 ) < 2.5
 # high_bands<-high_bands[!F]
@@ -429,6 +427,8 @@ F[is.na(F)]<-FALSE
 ReducedData[F,"Comment"]<-p(ReducedData[F,"Comment"], " single_ifo_max")
 
 ReducedData<-ReducedData[order(ReducedData[,"SNR.H1L1"], pmin(ReducedData[,"SNR.H1"], ReducedData[,"SNR.L1"]), decreasing=TRUE),,drop=FALSE]
+
+ReducedData[,"Segment"]<-Segment
 
 ReducedData[,"line_id"]<-1:(dim(ReducedData)[1])
 

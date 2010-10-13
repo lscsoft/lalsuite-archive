@@ -85,10 +85,10 @@ F[is.na(F)]<-FALSE
 data.combined[,"SNR_increase"]<-F
 cat(sum(data.combined[,"SNR_increase"]), "outliers have passed SNR_increase cut\n")
 
-F<-(data.combined[,"snr"]>data.combined[,"snr_H1"]) & (data.combined[,"snr"]>data.combined[,"snr_L1"])
+F<-(MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_H1"]) & (MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_L1"])
 F[is.na(F)]<-FALSE
-data.combined[,"SNR_max"]<-F
-cat(sum(data.combined[,"SNR_max"]), "outliers have passed SNR_max cut\n")
+data.combined[,"SNR_min"]<-F
+cat(sum(data.combined[,"SNR_min"]), "outliers have passed SNR_min cut\n")
 
 keep.columns<-c(names(data.combined)[regexpr("(^dist|_orig|tag.)$", names(data.combined))<0], "line.f0_orig", "line.comment_orig", "min_gps_orig", "max_gps_orig", "nchunks_orig", "snr_orig", "i_orig", "line_id_orig")
 
@@ -122,7 +122,7 @@ for(col in names(L))
 	new_outliers[,col]<-new_outliers[,L[[col]]]
 
 write.table(new_outliers, "followup_matches.raw.csv", sep="\t", col.names=TRUE, row.names=FALSE)
-reduced_outliers<-new_outliers[new_outliers[,"SNR_increase"] & new_outliers[,"SNR_max"] & new_outliers[,"F0_cut"],,drop=FALSE]
+reduced_outliers<-new_outliers[new_outliers[,"SNR_increase"] & new_outliers[,"SNR_min"] & new_outliers[,"F0_cut"],,drop=FALSE]
 cat(dim(reduced_outliers)[1], "reduced outliers\n")
 
 #
