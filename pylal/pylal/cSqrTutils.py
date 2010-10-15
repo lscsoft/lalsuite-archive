@@ -144,7 +144,7 @@ def intersectPlanes(normA,normB,coordA,coordB,wiggleA=0.0):
               linePoi[i][iZ]=0
               linePoi[i][iX]=(CSTdot(normB[i],coordB)-(CSTdot(normA[i],coordA)*normB[i][iY])/normA[i][iY])/(normB[i][iX]-(normB[i][iY]*normA[i][iX])/normA[i][iY])
               linePoi[i][iY]=(CSTdot(normA[i],coordA)-normA[i][iX]*linePoi[i][iX])/normA[i][iY]
-    return (liveVec,linePoi)
+    return (lineVec,linePoi)
 
 #
 # Intersect two lines

@@ -30,6 +30,8 @@ import sys
 
 from glue import iterutils
 from glue import segmentsUtils
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
@@ -55,7 +57,7 @@ __date__ = git_version.date
 #
 
 
-def coinc_params_func(events, offsetdict):
+def coinc_params_func(events, offsetvector):
 	#
 	# check for coincs that have been vetoed entirely
 	#
@@ -63,11 +65,17 @@ def coinc_params_func(events, offsetdict):
 	if len(events) < 2:
 		return None
 
+	params = {}
+
+	#
+	# zero-instrument parameters
+	#
+
+	params["nevents"] = (len(events),)
+
 	#
 	# one-instrument parameters
 	#
-
-	params = {}
 
 	for event in events:
 		prefix = "%s_" % event.ifo
@@ -79,19 +87,22 @@ def coinc_params_func(events, offsetdict):
 	#
 
 	for event1, event2 in iterutils.choices(sorted(events, key = lambda event: event.ifo), 2):
-		if event1.ifo == event2.ifo:
-			# shouldn't happen, but might as well check for it
-			continue
+		assert event1.ifo != event2.ifo
 
 		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
 
-		dt = float((event1.get_peak() + offsetdict[event1.ifo]) - (event2.get_peak() + offsetdict[event2.ifo]))
+		dt = float((event1.get_peak() + offsetvector[event1.ifo]) - (event2.get_peak() + offsetvector[event2.ifo]))
 		params["%sdt" % prefix] = (dt,)
 
 		dA = math.log10(abs(event1.amplitude / event2.amplitude))
 		params["%sdA" % prefix] = (dA,)
 
-		df = float((event1.central_freq + 0.5*event1.bandwidth - event2.central_freq - 0.5*event2.bandwidth)/(event1.central_freq + 0.5*event1.bandwidth + event2.central_freq + 0.5*event2.bandwidth))
+		# f_cut = central_freq + bandwidth/2
+		f_cut1 = event1.central_freq + event1.bandwidth / 2
+		f_cut2 = event2.central_freq + event2.bandwidth / 2
+		# FIXME:  should be
+		#df = float((f_cut1 - f_cut2) / ((f_cut1 + f_cut2) / 2))
+		df = float((f_cut1 - f_cut2) / (f_cut1 + f_cut2))
 		params["%sdf" % prefix] = (df,)
 
 	#
@@ -111,11 +122,10 @@ def dt_binning(instrument1, instrument2):
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 3001),))
 
 
-class DistributionsStats(ligolw_burca_tailor.Stats):
+class DistributionsStats(object):
 	"""
-	A subclass of the Stats class used to populate a
-	CoincParamsDistribution instance with the data from the outputs of
-	ligolw_burca and ligolw_binjfind.
+	A class used to populate a CoincParamsDistribution instance with
+	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
 	binnings = {
@@ -140,7 +150,8 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),))
+		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
 	}
 
 	filters = {
@@ -165,21 +176,28 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H1_V1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
-		"L1_V1_df": rate.gaussian_window(11, sigma = 20)
+		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
+		"nevents": rate.tophat_window(1)	# no-op
 	}
 
 	def __init__(self):
-		ligolw_burca_tailor.Stats.__init__(self)
 		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
 
-	def _add_zero_lag(self, param_func, events, offsetdict, vetosegs, *args):
-		self.distributions.add_zero_lag(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetdict, *args)
+	def add_noninjections(self, param_func, database, vetoseglists):
+		# iterate over burst<-->burst coincs
+		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(database):
+			events = [event for event in events if event.ifo not in vetoseglists or event.get_peak not in vetoseglists[event.ifo]]
+			if is_background:
+				self.distributions.add_background(param_func(events, offsetvector))
+			else:
+				self.distributions.add_zero_lag(param_func(events, offsetvector))
 
-	def _add_background(self, param_func, events, offsetdict, vetosegs, *args):
-		self.distributions.add_background(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetdict, *args)
-
-	def _add_injections(self, param_func, sim, events, offsetdict, vetosegs, *args):
-		self.distributions.add_injection(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetdict, *args)
+	def add_injections(self, param_func, database, vetoseglists, weight_func = lambda sim: 1.0):
+		# iterate over burst<-->burst coincs matching injections
+		# "exactly"
+		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(database):
+			events = [event for event in events if event.ifo not in vetoseglists or event.get_peak not in vetoseglists[event.ifo]]
+			self.distributions.add_injection(param_func(events, offsetvector), weight = weight_func(sim))
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)
@@ -252,8 +270,24 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 #
 
 
-def get_coincparamsdistributions(xmldoc):
+def get_coincparamsdistributions(xmldoc, seglists = None):
 	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
+	if seglists is not None:
+		seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+	return coincparamsdistributions
+
+
+def load_likelihood_data(filenames, seglists = None, verbose = False):
+	coincparamsdistributions = None
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = verbose)
+		if coincparamsdistributions is None:
+			coincparamsdistributions = get_coincparamsdistributions(xmldoc, seglists = seglists)
+		else:
+			coincparamsdistributions += get_coincparamsdistributions(xmldoc, seglists = seglists)
+		xmldoc.unlink()
 	return coincparamsdistributions
 
 

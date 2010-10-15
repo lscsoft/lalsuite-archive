@@ -51,11 +51,8 @@ from optparse import OptionParser
 import sys
 
 
-from glue.ligolw import lsctables
-from glue.ligolw import utils
 from pylal import git_version
 from pylal import inject
-from pylal import ligolw_burca_tailor
 from pylal import stringutils
 
 
@@ -155,6 +152,25 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 	axes.yaxis.grid(True, which = "major,minor")
 	return fig
 
+def df_plot(key, background_coords, background_data, injections_coords, injections_data):
+	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
+	FigureCanvas(fig)
+	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	if numpy.any(background_data):
+		axes.semilogy(background_coords, background_data, "k-", label = "Background")
+	if numpy.any(injections_data):
+		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	axes.legend(loc = "upper left")
+
+	instrument1, instrument2 = key.split("-")[:2]
+	axes.set_title(r"%s--%s Frequency Cutoff Asymmetry Distribution" % (instrument1, instrument2))
+	axes.set_ylabel("Probability Density")
+	axes.set_xlabel(r"$\left(fcut_{\mathrm{%s}} - fcut_{\mathrm{%s}}\right) / \left(fcut_{\mathrm{%s}} + fcut_{\mathrm{%s}}\right)$" % (instrument1, instrument2,instrument1, instrument2))
+	axes.xaxis.grid(True, which = "major,minor")
+	axes.yaxis.grid(True, which = "major,minor")
+	return fig
+
 
 def dt_plot(key, background_coords, background_data, injections_coords, injections_data):
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
@@ -176,6 +192,24 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 	return fig
 
 
+def nevents_plot(key, xcoords, background_data, injections_data):
+	fig = figure.Figure(figsize = (4, 4 / golden_ratio))
+	FigureCanvas(fig)
+	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	axes.plot(xcoords, background_data, "ko-", label = "Background")
+	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
+	axes.legend(loc = "lower left")
+
+	axes.set_title("Number of Events Found in Coincidence")
+	axes.set_xlabel("Number of Events $N$")
+	axes.set_ylabel("$P(N)$")
+	axes.xaxis.grid(True, which = "major,minor")
+	axes.yaxis.grid(True, which = "major,minor")
+
+	return fig
+
+
 #
 # =============================================================================
 #
@@ -188,17 +222,7 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 options, filenames = parse_command_line()
 
 
-coincparamsdistributions = None
-for n, filename in enumerate(filenames):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
-	if coincparamsdistributions is None:
-		coincparamsdistributions = stringutils.get_coincparamsdistributions(xmldoc)
-	else:
-		coincparamsdistributions += stringutils.get_coincparamsdistributions(xmldoc)
-	xmldoc.unlink()
-	del xmldoc
+coincparamsdistributions = stringutils.load_likelihood_data(filenames, verbose = options.verbose)
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
@@ -242,6 +266,27 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-2, +2))
 		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-2, +2))
 		fig = dA_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
+		for extension in options.format:
+			outname = "%s.%s" % (name, extension)
+			if options.verbose:
+				print >>sys.stderr, "\twriting %s ..." % outname
+			fig.savefig(outname)
+	elif name.endswith("_df"):
+		if options.verbose:
+			print >>sys.stderr, "generating plots for %s ..." % name
+		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-2, +2))
+		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-2, +2))
+		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-2, +2))
+		fig = df_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
+		for extension in options.format:
+			outname = "%s.%s" % (name, extension)
+			if options.verbose:
+				print >>sys.stderr, "\twriting %s ..." % outname
+			fig.savefig(outname)
+	elif name == "nevents":
+		if options.verbose:
+			print >>sys.stderr, "generating plots for %s ..." % name
+		fig = nevents_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
 		for extension in options.format:
 			outname = "%s.%s" % (name, extension)
 			if options.verbose:
