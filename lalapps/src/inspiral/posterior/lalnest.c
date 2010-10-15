@@ -79,9 +79,15 @@ Optional OPTIONS:\n \
 [--SNRfac FLOAT\t:\tScale injection SNR by a factor FLOAT]\n \
 [--enable-calamp\t:\tEnable amplitude calibration error simulation.\n \
 [--calamp-fac\t:\tAmplitude calibration error pre-factors. Used if --enable-calamp is passed. One for each IFO is required and will be applied to the IFOs in the order in which the IFOs were added by -I etc.\n \
+[--enable-calfreq\t:\tEnable frequency dependent calibration error simulations. Both phase and Amplitude can be affected.]\n \ 
 [--version\t:\tPrint version information and exit]\n \
 [--help\t:\tPrint this message]\n"
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 extern CHAR outfile[FILENAME_MAX];
 extern double etawindow;
@@ -136,10 +142,12 @@ extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
 int enable_calamp=0;
 unsigned int nCalAmpFacs=0;
+int enable_calfreq=0;
 
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
-
+REAL8 R_A(REAL8 f);
+REAL8 R_PH(REAL8 f);
 
 void NestInitManual(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT);
@@ -150,6 +158,22 @@ void NestInitGRB(LALMCMCParameter *parameter, void *iT);
 void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT);
 void NestInitInj(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
+void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF);
+
+void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF){
+	REAL8 amplitude=0.0;
+        REAL8 phase=0.0;
+        REAL8 deltaf=0.0;
+        int j;
+
+        deltaf=injF->deltaF;  
+        for(j=0;j<injF->data->length;j++){
+            	amplitude=R_A(j*deltaf)*sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0));
+               	phase=R_PH(j*deltaf)*atan2(injF->data->data[j].im,injF->data->data[j].re); 
+		calibInjF->data->data[j].re=amplitude*cos(phase);
+               	calibInjF->data->data[j].im=amplitude*sin(phase);
+       		}
+       	}
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -168,6 +192,15 @@ REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, 
 	LALFrClose(&status,&stream);
 	return out;
 }
+REAL8 R_A(REAL8 f){ 
+        REAL8 C=1.1;
+        return C;
+}
+REAL8 R_PH(REAL8 f){
+        REAL8 C=1.0;
+        return C;
+}  
+
 
 void initialise(int argc, char *argv[]){
 	int i;
@@ -218,8 +251,9 @@ void initialise(int argc, char *argv[]){
 		{"Dmax",required_argument,0,19},
 		{"version",no_argument,0,'V'},
 		{"help",no_argument,0,'h'},
-        {"enable-calamp",no_argument,0,265},
-        {"calamp-fac",required_argument,0,266},
+       		{"enable-calamp",no_argument,0,265},
+       		{"calamp-fac",required_argument,0,266},
+		{"enable-calfreq",no_argument,0,300},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -378,7 +412,10 @@ void initialise(int argc, char *argv[]){
 			if(nCalAmpFacs==0) CalAmpFacs=malloc(sizeof(double));
 			else CalAmpFacs=realloc(CalAmpFacs,(nCalAmpFacs+1)*sizeof(double));
 			CalAmpFacs[nCalAmpFacs]=atof(optarg);
-            nCalAmpFacs++;
+            		nCalAmpFacs++;
+                        break;
+        case 300:   
+                        enable_calfreq=1;
 			break;
 		default:
 			fprintf(stdout,USAGE); exit(0);
@@ -399,6 +436,7 @@ void initialise(int argc, char *argv[]){
 	if(Nlive<=1){fprintf(stderr,"Error: Nlive must be >1"); exit(-1);}
 	if(studentt) estimatenoise=0;
     if(enable_calamp && nIFO!=nCalAmpFacs){fprintf(stderr,"Error: You must specify an amplitude calibration factor for each IFO (even if it is just 1.0)");exit(-1);}
+	if(enable_calamp && enable_calfreq){fprintf(stderr,"Error: You cannot specify a constant amplitude calibration factor and a frequency dependent one at the same time. Exiting");exit(-1);}
 	return;
 }
 
@@ -421,7 +459,7 @@ int main( int argc, char *argv[])
 	INT4 stride=0;
 	REAL8 strideDur=0.0;
 	REAL8 evidence=0;
-	INT4 segnum=0;
+	INT4 UNUSED segnum=0;
 	RandomParams *randparam=NULL;
 	RandomParams *datarandparam=NULL;
 	REAL4 TSoffset;
@@ -777,6 +815,16 @@ int main( int argc, char *argv[])
                     }
                 }
                 
+                if(enable_calfreq){
+                    COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1); 
+                    CalibPolar(injF,CalibInj);
+                    for(j=0;j<injF->data->length;j++){
+                            injF->data->data[j].re = CalibInj->data->data[j].re;
+                            injF->data->data[j].im = CalibInj->data->data[j].im;
+			}
+                    XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
+                }
+                
                 /* Actually inject the waveform */
                 if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
                 for(j=0;j<injF->data->length;j++) {
@@ -1039,13 +1087,13 @@ void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT)
 	return;
 }
 
-void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitSkyPatch(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.01;
 	double mcmin,mcmax;
 	double deltaLong=0.001;
 	double deltaLat=0.001;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	fprintf(stderr,"Using longitude = %f, latitude = %f\n",manual_RA,manual_dec);
@@ -1069,11 +1117,11 @@ void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT)
 	return;
 }
 
-void NestInitManual(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitManual(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.03;
 	double mcmin,mcmax;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
@@ -1097,11 +1145,11 @@ void NestInitManual(LALMCMCParameter *parameter, void *iT)
 	return;
 }
 
-void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitManualIMRB(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.03;
 	double mcmin,mcmax;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
@@ -1134,11 +1182,11 @@ void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT)
 	return;
 }
 
-void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT)
+/* FIXME: parameter iT is unused */
+void NestInitManualIMRBChi(LALMCMCParameter *parameter, void UNUSED *iT)
 {
 	double etamin=0.03;
 	double mcmin,mcmax;
-	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
@@ -1168,10 +1216,10 @@ void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT)
     return;
 }
 
-void NestInitNINJAManual(LALMCMCParameter *parameter, void *iT){
+/* FIXME: parameter iT is unused */
+void NestInitNINJAManual(LALMCMCParameter *parameter, void UNUSED *iT){
 	REAL8 trg_time,mcmin,mcmax;
 	REAL4 localetawin;
-	iT=NULL;
 	parameter->param = NULL;
 	parameter->dimension = 0;
 	trg_time = manual_end_time;
@@ -1205,8 +1253,8 @@ void NestInitNINJAManual(LALMCMCParameter *parameter, void *iT){
 void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	REAL8 trg_time;
 	SimInspiralTable *injTable = (SimInspiralTable *)iT;
-	REAL4 mtot,eta,mwindow,localetawin;
-	REAL8 mc,mcmin,mcmax,lmmin,lmmax;
+	REAL4 UNUSED mtot, UNUSED eta, UNUSED mwindow, localetawin;
+	REAL8 UNUSED mc, mcmin, mcmax, lmmin, lmmax;
 	parameter->param = NULL;
 	parameter->dimension = 0;
 	trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
