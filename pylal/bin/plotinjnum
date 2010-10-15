@@ -11,8 +11,9 @@ import re
 import exceptions
 import glob
 from types import *
+from glue import segmentsUtils
 from glue.ligolw import ligolw
-from glue.ligolw import table
+from glue.ligolw import table as tab
 from glue import lal
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
@@ -30,6 +31,16 @@ def found_missed(opts,foundFiles,missedFiles):
     file = [file]
     simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True,old_document=opts.old_document)
+
+    # Perform the veto
+    if opts.veto_file is not None:
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+
+        # veto the triggers and sims
+        inspTriggers.veto(seglist)
+        simFound.veto(seglist)
+
     if simFound and inspTriggers:
     # construct the coincs
       fileCoincTriggers = \
@@ -154,6 +165,9 @@ def parse_command_line():
   parser.add_option("-I","--cache-file",action="store",type="string",\
       default=None, metavar=" CACHE_FILE",\
       help="input file to read Cache file" )
+  parser.add_option("-V","--veto-file",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="read in segments from FNAME (assumed segwizard format)")
   parser.add_option("-i","--ifo-type",action="store",type="string",\
       default=None,  help="selects the ifo type for sieve for" )
   parser.add_option("-s","--show-plot",action="store_true",default=False,\

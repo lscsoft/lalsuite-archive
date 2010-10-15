@@ -152,8 +152,8 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 
 class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
-	validcolumns = {"total_mass":"real_8","chirp_mass":"real_8","mass1":"real_8","mass2":"real_8", #FIXME add units?
-                        "range_in_Mpc":"real_8","lambda":"real_8","fractional_error_in_volume":"real_8",
+	validcolumns = {"total_mass":"lstring","chirp_mass":"lstring","mass1":"lstring","mass2":"lstring", #FIXME add units?
+                        "range_in_Mpc":"real_8","lambda_ratio":"real_8","fractional_error_in_volume":"real_8",
 			"upper_limit":"real_8","marginalized_upper_limit":"real_8",
 			"livetime_in_seconds":"real_8", # FIXME alan doesn't want this as a column
 			"injections_found":"int_4s","injections_missed":"int_4s"}
@@ -171,6 +171,7 @@ def parse_command_line():
 			  help="Choose directory to save output files.")
 	parser.add_option("--open-box", default = False, action = "store_true",
 			  help="Turn flag on to indicate that input data describes zero-lag coincident events.")
+        parser.add_option("--user-tag",default = '',help = "Add a descriptive string to the output file names.")
 	##########################
 
 	opts, files = parser.parse_args()
@@ -192,11 +193,12 @@ def parse_command_line():
 
 	return opts
 
+
 sec_in_yr = 3600*24*365.0
 opts  = parse_command_line()
 
 combined_ifos = opts.input_cache.split('-')[0] #FIXME super hack
-for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
+for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 
    __prog__ = "lalapps_cbc_sink_by_"+bin_type.lower() # have you ever met a program with multiple identities?
    total_vol = total_err = total_found = total_missed = total_lt = 0
@@ -250,43 +252,46 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       ul_table = lsctables.New(UpperLimitTable)
       summary_doc.childNodes[0].appendChild(ul_table)
 
+      if len(bins) == 2: # in twod case, just choose a few representative bins
+        mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
+        maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
+        if maxtotal <= 35.0: # this is what I'm defining to be a lowmass search
+          # only print out the canonical lowmass bins 1.35-1.35 (BNS),
+          # 5-5 (BBH) and 1.35-5 (NSBH)
+          # of course this assumes a certain binning, but sometimes you just gotta
+          # make a choice and stick to it
+          representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
+        else:
+          representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
+
       for mbin in iterutils.MultiIter(*bins.centres()):
 
         row = ul_table.RowType()
 
-        # the twoD bins can get kind of messy, to keep things simple, we
-        # only print out a few of the most interesting rows
-        if bin_type == "Low_Mass" or bin_type == "Mass1_Mass2":
-          if bin_type == "Low_Mass":
-	    # only print out the canonical lowmass bins 1.35-1.35 (BNS),
-	    # 5-5 (BBH) and 1.35-5 (NSBH)
-            representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
-          else:
-            mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
+        if bin_type == "Mass1_Mass2":
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-          row.mass1 = mbin[0]
-          row.mass2 = mbin[1]
+          row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+          row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
           columnList = ['mass1','mass2']
 
         # in the oneD case, print every row (there aren't that many)
         if bin_type == "Total_Mass":
-          row.total_mass = mbin[0]
+          row.total_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           columnList = ['total_mass']
         if bin_type == "Chirp_Mass":
-          row.chirp_mass = mbin[0]
+          row.chirp_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           columnList = ['chirp_mass']
         row.range_in_Mpc = (sec_in_yr*vA[mbin]/ltA[mbin] /(4*numpy.pi/3) )**(1./3)
         row.fractional_error_in_volume = vA2[mbin]**0.5 / vA[mbin]
         row.injections_found = found[mbin]
+        row.lambda_ratio = dvA[mbin]
         row.injections_missed = missed[mbin]
         row.livetime_in_seconds = ltA[mbin]
         row.upper_limit = upper_limit[mbin]
         row.marginalized_upper_limit = upper_limit_werrs[mbin]
         ul_table.append(row)
 
-      columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','fractional_error_in_volume','injections_found','injections_missed','livetime_in_seconds']
+      columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','lambda_ratio','fractional_error_in_volume','injections_found','injections_missed','livetime_in_seconds']
       print_tables.print_tables(summary_doc,summary_file,opts.output_format,
                                 tableList=['upper_limit'],
                                 columnList = columnList)
@@ -298,11 +303,11 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       # posterior plots
       #
       for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-         if bin_type == "Low_Mass" and bins[mbin] not in [bins[k] for k in [(1.35,1.35),(1.35,5.0),(5.0,5.0)]]:
+        if bin_type == "Mass1_Mass2" and bins[mbin] not in [bins[k] for k in representative_bins]:
 	    continue # we only care about these three mass bins for the lowmass binning
-         if bin_type != "Low_Mass" and j > 10: continue #let's not get ridiculous here
-         if found[mbin] > 0:
-	    pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
+        if bin_type != "Mass1_Mass2" and j > 10: continue #let's not get ridiculous here
+        if found[mbin] > 0:
+            pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
       pylab.title(entry.observatory+ " Cumulative Posterior Rate Distributions",fontsize=14)
       pylab.legend(loc='upper left')
       pylab.ylabel("Cumulative Probability",fontsize=14)
@@ -325,8 +330,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
          #
 	 # distance plot in 1d
 	 #
-	 sec_in_yr = 3600*24*365.0
-	 derr = ( vA2.array**0.5 *sec_in_yr / ltA.array / (4./3 *numpy.pi) )**(1./3)
+	 derr = (distance.array/3) *( vA2.array**0.5 / vA.array ) # fractional error in distance is 1/3 fractional error in volume
 	 pylab.bar(bins.lower()[0],distance.array,width,yerr=derr)
 	 pylab.grid()
 	 pylab.xticks(tick_locs,tick_strings)
@@ -362,7 +366,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 	 pylab.xticks(tick_locs,tick_strings)
 	 pylab.grid()
 	 pylab.xlim([numpy.min(bins.lower()[0])-numpy.min(width)/2,numpy.max(bins.upper()[0])+numpy.min(width)/2])
-	 pylab.ylim([-9,-5]) #FIXME are these numbers sensible?
+	 pylab.ylim([-3,3]) #FIXME are these numbers sensible?
 	 pylab.title(entry.observatory + " Likelihood of the Loudest Event",fontsize=14)
 	 pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=14)
 	 pylab.ylabel("Likelihood (log$_{10}$ $\Lambda$)",fontsize=14)
@@ -435,7 +439,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 	 # lambda plot
 	 #
 	 log_der = pylab.log10(dvA.array + 0.000000001)
-	 pylab.pcolor(xtick_locs,ytick_locs, log_der.T, vmin=-9, vmax=-3) #FIXME hard limits
+	 pylab.pcolor(xtick_locs,ytick_locs, log_der.T, vmin=-3, vmax=3) #FIXME hard limits
 	 pylab.colorbar().set_label("log$_{10} $\Lambda$")
 	 pylab.xlim(m1range)
 	 pylab.ylim(m2range)
@@ -507,9 +511,9 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
    # combined posterior plot
    #
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-      if bin_type == "Low_Mass" and bins[mbin] not in [bins[k] for k in [(1.35,1.35),(1.35,5.0),(5.0,5.0)]]:
+      if bin_type == "Mass1_Mass2" and bins[mbin] not in [bins[k] for k in representative_bins]:
          continue # we only care about these three mass bins for the lowmass binning
-      if bin_type != "Low_Mass" and j > 10: continue #let's not get ridiculous here
+      if bin_type != "Mass1_Mass2" and j > 10: continue #let's not get ridiculous here
       if combined_upper_limit[mbin] < float('inf'):
          pylab.semilogx(mu,combined_post[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
    pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=14)
@@ -536,7 +540,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       pylab.xlim([numpy.min(bins.lower()[0])-numpy.min(width)/2,numpy.max(bins.upper()[0])+numpy.min(width)/2])
       pylab.ylim([-7,0])
       pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=14)
-      pylab.ylabel("Upper Limit (log$_{10}$ 1/Mpc$^3$/yr)")
+      pylab.ylabel("Rate Upper Limit (log$_{10}$ 1/Mpc$^3$/yr)", fontsize=14)
       pylab.grid()
       savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
       pylab.clf()
@@ -576,27 +580,20 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 
       # the twoD bins can get kind of messy, to keep things simple, we
       # only print out a few of the most interesting rows
-      if bin_type == "Low_Mass" or bin_type == "Mass1_Mass2":
-         if bin_type == "Low_Mass":
-	    # only print out the canonical lowmass bins 1.35-1.35 (BNS),
-	    # 5-5 (BBH) and 1.35-5 (NSBH)
-            representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
-         else:
-            mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins[0].centres()),numpy.min(bins[1].centres())),(maxtotal/2,maxtotal/2)]
-         if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-	 row.mass1 = mbin[0]
-	 row.mass2 = mbin[1]
-         columnList = ['mass1','mass2']
+      if bin_type == "Mass1_Mass2":
+        if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+        row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+        row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
+        columnList = ['mass1','mass2']
 
       # in the oneD case, print every row (there aren't that many)
       if bin_type == "Total_Mass":
-        row.total_mass = mbin[0]
+        row.total_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
         columnList = ['total_mass']
       if bin_type == "Chirp_Mass":
-        row.chirp_mass = mbin[0]
+        row.chirp_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
         columnList = ['chirp_mass']
+
       row.range_in_Mpc = (sec_in_yr*total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3)
       row.fractional_error_in_volume = total_err[mbin]**0.5 / total_vol[mbin]
       row.injections_found = total_found[mbin]
