@@ -151,7 +151,7 @@ def keep_only_loudest_events_by_cat(xmldoc, coincstat, mc_bins, mc_ifo_cats):
 
     return xmldoc
 
-def get_loudest_stats_by_trial_cat_slide(offsource_doc, coinc_stat,
+def get_loudest_stats_by_trial_slide_cat(offsource_doc, coinc_stat,
     trial_bins, slide_bins, mc_bins, mc_ifo_cats):
     """
     Return a 3-D array containing the loudest stats in the SnglInspiralTable
@@ -465,10 +465,10 @@ if opts.write_onsource:
 # get loudest off-source coincs
 if opts.write_offsource or opts.write_injections:
 
-  offsource_loudest_by_trial_cat_slide = get_loudest_stats_by_trial_cat_slide(offsource_doc,
+  offsource_loudest_by_trial_slide_cat = get_loudest_stats_by_trial_slide_cat(offsource_doc,
       coinc_stat, trial_bins, slide_bins, mc_bins, mc_ifo_cats)
   offsource_loudest_by_trial_cat_unvetoed = \
-      offsource_loudest_by_trial_cat_slide.reshape(total_num_slides*len(trial_bins), len(mc_ifo_cats))
+      offsource_loudest_by_trial_slide_cat.reshape(total_num_slides*len(trial_bins), len(mc_ifo_cats))
   offsource_loudest_by_trial_cat = \
       offsource_loudest_by_trial_cat_unvetoed[~trial_veto_mask,:]
 ################################################################################
