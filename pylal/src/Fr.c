@@ -175,12 +175,33 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     /*-------------- get vector --------------------------*/
     vect = FrFileIGetVect(iFile, channel, start, span);
 
-    if(verbose > 0) FrVectDump(vect, stdout, verbose);
-    if(vect == NULL){
-        sprintf(msg, "In file %s, vector not found: %s", filename, channel);
-        FrFileIEnd(iFile);
-        PyErr_SetString(PyExc_KeyError, msg);
-        return NULL;
+    if (verbose > 0) FrVectDump(vect, stdout, verbose);
+    if (vect == NULL) {
+        /* Try to open it as StaticData */
+        FrStatData *sd;
+        sd = FrStatDataReadT(iFile, channel, start);  /* no "span" used */
+        if (verbose > 0) FrStatDataDump(sd, stdout, verbose);
+        if (sd == NULL) {
+            sprintf(msg, "In file %s, vector not found: %s", filename, channel);
+            FrFileIEnd(iFile);
+            PyErr_SetString(PyExc_KeyError, msg);
+            return NULL;
+        }
+        if (sd->next != NULL) {
+            sprintf(msg, "In file %s, staticData channel %s has next!=NULL. "
+                    "Freaking out.", filename, channel);
+            FrFileIEnd(iFile);
+            PyErr_SetString(PyExc_KeyError, msg);
+            return NULL;
+        }
+        vect = sd->data;
+        if (vect == NULL) {
+            sprintf(msg, "In file %s, staticData channel %s has no vector. "
+                    "Freaking out.", filename, channel);
+            FrFileIEnd(iFile);
+            PyErr_SetString(PyExc_KeyError, msg);
+            return NULL;
+        }
     }
 
     if (verbose > 0){
