@@ -169,13 +169,13 @@ void NestInitGRB(LALMCMCParameter *parameter, void *iT);
 void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT);
 void NestInitInj(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
-void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR IFOname);
+void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname);
 
-void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR IFOname){
+void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname){
 		REAL8 amplitude=0.0;
         REAL8 phase=0.0;	
         REAL8 deltaf=0.0;
-        int j;
+        UINT4 j;
         deltaf=injF->deltaF;  
 		int IFO;
 		if(!strcmp(IFOname,"H1")){IFO =1;}
