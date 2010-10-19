@@ -144,10 +144,21 @@ int enable_calamp=0;
 unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
 
+// types for the selection of the calibration functions //
+typedef REAL8 (AmplitudeCalib)(REAL8 f);
+typedef REAL8 (PhaseCalib)(REAL8 f);
+// pointers to the calibration functions //
+AmplitudeCalib *R_A;
+PhaseCalib *R_PH; 
+
+REAL8 Amp_H1(REAL8 f);
+REAL8 Amp_L1(REAL8 f);
+REAL8 Amp_V1(REAL8 f);
+REAL8 Ph_H1(REAL8 f);
+REAL8 Ph_L1(REAL8 f);
+REAL8 Ph_V1(REAL8 f);
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
-REAL8 R_A(REAL8 f);
-REAL8 R_PH(REAL8 f);
 
 void NestInitManual(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT);
@@ -158,16 +169,35 @@ void NestInitGRB(LALMCMCParameter *parameter, void *iT);
 void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT);
 void NestInitInj(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
-void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF);
+void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR IFOname);
 
-void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF){
-	REAL8 amplitude=0.0;
-        REAL8 phase=0.0;
+void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR IFOname){
+		REAL8 amplitude=0.0;
+        REAL8 phase=0.0;	
         REAL8 deltaf=0.0;
         int j;
-
         deltaf=injF->deltaF;  
-        for(j=0;j<injF->data->length;j++){
+		int IFO;
+		if(!strcmp(IFOname,"H1")){IFO =1;}
+		if(!strcmp(IFOname,"L1")){IFO =2;}
+		if(!strcmp(IFOname,"V1")){IFO =3;}
+		switch(IFO) {	
+			case 1:
+				R_A=&Amp_H1;
+				R_PH=&Ph_H1;
+				break;
+			case 2: 
+				R_A=&Amp_L1;
+				R_PH=&Ph_L1;
+				break;			
+			case 3: 
+				R_A=&Amp_V1;
+				R_PH=&Ph_V1;
+				break;
+			default:
+				fprintf(stderr,"Unknown interferometer %s. Valid codes: H1 L1 V1\n",IFOname); exit(-1);
+		}
+		for(j=0;j<injF->data->length;j++){
             	amplitude=R_A(j*deltaf)*sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0));
                	phase=R_PH(j*deltaf)*j*deltaf+atan2(injF->data->data[j].im,injF->data->data[j].re); 
 		calibInjF->data->data[j].re=amplitude*cos(phase);
@@ -192,15 +222,78 @@ REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, 
 	LALFrClose(&status,&stream);
 	return out;
 }
-REAL8 R_A(REAL8 f){ 
-        REAL8 C=1.0;
-        return C;
-}
-REAL8 R_PH(REAL8 f){
-        REAL8 C=LAL_TWOPI*1.0e-05;
-        return C;
-}  
+// Until we have something for V1, we use L1 quantities. 
+REAL8 Amp_H1(REAL8 f){ 
+		double output = 1.0;
+		
+		if(f>60.0 && f<=100.0)
+			output = 0.000144921*f+0.953962*pow(f,-1/3)+2.19779*pow(f,-1.0);
+			
+		if(f>100.0 && f<=150.0)
+			output = -1.65116e-05*f+0.991484*pow(f,-1/3)+0.07191*pow(f,-1.0);
+			
+		if(f>150.0 && f<=318.0)
+			output = 1.42451e-05*f+0.98561*pow(f,-1/3)+0.271245*pow(f,-1.0);
+		
+		if(f>318.0 && f<=500.0)
+			output = 3.04006e-05*f+0.977116*pow(f,-2/3)+1.35158*pow(f,-1.0);
 
+		return output;
+}
+REAL8 Amp_L1(REAL8 f){ 
+		double output = 1.0;
+		
+		if(f>60.0 && f<=155.0)
+			output = -1.70801+0.158928*f-0.00368464*pow(f,2)+4.32603e-05*pow(f,3)-2.65581e-07*pow(f,4)+7.33889e-10*pow(f,5)-1.35718e-13*pow(f,6)-2.309e-15*pow(f,7);
+			
+		if(f>155.0 && f<=500.0)
+			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
+
+		return output;
+}
+REAL8 Amp_V1(REAL8 f){ 
+		double output = 1.0;
+		
+		if(f>60.0 && f<=155.0)
+			output = -1.70801+0.158928*f-0.00368464*pow(f,2)+4.32603e-05*pow(f,3)-2.65581e-07*pow(f,4)+7.33889e-10*pow(f,5)-1.35718e-13*pow(f,6)-2.309e-15*pow(f,7);
+			
+		if(f>155.0 && f<=500.0)
+			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
+
+		return output;
+}
+REAL8 Ph_H1(REAL8 f){
+		double output = 0.0;
+		
+		if(f>60.0 && f<=80.0)
+			output = 114.005-6.23854*f+0.127996*pow(f,2)-0.00116878*pow(f,3)+4.00732e-06*pow(f,4);
+		if(f>80.0 && f<=500.0)
+			output = -0.0701154 +0.0170887*log(0.914066*f)+-15.5936*pow(f,-1);
+
+		return output;
+}  
+REAL8 Ph_L1(REAL8 f){
+		double output = 0.0;
+		
+		if(f>60.0 && f<=110.0)
+			output = -69.493+4.77314*f-0.123966*pow(f,2)+0.0015403*pow(f,3)-9.24682e-06*pow(f,4)+2.16121e-08*pow(f,5);
+			
+		if(f>110.0 && f<=500.0)
+			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
+
+		return output;
+}
+REAL8 Ph_V1(REAL8 f){
+		double output = 0.0;
+		
+		if(f>60.0 && f<=110.0)
+			output = -69.493+4.77314*f-0.123966*pow(f,2)+0.0015403*pow(f,3)-9.24682e-06*pow(f,4)+2.16121e-08*pow(f,5);
+			
+		if(f>110.0 && f<=500.0)
+			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
+
+		return output;
+}
 
 void initialise(int argc, char *argv[]){
 	int i;
@@ -817,7 +910,7 @@ int main( int argc, char *argv[])
                 
                 if(enable_calfreq){
                     COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1); 
-                    CalibPolar(injF,CalibInj);
+                    CalibPolar(injF,CalibInj,IFOnames[i]);
                     for(j=0;j<injF->data->length;j++){
                             injF->data->data[j].re = CalibInj->data->data[j].re;
                             injF->data->data[j].im = CalibInj->data->data[j].im;
@@ -825,6 +918,7 @@ int main( int argc, char *argv[])
                     XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
                 }
                 
+
                 /* Actually inject the waveform */
                 if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
                 for(j=0;j<injF->data->length;j++) {
@@ -848,6 +942,14 @@ int main( int argc, char *argv[])
     
                 if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
                 else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
+
+                FILE *snrout;
+				REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+				char snr_wavename[100];
+                sprintf(snr_wavename,"snr_%s.dat",IFOnames[i]);
+                snrout=fopen(snr_wavename,"w");
+                fprintf(snrout,"%10.1lf %5.2lf ",injTime,SNR);
+                fclose(snrout);
 
                     
             }   
