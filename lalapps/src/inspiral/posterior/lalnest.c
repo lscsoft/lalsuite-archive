@@ -169,7 +169,7 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
         deltaf=injF->deltaF;  
         for(j=0;j<injF->data->length;j++){
             	amplitude=R_A(j*deltaf)*sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0));
-               	phase=R_PH(j*deltaf)*atan2(injF->data->data[j].im,injF->data->data[j].re); 
+               	phase=R_PH(j*deltaf)*j*deltaf+atan2(injF->data->data[j].im,injF->data->data[j].re); 
 		calibInjF->data->data[j].re=amplitude*cos(phase);
                	calibInjF->data->data[j].im=amplitude*sin(phase);
        		}
@@ -193,11 +193,11 @@ REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, 
 	return out;
 }
 REAL8 R_A(REAL8 f){ 
-        REAL8 C=1.1;
+        REAL8 C=1.0;
         return C;
 }
 REAL8 R_PH(REAL8 f){
-        REAL8 C=1.0;
+        REAL8 C=LAL_TWOPI*1.0e-05;
         return C;
 }  
 
