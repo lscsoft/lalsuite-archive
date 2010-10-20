@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <getopt.h>
+#include <sys/stat.h>
 
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
@@ -543,6 +544,7 @@ void initialise(int argc, char *argv[]){
 
 int main( int argc, char *argv[])
 {
+	struct stat st;
 	static LALStatus status;
 	LALMCMCParameter **Live = NULL; /* Structure which holds the parameters */
 	LALMCMCInput	inputMCMC;
@@ -952,11 +954,20 @@ int main( int argc, char *argv[])
                 FILE *snrout;
 				REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
 				char snr_wavename[100];
-                sprintf(snr_wavename,"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );
-                snrout=fopen(snr_wavename,"w");
-                fprintf(snrout,"%10.1lf %5.2lf ",injTime,SNR);
-                fclose(snrout);
-
+				
+				if(stat("./SNR",&st) == 0){
+					fprintf(stderr,"SNR directory is present\n");
+					fprintf(stderr,"Writing...\n");	
+					sprintf(snr_wavename,"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );
+					snrout=fopen(snr_wavename,"w");
+					fprintf(snrout,"%10.1lf %5.2lf ",injTime,SNR);
+					fclose(snrout);
+				}
+				else {
+					fprintf(stderr,"SNR directory is NOT present\n");
+					fprintf(stderr,"Exiting\n");
+					exit(-1);
+				}
                     
             }   
             
@@ -964,7 +975,7 @@ int main( int argc, char *argv[])
         
         //
         if (injONLY) {
-        sprintf(stdout,"Injection performed correctly. SNRs wrote. Exiting");
+        fprintf(stderr,"Injection performed correctly. SNRs wrote. Exiting");
         exit(-1);   
         }
         
