@@ -80,6 +80,7 @@ Optional OPTIONS:\n \
 [--enable-calamp\t:\tEnable amplitude calibration error simulation.\n \
 [--calamp-fac\t:\tAmplitude calibration error pre-factors. Used if --enable-calamp is passed. One for each IFO is required and will be applied to the IFOs in the order in which the IFOs were added by -I etc.\n \
 [--enable-calfreq\t:\tEnable frequency dependent calibration error simulations. Both phase and Amplitude can be affected.]\n \ 
+[--injONLY\t:\tOnly writes the SNR of the injected waveform and exit. It does not perform any calculations.]\n \
 [--version\t:\tPrint version information and exit]\n \
 [--help\t:\tPrint this message]\n"
 
@@ -143,6 +144,7 @@ INT4 ampOrder=0;
 int enable_calamp=0;
 unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
+int injONLY=0;
 
 // types for the selection of the calibration functions //
 typedef REAL8 (AmplitudeCalib)(REAL8 f);
@@ -347,6 +349,7 @@ void initialise(int argc, char *argv[]){
        		{"enable-calamp",no_argument,0,265},
        		{"calamp-fac",required_argument,0,266},
 		{"enable-calfreq",no_argument,0,300},
+                {"injONLY",no_argument,0,301},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -510,7 +513,10 @@ void initialise(int argc, char *argv[]){
         case 300:   
                         enable_calfreq=1;
 			break;
-		default:
+        case 301:
+                        injONLY=1;
+                        break;
+	default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
 	}
@@ -946,7 +952,7 @@ int main( int argc, char *argv[])
                 FILE *snrout;
 				REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
 				char snr_wavename[100];
-                sprintf(snr_wavename,"snr_%s.dat",IFOnames[i]);
+                sprintf(snr_wavename,"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );
                 snrout=fopen(snr_wavename,"w");
                 fprintf(snrout,"%10.1lf %5.2lf ",injTime,SNR);
                 fclose(snrout);
@@ -955,6 +961,12 @@ int main( int argc, char *argv[])
             }   
             
         } /* End loop over IFOs */
+        
+        //
+        if (injONLY) {
+        sprintf(stdout,"Injection performed correctly. SNRs wrote. Exiting");
+        exit(-1);   
+        }
         
         //If no injSNR spec. fix SNR to accept injection.
         if(injSNR<0.) {
