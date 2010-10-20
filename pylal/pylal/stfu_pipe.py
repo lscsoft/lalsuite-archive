@@ -653,6 +653,33 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
 
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
+#The class responsible for Job Object running the customFOM builder python
+#script!
+class customFOMPlotJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	This is a job class which allows us to wrap up the script for
+	creating customized figure of merit(FOM) plots.  The script,
+	followupCustomFOM.py, acutally contains a call to
+	ligo_data_find, via a subprocess.  This removes our need
+	to have a datafind parent job.
+	"""
+	defaults={"section":"fu-condor",
+		  "options":{"universe":"vanilla",
+			     "customfom":"followupCustomFOM.py"}
+		  }
+	def __init__(self, opts, cp, dir='', tag_base=""):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(customFOMPlotJob.defaults,cp)
+		#self.__prog__ = 'customFOMPlotJob'
+		self.__executable = string.strip(cp.get('fu-condor','customfom'))
+		self.__universe = string.strip(cp.get('fu-condor','universe'))
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
+
+
 #The class responsible for running one type of parameter consistency check
 class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 	"""
@@ -1458,6 +1485,47 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		else:
 			self.invalidate()
 
+#The class responsible for Node Object running the customFOM builder python
+#script!
+class customFOMPlotNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	This is a node that corresponds with the job class to whip up
+	custom FOMs.   In general each node will have one condor
+	changed variable, which is t0 (gps) of trigger.
+	"""
+	def __init__(self, dag, job, cp, time, ifostring=None):
+		"""
+		paramater option: ifostring, takes a string formed
+		like this for example L1,H1 which means create plots
+		for L1 and H1. The script driven by this node will do
+		the string parsing.
+		Command line example that drives our script is:
+		followupCustomFOM.py --gps-time=555444666
+		"""
+		defaults={"section":"customfoms",
+			  "options":{"plot-windows":"14400,7200",
+				     "ifo-list":"L1,H1,V1"}
+			  }
+	def __init__(self, dag, job, cp, opts, coincEvent=None):
+		"""
+		Takes in a coincEvent object and prepares figure request.
+		"""
+		self.__conditionalLoadDefaults__(customFOMPlotNode.defaults,cp)
+		pipeline.CondorDAGNode.__init__(self,job)
+		if cp.has_option('customfoms','plot-windows'):
+			self.add_var_opt('customfoms',cp.get('customfoms','plot-windows'))
+		if cp.has_option('customfoms','ifo-list'):
+			self.add_var_opt('customfoms',cp.get('customfoms','ifo-list'))
+		self.add_var_opt("gps-time",coincEvent.time)
+		self.add_var_opt("verbose","")
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+		if not opts.no_findVetoes:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
+		
 # EFFECTIVE DISTANCE RATIO NODE 
 class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 	"""
