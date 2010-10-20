@@ -976,7 +976,7 @@ int main( int argc, char *argv[])
         //
         if (injONLY) {
         fprintf(stderr,"Injection performed correctly. SNRs wrote. Exiting\n");
-        exit(-1);   
+        exit(1);   
         }
         
         //If no injSNR spec. fix SNR to accept injection.
