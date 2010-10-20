@@ -535,8 +535,8 @@ void initialise(int argc, char *argv[]){
 	if(nSegs==0){fprintf(stderr,"Error: --Nsegs must be greater than 0\n"); exit(-1);}
 	if(Nlive<=1){fprintf(stderr,"Error: Nlive must be >1"); exit(-1);}
 	if(studentt) estimatenoise=0;
-    if(enable_calamp && nIFO!=nCalAmpFacs){fprintf(stderr,"Error: You must specify an amplitude calibration factor for each IFO (even if it is just 1.0)");exit(-1);}
-	if(enable_calamp && enable_calfreq){fprintf(stderr,"Error: You cannot specify a constant amplitude calibration factor and a frequency dependent one at the same time. Exiting");exit(-1);}
+    if(enable_calamp && nIFO!=nCalAmpFacs){fprintf(stderr,"Error: You must specify an amplitude calibration factor for each IFO (even if it is just 1.0)\n");exit(-1);}
+	if(enable_calamp && enable_calfreq){fprintf(stderr,"Error: You cannot specify a constant amplitude calibration factor and a frequency dependent one at the same time. Exiting\n");exit(-1);}
 	return;
 }
 
@@ -975,7 +975,7 @@ int main( int argc, char *argv[])
         
         //
         if (injONLY) {
-        fprintf(stderr,"Injection performed correctly. SNRs wrote. Exiting");
+        fprintf(stderr,"Injection performed correctly. SNRs wrote. Exiting\n");
         exit(-1);   
         }
         
