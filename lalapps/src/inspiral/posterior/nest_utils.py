@@ -95,6 +95,14 @@ class InspNestNode(pipeline.CondorDAGNode):
 		self.__trigtime=float(time)
 		self.add_var_opt('end_time',str(time))
 
+	def set_event_number(self,event):
+		"""
+		Set the event number in the injection XML.
+		"""
+		if event is not None:
+			self.__event=int(event)
+			self.add_var_opt('event',str(event))
+
 	get_trig_time = lambda self: self.__trigtime
 	
 
@@ -193,7 +201,7 @@ class ResultsPageNode(pipeline.CondorDAGNode):
 
 # Function definitions for setting up groups of nodes
 
-def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None):
+def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):
 	"""
 	Setup nodes for analysing a single time
 	cp - configparser object
@@ -204,13 +212,14 @@ def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None):
 	"""
 	nest_node=InspNestNode(nest_job)
 	nest_node.set_trig_time(end_time)
+	nest_node.set_event_number(event)
 	nest_node.add_ifo_data(data,ifos)
         outfile_name=os.path.join(path,'outfile_%f_%s.dat'%(end_time,nest_node.get_ifos()))
 	nest_node.set_output(outfile_name)
 	return nest_node
 
 
-def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None):
+def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event=None):
 	"""
 	Setup nodes for analysing a single time using
 	parallel runs
@@ -230,6 +239,7 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None):
 		nest_node.set_trig_time(end_time)
 		nest_nodes.append(nest_node)
 		nest_node.add_ifo_data(data,ifos)
+		nest_node.set_event_number(event)
 		p_outfile_name=os.path.join(path,'outfile_%f_%i_%s.dat'%(end_time,i,nest_node.get_ifos()))
 		nest_node.add_var_opt('seed',str(i+100))
 		merge_node.add_parent(nest_node)

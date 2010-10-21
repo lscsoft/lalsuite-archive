@@ -80,7 +80,7 @@ Optional OPTIONS:\n \
 [--SNRfac FLOAT\t:\tScale injection SNR by a factor FLOAT]\n \
 [--enable-calamp\t:\tEnable amplitude calibration error simulation.\n \
 [--calamp-fac\t:\tAmplitude calibration error pre-factors. Used if --enable-calamp is passed. One for each IFO is required and will be applied to the IFOs in the order in which the IFOs were added by -I etc.\n \
-[--enable-calfreq\t:\tEnable frequency dependent calibration error simulations. Both phase and Amplitude can be affected.]\n \ 
+[--enable-calfreq\t:\tEnable frequency dependent calibration error simulations. Both phase and Amplitude can be affected.]\n \
 [--injONLY\t:\tOnly writes the SNR of the injected waveform and exit. It does not perform any calculations.]\n \
 [--version\t:\tPrint version information and exit]\n \
 [--help\t:\tPrint this message]\n"
@@ -146,13 +146,13 @@ int enable_calamp=0;
 unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
 int injONLY=0;
-
+int phaseOrder=0;
 // types for the selection of the calibration functions //
 typedef REAL8 (AmplitudeCalib)(REAL8 f);
 typedef REAL8 (PhaseCalib)(REAL8 f);
 // pointers to the calibration functions //
 AmplitudeCalib *R_A;
-PhaseCalib *R_PH; 
+PhaseCalib *R_PH;
 
 REAL8 Amp_H1(REAL8 f);
 REAL8 Amp_L1(REAL8 f);
@@ -176,24 +176,24 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
 
 void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname){
 		REAL8 amplitude=0.0;
-        REAL8 phase=0.0;	
+        REAL8 phase=0.0;
         REAL8 deltaf=0.0;
         UINT4 j;
-        deltaf=injF->deltaF;  
+        deltaf=injF->deltaF;
 		int IFO;
 		if(!strcmp(IFOname,"H1")){IFO =1;}
 		if(!strcmp(IFOname,"L1")){IFO =2;}
 		if(!strcmp(IFOname,"V1")){IFO =3;}
-		switch(IFO) {	
+		switch(IFO) {
 			case 1:
 				R_A=&Amp_H1;
 				R_PH=&Ph_H1;
 				break;
-			case 2: 
+			case 2:
 				R_A=&Amp_L1;
 				R_PH=&Ph_L1;
-				break;			
-			case 3: 
+				break;
+			case 3:
 				R_A=&Amp_V1;
 				R_PH=&Ph_V1;
 				break;
@@ -202,7 +202,7 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
 		}
 		for(j=0;j<injF->data->length;j++){
             	amplitude=R_A(j*deltaf)*sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0));
-               	phase=R_PH(j*deltaf)*j*deltaf+atan2(injF->data->data[j].im,injF->data->data[j].re); 
+               	phase=R_PH(j*deltaf)*j*deltaf+atan2(injF->data->data[j].im,injF->data->data[j].re);
 		calibInjF->data->data[j].re=amplitude*cos(phase);
                	calibInjF->data->data[j].im=amplitude*sin(phase);
        		}
@@ -225,41 +225,41 @@ REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, 
 	LALFrClose(&status,&stream);
 	return out;
 }
-// Until we have something for V1, we use L1 quantities. 
-REAL8 Amp_H1(REAL8 f){ 
+// Until we have something for V1, we use L1 quantities.
+REAL8 Amp_H1(REAL8 f){
 		double output = 1.0;
-		
+
 		if(f>60.0 && f<=100.0)
 			output = 0.000144921*f+0.953962*pow(f,-1/3)+2.19779*pow(f,-1.0);
-			
+
 		if(f>100.0 && f<=150.0)
 			output = -1.65116e-05*f+0.991484*pow(f,-1/3)+0.07191*pow(f,-1.0);
-			
+
 		if(f>150.0 && f<=318.0)
 			output = 1.42451e-05*f+0.98561*pow(f,-1/3)+0.271245*pow(f,-1.0);
-		
+
 		if(f>318.0 && f<=500.0)
 			output = 3.04006e-05*f+0.977116*pow(f,-2/3)+1.35158*pow(f,-1.0);
 
 		return output;
 }
-REAL8 Amp_L1(REAL8 f){ 
+REAL8 Amp_L1(REAL8 f){
 		double output = 1.0;
-		
+
 		if(f>60.0 && f<=155.0)
 			output = -1.70801+0.158928*f-0.00368464*pow(f,2)+4.32603e-05*pow(f,3)-2.65581e-07*pow(f,4)+7.33889e-10*pow(f,5)-1.35718e-13*pow(f,6)-2.309e-15*pow(f,7);
-			
+
 		if(f>155.0 && f<=500.0)
 			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
 
 		return output;
 }
-REAL8 Amp_V1(REAL8 f){ 
+REAL8 Amp_V1(REAL8 f){
 		double output = 1.0;
-		
+
 		if(f>60.0 && f<=155.0)
 			output = -1.70801+0.158928*f-0.00368464*pow(f,2)+4.32603e-05*pow(f,3)-2.65581e-07*pow(f,4)+7.33889e-10*pow(f,5)-1.35718e-13*pow(f,6)-2.309e-15*pow(f,7);
-			
+
 		if(f>155.0 && f<=500.0)
 			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
 
@@ -267,20 +267,20 @@ REAL8 Amp_V1(REAL8 f){
 }
 REAL8 Ph_H1(REAL8 f){
 		double output = 0.0;
-		
+
 		if(f>60.0 && f<=80.0)
 			output = 114.005-6.23854*f+0.127996*pow(f,2)-0.00116878*pow(f,3)+4.00732e-06*pow(f,4);
 		if(f>80.0 && f<=500.0)
 			output = -0.0701154 +0.0170887*log(0.914066*f)+-15.5936*pow(f,-1);
 
 		return output;
-}  
+}
 REAL8 Ph_L1(REAL8 f){
 		double output = 0.0;
-		
+
 		if(f>60.0 && f<=110.0)
 			output = -69.493+4.77314*f-0.123966*pow(f,2)+0.0015403*pow(f,3)-9.24682e-06*pow(f,4)+2.16121e-08*pow(f,5);
-			
+
 		if(f>110.0 && f<=500.0)
 			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
 
@@ -288,10 +288,10 @@ REAL8 Ph_L1(REAL8 f){
 }
 REAL8 Ph_V1(REAL8 f){
 		double output = 0.0;
-		
+
 		if(f>60.0 && f<=110.0)
 			output = -69.493+4.77314*f-0.123966*pow(f,2)+0.0015403*pow(f,3)-9.24682e-06*pow(f,4)+2.16121e-08*pow(f,5);
-			
+
 		if(f>110.0 && f<=500.0)
 			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
 
@@ -509,13 +509,13 @@ void initialise(int argc, char *argv[]){
         case 265:
 			enable_calamp=1;
 			break;
-        case 266: 
+        case 266:
 			if(nCalAmpFacs==0) CalAmpFacs=malloc(sizeof(double));
 			else CalAmpFacs=realloc(CalAmpFacs,(nCalAmpFacs+1)*sizeof(double));
 			CalAmpFacs[nCalAmpFacs]=atof(optarg);
             		nCalAmpFacs++;
                         break;
-        case 300:   
+        case 300:
                         enable_calfreq=1;
 			break;
         case 301:
@@ -725,7 +725,7 @@ int main( int argc, char *argv[])
 
 	datarandparam=XLALCreateRandomParams(dataseed);
 
-    unsigned int injTries=0; 
+    unsigned int injTries=0;
 
     SimInspiralTable this_injection;
     memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
@@ -739,13 +739,13 @@ int main( int argc, char *argv[])
             INT4 TrigSegStart,TrigSample;
             inputMCMC.ifoID[i] = IFOnames[i];
             inputMCMC.deltaF = (REAL8)SampleRate/seglen;
-    
+
             TrigSample=(INT4)(SampleRate*(ETgpsSeconds - datastart.gpsSeconds));
             TrigSample+=(INT4)(1e-9*SampleRate*ETgpsNanoseconds - 1e-9*SampleRate*datastart.gpsNanoSeconds);
             /*TrigSegStart=TrigSample+SampleRate*(0.5*(segDur-InjParams.tc)) - seglen; */ /* Centre the injection */
             TrigSegStart=TrigSample+ (SampleRate) - seglen; /* Put trigger 1 s before end of segment */
             if(InjParams.tc>segDur) fprintf(stderr,"Warning! Your template is longer than the data segment\n");
-    
+
             segmentStart = datastart;
             XLALGPSAdd(&segmentStart, (REAL8)TrigSegStart/(REAL8)SampleRate);
             memcpy(&(inputMCMC.epoch),&segmentStart,sizeof(LIGOTimeGPS));
@@ -778,7 +778,7 @@ int main( int argc, char *argv[])
                 }
             }
             else FakeFlag=0;
-    
+
             if(timeslides&&!FakeFlag){ /* Set up time slides by randomly offsetting the data */
                 LALCreateRandomParams(&status,&randparam,seed);
                 memcpy(&realstart,&datastart,sizeof(LIGOTimeGPS));
@@ -809,35 +809,35 @@ int main( int argc, char *argv[])
                 if(estimatenoise){ /* Spectrum not used with student-t likelihood */
                     /* Set up inverse spectrum structure */
                     inputMCMC.invspec[i] = (REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&RawData->epoch,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
-    
+
                     /* Compute power spectrum */
                     if(DEBUG) fprintf(stderr,"Computing power spectrum, seglen %i\n",seglen);
                     check=XLALREAL8AverageSpectrumMedian( inputMCMC.invspec[i] ,RawData,(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
                     check|=XLALREAL8SpectrumInvertTruncate( inputMCMC.invspec[i], inputMCMC.fLow, seglen, (seglen-stride)/4, fwdplan, revplan );
-    
+
                     if(check) {fprintf(stderr,"Cannot create spectrum, check=%x\n",check); exit(-1);}
                     /* POWER SPECTRUM SHOULD HAVE UNITS OF TIME! */
                 }
-    
+
                 if(DEBUG) fprintf(stderr,"populating inputMCMC\n");
-    
+
                 segnum=(ETgpsSeconds - RawData->epoch.gpsSeconds)/strideDur;
-    
+
                 if(InjParams.tc>segDur-padding) fprintf(stderr,"Warning, flat-top is shorter than injected waveform!\n");
                 /* Store the appropriate data in the input structure */
-    
+
                 if(DEBUG) fprintf(stderr,"Trigger lies at sample %d, creating segment around it\n",TrigSample);
                 /* Chop out the data segment and store it in the input structure */
                 inputMCMC.segment[i]=(REAL8TimeSeries *)XLALCutREAL8TimeSeries(RawData,TrigSegStart,seglen);
-    
+
                 memcpy(&(inputMCMC.invspec[i]->epoch),&(inputMCMC.segment[i]->epoch),sizeof(LIGOTimeGPS));
-    
+
                 if(DEBUG) fprintf(stderr,"Data segment %d in %s from %f to %f, including padding\n",i,IFOnames[i],((float)TrigSegStart)/((float)SampleRate),((float)(TrigSegStart+seglen))/((float)SampleRate) );
-    
+
                 inputMCMC.stilde[i] = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&(inputMCMC.segment[i]->epoch),0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
-    
+
                 XLALDestroyREAL8TimeSeries(RawData);
-    
+
                 /* Window and FFT the data */
                 XLALDDVectorMultiply(inputMCMC.segment[i]->data,inputMCMC.segment[i]->data,windowplan->data);
                 check=XLALREAL8TimeFreqFFT(inputMCMC.stilde[i],inputMCMC.segment[i],fwdplan); /* XLALREAL8TimeFreqFFT multiplies by deltaT */
@@ -846,8 +846,8 @@ int main( int argc, char *argv[])
                     inputMCMC.stilde[i]->data->data[j].im/=sqrt(windowplan->sumofsquares / windowplan->data->length);
                 }
             } /* End if(!FakeFlag) */
-    
-            
+
+
             /* Perform injection in time domain */
             if(NULL!=injXMLFile && fakeinj==0) {
                 DetectorResponse det;
@@ -868,22 +868,22 @@ int main( int argc, char *argv[])
                 memcpy(&bufferstart,&segmentStart,sizeof(LIGOTimeGPS));
                 XLALGPSAdd(&bufferstart,((REAL8)seglen*inputMCMC.deltaT));
                 XLALGPSAdd(&bufferstart,-((REAL8)bufferlength*inputMCMC.deltaT));
-    
+
                 REAL4TimeSeries *injWave=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries(IFOnames[i],&(bufferstart),0.0,inputMCMC.deltaT,&lalADCCountUnit,(size_t)bufferlength);
-    
+
                 for (j=0;j<injWave->data->length;j++) injWave->data->data[j]=0.0;
                 //LALSimulateCoherentGW(&status,injWave,&InjectGW,&det);
                 COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&bufferstart,0.0,inputMCMC.deltaF,(const LALUnit *)&strainPerCount,seglen);
                 for(j=0;j<resp->data->length;j++) {resp->data->data[j].re=(REAL4)1.0; resp->data->data[j].im=0.0;}
-                
+
                 LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
                 XLALDestroyCOMPLEX8FrequencySeries(resp);
                 printf("Finished InjectSignals\n");
                 fprintf(stderr,"Cutting injection buffer from %d to %d\n",bufferlength,seglen);
-    
+
                         TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
                 TrigSegStart+=(INT4)((segmentStart.gpsNanoSeconds - injWave->epoch.gpsNanoSeconds)*1e-9*SampleRate);
-    
+
                 injWave=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injWave,TrigSegStart,seglen);
                 fprintf(stderr,"Cut buffer start time=%lf, segment start time=%lf\n",injWave->epoch.gpsSeconds+1e-9*injWave->epoch.gpsNanoSeconds,inputMCMC.stilde[i]->epoch.gpsSeconds + 1.0e-9*inputMCMC.stilde[i]->epoch.gpsNanoSeconds);
                 REPORTSTATUS(&status);
@@ -900,7 +900,7 @@ int main( int argc, char *argv[])
                 REAL4 WinNorm = sqrt(windowplan->sumofsquares/windowplan->data->length);
                 for(j=0;j<inj8Wave->data->length;j++) inj8Wave->data->data[j]*=SNRfac*windowplan->data->data[j]/WinNorm;
                 XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
-    
+
                 REPORTSTATUS(&status);
                 if(estimatenoise){
                     for(j=(UINT4) (inputMCMC.fLow/inputMCMC.invspec[i]->deltaF),SNR=0.0;j<seglen/2;j++){
@@ -909,19 +909,19 @@ int main( int argc, char *argv[])
                     SNR*=4.0*inputMCMC.invspec[i]->deltaF; /* Get units correct - factor of 4 for 1-sided */
                 }
                 LALDestroyREAL4FFTPlan(&status,&inj_plan);
-    
+
                 networkSNR+=SNR;
                 SNR=sqrt(SNR);
-    
+
                 if(enable_calamp){
                     for(j=0;j<injF->data->length;j++) {
                         injF->data->data[j].re*=(REAL8)CalAmpFacs[i];
                         injF->data->data[j].im*=(REAL8)CalAmpFacs[i];
                     }
                 }
-                
+
                 if(enable_calfreq){
-                    COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1); 
+                    COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                     CalibPolar(injF,CalibInj,IFOnames[i]);
                     for(j=0;j<injF->data->length;j++){
                             injF->data->data[j].re = CalibInj->data->data[j].re;
@@ -929,7 +929,7 @@ int main( int argc, char *argv[])
 			}
                     XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
                 }
-                
+
 
                 /* Actually inject the waveform */
                 if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
@@ -937,7 +937,7 @@ int main( int argc, char *argv[])
                     inputMCMC.stilde[i]->data->data[j].re+=(REAL8)injF->data->data[j].re;
                     inputMCMC.stilde[i]->data->data[j].im+=(REAL8)injF->data->data[j].im;
                 }
-    
+
                 #if DEBUG
                     FILE *waveout;
                     char wavename[100];
@@ -948,17 +948,17 @@ int main( int argc, char *argv[])
                 #endif
 
                 XLALDestroyCOMPLEX16FrequencySeries(injF);
-    
+
                 XLALDestroyREAL4TimeSeries(injWave);
                 XLALDestroyREAL8TimeSeries(inj8Wave);
-    
+
                 if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
                 else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
 
        /*         FILE *snrout;
 				REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
 				char snr_wavename[100];
-				
+
 				if(stat("./SNR",&st) == 0){
 					fprintf(stderr,"SNR directory is present\n");
 				
@@ -966,31 +966,28 @@ int main( int argc, char *argv[])
 					sprintf(snr_wavename,i"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );
 					if(stat(snr_wavename,&st)){
                                         snrout=fopen(snr_wavename,"w");
-					fprintf(snrout,"%10.1lf %5.2lf ",injTime,SNR);
-					fclose(snrout);
-				        }
-                                }
-				else {
-					fprintf(stderr,"SNR directory is NOT present\n");
-					fprintf(stderr,"Exiting\n");
-					exit(-1);
+					fprintf(stderr,"Writing...\n");
+					sprintf(snr_wavename,"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );
+					snrout=fopen(snr_wavename,"w");
 				}*/
                     
             }   
             
+
+
         } /* End loop over IFOs */
-        
+
         //
         if (injONLY) {
         fprintf(stderr,"Injection performed correctly. SNRs wrote. Exiting\n");
         exit(0);   
         }
-        
+
         //If no injSNR spec. fix SNR to accept injection.
         if(injSNR<0.) {
             injSNR=sqrt(networkSNR);
         }
-        //Else scale distance 
+        //Else scale distance
         else {
             double dist;
             if (injSNR < networkSNR ) {
@@ -1004,16 +1001,16 @@ int main( int argc, char *argv[])
                 this_injection.distance = dist ;
             }
         }
-    
+
         //Increment number of tries
         injTries++;
         printf("Network SNR: %lf\n " , sqrt(networkSNR));
     } while( fabs((sqrt(networkSNR)-injSNR)/injSNR) > 0.1 && injTries<50 );
 
-    
+
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
-    
+
 	if(estimatenoise && DEBUG){
 		for(j=0;j<nIFO;j++){
 			char filename[100];
