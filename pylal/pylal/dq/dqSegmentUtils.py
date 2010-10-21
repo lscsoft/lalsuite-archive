@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-import os
-import sys
+import os, sys, shlex, subprocess,tempfile
 from glue.segments import segment, segmentlist
 from glue.ligolw import utils as ligolw_utils
+from glue.ligolw import table
+from glue.ligolw import lsctables
 #from glue.ligolw.utils import segments as ligolw_segments
 from glue.segmentdb import segmentdb_utils
-
 # Some boilerplate to make segmentlists picklable
 import copy_reg
 copy_reg.pickle(type(segment(0,1)), lambda x:(segment,(x[0],x[1])))
@@ -25,42 +25,47 @@ Module to provide veto tools for DQ work.
 # =============================================================================
 # Function to execute shell command and get output
 # =============================================================================
-def GetCommandOutput(command):
-  # == function to execute bash commands and return the stdout and error status
-  stdin, out, err = os.popen3(command)
-  pid, status = os.wait()
-  this_output = out.read()
-  stdin.close()
-  out.close()
-  err.close()
-  return this_output, status
+def make_external_call(cmd,shell=False):
+  args = shlex.split(str(cmd))
+  p = subprocess.Popen(args,shell=shell,\
+                       stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  p_out, p_err = p.communicate()
+  if p.returncode != 0:
+    raise ValueError, "Command %s failed. Stderr Output: \n%s" %( cmd, p_err)
+
+  return p_out, p_err
 
 # ==============================================================================
 # Function to load segments from an xml file
 # ==============================================================================
-def LoadSegsFromXML(ifo, xmlfile):
+def fromsegmentxml(file):
   """
-  Given the ifo and name of an XML file, return the segmentlist.
-  Should work for vetoes and science segments.
+  Read a segmentlist from the file object file containing an xml segment table.
   """
-  indoc = ligolw_utils.load_url(xmlfile)
-  segs = segmentdb_utils.find_segments(indoc, ifo + ":RESULT:*")
 
-  return segs # Already coalesced for us
+  xmldoc,digest = ligolw_utils.load_fileobj(file)
+  seg_table = table.get_table(xmldoc,lsctables.SegmentTable.tableName)
+
+  segs = segmentlist()
+  for seg in seg_table:
+    segs.append(segment(seg.start_time,seg.end_time))
+  segs = segs.coalesce()
+
+  return segs
 
 # ==============================================================================
 # Function to load segments from a csv file
 # ==============================================================================
-def LoadSegsFromCSV(csvfile):
+def fromsegmentcsvCSV(csvfile):
   """
-  Given the name of a CSV file, return the segmentlist.
+  Read a segmentlist from the file object file containing a comma separated list of segments.
   """
 
   def CSVLineToSeg(line):
     tstart, tend = map(int, line.split(','))
     return segment(tstart, tend)
 
-  segs = segmentlist([CSVLineToSeg(line) for line in open(csvfile)])
+  segs = segmentlist([CSVLineToSeg(line) for line in csvfile])
 
   return segs.coalesce()
 
@@ -76,7 +81,7 @@ def CBCAnalyzableSegs(seglist):
 # ==============================================================================
 # Function to pad a list of segments given start and end paddings
 # ==============================================================================
-def PadVetoSegs(seglist, start_pad, end_pad):
+def pad_segmentlist(seglist, start_pad, end_pad):
   """
   Given a veto segmentlist, start pad, and end pad, pads and coalesces the segments.
   Signs of start and end pad are disregarded - the segment is always expanded outward.
@@ -90,7 +95,7 @@ def PadVetoSegs(seglist, start_pad, end_pad):
 # ==============================================================================
 # Function to crop a list of segments
 # ==============================================================================
-def ChopSegEnds(seglist, end_chop = 30):
+def crop_segmentlist(seglist, end_chop = 30):
   """
   Given a segmentlist and time to chop, removes time from the end of each segment (defaults to 30 seconds).
   """
@@ -107,34 +112,27 @@ def grab_segments(start,end,flag):
   """
   Returns a segmentlist containing the segments during which the given flag was active in the given period.
   """
-
+  exe = make_external_call('which ligolw_segment_query')[0]
   #== construct segment query
-  segment_cmd = "ligolw_segment_query --query-segments"+\
-      " --segment-url https://segdb.ligo.caltech.edu"+\
-      " --include-segments "+flag+\
-      " --gps-start-time "+str(int(start))+\
-      " --gps-end-time "+str(int(end))+\
-    ''' | ligolw_print -t segment -c start_time -c end_time --delimiter " "'''
+  segment_cmd = ' '.join([exe,'--query-segments',\
+                          '--database','--include-segments',flag,\
+                          '--gps-start-time',str(start),\
+                          '--gps-end-time',str(end)])
   #== run segment query
-  segs,status = GetCommandOutput(segment_cmd)
+  segxmlout,segerr = make_external_call(segment_cmd)
 
-  #== construct segments as structure
-  seglist=[]
-  if status==0:
-    segs=segs.split('\n')
-    for seg in segs:
-      if seg=='':  continue
-      try:
-        [seg_start,seg_end]=seg.split(' ')
-        seglist.append(segment(int(seg_start),int(seg_end)))
-      except:  continue
-    seglist = segmentlist(seglist)
+  segs = segmentlist()
+  if not segerr:
+    tmpfile = tempfile.TemporaryFile()
+    tmpfile.write(segxmlout)
+    tmpfile.seek(0)
+    segs = fromsegmentxml(tmpfile)
   else:
     print >>sys.stderr, "Warning: Call to ligolw_segment_query failed with "+\
                         "command:"
     print >>sys.stderr, "\n"+segment_cmd+"\n"
 
-  return seglist
+  return segs
 
 # =============================================================================
 # Function to generate segments for given ifos in period
@@ -155,7 +153,8 @@ def coinc_segments(start,end,ifos):
   double_segments={}
   triple_segments={}
   #== grab science data for each ifo
-  science_flag = {'H1':'H1:DMT-SCIENCE',\
+  science_flag = {'G1':'G1:GEO-SCIENCE',\
+                  'H1':'H1:DMT-SCIENCE',\
                   'H2':'H2:DMT-SCIENCE',\
                   'L1':'L1:DMT-SCIENCE',\
                   'V1':'V1:ITF_SCIENCEMODE'}
@@ -184,10 +183,11 @@ def coinc_segments(start,end,ifos):
 
   if triples:
     return segments,double_segments,triple_segments
-  if doubles:
+  elif doubles:
     return segments,double_segments
   else:
     return segments
+
 # =============================================================================
 # Function to calculate duty cycle and analysable time given segmentlist
 # =============================================================================
