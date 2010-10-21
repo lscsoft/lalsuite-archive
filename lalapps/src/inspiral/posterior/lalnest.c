@@ -951,23 +951,26 @@ int main( int argc, char *argv[])
                 if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
                 else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
 
-                FILE *snrout;
+       /*         FILE *snrout;
 				REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
 				char snr_wavename[100];
 				
 				if(stat("./SNR",&st) == 0){
 					fprintf(stderr,"SNR directory is present\n");
-					fprintf(stderr,"Writing...\n");	
-					sprintf(snr_wavename,"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );
-					snrout=fopen(snr_wavename,"w");
+				
+                                        fprintf(stderr,"Writing...\n");	
+					sprintf(snr_wavename,i"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );
+					if(stat(snr_wavename,&st)){
+                                        snrout=fopen(snr_wavename,"w");
 					fprintf(snrout,"%10.1lf %5.2lf ",injTime,SNR);
 					fclose(snrout);
-				}
+				        }
+                                }
 				else {
 					fprintf(stderr,"SNR directory is NOT present\n");
 					fprintf(stderr,"Exiting\n");
 					exit(-1);
-				}
+				}*/
                     
             }   
             
@@ -976,7 +979,7 @@ int main( int argc, char *argv[])
         //
         if (injONLY) {
         fprintf(stderr,"Injection performed correctly. SNRs wrote. Exiting\n");
-        exit(1);   
+        exit(0);   
         }
         
         //If no injSNR spec. fix SNR to accept injection.
