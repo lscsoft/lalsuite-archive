@@ -670,4 +670,4 @@ for instruments in UL.set_instruments_to_calculate():
   UL.trim_mass_space(ltA, instruments, minthresh=0.0, minM=UL.mintotal, maxM=UL.maxtotal)
   xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "2DsearchvolumeLiveTime"))
 
-  utils.write_filename(xmldoc, "2Dsearchvolume-%s-%s.xml" % (opts.output_name_tag, "".join(sorted(list(instruments)))))
+  utils.write_filename(xmldoc, "2Dsearchvolume-m1m2-%s-%s.xml" % (opts.output_name_tag, "".join(sorted(list(instruments)))))

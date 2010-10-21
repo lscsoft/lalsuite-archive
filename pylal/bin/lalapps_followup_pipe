@@ -810,7 +810,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 #Followup page node is child of all nodes
 if options.gps_times or options.force_fupage: fupage_node = stfu_pipe.makeFollowupPageNode(dag, fupage_job, cp, options)
 #Checklist generation node is child of all nodes
-if not options.gps_times: wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
+if not options.no_makeCheckList: wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
 #### ALL FINNISH ####		
 default_cp.write()
 dag.write_all()

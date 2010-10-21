@@ -165,7 +165,11 @@ for thisGraph in myGraphs:
                     "Inconsistent Vector lengths Channel %s: %s vs %s\n"\
                     %(myLabel,len(timeVector),len(myData)))
             pylab.plot(timeVector,myData,label="%s"%myLabel)
-    pylab.legend()
+    #If inspiral plot put legend lower left
+    if myLabel.lower().__contains__("inspiral"):
+        pylab.legend(loc=3)
+    else:
+        pylab.legend()
     pylab.grid(True)
     pylab.savefig(filemask%(opts.gps_time,thisGraph.replace(" ","-")))
     pylab.close()

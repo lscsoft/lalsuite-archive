@@ -15,6 +15,9 @@ export _NMI_GIT_BRANCH_B
 export _NMI_GIT_ID_A
 export _NMI_GIT_ID_B
 
+export _NMI_HARNESS_GIT_REPO=${_NMI_HARNESS_GIT_REPO:="git://ligo-vcs.phys.uwm.edu/lalsuite.git"}
+export _NMI_HARNESS_GIT_BRANCH=${_NMI_HARNESS_GIT_BRANCH:="master"}
+
 if [[ $# -lt 2 ]]; then
     echo usage: $0 runid_a runid_b
     exit 1
