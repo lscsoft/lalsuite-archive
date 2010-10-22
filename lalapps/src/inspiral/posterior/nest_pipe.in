@@ -58,8 +58,11 @@ parser.add_option("--notify",action="store",default=None,help="Optional e-mail a
 
 (opts,args)=parser.parse_args()
 
+cp=ConfigParser.ConfigParser()
+cp.read(opts.ini_file)
 #Get ifos from string list
 ifos=eval(cp.get('analysis','ifos'))
+
 
 print 'Setting up pipeline with ifos'+' '.join(map(str,ifos))
 
@@ -105,21 +108,21 @@ def istoint(a):
 if(sum(map(istoint, [getattr(opts,a) for a in ['single_triggers','coinc_triggers','inj','gps_time_file']]))>1):
     parser.error('You can only specify one of --inj, --single-triggers, --coinc-triggers, or --gps-time-file\n')
 
+types_list=eval(cp.get('data','types'))
+channels_list=eval(cp.get('data','channels'))
+
+
 #Create types and channels dictionaries
 types={}
 channels={}
-for ifo in ifos:
-    try:
-        types[ifo]=cp.get('data',ifo.lower()+'-type')
-    except:
-        print "Type for %s not defined!"%ifo
-        exit(1)
-    try:
-        channels[ifo]=cp.get('data',ifo.lower()+'-channel')
-    except:
-        print "Channel for %s not defined!"%ifo
-        exit(1)
+for ifo,type,channel in zip(ifos,types_list,channels_list):
+    types[ifo]=type
+    channels[ifo]=channel
 
+for ifo,channel in channels.items():
+	cp.set('data',ifo.lower()+'-channel',channel)
+
+    
 time_event=None
 if opts.inj and cp.has_option('analysis','events'):
     time_event={}
@@ -151,7 +154,8 @@ if opts.inj and cp.has_option('analysis','events'):
 
     for event in events:
         times.append(injTable[event].get_end())
-        time_event[injTable[event].get_end()]=event
+        time_event[times[-1]]=event
+        print time_event
 
     starttime=min(times)-1.0
     endtime=max(times)+1.0
@@ -290,7 +294,7 @@ for ifo in ifos:
 
 for ifo in ifos:
     science_segs[ifo]=[]
-    if type[ifo] in fakeTypes:
+    if types[ifo] in fakeTypes:
         science_segs[ifo].append(None)
     else:
         # Setup find data jobs
@@ -383,6 +387,7 @@ else:
     merge_sub_file=os.path.join(opts.run_path,'merge.sub')
     merge_job=OddsPipeline.MergeJob(cp,merge_sub_file,opts.log_path)
     for time in times:
+    	print time_event
         (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=time_event[time])
         dag.add_node(merge_node)
         map(dag.add_node,inspnest_nodes)
