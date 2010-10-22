@@ -111,7 +111,12 @@ if(sum(map(istoint, [getattr(opts,a) for a in ['single_triggers','coinc_triggers
 types_list=eval(cp.get('data','types'))
 channels_list=eval(cp.get('data','channels'))
 
-
+if cp.has_option('data','calamp-facs'):
+    calamp_facs_list=eval(cp.get('data','calamp-facs'))
+    for calamp_fac,ifo in zip(calamp_facs_list,ifos):
+        cp.set('data',ifo+'-calamp-fac',calamp_fac)
+    
+    
 #Create types and channels dictionaries
 types={}
 channels={}
@@ -120,7 +125,7 @@ for ifo,type,channel in zip(ifos,types_list,channels_list):
     channels[ifo]=channel
 
 for ifo,channel in channels.items():
-	cp.set('data',ifo.lower()+'-channel',channel)
+    cp.set('data',ifo.lower()+'-channel',channel)
 
     
 time_event=None
