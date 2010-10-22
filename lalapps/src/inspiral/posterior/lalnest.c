@@ -968,7 +968,7 @@ int main( int argc, char *argv[])
 					fprintf(snrout,"%10.1lf  %3.1lf",injTime,SNR);
                                         fclose(snrout);
 				}   
-            }   
+                                }   
             
 
         }
