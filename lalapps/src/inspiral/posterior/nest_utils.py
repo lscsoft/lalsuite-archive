@@ -199,7 +199,13 @@ class ResultsPageJob(pipeline.CondorDAGJob):
 class ResultsPageNode(pipeline.CondorDAGNode):
     def __init__(self,results_page_job):
         pipeline.CondorDAGNode.__init__(self,results_page_job)
-
+    def set_event_number(self,event):
+        """
+        Set the event number in the injection XML.
+        """
+        if event is not None:
+            self.__event=int(event)
+            self.add_var_opt('eventnum',str(event))
 # Function definitions for setting up groups of nodes
 
 def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):

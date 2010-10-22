@@ -155,7 +155,7 @@ if opts.inj and cp.has_option('analysis','events'):
     for event in events:
         times.append(injTable[event].get_end())
         time_event[times[-1]]=event
-        print time_event
+        
 
     starttime=min(times)-1.0
     endtime=max(times)+1.0
@@ -387,7 +387,7 @@ else:
     merge_sub_file=os.path.join(opts.run_path,'merge.sub')
     merge_job=OddsPipeline.MergeJob(cp,merge_sub_file,opts.log_path)
     for time in times:
-    	print time_event
+    	
         (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=time_event[time])
         dag.add_node(merge_node)
         map(dag.add_node,inspnest_nodes)
@@ -581,8 +581,13 @@ if opts.enable_pages_alltimes is True:
         results_dir=os.path.join(results_path,'timebins',str(time))
         checkDir(results_dir)
         results_page_node.add_var_opt('outpath',results_dir)
+        if time_event is not None:   
+            if time_event[time] is not None:
+                results_page_node.set_event_number(time_event[time])
+                results_page_node.add_var_opt('inj',opts.inj)
         results_page_node.add_parent(combine_each_time_nodes[time])
         results_page_node.add_var_opt('bsn',bayesfiles_by_time[time])
+
         if opts.coherence_test and (time in coherence_inspnest_nodes.keys()):
             results_page_node.add_var_arg('--bci '+coherence_test_outfiles[time])
             results_page_node.add_parent(coherence_test_nodes[time])
@@ -591,10 +596,15 @@ if opts.enable_pages_alltimes is True:
                 for ifo in coherence_inspnest_nodes[time].keys():
                     results_node=OddsPipeline.ResultsPageNode(results_page_job)
                     results_node.add_file_opt('data',coherence_test_posfiles[time][ifo])
+                    if time_event is not None:   
+                        if time_event[time] is not None:
+                            results_node.set_event_number(time_event[time])
+                            results_node.add_var_opt('inj',opts.inj)
                     results_node.add_parent(combine_nodes_by_time[time][ifo])
                     ifo_results_path=os.path.join(results_dir,ifo)
                     results_node.add_var_opt('outpath',ifo_results_path)
                     results_node.add_var_opt('bsn',coherence_test_bfiles[time][ifo])
+                
                     dag.add_node(results_node)
 
 
