@@ -54,6 +54,9 @@ class InspNestNode(pipeline.CondorDAGNode):
             else:
                 self.add_var_arg('--cache '+data_tuples[ifo][1].get_df_node().get_output_files()[0])
                 self.add_parent(data_tuples[ifo][1].get_df_node())
+
+            if cp.has_option('data',ifo+'-calamp-fac'):
+                self.add_var_arg('--calamp-fac '+str(cp.get('data',ifo+'-calamp-fac')))
         # Start at earliest common time
         # NOTE: We perform this arithmetic for all ifos to ensure that a common data set is
         # Used when we are running the coherence test.

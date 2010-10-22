@@ -113,8 +113,9 @@ channels_list=eval(cp.get('data','channels'))
 
 if cp.has_option('data','calamp-facs'):
     calamp_facs_list=eval(cp.get('data','calamp-facs'))
+    
     for calamp_fac,ifo in zip(calamp_facs_list,ifos):
-        cp.set('data',ifo+'-calamp-fac',calamp_fac)
+        cp.set('data',ifo+'-calamp-fac',str(calamp_fac))
     
     
 #Create types and channels dictionaries
@@ -353,6 +354,8 @@ inspnest_subfile=os.path.join(opts.run_path,'inspnest.sub')
 inspnest_job=OddsPipeline.InspNestJob(cp,inspnest_subfile,opts.log_path)
 inspnest_job.add_opt('Nlive',cp.get('analysis','nlive'))
 inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
+if cp.has_option('data','decohere'):
+    inspnest_job.add_opt('decohere',cp.get('data','decohere'))
 
 if opts.inj:
     inspnest_job.add_opt('inj',opts.inj)
