@@ -1,0 +1,101 @@
+#!/bin/sh
+
+prefix=/home/salvatore.vitale/lalapps
+exec_prefix=${prefix}
+exec_prefix_set=no
+
+my_lal_libs="-L${exec_prefix}/lib -llal -lgsl -lgslcblas -lm   -lfftw3 -lfftw3f -lm  "
+my_lal_cflags="-I${prefix}/include    "
+usage()
+{
+    cat <<EOF
+Usage: lal-config [OPTIONS] [LIBRARIES]
+Options:
+        [--prefix[=DIR]]
+        [--exec-prefix[=DIR]]
+        [--version]
+        [--libs]
+        [--cflags]
+Libraries:
+        lal
+        lalsupport
+EOF
+    exit $1
+}
+
+if test $# -eq 0; then
+  usage 1 1>&2
+fi
+
+while test $# -gt 0; do
+  case "$1" in
+    -*=*) optarg=`echo "$1" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+    *) optarg= ;;
+  esac
+
+  case "$1" in
+    --prefix=*)
+        prefix=$optarg
+        if test $exec_prefix_set = no ; then
+          exec_prefix=$optarg
+        fi
+        ;;
+    --prefix)
+        echo $prefix
+        ;;
+    --exec-prefix=*)
+        exec_prefix=$optarg
+        exec_prefix_set=yes
+        ;;
+    --exec-prefix)
+        echo $exec_prefix
+        ;;
+    --version)
+        echo 6.4.1.3
+        exit 0
+        ;;
+    --cflags)
+        echo_cflags=yes
+        ;;
+    --libs)
+        echo_libs=yes
+        ;;
+    lal)
+        lib_lal=yes
+        ;;
+    lalsupport)
+        lib_lalsupport=yes
+        ;;
+    --help)
+        usage 0
+        ;;
+    *)
+        usage 1 1>&2
+        exit 1
+        ;;
+  esac
+  shift
+done
+
+if test "$echo_prefix" = "yes"; then
+  echo $prefix
+fi
+
+if test "$echo_exec_prefix" = "yes"; then
+  echo $exec_prefix
+fi
+
+if test "$lib_lalsupport" = "yes"; then
+  my_lal_libs="-L${exec_prefix}/lib -llalsupport  -lz $my_lal_libs"
+  my_lal_cflags="$my_lal_cflags"
+fi
+
+if test "$echo_libs" = "yes"; then
+  echo $my_lal_libs
+fi
+
+if test "$echo_cflags" = "yes"; then
+  echo $my_lal_cflags
+fi
+
+exit 0
