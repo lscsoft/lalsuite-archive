@@ -357,6 +357,31 @@ inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
 if cp.has_option('data','decohere'):
     inspnest_job.add_opt('decohere',cp.get('data','decohere'))
 
+if cp.has_option('analysis','data_seed'):
+     dataseed=eval(cp.get('analysis','data_seed'))
+     print "data seed chosen to be" + str(dataseed)
+     inspnest_job.add_opt('dataseed',str(dataseed))
+ 
+if cp.has_option('analysis','chain_seed'):
+     chain_seed=eval(cp.get('analysis','chain_seed'))
+     print "chain seed chosen to be" + str(chain_seed)
+     inspnest_job.add_opt('seed',str(chain_seed))
+ 
+ 
+     for i in SNR_folder:
+         path_to_file=os.path.join(SNR_folder,i)
+         if os.path.isfile(path_to_file):
+            os.unlink(path_to_file)
+else: 
+     os.mkdir(str(SNR_folder))
+ 
+if cp.has_option('data','calamp-facs'):
+     inspnest_job.add_opt("enable-calamp",'')
+ 
+if cp.has_option('analysis','injONLY'):
+     print "injONLY activated"
+     inspnest_job.add_opt('injONLY','')
+
 if opts.inj:
     inspnest_job.add_opt('inj',opts.inj)
 
