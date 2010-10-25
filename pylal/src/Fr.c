@@ -202,6 +202,18 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
             PyErr_SetString(PyExc_KeyError, msg);
             return NULL;
         }
+        if (vect->nDim != 1) {
+            sprintf(msg, "In file %s, staticData channel %s has multiple "
+                    "dimensions. Freaking out.", filename, channel);
+            FrFileIEnd(iFile);
+            PyErr_SetString(PyExc_KeyError, msg);
+            return NULL;
+        }
+
+        if (vect->nData > span / vect->dx[0]) {
+            vect->nx[0] = span / vect->dx[0];
+            vect->nData = vect->nx[0];
+        }
     }
 
     if (verbose > 0){
