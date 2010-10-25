@@ -57,18 +57,18 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [filename ...]",
-		description = "%prog constructs time_slide tables, writing the result to one or more files.  The time slide table to be constructed is described by specifying one or more ranges of offsets for each instrument.  If more than one instrument and set of offsets is given, then the time slide table will contain entries corresponding to all combinations of offsets, one each from the different instuments.  If no file names are given on the command line, output is written to stdout.  If more than one file name is given on the command line, then the time slides are distributed uniformly between files with each file being given a disjoint subset of the time slides.  Output files whose names end in \".gz\" will be gzip compressed."
+		description = "%prog constructs time_slide tables, writing the result to one or more files.  The time slide table to be constructed is described by specifying one or more ranges of offsets for each instrument.  If more than one instrument and set of offsets is given, then the time slide table will contain entries corresponding to all combinations of offsets, one each from the different instuments.  If no file names are given on the command line, output is written to stdout.  If more than one file name is given on the command line, then the time slides are distributed uniformly between files with each file being given a disjoint subset of the time slides.  Output files whose names end in \".gz\" will be gzip compressed.\n\nExample:\n\n%prog --verbose --instrument H1=-100:+100:10 --instrument L1=-100:+100:+10 time_slides.xml.gz"
 	)
 	parser.add_option("-a", "--add-to", metavar = "filename", default = None, help = "Add the time slides from this file to the newly-generated time slides.  If the name ends in \".gz\" it will be gzip-decompressed on input.")
 	parser.add_option("--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "Provide a description of the set of offsets to use for a particular instrument.  The set of offsets is (first + n * step) where n is an integer such that first <= offset <= last.  More than one set of offsets can be given for the same instrument, in which case the union is used.  As a short-hand, the sets can be combined into a single command line argument by separating the first:last:step triples with commas.")
 	parser.add_option("--inspiral-num-slides", metavar = "count:instrument=offset[,instrument=offset...]", action = "append", default = [], help = "Generate a set of inspiral group style time slides.  The collection of instrument/offset pairs defines an offset vector, and the time slides produced are integer multiples of that vector n * {offsets} where n is a non-zero integer in [-count, +count] (so if count=50, you get 101 time slides).  If this option is given more than once, then multiple sets of inspiral-style time slides are generated.")
-	parser.add_option("-n", "--normalize", metavar = "name=offset", default = [], action = "append", help = "Normalize the time slides so that this instrument has the specified offset in all.  The other offsets in each time slide are adjusted so that the relative offsets are preserved.  Time slides that do not involve this instrument are unaffected.  If this option is given multiple times, then they are applied in order to each time slide until the first is found that affects the offsets of the time slide.")
+	parser.add_option("-n", "--normalize", metavar = "name=offset", default = [], action = "append", help = "Normalize the time slides so that this instrument has the specified offset in all.  The other offsets in each time slide are adjusted so that the relative offsets are preserved.  Time slides that do not involve this instrument are unaffected.  If this option is given multiple times, then for each time slide they are considered in alphabetical order by instrument until the first is found that affects the offsets of that time slide.")
 	options, filenames = parser.parse_args()
 
 	try:
-		options.normalize = dict([(name.strip(), float(offset)) for name, offset in map(lambda s: s.split("="), options.normalize)])
+		options.normalize = dict((name.strip(), float(offset)) for name, offset in map(lambda s: s.split("="), options.normalize))
 	except Exception, e:
 		raise ValueError, "unable to parse --normalize arguments: %s" % str(e)
 
@@ -137,11 +137,11 @@ if options.verbose:
 
 # dictionary mapping time_slide_id --> (dictionary mapping insrument --> offset)
 
-for time_slide in ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instrument)):
-	time_slides[lsctables.TimeSlideTable.get_next_id()] = time_slide
+for offsetvect in ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instrument)):
+	time_slides[lsctables.TimeSlideTable.get_next_id()] = offsetvect
 for inspiral_slidespec in options.inspiral_num_slides:
-	for time_slide in ligolw_tisi.Inspiral_Num_Slides_Iter(*ligolw_tisi.parse_inspiral_num_slides_slidespec(inspiral_slidespec)):
-		time_slides[lsctables.TimeSlideTable.get_next_id()] = time_slide
+	for offsetvect in ligolw_tisi.Inspiral_Num_Slides_Iter(*ligolw_tisi.parse_inspiral_num_slides_slidespec(inspiral_slidespec)):
+		time_slides[lsctables.TimeSlideTable.get_next_id()] = offsetvect
 
 if options.verbose:
 	print >>sys.stderr, "Total of %d time slides." % len(time_slides)
@@ -162,14 +162,12 @@ if options.verbose:
 
 
 #
-# Convert to list of (id, offset dictionary) tuples, sorted in reverse
-# order by ID.  This causes them to be written to the output files in order
-# of ID.
+# Convert to list of offset dictionaries.  We no longer require the IDs,
+# new ones will be assigned as they are put into the output XML document.
 #
 
 
-time_slides = time_slides.items()
-time_slides.sort(reverse = True)
+time_slides = time_slides.values()
 
 
 #
@@ -180,7 +178,7 @@ time_slides.sort(reverse = True)
 if options.normalize:
 	if options.verbose:
 		print >>sys.stderr, "Normalizing the time slides ..."
-	time_slides = [(id, ligolw_tisi.time_slide_normalize(offsetdict, **options.normalize)) for id, offsetdict in time_slides]
+	time_slides = [offsetvect.normalize(**options.normalize) for offsetvect in time_slides]
 
 
 #
@@ -188,6 +186,7 @@ if options.normalize:
 #
 
 
+table.reset_next_ids([lsctables.TimeSlideTable])
 while time_slides:
 	#
 	# Create an empty document, populate the process information.
@@ -208,8 +207,8 @@ while time_slides:
 	#
 
 	while N:
-		id, offsetdict = time_slides.pop()
-		for row in ligolw_tisi.RowsFromOffsetDict(offsetdict, id, process):
+		offsetvect = time_slides.pop()
+		for row in ligolw_tisi.RowsFromOffsetDict(offsetvect, lsctables.TimeSlideTable.get_next_id(), process):
 			timeslidetable.append(row)
 		N -= 1
 

@@ -1,0 +1,1246 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+__prog__ = 'lalapps_cbc_plotrates'
+# FIXME: Non cumulative plot too?
+description = 'Creates plots of cumulative rate vs. a given statistic. Statistics can be either single or coincident, and can be queried or computed on the fly from either a sngl table or a coinc table.'
+usage = '%s [options] file1.sqlite file2.sqlite ...'
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys
+import os
+import math
+import numpy
+from scipy import special
+import bisect
+import matplotlib
+matplotlib.use('Agg')
+import pylab
+pylab.rc('text', usetex=True)
+
+from glue import lal
+from glue.ligolw import dbtables
+from glue.ligolw import lsctables
+from glue.iterutils import all, any
+from glue import git_version
+
+from pylal import ligolw_sqlutils as sqlutils
+from pylal import InspiralUtils
+
+# =============================================================================
+#
+#                                   Set Options
+#
+# =============================================================================
+
+
+def parse_command_line():
+    """
+    Parse the command line, return options and check for consistency among the
+    options.
+    """
+    parser = OptionParser( version = git_version.verbose_msg, usage = usage, description = description )
+
+    # following are related to file input and output naming
+    parser.add_option( "-o", "--output-path", action = "store", type = "string", default = './',
+        help =
+            "Output path to save figures to."
+            )
+    parser.add_option( "-u", "--user-tag", action = "store", type = "string", default = '',
+        help =
+            "User-tag for plot file names"
+            )
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
+        metavar = "PATH",
+        help =
+            "Location of local disk on which to do work. " +
+            "This is used to enhance performance in a networked " +
+            "environment."
+            )
+    parser.add_option( "-c", "--cache-file", action = "append", default = [],
+        help =
+            "Read files from the given cache file. File must be lal formated. To specify multiple, give the argument multiple times."
+            )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+        help =
+            "Print progress information"
+           )
+    # following are specific to this program
+    parser.add_option("-s", "--statistic", action = "store", type="string",
+        default=None, metavar="STATTYPE(:label)",
+        help =
+            "Stat to plot. Can be any column or any function of columns in the given table. Syntax for functions is python; functions available are anything from python's math module. To specify a label for the stat when plotting, append a colon and the label."
+        )
+    parser.add_option("-d", "--data-table", action = "store", type = "string", default = None, 
+        help =
+            "Table to get triggers from. Can be any table with either a coinc_event_id or an event_id. If the table has a coinc_event_id, it will be assumed to be a coincident table and so must have an 'ifos' column. If the table has an event_id, it will be assumed to be a single event table, and so must have an 'ifo' column. Additionally, if a combining-method or function is specified, single events will be groupped together via their event_ids in the coinc_event_map table. Note: Plotting using single event tables can cause the program to take siginificantly longer to execute than coincident event tables. If a coincident statistic has already been computed and exists in the coinc_event table, always use that instead."
+        )
+    parser.add_option("-C", "--combining-method", action = "store", type="string", metavar = 'sum | quad_sum | mean | median | min | max', default=None,
+        help =
+            "How to combine the given statistic for each ifo. This is only needed if trying to plot coincident statistics from a single event table. Supported methods are sum, quad_sum (the square root of the sum of the squares), mean, median, min, or max values."
+        )
+    parser.add_option("-F", "--combining-function", action = "store", type="string", default=None,
+        help =
+            "A more explicit alternative to combining-method, this allows you to specify exactly how to combine values from each ifo. The expression should be a function of the ifos to be combined; if an ifo isn't present in a given coinc, it will be given a 0 value. For instance, if --statistic is set to snr, and the combining-method is set to sqrt(H1**2+L1**2+(.5*V1)**2), then the sum of the squares of H1, L1, and V1 will be plotted, with a weight of .5 given to V1. If doubles are present, they will also be plotted. Only ifos that are specified will be included in coincs. In other words, if only H1 and L1 are listed in the equation only H1 and L1 will be included, even if H2 was listed as being coincident with them in the database. If combining-method is also specified, combining-function takes precedence."
+        )
+#    parser.add_option("-S", "--reference-snr", action = "store", type = "float",
+#        default = 8.,
+#        help =
+#            "Reference snr to plot. Default is 8.0."
+#        )
+    parser.add_option("-f", "--foreground-datatype", action = "store", type = "string", default = "slide",
+        help =
+            "Plot the given foreground type. Options are all_data, exclude_play, playground, or simulation. Default is to plot no foreground. Background expected rates are determined by the livetime of the specified datatype. If not foreground datatype specified, expected rates are based on the average background time."
+       )
+    parser.add_option( "-p", "--param-name", metavar = "PARAMETER[:label]",
+        action = "store", default = None,
+        help =
+            "Specifying this and param-ranges will only select triggers that fall within the given range for each plot. " +
+            "This will apply to all plots. Any column(s) in the simulation or recovery table may be used. " +
+            "To specify a parameter in the simulation table, prefix with 'injected_'; " +
+            "for recovery table, 'recovered_'. As with variables, math operations are permitted between columns, e.g.," +
+            "injected_mass1+injected_mass2. Any function in the python math module may be used; syntax is python. The parameter name " +
+            "will be in the title of each plot; to give a label for the name, add a colon and the label. If no label is specified, the " +
+            "the parameter name as given will be used. " +
+            "WARNING: if you use any recovered parameters, missed injections will not be included in plots " +
+            "as recovered parameters are undefined for them. For example, if you chose to bin by recovered_mchirp " +
+            "missed injections will not be plotted on any plot. If you chose to bin by injected_mchirp, however, missed injections " +
+            "will be plotted. "
+        )
+    parser.add_option( "-q", "--param-ranges", action = "store", default = None,
+        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
+        help = 
+            "Requires --param-name. Specify the parameter ranges " +
+            "to select triggers in. A '(' or ')' implies an open " +
+            "boundary, a '[' or ']' a closed boundary. To specify " +
+            "multiple ranges, separate each range by a ';'. To " +
+            "specify a single value, just type that value with no " +
+            "parentheses or brackets. To specify not equal to a single " +
+            "value, put a '!' before the value. If " +
+            "multiple ranges are specified, a separate plot for each range will be generated."
+        )
+    parser.add_option("", "--param-combining-method", default = "mean",
+        help =
+            "For sngl-ifo tables, how to combine the --param-name. Either a combining-function or method may be used. Default is mean."
+        )
+    parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
+        metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];"
+            "[ALL in INSTRUMENTS_ON2]; etc.",
+        help = 
+            "Exclude coincident types in specified detector times, " +
+            "e.g., '[H2,L1 in H1,H2,L1]'. Some rules: " +
+                "* Coinc-types and detector time must be separated by " +
+                "an ' in '. When specifying a coinc_type or detector " +
+                "time, detectors and/or ifos must be separated by " +
+                "commas, e.g. 'H1,L1' not 'H1L1'. " +
+                "* To specify multiple coinc-types in one type of time, " +
+                "separate each coinc-type by a '+', e.g., " +
+                "'[H1,H2 + H2,L1 in H1,H2,L1]'. " +
+                "* To exclude all coincs in a specified detector time " +
+                "or specific coinc-type in all times, use 'ALL'. E.g., " +
+                "to exclude all H1,H2 triggers, use '[H1,H2 in ALL]' " +
+                "or to exclude all H2,L1 time use '[ALL in H2,L1]'. " + 
+                "* To specify multiple exclusions, separate each " +
+                "bracket by a ';'. " +
+                "* Order of the instruments nor case of the letters " +
+                "matter. So if your pinky is broken and you're " +
+                "dyslexic you can type '[h2,h1 in all]' without a " +
+                "problem."
+            )
+    parser.add_option( "", "--include-only-coincs", action = "store", type = "string", default = None,
+        metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
+            "[ALL in INSTRUMENTS_ON2]; etc.",
+        help =
+            "Opposite of --exclude-coincs: only plot the specified coinc types. WARNING: If you type 'ALL' for on-instruments, e.g., '[H1,L1 in ALL]', and plot-by-instrument-time is not on, livetime from *all* of the instrument times will be included in the background, even if it is from an instrument time that could not produce H1,L1 triggers. If this isn't desired, either be explicit about what instrument times you really want -- i.e., don't use 'ALL' -- or use --exclude-coincs to exclude the instrument times you don't want. In the example, adding --exclude-coincs [ALL in L1,V1];[ALL in H1,V1] will prevent any H1,V1 or L1,V1 time from being added."
+            )
+    parser.add_option( "-I", "--plot-by-ifos", action = "store_true", default = False,
+        help =
+            "Create a separate plot for each coincidence type (if plotting a combined statistic) or single ifo (if plotting single ifo statistics). Default is to plot all ifo(s) together."
+            )
+    parser.add_option( "-T", "--plot-by-instrument-time", action = "store_true", default = False,
+        help =
+            "Create a separate plot for each instrument time. Default is to plot all instrument times together."
+            )
+    parser.add_option( "-M", "--plot-by-multiplicity", action = "store_true", default = False,
+        help =
+            "Create a separate plot based on the number of coincident instruments. (For single ifo plotting, this is a no-op.) In other words, doubles will be plotted with doubles, triples with triples, etc. Default is to plot all coincident ifos together. If this and plot-by-ifos specified, plot-by-ifos takes precedence."
+            )
+    parser.add_option( "-U", "--time-units", type = "string", default = "yr",
+        help =
+            "What unit of time to plot the rates in. Can be either 'yr', 'days', 'hr', 'min', or 's'. Default is yr."
+            )
+    parser.add_option( "-R", "--use-ifo-colors", action = "store_true", default = False,
+        help =
+            "Color foreground points by ifo color. Default is to plot no color (all triggers have a blue outline)."
+            )
+    parser.add_option( "-S", "--plot-slides", action = "store_true", default = False,
+        help =
+            "Plot individual slides (aka 'lightning bolts')."
+            )
+    parser.add_option( "-e", "--max-sigma", type = 'int', default = 5,
+        help =
+            "Maximum number of significance bands to plot."
+            )
+
+
+    (options, args) = parser.parse_args()
+
+
+    return options, args, sys.argv[1:]
+
+
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+def get_row_stat(row, arg):
+    """    
+    Method to evaluate the desired operation on columns from a row in a table. The desired operation can be either a pre-defined function (if it exists in the row's namespace) or a function of the elements in the row's name space. Syntax for the arg is python. 
+    The name space available to eval is limited to the columns in the row and functions in the math module.
+    """
+    # for speed: if the arg exists in the row, just return it
+    if arg in dir(row):
+        try:
+            return getattr( row, arg )()
+        except TypeError:
+            return getattr( row, arg )
+    # otherwise, evaluate explicitly
+    row_dict = dict([ [name, getattr(row,name)] for name in dir(row) ])
+    safe_dict = dict([ [name,val] for name,val in row_dict.items() + math.__dict__.items() if not name.startswith('__') ])
+    
+    return eval( arg, {"__builtins__":None}, safe_dict )
+
+def createDataHolder( tableName, columns = None ):
+    """
+    Creates a DataHolder object. If tableName is the same as a table in lsctables, the DataHolder class will be an instance of that table's RowType.
+    """
+    if tableName in lsctables.TableByName:
+        base = lsctables.TableByName[ tableName ].RowType
+    else:
+        base = object
+    # define the class
+    class DataHolder( base ):
+        def __init__(self, columns = None):
+            # override the __slots__ class (if it exists) with columns, if they are specified
+            if columns is not None:
+                self.__slots__ = columns
+
+        def store( self, data ):
+            """
+            Takes a list of data and assings the values to the object's variables.
+
+            @data: a list of tuples in which the first element is the column name and the second is the value to assign.
+            """
+            for col, val in data:
+                setattr( self, col, val )
+
+        def get_value(self, arg):
+            """
+            Returns the result of some operation on the elements in self. 'arg' can be the name of any defined function in self's base class, a slot in self, or a function of either or both. See get_row_stat for more info.
+            """
+            return get_row_stat( self, arg )
+
+    return DataHolder
+
+def combineRowStats( function, rows ):
+    """
+    Performs the desired function on the list of single statistics. Note: this can only combine one statistic from each row.
+    @function: can be either a known pre-set (see below) or an arbitrary function. If an arbitrary function, it must be in terms of the ifo names.
+    @rows: a dictionary of statistics keyed by the ifos
+    """
+    # check if the function is a known pre-sets
+    if function == 'sum':
+        return sum(rows.values())
+    if function == 'quad_sum':
+        return math.sqrt(sum([x**2. for x in rows.values()]))
+    if function == 'min':
+        return min(rows.values())
+    if function == 'max':
+        return max(rows.values())
+    if function == 'mean':
+        return numpy.mean(numpy.array(rows.values()))
+    if function == 'median':
+        return numpy.median(numpy.array(rows.values()))
+    if function == 'alpha_min':
+        return rows[min(rows.keys())]
+    if function == 'sorted_keys':
+        return ','.join(sorted(rows.keys()))
+
+    # otherwise, evaulate the function explicitly
+    safe_dict = dict([ [name,val] for name,val in rows.items() + math.__dict__.items() if not name.startswith('__') ])
+
+    try:
+        return eval( function, {"__builtins__":None}, safe_dict )
+    except NameError:
+        # this can happen if an ifo that's specified in the combining function is not in the coincident ifos; in this case, just return None
+        return None
+
+class OffsetVector(dict):
+    weak_equality = False
+    def __init__(self, offset_dict):
+        for ifo in offset_dict:
+            self[ifo] = offset_dict[ifo]
+
+    def __eq__(self, other):
+        """
+        The default equality test is to consider two vectors to be equal only if all ifos are the same and all offsets are the same. If one vector is a subset of the other vector, they will not be considered equal. However, if the class attribute weak_equality is set to True, only offsets of the ifos that are both in self and other will be checked. For example:
+        >>> a = OffsetVector({'H1': 0, 'L1': 5})
+        >>> b = OffsetVector({'H1': 0, 'L1': 5, 'V1': 10})
+        >>> a == b
+        False
+        >>> OffsetVector.weak_equality = True
+        >>> a == b
+        True
+        """
+        if type(other) != type(self):
+            return False
+        if OffsetVector.weak_equality:
+            return all( self[ifo] == other[ifo] for ifo in set(self.keys()) & set(other.keys()) )
+        else:
+            return self.__hash__() == other.__hash__()
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        if OffsetVector.weak_equality:
+            return 1
+        else:
+            return hash(tuple(sorted(self.items())))
+
+
+class Category:
+    """
+    Class to store category information.
+    """
+    default_match_criteria = ['offset_vector', 'datatype', 'veto_cat', 'on_instruments', 'ifos', 'param_group']
+
+    def __init__(self, offset_vector = {}, datatype = None, veto_cat = None, on_instruments = frozenset(['ALL']), ifos = frozenset(['ALL']), param_group = None):
+        self.offset_vector = OffsetVector(offset_vector)
+        self.datatype = datatype
+        self.veto_cat = veto_cat
+        self.on_instruments = frozenset(on_instruments)
+        self.ifos = frozenset(ifos)
+        self.param_group = param_group
+        self.livetime = 0
+
+    def add_livetime(self, time):
+        self.livetime += time
+
+    def get_livetime(self, time_units = 'yr'):
+        return sqlutils.convert_duration( self.livetime, time_units )
+
+    def selective_eq(self, other, check_me):
+        """
+        Only checks the values listed in check_me to figure out whether or not self is equal to other.
+        """
+        if type(other) != type(self):
+            return False
+        return all(getattr(self,x) == getattr(other,x) for x in check_me)
+
+    def __eq__(self, other):
+        """
+        For default equality check, uses class attribute default_match_criteria to check what parameters should be considered.
+        """
+        b = type(self) == type(other) and self.__hash__() == other.__hash__()
+        if b and OffsetVector.weak_equality and 'offset_vector' in Category.default_match_criteria:
+                b = self.offset_vector == other.offset_vector
+        return b
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(tuple(getattr(self,x) for x in Category.default_match_criteria))
+
+
+class Data( dict ):
+    """
+    Class to store statistics and livetime for plotting.
+    """
+    class DataElement:
+        """
+        Sub-class to store individual data elements.
+
+        @categories: a list of instances of the Category class defining which categories this data element belongs to
+        @data: an instance of the DataHolder class listing statistics and methods associated with this element
+        """
+        def __init__(self, thisid, categories, data):
+            self._id = thisid
+            self.categories = categories
+            self.data = data
+            self.cumrates = {}
+
+        def update(self, _id = None, categories = [], data = None,  addToExistingCat = True):
+            # update id
+            if _id is not None:
+                self._id = _id
+            # update data
+            if data is not None:
+                self.data = data
+            # update categories
+            if addToExistingCat:
+                self.categories.extend(categories)
+            else:
+                self.categories = categories
+
+    def __init__(self):
+        """
+        A list of all the data elements is kept as an index.
+        """
+        self.data_index = {}
+
+    def add_data(self, _id, categories, data):
+        """
+        Adds a new DataElement to self.
+
+        @id: some unique value to identify the data element
+        @categories: a list of categories that this data falls in. If one or more of these categories are equal (equality determined by the default Category match_criteria) to a category already in all_categories, the category is set to that category. This results in distinct categories only being saved once in memory, with all DataElements that share that category pointing to the same memory address.
+        """
+        d = self.DataElement( _id, categories, data )
+        self.data_index[_id] = d
+        for c in categories:
+            self.setdefault(c, [])
+            self[c].append( d )
+
+    def update(self, _id, categories = [], data = None, addToExistingCat = True, errOnMissing = True):
+        """
+        Updates all DataElements in self that have the given id. If no DataElement is found with the given id and errOnMissing is False, adds a new entry.
+        """
+        if _id not in self.data_index:
+            if errOnMissing:
+                raise ValueError, "An element with id %s could not be found." % str(_id)
+            else:
+                self.add_data( _id, categories, data )
+        else:
+            self.data_index[_id].update( categories = categories, data = data, addToExistingCat = addToExistingCat)
+            self.refresh_categories( [self.data_index[_id]] )
+
+    def refresh_categories( self, data_list ):
+        """
+        Updates self with categories that are in data_list that are not in self.
+        """
+        for d in data_list:
+            self.data_index[d._id] = d
+            for c in d.categories:
+                self.setdefault(c, [])
+                if d not in self[c]:
+                    self[c].append(d)
+    
+    def add_livetime(self, livetime, category, match_criteria = []):
+        """
+        Adds livetime to all categories in self that match the given criteria.
+        """
+        if match_criteria == []:
+            match_criteria = Category.default_match_criteria
+        for cat in [cat for cat in self if cat.selective_eq(category, match_criteria)]:
+            cat.livetime += livetime
+
+    def get_livetime(self, category, match_criteria = [], time_units = 'yr'):
+        """
+        Returns the sum of all the livetimes of categories that match the given category via the given match_criteria.
+        """
+        if match_criteria == []:
+            match_criteria = Category.default_match_criteria
+        return sqlutils.convert_duration(sum([cat.livetime for cat in self if cat.selective_eq(category, match_criteria)]), time_units)
+
+    def create_background(self, match_criteria = []):
+        """
+        Creates background categories out of the slide categories and adds this to all slide elements' categories lists. Default action is to create a background for each veto-category, on_instruments, ifos, and param_group. However, this can be overridden with the match_criteria argument.
+        """
+        if match_criteria == []:
+            match_criteria = ['veto_cat', 'on_instruments', 'ifos', 'param_group']
+        for vals in set([ tuple(getattr(c, x) for x in match_criteria) for c in self if c.datatype == 'slide' ]):
+            # create the background category
+            bkg_cat = Category( offset_vector = {}, datatype = 'background' )
+            [setattr(bkg_cat, x, y) for x, y in zip(match_criteria, vals)]
+            bkg_cat.livetime = sum([c.livetime for c in self if c.datatype == 'slide' and bkg_cat.selective_eq(c, match_criteria)  ])
+            # add this background category to each matching slide's categories
+            self[bkg_cat] = list(set([x for c in self if c.datatype == 'slide' and bkg_cat.selective_eq(c, match_criteria) for x in self[c]]))
+
+    def compute_cumrates(self, stat, foreground_datatype, rank_by = 'max', group_by = [], num_slides = 100.):
+        """
+        Computes the cumulative rates for all the distinct groups that exist in self. Distinct groups are determined by group_by.
+        """
+        if group_by == []:
+            group_by = ['datatype', 'veto_cat', 'on_instruments', 'ifos', 'param_group']
+        distinct_groups = set([ tuple(getattr(c,x) for x in group_by) for c in self])
+        for group in distinct_groups:
+            this_group = Category()
+            [setattr(this_group, x, y) for (x,y) in zip( group_by, group )]
+            this_group.livetime = self.get_livetime( this_group, group_by, time_units = 's' )
+            # get the list of all stats that fall in this category
+            this_data = []
+            for c in self:
+                if c.selective_eq(this_group, group_by):
+                    this_data.extend( self[c] )
+            this_data = sorted(set(this_data), key = lambda x: getattr(x.data, stat), reverse = rank_by == 'min')
+            d = [getattr(x.data, stat) for x in this_data]
+            #   we need to figure out the number of trials that were done in this category; we do this by taking the ratio
+            #   of the this category's livetime to the foreground datatype associated with this category's livetime
+            # temporarily set this_group's datatype to foreground_datatype in order to get the right livetime
+            orig_dt = this_group.datatype
+            this_group.datatype = foreground_datatype
+            fg_livetime = self.get_livetime( this_group, match_criteria = 'datatype' not in group_by and group_by+['datatype'] or group_by, time_units = 's' )
+            nTrials =  float(this_group.livetime) / fg_livetime
+            # set datatype back to correct
+            this_group.datatype = orig_dt
+            # compute the cum-rates
+            these_cumrates = [ (len(d) - bisect.bisect_left(d, x))/nTrials for x in d ]
+            # assign to data
+            for data_elem, rate in zip( this_data, these_cumrates ):
+                data_elem.cumrates[this_group] = rate
+       
+    def get_cumrates(self, group, stat, rank_by ='max'):
+        """
+        Returns a sorted list (by stat) of stats, cumrates, and ids for the given group.
+        """
+        return sorted([(getattr(d.data, stat), d.cumrates[group], d._id) for d in self.data_index.values() if group in d.cumrates], reverse = rank_by == 'min')
+
+    def get_data(self, _id = None, category = None, category_match_criteria = []):
+        """
+        Returns a list of DataElements that matches a given id, a given category, or both. If category_match_criteria is specified, will get data that matches the specified elements in category. Otherwise, will use Category.default_match_criteria for comparing category to the stored categories.
+        """
+        if category_match_criteria == []:
+            category_match_criteria = Category.default_match_criteria
+        return set([x for c in self for x in self[c] if (category is None or c.selective_eq(category, category_match_criteria)) and (_id is None or _id == x._id)])
+
+    def get_categories(self, category, match_criteria = []):
+        """
+        Returns a list of categories in self that match the given category via the match_criteria.
+        """
+        if match_criteria == []:
+            match_criteria = Category.default_match_criteria
+        return [x for x in self if x.selective_eq(category, match_criteria)] 
+
+    def collapse(self, args):
+        """
+        Cycles over the DataElements in self, keeping only the given args.
+        
+        @args: A list of tuples. In each tuple, the first element is the name to give the new collapsed value and the second element is the argument to carry out (either a name or a function) on the uncollapsed row to get the collapsed value.
+        """
+        cols = [arg[0] for arg in args]
+        fns = [arg[1] for arg in args]
+        collapsedRow = createDataHolder( 'collapsedRow' )
+        for n,origElement in enumerate(self.data_index.values()):
+            d = collapsedRow( cols )
+            d.store([(col, origElement.data.get_value(fn)) for col, fn in zip(cols, fns)]) 
+            origElement.data = d
+       
+def combineData(dataObj, match_column, args, param_grouping_function, verbose = False):
+    """
+    Cycles over the DataElements in dataObj, combining any DataElements with the same match_column value via the given args and returns a new Data object in which the element's ids are the values of the match_column. Note: the categories of the DataElements in the new Data object are just the concatenation of the older objects individual categories. These might need to be updated depending on the paramters of the newer category.
+
+    @dataObj: the instace of Data to carry the combination on
+    @match_column: name of column in the DataElements to use to match rows to combine; e.g., 'coinc_event_id'
+    @args: a list of tuples. In each tuple the first element is the name to give the new combined value, the second element is the column in each row to identify that row by, the third is the column or function of columns in each row to combine, and the final element is the way to combine them, which can be either a predefined method or a function in terms of values of the first element. For example, if you wanted the average chirp mass and the sum of the squares of new_snr over H1 and L1, the args should look like:
+        args = [ (combined_newsnr_sq, ifo, get_new_snr, H1**2.+L1**2.), (combined_mchirp, ifo, mchirp, mean) ]
+    """
+    cols = [arg[0] for arg in args]
+    colkeys = [arg[1] for arg in args]
+    sngl_stats = [arg[2] for arg in args]
+    cmb_fncs = [arg[3] for arg in args]
+    newData = Data()
+    combinedRow = createDataHolder( 'combinedRow' )
+    # get the unique match values
+    match_vals = {}
+    for d in dataObj.data_index.values():
+        this_id = d.data.get_value(match_column)
+        match_vals.setdefault(this_id, [])
+        match_vals[this_id].append(d)
+    ii = 0
+    for idcol, combine_data in match_vals.items():
+        ii += 1
+        if verbose:
+            if ii != len(match_vals):
+                print "%i/%i (%.2f%%)\r" % (ii, len(match_vals), 100*float(ii)/len(match_vals)),
+            else:
+                print '' 
+        newRow = combinedRow( cols )
+        stats = [ dict([ [x.data.get_value(colkey), x.data.get_value(snglstat)] for x in combine_data ]) for colkey, snglstat in zip(colkeys, sngl_stats) ]
+        newRow.store( [( col, combineRowStats( fnc, stat_dict )) for col, fnc, stat_dict in zip(cols, cmb_fncs, stats)] )
+        orig_cats = [y for x in combine_data for y in x.categories] 
+        ifos_param = 'ifos' in dir(newRow) and 'ifos' or 'ifo'
+        new_cats = [Category( c.offset_vector, c.datatype, c.veto_cat, c.on_instruments, getattr(newRow, ifos_param), param_grouping_function(newRow.param) ) for c in orig_cats]
+        newData.add_data( id(newRow), new_cats, newRow )
+
+    return newData
+
+def join_experiment_tables_to_sngl_table( table ):
+    return """ 
+    JOIN
+        experiment, experiment_summary, experiment_map, coinc_event_map 
+    ON ( 
+        experiment.experiment_id == experiment_summary.experiment_id
+        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+        AND experiment_map.coinc_event_id == coinc_event_map.coinc_event_id
+        AND coinc_event_map.event_id == %s.event_id )""" % table
+
+def coinc_in_filter( on_instruments, ifos, filter, sngl_ifos = False ):
+    if on_instruments is None or on_instruments == 'ALL':
+        on_instruments = frozenset(['ALL'])
+    if not (isinstance(on_instruments,set) or isinstance(on_instruments, frozenset)):
+        on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
+    # following means to only check the on_instruments
+    if ifos is None or ifos == 'ALL':
+        return frozenset(on_instruments) in filter or frozenset(['ALL']) in filter
+
+    if not (isinstance(ifos,set) or isinstance(ifos, frozenset)):
+        if sngl_ifos:
+            ifos = set([ifos])
+        else:
+            ifos = lsctables.instrument_set_from_ifos(ifos)
+    # if given on_instruments is 'ALL', means to only check if ifos are in any filter
+    if on_instruments == frozenset(['ALL']):
+        if sngl_ifos:
+            return set(['ALL']) in filter.values() or any(ifos.issubset(x for x in filter.values()))
+        else:
+            return set(['ALL']) in filter.values() or ifos in filter.values()
+    # do full test
+    if frozenset(['ALL']) in filter: # on-instruments don't matter, just check ifos
+        if sngl_ifos:
+            return set(['ALL']) in filter[frozenset(['ALL'])] or ifos.issubset(filter[frozenset(['ALL'])])
+        else:
+            return set(['ALL']) in filter[frozenset(['ALL'])] or ifos in filter[frozenset(['ALL'])]
+    elif frozenset(on_instruments) in filter:
+        if sngl_ifos:
+            return set(['ALL']) in filter[frozenset(on_instruments)] or ifos.issubset(filter[frozenset(on_instruments)])
+        else:
+            return set(['ALL']) in filter[frozenset(on_instruments)] or ifos in filter[frozenset(on_instruments)]
+    # if get to here, fails all tests
+    else:
+        return False
+        
+def poissonPDFlog10( k,lmbda ):
+    return k*numpy.log10( lmbda ) - (lmbda + special.gammaln(k+1.))/numpy.log(10.)
+
+def ColorFormatter(y, pos):
+    return "$10^{%.1f}$" % y
+
+#
+#   Helper functions to compute stats on the fly when querying the database
+#
+
+class checkInstruments:
+    def __init__(self, filter_name, filter, is_single = False):
+        self.filter_name = filter_name
+        self.filter = filter
+        self.is_single = is_single
+    def apply_test(self, on_instruments, ifos):
+        return coinc_in_filter( on_instruments, ifos, self.filter, sngl_ifos = self.is_single )
+    def create_apply_test(self, sqlite_connection):
+        sqlite_connection.create_function(self.filter_name, 2, self.apply_test)
+
+
+def createCombineRowsMethod( tableName, columns, functionList ):
+    """
+    Creates a CombineRows class that can be used in a sqlite database to combine rows on the fly. Takes in a sngl_function, which is the function used to combine columns within a single row, and a combining_function, which is the function used to combine the results of the sngl_functions across rows.
+
+    @tableName: the name of the table that will be reading from. If it is a table in lsctables.py, all methods and columns from that table will be inherited.
+    @columns: the list of columns that will be storing data to. This list must be in the same order that will be reading data in from the database with.
+    @functionList: a list of tuples. The first item should be the combining function to use, in terms of the ifos to combine, and the second item should be the sngl function to use, in terms of columns or methods of the sngl_row.
+    """
+
+    sngl_row = createDataHolder(tableName, columns)
+
+    class CombineRows:
+        def __init__(self):
+            """
+            Initializes variables needed for the step process.
+            """
+            self.this_coinc = dict([ [combine_func, {}] for combine_func, _ in functionList ])
+
+        def step(self, *args):
+            """
+            Populates self.this_coinc
+            """
+            this_row = sngl_row(columns)
+            this_row.store(zip(columns,args))
+            for combine_func, sngl_function in functionList:
+                self.this_coinc[combine_func][this_row.ifo] = this_row.get_value(sngl_function)
+
+        def finalize(self):
+            """
+            Once all the singles for the coinc have been gathered, applies the desired combining function(s) to them and returns the result. Results are returned as a comma seperated string.
+            """
+            if 'alpha_min' in self.this_coinc and any(int(x) == 968654558 for x in self.this_coinc['alpha_min'].values()):
+                print self.this_coinc
+            return ','.join([str(combineRowStats( cFunc, self.this_coinc[cFunc] )) for cFunc, _ in functionList])
+
+    return CombineRows
+
+
+class getRowStatsFromDatabase:
+    """
+    Helper class to get row stat directly from the database.
+    """
+    def __init__(self, tableName, columns, functionList):
+        """
+        @tableName: see createCombineRowsMethod.
+        @columns: see createCombineRowsMethod.
+        @functionList: a list of functions to retrieve from the columns in tableName.
+        """
+        self.dataRow = createDataHolder(tableName, columns)
+        self.functionList = functionList
+        self.columns = columns
+    def get_dbrow_stat(self, *args ):
+        """
+        Gets the stat.
+
+        @args: data must be in the same order as columns.
+        """
+        this_row = self.dataRow(self.columns)
+        this_row.store(zip(self.columns,args))
+        return ','.join([ str(this_row.get_value(func)) for func in self.functionList ])
+
+
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+
+#
+#       Generic Initilization
+#
+
+opts, filenames, input_args = parse_command_line()
+for this_cache in opts.cache_file:
+    this_cache = lal.Cache().fromfile(file(this_cache))
+    filenames.extend([x.path() for x in this_cache])
+sqlite3.enable_callback_tracebacks(True)
+
+statistic, stat_label = len(opts.statistic.split(':')) == 2 and opts.statistic.split(':') or [opts.statistic, opts.statistic.replace('_', ' ').title()]
+data_table = sqlutils.validate_option(opts.data_table)
+
+combining_function = None
+if opts.combining_method is not None:
+    combining_function = opts.combining_method
+if opts.combining_function is not None:
+    combining_function = opts.combining_function
+
+# get foreground datatype
+fg_datatype = sqlutils.validate_option( opts.foreground_datatype, lower = True )
+if fg_datatype not in lsctables.ExperimentSummaryTable.datatypes:
+    raise ValueError, "unrecognized foreground-datatype %s" % opts.foreground_datatype
+# for the sqlqueries:
+if fg_datatype != 'slide':
+    add_foreground = ' OR experiment_summary.datatype == "%s"' % fg_datatype
+else:
+    add_foreground = ''
+
+# Get param and param-ranges if specified
+if opts.param_name:
+    param_name, param_label = len(opts.param_name.split(':')) == 2 and opts.param_name.split(':') or [opts.param_name, opts.param_name.replace('_', ' ').title()]
+    param_parser = sqlutils.parse_param_ranges( data_table, param_name, opts.param_ranges, verbose = opts.verbose )
+   
+# Get coincs to include/exclude
+#FIXME: parse_coinc_options should use frozenset(['ALL]), not 'ALL'
+if opts.exclude_coincs:
+    exclude_filter = sqlutils.parse_coinc_options( opts.exclude_coincs ).coinc_types
+    if 'ALL' in exclude_filter:
+        exclude_filter[frozenset(['ALL'])] = exclude_filter['ALL']
+        del exclude_filter['ALL']
+    for on_inst, coinc_ifos in exclude_filter.items():
+        exclude_filter[on_inst] = [ ifos == 'ALL' and set(['ALL']) or ifos for ifos in coinc_ifos ]
+if opts.include_only_coincs:
+    include_filter = sqlutils.parse_coinc_options( opts.include_only_coincs ).coinc_types
+    if 'ALL' in include_filter:
+        include_filter[frozenset(['ALL'])] = include_filter['ALL']
+        del include_filter['ALL']
+    for on_inst, coinc_ifos in include_filter.items():
+        include_filter[on_inst] = [ ifos == 'ALL' and set(['ALL']) or ifos for ifos in coinc_ifos ]
+
+# since we don't care about offset vectors, remove it from Category's default_match_criteria
+Category.default_match_criteria = [x for x in Category.default_match_criteria if x != 'offset_vector']
+
+# create things needed to store data
+data = Data()
+rowType = createDataHolder( 'data_holder', ['end_time', stat_label] )
+last_table_type = ''
+gps_start_time = numpy.inf
+gps_end_time = -numpy.inf
+analyzed_instruments = set()
+num_slides = None
+
+if opts.verbose:
+    print >> sys.stdout, "Analyzing file:"
+for filename in filenames:
+    if opts.verbose:
+        print >> sys.stdout, "\t%s" % filename
+    working_filename = dbtables.get_connection_filename( filename, tmp_path = opts.tmp_space, verbose = False )
+    connection = sqlite3.connect( working_filename )
+    if opts.tmp_space:
+        dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = False)
+
+    # figure out the data table type
+    data_cols = sqlutils.get_column_names_from_table(connection, data_table)
+    if 'coinc_event_id' in data_cols:
+        table_type = 'coinc'
+    if 'event_id' in data_cols:
+        table_type = 'sngl'
+
+    # sanity checks
+    if table_type == 'coinc' and 'ifos' not in data_cols or table_type == 'sngl' and 'ifo' not in data_cols:
+        raise ValueError, 'Could not find %s column in the data table (%s)' % (table_type == 'sngl' and 'ifo' or 'ifos', data_table)
+    if last_table_type != '' and last_table_type != table_type:
+        raise ValueError, '%s table in file %s does not match the types in the other files' %( data_table, filename )
+
+    # TODO: I don't need this for this program, but it could be useful for others; will add this to ligolw_sqlutils
+    # construct an offset dictionary for this database
+    #offset_dict = {}
+    #sqlquery = "SELECT time_slide_id, instrument, offset FROM time_slide"
+    #for tsid, instrument, offset in connection.cursor().execute(sqlquery):
+    #    offset_dict.setdefault( tsid, {} )
+    #    offset_dict[tsid][instrument] = offset
+    #    analyzed_instruments.add(instrument)
+
+    #
+    #   create/update the background categories in data
+    #
+    if opts.verbose:
+        print "\tgetting background categories..."
+
+    # if excluding instrument times or coincs, create the test for them
+    in_desired_times = ''
+    if opts.include_only_coincs:
+        db_include_filter = checkInstruments( 'in_include_filter', include_filter, is_single = False )
+        db_include_filter.create_apply_test(connection)
+        in_desired_times = ' AND in_include_filter(experiment.instruments, "ALL")'
+    if opts.exclude_coincs:
+        db_exclude_filter = checkInstruments( 'in_exclude_filter', exclude_filter, is_single = False )
+        db_exclude_filter.create_apply_test(connection)
+        in_desired_times = ' '.join([ in_desired_times, 'AND NOT in_exclude_filter(experiment.instruments, "ALL")'])
+
+    # establish how many independent backgrounds we'll need
+    tsids = set()
+    match_criteria = ['datatype', 'veto_cat', 'param_group']
+    if opts.plot_by_instrument_time:
+        match_criteria.append( 'on_instruments' )
+    if opts.param_name:
+        n_param_groups = len(param_parser.param_ranges)
+    else:
+        n_param_groups = 1
+    sqlquery = """
+        SELECT
+            experiment.instruments,
+            experiment_summary.time_slide_id,
+            experiment_summary.veto_def_name,
+            experiment_summary.duration,
+            experiment_summary.datatype
+        FROM
+            experiment_summary
+        JOIN
+            experiment
+        ON
+            experiment.experiment_id == experiment_summary.experiment_id
+        WHERE
+            (experiment_summary.datatype == 'slide'""" + add_foreground + ')' + in_desired_times
+    for on_instruments, tsid, veto_cat, duration, datatype in connection.cursor().execute(sqlquery):
+        on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
+        analyzed_instruments.update( on_instruments )
+        if datatype == "slide":
+            datatypes = ["slide", "background"]
+            # store the slide tsid's to keep track of the number of slides
+            tsids.add(tsid)
+        else:
+            datatypes = [datatype]
+        if opts.plot_by_ifos:
+             ifo_list = CoincInspiralUtils.get_ifo_combos(list(bkg_cat.on_instruments))
+        else:
+            ifo_list = [set(['ALL'])]
+        # if there is more than one param-group or we are plotting by ifos, add the needed backgrounds
+        for datatype in datatypes:
+            for param_group in range(n_param_groups):
+                for ifos in ifo_list:
+                    bkg_cat = Category( offset_vector = {}, datatype = datatype, veto_cat = veto_cat, ifos = ifos, param_group = param_group)
+                    if opts.plot_by_instrument_time:
+                        bkg_cat.on_instruments = on_instruments
+                    # add the background category
+                    data.setdefault( bkg_cat, [] )
+                    # add the livetime
+                    data.add_livetime( duration, bkg_cat, match_criteria )
+    
+    # add and check the slide count
+    # FIXME: We don't have to have the same number of slides in each database in order to do this. However, for that to happen,
+    # weighted averages have to be computed.
+    if num_slides is None and len(tsids) != 0:
+        num_slides = len(tsids)
+    elif len(tsids) != num_slides and len(tsids) != 0:
+        raise ValueError, "Database %s has a different number of slides (%i) than the other databases (%i)." %( filename, len(tsids), num_slides )
+
+    # set the slide's livetime to the average background time; we do this because all slides have been thrown into the same bucket
+    if len(tsids) != 0.:
+        for slide_cat in data.get_categories( Category(datatype = 'slide'), match_criteria = ['datatype'] ):
+            slide_cat.livetime = float(slide_cat.livetime) / len(tsids)
+
+    #
+    #   retrieve the desired statistic
+    #
+    if opts.verbose:
+       print >> sys.stdout, "\tgetting data..." 
+    
+    if table_type == 'sngl':
+        # create a function list of functions we'll need to combine
+        if opts.param_name:
+            functionList = [(opts.param_combining_method, param_name), ('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
+        else:
+            functionList = [('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
+        get_combined_data = createCombineRowsMethod( data_table, data_cols, functionList )
+        connection.create_aggregate('get_combined_data', len(data_cols), get_combined_data)
+        # create an aggregate function to get the ifos
+        get_ifos = createCombineRowsMethod( 'ifo_holder', ['ifo'], [('sorted_keys', 'ifo')] )
+        connection.create_aggregate('get_ifos', 1, get_ifos)
+         
+        #  If including or excluding coincs, need to create a function to combine ifos as well as discriminate single ifos.
+        #  By not allowing any single ifos by that are not in the desired coincident ifos, we're able to pick out doubles from triples (if desired).
+        #  We do this by taking the coinc filters and breaking up the coincident ifos that are in them, then pass them through coinc_in_filter
+        add_sngl_filter = ''
+        add_coinc_filter = ''
+        if opts.include_only_coincs:
+            include_sngl_filter = dict([ [on_inst, set([coinc == 'ALL' and 'ALL' or ifo for coinc in coincs for ifo in coinc])] for on_inst,coincs in include_filter.items() ])
+            db_include_sngl_filter = checkInstruments( 'in_include_sngl_filter', include_sngl_filter, is_single = True )
+            db_include_sngl_filter.create_apply_test(connection)
+            add_sngl_filter = ''.join([ 'AND in_include_sngl_filter(experiment.instruments, ', data_table, '.ifo', ') '])
+            add_coinc_filter = ''.join([ 'HAVING in_include_filter(experiment.instruments, ifos)' ])
+        if opts.exclude_coincs:
+            exclude_sngl_filter = dict([ [on_inst, set([coinc == 'ALL' and 'ALL' or ifo for coinc in coincs for ifo in coinc])] for on_inst,coincs in exclude_filter.items() ])
+            db_exclude_sngl_filter = checkInstruments( 'in_exclude_sngl_filter', exclude_sngl_filter, is_single = True )
+            db_exclude_sngl_filter.create_apply_test(connection)
+            add_sngl_filter = ''.join([ add_sngl_filter, 'AND NOT in_exclude_sngl_filter(experiment.instruments, ', data_table, '.ifo', ') '])
+            add_coinc_filter = ''.join([ add_coinc_filter, add_coinc_filter == '' and 'HAVING ' or 'AND ', 'NOT in_exclude_filter(experiment.instruments, ifos)'])
+        sqlquery = ''.join([ """
+            SELECT
+                experiment.gps_start_time,
+                experiment.gps_end_time,
+                experiment.instruments,
+                experiment_summary.datatype,
+                experiment_summary.veto_def_name,
+                coinc_event_map.coinc_event_id,
+                get_ifos(""", data_table, """.ifo) AS ifos,
+                get_combined_data(""", ','.join(['.'.join([data_table,col]) for col in data_cols]), """)
+            FROM
+                """, data_table, """
+            """, join_experiment_tables_to_sngl_table( data_table ), """
+            WHERE
+                (experiment_summary.datatype == 'slide'""", add_foreground, """)
+                """, add_sngl_filter, """
+            GROUP BY
+                coinc_event_map.coinc_event_id
+            """, add_coinc_filter ])
+
+    else:
+        # create method to get the stats and parameter
+        if opts.param_name:
+            functionList = [param_name, 'end_time+end_time_ns*1e-9', statistic]
+        else:
+            functionList = ['end_time+end_time_ns*1e-9', statistic]
+        getStatDB = getRowStatsFromDatabase( data_table, data_cols, functionList )
+        connection.create_function( 'get_stat', len(data_cols),  getStatDB.get_dbrow_stat )
+        get_stats = ''.join([ 'get_stat(', ','.join([ '.'.join([data_table,col]) for col in data_cols ]), ')' ])
+
+        add_coinc_filter = ''
+        if opts.include_only_coincs:
+            add_coinc_filter = ''.join([ ' AND in_include_filter(experiment.instruments, ', data_table, '.ifos)' ])
+        if opts.exclude_coincs:
+            add_coinc_filter = ''.join([ add_coinc_filter, ' AND NOT in_exclude_filter(experiment.instruments, ', data_table, '.ifos)'])
+        sqlquery = ''.join([ """
+            SELECT
+                experiment.gps_start_time,
+                experiment.gps_end_time,
+                experiment.instruments,
+                experiment_summary.datatype,
+                experiment_summary.veto_def_name,
+                """, data_table, """.coinc_event_id,
+                """, data_table, """.ifos,
+                """, get_stats, """
+            FROM
+                """, data_table, """ 
+            """,
+                sqlutils.join_experiment_tables_to_coinc_table( data_table ),
+            """
+            WHERE
+                (experiment_summary.datatype == 'slide'""", add_foreground, ')', add_coinc_filter ])
+    ii = 1
+    results = connection.cursor().execute(sqlquery).fetchall()
+    for result in results:
+        if opts.verbose:
+            ii += 1
+            if ii != len(results)+1:
+                print >> sys.stdout, "\t\t%i/%i (%.2f%%)\r" % (ii, len(results), 100*float(ii)/len(results)),
+            else:
+                print >> sys.stdout, '' 
+        gps_start_time = min(gps_start_time, result[0])
+        gps_end_time = max(gps_end_time, result[1])
+        if opts.plot_by_instrument_time:
+            on_instruments = frozenset(lsctables.instrument_set_from_ifos( result[2] ))
+        else:
+            on_instruments = frozenset(["ALL"])
+        datatype = result[3]
+        veto_cat = result[4]
+        ceid = result[5]
+        if opts.plot_by_ifos:
+            ifos = frozenset(lsctables.instrument_set_from_ifos(result[6]))
+        else:
+            ifos = frozenset(["ALL"])
+        if opts.param_name:
+            param_group, end_time, stat = [float(x) for x in result[7].split(',')]
+            param_group = param_parser.group_by_param_range( param_group )
+            # skip this if it doesn't fall in any desired param group
+            if param_group is None:
+                continue
+        else:
+            param_group = 0.
+            end_time, stat = [float(x) for x in result[7].split(',')]
+        this_row = rowType()
+        this_row.store([ ('end_time', end_time), ('stat', stat), ('ifos', result[6]) ])
+        # construct categories
+        categories = [ Category( {}, datatype, veto_cat, on_instruments, ifos, param_group ) ]
+        if datatype == "slide":
+            categories.append(Category( {}, 'background', veto_cat, on_instruments, ifos, param_group ))
+        # add to data
+        thisid = id(this_row) 
+        data.add_data( thisid, categories, this_row )
+
+    # go on to the next database
+    connection.close()
+    dbtables.discard_connection_filename( filename, working_filename, verbose = False)
+
+#
+#   Sort and calculate cumrate
+#
+if opts.verbose:
+    print "Computing cumulative rates..."
+
+# figure out how to populate the background categories
+group_by = ['veto_cat', 'param_group']
+if opts.plot_by_instrument_time:
+    group_by.append( 'on_instruments' )
+if opts.plot_by_ifos:
+    group_by.append( 'ifos' )
+
+data.compute_cumrates( 'stat', fg_datatype, rank_by = 'max', group_by = group_by+['datatype'])
+
+#
+#   Plot/Compute statistics
+#
+if opts.verbose:
+    print >> sys.stdout, "Plotting..."
+opts.gps_start_time = gps_start_time
+opts.gps_end_time = gps_end_time
+opts.ifo_times = ''.join(sorted(analyzed_instruments)) 
+opts.ifo_tag = ''
+opts.enable_output = True
+InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
+fnameList = []
+tagList = []
+comments = ''
+
+for bkg_category in data.get_categories( Category(datatype = 'background'), ['datatype'] ):
+    if opts.verbose:
+        print >> sys.stdout, "\tgroup: %s, %s, %s, %s" %(bkg_category.veto_cat, str(bkg_category.param_group), ''.join(bkg_category.on_instruments), ''.join(bkg_category.ifos))
+    pylab.figure(len(fnameList))
+    pylab.hold(True)
+    xmin = ymin = numpy.inf
+    xmax = ymax = -numpy.inf
+    # set a match category to pick out data with
+    match_category = Category()
+    match_criteria = group_by+['datatype']
+    [setattr(match_category, x, getattr(bkg_category, x)) for x in match_criteria]
+
+    # get foreground and  background livetime
+    T_bkg = data.get_livetime(bkg_category, time_units = opts.time_units)
+    match_category.datatype = fg_datatype
+    T_fg = data.get_livetime( match_category, time_units = opts.time_units )
+    # get background data
+    match_category.datatype = 'background'
+    plotvals = data.get_cumrates( match_category, 'stat', rank_by = 'max' )
+    bkg_stats = numpy.array([x[0] for x in plotvals])
+    bkg_cumnum = numpy.array([y[1] for y in plotvals])
+
+
+    #
+    # plot background
+    #
+    #pylab.plot( bkg_stats, bkg_cumnum / T_fg, color = 'k', label = 'Background', zorder = 2 )
+
+    # rest xmmin/xmax
+    if bkg_stats != []:
+        xmin = min(min(bkg_stats),xmin)
+        xmax = max(max(bkg_stats),xmax)
+    # reset ymin/ymax
+    if bkg_cumnum != []:
+        ymin = min(min(bkg_cumnum / T_fg),ymin)
+        ymax = max(max(bkg_cumnum / T_fg),ymax)
+
+    #
+    # compute and plot background error
+    #
+    bkg_error = numpy.sqrt( bkg_cumnum / (T_fg * T_bkg) )
+    pylab.errorbar( bkg_stats, bkg_cumnum / T_fg, yerr = bkg_error, color = 'k', ecolor = 'gray', marker = 'o', markersize = 4, linestyle = 'None', zorder = 2, label = 'Background' )
+    #pylab.plot( bkg_stats, bkg_cumnum / T_fg - bkg_error, color = 'gray', linestyle = '-', label = 'Background Error', zorder = 2 )
+    #pylab.plot( bkg_stats, bkg_cumnum / T_fg + bkg_error, color = 'gray', linestyle = '-', label = '_no_legend', zorder = 2 )
+    # store the ids of the loudest background events
+    loudest_bkg_events = []
+    for x in plotvals[::-1]:
+        if x[0] != max(bkg_stats):
+            break
+        loudest_bkg_events.append(x[2])
+
+    #
+    # plot foreground
+    #
+    loudest_events = []
+    if fg_datatype != 'slide':
+        match_category.datatype = fg_datatype
+        plotvals = data.get_cumrates( match_category, 'stat', rank_by = 'max' ) 
+        xvals = numpy.array([x[0] for x in plotvals])
+        yvals = numpy.array([y[1] for y in plotvals]) / T_fg 
+        # FIXME: add ability to color by ifo colors?
+        fclr = 'b'
+        lbl = fg_datatype.replace( '_', '-').title()
+        edgclr = fg_datatype == 'simulation' and 'r' or 'k'
+        pylab.scatter( xvals, yvals, marker = 'o', edgecolor = edgclr, facecolor = fclr, label = lbl, zorder = 3 )
+
+        # rest xmmin/xmax
+        if xvals != []:
+            xmin = min(min(xvals),xmin)
+            xmax = max(max(xvals),xmax)
+        # reset ymin/ymax
+        if yvals != []:
+            ymin = min(min(yvals),ymin)
+            ymax = max(max(yvals),ymax)
+
+        # store the ids of the loudest events
+        for x in plotvals[::-1]:
+            if x[0] != max(xvals):
+                break
+            loudest_events.append(x[2])
+
+    #   TODO: pylab.plot( [math.sqrt(2.)*opts.reference_snr, math.sqrt(2.)*opts.reference_snr], [ymin, ymax], 'r--', label = 'SNR %.1f in all ifos' % opts.reference_snr )
+
+    #
+    # plot poisson pdf
+    #
+    if opts.verbose:
+        print "\tcomputing poisson pdf..."
+    xrange = 101
+    yrange = 2*xrange
+    xcoords = numpy.linspace(min(bkg_stats),max(bkg_stats),xrange)
+    ycoords = numpy.logspace(0, numpy.log10(ymax+0.5), yrange)
+
+    xarray = numpy.zeros((xrange,yrange), dtype=float)
+    yarray = numpy.zeros((xrange,yrange), dtype=float)
+    zarray = numpy.zeros((xrange,yrange), dtype=float)
+
+    for xi,x in enumerate(xcoords):
+        # lmbda is the cumnum at the closest snr to (the right of) of x in the background
+        lmbda = bkg_cumnum[pylab.find( bkg_stats >= x )[0]]
+        for yi,y in enumerate(ycoords):
+            xarray[xi,yi] += x
+            yarray[xi,yi] += y
+            p = poissonPDFlog10( y, lmbda )
+            zarray[xi, yi] += p
+
+    # replace -infs with smallest non-inf value of z - 1
+    minz = min([z for z in zarray.flatten() if z != -numpy.inf])
+    for xi in range(len(xcoords)):
+        for yi in range(len(ycoords)):
+            if zarray[xi,yi] == -numpy.inf:
+                zarray[xi,yi] = minz - 1
+
+    # rescale the y-coordinates by T_fg
+    yarray = yarray / T_fg
+
+    # plot it
+    hxplt = pylab.hexbin(xarray.flatten(), yarray.flatten(), C = zarray.flatten(), gridsize=xrange-1, xscale='linear', yscale='log', edgecolors = 'none', vmin=-10.)
+    cb = pylab.colorbar(hxplt, format = pylab.FuncFormatter(ColorFormatter))
+    cb.ax.set_ylabel( 'Probability Density' )
+
+    #
+    # plot contours
+    #
+    if opts.max_sigma > 0.:
+        if opts.verbose:
+            print "\tplotting contours..."
+        sigmas = [numpy.log10(special.erfc((n+1)/numpy.sqrt(2))/2.) for n in range(opts.max_sigma)]
+        contplt = pylab.contour(xarray, yarray, zarray, sigmas, colors = 'k', linestyles='dashdot', label='N-\sigma', zorder = 1)
+        #pylab.clabel(contplt)
+        cb.add_lines(contplt)
+
+
+    pylab.gca().loglog()
+    pylab.grid()
+    pylab.legend(loc = 'upper right')
+
+    pylab.xlabel( stat_label )
+    pylab.ylabel( "Cumulative Rate ($%s^{-1}$)" % opts.time_units )
+    if opts.param_name is not None:
+        t = 'Cumulative Histogram %s %s' % (param_label.title(), param_parser.param_range_by_group(bkg_category.param_group))#, match_category.veto_cat.replace('_',' ').title())
+    else:
+        t = 'Cumulative Histogram'
+    pylab.title(t)
+    pylab.xlim( min(xvals.min(),bkg_stats.min()), xmax*10**(0.3) )
+    pylab.ylim( ymin*10**(-0.5), ymax*10**(0.5) )
+    
+    # store plot info
+    plot_description = 'F%i' % ( len(fnameList) )
+    name = InspiralUtils.set_figure_tag( plot_description, datatype_plotted = fg_datatype.upper(), open_box = 'all_data' in fg_datatype or 'exclude_play' in fg_datatype)
+    fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname  )
+    fnameList.append(fname)
+    tagList.append(name)
+
+    # get loudest event info for this plot group and add to comments
+    comments += 'On instruments: <b>%s</b>   Coinc. ifos: <b>%s</b>   Veto Category: <b>%s</b>' %(''.join(sorted(match_category.on_instruments)), ''.join(sorted(match_category.ifos)), match_category.veto_cat)
+    if opts.param_name is not None:
+        comments += '   Param-group: <b>%s</b>' %(param_parser.param_range_by_group(match_category.param_group))
+    comments += '<br />\n'
+    comments += "Background livetime: %.2f %s<br />\n" % (T_bkg, opts.time_units)
+    comments += "Loudest background event%s:<br />\n" % (len(loudest_bkg_events) > 1 and 's' or '')
+    comments += '<table cellpadding="5">\n'
+    comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th></tr>\n' % stat_label
+    for le_id in loudest_bkg_events:
+        le = data.data_index[le_id]
+        comments += '<tr><td>%.2f</td><td>%s</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), le.data.get_value('ifos'), le.data.get_value('stat') ) 
+    comments += '</table>\n'
+    if fg_datatype != 'slide':
+        comments += "%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
+        comments += "Loudest %s event%s:<br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
+        comments += '<table cellpadding="5">\n'
+        comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th><th>Estimated FAR</th></tr>\n' % stat_label
+        for le_id in loudest_events:
+            le = data.data_index[le_id]
+            far = (len(bkg_stats)-bisect.bisect_left(bkg_stats, le.data.stat))/T_bkg
+            if far == 0:
+                far = '< 1 in %.2f%s' % ( T_bkg, opts.time_units )
+            else:
+                far = '%.2f %s^-1' % (far, opts.time_units)
+            comments += '<tr><td>%.2f</td><td>%s</td><td>%.2f</td><td>%s</td></tr>' %( le.data.get_value('end_time'), le.data.get_value('ifos'), le.data.get_value('stat'), far ) 
+        comments += '</table>\n'
+    comments += '<hr />\n'
+            
+if opts.verbose:
+    print >> sys.stdout, "Writing html file and cache."
+
+# create html of closed box plots
+comment = comments
+plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, input_args, fnameList, tagList, comment = comments, add_box_flag = True )
+InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
+
+sys.exit(0)
+

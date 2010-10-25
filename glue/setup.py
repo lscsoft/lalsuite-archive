@@ -276,6 +276,12 @@ setup(
         os.path.join('etc','LDBDWServer.wsgi'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
+    ( os.path.join( 'share','nmi' ),
+      [ 
+        os.path.join('src', 'nmi', 'builds', 'lalsuite-build.spec'),
+        os.path.join('src', 'nmi', 'builds', 'lalsuite-build-scripts.location'),
+      ]
+    ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),
       [
         os.path.join('etc', 'segdb.conf')

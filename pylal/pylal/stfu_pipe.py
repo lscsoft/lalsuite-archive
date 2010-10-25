@@ -160,7 +160,7 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,947260815,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",948672015,961545687,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",961545687,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6d/background/background_961545607_968803223.cache",961545687,999999999,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2aRerun/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
@@ -409,7 +409,7 @@ export X509_USER_PROXY=`pwd`/proxy.pem
 /opt/exp_software/virgo/lscsoft/etc/LSCdataFind --observatory $1 --gps-start-time $2 --gps-end-time $3 --url-type file --lal-cache --type $4 --output $5
 outputCache=$5
 outputQcache=${outputCache/.cache/.qcache}
-/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/convertlalcache $5 %s-%s-$outputQcache
+/storage/gpfs_virgo3/virgo/omega/omega_r3270_glnxa64_binary/bin/convertlalcache $5 %s-%s-$outputQcache
 		"""%(dir,tag_base))
 		submit_script.close()
 		os.chmod('remoteDatafind_'+dir+'_'+tag_base+'.sh',0755)
@@ -444,8 +444,9 @@ class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
 		submit_script.write("""#!/bin/bash
 . /opt/exp_software/virgo/etc/virgo-env.sh
 . /opt/glite/etc/profile.d/grid-env.sh
+. /storage/gpfs_virgo3/virgo/omega/omega_env.sh
 export X509_USER_PROXY=`pwd`/proxy.pem
-/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+/storage/gpfs_virgo3/virgo/omega/omega_r3270_glnxa64_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
 tar -czf %s-%s-$4.tgz $3
 		"""%(dir,tag_base))
@@ -1635,7 +1636,6 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("cohsnr-threshold",cp.get('chia','cohsnr-threshold'))
 		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
-		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
 		self.add_var_opt("cdata-length",1.0)
 		self.add_var_opt("user-tag",user_tag)
 		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
@@ -1671,14 +1671,14 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
 
                 if chia_node:
-		        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		        self.output_file_name = "%s/%s-CHIA_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
                 else:
-                        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
-		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
-		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                        self.output_file_name = "%s/%s-CHIA_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.output_frame_file = "%s/%s-CHIA_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 
- 		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
- 		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
+ 		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
+ 		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
 
 
 		self.output_cache = []
@@ -1696,7 +1696,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
 		arg_str = ''
 		for ifo,sngl in inspiral_node_dict.items():
-			arg_str += " --" + ifo.upper()+"-framefile " + sngl.output_frame_file
+			arg_str += " --" + ifo.lower()+"-framefile " + sngl.output_frame_file
 
 		self.add_var_arg(arg_str)
 
@@ -1846,7 +1846,7 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 			self.invalidate()
 
 		for ifo, insp in insp_node_dict.items():
-			self.add_var_arg("--"+ifo.upper()+"-framefile "+ insp.output_frame_file)
+			self.add_var_arg("--"+ifo.lower()+"-framefile "+ insp.output_frame_file)
 
 
 ##############################################################################
@@ -2450,9 +2450,9 @@ class create_default_config(object):
 	def set_qscan_executable(self):
 		host = get_hostname()
 		if 'phy.syr.edu' in host:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")
 		else:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")		
+			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")		
 
 	def __config_name(self,ifo,type):
 		fileMap={

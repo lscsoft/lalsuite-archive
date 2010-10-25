@@ -1724,13 +1724,15 @@ class AnalysisNode(CondorDAGNode):
     self.__LHO2k = re.compile(r'H2')
     self.__user_tag = self.job().get_opts().get("user-tag", None)
 
-  def set_start(self,time):
+  def set_start(self,time,pass_to_command_line=True):
     """
     Set the GPS start time of the analysis node by setting a --gps-start-time
     option to the node when it is executed.
     @param time: GPS start time of job.
+    @bool pass_to_command_line: add gps-start-time as variable option.
     """
-    self.add_var_opt('gps-start-time',time)
+    if pass_to_command_line:
+      self.add_var_opt('gps-start-time',time)
     self.__start = time
     self.__data_start = time
     #if not self.__calibration and self.__ifo and self.__start > 0:
@@ -1742,13 +1744,15 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__start
 
-  def set_end(self,time):
+  def set_end(self,time,pass_to_command_line=True):
     """
     Set the GPS end time of the analysis node by setting a --gps-end-time
     option to the node when it is executed.
     @param time: GPS end time of job.
+    @bool pass_to_command_line: add gps-end-time as variable option.
     """
-    self.add_var_opt('gps-end-time',time)
+    if pass_to_command_line:
+      self.add_var_opt('gps-end-time',time)
     self.__end = time
     self.__data_end = time
 
@@ -1797,13 +1801,15 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__data_end
 
-  def set_trig_start(self,time):
+  def set_trig_start(self,time,pass_to_command_line=True):
     """
     Set the trig start time of the analysis node by setting a
     --trig-start-time option to the node when it is executed.
     @param time: trig start time of job.
+    @bool pass_to_command_line: add trig-start-time as a variable option.
     """
-    self.add_var_opt('trig-start-time',time)
+    if pass_to_command_line:
+      self.add_var_opt('trig-start-time',time)
     self.__trig_start = time
 
   def get_trig_start(self):
@@ -1812,13 +1818,15 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__trig_start
 
-  def set_trig_end(self,time):
+  def set_trig_end(self,time,pass_to_command_line=True):
     """
     Set the trig end time of the analysis node by setting a --trig-end-time
     option to the node when it is executed.
     @param time: trig end time of job.
+    @bool pass_to_command_line: add trig-end-time as a variable option.
     """
-    self.add_var_opt('trig-end-time',time)
+    if pass_to_command_line:
+      self.add_var_opt('trig-end-time',time)
     self.__trig_end = time
 
   def get_trig_end(self):
@@ -1827,13 +1835,15 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__trig_end
 
-  def set_input(self,filename):
+  def set_input(self,filename,pass_to_command_line=True):
     """
     Add an input to the node by adding a --input option.
     @param filename: option argument to pass as input.
+    @bool pass_to_command_line: add input as a variable option.
     """
     self.__input = filename
-    self.add_var_opt('input', filename)
+    if pass_to_command_line:
+      self.add_var_opt('input', filename)
     self.add_input_file(filename)
 
   def get_input(self):
@@ -1842,13 +1852,15 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__input
 
-  def set_output(self, filename):
+  def set_output(self,filename,pass_to_command_line=True):
     """
     Add an output to the node by adding a --output option.
     @param filename: option argument to pass as output.
+    @bool pass_to_command_line: add output as a variable option.
     """
     self.__output = filename
-    self.add_var_opt('output', filename)
+    if pass_to_command_line:
+      self.add_var_opt('output', filename)
     self.add_output_file(filename)
 
   def get_output(self):
@@ -1874,13 +1886,15 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__ifo
 
-  def set_ifo_tag(self,ifo_tag):
+  def set_ifo_tag(self,ifo_tag,pass_to_command_line=True):
     """
     Set the ifo tag that is passed to the analysis code.
     @param ifo_tag: a string to identify one or more IFOs
+    @bool pass_to_command_line: add ifo-tag as a variable option.
     """
     self.__ifo_tag = ifo_tag
-    self.add_var_opt('ifo-tag', ifo_tag)
+    if pass_to_command_line:
+      self.add_var_opt('ifo-tag', ifo_tag)
 
   def get_ifo_tag(self):
     """
@@ -1888,13 +1902,15 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__ifo_tag
 
-  def set_user_tag(self,usertag):
+  def set_user_tag(self,usertag,pass_to_command_line=True):
     """
     Set the user tag that is passed to the analysis code.
     @param user_tag: the user tag to identify the job
+    @bool pass_to_command_line: add user-tag as a variable option.
     """
     self.__user_tag = usertag
-    self.add_var_opt('user-tag', usertag)
+    if pass_to_command_line:
+      self.add_var_opt('user-tag', usertag)
 
   def get_user_tag(self):
     """

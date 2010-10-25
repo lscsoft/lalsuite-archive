@@ -42,12 +42,258 @@ from pylal import git_version
 from pylal import inject
 from pylal import llwapp
 from pylal import ligolw_tisi
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS # FIXME:  not needed once graph construction arithmetic is fixed
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
+
+
+#
+# =============================================================================
+#
+#                             Event List Interface
+#
+# =============================================================================
+#
+
+
+class EventList(list):
+	"""
+	A parent class for managing a list of events:  applying time
+	offsets, and retrieving subsets of the list selected by time
+	interval.  To be useful, this class must be subclassed with
+	overrides provided for certain methods.  The only methods that
+	*must* be overridden in a subclass are the _add_offset() and
+	get_coincs() methods.  The make_index() method can be overridden if
+	needed.  None of the other methods inherited from the list parent
+	class need to be overridden, indeed they probably should not be
+	unless you know what you're doing.
+	"""
+	def __init__(self, instrument):
+		# the offset that should be added to the times of events in
+		# this list when comparing to the times of other events.
+		# used to implement time-shifted coincidence tests
+		self.offset = lsctables.LIGOTimeGPS(0)
+
+		# the name of the instrument from which the events in this
+		# list have been taken
+		self.instrument = instrument
+
+	def make_index(self):
+		"""
+		Provided to allow for search-specific look-up tables or
+		other indexes to be constructed for use in increasing the
+		speed of the get_coincs() method.  This will be called
+		after all events have been added to the list, and again if
+		the list is ever modified, and before get_coincs() is ever
+		called.
+		"""
+		pass
+
+	def set_offset(self, offset):
+		"""
+		Set an offset on the times of all events in the list.
+		"""
+		# cast offset to LIGOTimeGPS to avoid repeated conversion
+		# when applying the offset to each event.  also prevents
+		# round-off errors since addition and subtraction of
+		# LIGOTimeGPS objects are exact, so by recording the offset
+		# as a LIGOTimeGPS it should be possible to return the
+		# events to exactly their original times before exiting.
+		self.offset = lsctables.LIGOTimeGPS(offset)
+
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
+		"""
+		Return a list of the events from this list that are
+		coincident with event_a.
+
+		offset_a is the time shift to be added to the time of
+		event_a before comparing to the times of events in this
+		list.  The offset attribute of this object will contain the
+		time shift to be added to the times of the events in this
+		list before comparing to event_a.  That is, the times of
+		arrival of the events in this list should have (self.offset
+		- offset_a) added to them before comparing to the time of
+		arrival of event_a.  Or, equivalently, the time of arrival
+		of event_a should have (offset_a - self.offset) added to it
+		before comparing to the times of arrival of the events in
+		this list.  This behaviour is to support the construction
+		of time shifted coincidences.
+
+		Because it is frequently needed by implementations of this
+		method, the distance in light seconds between the two
+		instruments is provided as the light_travel_time parameter.
+
+		The threshold argument will be the thresholds appropriate
+		for "instrument_a, instrument_b", in that order, where
+		instrument_a is the instrument for event_a, and
+		instrument_b is the instrument for the events in this
+		EventList.
+
+		comparefunc is the function to use to compare events in
+		this list to event_a.
+		"""
+		raise NotImplementedError
+
+
+class EventListDict(dict):
+	"""
+	A dictionary of EventList objects, indexed by instrument,
+	initialized from an XML trigger table and a list of process IDs
+	whose events should be included.
+	"""
+	def __new__(self, *args, **kwargs):
+		# wrapper to shield dict.__new__() from our arguments.
+		return dict.__new__(self)
+
+	def __init__(self, EventListType, event_table, process_ids = None):
+		"""
+		Initialize a newly-created instance.  EventListType is a
+		subclass of EventList (the subclass itself, not an instance
+		of the subclass).  event_table is a list of events (e.g.,
+		an instance of a glue.ligolw.table.Table subclass).  If the
+		optional process_ids arguments is not None, then it is
+		assumed to be a list or set or other thing implementing the
+		"in" operator which is used to define the set of
+		process_ids whose events should be considered in the
+		coincidence analysis, otherwise all events are considered.
+		"""
+		for event in event_table:
+			if (process_ids is None) or (event.process_id in process_ids):
+				# FIXME:  only works when the instrument
+				# name is in the "ifo" column.  true for
+				# inspirals, bursts and ringdowns
+				if event.ifo not in self:
+					self[event.ifo] = EventListType(event.ifo)
+				self[event.ifo].append(event)
+		for l in self.values():
+			l.make_index()
+
+	def set_offsetdict(self, offsetdict):
+		"""
+		Set the event list offsets to those in the dictionary of
+		instrument/offset pairs.  Instruments not in offsetdict are
+		not modified.  KeyError is raised if the dictionary of
+		instrument/offset pairs contains a key (instrument) that
+		this dictionary does not.
+		"""
+		for instrument, offset in offsetdict.items():
+			self[instrument].set_offset(offset)
+
+	def remove_offsetdict(self):
+		"""
+		Remove the offsets from all event lists (reset them to 0).
+		"""
+		for l in self.values():
+			l.set_offset(0)
+
+
+def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None):
+	"""
+	Convenience wrapper for constructing a dictionary of event lists
+	from an XML document tree, the name of a table from which to get
+	the events, a maximum allowed time window, and the name of the
+	program that generated the events.
+	"""
+	return EventListDict(EventListType, table.get_table(xmldoc, event_table_name), process_ids = process_ids)
+
+
+#
+# =============================================================================
+#
+#                         Double Coincidence Iterator
+#
+# =============================================================================
+#
+
+
+def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = False):
+	"""
+	Given an instance of an EventListDict, an event comparison
+	function, an iterable (e.g., a list) of instruments, and a
+	dictionary mapping instrument pair to threshold data for use by the
+	event comparison function, generate a sequence of tuples of
+	mutually coincident events.
+
+	The signature of the comparison function should be
+
+	>>> comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
+
+	where event1 and event2 are two objects drawn from the event lists
+	(of different instruments), offset1 and offset2 are the time shifts
+	that should be added to the arrival times of event1 and event2
+	respectively, light_travel_time is the distance between the
+	instruments in light seconds, and threshold_data is the value
+	contained in the thresholds dictionary for the pair of instruments
+	from which event1 and event2 have been drawn.  The return value
+	should be 0 (False) if the events are coincident, and non-zero
+	otherwise (the behaviour of the comparison function is like a
+	subtraction operator, returning 0 when the two events are "the
+	same").
+
+	The thresholds dictionary should look like
+
+	>>> {("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
+
+	i.e., the keys are tuples of instrument pairs and the values
+	specify the "threshold" for that instrument pair.  The threshold
+	itself is arbitrary.  Floats are shown in the example above, but
+	any Python object can be provided and will be passed to the
+	comparefunc().  Note that it is assumed that order matters in the
+	comparison function and so the thresholds dictionary must provide a
+	threshold for the instruments in both orders.
+
+	Each tuple returned by this generator will contain events from
+	distinct instruments.
+
+	NOTE:  the instruments sequence must contain exactly two
+	instruments.
+
+	NOTE:  the order of the events in each tuple returned by this
+	function is arbitrary, in particular it does not necessarily match
+	the order of instruments sequence.
+	"""
+	# retrieve the event lists for the requested instrument combination
+
+	instruments = tuple(instruments)
+	assert len(instruments) == 2
+	for instrument in instruments:
+		assert eventlists[instrument].instrument == instrument
+	eventlists = [eventlists[instrument] for instrument in instruments]
+
+	# determine the shorter and longer of the two event lists;  record
+	# the length of the shortest
+
+	if len(eventlists[0]) <= len(eventlists[1]):
+		eventlista, eventlistb = eventlists
+	else:
+		eventlistb, eventlista = eventlists
+	length = len(eventlista)
+
+	# extract the thresholds and pre-compute the light travel time
+
+	try:
+		thresholds = thresholds[(eventlista.instrument, eventlistb.instrument)]
+	except KeyError, e:
+		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % e.args[0]
+	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
+
+	# for each event in the shortest list
+
+	for n, eventa in enumerate(eventlista):
+		if verbose and not (n % 2000):
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+
+		# iterate over events from the other list that are
+		# coincident with the event, and return the pairs
+
+		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, thresholds, comparefunc):
+			yield (eventa, eventb)
+	if verbose:
+		print >>sys.stderr, "\t100.0%"
+
+	# done
 
 
 #
@@ -63,10 +309,13 @@ class TimeSlideGraphNode(object):
 	def __init__(self, offset_vector, time_slide_id = None):
 		self.time_slide_id = time_slide_id
 		self.offset_vector = offset_vector
-		self.deltas = frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items())
+		self.deltas = frozenset(offset_vector.deltas.items())
 		self.components = None
 		self.coincs = None
 		self.unused_coincs = set()
+
+	def name(self):
+		return self.offset_vector.__str__(compact = True)
 
 	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
 		#
@@ -76,7 +325,7 @@ class TimeSlideGraphNode(object):
 
 		if self.coincs is not None:
 			if verbose:
-				print >>sys.stderr, "\treusing %s" % ligolw_tisi.offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\treusing %s" % str(self.offset_vector)
 			return self.coincs
 
 		#
@@ -85,7 +334,7 @@ class TimeSlideGraphNode(object):
 
 		if self.components is None:
 			if verbose:
-				print >>sys.stderr, "\tconstructing %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\tconstructing %s ..." % str(self.offset_vector)
 			#
 			# can we do it?
 			#
@@ -130,7 +379,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tgetting coincs from %s ..." % ligolw_tisi.offset_vector_str(self.components[0].offset_vector)
+				print >>sys.stderr, "\tgetting coincs from %s ..." % str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -173,7 +422,7 @@ class TimeSlideGraphNode(object):
 			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
-			print >>sys.stderr, "\tassembling %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
+			print >>sys.stderr, "\tassembling %s ..." % str(self.offset_vector)
 		# magic:  we can form all n-instrument coincs by knowing
 		# just three sets of the (n-1)-instrument coincs no matter
 		# what n is (n > 2).  note that we pass verbose=False
@@ -281,9 +530,7 @@ class TimeSlideGraph(object):
 			# need to be able to construct
 			#
 
-			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
-			if n in self.generations:
-				offset_vectors += [node.offset_vector for node in self.generations[n]]
+			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n] + [node.offset_vector for node in self.generations[n]]
 
 			#
 			# determine the smallest set of offset vectors of
@@ -323,7 +570,7 @@ class TimeSlideGraph(object):
 				# leaf nodes have no components
 				continue
 			for node in nodes:
-				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
+				component_deltas = set(frozenset(offset_vector.deltas.items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
 				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), key = lambda x: sorted(x.offset_vector)))
 
 		#
@@ -342,7 +589,7 @@ class TimeSlideGraph(object):
 			print >>sys.stderr, "constructing coincs for target offset vectors ..."
 		for n, node in enumerate(self.head):
 			if verbose:
-				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(self.head), ligolw_tisi.offset_vector_str(node.offset_vector))
+				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(self.head), str(node.offset_vector))
 			if include_small_coincs:
 				# note that unused_coincs must be retrieved
 				# after the call to .get_coincs() because
@@ -361,18 +608,15 @@ class TimeSlideGraph(object):
 		fileobj.
 		"""
 		print >>fileobj, "digraph \"Time Slides\" {"
-		for nodes in self.generations.values():
-			for node in nodes:
-				node_name = ligolw_tisi.offset_vector_str(node.offset_vector, compact = True)
-				print >>fileobj, "\t\"%s\" [shape=box];" % node_name
-				if node.components is not None:
-					for component in node.components:
-						print >>fileobj, "\t\"%s\" -> \"%s\";" % (ligolw_tisi.offset_vector_str(component.offset_vector, compact = True), node_name)
+		for node in itertools.chain(*self.generations.values()):
+			print >>fileobj, "\t\"%s\" [shape=box];" % node.name()
+			if node.components is not None:
+				for component in node.components:
+					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
 		for node in self.head:
-			node_name = ligolw_tisi.offset_vector_str(node.offset_vector, compact = True)
-			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node_name
+			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node.name()
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (ligolw_tisi.offset_vector_str(component.offset_vector, compact = True), node_name)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component.name(), node.name())
 		print >>fileobj, "}"
 
 
@@ -414,7 +658,7 @@ class CoincTables(object):
 		# FIXME:  I believe the arithmetic in the time slide graph
 		# construction can be cleaned up so that this isn't
 		# required.  when that is fixed, remove this
-		self.time_slide_index = dict((time_slide_id, dict((instrument, LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
+		self.time_slide_index = dict((time_slide_id, type(offset_vector)((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
@@ -516,250 +760,3 @@ def coincident_process_ids(xmldoc, offset_vectors, max_segment_gap, program):
 		if row.process_id in proc_ids and row.process_id not in coinc_proc_ids and seglistdict.intersection(row.get_ifos()).intersects_segment(row.get_out()):
 			coinc_proc_ids.add(row.process_id)
 	return coinc_proc_ids
-
-
-#
-# =============================================================================
-#
-#                             Event List Interface
-#
-# =============================================================================
-#
-
-
-class EventList(list):
-	"""
-	A parent class for managing a list of events:  applying time
-	offsets, and retrieving subsets of the list selected by time
-	interval.  To be useful, this class must be subclassed with
-	overrides provided for certain methods.  The only methods that
-	*must* be overridden in a subclass are the _add_offset() and
-	get_coincs() methods.  The make_index() method can be overridden if
-	needed.  None of the other methods inherited from the list parent
-	class need to be overridden, indeed they probably should not be
-	unless you know what you're doing.
-	"""
-	def __init__(self, instrument):
-		# the offset that should be added to the times of events in
-		# this list when comparing to the times of other events.
-		# used to implement time-shifted coincidence tests
-		self.offset = lsctables.LIGOTimeGPS(0)
-
-		# the name of the instrument from which the events in this
-		# list have been taken
-		self.instrument = instrument
-
-	def make_index(self):
-		"""
-		Provided to allow for search-specific look-up tables or
-		other indexes to be constructed for use in increasing the
-		speed of the get_coincs() method.  This will be called
-		after all events have been added to the list, and again if
-		the list is ever modified, and before get_coincs() is ever
-		called.
-		"""
-		pass
-
-	def set_offset(self, offset):
-		"""
-		Set an offset on the times of all events in the list.
-		"""
-		# cast offset to LIGOTimeGPS to avoid repeated conversion
-		# when applying the offset to each event.  also prevents
-		# round-off errors since addition and subtraction of
-		# LIGOTimeGPS objects are exact, so by recording the offset
-		# as a LIGOTimeGPS it should be possible to return the
-		# events to exactly their original times before exiting.
-		self.offset = lsctables.LIGOTimeGPS(offset)
-
-	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
-		"""
-		Return a list of the events from this list that are
-		coincident with event_a.
-
-		offset_a is the time shift to be added to the time of
-		event_a before comparing to the times of events in this
-		list.  The offset attribute of will contain the time shift
-		to be added to the times of the events in this list before
-		comparing to event_a.  That is, the times of arrival of the
-		events in this list should have (self.offset - offset_a)
-		added to them before comparing to the time of arrival of
-		event_a.  Or, equivalently, the time of arrival of event_a
-		should have (offset_a - self.offset) added to it before
-		comparing to the times of arrival of the events in this
-		list.  This must be done to support the construction of
-		time shifted coincidences.
-
-		Because it is frequently needed by implementations of this
-		method, the distance in light seconds between the two
-		instruments is provided as the light_travel_time parameter.
-
-		The threshold argument will be the thresholds appropriate
-		for "instrument_a, instrument_b", in that order, where
-		instrument_a is the instrument for event_a, and
-		instrument_b is the instrument for the events in this
-		EventList.
-
-		comparefunc is the function to use to compare events in
-		this list to event_a.
-		"""
-		raise NotImplementedError
-
-
-class EventListDict(dict):
-	"""
-	A dictionary of EventList objects, indexed by instrument,
-	initialized from an XML trigger table and a list of process IDs
-	whose events should be included.
-	"""
-	def __new__(self, *args, **kwargs):
-		# wrapper to shield dict.__new__() from our arguments.
-		return dict.__new__(self)
-
-	def __init__(self, EventListType, event_table, process_ids = None):
-		"""
-		Initialize a newly-created instance.  EventListType is a
-		subclass of EventList (the subclass itself, not an instance
-		of the subclass).  event_table is a list of events (e.g.,
-		an instance of a glue.ligolw.table.Table subclass).  If the
-		optional process_ids arguments is not None, then it is
-		assumed to be a list or set or other thing implementing the
-		"in" operator which is used to define the set of
-		process_ids whose events should be considered in the
-		coincidence analysis, otherwise all events are considered.
-		"""
-		for event in event_table:
-			if (process_ids is None) or (event.process_id in process_ids):
-				# FIXME:  only works when the isntrument
-				# name is in the "ifo" column.  true for
-				# inspirals, bursts and ringdowns
-				if event.ifo not in self:
-					self[event.ifo] = EventListType(event.ifo)
-				self[event.ifo].append(event)
-		for l in self.values():
-			l.make_index()
-
-	def set_offsetdict(self, offsetdict):
-		"""
-		Set the event list offsets to those in the dictionary of
-		instrument/offset pairs.  Instruments not in offsetdict are
-		not modified.  KeyError is raised if the dictionary of
-		instrument/offset pairs contains a key (instrument) that
-		this dictionary does not.
-		"""
-		for instrument, offset in offsetdict.items():
-			self[instrument].set_offset(offset)
-
-	def remove_offsetdict(self):
-		"""
-		Remove the offsets from all event lists (reset them to 0).
-		"""
-		for l in self.values():
-			l.set_offset(0)
-
-
-def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None):
-	"""
-	Convenience wrapper for constructing a dictionary of event lists
-	from an XML document tree, the name of a table from which to get
-	the events, a maximum allowed time window, and the name of the
-	program that generated the events.
-	"""
-	return EventListDict(EventListType, table.get_table(xmldoc, event_table_name), process_ids = process_ids)
-
-
-#
-# =============================================================================
-#
-#                          N-way Coincidence Iterator
-#
-# =============================================================================
-#
-
-
-def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = False):
-	"""
-	Given an instance of an EventListDict, an event comparison
-	function, an iterable (e.g., a list) of instruments, and a
-	dictionary mapping instrument pair to threshold data for use by the
-	event comparison function, generate a sequence of tuples of
-	mutually coincident events.
-
-	The signature of the comparison function should be
-
-	>>> comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
-
-	where event1 and event2 are two objects drawn from the event lists
-	(of different instruments), offset1 and offset2 are the time shifts
-	that should be added to the arrival times of event1 and event2
-	respectively, light_travel_time is the distance between the
-	instruments in light seconds, and threshold_data is the value
-	contained in the thresholds dictionary for the pair of instruments
-	from which event1 and event2 have been drawn.  The return value
-	should be 0 (False) if the events are coincident, and non-zero
-	otherwise (the behaviour of the comparison function is like a
-	subtraction operator, returning 0 when the two events are "the
-	same").
-
-	The thresholds dictionary should look like
-
-	>>> {("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
-
-	i.e., the keys are tuples of instrument pairs and the values
-	specify the "threshold" for that instrument pair.  The threshold
-	itself is arbitrary.  Floats are shown in the example above, but
-	any Python object can be provided and will be passed to the
-	comparefunc().  Note that it is assumed that order matters in the
-	comparison function and so the thresholds dictionary must provide a
-	threshold for the instruments in both orders.
-
-	Each tuple returned by this generator will contain events from
-	distinct instruments.
-
-	NOTE:  the instruments sequence must contain exactly two
-	instruments.
-
-	NOTE:  the order of the events in each tuple returned by this
-	function is arbitrary, in particular it does not necessarily match
-	the order of instruments sequence.
-	"""
-	# retrieve the event lists for the requested instrument combination
-
-	instruments = tuple(instruments)
-	assert len(instruments) == 2
-	for instrument in instruments:
-		assert eventlists[instrument].instrument == instrument
-	eventlists = [eventlists[instrument] for instrument in instruments]
-
-	# determine the shorter and longer of the two event lists;  record
-	# the length of the shortest
-
-	if len(eventlists[0]) <= len(eventlists[1]):
-		eventlista, eventlistb = eventlists
-	else:
-		eventlistb, eventlista = eventlists
-	length = len(eventlista)
-
-	# extract the thresholds and pre-compute the light travel time
-
-	try:
-		thresholds = thresholds[(eventlista.instrument, eventlistb.instrument)]
-	except KeyError, e:
-		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % str(e)
-	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
-
-	# for each event in the shortest list
-
-	for n, eventa in enumerate(eventlista):
-		if verbose and not (n % 2000):
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
-
-		# iterate over events from the other list that are
-		# coincident with the event, and return the pairs
-
-		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, thresholds, comparefunc):
-			yield (eventa, eventb)
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
-
-	# done
