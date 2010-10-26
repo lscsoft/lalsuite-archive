@@ -572,9 +572,12 @@ class upper_limit(object):
         rArrays[k].denominator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
 
       if trial == 0: # first time through, use the observed found/missed populations
-        new_missed, new_found = missed, found
-        f_dist = numpy.array([l.distance for l in found])
-        m_dist = numpy.array([l.distance for l in missed])
+        new_found = [inj for inj in found]
+        new_missed = [inj for inj in missed]
+
+        # Adjust for systematic errors
+        f_dist = self._scramble_dist(new_found, 0.0, self.opts.dist_sys_err)
+        m_dist = self._scramble_dist(new_missed, 0.0, self.opts.dist_sys_err)
         if verbose:
           print >>sys.stdout, "\tcomputing observed volume for actual injection population: found = %d, missed = %d" % (len(found), len(missed))
 
