@@ -93,7 +93,7 @@ class upper_limit(object):
     self.get_total_mass_bins(connection)  #determine the total mass ranges and binning for this calculation
     self.get_m1m2_mass_bins(connection)   #determine the component mass ranges and binning for this calculation
     self.get_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
-    self.get_lowmass_bins()               #set up BNS,BBH, and BHNS bins if lowmass injections were used
+    self.get_bns_bbh_bins()                #set up BNS,BBH, and BHNS bins
     self.set_bins_to_calculate()          #figure out which mass bins the user wants us to use
 
     # get the rest of the goodies
@@ -266,19 +266,23 @@ class upper_limit(object):
     return self.chirp_mass_bins
 
 
-  def get_lowmass_bins(self):
-    """Check to see if lowmass injections were used. If so, set up the canonical three bins:
+  def get_bns_bbh_bins(self):
+    """Set up bins for BNS/BBH/NSBH systems:
      BNS 1.35 pm 0.04 msun
      BBH 5.0 pm 1.0 msun
      NSBH 1.35 pm 0.04 - 5.0 pm 1.0 msun
     """
-    if self.minmass < 1.31 and 35.00 >= self.maxmass > 6.00:
-      binEdges = [self.minmass,1.31,1.39,4.00,6.00,self.maxmass]
-      self.lowmass_bins = rate.NDBins((rate.IrregularBins(binEdges),rate.IrregularBins(binEdges)))
-    else:
-      self.lowmass_bins = None
+    binEdges = [self.minmass,1.31,1.39,4.00,6.00,self.maxmass]
+    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins(binEdges),rate.IrregularBins(binEdges)))
+    return self.bns_bbh_bins
 
-    return self.lowmass_bins
+  def set_bins_to_calculate(self):
+    self.mass_bins = {}
+    if opts.bin_by_total_mass: self.mass_bins["Total_Mass"] = self.total_mass_bins
+    if opts.bin_by_chirp_mass: self.mass_bins["Chirp_Mass"] = self.chirp_mass_bins
+    if opts.bin_by_m1m2: self.mass_bins["Mass1_Mass2"] = self.m1m2_mass_bins
+    if opts.bin_by_bns_bbh: self.mass_bins["BNS_BBH"] = self.bns_bbh_bins
+    return self.mass_bins
 
   def get_far_thresholds(self, connection):
     """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
@@ -331,19 +335,6 @@ class upper_limit(object):
       self.instruments = []
 
     return self.instruments
-
-  def set_bins_to_calculate(self):
-    self.mass_bins = {}
-    if opts.bin_by_total_mass: self.mass_bins["Total_Mass"] = self.total_mass_bins
-    if opts.bin_by_chirp_mass: self.mass_bins["Chirp_Mass"] = self.chirp_mass_bins
-
-    if opts.bin_by_m1m2:
-      if self.lowmass_bins is not None: #FIXME I still find dealing with lowmass confusing
-        self.mass_bins["Mass1_Mass2"] = self.m1m2_mass_bins # FIXME
-      else:
-        self.mass_bins["Mass1_Mass2"] = self.m1m2_mass_bins
-
-    return self.mass_bins
 
   def get_volume_derivative(self,instruments,bin_type):
     """
@@ -608,7 +599,7 @@ class upper_limit(object):
       else: dbin = dbin_in
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
-      if bin_type == "Mass1_Mass2":
+      if bin_type == "Mass1_Mass2" or bin_type == "BNS_BBH":
         rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin)
       if bin_type == "Total_Mass":
         rArrays = self.sort_into_1D_mass_bins(rArrays,total_mass,new_found,f_dist,new_missed,m_dist,dbin)
@@ -773,6 +764,7 @@ def parse_command_line():
   parser.add_option("--bin-by-total-mass", default = False, action = "store_true", help = "Compute the search volume as a function of total mass.")
   parser.add_option("--bin-by-chirp-mass", default = False, action = "store_true", help = "Compute the search volume as a function of chirp mass.")
   parser.add_option("--bin-by-m1m2", default = False, action = "store_true", help = "Compute the search volume as a function of component masses.")
+  parser.add_option("--bin-by-bns-bbh", default = False, action = "store_true", help = "Compute the search volume for BNS/BBH systems.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # These options control the volume uncertainty estimation.
