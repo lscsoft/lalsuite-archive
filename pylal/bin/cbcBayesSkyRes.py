@@ -56,7 +56,7 @@ def loadDataFile(filename):
 
     llines=[]
     import re
-    dec=re.compile(r'[^\d.-]+')
+    dec=re.compile(r'[^Ee+\d.-]+')
     line_count=0
     for line in infile:
         sline=line.split()
