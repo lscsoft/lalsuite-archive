@@ -348,8 +348,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
 	 # upper limit plot in 1d
 	 #
 	 fudge = 1e-7 #FIXME make sure this number is reasonable
-	 pylab.bar(bins.lower()[0],pylab.log10(upper_limit.array + fudge),width,label="without systematic errors",color='k')
-	 pylab.bar(bins.lower()[0],pylab.log10(upper_limit_werrs.array + fudge),width,label="with systematic errors",color='b')
+	 pylab.bar(bins.lower()[0],pylab.log10(upper_limit.array + fudge),width,label="without bootstrap errors",color='k')
+	 pylab.bar(bins.lower()[0],pylab.log10(upper_limit_werrs.array + fudge),width,label="with bootstrap errors",color='b')
 	 pylab.grid()
 	 pylab.legend()
 	 pylab.xticks(tick_locs,tick_strings)
@@ -535,8 +535,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    log_ul = pylab.log10(combined_upper_limit_werrs.array) #FIXME make sure 1e-7 is OK
    if len(bins) == 1:
       #FIXME hard limits at log(rate) of -7, 0
-      pylab.bar(bins.lower()[0],pylab.log10(combined_upper_limit.array),width,label="without systematic errors",color='k')
-      pylab.bar(bins.lower()[0],pylab.log10(combined_upper_limit_werrs.array),width,label="with systematic errors",color='b')
+      pylab.bar(bins.lower()[0],pylab.log10(combined_upper_limit.array),width,label="without bootstrap errors",color='k')
+      pylab.bar(bins.lower()[0],pylab.log10(combined_upper_limit_werrs.array),width,label="with bootstrap errors",color='b')
       pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]/(24.0*3600)),fontsize=14)
       pylab.legend()
       pylab.xticks(tick_locs,tick_strings)
