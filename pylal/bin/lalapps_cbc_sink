@@ -153,9 +153,9 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
 	validcolumns = {"total_mass":"lstring","chirp_mass":"lstring","mass1":"lstring","mass2":"lstring", #FIXME add units?
-                        "range_in_Mpc":"real_8","lambda_ratio":"real_8","fractional_error_in_volume":"real_8",
+                        "volume_in_Mpc3_yr":"real_8","range_in_Mpc":"real_8","lambda_ratio":"real_8","fractional_error_in_volume":"real_8",
 			"upper_limit":"real_8","marginalized_upper_limit":"real_8",
-			"livetime_in_seconds":"real_8", # FIXME alan doesn't want this as a column
+			"livetime_in_days":"real_8", # FIXME alan doesn't want this as a column
 			"injections_found":"int_4s","injections_missed":"int_4s"}
 
 
@@ -282,16 +282,17 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
           row.chirp_mass = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           columnList = ['chirp_mass']
         row.range_in_Mpc = (sec_in_yr*vA[mbin]/ltA[mbin] /(4*numpy.pi/3) )**(1./3)
+        row.volume_in_Mpc3_yr = vA[mbin]
         row.fractional_error_in_volume = vA2[mbin]**0.5 / vA[mbin]
         row.injections_found = found[mbin]
         row.lambda_ratio = dvA[mbin]
         row.injections_missed = missed[mbin]
-        row.livetime_in_seconds = ltA[mbin]
+        row.livetime_in_days = ltA[mbin]/(3600*24)
         row.upper_limit = upper_limit[mbin]
         row.marginalized_upper_limit = upper_limit_werrs[mbin]
         ul_table.append(row)
 
-      columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','lambda_ratio','fractional_error_in_volume','injections_found','injections_missed','livetime_in_seconds']
+      columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','lambda_ratio','volume_in_Mpc3_yr','fractional_error_in_volume','injections_found','injections_missed','livetime_in_days']
       print_tables.print_tables(summary_doc,summary_file,opts.output_format,
                                 tableList=['upper_limit'],
                                 columnList = columnList)
@@ -597,15 +598,16 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
         columnList = ['chirp_mass']
 
       row.range_in_Mpc = (sec_in_yr*total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3)
+      row.volume_in_Mpc3_yr = total_vol[mbin]
       row.fractional_error_in_volume = total_err[mbin]**0.5 / total_vol[mbin]
       row.injections_found = total_found[mbin]
       row.injections_missed = total_missed[mbin]
-      row.livetime_in_seconds = total_lt[mbin]
+      row.livetime_in_days = total_lt[mbin]/(3600*24.0)
       row.upper_limit = combined_upper_limit[mbin]
       row.marginalized_upper_limit = combined_upper_limit_werrs[mbin]
       ul_table.append(row)
 
-   columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','fractional_error_in_volume','injections_found','injections_missed','livetime_in_seconds']
+   columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','volume_in_Mpc3_yr','fractional_error_in_volume','injections_found','injections_missed','livetime_in_days']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
