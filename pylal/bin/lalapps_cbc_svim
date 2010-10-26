@@ -602,9 +602,9 @@ class upper_limit(object):
       # compute the distance bins
       if not dbin_in:
         if FAR > 0:
-          dbin = rate.LogarithmicBins(min(f_dist),max(f_dist), self.opts.dist_bins)
+          dbin = rate.LogarithmicBins(0.95*min(f_dist),1.05*max(f_dist), self.opts.dist_bins) # add a little fudge to avoid min=max special case
         else:
-          dbin = rate.LogarithmicBins(min(m_dist),max(m_dist), self.opts.dist_bins)
+          dbin = rate.LogarithmicBins(min(m_dist),max(m_dist), self.opts.dist_bins) # doesn't matter, the volume is zero anyway
       else: dbin = dbin_in
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
