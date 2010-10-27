@@ -145,12 +145,12 @@ class DistributionsStats(object):
 		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_H2_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_H2_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
+		"H1_L1_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
+		"H1_V1_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
+		"H2_L1_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
+		"H2_V1_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
+		"L1_V1_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
 		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
 	}
 
@@ -171,12 +171,12 @@ class DistributionsStats(object):
 		"H2_L1_dA": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_dA": rate.gaussian_window(11, sigma = 20),
 		"L1_V1_dA": rate.gaussian_window(11, sigma = 20),
-		"H1_H2_df": rate.gaussian_window(11, sigma = 20),
-		"H1_L1_df": rate.gaussian_window(11, sigma = 20),
-		"H1_V1_df": rate.gaussian_window(11, sigma = 20),
-		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
-		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
-		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
+		"H1_H2_df": rate.tophat_window(1),	# no-op
+		"H1_L1_df": rate.tophat_window(1),	# no-op
+		"H1_V1_df": rate.tophat_window(1),	# no-op
+		"H2_L1_df": rate.tophat_window(1),	# no-op
+		"H2_V1_df": rate.tophat_window(1),	# no-op
+		"L1_V1_df": rate.tophat_window(1),	# no-op
 		"nevents": rate.tophat_window(1)	# no-op
 	}
 
