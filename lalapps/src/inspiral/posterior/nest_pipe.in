@@ -367,7 +367,9 @@ if cp.has_option('analysis','chain_seed'):
      print "chain seed chosen to be" + str(chain_seed)
      inspnest_job.add_opt('seed',str(chain_seed))
  
- 
+SNR_folder=str(os.path.join(opts.run_path,'SNR'))
+#print SNR_folder
+if os.path.isdir(SNR_folder):
      for i in SNR_folder:
          path_to_file=os.path.join(SNR_folder,i)
          if os.path.isfile(path_to_file):
