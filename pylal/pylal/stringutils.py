@@ -119,7 +119,7 @@ def coinc_params_func(events, offsetvector):
 
 def dt_binning(instrument1, instrument2):
 	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 3001),))
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 601),))
 
 
 class DistributionsStats(object):
@@ -139,12 +139,12 @@ class DistributionsStats(object):
 		"H2_L1_dt": dt_binning("H2", "L1"),
 		"H2_V1_dt": dt_binning("H2", "V1"),
 		"L1_V1_dt": dt_binning("L1", "V1"),
-		"H1_H2_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_H2_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 601),)),
+		"H1_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 601),)),
+		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 601),)),
+		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 601),)),
+		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 601),)),
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 601),)),
 		"H1_H2_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
 		"H1_L1_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
 		"H1_V1_df": rate.NDBins((rate.LinearBins(-1.2, 1.2,6001),)),
