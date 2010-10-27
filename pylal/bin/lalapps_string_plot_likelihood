@@ -142,6 +142,9 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
 		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+        Y=axes.get_ylim()
+	# FIXME : lower limit is hard-coded
+        axes.set_ylim(1e-06, 10*Y[1])
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
@@ -161,6 +164,9 @@ def df_plot(key, background_coords, background_data, injections_coords, injectio
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
 		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+        Y=axes.get_ylim()
+	# FIXME : lower limit is hard-coded
+        axes.set_ylim(1e-06, 10*Y[1])
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
@@ -181,6 +187,9 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
 		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+        Y=axes.get_ylim()
+	# FIXME : lower limit is hard-coded
+        axes.set_ylim(1e-06, 10*Y[1])
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
