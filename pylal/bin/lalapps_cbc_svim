@@ -863,7 +863,7 @@ for instruments in UL.instruments:
       xml.appendChild(array.from_array(u"array",output_arrays[arr]))
       child.appendChild(xml)
 
-    output_filename = "%s-SEARCH_VOLUME-%s-BINNED_BY_%s.xml" % ("".join(sorted(list(instruments))),opts.output_name_tag,bin_type.upper())
+    output_filename = "%s-SEARCH_VOLUME-%s-BINNED_BY_%s-%d-%d.xml" % ("".join(sorted(list(instruments))),opts.output_name_tag,bin_type.upper(),UL.start_time,UL.end_time-UL.start_time)
 
     utils.write_filename(xmldoc, output_filename)
     cache_list.append( lal.CacheEntry( "".join(sorted(list(instruments))),
