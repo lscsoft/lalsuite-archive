@@ -3230,7 +3230,6 @@ void LALSavitskyGolayFilter(
    ********************************************************************/ 
   
   for(i=D;i>0;i--){factorial *= i;}
-  printf("factorial = %d\n",factorial);
   
   //printf("Smoothing \n");
   for(k=M;k<(N-M);k++)
