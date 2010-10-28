@@ -598,7 +598,8 @@ setup(
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "ring_post"),
-		os.path.join("bin","cbcBayesSkyRes.py")
+        os.path.join("bin","cbcBayesPostProc.py")
+
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
