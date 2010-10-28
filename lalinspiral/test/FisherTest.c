@@ -409,7 +409,7 @@ int main( INT4 argc, char **argv )
   if(testACS.verbose_switch==1){fprintf(stdout, "... Creating Output Files \n");}
   
   /* FOLDER FOR OUTPUT FILES */
-	char folder[128] = "../";
+	char folder[128] = "";
 	testACS.folder = folder;
   
   /* NAME OUTPUT FILES */
