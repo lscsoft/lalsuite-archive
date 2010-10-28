@@ -163,7 +163,7 @@ def parse_command_line():
 	parser = OptionParser(version = "Name: %%prog\n%s" % git_version.verbose_msg)
 
 	# Note: an input cache is required
-	parser.add_option("","--input-cache", action = "append", type = "list", default = [],
+	parser.add_option("","--input-cache", action = "append", default = [],
                           help="Add an input cache containing the lalapps_cbc_svim xml files you want to run on")
 	parser.add_option("-f", "--output-format", action = "store", type = "string",
 			  default = "html", metavar = "wiki, html, OR xml",
@@ -207,7 +207,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    __prog__ = "lalapps_cbc_sink_by_"+bin_type.lower() # have you ever met a program with multiple identities?
    total_vol = total_err = total_found = total_missed = total_lt = 0
 
-   files = opts.input_cache.sieve(description=bin_type)
+   files = opts.input_cache.sieve(description=bin_type.upper())
    if len(files) == 0: continue
 
    # read in the data produced by lalapps_cbc_svim
@@ -259,10 +259,10 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       if len(bins) == 2: # in twod case, just choose a few representative bins
         mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
         maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-      if bin_type == "BNS_BBH": # only print out the fun bins 1.35-1.35 (BNS), 5-5 (BBH) and 1.35-5 (NSBH)
-        representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
-      else:
-        representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
+        if bin_type == "BNS_BBH": # only print out the fun bins 1.35-1.35 (BNS), 5-5 (BBH) and 1.35-5 (NSBH)
+          representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
+        else:
+          representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
 
       for mbin in iterutils.MultiIter(*bins.centres()):
 
@@ -307,7 +307,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
         # we only plot a few bins to avoid clutter
         if bin_type in ["Mass1_Mass2","BNS_BBH"]:
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-        else: if j > 6: continue
+        else:
+          if j > 6: continue
         if found[mbin] > 0:
           pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
       pylab.title(entry.observatory+ " Cumulative Posterior Rate Distributions",fontsize=14)
@@ -516,11 +517,12 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
      # we only plot a few bins to avoid clutter
      if bin_type in ["Mass1_Mass2","BNS_BBH"]:
        if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-     else: if j > 6: continue
+     else:
+       if j > 6: continue
      if combined_upper_limit[mbin] < float('inf'):
        pylab.semilogx(mu,combined_post[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
    pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=14)
-   pylab.legend(loc='upper left')
+   pylab.legend(loc='lower right')
    pylab.ylabel("Cumulative Probability",fontsize=14)
    pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
    pylab.ylim([1e-2, 1])
