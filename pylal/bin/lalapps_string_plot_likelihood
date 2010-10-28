@@ -283,9 +283,9 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	elif name.endswith("_df"):
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
-		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-2, +2))
-		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-2, +2))
-		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-2, +2))
+		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-1.2, +1.2))
+		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-1.2, +1.2))
+		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-1.2, +1.2))
 		fig = df_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
 		for extension in options.format:
 			outname = "%s.%s" % (name, extension)
