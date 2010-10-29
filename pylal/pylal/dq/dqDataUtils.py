@@ -40,6 +40,7 @@ def make_external_call(cmd,shell=False):
 # =============================================================================
 class trigger:
   def __init__(self,data,etg):
+    etg=etg.lower()
     if isinstance(data,str):
       sep = re.compile('[\s,]+')
       data = sep.split(data)
@@ -98,7 +99,7 @@ class trigger:
       end = LIGOTimeGPS(data[2])
       self.end_time              = end.seconds
       self.end_time_ns           = end.nanoseconds
-      self.freq                  = float(data[3])
+      self.frequency             = float(data[3])
       self.energy                = float(data[4])
       self.norm_energy           = float(data[5])
       self.n_pix                 = float(data[6])
@@ -110,43 +111,45 @@ class trigger:
     # OMEGA
     # ==========
     if etg=='omega' or etg=='wpipe':
-      if not clustered:
-        peak = LIGOTimeGPS(data[0])
-        self.peak_time           = peak.seconds
-        self.peak_time_ns        = peak.nanoseconds
-        self.freq                = float(data[1])
-        self.duration            = LIGOTimeGPS(float(data[2]))
-        start = peak-duration
-        self.start_time          = start.seconds
-        seld.start_time_ns       = start.nanoseconds
-        stop = peak+duration
-        self.end_time            = stop.seconds
-        self.end_time_ns         = stop.nanoseconds
-        self.bandwidth           = float(data[3])
-        self.norm_energy         = float(data[4])
-        self.cluster_size        = float(data[5])
-        self.cluster_norm_energy = float(data[6])
-        self.cluster_number      = float(data[7])
-      #== follow Cadonati's clustering output
-      if clustered:
-        start = LIGOTimeGPS(data[0])
-        self.start_time          = start.seconds
-        self.start_time_ns       = start.nanoseconds
-        stop  = LIGOTimeGPS(data[1])
-        self.end_time            = stop.seconds
-        self.end_time_ns         = stop.nanoseconds
-        peak  = LIGOTimeGPS(data[2])
-        self.peak_time           = peak.seconds
-        self.peak_time_ns        = peak.nanoseconds
-        self.cluster_N           = float(data[5])
-        self.fstart              = float(data[8])
-        self.fend                = float(data[9])
-        self.bandwidth           = self.fstop - self.fend
-        self.freq                = self.fstart + 0.5*self.bandwidth
-        self.cluster_size        = float(data[10])
-        self.cluster_norm_energy = float(data[11])
-        self.norm_energy         = float(data[12])
-      self.snr                   = sqrt(2*self.norm_energy)
+      peak = LIGOTimeGPS(data[0])
+      self.peak_time           = peak.seconds
+      self.peak_time_ns        = peak.nanoseconds
+      self.frequency           = float(data[1])
+      self.duration            = LIGOTimeGPS(float(data[2]))
+      start = peak-self.duration
+      self.start_time          = start.seconds
+      self.start_time_ns       = start.nanoseconds
+      stop = peak+self.duration
+      self.end_time            = stop.seconds
+      self.end_time_ns         = stop.nanoseconds
+      self.bandwidth           = float(data[3])
+      self.start_frequency     = self.frequency - 0.5*self.bandwidth
+      self.end_frequency     = self.frequency + 0.5*self.bandwidth
+      self.norm_energy         = float(data[4])
+      self.cluster_size        = float(data[5])
+      self.cluster_norm_energy = float(data[6])
+      self.cluster_number      = float(data[7])
+      self.snr                 = sqrt(2*self.norm_energy)
+    #== follow Cadonati's clustering output
+    if etg=='omegaclustered' or etg=='wpipeclustered':
+      start = LIGOTimeGPS(data[0])
+      self.start_time          = start.seconds
+      self.start_time_ns       = start.nanoseconds
+      stop  = LIGOTimeGPS(data[1])
+      self.end_time            = stop.seconds
+      self.end_time_ns         = stop.nanoseconds
+      peak  = LIGOTimeGPS(data[2])
+      self.peak_time           = peak.seconds
+      self.peak_time_ns        = peak.nanoseconds
+      self.cluster_N           = float(data[5])
+      self.start_frequency     = float(data[8])
+      self.end_frequency       = float(data[9])
+      self.bandwidth           = self.end_frequency - self.start_frequency
+      self.frequency           = self.start_frequency + 0.5*self.bandwidth
+      self.cluster_size        = float(data[10])
+      self.cluster_norm_energy = float(data[11])
+      self.norm_energy         = float(data[12])
+      self.snr                 = sqrt(2*self.norm_energy)
 
   def get_end(self):
     return LIGOTimeGPS(self.end_time,self.end_time_ns)
@@ -184,6 +187,9 @@ def totrigfile(file,trigs,etg,header=True):
     columns = ['peak_time','start_time','end_time','frequency','energy',\
                'norm_energy','num_pixels','significance','N']
 
+  if etg=='ihope':  d = ','
+  else:  d=' '
+
   #== print header
   if header:
     header = '#'+' '+' '.join(columns)
@@ -203,15 +209,22 @@ def totrigfile(file,trigs,etg,header=True):
            entry = str(trig.get_start())
          elif col=='end_time':
            entry = str(trig.get_end())
+         elif col in trig.__dict__.keys():
+           entry = str(trig.__getattribute__(col))
        line.append(entry)
 
-    print >>file, ','.join(line)
+    print >>file, d.join(line)
   
 # =============================================================================
 # Function to load triggers from cache
 # =============================================================================
-def fromtrigxml(file,start,end,table='sngl_inspiral'):
+def fromtrigxml(file,start=None,end=None,table='sngl_inspiral'):
   """Reads a list of dqDataUtils.trigger objects from the given table from the xml file object file"""
+
+  if not start:
+    start=0
+  if not end:
+    end=float('inf')
 
   trigs=[]
   xmldoc,digest = ligolw_utils.load_fileobj(file)
@@ -219,23 +232,32 @@ def fromtrigxml(file,start,end,table='sngl_inspiral'):
 
   for line in trig_table:
     trig = trigger(line,etg.lower(),filetype='xml')
-    if start<=trig.get_peak()<=end:
+    if start<=float(trig.get_peak())<=end:
       trigs.append(trig)
+
+  trigs.sort(key=lambda trig: trig.get_peak())
 
   return trigs
 
-def fromtrigfile(file,start,end,etg="ihope"):
+def fromtrigfile(file,start=None,end=None,etg="ihope"):
   """Reads a list of dqDataUtils.trigger objects from the text file object file containing standard columns for the given etg."""
   #== define control character search
   cchar = re.compile('[#%<!()_\[\]{}:;\'\"]+')
+
+  if not start:
+    start=0
+  if not end:
+    end=float('inf')
 
   trigs = []
   for line in file.readlines():
     if re.match(cchar,line):  continue 
     trig = trigger(line,etg.lower())
-    if start<=trig.get_peak()<=end:
+    if start<=float(trig.get_peak())<=end:
       trigs.append(trig)
   
+  trigs.sort(key=lambda trig: trig.get_peak())
+
   return trigs
 
 # =============================================================================
@@ -383,6 +405,39 @@ def bandpass(data, f_low, f_high, sampling, order=4):
   return data
 
 # =============================================================================
+# Function to write a list of files to a cache
+# =============================================================================
+def tocache(file,cachelist):
+  """Reads a list of filepaths and writes each to the given file object cache. Filenames must be of the format IFO-USERTAG-STARTTIME-DURATION.ext. Printed columns are
+
+IFO USERTAG STARTTIME DURATION filepath
+
+for each file"""
+
+  for f in cachelist:
+    lfn = os.path.basename(f)
+    head,ext = os.path.splitext(lfn)
+    a,b,c,d = head.split('-')
+    print >>file, "%s %s %s %s %s" % (a,b,c,d,f)
+
+  file.flush() 
+
+def fromcache(file):
+  """Reads a file object cache file containing the columns:
+
+IFO USERTAG GPSSTART DURATION FILEPATH
+
+and returns a list of filepaths."""
+  cache = []
+  cchar = re.compile('[#%<!()_\[\]{}:;\'\"]+')
+  for line in file:
+    if re.match(cchar,line):  continue
+    a,b,c,d,f = line.split(' ')
+    cache.append(f.replace('\n',''))
+  
+  return cache
+
+# =============================================================================
 # Function to generate an daily ihope cache 
 # =============================================================================
 def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
@@ -447,7 +502,7 @@ def omega_online_cache(start,end,ifo):
 
   #== set variables
   cache = []
-  basedir = os.path.expanduser('~omega/online/'+str(ifo)+'/archive/S6')
+  basedir = os.path.expanduser('~omega/online/'+str(ifo)+'/archive/S6/segments')
   basetime = LIGOTimeGPS(931211808)
   triglength = 64
  
@@ -457,8 +512,9 @@ def omega_online_cache(start,end,ifo):
     dirstart = "%.10d" % t
     dirend   = "%.10d" % (t+triglength)
     dirpath  = os.path.join(basedir,dirstart+'-'+dirend)
-    trigfile = os.path.join(dirpath,ifo+'OMEGA_TRIGGERS_CLUSTER-'+\
-                                    dirstart+'-'+triglength+'.txt')
+    trigfile = os.path.join(dirpath,'-'.join([ifo,\
+                                              'OMEGA_TRIGGERS_CLUSTER',\
+                                              dirstart,str(triglength)])+'.txt')
     if os.path.isfile(trigfile):
       cache.append(trigfile) 
     t+=triglength

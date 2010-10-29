@@ -7,6 +7,10 @@ import os
 from glue.segments import segment, segmentlist
 from glue import segmentsUtils
 
+from datetime import datetime
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal import date
+
 from matplotlib import mlab, use
 use('Agg')
 import pylab
@@ -49,7 +53,8 @@ def plot_veto_hist(start,end,cache,segfile,outfile,\
 
   #== customise plot appearance
   pylab.rcParams.update({
-                         #"text.usetex": True,
+                         #"font.family": "serif",
+                         "text.usetex": True,
                          "text.verticalalignment": "center",
                          #"lines.markersize": 12,
                          #"lines.markeredgewidth": 2,
@@ -176,6 +181,8 @@ def plot_veto_hist(start,end,cache,segfile,outfile,\
   ax.set_xlabel('SNR')
   ax.set_ylabel('Cumulative rate (Hz)')
   ax.set_title('Effect of '+vetoname+' on '+etg+' triggers')
+  ax.grid(True,which='major')
+  ax.grid(True,which='majorminor')
   fig.savefig(outfile)
   #ax.close()
   if verbose:
@@ -198,9 +205,10 @@ def plot_veto_trigs(start,end,cache,segfile,outfile,\
   if isinstance(segdeffile,str):
     segdeffile = segdeffile.split(',')
 
- #== customise plot
+  #== customise plot
   pylab.rcParams.update({
-                         #"text.usetex": True,
+                         "text.usetex": True,
+                         #"font.family": 'serif',
                          "text.verticalalignment": "center",
                          #"lines.markersize": 12,
                          #"lines.markeredgewidth": 2,
@@ -262,7 +270,6 @@ def plot_veto_trigs(start,end,cache,segfile,outfile,\
   notvetoedtrigs = dqDataUtils.parse_trigs(beforetrigs,segs,inclusive=False)
   vetoedtrigs    = dqDataUtils.parse_trigs(beforetrigs,segs,inclusive=True)
 
-  
   #== set plot time unit
   if verbose:
     print >>sys.stdout, "Plotting..."
@@ -282,19 +289,32 @@ def plot_veto_trigs(start,end,cache,segfile,outfile,\
   notvetoedsnr = [trig.snr for trig in notvetoedtrigs]
   vetoedsnr = [trig.snr for trig in vetoedtrigs]
 
-  #== generate plot
-  pylab.figure(figsize=[12,6])
-  pylab.plot(notvetoedtimes,notvetoedsnr,'b.',label='Not vetoed',markersize=5)
-  pylab.plot(vetoedtimes,vetoedsnr,'r.',label='Vetoed',markersize=5)
-  pylab.semilogy()
-  pylab.legend()
-  pylab.ylim(5,max(notvetoedsnr+vetoedsnr)*1.01)
-  pylab.xlim(0,float(end-start)/time_axis_unit)
-  pylab.xlabel('Time ('+time_unit[time_axis_unit]+') since '+str(start))
-  pylab.ylabel('SNR ('+etg+')')
-  pylab.title('Effect of '+vetoname+' on '+etg+' triggers')
-  pylab.savefig(outfile)
-  pylab.close()
+  #== convert time
+  
+
+  #== generate plot: plot in legend markersize then rescale plot markers
+  fig = pylab.figure(figsize=[12,6])
+  ax  = fig.gca()
+  m = 5
+  p1 = ax.plot(notvetoedtimes,notvetoedsnr,'b.',label='Not vetoed',\
+               markersize=3*m)
+  p2 = ax.plot(vetoedtimes,vetoedsnr,'r.',label='Vetoed',\
+               markersize=3*m)
+  ax.semilogy()
+  leg = ax.legend()
+  for p in [p1,p2]:
+    p = p[0]
+    p.set_markersize(m)
+  ax.set_ylim(5,max(notvetoedsnr+vetoedsnr)*1.01)
+  ax.set_xlim(0,float(end-start)/time_axis_unit)
+  start = datetime(*date.XLALGPSToUTC(start)[:6])\
+              .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+  ax.set_xlabel('Time ('+time_unit[time_axis_unit]+') since '+str(start))
+  ax.set_ylabel('SNR ('+etg+')')
+  ax.set_title('Effect of '+vetoname+' on '+etg+' triggers')
+  ax.grid(True,which='major')
+  ax.grid(True,which='majorminor')
+  fig.savefig(outfile)
   if verbose:
     print >>sys.stdout, "Done."
 
