@@ -80,10 +80,10 @@ for ifo in ['H1','H2','L1','V1']:
 			scisegname='DMT-SCIENCE'
 			version=1
 		segments[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
-				starttime, endtime, ifo, segname, version=version)[0]
+				starttime, endtime, ifo, segname, version=version)[1]
 		if not opts.ignore_science:
 			scisegs[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
-				starttime,endtime,ifo,scisegname, version=version)[0]
+				starttime,endtime,ifo,scisegname, version=version)[1]
 		
 # Create SimInspiralTable for output
 outtable=lsctables.New(lsctables.SimInspiralTable)

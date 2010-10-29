@@ -476,7 +476,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 			print >>sys.stderr, "\t%.1f%%\t(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
 		packer.pack(cacheentry)
 	if verbose:
-		print >>sys.stderr, "\t100.0%%\t(%d files, %d caches)" % (n + 1, len(outputcaches))
+		print >>sys.stderr, "\t100.0%%\t(%d files, %d caches)" % (len(cache), len(outputcaches))
 
 	#
 	# Split caches with extent more than extentlimit
@@ -487,7 +487,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 			print >>sys.stderr, "splitting caches with extent greater than %g s ..." % extentlimit
 		split_bins(packer, extentlimit, verbose = verbose)
 		if verbose:
-			print >>sys.stderr, "\t\t(%d files, %d caches)" % (n + 1, len(outputcaches))
+			print >>sys.stderr, "\t\t(%d files, %d caches)" % (len(cache), len(outputcaches))
 
 	#
 	# Sort output caches
