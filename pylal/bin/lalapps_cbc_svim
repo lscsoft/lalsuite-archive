@@ -475,6 +475,9 @@ class upper_limit(object):
 
     for values in connection.cursor().execute(injection_finding_query,(FAR,)):
       sim = make_sim_inspiral(values)
+
+      if sim.waveform in opts.exclude_sim_type: continue
+
       if values[-1]:
         found.append(sim)
       else:
@@ -769,6 +772,9 @@ def parse_command_line():
   parser.add_option("--bin-by-m1m2", default = False, action = "store_true", help = "Compute the search volume as a function of component masses.")
   parser.add_option("--bin-by-bns-bbh", default = False, action = "store_true", help = "Compute the search volume for BNS/BBH systems.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
+
+  # Control the injection population used to measure the search volume
+  parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
 
   # These options control the volume uncertainty estimation.
   parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of bootstrap trials to use for computing the mean and variance of the search volume. A good number is 10000.")
