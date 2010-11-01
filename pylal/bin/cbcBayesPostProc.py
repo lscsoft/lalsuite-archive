@@ -304,11 +304,12 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         plot2DkdeParams={par1_name:50,par2_name:50}
         myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
 
-        twoDKdePath=os.path.join(margdir,par1_name+'-'+par2_name+'_2Dkernel.png')
+        figname=par1_name+'-'+par2_name+'_2Dkernel.png'
+        twoDKdePath=os.path.join(margdir,figname)
 
         if row_count==0:
             html_tcmp_write+='<tr>'
-        html_tcmp_write+='<td width="30%"><img width="100%" src="'+twoDKdePath+'"/></td>'
+        html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+twoDKdePath+'"/></td>'
         row_count+=1
         if row_count==3:
             html_tcmp_write+='</tr>'
@@ -332,7 +333,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     html_tcmp.write(html_tcmp_write)
     #Add a link to all plots
     html_tcmp.br()
-    html_tcmp.a("2D/",'All 2D Marginal PDFs')
+    html_tcmp.a("2Dkde/",'All 2D marginal PDFs (kde)')
     html_tcmp.hr()
 
     #==================================================================#
