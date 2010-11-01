@@ -139,8 +139,8 @@ class LALCacheBin(packing.Bin):
 		self.size = segments.segmentlistdict()
 		self.extent = None
 
-	def add(self, *args):
-		packing.Bin.add(self, *args)
+	def add(self, cache_entry):
+		packing.Bin.add(self, cache_entry, cache_entry.to_segmentlistdict())
 		self.extent = self.size.extent_all()
 		return self
 
@@ -206,7 +206,7 @@ class CafePacker(packing.Packer):
 		#
 
 		new = LALCacheBin()
-		new.add(cache_entry, cache_entry.to_segmentlistdict())
+		new.add(cache_entry)
 
 		#
 		# assemble a list of bins in which the cache entry belongs.
@@ -295,38 +295,34 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 		# segmentlistdicts for clipping.
 		#
 
-		splits = [-segments.infinity()] + [lsctables.LIGOTimeGPS(origbin.extent[0] + i * float(origbin.extent[1] - origbin.extent[0]) / n) for i in range(1, n)] + [+segments.infinity()]
+		extents = [-segments.infinity()] + [lsctables.LIGOTimeGPS(origbin.extent[0] + i * float(abs(origbin.extent)) / n) for i in range(1, n)] + [+segments.infinity()]
 		if verbose:
-			print >>sys.stderr, "\tsplitting cache spanning %s at %s" % (str(origbin.extent), ", ".join(str(split) for split in splits[1:-1]))
-		splits = [segments.segmentlist([segments.segment(*bounds)]) for bounds in zip(splits[:-1], splits[1:])]
-		splits = [segments.segmentlistdict.fromkeys(origbin.size, seglist) for seglist in splits]
+			print >>sys.stderr, "\tsplitting cache spanning %s at %s" % (str(origbin.extent), ", ".join(str(extent) for extent in extents[1:-1]))
+		extents = [segments.segment(*bounds) & origbin.extent for bounds in zip(extents[:-1], extents[1:])]
 
 		#
-		# build new bins, populate sizes and extents
+		# build new bins, pack objects from origbin into new bins
 		#
 
 		newbins = []
-		for split in splits:
+		for extent in extents:
+			#
+			# append new bin
+			#
+
 			newbins.append(LALCacheBin())
-			newbins[-1].size = origbin.size & split
-			for key in tuple(newbins[-1].size):
-				if not newbins[-1].size[key]:
-					del newbins[-1].size[key]
-			newbins[-1].extent = newbins[-1].size.extent_all()
 
-		#
-		# pack objects from origbin into new bins
-		#
+			#
+			# test each cache entry in original bin
+			#
 
-		for bin in newbins:
-			bin_extent_plus_max_gap = bin.extent.protract(cafepacker.max_gap)
-
+			extent_plus_max_gap = extent.protract(cafepacker.max_gap)
 			for cache_entry in origbin.objects:
 				#
 				# quick check of gap
 				#
 
-				if cache_entry.segment.disjoint(bin_extent_plus_max_gap):
+				if cache_entry.segment.disjoint(extent_plus_max_gap):
 					continue
 
 				#
@@ -341,14 +337,20 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 					# test against bin
 					#
 
-					if cache_entry_segs.intersects_segment(bin.extent):
+					if cache_entry_segs.intersects_segment(extent):
 						#
 						# object is coicident with
 						# bin
 						#
 
-						bin.objects.append(cache_entry)
+						newbins[-1].add(cache_entry)
 						break
+
+			#
+			# override the bin's extent
+			#
+
+			newbins[-1].extent = extent
 
 		#
 		# replace original bin with split bins.  increment idx to
