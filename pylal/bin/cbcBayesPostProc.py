@@ -289,8 +289,8 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
 
 
         #= Plot 2D histograms of greedily binned points =#
-        greedy2PlotFig=bppu.plot_two_param_greedy_bins(np.array(toppoints),pos,greedy2Params)
-        greedy2PlotFig.savefig(os.path.join(twobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name)))
+        #greedy2PlotFig=bppu.plot_two_param_greedy_bins(np.array(toppoints),pos,greedy2Params)
+        #greedy2PlotFig.savefig(os.path.join(twobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name)))
 
         #= Generate 2D kde plots =#
         print 'Generating %s-%s plot'%(par1_name,par2_name)
