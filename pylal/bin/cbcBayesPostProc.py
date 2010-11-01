@@ -71,6 +71,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     commonOutputFileObj=open(data[0])
 
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
+    injection=None
     if injfile:
         import itertools
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
