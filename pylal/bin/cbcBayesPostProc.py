@@ -309,7 +309,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
 
         if row_count==0:
             html_tcmp_write+='<tr>'
-        html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+twoDKdePath+'"/></td>'
+        html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
         row_count+=1
         if row_count==3:
             html_tcmp_write+='</tr>'
