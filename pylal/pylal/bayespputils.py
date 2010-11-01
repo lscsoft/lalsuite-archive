@@ -74,6 +74,10 @@ class OneDPosterior(object):
         return
 
     @property
+    def name(self):
+        return self.__name
+
+    @property
     def mean(self):
         return np.mean(self.__posterior_samples)
 
@@ -127,10 +131,10 @@ class Posterior(object):
         return
 
     def _inj_m1(inj):
-        (mass1,mass2)=masses
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
         return mass1
     def _inj_m2(inj):
-        (mass1,mass2)=masses
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
         return mass2
 
     def _inj_mchirp(inj):

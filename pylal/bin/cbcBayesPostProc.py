@@ -104,6 +104,27 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonOutputFileObj,SimInspiralTableEntry=injection)
 
+    if ('mc' in pos.names or 'mchirp' in pos.names) and \
+    'eta' in pos.names and \
+    ('mass1' not in pos.names or 'm1' not in pos.names) and\
+    ('m2' not in pos.names or 'm2' not in pos.names):
+
+        if 'mc' in pos.names:
+            mchirp_name='mc'
+        else:
+            mchirp_name='mchirp'
+
+        if injection:
+            inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
+
+        mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
+        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
+        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
+
+        pos.append(mass1_pos)
+        pos.append(mass2_pos)
+        
+
     ##Print some summary stats for the user...##
     #Number of samples
     print "Number of posterior samples: %i"%len(pos)
@@ -258,7 +279,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         for cl in cls:
             BCItableline+='<td>%f</td>'%reses[cl]
 
-        if injection:
+        if injection is not None and injection_cl is not None:
             BCItableline+='<td>%f</td>'%injection_cl
             BCItableline+='<td>%f</td>'%injection_area
         BCItableline+='</tr>'
@@ -306,6 +327,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         row_count+=1
         if row_count==3:
             row_count=0
+            html_tcmp_write+='</tr>'
     html_tcmp_write+='</table>'
     html_tcmp.write(html_tcmp_write)
     #Add a link to all plots
@@ -461,7 +483,7 @@ if __name__=='__main__':
     #List of parameter pairs to bin . Need to match (converted) column names.
     twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05}
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
