@@ -396,7 +396,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         for cl in cls:
             BCItableline+='<td>%f</td>'%reses[cl]
 
-        if injection:
+        if injection is not None and injectionconfidence is not None and injection_area is not None:
             BCItableline+='<td>%f</td>'%injectionconfidence
             BCItableline+='<td>%f</td>'%injection_area
         BCItableline+='</tr>'
