@@ -538,6 +538,12 @@ if pid:
   sys.exit(0)
 peu.set_lock()
 
+# if an veto-definer update is set, construct the full path here
+if opts.update_veto_definer is not None:
+  veto_definer = os.path.dirname(cp.get('data','veto_definer'))+'/'+opts.update_veto_definer
+else:
+  veto_definer = None
+
 #
 # First, update the internal database (llmonitor.pickle)
 #
@@ -571,7 +577,7 @@ for grb in monitor_list:
     # check if the postprocessing analyses should be rerun
     if opts.rerun:
       if not opts.grb or grb.name==opts.grb:
-        check_rerun(grb, dag, cp, opts.force_rerun, veto_definer = opts.update_veto_definer)
+        check_rerun(grb, dag, cp, opts.force_rerun, veto_definer)
 
     # skip this DAG if it is finished (5) or has not started yet
     if dag.get_status()==0 or dag.get_status()==5:

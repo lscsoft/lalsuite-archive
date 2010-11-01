@@ -704,46 +704,29 @@ def create_subpage_inj(subpage, cp, grb, statistic):
       'page': '%s-plotinspinj_SECOND_H1_GRBMACGRB-MACIDENT.html' % ifo,
       'images': ['%s-plotinspinj_SECOND_%s_GRBMACGRB_%s-MACIDENT.png' % (ifo, ifo, x) \
                    for x in \
-                 'mchirp_plot mchirp_accuracy mchirp_histogram '
-                 'eta_accuracy eta_histogram '
-                 'end_time_accuracy end_time_histogram '
-                 'eff_dist_accuracy eff_dist_histogram eff_dist_plot '
-                 'mchirp_vs_eff_dist end_time_vs_eff_dist '
-                 'mchirp_vs_snr end_time_vs_snr eta_vs_snr'.split()] }
+                 'mchirp_vs_snr end_time_vs_snr'.split()] }
 
   ethinca_singleifo_plots = []
   for ifo in grb.ifolist:
     ethinca_singleifo_plots += [
       'ethinca_vs_%s_snr_andtotMass' % ifo,
-      'ethinca_slide_only_vs_%s_snr_andtotMass' % ifo,
-      'ethinca_vs_%s_snr' % ifo]
+      'ethinca_slide_only_vs_%s_snr_andtotMass' % ifo]
+#      'ethinca_vs_%s_snr' % ifo]
   page_sections['plotethinca'] = {
     'page': 'MACIFOS-plotethinca_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
     'images': ['MACIFOS-plotethinca_SECOND_H1L1_GRBMACGRB_%s_%s-MACIDENT.png' % ('_'.join(grb.ifolist), x) \
                  for x in ethinca_singleifo_plots + \
-                 'ethinca_vs_combined_new_snr hist_combined_new_snr ethinca_hist'.split()]}
+                 'ethinca_vs_combined_new_snr'.split()]}
 
   page_sections['plotinjnum'] = {
     'page': 'MACIFOS-plotinjnum_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
     'images': ['MACIFOS-plotinjnum_SECOND_MACIFOS_GRBMACGRB_%s-MACIDENT.png' % x \
-                 for x in 'found_missed_chirp_dist_h_vs_mchirp '
-                          'found_missed_eff_dist_h_vs_end_time_gmst '
-                          'found_missed_eff_dist_h_vs_mchirp'.split()] }
+                 for x in 'found_missed_eff_dist_h_vs_end_time_gmst'.split()] }
 
-  inspmissed_singleifo_plots = []
-  for ifo in grb.ifolist:
-    inspmissed_singleifo_plots += [
-      'time-eff_dist-log-%s' % ifo,
-      'mchirp-eff_dist-lin-%s' % ifo,
-      'mchirp-eff_dist-log-%s' % ifo,
-      'mtotal-eff_dist-lin-%s' % ifo,
-      'mtotal-eff_dist-log-%s' % ifo]
   page_sections['plotinspmissed'] = {
     'page': 'MACIFOS-plotinspmissed_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
     'images': ['MACIFOS-plotinspmissed_SECOND_MACIFOS_GRBMACGRB_%s-MACIDENT.png' % x \
-                 for x in 'totalmass-decisiveEffDist_log-map '
-                          'map-THINCA_FIRST-1 map-THINCA_SECOND_CAT_1-1 '
-                          'map-INSPIRAL_SECOND-1 map-INSPIRAL_FIRST-1'.split()] }
+                 for x in 'totalmass-decisiveEffDist_log-map'.split()] }
 
   for ifo in grb.ifolist:
     page_sections['plotsnrchi%s' % ifo] = {
@@ -770,16 +753,78 @@ def create_subpage_inj(subpage, cp, grb, statistic):
     sec.add_link(href = main_path+pagelink, text = key+' summary page')
 
 
+# --------------------------------
+def create_subpage_lik(subpage, cp, grb, statistic):
+  # Anything to add here?
+  return
+
 
 # --------------------------------
 def create_subpage_openbox(subpage, cp, grb, statistic, columns, rows):
+  """Creates the section with the results (openbox), including
+  likelihood."""
 
+  def file_replace(fname):
+    fname = fname.replace('MACIDENT', '%9d-%d' % (grb.starttime, grb.endtime - grb.starttime))
+    fname = fname.replace('MACIFOS', ''.join(grb.ifolist))
+    fname = fname.replace('MACGRB', grb.name)
+    fname = fname.replace('MACSTAT', statistic)
+    return fname
 
+  # define a complete list of images to be shown on the sanity page
+  page_sections = {}
+  page_sections['plotgrbl'] = {
+    'page': 'plotgrbl_MACIFOS_GRBMACGRB_OPENBOX-MACIDENT.html',
+    'images': ['plotgrbl_H1L1_GRB090818H_OPENBOX_%s-MACIDENT.png' % x \
+                 for x in 'max_log_L_by_mc_m2 P_L_sum_by_L loudest_stats_by_mchirpH1L1 '
+                          'log_L_by_mc_m2_H1L1 '
+                          'log_sum_L_vs_rho_max_0 log_sum_L_vs_rho_max_1 log_sum_L_vs_rho_max_2 '
+                          'log_sum_L_vs_rho_max '
+                          'IFAR_vs_rho_max log_sum_L_vs_IFAR_max '
+                          'ROC_uniform ROC_D3 '
+                          'log_pc0_vs_rho_H1L1 log_pc0_vs_rho_zoom_H1L1 '
+                          'log_pc0_vs_rho log_pc0_vs_rho_zoom '
+                          'pLh_afterMCerr_by_m2_D '
+                          'pLh_by_m2_D pL0_by_m2 '
+                          'pL0_by_L '
+                          'injection_count_by_m2_D'.split()] }
+
+  page_sections['grbUL'] = {
+    'page': 'pylal_grbUL_MACIFOS_GRBMACGRB_OPENBOX-MACIDENT.html',
+    'images': ['pylal_grbUL_MACIFOS_GRBMACGRB_OPENBOX_%s-MACIDENT.png' % x \
+                 for x in 'FC_exclusion_by_m2_D '
+               'pLD_by_m2_D_0.9  D_best_0.9  confidence_belts_0.9 '
+               'pLD_by_m2_D_3.0  D_best_3.0  confidence_belts_3.0 '
+               'pLD_by_m2_D_7.0  D_best_7.0  confidence_belts_7.0 '
+               'pLD_by_m2_D_13.0 D_best_13.0 confidence_belts_13.0 '
+               'pLD_by_m2_D_21.0 D_best_21.0 confidence_belts_21.0 '
+               'pLD_by_m2_D_31.0 D_best_31.0 confidence_belts_31.0 '
+               'old_exclusion_by_m2_D'.split()] }
+
+  # replace the macro definitions and put it together, in the given order
+  main_path = cp.get('paths', 'publishing_url') + '/GRB%s/' % (grb.name)
+  for key in page_sections:
+    sec = subpage.add_section(key, "Plots from "+key)
+
+    pagelink = file_replace(page_sections[key]['page'])
+    images = page_sections[key]['images']
+
+    for image in images: 
+      imagename = file_replace(image)
+      print image, imagename
+      fullimagepath = main_path+'Images/'+imagename
+      sec.add_link(href=fullimagepath, text='<img src="%s" border="2" width="300">' % fullimagepath)
+
+    sec.add('<br')
+    sec.add_text(txt='Detailed results can be found here:', bold=True)
+    sec.add_link(href = main_path+pagelink, text = key+' summary page')
+
+  # Table
   sec = subpage.add_section('onoff',"Results from onoff analysis")
   table_gts = [columns]
   table_gts.extend(rows)
   sec.add_table(table_gts, 'onoff results')
-  
+
 
 # --------------------------------
 def get_options():
@@ -1044,6 +1089,7 @@ create_subpage_trigger(page.subpages["subpage_trigger"], cp, grb)
 create_subpage_data(page.subpages["subpage_data"], cp, grb)
 create_subpage_bkg(page.subpages["subpage_bg_diag"], cp, grb, statistic)
 create_subpage_inj(page.subpages["subpage_inj_diag"], cp, grb, statistic)
+create_subpage_lik(page.subpages["subpage_lik_diag"], cp, grb, statistic)
 
 create_subpage_openbox(page.subpages["subpage_openbox"], cp, grb, statistic, columns, rows)
 

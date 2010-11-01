@@ -2496,7 +2496,12 @@ defaulting to %s\n"%(self.serverURL))
       return
     else:
       self.__backgroundPoints__=int(pointCount)
-    return
+
+  def getPicklePointer(self):
+    """
+    Returns the pickle to be used by function.
+    """
+    return self.__backgroundPickle__
 
   def resetPicklePointer(self,filename=None):
     """
@@ -3397,6 +3402,17 @@ class getFOMdata:
                         "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p2-0p35Hz.rms",
                         "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p2-0p35Hz.rms"]}
       },
+                      "L1 1-3Hz":{
+      "L1_Seis":{"frametype":"Seis_Blrms_M",
+                 "channels":["L0:DMT-BRMS_PEM_EY_SEISX_1_3Hz.rms",
+                             "L0:DMT-BRMS_PEM_EY_SEISZ_1_3Hz.rms",
+                             "L0:DMT-BRMS_PEM_LVEA_SEISZ_1_3Hz.rms"]},
+      "L1_STS":{"frametype":"STS_Blrms_M",
+                "channels":["L1:DMT-BRMS_SEI_ETMX_STS2_X_1-3Hz.rms",
+                            "L1:DMT-BRMS_SEI_ETMY_STS2_Y_1-3Hz.rms",
+                            "L1:DMT-BRMS_SEI_LVEA_STS2_X_1-3Hz.rms",
+                            "L1:DMT-BRMS_SEI_LVEA_STS2_Y_1-3Hz.rms"]}
+      },
                       "L1 Gurlap 3-10Hz":{
       "L1":{"frametype":"Seis_Blrms_M",
             "channels":["L0:DMT-BRMS_PEM_EX_SEISX_3_10Hz.rms",
@@ -3581,13 +3597,15 @@ these %s\n"%(self.getGraphKeys(),graphList))
         for channel in self.channelDict[myGraphName][graphIFO]["channels"]:
             myStart=int(float(self.gpsTime)) - self.preWindow
             myStop =int(float(self.gpsTime)) + self.postWindow
-            self.dataDict[myGraphName][channel]=self.__getTimeSeries__(graphFrameType,
+            try:
+              self.dataDict[myGraphName][channel]=self.__getTimeSeries__(graphFrameType,
                                                                        graphIFO,
                                                                        channel,
                                                                        myStart,
                                                                        myStop)
-            if self.dataDict[myGraphName][channel]==None:
-              sys.stderr.write("Error getting data!\n")
+            except:
+              sys.stderr.write("Error accessing frame data. Skipping \
+trace for graph %s.\n"%(myGraphName))
               sys.stderr.write("Channel    :%s\n"%channel)
               sys.stderr.write("Frame Type :%s\n"%graphFrameType)
               sys.stderr.write("GPS Start  :%s\n"%myStart)
