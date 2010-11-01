@@ -31,9 +31,10 @@ import pylab
 pylab.rc('text', usetex=True)
 
 from glue import lal
+from glue import segments
+from glue.iterutils import all, any
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
-from glue.iterutils import all, any
 from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
@@ -164,6 +165,14 @@ def parse_command_line():
             "[ALL in INSTRUMENTS_ON2]; etc.",
         help =
             "Opposite of --exclude-coincs: only plot the specified coinc types. WARNING: If you type 'ALL' for on-instruments, e.g., '[H1,L1 in ALL]', and plot-by-instrument-time is not on, livetime from *all* of the instrument times will be included in the background, even if it is from an instrument time that could not produce H1,L1 triggers. If this isn't desired, either be explicit about what instrument times you really want -- i.e., don't use 'ALL' -- or use --exclude-coincs to exclude the instrument times you don't want. In the example, adding --exclude-coincs [ALL in L1,V1];[ALL in H1,V1] will prevent any H1,V1 or L1,V1 time from being added."
+            )
+    parser.add_option( "", "--plot-special-time", action = "append", type = "float", default = [],
+        help =
+            "Exclude all single triggers that are within N seconds of the given end-time from the background, where N is set by --plot-special-window. All foreground triggers that fall within the range will be plotted as stars. Note: this can only be done when reading from sngl-ifo tables."
+            )
+    parser.add_option( "", "--plot-special-window", action = "store", type = "float", default = 8.0,
+        help =
+            "Specify the time window, in seconds, to use around the plot-special-time. Default is 8.0 seconds."
             )
     parser.add_option( "-I", "--plot-by-ifos", action = "store_true", default = False,
         help =
@@ -297,6 +306,10 @@ def combineRowStats( function, rows ):
         return rows[min(rows.keys())]
     if function == 'sorted_keys':
         return ','.join(sorted(rows.keys()))
+    if function == 'sorted_values':
+        return ';'.join(sorted(map( str, rows.values() )))
+    if function == 'echo':
+        return rows
 
     # otherwise, evaulate the function explicitly
     safe_dict = dict([ [name,val] for name,val in rows.items() + math.__dict__.items() if not name.startswith('__') ])
@@ -763,6 +776,10 @@ else:
 if opts.param_name:
     param_name, param_label = len(opts.param_name.split(':')) == 2 and opts.param_name.split(':') or [opts.param_name, opts.param_name.replace('_', ' ').title()]
     param_parser = sqlutils.parse_param_ranges( data_table, param_name, opts.param_ranges, verbose = opts.verbose )
+
+# Get plot-special ranges if desired
+if opts.plot_special_time != []:
+    plot_special_times = segments.segmentlist([ segments.segment( t - opts.plot_special_window, t + opts.plot_special_window ) for t in opts.plot_special_time ])
    
 # Get coincs to include/exclude
 #FIXME: parse_coinc_options should use frozenset(['ALL]), not 'ALL'
@@ -815,6 +832,10 @@ for filename in filenames:
         raise ValueError, 'Could not find %s column in the data table (%s)' % (table_type == 'sngl' and 'ifo' or 'ifos', data_table)
     if last_table_type != '' and last_table_type != table_type:
         raise ValueError, '%s table in file %s does not match the types in the other files' %( data_table, filename )
+    if table_type == 'coinc' and opts.plot_special_time != []:
+        raise ValueError, "Cannot do --plot-special-time using a coinc-ifos table."
+    if table_type == 'sngl' and combining_function is None:
+        raise ValueError, "Must provide a combining function or method if querying sngl-ifo tables."
 
     # TODO: I don't need this for this program, but it could be useful for others; will add this to ligolw_sqlutils
     # construct an offset dictionary for this database
@@ -854,6 +875,8 @@ for filename in filenames:
     sqlquery = """
         SELECT
             experiment.instruments,
+            experiment.gps_start_time,
+            experiment.gps_end_time,
             experiment_summary.time_slide_id,
             experiment_summary.veto_def_name,
             experiment_summary.duration,
@@ -866,9 +889,11 @@ for filename in filenames:
             experiment.experiment_id == experiment_summary.experiment_id
         WHERE
             (experiment_summary.datatype == 'slide'""" + add_foreground + ')' + in_desired_times
-    for on_instruments, tsid, veto_cat, duration, datatype in connection.cursor().execute(sqlquery):
+    for on_instruments, this_gps_start, this_gps_end, tsid, veto_cat, duration, datatype in connection.cursor().execute(sqlquery):
         on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
         analyzed_instruments.update( on_instruments )
+        gps_start_time = min(gps_start_time, this_gps_start)
+        gps_end_time = max(gps_end_time, this_gps_end)
         if datatype == "slide":
             datatypes = ["slide", "background"]
             # store the slide tsid's to keep track of the number of slides
@@ -876,20 +901,26 @@ for filename in filenames:
         else:
             datatypes = [datatype]
         if opts.plot_by_ifos:
-             ifo_list = CoincInspiralUtils.get_ifo_combos(list(bkg_cat.on_instruments))
+             ifo_list = CoincInspiralUtils.get_ifo_combos(list(on_instruments))
         else:
             ifo_list = [set(['ALL'])]
         # if there is more than one param-group or we are plotting by ifos, add the needed backgrounds
         for datatype in datatypes:
             for param_group in range(n_param_groups):
                 for ifos in ifo_list:
-                    bkg_cat = Category( offset_vector = {}, datatype = datatype, veto_cat = veto_cat, ifos = ifos, param_group = param_group)
+                    this_cat = Category( offset_vector = {}, datatype = datatype, veto_cat = veto_cat, ifos = ifos, param_group = param_group)
                     if opts.plot_by_instrument_time:
-                        bkg_cat.on_instruments = on_instruments
+                        this_cat.on_instruments = on_instruments
                     # add the background category
-                    data.setdefault( bkg_cat, [] )
+                    data.setdefault( this_cat, [] )
                     # add the livetime
-                    data.add_livetime( duration, bkg_cat, match_criteria )
+                    # if doing plot special, subtract the duration of the removed time from the background livetime.
+                    # Note that this isn't exactly correct: the range could overlap a slid veto, in which case only some of the time should be subtracted.
+                    # However, we assume this is a small affect.
+                    if datatype == "background" and opts.plot_special_time != [] and plot_special_times.intersects_segment( segments.segment(this_gps_start, this_gps_end) ):
+                        data.add_livetime( duration - sum([abs(seg) for seg in plot_special_times]), this_cat, match_criteria )
+                    else:
+                        data.add_livetime( duration, this_cat, match_criteria )
     
     # add and check the slide count
     # FIXME: We don't have to have the same number of slides in each database in order to do this. However, for that to happen,
@@ -916,6 +947,8 @@ for filename in filenames:
             functionList = [(opts.param_combining_method, param_name), ('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
         else:
             functionList = [('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
+        if opts.plot_special_time != []:
+            functionList.append( ('sorted_values', 'end_time+end_time_ns*1e-9') )
         get_combined_data = createCombineRowsMethod( data_table, data_cols, functionList )
         connection.create_aggregate('get_combined_data', len(data_cols), get_combined_data)
         # create an aggregate function to get the ifos
@@ -941,8 +974,6 @@ for filename in filenames:
             add_coinc_filter = ''.join([ add_coinc_filter, add_coinc_filter == '' and 'HAVING ' or 'AND ', 'NOT in_exclude_filter(experiment.instruments, ifos)'])
         sqlquery = ''.join([ """
             SELECT
-                experiment.gps_start_time,
-                experiment.gps_end_time,
                 experiment.instruments,
                 experiment_summary.datatype,
                 experiment_summary.veto_def_name,
@@ -976,8 +1007,6 @@ for filename in filenames:
             add_coinc_filter = ''.join([ add_coinc_filter, ' AND NOT in_exclude_filter(experiment.instruments, ', data_table, '.ifos)'])
         sqlquery = ''.join([ """
             SELECT
-                experiment.gps_start_time,
-                experiment.gps_end_time,
                 experiment.instruments,
                 experiment_summary.datatype,
                 experiment_summary.veto_def_name,
@@ -1000,30 +1029,37 @@ for filename in filenames:
                 print >> sys.stdout, "\t\t%i/%i (%.2f%%)\r" % (ii, len(results), 100*float(ii)/len(results)),
             else:
                 print >> sys.stdout, '' 
-        gps_start_time = min(gps_start_time, result[0])
-        gps_end_time = max(gps_end_time, result[1])
         if opts.plot_by_instrument_time:
-            on_instruments = frozenset(lsctables.instrument_set_from_ifos( result[2] ))
+            on_instruments = frozenset(lsctables.instrument_set_from_ifos( result[0] ))
         else:
             on_instruments = frozenset(["ALL"])
-        datatype = result[3]
-        veto_cat = result[4]
-        ceid = result[5]
+        datatype = result[1]
+        # if these are slid triggers, check if any fall in the plot-special window
+        if datatype == "slide" and opts.plot_special_time != []:
+            sngl_end_times = [float(t) for t in result[5].split(',')[-1].split(';')]
+            if any(t in plot_special_times for t in sngl_end_times):
+                continue
+        #elif opts.plot_special_time == []:
+            # add a comma to the end so we don't get an error when we parse results[5] later
+        #    result[5] += ','
+        veto_cat = result[2]
+        ceid = result[3]
         if opts.plot_by_ifos:
-            ifos = frozenset(lsctables.instrument_set_from_ifos(result[6]))
+            ifos = frozenset(lsctables.instrument_set_from_ifos(result[4]))
         else:
             ifos = frozenset(["ALL"])
         if opts.param_name:
-            param_group, end_time, stat = [float(x) for x in result[7].split(',')]
+            param_group, end_time, stat = [float(x) for x in result[5].split(',') if ';' not in x]
             param_group = param_parser.group_by_param_range( param_group )
             # skip this if it doesn't fall in any desired param group
             if param_group is None:
                 continue
         else:
             param_group = 0.
-            end_time, stat = [float(x) for x in result[7].split(',')]
+            end_time, stat = [float(x) for x in result[5].split(',') if ';' not in x]
+        # passed any tests, store data
         this_row = rowType()
-        this_row.store([ ('end_time', end_time), ('stat', stat), ('ifos', result[6]) ])
+        this_row.store([ ('end_time', end_time), ('stat', stat), ('ifos', result[4]) ])
         # construct categories
         categories = [ Category( {}, datatype, veto_cat, on_instruments, ifos, param_group ) ]
         if datatype == "slide":
@@ -1143,6 +1179,14 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
             if x[0] != max(fg_stats):
                 break
             loudest_events.append(x[2])
+
+    #
+    # plot foreground triggers that fall in plot-special window as stars
+    #
+    if opts.plot_special_time != []:
+        plot_sp_vals = [x for x in plotvals if data.data_index[x[2]].data.end_time in plot_special_times]
+        if plot_sp_vals != []:
+            pylab.scatter( [x[0] for x in plot_sp_vals], [y[1] / T_fg for y in plot_sp_vals], c = 'yellow', marker = (5,1,0), s = 40, linewidth = .5, label = '_no_legend', zorder = 5 )
 
     #   TODO: pylab.plot( [math.sqrt(2.)*opts.reference_snr, math.sqrt(2.)*opts.reference_snr], [ymin, ymax], 'r--', label = 'SNR %.1f in all ifos' % opts.reference_snr )
 
