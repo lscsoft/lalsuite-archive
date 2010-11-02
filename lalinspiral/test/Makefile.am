@@ -13,6 +13,7 @@ check_PROGRAMS = \
 	FindChirpTDTest \
 	GenerateInspiralWaveform \
 	GeneratePPNAmpCorInspiralTest \
+	GeneratePPNAmpCorConsistencyTest \
 	GeneratePPNInspiralTest \
 	GetOrientationEllipse \
 	InjectionInterfaceTest \

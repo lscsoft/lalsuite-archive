@@ -22,6 +22,7 @@ lalinspiralinclude_HEADERS = \
 	GenerateRing.h \
 	InspiralInjectionParams.h \
 	LALInspiral.h \
+	GeneratePPNAmpCorConsistency.h \
 	LALInspiralBCVSpinBank.h \
 	LALInspiralBank.h \
 	LALInspiralConfig.h \
@@ -86,6 +87,7 @@ liblalinspiral_la_SOURCES = \
 	GenerateInspiral.c \
 	GenerateInspiralSmooth.c \
 	GeneratePPNAmpCorInspiral.c \
+	GeneratePPNAmpCorConsistency.c \
 	GeneratePPNInspiral.c \
 	GenerateRing.c \
 	GetErrorMatrixFromSnglInspiral.c \
