@@ -269,6 +269,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
         row = ul_table.RowType()
 
         if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+          if bins[mbin] not in [bins[k] for k in representative_bins]: continue
           row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
           columnList = ['mass1','mass2']
@@ -690,14 +691,14 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    if bin_type == "Chirp_Mass":
      last_row.chirp_mass = "TOTAL"
 
-   last_row.range_in_Mpc = (sec_in_yr*total_vol.array.sum()/total_lt[mbin] /(4*numpy.pi/3) )**(1./3)
    last_row.volume_in_Mpc3_yr = total_vol.array.sum()
-   last_row.fractional_error = 0
-   last_row.upper_limit = 0
-   last_row.marginalized_upper_limit = 0
+   last_row.range_in_Mpc = ''
+   last_row.fractional_error = ''
+   last_row.upper_limit = ''
+   last_row.marginalized_upper_limit = ''
    last_row.injections_found = total_found.array.sum()
    last_row.injections_missed = total_missed.array.sum()
-   last_row.livetime_in_days = total_lt[mbin]/(3600*24.0)
+   last_row.livetime_in_days = ''
    ul_table.append(last_row)
 
    columnList += ['volume_in_Mpc3_yr','fractional_error','range_in_Mpc','upper_limit','marginalized_upper_limit','injections_found','injections_missed','livetime_in_days']
