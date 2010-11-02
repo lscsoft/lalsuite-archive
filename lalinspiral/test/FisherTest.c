@@ -56,10 +56,12 @@ lalDebugLevel
 
 
 #include <lal/LALInspiralComputeFisher.h>
+#include <stdlib.h>
 
 NRCSID(FISHERTESTC,"$Id$");
 
-int lalDebugLevel = 1;
+#define FISHERTESTC_EARG 0
+#define FISHERTESTC_EARG_MSG "Error parsing arguments"
 
 double ET_B(double f)
 {
@@ -137,6 +139,32 @@ double ET_C(double f)
   return(Output);
 }
 
+/*********************************************************************
+ *
+ *  Macro's
+ * 
+ ********************************************************************/
+
+/* OUTPUTTING ERRORS */
+
+
+int lalDebugLevel = 0;
+
+#define USAGE "Usage: %s [--verbose] [--SGfilter] [-s seed] [-m m1 m2 (Msun)] [-r dist (PC)]\n\t[-i RA dec inc pol (radians)] [-c phic tc (rad,s)] [-f f_min f_max] [-p phaseOrder ampOrder] [-o outputFolder]\n"
+
+#define ERROR( code, msg, statement )                                \
+do                                                                   \
+if ( lalDebugLevel & LALERROR )                                      \
+{                                                                    \
+LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"   \
+"        %s %s\n", (code), *argv, __FILE__,         \
+__LINE__, FISHERTESTC,                 \
+statement ? statement : "", (msg) );                \
+}                                                                    \
+while (0)
+
+
+
 int main( INT4 argc, char **argv )
 {
   /*********************************************************************
@@ -149,20 +177,405 @@ int main( INT4 argc, char **argv )
 	
   /*********************************************************************
    *
-   * Get seed from argument of executable and set up Random Number
+   *  Input parameters to be read in from argument parsing
+	 *		or from file in file is supplied
+   * 
+   ********************************************************************/
+  
+	// GENERAL
+	int arg = 1;			// argument counter	
+	
+  // WAVEFORM PARAMETERS
+  REAL4 m1            = 10.0;           // Component Mass 1 
+  REAL4 m2            = 100.0; 					// Component Mass 2
+  REAL4 dist          = 3.0e8*LAL_PC_SI;// Distance to source
+  REAL4 latitude			= LAL_PI/6.0; //acos(gsl_ran_flat (p, -1.0, 1.0));						// latitude
+	REAL4 longitude			= LAL_PI/6.0; //gsl_ran_flat (p, 0, LAL_TWOPI);						// longitude
+  REAL4 inc           = LAL_PI/3.0; //acos(gsl_ran_flat (p, -1.0, 1.0));     // Inclination angle
+  REAL4 psi						= LAL_PI/4.0; //gsl_ran_flat (p, 0, LAL_TWOPI);						// Polarisation angle
+  REAL4 tc            = 0.0;            // End time of waveform
+  REAL4 phic          = 0.0;            // Phase of coalescenes
+  REAL4 fStartIn      = 40.0;           // Starting frequency
+  REAL8 fStopIn       = 0.0;            // No early termination
+	INT4 phaseOrder     = 6;              // Expansion order PPN
+  INT4 ampOrder       = 5;              // Amplitude Order  
+  INT4 gpsSeconds			= 0;							// GPS time, seconds
+  INT4 gpsNanoSeconds = 0;							// GPS time, nanoseconds	
+	
+	// OUTPUT PARAMETERS
+	char *folder = NULL;
+	char folder_std[128] = "./";
+	
+	// SWITCHES
+	INT4 seed						= 0;
+	INT4 verbose_switch = 0;
+	INT4 SavitskyGolay_switch = 0;
+	
+	/*********************************************************************
+   *
+   *  Argument Parsing
+   * 
+   ********************************************************************/
+	
+	for (arg=1; arg<argc; arg++)
+	{
+		/* PARSING MASSES */
+		if (!strcmp(argv[arg],"-m")) 
+		{
+			if(argc<=arg+2)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') || (argv[arg+2][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+3 )
+			{
+				if(argv[arg+3][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					m1 = atof(argv[++arg]);
+					m2 = atof(argv[++arg]);
+				}
+			}
+			else
+			{
+				m1 = atof(argv[++arg]);
+				m2 = atof(argv[++arg]);
+			}
+		}
+		
+		/* PARSING ANGELS */
+		else if (!strcmp(argv[arg],"-i")) 
+		{
+			if(argc<=arg+4)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') || (argv[arg+2][0]=='-') || (argv[arg+3][0]=='-') || (argv[arg+4][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+5 )
+			{
+				if(argv[arg+5][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					longitude = atof(argv[++arg]);
+					latitude = atof(argv[++arg]);
+					inc = atof(argv[++arg]);
+					psi = atof(argv[++arg]);
+				}
+			}
+			else
+			{
+				longitude = atof(argv[++arg]);
+				latitude = atof(argv[++arg]);
+				inc = atof(argv[++arg]);
+				psi = atof(argv[++arg]);
+			}
+		}
+		
+		/* PARSING END CONDITIONS */
+		else if (!strcmp(argv[arg],"-c")) 
+		{
+			if(argc<=arg+2)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') || (argv[arg+2][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+3 )
+			{
+				if(argv[arg+3][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					phic = atof(argv[++arg]);
+					tc = atof(argv[++arg]);
+				}
+			}
+			else
+			{
+				phic = atof(argv[++arg]);
+				tc = atof(argv[++arg]);
+			}
+		}
+		
+		/* PARSING FREQUENCY ARGUMENTS */
+		else if (!strcmp(argv[arg],"-f")) 
+		{
+			if(argc<=arg+2)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') || (argv[arg+2][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+3 )
+			{
+				if(argv[arg+3][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					fStartIn = atof(argv[++arg]);
+					fStopIn = atof(argv[++arg]);
+				}
+			}
+			else
+			{
+				fStartIn = atof(argv[++arg]);
+				fStopIn = atof(argv[++arg]);
+			}
+		}
+		
+		
+		/* PARSING PN ORDER ARGUMENTS */
+		else if (!strcmp(argv[arg],"-p")) 
+		{
+			if(argc<=arg+2)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') || (argv[arg+2][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+3 )
+			{
+				if(argv[arg+3][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					phaseOrder = atoi(argv[++arg]);
+					ampOrder = atoi(argv[++arg]);
+				}
+			}
+			else
+			{
+				phaseOrder = atoi(argv[++arg]);
+				ampOrder = atoi(argv[++arg]);
+			}
+		}
+		
+		/* PARSING OUTPUT FOLDER ARGUMENT */
+		else if (!strcmp(argv[arg],"-o")) 
+		{
+			if(argc<=arg+1)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+2 )
+			{
+				if(argv[arg+2][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					folder = argv[++arg];
+				}
+			}
+			else
+			{
+				folder = argv[++arg];
+			}
+		}
+		
+		/* PARSING SEED ARGUMENT */
+		else if (!strcmp(argv[arg],"-s")) 
+		{
+			if(argc<=arg+1)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+2 )
+			{
+				if(argv[arg+2][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					seed = atoi(argv[++arg]);
+				}
+			}
+			else
+			{
+				seed = atoi(argv[++arg]);
+			}
+		}
+		
+		/* PARSE DISTANCE ARGUMENT */
+		else if (!strcmp(argv[arg],"-d")) 
+		{
+			if(argc<=arg+1)
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( (argv[arg+1][0]=='-') )
+			{
+				ERROR( FISHERTESTC_EARG,
+							FISHERTESTC_EARG_MSG, 0 );
+				LALPrintError( USAGE, *argv );
+				return FISHERTESTC_EARG;
+			}
+			else if( argc>arg+2 )
+			{
+				if(argv[arg+2][0]!='-')
+				{
+					ERROR( FISHERTESTC_EARG,
+								FISHERTESTC_EARG_MSG, 0 );
+					LALPrintError( USAGE, *argv );
+					return FISHERTESTC_EARG;
+				}
+				else
+				{
+					dist = atof(argv[++arg]);
+				}
+			}
+			else
+			{
+				dist = atof(argv[++arg]);
+			}
+		}
+		
+		/* PARSING VERBOSE ARGUMENTS */
+		else if (!strcmp(argv[arg],"--verbose")) 
+		{
+			verbose_switch = 1;
+		}
+		
+		/* PARSING SAVITSKY GOLAY SMOOTHER ARGUMENTS */
+		else if (!strcmp(argv[arg],"--SGfilter")) 
+		{
+			SavitskyGolay_switch = 1;
+		}
+		
+		
+		else if ( argv[arg][0] == '-' ) 
+		{
+      ERROR( FISHERTESTC_EARG,
+						FISHERTESTC_EARG_MSG, 0 );
+			LALPrintError( USAGE, *argv );
+			return FISHERTESTC_EARG;
+    }
+		
+	}
+	
+	/* IF NO FOLDER SPECIFIED, OUTPUT TO CURRENT FOLDER */
+	if(!folder) folder = folder_std;
+	
+	//printf("m1 = %e | m2 = %e | longitude = %e | latitude = %e | inc = %e | psi = %e | phic = %e | tc = %e \n fStart = %e | fStop = %e | phaseOrder = %d | ampOrder = %d | verbose = %d | SGfilter = %d | folder = %s | seed = %d | dist = %e \n", m1,m2, longitude, latitude, inc, psi, phic , tc, fStartIn, fStopIn, phaseOrder, ampOrder, verbose_switch, SavitskyGolay_switch, folder, seed, dist );
+	//exit(0);
+		
+	
+  /*********************************************************************
+   *
+   * Get seed from argument and set up Random Number
    * Generator (RNG)
    * 
    ********************************************************************/	
 	
 	/* GET SEED FROM ARGUMENT */
 	
-	if (argc!=2)
-  {
-    fprintf(stdout, "Usage: %s random seed\n", argv[0]);
-    exit(0);
-  }
-  INT4 seed = atoi(argv[1]);
-  fprintf(stdout, "Running FisherTest - seed %d \n", atoi(argv[1])); 
+//	if (argc!=2)
+//  {
+//    fprintf(stdout, "Usage: %s random seed\n", argv[0]);
+//    exit(0);
+//  }
+//  INT4 seed = atoi(argv[1]);
+//  fprintf(stdout, "Running FisherTest - seed %d \n", atoi(argv[1])); 
   
   /* INITIATE GSL RANDOM NUMBER GENERATOR */
   
@@ -172,29 +585,6 @@ int main( INT4 argc, char **argv )
   gsl_rng_default_seed = seed;		    // vary generation sequence
   type = gsl_rng_default;             // set RNG type to default
   p = gsl_rng_alloc (type);           // Set RNG type
-	
-  /*********************************************************************
-   *
-   *  Input parameters, could also be read in from files
-   * 
-   ********************************************************************/
-  //
-  // WAVEFORM PARAMETERS
-  REAL4 m1            = 9.0;           // Component Mass 1 
-  REAL4 m2            = 90.0; 					// Component Mass 2
-  REAL4 dist          = 3.0e8*LAL_PC_SI;// Distance to source
-  REAL4 latitude			= LAL_PI/6.0; //acos(gsl_ran_flat (p, -1.0, 1.0));						// latitude
-	REAL4 longitude			= LAL_PI/6.0; //gsl_ran_flat (p, 0, LAL_TWOPI);						// longitude
-  REAL4 inc           = LAL_PI/3.0; //acos(gsl_ran_flat (p, -1.0, 1.0));     // Inclination angle
-  REAL4 psi						= LAL_PI/4.0; //gsl_ran_flat (p, 0, LAL_TWOPI);						// Polarisation angle
-  REAL4 tc            = 0.0;            // End time of waveform
-  REAL4 phic          = 0.0;            // Phase of coalescenes
-  REAL4 fStartIn      = 20.0;           // Starting frequency
-  REAL8 fStopIn       = 0.0;            // No early termination
-	INT4 phaseOrder     = 6;              // Expansion order PPN
-  INT4 ampOrder       = 5;              // Amplitude Order  
-  INT4 gpsSeconds			= 0;							// GPS time, seconds
-  INT4 gpsNanoSeconds = 0;							// GPS time, nanoseconds
   
   /*********************************************************************
    *
@@ -237,9 +627,9 @@ int main( INT4 argc, char **argv )
 	
 	/* GENERAL CONTROL PARAMETERS */
 	testACS.seed							= seed;
-	testACS.verbose_switch		=	1;
+	testACS.verbose_switch		=	verbose_switch;
 	testACS.printall					= 1;
-	testACS.SavitskyGolay_switch = 1;
+	testACS.SavitskyGolay_switch = SavitskyGolay_switch;
 	testACS.N_inputparams			=	6;
 	testACS.dynRange					= 1E+27;
 	testACS.coordinate				= 0; // 0: detector frame, 1 equitorial frame
@@ -406,30 +796,29 @@ int main( INT4 argc, char **argv )
    * 
    ********************************************************************/  
   
-  if(testACS.verbose_switch==1){fprintf(stdout, "... Creating Output Files \n");}
-  
-  /* FOLDER FOR OUTPUT FILES */
-	char folder[128] = "";
+	/* CREATE OUTPUT FILES */
+	FILE *fisher_out;
+	FILE *cov_out;  
+	
+
+	if(testACS.verbose_switch==1){fprintf(stdout, "... Creating Output Files \n");}
+	
+	/* FOLDER FOR OUTPUT FILES */
 	testACS.folder = folder;
-  
-  /* NAME OUTPUT FILES */
-  const char fisher[]						= "fisher";
-  const char covariance[]				= "covariance";
-  
-  /* CREATE OUTPUT FILES */
-  FILE *fisher_out;
-  FILE *cov_out;  
+	
+	/* NAME OUTPUT FILES */
+	const char fisher[]						= "fisher";
+	const char covariance[]				= "covariance";
 	
 	char fisher_name[4096];
-  char cov_name[4096];
-  
+	char cov_name[4096];
+	
 	sprintf(fisher_name, "%s%s%d%s", folder, fisher, seed, ".dat");
 	sprintf(cov_name, "%s%s%d%s", folder, covariance, seed, ".dat");
 	
 	/* GENERAL OUTPUT */
-  fisher_out				= fopen(fisher_name, "w");
-  cov_out						= fopen(cov_name, "w");
-	
+	fisher_out				= fopen(fisher_name, "w");
+	cov_out						= fopen(cov_name, "w");
   
   /*********************************************************************
    *
@@ -467,10 +856,11 @@ int main( INT4 argc, char **argv )
    * 
    ********************************************************************/ 
 	
+	FILE *print_input;
+
 	if(testACS.verbose_switch==1)fprintf(stdout,"...Printing input to file \n");
 	
-	FILE *print_input;
-  char print_name[128];
+	char print_name[128];
 	const char print_base[]		 = "input_params_";
 	sprintf(print_name,"%s%s%d%s", folder, print_base, testACS.seed, ".dat");
 	print_input = fopen(print_name, "w");
@@ -672,6 +1062,8 @@ int main( INT4 argc, char **argv )
    * 
    ********************************************************************/ 	
 	
+	/* SECOND FISHER MATRIX TO COMPUTE A TWO DETECTOR ET CONFIGURATION */
+	
 	PPNConsistencyParamStruc FisherParams1;
 	PPNConsistencyParamStruc FisherParams2;
 	
@@ -691,8 +1083,10 @@ int main( INT4 argc, char **argv )
   //LALInspiralComputeFisherMatrix(&status, psd, &FisherParams2, Fisher2, &testACS);
   
   /* WRITE PARAMETER INTO OUTPUT FILES */
-  fprintf(fisher_out, "%d\t%d\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t", testACS.seed, params.epoch.gpsSeconds, params.mTot_real8, params.eta_real8, params.phasePNparams[0], params.phasePNparams[1], params.phasePNparams[testACS.testPhaseParam], testACS.SNR, params.d, params.position.longitude, params.position.latitude, params.inc, params.phi, params.psi);
- 	fprintf(cov_out, "%d\t%d\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t", testACS.seed, params.epoch.gpsSeconds, params.mTot_real8, params.eta_real8, params.phasePNparams[0], params.phasePNparams[1], params.phasePNparams[testACS.testPhaseParam],testACS.SNR, params.d, params.position.longitude, params.position.latitude, params.inc, params.phi, params.psi);
+
+	fprintf(fisher_out, "%d\t%d\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t", testACS.seed, params.epoch.gpsSeconds, params.mTot_real8, params.eta_real8, params.phasePNparams[0], params.phasePNparams[1], params.phasePNparams[testACS.testPhaseParam], testACS.SNR, params.d, params.position.longitude, params.position.latitude, params.inc, params.phi, params.psi);
+	fprintf(cov_out, "%d\t%d\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t", testACS.seed, params.epoch.gpsSeconds, params.mTot_real8, params.eta_real8, params.phasePNparams[0], params.phasePNparams[1], params.phasePNparams[testACS.testPhaseParam],testACS.SNR, params.d, params.position.longitude, params.position.latitude, params.inc, params.phi, params.psi);
+	
   
   /* OUTPUT FISHER TO FILE AND SCREEN */
   if(testACS.verbose_switch==1)fprintf(stdout, "FISHER MATRIX \n");
@@ -702,17 +1096,26 @@ int main( INT4 argc, char **argv )
     fprintf(fisher_out, "%e", Fishertot[i]);
     if(testACS.verbose_switch==1)fprintf(stdout, "%e", Fishertot[i]);
     
-    if(i==(testACS.N_inputparams*testACS.N_inputparams-1))
-    {
+		if( testACS.verbose_switch==1 && i==(testACS.N_inputparams-1))
+		{
+			fprintf(stdout, "\n");
+		}
+		else 
+		{
+			fprintf(stdout, "\t");
+		}
+
+		if(i==(testACS.N_inputparams*testACS.N_inputparams-1))
+		{
 			fprintf(fisher_out, "\n");
-			if(testACS.verbose_switch==1)fprintf(stdout, "\n");
 		}
-    else
-    {
+		else
+		{
 			fprintf(fisher_out, "\t");
-			if(testACS.verbose_switch==1)fprintf(stdout, "\t");
 		}
+
 	}
+	fclose(fisher_out);
 	
 	/* INVERTING FISHER TO GET COVARIANCE */
   LALInspiralInvertMatrix(&status, Fishertot, Covariance, &testACS); 
@@ -723,17 +1126,32 @@ int main( INT4 argc, char **argv )
     fprintf(cov_out, "%e", Covariance[i]);
     if(testACS.verbose_switch==1)fprintf(stdout, "%e", Covariance[i]);
     
-    if(i==(testACS.N_inputparams*testACS.N_inputparams-1))
-    {
+		if( testACS.verbose_switch==1 && i==(testACS.N_inputparams-1))
+		{
+			fprintf(stdout, "\n");
+		}
+		else 
+		{
+			fprintf(stdout, "\t");
+		}
+		
+		
+		if(i==(testACS.N_inputparams*testACS.N_inputparams-1))
+		{
 			fprintf(cov_out, "\n");
-			if(testACS.verbose_switch==1)fprintf(stdout, "\n");
 		}
-    else
-    {
+		else
+		{
 			fprintf(cov_out, "\t");
-			if(testACS.verbose_switch==1)fprintf(stdout, "\t");
+			
 		}
+
 	}
+	
+	/* CLOSING OUTPUT FILES */
+	fclose(fisher_out);
+	fclose(cov_out); 
+	
 	
   /*********************************************************************
    *
@@ -843,9 +1261,6 @@ int main( INT4 argc, char **argv )
   XLALDestroyREAL4Vector(params.ppn);
   XLALDestroyREAL8FrequencySeries(psd); psd = NULL;
 	
-	/* CLOSING OUTPUT FILES */
-	fclose(fisher_out);
-  fclose(cov_out);  
 	
   if(testACS.verbose_switch==1)fprintf(stdout, "Finished FisherTest \n");
   REPORTSTATUS( &status );
