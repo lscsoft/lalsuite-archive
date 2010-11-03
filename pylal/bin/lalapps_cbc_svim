@@ -89,11 +89,11 @@ class upper_limit(object):
     self.get_instruments(connection)      #find out which instruments were on at all during search
     self.set_instruments_to_calculate()   #figure out which instrument sets the user wants us to use
 
-    # take care of mass binning
+    # take care of binning
     self.get_total_mass_bins(connection)  #determine the total mass ranges and binning for this calculation
     self.get_m1m2_mass_bins(connection)   #determine the component mass ranges and binning for this calculation
     self.get_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
-    self.get_bns_bbh_bins()                #set up BNS,BBH, and BHNS bins
+    self.get_bns_bbh_bins()               #set up BNS,BBH, and BHNS bins
     self.set_bins_to_calculate()          #figure out which mass bins the user wants us to use
 
     # get the rest of the goodies
@@ -102,6 +102,7 @@ class upper_limit(object):
     self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
     self.get_far_thresholds(connection)   #determine FAR to use for computing search volume
     self.get_gps_times_duration(connection)
+    self.get_distance_bins()    #determine the distance bins to use for integration
 
     # close db connection
     connection.commit()
@@ -210,13 +211,29 @@ class upper_limit(object):
     return self.zero_lag_segments
 
 
+  def get_distance_bins(self):
+    '''Determine distance bins to use for the calculation.'''
+    self.dmin = float('inf')
+    self.dmax = 0
+    for instr in self.instruments:
+      f,m = self.get_injections(instr,0)
+      self.dmin = numpy.min([ self.dmin, numpy.min([j.distance for j in m]) ])
+      self.dmax = numpy.max([ self.dmax, numpy.max([j.distance for j in m]) ])
+
+    self.dbins = rate.LogarithmicBins(0.99*self.dmin,1.01*self.dmax, int(self.opts.dist_bins))
+    return self.dbins
+
+
   def get_total_mass_bins(self, connection):
     '''Find the total mass range for the search and generate one dimensional mass bins for this range.'''
     if self.opts.verbose: print >>sys.stdout,"\nFinding the range of injected total masses..."
 
     #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
     self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-    self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+    if self.opts.max_mtotal:
+      self.maxtotal = self.opts.max_mtotal
+    else:
+      self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
 
     if self.opts.verbose:
        print >>sys.stdout,"\tminimum total: %g solar masses" % self.mintotal
@@ -428,6 +445,20 @@ class upper_limit(object):
 
     return dA
 
+  def filter_injection(self,sim):
+    if sim.waveform in self.opts.exclude_sim_type:
+      return True
+
+    if not self.mintotal < sim.mass1 + sim.mass2 < self.maxtotal:
+      return True
+
+    if not self.minmass < sim.mass1 < self.maxmass:
+      return True
+
+    if not self.minmass < sim.mass2 < self.maxmass:
+      return True
+
+    return False
 
   def get_injections(self, instruments, FAR=None):
     """
@@ -437,14 +468,15 @@ class upper_limit(object):
     injection in triple time therefore is considered found if it matches any double-IFO
     coincident event. All other injections are considered "missed".
     """
-    if not FAR: FAR = self.far[instruments]
+    if FAR is None: FAR = self.far[instruments]
 
     found = []
     missed = []
 
     # Open a fresh connection to the database
-    working_filename = dbtables.get_connection_filename(self.fname, tmp_path = opts.tmp_space, verbose = self.opts.verbose)
+    working_filename = dbtables.get_connection_filename(self.fname, tmp_path = self.opts.tmp_space, verbose = self.opts.verbose)
     connection = sqlite3.connect(working_filename)
+
 
     def injection_was_made(geocent_end_time, geocent_end_time_ns):
         """
@@ -475,6 +507,9 @@ class upper_limit(object):
 
     for values in connection.cursor().execute(injection_finding_query,(FAR,)):
       sim = make_sim_inspiral(values)
+
+      if self.filter_injection(sim): continue
+
       if values[-1]:
         found.append(sim)
       else:
@@ -770,6 +805,10 @@ def parse_command_line():
   parser.add_option("--bin-by-bns-bbh", default = False, action = "store_true", help = "Compute the search volume for BNS/BBH systems.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
+  # Control the injection population used to measure the search volume
+  parser.add_option("--max-mtotal", type = "float", default = None, action = "store", help = "Specify the maximum total mass to use in the calculation.")
+  parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
+
   # These options control the volume uncertainty estimation.
   parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of bootstrap trials to use for computing the mean and variance of the search volume. A good number is 10000.")
   parser.add_option("--bootstrap-seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the bootstrap resampling. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
@@ -803,7 +842,7 @@ def parse_command_line():
     print >>sys.stderr, "must specify exactly one database file"
     sys.exit(1)
 
-  if not opts.bin_by_total_mass and not opts.bin_by_chirp_mass and not opts.bin_by_m1m2:
+  if not opts.bin_by_bns_bbh and not opts.bin_by_chirp_mass and not opts.bin_by_m1m2:
     opts.bin_by_total_mass = True # choose a default binning method
 
   return opts, filenames[0]
@@ -829,7 +868,7 @@ for instruments in UL.instruments:
     dvA = UL.get_volume_derivative(instruments,bin_type)
 
     #compute volume first and second moments
-    vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=opts.verbose)
+    vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=opts.verbose,dbin_in = UL.dbins)
 
     # convert to distance
     distance = UL.distance_from_4volume(vA,instruments)

@@ -115,6 +115,8 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         else:
             mchirp_name='mchirp'
 
+        inj_mass1=None
+        inj_mass2=None
         if injection:
             inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
 

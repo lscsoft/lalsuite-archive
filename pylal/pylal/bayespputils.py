@@ -61,15 +61,8 @@ class OneDPosterior(object):
         self.__name=name
         self.__posterior_samples=np.array(posterior_samples)
 
-        if injected_value is not None:
-            self.__injval=injected_value
-        else:
-            self.__injval=None
-
-        if prior is not None and type(prior)==type(function):
-            self.__prior=prior
-        else:
-            self.__prior=None
+        self.__injval=injected_value
+        self.__prior=prior
 
         return
 
