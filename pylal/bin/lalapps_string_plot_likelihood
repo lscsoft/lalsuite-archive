@@ -138,13 +138,12 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
-	if numpy.any(injections_data):
-		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
-        Y=axes.get_ylim()
-	# FIXME : lower limit is hard-coded
-        axes.set_ylim(1e-05, 2*Y[1])
+	if numpy.any(injections_data):
+		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	ymin, ymax = axes.get_ylim()
+	axes.set_ylim((max(ymin, ymax * 1e-6), ymax))
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
@@ -160,19 +159,18 @@ def df_plot(key, background_coords, background_data, injections_coords, injectio
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
-	if numpy.any(injections_data):
-		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
-        Y=axes.get_ylim()
-	# FIXME : lower limit is hard-coded
-        axes.set_ylim(1e-05, 2*Y[1])
+	if numpy.any(injections_data):
+		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	ymin, ymax = axes.get_ylim()
+	axes.set_ylim((max(ymin, ymax * 1e-6), ymax))
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
 	axes.set_title(r"%s--%s Frequency Cutoff Asymmetry Distribution" % (instrument1, instrument2))
 	axes.set_ylabel("Probability Density")
-	axes.set_xlabel(r"$\left(fcut_{\mathrm{%s}} - fcut_{\mathrm{%s}}\right) / \left(fcut_{\mathrm{%s}} + fcut_{\mathrm{%s}}\right)$" % (instrument1, instrument2,instrument1, instrument2))
+	axes.set_xlabel(r"$\left({f_{\mathrm{cut}}}_{\mathrm{%s}} - {f_{\mathrm{cut}}}_{\mathrm{%s}}\right) / \frac{1}{2} \left({f_{\mathrm{cut}}}_{\mathrm{%s}} + {f_{\mathrm{cut}}}_{\mathrm{%s}}\right)$" % (instrument1, instrument2,instrument1, instrument2))
 	axes.xaxis.grid(True, which = "major,minor")
 	axes.yaxis.grid(True, which = "major,minor")
 	return fig
@@ -183,13 +181,12 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
-	if numpy.any(injections_data):
-		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
-        Y=axes.get_ylim()
-	# FIXME : lower limit is hard-coded
-        axes.set_ylim(1e-05, 2*Y[1])
+	if numpy.any(injections_data):
+		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	ymin, ymax = axes.get_ylim()
+	axes.set_ylim((max(ymin, ymax * 1e-6), ymax))
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
