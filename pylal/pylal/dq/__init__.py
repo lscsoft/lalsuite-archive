@@ -10,5 +10,8 @@ __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
-__all__ = ["dqDataUtils","dqFrameUtils","dqSegmentUtils"]
+__all__ = ["dqDataUtils",\
+           "dqFrameUtils",\
+           "dqSegmentUtils",\
+           "dqPlotUtils"]
 
