@@ -41,6 +41,8 @@ B<-read.table("band_info.txt", header=TRUE, stringsAsFactors=FALSE)
 colnames(B)<-gsub(":", "", unlist(col_names[1,]))
 
 data<-merge(A, B[B$kind=="snr" & B[,"set"]==p(Segment, "_all"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("_orig", ""))
+data<-merge(data, B[B$kind=="snr" & B[,"set"]==p(Segment, "_LHO"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("", "_H1"))
+data<-merge(data, B[B$kind=="snr" & B[,"set"]==p(Segment, "_LLO"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("", "_L1"))
 cat("Merged data has", dim(data)[1], "rows\n")
 
 data[,"dist"]<-ecliptic_dist(data[,"ra_orig"], data[,"dec_orig"], data[,"ra"], data[,"dec"])
@@ -53,14 +55,14 @@ F<-data[,"frequency"]==0
 F[is.na(F)]<-TRUE
 cat("Found", sum(F), "masked entries\n")
 data[F, "Comment"]<-p(data[F, "Comment"], " masked")
-data[F, "frequency"]<-data[F, "frequency_orig"]
-data[F, "spindown"]<-data[F, "spindown_orig"]
-data[F, "ra"]<-data[F, "ra_orig"]
-data[F, "dec"]<-data[F, "dec_orig"]
-data[F, "snr"]<-data[F, "snr_orig"]
-data[F, "ul"]<-data[F, "ul_orig"]
-data[F, "iota"]<-data[F, "iota_orig"]
-data[F, "psi"]<-data[F, "psi_orig"]
+data[F, "frequency"]<-0
+data[F, "spindown"]<- -100
+data[F, "ra"]<- -10
+data[F, "dec"]<- -10
+data[F, "snr"]<- -10
+data[F, "ul"]<- -1
+data[F, "iota"]<- -10
+data[F, "psi"]<- -10
 
 data.same.segment<-data[data$set==data$set_orig,,drop=FALSE]
 
@@ -72,12 +74,21 @@ data.combined<-data.combined[order(data.combined[,"line_id_orig"], -data.combine
 
 cat("Combined data has", dim(data.combined)[1], "rows\n")
 
-F<-abs(data.combined[,"frequency"]-data.combined[,"frequency_orig"])<FrequencyTolerance
+F<-(abs(data.combined[,"frequency"]-data.combined[,"frequency_orig"])<FrequencyTolerance) & (data.combined[,"frequency"]>0)
 F[is.na(F)]<-FALSE
 
 cat(sum(F), "have passed frequency cut\n")
 data.combined[,"F0_cut"]<-F
 
+F<-data.combined[,"snr"]>data.combined[,"snr_orig"]*LooseSNRfactor
+F[is.na(F)]<-FALSE
+data.combined[,"SNR_increase"]<-F
+cat(sum(data.combined[,"SNR_increase"]), "outliers have passed SNR_increase cut\n")
+
+F<-(MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_H1"]) & (MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_L1"])
+F[is.na(F)]<-FALSE
+data.combined[,"SNR_min"]<-F
+cat(sum(data.combined[,"SNR_min"]), "outliers have passed SNR_min cut\n")
 
 keep.columns<-c(names(data.combined)[regexpr("(^dist|_orig|tag.)$", names(data.combined))<0], "line.f0_orig", "line.comment_orig", "min_gps_orig", "max_gps_orig", "nchunks_orig", "snr_orig", "i_orig", "line_id_orig")
 
@@ -89,11 +100,6 @@ if(sum(F)>0) {
 	}
 
 new_outliers<-unique(data.combined[,keep.columns,drop=FALSE])
-
-F<-new_outliers[,"snr"]>new_outliers[,"snr_orig"]*LooseSNRfactor
-F[is.na(F)]<-FALSE
-new_outliers[,"SNR_increase"]<-F
-cat(sum(new_outliers[,"SNR_increase"]), "outliers have passed SNR cut\n")
 
 #
 # More messing with column names to make output suitable for input to the same script
@@ -116,7 +122,7 @@ for(col in names(L))
 	new_outliers[,col]<-new_outliers[,L[[col]]]
 
 write.table(new_outliers, "followup_matches.raw.csv", sep="\t", col.names=TRUE, row.names=FALSE)
-reduced_outliers<-new_outliers[new_outliers[,"SNR_increase"] & new_outliers[,"F0_cut"],,drop=FALSE]
+reduced_outliers<-new_outliers[new_outliers[,"SNR_increase"] & new_outliers[,"SNR_min"] & new_outliers[,"F0_cut"],,drop=FALSE]
 cat(dim(reduced_outliers)[1], "reduced outliers\n")
 
 #

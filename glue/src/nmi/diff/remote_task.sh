@@ -10,7 +10,6 @@ GIT_ID_B=$2
 
 # this script additionally expects:
 #
-# ./diff_sans_process exists
 # 1 or more pairs of identically-named xml data products exist in
 #   ./$GIT_ID_A/ and ./$GIT_ID_B/
 # lalsuite glue is installed in /opt/lscsoft/glue
@@ -40,12 +39,13 @@ done
 for f in $GIT_ID_A/*.xml; do
     basef=$(basename $f)
 #    ./diff_sans_process --ignore-process-table --ignore-searchsummary-table $f $GIT_ID_B/$basef > $basef.diff 2>&1
-    ./diff_sans_process --ignore-process-table $f $GIT_ID_B/$basef > $basef.diff 2>&1
+#    ./diff_sans_process --ignore-process-table $f $GIT_ID_B/$basef > $basef.diff 2>&1
+    ./ligolw_diff --exclude-tables=processgroup:process:table --exclude-columns=search_summarygroup:search_summary:lal_cvs_tag --columns $f $GIT_ID_B/$basef > $basef.diff 2>&1
     RETVAL=$?
     echo; echo "===== BEGIN XML DIFF OUTPUT of $f ====="; echo
     cat $basef.diff
     echo; echo "===== END XML DIFF OUTPUT of $f ====="; echo
-    echo; echo "diff_sans_process returned $RETVAL"
+    echo; echo "ligolw_diff returned $RETVAL"
 
     echo; echo "As a sanity-check, let's try a simple diff too..."
     echo; echo "===== BEGIN SIMPLE DIFF OUTPUT of $f ====="; echo
