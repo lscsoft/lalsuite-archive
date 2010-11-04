@@ -295,10 +295,10 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 		# segmentlistdicts for clipping.
 		#
 
-		extents = [-segments.infinity()] + [lsctables.LIGOTimeGPS(origbin.extent[0] + i * float(abs(origbin.extent)) / n) for i in range(1, n)] + [+segments.infinity()]
+		extents = [origbin.extent[0]] + [lsctables.LIGOTimeGPS(origbin.extent[0] + i * float(abs(origbin.extent)) / n) for i in range(1, n)] + [origbin.extent[1]]
 		if verbose:
 			print >>sys.stderr, "\tsplitting cache spanning %s at %s" % (str(origbin.extent), ", ".join(str(extent) for extent in extents[1:-1]))
-		extents = [segments.segment(*bounds) & origbin.extent for bounds in zip(extents[:-1], extents[1:])]
+		extents = [segments.segment(*bounds) for bounds in zip(extents[:-1], extents[1:])]
 
 		#
 		# build new bins, pack objects from origbin into new bins
