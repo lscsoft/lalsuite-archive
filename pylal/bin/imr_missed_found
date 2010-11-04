@@ -16,6 +16,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue import segmentsUtils
+from glue.ligolw.utils import process
 
 from pylal import db_thinca_rings
 from pylal import llwapp
@@ -163,11 +164,23 @@ class Summary(object):
 
 			# WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
 			segments = self.get_segments(connection, xmldoc)
+			
 			#segments -= self.veto_segments
 			#print thincasegments
 			zero_lag_segments  = segments.intersection(instruments) - segments.union(set(segments.keys()) - instruments)
 			###############
 
+			
+			# check to see if a maxextent option was used in cafe/rinca land
+			coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
+			if len(coinc_end_time_seg_param) == 1:
+				segl = segmentsUtils.from_range_strings(coinc_end_time_seg_param,boundtype=float)
+				zero_lag_segments = zero_lag_segments & segl
+			else:
+				# FIXME what would that mean if it is greater than one???
+				pass
+
+			
 			# DEFINE THE INJECTION WAS MADE FUNCTION
 			def injection_was_made(geocent_end_time, geocent_end_time_ns, zero_lag_segments = zero_lag_segments):
 				"""
@@ -177,7 +190,7 @@ class Summary(object):
 
 			connection.create_function("injection_was_made", 2, injection_was_made)
 			make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
-			sims.extend(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName))
+			if not self.coinc_ringdown_table: sims.extend(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName))
 			# INSPIRAL
 			if self.coinc_inspiral_table:
 				for values in connection.cursor().execute("""
@@ -393,49 +406,51 @@ fignum = 0
 for instruments in summ.set_instruments_to_calculate():
     found, missed, sims = summ.get_injections(instruments,opts.far)    	
     fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.plot([s.mass1 for s in sims], [s.mass2 for s in sims],'.')
-    pylab.xlabel('Injected Mass One ($M_\odot$)')
-    pylab.ylabel('Injected Mass Two ($M_\odot$)')
-    pylab.title('Injected Mass One Vs Mass Two')
-    pylab.savefig(opts.outnametag + '_' +'mass1_mass2.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.plot([s.spin1z for s in sims], [s.spin2z for s in sims],'.')
-    pylab.xlabel('Injected Spin One z')
-    pylab.ylabel('Injected Spin Two z')
-    pylab.title('Injected Spin One Vs Spin Two')
-    pylab.savefig(opts.outnametag + '_' + 'spin1_spin2.png')
+    if len(sims) > 0:
+      pylab.figure(fignum)
+      pylab.plot([s.mass1 for s in sims], [s.mass2 for s in sims],'.')
+      pylab.xlabel('Injected Mass One ($M_\odot$)')
+      pylab.ylabel('Injected Mass Two ($M_\odot$)')
+      pylab.title('Injected Mass One Vs Mass Two')
+      pylab.savefig(opts.outnametag + '_' +'mass1_mass2.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.hexbin([s.mass1 for s in sims], [s.mass2 for s in sims],bins='log',cmap=matplotlib.cm.jet)
-    pylab.xlabel('Injected Mass One ($M_\odot$)')
-    pylab.ylabel('Injected Mass Two ($M_\odot$)')
-    pylab.title('Injected Mass One Vs Mass Two')
-    cb = pylab.colorbar()
-    cb.set_label('log10(N)')
-    pylab.savefig(opts.outnametag + '_' + 'mass1_mass2_hist.png')
+      fignum = fignum + 1
+      pylab.figure(fignum)
+      pylab.plot([s.spin1z for s in sims], [s.spin2z for s in sims],'.')
+      pylab.xlabel('Injected Spin One z')
+      pylab.ylabel('Injected Spin Two z')
+      pylab.title('Injected Spin One Vs Spin Two')
+      pylab.savefig(opts.outnametag + '_' + 'spin1_spin2.png')
 
-
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.hist([s.mass1/s.mass2 for s in sims])
-    pylab.xlabel('Mass One / Mass Two')
-    pylab.title('Injected Mass One/ Mass Two')
-    pylab.savefig(opts.outnametag + '_' + 'ratiomass1mass2_hist.png')
+      fignum = fignum + 1
+      pylab.figure(fignum)
+      pylab.hexbin([s.mass1 for s in sims], [s.mass2 for s in sims],bins='log',cmap=matplotlib.cm.jet)
+      pylab.xlabel('Injected Mass One ($M_\odot$)')
+      pylab.ylabel('Injected Mass Two ($M_\odot$)')
+      pylab.title('Injected Mass One Vs Mass Two')
+      cb = pylab.colorbar()
+      cb.set_label('log10(N)')
+      pylab.savefig(opts.outnametag + '_' + 'mass1_mass2_hist.png')
 
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.hexbin([s.spin1z for s in sims], [s.spin2z for s in sims],bins='log', cmap=matplotlib.cm.jet)
-    pylab.xlabel('Injected Spin One z')
-    pylab.ylabel('Injected Spin Two z')
-    pylab.title('Injected Spin One Vs Spin Two')
-    cb = pylab.colorbar()
-    cb.set_label('log10(N)')
-    pylab.savefig(opts.outnametag + '_' + 'spin1_spin2_hist.png')
+      fignum = fignum + 1
+      pylab.figure(fignum)
+      pylab.hist([s.mass1/s.mass2 for s in sims])
+      pylab.xlabel('Mass One / Mass Two')
+      pylab.title('Injected Mass One/ Mass Two')
+      pylab.savefig(opts.outnametag + '_' + 'ratiomass1mass2_hist.png')
+
+
+      fignum = fignum + 1
+      pylab.figure(fignum)
+      pylab.hexbin([s.spin1z for s in sims], [s.spin2z for s in sims],bins='log', cmap=matplotlib.cm.jet)
+      pylab.xlabel('Injected Spin One z')
+      pylab.ylabel('Injected Spin Two z')
+      pylab.title('Injected Spin One Vs Spin Two')
+      cb = pylab.colorbar()
+      cb.set_label('log10(N)')
+      pylab.savefig(opts.outnametag + '_' + 'spin1_spin2_hist.png')
 	
     fignum = fignum + 1
     pylab.figure(fignum)

@@ -337,24 +337,58 @@ countcumsqlite = numpy.cumsum(countsqlite)
 
 #ROC plot
 fignum = 0
-for i1 in range(len(pipelines)):
- if pipelines[i1] == 'cwb': opts.live_time_program = 'waveburst'
- elif pipelines[i1] == 'omega': opts.live_time_program = 'omega_to_coinc' 
- summ_pipeline = Summary(opts, filenames[countcumsqlite[i1]-countsqlite[i1]:countcumsqlite[i1]])
+#farlist = [1e-9,0.5*1e-9,1e-8,0.5*1e-8,1e-7,0.5*1e-7,1e-6,0.5*1e-6,1e-5,0.5*1e-5,1e-4,0.5*1e-4,1e-3,0.5*1e-3,1e-2,1e-1]
+farlist = [1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1]
+
+ALLPIPEFAP = numpy.empty([len(pipelines),len(farlist)])
+ALLPIPEEFF = numpy.empty([len(pipelines),len(farlist)])
+
+for i in range(len(pipelines)):
+ if pipelines[i] == 'cwb': opts.live_time_program = 'waveburst'
+ elif pipelines[i] == 'omega': opts.live_time_program = 'omega_to_coinc' 
+ summ_pipeline = Summary(opts, filenames[countcumsqlite[i]-countsqlite[i]:countcumsqlite[i]])
 
  instruments = summ_pipeline.set_instruments_to_calculate()
  efficiency = []
  fap = []
- for far in [1e-7,0.5*1e-7,1e-6,0.5*1e-6,1e-5,0.5*1e-5,1e-4,0.5*1e-4,1e-3,0.5*1e-3]:
+ for far in farlist:
   found, missed, sims = summ_pipeline.get_injections(instruments[-1],far)
   eff = float(len(found))/(float(len(missed))+float(len(found)))
   print eff, summ_pipeline.livetime[instruments[-1]]*far
   efficiency.append(eff)
   fap.append(summ_pipeline.livetime[instruments[-1]]*far)
+ #calculate fap list for a pipeline
+ fap = fap/numpy.sum(fap)
+ ALLPIPEFAP[i] = fap
+ ALLPIPEEFF[i] = efficiency
 
-  fap = fap/numpy.sum(fap)
-  fignum = fignum + 1
-  pylab.figure(fignum)
-  pylab.plot(fap,efficiency)
-  pylab.ylim(0,1)
-  pylab.savefig(pipelines[i1] + '_' + 'roc.png')
+#plot standard ROC
+
+diagline = numpy.arange(0,1,0.001)
+fignum = fignum + 1
+pylab.figure(fignum)
+#for i in range(len(pipelines)):pylab.plot(ALLPIPEEFF[i],ALLPIPEFAP[i],label=pipelines[i])
+for i in range(len(pipelines)):pylab.plot(ALLPIPEFAP[i],ALLPIPEEFF[i],'.')
+pylab.plot(diagline[:],diagline[:], '-')
+pylab.xlim(0,1)
+pylab.ylim(0,1)
+pylab.xlabel("False Alarm Probability")
+pylab.ylabel("Efficiency")
+pylab.title("ROC")
+#pylab.legend(bbox_to_anchor=(0.6, 1), borderaxespad=0.)
+pylab.savefig('roc.png')
+#plot a different definition of ROC
+fignum = fignum + 1
+pylab.figure(fignum)
+#pylab.plot(efficiency,fap)
+#for i in range(len(pipelines)):pylab.plot(ALLPIPEFAP[i],ALLPIPEEFF[i],label=pipelines[i])
+for i in range(len(pipelines)):pylab.plot(ALLPIPEEFF[i],1-ALLPIPEFAP[i],'.')
+pylab.plot(diagline[:],1-diagline[:], '-')
+pylab.xlim(0,1)
+pylab.ylim(0,1)
+pylab.ylabel("1-False Alarm Probability")
+pylab.xlabel("Efficiency")
+pylab.title("Alternate ROC")
+ #pylab.legend(bbox_to_anchor=(0.6, 1), borderaxespad=0.)
+pylab.savefig('other_roc.png')
+

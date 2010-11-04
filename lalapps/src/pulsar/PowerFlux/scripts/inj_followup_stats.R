@@ -2,6 +2,8 @@ library("lattice")
 
 p<-function(...)paste(..., sep="")
 
+source("params.R")
+
 Params<-read.table("../params.txt", header=TRUE)
 Input<-read.table("input_matches.csv", header=TRUE)
 Input<-merge(Params, Input, by="i", all=TRUE, suffixes=c("_inj", ""))
@@ -34,6 +36,11 @@ ecliptic_dist<-function(ra1, dec1, ra2, dec2) {
 	return(sqrt((x-a*ecliptic_pole[1])^2+(y-a*ecliptic_pole[2])^2+(z-a*ecliptic_pole[3])^2))
 	}
 
+Input[,"dist"]<-dist(Input[,"ra"], Input[,"dec"], Input[,"ra_inj"], Input[,"dec_inj"])
+Input[is.na(Input[,"dist"]), "dist"]<-0.3
+Output[,"dist"]<-dist(Output[,"ra_orig"], Output[,"dec_orig"], Output[,"ra_inj"], Output[,"dec_inj"])
+Output[is.na(Output[,"dist"]), "dist"]<-0.3
+
 ROC_table<-function(table, col="h0_inj", group.func=function(x)return(x), groups) {
 	table[,"Found"]<- as.integer(!is.na(table[,"snr"]))
 	X<-table[order(table[,"Found"], decreasing=TRUE),,drop=FALSE]
@@ -52,52 +59,74 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 	ROCInput<-ROC_table(Input, col=col, group.func=group.func, groups=Groups)
 	ROCOutput<-ROC_table(Output, col=col, group.func=group.func, groups=Groups)
 
-	C<-merge(ROCInput, ROCOutput, by="Group", suffixes=c("_input", "_output"))
+	C<-merge(ROCInput, ROCOutput, by="Group", suffixes=c("_input", "_output"), all=TRUE)
 	C[,col]<-group.inv.func(Groups[C[,"Group"]])
 
 	C[,"Found_input"]<-C[,"Found_input"]*100
 	C[,"Found_output"]<-C[,"Found_output"]*100
-	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, ...))
+	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, pch=c(3, 1), cex=1, ...))
 	}
 
-ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, ...) {
+ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
 	C<-merge(Input, Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"))
 	C<-C[!is.na(C[,"line_id"]),]
 	if(best.snr) {
 		C<-C[order(C[,"snr_output"], decreasing=TRUE),,drop=FALSE]
 		C<-C[!duplicated(C[,"i"]),,drop=FALSE]
 		}
-	print(xyplot(formula, C, ...))
+	print(xyplot(formula, C, auto.key=auto.key, pch=pch, ...))
 	}
 
-png("injection_recovery.png", width=600, height=600)
+make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
+	png(p(name, ".png"), width=width, height=height, res=dpi, pointsize=18, ...)
+	}
+
+
+make_plot("injection_recovery")
 ROC_plot(group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0", ylab="% found")
 dev.off()
 
-png("snr_improvement.png", width=600, height=600)
-ComparisonPlot(I(snr_output/snr_input)~h0_input, xlab="h0", ylab="SNR Output/SNR input")
+make_plot("injection_recovery_by_f0")
+ROC_plot(col="f0_inj", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found")
 dev.off()
 
-png("snr_improvement_zoomed.png", width=600, height=600)
-ComparisonPlot(I(pmin(snr_output/snr_input, 3))~h0_input, xlab="h0", ylab="SNR Output/SNR input")
+make_plot("injection_recovery_by_spindown")
+ROC_plot(col="spindown_inj", auto.key=list(columns=2), xlab="Injection spindown", ylab="% found")
 dev.off()
 
-png("f0_improvement.png", width=600, height=600)
-ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_input, auto.key=list(columns=2), xlab="h0", ylab="Frequency mismatch, Hz", best.snr=TRUE)
+make_plot("injection_recovery_by_distance")
+ROC_plot(col="dist", auto.key=list(columns=2), xlab="Distance from injection", ylab="% found")
 dev.off()
 
-png("spindown_improvement.png", width=600, height=600)
-ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_input, auto.key=list(columns=2), xlab="h0", ylab="Spindown mismatch, Hz/s", best.snr=TRUE)
+
+make_plot("snr_improvement")
+ComparisonPlot(I(snr_output/snr_input)~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input", pch=3)
 dev.off()
 
-png("spindown_improvement.png_zoomed", width=600, height=600)
-ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_input, auto.key=list(columns=2), xlab="h0", ylab="Spindown mismatch, Hz/s", best.snr=TRUE, ylim=c(0, 2e-11))
+make_plot("snr_improvement_zoomed")
+ComparisonPlot(I(pmin(snr_output/snr_input, 3))~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input", pch=3)
 dev.off()
 
-png("distance_improvement.png", width=600, height=600)
-ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, auto.key=list(columns=2), xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE)
+make_plot("f0_improvement")
+ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_input, xlab="h0", ylab="Frequency mismatch, Hz", best.snr=TRUE)
 dev.off()
 
-png("distance_improvement_zoomed.png", width=600, height=600)
-ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, auto.key=list(columns=2), xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 0.1))
+make_plot("f0_improvement_zoomed")
+ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_input, xlab="h0", ylab="Frequency mismatch, Hz", best.snr=TRUE, ylim=c(0, 2*FrequencyTolerance))
+dev.off()
+
+make_plot("spindown_improvement")
+ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_input, xlab="h0", ylab="Spindown mismatch, Hz/s", best.snr=TRUE)
+dev.off()
+
+make_plot("spindown_improvement_zoomed")
+ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_input, xlab="h0", ylab="Spindown mismatch, Hz/s", best.snr=TRUE, ylim=c(0, 2*SpindownTolerance))
+dev.off()
+
+make_plot("distance_improvement")
+ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE)
+dev.off()
+
+make_plot("distance_improvement_zoomed")
+ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationTolerance))
 dev.off()
