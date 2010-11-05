@@ -218,7 +218,7 @@ for n, filename in enumerate(filenames):
 		comment = options.comment,
 		force = options.force,
 		e_thinca_parameter = options.e_thinca_parameter,
-		exact_mass = opts.exact_mass,
+		exact_mass = options.exact_mass,
 		effective_snr_factor = options.effective_snr_factor,
 		vetoes_name = options.vetoes_name,
 		trigger_program = options.trigger_program,
