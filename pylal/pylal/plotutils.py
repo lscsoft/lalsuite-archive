@@ -553,22 +553,19 @@ class SixStripSeriesPlot(BasicPlot):
 
         self.x_coord_sets = []
         self.y_coord_sets = []
-        self.data_labels = []
-        self.formats = []
+        self.kwarg_sets = []
 
-    def add_content(self, x_coords, y_coords, label="_nolabel_", format=None):
+    def add_content(self, x_coords, y_coords, **kwargs):
         if len(x_coords) != len(y_coords):
             raise ValueError, "x and y coords have different length"
-        if (iterutils.any(c is None for c in self.formats) \
-            and format is not None) \
-           or (iterutils.any(c is not None for c in self.formats) \
-               and format is None):
-            raise ValueError, "cannot mix explicit and automatic formating"
+        if len(self.kwarg_sets) and \
+            (iterutils.any("color" in kw for kw in self.kwarg_sets)
+             ^ ("color" in kwargs)):
+            raise ValueError, "cannot mix explicit and automatic coloring"
 
         self.x_coord_sets.append(x_coords)
         self.y_coord_sets.append(y_coords)
-        self.data_labels.append(label)
-        self.formats.append(format)
+        self.kwarg_sets.append(kwargs)
 
     @method_callable_once
     def finalize(self, yscale="linear"):
@@ -594,20 +591,18 @@ class SixStripSeriesPlot(BasicPlot):
 
             # Since default_colors() returns an infinite iterator, we need to
             # initialize it again and again.
-            if iterutils.any(c is None for c in self.formats):
-                formats = default_colors()
-            else:
-                formats = self.formats
+            for kw, c in zip(self.kwarg_sets, default_colors()):
+                kw.setdefault("color", c)
 
-            for x_coords, y_coords, label, format in zip(self.x_coord_sets,
-                self.y_coord_sets, self.data_labels, formats):
+            for x_coords, y_coords, kwarg_set in zip(self.x_coord_sets,
+                self.y_coord_sets, self.kwarg_sets):
                 # just look at the region relevant to our axis
                 ind = (x_coords >= freq_range[0]) & (x_coords < freq_range[1])
                 x = x_coords[ind]
                 y = y_coords[ind]
 
                 # add data to axes
-                ax.plot(x, y, format, label=label, markersize=1)
+                ax.plot(x, y, **kwarg_set)
 
                 # fix the limits and ticks
                 ax.set_xlim(freq_range)
