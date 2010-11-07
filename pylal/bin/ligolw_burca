@@ -231,7 +231,7 @@ if options.coinc_segs is not None:
 		events = sorted(events, key = lambda event: event.get_peak())
 		# coinc time is SNR-weighted mean of event peak times
 		epoch = events[0].get_peak() + offset_vector[events[0].ifo]
-		coinc_time = sum(float(event.get_peak() + offset_vector[event.ifo] - epoch) * event.snr for event in events) / sum(event.snr for event in events)
+		coinc_time = epoch + sum(float(event.get_peak() + offset_vector[event.ifo] - epoch) * event.snr for event in events) / sum(event.snr for event in events)
 		return coinc_time not in coinc_segs
 
 
