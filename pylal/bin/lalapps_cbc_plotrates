@@ -39,6 +39,7 @@ from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import InspiralUtils
+from pylal import printutils
 
 # =============================================================================
 #
@@ -1161,9 +1162,13 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     pylab.errorbar( bkg_stats, bkg_cumnum / T_fg, yerr = bkg_error, color = 'k', ecolor = 'gray', marker = 'o', markersize = 4, linestyle = 'None', zorder = 2, label = 'Background' )
     # store the ids of the loudest background events
     loudest_bkg_events = []
+    ii = 0
+    last_stat = None
     for x in plotvals[::-1]:
-        if x[0] != max(bkg_stats):
+        if ii > 10:
             break
+        if x[0] != last_stat:
+            ii += 1
         loudest_bkg_events.append(x[2])
 
     #
@@ -1385,18 +1390,18 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         comments += '   Param-group: <b>%s</b>' %(param_parser.param_range_by_group(match_category.param_group))
     comments += '<br />\n'
     comments += "Background livetime: %.2f %s<br />\n" % (T_bkg, opts.time_units)
-    comments += "Loudest background event%s:<br />\n" % (len(loudest_bkg_events) > 1 and 's' or '')
-    comments += '<table cellpadding="5">\n'
-    comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th></tr>\n' % stat_label
+    comments += "<b>Loudest background event%s:</b><br />\n" % (len(loudest_bkg_events) > 1 and 's' or '')
+    comments += '<table cellpadding="5", border="1">\n'
+    comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>%s</th></tr>\n' % stat_label
     for le_id in loudest_bkg_events:
         le = data.data_index[le_id]
-        comments += '<tr><td>%.2f</td><td>%s</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), le.data.get_value('ifos'), le.data.get_value('stat') ) 
+        comments += '<tr><td>%.2f</td><td>%s</td><td>%s</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('stat') ) 
     comments += '</table>\n'
     if fg_datatype != 'slide':
-        comments += "%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
-        comments += "Loudest %s event%s:<br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
-        comments += '<table cellpadding="5">\n'
-        comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label, opts.extrapolate is not None and '<th>Estimated FAR</th>' or '')
+        comments += "<br />%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
+        comments += "<b>Loudest %s event%s:</b><br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
+        comments += '<table cellpadding="5", border="1">\n'
+        comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label, opts.extrapolate is not None and '<th>Estimated FAR</th>' or '')
         for le_id in loudest_events:
             le = data.data_index[le_id]
             far = (len(bkg_stats)-bisect.bisect_left(bkg_stats, le.data.stat))/T_bkg
@@ -1408,7 +1413,7 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
                 far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(le.data.stat) )
             elif opts.extrapolate.upper() == "GAUSSIAN":
                 far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*le.data.stat**opts.fit_power )
-            comments += '<tr><td>%.2f</td><td>%s</td><td>%.2f</td><td>%s</td>' %( le.data.get_value('end_time'), le.data.get_value('ifos'), le.data.get_value('stat'), far ) 
+            comments += '<tr><td>%.2f</td><td>%s></td><td>%s</td><td>%.2f</td><td>%s</td>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('stat'), far ) 
             if opts.extrapolate is not None:
                 comments += '<td>1/%.2e %s<sup>-1</sup></td>' % ( 1./far_est, opts.time_units )
             comments += '</tr>'
