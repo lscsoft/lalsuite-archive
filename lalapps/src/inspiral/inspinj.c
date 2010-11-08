@@ -251,7 +251,7 @@ static void print_usage(char *program)
       "                           fixed: no distribution, fixed valued of (i)\n"\
       " --polarization psi        set the polarization angle for all \n"
       "                           injections (degrees)\n"\
-      " [--inclStd]  incStd       std dev for gaussian inclination dist\n"\
+      " [--incl-std]  inclStd       std dev for gaussian inclination dist\n"\
       " [--fixed-inc]  fixed_inc  read inclination dist if fixed value (degrees)\n"\
       " [--source-file] sources   read source parameters from sources\n"\
       "                           requires enable/disable milkyway\n"\
@@ -696,8 +696,8 @@ int main( int argc, char *argv[] )
     {"longitude",               required_argument, 0,                'v'},
     {"latitude",                required_argument, 0,                'z'},
     {"i-distr",                 required_argument, 0,                'I'},
-    {"inclStd",                 required_argument, 0,                'B'},
-    {"fixed-inc",               required_argument, 0,                'C'},
+    {"incl-std",                required_argument, 0,                'B'},
+    {"fixed-inc",               required_argument, 0,                'C'},   
     {"polarization",            required_argument, 0,                'S'},
     {"enable-milkyway",         required_argument, 0,                'M'},
     {"disable-milkyway",        no_argument,       0,                'D'},
@@ -1615,7 +1615,7 @@ int main( int argc, char *argv[] )
   {
     fprintf( stderr, 
         "Must specify width for gaussian inclination distribution; "\
-        "use --inclStd.\n" );
+        "use --incl-std.\n" );
     exit( 1 );
   }
   if ( ( iDistr == fixedInclDist ) && ( fixed_inc < 0. ) )
