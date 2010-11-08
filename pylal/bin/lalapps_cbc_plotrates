@@ -198,13 +198,13 @@ def parse_command_line():
         help =
             "Maximum number of significance bands to plot."
             )
-    parser.add_option( "-E", "--extrapolate", action = "store_true", default = False,
+    parser.add_option( "-E", "--extrapolate", default = None, metavar = "Gauusian|Power",
         help =
-            "Extrapolate the background using a Gaussian distribution out to the largest foreground statistic. If this is beyond the measured background, the probabibilty density beyond the loudest background point will be calculated using this extrapolation."
+            "Extrapolate the background using a the given model out to the largest foreground statistic. If this is beyond the measured background, the probabibilty density beyond the loudest background point will be calculated using this extrapolation. Options for models are 'Gaussian' or 'Power'. If 'Gaussian' y = A*exp(-B*x**(fit_power)) is fit. If 'Power', y = A*x**B is fit."
             )
     parser.add_option( "-P", "--fit-power", type = "float", default = None,
         help =
-            "What power of x to fit with. When fitting a gaussian to the data, the natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(fit-power). If you are plotting against a statistic, then fit-power should be 2. If, however, you are plotting against the statistic to some other power, then fit-power should be 2 divided by that power. For example, if you plot against SNR, the fit-power should be 2. If, however, you plot against SNR squared, the fit power should be 1."
+            "If fitting a Gaussian, what power of x (in the exponent) to fit with. When fitting a gaussian to the data, the natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(fit-power). If you are plotting against a statistic, then fit-power should be 2. If, however, you are plotting against the statistic to some other power, then fit-power should be 2 divided by that power. For example, if you plot against SNR, the fit-power should be 2. If, however, you plot against SNR squared, the fit power should be 1."
             )
     parser.add_option( "", "--max-y-fit", type = 'float', default = None,
         help =
@@ -218,12 +218,28 @@ def parse_command_line():
         help =
             "Plot y-axis on a linear scale. Default is to plot on a log scale."
             )
+    parser.add_option('-a', '--xmin', action = 'store', type = 'float', default = None,
+        help =
+            'Set a minimum value for the x-axis. If lin-x not set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('-b', '--xmax', action = 'store', type = 'float', default = None,
+        help =
+            'Set a maximum value for the x-axis. If lin-x not set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('-A', '--ymin', action = 'store', type = 'float', default = None,
+        help =
+            'Set a minimum value for the y-axis. If lin-y not set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('-B', '--ymax', action = 'store', type = 'float', default = None,
+        help =
+            'Set a maximum value for the y-axis. If lin-y not set, must be > 0. This will apply to all plots generated.'
+        )
 
 
     (options, args) = parser.parse_args()
 
-    if options.extrapolate and options.fit_power is None:
-        raise ValueError, "If extrapolating, must specify a fit-power."
+    if options.extrapolate.upper() == "GAUSSIAN" and options.fit_power is None:
+        raise ValueError, "If extrapolating a Gaussian, must specify a fit-power."
 
     return options, args, sys.argv[1:]
 
@@ -1193,18 +1209,22 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     #
     # plot extrapolation
     #
-    if fg_datatype != 'slide' and opts.extrapolate:
+    if fg_datatype != 'slide' and opts.extrapolate is not None:
         if opts.verbose:
             print >> sys.stdout, "\textrapolating background..."
         # figure out how many points to use for the fit; the default is to start at the first background point that drops below the foreground; this can be overridden with options
         max_y_fit = opts.max_y_fit is None and 1.0/T_fg or opts.max_y_fit
-        # we're going to fit a Gaussian with 0 mean to the background. Since this is given by y = A*exp(-x^2./(2*sigma^2.))/sqrt(2*pi*sigma^2.), we take the natural log, and thus fit
-        # y = beta[0] + beta[2]*x^2 where beta[0] = ln(A) - ln(2*pi*sigma^2.)/2., beta[2] = -1/(2.*sigma^2.) and y = ln(bkg_cumnum/T_fg)
-        # To do this, we'll do a weighted linear least squares fit using Beta_hat = (transpose(X).W.X)^(-1).transpose(X).W.Y. where W is the nxn matrix of weights (which are just taken
-        # as the error in each background point), X is the nx2 matrix of [1 x[i]^2.], Y is the nx1 matrix of ln(bkg_cumnum[i]/T_fg), and Beta_hat is the 2x1 matrix of fitted betas.
-        # That assumes that the plotted x is linear in whatever the desired statistic is. However, if the plotted x is actually the desired statistic squared, then we should
-        # fit y = beta[0] + beta[2]*x. Generalizing, we actually fit y = beta[0] + beta[2]*x^(opts.fit_power), since only the user can know what function of their desired statistic they've
-        # punched into the command line.
+        ### For Gaussian fit:
+            # We're going to fit a Gaussian with 0 mean to the background. Since this is given by y = A*exp(-x^2./(2*sigma^2.))/sqrt(2*pi*sigma^2.), we take the natural log, and thus fit
+            # y = beta[0] + beta[2]*x^2 where beta[0] = ln(A) - ln(2*pi*sigma^2.)/2., beta[2] = -1/(2.*sigma^2.) and y = ln(bkg_cumnum/T_fg)
+            # To do this, we'll do a weighted linear least squares fit using Beta_hat = (transpose(X).W.X)^(-1).transpose(X).W.Y. where W is the nxn matrix of weights (which are just taken
+            # as the error in each background point), X is the nx2 matrix of [1 x[i]^2.], Y is the nx1 matrix of ln(bkg_cumnum[i]/T_fg), and Beta_hat is the 2x1 matrix of fitted betas.
+            # That assumes that the plotted x is linear in whatever the desired statistic is. However, if the plotted x is actually the desired statistic squared, then we should
+            # fit y = beta[0] + beta[2]*x. Generalizing, we actually fit y = beta[0] + beta[2]*x^(opts.fit_power), since only the user can know what function of their desired statistic they've
+            # punched into the command line.
+        ### For power-law fit:
+            # We're going to fit bkg_cumnum/T_fg = A*statistic^B by doing a least squares fit to y = beta[0] + beta[1]*x where y = ln(bkg_cumnum/T_fg), x = ln(statistic), beta[0] = ln(A) 
+            # and beta[1] = B.
         start_i = pylab.find( bkg_cumnum/T_fg <= max_y_fit )[0]
         n = len(bkg_cumnum) - start_i
         X = numpy.matrix(numpy.zeros((n,2), dtype = float))
@@ -1215,7 +1235,11 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
             Y[i,0] = numpy.log( bkg_cumnum[start_i + i] ) - numpy.log( T_fg )
             W[i,i] = 1./numpy.power( bkg_error[start_i + i]/bkg_cumnum[start_i + i], 2. )
             X[i,0] = 1.
-            X[i,1] = bkg_stats[start_i + i]**opts.fit_power
+            if opts.extrapolate.upper() == 'POWER':
+                X[i,1] = numpy.log( bkg_stats[start_i + i] )
+            else:
+                X[i,1] = bkg_stats[start_i + i]**opts.fit_power
+
         # calculate the Beta_hats
         Beta_hat = (X.T * W * X).I * X.T * W * Y
 
@@ -1228,7 +1252,10 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         Xext = numpy.matrix(numpy.zeros((n_ext,2), dtype = float))
         for i,x in enumerate(x_ext):
             Xext[i,0] = 1.
-            Xext[i,1] = x**opts.fit_power
+            if opts.extrapolate.upper() == 'POWER':
+                Xext[i,1] = numpy.log(x)
+            else:
+                Xext[i,1] = x**opts.fit_power
         y_ext = numpy.exp( numpy.array(Xext * Beta_hat) )
 
         # plot the extrapolated line
@@ -1255,7 +1282,7 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     xrange = 101
     yrange = 2*xrange
     # if extrapolating, use the extrpolation beyond the largeest measured background point
-    if opts.extrapolate and fg_datatype != 'slide' and x_ext.any():
+    if opts.extrapolate is not None and fg_datatype != 'slide' and x_ext.any():
         xcoords = numpy.linspace(bkg_stats.min(), max(x_ext.max(), bkg_stats.max()), xrange)
     else:
         xcoords = numpy.linspace(bkg_stats.min(), bkg_stats.max(), xrange)
@@ -1269,7 +1296,9 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         if x <= bkg_stats.max():
             # lmbda is the cumnum at the closest snr to (the right of) of x in the background
             lmbda = bkg_cumnum[pylab.find( bkg_stats >= x )[0]]
-        else: # if x greater than bkg_stats.max, must mean we have extrapolated and we are in the region of extrapolation
+        elif opts.extrapolate.upper() == "POWER": # if x greater than bkg_stats.max, must mean we have extrapolated and we are in the region of extrapolation
+            lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(x)) ) * T_fg
+        else:
             lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*x**opts.fit_power) ) * T_fg
         for yi,y in enumerate(ycoords):
             xarray[xi,yi] += x
@@ -1303,12 +1332,11 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         #pylab.clabel(contplt)
         cb.add_lines(contplt)
 
-    if not opts.lin_x:
-        pylab.gca().semilogx()
-    if not opts.lin_y:
-        pylab.gca().semilogy()
+    #
+    # finalize plot settings
+    #
     pylab.grid()
-    pylab.legend(loc = 'upper right')
+    pylab.legend(loc = 'lower left')
 
     pylab.xlabel( stat_label )
     pylab.ylabel( "Cumulative Rate ($%s^{-1}$)" % opts.time_units )
@@ -1317,8 +1345,31 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     else:
         t = 'Cumulative Histogram'
     pylab.title(t)
-    pylab.xlim( min(fg_stats.min(),bkg_stats.min()), xmax*10**(0.3) )
-    pylab.ylim( ymin*10**(-0.5), ymax*10**(0.5) )
+
+    # set axes limits and scale
+    xmin = min(fg_stats.min(), bkg_stats.min())
+    if not opts.lin_x:
+        pylab.gca().semilogx()
+        xmax = xmax*10**(0.3)
+    else:
+        xmax = xmax+.1*xmax
+    if not opts.lin_y:
+        pylab.gca().semilogy()
+        ymin, ymax = ymin*10**(-0.5), ymax*10**(0.5)
+    else:
+        ymin, ymax = ymin - .1*ymin, ymax + .1*ymax
+    # overrule with input options
+    if opts.xmin is not None:
+        xmin = opts.xmin
+    if opts.xmax is not None:
+        xmax = opts.xmax
+    if opts.ymin is not None:
+        ymin = opts.ymin
+    if opts.ymax is not None:
+        ymax = opts.ymax
+
+    pylab.xlim( xmin, xmax )
+    pylab.ylim( ymin, ymax )
     
     # store plot info
     plot_description = 'F%i' % ( len(fnameList) )
@@ -1345,27 +1396,33 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         comments += "%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
         comments += "Loudest %s event%s:<br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
         comments += '<table cellpadding="5">\n'
-        comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label, opts.extrapolate and '<th>Estimated FAR</th>' or '')
+        comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label, opts.extrapolate is not None and '<th>Estimated FAR</th>' or '')
         for le_id in loudest_events:
             le = data.data_index[le_id]
             far = (len(bkg_stats)-bisect.bisect_left(bkg_stats, le.data.stat))/T_bkg
             if far == 0:
-                far = '< 1/%.2f%s' % ( T_bkg, opts.time_units )
+                far = '< 1/%.2f %s<sup>-1</sup>' % ( T_bkg, opts.time_units )
             else:
-                far = '%.2f %s^-1' % (far, opts.time_units)
-            if opts.extrapolate:
+                far = '1/%.2e %s<sup>-1</sup>' % (1./far, opts.time_units)
+            if opts.extrapolate.upper() == "POWER":
+                far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(le.data.stat) )
+            elif opts.extrapolate.upper() == "GAUSSIAN":
                 far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*le.data.stat**opts.fit_power )
             comments += '<tr><td>%.2f</td><td>%s</td><td>%.2f</td><td>%s</td>' %( le.data.get_value('end_time'), le.data.get_value('ifos'), le.data.get_value('stat'), far ) 
-            if opts.extrapolate:
-                comments += '<td>1/%.2f%s</td>' % ( 1./far_est, opts.time_units )
+            if opts.extrapolate is not None:
+                comments += '<td>1/%.2e %s<sup>-1</sup></td>' % ( 1./far_est, opts.time_units )
             comments += '</tr>'
         comments += '</table>\n'
-        if opts.extrapolate:
-            comments += "<br /><br />Extrapolated Parameters:<br />"
-            sigmasq = -1./(2.*Beta_hat[1,0])
-            amp = numpy.exp(Beta_hat[0,0] + numpy.log(2*numpy.pi*sigmasq)/2.)
-            comments += "&#963;<sup>2</sup> = %.2f  Amplitude = %.2f<br />" %( sigmasq, amp )
-            comments += "Extrapolated from:<br />&#946;<sub>0</sub> = %.2f  &#946;<sub>1</sub> = %.2f<br />" %( Beta_hat[0,0], Beta_hat[1,0] )
+        if opts.extrapolate is not None:
+            if opts.extrapolate.upper() == 'POWER':
+                comments += "<br />Fitted <i>y = Ax<sup>B</sup></i><br />Results:<br />"
+                comments += "A = %.2e  B = %.2f<br />" % (numpy.exp(Beta_hat[0,0]), Beta_hat[1,0])
+            else:
+                comments += "<br />Fitted <i>y = Aexp(-x<sup>2</sup>/2&#963;<sup>2</sup>)/sqrt(2&#960;&#963;<sup>2</sup>)</i><br />Results:<br />"
+                sigmasq = -1./(2.*Beta_hat[1,0])
+                amp = numpy.exp(Beta_hat[0,0] + numpy.log(2*numpy.pi*sigmasq)/2.)
+                comments += "&#963;<sup>2</sup> = %.2f  A = %.2f<br />" %( sigmasq, amp )
+                comments += "Extrapolated from:<br />&#946;<sub>0</sub> = %.2f  &#946;<sub>1</sub> = %.2f<br />" %( Beta_hat[0,0], Beta_hat[1,0] )
 
     comments += '<hr />\n'
             
