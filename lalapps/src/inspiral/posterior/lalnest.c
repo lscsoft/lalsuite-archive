@@ -175,10 +175,12 @@ void initialise(int argc, char *argv[]);
 void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname);
 
 void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname){
-		REAL8 amplitude=0.0;
+	REAL8 amplitude=0.0;
         REAL8 phase=0.0;
         REAL8 deltaf=0.0;
         UINT4 j;
+	FILE *calibout;
+	calibout=fopen("calibout.dat",'w');
         deltaf=injF->deltaF;
 		int IFO;
 		if(!strcmp(IFOname,"H1")){IFO =1;}
@@ -202,10 +204,12 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
 		}
 		for(j=0;j<injF->data->length;j++){
             	amplitude=R_A(j*deltaf)*sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0));
-               	phase=R_PH(j*deltaf)*j*deltaf+atan2(injF->data->data[j].im,injF->data->data[j].re);
+               	phase=R_PH(j*deltaf)+atan2(injF->data->data[j].im,injF->data->data[j].re);
 		calibInjF->data->data[j].re=amplitude*cos(phase);
                	calibInjF->data->data[j].im=amplitude*sin(phase);
+		fprintf(calibout,"%g\t%g\t%g\n",j*deltaf,amplitude,phase);
        		}
+	fclose(calibout);
        	}
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
@@ -230,16 +234,16 @@ REAL8 Amp_H1(REAL8 f){
 		double output = 1.0;
 
 		if(f>60.0 && f<=100.0)
-			output = 0.000144921*f+0.953962*pow(f,-1/3)+2.19779*pow(f,-1.0);
+			output = 0.000144921*f+0.953962+2.19779*pow(f,-1.0);
 
 		if(f>100.0 && f<=150.0)
-			output = -1.65116e-05*f+0.991484*pow(f,-1/3)+0.07191*pow(f,-1.0);
+			output = -1.65116e-05*f+0.991484+0.07191*pow(f,-1.0);
 
 		if(f>150.0 && f<=318.0)
-			output = 1.42451e-05*f+0.98561*pow(f,-1/3)+0.271245*pow(f,-1.0);
+			output = 1.42451e-05*f+0.98561+0.271245*pow(f,-1.0);
 
 		if(f>318.0 && f<=500.0)
-			output = 3.04006e-05*f+0.977116*pow(f,-2/3)+1.35158*pow(f,-1.0);
+			output = 3.04006e-05*f+0.977116+1.35158*pow(f,-1.0);
 
 		// return a constant 
 		output=1.00;
