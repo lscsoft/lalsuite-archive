@@ -3291,6 +3291,100 @@ void LALSavitskyGolayFilter(
 }
 
 
+void LALStrainInGeocentricTime(
+															 LALStatus				*status,
+															 LALDetAndSource	*det_source, 
+															 CoherentGW				waveform,
+															 REAL4TimeSeries	*output)
+{
+	/*********************************************************************
+	 * 
+	 * LAL error handling
+	 * 
+	 *********************************************************************/	
+  
+  INITSTATUS( status, "LALStrainInGeocentricTime", LALINSPIRALCOMPUTEFISHERC);
+  ATTATCHSTATUSPTR(status);	
+	
+	/*********************************************************************
+	 * 
+	 * Check Input
+	 * 
+	 *********************************************************************/
+
+	
+		
+	/*********************************************************************
+	 * 
+	 * Define Variables
+	 * 
+	 *********************************************************************/
+	
+	INT4 i;
+	
+	REAL8 TimeDiffFromGC = 0.0;	// Compute time difference between detector (to be specified) and the geocentre
+	INT4 TimeDiffFromGCInt = 0;
+	LALDetAMResponse det_resp;	// Structure holding the results of LALComputeDetAMResponse; det_resp.plus and det_resp.cross are the beam pattern functions
+	LIGOTimeGPS *det_time = NULL;
+	memcpy(det_time, &(waveform.h->epoch), sizeof(LIGOTimeGPS));
+	
+	REAL4TimeSeries *hp, *hc;
+	hp = XLALCreateREAL4TimeSeries("hp",&(output->epoch), output->f0, output->deltaT, &lalStrainUnit, output->data->length);
+	hc = XLALCreateREAL4TimeSeries("hc",&(output->epoch), output->f0, output->deltaT, &lalStrainUnit, output->data->length);
+	
+	//hp = XLALCreateREAL4TimeSeries("hp", &(ht->epoch), 0.0, ht->deltaT, &lalStrainUnit, ht->data->length);
+	
+	/*********************************************************************
+	 * 
+	 * Compute Time Difference and correct epoch in coherentGW
+	 * 
+	 *********************************************************************/
+	
+	TimeDiffFromGC = XLALTimeDelayFromEarthCenter( det_source->pDetector->location, det_source->pSource->equatorialCoords.longitude, det_source->pSource->equatorialCoords.latitude, &(waveform.h->epoch));
+	
+	det_time = XLALGPSAdd(&(waveform.h->epoch), TimeDiffFromGC);
+	
+	TimeDiffFromGCInt = TimeDiffFromGC / output->deltaT;
+	
+	for (i=0; i<((INT4)output->data->length)-1; i++) {
+		
+		if( ( (i+TimeDiffFromGCInt) < (((INT4)output->data->length)-1) ) && ( i+TimeDiffFromGCInt > 0 ) )
+		{
+			hp->data->data[((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt] = waveform.h->data->data[((INT4)waveform.h->data->length-1)-2*i];
+			hc->data->data[((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt] = waveform.h->data->data[((INT4)waveform.h->data->length-1)-2*i+1];
+		}
+		else exit(-1);
+	}
+	
+	
+	/*********************************************************************
+	 * 
+	 * Compute beam pattern function & combine hplus and hcross
+	 * 
+	 *********************************************************************/
+	
+	LALComputeDetAMResponse(status->statusPtr, &det_resp, det_source, det_time );
+	
+	for (i=0; i<((INT4) output->data->length)-1 ; i++) {
+		output->data->data[i] = det_resp.plus*hp->data->data[i] + det_resp.cross*hc->data->data[i];
+	}
+	
+	
+	/*********************************************************************
+	 * 
+	 * Output to file (test)
+	 * 
+	 *********************************************************************/
+	
+	/*********************************************************************
+	 * 
+	 * Detach function and returning status
+	 * 
+	 *********************************************************************/	
+	DETATCHSTATUSPTR(status);
+	RETURN(status);
+}
+
 
 /*  version tracker
  v1: Base version with both Interband and AdaptiveDelta Method

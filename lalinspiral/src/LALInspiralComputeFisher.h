@@ -51,6 +51,8 @@
 #include <lal/Date.h>
 #include <lal/DetResponse.h>
 #include <lal/LALError.h>
+#include <lal/GenerateInspiral.h>
+#include <lal/TimeDelay.h>
 
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
@@ -294,6 +296,12 @@ extern "C" {
 															REAL4TimeSeries			*Output, /* Output of Filter */
 															INT4 								D			/* Order of derivative outputted */
 															);
+	
+	void LALStrainInGeocentricTime(
+																 LALStatus				*status,
+																 LALDetAndSource	*det_source, 
+																 CoherentGW				waveform,
+																 REAL4TimeSeries	*output);
 	
 	double ET_B(double f);
 	double ET_C(double f);
