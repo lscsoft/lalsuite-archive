@@ -3356,7 +3356,6 @@ void LALStrainInGeocentricTime(
 		else exit(-1);
 	}
 	
-	
 	/*********************************************************************
 	 * 
 	 * Compute beam pattern function & combine hplus and hcross

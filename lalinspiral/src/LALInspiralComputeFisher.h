@@ -297,7 +297,7 @@ extern "C" {
 															INT4 								D			/* Order of derivative outputted */
 															);
 	
-	void LALStrainInGeocentricTime(
+	void LALStrainInGeocentricTime( 
 																 LALStatus				*status,
 																 LALDetAndSource	*det_source, 
 																 CoherentGW				waveform,
