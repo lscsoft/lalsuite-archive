@@ -376,6 +376,9 @@ if os.path.isdir(SNR_folder):
             os.unlink(path_to_file)
 else: 
      os.mkdir(str(SNR_folder))
+
+if cp.has_option('data','enable_calfreq'):
+    inspnest_job.add_opt("enable-calfreq",'')
  
 if cp.has_option('data','calamp-facs'):
      inspnest_job.add_opt("enable-calamp",'')

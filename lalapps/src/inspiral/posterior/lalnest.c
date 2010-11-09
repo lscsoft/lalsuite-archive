@@ -242,7 +242,7 @@ REAL8 Amp_H1(REAL8 f){
 			output = 3.04006e-05*f+0.977116*pow(f,-2/3)+1.35158*pow(f,-1.0);
 
 		// return a constant 
-		output=1.17;
+		output=1.00;
 		return output;
 }
 REAL8 Amp_L1(REAL8 f){
@@ -254,7 +254,7 @@ REAL8 Amp_L1(REAL8 f){
 		if(f>155.0 && f<=500.0)
 			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
 		// return a constant
-		output = 1.10;
+		output = 1.00;
 		return output;
 }
 REAL8 Amp_V1(REAL8 f){
@@ -266,7 +266,7 @@ REAL8 Amp_V1(REAL8 f){
 		if(f>155.0 && f<=500.0)
 			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
 		//return a constant
-		output = 1.15;
+		output = 1.00;
 		return output;
 }
 REAL8 Ph_H1(REAL8 f){
