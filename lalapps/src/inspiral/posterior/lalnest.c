@@ -3,6 +3,11 @@
 
  */
 
+// THINGS TO DO:
+// 		- define the init function
+//		- define prior function
+//		- define parsing options	
+
 #include <stdlib.h>
 #include <getopt.h>
 

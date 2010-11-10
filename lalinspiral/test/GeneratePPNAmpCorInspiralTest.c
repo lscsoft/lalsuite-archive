@@ -86,8 +86,8 @@ NRCSID( GENERATEPPNINSPIRALTESTC, "$Id$" );
 /* Default parameter settings. */
 extern int lalDebugLevel;
 #define EPOCH (315187200000000000LL) /* about Jan. 1, 1990 */
-#define M1    (1.4)
-#define M2    (1.4)
+#define M1    (5)
+#define M2    (5)
 #define DIST  (100000)
 #define INC   (90.0)
 #define PHI   (0.0)
@@ -98,7 +98,7 @@ extern int lalDebugLevel;
 #define AMP (5)
 
 /* Usage format string. */
-#define USAGE "Usage: %s [-g FFToutfile] [-m m1 m2] [-r dist] [-i inc phii psi]\n\t[-f f_min f_max] [-t dt] [-p order amp] [-d debuglevel] [-o outfile]\n\t [-s taper]"
+#define USAGE "Usage: %s [-g FFToutfile] [-m m1 m2] [-r dist] [-i inc phii psi]\n\t[-f f_min f_max] [-t dt] [-p order amp] [-d debuglevel] [-o outfile] [-s taper]\n\t"
 
 /* Maximum output message length. */
 #define MSGLENGTH (1024)
@@ -421,7 +421,7 @@ main(int argc, char **argv)
    /*                                            *
    ********************************************************************************************************
    * This Test file now calculates the polar response functions for the detector and sky position defined *
-   * below. It also performs the fourier transform to produce H(f) if an FFToutfie is specified.          *
+   * below. It also performs the fourier transform to produce H(f) if an FFToutfile is specified.         *
    *                                                                                                      *
    ********************************************************************************************************/
 
