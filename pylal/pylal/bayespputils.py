@@ -45,8 +45,8 @@ except ImportError:
 #local application/library specific imports
 import pylal
 from pylal import git_version
-
-from _bayespputils import _skyhist_cart,_calculate_confidence_levels
+#C extensions
+from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
@@ -108,12 +108,11 @@ class OneDPosterior(object):
 
 class Posterior(object):
 
-    def __init__(self,commonOutputTableFileObj,SimInspiralTableEntry=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
         """
         Constructor.
         """
-        common_output_table_header,common_output_table_raw =\
-            self._load_posterior_table_from_data_file(commonOutputTableFileObj)
+        common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
@@ -235,52 +234,6 @@ class Posterior(object):
             mediansdict[name]=pos.median
         return mediansdict
 
-    def _load_posterior_table_from_data_file(self,infile):
-        """
-        Parses a file and return an array of posterior samples and list of
-        parameter names. Will apply inverse function to columns with names
-        containing sin,cos,log.
-        """
-        #infile=open(filename,'r')
-        formatstr=infile.readline().lstrip()
-        formatstr=formatstr.replace('#','')
-        header=formatstr.split()
-
-        llines=[]
-        import re
-        dec=re.compile(r'[^Ee+\d.-]+')
-        line_count=0
-        for line in infile:
-            sline=line.split()
-            proceed=True
-            if len(sline)<1:
-                print 'Ignoring empty line in input file: %s'%(sline)
-                proceed=False
-            for s in sline:
-                if dec.search(s) is not None:
-                    print 'Warning! Ignoring non-numeric data after the header: %s'%(sline)
-                    proceed=False
-            if proceed:
-                llines.append(np.array(map(float,sline)))
-        flines=np.array(llines)
-        for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
-                print 'exponentiating %s'%(header[i])
-                flines[:,i]=np.exp(flines[:,i])
-                header[i]=header[i].replace('log','')
-            if header[i].lower().find('sin')!=-1:
-                print 'asining %s'%(header[i])
-                flines[:,i]=np.arcsin(flines[:,i])
-                header[i]=header[i].replace('sin','')
-            if header[i].lower().find('cos')!=-1:
-                print 'acosing %s'%(header[i])
-                flines[:,i]=np.arccos(flines[:,i])
-                header[i]=header[i].replace('cos','')
-            header[i]=header[i].replace('(','')
-            header[i]=header[i].replace(')','')
-        print 'Read columns %s'%(str(header))
-        return header,flines
-
     def append(self,one_d_posterior):
         """
         Container method. Add a new OneDParameter to the Posterior instance.
@@ -327,11 +280,7 @@ class Posterior(object):
 
         return (max_pos,maxLvals)
 
-    def write_to_file(self,fname):
-        """
-        Dump the posterior table to a file in the agreed format.
-        """
-        column_list=()
+    def samples(self):
         header_string=''
         posterior_table=[]
         for param_name,one_pos in self:
@@ -339,7 +288,16 @@ class Posterior(object):
             header_string+=param_name+' '
             posterior_table.append(column)
         posterior_table=tuple(posterior_table)
-        posterior_table=np.column_stack(posterior_table)
+        return np.column_stack(posterior_table),header_string
+
+    def write_to_file(self,fname):
+        """
+        Dump the posterior table to a file in the agreed format.
+        """
+        column_list=()
+        
+        posterior_table,header_string=self.samples()
+
         fobj=open(fname,'w')
 
         fobj.write(header_string+'\n')
@@ -353,7 +311,7 @@ class Posterior(object):
         Define a string representation of the Posterior class ; returns
         a html formatted table of various properties of posteriors.
         """
-        return_val='<table border="1" width="100%"><tr><th/>'
+        return_val='<table border="1" id="statstable"><tr><th/>'
 
         column_names=['maxL','stdev','mean','median','stacc','injection value']
         for column_name in column_names:
@@ -622,6 +580,7 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
         except:
             print par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin
             exit(1)
+    #Call greedy bins routine
     toppoints,injection_cl,reses,injection_area=\
                                 _greedy_bin(
                                                 greedyHist,
@@ -881,7 +840,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
     pos_samps=posterior[param].samples
     injpar=posterior[param].injval
 
-    myfig=plt.figure(figsize=(4,3.5),dpi=80)
+    myfig=plt.figure(figsize=(4,3.5),dpi=200)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
     histbinSize=bins[1]-bins[0]
@@ -954,7 +913,7 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
 
-    myfig=plt.figure(1,figsize=(6,4),dpi=80)
+    myfig=plt.figure(1,figsize=(6,4),dpi=200)
     plt.clf()
 
     xax=np.linspace(min(xdat),max(xdat),Nx)
@@ -1166,10 +1125,15 @@ def contigious_interval_one_param(posterior,contInt1Params,confidence_levels):
 
     return oneDContCL,oneDContInj
 #
+def burnin(data,spin_flag,deltaLogL,outputfile):
 
-############################
-#Webpage stuff
-############################
+    pos,bayesfactor=_burnin(data,spin_flag,deltaLogL,outputfile)
+    
+    return pos,bayesfactor
+
+#===============================================================================
+# Web page creation classes (wrap ElementTrees)
+#===============================================================================
 
 class htmlChunk(object):
 
@@ -1249,17 +1213,23 @@ class htmlChunk(object):
 #
 class htmlPage(htmlChunk):
 
-    def __init__(self,title=None):
+    def __init__(self,title=None,css=None):
         htmlChunk.__init__(self,'html',attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
         self.doctype_str='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
 
         self._head=SubElement(self._html,'head')
         Etitle=SubElement(self._head,'title')
         self._body=SubElement(self._html,'body')
+        self._css=None
         if title is not None:
             Etitle.text=str(title)
             self._title=SubElement(self._body,'h1')
             self._title.text=title
+
+        if css is not None:
+            self._css=SubElement(self._head,'style')
+            self._css.attrib['type']="text/css"
+            self._css.text=str(css)
 
     def __str__(self):
         return self.doctype_str+'\n'+self.toprettyxml()
@@ -1281,6 +1251,201 @@ class htmlPage(htmlChunk):
 class htmlSection(htmlChunk):
 
     def __init__(self,section_name,htmlElement=None):
-        htmlChunk.__init__(self,'div',attrib={'id':section_name},parent=htmlElement)
+        htmlChunk.__init__(self,'div',attrib={'class':'ppsection'},parent=htmlElement)
 
         self.h3(section_name)
+
+default_css_string="""
+
+p,h1,h2,h3,h4,h5
+{
+font-family:"Trebuchet MS", Arial, Helvetica, sans-serif;
+}
+
+p
+{
+font-size:14px;
+}
+
+h1
+{
+font-size:20px;
+}
+
+h2
+{
+font-size:18px;
+}
+
+h3
+{
+font-size:16px;
+}
+
+
+
+table
+{
+font-family:"Trebuchet MS", Arial, Helvetica, sans-serif;
+width:100%;
+border-collapse:collapse;
+}
+td,th 
+{
+font-size:12px;
+border:1px solid #B5C1CF;
+padding:3px 7px 2px 7px;
+}
+th 
+{
+font-size:14px;
+text-align:left;
+padding-top:5px;
+padding-bottom:4px;
+background-color:#B3CEEF;
+color:#ffffff;
+}
+#postable tr:hover
+{
+background: #DFF4FF;
+}
+#covtable tr:hover
+{
+background: #DFF4FF;
+}
+#statstable tr:hover
+{
+background: #DFF4FF;
+}
+
+.ppsection
+{
+border-bottom-style:double;
+}
+
+"""
+
+#===============================================================================
+# Parameter estimation codes results parser
+#===============================================================================
+
+class PEOutputParser(object):
+    """
+    TODO: Will be abstract base class etc. when LDG moves over to Python >2.6.
+    """    
+    def __init__(self,inputtype):
+        if inputtype is 'mcmc_burnin':
+            self._parser=self._mcmc_burnin_to_pos
+        elif inputtype is 'ns':
+            self._parser=self._ns_to_pos
+        elif inputtype is 'common':
+            self._parser=self._common_to_pos
+        elif inputtype is 'fm':
+            self._parser=self._followupmcmc_to_pos
+
+    def parse(self,files,**kwargs):
+        return self._parser(files,**kwargs)
+    
+    def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
+        raise NotImplementedError
+        if deltaLogL is not None:
+            pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
+            return self._common_to_pos(open("posterior_samples.dat",'r'))
+
+    def _ns_to_pos(self,files,Nlive=None,xflag=False):
+        try:
+            from lalapps.combine_evidence import combine_evidence
+        except ImportError:
+            print "Need lalapps.combine_evidence to convert nested sampling output!"
+            exit(1)
+
+        if Nlive is None:
+            print "Need to specify number of live points in positional arguments of parse!"
+            exit(1)
+
+        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
+
+        posfilename='posterior_samples.dat'
+        posfile=open(posfilename,'w')
+        posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
+        for row in pos:
+            for i in row:
+                posfile.write('%f\t' %(i))
+            posfile.write('\n')
+        posfile.close()
+
+        posfile=open(posfilename,'r')
+        return_val=self._common_to_pos(posfile)
+        posfile.close()
+
+        return return_val
+        
+    def _followupmcmc_to_pos(self,files):
+        
+        return self._common_to_pos(open(files[0],'r'),delimiter=',')
+
+
+    def _multinest_to_pos(self,files):
+        return self._common_to_pos(open(files[0],'r'))
+
+    def _common_to_pos(self,infile,delimiter=None):
+        """
+        Parses a file and return an array of posterior samples and list of
+        parameter names. Will apply inverse function to columns with names
+        containing sin,cos,log.
+        """
+        
+        formatstr=infile.readline().lstrip()
+        formatstr=formatstr.replace('#','')
+        formatstr=formatstr.replace('"','')
+        
+        header=formatstr.split(delimiter)
+        if header[-1] == '\n':
+            del(header[-1])
+        print header,len(header)
+            
+        llines=[]
+        import re
+        dec=re.compile(r'[^Ee+\d.-]+')
+        line_count=0
+        for line in infile:
+            sline=line.split(delimiter)
+            if sline[-1] == '\n':
+                del(sline[-1])
+            proceed=True
+            if len(sline)<1:
+                print 'Ignoring empty line in input file: %s'%(sline)
+                proceed=False
+            
+            for st in sline:
+                s=st.replace('\n','')
+                if dec.search(s) is not None:
+                    print 'Warning! Ignoring non-numeric data after the header: %s'%s
+                    proceed=False
+                if s is '\n':
+                    proceed=False
+                
+            if proceed:
+                llines.append(np.array(map(float,sline)))
+                
+        flines=np.array(llines)
+        for i in range(0,len(header)):
+            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
+                print 'exponentiating %s'%(header[i])
+                
+                flines[:,i]=np.exp(flines[:,i])
+                
+                header[i]=header[i].replace('log','')
+            if header[i].lower().find('sin')!=-1:
+                print 'asining %s'%(header[i])
+                flines[:,i]=np.arcsin(flines[:,i])
+                header[i]=header[i].replace('sin','')
+            if header[i].lower().find('cos')!=-1:
+                print 'acosing %s'%(header[i])
+                flines[:,i]=np.arccos(flines[:,i])
+                header[i]=header[i].replace('cos','')
+            header[i]=header[i].replace('(','')
+            header[i]=header[i].replace(')','')
+        print 'Read columns %s'%(str(header))
+        return header,flines
+#
