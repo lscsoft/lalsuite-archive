@@ -131,6 +131,10 @@ void XLALCopyPPNConsistencyParamStruc (
 		duplicateParams->fStopIn = inputParams->fStopIn;    /* requested stop frequency (Hz) */
 		duplicateParams->lengthIn = inputParams->lengthIn;   /* maximum length of waveform */
 		duplicateParams->ampOrder = inputParams->ampOrder;    /* PN amplitude selection 0-5 */
+		//duplicateParams->tc = inputParams->tc;    /* PN amplitude selection 0-5 */
+		//duplicateParams->dfdt = inputParams->dfdt;    /* PN amplitude selection 0-5 */
+		//duplicateParams->fStart = inputParams->fStart;    /* PN amplitude selection 0-5 */
+		//duplicateParams->fStop = inputParams->fStop;    /* PN amplitude selection 0-5 */
 		
 		/* PN phasing coefficients for use in AmpCorConsistency */
 		for (i=0; i<9; i++) {
@@ -3311,8 +3315,6 @@ void LALStrainInGeocentricTime(
 	 * Check Input
 	 * 
 	 *********************************************************************/
-
-	
 		
 	/*********************************************************************
 	 * 
@@ -3320,17 +3322,30 @@ void LALStrainInGeocentricTime(
 	 * 
 	 *********************************************************************/
 	
-	INT4 i;
+	printf("... ... Define Variables \n");
+	
+	INT4 i = 0;
+	INT4 k = 0;
 	
 	REAL8 TimeDiffFromGC = 0.0;	// Compute time difference between detector (to be specified) and the geocentre
 	INT4 TimeDiffFromGCInt = 0;
+	printf("... ... Define Variables - LALDetAMResponse \n");
 	LALDetAMResponse det_resp;	// Structure holding the results of LALComputeDetAMResponse; det_resp.plus and det_resp.cross are the beam pattern functions
-	LIGOTimeGPS *det_time = NULL;
-	memcpy(det_time, &(waveform.h->epoch), sizeof(LIGOTimeGPS));
+	printf("... ... Define Variables - LIGOTimeGPS \n");
+	LIGOTimeGPS det_time;
+	det_time.gpsSeconds = output->epoch.gpsSeconds;
+	det_time.gpsNanoSeconds = output->epoch.gpsNanoSeconds;
 	
+	printf("... ... Define Variables -  = XLALCreateREAL4TimeSeries \n");
 	REAL4TimeSeries *hp, *hc;
 	hp = XLALCreateREAL4TimeSeries("hp",&(output->epoch), output->f0, output->deltaT, &lalStrainUnit, output->data->length);
 	hc = XLALCreateREAL4TimeSeries("hc",&(output->epoch), output->f0, output->deltaT, &lalStrainUnit, output->data->length);
+	
+	for(k=0;k<((INT4)hp->data->length);k++)
+	{
+		hp->data->data[k] = 0.0;
+		hc->data->data[k] = 0.0;
+	}
 	
 	//hp = XLALCreateREAL4TimeSeries("hp", &(ht->epoch), 0.0, ht->deltaT, &lalStrainUnit, ht->data->length);
 	
@@ -3340,21 +3355,43 @@ void LALStrainInGeocentricTime(
 	 * 
 	 *********************************************************************/
 	
+	printf("... ... Time Differenece \n");
+	
 	TimeDiffFromGC = XLALTimeDelayFromEarthCenter( det_source->pDetector->location, det_source->pSource->equatorialCoords.longitude, det_source->pSource->equatorialCoords.latitude, &(waveform.h->epoch));
 	
-	det_time = XLALGPSAdd(&(waveform.h->epoch), TimeDiffFromGC);
+	XLALGPSAdd(&(det_time), TimeDiffFromGC);
 	
 	TimeDiffFromGCInt = TimeDiffFromGC / output->deltaT;
 	
-	for (i=0; i<((INT4)output->data->length)-1; i++) {
-		
-		if( ( (i+TimeDiffFromGCInt) < (((INT4)output->data->length)-1) ) && ( i+TimeDiffFromGCInt > 0 ) )
+	printf("... ... Time Differenece - real = %e, int = %d | deltaT = %e, total = %d | end = %d, wave = %d \n", TimeDiffFromGC, TimeDiffFromGCInt, output->deltaT, ((INT4)output->data->length), ((INT4)(0.9*output->data->length-1)) , ((INT4)waveform.h->data->length-1) );
+	
+	FILE *hphc_out;
+	hphc_out = fopen("hphc_shift.dat", "w");
+	
+	for (i=0; i<((INT4)waveform.f->data->length)-1; i++) 
+	{
+		//printf("bools: %d - %d and %d - %d \n", (i+TimeDiffFromGCInt), (((INT4)output->data->length)-1), i+TimeDiffFromGCInt, 0);
+		if( ( (((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt) < (((INT4)output->data->length)) ) && ( ((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt > 0 ) )
 		{
-			hp->data->data[((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt] = waveform.h->data->data[((INT4)waveform.h->data->length-1)-2*i];
-			hc->data->data[((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt] = waveform.h->data->data[((INT4)waveform.h->data->length-1)-2*i+1];
+			hp->data->data[((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt] = waveform.h->data->data[(2*((INT4)waveform.h->data->length)-1)-2*i];
+			hc->data->data[((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt] = waveform.h->data->data[(2*((INT4)waveform.h->data->length)-1)-2*i+1];
+			
+			//printf("%e \n",hp->data->data[((INT4)(0.9*output->data->length-1))-i+TimeDiffFromGCInt]);
 		}
-		else exit(-1);
+		else printf("je bent een lul \n");
 	}
+	
+	for(i=0;i<((INT4)output->data->length); i++)
+	{
+		fprintf(hphc_out, "%e\t%e\t%e \n", i*output->deltaT, hp->data->data[i], hc->data->data[i]);
+	}
+	
+	//for(i=0;i<((INT4)output->data->length); i++)
+	//{
+		//fprintf(hphc_out, "%e\t%e\t%e \n", i*output->deltaT, hp->data->data[i], hc->data->data[i]);
+	//}
+	
+	fclose(hphc_out);
 	
 	/*********************************************************************
 	 * 
@@ -3362,7 +3399,9 @@ void LALStrainInGeocentricTime(
 	 * 
 	 *********************************************************************/
 	
-	LALComputeDetAMResponse(status->statusPtr, &det_resp, det_source, det_time );
+	printf("... ... Beam pattern \n");
+	
+	LALComputeDetAMResponse(status->statusPtr, &det_resp, det_source, &det_time );
 	
 	for (i=0; i<((INT4) output->data->length)-1 ; i++) {
 		output->data->data[i] = det_resp.plus*hp->data->data[i] + det_resp.cross*hc->data->data[i];

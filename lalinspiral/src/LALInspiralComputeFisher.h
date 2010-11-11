@@ -297,11 +297,11 @@ extern "C" {
 															INT4 								D			/* Order of derivative outputted */
 															);
 	
-	void LALStrainInGeocentricTime( 
-																 LALStatus				*status,
-																 LALDetAndSource	*det_source, 
-																 CoherentGW				waveform,
-																 REAL4TimeSeries	*output);
+	void LALStrainInGeocentricTime(
+															 LALStatus				*status,
+															 LALDetAndSource	*det_source, 
+															 CoherentGW				waveform,
+															 REAL4TimeSeries	*output);
 	
 	double ET_B(double f);
 	double ET_C(double f);
