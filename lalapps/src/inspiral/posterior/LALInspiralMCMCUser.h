@@ -117,6 +117,8 @@ REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 REAL8 NestPriorHighMass(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
+REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+
 REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 void NestInitInjNINJA(LALMCMCParameter *parameter, void *iT);
@@ -132,6 +134,8 @@ extern REAL8Vector **topdown_sum;
 extern REAL8 *normalisations;
 
 REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
+
+REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
 REAL8 MCMCSTLikelihoodMultiCoherentF(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 

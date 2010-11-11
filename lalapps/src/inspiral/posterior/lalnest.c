@@ -72,7 +72,7 @@ Optional OPTIONS:\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
 [--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior chirp masses\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
-[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
+[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
 [--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\
 [--timeslide\t:\tTimeslide data]\n[--studentt\t:\tuse student-t likelihood function]\n \
@@ -151,6 +151,9 @@ char *pinned_params=NULL;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 
+// init function for the Phi-parametrized AmpCor waveform
+
+void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT);
 
 void NestInitManual(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT);
@@ -831,7 +834,7 @@ int main( int argc, char *argv[])
 	LALCreateRandomParams(&status,&(inputMCMC.randParams),seed);
 
 	/* Set up the approximant to use in the likelihood function */
-	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor";
+	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest";
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
@@ -844,12 +847,13 @@ int main( int argc, char *argv[])
     else if(!strcmp(approx,BBHSpin3)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
+	else if(!strcmp(approx,AMPCORTEST)) inputMCMC.approximant=AmpCorPPNTest;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
     /*else if(!strcmp(approx,PSTRD)) inputMCMC.approximant=PhenSpinTaylorRD;*/
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
-	if(inputMCMC.approximant!=AmpCorPPN && ampOrder!=0){
-		fprintf(stderr,"Warning, setting amp order %i but not using AmpCorPPN. Amplitude corrected waveforms will NOT be generated!\n",ampOrder);
+	if((inputMCMC.approximant!=AmpCorPPN || inputMCMC.approximant!=AmpCorPPNTest) && ampOrder!=0){
+		fprintf(stderr,"Warning, setting amp order %i but not using AmpCorPPN or AmpCorPPNTest. Amplitude corrected waveforms will NOT be generated!\n",ampOrder);
 	}
 	inputMCMC.ampOrder=ampOrder;
 
@@ -921,7 +925,12 @@ doneinit:
 	if(studentt) inputMCMC.funcLikelihood = MCMCSTLikelihoodMultiCoherentF;
 	else inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
 	if(inputMCMC.approximant==AmpCorPPN) inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCor;
-
+	// If the approximant is the Test function use the proper init, prior and likelihood functions 
+	if(inputMCMC.approximant==AmpCorPPNTest) {
+			inputMCMC.funcInit = NestInitAmpCorTest;
+			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCorTest;
+			inputMCMC.funcPrior = NestPriorAmpCorTest;
+	}				
 	inputMCMC.funcPrior = NestPrior;
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
 		inputMCMC.funcInit = NestInitGRB;
@@ -1325,6 +1334,14 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 
 	return;
 
+}
+
+// Init function for the AmpCor waveform
+
+void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
+{
+// need to add all the relevant parameters. need a way of selecting which one of the Phis is the "free"
+// parameter.	
 }
 
 int checkParamInList(const char *list, const char *param)
