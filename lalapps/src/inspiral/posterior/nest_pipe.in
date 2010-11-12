@@ -382,6 +382,9 @@ if cp.has_option('data','enable_calfreq'):
  
 if cp.has_option('data','calamp-facs'):
      inspnest_job.add_opt("enable-calamp",'')
+
+if cp.has_option('data','calamp-facs') or cp.has_option('data','enable_calfreq'):
+    os.mkdir(str(os.path.join(opts.run_path,"waves")))
  
 if cp.has_option('analysis','injONLY'):
      print "injONLY activated"
