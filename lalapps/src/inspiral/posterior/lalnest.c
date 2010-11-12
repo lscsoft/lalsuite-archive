@@ -180,7 +180,9 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
         REAL8 deltaf=0.0;
         UINT4 j;
 	FILE *calibout;
-	calibout=fopen("calibout.dat",'w');
+        char caliboutname[100];
+        sprintf(caliboutname,"calibwave_%s.dat",IFOname);
+	calibout=fopen(caliboutname,"w");
         deltaf=injF->deltaF;
 		int IFO;
 		if(!strcmp(IFOname,"H1")){IFO =1;}
@@ -207,7 +209,7 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
                	phase=R_PH(j*deltaf)+atan2(injF->data->data[j].im,injF->data->data[j].re);
 		calibInjF->data->data[j].re=amplitude*cos(phase);
                	calibInjF->data->data[j].im=amplitude*sin(phase);
-		fprintf(calibout,"%g\t%g\t%g\n",j*deltaf,amplitude,phase);
+		fprintf(calibout,"%g\t%g\t%g\t%g\t%g\n",j*deltaf,amplitude,phase,sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0)),atan2(injF->data->data[j].im,injF->data->data[j].re) );
        		}
 	fclose(calibout);
        	}
