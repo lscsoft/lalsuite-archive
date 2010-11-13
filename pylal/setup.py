@@ -508,6 +508,7 @@ setup(
 		os.path.join("bin", "lalapps_power_plot_burstrate"),
 		os.path.join("bin", "lalapps_remote_cache"),
 		os.path.join("bin", "lalapps_run_sqlite"),
+		os.path.join("bin", "lalapps_sg_pic"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "lalapps_string_calc_likelihood"),
 		os.path.join("bin", "lalapps_string_contour_plotter"),
