@@ -128,9 +128,8 @@ for filename in filenames:
 			row = lsctables.SimBurst()
 			row.process_id = process_id
 			row.simulation_id = sim_burst_tbl.get_next_id()
-			sim_burst_tbl.append(row)
 			if options.verbose:
-				print >>sys.stderr, "generating injections ... %.1f%%\r" % (100.0 * len(sim_burst_tbl) / (width * height)),
+				print >>sys.stderr, "generating sim_burst table ...",
 
 			# source orientation
 			row.ra = row.dec = row.psi = 0
@@ -149,6 +148,10 @@ for filename in filenames:
 
 			# amplitude
 			row.hrss = options.hrss_scale * img.getpixel((i, j)) / 255
+			if row.hrss != 0:
+				sim_burst_tbl.append(row)
+			if options.verbose:
+				print >>sys.stderr, "%d injections\r" % len(sim_burst_tbl),
 	if options.verbose:
 		print >>sys.stderr
 
