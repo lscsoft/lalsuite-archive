@@ -148,7 +148,7 @@ for filename in filenames:
 			row.q = Q_from_duration_and_f(row.duration, row.frequency)
 
 			# amplitude
-			row.hrss = img.getpixel((i, j)) * options.hrss_scale
+			row.hrss = options.hrss_scale * img.getpixel((i, j)) / 255
 	if options.verbose:
 		print >>sys.stderr
 
