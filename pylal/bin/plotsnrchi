@@ -361,7 +361,8 @@ def parse_command_line():
     print >>sys.stderr, "should be given for --chisq-index"
     sys.exit(1)
 
-  if (options.masshist_newsnr or options.masshist_effsnr or options.durationhist_newsnr or options.durationhist.effsnr) and not \
+  if (options.masshist_newsnr or options.masshist_effsnr or \
+      options.durationhist_newsnr or options.durationhist_effsnr) and not \
       (options.slide_glob or options.cache_file):
     print >>sys.stderr, "To produce mass-binned background histograms a"
     print >>sys.stderr, "SLIDE_GLOB or cache file containing slides must be given"
@@ -517,7 +518,7 @@ if trigFiles:
       seglist = segmentsUtils.fromsegwizard(open(veto_file))
       inspTriggers = inspTriggers.veto(seglist)
       nevents = len(inspTriggers)
-  comments += InspiralUtils.message(opts,
+    comments += InspiralUtils.message(opts,
       'Inspiral triggers: %d before vetos, %d after vetos (%d vetoed)' % \
         (n_before_vetos, nevents, n_before_vetos - nevents))
   if nevents:
@@ -591,7 +592,7 @@ if injFiles:
       seglist = segmentsUtils.fromsegwizard(open(veto_file))
       injTriggers = injTriggers.veto(seglist)
       ninj_events = len(injTriggers)
-  comments += InspiralUtils.message(opts,
+    comments += InspiralUtils.message(opts,
       'Injection triggers: %d before vetos, %d after vetos (%d vetoed)' % \
         (ninj_before_vetos, ninj_events, ninj_before_vetos - ninj_events))
   if ninj_events:

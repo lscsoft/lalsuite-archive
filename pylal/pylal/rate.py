@@ -452,32 +452,42 @@ class IrregularBins(Bins):
 
 class Categories(Bins):
 	"""
-	Categories is a many-to-one mapping from a value to an integer category
-	index. A value belongs to a category if it is contained in the category's
-	defining collection.
+	Categories is a many-to-one mapping from a value to an integer
+	category index.  A value belongs to a category if it is contained
+	in the category's defining collection.  If a value is contained in
+	more than one category's defining collection, it belongs to the
+	category with the smallest index.  KeyError is raised f a value is
+	not contained in any category's defining collection.
 
 	Example with discrete values:
+
 	>>> categories = Categories([
-		set((frozenset(("H1", "L1")), frozenset(("H1", "V1")))),
-		set((frozenset(("H1", "L1", "V1")),))
-		])
-	>>> print categories[frozenset(("H1", "L1"))]
+	...	set((frozenset(("H1", "L1")), frozenset(("H1", "V1")))),
+	...	set((frozenset(("H1", "L1", "V1")),))
+	... ])
+	>>> print categories[set(("H1", "L1"))]
 	0
-	>>> print categories[frozenset(("H1", "V1"))]
+	>>> print categories[set(("H1", "V1"))]
 	0
-	>>> print categories[frozenset(("H1", "L1", "V1"))]
+	>>> print categories[set(("H1", "L1", "V1"))]
 	1
 
 	Example with continuous values:
+
 	>>> from glue.segments import *
-	>>> categories = Categories([segmentlist([segment(1, 3), segment(5, 7)]),
-	                             segmentlist([segment(0, PosInfinity)])])
+	>>> categories = Categories([
+	...	segmentlist([segment(1, 3), segment(5, 7)]),
+	...	segmentlist([segment(0, PosInfinity)])
+	... ])
 	>>> print categories[2]
 	0
 	>>> print categories[4]
 	1
 	>>> print categories[-1]
 	KeyError: -1
+
+	This last example demonstrates the behaviour when the intersection
+	of the categorys is not null.
 	"""
 	def __init__(self, categories):
 		"""
@@ -694,9 +704,14 @@ class BinnedArray(object):
 
 	Note that even for 1 dimensional arrays the index must be a tuple.
 	"""
-	def __init__(self, bins, dtype = "double"):
+	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
-		self.array = numpy.zeros(bins.shape, dtype = dtype)
+		if array is None:
+			self.array = numpy.zeros(bins.shape, dtype = dtype)
+		else:
+			if array.shape != bins.shape:
+				raise ValueError,"Input array and input bins must have the same shape."
+			self.array = array
 
 	def __getitem__(self, coords):
 		return self.array[self.bins[coords]]
@@ -871,7 +886,7 @@ def gaussian_window(bins, sigma = 10):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	l = sigma * int(bins / 2.0)
+	l = sigma * int(math.floor(bins / 2.0))
 	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
 	return w.data / w.sum
 
@@ -893,7 +908,7 @@ def tophat_window(bins):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	w = window.XLALCreateRectangularREAL8Window(int(bins / 2.0) * 2 + 1)
+	w = window.XLALCreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
 	return w.data / w.sum
 
 

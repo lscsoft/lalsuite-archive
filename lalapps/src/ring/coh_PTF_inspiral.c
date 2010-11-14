@@ -20,6 +20,12 @@ RCSID( "$Id$" );
 #define CVS_SOURCE   "$Source$"
 #define CVS_DATE     "$Date$"
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 static struct coh_PTF_params *coh_PTF_get_params( int argc, char **argv );
 static REAL4FFTPlan *coh_PTF_get_fft_fwdplan( struct coh_PTF_params *params );
 static REAL4FFTPlan *coh_PTF_get_fft_revplan( struct coh_PTF_params *params );
@@ -119,7 +125,8 @@ UINT8 cohPTFaddTriggers(
     REAL4TimeSeries         *traceSNR,
     REAL4TimeSeries         *bankVeto,
     REAL4TimeSeries         *autoVeto,
-    REAL4TimeSeries         *chiSquare
+    REAL4TimeSeries         *chiSquare,
+    REAL8Array              *PTFM[LAL_NUM_IFO+1]
 );
 
 void cohPTFclusterTriggers(
@@ -202,7 +209,7 @@ int main( int argc, char **argv )
   UINT8                   eventId = 0;
   UINT4                   numDetectors = 0;
   UINT4                   singleDetector = 0;
-  UINT4                   spinBank = 0;
+  UINT4                   UNUSED spinBank = 0;
   char                    spinFileName[256];
   char                    noSpinFileName[256];
   
@@ -759,7 +766,7 @@ int main( int argc, char **argv )
           j,i,time(NULL)-startTime);      
 
       // This function adds any loud events to the list of triggers 
-      eventId = cohPTFaddTriggers(params,&eventList,&thisEvent,cohSNR,*PTFtemplate,eventId,spinTemplate,singleDetector,pValues,gammaBeta,snrComps,nullSNR,traceSNR,bankVeto,autoVeto,chiSquare);
+      eventId = cohPTFaddTriggers(params,&eventList,&thisEvent,cohSNR,*PTFtemplate,eventId,spinTemplate,singleDetector,pValues,gammaBeta,snrComps,nullSNR,traceSNR,bankVeto,autoVeto,chiSquare,PTFM);
       verbose("Generated triggers for segment %d, template %d at %ld \n",
           j,i,time(NULL)-startTime);
 //      cohPTFclusterTriggers(params,&eventList,&thisEvent);
@@ -1112,9 +1119,9 @@ static RingDataSegments *coh_PTF_get_segments(
       segListToDo[i] = 0;
     SimInspiralTable        *injectList = NULL;
     SimInspiralTable        *thisInject = NULL;
-    LIGOTimeGPS injTime;
+    LIGOTimeGPS UNUSED injTime;
     REAL8 deltaTime;
-    INT4 segNumber,segLoc,ninj;
+    INT4 segNumber, UNUSED segLoc, UNUSED ninj;
     segLoc = 0;
     ninj = SimInspiralTableFromLIGOLw( &injectList, params->injectFile, params->startTime.gpsSeconds, params->startTime.gpsSeconds + params->duration );
     while (injectList)
@@ -1308,7 +1315,7 @@ void cohPTFmodBasesUnconstrainedStatistic(
 // This function generates the SNR for every point in time and, where
 // appropriate calculates the desired signal based vetoes.
 
-  UINT4 i,j,k,m,vecLength,vecLengthTwo,vecLengthSquare,vecLengthTwoSquare;
+  UINT4 i, j, k, m, vecLength, vecLengthTwo, UNUSED vecLengthSquare, UNUSED vecLengthTwoSquare;
   INT4 l;
   INT4 timeOffsetPoints[LAL_NUM_IFO];
   REAL4 deltaT = cohSNR->deltaT;
@@ -1353,7 +1360,7 @@ void cohPTFmodBasesUnconstrainedStatistic(
           &cohSNR->epoch,cohSNR->f0,cohSNR->deltaT,
           &lalDimensionlessUnit,cohSNR->data->length);
 
-  FILE *outfile;
+  FILE UNUSED *outfile;
   outfile = NULL;
 /*  REAL8Array  *B, *Binv;*/
   REAL4 u1[vecLengthTwo],u2[vecLengthTwo],v1[vecLengthTwo],v2[vecLengthTwo];
@@ -1482,6 +1489,8 @@ void cohPTFmodBasesUnconstrainedStatistic(
   COMPLEX8VectorSequence *tempqVec = NULL;
   REAL4 *frequencyRangesPlus = NULL;
   REAL4 *frequencyRangesCross = NULL;
+  REAL4 *powerBinsPlus = NULL;
+  REAL4 *powerBinsCross = NULL;
   REAL4 fLow,fHigh;
 
   // Now we calculate all the extrinsic parameters and signal based vetoes
@@ -1915,7 +1924,12 @@ void cohPTFmodBasesUnconstrainedStatistic(
               LALCalloc( params->numChiSquareBins-1, sizeof(REAL4) );
             frequencyRangesCross = (REAL4 *)
               LALCalloc( params->numChiSquareBins-1, sizeof(REAL4) );
+            powerBinsPlus = (REAL4 *) 
+              LALCalloc( params->numChiSquareBins, sizeof(REAL4) );
+            powerBinsCross = (REAL4 *)
+              LALCalloc( params->numChiSquareBins, sizeof(REAL4) );
             calculate_standard_chisq_freq_ranges(params,fcTmplt,invspec,PTFM,a,b,frequencyRangesPlus,frequencyRangesCross,Autoeigenvecs);
+            calculate_standard_chisq_power_bins(params,fcTmplt,invspec,PTFM,a,b,frequencyRangesPlus,powerBinsPlus,powerBinsCross,Autoeigenvecs);
           }
           if (! tempqVec)
             tempqVec = XLALCreateCOMPLEX8VectorSequence ( 1, numPoints );
@@ -1961,7 +1975,7 @@ void cohPTFmodBasesUnconstrainedStatistic(
             }
           }
           /* Calculate chi square here */
-          chiSquare->data->data[i-numPoints/4] = calculate_chi_square(params,numPoints,i,chisqOverlaps,PTFqVec,a,b,timeOffsetPoints,Autoeigenvecs,Autoeigenvals);
+          chiSquare->data->data[i-numPoints/4] = calculate_chi_square(params,numPoints,i,chisqOverlaps,PTFqVec,a,b,timeOffsetPoints,Autoeigenvecs,Autoeigenvals,powerBinsPlus,powerBinsCross);
         
         }
         else if (params->doChiSquare)
@@ -2021,7 +2035,7 @@ void cohPTFmodBasesUnconstrainedStatistic(
   }
   fclose(outfile);*/
 
-  /*outfile = fopen("chi_square_timeseries.dat","w");
+/*  outfile = fopen("chi_square_timeseries.dat","w");
   for ( i = 0; i < chiSquare->data->length; ++i)
   {
     fprintf (outfile,"%f %f \n",deltaT*i,chiSquare->data->data[i]);
@@ -2114,7 +2128,8 @@ UINT8 cohPTFaddTriggers(
     REAL4TimeSeries         *traceSNR,
     REAL4TimeSeries         *bankVeto,
     REAL4TimeSeries         *autoVeto,
-    REAL4TimeSeries         *chiSquare
+    REAL4TimeSeries         *chiSquare,
+    REAL8Array              *PTFM[LAL_NUM_IFO+1]
 )
 {
   // This function adds a trigger to the event list
@@ -2215,18 +2230,35 @@ UINT8 cohPTFaddTriggers(
         currEvent->g1quad.re = gammaBeta[0]->data->data[i];
         currEvent->g1quad.im = gammaBeta[1]->data->data[i];
         if (snrComps[LAL_IFO_G1])
+        {
           currEvent->chisq_g = snrComps[LAL_IFO_G1]->data->data[i];
+          currEvent->sigmasq_g = PTFM[LAL_IFO_G1]->data[0];
+        }
         if (snrComps[LAL_IFO_H1])
+        {
           currEvent->chisq_h1 = snrComps[LAL_IFO_H1]->data->data[i];
+          currEvent->sigmasq_h1 = PTFM[LAL_IFO_H1]->data[0];
+        }
         if (snrComps[LAL_IFO_H2])
+        {
           currEvent->chisq_h2 = snrComps[LAL_IFO_H2]->data->data[i];
+          currEvent->sigmasq_h2 = PTFM[LAL_IFO_H2]->data[0];
+        }
         if (snrComps[LAL_IFO_L1])
+        {
           currEvent->chisq_l = snrComps[LAL_IFO_L1]->data->data[i];
+          currEvent->sigmasq_l = PTFM[LAL_IFO_L1]->data[0];
+        }
         if (snrComps[LAL_IFO_T1])
+        {
           currEvent->chisq_t = snrComps[LAL_IFO_T1]->data->data[i];
+          currEvent->sigmasq_t = PTFM[LAL_IFO_T1]->data[0];
+        }
         if (snrComps[LAL_IFO_V1])
+        {
           currEvent->chisq_v = snrComps[LAL_IFO_V1]->data->data[i];
-
+          currEvent->sigmasq_v = PTFM[LAL_IFO_V1]->data[0];
+        }
         if (spinTrigger == 1)
         {
           if (singleDetector == 1)

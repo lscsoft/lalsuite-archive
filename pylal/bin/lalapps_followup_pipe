@@ -679,6 +679,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
 	plot_mcmc_sngl_job	= stfu_pipe.plotmcmcJob(options,cp,dir=search,tag_base="sngl")
 	plot_mcmc_coh_job	= stfu_pipe.plotmcmcJob(options,cp,dir=search,tag_base="coh")
+	spinmcmc_coh_job	= stfu_pipe.spinmcmcJob(options,cp,dir=search,tag_base="coh")
+	plot_spinmcmc_coh_job	= stfu_pipe.plotspinmcmcJob(options,cp,dir=search,tag_base="coh")
 	if options.do_remoteScans:
 		#setup_proxy_job		= stfu_pipe.setupProxyJob(options,cp, tag_base='Q_RDS', dir=search)
 		remote_datafind_job	= stfu_pipe.remoteDatafindJob(options,cp, tag_base='Q_RDS', dir=search)
@@ -786,6 +788,12 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 		plot_mcmc_coh_node = stfu_pipe.plotmcmcNode(plot_mcmc_coh_job,coinc,cp,options,dag,mcmc_coh_node.ifoRef,mcmc_coh_node.ifonames,p_nodes=mcmcNodeList)
 
+		# Coherent SPIN MCMC jobs
+		# for now we are running only one chain
+		spinmcmc_coh_node = stfu_pipe.spinmcmcNode(dag,spinmcmc_coh_job,cp,options,coinc,cacheFile_list,p_nodes=dataFind_list)
+
+		plot_spinmcmc_coh_node = stfu_pipe.plotspinmcmcNode(plot_spinmcmc_coh_job,coinc,cp,options,dag,mcmc_coh_node.ifoRef,mcmc_coh_node.ifonames,p_nodes=[spinmcmc_coh_node])
+
 		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc)
 		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc)
@@ -802,7 +810,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 #Followup page node is child of all nodes
 if options.gps_times or options.force_fupage: fupage_node = stfu_pipe.makeFollowupPageNode(dag, fupage_job, cp, options)
 #Checklist generation node is child of all nodes
-if not options.gps_times: wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
+if not options.no_makeCheckList: wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
 #### ALL FINNISH ####		
 default_cp.write()
 dag.write_all()

@@ -118,19 +118,19 @@ def parse_command_line():
 ops, files = parse_command_line()
 
 #Open the efficiency file and read the three columns into three arrays
-lnamp, eff, Deff = numpy.loadtxt(ops.efficiencyfile, skiprows=1, dtype=float, unpack=True)
-#Get the amplitude array
-amp = numpy.exp(lnamp)
+amp, eff, Deff = numpy.loadtxt(ops.efficiencyfile, skiprows=1, dtype=float, unpack=True)
 #The length of the arrays
-Namp = len(lnamp)
+Namp = len(amp)
 #Make empty arrays the same shape and size as the loaded data arrays
-zofA = numpy.empty_like(lnamp)
-dRdz = numpy.empty_like(lnamp)
+zofA = numpy.empty_like(amp)
+dRdz = numpy.empty_like(amp)
 
 #Open the output file and print the header
 outfile = open("gamma.dat", 'w')
 outfile.write(
     '%     p           n           epsilon         Gmu       gammaAverage    gammaMin      gammaMax\n')
+N = ops.nepsilon * ops.nGmu * ops.np
+n = 1
 for i in range(ops.nepsilon):
     epsilon=pow(10.0, ops.logepsilonstart + 
                 i * (ops.logepsilonend - ops.logepsilonstart) / 
@@ -143,24 +143,19 @@ for i in range(ops.nepsilon):
         #Call the C functions
         err=cs_gamma.findzofA(Gmu, alpha, Namp, zofA, amp) 
         if (err): raise Exception(err)
-        err=cs_gamma.finddRdz(Gmu, alpha, ops.frequency, Gamma, Namp, zofA,dRdz)
+        err=cs_gamma.finddRdz(Gmu, alpha, ops.frequency, Gamma, Namp, zofA, dRdz)
         if (err): raise Exception(err)
 
+        Dlnz = numpy.log(zofA[1:]) - numpy.log(zofA[:-1])
         for k in range(ops.np):
             p=pow(10.0, ops.logpstart + k*(ops.logpend - ops.logpstart) / ops.np)
-            print "%%Computing effective rate for Gmu=%e, epsilon=%e, p=%e" % (Gmu, epsilon, p)
-            gammaAverage, gammaMin, gammaMax = (0.0, 0.0, 0.0)
+            print "%.1f%%: computing effective rate for Gmu=%.4g, epsilon=%.4g, p=%.4g\r" % (100.0 * n / N, Gmu, epsilon, p),
 
-            for l in range(Namp-1):
-                Dlnz = (-numpy.log(zofA[l+1]) + numpy.log(zofA[l]))
-                gammaAverage += eff[l] * zofA[l] * dRdz[l] * Dlnz
-                gammaMin += max((eff[l]-Deff[l]),0.0) * zofA[l] * dRdz[l] * Dlnz
-                gammaMax += min((eff[l]+Deff[l]),1.0) * zofA[l] * dRdz[l] * Dlnz
+            gammaAverage = sum(eff[:-1] * zofA[:-1] * dRdz[:-1] * -Dlnz) * c/p
+            gammaMin = sum(numpy.clip(eff[:-1] - Deff[:-1], 0.0, +numpy.inf) * zofA[:-1] * dRdz[:-1] * -Dlnz) * c/p
+            gammaMax = sum(numpy.clip(eff[:-1] + Deff[:-1], -numpy.inf, 1.0) * zofA[:-1] * dRdz[:-1] * -Dlnz) * c/p
 
-            gammaAverage *= c/p
-            gammaMin *= c/p
-            gammaMax *= c/p
-            outfile.write("%12.6e  %12.6e  %12.6e  %12.6e  %12.6e  %12.6e  %12.6e\n"
+            outfile.write("%.17g  %.17g  %.17g  %.17g  %.17g  %.17g  %.17g\n"
                 %   (p, ops.index, epsilon, Gmu, gammaAverage, gammaMin, gammaMax))
-
-
+            n += 1
+print "100.0%%: computing effective rate for Gmu=%.4g, epsilon=%.4g, p=%.4g" % (Gmu, epsilon, p)

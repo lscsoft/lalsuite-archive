@@ -30,6 +30,8 @@ import sys
 
 from glue import iterutils
 from glue import segmentsUtils
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
@@ -63,11 +65,17 @@ def coinc_params_func(events, offsetvector):
 	if len(events) < 2:
 		return None
 
+	params = {}
+
+	#
+	# zero-instrument parameters
+	#
+
+	params["nevents"] = (len(events),)
+
 	#
 	# one-instrument parameters
 	#
-
-	params = {}
 
 	for event in events:
 		prefix = "%s_" % event.ifo
@@ -79,9 +87,7 @@ def coinc_params_func(events, offsetvector):
 	#
 
 	for event1, event2 in iterutils.choices(sorted(events, key = lambda event: event.ifo), 2):
-		if event1.ifo == event2.ifo:
-			# shouldn't happen, but might as well check for it
-			continue
+		assert event1.ifo != event2.ifo
 
 		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
 
@@ -91,7 +97,10 @@ def coinc_params_func(events, offsetvector):
 		dA = math.log10(abs(event1.amplitude / event2.amplitude))
 		params["%sdA" % prefix] = (dA,)
 
-		df = float((event1.central_freq + 0.5*event1.bandwidth - event2.central_freq - 0.5*event2.bandwidth)/(event1.central_freq + 0.5*event1.bandwidth + event2.central_freq + 0.5*event2.bandwidth))
+		# f_cut = central_freq + bandwidth/2
+		f_cut1 = event1.central_freq + event1.bandwidth / 2
+		f_cut2 = event2.central_freq + event2.bandwidth / 2
+		df = float((math.log10(f_cut1) - math.log10(f_cut2)) / (math.log10(f_cut1) + math.log10(f_cut2)))
 		params["%sdf" % prefix] = (df,)
 
 	#
@@ -108,7 +117,7 @@ def coinc_params_func(events, offsetvector):
 
 def dt_binning(instrument1, instrument2):
 	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 3001),))
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
 
 
 class DistributionsStats(object):
@@ -118,28 +127,29 @@ class DistributionsStats(object):
 	"""
 
 	binnings = {
-		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
-		"H2_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
-		"L1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
-		"V1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
+		"H2_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
+		"L1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
+		"V1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H1_V1_dt": dt_binning("H1", "V1"),
 		"H2_L1_dt": dt_binning("H2", "L1"),
 		"H2_V1_dt": dt_binning("H2", "V1"),
 		"L1_V1_dt": dt_binning("L1", "V1"),
-		"H1_H2_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_H2_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),))
+		"H1_H2_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H1_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H1_H2_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H1_L1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
 	}
 
 	filters = {
@@ -164,7 +174,8 @@ class DistributionsStats(object):
 		"H1_V1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
-		"L1_V1_df": rate.gaussian_window(11, sigma = 20)
+		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
+		"nevents": rate.tophat_window(1)	# no-op
 	}
 
 	def __init__(self):
@@ -257,8 +268,24 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 #
 
 
-def get_coincparamsdistributions(xmldoc):
+def get_coincparamsdistributions(xmldoc, seglists = None):
 	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
+	if seglists is not None:
+		seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+	return coincparamsdistributions
+
+
+def load_likelihood_data(filenames, seglists = None, verbose = False):
+	coincparamsdistributions = None
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = verbose)
+		if coincparamsdistributions is None:
+			coincparamsdistributions = get_coincparamsdistributions(xmldoc, seglists = seglists)
+		else:
+			coincparamsdistributions += get_coincparamsdistributions(xmldoc, seglists = seglists)
+		xmldoc.unlink()
 	return coincparamsdistributions
 
 

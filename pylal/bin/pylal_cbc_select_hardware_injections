@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # This program is used to produce lists of successfully performed hardware injections
 # Copyright (C) 2010 John Veitch
@@ -74,14 +74,16 @@ for ifo in ['H1','H2','L1','V1']:
 		if ifo=='V1':
 			segname='INJECTION_INSPIRAL'
 			scisegname='ITF_SCIENCEMODE'
+			version=1
 		else:
 			segname='DMT-INJECTION_INSPIRAL'
 			scisegname='DMT-SCIENCE'
+			version=1
 		segments[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
-				starttime, endtime, ifo, segname)[0]
+				starttime, endtime, ifo, segname, version=version)[1]
 		if not opts.ignore_science:
 			scisegs[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
-				starttime,endtime,ifo,scisegname)[0]
+				starttime,endtime,ifo,scisegname, version=version)[1]
 		
 # Create SimInspiralTable for output
 outtable=lsctables.New(lsctables.SimInspiralTable)

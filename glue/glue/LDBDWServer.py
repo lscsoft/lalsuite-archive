@@ -587,6 +587,21 @@ class Server(object):
       if len(ligomd.table['process']['stream']) == 0:
         del ligomd.table['process']
 
+      # delete the duplicate process_params rows and clear the table if necessary
+      # (the DMT does not write a process_params table, so check for one first)
+      if ligomd.table.has_key('process_params'):
+        ppid_col = ligomd.table['process_params']['orderedcol'].index('process_id')
+        newstream = []
+        for row_idx,row in enumerate(ligomd.table['process_params']['stream']):
+          # if the process_id in this row is known, delete (i.e. don't copy) it
+          try:
+            proc_key[str(row[ppid_col])]
+          except KeyError:
+            newstream.append(row)
+        ligomd.table['process_params']['stream'] = newstream
+        if len(ligomd.table['process_params']['stream']) == 0:
+          del ligomd.table['process_params']
+
       # turn the known process_id binary for this insert into ascii
       for pid in known_proc.keys():
         pid_str = "x'"

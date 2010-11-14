@@ -29,6 +29,7 @@ import sys
 
 
 from glue import iterutils
+from glue import offsetvector
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -134,8 +135,8 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 	(3, {'H2': 5.0, 'H1': 0.0, 'L1': 10.0})
 	"""
 	count, offsets = slidespec.strip().split(":")
-	offsets = dict([(instrument.strip(), float(offset)) for instrument, offset in [token.strip().split("=") for token in offsets.strip().split(",")]])
-	return int(count), offsets
+	offsetvect = offsetvector.offsetvector((instrument.strip(), float(offset)) for instrument, offset in (token.strip().split("=") for token in offsets.strip().split(",")))
+	return int(count), offsetvect
 
 
 def load_time_slides(filename, verbose = False, gz = False):
@@ -209,7 +210,7 @@ def SlidesIter(slides):
 	"""
 	instruments = slides.keys()
 	for slide in iterutils.MultiIter(*slides.values()):
-		yield dict(zip(instruments, slide))
+		yield offsetvector.offsetvector(zip(instruments, slide))
 
 
 def Inspiral_Num_Slides_Iter(count, offsets):
@@ -235,17 +236,17 @@ def Inspiral_Num_Slides_Iter(count, offsets):
 	"""
 	offsets = offsets.items()
 	for n in range(-count, +count + 1):
-		yield dict([(instrument, offset * n) for instrument, offset in offsets])
+		yield offsetvector.offsetvector((instrument, offset * n) for instrument, offset in offsets)
 
 
-def RowsFromOffsetDict(offsetdict, time_slide_id, process):
+def RowsFromOffsetDict(offsetvect, time_slide_id, process):
 	"""
 	Accepts a dictionary mapping instrument --> offset, and a
 	time_slide ID, and yields a sequence of rows to append to the
 	time_slide table.  process must be the row in the process table on
 	which the newly-constructed time_slide table rows are to be blamed.
 	"""
-	for instrument, offset in offsetdict.iteritems():
+	for instrument, offset in offsetvect.items():
 		row = lsctables.TimeSlide()
 		row.process_id = process.process_id
 		row.time_slide_id = time_slide_id
@@ -261,57 +262,6 @@ def RowsFromOffsetDict(offsetdict, time_slide_id, process):
 #
 # =============================================================================
 #
-
-
-def offset_vector_to_deltas(offset_vector):
-	"""
-	Construct a dictionary of relative offsets from a dictionary of
-	absolute offsets.
-
-	Example:
-
-	>>> offset_vector_to_deltas({"H1": 0, "L1": 10, "V1": 20})
-	{('H1', 'H1'): 0, ('H1', 'L1'): 10, ('H1', 'V1'): 20}
-
-	The keys in the result are instrument pairs, (a, b), and the values
-	are the relative time offsets, (offset[b] - offset[a]).
-	"""
-	# NOTE:  the arithmetic used to construct the offsets *must* match
-	# the arithmetic used by time_slide_component_vectors() so that the
-	# results of the two functions can be compared to each other
-	# without worry of floating-point round off confusing things.
-	ref_instrument = min(offset_vector)
-	return dict(((ref_instrument, instrument), offset_vector[instrument] - offset_vector[ref_instrument]) for instrument in offset_vector)
-
-
-def time_slide_cmp(offsetdict1, offsetdict2):
-	"""
-	Compare two offset dictionaries mapping instrument --> offset.  The
-	dictionaries compare as equal (return value is 0) if the relative
-	offsets (not absolute offsets) are all equal.
-
-	Example:
-
-	>>> offsets1 = {"H1": 0.0, "H2": 0.0, "L1": 0.0}
-	>>> offsets2 = {"H1": 10.0, "H2": 10.0, "L1": 10.0}
-	>>> time_slide_cmp(offsets1, offsets2)
-	0
-
-	because although the absolute offsets are not equal in the two
-	dictionaries, all relative offsets are.
-	"""
-	return cmp(offset_vector_to_deltas(offsetdict1), offset_vector_to_deltas(offsetdict2))
-
-
-def time_slide_contains(offset_vector1, offset_vector2):
-	"""
-	Returns True if offset vector 2 can be found in offset vector 1,
-	False otherwise.  An offset vector is "found in" another offset
-	vector if the latter contains all of the former's instruments and
-	the relative offsets among those instruments agree (the absolute
-	offsets need not).
-	"""
-	return offset_vector_to_deltas(dict((instrument, offset) for instrument, offset in offset_vector1.items() if instrument in offset_vector2)) == offset_vector_to_deltas(offset_vector2)
 
 
 def time_slides_vacuum(time_slides, verbose = False):
@@ -341,7 +291,7 @@ def time_slides_vacuum(time_slides, verbose = False):
 	to time_slide_id:0.
 	"""
 	# convert offsets to deltas
-	time_slides = dict((id, offset_vector_to_deltas(offset_vector)) for id, offset_vector in time_slides.items())
+	time_slides = dict((time_slide_id, offsetvect.deltas) for time_slide_id, offsetvect in time_slides.items())
 	N = len(time_slides)
 	# old --> new mapping
 	mapping = {}
@@ -374,16 +324,8 @@ def time_slide_list_merge(slides1, slides2):
 	Merges two lists of offset dictionaries into a single list with
 	no duplicate (equivalent) time slides.
 	"""
-	new = []
-	for offsetdict2 in slides2:
-		for offsetdict1 in slides1:
-			if not time_slide_cmp(offsetdict1, offsetdict2):
-				# these are the same slides, discard
-				break
-		else:
-			# loop completed without finding a match
-			new.append(offsetdict2)
-	return slides1 + new
+	deltas1 = set(frozenset(offsetvect1.deltas.items()) for offsetvect1 in slides1)
+	return slides1 + [offsetvect2 for offsetvect2 in slides2 if frozenset(offsetvect2.deltas.items()) not in deltas1]
 
 
 #
@@ -395,7 +337,7 @@ def time_slide_list_merge(slides1, slides2):
 #
 
 
-def time_slide_component_vectors(offset_vectors, n):
+def time_slide_component_vectors(offsetvectors, n):
 	"""
 	Given an iterable of time slide vectors, return the shortest list
 	of the unique n-instrument time slide vectors from which all the
@@ -417,51 +359,20 @@ def time_slide_component_vectors(offset_vectors, n):
 	#
 
 	delta_sets = {}
-	for offset_vector in offset_vectors:
-		for instruments in iterutils.choices(sorted(offset_vector), n):
+	for offsetvect in offsetvectors:
+		for instruments in iterutils.choices(sorted(offsetvect), n):
 			# NOTE:  the arithmetic used to construct the
 			# offsets *must* match the arithmetic used by
-			# offset_vector_to_deltas() so that the results of
-			# the two functions can be compared to each other
-			# without worry of floating-point round off
-			# confusing things.
-			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments))
+			# offset_vector.deltas so that the results of the
+			# two can be compared to each other without worry
+			# of floating-point round off confusing things.
+			delta_sets.setdefault(instruments, set()).add(tuple(offsetvect[instrument] - offsetvect[instruments[0]] for instrument in instruments))
 
 	#
 	# translate into a list of normalized n-instrument offset vectors
 	#
 
-	return [dict(zip(instruments, deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
-
-
-def time_slide_normalize(time_slide, **kwargs):
-	"""
-	The time slide, a mapping of instrument --> offset, is adjusted so
-	that a particular instrument in the slide has the desired offset.
-	All other instruments have their offsets adjusted so that the
-	relative offsets are preserved.  The instrument to noramlize, and
-	the offset one wishes it to have, are provided as a key-word
-	argument.  More than one key-word argument can be given, in which
-	case they are considered in order until one is found that is
-	applicable, that is the instrument is in the time slide.  This
-	function is a no-op if no key-word argument is found that applies.
-	The return value is the time slide dictionary, which is modified in
-	place.
-
-	Example:
-
-	>>> time_slide_normalize({"H1": -10, "H2": -10, "L1": -10}, L1 = 0)
-	{'H2': 0, 'H1': 0, 'L1': 0}
-	>>> time_slide_normalize({"H1": -10, "H2": -10}, L1 = 0, H2 = 5)
-	{'H2': 5, 'H1': 5}
-	"""
-	for instrument, offset in kwargs.iteritems():
-		if instrument in time_slide:
-			delta = offset - time_slide[instrument]
-			for instrument in time_slide.keys():
-				time_slide[instrument] += delta
-			break
-	return time_slide
+	return [offsetvector.offsetvector(zip(instruments, deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
 
 
 #
@@ -473,28 +384,9 @@ def time_slide_normalize(time_slide, **kwargs):
 #
 
 
-def offset_vector_str(offset_vector, compact = False):
-	"""
-	A function to dispaly an offset vector in human-readable form.
-	Example uses include constructing verbosity messages in programs,
-	and generating labels for dot graphs.
-
-	Example:
-
-	>>> offsetvector = {"H1": -10.0, "L1": 0.1}
-	>>> offset_vector_str(offsetvector)
-	'H1 = -10 s, L1 = +0.1 s'
-	>>> offset_vector_str(offsetvector, compact = True)
-	'H1=-10,L1=0.1'
-	"""
-	if compact:
-		return ",".join(("%s=%g" % x) for x in sorted(offset_vector.items()))
-	return ", ".join(("%s = %+.16g s" % x) for x in sorted(offset_vector.items()))
-
-
 def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 	"""
-	Print a summary of the output of time_slide_component_offsets().
+	Print a summary of the output of time_slide_component_vectors().
 	"""
 	#
 	# organize the information

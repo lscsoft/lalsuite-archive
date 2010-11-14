@@ -28,7 +28,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.32"
+ver = "1.33"
 
 def remove_root(path,root):
   if root:
@@ -260,7 +260,8 @@ setup(
     os.path.join('bin','ligolw_geo_fr_to_dq'),
     os.path.join('bin','segdb_coalesce'),
     os.path.join('bin', 'glue_nmi_genbuild'),
-    os.path.join('bin', 'ligolw_print_tables') ],
+    os.path.join('bin', 'ligolw_print_tables'),
+    os.path.join('bin', 'ligolw_veto_def_check')],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
@@ -274,6 +275,12 @@ setup(
         os.path.join('etc','ligolw.js'),
         os.path.join('etc','LDBDWServer.wsgi'),
         os.path.join('etc','ligolw_dtd.txt') ]
+    ),
+    ( os.path.join( 'share','nmi' ),
+      [ 
+        os.path.join('src', 'nmi', 'builds', 'lalsuite-build.spec'),
+        os.path.join('src', 'nmi', 'builds', 'lalsuite-build-scripts.location'),
+      ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),
       [
