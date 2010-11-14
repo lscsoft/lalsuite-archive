@@ -114,6 +114,7 @@ INT4 MCMCPriorTest(
    LALMCMCParameter  *parameter);
 
 int CubeToCommonPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
+int CubeToSpinPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
 REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);

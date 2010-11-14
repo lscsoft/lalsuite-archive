@@ -36,6 +36,7 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 #include <lal/LALInspiral.h>
 #include "LALInspiralMCMC.h"
 #include "MultiNest_calc.h"
+#include "priors.h"
 
 #include <lal/Date.h>
 #include <lal/Random.h>
@@ -58,7 +59,6 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 
 #include "LALInspiralMCMCUser.h"
 #include <fftw3.h>
-#include "priors.h"
 
 #define MpcInMeters 3.08568025e22
 
@@ -334,6 +334,7 @@ REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
   mComp=mc2mass2(mc,eta);
   if(mNS<m1min || mNS>m1max || mComp<m2min || mComp>m2max) parameter->logPrior=-DBL_MAX;
   return(parameter->logPrior);
+
 }
 
 int CubeToCommonPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
@@ -343,11 +344,7 @@ int CubeToCommonPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   int i = 0;
   
   // latitude
-  double lat;
-  if( Cube[i] <= 0.5 )
-	  lat = asin(2.0 * Cube[i]) - LAL_PI / 2.0;
-  else
-	  lat = LAL_PI / 2.0 - asin(2.0 - 2.0 * Cube[i]);
+  double lat = asin(2.0 * Cube[i] - 1.0);
   XLALMCMCSetParameter(parameter, "lat", lat);
   Cube[i] = lat;
   i++;
@@ -400,7 +397,8 @@ int CubeToCommonPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   timeMax = param->core->maxVal;
   double time = flatPrior(Cube[i], timeMin, timeMax);
   XLALMCMCSetParameter(parameter, "time", time);
-  Cube[i] = time - inputMCMC->stilde[0]->epoch.gpsSeconds + 1e-9*inputMCMC->stilde[0]->epoch.gpsNanoSeconds;
+  Cube[i] = time;
+  //Cube[i] = time - inputMCMC->stilde[0]->epoch.gpsSeconds + 1e-9*inputMCMC->stilde[0]->epoch.gpsNanoSeconds;
   i++;
 }
 
@@ -571,6 +569,7 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   }
   i++;
   
+  
   // check if parameters are inside the prior ranges
   parameter->logPrior = 0;
   ParamInRange(parameter);
@@ -697,6 +696,7 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   }
   Cube[i] = distMpc;
   i++;
+  
     
   // check if parameters are inside the prior ranges
   parameter->logPrior = 0;
@@ -728,7 +728,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	CoherentGW coherent_gw;
 	PPNParamStruc PPNparams;
 	LALDetAMResponse det_resp;
-	REAL4TimeSeries *h_p_t,*h_c_t=NULL;
+	REAL4TimeSeries *h_p_t=NULL,*h_c_t=NULL;
 	COMPLEX8FrequencySeries *H_p_t=NULL, *H_c_t=NULL;
 	size_t NFD = 0;
 	memset(&PPNparams,0,sizeof(PPNparams));
@@ -779,6 +779,11 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	h_c_t = XLALCreateREAL4TimeSeries("hcross",&inputMCMC->epoch,
 										 inputMCMC->fLow,inputMCMC->deltaT,
 										 &lalADCCountUnit,NtimeDomain);
+	if(!(h_p_t && h_c_t)){
+		fprintf(stderr,"Unable to allocate signal buffer\n");
+		exit(1);
+	}
+
 	/* Separate the + and x parts */
 	for(i=0;i< (NtimeDomain<coherent_gw.h->data->length?NtimeDomain:coherent_gw.h->data->length) ;i++){
 		h_p_t->data->data[i]=coherent_gw.h->data->data[2*i];
@@ -793,6 +798,11 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	NFD=inputMCMC->stilde[det_i]->data->length;
 	H_p_t = XLALCreateCOMPLEX8FrequencySeries("Hplus",&inputMCMC->epoch,0,(REAL8)inputMCMC->deltaF,&lalDimensionlessUnit,(size_t)NFD);
 	H_c_t = XLALCreateCOMPLEX8FrequencySeries("Hcross",&inputMCMC->epoch,0,(REAL8)inputMCMC->deltaF,&lalDimensionlessUnit,(size_t)NFD);
+
+	if(!(H_p_t && H_c_t)){
+		fprintf(stderr,"Unable to allocate F-domain signal buffer\n");
+		exit(1);
+	}
 
 	if(inputMCMC->likelihoodPlan==NULL) {LALCreateForwardREAL4FFTPlan(&status,&inputMCMC->likelihoodPlan,
 																	  NtimeDomain,
@@ -896,15 +906,16 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 		
 		logL-=chisq;
 		
-		/* Destroy the response series */
-		if(coherent_gw.f) XLALDestroyREAL4TimeSeries(coherent_gw.f);
-		if(coherent_gw.phi) XLALDestroyREAL8TimeSeries(coherent_gw.phi);
-		if(coherent_gw.shift) XLALDestroyREAL4TimeSeries(coherent_gw.shift);
-		if(coherent_gw.h) {XLALDestroyREAL4VectorSequence(coherent_gw.h->data); LALFree(coherent_gw.h);}
-		if(coherent_gw.a) {XLALDestroyREAL4VectorSequence(coherent_gw.a->data); LALFree(coherent_gw.a);}
-		XLALDestroyCOMPLEX8FrequencySeries(H_p_t);
-		XLALDestroyCOMPLEX8FrequencySeries(H_c_t);
 	}
+	/* Destroy the response series */
+	if(coherent_gw.f) XLALDestroyREAL4TimeSeries(coherent_gw.f);
+	if(coherent_gw.phi) XLALDestroyREAL8TimeSeries(coherent_gw.phi);
+	if(coherent_gw.shift) XLALDestroyREAL4TimeSeries(coherent_gw.shift);
+	if(coherent_gw.h) {XLALDestroyREAL4VectorSequence(coherent_gw.h->data); LALFree(coherent_gw.h);}
+	if(coherent_gw.a) {XLALDestroyREAL4VectorSequence(coherent_gw.a->data); LALFree(coherent_gw.a);}
+	XLALDestroyCOMPLEX8FrequencySeries(H_p_t);
+	XLALDestroyCOMPLEX8FrequencySeries(H_c_t);
+	
 noWaveform:
 	/* return logL */
 	parameter->logLikelihood=logL;
@@ -954,7 +965,7 @@ in the frequency domain */
 	else if(XLALMCMCCheckParameter(parameter,"logdist"))
 		template.distance=exp(XLALMCMCGetParameter(parameter,"logdist"));
 
-	template.order=LAL_PNORDER_TWO;
+	template.order=inputMCMC->phaseOrder;
 	template.approximant=inputMCMC->approximant;
 	template.tSampling = 1.0/inputMCMC->deltaT;
 	template.fCutoff = 0.5/inputMCMC->deltaT -1.0;
@@ -978,7 +989,7 @@ in the frequency domain */
 		case TaylorF2 : TaylorF2_template(&status,&template,parameter,inputMCMC); break;
 		case TaylorT3 :
 		case TaylorT2 :
-        case TaylorT4 : TaylorT_template(&status,&template,parameter,inputMCMC); break;
+        	case TaylorT4 : TaylorT_template(&status,&template,parameter,inputMCMC); break;
 		case SpinTaylor : SpinTaylor_template(&status,&template,parameter,inputMCMC); break;
 		default: {fprintf(stderr,"This template is not available. Exiting."); exit(1);}
 	}
@@ -1037,14 +1048,14 @@ in the frequency domain */
 		/* Compute detector amplitude response */
 		det_source.pDetector = (inputMCMC->detector[det_i]); /* select detector */
 		LALComputeDetAMResponse(&status,&det_resp,&det_source,&inputMCMC->epoch); /* Compute det_resp */
-		det_resp.plus*=-0.5*(1.0+ci*ci);
+		det_resp.plus*=0.5*(1.0+ci*ci);
 		det_resp.cross*=-ci;
+		
 		/* Compute the response to the wave in the detector */
 		REAL8 deltaF = inputMCMC->stilde[det_i]->deltaF;
 		UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
 		UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
 		if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
-		REAL8 hc,hs;
 
 		for(idx=lowBin;idx<=highBin;idx++){
 			time_sin = sin(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
@@ -1054,14 +1065,18 @@ in the frequency domain */
 			/* This is the time delayed waveforms as it appears at the detector */
 			/* data[idx] is real and data[Nmodel-idx] is imaginary part of the waveform at index idx */
 			/* H+ = hc + i*hs, and Hx=iH+, ONLY WHERE H+=cos(phi) and Hx=sin(phi) in the time domain (SPA, non-spinning, no-HH) */
-			hc = (REAL8)model->data[idx]*time_cos + (REAL8)model->data[Nmodel-idx]*time_sin;
-			hs = (REAL8)model->data[Nmodel-idx]*time_cos - (REAL8)model->data[idx]*time_sin;
 			
-			/* Compute detector response in the real and imaginary parts */
-			/* resp_r =   F+ * Re(H+)   -  Fx * Im(H+) */
-			resp_r = det_resp.plus * hc - det_resp.cross * hs;
-			/* resp_im =  Fx * Re(H+)   +  F+ * Im(H+) */
-			resp_i = det_resp.cross * hc + det_resp.plus * hs;
+			/* Model contains h(f)exp(-psi(f)), want h'(f)=h(f)exp(-2pi*i*deltaT)  */
+			/* model_re_prime and model_im_prime contain the time delayed part */
+			REAL8 model_re_prime = (REAL8)model->data[idx]*time_cos + (REAL8)model->data[Nmodel-idx]*time_sin; /* Plus sign from -i*sin(phi)*i */
+			REAL8 model_im_prime = (REAL8)model->data[Nmodel-idx]*time_cos - (REAL8)model->data[idx]*time_sin; /* Minus sign from -i*sin(phi) */
+
+			/* Now, h+=model_prime and hx=i*model_prime */
+			/* real(H+ + Hx) = F+(real(model_prime)) + Fx( -imag(model_prime)) : negative sign from multiplication by i*i */
+			/* imag(H+ + Hx) = F+(imag(model_prime)) + Fx(real(model_prime)) : No negative sign */
+
+			resp_r = det_resp.plus*model_re_prime - det_resp.cross*model_im_prime;
+			resp_i = det_resp.plus*model_im_prime + det_resp.cross*model_re_prime;
 
 			real=inputMCMC->stilde[det_i]->data->data[idx].re - resp_r/deltaF;
 			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i/deltaF;
@@ -1125,7 +1140,7 @@ in the frequency domain */
 	template.massChoice = totalMassAndEta;
 	template.fLower = inputMCMC->fLow;
 	template.distance = XLALMCMCGetParameter(parameter,"distMpc"); /* This must be in Mpc, contrary to the docs */
-	template.order=LAL_PNORDER_TWO;
+	template.order=inputMCMC->phaseOrder;
 	template.approximant=inputMCMC->approximant;
 	template.tSampling = 1.0/inputMCMC->deltaT;
 	template.fCutoff = 0.5/inputMCMC->deltaT -1.0;

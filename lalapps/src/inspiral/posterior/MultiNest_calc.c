@@ -32,6 +32,11 @@ void LogLike(double *Cube, int *ndim, int *npars, double *lnew)
 	// calculate the loglike
 	MultiNestInput->funcLikelihood(MultiNestInput, MultiNestParam);
 	*lnew = MultiNestParam->logLikelihood - nullZ;
+	if( isnan(*lnew) )
+	{
+		printf("likelihood is NaN. Aborting!\n");
+		abort();
+	}
 }
 
 void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
@@ -95,20 +100,20 @@ void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 	
 	// call MultiNest
 	
-	int mmodal = 1;
+	int mmodal = 0;
 	int ceff = 0;
 	int nlive = Nlive;
 	double efr = 0.8;
 	double tol = 0.5;
 	int ndims = MCMCinput->dim;
-	int nPar = 11;
+	int nPar = ndims + 2;
 	int nClsPar = 2;
 	int updInt = 100;
 	double Ztol = -1.e90;
 	int maxModes = 100;
 	int pWrap[ndims];
 	for( int k = 0; k < ndims; k++ ) pWrap[k] = 0;
-	pWrap[1] = pWrap[3] = 1;
+	pWrap[1] = pWrap[3] = pWrap[4] = 1;
 	char root[100];
 	for( int k = 0; k < 100; k++ ) root[k] = outfile[k];
 	int rseed = -1;
