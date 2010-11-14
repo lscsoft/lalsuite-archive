@@ -36,6 +36,14 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
+from pylal.datatypes import SimBurst
+from pylal import lalburst
+
+
+class SimBurst(SimBurst):
+	def set_time_geocent(self, gps):
+		self.time_geocent, self.time_geocent_ns = gps.seconds, gps.nanoseconds
+lsctables.SimBurst = lsctables.SimBurstTable.RowType = SimBurst
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -65,6 +73,7 @@ def parse_command_line():
 	parser.add_option("-o", "--output", metavar = "filename", help = "Set the name of the output file (default = stdout).")
 	parser.add_option("-s", "--gps-start-time", metavar = "seconds", help = "Set the start time of the tiling in GPS seconds (required).")
 	parser.add_option("-f", "--overlap-fraction", metavar = "fraction", type = "float", default = 0.25, help = "Set the amount of adjacent tile overlap (default = 25.0).  The value must be in the range [0, 1).")
+	parser.add_option("--sample-rate", metavar = "Hz", type = "int", default = 16384, help = "Set the sample rate of the data into which the injections will be placed (default = 16384).  This information is required in order to normalize each pixel accurately.  If the wrong value is used, the result will be the addition of noise to the image.")
 	parser.add_option("-n", "--hrss-scale", metavar = "hrss", type = "float", default = 1e-20, help = "Set the hrss corresponding to \"white\" (default = 1e-20).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -73,6 +82,8 @@ def parse_command_line():
 		raise ValueError, "missing required option --gps-start-time"
 	if not (0 <= options.overlap_fraction < 1.0):
 		raise ValueError, "--overlap-fraction must be in [0, 1)"
+	if options.delta_f * options.delta_t < 2 / math.pi:
+		raise ValueError, "the product of --delta-t and --delta-f must be >= 2/pi"
 	options.gps_start_time = lsctables.LIGOTimeGPS(options.gps_start_time)
 
 	return options, filenames
@@ -81,14 +92,10 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                                Sine-Gaussians
+#                                Tile Amplitude
 #
 # =============================================================================
 #
-
-
-def Q_from_duration_and_f(dt, f):
-	return math.sqrt(2) * math.pi * f * dt
 
 
 #
@@ -103,12 +110,16 @@ def Q_from_duration_and_f(dt, f):
 options, filenames = parse_command_line()
 
 
+if options.verbose:
+	print >>sys.stderr, "time-frequency tiles have %g degrees of freedom" % (2 * options.delta_t * options.delta_f)
+
+
 process_id = lsctables.ProcessID("process:process_id:0")
 
 
 xmldoc = ligolw.Document()
 xmldoc.appendChild(ligolw.LIGO_LW())
-sim_burst_tbl = xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SimBurstTable, ["process_id", "simulation_id", "waveform", "ra", "dec", "psi", "time_geocent_gps", "time_geocent_gps_ns", "duration", "frequency", "bandwidth", "q", "hrss", "pol_ellipse_angle", "pol_ellipse_e"]))
+sim_burst_tbl = xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SimBurstTable, ["process_id", "simulation_id", "waveform", "waveform_number", "ra", "dec", "psi", "time_geocent_gps", "time_geocent_gps_ns", "duration", "frequency", "bandwidth", "egw_over_rsquared", "pol_ellipse_angle", "pol_ellipse_e"]))
 
 
 for filename in filenames:
@@ -134,21 +145,27 @@ for filename in filenames:
 			# source orientation
 			row.ra = row.dec = row.psi = 0
 
-			# linearly-polarized sine-Gaussian
-			row.waveform = "SineGaussian"
-			row.pol_ellipse_e = 1
-			row.pol_ellipse_angle = math.pi / 2
+			# band- and time-limited white-noise burst
+			row.waveform = "BTLWNB"
+			row.waveform_number = 0
+			row.pol_ellipse_e = row.pol_ellipse_angle = 0
 
 			# time-frequency co-ordinates
 			row.frequency = options.f_low + j * options.delta_f * (1.0 - options.overlap_fraction)
 			row.set_time_geocent(options.gps_start_time + i * options.delta_t * (1.0 - options.overlap_fraction))
 			row.bandwidth = options.delta_f
 			row.duration = options.delta_t
-			row.q = Q_from_duration_and_f(row.duration, row.frequency)
 
-			# amplitude
-			row.hrss = options.hrss_scale * img.getpixel((i, j)) / 255
-			if row.hrss != 0:
+			# amplitude.  hrss column is ignored by waveform
+			# generation code.  it is included for convenience.
+			# the waveform is normalized by generating the
+			# burst, measuring its hrss, then rescaling to
+			# achieve the desired value.  this process requires
+			# the sample rate to be known.
+			row.hrss = options.hrss_scale * img.getpixel((i, j)) / 255.0
+			row.egw_over_rsquared = 1
+			row.egw_over_rsquared *= row.hrss / lalburst.XLALMeasureHrss(*lalburst.XLALGenerateSimBurst(row, 1.0 / 16384))
+			if row.egw_over_rsquared != 0:
 				sim_burst_tbl.append(row)
 			if options.verbose:
 				print >>sys.stderr, "%d injections\r" % len(sim_burst_tbl),
