@@ -357,6 +357,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.lalburst",
+			["src/xlal/lalburst.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalburst_pkg_config.incdirs + ["src/xlal"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalburst_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.noisemodels",
 			["src/xlal/noisemodels.c"],
 			include_dirs = lal_pkg_config.incdirs,
