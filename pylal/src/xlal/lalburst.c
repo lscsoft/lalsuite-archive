@@ -28,6 +28,7 @@
 
 #include <Python.h>
 #include <lal/GenerateBurst.h>
+#include <lal/LALSimBurst.h>
 #include <misc.h>
 #include <datatypes/real8timeseries.h>
 #include <datatypes/simburst.h>
@@ -78,6 +79,38 @@ static PyObject *pylal_XLALGenerateSimBurst(PyObject *self, PyObject *args)
 
 
 /*
+ * XLALMeasureHrss()
+ */
+
+
+static PyObject *pylal_XLALMeasureHrss(PyObject *self, PyObject *args)
+{
+	pylal_REAL8TimeSeries *hplus, *hcross;
+
+	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8TimeSeries_Type, &hplus, &pylal_REAL8TimeSeries_Type, &hcross))
+		return NULL;
+
+	return Py_BuildValue("d", XLALMeasureHrss(hplus->series, hcross->series));
+}
+
+
+/*
+ * XLALMeasureEoverRsquared()
+ */
+
+
+static PyObject *pylal_XLALMeasureEoverRsquared(PyObject *self, PyObject *args)
+{
+	pylal_REAL8TimeSeries *hplus, *hcross;
+
+	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8TimeSeries_Type, &hplus, &pylal_REAL8TimeSeries_Type, &hcross))
+		return NULL;
+
+	return Py_BuildValue("d", XLALMeasureEoverRsquared(hplus->series, hcross->series));
+}
+
+
+/*
  * ============================================================================
  *
  *                            Module Registration
@@ -88,6 +121,8 @@ static PyObject *pylal_XLALGenerateSimBurst(PyObject *self, PyObject *args)
 
 static struct PyMethodDef methods[] = {
 	{"XLALGenerateSimBurst", pylal_XLALGenerateSimBurst, METH_VARARGS, "Compute the h+ and hx time series for a row in a LIGO Light Weight XML sim_burst table."},
+	{"XLALMeasureHrss", pylal_XLALMeasureHrss, METH_VARARGS, "Measure h_{rss}"},
+	{"XLALMeasureEoverRsquared", pylal_XLALMeasureEoverRsquared, METH_VARARGS, "Measure E_{GW}/r^{2}"},
 	{NULL,}
 };
 
