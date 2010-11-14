@@ -74,7 +74,7 @@ static PyObject *pylal_XLALGenerateSimBurst(PyObject *self, PyObject *args)
 		return NULL;
 	}
 
-	return Py_BuildValue("(OO)", hplus_obj, hcross_obj);
+	return Py_BuildValue("(NN)", hplus_obj, hcross_obj);
 }
 
 
