@@ -184,7 +184,8 @@ extern "C" {
 		INT4 SG_R;
 		INT4 SG_M;
 		
-		/* OUTPUT FILE */
+		/* DETECTOR AND SOURCE INFORMATION */
+		LALDetAndSource	*det_source;
 		
 	}FisherACS;
 	
