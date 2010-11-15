@@ -469,6 +469,7 @@ setup(
 		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_exttrig_llpage"),
 		os.path.join("bin", "pylal_relic"),
+		os.path.join("bin", "pylal_version"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "ploteffdistcut"),
 		os.path.join("bin", "plotefficiency"),
@@ -553,11 +554,11 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotslides"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
 		os.path.join("bin", "ligolw_cbc_plotfm"),
+        os.path.join("bin", "lalapps_cbc_plotrates"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "ligolw_segments_compat"),
 		os.path.join("bin", "extractCommand"),
-		os.path.join("bin", "OddsPostProc.py"),
 		os.path.join("bin", "make_inspiral_summary_page"),
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
@@ -597,7 +598,7 @@ setup(
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "ring_post"),
-		os.path.join("bin","cbcBayesSkyRes.py")
+		os.path.join("bin","cbcBayesPostProc.py")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

@@ -422,11 +422,10 @@ def lower_err(y, yerr, deltax):
 	return y - lower
 
 
-def write_efficiency(fileobj, bins, eff, yerr, filterwidth):
-	print >>fileobj, "# ln(A)	e	D[e]"
-	DlnA = bins[0].delta * filterwidth / 2.0
+def write_efficiency(fileobj, bins, eff, yerr):
+	print >>fileobj, "# A	e	D[e]"
 	for A, e, De in zip(bins.centres()[0], eff, yerr):
-		print >>fileobj, math.log(A), e, De
+		print >>fileobj, "%.16g	%.16g	%.16g" % (A, e, De)
 
 
 def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_width, colour = "k", erroralpha = 0.3, linestyle = "-"):
@@ -456,7 +455,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	net_xerr = net_yerr / dydx * x_factor_per_sample
 
 	# write the efficiency data to file
-	write_efficiency(dump_file, efficiency.bins(), eff, net_yerr, filter_width)
+	write_efficiency(dump_file, efficiency.bins(), eff, net_yerr)
 
 	# plot the efficiency curve and uncertainty region
 	patch = patches.Polygon(zip(numpy.concatenate((x, x[::-1])), numpy.concatenate((eff + upper_err(eff, yerr, filter_width / 2), (eff - lower_err(eff, yerr, filter_width / 2))[::-1]))), edgecolor = colour, facecolor = colour, alpha = erroralpha)
