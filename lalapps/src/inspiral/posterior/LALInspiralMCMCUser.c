@@ -410,6 +410,7 @@ REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 
 REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 {
+	
 }
 
 // likelihood for AmpCorTest waveforms
