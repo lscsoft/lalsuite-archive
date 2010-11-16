@@ -1,35 +1,48 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#       cbcBayesPostProc.py
+#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>
+#       
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
 
-# Demonstrates use of the pylal.bayespputils module for producing stats/plots based on results of
-# parameter estimation codes.
-
+#standard library imports
 import sys
 import os
 
 from math import ceil,floor
 import cPickle as pickle
 
-from optparse import OptionParser
-from ConfigParser import ConfigParser
 from time import strftime
 
-import numpy as np
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack
+#related third party imports
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit
 
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
+#local application/library specific imports
 from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
-
-
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
-
 
 def pickle_to_file(obj,fname):
     """
@@ -38,14 +51,26 @@ def pickle_to_file(obj,fname):
     filed=open(fname,'w')
     pickle.dump(obj,filed)
     filed.close()
-#
 
 def oneD_dict_to_file(dict,fname):
     filed=open(fname,'w')
     for key,value in dict.items():
         filed.write("%s %s\n"%(str(key),str(value)) )
 
-def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_levels,twoDplots,injfile=None,eventnum=None,skyres=None,bayesfactornoise=None,bayesfactorcoherent=None):
+def cbcBayesPostProc(
+                        outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
+                        confidence_levels,twoDplots,
+                        #misc. optional
+                        injfile=None,eventnum=None,skyres=None,
+                        #manual input of bayes factors optional.
+                        bayesfactornoise=None,bayesfactorcoherent=None,
+                        #nested sampling options
+                        ns_flag=False,ns_xflag=False,ns_Nlive=None,
+                        #spinspiral/mcmc options
+                        ss_flag=False,ss_deltaLogL=None,ss_spin_flag=False,
+                        #followupMCMC options
+                        fm_flag=False
+                    ):
     """
     This is a demonstration script for using the functionality/data structures
     contained in pylal.bayespputils . It will produce a webpage from a file containing
@@ -68,7 +93,25 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         os.makedirs(outdir)
     #
 
-    commonOutputFileObj=open(data[0])
+    if fm_flag:
+        peparser=bppu.PEOutputParser('fm')
+        commonResultsObj=peparser.parse(data)
+    
+    elif ns_flag and not ss_flag:
+        peparser=bppu.PEOutputParser('ns')
+        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive,xflag=ns_xflag)
+
+    elif ss_flag and not ns_flag:
+        peparser=bppu.PEOutputParser('mcmc_burnin')
+        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=ss_deltaLogL)
+
+    elif ss_flag and ns_flag:
+        print "Undefined input format. Choose only one of:"
+        exit(1)
+
+    else:
+        peparser=bppu.PEOutputParser('common')
+        commonResultsObj=peparser.parse(open(data[0],'r'))
 
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
@@ -103,8 +146,9 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonOutputFileObj,SimInspiralTableEntry=injection)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
 
+    #Stupid bit to generate component mass posterior samples (if they didnt exist already)
     if ('mc' in pos.names or 'mchirp' in pos.names) and \
     'eta' in pos.names and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and\
@@ -146,7 +190,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     #Create web page
     #==================================================================#
 
-    html=bppu.htmlPage('Posterior PDFs')
+    html=bppu.htmlPage('Posterior PDFs',css=bppu.default_css_string)
 
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
@@ -164,6 +208,31 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     html_stats=html.add_section('Summary statistics')
     html_stats.write(str(pos))
 
+    #Create a section for the covariance matrix
+    html_stats_cov=html.add_section('Covariance matrix')
+    pos_samples,table_header_string=pos.samples()
+
+    #calculate cov matrix
+    cov_matrix=cov(pos_samples,rowvar=0,bias=1)
+
+    #Create html table
+    table_header_list=table_header_string.split()
+
+    cov_table_string='<table border="1" id="covtable"><tr><th/>'
+    for header in table_header_list:
+        cov_table_string+='<th>%s</th>'%header
+    cov_table_string+='</tr>'
+    
+    cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
+
+    for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
+        cov_table_string+='<tr><th>%s</th>'%cov_column_name
+        for cov_column_element in cov_column:
+            cov_table_string+='<td>%s</td>'%str(cov_column_element[0])
+        cov_table_string+='</tr>'
+    cov_table_string+='</table>'
+    html_stats_cov.write(cov_table_string)
+
     #==================================================================#
     #Generate sky map
     #==================================================================#
@@ -179,16 +248,17 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         #Create sky map in outdir
         bppu.plot_sky_map(top_ranked_sky_pixels,outdir)
 
-    #Create a web page section for sky localization results/plots
-    html_sky=html.add_section('Sky Localization')
-    if injection:
-        if sky_injection_cl:
-            html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
-        else:
-            html_sky.p('Injection not found in posterior bins in sky location!')
-    html_sky.write('<img width="35%" src="skymap.png"/>')
-    if skyres is not None:
-        html_sky_write='<table border="1"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
+        #Create a web page section for sky localization results/plots (if defined)
+
+        html_sky=html.add_section('Sky Localization')
+        if injection:
+            if sky_injection_cl:
+                html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
+            else:
+                html_sky.p('Injection not found in posterior bins in sky location!')
+        html_sky.write('<img width="35%" src="skymap.png"/>')
+        
+        html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
         fracs=skyreses.keys()
         fracs.sort()
@@ -199,7 +269,6 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         html_sky_write+=('</table>')
 
         html_sky.write(html_sky_write)
-
 
     #==================================================================#
     #2D posteriors
@@ -222,7 +291,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     #results.
     html_tcig=html.add_section('2D confidence intervals (greedy binning)')
     #Generate the top part of the table
-    html_tcig_write='<table width="100%" border="1"><tr><th/>'
+    html_tcig_write='<table id="statstable" border="1"><tr><th/>'
     confidence_levels.sort()
     for cl in confidence_levels:
         html_tcig_write+='<th>%f</th>'%cl
@@ -233,9 +302,9 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
 
     #=  Add a section for a table of 2D marginal PDFs (kde)
     html_tcmp=html.add_section('2D Marginal PDFs')
-    html_tcmp.br()
+    
     #Table matter
-    html_tcmp_write='<table border="1" width="100%">'
+    html_tcmp_write='<table border="1">'
 
     row_count=0
     for par1_name,par2_name in twoDGreedyMenu:
@@ -282,9 +351,15 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         for cl in cls:
             BCItableline+='<td>%f</td>'%reses[cl]
 
-        if injection is not None and injection_cl is not None:
-            BCItableline+='<td>%f</td>'%injection_cl
-            BCItableline+='<td>%f</td>'%injection_area
+        if injection is not None:
+            if injection_cl is not None:
+                BCItableline+='<td>%f</td>'%injection_cl
+                BCItableline+='<td>%f</td>'%injection_area
+
+            else:
+                BCItableline+='<td/>'
+                BCItableline+='<td/>'
+
         BCItableline+='</tr>'
 
         #Append new table line to section html
@@ -301,7 +376,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         par1_pos=pos[par1_name].samples
         par2_pos=pos[par2_name].samples
 
-        if (size(np.unique(par1_pos))<2 or size(np.unique(par2_pos))<2):
+        if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
             continue
 
         plot2DkdeParams={par1_name:50,par2_name:50}
@@ -324,7 +399,6 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
     html_tcig.write(html_tcig_write)
-
     #Finish off the 2D kde plot table
     while row_count!=0:
         html_tcmp_write+='<td/>'
@@ -335,9 +409,8 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     html_tcmp_write+='</table>'
     html_tcmp.write(html_tcmp_write)
     #Add a link to all plots
-    html_tcmp.br()
     html_tcmp.a("2Dkde/",'All 2D marginal PDFs (kde)')
-    html_tcmp.hr()
+
 
     #==================================================================#
     #1D posteriors
@@ -349,7 +422,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     #Add section for 1D confidence intervals
     html_ogci=html.add_section('1D confidence intervals (greedy binning)')
     #Generate the top part of the table
-    html_ogci_write='<table width="100%" border="1"><tr><th/>'
+    html_ogci_write='<table id="statstable" border="1"><tr><th/>'
     confidence_levels.sort()
     for cl in confidence_levels:
         html_ogci_write+='<th>%f</th>'%cl
@@ -360,7 +433,6 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
 
     #Add section for 1D marginal PDFs and sample plots
     html_ompdf=html.add_section('1D marginal posterior PDFs')
-    html_ompdf.br()
     #Table matter
     html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
 
@@ -400,9 +472,16 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
         for cl in cls:
             BCItableline+='<td>%f</td>'%reses[cl]
 
-        if injection is not None and injectionconfidence is not None and injection_area is not None:
-            BCItableline+='<td>%f</td>'%injectionconfidence
-            BCItableline+='<td>%f</td>'%injection_area
+        if injection is not None:
+            if injectionconfidence is not None and injection_area is not None:
+            
+                BCItableline+='<td>%f</td>'%injectionconfidence
+                BCItableline+='<td>%f</td>'%injection_area
+
+            else:
+                BCItableline+='<td/>'
+                BCItableline+='<td/>'
+
         BCItableline+='</tr>'
 
         #Append new table line to section html
@@ -421,7 +500,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
 
         ##Produce plot of raw samples
-        myfig=plt.figure(figsize=(4,3.5),dpi=80)
+        myfig=plt.figure(figsize=(4,3.5),dpi=200)
         pos_samps=pos[par_name].samples
         plt.plot(pos_samps,'.',figure=myfig)
         injpar=pos[par_name].injval
@@ -441,12 +520,6 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     html_ogci_write+='</table>'
     html_ogci.write(html_ogci_write)
 
-    html_ogci.hr()
-    html_ogci.br()
-
-    html_ompdf.hr()
-    html_ompdf.br()
-
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
     html_footer.p(git_version.verbose_msg)
@@ -457,29 +530,38 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
 
     # Save posterior samples too...
     posfilename=os.path.join(outdir,'posterior_samples.dat')
-    posfile=open(posfilename,'w')
-    input_file=open(data[0])
-    posfile.write(input_file.read())
-    #
-    posfilename2=os.path.join(outdir,'posterior_samples2.dat')
-    pos.write_to_file(posfilename2)
+    pos.write_to_file(posfilename)
+
+    #Pickle pos and
+    pickle_path=os.path.join(outdir,'pickle')
+    if not os.path.exists(pickle_path):
+        os.makedirs(pickle_path)
 
     #Close files
-    input_file.close()
-    posfile.close()
     resultspage.close()
 
 if __name__=='__main__':
 
+    from optparse import OptionParser
     parser=OptionParser()
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
     parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+    #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
-    parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent against incoherent models",type="string")
-
+    parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
+    #NS
+    parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
+    parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
+    parser.add_option("--xflag",action="store_true",default=False,help="(inspnest) Convert x to iota.")
+    #SS
+    parser.add_option("--ss",action="store_true",default=False,help="(SPINspiral) Parse input as if it was output from SPINspiral.")
+    parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
+    parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral) Difference in logL to use for convergence test.",type="float")
+    #FM
+    parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
@@ -494,5 +576,18 @@ if __name__=='__main__':
     twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0']]
 
 
-    cbcBayesPostProc(opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,greedyBinSizes,confidenceLevels,twoDplots,injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci)
+    cbcBayesPostProc(
+                        opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,
+                        greedyBinSizes,confidenceLevels,twoDplots,
+                        #optional
+                        injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        #manual bayes factor entry
+                        bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
+                        #nested sampling options
+                        ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
+                        #spinspiral/mcmc options
+                        ss_flag=opts.ss,ss_deltaLogL=opts.deltaLogL,ss_spin_flag=opts.spin,
+                        #followupMCMC options
+                        fm_flag=opts.fm
+                    )
 #
