@@ -305,7 +305,6 @@ static PyObject *__reduce__(PyObject *self, PyObject *args)
 	if(!pyobject_to_ligotimegps(self, &gps))
 		return NULL;
 
-	Py_INCREF(&pylal_LIGOTimeGPS_Type);
 	return Py_BuildValue("(O,(i,i))", &pylal_LIGOTimeGPS_Type, gps.gpsSeconds, gps.gpsNanoSeconds);
 }
 

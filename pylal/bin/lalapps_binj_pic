@@ -42,7 +42,7 @@ from pylal import lalburst
 
 class SimBurst(SimBurst):
 	def set_time_geocent(self, gps):
-		self.time_geocent, self.time_geocent_ns = gps.seconds, gps.nanoseconds
+		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
 lsctables.SimBurst = lsctables.SimBurstTable.RowType = SimBurst
 
 
@@ -67,12 +67,12 @@ def parse_command_line():
 		description = "Convert an image into a LIGO Light-Weight XML file containing a list of sine-Gaussian burst injections.  When injected into data, the injections will cause a waterfall plot to display the image."
 	)
 	parser.add_option("-l", "--f-low", metavar = "Hz", type = "float", default = 64.0, help = "Set the low-frequency limit of the tiling (default = 64).")
-	parser.add_option("-d", "--delta-f", metavar = "Hz", type = "float", default = 64.0, help = "Set the frequency spacing of the tiling (default = 64).")
-	parser.add_option("-t", "--delta-t", metavar = "s", type = "float", default = 1.0 / 32, help = "Set the time spacing of the tiling (default = 1/32).")
+	parser.add_option("-d", "--delta-f", metavar = "Hz", type = "float", default = 16.0, help = "Set the frequency spacing of the tiling (default = 16).")
+	parser.add_option("-t", "--delta-t", metavar = "s", type = "float", default = 1.0 / 16, help = "Set the time spacing of the tiling (default = 1/16).")
 	parser.add_option("-H", "--height", metavar = "pixels", type = "int", default = 64, help = "Set the number of tiles in the frequency domain (default = 64).")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Set the name of the output file (default = stdout).")
 	parser.add_option("-s", "--gps-start-time", metavar = "seconds", help = "Set the start time of the tiling in GPS seconds (required).")
-	parser.add_option("-f", "--overlap-fraction", metavar = "fraction", type = "float", default = 0.25, help = "Set the amount of adjacent tile overlap (default = 25.0).  The value must be in the range [0, 1).")
+	parser.add_option("-f", "--overlap-fraction", metavar = "fraction", type = "float", default = 0.25, help = "Set the fraction by which adjacent tiles overlap (default = 0.25).  The value must be in the range [0, 1).")
 	parser.add_option("--sample-rate", metavar = "Hz", type = "int", default = 16384, help = "Set the sample rate of the data into which the injections will be placed (default = 16384).  This information is required in order to normalize each pixel accurately.  If the wrong value is used, the result will be the addition of noise to the image.")
 	parser.add_option("-n", "--hrss-scale", metavar = "hrss", type = "float", default = 1e-20, help = "Set the hrss corresponding to \"white\" (default = 1e-20).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -163,9 +163,9 @@ for filename in filenames:
 			# achieve the desired value.  this process requires
 			# the sample rate to be known.
 			row.hrss = options.hrss_scale * img.getpixel((i, j)) / 255.0
-			row.egw_over_rsquared = 1
-			row.egw_over_rsquared *= row.hrss / lalburst.XLALMeasureHrss(*lalburst.XLALGenerateSimBurst(row, 1.0 / 16384))
-			if row.egw_over_rsquared != 0:
+			if row.hrss != 0:
+				row.egw_over_rsquared = 1
+				row.egw_over_rsquared *= row.hrss / lalburst.XLALMeasureHrss(*lalburst.XLALGenerateSimBurst(row, 1.0 / 16384))
 				sim_burst_tbl.append(row)
 			if options.verbose:
 				print >>sys.stderr, "%d injections\r" % len(sim_burst_tbl),

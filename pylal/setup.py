@@ -411,8 +411,8 @@ setup(
 		),
 		Extension(
 			"pylal._bayespputils",
-			["src/bayespputils.c"],
-			include_dirs = [numpy_get_include()]
+			["src/bayespputils.c","src/burnin.c"],
+			include_dirs = [numpy_get_include(),'src/']
 		),
 		Extension(
 			"pylal.cs_gamma",
@@ -501,6 +501,7 @@ setup(
 		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "antime"),
 		os.path.join("bin", "septime"),
+		os.path.join("bin", "lalapps_binj_pic"),
 		os.path.join("bin", "lalapps_burca_tailor"),
 		os.path.join("bin", "lalapps_cbc_plotroc"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
