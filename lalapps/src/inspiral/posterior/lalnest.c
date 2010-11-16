@@ -679,9 +679,9 @@ int main( int argc, char *argv[])
 			if( ( !strcmp(IFOnames[i],"H1") && H1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"L1") &&
 					L1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"V1") && V1GPSshift != 0.0 ) ) {
 				memcpy(&realstart,&datastart,sizeof(LIGOTimeGPS));
-				if(!strcmp(IFOnames[i],"H1")
+				if(!strcmp(IFOnames[i],"H1"))
 					TSoffset=H1GPSshift;
-				else if(!strcmp(IFOnames[i],"L1")
+				else if(!strcmp(IFOnames[i],"L1"))
 					TSoffset=L1GPSshift;
 				else
 					TSoffset=V1GPSshift;
