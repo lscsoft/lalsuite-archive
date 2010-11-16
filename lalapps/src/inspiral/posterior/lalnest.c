@@ -71,6 +71,9 @@ Optional OPTIONS:\n \
 [--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
 [--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\
+[--H1GPSshift FLOAT\t: Specify timeslide in H1]\n \
+[--L1GPSshift FLOAT\t: Specify timeslide in L1]\n \
+[--V1GPSshift FLOAT\t: Specify timeslide in V1]\n \
 [--timeslide\t:\tTimeslide data]\n[--studentt\t:\tuse student-t likelihood function]\n \
 [--ra FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use (DEGREES)]\n \
 [--grb\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
@@ -130,6 +133,7 @@ extern INT4 seed;
 int NINJA=0;
 int verbose=0;
 int timeslides=0;
+int specifictimeslides=0;
 int studentt=0;
 int estimatenoise=1;
 int SkyPatch=0;
@@ -137,6 +141,7 @@ int FakeFlag=0;
 int GRBflag=0;
 int SkyLocFlag=0;
 REAL8 SNRfac=1.0;
+REAL4 H1GPSshift = 0.0, L1GPSshift = 0.0, V1GPSshift = 0.0;
 int MNSeg = 0;
 int HighMassFlag=0;
 int decohereflag=0;
@@ -215,6 +220,9 @@ void initialise(int argc, char *argv[]){
 		{"verbose",no_argument,0,'v'},
 		{"approximant",required_argument,0,'A'},
 		{"timeslide",no_argument,0,'L'},
+		{"H1GPSshift",no_argument,0,'31'},
+		{"L1GPSshift",no_argument,0,'32'},
+		{"V1GPSshift",no_argument,0,'33'},
 		{"studentt",no_argument,0,'l'},
 		{"ra",required_argument,0,'O'},
 		{"dec",required_argument,0,'a'},
@@ -265,6 +273,18 @@ void initialise(int argc, char *argv[]){
 		case 30:
 			MNSeg=atoi(optarg);
 			if(MNSeg < 0 || MNSeg > 4) {fprintf(stderr,"ERROR: Incorrect value for MultiNest segment, please set --MNSeg between 0 and 4\n"); exit(1);}
+			break;
+		case 31:
+			H1GPSshift = atof(optarg);
+			specifictimeslides=1;
+			break;
+		case 32:
+			L1GPSshift = atof(optarg);
+			specifictimeslides=1;
+			break;
+		case 33:
+			V1GPSshift = atof(optarg);
+			specifictimeslides=1;
 			break;
 		case 16:
 			decohereflag=1;
@@ -654,6 +674,23 @@ int main( int argc, char *argv[])
 			fprintf(stderr,"Slid %s by %f s\n",IFOnames[i],TSoffset);
 			XLALDestroyRandomParams(randparam);
 		}
+		
+		if(specifictimeslides && !FakeFlag){ /* Set up time slides by offsetting the data by user defined value */
+			if( ( !strcmp(IFOnames[i],"H1") && H1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"L1") &&
+					L1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"V1") && V1GPSshift != 0.0 ) ) {
+				memcpy(&realstart,&datastart,sizeof(LIGOTimeGPS));
+				if(!strcmp(IFOnames[i],"H1")
+					TSoffset=H1GPSshift;
+				else if(!strcmp(IFOnames[i],"L1")
+					TSoffset=L1GPSshift;
+				else
+					TSoffset=V1GPSshift;
+				datastart = realstart;
+				XLALGPSAdd(&datastart, TSoffset);
+				fprintf(stderr,"Slid %s by %f s\n",IFOnames[i],TSoffset);
+			}
+		}
+		
 		/* set up a Tukey Window with tails of 1s at each end */
 		if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen, 0.1); /* 0.1s agreed on beta parameter for review */
 		/* if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen); */ /* Original window, commented out for review */
