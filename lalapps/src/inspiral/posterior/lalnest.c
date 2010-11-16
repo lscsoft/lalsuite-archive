@@ -38,7 +38,7 @@ RCSID(LALAPPS_VCS_IDENT_ID);
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
-#define DEBUG 1
+#define DEBUG 0
 #define USAGE "lalapps_inspnest ARGUMENTS [OPTIONS]\n \
 Necessary ARGUMENTS:\n \
 -o outfile\t:\tOutput samples to outfile\n \
