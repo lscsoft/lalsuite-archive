@@ -469,6 +469,10 @@ int main( int argc, char *argv[])
 	etawindow=1.0;
 	timewindow=0.05;
 	initialise(argc,argv); /* Get the arguments and act on them */
+	if( timeslides && specifictimeslides ){
+		fprintf( stderr, "Error: can not use both random and specific timeslides.\n");
+		exit( 1 );
+	}
 	if(inputXMLFile!=NULL){
 		/* read in the input file */
 		numTmplts = LALSnglInspiralTableFromLIGOLw( &inputCurrent, inputXMLFile, 0, -1);
@@ -698,7 +702,7 @@ int main( int argc, char *argv[])
 		if(!FakeFlag){
 			RawData = readTseries(CacheFileNames[i],ChannelNames[i],datastart,duration); /* This reads the raw data from the cache */
 			if(RawData==NULL){fprintf(stderr,"Error opening %s in %s\n",ChannelNames[i],CacheFileNames[i]); exit(-1);}
-			if(timeslides){
+			if(timeslides || specifictimeslides){
 				memcpy(&(RawData->epoch),&realstart,sizeof(LIGOTimeGPS));
 				memcpy(&datastart,&realstart,sizeof(LIGOTimeGPS));
 			}
