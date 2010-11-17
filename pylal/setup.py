@@ -411,8 +411,8 @@ setup(
 		),
 		Extension(
 			"pylal._bayespputils",
-			["src/bayespputils.c"],
-			include_dirs = [numpy_get_include()]
+			["src/bayespputils.c","src/burnin.c"],
+			include_dirs = [numpy_get_include(),'src/']
 		),
 		Extension(
 			"pylal.cs_gamma",
