@@ -383,7 +383,14 @@ if cp.has_option('data','calamp-facs'):
      inspnest_job.add_opt("enable-calamp",'')
 
 if cp.has_option('data','calamp-facs') or cp.has_option('data','enable_calfreq'):
-    os.mkdir(str(os.path.join(opts.run_path,"waves")))
+    waves_folder=str(os.path.join(opts.run_path,'waves'))
+    if os.path.isdir(waves_folder):
+        for i in waves_folder:
+            path_to_file=os.path.join(waves_folder,i)
+            if os.path.isfile(path_to_file):
+                os.unlink(path_to_file)
+    else:
+        os.mkdir(str(waves_folder))
  
 if cp.has_option('analysis','injONLY'):
      print "injONLY activated"
