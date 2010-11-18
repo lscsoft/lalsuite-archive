@@ -683,7 +683,7 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   	param = XLALMCMCGetParam(parameter, "logdist");
 	distMpcMin = exp(param->core->minVal);
 	distMpcMax = exp(param->core->maxVal);
-	distMpc = powerPrior(3.0, Cube[i], distMpcMin, distMpcMax);
+	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
   	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
   }
   else
