@@ -99,42 +99,6 @@ def vec_get_loudest_stat(arr):
     """
     return _vec_get_loudest_stat(arr).astype(numpy.float32)
 
-#timeslides functions#
-#####################################################################################
-def retrieve_ring_boundaries(xmldoc):
-	#
-	# grab the segment list for any instrument selected at random (they
-	# are all the same)
-	#
-
-	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
-
-	#
-	# because the input often contains two thinca jobs the rings might
-	# be duplicated;  use set() to uniqueify them then sort them.
-	#
-
-	rings = segments.segmentlist(set(rings))
-	rings.sort()
-
-	#
-	# check that the (sorted) rings are non-intersecting
-	#
-	# FIXME:  shouldn't there only be exactly 1 ring?
-	#
-
-	for i in range(len(rings) - 1):
-		if rings[i].intersects(rings[i + 1]):
-			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
-
-	# cast to int to prevent explosions later
-	for i, ring in enumerate(rings):
-		rings[i] = segment(int(ring[0]), int(ring[1]))
-
-	#
-	# done
-	#
-	return rings
 
 
 ##############################################################################
@@ -326,7 +290,7 @@ mc_bins = rate.IrregularBins(opts.mc_boundaries)
 ##############################################################################
 # make trial bins
 
-rings = retrieve_ring_boundaries(offsource_doc)
+rings = grbsummary.retrieve_ring_boundaries(offsource_doc)
 trial_seg = (rings | on_segs | buffer_segs).extent()
 trial_len =  int(abs(on_segs))
 num_trials = int(abs(trial_seg)) // trial_len

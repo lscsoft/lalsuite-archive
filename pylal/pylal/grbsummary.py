@@ -391,3 +391,38 @@ def get_trial_mask(veto_mask, slide_amount, slide):
 
   return trial_mask
 
+def retrieve_ring_boundaries(xmldoc):
+	#
+	# grab the segment list for any instrument selected at random (they
+	# are all the same)
+	#
+
+	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
+
+	#
+	# because the input often contains two thinca jobs the rings might
+	# be duplicated;  use set() to uniqueify them then sort them.
+	#
+
+	rings = segments.segmentlist(set(rings))
+	rings.sort()
+
+	#
+	# check that the (sorted) rings are non-intersecting
+	#
+
+	for i in range(len(rings) - 1):
+		if rings[i].intersects(rings[i + 1]):
+			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
+
+	#
+	# cast to int to prevent explosions later
+	#
+
+	for i, ring in enumerate(rings):
+		rings[i] = segments.segment(int(ring[0]), int(ring[1]))
+
+	#
+	# done
+	#
+	return rings
