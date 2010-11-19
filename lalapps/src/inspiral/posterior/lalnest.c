@@ -1026,7 +1026,7 @@ doneinit:
 			for(i=0;i<inputMCMC.stilde[j]->data->length;i++)
 			{
 				if(estimatenoise)
-					fprintf(dataoutfile,"%10.3e %10.10e %10.10e %10.10e\n",(REAL8)i*inputMCMC.invspec[j]->deltaF,1./inputMCMC.invspec[j]->data->data[i],inputMCMC.stilde[j]->data->data[i].re,inputMCMC.stilde[j]->data->data[i].im);
+					fprintf(dataoutfile,"%10.5e %10.10e %10.10e %10.10e\n",(REAL8)i*inputMCMC.invspec[j]->deltaF,1./inputMCMC.invspec[j]->data->data[i],inputMCMC.stilde[j]->data->data[i].re,inputMCMC.stilde[j]->data->data[i].im);
 				else
 					fprintf(dataoutfile,"%lf %lf %lf\n",(REAL8)i*inputMCMC.stilde[j]->deltaF,inputMCMC.stilde[j]->data->data[i].re,inputMCMC.stilde[j]->data->data[i].im);
 			}
