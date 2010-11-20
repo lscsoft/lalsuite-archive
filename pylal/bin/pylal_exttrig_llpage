@@ -509,6 +509,11 @@ def create_subpage_trigger(subpage, cp, grb):
   
   subpage.sections["trigger_basic"].add_table(grb_table, "Basic information on the used trigger")
 
+  subpage.add("<p>More info in <a href=\"http://grblog.org/grblog.php?view=burst&GRB=%s\">grblog</a>.</p>" % grb.name)
+
+  subpage.add_section("trigger_lightcurve","Lightcurve")
+
+
 # FIXME: Merge me with the external call structure in pylal_exttrig_llutils.py (or somewhere else maybe...)
 # ***************************************************************************
 def make_external_call(\
@@ -610,7 +615,7 @@ def create_subpage_data(subpage, cp, grb):
   #
   # DQ section
   #
-  section = subpage.add_section("data_DQ","Data quality")
+  section = subpage.add_section("data_DQ","Data quality CAT2")
 
   # veto-definer file
   section.add('The following veto definer file has been used: '+ grb.veto_definer)
@@ -736,7 +741,10 @@ def create_subpage_inj(subpage, cp, grb, statistic):
 
   # replace the macro definitions and put it together, in the given order
   main_path = cp.get('paths', 'publishing_url') + '/GRB%s/' % (grb.name)
-  for key in page_sections:
+  sections_sorted = ['plotethinca', 'plotinspmissed', 'plotinjnum'] + \
+                    ['plotinspinj'+ifo for ifo in grb.ifolist] + \
+                    ['plotsnrchi'+ifo for ifo in grb.ifolist]
+  for key in sections_sorted:
     sec = subpage.add_section(key, "Plots from "+key)
 
     pagelink = file_replace(page_sections[key]['page'])
@@ -751,12 +759,6 @@ def create_subpage_inj(subpage, cp, grb, statistic):
     sec.add('<br')
     sec.add_text(txt='Detailed results can be found here:', bold=True)
     sec.add_link(href = main_path+pagelink, text = key+' summary page')
-
-
-# --------------------------------
-def create_subpage_lik(subpage, cp, grb, statistic):
-  # Anything to add here?
-  return
 
 
 # --------------------------------
@@ -1080,7 +1082,6 @@ page.add_subpage("subpage_trigger","Trigger information", "Trigger Information")
 page.add_subpage("subpage_data","Data information", "Data Information")
 page.add_subpage("subpage_bg_diag","Background diagnostics", "Background diagnostics")
 page.add_subpage("subpage_inj_diag","Injection diagnostics", "Injection diagnostics")
-page.add_subpage("subpage_lik_diag","Likelihood diagnostics", "Likelihood diagnostics")
 page.add_subpage("subpage_openbox","OPENBOX results", "OPENBOX results")
 
 # calls to the specific subfunctions to create the subpages
@@ -1089,7 +1090,6 @@ create_subpage_trigger(page.subpages["subpage_trigger"], cp, grb)
 create_subpage_data(page.subpages["subpage_data"], cp, grb)
 create_subpage_bkg(page.subpages["subpage_bg_diag"], cp, grb, statistic)
 create_subpage_inj(page.subpages["subpage_inj_diag"], cp, grb, statistic)
-create_subpage_lik(page.subpages["subpage_lik_diag"], cp, grb, statistic)
 
 create_subpage_openbox(page.subpages["subpage_openbox"], cp, grb, statistic, columns, rows)
 
