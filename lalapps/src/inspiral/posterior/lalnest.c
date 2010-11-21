@@ -315,7 +315,7 @@ REAL8 Ph_H1(REAL8 f){
 		if(f>80.0 && f<=500.0)
 			output = -0.0701154 +0.0170887*log(0.914066*f)-15.5936*pow(f,-1);
 
-		return LAL_PI*output/180.0;
+		return LAL_PI*LAL_PI*output/180.0/180.0;
 }
 REAL8 Ph_L1(REAL8 f){
 		double output = 0.0;
@@ -326,7 +326,7 @@ REAL8 Ph_L1(REAL8 f){
 		if(f>110.0 && f<=500.0)
 			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
 
-		return LAL_PI*output/180.0;
+		return  LAL_PI*LAL_PI*output/180.0/180.0;
 }
 REAL8 Ph_V1(REAL8 f){
 		double output = 0.0;
