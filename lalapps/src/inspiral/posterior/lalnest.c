@@ -314,8 +314,8 @@ REAL8 Ph_H1(REAL8 f){
 			output = 114.005-6.23854*f+0.127996*pow(f,2)-0.00116878*pow(f,3)+4.00732e-06*pow(f,4);
 		if(f>80.0 && f<=500.0)
 			output = -0.0701154 +0.0170887*log(0.914066*f)-15.5936*pow(f,-1);
-
-		return LAL_PI*LAL_PI*output/180.0/180.0;
+                /* convert in rads */
+		return LAL_PI*output/180.0;
 }
 REAL8 Ph_L1(REAL8 f){
 		double output = 0.0;
@@ -326,7 +326,8 @@ REAL8 Ph_L1(REAL8 f){
 		if(f>110.0 && f<=500.0)
 			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
 
-		return  LAL_PI*LAL_PI*output/180.0/180.0;
+                /* convert in rads */
+		return  LAL_PI*output/180.0;
 }
 REAL8 Ph_V1(REAL8 f){
 		double output = 0.0;
@@ -343,8 +344,8 @@ REAL8 Ph_V1(REAL8 f){
 	        {
 		output = 2.66324 - 3.48059*pow(log10(f),1.0) + 1.76342*pow(log10(f), 2.0) - 0.415683*pow(log10(f),3.0) + 0.0393829*pow(log10(f),4.0);
 	        }
-
-		return LAL_PI*output/180.0;
+               /* Virgo data are already in rads */
+		return output;
 }
 
 void initialise(int argc, char *argv[]){
