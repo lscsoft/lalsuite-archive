@@ -286,12 +286,24 @@ REAL8 Amp_L1(REAL8 f){
 REAL8 Amp_V1(REAL8 f){
 		double output = 1.0;
 
-		if(f>60.0 && f<=155.0)
-			output = -1.70801+0.158928*f-0.00368464*pow(f,2)+4.32603e-05*pow(f,3)-2.65581e-07*pow(f,4)+7.33889e-10*pow(f,5)-1.35718e-13*pow(f,6)-2.309e-15*pow(f,7);
-
-		if(f>155.0 && f<=500.0)
-			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
-		//return a constant
+                if(log10(f)>1 && log10(f)<=1.48443)
+                { 
+		output = -0.876892 + 6.65445*pow(log10(f),1.0) - 8.81424*pow(log10(f), 2.0) + 5.12016*pow(log10(f),3.0) - 1.09537*pow(log10(f),4.0);
+                }
+	 	else if(log10(f)>1.48443 && log10(f)<=2.02130)
+	        {
+		output = -16.7486 + 41.0096*pow(log10(f),1.0) - 35.1488*pow(log10(f), 2.0) + 13.2676*pow(log10(f),3.0) - 1.86709*pow(log10(f),4.0);
+	        }
+		else if(log10(f)>2.02130 && log10(f)<=2.45144)
+	        {
+		output = 172.469 - 304.746*pow(log10(f),1.0) + 202.191*pow(log10(f), 2.0) - 59.3845*pow(log10(f),3.0) + 6.51706*pow(log10(f),4.0);
+               	} 
+	 	else if(log10(f)>2.45144 && log10(f)<= 3.08153)
+	        {
+		output = 43.0574 - 60.222*pow(log10(f),1.0) + 32.2545*pow(log10(f), 2.0) - 7.66187*pow(log10(f),3.0) + 0.681219*pow(log10(f),4.0);
+	        }
+		
+                //return a constant
 		//output = 1.15;
 		return output;
 }
@@ -301,7 +313,7 @@ REAL8 Ph_H1(REAL8 f){
 		if(f>60.0 && f<=80.0)
 			output = 114.005-6.23854*f+0.127996*pow(f,2)-0.00116878*pow(f,3)+4.00732e-06*pow(f,4);
 		if(f>80.0 && f<=500.0)
-			output = -0.0701154 +0.0170887*log(0.914066*f)+-15.5936*pow(f,-1);
+			output = -0.0701154 +0.0170887*log(0.914066*f)-15.5936*pow(f,-1);
 
 		return LAL_PI*output/180.0;
 }
@@ -319,11 +331,18 @@ REAL8 Ph_L1(REAL8 f){
 REAL8 Ph_V1(REAL8 f){
 		double output = 0.0;
 
-		if(f>60.0 && f<=110.0)
-			output = -69.493+4.77314*f-0.123966*pow(f,2)+0.0015403*pow(f,3)-9.24682e-06*pow(f,4)+2.16121e-08*pow(f,5);
-
-		if(f>110.0 && f<=500.0)
-			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
+                if(log10(f)>1 && log10(f)<=1.64080)
+            	{
+		output = 5.1621 - 16.1787*pow(log10(f),1.0) + 18.7131*pow(log10(f), 2.0) - 9.45203*pow(log10(f),3.0) + 1.75489*pow(log10(f),4.0);
+	        }
+		else if(log10(f)>1.64080 && log10(f)<=2.15234)
+	        {
+		output = -76.8328 + 164.194*pow(log10(f),1.0) - 131.131*pow(log10(f), 2.0) + 46.3381*pow(log10(f),3.0) - 6.10831*pow(log10(f),4.0);
+	        }
+		else if(log10(f)>2.15234 && log10(f)<=3.2)
+	        {
+		output = 2.66324 - 3.48059*pow(log10(f),1.0) + 1.76342*pow(log10(f), 2.0) - 0.415683*pow(log10(f),3.0) + 0.0393829*pow(log10(f),4.0);
+	        }
 
 		return LAL_PI*output/180.0;
 }
@@ -1003,7 +1022,7 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
                 if(enable_calfreq){
                     COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                     CalibPolar(injF,CalibInj,IFOnames[i],injTime,isWavesDir);
-                    sprintf(stderr,"iswaves equal to %2.0f",isWavesDir);
+                    fprintf(stderr,"iswaves equal to %2.0f",isWavesDir);
 
                         for(j=0;j<injF->data->length;j++){
                             injF->data->data[j].re = CalibInj->data->data[j].re;
@@ -1024,37 +1043,6 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
                 networkSNR+=SNR;
                 SNR=sqrt(SNR);
 
-/*REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
-
-                if(enable_calamp || enable_calfreq){
-      
-          
-                FILE *uncalib_waveout;
-                    char uncalib_wavename[100];
-                    sprintf(uncalib_wavename,"uncalibwave_%s_%9.0f.dat",IFOnames[i],injTime);
-                    uncalib_waveout=fopen(uncalib_wavename,"w");
-                    for(j=0;j<injF->data->length;j++) fprintf(uncalib_waveout,"%g\t%g\t%g\n",j*(injF->deltaF),sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0)) ,atan2(injF->data->data[j].im,injF->data->data[j].re) );
-                    fclose(uncalib_waveout);
-               
-                if(enable_calamp){
-                    for(j=0;j<injF->data->length;j++) {
-                        injF->data->data[j].re*=(REAL8)CalAmpFacs[i];
-                        injF->data->data[j].im*=(REAL8)CalAmpFacs[i];
-                    }
-
-                }
-
-                if(enable_calfreq){
-                    COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
-                    CalibPolar(injF,CalibInj,IFOnames[i],injTime);
-                    for(j=0;j<injF->data->length;j++){
-                            injF->data->data[j].re = CalibInj->data->data[j].re;
-                            injF->data->data[j].im = CalibInj->data->data[j].im;
-			}
-                    XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
-                }
-                }
-*/
                 /* Actually inject the waveform */
                 if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
                 for(j=0;j<injF->data->length;j++) {
