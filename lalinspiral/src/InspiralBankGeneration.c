@@ -341,8 +341,6 @@ LALInspiralBankGeneration(
                coarseList[cnt].params.mass2 > 3.0 ) continue; */
 
           if ( coarseList[cnt].params.mass1 < 3.0 ||
-               coarseList[cnt].params.mass1 > 7.0 ||
-               coarseList[cnt].params.mass2 < 3.0 ||
                coarseList[cnt].params.mass2 > 7.0
 	     ) continue;
           bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
