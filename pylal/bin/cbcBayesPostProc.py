@@ -354,7 +354,7 @@ def cbcBayesPostProc(
         if injection is not None:
             if injection_cl is not None:
                 BCItableline+='<td>%f</td>'%injection_cl
-                BCItableline+='<td>%f</td>'%injection_area
+                BCItableline+='<td>'+str(injection_area)+'</td>'
 
             else:
                 BCItableline+='<td/>'
