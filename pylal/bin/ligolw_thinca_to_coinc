@@ -149,7 +149,7 @@ def parse_command_line():
 		for n, c in enumerate(lal.CacheEntry(line) for line in file(options.ihope_cache)):
 			if options.verbose and not n % 1597:
 				print >>sys.stderr, "\t%d lines\r" % n,
-			if ("INSPIRAL_SECOND" in c.url and not opts.single_stage) or ("INSPIRAL_FIRST" in c.url and opts.single_stage):
+			if ("INSPIRAL_SECOND" in c.url and not options.single_stage) or ("INSPIRAL_FIRST" in c.url and options.single_stage):
 				metadata_cache[os.path.basename(c.path())] = c.url
 			category = pattern.match(c.description)
 			if category is None:
