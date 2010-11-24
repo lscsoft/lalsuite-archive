@@ -78,18 +78,22 @@ def __patchFrameTypeDef__(frametype=None,ifo=None,gpstime=None):
   searching the filesystem for files to display in followup.
   """
   if frametype == None:
+    raise Exception, "input to __patchFrameTypeDef__ included a \
+    frametype argument specified as None\n"
     return None
   if gpstime == None:
-    return None
+    raise Warning, "input to __patchFrameTypeDef__ included a \
+    gps time argument specified as None\n"
+    return frametype
   if ifo == None:
-    return None
+    raise Warning, "input to __patchFrameTypeDef__ included an \
+    ifo argument specified as None\n"
+    return frametype
   endOfS5=int(875232014)
-  new=None
   if int(gpstime)<=endOfS5:
     if not frametype.lower().startswith(ifo.lower()):
-      orig=frametype
-      new=ifo+"_"+frametype
-    return new
+      return ifo+"_"+frametype
+  return frametype
 
 class findFileType(object):
   """
