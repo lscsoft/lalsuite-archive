@@ -171,7 +171,14 @@ for thisGraph in myGraphs:
     else:
         pylab.legend()
     pylab.grid(True)
-    pylab.savefig(filemask%(opts.gps_time,thisGraph.replace(" ","-")))
+    #Main filename
+    imageFilename=filemask%(opts.gps_time,thisGraph.replace(" ","-"))
+    pylab.savefig(imageFilename)
+    #Save a thumbnail %10
+    myScale=0.33
+    myFigure.set_size_inches(myScale*(xRes/myDPI),myScale*(yRes/myDPI))
+    myFigure.set_dpi(myScale*myDPI)
+    pylab.savefig(imageFilename.replace(".png",".thumb.png"))
     pylab.close()
 #
 # Done

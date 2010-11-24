@@ -650,7 +650,6 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
-
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 #The class responsible for Job Object running the customFOM builder python

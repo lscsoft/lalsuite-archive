@@ -377,6 +377,14 @@ class findFileType(object):
     cacheFiles=self.__readCache__(cacheList)
     return cacheFiles         
 
+  def get_customfoms(self):
+    """
+    """
+    #FilenameMask "FOM_GPSTIME_GRAPHNAME.png"
+    tmpList=list()
+    myMask="*/FOM_%s*png"%(self.coinc.time)
+    tmpList.extend(fnmatch.filter(self.fsys,myMask))
+    return tmpList
   
   def get_all(self):
     """
@@ -393,6 +401,7 @@ class findFileType(object):
     globalList.extend(self.get_findVetos())
     globalList.extend(self.get_effDRatio())
     globalList.extend(self.get_findFlags())    
+    globalList.extend(self.get_customfoms())
     return globalList
                  
 def matchFiles(fileList=None,jobString=None,instruments=None,ifos=None,time=None):
@@ -1075,6 +1084,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     wikiPage.insertTable(fTable)
   else:
     wikiPage.putText("Can not automatically fetch S5 FOM links.")  
+  #Add in wiki synxtax to included the custom FOMs
+  
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
