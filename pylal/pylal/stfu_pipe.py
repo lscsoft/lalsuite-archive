@@ -162,7 +162,9 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",948672015,961545687,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6d/background/background_961545607_968803223.cache",961545687,999999999,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2aRerun/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,999999999,"V1")
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,947116815,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR3preCommissioning/background/background_966124815_968025615.cache",964310415,968284815,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR3postCommissioning/background/background_968544015_971568015.cache",968284815,999999999,"V1")
 		)
 
 	foundCache = ""
