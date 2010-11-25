@@ -1086,6 +1086,9 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
          fTable.data[myRow][myCol]="%s"%(wikiPage.linkedRemoteImage(thumb,link))
          currentIndex=currentIndex+1
     wikiPage.insertTable(fTable)
+    #
+    # Code to add in custom FOM plots
+    #
   else:
     wikiPage.putText("Can not automatically fetch S5 FOM links.")  
   #Add in wiki synxtax to included the custom FOMs

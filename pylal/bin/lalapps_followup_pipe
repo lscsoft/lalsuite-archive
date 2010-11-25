@@ -577,6 +577,7 @@ rds_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_b
 seis_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_SEIS_RDS')
 find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
 find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
+custom_fom_job          = stfu_pipe.customFOMPlotNode(options,cp,dir=search)
 wikiChecklist_job       = stfu_pipe.makeCheckListWikiJob(options,cp,dir=search)
 if options.do_remoteScans:
 	remote_datafind_job	= stfu_pipe.remoteDatafindJob(options,cp, tag_base='Q_RDS', dir=search)
@@ -612,6 +613,7 @@ for cnt, event in enumerate(gpsevents.events):
 
 	findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,event)
 	findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,event)
+	customFom_Node = stfu_pipe.customFOMPlotJob(dag,custom_fom_job,cp,options,coinc)
 	# write the event info to disk and cache for stfu_page
 	exportGPSEventToDisk(event, search, cnt, dag)
 
@@ -674,6 +676,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	sky_plot_job		= stfu_pipe.skyMapPlotJob(options,cp, dir=search)
 	find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
 	find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
+	custom_fom_job          = stfu_pipe.customFOMPlotNode(options,cp,dir=search)
 	effD_ratio_job		= stfu_pipe.effDRatioJob(options,cp, dir=search)
 	mcmc_sngl_job           = stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="sngl")
 	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
@@ -797,6 +800,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc)
 		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc)
+		customFom_Node = stfu_pipe.customFOMPlotJob(dag,custom_fom_job,cp,options,coinc)
 		#Need a wiki creation Node and Job class with the following as input
 		exportCoincToDisk(coinc, search, coinc_cnt, dag)
 

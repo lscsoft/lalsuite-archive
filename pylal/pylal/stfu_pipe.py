@@ -1492,20 +1492,11 @@ class customFOMPlotNode(pipeline.CondorDAGNode,FUNode):
 	custom FOMs.   In general each node will have one condor
 	changed variable, which is t0 (gps) of trigger.
 	"""
-	def __init__(self, dag, job, cp, time, ifostring=None):
-		"""
-		paramater option: ifostring, takes a string formed
-		like this for example L1,H1 which means create plots
-		for L1 and H1. The script driven by this node will do
-		the string parsing.
-		Command line example that drives our script is:
-		followupCustomFOM.py --gps-time=555444666
-		"""
-		defaults={"section":"customfoms",
-			  "options":{"plot-windows":"14400,7200",
-				     "ifo-list":"L1,H1,V1"}
+	defaults={"section":"customfoms",
+		  "options":{"plot-windows":"14400,7200",
+			     "ifo-list":"L1,H1,V1"}
 			  }
-	def __init__(self, dag, job, cp, opts, coincEvent=None):
+	def __init__(self, dag, job, cp, opts):
 		"""
 		Takes in a coincEvent object and prepares figure request.
 		"""
