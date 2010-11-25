@@ -1016,7 +1016,7 @@ class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		#self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
 
 		# The first parent node must be the cache file!
-		input_cache_file = p_nodes[0].name_output_file
+		input_cache_file = p_nodes[0].outputFileName
 		self.add_var_arg(input_cache_file)
 		self.add_macro("macroinputfile", input_cache_file)
 
@@ -1144,7 +1144,10 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
+		if cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
+			self.add_var_opt('server','ldr-bologna.phys.uwm.edu')
+
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')) or if opts.do_remoteScans:
 			for node in p_nodes:
 				if node.validNode:
 					self.add_parent(node)
