@@ -1496,18 +1496,19 @@ class customFOMPlotNode(pipeline.CondorDAGNode,FUNode):
 		  "options":{"plot-windows":"14400,7200",
 			     "ifo-list":"L1,H1,V1"}
 			  }
-	def __init__(self, dag, job, cp, opts):
+	def __init__(self, dag, job, cp, opts, coincEvent):
 		"""
 		Takes in a coincEvent object and prepares figure request.
 		"""
 		self.__conditionalLoadDefaults__(customFOMPlotNode.defaults,cp)
 		pipeline.CondorDAGNode.__init__(self,job)
 		if cp.has_option('customfoms','plot-windows'):
-			self.add_var_opt('customfoms',cp.get('customfoms','plot-windows'))
+			self.add_var_opt('plot-windows',cp.get('customfoms','plot-windows'))
 		if cp.has_option('customfoms','ifo-list'):
-			self.add_var_opt('customfoms',cp.get('customfoms','ifo-list'))
+			self.add_var_opt('ifo-list',cp.get('customfoms','ifo-list'))
 		self.add_var_opt("gps-time",coincEvent.time)
 		self.add_var_opt("verbose","")
+		self.add_var_opt("output-path",job.outputPath+'/DataProducts/')
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
@@ -2332,6 +2333,7 @@ class create_default_config(object):
 		cp.set("fu-condor","plotchiatimeseries", self.which("plotchiatimeseries"))
                 cp.set("fu-condor","effDRatio", self.which("followupRatioTest.py"))
                 cp.set("fu-condor","vetoflags", self.which("followupQueryVeto.py"))
+                cp.set("fu-condor","customfom", self.which("followupCustomFOM.py"))
                 cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		cp.set("fu-condor","mcmc", self.which("lalapps_followupMcmc"))
 		cp.set("fu-condor","spinmcmc", self.which("lalapps_spinspiral"))

@@ -661,6 +661,43 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
     self.content.append(tableContent)                      
     obj.data[0][0]=oldCell
 
+  def insertTableOfPlots(self,legends=None,images=None,thumbnails=None,columnCount=3,defaultHeadline=""):
+    """
+    Generic method to make the most condensed table to insert
+    graphics.  The inputs are lists and need to
+    have the same number of elements each, and be indexed
+    identically,  legends[0] label for thumbnails[0] which
+    if clicked links to images[0]
+    """
+    # Check that all input lists are same length
+    if columnCount < 1:
+      sys.stderr.write("Graph table could not be properly formed, not inserted!\n")
+      sys.stderr.flush()
+      self.putText("Graph Table Place Holder.\n")
+    if not len(legends)==len(thumbnails)==len(images):
+      sys.stderr.write("Graph table could not be properly formed, not inserted!\n")
+      sys.stderr.flush()
+      self.putText("Graph Table Place Holder.\n")
+    else:
+      # Determine how may rows we need
+      fullRows,partialRows=divmod(len(legends),columnCount)
+      if partialRows > 0:
+        rowCount=fullRows+1
+      else:
+        rowCount=fullRows
+      myTable=self.wikiTable(rowCount,columnCount)
+      myTable.setTableStyle("text-align:center")
+      myTable.setTableHeadline(defaultHeadline)
+      for cellNum in range(len(legends)):
+        cellString=""
+        cellString+="%s <<BR>> "%legends[cellNum]
+        cellString+="%s "%self.linkedRemoteImage(thumbnails[cellNum],\
+                                                 images[cellNum])
+        #Insert string in wikiTable object
+        myRow,myCol=divmod(cellNum,columnCount)
+        myTable.data[myRow][myCol]=" %s "%cellString
+      self.insertTable(myTable)
+    
   def insertQscanTable(self,images=None,thumbs=None,indexes=None):
     """
     Inserts a table constructured of thumbnails linked to larger
@@ -1089,10 +1126,29 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     #
     # Code to add in custom FOM plots
     #
+    imageDict=dict()
+    thumbDict=dict()
+    legendDict=dict()
+    thumbDict["FOM"]=fnmatch.filter(wikiFileFinder.get_customfoms(),\
+                                    "*.thumb.png")
+    imageDict["FOM"]=[str(x).replace(".thumb.png",".png") \
+                      for x in thumbDict["FOM"]]
+    legendDict["FOM"]=[os.path.basename(str(x)).replace(".thumb.png","") \
+                      for x in thumbDict["FOM"]]
+    thumbDict["FOM"]=[file2URL.convert(x) for x in thumbDict["FOM"]]
+    imageDict["FOM"]=[file2URL.convert(x) for x in imageDict["FOM"]]
+    if len(imageDict["FOM"])<1:
+      wikiPage.putText("Custom Figure Of Merit plots not available.\n")
+    else:
+      wikiPage.insertTableOfPlots(legendDict["FOM"],\
+                                  imageDict["FOM"],\
+                                  thumbDict["FOM"],\
+                                  3,\
+                                  "Custom Figures Of Merit")
   else:
-    wikiPage.putText("Can not automatically fetch S5 FOM links.")  
+    wikiPage.putText("Can not automatically fetch S5 FOM links.\n")  
   #Add in wiki synxtax to included the custom FOMs
-  
+  #Simple thing for now just links to thumbnail and full images
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
