@@ -69,9 +69,13 @@ typedef struct tagPPNConsistencyParamStruc {
 } PPNConsistencyParamStruc;
 	
 	
+	
 /* FUNCTION PROTOTYPES */	
 void LALGeneratePPNAmpCorConsistency(
                               LALStatus     *stat,
                               CoherentGW    *output,
                               PPNConsistencyParamStruc *params
                             );
+
+/* function to populate phaseParams */                            
+void LALPopulatePhasePNparams(REAL4 *phasePNparams, INT4 TestParam);
