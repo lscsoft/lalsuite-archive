@@ -982,11 +982,11 @@ class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 
 		self.scan_type = variety.upper() + "_" + type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
-
+		preString="omega/"+ifo+"/%s/"+science_run(time).upper()+""
 		if variety == "bg":
-			preString = "omega/" + science_run(time).upper() + "/background"
+			preString = preString%("background")
 		else:
-			preString = "omega/" + science_run(time).upper() + "/foreground"
+			preString = preString%("foreground")
 		config = cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip()
 		self.add_var_arg( config )
 
