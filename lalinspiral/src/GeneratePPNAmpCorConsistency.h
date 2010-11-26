@@ -75,3 +75,5 @@ void LALGeneratePPNAmpCorConsistency(
                               CoherentGW    *output,
                               PPNConsistencyParamStruc *params
                             );
+                            
+void LALPopulatePhasePNparams(REAL4 *phasePNparams, INT4 TestParam);

@@ -54,6 +54,7 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 #include <lal/FrequencySeries.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/SeqFactories.h>
+#include <lal/GeneratePPNAmpCorConsistency.h>
 
 #include "LALInspiralMCMCUser.h"
 #include <fftw3.h>
@@ -410,7 +411,43 @@ REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 
 REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 {
-	
+	REAL8 m1,m2;
+	parameter->logPrior=0.0;
+	REAL8 mc,eta;
+	REAL8 minCompMass = 1.0;
+	REAL8 maxCompMass = 34.0;
+#define MAX_MTOT 35.0
+	/* copied from alex's function */
+/*	logdl=2.0*XLALMCMCGetParameter(parameter,"distMpc");
+	parameter->logPrior+=2.0*logdl;
+	m1=XLALMCMCGetParameter(parameter,"mass1");
+	m2=XLALMCMCGetParameter(parameter,"mass2");
+	ampli = log(sqrt(m1*m2)/(logdl*pow(m1+m2,1.0/6.0)));
+    parameter->logPrior+= -log( 1.0+exp((ampli-a)/b) );
+*/
+/* Check in range */
+	if(XLALMCMCCheckParameter(parameter,"logM")) mc=exp(XLALMCMCGetParameter(parameter,"logM"));
+	else mc=XLALMCMCGetParameter(parameter,"mchirp");
+	double logmc=log(mc);
+	eta=XLALMCMCGetParameter(parameter,"eta");
+	m1 = mc2mass1(mc,eta);
+	m2 = mc2mass2(mc,eta);
+	/* This term is the sqrt of m-m term in F.I.M, ignoring dependency on f and eta */
+	parameter->logPrior+=-(5.0/6.0)*logmc;
+	if(XLALMCMCCheckParameter(parameter,"logdist"))
+		parameter->logPrior+=3.0*XLALMCMCGetParameter(parameter,"logdist");
+	else
+		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
+	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
+	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
+	parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));
+	/*	parameter->logPrior+=logJacobianMcEta(mc,eta);*/
+	ParamInRange(parameter);
+	if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) parameter->logPrior=-DBL_MAX;
+	if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;
+	return parameter->logPrior;
 }
 
 // likelihood for AmpCorTest waveforms
@@ -425,7 +462,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
 	DetectorResponse det;
 	static LALStatus status;
 	CoherentGW coherent_gw;
-	PPNParamStruc PPNparams;
+	PPNConsistencyParamStruc PPNparams;
 	LALDetAMResponse det_resp;
 	REAL4TimeSeries *h_p_t=NULL,*h_c_t=NULL;
 	COMPLEX8FrequencySeries *H_p_t=NULL, *H_c_t=NULL;
@@ -448,11 +485,18 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
 	if (XLALMCMCCheckParameter(parameter,"logdist")) PPNparams.d=exp(XLALMCMCGetParameter(parameter,"logdist"))*MpcInMeters;
 	else PPNparams.d=XLALMCMCGetParameter(parameter,"distMpc")*MpcInMeters;
 	PPNparams.inc=XLALMCMCGetParameter(parameter,"iota");
+	PPNparams.cosI=cos(XLALMCMCGetParameter(parameter,"iota"));
+	PPNparams.sinI=sin(XLALMCMCGetParameter(parameter,"iota"));
 	PPNparams.phi=XLALMCMCGetParameter(parameter,"phi");
 	PPNparams.fStartIn=inputMCMC->fLow;
 	PPNparams.fStopIn=0.5/inputMCMC->deltaT;
 	PPNparams.deltaT=inputMCMC->deltaT;
 	PPNparams.ampOrder = inputMCMC->ampOrder;
+	
+	LALPopulatePhasePNparams(PPNparams,testParam);
+
+	/* GET TEST PHASE PARAMETER FROM MCMCSTRUCTURE */
+	PPNparams.phasePNparams[testParam] = XLALMCMCGetParameter(parameter,"phiTest");
 
 	/* Call LALGeneratePPNAmpCorInspiral */
 	LALGeneratePPNAmpCorInspiral(&status,&coherent_gw,&PPNparams);
