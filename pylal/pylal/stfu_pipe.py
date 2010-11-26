@@ -931,7 +931,7 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_arg(p_nodes[0].output_path)
 		self.add_var_arg(str(time))
 		# WARNING: Second element in p_nodes list is assumed to be the datafind node
-		self.add_var_arg(p_nodes[1].name_output_file)
+		self.add_var_arg(p_nodes[1].outputFileName)
 
 		for node in p_nodes:
 			if node.validNode:
@@ -1145,9 +1145,9 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 			self.set_category(job.name.lower())
 
 		if cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
-			self.add_var_opt('server','ldr-bologna.phys.uwm.edu')
+			self.add_var_arg('--server ldr-bologna.phys.uwm.edu')
 
-		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')) or if opts.do_remoteScans:
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')) or opts.do_remoteScans:
 			for node in p_nodes:
 				if node.validNode:
 					self.add_parent(node)
