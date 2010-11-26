@@ -3,11 +3,6 @@
 
  */
 
-// THINGS TO DO:
-// 		- define the init function
-//		- define prior function
-//		- define parsing options	
-
 #include <stdlib.h>
 #include <getopt.h>
 
@@ -35,7 +30,6 @@
 #include <lal/VectorOps.h>
 #include <LALAppsVCSInfo.h>
 #include <lalapps.h>
-#include <lal/GeneratePPNAmpCorConsistency.h>
 
 #include "nest_calc.h"
 
@@ -86,8 +80,7 @@ Optional OPTIONS:\n \
 [--pinparams STRING\t:\tList parameters to be fixed to their injected values (, separated) i.e. --pinparams mchirp,longitude\n \
 [--version\t:\tPrint version information and exit]\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
-[--help\t:\tPrint this message]\n \
-[--phaseParamTest\t:\t Parameter to be tested]"
+[--help\t:\tPrint this message]\n"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -148,7 +141,6 @@ extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
-INT4 testParam = 3;
 
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
@@ -238,11 +230,10 @@ void initialise(int argc, char *argv[]){
 		{"help",no_argument,0,'h'},
 		{"pinparams",required_argument,0,21},
 		{"datadump",required_argument,0,22},
-		{"phaseParamTest",required_argument,0,'Q'},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
-	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb:Q",long_options,&i))!=-1){ switch(i) {
+	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb",long_options,&i))!=-1){ switch(i) {
 		case 'h':
 			fprintf(stdout,USAGE);
 			exit(0);
@@ -400,9 +391,6 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 'L':
 			timeslides=1;
-			break;
-		case 'Q':
-			testParam=atoi(optarg);
 			break;
 		default:
 			fprintf(stdout,USAGE); exit(0);
@@ -1357,11 +1345,6 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
 	mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
 	double lmmin=log(mcmin);
 	double lmmax=log(mcmax);
-	
-	/* create phiTest parameters */
-	double phiTestMax = 0.1;
-	double phiTestMin = 10.0;
-	
 // standard parameters
 	XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
 	/*	XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
@@ -1375,7 +1358,6 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
 	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
-	XLALMCMCAddParam(parameter,"phiTest",phiTestMin+(phiTestMax-phiTestMin)*gsl_rng_uniform(RNG),phiTestMin,phiTestMax,0);
 }
 
 int checkParamInList(const char *list, const char *param)
