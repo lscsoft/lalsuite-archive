@@ -1146,6 +1146,8 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 
 		if cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
 			self.add_var_arg('--server ldr-bologna.phys.uwm.edu')
+		else:
+			self.add_var_arg('')
 
 		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')) or opts.do_remoteScans:
 			for node in p_nodes:
