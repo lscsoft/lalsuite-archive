@@ -369,12 +369,12 @@ static struct PyMethodDef methods[] = {
 	};
 
 /* The init function for this module */
-void initspawaveform(void)
+void init_spawaveform(void)
 	{
-	(void) Py_InitModule3("pylal.spawaveform", methods, SPADocstring);
+	(void) Py_InitModule3("pylal._spawaveform", methods, SPADocstring);
 	import_array();
 	/* FIXME someday handle errors
-	 * SVMError = PyErr_NewException("spawaveform.SPAWaveformError", NULL, NULL);
+	 * SVMError = PyErr_NewException("_spawaveform.SPAWaveformError", NULL, NULL);
 	 * Py_INCREF(SPAWaveformError);
 	 * PyModule_AddObject(m, "SPAWaveformError", SPAWaveformError);
          */
