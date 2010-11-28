@@ -568,6 +568,9 @@ class fuDataFindJob(pipeline.LSCDataFindJob,FUJob):
 		#FIXME changed convert cache script to not fail on previous error?
 		convert_script.write("""#!/bin/bash
 %s ${1} ${2}
+if [ ${3} = \'y\' ]; then
+	cp ${2} .
+fi
 		""" % string.strip(cp.get('fu-condor','convertcache')))
 		convert_script.close()
 		os.chmod('cacheconv.sh',0755)
@@ -931,7 +934,7 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_arg(p_nodes[0].output_path)
 		self.add_var_arg(str(time))
 		# WARNING: Second element in p_nodes list is assumed to be the datafind node
-		self.add_var_arg(p_nodes[1].outputFileName)
+		self.add_var_arg(p_nodes[1].localFileName)
 
 		for node in p_nodes:
 			if node.validNode:
@@ -1016,7 +1019,7 @@ class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		#self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
 
 		# The first parent node must be the cache file!
-		input_cache_file = p_nodes[0].outputFileName
+		input_cache_file = p_nodes[0].localFileName
 		self.add_var_arg(input_cache_file)
 		self.add_macro("macroinputfile", input_cache_file)
 
@@ -1144,11 +1147,6 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		if cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
-			self.add_var_arg('--server ldr-bologna.phys.uwm.edu')
-		else:
-			self.add_var_arg('')
-
 		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')) or opts.do_remoteScans:
 			for node in p_nodes:
 				if node.validNode:
@@ -1172,8 +1170,17 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		self.set_start(int( time - self.q_time - 1.))
 		self.set_end(int( time + self.q_time + 1.))
 		lalCache = self.get_output()
-		qCache = lalCache.rstrip("cache") + "qcache"
-		self.set_post_script(os.getcwd()+"/cacheconv.sh %s %s" %(lalCache,qCache) )
+		qCache = lalCache.rstrip("lcf") + "qcache"
+
+		if cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
+			self.add_var_arg('--server ldr-bologna.phys.uwm.edu')
+			postScriptTest = "y"
+			self.localFileName = os.path.basename(qCache)
+		else:
+			self.add_var_arg('')
+			postScriptTest = "n"
+
+		self.set_post_script(os.getcwd()+"/cacheconv.sh %s %s %s" %(lalCache,qCache,postScriptTest) )
 		return(qCache)
 
 	def setup_inspiral(self, job, cp, sngl, ifo):
