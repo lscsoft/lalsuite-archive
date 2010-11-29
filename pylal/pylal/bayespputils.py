@@ -57,7 +57,13 @@ __date__= git_version.date
 #===============================================================================
 
 class OneDPosterior(object):
+    """
+    A data structure for a single chain of posterior samples.
+    """
     def __init__(self,name,posterior_samples,injected_value=None,prior=None):
+        """
+        Constructor.
+        """
         self.__name=name
         self.__posterior_samples=np.array(posterior_samples)
 
@@ -68,22 +74,40 @@ class OneDPosterior(object):
 
     @property
     def name(self):
+        """
+        Return the literal name of the parameter.
+        """
         return self.__name
 
     @property
     def mean(self):
+        """
+        Calculate the arithmetic mean of the 1D samples.
+        """
         return np.mean(self.__posterior_samples)
 
     @property
     def median(self):
+        """
+        Find the median value of the 1D samples.
+        """
         return np.median(self.__posterior_samples)
 
     @property
     def stdev(self):
+        """
+        Return the standard deviation of the 1D samples.
+        """
         return sqrt(np.var(self.__posterior_samples))
 
     @property
     def stacc(self):
+        """
+        Return the 'standard accuracy statistic' - a standard deviant 
+        incorporating information about the precision of the recovery of the
+        true injected value of the parameter . If no injected value was set
+        return None . 
+        """
         if self.__injval is None:
             return None
         else:
@@ -91,14 +115,24 @@ class OneDPosterior(object):
 
     @property
     def injval(self):
+        """
+        Return the injected value set at construction . If no value was set 
+        will return None . 
+        """
         return self.__injval
 
     @property
     def samples(self):
+        """
+        Return a 1D numpy.array of the samples.
+        """
         return self.__posterior_samples
 
     @property
     def gaussian_kde(self):
+        """
+        Return a gaussian kde of the samples.
+        """
         from scipy import stats
         from scipy import seterr as sp_seterr
 
@@ -107,7 +141,9 @@ class OneDPosterior(object):
         return stats.kde.gaussian_kde(self.__posterior_samples)
 
 class Posterior(object):
-
+    """
+    Data structure for a table of posterior samples . 
+    """
     def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
         """
         Constructor.
@@ -123,13 +159,20 @@ class Posterior(object):
         return
 
     def _inj_m1(inj):
+        """
+        Function mapping (mchirp,eta)->m1; m1>m2 .
+        """
         (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
         return mass1
     def _inj_m2(inj):
+        """
+        Function mapping (mchirp,eta)->m2; m1>m2 .
+        """
         (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
         return mass2
 
     def _inj_mchirp(inj):
+        
         return inj.mchirp
 
     def _inj_eta(inj):
@@ -160,6 +203,9 @@ class Posterior(object):
                        }
 
     def _getinjpar(self,paramname):
+        """
+        Map parameter names to parameters in a SimInspiralTable . 
+        """
         if self._injection is not None:
             for key,value in self._injXMLFuncMap.items():
                 if paramname in key:
@@ -169,25 +215,26 @@ class Posterior(object):
 
     def __getitem__(self,key):
         """
-        Returns posterior chain,one_d_pos, with name one_d_pos.name.
+        Container method . Returns posterior chain,one_d_pos, with name one_d_pos.name.
         """
         return self._posterior[key.lower()]
 
     def __len__(self):
         """
-        Defined as number of samples.
+        Container method. Defined as number of samples.
         """
         return len(self._logL)
 
     def __iter__(self):
         """
-        Returns iterator from self.forward for us in for (...) in (...) .
+        Container method. Returns iterator from self.forward for use in 
+        for (...) in (...) etc.
         """
         return self.forward()
 
     def forward(self):
         """
-        Forward iterator (in sense of over list of names) over Posterior
+        Generate a forward iterator (in sense of list of names) over Posterior
         with name,one_d_pos.
         """
         current_item = 0
@@ -243,7 +290,8 @@ class Posterior(object):
 
     def _posMode(self):
         """
-        Find the sample with maximum posterior probability.
+        Find the sample with maximum posterior probability. Returns value 
+        of posterior and index of sample . 
         """
         pos_vals=self._logL
         max_i=0
@@ -281,6 +329,10 @@ class Posterior(object):
         return (max_pos,maxLvals)
 
     def samples(self):
+        """
+        Return an (M,N) numpy.array of posterior samples; M = len(self);
+        N = dim(self) . 
+        """
         header_string=''
         posterior_table=[]
         for param_name,one_pos in self:
@@ -292,7 +344,7 @@ class Posterior(object):
 
     def write_to_file(self,fname):
         """
-        Dump the posterior table to a file in the agreed format.
+        Dump the posterior table to a file in the 'common format'.
         """
         column_list=()
         
@@ -432,7 +484,8 @@ def _calculate_sky_confidence_slow(
                     injectionconfidence=frac
                     print 'Injection sky point found at confidence %f'%(frac)
 
-        print '%f confidence region: %f square degrees' % (frac,Nbins*float(skyres_)*float(skyres_))
+        print '%f confidence region: %f square degrees'%(frac,Nbins*float(skyres_)*float(skyres_))
+            
         skyreses.append((frac,Nbins*float(skyres_)*float(skyres_)))
         toppoints=toppoints[:Nbins]
     return injectionconfidence,toppoints,skyreses
@@ -505,10 +558,12 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
     Determine the 2-parameter Bayesian Confidence Intervals using a greedy
-        binning algorithm.
+    binning algorithm.
 
     @param posterior: an instance of the Posterior class.
-    @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
+    
+    @param greedy2Params: a dict - {param1Name:param1binSize,param2Name:param2binSize} .
+    
     @param confidence_levels: A list of floats of the required confidence intervals [(0-1)].
     """
 
@@ -596,7 +651,7 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
 def pol2cart(long,lat):
     """
     Utility function to convert longitude,latitude on a unit sphere to
-        cartesian co-ordinates.
+    cartesian co-ordinates.
     """
 
     x=np.cos(lat)*np.cos(long)
@@ -655,7 +710,7 @@ def plot_sky_map(top_ranked_pixels,outdir):
     """
     Plots a sky map using the Mollweide projection in the Basemap package.
 
-    @param top_ranled_pixels: the top-ranked sky pixels as determined by greedy_bin_sky.
+    @param top_ranked_pixels: the top-ranked sky pixels as determined by greedy_bin_sky.
 
     @param outdir: Output directory in which to save skymap.png image.
     """
@@ -946,7 +1001,7 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
 
 def stacc_stat(posterior,name):
     """
-    Ilya's 'standard accuracy statistic - a standard deviant incorporating
+    The 'standard accuracy statistic - a standard deviant incorporating
     information about the accuracy of the waveform recovery.
 
     @param posterior: an instance of the Posterior class.
@@ -1136,7 +1191,9 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
 #===============================================================================
 
 class htmlChunk(object):
-
+    """
+    A base class for representing web content using ElementTree . 
+    """
     def __init__(self,tag,attrib=None,parent=None):
 
         self._html=Element(tag)#attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
@@ -1212,7 +1269,9 @@ class htmlChunk(object):
 
 #
 class htmlPage(htmlChunk):
-
+    """
+    A concrete class for generating an XHTML(1) document. Inherits from htmlChunk.
+    """
     def __init__(self,title=None,css=None):
         htmlChunk.__init__(self,'html',attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
         self.doctype_str='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
@@ -1249,7 +1308,9 @@ class htmlPage(htmlChunk):
 
 
 class htmlSection(htmlChunk):
-
+    """
+    Represents a block of html fitting within a htmlPage. Inherits from htmlChunk. 
+    """
     def __init__(self,section_name,htmlElement=None):
         htmlChunk.__init__(self,'div',attrib={'class':'ppsection'},parent=htmlElement)
 
@@ -1331,7 +1392,10 @@ border-bottom-style:double;
 
 class PEOutputParser(object):
     """
-    TODO: Will be abstract base class etc. when LDG moves over to Python >2.6.
+    A parser for the output of Bayesian parameter estimation codes.
+    
+    TODO: Will be abstract class when LDG moves over to Python >2.6,
+    inherited by each method . 
     """    
     def __init__(self,inputtype):
         if inputtype is 'mcmc_burnin':
@@ -1344,15 +1408,24 @@ class PEOutputParser(object):
             self._parser=self._followupmcmc_to_pos
 
     def parse(self,files,**kwargs):
+        """
+        Parse files.
+        """
         return self._parser(files,**kwargs)
     
     def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
+        """
+        Parser for SPINspiral output . 
+        """
         raise NotImplementedError
         if deltaLogL is not None:
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
     def _ns_to_pos(self,files,Nlive=None,xflag=False):
+        """
+        Parser for nested sampling output.
+        """
         try:
             from lalapps.combine_evidence import combine_evidence
         except ImportError:
@@ -1381,18 +1454,23 @@ class PEOutputParser(object):
         return return_val
         
     def _followupmcmc_to_pos(self,files):
-        
+        """
+        Parser for followupMCMC output.
+        """
         return self._common_to_pos(open(files[0],'r'),delimiter=',')
 
 
     def _multinest_to_pos(self,files):
+        """
+        Parser for MultiNest output.
+        """
         return self._common_to_pos(open(files[0],'r'))
 
     def _common_to_pos(self,infile,delimiter=None):
         """
-        Parses a file and return an array of posterior samples and list of
-        parameter names. Will apply inverse function to columns with names
-        containing sin,cos,log.
+        Parse a file in the 'common format' and return an array of posterior 
+        samples and list of parameter names. Will apply inverse functions to 
+        columns with names containing sin,cos,log.
         """
         
         formatstr=infile.readline().lstrip()
