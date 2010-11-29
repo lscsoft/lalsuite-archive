@@ -1193,6 +1193,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		#FIXME use proper pad, not hardcode to 64
 		self.set_start(sngl.get_gps_start_time()-64)
 		self.set_end(sngl.get_gps_end_time()+64)
+		self.add_var_arg('')
 		lalCache = self.get_output()
 		return(lalCache)
 
