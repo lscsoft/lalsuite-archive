@@ -1268,9 +1268,7 @@ LALGeneratePPNAmpCorConsistency(
   output->psi = params->psi;
   output->h->epoch = output->a->epoch = output->f->epoch = output->phi->epoch
     = params->epoch;
-	LALPopulatePhasePNparams(
-  output->h->deltaT = output->a->deltaT = output->f->deltaT
-    = output->phi->deltaT = params->deltaT;
+  output->h->deltaT = output->a->deltaT = output->f->deltaT = output->phi->deltaT = params->deltaT;
   output->h->sampleUnits = lalStrainUnit;
   output->a->sampleUnits = lalStrainUnit;
   output->f->sampleUnits = lalHertzUnit;

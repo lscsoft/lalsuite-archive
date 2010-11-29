@@ -78,4 +78,4 @@ void LALGeneratePPNAmpCorConsistency(
                             );
 
 /* function to populate phaseParams */                            
-void LALPopulatePhasePNparams(REAL4 *phasePNparams, INT4 TestParam);
+void LALPopulatePhasePNparams(PPNConsistencyParamStruc params, INT4 TestParam);
