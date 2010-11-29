@@ -60,15 +60,10 @@ void LALTaylorT4Derivatives7PN(
   void        *funcParams
 );
 
-void LALTaylorT4Waveform (
-  LALStatus        *status,
-  REAL4Vector      *signalvec,
-  InspiralTemplate *params
-);
-
 void LALTaylorT4WaveformEngine (
   LALStatus        *status,
-  REAL4Vector      *signalvec,
+  REAL4Vector      *signalvec1,
+  REAL4Vector      *signalvec2,
   REAL4Vector      *a,
   REAL4Vector      *ff,
   REAL8Vector      *phi,
@@ -319,6 +314,58 @@ void LALTaylorT4Waveform (
 
    /* Call the engine function */
    LALTaylorT4WaveformEngine(status->statusPtr, signalvec,
+             NULL, NULL, NULL, NULL, &count, params, &paramsInit);
+   CHECKSTATUSPTR( status );
+
+   DETATCHSTATUSPTR(status);
+   RETURN(status);
+}
+
+void LALTaylorT4WaveformTemplates (
+   LALStatus        *status,
+   REAL4Vector      *signalvec1,
+   REAL4Vector      *signalvec2,
+   InspiralTemplate *params
+   )
+{ /* </lalVerbatim> */
+
+   InspiralInit paramsInit;
+   UINT4        count;
+   INITSTATUS(status, "LALTaylorT4WaveformTemplates", LALTAYLORT4WAVEFORMC);
+   ATTATCHSTATUSPTR(status);
+
+   ASSERT(signalvec1,  status,
+        LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+   ASSERT(signalvec1->data,  status,
+        LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+   ASSERT(signalvec2,  status,
+        LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+   ASSERT(signalvec2->data,  status,
+        LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+   ASSERT(params,  status,
+        LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+   ASSERT(params->nStartPad >= 0, status,
+        LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+   ASSERT(params->nEndPad >= 0, status,
+        LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+   ASSERT(params->fLower > 0, status,
+        LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+   ASSERT(params->tSampling > 0, status,
+        LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+   ASSERT(params->totalMass > 0., status,
+        LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+
+   LALInspiralSetup (status->statusPtr, &(paramsInit.ak), params);
+   CHECKSTATUSPTR(status);
+   LALInspiralChooseModel(status->statusPtr, &(paramsInit.func),
+                                         &(paramsInit.ak), params);
+   CHECKSTATUSPTR(status);
+
+   memset(signalvec1->data, 0, signalvec1->length * sizeof( REAL4 ));
+   memset(signalvec2->data, 0, signalvec2->length * sizeof( REAL4 ));
+
+   /* Call the engine function */
+   LALTaylorT4WaveformEngine(status->statusPtr, signalvec1, signalvec2,
              NULL, NULL, NULL, &count, params, &paramsInit);
    CHECKSTATUSPTR( status );
 
@@ -384,7 +431,7 @@ LALTaylorT4WaveformForInjection(
   }
 
   /* Call the engine function */
-  LALTaylorT4WaveformEngine(status->statusPtr, NULL, a, ff,
+  LALTaylorT4WaveformEngine(status->statusPtr, NULL, NULL, a, ff,
                              phi, &count, params, &paramsInit);
   BEGINFAIL( status )
   {
@@ -495,7 +542,8 @@ LALTaylorT4WaveformForInjection(
 void
 LALTaylorT4WaveformEngine (
                 LALStatus        *status,
-                REAL4Vector      *signalvec,
+                REAL4Vector      *signalvec1,
+                REAL4Vector      *signalvec2,
                 REAL4Vector      *a,
                 REAL4Vector      *ff,
                 REAL8Vector      *phiVec,
@@ -508,7 +556,7 @@ LALTaylorT4WaveformEngine (
    void                  *funcParams;
    UINT4                 length=0, count, ndx;
    INT4                  nn=2;
-   REAL8                 h, omega, omegaMax, t, dt, m, eta, phi, v;
+   REAL8                 omega, omegaMax, t, dt, m, eta, phi, v, amp, amp0;
    REAL8Vector           dummy, values, dvalues, newvalues, yt, dym, dyt;
    rk4GSLIntegrator      *integrator = NULL;
    InspiralDerivativesIn in2;
@@ -533,7 +581,7 @@ LALTaylorT4WaveformEngine (
    INITSTATUS(status, "LALTaylorT4WaveformEngine", LALTAYLORT4WAVEFORMC);
    ATTATCHSTATUSPTR(status);
 
-   ASSERT( signalvec || ( ff && a && phiVec ), status,
+   ASSERT( signalvec1 || ( ff && a && phiVec ), status,
             LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL );
 
 /* Allocate all the memory required to dummy and then point the various
@@ -582,9 +630,9 @@ LALTaylorT4WaveformEngine (
    dt = 1./params->tSampling;
    ak   = paramsInit->ak;
    func = paramsInit->func;
-   if ( signalvec )
+   if ( signalvec1 )
    {
-     length = signalvec->length;
+     length = signalvec1->length;
    }
    else
    {
@@ -592,6 +640,21 @@ LALTaylorT4WaveformEngine (
    }
    eta = ak.eta;
    m = ak.totalmass;
+
+   /* Calculate the amplitude factor */
+   if ( params->distance )
+   {
+     amp0 = 4.0 * m * eta / params->distance;
+   }
+   else if ( params->signalAmplitude )
+   {
+     amp0 = params->signalAmplitude;
+   }
+   else
+   {
+     XLALPrintError( "Neither distance nor signal amplitude set!" );
+     ABORT( status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE );
+   }
 
    /* Begin initial conditions */
    /* Given omega compute v    */
@@ -668,11 +731,15 @@ LALTaylorT4WaveformEngine (
 	LALFree(dummy.data);
 	ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
       }
-
-      h = 4 * m * eta * v*v * cos(2.*phi);
-      if ( signalvec )
+      
+      amp = amp0 * v*v;
+      if ( signalvec1 )
       {
-        signalvec->data[ndx] = h;
+        signalvec1->data[ndx] = amp * cos(2.*phi);
+        if (signalvec2 )
+        {
+          signalvec2->data[ndx] = - amp * sin(2.*phi);
+        }
       }
       else if (a)
       {

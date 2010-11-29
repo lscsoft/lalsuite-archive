@@ -322,6 +322,9 @@ LALInspiralWaveTemplates(
            LALInspiralEccentricityTemplates(status->statusPtr, signalvec1, signalvec2, params);
            CHECKSTATUSPTR(status);
       	   break;
+      case TaylorT4:
+           LALTaylorT4WaveformTemplates(status->statusPtr, signalvec1, signalvec2, params);
+           CHECKSTATUSPTR(status);
       default:
            ABORT( status, LALINSPIRALH_ESWITCH, LALINSPIRALH_MSGESWITCH );
 
