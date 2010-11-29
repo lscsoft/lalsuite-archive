@@ -495,13 +495,13 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
 	PPNparams.deltaT=inputMCMC->deltaT;
 	PPNparams.ampOrder = inputMCMC->ampOrder;
 	
-	LALPopulatePhasePNparams(PPNparams,testParam);
+	LALPopulatePhasePNparams(PPNparams,testing);
 
 	/* GET TEST PHASE PARAMETER FROM MCMCSTRUCTURE */
-	PPNparams.phasePNparams[testParam] = XLALMCMCGetParameter(parameter,"phiTest");
+	PPNparams.phasePNparams[testing] = XLALMCMCGetParameter(parameter,"phiTest");
 
 	/* Call LALGeneratePPNAmpCorInspiral */
-	LALGeneratePPNAmpCorInspiral(&status,&coherent_gw,&PPNparams);
+	LALGeneratePPNAmpCorConsistency(&status,&coherent_gw,&PPNparams);
 	if(status.statusCode)
 	{
 		REPORTSTATUS(&status);

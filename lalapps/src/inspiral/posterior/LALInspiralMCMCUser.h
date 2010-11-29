@@ -98,7 +98,7 @@ double m2mc(double m1, double m2);
 
 double logJacobianMcEta(double mc, double eta);
 
-
+extern INT4 testing;
   /* Example functions */
 void MCMCInitTest(
   LALMCMCParameter *parameter,
@@ -124,7 +124,6 @@ REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 void NestInitInjNINJA(LALMCMCParameter *parameter, void *iT);
 
 void NestInitInjNINJAHighMass(LALMCMCParameter *parameter, void *iT);
-
 
 int ParamInRange(LALMCMCParameter *parameter);
 

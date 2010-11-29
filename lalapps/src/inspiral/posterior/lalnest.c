@@ -148,9 +148,8 @@ extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
-INT4 testParam = 3;
 
-
+INT4 testing;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 
@@ -402,7 +401,7 @@ void initialise(int argc, char *argv[]){
 			timeslides=1;
 			break;
 		case 'Q':
-			testParam=atoi(optarg);
+			testing=atoi(optarg);
 			break;
 		default:
 			fprintf(stdout,USAGE); exit(0);

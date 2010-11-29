@@ -461,6 +461,7 @@ typedef enum {
    BCVC,
    FrameFile,
    AmpCorPPN,
+   AmpCorPPNTest, 
    NumRel,
    Eccentricity,
    EOBNR,
