@@ -125,6 +125,10 @@ class OneDPosterior(object):
         """
         return self.__injval
 
+    @injval.setter
+    def injval(self,new_injval):
+        self.__injval=new_injval
+
     @property
     def samples(self):
         """
@@ -157,9 +161,28 @@ class Posterior(object):
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
-        self._logL=self._posterior['logl'].samples
-
+        try:
+            self._logL=self._posterior['logl'].samples
+            
+        except KeyError:
+            print "No 'logl' column in input table!"
+            raise
         return
+
+    @property
+    def injection(self):
+        return self._injection
+
+        
+    @injection.setter
+    def injection(self,injection):
+        if injection is not None:
+            self._injection=injection
+            for name,onepos in self:
+                new_injval=self._getinjpar(name)
+                if new_injval is not None:
+                    self[name].injval=new_injval
+                
 
     def _inj_m1(inj):
         """
