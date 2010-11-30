@@ -220,9 +220,9 @@ void initialise(int argc, char *argv[]){
 		{"verbose",no_argument,0,'v'},
 		{"approximant",required_argument,0,'A'},
 		{"timeslide",no_argument,0,'L'},
-		{"H1GPSshift",no_argument,0,'31'},
-		{"L1GPSshift",no_argument,0,'32'},
-		{"V1GPSshift",no_argument,0,'33'},
+		{"H1GPSshift",required_argument,0,31},
+		{"L1GPSshift",required_argument,0,32},
+		{"V1GPSshift",required_argument,0,33},
 		{"studentt",no_argument,0,'l'},
 		{"ra",required_argument,0,'O'},
 		{"dec",required_argument,0,'a'},
@@ -1026,7 +1026,7 @@ doneinit:
 			for(i=0;i<inputMCMC.stilde[j]->data->length;i++)
 			{
 				if(estimatenoise)
-					fprintf(dataoutfile,"%10.3e %10.10e %10.10e %10.10e\n",(REAL8)i*inputMCMC.invspec[j]->deltaF,1./inputMCMC.invspec[j]->data->data[i],inputMCMC.stilde[j]->data->data[i].re,inputMCMC.stilde[j]->data->data[i].im);
+					fprintf(dataoutfile,"%10.5e %10.10e %10.10e %10.10e\n",(REAL8)i*inputMCMC.invspec[j]->deltaF,1./inputMCMC.invspec[j]->data->data[i],inputMCMC.stilde[j]->data->data[i].re,inputMCMC.stilde[j]->data->data[i].im);
 				else
 					fprintf(dataoutfile,"%lf %lf %lf\n",(REAL8)i*inputMCMC.stilde[j]->deltaF,inputMCMC.stilde[j]->data->data[i].re,inputMCMC.stilde[j]->data->data[i].im);
 			}

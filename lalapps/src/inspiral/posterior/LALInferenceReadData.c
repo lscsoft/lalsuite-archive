@@ -46,6 +46,8 @@
 #include <lal/XLALError.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
+
 
 #include "LALInference.h"
 
@@ -285,25 +287,26 @@ void injectSignal(LALIFOData *IFOdata, ProcessParamsTable *commandLine)
 	INT4 Ninj=0;
 	INT4 event=0;
 	int i=0,j=0;
-	CoherentGW InjectGW;
-	PPNParamStruc InjParams;
+	//CoherentGW InjectGW;
+	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
 	REAL8 SNR=0,NetworkSNR=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
-	memset(&InjParams,0,sizeof(PPNParamStruc));
+	//memset(&InjParams,0,sizeof(PPNParamStruc));
 	COMPLEX16FrequencySeries *injF=NULL;
 	LALIFOData *thisData=IFOdata->next;
 	REAL8 minFlow=IFOdata->fLow;
 	REAL8 MindeltaT=IFOdata->timeData->deltaT;
+	REAL4TimeSeries *injectionBuffer=NULL;
 	
 	while(thisData){
           minFlow   = minFlow>thisData->fLow ? thisData->fLow : minFlow;
           MindeltaT = MindeltaT>thisData->timeData->deltaT ? thisData->timeData->deltaT : MindeltaT;
           thisData  = thisData->next;
 	}
-	InjParams.deltaT = MindeltaT;
-	InjParams.fStartIn=(REAL4)minFlow;
+	//InjParams.deltaT = MindeltaT;
+	//InjParams.fStartIn=(REAL4)minFlow;
 	
 	if(!getProcParamVal(commandLine,"--injXML")) {fprintf(stdout,"No injection file specified, not injecting\n"); return;}
 	if(getProcParamVal(commandLine,"--event")) event= atoi(getProcParamVal(commandLine,"--event")->value);
@@ -315,15 +318,15 @@ void injectSignal(LALIFOData *IFOdata, ProcessParamsTable *commandLine)
 	if(Ninj<event) fprintf(stderr,"Error reading event %d from %s\n",event,getProcParamVal(commandLine,"--injXML")->value);
 	while(i<event) {i++; injTable = injTable->next;} /* Select event */
 
-	memset(&InjectGW,0,sizeof(InjectGW));
+	//memset(&InjectGW,0,sizeof(InjectGW));
 	Approximant injapprox;
 	LALGetApproximantFromString(&status,injTable->waveform,&injapprox);
+    printf("Injecting approximant %s\n", injTable->waveform);
 	REPORTSTATUS(&status);
 	printf("Approximant %x\n", injapprox);
-	LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
-	if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
-
-
+	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
+	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
+		
 	/* Begin loop over interferometers */
 	while(IFOdata){
 		memset(&det,0,sizeof(det));
@@ -335,18 +338,32 @@ void injectSignal(LALIFOData *IFOdata, ProcessParamsTable *commandLine)
 																		  IFOdata->freqData->data->length);
 		
 		for(i=0;i<resp->data->length;i++) {resp->data->data[i].re=(REAL4)1.0; resp->data->data[i].im=0.0;}
+		/* Originally created for injecting into DARM-ERR, so transfer function was needed.  
+		But since we are injecting into h(t), the transfer function from h(t) to h(t) is 1.*/
 
-		REAL4TimeSeries *injWave=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries(IFOdata->detector->frDetector.prefix,
-																			  &IFOdata->timeData->epoch,
-																			  0.0,
-																			  IFOdata->timeData->deltaT,
-																			  &lalADCCountUnit,
-																			  IFOdata->timeData->data->length);
+		/* We need a long buffer to inject into so that FindChirpInjectSignals() works properly
+		 for low mass systems. Use 100 seconds here */
+		REAL8 bufferLength = 100.0;
+		UINT4 bufferN = (UINT4) (bufferLength/IFOdata->timeData->deltaT);
+		LIGOTimeGPS bufferStart;
+		memcpy(&bufferStart,&IFOdata->timeData->epoch,sizeof(LIGOTimeGPS));
+		XLALGPSAdd(&bufferStart,(REAL8) IFOdata->timeData->data->length * IFOdata->timeData->deltaT);
+		XLALGPSAdd(&bufferStart,-bufferLength);
+		injectionBuffer=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries(IFOdata->detector->frDetector.prefix,
+																	 &bufferStart, 0.0, IFOdata->timeData->deltaT,
+																	 &lalADCCountUnit, bufferN);
+		/* This marks the sample in which the real segment starts, within the buffer */
+		INT4 realStartSample=(INT4)((IFOdata->timeData->epoch.gpsSeconds - injectionBuffer->epoch.gpsSeconds)/IFOdata->timeData->deltaT);
+		realStartSample+=(INT4)((IFOdata->timeData->epoch.gpsNanoSeconds - injectionBuffer->epoch.gpsNanoSeconds)*1e-9/IFOdata->timeData->deltaT);
+
 		/*LALSimulateCoherentGW(&status,injWave,&InjectGW,&det);*/
-		LALFindChirpInjectSignals(&status,injWave,injTable,resp);
+		LALFindChirpInjectSignals(&status,injectionBuffer,injTable,resp);
 		if(status.statusCode) REPORTSTATUS(&status);
 
 		XLALDestroyCOMPLEX8FrequencySeries(resp);
+		
+		/* Now we cut the injection buffer down to match the time domain wave size */
+		injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,IFOdata->timeData->data->length);
 		
 		if(status.statusCode) REPORTSTATUS(&status);
 /*		for(j=0;j<injWave->data->length;j++) printf("%f\n",injWave->data->data[j]);*/
@@ -356,8 +373,8 @@ void injectSignal(LALIFOData *IFOdata, ProcessParamsTable *commandLine)
 																			  IFOdata->timeData->deltaT,
 																			  &lalDimensionlessUnit,
 																			  IFOdata->timeData->data->length);
-		for(i=0;i<injWave->data->length;i++) inj8Wave->data->data[i]=(REAL8)injWave->data->data[i];
-		XLALDestroyREAL4TimeSeries(injWave);
+		for(i=0;i<injectionBuffer->data->length;i++) inj8Wave->data->data[i]=(REAL8)injectionBuffer->data->data[i];
+		XLALDestroyREAL4TimeSeries(injectionBuffer);
 		injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injF",
 																			&IFOdata->timeData->epoch,
 																			0.0,
@@ -379,11 +396,21 @@ void injectSignal(LALIFOData *IFOdata, ProcessParamsTable *commandLine)
 		
 		/* Actually inject the waveform */
 		for(j=0;j<inj8Wave->data->length;j++) IFOdata->timeData->data->data[j]+=inj8Wave->data->data[j];
+
+FILE* file=fopen("InjSignal.dat", "w");
+//FILE* file2=fopen("Noise.dat", "w");
 		for(j=0;j<injF->data->length;j++){
+//fprintf(file2, "%lg %lg \t %lg\n", IFOdata->freqData->deltaF*j, IFOdata->freqData->data->data[j].re, IFOdata->freqData->data->data[j].im);
+
 			IFOdata->freqData->data->data[j].re+=injF->data->data[j].re;
 			IFOdata->freqData->data->data[j].im+=injF->data->data[j].im;
+fprintf(file, "%lg %lg \t %lg\n", IFOdata->freqData->deltaF*j, injF->data->data[j].re, injF->data->data[j].im);
 		}
 		fprintf(stdout,"Injected SNR in detector %s = %g\n",IFOdata->detector->frDetector.name,sqrt(SNR));
+fclose(file);		
+//fclose(file2);
+		
+		
 		XLALDestroyREAL8TimeSeries(inj8Wave);
 		XLALDestroyCOMPLEX16FrequencySeries(injF);
 		IFOdata=IFOdata->next;

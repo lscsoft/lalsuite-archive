@@ -5,6 +5,7 @@ bin_PROGRAMS = lalapps_spinspiral
 lalapps_spinspiral_SOURCES = \
 	SPINspiral_main.c \
 	SPINspiral_mcmc.c \
+	SPINspiral_multinest.c \
 	SPINspiral_templates.c \
 	SPINspiral_routines.c \
 	SPINspiral_data.c \
@@ -13,6 +14,7 @@ lalapps_spinspiral_SOURCES = \
 	SPINspiral_lal.c \
 	SPINspiral_3rdparty.c \
 	SPINspiral.h remez.h
+lalapps_spinspiral_LDADD = -L$(top_builddir)/src/inspiral/posterior/MultiNest_v2.8 -lnest3 -llapack -lblas -lgfortranbegin -lgfortran -lm
 endif
 endif
 endif
