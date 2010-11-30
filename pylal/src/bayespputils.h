@@ -40,6 +40,3 @@ typedef struct tagBurnInOutput{
 }BurnInOutput;
 
 int BurnIn(BurnInInput*,BurnInOutput*);
-
-int spin;
-double deltaLogL;

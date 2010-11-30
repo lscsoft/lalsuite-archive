@@ -190,7 +190,7 @@ def cbcBayesPostProc(
     #Create web page
     #==================================================================#
 
-    html=bppu.htmlPage('Posterior PDFs',css=bppu.default_css_string)
+    html=bppu.htmlPage('Posterior PDFs',css=bppu.__default_css_string)
 
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
@@ -354,7 +354,7 @@ def cbcBayesPostProc(
         if injection is not None:
             if injection_cl is not None:
                 BCItableline+='<td>%f</td>'%injection_cl
-                BCItableline+='<td>%f</td>'%injection_area
+                BCItableline+='<td>'+str(injection_area)+'</td>'
 
             else:
                 BCItableline+='<td/>'
@@ -531,11 +531,6 @@ def cbcBayesPostProc(
     # Save posterior samples too...
     posfilename=os.path.join(outdir,'posterior_samples.dat')
     pos.write_to_file(posfilename)
-
-    #Pickle pos and
-    pickle_path=os.path.join(outdir,'pickle')
-    if not os.path.exists(pickle_path):
-        os.makedirs(pickle_path)
 
     #Close files
     resultspage.close()

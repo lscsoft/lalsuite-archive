@@ -17,25 +17,42 @@
 *  MA  02111-1307  USA
 */
 
+#ifndef _RESAMPLE_H
+#define _RESAMPLE_H
+
+#include <lal/LALStdlib.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+NRCSID(RESAMPLEH,"$Id$");
+
+/** \name Error Codes */
+/*@{*/
+/** \ingroup Resample_h */
+#define RESAMPLEH_ENUL    1
+#define RESAMPLEH_EOUT    2
+#define RESAMPLEH_EMEM    3
+#define RESAMPLEH_EDTPOS  4
+#define RESAMPLEH_ELENGTH 5
+#define RESAMPLEH_ETIME   6
+
+#define RESAMPLEH_MSGENUL    "Unexpected null pointer in arguments"
+#define RESAMPLEH_MSGEOUT    "Output handle points to a non-null pointer"
+#define RESAMPLEH_MSGEMEM    "Memory allocation error"
+#define RESAMPLEH_MSGELENGTH "Vector lengths in polyco structure don't argree"
+#define RESAMPLEH_MSGEDTPOS  "Sampling interval is not positive"
+#define RESAMPLEH_MSGETIME   "Requested output time span extends beyond range of validity of input"
+/*@}*/
+
 /**
-\author Creighton, T. D.
-\file
-\latexonly\label{s:Resample.h}\endlatexonly
-\ingroup Resample_h
-
-Provides routines for resampling time series according to a new
-canonical time coordinate.
-
-*/
-
-/**
-   \defgroup Resample_h Time Series Resampling
+   \defgroup Resample_h Resample
    \ingroup pulsarCommon
+   \author Creighton, T. D.
+   \brief Provides routines for resampling time series according to a new canonical time coordinate.
 
-Provides routines for resampling time series according to a new
-canonical time coordinate.
-
-\par Synopsis
+\heading{Synopsis}
 \code
 #include <lal/Resample.h>
 \endcode
@@ -62,8 +79,9 @@ t_{\mathrm{bound}(i)}]\f$, and a set of fitting \e points
 \f}
 Since one is normally interested in tracking the difference
 \f$\tau(t)-t\f$, one can also write the expansion as:
+\anchor eq_delta-tau
 \f{equation}{
-\label{eq:delta-tau}
+\label{eq_delta-tau}
 \tau(t)-t = \sum_{k=0} a_{k(i)}(t-t_{(i)})^k \; ,
 \f}
 where
@@ -99,7 +117,7 @@ functions under this header can be assumed to measure the detector
 time coordinate \f$t\f$.  Canonical times are specified by giving the
 difference \f$\tau-t\f$.
 
-<b>Caveat emptor:</b> The inclusion of this header and its
+\heading{Caveat emptor:} The inclusion of this header and its
 associated modules into LAL is provisional at this time.  The routines
 and the test code appear to work, but a later standalone code,
 operating on much larger datasets, appeared to encounter a memory
@@ -107,34 +125,7 @@ leak.  I have not yet determined whether this leak was in the
 standalone code or in these LAL routines.
 
 */
-
-#ifndef _RESAMPLE_H
-#define _RESAMPLE_H
-
-#include <lal/LALStdlib.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-NRCSID(RESAMPLEH,"$Id$");
-
-/**
-\name Error Codes */ /*@{*/
-#define RESAMPLEH_ENUL    1
-#define RESAMPLEH_EOUT    2
-#define RESAMPLEH_EMEM    3
-#define RESAMPLEH_EDTPOS  4
-#define RESAMPLEH_ELENGTH 5
-#define RESAMPLEH_ETIME   6
-
-#define RESAMPLEH_MSGENUL    "Unexpected null pointer in arguments"
-#define RESAMPLEH_MSGEOUT    "Output handle points to a non-null pointer"
-#define RESAMPLEH_MSGEMEM    "Memory allocation error"
-#define RESAMPLEH_MSGELENGTH "Vector lengths in polyco structure don't argree"
-#define RESAMPLEH_MSGEDTPOS  "Sampling interval is not positive"
-#define RESAMPLEH_MSGETIME   "Requested output time span extends beyond range of validity of input"
-/*@}*/
+/*@{*/
 
 /**
  * The rules for taking a time series \f$t\f$, sampled at constant intervals \f$\Delta t\f$, and resampling it at
@@ -155,7 +146,7 @@ typedef struct tagResampleRules {
 
 
 /** Parameters of the piecewise polynomial fit of \f$\tau-t\f$ as a function of \f$t\f$, see
- * Eq.\ \htmlonly<tt>{eq:delta-tau}</tt>\endhtmlonly\latexonly(\ref{eq:delta-tau})\endlatexonly for notation.
+ *  Eq.\eqref{eq_delta-tau} for notation.
  */
 typedef struct tagPolycoStruc {
   REAL4 ra;  			/**< Right ascension angle of the source, in \e radians in the range \f$[0,2\pi)\f$ */
@@ -189,6 +180,8 @@ typedef struct tagResampleParamStruc{
   REAL8       deltaT;   /**< The sampling interval before decimation, in seconds */
   INT4        decimate; /**< The decimation factor */
 } ResampleParamStruc;
+
+/*@}*/
 
 
 /* Function prototypes. */
