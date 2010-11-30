@@ -547,7 +547,7 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     injection_area=None
     if injection_bin_index and injectionconfidence:
         i=list(np.nonzero(np.asarray(toppoints)[:,2]==injection_bin_index))[0]
-        injection_area=bin_size*i
+        injection_area=bin_size*(i+1)
 
     return toppoints,injectionconfidence,reses,injection_area
 #
