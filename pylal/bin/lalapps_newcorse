@@ -412,6 +412,7 @@ def add_process(connection, opts, process, comment=u""):
 	params = ligolw_process.process_params_from_dict(opts.__dict__)
 	ligolw_process.append_process_params(xmldoc, process, params)
 	xmldoc.unlink()
+	connection.commit()
 
 
 #
@@ -489,7 +490,7 @@ for n, filename in enumerate(filenames):
 		#
 
 		connection.close()
-		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+		dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
 		continue
 
 	#
@@ -537,7 +538,7 @@ WHERE
 	#
 
 	connection.close()
-	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
 
 background.index()
 if options.extrapolation_num is not None:
