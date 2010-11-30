@@ -376,7 +376,7 @@ class FUTriggers(object):
 			if contents.verbose: print >>sys.stderr, "querying %s" % (n,)
 			for i,row in enumerate(contents.connection.cursor().execute("""
 SELECT
-	coinc_inspiral.coinc_event_id,
+	DISTINCT(coinc_inspiral.coinc_event_id),
 	coinc_inspiral.combined_far,
 	coinc_inspiral.snr,
 	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
