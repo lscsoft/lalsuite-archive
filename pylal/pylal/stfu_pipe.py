@@ -162,7 +162,9 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",948672015,961545687,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6d/background/background_961545607_968803223.cache",961545687,999999999,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2aRerun/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,999999999,"V1")
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,947116815,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR3preCommissioning/background/background_966124815_968025615.cache",964310415,968284815,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR3postCommissioning/background/background_968544015_971568015.cache",968284815,999999999,"V1")
 		)
 
 	foundCache = ""
@@ -566,6 +568,9 @@ class fuDataFindJob(pipeline.LSCDataFindJob,FUJob):
 		#FIXME changed convert cache script to not fail on previous error?
 		convert_script.write("""#!/bin/bash
 %s ${1} ${2}
+if [ ${3} = \'y\' ]; then
+	cp ${2} .
+fi
 		""" % string.strip(cp.get('fu-condor','convertcache')))
 		convert_script.close()
 		os.chmod('cacheconv.sh',0755)
@@ -955,7 +960,7 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_arg(p_nodes[0].output_path)
 		self.add_var_arg(str(time))
 		# WARNING: Second element in p_nodes list is assumed to be the datafind node
-		self.add_var_arg(p_nodes[1].name_output_file)
+		self.add_var_arg(p_nodes[1].localFileName)
 
 		for node in p_nodes:
 			if node.validNode:
@@ -1006,11 +1011,11 @@ class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 
 		self.scan_type = variety.upper() + "_" + type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
-
+		preString="omega/"+ifo+"/%s/"+science_run(time).upper()+""
 		if variety == "bg":
-			preString = "omega/" + science_run(time).upper() + "/background"
+			preString = preString%("background")
 		else:
-			preString = "omega/" + science_run(time).upper() + "/foreground"
+			preString = preString%("foreground")
 		config = cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip()
 		self.add_var_arg( config )
 
@@ -1040,7 +1045,7 @@ class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		#self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
 
 		# The first parent node must be the cache file!
-		input_cache_file = p_nodes[0].name_output_file
+		input_cache_file = p_nodes[0].localFileName
 		self.add_var_arg(input_cache_file)
 		self.add_macro("macroinputfile", input_cache_file)
 
@@ -1168,7 +1173,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')) or opts.do_remoteScans:
 			for node in p_nodes:
 				if node.validNode:
 					self.add_parent(node)
@@ -1191,8 +1196,17 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		self.set_start(int( time - self.q_time - 1.))
 		self.set_end(int( time + self.q_time + 1.))
 		lalCache = self.get_output()
-		qCache = lalCache.rstrip("cache") + "qcache"
-		self.set_post_script(os.getcwd()+"/cacheconv.sh %s %s" %(lalCache,qCache) )
+		qCache = lalCache.rstrip("lcf") + "qcache"
+
+		if cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
+			self.add_var_arg('--server ldr-bologna.phys.uwm.edu')
+			postScriptTest = "y"
+			self.localFileName = os.path.basename(qCache)
+		else:
+			self.add_var_arg('')
+			postScriptTest = "n"
+
+		self.set_post_script(os.getcwd()+"/cacheconv.sh %s %s %s" %(lalCache,qCache,postScriptTest) )
 		return(qCache)
 
 	def setup_inspiral(self, job, cp, sngl, ifo):
@@ -1205,6 +1219,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		#FIXME use proper pad, not hardcode to 64
 		self.set_start(sngl.get_gps_start_time()-64)
 		self.set_end(sngl.get_gps_end_time()+64)
+		self.add_var_arg('')
 		lalCache = self.get_output()
 		return(lalCache)
 
