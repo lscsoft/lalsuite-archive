@@ -26,6 +26,10 @@
 
 
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <SPINspiral.h>
 
 
@@ -97,7 +101,7 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
   
   // *** MEMORY ALLOCATION ********************************************************************************************************************************************************
   
-  int i=0,j=0,j1=0,j2=0,injectionWF=0;
+  int i=0,j=0,j_1=0,j_2=0,injectionWF=0;
   
   //Allocate memory for (most of) the MCMCvariables struct
   allocateMCMCvariables(&mcmc);
@@ -121,7 +125,7 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
   
   // *** Set up temperature ladder ***
   if(mcmc.nTemps == 1) {
-    mcmc.tempLadder[0] = 1.0;
+  //  mcmc.tempLadder[0] = 1.0; Modified so that by default it uses mcmc.tempLadder[0] specified in SPINspiral.input.mcmc
   } else {
     setTemperatureLadderOld(&mcmc);
     //setTemperatureLadder(&mcmc);
@@ -199,7 +203,7 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
   mcmc.iIter = -1;
   for(mcmc.iTemp=0;mcmc.iTemp<mcmc.nTemps;mcmc.iTemp++) {
     mcmc.iTemp = mcmc.iTemp;
-    for(j1=0;j1<mcmc.nMCMCpar;j1++) mcmc.param[mcmc.iTemp][j1] = mcmc.param[0][j1];
+    for(j_1=0;j_1<mcmc.nMCMCpar;j_1++) mcmc.param[mcmc.iTemp][j_1] = mcmc.param[0][j_1];
     mcmc.logL[mcmc.iTemp] = mcmc.logL[0];
     writeMCMCoutput(mcmc, ifo);  //Write output line with injection parameters to screen and/or file (iteration -1)
   }
@@ -212,7 +216,7 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
   
   // *** Initialise covariance matrix (initially diagonal), to do updates in the first block ***
   mcmc.corrUpdate[0] = mcmc.correlatedUpdates; // = 0 for no corr.upd, 1 to refresh matrix only once, 2 to refresh it every nCorr iterations
-  for(j1=0;j1<mcmc.nMCMCpar;j1++) mcmc.covar[mcmc.iTemp][j1][j1] = mcmc.parSigma[j1];
+  for(j_1=0;j_1<mcmc.nMCMCpar;j_1++) mcmc.covar[mcmc.iTemp][j_1][j_1] = mcmc.parSigma[j_1];
   
   
   
@@ -253,7 +257,7 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
   mcmc.iIter = 0;
   for(mcmc.iTemp=0;mcmc.iTemp<mcmc.nTemps;mcmc.iTemp++) {
     mcmc.iTemp = mcmc.iTemp;
-    for(j1=0;j1<mcmc.nMCMCpar;j1++) mcmc.param[mcmc.iTemp][j1] = mcmc.param[0][j1];
+    for(j_1=0;j_1<mcmc.nMCMCpar;j_1++) mcmc.param[mcmc.iTemp][j_1] = mcmc.param[0][j_1];
     mcmc.logL[mcmc.iTemp] = mcmc.logL[0];
     writeMCMCoutput(mcmc, ifo);  //Write output line to screen and/or file
   }
@@ -276,8 +280,8 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
         mcmc.logL[mcmc.iTemp] = mcmc.logL[0];
         mcmc.nlogL[mcmc.iTemp] = mcmc.nlogL[0];
 	
-        for(j1=0;j1<mcmc.nMCMCpar;j1++) {
-          for(j2=0;j2<=j1;j2++) mcmc.covar[mcmc.iTemp][j1][j2] = mcmc.covar[0][j1][j2];
+        for(j_1=0;j_1<mcmc.nMCMCpar;j_1++) {
+          for(j_2=0;j_2<=j_1;j_2++) mcmc.covar[mcmc.iTemp][j_1][j_2] = mcmc.covar[0][j_1][j_2];
         }
       }
       mcmc.corrUpdate[mcmc.iTemp] = mcmc.corrUpdate[0];
@@ -324,8 +328,10 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
       if(gsl_rng_uniform(mcmc.ran) > mcmc.corrFrac) {                                               //Do correlated updates from the beginning (quicker, but less efficient start); this saves ~4-5h for 2D, nCorr=1e4, nTemps=5
         if(gsl_rng_uniform(mcmc.ran) < mcmc.blockFrac){   
           uncorrelatedMCMCblockUpdate(ifo, &state, &mcmc, run);                                          //Block update for the current temperature chain
-        } else {                                         
-          uncorrelatedMCMCsingleUpdate(ifo, &state, &mcmc, run);                                         //Componentwise update for the current temperature chain (e.g. 90% of the time)
+        } else {
+			for(i=0;i<mcmc.nMCMCpar;i++){
+				uncorrelatedMCMCsingleUpdate(ifo, &state, &mcmc, run);                                         //Componentwise update for the current temperature chain (e.g. 90% of the time)
+			}
         }
 	
         // *** Correlated update ****************************************************************************************************
@@ -359,7 +365,7 @@ void MCMC(struct runPar run, struct interferometer *ifo[])
 	  
           // *** Save state to calculate correlations ***
           if(mcmc.iHist[mcmc.iTemp]<mcmc.nCorr) {
-            for(j1=0;j1<mcmc.nMCMCpar;j1++) mcmc.hist[mcmc.iTemp][j1][mcmc.iHist[mcmc.iTemp]] = mcmc.param[mcmc.iTemp][j1];
+            for(j_1=0;j_1<mcmc.nMCMCpar;j_1++) mcmc.hist[mcmc.iTemp][j_1][mcmc.iHist[mcmc.iTemp]] = mcmc.param[mcmc.iTemp][j_1];
             mcmc.iHist[mcmc.iTemp] += 1;
           }
 	  
@@ -678,23 +684,20 @@ void uncorrelatedMCMCsingleUpdate(struct interferometer *ifo[], struct parSet *s
 // ****************************************************************************************************************************************************  
 {
   int p=0, tempi=mcmc->iTemp;
-  double gamma=0.0;
-  double ran=0.0, largejump1=0.0, largejumpall=0.0;
+  double s_gamma=0.0;
+  double ran=0.0, largejumpall=0.0;
   
   largejumpall = 1.0;
   ran = gsl_rng_uniform(mcmc->ran);
   if(ran < 1.0e-3) largejumpall = 1.0e1;    //Every 1e3 iterations, take a 10x larger jump in all parameters
   if(ran < 1.0e-4) largejumpall = 1.0e2;    //Every 1e4 iterations, take a 100x larger jump in all parameters
-  
-  for(p=0;p<mcmc->nMCMCpar;p++) if(mcmc->parFix[p]==0) mcmc->nParam[tempi][p] = mcmc->param[tempi][p];
-  for(p=0;p<mcmc->nMCMCpar;p++){
-    if(mcmc->parFix[p]==0) {
-      largejump1 = 1.0;
-      ran = gsl_rng_uniform(mcmc->ran);
-      if(ran < 1.0e-2) largejump1 = 1.0e1;    //Every 1e2 iterations, take a 10x larger jump in this parameter
-      if(ran < 1.0e-3) largejump1 = 1.0e2;    //Every 1e3 iterations, take a 100x larger jump in this parameter
+	
+  for(p=0;p<mcmc->nMCMCpar;p++) if(mcmc->parFix[p]==0) mcmc->nParam[tempi][p] = mcmc->param[tempi][p];	
+	
+  p=(int)gsl_rng_uniform_int(mcmc->ran,mcmc->nMCMCpar);
+  while(mcmc->parFix[p]!=0) p=(int)gsl_rng_uniform_int(mcmc->ran,mcmc->nMCMCpar); //random parameter for which we propose a jump
       
-      mcmc->nParam[tempi][p] = mcmc->param[tempi][p] + gsl_ran_gaussian(mcmc->ran,mcmc->adaptSigma[tempi][p]) * largejump1 * largejumpall;
+      mcmc->nParam[tempi][p] = mcmc->param[tempi][p] + gsl_ran_gaussian(mcmc->ran,mcmc->adaptSigma[tempi][p]) * largejumpall;
       
       /*
       //Testing with sky position/orientation updates
@@ -717,31 +720,30 @@ void uncorrelatedMCMCsingleUpdate(struct interferometer *ifo[], struct parSet *s
           mcmc->param[tempi][p] = mcmc->nParam[tempi][p];
           mcmc->logL[tempi] = mcmc->nlogL[tempi];
           if(mcmc->adaptiveMCMC==1){
-            gamma = mcmc->adaptScale[tempi][p]*pow(1.0/((double)(mcmc->iIter+1)),1.0/6.0);
-            mcmc->adaptSigma[tempi][p] = max(0.0,mcmc->adaptSigma[tempi][p] + gamma*(1.0 - mcmc->acceptRateTarget)); //Accept - increase sigma
+            s_gamma = mcmc->adaptScale[tempi][p]*pow(1.0/((double)(mcmc->iIter+1)),1.0/6.0);
+            mcmc->adaptSigma[tempi][p] = max(0.0,mcmc->adaptSigma[tempi][p] + s_gamma*(1.0 - mcmc->acceptRateTarget)); //Accept - increase sigma
             sigmaPeriodicBoundaries(mcmc->adaptSigma[tempi][p], p, *mcmc);              //Bring the sigma between 0 and 2pi
           }
           mcmc->accepted[tempi][p] += 1;
         } else {                                                                        //Reject proposal
           mcmc->nParam[tempi][p] = mcmc->param[tempi][p];
           if(mcmc->adaptiveMCMC==1){
-            gamma = mcmc->adaptScale[tempi][p]*pow(1.0/((double)(mcmc->iIter+1)),1.0/6.0);
-            mcmc->adaptSigma[tempi][p] = max(0.0,mcmc->adaptSigma[tempi][p] - gamma*mcmc->acceptRateTarget); //Reject - decrease sigma
+            s_gamma = mcmc->adaptScale[tempi][p]*pow(1.0/((double)(mcmc->iIter+1)),1.0/6.0);
+            mcmc->adaptSigma[tempi][p] = max(0.0,mcmc->adaptSigma[tempi][p] - s_gamma*mcmc->acceptRateTarget); //Reject - decrease sigma
             sigmaPeriodicBoundaries(mcmc->adaptSigma[tempi][p], p, *mcmc);              //Bring the sigma between 0 and 2pi
-            //mcmc->adaptSigma[tempi][p] = max(0.01*mcmc->adaptSigma[tempi][p], mcmc->adaptSigma[tempi][p] - gamma*mcmc->acceptRateTarget);
+            //mcmc->adaptSigma[tempi][p] = max(0.01*mcmc->adaptSigma[tempi][p], mcmc->adaptSigma[tempi][p] - s_gamma*mcmc->acceptRateTarget);
           }
         }
       } else {  //If new state not within boundaries
         mcmc->nParam[tempi][p] = mcmc->param[tempi][p];
         if(mcmc->adaptiveMCMC==1) {
-          gamma = mcmc->adaptScale[tempi][p]*pow(1.0/((double)(mcmc->iIter+1)),1.0/6.0);
-          mcmc->adaptSigma[tempi][p] = max(0.0,mcmc->adaptSigma[tempi][p] - gamma*mcmc->acceptRateTarget);   //Reject - decrease sigma
+          s_gamma = mcmc->adaptScale[tempi][p]*pow(1.0/((double)(mcmc->iIter+1)),1.0/6.0);
+          mcmc->adaptSigma[tempi][p] = max(0.0,mcmc->adaptSigma[tempi][p] - s_gamma*mcmc->acceptRateTarget);   //Reject - decrease sigma
           sigmaPeriodicBoundaries(mcmc->adaptSigma[tempi][p], p, *mcmc);                                     //Bring the sigma between 0 and 2pi
         }
       } //if(mcmc->acceptPrior[tempi]==1)
-    } //if(mcmc->parFix[p]==0)
     mcmc->adaptSigmaOut[tempi][p] = mcmc->adaptSigma[tempi][p]; //Save sigma for output
-  } //p
+
 } // End uncorrelatedMCMCsingleUpdate
 // ****************************************************************************************************************************************************  
 
@@ -902,8 +904,8 @@ void writeMCMCoutput(struct MCMCvariables mcmc, struct interferometer *ifo[])
   if(tempi==0) { //Only for the T=1 chain
     /*ILYA*/
     // if((iIter % (50*thinScreenOutput))==0 || iIter<0) printf("Previous iteration has match of %10g with true signal\n\n", 
-    //  matchBetweenParameterArrayAndTrueParameters(mcmc.param[tempi], ifo, mcmc); //CHECK need support for two different waveforms
-    // While the above is commented out, get rid of 'not used' warnings for the ifo struct:
+    // matchBetweenParameterArrayAndTrueParameters(mcmc.param[tempi], ifo, mcmc); //CHECK need support for two different waveforms
+    // While the above is commented out, get rid of 'not used' warnings for the ifo struct from icc:
     ifo[0]->index = ifo[0]->index;
     
     if((iIter % (50*mcmc.thinScreenOutput))==0 || iIter<0) {
@@ -1270,41 +1272,41 @@ void updateCovarianceMatrix(struct MCMCvariables *mcmc)
 // ****************************************************************************************************************************************************  
 void CholeskyDecompose(double **A, struct MCMCvariables *mcmc)
 {
-  int j1=0,j2=0,j3=0,notposdef=0;
+  int j_1=0,j_2=0,j_3=0,notposdef=0;
   int n=mcmc->nMCMCpar;
   double sum=0.0;
   
-  for(j1=0;j1<n;j1++){
-    if(mcmc->parFix[j1]==0) {
-      sum = A[j1][j1];
-      for(j2=0;j2<j1;j2++){
-        if(mcmc->parFix[j2]==0) {
-          sum -= A[j1][j2]*A[j1][j2];
+  for(j_1=0;j_1<n;j_1++){
+    if(mcmc->parFix[j_1]==0) {
+      sum = A[j_1][j_1];
+      for(j_2=0;j_2<j_1;j_2++){
+        if(mcmc->parFix[j_2]==0) {
+          sum -= A[j_1][j_2]*A[j_1][j_2];
         }
       }
       if(sum<0.0) {
         notposdef=1;
       } else {
-        A[j1][j1]=sqrt(sum);
-        for(j2=j1+1;j2<n;j2++){
-          if(mcmc->parFix[j2]==0){
-            sum = A[j2][j1];
-            for(j3=0;j3<j1;j3++){
-              if(mcmc->parFix[j3]==0){
-                sum -= A[j2][j3]*A[j1][j3];
+        A[j_1][j_1]=sqrt(sum);
+        for(j_2=j_1+1;j_2<n;j_2++){
+          if(mcmc->parFix[j_2]==0){
+            sum = A[j_2][j_1];
+            for(j_3=0;j_3<j_1;j_3++){
+              if(mcmc->parFix[j_3]==0){
+                sum -= A[j_2][j_3]*A[j_1][j_3];
               }
             }
           }
-          A[j2][j1] = sum/A[j1][j1];
+          A[j_2][j_1] = sum/A[j_1][j_1];
         }
       }
     }
   }
   if(notposdef==1) {
     //printf("  CholeskyDecompose():  Matrix %i is not positive definite\n",mcmc->iTemp);
-    for(j1=0;j1<n;j1++){
-      for(j2=0;j2<n;j2++){
-        A[j1][j2] = 0.0;
+    for(j_1=0;j_1<n;j_1++){
+      for(j_2=0;j_2<n;j_2++){
+        A[j_1][j_2] = 0.0;
       }
     }
   }
@@ -1613,7 +1615,7 @@ void setTemperatureLadder(struct MCMCvariables *mcmc)
   double tempratio = 0.0;
   
   if(mcmc->nTemps < 3) { 
-    exp(log(mcmc->maxTemp)/(double)(mcmc->nTemps-1));
+    tempratio = exp(log(mcmc->maxTemp)/(double)(mcmc->nTemps-1));
   } else {
     tempratio = exp(log(mcmc->maxTemp)/(double)(mcmc->nTemps-2));
   }

@@ -384,7 +384,7 @@ int main ( int argc, char *argv[] )
   memcpy( bankFileNameHead, bankFileName, 
       (size_t) gpsHyphen - (size_t) bankFileName < FILENAME_MAX ? 
       (gpsHyphen - bankFileName) * sizeof(CHAR) : FILENAME_MAX * sizeof(CHAR) );
-  strncpy( bankFileNameTail, gpsHyphen + 1, FILENAME_MAX * sizeof(CHAR) );
+  strncpy( bankFileNameTail, gpsHyphen + 1, FILENAME_MAX );
 
   if ( vrbflg )
   {
@@ -401,7 +401,7 @@ int main ( int argc, char *argv[] )
   
 
   /* compute the number of templates per output file */
-  numPerFile = ( numTmplts + 1 )/ numOutBanks;
+  numPerFile = floor( ( numTmplts - 0.5 )/ numOutBanks + 1 );
   thisTmplt = inputBank.snglInspiralTable;
   if ( vrbflg ) fprintf( stdout, "writing around %d templates per file\n", 
       numPerFile );
@@ -410,7 +410,7 @@ int main ( int argc, char *argv[] )
   {
     /* open the output xml file */
     memset( outBankFileName, 0, FILENAME_MAX * sizeof(CHAR) );
-    snprintf( outBankFileName, FILENAME_MAX * sizeof(CHAR), "%s_%2.2d-%s", 
+    snprintf( outBankFileName, FILENAME_MAX, "%s_%2.2d-%s", 
         bankFileNameHead, i, bankFileNameTail );
     memset( &xmlStream, 0, sizeof(LIGOLwXMLStream) );
     LAL_CALL( LALOpenLIGOLwXMLFile( &status , &xmlStream, outBankFileName), 

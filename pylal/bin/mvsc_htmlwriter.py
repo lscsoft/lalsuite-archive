@@ -2,8 +2,6 @@
 """Assists pylal_mvsc_player in writing html files."""
 
 __author__ = 'Tristan Miller <tmiller@caltech.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'
 __prog__ = 'mvsc_htmlwriter'
 
 ##############################################################################

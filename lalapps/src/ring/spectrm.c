@@ -26,18 +26,25 @@
 #include <lal/TimeFreqFFT.h>
 #include <lal/RealFFT.h>
 #include <lal/Window.h>
+#include <lal/LIGOMetadataRingdownUtils.h>
 
 #include "lalapps.h"
 #include "spectrm.h"
 #include "errutil.h"
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 RCSID( "$Id$" );
 
 
 /* routine to compute an average spectrum from time series data */
-/* FIXME: only uses median-mean method */
 REAL4FrequencySeries *compute_average_spectrum(
     REAL4TimeSeries         *series,
+    int                      spectrumAlgthm,
     REAL8                    segmentDuration,
     REAL8                    strideDuration,
     REAL4FFTPlan            *fwdPlan,
@@ -72,11 +79,23 @@ REAL4FrequencySeries *compute_average_spectrum(
     spectrum->epoch  = series->epoch;
     spectrum->deltaF = 1.0/segmentDuration;
   }
-  else /* compute average spectrum using median-mean method */
+  else /* compute average spectrum using either the median or the median-mean method */
   {
-    verbose( "estimating average spectrum using median-mean method\n" );
-    XLALREAL4AverageSpectrumMedianMean( spectrum, series, segmentLength,
-        segmentStride, window, fwdPlan );
+    switch ( spectrumAlgthm )
+    {
+      case LALRINGDOWN_SPECTRUM_MEDIAN:
+        verbose( "estimating average spectrum using median method\n" );
+        XLALREAL4AverageSpectrumMedian(spectrum, series, segmentLength,
+          segmentStride, window, fwdPlan );
+      break;
+      case LALRINGDOWN_SPECTRUM_MEDIAN_MEAN:
+        verbose( "estimating average spectrum using median-mean method\n" );
+        XLALREAL4AverageSpectrumMedianMean( spectrum, series, segmentLength,
+          segmentStride, window, fwdPlan );
+      break;
+      default:
+        error( "unrecognized injection signal type\n" );
+    }
   }
 
   snprintf( spectrum->name, sizeof( spectrum->name ),
@@ -92,7 +111,7 @@ REAL4FrequencySeries *compute_average_spectrum(
 int invert_spectrum(
     REAL4FrequencySeries *spectrum,
     REAL8                 dataSampleRate,
-    REAL8                 strideDuration,
+    REAL8                 UNUSED strideDuration,
     REAL8                 truncateDuration,
     REAL8                 lowCutoffFrequency,
     REAL4FFTPlan         *fwdPlan,
@@ -101,7 +120,7 @@ int invert_spectrum(
 {
   REAL8 segmentDuration;
   UINT4 segmentLength;
-  UINT4 segmentStride;
+  UINT4 UNUSED segmentStride;
   UINT4 truncateLength;
   char name[LALNameLength];
 

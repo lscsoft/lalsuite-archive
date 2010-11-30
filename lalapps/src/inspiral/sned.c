@@ -41,8 +41,6 @@
 #include <time.h>
 #include <math.h>
 
-#include <FrameL.h>
-
 #include <lalapps.h>
 #include <series.h>
 #include <processtable.h>
@@ -82,6 +80,8 @@
 #include <lal/GenerateInspiral.h>
 #include <lal/TimeSeries.h>
 #include <lal/VectorOps.h>
+#include <lal/LALFrameL.h>
+
 #include <LALAppsVCSInfo.h>
 
 RCSID( "$Id$" );
@@ -105,7 +105,6 @@ snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 
 #define MAX_PATH 4096
 
-
 #define USAGE \
   "lalapps_sned [options]\n"\
 "\nDefaults are shown in brackets\n\n" \
@@ -126,6 +125,12 @@ snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --snr-threshold SNR      for simulating full search, will print triggers with\n\
 SNRs greater than this to a Found xml file. Disables --output-file.\n"\
 "\n"
+
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 static void destroyCoherentGW( CoherentGW *waveform );
 
@@ -186,7 +191,7 @@ int main( int argc, char *argv[] )
 
   ResampleTSParams              resampleParams;
 
-  REAL4                         statValue;
+  REAL4                         UNUSED statValue;
 
   /* vars required to make freq series */
   LIGOTimeGPS                   epoch = { 0, 0 };
@@ -1135,9 +1140,9 @@ int main( int argc, char *argv[] )
           H1FoundSngl = L1FoundSngl->next = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
         }
         /* H1 entry */
-        snprintf( H1FoundSngl->ifo, LIGOMETA_IFO_MAX * sizeof(CHAR), "H1" );
-        snprintf( H1FoundSngl->channel, LIGOMETA_CHANNEL_MAX * sizeof(CHAR), "LSC-STRAIN" );
-        snprintf( H1FoundSngl->search, LIGOMETA_SEARCH_MAX * sizeof(CHAR), "sned" );
+        snprintf( H1FoundSngl->ifo, LIGOMETA_IFO_MAX, "H1" );
+        snprintf( H1FoundSngl->channel, LIGOMETA_CHANNEL_MAX, "LSC-STRAIN" );
+        snprintf( H1FoundSngl->search, LIGOMETA_SEARCH_MAX, "sned" );
         H1FoundSngl->eff_distance = thisInjection->eff_dist_h; 
         H1FoundSngl->end_time = thisInjection->h_end_time;
         H1FoundSngl->mass1 = thisInjection->mass1;
@@ -1154,7 +1159,7 @@ int main( int argc, char *argv[] )
         L1FoundSngl = H1FoundSngl->next = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
         memcpy( L1FoundSngl, H1FoundSngl, sizeof(SnglInspiralTable) );
         L1FoundSngl->next = NULL;
-        snprintf( L1FoundSngl->ifo, LIGOMETA_IFO_MAX * sizeof(CHAR), "L1" );
+        snprintf( L1FoundSngl->ifo, LIGOMETA_IFO_MAX, "L1" );
         L1FoundSngl->eff_distance = thisInjection->eff_dist_l; 
         L1FoundSngl->end_time = thisInjection->l_end_time;
       }
@@ -1302,7 +1307,7 @@ int main( int argc, char *argv[] )
   {
     /* open the output xml file */
     memset( &xmlStream, 0, sizeof(LIGOLwXMLStream) );
-    snprintf( fname, sizeof(fname), outputFile );
+    snprintf( fname, sizeof(fname), "%s", outputFile );
     LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlStream, fname ), &status );
 
     /* write out the process and process params tables */

@@ -1,16 +1,16 @@
-# $Id$
-# 
 # setup for pylal
 
 
 import os
-from misc import determine_git_version
+from misc import generate_vcs_info as gvcsi
 from distutils.core import setup, Extension
 from distutils.command import install
 from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
+import subprocess
 from sys import version_info
+import time
 from numpy.lib.utils import get_include as numpy_get_include
 
 
@@ -36,26 +36,57 @@ def remove_root(path, root):
 		return os.path.normpath(path).replace(os.path.normpath(root), "")
 	return os.path.normpath(path)
 
+def write_build_info():
+	"""
+	Get VCS info from misc/generate_vcs_info.py and add build information.
+	Substitute these into misc/git_version.py.in to produce
+	pylal/git_version.py.
+	"""
+	vcs_info = gvcsi.generate_git_version_info()
+
+	# determine current time and treat it as the build time
+	build_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime())
+
+	# determine builder
+	retcode, builder_name = gvcsi.call_out(('git', 'config', 'user.name'))
+	if retcode:
+		builder_name = "Unknown User"
+	retcode, builder_email = gvcsi.call_out(('git', 'config', 'user.email'))
+	if retcode:
+		builder_email = ""
+	builder = "%s <%s>" % (builder_name, builder_email)
+
+	sed_cmd = ('sed',
+		'-e', 's/@ID@/%s/' % vcs_info.id,
+		'-e', 's/@DATE@/%s/' % vcs_info.date,
+		'-e', 's/@BRANCH@/%s/' % vcs_info.branch,
+		'-e', 's/@TAG@/%s/' % vcs_info.tag,
+		'-e', 's/@AUTHOR@/%s/' % vcs_info.author,
+		'-e', 's/@COMMITTER@/%s/' % vcs_info.committer,
+		'-e', 's/@STATUS@/%s/' % vcs_info.status,
+		'-e', 's/@BUILDER@/%s/' % builder,
+		'-e', 's/@BUILD_DATE@/%s/' % build_date,
+		'misc/git_version.py.in')
+
+	# FIXME: subprocess.check_call becomes available in Python 2.5
+	sed_retcode = subprocess.call(sed_cmd,
+		stdout=open('pylal/git_version.py', 'w'))
+	if sed_retcode:
+		raise gvcsi.GitInvocationError
+
 class pylal_build_py(build_py.build_py):
 	def run(self):
 		# create the git_version module
-		if determine_git_version.in_git_repository():
-			try:
-				log.info("generating pylal/git_version.py")
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
-		elif os.path.exists("pylal/git_version.py"):
-			# We're probably being built from a release tarball; don't overwrite
-			log.info("not in git checkout; using existing pylal/git_version.py")
-		else:
-			log.info("not in git checkout; writing empty pylal/git_version.py")
-			try:
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_empty_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
+		log.info("Generating pylal/git_version.py")
+		try:
+			write_build_info()
+		except gvcsi.GitInvocationError:
+			if os.path.exists("pylal/git_version.py"):
+				# We're probably being built from a release tarball; don't overwrite
+				log.info("Not in git checkout or cannot find git executable; using existing pylal/git_version.py")
+			else:
+				log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
+				sys.exit(1)
 
 		# resume normal build procedure
 		build_py.build_py.run(self)
@@ -124,20 +155,12 @@ class pylal_sdist(sdist.sdist):
 				pass
 
 		# create the git_version module
-		if determine_git_version.in_git_repository():
-			log.info("generating pylal/git_version.py")
-			try:
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
-		else:
-			log.info("not in git checkout; writing empty pylal/git_version.py")
-			try:
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_empty_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
+		log.info("generating pylal/git_version.py")
+		try:
+			write_build_info()
+		except gvcsi.GitInvocationError:
+			log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
+			sys.exit(1)
 
 		# now run sdist
 		sdist.sdist.run(self)
@@ -154,7 +177,8 @@ setup(
 	packages = [
 		"pylal",
 		"pylal.xlal",
-		"pylal.xlal.datatypes"
+		"pylal.xlal.datatypes",
+                "pylal.dq"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -261,6 +285,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.datatypes.simburst",
+			["src/xlal/datatypes/simburst.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.datatypes.siminspiraltable",
 			["src/xlal/datatypes/siminspiraltable.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
@@ -288,8 +321,17 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.constants",
+			["src/xlal/constants.c"],
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = ["lal"],  # this really, truly has no other deps
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.date",
-			["src/xlal/date.c"],
+			["src/xlal/date.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
@@ -312,6 +354,15 @@ setup(
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.lalburst",
+			["src/xlal/lalburst.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalburst_pkg_config.incdirs + ["src/xlal"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalburst_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -351,13 +402,27 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags + lalburst_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.spawaveform",
-			["src/spawaveform.c"],
+			"pylal._spawaveform",
+			["src/_spawaveform.c"],
 			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
-		)
+		),
+		Extension(
+			"pylal._bayespputils",
+			["src/bayespputils.c","src/burnin.c"],
+			include_dirs = [numpy_get_include(),'src/']
+		),
+		Extension(
+			"pylal.cs_gamma",
+			["src/cs_gamma.c"],
+			include_dirs = lalburst_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lalburst_pkg_config.libs,
+			library_dirs = lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lalburst_pkg_config.libdirs,
+			extra_compile_args = lalburst_pkg_config.extra_cflags
+		),
 	],
 	scripts = [
 		os.path.join("bin", "analyseQscan.py"),
@@ -373,6 +438,10 @@ setup(
 		os.path.join("bin", "followupQueryDQ.py"),
 		os.path.join("bin", "followupQueryVeto.py"),
 		os.path.join("bin", "followupRatioTest.py"),
+		os.path.join("bin", "followupGetDataAsAscii.py"),
+		os.path.join("bin", "followupGenerateDQBackground.py"),
+		os.path.join("bin", "followupCustomFOM.py"),
+		os.path.join("bin", "followupPDSurface.py"),		
 		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotchannel"),
@@ -380,12 +449,12 @@ setup(
 		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
-                os.path.join("bin", "plotextrapolation"),
+		os.path.join("bin", "plotextrapolation"),
 		os.path.join("bin", "plotgrbl"),
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotnumgalaxies"),
 		os.path.join("bin", "lalapps_compute_posterior"),
-		os.path.join("bin", "plotulvsmass"), 
+		os.path.join("bin", "plotulvsmass"),
 		os.path.join("bin", "plotifar"),
 		os.path.join("bin", "plotinjnum"),
 		os.path.join("bin", "plotinspfound"),
@@ -415,8 +484,10 @@ setup(
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_exttrig_llmonitor"),
 		os.path.join("bin", "pylal_exttrig_llsummary"),
-		os.path.join("bin", "pylal_exttrig_llopenbox"),
+		os.path.join("bin", "pylal_exttrig_llbox"),
+		os.path.join("bin", "pylal_exttrig_llpage"),
 		os.path.join("bin", "pylal_relic"),
+		os.path.join("bin", "pylal_version"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "ploteffdistcut"),
 		os.path.join("bin", "plotefficiency"),
@@ -425,13 +496,18 @@ setup(
 		os.path.join("bin", "IFOstatus_check"),
 		os.path.join("bin", "plotsnrchisq_pipe"),
 		os.path.join("bin", "plotmcmc.py"),
+		os.path.join("bin", "plotspinmcmc.py"),
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "antime"),
 		os.path.join("bin", "septime"),
+		os.path.join("bin", "lalapps_binj_pic"),
+		os.path.join("bin", "lalapps_burca_tailor"),
 		os.path.join("bin", "lalapps_cbc_plotroc"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_cbc_plot_likelihood_arrays"),
+		os.path.join("bin", "lalapps_cbc_coinc"),
+		os.path.join("bin", "lalapps_cbc_dbinjfind"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_farburst"),
 		os.path.join("bin", "lalapps_followup_pipe"),
@@ -439,8 +515,11 @@ setup(
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
+		os.path.join("bin", "lalapps_cbc_svim"),
+		os.path.join("bin", "lalapps_cbc_sink"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_plot_tisi"),
+		os.path.join("bin", "lalapps_power_calc_likelihood"),
 		os.path.join("bin", "lalapps_power_plot_binj"),
 		os.path.join("bin", "lalapps_power_plot_burca"),
 		os.path.join("bin", "lalapps_power_plot_burca2"),
@@ -450,6 +529,8 @@ setup(
 		os.path.join("bin", "lalapps_run_sqlite"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "lalapps_string_calc_likelihood"),
+		os.path.join("bin", "lalapps_string_contour_plotter"),
+		os.path.join("bin", "lalapps_string_cs_gamma"),
 		os.path.join("bin", "lalapps_string_meas_likelihood"),
 		os.path.join("bin", "lalapps_string_plot_binj"),
 		os.path.join("bin", "lalapps_string_plot_likelihood"),
@@ -460,10 +541,10 @@ setup(
 		os.path.join("bin", "ligolw_bucluster"),
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),
-		os.path.join("bin", "ligolw_burca_tailor"),
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_conv_inspid"),
 		os.path.join("bin", "ligolw_inspinjfind"),
+		os.path.join("bin", "lalapps_cbc_injfind"),
 		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
@@ -488,12 +569,15 @@ setup(
 		os.path.join("bin", "ligolw_cbc_printlc"),
 		os.path.join("bin", "ligolw_cbc_cluster_coincs"),
 		os.path.join("bin", "ligolw_cbc_cfar"),
+		os.path.join("bin", "ligolw_cbc_jitter_skyloc"),
 		os.path.join("bin", "ligolw_cbc_plotslides"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
+		os.path.join("bin", "ligolw_cbc_plotfm"),
+        os.path.join("bin", "lalapps_cbc_plotrates"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
+		os.path.join("bin", "ligolw_segments_compat"),
 		os.path.join("bin", "extractCommand"),
-		os.path.join("bin", "OddsPostProc.py"),
 		os.path.join("bin", "make_inspiral_summary_page"),
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
@@ -504,6 +588,12 @@ setup(
 		os.path.join("bin", "qsub_wscanlite.sh"),
 		os.path.join("bin", "search_volume_by_m1_m2"),
 		os.path.join("bin", "search_upper_limit_by_m1_m2"),
+		os.path.join("bin", "search_upper_limit_by_s1z_s2z"),
+		os.path.join("bin", "search_volume_by_s1z_s2z"),
+		os.path.join("bin", "search_upper_limit_by_m_chi"),
+		os.path.join("bin", "search_volume_by_m_chi"),		
+		os.path.join("bin", "imr_compare"),		
+		os.path.join("bin", "imr_roc"),				
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),
@@ -518,7 +608,16 @@ setup(
 		os.path.join("bin", "run_skypoints.py"),
 		os.path.join("bin", "make_skypoints_grids.py"),
 		os.path.join("bin", "make_skypoints_rankings.py"),
-                os.path.join("bin", "plot_skypoints.py")
+		os.path.join("bin", "plot_skypoints.py"),
+		os.path.join("bin", "pylal_cbc_select_hardware_injections"),
+		os.path.join("bin", "coh_PTF_efficiency"),
+		os.path.join("bin", "coh_PTF_html_summary"),
+		os.path.join("bin", "coh_PTF_injfinder"),
+		os.path.join("bin", "coh_PTF_sbv_plotter"),
+		os.path.join("bin", "coh_PTF_trig_cluster"),
+		os.path.join("bin", "coh_PTF_trig_combiner"),
+		os.path.join("bin", "ring_post"),
+		os.path.join("bin","cbcBayesPostProc.py")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

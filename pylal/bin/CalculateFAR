@@ -1,9 +1,6 @@
 #!/usr/bin/python
 __author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
-__version__ = "$Revision: 1.7 $"[11:-2]
-__date__ = "$Date: 2009/03/18 22:18:59 $"[7:-2]
 __prog__="CalculateFAR"
-__Id__ = "$Id$"
 
 #loading standard modules
 from optparse import *
@@ -24,6 +21,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 
 from scipy import *
 import numpy
@@ -105,10 +103,7 @@ def parse_command_line():
   Parser function dedicated
   """
 
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   parser.add_option("","--slides-glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB time slides files to read" )

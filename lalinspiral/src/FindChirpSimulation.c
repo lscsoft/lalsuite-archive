@@ -97,8 +97,11 @@ LALFree()
 #include <lal/LALInspiral.h>
 #include <lal/LALError.h>
 
-/* macro to "use" unused function parameters */
-#define UNUSED(expr) do { (void)(expr); } while(0)
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 NRCSID( FINDCHIRPSIMULATIONC, "$Id$" );
 
@@ -124,7 +127,6 @@ LALFindChirpInjectSignals (
   PPNParamStruc         ppnParams;
   CoherentGW            waveform;
   INT8                  waveformStartTime;
-  INT8                  chanStartTime;
   REAL4TimeSeries       signalvec;
   COMPLEX8Vector       *unity = NULL;
   CHAR                  warnMsg[512];
@@ -158,9 +160,6 @@ LALFindChirpInjectSignals (
    *
    */
 
-
-
-  chanStartTime = XLALGPSToINT8NS( &(chan->epoch) );
 
   /* fixed waveform injection parameters */
   memset( &ppnParams, 0, sizeof(PPNParamStruc) );
@@ -291,7 +290,7 @@ LALFindChirpInjectSignals (
      {
        CoherentGW *wfm;
        SimRingdownTable *ringEvent;
-       int injectSignalType = imr_inject;
+       int injectSignalType = LALRINGDOWN_IMR_INJECT;
 
 
        ringEvent = (SimRingdownTable *)
@@ -480,8 +479,6 @@ LALFindChirpInjectSignals (
           sizeof(LIGOTimeGPS) );
       memcpy( &(waveform.phi->epoch), &(waveform.h->epoch),
           sizeof(LIGOTimeGPS) );
-      memcpy( &(waveform.a->epoch), &(waveform.a->epoch),
-          sizeof(LIGOTimeGPS) );
 
       wfmLength = waveform.h->data->length;
       dataLength = 2*wfmLength;
@@ -515,6 +512,7 @@ LALFindChirpInjectSignals (
                                  thisEvent ,
                                        ifo ,
                                   dynRange  );
+      CHECKSTATUSPTR( status );
 
     }
 
@@ -830,7 +828,7 @@ LALFindChirpSetAnalyseTemplate (
     REAL8                      deltaF,
     INT4                       sampleRate,
     FindChirpDataParams        *fcDataParams,
-    int                        numTmplts,
+    int                        UNUSED numTmplts,
     InspiralTemplate           *tmpltHead,
     int                        numInjections,
     SimInspiralTable           *injections
@@ -847,9 +845,6 @@ LALFindChirpSetAnalyseTemplate (
   REAL4                 dt0, dt3, metricDist, match;
   CHAR                  myMsg[8192];
   UINT4                 approximant;
-
-  /* numTmplts is unused in this function */
-  UNUSED(numTmplts);
 
   INITSTATUS( status, "LALFindChirpSetAnalyseTemplate", FINDCHIRPSIMULATIONC );
   ATTATCHSTATUSPTR( status );
@@ -1486,17 +1481,16 @@ static int FindTimeSeriesStartAndEnd (
         UINT4 *end
         )
 {
-  static const char *func = "FindTimeSeriesStartAndEnd";
   UINT4 i; /* mid, n; indices */
   UINT4 flag, safe = 1;
   UINT4 length;
 
 #ifndef LAL_NDEBUG
   if ( !signalvec )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( __func__, XLAL_EFAULT );
 
   if ( !signalvec->data )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( __func__, XLAL_EFAULT );
 #endif
 
   length = signalvec->length;

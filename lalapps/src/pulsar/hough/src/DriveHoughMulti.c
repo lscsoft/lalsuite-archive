@@ -1242,7 +1242,7 @@ int PrintHistogram(UINT8Vector *hist, CHAR *fnameOut, REAL8 minSignificance, REA
     }
 
   for (i = 0; i < binsHisto; i++){
-    fprintf(fp,"%g  %llu\n", minSignificance + i*dSig, hist->data[i]);
+    fprintf(fp,"%g  %" LAL_UINT8_FORMAT "\n", minSignificance + i*dSig, hist->data[i]);
   }
   
   fclose( fp );  
@@ -1354,6 +1354,8 @@ void PrintLogFile (LALStatus       *status,
   CHAR *logstr=NULL; 
   UINT4 k;
 
+  int rc;
+
   INITSTATUS (status, "PrintLogFile", rcsid);
   ATTATCHSTATUSPTR (status);
   
@@ -1392,7 +1394,7 @@ void PrintLogFile (LALStatus       *status,
   fprintf( fpLog, "## LOG FILE FOR Hough Driver\n\n");
   fprintf( fpLog, "# User Input:\n");
   fprintf( fpLog, "#-------------------------------------------\n");
-  fprintf( fpLog, logstr);
+  fprintf( fpLog, "%s", logstr);
   LALFree(logstr);
 
   /* copy contents of skypatch file into logfile */
@@ -1401,7 +1403,7 @@ void PrintLogFile (LALStatus       *status,
   {
     CHAR command[1024] = "";
     sprintf(command, "cat %s >> %s", skyfile, fnameLog);
-    system(command);
+    rc = system(command);
   }
 
 
@@ -1416,7 +1418,7 @@ void PrintLogFile (LALStatus       *status,
 	fprintf (fpLog, "# -----------------------------------------\n");
 	fclose (fpLog);
 	sprintf(command, "cat %s >> %s", linefiles->data[k], fnameLog);      
-	system (command);	 
+	rc = system (command);	 
       } 
     } 
   }
@@ -1430,7 +1432,7 @@ void PrintLogFile (LALStatus       *status,
       fclose (fpLog);
       
       sprintf (command, "ident %s | sort -u >> %s", executable, fnameLog);
-      system (command);	/* we don't check this. If it fails, we assume that */
+      rc = system (command);	/* we don't check this. If it fails, we assume that */
     			/* one of the system-commands was not available, and */
     			/* therefore the CVS-versions will not be logged */ 
     }
@@ -1667,7 +1669,7 @@ void GetSFTNoiseWeights(LALStatus          *status,
 
 
 /** Loop over SFTs and set a threshold to get peakgrams.  SFTs must be normalized.  */
-void GetPeakGramFromMultSFTVector(LALStatus           *status,
+void GetPeakGramFromMultSFTVector(LALStatus           *status,		/**< pointer to LALStatus structure */
 				  HOUGHPeakGramVector *out, /**< Output peakgrams */
 				  MultiSFTVector      *in,  /**< Input SFTs */
 				  REAL8               thr   /**< Threshold on SFT power */)  
@@ -1725,7 +1727,7 @@ void GetPeakGramFromMultSFTVector(LALStatus           *status,
 /** Set up location of skypatch centers and sizes 
     If user specified skyRegion then use DopplerScan function
     to construct an isotropic grid. Otherwise use skypatch file. */
-void SetUpSkyPatches(LALStatus           *status,
+void SetUpSkyPatches(LALStatus           *status,		/**< pointer to LALStatus structure */
 		     HoughSkyPatchesInfo *out,   /**< output skypatches info */
 		     CHAR                *skyFileName, /**< name of skypatch file */
 		     CHAR                *skyRegion,  /**< skyregion (if isotropic grid is to be constructed) */
@@ -2658,7 +2660,7 @@ void ComputeandPrintChi2 ( LALStatus                *status,
 			   REAL8                    alphaPeak,
 			   MultiDetectorStateSeries *mdetStates,
 			   REAL8Vector		    *weightsNoise,
-			   UCHARPeakGramVector      *upgV /**< Expanded (UCHAR) peakgrams */)
+			   UCHARPeakGramVector      *upgV /* Expanded (UCHAR) peakgrams */)
 {
     HoughTemplate    pulsarTemplate;
     UINT4            mObsCoh; 
@@ -2852,7 +2854,7 @@ void ComputeandPrintChi2 ( LALStatus                *status,
 /** Loop over SFTs and set a threshold to get peakgrams.  SFTs must be normalized.  */
 /** This function will create a vector with the uncompressed PeakGrams in it        */
 /** (this is necesary if we want to compute the chi2 later )                        */
-void GetPeakGramFromMultSFTVector_NondestroyPg1(LALStatus                   *status,
+void GetPeakGramFromMultSFTVector_NondestroyPg1(LALStatus                   *status,	/**< pointer to LALStatus structure */
 						HOUGHPeakGramVector         *out, /**< Output compressed peakgrams */
 						UCHARPeakGramVector         *upgV, /**< Output uncompressed peakgrams */
 						MultiSFTVector              *in,  /**< Input SFTs */

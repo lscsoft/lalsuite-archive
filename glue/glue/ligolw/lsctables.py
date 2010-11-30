@@ -45,6 +45,7 @@ except NameError:
 
 from glue import git_version
 from glue import iterutils
+from glue import offsetvector
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
@@ -66,7 +67,7 @@ __date__ = git_version.date
 #
 
 
-def New(Type, columns = None):
+def New(Type, columns = None, **kwargs):
 	"""
 	Convenience function for constructing pre-defined LSC tables.  The
 	optional columns argument is a list of the names of the columns the
@@ -79,7 +80,7 @@ def New(Type, columns = None):
 	>>> tbl = New(ProcessTable)
 	>>> tbl.write()
 	"""
-	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
+	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}), **kwargs)
 	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
 	if columns is not None:
 		for key in columns:
@@ -193,8 +194,9 @@ def ifos_from_instrument_set(instruments):
 	can be None or an interable of zero or more instrument names, none
 	of which may contain "," or "+" characters.  The output is a single
 	string containing the instrument names concatenated using "," as a
-	delimiter.  Whitespace is allowed in instrument names but may not
-	be preserved.
+	delimiter.  instruments will only be iterated over once and so can
+	be a generator expression.  Whitespace is allowed in instrument
+	names but may not be preserved.
 	"""
 	if instruments is None:
 		return None
@@ -1173,6 +1175,8 @@ class SnglInspiralTable(table.Table):
 		return mapping
 
 	def get_column(self,column):
+		if column == 'reduced_chisq':
+			return self.get_reduced_chisq()
 		if column == 'reduced_bank_chisq':
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
@@ -1183,7 +1187,7 @@ class SnglInspiralTable(table.Table):
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
-		if column =='lvS5stat':
+		if column == 'lvS5stat':
 			return self.get_lvS5stat()
 		elif column == 'chirp_distance':
 			return self.get_chirp_dist()
@@ -1193,6 +1197,9 @@ class SnglInspiralTable(table.Table):
 	def get_end(self):
 		return [row.get_end() for row in self]
 
+	def get_reduced_chisq(self):
+		return self.get_column('chisq') / (2*self.get_column('chisq_dof') - 2)
+
 	def get_reduced_bank_chisq(self):
 		return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
 
@@ -1201,22 +1208,48 @@ class SnglInspiralTable(table.Table):
             
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
-		chisq = self.get_column('chisq')
-		chisq_dof = self.get_column('chisq_dof')
-		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+		rchisq = self.get_column('reduced_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+	def get_bank_effective_snr(self, fac=250.0):
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_bank_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+	def get_cont_effective_snr(self, fac=250.0):
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_cont_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
 
 	def get_new_snr(self, index=6.0):
 		import numpy
-		# the kwarg 'index' is to be assigned to the parameter chisq_index
-		# the parameter nhigh gives the asymptotic behaviour of 
-		# d (ln chisq) / d (ln rho) at large rho for fixed new_snr: 
-		# eg nhigh = 2 means chisq ~ rho^2 at large rho 
+		# kwarg 'index' is assigned to the parameter chisq_index
+		# nhigh gives the asymptotic large  rho behaviour of d (ln chisq) / d (ln rho) 
+		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
-		rchisq = self.get_column('chisq')/(2*self.get_column('chisq_dof') - 2)
+		rchisq = self.get_column('reduced_chisq')
 		nhigh = 2.
 		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(newsnr, rchisq < 1, snr)
 		return newsnr
+
+	def get_bank_new_snr(self, index=6.0):
+		import numpy
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_bank_chisq')
+		nhigh = 2.
+		banknewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(banknewsnr, rchisq < 1, snr)
+		return banknewsnr
+
+	def get_cont_new_snr(self, index=6.0):
+		import numpy
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_cont_chisq')
+		nhigh = 2.
+		contnewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(contnewsnr, rchisq < 1, snr)
+		return contnewsnr
 
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
@@ -1385,6 +1418,7 @@ class CoincInspiralTable(table.Table):
 		"end_time_ns": "int_4s",
 		"mass": "real_8",
 		"mchirp": "real_8",
+		"minimum_duration": "real_8",
 		"snr": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8"
@@ -1664,6 +1698,9 @@ class MultiInspiralTable(table.Table):
 
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
+
+        def get_end(self):
+                return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
@@ -2400,34 +2437,71 @@ class TimeSlideTable(table.Table):
 		d = {}
 		for row in self:
 			if row.time_slide_id not in d:
-				d[row.time_slide_id] = {}
+				d[row.time_slide_id] = offsetvector.offsetvector()
 			if row.instrument in d[row.time_slide_id]:
 				raise KeyError, "%s: duplicate instrument %s" % (row.time_slide_id, row.instrument)
 			d[row.time_slide_id][row.instrument] = row.offset
 		return d
 
-	def get_time_slide_id(self, offsetdict, create_new = None):
+	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
-		Return the time_slide_id corresponding to the time slide
+		Return the time_slide_id corresponding to the offset vector
 		described by offsetdict, a dictionary of instrument/offset
-		pairs.  If no matching time_slide_id is found, then
-		KeyError is raised.  If, however, the optional create_new
-		argument is set to an lsctables.Process object (or any
-		other object with a process_id attribute), then new rows
-		are added to the table to describe the desired time slide,
-		and the ID of the new rows is returned.
-		"""
-		# look for the ID
-		for id, slide in self.as_dict().iteritems():
-			if offsetdict == slide:
-				# found it
-				return id
+		pairs.
 
-		# time slide not found in table
-		if create_new is None:
+		If the optional create_new argument is None (the default),
+		then the table must contain a matching offset vector.  The
+		return value is the ID of that vector.  If the table does
+		not contain a matching offset vector then KeyError is
+		raised.
+
+		If the optional create_new argument is set to a Process
+		object (or any other object with a process_id attribute),
+		then if the table does not contain a matching offset vector
+		a new one will be added to the table and marked as having
+		been created by the given process.  The return value is the
+		ID of the (possibly newly created) matching offset vector.
+
+		If the optional superset_ok argument is False (the default)
+		then an offset vector in the table is considered to "match"
+		the requested offset vector only if they contain the exact
+		same set of instruments.  If the superset_ok argument is
+		True, then an offset vector in the table is considered to
+		match the requested offset vector as long as it provides
+		the same offsets for the same instruments as the requested
+		vector, even if it provides offsets for other instruments
+		as well.
+
+		More than one offset vector in the table might match the
+		requested vector.  If the optional nonunique_ok argument is
+		False (the default), then KeyError will be raised if more
+		than one offset vector in the table is found to match the
+		requested vector.  If the optional nonunique_ok is True
+		then the return value is the ID of one of the matching
+		offset vectors selected at random.
+		"""
+		# look for matching offset vectors
+		if superset_ok:
+			ids = [id for id, slide in self.as_dict().items() if offsetdict == dict((instrument, offset) for instrument, offset in slide.items() if instrument in offsetdict)]
+		else:
+			ids = [id for id, slide in self.as_dict().items() if offsetdict == slide]
+		if len(ids) > 1:
+			# found more than one
+			if nonunique_ok:
+				# and that's OK
+				return ids[0]
+			# and that's not OK
 			raise KeyError, offsetdict
+		if len(ids) == 1:
+			# found one
+			return ids[0]
+		# offset vector not found in table
+		if create_new is None:
+			# and that's not OK
+			raise KeyError, offsetdict
+		# that's OK, create new vector
 		id = self.get_next_id()
-		for instrument, offset in offsetdict.iteritems():
+		for instrument, offset in offsetdict.items():
 			row = self.RowType()
 			row.process_id = create_new.process_id
 			row.time_slide_id = id

@@ -216,7 +216,7 @@ int main(int argc,char *argv[])
 
       if ( (fpFstat = fopen (uvar.outputFstat, "wb")) == NULL)
 	{
-	  LALPrintError ("\nError opening file '%s' for writing..\n\n", uvar.outputFstat);
+	  XLALPrintError ("\nError opening file '%s' for writing..\n\n", uvar.outputFstat);
 	  return (PREDICTFSTAT_ESYS);
 	}
 
@@ -305,7 +305,7 @@ initUserVars (LALStatus *status, UserInput_t *uvar )
   LALregREALUserStruct(status,	Delta,		'd', UVAR_REQUIRED, "Sky position delta (equatorial coordinates) in radians");
   LALregREALUserStruct(status,	Freq,		'F', UVAR_REQUIRED, "GW signal frequency (only used for noise-estimation in SFTs)");
 
-  LALregSTRINGUserStruct(status,DataFiles, 	'D', UVAR_OPTIONAL, "File-pattern specifying (multi-IFO) input SFT-files");
+  LALregSTRINGUserStruct(status,DataFiles, 	'D', UVAR_REQUIRED, "File-pattern specifying (multi-IFO) input SFT-files");
   LALregSTRINGUserStruct(status,IFO, 		'I', UVAR_OPTIONAL, "Detector-constraint: 'G1', 'L1', 'H1', 'H2' ...(useful for single-IFO v1-SFTs only!)");
   LALregSTRINGUserStruct(status,ephemDir, 	'E', UVAR_OPTIONAL, "Directory where Ephemeris files are located");
   LALregSTRINGUserStruct(status,ephemYear, 	'y', UVAR_OPTIONAL, "Year (or range of years) of ephemeris files to be used");
@@ -328,7 +328,7 @@ initUserVars (LALStatus *status, UserInput_t *uvar )
 
 /** Load Ephemeris from ephemeris data-files  */
 void
-InitEphemeris (LALStatus * status,
+InitEphemeris (LALStatus * status,	/**< pointer to LALStatus structure */
 	       EphemerisData *edat,	/**< [out] the ephemeris-data */
 	       const CHAR *ephemDir,	/**< directory containing ephems */
 	       const CHAR *ephemYear	/**< which years do we need? */

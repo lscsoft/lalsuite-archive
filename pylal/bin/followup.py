@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Jacob Slutsky <jslutsky@phys.lsu.edu>, Chad Hanna <channa@phys.lsu.edu>, Romain Gouaty <romain@phys.lsu.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import sys
 import os
@@ -27,6 +24,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal import git_version
 from pylal import CoincInspiralUtils
 
 # this imports the follow up utilities necessary to run this code
@@ -64,7 +62,7 @@ followup.py [options]
 # The goal is to keep the options to a minimum keep this in mind
 # when developing all modules!
 ##############################################################################
-parser = OptionParser( usage=usage, version= "%prog CVS $Id$")
+parser = OptionParser( usage=usage, version=git_version.verbose_msg)
 
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )

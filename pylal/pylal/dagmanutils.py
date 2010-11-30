@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -23,15 +21,12 @@ except ImportError:
 
 import datetime
 import hashlib
+import itertools
 import os
 import sys
 import time
 
-itertools = __import__("itertools")
-
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"[11:-2]
 
 #
 # Enums

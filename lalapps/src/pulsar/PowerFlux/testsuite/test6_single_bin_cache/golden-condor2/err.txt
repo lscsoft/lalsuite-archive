@@ -1,0 +1,319 @@
+Initial memory: 14.9609 MB
+Virtual memory limits soft=-1 hard=-1
+Data segment limits soft=-1 hard=-1
+Running on expedition
+maximum threads: 1 (no_thread)
+Normal distribution approximation error is 0.000048
+maximum filter7 sampling error: 0.0228921
+point_power_sum_stats: linear
+Lower limit approximation error: 0.003246
+Upper limit approximation error: 0.008300
+Alignment grid size: 19
+Successfully initialized ephemeris data
+Initializing sky grids
+npoints=866 super grid npoints=20326
+fine grid: max_n_ra=253 max_n_dec=126
+Full grid memory: 50.6836 MB
+side_cut=560
+compute_signal_test1: 9.59669e-06 1.83957e-05 500.101774
+compute_signal_test2: 1.14269e-05 -1.72568e-05 500.101774
+compute_signal_test3: 1.72568e-05 1.14269e-05 500.101774
+compute_median_test1: 4.29153e-09
+compute_median_test2: 1.07288e-09
+Loading data from dataset random.dst
+Generating 4001 gaussian SFTs starting with gps 793154935 step 3600 amplitude 2.94912e-17 for dataset H1_test1
+Growing H1_test1 SFT array to 61.848610 MB count=0
+Validating dataset "H1_test1"
+Found 4001 segments
+Injecting fake signal.
+Computing detector speed for dataset H1_test1
+dataset H1_test1 average detector velocity RA (degrees) : 327.495659
+dataset H1_test1 average detector velocity DEC (degrees): -13.114496
+dataset H1_test1 auto band axis: 0.570417 0.753574 0.326726
+dataset H1_test1 band_axis: auto
+dataset H1_test1 actual band axis: 0.570417 0.753574 0.326726
+dataset H1_test1 band axis RA (degrees) : 52.876138
+dataset H1_test1 band axis DEC (degrees): 19.070151
+210726
+0.0207259
+0.000497061
+3.89782e-05
+3.79544e-06
+4.73341e-07
+2.45984e-08
+2.27374e-11
+0
+histogram: band min max counts..
+hist_residuals: H1_test1: 0 -7.01193 1.58006 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 1 0 0 0 0 0 0 0 0 0 1 2 0 0 2 0 1 0 1 2 3 1 0 2 0 3 3 6 3 2 5 3 9 6 4 2 8 6 8 17 18 15 16 24 20 24 21 27 35 38 36 35 30 42 52 53 54 85 83 77 83 84 132 119 132 154 166 180 188 233 274 300 316 351 370 414 462 468 555 635 662 726 794 876 933 1043 1208 1309 1463 1612 1766 2015 2204 2432 2626 2875 3240 3672 3845 4453 4745 5336 5750 6478 7106 7845 8671 9538 10380 11551 12646 14130 15288 17017 18864 20399 22595 24971 27285 30403 33032 36208 39822 43520 47931 52638 57353 62320 67899 74475 81379 87940 95411 103484 111870 121287 130123 139966 149365 160037 170668 179860 191058 200428 209381 216900 229651 229353 233071 235919 234750 233116 226395 219102 208669 195611 180712 163411 144175 126196 105969 86914 69450 53451 39877 28648 19312 12707 7884 4629 2557 1298 630 297 122 69 30 15 10 4 3 1 1
+Obtaining whole sky AM response for dataset H1_test1
+Computing whole sky AM response for 4001 SFTs
+AM coeffs size: 750.187500 KB
+Initializing polarizations for dataset H1_test1
+Computing cutoff values for dataset H1_test1
+ 0.1  11.7  23.2  34.8  46.3  57.9  69.4  80.9  92.5  100
+H1_test1 dc_factor_blocked: 0
+H1_test1 dc_factor_touched: 0
+H1_test1 SFTs veto level: 0.010000
+H1_test1 SFTs veto spike level: 1.700000
+H1_test1 SFTs veto count: 0
+H1_test1 CutOff=7.32244
+Checking background lines
+H1_test1 background line detected: bin=119 z=8.81169e+06 strength=1.084193 flag=0x00000012
+H1_test1 background line detected: bin=141 z=9.33774e+06 strength=1.822244 flag=0x00000013
+H1_test1 background i=141 54197.5 1.29881e+06 132328
+H1_test1 background line detected: bin=196 z=8.78629e+06 strength=1.048547 flag=0x00000012
+H1_test1 background line detected: bin=427 z=8.7785e+06 strength=1.037628 flag=0x00000012
+H1_test1 background line detected: bin=534 z=8.86857e+06 strength=1.163992 flag=0x00000012
+H1_test1 background line detected: bin=546 z=9.00349e+06 strength=1.353289 flag=0x00000012
+H1_test1 background line detected: bin=553 z=8.86007e+06 strength=1.152062 flag=0x00000012
+H1_test1 background line detected: bin=562 z=8.964e+06 strength=1.297887 flag=0x00000002
+H1_test1 background line detected: bin=595 z=8.91519e+06 strength=1.229407 flag=0x00000012
+H1_test1 background line detected: bin=625 z=8.78119e+06 strength=1.041401 flag=0x00000012
+H1_test1 background line detected: bin=639 z=9.0352e+06 strength=1.397770 flag=0x00000003
+H1_test1 background i=639 559614 996263 332091
+H1_test1 background line detected: bin=669 z=8.81827e+06 strength=1.093416 flag=0x00000012
+H1_test1 background line detected: bin=686 z=8.78438e+06 strength=1.045879 flag=0x00000012
+H1_test1 background line detected: bin=716 z=8.91013e+06 strength=1.222296 flag=0x00000012
+H1_test1 background line detected: bin=745 z=8.81716e+06 strength=1.091860 flag=0x00000002
+H1_test1 background line detected: bin=749 z=8.79839e+06 strength=1.065529 flag=0x00000012
+H1_test1 background line detected: bin=763 z=8.82853e+06 strength=1.107811 flag=0x00000002
+H1_test1 background line detected: bin=767 z=8.8365e+06 strength=1.118991 flag=0x00000012
+H1_test1 background line detected: bin=774 z=8.98057e+06 strength=1.321134 flag=0x00000012
+H1_test1 background line detected: bin=783 z=8.98478e+06 strength=1.327036 flag=0x00000012
+H1_test1 background line detected: bin=787 z=9.13212e+06 strength=1.533759 flag=0x00000003
+H1_test1 background i=787 217255 1.09319e+06 693257
+H1_test1 background line detected: bin=878 z=8.77514e+06 strength=1.032904 flag=0x00000012
+H1_test1 background line detected: bin=909 z=8.86366e+06 strength=1.157100 flag=0x00000012
+H1_test1 background line detected: bin=1221 z=8.99911e+06 strength=1.347136 flag=0x00000012
+H1_test1 background line detected: bin=1328 z=8.8497e+06 strength=1.137516 flag=0x00000012
+H1_test1 background line detected: bin=1337 z=9.04432e+06 strength=1.410564 flag=0x00000013
+H1_test1 background i=1337 364598 1.00538e+06 -138682
+H1_test1 background line detected: bin=1380 z=8.78126e+06 strength=1.041492 flag=0x00000002
+H1_test1 background line detected: bin=1393 z=8.78724e+06 strength=1.049884 flag=0x00000002
+H1_test1 background line detected: bin=1457 z=8.80038e+06 strength=1.068322 flag=0x00000012
+H1_test1 background median=8.03893e+06 qmost=8.75168e+06 qlines=9.00349e+06
+H1_test1 background bins marked "very high": 0
+H1_test1 background median: 8.03893e+06
+H1_test1 background qmost : 8.75168e+06
+H1_test1 background qlines: 9.00349e+06
+H1_test1 background cutoff: 9.46444e+06
+Background lines removal will not be performed
+input complete: 53
+Computing detector speed
+average detector velocity RA (degrees) : 327.414134
+average detector velocity DEC (degrees): -13.142486
+auto band axis: 0.571623 0.752805 0.326392
+band_axis: auto
+actual band axis: 0.571623 0.752805 0.326392
+band axis RA (degrees) : 52.789692
+band axis DEC (degrees): 19.049922
+Output dataset summary data
+dataset H1_test1 allocated size: 74.222042 MB
+dataset H1_test1 adjusted weight: 1
+Marking disk (0 <- -1) around (0, 0) with radius 100
+Compiled disk (0 <- -1) around (0, 0) with radius 100
+Marking disk (0 <- -1) around (0, 0) with radius 100
+reduced npoints=20326 to npoints=457
+Verifying AM response computation for dataset H1_test1
+Averaging mode: one
+Power cache selftest: passed
+0 0.000000 0.000000 0
+1 1.570796 0.000000 0
+2 1.570796 0.261799 0
+3 1.570796 0.523599 0
+4 1.570796 0.785398 0
+5 1.570796 1.047198 0
+6 1.570796 1.308997 0
+7 1.230959 0.130900 0
+8 1.230959 0.392699 0
+9 1.230959 0.654498 0
+10 1.230959 0.916298 0
+11 1.230959 1.178097 0
+12 1.230959 1.439897 0
+13 0.841069 0.000000 0
+14 0.841069 0.261799 0
+15 0.841069 0.523599 0
+16 0.841069 0.785398 0
+17 0.841069 1.047198 0
+18 0.841069 1.308997 0
+Power sum stats sefltest: passed
+outer_loop_start: 55
+Dataset H1_test1: vetoed 192 sfts (out of 4001, 0.047988 ratio) with 160.132 weight out of 4016.68 total weight (0.039867 fraction)
+Dataset H1_test1 has 3809 clean sfts (0.952012 ratio)
+Vetoed 192 sfts (out of 4001, 0.047988 ratio) with 160.132 weight out of 4016.68 total weight (0.039867 fraction)
+Dataset H1_test1 has 3809 clean sfts (0.952012 ratio)
+veto_info: 0 "LHO" 10
+Averaging mode: one
+866 patches to process
+ 0.1  1.3  2.4  3.6  4.7  5.9  7.0  8.2  9.4  10.5  11.7  12.8  14.0  15.1  16.3  17.4  18.6  19.7  20.9  22.1  23.2  24.4  25.5  26.7  27.8  29.0  30.1  31.3  32.4  33.6  34.8  35.9  37.1  38.2  39.4  40.5  41.7  42.8  44.0  45.2  46.3  47.5  48.6  49.8  50.9  52.1  53.2  54.4  55.5  56.7  57.9  59.0  60.2  61.3  62.5  63.6  64.8  65.9  67.1  68.2  69.4  70.6  71.7  72.9  74.0  75.2  76.3  77.5  78.6  79.8  80.9  82.1  83.3  84.4  85.6  86.7  87.9  89.0  90.2  91.3  92.5  93.6  94.8  96.0  97.1  98.3  99.4 
+Patch speed: 288.666667
+SIMPLE_CACHE stats: max_size=12 hits=398305 misses=40005 overwrites=0 large_shifts=0 miss ratio 0.091271 overwrite ratio 0.000000
+435 points written into the data log
+Writing skymaps
+	0_0_LHO_upper_limit
+	0_0_LHO_upper_limit_frequency
+	0_0_LHO_circular_upper_limit
+	0_0_LHO_circular_upper_limit_frequency
+	0_0_LHO_snr
+	0_0_LHO_snr_upper_limit
+	0_0_LHO_snr_frequency
+	0_0_LHO_max_weight
+	0_0_LHO_min_weight
+	0_0_LHO_weight_loss_fraction
+	0_0_LHO_ks_value
+	0_1_LHO_upper_limit
+	0_1_LHO_upper_limit_frequency
+	0_1_LHO_circular_upper_limit
+	0_1_LHO_circular_upper_limit_frequency
+	0_1_LHO_snr
+	0_1_LHO_snr_upper_limit
+	0_1_LHO_snr_frequency
+	0_1_LHO_max_weight
+	0_1_LHO_min_weight
+	0_1_LHO_weight_loss_fraction
+	0_1_LHO_ks_value
+	0_2_LHO_upper_limit
+	0_2_LHO_upper_limit_frequency
+	0_2_LHO_circular_upper_limit
+	0_2_LHO_circular_upper_limit_frequency
+	0_2_LHO_snr
+	0_2_LHO_snr_upper_limit
+	0_2_LHO_snr_frequency
+	0_2_LHO_max_weight
+	0_2_LHO_min_weight
+	0_2_LHO_weight_loss_fraction
+	0_2_LHO_ks_value
+	0_3_LHO_upper_limit
+	0_3_LHO_upper_limit_frequency
+	0_3_LHO_circular_upper_limit
+	0_3_LHO_circular_upper_limit_frequency
+	0_3_LHO_snr
+	0_3_LHO_snr_upper_limit
+	0_3_LHO_snr_frequency
+	0_3_LHO_max_weight
+	0_3_LHO_min_weight
+	0_3_LHO_weight_loss_fraction
+	0_3_LHO_ks_value
+	0_4_LHO_upper_limit
+	0_4_LHO_upper_limit_frequency
+	0_4_LHO_circular_upper_limit
+	0_4_LHO_circular_upper_limit_frequency
+	0_4_LHO_snr
+	0_4_LHO_snr_upper_limit
+	0_4_LHO_snr_frequency
+	0_4_LHO_max_weight
+	0_4_LHO_min_weight
+	0_4_LHO_weight_loss_fraction
+	0_4_LHO_ks_value
+	1_1_LHO_upper_limit
+	1_1_LHO_upper_limit_frequency
+	1_1_LHO_circular_upper_limit
+	1_1_LHO_circular_upper_limit_frequency
+	1_1_LHO_snr
+	1_1_LHO_snr_upper_limit
+	1_1_LHO_snr_frequency
+	1_1_LHO_max_weight
+	1_1_LHO_min_weight
+	1_1_LHO_weight_loss_fraction
+	1_1_LHO_ks_value
+	1_2_LHO_upper_limit
+	1_2_LHO_upper_limit_frequency
+	1_2_LHO_circular_upper_limit
+	1_2_LHO_circular_upper_limit_frequency
+	1_2_LHO_snr
+	1_2_LHO_snr_upper_limit
+	1_2_LHO_snr_frequency
+	1_2_LHO_max_weight
+	1_2_LHO_min_weight
+	1_2_LHO_weight_loss_fraction
+	1_2_LHO_ks_value
+	1_3_LHO_upper_limit
+	1_3_LHO_upper_limit_frequency
+	1_3_LHO_circular_upper_limit
+	1_3_LHO_circular_upper_limit_frequency
+	1_3_LHO_snr
+	1_3_LHO_snr_upper_limit
+	1_3_LHO_snr_frequency
+	1_3_LHO_max_weight
+	1_3_LHO_min_weight
+	1_3_LHO_weight_loss_fraction
+	1_3_LHO_ks_value
+	1_4_LHO_upper_limit
+	1_4_LHO_upper_limit_frequency
+	1_4_LHO_circular_upper_limit
+	1_4_LHO_circular_upper_limit_frequency
+	1_4_LHO_snr
+	1_4_LHO_snr_upper_limit
+	1_4_LHO_snr_frequency
+	1_4_LHO_max_weight
+	1_4_LHO_min_weight
+	1_4_LHO_weight_loss_fraction
+	1_4_LHO_ks_value
+	2_2_LHO_upper_limit
+	2_2_LHO_upper_limit_frequency
+	2_2_LHO_circular_upper_limit
+	2_2_LHO_circular_upper_limit_frequency
+	2_2_LHO_snr
+	2_2_LHO_snr_upper_limit
+	2_2_LHO_snr_frequency
+	2_2_LHO_max_weight
+	2_2_LHO_min_weight
+	2_2_LHO_weight_loss_fraction
+	2_2_LHO_ks_value
+	2_3_LHO_upper_limit
+	2_3_LHO_upper_limit_frequency
+	2_3_LHO_circular_upper_limit
+	2_3_LHO_circular_upper_limit_frequency
+	2_3_LHO_snr
+	2_3_LHO_snr_upper_limit
+	2_3_LHO_snr_frequency
+	2_3_LHO_max_weight
+	2_3_LHO_min_weight
+	2_3_LHO_weight_loss_fraction
+	2_3_LHO_ks_value
+	2_4_LHO_upper_limit
+	2_4_LHO_upper_limit_frequency
+	2_4_LHO_circular_upper_limit
+	2_4_LHO_circular_upper_limit_frequency
+	2_4_LHO_snr
+	2_4_LHO_snr_upper_limit
+	2_4_LHO_snr_frequency
+	2_4_LHO_max_weight
+	2_4_LHO_min_weight
+	2_4_LHO_weight_loss_fraction
+	2_4_LHO_ks_value
+	3_3_LHO_upper_limit
+	3_3_LHO_upper_limit_frequency
+	3_3_LHO_circular_upper_limit
+	3_3_LHO_circular_upper_limit_frequency
+	3_3_LHO_snr
+	3_3_LHO_snr_upper_limit
+	3_3_LHO_snr_frequency
+	3_3_LHO_max_weight
+	3_3_LHO_min_weight
+	3_3_LHO_weight_loss_fraction
+	3_3_LHO_ks_value
+	3_4_LHO_upper_limit
+	3_4_LHO_upper_limit_frequency
+	3_4_LHO_circular_upper_limit
+	3_4_LHO_circular_upper_limit_frequency
+	3_4_LHO_snr
+	3_4_LHO_snr_upper_limit
+	3_4_LHO_snr_frequency
+	3_4_LHO_max_weight
+	3_4_LHO_min_weight
+	3_4_LHO_weight_loss_fraction
+	3_4_LHO_ks_value
+	4_4_LHO_upper_limit
+	4_4_LHO_upper_limit_frequency
+	4_4_LHO_circular_upper_limit
+	4_4_LHO_circular_upper_limit_frequency
+	4_4_LHO_snr
+	4_4_LHO_snr_upper_limit
+	4_4_LHO_snr_frequency
+	4_4_LHO_max_weight
+	4_4_LHO_min_weight
+	4_4_LHO_weight_loss_fraction
+	4_4_LHO_ks_value
+exit memory: 152.027 MB
+seconds elapsed: 77

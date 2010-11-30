@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
 __prog__ = "plot_inspiral_skymap"
-__version__ = "$Revision$"
-
 
 import matplotlib
 matplotlib.use('Agg')
@@ -11,6 +9,7 @@ import math
 from pylal import rate
 import numpy
 from optparse import *
+from pylal import git_version
 from pylal import webUtils
 from pylal import InspiralUtils
 import sys
@@ -118,9 +117,7 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
 
 usage = """ %prog [options]
 """
-parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 parser.add_option("-f","--map-data-file",action="store",type="string",\
     metavar=" FILE",help="use map file FILE")
 parser.add_option("-r","--ra-res",action="store",type="int",\
@@ -183,7 +180,7 @@ if not opts.output_path or not opts.dec_res or not opts.ra_res or not opts.map_d
   print >> sys.stderr, "invalid command line try --help for usage"
   sys.exit(0)
 
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 fnameList = []
 tagList = []
 

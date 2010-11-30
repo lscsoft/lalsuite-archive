@@ -256,9 +256,12 @@ int XLALFileIsCompressed( const char *path )
 	static const char *func = "XLALFileIsCompressed";
 	FILE *fp;
 	unsigned char magic[2] = { 0, 0 };
+	size_t c;
 	if ( ! ( fp = LALFopen( path, "rb" ) ) )
 		XLAL_ERROR( func, XLAL_EIO );
-	fread( magic, sizeof(*magic), sizeof(magic)/sizeof(*magic), fp );
+	c = fread( magic, sizeof(*magic), sizeof(magic)/sizeof(*magic), fp );
+  if (c == 0)
+    XLAL_ERROR( func, XLAL_EIO );
 	fclose( fp );
 	return magic[0] == 0x1f && magic[1] == 0x8b;
 }

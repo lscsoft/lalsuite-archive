@@ -247,7 +247,7 @@ if __name__ == '__main__':
     connection      = ligolw_sqlite.setup(target)
     cursor          = connection.cursor()
 
-    ligolw_sqlite.insert(connection, xml_files)
+    ligolw_sqlite.insert_from_urls(connection, xml_files)
 
     table_name = 'sngl_' + options.type
 

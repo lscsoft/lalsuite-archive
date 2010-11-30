@@ -3,7 +3,7 @@
 /** \page References
 
 \anchor Anderson_W2000 <b>[Anderson_W2000]</b>.
-W.G. Anderson, P.R. Brady, J.D.E. Creighton and É.É. Flanagan,
+W.G. Anderson, P.R. Brady, J.D.E. Creighton and E.E. Flanagan,
 <i>An excess power statistic for detection of burst sources of gravitational radiation</i>,
 (2000), <tt>gr-qc/0008066</tt>
 
@@ -66,5 +66,22 @@ Peter R. Williams, Bernard F. Schutz.  <tt>gr-qc/9912029</tt>.
 \anchor Prix07 <b>[Prix2007]</b>.
 Reinhard Prix, <i>Search for continuous gravitational waves: metric of the multi-detector F-statistic</i>,
 <a href="http://adsabs.harvard.edu/abs/2007PhRvD..75b3004P">Phys. Rev. <b>D75</b>, 023004 (2007)</a>.
+
+\anchor esaa1992 <b>[esaa1992]</b>
+<i>Explanatory Supplement to the Astronomical Almanac</i>,
+ P.K. Seidelmann, <i>ed.</i> (University Science Books, Mill Valley (1992)
+
+\anchor green1985 <b>[green1985]</b>
+R.M. Green, <i>Spherical Astronomy</i> (Cambridge University Press, Cambridge) (1985)
+
+\anchor vfp1979 <b>[vfp1979]</b>
+T.C. Van Flandern, and K.~F. Pulkkinen, <i>Astrophysical Journal
+  Supplement Series</i>, <b>41</b>, 391-411, 1979 Nov
+
+\anchor fvf1968 <b>[fvf1968]</b>
+Fliegen, and Van Flandern, <i>Communications of the ACM</i>, <b>11</b>, 657, (1968)
+
+\anchor dis2001 <b>[dis2001]</b>
+T. Damour, B.R.  Iyer and B.S. Sathyaprakash, Phys. Rev. <b>D63</b>, 044023 (2001)
 
 */

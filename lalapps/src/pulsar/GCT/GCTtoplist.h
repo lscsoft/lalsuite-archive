@@ -23,6 +23,14 @@
 #include "HeapToplist.h"
 #include <lal/LALDatatypes.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern char**global_argv;
+extern int global_argc;
+#ifdef __cplusplus
+}
+#endif
 
 /** Type to hold the fields that will be kept in a "toplist"  */
 typedef struct {
@@ -61,6 +69,10 @@ extern int write_gctFStat_toplist_to_fp(toplist_t*list, FILE*fp, UINT4*checksum)
    used before finally writing it */
 extern void sort_gctFStat_toplist(toplist_t*list);
 
+
+/** sorts the toplist with an internal sorting function,
+ used before doing the follow-up analysis */
+extern void sort_gctFStat_toplist_strongest(toplist_t*list);
 
 
 

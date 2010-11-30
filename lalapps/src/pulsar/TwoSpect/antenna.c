@@ -18,13 +18,14 @@
 */
 
 #include <math.h>
-#include <lal/Date.h>
 #include "antenna.h"
 
 
 EphemerisData * new_Ephemeris(CHAR *earth_ephemeris, CHAR *sun_ephemeris)
 {
    
+   LALStatus status;
+   status.statusPtr = NULL;
    EphemerisData *ephemdata = (EphemerisData*)XLALMalloc(sizeof(EphemerisData));
    ephemdata->ephiles.earthEphemeris = earth_ephemeris;
    ephemdata->ephiles.sunEphemeris = sun_ephemeris;
@@ -35,14 +36,18 @@ EphemerisData * new_Ephemeris(CHAR *earth_ephemeris, CHAR *sun_ephemeris)
 }
 
 
+
 void free_Ephemeris(EphemerisData *ephemdata)
 {
    
    XLALFree((CHAR*)ephemdata->ephiles.earthEphemeris);
    XLALFree((CHAR*)ephemdata->ephiles.sunEphemeris);
+   XLALFree((PosVelAcc*)ephemdata->ephemE);
+   XLALFree((PosVelAcc*)ephemdata->ephemS);
    XLALFree((EphemerisData*)ephemdata);
    
 }
+
 
 
 void initEphemeris(EphemerisData *ephemdata)
@@ -56,72 +61,65 @@ void initEphemeris(EphemerisData *ephemdata)
 }
 
 
-INT4Vector * CompBinShifts(REAL8 freq, REAL4Vector *velocities, REAL8 Tcoh, REAL4 dopplerMultiplier)
+
+void CompBinShifts(INT4Vector *output, REAL8 freq, REAL4Vector *velocities, REAL8 Tcoh, REAL4 dopplerMultiplier)
 {
    
-   INT4Vector *binshifts = XLALCreateINT4Vector(velocities->length);
    INT4 ii;
    
-   for (ii=0; ii<(INT4)binshifts->length; ii++) binshifts->data[ii] = (INT4)roundf(dopplerMultiplier*freq*velocities->data[ii]*Tcoh);
-   
-   return binshifts;
+   for (ii=0; ii<(INT4)velocities->length; ii++) output->data[ii] = (INT4)round(dopplerMultiplier*freq*velocities->data[ii]*Tcoh);
    
 }
 
 
-REAL8Vector * CompAntennaPatternWeights(REAL4 ra, REAL4 dec, REAL8 t0, REAL8 Tcoh, REAL8 Tobs, LALDetector det)
+
+void CompAntennaPatternWeights(REAL4Vector *output, REAL4 ra, REAL4 dec, REAL8 t0, REAL8 Tcoh, REAL8 SFToverlap, REAL8 Tobs, LALDetector det)
 {
    
    INT4 ii;
-   INT4 numffts = (INT4)floor(2*(Tobs/Tcoh)-1);    //Number of FFTs
+   INT4 numffts = (INT4)floor(Tobs/(Tcoh-SFToverlap)-1);    //Number of FFTs
    REAL8 fplus, fcross;
-   REAL8Vector *antptrnweights = XLALCreateREAL8Vector((UINT4)numffts);
    
    for (ii=0; ii<numffts; ii++) {
       LIGOTimeGPS gpstime = {0,0};
-      gpstime.gpsSeconds = (INT4)floor(t0+(ii+1)*Tcoh*0.5);
-      gpstime.gpsNanoSeconds = (INT4)floor((t0+(ii+1)*Tcoh*0.5 - floor(t0+(ii+1)*Tcoh*0.5))*1e9);
+      gpstime.gpsSeconds = (INT4)floor(t0 + ii*(Tcoh-SFToverlap) + 0.5*Tcoh);
+      gpstime.gpsNanoSeconds = (INT4)floor((t0+ii*(Tcoh-SFToverlap)+0.5*Tcoh - floor(t0+ii*(Tcoh-SFToverlap)+0.5*Tcoh))*1e9);
       REAL8 gmst = XLALGreenwichMeanSiderealTime(&gpstime);
       XLALComputeDetAMResponse(&fplus, &fcross, det.response, ra, dec, 0.0, gmst);
-      antptrnweights->data[ii] = fplus*fplus + fcross*fcross;
+      output->data[ii] = (REAL4)(fplus*fplus + fcross*fcross);
    }
-   
-   return antptrnweights;
 
 }
 
 
 
-REAL4Vector * CompAntennaVelocity(REAL4 ra, REAL4 dec, REAL8 t0, REAL8 Tcoh, REAL8 Tobs, LALDetector det, EphemerisData *edat)
+void CompAntennaVelocity(REAL4Vector *output, REAL4 ra, REAL4 dec, REAL8 t0, REAL8 Tcoh, REAL8 SFToverlap, REAL8 Tobs, LALDetector det, EphemerisData *edat)
 {
    
    INT4 ii;
-   INT4 numffts = (INT4)floor(2*(Tobs/Tcoh)-1);    //Number of FFTs
+   INT4 numffts = (INT4)floor(Tobs/(Tcoh-SFToverlap)-1);    //Number of FFTs
    LALStatus status;
    status.statusPtr = NULL;
    
-   REAL4Vector *velocities = XLALCreateREAL4Vector((UINT4)numffts);
-   
    REAL8 detvel[3];
-   for (ii=0; ii<(INT4)velocities->length; ii++) {
+   for (ii=0; ii<numffts; ii++) {
       LIGOTimeGPS gpstime = {0,0};
-      gpstime.gpsSeconds = (INT4)floor(t0+(ii+1)*Tcoh*0.5);
-      gpstime.gpsNanoSeconds = (INT4)floor((t0+(ii+1)*Tcoh*0.5 - floor(t0+(ii+1)*Tcoh*0.5))*1e9);
+      gpstime.gpsSeconds = (INT4)floor(t0 + ii*(Tcoh-SFToverlap) + 0.5*Tcoh);
+      gpstime.gpsNanoSeconds = (INT4)floor((t0+ii*(Tcoh-SFToverlap)+0.5*Tcoh - floor(t0+ii*(Tcoh-SFToverlap)+0.5*Tcoh))*1e9);
    
       LALDetectorVel(&status, detvel, &gpstime, det, edat);
-      velocities->data[ii] = (REAL4)(detvel[0]*cosf(ra)*cosf(dec) + detvel[1]*sinf(ra)*cosf(dec) + detvel[2]*sinf(dec));
+      output->data[ii] = (REAL4)(detvel[0]*cos(ra)*cos(dec) + detvel[1]*sin(ra)*cos(dec) + detvel[2]*sin(dec));
    }
-   
-   return velocities;
    
 }
 
 
-REAL4 CompDetectorDeltaVmax(REAL8 t0, REAL8 Tcoh, REAL8 Tobs, LALDetector det, EphemerisData *edat)
+
+REAL4 CompDetectorDeltaVmax(REAL8 t0, REAL8 Tcoh, REAL8 SFToverlap, REAL8 Tobs, LALDetector det, EphemerisData *edat)
 {
    
    INT4 ii;
-   INT4 numffts = (INT4)floor(2*(Tobs/Tcoh)-1);    //Number of FFTs
+   INT4 numffts = (INT4)floor(Tobs/(Tcoh-SFToverlap)-1);    //Number of FFTs
    LALStatus status;
    status.statusPtr = NULL;
    
@@ -131,8 +129,8 @@ REAL4 CompDetectorDeltaVmax(REAL8 t0, REAL8 Tcoh, REAL8 Tobs, LALDetector det, E
    REAL4 deltaVmax = 0.0;
    for (ii=0; ii<numffts; ii++) {
       LIGOTimeGPS gpstime = {0,0};
-      gpstime.gpsSeconds = (INT4)floor(t0+(ii+1)*Tcoh*0.5);
-      gpstime.gpsNanoSeconds = (INT4)floor((t0+(ii+1)*Tcoh*0.5 - floor(t0+(ii+1)*Tcoh*0.5))*1e9);
+      gpstime.gpsSeconds = (INT4)floor(t0 + ii*(Tcoh-SFToverlap) + 0.5*Tcoh);
+      gpstime.gpsNanoSeconds = (INT4)floor((t0+ii*(Tcoh-SFToverlap)+0.5*Tcoh - floor(t0+ii*(Tcoh-SFToverlap)+0.5*Tcoh))*1e9);
    
       if (ii==0) LALDetectorVel(&status, detvel0, &gpstime, det, edat);
       else {

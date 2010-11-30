@@ -2,7 +2,7 @@
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
-import os, sys, re
+import os, sys, re, copy
 import ConfigParser
 from optparse import OptionParser
 import tempfile
@@ -232,16 +232,35 @@ minifup_ts_job = inspiral.MiniFollowupsJob(cp)
 minifup_ts_job.set_time_slides()
 minifup_cm_job = inspiral.MiniFollowupsJob(cp)
 
+# the number of and options given to plotfm job is optional and is set by the ini file
+# to handle this, we do a similar thing as is done in ihope with inspinj: the 'plot_found/missed'
+# section in the ini file gives the names of sections to read for plotfm jobs; these sections are cycled over
+# and temporarily re-named to 'plotfm' then passed to the PlotFMJob class to create the job
+plotfm_jobs = []
+if cp.has_section('plotfm'):
+  for plotfm_tag in cp.options('plotfm'):
+    # create a copy of the config parser, blank out the plotfm section, and replace
+    # with a new plotfm section with the options taken from plotfm_tag section
+    fmcp = copy.deepcopy(cp)
+    fmcp.remove_section('plotfm')
+    fmcp.add_section('plotfm')
+    for fmopt, fmval in cp.items(plotfm_tag):
+      fmcp.set('plotfm', fmopt, fmval)
+    plotfm_jobs.append( (plotfm_tag, inspiral.PlotFMJob(fmcp)) )
+
 # all other jobs: all the nodes share the same static options for these
 dbsimplify_job = inspiral.DBSimplifyJob(cp)
 dbaddinj_job = inspiral.DBAddInjJob(cp)
 inspinjfind_job = inspiral.InspInjFindJob(cp)
 comp_durs_job = inspiral.ComputeDurationsJob(cp)
+repop_coinc_job = inspiral.RepopCoincJob(cp)
 cluster_job = inspiral.ClusterCoincsJob(cp)
 ucfar_job = inspiral.CFarJob(cp, ['cfar-uncombined'])
 ccfar_job = inspiral.CFarJob(cp, ['cfar-combined'])
 printlc_job = inspiral.LigolwCBCPrintJob(cp, 'printlc', ['cbc_print', 'printlc'])
 plotifar_job = inspiral.PlotIfarJob(cp)
+search_volume_job = inspiral.SearchVolumeJob(cp)
+search_upper_limit_job = inspiral.SearchUpperLimitJob(cp)
 
 # MVSC jobs
 mvsc_get_doubles_job = inspiral.MvscGetDoublesJob(cp)
@@ -260,6 +279,7 @@ dbsimplify_job.set_sub_file( '.'.join([ basename, 'dbsimplify', 'sub' ]) )
 dbaddinj_job.set_sub_file( '.'.join([ basename, 'dbaddinj', 'sub' ]) )
 inspinjfind_job.set_sub_file( '.'.join([ basename, 'inspinjfind', 'sub' ]) )
 comp_durs_job.set_sub_file( '.'.join([ basename, 'compute_durations', 'sub' ]) )
+repop_coinc_job.set_sub_file( '.'.join([ basename, 'repop_coinc', 'sub' ]) )
 cluster_job.set_sub_file( '.'.join([ basename, 'cluster_coincs', 'sub' ]) )
 mvsc_get_doubles_job.set_sub_file( '.'.join([ basename, 'mvsc_get_doubles', 'sub' ]) )
 mvsc_train_forest_job.set_sub_file( '.'.join([ basename, 'mvsc_train_forest', 'sub' ]) )
@@ -278,6 +298,10 @@ minifup_cm_job.set_sub_file( '.'.join([ basename, 'closest_missed', 'minifollowu
 plotifar_job.set_sub_file( '.'.join([ basename, 'plotifar', 'sub' ]) )
 plotslides_play_job.set_sub_file( '.'.join([ basename, 'playground_only', 'plotslides', 'sub' ]) )
 plotcumhist_play_job.set_sub_file( '.'.join([ basename, 'playground_only', 'plotcumhist', 'sub' ]) )
+search_volume_job.set_sub_file( '.'.join([ basename, 'search_volume', 'sub' ]) )
+search_upper_limit_job.set_sub_file( '.'.join([ basename, 'search_upper_limit', 'sub' ]) )
+for fmtag, fmjob in plotfm_jobs:
+  fmjob.set_sub_file( '.'.join([ basename, fmtag, 'plotfm', 'sub' ]) )
 if options.generate_all_data_plots:
   plotslides_job.set_sub_file( '.'.join([ basename, 'plotslides', 'sub' ]) )
   plotcumhist_job.set_sub_file( '.'.join([ basename, 'plotcumhist', 'sub' ]) )
@@ -324,7 +348,7 @@ for tag in user_tags:
 
 
   ############################################################################
-  # Step 1: Setup thinca_to_coinc nodes
+  # Setup thinca_to_coinc nodes
 
   print "\tsetting up thinca_to_coinc nodes..."
 
@@ -427,8 +451,7 @@ for tag in user_tags:
   fp.close()
 
   ############################################################################
-  # Step 2: Setup a LigolwSqliteNode for putting thinca_to_coincs 
-  # into a sql db
+  # Setup a LigolwSqliteNode for putting thinca_to_coincs into a sql db
 
   print "\tsetting up node to put thinca_to_coinc files into a SQLite database..."
   
@@ -456,7 +479,7 @@ for tag in user_tags:
   dag.add_node( t2c2sql_node )
   
   ############################################################################
-  # Step 3: Setup a DBSimplifyNode to clean up the output of the t2c2sql_node 
+  # Setup a DBSimplifyNode to clean up the output of the t2c2sql_node 
   
   print "\tsetting up dbsimplify node to clean the database..."
   
@@ -470,9 +493,26 @@ for tag in user_tags:
   dbsimplify_node.add_parent( t2c2sql_node )
   
   dag.add_node( dbsimplify_node )
- 
+
   ############################################################################
-  # Step 4: Setup a ClusterCoincsNode to cluster the output of dbsimplify_node
+  # Make the detection statistic nicer and Kipp and Duncan happier
+ 
+  print "\tsetting up repop_coinc node to recalculate detection statistic..."
+
+  # set node options
+  repop_coinc_node = inspiral.RepopCoincNode( repop_coinc_job )
+  repop_coinc_node.set_category('repop_coinc')
+  repop_coinc_node.set_tmp_space( tmp_space )
+  repop_coinc_node.set_input( raw_result_db )
+  repop_coinc_node.set_output( raw_result_db )
+
+  # set parent node
+  repop_coinc_node.add_parent( dbsimplify_node )
+
+  dag.add_node( repop_coinc_node )
+
+  #############################################################################
+  # Setup a ClusterCoincsNode to cluster the output of dbsimplify_node
   
   print "\tsetting up cluster node to cluster coincs in the database..."
   
@@ -490,7 +530,7 @@ for tag in user_tags:
   cluster_node.set_output(result_db)
   
   # set parent node
-  cluster_node.add_parent( dbsimplify_node )
+  cluster_node.add_parent( repop_coinc_node )
   
   dag.add_node( cluster_node )
 
@@ -498,7 +538,7 @@ for tag in user_tags:
   cluster_nodes[tag] = cluster_node
   
   ############################################################################
-  # Step 5: Do additional jobs for injection tags
+  # Do additional jobs for injection tags
 
   if simulation:
     # add dbaddinj node
@@ -643,7 +683,7 @@ for result_db in result_dbs_cache:
   dag.add_node( veto2sql_node )
   
   ############################################################################
-  # Step 3b: Compute durations in the database
+  # Compute durations in the database
 
   print "\tsetting up compute_durations node..."
 
@@ -659,7 +699,7 @@ for result_db in result_dbs_cache:
   dag.add_node(comp_durs_node)
   
   ############################################################################
-  # Step 4: MVSC Calculation
+  # MVSC Calculation
 
   if 'FULL_DATA' in tag and veto_cat in sim_caches:
     print "\tsetting up MVSC nodes..."
@@ -730,7 +770,7 @@ for result_db in result_dbs_cache:
     dag.add_node( mvsc_update_sql_node )
 
   ############################################################################
-  # Step 5a: Setup a CfarNode to compute the uncombined false alarm rates
+  # Compute the uncombined false alarm rates
   
   print "\tsetting up cfar nodes:"
   print "\t\tfor uncombined false alarm rates..."
@@ -750,7 +790,7 @@ for result_db in result_dbs_cache:
   dag.add_node( ucfar_node )
   
   ############################################################################
-  # Step 5b: Setup a CfarNode to compute the combined false alarm rates
+  # Compute the combined false alarm rates
   
   print "\t\tfor combined false alarm rates..."
   
@@ -765,6 +805,32 @@ for result_db in result_dbs_cache:
   ccfar_node.add_parent( ucfar_node )
   
   dag.add_node( ccfar_node )
+
+  ############################################################################
+  # UPPERLIMIT CALCULATIONS
+  ############################################################################
+
+  # Compute the upper limits as a function of mass for these types of mass binnings
+  if 'FULL_DATA' in tag: #for full data, use FAR of loudest event
+    for bintype in ["MASS1_MASS2","CHIRP_MASS","TOTAL_MASS"]:
+      output_cache_name = ''.join(sorted(instruments)) + "-SEARCH_VOLUME_BY_"+bintype+"_" + tag + ".cache"
+      search_volume_node = inspiral.SearchVolumeNode( search_volume_job, result_db.path(), output_tag = tag, output_cache = output_cache_name, veto_segments_name = "VETO_CAT"+str(get_veto_cat_from_tag(tag))+"_CUMULATIVE", bintype = bintype )
+      search_volume_node.add_parent( ccfar_node )
+      search_upper_limit_node = inspiral.SearchUpperLimitNode( search_upper_limit_job, output_cache_name )
+      search_upper_limit_node.set_open_box()
+      search_upper_limit_node.add_parent( search_volume_node )
+      dag.add_node( search_volume_node )
+      dag.add_node( search_upper_limit_node )
+
+      # upper limits for playground (using FAR of expected loudest event)
+      output_cache_name = output_cache_name.replace("FULL_DATA","PLAYGROUND")
+      search_volume_node = inspiral.SearchVolumeNode( search_volume_job, result_db.path(), output_tag = tag.replace("FULL_DATA","PLAYGROUND"), output_cache = output_cache_name, use_expected_loudest_event = True, veto_segments_name = "VETO_CAT"+str(get_veto_cat_from_tag(tag))+"_CUMULATIVE", bintype = bintype )
+      search_volume_node.add_parent( ccfar_node )
+      search_upper_limit_node = inspiral.SearchUpperLimitNode( search_upper_limit_job, output_cache_name )
+      search_upper_limit_node.add_parent( search_volume_node )
+      dag.add_node( search_volume_node )
+      dag.add_node( search_upper_limit_node )
+
 
   ############################################################################
   # Summary: Setup PrintLC and MiniFollowup Nodes to generate a summary of 
@@ -798,6 +864,7 @@ for result_db in result_dbs_cache:
       printlc_node.set_input( result_db.path() )
       printlc_node.set_output( summary_filename )
       printlc_node.set_extract_to_xml( '.'.join([ full_filename, 'xml' ]) )
+      printlc_node.set_extract_to_database( '.'.join([ full_filename, 'sqlite' ]) )
       printlc_node.set_include_only_coincs( '[ALLin' + on_instruments + ']' )
       printlc_node.set_datatype( datatype )
 
@@ -857,13 +924,12 @@ for result_db in result_dbs_cache:
           if sim_tag == 'ALLINJ':
             summ_file_type = 'html'
             columns = ','.join([
-              'rank',
+              'injected_decisive_distance',
               'injected_end_time',
               'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
               'elogs',
               'injected_mass1',
               'injected_mass2',
-              'injected_distance',
               'sim_tag',
               'recovered_combined_far',
               'recovered_snr'])
@@ -988,6 +1054,19 @@ for result_db in result_dbs_cache:
           minifup_node.add_parent( printmissed_node )
           dag.add_node( minifup_node )
 
+        # create the plotfm node for each plotfm job
+        for plotfm_tag, plotfm_job in plotfm_jobs:
+          plotfm_node = inspiral.PlotFMNode( plotfm_job )
+          plotfm_node.set_category('plotfm')
+          plotfm_node.set_tmp_space( tmp_space )
+          plotfm_node.add_file_arg( result_db.path() )
+          plotfm_node.set_sim_tag( sim_tag )
+          plotfm_node.set_user_tag( '_'.join([ plotfm_tag, sim_tag, veto_cat ]) )
+            
+          plotfm_node.add_parent( ccfar_node )
+          dag.add_node( plotfm_node )
+
+
 
   ############################################################################
   # Plotting: Generate all result plots
@@ -1042,7 +1121,7 @@ for result_db in result_dbs_cache:
     plotifar_node.add_parent( ccfar_node )
 
     dag.add_node( plotifar_node )
-  
+ 
   
 ##############################################################################
 ##############################################################################

@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "fup_triggers"
-__Id__ = "$Id$"
 __title__ = "triggers versus time"
 
 import sys, os
@@ -13,6 +10,7 @@ from glue import lal
 
 import matplotlib
 matplotlib.use("Agg")
+from pylal import git_version
 from pylal import followup_trigger
 
 ##############################################################################
@@ -23,10 +21,7 @@ from pylal import followup_trigger
 usage = """ %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("","--verbose",action="store_true",\
     default=False,help="print information" )
@@ -85,13 +80,6 @@ parser.add_option("", "--old-document",action="store_true",\
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-
-#################################
-# if --version flagged
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
 
 #################################
 

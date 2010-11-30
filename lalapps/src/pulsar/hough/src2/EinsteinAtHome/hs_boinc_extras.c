@@ -34,6 +34,7 @@
 #ifdef HAVE_BOINC_ZIP
 #include "boinc/boinc_zip.h"
 #endif
+#include "boinc/svn_version.h"
 
 /* our own win_lib includes patches for chdir() and sleep() */
 #ifdef _WIN32
@@ -91,7 +92,7 @@ char* HSBOINCEXTRASCRCSID = "$Id$";
 
 typedef enum gdbcmd { gdb_dump_core, gdb_attach } gdb_cmd;
 
-/** compare strings s1 and s2 up to the length of s1 (w/o the '\0'!!)
+/** compare strings s1 and s2 up to the length of s1 (without the trailing 0!!)
     and set l to the length */
 #define MATCH_START(s1,s2,l) (0 == strncmp(s1,s2,(l=strlen(s1))-1))
 
@@ -149,8 +150,8 @@ static double estimated_flops = -1.0;
 
 
 /** worker() doesn't take arguments, so we have to pass it argv/c as global vars :-( */
-static int global_argc;
-static char **global_argv;
+int global_argc;
+char **global_argv;
 
 
 /** variables for checkpointing */
@@ -618,6 +619,7 @@ static void worker (void) {
   int output_help = 0;         /**< flag: should we write out an additional help string?
 				    describing additional command-line arguments handled
 			            only by this BOINC-wrapper? */
+  int output_version = 0;      /**< flag: version requested? This skips a check for an output file option */
   FILE*fp;                     /**< file pointer to check only if a file can be opened */
   int breakpoint = 0;          /**< stop at breakpoint? (for testing the Windows Runtime Debugger) */
   int crash_fpu = 0;
@@ -751,7 +753,8 @@ static void worker (void) {
 	  boinc_finish(HIERARCHICALSEARCH_EMEM);
 	}
 
-	/* skip the ';' in the original string */
+	/* put back the ';' in the original string and skip it for next iteration */
+	*endc = ';';
 	startc = endc+1;
       }
 
@@ -880,6 +883,11 @@ static void worker (void) {
       rargv[rarg] = argv[arg];
     }
 
+    else if (0 == strncmp("--version",argv[arg],strlen("--version"))) {
+      output_version = 1;
+      rargv[rarg] = argv[arg];
+    }
+
     /* any other argument - simply pass unchanged */
     else 
       rargv[rarg] = argv[arg];
@@ -889,7 +897,7 @@ static void worker (void) {
   } /* for all command line arguments */
 
   /* sanity check */
-  if (!resultfile[0]) {
+  if (!resultfile[0] && !output_help && !output_version) {
       LogPrintf (LOG_CRITICAL, "ERROR: no result file has been specified\n");
       res = HIERARCHICALSEARCH_EFILE;
   }
@@ -1009,7 +1017,7 @@ static void worker (void) {
     LogPrintf (LOG_DEBUG, "Set up communication with graphics process.\n");
 #endif
 
-  if (output_help || !resultfile_present) {
+  if (output_help || output_version || !resultfile_present) {
     /* CALL WORKER's MAIN()
      */
     res = MAIN(rargc,rargv);
@@ -1040,6 +1048,10 @@ static void worker (void) {
       printf("      --TestSQRT         -       try to calculate sqrt(-1) to test FPE\n");
       boinc_finish(0);
     }
+
+    /* if the program was called to output the version, output the BOINC revision, too */
+    if(output_version)
+      printf("%% BOINC: " SVN_VERSION "\n");
   }
 
 

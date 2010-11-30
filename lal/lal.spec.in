@@ -37,7 +37,7 @@ as well as the documentation for the library.
 source /opt/lscsoft/lscsoft-user-env.sh
 nightly_version=@NIGHTLY_VERSION@
 %configure --enable-nightly=${nightly_version:-no} --disable-gcc-flags --disable-debug
-%{__make}
+%{__make} V=1
 
 %install
 %makeinstall
@@ -60,12 +60,10 @@ rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 
 %files devel
 %defattr(-,root,root)
-%{_bindir}/lal-config
 %{_libdir}/*a
 %{_libdir}/pkgconfig/*
 %{_includedir}/lal
 %{_datadir}/*
-%{_mandir}/man1/lal-config.1*
 %{_mandir}/man3/lal.3*
 
 

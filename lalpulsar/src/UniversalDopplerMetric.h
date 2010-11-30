@@ -61,9 +61,12 @@ NRCSID( UNIVERSALDOPPLERMETRICH, "$Id$");
 
 
 /*---------- exported types ----------*/
-typedef REAL8 vect2D_t[2];	/**< 2D vector */
-typedef REAL8 vect3D_t[3];	/**< 3D vector */
-typedef REAL8 mat33_t[3][3];	/**< 3x3 matrix, useful for spatial 3D vector operations */
+  /** 2D vector */
+typedef REAL8 vect2D_t[2];
+  /** 3D vector */
+typedef REAL8 vect3D_t[3];
+  /** 3x3 matrix, useful for spatial 3D vector operations */
+typedef REAL8 mat33_t[3][3];
 
 /** variable-length list of 2D-vectors */
 typedef struct {
@@ -368,10 +371,6 @@ XLALDetectorPosVel ( PosVel3D_t *pos_vel3D,
 
 vect3Dlist_t *
 XLALComputeOrbitalDerivatives ( UINT4 maxorder, const LIGOTimeGPS *tGPS, const EphemerisData *edat );
-
-int
-XLALAmplitudeParams2Vect ( PulsarAmplitudeVect *Amu, const PulsarAmplitudeParams *Amp );
-
 
 FmetricAtoms_t* XLALCreateFmetricAtoms ( UINT4 dim );
 void XLALDestroyFmetricAtoms ( FmetricAtoms_t *atoms );

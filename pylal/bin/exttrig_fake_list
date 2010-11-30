@@ -2,16 +2,12 @@
 """
 exttrig_likelihood_pope - generates steps to test likelihood or to open the box
 
-$Id$
-
 This script generates a condor DAG(?) for the last step of the 
 inspiral exttrig pipeline, which is either to create likelihood plots
 with a fake onsource trial or to open the box with the real onsource data.
 """
 
 __author__ = 'Alexander Dietz <Alexander.Dietz@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
@@ -29,6 +25,7 @@ from glue.ligolw import utils
 from glue import segmentsUtils
 from glue.segments import segment, segmentlist
 from glue import lal
+from pylal import git_version
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -106,11 +103,8 @@ Lists all the loudest triggers from injection run 'injections11'
 Lists all the loudest triggers from the offsource trials
 """
 
-parser = OptionParser( usage )
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
-    
 parser.add_option("-f", "--config-file",action="store",type="string",\
     metavar=" FILE",help="use configuration file FILE")
 
@@ -138,14 +132,6 @@ if opts.start<0:
    opts.start = 1
    
    
-
-#################################
-# if --version flagged
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
-
-
 #################################
 # Sanity check of input arguments
 ################################

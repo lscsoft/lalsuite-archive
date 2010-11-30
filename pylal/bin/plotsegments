@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # encoding: utf-8
-# $Id$
 #
 # Copyright (C) 2008  Nickolas V Fotopoulos
 #
@@ -19,8 +18,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 __author__ = "Nickolas Fotopoulos (nvf@gravity.phys.uwm.edu)"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
 
 import optparse
 
@@ -38,6 +35,7 @@ glue.segments.segmentlist = glue.__segments.segmentlist
 from glue.segments import segmentlistdict, segment, segmentlist
 from glue.segmentsUtils import fromsegwizard
 
+from pylal import git_version
 
 ##############################################################################
 # Command-line parser
@@ -48,8 +46,7 @@ Plot the segments from the given segwizard-format files.
 """
 
 def parse_command_line():
-  parser = optparse.OptionParser(usage=usage,
-    version="$Id$")
+  parser = optparse.OptionParser(usage=usage, version=git_version.verbose_msg)
   
   # segment lists
   parser.add_option("","--g1-segments", help="segments to plot from G1")

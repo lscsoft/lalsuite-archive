@@ -82,7 +82,7 @@ typedef struct {
  * For the first call of ComputeFStatFreqBand_RS() the pointer-entries should all be NULL.
  */
 struct tag_ComputeFBuffer_RS {
-  const MultiDetectorStateSeries *multiDetStates;             /**< buffer for each detStates (store pointer) and skypos */
+  MultiDetectorStateSeries *multiDetStates;             /**< buffer for each detStates (store pointer) and skypos */
   REAL8 Alpha, Delta;				              /**< skyposition of candidate */
   LIGOTimeGPS segstart;                                       /**< the start time of the first SFT of the first detector (used to check if the segment has changed) */
   MultiSSBtimes *multiSSB;
@@ -94,6 +94,13 @@ struct tag_ComputeFBuffer_RS {
   MultiCOMPLEX8TimeSeries *multiFb_resampled;                 /**< the buffered multi-detector resampled timeseries weighted by b(t) */
 };
 
+/** Struct holding a vector of buffered ComputeFStat()-internal quantities to avoid unnecessarily
+ * recomputing things that depend ONLY on the skyposition and detector-state series (but not on the spins).
+ */
+typedef struct {
+  ComputeFBuffer_RS **data;                                    /**< pointer to a series of ComputeFBuffer_RS structures */ 
+  UINT4 length;                                               /**< the length of the vector */
+} ComputeFBufferVector_RS;
 
 /*---------- exported prototypes [API] ----------*/
 
@@ -170,7 +177,7 @@ int XLALLatestMultiSSBtime ( LIGOTimeGPS *out,                   /**< output lat
 
 int XLALGSLInterpolateREAL8Vector ( REAL8Vector **yi,            /**< output interpolated timeseries */
 				    REAL8Vector *xi,              /**< input interpolation points */
-				    gsl_spline *spline
+				    gsl_spline *spline		/**< [in] pre-computed spline data */
 				    );
     
 int XLALGSLInitInterpolateREAL8Vector( gsl_spline **spline, 

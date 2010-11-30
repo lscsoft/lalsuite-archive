@@ -179,8 +179,11 @@ However, you need to point to a function that initializes the parameter structur
 #include <lal/TimeDelay.h>
 #include <lal/DetResponse.h>
 
-
-#define rint(x) floor((x)+0.5)
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 NRCSID (LALINSPIRALMCMCC, "$Id: LALInspiralPhase.c,v 1.9 2003/04/14 00:27:22 sathya Exp $"); 
 
@@ -669,7 +672,7 @@ XLALMCMCSample(
   REAL4 alpha, my_random, s; 
   REAL4 logPrior, logLikelihood, logPosterior;
   UINT4 move, accept, c;
-  INT4 testPrior;
+  INT4 UNUSED testPrior;
 
   /* set the parameter */
   parameter=*paraPtr;
@@ -814,7 +817,7 @@ INT4 XLALMCMCDifferentialEvolution(
 {
 	static LALStatus status;
 	LALMCMCParameter **Live=inputMCMC->Live;
-	int i=0,j=0,dim=0,same=1;
+	int i=0, j=0, UNUSED dim=0, same=1;
 	REAL4 randnum;
 	int Nlive = (int)inputMCMC->Nlive;
 	LALMCMCParam *paraHead=NULL;
@@ -931,20 +934,8 @@ XLALMCMCSetParameter(parameter,"long",XLALMCMCGetParameter(parameter,"long")-del
 	newlong=XLALMCMCGetParameter(parameter,"long");
 	newlat=XLALMCMCGetParameter(parameter,"lat");
 	REAL8 dtold,dtnew,deltat;
-	DetTimeAndASource DTAAS; /* This holds the source and the detector */
-	LALSource source; /* The position and polarisation of the binary */
-	source.equatorialCoords.longitude = longi;
-	source.equatorialCoords.latitude = lat;
-	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
-	LALPlaceAndGPS det_gps; /* This will hold the detector site and epoch of observation */
-	det_gps.p_gps=&(inputMCMC->epoch);
-	DTAAS.p_source = &(source.equatorialCoords);
-	DTAAS.p_det_and_time=&det_gps;
-	DTAAS.p_det_and_time->p_detector = inputMCMC->detector[0]; /* Select detector */
-	LALTimeDelayFromEarthCenter(&status,&dtold,&DTAAS); /* Compute time delay */
-	source.equatorialCoords.longitude=newlong;
-	source.equatorialCoords.latitude=newlat;
-	LALTimeDelayFromEarthCenter(&status,&dtnew,&DTAAS); /* Compute time delay */
+	dtold = XLALTimeDelayFromEarthCenter(inputMCMC->detector[0]->location, longi, lat, &(inputMCMC->epoch)); /* Compute time delay */
+	dtnew = XLALTimeDelayFromEarthCenter(inputMCMC->detector[0]->location, newlong, newlat, &(inputMCMC->epoch)); /* Compute time delay */
 	deltat=dtold-dtnew; /* deltat is change in arrival time at geocentre */
 	deltat+=XLALMCMCGetParameter(parameter,"time");
 	XLALMCMCSetParameter(parameter,"time",deltat);
@@ -1032,20 +1023,8 @@ void XLALMCMCRotateSky(
 	
 	/* Compute change in tgeocentre for this change in sky location */
 	REAL8 dtold,dtnew,deltat;
-	DetTimeAndASource DTAAS; /* This holds the source and the detector */
-	LALSource source; /* The position and polarisation of the binary */
-	source.equatorialCoords.longitude = longi;
-	source.equatorialCoords.latitude = lat;
-	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
-	LALPlaceAndGPS det_gps; /* This will hold the detector site and epoch of observation */
-	det_gps.p_gps=&(inputMCMC->epoch);
-	DTAAS.p_source = &(source.equatorialCoords);
-	DTAAS.p_det_and_time=&det_gps;
-	DTAAS.p_det_and_time->p_detector = inputMCMC->detector[0]; /* Select detector */
-	LALTimeDelayFromEarthCenter(&status,&dtold,&DTAAS); /* Compute time delay */
-	source.equatorialCoords.longitude=newlong;
-	source.equatorialCoords.latitude=newlat;
-	LALTimeDelayFromEarthCenter(&status,&dtnew,&DTAAS); /* Compute time delay */
+	dtold = XLALTimeDelayFromEarthCenter(inputMCMC->detector[0]->location, longi, lat, &(inputMCMC->epoch)); /* Compute time delay */
+	dtnew = XLALTimeDelayFromEarthCenter(inputMCMC->detector[0]->location, newlong, newlat, &(inputMCMC->epoch)); /* Compute time delay */
 	deltat=dtold-dtnew; /* deltat is change in arrival time at geocentre */
 	deltat+=XLALMCMCGetParameter(parameter,"time");
 	XLALMCMCSetParameter(parameter,"time",deltat);	
@@ -1136,7 +1115,7 @@ XLALMCMCJump(
     /* downweight the off-axis elements */
     for (i=0; i<dim; ++i)
     {
-      for (j=0; j<dim; ++j)
+      for (j=0; j<i; ++j)
       {
         aij=gsl_matrix_get( work, i, j);
         aii=gsl_matrix_get( work, i, i);

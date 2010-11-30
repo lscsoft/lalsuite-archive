@@ -1,13 +1,8 @@
 """
 followup web page scraping utilities
-
-$Id$
-
 """
 
 __author__ = 'Cristina Valeria Torres <cristina.torres@ligo.org>'
-__date__ = '$Date: 2008/08/15 14:00'
-__version__ = '$Revision$'
 
 ######################################################################
 

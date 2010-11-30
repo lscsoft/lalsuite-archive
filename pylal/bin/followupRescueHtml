@@ -3,14 +3,9 @@
 """
 followup rescue scrip to combine new format followup html with
 information from the old original followup tables.
-
-$Id$
-
 """
 
 __author__ = 'Cristina Valeria Torres <cristina.torres@ligo.org>'
-__date__ = '$Date: 2008/08/15 14:00'
-__version__ = '$Revision$'
 
 from pylal.scrapeHtmlUtils import scrapePage
 from optparse import OptionParser
@@ -19,6 +14,7 @@ import string
 import sys
 import time
 
+from pylal import git_version
 
 ############################################################
 ##
@@ -34,7 +30,7 @@ information.  It also expects a COMBO html file where the update
 informatin will be written to.
 """
 
-parser = OptionParser(usage=Usage)
+parser = OptionParser(usage=Usage, version=git_version.verbose_msg)
 
 parser.add_option("-o","--output-file",dest="outputfile",
                   default="output.html",

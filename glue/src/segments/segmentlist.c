@@ -455,7 +455,7 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 static PyObject *intersects_segment(PyObject *self, PyObject *other)
 {
 	int i = bisect_left(self, other, -1, -1);
-	PyObject *a, *b;
+	PyObject *a = NULL, *b = NULL;
 	int result;
 
 	if(i < 0)

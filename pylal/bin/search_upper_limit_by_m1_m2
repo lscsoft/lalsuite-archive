@@ -282,6 +282,31 @@ for i, f in enumerate(files):
 	pylab.savefig(ifos + '_upper_limit.png')
 	pylab.clf()
 
+if vA.shape[0] >= 2:
+ for i in range(vA.shape[0]):
+  for j in range(vA.shape[0]): 
+   if j>i:
+    pipelines = [os.path.split(files[i])[1].replace('.xml','').replace("2Dsearchvolume-","").replace("-H1H2L1","").replace("m1m2-",""), os.path.split(files[j])[1].replace('.xml','').replace("2Dsearchvolume-","").replace("-H1H2L1","").replace("m1m2-","")]
+    vA0 = vA[i]
+    print vA0.min()
+    vA0[vA0 == vA0.min()] = 1.0
+    vA1 = vA[j]
+    vA1[vA1 == vA1.min()] = 1.0
+    print vA1.min()
+    #pylab.pcolor(X,Y, pylab.log10(vA0 /  vA1), vmin=0, vmax=3)
+    pylab.pcolor(X,Y, vA0 /  vA1, vmin=0.1, vmax=2)
+    pylab.colorbar()
+    pylab.ylim(m1range)
+    pylab.xlim(m2range)
+    pylab.title( pipelines[0] + "/" + pipelines[1] ,fontsize=14)
+    pylab.xlabel("Mass 2",fontsize=14)
+    pylab.ylabel("Mass 1",fontsize=14)
+    #pylab.gca().set_aspect(1)
+    pylab.grid()
+    pylab.savefig("m1m2" + "_" + pipelines[0] + "_" + pipelines[1] + "_" + 'distance_ratio.png')
+    pylab.clf()
+
+
 
 ###############################################################################
 # now write out the special combined case
@@ -319,7 +344,8 @@ pylab.ylim([0.0001, 1])
 pylab.grid()
 #FIXME hardcoded rate limits are bad for advanced ligo
 pylab.xlim([1e-8, 1])
-pylab.savefig(combined_ifos + '_posterior.png')
+#pylab.savefig(combined_ifos + '_posterior.png')
+pylab.savefig(ifos + '_posterior.png')
 pylab.clf()
 
 
@@ -336,10 +362,11 @@ pylab.xlabel("Mass 2",fontsize=14)
 pylab.ylabel("Mass 1",fontsize=14)
 pylab.gca().set_aspect(1)
 pylab.grid()
-pylab.savefig(combined_ifos + '_upper_limit.png')
+#pylab.savefig(combined_ifos + '_upper_limit.png')
+pylab.savefig(ifos + '_upper_limit.png')
 pylab.clf()
 
-f = open(combined_ifos + '_upper_limit.txt','w')
+f = open(ifos + '_upper_limit.txt','w')
 for i, m1 in enumerate(bins.centres()[0]):
 	for j, m2 in enumerate(bins.centres()[1]):
 		masses = bins[m1,m2]

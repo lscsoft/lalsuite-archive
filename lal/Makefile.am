@@ -9,20 +9,19 @@ SUBDIRS = \
 	lib
 
 MAINTAINERCLEANFILES = lal.spec
+DISTCLEANFILES = config.lt
 distcleancheck_listfiles = find . -type f \! -name "LALVCSInfo.h" -print
 
 EXTRA_DIST = \
+	COPYING \
 	README.bugs \
 	README.contrib \
 	README.install \
 	lal.pc.in \
 	lalsupport.pc.in \
-	lal-config.in \
 	aclocal.m4 \
 	lal.spec.in \
 	lal.spec
-
-bin_SCRIPTS = lal-config
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = \

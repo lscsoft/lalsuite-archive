@@ -132,6 +132,8 @@ def parse_command_line():
 
     parser.add_option("-S", "--strict-off", metavar = "use_strict", action = "store_true", help = "The default behavior is to truncate segments so that returned segments are entirely in the interval [gps-start-time, gps-end-time).  However if this option is given, the entire non-truncated segment is returned if any part of it overlaps the interval.")
 
+    parser.add_option("-n", "--result-name", metavar = "result_name", default = "RESULT", help = "Name for result segment definer (default = RESULT)") 
+
     parser.add_option("-o", "--output-file",   metavar = "output_file", help = "File to which output should be written.  Defaults to stdout.")
     
     options, others = parser.parse_args()
@@ -385,7 +387,7 @@ def run_query_types(doc, proc_id, connection, engine, gps_start_time, gps_end_ti
 
 
 
-def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, include_segments, exclude_segments):
+def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, include_segments, exclude_segments, result_name):
     segdefs = []
 
     for included in include_segments.split(','):
@@ -397,7 +399,7 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
 
         ifo     = spec[0]
         name    = spec[1]
-        if len(spec) is 3:
+        if len(spec) is 3 and spec[2] is not '*':
             version = int(spec[2])
             if version < 1:
                 print >>sys.stderr, "Segment version numbers must be greater than zero"
@@ -444,7 +446,7 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
 
 
     # Add the result type to the segment definer table
-    seg_name   = 'RESULT'
+    seg_name   = result_name
     seg_def_id = segmentdb_utils.add_to_segment_definer(doc, process_id, ifo, seg_name, 1)
 
     # and segment summary
@@ -474,7 +476,7 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
+    ligolw_sqlite.insert_from_urls(connection, xml_files) # [temp_xml])
 
     segmentdb_utils.ensure_segment_table(connection)
         
@@ -530,7 +532,8 @@ if __name__ == '__main__':
 
     if options.query_segments:
         run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time,
-                           options.include_segments, options.exclude_segments)
+                           options.include_segments, options.exclude_segments,
+                           options.result_name)
 
 
     if options.query_types:

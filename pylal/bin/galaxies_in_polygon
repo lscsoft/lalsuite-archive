@@ -19,8 +19,6 @@
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
 import optparse
 import os
@@ -28,6 +26,7 @@ import sys
 
 import numpy
 
+from pylal import git_version
 from pylal.galaxyutils import *
 
 usage = """%prog [options]
@@ -68,7 +67,7 @@ def parse_vertices(ra_dec_string):
 
 def parse_args():
     parser = optparse.OptionParser(usage=usage,
-        version="$Id$")
+        version=git_version.verbose_msg)
     parser.add_option("-V", "--vertices",
         help="comma-delimited vertices RA1,dec1,RA2,dec2,... in radians or colon-delimited sexagesimal")
     parser.add_option("-C", "--catalog", help="galaxy catalog")

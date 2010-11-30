@@ -13,6 +13,7 @@ Makefile.in
 aclocal.m4
 autom4te.cache/
 config.log
+config.lt
 config.status
 configure
 doc/README.install
@@ -23,7 +24,6 @@ doc/autodoc/lal.sty
 doc/autodoc/lalspec.*
 doc/autodoc/ligodcc.cls
 doc/autodoc/lsd.*
-doc/doxygen/
 doc/lal-install.*
 doc/lal-preinstall.*
 doc/laldoc/laldoc
@@ -40,7 +40,6 @@ include/lal/*.h
 include/lal/stamp-h2
 include/stamp-h1
 lal-*.tar.gz
-lal-config
 lal.spec
 lib/.vcsinfo
 lib/LALBuildDate.c
@@ -145,7 +144,9 @@ packages/support/src/StreamVectorInput.c
 packages/support/src/StreamVectorSequenceInput.c
 packages/support/test/?FS*.dat
 packages/support/test/?TS*.dat
+packages/support/test/ConfigFile.cfg
 packages/support/test/ConfigFileTest
+packages/support/test/ConfigFileTest2
 packages/support/test/LALMath3DPlotTest
 packages/support/test/LALMathNDPlotTest
 packages/support/test/Math3DNotebook.nb

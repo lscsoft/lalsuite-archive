@@ -17,8 +17,6 @@
   *  MA  02111-1307  USA
 """
 __author__ = 'Cristina Torres <cristina.torres@ligo.org>'
-__date__ = '$Date: 2009/03/12 01:59:18 $'
-__version__ = ''
 
 import os
 import numpy

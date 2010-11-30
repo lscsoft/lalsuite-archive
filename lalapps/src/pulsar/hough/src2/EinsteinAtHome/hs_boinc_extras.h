@@ -29,7 +29,11 @@
 
 #include <lal/LALError.h>
 #include <lal/LALRCSID.h>
+#ifndef HIERARCHSEARCHGCT /* used for Hough HierarchicalSearch, not GCT */
 #include "../HoughFStatToplist.h"
+#else
+#include "GCTtoplist.h"
+#endif
 
 #define HSBOINCEXTRASHRCSID "$Id$"
 
@@ -48,8 +52,8 @@
 #define INSERT_INTO_HOUGHFSTAT_TOPLIST insert_into_houghFStat_toplist
 
 #if (HS_CHECKPOINTING)
-#define GET_CHECKPOINT(toplist,total,count,outputname,cptname)\
-  { int ret = init_and_read_checkpoint(toplist,total,count,outputname,cptname);\
+#define GET_CHECKPOINT(toplist,count,total,outputname,cptname)\
+  { int ret = init_and_read_checkpoint(toplist,count,total,outputname,cptname);\
     if(ret < 0) {\
       LogPrintf(LOG_CRITICAL, HIERARCHICALSEARCH_MSGECHECKPT " (%d)\n",ret);\
       return(HIERARCHICALSEARCH_ECHECKPT);\
@@ -61,7 +65,7 @@
 
 #else
 #define SET_CHECKPOINT
-#define GET_CHECKPOINT(toplist,total,count,outputname,cptname) *total=0;
+#define GET_CHECKPOINT(toplist,count,total,outputname,cptname) *count=0;
 #endif
 
 #ifdef  __cplusplus

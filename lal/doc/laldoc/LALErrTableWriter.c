@@ -19,6 +19,12 @@
 
 #include "LALDoc.h"
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 int
 ParseErrLine(char *Ptr , LALEnvironment *Env,
              char *caps , char *errName , char *errStr , char *errNum );
@@ -66,6 +72,7 @@ LALDocConstructErrorTable(  LALEnvironment *Env  )
     char caps2[MAXSTR],errName2[MAXSTR],errStr2[MAXSTR],errNum2[MAXSTR],line[MAXSTR];
     int  j,szHASH,numberOfHashDefines,numLinesInTable,numPairsFound,FoundTheEnd;
     fpos_t  filePositionX,filePositionY,filePositionAtArrival;
+    char UNUSED *s;
 
     fgetpos( Env->InFilePtr , &filePositionAtArrival);
     szHASH = strlen(HASHDEFINE);
@@ -116,9 +123,9 @@ LALDocConstructErrorTable(  LALEnvironment *Env  )
 
         /* Find one of the entries that make up a line in the table */
         for(j=0;j<MAXSTR;j++) line[j] = '\0';
-        fgets( line , MAXSTR , Env->InFilePtr ) ;
+        s = fgets( line , MAXSTR , Env->InFilePtr ) ;
         while ( !strstr(line , HASHDEFINE ) ){
-            fgets( line , MAXSTR , Env->InFilePtr ) ;
+            s = fgets( line , MAXSTR , Env->InFilePtr ) ;
             if( strstr(line , Env->OffFlag) ){
                 LALDocErr("Incomplete Error Table.",
                 Env->sourceFile , __LINE__ , __FILE__  , 1 );
@@ -131,7 +138,7 @@ LALDocConstructErrorTable(  LALEnvironment *Env  )
         linePtr=strstr(line,HASHDEFINE) + szHASH;
         ParseErrLine(linePtr,Env,caps1,errName1,errStr1,errNum1);
         while( (strcmp(errName1,errName2)!= 0) && !strstr(line,Env->OffFlag) ){
-             fgets( line , MAXSTR , Env->InFilePtr )  ;
+             s = fgets( line , MAXSTR , Env->InFilePtr )  ;
              linePtr=strstr(line,HASHDEFINE) ;
              if(linePtr){
                  linePtr += szHASH ;
@@ -166,7 +173,7 @@ ParseErrLine( char *Ptr          , /* Ptr to string after #define)      */
               char *errStr       , /* returns string "you really suck"  */
               char *errNum       ) /* Error Number                      */
 {
-    char *position, *savePosition;
+    char *position;
     char line[MAXSTR];
     int i,ni;
 
@@ -216,7 +223,6 @@ ParseErrLine( char *Ptr          , /* Ptr to string after #define)      */
     }
 
     position += strcspn(position, " \t");
-    savePosition = position ;
     sscanf(position,"%s",errStr);
 
     /*

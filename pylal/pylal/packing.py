@@ -74,11 +74,11 @@ class Bin(object):
 		self.objects = []
 		self.size = 0
 
-	def add(self, object, size):
+	def add(self, obj, size):
 		"""
 		Add the object, whose size is as given, to the bin.
 		"""
-		self.objects.append(object)
+		self.objects.append(obj)
 		self.size += size
 		return self
 
@@ -128,7 +128,7 @@ class Packer(object):
 		"""
 		self.bins = bins
 
-	def pack(self, size, object):
+	def pack(self, size, obj):
 		"""
 		Pack an object of given size into the bins.
 		"""
@@ -145,11 +145,9 @@ class BiggestIntoEmptiest(Packer):
 	"""
 	Packs the biggest object into the emptiest bin.
 	"""
-	def pack(self, size, object):
-		min(self.bins).add(object, size)
+	def pack(self, size, obj):
+		min(self.bins).add(obj, size)
 
 	def packlist(self, size_object_pairs):
-		list(size_object_pairs)
-		size_object_pairs.sort(reverse = True)
-		for size, object in size_object_pairs:
-			self.pack(size, object)
+		for size, obj in sorted(size_object_pairs, reverse = True):
+			self.pack(size, obj)
