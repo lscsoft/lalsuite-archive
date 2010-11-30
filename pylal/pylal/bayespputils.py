@@ -104,10 +104,13 @@ class OneDPosterior(object):
     @property
     def stacc(self):
         """
-        Return the 'standard accuracy statistic' - a standard deviant 
-        incorporating information about the precision of the recovery of the
-        true injected value of the parameter . If no injected value was set
-        return None . 
+         The 'standard accuracy statistic' (stacc) - a standard deviant incorporating
+        information about the accuracy of the waveform recovery. Defined as
+        the mean of the sum of the squared differences between the points
+        in the PDF (x_i - sampled according to the posterior) and the
+        true value (x_{\rm true}).
+        So for a marginalized one-dimensional PDF:
+        stacc = \sqrt{\frac{1}{N}\sum_{i=1}^N (x_i-x_{\rm true})2}
         """
         if self.__injval is None:
             return None
@@ -990,21 +993,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     plt.grid()
 
     return myfig
-#
-
-
-
-def stacc_stat(posterior,name):
-    """
-    The 'standard accuracy statistic - a standard deviant incorporating
-    information about the accuracy of the waveform recovery.
-
-    @param posterior: an instance of the Posterior class.
-
-    @param name: the literal name of the parameter
-    """
-
-    return posterior[name].stacc()
 #
 
 def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
