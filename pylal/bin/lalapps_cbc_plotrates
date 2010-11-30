@@ -31,13 +31,15 @@ import pylab
 pylab.rc('text', usetex=True)
 
 from glue import lal
+from glue import segments
+from glue.iterutils import all, any
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
-from glue.iterutils import all, any
 from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import InspiralUtils
+from pylal import printutils
 
 # =============================================================================
 #
@@ -165,6 +167,14 @@ def parse_command_line():
         help =
             "Opposite of --exclude-coincs: only plot the specified coinc types. WARNING: If you type 'ALL' for on-instruments, e.g., '[H1,L1 in ALL]', and plot-by-instrument-time is not on, livetime from *all* of the instrument times will be included in the background, even if it is from an instrument time that could not produce H1,L1 triggers. If this isn't desired, either be explicit about what instrument times you really want -- i.e., don't use 'ALL' -- or use --exclude-coincs to exclude the instrument times you don't want. In the example, adding --exclude-coincs [ALL in L1,V1];[ALL in H1,V1] will prevent any H1,V1 or L1,V1 time from being added."
             )
+    parser.add_option( "", "--plot-special-time", action = "append", type = "float", default = [],
+        help =
+            "Exclude all single triggers that are within N seconds of the given end-time from the background, where N is set by --plot-special-window. All foreground triggers that fall within the range will be plotted as stars. Note: this can only be done when reading from sngl-ifo tables."
+            )
+    parser.add_option( "", "--plot-special-window", action = "store", type = "float", default = 8.0,
+        help =
+            "Specify the time window, in seconds, to use around the plot-special-time. Default is 8.0 seconds."
+            )
     parser.add_option( "-I", "--plot-by-ifos", action = "store_true", default = False,
         help =
             "Create a separate plot for each coincidence type (if plotting a combined statistic) or single ifo (if plotting single ifo statistics). Default is to plot all ifo(s) together."
@@ -189,13 +199,13 @@ def parse_command_line():
         help =
             "Maximum number of significance bands to plot."
             )
-    parser.add_option( "-E", "--extrapolate", action = "store_true", default = False,
+    parser.add_option( "-E", "--extrapolate", default = None, metavar = "Gauusian|Power",
         help =
-            "Extrapolate the background using a Gaussian distribution out to the largest foreground statistic. If this is beyond the measured background, the probabibilty density beyond the loudest background point will be calculated using this extrapolation."
+            "Extrapolate the background using a the given model out to the largest foreground statistic. If this is beyond the measured background, the probabibilty density beyond the loudest background point will be calculated using this extrapolation. Options for models are 'Gaussian' or 'Power'. If 'Gaussian' y = A*exp(-B*x**(fit_power)) is fit. If 'Power', y = A*x**B is fit."
             )
     parser.add_option( "-P", "--fit-power", type = "float", default = None,
         help =
-            "What power of x to fit with. When fitting a gaussian to the data, the natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(fit-power). If you are plotting against a statistic, then fit-power should be 2. If, however, you are plotting against the statistic to some other power, then fit-power should be 2 divided by that power. For example, if you plot against SNR, the fit-power should be 2. If, however, you plot against SNR squared, the fit power should be 1."
+            "If fitting a Gaussian, what power of x (in the exponent) to fit with. When fitting a gaussian to the data, the natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(fit-power). If you are plotting against a statistic, then fit-power should be 2. If, however, you are plotting against the statistic to some other power, then fit-power should be 2 divided by that power. For example, if you plot against SNR, the fit-power should be 2. If, however, you plot against SNR squared, the fit power should be 1."
             )
     parser.add_option( "", "--max-y-fit", type = 'float', default = None,
         help =
@@ -209,12 +219,28 @@ def parse_command_line():
         help =
             "Plot y-axis on a linear scale. Default is to plot on a log scale."
             )
+    parser.add_option('-a', '--xmin', action = 'store', type = 'float', default = None,
+        help =
+            'Set a minimum value for the x-axis. If lin-x not set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('-b', '--xmax', action = 'store', type = 'float', default = None,
+        help =
+            'Set a maximum value for the x-axis. If lin-x not set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('-A', '--ymin', action = 'store', type = 'float', default = None,
+        help =
+            'Set a minimum value for the y-axis. If lin-y not set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('-B', '--ymax', action = 'store', type = 'float', default = None,
+        help =
+            'Set a maximum value for the y-axis. If lin-y not set, must be > 0. This will apply to all plots generated.'
+        )
 
 
     (options, args) = parser.parse_args()
 
-    if options.extrapolate and options.fit_power is None:
-        raise ValueError, "If extrapolating, must specify a fit-power."
+    if options.extrapolate.upper() == "GAUSSIAN" and options.fit_power is None:
+        raise ValueError, "If extrapolating a Gaussian, must specify a fit-power."
 
     return options, args, sys.argv[1:]
 
@@ -297,6 +323,10 @@ def combineRowStats( function, rows ):
         return rows[min(rows.keys())]
     if function == 'sorted_keys':
         return ','.join(sorted(rows.keys()))
+    if function == 'sorted_values':
+        return ';'.join(sorted(map( str, rows.values() )))
+    if function == 'echo':
+        return rows
 
     # otherwise, evaulate the function explicitly
     safe_dict = dict([ [name,val] for name,val in rows.items() + math.__dict__.items() if not name.startswith('__') ])
@@ -763,6 +793,10 @@ else:
 if opts.param_name:
     param_name, param_label = len(opts.param_name.split(':')) == 2 and opts.param_name.split(':') or [opts.param_name, opts.param_name.replace('_', ' ').title()]
     param_parser = sqlutils.parse_param_ranges( data_table, param_name, opts.param_ranges, verbose = opts.verbose )
+
+# Get plot-special ranges if desired
+if opts.plot_special_time != []:
+    plot_special_times = segments.segmentlist([ segments.segment( t - opts.plot_special_window, t + opts.plot_special_window ) for t in opts.plot_special_time ])
    
 # Get coincs to include/exclude
 #FIXME: parse_coinc_options should use frozenset(['ALL]), not 'ALL'
@@ -815,6 +849,10 @@ for filename in filenames:
         raise ValueError, 'Could not find %s column in the data table (%s)' % (table_type == 'sngl' and 'ifo' or 'ifos', data_table)
     if last_table_type != '' and last_table_type != table_type:
         raise ValueError, '%s table in file %s does not match the types in the other files' %( data_table, filename )
+    if table_type == 'coinc' and opts.plot_special_time != []:
+        raise ValueError, "Cannot do --plot-special-time using a coinc-ifos table."
+    if table_type == 'sngl' and combining_function is None:
+        raise ValueError, "Must provide a combining function or method if querying sngl-ifo tables."
 
     # TODO: I don't need this for this program, but it could be useful for others; will add this to ligolw_sqlutils
     # construct an offset dictionary for this database
@@ -854,6 +892,8 @@ for filename in filenames:
     sqlquery = """
         SELECT
             experiment.instruments,
+            experiment.gps_start_time,
+            experiment.gps_end_time,
             experiment_summary.time_slide_id,
             experiment_summary.veto_def_name,
             experiment_summary.duration,
@@ -866,9 +906,11 @@ for filename in filenames:
             experiment.experiment_id == experiment_summary.experiment_id
         WHERE
             (experiment_summary.datatype == 'slide'""" + add_foreground + ')' + in_desired_times
-    for on_instruments, tsid, veto_cat, duration, datatype in connection.cursor().execute(sqlquery):
+    for on_instruments, this_gps_start, this_gps_end, tsid, veto_cat, duration, datatype in connection.cursor().execute(sqlquery):
         on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
         analyzed_instruments.update( on_instruments )
+        gps_start_time = min(gps_start_time, this_gps_start)
+        gps_end_time = max(gps_end_time, this_gps_end)
         if datatype == "slide":
             datatypes = ["slide", "background"]
             # store the slide tsid's to keep track of the number of slides
@@ -876,20 +918,26 @@ for filename in filenames:
         else:
             datatypes = [datatype]
         if opts.plot_by_ifos:
-             ifo_list = CoincInspiralUtils.get_ifo_combos(list(bkg_cat.on_instruments))
+             ifo_list = CoincInspiralUtils.get_ifo_combos(list(on_instruments))
         else:
             ifo_list = [set(['ALL'])]
         # if there is more than one param-group or we are plotting by ifos, add the needed backgrounds
         for datatype in datatypes:
             for param_group in range(n_param_groups):
                 for ifos in ifo_list:
-                    bkg_cat = Category( offset_vector = {}, datatype = datatype, veto_cat = veto_cat, ifos = ifos, param_group = param_group)
+                    this_cat = Category( offset_vector = {}, datatype = datatype, veto_cat = veto_cat, ifos = ifos, param_group = param_group)
                     if opts.plot_by_instrument_time:
-                        bkg_cat.on_instruments = on_instruments
+                        this_cat.on_instruments = on_instruments
                     # add the background category
-                    data.setdefault( bkg_cat, [] )
+                    data.setdefault( this_cat, [] )
                     # add the livetime
-                    data.add_livetime( duration, bkg_cat, match_criteria )
+                    # if doing plot special, subtract the duration of the removed time from the background livetime.
+                    # Note that this isn't exactly correct: the range could overlap a slid veto, in which case only some of the time should be subtracted.
+                    # However, we assume this is a small affect.
+                    if datatype == "background" and opts.plot_special_time != [] and plot_special_times.intersects_segment( segments.segment(this_gps_start, this_gps_end) ):
+                        data.add_livetime( duration - sum([abs(seg) for seg in plot_special_times]), this_cat, match_criteria )
+                    else:
+                        data.add_livetime( duration, this_cat, match_criteria )
     
     # add and check the slide count
     # FIXME: We don't have to have the same number of slides in each database in order to do this. However, for that to happen,
@@ -916,6 +964,8 @@ for filename in filenames:
             functionList = [(opts.param_combining_method, param_name), ('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
         else:
             functionList = [('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
+        if opts.plot_special_time != []:
+            functionList.append( ('sorted_values', 'end_time+end_time_ns*1e-9') )
         get_combined_data = createCombineRowsMethod( data_table, data_cols, functionList )
         connection.create_aggregate('get_combined_data', len(data_cols), get_combined_data)
         # create an aggregate function to get the ifos
@@ -941,8 +991,6 @@ for filename in filenames:
             add_coinc_filter = ''.join([ add_coinc_filter, add_coinc_filter == '' and 'HAVING ' or 'AND ', 'NOT in_exclude_filter(experiment.instruments, ifos)'])
         sqlquery = ''.join([ """
             SELECT
-                experiment.gps_start_time,
-                experiment.gps_end_time,
                 experiment.instruments,
                 experiment_summary.datatype,
                 experiment_summary.veto_def_name,
@@ -976,8 +1024,6 @@ for filename in filenames:
             add_coinc_filter = ''.join([ add_coinc_filter, ' AND NOT in_exclude_filter(experiment.instruments, ', data_table, '.ifos)'])
         sqlquery = ''.join([ """
             SELECT
-                experiment.gps_start_time,
-                experiment.gps_end_time,
                 experiment.instruments,
                 experiment_summary.datatype,
                 experiment_summary.veto_def_name,
@@ -1000,30 +1046,37 @@ for filename in filenames:
                 print >> sys.stdout, "\t\t%i/%i (%.2f%%)\r" % (ii, len(results), 100*float(ii)/len(results)),
             else:
                 print >> sys.stdout, '' 
-        gps_start_time = min(gps_start_time, result[0])
-        gps_end_time = max(gps_end_time, result[1])
         if opts.plot_by_instrument_time:
-            on_instruments = frozenset(lsctables.instrument_set_from_ifos( result[2] ))
+            on_instruments = frozenset(lsctables.instrument_set_from_ifos( result[0] ))
         else:
             on_instruments = frozenset(["ALL"])
-        datatype = result[3]
-        veto_cat = result[4]
-        ceid = result[5]
+        datatype = result[1]
+        # if these are slid triggers, check if any fall in the plot-special window
+        if datatype == "slide" and opts.plot_special_time != []:
+            sngl_end_times = [float(t) for t in result[5].split(',')[-1].split(';')]
+            if any(t in plot_special_times for t in sngl_end_times):
+                continue
+        #elif opts.plot_special_time == []:
+            # add a comma to the end so we don't get an error when we parse results[5] later
+        #    result[5] += ','
+        veto_cat = result[2]
+        ceid = result[3]
         if opts.plot_by_ifos:
-            ifos = frozenset(lsctables.instrument_set_from_ifos(result[6]))
+            ifos = frozenset(lsctables.instrument_set_from_ifos(result[4]))
         else:
             ifos = frozenset(["ALL"])
         if opts.param_name:
-            param_group, end_time, stat = [float(x) for x in result[7].split(',')]
+            param_group, end_time, stat = [float(x) for x in result[5].split(',') if ';' not in x]
             param_group = param_parser.group_by_param_range( param_group )
             # skip this if it doesn't fall in any desired param group
             if param_group is None:
                 continue
         else:
             param_group = 0.
-            end_time, stat = [float(x) for x in result[7].split(',')]
+            end_time, stat = [float(x) for x in result[5].split(',') if ';' not in x]
+        # passed any tests, store data
         this_row = rowType()
-        this_row.store([ ('end_time', end_time), ('stat', stat), ('ifos', result[6]) ])
+        this_row.store([ ('end_time', end_time), ('stat', stat), ('ifos', result[4]) ])
         # construct categories
         categories = [ Category( {}, datatype, veto_cat, on_instruments, ifos, param_group ) ]
         if datatype == "slide":
@@ -1109,9 +1162,13 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     pylab.errorbar( bkg_stats, bkg_cumnum / T_fg, yerr = bkg_error, color = 'k', ecolor = 'gray', marker = 'o', markersize = 4, linestyle = 'None', zorder = 2, label = 'Background' )
     # store the ids of the loudest background events
     loudest_bkg_events = []
+    ii = 0
+    last_stat = None
     for x in plotvals[::-1]:
-        if x[0] != max(bkg_stats):
+        if ii > 10:
             break
+        if x[0] != last_stat:
+            ii += 1
         loudest_bkg_events.append(x[2])
 
     #
@@ -1144,23 +1201,35 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
                 break
             loudest_events.append(x[2])
 
+    #
+    # plot foreground triggers that fall in plot-special window as stars
+    #
+    if opts.plot_special_time != []:
+        plot_sp_vals = [x for x in plotvals if data.data_index[x[2]].data.end_time in plot_special_times]
+        if plot_sp_vals != []:
+            pylab.scatter( [x[0] for x in plot_sp_vals], [y[1] / T_fg for y in plot_sp_vals], c = 'yellow', marker = (5,1,0), s = 40, linewidth = .5, label = '_no_legend', zorder = 5 )
+
     #   TODO: pylab.plot( [math.sqrt(2.)*opts.reference_snr, math.sqrt(2.)*opts.reference_snr], [ymin, ymax], 'r--', label = 'SNR %.1f in all ifos' % opts.reference_snr )
 
     #
     # plot extrapolation
     #
-    if fg_datatype != 'slide' and opts.extrapolate:
+    if fg_datatype != 'slide' and opts.extrapolate is not None:
         if opts.verbose:
             print >> sys.stdout, "\textrapolating background..."
         # figure out how many points to use for the fit; the default is to start at the first background point that drops below the foreground; this can be overridden with options
         max_y_fit = opts.max_y_fit is None and 1.0/T_fg or opts.max_y_fit
-        # we're going to fit a Gaussian with 0 mean to the background. Since this is given by y = A*exp(-x^2./(2*sigma^2.))/sqrt(2*pi*sigma^2.), we take the natural log, and thus fit
-        # y = beta[0] + beta[2]*x^2 where beta[0] = ln(A) - ln(2*pi*sigma^2.)/2., beta[2] = -1/(2.*sigma^2.) and y = ln(bkg_cumnum/T_fg)
-        # To do this, we'll do a weighted linear least squares fit using Beta_hat = (transpose(X).W.X)^(-1).transpose(X).W.Y. where W is the nxn matrix of weights (which are just taken
-        # as the error in each background point), X is the nx2 matrix of [1 x[i]^2.], Y is the nx1 matrix of ln(bkg_cumnum[i]/T_fg), and Beta_hat is the 2x1 matrix of fitted betas.
-        # That assumes that the plotted x is linear in whatever the desired statistic is. However, if the plotted x is actually the desired statistic squared, then we should
-        # fit y = beta[0] + beta[2]*x. Generalizing, we actually fit y = beta[0] + beta[2]*x^(opts.fit_power), since only the user can know what function of their desired statistic they've
-        # punched into the command line.
+        ### For Gaussian fit:
+            # We're going to fit a Gaussian with 0 mean to the background. Since this is given by y = A*exp(-x^2./(2*sigma^2.))/sqrt(2*pi*sigma^2.), we take the natural log, and thus fit
+            # y = beta[0] + beta[2]*x^2 where beta[0] = ln(A) - ln(2*pi*sigma^2.)/2., beta[2] = -1/(2.*sigma^2.) and y = ln(bkg_cumnum/T_fg)
+            # To do this, we'll do a weighted linear least squares fit using Beta_hat = (transpose(X).W.X)^(-1).transpose(X).W.Y. where W is the nxn matrix of weights (which are just taken
+            # as the error in each background point), X is the nx2 matrix of [1 x[i]^2.], Y is the nx1 matrix of ln(bkg_cumnum[i]/T_fg), and Beta_hat is the 2x1 matrix of fitted betas.
+            # That assumes that the plotted x is linear in whatever the desired statistic is. However, if the plotted x is actually the desired statistic squared, then we should
+            # fit y = beta[0] + beta[2]*x. Generalizing, we actually fit y = beta[0] + beta[2]*x^(opts.fit_power), since only the user can know what function of their desired statistic they've
+            # punched into the command line.
+        ### For power-law fit:
+            # We're going to fit bkg_cumnum/T_fg = A*statistic^B by doing a least squares fit to y = beta[0] + beta[1]*x where y = ln(bkg_cumnum/T_fg), x = ln(statistic), beta[0] = ln(A) 
+            # and beta[1] = B.
         start_i = pylab.find( bkg_cumnum/T_fg <= max_y_fit )[0]
         n = len(bkg_cumnum) - start_i
         X = numpy.matrix(numpy.zeros((n,2), dtype = float))
@@ -1171,7 +1240,11 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
             Y[i,0] = numpy.log( bkg_cumnum[start_i + i] ) - numpy.log( T_fg )
             W[i,i] = 1./numpy.power( bkg_error[start_i + i]/bkg_cumnum[start_i + i], 2. )
             X[i,0] = 1.
-            X[i,1] = bkg_stats[start_i + i]**opts.fit_power
+            if opts.extrapolate.upper() == 'POWER':
+                X[i,1] = numpy.log( bkg_stats[start_i + i] )
+            else:
+                X[i,1] = bkg_stats[start_i + i]**opts.fit_power
+
         # calculate the Beta_hats
         Beta_hat = (X.T * W * X).I * X.T * W * Y
 
@@ -1184,7 +1257,10 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         Xext = numpy.matrix(numpy.zeros((n_ext,2), dtype = float))
         for i,x in enumerate(x_ext):
             Xext[i,0] = 1.
-            Xext[i,1] = x**opts.fit_power
+            if opts.extrapolate.upper() == 'POWER':
+                Xext[i,1] = numpy.log(x)
+            else:
+                Xext[i,1] = x**opts.fit_power
         y_ext = numpy.exp( numpy.array(Xext * Beta_hat) )
 
         # plot the extrapolated line
@@ -1211,7 +1287,7 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     xrange = 101
     yrange = 2*xrange
     # if extrapolating, use the extrpolation beyond the largeest measured background point
-    if opts.extrapolate and fg_datatype != 'slide' and x_ext.any():
+    if opts.extrapolate is not None and fg_datatype != 'slide' and x_ext.any():
         xcoords = numpy.linspace(bkg_stats.min(), max(x_ext.max(), bkg_stats.max()), xrange)
     else:
         xcoords = numpy.linspace(bkg_stats.min(), bkg_stats.max(), xrange)
@@ -1225,7 +1301,9 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         if x <= bkg_stats.max():
             # lmbda is the cumnum at the closest snr to (the right of) of x in the background
             lmbda = bkg_cumnum[pylab.find( bkg_stats >= x )[0]]
-        else: # if x greater than bkg_stats.max, must mean we have extrapolated and we are in the region of extrapolation
+        elif opts.extrapolate.upper() == "POWER": # if x greater than bkg_stats.max, must mean we have extrapolated and we are in the region of extrapolation
+            lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(x)) ) * T_fg
+        else:
             lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*x**opts.fit_power) ) * T_fg
         for yi,y in enumerate(ycoords):
             xarray[xi,yi] += x
@@ -1259,12 +1337,11 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         #pylab.clabel(contplt)
         cb.add_lines(contplt)
 
-    if not opts.lin_x:
-        pylab.gca().semilogx()
-    if not opts.lin_y:
-        pylab.gca().semilogy()
+    #
+    # finalize plot settings
+    #
     pylab.grid()
-    pylab.legend(loc = 'upper right')
+    pylab.legend(loc = 'lower left')
 
     pylab.xlabel( stat_label )
     pylab.ylabel( "Cumulative Rate ($%s^{-1}$)" % opts.time_units )
@@ -1273,8 +1350,31 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     else:
         t = 'Cumulative Histogram'
     pylab.title(t)
-    pylab.xlim( min(fg_stats.min(),bkg_stats.min()), xmax*10**(0.3) )
-    pylab.ylim( ymin*10**(-0.5), ymax*10**(0.5) )
+
+    # set axes limits and scale
+    xmin = min(fg_stats.min(), bkg_stats.min())
+    if not opts.lin_x:
+        pylab.gca().semilogx()
+        xmax = xmax*10**(0.3)
+    else:
+        xmax = xmax+.1*xmax
+    if not opts.lin_y:
+        pylab.gca().semilogy()
+        ymin, ymax = ymin*10**(-0.5), ymax*10**(0.5)
+    else:
+        ymin, ymax = ymin - .1*ymin, ymax + .1*ymax
+    # overrule with input options
+    if opts.xmin is not None:
+        xmin = opts.xmin
+    if opts.xmax is not None:
+        xmax = opts.xmax
+    if opts.ymin is not None:
+        ymin = opts.ymin
+    if opts.ymax is not None:
+        ymax = opts.ymax
+
+    pylab.xlim( xmin, xmax )
+    pylab.ylim( ymin, ymax )
     
     # store plot info
     plot_description = 'F%i' % ( len(fnameList) )
@@ -1290,38 +1390,44 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         comments += '   Param-group: <b>%s</b>' %(param_parser.param_range_by_group(match_category.param_group))
     comments += '<br />\n'
     comments += "Background livetime: %.2f %s<br />\n" % (T_bkg, opts.time_units)
-    comments += "Loudest background event%s:<br />\n" % (len(loudest_bkg_events) > 1 and 's' or '')
-    comments += '<table cellpadding="5">\n'
-    comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th></tr>\n' % stat_label
+    comments += "<b>Loudest background event%s:</b><br />\n" % (len(loudest_bkg_events) > 1 and 's' or '')
+    comments += '<table cellpadding="5", border="1">\n'
+    comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>%s</th></tr>\n' % stat_label
     for le_id in loudest_bkg_events:
         le = data.data_index[le_id]
-        comments += '<tr><td>%.2f</td><td>%s</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), le.data.get_value('ifos'), le.data.get_value('stat') ) 
+        comments += '<tr><td>%.2f</td><td>%s</td><td>%s</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('stat') ) 
     comments += '</table>\n'
     if fg_datatype != 'slide':
-        comments += "%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
-        comments += "Loudest %s event%s:<br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
-        comments += '<table cellpadding="5">\n'
-        comments += '<tr><th>End Time</th><th>ifos</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label, opts.extrapolate and '<th>Estimated FAR</th>' or '')
+        comments += "<br />%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
+        comments += "<b>Loudest %s event%s:</b><br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
+        comments += '<table cellpadding="5", border="1">\n'
+        comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label, opts.extrapolate is not None and '<th>Estimated FAR</th>' or '')
         for le_id in loudest_events:
             le = data.data_index[le_id]
             far = (len(bkg_stats)-bisect.bisect_left(bkg_stats, le.data.stat))/T_bkg
             if far == 0:
-                far = '< 1/%.2f%s' % ( T_bkg, opts.time_units )
+                far = '< 1/%.2f %s<sup>-1</sup>' % ( T_bkg, opts.time_units )
             else:
-                far = '%.2f %s^-1' % (far, opts.time_units)
-            if opts.extrapolate:
+                far = '1/%.2e %s<sup>-1</sup>' % (1./far, opts.time_units)
+            if opts.extrapolate.upper() == "POWER":
+                far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(le.data.stat) )
+            elif opts.extrapolate.upper() == "GAUSSIAN":
                 far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*le.data.stat**opts.fit_power )
-            comments += '<tr><td>%.2f</td><td>%s</td><td>%.2f</td><td>%s</td>' %( le.data.get_value('end_time'), le.data.get_value('ifos'), le.data.get_value('stat'), far ) 
-            if opts.extrapolate:
-                comments += '<td>1/%.2f%s</td>' % ( 1./far_est, opts.time_units )
+            comments += '<tr><td>%.2f</td><td>%s></td><td>%s</td><td>%.2f</td><td>%s</td>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('stat'), far ) 
+            if opts.extrapolate is not None:
+                comments += '<td>1/%.2e %s<sup>-1</sup></td>' % ( 1./far_est, opts.time_units )
             comments += '</tr>'
         comments += '</table>\n'
-        if opts.extrapolate:
-            comments += "<br /><br />Extrapolated Parameters:<br />"
-            sigmasq = -1./(2.*Beta_hat[1,0])
-            amp = numpy.exp(Beta_hat[0,0] + numpy.log(2*numpy.pi*sigmasq)/2.)
-            comments += "&#963;<sup>2</sup> = %.2f  Amplitude = %.2f<br />" %( sigmasq, amp )
-            comments += "Extrapolated from:<br />&#946;<sub>0</sub> = %.2f  &#946;<sub>1</sub> = %.2f<br />" %( Beta_hat[0,0], Beta_hat[1,0] )
+        if opts.extrapolate is not None:
+            if opts.extrapolate.upper() == 'POWER':
+                comments += "<br />Fitted <i>y = Ax<sup>B</sup></i><br />Results:<br />"
+                comments += "A = %.2e  B = %.2f<br />" % (numpy.exp(Beta_hat[0,0]), Beta_hat[1,0])
+            else:
+                comments += "<br />Fitted <i>y = Aexp(-x<sup>2</sup>/2&#963;<sup>2</sup>)/sqrt(2&#960;&#963;<sup>2</sup>)</i><br />Results:<br />"
+                sigmasq = -1./(2.*Beta_hat[1,0])
+                amp = numpy.exp(Beta_hat[0,0] + numpy.log(2*numpy.pi*sigmasq)/2.)
+                comments += "&#963;<sup>2</sup> = %.2f  A = %.2f<br />" %( sigmasq, amp )
+                comments += "Extrapolated from:<br />&#946;<sub>0</sub> = %.2f  &#946;<sub>1</sub> = %.2f<br />" %( Beta_hat[0,0], Beta_hat[1,0] )
 
     comments += '<hr />\n'
             

@@ -91,6 +91,7 @@ def parse_command_line():
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
+	parser.add_option("--exact-mass", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact mass coincidence.")
 	parser.add_option("-a", "--effective-snr", metavar = "{inspiral|gstlal}", help = "Select effective SNR algorithm (required).  \"inspiral\" reproduces the algorithm used by lalapps_thinca, \"gstlal\" is an algorithm appropriate for use with gstlal_inspiral.")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor used with the \"inspiral\" effective SNR (default = 250.0).")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
@@ -151,6 +152,16 @@ if options.effective_snr == "gstlal":
 
 
 #
+# Select event_comparefunc form
+#
+
+if options.exact_mass:
+	# Require exact mass coincidence
+	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
+else:
+	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
+
+#
 # Select ntuple_comparefunc form
 #
 
@@ -207,6 +218,7 @@ for n, filename in enumerate(filenames):
 		comment = options.comment,
 		force = options.force,
 		e_thinca_parameter = options.e_thinca_parameter,
+		exact_mass = options.exact_mass,
 		effective_snr_factor = options.effective_snr_factor,
 		vetoes_name = options.vetoes_name,
 		trigger_program = options.trigger_program,
@@ -261,7 +273,7 @@ for n, filename in enumerate(filenames):
 		EventListType = ligolw_thinca.InspiralEventList,
 		CoincTables = ligolw_thinca.InspiralCoincTables,
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
-		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact,
+		event_comparefunc = event_comparefunc,
 		thresholds = options.e_thinca_parameter,
 		ntuple_comparefunc = ntuple_comparefunc,
 		effective_snr_factor = options.effective_snr_factor,

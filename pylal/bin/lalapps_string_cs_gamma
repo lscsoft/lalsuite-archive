@@ -118,14 +118,12 @@ def parse_command_line():
 ops, files = parse_command_line()
 
 #Open the efficiency file and read the three columns into three arrays
-lnamp, eff, Deff = numpy.loadtxt(ops.efficiencyfile, skiprows=1, dtype=float, unpack=True)
-#Get the amplitude array
-amp = numpy.exp(lnamp)
+amp, eff, Deff = numpy.loadtxt(ops.efficiencyfile, skiprows=1, dtype=float, unpack=True)
 #The length of the arrays
-Namp = len(lnamp)
+Namp = len(amp)
 #Make empty arrays the same shape and size as the loaded data arrays
-zofA = numpy.empty_like(lnamp)
-dRdz = numpy.empty_like(lnamp)
+zofA = numpy.empty_like(amp)
+dRdz = numpy.empty_like(amp)
 
 #Open the output file and print the header
 outfile = open("gamma.dat", 'w')
