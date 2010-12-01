@@ -24,4 +24,7 @@
 /* LALInspiral Configure Date */
 #undef LALINSPIRAL_CONFIGURE_DATE
 
+/* Define if using CUDA library */
+#undef LALINSPIRAL_CUDA_ENABLED
+
 #endif /* _LALINSPIRALCONFIG_H */
