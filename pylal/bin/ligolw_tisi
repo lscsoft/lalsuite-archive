@@ -34,9 +34,18 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue import offsetvector
 from pylal import git_version
 from pylal import ligolw_tisi
 from pylal import llwapp
+
+
+# test that any is in the name space
+try:
+	any
+except NameError:
+	# Python < 2.5
+	from glue.iterutils import any
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -65,6 +74,7 @@ def parse_command_line():
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "Provide a description of the set of offsets to use for a particular instrument.  The set of offsets is (first + n * step) where n is an integer such that first <= offset <= last.  More than one set of offsets can be given for the same instrument, in which case the union is used.  As a short-hand, the sets can be combined into a single command line argument by separating the first:last:step triples with commas.")
 	parser.add_option("--inspiral-num-slides", metavar = "count:instrument=offset[,instrument=offset...]", action = "append", default = [], help = "Generate a set of inspiral group style time slides.  The collection of instrument/offset pairs defines an offset vector, and the time slides produced are integer multiples of that vector n * {offsets} where n is a non-zero integer in [-count, +count] (so if count=50, you get 101 time slides).  If this option is given more than once, then multiple sets of inspiral-style time slides are generated.")
 	parser.add_option("-n", "--normalize", metavar = "name=offset", default = [], action = "append", help = "Normalize the time slides so that this instrument has the specified offset in all.  The other offsets in each time slide are adjusted so that the relative offsets are preserved.  Time slides that do not involve this instrument are unaffected.  If this option is given multiple times, then for each time slide they are considered in alphabetical order by instrument until the first is found that affects the offsets of that time slide.")
+	parser.add_option("--remove-zero-lag", action = "store_true", help = "Remove the time slide with offsets of 0 for all instruments.")
 	options, filenames = parser.parse_args()
 
 	try:
@@ -159,6 +169,23 @@ map(time_slides.pop, ligolw_tisi.time_slides_vacuum(time_slides, verbose = optio
 
 if options.verbose:
 	print >>sys.stderr, "%d time slides remain." % len(time_slides)
+
+
+#
+# Remove zero-lag
+#
+
+
+if options.remove_zero_lag:
+	if options.verbose:
+		print >>sys.stderr, "Identifying and removing zero-lag ..."
+
+	null_ids = [id for id, offsetvect in time_slides.items() if not any(offsetvect.deltas.values())]
+	for id in null_ids:
+		del time_slides[id]
+
+	if options.verbose:
+		print >>sys.stderr, "%d time slides remain." % len(time_slides)
 
 
 #
