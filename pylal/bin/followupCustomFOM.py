@@ -64,7 +64,7 @@ parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
 #Parse the command line to know what plots the user wants to make.
 parser.add_option("-t","--gps-time",action="store",type="string",\
                   metavar="555444666",default=None,\
-                  help="Specify the gps in integer seconds. \
+                  help="Specify the gps in INTEGER seconds. \
 The resulting graphs will be plotted in such a way that t=0 \
 will be the gps time given to this argument.")
 parser.add_option("-w","--plot-windows",action="store",type="string",\
@@ -88,8 +88,26 @@ that can be generated.")
 parser.add_option("-v","--verbose",action="store_true",
                   help="Set this flag to get some feedback during \
 graph generation.")
-
+parser.add_option("-p","--output-path",action="store",type="string",\
+                  metavar="OUTPUT/PATH/FOR/FILES",default="./",\
+                  help="Invoke this to specify where files are put.")
 (opts,args) = parser.parse_args()
+#
+# Determine if given path is legit
+#
+outputPath=os.path.abspath(str(opts.output_path).strip())
+if opts.verbose:
+    sys.stdout.write("Figures to be saved to :%s"%outputPath)
+    sys.stdout.flush()
+if not os.path.exists(outputPath):
+    if opts.verbose:
+        sys.stdout.write("Creating path since it doesn't exist.\n")
+        sys.stdout.flush()
+    os.makedirs(outputPath)
+    if not os.path.exists(outputPath):
+        sys.stderr.write("Could not create needed path to save figures to.\n")
+        sys.stderr.flush()
+        os.abort()
 #
 # Setup the class to retrieve the data.
 #
@@ -97,7 +115,7 @@ myFOM=getFOMdata(verbose=opts.verbose)
 if opts.graph_keys:
     sys.stdout.write("Available graph keys :%s\n"%myFOM.getGraphKeys())
     sys.exit(0)
-myFOM.setGPS(str(int(opts.gps_time)))
+myFOM.setGPS(str(int(float(opts.gps_time))))
 (preWindow,postWindow)=opts.plot_windows.strip().split(",")
 myFOM.setWindows(preWindow,postWindow)
 if opts.ifo_list==None:
@@ -171,7 +189,14 @@ for thisGraph in myGraphs:
     else:
         pylab.legend()
     pylab.grid(True)
-    pylab.savefig(filemask%(opts.gps_time,thisGraph.replace(" ","-")))
+    #Main filename
+    imageFilename=os.path.normpath(outputPath+"/"+filemask%(opts.gps_time,thisGraph.replace(" ","-")))
+    pylab.savefig(imageFilename)
+    #Save a thumbnail %10
+    myScale=0.33
+    myFigure.set_size_inches(myScale*(xRes/myDPI),myScale*(yRes/myDPI))
+    myFigure.set_dpi(myScale*myDPI)
+    pylab.savefig(imageFilename.replace(".png",".thumb.png"))
     pylab.close()
 #
 # Done
