@@ -35,6 +35,7 @@ from xml.dom import minidom
 #related third party imports
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm
+from scipy import stats
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -103,10 +104,13 @@ class OneDPosterior(object):
     @property
     def stacc(self):
         """
-        Return the 'standard accuracy statistic' - a standard deviant 
-        incorporating information about the precision of the recovery of the
-        true injected value of the parameter . If no injected value was set
-        return None . 
+         The 'standard accuracy statistic' (stacc) - a standard deviant incorporating
+        information about the accuracy of the waveform recovery. Defined as
+        the mean of the sum of the squared differences between the points
+        in the PDF (x_i - sampled according to the posterior) and the
+        true value (x_{\rm true}).
+        So for a marginalized one-dimensional PDF:
+        stacc = \sqrt{\frac{1}{N}\sum_{i=1}^N (x_i-x_{\rm true})2}
         """
         if self.__injval is None:
             return None
@@ -133,7 +137,6 @@ class OneDPosterior(object):
         """
         Return a gaussian kde of the samples.
         """
-        from scipy import stats
         from scipy import seterr as sp_seterr
 
         sp_seterr(under='ignore')
@@ -154,7 +157,7 @@ class Posterior(object):
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
-        self._logL=np.array(common_output_table_raw[:,-1])
+        self._logL=self._posterior['logl'].samples
 
         return
 
@@ -544,7 +547,7 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     injection_area=None
     if injection_bin_index and injectionconfidence:
         i=list(np.nonzero(np.asarray(toppoints)[:,2]==injection_bin_index))[0]
-        injection_area=bin_size*i
+        injection_area=bin_size*(i+1)
 
     return toppoints,injectionconfidence,reses,injection_area
 #
@@ -715,7 +718,6 @@ def plot_sky_map(top_ranked_pixels,outdir):
     @param outdir: Output directory in which to save skymap.png image.
     """
     from mpl_toolkits.basemap import Basemap
-    from pylal import skylocutils
 
     np.seterr(under='ignore')
 
@@ -852,9 +854,9 @@ def mc2ms(mc,eta):
     fraction = (0.5+root) / (0.5-root)
     invfraction = 1/fraction
 
-    m1= mc * np.power((1+fraction),0.2) / np.power(fraction,0.6)
+    m2= mc * np.power((1+fraction),0.2) / np.power(fraction,0.6)
 
-    m2= mc* np.power(1+invfraction,0.2) / np.power(invfraction,0.6)
+    m1= mc* np.power(1+invfraction,0.2) / np.power(invfraction,0.6)
     return (m1,m2)
 #
 #
@@ -886,7 +888,6 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     """
 
-    from scipy import stats
     from scipy import seterr as sp_seterr
 
     param=plot1DParams.keys()[0].lower()
@@ -951,9 +952,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     """
 
     from scipy import seterr as sp_seterr
-    from scipy import stats
-
-    from matplotlib import pyplot as plt
 
     par1_name,par2_name=plot2DkdeParams.keys()
     Nx=plot2DkdeParams[par1_name]
@@ -995,21 +993,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     plt.grid()
 
     return myfig
-#
-
-
-
-def stacc_stat(posterior,name):
-    """
-    The 'standard accuracy statistic - a standard deviant incorporating
-    information about the accuracy of the waveform recovery.
-
-    @param posterior: an instance of the Posterior class.
-
-    @param name: the literal name of the parameter
-    """
-
-    return posterior[name].stacc()
 #
 
 def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
@@ -1316,7 +1299,7 @@ class htmlSection(htmlChunk):
 
         self.h3(section_name)
 
-default_css_string="""
+__default_css_string="""
 
 p,h1,h2,h3,h4,h5
 {
