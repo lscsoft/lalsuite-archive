@@ -1,6 +1,6 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 13
+# serial 14
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],
 [## $0: Generate a libtool script for use in configure tests
@@ -347,4 +347,22 @@ AC_DEFUN([LALSUITE_WITH_NVCC_CFLAGS],
       NVCC_CFLAGS="$NVCC_CFLAGS ${with_nvcc_cflags}";
     fi
   ],)
+])
+
+AC_DEFUN([LALSUITE_CHECK_CUDA],
+[AC_MSG_CHECKING([whether LAL has been compiled with CUDA support])
+AC_TRY_RUN([
+#include <lal/LALConfig.h>
+#ifdef LAL_CUDA_ENABLED
+int main( void ) { return 0; }
+#else
+int main( void ) { return 1; }
+#endif
+],
+AC_MSG_RESULT([yes])
+[cuda=true],
+AC_MSG_RESULT([no])
+[cuda=false],
+AC_MSG_RESULT([unknown])
+[cuda=false])
 ])
