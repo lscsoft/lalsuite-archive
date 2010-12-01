@@ -2780,6 +2780,7 @@ class ScienceData:
     self.coalesce()
     return len(self)
 
+
   def split(self, dt):
     """
       Split the segments in the list is subsegments at least as long as dt
@@ -2804,6 +2805,32 @@ class ScienceData:
     self.__sci_segs = outlist
     return len(self)
 
+  def split_generously(self, dt):
+    """
+      Split the segments in the list into subsegments with default length dt. 
+      Excess time at the end of a long segment will be distributed into the 
+      last two sub segments. Max segment length will be 3dt/2. 
+      Short segments stay short :(
+    """
+    outlist=[]
+    for seg in self:
+      start = seg.start()
+      stop = seg.end()
+      id = seg.id()
+
+      while start < stop:
+        tmpstop = start + dt
+        if tmpstop + int( dt/2 ) > stop:
+          tmpstop = stop
+        elif tmpstop + 2*dt > stop:
+          tmpstop = int( (start + stop)/2 )
+        x = ScienceSegment(tuple([id,start,tmpstop,tmpstop-start]))
+        outlist.append(x)
+        start = tmpstop
+
+    # save the split list and return length
+    self.__sci_segs = outlist
+    return len(self)
 
 
 class LsyncCache:
