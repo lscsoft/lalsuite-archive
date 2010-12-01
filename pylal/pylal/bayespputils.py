@@ -28,7 +28,7 @@ of the Bayesian parameter estimation codes.
 
 #standard library imports
 import os
-from math import ceil,floor,sqrt
+from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 
@@ -204,6 +204,13 @@ class Posterior(object):
     def _inj_eta(inj):
         return inj.eta
 
+    def _inj_longitude(inj):
+        if inj.longitude>pi_constant or inj.longitude<0.0:
+            maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
+            return maplong
+        else:
+            return inj.longitude
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
@@ -217,9 +224,9 @@ class Posterior(object):
                         'phi0':lambda inj:inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
-                        'ra':lambda inj:inj.longitude,
-                        'long':lambda inj:inj.longitude,
-                        'longitude':lambda inj:inj.longitude,
+                        'ra':_inj_longitude,
+                        'long':_inj_longitude,
+                        'longitude':_inj_longitude,
                         'dec':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
@@ -966,7 +973,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 #
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
-    """xdat,ydat,Nx,Ny,par_names=None,par_injvalues=None
+    """
     Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
 
     @param posterior: an instance of the Posterior class.
@@ -1486,7 +1493,6 @@ class PEOutputParser(object):
         header=formatstr.split(delimiter)
         if header[-1] == '\n':
             del(header[-1])
-        print header,len(header)
             
         llines=[]
         import re
