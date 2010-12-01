@@ -3,11 +3,6 @@
 
  */
 
-// THINGS TO DO:
-// 		- define the init function
-//		- define prior function
-//		- define parsing options	
-
 #include <stdlib.h>
 #include <getopt.h>
 
@@ -935,7 +930,7 @@ doneinit:
 			inputMCMC.funcInit = NestInitAmpCorTest;
 			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCorTest;
 			inputMCMC.funcPrior = NestPriorAmpCorTest;
-            printf("Switched to the correct likelihood\n");
+            printf("Switched to the testing likelihood\n");
 	}				
 	inputMCMC.funcPrior = NestPrior;
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
@@ -1147,7 +1142,7 @@ void NestInitManual(LALMCMCParameter *parameter, void UNUSED *iT)
 	XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
 	XLALMCMCAddParam(parameter,"phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
 /*	XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax, 0);*/
-	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(100.0)-log(1.0)),log(1.0),log(100.0),0);
+	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(1000.0)-log(1.0)),log(1.0),log(1000.0),0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
 	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
@@ -1341,14 +1336,14 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	return;
 
 }
-
-// Init function for the AmpCor waveform
+    
+// Init function for the AmpCorTest waveform
 
 void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
 {
 
 	/* Test params inserted */
-	double etamin=0.03;
+	double etamin=0.1;
 	double mcmin,mcmax;
 	parameter->param=NULL;
 	parameter->dimension = 0;
@@ -1357,25 +1352,34 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
 	double lmmin=log(mcmin);
 	double lmmax=log(mcmax);
 	
-	/* create phiTest parameters */
-	double phiTestMax = 100.0;
-	double phiTestMin = 1.0;
-	
+	/* set phiTest parameter limits */
+    /* we need to calculate the GR value phi3GR and then sample from -0.1*phi3GR and 0.1*phi3GR*/
+    /* F.I.M suggests sentivity to <1% */
+
+    double phi3GRMax = 1000.0;
+	double phi3GRMin = 0.0;
+    double mTotmin,mTotmax;
+    double phiTestMax,phiTestMin;
+    
+    mTotmin=mc2mt(mcmin, etamin);
+    mTotmax=mc2mt(mcmax, 0.25);
+    phi3GRMax=3.0/4.0*LAL_PI*pow(etamin,-0.75)*pow(5.0*LAL_MTSUN_SI*mTotmin,-0.25);
+	phi3GRMin=3.0/4.0*LAL_PI*pow(0.25,-0.75)*pow(5.0*LAL_MTSUN_SI*mTotmax,-0.25);
+    phiTestMax=phi3GRMax*(1.0+0.1);
+    phiTestMin=phi3GRMin*(1.0-0.1);
+    
 // standard parameters
 	XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
-	/*	XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
-	/*	XLALMCMCAddParam(parameter,"mtotal",manual_mass_low+mwin*gsl_rng_uniform(RNG),manual_mass_low,manual_mass_high,0);*/
 	XLALMCMCAddParam(parameter,"eta",etamin+gsl_rng_uniform(RNG)*(0.25-etamin),etamin,0.25,0);
 	XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
 	XLALMCMCAddParam(parameter,"phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
-/*	XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax, 0);*/
 	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(1000.0)-log(1.0)),log(1.0),log(1000.0),0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
 	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
-	XLALMCMCAddParam(parameter,"phiTest",phiTestMin+(phiTestMax-phiTestMin)*gsl_rng_uniform(RNG),phiTestMin,phiTestMax,0);
-
+    XLALMCMCAddParam(parameter,"phiTest",phiTestMin+(phiTestMax-phiTestMin)*gsl_rng_uniform(RNG),phiTestMin,phiTestMax,0);
+        //gsl_ran_gaussian_pdf (double x, double sigma)
 }
 
 int checkParamInList(const char *list, const char *param)
