@@ -644,7 +644,7 @@ LALTaylorT4WaveformEngine (
    /* Calculate the amplitude factor */
    if ( params->distance )
    {
-     amp0 = 4.0 * m * eta / params->distance;
+     amp0 = 4.0 * params->totalMass * LAL_MRSUN_SI * eta / params->distance;
    }
    else if ( params->signalAmplitude )
    {
@@ -659,7 +659,7 @@ LALTaylorT4WaveformEngine (
    /* Begin initial conditions */
    /* Given omega compute v    */
    omega = LAL_PI*params->fLower;
-   v = pow(m*omega,1./3.);
+   v = cbrt(m*omega);
    /* End of initial conditions */
 
    values.data[0] = v;
@@ -714,7 +714,7 @@ LALTaylorT4WaveformEngine (
 
    /* Begin integration loop here */
 
-   omegaMax = 1./(pow(6.,1.5)*m);
+   omegaMax = 1./(sqrt(216.)*m);
    t = 0.0;
    ndx = 0;
    count = 0;
@@ -783,7 +783,7 @@ LALTaylorT4WaveformEngine (
    /* Record the final cutoff frequency of BD Waveforms for record keeping */
    /* ---------------------------------------------------------------------*/
    *countback = count;
-   v = pow(m*omega, 1./3.);
+   v = cbrt(m*omega);
    params->vFinal = v;
    params->tC = t;
    params->fFinal = omega/LAL_PI;
