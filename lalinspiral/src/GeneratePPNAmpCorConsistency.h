@@ -44,8 +44,6 @@ typedef struct tagPPNConsistencyParamStruc {
 	REAL4 eta;        /* mass ratio */
 	REAL4 d;          /* distance (metres) */
 	REAL4 inc;        /* inclination angle (radians) */
-	REAL4 cosI;				/* cosine of inclination angle */
-	REAL4 sinI;				/* sine of inclination angle */
 	REAL4 phi;        /* coalescence phase (radians) */
 	REAL8 deltaT;     /* requested sampling interval (s) */
 	REAL4 fStartIn;   /* requested start frequency (Hz) */

@@ -412,12 +412,12 @@ LALGeneratePPNAmpCorConsistency(
   phi7 = p[7]*params->phasePNparams[8];
   mu = eta*mTot;
   
-  cosI = params->cosI;
+  cosI = cos(params->inc);
   cos2I = cosI*cosI;
   cos4I = cos2I*cos2I;
   cos6I = cos4I*cos2I;  
 
-  sinI = params->sinI;
+  sinI = sin(params->inc);
   sin2I = sinI*sinI;
   sin4I = sin2I*sin2I;
   sin5I = sin4I*sinI;

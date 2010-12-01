@@ -406,8 +406,6 @@ main(int argc, char **argv)
   /*****************/
   params.delta = pow( 1.0 - 4.0*params.eta_real8, 0.5 );
   params.inc = inc;
-  params.cosI = cos(inc);
-  params.sinI = sin(inc);
   params.phi = 0.0;
   params.psi = psi;
   params.d = dist*LAL_PC_SI*1.0e3;
