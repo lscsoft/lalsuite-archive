@@ -125,8 +125,8 @@ class OneDPosterior(object):
         """
         return self.__injval
 
-    #@injval.setter
-    def injval(self,new_injval):
+    #@injval.setter #Python 2.6+
+    def set_injval(self,new_injval):
         self.__injval=new_injval
 
     @property
@@ -182,14 +182,14 @@ class Posterior(object):
         return self._injection
 
         
-    #@injection.setter
-    def injection(self,injection):
+    #@injection.setter #Python 2.6+
+    def set_injection(self,injection):
         if injection is not None:
             self._injection=injection
             for name,onepos in self:
                 new_injval=self._getinjpar(name)
                 if new_injval is not None:
-                    self[name].injval=new_injval
+                    self[name].set_injval(new_injval)
                 
 
     def _inj_m1(inj):
