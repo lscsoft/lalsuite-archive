@@ -1061,7 +1061,6 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
                 #endif
 
                 XLALDestroyCOMPLEX16FrequencySeries(injF);
-
                 XLALDestroyREAL4TimeSeries(injWave);
                 XLALDestroyREAL8TimeSeries(inj8Wave);
 

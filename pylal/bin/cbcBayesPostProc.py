@@ -2,7 +2,7 @@
 
 # Demonstrates use of the pylal.bayespputils module for producing stats/plots based on results of
 # parameter estimation codes.
-
+# This version print a summary file with means and variances
 import sys
 import os
 
@@ -126,7 +126,34 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
-        
+            
+    # print means, variances, and bayes factor in a summary file. The order of parameters is then one given here
+    pars=['mchirp', 'eta','time','phi0','dist','RA','dec','psi','iota','m1','m2']
+    summary_path=os.path.join(str(outdir),'summary.ini')
+    summary_file=open(str(summary_path),'w')
+    data_path=(str(data)[2:-2])
+    data_array=np.loadtxt(str(data_path),skiprows=1)
+    for i in pars:    
+        summary_file.write('mean_'+str(i) +'\t'+'stdev_'+str(i)+'\t')
+    summary_file.write('BSN \t BCI \n')
+    for i in pars:
+        if not (i=='m1' or i=='m2'):
+            I=pars.index(i)
+            summary_file.write(str(np.mean(data_array[:,I]))+'\t')
+            summary_file.write(str(sqrt(np.var(data_array[:,I])))+'\t')
+        elif i=='m1':
+            summary_file.write(str(np.mean(mass1_samps))+'\t')
+            summary_file.write(str(sqrt(np.var(mass1_samps)))+'\t')
+        elif i=='m2':
+            summary_file.write(str(np.mean(mass2_samps))+'\t')
+            summary_file.write(str(sqrt(np.var(mass2_samps)))+'\t')
+
+    if bayesfactornoise is not None:
+        summary_file.write(str(BSN)+'\t')
+    if bayesfactorcoherent is not None:
+        summary_file.write(str(BCI)+'\t')
+    summary_file.write('\n')       
+    summary_file.close()
 
     ##Print some summary stats for the user...##
     #Number of samples
@@ -163,6 +190,7 @@ def cbcBayesPostProc(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_le
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
     html_stats.write(str(pos))
+    
 
     #==================================================================#
     #Generate sky map
