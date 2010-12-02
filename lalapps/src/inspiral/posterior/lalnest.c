@@ -819,7 +819,6 @@ int main( int argc, char *argv[])
 */
 	if(ETgpsSeconds>datastart.gpsSeconds+duration) {fprintf(stderr,"Error, trigger lies outwith data range %i - %i\n",datastart.gpsSeconds,datastart.gpsSeconds+(INT4)duration); exit(-1);}
 
-	datarandparam=XLALCreateRandomParams(dataseed);
 
     unsigned int injTries=0;
 	
@@ -835,7 +834,8 @@ int main( int argc, char *argv[])
             INT4 TrigSegStart,TrigSample;
             inputMCMC.ifoID[i] = IFOnames[i];
             inputMCMC.deltaF = (REAL8)SampleRate/seglen;
-
+            datarandparam=XLALCreateRandomParams(dataseed + (INT2) IFOnames[i][0] + (INT2) IFOnames[i][1]);     // *HERE!*
+            fprintf(stderr,"dataramdparam for the ifo %s is %i \n ", IFOnames[i], datarandparam->i); 
             TrigSample=(INT4)(SampleRate*(ETgpsSeconds - datastart.gpsSeconds));
             TrigSample+=(INT4)(1e-9*SampleRate*ETgpsNanoseconds - 1e-9*SampleRate*datastart.gpsNanoSeconds);
             /*TrigSegStart=TrigSample+SampleRate*(0.5*(segDur-InjParams.tc)) - seglen; */ /* Centre the injection */
