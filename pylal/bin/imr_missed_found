@@ -170,15 +170,15 @@ class Summary(object):
 			zero_lag_segments  = segments.intersection(instruments) - segments.union(set(segments.keys()) - instruments)
 			###############
 
-			
-			# check to see if a maxextent option was used in cafe/rinca land
-			coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
-			if len(coinc_end_time_seg_param) == 1:
-				segl = segmentsUtils.from_range_strings(coinc_end_time_seg_param,boundtype=float)
-				zero_lag_segments = zero_lag_segments & segl
-			else:
-				# FIXME what would that mean if it is greater than one???
-				pass
+			if self.coinc_ringdown_table:
+			 # check to see if a maxextent option was used in cafe/rinca land
+			 coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
+			 if len(coinc_end_time_seg_param) == 1:
+				 segl = segmentsUtils.from_range_strings(coinc_end_time_seg_param,boundtype=float)
+				 zero_lag_segments = zero_lag_segments & segl
+			 else:
+				 # FIXME what would that mean if it is greater than one???
+				 pass
 
 			
 			# DEFINE THE INJECTION WAS MADE FUNCTION
