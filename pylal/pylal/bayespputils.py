@@ -125,7 +125,7 @@ class OneDPosterior(object):
         """
         return self.__injval
 
-    @injval.setter
+    #@injval.setter
     def injval(self,new_injval):
         self.__injval=new_injval
 
@@ -174,7 +174,7 @@ class Posterior(object):
         return self._injection
 
         
-    @injection.setter
+    #@injection.setter
     def injection(self,injection):
         if injection is not None:
             self._injection=injection
