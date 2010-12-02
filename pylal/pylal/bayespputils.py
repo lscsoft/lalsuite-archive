@@ -161,12 +161,20 @@ class Posterior(object):
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
-        try:
-            self._logL=self._posterior['logl'].samples
+        if 'logl' in common_output_table_header:
+            try:
+                self._logL=self._posterior['logl'].samples
             
-        except KeyError:
-            print "No 'logl' column in input table!"
-            raise
+            except KeyError:
+                print "No 'logl' column in input table!"
+                raise
+        elif 'likelihood' in common_output_table_header:
+            try:
+                self._logL=self._posterior['likelihood'].samples
+            
+            except KeyError:
+                print "No 'logl' column in input table!"
+                raise
         return
 
     @property
