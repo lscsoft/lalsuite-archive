@@ -1381,24 +1381,21 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
     
     mTotmin=mc2mt(mcmin, etamin);
     mTotmax=mc2mt(mcmax, 0.25);
-    phi3GRMin=-(9275495.0/14450688.0 + 284875.0/258048.0*etamin + 1855.0/2048.0*pow(etamin,2.0))*pow(etamin,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTotmin,-1.0/8.0);
-	phi3GRMax=-(9275495.0/14450688.0 + 284875.0/258048.0*0.25 + 1855.0/2048.0*pow(0.25,2.0))*pow(0.25,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTotmax,-1.0/8.0);
-        //printf("max %f  min %f\n",phi3GRMax,phi3GRMin);
-        // for a 10+10 binary phi3=44.5298430086 !NO!
-    phiTestMax=1000.0;
-    phiTestMin=1.0;
+
+    phiTestMax=46.0;
+    phiTestMin=42.0;
     
 // standard parameters
 	XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
 	XLALMCMCAddParam(parameter,"eta",etamin+gsl_rng_uniform(RNG)*(0.25-etamin),etamin,0.25,0);
 	XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
-	XLALMCMCAddParam(parameter,"phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
+	XLALMCMCAddParam(parameter,"phi",LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(1000.0)-log(1.0)),log(1.0),log(1000.0),0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
 	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
-    XLALMCMCAddParam(parameter,"phiTest",phiTestMin+(phiTestMax-phiTestMin)*gsl_rng_uniform(RNG),phiTestMin,phiTestMax,0);
+    if (PhaseTestParam!=-1) {XLALMCMCAddParam(parameter,"phiTest",phiTestMin+(phiTestMax-phiTestMin)*gsl_rng_uniform(RNG),phiTestMin,phiTestMax,0);}
         //gsl_ran_gaussian_pdf (double x, double sigma)
         //printf("max = %f min = %f\n",phiTestMax,phiTestMin);
 }
