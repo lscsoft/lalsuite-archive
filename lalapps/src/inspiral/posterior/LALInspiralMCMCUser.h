@@ -98,7 +98,7 @@ double m2mc(double m1, double m2);
 
 double logJacobianMcEta(double mc, double eta);
 
-extern INT4 testing;
+extern INT4 PhaseTestParam;
   /* Example functions */
 void MCMCInitTest(
   LALMCMCParameter *parameter,
@@ -117,7 +117,7 @@ REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 REAL8 NestPriorHighMass(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
-REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+REAL8 NestPriorAmpCorTest(LALMCMCParameter *parameter);
 
 REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 

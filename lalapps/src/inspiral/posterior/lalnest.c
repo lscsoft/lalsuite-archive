@@ -82,7 +82,7 @@ Optional OPTIONS:\n \
 [--version\t:\tPrint version information and exit]\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
 [--help\t:\tPrint this message]\n \
-[--phaseParamTest\t:\t Parameter to be tested]\n"
+[--phaseParamTest\t STRING:\t where STRING is (phi0|[phi1 NOT IMPLEMENTED!]|phi2|phi3|phi4|phi5|phi5l|phi6|phi6l|phi7)]\n"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -92,6 +92,7 @@ Optional OPTIONS:\n \
 
 extern CHAR outfile[FILENAME_MAX];
 CHAR *datadump=NULL;
+CHAR *PhaseTest=NULL;
 extern double etawindow;
 extern double timewindow;
 CHAR **CacheFileNames = NULL;
@@ -144,7 +145,7 @@ INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
 
-INT4 testing;
+INT4 PhaseTestParam;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 
@@ -395,8 +396,9 @@ void initialise(int argc, char *argv[]){
 			timeslides=1;
 			break;
 		case 'Q':
-			testing=atoi(optarg);
-			break;
+            PhaseTest=(CHAR *)malloc(strlen(optarg)+1);
+            strcpy(PhaseTest,optarg);
+            break;
 		default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
@@ -913,6 +915,22 @@ int main( int argc, char *argv[])
 			inputMCMC.phaseOrder=LAL_PNORDER_TWO;
 	}
 
+    /* Set the test phase coefficient from string */
+    if (PhaseTest==NULL){ PhaseTestParam = -1;}
+    else if (!strcmp(PhaseTest,"phi0")){ PhaseTestParam = 0;}
+    else if (!strcmp(PhaseTest,"phi1")){ fprintf(stderr,"Not implemented! Exiting.\n");exit(-1); }
+    else if (!strcmp(PhaseTest,"phi2")){ PhaseTestParam = 1;}
+    else if (!strcmp(PhaseTest,"phi3")){ PhaseTestParam = 2;}
+    else if (!strcmp(PhaseTest,"phi4")){ PhaseTestParam = 3;}
+    else if (!strcmp(PhaseTest,"phi5")){ PhaseTestParam = 4;}
+    else if (!strcmp(PhaseTest,"phi5l")){ PhaseTestParam = 5;}
+    else if (!strcmp(PhaseTest,"phi6")){ PhaseTestParam = 6;}
+    else if (!strcmp(PhaseTest,"phi6l")){ PhaseTestParam = 7;}
+    else if (!strcmp(PhaseTest,"phi7")){ PhaseTestParam = 8;}
+    else {fprintf(stderr,"Unknown phase coefficient: %s\n",PhaseTest); exit(-1);}
+    fprintf(stderr,"phasetest: %s\t phasetestindex %i\n",PhaseTest,PhaseTestParam);
+        
+        
 	/* Set the initialisation and likelihood functions */
 	if(SkyPatch) {inputMCMC.funcInit = NestInitSkyPatch; goto doneinit;}
 	if(SkyLocFlag) {inputMCMC.funcInit = NestInitSkyLoc; goto doneinit;}
@@ -1363,10 +1381,12 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
     
     mTotmin=mc2mt(mcmin, etamin);
     mTotmax=mc2mt(mcmax, 0.25);
-    phi3GRMax=3.0/4.0*LAL_PI*pow(etamin,-0.75)*pow(5.0*LAL_MTSUN_SI*mTotmin,-0.25);
-	phi3GRMin=3.0/4.0*LAL_PI*pow(0.25,-0.75)*pow(5.0*LAL_MTSUN_SI*mTotmax,-0.25);
-    phiTestMax=phi3GRMax*(1.0+0.1);
-    phiTestMin=phi3GRMin*(1.0-0.1);
+    phi3GRMin=-(9275495.0/14450688.0 + 284875.0/258048.0*etamin + 1855.0/2048.0*pow(etamin,2.0))*pow(etamin,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTotmin,-1.0/8.0);
+	phi3GRMax=-(9275495.0/14450688.0 + 284875.0/258048.0*0.25 + 1855.0/2048.0*pow(0.25,2.0))*pow(0.25,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTotmax,-1.0/8.0);
+        //printf("max %f  min %f\n",phi3GRMax,phi3GRMin);
+        // for a 10+10 binary phi3=44.5298430086 !NO!
+    phiTestMax=1000.0;
+    phiTestMin=1.0;
     
 // standard parameters
 	XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
@@ -1380,6 +1400,7 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
     XLALMCMCAddParam(parameter,"phiTest",phiTestMin+(phiTestMax-phiTestMin)*gsl_rng_uniform(RNG),phiTestMin,phiTestMax,0);
         //gsl_ran_gaussian_pdf (double x, double sigma)
+        //printf("max = %f min = %f\n",phiTestMax,phiTestMin);
 }
 
 int checkParamInList(const char *list, const char *param)

@@ -409,7 +409,7 @@ REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 
 // Prior for the AmpCorTest waveforms
 
-REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
+REAL8 NestPriorAmpCorTest(LALMCMCParameter *parameter)
 {
 	REAL8 m1,m2;
 	parameter->logPrior=0.0;
@@ -438,7 +438,7 @@ REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-	parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));
+    if (PhaseTestParam!=-1) {parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));}
 	ParamInRange(parameter);
 	return parameter->logPrior;
 }
@@ -488,13 +488,37 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
 	PPNparams.deltaT=inputMCMC->deltaT;
 	PPNparams.ampOrder = inputMCMC->ampOrder;
 	
-	LALPopulatePhasePNparams(PPNparams,testing);
+	LALPopulatePhasePNparams(&PPNparams,PhaseTestParam);
 
 	/* GET TEST PHASE PARAMETER FROM MCMCSTRUCTURE */
-	PPNparams.phasePNparams[testing] = XLALMCMCGetParameter(parameter,"phiTest");
+    if (PhaseTestParam!=-1) {PPNparams.phasePNparams[PhaseTestParam] = XLALMCMCGetParameter(parameter,"phiTest");}
 
 	/* Call LALGeneratePPNAmpCorInspiral */
 	LALGeneratePPNAmpCorConsistency(&status,&coherent_gw,&PPNparams);
+    /*
+    FILE *consistencyout;
+	consistencyout = fopen("testwave.out","w");
+	for(i=0;i<coherent_gw.h->data->length;i++){
+		fprintf(consistencyout,"%e\t%e\t%e\n",coherent_gw.h->deltaT*i,coherent_gw.h->data->data[2*i],coherent_gw.h->data->data[2*i+1]);
+	}
+	fclose(consistencyout);
+    
+    FILE *paramsout;
+	paramsout = fopen("params.out","w");
+	for(i=0;i<9;i++){
+		fprintf(paramsout,"%e\n",PPNparams.phasePNparams[i]);
+	}
+    fprintf(paramsout,"%e\n",PPNparams.inc);
+    fprintf(paramsout,"%e\n",PPNparams.psi);
+    fprintf(paramsout,"%e\n",PPNparams.mTot);
+    fprintf(paramsout,"%e\n",PPNparams.mTot_real8);
+    fprintf(paramsout,"%e\n",PPNparams.eta);
+    fprintf(paramsout,"%e\n",PPNparams.eta_real8);
+    fprintf(paramsout,"%e\n",PPNparams.deltaT);
+	fclose(paramsout);
+    exit(0);
+    */
+    
 	if(status.statusCode)
 	{
 		REPORTSTATUS(&status);
@@ -703,13 +727,21 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 
 	/* Call LALGeneratePPNAmpCorInspiral */
 	LALGeneratePPNAmpCorInspiral(&status,&coherent_gw,&PPNparams);
+    /*
+    FILE *consistencyout;
+	consistencyout = fopen("testwave.out","w");
+	for(i=0;i<coherent_gw.h->data->length;i++){
+		fprintf(consistencyout,"%e\t%e\t%e\n",coherent_gw.h->deltaT*i,coherent_gw.h->data->data[2*i],coherent_gw.h->data->data[2*i+1]);
+	}
+	fclose(consistencyout);
+    exit(0);
 	if(status.statusCode)
 	{
 		REPORTSTATUS(&status);
 		chisq=DBL_MAX;
 		goto noWaveform;
 	}
-
+    */
 	/* Set the epoch so that the t_c is correct */
 	end_time = XLALMCMCGetParameter(parameter,"time");
 

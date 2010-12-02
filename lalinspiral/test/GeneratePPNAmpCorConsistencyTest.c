@@ -395,7 +395,7 @@ main(int argc, char **argv)
 
   params.phasePNparams[0] = -pow(params.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-5.0/8.0); 
   params.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*params.eta_real8)*pow(params.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-3.0/8.0);
-  params.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(params.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-0.25); 
+    params.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(params.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-0.25); 
   params.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*params.eta_real8 + 1855.0/2048.0*pow(params.eta_real8,2.0))*pow(params.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-1.0/8.0);
   params.phasePNparams[4] = -1.0/params.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*params.eta_real8)*LAL_PI*log(params.eta_real8/(5.0*LAL_MTSUN_SI*params.mTot_real8));
   params.phasePNparams[5] = -1.0/params.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*params.eta_real8)*LAL_PI; 

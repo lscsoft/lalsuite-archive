@@ -1314,18 +1314,18 @@ LALGeneratePPNAmpCorConsistency(
 }
 
 /* function to populate phaseParams */
-void LALPopulatePhasePNparams(PPNConsistencyParamStruc params,INT4 TestParam)
+void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params,INT4 TestParam)
 {
 	/* REFILL PHI_I*/
-	if(TestParam!=0) params.phasePNparams[0] = -pow(params.eta,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot,-5.0/8.0); 
-	if(TestParam!=1) params.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*params.eta)*pow(params.eta,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot,-3.0/8.0);
-	if(TestParam!=2) params.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(params.eta,-0.75)*pow(5.0*LAL_MTSUN_SI*params.mTot,-0.25); 
-	if(TestParam!=3) params.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*params.eta + 1855.0/2048.0*pow(params.eta,2.0))*pow(params.eta,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot,-1.0/8.0);
-	if(TestParam!=4) params.phasePNparams[4] = -1.0/params.eta*(-38645.0/172032.0 + 65.0/2048.0*params.eta)*LAL_PI*log(params.eta/(5.0*LAL_MTSUN_SI*params.mTot));
-	if(TestParam!=5) params.phasePNparams[5] = -1.0/params.eta*(-38645.0/172032.0 + 65.0/2048.0*params.eta)*LAL_PI; 
-	if(TestParam!=6) params.phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(params.eta/(256*5.0*LAL_MTSUN_SI*params.mTot)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*params.eta + 154565.0/1835008.0*pow(params.eta,2.0) - 1179625.0/1769472.0*pow(params.eta,3.0))*pow(params.eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot,1.0/8.0);
-	if(TestParam!=7) params.phasePNparams[7] = -107.0/448.0*pow(params.eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot,1.0/8.0);
-	if(TestParam!=8) params.phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*params.eta - 141769.0/516096.0*pow(params.eta,2.0))*LAL_PI*pow(params.eta,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*params.mTot,1.0/4.0); 		 
+	if(TestParam!=0) params->phasePNparams[0] = -pow(params->eta,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-5.0/8.0); 
+	if(TestParam!=1) params->phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*params->eta)*pow(params->eta,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-3.0/8.0);
+	if(TestParam!=2) params->phasePNparams[2] = 3.0/4.0*LAL_PI*pow(params->eta,-0.75)*pow(5.0*LAL_MTSUN_SI*params->mTot,-0.25); 
+	if(TestParam!=3) params->phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*params->eta + 1855.0/2048.0*pow(params->eta,2.0))*pow(params->eta,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-1.0/8.0);
+	if(TestParam!=4) params->phasePNparams[4] = -1.0/params->eta*(-38645.0/172032.0 + 65.0/2048.0*params->eta)*LAL_PI*log(params->eta/(5.0*LAL_MTSUN_SI*params->mTot));
+	if(TestParam!=5) params->phasePNparams[5] = -1.0/params->eta*(-38645.0/172032.0 + 65.0/2048.0*params->eta)*LAL_PI; 
+	if(TestParam!=6) params->phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(params->eta/(256*5.0*LAL_MTSUN_SI*params->mTot)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*params->eta + 154565.0/1835008.0*pow(params->eta,2.0) - 1179625.0/1769472.0*pow(params->eta,3.0))*pow(params->eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/8.0);
+	if(TestParam!=7) params->phasePNparams[7] = -107.0/448.0*pow(params->eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/8.0);
+	if(TestParam!=8) params->phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*params->eta - 141769.0/516096.0*pow(params->eta,2.0))*LAL_PI*pow(params->eta,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/4.0); 		 
 	
 	return;
 	
