@@ -20,6 +20,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue import segmentsUtils
+from glue.ligolw.utils import process
 
 from pylal import db_thinca_rings
 from pylal import llwapp
@@ -62,6 +63,7 @@ class upper_limit(object):
     self.maxmass = None
     self.multi_burst_table = None
     self.coinc_inspiral_table = None
+    self.coinc_ringdown_table = None
 
     for f in flist:
       if opts.verbose: print >> sys.stderr, "Gathering stats from: %s...." % (f,)
@@ -79,7 +81,7 @@ class upper_limit(object):
         self.non_inj_fnames.append(f)
         sim = False
 
-      # FIGURE OUT IF IT IS A BURST OR INSPIRAL RUN
+      # FIGURE OUT IF IT IS A BURST OR INSPIRAL RUN OR RINGDOWN RUN
       try:
         self.multi_burst_table = table.get_table(xmldoc, dbtables.lsctables.MultiBurstTable.tableName)
       except ValueError:
@@ -88,9 +90,20 @@ class upper_limit(object):
         self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
       except ValueError:
         self.coinc_inspiral_table = None
+      try:
+        self.coinc_ringdown_table = table.get_table(xmldoc, dbtables.lsctables.CoincRingdownTable.tableName)
+      except ValueError:
+        self.coinc_ringdown_table = None
+
       if self.multi_burst_table and self.coinc_inspiral_table:
         print >>sys.stderr, "both burst and inspiral tables found.  Aborting"
         raise ValueError
+      if self.coinc_inspiral_table and self.coinc_ringdown_table:
+                                print >>sys.stderr, "both ringdown and inspiral tables found.  Aborting"
+                                raise ValueError
+      if self.multi_burst_table and self.coinc_ringdown_table:
+                                print >>sys.stderr, "both burst and ringdown tables found.  Aborting"
+                                raise ValueError
 
       if not sim:
           self.instruments = self.get_instruments(connection)
@@ -127,17 +140,12 @@ class upper_limit(object):
     # get a 2D mass chi binning
     self.twoDMassChiBins = self.get_2d_masschi_bins(self.minchi, self.maxchi, opts.chi_bins,self.minmass, self.maxmass, opts.mass_bins )
 
-#  def get_segments(self, connection, xmldoc):
-#    if self.coinc_inspiral_table:
-#      segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
-#    if self.multi_burst_table:
-#      #FIXME CWB case of rings not handled
-#      segments = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
-#    return segments
   def get_segments(self, connection, xmldoc):
     segs = segments.segmentlistdict()
     if self.coinc_inspiral_table:
       segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
+    if self.coinc_ringdown_table:		
+      if opts.live_time_program == "lalapps_ring": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
     if self.multi_burst_table:
       if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
       if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
@@ -230,6 +238,8 @@ class upper_limit(object):
 	query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
     elif self.multi_burst_table:
 	query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
+    elif self.coinc_ringdown_table:
+	query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_ringdown.false_alarm_rate) AS combined_far FROM coinc_ringdown JOIN coinc_event ON (coinc_ringdown.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_ringdown.start_time, coinc_ringdown.start_time_ns) ) FROM distinct_instruments;'
     else:
 	query = None
 
@@ -332,6 +342,15 @@ class upper_limit(object):
       if zero_lag_segments:
         #FIXME we shouldn't assume that we want to remove playground
         zero_lag_segments -= segmentsUtils.S2playground(zero_lag_segments.extent())
+        # check to see if a maxextent option was used in cafe/rinca land
+      coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
+      if len(coinc_end_time_seg_param) == 1:
+           segl = segmentsUtils.from_range_strings(coinc_end_time_seg_param,boundtype=float)
+           zero_lag_segments = zero_lag_segments & segl
+      else:
+            # FIXME what would that mean if it is greater than one???
+            pass	
+
       ###############
 
       # DEFINE THE INJECTION WAS MADE FUNCTION
@@ -378,6 +397,42 @@ WHERE
             found.append(sim)
           else:
             missed.append(sim)
+
+      # RINGDOWN
+      if self.coinc_ringdown_table:
+       for values in connection.cursor().execute("""
+SELECT
+  sim_inspiral.*,
+  -- true if injection matched a coinc below the false alarm rate threshold
+  EXISTS (
+    SELECT
+      *
+    FROM
+      coinc_event_map AS mapa
+      JOIN coinc_event_map AS mapb ON (
+        mapa.coinc_event_id == mapb.coinc_event_id
+      )
+      JOIN coinc_ringdown ON (
+        mapb.table_name == "coinc_event"
+        AND mapb.event_id == coinc_ringdown.coinc_event_id
+      )
+    WHERE
+      mapa.table_name == "sim_inspiral"
+      AND mapa.event_id == sim_inspiral.simulation_id
+      AND coinc_ringdown.false_alarm_rate < ?
+  )
+FROM
+  sim_inspiral
+WHERE
+  -- only interested in injections that were injected
+  injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
+                                """, (FAR,)):
+          sim = make_sim_inspiral(values)
+          if values[-1]:
+           found.append(sim)
+          else:
+           missed.append(sim)
+
 
       # BURSTS
       if self.multi_burst_table:

@@ -41,8 +41,10 @@ download() {
 
 eah_build2_loc="`echo $PWD/$0 | sed 's%/[^/]*$%%'`"
 
-boinc_rev=-r22561
-#previous:-r22503 -r22363 -r21777 -r'{2008-12-01}'
+test ".$appname" = "." && appname=einstein_S5GC1HF
+test ".$appversion" = "." && appversion=0.00
+boinc_rev=r22784
+#previous:-r22561 -r22503 -r22363 -r21777 -r'{2008-12-01}'
 
 for i; do
     case "$i" in
@@ -69,6 +71,10 @@ for i; do
 	    CFLAGS="-O3 $CFLAGS"
 	    LDFLAGS="-static-libgcc $LDFLAGS"
 	    shared_copt="--disable-shared"  ;;
+	--appname=*)
+	    appname=`echo "$i" | sed 's/--appname=//'` ;;
+	--appversion=*)
+	    appversion=`echo "$i" | sed 's/--appversion=//'` ;;
 	--norebuild) # dangerous, for testing only!
 	    rebuild_binutils=""
 	    rebuild_boinc=""
@@ -82,18 +88,22 @@ for i; do
 	--sse)
 	    CPPFLAGS="-DENABLE_SSE_EXCEPTIONS $CPPFLAGS"
 	    CFLAGS="-msse -march=pentium3 $CFLAGS"
-	    fftw_copts=--enable-sse
+	    fftw_copts_single=--enable-sse
+	    planclass=__SSE
 	    acc="_sse";;
 	--sse2)
 	    CPPFLAGS="-DENABLE_SSE_EXCEPTIONS $CPPFLAGS"
 	    CFLAGS="-msse -msse2 -mfpmath=sse -march=pentium-m $CFLAGS"
-	    fftw_copts="--enable-sse --enable-sse2"
+            fftw_copts_single=--enable-sse
+            fftw_copts_double=--enable-sse2
+	    planclass=__SSE2
 	    acc="_sse2";;
 	--altivec)
 	    CPPFLAGS="-maltivec -faltivec $CPPFLAGS"
 	    CFLAGS="-fast -mcpu=G4 -maltivec -faltivec $CFLAGS"
 	    CXXFLAGS="-mcpu=G4 $CXXFLAGS"
-	    fftw_copts=--enable-altivec
+	    fftw_copts_single=--enable-altivec
+	    planclass=__ALTIVEC
 	    acc="_altivec";;
 	--cuda)
 	    cuda=true
@@ -144,6 +154,8 @@ for i; do
 	    echo "  --check-app=<app> only test the app specified, not necessarily the one just built"
 	    echo "  --release         use some dark magic to make the App most compatible and add remote debugging."
 	    echo "                    Implies --static and --rebuild and even more dirty hacks on Linux to work on Woody"
+	    echo "  --appname         set an application name (only used in --release builds, defaults to einstein_S5GC1HF)"
+	    echo "  --appversion      set an application version (only used in --release builds, defaults to 0.00)"
 	    echo "  --norebuild       disables --rebuild on --release. DANGEROUS! Use only for testing the build script"
 	    echo "  --help            show this message and exit"
 	    exit ;;
@@ -166,6 +178,7 @@ if [ ."$build_win32" = ."true" ] ; then
     # -include $INSTALL/include/win32_hacks.h
     cross_copt=--host=i586-pc-mingw32
     ext=".exe"
+    platform=windows_intelx86
     wine=`which wine`
     if [ ".$wine" = "." -a ".$check" = ".true" ]; then
         log_and_show "WARNING: 'wine' not found, disabling check as it won't work"
@@ -188,10 +201,16 @@ if [ ."$build_win32" = ."true" ] ; then
 else
     case `uname -s` in
 	Darwin)
+            if [ ".$MACOSX_DEPLOYMENT_TARGET" = ".10.3" ]; then
+                platform=powerpc-apple-darwin
+	    else
+		platform=i686-apple-darwin
+	    fi
 	    LDFLAGS="-framework Carbon -framework AppKit -framework IOKit -framework CoreFoundation $LDFLAGS" ;;
 	Linux)
 	    LDFLAGS="-lpthread $LDFLAGS"
-	    if [ x"$release" = x"true" ]; then
+	    platform=i686-pc-linux-gnu
+	    if [ ".$release" = ".true" ]; then
 		CPPFLAGS="-DEXT_STACKTRACE -I$INSTALL/include/bfd $CPPFLAGS"
 		export RELEASE_DEPS="erp_execinfo_plus.o libstdc++.a libz.a"
 		export RELEASE_LDADD="erp_execinfo_plus.o -lbfd -liberty"
@@ -305,11 +324,11 @@ if test -z "$rebuild" && pkg-config --exists fftw3 fftw3f; then
 else
     log_and_show "compiling fftw"
     log_and_do cd "$BUILD/$fftw"
-    log_and_do "$SOURCE/$fftw/configure" $fftw_copts "$shared_copt" "$cross_copt" --prefix="$INSTALL"
+    log_and_do "$SOURCE/$fftw/configure" $fftw_copts_double "$shared_copt" "$cross_copt" --prefix="$INSTALL"
     log_and_dont_fail make uninstall
     log_and_do make
     log_and_do make install
-    log_and_do "$SOURCE/$fftw/configure" $fftw_copts --enable-single "$shared_copt" "$cross_copt" --prefix="$INSTALL"
+    log_and_do "$SOURCE/$fftw/configure" $fftw_copts_single --enable-single "$shared_copt" "$cross_copt" --prefix="$INSTALL"
     log_and_dont_fail make uninstall
     log_and_do make
     log_and_do make install
@@ -426,17 +445,17 @@ else
     fi
 fi
 
+lalsuite_copts="--disable-gcc-flags --disable-debug --enable-boinc --disable-silent-rules $shared_copt $cross_copt --prefix=$INSTALL"
+test ".$MACOSX_DEPLOYMENT_TARGET" = ".10.3" &&
+    lalsuite_copts="--disable-osx-version-check $lalsuite_copts"
 if test -z "$rebuild_lal" && pkg-config --exists lal; then
     log_and_show "using existing lal"
 else
     log_and_show "compiling LAL"
     log_and_do cd "$SOURCE/lalsuite/lal"
-    if [ ".$MACOSX_DEPLOYMENT_TARGET" = ".10.3" ]; then
-        log_and_do sed -i~ s/-mmacosx-version-min=10.4// configure.ac
-    fi
     log_and_do ./00boot
     log_and_do cd "$BUILD/lal"
-    log_and_do "$SOURCE/lalsuite/lal/configure" --disable-gcc-flags --disable-debug --enable-boinc --disable-silent-rules "$shared_copt" "$cross_copt" --prefix="$INSTALL"
+    log_and_do "$SOURCE/lalsuite/lal/configure" $lalsuite_copts
     log_and_dont_fail make uninstall
     log_and_do make
     log_and_do make install
@@ -447,12 +466,9 @@ if test -z "$rebuild_lal" && pkg-config --exists lalpulsar; then
 else
     log_and_show "compiling LALPulsar"
     log_and_do cd "$SOURCE/lalsuite/lalpulsar"
-    if [ ".$MACOSX_DEPLOYMENT_TARGET" = ".10.3" ]; then
-        log_and_do sed -i~ s/-mmacosx-version-min=10.4// configure.ac
-    fi
     log_and_do ./00boot
     log_and_do cd "$BUILD/lalpulsar"
-    log_and_do "$SOURCE/lalsuite/lalpulsar/configure" --disable-gcc-flags --disable-debug --enable-boinc --disable-silent-rules "$shared_copt" "$cross_copt" --prefix="$INSTALL"
+    log_and_do "$SOURCE/lalsuite/lalpulsar/configure" $lalsuite_copts
     log_and_dont_fail make uninstall
     log_and_do make
     log_and_do make install
@@ -463,34 +479,12 @@ fi
 
 log_and_show "configuring LALApps"
 log_and_do cd "$SOURCE/lalsuite/lalapps"
-if [ ."$MACOSX_DEPLOYMENT_TARGET" = ."10.3" ]; then
-    log_and_do sed -i~ s/-mmacosx-version-min=10.4// configure.ac
-    if grep ^eah_HierarchSearchGCT_manual: src/pulsar/GCT/Makefile.am >/dev/null; then
-	:
-    else
-	echo '
-## pretty dirty hack, particulary for compiling an E@H Mac OS 10.3 App on 10.4
-eah_HierarchSearchGCT_manual: eah_HierarchSearchGCT-HierarchSearchGCT.o \
-    eah_HierarchSearchGCT-GCTtoplist.o \
-    eah_HierarchSearchGCT-HeapToplist.o \
-    eah_HierarchSearchGCT-Fstat_v3.o \
-    eah_HierarchSearchGCT-ComputeFstat_RS.o \
-    eah_HierarchSearchGCT-hs_boinc_extras.o \
-    eah_HierarchSearchGCT-hs_boinc_options.o \
-    eah_HierarchSearchGCT-win_lib.o \
-    eah_HierarchSearchGCT-LocalComputeFstat.o \
-    libstdc++.a
-	$(CXX) $(CPPFLAGS) $(AC_CPPFLAGS) -o $@ $^ $(LDFLAGS) $(AC_LDFLAGS) $(LDADD) $(AC_LDADD) $(LIBS) $(AC_LIBS) libstdc++.a
-' >> src/pulsar/GCT/Makefile.am
-    fi
-fi
-
 log_and_do ./00boot
 if [ ."$build_win32" = ."true" ] ; then
     sed -i~ 's/test  *"${boinc}"  *=  *"true"/test "true" = "true"/' configure
 fi
 log_and_do cd "$BUILD/lalapps"
-log_and_do "$SOURCE/lalsuite/lalapps/configure" --disable-gcc-flags --disable-debug --enable-boinc --disable-silent-rules "$shared_copt" "$cross_copt" --prefix="$INSTALL"
+log_and_do "$SOURCE/lalsuite/lalapps/configure" $lalsuite_copts
 
 log_and_show "building Apps"
 
@@ -499,14 +493,12 @@ log_and_do cd "$BUILD/lalapps/src/lalapps"
 if [ ."$build_win32" = ."true" ] ; then
     echo '/**/' > processtable.c
 fi
-if [ ! .$MACOSX_DEPLOYMENT_TARGET = .10.3 ] ; then
-    log_and_do make LALAppsVCSInfo.h liblalapps.la
-else
+if [ ".$MACOSX_DEPLOYMENT_TARGET" = ".10.3" ] ; then
     log_and_do make LALAppsVCSInfo.h LALAppsVCSInfo.o lalapps.o
     log_and_do ar cru liblalapps.la lalapps.o LALAppsVCSInfo.o
-fi
+else
+    log_and_do make LALAppsVCSInfo.h liblalapps.la
 
-if [ ! .$MACOSX_DEPLOYMENT_TARGET = .10.3 ] ; then
     log_and_do cd "$BUILD/lalapps/src/pulsar/hough/src2"
     log_and_dont_fail make gitID
     if [ ".$cuda" = ".true" ] ; then
@@ -521,14 +513,16 @@ fi
 log_and_do cd "$BUILD/lalapps/src/pulsar/GCT"
 log_and_dont_fail make gitID
 if [  .$MACOSX_DEPLOYMENT_TARGET = .10.3 -a -r "$SDKROOT/usr/lib/gcc/darwin/3.3/libstdc++.a" ] ; then
-  log_and_do rm -f libstdc++.a
-  log_and_do ln -s "$SDKROOT/usr/lib/gcc/darwin/3.3/libstdc++.a"
-  log_and_do make "eah_HierarchSearchGCT_manual"
-  log_and_do cp "eah_HierarchSearchGCT_manual" "$EAH/eah_HierarchSearchGCT$acc"
+    log_and_do rm -f libstdc++.a
+    log_and_do ln -s "$SDKROOT/usr/lib/gcc/darwin/3.3/libstdc++.a"
+    log_and_do make "eah_HierarchSearchGCT_manual"
+    log_and_do cp "eah_HierarchSearchGCT_manual" "$EAH/eah_HierarchSearchGCT$acc"
 else
-  log_and_do make "eah_HierarchSearchGCT$ext"
-  log_and_do cp "eah_HierarchSearchGCT$ext" "$EAH/eah_HierarchSearchGCT$acc$ext"
+    log_and_do make "eah_HierarchSearchGCT$ext"
+    log_and_do cp "eah_HierarchSearchGCT$ext" "$EAH/eah_HierarchSearchGCT$acc$ext"
 fi
+test ".$release" = ".true" &&
+    log_and_do cp "$EAH/eah_HierarchSearchGCT$acc$ext" "$EAH/${appname}_${appversion}_$platform$planclass$ext"
 
 if [ ! .$MACOSX_DEPLOYMENT_TARGET = .10.3 ] ; then
     log_and_do cd "$BUILD/lalapps/src/pulsar/Injections"
@@ -558,7 +552,8 @@ if [ .$check = .true ]; then
     log_and_do cp ../eah_Makefakedata_v4$ext lalapps_Makefakedata_v4$ext
     log_and_do cp ../eah_PredictFStat$ext lalapps_PredictFStat$ext
     log_and_do cp "$INSTALL"/share/lalpulsar/*05-09.dat .
-    PATH=".:$PATH" LAL_DATA_PATH="$PWD" log_and_do ../source/lalsuite/lalapps/src/pulsar/GCT/testHS.sh $wine "$check_app" --Dterms=8
+    NOCLEANUP=1 PATH=".:$PATH" LAL_DATA_PATH="$PWD" \
+	log_and_do ../source/lalsuite/lalapps/src/pulsar/GCT/testHS.sh $wine "$check_app" --Dterms=8
     log_and_show "==========================================="
     log_and_show "Test passed"
     log_and_show "==========================================="
