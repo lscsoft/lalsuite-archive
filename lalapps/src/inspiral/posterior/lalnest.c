@@ -948,7 +948,7 @@ doneinit:
 			inputMCMC.funcInit = NestInitAmpCorTest;
 			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCorTest;
 			inputMCMC.funcPrior = NestPriorAmpCorTest;
-            printf("Switched to the testing likelihood\n");
+            fprintf(stderr,"Switched to the testing likelihood\n");
 	}				
 	inputMCMC.funcPrior = NestPrior;
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
@@ -1359,45 +1359,88 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 
 void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
 {
-
-	/* Test params inserted */
-	double etamin=0.1;
-	double mcmin,mcmax;
-	parameter->param=NULL;
+	REAL8 trg_time;
+	SimInspiralTable *injTable = (SimInspiralTable *)iT;
+	REAL4 UNUSED mtot, UNUSED eta, UNUSED mwindow, localetawin;
+	REAL8 UNUSED mc, mcmin, mcmax, lmmin, lmmax;
+	parameter->param = NULL;
 	parameter->dimension = 0;
+	trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
+	mtot = injTable->mass1 + injTable->mass2;
+	eta = injTable->eta;
+	mwindow = 0.2;
+	double etamin;
+	/*etamin = etamin<0.01?0.01:etamin;*/
+	etamin=0.01;
+	double etamax = 0.25;
+	mc=m2mc(injTable->mass1,injTable->mass2);
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
-	mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
-	double lmmin=log(mcmin);
-	double lmmax=log(mcmax);
+    mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
+    
+    double phiMin=1.0;
+    double phiMax=1000.0;
+    
+	lmmin=log(mcmin);
+	lmmax=log(mcmax);
+	localetawin=etamax-etamin;
 	
-	/* set phiTest parameter limits */
-    /* we need to calculate the GR value phi3GR and then sample from -0.1*phi3GR and 0.1*phi3GR*/
-    /* F.I.M suggests sentivity to <1% */
-
-    double phi3GRMax = 1000.0;
-	double phi3GRMin = 0.0;
-    double mTotmin,mTotmax;
-    double phiTestMax,phiTestMin;
+	LALMCMCParam *head;
+	
+	if(checkParamInList(pinned_params,"logM")||checkParamInList(pinned_params,"mchirp"))
+		XLALMCMCAddParam(parameter,"logM",log(injTable->mchirp),lmmin,lmmax,-1);
+	else
+		XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+	/*XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
     
-    mTotmin=mc2mt(mcmin, etamin);
-    mTotmax=mc2mt(mcmax, 0.25);
-
-    phiTestMax=46.0;
-    phiTestMin=42.0;
+	if(checkParamInList(pinned_params,"eta"))
+		XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
+	else
+		XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*localetawin+etamin , etamin, etamax, 0);
+	
+	if(checkParamInList(pinned_params,"time"))
+		XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
+	else
+		XLALMCMCAddParam(parameter, "time",		(gsl_rng_uniform(RNG)-0.5)*timewindow + trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,0);
+	
+	if(checkParamInList(pinned_params,"phi"))
+		XLALMCMCAddParam(parameter,"phi",injTable->coa_phase,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter, "phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
+	
+	if(checkParamInList(pinned_params,"dist") || checkParamInList(pinned_params,"logdist") || checkParamInList(pinned_params,"distance") || checkParamInList(pinned_params,"logdistance"))
+		XLALMCMCAddParam(parameter,"logdist",log(injTable->distance),log(manual_dist_min),log(manual_dist_max),-1);
+	else
+		XLALMCMCAddParam(parameter,"logdist",(log(manual_dist_max)-log(manual_dist_min))*gsl_rng_uniform(RNG)+log(manual_dist_min) ,log(manual_dist_min),log(manual_dist_max),0);
     
-// standard parameters
-	XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
-	XLALMCMCAddParam(parameter,"eta",etamin+gsl_rng_uniform(RNG)*(0.25-etamin),etamin,0.25,0);
-	XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
-	XLALMCMCAddParam(parameter,"phi",LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
-	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(1000.0)-log(1.0)),log(1.0),log(1000.0),0);
-	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
-	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
-	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
-	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
-    if (PhaseTestParam!=-1) {XLALMCMCAddParam(parameter,"phiTest",phiTestMin+(phiTestMax-phiTestMin)*gsl_rng_uniform(RNG),phiTestMin,phiTestMax,0);}
-        //gsl_ran_gaussian_pdf (double x, double sigma)
-        //printf("max = %f min = %f\n",phiTestMax,phiTestMin);
+	if(checkParamInList(pinned_params,"long")||checkParamInList(pinned_params,"longitude")||checkParamInList(pinned_params,"RA"))
+		XLALMCMCAddParam(parameter,"long",injTable->longitude,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter,"long",gsl_rng_uniform(RNG)*LAL_TWOPI,0,LAL_TWOPI,1);
+	if(checkParamInList(pinned_params,"lat") || checkParamInList(pinned_params,"latitude") || checkParamInList(pinned_params,"dec"))
+		XLALMCMCAddParam(parameter,"lat",injTable->latitude,-LAL_PI/2.0,LAL_PI/2.0,-1);
+	else
+		XLALMCMCAddParam(parameter,"lat", acos(2.0*gsl_rng_uniform(RNG)-1.0)-LAL_PI/2.0,-LAL_PI/2.0,LAL_PI/2.0,0);
+    
+	if(checkParamInList(pinned_params,"psi")||checkParamInList(pinned_params,"polarization"))
+		XLALMCMCAddParam(parameter,"psi",injTable->polarization,0,LAL_PI,-1);
+	else
+		XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI,0,LAL_PI,1);
+	
+	if(checkParamInList(pinned_params,"iota") || checkParamInList(pinned_params,"inclination"))
+		XLALMCMCAddParam(parameter,"iota", injTable->inclination, 0, LAL_PI, -1);
+	else
+		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
+    
+    /* add the Phitest parameter */
+    
+    if (PhaseTestParam!=-1) {XLALMCMCAddParam(parameter,"phiTest",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);}
+    
+	for (head=parameter->param;head;head=head->next)
+	{
+		if(head->core->wrapping==-1)
+			fprintf(stdout,"Fixed parameter %s to %lf\n",head->core->name,head->value);
+	}
+    
 }
 
 int checkParamInList(const char *list, const char *param)
