@@ -371,6 +371,30 @@ class FUTriggers(object):
 		self.candidates = []
 		self.background_candidates = []
 
+	def add_grb_contents(self, contents, stat='combined_far'):
+		for (l, v, n) in [(self.candidates, (self.num,), 'non playground')]:
+			if contents.verbose: print >>sys.stderr, "querying %s" % (n,)
+			for i,row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	DISTINCT(coinc_inspiral.coinc_event_id),
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+ORDER BY
+	combined_far
+LIMIT ?
+		""",v)):
+				l.append(Coinc(row, contents))
+
 	def add_contents(self, contents, stat='combined_far'):
 		for (l, v, n) in [(self.candidates, (0,0,0,self.num), 'non playground'),(self.playground_candidates, (1,0,0,self.num), 'playground'),(self.background_candidates, (0,1,0,self.num), 'time slides')]:
 			if contents.verbose: print >>sys.stderr, "querying %s" % (n,)
@@ -530,6 +554,10 @@ def parse_command_line():
 	" This option should be deprecated as soon as the condor flocking is" \
 	" set up on every LIGO cluster.")
 
+	parser.add_option("","--do-grb", action="store_true",\
+	default=False,help="use a simplified sql query to handle the " \
+	"unfilled columns in the experiment_summary table for GRB triggers.")
+
 	options, filenames = parser.parse_args()
 
 	if not filenames: filenames = []
@@ -638,7 +666,10 @@ for n, filename in enumerate(filenames):
 	#if contents.sim_inspiral_table is not None:
 	#	create_sim_coinc_view(connection)
 	create_is_playground_func(connection, contents.playground_segs)
-	trigs.add_contents(contents)
+	if not options.do_grb:
+		trigs.add_contents(contents)
+	else:
+		trigs.add_grb_contents(contents)
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
