@@ -588,7 +588,6 @@ void initialise(int argc, char *argv[]){
 		case 'L':
 			timeslides=1;
 			break;
-<<<<<<< HEAD:lalapps/src/inspiral/posterior/lalnest.c
         case 265:
 			enable_calamp=1;
 			break;
@@ -604,14 +603,11 @@ void initialise(int argc, char *argv[]){
         case 301:
                         injONLY=1;
                         break;
-	default:
-=======
 		case 23:
 			fLow=atof(optarg);
 			fLowFlag=1;
 			break;
 		default:
->>>>>>> master:lalapps/src/inspiral/posterior/lalnest.c
 			fprintf(stdout,USAGE); exit(0);
 			break;
 	}
@@ -834,7 +830,7 @@ int main( int argc, char *argv[])
             INT4 TrigSegStart,TrigSample;
             inputMCMC.ifoID[i] = IFOnames[i];
             inputMCMC.deltaF = (REAL8)SampleRate/seglen;
-            datarandparam=XLALCreateRandomParams(dataseed + (INT2) IFOnames[i][0] + (INT2) IFOnames[i][1]);     // *HERE!*
+            datarandparam=XLALCreateRandomParams(dataseed + (INT2) IFOnames[i][0] + (INT2) IFOnames[i][1]);     // Initialize the random chain using the dataseed and the name of the IFO
             fprintf(stderr,"dataramdparam for the ifo %s is %i \n ", IFOnames[i], datarandparam->i); 
             TrigSample=(INT4)(SampleRate*(ETgpsSeconds - datastart.gpsSeconds));
             TrigSample+=(INT4)(1e-9*SampleRate*ETgpsNanoseconds - 1e-9*SampleRate*datastart.gpsNanoSeconds);
