@@ -28,7 +28,7 @@ of the Bayesian parameter estimation codes.
 
 #standard library imports
 import os
-from math import ceil,floor,sqrt
+from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 
@@ -125,6 +125,10 @@ class OneDPosterior(object):
         """
         return self.__injval
 
+    #@injval.setter #Python 2.6+
+    def set_injval(self,new_injval):
+        self.__injval=new_injval
+
     @property
     def samples(self):
         """
@@ -157,9 +161,36 @@ class Posterior(object):
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
-        self._logL=self._posterior['logl'].samples
-
+        if 'logl' in common_output_table_header:
+            try:
+                self._logL=self._posterior['logl'].samples
+            
+            except KeyError:
+                print "No 'logl' column in input table!"
+                raise
+        elif 'likelihood' in common_output_table_header:
+            try:
+                self._logL=self._posterior['likelihood'].samples
+            
+            except KeyError:
+                print "No 'logl' column in input table!"
+                raise
         return
+
+    @property
+    def injection(self):
+        return self._injection
+
+        
+    #@injection.setter #Python 2.6+
+    def set_injection(self,injection):
+        if injection is not None:
+            self._injection=injection
+            for name,onepos in self:
+                new_injval=self._getinjpar(name)
+                if new_injval is not None:
+                    self[name].set_injval(new_injval)
+                
 
     def _inj_m1(inj):
         """
@@ -181,6 +212,13 @@ class Posterior(object):
     def _inj_eta(inj):
         return inj.eta
 
+    def _inj_longitude(inj):
+        if inj.longitude>pi_constant or inj.longitude<0.0:
+            maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
+            return maplong
+        else:
+            return inj.longitude
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
@@ -194,9 +232,9 @@ class Posterior(object):
                         'phi0':lambda inj:inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
-                        'ra':lambda inj:inj.longitude,
-                        'long':lambda inj:inj.longitude,
-                        'longitude':lambda inj:inj.longitude,
+                        'ra':_inj_longitude,
+                        'long':_inj_longitude,
+                        'longitude':_inj_longitude,
                         'dec':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
@@ -943,7 +981,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 #
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
-    """xdat,ydat,Nx,Ny,par_names=None,par_injvalues=None
+    """
     Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
 
     @param posterior: an instance of the Posterior class.
@@ -1463,7 +1501,6 @@ class PEOutputParser(object):
         header=formatstr.split(delimiter)
         if header[-1] == '\n':
             del(header[-1])
-        print header,len(header)
             
         llines=[]
         import re

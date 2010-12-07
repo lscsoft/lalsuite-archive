@@ -182,7 +182,7 @@ def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, content
 	for n, url in enumerate(urls):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz"), xmldoc = xmldoc, contenthandler = contenthandler)
+		utils.load_url(url, verbose = verbose, xmldoc = xmldoc, contenthandler = contenthandler)
 
 	# ID reassignment
 	if not non_lsc_tables_ok and lsctables.HasNonLSCTables(xmldoc):

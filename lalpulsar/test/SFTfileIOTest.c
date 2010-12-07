@@ -68,30 +68,30 @@ NRCSID (SFTFILEIOTESTC, "$Id$");
 /* Macros for printing errors & testing subroutines (from Creighton) */
 /*********************************************************************/
 
-#define ERROR( code, msg, statement )                                \
-do {                                                                 \
-  if ( lalDebugLevel & LALERROR )                                    \
-    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
-                   "        %s %s\n", (code), *argv, __FILE__,       \
-              __LINE__, SFTFILEIOTESTC, statement ? statement :  \
-                   "", (msg) );                                      \
+#define ERROR( code, msg, statement )					\
+  do {									\
+  if ( lalDebugLevel & LALERROR )					\
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"	\
+		    "        %s %s\n", (code), *argv, __FILE__,		\
+		    __LINE__, SFTFILEIOTESTC, statement ? statement :	\
+		    "", (msg) );					\
 } while (0)
 
-#define INFO( statement )                                            \
-do {                                                                 \
-  if ( lalDebugLevel & LALINFO )                                     \
-    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
-                   "        %s\n", *argv, __FILE__, __LINE__,        \
-              SFTFILEIOTESTC, (statement) );                     \
-} while (0)
+#define INFO( statement )					      \
+  do {								      \
+    if ( lalDebugLevel & LALINFO )				      \
+      XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"   \
+		      "        %s\n", *argv, __FILE__, __LINE__,      \
+		      SFTFILEIOTESTC, (statement) );		      \
+  } while (0)
 
 #define SUB( func, statusptr )                                       \
 do {                                                                 \
   if ( (func), (statusptr)->statusCode ) {                           \
-    ERROR( SFTFILEIOTESTC_ESUB, SFTFILEIOTESTC_MSGESUB,      \
+    ERROR( SFTFILEIOTESTC_ESUB, SFTFILEIOTESTC_MSGESUB,		     \
            "Function call \"" #func "\" failed:" );                  \
-    return SFTFILEIOTESTC_ESUB;                                  \
-  }                                                                  \
+    return SFTFILEIOTESTC_ESUB;					     \
+  }								     \
 } while (0)
 
 
@@ -127,16 +127,39 @@ do { 											\
 } while(0)
 
 
-
-
 /*---------- empty initializers ---------- */
 LALStatus empty_status;
 SFTConstraints empty_constraints;
 /*---------- Global variables ----------*/
 
-INT4 lalDebugLevel = 3;
-
 /* ----------------------------------------------------------------------*/
+
+static int CompareSFTVectors(SFTVector *sft_vect, SFTVector *sft_vect2);
+static int CompareSFTVectors(SFTVector *sft_vect, SFTVector *sft_vect2)
+{
+  UINT4 sft,bin;
+  if (sft_vect->length != sft_vect2->length) {
+    XLALPrintError ( "\nCompareSFTVectors(): vector lengths differ!\n\n");
+    return(-1);
+  }
+  for(sft=0; sft < sft_vect->length; sft++) {
+    SFTtype sft1 = sft_vect->data[sft];
+    SFTtype sft2 = sft_vect2->data[sft];
+    if (sft1.data->length != sft2.data->length) {
+      XLALPrintError ( "\nCompareSFTVectors(): lengths of SFT#%u differ!\n\n", sft);
+      return(-1);
+    }
+    for(bin=0; bin < sft1.data->length; bin++) {
+      if((sft1.data->data[bin].re != sft2.data->data[bin].re) ||
+	 (sft1.data->data[bin].im != sft2.data->data[bin].im)) {
+	XLALPrintError ( "\nCompareSFTVectors(): bins %u of SFT#%u differ!\n\n", sft, bin);
+	return(-1);
+      }
+    }
+  }
+  return(0);
+}
+
 int main(int argc, char *argv[])
 {
   LALStatus status = empty_status;
@@ -144,6 +167,7 @@ int main(int argc, char *argv[])
   SFTCatalog *catalog = NULL;
   SFTConstraints constraints = empty_constraints;
   SFTVector *sft_vect = NULL;
+  SFTVector *sft_vect2 = NULL;
   MultiSFTVector *multsft_vect = NULL;
   CHAR detector[2] = "H1";
   INT4 crc_check;
@@ -151,6 +175,8 @@ int main(int argc, char *argv[])
   /* band to read from infile.* SFTs */
   REAL8 fMin = 1008.5;
   REAL8 fMax = 1009.1;
+
+  lalDebugLevel = 3;
 
   if ( argc == 1)	/* avoid warning */
     argc = 1;
@@ -221,23 +247,9 @@ int main(int argc, char *argv[])
 				 TESTDIR "SFT-test7", NULL ), &status );
   SUB ( LALDestroySFTCatalog( &status, &catalog), &status );
   SHOULD_WORK ( LALSFTdataFind ( &status, &catalog, TESTDIR "SFT-test[123]*;" TESTDIR "SFT-test[567]*", NULL ), &status );
+
   /* load once as a single SFT-vector (mix of detectors) */
   SHOULD_WORK ( LALLoadSFTs ( &status, &sft_vect, catalog, -1, -1 ), &status );
-
-/*   SHOULD_WORK ( _LALLoadSFTs ( &status, &sft_vect, catalog, -1, -1 ), &status ); */
-/*   { */
-/*     UINT4 alpha; */
-/*     CHAR name[100], comment[200]; */
-
-/*     for ( alpha=0; alpha < sft_vect->length; alpha ++ ) */
-/*       { */
-/* 	REAL8 Tsft = 1.0 / sft_vect->data[alpha].deltaF; */
-/* 	sprintf ( name, "SFT-test%d.new", alpha + 1 ); */
-/* 	sprintf ( comment, "This is the SFT '%s'!", name ); */
-/* 	sft_vect->data[alpha].epoch.gpsSeconds += alpha * Tsft ; */
-/* 	SHOULD_WORK ( LALWriteSFT2file( &status, &(sft_vect->data[alpha]), name, comment), &status ); */
-/*       } */
-/*   } */
 
   /* load once as a multi-SFT vector */
   SHOULD_WORK ( LALLoadMultiSFTs ( &status, &multsft_vect, catalog, -1, -1 ), &status );
@@ -334,7 +346,7 @@ int main(int argc, char *argv[])
     fclose(fpConcat);
     fprintf(stderr, "*** Comparing was successful!!! ***\n");
   }
-  
+
   /* write v2-SFt as a v1-SFT to disk (correct normalization) */
   multsft_vect->data[0]->data[0].epoch.gpsSeconds += 60;	/* shift start-time so they don't look like segmented SFTs! */
   SHOULD_WORK ( LALWrite_v2SFT_to_v1file( &status, &(multsft_vect->data[0]->data[0]), "outputsftv2_v1.sft"), &status );
@@ -353,6 +365,18 @@ int main(int argc, char *argv[])
       if ( lalDebugLevel ) XLALPrintError ("\nFailed to read back in 'outputsftv2_*.sft'\n\n");
       return SFTFILEIOTESTC_ESUB;
     }
+
+  sft_vect2 = XLALLoadSFTs ( catalog, -1, -1 );
+  if (!sft_vect2)
+    {
+      XLALPrintError ( "\nXLALLoadSFTs() call failed (where it should have succeeded)!\n\n");
+      return SFTFILEIOTESTC_ESUB;
+    }
+
+  /* compare the SFT vectors just read */
+  if(CompareSFTVectors(sft_vect, sft_vect2))
+    return SFTFILEIOTESTC_ESUB;
+
   /* the data of 'outputsftv2_v2.sft' and 'outputsftv2_v1.sft' should agree, as the normalization
    * should be corrected again when reading-in
    */
@@ -371,6 +395,7 @@ int main(int argc, char *argv[])
 	  }
       } /* for i < numBins */
   }
+  SUB ( LALDestroySFTVector (&status, &sft_vect2 ), &status );
   SUB ( LALDestroySFTVector (&status, &sft_vect ), &status );
   SUB ( LALDestroySFTCatalog( &status, &catalog), &status );
 
@@ -385,6 +410,18 @@ int main(int argc, char *argv[])
       return SFTFILEIOTESTC_ESUB;
     }
 
+  /* read with XLALLoadSFTs() */
+  sft_vect2 = XLALLoadSFTs ( catalog, fMin, fMax );
+  if (!sft_vect2)
+    {
+      XLALPrintError ( "\nXLALLoadSFTs() call failed (where it should have succeeded)!\n\n");
+      return SFTFILEIOTESTC_ESUB;
+    }
+
+  /* compare the SFT vectors just read */
+  if(CompareSFTVectors(sft_vect, sft_vect2))
+    return SFTFILEIOTESTC_ESUB;
+
   /* write v1-SFT to disk */
   SUB ( LALWriteSFTfile (&status, &(sft_vect->data[0]), "outputsft_v1.sft"), &status);
 
@@ -396,6 +433,7 @@ int main(int argc, char *argv[])
   strcpy ( sft_vect->data[0].name, "H1" );
   SHOULD_WORK (LALWriteSFT2file( &status, &(sft_vect->data[0]), "outputsft_v2.sft", "Another v2-SFT file for testing!"), &status );
 
+  SUB ( LALDestroySFTVector (&status, &sft_vect2 ), &status );
   SUB ( LALDestroySFTVector (&status, &sft_vect ), &status );
   SUB ( LALDestroySFTCatalog( &status, &catalog), &status );
 

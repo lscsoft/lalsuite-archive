@@ -117,19 +117,14 @@ def cbcBayesPostProc(
     injection=None
     if injfile:
         import itertools
-        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-        if(eventnum is not None):
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])        
+        if eventnum is not None:
             if(len(injections)<eventnum):
                 print "Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections))
                 sys.exit(1)
             else:
                 injection=injections[eventnum]
-        else:
-            if(len(injections)<1):
-                print 'Warning: Cannot find injection with end time %f' %(means[2])
-            else:
-                injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
-
+        
 
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
@@ -148,6 +143,23 @@ def cbcBayesPostProc(
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
 
+    if eventnum is None and injfile is not None:
+        import itertools
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
+
+        if(len(injections)<1):
+            try:
+                print 'Warning: Cannot find injection with end time %f' %(pos['time'].mean)
+            except KeyError:
+                print "Warning: No 'time' column!"
+                
+        else:
+            try:
+                injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - pos['time'].mean) < 0.1, injections).next()
+                pos.set_injection(injection)
+            except KeyError:
+                print "Warning: No 'time' column!"
+                
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
     if ('mc' in pos.names or 'mchirp' in pos.names) and \
     'eta' in pos.names and \
