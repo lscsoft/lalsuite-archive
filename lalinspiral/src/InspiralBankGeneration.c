@@ -46,8 +46,8 @@ LALInspiralBankGeneration(
   INT4  chicnt    = 0;
   INT4  kappacnt  = 0;
   INT4  numTmplts = 0;
-  INT4  i;
-  REAL8 *chi, *kappa, dChi, dKappa;
+  INT4  i, kappa_max;
+  REAL8 *chi, *kappa, dKappa, chi_sum, delta_chi;
 
   INITSTATUS(status, "LALInspiralBankGeneration", INSPIRALBANKGENERATIONC);
   ATTATCHSTATUSPTR(status);
@@ -305,18 +305,17 @@ LALInspiralBankGeneration(
 
     chi = malloc (input->nPointsChi * sizeof(REAL8));
     kappa = malloc (input->nPointsKappa * sizeof(REAL8));
-    dChi = ( input->chiMax - input->chiMin) / (REAL8) input->nPointsChi;
-    dKappa = ( input->kappaMax - input->kappaMin ) / (REAL8) input->nPointsKappa;
 
-    for (i=0; i < input->nPointsChi; i++)
+    chi_sum = 0.0;
+    for (i=1; i < input->nPointsChi; i++)
     {
-      if (!i) chi[i] = input->chiMin + dChi / 2.0;
-      else chi[i] = chi[0] + i * dChi ;
+      chi_sum=chi_sum + i;
     }
-    for (i=0; i < input->nPointsKappa; i++)
+    delta_chi = 0.9 * (input->chiMax - input->chiMin);
+    chi[0] = 0.95 * input->chiMin + 0.05 * input->chiMax;
+    for (i=1; i < input->nPointsChi; i++)
     {
-      if (!i) kappa[i] = input->kappaMin + dKappa / 2.0;
-      else kappa[i] = kappa[0] + i * dKappa ;
+      chi[i]=chi[i-1] + delta_chi * (input->nPointsChi - i) / chi_sum;
     }
 
     /* Use LALInspiralCreateCoarseBank(). */
@@ -330,17 +329,25 @@ LALInspiralBankGeneration(
     }
     *first = bank;
 
-    for ( chicnt = 0; chicnt < input->nPointsChi; chicnt++ )
+    for ( chicnt = 0; chicnt < input->nPointsChi ; chicnt++ )
     {
-      for( kappacnt = 0; kappacnt < input->nPointsKappa; kappacnt++ )
+      if ( chicnt < input->nPointsKappa ) kappa_max = chicnt + 1;
+      else kappa_max = (INT4) input->nPointsKappa ;
+
+      dKappa = ( input->kappaMax - input->kappaMin ) / (REAL8) (kappa_max);
+      kappa[0]= input->kappaMin + dKappa / 2.0;
+      for (i=1; i < kappa_max; i++)
+      {
+        kappa[i] = kappa[0] + i * dKappa ;
+      }
+
+      for( kappacnt = 0; kappacnt < kappa_max; kappacnt++ )
       {
         for( cnt = 0; cnt < *ntiles; cnt++ )
         {
           /* restrict the bank boundaries to the region of validity of PTF */
-/*          if ( coarseList[cnt].params.mass1 < 6.0 ||
-               coarseList[cnt].params.mass2 > 3.0 ) continue; */
-
-          if ( coarseList[cnt].params.mass1 < 6.0 ) continue;
+          if ( coarseList[cnt].params.mass1 < 6.0 ||
+               coarseList[cnt].params.mass2 > 3.0 ) continue;
           bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
                 SnglInspiralTable ) );
           if (bank == NULL)
@@ -366,7 +373,6 @@ LALInspiralBankGeneration(
           bank->f_final = coarseList[cnt].params.fFinal;
           bank->eta     = coarseList[cnt].params.eta;
           bank->beta    = coarseList[cnt].params.beta;
-
 
           /* Copy the 10 metric co-efficients ... */
           memcpy (bank->Gamma, coarseList[cnt].metric.Gamma, 10*sizeof(REAL4));
