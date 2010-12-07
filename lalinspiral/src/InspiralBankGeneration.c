@@ -346,8 +346,7 @@ LALInspiralBankGeneration(
         for( cnt = 0; cnt < *ntiles; cnt++ )
         {
           /* restrict the bank boundaries to the region of validity of PTF */
-          if ( coarseList[cnt].params.mass1 < 6.0 ||
-               coarseList[cnt].params.mass2 > 3.0 ) continue;
+          if ( coarseList[cnt].params.mass1 < 6.0 ) continue;
           bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
                 SnglInspiralTable ) );
           if (bank == NULL)
