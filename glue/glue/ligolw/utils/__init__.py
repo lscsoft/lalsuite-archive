@@ -266,27 +266,37 @@ class MD5File(object):
 		return self.fileobj.close()
 
 
-def load_fileobj(fileobj, gz = False, xmldoc = None, contenthandler = None):
+def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file object fileobj, and return the
 	contents as a LIGO Light Weight document tree.  The file object
-	does not need to be seekable.  The file is gzip decompressed while
-	reading if gz is set to True.  If the optional xmldoc argument is
-	provided and not None, the parsed XML tree will be appended to that
-	document, otherwise a new document will be created.  The return
-	value is a tuple, the first element of the tuple is the XML
-	document and the second is a string containing the MD5 digest in
-	hex digits of the bytestream that was parsed.
+	does not need to be seekable.
+
+	If the gz parameter is None (the default) then gzip compressed data
+	will be automatically detected and decompressed, otherwise
+	decompression can be forced on or off by setting gz to True or
+	False respectively.
+
+	If the optional xmldoc argument is provided and not None, the
+	parsed XML tree will be appended to that document, otherwise a new
+	document will be created.  The return value is a tuple, the first
+	element of the tuple is the XML document and the second is a string
+	containing the MD5 digest in hex digits of the bytestream that was
+	parsed.
 
 	Example:
 
 	>>> import sys
-	>>> xmldoc, digest = utils.load_fileobj(sys.stdin, verbose = True, gz = True)
+	>>> xmldoc, digest = utils.load_fileobj(sys.stdin)
 	"""
 	fileobj = MD5File(fileobj)
 	md5obj = fileobj.md5obj
-	if gz:
-		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
+	if gz != False:
+		fileobj = RewindableInputFile(fileobj)
+		magic = fileobj.read(2)
+		fileobj.seek(0, os.SEEK_SET)
+		if gz == True or magic == '\037\213':
+			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	if contenthandler is None:
@@ -297,26 +307,23 @@ def load_fileobj(fileobj, gz = False, xmldoc = None, contenthandler = None):
 	return xmldoc, md5obj.hexdigest()
 
 
-def load_filename(filename, verbose = False, gz = False, xmldoc = None, contenthandler = None):
+def load_filename(filename, verbose = False, gz = None, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file identified by filename, and return
 	the contents as a LIGO Light Weight document tree.  Helpful
-	verbosity messages are printed to stderr if verbose is True, and
-	the file is gzip decompressed while reading if gz is set to True.
-	If filename is None, then stdin is parsed.  If the optional xmldoc
-	argument is provided and not None, the parsed XML tree will be
-	appended to that document, otherwise a new document will be
-	created.
+	verbosity messages are printed to stderr if verbose is True.  All
+	other parameters are passed verbatim to load_fileobj(), see that
+	function for more information.
 
 	Example:
 
 	>>> from glue.ligolw import utils
-	>>> xmldoc = utils.load_filename(name, verbose = True, gz = (name or "stdin").endswidth(".gz"))
+	>>> xmldoc = utils.load_filename(name, verbose = True)
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename and ("'%s'" % filename) or "stdin")
 	if filename is not None:
-		fileobj = file(filename)
+		fileobj = open(filename, "rb")
 	else:
 		fileobj = sys.stdin
 	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
@@ -325,14 +332,12 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None, contenth
 	return xmldoc
 
 
-def load_url(url, verbose = False, gz = False, xmldoc = None, contenthandler = None):
+def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = None):
 	"""
 	This function has the same behaviour as load_filename() but accepts
 	a URL instead of a filename.  Any source from which Python's
 	urllib2 library can read data is acceptable.  stdin is parsed if
-	the URL is None.  If the optional xmldoc argument is provided and
-	is not None, the parsed XML tree will be appended to that document,
-	otherwise a new document will be created.
+	the URL is None.
 
 	Example:
 
