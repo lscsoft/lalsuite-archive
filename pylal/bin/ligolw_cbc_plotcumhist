@@ -171,7 +171,7 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                     cum_dist_zero = zero_dist.cumsum()
                 else:
                     cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
-                semilogy(xvals, cum_dist_zero+0.0001,
+                semilogy(xvals, cum_dist_zero+0.000001,
                         marker = frg_marker,
                         markerfacecolor = frg_color,
                         markeredgecolor = 'k',
@@ -192,8 +192,8 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                 slide_std = cum_dist_slide.std(axis=0) * sqrt(bkg_correction)
                 slide_min = []
                 for i in range( len(slide_mean) ):
-                    slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
-                    slide_mean[i] = max(slide_mean[i], 0.0001)
+                    slide_min.append( max(slide_mean[i] - slide_std[i], 0.000001) )
+                    slide_mean[i] = max(slide_mean[i], 0.000001)
                 semilogy(xvals, asarray(slide_mean),
                     marker = '+',
                     markerfacecolor = 'k',
