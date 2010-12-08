@@ -60,7 +60,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "%prog removes XML elements from a LIGO Light Weight XML file.  If file names are given on the command line, those files are read, processed, and rewritten one at a time, otherwise input is read from stdin and output written to stdout.  Any file name ending in \".gz\" is assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+		description = "%prog removes XML elements from a LIGO Light Weight XML file.  If file names are given on the command line, those files are read, processed, and rewritten one at a time, otherwise input is read from stdin and output written to stdout.  Gzipped files are automatically detected on input, if the file's name ends in \".gz\" it will be gzip-compressed when written."
 	)
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "Delete matching columns.  Example \"--delete-column sim_burst:dtminus\".")
@@ -209,7 +209,7 @@ options, filenames = parse_command_line()
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	doc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"), contenthandler = ContentHandler)
+	doc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ContentHandler)
 	table.InterningRowBuilder.strings.clear()
 	if options.verbose:
 		print >>sys.stderr, "processing"

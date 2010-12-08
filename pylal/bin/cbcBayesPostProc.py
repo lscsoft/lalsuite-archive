@@ -156,7 +156,7 @@ def cbcBayesPostProc(
         else:
             try:
                 injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - pos['time'].mean) < 0.1, injections).next()
-                pos.injection=injection
+                pos.set_injection(injection)
             except KeyError:
                 print "Warning: No 'time' column!"
                 
