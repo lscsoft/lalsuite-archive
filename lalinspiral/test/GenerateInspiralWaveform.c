@@ -249,6 +249,7 @@ int main (int argc , char **argv) {
     case EOB:
     case EOBNR:
     case EOBNR_PP:
+    case EOBNR_PF:
     case PadeT1:
     case AmpCorPPN:
     case SpinTaylor:
