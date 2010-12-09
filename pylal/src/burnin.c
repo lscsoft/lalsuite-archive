@@ -51,7 +51,7 @@ void printBurnIn(FILE * input, FILE * output, double maxLogL, int chain, double 
     int burnedIn=0;
     char buffer[MAX_REC_LEN];
     char * line=buffer;
-    double values[SPIN_PAR_NUM+3];
+    double values[LALINFERENCE_SPIN_PAR_NUM+3];
 
     char* dummy;
 
