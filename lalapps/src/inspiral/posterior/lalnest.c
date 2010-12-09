@@ -975,8 +975,12 @@ int main( int argc, char *argv[])
                 /* Inject incoherently */
                 if(decohereflag){
                     memcpy(&realSegStart,&segmentStart,sizeof(realSegStart));
-                    XLALGPSAdd(&segmentStart,((REAL8) i+1)*offset);
-                    fprintf(stdout,"Offset injection by %lf s\n",((REAL8) i+1)*offset);
+                //    XLALGPSAdd(&segmentStart,((REAL8) i+1)*offset);
+                if(!strcmp(IFOnames[i],"H1")) offset=0.000010;
+                else if (!strcmp(IFOnames[i],"L1")) offset=0.000142;
+                else if (!strcmp(IFOnames[i],"V1")) offset=0.000020;
+                    XLALGPSAdd(&segmentStart,(1)*offset);
+                    fprintf(stdout,"Offset injection by %lf s\n",(1)*offset);
                 }
                 /* Create a buffer long enough to hold the signal */
                 UINT4 bufferlength = (UINT4)(100.0/inputMCMC.deltaT);
