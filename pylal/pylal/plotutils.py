@@ -699,8 +699,8 @@ class ROCPlot(BasicPlot):
         self.ax.set_ylim((0, 1))
 
         # resize figure to make axes square
-        fig_side_max = min(self.fig.get_size_inches())
-        self.fig.set_size_inches(fig_side_max, fig_side_max)
+        fig_side = min(self.fig.get_size_inches())
+        self.fig.set_size_inches(fig_side, fig_side)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc)
