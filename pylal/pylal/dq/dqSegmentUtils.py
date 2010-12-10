@@ -54,6 +54,43 @@ def fromsegmentxml(file):
   return segs
 
 # ==============================================================================
+# Write to segment xml file
+# ==============================================================================
+def tosegmentxml(file,segs):
+  """
+  Write a glue.segments.segmentlist object contents to an xml file with appropriate tables.
+  """
+
+  #== generate empty document
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+  xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
+  xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
+
+  #== append process to table
+  process = llwapp.append_process(xmldoc,program='pylal.dq.dqSegmentUtils',\
+                                         version=__version__,\
+                                         cvs_repository = 'lscsoft',\
+                                         cvs_entry_time = __date__)
+
+  gpssegs = segmentlist()
+  for seg in segs:
+    gpssegs.append(segment(LIGOTimeGPS(seg[0]),LIGOTimeGPS(seg[1])))
+
+  #== append segs and seg definer
+  segments_tables = ligolw_segments.LigolwSegments(xmldoc)
+  segments_tables.segment_lists.append(ligolw_segments.\
+                                       LigolwSegmentList(active=gpssegs))
+  #== finalise
+  segments_tables.coalesce()
+  segments_tables.optimize()
+  segments_tables.finalize(process)
+  llwapp.set_process_end_time(process)
+
+  #== write file
+  utils.write_fileobj(xmldoc,file,gz=False)
+
+# ==============================================================================
 # Function to load segments from a csv file
 # ==============================================================================
 def fromsegmentcsv(csvfile):
