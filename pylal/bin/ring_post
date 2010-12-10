@@ -279,7 +279,7 @@ class ligolw_rinca_node(pipeline.CondorDAGNode):
                 self.add_file_arg(xml)
                 self.add_output_file(xml)
                 self.add_var_opt("ds-sq-threshold", ds_sq)
-                self.add_var_opt("save-small-coincs", "")
+                #self.add_var_opt("save-small-coincs", "")
                 if extent: self.add_var_opt("coinc-end-time-segment",":".join([str(t) for t in extent]))
                 for p in p_node:
                         self.add_parent(p)
