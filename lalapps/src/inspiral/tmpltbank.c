@@ -163,8 +163,8 @@ REAL4   chiMin          = 0.0;          /* minimum value of chi for PTF */
 REAL4   chiMax          = 1.0;          /* maximum value of chi for PTF */
 REAL4   kappaMin        = -1.0;         /* minimum value of kappa for PTF */
 REAL4   kappaMax        = 1.0;          /* maximum value of kappa for PTF */
-INT4    nPointsChi      = 3;            /* PTF template bank density    */
-INT4    nPointsKappa    = 5;            /* PTF templated bank density   */
+INT4    nPointsChi      = 5;            /* PTF template bank density    */
+INT4    nPointsKappa    = 4;            /* PTF templated bank density   */
 LALPNOrder order;                       /* post-Newtonian order         */
 Approximant approximant;                /* approximation method         */
 CoordinateSpace space;                  /* coordinate space used        */
@@ -3051,6 +3051,14 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {
       fprintf( stderr,
           "Error: argument to --minimum-kappa1 must be less than --maximum-kappa1 .\n" );
+      exit( 1 );
+    }
+
+    /* check nPointsKappa is not greater than nPointsChi */
+    if (nPointsKappa > nPointsChi )
+    {
+      fprintf( stderr,
+          "Error: argument to --npoints-kappa must be less than --npoints-chi .\n" );
       exit( 1 );
     }
   }

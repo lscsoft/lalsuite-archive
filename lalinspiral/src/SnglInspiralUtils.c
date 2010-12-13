@@ -496,7 +496,7 @@ LALCompareSnglInspiral (
 {
   INT8 ta, tb;
   REAL4 dm1, dm2;
-  REAL4 dmchirp, deta;
+  REAL4 dmchirp, deta, dmchirpTest, aDmchirp, bDmchirp;
   REAL4 dpsi0, dpsi3;
 
   INITSTATUS( status, "LALCompareSnglInspiral", SNGLINSPIRALUTILSC );
@@ -582,6 +582,30 @@ LALCompareSnglInspiral (
       else
       {
         LALInfo( status, "Triggers fail mchirp, eta coincidence test" );
+        params->match = 0;
+      }
+    }
+    else if ( params->test == ptf_mchirp_eta )
+    {
+      dmchirp = fabs( aPtr->mchirp - bPtr->mchirp );
+      deta = fabs( aPtr->eta - bPtr->eta );
+
+      /* compare mchirp parameters (eta always passes coincidence) */
+      if ( aPtr->mchirp < 3.0) aDmchirp = aAcc.dmchirp / 2.0; 
+      else aDmchirp = aAcc.dmchirp; 
+      if ( bPtr->mchirp < 3.0) bDmchirp = bAcc.dmchirp / 2.0; 
+      else bDmchirp = bAcc.dmchirp;
+
+      dmchirpTest = aDmchirp + bDmchirp; 
+
+      if ( dmchirp <= dmchirpTest )
+      {
+        LALInfo( status, "Triggers are coincident in mchirp\n" );
+        params->match = 1;
+      }
+      else
+      {
+        LALInfo( status, "Triggers fail mchirp coincidence test\n" );
         params->match = 0;
       }
     }
@@ -755,6 +779,33 @@ XLALCompareInspirals (
       else
       {
         XLALPrintInfo( "Triggers fail mchirp, eta coincidence test\n" );
+        params->match = 0;
+      }
+      }
+      break;
+
+    case ptf_mchirp_eta:
+      {
+      REAL4 dmchirpTest, aDmchirp, bDmchirp;
+      dmchirp = fabs( aPtr->mchirp - bPtr->mchirp );
+      deta = fabs( aPtr->eta - bPtr->eta );
+
+      /* compare mchirp parameters (eta always passes coincidence) */
+      if ( aPtr->mchirp < 3.0) aDmchirp = aAcc.dmchirp / 2.0; 
+      else aDmchirp = aAcc.dmchirp; 
+      if ( bPtr->mchirp < 3.0) bDmchirp = bAcc.dmchirp / 2.0; 
+      else bDmchirp = bAcc.dmchirp;
+
+      dmchirpTest = aDmchirp + bDmchirp; 
+
+      if ( dmchirp <= dmchirpTest )
+      {
+        XLALPrintInfo( "Triggers are coincident in mchirp\n" );
+        params->match = 1;
+      }
+      else
+      {
+        XLALPrintInfo( "Triggers fail mchirp coincidence test\n" );
         params->match = 0;
       }
       }

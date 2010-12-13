@@ -45,6 +45,7 @@ typedef enum
   m1_and_m2,
   psi0_and_psi3,
   mchirp_and_eta,
+  ptf_mchirp_eta,
   tau0_and_tau3,
   ellipsoid
 }
