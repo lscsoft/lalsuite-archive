@@ -592,9 +592,9 @@ LALCompareSnglInspiral (
 
       /* compare mchirp parameters (eta always passes coincidence) */
       if ( aPtr->mchirp < 3.0) aDmchirp = params->dmchirp / 2.0; 
-      else aDmchirp = aAcc.dmchirp; 
+      else aDmchirp = params->dmchirp; 
       if ( bPtr->mchirp < 3.0) bDmchirp = params->dmchirp / 2.0; 
-      else bDmchirp = bAcc.dmchirp;
+      else bDmchirp = params->dmchirp;
 
       dmchirpTest = aDmchirp + bDmchirp; 
 
