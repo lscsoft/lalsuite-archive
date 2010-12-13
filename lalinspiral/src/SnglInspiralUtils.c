@@ -591,9 +591,9 @@ LALCompareSnglInspiral (
       deta = fabs( aPtr->eta - bPtr->eta );
 
       /* compare mchirp parameters (eta always passes coincidence) */
-      if ( aPtr->mchirp < 3.0) aDmchirp = aAcc.dmchirp / 2.0; 
+      if ( aPtr->mchirp < 3.0) aDmchirp = params->dmchirp / 2.0; 
       else aDmchirp = aAcc.dmchirp; 
-      if ( bPtr->mchirp < 3.0) bDmchirp = bAcc.dmchirp / 2.0; 
+      if ( bPtr->mchirp < 3.0) bDmchirp = params->dmchirp / 2.0; 
       else bDmchirp = bAcc.dmchirp;
 
       dmchirpTest = aDmchirp + bDmchirp; 
