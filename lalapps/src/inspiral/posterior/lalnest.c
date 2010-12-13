@@ -38,7 +38,7 @@ RCSID(LALAPPS_VCS_IDENT_ID);
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
-#define DEBUG 0
+#define DEBUG 1
 #define USAGE "lalapps_inspnest ARGUMENTS [OPTIONS]\n \
 Necessary ARGUMENTS:\n \
 -o outfile\t:\tOutput samples to outfile\n \
@@ -155,6 +155,7 @@ int enable_calamp=0;
 unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
 int injONLY=0;
+REAL8 calibration_percent=1;
 
 // types for the selection of the calibration functions //
 typedef REAL8 (AmplitudeCalib)(REAL8 f);
@@ -275,7 +276,7 @@ REAL8 Amp_H1(REAL8 f){
 
 		// return a constant 
 		//output=1.17;
-		return output;
+		return 1+(output-1)*calibration_percent;
 }
 REAL8 Amp_L1(REAL8 f){
 		double output = 1.0;
@@ -287,7 +288,7 @@ REAL8 Amp_L1(REAL8 f){
 			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
 		// return a constant
 		//output = 1.1; 
-		return output;
+		return 1+(output-1)*calibration_percent;
 }
 REAL8 Amp_V1(REAL8 f){
 		double output = 1.0;
@@ -311,7 +312,8 @@ REAL8 Amp_V1(REAL8 f){
 		
                 //return a constant
 		//output = 1.15;
-		return output;
+		return 1+(output-1)*calibration_percent;
+
 }
 REAL8 Ph_H1(REAL8 f){
 		double output = 0.0;
@@ -321,7 +323,7 @@ REAL8 Ph_H1(REAL8 f){
 		if(f>80.0 && f<=500.0)
 			output = -0.0701154 +0.0170887*log(0.914066*f)-15.5936*pow(f,-1);
                 /* convert in rads */
-		return LAL_PI*output/180.0;
+		return (LAL_PI*output/180.0)*calibration_percent;
 }
 REAL8 Ph_L1(REAL8 f){
 		double output = 0.0;
@@ -333,7 +335,7 @@ REAL8 Ph_L1(REAL8 f){
 			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
 
                 /* convert in rads */
-		return  LAL_PI*output/180.0;
+		return  (LAL_PI*output/180.0)*calibration_percent;
 }
 REAL8 Ph_V1(REAL8 f){
 		double output = 0.0;
@@ -351,7 +353,7 @@ REAL8 Ph_V1(REAL8 f){
 		output = 2.66324 - 3.48059*pow(log10(f),1.0) + 1.76342*pow(log10(f), 2.0) - 0.415683*pow(log10(f),3.0) + 0.0393829*pow(log10(f),4.0);
 	        }
                /* Virgo data are already in rads */
-		return output;
+		return output*calibration_percent;
 }
 
 void initialise(int argc, char *argv[]){
@@ -414,6 +416,7 @@ void initialise(int argc, char *argv[]){
                 {"pinparams",required_argument,0,21},
 		{"datadump",required_argument,0,22},
 		{"flow",required_argument,0,23},
+                {"gradual_cal",required_argument,0,302},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -602,6 +605,9 @@ void initialise(int argc, char *argv[]){
 			break;
         case 301:
                         injONLY=1;
+                        break;
+         case 302:
+                        calibration_percent=atof(optarg);
                         break;
 		case 23:
 			fLow=atof(optarg);
@@ -1090,7 +1096,7 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
                 #if DEBUG
                     FILE *waveout;
                     char wavename[100];
-                    sprintf(wavename,"wave_%s.dat",IFOnames[i]);
+                    sprintf(wavename,"wave_%s_%9.0f.dat",IFOnames[i],injTime);
                     waveout=fopen(wavename,"w");
                     for(j=0;j<injF->data->length;j++) fprintf(waveout,"%10.10lf %10.10e %10.10e\n",j*inputMCMC.deltaF,injF->data->data[j].re,injF->data->data[j].im);
                     fclose(waveout);
@@ -1116,7 +1122,22 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
 					fprintf(snrout,"%10.1lf  %3.1lf",injTime,SNR);
                                         fclose(snrout);
 				}   
-                                }   
+                                } 
+
+if(estimatenoise && DEBUG){
+                for(j=0;j<nIFO;j++){
+                        char filename[100];
+                        sprintf(filename,"indata_%s_%9.0f.dat",IFOnames[j]),injTime;
+                        FILE *outinit=fopen(filename,"w");
+                        for(i=0;i<inputMCMC.stilde[j]->data->length;i++) fprintf(outinit,"%e %e %e %e\n",
+                                                 inputMCMC.stilde[j]->f0 + i*inputMCMC.stilde[0]->deltaF,
+                                                 inputMCMC.stilde[j]->data->data[i].re,
+                                                 inputMCMC.stilde[j]->data->data[i].im,
+                                                 1./inputMCMC.invspec[j]->data->data[i]);
+                        fclose(outinit);
+                }
+        }
+  
             
 
         }
@@ -1155,11 +1176,12 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
 
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
-
+/* commented by salvatore 
 	if(estimatenoise && DEBUG){
+                REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
 		for(j=0;j<nIFO;j++){
 			char filename[100];
-			sprintf(filename,"indata_%s.dat",IFOnames[j]);
+			sprintf(filename,"indata_%s_%9.0f.dat",IFOnames[j]),injTime;
 			FILE *outinit=fopen(filename,"w");
 			for(i=0;i<inputMCMC.stilde[j]->data->length;i++) fprintf(outinit,"%e %e %e %e\n",
 						 inputMCMC.stilde[j]->f0 + i*inputMCMC.stilde[0]->deltaF,
@@ -1169,7 +1191,7 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
 			fclose(outinit);
 		}
 	}
-
+*/
 	/* Set up the structure */
 	inputMCMC.injectionTable = injTable;
 	inputMCMC.numberDataStreams = nIFO;
@@ -1667,7 +1689,6 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	
 	if(checkParamInList(pinned_params,"iota") || checkParamInList(pinned_params,"inclination"))
 		XLALMCMCAddParam(parameter,"iota", injTable->inclination, 0, LAL_PI, -1);
-	else
 		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
 
 	for (head=parameter->param;head;head=head->next)
