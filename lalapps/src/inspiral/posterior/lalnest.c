@@ -1124,20 +1124,6 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
 				}   
                                 } 
 
-if(estimatenoise && DEBUG){
-                for(j=0;j<nIFO;j++){
-                        char filename[100];
-                        sprintf(filename,"indata_%s_%9.0f.dat",IFOnames[j],injTime);
-                        FILE *outinit=fopen(filename,"w");
-                        for(i=0;i<inputMCMC.stilde[j]->data->length;i++) fprintf(outinit,"%e %e %e %e\n",
-                                                 inputMCMC.stilde[j]->f0 + i*inputMCMC.stilde[0]->deltaF,
-                                                 inputMCMC.stilde[j]->data->data[i].re,
-                                                 inputMCMC.stilde[j]->data->data[i].im,
-                                                 1./inputMCMC.invspec[j]->data->data[i]);
-                        fclose(outinit);
-                }
-        }
-  
             
 
         }
@@ -1176,12 +1162,12 @@ if(estimatenoise && DEBUG){
 
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
-/* commented by salvatore 
+
 	if(estimatenoise && DEBUG){
                 REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
 		for(j=0;j<nIFO;j++){
 			char filename[100];
-			sprintf(filename,"indata_%s_%9.0f.dat",IFOnames[j]),injTime;
+			sprintf(filename,"indata_%s_%9.0f.dat",IFOnames[j],injTime);
 			FILE *outinit=fopen(filename,"w");
 			for(i=0;i<inputMCMC.stilde[j]->data->length;i++) fprintf(outinit,"%e %e %e %e\n",
 						 inputMCMC.stilde[j]->f0 + i*inputMCMC.stilde[0]->deltaF,
@@ -1191,7 +1177,7 @@ if(estimatenoise && DEBUG){
 			fclose(outinit);
 		}
 	}
-*/
+
 	/* Set up the structure */
 	inputMCMC.injectionTable = injTable;
 	inputMCMC.numberDataStreams = nIFO;
