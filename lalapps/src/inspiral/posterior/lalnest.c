@@ -1127,7 +1127,7 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
 if(estimatenoise && DEBUG){
                 for(j=0;j<nIFO;j++){
                         char filename[100];
-                        sprintf(filename,"indata_%s_%9.0f.dat",IFOnames[j]),injTime;
+                        sprintf(filename,"indata_%s_%9.0f.dat",IFOnames[j],injTime);
                         FILE *outinit=fopen(filename,"w");
                         for(i=0;i<inputMCMC.stilde[j]->data->length;i++) fprintf(outinit,"%e %e %e %e\n",
                                                  inputMCMC.stilde[j]->f0 + i*inputMCMC.stilde[0]->deltaF,
