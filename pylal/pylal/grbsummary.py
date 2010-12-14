@@ -343,51 +343,39 @@ def get_num_slides(xmldoc):
 #####################################################################################
 #timeslides functions#
 #####################################################################################
-def shift(a, n):
-    """Shift the list in place. shiftInPlace. 
-    See http://gist.github.com/288272"""
-    #l = copy.deepcopy(ll)
-    l = list(a)
-    n = n % len(l)
-    head = l[:n]
-    l[:n] = []
-    l.extend(head)
-    return l
 
-def get_veto_mask(gpsstart, gpsend, trial_len, veto_segs):
-  """
-  Returns a dictionary with a veto mask for each IFO.
-  @param gpsstart: the start time of the mask
-  @param gpsend: the end time of the mask
-  @param trial_len: length of one trial
-  @param veto_segs: dictionary containing the veto segments
-  """
+def retrieve_ring_boundaries(xmldoc):
+	#
+	# grab the segment list for any instrument selected at random (they
+	# are all the same)
+	#
 
-  num_trials = abs(gpsend - gpsstart) // trial_len
-  trial_bins = rate.LinearBins(gpsstart, gpsend, num_trials)
+	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
 
-  ##veto masks
-  veto_mask = {}
-  for ifo, veto_seg in veto_segs.iteritems():
-     veto_mask[ifo] = rate.bins_spanned(trial_bins, veto_seg, dtype=numpy.bool8)
-  return veto_mask
+	#
+	# because the input often contains two thinca jobs the rings might
+	# be duplicated;  use set() to uniqueify them then sort them.
+	#
 
-def get_trial_mask(veto_mask, slide_amount, slide):
-  """
-  Returns a dictionary with a trial mask for each IFO
-  after applying a time shift
-  @param veto_mask: dictionary with the veto mask for each IFO
-  @param slide_amount: dictionary containing the amount of shift per IFO (units of trial_len)
-  @param slide: the amount to slide (units of trial_len)
-  """
+	rings = segments.segmentlist(set(rings))
+	rings.sort()
 
-  # create the trial mask
-  num_trials = len(veto_mask.values()[0])
-  trial_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
+	#
+	# check that the (sorted) rings are non-intersecting
+	#
 
-  # loop over all shifted veto masks
-  for ifo in veto_mask.keys():
-    trial_mask |= shift(veto_mask[ifo], slide_amount[ifo] * slide)
+	for i in range(len(rings) - 1):
+		if rings[i].intersects(rings[i + 1]):
+			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
 
-  return trial_mask
+	#
+	# cast to int to prevent explosions later
+	#
 
+	for i, ring in enumerate(rings):
+		rings[i] = segments.segment(int(ring[0]), int(ring[1]))
+
+	#
+	# done
+	#
+	return rings

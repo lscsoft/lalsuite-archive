@@ -90,7 +90,7 @@ def __patchFrameTypeDef__(frametype=None,ifo=None,gpstime=None):
     ifo argument specified as None\n"
     return frametype
   endOfS5=int(875232014)
-  if int(gpstime)<=endOfS5:
+  if int(gpstime)<=endOfS5 or ifo=="V1":
     if not frametype.lower().startswith(ifo.lower()):
       return ifo+"_"+frametype
   return frametype
