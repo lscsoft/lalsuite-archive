@@ -1526,7 +1526,8 @@ class customFOMPlotNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("output-path",job.outputPath+'/DataProducts/')
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
-		if not opts.no_findVetoes:
+		#FIX ME: if the cluster is not CIT do not enable these jobs
+		if not opts.no_findVetoes and "ligo.caltech.edu" in get_hostname():
 			dag.add_node(self)
 			self.validate()
 		else:
