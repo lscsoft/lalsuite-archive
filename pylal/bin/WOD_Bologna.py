@@ -23,6 +23,7 @@ from glue.ligolw import ilwd
 from glue import lal
 from pylal import db_thinca_rings
 from pylal import stfu_pipe
+from pylal import fu_utils
 from lalapps import inspiral
 
 #from pylal.fu_Condor import *
@@ -32,6 +33,50 @@ dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 ###############################################################################
 ###### UTILITY FUNCTIONS ######################################################
 ###############################################################################
+
+def write_user_info(cp):
+
+	outputdir = cp.get('fu-output','output-dir').strip()
+	print >>sys.stdout, "\n********* Information for user **********\n"
+	print >>sys.stdout, "Before submitting your dag, update your grid-proxy by running:\n$ grid-proxy-init\n"
+	print >>sys.stdout, "Then submit the dag to condor by running:\n$ condor_submit_dag WOD_Bologna.dag\n"
+	print >>sys.stdout, "To monitor the progress of your dag please run:\n$ tail -f WOD_Bologna.dag.dagman.out \n"
+	print >>sys.stdout, "The results will be written under the directory:\n %s" % (outputdir)
+
+def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
+        """
+        """
+        #If directy coincHeadings not there make the directory if
+        #filename is None
+        headingDir= dir + "/coinc_info"
+        ifos = tevent.instruments
+        instruments =tevent.instruments
+        time = tevent.time
+
+        idKeyStr="%s_%s" % (str(time), instruments)
+        if filename==None:
+                filename="coincEvent.info"
+                stfu_pipe.mkdir(headingDir)
+                filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+ filename)
+        fp=open(filename,'w')
+        fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\n")
+        fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, 0, 0, ifos, instruments, float(time), 0) )
+        fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
+        rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+        content=list()
+        for ifo in tevent.ifos_list:
+                content.append(rowString%(dir,
+                                          ifo,
+                                          float(time),
+                                          float(0),
+                                          float(0),
+                                          float(0),
+                                          float(0)))
+        cache = lal.CacheEntry(instruments, "COINC_INFO_"+dir.upper(), segments.segment(float(time), float(time)), "file://localhost/"+os.path.abspath(filename))
+        dag.output_cache.append(cache)
+        fp.writelines(content)
+        fp.close()
+        return os.path.split(filename)[1]
 
 class time_only_event(object):
 	def __init__(self, ifostr, time):
@@ -50,6 +95,16 @@ class time_only_events(object):
 			time = value.split(':')[1]
 			self.events.append(time_only_event(ifos,time))
 
+class extractTimesFromFile(object):
+	def __init__(self, inputfile):
+		self.events = []
+		trigger_list = fu_utils.listFromFile(inputfile)
+		if not trigger_list: return
+		for value in trigger_list:
+			ifos = value.split(' ')[0]
+			time = value.split(' ')[1]
+			self.events.append(time_only_event(ifos,time))
+
 class create_default_config_wod(object):
 	def __init__(self, configfile=None):
 		cp = ConfigParser.ConfigParser()
@@ -57,6 +112,16 @@ class create_default_config_wod(object):
 		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
 		self.ini_file=self.time_now + ".ini"
 		home_base = stfu_pipe.home_dirs()
+
+		# CONDOR SECTION NEEDED BY THINGS IN INSPIRAL.PY
+                cp.add_section("condor")
+		cp.set("condor","datafind",self.which("ligo_data_find"))
+		cp.set("condor","universe","standard")
+		# SECTIONS TO SHUT UP WARNINGS
+                #cp.add_section("data")
+
+		# DATAFIND SECTION
+		cp.add_section("datafind")
 
 		# FU-CONDOR SECTION
 		cp.add_section("fu-condor")
@@ -108,6 +173,25 @@ class create_default_config_wod(object):
 		# CONDOR MAX JOBS SECTION
 		cp.add_section("condor-max-jobs")
 
+		# if we have an ini file override the options
+		if configfile:
+			user_cp = ConfigParser.ConfigParser()
+			user_cp.read(configfile)
+		else:
+			# otherwise see if a file with the standard ini file exists in the directory, the user probably intends to use it
+			try:
+				user_cp = ConfigParser.ConfigParser()
+				user_cp.read('WOD_Bologna.ini')
+			except: pass
+		# override the default options
+		if user_cp: self.overwrite_config(user_cp,cp)
+
+	def overwrite_config(self,config,cp):
+		for section in config.sections():
+			if not cp.has_section(section): cp.add_section(section)
+			for option in config.options(section):
+				cp.set(section,option,config.get(section,option))
+
 	def log_path(self):
 		host = stfu_pipe.get_hostname()
 		#FIXME add more hosts as you need them
@@ -121,6 +205,16 @@ class create_default_config_wod(object):
 		out = which.stdout.read().strip()
 		if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
 		return out
+
+	def web_dir(self):
+		host = stfu_pipe.get_hostname()
+		#FIXME add more hosts as you need them
+		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
+		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
+		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/followups/' + self.time_now
+		print sys.stderr, "WARNING: could not find web directory, returning empty string"
+		return ''
 
 	def web_url(self):
 		host = stfu_pipe.get_hostname()
@@ -170,10 +264,15 @@ class create_default_config_wod(object):
 	def set_qscan_executable(self):
 		host = stfu_pipe.get_hostname()
 		if 'phy.syr.edu' in host:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",stfu_pipe.home_dirs()+"/rgouaty/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")
 		else:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",stfu_pipe.home_dirs()+"/romain/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")
 
+	def get_cp(self):
+		return self.cp
+
+	def write(self):
+		self.get_cp().write(open(self.ini_file,"w"))
 
 def parse_command_line():
 	parser = OptionParser(
@@ -181,8 +280,10 @@ def parse_command_line():
 		description = "Pipeline to setup Remote Wscans On Demand"
 	)
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")	
-	parser.add_option("-f", "--config-file", default="followup_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
-	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
+	parser.add_option("-f", "--config-file", default="WOD_Bologna.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
+	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
+	parser.add_option("-i", "--input-file", default='', help="Specify gps times to follow up inside a text file. Format --gps-times=myfile.txt. No segment validation is done. If there is no data for these times it will crash.")
+
 	parser.add_option("","--disable-dag-categories",action="store_true",\
 	default=False,help="disable the internal dag category maxjobs")
 
@@ -218,7 +319,7 @@ def parse_command_line():
 
 # Parse options and config files
 options, filenames = parse_command_line()
-default_cp = stfu_pipe.create_default_config_wod(options.config_file)
+default_cp = create_default_config_wod(options.config_file)
 cp = default_cp.get_cp()
 
 # Initialize dag
@@ -231,6 +332,7 @@ setup_proxy_node        = stfu_pipe.setupProxyNode(dag,setup_proxy_job,cp,option
 search='gps_only'
 q_ht_data_find_job      = stfu_pipe.fuDataFindJob(cp, tag_base='qdatafind', dir=search)
 q_rds_data_find_job     = stfu_pipe.fuDataFindJob(cp, tag_base='Q_RDS', dir=search)
+ht_qscan_job            = stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
 
 remote_datafind_job     = stfu_pipe.remoteDatafindJob(options,cp, tag_base='Q_RDS', dir=search)
 remote_rds_qscan_job    = stfu_pipe.remoteQscanJob(options,cp, dir=search, tag_base='FG_RDS')
@@ -238,16 +340,24 @@ remote_seis_qscan_job   = stfu_pipe.remoteQscanJob(options,cp, dir=search, tag_b
 distrib_remote_rds_qscan_job = stfu_pipe.distribRemoteQscanJob(options,cp, dir=search, tag_base='FG_RDS')
 distrib_remote_seis_qscan_job = stfu_pipe.distribRemoteQscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
 
-gpsevents = time_only_events(options.gps_times)
+if options.gps_times:
+	gpsevents = time_only_events(options.gps_times)
+elif options.input_file:
+	gpsevents = extractTimesFromFile(options.input_file)
+else:
+	print >> sys.stderr, "an argument is missing in the command:\n You need to use one of the options --gps-times or --input-file"
+	sys.exit(1)
 
 for cnt, event in enumerate(gpsevents.events):
 	for ifo in event.ifos_list:
 		if options.verbose:
-			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
+			print >>sys.stdout, "following up %s @ %s" % (ifo, event.time)
 		# h(t) QSCAN datafind Nodes
 		ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True)
 		# RDS QSCAN datafind Nodes
 		rds_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag,q_rds_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True, data_type="rds")
+		# h(t) QSCAN Nodes
+		ht_qscan_node = stfu_pipe.fuQscanNode(dag, ht_qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
 		if cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
 			remote_rds_qscan_node = stfu_pipe.fuRemoteQscanNode(dag, remote_rds_qscan_job, cp, options, event.time, ifo, p_nodes=[rds_qscan_data_find_node,setup_proxy_node], type="rds")
 			remote_seis_qscan_node = stfu_pipe.fuRemoteQscanNode(dag, remote_seis_qscan_job, cp, options, event.time, ifo, p_nodes=[rds_qscan_data_find_node,setup_proxy_node], type="seismic")
@@ -260,3 +370,4 @@ for cnt, event in enumerate(gpsevents.events):
 #### ALL FINNISH ####
 default_cp.write()
 dag.write_all()
+write_user_info(cp)
