@@ -446,7 +446,7 @@ static PyNumberMethods as_number = {
 
 
 static struct PyMethodDef methods[] = {
-	{"ns", ns, METH_NOARGS, NULL},
+	{"ns", ns, METH_NOARGS, "Return the time as an integer count of nanoseconds.\n\nExample:\n\n>>> x = LIGOTimeGPS(100)\n>>> x.ns()\n100000000000L"},
 	{"__reduce__", __reduce__, METH_NOARGS, NULL},
 	{NULL,}
 };

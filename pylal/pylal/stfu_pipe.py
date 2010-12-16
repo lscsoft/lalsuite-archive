@@ -1265,6 +1265,14 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			if param == 'userTag': continue
 			if param == 'user-tag': continue
 			if param in skipParams: continue
+			if param == 'channel-name':
+				self.inputIfo = value[0:2]
+				#HACK FOR GRB FOLLOWUPS: Channel names defined
+				#in old GRB runs are obsolete. It is better to
+				#figure out the channel name from the GPS time.
+				if opts.do_grb:
+					type,channel = figure_out_type(sngl.time,self.inputIfo)
+					value = channel
 			if param == 'injection-file': value = sngl.inj_file_name
 			if param == 'gps-end-time':
 				self.set_end(int(value))
@@ -1278,7 +1286,6 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			self.add_var_opt(param,value)
 			if param == 'pad-data':
 				self.set_pad_data(int(value))
-			if param == 'channel-name': self.inputIfo = value[0:2]
 			if param == 'write-compress':
 				extension = '.xml.gz'
 
@@ -1526,7 +1533,8 @@ class customFOMPlotNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("output-path",job.outputPath+'/DataProducts/')
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
-		if not opts.no_findVetoes:
+		#FIX ME: if the cluster is not CIT do not enable these jobs
+		if not opts.no_findVetoes and "ligo.caltech.edu" in get_hostname():
 			dag.add_node(self)
 			self.validate()
 		else:
