@@ -140,6 +140,7 @@ class ligolw_add_job(pipeline.CondorDAGJob):
 		self.set_sub_file(tag_base+'.sub')
 		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
 		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+		self.add_file_arg(cp.get('input','veto_file'))
 
 
 class ligolw_sqlite_job(pipeline.CondorDAGJob):
@@ -279,7 +280,8 @@ class ligolw_rinca_node(pipeline.CondorDAGNode):
                 self.add_file_arg(xml)
                 self.add_output_file(xml)
                 self.add_var_opt("ds-sq-threshold", ds_sq)
-                self.add_var_opt("save-small-coincs", "")
+		#FIXME Double coinc analysis currently disabled.
+                #self.add_var_opt("save-small-coincs", "")
                 if extent: self.add_var_opt("coinc-end-time-segment",":".join([str(t) for t in extent]))
                 for p in p_node:
                         self.add_parent(p)
