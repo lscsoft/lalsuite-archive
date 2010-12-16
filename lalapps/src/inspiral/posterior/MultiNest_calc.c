@@ -8,13 +8,15 @@ LALMCMCInput *MultiNestInput;
 LALMCMCParameter *MultiNestParam;
 double nullZ;
 
-void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes, int updInt, double Ztol, char root[], int rseed, int *pWrap, int fb, int resume, void (*LogLike)(double *Cube, int *n_dim, int *n_par, double *lnew), int context)
+void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes, int updInt, double Ztol, 
+char root[], int rseed, int *pWrap, int fb, int resume, void (*LogLike)(double *Cube, int *n_dim, int *n_par, double *lnew), 
+void (*dumper)(int *, int *, int *, double **, double **, double *, double *, double *), int context)
 {
 	int i;
 	for (i = strlen(root); i < 100; i++) root[i] = ' ';
 	
 	__nested__nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
-	root, &rseed, pWrap, &fb, &resume, LogLike, &context);
+	root, &rseed, pWrap, &fb, &resume, LogLike, dumper, &context);
 }
 
 void LogLike(double *Cube, int *ndim, int *npars, double *lnew)
@@ -37,6 +39,10 @@ void LogLike(double *Cube, int *ndim, int *npars, double *lnew)
 		printf("likelihood is NaN. Aborting!\n");
 		abort();
 	}
+}
+
+void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double *paramConstr, double *maxLogLike, double *logZ)
+{
 }
 
 void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
@@ -123,6 +129,6 @@ void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 
 
 	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
-	resume, LogLike, context);
+	resume, LogLike, dumper, context);
 	
 }
