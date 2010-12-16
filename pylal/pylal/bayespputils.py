@@ -836,10 +836,12 @@ def plot_two_param_greedy_bins(toppoints,posterior,greedy2Params):
     ysize_in_inches=ysize_points/_dpi
     #
     myfig=plt.figure(1,figsize=(xsize_in_inches+2,ysize_in_inches+2),dpi=_dpi)
+    myfig.clf()
+
 
     cnlevel=[1-tp for tp in toppoints[:,3]]
     #
-    coll=myfig.gca().scatter(
+    coll=myfig.gca(xlabel=par1_name,ylabel=par2_name).scatter(
                              toppoints[:,0],
                              toppoints[:,1],
                              s=int(points_per_bin_width*1.5),
