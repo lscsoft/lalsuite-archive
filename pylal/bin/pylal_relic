@@ -276,6 +276,9 @@ def parse_args():
         help="print extra information to the console")
     parser.add_option("--ifos", type="string",
         help="used IFsO written together, like H1V1")
+    parser.add_option("--keep-faceon", metavar="BEAM_ANGLE", type="float",
+        help="discard injections with BEAM_ANGLE < inclination < PI - "\
+        "BEAM_ANGLE (radians)")
 
 
 
@@ -300,6 +303,11 @@ def parse_args():
             "provide --injection-pattern, --inj-coinc-pattern, --D-min, "\
             "--D-max, --D-nbins, and --m2-boundaries."
 
+    if options.keep_faceon is not None and \
+        (options.keep_faceon < 0 or options.keep_faceon > numpy.pi):
+        raise ValueError, "argument to --keep-faceon must be in radians "\
+            "between 0 and pi"
+
     return options, arguments
 
 ################################################################################
@@ -316,7 +324,8 @@ cache = lal.Cache.fromfile(open(opts.cache_file), coltype=LIGOTimeGPS)
 
 # XXX: Speed hack; if opts.write_onsource, need all columns to be able to write
 lsctables.SimInspiralTable.loadcolumns = ["simulation_id", "mass1", "mass2",
-    "distance", "geocent_end_time", "geocent_end_time_ns", "process_id"]
+    "distance", "geocent_end_time", "geocent_end_time_ns", "process_id",
+    "inclination"]
 if not opts.write_onsource:
     lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
         "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
@@ -487,6 +496,14 @@ if opts.write_injections:
         tmp_sims, tmp_coinc_count = \
             get_loudest_stats_by_inj_cat(inj_doc, coinc_doc, coinc_stat,
                 trial_bins, mc_bins, mc_ifo_cats)
+
+        # filter injections based on inclination angle
+        if opts.keep_faceon is not None:
+            keep_ind = [i for i, sim in enumerate(tmp_sims) \
+                        if sim.inclination < opts.keep_faceon \
+                        or sim.inclination > numpy.pi - opts.keep_faceon]
+            tmp_sims = [tmp_sims[i] for i in keep_ind]
+            tmp_coinc_count = [tmp_coinc_count[i] for i in keep_ind]
 
         sims.extend(tmp_sims)
         inj_loudest_by_inj_cat.extend(tmp_coinc_count)
