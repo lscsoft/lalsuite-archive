@@ -45,7 +45,7 @@ def detector_combos( instruments ):
 	out.append((instruments, ()))
 	return out
 
-def background_livetime_nonring_by_slide(connection, seglists, veto_segments=None, verbose = False):
+def background_livetime_nonring_by_slide(connection, seglists, veto_segments=None, coinc_segments=None, verbose = False):
 	# get the segment lists and live time
 	# FIXME veto segments not handled yet
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
@@ -60,6 +60,8 @@ def background_livetime_nonring_by_slide(connection, seglists, veto_segments=Non
 		for id, time_slide in background_time_slides.items():
 			seglists.offsets.update(time_slide)
 			segs=seglists.intersection(list(on_inst))-seglists.union(list(off_inst))
+			if coinc_segments is not None:
+				segs &= coinc_segments
 			tskey = frozenset(time_slide.items())
 			background_livetime[key].setdefault(tskey,0)
 			background_livetime[key][tskey] += float(abs(segs))
@@ -81,10 +83,10 @@ def background_livetime_ring_by_slide(connection, live_time_program, seglists, v
 
 	return background_livetime
 
-def add_background_livetime(connection, live_time_program, seglists, veto_segments, verbose=False):
+def add_background_livetime(connection, live_time_program, seglists, veto_segments, coinc_segments=None, verbose=False):
 	if live_time_program == "thinca": lt = background_livetime_ring_by_slide(connection, live_time_program, seglists, veto_segments, verbose)
-	if live_time_program == "gstlal_inspiral": lt = background_livetime_nonring_by_slide(connection, seglists, veto_segments, verbose)
-	if live_time_program == "lalapps_ring": lt = background_livetime_nonring_by_slide(connection, seglists, veto_segments, verbose)
+	if live_time_program == "gstlal_inspiral": lt = background_livetime_nonring_by_slide(connection, seglists, veto_segments, coinc_segments, verbose)
+	if live_time_program == "lalapps_ring": lt = background_livetime_nonring_by_slide(connection, seglists, veto_segments, coinc_segments, verbose)
 	out = {}
 	for k, v in lt.items():
 		out.setdefault(k,0)
