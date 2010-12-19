@@ -186,7 +186,7 @@ def figure_out_cache(time,ifo):
 	return foundCache
 
 def home_dirs():
-	return os.path.split(os.environ['HOME'])[0]
+	return os.path.split(os.path.abspath(os.environ['HOME']))[0]
 
 def get_hostname():
 	host = socket.getfqdn()
@@ -2578,10 +2578,10 @@ class create_default_config(object):
 	def web_dir(self):
 		host = get_hostname()
 		#FIXME add more hosts as you need them
-		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/followups/' + self.time_now
+		if 'caltech.edu' in host: return os.path.abspath(os.environ['HOME']) + '/public_html/followups/' + self.time_now
+		if 'phys.uwm.edu' in host: return os.path.abspath(os.environ['HOME']) + '/public_html/followups/' + self.time_now
+		if 'phy.syr.edu' in host: return os.path.abspath(os.environ['HOME']) + '/public_html/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.path.abspath(os.environ['HOME']) + '/WWW/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web directory, returning empty string"
 		return ''
 
