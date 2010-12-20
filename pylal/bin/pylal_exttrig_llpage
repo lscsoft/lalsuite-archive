@@ -892,7 +892,7 @@ def get_options():
 
     # check if a required option is missed
     error_if_missing = ["onsource_pickle","onsource_xml","offsource_pickle",\
-                        "grb_name","grb_pickle","type","config_file"]
+                        "grb_name","grb_pickle","type","config_file","output_www"]
     for opt in error_if_missing:
         if getattr(opts, opt) is None:
             raise ValueError, "missing required option: --%s" % \
@@ -917,7 +917,10 @@ grb_name = opts.grb_name
 grb = peu.read_grb_from_list(grb_name)
 
 # Initialize the page object
-page = cbcwebpage.cbcpage(title="Resultpage for GRB %s"%opts.grb_name, path = "test")
+if not os.path.exists(opts.output_www):
+  os.mkdir(opts.output_www)
+page = cbcwebpage.cbcpage(title="Resultpage for GRB %s" % opts.grb_name,
+                          path = opts.output_www)
 
 
 #
