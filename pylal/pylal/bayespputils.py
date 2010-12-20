@@ -161,6 +161,7 @@ class Posterior(object):
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
+        
         if 'logl' in common_output_table_header:
             try:
                 self._logL=self._posterior['logl'].samples
@@ -175,6 +176,27 @@ class Posterior(object):
             except KeyError:
                 print "No 'logl' column in input table!"
                 raise
+        
+        elif 'post' in common_output_table_header:
+            try:
+                self._logL=self._posterior['post'].samples
+            
+            except KeyError:
+                print "No 'post' column in input table!"
+                raise
+
+        elif 'posterior' in common_output_table_header:
+            try:
+                self._logL=self._posterior['posterior'].samples
+            
+            except KeyError:
+                print "No 'posterior' column in input table!"
+                raise
+
+        else:
+            print "No likelihood/posterior values found!"
+            exit(1) 
+                
         return
 
     @property
@@ -1429,12 +1451,98 @@ class PEOutputParser(object):
             self._parser=self._common_to_pos
         elif inputtype is 'fm':
             self._parser=self._followupmcmc_to_pos
+        elif inputtype is "inf_mcmc":
+            self._parser=self._infmcmc_to_pos
 
     def parse(self,files,**kwargs):
         """
         Parse files.
         """
         return self._parser(files,**kwargs)
+
+    def _infmcmc_to_pos(self,files,deltaLogL=None,**kwargs):
+        """
+        Parser for lalinference_mcmcmpi output.
+        """
+        logLThreshold=-1e200 # Really small?
+        if not (deltaLogL is None):
+            logLThreshold=self._find_max_logL(files) - deltaLogL
+            print "Eliminating any samples before log(L) = ", logLThreshold
+        postName="posterior_samples.dat"
+        outfile=open(postName, 'w')
+        try:
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold)
+        finally:
+            outfile.close()
+        return self._common_to_pos(open(postName,'r'))
+        
+        
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold):
+        """
+        Concatenate all the samples from the given files into outfile.
+        For each file, only those samples past the point where the
+        log(L) > logLThreshold are concatenated.
+        """
+        outputHeader=False
+        for infilename in files:
+            infile=open(infilename,'r')
+            try:
+                header=self._clear_infmcmc_header(infile)
+                if not outputHeader:
+                    for label in header:
+                        outfile.write(label)
+                        outfile.write(" ")
+                    outfile.write("\n")
+                    outputHeader=True
+                loglindex=header.index("logl")
+                output=False
+                for line in infile:
+                    line=line.lstrip()
+                    lineParams=line.split()
+                    logL=float(lineParams[loglindex])
+                    if logL >= logLThreshold:
+                        output=True
+                    if output:
+                        outfile.write(line)
+            finally:
+                infile.close()
+
+    def _find_max_logL(self, files):
+        """
+        Given a list of files, reads them, finding the maximum log(L)
+        """
+        maxLogL = -1e200  # Really small, I hope!
+        for inpname in files:
+            infile=open(inpname, 'r')
+            try:
+                header=self._clear_infmcmc_header(infile)
+                loglindex=header.index("logl")
+                for line in infile:
+                    line=line.lstrip().split()
+                    logL=float(line[loglindex])
+                    if logL > maxLogL:
+                        maxLogL=logL
+            finally:
+                infile.close()
+        print "Found max log(L) = ", maxLogL
+        return maxLogL
+        
+    def _clear_infmcmc_header(self, infile):
+        """
+        Reads past the header information from the
+        lalinference_mcmcmpi file given, returning the common output
+        header information.
+        """
+        for line in infile:
+            headers=line.lstrip().lower().split()
+            if len(headers) is 0:
+                continue
+            if "cycle" in headers[0]:
+                break
+        else:
+            raise RuntimeError("couldn't find line beginning with 'cycle' in LALInferenceMCMC input")
+        return headers
+        
     
     def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
         """
