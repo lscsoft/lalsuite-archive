@@ -1378,8 +1378,8 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
     mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
     
-    double phiMin=10.0;
-    double phiMax=100.0;
+    double phiMin=-10.0;
+    double phiMax=10.0;
     
 	lmmin=log(mcmin);
 	lmmax=log(mcmax);

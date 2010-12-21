@@ -440,15 +440,15 @@ REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-    if (PhaseTestParam!=-1) {
-        parameter->logPrior+=log(
+    if (PhaseTestParam!=-1) {parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));}
+        /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
                                  (-1.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/(m1+m2));
-            /*parameter->logPrior+=log(
+            parameter->logPrior+=log(
                     -(1.0/8.0)*XLALMCMCGetParameter(parameter,"phiTest")/(m1+m2)+
                     ((1.0/8.0)*(284875.0/258048.0)*pow(eta,-7.0/8.0)+
                      (9.0/8.0)*(1855.0/2048.0)*pow(eta,1.0/8.0))*pow(m1+m2,-1.0/8.0));*/
-    }
+    
     if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;
 	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;
 	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;
@@ -501,10 +501,11 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
 	PPNparams.deltaT=inputMCMC->deltaT;
 	PPNparams.ampOrder = inputMCMC->ampOrder;
 	
-	LALPopulatePhasePNparams(&PPNparams,PhaseTestParam);
+    /* GET TEST PHASE PARAMETER FROM MCMC STRUCTURE AND USE IT TO POPULATE THE PN STRUCTURE */
+	
+    if (PhaseTestParam!=-1) {LALPopulatePhasePNparams(&PPNparams,PhaseTestParam,XLALMCMCGetParameter(parameter,"phiTest"));}
+    else {LALPopulatePhasePNparams(&PPNparams,PhaseTestParam,0.0);}
 
-	/* GET TEST PHASE PARAMETER FROM MCMCSTRUCTURE */
-    if (PhaseTestParam!=-1) {PPNparams.phasePNparams[PhaseTestParam] = XLALMCMCGetParameter(parameter,"phiTest");}
 
 	/* Call LALGeneratePPNAmpCorInspiral */
 	LALGeneratePPNAmpCorConsistency(&status,&coherent_gw,&PPNparams);
