@@ -622,7 +622,7 @@ int main( int argc, char *argv[])
 
 	/* If the data segment is not specified, try to guess it from the trigger time */
 	
-	if(datastart.gpsSeconds==0){
+	if((int)datastart.gpsSeconds==0){
 		fprintf(stderr,"You did not specify a data start time, attempt to guess.\nAdjusting GPSstart to %i for trigger %i\n",ETgpsSeconds-(INT4)duration/2,event);
 		datastart.gpsSeconds=ETgpsSeconds-(INT4)duration/2;
 		datastart.gpsNanoSeconds=0;
