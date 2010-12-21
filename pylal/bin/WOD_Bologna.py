@@ -209,10 +209,10 @@ class create_default_config_wod(object):
 	def web_dir(self):
 		host = stfu_pipe.get_hostname()
 		#FIXME add more hosts as you need them
-		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/followups/' + self.time_now
+		if 'caltech.edu' in host: return os.path.abspath(os.environ['HOME']) + '/public_html/followups/' + self.time_now
+		if 'phys.uwm.edu' in host: return os.path.abspath(os.environ['HOME']) + '/public_html/followups/' + self.time_now
+		if 'phy.syr.edu' in host: return os.path.abspath(os.environ['HOME']) + '/public_html/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.path.abspath(os.environ['HOME']) + '/WWW/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web directory, returning empty string"
 		return ''
 
