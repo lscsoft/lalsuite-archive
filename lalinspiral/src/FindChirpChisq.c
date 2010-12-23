@@ -283,6 +283,7 @@ LALFindChirpChisqVeto (
     case EOB:
     case EOBNR:
     case FindChirpSP:
+    case IMRPhenomB:
       /* check that the input contains some data */
       ASSERT( input->qVec, status,
           FINDCHIRPCHISQH_ENULL, FINDCHIRPCHISQH_MSGENULL );
