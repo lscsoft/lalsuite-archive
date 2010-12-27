@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-import os, sys, shlex, subprocess,tempfile
+# ==============================================================================
+# Preamble
+# ==============================================================================
+import os,sys,shlex,subprocess,operator
 from glue.segments import segment, segmentlist
-from glue.ligolw import utils as ligolw_utils
-from glue.ligolw import table
-from glue.ligolw import lsctables
-#from glue.ligolw.utils import segments as ligolw_segments
-from glue.segmentdb import segmentdb_utils
+from glue.ligolw import lsctables,table,utils
+from glue.segmentdb import query_engine,segmentdb_utils
 # Some boilerplate to make segmentlists picklable
 import copy_reg
 copy_reg.pickle(type(segment(0,1)), lambda x:(segment,(x[0],x[1])))
@@ -14,7 +14,7 @@ copy_reg.pickle(type(segmentlist([])), lambda x:(segmentlist,([y for y in x],)))
 
 from glue import git_version
 
-__author__ = "Andrew P Lundgren <aplundgr@syr.edu>"
+__author__ = "Andrew P Lundgren <aplundgr@syr.edu>, Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
@@ -43,7 +43,7 @@ def fromsegmentxml(file):
   Read a segmentlist from the file object file containing an xml segment table.
   """
 
-  xmldoc,digest = ligolw_utils.load_fileobj(file)
+  xmldoc,digest = utils.load_fileobj(file)
   seg_table = table.get_table(xmldoc,lsctables.SegmentTable.tableName)
 
   segs = segmentlist()
@@ -54,9 +54,46 @@ def fromsegmentxml(file):
   return segs
 
 # ==============================================================================
+# Write to segment xml file
+# ==============================================================================
+def tosegmentxml(file,segs):
+  """
+  Write a glue.segments.segmentlist object contents to an xml file with appropriate tables.
+  """
+
+  #== generate empty document
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+  xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
+  xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
+
+  #== append process to table
+  process = llwapp.append_process(xmldoc,program='pylal.dq.dqSegmentUtils',\
+                                         version=__version__,\
+                                         cvs_repository = 'lscsoft',\
+                                         cvs_entry_time = __date__)
+
+  gpssegs = segmentlist()
+  for seg in segs:
+    gpssegs.append(segment(LIGOTimeGPS(seg[0]),LIGOTimeGPS(seg[1])))
+
+  #== append segs and seg definer
+  segments_tables = ligolw_segments.LigolwSegments(xmldoc)
+  segments_tables.segment_lists.append(ligolw_segments.\
+                                       LigolwSegmentList(active=gpssegs))
+  #== finalise
+  segments_tables.coalesce()
+  segments_tables.optimize()
+  segments_tables.finalize(process)
+  llwapp.set_process_end_time(process)
+
+  #== write file
+  utils.write_fileobj(xmldoc,file,gz=False)
+
+# ==============================================================================
 # Function to load segments from a csv file
 # ==============================================================================
-def fromsegmentcsvCSV(csvfile):
+def fromsegmentcsv(csvfile):
   """
   Read a segmentlist from the file object file containing a comma separated list of segments.
   """
@@ -112,25 +149,39 @@ def grab_segments(start,end,flag):
   """
   Returns a segmentlist containing the segments during which the given flag was active in the given period.
   """
-  exe = make_external_call('which ligolw_segment_query')[0]
-  #== construct segment query
-  segment_cmd = ' '.join([exe,'--query-segments',\
-                          '--database','--include-segments',flag,\
-                          '--gps-start-time',str(start),\
-                          '--gps-end-time',str(end)])
-  #== run segment query
-  segxmlout,segerr = make_external_call(segment_cmd)
 
-  segs = segmentlist()
-  if not segerr:
-    tmpfile = tempfile.TemporaryFile()
-    tmpfile.write(segxmlout)
-    tmpfile.seek(0)
-    segs = fromsegmentxml(tmpfile)
+  # set times
+  start = int(start)
+  end   = int(end)
+
+  # set query engine
+  database_location = os.environ['S6_SEGMENT_SERVER']
+  connection        = segmentdb_utils.setup_database(database_location)
+  engine            = query_engine.LdbdQueryEngine(connection)
+
+  # format flag name
+  spec = flag.split(':')
+  if len(spec) < 2 or len(spec) > 3:
+    print >>sys.stderr, "Included segements must be of the form ifo:name:version or ifo:name:*"
+    sys.exit(1)
+
+  ifo     = spec[0]
+  name    = spec[1]
+  if len(spec) is 3 and spec[2] is not '*':
+    version = int(spec[2])
+    if version < 1:
+      print >>sys.stderr, "Segment version numbers must be greater than zero"
+      sys.exit(1)
   else:
-    print >>sys.stderr, "Warning: Call to ligolw_segment_query failed with "+\
-                        "command:"
-    print >>sys.stderr, "\n"+segment_cmd+"\n"
+    version = '*'
+
+  # expand segment definer
+  segdefs = segmentdb_utils.expand_version_number(engine,(ifo,name,version,\
+                                                          start,end,0,0))
+
+  # query segs
+  segs = segmentdb_utils.query_segments(engine, 'segment', segdefs)
+  segs = reduce(operator.or_, segs).coalesce()
 
   return segs
 

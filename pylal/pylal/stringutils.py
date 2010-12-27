@@ -100,9 +100,7 @@ def coinc_params_func(events, offsetvector):
 		# f_cut = central_freq + bandwidth/2
 		f_cut1 = event1.central_freq + event1.bandwidth / 2
 		f_cut2 = event2.central_freq + event2.bandwidth / 2
-		# FIXME:  should be
-		#df = float((f_cut1 - f_cut2) / ((f_cut1 + f_cut2) / 2))
-		df = float((f_cut1 - f_cut2) / (f_cut1 + f_cut2))
+		df = float((math.log10(f_cut1) - math.log10(f_cut2)) / (math.log10(f_cut1) + math.log10(f_cut2)))
 		params["%sdf" % prefix] = (df,)
 
 	#
@@ -119,7 +117,7 @@ def coinc_params_func(events, offsetvector):
 
 def dt_binning(instrument1, instrument2):
 	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 3001),))
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 801),))
 
 
 class DistributionsStats(object):
@@ -129,28 +127,28 @@ class DistributionsStats(object):
 	"""
 
 	binnings = {
-		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
-		"H2_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
-		"L1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
-		"V1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
+		"H2_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
+		"L1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
+		"V1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 801), rate.ATanLogarithmicBins(.1, 1e4, 801))),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H1_V1_dt": dt_binning("H1", "V1"),
 		"H2_L1_dt": dt_binning("H2", "L1"),
 		"H2_V1_dt": dt_binning("H2", "V1"),
 		"L1_V1_dt": dt_binning("L1", "V1"),
-		"H1_H2_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_H2_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_H2_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H1_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 801),)),
+		"H1_H2_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H1_L1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
+		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
 		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
 	}
 

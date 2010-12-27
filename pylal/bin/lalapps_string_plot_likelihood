@@ -142,6 +142,8 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
 		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	ymin, ymax = axes.get_ylim()
+	axes.set_ylim((max(ymin, ymax * 1e-6), ymax))
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
@@ -161,12 +163,14 @@ def df_plot(key, background_coords, background_data, injections_coords, injectio
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
 		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	ymin, ymax = axes.get_ylim()
+	axes.set_ylim((max(ymin, ymax * 1e-6), ymax))
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
 	axes.set_title(r"%s--%s Frequency Cutoff Asymmetry Distribution" % (instrument1, instrument2))
 	axes.set_ylabel("Probability Density")
-	axes.set_xlabel(r"$\left(fcut_{\mathrm{%s}} - fcut_{\mathrm{%s}}\right) / \left(fcut_{\mathrm{%s}} + fcut_{\mathrm{%s}}\right)$" % (instrument1, instrument2,instrument1, instrument2))
+	axes.set_xlabel(r"$\left({f_{\mathrm{cut}}}_{\mathrm{%s}} - {f_{\mathrm{cut}}}_{\mathrm{%s}}\right) / \frac{1}{2} \left({f_{\mathrm{cut}}}_{\mathrm{%s}} + {f_{\mathrm{cut}}}_{\mathrm{%s}}\right)$" % (instrument1, instrument2,instrument1, instrument2))
 	axes.xaxis.grid(True, which = "major,minor")
 	axes.yaxis.grid(True, which = "major,minor")
 	return fig
@@ -181,6 +185,8 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
 		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	ymin, ymax = axes.get_ylim()
+	axes.set_ylim((max(ymin, ymax * 1e-6), ymax))
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
@@ -274,9 +280,9 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	elif name.endswith("_df"):
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
-		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-2, +2))
-		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-2, +2))
-		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-2, +2))
+		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-0.6, +0.6))
+		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-0.6, +0.6))
+		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-0.6, +0.6))
 		fig = df_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
 		for extension in options.format:
 			outname = "%s.%s" % (name, extension)

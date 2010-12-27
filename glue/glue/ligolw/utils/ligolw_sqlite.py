@@ -105,7 +105,7 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False):
 	# objects it retains
 	#
 
-	xmldoc = utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz"))
+	xmldoc = utils.load_url(url, verbose = verbose)
 
 	#
 	# update references to row IDs

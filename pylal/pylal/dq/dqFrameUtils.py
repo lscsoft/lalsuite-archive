@@ -31,7 +31,7 @@ def make_external_call(cmd,shell=False):
 # ==============================================================================
 # Function to grab data from frames
 # ==============================================================================
-def grab_data(start,end,channel,type,\
+def grab_data(start,end,ifo,channel,type,\
               nds=False,verbose=False,dmt=False):
   """
   This function will return the frame data for the given channel of the given
@@ -40,7 +40,7 @@ def grab_data(start,end,channel,type,\
   and the dmt option will return data for dmt channels in frames not found by 
   ligo_data_find.
 
-  >>>grab_data(960000000,960000001,'H1:IFO-SV_STATE_VECTOR','H1_RDS_R_L3')
+  >>>grab_data(960000000,960000001,'H1','IFO-SV_STATE_VECTOR','H1_RDS_R_L3')
   ([960000000.0,960000001.0,960000002.0,960000003.0,960000004.0,960000005.0],
    [15.0, 14.125, 13.0, 13.0, 13.0, 13.0])
   """
@@ -49,17 +49,19 @@ def grab_data(start,end,channel,type,\
   data = []
 
   #== find FrCheck
-  frcheck,err = make_external_call('which FrCheck')[0]
+  frcheck,err = make_external_call('which FrCheck')
   if err:
     raise ValueError, "FrCheck not found."
+  frcheck = frcheck.replace('\n','')
   #== generate framecache
   if verbose:
+    print >>sys.stdout
     print >>sys.stdout, "Generating framecache..."
     sys.stdout.flush()
   if not dmt:
-    cache = generate_cache(start,end,channel[0:1],type,return_files=True)
+    cache = generate_cache(start,end,ifo[0:1],type,return_files=True)
   else:
-    cache = dmt_cache(start,end,channel[0:1],type)
+    cache = dmt_cache(start,end,ifo[0:1],type)
   #== loop over frames in cache
   for frame in cache:
     #== check frame file exists
@@ -73,9 +75,10 @@ def grab_data(start,end,channel,type,\
     segtest.stdout.close()
     #== try to extract data from frame
     try:
-      frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,channel)
+      frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,\
+                                                      ':'.join([ifo,channel]))
       if frame_data==[]:
-        print >>sys.stderr, "No data for "+channel+" in "+frame
+        print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
         continue
       #== construct time array
       frame_length = float(dt)*len(frame_data)
@@ -87,7 +90,7 @@ def grab_data(start,end,channel,type,\
         time.append(frame_time[i])
         data.append(frame_data[i])
     except:
-      print >>sys.stderr, "Failed to access frame:\n"+frame
+      print >>sys.stderr, "Failed to access frame: \n%s" % (frame)
       continue
   return time,data
 
@@ -434,13 +437,23 @@ def find_channels(channels=None,\
             if re.search(exchan,line):  exclude=True
           if exclude:  continue
           name,sampling = line.split(' ')
+          
           #== if asked for exact match, check:
-          if match:
-            if name not in channels:  continue
-          #== generate structure and append to list  
-          found_channel = Channel(name,type=type,sampling=sampling)
-          found_channels.append(found_channel)
-          count+=1
+          use = False
+          if match and (name in channels):
+            use = True
+          elif channels:
+            for ch in channels:
+              if re.search(ch,name):
+                use = True
+                break
+          else:
+            use=True
+          if use:
+            #== generate structure and append to list  
+            found_channel = Channel(name,type=type,sampling=sampling)
+            found_channels.append(found_channel)
+            count+=1
           sys.stdout.flush()
       #== print channel count for data type
       if verbose:  print >>sys.stdout, count,"channels found"
@@ -547,11 +560,42 @@ class Channel:
   >>>GWChannel.name, GWChannel.type, GWChannel.sampling
   ('H1:LSC-DARM_ERR', 'H1_RDS_R_L3', 4096)
   """
+
   def __init__(self,name,type=None,sampling=None):
-    self.name = str(name)
-    if type is not None:
+    """Initialise the dqFrameUtils.Channel object assuming the give name follows the standard convention:
+
+IFO:SYSTEM-SUBSYSTEM_SIGNAL
+
+For example:
+
+c = dqDataUtils.Channel('H1:LSC-DARM_ERR')
+
+will return
+
+c.ifo = 'H1'
+c.name = 'LSC-DARM_ERR'
+c.site = 'H'
+c.system = 'LSC'
+c.subsystem = 'DARM'
+c.signal = 'ERR'
+    """
+    #== extract name attributes
+    try:
+      self.ifo,self.name         = re.split(':',name,maxsplit=1)
+      self.site                  = self.ifo[0]
+    except:
+      self.ifo = ''
+      self.site = ''
+      self.name = name
+    try:
+      self.system, tmp           = re.split('[-_]',self.name,maxsplit=1)
+      self.subsystem,self.signal = re.split('[-_]',tmp,maxsplit=1)
+    except:
+      self.system=self.subsystem=self.signal = ''    
+
+    if type:
       self.type = str(type)
-    if sampling is not None:
+    if sampling:
       try:
         if sampling==int(sampling):
           self.sampling = int(sampling)
@@ -559,6 +603,13 @@ class Channel:
           self.sampling = float(sampling)
       except:
         self.sampling = float(sampling)
+
+  def __getattribute__(self,name):
+    if name=='test':
+      return 0.
+    else:
+      return self.__dict__[name]
+
 
 # ==============================================================================
 # Function to generate a framecache of /dmt types
