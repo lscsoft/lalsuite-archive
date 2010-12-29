@@ -166,7 +166,7 @@ class CombiningFunctions:
     when computing the results in the UPDATE SET command.
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
-      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1. ):
+      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., efac = 1. ):
         """
         Sets outside variables.
         """
@@ -179,6 +179,7 @@ class CombiningFunctions:
         self.hfac = hfac
         self.lfac = lfac
         self.vfac = vfac
+        self.efac = efac
     
     def compute_combined_snr( self, coinc_sngls ):
         """
