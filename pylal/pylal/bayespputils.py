@@ -1467,7 +1467,7 @@ class PEOutputParser(object):
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
-            print "Eliminating any samples before log(L) = ", logLThreshold
+            print "Eliminating any samples before log(Post) = ", logLThreshold
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
@@ -1494,7 +1494,7 @@ class PEOutputParser(object):
                         outfile.write(" ")
                     outfile.write("\n")
                     outputHeader=True
-                loglindex=header.index("logl")
+                loglindex=header.index("logpost")
                 output=False
                 for line in infile:
                     line=line.lstrip()
@@ -1516,7 +1516,7 @@ class PEOutputParser(object):
             infile=open(inpname, 'r')
             try:
                 header=self._clear_infmcmc_header(infile)
-                loglindex=header.index("logl")
+                loglindex=header.index("logpost")
                 for line in infile:
                     line=line.lstrip().split()
                     logL=float(line[loglindex])
@@ -1524,7 +1524,7 @@ class PEOutputParser(object):
                         maxLogL=logL
             finally:
                 infile.close()
-        print "Found max log(L) = ", maxLogL
+        print "Found max log(Post) = ", maxLogL
         return maxLogL
         
     def _clear_infmcmc_header(self, infile):
