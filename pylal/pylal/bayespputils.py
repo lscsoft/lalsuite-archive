@@ -1493,7 +1493,7 @@ class PEOutputParser(object):
                         outfile.write(label)
                         outfile.write(" ")
                     outfile.write("\n")
-                    outputHeader=True
+                    outputHeader=header
                 loglindex=header.index("logpost")
                 output=False
                 for line in infile:
@@ -1503,7 +1503,10 @@ class PEOutputParser(object):
                     if logL >= logLThreshold:
                         output=True
                     if output:
-                        outfile.write(line)
+                        for label in outputHeader:
+                            outfile.write(lineParams[header.index(label)])
+                            outfile.write(" ")
+                        outfile.write("\n")
             finally:
                 infile.close()
 
