@@ -1482,7 +1482,7 @@ class GRB(object):
     @param timeoffset: The offset in time for downloading those segments
     """
 
-    seg_names = ['H1:DMT-SCIENCE:1','L1:DMT-SCIENCE:1','V1:ITF_SCIENCEMODE']
+    seg_names = [cp.get('data','science_segment_H1'), cp.get('data','science_segment_L1'), cp.get('data','science_segment_V1')]
     ifo_list = ['H1','L1','V1']
     starttime = self.time-timeoffset
     endtime = self.time+timeoffset
