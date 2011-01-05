@@ -69,7 +69,7 @@ def cbcBayesPostProc(
                         #spinspiral/mcmc options
                         ss_flag=False,ss_deltaLogL=None,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,
+                        li_flag=False,nDownsample=1,
                         #followupMCMC options
                         fm_flag=False
                     ):
@@ -109,7 +109,7 @@ def cbcBayesPostProc(
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL)
+        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample)
 
     elif ss_flag and ns_flag:
         print "Undefined input format. Choose only one of:"
@@ -581,6 +581,7 @@ if __name__=='__main__':
     parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral and LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
+    parser.add_option("--downsample",action="store",default=1,help="(LALInferenceMCMC) number of samples to read before recording one output.",type="float")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     (opts,args)=parser.parse_args()
@@ -614,7 +615,7 @@ if __name__=='__main__':
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_deltaLogL=opts.deltaLogL,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,
+                        li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,
                         #followupMCMC options
                         fm_flag=opts.fm
                     )

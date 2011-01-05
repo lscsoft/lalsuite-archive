@@ -1460,7 +1460,7 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=1,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
@@ -1471,18 +1471,19 @@ class PEOutputParser(object):
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nDownsample)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
         
         
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nDownsample=1):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
         log(L) > logLThreshold are concatenated.
         """
+        nRead=0
         outputHeader=False
         for infilename in files:
             infile=open(infilename,'r')
@@ -1503,10 +1504,12 @@ class PEOutputParser(object):
                     if logL >= logLThreshold:
                         output=True
                     if output:
-                        for label in outputHeader:
-                            outfile.write(lineParams[header.index(label)])
-                            outfile.write(" ")
-                        outfile.write("\n")
+                        if nRead % nDownsample == 0:
+                            for label in outputHeader:
+                                outfile.write(lineParams[header.index(label)])
+                                outfile.write(" ")
+                            outfile.write("\n")
+                        nRead=nRead+1
             finally:
                 infile.close()
 
