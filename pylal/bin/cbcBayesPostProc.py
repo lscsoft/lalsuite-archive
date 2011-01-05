@@ -183,8 +183,14 @@ def cbcBayesPostProc(
             inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
 
         mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
-        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
-        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
+        if li_flag:
+            # In LALInference, the definition of m1 and m2 is reversed!
+            # This will eventually be fixed, but for now it is this way.
+            mass1_pos=bppu.OneDPosterior('m1',mass2_samps,injected_value=inj_mass2)
+            mass2_pos=bppu.OneDPosterior('m2',mass1_samps,injected_value=inj_mass1)
+        else:
+            mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
+            mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
