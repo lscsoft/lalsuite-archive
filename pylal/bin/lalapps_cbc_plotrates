@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #
 # =============================================================================
@@ -9,8 +9,7 @@
 #
 
 __prog__ = 'lalapps_cbc_plotrates'
-# FIXME: Non cumulative plot too?
-description = 'Creates plots of cumulative rate vs. a given statistic. Statistics can be either single or coincident, and can be queried or computed on the fly from either a sngl table or a coinc table.'
+description = 'Creates plots of histogram counts and cumulative rates vs. a given statistic. Statistics can be either single or coincident, and can be queried or computed on the fly from either a sngl table or a coinc table.'
 usage = '%s [options] file1.sqlite file2.sqlite ...'
 
 from optparse import OptionParser
@@ -195,21 +194,29 @@ def parse_command_line():
         help =
             "Color foreground points by ifo color. Default is to plot no color (all triggers have a blue outline)."
             )
+    parser.add_option( "-H", "--plot-poisson-pdf", action = "store_true", default = False,
+        help =
+            "Plot the Poisson probability density of the background."
+            )
+    parser.add_option( "-K", "--plot-significance-bands", action = "store_true", default = False,
+        help =
+            "Plot the Poisson probability bands in terms of the number of sigma. The values of the n sigma are the points in the poisson PDF that equal n*erf(y)."
+            )
     parser.add_option( "-S", "--max-sigma", type = 'int', default = 5,
         help =
             "Maximum number of significance bands to plot."
             )
-    parser.add_option( "-E", "--extrapolate", default = None, metavar = "Gauusian|Power",
+    parser.add_option( "-E", "--extrapolate", default = None, metavar = "Gauusian|Power|erfc",
         help =
-            "Extrapolate the background using a the given model out to the largest foreground statistic. If this is beyond the measured background, the probabibilty density beyond the loudest background point will be calculated using this extrapolation. Options for models are 'Gaussian' or 'Power'. If 'Gaussian' y = A*exp(-B*x**(fit_power)) is fit. If 'Power', y = A*x**B is fit."
+            "Extrapolate the background using a the given model out to the largest foreground statistic. If this is beyond the measured background, the probabibilty density beyond the loudest background point will be calculated using this extrapolation. Options for models are 'Gaussian', 'Power', or 'erfc'. If 'Gaussian' or 'Power' a least-squares fit is done to both the non-cumulative and the cumulative histograms: for 'Gaussian' y = A*exp(-B*x**(2./x-power)) is fit; if 'Power', y = A*x**B is fit. If 'erfc', a Gauusian is fitted to the non-cumulative histogram to get sigmasq and the scalling factor A. These values are then used in the complitmentary error function y = A*\int{dx*exp(-x^2/2*sigmasq)} to extrapolate the cumulative distribution."
             )
-    parser.add_option( "-P", "--fit-power", type = "float", default = None,
+    parser.add_option( "-P", "--x-power", type = "float", default = None,
         help =
-            "If fitting a Gaussian, what power of x (in the exponent) to fit with. When fitting a gaussian to the data, the natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(fit-power). If you are plotting against a statistic, then fit-power should be 2. If, however, you are plotting against the statistic to some other power, then fit-power should be 2 divided by that power. For example, if you plot against SNR, the fit-power should be 2. If, however, you plot against SNR squared, the fit power should be 1."
+            "What power the x-axis is plotted in. This is only needed when doing a Gaussian fit. When fitting a gaussian to the data, the natural log of the Gaussian is taken so that the actual fitted equation is log(y) = Beta[1] + Beta[2]*x**(2/fit-power). For example, if you are plotting linearly in your statistic, then fit-power should be 1. If, however, you are plotting against the statistic squared, then x-power would be 2, and thus the fit would be log(y) = Beta[1] + Beta[2]*x."
             )
-    parser.add_option( "", "--max-y-fit", type = 'float', default = None,
+    parser.add_option( "", "--min-x-fit", type = 'float', default = None,
         help =
-            "Cumulative rate (in inverse --time-units) at which to begin fitting the a Gaussian to for extrapolation. Default is start at the point the background dips below the foreground."
+            "Background stat at which to begin fitting to for extrapolation. Default is the first background point."
             )
     parser.add_option( "", "--lin-x", action = "store_true", default = False,
         help =
@@ -235,11 +242,15 @@ def parse_command_line():
         help =
             'Set a maximum value for the y-axis. If lin-y not set, must be > 0. This will apply to all plots generated.'
         )
+    parser.add_option( '', '--nbins', type = 'int', default = 100,
+        help =
+            'The number of bins to use for the non-cumulative histogram.'
+        )
 
 
     (options, args) = parser.parse_args()
 
-    if options.extrapolate.upper() == "GAUSSIAN" and options.fit_power is None:
+    if options.extrapolate is not None and options.extrapolate.upper() == "GAUSSIAN" and options.x_power is None:
         raise ValueError, "If extrapolating a Gaussian, must specify a fit-power."
 
     return options, args, sys.argv[1:]
@@ -710,7 +721,7 @@ def createCombineRowsMethod( tableName, columns, functionList ):
             """
             Initializes variables needed for the step process.
             """
-            self.this_coinc = dict([ [combine_func, {}] for combine_func, _ in functionList ])
+            self.this_coinc = dict([ [x, {}] for x in functionList ])
 
         def step(self, *args):
             """
@@ -719,13 +730,13 @@ def createCombineRowsMethod( tableName, columns, functionList ):
             this_row = sngl_row(columns)
             this_row.store(zip(columns,args))
             for combine_func, sngl_function in functionList:
-                self.this_coinc[combine_func][this_row.ifo] = this_row.get_value(sngl_function)
+                self.this_coinc[(combine_func, sngl_function)][this_row.ifo] = this_row.get_value(sngl_function)
 
         def finalize(self):
             """
             Once all the singles for the coinc have been gathered, applies the desired combining function(s) to them and returns the result. Results are returned as a comma seperated string.
             """
-            return ','.join([str(combineRowStats( cFunc, self.this_coinc[cFunc] )) for cFunc, _ in functionList])
+            return ','.join([str(combineRowStats( cfunc, self.this_coinc[(cfunc, sfunc)] )) for cfunc, sfunc in functionList])
 
     return CombineRows
 
@@ -935,7 +946,7 @@ for filename in filenames:
                     # Note that this isn't exactly correct: the range could overlap a slid veto, in which case only some of the time should be subtracted.
                     # However, we assume this is a small affect.
                     if datatype == "background" and opts.plot_special_time != [] and plot_special_times.intersects_segment( segments.segment(this_gps_start, this_gps_end) ):
-                        data.add_livetime( duration - sum([abs(seg) for seg in plot_special_times]), this_cat, match_criteria )
+                        data.add_livetime( duration - len(on_instruments)*sum([abs(seg) for seg in plot_special_times]), this_cat, match_criteria )
                     else:
                         data.add_livetime( duration, this_cat, match_criteria )
     
@@ -957,13 +968,14 @@ for filename in filenames:
     #
     if opts.verbose:
        print >> sys.stdout, "\tgetting data..." 
-    
+   
+    quick_query = False
     if table_type == 'sngl':
         # create a function list of functions we'll need to combine
+        functionList = []
         if opts.param_name:
-            functionList = [(opts.param_combining_method, param_name), ('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
-        else:
-            functionList = [('alpha_min', 'end_time+end_time_ns*1e-9'), (combining_function, statistic)]
+            functionList.append((opts.param_combining_method, param_name))
+        functionList.extend([('alpha_min', 'end_time+end_time_ns*1e-9'), ('mean', 'mtotal'), (combining_function, statistic)])
         if opts.plot_special_time != []:
             functionList.append( ('sorted_values', 'end_time+end_time_ns*1e-9') )
         get_combined_data = createCombineRowsMethod( data_table, data_cols, functionList )
@@ -1008,14 +1020,22 @@ for filename in filenames:
             """, add_coinc_filter ])
 
     else:
-        # create method to get the stats and parameter
-        if opts.param_name:
-            functionList = [param_name, 'end_time+end_time_ns*1e-9', statistic]
+        # speed-up: if param_name and statistic are in the data_cols list, just query them directly
+        if (opts.param_name is not None and param_name in data_cols) and statistic in data_cols:
+            quick_query = True
+            get_stats = ''.join([ data_table, ".", param_name, ", ", data_table, ".end_time+", data_table, ".end_time_ns*1e-9, ", data_table, ".mass, ", data_table, ".", statistic ])
+        elif opts.param_name is None and statistic in data_cols:
+            quick_query = true
+            get_stats = ''.join([ data_table, ".end_time+", data_table, ".end_time_ns*1e-9, ", data_table, ".mass, ", data_table, ".", statistic ])
         else:
-            functionList = ['end_time+end_time_ns*1e-9', statistic]
-        getStatDB = getRowStatsFromDatabase( data_table, data_cols, functionList )
-        connection.create_function( 'get_stat', len(data_cols),  getStatDB.get_dbrow_stat )
-        get_stats = ''.join([ 'get_stat(', ','.join([ '.'.join([data_table,col]) for col in data_cols ]), ')' ])
+            # create method to get the stats and parameter
+            functionList = []
+            if opts.param_name:
+                functionList.append(param_name)
+            functionList.extend(['end_time+end_time_ns*1e-9', 'mass', statistic])
+            getStatDB = getRowStatsFromDatabase( data_table, data_cols, functionList )
+            connection.create_function( 'get_stat', len(data_cols),  getStatDB.get_dbrow_stat )
+            get_stats = ''.join([ 'get_stat(', ','.join([ '.'.join([data_table,col]) for col in data_cols ]), ')' ])
 
         add_coinc_filter = ''
         if opts.include_only_coincs:
@@ -1037,15 +1057,8 @@ for filename in filenames:
             """
             WHERE
                 (experiment_summary.datatype == 'slide'""", add_foreground, ')', add_coinc_filter ])
-    ii = 1
     results = connection.cursor().execute(sqlquery).fetchall()
     for result in results:
-        if opts.verbose:
-            ii += 1
-            if ii != len(results)+1:
-                print >> sys.stdout, "\t\t%i/%i (%.2f%%)\r" % (ii, len(results), 100*float(ii)/len(results)),
-            else:
-                print >> sys.stdout, '' 
         if opts.plot_by_instrument_time:
             on_instruments = frozenset(lsctables.instrument_set_from_ifos( result[0] ))
         else:
@@ -1056,27 +1069,36 @@ for filename in filenames:
             sngl_end_times = [float(t) for t in result[5].split(',')[-1].split(';')]
             if any(t in plot_special_times for t in sngl_end_times):
                 continue
-        #elif opts.plot_special_time == []:
-            # add a comma to the end so we don't get an error when we parse results[5] later
-        #    result[5] += ','
         veto_cat = result[2]
         ceid = result[3]
         if opts.plot_by_ifos:
             ifos = frozenset(lsctables.instrument_set_from_ifos(result[4]))
         else:
             ifos = frozenset(["ALL"])
-        if opts.param_name:
-            param_group, end_time, stat = [float(x) for x in result[5].split(',') if ';' not in x]
+        if opts.param_name is not None:
+            if quick_query:
+                param_group, end_time, mtotal, stat = [result[5], result[6], result[7], result[8]]
+            else:
+                param_group, end_time, mtotal, stat = [float(x) for x in result[5].split(',') if ';' not in x]
             param_group = param_parser.group_by_param_range( param_group )
             # skip this if it doesn't fall in any desired param group
             if param_group is None:
                 continue
         else:
             param_group = 0.
-            end_time, stat = [float(x) for x in result[5].split(',') if ';' not in x]
+            if quick_query:
+               end_time, mtotal, stat = [result[5], result[6], result[7]] 
+            else:
+               end_time, mtotal, stat = [float(x) for x in result[5].split(',') if ';' not in x]
+        # Memory improvement: throw out any data less than x-fit and xmin
+        if opts.xmin is not None:
+            if stat < opts.xmin and opts.min_x_fit is not None and stat < opts.min_x_fit:
+                continue
+            elif stat < opts.xmin and opts.min_x_fit is None:
+                continue
         # passed any tests, store data
         this_row = rowType()
-        this_row.store([ ('end_time', end_time), ('stat', stat), ('ifos', result[4]) ])
+        this_row.store([ ('end_time', end_time), ('mtotal', mtotal), ('stat', stat), ('ifos', result[4]) ])
         # construct categories
         categories = [ Category( {}, datatype, veto_cat, on_instruments, ifos, param_group ) ]
         if datatype == "slide":
@@ -1122,10 +1144,6 @@ comments = ''
 for bkg_category in data.get_categories( Category(datatype = 'background'), ['datatype'] ):
     if opts.verbose:
         print >> sys.stdout, "\tgroup: %s, %s, %s, %s" %(bkg_category.veto_cat, str(bkg_category.param_group), ''.join(bkg_category.on_instruments), ''.join(bkg_category.ifos))
-    pylab.figure(len(fnameList))
-    pylab.hold(True)
-    xmin = ymin = numpy.inf
-    xmax = ymax = -numpy.inf
     # set a match category to pick out data with
     match_category = Category()
     match_criteria = group_by+['datatype']
@@ -1135,16 +1153,269 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     T_bkg = data.get_livetime(bkg_category, time_units = opts.time_units)
     match_category.datatype = fg_datatype
     T_fg = data.get_livetime( match_category, time_units = opts.time_units )
+
+    #
+    #
+    #   Non-cumulative plot
+    #
+    #
+    if opts.verbose:
+        print >> sys.stdout, "\tcreating histogram..."
+    pylab.figure(len(fnameList))
+    pylab.hold(True)
+    xmin = numpy.inf
+    xmax = -numpy.inf
+    ymin = numpy.inf
+    ymax = -numpy.inf
+
+    #
+    # create histogram
+    #
+    # get foreground data
+    if fg_datatype != 'slide':
+        fg_data = data.get_data( category = match_category, category_match_criteria = match_criteria )
+        fg_stats = numpy.array([x.data.stat for x in fg_data])
+        plot_fg = fg_stats != numpy.array([])
+    else:
+        plot_fg = False
+    # get background data
+    bkg_data = data[bkg_category]
+    bkg_stats = numpy.array([x.data.stat for x in bkg_data])
+    # FIXME: create an empty plot
+    if bkg_stats == numpy.array([]):
+        continue
+
+    # get min/max for bins values
+    if plot_fg:
+        min_val = min( bkg_stats.min(), fg_stats.min() )
+        max_val = max( bkg_stats.max(), fg_stats.max() )
+    else:
+        min_val = min( bkg_stats.min(), bkg_stats.min() )
+        max_val = max( bkg_stats.max(), bkg_stats.max() )
+
+    # create the bins
+    nbins = opts.nbins
+    if opts.lin_x:
+        #bins = numpy.linspace(min_val, max_val, nbins+1, endpoint = True)
+        bins = numpy.linspace(numpy.power(min_val, 1./opts.x_power), numpy.power(max_val, 1./opts.x_power), nbins+1, endpoint = True)
+    else:
+        bins = numpy.logspace( numpy.log10(min_val), numpy.log10(max_val), nbins+1, endpoint = True )
+    bins = numpy.power(bins, opts.x_power)
+    # bump up the last bin by a little bit to make sure there are no numerical errors
+    bins[-1] += .0001
+    ds = numpy.array([bins[i+1] - bins[i] for i in range(len(bins)-1)])/2.
+    xvals = bins[:-1] + ds
+
+    #
+    # plot background
+    #
+    bkg_count, _ = numpy.histogram(bkg_stats, bins, new = True)
+    # divide the background count by the ratio of the background time to the foreground time
+    bkg_count = bkg_count * (T_fg / T_bkg )
+    remove_me = pylab.find(bkg_count == 0.)
+    bkg_count = numpy.array([bkg_count[i] for i in range(len(bkg_count)) if i not in remove_me])
+    bkg_hist_stats = numpy.array([xvals[i] for i in range(len(xvals)) if i not in remove_me])
+    bkg_ds = numpy.array([ds[i] for i in range(len(xvals)) if i not in remove_me])
+
+    # reset ymin/ymax
+    if bkg_count != []:
+        ymin = min(min(bkg_count),ymin)
+        ymax = max(max(bkg_count),ymax)
+
+    #
+    # compute and plot background error
+    #
+    bkg_error = numpy.sqrt( bkg_count / (T_bkg/T_fg) )
+    pylab.errorbar( bkg_hist_stats, bkg_count, xerr = bkg_ds, yerr = bkg_error, color = 'k', ecolor = 'gray', marker = 'o', markersize = 4, linestyle = 'None', zorder = 2, label = 'Background' )
+
+    #
+    # plot foreground
+    #
+    loudest_events = []
+    if plot_fg:
+
+        fg_count, _ = numpy.histogram(fg_stats, bins, new = True)
+        remove_me = pylab.find(fg_count == 0.)
+        fg_count = numpy.array([fg_count[i] for i in range(len(fg_count)) if i not in remove_me])
+        fg_hist_stats = numpy.array([xvals[i] for i in range(len(xvals)) if i not in remove_me])
+
+        # reset ymin/ymax
+        if fg_count != []:
+            ymin = min(min(fg_count),ymin)
+            ymax = max(max(fg_count),ymax)
+
+        fclr = 'b'
+        lbl = fg_datatype.replace( '_', '-').title()
+        if fg_datatype == 'simulation':
+            edgclr = 'r'
+        elif opts.plot_poisson_pdf:
+            edgclr = 'white'
+        else:
+            edgclr = 'none'
+        pylab.scatter( fg_hist_stats, fg_count, marker = 'o', edgecolor = edgclr, facecolor = fclr, label = lbl, s = 20, linewidth = .5, zorder = 4 )
+
+    #
+    # plot foreground triggers that fall in plot-special window as stars
+    #
+    if opts.plot_special_time != []:
+        plot_sp_vals = [x.data.stat for x in fg_data if x.data.end_time in plot_special_times]
+        spx = []
+        spy = []
+        if plot_sp_vals != []:
+            # in which bin does each plot_sp_val fall?
+            for x in plot_sp_vals:
+                if x > fg_hist_stats.max():
+                    spx.append(fg_hist_stats.max())
+                    spy.append(fg_count[-1])
+                else:
+                    idxs = set(pylab.find( x >= fg_hist_stats )) & set(pylab.find( x <= fg_hist_stats))
+                    spx.extend([ fg_hist_stats[i] for i in idxs ])
+                    spy.extend([ fg_count[i] for i in idxs ])
+            pylab.scatter( spx, spy, c = 'yellow', marker = (5,1,0), s = 50, linewidth = .5, label = '_no_legend', zorder = 5 )
+
+
+    #
+    # plot extrapolation
+    #
+    if plot_fg and opts.extrapolate is not None:
+        if opts.verbose:
+            print >> sys.stdout, "\textrapolating background..."
+        ### For Gaussian fit:
+            # We're going to fit a Gaussian with 0 mean to the background. Since this is given by y = A*exp(-x^2./(2*sigma^2.))/sqrt(2*pi*sigma^2.), we take the natural log, and thus fit
+            # y = beta[0] + beta[2]*x^2 where beta[0] = ln(A) - ln(2*pi*sigma^2.)/2., beta[2] = -1/(2.*sigma^2.) and y = ln(bkg_count)
+            # To do this, we'll do a weighted linear least squares fit using Beta_hat = (transpose(X).W.X)^(-1).transpose(X).W.Y. where W is the nxn matrix of weights (which are just taken
+            # as the error in each background point), X is the nx2 matrix of [1 x[i]^2.], Y is the nx1 matrix of ln(bkg_cound[i]), and Beta_hat is the 2x1 matrix of fitted betas.
+            # That assumes that the plotted x is linear in whatever the desired statistic is. However, if the plotted x is actually the desired statistic squared, then we should
+            # fit y = beta[0] + beta[2]*x. Generalizing, we actually fit y = beta[0] + beta[2]*x^((2./opts.x_power)), since only the user can know what function of their desired statistic they've
+            # punched into the command line.
+        ### For power-law fit:
+            # We're going to fit bkg_count/T_fg = A*statistic^B by doing a least squares fit to y = beta[0] + beta[1]*x where y = ln(bkg_count/T_fg), x = ln(statistic), beta[0] = ln(A) 
+            # and beta[1] = B.
+        if opts.min_x_fit is None:
+            min_x_fit = bkg_hist_stats.min()
+        else:
+            min_x_fit = opts.min_x_fit
+        start_i = pylab.find( bkg_hist_stats >= min_x_fit )[0]
+        n = len(bkg_count) - start_i
+        X = numpy.matrix(numpy.zeros((n,2), dtype = float))
+        Y = numpy.matrix(numpy.zeros((n,1), dtype = float))
+        W = numpy.matrix(numpy.zeros((n,n), dtype = float))
+        # populate the input matrices
+        for i in range(n):
+            if bkg_count[start_i + i] == 0:
+                continue
+            Y[i,0] = numpy.log( bkg_count[start_i + i] )
+            W[i,i] = 1./numpy.power( bkg_error[start_i + i]/bkg_count[start_i + i], 2. )
+            X[i,0] = 1.
+            if opts.extrapolate.upper() == 'POWER':
+                X[i,1] = numpy.log( bkg_hist_stats[start_i + i] )
+            else:
+                X[i,1] = bkg_hist_stats[start_i + i]**(2./opts.x_power)
+
+        # calculate the Beta_hats
+        Beta_hat = (X.T * W * X).I * X.T * W * Y
+
+        # Compute the Chisq of the fit
+        noncum_chisq = ( W * numpy.power((Y - X * Beta_hat), 2.) ).sum()
+        # the number of degrees of freedom = Ndof = number of points - number of fitting params - 1
+        noncum_Ndof = n - 2 - 1
+
+        # now that we have the fit parameters, plot the fitted values 
+        n_fit = 50
+        if opts.lin_x:
+            x_fit = numpy.linspace( bkg_hist_stats[start_i], bkg_hist_stats.max(), num = n_fit )
+        else:
+            x_fit = numpy.logspace( numpy.log10(bg_hist_stats[start_i]), numpy.log10( bkg_hist_stats.max() ), num = n_fit )
+        Xfit = numpy.matrix(numpy.zeros((n_fit,2), dtype = float))
+        for i,x in enumerate(x_fit):
+            Xfit[i,0] = 1.
+            if opts.extrapolate.upper() == 'POWER':
+                Xfit[i,1] = numpy.log(x)
+            else:
+                Xfit[i,1] = x**(2./opts.x_power)
+        y_fit = numpy.exp( numpy.array(Xfit * Beta_hat) )
+
+        # plot the extrapolated line
+        pylab.plot( x_fit, y_fit, 'g-', linewidth = 2, zorder = 5, label = 'Fitted Bkg.' )
+
+        # reset ymin/ymax
+        if y_fit.any():
+            ymin = min(y_fit.min(),ymin)
+            ymax = max(y_fit.max(),ymax)
+
+    #
+    # finalize plot settings
+    #
+    pylab.grid()
+    pylab.legend(loc = 'lower left')
+
+    pylab.xlabel( stat_label )
+    pylab.ylabel( "Count per Foreground Experiment" )
+    if opts.param_name is not None:
+        t = 'Histogram %s %s' % (param_label.title(), param_parser.param_range_by_group(bkg_category.param_group))
+    else:
+        t = 'Histogram'
+    pylab.title(t)
+
+    # set axes limits and scale
+    xmin = min(xvals)
+    xmax = max(xvals)
+    if not opts.lin_x:
+        pylab.gca().semilogx()
+        xmax = xmax*10**(0.3)
+    else:
+        xmax = xmax+.1*xmax
+    if not opts.lin_y:
+        pylab.gca().semilogy()
+        ymin, ymax = ymin*10**(-0.5), ymax*10**(0.5)
+    else:
+        ymin, ymax = ymin - .1*ymin, ymax + .1*ymax
+    # overrule with input options
+    if opts.xmin is not None:
+        xmin = opts.xmin
+    if opts.xmax is not None:
+        xmax = opts.xmax
+    if opts.ymin is not None:
+        ymin = opts.ymin
+    if opts.ymax is not None:
+        ymax = opts.ymax
+    
+
+    pylab.xlim( xmin, xmax )
+    pylab.ylim( ymin, ymax )
+    
+    # store plot info
+    plot_description = 'F%i' % ( len(fnameList) )
+    name = InspiralUtils.set_figure_tag( plot_description, datatype_plotted = fg_datatype.upper(), open_box = 'all_data' in fg_datatype or 'exclude_play' in fg_datatype)
+    fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname  )
+    fnameList.append(fname)
+    tagList.append(name)
+
+
+    #
+    #
+    #   Cumulative plot
+    #
+    #
+    if opts.verbose:
+        print >> sys.stdout, "\tcreating cumulative plot..."
+    pylab.figure(len(fnameList))
+    pylab.hold(True)
+    xmin = numpy.inf
+    xmax = -numpy.inf
+    ymin = numpy.inf
+    ymax = -numpy.inf
+
+    #
+    # plot background
+    #
+
     # get background data
     match_category.datatype = 'background'
     plotvals = data.get_cumrates( match_category, 'stat', rank_by = 'max' )
     bkg_stats = numpy.array([x[0] for x in plotvals])
     bkg_cumnum = numpy.array([y[1] for y in plotvals])
-
-
-    #
-    # plot background
-    #
 
     # rest xmmin/xmax
     if bkg_stats != []:
@@ -1175,15 +1446,20 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     # plot foreground
     #
     loudest_events = []
-    if fg_datatype != 'slide':
+    if plot_fg:
         match_category.datatype = fg_datatype
         plotvals = data.get_cumrates( match_category, 'stat', rank_by = 'max' ) 
         fg_stats = numpy.array([x[0] for x in plotvals])
         fg_cumrate = numpy.array([y[1] for y in plotvals]) / T_fg 
         # FIXME: add ability to color by ifo colors?
         fclr = 'b'
+        if fg_datatype == 'simulation':
+            edgclr = 'r'
+        elif opts.plot_poisson_pdf:
+            edgclr = 'white'
+        else:
+            edgclr = 'none'
         lbl = fg_datatype.replace( '_', '-').title()
-        edgclr = fg_datatype == 'simulation' and 'r' or 'white'
         pylab.scatter( fg_stats, fg_cumrate, marker = 'o', edgecolor = edgclr, facecolor = fclr, label = lbl, s = 20, linewidth = .5, zorder = 4 )
 
         # rest xmmin/xmax
@@ -1207,62 +1483,80 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     if opts.plot_special_time != []:
         plot_sp_vals = [x for x in plotvals if data.data_index[x[2]].data.end_time in plot_special_times]
         if plot_sp_vals != []:
-            pylab.scatter( [x[0] for x in plot_sp_vals], [y[1] / T_fg for y in plot_sp_vals], c = 'yellow', marker = (5,1,0), s = 40, linewidth = .5, label = '_no_legend', zorder = 5 )
-
-    #   TODO: pylab.plot( [math.sqrt(2.)*opts.reference_snr, math.sqrt(2.)*opts.reference_snr], [ymin, ymax], 'r--', label = 'SNR %.1f in all ifos' % opts.reference_snr )
+            pylab.scatter( [x[0] for x in plot_sp_vals], [y[1] / T_fg for y in plot_sp_vals], c = 'yellow', marker = (5,1,0), s = 50, linewidth = .5, label = '_no_legend', zorder = 5 )
 
     #
     # plot extrapolation
     #
-    if fg_datatype != 'slide' and opts.extrapolate is not None:
+    if plot_fg and opts.extrapolate is not None:
         if opts.verbose:
             print >> sys.stdout, "\textrapolating background..."
-        # figure out how many points to use for the fit; the default is to start at the first background point that drops below the foreground; this can be overridden with options
-        max_y_fit = opts.max_y_fit is None and 1.0/T_fg or opts.max_y_fit
-        ### For Gaussian fit:
-            # We're going to fit a Gaussian with 0 mean to the background. Since this is given by y = A*exp(-x^2./(2*sigma^2.))/sqrt(2*pi*sigma^2.), we take the natural log, and thus fit
-            # y = beta[0] + beta[2]*x^2 where beta[0] = ln(A) - ln(2*pi*sigma^2.)/2., beta[2] = -1/(2.*sigma^2.) and y = ln(bkg_cumnum/T_fg)
-            # To do this, we'll do a weighted linear least squares fit using Beta_hat = (transpose(X).W.X)^(-1).transpose(X).W.Y. where W is the nxn matrix of weights (which are just taken
-            # as the error in each background point), X is the nx2 matrix of [1 x[i]^2.], Y is the nx1 matrix of ln(bkg_cumnum[i]/T_fg), and Beta_hat is the 2x1 matrix of fitted betas.
-            # That assumes that the plotted x is linear in whatever the desired statistic is. However, if the plotted x is actually the desired statistic squared, then we should
-            # fit y = beta[0] + beta[2]*x. Generalizing, we actually fit y = beta[0] + beta[2]*x^(opts.fit_power), since only the user can know what function of their desired statistic they've
-            # punched into the command line.
-        ### For power-law fit:
-            # We're going to fit bkg_cumnum/T_fg = A*statistic^B by doing a least squares fit to y = beta[0] + beta[1]*x where y = ln(bkg_cumnum/T_fg), x = ln(statistic), beta[0] = ln(A) 
-            # and beta[1] = B.
-        start_i = pylab.find( bkg_cumnum/T_fg <= max_y_fit )[0]
-        n = len(bkg_cumnum) - start_i
-        X = numpy.matrix(numpy.zeros((n,2), dtype = float))
-        Y = numpy.matrix(numpy.zeros((n,1), dtype = float))
-        W = numpy.matrix(numpy.zeros((n,n), dtype = float))
-        # populate the input matrices
-        for i in range(n):
-            Y[i,0] = numpy.log( bkg_cumnum[start_i + i] ) - numpy.log( T_fg )
-            W[i,i] = 1./numpy.power( bkg_error[start_i + i]/bkg_cumnum[start_i + i], 2. )
-            X[i,0] = 1.
-            if opts.extrapolate.upper() == 'POWER':
-                X[i,1] = numpy.log( bkg_stats[start_i + i] )
+        if opts.extrapolate.upper() != 'ERFC':
+            # figure out how many points to use for the fit; the default is to start at the first background point that drops below the foreground; this can be overridden with options
+            min_x_fit = opts.min_x_fit is None and bkg_hist_stats.min() or opts.min_x_fit
+            ### For Gaussian fit:
+                # We're going to fit a Gaussian with 0 mean to the background. Since this is given by y = A*exp(-x^2./(2*sigma^2.))/sqrt(2*pi*sigma^2.), we take the natural log, and thus fit
+                # y = beta[0] + beta[2]*x^2 where beta[0] = ln(A) - ln(2*pi*sigma^2.)/2., beta[2] = -1/(2.*sigma^2.) and y = ln(bkg_cumnum/T_fg)
+                # To do this, we'll do a weighted linear least squares fit using Beta_hat = (transpose(X).W.X)^(-1).transpose(X).W.Y. where W is the nxn matrix of weights (which are just taken
+                # as the error in each background point), X is the nx2 matrix of [1 x[i]^2.], Y is the nx1 matrix of ln(bkg_cumnum[i]/T_fg), and Beta_hat is the 2x1 matrix of fitted betas.
+                # That assumes that the plotted x is linear in whatever the desired statistic is. However, if the plotted x is actually the desired statistic squared, then we should
+                # fit y = beta[0] + beta[2]*x. Generalizing, we actually fit y = beta[0] + beta[2]*x^((2./opts.x_power)), since only the user can know what function of their desired statistic they've
+                # punched into the command line.
+            ### For power-law fit:
+                # We're going to fit bkg_cumnum/T_fg = A*statistic^B by doing a least squares fit to y = beta[0] + beta[1]*x where y = ln(bkg_cumnum/T_fg), x = ln(statistic), beta[0] = ln(A) 
+                # and beta[1] = B.
+            start_i = pylab.find( bkg_stats >= min_x_fit )[0]
+            n = len(bkg_cumnum) - start_i
+            X = numpy.matrix(numpy.zeros((n,2), dtype = float))
+            Y = numpy.matrix(numpy.zeros((n,1), dtype = float))
+            W = numpy.matrix(numpy.zeros((n,n), dtype = float))
+            # populate the input matrices
+            for i in range(n):
+                Y[i,0] = numpy.log( bkg_cumnum[start_i + i] ) - numpy.log( T_fg )
+                W[i,i] = 1./numpy.power( bkg_error[start_i + i]/bkg_cumnum[start_i + i], 2. )
+                X[i,0] = 1.
+                if opts.extrapolate.upper() == 'POWER':
+                    X[i,1] = numpy.log( bkg_stats[start_i + i] )
+                else:
+                    X[i,1] = bkg_stats[start_i + i]**(2./opts.x_power)
+
+            # calculate the Beta_hats
+            Beta_hat = (X.T * W * X).I * X.T * W * Y
+
+            # Compute the Chisq of the fit
+            cum_chisq = ( W * numpy.power((Y - X * Beta_hat), 2.) ).sum()
+            # the number of degrees of freedom = Ndof = number of points - number of fitting params - 1
+            cum_Ndof = n - 2 - 1
+
+            # now that we have the fit parameters, extrapolate out to the maximum foreground value
+            n_ext = 50
+            if opts.lin_x:
+                x_ext = numpy.linspace( bkg_stats[start_i], max(fg_stats.max(), bkg_stats.max()), num = n_ext )
             else:
-                X[i,1] = bkg_stats[start_i + i]**opts.fit_power
+                x_ext = numpy.logspace( numpy.log10(bkg_stats[start_i]), numpy.log10( max(fg_stats.max(), bkg_stats.max()) ), num = n_ext )
+            Xext = numpy.matrix(numpy.zeros((n_ext,2), dtype = float))
+            for i,x in enumerate(x_ext):
+                Xext[i,0] = 1.
+                if opts.extrapolate.upper() == 'POWER':
+                    Xext[i,1] = numpy.log(x)
+                else:
+                    Xext[i,1] = x**(2./opts.x_power)
+            y_ext = numpy.exp( numpy.array(Xext * Beta_hat) )
 
-        # calculate the Beta_hats
-        Beta_hat = (X.T * W * X).I * X.T * W * Y
 
-        # now that we have the fit parameters, extrapolate out to the maximum foreground value
-        n_ext = 50
-        if opts.lin_x:
-            x_ext = numpy.linspace( bkg_stats[start_i], fg_stats.max(), num = n_ext )
         else:
-            x_ext = numpy.logspace( numpy.log10(bkg_stats[start_i]), numpy.log10( fg_stats.max() ), num = n_ext )
-        Xext = numpy.matrix(numpy.zeros((n_ext,2), dtype = float))
-        for i,x in enumerate(x_ext):
-            Xext[i,0] = 1.
-            if opts.extrapolate.upper() == 'POWER':
-                Xext[i,1] = numpy.log(x)
-            else:
-                Xext[i,1] = x**opts.fit_power
-        y_ext = numpy.exp( numpy.array(Xext * Beta_hat) )
+            # for error function, we use the results of the gaussian fit to the non-cumulative histogram
+            n_ext = 50
+            sigmasq = -1./(2.*Beta_hat[1,0])
 
+            amp = numpy.exp(Beta_hat[0,0]) * numpy.sqrt(2*numpy.pi*sigmasq) / ( numpy.power(bins[1], 1./opts.x_power) - numpy.power(bins[0], 1./opts.x_power) ) #numpy.power(ds*2, 1./opts.x_power)[0] # (ds* 2.)
+            if opts.lin_x:
+                x_ext = numpy.linspace( min_x_fit, fg_stats.max(), num = n_ext )
+            else:
+                x_ext = numpy.logspace( numpy.log10(min_x_fit), numpy.log10( fg_stats.max() ), num = n_ext )
+
+            y_ext = amp * special.erfc( numpy.power(x_ext, 1./opts.x_power)/numpy.sqrt(2*sigmasq) )  / (2. * T_fg)
+        
         # plot the extrapolated line
         pylab.plot( x_ext, y_ext, 'g--', linewidth = 2, zorder = 5, label = 'Extrapolated Bkg.' )
 
@@ -1275,67 +1569,75 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
             ymin = min(y_ext.min(),ymin)
             ymax = max(y_ext.max(),ymax)
 
-        # plot a line to show where the extrapolated data begins to be used
-        pylab.plot( [bkg_stats.max(), bkg_stats.max()], [fg_cumrate.min(), ymax*10**0.5], 'k-', linewidth = 3, zorder = 3 )
-
 
     #
     # plot poisson pdf
     #
-    if opts.verbose:
-        print "\tcomputing poisson pdf..."
-    xrange = 101
-    yrange = 2*xrange
-    # if extrapolating, use the extrpolation beyond the largeest measured background point
-    if opts.extrapolate is not None and fg_datatype != 'slide' and x_ext.any():
-        xcoords = numpy.linspace(bkg_stats.min(), max(x_ext.max(), bkg_stats.max()), xrange)
-    else:
-        xcoords = numpy.linspace(bkg_stats.min(), bkg_stats.max(), xrange)
-    ycoords = numpy.logspace(0, numpy.log10(ymax+0.5), yrange)
-
-    xarray = numpy.zeros((xrange,yrange), dtype=float)
-    yarray = numpy.zeros((xrange,yrange), dtype=float)
-    zarray = numpy.zeros((xrange,yrange), dtype=float)
-
-    for xi,x in enumerate(xcoords):
-        if x <= bkg_stats.max():
-            # lmbda is the cumnum at the closest snr to (the right of) of x in the background
-            lmbda = bkg_cumnum[pylab.find( bkg_stats >= x )[0]]
-        elif opts.extrapolate.upper() == "POWER": # if x greater than bkg_stats.max, must mean we have extrapolated and we are in the region of extrapolation
-            lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(x)) ) * T_fg
-        else:
-            lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*x**opts.fit_power) ) * T_fg
-        for yi,y in enumerate(ycoords):
-            xarray[xi,yi] += x
-            yarray[xi,yi] += y
-            p = poissonPDFlog10( y, lmbda )
-            zarray[xi, yi] += p
-
-    # replace -infs with smallest non-inf value of z - 1
-    minz = min([z for z in zarray.flatten() if z != -numpy.inf])
-    for xi in range(len(xcoords)):
-        for yi in range(len(ycoords)):
-            if zarray[xi,yi] == -numpy.inf:
-                zarray[xi,yi] = minz - 1
-
-    # rescale the y-coordinates by T_fg
-    yarray = yarray / T_fg
-
-    # plot it
-    hxplt = pylab.hexbin(xarray.flatten(), yarray.flatten(), C = zarray.flatten(), gridsize=xrange-1, xscale='linear', yscale='log', edgecolors = 'none', vmin=-10.)
-    cb = pylab.colorbar(hxplt, format = pylab.FuncFormatter(ColorFormatter))
-    cb.ax.set_ylabel( 'Probability Density' )
-
-    #
-    # plot contours
-    #
-    if opts.max_sigma > 0.:
+    if opts.plot_poisson_pdf or opts.plot_significance_bands:
         if opts.verbose:
-            print "\tplotting contours..."
-        sigmas = [numpy.log10(special.erfc((n+1)/numpy.sqrt(2))/2.) for n in range(opts.max_sigma)]
-        contplt = pylab.contour(xarray, yarray, zarray, sigmas, colors = 'k', linestyles='dashdot', label='N-\sigma', zorder = 1)
-        #pylab.clabel(contplt)
-        cb.add_lines(contplt)
+            print "\tcomputing poisson pdf..."
+        xrange = 101
+        yrange = 2*xrange
+        # if extrapolating, use the extrpolation beyond the largeest measured background point
+        if opts.extrapolate is not None and plot_fg and x_ext.any():
+            xcoords = numpy.linspace(bkg_stats.min(), max(x_ext.max(), bkg_stats.max()), xrange)
+        else:
+            xcoords = numpy.linspace(bkg_stats.min(), bkg_stats.max(), xrange)
+        ycoords = numpy.logspace(0, numpy.log10(ymax+0.5), yrange)
+
+        xarray = numpy.zeros((xrange,yrange), dtype=float)
+        yarray = numpy.zeros((xrange,yrange), dtype=float)
+        zarray = numpy.zeros((xrange,yrange), dtype=float)
+
+        for xi,x in enumerate(xcoords):
+            if x <= bkg_stats.max():
+                # lmbda is the cumnum at the closest snr to (the right of) of x in the background
+                lmbda = bkg_cumnum[pylab.find( bkg_stats >= x )[0]]
+            # if x greater than bkg_stats.max, must mean we have extrapolated and we are in the region of extrapolation
+            elif opts.extrapolate is not None and opts.extrapolate.upper() == "POWER":
+                lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(x)) ) * T_fg
+            elif opts.extrapolate is not None and opts.extrapolate.upper() == "GAUSSIAN":
+                lmbda = numpy.exp( (Beta_hat[0,0] + Beta_hat[1,0]*x**(2./opts.x_power)) ) * T_fg
+            elif opts.extrapolate is not None and opts.extrapolate.upper() == "ERFC":
+                lmbda = amp * special.erfc( numpy.power(x,1./opts.x_power)/numpy.sqrt(2*sigmasq) ) / 2. 
+            for yi,y in enumerate(ycoords):
+                xarray[xi,yi] += x
+                yarray[xi,yi] += y
+                p = poissonPDFlog10( y, lmbda )
+                zarray[xi, yi] += p
+
+        # replace -infs with smallest non-inf value of z - 1
+        minz = min([z for z in zarray.flatten() if z != -numpy.inf])
+        for xi in range(len(xcoords)):
+            for yi in range(len(ycoords)):
+                if zarray[xi,yi] == -numpy.inf:
+                    zarray[xi,yi] = minz - 1
+
+        # rescale the y-coordinates by T_fg
+        yarray = yarray / T_fg
+
+        # plot it
+        if opts.plot_poisson_pdf and 'NaN' not in zarray:
+            hxplt = pylab.hexbin(xarray.flatten(), yarray.flatten(), C = zarray.flatten(), gridsize=xrange-1, xscale='linear', yscale='log', edgecolors = 'none', vmin=-10.)
+            cb = pylab.colorbar(hxplt, format = pylab.FuncFormatter(ColorFormatter))
+            cb.ax.set_ylabel( 'Probability Density' )
+
+        #
+        # plot contours
+        #
+        if opts.plot_significance_bands and opts.max_sigma > 0.:
+            if opts.verbose:
+                print "\tplotting contours..."
+            sigmas = [numpy.log10(special.erfc((n+1)/numpy.sqrt(2))/2.) for n in range(opts.max_sigma)]
+            if opts.plot_poisson_pdf:
+                contplt = pylab.contour(xarray, yarray, zarray, sigmas, colors = 'k', linestyles='dashdot', label='N-\sigma', zorder = 1)
+                cb.add_lines(contplt)
+            else:
+                contplt = pylab.contour(xarray, yarray, zarray, sigmas, cmap = pylab.cm.jet, label = 'N-\sigma', zorder = 1)
+
+        # plot a line to show where the extrapolated data begins to be used
+        pylab.plot( [bkg_stats.max(), bkg_stats.max()], [fg_cumrate.min(), ymax*10**0.5], 'k-', linewidth = 2, zorder = 3 )
+
 
     #
     # finalize plot settings
@@ -1352,7 +1654,10 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     pylab.title(t)
 
     # set axes limits and scale
-    xmin = min(fg_stats.min(), bkg_stats.min())
+    if plot_fg:
+        xmin = min(fg_stats.min(), bkg_stats.min())
+    else:
+        xmin = bkg_stats.min()
     if not opts.lin_x:
         pylab.gca().semilogx()
         xmax = xmax*10**(0.3)
@@ -1377,7 +1682,7 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     pylab.ylim( ymin, ymax )
     
     # store plot info
-    plot_description = 'F%i' % ( len(fnameList) )
+    plot_description = 'cumulative_F%i' % ( len(fnameList) )
     name = InspiralUtils.set_figure_tag( plot_description, datatype_plotted = fg_datatype.upper(), open_box = 'all_data' in fg_datatype or 'exclude_play' in fg_datatype)
     fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname  )
@@ -1392,16 +1697,16 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     comments += "Background livetime: %.2f %s<br />\n" % (T_bkg, opts.time_units)
     comments += "<b>Loudest background event%s:</b><br />\n" % (len(loudest_bkg_events) > 1 and 's' or '')
     comments += '<table cellpadding="5", border="1">\n'
-    comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>%s</th></tr>\n' % stat_label
+    comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>Total Mass</th><th>%s</th></tr>\n' % stat_label.replace(r'$', '')
     for le_id in loudest_bkg_events:
         le = data.data_index[le_id]
-        comments += '<tr><td>%.2f</td><td>%s</td><td>%s</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('stat') ) 
+        comments += '<tr><td>%.2f</td><td>%s</td><td>%s</td><td>%.2f</td><td>%.2f</td></tr>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('mtotal'), le.data.get_value('stat') ) 
     comments += '</table>\n'
-    if fg_datatype != 'slide':
+    if plot_fg:
         comments += "<br />%s livetime: %.2f %s<br />\n" % (fg_datatype.replace('_', '-').title(), T_fg, opts.time_units)
         comments += "<b>Loudest %s event%s:</b><br />\n" % (fg_datatype, len(loudest_events) > 1 and 's' or '')
         comments += '<table cellpadding="5", border="1">\n'
-        comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label, opts.extrapolate is not None and '<th>Estimated FAR</th>' or '')
+        comments += '<tr><th>End Time</th><th>UTC</th><th>ifos</th><th>Total Mass</th><th>%s</th><th>Measured FAR</th>%s</tr>\n' % (stat_label.replace(r'$', ''), opts.extrapolate is not None and '<th>Estimated FAR</th>' or '')
         for le_id in loudest_events:
             le = data.data_index[le_id]
             far = (len(bkg_stats)-bisect.bisect_left(bkg_stats, le.data.stat))/T_bkg
@@ -1409,12 +1714,14 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
                 far = '< 1/%.2f %s<sup>-1</sup>' % ( T_bkg, opts.time_units )
             else:
                 far = '1/%.2e %s<sup>-1</sup>' % (1./far, opts.time_units)
-            if opts.extrapolate.upper() == "POWER":
-                far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(le.data.stat) )
-            elif opts.extrapolate.upper() == "GAUSSIAN":
-                far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*le.data.stat**opts.fit_power )
-            comments += '<tr><td>%.2f</td><td>%s></td><td>%s</td><td>%.2f</td><td>%s</td>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('stat'), far ) 
+            comments += '<tr><td>%.2f</td><td>%s</td><td>%s</td><td>%.2f</td><td>%.2f</td><td>%s</td>' %( le.data.get_value('end_time'), printutils.format_end_time_in_utc(int(le.data.get_value('end_time'))), le.data.get_value('ifos'), le.data.get_value('mtotal'), le.data.get_value('stat'), far ) 
             if opts.extrapolate is not None:
+                if opts.extrapolate.upper() == "POWER":
+                    far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*numpy.log(le.data.stat) )
+                elif opts.extrapolate.upper() == "GAUSSIAN":
+                    far_est = numpy.exp( Beta_hat[0,0] + Beta_hat[1,0]*le.data.stat**(2./opts.x_power) )
+                else:
+                    far_est = amp * special.erfc( numpy.power(le.data.stat, 1./opts.x_power)/numpy.sqrt(2*sigmasq) ) / (2. * T_fg)
                 comments += '<td>1/%.2e %s<sup>-1</sup></td>' % ( 1./far_est, opts.time_units )
             comments += '</tr>'
         comments += '</table>\n'
@@ -1422,12 +1729,17 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
             if opts.extrapolate.upper() == 'POWER':
                 comments += "<br />Fitted <i>y = Ax<sup>B</sup></i><br />Results:<br />"
                 comments += "A = %.2e  B = %.2f<br />" % (numpy.exp(Beta_hat[0,0]), Beta_hat[1,0])
-            else:
+            elif opts.extrapolate.upper() == 'GAUSSIAN':
                 comments += "<br />Fitted <i>y = Aexp(-x<sup>2</sup>/2&#963;<sup>2</sup>)/sqrt(2&#960;&#963;<sup>2</sup>)</i><br />Results:<br />"
                 sigmasq = -1./(2.*Beta_hat[1,0])
                 amp = numpy.exp(Beta_hat[0,0] + numpy.log(2*numpy.pi*sigmasq)/2.)
                 comments += "&#963;<sup>2</sup> = %.2f  A = %.2f<br />" %( sigmasq, amp )
                 comments += "Extrapolated from:<br />&#946;<sub>0</sub> = %.2f  &#946;<sub>1</sub> = %.2f<br />" %( Beta_hat[0,0], Beta_hat[1,0] )
+            else:
+                comments += "<br />Fitted <i>y = Aexp(-x<sup>2</sup>/2&#963;<sup>2</sup>)/sqrt(2&#960;&#963;<sup>2</sup>)</i> to non-cumulative plot.<br />Results:<br />"
+                comments += "&#963;<sup>2</sup> = %.2f  A = %.2f<br />" %( sigmasq, amp )
+                comments += "<br />Goodness of fit:<br />"
+                comments += "&chi;<sup>2</sup> = %.2f  Reduced &chi;<sup>2</sup> = %.2f" %( noncum_chisq, noncum_chisq / noncum_Ndof )
 
     comments += '<hr />\n'
             

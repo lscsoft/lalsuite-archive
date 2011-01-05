@@ -43,7 +43,8 @@ pylab.rc("text", usetex=True)
 from glue import iterutils
 from glue import lal
 from glue import segmentsUtils
-from glue.segments import segment, segmentlist
+from glue import segments
+from glue.segments import segment, segmentlist, segmentlistdict
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -57,6 +58,7 @@ from pylal import git_version
 from pylal import grbsummary
 from pylal import plotutils
 from pylal import rate
+from pylal import llwapp
 
 ##############################################################################
 # utility functions
@@ -96,6 +98,8 @@ def vec_get_loudest_stat(arr):
     shape of type numpy.float32.
     """
     return _vec_get_loudest_stat(arr).astype(numpy.float32)
+
+
 
 ##############################################################################
 # handle user input
@@ -256,79 +260,77 @@ if len(found) == 0:
   print >>sys.stderr, "warning: no files found for pattern %s" \
       % opts.offsource_pattern
 total_num_slides = 0
+array_size = 1  # require the zero-lag to exist or else indexing breaks
 if any("SLIDE" in entry.description for entry in offsource_cache):
   total_num_slides += 2 * nominal_num_slides
+  array_size += 2 * nominal_num_slides
 if any("SLIDE" not in entry.description for entry in offsource_cache):
   total_num_slides += 1
 
 
-off_segs = grbsummary.get_segs_from_doc(offsource_doc).extent()
+off_segs = grbsummary.get_segs_from_doc(offsource_doc)
 on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
                                       coltype=int)
 buffer_segs = segmentsUtils.fromsegwizard(open(opts.buffer_seg),
                                       coltype=int)
 
-trial_len =  abs(on_segs)
-num_trials = abs(off_segs) // trial_len
-num_trials_buffers_onsource = abs(buffer_segs) // trial_len
-
-##veto segments for IFOs
 ifo_list = set(opts.ifos[2*i:2*i+2].lower() for i in range(len(opts.ifos)/2))
-veto_segs = {}
-for ifo in ifo_list:
-  veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
 
-#get slide amounts 
-slide_amount = {}
-slide_table = table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName)
-for row in slide_table:
+#get slide amounts
+shift_unit_vector = dict((ifo, 0) for ifo in ifo_list)  # default to 0
+for row in table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName):
   for ifo in ifo_list:
-    if nominal_num_slides > 0:
-      if row.param == "--%s-slide" % ifo:
-        slide_amount[ifo] = int(float(row.value)) // trial_len
-    else:
-      slide_amount[ifo] = 0
+    if row.param == "--%s-slide" % ifo:
+        shift_unit_vector[ifo] = int(float(row.value))
+
 ##############################################################################
 # make mchirp bins
 mc_bins = rate.IrregularBins(opts.mc_boundaries)
 
 ##############################################################################
-#set the extents of offsource and buffer
-extent_buffer = buffer_segs.extent()
+# make trial bins
 
-#do trial bins
-bins = rate.LinearBins(off_segs[0], off_segs[1], num_trials)
+rings = grbsummary.retrieve_ring_boundaries(offsource_doc)
+trial_seg = (rings | on_segs | buffer_segs).extent()
+trial_len =  int(abs(on_segs))
+num_trials = int(abs(trial_seg)) // trial_len
+trial_bins = rate.LinearBins(trial_seg[0], trial_seg[0] + trial_len * num_trials, num_trials)
 
-#build veto masks to left and right and then merge them
-veto_mask_left = grbsummary.get_veto_mask(off_segs[0], extent_buffer[0], trial_len, veto_segs)
-veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], off_segs[1], trial_len, veto_segs)
-trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials), dtype=numpy.bool8)
-buffer_mask = numpy.ones(num_trials_buffers_onsource, dtype=numpy.bool8)
+##############################################################################
+# veto trials
 
-for slide in range(-nominal_num_slides, nominal_num_slides+1):
+veto_segs = segmentlistdict()
+for ifo in ifo_list:
+  veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")), coltype=int)
+  veto_segs[ifo] |= buffer_segs
+  veto_segs[ifo] &= segmentlist([trial_seg])
 
-  trial_mask_left = grbsummary.get_trial_mask(veto_mask_left, slide_amount, slide)
-  trial_mask_right = grbsummary.get_trial_mask(veto_mask_right, slide_amount, slide)
-  trial_mask_2d = numpy.concatenate((trial_mask_left, buffer_mask, trial_mask_right))
-  trial_veto_mask_2d[slide] = trial_mask_2d
+trial_veto_mask_2d = numpy.zeros((array_size, num_trials), dtype=numpy.bool8)
+for slide_num in range(-nominal_num_slides, nominal_num_slides+1):
+  shift_dict = dict((key, slide * slide_num) for (key, slide) in shift_unit_vector.iteritems())
+  for ring in rings:
+    slid_seglistdict = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segs, shift_dict)
+    slid_seglist = slid_seglistdict.union(slid_seglistdict.keys())
+    trial_veto_mask_2d[slide_num, :] |= rate.bins_spanned(trial_bins, slid_seglist, dtype=numpy.bool8)
+trial_veto_mask_2d[0, :] |= rate.bins_spanned(trial_bins, buffer_segs, dtype=numpy.bool8)
+if total_num_slides != array_size:  # these are equal iff we are including zero-lag background
+  trial_veto_mask_2d[0] |= True
 
-
-trial_veto_mask = trial_veto_mask_2d.flatten()
 ##############################################################################
 # make mchirp bins
 mc_bins = rate.IrregularBins(opts.mc_boundaries)
+
 ##############################################################################
 # read triggers, veto them, and reconstruct coincidences
 triggers = table.get_table(offsource_doc, lsctables.SnglInspiralTable.tableName)
 
 stat = CoincInspiralUtils.coincStatistic(opts.coinc_statistic)
 coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)
-
 ##############################################################################
 # sort coincidences in each opts.fold_time second segment
 
 # initialize an array of empty lists, into which we will sort our triggers
-coincs = array_of_lists(shape=(len(mc_bins), total_num_slides, num_trials))
+coincs = array_of_lists(shape=(len(mc_bins), array_size, num_trials))
 
 # sort into (mchirp, slide, segment) bins
 num_discarded = 0
@@ -340,7 +342,7 @@ for c in coincTable:
         continue
 
     # NB: c.slide_num indexing OK with current inspiral slide implementation
-    coincs[mc_ind, c.slide_num, bins[c.get_time()]]\
+    coincs[mc_ind, c.slide_num, trial_bins[c.get_time()]]\
         .append(c)
 if num_discarded > 0:
     print >>sys.stderr, "warning: %d coincs outside mchirp binning" \
@@ -348,16 +350,18 @@ if num_discarded > 0:
 
 # apply a vectorized len function to count how many coincs are in each bin
 counts_by_mc_slide_trial = vec_len(coincs)
-eff_num_trials = numpy.sum(~trial_veto_mask)
+eff_num_trials = numpy.sum(~trial_veto_mask_2d.flatten())
+
 ##############################################################################
 # output statistics by mchirp
 
 page.write("Total number of slides and zero lag: "\
     "(pos + neg + zero lag): %d" % (total_num_slides))
 page.write("Total number of analyzed background trials: "\
-    "%d of %d" % (eff_num_trials, num_trials*(total_num_slides)))
+    "%d of %d" % (numpy.sum(~trial_veto_mask_2d.flatten()), num_trials*(total_num_slides)))
 page.write("Number of %d second "\
-    "segments per slide: %d" % (trial_len, eff_num_trials/(total_num_slides)))
+    "segments per slide: %d" % (trial_len, (numpy.sum(~trial_veto_mask_2d.flatten()))/(total_num_slides)))
+
 
 #loudest coincs display using coinc_summ_table
 coincSumm = InspiralUtils.write_coinc_summ_table(
