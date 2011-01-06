@@ -33,18 +33,14 @@ from pylal import rate
 from pylal import SimInspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
+from pylal.xlal import constants
+
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
-
-
-# FIXME this should come from a constants package
-# Astronomers use Julian year
-secs_in_year = 31557600.0
-
 
 def edges(bins):
   """Get the boundary points of a rate.NDBins object."""
@@ -204,9 +200,7 @@ class upper_limit(object):
       if self.opts.verbose:
         print >>sys.stdout,"\t%s were on for %g seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
 
-      # FIXME need to reomove playground from segments!!!
       self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
-      # FIXME need to reomove playground from segments!!!
 
     return self.zero_lag_segments
 
@@ -374,7 +368,7 @@ class upper_limit(object):
     found, missed = self.get_injections(instruments, FAR=float("inf"))
     dbin = rate.LogarithmicBins(min([l.distance for l in found]),max([l.distance for l in found]), int(self.opts.dist_bins))
 
-    livetime = float(abs(self.zero_lag_segments[instruments]))/secs_in_year
+    livetime = float(abs(self.zero_lag_segments[instruments]))/constants.LAL_YRJUL_SI
 
     FARh = FAR*100000
     FARl = FAR*0.001
@@ -715,7 +709,7 @@ class upper_limit(object):
     return volArray, volArray2, fm_array
 
 
-  def sort_into_1D_mass_bins(self,rArrays,param_convert,found,found_dist,missed,missed_dist,dbin,quiet=True):
+  def sort_into_1D_mass_bins(self,rArrays,param_convert,found,found_dist,missed,missed_dist,dbin):
 
     f_m1 = numpy.array([l.mass1 for l in  found])
     f_m2 = numpy.array([l.mass2 for l in  found])
@@ -745,7 +739,7 @@ class upper_limit(object):
     return rArrays
 
 
-  def sort_into_m1m2_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
+  def sort_into_m1m2_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin):
 
     f_m1 = numpy.array([l.mass1 for l in  found])
     f_m2 = numpy.array([l.mass2 for l in  found])
@@ -873,9 +867,9 @@ for instruments in UL.instruments:
     # convert to distance
     distance = UL.distance_from_4volume(vA,instruments)
 
-    # FIXME convert to years (use some lal or pylal thing in the future)
-    vA.array /= secs_in_year
-    vA2.array /= secs_in_year * secs_in_year #two powers for this squared quantity
+    # convert volume into yrs-Mpc^3
+    vA.array /= constants.LAL_YRJUL_SI
+    vA2.array /= constants.LAL_YRJUL_SI**2
 
     # make a live time table
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
