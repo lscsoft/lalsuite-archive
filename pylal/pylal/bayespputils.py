@@ -1485,7 +1485,7 @@ class PEOutputParser(object):
         """
         nRead=0
         outputHeader=False
-        for infilename in files:
+        for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
                 header=self._clear_infmcmc_header(infile)
@@ -1493,6 +1493,7 @@ class PEOutputParser(object):
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
+                    outfile.write("chain")
                     outfile.write("\n")
                     outputHeader=header
                 loglindex=header.index("logpost")
@@ -1508,6 +1509,7 @@ class PEOutputParser(object):
                             for label in outputHeader:
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write(" ")
+                            outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
             finally:
