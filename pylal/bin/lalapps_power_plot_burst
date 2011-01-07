@@ -387,7 +387,7 @@ seglists = segments.segmentlistdict()
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
+	xmldoc = utils.load_filename(filename, options.verbose)
 	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, "lalapps_power").coalesce()
 	xmldoc.unlink()
 
