@@ -1483,12 +1483,20 @@ class PEOutputParser(object):
         For each file, only those samples past the point where the
         log(L) > logLThreshold are concatenated.
         """
+        allowedCols=["cycle", "logl", "logpost", "logprior",
+                     "a1", "theta1", "phi1",
+                     "a2", "theta2", "phi2",
+                     "mc", "eta", "time",
+                     "phi_orb", "iota", "psi",
+                     "ra", "dec",
+                     "dist"]                     
         nRead=0
         outputHeader=False
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
                 header=self._clear_infmcmc_header(infile)
+                header=[label for label in header if label in allowedCols] # Remove unwanted columns
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
