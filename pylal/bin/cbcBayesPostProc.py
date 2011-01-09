@@ -587,7 +587,7 @@ if __name__=='__main__':
     parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral and LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
-    parser.add_option("--downsample",action="store",default=1,help="(LALInferenceMCMC) number of samples to read before recording one output.",type="float")
+    parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     (opts,args)=parser.parse_args()
