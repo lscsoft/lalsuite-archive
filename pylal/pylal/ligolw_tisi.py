@@ -139,14 +139,14 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 	return int(count), offsetvect
 
 
-def load_time_slides(filename, verbose = False, gz = False):
+def load_time_slides(filename, verbose = False, gz = None):
 	"""
 	Load a time_slide table from the LIGO Light Weight XML file named
-	filename, or stdin if filename is None.  Extra verbosity is printed
-	if verbose is True, and the file is gzip decompressed while reading
-	if gz is True.  The return value is a dictionary mapping each time
-	slide ID to a dictionary of instrument/offset pairs for that time
-	slide.
+	filename, or stdin if filename is None.  See
+	glue.ligolw.utils.load_filename() for a description of the verbose
+	and gz parameters.  The return value is a dictionary mapping each
+	time slide ID to a dictionary of instrument/offset pairs for that
+	time slide.
 
 	Note that a side effect of this function is that the ID generator
 	associated with the TimeSlideTable class in glue.ligolw.lsctables
@@ -160,7 +160,7 @@ def load_time_slides(filename, verbose = False, gz = False):
 	from scratch.  Instead, from the glue.ligolw package use
 	table.get_table(...).as_dict().
 	"""
-	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz")), lsctables.TimeSlideTable.tableName)
+	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz), lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()
 	return time_slide_table.as_dict()
 
