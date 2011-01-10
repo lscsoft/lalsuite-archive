@@ -918,7 +918,7 @@ grb = peu.read_grb_from_list(grb_name)
 
 # Initialize the page object
 if not os.path.exists(opts.output_www):
-  os.mkdir(opts.output_www)
+  os.makedirs(opts.output_www)
 page = cbcwebpage.cbcpage(title="Resultpage for GRB %s" % opts.grb_name,
                           path = opts.output_www)
 
