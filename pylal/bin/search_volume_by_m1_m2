@@ -118,6 +118,7 @@ class upper_limit(object):
 
     # remove redundant instruments
     self.instruments = list(set(self.instruments))
+    self.segments.coalesce()
 
     # compute far, segments and livetime by instruments
     for i in self.instruments:

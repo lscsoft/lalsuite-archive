@@ -28,13 +28,14 @@ of the Bayesian parameter estimation codes.
 
 #standard library imports
 import os
-from math import ceil,floor,sqrt
+from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 
 #related third party imports
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm
+from scipy import stats
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -103,10 +104,13 @@ class OneDPosterior(object):
     @property
     def stacc(self):
         """
-        Return the 'standard accuracy statistic' - a standard deviant 
-        incorporating information about the precision of the recovery of the
-        true injected value of the parameter . If no injected value was set
-        return None . 
+         The 'standard accuracy statistic' (stacc) - a standard deviant incorporating
+        information about the accuracy of the waveform recovery. Defined as
+        the mean of the sum of the squared differences between the points
+        in the PDF (x_i - sampled according to the posterior) and the
+        true value (x_{\rm true}).
+        So for a marginalized one-dimensional PDF:
+        stacc = \sqrt{\frac{1}{N}\sum_{i=1}^N (x_i-x_{\rm true})2}
         """
         if self.__injval is None:
             return None
@@ -121,6 +125,10 @@ class OneDPosterior(object):
         """
         return self.__injval
 
+    #@injval.setter #Python 2.6+
+    def set_injval(self,new_injval):
+        self.__injval=new_injval
+
     @property
     def samples(self):
         """
@@ -133,7 +141,6 @@ class OneDPosterior(object):
         """
         Return a gaussian kde of the samples.
         """
-        from scipy import stats
         from scipy import seterr as sp_seterr
 
         sp_seterr(under='ignore')
@@ -154,9 +161,58 @@ class Posterior(object):
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
-        self._logL=np.array(common_output_table_raw[:,-1])
+        
+        if 'logl' in common_output_table_header:
+            try:
+                self._logL=self._posterior['logl'].samples
+            
+            except KeyError:
+                print "No 'logl' column in input table!"
+                raise
+        elif 'likelihood' in common_output_table_header:
+            try:
+                self._logL=self._posterior['likelihood'].samples
+            
+            except KeyError:
+                print "No 'logl' column in input table!"
+                raise
+        
+        elif 'post' in common_output_table_header:
+            try:
+                self._logL=self._posterior['post'].samples
+            
+            except KeyError:
+                print "No 'post' column in input table!"
+                raise
 
+        elif 'posterior' in common_output_table_header:
+            try:
+                self._logL=self._posterior['posterior'].samples
+            
+            except KeyError:
+                print "No 'posterior' column in input table!"
+                raise
+
+        else:
+            print "No likelihood/posterior values found!"
+            exit(1) 
+                
         return
+
+    @property
+    def injection(self):
+        return self._injection
+
+        
+    #@injection.setter #Python 2.6+
+    def set_injection(self,injection):
+        if injection is not None:
+            self._injection=injection
+            for name,onepos in self:
+                new_injval=self._getinjpar(name)
+                if new_injval is not None:
+                    self[name].set_injval(new_injval)
+                
 
     def _inj_m1(inj):
         """
@@ -178,6 +234,13 @@ class Posterior(object):
     def _inj_eta(inj):
         return inj.eta
 
+    def _inj_longitude(inj):
+        if inj.longitude>pi_constant or inj.longitude<0.0:
+            maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
+            return maplong
+        else:
+            return inj.longitude
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
@@ -191,9 +254,9 @@ class Posterior(object):
                         'phi0':lambda inj:inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
-                        'ra':lambda inj:inj.longitude,
-                        'long':lambda inj:inj.longitude,
-                        'longitude':lambda inj:inj.longitude,
+                        'ra':_inj_longitude,
+                        'long':_inj_longitude,
+                        'longitude':_inj_longitude,
                         'dec':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
@@ -544,7 +607,7 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     injection_area=None
     if injection_bin_index and injectionconfidence:
         i=list(np.nonzero(np.asarray(toppoints)[:,2]==injection_bin_index))[0]
-        injection_area=bin_size*i
+        injection_area=bin_size*(i+1)
 
     return toppoints,injectionconfidence,reses,injection_area
 #
@@ -715,7 +778,6 @@ def plot_sky_map(top_ranked_pixels,outdir):
     @param outdir: Output directory in which to save skymap.png image.
     """
     from mpl_toolkits.basemap import Basemap
-    from pylal import skylocutils
 
     np.seterr(under='ignore')
 
@@ -796,10 +858,12 @@ def plot_two_param_greedy_bins(toppoints,posterior,greedy2Params):
     ysize_in_inches=ysize_points/_dpi
     #
     myfig=plt.figure(1,figsize=(xsize_in_inches+2,ysize_in_inches+2),dpi=_dpi)
+    myfig.clf()
+
 
     cnlevel=[1-tp for tp in toppoints[:,3]]
     #
-    coll=myfig.gca().scatter(
+    coll=myfig.gca(xlabel=par1_name,ylabel=par2_name).scatter(
                              toppoints[:,0],
                              toppoints[:,1],
                              s=int(points_per_bin_width*1.5),
@@ -852,9 +916,9 @@ def mc2ms(mc,eta):
     fraction = (0.5+root) / (0.5-root)
     invfraction = 1/fraction
 
-    m1= mc * np.power((1+fraction),0.2) / np.power(fraction,0.6)
+    m2= mc * np.power((1+fraction),0.2) / np.power(fraction,0.6)
 
-    m2= mc* np.power(1+invfraction,0.2) / np.power(invfraction,0.6)
+    m1= mc* np.power(1+invfraction,0.2) / np.power(invfraction,0.6)
     return (m1,m2)
 #
 #
@@ -886,7 +950,6 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     """
 
-    from scipy import stats
     from scipy import seterr as sp_seterr
 
     param=plot1DParams.keys()[0].lower()
@@ -942,7 +1005,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 #
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
-    """xdat,ydat,Nx,Ny,par_names=None,par_injvalues=None
+    """
     Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
 
     @param posterior: an instance of the Posterior class.
@@ -951,9 +1014,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     """
 
     from scipy import seterr as sp_seterr
-    from scipy import stats
-
-    from matplotlib import pyplot as plt
 
     par1_name,par2_name=plot2DkdeParams.keys()
     Nx=plot2DkdeParams[par1_name]
@@ -995,21 +1055,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     plt.grid()
 
     return myfig
-#
-
-
-
-def stacc_stat(posterior,name):
-    """
-    The 'standard accuracy statistic - a standard deviant incorporating
-    information about the accuracy of the waveform recovery.
-
-    @param posterior: an instance of the Posterior class.
-
-    @param name: the literal name of the parameter
-    """
-
-    return posterior[name].stacc()
 #
 
 def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
@@ -1316,7 +1361,7 @@ class htmlSection(htmlChunk):
 
         self.h3(section_name)
 
-default_css_string="""
+__default_css_string="""
 
 p,h1,h2,h3,h4,h5
 {
@@ -1406,12 +1451,145 @@ class PEOutputParser(object):
             self._parser=self._common_to_pos
         elif inputtype is 'fm':
             self._parser=self._followupmcmc_to_pos
+        elif inputtype is "inf_mcmc":
+            self._parser=self._infmcmc_to_pos
 
     def parse(self,files,**kwargs):
         """
         Parse files.
         """
         return self._parser(files,**kwargs)
+
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,**kwargs):
+        """
+        Parser for lalinference_mcmcmpi output.
+        """
+        logLThreshold=-1e200 # Really small?
+        if not (deltaLogL is None):
+            logLThreshold=self._find_max_logL(files) - deltaLogL
+            print "Eliminating any samples before log(Post) = ", logLThreshold
+        nskip=1
+        if not (nDownsample is None):
+            nskip=self._find_ndownsample(files, logLThreshold, nDownsample)
+            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        postName="posterior_samples.dat"
+        outfile=open(postName, 'w')
+        try:
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip)
+        finally:
+            outfile.close()
+        return self._common_to_pos(open(postName,'r'))
+        
+        
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1):
+        """
+        Concatenate all the samples from the given files into outfile.
+        For each file, only those samples past the point where the
+        log(L) > logLThreshold are concatenated.
+        """
+        allowedCols=["cycle", "logl", "logpost", "logprior",
+                     "a1", "theta1", "phi1",
+                     "a2", "theta2", "phi2",
+                     "mc", "eta", "time",
+                     "phi_orb", "iota", "psi",
+                     "ra", "dec",
+                     "dist"]                     
+        nRead=0
+        outputHeader=False
+        for infilename,i in zip(files,range(1,len(files)+1)):
+            infile=open(infilename,'r')
+            try:
+                header=self._clear_infmcmc_header(infile)
+                header=[label for label in header if label in allowedCols] # Remove unwanted columns
+                if not outputHeader:
+                    for label in header:
+                        outfile.write(label)
+                        outfile.write(" ")
+                    outfile.write("chain")
+                    outfile.write("\n")
+                    outputHeader=header
+                loglindex=header.index("logpost")
+                output=False
+                for line in infile:
+                    line=line.lstrip()
+                    lineParams=line.split()
+                    logL=float(lineParams[loglindex])
+                    if logL >= logLThreshold:
+                        output=True
+                    if output:
+                        if nRead % nskip == 0:
+                            for label in outputHeader:
+                                outfile.write(lineParams[header.index(label)])
+                                outfile.write(" ")
+                            outfile.write(str(i))
+                            outfile.write("\n")
+                        nRead=nRead+1
+            finally:
+                infile.close()
+
+    def _find_max_logL(self, files):
+        """
+        Given a list of files, reads them, finding the maximum log(L)
+        """
+        maxLogL = -1e200  # Really small, I hope!
+        for inpname in files:
+            infile=open(inpname, 'r')
+            try:
+                header=self._clear_infmcmc_header(infile)
+                loglindex=header.index("logpost")
+                for line in infile:
+                    line=line.lstrip().split()
+                    logL=float(line[loglindex])
+                    if logL > maxLogL:
+                        maxLogL=logL
+            finally:
+                infile.close()
+        print "Found max log(Post) = ", maxLogL
+        return maxLogL
+
+    def _find_ndownsample(self, files, logLthreshold, nDownsample):
+        """
+        Given a list of files, and threshold value, and a desired
+        number of outputs posterior samples, return the skip number to
+        achieve the desired number of posterior samples.
+        """
+        ntot=0
+        for inpname in files:
+            infile=open(inpname, 'r')
+            try:
+                header=self._clear_infmcmc_header(infile)
+                loglindex=header.index("logpost")
+                burnedIn=False
+                for line in infile:
+                    line=line.lstrip().split()
+                    logL=float(line[loglindex])
+                    if logL > logLthreshold:
+                        burnedIn=True
+                    if burnedIn:
+                        ntot=ntot+1
+            finally:
+                infile.close()
+        if ntot < nDownsample:
+            return 1
+        else:
+            return floor(ntot/nDownsample)
+        
+    def _clear_infmcmc_header(self, infile):
+        """
+        Reads past the header information from the
+        lalinference_mcmcmpi file given, returning the common output
+        header information.
+        """
+        for line in infile:
+            headers=line.lstrip().lower().split()
+            if len(headers) is 0:
+                continue
+            if "cycle" in headers[0]:
+                break
+        else:
+            raise RuntimeError("couldn't find line beginning with 'cycle' in LALInferenceMCMC input")
+        return headers
+        
     
     def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
         """
@@ -1480,7 +1658,6 @@ class PEOutputParser(object):
         header=formatstr.split(delimiter)
         if header[-1] == '\n':
             del(header[-1])
-        print header,len(header)
             
         llines=[]
         import re

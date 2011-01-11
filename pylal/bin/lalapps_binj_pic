@@ -162,7 +162,7 @@ for filename in filenames:
 			# burst, measuring its hrss, then rescaling to
 			# achieve the desired value.  this process requires
 			# the sample rate to be known.
-			row.hrss = options.hrss_scale * img.getpixel((i, j)) / 255.0
+			row.hrss = options.hrss_scale * img.getpixel((i, height - 1 - j)) / 255.0
 			if row.hrss != 0:
 				row.egw_over_rsquared = 1
 				row.egw_over_rsquared *= row.hrss / lalburst.XLALMeasureHrss(*lalburst.XLALGenerateSimBurst(row, 1.0 / 16384))
