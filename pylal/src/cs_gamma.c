@@ -128,16 +128,15 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
 
   //Extract variables from *args
   if (!PyArg_ParseTuple(args, "ddiOO", &Gmu, &alpha, &Namp, 
-			  &Numpy_zofA, &Numpy_amp))
+			&Numpy_zofA, &Numpy_amp))
     return NULL;
-
+ 
   //Get the pointers to the actual and ensure the data is in a format that 
   // plays nicely with C: NPY_INOUT_ARRAY flag
-  zofA = PyArray_DATA(
-	    PyArray_FROM_OTF(Numpy_zofA, NPY_DOUBLE, NPY_INOUT_ARRAY));
-  amp  = PyArray_DATA(
-            PyArray_FROM_OTF(Numpy_amp,  NPY_DOUBLE, NPY_INOUT_ARRAY)); 
-
+  amp = PyArray_DATA(
+	    PyArray_FROM_OTF(Numpy_amp, NPY_DOUBLE, NPY_IN_ARRAY));
+  zofA  = PyArray_DATA(
+            PyArray_FROM_OTF(Numpy_zofA,  NPY_DOUBLE, NPY_INOUT_ARRAY)); 
   double lnz_min = log(1e-20), lnz_max = log(1e10), dlnz =0.05;
   size_t numz       = floor( (lnz_max - lnz_min)/dlnz );
   int i,j;
