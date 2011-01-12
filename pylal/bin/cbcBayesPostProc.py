@@ -534,10 +534,10 @@ def cbcBayesPostProc(
 
         ##Produce plot of raw samples
         myfig=plt.figure(figsize=(4,3.5),dpi=200)
+        pos_samps=pos[par_name].samples
         if not ("chain" in pos.names):
             # If there is not a parameter named "chain" in the
             # posterior, then just produce a plot of the samples.
-            pos_samps=pos[par_name].samples
             plt.plot(pos_samps,'.',figure=myfig)
         else:
             # If there is a parameter named "chain", then produce a
