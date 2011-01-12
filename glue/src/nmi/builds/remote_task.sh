@@ -68,6 +68,13 @@ echo "condor_config_val LIB =" $(condor_config_val LIB)
 make -j4 install
 
 cd glue
+# nasty kludge to work around glue install bug known to exist in
+# s6abc_lowmass tag 85f56e4a1555a60fe2ee98dde0b6e22afface3ad
+if [[ -L glue/misc/generate_vcs_info.py ]]; then
+    rm glue/misc/generate_vcs_info.py
+    cp lal/lib/generate_vcs_info.py glue/misc/
+    touch glue/misc/__init__.py
+fi
 python ./setup.py install --prefix=$LSCSOFT_ROOTDIR
 cd -
 

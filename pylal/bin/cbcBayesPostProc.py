@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
-#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>
+#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>,
+#                      Will M. Farr <will.farr@ligo.org>
 #       
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -30,6 +31,7 @@ from time import strftime
 
 #related third party imports
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit
+import numpy
 
 import matplotlib
 matplotlib.use("Agg")
@@ -68,6 +70,8 @@ def cbcBayesPostProc(
                         ns_flag=False,ns_xflag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
                         ss_flag=False,ss_deltaLogL=None,ss_spin_flag=False,
+                        #lalinferenceMCMC options
+                        li_flag=False,nDownsample=1,
                         #followupMCMC options
                         fm_flag=False
                     ):
@@ -105,6 +109,10 @@ def cbcBayesPostProc(
         peparser=bppu.PEOutputParser('mcmc_burnin')
         commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=ss_deltaLogL)
 
+    elif li_flag:
+        peparser=bppu.PEOutputParser('inf_mcmc')
+        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample)
+
     elif ss_flag and ns_flag:
         print "Undefined input format. Choose only one of:"
         exit(1)
@@ -117,19 +125,14 @@ def cbcBayesPostProc(
     injection=None
     if injfile:
         import itertools
-        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-        if(eventnum is not None):
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])        
+        if eventnum is not None:
             if(len(injections)<eventnum):
                 print "Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections))
                 sys.exit(1)
             else:
                 injection=injections[eventnum]
-        else:
-            if(len(injections)<1):
-                print 'Warning: Cannot find injection with end time %f' %(means[2])
-            else:
-                injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
-
+        
 
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
@@ -148,6 +151,23 @@ def cbcBayesPostProc(
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
 
+    if eventnum is None and injfile is not None:
+        import itertools
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
+
+        if(len(injections)<1):
+            try:
+                print 'Warning: Cannot find injection with end time %f' %(pos['time'].mean)
+            except KeyError:
+                print "Warning: No 'time' column!"
+                
+        else:
+            try:
+                injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - pos['time'].mean) < 0.1, injections).next()
+                pos.set_injection(injection)
+            except KeyError:
+                print "Warning: No 'time' column!"
+                
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
     if ('mc' in pos.names or 'mchirp' in pos.names) and \
     'eta' in pos.names and \
@@ -165,8 +185,14 @@ def cbcBayesPostProc(
             inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
 
         mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
-        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
-        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
+        if li_flag:
+            # In LALInference, the definition of m1 and m2 is reversed!
+            # This will eventually be fixed, but for now it is this way.
+            mass1_pos=bppu.OneDPosterior('m1',mass2_samps,injected_value=inj_mass2)
+            mass2_pos=bppu.OneDPosterior('m2',mass1_samps,injected_value=inj_mass1)
+        else:
+            mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
+            mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
@@ -307,6 +333,7 @@ def cbcBayesPostProc(
     html_tcmp_write='<table border="1">'
 
     row_count=0
+
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
@@ -367,8 +394,14 @@ def cbcBayesPostProc(
 
 
         #= Plot 2D histograms of greedily binned points =#
-        #greedy2PlotFig=bppu.plot_two_param_greedy_bins(np.array(toppoints),pos,greedy2Params)
-        #greedy2PlotFig.savefig(os.path.join(twobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name)))
+        greedy2PlotFig=bppu.plot_two_param_greedy_bins(array(toppoints),pos,greedy2Params)
+        greedy2PlotFig.savefig(os.path.join(twobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name)))
+
+        greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
+        #= Write out statistics for greedy bins
+        for cl in cls:
+            greedyFile.write("%lf %lf\n"%(cl,reses[cl]))
+        greedyFile.close()
 
         #= Generate 2D kde plots =#
         print 'Generating %s-%s plot'%(par1_name,par2_name)
@@ -501,8 +534,25 @@ def cbcBayesPostProc(
 
         ##Produce plot of raw samples
         myfig=plt.figure(figsize=(4,3.5),dpi=200)
-        pos_samps=pos[par_name].samples
-        plt.plot(pos_samps,'.',figure=myfig)
+        if not ("chain" in pos.names):
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            pos_samps=pos[par_name].samples
+            plt.plot(pos_samps,'.',figure=myfig)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            data,header=pos.samples()
+            par_index=pos.names.index(par_name)
+            chain_index=pos.names.index("chain")
+            chains=numpy.unique(pos["chain"].samples)
+            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
+            chainDataRanges=[range(len(cd)) for cd in chainData]
+            dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
+            flattenedData=[ item for pair in dataPairs for item in pair ]
+            plt.plot(*flattenedData,marker=',',linewidth=0.0,figure=myfig)
+            
         injpar=pos[par_name].injval
 
         if injpar:
@@ -554,7 +604,10 @@ if __name__=='__main__':
     #SS
     parser.add_option("--ss",action="store_true",default=False,help="(SPINspiral) Parse input as if it was output from SPINspiral.")
     parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
-    parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral) Difference in logL to use for convergence test.",type="float")
+    parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral and LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
+    #LALInf
+    parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
+    parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     (opts,args)=parser.parse_args()
@@ -562,7 +615,12 @@ if __name__=='__main__':
     #List of parameters to plot/bin . Need to match (converted) column names.
     oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2']
     #List of parameter pairs to bin . Need to match (converted) column names.
-    twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
+    twoDGreedyMenu=[]
+    for i in range(0,len(oneDMenu)):
+        for j in range(i+1,len(oneDMenu)):
+            twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+
+    # twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
     greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05}
     #Confidence levels
@@ -582,6 +640,8 @@ if __name__=='__main__':
                         ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_deltaLogL=opts.deltaLogL,ss_spin_flag=opts.spin,
+                        #LALInferenceMCMC options
+                        li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,
                         #followupMCMC options
                         fm_flag=opts.fm
                     )

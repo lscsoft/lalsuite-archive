@@ -169,7 +169,7 @@ for filename in filenames:
 	# Load file
 	#
 
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	xmldoc = utils.load_filename(filename, verbose = options.verbose)
 	if filename.endswith(".gz"):
 		basename = filename[:-7]
 	else:

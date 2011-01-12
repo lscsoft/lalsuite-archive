@@ -569,6 +569,8 @@ class SixStripSeriesPlot(BasicPlot):
 
     @method_callable_once
     def finalize(self, yscale="linear"):
+        for kw, c in zip(self.kwarg_sets, default_colors()):
+            kw.setdefault("color", c)
 
         min_x, max_x = determine_common_bin_limits(self.x_coord_sets)
 
@@ -588,11 +590,6 @@ class SixStripSeriesPlot(BasicPlot):
         for j, freq_range in enumerate(freq_ranges):
             # create one of the 6 axes
             ax = self.fig.add_axes([.12, .84-.155*j, .86, 0.124])
-
-            # Since default_colors() returns an infinite iterator, we need to
-            # initialize it again and again.
-            for kw, c in zip(self.kwarg_sets, default_colors()):
-                kw.setdefault("color", c)
 
             for x_coords, y_coords, kwarg_set in zip(self.x_coord_sets,
                 self.y_coord_sets, self.kwarg_sets):
@@ -697,6 +694,10 @@ class ROCPlot(BasicPlot):
         self.ax.grid(True)
         self.ax.set_xlim((0, 1))
         self.ax.set_ylim((0, 1))
+
+        # resize figure to make axes square
+        fig_side = min(self.fig.get_size_inches())
+        self.fig.set_size_inches(fig_side, fig_side)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc)

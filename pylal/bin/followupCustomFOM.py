@@ -138,9 +138,13 @@ graphData=myFOM.getData()
 if opts.verbose:
     sys.stdout.write("Data retrieved.\n")
     for (key,obj) in graphData.iteritems():
-        print "Graph :",key
         for (chan,data) in obj.iteritems():
-            print chan," Len:",len(data)
+            if data != None:
+                sys.stdout.write("Graph: %s Trend: %s Length: %i\n"%(key,chan,len(data)))
+                sys.stdout.flush()
+            else:
+                sys.stderr.write("Graph: %s Trend: %s Length: DataNotFound\n"%(key,chan))
+                sys.stderr.flush()
 #
 # Generate the plots
 #
@@ -183,20 +187,22 @@ for thisGraph in myGraphs:
                     "Inconsistent Vector lengths Channel %s: %s vs %s\n"\
                     %(myLabel,len(timeVector),len(myData)))
             pylab.plot(timeVector,myData,label="%s"%myLabel)
-    #If inspiral plot put legend lower left
-    if myLabel.lower().__contains__("inspiral"):
-        pylab.legend(loc=3)
-    else:
-        pylab.legend()
-    pylab.grid(True)
-    #Main filename
     imageFilename=os.path.normpath(outputPath+"/"+filemask%(opts.gps_time,thisGraph.replace(" ","-")))
-    pylab.savefig(imageFilename)
-    #Save a thumbnail %10
+    #Create thumbnail without legend first!
     myScale=0.33
     myFigure.set_size_inches(myScale*(xRes/myDPI),myScale*(yRes/myDPI))
     myFigure.set_dpi(myScale*myDPI)
     pylab.savefig(imageFilename.replace(".png",".thumb.png"))
+    #If inspiral plot put legend lower left
+    if thisGraph.lower().__contains__("inspiral"):
+        pylab.legend(loc=3)
+    else:
+        pylab.legend()
+    pylab.grid(True)
+    #Save large image
+    myFigure.set_size_inches(1.0*(xRes/myDPI),1.0*(yRes/myDPI))
+    myFigure.set_dpi(1.0*myDPI)
+    pylab.savefig(imageFilename)    
     pylab.close()
 #
 # Done
