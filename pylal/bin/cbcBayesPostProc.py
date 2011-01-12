@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
-#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>
+#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>,
+#                      Will M. Farr <will.farr@ligo.org>
 #       
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -30,6 +31,7 @@ from time import strftime
 
 #related third party imports
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit
+import numpy
 
 import matplotlib
 matplotlib.use("Agg")
@@ -331,6 +333,7 @@ def cbcBayesPostProc(
     html_tcmp_write='<table border="1">'
 
     row_count=0
+
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
@@ -532,12 +535,32 @@ def cbcBayesPostProc(
         ##Produce plot of raw samples
         myfig=plt.figure(figsize=(4,3.5),dpi=200)
         pos_samps=pos[par_name].samples
-        plt.plot(pos_samps,'.',figure=myfig)
+        if not ("chain" in pos.names):
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            plt.plot(pos_samps,'.',figure=myfig)
+            maxLen=len(pos_samps)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            data,header=pos.samples()
+            par_index=pos.names.index(par_name)
+            chain_index=pos.names.index("chain")
+            chains=numpy.unique(pos["chain"].samples)
+            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
+            chainDataRanges=[range(len(cd)) for cd in chainData]
+            dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
+            flattenedData=[ item for pair in dataPairs for item in pair ]
+            maxLen=max([len(data) for data in flattenedData])
+            plt.plot(*flattenedData,marker=',',linewidth=0.0,figure=myfig)
+            
         injpar=pos[par_name].injval
 
         if injpar:
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
-                plt.plot([0,len(pos_samps)],[injpar,injpar],'r-.')
+                #FIXME: Here!  Lines too long.
+                plt.plot([0,maxLen],[injpar,injpar],'r-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
         html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
@@ -587,7 +610,7 @@ if __name__=='__main__':
     parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral and LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
-    parser.add_option("--downsample",action="store",default=1,help="(LALInferenceMCMC) number of samples to read before recording one output.",type="float")
+    parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     (opts,args)=parser.parse_args()
