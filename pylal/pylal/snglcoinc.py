@@ -96,11 +96,7 @@ class EventList(list):
 		Set an offset on the times of all events in the list.
 		"""
 		# cast offset to LIGOTimeGPS to avoid repeated conversion
-		# when applying the offset to each event.  also prevents
-		# round-off errors since addition and subtraction of
-		# LIGOTimeGPS objects are exact, so by recording the offset
-		# as a LIGOTimeGPS it should be possible to return the
-		# events to exactly their original times before exiting.
+		# when applying the offset to each event.
 		self.offset = lsctables.LIGOTimeGPS(offset)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
@@ -143,9 +139,9 @@ class EventListDict(dict):
 	initialized from an XML trigger table and a list of process IDs
 	whose events should be included.
 	"""
-	def __new__(self, *args, **kwargs):
+	def __new__(cls, *args, **kwargs):
 		# wrapper to shield dict.__new__() from our arguments.
-		return dict.__new__(self)
+		return dict.__new__(cls)
 
 	def __init__(self, EventListType, event_table, process_ids = None):
 		"""
@@ -223,36 +219,37 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	where event1 and event2 are two objects drawn from the event lists
 	(of different instruments), offset1 and offset2 are the time shifts
 	that should be added to the arrival times of event1 and event2
-	respectively, light_travel_time is the distance between the
-	instruments in light seconds, and threshold_data is the value
-	contained in the thresholds dictionary for the pair of instruments
-	from which event1 and event2 have been drawn.  The return value
-	should be 0 (False) if the events are coincident, and non-zero
-	otherwise (the behaviour of the comparison function is like a
-	subtraction operator, returning 0 when the two events are "the
-	same").
+	respectively, light_travel_time is the distance in light seconds
+	between the instruments from which event1 and event2 have been
+	drawn, and threshold_data is the value contained in the thresholds
+	dictionary for that pair of instruments.  The return value should
+	be 0 (False) if the events are coincident, and non-zero otherwise
+	(the behaviour of the comparison function is like a subtraction
+	operator, returning 0 when the two events are "the same").
 
 	The thresholds dictionary should look like
 
 	>>> {("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
 
 	i.e., the keys are tuples of instrument pairs and the values
-	specify the "threshold" for that instrument pair.  The threshold
-	itself is arbitrary.  Floats are shown in the example above, but
-	any Python object can be provided and will be passed to the
-	comparefunc().  Note that it is assumed that order matters in the
-	comparison function and so the thresholds dictionary must provide a
-	threshold for the instruments in both orders.
+	specify the "threshold data" for that instrument pair.  The
+	threshold data itself is an arbitrary Python object.  Floats are
+	shown in the example above, but any Python object can be provided
+	and will be passed to the comparefunc().  Note that it is assumed
+	that order matters in the comparison function and so the thresholds
+	dictionary must provide a threshold for the instruments in both
+	orders.
 
-	Each tuple returned by this generator will contain events from
-	distinct instruments.
+	Each tuple returned by this generator will contain exactly two
+	events, one from each of the two instruments in the instruments
+	sequence.
 
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
 
 	NOTE:  the order of the events in each tuple returned by this
 	function is arbitrary, in particular it does not necessarily match
-	the order of instruments sequence.
+	the order of the instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
@@ -260,21 +257,19 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	assert len(instruments) == 2
 	for instrument in instruments:
 		assert eventlists[instrument].instrument == instrument
-	eventlists = [eventlists[instrument] for instrument in instruments]
+	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
 
-	# determine the shorter and longer of the two event lists;  record
+	# insure eventlist a is the shorter of the two event lists;  record
 	# the length of the shortest
 
-	if len(eventlists[0]) <= len(eventlists[1]):
-		eventlista, eventlistb = eventlists
-	else:
-		eventlistb, eventlista = eventlists
+	if len(eventlista) > len(eventlistb):
+		eventlista, eventlistb = eventlistb, eventlista
 	length = len(eventlista)
 
 	# extract the thresholds and pre-compute the light travel time
 
 	try:
-		thresholds = thresholds[(eventlista.instrument, eventlistb.instrument)]
+		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
 	except KeyError, e:
 		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % e.args[0]
 	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
@@ -288,7 +283,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		# iterate over events from the other list that are
 		# coincident with the event, and return the pairs
 
-		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, thresholds, comparefunc):
+		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, threshold_data, comparefunc):
 			yield (eventa, eventb)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
@@ -357,7 +352,10 @@ class TimeSlideGraphNode(object):
 			eventlists.set_offsetdict(self.offset_vector)
 
 			#
-			# search for and record coincidences
+			# search for and record coincidences.  coincs is a
+			# sorted tuple of event ID pairs, where each pair
+			# of IDs is sorted in alphabetical order by
+			# instrument name
 			#
 
 			if verbose:
@@ -368,8 +366,7 @@ class TimeSlideGraphNode(object):
 			# tuple returned by get_doubles() is arbitrary so
 			# we need to sort each tuple by instrument name
 			# explicitly
-			self.coincs = sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose))
-			self.coincs = tuple(self.coincs)
+			self.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
 			return self.coincs
 
 		#

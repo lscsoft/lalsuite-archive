@@ -534,11 +534,12 @@ def cbcBayesPostProc(
 
         ##Produce plot of raw samples
         myfig=plt.figure(figsize=(4,3.5),dpi=200)
+        pos_samps=pos[par_name].samples
         if not ("chain" in pos.names):
             # If there is not a parameter named "chain" in the
             # posterior, then just produce a plot of the samples.
-            pos_samps=pos[par_name].samples
             plt.plot(pos_samps,'.',figure=myfig)
+            maxLen=len(pos_samps)
         else:
             # If there is a parameter named "chain", then produce a
             # plot of the various chains in different colors, with
@@ -551,13 +552,15 @@ def cbcBayesPostProc(
             chainDataRanges=[range(len(cd)) for cd in chainData]
             dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
             flattenedData=[ item for pair in dataPairs for item in pair ]
+            maxLen=max([len(data) for data in flattenedData])
             plt.plot(*flattenedData,marker=',',linewidth=0.0,figure=myfig)
             
         injpar=pos[par_name].injval
 
         if injpar:
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
-                plt.plot([0,len(pos_samps)],[injpar,injpar],'r-.')
+                #FIXME: Here!  Lines too long.
+                plt.plot([0,maxLen],[injpar,injpar],'r-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
         html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
