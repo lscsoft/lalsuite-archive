@@ -553,7 +553,7 @@ def cbcBayesPostProc(
             dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
             flattenedData=[ item for pair in dataPairs for item in pair ]
             maxLen=max([len(data) for data in flattenedData])
-            plt.plot(*flattenedData,marker=',',linewidth=0.0,figure=myfig)
+            plt.plot(flattenedData,marker=',',linewidth=0.0,figure=myfig)
             
         injpar=pos[par_name].injval
 
