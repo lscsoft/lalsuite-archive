@@ -354,6 +354,8 @@ class Highest(list):
 		del self[self.max:]
 
 	def extend(self, sequence):
+		# FIXME:  could be implemented with heapq.merge() when 2.6
+		# is generally available
 		# n is updated in a way that allows sequence to be a
 		# generator or other object without a __len__() method
 		before = list.__len__(self)
