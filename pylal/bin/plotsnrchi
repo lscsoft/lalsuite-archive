@@ -361,7 +361,8 @@ def parse_command_line():
     print >>sys.stderr, "should be given for --chisq-index"
     sys.exit(1)
 
-  if (options.masshist_newsnr or options.masshist_effsnr or options.durationhist_newsnr or options.durationhist_effsnr) and not \
+  if (options.masshist_newsnr or options.masshist_effsnr or \
+      options.durationhist_newsnr or options.durationhist_effsnr) and not \
       (options.slide_glob or options.cache_file):
     print >>sys.stderr, "To produce mass-binned background histograms a"
     print >>sys.stderr, "SLIDE_GLOB or cache file containing slides must be given"
