@@ -3,10 +3,12 @@
 # ==============================================================================
 # Preamble
 # ==============================================================================
+
 import os,sys,shlex,subprocess,operator
 from glue.segments import segment, segmentlist
 from glue.ligolw import lsctables,table,utils
 from glue.segmentdb import query_engine,segmentdb_utils
+
 # Some boilerplate to make segmentlists picklable
 import copy_reg
 copy_reg.pickle(type(segment(0,1)), lambda x:(segment,(x[0],x[1])))
@@ -14,18 +16,26 @@ copy_reg.pickle(type(segmentlist([])), lambda x:(segmentlist,([y for y in x],)))
 
 from glue import git_version
 
-__author__ = "Andrew P Lundgren <aplundgr@syr.edu>, Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
+__author__  = "Andrew P Lundgren <aplundgr@syr.edu>, Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+__date__    = git_version.date
 
 """
-Module to provide veto tools for DQ work.
+This module provides useful segment and veto tools for data quality investigations.
 """
 
 # =============================================================================
 # Function to execute shell command and get output
 # =============================================================================
+
 def make_external_call(cmd,shell=False):
+
+  """
+    Execute shell command and capture standard output and errors. Does not
+    support complex commands with pipes, e.g. `echo ${VAR} | grep insp` will
+    fail. Returns tuple "(stdout,stderr)".
+  """
+
   args = shlex.split(str(cmd))
   p = subprocess.Popen(args,shell=shell,\
                        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -38,9 +48,12 @@ def make_external_call(cmd,shell=False):
 # ==============================================================================
 # Function to load segments from an xml file
 # ==============================================================================
+
 def fromsegmentxml(file):
+
   """
-  Read a segmentlist from the file object file containing an xml segment table.
+    Read a glue.segments.segmentlist from the file object file containing an
+    xml segment table.
   """
 
   xmldoc,digest = utils.load_fileobj(file)
@@ -56,9 +69,12 @@ def fromsegmentxml(file):
 # ==============================================================================
 # Write to segment xml file
 # ==============================================================================
+
 def tosegmentxml(file,segs):
+
   """
-  Write a glue.segments.segmentlist object contents to an xml file with appropriate tables.
+    Write the glue.segments.segmentlist object segs to file object file in xml
+    format with appropriate tables.
   """
 
   #== generate empty document
@@ -93,9 +109,12 @@ def tosegmentxml(file,segs):
 # ==============================================================================
 # Function to load segments from a csv file
 # ==============================================================================
+
 def fromsegmentcsv(csvfile):
+
   """
-  Read a segmentlist from the file object file containing a comma separated list of segments.
+    Read a glue.segments.segmentlist object from the file object file containin
+    a comma separated list of segments.
   """
 
   def CSVLineToSeg(line):
@@ -109,20 +128,28 @@ def fromsegmentcsv(csvfile):
 # ==============================================================================
 # Function to parse a segment list for CBC analysable segments
 # ==============================================================================
+
 def CBCAnalyzableSegs(seglist):
+
   """
-  Remove any segments shorter than 2064 seconds because ihope won't analyze them.
+    Remove any segments shorter than 2064 seconds from seglist because ihope
+    won't analyze them.
   """
+
   return segmentlist([seg for seg in seglist if abs(seg) >= 2064])
 
 # ==============================================================================
 # Function to pad a list of segments given start and end paddings
 # ==============================================================================
+
 def pad_segmentlist(seglist, start_pad, end_pad):
+
   """
-  Given a veto segmentlist, start pad, and end pad, pads and coalesces the segments.
-  Signs of start and end pad are disregarded - the segment is always expanded outward.
+    Given a veto segmentlist, start pad, and end pad, pads and coalesces the
+    segments. Signs of start and end pad are disregarded - the segment is always
+    expanded outward.
   """
+
   padded = lambda seg: segment(seg[0] - abs(start_pad), seg[1] + abs(end_pad))
 
   seglist = segmentlist([padded(seg) for seg in seglist])
@@ -132,10 +159,14 @@ def pad_segmentlist(seglist, start_pad, end_pad):
 # ==============================================================================
 # Function to crop a list of segments
 # ==============================================================================
+
 def crop_segmentlist(seglist, end_chop = 30):
+
   """
-  Given a segmentlist and time to chop, removes time from the end of each segment (defaults to 30 seconds).
+    Given a segmentlist and time to chop, removes time from the end of each
+    segment (defaults to 30 seconds).
   """
+
   chopped = lambda seg: segment(seg[0], max(seg[0], seg[1] - end_chop))
 
   seglist = segmentlist([chopped(seg) for seg in seglist])
@@ -145,9 +176,12 @@ def crop_segmentlist(seglist, end_chop = 30):
 # =============================================================================
 # Function to return segments in given gps time range
 # =============================================================================
+
 def grab_segments(start,end,flag):
+
   """
-  Returns a segmentlist containing the segments during which the given flag was active in the given period.
+    Returns a segmentlist containing the segments during which the given flag
+    was active in the given period.
   """
 
   # set times
@@ -188,7 +222,14 @@ def grab_segments(start,end,flag):
 # =============================================================================
 # Function to generate segments for given ifos in period
 # =============================================================================
+
 def coinc_segments(start,end,ifos):
+
+  """
+    Returns a set of tuple of dictobjects giving singl,double,triple etc time
+    science segments for each combination of the contents of the list ifos.
+  """
+
   #== first, construct doubles and triples lists
   doubles=[]
   triples=[]
@@ -242,6 +283,7 @@ def coinc_segments(start,end,ifos):
 # =============================================================================
 # Function to calculate duty cycle and analysable time given segmentlist
 # =============================================================================
+
 def duty_cycle(seglist,cbc=False):
   science_time=0
   if cbc:  analysable_time=0
@@ -252,4 +294,50 @@ def duty_cycle(seglist,cbc=False):
 
   if cbc:  return science_time,analysable_time
   else:  return science_time
+
+# ==============================================================================
+# Dump flags from segment database
+# ==============================================================================
+
+def dump_flags(start=None,end=None,ifo=None,segment_url=None,\
+               squery="select ifos,name,version from segment_definer"):
+
+  """
+    Returns the list of all flags defined in the database.
+
+    Keyword rguments:
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      ifo : [ "G1" | "H1" | "H2" | "L1" | "V1" ]
+      segment_url : string 
+        url of segment database, defaults to contents of S6_SEGMENT_SERVER
+        environment variable
+      squery : string
+        SQL format query to grab information from the segment database
+  """
+
+  # get url
+  if not segment_url:
+    segment_url = os.getenv('S6_SEGMENT_SERVER')
+
+  # open connection to LDBD(W)Server
+  myClient = segmentdb_utils.setup_database(segment_url)
+
+  tmp = tempfile.TemporaryFile()
+  tmp.write(myClient.query(squery))
+  tmp.seek(0)
+  xmldoc,digest = utils.load_fileobj(tmp)
+  tmp.close()
+  seg_def_table = table.get_table(xmldoc,\
+                                  lsctables.SegmentDefinerTable.tableName)
+
+  flags = []
+  for line in seg_def_table:
+    if ifo and line.ifo!=ifo:  continue
+    flag = ':'.join([line.ifos.rstrip(),line.name,str(line.version)])
+    flags.append(flag)
+
+  return flags
 
