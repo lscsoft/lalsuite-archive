@@ -302,10 +302,10 @@ def totrigfile(file,table,etg,header=True):
 # =============================================================================
 # Function to load triggers from cache
 # =============================================================================
-def fromtrigxml(file,start=None,end=None,tablename='sngl_inspiral'):
+def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
 
   """
-    Reads a list of Sngl{Burst,Inspiral}Table from the given table from the xml
+    Reads a trigger table from the given table from the xml
     file object file
 
     Arguments:
@@ -318,8 +318,9 @@ def fromtrigxml(file,start=None,end=None,tablename='sngl_inspiral'):
         GPS start time of requested period
       end : [ float | int | LIGOTimeGPS ]
         GPS end time of requested period
-      tablename : [ "sngl_inspiral" | "sngl_burst" | "sngl_ringdown" ]
-        name of requested table in xml file
+      tablename : string
+        name of requested trigger table in xml file, defaults to
+        'sngl_inspiral:table'
   """
 
   # set times
@@ -328,21 +329,25 @@ def fromtrigxml(file,start=None,end=None,tablename='sngl_inspiral'):
   if not end:
     end=float('inf')
 
+  # set tablename
+  if not tablename.endswith(':table'):
+    tablename = ':'.join([tablename,'table'])
+
   # crack open xml file
   xmldoc,digest = utils.load_fileobj(file,gz=file.name.endswith('gz'))
-  alltriggers = table.get_table(xmldoc,':'.join([tablename,'table']))
+  alltriggers = table.get_table(xmldoc,tablename))
 
   triggers = lsctables.New(type(alltriggers))
 
   # parse triggers in time
   for line in alltriggers:
-    if re.search('inspiral',tablename):  t = line.get_end()
+    if re.search('inspiral',alltriggers.tableName):  t = line.get_end()
     else:  t = line.get_peak()
     if start<=float(t)<=end:
       triggers.append(line)
 
   # sort table in time
-  if re.search('inspiral',tablename):
+  if re.search('inspiral',triggers.tableName):
     triggers.sort(key=lambda trig: trig.get_end())
   else:
     triggers.sort(key=lambda trig: trig.get_peak())

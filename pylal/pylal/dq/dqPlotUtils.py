@@ -59,13 +59,13 @@ def make_external_call(cmd,shell=False):
 # =============================================================================
 # Function to plot before/after cumulative SNR histograms
 # =============================================================================
-def plot_trigger_hist(triggers,outfile,column='snr',vetosegs=None,\
-                      vetoname='unknown segments',etg=None,\
+def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
+                      flag='unknown segments',etg=None,\
                       livetime=None,fill=False,logx=True):
 
   """
     Plot a histogram of the value in any column of the ligolw table triggers.
-    If a glue.segments.segmentlist vetosegs is given, the histogram is presented
+    If a glue.segments.segmentlist segments is given, the histogram is presented
     before and after removal of triggers falling inside any segment in the list.
 
     Arguments:
@@ -79,9 +79,9 @@ def plot_trigger_hist(triggers,outfile,column='snr',vetosegs=None,\
 
       column : string
         valid column of triggers table to plot as histrogram
-      vetosegs : glue.segments.segmentlist
+      segments : glue.segments.segmentlist
         list of segments with which to veto triggers
-      vetoname : string
+      flag : string
         display name of segmentlist, normally the name of the DQ flag
       etg : string
         display name of trigger generator, defaults based on triggers tableName
@@ -115,17 +115,17 @@ def plot_trigger_hist(triggers,outfile,column='snr',vetosegs=None,\
     livetime = end-start 
 
   # generate vetoed trigger list: inspiral trigs have dedicated function 
-  if not vetosegs:
-    vetosegs = segmentlist()
+  if not segments:
+    segments = segmentlist()
 
   aftertriggers = lsctables.New(type(triggers))
 
   if re.search('inspiral',triggers.tableName):
-    aftertriggers = triggers.veto(vetosegs)
+    aftertriggers = triggers.veto(segments)
   elif re.search('ringdown',triggers.tableName):
-    aftertriggers.extend([t for t in triggers if t.get_start() not in vetosegs])
+    aftertriggers.extend([t for t in triggers if t.get_start() not in segments])
   else:
-    aftertriggers.extend([t for t in triggers if t.get_peak() not in vetosegs])
+    aftertriggers.extend([t for t in triggers if t.get_peak() not in segments])
 
   # set up histogram data
   try:
@@ -180,7 +180,7 @@ def plot_trigger_hist(triggers,outfile,column='snr',vetosegs=None,\
   end_n   = [n/livetime for n in end_n]
 
   # fix name for latex
-  vetoname = vetoname.replace('_','\_')
+  flag = flag.replace('_','\_')
 
   # customise plot appearance
   pylab.rcParams.update({"text.usetex": True,
@@ -201,18 +201,18 @@ def plot_trigger_hist(triggers,outfile,column='snr',vetosegs=None,\
 
   if not fill:
     ax.plot(bins,start_n,'r',linewidth=2,label='Before vetoes')
-    if vetosegs:
+    if segments:
       ax.plot(bins,end_n,'g',linewidth=2,label='After vetoes')
   if fill:
     ax.plot(bins,start_n,'r',linewidth=0,label='Before vetoes')
     ax.fill_between(bins,base,start_n,color='r',edgecolor='k',linewidth=0.5)
-    if vetosegs:
+    if segments:
       ax.plot(bins,end_n,'g',linewidth=0,label='After vetoes')
       ax.fill_between(bins,base,end_n,color='g',edgecolor='k',linewidth=0.5,\
                       alpha=0.9)
 
   # figure sundries
-  if vetosegs:
+  if segments:
     leg = ax.legend()
     for l in leg.get_lines():
       l.set_linewidth(4)
@@ -221,8 +221,8 @@ def plot_trigger_hist(triggers,outfile,column='snr',vetosegs=None,\
   ax.set_xlabel('SNR')
   ax.set_ylabel('Cumulative rate (Hz)')
   tit = '%s triggers' % (etg)
-  if vetosegs:
-    tit += ' and %s segments' % (vetoname)
+  if segments:
+    tit += ' and %s segments' % (flag)
   ax.set_title(tit)
   ax.grid(True,which='major')
   ax.grid(True,which='majorminor')
@@ -235,7 +235,7 @@ def plot_trigger_hist(triggers,outfile,column='snr',vetosegs=None,\
 
 def plot_triggers(triggers,outfile,etg='Unknown',\
                   start=None,end=None,\
-                  vetosegs=None,vetoname='unknown',\
+                  segments=None,flag='unknown',\
                   xcolumn='time',ycolumn='snr',zcolumn=None,\
                   xthreshold=None,ythreshold=None,\
                   logx=False,logy=True,logz=True):
@@ -244,7 +244,7 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
     Plots ycolumn against xcolumn for columns in given
     Sngl{Burst,Inspiral}Table object triggers, coloured by the zcolumn
     highlighting those entries falling inside one of the entries in the
-    glue.segments.segmentlist object vetosegs, if given. 
+    glue.segments.segmentlist object segments, if given. 
 
     'time' given as a column name is a special case, since s and ns times are
     stored separately in the SnglTable structures. In this case the
@@ -269,9 +269,9 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
         GPS start time
       end : [ float | int | LIGOTimeGPS]
         GPS end time
-      vetosegs : glue.segments.segmentlist
+      segments : glue.segments.segmentlist
         list of segments with which to veto triggers
-      vetoname : string
+      flag : string
         display name of segmentlist, normally the name of the DQ flag
       xcolumn : string
         valid column of triggers table to plot on x-axis
@@ -319,23 +319,23 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
     triggers.sort(key=lambda trig: trig.__getattribute__(zcolumn),reverse=False)
 
   # apply veto segments if required
-  if vetosegs is not None:
-    vetosegs = segmentlist(vetosegs)
+  if segments is not None:
+    segments = segmentlist(segments)
   
     # set up vetoed/nonvetoed trigger lists, inspiral triggers have dicated func
     triggers_not = lsctables.New(type(triggers))
     triggers_veto = lsctables.New(type(triggers))
 
     if re.search('inspiral',triggers.tableName):
-      triggers_not  = triggers.veto(vetosegs)
-      triggers_veto = triggers.vetoed(vetosegs)
+      triggers_not  = triggers.veto(segments)
+      triggers_veto = triggers.vetoed(segments)
     elif re.search('ringdown',triggers.tableName):
       triggers_not.extend([t for t in triggers \
-                           if t.get_start() not in vetosegs])
-      triggers_veto.extend([t for t in triggers if t.get_start() in vetosegs])
+                           if t.get_start() not in segments])
+      triggers_veto.extend([t for t in triggers if t.get_start() in segments])
     else:
-      triggers_not.extend([t for t in triggers if t.get_peak() not in vetosegs])
-      triggers_veto.extend([t for t in triggers if t.get_peak() in vetosegs])
+      triggers_not.extend([t for t in triggers if t.get_peak() not in segments])
+      triggers_veto.extend([t for t in triggers if t.get_peak() in segments])
 
   # or copy lists with empty vetoed triggers list
   else:
@@ -405,8 +405,8 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
   # =============
   # generate plot
   # =============
-  # fix vetoname for use with latex
-  vetoname = vetoname.replace('''_''','''\_''')
+  # fix flag for use with latex
+  flag = flag.replace('''_''','''\_''')
   etg      = etg.replace('''_''','''\_''')
 
   # customise plot appearance
@@ -434,7 +434,7 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
   cdict['blue']=([x== cdict['blue'][0] and (0,1,1) or x for x in cdict['blue']])
 
   # plot triggers not vetoed
-  if vetosegs is not None:  label = 'Not vetoed'
+  if segments is not None:  label = 'Not vetoed'
   else: label=None
 
   pylab.scatter(notvetoed[xcolumn],notvetoed[ycolumn],\
@@ -465,7 +465,7 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
     pylab.plot([maxx],[maxy],color='gold',marker='*',markersize=15)
 
   # plot vetoed triggers if required
-  if vetosegs is not None:
+  if segments is not None:
     # if not vetoed triggers, plot something to ensure the label appears
     if len(vetoed[xcolumn])<1:
       pylab.scatter([notvetoed[xcolumn][0]],[notvetoed[ycolumn][0]],\
@@ -481,7 +481,7 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
     ax.set_yscale('log')
 
   # print legend
-  #if vetosegs is not None:
+  #if segments is not None:
   #  ax.legend()
 
   # get start time in UTC for axis
@@ -512,7 +512,7 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
 
   # set title
   tit = '%s triggers' % (etg)
-  if vetosegs: tit += ' \&  %s segments' % (vetoname)
+  if segments: tit += ' \&  %s segments' % (flag)
   
   tit += ': %s-%s' % (start,end)
   ax.set_title(tit,x=0.5,y=1.03)
@@ -539,23 +539,23 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
 # Plot science segment histogram
 # =============================================================================
 
-def plot_segment_hist(vetosegs,outfile,name=None,logx=False,logy=False):
+def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
 
   """
     Plots a histogram of segment duration for the glue.segments.segmentlist
-    vetosegs.
+    segments.
 
     Arguments:
 
-      vetosegs : glue.segments.segmentlist
+      segments : glue.segments.segmentlist
         list of segments with which to veto triggers
       outfile : string 
         string path for output plot
    
     Keyword arguments:
 
-      name : string
-        display name of segmentlist, normally the name of the DQ flag
+      flag : string
+        display name for segments, normally the name of the DQ flag
       logx : [ True | False ]
         boolean option to display x-axis in log scale.
       logy : [ True | False ]
@@ -568,7 +568,7 @@ def plot_segment_hist(vetosegs,outfile,name=None,logx=False,logy=False):
   if not os.path.isdir(outdir):
     os.makedirs(outdir)
 
-  durations = [seg.__abs__() for seg in vetosegs]
+  durations = [seg.__abs__() for seg in segments]
   # set times
   t_unit = 1
   t_string = {1:'seconds',60:'minutes',3600:'hours',86400:'days'}
@@ -577,9 +577,9 @@ def plot_segment_hist(vetosegs,outfile,name=None,logx=False,logy=False):
   if logx:
     durations = [math.log10(d) for d in durations]
 
-  # fix vetoname for use with latex
-  if name:
-    name = name.replace('''_''','''\_''')
+  # fix flag for use with latex
+  if flag:
+    flag = flag.replace('''_''','''\_''')
 
   # customise plot appearance
   pylab.rcParams.update({"text.usetex": True,
@@ -598,8 +598,8 @@ def plot_segment_hist(vetosegs,outfile,name=None,logx=False,logy=False):
   ax  = fig.gca()
 
   # calculate histogram
-  if not len(vetosegs)<1: 
-    numbins = min(len(vetosegs),200)
+  if not len(segments)<1: 
+    numbins = min(len(segments),200)
     n,b,p = pylab.hist(durations,bins=numbins,\
                        range=(min(durations),max(durations)),\
                        histtype='bar',visible=False)
@@ -632,7 +632,7 @@ def plot_segment_hist(vetosegs,outfile,name=None,logx=False,logy=False):
   ax.bar(bins,n,width=barwidth,bottom=base,\
          color='blue',edgecolor='black',log=logy)
 
-  if len(vetosegs)>=1:
+  if len(segments)>=1:
     if logx:
       ax.semilogx()
       ax.set_xlim(min(bins)*0.99,(max(bins)+max(barwidth))*1.01)
@@ -642,8 +642,8 @@ def plot_segment_hist(vetosegs,outfile,name=None,logx=False,logy=False):
   ax.set_xlabel('Length of segment (%s)' %(t_string[t_unit]))
   ax.set_ylabel('Number of segments')
   tit = 'Segment Duration Histogram'
-  if name:
-    tit = '%s %s' % (name,tit)
+  if flag:
+    tit = '%s %s' % (flag,tit)
   ax.set_title(tit)
 
   # get both major and minor grid lines
