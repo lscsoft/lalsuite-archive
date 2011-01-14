@@ -596,6 +596,11 @@ if(args_info.dataset_given) {
 		}
 	}
 
+/* apply per-dataset phase correction */
+for(i=0;i<args_info.extra_phase_given;i++)
+	apply_phase(args_info.extra_phase_arg[i]);
+
+
 /* This diagnostics should be moved into dataset.c when tested */
 for(i=0;i<d_free;i++) {
 	fprintf(LOG, "FMedians: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
