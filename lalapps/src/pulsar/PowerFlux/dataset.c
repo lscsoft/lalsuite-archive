@@ -28,6 +28,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <time.h>
+#include <regex.h>
 
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
@@ -2754,6 +2755,58 @@ for(i=0;i<d_free;i++){
 	}
 }
 
+void apply_phase(char *phase_string)
+{
+int i,j;
+DATASET *d;
+float x, y, a, b, phase;
+regex_t regexp;
+char *match;
+
+match=strdup(phase_string);
+for(i=strlen(match)-1; (i>0) && (match[i]==' ' || match[i]==0 || match[i]=='\n' || match[i]=='\t');i--);
+for(; (i>0) && (match[i]!=' ' && match[i]!='\t');i--);
+match[i]=0;
+
+fprintf(stderr, "Applying phase of %s degrees to datasets matching \"%s\"\n", &(match[i+1]), match);
+
+if(regcomp(&regexp, match, REG_EXTENDED | REG_NOSUB)){
+	fprintf(stderr,"Cannot compile \"%s\" in extra phase specifier \"%s\"\n", match, phase_string);
+	exit(-1);
+	}
+	
+phase=atof(&(match[i+1]));
+
+a=cos(phase*M_PI/180.0);
+b=sin(phase*M_PI/180.0);
+
+for(i=0;i<d_free;i++){
+
+	d=&(datasets[i]);
+	
+	if(regexec(&regexp, d->name, 0, NULL, 0))continue;
+	
+	fprintf(stderr, "Applying phase %f to dataset %s\n", phase, d->name);
+	fprintf(LOG, "Applying phase %f to dataset %s\n", phase, d->name);
+	
+	for(j=0;j<d->free;j++) {
+		x=d->re[j]*a-d->im[j]*b;
+		y=d->re[j]*b+d->im[j]*a;
+		
+		#if 0
+		fprintf(stderr, "%f+%fi --> %f+%fi\n", d->re[j], d->im[j], x, y);
+		#endif
+
+		d->re[j]=x;
+		d->im[j]=y;
+		
+		}
+
+	}
+
+regfree(&regexp);
+free(match);
+}
 
 void dump_datasets(char *filename) 
 {
