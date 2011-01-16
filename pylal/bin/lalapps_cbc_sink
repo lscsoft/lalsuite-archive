@@ -260,7 +260,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
         mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
         maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
         if bin_type == "BNS_BBH": # only print out the fun bins 1.35-1.35 (BNS), 5-5 (BBH) and 1.35-5 (NSBH)
-          representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
+          representative_bins = [(1.3,1.3),(5.0,1.3),(5.0,5.0)]
         else:
           representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
 
@@ -640,6 +640,35 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       pylab.ylabel("Mass 2",fontsize=14)
       pylab.gca().set_aspect(1)
       savefig_pylal('combined_distance', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+      pylab.clf()
+
+   if bin_type == "BNS_BBH":
+      #FIXME hard limits at log(rate) of -7, 0
+      pylab.bar([0,1,2],[pylab.log10(combined_upper_limit_werrs[mbin]) for mbin in representative_bins],color='b',width=1)
+      pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array.max()/(24.0*3600)),fontsize=14)
+      pylab.xticks([0.5,1.5,2.5],["BNS","NSBH","BBH"])
+      pylab.xlim([-0.5,3.5])
+      pylab.ylim([-7,0])
+      pylab.xlabel("NS= 1.3+/-0.3M$_{\odot}$, BH= 5+/-1M$_{\odot}$",fontsize=14)
+      pylab.ylabel("Rate Upper Limit (log$_{10}$ 1/Mpc$^3$/yr)", fontsize=14)
+      pylab.grid()
+      savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+      pylab.clf()
+
+      #
+      # distance plot in 1d
+      #
+      distance = (sec_in_yr*total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
+      derr = (distance /3) *( total_err.array**0.5 / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
+      pylab.bar([0,1,2],[distance[bins[mbin]] for mbin in representative_bins],yerr=[derr[bins[mbin]] for mbin in representative_bins],width=1)
+      pylab.grid()
+      pylab.xticks([0.5,1.5,2.5],["BNS","NSBH","BBH"])
+      pylab.xlim([-0.5,3.5])
+      pylab.ylim([0,150]) #FIXME don't hardcode limits?
+      pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array.max()/(24*3600.0)),fontsize=14)
+      pylab.xlabel("NS= 1.3+/-0.3M$_{\odot}$, BH= 5+/-1M$_{\odot}$",fontsize=14)
+      pylab.ylabel("Range (Mpc)",fontsize=14)
+      savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
       pylab.clf()
 
    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [], fnameList,
