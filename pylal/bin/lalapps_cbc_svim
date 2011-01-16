@@ -567,6 +567,8 @@ class upper_limit(object):
 
     # set up an empty ratio array for each distance bin
     rArrays = [rate.BinnedRatios(mass_bins) for k in range(self.opts.dist_bins)]
+    if self.opts.write_volumes:
+      fd = open("%s_VOLUME_BY_%s.txt"%(''.join(sorted(list(instruments))),bin_type),'w')
 
     # an array to hold to the found/missed statistics for the injections
     fm_array = rate.BinnedRatios(mass_bins)
@@ -671,6 +673,12 @@ class upper_limit(object):
         integrand = 4.0 * pi * tbins.ratio() * dbin.centres()[k]**3 * dbin.delta
         volArray.array += integrand
         tmpArray2.array += integrand
+
+      if self.opts.write_volumes:
+        fd.write("%d\t"%trial)
+        for m in iterutils.MultiIter(*mass_bins.centres()):
+          fd.write("%f\t"%tmpArray2[m])
+        fd.write('\n')
 
       tmpArray2.array *= tmpArray2.array
       volArray2.array += tmpArray2.array
@@ -793,6 +801,9 @@ def parse_command_line():
   # Control the injection population used to measure the search volume
   parser.add_option("--max-mtotal", type = "float", default = None, action = "store", help = "Specify the maximum total mass to use in the calculation.")
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
+
+  # Diagnosis options
+  parser.add_option("--write-volumes", default = False, action= "store_true",help = "Write the volume distrubtion for each mass bin to an ACSII file.")
 
   # These options control the volume uncertainty estimation.
   parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of bootstrap trials to use for computing the mean and variance of the search volume. A good number is 10000.")
