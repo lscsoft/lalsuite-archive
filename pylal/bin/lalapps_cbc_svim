@@ -76,40 +76,41 @@ class upper_limit(object):
       scipy.random.seed(seed=opts.bootstrap_seed)
 
     # open a connection to the input database
-    working_filename = dbtables.get_connection_filename(self.fname, tmp_path=opts.tmp_space, verbose = opts.verbose)
-    connection = sqlite3.connect(working_filename)
-    dbtables.DBTable_set_connection(connection)
-    xmldoc = dbtables.get_xml(connection)
+    self.working_filename = dbtables.get_connection_filename(self.fname, tmp_path=opts.tmp_space, verbose = opts.verbose)
+    self.connection = sqlite3.connect(self.working_filename)
+    dbtables.DBTable_set_connection(self.connection)
+    xmldoc = dbtables.get_xml(self.connection)
 
     # figure out which instrument sets to use
-    self.get_instruments(connection)      #find out which instruments were on at all during search
+    self.get_instruments()                #find out which instruments were on at all during search
     self.set_instruments_to_calculate()   #figure out which instrument sets the user wants us to use
 
     # take care of binning
-    self.get_total_mass_bins(connection)  #determine the total mass ranges and binning for this calculation
-    self.get_m1m2_mass_bins(connection)   #determine the component mass ranges and binning for this calculation
+    self.get_total_mass_bins()            #determine the total mass ranges and binning for this calculation
+    self.get_m1m2_mass_bins()             #determine the component mass ranges and binning for this calculation
     self.get_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
     self.get_bns_bbh_bins()               #set up BNS,BBH, and BHNS bins
     self.set_bins_to_calculate()          #figure out which mass bins the user wants us to use
 
     # get the rest of the goodies
-    self.get_livetime(connection)         #get the livetime for each set of instruments
-    self.get_segments(connection)         #get single ifo segments with vetoes applied
+    self.get_livetime()                   #get the livetime for each set of instruments
+    self.get_segments()                   #get single ifo segments with vetoes applied
     self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
-    self.get_far_thresholds(connection)   #determine FAR to use for computing search volume
-    self.get_gps_times_duration(connection)
+    self.get_far_thresholds()             #determine FAR to use for computing search volume
+    self.get_gps_times_duration()
     self.get_distance_bins()    #determine the distance bins to use for integration
 
-    # close db connection
-    connection.commit()
-    dbtables.discard_connection_filename(self.fname, working_filename, verbose = opts.verbose)
+  def __del__(self):
+    # clean up after yourself
+    self.connection.commit()
+    dbtables.discard_connection_filename(self.fname, self.working_filename, verbose = self.opts.verbose)
     dbtables.DBTable_set_connection(None)
 
 
-  def get_instruments(self, connection):
+  def get_instruments(self):
     '''Retrieve the sets of instruments which were on during this search.'''
     # FIXME bad to hardcode search_coinc_type
-    self.sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
+    self.sngl_sngl_coinc_def_id, = self.connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
     instruments_query = """
     SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?;
     """
@@ -119,7 +120,7 @@ class upper_limit(object):
       print >>sys.stdout,"\t" + instruments_query.replace('?',self.sngl_sngl_coinc_def_id)
 
     self.instruments = []
-    for instruments in connection.cursor().execute(instruments_query, (self.sngl_sngl_coinc_def_id,) ):
+    for instruments in self.connection.cursor().execute(instruments_query, (self.sngl_sngl_coinc_def_id,) ):
       inst =  frozenset(lsctables.instrument_set_from_ifos(instruments[0]))
       self.instruments.append(inst)
       if self.opts.verbose: print >>sys.stdout,"\t%s" % instruments[0]
@@ -127,7 +128,7 @@ class upper_limit(object):
     return self.instruments
 
 
-  def get_livetime(self,connection):
+  def get_livetime(self):
     livetime_query = """
     SELECT instruments,duration
     FROM experiment_summary
@@ -139,7 +140,7 @@ class upper_limit(object):
       print >>sys.stdout,"\t" + livetime_query
 
     self.livetime = dict( (inst,0) for inst in self.instruments )
-    for instruments,livetime in connection.cursor().execute(livetime_query):
+    for instruments,livetime in self.connection.cursor().execute(livetime_query):
       inst =  frozenset(lsctables.instrument_set_from_ifos(instruments))
       self.livetime[inst] = livetime
       if self.opts.verbose:
@@ -148,10 +149,10 @@ class upper_limit(object):
     return self.livetime
 
 
-  def get_segments(self, connection):
+  def get_segments(self):
     '''Retrieve raw single IFO segments from the database and apply vetoes.'''
     if self.opts.verbose: print >>sys.stdout,"\nQuerying database for single IFO zero lag segments..."
-    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
+    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(self.connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
 
     if self.opts.verbose:
       for ifo in self.segments:
@@ -164,7 +165,7 @@ class upper_limit(object):
     else:
       #FIXME super hack to work around missing NS column in veto definer
       try:
-        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
+        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
       except AttributeError:
         # will get an AttributeError if using newer format veto segment file because
         # the new format does not include _ns; if so, remove the _ns columns from the
@@ -179,7 +180,7 @@ class upper_limit(object):
           self.end_time = segment[1].seconds
         lsctables.Segment.get = get_segment
         lsctables.Segment.set = set_segment
-        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
+        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
 
     self.segments -= veto_segments
 
@@ -218,16 +219,16 @@ class upper_limit(object):
     return self.dbins
 
 
-  def get_total_mass_bins(self, connection):
+  def get_total_mass_bins(self):
     '''Find the total mass range for the search and generate one dimensional mass bins for this range.'''
     if self.opts.verbose: print >>sys.stdout,"\nFinding the range of injected total masses..."
 
     #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
-    self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+    self.mintotal = float(self.connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
     if self.opts.max_mtotal:
       self.maxtotal = self.opts.max_mtotal
     else:
-      self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+      self.maxtotal = float(self.connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
 
     if self.opts.verbose:
        print >>sys.stdout,"\tminimum total: %g solar masses" % self.mintotal
@@ -238,14 +239,14 @@ class upper_limit(object):
     return self.total_mass_bins
 
 
-  def get_m1m2_mass_bins(self, connection):
+  def get_m1m2_mass_bins(self):
     '''Find the component mass range for the search and generate two dimensional mass bins for this range.'''
     if self.opts.verbose: print >>sys.stdout,"\nFinding the range of injected component masses..."
 
-    minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-    minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-    maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-    maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+    minmass1 = float(self.connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+    minmass2 = float(self.connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+    maxmass1 = float(self.connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+    maxmass2 = float(self.connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
 
     self.minmass = min(minmass1,minmass2)
     self.maxmass = max(maxmass1,maxmass2)
@@ -295,7 +296,7 @@ class upper_limit(object):
     if opts.bin_by_bns_bbh: self.mass_bins["BNS_BBH"] = self.bns_bbh_bins
     return self.mass_bins
 
-  def get_far_thresholds(self, connection):
+  def get_far_thresholds(self):
     """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
     be the FAR of the most rare zero-lag coinc)."""
     if self.opts.verbose: print >>sys.stdout, "\nGetting FAR thresholds for the loudest event..."
@@ -320,7 +321,7 @@ class upper_limit(object):
       """
       if self.opts.verbose: print >>sys.stdout,"\t"+far_threshold_query
 
-      for inst, far in connection.cursor().execute(far_threshold_query):
+      for inst, far in self.connection.cursor().execute(far_threshold_query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
         self.far[inst] = far # handle FAR = 0 case specially downstream
 
@@ -331,9 +332,9 @@ class upper_limit(object):
     return self.far
 
 
-  def get_gps_times_duration(self, connection):
-    self.start_time = int( connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
-    self.end_time = int( connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
+  def get_gps_times_duration(self):
+    self.start_time = int( self.connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
+    self.end_time = int( self.connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
     return True
 
 
@@ -467,19 +468,14 @@ class upper_limit(object):
     found = []
     missed = []
 
-    # Open a fresh connection to the database
-    working_filename = dbtables.get_connection_filename(self.fname, tmp_path = self.opts.tmp_space, verbose = self.opts.verbose)
-    connection = sqlite3.connect(working_filename)
-
-
     def injection_was_made(geocent_end_time, geocent_end_time_ns):
         """
         Returns True if injection end time lies within the instruments' coincident segments.
         """
         return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in self.zero_lag_segments[instruments]
 
-    connection.create_function("injection_was_made", 2, injection_was_made)
-    make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
+    self.connection.create_function("injection_was_made", 2, injection_was_made)
+    make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(self.connection), lsctables.SimInspiralTable.tableName).row_from_cols
 
     injection_finding_query = """
        SELECT sim_inspiral.*,
@@ -499,7 +495,7 @@ class upper_limit(object):
        injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
 	 """
 
-    for values in connection.cursor().execute(injection_finding_query,(FAR,)):
+    for values in self.connection.cursor().execute(injection_finding_query,(FAR,)):
       sim = make_sim_inspiral(values)
 
       if self.filter_injection(sim): continue
@@ -508,11 +504,6 @@ class upper_limit(object):
         found.append(sim)
       else:
         missed.append(sim)
-
-    # close connection to database
-    connection.commit()
-    dbtables.discard_connection_filename(self.fname, working_filename, verbose = self.opts.verbose)
-    dbtables.DBTable_set_connection(None)
 
     return found, missed
 
