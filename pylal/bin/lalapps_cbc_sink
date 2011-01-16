@@ -250,7 +250,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       InspiralUtilsOpts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg )
 
       # Make a table summarizing the results
-      summary_file = open("%s%s-%s_%s_range_summary-%d-%d.%s"%(opts.output_path,opts.ifo_times,opts.user_tag,bin_type.lower(),opts.gps_start_time,opts.gps_end_time-opts.gps_start_time,+opts.output_format),'w')
+      summary_file = open("%s%s-%s_%s_range_summary-%d-%d.%s"%(opts.output_path,opts.ifo_times,opts.user_tag,bin_type.lower(),opts.gps_start_time,opts.gps_end_time-opts.gps_start_time,opts.output_format),'w')
       summary_doc = ligolw.Document()
       summary_doc.appendChild(ligolw.LIGO_LW())
       ul_table = lsctables.New(UpperLimitTable)
