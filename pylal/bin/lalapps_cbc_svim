@@ -73,6 +73,23 @@ def get_on_instruments(connection):
   return instruments
 
 
+def get_injected_mass_ranges(connection):
+  '''
+  Find the component and total mass ranges for the search.
+  '''
+  mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+  maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+  minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+  minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+  maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+  maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+
+  minmass = min(minmass1,minmass2)
+  maxmass = max(maxmass1,maxmass2)
+
+  return (minmass,maxmass,mintotal,maxtotal)
+
+
 class upper_limit(object):
   """
   The upper_limit class organizes the calculation of the sensitive search volume
@@ -98,15 +115,18 @@ class upper_limit(object):
     dbtables.DBTable_set_connection(self.connection)
     xmldoc = dbtables.get_xml(self.connection)
 
-    # figure out which instrument sets to use
+    # read in goodies from DB
     self.instruments = get_on_instruments(self.connection)  #find out which instruments were on during search
-    self.set_instruments_to_calculate()   #figure out which instrument sets the user wants us to use
+    (self.minmass,
+     self.maxmass,
+     self.mintotal,
+     self.maxtotal) =  get_injected_mass_ranges(self.connection) #find the range of injection parameters
 
-    # take care of binning
-    self.get_total_mass_bins()            #determine the total mass ranges and binning for this calculation
-    self.get_m1m2_mass_bins()             #determine the component mass ranges and binning for this calculation
-    self.get_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
-    self.get_bns_bbh_bins()               #set up BNS,BBH, and BHNS bins
+    self.set_instruments_to_calculate()   #figure out which instrument sets the user wants us to use
+    self.set_total_mass_bins()            #determine the total mass ranges and binning for this calculation
+    self.set_m1m2_mass_bins()             #determine the component mass ranges and binning for this calculation
+    self.set_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
+    self.set_bns_bbh_bins()               #set up BNS,BBH, and BHNS bins
     self.set_bins_to_calculate()          #figure out which mass bins the user wants us to use
 
     # get the rest of the goodies
@@ -215,42 +235,25 @@ class upper_limit(object):
     return self.dbins
 
 
-  def get_total_mass_bins(self):
-    '''Find the total mass range for the search and generate one dimensional mass bins for this range.'''
-    if self.opts.verbose: print >>sys.stdout,"\nFinding the range of injected total masses..."
-
-    #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
-    self.mintotal = float(self.connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-    if self.opts.max_mtotal:
+  def set_total_mass_bins(self):
+    '''
+    Set the total mass bins to use based on what mass ranges were injected.
+    '''
+    if self.opts.max_mtotal is not None:
       self.maxtotal = self.opts.max_mtotal
-    else:
-      self.maxtotal = float(self.connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
 
-    if self.opts.verbose:
-       print >>sys.stdout,"\tminimum total: %g solar masses" % self.mintotal
-       print >>sys.stdout,"\tmaximum total: %g solar masses" % self.maxtotal
+    if self.opts.min_mtotal is not None:
+      self.mintotal = self.opts.min_mtotal
 
     self.total_mass_bins = rate.NDBins((rate.LinearBins(self.mintotal,self.maxtotal,self.opts.mass_bins),))
 
     return self.total_mass_bins
 
 
-  def get_m1m2_mass_bins(self):
-    '''Find the component mass range for the search and generate two dimensional mass bins for this range.'''
-    if self.opts.verbose: print >>sys.stdout,"\nFinding the range of injected component masses..."
-
-    minmass1 = float(self.connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-    minmass2 = float(self.connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-    maxmass1 = float(self.connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-    maxmass2 = float(self.connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
-
-    self.minmass = min(minmass1,minmass2)
-    self.maxmass = max(maxmass1,maxmass2)
-
-    if self.opts.verbose:
-       print >>sys.stdout,"\tminimum component: %g solar masses" % self.minmass
-       print >>sys.stdout,"\tmaximum component: %g solar masses" % self.maxmass
-
+  def set_m1m2_mass_bins(self):
+    '''
+    Set the component mass bins to use based what mass ranges were injected.
+    '''
     mass1Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
     maxm2 = numpy.min(mass1Bin.upper()[mass1Bin.upper() > self.maxtotal/2]) # just to make plots prettier
     m2bins = int(self.opts.mass_bins/2) + numpy.mod(self.opts.mass_bins,2) # ensures equal bin width in m2 as in m1
@@ -261,25 +264,21 @@ class upper_limit(object):
     return self.m1m2_mass_bins
 
 
-  def get_chirp_mass_bins(self):
+  def set_chirp_mass_bins(self):
     min_mchirp = numpy.min(chirp_mass(self.minmass,self.mintotal-self.minmass))
     max_mchirp = numpy.max(chirp_mass(self.maxtotal/2,self.maxtotal/2))
-
-    if self.opts.verbose:
-       print >>sys.stdout,"\tminimum chirp mass: %g solar masses" % min_mchirp
-       print >>sys.stdout,"\tmaximum chirp mass: %g solar masses" % max_mchirp
-
     self.chirp_mass_bins = rate.NDBins((rate.LinearBins(min_mchirp,max_mchirp,self.opts.mass_bins),))
 
     return self.chirp_mass_bins
 
 
-  def get_bns_bbh_bins(self):
-    """Set up bins for BNS/BBH/NSBH systems:
-     BNS 1.35 pm 0.04 msun
-     BBH 5.0 pm 1.0 msun
-     NSBH 1.35 pm 0.04 - 5.0 pm 1.0 msun
-    """
+  def set_bns_bbh_bins(self):
+    '''
+    Set up bins for BNS/BBH/NSBH systems:
+      BNS 1.35 pm 0.04 msun
+      BBH 5.0 pm 1.0 msun
+      NSBH 1.35 pm 0.04 - 5.0 pm 1.0 msun
+    '''
     binEdges = [self.minmass,1.31,1.39,4.00,6.00,self.maxmass]
     self.bns_bbh_bins = rate.NDBins((rate.IrregularBins(binEdges),rate.IrregularBins(binEdges)))
     return self.bns_bbh_bins
@@ -795,7 +794,8 @@ def parse_command_line():
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the search volume
-  parser.add_option("--max-mtotal", type = "float", default = None, action = "store", help = "Specify the maximum total mass to use in the calculation.")
+  parser.add_option("--max-mtotal", type = "float", default = None, action = "store", help = "Specify the maximum injected total mass to use in the calculation.")
+  parser.add_option("--min-mtotal", type = "float", default = None, action = "store", help = "Specify the minimum injected total mass to use in the calculation.")
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
 
   # Diagnosis options
