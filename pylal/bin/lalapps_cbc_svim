@@ -57,6 +57,10 @@ def chirp_mass(m1,m2):
   return mu**(3./5) *mtotal**(2./5)
 
 
+#
+# Functions for reading from results DB
+#
+
 def get_on_instruments(connection):
   '''
   Retrieve the sets of instruments which were on during the search.
@@ -71,6 +75,24 @@ def get_on_instruments(connection):
     instruments.append(inst)
 
   return instruments
+
+
+def get_livetime(connection):
+  '''
+  Query the database for the livetime for the input instruments set.
+  '''
+  livetime_query = """
+  SELECT instruments,duration
+  FROM experiment_summary
+  JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
+  WHERE experiment_summary.datatype == "exclude_play";
+  """
+  livetime = {}
+  for inst,lt in connection.cursor().execute(livetime_query):
+    inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
+    livetime[inst] = lt
+
+  return livetime
 
 
 def get_injected_mass_ranges(connection):
@@ -117,12 +139,13 @@ class upper_limit(object):
 
     # read in goodies from DB
     self.instruments = get_on_instruments(self.connection)  #find out which instruments were on during search
+    self.set_instruments()                                  #figure out which instrument sets the user wants us to use
+    self.livetime = get_livetime(self.connection)           #get the livetime for the chosen set of instruments
     (self.minmass,
      self.maxmass,
      self.mintotal,
      self.maxtotal) =  get_injected_mass_ranges(self.connection) #find the range of injection parameters
 
-    self.set_instruments_to_calculate()   #figure out which instrument sets the user wants us to use
     self.set_total_mass_bins()            #determine the total mass ranges and binning for this calculation
     self.set_m1m2_mass_bins()             #determine the component mass ranges and binning for this calculation
     self.set_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
@@ -130,7 +153,6 @@ class upper_limit(object):
     self.set_bins_to_calculate()          #figure out which mass bins the user wants us to use
 
     # get the rest of the goodies
-    self.get_livetime()                   #get the livetime for each set of instruments
     self.get_segments()                   #get single ifo segments with vetoes applied
     self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
     self.get_far_thresholds()             #determine FAR to use for computing search volume
@@ -142,27 +164,6 @@ class upper_limit(object):
     self.connection.commit()
     dbtables.discard_connection_filename(self.fname, self.working_filename, verbose = self.opts.verbose)
     dbtables.DBTable_set_connection(None)
-
-
-  def get_livetime(self):
-    livetime_query = """
-    SELECT instruments,duration
-    FROM experiment_summary
-    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-    WHERE experiment_summary.datatype == "exclude_play";
-    """
-    if self.opts.verbose:
-      print >>sys.stdout,"\nQuerying database for livetimes..."
-      print >>sys.stdout,"\t" + livetime_query
-
-    self.livetime = dict( (inst,0) for inst in self.instruments )
-    for instruments,livetime in self.connection.cursor().execute(livetime_query):
-      inst =  frozenset(lsctables.instrument_set_from_ifos(instruments))
-      self.livetime[inst] = livetime
-      if self.opts.verbose:
-        print >>sys.stdout,"\t%s were on for %g seconds (excludes playground)" % (instruments,livetime)
-
-    return self.livetime
 
 
   def get_segments(self):
@@ -237,7 +238,7 @@ class upper_limit(object):
 
   def set_total_mass_bins(self):
     '''
-    Set the total mass bins to use based on what mass ranges were injected.
+    Set the total mass bins to use based on what mass ranges were injected and specified user options.
     '''
     if self.opts.max_mtotal is not None:
       self.maxtotal = self.opts.max_mtotal
@@ -333,12 +334,12 @@ class upper_limit(object):
     return True
 
 
-  def set_instruments_to_calculate(self):
-    if not opts.instruments: return self.instruments
-    if opts.instruments in self.instruments:
+  def set_instruments(self):
+    if self.opts.instruments is None: return self.instruments
+    if self.opts.instruments in self.instruments:
       self.instruments = [opts.instruments]
     else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(opts.instruments))
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(self.opts.instruments))
       self.instruments = []
 
     return self.instruments
