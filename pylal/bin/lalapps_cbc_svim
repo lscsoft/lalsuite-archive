@@ -56,6 +56,23 @@ def chirp_mass(m1,m2):
   mtotal = m1+m2
   return mu**(3./5) *mtotal**(2./5)
 
+
+def get_on_instruments(connection):
+  '''
+  Retrieve the sets of instruments which were on during the search.
+  '''
+  # FIXME bad to hardcode search_coinc_type
+  sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
+  instruments_query = """ SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?; """
+
+  instruments = []
+  for inst in connection.cursor().execute(instruments_query, (sngl_sngl_coinc_def_id,) ):
+    inst =  frozenset(lsctables.instrument_set_from_ifos(inst[0]))
+    instruments.append(inst)
+
+  return instruments
+
+
 class upper_limit(object):
   """
   The upper_limit class organizes the calculation of the sensitive search volume
@@ -82,7 +99,7 @@ class upper_limit(object):
     xmldoc = dbtables.get_xml(self.connection)
 
     # figure out which instrument sets to use
-    self.get_instruments()                #find out which instruments were on at all during search
+    self.instruments = get_on_instruments(self.connection)  #find out which instruments were on during search
     self.set_instruments_to_calculate()   #figure out which instrument sets the user wants us to use
 
     # take care of binning
@@ -105,27 +122,6 @@ class upper_limit(object):
     self.connection.commit()
     dbtables.discard_connection_filename(self.fname, self.working_filename, verbose = self.opts.verbose)
     dbtables.DBTable_set_connection(None)
-
-
-  def get_instruments(self):
-    '''Retrieve the sets of instruments which were on during this search.'''
-    # FIXME bad to hardcode search_coinc_type
-    self.sngl_sngl_coinc_def_id, = self.connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
-    instruments_query = """
-    SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?;
-    """
-
-    if self.opts.verbose:
-      print >>sys.stdout,"\nQuerying database for on instruments..."
-      print >>sys.stdout,"\t" + instruments_query.replace('?',self.sngl_sngl_coinc_def_id)
-
-    self.instruments = []
-    for instruments in self.connection.cursor().execute(instruments_query, (self.sngl_sngl_coinc_def_id,) ):
-      inst =  frozenset(lsctables.instrument_set_from_ifos(instruments[0]))
-      self.instruments.append(inst)
-      if self.opts.verbose: print >>sys.stdout,"\t%s" % instruments[0]
-
-    return self.instruments
 
 
   def get_livetime(self):
