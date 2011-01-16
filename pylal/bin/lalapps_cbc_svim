@@ -305,7 +305,7 @@ class upper_limit(object):
 
     if self.opts.use_expected_loudest_event:
       for inst in self.instruments:
-        self.far[inst] = 1./self.livetime[inst]
+        self.far[inst] = float(constants.LAL_YRJUL_SI)/self.livetime[inst] # LT in seconds, FAR in yr^{-1}
     elif self.opts.far:
       for inst in self.instruments:
         self.far[inst] = self.opts.far
@@ -568,7 +568,7 @@ class upper_limit(object):
     # set up an empty ratio array for each distance bin
     rArrays = [rate.BinnedRatios(mass_bins) for k in range(self.opts.dist_bins)]
     if self.opts.write_volumes:
-      fd = open("%s_VOLUME_BY_%s.txt"%(''.join(sorted(list(instruments))),bin_type),'w')
+      fd = open("%s_SEARCH_VOLUME_%s_VOL_DISTRIBUTION_BY_%s-%d-%d.txt"%(''.join(sorted(list(instruments))),self.opts.output_name_tag, bin_type, self.start_time,self.end_time-self.start_time),'w')
 
     # an array to hold to the found/missed statistics for the injections
     fm_array = rate.BinnedRatios(mass_bins)
