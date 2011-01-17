@@ -665,7 +665,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    #
    # write out combined statistics
    #
-   summary_file = open( '%s%s-%s_%s_combined_upper_limit.%s'%(opts.output_path,combined_ifos,opts.user_tag,bin_type.lower(),opts.output_format),'w')
+   summary_file = open( '%s%s-%s_%s_combined_upper_limit-%d-%d.%s'%(opts.output_path,combined_ifos,opts.user_tag,bin_type.lower(),opts.gps_start_time, opts.gps_end_time-opts.gps_start_time, opts.output_format),'w')
    # FIXME put in the correct spanned GPS times here.
 
    summary_doc = ligolw.Document()
