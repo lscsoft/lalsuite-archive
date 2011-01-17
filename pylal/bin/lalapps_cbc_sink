@@ -268,8 +268,9 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
 
         row = ul_table.RowType()
 
-        if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+        if bin_type in ["BNS_BBH"]:
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+        if bin_type in ["Mass1_Mass2","BNS_BBH"]:
           row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
           columnList = ['mass1','mass2']
@@ -324,11 +325,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       # posterior plots
       #
       for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-        # we only plot a few bins to avoid clutter
-        if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+        if bin_type in ["BNS_BBH"]:
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-        else:
-          if j > 6: continue
         if found[mbin] > 0:
           pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
       pylab.title(entry.observatory+ " Cumulative Posterior Rate Distributions",fontsize=14)
@@ -536,11 +534,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    # combined posterior plot
    #
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-     # we only plot a few bins to avoid clutter
-     if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+     if bin_type in ["BNS_BBH"]:
        if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-     else:
-       if j > 6: continue
      if combined_upper_limit[mbin] < float('inf'):
        pylab.semilogx(mu,combined_post[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
    pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=14)
@@ -557,11 +552,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    # combined posterior plot
    #
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-     # we only plot a few bins to avoid clutter
-     if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+     if bin_type in ["BNS_BBH"]:
        if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-     else:
-       if j > 6: continue
      if combined_upper_limit[mbin] < float('inf'):
        pylab.semilogx(mu,combined_post[bins[mbin]],label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
    pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=14)
@@ -678,7 +670,9 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    #
    # write out combined statistics
    #
-   summary_file = open(opts.output_path + combined_ifos + '-' + opts.user_tag +'_'+ bin_type.lower()+'_combined_upper_limit.'+opts.output_format,'w')
+   summary_file = open( '%s%s-%s_%s_combined_upper_limit.%s'%(opts.output_path,combined_ifos,opts.user_tag,bin_type.lower(),opts.output_format))
+   # FIXME put in the correct spanned GPS times here.
+
    summary_doc = ligolw.Document()
    summary_doc.appendChild(ligolw.LIGO_LW())
    ul_table = lsctables.New(UpperLimitTable)
@@ -688,8 +682,9 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
 
       row = ul_table.RowType()
 
-      if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+      if bin_type == "BNS_BBH":
         if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+      if bin_type in ["Mass1_Mass2","BNS_BBH"]:
         row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
         row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
         columnList = ['mass1','mass2']
