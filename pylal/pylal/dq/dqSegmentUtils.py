@@ -4,7 +4,7 @@
 # Preamble
 # ==============================================================================
 
-import os,sys,shlex,subprocess,operator
+import os,sys,shlex,subprocess,operator,tempfile
 from glue.segments import segment, segmentlist
 from glue.ligolw import lsctables,table,utils
 from glue.segmentdb import query_engine,segmentdb_utils
@@ -330,8 +330,7 @@ def dump_flags(start=None,end=None,ifo=None,segment_url=None,\
   tmp.seek(0)
   xmldoc,digest = utils.load_fileobj(tmp)
   tmp.close()
-  seg_def_table = table.get_table(xmldoc,\
-                                  lsctables.SegmentDefinerTable.tableName)
+  seg_def_table = table.get_table(xmldoc,lsctables.SegmentDefTable.tableName)
 
   flags = []
   for line in seg_def_table:
