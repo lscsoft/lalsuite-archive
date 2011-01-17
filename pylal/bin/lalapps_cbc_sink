@@ -496,11 +496,13 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    # now write out the special combined case
    ###############################################################################
 
+   if len(files) == 1: continue
+
    # Initialize inspiral utility plotting helper
    __prog__ = "lalapps_cbc_combined_sink_by_"+bin_type.lower()
    opts.ifo_times = combined_ifos
-   opts.gps_start_time = numpy.min([entry.segment[0] for entry in opts.input_cache])
-   opts.gps_end_time = numpy.max([entry.segment[1] for entry in opts.input_cache])
+   opts.gps_start_time = numpy.min([entry.segment[0] for entry in files])
+   opts.gps_end_time = numpy.max([entry.segment[1] for entry in files])
    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
    fnameList = []; tagList = []
 
