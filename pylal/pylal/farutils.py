@@ -26,6 +26,7 @@ from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import SnglBurstUtils
 from pylal import llwapp
 from pylal import db_thinca_rings
@@ -59,6 +60,8 @@ def background_livetime_nonring_by_slide(connection, seglists, veto_segments=Non
 		background_livetime.setdefault(key, {})
 		for id, time_slide in background_time_slides.items():
 			seglists.offsets.update(time_slide)
+			if veto_segments is not None:
+				seglists -= veto_segments
 			segs=seglists.intersection(list(on_inst))-seglists.union(list(off_inst))
 			if coinc_segments is not None:
 				segs &= coinc_segments
@@ -111,11 +114,12 @@ def playground_nonplayground_livetime(seglists, playground_segs=None, verbose=Fa
 
 	return playground_livetime, nonplayground_livetime
 
-def get_veto_segments(connection, program_name, veto_segments_name=None):
+def get_veto_segments(connection, program_name, xmldoc=None, veto_segments_name=None):
 	veto_segments = segments.segmentlistdict()
 	#FIXME only handles thinca case
 	if not veto_segments_name: return veto_segments
 	if program_name == "thinca": veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+	if program_name == "rinca": veto_segments = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 	return veto_segments
 
 
