@@ -334,8 +334,23 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
       pylab.ylim([1e-2, 1])
       pylab.grid()
-      pylab.xlim([1e-6, 1e-1]) #FIXME hardcoded rate limits are bad for advanced ligo
+      #pylab.xlim([1e-6, 1e-1]) #FIXME hardcoded rate limits are bad for advanced ligo
       savefig_pylal('posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+      pylab.clf()
+
+      for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
+        if bin_type in ["BNS_BBH"]:
+          if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+        if found[mbin] > 0:
+          pylab.semilogx(mu,post_werrs[bins[mbin]],label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
+      pylab.title(entry.observatory+ " Posterior Rate Densities",fontsize=14)
+      pylab.legend(loc='upper left')
+      pylab.ylabel("Probability Density",fontsize=14)
+      pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
+      #pylab.ylim([1e-2, 1])
+      pylab.grid()
+      #pylab.xlim([1e-6, 1e-1]) #FIXME hardcoded rate limits are bad for advanced ligo
+      savefig_pylal('posterior_density', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
       pylab.clf()
 
       if len(bins) == 1:
@@ -545,7 +560,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
    pylab.ylim([1e-2, 1])
    pylab.grid()
-   pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
+   #pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
    savefig_pylal('combined_posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
 
@@ -562,7 +577,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    pylab.ylabel("Probability (unnormalized)",fontsize=14)
    pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
    pylab.grid()
-   pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
+   #pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
    savefig_pylal('combined_posterior_density', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
 
