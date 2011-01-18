@@ -128,8 +128,8 @@ class upper_limit(object):
     if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
 
     # seed the RNG to make output predictably random
-    if opts.bootstrap_seed is not None:
-      scipy.random.seed(seed=opts.bootstrap_seed)
+    if opts.seed is not None:
+      scipy.random.seed(seed=opts.seed)
 
     # open a connection to the input database
     self.working_filename = dbtables.get_connection_filename(self.fname, tmp_path=opts.tmp_space, verbose = opts.verbose)
@@ -559,7 +559,7 @@ class upper_limit(object):
     wnfunc = self.gw
     if wnfunc: wnfunc /= wnfunc[(wnfunc.shape[0]-1) / 2, (wnfunc.shape[1]-1) / 2]
 
-    if bootnum is None: bootnum = self.opts.bootstrap_iterations
+    if bootnum is None: bootnum = self.opts.iterations
 
     # set up an empty ratio array for each distance bin
     rArrays = [rate.BinnedRatios(mass_bins) for k in range(self.opts.dist_bins)]
@@ -601,7 +601,8 @@ class upper_limit(object):
 
       else: # after the first time, resample the found/missed populations (bootstrapping)
         # resample found/missed
-        new_missed, new_found = self._scramble_pop(missed, found)
+        if self.opts.bootstrap:
+          new_missed, new_found = self._scramble_pop(missed, found)
 
         if verbose:
           print >>sys.stdout, "\tbootstrapping on injection population, trial %d: found = %d, missed = %d" % (trial, len(new_found), len(new_missed))
@@ -803,10 +804,11 @@ def parse_command_line():
   parser.add_option("--write-volumes", default = False, action= "store_true",help = "Write the volume distrubtion for each mass bin to an ACSII file.")
 
   # These options control the volume uncertainty estimation.
-  parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of bootstrap trials to use for computing the mean and variance of the search volume. A good number is 10000.")
-  parser.add_option("--bootstrap-seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the bootstrap resampling. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
-  parser.add_option("--dist-err", default = 0.197, metavar = "float", type = "float", help = "When bootstrapping, simulate a random calibration error on distance of the specified magnitude.")
-  parser.add_option("--dist-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
+  parser.add_option("--iterations", default = 1000, metavar = "integer", type = "int", help = "Number of trials to use for computing the mean and variance of the search volume. A good number is 10000.")
+  parser.add_option("--bootstrap", default = False, action = "store_true", help = "Turn on bootstrapping (injection population resampling). Override default nubmer of trials with --iterations.")
+  parser.add_option("--dist-err", default = 0.197, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
+  parser.add_option("--dist-sys-err", default = 0.074, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst)")
+  parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
   parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
