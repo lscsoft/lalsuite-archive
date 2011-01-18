@@ -246,7 +246,15 @@ class upper_limit(object):
     if self.opts.min_mtotal is not None:
       self.mintotal = self.opts.min_mtotal
 
-    self.total_mass_bins = rate.NDBins((rate.LinearBins(self.mintotal,self.maxtotal,self.opts.mass_bins),))
+    # construct m1 bins
+    if self.opts.total_mass_bins is not None: # use user-specified bins if given
+      binEdges = [float(k) for k in self.opts.total_mass_bins.split(',')]
+      self.mintotal = max(numpy.min(binEdges),self.mintotal)
+      self.maxtotal = min(numpy.max(binEdges),self.maxtotal)
+    else: # otherwise, make bins based on what's in DB
+      binEdges = numpy.linspace(self.mintotal,self.maxtotal,self.opts.mass_bins)
+
+    self.total_mass_bins = rate.NDBins((rate.IrregularBins(binEdges),))
 
     return self.total_mass_bins
 
@@ -255,20 +263,33 @@ class upper_limit(object):
     '''
     Set the component mass bins to use based what mass ranges were injected.
     '''
-    mass1Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
-    maxm2 = numpy.min(mass1Bin.upper()[mass1Bin.upper() > self.maxtotal/2]) # just to make plots prettier
-    m2bins = int(self.opts.mass_bins/2) + numpy.mod(self.opts.mass_bins,2) # ensures equal bin width in m2 as in m1
-    mass2Bin = rate.LinearBins(self.minmass,maxm2,m2bins)
+    # construct m1 bins
+    if self.opts.component_mass_bins is not None: # use user-specified bins if given
+      binEdges1 = [float(k) for k in self.opts.component_mass_bins.split(',')]
+      self.minmass = max(numpy.min(binEdges1),self.minmass)
+      self.maxmass = min(numpy.max(binEdges1),self.maxmass)
+    else: # otherwise, make bins based on what's in DB
+      binEdges1 = numpy.linspace(self.minmass,self.maxmass,self.opts.mass_bins)
 
-    self.m1m2_mass_bins = rate.NDBins( (mass1Bin,mass2Bin) )
+    # trim down the m2 space, asssume m1>=m2
+    binEdges2 = binEdges1[:]
+    while binEdges2[-2] > self.opts.max_mtotal/2:
+      binEdges2.pop()
+
+    self.m1m2_mass_bins = rate.NDBins((rate.IrregularBins(binEdges1),rate.IrregularBins(binEdges2)))
 
     return self.m1m2_mass_bins
 
 
   def set_chirp_mass_bins(self):
-    min_mchirp = numpy.min(chirp_mass(self.minmass,self.mintotal-self.minmass))
-    max_mchirp = numpy.max(chirp_mass(self.maxtotal/2,self.maxtotal/2))
-    self.chirp_mass_bins = rate.NDBins((rate.LinearBins(min_mchirp,max_mchirp,self.opts.mass_bins),))
+    if self.opts.chirp_mass_bins is not None: # use user-specified bins if given
+      binEdges = [float(k) for k in self.opts.chirp_mass_bins.split(',')]
+    else: # otherwise, make bins based on what we know about total mass ranges
+      minchirp = numpy.min(chirp_mass(self.minmass,self.mintotal-self.minmass))
+      maxchirp = numpy.max(chirp_mass(self.maxtotal/2,self.maxtotal/2))
+      binEdges = numpy.linspace(minchirp,maxchirp,self.opts.mass_bins)
+
+    self.chirp_mass_bins = rate.NDBins((rate.IrregularBins(binEdges),))
 
     return self.chirp_mass_bins
 
@@ -795,6 +816,11 @@ def parse_command_line():
   parser.add_option("--bin-by-bns-bbh", default = False, action = "store_true", help = "Compute the search volume for BNS/BBH systems.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
+  # Fine tune the mass binning.
+  parser.add_option("--component-mass-bins", default = None, metavar = "\'m0,m1,...,mk\'", help = "Specify the boundaries of the bins used for component masses. Input should be a comma separated list of masses. Injections outside the range of the bins will be thrown out when computing the search volume as a function of component masses. This option overrides the --mass-bins option.")
+  parser.add_option("--total-mass-bins", default = None, metavar = "\'m0,m1,...,mk''", help = "Specify the boundaries of the bins used for total masses. Input should be a comma separated list of masses. Injections outside the range of the bins will be thrown out when computing the search volume as a function of total mass. This option overrides the --mass-bins option.")
+  parser.add_option("--chirp-mass-bins", default = None, metavar = "\'m0,m1,...,mk''", help = "Specify the boundaries of the bins used for chirp masses. Input should be a comma separated list of masses. Injections outside the range of the bins will be thrown out when computing the search volume as a function of chirp mass. This option overrides the --mass-bins option.")
+
   # Control the injection population used to measure the search volume
   parser.add_option("--max-mtotal", type = "float", default = None, action = "store", help = "Specify the maximum injected total mass to use in the calculation.")
   parser.add_option("--min-mtotal", type = "float", default = None, action = "store", help = "Specify the minimum injected total mass to use in the calculation.")
@@ -837,8 +863,15 @@ def parse_command_line():
     print >>sys.stderr, "must specify exactly one database file"
     sys.exit(1)
 
-  if not opts.bin_by_bns_bbh and not opts.bin_by_chirp_mass and not opts.bin_by_m1m2:
-    opts.bin_by_total_mass = True # choose a default binning method
+  if opts.chirp_mass_bins is not None:
+    opts.bin_by_chirp_mass = True
+  if opts.component_mass_bins is not None:
+    opts.bin_by_m1m2 = True
+  if opts.total_mass_bins is not None:
+    opts.bin_by_total_mass = True
+
+  if not opts.bin_by_bns_bbh and not opts.bin_by_total_mass and not opts.bin_by_m1m2:
+    opts.bin_by_chirp_mass = True # choose a default binning method
 
   return opts, filenames[0]
 
