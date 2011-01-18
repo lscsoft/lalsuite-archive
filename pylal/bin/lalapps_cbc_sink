@@ -265,7 +265,11 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
 
         if bin_type == "BNS_BBH":
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-        if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+          row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+          row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
+          columnList = ['mass1','mass2']
+        if bin_type == "Mass1_Mass2":
+          if bins.upper()[0][bins[mbin][0]] <= bins.lower()[1][bins[mbin][1]]: continue
           row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
           columnList = ['mass1','mass2']
@@ -681,7 +685,11 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
 
       if bin_type in ["BNS_BBH"]:
         if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-      if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+        row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+        row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
+        columnList = ['mass1','mass2']
+      if bin_type == "Mass1_Mass2":
+        if bins.upper()[0][bins[mbin][0]] <= bins.lower()[1][bins[mbin][1]]: continue #these are 0 by design
         row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
         row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
         columnList = ['mass1','mass2']
