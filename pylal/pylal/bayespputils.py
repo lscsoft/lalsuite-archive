@@ -236,7 +236,7 @@ class Posterior(object):
         return inj.eta
 
     def _inj_longitude(inj):
-        if inj.longitude>pi_constant or inj.longitude<0.0:
+        if inj.longitude>2*pi_constant or inj.longitude<0.0:
             maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
             print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
             return maplong
