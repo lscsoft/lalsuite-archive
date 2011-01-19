@@ -186,7 +186,6 @@ def makeOutputPage(objs, params, outdir, confidencelevels):
             html_scatter_content+='<td><img src="%s" alt="%s-%s" /></td>'%(figpath,p1,p2)
         html_scatter_content+='</tr>'
     html_scatter_content+='</table>'
-    print html_scatter_content
     html_scatter.write(html_scatter_content)
     print 'Making errorbar plots'
     # Make an errorbar plot for each parameter against each injection parameter
@@ -218,7 +217,6 @@ def makeOutputPage(objs, params, outdir, confidencelevels):
             html_err_content+='<td><img src="%s" alt="%s-%s" /></td>'%(figpath,p1,p2)
         html_err_content+='</tr>'
     html_err_content+='</table>'
-    print html_err_content
     html_err.write(html_err_content)
 
     # Box and whiskers plot for each parameter pair
@@ -239,9 +237,14 @@ def makeOutputPage(objs, params, outdir, confidencelevels):
             posteriors=map(lambda o: o[p2].samples, objs)
             yinjval=map(lambda o: o._getinjpar(p2),objs)
             fig=plt.figure()
-            plt.boxplot(posteriors,positions=injval)
+            upper=max(injval)
+            lower=min(injval)
+            boxwidth=0.75*(upper-lower)/len(injval)
+            plt.boxplot(posteriors,positions=injval,widths=boxwidth )
+            plt.plot(injval,yinjval,'gx')
             plt.xlabel(p1)
             plt.ylabel(p2)
+            plt.xlim(lower-0.5*boxwidth,upper+0.5*boxwidth)
             figname=p1+'-'+p2+'.png'
             figpath=os.path.join(boxdir,figname)
             fig.savefig(figpath)
