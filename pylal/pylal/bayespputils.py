@@ -1520,7 +1520,16 @@ class PEOutputParser(object):
                     if output:
                         if nRead % nskip == 0:
                             for label in outputHeader:
-                                outfile.write(lineParams[header.index(label)])
+                                # Swap 1 <--> 2 in spin labels because
+                                # LI thinks m2 > m1, while convention
+                                # as of 18 Jan 2010 is m1 > m2
+                                if label[-1] == '1':
+                                    mylabel = label[0:-1] + '2'
+                                elif label[-1] == '2':
+                                    mylabel = label[0:-1] + '1'
+                                else:
+                                    mylabel = label[:]
+                                outfile.write(lineParams[header.index(mylabel)])
                                 outfile.write(" ")
                             outfile.write(str(i))
                             outfile.write("\n")
