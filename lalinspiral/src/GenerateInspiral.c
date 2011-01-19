@@ -108,6 +108,7 @@ None.
 #include <lal/GeneratePPNInspiral.h>
 #include <lal/SeqFactories.h>
 #include <lal/Units.h>
+#include <lal/GeneratePPNAmpCorConsistency.h>
 
 NRCSID( GENERATEINSPIRALC,
 "$Id$" );
@@ -184,6 +185,7 @@ LALGenerateInspiral(
     LALSDestroyVector(status->statusPtr, &(ppnParams->ppn) );
     CHECKSTATUSPTR(status);
   }
+  /* WDP: here we need the AmpCorPPNTest case to populate the PN coefficients + the phiTest */
   else
   {
     inspiralParams.approximant = approximant;
@@ -383,6 +385,10 @@ LALGetApproximantFromString(
   else if ( strstr(thisEvent, "AmpCorPPN" ) )
   {
     *approximant = AmpCorPPN;
+  }
+  else if ( strstr(thisEvent, "AmpCorPPNTest"))
+  {
+    *approximant = AmpCorPPNTest;
   }
   else if ( strstr(thisEvent, "GeneratePPN" ) )
   {
