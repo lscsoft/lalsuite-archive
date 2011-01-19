@@ -185,14 +185,8 @@ def cbcBayesPostProc(
             inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
 
         mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
-        if li_flag:
-            # In LALInference, the definition of m1 and m2 is reversed!
-            # This will eventually be fixed, but for now it is this way.
-            mass1_pos=bppu.OneDPosterior('m1',mass2_samps,injected_value=inj_mass2)
-            mass2_pos=bppu.OneDPosterior('m2',mass1_samps,injected_value=inj_mass1)
-        else:
-            mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
-            mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
+        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
+        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
@@ -550,10 +544,12 @@ def cbcBayesPostProc(
             chains=numpy.unique(pos["chain"].samples)
             chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
             chainDataRanges=[range(len(cd)) for cd in chainData]
+
             dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
             flattenedData=[ item for pair in dataPairs for item in pair ]
             maxLen=max([len(data) for data in flattenedData])
-            plt.plot(flattenedData,marker=',',linewidth=0.0,figure=myfig)
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
             
         injpar=pos[par_name].injval
 
