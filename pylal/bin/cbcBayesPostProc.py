@@ -215,6 +215,8 @@ def cbcBayesPostProc(
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
+    if 'cycle' in pos.names:
+        html_meta.p('Longest chain has '+str(int(numpy.max(pos['cycle'].samples)))+' cycles.')
     html_meta.p('Samples read from %s'%(data[0]))
 
     #Create a section for model selection results (if they exist)
