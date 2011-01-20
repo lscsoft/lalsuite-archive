@@ -217,7 +217,11 @@ def cbcBayesPostProc(
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
     if 'cycle' in pos.names:
         html_meta.p('Longest chain has '+str(int(numpy.max(pos['cycle'].samples)))+' cycles.')
-    html_meta.p('Samples read from %s'%(data[0]))
+    filenames='Samples read from %s'%(data[0])
+    if len(data) > 1:
+        for fname in data[1:]:
+            filenames+=', '+str(fname)
+    html_meta.p(filenames)
 
     #Create a section for model selection results (if they exist)
     if bayesfactornoise is not None:
