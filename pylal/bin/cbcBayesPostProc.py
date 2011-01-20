@@ -467,7 +467,7 @@ def cbcBayesPostProc(
     #Add section for 1D marginal PDFs and sample plots
     html_ompdf=html.add_section('1D marginal posterior PDFs')
     #Table matter
-    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
+    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
 
     onepdfdir=os.path.join(outdir,'1Dpdf')
     if not os.path.isdir(onepdfdir):
@@ -550,6 +550,7 @@ def cbcBayesPostProc(
             chains=numpy.unique(pos["chain"].samples)
             chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
             chainDataRanges=[range(len(cd)) for cd in chainData]
+            maxLen=max([len(cd) for cd in chainData])
             for rng, data in zip(chainDataRanges, chainData):
                 plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
             
@@ -561,7 +562,22 @@ def cbcBayesPostProc(
                 plt.plot([0,maxLen],[injpar,injpar],'r-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
-        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+        acffig=plt.figure(figsize=(4,3.5),dpi=200)
+        acffig.gca(yscale='log')
+        if not ("chain" in pos.names):
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            plt.acorr(pos_samps[:,0], figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker=None)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.acorr(data, figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker=None)
+
+        acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+
+        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
 
 
     html_ompdf_write+='</table>'
