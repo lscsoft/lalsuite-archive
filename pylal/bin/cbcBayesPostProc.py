@@ -404,29 +404,30 @@ def cbcBayesPostProc(
         greedyFile.close()
 
         #= Generate 2D kde plots =#
-        print 'Generating %s-%s plot'%(par1_name,par2_name)
+        if [par1_name,par2_name] in twoDplots or [par2_name,par1_name] in twoDplots:
+            print 'Generating %s-%s plot'%(par1_name,par2_name)
 
-        par1_pos=pos[par1_name].samples
-        par2_pos=pos[par2_name].samples
+            par1_pos=pos[par1_name].samples
+            par2_pos=pos[par2_name].samples
 
-        if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
-            continue
+            if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
+                continue
 
-        plot2DkdeParams={par1_name:50,par2_name:50}
-        myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
+            plot2DkdeParams={par1_name:50,par2_name:50}
+            myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
 
-        figname=par1_name+'-'+par2_name+'_2Dkernel.png'
-        twoDKdePath=os.path.join(margdir,figname)
+            figname=par1_name+'-'+par2_name+'_2Dkernel.png'
+            twoDKdePath=os.path.join(margdir,figname)
 
-        if row_count==0:
-            html_tcmp_write+='<tr>'
-        html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
-        row_count+=1
-        if row_count==3:
-            html_tcmp_write+='</tr>'
-            row_count=0
+            if row_count==0:
+                html_tcmp_write+='<tr>'
+            html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
+            row_count+=1
+            if row_count==3:
+                html_tcmp_write+='</tr>'
+                row_count=0
 
-        myfig.savefig(twoDKdePath)
+            myfig.savefig(twoDKdePath)
 
 
     #Finish off the BCI table and write it into the etree
@@ -637,8 +638,7 @@ if __name__=='__main__':
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
-    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0']]
-
+    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota']]
 
     cbcBayesPostProc(
                         opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,
