@@ -563,17 +563,11 @@ def cbcBayesPostProc(
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
         acffig=plt.figure(figsize=(4,3.5),dpi=200)
-        acffig.gca(yscale='log')
         if not ("chain" in pos.names):
-            # If there is not a parameter named "chain" in the
-            # posterior, then just produce a plot of the samples.
-            plt.acorr(pos_samps[:,0], figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker=None)
+            plt.acorr(pos_samps[:,0], figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker='None')
         else:
-            # If there is a parameter named "chain", then produce a
-            # plot of the various chains in different colors, with
-            # smaller dots.
             for rng, data in zip(chainDataRanges, chainData):
-                plt.acorr(data, figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker=None)
+                plt.acorr(data, figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker='None')
 
         acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
 
