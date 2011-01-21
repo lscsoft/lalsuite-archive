@@ -565,10 +565,17 @@ def cbcBayesPostProc(
 
         acffig=plt.figure(figsize=(4,3.5),dpi=200)
         if not ("chain" in pos.names):
-            plt.acorr(pos_samps[:,0], figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker='None')
+            data=pos_samps[:,0]
+            mu=numpy.mean(data)
+            corr=numpy.correlate((data-mu),(data-mu),mode='full')
+            N=len(data)
+            plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
         else:
             for rng, data in zip(chainDataRanges, chainData):
-                plt.acorr(data, figure=acffig, normed=True, usevlines=False, maxlags=None, linestyle='solid', marker='None')
+                mu=numpy.mean(data)
+                corr=numpy.correlate(data-mu,data-mu,mode='full')
+                N=len(data)
+                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
 
         acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
 
