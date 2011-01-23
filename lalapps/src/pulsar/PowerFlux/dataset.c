@@ -28,6 +28,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <time.h>
+#include <regex.h>
 
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
@@ -101,7 +102,7 @@ while(1) {
 /* we need the structure to be global as a workaround for a bug in condor libraries:
    this way the pointer is 32bit even on 64bit machines */
 
-static void acquire_lock(char *filename)
+static int acquire_lock(char *filename, int wait)
 {
 int i;
 struct flock fl;
@@ -124,10 +125,12 @@ while((lock_file<0) || (direct_fcntl(lock_file, F_SETLK, &fl)<0)){
 		i=0;
 		}
 	if(lock_file>=0)close(lock_file);
+	if(!wait)return(0);
 	condor_safe_sleep(args_info.lock_retry_delay_arg);
 	lock_file=open(filename, O_CREAT | O_RDWR, 0666);
 	i++;
 	}
+return(1);
 }
 
 static void release_lock(void)
@@ -182,14 +185,13 @@ typedef struct {
 	
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
-double doppler, omega_t, c_omega_t, s_omega_t, modomega_t, fmodomega_t;
+double doppler, omega_t, c_omega_t, s_omega_t, modomega_t, fmodomega_t, a;
 double hann;
-float det_vel[3]={NAN, NAN, NAN};
 float f_plus, f_cross;
 EmissionTime emission_time;
 LIGOTimeGPS tGPS;
 EarthState earth_state;
-double te, phase_spindown, phase_barycenter, phase_bin;
+double te, phase_spindown, phase_freq;
 LALStatus status={level:0, statusPtr:NULL};
 
 tGPS.gpsSeconds=floor(t);
@@ -201,38 +203,55 @@ if(status.statusPtr)FREESTATUSPTR(&status);
 
 get_emission_time(&emission_time, &(earth_state), p->ra, p->dec, p->dInv, p->detector, tGPS);
 
-/*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
-fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
-get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
+get_AM_response_d(t, p->dec, p->ra, 0.0, p->detector, &f_plus, &f_cross);
 // fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
 
-get_detector_vel(round(t), det_vel);
+doppler=p->e[0]*emission_time.vDetector[0]+p->e[1]*emission_time.vDetector[1]+p->e[2]*emission_time.vDetector[2];
 
-doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+/* Compute SSB time since ref time */
+te=(emission_time.te.gpsSeconds-p->ref_time)+((double)(1e-9))*emission_time.te.gpsNanoSeconds;
 
-te=(emission_time.te.gpsSeconds-p->ref_time)+1e-9*emission_time.te.gpsNanoSeconds;
+fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq));
 
-fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq))+p->freq_modulation_phase;
-
-*f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time)+p->freq_modulation_depth*sin(fmodomega_t);
+*f=(p->freq+p->spindown*te+p->freq_modulation_depth*cos(fmodomega_t+p->freq_modulation_phase))*(1.0+doppler);
 
 phase_spindown=0.5*te*te*p->spindown;
 
-phase_barycenter=p->freq*te;
 
-/* Need to subtract phase accumulated by the frequency bin we are looking at */
-phase_bin=-(p->bin/p->coherence_time)*(t-p->segment_start);
+phase_freq=(p->freq-(double)(p->bin)/(double)(p->coherence_time))*te
+	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
+	
+if(fabs(p->freq_modulation_freq)>1e-28) {
+	/* Split up computation according to the formula below.
+	   Note that for small freq_modulation_depth the second component will be zero due to precision loss and we need random phi to properly simulate global phase.
 
-omega_t=2.0*M_PI*((phase_barycenter-floor(phase_barycenter))+(phase_spindown-floor(phase_spindown))+(phase_bin-floor(phase_bin)))+p->phi;
+	   sin(wt+a)    sin(wt)cos(a)     cos(wt)sin(a) 
+	   --------- =  ------------- +   ------------- 
+	       w             w                 w        
+	*/
+	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)*cos(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	a=p->freq_modulation_depth*cos(fmodomega_t)*sin(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	phase_freq+=a-floor(a);
+	} else {
+	/* we just have a constant frequency offset for practical purposes which corresponds to freezing 
+	   omega at the level of definition of *f, not phase_freq which would diverge for anything but sin(), but that is an extra random constant offset in phase which should be taken care of by using random phi :
+	   
+	   sin(wt+a)    sin(wt)cos(a)     cos(wt)sin(a)               sin(a)     wt^2 sin(a) 
+	   --------- =  ------------- +   ------------- = t cos(a) +  ------ -   ----------- + o(w^2)
+	       w             w                 w                        w             2
+	*/
+	phase_freq+=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
+	}
 
-/* add contribution from sinusoidal modulation */
+omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
+
+/* add contribution from sinusoidal phase modulation */
 modomega_t=2.0*M_PI*(te*p->phase_modulation_freq-floor(te*p->phase_modulation_freq))+p->phase_modulation_phase;
 omega_t+=p->phase_modulation_depth*sin(modomega_t);
 
 hann=0.5*(1.0-cos(2.0*M_PI*(t-p->segment_start)/p->coherence_time));
 
-c_omega_t=cos(omega_t);
-s_omega_t=sin(omega_t);
+sincos(omega_t, &s_omega_t, &c_omega_t);
 
 /* 
 	cos(a)*cos(-b)=0.5*(cos(a-b)+cos(a+b))
@@ -249,11 +268,13 @@ s_omega_t=sin(omega_t);
 
 /* Note: we do not have an extra factor of 0.5 because of normalization convention used, 
   there is an extra factor of 2.0 to compensate for Hann windowing */
+
 *re=hann*(f_plus*(p->a_plus*c_omega_t*p->cos_e-p->a_cross*s_omega_t*p->sin_e)+
 	f_cross*(p->a_plus*c_omega_t*p->sin_e+p->a_cross*s_omega_t*p->cos_e));
 
 *im=hann*(f_plus*(p->a_plus*s_omega_t*p->cos_e+p->a_cross*c_omega_t*p->sin_e)+
 	f_cross*(p->a_plus*s_omega_t*p->sin_e-p->a_cross*c_omega_t*p->cos_e));
+
 }
 
 static double signal_re(double t, void *params)
@@ -296,8 +317,16 @@ p->a_cross=cos_i;
 
 p->cos_e=cos(2.0*p->psi);
 p->sin_e=sin(2.0*p->psi);
-
+	
 precompute_am_constants(p->e, p->ra, p->dec);
+}
+
+static void fill_signal_params_with_defaults(SIGNAL_PARAMS *p)
+{
+memset(p, 0, sizeof(SIGNAL_PARAMS));
+p->freq_modulation_freq=1.0;
+
+precompute_signal_params(p);
 }
 
 static void fill_signal_params_from_args_info(SIGNAL_PARAMS *p)
@@ -457,12 +486,15 @@ if(status) {
 static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment)
 {
 double result, abserr;
-size_t neval;
 int err;
-int window=5, bin;
+int window=args_info.fake_injection_window_arg;
+int bin;
 int i;
 double re, im, f;
 gsl_function F; 
+gsl_integration_workspace *w;
+gsl_integration_qawo_table *t_sine, *t_cosine;
+int w_size=1024*32;
 
 F.params=p;
 p->bin=0;
@@ -482,25 +514,66 @@ if(bin<window)bin=window;
 
 p->extra_phase=0.0;
 
+w=gsl_integration_workspace_alloc(w_size);
 
 for(i=bin-window; i<=bin+window; i++) {
 	p->bin=i+d->first_bin;
 
 	F.function=signal_re;
-	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
-		1, 1e-3,
-		&result, &abserr, &neval);
-/*	fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
+	err=gsl_integration_qag(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
+		1e-4, 1e-3, w_size, GSL_INTEG_GAUSS61, w,
+		&result, &abserr);
+	//fprintf(stderr, "re %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
 	d->re[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
 
 
 	F.function=signal_im;
-	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
-		1, 1e-3,
-		&result, &abserr, &neval);
-/*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
+	err=gsl_integration_qag(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
+		1e-4, 1e-3, w_size, GSL_INTEG_GAUSS61, w,
+		&result, &abserr);
+	//fprintf(stderr, "im %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
 	d->im[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	#if 0
+	/* this code computes fast contribution from 2f it is not run because the values returned are many orders of magnitude smaller than injection strength (1e-15 for 1000 Hz) */
+	
+	t_sine=gsl_integration_qawo_table_alloc(-2*2*M_PI*p->bin*1.0/d->coherence_time, d->coherence_time, GSL_INTEG_SINE, 16);
+	t_cosine=gsl_integration_qawo_table_alloc(-2*2*M_PI*p->bin*1.0/d->coherence_time, d->coherence_time, GSL_INTEG_COSINE, 16);
+	
+	F.function=signal_re;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_cosine,
+		&result, &abserr);
+	fprintf(stderr, "re2 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->re[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	F.function=signal_im;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_sine,
+		&result, &abserr);
+	fprintf(stderr, "re3 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->re[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	F.function=signal_re;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_sine,
+		&result, &abserr);
+	fprintf(stderr, "im2 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->im[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	F.function=signal_im;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_cosine,
+		&result, &abserr);
+	fprintf(stderr, "im3 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->im[segment*d->nbins+i]-=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	gsl_integration_qawo_table_free(t_sine);
+	gsl_integration_qawo_table_free(t_cosine);
+	#endif
 	}
+	
+gsl_integration_workspace_free(w);
 
 }
 
@@ -899,6 +972,9 @@ get_detector(d->detector);
 
 sort_dataset(d);
 
+fprintf(stderr, "Dataset \"%s\" sorted memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Dataset \"%s\" sorted  memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
 if(fake_injection) {
 	SIGNAL_PARAMS sp;
 
@@ -910,6 +986,9 @@ if(fake_injection) {
 	for(i=0;i<d->free;i++) {
 		inject_fake_signal(&sp, d, i);
 		}
+
+	fprintf(stderr, "Dataset \"%s\" injected memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	fprintf(LOG, "Dataset \"%s\" injected  memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 	}
 
 /* compute_power(d); */
@@ -1017,6 +1096,8 @@ free(cd);
 
 characterize_dataset(d);
 d->validated=1;
+fprintf(stderr, "Dataset \"%s\" validated memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Dataset \"%s\" validated  memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 return 1;
 }
 
@@ -1330,7 +1411,7 @@ while((fin=fopen(filename,"r"))==NULL) {
 	condor_safe_sleep(args_info.retry_delay_arg);
 	}
 if(retries>0) {
-	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
+	fprintf(stderr, "Successfully opened file \"%s\" after %ld attempts.\n", filename, retries);
 	}
 /* read header */
 header_offset=0;
@@ -1390,7 +1471,7 @@ struct timeval start_time, end_time, last_time;
 int i, last_i, limit=100;
 double delta, delta_avg;
 long retries;
-int alternative, ai, aj;
+int alternative, ai, aj, lock_ok;
 s=do_alloc(length+20001, sizeof(*s));
 
 
@@ -1412,13 +1493,24 @@ while(1) {
 	memcpy(s, &(line[ai]), aj-ai);
 	s[aj-ai]=0;
 
-	fprintf(stderr, "Reading directory %s\n", s);
+	lock_ok=1;
+	if(args_info.enable_dataset_locking_arg && (alternative<=MAX_LOCKS) && (dst->lock_file[alternative-1] != NULL)) {
+		lock_ok=acquire_lock(dst->lock_file[alternative-1], 0);
+		} else 
+	if(args_info.lock_file_given) {
+		lock_ok=acquire_lock(args_info.lock_file_arg, 0);
+		}
 
-	errno=0;
-	if((d=opendir(s))!=NULL)break;
-	int errsv=errno;
+	if(lock_ok) {
+		fprintf(stderr, "Reading directory %s\n", s);
 
-	fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
+		errno=0;
+		if((d=opendir(s))!=NULL)break;
+		int errsv=errno;
+
+		fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
+		release_lock();
+		}
 
 	alternative++;
 	retries++;
@@ -1426,14 +1518,6 @@ while(1) {
 	}
 if(retries>0) {
 	fprintf(stderr, "Successfully opened directory %s\n", s);
-	}
-
-if(args_info.enable_dataset_locking_arg && (dst->lock_file[0] != NULL)) {
-	for(i=0;i+1<alternative && i<MAX_LOCKS && dst->lock_file[i]!=NULL;i++);
-	acquire_lock(dst->lock_file[i]);
-	} else 
-if(args_info.lock_file_given) {
-	acquire_lock(args_info.lock_file_arg);
 	}
 
 gettimeofday(&start_time, NULL);
@@ -1476,15 +1560,16 @@ void d_read_file(DATASET *dst, char *line, int length)
 {
 char *s;
 long retries;
-int i, alternative, ai, aj;
+int alternative, ai, aj;
 struct stat stat_buf;
+int lock_ok;
 
 s=do_alloc(length+20001, sizeof(*s));
 
 retries=0;
 alternative=1;
 while(1) {
-
+		
 	locate_arg(line, length, alternative, &ai, &aj);
 
 	if(ai==aj) {
@@ -1499,13 +1584,23 @@ while(1) {
 	memcpy(s, &(line[ai]), aj-ai);
 	s[aj-ai]=0;
 
-	fprintf(stderr, "Accessing file %s\n", s);
+	lock_ok=1;
+	if(args_info.enable_dataset_locking_arg && (alternative<=MAX_LOCKS) && (dst->lock_file[alternative-1] != NULL)) {
+		lock_ok=acquire_lock(dst->lock_file[alternative-1], 0);
+		} else 
+	if(args_info.lock_file_given) {
+		lock_ok=acquire_lock(args_info.lock_file_arg, 0);
+		}
 
-	errno=0;
-	if(stat(s, &stat_buf)==0)break;
-	int errsv=errno;
+	if(lock_ok) {
+		fprintf(stderr, "Accessing file %s\n", s);
+		errno=0;
+		if(stat(s, &stat_buf)==0)break;
+		int errsv=errno;
 
-	fprintf(stderr, "Error accessing file %s: %s\n", s, strerror(errsv));
+		fprintf(stderr, "Error accessing file %s: %s\n", s, strerror(errsv));
+		release_lock();
+		}
 
 	alternative++;
 	retries++;
@@ -1515,13 +1610,6 @@ if(retries>0) {
 	fprintf(stderr, "Successfully accessed file %s\n", s);
 	}
 
-if(args_info.enable_dataset_locking_arg && (dst->lock_file[0] != NULL)) {
-	for(i=0;i+1<alternative && i<MAX_LOCKS && dst->lock_file[i]!=NULL;i++);
-	acquire_lock(dst->lock_file[i]);
-	} else 
-if(args_info.lock_file_given) {
-	acquire_lock(args_info.lock_file_arg);
-	}
 add_file(dst, s);
 free(s);
 release_lock();
@@ -1900,7 +1988,7 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	DATASET *d=&(datasets[d_free-1]);
 
 	/* Fill with defaults from command line */
-	fill_signal_params_from_args_info(&sp);
+	fill_signal_params_with_defaults(&sp);
 	
 	
 	locate_arg(line, length, 1, &ai, &aj);
@@ -1990,7 +2078,7 @@ if(!strncasecmp(line, "inject_cw_signal2", 16)) {
 	DATASET *d=&(datasets[d_free-1]);
 
 	/* Fill with defaults from command line */
-	fill_signal_params_from_args_info(&sp);
+	fill_signal_params_with_defaults(&sp);
 	
 	
 	locate_arg(line, length, 1, &ai, &aj);
@@ -2667,6 +2755,58 @@ for(i=0;i<d_free;i++){
 	}
 }
 
+void apply_phase(char *phase_string)
+{
+int i,j;
+DATASET *d;
+float x, y, a, b, phase;
+regex_t regexp;
+char *match;
+
+match=strdup(phase_string);
+for(i=strlen(match)-1; (i>0) && (match[i]==' ' || match[i]==0 || match[i]=='\n' || match[i]=='\t');i--);
+for(; (i>0) && (match[i]!=' ' && match[i]!='\t');i--);
+match[i]=0;
+
+fprintf(stderr, "Applying phase of %s degrees to datasets matching \"%s\"\n", &(match[i+1]), match);
+
+if(regcomp(&regexp, match, REG_EXTENDED | REG_NOSUB)){
+	fprintf(stderr,"Cannot compile \"%s\" in extra phase specifier \"%s\"\n", match, phase_string);
+	exit(-1);
+	}
+	
+phase=atof(&(match[i+1]));
+
+a=cos(phase*M_PI/180.0);
+b=sin(phase*M_PI/180.0);
+
+for(i=0;i<d_free;i++){
+
+	d=&(datasets[i]);
+	
+	if(regexec(&regexp, d->name, 0, NULL, 0))continue;
+	
+	fprintf(stderr, "Applying phase %f to dataset %s\n", phase, d->name);
+	fprintf(LOG, "Applying phase %f to dataset %s\n", phase, d->name);
+	
+	for(j=0;j<d->free;j++) {
+		x=d->re[j]*a-d->im[j]*b;
+		y=d->re[j]*b+d->im[j]*a;
+		
+		#if 0
+		fprintf(stderr, "%f+%fi --> %f+%fi\n", d->re[j], d->im[j], x, y);
+		#endif
+
+		d->re[j]=x;
+		d->im[j]=y;
+		
+		}
+
+	}
+
+regfree(&regexp);
+free(match);
+}
 
 void dump_datasets(char *filename) 
 {

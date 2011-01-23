@@ -35,78 +35,54 @@
  * 1.  An author and Id block
  */
 
-/************************************ <lalVerbatim file="TestHoughMapCV">
-Author: Sintes, A. M., Krishnan, B.
-$Id$
-************************************* </lalVerbatim> */
+/**
+\author Sintes, A. M., Krishnan, B.
+\file
+\ingroup HoughMap_h
+\brief Tests the construction of Hough maps.
 
-/*
- * 2. Commented block with the documetation of this module
- */
+\heading{Program \ref TestHoughMap.c}
 
-
-/* ************************************************ <lalLaTeX>
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Program \ \texttt{TestHoughMap.c}}
-\label{s:TestHoughMap.c}
-
-Tests the construction of Hough maps.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Usage}
-\begin{verbatim}
+\heading{Usage}
+\code
 TestHoughMap [-d debuglevel] [-o outfile] [-f f0] [-p alpha delta]
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Description}
+\heading{Description}
 
-%TO BE CHANGED
-
+\%TO BE CHANGED
 
 Similar to the previous ones, this program generates a patch grid, calculates
 the parameters needed for
-building a {\sc lut}, and  builds the {\sc lut}. Then, given a peak-gram
- constructs a {\sc phmd} at a
-certain frequency (shifted from the frequency at which the {\sc lut} was built).
+building a \c lut, and  builds the \c lut. Then, given a peak-gram
+constructs a \c phmd at a
+certain frequency (shifted from the frequency at which the \c lut was built).
 The sky patch is set at the south pole,
 no spin-down parameters are assumed for the demodulation and
- every third  peak in the spectrum is selected. The peak-gram frequency interval
- is large enough to ensure compatibility with the {\sc lut} and the frequency of
- the {\sc phmd}.
+every third  peak in the spectrum is selected. The peak-gram frequency interval
+is large enough to ensure compatibility with the \c lut and the frequency of
+the \c phmd.
 
- Moreover, this program initializes a Hough map {\sc ht}
- and the Hough
- map derivative space {\sc hd}, adds one {\sc phmd} into the Hough map
- derivative {\sc hd},
- constructs the total Hough map {\sc ht} by integrating the {\sc hd},
-and outputs the {\sc ht} into a file.  \\
+Moreover, this program initializes a Hough map \c ht
+and the Hough
+map derivative space \c hd, adds one \c phmd into the Hough map
+derivative \c hd,
+constructs the total Hough map \c ht by integrating the \c hd,
+and outputs the \c ht into a file.
 
- By default, running this program with no arguments simply tests the subroutines,
-producing an output file called \verb@OutHough.asc@.  All default parameters are set from
-\verb@#define@d constants.\\
+By default, running this program with no arguments simply tests the subroutines,
+producing an output file called <tt>OutHough.asc</tt>.  All default parameters are set from
+<tt>#define</tt>d constants.
 
+The <b>-d</b> option sets the debug level to the specified value
+\c debuglevel.  The <b>-o</b> flag tells the program to print the partial Hough map
+derivative  to the specified data file \c outfile.  The
+<b>-f</b> option sets the intrinsic frequency \c f0 at which build the <tt>lut</tt>.
+The <b>-p</b> option sets the velocity orientation of the detector
+\c alpha, \c delta (in radians).
 
-The \verb@-d@ option sets the debug level to the specified value
-\verb@debuglevel@.  The \verb@-o@ flag tells the program to print the partial Hough map
-derivative  to the specified data file \verb@outfile@.  The
-\verb@-f@ option sets the intrinsic frequency \verb@f0@ at which build the {\sc
-lut}.   The \verb@-p@ option sets the velocity orientation of the detector
-\verb@alpha@, \verb@delta@ (in radians).
-
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Exit codes}
-\vspace{0.1in}
-\input{TESTHOUGHMAPCErrorTable}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Uses}
-\begin{verbatim}
-LALHOUGHPatchGrid()
+\heading{Uses}
+\code
 LALHOUGHParamPLUT()
 LALHOUGHConstructPLUT()
 LALHOUGHPeak2PHMD()
@@ -118,28 +94,13 @@ LALPrintError()
 LALMalloc()
 LALFree()
 LALCheckMemoryLeaks()
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsubsection*{Notes}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\vfill{\footnotesize\input{TestHoughMapCV}}
-
-********************************************   </lalLaTeX> */
-
-
+*/
 
 #include <lal/HoughMap.h>
 
-
-NRCSID (TESTHOUGHMAPC, "$Id$");
-
-
-/* Error codes and messages */
-
-/************** <lalErrTable file="TESTHOUGHMAPCErrorTable"> */
+/**\name Error Codes */ /*@{*/
 #define TESTHOUGHMAPC_ENORM 0
 #define TESTHOUGHMAPC_ESUB  1
 #define TESTHOUGHMAPC_EARG  2
@@ -151,8 +112,11 @@ NRCSID (TESTHOUGHMAPC, "$Id$");
 #define TESTHOUGHMAPC_MSGEARG  "Error parsing arguments"
 #define TESTHOUGHMAPC_MSGEBAD  "Bad argument values"
 #define TESTHOUGHMAPC_MSGEFILE "Could not create output file"
-/******************************************** </lalErrTable> */
+/*@}*/
 
+
+/** \cond DONT_DOXYGEN */
+NRCSID (TESTHOUGHMAPC, "$Id$");
 
 /* Default parameters. */
 
@@ -177,7 +141,7 @@ INT4 lalDebugLevel=0;
 #define ERROR( code, msg, statement )                                \
 do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
-    LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
               __LINE__, TESTHOUGHMAPC, statement ? statement :  \
                    "", (msg) );                                      \
@@ -186,7 +150,7 @@ do {                                                                 \
 #define INFO( statement )                                            \
 do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
-    LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
+    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
               TESTHOUGHMAPC, (statement) );                     \
 } while (0)
@@ -279,7 +243,7 @@ int main(int argc, char *argv[]){
         lalDebugLevel = atoi( argv[arg++] );
       } else {
         ERROR( TESTHOUGHMAPC_EARG, TESTHOUGHMAPC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTHOUGHMAPC_EARG;
       }
     }
@@ -290,7 +254,7 @@ int main(int argc, char *argv[]){
         fname = argv[arg++];
       } else {
         ERROR( TESTHOUGHMAPC_EARG, TESTHOUGHMAPC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTHOUGHMAPC_EARG;
       }
     }
@@ -303,7 +267,7 @@ int main(int argc, char *argv[]){
 	parRes.f0Bin =  f0Bin;
       } else {
         ERROR( TESTHOUGHMAPC_EARG, TESTHOUGHMAPC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTHOUGHMAPC_EARG;
       }
     }
@@ -315,7 +279,7 @@ int main(int argc, char *argv[]){
 	delta = atof(argv[arg++]);
       } else {
         ERROR( TESTHOUGHMAPC_EARG, TESTHOUGHMAPC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTHOUGHMAPC_EARG;
       }
     }
@@ -327,14 +291,14 @@ int main(int argc, char *argv[]){
         parRes.patchSkySizeY = patchSizeY = atof(argv[arg++]);
       } else {
         ERROR( TESTHOUGHMAPC_EARG, TESTHOUGHMAPC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTHOUGHMAPC_EARG;
       }
     }
     /* Unrecognized option. */
     else {
       ERROR( TESTHOUGHMAPC_EARG, TESTHOUGHMAPC_MSGEARG, 0 );
-      LALPrintError( USAGE, *argv );
+      XLALPrintError( USAGE, *argv );
       return TESTHOUGHMAPC_EARG;
     }
   } /* End of argument parsing loop. */
@@ -342,7 +306,7 @@ int main(int argc, char *argv[]){
 
   if ( f0 < 0 ) {
     ERROR( TESTHOUGHMAPC_EBAD, TESTHOUGHMAPC_MSGEBAD, "freq<0:" );
-    LALPrintError( USAGE, *argv  );
+    XLALPrintError( USAGE, *argv  );
     return TESTHOUGHMAPC_EBAD;
   }
 
@@ -541,3 +505,5 @@ int main(int argc, char *argv[]){
 }
 
 /* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
+
+/** \endcond */

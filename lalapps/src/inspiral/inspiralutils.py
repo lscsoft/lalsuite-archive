@@ -31,21 +31,17 @@ def make_external_call(command, show_stdout=False, show_command=False):
   """
   if show_command: print command
 
-  stdin, out, err = os.popen3(command)
-  pid, status = os.wait()
+  p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    shell=isinstance(command, str))
+  out, err = p.communicate()
 
-  if status != 0:
+  if p.returncode != 0:
       print >>sys.stderr, "External call failed."
-      print >>sys.stderr, "  status: %d" % status
-      print >>sys.stderr, "  stdout: %s" % out.read()
-      print >>sys.stderr, "  stderr: %s" % err.read()
-      print >>sys.stderr, "  command: %s" % command
-      sys.exit(status)
+      print >>sys.stderr, "  stdout: %s" % out
+      print >>sys.stderr, "  stderr: %s" % err
+      raise subprocess.CalledProcessError(p.returncode, command)
   if show_stdout:
-      print out.read()
-  stdin.close()
-  out.close()
-  err.close()
+      print out
 
 ##############################################################################
 def mkdir( newdir ):
@@ -79,7 +75,7 @@ def hipe_cache(ifos, usertag, gps_start_time, gps_end_time):
   return hipeCache
 
 ##############################################################################
-def hipe_pfn_cache(cachename,globpat):
+def hipe_pfn_glob_cache(cachename,globpat):
   """
   create and return the name of a pfn cache containing files that match
   globpat. This is needed to manage the .input files that hipe creates.
@@ -94,6 +90,24 @@ def hipe_pfn_cache(cachename,globpat):
     print >> cache_fh, ' '.join([lfn,pfn,' pool="local"'])
   cache_fh.close()
   return cachename
+
+##############################################################################
+def hipe_pfn_list_cache(cachename,files):
+  """
+  create and return the name of a pfn cache containing files in files.
+  This is needed to manage the .input files that hipe creates.
+  
+  cachename = the name of the pfn cache file
+  files = a list of files
+  """
+  cache_fh = open(cachename,"w")
+  for file in files:
+    lfn = os.path.basename(file)
+    pfn = "file://" + os.path.abspath(file)
+    print >> cache_fh, ' '.join([lfn,pfn,' pool="local"'])
+  cache_fh.close()
+  return cachename
+
 
 ##############################################################################
 def tmpltbank_cache(datafind_filename):
@@ -561,32 +575,35 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   # create the hipe config parser, keep only relevant info
   hipecp = copy.deepcopy(config)
   if dataFind or tmpltBank: # Template generation and datafind share a number of options
-    hipeSections = ["condor", "pipeline", "input", "datafind","data",\
-        "ligo-data","inspiral","virgo-data", "condor-max-jobs", "calibration"]
+    hipeSections = ["condor", "pipeline", "input", "datafind","data", \
+        "ligo-data","inspiral","virgo-data", "condor-max-jobs", \
+        "ligolw_add", "calibration"]
     if tmpltBank: # Template generation needs some extra options that datafind doesn't
-      hipeSections.extend(["calibration", "geo-data", "tmpltbank", \
+      hipeSections.extend(["geo-data", "tmpltbank", \
           "tmpltbank-1", "tmpltbank-2", "h1-tmpltbank", "h2-tmpltbank", \
           "l1-tmpltbank", "v1-tmpltbank", "g1-tmpltbank"])
   elif vetoCat:
-    hipeSections = ["condor", "pipeline", "input", "data", "ligo-data", \
-        "tmpltbank", "veto-inspiral", "inspiral", "h1-inspiral", "h2-inspiral", \
-        "l1-inspiral", "g1-inspiral", "v1-inspiral", \
-        "thinca", "thinca-2", "datafind", "virgo-data", \
-        "thinca-slide", "coire", "coire-1", "coire-2","coire-inj", "sire", \
-        "sire-inj", "condor-max-jobs", "calibration", \
-        "cohbank", "trigbank-coherent", "chia", "inspiral-coherent", \
-        "cohinspbank", "chia-inj", "cohire", "cohire-inj"]
+    hipeSections = ["condor", "pipeline", "input", "data", "datafind", \
+        "ligo-data", "virgo-data", "geo-data", "calibration", "tmpltbank", \
+        "inspiral", "veto-inspiral", "g1-inspiral", "h1-inspiral", \
+        "h2-inspiral", "l1-inspiral", "v1-inspiral", "ligolw_add", \
+        "ligolw_cafe", "thinca", "thinca-2", "thinca-slide", "coire", \
+        "coire-1", "coire-2", "coire-inj", "sire", "sire-inj", "cohbank", \
+        "trigbank-coherent", "chia", "inspiral-coherent", "cohinspbank", \
+        "chia-inj", "cohire", "cohire-inj", "condor-max-jobs"]
   else:
-    hipeSections = ["condor", "pipeline", "input", "calibration", "datafind",\
-        "ligo-data", "virgo-data", "geo-data", "data", "tmpltbank", \
+    hipeSections = ["condor", "pipeline", "input", "data", "datafind",\
+        "ligo-data", "virgo-data", "geo-data", "calibration", "tmpltbank", \
         "tmpltbank-1", "tmpltbank-2", "h1-tmpltbank", "h2-tmpltbank", \
         "l1-tmpltbank", "v1-tmpltbank", "g1-tmpltbank", "no-veto-inspiral", \
         "veto-inspiral", "inspiral", "h1-inspiral", "h2-inspiral", \
-        "l1-inspiral", "g1-inspiral", "v1-inspiral", "thinca", "thinca-1", \
-        "thinca-2", "thinca-slide", "trigbank", "sire",  \
-        "sire-inj", "coire", "coire-1", "coire-2", "coire-inj", \
-        "cohbank", "trigbank-coherent", "chia", "inspiral-coherent", \
-        "cohinspbank", "chia-inj", "cohire", "cohire-inj", "condor-max-jobs"]
+        "l1-inspiral", "g1-inspiral", "v1-inspiral", "ligolw_add", \
+        "ligolw_cafe", "thinca", "thinca-1", "thinca-2", "thinca-slide", \
+        "trigbank", "sire", "sire-inj", "coire", "coire-1", "coire-2", \
+        "coire-inj", "cohbank", "trigbank-coherent", "chia", \
+        "inspiral-coherent", "cohinspbank", "chia-inj", "cohire", \
+        "cohire-inj", "condor-max-jobs"]
+
   for seg in hipecp.sections():
     if not seg in hipeSections: hipecp.remove_section(seg)
 
@@ -633,9 +650,16 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
           hipecp.set("coire-2",opt,arg)
 
     # add the veto files in the thinca section
-    for ifo in ifos:
-      hipecp.set("thinca", ifo.lower() + "-veto-file", vetoFiles[ifo][vetoCat])
-    hipecp.set("thinca", "do-veto", "")
+    if hipecp.has_section("thinca-2"):
+      # add the veto files in the thinca section
+      for ifo in ifos:
+        hipecp.set("thinca-2", ifo.lower() + "-veto-file", vetoFiles[ifo][vetoCat])
+      hipecp.set("thinca-2", "do-veto", "")
+    else:
+      # add a vetoes section
+      hipecp.add_section("vetoes")
+      hipecp.set("vetoes", "vetoes-file", vetoFiles["combined-veto-file"][vetoCat])
+      hipecp.set("vetoes", "vetoes-name", "VETO_CAT%i_CUMULATIVE"%(vetoCat))
 
   # set the usertag
   if hipeDir == "datafind":
@@ -657,7 +681,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
         hipecp.set("condor","inspinj",executable)
     hipecp.remove_section(hipeDir)
     hipecp.set("input","injection-seed",injSeed)
-    hipecp.set("input", "num-slides", "")
+    hipecp.set("input", "num-slides", 0)
     # set any extra inspiral arguments for the injection
     try:
       for item in config.items('-'.join([hipeDir,"inspiral"])):
@@ -713,12 +737,14 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     if config.has_option("hipe-arguments","ringdown"):
       hipe_args = ["coincidence", "ringdown","coire-coincidence",
         "summary-first-coinc-triggers","write-script"]
-    else:
+    elif config.has_option("hipe-arguments","second-coinc"):
       hipe_args = ["second-coinc", "coire-second-coinc", 
         "summary-coinc-triggers", "sire-second-coinc", 
         "summary-single-ifo-triggers","write-script",
         "coherent-bank","coherent-inspiral","cohire",
         "summary-coherent-inspiral-triggers"]
+    else:
+      hipe_args = ["coincidence","write-script"]
     for hipe_arg in hipe_args:
       hipeCommand = test_and_add_hipe_arg(hipeCommand,hipe_arg)
   else:
@@ -771,8 +797,10 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   if hipeDir == "datafind":
     # grab the segment files managed by hipe and put them in the df cache
     # since it is inherited by all the other sub-workflows
-    hipeJob.add_pfn_cache(os.path.join( os.getcwd(), hipe_pfn_cache(
+    hipeJob.add_pfn_cache(os.path.join( os.getcwd(), hipe_pfn_glob_cache(
       'segment_files.cache', '../segments/*txt' )))
+    hipeJob.add_pfn_cache(os.path.join( os.getcwd(), hipe_pfn_glob_cache(
+      'veto_files.cache', '../segments/*VETOTIME*xml' )))
     hipeNode.add_output_file( hipe_cache(ifos, None, \
         hipecp.getint("input", "gps-start-time"), \
         hipecp.getint("input", "gps-end-time")) )
@@ -781,6 +809,14 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     hipeNode.add_output_file( hipe_cache(ifos, usertag, \
         hipecp.getint("input", "gps-start-time"), \
         hipecp.getint("input", "gps-end-time")) )
+    if hipecp.has_section("ligolw_cafe"):
+      num_slide_files = int(hipecp.get("ligolw_cafe", "num-slides-files"))
+      slide_files = [hipecp.get("ligolw_cafe","slides-file-%i"%idx)
+          for idx in range(num_slide_files)]
+      hipeJob.add_pfn_cache(os.path.join( os.getcwd(), hipe_pfn_list_cache(
+        'slide_files.cache', slide_files )))
+      hipeJob.add_pfn_cache(os.path.join( os.getcwd(), hipe_pfn_glob_cache(
+        'cafe_files.cache', '*CAFE*.cache' )))
 
   # return to the original directory
   os.chdir("..")
@@ -1361,4 +1397,130 @@ def determine_sieve_patterns(cp, plot_name, ifotag, usertag=None):
             pattern += "_" + suffix
         patterns[pattern_name + "-pattern"] = pattern
     return patterns
+
+###############################################################################
+# This function will set up the necessary omega scan inputs in the current
+# directory
+
+def omega_scan_setup(cp,ifos):
+  cp.set('omega-scans','do-omega-scan','')
+  cp.set('omega-scans','omega-executable',cp.get('condor','omegascan'))
+  print "Beginning set up of omega scan directory."
+  start = cp.get("input","gps-start-time")
+  end = cp.get("input","gps-end-time")
+  # First we set up the configuration files
+  sampleFrequency = cp.get('omega-setup','sample-frequency')
+  searchTRange = cp.get('omega-setup','search-time-range')
+  searchFRange = cp.get('omega-setup','search-frequency-range')
+  searchFRange = searchFRange.split(',')
+  searchFRange = '[' + searchFRange[0] + ' ' + searchFRange[1] + ']'
+  searchQRange = cp.get('omega-setup','search-q-range')
+  searchQRange = searchQRange.split(',')
+  searchQRange = '[' + searchQRange[0] + ' ' + searchQRange[1] + ']'
+  searchMaxELoss = cp.get('omega-setup','search-max-energy-loss')
+  whiteNoiseFAR = cp.get('omega-setup','white-noise-far')
+  searchWindowDuration = cp.get('omega-setup','search-window-duration')
+  plotNormERange = cp.get('omega-setup','plot-normalized-energy-range')
+  plotNormERange = plotNormERange.split(',')
+  plotNormERange = '[' + plotNormERange[0] + ' ' + plotNormERange[1] + ']'
+  plotTimeRanges = cp.get('omega-setup','plot-time-ranges')
+  plotTimeRanges = plotTimeRanges.split(',')
+  plotTimeRanges = ' '.join(plotTimeRanges)
+  plotTimeRanges = '[' + plotTimeRanges + ']'
+  configFileText = []
+  configFileHead = []
+  configFileHead.append('''[Context,Context]''')
+  configFileHead.append('')
+  configFileHead.append('''[Parameters,Parameter Estimation]''')
+  configFileHead.append('')
+  configFileHead.append('''[Notes,Notes]''')
+  configFileHead.append('')
+  configFileHead.append('''[Omega scans,Omega scans]''')
+  configFileHead.append('')
+  configFileText.append('{')
+  #This will be the line for the channel this is configFileText[1]
+  configFileText.append('')
+  #This will be the line for the frame this is configFileText[2]
+  configFileText.append('')
+  configFileText.append('  sampleFrequency:  ' + sampleFrequency)
+  configFileText.append('  searchTimeRange:  ' + searchTRange)
+  configFileText.append('  searchFrequencyRange:  ' + searchFRange)
+  configFileText.append('  searchQRange:  ' + searchQRange)
+  configFileText.append('  searchMaximumEnergyLoss:  ' + searchMaxELoss)
+  configFileText.append('  whiteNoiseFalseRate:  ' + whiteNoiseFAR)
+  configFileText.append('  alwaysPlotFlag:  1')
+  configFileText.append('  searchWindowDuration:  ' + searchWindowDuration)
+  configFileText.append('  plotTimeRanges:  ' + plotTimeRanges)
+  configFileText.append('  plotFrequencyRange:  []')
+  configFileText.append('  plotNormalizedEnergyRange:  ' + plotNormERange)
+  configFileText.append('}')
+  configFileText.append('')
+  typeNames = {}
+  for ifo in ifos:
+    ifo = ifo.upper()
+    if ifo == 'H1' or ifo == 'H2' or ifo == 'L1':
+      channel_name = 'ligo-channel'
+      type_name = 'ligo-type'
+    elif ifo == 'V1':
+      channel_name = 'virgo-channel'
+      type_name = 'virgo-type'
+    else:
+      print "IFO " + ifo + " is not yet supported for omega scans in ihope"
+      continue
+    if cp.has_option('omega-setup',channel_name):
+      channels = (cp.get('omega-setup',channel_name)).split(',')
+      type = cp.get('omega-setup',type_name)
+    else:
+      channels = (cp.get('input',channel_name)).split(',')
+      type = cp.get('input',type_name)
+    if ifo == 'H1' or ifo == 'H2' or ifo == 'L1':
+      type = ifo + '_' + type
+    typeNames[ifo] = type
+    configFileOut = '\n'.join(configFileHead)
+    configFileOut += '\n'
+    for channel in channels:
+      if channel[0:3] == 'PEM' or channel[0:3] == 'GDS':
+        configFileText[1] = "  channelName:  '" + ifo[0]+'0:'+channel + "'"
+      else:
+        configFileText[1] = "  channelName:  '" + ifo+':'+channel + "'"
+      configFileText[2] = "  frameType:  '" + type + "'"
+      configFileOut += '\n'.join(configFileText)
+      configFileOut +='\n'
+    outFile = open(ifo + '_omega_config.txt','w')
+    outFile.write(configFileOut)
+    outFile.close()
+    cp.set('omega-scans',ifo.lower() + '-omega-config-file','../omega_setup/'+ifo + '_omega_config.txt')
+
+  print "Created omega scan configuration files"
+
+  # And we need to create the necessary frame caches
+  if not os.path.isdir('cache'):
+    os.mkdir('cache')
+  dataFindCall = []
+  dataFindCall.append(cp.get('condor','datafind'))
+  for opt,val in cp.items('datafind'):
+    if opt == 'gaps':
+      continue
+    dataFindCall.append('--' + opt + ' ' + val)
+  dataFindCall.append('--lal-cache')
+  dataFindCall.append('--gps-start-time ' + start)
+  dataFindCall.append('--gps-end-time ' + end)
+  for ifo in ifos:
+    ifo = ifo.upper()
+    ifoSpecific = []
+    ifoSpecific.append('--observatory ' + ifo[0])
+    ifoSpecific.append('--type ' + typeNames[ifo])
+    ifoSpecific.append('--output cache/' + ifo + '_' + start + '_' + end + '_frames.cache')
+    command = ' '.join(dataFindCall) + ' ' + ' '.join(ifoSpecific)
+    make_external_call(command)
+    convertCall = cp.get('condor','convertlalcache')
+    convertCall += ' ' 
+    convertCall += 'cache/' + ifo + '_' + start + '_' + end + '_frames.cache'
+    convertCall += ' '
+    convertCall += 'cache/' + ifo + '_' + start + '_' + end + '_frames.wcache'
+    make_external_call(convertCall)
+    cp.set('omega-scans',ifo.lower() + '-omega-frame-file','../omega_setup/' + 'cache/' + ifo + '_' + start + '_' + end + '_frames.wcache')
+
+  print "Created omega scan frame files \n"
+  
 

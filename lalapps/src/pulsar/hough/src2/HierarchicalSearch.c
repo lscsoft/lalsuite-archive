@@ -20,7 +20,8 @@
 
 /** 
  * \author Badri Krishnan, Alicia Sintes, Reinhard Prix, Bernd Machenschalk
- * \file HierarchicalSearch.c
+ * \file
+ * \ingroup pulsarApps
  * \brief Program for calculating F-stat values for different time segments 
    and combining them semi-coherently using the Hough transform, and following 
    up candidates using a longer coherent integration.
@@ -163,6 +164,7 @@ RCSID( "$Id$");
 extern int lalDebugLevel;
 
 BOOLEAN uvar_printMaps = FALSE; /**< global variable for printing Hough maps */
+BOOLEAN uvar_printGrid = FALSE; /**< global variable for printing Hough grid */
 BOOLEAN uvar_printStats = FALSE;/**< global variable for calculating Hough map stats */
 BOOLEAN uvar_dumpLUT = FALSE;  	/**< global variable for printing Hough look-up-tables for debugging */
 
@@ -224,6 +226,8 @@ void SetUpSFTs( LALStatus *status, MultiSFTVectorSequence *stackMultiSFT, MultiN
 
 void PrintFstatVec (LALStatus *status, REAL4FrequencySeries *in, FILE *fp, PulsarDopplerParams *thisPoint, 
 		    LIGOTimeGPS  refTime, INT4 stackIndex);
+
+void PrintHoughGrid(LALStatus *status, HOUGHPatchGrid *patch, HOUGHDemodPar  *parDem, CHAR *fnameOut, INT4 iHmap);
 
 void PrintSemiCohCandidates(LALStatus *status, SemiCohCandidateList *in, FILE *fp, LIGOTimeGPS refTime);
 
@@ -375,7 +379,6 @@ int MAIN( int argc, char *argv[]) {
   BOOLEAN uvar_log = FALSE; 	/* logging done if true */
 
   BOOLEAN uvar_printCand1 = FALSE; 	/* if 1st stage candidates are to be printed */
-  BOOLEAN uvar_followUp = FALSE;
   BOOLEAN uvar_printFstat1 = FALSE;
   BOOLEAN uvar_useToplist1 = FALSE;
   BOOLEAN uvar_useWeights  = FALSE;
@@ -469,7 +472,6 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterINTUserVar(    &status, "method",       0,  UVAR_OPTIONAL, "0=Hough,1=stackslide,-1=fstat", &uvar_method ), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "semiCohToplist",0, UVAR_OPTIONAL, "Print semicoh toplist?", &uvar_semiCohToplist ), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "useWeights",   0,  UVAR_OPTIONAL, "Weight each stack using noise and AM?", &uvar_useWeights ), &status);
-  LAL_CALL( LALRegisterBOOLUserVar(   &status, "followUp",     0,  UVAR_OPTIONAL, "Follow up stage?", &uvar_followUp), &status);  
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "DataFiles1",   0,  UVAR_REQUIRED, "1st SFT file pattern", &uvar_DataFiles1), &status);
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "skyRegion",    0,  UVAR_OPTIONAL, "Sky-region by polygon of form '(ra1,dec1),(ra2,dec2),(ra3,dec3),...' or 'allsky'", &uvar_skyRegion), &status);
   LAL_CALL( LALRegisterINTUserVar(    &status, "numSkyPartitions",0,UVAR_OPTIONAL, "Number of (equi-)partitions to split skygrid into", &uvar_numSkyPartitions), &status);
@@ -509,6 +511,7 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterINTUserVar(    &status, "blocksRngMed", 0, UVAR_DEVELOPER, "RngMed block size", &uvar_blocksRngMed), &status);
   LAL_CALL( LALRegisterINTUserVar (   &status, "SSBprecision", 0, UVAR_DEVELOPER, "Precision for SSB transform.", &uvar_SSBprecision),    &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "printMaps",    0, UVAR_DEVELOPER, "Print Hough maps -- for debugging", &uvar_printMaps), &status);  
+  LAL_CALL( LALRegisterBOOLUserVar(   &status, "printGrid",    0, UVAR_DEVELOPER, "Print Hough fine grid -- for debugging", &uvar_printGrid), &status);  
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "dumpLUT",      0, UVAR_DEVELOPER, "Print Hough look-up-tables -- for debugging", &uvar_dumpLUT), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "printStats",   0, UVAR_DEVELOPER, "Print Hough map statistics", &uvar_printStats), &status);  
   LAL_CALL( LALRegisterINTUserVar(    &status, "Dterms",       0, UVAR_DEVELOPER, "No.of terms to keep in Dirichlet Kernel", &uvar_Dterms ), &status);
@@ -1354,7 +1357,7 @@ int MAIN( int argc, char *argv[]) {
 
 /** Set up stacks, read SFTs, calculate SFT noise weights and calculate 
     detector-state */
-void SetUpSFTs( LALStatus *status,
+void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
 		MultiSFTVectorSequence *stackMultiSFT, /**< output multi sft vector for each stack */
 		MultiNoiseWeightsSequence *stackMultiNoiseWeights, /**< output multi noise weights for each stack */
 		MultiDetectorStateSeriesSequence *stackMultiDetStates, /**< output multi detector states for each stack */
@@ -1573,11 +1576,8 @@ void SetUpSFTs( LALStatus *status,
 
 
 
-/** \brief Function for calculating Hough Maps and candidates 
-    \param pgV is a HOUGHPeakGramVector obtained after thresholding Fstatistic vectors
-    \param params is a pointer to HoughParams -- parameters for calculating Hough maps
-    \param out Candidates from thresholding Hough number counts
-
+/** Function for calculating Hough Maps and candidates.
+ *
     This function takes a peakgram as input. This peakgram was constructed
     by setting a threshold on a sequence of Fstatistic vectors.  The function 
     produces a Hough map in the sky for each value of the frequency and spindown.
@@ -1586,10 +1586,11 @@ void SetUpSFTs( LALStatus *status,
     This uses DriveHough_v3.c as a prototype suitably modified to work 
     on demodulated data instead of SFTs.  
 */
-void ComputeFstatHoughMap(LALStatus *status,
-			  SemiCohCandidateList  *out,   /* output candidates */
-			  HOUGHPeakGramVector *pgV, /* peakgram vector */
-			  SemiCoherentParams *params)
+void ComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure */
+			  SemiCohCandidateList  *out,   /**< Candidates from thresholding Hough number counts */
+			  HOUGHPeakGramVector *pgV, 	/**< HOUGHPeakGramVector obtained after thresholding Fstatistic vectors */
+			  SemiCoherentParams *params	/**< pointer to HoughParams -- parameters for calculating Hough maps */
+                          )
 {
 
   /* hough structures */
@@ -2032,7 +2033,14 @@ void ComputeFstatHoughMap(LALStatus *status,
 	  if ( uvar_printMaps ) {
 	    TRY( PrintHmap2file( status->statusPtr, &ht, params->outBaseName, iHmap), status);
 	  }
-	  
+
+	  if ( uvar_printGrid ) {
+	    /* just print one grid */
+	    if ( iHmap == 0 ) { 
+	      TRY( PrintHoughGrid( status->statusPtr, &patch, &parDem, params->outBaseName, iHmap), status);
+	    }
+	  }
+
 	  /* increment hough map index */ 	  
 	  ++iHmap;
 	  
@@ -2115,20 +2123,18 @@ void ComputeFstatHoughMap(LALStatus *status,
 
 }
 
-/** \brief Function for selecting frequency bins from a set of Fstatistic vectors
-    \param FstatVect : sequence of Fstatistic vectors
-    \param thr is a REAL8 threshold for selecting frequency bins
-    \param pgV a vector of peakgrams 
+/** Function for selecting frequency bins from a set of Fstatistic vectors.
 
     Input is a vector of Fstatistic vectors.  It allocates memory 
     for the peakgrams based on the frequency span of the Fstatistic vectors
     and fills tyem up by setting a threshold on the Fstatistic.  Peakgram must be 
     deallocated outside the function.
 */
-void FstatVectToPeakGram (LALStatus *status,
-			  HOUGHPeakGramVector *pgV,
-                          REAL4FrequencySeriesVector *FstatVect,
-			  REAL4  thr)
+void FstatVectToPeakGram (LALStatus *status,			/**< pointer to LALStatus structure */
+			  HOUGHPeakGramVector *pgV,		/**< a vector of peakgrams  */
+                          REAL4FrequencySeriesVector *FstatVect,/**< sequence of Fstatistic vectors */
+			  REAL4  thr				/**< REAL8 threshold for selecting frequency bins */
+                          )
 {
   INT4 j, k;
   INT4 nStacks, nSearchBins, nPeaks;
@@ -2146,7 +2152,9 @@ void FstatVectToPeakGram (LALStatus *status,
   if ( FstatVect->data == NULL ) {
     ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
   }  
-
+  if ( pgV == NULL ) {
+    ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
+  }  
 
   nStacks = FstatVect->length;
   nSearchBins = FstatVect->data->data->length;
@@ -2222,7 +2230,7 @@ void FstatVectToPeakGram (LALStatus *status,
     there are long gaps in the data, then some of the catalogs in the
     output catalog sequence may be of zero length. 
 */
-void SetUpStacks(LALStatus *status, 
+void SetUpStacks(LALStatus *status, 	   /**< pointer to LALStatus structure */
 		 SFTCatalogSequence  *out, /**< Output catalog of sfts -- one for each stack */
 		 REAL8 tStack,             /**< Output duration of each stack */
 		 SFTCatalog  *in,          /**< Input sft catalog to be broken up into stacks (ordered in increasing time)*/
@@ -2358,6 +2366,70 @@ void PrintHmap2file(LALStatus *status,
 }
 
 
+void PrintHoughGrid(LALStatus *status,
+		    HOUGHPatchGrid *patch, 
+		    HOUGHDemodPar  *parDem,
+		    CHAR *fnameOut,
+		    INT4 iHmap)
+{
+
+  UINT2 xSide, ySide;
+  FILE  *fp1=NULL;   /* Output file */
+  FILE  *fp2=NULL;   /* Output file */
+  CHAR filename1[256], filename2[256], filenumber[16]; 
+  INT4  k, i ;
+  REAL8UnitPolarCoor sourceLocation;
+
+  INITSTATUS( status, "PrintHoughGrid", rcsid );
+  ATTATCHSTATUSPTR (status);
+
+  sprintf( filenumber, ".%06d",iHmap); 
+
+  strcpy( filename1, fnameOut);
+  strcat( filename1, "_GridAlpha");
+  strcat( filename1, filenumber);
+
+  strcpy( filename2, fnameOut);
+  strcat( filename2, "_GridDelta");
+  strcat( filename2, filenumber);
+
+  fp1=fopen(filename1,"wb");  
+  ASSERT ( fp1 != NULL, status, HIERARCHICALSEARCH_EFILE, HIERARCHICALSEARCH_MSGEFILE );
+
+  fp2=fopen(filename2,"wb");  
+  ASSERT ( fp2 != NULL, status, HIERARCHICALSEARCH_EFILE, HIERARCHICALSEARCH_MSGEFILE );
+
+  xSide = patch->xSide;
+  ySide = patch->ySide;
+
+
+  for(k=ySide-1; k>=0; --k){
+    for(i=0;i<xSide;++i){
+
+      TRY( LALStereo2SkyLocation ( status->statusPtr, &sourceLocation, 
+				   k, i, patch, parDem), status);
+
+      fprintf( fp1 ," %f", sourceLocation.alpha);
+      fflush( fp1 );
+
+      fprintf( fp2 ," %f", sourceLocation.delta);
+      fflush( fp2 );
+    }
+
+    fprintf( fp1 ," \n");
+    fflush( fp1 );
+
+    fprintf( fp2 ," \n");
+    fflush( fp2 );
+  }
+
+  fclose( fp1 );  
+  fclose( fp2 );  
+
+  DETATCHSTATUSPTR (status);
+  RETURN(status);
+
+}
 
 /** Print single Hough map to a specified output file */
 void DumpLUT2file(LALStatus       *status,
@@ -3464,7 +3536,7 @@ void ComputeNumExtraBins(LALStatus            *status,
 void GetXiInSingleStack (LALStatus         *status,
 			 HOUGHSizePar      *size,
 			 HOUGHDemodPar     *par)  /* demodulation parameters */
-{ /* </lalVerbatim> */
+{ 
 
   /* --------------------------------------------- */
   

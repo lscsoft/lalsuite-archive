@@ -17,6 +17,13 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Xavier Siemens,  Bruce Allen,  Bernd Machenschalk
+ * \brief takes in two Fstats file to look for coincidence
+ */
+
 /*********************************************************************************/
 /*       uberpolka - the pulsar koinzidenz analysis code for einstein@home       */
 /*                                                                               */
@@ -75,7 +82,7 @@ RCSID ("$Id$");
 extern CHAR *Outputfilename;
 /* communicating the progress to the graphics thread */
 extern double *fraction_done_hook;
-/* define LALPrintError locally again, otherwise the stderr redirection
+/* define XLALPrintError locally again, otherwise the stderr redirection
    doesn't seem to work on the Mac */
 int myPrintError( const char *fmt, ... )
 {
@@ -87,7 +94,7 @@ int myPrintError( const char *fmt, ... )
   return n;
 }
 #else
-#define myPrintError LALPrintError
+#define myPrintError XLALPrintError
 #endif
 
 /* this is defined in C99 and *should* be in math.h.  Long term

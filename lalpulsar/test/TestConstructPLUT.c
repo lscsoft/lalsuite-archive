@@ -35,88 +35,56 @@
  * 1.  An author and Id block
  */
 
-/************************************ <lalVerbatim file="TestConstructPLUTCV">
-Author: Sintes, A. M.
-$Id$
-************************************* </lalVerbatim> */
+/**
+\author Sintes, A. M.
+\file
+\ingroup LUT_h
+\brief Tests the construction of the Look up Table (\c LUT)
 
-/*
- * 2. Commented block with the documetation of this module
- */
-
-
-/* ************************************************ <lalLaTeX>
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Program \ \texttt{TestConstructPLUT.c}}
-\label{s:TestConstructPLUT.c}
-Tests the construction of the Look up Table ({\sc LUT})
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Usage}
-\begin{verbatim}
+\heading{Usage}
+\code
 TestConstructPLUT [-d debuglevel] [-o outfile] [-f f0] [-p alpha delta] [-s patchSizeX patchSizeY]
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Description}
+\heading{Description}
 
-%TO BE CHANGED
+\%TO BE CHANGED
 
 This program generates a patch grid, calculates the parameters needed for
-building the {\sc LUT}, builds the {\sc LUT} and outputs a partial Hough map
+building the \c LUT, builds the \c LUT and outputs a partial Hough map
 derivative into a file. The sky patch is set at the south pole,
 no spin-down parameters are assumed for the demodulation and
- every third  peak in the spectrum is selected.\\
+every third  peak in the spectrum is selected.
 
- By default, running this program with no arguments simply tests the subroutines,
-producing an output file called \verb@OutHough.asc@.  All default parameters are set from
-\verb@#define@d constants.\\
+By default, running this program with no arguments simply tests the subroutines,
+producing an output file called <tt>OutHough.asc</tt>.  All default parameters are set from
+<tt>#define</tt>d constants.
 
-The \verb@-d@ option sets the debug level to the specified value
-\verb@debuglevel@.  The \verb@-o@ flag tells the program to print the partial Hough map
-derivative  to the specified data file \verb@outfile@.  The
-\verb@-f@ option sets the intrinsic frequency \verb@f0@ at which build the {\sc
-LUT}.   The \verb@-p@ option sets the velocity orientation of the detector
-\verb@alpha@, \verb@delta@ (in radians).
+The <b>-d</b> option sets the debug level to the specified value
+\c debuglevel.  The <b>-o</b> flag tells the program to print the partial Hough map
+derivative  to the specified data file \c outfile.  The
+<b>-f</b> option sets the intrinsic frequency \c f0 at which build the <tt>LUT</tt>.
+The <b>-p</b> option sets the velocity orientation of the detector
+\c alpha, \c delta (in radians).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Exit codes}
-\vspace{0.1in}
-\input{TESTCONSTRUCTPLUTCErrorTable}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Uses}
-\begin{verbatim}
-LALHOUGHPatchGrid()
+\heading{Uses}
+\code
 LALHOUGHParamPLUT()
 LALHOUGHConstructPLUT()
 LALPrintError()
 LALMalloc()
 LALFree()
 LALCheckMemoryLeaks()
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsubsection*{Notes}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\vfill{\footnotesize\input{TestConstructPLUTCV}}
-
-********************************************   </lalLaTeX> */
+*/
 
 
 #include <lal/LUT.h>
 
-
-NRCSID (TESTCONSTRUCTPLUTC, "$Id$");
-
-
 /* Error codes and messages */
 
-/************** <lalErrTable file="TESTCONSTRUCTPLUTCErrorTable"> */
+/**\name Error Codes */ /*@{*/
 #define TESTCONSTRUCTPLUTC_ENORM 0
 #define TESTCONSTRUCTPLUTC_ESUB  1
 #define TESTCONSTRUCTPLUTC_EARG  2
@@ -128,8 +96,11 @@ NRCSID (TESTCONSTRUCTPLUTC, "$Id$");
 #define TESTCONSTRUCTPLUTC_MSGEARG  "Error parsing arguments"
 #define TESTCONSTRUCTPLUTC_MSGEBAD  "Bad argument values"
 #define TESTCONSTRUCTPLUTC_MSGEFILE "Could not create output file"
-/******************************************** </lalErrTable> */
+/*@}*/
 
+
+/** \cond DONT_DOXYGEN */
+NRCSID (TESTCONSTRUCTPLUTC, "$Id$");
 
 /* Default parameters. */
 
@@ -154,7 +125,7 @@ INT4 lalDebugLevel=0;
 #define ERROR( code, msg, statement )                                \
 do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
-    LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
               __LINE__, TESTCONSTRUCTPLUTC, statement ? statement :  \
                    "", (msg) );                                      \
@@ -163,7 +134,7 @@ do {                                                                 \
 #define INFO( statement )                                            \
 do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
-    LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
+    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
               TESTCONSTRUCTPLUTC, (statement) );                     \
 } while (0)
@@ -259,7 +230,7 @@ int main(int argc, char *argv[]){
         lalDebugLevel = atoi( argv[arg++] );
       } else {
         ERROR( TESTCONSTRUCTPLUTC_EARG, TESTCONSTRUCTPLUTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTCONSTRUCTPLUTC_EARG;
       }
     }
@@ -270,7 +241,7 @@ int main(int argc, char *argv[]){
         fname = argv[arg++];
       } else {
         ERROR( TESTCONSTRUCTPLUTC_EARG, TESTCONSTRUCTPLUTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTCONSTRUCTPLUTC_EARG;
       }
     }
@@ -283,7 +254,7 @@ int main(int argc, char *argv[]){
         parRes.f0Bin =  f0Bin;
       } else {
         ERROR( TESTCONSTRUCTPLUTC_EARG, TESTCONSTRUCTPLUTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTCONSTRUCTPLUTC_EARG;
       }
     }
@@ -295,7 +266,7 @@ int main(int argc, char *argv[]){
 	delta = atof(argv[arg++]);
       } else {
         ERROR( TESTCONSTRUCTPLUTC_EARG, TESTCONSTRUCTPLUTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTCONSTRUCTPLUTC_EARG;
       }
     }
@@ -307,14 +278,14 @@ int main(int argc, char *argv[]){
         parRes.patchSkySizeY = patchSizeY = atof(argv[arg++]);
       } else {
         ERROR( TESTCONSTRUCTPLUTC_EARG, TESTCONSTRUCTPLUTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTCONSTRUCTPLUTC_EARG;
       }
     }
     /* Unrecognized option. */
     else {
       ERROR( TESTCONSTRUCTPLUTC_EARG, TESTCONSTRUCTPLUTC_MSGEARG, 0 );
-      LALPrintError( USAGE, *argv );
+      XLALPrintError( USAGE, *argv );
       return TESTCONSTRUCTPLUTC_EARG;
     }
   } /* End of argument parsing loop. */
@@ -322,7 +293,7 @@ int main(int argc, char *argv[]){
 
   if ( f0 < 0 ) {
     ERROR( TESTCONSTRUCTPLUTC_EBAD, TESTCONSTRUCTPLUTC_MSGEBAD, "freq<0:" );
-    LALPrintError( USAGE, *argv  );
+    XLALPrintError( USAGE, *argv  );
     return TESTCONSTRUCTPLUTC_EBAD;
   }
 
@@ -529,3 +500,5 @@ int main(int argc, char *argv[]){
 }
 
 /* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
+
+/** \endcond */

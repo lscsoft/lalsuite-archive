@@ -587,6 +587,21 @@ class Server(object):
       if len(ligomd.table['process']['stream']) == 0:
         del ligomd.table['process']
 
+      # delete the duplicate process_params rows and clear the table if necessary
+      # (the DMT does not write a process_params table, so check for one first)
+      if ligomd.table.has_key('process_params'):
+        ppid_col = ligomd.table['process_params']['orderedcol'].index('process_id')
+        newstream = []
+        for row_idx,row in enumerate(ligomd.table['process_params']['stream']):
+          # if the process_id in this row is known, delete (i.e. don't copy) it
+          try:
+            proc_key[str(row[ppid_col])]
+          except KeyError:
+            newstream.append(row)
+        ligomd.table['process_params']['stream'] = newstream
+        if len(ligomd.table['process_params']['stream']) == 0:
+          del ligomd.table['process_params']
+
       # turn the known process_id binary for this insert into ascii
       for pid in known_proc.keys():
         pid_str = "x'"
@@ -692,9 +707,9 @@ class Server(object):
         # check the dn in the row we are about to update matches the users dn
         dn = last_end_time[1].strip()
         if subject != dn:
-          msg = "%s does not have permission to update row entries" % subject
-          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
-          raise ServerHandlerException, msg
+          msg = "\"%s\" does not match dn in existing row entries: " % subject
+          msg += "%s (process_id %s)" % (dn, known_proc[pid][0])
+          logger.warn(msg)
         else:
           logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
 

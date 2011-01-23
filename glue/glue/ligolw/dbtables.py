@@ -44,6 +44,7 @@ import warnings
 
 
 from glue import git_version
+from glue import offsetvector
 from glue import segments
 from glue.ligolw import ilwd
 from glue.ligolw import ligolw
@@ -90,6 +91,16 @@ def DBTable_set_connection(connection):
 	DBTable.connection = connection
 
 
+#
+# Module-level variable used to hold references to
+# tempfile.NamedTemporaryFiles objects to prevent them from being deleted
+# while in use.  NOT MEANT FOR USE BY CODE OUTSIDE OF THIS MODULE!
+#
+
+
+temporary_files = dict()
+
+
 def get_connection_filename(filename, tmp_path = None, replace_file = False, verbose = False):
 	"""
 	Utility code for moving database files to a (presumably local)
@@ -97,14 +108,23 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	load.
 	"""
 	def mktmp(path, verbose = False):
-		fd, filename = tempfile.mkstemp(suffix = ".sqlite", dir = path)
-		os.close(fd)
+		temporary_file = tempfile.NamedTemporaryFile(suffix = ".sqlite", dir = path)
+		def new_unlink(self, orig_unlink = temporary_file.unlink):
+			# also remove a -journal partner, ignore all errors
+			try:
+				orig_unlink("%s-journal" % self)
+			except:
+				pass
+			orig_unlink(self)
+		temporary_file.unlink = new_unlink
+		filename = temporary_file.name
+		temporary_files[filename] = temporary_file
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
 		# mkstemp() ignores umask, creates all files accessible
 		# only by owner;  we should respect umask.  note that
-		# umask() sets it, too, so we have to set it back after we
-		# know what it is
+		# os.umask() sets it, too, so we have to set it back after
+		# we know what it is
 		umsk = os.umask(0777)
 		os.umask(umsk)
 		os.chmod(filename, 0666 & ~umsk)
@@ -112,7 +132,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	def truncate(filename, verbose = False):
 		if verbose:
-			print >>sys.stderr, "'%s' exists, truncating ..." % filename
+			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
 		except:
@@ -125,8 +145,10 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	def cpy(srcname, dstname, verbose = False):
 		if verbose:
-			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname)
+			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname),
 		shutil.copy2(srcname, dstname)
+		if verbose:
+			print >>sys.stderr, "done."
 		try:
 			# try to preserve permission bits.  according to
 			# the documentation, copy() and copy2() are
@@ -175,6 +197,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 						target = filename
 					break
 	else:
+		if filename in temporary_files:
+			raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
@@ -185,28 +209,40 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	return target
 
-def set_temp_store_directory( connection, temp_store_directory, verbose = False ):
+
+def set_temp_store_directory(connection, temp_store_directory, verbose = False):
 	"""
 	Sets the temp_store_directory parameter in sqlite.
 	"""
-	try:
-		import sqlite3
-	except ImportError:
-		# pre 2.5.x
-		from pysqlite2 import dbapi2 as sqlite3
-
 	if verbose:
-		print >> sys.stderr, "setting the temp_store_directory to %s ..." % temp_store_directory
-	connection.cursor().execute('PRAGMA temp_store_directory = "%s"' % temp_store_directory)
+		print >>sys.stderr, "setting the temp_store_directory to %s ..." % temp_store_directory,
+	cursor = connection.cursor()
+	cursor.execute("PRAGMA temp_store_directory = '%s'" % temp_store_directory)
+	cursor.close()
+	if verbose:
+		print >>sys.stderr, "done"
 
 
 class IOTrappedSignal(Exception):
 	"""
 	Raised by put_connection_filename() upon completion if it trapped a
-	signal during the operation
+	signal during the operation.  Example:
+
+	>>> try:
+	...	put_connection_filename(filename, working_filename, verbose = True)
+	... except IOTrappedSignal, e:
+	...	os.kill(os.getpid(), e.signum)
+	...
+
+	This example re-transmits the most-recently received signal back to
+	itself following completion of the function call, if a signal was
+	trapped while the function ran.
 	"""
 	def __init__(self, signum):
 		self.signum = signum
+
+	def __repr__(self):
+		return "IOTrappedSignal(%d)" % self.signum
 
 	def __str__(self):
 		return "trapped signal %d" % self.signum
@@ -239,16 +275,30 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# replace document
 		if verbose:
-			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename)
+			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename),
 		shutil.move(working_filename, filename)
+		if verbose:
+			print >>sys.stderr, "done."
+
+		# remove reference to tempfile.TemporaryFile object.
+		# because we've just deleted the file above, this would
+		# produce an annoying but harmless message about an ignored
+		# OSError, so we create a dummy file for the TemporaryFile
+		# to delete.  ignore any errors that occur when trying to
+		# make the dummy file.  FIXME: this is stupid, find a
+		# better way to shut TemporaryFile up
+		try:
+			file(working_filename, "w").close()
+		except:
+			pass
+		del temporary_files[working_filename]
 
 		# restore original handlers, and report the most recently
 		# trapped signal if any were
 		for sig, oldhandler in oldhandlers.iteritems():
 			signal.signal(sig, oldhandler)
 		if __llwapp_write_filename_got_sig:
-			raise
-			IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+			raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
@@ -266,8 +316,11 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 	"""
 	if working_filename != filename:
 		if verbose:
-			print >>sys.stderr, "removing '%s' ..." % working_filename
-		os.remove(working_filename)
+			print >>sys.stderr, "removing '%s' ..." % working_filename,
+		# remove reference to tempfile.TemporaryFile object
+		del temporary_files[working_filename]
+		if verbose:
+			print >>sys.stderr, "done."
 
 
 #
@@ -728,31 +781,67 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		return dict((ilwd.get_ilwdchar(id), dict((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
+		return dict((ilwd.get_ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
 
-	def get_time_slide_id(self, offsetdict, create_new = None):
+	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
-		Return the time_slide_id corresponding to the time slide
+		Return the time_slide_id corresponding to the offset vector
 		described by offsetdict, a dictionary of instrument/offset
-		pairs.  If no matching time_slide_id is found, then
-		KeyError is raised.  If, however, the optional create_new
-		argument is set to an lsctables.Process object (or any
-		other object with a process_id attribute), then new rows
-		are added to the table to describe the desired time slide,
-		and the ID of the new rows is returned.
-		"""
-		# look for the ID
-		for id, slide in self.as_dict().iteritems():
-			if offsetdict == slide:
-				# found it
-				return id
+		pairs.
 
-		# time slide not found in table
-		if create_new is None:
+		If the optional create_new argument is None (the default),
+		then the table must contain a matching offset vector.  The
+		return value is the ID of that vector.  If the table does
+		not contain a matching offset vector then KeyError is
+		raised.
+
+		If the optional create_new argument is set to a Process
+		object (or any other object with a process_id attribute),
+		then if the table does not contain a matching offset vector
+		a new one will be added to the table and marked as having
+		been created by the given process.  The return value is the
+		ID of the (possibly newly created) matching offset vector.
+
+		If the optional superset_ok argument is False (the default)
+		then an offset vector in the table is considered to "match"
+		the requested offset vector only if they contain the exact
+		same set of instruments.  If the superset_ok argument is
+		True, then an offset vector in the table is considered to
+		match the requested offset vector as long as it provides
+		the same offsets for the same instruments as the requested
+		vector, even if it provides offsets for other instruments
+		as well.
+
+		More than one offset vector in the table might match the
+		requested vector.  If the optional nonunique_ok argument is
+		False (the default), then KeyError will be raised if more
+		than one offset vector in the table is found to match the
+		requested vector.  If the optional nonunique_ok is True
+		then the return value is the ID of one of the matching
+		offset vectors selected at random.
+		"""
+		# look for matching offset vectors
+		if superset_ok:
+			ids = [id for id, slide in self.as_dict().items() if offsetdict == dict((instrument, offset) for instrument, offset in slide.items() if instrument in offsetdict)]
+		else:
+			ids = [id for id, slide in self.as_dict().items() if offsetdict == slide]
+		if len(ids) > 1:
+			# found more than one
+			if nonunique_ok:
+				# and that's OK
+				return ids[0]
+			# and that's not OK
 			raise KeyError, offsetdict
-		self.sync_next_id()
+		if len(ids) == 1:
+			# found one
+			return ids[0]
+		# offset vector not found in table
+		if create_new is None:
+			# and that's not OK
+			raise KeyError, offsetdict
+		# that's OK, create new vector
 		id = self.get_next_id()
-		for instrument, offset in offsetdict.iteritems():
+		for instrument, offset in offsetdict.items():
 			row = self.RowType()
 			row.process_id = create_new.process_id
 			row.time_slide_id = id

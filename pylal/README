@@ -10,17 +10,20 @@ This README file explains how to build and install PyLAL.
 
 0. Prerequisites
 
-PyLAL needs matplotlib and numpy to provide plotting and good scientific
-data manipulation. The LIGO lightweight reading code requires lal,
-metaio and Python. Plotting also requires a latex distribution. Many codes
-require compiled C wrappings of lal, lalinspiral, and lalburst. The
-frame-reading code requires lalframe. All of these packages should be
-available at
+Compiling PyLAL's C extension modules requires the Fr (a.k.a. libframe),
+LAL, LALburst, and LALinspiral libraries to be installed.  Since most of
+PyLAL is written in Python (an interpreted language), for the most part
+PyLAL can be installed without having any prerequisites installed, however
+many PyLAL programs will fail to run without them.  PyLAL requires Glue for
+LIGO Light-Weight XML I/O, segment arithmetic, and many other things;
+PyLAL requires numpy, scipy, and matplotlib for data manipulation and
+plotting; plotting also requires a latex distribution.  All of these
+packages should be available at
 
   http://www.lsc-group.phys.uwm.edu/daswg/download/repositories.html
 
-Note: matplotlib and numpy are now part of the standard LSCSOFT stack
-(at least for CentOS 5) and can be obtained using:
+Note: matplotlib and numpy are now part of the standard LSCSOFT stack (at
+least for CentOS 5) and can be obtained using:
 
   yum groupinstall "LSCSOFT"
 

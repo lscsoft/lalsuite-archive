@@ -144,9 +144,9 @@ DopplerLatticeScan *XLALDuplicateDopplerLatticeScan ( const DopplerLatticeScan *
 /** Initialize search-grid using optimal lattice-covering
  */
 void
-InitDopplerLatticeScan ( LALStatus *status,
-			 DopplerLatticeScan **scan, 		/**< [out] initialized scan-state for lattice-scan */
-			 const DopplerLatticeInit *init		/**< [in] scan init parameters */
+InitDopplerLatticeScan ( LALStatus *status,		/**< pointer to LALStatus structure */
+			 DopplerLatticeScan **scan, 	/**< [out] initialized scan-state for lattice-scan */
+			 const DopplerLatticeInit *init	/**< [in] scan init parameters */
 			 )
 {
   DopplerLatticeScan *ret = NULL;
@@ -312,7 +312,7 @@ XLALgetCurrentLatticeIndex ( gsl_vector_int **Index, const DopplerLatticeScan *s
       }
     }
   else if ( (*Index)->size != scan->dimLattice ) {
-    LALPrintError ("\n\nOutput vector has wrong dimension %d instead of %d!\n\n", (*Index)->size, scan->dimLattice);
+    XLALPrintError ("\n\nOutput vector has wrong dimension %d instead of %d!\n\n", (*Index)->size, scan->dimLattice);
     XLAL_ERROR (fn, XLAL_EINVAL );
   }
 
@@ -777,7 +777,7 @@ setupSearchRegion ( LALStatus *status, DopplerLatticeScan *scan, const DopplerRe
 
   if ( (scan->boundary.hemisphere = onWhichHemisphere ( points3D )) == HEMI_BOTH )
     {
-      LALPrintError ("\n\nSorry, currently only (ecliptic) single-hemisphere sky-regions are supported!\n");
+      XLALPrintError ("\n\nSorry, currently only (ecliptic) single-hemisphere sky-regions are supported!\n");
       ABORT ( status, DOPPLERSCANH_EINPUT, DOPPLERSCANH_MSGEINPUT );
     }
   if ( (scan->boundary.skyRegion.data = LALCalloc ( points3D->length, sizeof(scan->boundary.skyRegion.data[0]) )) == NULL ) {
@@ -853,7 +853,7 @@ IndexToCanonical ( gsl_vector **canonical, const gsl_vector_int *Index, const Do
     return -1;
 
   if ( (*canonical != NULL) && ( (*canonical)->size != DIM_CANONICAL ) ) {
-    LALPrintError ("\nIndexToCanonicalOffset(): output-vector has dim=%d instead of dimCanonical=%d!\n\n",
+    XLALPrintError ("\nIndexToCanonicalOffset(): output-vector has dim=%d instead of dimCanonical=%d!\n\n",
 		   (*canonical)->size, DIM_CANONICAL );
     return -1;
   }
@@ -959,7 +959,7 @@ convertCanonical2Doppler ( dopplerParams_t *doppler, const gsl_vector *canonical
 /** Convert a sky-region string into a list of vectors in ecliptic 2D coords {nX, nY}
  */
 void
-skyRegionString2vect3D ( LALStatus *status,
+skyRegionString2vect3D ( LALStatus *status,		/**< pointer to LALStatus structure */
 			 vect3Dlist_t **skyRegion, 	/**< [out] list of skypoints in 3D-ecliptic coordinates {nX, nY, nZ} */
 			 const CHAR *skyRegionString )	/**< [in] string of equatorial-coord. sky-positions */
 {
@@ -1132,7 +1132,7 @@ vect2DToSkypos ( SkyPosition *skypos, vect2D_t * const vect2D, hemisphere_t hemi
 
   vn2 = SQUARE ( vn3D[0] ) + SQUARE ( vn3D[1] );
   if ( gsl_fcmp ( vn2, 1.0, EPS_REAL8 ) > 0 ) {
-    LALPrintError ( "\n\nvect2DToSkypos(): Sky-vector has length > 1! (vn2 = %f)\n\n", vn2 );
+    XLALPrintError ( "\n\nvect2DToSkypos(): Sky-vector has length > 1! (vn2 = %f)\n\n", vn2 );
     vn3D[2] = 0;
   }
   else
@@ -1193,20 +1193,20 @@ findCenterOfMass ( vect3D_t *center, const vect3Dlist_t *points )
 /** Function for checking if a given vect2D-point lies inside or outside a given vect2D-polygon.
  * This is basically indentical to 'pointInPolygon()' only using different data-types.
  *
- * \par Note1:
+ * \heading{Note1:}
  * 	The list of polygon-points must not close on itself, the last point
  * 	is automatically assumed to be connected to the first
  *
- * \par Alorithm:
+ * \heading{Algorithm:}
  *     Count the number of intersections of rays emanating to the right
  *     from the point with the lines of the polygon: even=> outside, odd=> inside
  *
- * \par Note2:
+ * \heading{Note2:}
  *     we try to get this algorith to count all boundary-points as 'inside'
  *     we do this by counting intersection to the left _AND_ to the right
  *     and consider the point inside if either of those says its inside...
  *
- * \par Note3:
+ * \heading{Note3:}
  *     correctly handles the case of a 1-point 'polygon', in which the two
  *     points must agree within eps=1e-10 relative precision.
  *

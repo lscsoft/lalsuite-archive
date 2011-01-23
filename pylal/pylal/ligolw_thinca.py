@@ -25,7 +25,6 @@
 
 
 import bisect
-import itertools
 import math
 import sys
 
@@ -112,22 +111,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
-# Use C segments module
-#
-
-
-def use___segments(modulename):
-	from glue import __segments
-	modulename.segments.infinity = __segments.infinity
-	modulename.segments.NegInfinity = __segments.NegInfinity
-	modulename.segments.PosInfinity = __segments.PosInfinity
-	modulename.segments.segment = __segments.segment
-	modulename.segments.segmentlist = __segments.segmentlist
-use___segments(llwapp)
-use___segments(lsctables)
-
-
-#
 # =============================================================================
 #
 #                           Add Process Information
@@ -139,7 +122,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -159,6 +142,8 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--effective-snr", u"lstring", effective_snr)]
 	if coinc_end_time_segment is not None:
 		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
+	if exact_mass is not None:
+		params += [(u"--exact-mass", None, None)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -249,6 +234,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			coinc_inspiral.snr = None
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
+		coinc_inspiral.minimum_duration = None
 		coinc_inspiral.set_end(coinc_inspiral_end_time(events, self.time_slide_index[time_slide_id]))
 		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
@@ -260,7 +246,9 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		tstart = coinc_inspiral.get_end()
-		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+		instruments = set([event.ifo for event in events])
+		instruments |= set([instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs])
+		coinc.set_instruments(instruments)
 
 		#
 		# save memory by re-using strings
@@ -501,19 +489,14 @@ def ligolw_thinca(
 	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.time_slide_index, verbose = verbose)
 
 	#
-	# loop over the items in time_slide_graph.head, producing all of
-	# those n-tuple coincidences
+	# retrieve all coincidences, apply the final n-tuple compare func
+	# and record the survivors
 	#
 
-	if verbose:
-		print >>sys.stderr, "constructing coincs for target offset vectors ..."
-	for n, node in enumerate(time_slide_graph.head):
-		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
-		for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
-			ntuple = tuple(sngl_index[id] for id in coinc)
-			if not ntuple_comparefunc(ntuple, node.offset_vector):
-				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
+		ntuple = tuple(sngl_index[id] for id in coinc)
+		if not ntuple_comparefunc(ntuple, node.offset_vector):
+			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 
 	#
 	# remove time offsets from events

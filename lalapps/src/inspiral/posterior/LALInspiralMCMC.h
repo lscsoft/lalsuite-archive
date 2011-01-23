@@ -267,6 +267,7 @@ tagLALMCMCInput
    
   UINT4                     numberDataStreams;
   CHAR*                     ifoID[MAXDET];
+  CHAR*						dumpfile; /* Likelihod function should dump data if this is not null */
   REAL8TimeSeries*          segment[MAXDET];
   REAL8FrequencySeries*     invspec[MAXDET];
   COMPLEX16FrequencySeries* stilde[MAXDET];
@@ -288,6 +289,7 @@ tagLALMCMCInput
   Approximant approximant; /* Approximant to use for this model */
   INT4	  ampOrder; /* Amplitude order to use with Higher Harmonic waveforms */
 	                /* Setting = 0 means Newtonian amplitude */
+  LALPNOrder phaseOrder;
   MCMCmode mode;
   MCMCLikelihoodFunction *funcLikelihood; /* engine for likelihood */
   MCMCInitFunction       *funcInit;       /* engine for init function */

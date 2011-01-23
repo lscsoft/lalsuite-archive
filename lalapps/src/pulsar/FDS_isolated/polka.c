@@ -17,6 +17,13 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author X. Siemens
+ * \brief takes in two Fstats file to look for coincidence
+ */
+
 /*********************************************************************************/
 /*                     polka - the pulsar koinzidenz analysis code               */
 /*                                                                               */
@@ -910,7 +917,7 @@ ReadOneCandidateFile (LALStatus *stat, CandidateList *CList, const char *fname)
 
   if ( numlines == 0) 
     {
-      LALPrintError ("ERROR: File '%s' is empty and is not properly terminated by '%s' marker!\n\n", fname, DONE_MARKER);
+      XLALPrintError ("ERROR: File '%s' is empty and is not properly terminated by '%s' marker!\n\n", fname, DONE_MARKER);
       TRY (LALDestroyParsedDataFile ( stat->statusPtr, &Fstats ), stat);
       ABORT (stat, POLKAC_EINVALIDFSTATS, POLKAC_MSGEINVALIDFSTATS);
     }
@@ -919,7 +926,7 @@ ReadOneCandidateFile (LALStatus *stat, CandidateList *CList, const char *fname)
   thisline = Fstats->lines->tokens[numlines-1];	/* get last line */
   if ( strcmp(thisline, DONE_MARKER ) ) 
     {
-      LALPrintError ("ERROR: File '%s' is not properly terminated by '%s' marker!\n\n", fname, DONE_MARKER);
+      XLALPrintError ("ERROR: File '%s' is not properly terminated by '%s' marker!\n\n", fname, DONE_MARKER);
       TRY (LALDestroyParsedDataFile ( stat->statusPtr, &Fstats ), stat);
       ABORT (stat, POLKAC_EINVALIDFSTATS, POLKAC_MSGEINVALIDFSTATS);
     }
@@ -956,7 +963,7 @@ ReadOneCandidateFile (LALStatus *stat, CandidateList *CList, const char *fname)
 		     &(cands.f[i]), &(cands.Alpha[i]), &(cands.Delta[i]), &dmp, &dmp, &dmp, &(cands.F[i]) );
       if ( read != 7 )
 	{
-	  LALPrintError ("Failed to parse line %d in file '%s' \n", i+1, fname);
+	  XLALPrintError ("Failed to parse line %d in file '%s' \n", i+1, fname);
 	  TRY (LALDestroyParsedDataFile ( stat->statusPtr, &Fstats ), stat);
 	  LALFree (cands.f);
 	  LALFree (cands.Alpha);

@@ -37,8 +37,10 @@ import sys
 
 
 from glue import segments
+from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolwprocess
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
 from pylal import git_version
@@ -67,11 +69,14 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [filename ...]",
-		description = "%prog analyzes a collection of sqlite3 database files containing ligolw_burca outputs of string-cusp coincidence events, and measures probability distributions for a variety of parameters computed from those coincidences.  The distributions are written to a likelihood data file in XML format, which can later be used by to assign likelihoods to the coincidences.  The command line arguments are used to provide shell patterns for the files from which to obtain injection and backgroun coincidences.  If file names are given on the command line following the arguments, then likelihood data is loaded from those files and added to the output."
+		description = "%prog analyzes a collection of sqlite3 database files containing ligolw_burca outputs of string-cusp coincidence events, and measures probability distributions for a variety of parameters computed from those coincidences.  The distributions are written to a likelihood data file in XML format, which can later be used by to assign likelihoods to the coincidences.  The files to be processed can be named on the command line and/or provided by a LAL cache file."
 	)
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood data file to write (default = stdout).")
+	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--T010150", metavar = "description", default = None, help = "Write the output to a file whose name is compatible with the file name format described in LIGO-T010150-00-E, \"Naming Convention for Frame Files which are to be Processed by LDAS\".  The description string will be used to form the second field in the file name.")
+	parser.add_option("--injection-reweight", metavar = "off|astrophysical", default = "off", help = "Set the weight function to be applied to the injections (default = \"off\").  When \"off\", the injections are all given equal weight and so the injection population is whatever was injected.  When set to \"astrophysical\", the injections are reweighted to simulate an amplitude^{-4} distribution.")
+	parser.add_option("--vetoes-name", metavar = "name", help = "Set the name of the segment lists to use as vetoes (default = do not apply vetoes).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -83,10 +88,55 @@ def parse_command_line():
 		elif set(options.T010150) - T010150_letters:
 			raise ValueError, "invalid characters in description \"%s\"" % options.T010150
 
+	if options.input_cache:
+		filenames += [CacheEntry(line).path() for line in file(options.input_cache)]
+
 	if not filenames:
 		raise ValueError, "no input files!"
 
+	if options.injection_reweight not in ("off", "astrophysical"):
+		raise ValueError, "--injection-reweight \"%s\" not recognized" % options.injections_reweight
+
 	return options, filenames
+
+
+#
+# =============================================================================
+#
+#                         Injection ReWeight Functions
+#
+# =============================================================================
+#
+
+
+def get_injection_weight_func(contents, reweight_type):
+	if reweight_type == "off":
+		def weight_func(sim):
+			return 1.0
+	elif reweight_type == "astrophysical":
+		population, = ligolwprocess.get_process_params(contents.xmldoc, "lalapps_binj", "--population")
+		if population != "string_cusp":
+			raise ValueError, "lalapps_binj was not run with --population=\"string_cusp\""
+		def weight_func(sim):
+			# the "string_cusp" injection population is uniform
+			# in log A, meaning the number of injections
+			# between log A and log A + d log A is independent
+			# of A.  that corresponds to a distribution density
+			# in A of P(A) dA \propto A^{-1} dA.  we want P(A)
+			# dA \propto A^{-4} dA, so each physical injection
+			# needs to be treated as if it was A^{-3} virtual
+			# injections, then the density of virtual
+			# injections will be P(A) dA \propto A^{-4} dA.
+			# the factor of 10^{21} simply renders the
+			# amplitudes closer to 1;  since double-precision
+			# arithmetic is used this should have no affect on
+			# the results, but it might help make the numbers a
+			# little easier for humans to look at should anyone
+			# have occasion to do so.
+			return (sim.amplitude * 1e21)**-3
+	else:
+		raise ValueError, reweight_type
+	return weight_func
 
 
 #
@@ -131,30 +181,36 @@ for n, filename in enumerate(filenames):
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
+	if options.tmp_space is not None:
+		dbtables.set_temp_store_directory(connection, options.tmp_space, verbose = options.verbose)
 
 	#
 	# Summarize the database.
 	#
 
-	database = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", verbose = options.verbose)
-	if not database.seglists and options.verbose:
+	contents = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", veto_segments_name = options.vetoes_name)
+	if options.verbose:
+		SnglBurstUtils.summarize_coinc_database(contents)
+	if not contents.seglists and options.verbose:
 		print >>sys.stderr, "\twarning:  no segments found"
-	segs |= database.seglists
+	segs |= contents.seglists
 
 	#
 	# Record statistics.  Assume all files with sim_burst tables are
 	# the outputs of injection runs, and others aren't.
 	#
 
-	if database.sim_burst_table is None:
-		stats.add_noninjections(stringutils.coinc_params_func, database)
+	if contents.sim_burst_table is None:
+		stats.add_noninjections(stringutils.coinc_params_func, contents, contents.vetoseglists)
 	else:
-		stats.add_injections(stringutils.coinc_params_func, database)
+		stats.add_injections(stringutils.coinc_params_func, contents, contents.vetoseglists, weight_func = get_injection_weight_func(contents, options.injection_reweight))
 
 	#
 	# Clean up.
 	#
 
+	contents.xmldoc.unlink()
+	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 

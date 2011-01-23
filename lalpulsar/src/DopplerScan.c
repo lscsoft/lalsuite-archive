@@ -43,6 +43,12 @@
 
 
 /*---------- DEFINES ----------*/
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 #define MIN(x,y) (x < y ? x : y)
 #define MAX(x,y) (x > y ? x : y)
 
@@ -188,8 +194,8 @@ XLALNextDopplerSkyPos( PulsarDopplerParams *pos, DopplerSkyScanState *skyScan)
 /** Initialize the Doppler sky-scanner
  */
 void
-InitDopplerSkyScan( LALStatus *status,
-		    DopplerSkyScanState *skyScan, 		/**< [out] the initialized scan-structure */
+InitDopplerSkyScan( LALStatus *status,			/**< pointer to LALStatus structure */
+		    DopplerSkyScanState *skyScan, 	/**< [out] the initialized scan-structure */
 		    const DopplerSkyScanInit *init)	/**< [in] init-params */
 {
   DopplerSkyGrid *node;
@@ -402,16 +408,13 @@ freeSkyGrid (DopplerSkyGrid *skygrid)
  * by about EPS~1e-6 [as REAL4-arithmetic is used in TwoDMesh()].
  *
  */
-void getRange( LALStatus *status, meshREAL y[2], meshREAL x, void *params )
+void getRange( LALStatus *status, meshREAL y[2], meshREAL UNUSED x, void *params )
 {
   SkyRegion *region = (SkyRegion*)params;
-  meshREAL nix;
 
   /* Set up shop. */
   INITSTATUS( status, "getRange", DOPPLERSCANC );
   /*   ATTATCHSTATUSPTR( status ); */
-
-  nix = x;	/* avoid compiler warning */
 
   /* for now: we return the fixed y-range, indendent of x */
   if (meshOrder == ORDER_ALPHA_DELTA)
@@ -703,15 +706,15 @@ plotSkyGrid (LALStatus *status,
 /** Function for checking if a given point lies inside or outside a given
  *  polygon, which is specified by a list of points in a SkyPositionVector.
  *
- * \par Note1:
+ * \heading{Note1:}
  * 	The list of polygon-points must not close on itself, the last point
  * 	is automatically assumed to be connected to the first
  *
- * \par Alorithm:
+ * \heading{Algorithm:}
  *     Count the number of intersections of rays emanating to the right
  *     from the point with the lines of the polygon: even=> outside, odd=> inside
  *
- * \par Note2:
+ * \heading{Note2:}
  *     we try to get this algorith to count all boundary-points as 'inside'
  *     we do this by counting intersection to the left _AND_ to the right
  *     and consider the point inside if either of those says its inside...
@@ -986,7 +989,6 @@ buildMetricSkyGrid (LALStatus *status,
 		    SkyRegion *skyRegion,
 		    const DopplerSkyScanInit *init)
 {
-  SkyPosition thisPoint;
   meshNODE *mesh2d = NULL;
   meshPARAMS meshpar = empty_meshpar;
   PtoleMetricIn metricpar = empty_metricpar;
@@ -1003,8 +1005,6 @@ buildMetricSkyGrid (LALStatus *status,
 
   if ( skyRegion->numVertices < 3 )	/* got no surface to cover */
     goto done;
-
-  thisPoint = skyRegion->lowerLeft;	/* start from lower-left corner */
 
   /* some general mesh-settings are needed in metric case */
   meshpar.getRange = getRange;
@@ -1166,9 +1166,8 @@ printFrequencyShifts ( LALStatus *status, const DopplerSkyScanState *skyScan, co
   const DopplerSkyGrid *node = NULL;
 
   REAL8 v[3], a[3];
-  REAL8 np[3], n[3];
-  REAL8 fact, kappa0;
-  REAL8 Alpha, Delta, f0;
+  REAL8 np[3];
+  REAL8 fact;
   REAL8* vel;
   REAL8* acc;
   REAL8 t0e;        /*time since first entry in Earth ephem. table */
@@ -1180,7 +1179,7 @@ printFrequencyShifts ( LALStatus *status, const DopplerSkyScanState *skyScan, co
   REAL8 tgps[2];
   const EphemerisData *edat = init->ephemeris;
   UINT4 j;
-  REAL8 corr1, accN, accDot[3];
+  REAL8 accDot[3];
   REAL8 Tobs, dT;
   REAL8 V0[3], V1[3], V2[3];
 
@@ -1227,34 +1226,20 @@ printFrequencyShifts ( LALStatus *status, const DopplerSkyScanState *skyScan, co
       V2[j] = v[j] + 0.5 * a[j]*Tobs + (2.0/5.0)*accDot[j] * Tobs * Tobs; /* 2nd order */
     }
 
-  LALPrintError ("dT = %f, tdiffE = %f, Tobs = %f\n", dT, tdiffE, Tobs);
-  LALPrintError (" vel =  [ %g, %g, %g ]\n", vel[0], vel[1], vel[2]);
-  LALPrintError (" acc =  [ %g, %g, %g ]\n", acc[0], acc[1], acc[2]);
-  LALPrintError (" accDot =  [ %g, %g, %g ]\n\n", accDot[0], accDot[1], accDot[2]);
+  XLALPrintError ("dT = %f, tdiffE = %f, Tobs = %f\n", dT, tdiffE, Tobs);
+  XLALPrintError (" vel =  [ %g, %g, %g ]\n", vel[0], vel[1], vel[2]);
+  XLALPrintError (" acc =  [ %g, %g, %g ]\n", acc[0], acc[1], acc[2]);
+  XLALPrintError (" accDot =  [ %g, %g, %g ]\n\n", accDot[0], accDot[1], accDot[2]);
 
-  LALPrintError (" v =  [ %g, %g, %g ]\n", v[0], v[1], v[2]);
-  LALPrintError (" a =  [ %g, %g, %g ]\n", a[0], a[1], a[2]);
+  XLALPrintError (" v =  [ %g, %g, %g ]\n", v[0], v[1], v[2]);
+  XLALPrintError (" a =  [ %g, %g, %g ]\n", a[0], a[1], a[2]);
 
-  LALPrintError ("\nVelocity-expression in circle-equation: \n");
-  LALPrintError (" V0 = [ %g, %g, %g ]\n", V0[0], V0[1], V0[2] );
-  LALPrintError (" V1 = [ %g, %g, %g ]\n", V1[0], V1[1], V1[2] );
-  LALPrintError (" V2 = [ %g, %g, %g ]\n", V2[0], V2[1], V2[2] );
+  XLALPrintError ("\nVelocity-expression in circle-equation: \n");
+  XLALPrintError (" V0 = [ %g, %g, %g ]\n", V0[0], V0[1], V0[2] );
+  XLALPrintError (" V1 = [ %g, %g, %g ]\n", V1[0], V1[1], V1[2] );
+  XLALPrintError (" V2 = [ %g, %g, %g ]\n", V2[0], V2[1], V2[2] );
 
   node = skyScan->skyGrid;
-
-  /* signal params */
-  Alpha = 0.8;
-  Delta = 1.0;
-  f0 = 101.0;
-
-  n[0] = cos(Delta) * cos(Alpha);
-  n[1] = cos(Delta) * sin(Alpha);
-  n[2] = sin(Delta);
-
-  kappa0 = (1.0 + n[0]*v[0] + n[1]*v[1] + n[2]*v[2] );
-
-  accN = (acc[0]*n[0] + acc[1]*n[1] + acc[2]*n[2]);
-  corr1 = (1.0/60.0)* (accN * accN) * Tobs * Tobs / kappa0;
 
   while (node)
     {
@@ -1305,7 +1290,7 @@ getDopplermax(EphemerisData *edat)
       maxvS = mymax( maxvS, beta );
     }
 
-  LALPrintError ("Maximal Doppler-shift to be expected from ephemeris: %e", maxvE + maxvS );
+  XLALPrintError ("Maximal Doppler-shift to be expected from ephemeris: %e", maxvE + maxvS );
 
   return (maxvE + maxvS);
 
@@ -1410,7 +1395,7 @@ ParseSkyRegionString (LALStatus *status, SkyRegion *region, const CHAR *input)
  * "SkyRegion"-string of the form '(a1,d1), (a2,d2),...'
  */
 void
-SkySquare2String (LALStatus *status,
+SkySquare2String (LALStatus *status,	/**< pointer to LALStatus structure */
 		  CHAR **string,	/**< OUT: skyRegion string */
 		  REAL8 Alpha,		/**< longitude of first point */
 		  REAL8 Delta,		/**< latitude of first point */
@@ -1473,10 +1458,10 @@ SkySquare2String (LALStatus *status,
  * NOTE: currently only 1 spindown is supported!
  */
 void
-getGridSpacings( LALStatus *status,
+getGridSpacings( LALStatus *status,			/**< pointer to LALStatus structure */
 		 PulsarDopplerParams *spacings,		/**< OUT: grid-spacings in gridpoint */
 		 PulsarDopplerParams gridpoint,		/**< IN: gridpoint to get spacings for*/
-		 const DopplerSkyScanInit *params)		/**< IN: Doppler-scan parameters */
+		 const DopplerSkyScanInit *params)	/**< IN: Doppler-scan parameters */
 {
   REAL8Vector *metric = NULL;
   REAL8 g_f0_f0 = 0, gamma_f1_f1 = 0, gamma_a_a, gamma_d_d;
@@ -1590,7 +1575,7 @@ getGridSpacings( LALStatus *status,
  *  PointsPerDim == 1: DopplerRegion is only one point (randomized within one cell)
  */
 void
-getMCDopplerCube (LALStatus *status,
+getMCDopplerCube (LALStatus *status,		/**< pointer to LALStatus structure */
 		  DopplerRegion *cube, 		/**< OUT: 'cube' around signal-position */
 		  PulsarDopplerParams lal_signal, 	/**< signal-position: approximate cube-center */
 		  UINT4 PointsPerDim,		/**< desired number of grid-points per dim. */

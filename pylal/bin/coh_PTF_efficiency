@@ -1,0 +1,1007 @@
+#!/usr/bin/python
+
+from __future__ import division
+
+import os,sys
+import matplotlib
+matplotlib.use('Agg')
+from optparse import OptionParser
+from pylab import *
+from pylal import SimInspiralUtils
+from pylal import MultiInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+from pylal import plotutils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal.coh_PTF_pyutils import *
+
+usage = ""
+
+parser = OptionParser( usage )
+
+parser.add_option("-r", "--run-directory",action="store",type="string",\
+    default=None,\
+    help="The location of the run directory")
+parser.add_option("-n", "--grb-name",action="store",type="string",\
+    default=None,\
+    help="Name of the GRB such as 090802")
+parser.add_option("-i","--ifo-tag",action="store",type="string",\
+    default=None,\
+    help="The ifo tag, H1L1 or H1L1V1 for instance")
+parser.add_option("-t", "--offsource-file",action="store",type="string",\
+    default=None,\
+    help="The location of the trigger file")
+parser.add_option("-O", "--onsource-file",action="store",type="string",\
+    default=None,\
+    help="The location of the trigger file")
+parser.add_option("-f", "--found-file",action="store",type="string",\
+    default=None,\
+    help="The location of the found injections file")
+parser.add_option("-m", "--missed-file",action="store",type="string",\
+    default=None,\
+    help="The location of the missed injections file")
+parser.add_option("-o", "--output-path",action="store",type="string",\
+    default='.',\
+    help="Output path for plots")
+
+(opts,args) = parser.parse_args()
+opts.output_path = opts.output_path + '/'
+if not os.path.isdir(opts.output_path):
+  os.makedirs(opts.output_path)
+
+
+if not opts.run_directory:
+  print "must provide run directory"
+  sys.exit(1)
+
+if not opts.grb_name:
+  print "must provide GRB name"
+  sys.exit(1)
+
+if not opts.ifo_tag:
+  print "must provide ifo tag"
+  sys.exit(1)
+
+if not opts.offsource_file:
+  print "must provide trig file"
+  sys.exit(1)
+
+if (not opts.found_file) and (not opts.missed_file):
+  opts.do_injections = False
+elif (opts.found_file) and opts.missed_file:
+  opts.do_injections = True
+else:
+  print "must provide both found and missed file if running injections"
+  sys.exit(1)
+
+trigFile = opts.offsource_file
+foundFile = opts.found_file
+missedFile = opts.missed_file
+onsourceFile = opts.onsource_file
+ifoTag = opts.ifo_tag
+segTimes = readSegFiles(opts.run_directory)
+bufferStart = int(segTimes["buffer_start"])
+bufferEnd = int(segTimes["buffer_end"])
+onSourceStart = int(segTimes["on_start"])
+onSourceEnd = int(segTimes["on_end"])
+offSourceStart = int(segTimes["off_start"])
+offSourceEnd = int(segTimes["off_end"])
+
+# Padding time = 7s for padding + 64s lost time
+paddingTime = 71 
+trialTime = onSourceEnd - onSourceStart
+numSegsBeforeBuffer = (bufferStart - (offSourceStart + 71))//trialTime
+endTimeBefore = (offSourceStart+paddingTime) + numSegsBeforeBuffer*trialTime
+numSegsAfterBuffer = ((offSourceEnd-paddingTime) - bufferEnd)//trialTime
+endTimeAfter = bufferEnd + numSegsAfterBuffer*trialTime
+numSegs = numSegsBeforeBuffer + numSegsAfterBuffer
+
+ra,dec = get_ra_dec(opts.run_directory + '/triggerGRB'+opts.grb_name+'.xml')
+fPlus,fCross = get_det_response(ra,dec,onSourceEnd-1)
+h1Resp = fPlus['H1']*fPlus['H1'] + fCross['H1']*fCross['H1']
+h2Resp = fPlus['H2']*fPlus['H2'] + fCross['H2']*fCross['H2']
+l1Resp = fPlus['L1']*fPlus['L1'] + fCross['L1']*fCross['L1']
+v1Resp = fPlus['V1']*fPlus['V1'] + fCross['V1']*fCross['V1']
+fResp = {}
+fResp['H1'] = h1Resp
+fResp['H2'] = h2Resp
+fResp['L1'] = l1Resp
+fResp['V1'] = v1Resp
+sigmaVals = read_sigma_vals(opts.run_directory + '/post_processing/sngl_snr_cut.dat')
+
+# Parameters for auto and bank veto
+
+q = 4.
+nhigh = 3.
+    
+q2 = 4.
+nhigh2 = 3.
+
+chiq = 4.
+chin = 3.
+
+
+massBins = [[0,3.48],[3.48,6.],[6.,20]]
+
+trigTime = {}
+trigSNR = {}
+trigBestNRmk1 = {}
+trigBestNRmk2 = {}
+trigBestNRmk3 = {}
+trigBestNRmk4 = {}
+trigBestNRmk5 = {}
+trigBestNRmk6 = {}
+trigBestNRmk7 = {}
+trigBestNRmk8 = {}
+
+xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
+trigs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+
+for bin in massBins:
+  trigTime[bin[0]] = []
+  trigSNR[bin[0]] = []
+  trigBestNRmk1[bin[0]] = []
+  trigBestNRmk2[bin[0]] = []
+  trigBestNRmk3[bin[0]] = []
+  trigBestNRmk4[bin[0]] = []
+  trigBestNRmk5[bin[0]] = []
+  trigBestNRmk6[bin[0]] = []
+  trigBestNRmk7[bin[0]] = []
+  trigBestNRmk8[bin[0]] = []
+
+timeBinMaxSNR = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk1 = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk2 = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk3 = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk4 = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk5 = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk6 = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk7 = zeros([len(massBins)+1,numSegs],dtype = float)
+timeBinMaxBestNRmk8 = zeros([len(massBins)+1,numSegs],dtype = float)
+
+for trig in trigs:
+  trigBin = None
+  binNum = 0
+  for bin in massBins:
+    chirpMass = ((trig.mass1 * trig.mass2)**(3/5))/((trig.mass1+trig.mass2)**(1/5))
+    if chirpMass >= bin[0] and chirpMass < bin[1]:
+      if not trigBin:
+        trigBin = bin
+        trigBinNum = binNum
+      else:
+        print "ERROR: Mass bins appear to overlap"
+    binNum += 1
+
+  if not trigBin:
+    print "ERROR: No mass bins match trigger with mchirp", chirpMass
+
+  currTrigTime = trig.end_time + trig.end_time_ns*1E-9
+  trigTime[trigBin[0]].append(currTrigTime)
+  trigSNR[trigBin[0]].append(trig.snr)
+  sbvs = get_signal_vetoes(trig,bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,sigmaVals=sigmaVals,fResp = fResp)
+  trigBestNRmk1[trigBin[0]].append(sbvs['BestNR1'])
+  trigBestNRmk2[trigBin[0]].append(sbvs['BestNR2'])
+  trigBestNRmk3[trigBin[0]].append(sbvs['BestNR3'])
+  trigBestNRmk4[trigBin[0]].append(sbvs['BestNR4'])
+  trigBestNRmk5[trigBin[0]].append(sbvs['BestNR5'])
+  trigBestNRmk6[trigBin[0]].append(sbvs['BestNR6'])
+  trigBestNRmk7[trigBin[0]].append(sbvs['BestNR7'])
+  trigBestNRmk8[trigBin[0]].append(sbvs['BestNR8'])
+  # Determine chunk number
+  chunkNum = numSegs
+  if currTrigTime < bufferStart:
+    if currTrigTime < (offSourceStart+paddingTime):
+      print "ERROR: trig time is outside given analysis window!",currTrigTime
+      raise ValueError, ""
+    if currTrigTime < endTimeBefore:
+      chunkNum = (currTrigTime - (offSourceStart+paddingTime)) // trialTime
+  elif currTrigTime > bufferEnd:
+    if currTrigTime > (offSourceEnd-paddingTime):
+      print "ERROR: trig time is outside given analysis window!",currTrigTime
+      raise ValueError, ""
+    if currTrigTime < endTimeAfter:
+      chunkNum = (currTrigTime - bufferEnd) // trialTime + numSegsBeforeBuffer
+  if chunkNum == numSegs:
+    continue
+  if timeBinMaxSNR[trigBinNum,chunkNum] < trigSNR[trigBin[0]][-1]:
+    timeBinMaxSNR[trigBinNum,chunkNum] = trigSNR[trigBin[0]][-1]
+  if timeBinMaxSNR[len(massBins),chunkNum] < trigSNR[trigBin[0]][-1]:
+    timeBinMaxSNR[len(massBins),chunkNum] = trigSNR[trigBin[0]][-1]
+  if timeBinMaxBestNRmk1[trigBinNum,chunkNum] < trigBestNRmk1[trigBin[0]][-1]:
+    timeBinMaxBestNRmk1[trigBinNum,chunkNum] = trigBestNRmk1[trigBin[0]][-1]
+  if timeBinMaxBestNRmk1[len(massBins),chunkNum]<trigBestNRmk1[trigBin[0]][-1]:
+    timeBinMaxBestNRmk1[len(massBins),chunkNum] = trigBestNRmk1[trigBin[0]][-1]
+  if timeBinMaxBestNRmk2[trigBinNum,chunkNum] < trigBestNRmk2[trigBin[0]][-1]:
+    timeBinMaxBestNRmk2[trigBinNum,chunkNum] = trigBestNRmk2[trigBin[0]][-1]
+  if timeBinMaxBestNRmk2[len(massBins),chunkNum]<trigBestNRmk2[trigBin[0]][-1]:
+    timeBinMaxBestNRmk2[len(massBins),chunkNum] = trigBestNRmk2[trigBin[0]][-1]
+  if timeBinMaxBestNRmk3[trigBinNum,chunkNum] < trigBestNRmk3[trigBin[0]][-1]:
+    timeBinMaxBestNRmk3[trigBinNum,chunkNum] = trigBestNRmk3[trigBin[0]][-1]
+  if timeBinMaxBestNRmk3[len(massBins),chunkNum]<trigBestNRmk3[trigBin[0]][-1]:
+    timeBinMaxBestNRmk3[len(massBins),chunkNum] = trigBestNRmk3[trigBin[0]][-1]
+  if timeBinMaxBestNRmk4[trigBinNum,chunkNum] < trigBestNRmk4[trigBin[0]][-1]:
+    timeBinMaxBestNRmk4[trigBinNum,chunkNum] = trigBestNRmk4[trigBin[0]][-1]
+  if timeBinMaxBestNRmk4[len(massBins),chunkNum]<trigBestNRmk4[trigBin[0]][-1]:
+    timeBinMaxBestNRmk4[len(massBins),chunkNum] = trigBestNRmk4[trigBin[0]][-1]
+  if timeBinMaxBestNRmk5[trigBinNum,chunkNum] < trigBestNRmk5[trigBin[0]][-1]:
+    timeBinMaxBestNRmk5[trigBinNum,chunkNum] = trigBestNRmk5[trigBin[0]][-1]
+  if timeBinMaxBestNRmk5[len(massBins),chunkNum]<trigBestNRmk5[trigBin[0]][-1]:
+    timeBinMaxBestNRmk5[len(massBins),chunkNum] = trigBestNRmk5[trigBin[0]][-1]
+  if timeBinMaxBestNRmk6[trigBinNum,chunkNum] < trigBestNRmk6[trigBin[0]][-1]:
+    timeBinMaxBestNRmk6[trigBinNum,chunkNum] = trigBestNRmk6[trigBin[0]][-1]
+  if timeBinMaxBestNRmk6[len(massBins),chunkNum]<trigBestNRmk6[trigBin[0]][-1]:
+    timeBinMaxBestNRmk6[len(massBins),chunkNum] = trigBestNRmk6[trigBin[0]][-1]
+  if timeBinMaxBestNRmk7[trigBinNum,chunkNum] < trigBestNRmk7[trigBin[0]][-1]:
+    timeBinMaxBestNRmk7[trigBinNum,chunkNum] = trigBestNRmk7[trigBin[0]][-1]
+  if timeBinMaxBestNRmk7[len(massBins),chunkNum]<trigBestNRmk7[trigBin[0]][-1]:
+    timeBinMaxBestNRmk7[len(massBins),chunkNum] = trigBestNRmk7[trigBin[0]][-1]
+  if timeBinMaxBestNRmk8[trigBinNum,chunkNum] < trigBestNRmk8[trigBin[0]][-1]:
+    timeBinMaxBestNRmk8[trigBinNum,chunkNum] = trigBestNRmk8[trigBin[0]][-1]
+  if timeBinMaxBestNRmk8[len(massBins),chunkNum]<trigBestNRmk8[trigBin[0]][-1]:
+    timeBinMaxBestNRmk8[len(massBins),chunkNum] = trigBestNRmk8[trigBin[0]][-1]
+
+
+maxSNR = {}
+maxBestNRmk1 = {}
+maxBestNRmk2 = {}
+maxBestNRmk3 = {}
+maxBestNRmk4 = {}
+maxBestNRmk5 = {}
+maxBestNRmk6 = {}
+maxBestNRmk7 = {}
+maxBestNRmk8 = {}
+medianSNR = {}
+medianBestNRmk1 = {}
+medianBestNRmk2 = {}
+medianBestNRmk3 = {}
+medianBestNRmk4 = {}
+medianBestNRmk5 = {}
+medianBestNRmk6 = {}
+medianBestNRmk7 = {}
+medianBestNRmk8 = {}
+
+file = open(opts.output_path+"loudest_offsource.txt","w")
+
+binNum = 0
+for bin in massBins:
+  trigSNR[bin[0]] = asarray(trigSNR[bin[0]])
+  trigTime[bin[0]] = asarray(trigTime[bin[0]])
+  trigBestNRmk1[bin[0]] = asarray(trigBestNRmk1[bin[0]])
+  trigBestNRmk2[bin[0]] = asarray(trigBestNRmk2[bin[0]])
+  trigBestNRmk3[bin[0]] = asarray(trigBestNRmk3[bin[0]])
+  trigBestNRmk4[bin[0]] = asarray(trigBestNRmk4[bin[0]])
+  trigBestNRmk5[bin[0]] = asarray(trigBestNRmk5[bin[0]])
+  trigBestNRmk6[bin[0]] = asarray(trigBestNRmk6[bin[0]])
+  trigBestNRmk7[bin[0]] = asarray(trigBestNRmk7[bin[0]])
+  trigBestNRmk8[bin[0]] = asarray(trigBestNRmk8[bin[0]])
+  maxSNR[bin[0]] = trigSNR[bin[0]].max()
+  maxBestNRmk1[bin[0]] = trigBestNRmk1[bin[0]].max()
+  maxBestNRmk2[bin[0]] = trigBestNRmk2[bin[0]].max()
+  maxBestNRmk3[bin[0]] = trigBestNRmk3[bin[0]].max()
+  maxBestNRmk4[bin[0]] = trigBestNRmk4[bin[0]].max()
+  maxBestNRmk5[bin[0]] = trigBestNRmk5[bin[0]].max()
+  maxBestNRmk6[bin[0]] = trigBestNRmk6[bin[0]].max()
+  maxBestNRmk7[bin[0]] = trigBestNRmk7[bin[0]].max()
+  maxBestNRmk8[bin[0]] = trigBestNRmk8[bin[0]].max()
+  timeBinMaxSNR[binNum].sort()
+  timeBinMaxBestNRmk1[binNum].sort()
+  timeBinMaxBestNRmk2[binNum].sort()
+  timeBinMaxBestNRmk3[binNum].sort()
+  timeBinMaxBestNRmk4[binNum].sort()
+  timeBinMaxBestNRmk5[binNum].sort()
+  timeBinMaxBestNRmk6[binNum].sort()
+  timeBinMaxBestNRmk7[binNum].sort()
+  timeBinMaxBestNRmk8[binNum].sort()
+  if (numSegs % 2):
+    medianSNR[bin[0]] = (timeBinMaxSNR[binNum])[(numSegs - 1) /2]
+    medianBestNRmk1[bin[0]] = (timeBinMaxBestNRmk1[binNum])[(numSegs - 1) /2]
+    medianBestNRmk2[bin[0]] = (timeBinMaxBestNRmk2[binNum])[(numSegs - 1) /2]
+    medianBestNRmk3[bin[0]] = (timeBinMaxBestNRmk3[binNum])[(numSegs - 1) /2]
+    medianBestNRmk4[bin[0]] = (timeBinMaxBestNRmk4[binNum])[(numSegs - 1) /2]
+    medianBestNRmk5[bin[0]] = (timeBinMaxBestNRmk5[binNum])[(numSegs - 1) /2]
+    medianBestNRmk6[bin[0]] = (timeBinMaxBestNRmk6[binNum])[(numSegs - 1) /2]
+    medianBestNRmk7[bin[0]] = (timeBinMaxBestNRmk7[binNum])[(numSegs - 1) /2]
+    medianBestNRmk8[bin[0]] = (timeBinMaxBestNRmk8[binNum])[(numSegs - 1) /2]
+  else:
+    medianSNR[bin[0]] = (timeBinMaxSNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk1[bin[0]] = (timeBinMaxBestNRmk1[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk2[bin[0]] = (timeBinMaxBestNRmk2[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk3[bin[0]] = (timeBinMaxBestNRmk3[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk4[bin[0]] = (timeBinMaxBestNRmk4[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk5[bin[0]] = (timeBinMaxBestNRmk5[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk6[bin[0]] = (timeBinMaxBestNRmk6[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk7[bin[0]] = (timeBinMaxBestNRmk7[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNRmk8[bin[0]] = (timeBinMaxBestNRmk8[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+
+  binNum += 1
+
+  print >>file,"Loudest triggers for triggers with mchirp between " + str(bin[0]) + " and " + str(bin[1])
+  print >>file, "By SNR:",maxSNR[bin[0]]
+  print >>file, "By BestNRmk1:", maxBestNRmk1[bin[0]]
+  print >>file, "By BestNRmk2:", maxBestNRmk2[bin[0]]
+  print >>file, "By BestNRmk3:", maxBestNRmk3[bin[0]]
+  print >>file, "By BestNRmk4:", maxBestNRmk4[bin[0]]
+  print >>file, "By BestNRmk5:", maxBestNRmk5[bin[0]]
+  print >>file, "By BestNRmk6:", maxBestNRmk6[bin[0]]
+  print >>file, "By BestNRmk7:", maxBestNRmk7[bin[0]]
+  print >>file, "By BestNRmk8:", maxBestNRmk8[bin[0]]
+  print >>file, "Median loudest triggers with mchirp between " + str(bin[0]) + " and " + str(bin[1])
+  print >>file, "By SNR:",medianSNR[bin[0]]
+  print >>file, "By BestNRmk1:", medianBestNRmk1[bin[0]]
+  print >>file, "By BestNRmk2:", medianBestNRmk2[bin[0]]
+  print >>file, "By BestNRmk3:", medianBestNRmk3[bin[0]]
+  print >>file, "By BestNRmk4:", medianBestNRmk4[bin[0]]
+  print >>file, "By BestNRmk5:", medianBestNRmk5[bin[0]]
+  print >>file, "By BestNRmk6:", medianBestNRmk6[bin[0]]
+  print >>file, "By BestNRmk7:", medianBestNRmk7[bin[0]]
+  print >>file, "By BestNRmk8:", medianBestNRmk8[bin[0]]
+  print >>file
+
+maxSNR['all'] = array(maxSNR.values()).max()
+maxBestNRmk1['all'] = array(maxBestNRmk1.values()).max()
+maxBestNRmk2['all'] = array(maxBestNRmk2.values()).max()
+maxBestNRmk3['all'] = array(maxBestNRmk3.values()).max()
+maxBestNRmk4['all'] = array(maxBestNRmk4.values()).max()
+maxBestNRmk5['all'] = array(maxBestNRmk5.values()).max()
+maxBestNRmk6['all'] = array(maxBestNRmk6.values()).max()
+maxBestNRmk7['all'] = array(maxBestNRmk7.values()).max()
+maxBestNRmk8['all'] = array(maxBestNRmk8.values()).max()
+if (numSegs % 2):
+  medianSNR['all'] = (timeBinMaxSNR[binNum])[(numSegs - 1) /2]
+  medianBestNRmk1['all'] = (timeBinMaxBestNRmk1[binNum])[(numSegs - 1) /2]
+  medianBestNRmk2['all'] = (timeBinMaxBestNRmk2[binNum])[(numSegs - 1) /2]
+  medianBestNRmk3['all'] = (timeBinMaxBestNRmk3[binNum])[(numSegs - 1) /2]
+  medianBestNRmk4['all'] = (timeBinMaxBestNRmk4[binNum])[(numSegs - 1) /2]
+  medianBestNRmk5['all'] = (timeBinMaxBestNRmk5[binNum])[(numSegs - 1) /2]
+  medianBestNRmk6['all'] = (timeBinMaxBestNRmk6[binNum])[(numSegs - 1) /2]
+  medianBestNRmk7['all'] = (timeBinMaxBestNRmk7[binNum])[(numSegs - 1) /2]
+  medianBestNRmk8['all'] = (timeBinMaxBestNRmk8[binNum])[(numSegs - 1) /2]
+else:
+  medianSNR['all'] = (timeBinMaxSNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk1['all'] = (timeBinMaxBestNRmk1[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk2['all'] = (timeBinMaxBestNRmk2[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk3['all'] = (timeBinMaxBestNRmk3[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk4['all'] = (timeBinMaxBestNRmk4[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk5['all'] = (timeBinMaxBestNRmk5[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk6['all'] = (timeBinMaxBestNRmk6[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk7['all'] = (timeBinMaxBestNRmk7[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+  medianBestNRmk8['all'] = (timeBinMaxBestNRmk8[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+
+print >>file, "Loudest triggers in all mass bins"
+print >>file, "By SNR:",maxSNR['all']
+print >>file, "By BestNRmk1:", maxBestNRmk1['all']
+print >>file, "By BestNRmk2:", maxBestNRmk2['all']
+print >>file, "By BestNRmk3:", maxBestNRmk3['all']
+print >>file, "By BestNRmk4:", maxBestNRmk4['all']
+print >>file, "By BestNRmk5:", maxBestNRmk5['all']
+print >>file, "By BestNRmk6:", maxBestNRmk6['all']
+print >>file, "By BestNRmk7:", maxBestNRmk7['all']
+print >>file, "By BestNRmk8:", maxBestNRmk8['all']
+print >>file, "Median of loudest triggers (split in time) in all mass bins"
+print >>file, "By SNR:",medianSNR['all']
+print >>file, "By BestNRmk1:", medianBestNRmk1['all']
+print >>file, "By BestNRmk2:", medianBestNRmk2['all']
+print >>file, "By BestNRmk3:", medianBestNRmk3['all']
+print >>file, "By BestNRmk4:", medianBestNRmk4['all']
+print >>file, "By BestNRmk5:", medianBestNRmk5['all']
+print >>file, "By BestNRmk6:", medianBestNRmk6['all']
+print >>file, "By BestNRmk7:", medianBestNRmk7['all']
+print >>file, "By BestNRmk8:", medianBestNRmk8['all']
+print >>file
+
+file.close()
+
+# Now we can start dealing with the injections
+
+if opts.do_injections:
+  foundInjs = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])
+  missedInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missedFile])
+  foundTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([foundFile])
+
+  foundMchirp = []
+  foundMtot = []
+  foundEffdist = []
+  foundEffdistH = []
+  foundEffdistL = []
+  foundEffdistV = []
+  foundDist = []
+  foundSNR = []
+  foundBestNRmk1 = []
+  foundBestNRmk2 = []
+  foundBestNRmk3 = []
+  foundBestNRmk4 = []
+  foundBestNRmk5 = []
+  foundBestNRmk6 = []
+  foundBestNRmk7 = []
+  foundBestNRmk8 = []
+  missedMchirp = []
+  missedEffdist = []
+  missedEffdistH = []
+  missedEffdistL = []
+  missedEffdistV = []
+  missedMtot = []
+  missedDist = []
+  gFoundMchirp = []
+  gFoundMtot = []
+  gFoundEffDist = []
+  gFoundEffDistH = []
+  gFoundEffDistL = []
+  gFoundEffDistV = []
+  gFoundDetStat = []
+  gFoundDist = []
+  gFoundTime = []
+  gIFARMchirp = []
+  gIFARMtot = []
+  gIFAREffDist = []
+  gIFAREffDistH = []
+  gIFAREffDistL = []
+  gIFAREffDistV = []
+  gIFARDetStat = []
+  gIFARDist = [] 
+  gIFARTime = []
+  gIFARStat = []
+  gIFARTrig = []
+  gIFARInj = []
+  gMissed2Mchirp = []
+  gMissed2Effdist = []
+  gMissed2EffdistH = []
+  gMissed2EffdistL = []
+  gMissed2EffdistV = []
+  gMissed2Dist = []
+  gMissed2Mtot = []
+  gMissed2Time = []
+  gMissed2Trig = []
+  gMissed2Inj = []
+  gMissedMchirp = []
+  gMissedEffdist = []
+  gMissedEffdistH = []
+  gMissedEffdistL = []
+  gMissedEffdistV = []
+  gMissedDist = []
+  gMissedMtot = []
+  gMissedTime = []
+ 
+  distBins = [[0.5,5],[5,10],[10,15],[15,20],[20,25],[25,30],[30,35],[35,40],[40,45],[45,50]]
+
+  numInjections = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxSNRinj = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedSNRinj = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk1 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk1 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk2 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk2 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk3 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk3 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk4 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk4 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk5 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk5 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk6 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk6 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk7 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk7 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmaxBestNRmk8 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+  foundmedBestNRmk8 = zeros([len(massBins)+1,len(distBins)+1],dtype=float)
+ 
+  for inj,trig in zip(foundInjs,foundTrigs):
+    effDist = (1/inj.eff_dist_h + 1/inj.eff_dist_l + 1/inj.eff_dist_v)**-1
+    foundDist.append(inj.distance)
+    foundEffdist.append(effDist)
+    foundEffdistH.append(inj.eff_dist_h)
+    foundEffdistL.append(inj.eff_dist_l)
+    foundEffdistV.append(inj.eff_dist_v)
+    foundMchirp.append(inj.mchirp)
+    foundMtot.append(inj.mass1 + inj.mass2)
+    injBin = None
+    trigBin = None
+    binNum = 0
+    for bin in massBins:
+      if inj.mchirp >= bin[0] and inj.mchirp < bin[1]:
+        if not trigBin:
+          injBinNum = binNum
+          injBin = bin
+        else:
+          print "ERROR: Mass bins appear to overlap"
+      binNum += 1
+    binNum = 0
+    if not injBin:
+      print "ERROR: No mass bins match trigger with mchirp", inj.mchirp
+    for bin in massBins:
+      if trig.mchirp >= bin[0] and trig.mchirp < bin[1]:
+        if not trigBin:
+          trigBinNum = binNum
+          trigBin = bin
+        else:
+          print "ERROR: Mass bins appear to overlap"
+      binNum += 1
+    if not trigBin:
+      print "ERROR: No mass bins match trigger with mchirp", trig.mchirp
+    injDistBin = None
+    distNum = 0
+    for bin in distBins:
+      if inj.distance >= bin[0] and inj.distance < bin[1]:
+        if not injDistBin:
+          injDistNum = distNum
+          injDistBin = bin
+        else:
+          print "ERROR: Distance bins appear to overlap"
+      distNum += 1
+
+    if injDistBin:
+      numInjections[injBinNum,injDistNum] += 1
+      numInjections[len(massBins),injDistNum] += 1
+    numInjections[injBinNum,len(distBins)] += 1
+    numInjections[len(massBins),len(distBins)] += 1
+
+    foundSNR.append(trig.snr)
+    sbvs = get_signal_vetoes(trig,bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,sigmaVals=sigmaVals,fResp = fResp)
+    foundBestNRmk1.append(sbvs['BestNR1'])
+    foundBestNRmk2.append(sbvs['BestNR2'])
+    foundBestNRmk3.append(sbvs['BestNR3'])
+    foundBestNRmk4.append(sbvs['BestNR4'])
+    foundBestNRmk5.append(sbvs['BestNR5'])
+    foundBestNRmk6.append(sbvs['BestNR6'])
+    foundBestNRmk7.append(sbvs['BestNR7'])
+    foundBestNRmk8.append(sbvs['BestNR8'])
+
+    statList = [trig.snr,sbvs['BestNR1'],sbvs['BestNR2'],sbvs['BestNR3'],sbvs['BestNR4'],sbvs['BestNR5'],sbvs['BestNR6'],sbvs['BestNR7'],sbvs['BestNR8']]
+    foundMaxList = [foundmaxSNRinj,foundmaxBestNRmk1,foundmaxBestNRmk2,foundmaxBestNRmk3,foundmaxBestNRmk4,foundmaxBestNRmk5,foundmaxBestNRmk6,foundmaxBestNRmk7,foundmaxBestNRmk8]
+    foundMedList = [foundmedSNRinj,foundmedBestNRmk1,foundmedBestNRmk2,foundmedBestNRmk3,foundmedBestNRmk4,foundmedBestNRmk5,foundmedBestNRmk6,foundmedBestNRmk7,foundmedBestNRmk8]
+    maxStatList = [maxSNR,maxBestNRmk1,maxBestNRmk2,maxBestNRmk3,maxBestNRmk4,maxBestNRmk5,maxBestNRmk6,maxBestNRmk7,maxBestNRmk8]
+    medStatList = [medianSNR,medianBestNRmk1,medianBestNRmk2,medianBestNRmk3,medianBestNRmk4,medianBestNRmk5,medianBestNRmk6,medianBestNRmk7,medianBestNRmk8]
+
+    for stat,foundMax,foundMed,maxStat,medStat in zip(statList,foundMaxList,foundMedList,maxStatList,medStatList):
+      if stat > maxStat[trigBin[0]]:
+        if injDistBin:
+          foundMax[injBinNum,injDistNum] += 1
+        foundMax[injBinNum,len(distBins)] += 1
+      if stat > maxStat['all']:
+        if injDistBin:
+          foundMax[len(massBins),injDistNum] += 1
+        foundMax[len(massBins),len(distBins)] += 1
+      if stat > medStat[trigBin[0]]:
+        if injDistBin:
+          foundMed[injBinNum,injDistNum] += 1
+        foundMed[injBinNum,len(distBins)] += 1
+      if stat > medStat['all']:
+        if injDistBin:
+          foundMed[len(massBins),injDistNum] += 1
+        foundMed[len(massBins),len(distBins)] += 1
+
+    # Note that here we are using BestNRmk8 as the detection stat
+    if sbvs['BestNR8'] > maxBestNRmk8[trigBin[0]]:
+      gFoundEffDist.append(effDist)
+      gFoundEffDistH.append(inj.eff_dist_h)
+      gFoundEffDistL.append(inj.eff_dist_l)
+      gFoundEffDistV.append(inj.eff_dist_v)
+      gFoundDist.append(inj.distance)
+      gFoundMchirp.append(inj.mchirp)
+      gFoundMtot.append(inj.mass1 + inj.mass2)
+      gFoundDetStat.append(sbvs['BestNR8'])
+      gFoundTime.append(inj.geocent_end_time + inj.geocent_end_time_ns*1E-9)
+    elif sbvs['BestNR8'] > 0:
+      gIFARMchirp.append(inj.mchirp)
+      gIFARMtot.append(inj.mass1 + inj.mass2)
+      gIFAREffDist.append(effDist)
+      gIFAREffDistH.append(inj.eff_dist_h)
+      gIFAREffDistL.append(inj.eff_dist_l)
+      gIFAREffDistV.append(inj.eff_dist_v)
+      gIFARDist.append(inj.distance)
+      gIFARTime.append(inj.geocent_end_time + inj.geocent_end_time_ns*1E-9)
+      numTrialsLouder = 0
+      for val in timeBinMaxBestNRmk8[trigBinNum]:
+        if val > sbvs['BestNR8']:
+          numTrialsLouder+=1
+      gIFARStat.append(numTrialsLouder/numSegs)
+      gIFARTrig.append(trig)
+      gIFARInj.append(inj)
+    else:
+      gMissed2Effdist.append(effDist)
+      gMissed2EffdistH.append(inj.eff_dist_h)
+      gMissed2EffdistL.append(inj.eff_dist_l)
+      gMissed2EffdistV.append(inj.eff_dist_v)
+      gMissed2Trig.append(trig)
+      gMissed2Inj.append(inj)
+      gMissed2Mchirp.append(inj.mchirp)
+      gMissed2Mtot.append(inj.mass1 + inj.mass2)
+      gMissed2Dist.append(inj.distance)
+      gMissed2Time.append(inj.geocent_end_time + inj.geocent_end_time_ns*1E-9)
+    
+  gQuietFound = zip(gIFAREffDist,gIFARTrig,gIFARInj,gIFARStat)
+  gQuietFound2 = zip(gMissed2Effdist,gMissed2Trig,gMissed2Inj,zeros([len(gMissed2Inj)]))
+  gQuietFound.extend(gQuietFound2)
+  gQuietFound.sort(key = lambda element:element[0])
+
+  file = open(opts.output_path+"quiet_found_triggers.txt","w")
+  for i in range(10):
+    inj = gQuietFound[i][2]
+    trig = gQuietFound[i][1]
+    sbvs = get_signal_vetoes(trig,bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,sigmaVals=sigmaVals,fResp = fResp)
+    print >>file,"Details of quietest found trigger",i
+    print >>file,"Distance:",inj.distance,"Effective distance H:",inj.eff_dist_h
+    print >>file,"Effective distance L:",inj.eff_dist_l ,"Effective distance V:",inj.eff_dist_v
+    print >>file,"Injected masses Mass 1:", inj.mass1, "Mass2:", inj.mass2, "Mchirp", inj.mchirp
+    print >>file,"Recovered masses Mass 1:", trig.mass1, "Mass2:", trig.mass2, "Mchirp", trig.mchirp
+    print >>file, "Injected inclination angle:",inj.inclination
+    print >>file,"Statistics SNR:",trig.snr," Chi squared:",trig.chisq, "Bank veto: ",trig.bank_chisq
+    print >>file,"Auto veto:",trig.cont_chisq,"Null SNR", trig.null_statistic
+    print >>file,"SNRs: H1:", trig.chisq_h1, "L1:" , trig.chisq_l, "V1:" , trig.chisq_v
+    print >>file,"BestNR1:", sbvs['BestNR1'],"BestNR2:", sbvs['BestNR2'],"BestNR3:", sbvs['BestNR3'],"BestNR4:", sbvs['BestNR4']
+    print >>file,"BestNR5:", sbvs['BestNR5'],"BestNR6:", sbvs['BestNR6'],"BestNR7:", sbvs['BestNR7'],"BestNR8:", sbvs['BestNR8']
+    print >>file, "FAP:",gQuietFound[i][3]
+    print >>file
+
+  file.close()
+
+
+  for inj in missedInjs:
+    effDist = (1/inj.eff_dist_h + 1/inj.eff_dist_l + 1/inj.eff_dist_v)**-1
+
+    trigBin = None
+    binNum = 0
+    for bin in massBins:
+      if inj.mchirp >= bin[0] and inj.mchirp < bin[1]:
+        if not trigBin:
+          trigBinNum = binNum
+          trigBin = bin
+        else:
+          print "ERROR: Mass bins appear to overlap"
+      binNum += 1
+    if not trigBin:
+      print "ERROR: No mass bins match trigger with mchirp", inj.mchirp
+    trigDistBin = None
+    distNum = 0
+    for bin in distBins:
+      if inj.distance >= bin[0] and inj.distance < bin[1]:
+        if not trigDistBin:
+          trigDistNum = distNum
+          trigDistBin = bin
+        else:
+          print "ERROR: Distance bins appear to overlap"
+      distNum += 1
+
+    if trigDistBin:
+      numInjections[trigBinNum,trigDistNum] += 1
+      numInjections[len(massBins),trigDistNum] += 1
+    numInjections[trigBinNum,len(distBins)] += 1
+    numInjections[len(massBins),len(distBins)] += 1
+
+
+    missedEffdist.append(effDist)
+    missedEffdistH.append(inj.eff_dist_h)
+    missedEffdistL.append(inj.eff_dist_l)
+    missedEffdistV.append(inj.eff_dist_v)
+    missedDist.append(inj.distance)
+    missedMchirp.append(inj.mchirp)
+    missedMtot.append(inj.mass1 + inj.mass2)
+    gMissedEffdist.append(effDist)
+    gMissedEffdistH.append(inj.eff_dist_h)
+    gMissedEffdistL.append(inj.eff_dist_l)
+    gMissedEffdistV.append(inj.eff_dist_v)
+    gMissedMchirp.append(inj.mchirp)
+    gMissedMtot.append(inj.mass1 + inj.mass2)
+    gMissedDist.append(inj.distance)
+    gMissedTime.append(inj.geocent_end_time + inj.geocent_end_time_ns*1E-9)
+
+if onsourceFile:
+  onTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([onsourceFile])
+  loudBestNRTrigs = {}
+  loudSNRTrigs = {}
+  loudBestNR = {}
+  loudSNR = {}
+
+  for trig in onTrigs:
+    trigBin = None
+    binNum = 0
+    for bin in massBins:
+      if trig.mchirp >= bin[0] and trig.mchirp < bin[1]:
+        if not trigBin:
+          trigBinNum = binNum
+          trigBin = bin
+        else:
+          print "ERROR: Mass bins appear to overlap"
+      binNum += 1
+
+    if not trigBin:
+      print "ERROR: No mass bins match trigger with mchirp", trig.mchirp
+
+    sbvs = get_signal_vetoes(trig,bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,sigmaVals=sigmaVals,fResp = fResp)
+    if loudSNRTrigs.has_key(trigBin[0]):
+      if loudSNR[trigBin[0]] < trig.snr:
+        loudSNR[trigBin[0]] = trig.snr
+        loudSNRTrigs[trigBin[0]] = trig
+    else:
+      loudSNR[trigBin[0]] = trig.snr
+      loudSNRTrigs[trigBin[0]] = trig
+
+    if loudBestNRTrigs.has_key(trigBin[0]):
+      if loudBestNR[trigBin[0]] < sbvs['BestNR8']:
+        loudBestNR[trigBin[0]] = sbvs['BestNR8']
+        loudBestNRTrigs[trigBin[0]] = trig
+    elif sbvs['BestNR8'] != 0:
+      loudBestNR[trigBin[0]] = sbvs['BestNR8']
+      loudBestNRTrigs[trigBin[0]] = trig
+
+  file = open(opts.output_path+"loudest_events.txt","w")
+  file2 = open(opts.output_path + 'loud_numbers.txt','w')
+
+  binNum = 0
+  for bin in massBins:
+    numTrialsLouder = 0
+    if loudBestNR.has_key(bin[0]):
+      for val in timeBinMaxBestNRmk8[binNum]:
+        if val > loudBestNR[bin[0]]:
+          numTrialsLouder += 1
+      FAP = numTrialsLouder/numSegs
+      trig = loudBestNRTrigs[bin[0]]
+      sbvs = get_signal_vetoes(trig,bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,sigmaVals=sigmaVals,fResp = fResp)
+      print >>file,"In mass bin",bin[0], "to",bin[1],"loudest event has FAP",FAP
+      print >>file,"Recovered masses Mass 1:", trig.mass1, "Mass2:", trig.mass2, "Mchirp", trig.mchirp
+      print >>file,"Statistics SNR:",trig.snr," Chi squared:",trig.chisq, "Bank veto: ",trig.bank_chisq
+      print >>file,"Auto veto:",trig.cont_chisq,"Null SNR", trig.null_statistic
+      print >>file,"SNRs: H1:", trig.chisq_h1, "L1:" , trig.chisq_l, "V1:" , trig.chisq_v
+      print >>file,"BestNR1:", sbvs['BestNR1'],"BestNR2:", sbvs['BestNR2'],"BestNR3:", sbvs['BestNR3'],"BestNR4:", sbvs['BestNR4']
+      print >>file,"BestNR5:", sbvs['BestNR5'],"BestNR6:", sbvs['BestNR6'],"BestNR7:", sbvs['BestNR7'],"BestNR8:", sbvs['BestNR8']
+      print >>file
+      print >>file2, str(FAP)
+
+    else:
+      print>>file, "In mass bin",bin[0], "to",bin[1],"there are no events."
+      print >>file2, '-2'
+    binNum += 1
+  file.close()
+  file2.close()
+
+
+binNum = 0
+for bin in massBins:
+  figure()
+  temp = []
+  for item in timeBinMaxBestNRmk8[binNum]:
+    temp.append([item])
+  cumplot = plotutils.CumulativeHistogramPlot(
+            r"$\textrm{%s}$" % "BestNR",
+            r"$\textrm{False alarm probability}$",
+            "")
+  cumplot.add_background(temp)
+  cumplot.finalize(num_bins=50)
+  cumplot.ax.set_ylim(ymax=1.2)
+  cumplot.savefig(opts.output_path+"bestnr_vs_fap_"+str(bin[0]) + "_" + str(bin[1]) + ".png")
+  figure()
+  temp = []
+  for item in timeBinMaxSNR[binNum]:
+    temp.append([item])
+  cumplot = plotutils.CumulativeHistogramPlot(
+            r"$\textrm{%s}$" % "SNR",
+            r"$\textrm{False alarm probability}$",
+          "")
+  cumplot.add_background(temp)
+  cumplot.finalize(num_bins=50)
+  cumplot.ax.set_ylim(ymax=1.2)
+  cumplot.savefig(opts.output_path+"snr_vs_fap_"+str(bin[0]) + "_" + str(bin[1]) + ".png")
+  binNum+=1
+
+if opts.do_injections:
+  distPlotVals = []
+
+  for bin in distBins:
+    distPlotVals.append((bin[0]+bin[1])/2)
+
+  ptfcolormap = pylab.cm.spring
+  ptfcolormap.set_over('g')
+
+  lineColours = ['r-','b-','g-','m-','c-']
+  lineColors = ['r','b','g','m','c']
+
+  statList = ['SNR','BestNRmk1','BestNRmk2','BestNRmk3','BestNRmk4','BestNRmk5','BestNRmk6','BestNRmk7','BestNRmk8']
+  maxList = [foundmaxSNRinj,foundmaxBestNRmk1,foundmaxBestNRmk2,foundmaxBestNRmk3,foundmaxBestNRmk4,foundmaxBestNRmk5,foundmaxBestNRmk6,foundmaxBestNRmk7,foundmaxBestNRmk8]
+  medList = [foundmedSNRinj,foundmedBestNRmk1,foundmedBestNRmk2,foundmedBestNRmk3,foundmedBestNRmk4,foundmedBestNRmk5,foundmedBestNRmk6,foundmedBestNRmk7,foundmedBestNRmk8]
+
+  file = open(opts.output_path+"injection_recovery.txt","w")
+
+  for stat,max,med in zip(statList,maxList,medList):
+    for found,name in zip([max,med],['max','med']):
+      figure()
+      legendText = []
+      iter = 0
+      for bin in massBins:
+        plot(distPlotVals,(found/numInjections)[iter,0:-1],lineColours[iter])
+        legendText.append("mchirp " + str(bin[0]) + " to " + str(bin[1]))
+        iter += 1
+        if name == 'max':
+          print>>file, "Total injections found in bin mchirp " + str(bin[0]) + " to " + str(bin[1]) + " louder than all background in that bin using " + stat + " is:" + str(found[iter,-1])
+        elif name == 'med':
+          print>>file, "Total injections found in bin mchirp " + str(bin[0]) + " to " + str(bin[1]) + " louder than the median loudest background in that bin using " + stat + " is:" + str(found[iter,-1])
+        print>>file
+      plot(distPlotVals,(found/numInjections)[iter,0:-1],lineColours[iter])
+      legendText.append("All mass bins")
+      if name == 'max':
+        print >>file,"Total injections found in all mass bins louder than all background using " + stat + " is:" + str(found[iter,-1])
+      elif name == 'med':
+        print >>file,"Total injections found in all mass bins louder than the median of the loudest background using " + stat + " is:" + str(found[iter,-1])
+      print >>file
+      iter = 0
+      for bin in massBins:
+        errorbar(distPlotVals,(found/numInjections)[iter,0:-1],yerr=((1/numInjections)**0.5)[iter,0:-1],c=lineColors[iter])
+        iter += 1
+      errorbar(distPlotVals,(found/numInjections)[iter,0:-1],yerr=((1/numInjections)**0.5)[iter,0:-1],c=lineColors[iter])
+      ylim([0,1])
+      title("Efficiency of injection finding using " + stat + " as detection statistic")
+      if name == 'max':
+        ylabel("Fraction of injections found louder than loudest background")
+      else:
+        ylabel("Fraction of injections found louder than median loudest background")
+      xlabel("Distance")
+      legend(legendText)
+      savefig(opts.output_path+stat + "_" + name + "_efficiency.png")
+
+  binNum = 0
+  for bin in massBins:
+    figure()
+    temp = []
+    for item in timeBinMaxBestNRmk8[binNum]:
+      temp.append([item])
+    cumplot = plotutils.CumulativeHistogramPlot(
+              r"$\textrm{%s}$" % "BestNR",
+              r"$\textrm{False alarm probability}$",
+              "")
+    cumplot.add_background(temp)
+    cumplot.finalize(num_bins=50)
+    cumplot.ax.set_ylim(ymax=1.2)
+    cumplot.savefig(opts.output_path+"bestnr_vs_fap_"+str(bin[0]) + "_" + str(bin[1]) + ".png")
+    figure()
+    temp = []
+    for item in timeBinMaxSNR[binNum]:
+      temp.append([item])
+    cumplot = plotutils.CumulativeHistogramPlot(
+              r"$\textrm{%s}$" % "SNR",
+              r"$\textrm{False alarm probability}$",
+            "")
+    cumplot.add_background(temp)
+    cumplot.finalize(num_bins=50)
+    cumplot.ax.set_ylim(ymax=1.2)
+    cumplot.savefig(opts.output_path+"snr_vs_fap_"+str(bin[0]) + "_" + str(bin[1]) + ".png")
+    binNum+=1
+
+  figure()
+  scatter(gMissedMchirp,gMissedEffdist,c = "k", marker = 'x', edgecolors='k')
+  scatter(gMissed2Mchirp,gMissed2Effdist,c = "r", marker = 'x', edgecolors='r')
+  scatter(gFoundMchirp,gFoundEffDist,c = "b", marker = 'x', edgecolors='g')
+  scatter(gIFARMchirp,gIFAREffDist,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Mchirp")
+  ylabel("Inverse sum of effective distances")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist.png")
+
+  figure()
+  scatter(gMissedTime,gMissedEffdist,c = "k", marker = 'x',edgecolors='k')
+  scatter(gMissed2Time,gMissed2Effdist,c = "r", marker = 'x',edgecolors='r')
+  scatter(gFoundTime,gFoundEffDist,c = "b", marker = 'x', edgecolors = 'g')
+  scatter(gIFARTime,gIFAREffDist,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Time")
+  ylabel("Inverse sum of effective distances")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist_time.png")
+
+  figure()
+  scatter(gMissedMchirp,gMissedEffdistH,c = "k", marker = 'x', edgecolors='k')
+  scatter(gMissed2Mchirp,gMissed2EffdistH,c = "r", marker = 'x', edgecolors='r')
+  scatter(gFoundMchirp,gFoundEffDistH,c = "b", marker = 'x', edgecolors='g')
+  scatter(gIFARMchirp,gIFAREffDistH,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Mchirp")
+  ylabel("Hanford effective distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist_h.png")
+
+  figure()
+  scatter(gMissedTime,gMissedEffdistH,c = "k", marker = 'x',edgecolors='k')
+  scatter(gMissed2Time,gMissed2EffdistH,c = "r", marker = 'x',edgecolors='r')
+  scatter(gFoundTime,gFoundEffDistH,c = "b", marker = 'x', edgecolors = 'g')
+  scatter(gIFARTime,gIFAREffDistH,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Time")
+  ylabel("Hanford effective distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist_time_h.png")
+
+  figure()
+  scatter(gMissedMchirp,gMissedEffdistL,c = "k", marker = 'x', edgecolors='k')
+  scatter(gMissed2Mchirp,gMissed2EffdistL,c = "r", marker = 'x', edgecolors='r')
+  scatter(gFoundMchirp,gFoundEffDistL,c = "b", marker = 'x', edgecolors='g')
+  scatter(gIFARMchirp,gIFAREffDistL,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Mchirp")
+  ylabel("Livingston effective distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist_l.png")
+
+  figure()
+  scatter(gMissedTime,gMissedEffdistL,c = "k", marker = 'x',edgecolors='k')
+  scatter(gMissed2Time,gMissed2EffdistL,c = "r", marker = 'x',edgecolors='r')
+  scatter(gFoundTime,gFoundEffDistL,c = "b", marker = 'x', edgecolors = 'g')
+  scatter(gIFARTime,gIFAREffDistL,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Time")
+  ylabel("Livingston effective distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist_time_l.png")
+
+  figure()
+  scatter(gMissedMchirp,gMissedEffdistV,c = "k", marker = 'x', edgecolors='k')
+  scatter(gMissed2Mchirp,gMissed2EffdistV,c = "r", marker = 'x', edgecolors='r')
+  scatter(gFoundMchirp,gFoundEffDistV,c = "b", marker = 'x', edgecolors='g')
+  scatter(gIFARMchirp,gIFAREffDistV,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Mchirp")
+  ylabel("Virgo effective distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist_v.png")
+
+  figure()
+  scatter(gMissedTime,gMissedEffdistV,c = "k", marker = 'x',edgecolors='k')
+  scatter(gMissed2Time,gMissed2EffdistV,c = "r", marker = 'x',edgecolors='r')
+  scatter(gFoundTime,gFoundEffDistV,c = "b", marker = 'x', edgecolors = 'g')
+  scatter(gIFARTime,gIFAREffDistV,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Time")
+  ylabel("Virgo effective distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,1000])
+  savefig(opts.output_path+"found_missed_injections_effdist_time_v.png")
+
+  figure()
+  scatter(gMissedMchirp,gMissedDist,c = "k", marker = 'x', edgecolors='k')
+  scatter(gMissed2Mchirp,gMissed2Dist,c = "r", marker = 'x', edgecolors='r')
+  scatter(gFoundMchirp,gFoundDist,c = "b", marker = 'x', edgecolors = 'g')
+  scatter(gIFARMchirp,gIFARDist,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Mchirp")
+  ylabel("Distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,100])
+  savefig(opts.output_path+"found_missed_injections_dist.png")
+
+  figure()
+  scatter(gMissedTime,gMissedDist,c = "k", marker = 'x', edgecolors='k')
+  scatter(gMissed2Time,gMissed2Dist,c = "r", marker = 'x', edgecolors='r')
+  scatter(gFoundTime,gFoundDist,c = "b", marker = 'x', edgecolors = 'g')
+  scatter(gIFARTime,gIFARDist,c = gIFARStat,norm=pylab.Normalize(0,1,clip=False),marker = 'o',edgecolors='none')
+  semilogy()
+  cb = colorbar()
+  cb.ax.set_ylabel("FAP")
+  xlabel("Time")
+  ylabel("Distance")
+  title("Injections found louder than loudest background event")
+  ylim([0.5,100])
+  savefig(opts.output_path+"found_missed_injections_dist_time.png")

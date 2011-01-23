@@ -64,7 +64,6 @@ static REAL8 eps = 1.e-14;	/* maximal REAL8 roundoff-error (used for determining
 
 /*---------- Global variables ----------*/
 /* empty init-structs for the types defined in here */
-static LALStatus emptyStatus;
 static SpinOrbitCWParamStruc emptyCWParams;
 static CoherentGW emptySignal;
 
@@ -76,7 +75,7 @@ const SFTandSignalParams empty_SFTandSignalParams;
 /** Generate a time-series at the detector for a given pulsar.
  */
 void
-LALGeneratePulsarSignal (LALStatus *status,
+LALGeneratePulsarSignal (LALStatus *status,		/**< pointer to LALStatus structure */
 			 REAL4TimeSeries **signalvec, 	   /**< output time-series */
 			 const PulsarSignalParams *params) /**< input params */
 {
@@ -185,7 +184,7 @@ LALGeneratePulsarSignal (LALStatus *status,
   /* check that sampling interval was short enough */
   if ( sourceParams.dfdt > 2.0 )  /* taken from makefakedata_v2 */
     {
-      LALPrintError ("GenerateSpinOrbitCW() returned df*dt = %f > 2.0", sourceParams.dfdt);
+      XLALPrintError ("GenerateSpinOrbitCW() returned df*dt = %f > 2.0", sourceParams.dfdt);
       ABORT (status, GENERATEPULSARSIGNALH_ESAMPLING, GENERATEPULSARSIGNALH_MSGESAMPLING);
     }
 
@@ -256,7 +255,7 @@ LALGeneratePulsarSignal (LALStatus *status,
 /** Turn the given time-series into (v2-)SFTs and add noise if given.
  */
 void
-LALSignalToSFTs (LALStatus *status,
+LALSignalToSFTs (LALStatus *status,		/**< pointer to LALStatus structure */
 		 SFTVector **outputSFTs,	/**< [out] SFT-vector */
 		 const REAL4TimeSeries *signalvec, /**< input time-series */
 		 const SFTParams *params)	/**< params for output-SFTs */
@@ -415,12 +414,12 @@ LALSignalToSFTs (LALStatus *status,
 	  diff = XLALGPSDiff(&(timestamps->data[iSFT]),&tmpTime);
 	  if (diff != 0)
 	    {
-	      LALPrintError ("Warning: timestamp %d had to be 'nudged' by %e s to fit"
+	      XLALPrintError ("Warning: timestamp %d had to be 'nudged' by %e s to fit"
 			     "with time-series\n", iSFT, diff);
 	      /* double check if magnitude of nudging seems reasonable .. */
 	      if ( fabs(diff) >= signalvec->deltaT )
 		{
-		  LALPrintError ("WARNING: nudged by more than deltaT=%e... "
+		  XLALPrintError ("WARNING: nudged by more than deltaT=%e... "
 				 "this sounds wrong! (We better stop)\n");
 		  ABORT (status, GENERATEPULSARSIGNALH_ENULL, GENERATEPULSARSIGNALH_MSGENULL );
 		}
@@ -521,7 +520,7 @@ LALSignalToSFTs (LALStatus *status,
  * LALFastGeneratePulsarSFTs() used these to find \f$F_+\f$ and \f$F_x\f$ for NONZERO Psi.
  */
 void
-LALComputeSkyAndZeroPsiAMResponse (LALStatus *status,
+LALComputeSkyAndZeroPsiAMResponse (LALStatus *status,		/**< pointer to LALStatus structure */
                                    SkyConstAndZeroPsiAMResponse *output,	/**< output */
                                    const SFTandSignalParams *params)		/**< params */
 {
@@ -895,7 +894,7 @@ LALFastGeneratePulsarSFTs (LALStatus *status,
  */
 /* <lalVerbatim file="GeneratePulsarSignalCP"> */
 void
-LALConvertGPS2SSB (LALStatus* status,
+LALConvertGPS2SSB (LALStatus* status,		/**< pointer to LALStatus structure */
 		   LIGOTimeGPS *SSBout, 	/**< [out] arrival-time in SSB */
 		   LIGOTimeGPS GPSin, 		/**< [in]  GPS-arrival time at detector */
 		   const PulsarSignalParams *params) /**< define source-location and detector */
@@ -948,7 +947,7 @@ LALConvertGPS2SSB (LALStatus* status,
  *       makefakedata_v2
  */
 void
-LALConvertSSB2GPS (LALStatus *status,
+LALConvertSSB2GPS (LALStatus *status,		/**< pointer to LALStatus structure */
 		   LIGOTimeGPS *GPSout,		 /**< [out] GPS-arrival-time at detector */
 		   LIGOTimeGPS SSBin, 		 /**< [in] input: signal arrival time at SSB */
 		   const PulsarSignalParams *params) /**< params defining source-location and detector */
@@ -1040,12 +1039,9 @@ LALConvertSSB2GPS (LALStatus *status,
 int
 check_timestamp_bounds (const LIGOTimeGPSVector *timestamps, LIGOTimeGPS t0, LIGOTimeGPS t1)
 {
-  LALStatus status1, status2;
   INT4 diff0_s, diff0_ns, diff1_s, diff1_ns;
   UINT4 i;
   LIGOTimeGPS *ti;
-
-  status1 = status2 = emptyStatus;
 
   for (i = 0; i < timestamps->length; i ++)
     {
@@ -1102,13 +1098,13 @@ checkNoiseSFTs (LALStatus *status, const SFTVector *sfts, REAL8 f0, REAL8 f1, RE
 
       if (deltaFn != deltaF) {
 	if (lalDebugLevel)
-	  LALPrintError ("\n\nTime-base of noise-SFTs Tsft_n=%f differs from signal-SFTs Tsft=%f\n", 1.0/deltaFn, 1.0/deltaF);
+	  XLALPrintError ("\n\nTime-base of noise-SFTs Tsft_n=%f differs from signal-SFTs Tsft=%f\n", 1.0/deltaFn, 1.0/deltaF);
 	ABORT (status,  GENERATEPULSARSIGNALH_ENOISEDELTAF,  GENERATEPULSARSIGNALH_MSGENOISEDELTAF);
       }
 
       if ( (f0 < fn0) || (f1 > fn1) ) {
 	if (lalDebugLevel)
-	  LALPrintError ("\n\nSignal frequency-band [%f,%f] is not contained in noise SFTs [%f,%f]\n", f0, f1, fn0, fn1);
+	  XLALPrintError ("\n\nSignal frequency-band [%f,%f] is not contained in noise SFTs [%f,%f]\n", f0, f1, fn0, fn1);
 	ABORT (status, GENERATEPULSARSIGNALH_ENOISEBAND, GENERATEPULSARSIGNALH_MSGENOISEBAND);
       }
 
@@ -1120,7 +1116,7 @@ checkNoiseSFTs (LALStatus *status, const SFTVector *sfts, REAL8 f0, REAL8 f1, RE
       relError = fabs( nshift - shift);
       if ( relError > eps ) {
 	if (lalDebugLevel)
-	  LALPrintError ("\n\nNoise frequency-bins don't coincide with signal-bins. Relative deviation=%g\n", relError);
+	  XLALPrintError ("\n\nNoise frequency-bins don't coincide with signal-bins. Relative deviation=%g\n", relError);
 	ABORT (status, GENERATEPULSARSIGNALH_ENOISEBINS, GENERATEPULSARSIGNALH_MSGENOISEBINS);
       }
 
@@ -1153,7 +1149,7 @@ correct_phase (LALStatus* status, SFTtype *sft, LIGOTimeGPS tHeterodyne)
   if ( fabs (deltaT - (INT4) deltaT ) > eps )
     {
       if (lalDebugLevel)
-	LALPrintError ("Warning: we need to apply  heterodyning phase-correction now: correct_phase()\n");
+	XLALPrintError ("Warning: we need to apply  heterodyning phase-correction now: correct_phase()\n");
 
       deltaT *= LAL_TWOPI;
 

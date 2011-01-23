@@ -37,16 +37,20 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
-
+import copy
+import time
 
 from glue import segments
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal import llwapp
 from glue import lal
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
@@ -79,7 +83,7 @@ def parse_command_line():
 	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
 	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"combined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
-	parser.add_option("-n","--extrapolation-num",action="store",type="int",default=0, metavar="num",help="number of time-slide points to use in FAR extrapolation" )
+	parser.add_option("-n", "--extrapolation-num", action = "store", type = "int", metavar = "num", help = "Set the number of background points to use in FAR extrapolation" )
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -99,14 +103,25 @@ def parse_command_line():
 	else:
 		options.populate_column = "combined_far"
 
-	if options.categories in ("none") or options.rank_by in ("combined-ifar"):
+	if options.categories in ("none",) or options.rank_by in ("combined-ifar",):
 		options.false_alarm_rate_column = "combined_far"
 	else:
 		options.false_alarm_rate_column = "false_alarm_rate"
 
-	if options.rank_by in ("combined-ifar", "likelihood"):
-		if options.extrapolation_num:
+	if options.extrapolation_num is not None:
+		if options.extrapolation_num <= 0:
+			raise ValueError, "if specifying --extrapolation-num it must be > 0: %d given" % (extrapolation_num,)
+		if options.rank_by in ("snr", "uncombined-ifar"):
+			if options.categories in ("none",):
+				raise ValueError, "extrapolation for --categories=%s not implemented"%(options.categories)
+		else:
 			raise ValueError, "extrapolation not implemented for --rank-by %s"%(options.rank_by)
+
+	#
+	# save a copy of options before mucking with mass bins
+	#
+
+	unaltered_options = copy.deepcopy(options)
 
 	#
 	# parse mass bins
@@ -138,7 +153,7 @@ def parse_command_line():
 	# done
 	#
 
-	return options, (filenames or [None])
+	return options, (filenames or [None]), unaltered_options
 
 
 #
@@ -151,15 +166,19 @@ def parse_command_line():
 
 
 class ExtrapolationCoeffs(object):
-	def __init__(self, rank_by, N, reputations, t):
-		#
-		# calculate the FAR extrapolation coefficients
-		#
+	def __init__(self, rank_by, N, reputations, Ncat):
+		"""
+		calculate the FAR extrapolation coefficients
+		@rank_by: the statistic we are using to rank triggers
+		@N: the number of triggers to compute the extrapolation coefficients
+		@reputations: a list of the triggers' rank_by statistic
+		@Ncat: the number
+		"""
 
 		self.rank_by = rank_by
 
 		#
-		# get just the loudest N in reputations
+		# check we have enough triggers to extrapolate
 		#
 
 		if len(reputations) < N and len(reputations) >= 2:
@@ -171,9 +190,18 @@ class ExtrapolationCoeffs(object):
 			self.B = 0
 			return
 
+		#
+		# get just the loudest N in reputations
+		#
+
 		x = reputations[-N:]
 
 		if rank_by == "snr":
+			#
+			# compute the extrapolation coefficients
+			# extrapolation equation is FAN = A*e^{B*snr^2}
+			#
+
 			y = range(1, len(x) + 1, 1)
 			y.reverse()
 
@@ -190,8 +218,13 @@ class ExtrapolationCoeffs(object):
 			self.A = y[0] * numpy.exp(-self.B * x[0]**2.)
 
 		elif rank_by == "uncombined-ifar":
-			self.npoints = len(x)
-			self.A = float(self.npoints) * x[0] / t
+			#
+			# extrapolation equation is cFAN = A*FAN
+			# number of points to extrapolate is N times Ncat
+			#
+
+			self.npoints = N*Ncat
+			self.A = Ncat
 			self.B = 0
 
 		else:
@@ -199,13 +232,25 @@ class ExtrapolationCoeffs(object):
 
 
 	def extrapolate_reputation(self, reputation, t):
-		#
-		# calculate the FAN from the reputation and the extrapolation coefficients
-		#
-
+		"""
+		calculate the FAN from the reputation and the extrapolation coefficients
+		@reputation: the reputation of the trigger to extrapolate
+		@t: the livetime that this trigger is from
+		"""
 		if self.rank_by == "snr":
+			#
+			# extrapolation equation is FAN = A*e^{B*snr^2}
+			#
+
 			return self.A * numpy.exp(self.B * reputation**2.)
 		if self.rank_by == "uncombined-ifar":
+			#
+			# extrapolation equation is cFAN = A*FAN
+			# remember FAN = t*FAR
+			# and reputation = IFAR
+			# so cFAN = A*t/reputation
+			#
+
 			return self.A * t / reputation
 		raise ValueError, rank_by
 
@@ -267,8 +312,11 @@ class Summaries(object):
 		self.mass_bins = mass_bins
 		self.reputations = {}
 		self.cached_livetime = {}
+		self.participating_instruments = {}
 		self.extrapolate = False
 		self.extrapolation_coeffs = {}
+		self.prev_num_mass_bins = None
+		self.prev_newcorse_time = None
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 		if veto_segments_name is not None:
@@ -290,20 +338,23 @@ class Summaries(object):
 
 	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
+		if participating_instruments not in self.participating_instruments.setdefault(on_instruments, set()):
+			self.participating_instruments[on_instruments].add(participating_instruments)
 
 	def index(self):
 		for reputations in self.reputations.values():
 			reputations.sort()
 
-	def rate_extrapolation(self, N):
-		#
-		# calculate the FAR extrapolation coefficients for the different categories
-		#
+	def rate_extrapolation(self, N, Nbins):
+		"""
+		calculate the FAR extrapolation coefficients for the different categories
+		@N: the number of triggers included in the extrapolation fit
+		@Ncat: the number of mass bins used in previous newcorse run (0 is default from command line)
+		"""
 
 		self.extrapolate = True
 		for category, reputations in self.reputations.items():
-			t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
-			self.extrapolation_coeffs[category] = ExtrapolationCoeffs(self.rank_by, N, reputations, t)
+			self.extrapolation_coeffs[category] = ExtrapolationCoeffs(self.rank_by, N, reputations, Nbins*len(self.participating_instruments[self.category_to_time(category)]))
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		#
@@ -346,6 +397,29 @@ class Summaries(object):
 			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(category)
 			raise e
 
+	def get_previous_newcorse_info(self, connection):
+		# this should only return at most one thing because of max(), but if it returns nothing it is a no-op
+		for procid, starttime in connection.cursor().execute('SELECT process.process_id, start_time FROM process WHERE process.program == "lalapps_newcorse" and start_time == (SELECT max(start_time) FROM process WHERE process.program == "lalapps_newcorse")'):
+			if self.prev_newcorse_time is None: self.prev_newcorse_time = starttime
+			if self.prev_newcorse_time != starttime:
+				raise ValueError("found file that has wrong newcorse process time, exiting")
+			for bins, in connection.cursor().execute('SELECT value from process_params WHERE process_id == ? AND param = "--mass-bins"', (procid,)):
+				if self.prev_num_mass_bins is None: self.prev_num_mass_bins = bins
+				if self.prev_num_mass_bins != bins:
+					raise ValueError("previous mass bins do not agree between files, exiting")
+
+	def get_prev_num_mass_bins(self):
+		out = 0
+		if self.prev_num_mass_bins is not None: out = len(self.prev_num_mass_bins.split(',')) - 1
+		if out < 0: out = 0
+		return out
+
+def add_process(connection, opts, process, comment=u""):
+	xmldoc = dbtables.get_xml(connection)
+	params = ligolw_process.process_params_from_dict(opts.__dict__)
+	ligolw_process.append_process_params(xmldoc, process, params)
+	xmldoc.unlink()
+
 
 #
 # =============================================================================
@@ -357,17 +431,26 @@ class Summaries(object):
 
 
 #
+# Get the process table rolling, the XMLDoc here is a dummy.
+# newcorse_process will be inserted into the DB correctly in add_process()
+#
+
+xmldoc=ligolw.Document()
+xmldoc.appendChild(ligolw.LIGO_LW())
+newcorse_process = llwapp.append_process(xmldoc, program = u"lalapps_newcorse", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = u"")
+
+
+#
 # command line
 #
 
 
-options, filenames = parse_command_line()
+options, filenames, unaltered_options = parse_command_line()
 
 
 #
 # initialize book-keeping
 #
-
 
 background = Summaries(options.categories, options.rank_by, mass_bins = options.mass_bins)
 
@@ -390,6 +473,12 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
+
+	#
+	# First pull out process info, then add some to it
+	#
+	background.get_previous_newcorse_info(connection)
+	add_process(connection, unaltered_options, newcorse_process)
 
 	#
 	# if the database contains a sim_inspiral table then it is assumed
@@ -457,12 +546,11 @@ WHERE
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
-
 background.index()
-if options.extrapolation_num:
+if options.extrapolation_num is not None:
 	if options.verbose:
 		print >>sys.stderr, "\tcalculating FAR extrapolation coefficients ..."
-	background.rate_extrapolation(options.extrapolation_num)
+	background.rate_extrapolation(options.extrapolation_num, background.get_prev_num_mass_bins())
 
 #
 # iterate over database files assigning false-alarm rates to coincs

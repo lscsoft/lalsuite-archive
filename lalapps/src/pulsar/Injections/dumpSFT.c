@@ -22,10 +22,8 @@
  * \author Reinhard Prix
  * \date 2005
  * \file 
+ * \ingroup pulsarApps
  * \brief Code to dump various SFT-info in human-readable form to stdout.
- *
- * $Id$
- *
  */
 
 /* ---------- includes ---------- */
@@ -116,7 +114,7 @@ main(int argc, char *argv[])
 
   if ( !catalog )
     {
-      LALPrintError ("\nNo SFTs seemed to have matched your query!\n\n");
+      XLALPrintError ("\nNo SFTs seemed to have matched your query!\n\n");
       return 1;
     }
 
