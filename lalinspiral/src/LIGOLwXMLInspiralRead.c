@@ -984,7 +984,6 @@ InspiralTmpltBankFromLIGOLw (
     {"Gamma9", -1, 27},
     {"kappa", -1, 28},
     {"chi", -1, 29},
-    {"mtotal", -1, 30},
     {NULL,      0, 0}
   };
 
@@ -1251,10 +1250,6 @@ InspiralTmpltBankFromLIGOLw (
         {
           thisTmplt->chi = colData;
         }
-        else if ( tableDir[j].idx == 30 )
-        {
-          thisTmplt->totalMass = colData;
-        }
         else
         {
           CLOBBER_BANK;
@@ -1264,10 +1259,11 @@ InspiralTmpltBankFromLIGOLw (
       }
 
       /* compute derived mass parameters */
-      /* thisTmplt->totalMass = thisTmplt->mass1 + thisTmplt->mass2; */
+      thisTmplt->totalMass = thisTmplt->mass1 + thisTmplt->mass2;
       if ( thisTmplt->totalMass > 0 )
       {
-        thisTmplt->mu = thisTmplt->eta * thisTmplt->totalMass;
+        thisTmplt->mu = thisTmplt->mass1 * thisTmplt->mass2 /
+          thisTmplt->totalMass;
       }
 
       /* set the match determined from the bank generation process params */

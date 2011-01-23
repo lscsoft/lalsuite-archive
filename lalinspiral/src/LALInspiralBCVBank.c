@@ -786,7 +786,6 @@ LALInspiralCreateFlatBankS3S4 (
     case HybridHexagonal:
     case S2BCV:
     case Hexagonal:
-    case HexagonalUnphysical:
       dx0 = sqrt(2.L * (1.L - minimalMatch)/metric->g00 );
       dx1 = sqrt(2.L * (1.L - minimalMatch)/metric->g11 );
       dx0 *=3./2./sqrt(2.);
@@ -805,7 +804,6 @@ LALInspiralCreateFlatBankS3S4 (
       break;
 
     case  SquareNotOriented:
-    case  SquareNotOrientedUnphysical:
       LALInspiralUpdateParams( status->statusPtr,
   			     bankParams, *metric, minimalMatch );
       CHECKSTATUSPTR( status );
@@ -820,7 +818,6 @@ LALInspiralCreateFlatBankS3S4 (
     case HybridHexagonal:
     case S2BCV:
     case Hexagonal:
-    case HexagonalUnphysical:
     case HexagonalNotOriented:
 
     /* x1==psi3 and x0==psi0 */
@@ -873,7 +870,6 @@ LALInspiralCreateFlatBankS3S4 (
 
   case  Square:
   case  SquareNotOriented:
-  case  SquareNotOrientedUnphysical:
 
     /* !! dx1 and dx0 are computed in a different way de[pending on the
        value of BANKGRId */

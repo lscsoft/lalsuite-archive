@@ -425,9 +425,7 @@ typedef enum
   HexagonalNotOriented,
   Hexagonal,
   HybridHexagonal,
-  S2BCV,
-  SquareNotOrientedUnphysical,
-  HexagonalUnphysical
+  S2BCV
 }
 GridSpacing;
 /*  </lalVerbatim>  */
