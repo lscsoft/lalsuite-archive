@@ -1381,7 +1381,7 @@ fprintf(a, "                                 possible choices in ascending order
 fprintf(a, "  --space SPACE                grid up template bank with mass parameters SPACE\n");\
 fprintf(a, "                                 (Tau0Tau2|Tau0Tau3|Psi0Psi3)\n");\
 fprintf(a, "  --grid-spacing GRIDSPACING   grid up template bank with GRIDSPACING\n");\
-fprintf(a, "                                 (Hexagonal|SquareNotOriented)\n");\
+fprintf(a, "                                 (Hexagonal|HexagonalUnphysical|SquareNotOriented|SquareNotOrientedUnphysical)\n");\
 fprintf(a, "\n");\
 fprintf(a, "  --write-response             write the computed response function to a frame\n");\
 fprintf(a, "  --write-spectrum             write the uncalibrated psd to a frame\n");\
@@ -2189,16 +2189,26 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           haveGridSpacing = 1;
           gridSpacing = Hexagonal;
         }
+        else if ( ! strcmp( "HexagonalUnphysical", optarg) )
+        {
+          haveGridSpacing = 1;
+          gridSpacing = HexagonalUnphysical;
+        }
         else if ( ! strcmp( "SquareNotOriented", optarg) )
         {
           haveGridSpacing = 1;
           gridSpacing = SquareNotOriented;
         }
+        else if ( ! strcmp( "SquareNotOrientedUnphysical", optarg) )
+        {
+          haveGridSpacing = 1;
+          gridSpacing = SquareNotOrientedUnphysical;
+        }
         else
         {
           fprintf(stderr, "invalid argument to --%s:\n"
               "unknown grid spacing specified: "
-              "%s (must be one of  Hexagonal, SquareNotOriented )\n",
+              "%s (must be one of  Hexagonal, HexagonalUnphysical, SquareNotOriented, SquareNotOrientedUnphysical )\n",
               long_options[option_index].name, optarg );
           exit(1);
         }
@@ -2917,7 +2927,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     fprintf( stderr, "--grid-spacing must be specified\n" );
     exit( 1 );
   }
-  if (gridSpacing != SquareNotOriented && gridSpacing != Hexagonal)
+  if (gridSpacing != SquareNotOriented && gridSpacing != SquareNotOrientedUnphysical && gridSpacing != Hexagonal && gridSpacing != HexagonalUnphysical)
   {
     fprintf( stderr, "--grid-spacing must be either SquareNotOriented or Hexagonal\n" );
     exit( 1 );
