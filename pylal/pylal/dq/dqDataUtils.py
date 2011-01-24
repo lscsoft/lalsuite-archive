@@ -1,13 +1,22 @@
 #!/usr/bin/env python
 
+# =============================================================================
+# Preamble
+# =============================================================================
+
 from __future__ import division
 import sys,os,re,numpy,math,shlex,subprocess,datetime,glob,tempfile
 from socket import getfqdn
+
 from glue.ligolw import ligolw,table,lsctables,utils
 from glue.segments import segment, segmentlist
 from glue.segmentdb import segmentdb_utils
+from glue.lal import Cache as LALCache
+from glue.lal import CacheEntry as LALCacheEntry
+
 from pylal import date
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.dq.dqFrameUtils import KWCacheEntry
 
 # Hey, scipy, shut up about your nose already.
 import warnings
@@ -15,55 +24,92 @@ warnings.filterwarnings("ignore")
 from scipy import signal as signal
 from scipy.fftpack import fft, ifft, ifftshift, fft2, ifft2
 
-from matplotlib import mlab, use
+from matplotlib import use
 use('Agg')
 import pylab
 
+from glue import git_version
+
+__author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
+__version__ = "git id %s" % git_version.id
+__date__    = git_version.date
+
+"""
+This module provides a bank of useful functions for manipulating triggers and trigger files for data quality investigations.
+"""
+
 # =============================================================================
-# Execute shell cmd and get output
+# Execute shell command and get output
 # =============================================================================
+
 def make_external_call(cmd,shell=False):
-  args = shlex.split(str(cmd))
+
+  """
+    Execute shell command and capture standard output and errors. 
+    Returns tuple "(stdout,stderr)".
+  """
+
+  if shell:
+    args=str(cmd)
+  else:
+    args = shlex.split(str(cmd))
+
   p = subprocess.Popen(args,shell=shell,\
                        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   p_out, p_err = p.communicate()
-  if p.returncode != 0:
-    raise ValueError, "Command %s failed. Stderr Output: \n%s" %( cmd, p_err)
 
   return p_out, p_err
 
 # =============================================================================
 # Convert list from text file into Sngl{Burst,Inspiral} object
 # =============================================================================
+
 def trigger(data,etg):
 
   """
     Reads the list object data and returns a Sngl{Burst,Inspiral} object
     with the correct columns seeded, based on the given string object etg.
+
+    Arguments:
+
+      data : [ string | list]
+        string or list object containing the data to be parsed.
+
+      etg : [ "ihope" | "kw" | "omega" | "omegaclustered" ]
+        Defines how the data list is understood and parsed, based on the
+        standard column layouts (comma-, space-, or tab-delimited) for each ETG.
+        "ihope" is read as per the .csv files from ihope_daily. "omegaclustered"
+        is read as per the .txt or .clst produced by the detchar scripts used to
+        plot omega online events.
+
   """ 
 
   # read etg
   etg=etg.lower()
 
-  # if given string, split on space or comma
-  if isinstance(data,str):
-    sep = re.compile('[\s,]+')
-    data = sep.split(data)
+  etgcategories = {lsctables.SnglInspiral(): ['ihope'],\
+                   lsctables.SnglBurst():    ['omega','omegaclustered','kw'],\
+                   lsctables.SnglRingdown(): []}
 
   # set up trig object
-  if re.search('ihope',etg):
-    trig = lsctables.SnglInspiral()
-  else:
-    trig = lsctables.SnglBurst()
+  for obj,etgs in etgcategories.items():
+    if etg in etgs:
+      trig = obj
 
-  # ==========
-  # IHOPEDAILY
-  # ==========
+  # if given string, split on space, tab or comma
+  if isinstance(data,str):
+    sep = re.compile('[\t\s,]+')
+    data = sep.split(data)
+
+  # =====
+  # ihope
+  # =====
   if re.match('ihope',etg.lower()):
     # comma separated values are:
     # end_time,end_time_ns,ifo,snr,mass1,mass2,mtotal,eta,event_duration,
     # template_duration,eff_distance,chisq,chisq_dof,bank_chisq,bank_chisq_dof
     # cont_chisq,cont_chisq_dof
+
     trig.end_time              = int(data[0])
     trig.end_time_ns           = int(data[1])
     trig.ifo                   = str(data[2])
@@ -89,9 +135,9 @@ def trigger(data,etg):
       trig.cont_chisq = None
       trig.cont_chisq_dof = None
 
-  # ===========
-  # KLIENE-WELLE
-  # ===========
+  # ============
+  # kleine-welle
+  # ============
   elif etg=='kw':
     # peak time
     peak  = LIGOTimeGPS(data[0])
@@ -106,7 +152,7 @@ def trigger(data,etg):
     trig.end_time              = end.seconds
     trig.end_time_ns           = end.nanoseconds
     # others
-    trig.central_frequency     = float(data[3])
+    trig.central_freq          = float(data[3])
     trig.energy                = float(data[4])
     trig.norm_energy           = float(data[5])
     trig.n_pix                 = float(data[6])
@@ -114,16 +160,17 @@ def trigger(data,etg):
     trig.N                     = float(data[8])
     trig.snr                   = math.sqrt(trig.norm_energy-trig.n_pix)
  
-  # ==========
-  # OMEGA
-  # ==========
+  # =====
+  # omega
+  # =====
   if etg=='omega' or etg=='wpipe':
     # peak time
     peak = LIGOTimeGPS(data[0])
     trig.peak_time           = peak.seconds
     trig.peak_time_ns        = peak.nanoseconds
     # central frequency
-    trig.central_frequency   = float(data[1])
+    trig.central_freq        = float(data[1])
+    trig.peak_frequency      = trig.central_freq
     # duration
     trig.duration            = LIGOTimeGPS(float(data[2]))
     # start time
@@ -139,13 +186,19 @@ def trigger(data,etg):
     trig.flow                = trig.peak_frequency - 0.5*trig.bandwidth
     trig.fhigh               = trig.peak_frequency + 0.5*trig.bandwidth
     # energy
-    trig.norm_energy         = float(data[4])
+    trig.amplitude           = float(data[4])
+
     # cluster parameters
-    trig.cluster_size        = float(data[5])
-    trig.cluster_norm_energy = float(data[6])
-    trig.cluster_number      = float(data[7])
+    #trig.cluster_size        = float(data[5])
+    #trig.cluster_norm_energy = float(data[6])
+    #trig.cluster_number      = float(data[7])
+
     # SNR
-    trig.snr                 = math.sqrt(2*trig.norm_energy)
+    trig.snr                 = math.sqrt(2*trig.amplitude)
+
+  # ==============
+  # omegaclustered
+  # ==============
   # follow Cadonati's clustering output
   if etg=='omegaclustered' or etg=='wpipeclustered':
     # start time
@@ -160,11 +213,11 @@ def trigger(data,etg):
     peak  = LIGOTimeGPS(data[2])
     trig.peak_time               = peak.seconds
     trig.peak_time_ns            = peak.nanoseconds
-    # bandwidth, and flow,fhigh,central_frequency
+    # bandwidth, and flow,fhigh,central_freq
     trig.flow                    = float(data[8])
     trig.fhigh                   = float(data[9])
     trig.bandwidth               = trig.fhigh - trig.flow
-    trig.central_frequency       = trig.flow + 0.5*trig.bandwidth
+    trig.central_freq       = trig.flow + 0.5*trig.bandwidth
     # cluster params
     trig.cluster_flow            = float(data[3])
     trig.cluster_end_frequency   = float(data[4])
@@ -179,17 +232,26 @@ def trigger(data,etg):
 # =============================================================================
 # Function to write triggers to file in etg standard form
 # =============================================================================
-#def totrigxml(file,trigs,options)
 
-#  xmldoc = ligolw.Document()
- 
+def totrigxml(file,triggers,etg):
 
+  """
+    Write the given table object triggers to the file object file, in the standard
+    format for the given etg. INCOMPLETE (any suggestions are most welcome)
+  """
+
+  return 1
 
 def totrigfile(file,table,etg,header=True):
-  """Write the lsctables.table to the given file object file, in the standard format for the given etg"""
+
+  """
+    Write the lsctables.table to the given file object file, in the standard
+    format for the given etg
+  """
 
   etg = etg.lower()
 
+  # set columns
   if re.match('ihope',etg):
     # comma separated values are:
     columns = ['end_time','end_time_ns','ifo','snr','mass1','mass2','mtotal',\
@@ -204,29 +266,33 @@ def totrigfile(file,table,etg,header=True):
                'cluster_size','cluster_norm_energy','snr']
 
   elif re.match('omega',etg.lower()) or re.match('wpipe',etg.lower()):
-    columns = ['peak_time','central_frequency','duration',\
+    columns = ['peak_time','central_freq','duration',\
                'bandwidth','norm_energy',\
                'cluster_size','cluster_norm_energy','cluster_number']
 
   elif re.match('kw',etg.lower()):
-    columns = ['peak_time','start_time','end_time','central_frequency',\
+    columns = ['peak_time','start_time','end_time','central_freq',\
                'energy','norm_energy','num_pixels','significance','N']
 
+  # set delimiter
   if etg=='ihope':  d = ','
   else:  d=' '
 
   # print header
   if header:
-    header = '#'+' '+' '.join(columns)
+    header = ' '.join(['#'].extend(columns))
     print >>file, header
+
   # print triggers
   for row in table:
     line = []
     for col in columns:
        if col not in table.columnnames:  continue
        entry = ''
+       # if ihope, print column
        if re.match('ihope',etg.lower()):
          entry = str(row.__getattribute__(col))
+       # if not ihope, check for time and print full GPS
        else:
          if col=='peak_time':
            entry = str(row.get_peak())
@@ -236,39 +302,92 @@ def totrigfile(file,table,etg,header=True):
            entry = str(row.get_end())
          else:
            entry = str(row.__getattribute__(col))
+
        line.append(entry)
 
     print >>file, d.join(line)
   
 # =============================================================================
-# Function to load triggers from cache
+# Function to load triggers from xml
 # =============================================================================
-def fromtrigxml(file,start=None,end=None,tablename='sngl_inspiral'):
-  """Reads a list of Sngl{Burst,Inspiral}Table from the given table from the xml file object file"""
 
+def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
+
+  """
+    Reads a trigger table from the given table from the xml
+    file object file
+
+    Arguments:
+
+      file : file object
+   
+    Keyword arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      tablename : string
+        name of requested trigger table in xml file, defaults to
+        'sngl_inspiral:table'
+  """
+
+  # set times
   if not start:
     start=0
   if not end:
     end=float('inf')
 
+  # set tablename
+  if not tablename.endswith(':table'):
+    tablename = ':'.join([tablename,'table'])
+
+  # crack open xml file
   xmldoc,digest = utils.load_fileobj(file,gz=file.name.endswith('gz'))
-  trigs = table.get_table(xmldoc,':'.join([tablename,'table']))
+  alltriggers = table.get_table(xmldoc,tablename)
 
-  for line in trigs:
-    if re.search('inspiral',tablename):  t = line.get_end()
+  triggers = lsctables.New(type(alltriggers))
+
+  # parse triggers in time
+  for line in alltriggers:
+    if re.search('inspiral',alltriggers.tableName):  t = line.get_end()
     else:  t = line.get_peak()
-    if not start<=float(t)<=end:
-      trigs.remove(line)
+    if start<=float(t)<=end:
+      triggers.append(line)
 
-  if re.search('inspiral',tablename):
-    trigs.sort(key=lambda trig: trig.get_end())
+  # sort table in time
+  if re.search('inspiral',triggers.tableName):
+    triggers.sort(key=lambda trig: trig.get_end())
   else:
-    trigs.sort(key=lambda trig: trig.get_peak())
+    triggers.sort(key=lambda trig: trig.get_peak())
 
-  return trigs
+  return triggers
 
-def fromtrigfile(file,start=None,end=None,etg="ihope"):
-  """Reads the file object file containing standard columns for the given etg and returns either a SnglInspiralTable or SnglBurstTable."""
+def fromtrigfile(file,etg,start=None,end=None,tabletype=None):
+
+  """
+    Reads the file object file containing standard columns for the given etg and
+    returns either a corresponding lsctable.
+
+    Arguments:
+
+      file : file object
+      etg : [ "ihope" | "kw" | "omega" | "omegaclustered" ]
+        string defining how to read text file.
+        "ihope" is read as per the .csv files from ihope_daily. "omegaclustered"
+        is read as per the .txt or .clst produced by the detchar scripts used to
+        plot omega online events.
+
+    Keyword arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      tabletype : type
+        Specific ligolw table type for output. By default tables will be
+        SnglInspiralTable or SnglBurstTable type depending on ETG
+  """
 
   # define control character search
   cchar = re.compile('[#%<!()_\[\]{}:;\'\"]+')
@@ -279,34 +398,60 @@ def fromtrigfile(file,start=None,end=None,etg="ihope"):
   if not end:
     end=float('inf')
 
-  # set table
-  if re.search('ihope',etg.lower()):
-    t = 'SnglInspiralTable'
-  else:
-    t = 'SnglBurstTable'
+  if not tabletype:
+    etgs = {'inspiral': ['ihope'],\
+            'burst':    ['omega','omegaclustered','kw'],\
+            'ringdown': []}
+    # set up triggers table
+    for search,etglist in etgs.items():
+      if etg.lower() in etglist:
+        tabletype = lsctables.__dict__['Sngl%sTable' % (search.title())]
+        break
 
-  trigs = lsctables.New(lsctables.__dict__[t])
+  triggers = lsctables.New(tabletype)
+
+  # read table and append triggers
   for line in file.readlines():
+    # if line starts with a control character:  continue
     if re.match(cchar,line):  continue 
+    # read line as trigger
     trig = trigger(line,etg.lower())
-    if re.search('sngl_inspiral',trigs.tableName)\
+    # append trig to table if within requested time
+    if re.search('sngl_inspiral',triggers.tableName)\
         and start<=float(trig.get_end())<=end:
-      trigs.append(trig)
+      triggers.append(trig)
     elif start<=float(trig.get_peak())<=end:
-      trigs.append(trig)
+      triggers.append(trig)
 
-  if re.search('sngl_inspiral',trigs.tableName):
-    trigs.sort(key=lambda trig: trig.get_end())
+  # sort triggers in time
+  if re.search('sngl_inspiral',triggers.tableName):
+    triggers.sort(key=lambda trig: trig.get_end())
   else:
-    trigs.sort(key=lambda trig: trig.get_peak())
+    triggers.sort(key=lambda trig: trig.get_peak())
 
-  return trigs
+  return triggers
 
 # =============================================================================
 # Read injection files
 # =============================================================================
-def frominjectionfile(file,type='inspiral',ifo=None):
+
+def frominjectionfile(file,type,ifo=None):
   
+  """
+    Read generic injection file object file containing injections of the given
+    type string. Returns an 'Sim' lsctable of the corresponding type.
+
+    Arguments:
+   
+      file : file object
+      type : [ "inspiral" | "burst" | "ringdown" ]
+
+    Keyword arguments:
+
+      ifo : [ "G1" | "H1" | "H2" | "L1" | "V1" ]
+  """
+
+  # read type
   type = type.lower()
 
   # read injection xml
@@ -348,7 +493,7 @@ def frominjectionfile(file,type='inspiral',ifo=None):
 
         injtable.append(inj)
 
-    if injtype=='burst':
+    if type=='burst':
       if file.readlines()[0].startswith('filestart'):
         # if given parsed burst file
         file.seek(0)
@@ -364,19 +509,22 @@ def frominjectionfile(file,type='inspiral',ifo=None):
           inj.waveform            = data[4]
           inj.waveform_number     = int(data[5])
           inj.frequency           = float(data[9])
-          inj.q                   = float(data[11])
-          inj.hrss                = float(data[17])
-          inj.ra                  = float(data[19])*24/(2*pi)
-          inj.dec                 = 90-(float(data[21])*180/pi)
-          h_delay = LIGOTimeGPS(data[41])
-          inj.h_peak_time         = inj.time_geocent_gps+h_delay.seconds
-          inj.h_peak_time_ns      = inj.time_geocent_gps_ns+h_delay.nanoseconds
-          l_delay = LIGOTimeGPS(data[43])
-          inj.l_peak_time         = inj.time_geocent_gps+l_delay.seconds
-          inj.l_peak_time_ns      = inj.time_geocent_gps_ns+l_delay.nanoseconds
-          v_delay = LIGOTimeGPS(data[43])
-          inj.v_peak_time         = inj.time_geocent_gps+v_delay.seconds
-          inj.v_peak_time_ns      = inj.time_geocent_gps_ns+v_delay.nanoseconds
+
+          # extra columns to be added when I know how
+
+          #inj.q                   = float(data[11])
+          #inj.hrss                = float(data[17])
+          #inj.ra                  = float(data[19])*24/(2*math.pi)
+          #inj.dec                 = 90-(float(data[21])*180/math.pi)
+          #h_delay = LIGOTimeGPS(data[41])
+          #inj.h_peak_time         = inj.time_geocent_gps+h_delay.seconds
+          #inj.h_peak_time_ns      = inj.time_geocent_gps_ns+h_delay.nanoseconds
+          #l_delay = LIGOTimeGPS(data[43])
+          #inj.l_peak_time         = inj.time_geocent_gps+l_delay.seconds
+          #inj.l_peak_time_ns      = inj.time_geocent_gps_ns+l_delay.nanoseconds
+          #v_delay = LIGOTimeGPS(data[43])
+          #inj.v_peak_time         = inj.time_geocent_gps+v_delay.seconds
+          #inj.v_peak_time_ns      = inj.time_geocent_gps_ns+v_delay.nanoseconds
 
           injtable.append(inj)
 
@@ -400,15 +548,18 @@ def frominjectionfile(file,type='inspiral',ifo=None):
 # =============================================================================
 # Calculate band-limited root-mean-square
 # =============================================================================
+
 def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
           remove_mean=False):
-  """
-  This function will calculate the band-limited root-mean-square of the given
-  data, using averages of the given length in the given [f_low,f_high) band.
 
-  Options are included to offset the data, and weight frequencies given a 
-  dict object of (frequency:weight) pairs.
   """
+    This function will calculate the band-limited root-mean-square of the given
+    data, using averages of the given length in the given [f_low,f_high) band.
+
+    Options are included to offset the data, and weight frequencies given a 
+    dict object of (frequency:weight) pairs.
+  """
+
   # redefine None variables
   if average==None:
     average=len(data)/sampling
@@ -502,10 +653,12 @@ def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
 # =============================================================================
 # Function to bandpass a time-series
 # =============================================================================
+
 def bandpass(data, f_low, f_high, sampling, order=4):
+
   """
-  This function will bandpass filter data in the given [f_low,f_high) band
-  using the given order Butterworth filter.
+    This function will bandpass filter data in the given [f_low,f_high) band
+    using the given order Butterworth filter.
   """
 
   # construct passband
@@ -521,54 +674,35 @@ def bandpass(data, f_low, f_high, sampling, order=4):
   return data
 
 # =============================================================================
-# Function to write a list of files to a cache
+# Generate a daily ihope cache 
 # =============================================================================
-def tocache(file,cachelist):
-  """Reads a list of filepaths and writes each to the given file object cache. Filenames must be of the format IFO-USERTAG-STARTTIME-DURATION.ext. Printed columns are
 
-IFO USERTAG STARTTIME DURATION filepath
-
-for each file"""
-
-  for f in cachelist:
-    lfn = os.path.basename(f)
-    head,ext = os.path.splitext(lfn)
-    if head.endswith('.xml'):
-      head,ext = os.path.splitext(head)
-    a,b,c,d = head.split('-')
-    print >>file, "%s %s %s %s %s" % (a,b,c,d,f)
-
-  file.flush() 
-
-def fromcache(file,ifo='',filetag='',start=0,end=float('inf')):
-  """Reads a file object cache file containing the columns:
-
-IFO FILETAG GPSSTART DURATION FILEPATH
-
-and returns a list of filepaths."""
-  cache = []
-  cchar = re.compile('[#%<!()_\[\]{}:;\'\"]+')
-  for line in file:
-    if re.match(cchar,line):  continue
-    a,b,c,d,f = line.split(' ')
-    c = int(c)
-    d = int(d)
-    if re.match(ifo,a) and re.search(filetag,b)\
-    and not segment(start,end).disjoint(segment(c,c+d)):
-      cache.append(f.replace('\n',''))
-  
-  return cache
-
-# =============================================================================
-# Function to generate an daily ihope cache 
-# =============================================================================
 def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
+
   """
-  Generates cache list of daily ihope INSPIRAL files for give ifo and clustering (None,'30ms','100ms', or '16s') between start and end time
+    Generates glue.lal.Cache containing CacheEntires for all daily ihope
+    INSPIRAL files for given ifo and clustering between start and end time.
+
+    Arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      ifo : [ "H1" | "L1" | "V1" ]
+        IFO
+
+    Keyword arguments:
+      cluster : [ "unclustered" | "100ms" | "30ms" | "16s" ]
+        clustering time in human format
+      filetype : [ "xml" | "csv" ]
+        file format of desired cache contents
+      cat : [ 0 | 1 | 2 | 3 | 4 ]
+        int veto category of trigger files requested
   """
 
   # daily path
-  ihope_daily_path = '/archive/home/cbc/ihope_daily'
+  ihope_daily_path = os.path.expanduser('~cbc/ihope_daily')
 
   # set clustering tag
   if cluster==None or cluster.upper()=='UNCLUSTERED':
@@ -582,7 +716,8 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 
   # work out days
   days = gps_day_list(start,end) 
-  cache=[]
+  span = segments.segment(start,end)
+  cache = LALCache()
   # loop over days gathering files
   for day in days:
     utc = datetime.datetime(*date.XLALGPSToUTC(day)[:6])
@@ -590,28 +725,50 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
                                              utc.strftime("%Y%m%d"))
 
     if filetype=='xml':
-      files = glob.glob(os.path.join(day_path,
+      filenames = glob.glob(os.path.join(day_path,
                                       ifo+'-INSPIRAL_'+cluster_tag+'*.xml.gz'))
-      for line in files:
-        if not line.startswith(ihope_daily_path):  continue
-        a,b,c,d = re.split('.xml',line,maxsplit=1)[0].split('-')
-        trig_start = int(c)
-        duration = int(d)
-        if start<=trig_start<end or start<(trig_start+duration)<=end:
-          cache.append(line.replace('\n',''))
+      
+      for filename in filenames:
+        try:
+          e = LALCacheEntry.from_T050017(filename)
+          if span.intersects(e.segment):  cache.append(e)
+        except:
+          print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
+                              % filename
 
     elif filetype=='csv':
       csvfile = os.path.join(day_path,ifo+'-'+str(cat)+'-INSPIRAL_'+\
                                       cluster_tag+'.csv')
       if os.path.isfile(csvfile):
-        cache.append(csvfile)
+        try:
+          e = LALCacheEntry.from_T050017(csvfile)
+          if span.intersects(e.segment):  cache.append(e)
+        except:
+          print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
+                              % filename
 
   return cache
 
 # =============================================================================
 # Function to generate an omega online cache
 # =============================================================================
+
 def omega_online_cache(start,end,ifo):
+
+  """
+    Returns a glue.lal.Cache contatining CacheEntires for all omega online
+    trigger files between the given start and end time for the given ifo.
+    For S6 triggers are only available for each IFO on it's own site cluster.
+
+    Arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      ifo : [ "H1" | "L1" | "V1" ]
+        IFO
+  """
 
   # verify host
   host = getfqdn()
@@ -619,16 +776,20 @@ def omega_online_cache(start,end,ifo):
   if not re.search(ifo_host[ifo],host):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
                         "IFO="+ifo+" on this host."
-    sys.exit(1)
+    return []
 
-  # set variables
-  cache = []
-  basedir = os.path.expanduser('~omega/online/'+str(ifo)+'/archive/S6/segments')
+  span = segments.segment(start,end)
+  cache = LALCache()
+  basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
+                               % (str(ifo)))
+
+  # triggers are numbered from a given start time, which for S6 is:
   basetime = LIGOTimeGPS(931211808)
   triglength = 64
  
   start_time = int(start-math.fmod(start-basetime,triglength))
   t = start_time
+  # loop over time segments constructing files and appending to the list
   while t < end:
     dirstart = "%.10d" % t
     dirend   = "%.10d" % (t+triglength)
@@ -637,7 +798,12 @@ def omega_online_cache(start,end,ifo):
                                               'OMEGA_TRIGGERS_CLUSTER',\
                                               dirstart,str(triglength)])+'.txt')
     if os.path.isfile(trigfile):
-      cache.append(trigfile) 
+      try:
+        e = LALCacheEntry.from_T050017(trigfile)
+        if span.intersects(e.segment):  cache.append(e)
+      except:
+        print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
+                            % filename
     t+=triglength
 
   return cache 
@@ -645,31 +811,56 @@ def omega_online_cache(start,end,ifo):
 # =============================================================================
 # Function to generate a KW DARM_ERR cache
 # =============================================================================
+
 def kw_cache(start,end,ifo):
  
+  """
+    Returns a list of KW trigger files between the given start and end
+    time for the given ifo. For S6 triggers are only available for each IFO on
+    it's own site cluster.
+
+    Arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      ifo : [ "H1" | "L1" | "V1" ]
+        IFO
+  """
+
   # verify host
   host = getfqdn()
   ifo_host = {'H1':'ligo-wa','H2':'ligo-wa','L1':'ligo-la'}
   if not re.search(ifo_host[ifo],host):
     print >>sys.stderr, "Error: KW files are not available for "+\
                         "IFO="+ifo+" on this host."
-    sys.exit(1)
+    return []
 
-  # set variables
-  cache = []
+  cache = LALCache()
   basedir = os.path.expanduser('~lindy/public_html/triggers/s6')
+
+  # times are numbere from a given start, which for S6 is:
   basetime = LIGOTimeGPS(938736000)
   triglength = 86400
   
   start_time = int(start-math.fmod(start-base,triglength))
   t = start_time
+  # loop over time segments constructing file paths and appending to the cache
   while t<end:
     dirstart = str(t)
     dirend   = str(t+triglength)
     dirpath  = os.path.join(basedir,dirstart+'_'+dirend)
     trigfile = os.path.join(dirpath,ifo+'_LSC-DARM_ERR_32_2048.trg')
     if os.path.isfile(trigfile):
-      cache.append(trigfile)
+
+      try:
+        e = KWCacheEntry.from_KWfilename(trigfile)
+        if span.intersects(e.segment):  cache.append(e)
+      except:
+        print >>sys.stderr, 'Could not convert %s' % filename, 
+        print >>sys.stderr, 'to pylal.dq.dqFrameUtils.KWCacheEntry'\
+
     t+=triglength
 
   return cache
@@ -677,8 +868,12 @@ def kw_cache(start,end,ifo):
 # ==============================================================================
 # Function to construct list of days from start and end times
 # ==============================================================================
+
 def gps_day_list(start,end):
-  """This script will construct a list of LIGOTimeGPS days encompassing the start and end GPS times."""
+
+  """
+    This script will construct a list of LIGOTimeGPS days encompassing the start and end GPS times.
+  """
 
   start_d = date.XLALUTCToGPS(datetime.datetime(*date.XLALGPSToUTC(start)[:6])\
                                   .replace(hour=0,minute=0,second=0)\
@@ -691,32 +886,16 @@ def gps_day_list(start,end):
 
   return days 
 
-# ==============================================================================
-# Function to grab effective distance from ihope cache of trig files
-# ==============================================================================
-def grab_effective_distance(cache,time=False):
-  distance=[]
-  time=[]
-  # grab data
-  for file in cache:
-    try:
-      xmldoc = utils.load_filename(file,gz=file.endswith("gz"))
-      value_table = table.get_table(xmldoc,lsctables.SummValueTable.tableName)
-      for line in value_table:
-        if line.name == 'inspiral_effective_distance':
-          distance.append(line.value)
-          time.append((line.start_time+line.end_time)/2)
-          break
-    except:
-      continue
-  if time:  return distance,time
-  else:  return distance
-
 # =============================================================================
 # Function to cluster triggers
 # =============================================================================
-def cluster(trigs,clusterparam='time',width=1,rankparam='snr'):
-  """Cluster given triggerlist in the given clusterparam(s) in order with the given clustering width."""
+
+def cluster(triggers,clusterparam='time',width=1,rankparam='snr'):
+
+  """
+    Cluster the lsctable triggers in the given clusterparam(s) in order with the
+    given clustering width.
+  """
 
   if not isinstance(clusterparam,list) or isinstance(clusterparam,str):
     clusterparam = [clusterparam]
@@ -725,17 +904,17 @@ def cluster(trigs,clusterparam='time',width=1,rankparam='snr'):
 
   # presort triggers in clusterparam
   if clusterparam[0]=='time':
-    if re.search('sngl_inspiral',trigs.tableName):
-      trigs.sort(key=lambda trig: trig.get_end())
+    if re.search('sngl_inspiral',triggers.tableName):
+      triggers.sort(key=lambda trig: trig.get_end())
     else:
-      trigs.sort(key=lambda trig: trig.get_peak())
+      triggers.sort(key=lambda trig: trig.get_peak())
   else:
-    trigs.sort(key=lambda trig: trig.__getattribute__(clusterparam[0]))
+    triggers.sort(key=lambda trig: trig.__getattribute__(clusterparam[0]))
 
   cluster = []
-  clustered = lsctables.New(type(trigs))
+  clustered = lsctables.New(type(triggers))
   prevtrig = None
-  for trig in trigs:
+  for trig in triggers:
     if not prevtrig:
       # add first trig to cluster and move on
       prevtrig = trig
@@ -745,7 +924,7 @@ def cluster(trigs,clusterparam='time',width=1,rankparam='snr'):
     # by rankparam
     for i in range(len(clusterparam)):
       if clusterparam[i]=='time':
-        if re.search('sngl_inspiral',trigs.tableName):
+        if re.search('sngl_inspiral',triggers.tableName):
           value = trig.get_end()
           prev = prevtrig.get_end()
         else:
@@ -759,10 +938,10 @@ def cluster(trigs,clusterparam='time',width=1,rankparam='snr'):
                      reverse=True)
         event = cluster[0]
         # sort cluster attributes for SnglBurstTables
-        if trigs.tableName=='sngl_burst:table':
-          event.cluster_flow   = min([t.flow for t in cluster])
-          event.cluster_fhigh  = max([t.fhigh for t in cluster])
-          event.cluster_length = len(cluster)
+        #if triggers.tableName=='sngl_burst:table':
+        #  event.cluster_flow   = min([t.flow for t in cluster])
+        #  event.cluster_fhigh  = max([t.fhigh for t in cluster])
+        #  event.cluster_length = len(cluster)
         clustered.append(event)
         cluster=[trig]
         break
@@ -777,39 +956,59 @@ def cluster(trigs,clusterparam='time',width=1,rankparam='snr'):
                  reverse=True)
     event = cluster[0]
     # sort cluster attributes for SnglBurstTables
-    if trigs.tableName=='sngl_burst:table':
-      event.cluster_flow   = min([t.flow for t in cluster])
-      event.cluster_fhigh  = max([t.fhigh for t in cluster])
-      event.cluster_length = len(cluster)
+    #if triggers.tableName=='sngl_burst:table':
+    #  event.cluster_flow   = min([t.flow for t in cluster])
+    #  event.cluster_fhigh  = max([t.fhigh for t in cluster])
+    #  event.cluster_length = len(cluster)
     clustered.append(event)
 
   return clustered
 
 # ==============================================================================
-# Dump flags from segment database
+# Calculate poisson significance of coincidences
 # ==============================================================================
-def dump_flags(squery="select ifos,name,version from segment_definer",\
-               start=None,end=None,ifo=None,segment_url=None):
 
-  # get url
-  if not segment_url: 
-    segment_url = os.getenv('S6_SEGMENT_SERVER')
-  
-  # open connection to LDBD(W)Server
-  myClient = segmentdb_utils.setup_database(segment_url)
+def coinc_significance(gwtriggers,auxtriggers,window=1,snrthresh=8
+                       livetime=None):
 
-  tmp = tempfile.TemporaryFile()
-  tmp.write(myClient.query(squery))
-  tmp.seek(0)
-  xmldoc,digest = utils.load_fileobj(tmp)
-  tmp.close()
-  seg_def_table = table.get_table(xmldoc,\
-                                  lsctables.SegmentDefinerTable.tableName)
-  
-  flags = []
-  for line in seg_def_table:
-    if ifo and line.ifo!=ifo:  continue
-    flag = ':'.join([line.ifos.rstrip(),line.name,str(line.version)])
-    flags.append(flag)
+  # get livetime
+  if not livetime:
+    if re.search('Inspiral',gwtriggers):
+      start = min([t.get_end() for t in gwtriggers])
+      start = max([t.get_end() for t in gwtriggers])
+    else:
+      start = min([t.get_peak() for t in gwtriggers])
+      start = max([t.get_peak() for t in gwtriggers])
 
-  return flags
+  # calculate probability of a GW trigger falling within the window
+  gwprob = len(gwtriggers)*window/livetime
+
+  # grab auxiliary triggers above threshold
+  auxtriggers = lsctables.New(type(tableName))
+  auxtriggers.extend([t for t in auxtriggers if t.snr>snrthresh])
+
+  # calculate mean of Poisson distribution
+  mu = gwprob * len(auxtriggers)
+
+  # generate segments around auxiliary triggers
+  if re.search('Inspiral',auxtriggers):
+    coincsegs = segmentlist([segment(t.get_end()-window/2,t.get_end()+window/2)\
+                             for t in triggers])
+
+  else:
+    coincsegs = segmentlist([segment(t.get_peak()-window/2,\
+                                     t.get_peak()+window/2)\
+                           for t in triggers])
+
+  coinctriggers = lsctables.New(type(gwtriggers))
+  if re.search('Inspiral',gwtriggers):
+    coinctriggers.extend([g for g in gwtriggers if g.get_end() in coincsegs])
+  else:
+    coinctriggers.extend([g for g in gwtriggers if g.get_peak() in coincsegs])
+
+  if len(coinctriggers)<1:
+    significance = 0
+  else:
+    significance = -math.log(gammainc(len(coinctriggers),mu),10)
+
+  return significance

@@ -185,14 +185,8 @@ def cbcBayesPostProc(
             inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
 
         mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
-        if li_flag:
-            # In LALInference, the definition of m1 and m2 is reversed!
-            # This will eventually be fixed, but for now it is this way.
-            mass1_pos=bppu.OneDPosterior('m1',mass2_samps,injected_value=inj_mass2)
-            mass2_pos=bppu.OneDPosterior('m2',mass1_samps,injected_value=inj_mass1)
-        else:
-            mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
-            mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
+        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
+        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
@@ -221,7 +215,13 @@ def cbcBayesPostProc(
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
-    html_meta.p('Samples read from %s'%(data[0]))
+    if 'cycle' in pos.names:
+        html_meta.p('Longest chain has '+str(int(numpy.max(pos['cycle'].samples)))+' cycles.')
+    filenames='Samples read from %s'%(data[0])
+    if len(data) > 1:
+        for fname in data[1:]:
+            filenames+=', '+str(fname)
+    html_meta.p(filenames)
 
     #Create a section for model selection results (if they exist)
     if bayesfactornoise is not None:
@@ -404,29 +404,30 @@ def cbcBayesPostProc(
         greedyFile.close()
 
         #= Generate 2D kde plots =#
-        print 'Generating %s-%s plot'%(par1_name,par2_name)
+        if [par1_name,par2_name] in twoDplots or [par2_name,par1_name] in twoDplots:
+            print 'Generating %s-%s plot'%(par1_name,par2_name)
 
-        par1_pos=pos[par1_name].samples
-        par2_pos=pos[par2_name].samples
+            par1_pos=pos[par1_name].samples
+            par2_pos=pos[par2_name].samples
 
-        if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
-            continue
+            if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
+                continue
 
-        plot2DkdeParams={par1_name:50,par2_name:50}
-        myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
+            plot2DkdeParams={par1_name:50,par2_name:50}
+            myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
 
-        figname=par1_name+'-'+par2_name+'_2Dkernel.png'
-        twoDKdePath=os.path.join(margdir,figname)
+            figname=par1_name+'-'+par2_name+'_2Dkernel.png'
+            twoDKdePath=os.path.join(margdir,figname)
 
-        if row_count==0:
-            html_tcmp_write+='<tr>'
-        html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
-        row_count+=1
-        if row_count==3:
-            html_tcmp_write+='</tr>'
-            row_count=0
+            if row_count==0:
+                html_tcmp_write+='<tr>'
+            html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
+            row_count+=1
+            if row_count==3:
+                html_tcmp_write+='</tr>'
+                row_count=0
 
-        myfig.savefig(twoDKdePath)
+            myfig.savefig(twoDKdePath)
 
 
     #Finish off the BCI table and write it into the etree
@@ -467,7 +468,7 @@ def cbcBayesPostProc(
     #Add section for 1D marginal PDFs and sample plots
     html_ompdf=html.add_section('1D marginal posterior PDFs')
     #Table matter
-    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
+    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
 
     onepdfdir=os.path.join(outdir,'1Dpdf')
     if not os.path.isdir(onepdfdir):
@@ -550,10 +551,9 @@ def cbcBayesPostProc(
             chains=numpy.unique(pos["chain"].samples)
             chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
             chainDataRanges=[range(len(cd)) for cd in chainData]
-            dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
-            flattenedData=[ item for pair in dataPairs for item in pair ]
-            maxLen=max([len(data) for data in flattenedData])
-            plt.plot(flattenedData,marker=',',linewidth=0.0,figure=myfig)
+            maxLen=max([len(cd) for cd in chainData])
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
             
         injpar=pos[par_name].injval
 
@@ -563,7 +563,23 @@ def cbcBayesPostProc(
                 plt.plot([0,maxLen],[injpar,injpar],'r-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
-        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+        acffig=plt.figure(figsize=(4,3.5),dpi=200)
+        if not ("chain" in pos.names):
+            data=pos_samps[:,0]
+            mu=numpy.mean(data)
+            corr=numpy.correlate((data-mu),(data-mu),mode='full')
+            N=len(data)
+            plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+        else:
+            for rng, data in zip(chainDataRanges, chainData):
+                mu=numpy.mean(data)
+                corr=numpy.correlate(data-mu,data-mu,mode='full')
+                N=len(data)
+                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+
+        acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+
+        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
 
 
     html_ompdf_write+='</table>'
@@ -629,8 +645,7 @@ if __name__=='__main__':
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
-    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0']]
-
+    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota']]
 
     cbcBayesPostProc(
                         opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,

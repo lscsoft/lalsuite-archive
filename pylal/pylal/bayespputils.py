@@ -236,7 +236,7 @@ class Posterior(object):
         return inj.eta
 
     def _inj_longitude(inj):
-        if inj.longitude>pi_constant or inj.longitude<0.0:
+        if inj.longitude>2*pi_constant or inj.longitude<0.0:
             maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
             print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
             return maplong
@@ -264,6 +264,7 @@ class Posterior(object):
                         'psi': lambda inj: inj.polarization,
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
+                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z)
                        }
 
     def _getinjpar(self,paramname):
@@ -1520,7 +1521,16 @@ class PEOutputParser(object):
                     if output:
                         if nRead % nskip == 0:
                             for label in outputHeader:
-                                outfile.write(lineParams[header.index(label)])
+                                # Swap 1 <--> 2 in spin labels because
+                                # LI thinks m2 > m1, while convention
+                                # as of 18 Jan 2010 is m1 > m2
+                                if label[-1] == '1':
+                                    mylabel = label[0:-1] + '2'
+                                elif label[-1] == '2':
+                                    mylabel = label[0:-1] + '1'
+                                else:
+                                    mylabel = label[:]
+                                outfile.write(lineParams[header.index(mylabel)])
                                 outfile.write(" ")
                             outfile.write(str(i))
                             outfile.write("\n")
