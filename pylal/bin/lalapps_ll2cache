@@ -124,7 +124,7 @@ for n, filename in enumerate(filenames):
 	# load document and extract search summary table
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = filename.endswith(".gz"), contenthandler = ContentHandler)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ContentHandler)
 	searchsumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 
 	# extract process_ids for the requested program

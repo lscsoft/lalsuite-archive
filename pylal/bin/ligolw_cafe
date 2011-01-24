@@ -101,7 +101,7 @@ for filename in cachenames:
 	cache.extend(ligolw_cafe.load_cache(filename, options.verbose))
 
 
-seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(options.time_slides, verbose = options.verbose, gz = options.time_slides.endswith(".gz")).values(), options.verbose)
+seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(options.time_slides, verbose = options.verbose).values(), options.verbose)
 instruments = set(seglists.keys())
 
 

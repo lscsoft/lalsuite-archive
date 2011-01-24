@@ -170,6 +170,8 @@ liblalinspiral_la_SOURCES = \
 	LALInverse3.c \
 	LALMatrixTransform.c \
 	LALPhenomWaveform.c \
+	LALPSpinInspiralRD.c \
+	LALPSpinInspiralRingdownWave.c \
 	LALPrintTimeseries.c \
 	LALRandomInspiralSignal.c \
 	LALRectangleVertices.c \

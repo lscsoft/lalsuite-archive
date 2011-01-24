@@ -78,6 +78,10 @@ def parse_command_line():
         help =
             "Print progress information"
            )
+    parser.add_option( "", "--debug", action = "store_true", default = False,
+        help =
+            "Print SQLite queries used to obtain data."
+           )
     # following are specific to this program
     parser.add_option("-s", "--statistic", action = "store", type="string",
         default=None, metavar="STATTYPE(:label)",
@@ -173,6 +177,14 @@ def parse_command_line():
     parser.add_option( "", "--plot-special-window", action = "store", type = "float", default = 8.0,
         help =
             "Specify the time window, in seconds, to use around the plot-special-time. Default is 8.0 seconds."
+            )
+    parser.add_option( "", "--add-background-point", action = "append", default = [], metavar = " STATVALUE,BACKGROUND_LIVETIME(:LABEL)",
+        help =
+            "Add a point to the background. Any point added will be plotted, but will not be added to the background distribution obtained from input files for cumulative rate computation nor for extrapolation. If the point added is louder than the loudest background trigger, this point will be used for extending the probability contours (if plotted). Points should be specified by first providing the x-value of the point, then the total background livetime used to acquire that point, in the same units as --time-units. To specify multiple points, give the argument multiple times."
+            )
+    parser.add_option( "", "--single-table", action = "store", default = None,
+        help =
+            "If using plot-special-time with a coinc table, a --single-table must be specified to look in for the un-slid single event end-times."
             )
     parser.add_option( "-I", "--plot-by-ifos", action = "store_true", default = False,
         help =
@@ -784,6 +796,14 @@ sqlite3.enable_callback_tracebacks(True)
 statistic, stat_label = len(opts.statistic.split(':')) == 2 and opts.statistic.split(':') or [opts.statistic, opts.statistic.replace('_', ' ').title()]
 data_table = sqlutils.validate_option(opts.data_table)
 
+# get any added background points
+add_background = []
+for addme in opts.add_background_point:
+    xval, yval = [float(x) for x in addme.split(':')[0].split(',')]
+    if len(addme.split(':')) > 1:
+        lbl = addme.split(':')[1]
+    add_background.append((xval,yval,lbl))
+
 combining_function = None
 if opts.combining_method is not None:
     combining_function = opts.combining_method
@@ -860,19 +880,10 @@ for filename in filenames:
         raise ValueError, 'Could not find %s column in the data table (%s)' % (table_type == 'sngl' and 'ifo' or 'ifos', data_table)
     if last_table_type != '' and last_table_type != table_type:
         raise ValueError, '%s table in file %s does not match the types in the other files' %( data_table, filename )
-    if table_type == 'coinc' and opts.plot_special_time != []:
-        raise ValueError, "Cannot do --plot-special-time using a coinc-ifos table."
+    if table_type == 'coinc' and opts.plot_special_time != [] and opts.single_table is None:
+        raise ValueError, "Must specify a --single-table if using --plot-special-time with a coinc-ifos table."
     if table_type == 'sngl' and combining_function is None:
         raise ValueError, "Must provide a combining function or method if querying sngl-ifo tables."
-
-    # TODO: I don't need this for this program, but it could be useful for others; will add this to ligolw_sqlutils
-    # construct an offset dictionary for this database
-    #offset_dict = {}
-    #sqlquery = "SELECT time_slide_id, instrument, offset FROM time_slide"
-    #for tsid, instrument, offset in connection.cursor().execute(sqlquery):
-    #    offset_dict.setdefault( tsid, {} )
-    #    offset_dict[tsid][instrument] = offset
-    #    analyzed_instruments.add(instrument)
 
     #
     #   create/update the background categories in data
@@ -917,6 +928,9 @@ for filename in filenames:
             experiment.experiment_id == experiment_summary.experiment_id
         WHERE
             (experiment_summary.datatype == 'slide'""" + add_foreground + ')' + in_desired_times
+    if opts.debug:
+        print >> sys.stderr, "Sqlite query used to get categories:"
+        print >> sys.stderr, sqlquery
     for on_instruments, this_gps_start, this_gps_end, tsid, veto_cat, duration, datatype in connection.cursor().execute(sqlquery):
         on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
         analyzed_instruments.update( on_instruments )
@@ -1020,6 +1034,42 @@ for filename in filenames:
             """, add_coinc_filter ])
 
     else:
+        # if doing plot special, create a table of the coinc events to ignore in the database
+        add_time_filter = ''
+        if opts.plot_special_time != []:
+            sngl_table = sqlutils.validate_option( opts.single_table )
+            # create a function in the database to check whether a single time falls in the plot sepcial windows or not
+            def check_sngl_time( end_time, end_time_ns ):
+                return end_time+end_time_ns*1e-9 in plot_special_times
+            connection.create_function('check_sngl_time', 2, check_sngl_time)
+            # populate the table
+            sqlquery = ''.join([ """
+                CREATE TEMP TABLE skip_coincs AS
+                    SELECT DISTINCT
+                        coinc_event_map.coinc_event_id AS ceid
+                    FROM
+                        coinc_event_map
+                    JOIN
+                        """, sngl_table, """ AS sngl_table
+                    ON (
+                        coinc_event_map.table_name == '""", sngl_table, """' AND
+                        sngl_table.event_id == coinc_event_map.event_id )
+                    JOIN
+                        experiment_summary, experiment_map
+                    ON (
+                        experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id AND
+                        experiment_map.coinc_event_id == coinc_event_map.coinc_event_id )
+                    WHERE
+                        experiment_summary.datatype == "slide" AND
+                        check_sngl_time( sngl_table.end_time, sngl_table.end_time_ns )
+                    """])
+            if opts.debug:
+                print >> sys.stderr, "SQLite query used to get conics falling in plot special time:"
+                print >> sys.stderr, sqlquery
+            connection.cursor().execute(sqlquery)
+
+            add_time_filter = '\nAND %s.coinc_event_id NOT IN (SELECT ceid FROM skip_coincs)' % data_table
+                         
         # speed-up: if param_name and statistic are in the data_cols list, just query them directly
         if (opts.param_name is not None and param_name in data_cols) and statistic in data_cols:
             quick_query = True
@@ -1039,9 +1089,9 @@ for filename in filenames:
 
         add_coinc_filter = ''
         if opts.include_only_coincs:
-            add_coinc_filter = ''.join([ ' AND in_include_filter(experiment.instruments, ', data_table, '.ifos)' ])
+            add_coinc_filter = ''.join([ '\nAND in_include_filter(experiment.instruments, ', data_table, '.ifos)' ])
         if opts.exclude_coincs:
-            add_coinc_filter = ''.join([ add_coinc_filter, ' AND NOT in_exclude_filter(experiment.instruments, ', data_table, '.ifos)'])
+            add_coinc_filter = ''.join([ add_coinc_filter, '\nAND NOT in_exclude_filter(experiment.instruments, ', data_table, '.ifos)'])
         sqlquery = ''.join([ """
             SELECT
                 experiment.instruments,
@@ -1056,7 +1106,10 @@ for filename in filenames:
                 sqlutils.join_experiment_tables_to_coinc_table( data_table ),
             """
             WHERE
-                (experiment_summary.datatype == 'slide'""", add_foreground, ')', add_coinc_filter ])
+                (experiment_summary.datatype == 'slide'""", add_foreground, ')', add_coinc_filter, add_time_filter ])
+    if opts.debug:
+        print >> sys.stderr, "Sqlite query used to get data:"
+        print >> sys.stderr, sqlquery
     results = connection.cursor().execute(sqlquery).fetchall()
     for result in results:
         if opts.plot_by_instrument_time:
@@ -1064,8 +1117,8 @@ for filename in filenames:
         else:
             on_instruments = frozenset(["ALL"])
         datatype = result[1]
-        # if these are slid triggers, check if any fall in the plot-special window
-        if datatype == "slide" and opts.plot_special_time != []:
+        # if these are slid triggers, check if any fall in the plot-special window (for sngl tables only)
+        if datatype == "slide" and opts.plot_special_time != [] and table_type == 'sngl':
             sngl_end_times = [float(t) for t in result[5].split(',')[-1].split(';')]
             if any(t in plot_special_times for t in sngl_end_times):
                 continue
@@ -1443,6 +1496,28 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         loudest_bkg_events.append(x[2])
 
     #
+    # plot added background triggers
+    #
+    added_bkg = []
+    for add_pt in add_background:
+        xval, pt_livetime, lbl = add_pt
+        yval = 1. / pt_livetime
+        pylab.scatter( xval, yval, marker = 'x', s = 40, label = '_nolegend_' )
+        if lbl != '':
+            if opts.lin_y:
+                ytext = yval+.05*(ymax-ymin)
+            else:
+                ytext = yval * 10**.25
+            pylab.annotate( lbl, (xval,yval), xytext=(xval,ytext) )
+        # reset xmin/xmax
+        xmin = min(xval, xmin)
+        xmax = max(xval, xmax)
+        ymin = min(yval, ymin)
+        ymax = max(yval, ymax)
+        # save x, y points for poisson pdf calc.
+        added_bkg.append((xval, T_fg / pt_livetime))
+
+    #
     # plot foreground
     #
     loudest_events = []
@@ -1488,6 +1563,8 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
     #
     # plot extrapolation
     #
+    x_ext = numpy.array([])
+    y_ext = numpy.array([])
     if plot_fg and opts.extrapolate is not None:
         if opts.verbose:
             print >> sys.stdout, "\textrapolating background..."
@@ -1578,6 +1655,12 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
             print "\tcomputing poisson pdf..."
         xrange = 101
         yrange = 2*xrange
+        # add added_bkg points to bkg stats
+        bkgvals = zip(bkg_stats.tolist(),bkg_cumnum.tolist()) + added_bkg
+        bkgvals.sort(reverse = False )
+        bkg_stats = numpy.array([x[0] for x in bkgvals])
+        bkg_cumnum = numpy.array([x[1] for x in bkgvals])
+
         # if extrapolating, use the extrpolation beyond the largeest measured background point
         if opts.extrapolate is not None and plot_fg and x_ext.any():
             xcoords = numpy.linspace(bkg_stats.min(), max(x_ext.max(), bkg_stats.max()), xrange)
@@ -1636,7 +1719,8 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
                 contplt = pylab.contour(xarray, yarray, zarray, sigmas, cmap = pylab.cm.jet, label = 'N-\sigma', zorder = 1)
 
         # plot a line to show where the extrapolated data begins to be used
-        pylab.plot( [bkg_stats.max(), bkg_stats.max()], [fg_cumrate.min(), ymax*10**0.5], 'k-', linewidth = 2, zorder = 3 )
+        if plot_fg and opts.extrapolate is not None:
+            pylab.plot( [bkg_stats.max(), bkg_stats.max()], [fg_cumrate.min(), ymax*10**0.5], 'k-', linewidth = 2, zorder = 3 )
 
 
     #
