@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
-#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>
+#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>,
+#                      Will M. Farr <will.farr@ligo.org>
 #       
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -30,6 +31,7 @@ from time import strftime
 
 #related third party imports
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit
+import numpy
 
 import matplotlib
 matplotlib.use("Agg")
@@ -69,7 +71,7 @@ def cbcBayesPostProc(
                         #spinspiral/mcmc options
                         ss_flag=False,ss_deltaLogL=None,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,
+                        li_flag=False,nDownsample=1,
                         #followupMCMC options
                         fm_flag=False
                     ):
@@ -109,7 +111,7 @@ def cbcBayesPostProc(
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL)
+        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample)
 
     elif ss_flag and ns_flag:
         print "Undefined input format. Choose only one of:"
@@ -213,7 +215,13 @@ def cbcBayesPostProc(
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
-    html_meta.p('Samples read from %s'%(data[0]))
+    if 'cycle' in pos.names:
+        html_meta.p('Longest chain has '+str(int(numpy.max(pos['cycle'].samples)))+' cycles.')
+    filenames='Samples read from %s'%(data[0])
+    if len(data) > 1:
+        for fname in data[1:]:
+            filenames+=', '+str(fname)
+    html_meta.p(filenames)
 
     #Create a section for model selection results (if they exist)
     if bayesfactornoise is not None:
@@ -325,6 +333,7 @@ def cbcBayesPostProc(
     html_tcmp_write='<table border="1">'
 
     row_count=0
+
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
@@ -395,29 +404,30 @@ def cbcBayesPostProc(
         greedyFile.close()
 
         #= Generate 2D kde plots =#
-        print 'Generating %s-%s plot'%(par1_name,par2_name)
+        if [par1_name,par2_name] in twoDplots or [par2_name,par1_name] in twoDplots:
+            print 'Generating %s-%s plot'%(par1_name,par2_name)
 
-        par1_pos=pos[par1_name].samples
-        par2_pos=pos[par2_name].samples
+            par1_pos=pos[par1_name].samples
+            par2_pos=pos[par2_name].samples
 
-        if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
-            continue
+            if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
+                continue
 
-        plot2DkdeParams={par1_name:50,par2_name:50}
-        myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
+            plot2DkdeParams={par1_name:50,par2_name:50}
+            myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
 
-        figname=par1_name+'-'+par2_name+'_2Dkernel.png'
-        twoDKdePath=os.path.join(margdir,figname)
+            figname=par1_name+'-'+par2_name+'_2Dkernel.png'
+            twoDKdePath=os.path.join(margdir,figname)
 
-        if row_count==0:
-            html_tcmp_write+='<tr>'
-        html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
-        row_count+=1
-        if row_count==3:
-            html_tcmp_write+='</tr>'
-            row_count=0
+            if row_count==0:
+                html_tcmp_write+='<tr>'
+            html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
+            row_count+=1
+            if row_count==3:
+                html_tcmp_write+='</tr>'
+                row_count=0
 
-        myfig.savefig(twoDKdePath)
+            myfig.savefig(twoDKdePath)
 
 
     #Finish off the BCI table and write it into the etree
@@ -458,7 +468,7 @@ def cbcBayesPostProc(
     #Add section for 1D marginal PDFs and sample plots
     html_ompdf=html.add_section('1D marginal posterior PDFs')
     #Table matter
-    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
+    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
 
     onepdfdir=os.path.join(outdir,'1Dpdf')
     if not os.path.isdir(onepdfdir):
@@ -526,15 +536,50 @@ def cbcBayesPostProc(
         ##Produce plot of raw samples
         myfig=plt.figure(figsize=(4,3.5),dpi=200)
         pos_samps=pos[par_name].samples
-        plt.plot(pos_samps,'.',figure=myfig)
+        if not ("chain" in pos.names):
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            plt.plot(pos_samps,'.',figure=myfig)
+            maxLen=len(pos_samps)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            data,header=pos.samples()
+            par_index=pos.names.index(par_name)
+            chain_index=pos.names.index("chain")
+            chains=numpy.unique(pos["chain"].samples)
+            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
+            chainDataRanges=[range(len(cd)) for cd in chainData]
+            maxLen=max([len(cd) for cd in chainData])
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
+            
         injpar=pos[par_name].injval
 
         if injpar:
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
-                plt.plot([0,len(pos_samps)],[injpar,injpar],'r-.')
+                #FIXME: Here!  Lines too long.
+                plt.plot([0,maxLen],[injpar,injpar],'r-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
-        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+        acffig=plt.figure(figsize=(4,3.5),dpi=200)
+        if not ("chain" in pos.names):
+            data=pos_samps[:,0]
+            mu=numpy.mean(data)
+            corr=numpy.correlate((data-mu),(data-mu),mode='full')
+            N=len(data)
+            plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+        else:
+            for rng, data in zip(chainDataRanges, chainData):
+                mu=numpy.mean(data)
+                corr=numpy.correlate(data-mu,data-mu,mode='full')
+                N=len(data)
+                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+
+        acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+
+        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
 
 
     html_ompdf_write+='</table>'
@@ -581,6 +626,7 @@ if __name__=='__main__':
     parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral and LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
+    parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     (opts,args)=parser.parse_args()
@@ -599,8 +645,7 @@ if __name__=='__main__':
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
-    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0']]
-
+    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota']]
 
     cbcBayesPostProc(
                         opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,
@@ -614,7 +659,7 @@ if __name__=='__main__':
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_deltaLogL=opts.deltaLogL,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,
+                        li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,
                         #followupMCMC options
                         fm_flag=opts.fm
                     )

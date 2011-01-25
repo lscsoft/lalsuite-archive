@@ -17,6 +17,12 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Bernd Machenschalk, Reinhard Prix
+ */
+
 /* Extras for building an Einstein@Home BOINC App from HierarchicalSearch
 */
 
@@ -248,7 +254,7 @@ int try_load_dlls(const char*dlls, const char*mess) {
     based on LogPrintf()
  */
 void ReportStatus(LALStatus *status)
-{ /* </lalVerbatim> */
+{ 
   LALStatus *ptr;
   for ( ptr = status; ptr ; ptr = ptr->statusPtr ) {                                         
     fprintf(stderr, "\nLevel %i: %s\n", ptr->level, ptr->Id );
@@ -1017,6 +1023,10 @@ static void worker (void) {
     LogPrintf (LOG_DEBUG, "Set up communication with graphics process.\n");
 #endif
 
+  /* if the program was called to output the version, output the BOINC revision, too */
+  if(output_version)
+    printf("%%%% BOINC: " SVN_VERSION "\n");
+
   if (output_help || output_version || !resultfile_present) {
     /* CALL WORKER's MAIN()
      */
@@ -1049,9 +1059,6 @@ static void worker (void) {
       boinc_finish(0);
     }
 
-    /* if the program was called to output the version, output the BOINC revision, too */
-    if(output_version)
-      printf("%% BOINC: " SVN_VERSION "\n");
   }
 
 

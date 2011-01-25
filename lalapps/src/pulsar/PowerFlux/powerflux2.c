@@ -17,6 +17,12 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Vladimir Dergachev
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -595,6 +601,11 @@ if(args_info.dataset_given) {
 		exit(-1);
 		}
 	}
+
+/* apply per-dataset phase correction */
+for(i=0;i<args_info.extra_phase_given;i++)
+	apply_phase(args_info.extra_phase_arg[i]);
+
 
 /* This diagnostics should be moved into dataset.c when tested */
 for(i=0;i<d_free;i++) {

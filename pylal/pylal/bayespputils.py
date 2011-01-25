@@ -1,6 +1,7 @@
 #       bayespputils.py
 #
-#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>
+#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>,
+#                      Will M. Farr <will.farr@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -49,7 +50,7 @@ from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>, Will M. Farr <will.farr@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -235,7 +236,7 @@ class Posterior(object):
         return inj.eta
 
     def _inj_longitude(inj):
-        if inj.longitude>pi_constant or inj.longitude<0.0:
+        if inj.longitude>2*pi_constant or inj.longitude<0.0:
             maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
             print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
             return maplong
@@ -263,6 +264,7 @@ class Posterior(object):
                         'psi': lambda inj: inj.polarization,
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
+                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z)
                        }
 
     def _getinjpar(self,paramname):
@@ -1460,41 +1462,55 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
-            print "Eliminating any samples before log(L) = ", logLThreshold
+            print "Eliminating any samples before log(Post) = ", logLThreshold
+        nskip=1
+        if not (nDownsample is None):
+            nskip=self._find_ndownsample(files, logLThreshold, nDownsample)
+            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
         
         
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
         log(L) > logLThreshold are concatenated.
         """
+        allowedCols=["cycle", "logl", "logpost", "logprior",
+                     "a1", "theta1", "phi1",
+                     "a2", "theta2", "phi2",
+                     "mc", "eta", "time",
+                     "phi_orb", "iota", "psi",
+                     "ra", "dec",
+                     "dist"]                     
+        nRead=0
         outputHeader=False
-        for infilename in files:
+        for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
                 header=self._clear_infmcmc_header(infile)
+                header=[label for label in header if label in allowedCols] # Remove unwanted columns
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
+                    outfile.write("chain")
                     outfile.write("\n")
-                    outputHeader=True
-                loglindex=header.index("logl")
+                    outputHeader=header
+                loglindex=header.index("logpost")
                 output=False
                 for line in infile:
                     line=line.lstrip()
@@ -1503,7 +1519,22 @@ class PEOutputParser(object):
                     if logL >= logLThreshold:
                         output=True
                     if output:
-                        outfile.write(line)
+                        if nRead % nskip == 0:
+                            for label in outputHeader:
+                                # Swap 1 <--> 2 in spin labels because
+                                # LI thinks m2 > m1, while convention
+                                # as of 18 Jan 2010 is m1 > m2
+                                if label[-1] == '1':
+                                    mylabel = label[0:-1] + '2'
+                                elif label[-1] == '2':
+                                    mylabel = label[0:-1] + '1'
+                                else:
+                                    mylabel = label[:]
+                                outfile.write(lineParams[header.index(mylabel)])
+                                outfile.write(" ")
+                            outfile.write(str(i))
+                            outfile.write("\n")
+                        nRead=nRead+1
             finally:
                 infile.close()
 
@@ -1516,7 +1547,7 @@ class PEOutputParser(object):
             infile=open(inpname, 'r')
             try:
                 header=self._clear_infmcmc_header(infile)
-                loglindex=header.index("logl")
+                loglindex=header.index("logpost")
                 for line in infile:
                     line=line.lstrip().split()
                     logL=float(line[loglindex])
@@ -1524,8 +1555,35 @@ class PEOutputParser(object):
                         maxLogL=logL
             finally:
                 infile.close()
-        print "Found max log(L) = ", maxLogL
+        print "Found max log(Post) = ", maxLogL
         return maxLogL
+
+    def _find_ndownsample(self, files, logLthreshold, nDownsample):
+        """
+        Given a list of files, and threshold value, and a desired
+        number of outputs posterior samples, return the skip number to
+        achieve the desired number of posterior samples.
+        """
+        ntot=0
+        for inpname in files:
+            infile=open(inpname, 'r')
+            try:
+                header=self._clear_infmcmc_header(infile)
+                loglindex=header.index("logpost")
+                burnedIn=False
+                for line in infile:
+                    line=line.lstrip().split()
+                    logL=float(line[loglindex])
+                    if logL > logLthreshold:
+                        burnedIn=True
+                    if burnedIn:
+                        ntot=ntot+1
+            finally:
+                infile.close()
+        if ntot < nDownsample:
+            return 1
+        else:
+            return floor(ntot/nDownsample)
         
     def _clear_infmcmc_header(self, infile):
         """

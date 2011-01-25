@@ -32,6 +32,7 @@ Light Weight XML documents.
 
 import bisect
 import itertools
+import random
 import sys
 
 
@@ -96,11 +97,7 @@ class EventList(list):
 		Set an offset on the times of all events in the list.
 		"""
 		# cast offset to LIGOTimeGPS to avoid repeated conversion
-		# when applying the offset to each event.  also prevents
-		# round-off errors since addition and subtraction of
-		# LIGOTimeGPS objects are exact, so by recording the offset
-		# as a LIGOTimeGPS it should be possible to return the
-		# events to exactly their original times before exiting.
+		# when applying the offset to each event.
 		self.offset = lsctables.LIGOTimeGPS(offset)
 
 	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
@@ -143,9 +140,9 @@ class EventListDict(dict):
 	initialized from an XML trigger table and a list of process IDs
 	whose events should be included.
 	"""
-	def __new__(self, *args, **kwargs):
+	def __new__(cls, *args, **kwargs):
 		# wrapper to shield dict.__new__() from our arguments.
-		return dict.__new__(self)
+		return dict.__new__(cls)
 
 	def __init__(self, EventListType, event_table, process_ids = None):
 		"""
@@ -223,36 +220,37 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	where event1 and event2 are two objects drawn from the event lists
 	(of different instruments), offset1 and offset2 are the time shifts
 	that should be added to the arrival times of event1 and event2
-	respectively, light_travel_time is the distance between the
-	instruments in light seconds, and threshold_data is the value
-	contained in the thresholds dictionary for the pair of instruments
-	from which event1 and event2 have been drawn.  The return value
-	should be 0 (False) if the events are coincident, and non-zero
-	otherwise (the behaviour of the comparison function is like a
-	subtraction operator, returning 0 when the two events are "the
-	same").
+	respectively, light_travel_time is the distance in light seconds
+	between the instruments from which event1 and event2 have been
+	drawn, and threshold_data is the value contained in the thresholds
+	dictionary for that pair of instruments.  The return value should
+	be 0 (False) if the events are coincident, and non-zero otherwise
+	(the behaviour of the comparison function is like a subtraction
+	operator, returning 0 when the two events are "the same").
 
 	The thresholds dictionary should look like
 
 	>>> {("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
 
 	i.e., the keys are tuples of instrument pairs and the values
-	specify the "threshold" for that instrument pair.  The threshold
-	itself is arbitrary.  Floats are shown in the example above, but
-	any Python object can be provided and will be passed to the
-	comparefunc().  Note that it is assumed that order matters in the
-	comparison function and so the thresholds dictionary must provide a
-	threshold for the instruments in both orders.
+	specify the "threshold data" for that instrument pair.  The
+	threshold data itself is an arbitrary Python object.  Floats are
+	shown in the example above, but any Python object can be provided
+	and will be passed to the comparefunc().  Note that it is assumed
+	that order matters in the comparison function and so the thresholds
+	dictionary must provide a threshold for the instruments in both
+	orders.
 
-	Each tuple returned by this generator will contain events from
-	distinct instruments.
+	Each tuple returned by this generator will contain exactly two
+	events, one from each of the two instruments in the instruments
+	sequence.
 
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
 
 	NOTE:  the order of the events in each tuple returned by this
 	function is arbitrary, in particular it does not necessarily match
-	the order of instruments sequence.
+	the order of the instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
@@ -260,21 +258,19 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	assert len(instruments) == 2
 	for instrument in instruments:
 		assert eventlists[instrument].instrument == instrument
-	eventlists = [eventlists[instrument] for instrument in instruments]
+	eventlista, eventlistb = [eventlists[instrument] for instrument in instruments]
 
-	# determine the shorter and longer of the two event lists;  record
+	# insure eventlist a is the shorter of the two event lists;  record
 	# the length of the shortest
 
-	if len(eventlists[0]) <= len(eventlists[1]):
-		eventlista, eventlistb = eventlists
-	else:
-		eventlistb, eventlista = eventlists
+	if len(eventlista) > len(eventlistb):
+		eventlista, eventlistb = eventlistb, eventlista
 	length = len(eventlista)
 
 	# extract the thresholds and pre-compute the light travel time
 
 	try:
-		thresholds = thresholds[(eventlista.instrument, eventlistb.instrument)]
+		threshold_data = thresholds[(eventlista.instrument, eventlistb.instrument)]
 	except KeyError, e:
 		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % e.args[0]
 	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
@@ -288,7 +284,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		# iterate over events from the other list that are
 		# coincident with the event, and return the pairs
 
-		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, thresholds, comparefunc):
+		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, threshold_data, comparefunc):
 			yield (eventa, eventb)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
@@ -357,7 +353,10 @@ class TimeSlideGraphNode(object):
 			eventlists.set_offsetdict(self.offset_vector)
 
 			#
-			# search for and record coincidences
+			# search for and record coincidences.  coincs is a
+			# sorted tuple of event ID pairs, where each pair
+			# of IDs is sorted in alphabetical order by
+			# instrument name
 			#
 
 			if verbose:
@@ -368,8 +367,7 @@ class TimeSlideGraphNode(object):
 			# tuple returned by get_doubles() is arbitrary so
 			# we need to sort each tuple by instrument name
 			# explicitly
-			self.coincs = sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose))
-			self.coincs = tuple(self.coincs)
+			self.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
 			return self.coincs
 
 		#
@@ -760,3 +758,188 @@ def coincident_process_ids(xmldoc, offset_vectors, max_segment_gap, program):
 		if row.process_id in proc_ids and row.process_id not in coinc_proc_ids and seglistdict.intersection(row.get_ifos()).intersects_segment(row.get_out()):
 			coinc_proc_ids.add(row.process_id)
 	return coinc_proc_ids
+
+
+#
+# =============================================================================
+#
+#                       Time-slideless Coinc Synthesizer
+#
+# =============================================================================
+#
+
+
+def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow_zero_lag = False, verbose = False, abundance_rel_accuracy = 1e-6):
+	"""
+	Generator function to return time shifted coincident event tuples
+	without the use of explicit time shift vectors.
+
+	eventlists is a dictionary of lists of "events" (arbitrary python
+	objects), the dictionary's keys are instrument names.  segmentlists
+	is a glue.segments.segmentlistdict object describing the
+	observation segments for each of instruments.  timefunc is a
+	function for computing the "time" of an event, its signature should
+	be timefunc(event).  delta_t is a time window in seconds, the light
+	travel time between instrument pairs is added to this internally.
+
+	Using the mean event rates and the coincidence window, the function
+	first computes the relative frequency of each of the combinations
+	of instruments that can form a coincidence.  The function then
+	generates a sequence of event tuples, choosing events at random
+	from the event lists in combinations selected according to the
+	relative frequencies of the instrument combinations
+
+	If allow_zero_lag is False (the default), then only event tuples
+	with no genuine zero-lag coincidences are returned, that is only
+	tuples in which no event pairs would be considered to be coincident
+	without time shifts applied.
+
+	abundance_rel_accuracy sets the fractional error tolerated in the
+	Monte Carlo integrator used to estimate the relative abundances of
+	the different kinds of coincs.  NOTE:  This parameter should not be
+	taken literally, the fractional errors are substantially higher
+	than this parameter would suggest.
+	"""
+	#
+	# compute the mean event rates in Hz and the coincidence windows in
+	# seconds
+	#
+
+	mu = dict((instrument, len(eventlist) / float(abs(segmentlists[instrument]))) for (instrument, eventlist) in eventlists.items())
+	tau = dict((frozenset([a, b]), delta_t + inject.light_travel_time(a, b)) for (a, b) in iterutils.choices(tuple(eventlists), 2))
+	if verbose:
+		for keyvalue in mu.items():
+			print >>sys.stderr, "%s mean event rate = %g Hz" % keyvalue
+		for (a, b), window in tau.items():
+			print >>sys.stderr, "tau_{%s,%s} = %g s" % (a, b, window)
+
+	#
+	# compute the rate of all different coincidence types
+	#
+
+	for n in range(len(eventlists), 1, -1):
+		for instruments in iterutils.choices(tuple(eventlists), n):
+			# compute \mu_{1} * \mu_{2} ... \mu_{N} * \tau_{12}
+			# * \tau_{13} ... \tau_{1N}
+			key = frozenset(instruments)
+			anchor, instruments = instruments[0], instruments[1:]
+			rate = mu[anchor]
+			for instrument in instruments:
+				rate *= mu[instrument] * 2 * tau[frozenset((anchor, instrument))]
+			if verbose:
+				print >>sys.stderr, "%s uncorrected mean event rate = %g Hz" % (",".join(sorted(key)), rate)
+
+			# if there are more than two instruments, correct
+			# for the probability of full N-way coincidence by
+			# computing the volume of the allowed parameter
+			# space by stone throwing.  FIXME:  it might be
+			# practical to solve this with some sort of
+			# computational geometry library and convex hull
+			# volume calculator.
+			if len(instruments) > 1:
+				windows = tuple((-tau[frozenset((anchor, instrument))], +tau[frozenset((anchor, instrument))]) for instrument in instruments)
+				ijseq = tuple((i, j, tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
+				# compute the numerator and denominator of
+				# the fraction of events coincident with
+				# the anchor instrument that are also
+				# mutually coincident.  this is done by
+				# picking a vector of allowed \Delta ts and
+				# testing them against the coincidence
+				# windows.  for speed, we pre-compute many
+				# things and store them in tuples
+				n, d = 0, 0
+				while n < len(key) / abundance_rel_accuracy:
+					dt = tuple(random.uniform(*window) for window in windows)
+					for i, j, window in ijseq:
+						if abs(dt[i] - dt[j]) > window:
+							break
+					else:
+						n += 1
+					d += 1
+
+				rate *= float(n) / float(d)
+				if verbose:
+					print >>sys.stderr, "	multi-instrument correction factor = %g" % (float(n)/float(d))
+					print >>sys.stderr, "	%s mean event rate = %g Hz" % (",".join(sorted(key)), rate)
+
+			# subtract from the rate the rate at which this
+			# combination of instruments is found in
+			# higher-order coincs
+			for m in range(1, len(eventlists) - len(key) + 1):
+				for otherinstruments in iterutils.choices(tuple(set(eventlists) - key), m):
+					rate -= mu[key | set(otherinstruments)]
+
+			# done
+			assert rate >= 0
+			mu[key] = rate
+			if verbose:
+				print >>sys.stderr, "%s mean event rate = %g Hz" % (",".join(sorted(key)), rate)
+
+	#
+	# remove single instrument rates
+	#
+
+	for instrument in eventlists:
+		del mu[instrument]
+
+	#
+	# from the rates compute the relative abundances
+	#
+
+	P = dict((key, value / sum(mu.values())) for key, value in mu.items())
+	if verbose:
+		for key, value in P.items():
+			print >>sys.stderr, "%s relative abundance = %g" % (",".join(sorted(key)), value)
+
+	#
+	# convert to a sorted tuple of (probability mass, instrument combo)
+	# pairs.  while at it, convert the instrument sets to tuples to
+	# avoid doing this in a loop later, and remove instrument combos
+	# whose probability mass is 0.  if no combos remain then we can't
+	# form coincidences
+	#
+
+	P = tuple(sorted([mass, tuple(instruments)] for instruments, mass in P.items() if mass != 0))
+	if not P:
+		return
+
+	#
+	# replace the probability masses with cummulative probabilities
+	#
+
+	for i in range(1, len(P)):
+		P[i][0] += P[i - 1][0]
+
+	#
+	# normalize (should be already, just be certain)
+	#
+
+	for i in range(len(P)):
+		P[i][0] /= P[-1][0]
+	assert P[-1][0] == 1.0
+	if verbose:
+		for lo, (hi, instruments) in zip([0] + [p[0] for p in P], P):
+			print "[%g, %g) --> %s" % (lo, hi, "+".join(instruments))
+
+	#
+	# generate random coincidences
+	#
+
+	while True:
+		# select an instrument combination
+		instruments = P[bisect.bisect_left(P, [random.uniform(0.0, 1.0)])][1]
+
+		# randomly selected events from those instruments
+		events = [(instrument, random.choice(eventlists[instrument])) for instrument in instruments]
+
+		# test for a genuine zero-lag coincidence among them
+		keep = True
+		if not allow_zero_lag:
+			for (instrumenta, eventa), (instrumentb, eventb) in iterutils.choices(events, 2):
+				if abs(timefunc(eventa) - timefunc(eventb)) < tau[frozenset((instrumenta, instrumentb))]:
+					keep = False
+					break
+
+		# return acceptable event tuples
+		if keep:
+			yield tuple(event for instrument, event in events)

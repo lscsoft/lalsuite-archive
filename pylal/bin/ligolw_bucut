@@ -63,7 +63,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "Removes sngl_burst events from XML files according to a variety of criteria.  Files named on the command line are read one-by-one, and over-written with the new files.  If no files are named on the command line, input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip compressed.  Note that, for the most part, this program does not understand coincidence information, and so if an injection or burst event is removed that participates in a coincidence, this program simply deletes the entire coincidence as well (before applying the --coinc-only cut)."
+		description = "Removes sngl_burst events from XML files according to a variety of criteria.  Files named on the command line are read one-by-one, and over-written with the new files.  If no files are named on the command line, input is read from stdin and written to stdout.  Note that, for the most part, this program does not understand coincidence information, and so if an injection or burst event is removed that participates in a coincidence, this program simply deletes the entire coincidence as well (before applying the --coinc-only cut)."
 	)
 	parser.add_option("--coinc-only", action = "store_true", help = "Discard events that are not participating in a coincident event.")
 	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be recorded in the process table for this job (default = None).")
@@ -145,7 +145,7 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 def load_veto_segments(filename, verbose = False):
-	return ligolw_segments.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose, gz = filename.endswith(".gz")), "sngl_burst_veto").coalesce()
+	return ligolw_segments.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose), "sngl_burst_veto").coalesce()
 
 
 class DocContents(object):
@@ -497,7 +497,7 @@ else:
 
 
 for filename in filenames:
-	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	xmldoc = utils.load_filename(filename, options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
 	xmldoc = ligolw_bucut(xmldoc, options, keep_this_sngl_burst, veto_segments = veto_segments, del_non_coincs = options.coinc_only, del_skipped_injections = options.inj_made_only, program = options.program, verbose = options.verbose)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
