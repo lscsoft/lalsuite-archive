@@ -330,7 +330,7 @@ static PyObject *PyIIR(PyObject *self, PyObject *args)
 	phase_arraydims = PyArray_DIMS(phase_array);
 	phase_real8.length = phase_arraydims[0];
 	phase_real8.data = PyArray_DATA(phase_array);
-	XLALCreateInspiralIIRFilters(&amp_real8, &phase_real8, eps, alpha, beta, &a1, &b0, &delay);
+	XLALInspiralGenerateIIRSet(&amp_real8, &phase_real8, eps, alpha, beta, &a1, &b0, &delay);
 	a1_length[0] = a1->length;
 	b0_length[0] = b0->length;
 	delay_length[0] = delay->length;
@@ -371,7 +371,7 @@ static PyObject *PyIIRResponse(PyObject *self, PyObject *args)
 	delay_int4.length = delay_arraydims[0];
 	delay_int4.data = PyArray_DATA(delay_array);
 
-	XLALCreateIIRResponseSeries(N, &a1_complex16, &b0_complex16, &delay_int4, &resp);
+	XLALInspiralIIRSetResponse(N, &a1_complex16, &b0_complex16, &delay_int4, &resp);
 	resp_length[0] = resp->length;
 	resp_pyob = PyArray_SimpleNewFromData(1, resp_length, NPY_CDOUBLE, (void *) resp->data);
 
@@ -409,7 +409,7 @@ static PyObject *PyIIRInnerProduct(PyObject *self, PyObject *args)
 	psd_arraydims = PyArray_DIMS(psd_array);
 	psd_real8.length = psd_arraydims[0];
 	psd_real8.data = PyArray_DATA(psd_array);
-	XLALIIRInnerProduct(&a1_complex16, &b0_complex16, &delay_int4, &psd_real8, &ip);
+	XLALInspiralCalculateIIRSetInnerProduct(&a1_complex16, &b0_complex16, &delay_int4, &psd_real8, &ip);
 
 	return Py_BuildValue("d", ip);
 }
