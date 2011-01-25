@@ -7,11 +7,16 @@
 from __future__ import division
 import sys,os,re,numpy,math,shlex,subprocess,datetime,glob,tempfile
 from socket import getfqdn
+
 from glue.ligolw import ligolw,table,lsctables,utils
 from glue.segments import segment, segmentlist
 from glue.segmentdb import segmentdb_utils
+from glue.lal import Cache as LALCache
+from glue.lal import CacheEntry as LALCacheEntry
+
 from pylal import date
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.dq.dqFrameUtils import KWCacheEntry
 
 # Hey, scipy, shut up about your nose already.
 import warnings
@@ -34,29 +39,31 @@ This module provides a bank of useful functions for manipulating triggers and tr
 """
 
 # =============================================================================
-# Execute shell cmd and get output
+# Execute shell command and get output
 # =============================================================================
 
 def make_external_call(cmd,shell=False):
 
   """
-    Execute shell command and capture standard output and errors. Does not
-    support complex commands with pipes, e.g. `echo ${VAR} | grep insp` will
-    fail. Returns tuple "(stdout,stderr)".
+    Execute shell command and capture standard output and errors. 
+    Returns tuple "(stdout,stderr)".
   """
 
-  args = shlex.split(str(cmd))
+  if shell:
+    args=str(cmd)
+  else:
+    args = shlex.split(str(cmd))
+
   p = subprocess.Popen(args,shell=shell,\
                        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   p_out, p_err = p.communicate()
-  if p.returncode != 0:
-    raise ValueError, "Command %s failed. Stderr Output: \n%s" %( cmd, p_err)
 
   return p_out, p_err
 
 # =============================================================================
 # Convert list from text file into Sngl{Burst,Inspiral} object
 # =============================================================================
+
 def trigger(data,etg):
 
   """
@@ -225,6 +232,7 @@ def trigger(data,etg):
 # =============================================================================
 # Function to write triggers to file in etg standard form
 # =============================================================================
+
 def totrigxml(file,triggers,etg):
 
   """
@@ -300,8 +308,9 @@ def totrigfile(file,table,etg,header=True):
     print >>file, d.join(line)
   
 # =============================================================================
-# Function to load triggers from cache
+# Function to load triggers from xml
 # =============================================================================
+
 def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
 
   """
@@ -335,7 +344,7 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
 
   # crack open xml file
   xmldoc,digest = utils.load_fileobj(file,gz=file.name.endswith('gz'))
-  alltriggers = table.get_table(xmldoc,tablename))
+  alltriggers = table.get_table(xmldoc,tablename)
 
   triggers = lsctables.New(type(alltriggers))
 
@@ -644,6 +653,7 @@ def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
 # =============================================================================
 # Function to bandpass a time-series
 # =============================================================================
+
 def bandpass(data, f_low, f_high, sampling, order=4):
 
   """
@@ -664,66 +674,14 @@ def bandpass(data, f_low, f_high, sampling, order=4):
   return data
 
 # =============================================================================
-# Function to write a list of files to a cache
-# =============================================================================
-def tocache(file,cachelist):
-
-  """
-    Reads a list of filepaths and writes each to the given file object cache.
-    Filenames must be of the format IFO-USERTAG-STARTTIME-DURATION.ext. Printed
-    columns are
-
-    IFO USERTAG STARTTIME DURATION filepath
-
-    for each file
-  """
-
-  for f in cachelist:
-    lfn = os.path.basename(f)
-    head,ext = os.path.splitext(lfn)
-    if head.endswith('.xml'):
-      head,ext = os.path.splitext(head)
-    a,b,c,d = head.split('-')
-    print >>file, "%s %s %s %s %s" % (a,b,c,d,f)
-
-  file.flush() 
-
-# =============================================================================
-# Read a list of files from frame cache
-# =============================================================================
-
-def fromcache(file,ifo='',filetag='',start=0,end=float('inf')):
-
-  """
-    Reads a file object cache file containing the columns:
-
-    IFO FILETAG GPSSTART DURATION FILEPATH
-
-    and returns a list of filepaths.
-  """
-
-  cache = []
-  cchar = re.compile('[#%<!()_\[\]{}:;\'\"]+')
-  for line in file:
-    if re.match(cchar,line):  continue
-    a,b,c,d,f = line.split(' ')
-    c = int(c)
-    d = int(d)
-    if re.match(ifo,a) and re.search(filetag,b)\
-    and not segment(start,end).disjoint(segment(c,c+d)):
-      cache.append(f.replace('\n',''))
-
-  return cache
-
-# =============================================================================
 # Generate a daily ihope cache 
 # =============================================================================
 
 def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 
   """
-    Generates cache list of daily ihope INSPIRAL files for give ifo and
-    clustering between start and end time.
+    Generates glue.lal.Cache containing CacheEntires for all daily ihope
+    INSPIRAL files for given ifo and clustering between start and end time.
 
     Arguments:
 
@@ -758,7 +716,8 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 
   # work out days
   days = gps_day_list(start,end) 
-  cache=[]
+  span = segments.segment(start,end)
+  cache = LALCache()
   # loop over days gathering files
   for day in days:
     utc = datetime.datetime(*date.XLALGPSToUTC(day)[:6])
@@ -766,21 +725,27 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
                                              utc.strftime("%Y%m%d"))
 
     if filetype=='xml':
-      files = glob.glob(os.path.join(day_path,
+      filenames = glob.glob(os.path.join(day_path,
                                       ifo+'-INSPIRAL_'+cluster_tag+'*.xml.gz'))
-      for line in files:
-        if not line.startswith(ihope_daily_path):  continue
-        a,b,c,d = re.split('.xml',line,maxsplit=1)[0].split('-')
-        trig_start = int(c)
-        duration = int(d)
-        if start<=trig_start<end or start<(trig_start+duration)<=end:
-          cache.append(line.replace('\n',''))
+      
+      for filename in filenames:
+        try:
+          e = LALCacheEntry.from_T050017(filename)
+          if span.intersects(e.segment):  cache.append(e)
+        except:
+          print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
+                              % filename
 
     elif filetype=='csv':
       csvfile = os.path.join(day_path,ifo+'-'+str(cat)+'-INSPIRAL_'+\
                                       cluster_tag+'.csv')
       if os.path.isfile(csvfile):
-        cache.append(csvfile)
+        try:
+          e = LALCacheEntry.from_T050017(csvfile)
+          if span.intersects(e.segment):  cache.append(e)
+        except:
+          print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
+                              % filename
 
   return cache
 
@@ -791,9 +756,9 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 def omega_online_cache(start,end,ifo):
 
   """
-    Returns a list of omega online trigger files between the given start and end
-    time for the given ifo. For S6 triggers are only available for each IFO on
-    it's own site cluster.
+    Returns a glue.lal.Cache contatining CacheEntires for all omega online
+    trigger files between the given start and end time for the given ifo.
+    For S6 triggers are only available for each IFO on it's own site cluster.
 
     Arguments:
 
@@ -813,7 +778,8 @@ def omega_online_cache(start,end,ifo):
                         "IFO="+ifo+" on this host."
     return []
 
-  cache = []
+  span = segments.segment(start,end)
+  cache = LALCache()
   basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
                                % (str(ifo)))
 
@@ -832,7 +798,12 @@ def omega_online_cache(start,end,ifo):
                                               'OMEGA_TRIGGERS_CLUSTER',\
                                               dirstart,str(triglength)])+'.txt')
     if os.path.isfile(trigfile):
-      cache.append(trigfile) 
+      try:
+        e = LALCacheEntry.from_T050017(trigfile)
+        if span.intersects(e.segment):  cache.append(e)
+      except:
+        print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
+                            % filename
     t+=triglength
 
   return cache 
@@ -840,6 +811,7 @@ def omega_online_cache(start,end,ifo):
 # =============================================================================
 # Function to generate a KW DARM_ERR cache
 # =============================================================================
+
 def kw_cache(start,end,ifo):
  
   """
@@ -865,7 +837,7 @@ def kw_cache(start,end,ifo):
                         "IFO="+ifo+" on this host."
     return []
 
-  cache = []
+  cache = LALCache()
   basedir = os.path.expanduser('~lindy/public_html/triggers/s6')
 
   # times are numbere from a given start, which for S6 is:
@@ -881,7 +853,14 @@ def kw_cache(start,end,ifo):
     dirpath  = os.path.join(basedir,dirstart+'_'+dirend)
     trigfile = os.path.join(dirpath,ifo+'_LSC-DARM_ERR_32_2048.trg')
     if os.path.isfile(trigfile):
-      cache.append(trigfile)
+
+      try:
+        e = KWCacheEntry.from_KWfilename(trigfile)
+        if span.intersects(e.segment):  cache.append(e)
+      except:
+        print >>sys.stderr, 'Could not convert %s' % filename, 
+        print >>sys.stderr, 'to pylal.dq.dqFrameUtils.KWCacheEntry'\
+
     t+=triglength
 
   return cache
@@ -889,6 +868,7 @@ def kw_cache(start,end,ifo):
 # ==============================================================================
 # Function to construct list of days from start and end times
 # ==============================================================================
+
 def gps_day_list(start,end):
 
   """
@@ -987,7 +967,9 @@ def cluster(triggers,clusterparam='time',width=1,rankparam='snr'):
 # ==============================================================================
 # Calculate poisson significance of coincidences
 # ==============================================================================
-def coinc_significance(gwtriggers,auxtriggers,window=1,snrthresh=8,livetime=None):
+
+def coinc_significance(gwtriggers,auxtriggers,window=1,snrthresh=8
+                       livetime=None):
 
   # get livetime
   if not livetime:

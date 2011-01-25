@@ -1,3 +1,8 @@
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Junyi Zhang, Keith Riles
+ */
 
 /*-----------------------------------------------------------------------
  *

@@ -20,8 +20,6 @@ import matplotlib
 matplotlib.use('Agg')
 import pylab
 
-from pylal.dq import dqDataUtils,dqSegmentUtils
-
 from glue import git_version
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
@@ -32,33 +30,10 @@ __date__    = git_version.date
 This module provides plotting routines for use in data quality investigations. All routines are written to work in as general a way as possible with ligolw tables and lsctables compatible columns. 
 """
 
-# compile xml.gz search
-xml = re.compile('(xml$|xml.gz$)')
-
-# =============================================================================
-# Execute shell command and get output
-# =============================================================================
-
-def make_external_call(cmd,shell=False):
-
-  """
-    Execute shell command and capture standard output and errors. Does not
-    support complex commands with pipes, e.g. `echo ${VAR} | grep insp` will
-    fail. Returns tuple "(stdout,stderr)".
-  """
-
-  args = shlex.split(str(cmd))
-  p = subprocess.Popen(args,shell=shell,\
-                       stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  p_out, p_err = p.communicate()
-  if p.returncode != 0:
-    raise ValueError, "Command %s failed. Stderr Output: \n%s" %( cmd, p_err)
-
-  return p_out, p_err
-
 # =============================================================================
 # Function to plot before/after cumulative SNR histograms
 # =============================================================================
+
 def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
                       flag='unknown segments',etg=None,\
                       livetime=None,fill=False,logx=True):
@@ -94,12 +69,6 @@ def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
       logx : [ True | False ]
         boolean option to display column (x) axis in log scale.
   """
-
-  # set up outfile
-  outfile = os.path.abspath(outfile)
-  outdir = os.path.split(outfile)[0]
-  if not os.path.isdir(outdir):
-    os.makedirs(outdir)
 
   # calculate livetime
   if not livetime:
@@ -293,12 +262,6 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
       logz : [ True | False ]
         boolean option to display z-axis (colorbar) in log scale.
   """
-
-  # set up outfile
-  outfile = os.path.abspath(outfile)
-  outdir = os.path.split(outfile)[0]
-  if not os.path.isdir(outdir):
-    os.makedirs(outdir)
 
   # calculate livetime
   if not start or end:
@@ -561,12 +524,6 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
       logy : [ True | False ]
         boolean option to display y-axis in log scale.
   """
-
-  # set up outfile
-  outfile = os.path.abspath(outfile)
-  outdir = os.path.split(outfile)[0]
-  if not os.path.isdir(outdir):
-    os.makedirs(outdir)
 
   durations = [seg.__abs__() for seg in segments]
   # set times
