@@ -169,6 +169,12 @@ INT4 writeSimRing = 0;
 InspiralApplyTaper taperInj = INSPIRAL_TAPER_NONE;
 REAL8 redshift;
 
+/* PhiTest parameters */
+/* default: they are NOT used! */
+INT4 phiTestInjections=0;
+INT4 indexPhiTest=-1;
+REAL8 PhiTest=0.0;
+
 static LALStatus status;
 static RandomParams* randParams=NULL;
 INT4 numExtTriggers = 0;
@@ -515,6 +521,11 @@ static void print_usage(char *program)
       "  [--max-abskappa1] abskappa1max \n"\
       "                           Set the maximum absolute value of cos(S1.L_N) \n"\
       "                           to abskappa1max (1.0)\n\n");
+fprintf(stderr,
+      "Test parameter information:\n"\
+      " --enable-PhiTest          enable phiTest injections\n"\
+      " --PhiTest-index index     index of the Test parameter\n"\
+      " --PhiTest-value value     value of the Test parameter\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1238,6 +1249,9 @@ int main( int argc, char *argv[] )
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
+    {"enable-PhiTest",          no_argument,       0,                 '@'},
+    {"PhiTest-index",           required_argument, 0,                 '|'},
+    {"PhiTest-value",           required_argument, 0,                 '$'},          
     {0, 0, 0, 0}
   };
   int c;
@@ -2053,6 +2067,25 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name, "string", 
               "%s", optarg );
         break;
+      case '@':
+              /* enable PhiTest injections */
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name, "string", 
+              "" );
+        phiTestInjections = 1;
+        break;
+      case '|':
+        if (phiTestInjections==1){
+            indexPhiTest=atof(optarg);
+            this_proc_param = this_proc_param->next = 
+            next_process_param( long_options[option_index].name, "int", "%ld", indexPhiTest);}
+        break;
+      case '$':
+        if (phiTestInjections==1){
+            PhiTest=atof(optarg);
+            this_proc_param = this_proc_param->next = 
+            next_process_param( long_options[option_index].name, "float", optarg);}
+        break;
 
       case 'h':
         print_usage(argv[0]);
@@ -2438,7 +2471,6 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-
   if ( userTag && outCompress )
   {
     snprintf( fname, sizeof(fname), "HL-INJECTIONS_%d_%s-%d-%ld.xml.gz",
@@ -2520,7 +2552,13 @@ int main( int argc, char *argv[] )
         sizeof(CHAR) * LIGOMETA_WAVEFORM_MAX );
     simTable->f_lower = fLower;
     simTable->amp_order = amp_order;
-
+    /* populate the test parameters */
+    
+    if (phiTestInjections==1) 
+    {
+        simTable->indexPhiTest=indexPhiTest;
+        simTable->PhiTest=PhiTest;
+    }
     /* draw redshift */
     if (dDistr==sfr)
     {

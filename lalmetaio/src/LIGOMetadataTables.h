@@ -658,8 +658,8 @@ tagSimInspiralTable
   INT4           amp_order;
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];
   INT4           bandpass;
-  INT4 		 indexPhiTest;
-  REAL4 	 PhiTest;	
+  INT4 		     indexPhiTest;
+  REAL4 	     PhiTest;	
 }
 SimInspiralTable;
 /* </lalVerbatim> */
