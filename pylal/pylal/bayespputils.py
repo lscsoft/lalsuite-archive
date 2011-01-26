@@ -353,6 +353,30 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def _average_posterior(self, samples, post_name):
+        ap = 0.0
+        for samp in samples:
+            ap = ap + samp[post_name]
+        return ap / len(samples)
+
+    def di_evidence(self, boxing=64):
+        """
+        Returns the direct-integration evidence for the posterior
+        samples.
+        """
+        samples,header=self.samples()
+        if not (("post" in header) or ("posterior" in header)):
+            raise RuntimeError("Cannot compute direct-integration evidence without column named 'post' or 'posterior'")
+        coordinatized_samples=[ParameterSample(row) for row in samples]
+        tree=KDTree(coordinatized_samples)
+
+        if "post" in header:
+            post_name="post"
+        else:
+            post_name="posterior"
+
+        return tree.integrate(lambda samps: self._average_posterior(samps, post_name), boxing)
+
     def _posMode(self):
         """
         Find the sample with maximum posterior probability. Returns value 
@@ -488,6 +512,143 @@ class Posterior(object):
         return_val=reparsed.toprettyxml(indent="  ")
 
         return return_val
+
+class KDTree(object):
+    """
+    A kD-tree.
+    """
+    def __init__(self, objects):
+        """
+        Construct a kD-tree from a sequence of objects.  Each object
+        should return its coordinates using obj.coord().
+        """
+        if len(objects) == 0:
+            raise RuntimeError("cannot make kD tree out of zero objects")
+        else if len(objects) == 1:
+            self._objects = objects[:]
+            self._bounds = Null
+        else:
+            self._objects = objects[:]
+            self._bounds = self._bounds_of_objects()
+            self._split_dim = self._longest_dimension()
+            longest_dim = self._split_dim
+            sorted_objects=sorted(self._objects, key=lambda obj: (obj.coord())[longest_dim])
+            N = len(sorted_objects)
+            bound=0.5*(sorted_objects[N/2].coord()[longest_dim] + sorted_objects[N/2-1].coord()[longest_dim])
+            low = [obj for obj in self._objects if obj.coord()[longest_dim] < bound]
+            high = [obj for obj in self._objects if obj.coord()[longest_dim] >= bound]
+            self._left = KDTree(low)
+            self._right = KDTree(high)
+
+    def _bounds_of_objects(self):
+        """
+        Bounds of the objects contained in the tree.
+        """
+        low=self._objects[0].coord()
+        high=self._objects[0].coord()
+        for obj in self._objects[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        return low,high
+
+    def _longest_dimension(self):
+        """
+        Longest dimension of the tree bounds.
+        """
+        low,high = self._bounds
+        widths = high-low
+        return np.argmax(widths)        
+
+    def objects(self):
+        """
+        Returns the objects in the tree.
+        """
+        return self._objects[:]
+
+    def __iter__(self):
+        """
+        Iterator over all the objects contained in the tree.
+        """
+        return self._objects.__iter__()
+
+    def left(self):
+        """
+        Returns the left tree.
+        """
+        return self._left
+
+    def right(self):
+        """
+        Returns the right tree.
+        """
+        return self._right
+
+    def split_dim(self):
+        """
+        Returns the dimension along which this level of the kD-tree
+        splits.
+        """
+        return self._split_dim
+
+    def bounds(self):
+        """
+        Returns the coordinates of the lower-left and upper-right
+        corners of the bounding box for this tree: low_left, up_right
+        """
+        return self._bounds
+
+    def volume(self):
+        """
+        Returns the volume of the bounding box of the tree.
+        """
+        v = 1.0
+        for l,h in zip(self._bounds):
+            v = v*(h - l)
+        return v
+
+    def integrate(self, f, boxing=64):
+        """
+        Returns the integral of f(objects) over the tree.  The
+        optional boxing parameter determines how deep to descend into
+        the tree before computing f.
+        """
+        if len(self._objects) <= boxing:
+            return self.volume()*f(self._objects)
+        else:
+            return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
+
+class ParameterSample(object):
+    """
+    A single parameter sample object, suitable for inclusion in a
+    kD-tree.
+    """
+
+    def __init__(self, sample_array, headers, coord_names):
+        """
+        Given the sample array, headers for the values, and the names
+        of the desired coordinates, construct a parameter sample
+        object.
+        """
+        self._samples=sample_array
+        self._headers=headers
+        self._coord_names=coord_names
+        self._coord_indexes=[headers.index(name) for name in coord_names]
+
+    def __getitem__(self, key):
+        """
+        Return the element with the corresponding name.
+        """
+        if key in headers:
+            idx=self._headers.index(key)
+            return self._samples[idx]
+        else:
+            raise KeyError("key not found in posterior sample: %s"%key)
+
+    def coord(self):
+        """
+        Return the coordinates for the parameter sample.
+        """
+        return self._samples[self._coord_indexes]
 
 #===============================================================================
 # Internal module functions
