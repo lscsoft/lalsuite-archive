@@ -423,6 +423,34 @@ class Posterior(object):
 
         return
 
+    def gelman_rubin(self, pname):
+        """
+        Returns an approximation to the Gelman-Rubin statistic (see
+        Gelman, A. and Rubin, D. B., Statistical Science, Vol 7,
+        No. 4, pp. 457--511 (1992)) for the parameter given, accurate
+        as the number of samples in each chain goes to infinity.  The
+        posterior samples must have a column named 'chain' so that the
+        different chains can be separated.
+        """
+        if "chain" in self.names:
+            chains=np.unique(self["chain"].samples)
+            chain_index=self.names.index("chain")
+            param_index=self.names.index(pname)
+            data,header=self.samples()
+            chainData=[data[ data[:,chain_index] == chain, param_index] for chain in chains]
+            allData=np.concatenate(chainData)
+            chainMeans=[np.mean(data) for data in chainData]
+            chainVars=[np.var(data) for data in chainData]
+            BoverN=np.var(chainMeans)
+            W=np.mean(chainVars)
+            sigmaHat2=W + BoverN
+            m=len(chainData)
+            VHat=sigmaHat2 + BoverN/m
+            R = VHat/W
+            return R
+        else:
+            raise RuntimeError('could not find necessary column header "chain" in posterior samples')
+
     def __str__(self):
         """
         Define a string representation of the Posterior class ; returns

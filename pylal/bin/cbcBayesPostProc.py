@@ -334,7 +334,7 @@ def cbcBayesPostProc(
 
     row_count=0
 
-    for par1_name,par2_name in twoDGreedyMenu:
+    for par1_name,par2_name in []: # twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
         print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
@@ -554,6 +554,7 @@ def cbcBayesPostProc(
             maxLen=max([len(cd) for cd in chainData])
             for rng, data in zip(chainDataRanges, chainData):
                 plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
+            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
             
         injpar=pos[par_name].injval
 
