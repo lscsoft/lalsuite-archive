@@ -64,6 +64,8 @@ def cbcBayesPostProc(
                         confidence_levels,twoDplots,
                         #misc. optional
                         injfile=None,eventnum=None,skyres=None,
+                        #direct integration evidence
+                        dievidence=False,boxing=64,difactor=1.0,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
                         #nested sampling options
@@ -229,6 +231,18 @@ def cbcBayesPostProc(
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
+
+    if dievidence:
+        html_model=html.add_section('Direct Integration Evidence')
+        ev=difactor*pos.di_evidence(boxing=boxing)
+        evfilename=os.path.join(outdir,"evidence.dat")
+        evout=open(evfilename,"w")
+        evout.write(str(ev))
+        evout.write(" ")
+        evout.write(str(numpy.log(ev)))
+        evout.close()
+        print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, numpy.log(ev))
+        html_model.p('Direct integration evidence with boxing number %d is %g (log(Evidence) = %g)'%(boxing,ev,numpy.log(ev)))
 
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
@@ -617,6 +631,9 @@ if __name__=='__main__':
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
+    parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
+    parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
+    parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
     parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
@@ -653,6 +670,8 @@ if __name__=='__main__':
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
                         injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        # direct integration evidence
+                        dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
                         #nested sampling options

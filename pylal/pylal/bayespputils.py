@@ -364,10 +364,14 @@ class Posterior(object):
         Returns the direct-integration evidence for the posterior
         samples.
         """
+        allowed_coord_names=["a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "dist", "time", "mc", "eta"]
         samples,header=self.samples()
         if not (("post" in header) or ("posterior" in header)):
             raise RuntimeError("Cannot compute direct-integration evidence without column named 'post' or 'posterior'")
-        coordinatized_samples=[ParameterSample(row) for row in samples]
+        coord_names=[name for name in allowed_coord_names if name in header]
+        coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
         tree=KDTree(coordinatized_samples)
 
         if "post" in header:
@@ -524,9 +528,10 @@ class KDTree(object):
         """
         if len(objects) == 0:
             raise RuntimeError("cannot make kD tree out of zero objects")
-        else if len(objects) == 1:
+        elif len(objects) == 1:
             self._objects = objects[:]
-            self._bounds = Null
+            coord=self._objects[0].coord()
+            self._bounds = coord,coord
         else:
             self._objects = objects[:]
             self._bounds = self._bounds_of_objects()
@@ -602,7 +607,8 @@ class KDTree(object):
         Returns the volume of the bounding box of the tree.
         """
         v = 1.0
-        for l,h in zip(self._bounds):
+        low,high=self._bounds
+        for l,h in zip(low,high):
             v = v*(h - l)
         return v
 
@@ -629,16 +635,21 @@ class ParameterSample(object):
         of the desired coordinates, construct a parameter sample
         object.
         """
-        self._samples=sample_array
-        self._headers=headers
+        self._samples=sample_array[:]
+        self._headers=headers.split()
+        if not (len(sample_array) == len(self._headers)):
+            print "Header length = ", len(self._headers)
+            print "Sample length = ", len(sample_array)
+            raise RuntimeError("parameter and sample lengths do not agree")
         self._coord_names=coord_names
-        self._coord_indexes=[headers.index(name) for name in coord_names]
+        self._coord_indexes=[self._headers.index(name) for name in coord_names]
 
     def __getitem__(self, key):
         """
         Return the element with the corresponding name.
         """
-        if key in headers:
+        key=key.lower()
+        if key in self._headers:
             idx=self._headers.index(key)
             return self._samples[idx]
         else:
