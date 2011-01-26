@@ -235,7 +235,7 @@ LALFindChirpPTFFilterSegment (
   {
     CHAR infomsg[256];
 
-    snprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg),
+    LALSnprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg),
         "m1 = %e, m2 = %e, chi = %e, kappa = %e "
         "=> %e seconds => %d points\n"
         "invSpecTrunc = %d => ignoreIndex = %d\n", 
