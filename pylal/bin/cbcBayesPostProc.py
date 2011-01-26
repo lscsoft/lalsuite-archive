@@ -334,7 +334,7 @@ def cbcBayesPostProc(
 
     row_count=0
 
-    for par1_name,par2_name in []: # twoDGreedyMenu:
+    for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
         print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
