@@ -2750,13 +2750,14 @@ int main( int argc, char *argv[] )
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
 
-    printf("test injections = %d\n",phiTestInjections);
     /* populate the test parameters */
     if (phiTestInjections) {
         simTable->indexPhiTest=indexPhiTest;
         simTable->PhiTest=PhiTest;
-        printf("index test parameter = %d\n",simTable->indexPhiTest);
-        printf("value test parameter = %f\n",simTable->PhiTest);
+    }
+    else {
+        simTable->indexPhiTest=-1;
+        simTable->PhiTest=0.0;
     }
     
     /* populate the sim_ringdown table */ 
