@@ -411,6 +411,13 @@ class Posterior(object):
 
         return tree.integrate(lambda samps: self._average_posterior(samps, post_name), boxing)
 
+    def harmonic_mean_evidence(self):
+        """
+        Returns the harmonic mean evidence for the set of posterior
+        samples.
+        """
+        return 1/np.mean(1/np.exp(self._logL))
+
     def _posMode(self):
         """
         Find the sample with maximum posterior probability. Returns value 

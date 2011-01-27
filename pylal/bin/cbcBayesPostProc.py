@@ -243,6 +243,9 @@ def cbcBayesPostProc(
         evout.close()
         print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, numpy.log(ev))
         html_model.p('Direct integration evidence is %g, or log(Evidence) = %g.  (Boxing parameter = %d.)'%(ev,numpy.log(ev),boxing))
+        if 'logl' in pos.names:
+            ev=pos.harmonic_mean_evidence()
+            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(ev,numpy.log(ev)))
 
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
