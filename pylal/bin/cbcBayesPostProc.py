@@ -242,7 +242,7 @@ def cbcBayesPostProc(
         evout.write(str(numpy.log(ev)))
         evout.close()
         print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, numpy.log(ev))
-        html_model.p('Direct integration evidence with boxing number %d is %g (log(Evidence) = %g)'%(boxing,ev,numpy.log(ev)))
+        html_model.p('Direct integration evidence is %g, or log(Evidence) = %g.  (Boxing parameter = %d.)'%(ev,numpy.log(ev),boxing))
 
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')

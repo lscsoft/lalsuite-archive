@@ -366,8 +366,9 @@ class Posterior(object):
         """
         allowed_coord_names=["a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
-                             "phi_orb", "dist", "time", "mc", "eta"]
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
         samples,header=self.samples()
+        header=header.split()
         if not (("post" in header) or ("posterior" in header)):
             raise RuntimeError("Cannot compute direct-integration evidence without column named 'post' or 'posterior'")
         coord_names=[name for name in allowed_coord_names if name in header]
@@ -527,7 +528,7 @@ class KDTree(object):
         should return its coordinates using obj.coord().
         """
         if len(objects) == 0:
-            raise RuntimeError("cannot make kD tree out of zero objects")
+            raise RuntimeError("cannot construct kD-tree out of zero objects---you may have a repeated sample in your list")
         elif len(objects) == 1:
             self._objects = objects[:]
             coord=self._objects[0].coord()
@@ -535,16 +536,22 @@ class KDTree(object):
         else:
             self._objects = objects[:]
             self._bounds = self._bounds_of_objects()
-            self._split_dim = self._longest_dimension()
+            low,high=self._bounds
+            self._split_dim=self._longest_dimension()
             longest_dim = self._split_dim
             sorted_objects=sorted(self._objects, key=lambda obj: (obj.coord())[longest_dim])
             N = len(sorted_objects)
             bound=0.5*(sorted_objects[N/2].coord()[longest_dim] + sorted_objects[N/2-1].coord()[longest_dim])
             low = [obj for obj in self._objects if obj.coord()[longest_dim] < bound]
             high = [obj for obj in self._objects if obj.coord()[longest_dim] >= bound]
+            if len(low)==0:
+                # Then there must be multiple values with the same
+                # coordinate as the minimum element of high
+                low = [obj for obj in self._objects if obj.coord()[longest_dim]==bound]
+                high = [obj for obj in self._objects if obj.coord()[longest_dim] > bound]
             self._left = KDTree(low)
             self._right = KDTree(high)
-
+            
     def _bounds_of_objects(self):
         """
         Bounds of the objects contained in the tree.
@@ -636,7 +643,7 @@ class ParameterSample(object):
         object.
         """
         self._samples=sample_array[:]
-        self._headers=headers.split()
+        self._headers=headers
         if not (len(sample_array) == len(self._headers)):
             print "Header length = ", len(self._headers)
             print "Sample length = ", len(sample_array)
