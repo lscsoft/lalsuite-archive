@@ -196,7 +196,8 @@ class Posterior(object):
 
         else:
             print "No likelihood/posterior values found!"
-            exit(1) 
+            import sys
+	    sys.exit(1) 
                 
         return
 
