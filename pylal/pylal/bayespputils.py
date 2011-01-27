@@ -388,6 +388,12 @@ class Posterior(object):
             ap = ap + samp[post_name]
         return ap / len(samples)
 
+    def _average_posterior_like_prior(self, samples, logl_name, prior_name):
+        ap = 0.0
+        for samp in samples:
+            ap += np.exp(samp[logl_name])*samp[prior_name]
+        return ap / len(samples)
+
     def di_evidence(self, boxing=64):
         """
         Returns the direct-integration evidence for the posterior
@@ -398,18 +404,22 @@ class Posterior(object):
                              "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
         samples,header=self.samples()
         header=header.split()
-        if not (("post" in header) or ("posterior" in header)):
-            raise RuntimeError("Cannot compute direct-integration evidence without column named 'post' or 'posterior'")
         coord_names=[name for name in allowed_coord_names if name in header]
         coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
         tree=KDTree(coordinatized_samples)
 
         if "post" in header:
-            post_name="post"
+            return tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing)
+        elif "posterior" in header:
+            return tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing)
+        elif "prior" in header and "logl" in header:
+            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior"), boxing)
+        elif "prior" in header and "likelihood" in header:
+            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior"), boxing)
         else:
-            post_name="posterior"
+            raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
-        return tree.integrate(lambda samps: self._average_posterior(samps, post_name), boxing)
+
 
     def harmonic_mean_evidence(self):
         """
