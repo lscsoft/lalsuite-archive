@@ -1369,6 +1369,8 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
+    {"indexPhiTest",        -1, 56},
+    {"PhiTest",             -1, 57},
     {NULL,                   0, 0}
   };
 
@@ -1666,6 +1668,14 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 55 )
         {
             thisSim->bandpass = i4colData;
+        }
+        else if ( tableDir[j].idx == 56 )
+        {
+            thisSim->indexPhiTest = i4colData;
+        }
+        else if ( tableDir[j].idx == 57 )
+        {
+            thisSim->PhiTest = r4colData;
         }
         else
         {

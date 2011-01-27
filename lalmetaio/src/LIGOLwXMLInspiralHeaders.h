@@ -349,7 +349,7 @@ fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:numrel_data\" Type=\
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:amp_order\" Type=\"int_4s\"/>\n" , fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:taper\" Type=\"lstring\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:bandpass\" Type=\"int_4s\"/>\n", fp ) == EOF || \
-fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:PhiTestindex\" Type=\"int_4s\"/>\n", fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:indexPhiTest\" Type=\"int_4s\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:PhiTest\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:simulation_id\" Type=\"ilwd:char\"/>\n" , fp ) == EOF || \
 fputs( "      <Stream Name=\"sim_inspiralgroup:sim_inspiral:table\" Type=\"Local\" Delimiter=\",\">\n", fp ) == EOF )

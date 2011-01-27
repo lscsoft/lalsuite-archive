@@ -279,7 +279,9 @@ LALFindChirpInjectSignals (
 
     /* clear the waveform structure */
     memset( &waveform, 0, sizeof(CoherentGW) );
-
+    printf("waveform %s\n",thisEvent->waveform);
+    printf("phi test index %d\n",thisEvent->indexPhiTest);
+    printf("phi test value %f\n",thisEvent->PhiTest);
     LALGenerateInspiral(status->statusPtr, &waveform, thisEvent, &ppnParams );
     CHECKSTATUSPTR( status );
 

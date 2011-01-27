@@ -743,7 +743,13 @@ int main( int argc, char *argv[])
 			COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&bufferstart,0.0,inputMCMC.deltaF,(const LALUnit *)&strainPerCount,seglen);
 			for(j=0;j<resp->data->length;j++) {resp->data->data[j].re=(REAL4)1.0; resp->data->data[j].im=0.0;}
 			SimInspiralTable this_injection;
+            printf("injection table waveform %s\n",injTable->waveform);
+            printf("injection table phi test index %d\n",injTable->indexPhiTest);
+            printf("injection table phi test value %f\n",injTable->PhiTest);
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
+            printf("injection waveform %s\n",this_injection.waveform);
+            printf("injection phi test index %d\n",this_injection.indexPhiTest);
+            printf("injection phi test value %f\n",this_injection.PhiTest);
 			this_injection.next=NULL;
 			LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
 			XLALDestroyCOMPLEX8FrequencySeries(resp);
