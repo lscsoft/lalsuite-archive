@@ -2075,16 +2075,14 @@ int main( int argc, char *argv[] )
         phiTestInjections = 1;
         break;
       case '|':
-        if (phiTestInjections==1){
-            indexPhiTest=atof(optarg);
-            this_proc_param = this_proc_param->next = 
-            next_process_param( long_options[option_index].name, "int", "%ld", indexPhiTest);}
+        indexPhiTest=atof(optarg);
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name, "int", "%ld", indexPhiTest);
         break;
       case '$':
-        if (phiTestInjections==1){
-            PhiTest=atof(optarg);
-            this_proc_param = this_proc_param->next = 
-            next_process_param( long_options[option_index].name, "float", optarg);}
+        PhiTest=atof(optarg);
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name, "float", optarg);
         break;
 
       case 'h':
@@ -2552,13 +2550,7 @@ int main( int argc, char *argv[] )
         sizeof(CHAR) * LIGOMETA_WAVEFORM_MAX );
     simTable->f_lower = fLower;
     simTable->amp_order = amp_order;
-    /* populate the test parameters */
-    
-    if (phiTestInjections==1) 
-    {
-        simTable->indexPhiTest=indexPhiTest;
-        simTable->PhiTest=PhiTest;
-    }
+
     /* draw redshift */
     if (dDistr==sfr)
     {
@@ -2724,7 +2716,7 @@ int main( int argc, char *argv[] )
 
         adjust_snr(simTable, targetSNR, ifos);
     }
-
+        
     /* populate the site specific information */
     LALPopulateSimInspiralSiteInfo( &status, simTable );
 
@@ -2758,7 +2750,15 @@ int main( int argc, char *argv[] )
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
 
-
+    printf("test injections = %d\n",phiTestInjections);
+    /* populate the test parameters */
+    if (phiTestInjections) {
+        simTable->indexPhiTest=indexPhiTest;
+        simTable->PhiTest=PhiTest;
+        printf("index test parameter = %d\n",simTable->indexPhiTest);
+        printf("value test parameter = %f\n",simTable->PhiTest);
+    }
+    
     /* populate the sim_ringdown table */ 
    if ( writeSimRing )
    {
