@@ -204,6 +204,35 @@ class Posterior(object):
     def injection(self):
         return self._injection
 
+    def _total_incl_restarts(self, samples):
+        total=0
+        last=samples[0]
+        for x in samples[1:]:
+            if x < last:
+                total += last
+            last = x
+        total += samples[-1]
+        return total
+
+    def longest_chain_cycles(self):
+        """
+        Returns the number of cycles in the longest chain
+        """
+        samps,header=self.samples()
+        header=header.split()
+        if not ('cycle' in header):
+            raise RuntimeError("Cannot compute number of cycles in longest chain")
+        if 'chain' in header:
+            chain_col=header.index('chain')
+            cycle_col=header.index('cycle')
+            chain_indexes=np.unique(samps[:,chain_col])
+            max_cycle=0
+            for ind in chain_indexes:
+                chain_cycle_samps=samps[ samps[:,chain_col] == ind, cycle_col ]
+                max_cycle=max(max_cycle, self._total_incl_restarts(chain_cycle_samps))
+            return int(max_cycle)
+        else:
+            return int(self._total_incl_restarts(samps[:,cycle_col]))
         
     #@injection.setter #Python 2.6+
     def set_injection(self,injection):
