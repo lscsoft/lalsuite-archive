@@ -75,7 +75,9 @@ def cbcBayesPostProc(
                         #lalinferenceMCMC options
                         li_flag=False,nDownsample=1,
                         #followupMCMC options
-                        fm_flag=False
+                        fm_flag=False,
+                        # on ACF?
+                        noacf=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -485,7 +487,10 @@ def cbcBayesPostProc(
     #Add section for 1D marginal PDFs and sample plots
     html_ompdf=html.add_section('1D marginal posterior PDFs')
     #Table matter
-    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
+    if not noacf:
+        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
+    else:
+        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
 
     onepdfdir=os.path.join(outdir,'1Dpdf')
     if not os.path.isdir(onepdfdir):
@@ -581,23 +586,27 @@ def cbcBayesPostProc(
                 plt.plot([0,maxLen],[injpar,injpar],'r-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
-        acffig=plt.figure(figsize=(4,3.5),dpi=200)
-        if not ("chain" in pos.names):
-            data=pos_samps[:,0]
-            mu=numpy.mean(data)
-            corr=numpy.correlate((data-mu),(data-mu),mode='full')
-            N=len(data)
-            plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-        else:
-            for rng, data in zip(chainDataRanges, chainData):
+        if not (noacf):
+            acffig=plt.figure(figsize=(4,3.5),dpi=200)
+            if not ("chain" in pos.names):
+                data=pos_samps[:,0]
                 mu=numpy.mean(data)
-                corr=numpy.correlate(data-mu,data-mu,mode='full')
+                corr=numpy.correlate((data-mu),(data-mu),mode='full')
                 N=len(data)
                 plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+            else:
+                for rng, data in zip(chainDataRanges, chainData):
+                    mu=numpy.mean(data)
+                    corr=numpy.correlate(data-mu,data-mu,mode='full')
+                    N=len(data)
+                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
 
-        acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+            acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
 
-        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+        if not noacf:
+            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+        else:
+            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
 
 
     html_ompdf_write+='</table>'
@@ -650,6 +659,8 @@ if __name__=='__main__':
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
+    # ACF plots off?
+    parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
@@ -685,6 +696,8 @@ if __name__=='__main__':
                         #LALInferenceMCMC options
                         li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,
                         #followupMCMC options
-                        fm_flag=opts.fm
+                        fm_flag=opts.fm,
+                        # Turn of ACF?
+                        noacf=opts.noacf
                     )
 #
