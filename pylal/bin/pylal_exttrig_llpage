@@ -368,6 +368,7 @@ def get_xmltable_from_file(filename, tablename, verbose = False):
 
 
 # --------------------------------
+# FIXME: this functions does not seem to be used at all
 def modify_opts(opts, grb, output_dir):
 
   mod_opt = copy.deepcopy(opts)
@@ -437,7 +438,7 @@ def create_subpage_general(subpage, cp, grb):
   # create the configuration file section
   section_conf = subpage.add_section("section_conf","Used configuration files")
 
-  link = cp.get('paths','publishing_url')+'/GRB%s/S6GRB_trigger_hipe.ini'%grb.name
+  link = 'S6GRB_trigger_hipe.ini'
   section_conf.add_link(href=link, text="S6GRB_trigger_hipe.ini file")
   
 
@@ -609,7 +610,7 @@ def create_subpage_data(subpage, cp, grb):
   # add a section to that subpage
   section = subpage.add_section("data_science","Science segments")
 
-  segplot = cp.get('paths','publishing_url')+'/GRB%s/plot_segments_grb%s.png'%(grb.name, grb.name)
+  segplot = 'plot_segments_grb%s.png' % (grb.name)
   section.add_link(href=segplot, text='<img src="%s" border="2" width="300">'%segplot)
 
   #
@@ -673,7 +674,7 @@ def create_subpage_bkg(subpage, cp, grb, statistic):
                                            'pylal_grbtimeslide_stats_GRBMACGRB_trials_MACSTAT_cum_hist-7.40-17.50-MACIDENT.png']}
 
   # replace the macro definitions and put it together, in the given order
-  main_path = cp.get('paths','publishing_url')+'/GRB%s/'%(grb.name)
+  main_path = './'
   for key in ['numtemplates','inspiralH1','inspiralL1','inspiralV1','thinca','grbstats']:
 
     sec = subpage.add_section(key,"Plots from "+key)
@@ -740,7 +741,7 @@ def create_subpage_inj(subpage, cp, grb, statistic):
                  'MACIFOS-plotsnrchi_%s_GRBMACGRB_snr_vs_rsq-MACIDENT.png' % ifo] }
 
   # replace the macro definitions and put it together, in the given order
-  main_path = cp.get('paths', 'publishing_url') + '/GRB%s/' % (grb.name)
+  main_path = './'
   sections_sorted = ['plotethinca', 'plotinspmissed', 'plotinjnum'] + \
                     ['plotinspinj'+ifo for ifo in grb.ifolist] + \
                     ['plotsnrchi'+ifo for ifo in grb.ifolist]
@@ -804,7 +805,7 @@ def create_subpage_openbox(subpage, cp, grb, statistic, columns, rows):
                'old_exclusion_by_m2_D'.split()] }
 
   # replace the macro definitions and put it together, in the given order
-  main_path = cp.get('paths', 'publishing_url') + '/GRB%s/' % (grb.name)
+  main_path = './'
   for key in page_sections:
     sec = subpage.add_section(key, "Plots from "+key)
 
@@ -848,6 +849,8 @@ def get_options():
                       help="the low-latency configuration file")
     parser.add_option("--grb-pickle",default=None, \
                       help="full path to the GRB pickle file")
+    parser.add_option("--plots-dirs", metavar="DIR1,DIR2,...",
+                      help="paths to the directories with images")
     parser.add_option("--grb-name",default=None, \
                       help="name of GRB to be processed")
     parser.add_option("--type",default=None, \
@@ -1107,15 +1110,34 @@ page.write("mypage")
 
 
 
+# copy the segment plot
+segplot = 'plot_segments_grb%s.png' % grb_name
+source = grb.analysis_dir + '/' + segplot
+copysafe(source, opts.output_www)
+
+
+
+# copy the ini-file and the configuration file
+inifile = grb.analysis_dir + '/' + cp.get('analysis','ini_file')
+copysafe(inifile, opts.output_www)
+copysafe(opts.config_file, opts.output_www)
+
+
+for imgdir in opts.plots_dirs.split(','):
+  command = 'cp -r %s %s' % (imgdir, opts.output_www)
+  subprocess.call(command, shell=True)
+
+
+####  Why is this here? Which part of the code below do we actually want?
 sys.exit(0)
 
 
 # add this table to the html file
 statistic_table = make_html_table(rows, columns)
-page.write(statistic_table)
+page.write("statistic_table")
 
 # write the pickle file containing all numerical informations
-filename = '%s/llsummary_%s_GRB%s.pickle'%(opts.openbox_path, opts.type, grb_name)
+filename = '%s/llsummary_%s_GRB%s.pickle'%(opts.output_box, opts.type, grb_name)
 f = file(filename,'w')
 pickle.dump(output_list, f)
 f.close()
@@ -1177,6 +1199,15 @@ write_file(opts.output_path, kml_filename, kml)
 
 ## create the basic html file
 html = create_html(grb, opts)
+  
+html = html.replace('macroinifile',cp.get('data','ini_file'))
+html = html.replace('macroconffile', os.path.basename(opts.config_file))
+
+# put in some more links and copy needed files
+copysafe(opts.onsource_xml, opts.openbox_path)
+html = html.replace('macrokml',kml_filename)
+html = html.replace('macrosegplot', segplot)
+
 
 # populate the antenna factor table
 for ifo in ['H1','L1','V1']:
@@ -1186,24 +1217,6 @@ for ifo in ['H1','L1','V1']:
                                                   0.0, 0.0, 'degree',
                                                   ifo )
   html = html.replace('macrodet%s'%ifo.lower(),'%.2f'%f_q)
-  
-
-# copy the segment plot
-segplot = 'plot_segments_grb%s.png' % grb_name
-source = grb.analysis_dir+'/'+segplot
-copysafe(source, opts.output_path)
-
-# copy the ini-file and the configuration file
-inifile = grb.analysis_dir+'/'+cp.get('analysis','ini_file')
-copysafe(inifile, opts.output_path)
-html = html.replace('macroinifile',cp.get('analysis','ini_file'))
-copysafe(opts.config_file, opts.output_path)
-html = html.replace('macroconffile', os.path.basename(opts.config_file))
-
-# put in some more links and copy needed files
-copysafe(opts.onsource_xml, opts.openbox_path)
-html = html.replace('macrokml',kml_filename)
-html = html.replace('macrosegplot', segplot)
 
 ## Create the two different html pages, split here from the 
 ## common sub-page
@@ -1271,8 +1284,3 @@ if opts.output_path_html:
   if not grb.openbox:
     # make the OPENBOX read protected
     os.chmod(openboxpath, 0)
-
-
-  
-  
-

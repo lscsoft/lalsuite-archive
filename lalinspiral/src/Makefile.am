@@ -127,6 +127,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralGetApproximantString.c \
 	LALInspiralHexagonalBank.c \
 	LALInspiralHybridHexagonalBank.c \
+	LALInspiralIIR.c \
 	LALInspiralInit.c \
 	LALInspiralLongestTemplateInBank.c \
 	LALInspiralMoments.c \

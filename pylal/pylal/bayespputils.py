@@ -196,7 +196,8 @@ class Posterior(object):
 
         else:
             print "No likelihood/posterior values found!"
-            exit(1) 
+            import sys
+	    sys.exit(1) 
                 
         return
 
@@ -204,6 +205,35 @@ class Posterior(object):
     def injection(self):
         return self._injection
 
+    def _total_incl_restarts(self, samples):
+        total=0
+        last=samples[0]
+        for x in samples[1:]:
+            if x < last:
+                total += last
+            last = x
+        total += samples[-1]
+        return total
+
+    def longest_chain_cycles(self):
+        """
+        Returns the number of cycles in the longest chain
+        """
+        samps,header=self.samples()
+        header=header.split()
+        if not ('cycle' in header):
+            raise RuntimeError("Cannot compute number of cycles in longest chain")
+        if 'chain' in header:
+            chain_col=header.index('chain')
+            cycle_col=header.index('cycle')
+            chain_indexes=np.unique(samps[:,chain_col])
+            max_cycle=0
+            for ind in chain_indexes:
+                chain_cycle_samps=samps[ samps[:,chain_col] == ind, cycle_col ]
+                max_cycle=max(max_cycle, self._total_incl_restarts(chain_cycle_samps))
+            return int(max_cycle)
+        else:
+            return int(self._total_incl_restarts(samps[:,cycle_col]))
         
     #@injection.setter #Python 2.6+
     def set_injection(self,injection):
@@ -353,6 +383,52 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def _average_posterior(self, samples, post_name):
+        ap = 0.0
+        for samp in samples:
+            ap = ap + samp[post_name]
+        return ap / len(samples)
+
+    def _average_posterior_like_prior(self, samples, logl_name, prior_name):
+        ap = 0.0
+        for samp in samples:
+            ap += np.exp(samp[logl_name])*samp[prior_name]
+        return ap / len(samples)
+
+    def di_evidence(self, boxing=64):
+        """
+        Returns the direct-integration evidence for the posterior
+        samples.
+        """
+        allowed_coord_names=["a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
+        samples,header=self.samples()
+        header=header.split()
+        coord_names=[name for name in allowed_coord_names if name in header]
+        coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+        tree=KDTree(coordinatized_samples)
+
+        if "post" in header:
+            return tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing)
+        elif "posterior" in header:
+            return tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing)
+        elif "prior" in header and "logl" in header:
+            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior"), boxing)
+        elif "prior" in header and "likelihood" in header:
+            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior"), boxing)
+        else:
+            raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
+
+
+
+    def harmonic_mean_evidence(self):
+        """
+        Returns the harmonic mean evidence for the set of posterior
+        samples.
+        """
+        return 1/np.mean(1/np.exp(self._logL))
+
     def _posMode(self):
         """
         Find the sample with maximum posterior probability. Returns value 
@@ -423,6 +499,34 @@ class Posterior(object):
 
         return
 
+    def gelman_rubin(self, pname):
+        """
+        Returns an approximation to the Gelman-Rubin statistic (see
+        Gelman, A. and Rubin, D. B., Statistical Science, Vol 7,
+        No. 4, pp. 457--511 (1992)) for the parameter given, accurate
+        as the number of samples in each chain goes to infinity.  The
+        posterior samples must have a column named 'chain' so that the
+        different chains can be separated.
+        """
+        if "chain" in self.names:
+            chains=np.unique(self["chain"].samples)
+            chain_index=self.names.index("chain")
+            param_index=self.names.index(pname)
+            data,header=self.samples()
+            chainData=[data[ data[:,chain_index] == chain, param_index] for chain in chains]
+            allData=np.concatenate(chainData)
+            chainMeans=[np.mean(data) for data in chainData]
+            chainVars=[np.var(data) for data in chainData]
+            BoverN=np.var(chainMeans)
+            W=np.mean(chainVars)
+            sigmaHat2=W + BoverN
+            m=len(chainData)
+            VHat=sigmaHat2 + BoverN/m
+            R = VHat/W
+            return R
+        else:
+            raise RuntimeError('could not find necessary column header "chain" in posterior samples')
+
     def __str__(self):
         """
         Define a string representation of the Posterior class ; returns
@@ -460,6 +564,156 @@ class Posterior(object):
         return_val=reparsed.toprettyxml(indent="  ")
 
         return return_val
+
+class KDTree(object):
+    """
+    A kD-tree.
+    """
+    def __init__(self, objects):
+        """
+        Construct a kD-tree from a sequence of objects.  Each object
+        should return its coordinates using obj.coord().
+        """
+        if len(objects) == 0:
+            raise RuntimeError("cannot construct kD-tree out of zero objects---you may have a repeated sample in your list")
+        elif len(objects) == 1:
+            self._objects = objects[:]
+            coord=self._objects[0].coord()
+            self._bounds = coord,coord
+        else:
+            self._objects = objects[:]
+            self._bounds = self._bounds_of_objects()
+            low,high=self._bounds
+            self._split_dim=self._longest_dimension()
+            longest_dim = self._split_dim
+            sorted_objects=sorted(self._objects, key=lambda obj: (obj.coord())[longest_dim])
+            N = len(sorted_objects)
+            bound=0.5*(sorted_objects[N/2].coord()[longest_dim] + sorted_objects[N/2-1].coord()[longest_dim])
+            low = [obj for obj in self._objects if obj.coord()[longest_dim] < bound]
+            high = [obj for obj in self._objects if obj.coord()[longest_dim] >= bound]
+            if len(low)==0:
+                # Then there must be multiple values with the same
+                # coordinate as the minimum element of high
+                low = [obj for obj in self._objects if obj.coord()[longest_dim]==bound]
+                high = [obj for obj in self._objects if obj.coord()[longest_dim] > bound]
+            self._left = KDTree(low)
+            self._right = KDTree(high)
+            
+    def _bounds_of_objects(self):
+        """
+        Bounds of the objects contained in the tree.
+        """
+        low=self._objects[0].coord()
+        high=self._objects[0].coord()
+        for obj in self._objects[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        return low,high
+
+    def _longest_dimension(self):
+        """
+        Longest dimension of the tree bounds.
+        """
+        low,high = self._bounds
+        widths = high-low
+        return np.argmax(widths)        
+
+    def objects(self):
+        """
+        Returns the objects in the tree.
+        """
+        return self._objects[:]
+
+    def __iter__(self):
+        """
+        Iterator over all the objects contained in the tree.
+        """
+        return self._objects.__iter__()
+
+    def left(self):
+        """
+        Returns the left tree.
+        """
+        return self._left
+
+    def right(self):
+        """
+        Returns the right tree.
+        """
+        return self._right
+
+    def split_dim(self):
+        """
+        Returns the dimension along which this level of the kD-tree
+        splits.
+        """
+        return self._split_dim
+
+    def bounds(self):
+        """
+        Returns the coordinates of the lower-left and upper-right
+        corners of the bounding box for this tree: low_left, up_right
+        """
+        return self._bounds
+
+    def volume(self):
+        """
+        Returns the volume of the bounding box of the tree.
+        """
+        v = 1.0
+        low,high=self._bounds
+        for l,h in zip(low,high):
+            v = v*(h - l)
+        return v
+
+    def integrate(self, f, boxing=64):
+        """
+        Returns the integral of f(objects) over the tree.  The
+        optional boxing parameter determines how deep to descend into
+        the tree before computing f.
+        """
+        if len(self._objects) <= boxing:
+            return self.volume()*f(self._objects)
+        else:
+            return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
+
+class ParameterSample(object):
+    """
+    A single parameter sample object, suitable for inclusion in a
+    kD-tree.
+    """
+
+    def __init__(self, sample_array, headers, coord_names):
+        """
+        Given the sample array, headers for the values, and the names
+        of the desired coordinates, construct a parameter sample
+        object.
+        """
+        self._samples=sample_array[:]
+        self._headers=headers
+        if not (len(sample_array) == len(self._headers)):
+            print "Header length = ", len(self._headers)
+            print "Sample length = ", len(sample_array)
+            raise RuntimeError("parameter and sample lengths do not agree")
+        self._coord_names=coord_names
+        self._coord_indexes=[self._headers.index(name) for name in coord_names]
+
+    def __getitem__(self, key):
+        """
+        Return the element with the corresponding name.
+        """
+        key=key.lower()
+        if key in self._headers:
+            idx=self._headers.index(key)
+            return self._samples[idx]
+        else:
+            raise KeyError("key not found in posterior sample: %s"%key)
+
+    def coord(self):
+        """
+        Return the coordinates for the parameter sample.
+        """
+        return self._samples[self._coord_indexes]
 
 #===============================================================================
 # Internal module functions
@@ -1502,7 +1756,8 @@ class PEOutputParser(object):
             infile=open(infilename,'r')
             try:
                 header=self._clear_infmcmc_header(infile)
-                header=[label for label in header if label in allowedCols] # Remove unwanted columns
+                # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
+                header=[self._swaplabel12(label) for label in header if label in allowedCols]
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
@@ -1521,22 +1776,26 @@ class PEOutputParser(object):
                     if output:
                         if nRead % nskip == 0:
                             for label in outputHeader:
-                                # Swap 1 <--> 2 in spin labels because
-                                # LI thinks m2 > m1, while convention
-                                # as of 18 Jan 2010 is m1 > m2
-                                if label[-1] == '1':
-                                    mylabel = label[0:-1] + '2'
-                                elif label[-1] == '2':
-                                    mylabel = label[0:-1] + '1'
-                                else:
-                                    mylabel = label[:]
-                                outfile.write(lineParams[header.index(mylabel)])
+                                # Note that the element "a1" in the
+                                # *header* actually already
+                                # corresponds to the "a2" *column* of
+                                # the input because we switched the
+                                # names above 
+                                outfile.write(lineParams[header.index(label)])
                                 outfile.write(" ")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
             finally:
                 infile.close()
+
+    def _swaplabel12(self, label):
+        if label[-1] == '1':
+            return label[0:-1] + '2'
+        elif label[-1] == '2':
+            return label[0:-1] + '1'
+        else:
+            return label[:]
 
     def _find_max_logL(self, files):
         """

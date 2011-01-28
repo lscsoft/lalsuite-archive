@@ -42,7 +42,7 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>, Will M. Farr <will.farr@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -64,6 +64,8 @@ def cbcBayesPostProc(
                         confidence_levels,twoDplots,
                         #misc. optional
                         injfile=None,eventnum=None,skyres=None,
+                        #direct integration evidence
+                        dievidence=False,boxing=64,difactor=1.0,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
                         #nested sampling options
@@ -216,7 +218,7 @@ def cbcBayesPostProc(
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
     if 'cycle' in pos.names:
-        html_meta.p('Longest chain has '+str(int(numpy.max(pos['cycle'].samples)))+' cycles.')
+        html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
     if len(data) > 1:
         for fname in data[1:]:
@@ -229,6 +231,21 @@ def cbcBayesPostProc(
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
+
+    if dievidence:
+        html_model=html.add_section('Direct Integration Evidence')
+        ev=difactor*pos.di_evidence(boxing=boxing)
+        evfilename=os.path.join(outdir,"evidence.dat")
+        evout=open(evfilename,"w")
+        evout.write(str(ev))
+        evout.write(" ")
+        evout.write(str(numpy.log(ev)))
+        evout.close()
+        print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, numpy.log(ev))
+        html_model.p('Direct integration evidence is %g, or log(Evidence) = %g.  (Boxing parameter = %d.)'%(ev,numpy.log(ev),boxing))
+        if 'logl' in pos.names:
+            ev=pos.harmonic_mean_evidence()
+            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(ev,numpy.log(ev)))
 
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
@@ -554,6 +571,7 @@ def cbcBayesPostProc(
             maxLen=max([len(cd) for cd in chainData])
             for rng, data in zip(chainDataRanges, chainData):
                 plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
+            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
             
         injpar=pos[par_name].injval
 
@@ -616,6 +634,9 @@ if __name__=='__main__':
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
+    parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
+    parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
+    parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
     parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
@@ -632,7 +653,7 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2']
+    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','chi']
     #List of parameter pairs to bin . Need to match (converted) column names.
     twoDGreedyMenu=[]
     for i in range(0,len(oneDMenu)):
@@ -641,17 +662,20 @@ if __name__=='__main__':
 
     # twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05}
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
-    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota']]
+    #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
+    twoDplots=twoDGreedyMenu
 
     cbcBayesPostProc(
                         opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
                         injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        # direct integration evidence
+                        dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
                         #nested sampling options
