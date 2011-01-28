@@ -30,7 +30,6 @@
 #include <lal/VectorOps.h>
 #include <LALAppsVCSInfo.h>
 #include <lalapps.h>
-#include <lal/GeneratePPNAmpCorConsistency.h>
 
 #include "nest_calc.h"
 
@@ -145,7 +144,7 @@ INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
 
-INT4 PhaseTestParam;
+AmpCorConsistencyTestParam PhaseTestParam;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 
@@ -923,17 +922,17 @@ int main( int argc, char *argv[])
 	}
 
     /* Set the test phase coefficient from string */
-    if (PhaseTest==NULL){ PhaseTestParam = -1;}
-    else if (!strcmp(PhaseTest,"phi0")){ PhaseTestParam = 0;}
-    else if (!strcmp(PhaseTest,"phi1")){ fprintf(stderr,"Not implemented! Exiting.\n");exit(-1); }
-    else if (!strcmp(PhaseTest,"phi2")){ PhaseTestParam = 1;}
-    else if (!strcmp(PhaseTest,"phi3")){ PhaseTestParam = 2;}
-    else if (!strcmp(PhaseTest,"phi4")){ PhaseTestParam = 3;}
-    else if (!strcmp(PhaseTest,"phi5")){ PhaseTestParam = 4;}
-    else if (!strcmp(PhaseTest,"phi5l")){ PhaseTestParam = 5;}
-    else if (!strcmp(PhaseTest,"phi6")){ PhaseTestParam = 6;}
-    else if (!strcmp(PhaseTest,"phi6l")){ PhaseTestParam = 7;}
-    else if (!strcmp(PhaseTest,"phi7")){ PhaseTestParam = 8;}
+    if (PhaseTest==NULL){ PhaseTestParam = testConsistencyParam_none;}
+    else if (!strcmp(PhaseTest,"phi0")){ PhaseTestParam = testConsistencyParam_phi0;}
+    else if (!strcmp(PhaseTest,"phi1")){ PhaseTestParam = testConsistencyParam_phi2;}
+    else if (!strcmp(PhaseTest,"phi2")){ PhaseTestParam = testConsistencyParam_phi2;}
+    else if (!strcmp(PhaseTest,"phi3")){ PhaseTestParam = testConsistencyParam_phi3;}
+    else if (!strcmp(PhaseTest,"phi4")){ PhaseTestParam = testConsistencyParam_phi4;}
+    else if (!strcmp(PhaseTest,"phi5")){ PhaseTestParam = testConsistencyParam_phi5;}
+    else if (!strcmp(PhaseTest,"phi5l")){ PhaseTestParam = testConsistencyParam_phi5l;}
+    else if (!strcmp(PhaseTest,"phi6")){ PhaseTestParam = testConsistencyParam_phi6;}
+    else if (!strcmp(PhaseTest,"phi6l")){ PhaseTestParam = testConsistencyParam_phi6l;}
+    else if (!strcmp(PhaseTest,"phi7")){ PhaseTestParam = testConsistencyParam_phi7;}
     else {fprintf(stderr,"Unknown phase coefficient: %s\n",PhaseTest); exit(-1);}
     fprintf(stderr,"phasetest: %s\t phasetestindex %i\n",PhaseTest,PhaseTestParam);
         
@@ -1440,7 +1439,7 @@ void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
     
     /* add the Phitest parameter */
     
-    if (PhaseTestParam!=-1) {XLALMCMCAddParam(parameter,"phiTest",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);}
+    if (PhaseTestParam!=-testConsistencyParam_none) {XLALMCMCAddParam(parameter,"phiTest",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);}
     
 	for (head=parameter->param;head;head=head->next)
 	{

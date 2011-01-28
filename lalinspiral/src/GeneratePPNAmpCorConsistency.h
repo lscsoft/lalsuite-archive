@@ -28,6 +28,22 @@
 #include <lal/Date.h>
 #include <lal/DetResponse.h>
 #include <lal/LALError.h>
+
+typedef enum
+{
+    testConsistencyParam_none,
+    testConsistencyParam_phi0,
+    testConsistencyParam_phi1,
+    testConsistencyParam_phi2,
+    testConsistencyParam_phi3,
+    testConsistencyParam_phi4,
+    testConsistencyParam_phi5,
+    testConsistencyParam_phi5l,
+    testConsistencyParam_phi6,
+    testConsistencyParam_phi6l,
+    testConsistencyParam_phi7
+}
+AmpCorConsistencyTestParam;
 	
 /* PARAMETER STRUCTURE FOR GENERATEPPNAMPCORCONSISTENCY */
 typedef struct tagPPNConsistencyParamStruc {
@@ -54,7 +70,7 @@ typedef struct tagPPNConsistencyParamStruc {
 	
 	/* PN phasing coefficients for use in AmpCorConsistency */
 	REAL4 phi0, phi2, phi3, phi4, phi5, phi5l, phi6, phi6l, phi7;
-	REAL4 phasePNparams[9];
+	REAL4 phasePNparams[10];
 	
 	/* Output parameters. */
 	REAL8 tc;         /* time to coalescence from start of waveform */
@@ -76,4 +92,8 @@ void LALGeneratePPNAmpCorConsistency(
                             );
 
 /* function to populate phaseParams */                            
-void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params, INT4 TestParam, REAL8 TestParamValue);
+void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params, AmpCorConsistencyTestParam TestParam, REAL8 TestParamValue);
+
+void XLALCopyPPNConsistencyParamStrucFromPPNParamStruc (
+                                                        PPNParamStruc             *inputParams,
+                                                        PPNConsistencyParamStruc             *duplicateParams );

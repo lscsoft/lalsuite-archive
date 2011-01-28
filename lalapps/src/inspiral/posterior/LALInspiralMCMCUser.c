@@ -54,7 +54,6 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 #include <lal/FrequencySeries.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/SeqFactories.h>
-#include <lal/GeneratePPNAmpCorConsistency.h>
 
 #include "LALInspiralMCMCUser.h"
 #include <fftw3.h>
@@ -440,7 +439,7 @@ REAL8 NestPriorAmpCorTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-    if (PhaseTestParam!=-1) {parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));}
+    if (PhaseTestParam!=testConsistencyParam_none) {parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));}
         /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
                                  (-1.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/(m1+m2));
@@ -503,7 +502,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
 	
     /* GET TEST PHASE PARAMETER FROM MCMC STRUCTURE AND USE IT TO POPULATE THE PN STRUCTURE */
 	
-    if (PhaseTestParam!=-1) {LALPopulatePhasePNparams(&PPNparams,PhaseTestParam,XLALMCMCGetParameter(parameter,"phiTest"));}
+    if (PhaseTestParam!=-testConsistencyParam_none) {LALPopulatePhasePNparams(&PPNparams,PhaseTestParam,XLALMCMCGetParameter(parameter,"phiTest"));}
     else {LALPopulatePhasePNparams(&PPNparams,PhaseTestParam,0.0);}
 
 
