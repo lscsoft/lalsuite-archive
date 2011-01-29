@@ -1504,24 +1504,36 @@ def plot_one_param_pdf(posterior,plot1DParams):
 #
 
 def getRAString(radians):
-    hours = math.floor(radians*(12.0/math.pi))
-    rem = radians-hours*(math.pi/12.0)
-    mins = math.floor(rem*((12*60)/math.pi))
-    rem = rem - mins*(math.pi/(12*60))
-    secs = rem*(12*3600/math.pi)
-    return '%ih%im%2.0f'%(hours,mins,secs)
+    textobj = radians
+    try:
+        radians = float(radians.get_text())
+    except (TypeError,ValueError):
+        return textobj
+    hours = math.floor(radians*(12.0/pi_constant))
+    rem = radians-hours*(pi_constant/12.0)
+    mins = math.floor(rem*((12*60)/pi_constant))
+    rem = rem - mins*(pi_constant/(12*60))
+    secs = rem*(12*3600/pi_constant)
+    textobj.set_text('%ih%im%2.0fs'%(hours,mins,secs))
+    return textobj
 
-def detDecString(radians):
+def getDecString(radians):
+    textobj = radians
+    try:
+        radians = float(radians.get_text())
+    except (TypeError,ValueError):
+        return textobj
     if(radians<0):
-        round = math.ceil
+        round = ceil
     else:
-        round = math.floor
-    deg = round(radians*(180.0/math.pi))
-    rem = radians - deg*(math.pi/180.0)
-    mins = round(rem*((180.0*60.0)/math.pi))
-    rem = rem - mins*(math.pi/(180.0*60.0))
-    secs = rem * (180.0*60.0*60.0)/math.pi
-    return '%ideg%im%2.0f'
+        round = floor
+    deg = round(radians*(180.0/pi_constant))
+    rem = radians - deg*(pi_constant/180.0)
+    mins = round(rem*((180.0*60.0)/pi_constant))
+    rem = rem - mins*(pi_constant/(180.0*60.0))
+    secs = rem * (180.0*60.0*60.0)/pi_constant
+    textobj.set_text('%i^\circ %im%2.0fs')
+    return textobj
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
