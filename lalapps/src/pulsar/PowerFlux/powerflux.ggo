@@ -144,6 +144,7 @@ option "sidereal-group-count" - "separate SFTs in that many groups by frequency 
 option "time-group-count" - "separate SFTs in that many groups by gps time" int no
 option "phase-mismatch" - "maximal phase mismatch over coherence length to assume when using loosely coherent mode" double default="1.570796" no
 option "bypass-powersum-cache" - "bypass partial power sum cache" int default="0" no
+option "compute-cross-terms" - "computate imaginary cross terms in loosely coherent search" int default="1" no
 
 option "preallocate-memory" - "preallocate this many gigabytes of memory for future usage" double default="0.0" no
 option "memory-allocation-retries" - "number of times to retry allocating memory before giving up" int default="1000" no

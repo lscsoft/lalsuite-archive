@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.46-64
+VERSION=1.4.47-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -265,9 +265,19 @@ test4i: powerflux-valgrind2
 	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --num-threads=1 --config=config.valgrind \
 	)
 
+test4inov: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	./powerflux-valgrind2 --num-threads=1 --config=config.valgrind \
+	)
+
 test4j: powerflux-valgrind2
 	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
 	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config_loose_pi_2.valgrind \
+	)
+
+test4jnov: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	./powerflux-valgrind2 --config=config_loose_pi_2.valgrind \
 	)
 
 test5: powerflux
@@ -432,6 +442,7 @@ upload.g: powerflux-condor powerflux-mt
 upload.h: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	gsiscp -C powerflux-condor2 ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
 upload.l: powerflux-condor powerflux-mt

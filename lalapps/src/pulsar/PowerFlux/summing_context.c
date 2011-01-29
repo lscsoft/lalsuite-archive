@@ -50,6 +50,7 @@ if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
 	ctx->sidereal_group_count=12;
 	ctx->summing_step=86400*3; /* three days */
 	ctx->time_group_count=3;
+	ctx->cross_terms_present=args_info.compute_cross_terms_arg;
 	} else
 if(!strcasecmp(args_info.averaging_mode_arg, "matched_loose")) {
 	fprintf(LOG, "**** WARNING matched_loose: this experimental code has not been reviewed yet.\n");
@@ -63,6 +64,7 @@ if(!strcasecmp(args_info.averaging_mode_arg, "matched_loose")) {
 	ctx->sidereal_group_count=12;
 	ctx->summing_step=86400*3; /* three days */
 	ctx->time_group_count=3;
+	ctx->cross_terms_present=args_info.compute_cross_terms_arg;
 	} else
 if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")) {
 	fprintf(stderr, "PowerFlux2 does not support 3-bin mode\n");
@@ -112,7 +114,7 @@ if(args_info.time_group_count_given) {
 		exit(-1);
 		}
 	}
-
+	
 ctx->inv_cache_granularity=1.0/ctx->cache_granularity;
 ctx->half_inv_cache_granularity=0.5/ctx->cache_granularity;
 ctx->inv_diff_shift_granularity=1.0/ctx->diff_shift_granularity;
@@ -124,6 +126,7 @@ fprintf(LOG, "diff_shift_granularity: %d\n", ctx->diff_shift_granularity);
 fprintf(LOG, "sidereal_group_count: %d\n", ctx->sidereal_group_count);
 fprintf(LOG, "time_group_count: %d\n", ctx->time_group_count);
 fprintf(LOG, "phase_mismatch: %g\n", args_info.phase_mismatch_arg);
+fprintf(LOG, "cross_terms_present: %d\n", ctx->cross_terms_present);
 
 allocate_simple_cache(ctx);
 

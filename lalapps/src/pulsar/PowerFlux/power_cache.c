@@ -224,6 +224,16 @@ for(i=0;i<pps_bins;i++) {
 	accum->power_cc[i]+=partial->power_cc[i+shift];
 	}
 
+if(partial->power_im_pc!=NULL) {
+	if(accum->power_im_pc==NULL) {
+		fprintf(stderr, "*** INTERNAL ERROR: attempt to accumulate partial power sum with cross terms into accumulator without\n");
+		exit(-1);
+		}
+	for(i=0;i<pps_bins;i++) {
+		accum->power_im_pc[i]+=partial->power_im_pc[i+shift];
+		}
+	}
+
 if(partial->weight_arrays_non_zero) {
 	for(i=0;i<pps_bins;i++) {
 		accum->weight_pppp[i]+=partial->weight_pppp[i+shift];
@@ -240,6 +250,7 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
+accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void accumulate_partial_power_sum_F2(PARTIAL_POWER_SUM *accum, PARTIAL_POWER_SUM_F *partial)
@@ -273,6 +284,16 @@ for(i=0;i<pps_bins;i++) {
 	accum->power_cc[i]+=partial->power_cc[i+shift];
 	}
 
+if(partial->power_im_pc!=NULL) {
+	if(accum->power_im_pc==NULL) {
+		fprintf(stderr, "*** INTERNAL ERROR: attempt to accumulate partial power sum with cross terms into accumulator without\n");
+		exit(-1);
+		}
+	for(i=0;i<pps_bins;i++) {
+		accum->power_im_pc[i]+=partial->power_im_pc[i+shift];
+		}
+	}
+
 if(partial->weight_arrays_non_zero) {
 	for(i=0;i<pps_bins;i++) {
 		accum->weight_pppp[i]+=partial->weight_pppp[i+shift];
@@ -289,6 +310,7 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
+accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void get_uncached_single_bin_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
@@ -1343,7 +1365,7 @@ if(k>=sc->size) {
 
 if(k>=sc->free) {
 	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
-	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift);
+	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, 0);
 	sc->free++;
 	}
 
@@ -1365,10 +1387,10 @@ int result=0;
 
 ctx=create_summing_context();
 
-ps1=allocate_partial_power_sum_F(useful_bins+10);
-ps2=allocate_partial_power_sum_F(useful_bins+10);
-ps3=allocate_partial_power_sum_F(useful_bins+10);
-ps4=allocate_partial_power_sum_F(useful_bins+10);
+ps1=allocate_partial_power_sum_F(useful_bins+10, 1);
+ps2=allocate_partial_power_sum_F(useful_bins+10, 1);
+ps3=allocate_partial_power_sum_F(useful_bins+10, 1);
+ps4=allocate_partial_power_sum_F(useful_bins+10, 1);
 
 randomize_partial_power_sum_F(ps1);
 randomize_partial_power_sum_F(ps2);

@@ -111,10 +111,10 @@ int bin_shift, bin_shift2;
 SEGMENT_INFO *si_local, *si_local2;
 DATASET *d, *d2;
 //POLARIZATION *pl;
-float *im, *re, *im2, *re2, *pp, *pc, *cc;
+float *im, *re, *im2, *re2, *pp, *pc, *cc, *im_pc;
 float a;
 float weight;
-float f_plus, f_cross, f_plus2, f_cross2, f_pp, f_pc, f_cc;
+float f_plus, f_cross, f_plus2, f_cross2, f_pp, f_pc, f_cc, f_im_pc;
 float x, y;
 double phase_offset, phase_increment, gps1, gps2, gps_delta, gps_mid;
 float f0m_c, f0m_s, inc_c, inc_s;
@@ -127,6 +127,7 @@ float weight_pppc=0;
 float weight_ppcc=0;
 float weight_pccc=0;
 float weight_cccc=0;
+float weight_im_ppcc=0;
 
 SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
@@ -157,6 +158,15 @@ for(i=0;i<pps_bins;i++) {
 	pp++;
 	pc++;
 	cc++;
+	}
+
+if(pps->power_im_pc!=NULL) {
+	im_pc=pps->power_im_pc;
+
+	for(i=0;i<pps_bins;i++) {
+		(*im_pc)=0.0;
+		im_pc++;
+		}
 	}
 
 pps->weight_arrays_non_zero=0;
@@ -202,8 +212,9 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	f_pp=f_plus*f_plus2;
 	f_pc=0.5*(f_plus*f_cross2+f_plus2*f_cross);
 	f_cc=f_cross*f_cross2;
+	f_im_pc=-(f_plus*f_cross2-f_cross*f_plus2); /* extra -1 because we multiply two imaginary parts */
 
-	//fprintf(stderr, "pp=%f pc=%f cc=%f\n", f_pp, f_pc, f_cc);	
+	//fprintf(stderr, "pp=%f pc=%f cc=%f im_pc=%f\n", f_pp, f_pc, f_cc, f_im_pc);	
 
 	#if 0 
 	/* The weights below (commented and not) are used in completely ad-hoc manner, a proper way to go is to solve the filtering problem in the presence of non-stationary noise */
@@ -221,9 +232,14 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	weight_pccc+=weight*f_pc*f_cc;
 	weight_cccc+=weight*f_cc*f_cc;
 
+	if(pps->power_im_pc!=NULL) {
+		weight_im_ppcc+=weight*f_im_pc*f_im_pc;
+		}
+
 	f_pp*=weight;
 	f_pc*=weight;
 	f_cc*=weight;
+	f_im_pc*=weight;
 
 #if 0
 	/* The code below uses Doppler shifts alone (same as injection code in dataset.c), and does not
@@ -258,16 +274,23 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "phase_offset=%f phase_increment=%f\n", phase_offset, phase_increment);
 
+	/* we get an extra M_PI in phase from jumping one bin
+	 * This happens because SFT is computed from t=0 but our gps refers to middle of the interval
+	 * Every other bin picks one pie of phase.
+	 */
+	phase_offset+=0.5*(rintf(si_local->bin_shift)-rintf(si_local2->bin_shift));
+
 	phase_offset=2*M_PI*(phase_offset-floor(phase_offset));
 	phase_increment=2*M_PI*(phase_increment-floor(phase_increment));
 
+	sincosf(-phase_offset, &f0m_s, &f0m_c);
+	sincosf(-phase_increment, &inc_s, &inc_c);
+	
 	//fprintf(stderr, "tdot=(%g,%g)\n", priv->emission_time[si_local->index].tDot, priv->emission_time[si_local2->index].tDot); 
 
 	//fprintf(stderr, " [%d, %d] (%f %f) %.4f %.4f (%f %f %f %g)\n", k, m, gps_mid, gps_delta, phase_offset, phase_increment, priv->emission_time[si_local->index].deltaT, priv->emission_time[si_local2->index].deltaT, (priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2), priv->spindown);
 #endif
 
-	sincosf(-phase_offset, &f0m_s, &f0m_c);
-	sincosf(-phase_increment, &inc_s, &inc_c);
 
  	d=&(datasets[si_local->dataset]);
  	d2=&(datasets[si_local2->dataset]);
@@ -295,71 +318,79 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	pp=pps->power_pp;
 	pc=pps->power_pc;
 	cc=pps->power_cc;
+	im_pc=pps->power_im_pc;
 
-	for(i=0;i<pps_bins;i++) {
-		x=(*re)*f0m_c-(*im)*f0m_s;
-		y=(*re)*f0m_s+(*im)*f0m_c;
+	if(pps->power_im_pc!=NULL) {
+		
+		for(i=0;i<pps_bins;i++) {
+			x=(*re)*f0m_c-(*im)*f0m_s;
+			y=(*re)*f0m_s+(*im)*f0m_c;
 
-		a=(x*(*re2)+y*(*im2));
+			a=(x*(*re2)+y*(*im2));
 
-		x=f0m_c*inc_c-f0m_s*inc_s;
-		y=f0m_c*inc_s+f0m_s*inc_c;
+			(*im_pc)+=(x*(*im2)-y*(*re2))*f_im_pc;
 
-		f0m_c=x;
-		f0m_s=y;
+			x=f0m_c*inc_c-f0m_s*inc_s;
+			y=f0m_c*inc_s+f0m_s*inc_c;
 
-		(*pp)+=a*f_pp;
-		(*pc)+=a*f_pc;
-		(*cc)+=a*f_cc;
+			f0m_c=x;
+			f0m_s=y;
 
-		pp++;
-		pc++;
-		cc++;
+			(*pp)+=a*f_pp;
+			(*pc)+=a*f_pc;
+			(*cc)+=a*f_cc;
 
-		re++;
-		im++;
+			pp++;
+			pc++;
+			cc++;
+			im_pc++;
 
-		re2++;
-		im2++;
-		/**/
+			re++;
+			im++;
+
+			re2++;
+			im2++;
+			}
+
+		
+		} else {
+
+		for(i=0;i<pps_bins;i++) {
+			x=(*re)*f0m_c-(*im)*f0m_s;
+			y=(*re)*f0m_s+(*im)*f0m_c;
+
+			a=(x*(*re2)+y*(*im2));
+
+			x=f0m_c*inc_c-f0m_s*inc_s;
+			y=f0m_c*inc_s+f0m_s*inc_c;
+
+			f0m_c=x;
+			f0m_s=y;
+
+			(*pp)+=a*f_pp;
+			(*pc)+=a*f_pc;
+			(*cc)+=a*f_cc;
+
+			pp++;
+			pc++;
+			cc++;
+
+			re++;
+			im++;
+
+			re2++;
+			im2++;
+			}
 		}
 
-	pp=pps->power_pp;
-	pc=pps->power_pc;
-	cc=pps->power_cc;
-
-	/*
-
-	for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
-		m=d->lines_report->lines_list[n];
-		i=m-side_cut-bin_shift;
-		if(i<0)continue;
-		if(i>=pps_bins)continue;
-
-		a=power[i]*weight;
-
-		pp[i]-=a*f_plus*f_plus;
-		pc[i]-=a*f_plus*f_cross;
-		cc[i]-=a*f_cross*f_cross;
-
-		pps->weight_pppp[i]-=weight*f_plus*f_plus*f_plus*f_plus;
-		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
-		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
-		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
-		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
-
-		pps->weight_arrays_non_zero=1;
-		}
-
-	*/
 	}
-//exit(-1);
 
 pps->c_weight_pppp=weight_pppp;
 pps->c_weight_pppc=weight_pppc;
 pps->c_weight_ppcc=weight_ppcc;
 pps->c_weight_pccc=weight_pccc;
 pps->c_weight_cccc=weight_cccc;
+pps->c_weight_im_ppcc=weight_im_ppcc;
 
 pps->collapsed_weight_arrays=0;
 }
@@ -502,7 +533,7 @@ if(k>=sc->size) {
 
 if(k>=sc->free) {
 	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
-	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift);
+	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift, ctx->cross_terms_present);
 	sc->free++;
 	}
 
