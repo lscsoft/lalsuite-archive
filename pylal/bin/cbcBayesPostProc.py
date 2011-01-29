@@ -38,7 +38,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log
 
 import matplotlib
 matplotlib.use("Agg")
@@ -323,6 +323,163 @@ def cbcBayesPostProc(
         html_sky.write(html_sky_write)
 
     #==================================================================#
+    #1D posteriors
+    #==================================================================#
+
+    #Loop over each parameter and determine the contigious and greedy
+    #confidence levels and some statistics.
+
+    #Add section for 1D confidence intervals
+    html_ogci=html.add_section('1D confidence intervals (greedy binning)')
+    #Generate the top part of the table
+    html_ogci_write='<table id="statstable" border="1"><tr><th/>'
+    confidence_levels.sort()
+    for cl in confidence_levels:
+        html_ogci_write+='<th>%f</th>'%cl
+    if injection:
+        html_ogci_write+='<th>Injection Confidence Level</th>'
+        html_ogci_write+='<th>Injection Confidence Interval</th>'
+    html_ogci_write+='</tr>'
+
+    #Add section for 1D marginal PDFs and sample plots
+    html_ompdf=html.add_section('1D marginal posterior PDFs')
+    #Table matter
+    if not noacf:
+        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
+    else:
+        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
+
+    onepdfdir=os.path.join(outdir,'1Dpdf')
+    if not os.path.isdir(onepdfdir):
+        os.makedirs(onepdfdir)
+
+    sampsdir=os.path.join(outdir,'1Dsamps')
+    if not os.path.isdir(sampsdir):
+        os.makedirs(sampsdir)
+
+    for par_name in oneDMenu:
+        par_name=par_name.lower()
+        print "Binning %s to determine confidence levels ..."%par_name
+        try:
+            pos[par_name.lower()]
+        except KeyError:
+            print "No input chain for %s, skipping binning."%par_name
+            continue
+        try:
+            par_bin=GreedyRes[par_name]
+        except KeyError:
+            print "Bin size is not set for %s, skipping binning."%par_name
+            continue
+
+        binParams={par_name:par_bin}
+
+        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
+
+        oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
+
+        #Generate new BCI html table row
+        BCItableline='<tr><td>%s</td>'%(par_name)
+        cls=reses.keys()
+        cls.sort()
+
+        for cl in cls:
+            BCItableline+='<td>%f</td>'%reses[cl]
+
+        if injection is not None:
+            if injectionconfidence is not None and injection_area is not None:
+
+                BCItableline+='<td>%f</td>'%injectionconfidence
+                BCItableline+='<td>%f</td>'%injection_area
+
+            else:
+                BCItableline+='<td/>'
+                BCItableline+='<td/>'
+
+        BCItableline+='</tr>'
+
+        #Append new table line to section html
+        html_ogci_write+=BCItableline
+
+        #Generate 1D histogram/kde plots
+        print "Generating 1D plot for %s."%par_name
+        oneDPDFParams={par_name:50}
+        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
+
+        figname=par_name+'.png'
+        oneDplotPath=os.path.join(onepdfdir,figname)
+        plotFig.savefig(oneDplotPath)
+
+        if rbins:
+            print "r of injected value of %s (bins) = %f"%(par_name, rbins)
+
+        ##Produce plot of raw samples
+        myfig=plt.figure(figsize=(4,3.5),dpi=200)
+        pos_samps=pos[par_name].samples
+        if not ("chain" in pos.names) or fm_flag:
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            plt.plot(pos_samps,'.',figure=myfig)
+            maxLen=len(pos_samps)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            data,header=pos.samples()
+            par_index=pos.names.index(par_name)
+            chain_index=pos.names.index("chain")
+            chains=unique(pos["chain"].samples)
+            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
+            chainDataRanges=[range(len(cd)) for cd in chainData]
+            maxLen=max([len(cd) for cd in chainData])
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
+            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
+            
+            #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
+            #flattenedData=[ item for pair in dataPairs for item in pair ]
+            #maxLen=max([len(data) for data in flattenedData])
+            #plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
+
+
+        injpar=pos[par_name].injval
+
+        if injpar:
+            if min(pos_samps)<injpar and max(pos_samps)>injpar:
+                #FIXME: Here!  Lines too long.
+                plt.plot([0,maxLen],[injpar,injpar],'r-.')
+        myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+
+        if not (noacf):
+            acffig=plt.figure(figsize=(4,3.5),dpi=200)
+            if not ("chain" in pos.names):
+                data=pos_samps[:,0]
+                mu=mean(data)
+                corr=correlate((data-mu),(data-mu),mode='full')
+                N=len(data)
+                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+            else:
+                for rng, data in zip(chainDataRanges, chainData):
+                    mu=mean(data)
+                    corr=correlate(data-mu,data-mu,mode='full')
+                    N=len(data)
+                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+
+            acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+
+        if not noacf:
+            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+        else:
+            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+
+
+    html_ompdf_write+='</table>'
+
+    html_ompdf.write(html_ompdf_write)
+
+    html_ogci_write+='</table>'
+    html_ogci.write(html_ogci_write)
+
+    #==================================================================#
     #2D posteriors
     #==================================================================#
 
@@ -479,164 +636,6 @@ def cbcBayesPostProc(
     html_tcmp.write(html_tcmp_write)
     #Add a link to all plots
     html_tcmp.a("2Dkde/",'All 2D marginal PDFs (kde)')
-
-
-    #==================================================================#
-    #1D posteriors
-    #==================================================================#
-
-    #Loop over each parameter and determine the contigious and greedy
-    #confidence levels and some statistics.
-
-    #Add section for 1D confidence intervals
-    html_ogci=html.add_section('1D confidence intervals (greedy binning)')
-    #Generate the top part of the table
-    html_ogci_write='<table id="statstable" border="1"><tr><th/>'
-    confidence_levels.sort()
-    for cl in confidence_levels:
-        html_ogci_write+='<th>%f</th>'%cl
-    if injection:
-        html_ogci_write+='<th>Injection Confidence Level</th>'
-        html_ogci_write+='<th>Injection Confidence Interval</th>'
-    html_ogci_write+='</tr>'
-
-    #Add section for 1D marginal PDFs and sample plots
-    html_ompdf=html.add_section('1D marginal posterior PDFs')
-    #Table matter
-    if not noacf:
-        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
-    else:
-        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
-
-    onepdfdir=os.path.join(outdir,'1Dpdf')
-    if not os.path.isdir(onepdfdir):
-        os.makedirs(onepdfdir)
-
-    sampsdir=os.path.join(outdir,'1Dsamps')
-    if not os.path.isdir(sampsdir):
-        os.makedirs(sampsdir)
-
-    for par_name in oneDMenu:
-        par_name=par_name.lower()
-        print "Binning %s to determine confidence levels ..."%par_name
-        try:
-            pos[par_name.lower()]
-        except KeyError:
-            print "No input chain for %s, skipping binning."%par_name
-            continue
-        try:
-            par_bin=GreedyRes[par_name]
-        except KeyError:
-            print "Bin size is not set for %s, skipping binning."%par_name
-            continue
-
-        binParams={par_name:par_bin}
-
-        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
-
-        oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
-
-        #Generate new BCI html table row
-        BCItableline='<tr><td>%s</td>'%(par_name)
-        cls=reses.keys()
-        cls.sort()
-
-        for cl in cls:
-            BCItableline+='<td>%f</td>'%reses[cl]
-
-        if injection is not None:
-            if injectionconfidence is not None and injection_area is not None:
-
-                BCItableline+='<td>%f</td>'%injectionconfidence
-                BCItableline+='<td>%f</td>'%injection_area
-
-            else:
-                BCItableline+='<td/>'
-                BCItableline+='<td/>'
-
-        BCItableline+='</tr>'
-
-        #Append new table line to section html
-        html_ogci_write+=BCItableline
-
-        #Generate 1D histogram/kde plots
-        print "Generating 1D plot for %s."%par_name
-        oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
-
-        figname=par_name+'.png'
-        oneDplotPath=os.path.join(onepdfdir,figname)
-        plotFig.savefig(oneDplotPath)
-
-        if rbins:
-            print "r of injected value of %s (bins) = %f"%(par_name, rbins)
-
-        ##Produce plot of raw samples
-        myfig=plt.figure(figsize=(4,3.5),dpi=200)
-        pos_samps=pos[par_name].samples
-        if not ("chain" in pos.names) or fm_flag:
-            # If there is not a parameter named "chain" in the
-            # posterior, then just produce a plot of the samples.
-            plt.plot(pos_samps,'.',figure=myfig)
-            maxLen=len(pos_samps)
-        else:
-            # If there is a parameter named "chain", then produce a
-            # plot of the various chains in different colors, with
-            # smaller dots.
-            data,header=pos.samples()
-            par_index=pos.names.index(par_name)
-            chain_index=pos.names.index("chain")
-            chains=unique(pos["chain"].samples)
-            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
-            chainDataRanges=[range(len(cd)) for cd in chainData]
-            maxLen=max([len(cd) for cd in chainData])
-            for rng, data in zip(chainDataRanges, chainData):
-                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
-            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
-            
-            #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
-            #flattenedData=[ item for pair in dataPairs for item in pair ]
-            #maxLen=max([len(data) for data in flattenedData])
-            #plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
-
-
-        injpar=pos[par_name].injval
-
-        if injpar:
-            if min(pos_samps)<injpar and max(pos_samps)>injpar:
-                #FIXME: Here!  Lines too long.
-                plt.plot([0,maxLen],[injpar,injpar],'r-.')
-        myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
-
-        if not (noacf):
-            acffig=plt.figure(figsize=(4,3.5),dpi=200)
-            if not ("chain" in pos.names):
-                data=pos_samps[:,0]
-                mu=mean(data)
-                corr=correlate((data-mu),(data-mu),mode='full')
-                N=len(data)
-                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-            else:
-                for rng, data in zip(chainDataRanges, chainData):
-                    mu=mean(data)
-                    corr=correlate(data-mu,data-mu,mode='full')
-                    N=len(data)
-                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-
-            acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
-
-        if not noacf:
-            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
-        else:
-            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
-
-
-    html_ompdf_write+='</table>'
-
-    html_ompdf.write(html_ompdf_write)
-
-    html_ogci_write+='</table>'
-    html_ogci.write(html_ogci_write)
 
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
