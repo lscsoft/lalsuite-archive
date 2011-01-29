@@ -589,10 +589,15 @@ def cbcBayesPostProc(
             chains=unique(pos["chain"].samples)
             chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
             chainDataRanges=[range(len(cd)) for cd in chainData]
-            dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
-            flattenedData=[ item for pair in dataPairs for item in pair ]
-            maxLen=max([len(data) for data in flattenedData])
-            plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
+            maxLen=max([len(cd) for cd in chainData])
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
+            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
+            
+            #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
+            #flattenedData=[ item for pair in dataPairs for item in pair ]
+            #maxLen=max([len(data) for data in flattenedData])
+            #plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
 
 
         injpar=pos[par_name].injval
