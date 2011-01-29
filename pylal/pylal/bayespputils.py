@@ -1487,8 +1487,41 @@ def plot_one_param_pdf(posterior,plot1DParams):
     plt.xlabel(param)
     plt.ylabel('Probability Density')
 
+    # For RA and dec set custom labels and for RA reverse
+    if(param=='RA' or param=='rightascension'):
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
+    if(param=='RA' or param=='rightascension'):
+        locs, ticks = plt.xticks()
+        strticks=map(getRAstring,ticks)
+        plt.xticks(locs,strticks)
+    if(param=='dec' or param=='declination'):
+        locs, ticks = plt.xticks()
+        strticks=map(getDecString,ticks)
+        plt.xticks(locs,strticks)
+
     return rbins,myfig#,rkde
 #
+
+def getRAString(radians):
+    hours = math.floor(radians*(12.0/math.pi))
+    rem = radians-hours*(math.pi/12.0)
+    mins = math.floor(rem*((12*60)/math.pi))
+    rem = rem - mins*(math.pi/(12*60))
+    secs = rem*(12*3600/math.pi)
+    return '%ih%im%2.0f'%(hours,mins,secs)
+
+def detDecString(radians):
+    if(radians<0):
+        round = math.ceil
+    else:
+        round = math.floor
+    deg = round(radians*(180.0/math.pi))
+    rem = radians - deg*(math.pi/180.0)
+    mins = round(rem*((180.0*60.0)/math.pi))
+    rem = rem - mins*(math.pi/(180.0*60.0))
+    secs = rem * (180.0*60.0*60.0)/math.pi
+    return '%ideg%im%2.0f'
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -1539,6 +1572,33 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     plt.xlabel(par1_name)
     plt.ylabel(par2_name)
     plt.grid()
+
+    # For RA and dec set custom labels and for RA reverse
+    if(par1_name=='RA' or par1_name=='rightascension'):
+            xmin,xmax=plt.xlim()
+            plt.xlim(xmax,xmin)
+    if(par1_name=='RA' or par1_name=='rightascension'):
+            locs, ticks = plt.xticks()
+            strticks=map(getRAstring,ticks)
+            plt.xticks(locs,strticks)
+    if(par1_name=='dec' or par1_name=='declination'):
+            locs, ticks = plt.xticks()
+            strticks=map(getDecString,ticks)
+            plt.xticks(locs,strticks)
+
+    if(par2_name=='RA' or par2_name=='rightascension'):
+        ymin,ymax=plt.ylim()
+        plt.ylim(ymax,ymin)
+    if(par2_name=='RA' or par2_name=='rightascension'):
+        locs, ticks = plt.yticks()
+        strticks=map(getRAstring,ticks) 
+        plt.yticks(locs,strticks)
+    if(par2_name=='dec' or par2_name=='declination'):
+        locs, ticks = plt.yticks()
+        strticks=map(getDecString,ticks)
+        plt.yticks(locs,strticks)                                           
+
+
 
     return myfig
 #
@@ -1647,6 +1707,33 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
+
+    # For RA and dec set custom labels and for RA reverse
+    if(par1_name=='RA' or par1_name=='rightascension'):
+            xmin,xmax=plt.xlim()
+            plt.xlim(xmax,xmin)
+    if(par1_name=='RA' or par1_name=='rightascension'):
+            locs, ticks = plt.xticks()
+            strticks=map(getRAstring,ticks)
+            plt.xticks(locs,strticks)
+    if(par1_name=='dec' or par1_name=='declination'):
+            locs, ticks = plt.xticks()
+            strticks=map(getDecString,ticks)
+            plt.xticks(locs,strticks)
+
+    if(par2_name=='RA' or par2_name=='rightascension'):
+        ymin,ymax=plt.ylim()
+        plt.ylim(ymax,ymin)
+    if(par2_name=='RA' or par2_name=='rightascension'):
+        locs, ticks = plt.yticks()
+        strticks=map(getRAstring,ticks) 
+        plt.yticks(locs,strticks)
+    if(par2_name=='dec' or par2_name=='declination'):
+        locs, ticks = plt.yticks()
+        strticks=map(getDecString,ticks)
+        plt.yticks(locs,strticks)                                           
+
+
     return fig
 #
 
@@ -1701,6 +1788,31 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
     plt.imshow(H, aspect='equal', extent=None, interpolation='nearest')
     plt.colorbar()
+
+    # For RA and dec set custom labels and for RA reverse
+    if(par1_name=='RA' or par1_name=='rightascension'):
+            xmin,xmax=plt.xlim()
+            plt.xlim(xmax,xmin)
+    if(par1_name=='RA' or par1_name=='rightascension'):
+            locs, ticks = plt.xticks()
+            strticks=map(getRAstring,ticks)
+            plt.xticks(locs,strticks)
+    if(par1_name=='dec' or par1_name=='declination'):
+            locs, ticks = plt.xticks()
+            strticks=map(getDecString,ticks)
+            plt.xticks(locs,strticks)
+
+    if(par2_name=='RA' or par2_name=='rightascension'):
+        ymin,ymax=plt.ylim()
+        plt.ylim(ymax,ymin)
+    if(par2_name=='RA' or par2_name=='rightascension'):
+        locs, ticks = plt.yticks()
+        strticks=map(getRAstring,ticks) 
+        plt.yticks(locs,strticks)
+    if(par2_name=='dec' or par2_name=='declination'):
+        locs, ticks = plt.yticks()
+        strticks=map(getDecString,ticks)
+        plt.yticks(locs,strticks)                                           
 
     return myfig
 
