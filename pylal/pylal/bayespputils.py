@@ -63,8 +63,11 @@ __date__= git_version.date
 # Constants
 #===============================================================================
 
+#Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
+#Pre-defined ordered list of matplotlib colours for use in plots.
 __default_color_lst=['r','b','y','g','k']
+#A default css string for use in html results pages. 
 __default_css_string="""
 
 p,h1,h2,h3,h4,h5
@@ -146,6 +149,11 @@ class OneDPosterior(object):
     def __init__(self,name,posterior_samples,injected_value=None,prior=None):
         """
         Constructor.
+        
+        @param name: A literal string name for the parameter.
+        @param posterior_samples: A 1D array of the samples.
+        @keyword injected_value: The injected or real value of the parameter.
+        @keyword prior: The prior value corresponding to each sample.
         """
         self.__name=name
         self.__posterior_samples=np.array(posterior_samples)
@@ -209,6 +217,12 @@ class OneDPosterior(object):
 
     #@injval.setter #Python 2.6+
     def set_injval(self,new_injval):
+        """
+        Set the injected/real value of the parameter.
+        
+        @param new_injval: The injected/real value to set.
+        """
+        
         self.__injval=new_injval
 
     @property
@@ -220,7 +234,9 @@ class OneDPosterior(object):
 
     def delete_samples_by_idx(self,samples):
         """
-        remove samples from posterior, analagous to numpy.delete but opperates in place.
+        Remove samples from posterior, analagous to numpy.delete but opperates in place.
+        
+        @param samples: A list of the indexes of the samples to remove.
         """
         self.__posterior_samples=np.delete(self.__posterior_samples,samples).reshape(-1,1)
 
@@ -245,6 +261,11 @@ class OneDPosterior(object):
         return return_value
 
     def prob_interval(self,intervals):
+        """
+        Evaluate probability intervals.
+        
+        @param intervals: A list of the probability intervals [0-1]
+        """
         list_of_ci=[]
         samples_temp=np.sort(np.squeeze(self.samples))
 
@@ -275,6 +296,10 @@ class Posterior(object):
     def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
         """
         Constructor.
+        
+        @param commonResultsFormatData: A 2D array containing the posterior 
+            samples and related data. The samples chains form the columns.
+                
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
@@ -324,12 +349,18 @@ class Posterior(object):
     def delete_samples_by_idx(self,samples):
         """
         Remove samples from all OneDPosteriors.
+        
+        @param samples: The indixes of the samples to remove.
         """
         for name,pos in self:
             pos.delete(samples)
 
     @property
     def injection(self):
+        """
+        Return the injected values .
+        """
+        
         return self._injection
 
     def _total_incl_restarts(self, samples):
@@ -364,6 +395,11 @@ class Posterior(object):
 
     #@injection.setter #Python 2.6+
     def set_injection(self,injection):
+        """
+        Set the injected values of the parameters.
+        
+        @param injection: A SimInspiralTable row object.
+        """
         if injection is not None:
             self._injection=injection
             for name,onepos in self:
@@ -393,12 +429,17 @@ class Posterior(object):
         return inj.eta
 
     def _inj_longitude(inj):
+        """
+        Map the value of the longitude found in inj to an interval [0,2*pi).
+        """
+        
         if inj.longitude>2*pi_constant or inj.longitude<0.0:
             maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
             print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
             return maplong
         else:
             return inj.longitude
+    
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
@@ -483,7 +524,7 @@ class Posterior(object):
     @property
     def dim(self):
         """
-        Defined as number of parameters.
+        Return number of parameters.
         """
         return len(self._posterior.keys())
 
