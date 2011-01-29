@@ -1469,7 +1469,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     if injpar:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
-            plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
+            plt.axvline(injpar, color='r', linestyle='-.')
 
             #rkde=gkde.integrate_box_1d(min(pos[:,i]),getinjpar(injection,i))
             #print "r of injected value of %s (kde) = %f"%(param,rkde)

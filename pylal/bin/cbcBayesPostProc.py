@@ -445,8 +445,7 @@ def cbcBayesPostProc(
 
         if injpar:
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
-                #FIXME: Here!  Lines too long.
-                plt.plot([0,maxLen],[injpar,injpar],'r-.')
+                plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
 
         if not (noacf):
