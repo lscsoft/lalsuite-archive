@@ -1514,14 +1514,16 @@ def getRAString(radians):
 def getDecString(radians):
     if(radians<0):
         round = ceil
+        sign=-1
     else:
         round = floor
+        sign=+1
     deg = round(radians*(180.0/pi_constant))
     rem = radians - deg*(pi_constant/180.0)
     mins = round(rem*((180.0*60.0)/pi_constant))
     rem = rem - mins*(pi_constant/(180.0*60.0))
     secs = rem * (180.0*60.0*60.0)/pi_constant
-    return '%i^\circ %im%2.0fs'%(deg,mins,secs)
+    return '%ideg%im%2.0fs'%(deg,sign*mins,sign*secs)
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
