@@ -1540,6 +1540,9 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     from scipy import seterr as sp_seterr
 
     par1_name,par2_name=plot2DkdeParams.keys()
+    # Make RA always on the bottom
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        (par1_name, par2_name) = (par2_name, par1_name)
     Nx=plot2DkdeParams[par1_name]
     Ny=plot2DkdeParams[par2_name]
 
