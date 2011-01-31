@@ -355,7 +355,6 @@ static PyObject *PyIIRResponse(PyObject *self, PyObject *args)
 	npy_intp *b0_arraydims = NULL;
 	npy_intp *delay_arraydims = NULL;
 	npy_intp resp_length[] = {0};
-	PyObject *out;
 
 	if (!PyArg_ParseTuple(args, "iOOO", &N, &a1, &b0, &delay)) return NULL;
 	a1_array = PyArray_FROM_OTF(a1, NPY_CDOUBLE, NPY_IN_ARRAY);
@@ -371,12 +370,16 @@ static PyObject *PyIIRResponse(PyObject *self, PyObject *args)
 	delay_int4.length = delay_arraydims[0];
 	delay_int4.data = PyArray_DATA(delay_array);
 
-	XLALInspiralIIRSetResponse(N, &a1_complex16, &b0_complex16, &delay_int4, &resp);
-	resp_length[0] = resp->length;
-	resp_pyob = PyArray_SimpleNewFromData(1, resp_length, NPY_CDOUBLE, (void *) resp->data);
+	resp = XLALCreateCOMPLEX16Vector(N);
 
-	out = Py_BuildValue("O", resp_pyob);
-	return out;
+	XLALInspiralIIRSetResponse(&a1_complex16, &b0_complex16, &delay_int4, resp);
+	resp_length[0] = resp->length;
+	resp_pyob = PyArray_SimpleNew(1, resp_length, NPY_CDOUBLE);
+	memcpy(PyArray_DATA(resp_pyob), resp->data, resp->length * sizeof(*resp->data));
+		
+	XLALDestroyCOMPLEX16Vector(resp);
+
+	return resp_pyob;
 }
 
 static PyObject *PyIIRInnerProduct(PyObject *self, PyObject *args)
