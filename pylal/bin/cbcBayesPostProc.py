@@ -2,23 +2,31 @@
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
-#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>,
-#                      Will M. Farr <will.farr@ligo.org>
-#       
+#
+#       Copyright 2010
+#       Benjamin Aylott <benjamin.aylott@ligo.org>,
+#       Will M. Farr <will.farr@ligo.org>,
+#       John Veitch <john.veitch@ligo.org>
+#
+#
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
 #       the Free Software Foundation; either version 2 of the License, or
 #       (at your option) any later version.
-#       
+#
 #       This program is distributed in the hope that it will be useful,
 #       but WITHOUT ANY WARRANTY; without even the implied warranty of
 #       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #       GNU General Public License for more details.
-#       
+#
 #       You should have received a copy of the GNU General Public License
 #       along with this program; if not, write to the Free Software
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
+
+#===============================================================================
+# Preamble
+#===============================================================================
 
 #standard library imports
 import sys
@@ -30,8 +38,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit
-import numpy
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log
 
 import matplotlib
 matplotlib.use("Agg")
@@ -42,7 +49,7 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -64,6 +71,8 @@ def cbcBayesPostProc(
                         confidence_levels,twoDplots,
                         #misc. optional
                         injfile=None,eventnum=None,skyres=None,
+                        #direct integration evidence
+                        dievidence=False,boxing=64,difactor=1.0,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
                         #nested sampling options
@@ -73,7 +82,9 @@ def cbcBayesPostProc(
                         #lalinferenceMCMC options
                         li_flag=False,nDownsample=1,
                         #followupMCMC options
-                        fm_flag=False
+                        fm_flag=False,
+                        # on ACF?
+                        noacf=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -100,7 +111,7 @@ def cbcBayesPostProc(
     if fm_flag:
         peparser=bppu.PEOutputParser('fm')
         commonResultsObj=peparser.parse(data)
-    
+
     elif ns_flag and not ss_flag:
         peparser=bppu.PEOutputParser('ns')
         commonResultsObj=peparser.parse(data,Nlive=ns_Nlive,xflag=ns_xflag)
@@ -125,14 +136,14 @@ def cbcBayesPostProc(
     injection=None
     if injfile:
         import itertools
-        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])        
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
         if eventnum is not None:
             if(len(injections)<eventnum):
                 print "Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections))
                 sys.exit(1)
             else:
                 injection=injections[eventnum]
-        
+
 
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
@@ -160,14 +171,14 @@ def cbcBayesPostProc(
                 print 'Warning: Cannot find injection with end time %f' %(pos['time'].mean)
             except KeyError:
                 print "Warning: No 'time' column!"
-                
+
         else:
             try:
                 injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - pos['time'].mean) < 0.1, injections).next()
                 pos.set_injection(injection)
             except KeyError:
                 print "Warning: No 'time' column!"
-                
+
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
     if ('mc' in pos.names or 'mchirp' in pos.names) and \
     'eta' in pos.names and \
@@ -190,7 +201,7 @@ def cbcBayesPostProc(
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
-        
+
 
     ##Print some summary stats for the user...##
     #Number of samples
@@ -216,7 +227,7 @@ def cbcBayesPostProc(
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
     if 'cycle' in pos.names:
-        html_meta.p('Longest chain has '+str(int(numpy.max(pos['cycle'].samples)))+' cycles.')
+        html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
     if len(data) > 1:
         for fname in data[1:]:
@@ -229,6 +240,21 @@ def cbcBayesPostProc(
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
+
+    if dievidence:
+        html_model=html.add_section('Direct Integration Evidence')
+        ev=difactor*pos.di_evidence(boxing=boxing)
+        evfilename=os.path.join(outdir,"evidence.dat")
+        evout=open(evfilename,"w")
+        evout.write(str(ev))
+        evout.write(" ")
+        evout.write(str(log(ev)))
+        evout.close()
+        print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, log(ev))
+        html_model.p('Direct integration evidence is %g, or log(Evidence) = %g.  (Boxing parameter = %d.)'%(ev,log(ev),boxing))
+        if 'logl' in pos.names:
+            ev=pos.harmonic_mean_evidence()
+            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(ev,log(ev)))
 
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
@@ -248,7 +274,7 @@ def cbcBayesPostProc(
     for header in table_header_list:
         cov_table_string+='<th>%s</th>'%header
     cov_table_string+='</tr>'
-    
+
     cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
 
     for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
@@ -283,7 +309,7 @@ def cbcBayesPostProc(
             else:
                 html_sky.p('Injection not found in posterior bins in sky location!')
         html_sky.write('<img width="35%" src="skymap.png"/>')
-        
+
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
         fracs=skyreses.keys()
@@ -295,6 +321,162 @@ def cbcBayesPostProc(
         html_sky_write+=('</table>')
 
         html_sky.write(html_sky_write)
+
+    #==================================================================#
+    #1D posteriors
+    #==================================================================#
+
+    #Loop over each parameter and determine the contigious and greedy
+    #confidence levels and some statistics.
+
+    #Add section for 1D confidence intervals
+    html_ogci=html.add_section('1D confidence intervals (greedy binning)')
+    #Generate the top part of the table
+    html_ogci_write='<table id="statstable" border="1"><tr><th/>'
+    confidence_levels.sort()
+    for cl in confidence_levels:
+        html_ogci_write+='<th>%f</th>'%cl
+    if injection:
+        html_ogci_write+='<th>Injection Confidence Level</th>'
+        html_ogci_write+='<th>Injection Confidence Interval</th>'
+    html_ogci_write+='</tr>'
+
+    #Add section for 1D marginal PDFs and sample plots
+    html_ompdf=html.add_section('1D marginal posterior PDFs')
+    #Table matter
+    if not noacf:
+        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
+    else:
+        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
+
+    onepdfdir=os.path.join(outdir,'1Dpdf')
+    if not os.path.isdir(onepdfdir):
+        os.makedirs(onepdfdir)
+
+    sampsdir=os.path.join(outdir,'1Dsamps')
+    if not os.path.isdir(sampsdir):
+        os.makedirs(sampsdir)
+
+    for par_name in oneDMenu:
+        par_name=par_name.lower()
+        print "Binning %s to determine confidence levels ..."%par_name
+        try:
+            pos[par_name.lower()]
+        except KeyError:
+            print "No input chain for %s, skipping binning."%par_name
+            continue
+        try:
+            par_bin=GreedyRes[par_name]
+        except KeyError:
+            print "Bin size is not set for %s, skipping binning."%par_name
+            continue
+
+        binParams={par_name:par_bin}
+
+        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
+
+        oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
+
+        #Generate new BCI html table row
+        BCItableline='<tr><td>%s</td>'%(par_name)
+        cls=reses.keys()
+        cls.sort()
+
+        for cl in cls:
+            BCItableline+='<td>%f</td>'%reses[cl]
+
+        if injection is not None:
+            if injectionconfidence is not None and injection_area is not None:
+
+                BCItableline+='<td>%f</td>'%injectionconfidence
+                BCItableline+='<td>%f</td>'%injection_area
+
+            else:
+                BCItableline+='<td/>'
+                BCItableline+='<td/>'
+
+        BCItableline+='</tr>'
+
+        #Append new table line to section html
+        html_ogci_write+=BCItableline
+
+        #Generate 1D histogram/kde plots
+        print "Generating 1D plot for %s."%par_name
+        oneDPDFParams={par_name:50}
+        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
+
+        figname=par_name+'.png'
+        oneDplotPath=os.path.join(onepdfdir,figname)
+        plotFig.savefig(oneDplotPath)
+
+        if rbins:
+            print "r of injected value of %s (bins) = %f"%(par_name, rbins)
+
+        ##Produce plot of raw samples
+        myfig=plt.figure(figsize=(4,3.5),dpi=200)
+        pos_samps=pos[par_name].samples
+        if not ("chain" in pos.names) or fm_flag:
+            # If there is not a parameter named "chain" in the
+            # posterior, then just produce a plot of the samples.
+            plt.plot(pos_samps,'.',figure=myfig)
+            maxLen=len(pos_samps)
+        else:
+            # If there is a parameter named "chain", then produce a
+            # plot of the various chains in different colors, with
+            # smaller dots.
+            data,header=pos.samples()
+            par_index=pos.names.index(par_name)
+            chain_index=pos.names.index("chain")
+            chains=unique(pos["chain"].samples)
+            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
+            chainDataRanges=[range(len(cd)) for cd in chainData]
+            maxLen=max([len(cd) for cd in chainData])
+            for rng, data in zip(chainDataRanges, chainData):
+                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
+            plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
+            
+            #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
+            #flattenedData=[ item for pair in dataPairs for item in pair ]
+            #maxLen=max([len(data) for data in flattenedData])
+            #plt.plot(array(flattenedData),marker=',',linewidth=0.0,figure=myfig)
+
+
+        injpar=pos[par_name].injval
+
+        if injpar:
+            if min(pos_samps)<injpar and max(pos_samps)>injpar:
+                plt.axhline(injpar, color='r', linestyle='-.')
+        myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+
+        if not (noacf):
+            acffig=plt.figure(figsize=(4,3.5),dpi=200)
+            if not ("chain" in pos.names):
+                data=pos_samps[:,0]
+                mu=mean(data)
+                corr=correlate((data-mu),(data-mu),mode='full')
+                N=len(data)
+                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+            else:
+                for rng, data in zip(chainDataRanges, chainData):
+                    mu=mean(data)
+                    corr=correlate(data-mu,data-mu,mode='full')
+                    N=len(data)
+                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+
+            acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+
+        if not noacf:
+            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+        else:
+            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+
+
+    html_ompdf_write+='</table>'
+
+    html_ompdf.write(html_ompdf_write)
+
+    html_ogci_write+='</table>'
+    html_ogci.write(html_ogci_write)
 
     #==================================================================#
     #2D posteriors
@@ -313,6 +495,10 @@ def cbcBayesPostProc(
     if not os.path.isdir(twobinsdir):
         os.makedirs(twobinsdir)
 
+    greedytwobinsdir=os.path.join(outdir,'greedy2Dbins')
+    if not os.path.isdir(greedytwobinsdir):
+        os.makedirs(greedytwobinsdir)
+
     #Add a section to the webpage for a table of the confidence interval
     #results.
     html_tcig=html.add_section('2D confidence intervals (greedy binning)')
@@ -328,7 +514,7 @@ def cbcBayesPostProc(
 
     #=  Add a section for a table of 2D marginal PDFs (kde)
     html_tcmp=html.add_section('2D Marginal PDFs')
-    
+
     #Table matter
     html_tcmp_write='<table border="1">'
 
@@ -394,10 +580,15 @@ def cbcBayesPostProc(
 
 
         #= Plot 2D histograms of greedily binned points =#
-        greedy2PlotFig=bppu.plot_two_param_greedy_bins(array(toppoints),pos,greedy2Params)
-        greedy2PlotFig.savefig(os.path.join(twobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name)))
+
+        greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
+        greedy2ContourPlot.savefig(os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name)))
+
+        greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
+        greedy2HistFig.savefig(os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name)))
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
+
         #= Write out statistics for greedy bins
         for cl in cls:
             greedyFile.write("%lf %lf\n"%(cl,reses[cl]))
@@ -445,152 +636,14 @@ def cbcBayesPostProc(
     #Add a link to all plots
     html_tcmp.a("2Dkde/",'All 2D marginal PDFs (kde)')
 
-
-    #==================================================================#
-    #1D posteriors
-    #==================================================================#
-
-    #Loop over each parameter and determine the contigious and greedy
-    #confidence levels and some statistics.
-
-    #Add section for 1D confidence intervals
-    html_ogci=html.add_section('1D confidence intervals (greedy binning)')
-    #Generate the top part of the table
-    html_ogci_write='<table id="statstable" border="1"><tr><th/>'
-    confidence_levels.sort()
-    for cl in confidence_levels:
-        html_ogci_write+='<th>%f</th>'%cl
-    if injection:
-        html_ogci_write+='<th>Injection Confidence Level</th>'
-        html_ogci_write+='<th>Injection Confidence Interval</th>'
-    html_ogci_write+='</tr>'
-
-    #Add section for 1D marginal PDFs and sample plots
-    html_ompdf=html.add_section('1D marginal posterior PDFs')
-    #Table matter
-    html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
-
-    onepdfdir=os.path.join(outdir,'1Dpdf')
-    if not os.path.isdir(onepdfdir):
-        os.makedirs(onepdfdir)
-
-    sampsdir=os.path.join(outdir,'1Dsamps')
-    if not os.path.isdir(sampsdir):
-        os.makedirs(sampsdir)
-
-    for par_name in oneDMenu:
-        par_name=par_name.lower()
-        print "Binning %s to determine confidence levels ..."%par_name
-        try:
-            pos[par_name.lower()]
-        except KeyError:
-            print "No input chain for %s, skipping binning."%par_name
-            continue
-        try:
-            par_bin=GreedyRes[par_name]
-        except KeyError:
-            print "Bin size is not set for %s, skipping binning."%par_name
-            continue
-
-        binParams={par_name:par_bin}
-
-        toppoints,injectionconfidence,reses,injection_area=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
-
-        oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
-
-        #Generate new BCI html table row
-        BCItableline='<tr><td>%s</td>'%(par_name)
-        cls=reses.keys()
-        cls.sort()
-
-        for cl in cls:
-            BCItableline+='<td>%f</td>'%reses[cl]
-
-        if injection is not None:
-            if injectionconfidence is not None and injection_area is not None:
-            
-                BCItableline+='<td>%f</td>'%injectionconfidence
-                BCItableline+='<td>%f</td>'%injection_area
-
-            else:
-                BCItableline+='<td/>'
-                BCItableline+='<td/>'
-
-        BCItableline+='</tr>'
-
-        #Append new table line to section html
-        html_ogci_write+=BCItableline
-
-        #Generate 1D histogram/kde plots
-        print "Generating 1D plot for %s."%par_name
-        oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
-
-        figname=par_name+'.png'
-        oneDplotPath=os.path.join(onepdfdir,figname)
-        plotFig.savefig(oneDplotPath)
-
-        if rbins:
-            print "r of injected value of %s (bins) = %f"%(par_name, rbins)
-
-        ##Produce plot of raw samples
-        myfig=plt.figure(figsize=(4,3.5),dpi=200)
-        pos_samps=pos[par_name].samples
-        if not ("chain" in pos.names):
-            # If there is not a parameter named "chain" in the
-            # posterior, then just produce a plot of the samples.
-            plt.plot(pos_samps,'.',figure=myfig)
-            maxLen=len(pos_samps)
-        else:
-            # If there is a parameter named "chain", then produce a
-            # plot of the various chains in different colors, with
-            # smaller dots.
-            data,header=pos.samples()
-            par_index=pos.names.index(par_name)
-            chain_index=pos.names.index("chain")
-            chains=numpy.unique(pos["chain"].samples)
-            chainData=[data[ data[:,chain_index] == chain, par_index ] for chain in chains]
-            chainDataRanges=[range(len(cd)) for cd in chainData]
-            maxLen=max([len(cd) for cd in chainData])
-            for rng, data in zip(chainDataRanges, chainData):
-                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
-            
-        injpar=pos[par_name].injval
-
-        if injpar:
-            if min(pos_samps)<injpar and max(pos_samps)>injpar:
-                #FIXME: Here!  Lines too long.
-                plt.plot([0,maxLen],[injpar,injpar],'r-.')
-        myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
-
-        acffig=plt.figure(figsize=(4,3.5),dpi=200)
-        if not ("chain" in pos.names):
-            data=pos_samps[:,0]
-            mu=numpy.mean(data)
-            corr=numpy.correlate((data-mu),(data-mu),mode='full')
-            N=len(data)
-            plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-        else:
-            for rng, data in zip(chainDataRanges, chainData):
-                mu=numpy.mean(data)
-                corr=numpy.correlate(data-mu,data-mu,mode='full')
-                N=len(data)
-                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-
-        acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
-
-        html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
-
-
-    html_ompdf_write+='</table>'
-
-    html_ompdf.write(html_ompdf_write)
-
-    html_ogci_write+='</table>'
-    html_ogci.write(html_ogci_write)
-
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
+
+    cc_args=''
+    for arg in sys.argv:
+        cc_args+=arg+' '
+
+    html_footer.p('Command line: %s'%cc_args)
     html_footer.p(git_version.verbose_msg)
 
     #Save results page
@@ -616,6 +669,9 @@ if __name__=='__main__':
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
+    parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
+    parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
+    parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
     parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
@@ -629,10 +685,12 @@ if __name__=='__main__':
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
+    # ACF plots off?
+    parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2']
+    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','chi']
     #List of parameter pairs to bin . Need to match (converted) column names.
     twoDGreedyMenu=[]
     for i in range(0,len(oneDMenu)):
@@ -641,17 +699,20 @@ if __name__=='__main__':
 
     # twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05}
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
-    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota']]
+    #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
+    twoDplots=twoDGreedyMenu
 
     cbcBayesPostProc(
                         opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
                         injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        # direct integration evidence
+                        dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
                         #nested sampling options
@@ -661,6 +722,8 @@ if __name__=='__main__':
                         #LALInferenceMCMC options
                         li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,
                         #followupMCMC options
-                        fm_flag=opts.fm
+                        fm_flag=opts.fm,
+                        # Turn of ACF?
+                        noacf=opts.noacf
                     )
 #
