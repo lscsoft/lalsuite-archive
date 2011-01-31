@@ -619,7 +619,8 @@ setup(
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
-                os.path.join("bin", "ligo_channel_query"),
+		os.path.join("bin", "cbcBayesCompPos.py"),
+		os.path.join("bin", "ligo_channel_query")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
