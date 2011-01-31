@@ -69,7 +69,6 @@ __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 __default_color_lst=['r','b','y','g','k']
 #A default css string for use in html results pages. 
 __default_css_string="""
-
 p,h1,h2,h3,h4,h5
 {
 font-family:"Trebuchet MS", Arial, Helvetica, sans-serif;
@@ -1358,8 +1357,10 @@ def plot_sky_map(top_ranked_pixels,outdir):
     myfig=plt.figure()
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
+    
     plx,ply=m(
-              np.asarray(top_ranked_pixels)[::-1,1]*57.296,
+              ra_reverse,
               np.asarray(top_ranked_pixels)[::-1,0]*57.296
               )
 
@@ -1459,6 +1460,8 @@ def plot_one_param_pdf(posterior,plot1DParams):
     injpar=posterior[param].injval
 
     myfig=plt.figure(figsize=(4,3.5),dpi=200)
+    axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+    myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
     histbinSize=bins[1]-bins[0]
@@ -1509,7 +1512,7 @@ def getRAString(radians):
     mins = floor(rem*((12*60)/pi_constant))
     rem = rem - mins*(pi_constant/(12*60))
     secs = rem*(12*3600/pi_constant)
-    return '%ih%im%2.0fs'%(hours,mins,secs)
+    return '$%i\mathrm{h}%i^{\'}%2.0f^{\'\'}$'%(hours,mins,secs)
 
 def getDecString(radians):
     if(radians<0):
@@ -1523,7 +1526,7 @@ def getDecString(radians):
     mins = round(rem*((180.0*60.0)/pi_constant))
     rem = rem - mins*(pi_constant/(180.0*60.0))
     secs = rem * (180.0*60.0*60.0)/pi_constant
-    return '%ideg%im%2.0fs'%(deg,sign*mins,sign*secs)
+    return '$%i^\circ%i^{\'}%2.0f^{\'\'}$'%(deg,sign*mins,sign*secs)
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -1550,6 +1553,7 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     sp_seterr(under='ignore')
 
     myfig=plt.figure(1,figsize=(6,4),dpi=200)
+    myfig.add_axes(plt.Axes(myfig,[0.2,0.25,0.75,0.7]))
     plt.clf()
 
     xax=np.linspace(min(xdat),max(xdat),Nx)
@@ -1623,7 +1627,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig=plt.figure(1,figsize=(30,20),dpi=150)
     plt.clf()
 
-    fig.add_axes([0.1,0.1,0.58,0.85])
+    fig.add_axes([0.2,0.2,0.48,0.75])
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
