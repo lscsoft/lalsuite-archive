@@ -353,7 +353,7 @@ class Posterior(object):
         @param samples: The indixes of the samples to remove.
         """
         for name,pos in self:
-            pos.delete(samples)
+            pos.delete_samples_by_idx(samples)
 
     @property
     def injection(self):
