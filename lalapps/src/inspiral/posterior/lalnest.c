@@ -161,6 +161,10 @@ void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT);
 void NestInitInj(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 
+// prototype for the FD injection code
+
+void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *template);
+
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
 	LALStatus status;
@@ -713,9 +717,20 @@ int main( int argc, char *argv[])
 				inputMCMC.stilde[i]->data->data[j].im/=sqrt(windowplan->sumofsquares / windowplan->data->length);
 			}
 		} /* End if(!FakeFlag) */
-
+		
+		/* read in the injection approximant and determine whether is a time domain or a frequency domain injection */
+		Approximant injapprox;
+		LALGetApproximantFromString(&status,injTable->waveform,&injapprox);
+		if (NULL!=injXMLFile && fakeinj==0 && injapprox==TaylorF2) 
+		{
+			SimInspiralTable this_injection;
+            printf("injection table waveform %s\n",injTable->waveform);
+			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
+			this_injection.next=NULL;
+			InjectFD(&status, &inputMCMC,  &this_injection);
+		}
 		/* Perform injection in time domain */
-		if(NULL!=injXMLFile && fakeinj==0) {
+		else if(NULL!=injXMLFile && fakeinj==0) {
 			DetectorResponse det;
 			REAL8 SNR=0.0;
 			LIGOTimeGPS realSegStart;
@@ -1471,3 +1486,96 @@ int checkParamInList(const char *list, const char *param)
 	return 1;
 }
 
+///*-----------------------------------------------------------*/
+void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *template)
+///*-------------- Inject in Frequency domain -----------------*/
+{
+	/* Inject a gravitational wave into the data in the frequency domain */
+	REAL4Vector *injWave=NULL;
+	int det_i,i;
+	double end_time = 0.0;
+	double deltaF = inputMCMC->deltaF;
+	double mchirp = 0.0;
+	double TimeFromGC,resp_r,resp_i;
+	REAL8 ChirpLength=0.0;
+	UINT4 Nmodel; /* Length of the model */
+	LALDetAMResponse det_resp;
+
+	/* Create the injection data structure */
+	/*LALCreateVector(&status,&injModel,MCMCinput->stilde[0]->length); */
+
+	Nmodel = (inputMCMC->stilde[0]->data->length)*2;
+	if(model==NULL)	LALCreateVector(status,&injWave,Nmodel); /* Allocate storage for the waveform */
+
+	/* Create the wave */
+	LALInspiralParameterCalc(status,template);
+	LALInspiralRestrictedAmplitude(status,template);
+	LALInspiralWave(status,injWave,template);
+
+	/* Wave is now stored in the REAL4Vector model, defined in LALInspiralMCMCUser.h */
+
+	/* Transform into the appropriate frame and add to the data */
+
+	/* Calculate end_time into segment */
+
+	end_time =(REAL8) template->geocent_end_time.gpsSeconds + (REAL8)template->geocent_end_time.gpsNanoSeconds *1.0e-9;
+	ChirpLength =(REAL8) template->end_time_gmst;
+	/* Time from the end of segment to desired end_time */
+	/* end_time =-4.0; */
+	fprintf(stderr,"end time injection = %e\n",end_time);
+	fprintf(stderr,"ChirpLength injection = %e\n",ChirpLength);
+
+	/* Calculate response of the detectors */
+	LALSource source;
+	memset(&source,sizeof(LALSource),0);
+	source.equatorialCoords.longitude = (REAL8)template->longitude;
+	source.equatorialCoords.latitude = (REAL8) template->latitude;
+	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
+	source.orientation = (REAL8) template->inclination; //?different thing - rotation about line of sight
+	strncpy(source.name,"blah",sizeof(source.name));
+
+	LALDetAndSource det_source;
+	det_source.pSource = &source;
+
+	double ci = cos((REAL8) template->inclination);
+	double injSNR=0;
+
+	INT4 Ncomplex = inputMCMC->stilde[0]->data->length;
+	REAL8 time_sin,time_cos;
+
+	for (det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){
+		char InjFileName[50];
+		sprintf(InjFileName,"injection_%i.dat",det_i);
+		FILE *outInj=fopen(InjFileName,"w");
+
+		/* Compute detector amplitude response */
+		det_source.pDetector = (inputMCMC->detector[det_i]); /* select detector */
+		LALComputeDetAMResponse(status,&det_resp,&det_source,&inputMCMC->epoch); /* Compute det_resp */
+
+		det_resp.plus*=0.5*(1.0+ci*ci);
+		det_resp.cross*=-ci;
+
+		REAL8 chisq=0;
+		for(i=1;i<Ncomplex;i++){
+			time_sin = sin(LAL_TWOPI*(end_time+TimeFromGC)*((double) i)*(inputMCMC->deltaF));
+			time_cos = cos(LAL_TWOPI*(end_time+TimeFromGC)*((double) i)*(inputMCMC->deltaF));
+			REAL8 hc = (REAL8)model->data[i]*time_cos + (REAL8)model->data[Nmodel-i]*time_sin;
+			REAL8 hs = (REAL8)model->data[Nmodel-i]*time_cos - (REAL8)model->data[i]*time_sin;
+			resp_r = det_resp.plus * hc - det_resp.cross * hs;
+			resp_i = det_resp.cross * hc + det_resp.plus * hs;
+			resp_r/=deltaF; resp_i/=deltaF;
+			inputMCMC->stilde[det_i]->data->data[i].re+=resp_r;
+			inputMCMC->stilde[det_i]->data->data[i].im+=resp_i;
+			fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,inputMCMC->stilde[det_i]->data->data[i].re,inputMCMC->stilde[det_i]->data->data[i].im,resp_r,resp_i,inputMCMC->invspec[det_i]->data->data[i]);
+			chisq+=inputMCMC->invspec[det_i]->data->data[i]*(resp_r*resp_r+resp_i*resp_i)*deltaF;
+
+		}
+		chisq*=4.0;
+		injSNR+=chisq;
+		fclose(outInj);
+	}
+	injSNR=sqrt(injSNR);
+
+	fprintf(stdout,"Injected signal, network SNR = %lf\n",injSNR);
+	return;
+}
