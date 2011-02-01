@@ -727,7 +727,7 @@ int main( int argc, char *argv[])
             printf("injection table waveform %s\n",injTable->waveform);
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
 			this_injection.next=NULL;
-			InjectFD(&status, &inputMCMC,  &this_injection);
+			InjectFD(&status, &inputMCMC, &this_injection);
 		}
 		/* Perform injection in time domain */
 		else if(NULL!=injXMLFile && fakeinj==0) {
@@ -1492,10 +1492,9 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 {
 	/* Inject a gravitational wave into the data in the frequency domain */
 	REAL4Vector *injWave=NULL;
-	int det_i,i;
+	UINT4 det_i,i;
 	double end_time = 0.0;
 	double deltaF = inputMCMC->deltaF;
-	double mchirp = 0.0;
 	double TimeFromGC,resp_r,resp_i;
 	REAL8 ChirpLength=0.0;
 	UINT4 Nmodel; /* Length of the model */
@@ -1504,15 +1503,21 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 	/* Create the injection data structure */
 	/*LALCreateVector(&status,&injModel,MCMCinput->stilde[0]->length); */
 
-	Nmodel = (inputMCMC->stilde[0]->data->length)*2;
+	Nmodel = (inputMCMC->stilde[0]->data->length)*2.0;
 	if(model==NULL)	LALCreateVector(status,&injWave,Nmodel); /* Allocate storage for the waveform */
 
 	/* Create the wave */
 	LALInspiralParameterCalc(status,template);
 	LALInspiralRestrictedAmplitude(status,template);
 	LALInspiralWave(status,injWave,template);
-
-	/* Wave is now stored in the REAL4Vector model, defined in LALInspiralMCMCUser.h */
+    char InjTestName[50];
+    sprintf(InjTestName,"injection_test.dat");
+    FILE *outInj_test=fopen(InjTestName,"w");
+	for(i=1;i<Nmodel;i++){
+        fprintf(outInj_test,"%lf %e\n",i*deltaF,injWave);
+    }
+    fclose(outInj_test);
+    /* Wave is now stored in the REAL4Vector model, defined in LALInspiralMCMCUser.h */
 
 	/* Transform into the appropriate frame and add to the data */
 
@@ -1528,7 +1533,7 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 	/* Calculate response of the detectors */
 	LALSource source;
 	memset(&source,sizeof(LALSource),0);
-	source.equatorialCoords.longitude = (REAL8)template->longitude;
+	source.equatorialCoords.longitude = (REAL8) template->longitude;
 	source.equatorialCoords.latitude = (REAL8) template->latitude;
 	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
 	source.orientation = (REAL8) template->inclination; //?different thing - rotation about line of sight
@@ -1538,9 +1543,9 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 	det_source.pSource = &source;
 
 	double ci = cos((REAL8) template->inclination);
-	double injSNR=0;
+	double SNRinj=0;
 
-	INT4 Ncomplex = inputMCMC->stilde[0]->data->length;
+	UINT4 Ncomplex = inputMCMC->stilde[0]->data->length;
 	REAL8 time_sin,time_cos;
 
 	for (det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){
@@ -1571,10 +1576,10 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 
 		}
 		chisq*=4.0;
-		injSNR+=chisq;
+		SNRinj+=chisq;
 		fclose(outInj);
 	}
-	injSNR=sqrt(injSNR);
+	SNRinj=sqrt(SNRinj);
 
 	fprintf(stdout,"Injected signal, network SNR = %lf\n",injSNR);
 	return;
