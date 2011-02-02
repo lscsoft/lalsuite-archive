@@ -68,11 +68,7 @@ Optional OPTIONS:\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
 [--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior chirp masses\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
-<<<<<<< HEAD
 [--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
-=======
-[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor|IMRPhenomFB_Chi_low)|IMRPhenomB_Chi_low]\n \
->>>>>>> master
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
 [--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\n\
 [--H1GPSshift FLOAT\t: Specify timeslide in H1]\n \
@@ -88,41 +84,11 @@ Optional OPTIONS:\n \
 [--pinparams STRING\t:\tList parameters to be fixed to their injected values (, separated) i.e. --pinparams mchirp,longitude\n \
 [--version\t:\tPrint version information and exit]\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
-<<<<<<< HEAD
 [--help\t:\tPrint this message]\n \
-[--phaseParamTest\t STRING:\t where STRING is (phi0|[phi1 NOT IMPLEMENTED!]|phi2|phi3|phi4|phi5|phi5l|phi6|phi6l|phi7)]\n"
-=======
+[--phaseParamTest\t STRING:\t where STRING is (phi0|[phi1 NOT IMPLEMENTED!]|phi2|phi3|phi4|phi5|phi5l|phi6|phi6l|phi7)]\n \
 [--flow NUM\t:\t:Set low frequency cutoff (default 40Hz)]\n\
-\n\n \
-Optional PhenSpinTaylorRD_template OPTIONS:\n \
-[--onespin_flag INT\t:\tSet S2=(0,0,0) in PhenSpinTaylorRD template waveform]\n \
-[--nospin_flag INT\t:\tSet S1=S2=(0,0,0) in PhenSpinTaylorRD template waveform]\n \
-[--m_tot_min FLOAT\t:\tSet lower limit on total mass for PhenSpinTaylorRD template waveform. Default is 2 solar masses]\n \
-[--m_tot_max FLOAT\t:\tSet upper limit on total mass for PhenSpinTaylorRD template waveform. Default is 35 solar masses]\n \
-[--d_min FLOAT\t:\tSet lower limit on source distance for PhenSpinTaylorRD template waveform. Default is 1Mpc.]\n \
-[--d_max FLOAT\t:\tSet upper limit on source distance for PhenSpinTaylorRD template waveform. Default is 100Mpc.]\n \
-[--s1_mag_min FLOAT\t:\tSet lower limit on spin magnitude of body 1 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--s1_mag_max FLOAT\t:\tSet upper limit on spin magnitude of body 1 for PhenSpinTaylorRD template waveform. Default is 1.]\n \
-[--s1_theta_min FLOAT\t:\tSet lower limit on spin polar angle for body 1 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--s1_theta_max FLOAT\t:\tSet upper limit on spin polar angle for body 1 for PhenSpinTaylorRD template waveform. Default is PI.]\n \
-[--s1_phi_min FLOAT\t:\tSet lower limit on spin azimuthal angle for body 1 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--s1_phi_max FLOAT\t:\tSet upper limit on spin azimuthal angle for body 1 for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
-[--s2_mag_min FLOAT\t:\tSet lower limit on spin magnitude of body 2 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--s2_mag_max FLOAT\t:\tSet upper limit on spin magnitude of body 2 for PhenSpinTaylorRD template waveform. Default is 1.]\n \
-[--s2_theta_min FLOAT\t:\tSet lower limit on spin polar angle for body 2 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--s2_theta_max FLOAT\t:\tSet upper limit on spin polar angle for body 2 for PhenSpinTaylorRD template waveform. Default is PI.]\n \
-[--s2_phi_min FLOAT\t:\tSet lower limit on spin azimuthal angle for body 2 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--s2_phi_max FLOAT\t:\tSet upper limit on spin azimuthal angle for body 2 for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
-[--lat_min FLOAT\t:\tSet lower limit on source plane declination for PhenSpinTaylorRD template waveform. Default is -PI/2.]\n \
-[--lat_max FLOAT\t:\tSet upper limit on source plane declination for PhenSpinTaylorRD template waveform. Default is PI/2.]\n \
-[--long_min FLOAT\t:\tSet lower limit on source plane RA for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--long_max FLOAT\t:\tSet upper limit on source plane RA for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
-[--iota_min FLOAT\t:\tSet lower limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is 0.]\n \
-[--iota_max FLOAT\t:\tSet upper limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is PI.]\n \
 [--help\t:\tPrint this message]\n \
 "
->>>>>>> master
-
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -187,7 +153,6 @@ extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
-<<<<<<< HEAD
 
 INT4 PhaseTestParam;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
@@ -196,40 +161,14 @@ int checkParamInList(const char *list, const char *param);
 // init function for the Phi-parametrized AmpCor waveform
 
 void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT);
-=======
+
 UINT4 fLowFlag=0;
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 
-/* variables for NestInitManualPhenSpinRD_manual */
-double compmassmin=1.;
-double m_tot_min=2.;
-double m_tot_max=35.;
-double m_tot_min_highmass=30.;
-double m_tot_max_highmass=300.;
-double d_min=1.;
-double d_max=100.;
-double s1_mag_min=0.;
-double s1_mag_max=1.;
-double s2_mag_min=0.;
-double s2_mag_max=1.;
-double s1_theta_min=0.;
-double s2_theta_min=0.;
-double s1_phi_min=0.;
-double s2_phi_min=0.;
-double s1_theta_max=LAL_PI;
-double s2_theta_max=LAL_PI;
-double s1_phi_max=LAL_TWOPI;
-double s2_phi_max=LAL_TWOPI;
-double iota_min=0.;
-double iota_max=LAL_PI;
-double long_min=0.;
-double long_max=LAL_TWOPI;
-double lat_min=-LAL_PI/2.;
-double lat_max=LAL_PI/2.;
 /* */
->>>>>>> master
+
 void NestInitManual(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT);
@@ -238,7 +177,6 @@ void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT);
 void NestInitGRB(LALMCMCParameter *parameter, void *iT);
 void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT);
 void NestInitInj(LALMCMCParameter *parameter, void *iT);
-void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 
 // prototype for the FD injection code
@@ -318,143 +256,11 @@ void initialise(int argc, char *argv[]){
 		{"help",no_argument,0,'h'},
 		{"pinparams",required_argument,0,21},
 		{"datadump",required_argument,0,22},
-<<<<<<< HEAD
 		{"phaseParamTest",required_argument,0,'Q'},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
 	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb:Q",long_options,&i))!=-1){ switch(i) {
-=======
-		{"flow",required_argument,0,23},
-		{"nospin",required_argument,0,25},
-		{"onespin",required_argument,0,26},
-		{"M_min",required_argument,0,40},
-		{"M_max",required_argument,0,41},
-		{"d_min",required_argument,0,42},
-		{"d_max",required_argument,0,43},
-		{"s1_mag_min",required_argument,0,44},
-		{"s1_mag_max",required_argument,0,45},
-		{"s2_mag_min",required_argument,0,46},
-		{"s2_mag_max",required_argument,0,47},
-		{"s1_theta_min",required_argument,0,48},
-		{"s1_theta_max",required_argument,0,49},
-		{"s2_theta_min",required_argument,0,50},
-		{"s2_theta_max",required_argument,0,51},
-		{"s1_phi_min",required_argument,0,52},
-		{"s1_phi_max",required_argument,0,53},
-		{"s2_phi_min",required_argument,0,54},
-		{"s2_phi_max",required_argument,0,55},
-		{"lat_min",required_argument,0,56},
-		{"lat_max",required_argument,0,57},
-		{"long_min",required_argument,0,58},
-		{"long_max",required_argument,0,59},
-		{"iota_min",required_argument,0,60},
-		{"iota_max",required_argument,0,61},
-		{"m_tot_min",required_argument,0,62},
-		{"m_tot_max",required_argument,0,63},
-		{0,0,0,0}};
-
-	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
-	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb",long_options,&i))!=-1){ switch(i) {
-		case 40:
-			m_tot_min=atof(optarg);
-			break;
-		case 41:
-			m_tot_max=atof(optarg);
-			break;
-		case 42:
-			d_min=atof(optarg);
-			break;
-		case 43:
-			d_max=atof(optarg);
-			break;
-		case 44:
-			s1_mag_min=atof(optarg);
-			if (s1_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplituade is 0, please set --s1_mag_min 0 or more.\n");exit(1);}
-			break;
-		case 45:
-			s1_mag_max=atof(optarg);
-            if (s1_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplituade is 1, please set --s1_mag_max 1 or less.\n");exit(1);}
-			break;
-		case 46:
-			s2_mag_min=atof(optarg);
-			if (s2_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplituade is 0, please set --s2_mag_min 0 or more.\n");exit(1);}
-			break;
-		case 47:
-			s2_mag_max=atof(optarg);
-            if (s2_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplituade is 1, please set --s2_mag_max 1 or less.\n");exit(1);}			
-			break;
-		case 48:
-			s1_theta_min=atof(optarg);
-			if (s1_theta_min<0.) {fprintf(stderr,"ERROR: The minimum spin polar angle is 0, please set --s1_theta_min 0 or more.\n");exit(1);}
-			break;
-		case 49:
-			s1_theta_max=atof(optarg);
-            if (s1_theta_max>LAL_PI) {fprintf(stderr,"ERROR: The maximum spin polar angle is pi, please set --s1_theta_max pi or less.\n");exit(1);}
-			break;
-		case 50:
-            s2_theta_min=atof(optarg);
-            if (s2_theta_min<0.) {fprintf(stderr,"ERROR: The minimum spin polar angle is 0, please set --s1_theta_min 0 or more.\n");exit(1);}
-            break;
-		case 51:
-            s2_theta_max=atof(optarg);
-            if (s2_theta_max>LAL_PI) {fprintf(stderr,"ERROR: The maximum spin polar angle is pi, please set --s1_theta_max pi or less.\n");exit(1);}
-			break;
-		case 52:
-			s1_phi_min=atof(optarg);
-			if (s1_phi_min<0.) {fprintf(stderr,"ERROR: The minimum spin azimuthal angle is 0, please set --s1_phi_min 0 or more.\n");exit(1);}
-			break;
-		case 53:
-            s1_phi_min=atof(optarg);
-            if (s1_phi_min>LAL_TWOPI) {fprintf(stderr,"ERROR: The maximum spin azimuthal angle is 2pi, please set --s1_phi_max 2pi or less.\n");exit(1);}
-            break;
-		case 54:
-            s2_phi_min=atof(optarg);
-            if (s2_phi_min<0.) {fprintf(stderr,"ERROR: The minimum spin azimuthal angle is 0, please set --s1_phi_min 0 or more.\n");exit(1);}
-            break;
-		case 55:
-            s2_phi_min=atof(optarg);
-            if (s2_phi_min>LAL_TWOPI) {fprintf(stderr,"ERROR: The maximum spin azimuthal angle is 2pi, please set --s1_phi_max 2pi or less.\n");exit(1);}
- 			break;
-		case 56:
-			lat_min=atof(optarg);
-			if (lat_min<-LAL_PI/2.) {fprintf(stderr,"ERROR: The minimum latitude is -pi/2, please set --lat_min -pi/2 or more.\n");exit(1);}
-			break;
-		case 57:
-			lat_max=atof(optarg);
-			if (lat_max>LAL_PI/2.) {fprintf(stderr,"ERROR: The maximum latitude is pi/2, please set --lat_max pi/2 or less.\n");exit(1);}
-			break;
-		case 58:
-			long_min=atof(optarg);
-			if (long_min<0.) {fprintf(stderr,"ERROR: The minimum longitude is 0, please set --long_min 0 or more.\n");exit(1);}
-			break;
-		case 59:
-			long_max=atof(optarg);
-			if (long_max>LAL_TWOPI) {fprintf(stderr,"ERROR: The maximum longitude is 2pi, please set --long_max 2pi or less.\n");exit(1);}
-			break;
-		case 60:
-			iota_min=atof(optarg);
-			if (iota_min<0.) {fprintf(stderr,"ERROR: The minimum inclination is 0, please set --iota_min 0 or more.\n");exit(1);}
-			break;
-		case 61:
-			iota_max=atof(optarg);
-			if (iota_max>LAL_PI) {fprintf(stderr,"ERROR: The maximum inclination is pi, please set --iota_max pi or less.\n");exit(1);} 
-			break;
-		case 62:
-			m_tot_min=atof(optarg);
-			if (m_tot_min<0.) {fprintf(stderr,"ERROR: Masses must be positive.\n");exit(1);}
-			break;
-		case 63:
-			m_tot_max=atof(optarg);
-			if (m_tot_max>35.) {fprintf(stderr,"Warning: Highmass flag not set.\n");exit(1);}
-			break;
-		case 25:
-			 nospin_flag=atof(optarg);
-		   	 break;
-		case 26:
-			onespin_flag=atof(optarg);
-			break;
->>>>>>> master
 		case 'h':
 			fprintf(stdout,USAGE);
 			exit(0);
@@ -625,18 +431,11 @@ void initialise(int argc, char *argv[]){
 		case 'L':
 			timeslides=1;
 			break;
-<<<<<<< HEAD
 		case 'Q':
             PhaseTest=(CHAR *)malloc(strlen(optarg)+1);
             strcpy(PhaseTest,optarg);
             break;
-=======
-		case 23:
-			fLow=atof(optarg);
-			fLowFlag=1;
-			break;
->>>>>>> master
-		default:
+        default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
 	}
@@ -1054,21 +853,12 @@ int main( int argc, char *argv[])
 			printf("Finished InjectSignals\n");
 			fprintf(stderr,"Cutting injection buffer from %d to %d\n",bufferlength,seglen);
 
-<<<<<<< HEAD
             TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
-=======
-			TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
->>>>>>> master
 			TrigSegStart+=(INT4)((segmentStart.gpsNanoSeconds - injWave->epoch.gpsNanoSeconds)*1e-9*SampleRate);
-
+            printf("TrigSegStart: %d\n",TrigSegStart);
+            printf("Length: %d\n",seglen);
 			injWave=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injWave,TrigSegStart,seglen);
-            char InjTestName1[50];
-            sprintf(InjTestName1,"injection_test1.dat");
-            FILE *outInj_test1=fopen(InjTestName1,"w");
-            for(i=1;i<injWave->data->length;i++){
-                fprintf(outInj_test1,"%lf %e\n",i*inputMCMC.deltaF,injWave->data->data[i]);
-            }
-            fclose(outInj_test1);
+
 			fprintf(stderr,"Cut buffer start time=%lf, segment start time=%lf\n",injWave->epoch.gpsSeconds+1e-9*injWave->epoch.gpsNanoSeconds,inputMCMC.stilde[i]->epoch.gpsSeconds + 1.0e-9*inputMCMC.stilde[i]->epoch.gpsNanoSeconds);
 			REPORTSTATUS(&status);
 			if(decohereflag) {
@@ -1155,11 +945,7 @@ int main( int argc, char *argv[])
     inputMCMC.Fwfp = XLALCreateREAL4Vector(inputMCMC.numPoints);//Fourier modes + of T-model: PhenSpin deal with "+" & "x" polarisations differently so we set them here
 	inputMCMC.Fwfc = XLALCreateREAL4Vector(inputMCMC.numPoints); //Fourier modes x of T-model: PhenSpin deal with "+" & "x" polarisations differently so we set them here
 	/* Set up the approximant to use in the likelihood function */
-<<<<<<< HEAD
 	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest";
-=======
-	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low"; CHAR PSTRD[]="PhenSpinTaylorRD";
->>>>>>> master
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
@@ -1170,13 +956,10 @@ int main( int argc, char *argv[])
     else if(!strcmp(approx,BBHSpin1)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,BBHSpin2)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,BBHSpin3)) inputMCMC.approximant=IMRPhenomFB;
-    else if(!strcmp(approx,LowMassIMRFB)) inputMCMC.approximant=IMRPhenomFB;
-    else if(!strcmp(approx,LowMassIMRB)) inputMCMC.approximant=IMRPhenomB;
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
 	else if(!strcmp(approx,AMPCORTEST)) inputMCMC.approximant=AmpCorPPNTest;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
-	else if(!strcmp(approx,PSTRD)) inputMCMC.approximant=PhenSpinTaylorRD;
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
 	if((inputMCMC.approximant!=AmpCorPPN || inputMCMC.approximant!=AmpCorPPNTest) && ampOrder!=0){
@@ -1298,18 +1081,6 @@ doneinit:
         inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
         inputMCMC.funcInit = NestInitManualIMRBChi;
     }
-    if((!strcmp(approx,LowMassIMRB)) || (!strcmp(approx,LowMassIMRFB)) ){
-	inputMCMC.funcPrior = NestPrior;
-	inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
-	inputMCMC.funcInit = NestInitManualIMRBChi;
-    }
-   
-    	if(!strcmp(approx,PSTRD)) {
-	  inputMCMC.funcPrior = NestPriorPhenSpin;
-	  inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF_PhenSpin;
-	  inputMCMC.likelihoodPlan = NULL;
-	  inputMCMC.funcInit = NestInitManualPhenSpinRD;
-	} 
      
 	/* Live is an array of LALMCMCParameter * types */
 	Live = (LALMCMCParameter **)LALMalloc(Nlive*sizeof(LALMCMCParameter *));
@@ -1358,99 +1129,6 @@ doneinit:
 	}
 	return(0);
 } /* End main() */
-void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
-{
-  (void)iT;
-
-  double dmin=d_min;
-  double dmax=d_max;
- 
-
-  double singleMassMin=compmassmin;
-  double totalMassMin=m_tot_min;
-  double totalMassMax=m_tot_max;
-  if ( (manual_mass_high > manual_mass_low) && (manual_mass_low>2.*singleMassMin) ) {
-    totalMassMin=manual_mass_low;
-    totalMassMax=manual_mass_high;
-  }
-  else {
-    if (HighMassFlag) {
-      totalMassMin=m_tot_min_highmass;
-      totalMassMax=m_tot_max_highmass;
-    }
-  }
-  
-
-  double etamin=0.25 - etawindow;
-  double eta=etamin+gsl_rng_uniform(RNG)*(0.25-etamin);
-
-  double logMc;
-  double mcmax=0.435275*totalMassMax;
-  double mcmin=pow((totalMassMin-1.)*(totalMassMin-1.)*(totalMassMin-1.)/totalMassMin,0.2);
-  double lMcmin=log(mcmin);
-  double lMcmax=log(mcmax);
-
-  parameter->param=NULL;
-  parameter->dimension = 0;
-  
-  logMc=log(50.*pow(eta,3./5.));
-
-    XLALMCMCAddParam(parameter,"logMc",logMc,lMcmin,lMcmax,0);
-
-  XLALMCMCAddParam(parameter,"eta",eta,etamin,0.25,0);
-
-    XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
-    XLALMCMCAddParam(parameter,"phi", LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
-    XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax,0);
-    XLALMCMCAddParam(parameter,"long",gsl_rng_uniform(RNG)*(long_max-long_min)+long_min,long_min,long_max,0);
-    XLALMCMCAddParam(parameter,"lat", gsl_rng_uniform(RNG)*(lat_max-lat_min)+lat_min,lat_min,lat_max,0);
-    XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI/2.0,0,LAL_PI/2.0,0);
-    XLALMCMCAddParam(parameter,"iota", gsl_rng_uniform(RNG)*(iota_max-iota_min)+iota_min ,iota_min,iota_max,0);
-    
-    if(onespin_flag==0 && nospin_flag==0){
-    
-    double spin1min=s1_mag_min;
-    double spin1max=s1_mag_max;
-
-    double spin2min=s2_mag_min;
-    double spin2max=s2_mag_max;
-    
-    double spin1thetamin=s1_theta_min;
-    double spin1thetamax=s1_theta_max;
-        
-    double spin2thetamin=s2_theta_min;
-    double spin2thetamax=s2_theta_max;
-
-    double spin1phimin=s1_phi_min;
-    double spin1phimax=s1_phi_max;
-
-    double spin2phimin=s2_phi_min;
-    double spin2phimax=s2_phi_max;
-
-    XLALMCMCAddParam(parameter,"Spin1",    (spin1max-spin1min)*gsl_rng_uniform(RNG)+spin1min,  spin1min, spin1max, 0);
-    XLALMCMCAddParam(parameter,"Spin1theta",(spin1thetamax-spin1thetamin)*gsl_rng_uniform(RNG)+spin1thetamin, spin1thetamin, spin1thetamax, 1);
-    XLALMCMCAddParam(parameter,"Spin1phi",  (spin1phimax-spin1phimin)*gsl_rng_uniform(RNG)+spin1phimin,  spin1phimin, spin1phimax, 0);
-    XLALMCMCAddParam(parameter,"Spin2",     (spin2max-spin2min)*gsl_rng_uniform(RNG)+spin2min,  spin2min, spin2max,0);
-    XLALMCMCAddParam(parameter,"Spin2theta",(spin2thetamax-spin2thetamin)*gsl_rng_uniform(RNG)+spin2thetamin,  spin2thetamin, spin2thetamax, 1);
-    XLALMCMCAddParam(parameter,"Spin2phi",  (spin2phimax-spin2phimin)*gsl_rng_uniform(RNG)+spin2phimin,  spin2phimin, spin2phimax,0);
-	}
-	
-	else{
-		if(onespin_flag==1 && nospin_flag==0){
-			double spin2min=s2_mag_min;
-			double spin2max=s2_mag_max;
-        		double spin2thetamin=s2_theta_min;
-			double spin2thetamax=s2_theta_max;
-			double spin2phimin=s2_phi_min;
-			double spin2phimax=s2_phi_max;
-							XLALMCMCAddParam(parameter,"Spin1",     (spin2max-spin2min)*gsl_rng_uniform(RNG)+spin2min,  spin2min, spin2max,0);
-							XLALMCMCAddParam(parameter,"Spin1theta",(spin2thetamax-spin2thetamin)*gsl_rng_uniform(RNG)+spin2thetamin,  spin2thetamin, spin2thetamax, 1);
-							XLALMCMCAddParam(parameter,"Spin1phi",  (spin2phimax-spin2phimin)*gsl_rng_uniform(RNG)+spin2phimin,  spin2phimin, spin2phimax,0);
-											 }	
-		
-	}
-    return;
-}
 
 void NestInitGRB(LALMCMCParameter *parameter, void *iT){
 	REAL8 grb_time;
@@ -1895,7 +1573,7 @@ int checkParamInList(const char *list, const char *param)
 	return 1;
 }
 
-<<<<<<< HEAD
+
 ///*-----------------------------------------------------------*/
 void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *template)
 ///*-------------- Inject in Frequency domain -----------------*/
@@ -1994,7 +1672,4 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 	fprintf(stdout,"Injected signal, network SNR = %lf\n",injSNR);
 	return;
 }
-=======
 
-
->>>>>>> master
