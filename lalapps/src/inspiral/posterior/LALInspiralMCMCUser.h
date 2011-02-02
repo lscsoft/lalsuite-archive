@@ -45,7 +45,6 @@ Header file for the MCMC user code.
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_rng.h>
-#include <lal/GeneratePPNAmpCorConsistency.h>
 
 
 /*#ifdef  __cplusplus
@@ -99,7 +98,7 @@ double m2mc(double m1, double m2);
 
 double logJacobianMcEta(double mc, double eta);
 
-extern AmpCorConsistencyTestParam PhaseTestParam;
+extern INT4 PhaseTestParam;
   /* Example functions */
 void MCMCInitTest(
   LALMCMCParameter *parameter,

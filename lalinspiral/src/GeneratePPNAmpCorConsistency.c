@@ -402,14 +402,14 @@ LALGeneratePPNAmpCorConsistency(
   ASSERT( eta != 0.0, stat, GENERATEPPNINSPIRALH_EMBAD,
     GENERATEPPNINSPIRALH_MSGEMBAD );
   phi0 = p[0]*params->phasePNparams[0];
-  phi2 = p[2]*params->phasePNparams[2];
-  phi3 = p[3]*params->phasePNparams[3];
-  phi4 = p[4]*params->phasePNparams[4];
-  phi5 = p[5]*params->phasePNparams[5];
-  phi5l = p[5]*params->phasePNparams[6];
-  phi6 = p[6]*params->phasePNparams[7];
-  phi6l = p[6]*params->phasePNparams[8];
-  phi7 = p[7]*params->phasePNparams[9];
+  phi2 = p[2]*params->phasePNparams[1];
+  phi3 = p[3]*params->phasePNparams[2];
+  phi4 = p[4]*params->phasePNparams[3];
+  phi5 = p[5]*params->phasePNparams[4];
+  phi5l = p[5]*params->phasePNparams[5];
+  phi6 = p[6]*params->phasePNparams[6];
+  phi6l = p[6]*params->phasePNparams[7];
+  phi7 = p[7]*params->phasePNparams[8];
   mu = eta*mTot;
   
   cosI = cos(params->inc);
@@ -1314,110 +1314,31 @@ LALGeneratePPNAmpCorConsistency(
 }
 
 /* function to populate phaseParams */
-void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params,AmpCorConsistencyTestParam TestParam, REAL8 TestParamValue)
+void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params,INT4 TestParam, REAL8 TestParamValue)
 {
 	/* REFILL PHI_I*/
     params->phasePNparams[0] = -pow(params->eta,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-5.0/8.0); 
-    params->phasePNparams[1] = 0.0; 
-	params->phasePNparams[2] = -(3715.0/8064.0 + 55.0/96.0*params->eta)*pow(params->eta,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-3.0/8.0);
-	params->phasePNparams[3] = 3.0/4.0*LAL_PI*pow(params->eta,-0.75)*pow(5.0*LAL_MTSUN_SI*params->mTot,-0.25); 
-	params->phasePNparams[4] = -(9275495.0/14450688.0 + 284875.0/258048.0*params->eta + 1855.0/2048.0*pow(params->eta,2.0))*pow(params->eta,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-1.0/8.0);
-	params->phasePNparams[5] = -1.0/params->eta*(-38645.0/172032.0 + 65.0/2048.0*params->eta)*LAL_PI*log(params->eta/(5.0*LAL_MTSUN_SI*params->mTot));
-	params->phasePNparams[6] = -1.0/params->eta*(-38645.0/172032.0 + 65.0/2048.0*params->eta)*LAL_PI; 
-	params->phasePNparams[7] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(params->eta/(256*5.0*LAL_MTSUN_SI*params->mTot)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*params->eta + 154565.0/1835008.0*pow(params->eta,2.0) - 1179625.0/1769472.0*pow(params->eta,3.0))*pow(params->eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/8.0);
-	params->phasePNparams[8] = -107.0/448.0*pow(params->eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/8.0);
-	params->phasePNparams[9] = -(188516689.0/173408256.0 + 488825.0/516096.0*params->eta - 141769.0/516096.0*pow(params->eta,2.0))*LAL_PI*pow(params->eta,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/4.0); 		 
+	params->phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*params->eta)*pow(params->eta,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-3.0/8.0);
+	params->phasePNparams[2] = 3.0/4.0*LAL_PI*pow(params->eta,-0.75)*pow(5.0*LAL_MTSUN_SI*params->mTot,-0.25); 
+	params->phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*params->eta + 1855.0/2048.0*pow(params->eta,2.0))*pow(params->eta,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-1.0/8.0);
+	params->phasePNparams[4] = -1.0/params->eta*(-38645.0/172032.0 + 65.0/2048.0*params->eta)*LAL_PI*log(params->eta/(5.0*LAL_MTSUN_SI*params->mTot));
+	params->phasePNparams[5] = -1.0/params->eta*(-38645.0/172032.0 + 65.0/2048.0*params->eta)*LAL_PI; 
+	params->phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(params->eta/(256*5.0*LAL_MTSUN_SI*params->mTot)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*params->eta + 154565.0/1835008.0*pow(params->eta,2.0) - 1179625.0/1769472.0*pow(params->eta,3.0))*pow(params->eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/8.0);
+	params->phasePNparams[7] = -107.0/448.0*pow(params->eta,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/8.0);
+	params->phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*params->eta - 141769.0/516096.0*pow(params->eta,2.0))*LAL_PI*pow(params->eta,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,1.0/4.0); 		 
 	
     /* add the delta phi to the right parameter */
     
-	if(TestParam==testConsistencyParam_phi0) {params->phasePNparams[0] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi1) {params->phasePNparams[1] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi2) {params->phasePNparams[2] += TestParamValue;}
-	if(TestParam==testConsistencyParam_phi3) {params->phasePNparams[3] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi4) {params->phasePNparams[4] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi5) {params->phasePNparams[5] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi5l) {params->phasePNparams[6] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi6) {params->phasePNparams[7] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi6l) {params->phasePNparams[8] += TestParamValue;}
-    if(TestParam==testConsistencyParam_phi7) {params->phasePNparams[9] += TestParamValue;}
+	if(TestParam==0) {params->phasePNparams[0] += TestParamValue;}
+    if(TestParam==1) {params->phasePNparams[1] += TestParamValue;}
+    if(TestParam==2) {params->phasePNparams[2] += TestParamValue;}
+	if(TestParam==3) {params->phasePNparams[3] += TestParamValue;}
+    if(TestParam==4) {params->phasePNparams[4] += TestParamValue;}
+    if(TestParam==5) {params->phasePNparams[5] += TestParamValue;}
+    if(TestParam==6) {params->phasePNparams[6] += TestParamValue;}
+    if(TestParam==7) {params->phasePNparams[7] += TestParamValue;}
+    if(TestParam==8) {params->phasePNparams[8] += TestParamValue;}
 	
 	return;
 	
-}
-
-void XLALCopyPPNConsistencyParamStrucFromPPNParamStruc (
-                                       PPNParamStruc             *inputParams,
-                                       PPNConsistencyParamStruc             *duplicateParams )
-{
-    // Counter
-    UINT4 i = 0;
-    
-    if ( inputParams && inputParams->ppn && duplicateParams)
-    {
-		/* Passed parameters. */
-		duplicateParams->position = inputParams->position; /* location of source on sky */
-		duplicateParams->psi = inputParams->psi;            /* polarization angle (radians) */
-		duplicateParams->epoch = inputParams->epoch;    /* start time of output time series */
-		
-		/* Input parameters. */
-		duplicateParams->mTot_real8 = inputParams->mTot; /* total system mass (Msun) */
-		duplicateParams->eta_real8 = inputParams->eta;  /* mass ratio */
-		//duplicateParams->delta = inputParams->delta;      /* sqrt(1-4eta) */
-		duplicateParams->mTot = inputParams->mTot;       /* total system mass (Msun) */
-		duplicateParams->eta = inputParams->eta;        /* mass ratio */
-		duplicateParams->d = inputParams->d;          /* distance (metres) */
-		duplicateParams->inc = inputParams->inc;        /* inclination angle (radians) */
-		duplicateParams->phi = inputParams->phi;        /* coalescence phase (radians) */
-		duplicateParams->deltaT = inputParams->deltaT;     /* requested sampling interval (s) */
-		duplicateParams->fStartIn = inputParams->fStartIn;   /* requested start frequency (Hz) */
-		duplicateParams->fStopIn = inputParams->fStopIn;    /* requested stop frequency (Hz) */
-		duplicateParams->lengthIn = inputParams->lengthIn;   /* maximum length of waveform */
-		duplicateParams->ampOrder = inputParams->ampOrder;    /* PN amplitude selection 0-5 */
-		//duplicateParams->tc = inputParams->tc;    /* PN amplitude selection 0-5 */
-		//duplicateParams->dfdt = inputParams->dfdt;    /* PN amplitude selection 0-5 */
-		//duplicateParams->fStart = inputParams->fStart;    /* PN amplitude selection 0-5 */
-		//duplicateParams->fStop = inputParams->fStop;    /* PN amplitude selection 0-5 */
-
-		
-		/*
-		 duplicateParams->phi0 = inputParams->phi0;
-		 duplicateParams->phi2 = inputParams->phi2;
-		 duplicateParams->phi3 = inputParams->phi3;
-		 duplicateParams->phi4 = inputParams->phi4;
-		 duplicateParams->phi5 = inputParams->phi5;
-		 duplicateParams->phi5l = inputParams->phi5l;
-		 duplicateParams->phi6 = inputParams->phi6;
-		 duplicateParams->phi6l = inputParams->phi6l;
-		 duplicateParams->phi7 = inputParams->phi7;
-		 */
-        
-        // Check if *.ppn vector is created
-        if ( !(duplicateParams->ppn) )
-        { // if not, create vector with the same length as input.ppn
-            duplicateParams->ppn = XLALCreateREAL4Vector(inputParams->ppn->length);
-            for (i=0; i<inputParams->ppn->length; i++)
-            {
-                //fprintf(stdout, "Copy PPNConsistencyParamStruc -> created new vector \n");
-                duplicateParams->ppn->data[i] = inputParams->ppn->data[i];
-            }      
-        }
-        else if( duplicateParams->ppn->length == inputParams->ppn->length)
-        { // check if the lengths are the same before filling
-            for (i=0; i<inputParams->ppn->length; i++)
-            {
-                //fprintf(stdout, "Copy PPNConsistencyParamStruc -> vector exists \n");
-                duplicateParams->ppn->data[i] = inputParams->ppn->data[i];
-            }
-        }
-        else
-        {
-			fprintf(stdout, "Could not copy PPNConsistencyParamStruc \n");
-        }
-    }
-    else
-    {
-        fprintf(stdout, "Empty input parameter \n");
-    }
-	
-    return;
 }
