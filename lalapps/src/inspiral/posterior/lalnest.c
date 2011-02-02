@@ -721,16 +721,16 @@ int main( int argc, char *argv[])
 		/* read in the injection approximant and determine whether is a time domain or a frequency domain injection */
 		Approximant injapprox;
 		LALGetApproximantFromString(&status,injTable->waveform,&injapprox);
-		if (NULL!=injXMLFile && fakeinj==0 && injapprox==TaylorF2) 
+
+/*		if (NULL!=injXMLFile && fakeinj==0 && injapprox==TaylorF2) 
 		{
 			SimInspiralTable this_injection;
-            printf("injection table waveform %s\n",injTable->waveform);
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
 			this_injection.next=NULL;
 			InjectFD(&status, &inputMCMC, &this_injection);
-		}
+		}*/
 		/* Perform injection in time domain */
-		else if(NULL!=injXMLFile && fakeinj==0) {
+        if(NULL!=injXMLFile && fakeinj==0) {
 			DetectorResponse det;
 			REAL8 SNR=0.0;
 			LIGOTimeGPS realSegStart;
@@ -757,23 +757,33 @@ int main( int argc, char *argv[])
 			COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&bufferstart,0.0,inputMCMC.deltaF,(const LALUnit *)&strainPerCount,seglen);
 			for(j=0;j<resp->data->length;j++) {resp->data->data[j].re=(REAL4)1.0; resp->data->data[j].im=0.0;}
 			SimInspiralTable this_injection;
-            printf("injection table waveform %s\n",injTable->waveform);
-            printf("injection table phi test index %d\n",injTable->indexPhiTest);
-            printf("injection table phi test value %f\n",injTable->PhiTest);
+            printf("injection table waveform: %s\n",injTable->waveform);
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
-            printf("injection waveform %s\n",this_injection.waveform);
-            printf("injection phi test index %d\n",this_injection.indexPhiTest);
-            printf("injection phi test value %f\n",this_injection.PhiTest);
+            printf("this injection waveform %s\n",this_injection.waveform);
 			this_injection.next=NULL;
 			LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
+            /*char InjTestName1[50];
+            sprintf(InjTestName1,"injection_test1.dat");
+            FILE *outInj_test1=fopen(InjTestName1,"w");
+            for(i=1;i<injWave->data->length;i++){
+                fprintf(outInj_test1,"%lf %e\n",i*inputMCMC.deltaF,injWave->data->data[i]);
+            }
+            fclose(outInj_test1);*/
 			XLALDestroyCOMPLEX8FrequencySeries(resp);
 			printf("Finished InjectSignals\n");
 			fprintf(stderr,"Cutting injection buffer from %d to %d\n",bufferlength,seglen);
 
-                	TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
+            TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
 			TrigSegStart+=(INT4)((segmentStart.gpsNanoSeconds - injWave->epoch.gpsNanoSeconds)*1e-9*SampleRate);
 
 			injWave=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injWave,TrigSegStart,seglen);
+            char InjTestName1[50];
+            sprintf(InjTestName1,"injection_test1.dat");
+            FILE *outInj_test1=fopen(InjTestName1,"w");
+            for(i=1;i<injWave->data->length;i++){
+                fprintf(outInj_test1,"%lf %e\n",i*inputMCMC.deltaF,injWave->data->data[i]);
+            }
+            fclose(outInj_test1);
 			fprintf(stderr,"Cut buffer start time=%lf, segment start time=%lf\n",injWave->epoch.gpsSeconds+1e-9*injWave->epoch.gpsNanoSeconds,inputMCMC.stilde[i]->epoch.gpsSeconds + 1.0e-9*inputMCMC.stilde[i]->epoch.gpsNanoSeconds);
 			REPORTSTATUS(&status);
 			if(decohereflag) {
@@ -1514,7 +1524,7 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
     sprintf(InjTestName,"injection_test.dat");
     FILE *outInj_test=fopen(InjTestName,"w");
 	for(i=1;i<Nmodel;i++){
-        fprintf(outInj_test,"%lf %e\n",i*deltaF,injWave);
+        fprintf(outInj_test,"%lf %e\n",i*deltaF,injWave->data[i]);
     }
     fclose(outInj_test);
     /* Wave is now stored in the REAL4Vector model, defined in LALInspiralMCMCUser.h */
