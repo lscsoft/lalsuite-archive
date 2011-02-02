@@ -181,7 +181,7 @@ void initialise(int argc, char *argv[]);
 
 // prototype for the FD injection code
 
-void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *template);
+void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table);
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -798,17 +798,16 @@ int main( int argc, char *argv[])
 			}
 		} /* End if(!FakeFlag) */
 		
-		/* read in the injection approximant and determine whether is a time domain or a frequency domain injection */
-		Approximant injapprox;
-		LALGetApproximantFromString(&status,injTable->waveform,&injapprox);
+        Approximant check_approx;
+        LALGetApproximantFromString(&status,&injTable->waveform,&check_approx);
 
-/*		if (NULL!=injXMLFile && fakeinj==0 && injapprox==TaylorF2) 
+		if (NULL!=injXMLFile && fakeinj==0 && check_approx==TaylorF2) 
 		{
 			SimInspiralTable this_injection;
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
 			this_injection.next=NULL;
-			InjectFD(&status, &inputMCMC, &this_injection);
-		}*/
+			InjectFD(status, &inputMCMC, &this_injection);
+		}
 		/* Perform injection in time domain */
         if(NULL!=injXMLFile && fakeinj==0) {
 			DetectorResponse det;
@@ -1575,62 +1574,88 @@ int checkParamInList(const char *list, const char *param)
 
 
 ///*-----------------------------------------------------------*/
-void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *template)
+void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table)
 ///*-------------- Inject in Frequency domain -----------------*/
 {
 	/* Inject a gravitational wave into the data in the frequency domain */
-	REAL4Vector *injWave=NULL;
+	REAL4Vector *injWaveFD=NULL;
+    InspiralTemplate template;
 	UINT4 det_i,i;
 	double end_time = 0.0;
 	double deltaF = inputMCMC->deltaF;
 	double TimeFromGC,resp_r,resp_i;
-	REAL8 ChirpLength=0.0;
 	UINT4 Nmodel; /* Length of the model */
 	LALDetAMResponse det_resp;
+    memset(&template,0,sizeof(InspiralTemplate));
+    
+    /* Populate the template */
+	REAL8 ChirpISCOLength;
+	expnFunc expnFunction;
+	expnCoeffs ak;
+    TofVIn TofVparams;
+    
+    /* read in the injection approximant and determine whether is a time domain or a frequency domain injection */
+    Approximant injapprox;
+    LALPNOrder phase_order;
+    LALGetApproximantFromString(&status,inj_table->waveform,&injapprox);
+    LALGetOrderFromString(&status,inj_table->waveform,&phase_order);
+	template.totalMass = inj_table->mass1+inj_table->mass2;
+	template.eta = inj_table->eta;
+	template.massChoice = totalMassAndEta;
+	template.fLower = inj_table->f_lower;
+    template.distance = inj_table->distance; /* This must be in Mpc, contrary to the docs */
+	template.order=phase_order;
+	template.approximant=injapprox;
+	template.tSampling = 1.0/inputMCMC->deltaT;
+	template.fCutoff = 0.5/inputMCMC->deltaT -1.0;
+	template.nStartPad = 0;
+	template.nEndPad =0;
+    template.startPhase = inj_table->phi0;
+	template.startTime = 0.0;
+	template.ieta = 1;
+	template.next = NULL;
+	template.fine = NULL;
 
-	/* Create the injection data structure */
-	/*LALCreateVector(&status,&injModel,MCMCinput->stilde[0]->length); */
+	Nmodel = (inputMCMC->stilde[0]->data->length-1)*2; /* *2 for real/imag packing format */
 
-	Nmodel = (inputMCMC->stilde[0]->data->length)*2.0;
-	if(model==NULL)	LALCreateVector(status,&injWave,Nmodel); /* Allocate storage for the waveform */
-
+	if(injWaveFD==NULL)	LALCreateVector(&status,&injWaveFD,Nmodel); /* Allocate storage for the waveform */
+        
 	/* Create the wave */
-	LALInspiralParameterCalc(status,template);
-	LALInspiralRestrictedAmplitude(status,template);
-	LALInspiralWave(status,injWave,template);
-    char InjTestName[50];
-    sprintf(InjTestName,"injection_test.dat");
-    FILE *outInj_test=fopen(InjTestName,"w");
-	for(i=1;i<Nmodel;i++){
-        fprintf(outInj_test,"%lf %e\n",i*deltaF,injWave->data[i]);
-    }
-    fclose(outInj_test);
-    /* Wave is now stored in the REAL4Vector model, defined in LALInspiralMCMCUser.h */
+	LALInspiralParameterCalc(&status,&template);
+	LALInspiralRestrictedAmplitude(&status,&template);
+	LALInspiralWave(&status,injWaveFD,&template);
+    
+    memset(&ak,0,sizeof(expnCoeffs));
+	memset(&TofVparams,0,sizeof(TofVparams));
 
-	/* Transform into the appropriate frame and add to the data */
+    LALInspiralSetup(&status,&ak,&template);
+	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
+	TofVparams.coeffs=&ak;
+	TofVparams.dEnergy=expnFunction.dEnergy;
+	TofVparams.flux=expnFunction.flux;
+	TofVparams.v0= ak.v0;
+	TofVparams.t0= ak.t0;
+	TofVparams.vlso= ak.vlso;
+	TofVparams.totalmass=ak.totalmass;
+/*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
+	ChirpISCOLength=ak.tn;
 
-	/* Calculate end_time into segment */
-
-	end_time =(REAL8) template->geocent_end_time.gpsSeconds + (REAL8)template->geocent_end_time.gpsNanoSeconds *1.0e-9;
-	ChirpLength =(REAL8) template->end_time_gmst;
-	/* Time from the end of segment to desired end_time */
-	/* end_time =-4.0; */
-	fprintf(stderr,"end time injection = %e\n",end_time);
-	fprintf(stderr,"ChirpLength injection = %e\n",ChirpLength);
+    end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1e-9;
+    end_time-=ChirpISCOLength;
 
 	/* Calculate response of the detectors */
 	LALSource source;
 	memset(&source,sizeof(LALSource),0);
-	source.equatorialCoords.longitude = (REAL8) template->longitude;
-	source.equatorialCoords.latitude = (REAL8) template->latitude;
+	source.equatorialCoords.longitude = (REAL8) inj_table->longitude;
+	source.equatorialCoords.latitude = (REAL8) inj_table->latitude;
 	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
-	source.orientation = (REAL8) template->inclination; //?different thing - rotation about line of sight
+	source.orientation = (REAL8) inj_table->inclination; //?different thing - rotation about line of sight
 	strncpy(source.name,"blah",sizeof(source.name));
 
 	LALDetAndSource det_source;
 	det_source.pSource = &source;
 
-	double ci = cos((REAL8) template->inclination);
+	double ci = cos((REAL8) inj_table->inclination);
 	double SNRinj=0;
 
 	UINT4 Ncomplex = inputMCMC->stilde[0]->data->length;
@@ -1643,7 +1668,7 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 
 		/* Compute detector amplitude response */
 		det_source.pDetector = (inputMCMC->detector[det_i]); /* select detector */
-		LALComputeDetAMResponse(status,&det_resp,&det_source,&inputMCMC->epoch); /* Compute det_resp */
+		LALComputeDetAMResponse(&status,&det_resp,&det_source,&inputMCMC->epoch); /* Compute det_resp */
 
 		det_resp.plus*=0.5*(1.0+ci*ci);
 		det_resp.cross*=-ci;
@@ -1652,8 +1677,8 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 		for(i=1;i<Ncomplex;i++){
 			time_sin = sin(LAL_TWOPI*(end_time+TimeFromGC)*((double) i)*(inputMCMC->deltaF));
 			time_cos = cos(LAL_TWOPI*(end_time+TimeFromGC)*((double) i)*(inputMCMC->deltaF));
-			REAL8 hc = (REAL8)model->data[i]*time_cos + (REAL8)model->data[Nmodel-i]*time_sin;
-			REAL8 hs = (REAL8)model->data[Nmodel-i]*time_cos - (REAL8)model->data[i]*time_sin;
+			REAL8 hc = (REAL8)injWaveFD->data[i]*time_cos + (REAL8)injWaveFD->data[Nmodel-i]*time_sin;
+			REAL8 hs = (REAL8)injWaveFD->data[Nmodel-i]*time_cos - (REAL8)injWaveFD->data[i]*time_sin;
 			resp_r = det_resp.plus * hc - det_resp.cross * hs;
 			resp_i = det_resp.cross * hc + det_resp.plus * hs;
 			resp_r/=deltaF; resp_i/=deltaF;
