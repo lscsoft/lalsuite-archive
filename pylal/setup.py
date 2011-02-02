@@ -512,6 +512,7 @@ setup(
 		os.path.join("bin", "lalapps_farburst"),
 		os.path.join("bin", "lalapps_followup_pipe"),
 		os.path.join("bin", "lalapps_followup_page"),
+		os.path.join("bin", "WOD_Bologna.py"),
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
@@ -617,7 +618,9 @@ setup(
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "ring_post"),
-		os.path.join("bin","cbcBayesPostProc.py")
+		os.path.join("bin", "cbcBayesPostProc.py"),
+		os.path.join("bin", "cbcBayesCompPos.py"),
+		os.path.join("bin", "ligo_channel_query")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

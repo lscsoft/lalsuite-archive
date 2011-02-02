@@ -67,9 +67,16 @@ Optional OPTIONS:\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
 [--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior chirp masses\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
+<<<<<<< HEAD
 [--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
+=======
+[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor|IMRPhenomFB_Chi_low)|IMRPhenomB_Chi_low]\n \
+>>>>>>> master
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
-[--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\
+[--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\n\
+[--H1GPSshift FLOAT\t: Specify timeslide in H1]\n \
+[--L1GPSshift FLOAT\t: Specify timeslide in L1]\n \
+[--V1GPSshift FLOAT\t: Specify timeslide in V1]\n \
 [--timeslide\t:\tTimeslide data]\n[--studentt\t:\tuse student-t likelihood function]\n \
 [--ra FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use (DEGREES)]\n \
 [--grb\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
@@ -80,8 +87,40 @@ Optional OPTIONS:\n \
 [--pinparams STRING\t:\tList parameters to be fixed to their injected values (, separated) i.e. --pinparams mchirp,longitude\n \
 [--version\t:\tPrint version information and exit]\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
+<<<<<<< HEAD
 [--help\t:\tPrint this message]\n \
 [--phaseParamTest\t STRING:\t where STRING is (phi0|[phi1 NOT IMPLEMENTED!]|phi2|phi3|phi4|phi5|phi5l|phi6|phi6l|phi7)]\n"
+=======
+[--flow NUM\t:\t:Set low frequency cutoff (default 40Hz)]\n\
+\n\n \
+Optional PhenSpinTaylorRD_template OPTIONS:\n \
+[--onespin_flag INT\t:\tSet S2=(0,0,0) in PhenSpinTaylorRD template waveform]\n \
+[--nospin_flag INT\t:\tSet S1=S2=(0,0,0) in PhenSpinTaylorRD template waveform]\n \
+[--m_tot_min FLOAT\t:\tSet lower limit on total mass for PhenSpinTaylorRD template waveform. Default is 2 solar masses]\n \
+[--m_tot_max FLOAT\t:\tSet upper limit on total mass for PhenSpinTaylorRD template waveform. Default is 35 solar masses]\n \
+[--d_min FLOAT\t:\tSet lower limit on source distance for PhenSpinTaylorRD template waveform. Default is 1Mpc.]\n \
+[--d_max FLOAT\t:\tSet upper limit on source distance for PhenSpinTaylorRD template waveform. Default is 100Mpc.]\n \
+[--s1_mag_min FLOAT\t:\tSet lower limit on spin magnitude of body 1 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--s1_mag_max FLOAT\t:\tSet upper limit on spin magnitude of body 1 for PhenSpinTaylorRD template waveform. Default is 1.]\n \
+[--s1_theta_min FLOAT\t:\tSet lower limit on spin polar angle for body 1 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--s1_theta_max FLOAT\t:\tSet upper limit on spin polar angle for body 1 for PhenSpinTaylorRD template waveform. Default is PI.]\n \
+[--s1_phi_min FLOAT\t:\tSet lower limit on spin azimuthal angle for body 1 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--s1_phi_max FLOAT\t:\tSet upper limit on spin azimuthal angle for body 1 for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
+[--s2_mag_min FLOAT\t:\tSet lower limit on spin magnitude of body 2 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--s2_mag_max FLOAT\t:\tSet upper limit on spin magnitude of body 2 for PhenSpinTaylorRD template waveform. Default is 1.]\n \
+[--s2_theta_min FLOAT\t:\tSet lower limit on spin polar angle for body 2 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--s2_theta_max FLOAT\t:\tSet upper limit on spin polar angle for body 2 for PhenSpinTaylorRD template waveform. Default is PI.]\n \
+[--s2_phi_min FLOAT\t:\tSet lower limit on spin azimuthal angle for body 2 for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--s2_phi_max FLOAT\t:\tSet upper limit on spin azimuthal angle for body 2 for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
+[--lat_min FLOAT\t:\tSet lower limit on source plane declination for PhenSpinTaylorRD template waveform. Default is -PI/2.]\n \
+[--lat_max FLOAT\t:\tSet upper limit on source plane declination for PhenSpinTaylorRD template waveform. Default is PI/2.]\n \
+[--long_min FLOAT\t:\tSet lower limit on source plane RA for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--long_max FLOAT\t:\tSet upper limit on source plane RA for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
+[--iota_min FLOAT\t:\tSet lower limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is 0.]\n \
+[--iota_max FLOAT\t:\tSet upper limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is PI.]\n \
+[--help\t:\tPrint this message]\n \
+"
+>>>>>>> master
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -114,7 +153,7 @@ REAL4 fLow=40.0; /* Low-frequency cutoff */
 UINT4 Nlive=1000;
 CHAR *inputXMLFile;
 CHAR *injXMLFile=NULL;
-CHAR approx[20]="TaylorF2";
+CHAR approx[128]="TaylorF2";
 UINT4 event=0;
 REAL8 manual_end_time=0;
 REAL8 manual_mass_low=2.0;
@@ -129,6 +168,7 @@ extern INT4 seed;
 int NINJA=0;
 int verbose=0;
 int timeslides=0;
+int specifictimeslides=0;
 int studentt=0;
 int estimatenoise=1;
 int SkyPatch=0;
@@ -136,13 +176,17 @@ int FakeFlag=0;
 int GRBflag=0;
 int SkyLocFlag=0;
 REAL8 SNRfac=1.0;
+REAL4 H1GPSshift = 0.0, L1GPSshift = 0.0, V1GPSshift = 0.0;
 int HighMassFlag=0;
 int decohereflag=0;
+int onespin_flag=0;
+int nospin_flag=0;
 REAL8 offset=0.0;
 extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
+<<<<<<< HEAD
 
 AmpCorConsistencyTestParam PhaseTestParam;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
@@ -151,6 +195,40 @@ int checkParamInList(const char *list, const char *param);
 // init function for the Phi-parametrized AmpCor waveform
 
 void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT);
+=======
+UINT4 fLowFlag=0;
+
+REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
+int checkParamInList(const char *list, const char *param);
+
+/* variables for NestInitManualPhenSpinRD_manual */
+double compmassmin=1.;
+double m_tot_min=2.;
+double m_tot_max=35.;
+double m_tot_min_highmass=30.;
+double m_tot_max_highmass=300.;
+double d_min=1.;
+double d_max=100.;
+double s1_mag_min=0.;
+double s1_mag_max=1.;
+double s2_mag_min=0.;
+double s2_mag_max=1.;
+double s1_theta_min=0.;
+double s2_theta_min=0.;
+double s1_phi_min=0.;
+double s2_phi_min=0.;
+double s1_theta_max=LAL_PI;
+double s2_theta_max=LAL_PI;
+double s1_phi_max=LAL_TWOPI;
+double s2_phi_max=LAL_TWOPI;
+double iota_min=0.;
+double iota_max=LAL_PI;
+double long_min=0.;
+double long_max=LAL_TWOPI;
+double lat_min=-LAL_PI/2.;
+double lat_max=LAL_PI/2.;
+/* */
+>>>>>>> master
 void NestInitManual(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT);
@@ -159,6 +237,7 @@ void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT);
 void NestInitGRB(LALMCMCParameter *parameter, void *iT);
 void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT);
 void NestInitInj(LALMCMCParameter *parameter, void *iT);
+void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 
 // prototype for the FD injection code
@@ -171,7 +250,7 @@ REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, 
 	FrCache *cache = NULL;
 	FrStream *stream = NULL;
 	REAL8TimeSeries *out = NULL;
-
+	fprintf(stdout,"Attempting to open %s at time %lf\n",cachefile,start.gpsSeconds+1e-9*start.gpsNanoSeconds);
 	cache  = XLALFrImportCache( cachefile );
 	if(cache==NULL) {fprintf(stderr,"ERROR: Unable to import cache file %s\n",cachefile); exit(-1);}
 	stream = XLALFrCacheOpen( cache );
@@ -219,6 +298,9 @@ void initialise(int argc, char *argv[]){
 		{"verbose",no_argument,0,'v'},
 		{"approximant",required_argument,0,'A'},
 		{"timeslide",no_argument,0,'L'},
+		{"H1GPSshift",required_argument,0,31},
+		{"L1GPSshift",required_argument,0,32},
+		{"V1GPSshift",required_argument,0,33},
 		{"studentt",no_argument,0,'l'},
 		{"ra",required_argument,0,'O'},
 		{"dec",required_argument,0,'a'},
@@ -235,11 +317,143 @@ void initialise(int argc, char *argv[]){
 		{"help",no_argument,0,'h'},
 		{"pinparams",required_argument,0,21},
 		{"datadump",required_argument,0,22},
+<<<<<<< HEAD
 		{"phaseParamTest",required_argument,0,'Q'},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
 	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb:Q",long_options,&i))!=-1){ switch(i) {
+=======
+		{"flow",required_argument,0,23},
+		{"nospin",required_argument,0,25},
+		{"onespin",required_argument,0,26},
+		{"M_min",required_argument,0,40},
+		{"M_max",required_argument,0,41},
+		{"d_min",required_argument,0,42},
+		{"d_max",required_argument,0,43},
+		{"s1_mag_min",required_argument,0,44},
+		{"s1_mag_max",required_argument,0,45},
+		{"s2_mag_min",required_argument,0,46},
+		{"s2_mag_max",required_argument,0,47},
+		{"s1_theta_min",required_argument,0,48},
+		{"s1_theta_max",required_argument,0,49},
+		{"s2_theta_min",required_argument,0,50},
+		{"s2_theta_max",required_argument,0,51},
+		{"s1_phi_min",required_argument,0,52},
+		{"s1_phi_max",required_argument,0,53},
+		{"s2_phi_min",required_argument,0,54},
+		{"s2_phi_max",required_argument,0,55},
+		{"lat_min",required_argument,0,56},
+		{"lat_max",required_argument,0,57},
+		{"long_min",required_argument,0,58},
+		{"long_max",required_argument,0,59},
+		{"iota_min",required_argument,0,60},
+		{"iota_max",required_argument,0,61},
+		{"m_tot_min",required_argument,0,62},
+		{"m_tot_max",required_argument,0,63},
+		{0,0,0,0}};
+
+	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
+	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb",long_options,&i))!=-1){ switch(i) {
+		case 40:
+			m_tot_min=atof(optarg);
+			break;
+		case 41:
+			m_tot_max=atof(optarg);
+			break;
+		case 42:
+			d_min=atof(optarg);
+			break;
+		case 43:
+			d_max=atof(optarg);
+			break;
+		case 44:
+			s1_mag_min=atof(optarg);
+			if (s1_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplituade is 0, please set --s1_mag_min 0 or more.\n");exit(1);}
+			break;
+		case 45:
+			s1_mag_max=atof(optarg);
+            if (s1_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplituade is 1, please set --s1_mag_max 1 or less.\n");exit(1);}
+			break;
+		case 46:
+			s2_mag_min=atof(optarg);
+			if (s2_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplituade is 0, please set --s2_mag_min 0 or more.\n");exit(1);}
+			break;
+		case 47:
+			s2_mag_max=atof(optarg);
+            if (s2_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplituade is 1, please set --s2_mag_max 1 or less.\n");exit(1);}			
+			break;
+		case 48:
+			s1_theta_min=atof(optarg);
+			if (s1_theta_min<0.) {fprintf(stderr,"ERROR: The minimum spin polar angle is 0, please set --s1_theta_min 0 or more.\n");exit(1);}
+			break;
+		case 49:
+			s1_theta_max=atof(optarg);
+            if (s1_theta_max>LAL_PI) {fprintf(stderr,"ERROR: The maximum spin polar angle is pi, please set --s1_theta_max pi or less.\n");exit(1);}
+			break;
+		case 50:
+            s2_theta_min=atof(optarg);
+            if (s2_theta_min<0.) {fprintf(stderr,"ERROR: The minimum spin polar angle is 0, please set --s1_theta_min 0 or more.\n");exit(1);}
+            break;
+		case 51:
+            s2_theta_max=atof(optarg);
+            if (s2_theta_max>LAL_PI) {fprintf(stderr,"ERROR: The maximum spin polar angle is pi, please set --s1_theta_max pi or less.\n");exit(1);}
+			break;
+		case 52:
+			s1_phi_min=atof(optarg);
+			if (s1_phi_min<0.) {fprintf(stderr,"ERROR: The minimum spin azimuthal angle is 0, please set --s1_phi_min 0 or more.\n");exit(1);}
+			break;
+		case 53:
+            s1_phi_min=atof(optarg);
+            if (s1_phi_min>LAL_TWOPI) {fprintf(stderr,"ERROR: The maximum spin azimuthal angle is 2pi, please set --s1_phi_max 2pi or less.\n");exit(1);}
+            break;
+		case 54:
+            s2_phi_min=atof(optarg);
+            if (s2_phi_min<0.) {fprintf(stderr,"ERROR: The minimum spin azimuthal angle is 0, please set --s1_phi_min 0 or more.\n");exit(1);}
+            break;
+		case 55:
+            s2_phi_min=atof(optarg);
+            if (s2_phi_min>LAL_TWOPI) {fprintf(stderr,"ERROR: The maximum spin azimuthal angle is 2pi, please set --s1_phi_max 2pi or less.\n");exit(1);}
+ 			break;
+		case 56:
+			lat_min=atof(optarg);
+			if (lat_min<-LAL_PI/2.) {fprintf(stderr,"ERROR: The minimum latitude is -pi/2, please set --lat_min -pi/2 or more.\n");exit(1);}
+			break;
+		case 57:
+			lat_max=atof(optarg);
+			if (lat_max>LAL_PI/2.) {fprintf(stderr,"ERROR: The maximum latitude is pi/2, please set --lat_max pi/2 or less.\n");exit(1);}
+			break;
+		case 58:
+			long_min=atof(optarg);
+			if (long_min<0.) {fprintf(stderr,"ERROR: The minimum longitude is 0, please set --long_min 0 or more.\n");exit(1);}
+			break;
+		case 59:
+			long_max=atof(optarg);
+			if (long_max>LAL_TWOPI) {fprintf(stderr,"ERROR: The maximum longitude is 2pi, please set --long_max 2pi or less.\n");exit(1);}
+			break;
+		case 60:
+			iota_min=atof(optarg);
+			if (iota_min<0.) {fprintf(stderr,"ERROR: The minimum inclination is 0, please set --iota_min 0 or more.\n");exit(1);}
+			break;
+		case 61:
+			iota_max=atof(optarg);
+			if (iota_max>LAL_PI) {fprintf(stderr,"ERROR: The maximum inclination is pi, please set --iota_max pi or less.\n");exit(1);} 
+			break;
+		case 62:
+			m_tot_min=atof(optarg);
+			if (m_tot_min<0.) {fprintf(stderr,"ERROR: Masses must be positive.\n");exit(1);}
+			break;
+		case 63:
+			m_tot_max=atof(optarg);
+			if (m_tot_max>35.) {fprintf(stderr,"Warning: Highmass flag not set.\n");exit(1);}
+			break;
+		case 25:
+			 nospin_flag=atof(optarg);
+		   	 break;
+		case 26:
+			onespin_flag=atof(optarg);
+			break;
+>>>>>>> master
 		case 'h':
 			fprintf(stdout,USAGE);
 			exit(0);
@@ -265,6 +479,18 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 14:
 			SNRfac=atof(optarg);
+			break;
+		case 31:
+			H1GPSshift = atof(optarg);
+			specifictimeslides=1;
+			break;
+		case 32:
+			L1GPSshift = atof(optarg);
+			specifictimeslides=1;
+			break;
+		case 33:
+			V1GPSshift = atof(optarg);
+			specifictimeslides=1;
 			break;
 		case 16:
 			decohereflag=1;
@@ -304,7 +530,7 @@ void initialise(int argc, char *argv[]){
 			SkyPatch=1;
 			break;
 		case 'A':
-			strncpy(approx,optarg,20);
+			strncpy(approx,optarg,128);
 			break;
 		case 'l':
 			studentt=1;
@@ -398,10 +624,17 @@ void initialise(int argc, char *argv[]){
 		case 'L':
 			timeslides=1;
 			break;
+<<<<<<< HEAD
 		case 'Q':
             PhaseTest=(CHAR *)malloc(strlen(optarg)+1);
             strcpy(PhaseTest,optarg);
             break;
+=======
+		case 23:
+			fLow=atof(optarg);
+			fLowFlag=1;
+			break;
+>>>>>>> master
 		default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
@@ -453,6 +686,10 @@ int main( int argc, char *argv[])
 	etawindow=1.0;
 	timewindow=0.05;
 	initialise(argc,argv); /* Get the arguments and act on them */
+	if( timeslides && specifictimeslides ){
+		fprintf( stderr, "Error: can not use both random and specific timeslides.\n");
+		exit( 1 );
+	}
 	if(inputXMLFile!=NULL){
 		/* read in the input file */
 		numTmplts = LALSnglInspiralTableFromLIGOLw( &inputCurrent, inputXMLFile, 0, -1);
@@ -465,7 +702,7 @@ int main( int argc, char *argv[])
 		while(i<event) {i++; inputCurrent = inputCurrent->next;}
 	}
 	REAL8 segDur = duration/(REAL8)nSegs;
-
+	realstart=datastart;
 	/* Number of sample in a segment */
 	seglen=(UINT4)(segDur*SampleRate);
 	/*	seglen=(INT4)pow(2.0,ceil(log2((REAL8)seglen)));*/  /* Make it a power of two for the FFT */
@@ -539,9 +776,11 @@ int main( int argc, char *argv[])
 		if(Ninj<event) {fprintf(stderr,"Error reading event %i from %s\n",event,injXMLFile); exit(-1);}
 		i=0;
 		while(i<event) {i++; injTable = injTable->next;} /* Select event */
-		if(injTable->f_lower>0.0) inputMCMC.fLow = injTable->f_lower;
-		else {injTable->f_lower = inputMCMC.fLow;
-		fprintf(stderr,"Warning, injection does not specify f_lower, using default %lf\n",inputMCMC.fLow);}
+		if (!fLowFlag){
+			if(injTable->f_lower>0.0) inputMCMC.fLow = injTable->f_lower;
+			else {injTable->f_lower = inputMCMC.fLow;
+				fprintf(stderr,"Warning, injection does not specify f_lower, using default %lf\n",inputMCMC.fLow);}
+		}
 //		InjParams.deltaT=1.0/SampleRate;
 //		InjParams.fStartIn=(REAL4)inputMCMC.fLow;
 //		memset(&InjectGW,0,sizeof(CoherentGW));
@@ -592,11 +831,13 @@ int main( int argc, char *argv[])
 		ETgpsSeconds = (INT4) floor(manual_end_time);
 	}
 
-	/* If the trigger is not in the data read in, adjust the time of the data to centre the trigger in it */
-	if(ETgpsSeconds-duration>datastart.gpsSeconds){
-		fprintf(stderr,"ERROR: Trigger lies outside specified block\nAdjusting GPSstart to %i for trigger %i\n",ETgpsSeconds-(INT4)duration/2,event);
+	/* If the data segment is not specified, try to guess it from the trigger time */
+	
+	if(datastart.gpsSeconds==0){
+		fprintf(stderr,"You did not specify a data start time, attempt to guess.\nAdjusting GPSstart to %i for trigger %i\n",ETgpsSeconds-(INT4)duration/2,event);
 		datastart.gpsSeconds=ETgpsSeconds-(INT4)duration/2;
 		datastart.gpsNanoSeconds=0;
+		realstart=datastart;
 	}
 
 	if(ETgpsSeconds>datastart.gpsSeconds+duration) {fprintf(stderr,"Error, trigger lies outwith data range %i - %i\n",datastart.gpsSeconds,datastart.gpsSeconds+(INT4)duration); exit(-1);}
@@ -608,16 +849,9 @@ int main( int argc, char *argv[])
 		INT4 TrigSegStart,TrigSample;
 		inputMCMC.ifoID[i] = IFOnames[i];
 		inputMCMC.deltaF = (REAL8)SampleRate/seglen;
-
-		TrigSample=(INT4)(SampleRate*(ETgpsSeconds - datastart.gpsSeconds));
-		TrigSample+=(INT4)(1e-9*SampleRate*ETgpsNanoseconds - 1e-9*SampleRate*datastart.gpsNanoSeconds);
-		/*TrigSegStart=TrigSample+SampleRate*(0.5*(segDur-InjParams.tc)) - seglen; */ /* Centre the injection */
-		TrigSegStart=TrigSample+ (2*SampleRate) - seglen; /* Put trigger 2 s before end of segment */
-		if(InjParams.tc>segDur) fprintf(stderr,"Warning! Your template is longer than the data segment\n");
-
+		datastart=realstart; /* Reset the datastart in case it has been slid previously */
 		segmentStart = datastart;
-		XLALGPSAdd(&segmentStart, (REAL8)TrigSegStart/(REAL8)SampleRate);
-		memcpy(&(inputMCMC.epoch),&segmentStart,sizeof(LIGOTimeGPS));
+
 		/* Check for synthetic data */
 		if(!(strcmp(CacheFileNames[i],"LALLIGO") && strcmp(CacheFileNames[i],"LALVirgo") && strcmp(CacheFileNames[i],"LALGEO") && strcmp(CacheFileNames[i],"LALEGO") && strcmp(CacheFileNames[i],"LALAdLIGO")))
 		{
@@ -634,9 +868,9 @@ int main( int argc, char *argv[])
                     //scalefactor = 1E-49;}
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
-			inputMCMC.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&datastart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+			inputMCMC.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
 			for(j=0;j<inputMCMC.invspec[i]->data->length;j++){ PSD(&status,&(inputMCMC.invspec[i]->data->data[j]),j*inputMCMC.deltaF);}
-			inputMCMC.stilde[i] = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&datastart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+			inputMCMC.stilde[i] = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&realstart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
 			memcpy(&(inputMCMC.stilde[i]->epoch),&segmentStart,sizeof(LIGOTimeGPS));
 			/*			inputMCMC.stilde[i]->epoch = datastart;
 			 XLALGPSAdd(&(inputMCMC.stilde[i]->epoch), (REAL8)TrigSegStart/(REAL8)SampleRate);*/
@@ -651,22 +885,45 @@ int main( int argc, char *argv[])
 
 		if(timeslides&&!FakeFlag){ /* Set up time slides by randomly offsetting the data */
 			LALCreateRandomParams(&status,&randparam,seed);
-			memcpy(&realstart,&datastart,sizeof(LIGOTimeGPS));
 			LALUniformDeviate(&status,&TSoffset,randparam);
 			TSoffset=(TSoffset-0.5)*TIMESLIDE;
 			datastart = realstart;
 			XLALGPSAdd(&datastart, TSoffset);
-			fprintf(stderr,"Slid %s by %f s\n",IFOnames[i],TSoffset);
+			fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);
 			XLALDestroyRandomParams(randparam);
 		}
-		/* set up a Tukey Window with tails of 1s at each end */
-		if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen, 0.1); /* 0.1s agreed on beta parameter for review */
+		
+		if(specifictimeslides && !FakeFlag){ /* Set up time slides by offsetting the data by user defined value */
+			if( ( !strcmp(IFOnames[i],"H1") && H1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"L1") &&
+					L1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"V1") && V1GPSshift != 0.0 ) ) {
+				if(!strcmp(IFOnames[i],"H1"))
+					TSoffset=H1GPSshift;
+				else if(!strcmp(IFOnames[i],"L1"))
+					TSoffset=L1GPSshift;
+				else if(!strcmp(IFOnames[i],"V1"))
+					TSoffset=V1GPSshift;
+				datastart = realstart;
+				XLALGPSAdd(&datastart, TSoffset);
+				fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);
+			}
+		}
+		
+		TrigSample=(INT4)(SampleRate*(ETgpsSeconds - realstart.gpsSeconds));
+		TrigSample+=(INT4)(1e-9*SampleRate*ETgpsNanoseconds - 1e-9*SampleRate*realstart.gpsNanoSeconds);
+		/*TrigSegStart=TrigSample+SampleRate*(0.5*(segDur-InjParams.tc)) - seglen; */ /* Centre the injection */
+		TrigSegStart=TrigSample+ (2*SampleRate) - seglen; /* Put trigger 2 s before end of segment */
+		if(InjParams.tc>segDur) fprintf(stderr,"Warning! Your template is longer than the data segment\n");
+		XLALGPSAdd(&segmentStart, (REAL8)TrigSegStart/(REAL8)SampleRate);
+		memcpy(&(inputMCMC.epoch),&segmentStart,sizeof(LIGOTimeGPS));
+		
+		/* set up a Tukey Window */
+		if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen, 0.1); /* 0.1 agreed on beta parameter for review */
 		/* if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen); */ /* Original window, commented out for review */
 		/* Read the data from disk into a vector (RawData) */
 		if(!FakeFlag){
 			RawData = readTseries(CacheFileNames[i],ChannelNames[i],datastart,duration); /* This reads the raw data from the cache */
 			if(RawData==NULL){fprintf(stderr,"Error opening %s in %s\n",ChannelNames[i],CacheFileNames[i]); exit(-1);}
-			if(timeslides){
+			if(timeslides || specifictimeslides){
 				memcpy(&(RawData->epoch),&realstart,sizeof(LIGOTimeGPS));
 				memcpy(&datastart,&realstart,sizeof(LIGOTimeGPS));
 			}
@@ -690,22 +947,45 @@ int main( int argc, char *argv[])
 				/* POWER SPECTRUM SHOULD HAVE UNITS OF TIME! */
 			}
 
-			if(DEBUG) fprintf(stderr,"populating inputMCMC\n");
+			/* Set up to read trigger time independently */
+			/* Shift the data if requested like for PSD */
+			LIGOTimeGPS realsegstart;
+			memcpy(&realsegstart,&segmentStart,sizeof(LIGOTimeGPS));
+               		if(timeslides&&!FakeFlag){ /* Set up time slides by randomly offsetting the data */
+                        	LALCreateRandomParams(&status,&randparam,seed);
+                        	LALUniformDeviate(&status,&TSoffset,randparam);
+                        	TSoffset=(TSoffset-0.5)*TIMESLIDE;
+                        	XLALGPSAdd(&segmentStart, TSoffset);
+	                        fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);
+        	                XLALDestroyRandomParams(randparam);
+			}
+			if(specifictimeslides && !FakeFlag){ /* Set up time slides by offsetting the data by user defined value */
+                        	if( ( !strcmp(IFOnames[i],"H1") && H1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"L1") &&
+                                        L1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"V1") && V1GPSshift != 0.0 ) ) {
+                                if(!strcmp(IFOnames[i],"H1"))
+                                        TSoffset=H1GPSshift;
+                                else if(!strcmp(IFOnames[i],"L1"))
+                                        TSoffset=L1GPSshift;
+                                else if(!strcmp(IFOnames[i],"V1"))
+                                        TSoffset=V1GPSshift;
+                                XLALGPSAdd(&segmentStart, TSoffset);
+                                fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realsegstart.gpsSeconds+1e-9*realsegstart.gpsNanoSeconds,segmentStart.gpsSeconds+1e-9*segmentStart.gpsNanoSeconds);
+                        	}
+                	}
+			inputMCMC.segment[i]=readTseries(CacheFileNames[i],ChannelNames[i],segmentStart,(REAL8)seglen/SampleRate);
+			/* Copy the real start time into vector */
+			memcpy(&segmentStart,&realsegstart,sizeof(LIGOTimeGPS));
+			memcpy(&(inputMCMC.segment[i]->epoch),&realsegstart,sizeof(LIGOTimeGPS));
 
-			segnum=(ETgpsSeconds - RawData->epoch.gpsSeconds)/strideDur;
+			if(SampleRate) check=XLALResampleREAL8TimeSeries(inputMCMC.segment[i],1.0/SampleRate);
 
 			if(InjParams.tc>segDur-padding) fprintf(stderr,"Warning, flat-top is shorter than injected waveform!\n");
 			/* Store the appropriate data in the input structure */
 
-			if(DEBUG) fprintf(stderr,"Trigger lies at sample %d, creating segment around it\n",TrigSample);
-			/* Chop out the data segment and store it in the input structure */
-			inputMCMC.segment[i]=(REAL8TimeSeries *)XLALCutREAL8TimeSeries(RawData,TrigSegStart,seglen);
-
 			memcpy(&(inputMCMC.invspec[i]->epoch),&(inputMCMC.segment[i]->epoch),sizeof(LIGOTimeGPS));
-
 			if(DEBUG) fprintf(stderr,"Data segment %d in %s from %f to %f, including padding\n",i,IFOnames[i],((float)TrigSegStart)/((float)SampleRate),((float)(TrigSegStart+seglen))/((float)SampleRate) );
 
-			inputMCMC.stilde[i] = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&(inputMCMC.segment[i]->epoch),0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+			inputMCMC.stilde[i] = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&realstart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
 
 			XLALDestroyREAL8TimeSeries(RawData);
 
@@ -773,7 +1053,11 @@ int main( int argc, char *argv[])
 			printf("Finished InjectSignals\n");
 			fprintf(stderr,"Cutting injection buffer from %d to %d\n",bufferlength,seglen);
 
+<<<<<<< HEAD
             TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
+=======
+			TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
+>>>>>>> master
 			TrigSegStart+=(INT4)((segmentStart.gpsNanoSeconds - injWave->epoch.gpsNanoSeconds)*1e-9*SampleRate);
 
 			injWave=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injWave,TrigSegStart,seglen);
@@ -866,8 +1150,15 @@ int main( int argc, char *argv[])
 	/* randparams need to be handled differently from the MCMC code*/
 	LALCreateRandomParams(&status,&(inputMCMC.randParams),seed);
 
+
+    inputMCMC.Fwfp = XLALCreateREAL4Vector(inputMCMC.numPoints);//Fourier modes + of T-model: PhenSpin deal with "+" & "x" polarisations differently so we set them here
+	inputMCMC.Fwfc = XLALCreateREAL4Vector(inputMCMC.numPoints); //Fourier modes x of T-model: PhenSpin deal with "+" & "x" polarisations differently so we set them here
 	/* Set up the approximant to use in the likelihood function */
+<<<<<<< HEAD
 	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest";
+=======
+	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low"; CHAR PSTRD[]="PhenSpinTaylorRD";
+>>>>>>> master
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
@@ -878,11 +1169,13 @@ int main( int argc, char *argv[])
     else if(!strcmp(approx,BBHSpin1)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,BBHSpin2)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,BBHSpin3)) inputMCMC.approximant=IMRPhenomFB;
+    else if(!strcmp(approx,LowMassIMRFB)) inputMCMC.approximant=IMRPhenomFB;
+    else if(!strcmp(approx,LowMassIMRB)) inputMCMC.approximant=IMRPhenomB;
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
 	else if(!strcmp(approx,AMPCORTEST)) inputMCMC.approximant=AmpCorPPNTest;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
-    /*else if(!strcmp(approx,PSTRD)) inputMCMC.approximant=PhenSpinTaylorRD;*/
+	else if(!strcmp(approx,PSTRD)) inputMCMC.approximant=PhenSpinTaylorRD;
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
 	if((inputMCMC.approximant!=AmpCorPPN || inputMCMC.approximant!=AmpCorPPNTest) && ampOrder!=0){
@@ -1004,7 +1297,19 @@ doneinit:
         inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
         inputMCMC.funcInit = NestInitManualIMRBChi;
     }
-
+    if((!strcmp(approx,LowMassIMRB)) || (!strcmp(approx,LowMassIMRFB)) ){
+	inputMCMC.funcPrior = NestPrior;
+	inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
+	inputMCMC.funcInit = NestInitManualIMRBChi;
+    }
+   
+    	if(!strcmp(approx,PSTRD)) {
+	  inputMCMC.funcPrior = NestPriorPhenSpin;
+	  inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF_PhenSpin;
+	  inputMCMC.likelihoodPlan = NULL;
+	  inputMCMC.funcInit = NestInitManualPhenSpinRD;
+	} 
+     
 	/* Live is an array of LALMCMCParameter * types */
 	Live = (LALMCMCParameter **)LALMalloc(Nlive*sizeof(LALMCMCParameter *));
 	for (i=0;i<Nlive;i++) Live[i]=(LALMCMCParameter *)LALMalloc(sizeof(LALMCMCParameter));
@@ -1052,6 +1357,99 @@ doneinit:
 	}
 	return(0);
 } /* End main() */
+void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
+{
+  (void)iT;
+
+  double dmin=d_min;
+  double dmax=d_max;
+ 
+
+  double singleMassMin=compmassmin;
+  double totalMassMin=m_tot_min;
+  double totalMassMax=m_tot_max;
+  if ( (manual_mass_high > manual_mass_low) && (manual_mass_low>2.*singleMassMin) ) {
+    totalMassMin=manual_mass_low;
+    totalMassMax=manual_mass_high;
+  }
+  else {
+    if (HighMassFlag) {
+      totalMassMin=m_tot_min_highmass;
+      totalMassMax=m_tot_max_highmass;
+    }
+  }
+  
+
+  double etamin=0.25 - etawindow;
+  double eta=etamin+gsl_rng_uniform(RNG)*(0.25-etamin);
+
+  double logMc;
+  double mcmax=0.435275*totalMassMax;
+  double mcmin=pow((totalMassMin-1.)*(totalMassMin-1.)*(totalMassMin-1.)/totalMassMin,0.2);
+  double lMcmin=log(mcmin);
+  double lMcmax=log(mcmax);
+
+  parameter->param=NULL;
+  parameter->dimension = 0;
+  
+  logMc=log(50.*pow(eta,3./5.));
+
+    XLALMCMCAddParam(parameter,"logMc",logMc,lMcmin,lMcmax,0);
+
+  XLALMCMCAddParam(parameter,"eta",eta,etamin,0.25,0);
+
+    XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
+    XLALMCMCAddParam(parameter,"phi", LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
+    XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax,0);
+    XLALMCMCAddParam(parameter,"long",gsl_rng_uniform(RNG)*(long_max-long_min)+long_min,long_min,long_max,0);
+    XLALMCMCAddParam(parameter,"lat", gsl_rng_uniform(RNG)*(lat_max-lat_min)+lat_min,lat_min,lat_max,0);
+    XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI/2.0,0,LAL_PI/2.0,0);
+    XLALMCMCAddParam(parameter,"iota", gsl_rng_uniform(RNG)*(iota_max-iota_min)+iota_min ,iota_min,iota_max,0);
+    
+    if(onespin_flag==0 && nospin_flag==0){
+    
+    double spin1min=s1_mag_min;
+    double spin1max=s1_mag_max;
+
+    double spin2min=s2_mag_min;
+    double spin2max=s2_mag_max;
+    
+    double spin1thetamin=s1_theta_min;
+    double spin1thetamax=s1_theta_max;
+        
+    double spin2thetamin=s2_theta_min;
+    double spin2thetamax=s2_theta_max;
+
+    double spin1phimin=s1_phi_min;
+    double spin1phimax=s1_phi_max;
+
+    double spin2phimin=s2_phi_min;
+    double spin2phimax=s2_phi_max;
+
+    XLALMCMCAddParam(parameter,"Spin1",    (spin1max-spin1min)*gsl_rng_uniform(RNG)+spin1min,  spin1min, spin1max, 0);
+    XLALMCMCAddParam(parameter,"Spin1theta",(spin1thetamax-spin1thetamin)*gsl_rng_uniform(RNG)+spin1thetamin, spin1thetamin, spin1thetamax, 1);
+    XLALMCMCAddParam(parameter,"Spin1phi",  (spin1phimax-spin1phimin)*gsl_rng_uniform(RNG)+spin1phimin,  spin1phimin, spin1phimax, 0);
+    XLALMCMCAddParam(parameter,"Spin2",     (spin2max-spin2min)*gsl_rng_uniform(RNG)+spin2min,  spin2min, spin2max,0);
+    XLALMCMCAddParam(parameter,"Spin2theta",(spin2thetamax-spin2thetamin)*gsl_rng_uniform(RNG)+spin2thetamin,  spin2thetamin, spin2thetamax, 1);
+    XLALMCMCAddParam(parameter,"Spin2phi",  (spin2phimax-spin2phimin)*gsl_rng_uniform(RNG)+spin2phimin,  spin2phimin, spin2phimax,0);
+	}
+	
+	else{
+		if(onespin_flag==1 && nospin_flag==0){
+			double spin2min=s2_mag_min;
+			double spin2max=s2_mag_max;
+        		double spin2thetamin=s2_theta_min;
+			double spin2thetamax=s2_theta_max;
+			double spin2phimin=s2_phi_min;
+			double spin2phimax=s2_phi_max;
+							XLALMCMCAddParam(parameter,"Spin1",     (spin2max-spin2min)*gsl_rng_uniform(RNG)+spin2min,  spin2min, spin2max,0);
+							XLALMCMCAddParam(parameter,"Spin1theta",(spin2thetamax-spin2thetamin)*gsl_rng_uniform(RNG)+spin2thetamin,  spin2thetamin, spin2thetamax, 1);
+							XLALMCMCAddParam(parameter,"Spin1phi",  (spin2phimax-spin2phimin)*gsl_rng_uniform(RNG)+spin2phimin,  spin2phimin, spin2phimax,0);
+											 }	
+		
+	}
+    return;
+}
 
 void NestInitGRB(LALMCMCParameter *parameter, void *iT){
 	REAL8 grb_time;
@@ -1244,8 +1642,8 @@ void NestInitManualIMRBChi(LALMCMCParameter *parameter, void UNUSED *iT)
 	double mcmin,mcmax;
 	parameter->param=NULL;
 	parameter->dimension = 0;
-	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
-	mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
+	mcmin=manual_mass_low;
+	mcmax=manual_mass_high;
 
     double lmmin=log(mcmin);
 	double lmmax=log(mcmax);
@@ -1496,6 +1894,7 @@ int checkParamInList(const char *list, const char *param)
 	return 1;
 }
 
+<<<<<<< HEAD
 ///*-----------------------------------------------------------*/
 void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *template)
 ///*-------------- Inject in Frequency domain -----------------*/
@@ -1594,3 +1993,7 @@ void InjectFD(LALStatus *status, LALMCMCInput *inputMCMC, SimInspiralTable *temp
 	fprintf(stdout,"Injected signal, network SNR = %lf\n",injSNR);
 	return;
 }
+=======
+
+
+>>>>>>> master

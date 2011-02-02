@@ -133,7 +133,7 @@ saved_ratios = {}
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose)
 	for name, ratios in binned_ratios_extractor(xmldoc):
 		if name not in saved_ratios.keys():
 			saved_ratios[name] = ratios

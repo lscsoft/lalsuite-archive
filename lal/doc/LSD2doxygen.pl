@@ -312,12 +312,18 @@ sub cleanupLSD {
                    )$bbk?$bbr!!mgx;
         # one argument
         $text =~ s!\\(?:
-                   index|input|vfill|vspace
+                   input|vfill|vspace
                    )$bbr!!mgx;
         # no arguments
         $text =~ s!\\(?:
                    footnotesize|medskip|newpage|noindent
                   )$n*!!mgx;
+
+        # remove these LaTeX commands but leave argument:
+        # one argument
+        $text =~ s!\\(?:
+                   index
+                   )$wbbr!$1!mgx;
 
         # flag these environments for manual intervention
         $text =~ s!\\(begin|end)$n*{(
@@ -419,6 +425,9 @@ sub cleanupLSD {
             '\TODOref{' . &$illref($_) . '}'
         }sge;
         $text =~ s![Ee]q(s?)\.?\\TODOref!Eq\1.\\eqref!mg;
+
+        # replace probable filenames with references
+        $text =~ s!<tt>(.*?\.[ch])</tt>!\\ref \1!mg;
 
         # replace citations
         $text =~ s{\\cite$wbbr}{

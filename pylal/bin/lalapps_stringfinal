@@ -102,6 +102,7 @@ def parse_command_line():
 	parser.add_option("-o", "--open-box", action = "store_true", help = "Perform open-box analysis.  In a closed-box analysis (the default), information about the events seen at zero-lag is concealed:  the rate vs. threshold plot only shows the rate of events seen in the background, the detection threshold used to measure the efficiency curves is obtained from n-th loudest background event where n is (the integer closest to) the ratio of background livetime to zero-lag livetime, and messages to stdout and stderr that contain information about event counts at zero-lag are silenced.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--vetoes-name", metavar = "name", help = "Set the name of the segment lists to use as vetoes (default = do not apply vetoes).")
+	parser.add_option("--record-background", metavar = "N", type = "int", default = 100000000, help = "Set the number of background likelihood ratios to hold in memory for producing the rate vs. threshold plot (default = 100000000).")
 	parser.add_option("--record-candidates", metavar = "N", type = "int", default = 100, help = "Set the number of highest-ranked zero-lag candidates to dump to the candidate file (default = 100).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -178,9 +179,9 @@ def compress_ratevsthresh_curve(x, y, yerr):
 
 
 class RateVsThreshold(object):
-	def __init__(self, open_box, record_candidates):
+	def __init__(self, open_box, record_background, record_candidates):
 		self.zero_lag = []
-		self.background = []
+		self.background = iterutils.Highest(max = record_background)
 		self.candidates = iterutils.Highest(max = record_candidates)
 		self.zero_lag_time = 0.0
 		self.background_time = 0.0
@@ -212,6 +213,7 @@ class RateVsThreshold(object):
 		# count events
 		#
 
+		background = []
 		candidates = []
 		for likelihood_ratio, instruments, coinc_event_id, peak_time, is_background in contents.connection.cursor().execute("""
 SELECT
@@ -250,7 +252,7 @@ WHERE
 				pass
 			elif is_background:
 				# non-vetoed background
-				self.background.append(likelihood_ratio)
+				background.append(likelihood_ratio)
 			else:
 				# non-vetoed zero lag
 				self.zero_lag.append(likelihood_ratio)
@@ -259,6 +261,7 @@ WHERE
 				candidates.append((likelihood_ratio, contents.filename, coinc_event_id, instruments, peak_time))
 		# this is much faster than appending each element into the
 		# Highest object one-by-one
+		self.background.extend(background)
 		self.candidates.extend(candidates)
 
 	def finish(self):
@@ -277,13 +280,25 @@ WHERE
 			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
 
 		#
-		# sort the ranking statistics and convert to arrays
+		# sort the ranking statistics and convert to arrays.  note
+		# the slice is required not only to reverse the contents of
+		# self.background (which are stored in decreasing order)
+		# but also to avoid confusing numpy.array() with the fake
+		# length returned by self.background.
+		#
+		# FIXME:  the following segfaults and should probably be
+		# reported to numpy maintainers
+		#
+		# x = Highest(max = 5)
+		# x.extend(range(100))
+		# numpy.array(x)
+		#
+		# Note that tuple(x) does not segfault.
 		#
 
-		self.background.sort()
 		self.zero_lag.sort()
-		self.background = numpy.array(self.background, dtype = "double")
 		self.zero_lag = numpy.array(self.zero_lag, dtype = "double")
+		background_x = numpy.array(self.background[::-1], dtype = "double")
 
 		#
 		# convert counts to rates and their uncertainties
@@ -291,7 +306,7 @@ WHERE
 
 		# background count expected in zero-lag and \sqrt{N}
 		# standard deviation
-		background_y = numpy.arange(len(self.background), 0.0, -1.0, dtype = "double") / self.background_time * self.zero_lag_time
+		background_y = numpy.arange(len(background_x), 0.0, -1.0, dtype = "double") / self.background_time * self.zero_lag_time
 		background_yerr = numpy.sqrt(background_y)
 
 		# count observed in zero-lag
@@ -300,7 +315,7 @@ WHERE
 		# compute zero-lag - expected residual in units of \sqrt{N}
 		zero_lag_residual = numpy.zeros((len(self.zero_lag),), dtype = "double")
 		for i in xrange(len(self.zero_lag)):
-			n = expected_count(self.zero_lag[i], self.background, background_y)
+			n = expected_count(self.zero_lag[i], background_x, background_y)
 			zero_lag_residual[i] = (zero_lag_y[i] - n) / math.sqrt(n)
 
 		# convert counts to rates
@@ -313,15 +328,15 @@ WHERE
 		#
 
 		if self.open_box:
-			minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, self.zero_lag, zero_lag_y)
+			minX, maxX, minY, maxY = ratevsthresh_bounds(background_x, background_y, self.zero_lag, zero_lag_y)
 		else:
-			minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, [], [])
+			minX, maxX, minY, maxY = ratevsthresh_bounds(background_x, background_y, [], [])
 
 		#
 		# compress the background data
 		#
 
-		background, background_y, background_yerr = compress_ratevsthresh_curve(self.background, background_y, background_yerr)
+		background_x, background_y, background_yerr = compress_ratevsthresh_curve(background_x, background_y, background_yerr)
 
 		#
 		# start the rate vs. threshold plot
@@ -342,10 +357,10 @@ WHERE
 		# if the density of data points is small where the polygon
 		# encounters the axes' bounding box.
 
-		poly_x = numpy.concatenate((background, background[::-1]))
+		poly_x = numpy.concatenate((background_x, background_x[::-1]))
 		poly_y = numpy.concatenate((background_y + 1 * background_yerr, (background_y - 1 * background_yerr)[::-1]))
 		axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, minY, maxY)), edgecolor = "k", facecolor = "k", alpha = 0.3))
-		line1, = axes.loglog(background.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "--")
+		line1, = axes.loglog(background_x.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "--")
 		if self.open_box:
 			line2, = axes.loglog(self.zero_lag.repeat(2)[:-1], zero_lag_y.repeat(2)[1:], color = "k", linestyle = "-", linewidth = 2)
 			axes.legend((line1, line2), (r"Expected background", r"Zero-lag"), loc = "lower left")
@@ -733,7 +748,7 @@ injection_filenames, noninjection_filenames = group_files(filenames, verbose = o
 
 if options.verbose:
 	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
-rate_vs_threshold = RateVsThreshold(options.open_box, record_candidates = options.record_candidates)
+rate_vs_threshold = RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates)
 process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = False)
 

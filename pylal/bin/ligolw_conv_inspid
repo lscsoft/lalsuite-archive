@@ -60,7 +60,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "Converts the event_id column in sngl_inspiral and multi_inspiral tables from int_8s to ilwd:char.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
+		description = "Converts the event_id column in sngl_inspiral and multi_inspiral tables from int_8s to ilwd:char.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout."
 	)
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -146,7 +146,7 @@ for n, filename in enumerate(filenames):
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
 	lsctables.MultiInspiralTable.validcolumns["event_id"] = "int_8s"
 
-	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	xmldoc = utils.load_filename(filename, options.verbose)
 
 	process = initialize_process(xmldoc)
 

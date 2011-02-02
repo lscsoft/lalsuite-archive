@@ -42,7 +42,7 @@ template_trigger_hipe = "./lalapps_trigger_hipe"\
 template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --number-buffer-left 8 --number-buffer-right 8" \
   " --verbose --skip-datafind "\
-  " --user-tag inj --skip-onsource --skip-offsource"\
+  " --user-tag inj "\
   " --overwrite-dir"
 
 ifo_list = ['H1','L1','V1']
