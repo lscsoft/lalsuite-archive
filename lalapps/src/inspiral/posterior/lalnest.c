@@ -798,18 +798,19 @@ int main( int argc, char *argv[])
 			}
 		} /* End if(!FakeFlag) */
 		
-        Approximant check_approx;
-        LALGetApproximantFromString(&status,&injTable->waveform,&check_approx);
-
-		if (NULL!=injXMLFile && fakeinj==0 && check_approx==TaylorF2) 
-		{
-			SimInspiralTable this_injection;
-			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
-			this_injection.next=NULL;
-			InjectFD(status, &inputMCMC, &this_injection);
-		}
-		/* Perform injection in time domain */
+		/* Perform injection */
         if(NULL!=injXMLFile && fakeinj==0) {
+            Approximant check_approx;
+            LALGetApproximantFromString(&status,&injTable->waveform,&check_approx);
+            /* if the injection approximant is TaylorF2 inject in the frequency domain */
+            if (check_approx==TaylorF2) 
+            {
+                fprintf(stdout,"Injecting in the frequency domain\n");
+                SimInspiralTable this_injection;
+                memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
+                this_injection.next=NULL;
+                InjectFD(status, &inputMCMC, &this_injection);
+            }  
 			DetectorResponse det;
 			REAL8 SNR=0.0;
 			LIGOTimeGPS realSegStart;
@@ -1594,7 +1595,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	expnCoeffs ak;
     TofVIn TofVparams;
     
-    /* read in the injection approximant and determine whether is a time domain or a frequency domain injection */
+    /* read in the injection approximant and determine whether is TaylorF2 or something else*/
     Approximant injapprox;
     LALPNOrder phase_order;
     LALGetApproximantFromString(&status,inj_table->waveform,&injapprox);
@@ -1623,7 +1624,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	/* Create the wave */
 	LALInspiralParameterCalc(&status,&template);
 	LALInspiralRestrictedAmplitude(&status,&template);
-	LALInspiralWave(&status,injWaveFD,&template);
+	if(!strcmp(&injapprox,"TaylorF2")) LALInspiralStationaryPhaseApprox2(&status,&injWaveFD,&template); 
     
     memset(&ak,0,sizeof(expnCoeffs));
 	memset(&TofVparams,0,sizeof(TofVparams));
