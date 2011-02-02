@@ -756,7 +756,7 @@ REAL8 NestPriorPhenSpin(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
         return parameter->logPrior;
 }
 
-int CubeToNestPriorPhenSpin(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
+int CubeToNestPriorPhenSpin(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
 {
   REAL8 minCompMass = 1.0;
   REAL8 maxCompMass = 34.0;
