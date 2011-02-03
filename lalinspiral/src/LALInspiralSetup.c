@@ -88,7 +88,7 @@ LALInspiralSetup (
    REAL8 oneby6=1.0/6.0;
    REAL8 beta = 0.L;
    REAL8 sigma = 0.L;
-   REAL8 chi1, chi2;
+   REAL8 deltamfac, chi1, chi2;
 
    INITSTATUS (status, "LALInspiralSetup", LALINSPIRALSETUPC);
    ATTATCHSTATUSPTR(status);
@@ -137,13 +137,24 @@ LALInspiralSetup (
      Use the z components of the spins */
   chi1 = params->spin1[2];
   chi2 = params->spin2[2];
-  if (eta <= 0.25L)
+
+  /* Don't fail if the sqrt is unphysical
+     Also make sure chi2 goes with m2
+     At the end, deltamfac = +/- (m1-m2)/(m1+m2) */
+
+  deltamfac = 1.L - 4.L * ieta * eta;
+  deltamfac = (deltamfac > 0.L) ? sqrt(deltamfac) : 0.L;
+  
+  if (m2 >= m1)
   {
-    /* Chi1 is spin on larger mass
-       m1 = mtot * (1 + sqrt(1 - 4 eta)) / 2 
-       m2 = mtot * (1 - sqrt(1 - 4 eta)) / 2 */
+    deltamfac = -1.L * deltamfac;
+  } 
+  
+    /* Chi1 is spin on m1
+       m1 = mtot * (1 + deltamfac) / 2 
+       m2 = mtot * (1 - deltamfac) / 2 */
     beta = ((113.L - 76.L * ieta * eta) * (chi1 + chi2) / 24.L)
-         + (113.L * sqrt(1.L - 4.L * ieta * eta) * (chi1 - chi2) / 24.L);
+         + (113.L * deltamfac * (chi1 - chi2) / 24.L);
     sigma = 474.L * ieta * eta * chi1 * chi2 / 48.L;
   }
 
