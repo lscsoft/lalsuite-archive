@@ -1667,12 +1667,6 @@ SimInspiralTableFromLIGOLw (
         {
             thisSim->bandpass = i4colData;
         }
-        else if ( tableDir[j].idx == 56 ) {
-        	thisSim->qmParameter1 = r4colData;
-        }
-        else if ( tableDir[j].idx == 57 ) {
-        	thisSim->qmParameter2 = r4colData;
-        }
         else
         {
             CLOBBER_SIM;

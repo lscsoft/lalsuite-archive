@@ -270,8 +270,8 @@ void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params)
 			wave->chih[1][i] = 0.;
 		}
 	}
-	wave->qmParameter[0] = params->qmParameter[0];
-	wave->qmParameter[1] = params->qmParameter[1];
+	wave->qmParameter[0] = 1.;//params->qmParameter[0];
+	wave->qmParameter[1] = 1.;//params->qmParameter[1];
 	wave->distance = params->distance;
 	wave->inclination = params->inclination;
 	wave->lowerFreq = params->fLower;
