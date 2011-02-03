@@ -690,7 +690,7 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','chi']
+    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi']
     #List of parameter pairs to bin . Need to match (converted) column names.
     twoDGreedyMenu=[]
     for i in range(0,len(oneDMenu)):
