@@ -37,6 +37,7 @@ from glue.ligolw import lsctables
 from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
+from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import printutils
 
@@ -274,6 +275,19 @@ def parse_command_line():
 #
 # =============================================================================
 
+def fix_zarray(zarray,sigmas):
+    for n,s in enumerate(sorted(sigmas)):
+        for ii in range(zarray.shape[0]):
+            if zarray[ii,n] >= s:
+                zarray[ii,n] = s
+        #for jj in range(zarray.shape[1]):
+        #    if zarray[n,jj] >= s:
+        #        zarray[n,jj] = s
+        #for ii in range(zarray.shape[0]):
+        #    if zarray[ii,-(n+1)] >= s:
+        #        zarray[ii,-(n+1)] = s
+
+
 def get_row_stat(row, arg):
     """    
     Method to evaluate the desired operation on columns from a row in a table. The desired operation can be either a pre-defined function (if it exists in the row's namespace) or a function of the elements in the row's name space. Syntax for the arg is python. 
@@ -400,10 +414,10 @@ class Category:
     """
     default_match_criteria = ['offset_vector', 'datatype', 'veto_cat', 'on_instruments', 'ifos', 'param_group']
 
-    def __init__(self, offset_vector = {}, datatype = None, veto_cat = None, on_instruments = frozenset(['ALL']), ifos = frozenset(['ALL']), param_group = None):
+    def __init__(self, offset_vector = {}, datatype = None, veto_cat = None, on_instruments = frozenset([u'ALL']), ifos = frozenset([u'ALL']), param_group = None):
         self.offset_vector = OffsetVector(offset_vector)
-        self.datatype = datatype
-        self.veto_cat = veto_cat
+        self.datatype = unicode(datatype)
+        self.veto_cat = unicode(veto_cat)
         self.on_instruments = frozenset(on_instruments)
         self.ifos = frozenset(ifos)
         self.param_group = param_group
@@ -800,6 +814,7 @@ data_table = sqlutils.validate_option(opts.data_table)
 add_background = []
 for addme in opts.add_background_point:
     xval, yval = [float(x) for x in addme.split(':')[0].split(',')]
+    lbl = ''
     if len(addme.split(':')) > 1:
         lbl = addme.split(':')[1]
     add_background.append((xval,yval,lbl))
@@ -932,7 +947,7 @@ for filename in filenames:
         print >> sys.stderr, "Sqlite query used to get categories:"
         print >> sys.stderr, sqlquery
     for on_instruments, this_gps_start, this_gps_end, tsid, veto_cat, duration, datatype in connection.cursor().execute(sqlquery):
-        on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
+        on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
         analyzed_instruments.update( on_instruments )
         gps_start_time = min(gps_start_time, this_gps_start)
         gps_end_time = max(gps_end_time, this_gps_end)
@@ -943,9 +958,9 @@ for filename in filenames:
         else:
             datatypes = [datatype]
         if opts.plot_by_ifos:
-             ifo_list = CoincInspiralUtils.get_ifo_combos(list(on_instruments))
+             ifo_list = [frozenset([x for x in ifos]) for ifos in CoincInspiralUtils.get_ifo_combos(list(on_instruments))]
         else:
-            ifo_list = [set(['ALL'])]
+            ifo_list = [frozenset(['ALL'])]
         # if there is more than one param-group or we are plotting by ifos, add the needed backgrounds
         for datatype in datatypes:
             for param_group in range(n_param_groups):
@@ -1110,6 +1125,7 @@ for filename in filenames:
     if opts.debug:
         print >> sys.stderr, "Sqlite query used to get data:"
         print >> sys.stderr, sqlquery
+    ii = 0
     results = connection.cursor().execute(sqlquery).fetchall()
     for result in results:
         if opts.plot_by_instrument_time:
@@ -1158,7 +1174,20 @@ for filename in filenames:
             categories.append(Category( {}, 'background', veto_cat, on_instruments, ifos, param_group ))
         # add to data
         thisid = id(this_row) 
+        if ii == 0:
+            print "first check"
+            for cat in data:
+                #print '\t', [getattr(cat,y) for y in Category.default_match_criteria], cat.livetime
+                print '\t', tuple(getattr(cat,x) for x in Category.default_match_criteria)
+                for c in categories:
+                    #print '\t\t', [getattr(c,y) for y in Category.default_match_criteria], c == cat, c.__hash__(), cat.__hash__()
+                    print '\t', tuple(getattr(c,x) for x in Category.default_match_criteria)
         data.add_data( thisid, categories, this_row )
+        if ii == 0:
+            print "second check"
+            for cat in data:
+                print '\t', cat.datatype, cat.livetime
+            ii += 1
 
     # go on to the next database
     connection.close()
@@ -1307,24 +1336,24 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
             edgclr = 'none'
         pylab.scatter( fg_hist_stats, fg_count, marker = 'o', edgecolor = edgclr, facecolor = fclr, label = lbl, s = 20, linewidth = .5, zorder = 4 )
 
-    #
-    # plot foreground triggers that fall in plot-special window as stars
-    #
-    if opts.plot_special_time != []:
-        plot_sp_vals = [x.data.stat for x in fg_data if x.data.end_time in plot_special_times]
-        spx = []
-        spy = []
-        if plot_sp_vals != []:
-            # in which bin does each plot_sp_val fall?
-            for x in plot_sp_vals:
-                if x > fg_hist_stats.max():
-                    spx.append(fg_hist_stats.max())
-                    spy.append(fg_count[-1])
-                else:
-                    idxs = set(pylab.find( x >= fg_hist_stats )) & set(pylab.find( x <= fg_hist_stats))
-                    spx.extend([ fg_hist_stats[i] for i in idxs ])
-                    spy.extend([ fg_count[i] for i in idxs ])
-            pylab.scatter( spx, spy, c = 'yellow', marker = (5,1,0), s = 50, linewidth = .5, label = '_no_legend', zorder = 5 )
+        #
+        # plot foreground triggers that fall in plot-special window as stars
+        #
+        if opts.plot_special_time != []:
+            plot_sp_vals = [x.data.stat for x in fg_data if x.data.end_time in plot_special_times]
+            spx = []
+            spy = []
+            if plot_sp_vals != []:
+                # in which bin does each plot_sp_val fall?
+                for x in plot_sp_vals:
+                    if x > fg_hist_stats.max():
+                        spx.append(fg_hist_stats.max())
+                        spy.append(fg_count[-1])
+                    else:
+                        idxs = set(pylab.find( x >= fg_hist_stats )) & set(pylab.find( x <= fg_hist_stats))
+                        spx.extend([ fg_hist_stats[i] for i in idxs ])
+                        spy.extend([ fg_count[i] for i in idxs ])
+                pylab.scatter( spx, spy, c = 'yellow', marker = (5,1,0), s = 50, linewidth = .5, label = '_no_legend', zorder = 5 )
 
 
     #
@@ -1552,13 +1581,13 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
                 break
             loudest_events.append(x[2])
 
-    #
-    # plot foreground triggers that fall in plot-special window as stars
-    #
-    if opts.plot_special_time != []:
-        plot_sp_vals = [x for x in plotvals if data.data_index[x[2]].data.end_time in plot_special_times]
-        if plot_sp_vals != []:
-            pylab.scatter( [x[0] for x in plot_sp_vals], [y[1] / T_fg for y in plot_sp_vals], c = 'yellow', marker = (5,1,0), s = 50, linewidth = .5, label = '_no_legend', zorder = 5 )
+        #
+        # plot foreground triggers that fall in plot-special window as stars
+        #
+        if opts.plot_special_time != []:
+            plot_sp_vals = [x for x in plotvals if data.data_index[x[2]].data.end_time in plot_special_times]
+            if plot_sp_vals != []:
+                pylab.scatter( [x[0] for x in plot_sp_vals], [y[1] / T_fg for y in plot_sp_vals], c = 'yellow', marker = (5,1,0), s = 50, linewidth = .5, label = '_no_legend', zorder = 5 )
 
     #
     # plot extrapolation
@@ -1656,10 +1685,10 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         xrange = 101
         yrange = 2*xrange
         # add added_bkg points to bkg stats
-        bkgvals = zip(bkg_stats.tolist(),bkg_cumnum.tolist()) + added_bkg
-        bkgvals.sort(reverse = False )
-        bkg_stats = numpy.array([x[0] for x in bkgvals])
-        bkg_cumnum = numpy.array([x[1] for x in bkgvals])
+        #bkgvals = zip(bkg_stats.tolist(),bkg_cumnum.tolist()) + added_bkg
+        #bkgvals.sort(reverse = False )
+        #bkg_stats = numpy.array([x[0] for x in bkgvals])
+        #bkg_cumnum = numpy.array([x[1] for x in bkgvals])
 
         # if extrapolating, use the extrpolation beyond the largeest measured background point
         if opts.extrapolate is not None and plot_fg and x_ext.any():
@@ -1711,12 +1740,15 @@ for bkg_category in data.get_categories( Category(datatype = 'background'), ['da
         if opts.plot_significance_bands and opts.max_sigma > 0.:
             if opts.verbose:
                 print "\tplotting contours..."
-            sigmas = [numpy.log10(special.erfc((n+1)/numpy.sqrt(2))/2.) for n in range(opts.max_sigma)]
+            sigmas = sorted([numpy.log10(special.erfc((n+1)/numpy.sqrt(2))/2.) for n in range(opts.max_sigma)])
             if opts.plot_poisson_pdf:
                 contplt = pylab.contour(xarray, yarray, zarray, sigmas, colors = 'k', linestyles='dashdot', label='N-\sigma', zorder = 1)
                 cb.add_lines(contplt)
             else:
-                contplt = pylab.contour(xarray, yarray, zarray, sigmas, cmap = pylab.cm.jet, label = 'N-\sigma', zorder = 1)
+                fix_zarray(zarray,sigmas)
+                pylab.contourf(xarray, yarray, zarray, sigmas+[0.0], cmap = pylab.cm.gray_r, alpha = 0.7) 
+                #for n in range(len(sigmas)-1):
+                #    pylab.contourf(xarray, yarray, zarray, [sorted(sigmas)[n], sorted(sigmas)[n+1]], cmap = pylab.cm.gray_r, label = 'N-\sigma', alpha = .2*n+.1)
 
         # plot a line to show where the extrapolated data begins to be used
         if plot_fg and opts.extrapolate is not None:
