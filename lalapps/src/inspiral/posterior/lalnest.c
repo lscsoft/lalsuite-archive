@@ -69,7 +69,7 @@ Optional OPTIONS:\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
 [--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior chirp masses\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
-[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
+[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorF2Test|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
 [--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\n\
 [--H1GPSshift FLOAT\t: Specify timeslide in H1]\n \
@@ -159,9 +159,9 @@ INT4 PhaseTestParam;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 
-// init function for the Phi-parametrized AmpCor waveform
+// init function for the Phi-parametrized AmpCor && TaylorF2 waveform
 
-void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT);
+void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
 
 UINT4 fLowFlag=0;
 
@@ -852,7 +852,7 @@ int main( int argc, char *argv[])
                 fprintf(outInj_test1,"%lf %e\n",i*inputMCMC.deltaF,injWave->data->data[i]);
             }
             fclose(outInj_test1);*/
-			XLALDestroyCOMPLEX8FrequencySeries(resp);
+            XLALDestroyCOMPLEX8FrequencySeries(resp);
 			printf("Finished InjectSignals\n");
 			fprintf(stderr,"Cutting injection buffer from %d to %d\n",bufferlength,seglen);
 
@@ -949,10 +949,11 @@ int main( int argc, char *argv[])
     inputMCMC.Fwfp = XLALCreateREAL4Vector(inputMCMC.numPoints);//Fourier modes + of T-model: PhenSpin deal with "+" & "x" polarisations differently so we set them here
 	inputMCMC.Fwfc = XLALCreateREAL4Vector(inputMCMC.numPoints); //Fourier modes x of T-model: PhenSpin deal with "+" & "x" polarisations differently so we set them here
 	/* Set up the approximant to use in the likelihood function */
-	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest";
+	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR TF2T[]="TaylorF2Test"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest";
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
+    else if(!strcmp(approx,TF2T)) inputMCMC.approximant=TaylorF2Test;
 	else if(!strcmp(approx,TT2)) inputMCMC.approximant=TaylorT2;
 	else if(!strcmp(approx,TT3)) inputMCMC.approximant=TaylorT3;
     else if(!strcmp(approx,TT4)) inputMCMC.approximant=TaylorT4;
@@ -1039,7 +1040,7 @@ int main( int argc, char *argv[])
     else if (!strcmp(PhaseTest,"phi6")){ PhaseTestParam = 6;}
     else if (!strcmp(PhaseTest,"phi6l")){ PhaseTestParam = 7;}
     else if (!strcmp(PhaseTest,"phi7")){ PhaseTestParam = 8;}
-    else {fprintf(stderr,"Unknown phase coefficient: %s\n",PhaseTest); exit(-1);}
+    else {fprintf(stderr,"Unknown testing phase coefficient: %s\n",PhaseTest); exit(-1);}
     fprintf(stderr,"phasetest: %s\t phasetestindex %i\n",PhaseTest,PhaseTestParam);
         
         
@@ -1056,13 +1057,19 @@ doneinit:
 	else inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
 	if(inputMCMC.approximant==AmpCorPPN) inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCor;
 	// If the approximant is the Test function use the proper init, prior and likelihood functions 
-	if(inputMCMC.approximant==AmpCorPPNTest) {
-			inputMCMC.funcInit = NestInitAmpCorTest;
-			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCorTest;
-			inputMCMC.funcPrior = NestPriorAmpCorTest;
-            fprintf(stderr,"Switched to the testing likelihood\n");
-	}				
 	inputMCMC.funcPrior = NestPrior;
+    if(inputMCMC.approximant==AmpCorPPNTest) {
+			inputMCMC.funcInit = NestInitConsistencyTest;
+			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCorTest;
+			inputMCMC.funcPrior = NestPriorConsistencyTest;
+            fprintf(stderr,"Switched to the testing likelihood for AmpCor\n");
+	}			
+    if (inputMCMC.approximant==TaylorF2Test) {
+            inputMCMC.funcInit = NestInitConsistencyTest;
+			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentFTest;
+			inputMCMC.funcPrior = NestPriorConsistencyTest;
+            fprintf(stderr,"Switched to the testing likelihood for TaylorF2\n");
+	}
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
 		inputMCMC.funcInit = NestInitGRB;
 	}
@@ -1469,7 +1476,7 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
     
 // Init function for the AmpCorTest waveform
 
-void NestInitAmpCorTest(LALMCMCParameter *parameter, void *iT)
+void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 {
 	REAL8 trg_time;
 	SimInspiralTable *injTable = (SimInspiralTable *)iT;
