@@ -1404,13 +1404,13 @@ accumulate_partial_power_sum_F(ps3, ps2);
 zero_partial_power_sum_F(ps4);
 cblas_accumulate_partial_power_sum_F(ps4, ps1);
 cblas_accumulate_partial_power_sum_F(ps4, ps2);
-result+=compare_partial_power_sums_F("cblas test:", ps3, ps4);
+result+=compare_partial_power_sums_F("cblas test:", ps3, ps4, 1e-4, 1e-5);
 
 /* sse */
 zero_partial_power_sum_F(ps4);
 sse_accumulate_partial_power_sum_F(ps4, ps1);
 sse_accumulate_partial_power_sum_F(ps4, ps2);
-result+=compare_partial_power_sums_F("sse test:", ps3, ps4);
+result+=compare_partial_power_sums_F("sse test:", ps3, ps4, 1e-4, 1e-5);
 
 si=find_segments(min_gps(), max_gps()+1, ~0, &count);
 if(count>100)count=100;
@@ -1424,14 +1424,14 @@ get_uncached_single_bin_power_sum(ctx, si, count, ps3);
 
 /* sse implementation */
 sse_get_uncached_single_bin_power_sum(ctx, si, count, ps4);
-result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps3, ps4);
+result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps3, ps4, 1e-4, 1e-5);
 
 /* reference implementation */
 get_uncached_matched_power_sum(ctx, si, count, ps3);
 
 /* sse implementation */
 sse_get_uncached_matched_power_sum(ctx, si, count, ps4);
-result+=compare_partial_power_sums_F("sse_get_uncached_matched_power_sum:", ps3, ps4);
+result+=compare_partial_power_sums_F("sse_get_uncached_matched_power_sum:", ps3, ps4, 1e-4, 1e-5);
 
 free(si);
 free_partial_power_sum_F(ps1);

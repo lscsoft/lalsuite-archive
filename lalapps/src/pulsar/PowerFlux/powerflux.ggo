@@ -148,5 +148,6 @@ option "compute-cross-terms" - "computate imaginary cross terms in loosely coher
 
 option "preallocate-memory" - "preallocate this many gigabytes of memory for future usage" double default="0.0" no
 option "memory-allocation-retries" - "number of times to retry allocating memory before giving up" int default="1000" no
+option "sse" - "use hand-coded SSE optimizations" int default="1" no
 
 option "extra-phase"		- "shift data of all datasets matching regexp by this phase (specify in degrees as \".*H1.* 45.3\")" string multiple no

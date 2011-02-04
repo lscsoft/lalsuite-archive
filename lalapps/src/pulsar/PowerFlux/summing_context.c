@@ -24,13 +24,17 @@ ctx=do_alloc(1, sizeof(*ctx));
 memset(ctx, 0, sizeof(*ctx));
 
 fprintf(stderr, "Averaging mode: %s\n", args_info.averaging_mode_arg);
+fprintf(stderr, "SSE: %d\n", args_info.sse_arg);
 fprintf(LOG, "Averaging mode: %s\n", args_info.averaging_mode_arg);
+fprintf(LOG, "SSE: %d\n", args_info.sse_arg);
 
 ctx->diff_shift_granularity=0; 
 
+#define MODE(a)	(args_info.sse_arg ? (sse_ ## a) : (a) )
+
 /* default values appropriate for particular averaging mode */
 if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
-	ctx->get_uncached_power_sum=sse_get_uncached_matched_power_sum;
+	ctx->get_uncached_power_sum=MODE(get_uncached_matched_power_sum);
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached1;
 	ctx->accumulate_power_sums=accumulate_power_sums_sidereal_step;
 
@@ -41,7 +45,7 @@ if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
 if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
 	fprintf(LOG, "single_bin_loose: only tested with delta of pi/2 and pi/5\n");
 	fprintf(stderr, "single_bin_loose: only tested with delta of pi/2 and pi/5\n");
-	ctx->get_uncached_power_sum=get_uncached_loose_single_bin_partial_power_sum;
+	ctx->get_uncached_power_sum=MODE(get_uncached_loose_single_bin_partial_power_sum);
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached_diff;
 	ctx->accumulate_power_sums=accumulate_single_bin_loose_power_sums_sidereal_step;
 
@@ -71,7 +75,7 @@ if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.avera
 	exit(-1);
 	} else
 if(!strcasecmp(args_info.averaging_mode_arg, "1") || !strcasecmp(args_info.averaging_mode_arg, "one")) {
-	ctx->get_uncached_power_sum=sse_get_uncached_single_bin_power_sum;
+	ctx->get_uncached_power_sum=MODE(get_uncached_single_bin_power_sum);
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached1;
 	ctx->accumulate_power_sums=accumulate_power_sums_sidereal_step;
 

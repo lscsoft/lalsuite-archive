@@ -236,7 +236,7 @@ accum->c_weight_cccc+=partial->c_weight_cccc;
 accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
-int SUFFIX(compare_partial_power_sums)(char *prefix, SUFFIX(PARTIAL_POWER_SUM) *ref, SUFFIX(PARTIAL_POWER_SUM) *test)
+int SUFFIX(compare_partial_power_sums)(char *prefix, SUFFIX(PARTIAL_POWER_SUM) *ref, SUFFIX(PARTIAL_POWER_SUM) *test, REAL rel_tolerance, REAL rel_abs_tolerance)
 {
 int i;
 int pps_bins=ref->nbins;
@@ -267,46 +267,53 @@ TEST(nbins, "%d", -1)
 TEST(weight_arrays_non_zero, "%d", -1)
 TEST(collapsed_weight_arrays, "%d", -1)
 
-TEST(c_weight_pppp, "%g", 1e-4)
-TEST(c_weight_pppc, "%g", 1e-4)
-TEST(c_weight_ppcc, "%g", 1e-4)
-TEST(c_weight_pccc, "%g", 1e-4)
-TEST(c_weight_cccc, "%g", 1e-4)
-TEST(c_weight_im_ppcc, "%g", 1e-4)
+TEST(c_weight_pppp, "%g", rel_tolerance)
+TEST(c_weight_pppc, "%g", rel_tolerance)
+TEST(c_weight_ppcc, "%g", rel_tolerance)
+TEST(c_weight_pccc, "%g", rel_tolerance)
+TEST(c_weight_cccc, "%g", rel_tolerance)
+TEST(c_weight_im_ppcc, "%g", rel_tolerance)
 
 #undef TEST
 
-#define TEST(field, tolerance) \
-	if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
-		fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
-		return -4; \
-		}
-
-for(i=0;i<pps_bins;i++) {
-	TEST(power_pp, 1e-4)
-	TEST(power_pc, 1e-4)
-	TEST(power_cc, 1e-4)
+#define TEST(field) \
+	{ \
+	REAL max_field=0.0; \
+	for(i=0;i<pps_bins;i++) { \
+		if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
+			fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
+			return -4; \
+			} \
+		if(fabs(ref->field[i])>max_field)max_field=fabs(ref->field[i]); \
+		if(fabs(test->field[i])>max_field)max_field=fabs(test->field[i]); \
+		} \
+	for(i=0;i<pps_bins;i++) { \
+		if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_abs_tolerance*max_field)) { \
+			fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g max_field=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i], max_field); \
+			return -5; \
+			} \
+		} \
 	}
+
+TEST(power_pp)
+TEST(power_pc)
+TEST(power_cc)
 	
 if(ref->power_im_pc!=NULL || test->power_im_pc!=NULL) {
 	if(ref->power_im_pc==NULL || test->power_im_pc==NULL) {
 		fprintf(stderr, "mismatch: test->power_im_pc=%p ref->power_im_pc=%p\n", test->power_im_pc, ref->power_im_pc);
 		} else {
-		for(i=0;i<pps_bins;i++) {
-			TEST(power_im_pc, 1e-4)
-			}
+		TEST(power_im_pc)
 		}
 	}
 	
 
 if(ref->weight_arrays_non_zero) {
-	for(i=0;i<pps_bins;i++) {
-		TEST(weight_pppp, 1e-4)
-		TEST(weight_pppc, 1e-4)
-		TEST(weight_ppcc, 1e-4)
-		TEST(weight_pccc, 1e-4)
-		TEST(weight_cccc, 1e-4)
-		}
+	TEST(weight_pppp)
+	TEST(weight_pppc)
+	TEST(weight_ppcc)
+	TEST(weight_pccc)
+	TEST(weight_cccc)
 	}
 
 #undef TEST

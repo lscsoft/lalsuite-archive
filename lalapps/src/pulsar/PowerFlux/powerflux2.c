@@ -41,6 +41,8 @@
 #include "statistics.h"
 #include "dataset.h"
 #include "candidates.h"
+#include "power_cache.h"
+#include "single_bin_loosely_coherent_sum.h"
 #include "power_sum_stats.h"
 #include "outer_loop.h"
 #include "util.h"
@@ -902,6 +904,7 @@ free_plot(plot);
 free_RGBPic(p);
 
 power_cache_selftest();
+single_bin_loosely_coherent_selftest();
 power_sum_stats_selftest();
 
 /* Check that expected timebase was sufficient */

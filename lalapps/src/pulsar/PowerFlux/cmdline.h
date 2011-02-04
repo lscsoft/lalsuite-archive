@@ -392,15 +392,18 @@ struct gengetopt_args_info
   int bypass_powersum_cache_arg;	/**< @brief bypass partial power sum cache (default='0').  */
   char * bypass_powersum_cache_orig;	/**< @brief bypass partial power sum cache original value given at command line.  */
   const char *bypass_powersum_cache_help; /**< @brief bypass partial power sum cache help description.  */
-  int compute_cross_terms_arg;	/**< @brief computate imaginary cross terms in loosely coherent search (default='1').  */
-  char * compute_cross_terms_orig;	/**< @brief computate imaginary cross terms in loosely coherent search original value given at command line.  */
-  const char *compute_cross_terms_help; /**< @brief computate imaginary cross terms in loosely coherent search help description.  */
+  int compute_cross_terms_arg;	/**< @brief compute imaginary cross terms in loosely coherent search (default='0').  */
+  char * compute_cross_terms_orig;	/**< @brief compute imaginary cross terms in loosely coherent search original value given at command line.  */
+  const char *compute_cross_terms_help; /**< @brief compute imaginary cross terms in loosely coherent search help description.  */
   double preallocate_memory_arg;	/**< @brief preallocate this many gigabytes of memory for future usage (default='0.0').  */
   char * preallocate_memory_orig;	/**< @brief preallocate this many gigabytes of memory for future usage original value given at command line.  */
   const char *preallocate_memory_help; /**< @brief preallocate this many gigabytes of memory for future usage help description.  */
   int memory_allocation_retries_arg;	/**< @brief number of times to retry allocating memory before giving up (default='1000').  */
   char * memory_allocation_retries_orig;	/**< @brief number of times to retry allocating memory before giving up original value given at command line.  */
   const char *memory_allocation_retries_help; /**< @brief number of times to retry allocating memory before giving up help description.  */
+  int sse_arg;	/**< @brief use hand-coded SSE optimizations (default='1').  */
+  char * sse_orig;	/**< @brief use hand-coded SSE optimizations original value given at command line.  */
+  const char *sse_help; /**< @brief use hand-coded SSE optimizations help description.  */
   char ** extra_phase_arg;	/**< @brief shift data of all datasets matching regexp by this phase (specify in degrees as \".*H1.* 45.3\").  */
   char ** extra_phase_orig;	/**< @brief shift data of all datasets matching regexp by this phase (specify in degrees as \".*H1.* 45.3\") original value given at command line.  */
   unsigned int extra_phase_min; /**< @brief shift data of all datasets matching regexp by this phase (specify in degrees as \".*H1.* 45.3\")'s minimum occurreces */
@@ -529,6 +532,7 @@ struct gengetopt_args_info
   unsigned int compute_cross_terms_given ;	/**< @brief Whether compute-cross-terms was given.  */
   unsigned int preallocate_memory_given ;	/**< @brief Whether preallocate-memory was given.  */
   unsigned int memory_allocation_retries_given ;	/**< @brief Whether memory-allocation-retries was given.  */
+  unsigned int sse_given ;	/**< @brief Whether sse was given.  */
   unsigned int extra_phase_given ;	/**< @brief Whether extra-phase was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
