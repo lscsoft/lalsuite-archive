@@ -185,6 +185,43 @@ LALGenerateInspiral(
     LALSDestroyVector(status->statusPtr, &(ppnParams->ppn) );
     CHECKSTATUSPTR(status);
   }
+  else if ( approximant == AmpCorPPNTest )
+  {
+    int i;
+
+    /* fill structure with input parameters */
+    LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
+    CHECKSTATUSPTR(status);
+
+    /* PPN parameter. */
+    ppnParams->ppn = NULL;
+    LALSCreateVector( status->statusPtr, &(ppnParams->ppn), order + 1 );
+    ppnParams->ppn->length = order + 1;
+
+    ppnParams->ppn->data[0] = 1.0;
+    if ( order > 0 )
+    {
+      ppnParams->ppn->data[1] = 0.0;
+      for ( i = 2; i <= (INT4)( order ); i++ )
+      {
+        ppnParams->ppn->data[i] = 1.0;
+      }
+    }
+
+    /* COPY PPNPARAMSTRUC INTO PPNCONSISTENCYPARAMSTRUC */
+      PPNConsistencyParamStruc duplicateParams;
+      duplicateParams.ppn = XLALCreateREAL4Vector( ppnParams->ppn->length );
+      
+      XLALCopyPPNConsistencyFromPPNParamStruc(ppnParams, &duplicateParams);
+      
+    /* generate PPN waveform */
+    LALGeneratePPNAmpCorConsistency(status->statusPtr, waveform, &duplicateParams);
+    CHECKSTATUSPTR(status);
+
+    LALSDestroyVector(status->statusPtr, &(ppnParams->ppn) );
+    LALSDestroyVector(status->statusPtr, &(duplicateParams.ppn) );
+    CHECKSTATUSPTR(status);
+  }
   /* WDP: here we need the AmpCorPPNTest case to populate the PN coefficients + the phiTest */
   else
   {
