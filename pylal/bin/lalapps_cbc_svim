@@ -842,7 +842,7 @@ def parse_command_line():
 
   # Options to control the FAR used for computing the search volume. The default behavior is to use
   # the FAR of the loudest non-playground event.
-  parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event.")
+  parser.add_option("--far", type = "float", help = "FAR to use for injection finding instead of loudest event.")
   parser.add_option("--use-expected-loudest-event", default=False, action = "store_true", help = "Instead of using the observed FAR for the loudest event, estimate the FAR based on livetime. This option overrides the --far option.")
 
   # Techincal options which the general user won't care about
