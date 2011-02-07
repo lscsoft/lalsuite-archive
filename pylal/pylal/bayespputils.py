@@ -761,6 +761,11 @@ class KDTree(object):
             self._objects = objects[:]
             coord=self._objects[0].coord()
             self._bounds = coord,coord
+        elif self._same_coords(objects):
+            # All the same coordinates
+            self._objects = [ objects[0] ]
+            coord=self._objects[0].coord()
+            self._bounds = coord,coord
         else:
             self._objects = objects[:]
             self._bounds = self._bounds_of_objects()
@@ -779,6 +784,20 @@ class KDTree(object):
                 high = [obj for obj in self._objects if obj.coord()[longest_dim] > bound]
             self._left = KDTree(low)
             self._right = KDTree(high)
+
+    def _same_coords(self, objects):
+        """
+        True if and only if all the given objects have the same
+        coordinates.
+        """
+        if len(objects) <= 1:
+            return True
+        coords = [obj.coord() for obj in objects]
+        c0 = coords[0]
+        for ci in coords[1:]:
+            if not (ci == c0):
+                return False
+        return True
 
     def _bounds_of_objects(self):
         """
