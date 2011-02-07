@@ -138,6 +138,89 @@ border-bottom-style:double;
 """
 
 #===============================================================================
+# Functions used to parse injection structure.
+#===============================================================================
+def _inj_m1(inj):
+    """
+    Function mapping (mchirp,eta)->m1; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass1
+def _inj_m2(inj):
+    """
+    Function mapping (mchirp,eta)->m2; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass2
+
+def _inj_longitude(inj):
+    """
+    Map the value of the longitude found in inj to an interval [0,2*pi).
+    """
+    if inj.longitude>2*pi_constant or inj.longitude<0.0:
+        maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
+        print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
+        return maplong
+    else:
+        return inj.longitude
+
+def _inj_a1(inj):
+    x = inj.spin1x
+    y = inj.spin1y
+    z = inj.spin1z
+    return sqrt(x*x + y*y + z*z)
+
+def _inj_a2(inj):
+    x = inj.spin2x
+    y = inj.spin2y
+    z = inj.spin2z
+    return sqrt(x*x + y*y + z*z)
+
+def _inj_theta1(inj):
+    x = inj.spin1x
+    y = inj.spin1y
+    z = inj.spin1z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        return np.arccos( z / sqrt(x*x+y*y+z*z) )
+
+def _inj_theta2(inj):
+    x = inj.spin2x
+    y = inj.spin2y
+    z = inj.spin2z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        return np.arccos( z / sqrt(x*x+y*y+z*z) )
+    
+def _inj_phi1(inj):
+    x = inj.spin1x
+    y = inj.spin1y
+    z = inj.spin1z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        phi_mpi_to_pi = np.arctan2(y, x)
+        if phi_mpi_to_pi < 0.0:
+            return phi_mpi_to_pi + 2*pi_constant
+        else:
+            return phi_mpi_to_pi
+
+def _inj_phi2(inj):
+    x = inj.spin2x
+    y = inj.spin2y
+    z = inj.spin2z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        phi_mpi_to_pi = np.arctan2(y, x)
+        if phi_mpi_to_pi < 0.0:
+            return phi_mpi_to_pi + 2*pi_constant
+        else:
+            return phi_mpi_to_pi
+
+#===============================================================================
 # Class definitions
 #===============================================================================
 
@@ -407,38 +490,6 @@ class Posterior(object):
                     self[name].set_injval(new_injval)
 
 
-    def _inj_m1(inj):
-        """
-        Function mapping (mchirp,eta)->m1; m1>m2 .
-        """
-        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-        return mass1
-    def _inj_m2(inj):
-        """
-        Function mapping (mchirp,eta)->m2; m1>m2 .
-        """
-        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-        return mass2
-
-    def _inj_mchirp(inj):
-
-        return inj.mchirp
-
-    def _inj_eta(inj):
-        return inj.eta
-
-    def _inj_longitude(inj):
-        """
-        Map the value of the longitude found in inj to an interval [0,2*pi).
-        """
-        
-        if inj.longitude>2*pi_constant or inj.longitude<0.0:
-            maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
-            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
-            return maplong
-        else:
-            return inj.longitude
-    
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
@@ -450,6 +501,7 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
+        'phi_orb': lambda inj: inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
@@ -461,7 +513,13 @@ class Posterior(object):
                         'psi': lambda inj: inj.polarization,
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
-                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z)
+                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
+        'a1':_inj_a1,
+        'a2':_inj_a2,
+        'theta1':_inj_theta1,
+        'theta2':_inj_theta2,
+        'phi1':_inj_phi1,
+        'phi2':_inj_phi2
                        }
 
     def _getinjpar(self,paramname):
@@ -470,7 +528,7 @@ class Posterior(object):
         """
         if self._injection is not None:
             for key,value in self._injXMLFuncMap.items():
-                if paramname in key:
+                if paramname.lower().strip() == key.lower().strip():
                     return self._injXMLFuncMap[key](self._injection)
         return None
 
