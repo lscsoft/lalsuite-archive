@@ -227,6 +227,15 @@ void
 LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform,
 		LALSQTPNWaveformParams *params);
 
+typedef enum {
+	LALSQTPN_0 = 0,
+	LALSQTPN_0_5 = 1,
+	LALSQTPN_1 = 2,
+//--------------------
+	LALSQTPN_PLUS = 0,
+	LALSQTPN_CROSS=1,
+} LALSQTPNAmplitudeContribution;
+
 #ifdef __cplusplus
 }
 #endif
