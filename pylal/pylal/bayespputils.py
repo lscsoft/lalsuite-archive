@@ -795,7 +795,7 @@ class KDTree(object):
         coords = [obj.coord() for obj in objects]
         c0 = coords[0]
         for ci in coords[1:]:
-            if not (ci == c0):
+            if not np.all(ci == c0):
                 return False
         return True
 
