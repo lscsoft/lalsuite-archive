@@ -731,14 +731,15 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    #oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi']
-    oneDMenu=[]
+    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi']
+    #oneDMenu=[]
+    twoDGreedyMenu=[]
     #List of parameter pairs to bin . Need to match (converted) column names.
-    #for i in range(0,len(oneDMenu)):
-    #    for j in range(i+1,len(oneDMenu)):
-    #        twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+    for i in range(0,len(oneDMenu)):
+        for j in range(i+1,len(oneDMenu)):
+            twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
 
-    twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
+    #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
     greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05}
     #Confidence levels
