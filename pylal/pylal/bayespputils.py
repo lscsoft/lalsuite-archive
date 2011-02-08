@@ -1677,11 +1677,8 @@ def get_inj_by_time(injections,time):
     Filter injections to find the injection with end time given by time +/- 0.1s
     """
     import itertools
-    injections = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections)
-    if len(injections)!=1:
-        print 'ERROR: Found more than one injection with end time %f\n Please specify input files in order and right number'%(time)
-        os.exit(1)
-    return injections.next()
+    injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
+    return injection
 
 def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles):
     """
