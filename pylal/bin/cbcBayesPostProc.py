@@ -84,7 +84,7 @@ def cbcBayesPostProc(
                         #followupMCMC options
                         fm_flag=False,
                         # on ACF?
-                        noacf=False
+                        noacf=False,
                         #Turn on 2D kdes
                         twodkdeplots=False
                     ):
@@ -735,7 +735,7 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi']
+    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','phase']
     #oneDMenu=[]
     twoDGreedyMenu=[]
     #List of parameter pairs to bin . Need to match (converted) column names.
@@ -770,7 +770,7 @@ if __name__=='__main__':
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?
-                        noacf=opts.noacf
+                        noacf=opts.noacf,
                         #Turn on 2D kdes
                         twodkdeplots=opts.twodkdeplots
                     )
