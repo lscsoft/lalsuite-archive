@@ -284,7 +284,6 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             else:
                 injection=injections[eventnum]
 
-
     peparser=bppu.PEOutputParser('common')
     pos_list={}
     tp_list={}
@@ -337,6 +336,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         test_and_switch_param(common_output_table_header,'chirpmass','mchirp')
         test_and_switch_param(common_output_table_header,'mc','mchirp')
 
+        
+
         if 'LI_MCMC' in name or 'FU_MCMC' in name:
 
             try:
@@ -383,6 +384,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             common_params=list(set_of_pars.intersection(common_params))
 
     print "Common parameters are %s"%str(common_params)
+
+    if injection is None and injection_path is not None:
+        injection=bppu.get_inj_by_time(injections,pos_temp.means['time'])
+    for pos in pos_list:
+        pos.set_injection(injection)
 
     set_of_pars = set(allowed_params)
     common_params=list(set_of_pars.intersection(common_params))
