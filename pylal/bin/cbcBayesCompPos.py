@@ -386,9 +386,12 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
     print "Common parameters are %s"%str(common_params)
 
     if injection is None and injection_path is not None:
+        import itertools
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injection_path])
         injection=bppu.get_inj_by_time(injections,pos_temp.means['time'])
-    for pos in pos_list:
-        pos.set_injection(injection)
+    if injection is not None:
+        for pos in pos_list:
+            pos.set_injection(injection)
 
     set_of_pars = set(allowed_params)
     common_params=list(set_of_pars.intersection(common_params))
