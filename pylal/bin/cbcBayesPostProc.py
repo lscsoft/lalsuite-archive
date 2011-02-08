@@ -85,6 +85,8 @@ def cbcBayesPostProc(
                         fm_flag=False,
                         # on ACF?
                         noacf=False
+                        #Turn on 2D kdes
+                        twodkdeplots=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -514,7 +516,7 @@ def cbcBayesPostProc(
 
     
     #=  Add a section for a table of 2D marginal PDFs (kde)
-    twodkdeplots_flag=False
+    twodkdeplots_flag=twodkdeplots
     if twodkdeplots_flag:
         html_tcmp=html.add_section('2D Marginal PDFs')
         #Table matter
@@ -728,6 +730,8 @@ if __name__=='__main__':
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     # ACF plots off?
     parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
+    # Turn on 2D kdes
+    parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
@@ -767,5 +771,7 @@ if __name__=='__main__':
                         fm_flag=opts.fm,
                         # Turn of ACF?
                         noacf=opts.noacf
+                        #Turn on 2D kdes
+                        twodkdeplots=opts.twodkdeplots
                     )
 #
