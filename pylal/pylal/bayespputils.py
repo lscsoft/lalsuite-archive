@@ -501,7 +501,7 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
-        'phi_orb': lambda inj: inj.phi0,
+                        'phi_orb': lambda inj: inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
@@ -514,12 +514,12 @@ class Posterior(object):
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
-        'a1':_inj_a1,
-        'a2':_inj_a2,
-        'theta1':_inj_theta1,
-        'theta2':_inj_theta2,
-        'phi1':_inj_phi1,
-        'phi2':_inj_phi2
+                        'a1':_inj_a1,
+                        'a2':_inj_a2,
+                        'theta1':_inj_theta1,
+                        'theta2':_inj_theta2,
+                        'phi1':_inj_phi1,
+                        'phi2':_inj_phi2
                        }
 
     def _getinjpar(self,paramname):
@@ -1065,7 +1065,7 @@ class htmlPage(htmlChunk):
     """
     A concrete class for generating an XHTML(1) document. Inherits from htmlChunk.
     """
-    def __init__(self,title=None,css=None):
+    def __init__(self,title=None,css=None,toc=False):
         htmlChunk.__init__(self,'html',attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
         self.doctype_str='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
 
@@ -1769,8 +1769,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
 
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par1_name)
-    plt.ylabel(par2_name)
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
 
     if len(name_list)!=len(CSlst):
         print "Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name."
@@ -1787,7 +1787,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst = [cs.collections[0] for cs in CSlst]
 
     fig_actor_lst.extend(dummy_lines)
-    fig.savefig('test.png')
+        
     twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
@@ -1866,13 +1866,33 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     myfig=plt.figure(1,figsize=(10,8),dpi=300)
     plt.clf()
-
-    #bins=(par1pos_Nbins, par2pos_Nbins)
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
+    
     bins=(100,100)
 
-    H, xedges, yedges = np.histogram2d(a,b, bins,normed=True)
+    H, xedges, yedges = np.histogram2d(a,b, bins,normed=False)
+
+    #Replace H with greedy bin confidence levels at each pixel...
+    temp=np.copy(H)
+    temp=temp.flatten()
+    
+    Hsum=0
+    Hsum_actual=np.sum(H)
+    
+    while Hsum<Hsum_actual:
+        ind = np.argsort(temp)
+        max_i=ind[-1:]
+        val = temp[max_i]
+        Hsum+=int(val)
+        temp[max_i]=0
+        
+        #print Hsum,Hsum_actual
+        H.flat[max_i]=1-float(Hsum)/float(Hsum_actual)
+                
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-    plt.imshow(H, aspect='equal', extent=None, interpolation='nearest')
+    plt.imshow(np.flipud(H), aspect='auto', extent=extent, interpolation='nearest')
+    plt.gca().autoscale_view()
     plt.colorbar()
 
     # For RA and dec set custom labels and for RA reverse
