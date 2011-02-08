@@ -390,7 +390,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injection_path])
         injection=bppu.get_inj_by_time(injections,pos_temp.means['time'])
     if injection is not None:
-        for pos in pos_list:
+        for pos in pos_list.values():
             pos.set_injection(injection)
 
     set_of_pars = set(allowed_params)
