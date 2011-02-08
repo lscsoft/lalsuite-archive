@@ -262,7 +262,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
         #if min(pos_samps)<injpar and max(pos_samps)>injpar:
-        plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False)
+        plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4)
 
     #
 
