@@ -1203,23 +1203,6 @@ def _calculate_sky_confidence_slow(
         toppoints=toppoints[:Nbins]
     return injectionconfidence,toppoints,skyreses
 
-def _histN(mat,N):
-    """
-    @deprecated: UNUSED .
-    """
-    Nd=size(N)
-    histo=zeros(N)
-    scale=array(map(lambda a,b:a/b,map(lambda a,b:(1*a)-b,map(max,mat),map(min,mat)),N))
-    axes=array(map(lambda a,N:linspace(min(a),max(a),N),mat,N))
-    bins=floor(map(lambda a,b:a/b , map(lambda a,b:a-b, mat, map(min,mat) ),scale*1.01))
-
-    hbins=reshape(map(int,bins.flat),bins.shape)
-    for co in transpose(hbins):
-        t=tuple(co)
-        histo[t[::-1]]=histo[t[::-1]]+1
-    return (axes,histo)
-#
-
 def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,confidence_levels):
     """
     An interal function representing the common, dimensionally-independent part of the
