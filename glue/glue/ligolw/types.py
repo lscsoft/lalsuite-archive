@@ -171,7 +171,7 @@ FromPyType = {
 	str: u"lstring",
 	unicode: u"lstring",
 	bool: u"int_4s",
-	int: u"int_4s",
+	int: u"int_8s",
 	long: u"int_8s",
 	float: u"real_8"
 }
@@ -196,7 +196,7 @@ ToNumPyType = {
 	u"int": "int32",
 	u"real_4": "float32",
 	u"real_8": "float64",
-	u"float": "float64",
+	u"float": "float32",
 	u"double": "float64"
 }
 
