@@ -67,7 +67,7 @@ __date__= git_version.date
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
 __default_color_lst=['r','b','y','g','k']
-#A default css string for use in html results pages. 
+#A default css string for use in html results pages.
 __default_css_string="""
 p,h1,h2,h3,h4,h5
 {
@@ -193,7 +193,7 @@ def _inj_theta2(inj):
         return None
     else:
         return np.arccos( z / sqrt(x*x+y*y+z*z) )
-    
+
 def _inj_phi1(inj):
     x = inj.spin1x
     y = inj.spin1y
@@ -231,7 +231,7 @@ class OneDPosterior(object):
     def __init__(self,name,posterior_samples,injected_value=None,prior=None):
         """
         Constructor.
-        
+
         @param name: A literal string name for the parameter.
         @param posterior_samples: A 1D array of the samples.
         @keyword injected_value: The injected or real value of the parameter.
@@ -301,10 +301,10 @@ class OneDPosterior(object):
     def set_injval(self,new_injval):
         """
         Set the injected/real value of the parameter.
-        
+
         @param new_injval: The injected/real value to set.
         """
-        
+
         self.__injval=new_injval
 
     @property
@@ -317,7 +317,7 @@ class OneDPosterior(object):
     def delete_samples_by_idx(self,samples):
         """
         Remove samples from posterior, analagous to numpy.delete but opperates in place.
-        
+
         @param samples: A list of the indexes of the samples to remove.
         """
         self.__posterior_samples=np.delete(self.__posterior_samples,samples).reshape(-1,1)
@@ -345,7 +345,7 @@ class OneDPosterior(object):
     def prob_interval(self,intervals):
         """
         Evaluate probability intervals.
-        
+
         @param intervals: A list of the probability intervals [0-1]
         """
         list_of_ci=[]
@@ -378,10 +378,10 @@ class Posterior(object):
     def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
         """
         Constructor.
-        
-        @param commonResultsFormatData: A 2D array containing the posterior 
+
+        @param commonResultsFormatData: A 2D array containing the posterior
             samples and related data. The samples chains form the columns.
-                
+
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
@@ -431,7 +431,7 @@ class Posterior(object):
     def delete_samples_by_idx(self,samples):
         """
         Remove samples from all OneDPosteriors.
-        
+
         @param samples: The indixes of the samples to remove.
         """
         for name,pos in self:
@@ -442,7 +442,7 @@ class Posterior(object):
         """
         Return the injected values .
         """
-        
+
         return self._injection
 
     def _total_incl_restarts(self, samples):
@@ -479,7 +479,7 @@ class Posterior(object):
     def set_injection(self,injection):
         """
         Set the injected values of the parameters.
-        
+
         @param injection: A SimInspiralTable row object.
         """
         if injection is not None:
@@ -1418,7 +1418,7 @@ def plot_sky_map(top_ranked_pixels,outdir):
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
     ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
-    
+
     plx,ply=m(
               ra_reverse,
               np.asarray(top_ranked_pixels)[::-1,0]*57.296
@@ -1660,12 +1660,12 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
         plt.ylim(ymax,ymin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
+        strticks=map(getRAString,locs)
         plt.yticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.yticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
+        plt.yticks(locs,strticks)
 
 
 
@@ -1778,7 +1778,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst = [cs.collections[0] for cs in CSlst]
 
     fig_actor_lst.extend(dummy_lines)
-        
+
     twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
@@ -1803,12 +1803,12 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         plt.ylim(ymax,ymin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
+        strticks=map(getRAString,locs)
         plt.yticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.yticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
+        plt.yticks(locs,strticks)
 
 
     return fig
@@ -1859,7 +1859,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     plt.clf()
     plt.xlabel(par2_name)
     plt.ylabel(par1_name)
-    
+
     bins=(100,100)
 
     H, xedges, yedges = np.histogram2d(a,b, bins,normed=False)
@@ -1867,20 +1867,20 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     #Replace H with greedy bin confidence levels at each pixel...
     temp=np.copy(H)
     temp=temp.flatten()
-    
+
     Hsum=0
     Hsum_actual=np.sum(H)
-    
+
     while Hsum<Hsum_actual:
         ind = np.argsort(temp)
         max_i=ind[-1:]
         val = temp[max_i]
         Hsum+=int(val)
         temp[max_i]=0
-        
+
         #print Hsum,Hsum_actual
         H.flat[max_i]=1-float(Hsum)/float(Hsum_actual)
-                
+
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
     plt.imshow(np.flipud(H), aspect='auto', extent=extent, interpolation='nearest')
     plt.gca().autoscale_view()
@@ -1908,12 +1908,12 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         plt.ylim(ymax,ymin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
+        strticks=map(getRAString,locs)
         plt.yticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.yticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
+        plt.yticks(locs,strticks)
 
     return myfig
 

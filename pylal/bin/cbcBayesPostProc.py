@@ -522,7 +522,7 @@ def cbcBayesPostProc(
         html_tcig_write+='<th>Injection Confidence Interval</th>'
     html_tcig_write+='</tr>'
 
-    
+
     #=  Add a section for a table of 2D marginal PDFs (kde)
     twodkdeplots_flag=twodkdeplots
     if twodkdeplots_flag:
@@ -593,7 +593,7 @@ def cbcBayesPostProc(
 
         #Append new table line to section html
         html_tcig_write+=BCItableline
-        
+
 
         #= Plot 2D histograms of greedily binned points =#
 
@@ -661,7 +661,7 @@ def cbcBayesPostProc(
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
     html_tcig.write(html_tcig_write)
-    
+
     if twodkdeplots_flag is True:
     #Finish off the 2D kde plot table
         while row_count!=0:

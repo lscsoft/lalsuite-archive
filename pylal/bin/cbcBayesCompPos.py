@@ -336,7 +336,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         test_and_switch_param(common_output_table_header,'chirpmass','mchirp')
         test_and_switch_param(common_output_table_header,'mc','mchirp')
 
-        
+
 
         if 'LI_MCMC' in name or 'FU_MCMC' in name:
 
