@@ -1886,6 +1886,10 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     plt.gca().autoscale_view()
     plt.colorbar()
 
+    if par_injvalue1 is not None and par_injvalue2 is not None:
+        plt.plot([par_injvalue1],[par_injvalue2],'go',scalex=False,scaley=False)
+
+
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             xmin,xmax=plt.xlim()
