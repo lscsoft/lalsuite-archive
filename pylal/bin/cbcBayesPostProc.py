@@ -457,13 +457,21 @@ def cbcBayesPostProc(
                 mu=mean(data)
                 corr=correlate((data-mu),(data-mu),mode='full')
                 N=len(data)
-                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                try:
+                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                except FloatingPointError:
+                    # Ignore
+                    pass
             else:
                 for rng, data in zip(chainDataRanges, chainData):
                     mu=mean(data)
                     corr=correlate(data-mu,data-mu,mode='full')
                     N=len(data)
-                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    try:
+                        plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    except FloatingPointError:
+                        # Ignore
+                        pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
 
