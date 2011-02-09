@@ -221,7 +221,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
-
+        injvals.append(posterior[param].injval)
 
         (n, bins, patches)=plt.hist(posterior[param].samples,bins=100,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
 
@@ -261,8 +261,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
-        if min(pos_samps)<injpar and max(pos_samps)>injpar:
-            plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
+        #if min(pos_samps)<injpar and max(pos_samps)>injpar:
+        plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
 
     #
 
@@ -283,7 +283,6 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 sys.exit(1)
             else:
                 injection=injections[eventnum]
-
 
     peparser=bppu.PEOutputParser('common')
     pos_list={}
@@ -337,6 +336,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         test_and_switch_param(common_output_table_header,'chirpmass','mchirp')
         test_and_switch_param(common_output_table_header,'mc','mchirp')
 
+        
+
         if 'LI_MCMC' in name or 'FU_MCMC' in name:
 
             try:
@@ -383,6 +384,14 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             common_params=list(set_of_pars.intersection(common_params))
 
     print "Common parameters are %s"%str(common_params)
+
+    if injection is None and injection_path is not None:
+        import itertools
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injection_path])
+        injection=bppu.get_inj_by_time(injections,pos_temp.means['time'])
+    if injection is not None:
+        for pos in pos_list.values():
+            pos.set_injection(injection)
 
     set_of_pars = set(allowed_params)
     common_params=list(set_of_pars.intersection(common_params))
