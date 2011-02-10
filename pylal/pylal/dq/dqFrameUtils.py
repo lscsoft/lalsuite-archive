@@ -80,7 +80,7 @@ def grab_data(start,end,ifo,channel,type,\
     sys.stdout.flush()
 
   if not dmt:
-    cache = generate_cache(start,end,ifo[0:1],type,return_files=True)
+    cache = generate_cache(start,end,ifo[0:1],type)
   else:
     cache = dmt_cache(start,end,ifo[0:1],type)
 
@@ -88,19 +88,20 @@ def grab_data(start,end,ifo,channel,type,\
   for frame in cache:
 
     # check frame file exists
-    if not os.path.isfile(frame):  continue
+    if not os.path.isfile(frame.path()):  continue
 
     # check for Segmentation fault
-    segtest = subprocess.Popen([frcheck,"-i",frame],stdout=subprocess.PIPE)
+    segtest = subprocess.Popen([frcheck,"-i",frame.path()],\
+                               stdout=subprocess.PIPE)
     if os.waitpid(segtest.pid,0)[1]==11:  
       print >>sys.stderr, "Warning. Segmentation fault detected with command:"
-      print >>sys.stderr, "FrCheck -i "+frame
+      print >>sys.stderr, "FrCheck -i "+frame.path()
       continue
     segtest.stdout.close()
 
     # try to extract data from frame
     try:
-      frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,\
+      frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path(),\
                                                       ':'.join([ifo,channel]))
       if frame_data==[]:
         print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
@@ -188,7 +189,8 @@ def generate_cache(start,end,ifos,types,framecache=False):
                               % (filename,'.'.join([entry_class.__module__,\
                                                     entry_class.__name__]))
 
-  return sorted(cache,key=lambda e: e.url)
+  cache.sort(key=lambda e: e.url)
+  return cache
 
 # =============================================================================
 # Find types
@@ -537,7 +539,7 @@ def parse_unique_channels(channels,type_order=None):
   if type_order == None:
     type_order = ['H1_RDS_R_L1','L1_RDS_R_L1','H2_RDS_R_L1','R','RDS_R_L1']
   # sort channels by name
-  channels = sorted(channels,key=lambda ch: ch.name)
+  channels.sort(key=lambda ch: ch.name)
   # set up loop variables
   uniq_channels = []
   channel_cluster = []
