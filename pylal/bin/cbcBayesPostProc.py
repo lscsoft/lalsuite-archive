@@ -321,7 +321,7 @@ def cbcBayesPostProc(
     for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
         cov_table_string+='<tr><th>%s</th>'%cov_column_name
         for cov_column_element in cov_column:
-            cov_table_string+='<td>%s</td>'%str(cov_column_element[0])
+            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
         cov_table_string+='</tr>'
     cov_table_string+='</table>'
     html_stats_cov.write(cov_table_string)
