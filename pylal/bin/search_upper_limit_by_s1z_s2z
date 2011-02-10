@@ -147,7 +147,7 @@ for i, f in enumerate(files):
 	ifos = os.path.split(f)[1].replace('.xml','').replace("2Dsearchvolume-","")
 	#FIXME it is stupid to pull out names this way
 	combined_ifos = "_".join(ifos.split("_")[:-1])
-	wiki = open(ifos+'s1s2_range_summary.txt',"w")
+	wiki = open(ifos+'_range_summary.txt',"w")
 	wiki.write("||'''Spin'''||'''Range(Mpc)'''||'''Time'''||'''UL @ 90%'''||'''Fractional error'''||\n")
 	# loop over spin bins
   
@@ -192,7 +192,7 @@ for i, f in enumerate(files):
 	pylab.grid()
 	#FIXME hardcoded rate limits are bad for advanced ligo
 	pylab.xlim([1e-8, 1])
-	pylab.savefig(ifos + 's1s2_posterior.png')
+	pylab.savefig(ifos + '_posterior.png')
 	pylab.clf()
 
 	##
@@ -202,6 +202,12 @@ for i, f in enumerate(files):
 	#FIXME make it gray for pub?
 	#pylab.gray()
 	#FIXME setting these limits on the scale won't work in adv LIGO :)
+	#print "printing X"
+	#print numpy.shape(X)
+	#print "printing Y"
+	#print numpy.shape(Y)
+	#print "printing lov_vol"
+	#print numpy.shape(log_vol)
 	pylab.pcolor(X,Y, log_vol, vmin=0, vmax=10)
 	pylab.colorbar()
 	pylab.ylim(s1range)
@@ -211,7 +217,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Spin 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos+'s1s2_volume_time.png')
+	pylab.savefig(ifos+'_volume_time.png')
 	pylab.clf()
 
 	##
@@ -230,7 +236,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Spin 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos+'s1s2_distance.png')
+	pylab.savefig(ifos+'_distance.png')
 	pylab.clf()
 
 	## 
@@ -246,7 +252,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Spin 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos+'s1s2_fractional_error.png')
+	pylab.savefig(ifos+'_fractional_error.png')
 	pylab.clf()
 
 	##
@@ -263,7 +269,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Spin 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos + 's1s2_lambda.png')
+	pylab.savefig(ifos + '_lambda.png')
 	pylab.clf()
 
 	##
@@ -279,8 +285,35 @@ for i, f in enumerate(files):
 	pylab.ylabel("Spin 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos + 's1s2_upper_limit.png')
+	pylab.savefig(ifos + '_upper_limit.png')
 	pylab.clf()
+
+
+if vA.shape[0] >= 2:
+ for i in range(vA.shape[0]):
+  for j in range(vA.shape[0]): 
+   if j>i:
+    pipelines = [os.path.split(files[i])[1].replace('.xml','').replace("2Dsearchvolume-","").replace("-H1H2L1","").replace("s1zs2z-",""), os.path.split(files[j])[1].replace('.xml','').replace("2Dsearchvolume-","").replace("-H1H2L1","").replace("s1zs2z-","")]
+    vA0 = vA[i]
+    print vA0.min()
+    vA0[vA0 == vA0.min()] = 1.0
+    vA1 = vA[j]
+    vA1[vA1 == vA1.min()] = 1.0
+    print vA1.min()
+    #pylab.pcolor(X,Y, pylab.log10(vA0 /  vA1), vmin=0, vmax=3)
+    pylab.pcolor(X,Y, vA0 /  vA1, vmin=0.1, vmax=2)
+    pylab.colorbar()
+    pylab.ylim(s1range)
+    pylab.xlim(s2range)
+    pylab.title( pipelines[0] + "/" + pipelines[1] ,fontsize=14)
+    pylab.xlabel("Spin 2",fontsize=14)
+    pylab.ylabel("Spin 1",fontsize=14)
+    #pylab.gca().set_aspect(1)
+    pylab.grid()
+    pylab.savefig("s1zs2z" + "_" + pipelines[0] + "_" + pipelines[1] + "_" + 'distance_ratio.png')
+    pylab.clf()
+
+
 
 
 ###############################################################################
@@ -319,7 +352,8 @@ pylab.ylim([0.0001, 1])
 pylab.grid()
 #FIXME hardcoded rate limits are bad for advanced ligo
 pylab.xlim([1e-8, 1])
-pylab.savefig(combined_ifos + 's1s2_posterior.png')
+#pylab.savefig(combined_ifos + 's1s2_posterior.png')
+pylab.savefig(ifos + '_posterior.png')
 pylab.clf()
 
 
@@ -336,10 +370,11 @@ pylab.xlabel("Spin 2",fontsize=14)
 pylab.ylabel("Spin 1",fontsize=14)
 pylab.gca().set_aspect(1)
 pylab.grid()
-pylab.savefig(combined_ifos + 's1s2_upper_limit.png')
+#pylab.savefig(combined_ifos + 's1s2_upper_limit.png')
+pylab.savefig(ifos + '_upper_limit.png')
 pylab.clf()
 
-f = open(combined_ifos + 's1s2_upper_limit.txt','w')
+f = open(ifos + '_upper_limit.txt','w')
 for i, s1 in enumerate(bins.centres()[0]):
 	for j, s2 in enumerate(bins.centres()[1]):
 		spins = bins[s1,s2]
