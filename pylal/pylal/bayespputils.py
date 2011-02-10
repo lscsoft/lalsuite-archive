@@ -1712,7 +1712,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         name_list.append(name)
         #Extract parameter names
         par1_name,par2_name=greedy2Params.keys()
-
+        if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            (par1_name, par2_name) = (par2_name, par1_name)
         #Extract bin sizes
         par1_bin=greedy2Params[par1_name]
         par2_bin=greedy2Params[par2_name]
@@ -1833,7 +1834,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     #Extract parameter names
     par1_name,par2_name=greedy2Params.keys()
-
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+        (par1_name, par2_name) = (par2_name, par1_name)
     #Extract bin sizes
     par1_bin=greedy2Params[par1_name]
     par2_bin=greedy2Params[par2_name]
