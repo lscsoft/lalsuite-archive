@@ -302,7 +302,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             Retrieve a file over http(s).
             """
             downloads_folder=os.path.join(os.getcwd(),"downloads")
-            pos_folder_parse=urlparse.urlsplit(pos_folder)
+            pos_folder_parse=urlparse.urlparse(pos_folder)
             pfp_scheme,pfp_netloc,pfp_path,pfp_params,pfp_query,pfp_fragment=pos_folder_parse
             head,tail=os.path.split(pfp_path)
             if tail is 'posplots.html' or tail:
