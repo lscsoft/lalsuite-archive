@@ -441,7 +441,7 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-    if (PhaseTestParam!=-1) {parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));}
+    //if (PhaseTestParam!=-1) {parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));}
         /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
                                  (-1.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/(m1+m2));
@@ -476,7 +476,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
 	REAL4TimeSeries *h_p_t=NULL,*h_c_t=NULL;
 	COMPLEX8FrequencySeries *H_p_t=NULL, *H_c_t=NULL;
 	size_t NFD = 0;
-	memset(&PPNparams,0,sizeof(PPNparams));
+	memset(&PPNparams,0,sizeof(PPNConsistencyParamStruc));
 	memset(&coherent_gw,0,sizeof(CoherentGW));
 	memset(&status,0,sizeof(LALStatus));
 	memset(&det,0,sizeof(DetectorResponse));
@@ -780,11 +780,11 @@ REAL8 MCMCLikelihoodMultiCoherentFTest(LALMCMCInput *inputMCMC, LALMCMCParameter
 /*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
 	ChirpISCOLength=ak.tn;
     
-    if (PhaseTestParam!=-1) {LALPopulatePhaseTF2params(...,PhaseTestParam,XLALMCMCGetParameter(parameter,"phiTest"));}
-    else {LALPopulatePhaseTF2params(...,PhaseTestParam,0.0);}
+    //if (PhaseTestParam!=-1) {LALPopulatePhaseTF2params(...,PhaseTestParam,XLALMCMCGetParameter(parameter,"phiTest"));}
+    //else {LALPopulatePhaseTF2params(...,PhaseTestParam,0.0);}
 
 	/* Call LALInspiralTaylorF2Test */
-	LALInspiralTaylorF2Test(&status,&coherent_gw,&PPNparams);
+	//LALInspiralTaylorF2Test(&status,&....,&PPNparams);
 
 	/* This is the time of the start of the wave in the GeoCentre */
 	REAL8 TimeShiftToGC=XLALMCMCGetParameter(parameter,"time");

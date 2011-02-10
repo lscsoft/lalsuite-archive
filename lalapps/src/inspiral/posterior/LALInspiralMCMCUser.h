@@ -117,8 +117,7 @@ REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 REAL8 NestPriorHighMass(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
-
-REAL8 NestPriorConsistecyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 REAL8 NestPriorPhenSpin(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
