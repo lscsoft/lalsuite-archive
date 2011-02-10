@@ -294,20 +294,22 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         import urlparse
 
         pos_folder_url=urlparse.urlparse(pos_folder)
+        pfu_scheme,pfu_netloc,pfu_path,pfu_params,pfu_query,pfu_fragment=pos_folder_url
 
-        if 'http' in pos_folder_url.scheme:
+        if 'http' in pfu_scheme:
 
             """
             Retrieve a file over http(s).
             """
             downloads_folder=os.path.join(os.getcwd(),"downloads")
             pos_folder_parse=urlparse.urlsplit(pos_folder)
-            head,tail=os.path.split(pos_folder_parse.path)
+            pfp_scheme,pfp_netloc,pfp_path,pfp_params,pfp_query,pfp_fragment=pos_folder_parse
+            head,tail=os.path.split(pfp_path)
             if tail is 'posplots.html' or tail:
                 pos_file_part=head
             else:
-                pos_file_part=pos_folder_parse.path
-            pos_file_url=urlparse.urlunsplit((pos_folder_parse.scheme,pos_folder_parse.netloc,os.path.join(pos_file_part,'posterior_samples.dat'),'',''))
+                pos_file_part=pfp_path
+            pos_file_url=urlparse.urlunsplit((pfp_scheme,pfp_netloc,os.path.join(pos_file_part,'posterior_samples.dat'),'',''))
             print pos_file_url
             pos_file=os.path.join(os.getcwd(),downloads_folder,"%s.dat"%name)
 
@@ -322,11 +324,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 open_url_wget(pos_file_url,un=username,pw=password,args=["-O","%s"%pos_file])
 
 
-        elif pos_folder_url.scheme is '' or pos_folder_url.scheme is 'file':
+        elif pfu_scheme is '' or pfu_scheme is 'file':
             pos_file=os.path.join(pos_folder,'posterior_samples.dat')
 
         else:
-            print "Unknown scheme for input data url: %s\nFull URL: %s"%(pos_folder_url.scheme,str(pos_folder_url))
+            print "Unknown scheme for input data url: %s\nFull URL: %s"%(pfu_scheme,str(pos_folder_url))
             exit(0)
 
         print "Reading posterior samples from %s ..."%pos_file
