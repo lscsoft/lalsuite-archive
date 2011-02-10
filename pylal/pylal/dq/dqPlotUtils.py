@@ -125,28 +125,34 @@ def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
                                       cumulative=-1,facecolor='green',\
                                       visible=False)
 
-  # recalculate centre of bins (in logscale, if required)
-  bins = []
-  for i in range(len(start_bins)-1):
-    if logx:
-      bins.append(0.5*(math.pow(10,start_bins[i])+math.pow(10,start_bins[i+1])))
-    else:
-      bins.append(0.5*(start_bins[i]+start_bins[i+1]))
+    # recalculate centre of bins (in logscale, if required)
+    bins = []
+    for i in range(len(start_bins)-1):
+      if logx:
+        bins.append(0.5*(math.pow(10,start_bins[i])+\
+                         math.pow(10,start_bins[i+1])))
+      else:
+        bins.append(0.5*(start_bins[i]+start_bins[i+1]))
 
-  # reset zero values to base (so logscale doesn't break)
-  livetime = float(livetime)
-  base = 0.5/livetime
-  def zero_replace(num,base):
-    if num==0:
-      return base
-    else:
-      return num
-  start_n = map(lambda n: zero_replace(n,base), start_n)
-  end_n   = map(lambda n: zero_replace(n,base), end_n)
+    # reset zero values to base (so logscale doesn't break)
+    livetime = float(livetime)
+    base = 0.5/livetime
+    def zero_replace(num,base):
+      if num==0:
+        return base
+      else:
+        return num
+    start_n = map(lambda n: zero_replace(n,base), start_n)
+    end_n   = map(lambda n: zero_replace(n,base), end_n)
 
-  # convert number to rate
-  start_n = [n/livetime for n in start_n]
-  end_n   = [n/livetime for n in end_n]
+    # convert number to rate
+    start_n = [n/livetime for n in start_n]
+    end_n   = [n/livetime for n in end_n]
+
+  else:
+    bins = []
+    start_n = []
+    end_n = []
 
   # fix name for latex
   flag = flag.replace('_','\_')
@@ -155,8 +161,8 @@ def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
   pylab.rcParams.update({"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 5,
-                         "xtick.labelsize": 12,
-                         "ytick.labelsize": 12,
+                         "xtick.labelsize": 16,
+                         "ytick.labelsize": 16,
                          "axes.titlesize": 20,
                          "axes.labelsize": 18,
                          "axes.linewidth": 1,
@@ -185,11 +191,12 @@ def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
     leg = ax.legend()
     for l in leg.get_lines():
       l.set_linewidth(4)
-  ax.set_xlim(min(bins),max(bins))
-  ax.set_ylim(base,max(start_n)*1.01)
-  ax.set_xlabel('SNR')
+  if bins:
+    ax.set_xlim(min(bins),max(bins))
+    ax.set_ylim(base,max(start_n)*1.01)
+  ax.set_xlabel(column.replace('_','\_'))
   ax.set_ylabel('Cumulative rate (Hz)')
-  tit = '%s triggers' % (etg)
+  tit = '%s triggers' % (etg.replace('_','\_'))
   if segments:
     tit += ' and %s segments' % (flag)
   ax.set_title(tit)
@@ -237,7 +244,6 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
         GPS start time
       end : [ float | int | LIGOTimeGPS]
         GPS end time
-      segments : glue.segments.segmentlist
         list of segments with which to veto triggers
       flag : string
         display name of segmentlist, normally the name of the DQ flag
@@ -361,8 +367,8 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
   pylab.rcParams.update({"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 5,
-                         "xtick.labelsize": 12,
-                         "ytick.labelsize": 12,
+                         "xtick.labelsize": 16,
+                         "ytick.labelsize": 16,
                          "axes.titlesize": 16,
                          "axes.labelsize": 16,
                          "axes.linewidth": 1,
@@ -492,7 +498,8 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
 # Plot science segment histogram
 # =============================================================================
 
-def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
+def plot_segment_hist(segments,outfile,flag=None,coltype=int,\
+                      logx=False,logy=False):
 
   """
     Plots a histogram of segment duration for the glue.segments.segmentlist
@@ -516,11 +523,14 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
   """
 
   durations = [seg.__abs__() for seg in segments]
-  # set times
-  t_unit = 1
-  t_string = {1:'seconds',60:'minutes',3600:'hours',86400:'days'}
 
-  durations = [float(d)/t_unit for d in durations]
+  # set numbins
+  if not len(segments)<1:
+    if coltype==int and not logx:
+      numbins = min(max(durations)-min(durations),200)
+    else:
+      numbins = min(len(segments),200)
+
   if logx:
     durations = [math.log10(d) for d in durations]
 
@@ -532,8 +542,8 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
   pylab.rcParams.update({"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 5,
-                         "xtick.labelsize": 12,
-                         "ytick.labelsize": 12,
+                         "xtick.labelsize": 16,
+                         "ytick.labelsize": 16,
                          "axes.titlesize": 20,
                          "axes.labelsize": 16,
                          "axes.linewidth": 1,
@@ -547,12 +557,9 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
   # calculate histogram
   if not len(segments)<1:
 
-    numbins = min(len(segments),200)
-
     hrange=(min(durations),max(durations))
 
-    n,b,p = pylab.hist(durations,bins=numbins,\
-                       range=hrange,\
+    n,b,p = pylab.hist(durations,bins=numbins,range=hrange,\
                        histtype='bar',visible=False)
 
     bins=[]
@@ -586,15 +593,20 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
   ax.bar(bins,n,width=barwidth,bottom=base,\
          color='blue',edgecolor='black',log=logy)
 
+  # set axes
+  if logx:
+    ax.set_xscale('log')
+  if logy:
+    ax.set_yscale('log')
+
   if len(segments)>=1:
     if logx:
-      ax.semilogx()
-      ax.set_xlim((min(durations)-barwidth[0])*0.99,\
-                  (max(durations)+barwidth[0])*1.01)
-    #else:
-    #  ax.set_xlim(0,(max(bins)+max(barwidth))*1.01)
+      # reset limits to logscale
+      ax.set_xlim((math.pow(10,min(durations))*0.99),\
+                  (math.pow(10,max(durations))*1.01))
+
     ax.set_ylim(base,math.pow(10,math.log10((max(n)+base)*1.01)))
-  ax.set_xlabel('Length of segment (%s)' %(t_string[t_unit]))
+  ax.set_xlabel('Length of segment (seconds)')
   ax.set_ylabel('Number of segments')
   tit = 'Segment Duration Histogram'
   if flag:
