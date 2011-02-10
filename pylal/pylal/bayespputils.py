@@ -1886,7 +1886,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     plt.gca().autoscale_view()
     plt.colorbar()
 
-    if par_injvalue1 is not None and par_injvalue2 is not None:
+    if par1_injvalue is not None and par2_injvalue is not None:
         plt.plot([par_injvalue1],[par_injvalue2],'go',scalex=False,scaley=False)
 
 
