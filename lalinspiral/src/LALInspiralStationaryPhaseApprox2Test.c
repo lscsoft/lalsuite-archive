@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer
+*  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer, Tjonnie G.F. Li, Walter Del Pozzo
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -95,6 +95,7 @@
  **** </lalLaTeX> */
 
 #include "LALInspiral.h"
+#include "LALInspiralStationaryPhaseApprox2Test.h"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -104,15 +105,16 @@
 
 // NB: PROTOTYPE RESIDES IN LALINSPIRAL.H
 
-NRCSID (LALINSPIRALSTATIONARYPHASEAPPROX2C, "$Id$");
+NRCSID (LALINSPIRALSTATIONARYPHASEAPPROX2TESTC, "$Id$");
 
 /*  <lalVerbatim file="LALInspiralStationaryPhaseApprox2CP"> */
 void
 LALInspiralStationaryPhaseApprox2Test (
    LALStatus        *status,
    REAL4Vector      *signalvec,
-   InspiralTemplate *params
-   )
+   InspiralTemplate *params,
+                                       INT4 testParam,
+                                       REAL8 deltaTestParam)
 { /* </lalVerbatim>  */
    REAL8 Oneby3, UNUSED h1, UNUSED h2, pimmc, f, v, df, shft, phi, amp0, amp, psif, psi;
    INT4 n, nby2, i, f0, fn;
@@ -120,7 +122,7 @@ LALInspiralStationaryPhaseApprox2Test (
    expnFunc func;
    //void (*LALInspiralTaylorF2PhasingTest)(InspiralTemplate *, REAL8 , REAL8 *) = NULL;
 
-   INITSTATUS (status, "LALInspiralStationaryPhaseApprox2", LALINSPIRALSTATIONARYPHASEAPPROX2C);
+   INITSTATUS (status, "LALInspiralStationaryPhaseApprox2Test", LALINSPIRALSTATIONARYPHASEAPPROX2TESTC);
    ATTATCHSTATUSPTR(status);
    ASSERT (signalvec,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
    ASSERT (signalvec->data,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -156,6 +158,11 @@ LALInspiralStationaryPhaseApprox2Test (
 */
    h1 = signalvec->data[0] = 0.L;
    h2 = signalvec->data[nby2] = 0.L;
+    
+    /* FILL PHASE COEFFICIENTS */
+    REAL8 phaseParams[10] = {0.0};
+    TaylorF2fillPhaseParams(params, phaseParams, testParam, deltaTestParam);
+    
    for (i=1; i<nby2; i++) {
       f = i * df;
       if (f < f0 || f > fn)
@@ -169,7 +176,7 @@ LALInspiralStationaryPhaseApprox2Test (
       else
       {
 	      v = pow(pimmc * f, Oneby3);
-	      LALInspiralTaylorF2PhasingTest(params, f, &psif);
+	      LALInspiralTaylorF2PhasingTest(params, f, phaseParams, &psif);
 	      psi = shft * f + phi + psif;
 	      /*
 		 dEnergybyFlux computes 1/(dv/dt) while what we need is 1/(dF/dt):
@@ -199,15 +206,11 @@ LALInspiralStationaryPhaseApprox2Test (
 void LALInspiralTaylorF2PhasingTest(
                           InspiralTemplate *params,
                           REAL8 f,
+                          REAL8 *phaseParams,
                           REAL8 *psif)
 {
     
-    // TOTAL PHASE
-    REAL8 phaseParams[10] = {0.0};
-    
     // FILL PHASE PARAMETERS
-    TaylorF2fillPhaseParams(params, phaseParams, 3, 0.0);
-    
     switch (params->order)
     {
         case LAL_PNORDER_NEWTONIAN:

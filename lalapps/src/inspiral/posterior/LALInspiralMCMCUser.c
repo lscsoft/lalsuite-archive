@@ -55,6 +55,7 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 #include <lal/TimeFreqFFT.h>
 #include <lal/SeqFactories.h>
 #include <lal/GeneratePPNAmpCorConsistency.h>
+#include <lal/LALInspiralStationaryPhaseApprox2Test.h>
 
 #include "LALInspiralMCMCUser.h"
 #include <fftw3.h>
@@ -1237,6 +1238,8 @@ in the frequency domain */
 		case IMRPhenomFB : IMRPhenomFB_template(&status,&template,parameter,inputMCMC); break;
 		case EOBNR : EOBNR_template(&status,&template,parameter,inputMCMC); break;
 		case TaylorF2 : TaylorF2_template(&status,&template,parameter,inputMCMC); break;
+        /* ADD EXTRA CASE FOR TAYLORF2TEST, BUT SINCE LALINSPIRAL ACCOMODATES FOR TAYLORF2TEST, THIS ALSO CALLS THE TAYLORF2_TEMPLATE */
+		case TaylorF2Test : TaylorF2_template(&status,&template,parameter,inputMCMC); break;
 		case TaylorT3 :
 		case TaylorT2 :
         case TaylorT4 : TaylorT_template(&status,&template,parameter,inputMCMC); break;
@@ -1824,7 +1827,14 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 	LALInspiralParameterCalc(status,template);
 	LALInspiralRestrictedAmplitude(status,template);
 
-	LALInspiralWave(status,model,template);
+    /* TGFLI: NEED TO FIND WAY OF PASSING TESTPARAMETER TO LALINSPIRALWAVE */
+    if (template->approximant == TaylorF2Test) {
+        LALInspiralStationaryPhaseApprox2Test(status, model, template, PhaseTestParam, XLALMCMCGetParameter(parameter,"phiTest") );
+    }
+    else {
+        LALInspiralWave(status,model,template);
+    }
+
 
 	/*
 	FILE* model_output;

@@ -1165,24 +1165,6 @@ void LALInspiralStationaryPhaseApprox2 (
      REAL4Vector *signalvec,
      InspiralTemplate *params);
 
-void
-LALInspiralStationaryPhaseApprox2Test (
-                                       LALStatus        *status,
-                                       REAL4Vector      *signalvec,
-                                       InspiralTemplate *params
-                                       );
-
-void LALInspiralTaylorF2PhasingTest(
-                                           InspiralTemplate *params,
-                                           REAL8 f,
-                                           REAL8 *psif);
-
-void TaylorF2fillPhaseParams(
-                                    InspiralTemplate *params,
-                                    REAL8 *phaseParams,
-                                    INT4    testParam,
-                                    REAL8 testParamValue);
-
 /*  <lalLaTeX>
 \newpage\input{LALEOBWaveformC}
 </lalLaTeX>  */

@@ -27,6 +27,7 @@ lalinspiralinclude_HEADERS = \
 	LALInspiralBank.h \
 	LALInspiralConfig.h \
 	LALInspiralRandomBank.h \
+	LALInspiralStationaryPhaseApprox2Test.h\
 	LALInspiralVCSInfo.h \
 	LALNoiseModelsInspiral.h \
 	LALSBBH-Metric.h \

@@ -127,6 +127,7 @@ Depending on the user inputs one of the following functions is called:\\
 #include <lal/LALNoiseModels.h>
 #include <lal/LALStdlib.h>
 #include <lal/GeneratePPNInspiral.h>
+#include <lal/LALInspiralStationaryPhaseApprox2Test.h>
 
 NRCSID (LALINSPIRALWAVEC, "$Id$");
 
@@ -201,7 +202,8 @@ LALInspiralWave(
            CHECKSTATUSPTR(status);
 	   break;
       case TaylorF2Test:
-           LALInspiralStationaryPhaseApprox2Test(status->statusPtr, signalvec, params);
+           /* HARDCODE WITHOUT CHANGES, USE LALInspiralStationaryPhaseApprox2Test INSTEAD! */
+           LALInspiralStationaryPhaseApprox2Test(status->statusPtr, signalvec, params, 3, 0.0);
            CHECKSTATUSPTR(status);
 	   break;
       case PadeF1:
