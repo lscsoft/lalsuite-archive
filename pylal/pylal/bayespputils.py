@@ -1882,7 +1882,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     plt.colorbar()
 
     if par1_injvalue is not None and par2_injvalue is not None:
-        plt.plot([par_injvalue1],[par_injvalue2],'go',scalex=False,scaley=False)
+        plt.plot([par1_injvalue],[par2_injvalue],'go',scalex=False,scaley=False)
 
 
     # For RA and dec set custom labels and for RA reverse
