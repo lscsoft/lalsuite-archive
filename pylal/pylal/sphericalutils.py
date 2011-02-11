@@ -159,9 +159,9 @@ def fisher_rvs(mu, sigma, size=1):
 
     Assume kappa = 1 / sigma**2
 
-    References:
-      * http://en.wikipedia.org/wiki/Von_Mises–Fisher_distribution
-      * http://arxiv.org/pdf/0902.0737v1 (states the Rayleigh limit)
+    pol PDF: kappa / (2 * np.sinh(kappa)) * np.exp(kappa * np.cos(theta)) * np.sin(theta))
+    az PDF: uniform(0, 2*pi)
+
     """
     rayleigh_rv = \
         np.array((np.random.rayleigh(scale=sigma, size=size),
