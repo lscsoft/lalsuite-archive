@@ -38,7 +38,7 @@ RCSID(LALAPPS_VCS_IDENT_ID);
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
-#define DEBUG 1
+#define DEBUG 0
 #define USAGE "lalapps_inspnest ARGUMENTS [OPTIONS]\n \
 Necessary ARGUMENTS:\n \
 -o outfile\t:\tOutput samples to outfile\n \
@@ -77,7 +77,8 @@ Optional OPTIONS:\n \
 [--timeslide\t:\tTimeslide data]\n \
 [--studentt\t:\tuse student-t likelihood function]\n \
 [--ra FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use (DEGREES)]\n \
-[--grb\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
+[--grb\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n \
+[--decohere offset\t:\tOffset injection in each IFO]\n \
 [--deta FLOAT\t:\twidth of eta window]\n \
 [--dt FLOAT (0.01)\t:\ttime window (0.01s)]\n \
 [--injSNR FLOAT\t:\tScale injection to have network SNR of FLOAT]\n \
@@ -282,11 +283,10 @@ REAL8 Amp_H1(REAL8 f){
 REAL8 Amp_L1(REAL8 f){
 		double output = 1.0;
 
-		if(f>60.0 && f<=155.0)
-			output = -1.70801+0.158928*f-0.00368464*pow(f,2)+4.32603e-05*pow(f,3)-2.65581e-07*pow(f,4)+7.33889e-10*pow(f,5)-1.35718e-13*pow(f,6)-2.309e-15*pow(f,7);
-
-		if(f>155.0 && f<=500.0)
-			output = 0.784048+0.00493473*f-4.17759e-05*pow(f,2)+1.87192e-07*pow(f,3)-4.90832e-10*pow(f,4)+7.52937e-13*pow(f,5)-6.2269e-16*pow(f,6)+2.12688e-19*pow(f,7);
+		if(f>60.0 && f<=150.0)
+output = -1.95484+0.170278*f-0.388292e-02*pow(f,2)+0.448703e-04*pow(f,3)-2.71089e-07*pow(f,4)+7.35001e-10*pow(f,5)-1.11474e-13*pow(f,6)-2.309e-15*pow(f,7);
+	        if(f>150.0 && f<=500.0)
+output = 0.808333+0.453077e-02*f-0.390407e-04*pow(f,2)+1.77562e-07*pow(f,3)-4.72241e-10*pow(f,4)+7.34368e-13*pow(f,5)-6.15246e-16*pow(f,6)+2.12688e-19*pow(f,7);
 		// return a constant
 		//output = 1.1; 
 		return 1+(output-1)*calibration_percent;
@@ -304,11 +304,11 @@ REAL8 Amp_V1(REAL8 f){
 	        }
 		else if(log10(f)>2.02130 && log10(f)<=2.45144)
 	        {
-		output = 172.469 - 304.746*pow(log10(f),1.0) + 202.191*pow(log10(f), 2.0) - 59.3845*pow(log10(f),3.0) + 6.51706*pow(log10(f),4.0);
+		output = 172.466866 - 304.746*pow(log10(f),1.0) + 202.191*pow(log10(f), 2.0) - 59.3845*pow(log10(f),3.0) + 6.51706*pow(log10(f),4.0);
                	} 
 	 	else if(log10(f)>2.45144 && log10(f)<= 3.08153)
 	        {
-		output = 43.0574 - 60.222*pow(log10(f),1.0) + 32.2545*pow(log10(f), 2.0) - 7.66187*pow(log10(f),3.0) + 0.681219*pow(log10(f),4.0);
+		output = 43.05292 - 60.222*pow(log10(f),1.0) + 32.2545*pow(log10(f), 2.0) - 7.66187*pow(log10(f),3.0) + 0.681219*pow(log10(f),4.0);
 	        }
 		
                 //return a constant
@@ -333,7 +333,7 @@ REAL8 Ph_L1(REAL8 f){
 			output = -69.493+4.77314*f-0.123966*pow(f,2)+0.0015403*pow(f,3)-9.24682e-06*pow(f,4)+2.16121e-08*pow(f,5);
 
 		if(f>110.0 && f<=500.0)
-			output = 0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
+			output = -0.040558+0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
 
                 /* convert in rads */
 		return  (LAL_PI*output/180.0)*calibration_percent;
@@ -351,7 +351,7 @@ REAL8 Ph_V1(REAL8 f){
 	        }
 		else if(log10(f)>2.15234 && log10(f)<=3.2)
 	        {
-		output = 2.66324 - 3.48059*pow(log10(f),1.0) + 1.76342*pow(log10(f), 2.0) - 0.415683*pow(log10(f),3.0) + 0.0393829*pow(log10(f),4.0);
+		output = -0.392164e-02 + 2.66324 - 3.48059*pow(log10(f),1.0) + 1.76342*pow(log10(f), 2.0) - 0.415683*pow(log10(f),3.0) + 0.0393829*pow(log10(f),4.0);
 	        }
                /* Virgo data are already in rads */
 		return output*calibration_percent;
