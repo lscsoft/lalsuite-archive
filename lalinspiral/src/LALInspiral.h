@@ -451,6 +451,7 @@ typedef enum {
    TaylorT3,
    TaylorF1,
    TaylorF2,
+   TaylorF2Test,
    PadeT1,
    PadeF1,
    EOB,
@@ -1163,6 +1164,24 @@ void LALInspiralStationaryPhaseApprox2 (
      LALStatus *status,
      REAL4Vector *signalvec,
      InspiralTemplate *params);
+
+void
+LALInspiralStationaryPhaseApprox2Test (
+                                       LALStatus        *status,
+                                       REAL4Vector      *signalvec,
+                                       InspiralTemplate *params
+                                       );
+
+void LALInspiralTaylorF2PhasingTest(
+                                           InspiralTemplate *params,
+                                           REAL8 f,
+                                           REAL8 *psif);
+
+void TaylorF2fillPhaseParams(
+                                    InspiralTemplate *params,
+                                    REAL8 *phaseParams,
+                                    INT4    testParam,
+                                    REAL8 testParamValue);
 
 /*  <lalLaTeX>
 \newpage\input{LALEOBWaveformC}

@@ -146,6 +146,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralSetup.c \
 	LALInspiralSpinningBHBinary.c \
 	LALInspiralStationaryPhaseApprox1.c \
+	LALInspiralStationaryPhaseApprox2Test.c \
 	LALInspiralStationaryPhaseApprox2.c \
 	LALInspiralTaylorEtWaveform.c \
 	LALInspiralTaylorNWaveform.c \
