@@ -77,6 +77,32 @@ def new_z_to_euler(new_z):
     """
     return (LAL_PI_2 + new_z[1]) % (2 * LAL_PI), new_z[0]
 
+def rotate_about_axis(x, axis, ang):
+    """
+    Return the result of rotating x about axis by ang (in radians).
+    axis must be a unit vector.
+    """
+    if abs(np.dot(axis, axis) - 1) >= 1e-6:
+        raise ValueError, "axis must be a unit vector"
+    if len(x) != 3:
+        raise ValueError, "x must be three-dimensional"
+    if len(axis) != 3:
+        raise ValueError, "axis must be three-dimensional"
+    cosa = np.cos(ang)
+    sina = np.sin(ang)
+
+    # Rodrigues' rotation formula
+    R = np.array(
+        [[cosa+axis[0]*axis[0]*(1.0-cosa), 
+          axis[0]*axis[1]*(1.0-cosa)-axis[2]*sina,
+          axis[0]*axis[2]*(1.0-cosa)+axis[1]*sina],
+         [axis[1]*axis[0]*(1.0-cosa)+axis[2]*sina,
+          cosa+axis[1]*axis[1]*(1.0-cosa),
+          axis[1]*axis[2]*(1.0-cosa)-axis[0]*sina],
+         [axis[2]*axis[0]*(1.0-cosa)-axis[1]*sina,
+          axis[2]*axis[1]*(1.0-cosa)+axis[0]*sina,
+          cosa+axis[2]*axis[2]*(1.0-cosa)]])
+    return np.dot(R, x)
 #
 # Utilities to find the angle between two points
 #
