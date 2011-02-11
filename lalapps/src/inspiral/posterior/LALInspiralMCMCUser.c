@@ -413,6 +413,7 @@ REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 
 REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 {
+    (void)inputMCMC;
 	REAL8 m1,m2;
 	parameter->logPrior=0.0;
 	REAL8 mc,eta;
@@ -1821,9 +1822,15 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
 void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
 
     (void)parameter;
-    (void)inputMCMC;
+    //(void)inputMCMC;
+    UINT4 i=0;
+    
 	/* Compute frequency-domain waveform in free space */
 
+    template->mass1=5.0;
+    template->mass2=5.0;
+    template->startPhase=0.0;
+    template->tC=0.0;
 	LALInspiralParameterCalc(status,template);
 	LALInspiralRestrictedAmplitude(status,template);
 
@@ -1836,8 +1843,8 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
     }
 
 
-	/*
-	FILE* model_output;
+	
+/*	FILE* model_output;
 	model_output=fopen("output.dat","w");
 
 	fprintf(model_output,"Sampling frequency: %lf\n",template->tSampling);
@@ -1846,12 +1853,12 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 	fprintf(model_output,"Mass 2: %lf\n",template->mass2);
 
 	for(i=0;i<model->length;i++) {
-		fprintf(model_output,"%g\n",model->data[i]);
+		fprintf(model_output,"%g\t %g\n",i*inputMCMC->deltaF,model->data[i]);
 	}
 	fclose(model_output);
 
-	exit(0);
-	*/
+	exit(0);*/
+	
 
 	return;
 

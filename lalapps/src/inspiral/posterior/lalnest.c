@@ -953,7 +953,7 @@ int main( int argc, char *argv[])
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
-//    else if(!strcmp(approx,TF2T)) inputMCMC.approximant=TaylorF2Test;
+    else if(!strcmp(approx,TF2T)) inputMCMC.approximant=TaylorF2Test;
 	else if(!strcmp(approx,TT2)) inputMCMC.approximant=TaylorT2;
 	else if(!strcmp(approx,TT3)) inputMCMC.approximant=TaylorT3;
     else if(!strcmp(approx,TT4)) inputMCMC.approximant=TaylorT4;
@@ -1064,12 +1064,12 @@ doneinit:
 			inputMCMC.funcPrior = NestPriorConsistencyTest;
             fprintf(stderr,"Switched to the testing likelihood for AmpCor\n");
 	}			
-/*    if (inputMCMC.approximant==TaylorF2Test) {
+    if (inputMCMC.approximant==TaylorF2Test) {
             inputMCMC.funcInit = NestInitConsistencyTest;
-			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentFTest;
+			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
 			inputMCMC.funcPrior = NestPriorConsistencyTest;
             fprintf(stderr,"Switched to the testing likelihood for TaylorF2\n");
-	}*/ 
+	} 
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
 		inputMCMC.funcInit = NestInitGRB;
 	}

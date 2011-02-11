@@ -110,9 +110,9 @@ NRCSID (LALINSPIRALSTATIONARYPHASEAPPROX2TESTC, "$Id$");
 /*  <lalVerbatim file="LALInspiralStationaryPhaseApprox2CP"> */
 void
 LALInspiralStationaryPhaseApprox2Test (
-   LALStatus        *status,
-   REAL4Vector      *signalvec,
-   InspiralTemplate *params,
+                                       LALStatus        *status,
+                                       REAL4Vector      *signalvec,
+                                       InspiralTemplate *params,
                                        INT4 testParam,
                                        REAL8 deltaTestParam)
 { /* </lalVerbatim>  */
@@ -128,7 +128,6 @@ LALInspiralStationaryPhaseApprox2Test (
    ASSERT (signalvec->data,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
    ASSERT (params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
    ASSERT (signalvec->length>2,  status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
-
    n = signalvec->length;
    nby2 = n/2;
    memset( &ak, 0, sizeof( ak ) );
@@ -137,6 +136,7 @@ LALInspiralStationaryPhaseApprox2Test (
    LALInspiralChooseModel(status->statusPtr, &func, &ak, params);
    CHECKSTATUSPTR(status);
 
+   
    Oneby3 = 1.L/3.L;
    df = params->tSampling/signalvec->length;
    pimmc = LAL_PI * params->totalMass * LAL_MTSUN_SI;
@@ -162,7 +162,16 @@ LALInspiralStationaryPhaseApprox2Test (
     /* FILL PHASE COEFFICIENTS */
     REAL8 phaseParams[10] = {0.0};
     TaylorF2fillPhaseParams(params, phaseParams, testParam, deltaTestParam);
-    
+
+	FILE* model_output;
+	model_output=fopen("output_TF2T.dat","w");
+
+	fprintf(model_output,"Sampling frequency: %lf\n",params->tSampling);
+
+	fprintf(model_output,"Mass 1: %lf\n",params->mass1);
+	fprintf(model_output,"Mass 2: %lf\n",params->mass2);
+
+
    for (i=1; i<nby2; i++) {
       f = i * df;
       if (f < f0 || f > fn)
@@ -189,8 +198,10 @@ LALInspiralStationaryPhaseApprox2Test (
 	      amp = amp0 * pow(-func.dEnergy(v,&ak)/func.flux(v,&ak),0.5L) * v;
 	      signalvec->data[i] = (REAL4) (amp * cos(psi));
 	      signalvec->data[n-i] = (REAL4) (-amp * sin(psi));
-
+          fprintf(model_output,"%g\t %g\t %g\n",i*df,signalvec->data[i],signalvec->data[n-i]);  
       }
+      	fclose(model_output);
+        	exit(0);
       /*
 	 printf ("%e %e \n", v, psif);
 	 printf ("%e %e %e %e %e\n", f, pow(h1,2.)+pow(h2,2.), h2, psi, psif);
