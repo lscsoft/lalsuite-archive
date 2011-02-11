@@ -74,7 +74,8 @@ Optional OPTIONS:\n \
 [--H1GPSshift FLOAT\t: Specify timeslide in H1]\n \
 [--L1GPSshift FLOAT\t: Specify timeslide in L1]\n \
 [--V1GPSshift FLOAT\t: Specify timeslide in V1]\n \
-[--timeslide\t:\tTimeslide data]\n[--studentt\t:\tuse student-t likelihood function]\n \
+[--timeslide\t:\tTimeslide data]\n \
+[--studentt\t:\tuse student-t likelihood function]\n \
 [--ra FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use (DEGREES)]\n \
 [--grb\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
 [--deta FLOAT\t:\twidth of eta window]\n \
