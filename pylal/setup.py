@@ -301,11 +301,14 @@ setup(
 		os.path.join("bin", "inspiral_likelihood"),
 		os.path.join("bin", "inspiral_likelihood_hipe"),
 		os.path.join("bin", "KW_veto_setup"),
-                os.path.join("bin", "KW_veto_calc"),
+        os.path.join("bin", "KW_veto_calc"),
 		os.path.join("bin", "KW_veto_plots"),
-                os.path.join("bin", "KW_veto_channelPage"),
-                os.path.join("bin", "KW_veto_reportPage"),
-		os.path.join("bin", "KW_veto_qscanSetup")
+        os.path.join("bin", "KW_veto_channelPage"),
+        os.path.join("bin", "KW_veto_reportPage"),
+		os.path.join("bin", "KW_veto_qscanSetup"),
+		os.path.join("bin", "pylal_expose"),
+		os.path.join("bin", "ligolw_cbc_align_total_spin"),
+		os.path.join("bin", "ligolw_cbc_jitter_skyloc")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
