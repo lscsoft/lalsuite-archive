@@ -228,7 +228,7 @@ def cbcBayesPostProc(
 	for ifo in my_ifos:
 		inj_time=None
 		if injection:
-			inj_time=injection.get_end(ifo)
+			inj_time=float(injection.get_end(ifo[0]))
 		location=tools.cached_detector[detMap[ifo]].location
 		ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
 		loc_end_time=bppu.OneDPosterior(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
@@ -238,7 +238,7 @@ def cbcBayesPostProc(
 			if ifo1==ifo2: continue
 			delay_time=ifo_times[ifo2]-ifo_times[ifo1]
 			if injection:
-				inj_delay=injection.get_end(ifo2)-injection.get_end(ifo1)
+				inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
 			else:
 				inj_delay=None
 			time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)

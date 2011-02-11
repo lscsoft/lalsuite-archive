@@ -17,7 +17,7 @@ from glue.lal import CacheEntry as LALCacheEntry
 
 from pylal import date,llwapp
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.dq.dqFrameUtils import KWCacheEntry
+from pylal.dq.dqTriggerUtils import KWCacheEntry
 
 # Hey, scipy, shut up about your nose already.
 import warnings
