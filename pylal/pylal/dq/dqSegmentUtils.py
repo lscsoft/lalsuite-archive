@@ -4,10 +4,15 @@
 # Preamble
 # ==============================================================================
 
-import os,sys,shlex,subprocess,operator,tempfile
+import os,sys,re,operator
+from StringIO import StringIO
 from glue.segments import segment, segmentlist
-from glue.ligolw import lsctables,table,utils
+from glue.ligolw import ligolw,lsctables,table,utils
+from glue.ligolw.utils import segments as ligolw_segments
 from glue.segmentdb import query_engine,segmentdb_utils
+from pylal import llwapp
+
+LIGOTimeGPS = lsctables.LIGOTimeGPS
 
 # Some boilerplate to make segmentlists picklable
 import copy_reg
@@ -24,27 +29,6 @@ __date__    = git_version.date
 This module provides useful segment and veto tools for data quality investigations.
 """
 
-# =============================================================================
-# Function to execute shell command and get output
-# =============================================================================
-
-def make_external_call(cmd,shell=False):
-
-  """
-    Execute shell command and capture standard output and errors. Does not
-    support complex commands with pipes, e.g. `echo ${VAR} | grep insp` will
-    fail. Returns tuple "(stdout,stderr)".
-  """
-
-  args = shlex.split(str(cmd))
-  p = subprocess.Popen(args,shell=shell,\
-                       stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  p_out, p_err = p.communicate()
-  if p.returncode != 0:
-    raise ValueError, "Command %s failed. Stderr Output: \n%s" %( cmd, p_err)
-
-  return p_out, p_err
-
 # ==============================================================================
 # Function to load segments from an xml file
 # ==============================================================================
@@ -56,13 +40,15 @@ def fromsegmentxml(file):
     xml segment table.
   """
 
-  xmldoc,digest = utils.load_fileobj(file)
+  xmldoc,digest = utils.load_fileobj(file,gz=file.name.endswith(".gz"))
   seg_table = table.get_table(xmldoc,lsctables.SegmentTable.tableName)
 
   segs = segmentlist()
   for seg in seg_table:
     segs.append(segment(seg.start_time,seg.end_time))
   segs = segs.coalesce()
+
+  xmldoc.unlink()
 
   return segs
 
@@ -299,24 +285,28 @@ def duty_cycle(seglist,cbc=False):
 # Dump flags from segment database
 # ==============================================================================
 
-def dump_flags(start=None,end=None,ifo=None,segment_url=None,\
+def dump_flags(ifos=None,segment_url=None,match=None,unmatch=None,latest=False,\
                squery="select ifos,name,version from segment_definer"):
 
   """
     Returns the list of all flags defined in the database.
 
     Keyword rguments:
-      start : [ float | int | LIGOTimeGPS ]
-        GPS start time of requested period
-      end : [ float | int | LIGOTimeGPS ]
-        GPS end time of requested period
-      ifo : [ "G1" | "H1" | "H2" | "L1" | "V1" ]
-      segment_url : string 
+      ifo : [ str | list ]
+        list of ifos to query, or str for single ifo
+      segment_url : str 
         url of segment database, defaults to contents of S6_SEGMENT_SERVER
         environment variable
-      squery : string
+      match : [ str | compiled regular expression ]
+        regular expression to search against returned flag names, e.g, 'UPV'
+      unmatch : str
+        regular expression to negatively search against returned flag names
+      squery : str
         SQL format query to grab information from the segment database
   """
+
+  if isinstance(ifos,str):
+    ifos = [ifos]
 
   # get url
   if not segment_url:
@@ -325,18 +315,43 @@ def dump_flags(start=None,end=None,ifo=None,segment_url=None,\
   # open connection to LDBD(W)Server
   myClient = segmentdb_utils.setup_database(segment_url)
 
-  tmp = tempfile.TemporaryFile()
-  tmp.write(myClient.query(squery))
-  tmp.seek(0)
-  xmldoc,digest = utils.load_fileobj(tmp)
-  tmp.close()
+  reply = StringIO(myClient.query(squery))
+  xmldoc,digest = utils.load_fileobj(reply)
   seg_def_table = table.get_table(xmldoc,lsctables.SegmentDefTable.tableName)
 
-  flags = []
-  for line in seg_def_table:
-    if ifo and line.ifo!=ifo:  continue
-    flag = ':'.join([line.ifos.rstrip(),line.name,str(line.version)])
-    flags.append(flag)
+  # sort table by ifo,name and version
+  seg_def_table.sort(key=lambda flag: (flag.ifos[0],flag.name,\
+                                       flag.version),reverse=True)
+
+  flags = lsctables.New(type(seg_def_table))
+
+  for row in seg_def_table:
+
+    # test re match
+    if match and not re.search(match,row.name):  continue
+
+    # test re unmatch
+    if unmatch and re.search(unmatch,row.name):  continue
+
+    # only append latest versions of multiple flags
+    flatest=True
+    if latest:
+      # get all flags with same ifo and name
+      vflags = [f for f in flags if row.name==f.name and\
+                row.get_ifos()==f.get_ifos()]
+      # if later version in list, move on
+      for f in vflags:
+        if f.version>=row.version:
+          flatest=False
+          break
+    if not flatest:
+      continue
+
+    # append those flags matching ifos requirement
+    for ifo in ifos:
+      if ifo in row.get_ifos():
+        flags.append(row)
+        break
 
   return flags
 

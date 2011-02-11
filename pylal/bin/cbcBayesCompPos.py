@@ -221,7 +221,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
-
+        if posterior[param].injval:
+            injvals.append(posterior[param].injval)
 
         (n, bins, patches)=plt.hist(posterior[param].samples,bins=100,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
 
@@ -261,8 +262,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
-        if min(pos_samps)<injpar and max(pos_samps)>injpar:
-            plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
+        #if min(pos_samps)<injpar and max(pos_samps)>injpar:
+        plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
 
     #
 
@@ -284,7 +285,6 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             else:
                 injection=injections[eventnum]
 
-
     peparser=bppu.PEOutputParser('common')
     pos_list={}
     tp_list={}
@@ -294,20 +294,22 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         import urlparse
 
         pos_folder_url=urlparse.urlparse(pos_folder)
+        pfu_scheme,pfu_netloc,pfu_path,pfu_params,pfu_query,pfu_fragment=pos_folder_url
 
-        if 'http' in pos_folder_url.scheme:
+        if 'http' in pfu_scheme:
 
             """
             Retrieve a file over http(s).
             """
             downloads_folder=os.path.join(os.getcwd(),"downloads")
-            pos_folder_parse=urlparse.urlsplit(pos_folder)
-            head,tail=os.path.split(pos_folder_parse.path)
+            pos_folder_parse=urlparse.urlparse(pos_folder)
+            pfp_scheme,pfp_netloc,pfp_path,pfp_params,pfp_query,pfp_fragment=pos_folder_parse
+            head,tail=os.path.split(pfp_path)
             if tail is 'posplots.html' or tail:
                 pos_file_part=head
             else:
-                pos_file_part=pos_folder_parse.path
-            pos_file_url=urlparse.urlunsplit((pos_folder_parse.scheme,pos_folder_parse.netloc,os.path.join(pos_file_part,'posterior_samples.dat'),'',''))
+                pos_file_part=pfp_path
+            pos_file_url=urlparse.urlunsplit((pfp_scheme,pfp_netloc,os.path.join(pos_file_part,'posterior_samples.dat'),'',''))
             print pos_file_url
             pos_file=os.path.join(os.getcwd(),downloads_folder,"%s.dat"%name)
 
@@ -322,11 +324,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 open_url_wget(pos_file_url,un=username,pw=password,args=["-O","%s"%pos_file])
 
 
-        elif pos_folder_url.scheme is '' or pos_folder_url.scheme is 'file':
+        elif pfu_scheme is '' or pfu_scheme is 'file':
             pos_file=os.path.join(pos_folder,'posterior_samples.dat')
 
         else:
-            print "Unknown scheme for input data url: %s\nFull URL: %s"%(pos_folder_url.scheme,str(pos_folder_url))
+            print "Unknown scheme for input data url: %s\nFull URL: %s"%(pfu_scheme,str(pos_folder_url))
             exit(0)
 
         print "Reading posterior samples from %s ..."%pos_file
@@ -336,6 +338,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         test_and_switch_param(common_output_table_header,'distance','dist')
         test_and_switch_param(common_output_table_header,'chirpmass','mchirp')
         test_and_switch_param(common_output_table_header,'mc','mchirp')
+
+
 
         if 'LI_MCMC' in name or 'FU_MCMC' in name:
 
@@ -383,6 +387,14 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             common_params=list(set_of_pars.intersection(common_params))
 
     print "Common parameters are %s"%str(common_params)
+
+    if injection is None and injection_path is not None:
+        import itertools
+        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injection_path])
+        injection=bppu.get_inj_by_time(injections,pos_temp.means['time'])
+    if injection is not None:
+        for pos in pos_list.values():
+            pos.set_injection(injection)
 
     set_of_pars = set(allowed_params)
     common_params=list(set_of_pars.intersection(common_params))
