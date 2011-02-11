@@ -443,7 +443,7 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-    //if (PhaseTestParam!=-1) {parameter->logPrior+=log(XLALMCMCGetParameter(parameter,"phiTest"));}
+    if (PhaseTestParam!=-1) {parameter->logPrior+=-0.5*pow(XLALMCMCGetParameter(parameter,"phiTest"),2.0)/25.0;}
         /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
                                  (-1.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/(m1+m2));
