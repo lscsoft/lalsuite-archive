@@ -424,10 +424,11 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
             v = pow(omega[i],oneby3);
             amp = params->signalAmplitude * (v*v);
 
-            E2x = LNhy[i]*E1z[i] - LNhz[i]*E1y[i];
+            E2x = LNhy[i]*E1z[i] - LNhz[i]*E1y[i]; /* E2 = LNhat x E1 */
             E2y = LNhz[i]*E1x[i] - LNhx[i]*E1z[i];
             E2z = LNhx[i]*E1y[i] - LNhy[i]*E1x[i];
 
+            /* Polarization tensors projected into viewer's frame */
             hpluscos  = 0.5 * (E1x[i]*E1x[i] - E1y[i]*E1y[i] - E2x*E2x + E2y*E2y);
             hplussin  = E1x[i]*E1y[i] - E2x*E2y;
 
