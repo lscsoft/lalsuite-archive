@@ -1821,19 +1821,34 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
 
 void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
 
-    (void)parameter;
+    //(void)parameter;
     //(void)inputMCMC;
     UINT4 i=0;
     
 	/* Compute frequency-domain waveform in free space */
 
-    template->mass1=5.0;
+/*    template->mass1=5.0;
     template->mass2=5.0;
     template->startPhase=0.0;
     template->tC=0.0;
+    template->eta=0.25;
+    template->chirpMass=10.0;
+    printf("Mass 1: %lf\n",template->mass1);
+	printf("Mass 2: %lf\n",template->mass2);
+    printf("M Chirp : %lf\n",template->chirpMass);
+	printf("eta: %lf\n",template->eta);*/
 	LALInspiralParameterCalc(status,template);
+/*    printf("Mass 1: %lf\n",template->mass1);
+	printf("Mass 2: %lf\n",template->mass2);
+    printf("M Chirp : %lf\n",template->chirpMass);
+	printf("eta: %lf\n",template->eta);*/
 	LALInspiralRestrictedAmplitude(status,template);
-
+/*    printf("Mass 1: %lf\n",template->mass1);
+	printf("Mass 2: %lf\n",template->mass2);
+    printf("M Chirp : %lf\n",template->chirpMass);
+	printf("eta: %lf\n",template->eta);*/
+    
+    
     /* TGFLI: NEED TO FIND WAY OF PASSING TESTPARAMETER TO LALINSPIRALWAVE */
     if (template->approximant == TaylorF2Test) {
         LALInspiralStationaryPhaseApprox2Test(status, model, template, PhaseTestParam, XLALMCMCGetParameter(parameter,"phiTest") );
@@ -1842,10 +1857,9 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
         LALInspiralWave(status,model,template);
     }
 
-
-	
-/*	FILE* model_output;
-	model_output=fopen("output.dat","w");
+/*	
+	FILE* model_output;
+	model_output=fopen("output_TF2.dat","w");
 
 	fprintf(model_output,"Sampling frequency: %lf\n",template->tSampling);
 
@@ -1858,7 +1872,7 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 	fclose(model_output);
 
 	exit(0);*/
-	
+    //REPORTSTATUS(status);
 
 	return;
 

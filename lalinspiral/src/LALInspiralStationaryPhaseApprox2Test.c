@@ -163,13 +163,13 @@ LALInspiralStationaryPhaseApprox2Test (
     REAL8 phaseParams[10] = {0.0};
     TaylorF2fillPhaseParams(params, phaseParams, testParam, deltaTestParam);
 
-	FILE* model_output;
-	model_output=fopen("output_TF2T.dat","w");
+//	FILE* model_output;
+//	model_output=fopen("output_TF2T.dat","w");
 
-	fprintf(model_output,"Sampling frequency: %lf\n",params->tSampling);
+//	fprintf(model_output,"Sampling frequency: %lf\n",params->tSampling);
 
-	fprintf(model_output,"Mass 1: %lf\n",params->mass1);
-	fprintf(model_output,"Mass 2: %lf\n",params->mass2);
+//	fprintf(model_output,"Mass 1: %lf\n",params->mass1);
+//	fprintf(model_output,"Mass 2: %lf\n",params->mass2);
 
 
    for (i=1; i<nby2; i++) {
@@ -198,10 +198,9 @@ LALInspiralStationaryPhaseApprox2Test (
 	      amp = amp0 * pow(-func.dEnergy(v,&ak)/func.flux(v,&ak),0.5L) * v;
 	      signalvec->data[i] = (REAL4) (amp * cos(psi));
 	      signalvec->data[n-i] = (REAL4) (-amp * sin(psi));
-          fprintf(model_output,"%g\t %g\t %g\n",i*df,signalvec->data[i],signalvec->data[n-i]);  
+//          fprintf(model_output,"%g\t %g\t %g\n",i*df,signalvec->data[i],signalvec->data[n-i]);  
       }
-      	fclose(model_output);
-        	exit(0);
+      	
       /*
 	 printf ("%e %e \n", v, psif);
 	 printf ("%e %e %e %e %e\n", f, pow(h1,2.)+pow(h2,2.), h2, psi, psif);
@@ -209,6 +208,8 @@ LALInspiralStationaryPhaseApprox2Test (
        */
 
    }
+//   fclose(model_output);
+//   exit(0);
    params->fFinal = fn;
    DETATCHSTATUSPTR(status);
    RETURN(status);
