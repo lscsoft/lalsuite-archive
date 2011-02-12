@@ -1,4 +1,5 @@
 #include <LALSTPNWaveformFrameless.h>
+#include <stdio.h>
 
 NRCSID (LALSTPNWAVEFORMFRAMELESSC, "$Id$");
 
@@ -416,6 +417,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 		*countback = len;
 
     if (signalvec1) { /* return polarizations */
+        printf("Frameless STPN generating hplus.\n");
         REAL8 v, amp;
 		
         for(unsigned int i=0;i<len;i++) {
@@ -433,6 +435,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
                 ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) );
 
             if (signalvec2) {
+                printf("Frameless STPN generating hcross.\n");
                 hcrosscos = E1x[i]*E2x - E1y[i]*E2y;
                 hcrosssin = E1y[i]*E2x + E1x[i]*E2y;
 
@@ -445,6 +448,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 	params->tC = yout->data[len-1];	/* In the original code, this is only done if signalvec2 doesn't exist. I don't see a reason for that, so I removed it. */
     }
     else if (a) {	/* return coherentGW components */
+        printf("Frameless STPN generating a, phi, etc.\n");
         REAL8 apcommon, f2a;
         E2x = LNhy[i]*E1z[i] - LNhz[i]*E1y[i];
         E2y = LNhz[i]*E1x[i] - LNhx[i]*E1z[i];
