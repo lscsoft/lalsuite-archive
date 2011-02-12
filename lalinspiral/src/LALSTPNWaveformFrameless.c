@@ -276,7 +276,7 @@ static int XLALSTPNAdaptiveDerivativesFrameless(double t,const double values[],d
 	dvalues[2] = dLNhx; dvalues[3] = dLNhy ; dvalues[4] = dLNhz;
 	dvalues[5] = dS1x ; dvalues[6] = dS1y  ; dvalues[7] = dS1z ;
 	dvalues[8] = dS2x ; dvalues[9] = dS2y  ; dvalues[10]= dS2z ;
-	dvalues[11] = dS2x ; dvalues[12] = dS2y  ; dvalues[13]= dS2z ;
+	dvalues[11] = dE1x ; dvalues[12] = dE1y  ; dvalues[13]= dE1z ;
 	
 	return GSL_SUCCESS;
 }
@@ -284,24 +284,26 @@ static int XLALSTPNAdaptiveDerivativesFrameless(double t,const double values[],d
 /*  <lalVerbatim file="LALSTPNWaveformInjectionCP"> */
 void
 LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
-                							 REAL4Vector *signalvec1,REAL4Vector *signalvec2,
-                							 REAL4Vector *a,REAL4Vector *ff,REAL8Vector *phi,REAL4Vector *shift,
-                							 UINT4 *countback,
-                							 InspiralTemplate *params,InspiralInit *paramsInit
-                						 )
+        REAL4Vector *signalvec1,REAL4Vector *signalvec2,
+        REAL4Vector *a,REAL4Vector *ff,REAL8Vector *phi,REAL4Vector *shift,
+        UINT4 *countback,
+        InspiralTemplate *params,InspiralInit *paramsInit )
 {	/* </lalVerbatim> */
 	/* PN parameters */
   LALSTPNparams mparams;
 
 	/* needed for integration */
   ark4GSLIntegrator *integrator;
-	unsigned int len;
-	int intreturn;
-	REAL8 yinit[11];
+  unsigned int len;
+  int intreturn;
+  REAL8 yinit[14];
   REAL8Array *yout;
 
   /* other computed values */
   REAL8 unitHz, dt, m, lengths, norm;
+  REAL8 E2x, E2y, E2z;
+  REAL8 hpluscos, hplussin, hcrosscos, hcrosssin;
+
 
   INITSTATUS(status, "LALSTPNWaveform", LALSTPNWAVEFORM2C);
   ATTATCHSTATUSPTR(status);
@@ -339,7 +341,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 	yinit[9] = norm * params->spin2[1]; 
 	yinit[10]= norm * params->spin2[2]; 
 
-        yinit[11] = cos(params->inclination);                                                    /* LNh(x,y,z) */
+        yinit[11] = cos(params->inclination);  /* E1(x,y,z) */
         yinit[12] = 0.0;
         yinit[13] = -1.0 * sin(params->inclination);
 
@@ -409,49 +411,71 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 		REAL8 *S1x  = &yout->data[6*len]; REAL8 *S1y   = &yout->data[7*len];  REAL8 *S1z   = &yout->data[8*len];	
 		REAL8 *S2x  = &yout->data[9*len]; REAL8 *S2y   = &yout->data[10*len]; REAL8 *S2z   = &yout->data[11*len];	*/
 
+		REAL8 *E1x = &yout->data[12*len]; REAL8 *E1y  = &yout->data[13*len];	REAL8 *E1z  = &yout->data[14*len];
+
 		*countback = len;
 
-		if (signalvec1) { /* return polarizations */
-			REAL8 v, amp, alpha;
-			
-			for(unsigned int i=0;i<len;i++) {
-				v = pow(omega[i],oneby3);
-				amp = params->signalAmplitude * (v*v);
-				alpha = atan2(LNhy[i],LNhx[i]);
+    if (signalvec1) { /* return polarizations */
+        REAL8 v, amp;
+		
+        for(unsigned int i=0;i<len;i++) {
+            v = pow(omega[i],oneby3);
+            amp = params->signalAmplitude * (v*v);
 
-				signalvec1->data[i]   = (REAL4)(-0.5 * amp * cos(2*vphi[i]) * cos(2*alpha) * (1.0 + LNhz[i]*LNhz[i]) \
-				                                     + amp * sin(2*vphi[i]) * sin(2*alpha) * LNhz[i]);
+            E2x = LNhy[i]*E1z[i] - LNhz[i]*E1y[i];
+            E2y = LNhz[i]*E1x[i] - LNhx[i]*E1z[i];
+            E2z = LNhx[i]*E1y[i] - LNhy[i]*E1x[i];
 
-				if (signalvec2) {
-					signalvec2->data[i] = (REAL4)(-0.5 * amp * cos(2*vphi[i]) * sin(2*alpha) * (1.0 + LNhz[i]*LNhz[i]) \
-																				     - amp * sin(2*vphi[i]) * cos(2*alpha) * LNhz[i]);
-				}
-			}
-			
-			params->fFinal = pow(v,3.0)/(LAL_PI*m);
-			if (!signalvec2) params->tC = yout->data[len-1];	/* TO DO: why only in this case? */
-		} else if (a) {	/* return coherentGW components */
-			REAL8 apcommon, f2a, alpha;
-			
-			/* (minus) amplitude for distance in m; should be (1e6 * LAL_PC_SI * params->distance) for distance in Mpc */
-			apcommon = -4.0 * params->mu * LAL_MRSUN_SI/(params->distance);
-			
-			for(unsigned int i=0;i<len;i++) {
-				f2a = pow(omega[i],twoby3);
-				alpha = atan2(LNhy[i],LNhx[i]);
+            hpluscos  = 0.5 * (E1x[i]*E1x[i] - E1y[i]*E1y[i] - E2x*E2x + E2y*E2y);
+            hplussin  = E1x[i]*E1y[i] - E2x*E2y;
 
-			  ff   ->data[i]     = (REAL4)(omega[i]/unitHz);
-			  a    ->data[2*i]   = (REAL4)(apcommon * f2a * 0.5 * (1 + LNhz[i]*LNhz[i]));
-			  a    ->data[2*i+1] = (REAL4)(apcommon * f2a * LNhz[i]);
-			  phi  ->data[i]     = (REAL8)(2.0 * vphi[i]);
-			  shift->data[i]     = (REAL4)(2.0 * alpha);			
-			}
-			
-			params->fFinal = ff->data[len-1];
-		}
+            signalvec1->data[i] = (REAL4) ( -1.0 * amp * \
+                ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) );
+
+            if (signalvec2) {
+                hcrosscos = E1x[i]*E2x - E1y[i]*E2y;
+                hcrosssin = E1y[i]*E2x + E1x[i]*E2y;
+
+                signalvec2->data[i] = (REAL4)( -1.0 * amp * \
+                    ( hcrosscos * cos(2*vphi[i]) + hcrosssin * sin(2*vphi[i]) );
+            }
+        }
+		
+        params->fFinal = pow(v,3.0)/(LAL_PI*m);
+	params->tC = yout->data[len-1];	/* In the original code, this is only done if signalvec2 doesn't exist. I don't see a reason for that, so I removed it. */
+    }
+    else if (a) {	/* return coherentGW components */
+        REAL8 apcommon, f2a;
+        E2x = LNhy[i]*E1z[i] - LNhz[i]*E1y[i];
+        E2y = LNhz[i]*E1x[i] - LNhx[i]*E1z[i];
+        E2z = LNhx[i]*E1y[i] - LNhy[i]*E1x[i];
+
+        hpluscos  = 0.5 * (E1x[i]*E1x[i] - E1y[i]*E1y[i] - E2x*E2x + E2y*E2y);
+        hplussin  = E1x[i]*E1y[i] - E2x*E2y;
+        hcrosscos = E1x[i]*E2x - E1y[i]*E2y;
+        hcrosssin = E1y[i]*E2x + E1x[i]*E2y;
+
+        /* (minus) amplitude for distance in m; should be (1e6 * LAL_PC_SI * params->distance) for distance in Mpc */
+        apcommon = -4.0 * params->mu * LAL_MRSUN_SI/(params->distance);
+
+        /* This should work, but it's awkward.. I need to think about how to fit the waveform into the CoherentGW convention a little better */			
+        for(unsigned int i=0;i<len;i++) {
+            f2a = pow(omega[i],twoby3);
+
+            ff->data[i]    = (REAL4)(omega[i]/unitHz);
+            a->data[2*i]   = (REAL4)( apcommon * f2a * \
+                ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) );
+            a->data[2*i+1] = (REAL4)( apcommon * f2a * \
+                ( hcrosscos * cos(2*vphi[i]) + hcrosssin * sin(2*vphi[i]) );
+            phi->data[i]   = (REAL8) 0.0;
+            shift->data[i] = (REAL4) 0.0;
 	}
+	
+	params->fFinal = ff->data[len-1];
+    }
+  }
 
-	if (yout) XLALDestroyREAL8Array(yout);
+  if (yout) XLALDestroyREAL8Array(yout);
 
   DETATCHSTATUSPTR(status);
   RETURN(status);
