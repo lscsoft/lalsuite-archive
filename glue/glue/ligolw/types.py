@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2011  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -53,7 +53,9 @@ simply include the lines
 		"real_4": u"%.9g".__mod__,
 		"real_8": u"%.17g".__mod__,
 		"float": u"%.9g".__mod__,
-		"double": u"%.17g".__mod__
+		"double": u"%.17g".__mod__,
+		u"complex_8": glue.ligolw.types.mk_complex_format_func(u"%.9g"),
+		u"complex_16": glue.ligolw.types.mk_complex_format_func(u"%.17g")
 	})
 
 anywhere in your code, but before you write the document to a file.
@@ -90,7 +92,8 @@ BlobTypes = set([u"blob", u"ilwd:char_u"])
 StringTypes = set([u"char_s", u"char_v", u"lstring", u"string", u"ilwd:char"])
 IntTypes = set([u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"])
 FloatTypes = set([u"real_4", u"real_8", u"float", u"double"])
-NumericTypes = IntTypes | FloatTypes
+ComplexTypes = set([u"complex_8", u"complex_16"])
+NumericTypes = IntTypes | FloatTypes | ComplexTypes
 TimeTypes = set([u"GPS", u"Unix", u"ISO-8601"])
 Types = BlobTypes | StringTypes | NumericTypes | TimeTypes
 
@@ -112,6 +115,13 @@ def blob_format_func(b):
 	return u"\"%s\"" % base64.standard_b64encode(b)
 
 
+def mk_complex_format_func(fmt):
+	fmt = fmt + u"+I" + fmt
+	def complex_format_func(z):
+		return fmt % (z.real, z.imag)
+	return complex_format_func
+
+
 FormatFunc = {
 	u"char_s": string_format_func,
 	u"char_v": string_format_func,
@@ -130,7 +140,9 @@ FormatFunc = {
 	u"real_4": u"%.8g".__mod__,
 	u"real_8": u"%.16g".__mod__,
 	u"float": u"%.8g".__mod__,
-	u"double": u"%.16g".__mod__
+	u"double": u"%.16g".__mod__,
+	u"complex_8": mk_complex_format_func(u"%.8g"),
+	u"complex_16": mk_complex_format_func(u"%.16g")
 }
 
 
@@ -141,6 +153,10 @@ FormatFunc = {
 #
 # =============================================================================
 #
+
+
+def parse_complex(s):
+	return complex(*map(float, s.split(u"+I")))
 
 
 ToPyType = {
@@ -161,7 +177,9 @@ ToPyType = {
 	u"real_4": float,
 	u"real_8": float,
 	u"float": float,
-	u"double": float
+	u"double": float,
+	u"complex_8": parse_complex,
+	u"complex_16": parse_complex
 }
 
 
@@ -171,9 +189,10 @@ FromPyType = {
 	str: u"lstring",
 	unicode: u"lstring",
 	bool: u"int_4s",
-	int: u"int_4s",
+	int: u"int_8s",
 	long: u"int_8s",
-	float: u"real_8"
+	float: u"real_8",
+	complex: u"complex_16"
 }
 
 
@@ -196,8 +215,10 @@ ToNumPyType = {
 	u"int": "int32",
 	u"real_4": "float32",
 	u"real_8": "float64",
-	u"float": "float64",
-	u"double": "float64"
+	u"float": "float32",
+	u"double": "float64",
+	u"complex_8": "complex64",
+	u"complex_16": "complex128"
 }
 
 
@@ -209,7 +230,9 @@ FromNumPyType = {
 	"int64": u"int_8s",
 	"uint64": u"int_8u",
 	"float32": u"real_4",
-	"float64": u"real_8"
+	"float64": u"real_8",
+	"complex64": u"complex_8",
+	"complex128": u"complex_16"
 }
 
 
@@ -219,6 +242,13 @@ FromNumPyType = {
 #                 Conversion To and From Native Database Types
 #
 # =============================================================================
+#
+
+
+#
+# SQL does not support complex numbers.  Documents containing
+# complex-valued table columns cannot be stored in SQL databases at this
+# time.
 #
 
 

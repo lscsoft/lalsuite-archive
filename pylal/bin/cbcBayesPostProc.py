@@ -204,6 +204,45 @@ def cbcBayesPostProc(
         pos.append(mass1_pos)
         pos.append(mass2_pos)
 
+    # Compute time delays from sky position
+    if ('ra' in pos.names or 'rightascension' in pos.names) \
+    and ('declination' in pos.names or 'dec' in pos.names) \
+    and 'time' in pos.names:
+    from pylal import antenna
+    from pylal import xlal
+    from pylal.xlal import tools,datatypes
+    from pylal import date
+    from pylal.date import XLALTimeDelayFromEarthCenter
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+    import itertools
+    detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
+            'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
+    if 'ra' in pos.names:
+        ra_name='ra'
+    else: ra_name='rightascension'
+    if 'dec' in pos.names:
+        dec_name='dec'
+    else: dec_name='declination'
+    ifo_times={}
+    my_ifos=['H1','L1','V1']
+    for ifo in my_ifos:
+        inj_time=None
+        if injection:
+            inj_time=float(injection.get_end(ifo[0]))
+        location=tools.cached_detector[detMap[ifo]].location
+        ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
+        loc_end_time=bppu.OneDPosterior(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
+        pos.append(loc_end_time)
+    for ifo1 in my_ifos:
+        for ifo2 in my_ifos:
+            if ifo1==ifo2: continue
+            delay_time=ifo_times[ifo2]-ifo_times[ifo1]
+            if injection:
+                inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
+            else:
+                inj_delay=None
+            time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
+            pos.append(time_delay)
 
     ##Print some summary stats for the user...##
     #Number of samples
@@ -282,7 +321,7 @@ def cbcBayesPostProc(
     for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
         cov_table_string+='<tr><th>%s</th>'%cov_column_name
         for cov_column_element in cov_column:
-            cov_table_string+='<td>%s</td>'%str(cov_column_element[0])
+            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
         cov_table_string+='</tr>'
     cov_table_string+='</table>'
     html_stats_cov.write(cov_table_string)
@@ -457,13 +496,21 @@ def cbcBayesPostProc(
                 mu=mean(data)
                 corr=correlate((data-mu),(data-mu),mode='full')
                 N=len(data)
-                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                try:
+                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                except FloatingPointError:
+                    # Ignore
+                    pass
             else:
                 for rng, data in zip(chainDataRanges, chainData):
                     mu=mean(data)
                     corr=correlate(data-mu,data-mu,mode='full')
                     N=len(data)
-                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    try:
+                        plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    except FloatingPointError:
+                        # Ignore
+                        pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
 
@@ -514,7 +561,7 @@ def cbcBayesPostProc(
         html_tcig_write+='<th>Injection Confidence Interval</th>'
     html_tcig_write+='</tr>'
 
-    
+
     #=  Add a section for a table of 2D marginal PDFs (kde)
     twodkdeplots_flag=twodkdeplots
     if twodkdeplots_flag:
@@ -585,7 +632,7 @@ def cbcBayesPostProc(
 
         #Append new table line to section html
         html_tcig_write+=BCItableline
-        
+
 
         #= Plot 2D histograms of greedily binned points =#
 
@@ -653,7 +700,7 @@ def cbcBayesPostProc(
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
     html_tcig.write(html_tcig_write)
-    
+
     if twodkdeplots_flag is True:
     #Finish off the 2D kde plot table
         while row_count!=0:
@@ -735,7 +782,12 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','phase']
+    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
+    ifos_menu=['h1','l1','v1']
+    for ifo1 in ifos_menu:
+    for ifo2 in ifos_menu:
+        if ifo1==ifo2: continue
+        oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
     #List of parameter pairs to bin . Need to match (converted) column names.
@@ -746,6 +798,8 @@ if __name__=='__main__':
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
     greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05}
+    for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
+        greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
