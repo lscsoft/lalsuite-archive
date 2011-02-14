@@ -285,6 +285,7 @@ void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params)
 	if (wave->spinInteraction) {
 		wave->spinInteraction |= LAL_SOInter;
 	}
+	wave->amplitudeContribution = params->ampOrder;
 	/*printf("masses: %lg %lg\n", wave->mass[0], wave->mass[1]);
 	printf("chis1: %lg %lg %lg\n", wave->chi[0][0], wave->chi[0][1], wave->chi[0][2]);
 	printf("chis2: %lg %lg %lg\n", wave->chi[1][0], wave->chi[1][1], wave->chi[1][2]);

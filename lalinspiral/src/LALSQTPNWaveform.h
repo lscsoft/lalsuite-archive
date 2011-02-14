@@ -41,11 +41,9 @@ NRCSID (LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
 #define SQT_SQR(a) ((a)*(a))
 
 typedef enum {
-	LALSQTPN_0 = 0, LALSQTPN_0_5 = 1, LALSQTPN_1 = 2,
-	//--------------------
 	LALSQTPN_PLUS = 0,
 	LALSQTPN_CROSS = 1,
-} LALSQTPNAmplitudeContribution;
+} LALSQTPNConstants;
 
 typedef struct tagLALSQTPNWave {
 	CoherentGW *waveform;
@@ -120,7 +118,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	REAL8 coalescenceTime; ///< the time at the coalescence
 	LALPNOrder order; ///< the Post_Newtonian order of the GW generation
 	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
-	LALSQTPNAmplitudeContribution amplitudeContribution;
+	LALPNOrder amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
 //@}
 } LALSQTPNWaveformParams;

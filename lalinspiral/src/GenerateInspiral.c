@@ -338,6 +338,20 @@ LALGetOrderFromString(
   RETURN( status );
 }
 
+int XLALGetAmplitudeContributionFromString(LALPNOrder *ampOrder, CHAR *thisEvent) {
+	static const char *func = "XLALGetAmplitudeContributionFromString";
+	if (strstr(thisEvent, "AMP00")) {
+		*ampOrder = LAL_PNORDER_NEWTONIAN;
+	} else if (strstr(thisEvent, "AMP05")) {
+		*ampOrder = LAL_PNORDER_HALF;
+	} else if (strstr(thisEvent, "AMP10")) {
+		*ampOrder = LAL_PNORDER_ONE;
+	} else {
+		XLAL_ERROR(func, XLAL_EDOM);
+	}
+	return XLAL_SUCCESS;
+}
+
 int XLALGetSpinInteractionFromString(LALSpinInteraction *inter, CHAR *thisEvent) {
 	static const char *func = "XLALGetSpinInteractionFromString";
 
