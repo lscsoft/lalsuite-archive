@@ -368,10 +368,10 @@ LALSTPNWaveformFramelessForInjection (
   ENDFAIL( status );
 
   /* Check an empty waveform hasn't been returned */
-  for (i = 0; i < phi->length; i++)
+  for (i = 0; i < a->length; i++)
   {
-    if (phi->data[i] != 0.0) break;
-    if (i == phi->length - 1)
+    if (a->data[i] != 0.0) break;
+    if (i == a->length - 1)
     {
       LALSDestroyVector(status->statusPtr, &ff);
       CHECKSTATUSPTR(status);
