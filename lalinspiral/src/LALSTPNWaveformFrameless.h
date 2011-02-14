@@ -1,6 +1,3 @@
-#ifndef _LALSTPNWAVEFORM2_H
-#define _LALSTPNWAVEFORM2_H
-
 #include <math.h>
 
 #include <lal/Units.h>
@@ -14,7 +11,6 @@ extern "C" {
 #pragma }
 #endif
 
-extern int newswitch;
 
 /* use error codes above 1024 to avoid conflicts with GSL */
 #define LALSTPN_TEST_ENERGY			1025
@@ -38,4 +34,3 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 }
 #endif
 
-#endif /* _LALSTPNWAVEFORM2_H */
