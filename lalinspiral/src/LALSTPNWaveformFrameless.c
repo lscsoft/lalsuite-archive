@@ -282,6 +282,226 @@ static int XLALSTPNAdaptiveDerivativesFrameless(double t,const double values[],d
 	return GSL_SUCCESS;
 }
 
+NRCSID (LALSTPNWAVEFORMFRAMELESSFORINJECTIONC,
+"$Id$");
+
+void
+LALSTPNWaveformFramelessForInjection (
+			     LALStatus        *status,
+			     CoherentGW       *waveform,
+			     InspiralTemplate *params,
+			     PPNParamStruc    *ppnParams
+			    )
+{
+  /* </lalVerbatim> */
+ UINT4 count, i;
+
+  REAL4Vector *a=NULL;/* pointers to generated amplitude  data */
+  REAL4Vector *ff=NULL ;/* pointers to generated  frequency data */
+  REAL8Vector *phi=NULL;/* pointer to generated phase data */
+  REAL4Vector *shift=NULL;/* pointer to generated phase data */
+
+  REAL8 phiC;/* phase at coalescence */
+  InspiralInit paramsInit;
+
+  CreateVectorSequenceIn in;
+
+  INITSTATUS(status, "LALSTPNWaveformFramelessForInjection", LALSTPNWAVEFORMFRAMELESSFORINJECTIONC);
+  ATTATCHSTATUSPTR(status);
+
+
+  /* Make sure parameter and waveform structures exist. */
+  ASSERT( params, status, LALINSPIRALH_ENULL,  LALINSPIRALH_MSGENULL );
+  ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+  /* Make sure waveform fields don't exist. */
+  ASSERT( !( waveform->a ), status,
+  	LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL );
+  ASSERT( !( waveform->f ), status,
+  	LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL );
+  ASSERT( !( waveform->phi ), status,
+  	LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL );
+  ASSERT( !( waveform->shift ), status,
+  	LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL );
+
+  /* Compute some parameters*/
+  LALInspiralInit(status->statusPtr, params, &paramsInit);
+  CHECKSTATUSPTR(status);
+  if (paramsInit.nbins==0)
+    {
+      DETATCHSTATUSPTR(status);
+      RETURN (status);
+    }
+
+  /* Now we can allocate memory and vector for coherentGW structure*/
+  LALSCreateVector(status->statusPtr, &ff, paramsInit.nbins);
+  CHECKSTATUSPTR(status);
+  LALSCreateVector(status->statusPtr, &a, 2*paramsInit.nbins);
+  CHECKSTATUSPTR(status);
+  LALDCreateVector(status->statusPtr, &phi, paramsInit.nbins);
+  CHECKSTATUSPTR(status);
+  LALSCreateVector(status->statusPtr, &shift, paramsInit.nbins);
+  CHECKSTATUSPTR(status);
+
+
+  /* By default the waveform is empty */
+  memset(ff->data, 0, paramsInit.nbins * sizeof(REAL4));
+  memset(a->data, 0, 2 * paramsInit.nbins * sizeof(REAL4));
+  memset(phi->data, 0, paramsInit.nbins * sizeof(REAL8));
+  memset(shift->data, 0, paramsInit.nbins * sizeof(REAL4));
+
+
+  /* Call the engine function */
+  LALSTPNAdaptiveWaveformEngineFrameless(status->statusPtr, NULL, NULL, a, ff, phi, shift,&count, params, &paramsInit);
+
+  BEGINFAIL( status )
+  {
+     LALSDestroyVector(status->statusPtr, &ff);
+     CHECKSTATUSPTR(status);
+     LALSDestroyVector(status->statusPtr, &a);
+     CHECKSTATUSPTR(status);
+     LALDDestroyVector(status->statusPtr, &phi);
+     CHECKSTATUSPTR(status);
+     LALSDestroyVector(status->statusPtr, &shift);
+     CHECKSTATUSPTR(status);
+  }
+  ENDFAIL( status );
+
+  /* Check an empty waveform hasn't been returned */
+  for (i = 0; i < phi->length; i++)
+  {
+    if (phi->data[i] != 0.0) break;
+    if (i == phi->length - 1)
+    {
+      LALSDestroyVector(status->statusPtr, &ff);
+      CHECKSTATUSPTR(status);
+      LALSDestroyVector(status->statusPtr, &a);
+      CHECKSTATUSPTR(status);
+      LALDDestroyVector(status->statusPtr, &phi);
+      CHECKSTATUSPTR(status);
+      LALSDestroyVector(status->statusPtr, &shift);
+      CHECKSTATUSPTR(status);
+
+      DETATCHSTATUSPTR( status );
+      RETURN( status );
+    }
+  }
+
+  {
+    phiC =  phi->data[count-1] ;
+
+/*    for (i=0; i<count;i++)
+      {
+	phi->data[i] =  -phiC + phi->data[i] +ppnParams->phi;
+      } */
+
+    /* Allocate the waveform structures. */
+    if ( ( waveform->a = (REAL4TimeVectorSeries *)
+	   LALMalloc( sizeof(REAL4TimeVectorSeries) ) ) == NULL ) {
+      ABORT( status, LALINSPIRALH_EMEM,
+	     LALINSPIRALH_MSGEMEM );
+    }
+    memset( waveform->a, 0, sizeof(REAL4TimeVectorSeries) );
+
+    if ( ( waveform->f = (REAL4TimeSeries *)
+	   LALMalloc( sizeof(REAL4TimeSeries) ) ) == NULL ) {
+      LALFree( waveform->a ); waveform->a = NULL;
+      ABORT( status, LALINSPIRALH_EMEM,
+	     LALINSPIRALH_MSGEMEM );
+    }
+    memset( waveform->f, 0, sizeof(REAL4TimeSeries) );
+
+    if ( ( waveform->phi = (REAL8TimeSeries *)
+	   LALMalloc( sizeof(REAL8TimeSeries) ) ) == NULL ) {
+      LALFree( waveform->a ); waveform->a = NULL;
+      LALFree( waveform->f ); waveform->f = NULL;
+      ABORT( status, LALINSPIRALH_EMEM,
+	     LALINSPIRALH_MSGEMEM );
+    }
+    memset( waveform->phi, 0, sizeof(REAL8TimeSeries) );
+
+    if ( ( waveform->shift = (REAL4TimeSeries *)
+	   LALMalloc( sizeof(REAL4TimeSeries) ) ) == NULL ) {
+      LALFree( waveform->a ); waveform->a = NULL;
+      LALFree( waveform->f ); waveform->f = NULL;
+      LALFree( waveform->phi ); waveform->phi = NULL;
+      ABORT( status, LALINSPIRALH_EMEM,
+	     LALINSPIRALH_MSGEMEM );
+    }
+    memset( waveform->shift, 0, sizeof(REAL4TimeSeries) );
+
+
+
+    in.length = (UINT4)count;
+    in.vectorLength = 2;
+    LALSCreateVectorSequence( status->statusPtr,
+			      &( waveform->a->data ), &in );
+    CHECKSTATUSPTR(status);
+    LALSCreateVector( status->statusPtr,
+		      &( waveform->f->data ), count);
+    CHECKSTATUSPTR(status);
+    LALDCreateVector( status->statusPtr,
+		      &( waveform->phi->data ), count );
+    CHECKSTATUSPTR(status);
+
+    LALSCreateVector( status->statusPtr,
+		      &( waveform->shift->data ), count );
+    CHECKSTATUSPTR(status);
+
+
+    memcpy(waveform->f->data->data , ff->data, count*(sizeof(REAL4)));
+    memcpy(waveform->a->data->data , a->data, 2*count*(sizeof(REAL4)));
+    memcpy(waveform->phi->data->data ,phi->data, count*(sizeof(REAL8)));
+    memcpy(waveform->shift->data->data ,shift->data, count*(sizeof(REAL4)));
+
+    waveform->a->deltaT = waveform->f->deltaT = waveform->phi->deltaT = waveform->shift->deltaT
+      = 1./params->tSampling;
+
+    waveform->a->sampleUnits = lalStrainUnit;
+    waveform->f->sampleUnits = lalHertzUnit;
+    waveform->phi->sampleUnits = lalDimensionlessUnit;
+    waveform->shift->sampleUnits 	= lalDimensionlessUnit;
+
+    waveform->position = ppnParams->position;
+    waveform->psi = ppnParams->psi;
+
+
+    snprintf( waveform->a->name, 	LALNameLength, "STPN inspiral amplitudes" );
+    snprintf( waveform->f->name, 	LALNameLength, "STPN inspiral frequency" );
+    snprintf( waveform->phi->name, 	LALNameLength, "STPN inspiral phase" );
+    snprintf( waveform->shift->name, LALNameLength, "STPN inspiral polshift" );
+
+
+    /* --- fill some output ---*/
+    ppnParams->tc     = (double)(count-1) / params->tSampling ;
+    ppnParams->length = count;
+    ppnParams->dfdt   = ((REAL4)(waveform->f->data->data[count-1]
+				 - waveform->f->data->data[count-2]))
+      * ppnParams->deltaT;
+    ppnParams->fStop  = params->fFinal;
+    ppnParams->termCode        = GENERATEPPNINSPIRALH_EFSTOP;
+    ppnParams->termDescription = GENERATEPPNINSPIRALH_MSGEFSTOP;
+
+    ppnParams->fStart   = ppnParams->fStartIn;
+  } /* end phase condition*/
+
+  /* --- free memory --- */
+
+
+  LALSDestroyVector(status->statusPtr, &ff);
+  CHECKSTATUSPTR(status);
+  LALSDestroyVector(status->statusPtr, &a);
+  CHECKSTATUSPTR(status);
+  LALDDestroyVector(status->statusPtr, &phi);
+  CHECKSTATUSPTR(status);
+  LALSDestroyVector(status->statusPtr, &shift);
+  CHECKSTATUSPTR(status);
+
+
+  DETATCHSTATUSPTR(status);
+  RETURN(status);
+}
+
+
 void
 LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
         REAL4Vector *signalvec1,REAL4Vector *signalvec2,
