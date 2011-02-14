@@ -229,9 +229,9 @@ static int XLALSTPNAdaptiveDerivativesFrameless(double t,const double values[],d
   /* dE1; reuses tmpxyz above, which is PBCV's Omega_e */
   
   tmp1 = tmpx * LNhx + tmpy * LNhy + tmpz * LNhz;
-  tmpx -= tmp1 * LNx
-  tmpy -= tmp1 * LNy
-  tmpz -= tmp1 * LNz
+  tmpx -= tmp1 * LNhx;
+  tmpy -= tmp1 * LNhy;
+  tmpz -= tmp1 * LNhz;
 
   dE1x = (-tmpz*E1y + tmpy*E1z);
   dE1y = (-tmpx*E1z + tmpz*E1x);
@@ -282,7 +282,6 @@ static int XLALSTPNAdaptiveDerivativesFrameless(double t,const double values[],d
 	return GSL_SUCCESS;
 }
 
-/*  <lalVerbatim file="LALSTPNWaveformInjectionCP"> */
 void
 LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
         REAL4Vector *signalvec1,REAL4Vector *signalvec2,
@@ -306,7 +305,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
   REAL8 hpluscos, hplussin, hcrosscos, hcrosssin;
 
 
-  INITSTATUS(status, "LALSTPNWaveform", LALSTPNWAVEFORM2C);
+  INITSTATUS(status, "LALSTPNWaveformFrameless", LALSTPNWAVEFORMFRAMELESSC);
   ATTATCHSTATUSPTR(status);
 
  	/* Make sure parameter and waveform structures exist. */
@@ -349,9 +348,9 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
   xlalErrno = 0;	
 
 	/* allocate the integrator */
-	integrator = XLALAdaptiveRungeKutta4Init(11,XLALSTPNAdaptiveDerivatives,XLALSTPNAdaptiveTest,1.0e-6,1.0e-6);							
+	integrator = XLALAdaptiveRungeKutta4Init(14,XLALSTPNAdaptiveDerivativesFrameless,XLALSTPNAdaptiveTest,1.0e-6,1.0e-6);							
   if (!integrator) {
-		fprintf(stderr,"LALSTPNWaveform2: Cannot allocate integrator.\n");
+		fprintf(stderr,"LALSTPNWaveformFrameless: Cannot allocate integrator.\n");
     if (XLALClearErrno() == XLAL_ENOMEM)
       ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
     else
@@ -433,22 +432,21 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
             hplussin  = E1x[i]*E1y[i] - E2x*E2y;
 
             signalvec1->data[i] = (REAL4) ( -1.0 * amp * \
-                ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) );
+                ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) ) );
 
             if (signalvec2) {
                 printf("Frameless STPN generating hcross.\n");
                 hcrosscos = E1x[i]*E2x - E1y[i]*E2y;
                 hcrosssin = E1y[i]*E2x + E1x[i]*E2y;
 
-                signalvec2->data[i] = (REAL4)( -1.0 * amp * \
-                    ( hcrosscos * cos(2*vphi[i]) + hcrosssin * sin(2*vphi[i]) );
+                signalvec2->data[i] = (REAL4) ( -1.0 * amp * \
+                    ( hcrosscos * cos(2*vphi[i]) + hcrosssin * sin(2*vphi[i]) ) );
             }
         }
 		
         params->fFinal = pow(v,3.0)/(LAL_PI*m);
 	params->tC = yout->data[len-1];	/* In the original code, this is only done if signalvec2 doesn't exist. I don't see a reason for that, so I removed it. */
-    }
-    else if (a) {	/* return coherentGW components */
+    } else if (a) {	/* return coherentGW components */
         printf("Frameless STPN generating a, phi, etc.\n");
         REAL8 apcommon, f2a;
         E2x = LNhy[i]*E1z[i] - LNhz[i]*E1y[i];
@@ -469,9 +467,9 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 
             ff->data[i]    = (REAL4)(omega[i]/unitHz);
             a->data[2*i]   = (REAL4)( apcommon * f2a * \
-                ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) );
+                ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) ) );
             a->data[2*i+1] = (REAL4)( apcommon * f2a * \
-                ( hcrosscos * cos(2*vphi[i]) + hcrosssin * sin(2*vphi[i]) );
+                ( hcrosscos * cos(2*vphi[i]) + hcrosssin * sin(2*vphi[i]) ) );
             phi->data[i]   = (REAL8) 0.0;
             shift->data[i] = (REAL4) 0.0;
 	}
