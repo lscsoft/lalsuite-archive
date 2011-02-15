@@ -248,13 +248,15 @@ def cbcBayesPostProc(
 
     #Calculate tilts from spin angles
     if 'theta1' in pos.names and 'phi1' in pos.names and \
-    'tilt1' not in pos.names and 'tilt2' not in pos.names:
-        inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
-        inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
-        inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
+      'tilt1' not in pos.names and 'tilt2' not in pos.names:
+        inj_tilt1 = inj_tilt2 = None
+        if injection:
+            inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
+            inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
+            inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
 
-        inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
-        inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
+            inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
+            inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
 
         S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
         S2nx,S2ny,S2nz = bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
@@ -270,8 +272,10 @@ def cbcBayesPostProc(
         pos.append(tilt2_pos)
 
     if 'tilt1' in pos.names and 'tilt2' in pos.names:
-        inj_costilt1 = cos(pos['tilt1'].injval)
-        inj_costilt2 = cos(pos['tilt2'].injval)
+        inj_costilt1 = inj_costilt2 = None
+        if injection:
+            inj_costilt1 = cos(pos['tilt1'].injval)
+            inj_costilt2 = cos(pos['tilt2'].injval)
 
         costilt1_samps = cos(pos['tilt1'].samples)
         costilt2_samps = cos(pos['tilt2'].samples)
