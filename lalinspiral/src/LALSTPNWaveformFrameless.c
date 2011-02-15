@@ -545,7 +545,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 	XLALSTPNAdaptiveSetParams(&mparams,params,paramsInit);
 
   /* initialize the coordinates */
-	yinit[0] = 0.0;                     							/* vphi */
+	yinit[0] = params->startPhase / 2.0; /* initial vphi sets start phase */
 	yinit[1] = params->fLower * unitHz; 							/* omega (really pi M f) */
 
 	yinit[2] = sin(params->inclination);							/* LNh(x,y,z) */
@@ -591,14 +591,14 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
     if (XLALClearErrno() == XLAL_ENOMEM) {
       ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
     } else {
-			fprintf(stderr,"LALSTPNWaveform2: integration failed with errorcode %d.\n",intreturn);
+			fprintf(stderr,"LALSTPNWaveformFrameless: integration failed with errorcode %d.\n",intreturn);
 			ABORTXLAL(status);
 		}
 	}
 	
 	/* report on abnormal termination (TO DO: throw some kind of LAL error?) */ 
 	if (intreturn != 0 && intreturn != LALSTPN_TEST_ENERGY && intreturn != LALSTPN_TEST_OMEGADOT) {
-		fprintf(stderr,"LALSTPNWaveform2 WARNING: integration terminated with code %d.\n",intreturn);
+		fprintf(stderr,"LALSTPNWaveformFrameless WARNING: integration terminated with code %d.\n",intreturn);
     fprintf(stderr,"                          Waveform parameters were m1 = %e, m2 = %e, s1 = (%e,%e,%e), s2 = (%e,%e,%e), inc = %e.",
      							 params->mass1, params->mass2,
      							 params->spin1[0], params->spin1[1], params->spin1[2],
@@ -614,11 +614,11 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 	/* if we have enough space, compute the waveform components; otherwise abort */
   if ((signalvec1 && len >= signalvec1->length) || (ff && len >= ff->length)) {
 		if (signalvec1) {
-			fprintf(stderr,"LALSTPNWaveform2: no space to write in signalvec1: %d vs. %d\n",len,signalvec1->length);
+			fprintf(stderr,"LALSTPNWaveformFrameless: no space to write in signalvec1: %d vs. %d\n",len,signalvec1->length);
 		} else if (ff) {
-			fprintf(stderr,"LALSTPNWaveform2: no space to write in ff: %d vs. %d\n",len,ff->length);
+			fprintf(stderr,"LALSTPNWaveformFrameless: no space to write in ff: %d vs. %d\n",len,ff->length);
 		} else {
-			fprintf(stderr,"LALSTPNWaveform2: no space to write anywhere!\n");
+			fprintf(stderr,"LALSTPNWaveformFrameless: no space to write anywhere!\n");
 		}
 		ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
   } else {		
@@ -650,14 +650,14 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 
             /* Polarization tensors projected into viewer's frame */
             hpluscos  = 0.5 * (E1x[i]*E1x[i] - E1y[i]*E1y[i] - E2x*E2x + E2y*E2y);
-            hplussin  = E1x[i]*E1y[i] - E2x*E2y;
+            hplussin  = E1x[i]*E2x - E1y[i]*E2y;
 
             signalvec1->data[i] = (REAL4) ( -1.0 * amp * \
                 ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) ) );
 
             if (signalvec2) {
                 printf("Frameless STPN generating hcross.\n");
-                hcrosscos = E1x[i]*E2x - E1y[i]*E2y;
+                hcrosscos = E1x[i]*E1y[i] - E2x*E2y;
                 hcrosssin = E1y[i]*E2x + E1x[i]*E2y;
 
                 signalvec2->data[i] = (REAL4) ( -1.0 * amp * \
@@ -673,8 +673,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
 
         /* (minus) amplitude for distance in m; should be (1e6 * LAL_PC_SI * params->distance) for distance in Mpc */
         apcommon = -4.0 * params->mu * LAL_MRSUN_SI/(params->distance);
-
-        /* This should work, but it's awkward.. I need to think about how to fit the waveform into the CoherentGW convention a little better */			
+        apcommon = sqrt(2.0) * apcommon; /* Rescale so we can set phi to 45 degrees and just store hplus and hcross in a1 and a2. This should work, but it's awkward. The CoherentGW convention is not good; we're just playing along. */	
         for(unsigned int i=0;i<len;i++) {
             f2a = pow(omega[i],twoby3);
 
@@ -683,8 +682,8 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
             E2z = LNhx[i]*E1y[i] - LNhy[i]*E1x[i];
 
             hpluscos  = 0.5 * (E1x[i]*E1x[i] - E1y[i]*E1y[i] - E2x*E2x + E2y*E2y);
-            hplussin  = E1x[i]*E1y[i] - E2x*E2y;
-            hcrosscos = E1x[i]*E2x - E1y[i]*E2y;
+            hplussin  = E1x[i]*E2x - E1y[i]*E2y;
+            hcrosscos = E1x[i]*E1y[i] - E2x*E2y;
             hcrosssin = E1y[i]*E2x + E1x[i]*E2y;
 
             ff->data[i]    = (REAL4)(omega[i]/unitHz);
@@ -692,7 +691,7 @@ LALSTPNAdaptiveWaveformEngineFrameless( LALStatus *status,
                 ( hpluscos * cos(2*vphi[i]) + hplussin * sin(2*vphi[i]) ) );
             a->data[2*i+1] = (REAL4)( apcommon * f2a * \
                 ( hcrosscos * cos(2*vphi[i]) + hcrosssin * sin(2*vphi[i]) ) );
-            phi->data[i]   = (REAL8) 0.0;
+            phi->data[i]   = (REAL8) 0.7853981633974483; /* pi/4 so get both a1 and a2 */
             shift->data[i] = (REAL4) 0.0;
 	}
 	
