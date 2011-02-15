@@ -43,8 +43,11 @@ if __name__=='__main__':
 
     pos_parser=bp.PEOutputParser('common')
 
-    with open(opts.data, "r") as f:
+    f=open(opts.data, "r")
+    try:
         pos=bp.Posterior(pos_parser.parse(f))
+    finally:
+        f.close()
 
     ev=pos.di_evidence(boxing=opts.Nboxing)
 
