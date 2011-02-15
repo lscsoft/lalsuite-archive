@@ -1,21 +1,21 @@
 /*
-*  Copyright (C) 2007 Drew Keppel, Duncan Brown, Gareth Jones, Peter Shawhan, Thomas Cokelaer, Laszlo Vereb
-*
-*  This program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2 of the License, or
-*  (at your option) any later version.
-*
-*  This program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with with program; see the file COPYING. If not, write to the
-*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-*  MA  02111-1307  USA
-*/
+ *  Copyright (C) 2007 Drew Keppel, Duncan Brown, Gareth Jones, Peter Shawhan, Thomas Cokelaer, Laszlo Vereb
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with with program; see the file COPYING. If not, write to the
+ *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ *  MA  02111-1307  USA
+ */
 
 #if 0
 <lalVerbatim file="GenerateInspiralHV">
@@ -26,8 +26,8 @@ $Id$
 
 #if 0
 <lalLaTeX>
-\section{Header \texttt{GenerateInspiral.h}}
-\label{s:GenerateInspiral.h}
+\section {Header \texttt {GenerateInspiral.h}}
+\label {s:GenerateInspiral.h}
 
 Header file for the inspiral injection interface code. The
 code contained in GenerateInspiral.c is an interface between the
@@ -39,14 +39,14 @@ take into account the interferometer position, binary orientation ...
 
 GenerateInspiral has the capability of injecting both waveform designed
 within the inspiral package (TaylorT1, T2, T3, PadeT1, EOB, and spinning
-waveform) and the inject package (so-called PPN waveform).
+		waveform) and the inject package (so-called PPN waveform).
 also a test code as well which allows to check the output of
 code. It is called InjectionInterfaceTest.c
 
-\subsection*{Synopsis}
-\begin{verbatim}
+\subsection* {Synopsis}
+\begin {verbatim}
 #include <lal/GenerateInspiral.h>
-\end{verbatim}
+\end {verbatim}
 </lalLaTeX>
 #endif
 
@@ -68,11 +68,11 @@ extern "C" {
 #endif
 
 NRCSID( GENERATEINSPIRALH,
-    "$Id$" );
+		"$Id$" );
 
 #if 0
 <lalLaTeX>
-\subsection*{Error codes}
+\subsection* {Error codes}
 </lalLaTeX>
 #endif
 
@@ -86,7 +86,6 @@ NRCSID( GENERATEINSPIRALH,
 #define GENERATEINSPIRALH_MSGEDFDT "Waveform sampling interval is too large"
 #define GENERATEINSPIRALH_MSGEZERO "inclination zero for SpinTaylor waveform"
 /* </lalErrTable> */
-
 
 /* parameter for the EOB at 3PN. In principle, the three */
 /* following parameter should be set to zero.            */
@@ -104,32 +103,21 @@ NRCSID( GENERATEINSPIRALH,
 
 #if 0
 <lalLaTeX>
-\newpage\input{GenerateInspiralC}
+\newpage\input {GenerateInspiralC}
 </lalLaTeX>
 #endif
 void
-LALGenerateInspiral(
-    LALStatus        *status,
-    CoherentGW       *waveform,
-    SimInspiralTable *params,
-    PPNParamStruc    *ppnParamsInputOutput
-    );
-
+LALGenerateInspiral(LALStatus *status, CoherentGW *waveform, SimInspiralTable *params,
+		PPNParamStruc *ppnParamsInputOutput);
 
 /* three function to read the order and approximant from a string */
 void
-LALGetOrderFromString(
-    LALStatus   *status,
-    CHAR        *message,
-    LALPNOrder  *result
-    );
+LALGetOrderFromString(LALStatus *status, CHAR *message, LALPNOrder *result);
 
 void
-LALGetApproximantFromString(
-    LALStatus   *status,
-    CHAR        *message,
-    Approximant *result
-    );
+LALGetApproximantFromString(LALStatus *status, CHAR *message, Approximant *result);
+
+int XLALGetAmplitudeContributionFromString(LALPNOrder *ampOrder, CHAR *thisEvent);
 
 /**	Convert a string provided by the #CoherentGW structure in order to retrieve
  *	the approximant of the waveform to generate.
@@ -141,20 +129,12 @@ int XLALGetSpinInteractionFromString(LALSpinInteraction *inter, CHAR *thisEvent)
 
 /*  three function to populate the needed structures */
 void
-LALGenerateInspiralPopulatePPN(
-    LALStatus           *status,
-    PPNParamStruc       *ppnParams,
-    SimInspiralTable    *thisEvent
-    );
+LALGenerateInspiralPopulatePPN(LALStatus *status, PPNParamStruc *ppnParams,
+		SimInspiralTable *thisEvent);
 
 void
-LALGenerateInspiralPopulateInspiral(
-    LALStatus           *status,
-    InspiralTemplate    *inspiralParams,
-    SimInspiralTable    *thisEvent,
-    PPNParamStruc       *ppnParams
-    );
-
+LALGenerateInspiralPopulateInspiral(LALStatus *status, InspiralTemplate *inspiralParams,
+		SimInspiralTable *thisEvent, PPNParamStruc *ppnParams);
 
 #ifdef  __cplusplus
 #pragma {

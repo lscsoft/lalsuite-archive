@@ -47,9 +47,6 @@ typedef enum {
 
 typedef struct tagLALSQTPNWave {
 	CoherentGW *waveform;
-	REAL4Vector *h;
-	REAL4Vector *hp;
-	REAL4Vector *hc;
 	UINT4 length;
 } LALSQTPNWave;
 
@@ -232,7 +229,7 @@ typedef enum {
 void
 LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
 
-void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL8 *h);
+void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h);
 
 #ifdef __cplusplus
 }

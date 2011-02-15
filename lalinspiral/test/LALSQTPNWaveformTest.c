@@ -45,12 +45,86 @@
 
 NRCSID(LALSQTPNWAVEFORMTESTC, "$Id: LALSQTPNWaveformTest.c,v 0.1 2010/05/21");
 
-int lalDebugLevel = 0;	///< the debug level
+int lalDebugLevel = 0; ///< the debug level
+
+int probe(int argc, char *argv[]);
+
+int tryAmplitudeMod(int argc, char *argv[]);
 
 /** The main program.
  */
 int main(int argc, char *argv[]) {
+	return tryAmplitudeMod(argc, argv);
+}
 
+int tryAmplitudeMod(int argc, char *argv[]) {
+	static LALStatus mystatus;
+	CoherentGW thewaveform;
+	SimInspiralTable injParams;
+	PPNParamStruc ppnParams;
+	char PNString[50];
+	const char *filename;
+	memset(&mystatus, 0, sizeof(LALStatus));
+	memset(&thewaveform, 0, sizeof(CoherentGW));
+	memset(&injParams, 0, sizeof(SimInspiralTable));
+	memset(&ppnParams, 0, sizeof(PPNParamStruc));
+	//	setting the parameters
+	REAL8 multi = M_PI / 180.;
+	REAL8 ampl[2], incl[2], azim[2];
+	injParams.mass1 = atof(argv[1]);
+	injParams.mass2 = atof(argv[2]);
+	ampl[0] = atof(argv[3]);
+	incl[0] = atof(argv[4]) * multi;
+	azim[0] = atof(argv[5]) * multi;
+	injParams.spin1x = ampl[0] * sin(incl[0]) * cos(azim[0]);
+	injParams.spin1y = ampl[0] * sin(incl[0]) * sin(azim[0]);
+	injParams.spin1z = ampl[0] * cos(incl[0]);
+	ampl[1] = atof(argv[6]);
+	incl[1] = atof(argv[7]) * multi;
+	azim[1] = atof(argv[8]) * multi;
+	injParams.spin2x = ampl[1] * sin(incl[1]) * cos(azim[1]);
+	injParams.spin2y = ampl[1] * sin(incl[1]) * sin(azim[1]);
+	injParams.spin2z = ampl[1] * cos(incl[1]);
+	injParams.distance = atof(argv[9]);
+	injParams.inclination = atof(argv[10]) * multi;
+	ppnParams.deltaT = 1./atof(argv[11]);
+	injParams.f_lower = atof(argv[12]);
+
+	sprintf(PNString, "SpinQuadTaylor%s%s%s", argv[13], argv[14], argv[15]);
+	filename = argv[16];
+	//injParams.f_final = atof(argv[11]);
+	snprintf(injParams.waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR), PNString);
+
+	//interface(&mystatus, &thewaveform, &injParams, &ppnParams);
+	LALGenerateInspiral(&mystatus, &thewaveform, &injParams, &ppnParams);
+	if (mystatus.statusCode) {
+		fprintf(stderr, "LALSQTPNWaveformTest: error generating waveform\n");
+		return mystatus.statusCode;
+	}
+	FILE *outputfile = fopen(filename, "w");
+	INT4 i, length = thewaveform.f->data->length;
+	REAL8 dt = thewaveform.phi->deltaT;
+	REAL8 h1, h2, a1, a2, phi, shift;
+	for (i = 0; i < length; i++) {
+		h1 = thewaveform.h->data->data[2 * i];
+		h2 = thewaveform.h->data->data[2 * i + 1];
+		a1 = thewaveform.a->data->data[2 * i];
+		a2 = thewaveform.a->data->data[2 * i + 1];
+		phi = thewaveform.phi->data->data[i] - thewaveform.phi->data->data[0];
+		shift = thewaveform.shift->data->data[i];
+
+		fprintf(outputfile, "% 10.7e\t% 10.7e\t% 10.7e\t% 10.7e\t% 10.7e\n", i * dt, a1
+				* cos(shift) * cos(phi) - a2 * sin(shift) * sin(phi), a1 * sin(shift) * cos(phi)
+				+ a2 * cos(shift) * sin(phi), h1, h2);
+	}
+	fclose(outputfile);
+	XLALSQTPNDestroyCoherentGW(&thewaveform);
+	puts("Done.");
+	LALCheckMemoryLeaks();
+	return mystatus.statusCode;
+}
+
+int probe(int argc, char *argv[]) {
 	// variable declaration and initialization
 	static LALStatus mystatus;
 	CoherentGW thewaveform;
@@ -104,32 +178,29 @@ int main(int argc, char *argv[]) {
 	injParams.distance = atof(argv[12]);
 	ppnParams.deltaT = atof(argv[13]);
 	injParams.polarization = 0;
-	LALSnprintf(injParams.waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR),
-			PNString);
+	snprintf(injParams.waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR), PNString);
 
 	//interface(&mystatus, &thewaveform, &injParams, &ppnParams);
 	LALGenerateInspiral(&mystatus, &thewaveform, &injParams, &ppnParams);
 	if (mystatus.statusCode) {
-		fprintf( stderr, "LALSQTPNWaveformTest: error generating waveform\n" );
+		fprintf(stderr, "LALSQTPNWaveformTest: error generating waveform\n");
 		return mystatus.statusCode;
 	}
 	// and finally save in a file
 	outputfile = fopen(filename, "w");
 
 	length = thewaveform.f->data->length;
-	dt      = thewaveform.phi->deltaT;
-    REAL8       a1, a2, phi, shift;
-    for(i = 0; i < length; i++) {
-        a1  = thewaveform.a->data->data[2*i];
-        a2  = thewaveform.a->data->data[2*i+1];
-        phi     = thewaveform.phi->data->data[i] - thewaveform.phi->data->data[0];
-        shift   = thewaveform.shift->data->data[i];
+	dt = thewaveform.phi->deltaT;
+	REAL8 a1, a2, phi, shift;
+	for (i = 0; i < length; i++) {
+		a1 = thewaveform.a->data->data[2 * i];
+		a2 = thewaveform.a->data->data[2 * i + 1];
+		phi = thewaveform.phi->data->data[i] - thewaveform.phi->data->data[0];
+		shift = thewaveform.shift->data->data[i];
 
-        fprintf(outputfile,"% 10.7e\t% 10.7e\t% 10.7e\n",
-            i*dt,
-            a1*cos(shift)*cos(phi) - a2*sin(shift)*sin(phi),
-            a1*sin(shift)*cos(phi) + a2*cos(shift)*sin(phi));
-    }
+		fprintf(outputfile, "% 10.7e\t% 10.7e\t% 10.7e\n", i * dt, a1 * cos(shift) * cos(phi) - a2
+				* sin(shift) * sin(phi), a1 * sin(shift) * cos(phi) + a2 * cos(shift) * sin(phi));
+	}
 	fclose(outputfile);
 	XLALSQTPNDestroyCoherentGW(&thewaveform);
 	puts("Done.");

@@ -53,6 +53,8 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *wave_out,
  */
 int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length);
 
+int XLALSQTPNAllocateCoherentGWH(CoherentGW *wave, UINT4 length);
+
 /**		The function deallocates memory of the waveform.
  * @param[out]		waveform	: pointer to the allocated waveform
  */
