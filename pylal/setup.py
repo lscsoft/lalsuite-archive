@@ -621,6 +621,7 @@ setup(
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
+                os.path.join("bin", "cbcBayesDIEvidence.py"),
         os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "ligo_channel_query")
 	],
