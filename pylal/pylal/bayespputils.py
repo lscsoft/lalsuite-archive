@@ -4,6 +4,7 @@
 #
 #       Copyright 2010
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
+#       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #
@@ -219,6 +220,31 @@ def _inj_phi2(inj):
             return phi_mpi_to_pi + 2*pi_constant
         else:
             return phi_mpi_to_pi
+
+def _inj_tilt1(inj):
+    Sx  = inj.spin1x
+    Sy  = inj.spin1y
+    Sz  = inj.spin1z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
+def _inj_tilt2(inj):
+    Sx  = inj.spin2x
+    Sy  = inj.spin2y
+    Sz  = inj.spin2z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
 
 #===============================================================================
 # Class definitions
@@ -519,7 +545,9 @@ class Posterior(object):
                         'theta1':_inj_theta1,
                         'theta2':_inj_theta2,
                         'phi1':_inj_phi1,
-                        'phi2':_inj_phi2
+                        'phi2':_inj_phi2,
+                        'tilt1':_inj_tilt1,
+                        'tilt2':_inj_tilt2
                        }
 
     def _getinjpar(self,paramname):
@@ -1355,6 +1383,15 @@ def pol2cart(long,lat):
     z=np.sin(lat)
     return np.array([x,y,z])
 #
+
+def sph2cart(r,theta,phi):
+    """
+    Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
+    """
+    x = r*np.sin(theta)*np.cos(phi)
+    y = r*np.sin(theta)*np.sin(phi)
+    z = r*np.cos(theta)
+    return x,y,z
 
 
 def greedy_bin_sky(posterior,skyres,confidence_levels):

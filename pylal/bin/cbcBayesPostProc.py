@@ -5,6 +5,7 @@
 #
 #       Copyright 2010
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
+#       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #
@@ -38,7 +39,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot
 
 import matplotlib
 matplotlib.use("Agg")
@@ -244,6 +245,44 @@ def cbcBayesPostProc(
                 time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
 
+
+    #Calculate tilts from spin angles
+    if 'theta1' in pos.names and 'phi1' in pos.names and \
+    'tilt1' not in pos.names and 'tilt2' not in pos.names:
+        inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
+        inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
+        inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
+
+        inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
+        inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
+
+        S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
+        S2nx,S2ny,S2nz = bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
+        Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
+
+        tilt1_samps = arccos(S1nx*Lnx + S1ny*Lny + S1nz*Lnz)
+        tilt2_samps = arccos(S2nx*Lnx + S2ny*Lny + S2nz*Lnz)
+
+        tilt1_pos = bppu.OneDPosterior('tilt1',tilt1_samps,injected_value=inj_tilt1)
+        tilt2_pos = bppu.OneDPosterior('tilt2',tilt2_samps,injected_value=inj_tilt2)
+
+        pos.append(tilt1_pos)
+        pos.append(tilt2_pos)
+
+    if 'tilt1' in pos.names and 'tilt2' in pos.names:
+        inj_costilt1 = cos(pos['tilt1'].injval)
+        inj_costilt2 = cos(pos['tilt2'].injval)
+
+        costilt1_samps = cos(pos['tilt1'].samples)
+        costilt2_samps = cos(pos['tilt2'].samples)
+        
+        costilt1_pos = bppu.OneDPosterior('costilt1',costilt1_samps,injected_value=inj_costilt1)
+        costilt2_pos = bppu.OneDPosterior('costilt2',costilt2_samps,injected_value=inj_costilt2)
+
+        pos.append(costilt1_pos)
+        pos.append(costilt2_pos)
+
+        
     ##Print some summary stats for the user...##
     #Number of samples
     print "Number of posterior samples: %i"%len(pos)
@@ -782,7 +821,7 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
+    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     for ifo1 in ifos_menu:
         for ifo2 in ifos_menu:
@@ -797,7 +836,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
