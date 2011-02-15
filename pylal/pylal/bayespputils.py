@@ -1851,6 +1851,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par2_injvalue=posterior[par2_name.lower()].injval
 
     myfig=plt.figure(1,figsize=(10,8),dpi=300)
+    myfig.add_axes([0.2,0.2,0.8,0.8])
     plt.clf()
     plt.xlabel(par2_name)
     plt.ylabel(par1_name)
