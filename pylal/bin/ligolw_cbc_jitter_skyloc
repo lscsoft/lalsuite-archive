@@ -37,8 +37,8 @@ from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import date
 from pylal import git_version
+from pylal import lalconstants
 from pylal import sphericalutils as su
-from pylal.xlal import constants
 from pylal.xlal import inject
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -53,14 +53,14 @@ def polaz2lonlat(theta, phi):
     Convert (polar, azimuthal) angles in radians to (longitude, latitude)
     in radians.
     """
-    return phi, constants.LAL_PI_2 - theta
+    return phi, lalconstants.LAL_PI_2 - theta
 
 def lonlat2polaz(lon, lat):
     """
     Convert (longitude, latitude) in radians to (polar, azimuthal) angles
     in radians.
     """
-    return constants.LAL_PI_2 - lat, lon
+    return lalconstants.LAL_PI_2 - lat, lon
 
 def site_end_time(detector, sim):
     """
@@ -117,7 +117,7 @@ siminsp_doc = utils.load_filename(siminsp_fname,
 
 # Prepare process table with information about the current program
 process = ligolw_process.register_to_xmldoc(siminsp_doc,
-    "ligolw_jitter_exttrig_skyloc",
+    "ligolw_cbc_jitter_skyloc",
     opts.__dict__, version=git_version.tag or git_version.id,
     cvs_repository="lalsuite", cvs_entry_time=git_version.date)
 
