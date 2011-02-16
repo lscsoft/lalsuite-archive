@@ -17,27 +17,11 @@
 *  MA  02111-1307  USA
 */
 
-/*-----------------------------------------------------------------------
- *
- * File Name: PeakSelectTest.c
- * Authors: Sintes, A.M.,
- *
- * Revision: $Id$
- *
- * History:   Created by Sintes May 21, 2003
- *            Modified...
- *
- *-----------------------------------------------------------------------
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Alicia Sintes Olives
  */
-/************************************ <lalVerbatim file="PeakSelectTestCV">
-Author: Sintes, A.M.,
-$Id$
-************************************* </lalVerbatim> */
-
-/* <lalLaTeX>  *******************************************************
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-*********************************************** </lalLaTeX> */
-
 
 #include "./PeakSelect.h"
 
@@ -45,7 +29,7 @@ NRCSID (PEAKSELECTTESTC, "$Id$");
 
 /* Error codes and messages */
 
-/************** <lalErrTable file="PEAKSELECTTESTCErrorTable"> */
+/**\name Error Codes */ /*@{*/
 #define PEAKSELECTTESTC_ENORM 0
 #define PEAKSELECTTESTC_ESUB  1
 #define PEAKSELECTTESTC_EARG  2
@@ -57,7 +41,7 @@ NRCSID (PEAKSELECTTESTC, "$Id$");
 #define PEAKSELECTTESTC_MSGEARG  "Error parsing arguments"
 #define PEAKSELECTTESTC_MSGEBAD  "Bad argument values"
 #define PEAKSELECTTESTC_MSGEFILE "Could not create output file"
-/******************************************** </lalErrTable> */
+/*@}*/
 
 
 /* Default parameters. */
@@ -82,7 +66,7 @@ INT4 lalDebugLevel=0;
 #define ERROR( code, msg, statement )                                \
 do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
-    LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
               __LINE__, PEAKSELECTTESTC, statement ? statement :  \
                    "", (msg) );                                      \
@@ -91,7 +75,7 @@ do {                                                                 \
 #define INFO( statement )                                            \
 do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
-    LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
+    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
               PEAKSELECTTESTC, (statement) );                     \
 } while (0)
@@ -149,7 +133,7 @@ int main(int argc, char *argv[]){
         lalDebugLevel = atoi( argv[arg++] );
       } else {
         ERROR( PEAKSELECTTESTC_EARG, PEAKSELECTTESTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return PEAKSELECTTESTC_EARG;
       }
     }
@@ -160,14 +144,14 @@ int main(int argc, char *argv[]){
         fname = argv[arg++];
       } else {
         ERROR( PEAKSELECTTESTC_EARG, PEAKSELECTTESTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return PEAKSELECTTESTC_EARG;
       }
     }
     /* Unrecognized option. */
     else {
       ERROR( PEAKSELECTTESTC_EARG, PEAKSELECTTESTC_MSGEARG, 0 );
-      LALPrintError( USAGE, *argv );
+      XLALPrintError( USAGE, *argv );
       return PEAKSELECTTESTC_EARG;
     }
   } /* End of argument parsing loop. */

@@ -51,32 +51,6 @@ plot_hipe_template="""
   --write-script"""
 
 # -----------------------------------------------------
-def check_proxy(cp):
-  """
-  Checks the status of the grid-proxy and sends an email 
-  if it runs out. Any way to improve that???
-  """
-
-  my_email = cp.get('notifications','email').replace(',',' ').split()
-  cmd = 'grid-proxy-info > grid.info'
-  peu.system_call('monitor',cmd, False)
-
-  flag = False  
-  for line in open('grid.info'):
-    if 'timeleft' in line:
-      flag = True
-      time_in_hours = int(line.split()[2].split(':')[0])
-      if time_in_hours<40:
-        peu.send_mail('Grid Cert aging, %d hleft'%time_in_hours,'Have to renew grid certificate',my_email)
-      if time_in_hours==0:
-        peu.send_mail('Grid Cert expired. Suspended further actions.',\
-                      'Need renew grid certificate NOW.',my_email)
-        raise SystemError, "Grid certificate is invalid."
-
-  if not flag:
-    peu.send_mail('Grid Cert not available','Have to init grid certificate',my_email)
-
-# -----------------------------------------------------
 def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   """
   Start a new analysis of a GRB with a separate call.
@@ -157,6 +131,9 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
         # set the used tag for the inspiral analysis
         grb.code['inspiral'] = peu.CodeTagger()
   
+        # downloading the used veto-definer file
+        grb.get_veto_definer(cp.get('data','veto_definer'))
+
         # cleaning up
         grb.cleanup(analysis_path)
   
@@ -501,7 +478,7 @@ def parse_args():
 
 
     # injection related setting
-    parser.add_option( "--dag-injections", default = None,\
+    parser.add_option( "--dag-injections", default = 'short',\
         help="Sets what to do with injections: always, short, never, only.")
     parser.add_option("--injection-config",default=None,\
         help="Specifies the injection ini file (if required).")
@@ -528,9 +505,9 @@ def parse_args():
     if options.check_number is not None and options.grb is not None:
       raise ValueError, "Only option '--check-number' or '--grb' can be specified, not both together!"
 
-    if options.dag_injections and not options.injection_config:
-      raise ValueError, "injection ini-file must be specified with '--injection-config'"\
-                        " if the option '--dag-injections' is set!"
+    #if options.dag_injections and not options.injection_config:
+    #  raise ValueError, "injection ini-file must be specified with '--injection-config'"\
+    #                    " if the option '--dag-injections' is set!"
 
     if options.gps_start_time or options.gps_end_time:
       if not (options.gps_start_time and options.gps_end_time):
@@ -561,8 +538,11 @@ if pid:
   sys.exit(0)
 peu.set_lock()
 
-# check the proxy if enough time is left
-check_proxy(cp)
+# if an veto-definer update is set, construct the full path here
+if opts.update_veto_definer is not None:
+  veto_definer = os.path.dirname(cp.get('data','veto_definer'))+'/'+opts.update_veto_definer
+else:
+  veto_definer = None
 
 #
 # First, update the internal database (llmonitor.pickle)
@@ -597,7 +577,7 @@ for grb in monitor_list:
     # check if the postprocessing analyses should be rerun
     if opts.rerun:
       if not opts.grb or grb.name==opts.grb:
-        check_rerun(grb, dag, cp, opts.force_rerun, veto_definer = opts.update_veto_definer)
+        check_rerun(grb, dag, cp, opts.force_rerun, veto_definer)
 
     # skip this DAG if it is finished (5) or has not started yet
     if dag.get_status()==0 or dag.get_status()==5:

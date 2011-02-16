@@ -26,10 +26,12 @@ from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
 from pylal.xlal import date
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import git_version
 
 # the config parser to be used in some of the functions
 cp = None
+maindir = None
 
 template_trigger_hipe = "./lalapps_trigger_hipe"\
   " --number-buffer-left 8 --number-buffer-right 8"\
@@ -40,7 +42,7 @@ template_trigger_hipe = "./lalapps_trigger_hipe"\
 template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --number-buffer-left 8 --number-buffer-right 8" \
   " --verbose --skip-datafind "\
-  " --user-tag inj --skip-onsource --skip-offsource"\
+  " --user-tag inj "\
   " --overwrite-dir"
 
 ifo_list = ['H1','L1','V1']
@@ -141,7 +143,7 @@ def system_call(item, command, divert_output_to_log = True):
   # perform the command
   code, out, err = external_call(command_actual)
 
-  if code>0:
+  if code>0 and len(err)>0:
     info(item, "ERROR: " +err)
 
 # -----------------------------------------------------
@@ -180,13 +182,26 @@ def get_gps_from_asc(date_string, time_string):
 
   return int(gpstime)
 
+# -----------------------------------------------------
+def get_main_dir():
+  """
+  Returns the main directory of the analysis from the
+  cp file. If that does not exist, returns the current directory.
+  """
+  if cp is not None:
+    main_dir = cp.get('paths','main')+'/'
+  elif maindir is not None:
+    main_dir = maindir
+  else:
+    main_dir = './'
+  return main_dir
 
 # -----------------------------------------------------
 def logfile_name():
   """
   Returns the file of the logfile; used in 'info' and 'system_call'
   """
-  return cp.get('paths','main')+'/llmonitor.log'
+  return get_main_dir()+'llmonitor.log'
 
 # -----------------------------------------------------
 def info(item, text):
@@ -271,7 +286,7 @@ def get_lockname():
   """
   Returns the name of the lock file
   """
-  return cp.get('paths','main')+'/.llmonitor.lock'
+  return get_main_dir()+'.llmonitor.lock'
 
 # --------------------------------------
 def check_lock():
@@ -396,7 +411,7 @@ def get_monitor_filename():
   Returns the name of the monitor pickle filename
   @return: name of the monitor pickle file
   """
-  return cp.get('paths','main')+'/llmonitor.pickle'
+  return get_main_dir()+'llmonitor.pickle'
 
 # --------------------------------------
 def read_monitor_list():
@@ -623,7 +638,7 @@ def generate_summary(publish_path, publish_url):
       tag_lik = 'None'
     table = add(table, tag_onoff+'<br>'+tag_lik)
     table = add(table, grb.time)
-    tm = date.XLALGPSToUTC(date.LIGOTimeGPS(grb.time))
+    tm = date.XLALGPSToUTC(LIGOTimeGPS(grb.time))
     asctime = time.strftime("%d %b %Y\n%H:%M:%S",tm)
     table = add(table, asctime)
     table = add_linked_value(table, grb.redshift, None )
@@ -697,7 +712,7 @@ def get_code_tag():
   if not tag:
     del_lock()
     raise EnvironmentError, "Environment variable LAL_PYLAL_TAG is missing, which contains the "\
-                       "tag of the code used, e.g. s6_exttrig_100119b. This should have beed set in the "\
+                       "tag of the code used, e.g. s6_exttrig_100119b. This should have been set in the "\
                        "lscsource script, called within runmonitor. Please check"
   return tag
 
@@ -715,6 +730,21 @@ class CodeTagger(object):
     self.verbose = git_version.verbose_msg
     self.id = git_version.id
     self.status = git_version.status
+
+    # make a consistency check
+    self.consistency_check()
+
+  def consistency_check(self):
+    """
+    Makes a consistency check of the tag used
+    """
+    tag_env = get_code_tag()
+    if tag_env != self.tag:
+      print "WARNING: The tag from git_version is %s"\
+            " while the tag from LAL_PYLAL_TAG is %s."\
+            " Will use the latter one."%(self.tag, tag_env)
+
+    self.tag = tag_env
 
   def get_tag(self):
     if self.tag: return self.tag
@@ -905,6 +935,7 @@ class GRB(object):
     self.starttime = None
     self.endtime = None
     self.openbox = False
+    self.openbox_fap = None
     
     # prepare the DAG instances
     self.dag = {'onoff':None, 'inj':None}
@@ -1424,7 +1455,7 @@ class GRB(object):
        # retrieve the version of this file
        basename = os.path.basename(name)
        cmdtmp = "cd %s; cvs status %s " % (os.path.dirname(name), basename)
-       output, error = internal_call(cmdtmp)
+       code, output, error = external_call(cmdtmp)
 
        # parse the output
        for line in output.split('\n'):
@@ -1519,12 +1550,22 @@ class GRB(object):
        self.cleanup(thispath)
 
     # download the original VD file for later review issues
-    filename = os.path.basename(definer_file)
-    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
-    system_call(self.name, cmd)
+    # if the path already exists
+    if os.path.exists(self.analysis_dir):
+      self.get_veto_definer(definer_file)
 
     # remember the veto definer file used
     self.veto_definer = os.path.basename(definer_file)
+
+  # -----------------------------------------------------
+  def get_veto_definer(self, definer_file):
+    """
+    Downloading the veto-definer file and keeping the original name.
+    """
+
+    filename = os.path.basename(definer_file)
+    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
+    system_call(self.name, cmd)
 
   # -----------------------------------------------------
   def check_veto_onsource(self):

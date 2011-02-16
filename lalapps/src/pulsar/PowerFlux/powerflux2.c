@@ -17,6 +17,12 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Vladimir Dergachev
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -24,6 +30,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <malloc.h>
 #include <gsl/gsl_rng.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -116,7 +123,7 @@ if(b<1)b=1;
 r=calloc(a,b);
 while(r==NULL){
 	fprintf(stderr,"Could not allocate %ld chunks of %ld bytes each (%ld bytes total), current memory usage %ld\n",a,b,a*b, MEMUSAGE);
-	if(i>10)exit(-1);
+	if(i>args_info.memory_allocation_retries_arg)exit(-1);
 	condor_safe_sleep(10);
 	r=calloc(a,b);
 	i++;
@@ -290,6 +297,19 @@ for(i=0;i<args_info.config_given;i++) {
 	fprintf(LOG, "using config file: %s\n", args_info.config_arg[i]);
 	}
 
+if(args_info.preallocate_memory_arg>0) {
+	char *buffer;
+	fprintf(stderr, "Preallocating %g gigabytes of memory\n", args_info.preallocate_memory_arg);
+	/* prevent malloc from returning memory to the system */
+	mallopt(M_TRIM_THRESHOLD, ~0);
+	mallopt(M_MMAP_THRESHOLD, ~0);
+	mallopt(M_MMAP_MAX, 0);
+	fprintf(stderr, "Memory usage before preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	buffer=do_alloc(ceil(args_info.preallocate_memory_arg*1024), 1024*1024);
+	free(buffer);
+	fprintf(stderr, "Memory usage after preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	}
+
 init_threads(args_info.num_threads_arg);
 init_jobs();
 init_hookup();
@@ -442,7 +462,7 @@ if(!args_info.side_cut_given){
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=260+ceil((args_info.first_bin_arg+args_info.nbins_arg)*1e-4)+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	side_cut=50+args_info.extra_side_cut_arg+ceil((args_info.first_bin_arg+args_info.nbins_arg)*1e-4)+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
 	/* round it up to a multiple of 450 */
 /*	side_cut=450*ceil(side_cut/450.0);*/
 	}
@@ -553,12 +573,14 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
 	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
 
+	fprintf(LOG,"fake dInv: %g\n", args_info.fake_dInv_arg);
 	fprintf(LOG,"fake frequency modulation depth: %f\n", args_info.fake_freq_modulation_depth_arg);
 	fprintf(LOG,"fake frequency modulation frequency: %f\n", args_info.fake_freq_modulation_freq_arg);
 	fprintf(LOG,"fake frequency modulation phase: %f\n", args_info.fake_freq_modulation_phase_arg);
 	fprintf(LOG,"fake phase modulation depth: %f\n", args_info.fake_phase_modulation_depth_arg);
 	fprintf(LOG,"fake phase modulation frequency: %f\n", args_info.fake_phase_modulation_freq_arg);
 	fprintf(LOG,"fake phase modulation phase: %f\n", args_info.fake_phase_modulation_phase_arg);
+	fprintf(LOG,"fake injection window: %d\n", args_info.fake_injection_window_arg);
 
    	} else {
    	fprintf(LOG,"fake signal injection: none\n");
@@ -580,10 +602,15 @@ if(args_info.dataset_given) {
 		}
 	}
 
+/* apply per-dataset phase correction */
+for(i=0;i<args_info.extra_phase_given;i++)
+	apply_phase(args_info.extra_phase_arg[i]);
+
+
 /* This diagnostics should be moved into dataset.c when tested */
 for(i=0;i<d_free;i++) {
 	fprintf(LOG, "FMedians: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
-	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].TMedians[j]);
+	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].FMedians[j]);
 	fprintf(LOG, "\n");
 	}
 
@@ -787,7 +814,6 @@ plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
-
 /* COMP3 stage */
 
 if(args_info.no_decomposition_arg){
@@ -852,7 +878,7 @@ if(args_info.focus_ra_given &&
 
 if(args_info.only_large_cos_given) {
 	fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
-	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[2], args_info.only_large_cos_arg);
 	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 	}
 
@@ -878,6 +904,8 @@ snprintf(s, 20000, "bands.dat");
 dump_ints(s, patch_grid->band, patch_grid->npoints, 1);
 fflush(LOG);
 
+free_plot(plot);
+free_RGBPic(p);
 
 power_cache_selftest();
 power_sum_stats_selftest();
@@ -903,10 +931,15 @@ if((fabs(spindown_start-min_gps())>args_info.expected_timebase_arg*24*3600*31)) 
 time(&stage_time);
 fprintf(LOG, "outer_loop_start: %d\n", (int)(stage_time-start_time));
 fprintf(stderr, "outer_loop_start: %d\n", (int)(stage_time-start_time));
+fprintf(stderr, "Outer loop start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Outer loop start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 outer_loop();
 
 fflush(LOG);
+
+fprintf(stderr, "Outer loop end memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Outer loop end memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 /*	fine_grid_free_arrays();*/
 fine_grid=proto_super_grid->super_grid;

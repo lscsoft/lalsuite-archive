@@ -229,7 +229,6 @@ int main ( int argc, char *argv[] )
 
   /* structures for preconditioning */
   ResampleTSParams              resampleParams;
-  LALWindowParams               wpars;
   AverageSpectrumParams         avgSpecParams;
 
   /* templates */
@@ -742,14 +741,11 @@ int main ( int argc, char *argv[] )
       exit( 1 );
   }
 
-  wpars.type = Hann;
-  wpars.length = numPoints;
   avgSpecParams.overlap = numPoints / 2;
   if ( vrbflg )
     fprintf( stdout, " with overlap %d\n", avgSpecParams.overlap );
 
-  LAL_CALL( LALCreateREAL4Window( &status, &(avgSpecParams.window),
-        &wpars ), &status );
+  avgSpecParams.window = XLALCreateHannREAL4Window(numPoints);
   LAL_CALL( LALREAL4AverageSpectrum( &status, &spec, &chan, &avgSpecParams ),
       &status );
   XLALDestroyREAL4Window( avgSpecParams.window );
@@ -1331,7 +1327,7 @@ fprintf(a, "\n");\
 fprintf(a, "  --td-follow-up FILE          follow up BCV events contained in FILE\n");\
 fprintf(a, "\n");\
 fprintf(a, "  --standard-candle            compute a standard candle from the PSD\n");\
-fprintf(a, "  --candle-snr SNR             signal-to-noise ration of standard candle\n");\
+fprintf(a, "  --candle-snr SNR             signal-to-noise ratio of standard candle\n");\
 fprintf(a, "  --candle-mass1 M             mass of first component in candle binary\n");\
 fprintf(a, "  --candle-mass2 M             mass of second component in candle binary\n");\
 fprintf(a, "\n");\

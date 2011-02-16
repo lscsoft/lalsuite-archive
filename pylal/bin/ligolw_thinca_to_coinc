@@ -115,7 +115,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] --output-prefix filename",
-		description = "Converts thinca output files to coinc tables format.  Files whose names end in \".gz\" are assumed to be gzip-compressed.  If an ihope cache is provided then all second-stage thinca files found in the cache will be processed, grouped by run tag.  Otherwise, one or both of a zero-lag or time-slide thinca output file must be provided."
+		description = "Converts thinca output files to coinc tables format.  If an ihope cache is provided then all second-stage thinca files found in the cache will be processed, grouped by run tag.  Otherwise, one or both of a zero-lag or time-slide thinca output file must be provided."
 	)
 	parser.add_option("--zero-lag-file", metavar = "filename", help = "Thinca output file containing zero lag triggers.")
 	parser.add_option("--time-slide-file", metavar = "filename", help = "Thinca output file containing time slide triggers.")
@@ -1069,6 +1069,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		#   according to the coinc's offset vector
 		# - mass is average of mtotals
 		# - mchirp is average of mchirps
+		# - minimum_duration is min of template_durations
 		# - snr is root-sum-square of SNRs
 		# - uncombined_far is blank
 		# - false-alarm rate is blank
@@ -1078,6 +1079,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.set_ifos(str(event.ifo) for event in events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
+		coinc_inspiral.minimum_duration = min(event.template_duration for event in events)
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		if options.statistic == "new_snr":
 			coinc_inspiral.snr = math.sqrt(sum(event.get_new_snr(index = chisq_index)**2 for event in events))
@@ -1570,7 +1572,7 @@ options, url_categories, metadata_cache = parse_command_line()
 
 if options.veto_segments:
 	try:
-		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
+		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, verbose = options.verbose), options.veto_segments_name).coalesce()
 	except AttributeError:
 		# will get an AttributeError if using new-format veto segment file because
 		# new format does not include _ns; if so, remove the _ns columns from the
@@ -1594,7 +1596,7 @@ if options.veto_segments:
 		lsctables.Segment.get = get_segment
 		lsctables.Segment.set = set_segment
 
-		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
+		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, verbose = options.verbose), options.veto_segments_name).coalesce()
 
 
 for (tag, veto_category), url_pairs in url_categories.items():

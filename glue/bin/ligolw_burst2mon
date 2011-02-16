@@ -75,7 +75,7 @@ del parser, args
 #
 
 
-indoc = utils.load_filename(options.input, gz = (options.input or "stdin").endswith(".gz"))
+indoc = utils.load_filename(options.input)
 
 
 #

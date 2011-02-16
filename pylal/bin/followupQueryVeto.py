@@ -72,9 +72,13 @@ invoke the generation of a DQ background to include in the output \
 of the DQ information for the time in question.")
 parser.add_option("-l","--background-location",action="store",\
                    type="string",metavar="myDiskURL", \
-                   default="",help="Specify the disk path to the \
+                   default="automatic",help="Specify the disk path to the \
 stored location of a static DQ background file.  This is epoch \
 specific.")
+parser.add_option("-B","--blind",action="store_true",\
+                  default=False,help="Set this flag so that your query \
+to the segment database is inspiral injection blinded.  i.e. Your \
+query will ignore know injection flags related to inspiral search.")
 
 ######################################################################
 
@@ -99,21 +103,27 @@ if len(opts.window.split(',')) == 2:
     frontWindow,backWindow=opts.window.split(',')
     if len(backWindow) == 0:
         backWindow=frontWindow
-x=followupDQV(server)
+x=followupDQV(server,blinded=opts.blind)
 x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,ifoList=ifos)
 if estimateBackground:
+    cancelBackgroundEstimation=False
     if backgroundLocation == "automatic":
         backgroundLocation=x.figure_out_pickle("automatic")
         x.resetPicklePointer(backgroundLocation)
+        #Is automatically determined pickle present?
+        if not os.path.isfile(x.getPicklePointer()):
+            cancelBackgroundEstimation=True
     elif backgroundLocation != "":
+        x.resetPicklePointer(backgroundLocation)
         #Check background file exists!
-        if not os.path.isfile(backgroundLocation):
-            sys.stderr.write("%s does not exist!\n"%(backgroundLocation))
-            sys.stderr.write("Generate one with followupGenerateDQBackground.py.\n")
-            sys.stderr.write("Skipping background use...\n")
-        else:
-            x.resetPicklePointer(backgroundLocation)
-    x.estimateDQbackground()
+        if not os.path.isfile(x.getPicklePointer()):
+            cancelBackgroundEstimation=True
+    if not cancelBackgroundEstimation:
+        x.estimateDQbackground()
+    else:
+        sys.stderr.write("%s does not exist!\n"%(backgroundLocation))
+        sys.stderr.write("Generate one with followupGenerateDQBackground.py.\n")
+        sys.stderr.write("Skipping background use...\n")
 result=""
 if outputType.upper().strip() == "LIST":
     result=x.generateResultList()

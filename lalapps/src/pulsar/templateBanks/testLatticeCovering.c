@@ -20,6 +20,7 @@
 /**
  * \author Reinhard Prix
  * \date 2005
+ * \ingroup pulsarApps
  * \file 
  * \ingroup moduleLatticeCovering
  * \brief test-functions for the module LatticeCovering
@@ -208,7 +209,7 @@ testCovering2 (void)
 
   if ( NULL == (metric = XLALgsl2LALmetric ( gij )) )
     {
-      LALPrintError ("\nFailed to get proper metric set up \n\n");
+      XLALPrintError ("\nFailed to get proper metric set up \n\n");
       return -1;
     }
 
@@ -230,7 +231,7 @@ testCovering2 (void)
       printf ("Outputting lattice into '%s'\n", buf );
 
     if ( (fp = fopen ( buf, "wb" )) == NULL ) {
-      LALPrintError ("\nFailed to open '%s' for writing!\n\n", buf );
+      XLALPrintError ("\nFailed to open '%s' for writing!\n\n", buf );
       return -1;
     }
     if ( writeREAL8VectorList( fp, covering ) < 0 )
@@ -269,7 +270,7 @@ testCovering2 (void)
 	printf ("Outputting MCcovering results into '%s'\n", buf );
 
       if ( (fp = fopen ( buf, "wb" )) == NULL ) {
-	LALPrintError ("\nFailed to open '%s' for writing!\n\n", buf );
+	XLALPrintError ("\nFailed to open '%s' for writing!\n\n", buf );
 	return -1;
       }
       
@@ -349,7 +350,7 @@ testCovering (void)
     {
       int code = xlalErrno;
       XLALClearErrno(); 
-      LALPrintError ("\nERROR: XLALFindCoveringGenerator() failed (xlalErrno = %d)!\n\n", code);
+      XLALPrintError ("\nERROR: XLALFindCoveringGenerator() failed (xlalErrno = %d)!\n\n", code);
       return;
     }
 
@@ -367,7 +368,7 @@ testCovering (void)
 
   if ( (fp = fopen ( "test_lattice1.dat", "wb" )) == NULL )
     {
-      LALPrintError ("\nFailed to open 'test_lattice1.dat' for writing!\n\n");
+      XLALPrintError ("\nFailed to open 'test_lattice1.dat' for writing!\n\n");
       return;
     }
   writeREAL8VectorList (fp, covering);
@@ -382,7 +383,7 @@ testCovering (void)
 
   if ( (fp = fopen ( "test_lattice2.dat", "wb" )) == NULL )
     {
-      LALPrintError ("\nFailed to open 'test_lattice2.dat' for writing!\n\n");
+      XLALPrintError ("\nFailed to open 'test_lattice2.dat' for writing!\n\n");
       return;
     }
   writeREAL8VectorList (fp, covering);

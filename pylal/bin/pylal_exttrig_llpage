@@ -368,6 +368,7 @@ def get_xmltable_from_file(filename, tablename, verbose = False):
 
 
 # --------------------------------
+# FIXME: this functions does not seem to be used at all
 def modify_opts(opts, grb, output_dir):
 
   mod_opt = copy.deepcopy(opts)
@@ -437,7 +438,7 @@ def create_subpage_general(subpage, cp, grb):
   # create the configuration file section
   section_conf = subpage.add_section("section_conf","Used configuration files")
 
-  link = cp.get('paths','publishing_url')+'/GRB%s/S6GRB_trigger_hipe.ini'%grb.name
+  link = 'S6GRB_trigger_hipe.ini'
   section_conf.add_link(href=link, text="S6GRB_trigger_hipe.ini file")
   
 
@@ -508,6 +509,11 @@ def create_subpage_trigger(subpage, cp, grb):
   grb_table.append(['IFO\'s used',"".join(grb.ifolist) ])
   
   subpage.sections["trigger_basic"].add_table(grb_table, "Basic information on the used trigger")
+
+  subpage.add("<p>More info in <a href=\"http://grblog.org/grblog.php?view=burst&GRB=%s\">grblog</a>.</p>" % grb.name)
+
+  subpage.add_section("trigger_lightcurve","Lightcurve")
+
 
 # FIXME: Merge me with the external call structure in pylal_exttrig_llutils.py (or somewhere else maybe...)
 # ***************************************************************************
@@ -582,7 +588,7 @@ def get_segments_tag(tag, grb):
       output_seconds, status = \
         make_external_call(command, False, False, True)
       if output_seconds.rstrip():
-        thisdata[ifo] = [os.path.basename(vetofile), "%.2f"%float(output_seconds)/86400.0, "%.2f"%output_seconds]
+        thisdata[ifo] = [os.path.basename(vetofile), "%.2f"%(float(output_seconds)/86400.0), "%.2f"%float(output_seconds)]
       else:
         thisdata[ifo] = [os.path.basename(vetofile), '0.0', '0.0']
     else: 
@@ -604,13 +610,13 @@ def create_subpage_data(subpage, cp, grb):
   # add a section to that subpage
   section = subpage.add_section("data_science","Science segments")
 
-  segplot = cp.get('paths','publishing_url')+'/GRB%s/plot_segments_grb%s.png'%(grb.name, grb.name)
+  segplot = 'plot_segments_grb%s.png' % (grb.name)
   section.add_link(href=segplot, text='<img src="%s" border="2" width="300">'%segplot)
 
   #
   # DQ section
   #
-  section = subpage.add_section("data_DQ","Data quality")
+  section = subpage.add_section("data_DQ","Data quality CAT2")
 
   # veto-definer file
   section.add('The following veto definer file has been used: '+ grb.veto_definer)
@@ -668,7 +674,7 @@ def create_subpage_bkg(subpage, cp, grb, statistic):
                                            'pylal_grbtimeslide_stats_GRBMACGRB_trials_MACSTAT_cum_hist-7.40-17.50-MACIDENT.png']}
 
   # replace the macro definitions and put it together, in the given order
-  main_path = cp.get('paths','publishing_url')+'/GRB%s/'%(grb.name)
+  main_path = './'
   for key in ['numtemplates','inspiralH1','inspiralL1','inspiralV1','thinca','grbstats']:
 
     sec = subpage.add_section(key,"Plots from "+key)
@@ -687,16 +693,141 @@ def create_subpage_bkg(subpage, cp, grb, statistic):
     sec.add_link(href = main_path+pagelink, text = key+' summary page')
 
 
+def create_subpage_inj(subpage, cp, grb, statistic):
+  """Creates the section with information about the injections."""
+
+  def file_replace(fname):
+    fname = fname.replace('MACIDENT', '%9d-%d' % (grb.starttime, grb.endtime - grb.starttime))
+    fname = fname.replace('MACIFOS', ''.join(grb.ifolist))
+    fname = fname.replace('MACGRB', grb.name)
+    fname = fname.replace('MACSTAT', statistic)
+    return fname
+
+  # define a complete list of images to be shown on the sanity page
+  page_sections = {}
+  for ifo in grb.ifolist:
+    page_sections['plotinspinj%s' % ifo] = {
+      'page': '%s-plotinspinj_SECOND_H1_GRBMACGRB-MACIDENT.html' % ifo,
+      'images': ['%s-plotinspinj_SECOND_%s_GRBMACGRB_%s-MACIDENT.png' % (ifo, ifo, x) \
+                   for x in \
+                 'mchirp_vs_snr end_time_vs_snr'.split()] }
+
+  ethinca_singleifo_plots = []
+  for ifo in grb.ifolist:
+    ethinca_singleifo_plots += [
+      'ethinca_vs_%s_snr_andtotMass' % ifo,
+      'ethinca_slide_only_vs_%s_snr_andtotMass' % ifo]
+#      'ethinca_vs_%s_snr' % ifo]
+  page_sections['plotethinca'] = {
+    'page': 'MACIFOS-plotethinca_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
+    'images': ['MACIFOS-plotethinca_SECOND_H1L1_GRBMACGRB_%s_%s-MACIDENT.png' % ('_'.join(grb.ifolist), x) \
+                 for x in ethinca_singleifo_plots + \
+                 'ethinca_vs_combined_new_snr'.split()]}
+
+  page_sections['plotinjnum'] = {
+    'page': 'MACIFOS-plotinjnum_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
+    'images': ['MACIFOS-plotinjnum_SECOND_MACIFOS_GRBMACGRB_%s-MACIDENT.png' % x \
+                 for x in 'found_missed_eff_dist_h_vs_end_time_gmst'.split()] }
+
+  page_sections['plotinspmissed'] = {
+    'page': 'MACIFOS-plotinspmissed_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
+    'images': ['MACIFOS-plotinspmissed_SECOND_MACIFOS_GRBMACGRB_%s-MACIDENT.png' % x \
+                 for x in 'totalmass-decisiveEffDist_log-map'.split()] }
+
+  for ifo in grb.ifolist:
+    page_sections['plotsnrchi%s' % ifo] = {
+      'page': 'MACIFOS-plotsnrchi_%s_GRBMACGRB-MACIDENT.html' % ifo,
+      'images': ['MACIFOS-plotsnrchi_%s_GRBMACGRB_snr_vs_chisq-MACIDENT.png' % ifo,
+                 'MACIFOS-plotsnrchi_%s_GRBMACGRB_snr_vs_rsq-MACIDENT.png' % ifo] }
+
+  # replace the macro definitions and put it together, in the given order
+  main_path = './'
+  sections_sorted = ['plotethinca', 'plotinspmissed', 'plotinjnum'] + \
+                    ['plotinspinj'+ifo for ifo in grb.ifolist] + \
+                    ['plotsnrchi'+ifo for ifo in grb.ifolist]
+  for key in sections_sorted:
+    sec = subpage.add_section(key, "Plots from "+key)
+
+    pagelink = file_replace(page_sections[key]['page'])
+    images = page_sections[key]['images']
+
+    for image in images:
+      imagename = file_replace(image)
+      print image, imagename
+      fullimagepath = main_path+'Images/'+imagename
+      sec.add_link(href=fullimagepath, text='<img src="%s" border="2" width="300">' % fullimagepath)
+
+    sec.add('<br')
+    sec.add_text(txt='Detailed results can be found here:', bold=True)
+    sec.add_link(href = main_path+pagelink, text = key+' summary page')
+
 
 # --------------------------------
 def create_subpage_openbox(subpage, cp, grb, statistic, columns, rows):
+  """Creates the section with the results (openbox), including
+  likelihood."""
 
+  def file_replace(fname):
+    fname = fname.replace('MACIDENT', '%9d-%d' % (grb.starttime, grb.endtime - grb.starttime))
+    fname = fname.replace('MACIFOS', ''.join(grb.ifolist))
+    fname = fname.replace('MACGRB', grb.name)
+    fname = fname.replace('MACSTAT', statistic)
+    return fname
 
+  # define a complete list of images to be shown on the sanity page
+  page_sections = {}
+  page_sections['plotgrbl'] = {
+    'page': 'plotgrbl_MACIFOS_GRBMACGRB_OPENBOX-MACIDENT.html',
+    'images': ['plotgrbl_H1L1_GRB090818H_OPENBOX_%s-MACIDENT.png' % x \
+                 for x in 'max_log_L_by_mc_m2 P_L_sum_by_L loudest_stats_by_mchirpH1L1 '
+                          'log_L_by_mc_m2_H1L1 '
+                          'log_sum_L_vs_rho_max_0 log_sum_L_vs_rho_max_1 log_sum_L_vs_rho_max_2 '
+                          'log_sum_L_vs_rho_max '
+                          'IFAR_vs_rho_max log_sum_L_vs_IFAR_max '
+                          'ROC_uniform ROC_D3 '
+                          'log_pc0_vs_rho_H1L1 log_pc0_vs_rho_zoom_H1L1 '
+                          'log_pc0_vs_rho log_pc0_vs_rho_zoom '
+                          'pLh_afterMCerr_by_m2_D '
+                          'pLh_by_m2_D pL0_by_m2 '
+                          'pL0_by_L '
+                          'injection_count_by_m2_D'.split()] }
+
+  page_sections['grbUL'] = {
+    'page': 'pylal_grbUL_MACIFOS_GRBMACGRB_OPENBOX-MACIDENT.html',
+    'images': ['pylal_grbUL_MACIFOS_GRBMACGRB_OPENBOX_%s-MACIDENT.png' % x \
+                 for x in 'FC_exclusion_by_m2_D '
+               'pLD_by_m2_D_0.9  D_best_0.9  confidence_belts_0.9 '
+               'pLD_by_m2_D_3.0  D_best_3.0  confidence_belts_3.0 '
+               'pLD_by_m2_D_7.0  D_best_7.0  confidence_belts_7.0 '
+               'pLD_by_m2_D_13.0 D_best_13.0 confidence_belts_13.0 '
+               'pLD_by_m2_D_21.0 D_best_21.0 confidence_belts_21.0 '
+               'pLD_by_m2_D_31.0 D_best_31.0 confidence_belts_31.0 '
+               'old_exclusion_by_m2_D'.split()] }
+
+  # replace the macro definitions and put it together, in the given order
+  main_path = './'
+  for key in page_sections:
+    sec = subpage.add_section(key, "Plots from "+key)
+
+    pagelink = file_replace(page_sections[key]['page'])
+    images = page_sections[key]['images']
+
+    for image in images: 
+      imagename = file_replace(image)
+      print image, imagename
+      fullimagepath = main_path+'Images/'+imagename
+      sec.add_link(href=fullimagepath, text='<img src="%s" border="2" width="300">' % fullimagepath)
+
+    sec.add('<br')
+    sec.add_text(txt='Detailed results can be found here:', bold=True)
+    sec.add_link(href = main_path+pagelink, text = key+' summary page')
+
+  # Table
   sec = subpage.add_section('onoff',"Results from onoff analysis")
   table_gts = [columns]
   table_gts.extend(rows)
   sec.add_table(table_gts, 'onoff results')
-  
+
 
 # --------------------------------
 def get_options():
@@ -718,6 +849,8 @@ def get_options():
                       help="the low-latency configuration file")
     parser.add_option("--grb-pickle",default=None, \
                       help="full path to the GRB pickle file")
+    parser.add_option("--plots-dirs", metavar="DIR1,DIR2,...",
+                      help="paths to the directories with images")
     parser.add_option("--grb-name",default=None, \
                       help="name of GRB to be processed")
     parser.add_option("--type",default=None, \
@@ -762,7 +895,7 @@ def get_options():
 
     # check if a required option is missed
     error_if_missing = ["onsource_pickle","onsource_xml","offsource_pickle",\
-                        "grb_name","grb_pickle","type","config_file"]
+                        "grb_name","grb_pickle","type","config_file","output_www"]
     for opt in error_if_missing:
         if getattr(opts, opt) is None:
             raise ValueError, "missing required option: --%s" % \
@@ -787,7 +920,10 @@ grb_name = opts.grb_name
 grb = peu.read_grb_from_list(grb_name)
 
 # Initialize the page object
-page = cbcwebpage.cbcpage(title="Resultpage for GRB %s"%opts.grb_name, path = "test")
+if not os.path.exists(opts.output_www):
+  os.makedirs(opts.output_www)
+page = cbcwebpage.cbcpage(title="Resultpage for GRB %s" % opts.grb_name,
+                          path = opts.output_www)
 
 
 #
@@ -952,7 +1088,6 @@ page.add_subpage("subpage_trigger","Trigger information", "Trigger Information")
 page.add_subpage("subpage_data","Data information", "Data Information")
 page.add_subpage("subpage_bg_diag","Background diagnostics", "Background diagnostics")
 page.add_subpage("subpage_inj_diag","Injection diagnostics", "Injection diagnostics")
-page.add_subpage("subpage_lik_diag","Likelihood diagnostics", "Likelihood diagnostics")
 page.add_subpage("subpage_openbox","OPENBOX results", "OPENBOX results")
 
 # calls to the specific subfunctions to create the subpages
@@ -960,6 +1095,7 @@ create_subpage_general(page.subpages["subpage_general"], cp, grb)
 create_subpage_trigger(page.subpages["subpage_trigger"], cp, grb)
 create_subpage_data(page.subpages["subpage_data"], cp, grb)
 create_subpage_bkg(page.subpages["subpage_bg_diag"], cp, grb, statistic)
+create_subpage_inj(page.subpages["subpage_inj_diag"], cp, grb, statistic)
 
 create_subpage_openbox(page.subpages["subpage_openbox"], cp, grb, statistic, columns, rows)
 
@@ -974,15 +1110,34 @@ page.write("mypage")
 
 
 
+# copy the segment plot
+segplot = 'plot_segments_grb%s.png' % grb_name
+source = grb.analysis_dir + '/' + segplot
+copysafe(source, opts.output_www)
+
+
+
+# copy the ini-file and the configuration file
+inifile = grb.analysis_dir + '/' + cp.get('analysis','ini_file')
+copysafe(inifile, opts.output_www)
+copysafe(opts.config_file, opts.output_www)
+
+
+for imgdir in opts.plots_dirs.split(','):
+  command = 'cp -r %s %s' % (imgdir, opts.output_www)
+  subprocess.call(command, shell=True)
+
+
+####  Why is this here? Which part of the code below do we actually want?
 sys.exit(0)
 
 
 # add this table to the html file
 statistic_table = make_html_table(rows, columns)
-page.write(statistic_table)
+page.write("statistic_table")
 
 # write the pickle file containing all numerical informations
-filename = '%s/llsummary_%s_GRB%s.pickle'%(opts.openbox_path, opts.type, grb_name)
+filename = '%s/llsummary_%s_GRB%s.pickle'%(opts.output_box, opts.type, grb_name)
 f = file(filename,'w')
 pickle.dump(output_list, f)
 f.close()
@@ -1044,6 +1199,15 @@ write_file(opts.output_path, kml_filename, kml)
 
 ## create the basic html file
 html = create_html(grb, opts)
+  
+html = html.replace('macroinifile',cp.get('data','ini_file'))
+html = html.replace('macroconffile', os.path.basename(opts.config_file))
+
+# put in some more links and copy needed files
+copysafe(opts.onsource_xml, opts.openbox_path)
+html = html.replace('macrokml',kml_filename)
+html = html.replace('macrosegplot', segplot)
+
 
 # populate the antenna factor table
 for ifo in ['H1','L1','V1']:
@@ -1053,24 +1217,6 @@ for ifo in ['H1','L1','V1']:
                                                   0.0, 0.0, 'degree',
                                                   ifo )
   html = html.replace('macrodet%s'%ifo.lower(),'%.2f'%f_q)
-  
-
-# copy the segment plot
-segplot = 'plot_segments_grb%s.png' % grb_name
-source = grb.analysis_dir+'/'+segplot
-copysafe(source, opts.output_path)
-
-# copy the ini-file and the configuration file
-inifile = grb.analysis_dir+'/'+cp.get('analysis','ini_file')
-copysafe(inifile, opts.output_path)
-html = html.replace('macroinifile',cp.get('analysis','ini_file'))
-copysafe(opts.config_file, opts.output_path)
-html = html.replace('macroconffile', os.path.basename(opts.config_file))
-
-# put in some more links and copy needed files
-copysafe(opts.onsource_xml, opts.openbox_path)
-html = html.replace('macrokml',kml_filename)
-html = html.replace('macrosegplot', segplot)
 
 ## Create the two different html pages, split here from the 
 ## common sub-page
@@ -1138,8 +1284,3 @@ if opts.output_path_html:
   if not grb.openbox:
     # make the OPENBOX read protected
     os.chmod(openboxpath, 0)
-
-
-  
-  
-

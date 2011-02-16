@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2010  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -32,11 +32,24 @@ import sys
 
 
 from glue.lal import CacheEntry
+from glue import segmentsUtils
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import inject
+from pylal import ligolw_burca
+from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+
+#
+# Use interning row builder to save memory.
+#
+
+
+lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -151,17 +164,13 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Gzipped files will be autodetected on input, if a file's name ends in \".gz\" it will be gzip-compressed on output."
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
-	parser.add_option("-p", "--program", metavar = "name", help = "Set the name of the program that generated the events as it appears in the process table (required).  The program name is used to extract live time information from the search summary tables in the input files.")
-	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|excesspower2|stringcusp]", default = None, help = "Select the coincidence test algorithm to use (required).")
-	parser.add_option("--likelihood-data", metavar = "filename", default = [], action = "append", help = "Read likelihood data from this XML file.  (use ligolw_burca_tailor to generate these files)")
-	parser.add_option("--likelihood-data-cache", metavar = "filename", help = "Read likelihood data from the XML files described by this LAL cache.  For each trigger file, the live time of the trigger file is established and all likelihood data files whose segments intersect the trigger file's live time are loaded and merged into a single distribution data set.  (use ligolw_burca_tailor to generate these files)")
+	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|stringcusp]", default = None, help = "Select the coincidence test algorithm to use (required).")
+	parser.add_option("-s", "--coincidence-segments", metavar = "start:end[,start:end,...]", help = "Set the GPS segments in which to retain coincidences.  Multiple segments can be specified by separating them with commas.  If either start or end is absent from a segment then the interval is unbounded on that side, for example \"874000000:\" causes all coincidences starting at 874000000 to be retained.  The \"time\" of a coincidence is ambiguous, and is different for different search algorithms, but a deterministic algorithm is used in all cases so the same coincidence of events will always be assigned the same time.  This feature is intended to allow large input files to be analyzed;  the procedure is to make n copies of the file and run n instances of burca specifying disjoint --coincidence-segments for each.")
 	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=[threshold,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower there are no thresholds.  For stringcusp, each instrument pair has a single threshold setting dt.  One set of thresholds must be provided for each instrument combination that will be compared, even if there are no thresholds to set.")
-	parser.add_option("--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
-	# FIXME:  split this next one into two arguments
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -171,260 +180,26 @@ def parse_command_line():
 
 	if options.coincidence_algorithm is None:
 		raise ValueError, "missing required argument --coincidence-algorithm"
-	if options.coincidence_algorithm not in ("excesspower", "excesspower2", "stringcusp"):
+	if options.coincidence_algorithm not in ("excesspower", "stringcusp"):
 		raise ValueError, "unrecognized --coincidence-algorithm %s" % options.coincidence_algorithm
-	if options.coincidence_algorithm == "excesspower2":
-		options.likelihood_data = set(options.likelihood_data)
-		if (not options.likelihood_data) and (options.likelihood_data_cache is None):
-			raise ValueError, "must set one of --likelihood-data or --likelihood-data-cache"
-		if options.likelihood_data and (options.likelihood_data_cache is not None):
-			raise ValueError, "cannot set both --likelihood-data and --likelihood-data-cache"
-		if options.likelihood_data_cache:
-			options.likelihood_data_cache = set([CacheEntry(line, coltype = LIGOTimeGPS) for line in file(options.likelihood_data_cache)])
-		else:
-			options.likelihood_data_cache = set()
-		if options.program is None:
-			raise ValueError, "missing required argument --program"
+	if options.coincidence_segments is not None:
+		options.coinc_segs = segmentsUtils.from_range_strings(options.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce()
+		if filenames is not None and len(filenames) > 1:
+			raise ValueError, "refusing to allow use of --coincidence-segments with more than one input file"
+	else:
+		options.coinc_segs = None
 
 	#
 	# parse the --thresholds arguments
 	#
 
-	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
-		options.thresholds = parse_thresholds(options)
-	elif options.thresholds:
-		raise ValueError, "--coincidence-algorithm %s does not use --thresholds" % options.coincidence_algorithm
-	else:
-		# empty thresholds
-		options.thresholds = {}
+	options.thresholds = parse_thresholds(options)
 
-	# success
+	#
+	# done
+	#
+
 	return options, (filenames or [None])
-
-
-#
-# =============================================================================
-#
-#                                Stage 1 Burca
-#
-# =============================================================================
-#
-
-
-def burca1(options, filenames):
-	#
-	# Finish imports.
-	#
-
-
-	from glue.ligolw import lsctables
-	from glue.ligolw import utils
-	from pylal import ligolw_burca
-	from pylal import llwapp
-
-
-	#
-	# Use interning row builder to save memory.
-	#
-
-
-	lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
-
-
-	#
-	# For excesspower and stringcusp methods, select the appropriate
-	# event comparison and book-keeping functions.
-	#
-
-
-	if options.coincidence_algorithm == "excesspower":
-		EventListType = ligolw_burca.ExcessPowerEventList
-		comparefunc = ligolw_burca.ExcessPowerCoincCompare
-		ntuple_comparefunc = lambda events, offset_vector: False
-		CoincTables = ligolw_burca.ExcessPowerCoincTables
-		CoincDef = ligolw_burca.ExcessPowerBBCoincDef
-	elif options.coincidence_algorithm == "stringcusp":
-		EventListType = ligolw_burca.StringEventList
-		comparefunc = ligolw_burca.StringCoincCompare
-		ntuple_comparefunc = ligolw_burca.StringNTupleCoincCompare
-		CoincTables = snglcoinc.CoincTables
-		CoincDef = ligolw_burca.StringCuspBBCoincDef
-	else:
-		raise Exception, "should never get here"
-
-
-	#
-	# Iterate over files.
-	#
-
-
-	for n, filename in enumerate(filenames):
-		#
-		# Load the file.
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
-		lsctables.table.InterningRowBuilder.strings.clear()
-
-		#
-		# Have we already processed it?
-		#
-
-		if ligolw_process.doc_includes_process(xmldoc, ligolw_burca.process_program_name):
-			if options.verbose:
-				print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-			if not options.force:
-				if options.verbose:
-					print >>sys.stderr, "skipping"
-				continue
-			if options.verbose:
-				print >>sys.stderr, "continuing by --force"
-
-		#
-		# Add an entry to the process table.
-		#
-
-		process = ligolw_burca.append_process(xmldoc, **options.__dict__)
-
-		#
-		# Run coincidence algorithm.
-		#
-
-		ligolw_burca.ligolw_burca(
-			xmldoc = xmldoc,
-			process_id = process.process_id,
-			EventListType = EventListType,
-			CoincTables = CoincTables,
-			coinc_definer_row = CoincDef,
-			event_comparefunc = comparefunc,
-			thresholds = options.thresholds,
-			ntuple_comparefunc = ntuple_comparefunc,
-			verbose = options.verbose
-		)
-
-		#
-		# Close out the process table.
-		#
-
-		llwapp.set_process_end_time(process)
-
-		#
-		# Write back to disk, and clean up.
-		#
-
-		utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
-		xmldoc.unlink()
-		lsctables.table.reset_next_ids(lsctables.TableByName.values())
-
-
-#
-# =============================================================================
-#
-#                                Stage 2 Burca
-#
-# =============================================================================
-#
-
-
-def burca2(options, filenames):
-	#
-	# Finish imports.
-	#
-
-
-	try:
-		import sqlite3
-	except ImportError:
-		# pre 2.5.x
-		from pysqlite2 import dbapi2 as sqlite3
-
-
-	from glue.ligolw import dbtables
-	from pylal import ligolw_burca_tailor
-	from pylal import ligolw_burca2
-	from pylal import SnglBurstUtils
-	from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
-
-
-	# so they aren't insterted into a database
-	dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
-
-
-	def load_likelihood_data(filenames, verbose = False):
-		coinc_params_distributions = ligolw_burca_tailor.CoincParamsDistributions()
-		for filename in filenames:
-			connection = sqlite3.connect(":memory:")
-			dbtables.DBTable_set_connection(connection)
-			c, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = verbose)
-			coinc_params_distributions += c
-			connection.close()
-		coinc_params_distributions.finish(filters = ligolw_burca_tailor.DistributionsStats.filters)
-		return ligolw_burca2.LikelihoodRatio(coinc_params_distributions)
-
-
-	#
-	# Coinc params functions
-	#
-
-
-	coinc_params_func = ligolw_burca_tailor.targeted_coinc_params
-	coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
-
-
-	#
-	# Iterate over files.
-	#
-
-
-	cached_likelihood_files = set()
-
-
-	for n, filename in enumerate(filenames):
-		#
-		# Open the file.
-		#
-
-
-		if options.verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-		working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
-		connection = sqlite3.connect(working_filename)
-		connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
-		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(connection, options.program, verbose = options.verbose)
-
-
-		#
-		# Retrieve appropriate likelihood data.
-		#
-
-
-		if options.likelihood_data_cache:
-			likelihood_files = set(c.path() for c in options.likelihood_data_cache if c.to_segmentlistdict().intersects(database.seglists))
-		else:
-			likelihood_files = options.likelihood_data
-		if likelihood_files != cached_likelihood_files:
-			likelihood_ratio = load_likelihood_data(likelihood_files, verbose = options.verbose)
-			cached_likelihood_files = likelihood_files
-
-
-		#
-		# Run likelihood ratio calculation.
-		#
-
-
-		ligolw_burca2.ligolw_burca2(database, likelihood_ratio, coinc_params_func, verbose = options.verbose, params_func_extra_args = coinc_params_func_extra_args)
-
-
-		#
-		# Done with this file.
-		#
-
-
-		connection.close()
-		dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
 #
@@ -445,11 +220,104 @@ options, filenames = parse_command_line()
 
 
 #
-# Run program
+# For excesspower and stringcusp methods, select the appropriate
+# event comparison and book-keeping functions.
 #
 
 
-if options.coincidence_algorithm in ("excesspower", "stringcusp"):
-	burca1(options, filenames)
+if options.coinc_segs is not None:
+	def coinc_segs_ntuple_comparefunc(events, offset_vector, coinc_segs = options.coinc_segs):
+		# sort so we always do arithmetic in the same order
+		events = sorted(events, key = lambda event: event.get_peak())
+		# coinc time is SNR-weighted mean of event peak times
+		epoch = events[0].get_peak() + offset_vector[events[0].ifo]
+		coinc_time = epoch + sum(float(event.get_peak() + offset_vector[event.ifo] - epoch) * event.snr for event in events) / sum(event.snr for event in events)
+		return coinc_time not in coinc_segs
+
+
+if options.coincidence_algorithm == "excesspower":
+	EventListType = ligolw_burca.ExcessPowerEventList
+	comparefunc = ligolw_burca.ExcessPowerCoincCompare
+	if options.coinc_segs is not None:
+		ntuple_comparefunc = coinc_segs_ntuple_comparefunc
+	else:
+		ntuple_comparefunc = lambda *args: False	# keep everything
+	CoincTables = ligolw_burca.ExcessPowerCoincTables
+	CoincDef = ligolw_burca.ExcessPowerBBCoincDef
+elif options.coincidence_algorithm == "stringcusp":
+	EventListType = ligolw_burca.StringEventList
+	comparefunc = ligolw_burca.StringCoincCompare
+	if options.coinc_segs is not None:
+		ntuple_comparefunc = lambda *args: coinc_segs_ntuple_comparefunc(*args) or ligolw_burca.StringNTupleCoincCompare(*args)
+	else:
+		ntuple_comparefunc = ligolw_burca.StringNTupleCoincCompare
+	CoincTables = ligolw_burca.StringCuspCoincTables
+	CoincDef = ligolw_burca.StringCuspBBCoincDef
 else:
-	burca2(options, filenames)
+	raise Exception, "should never get here"
+
+
+#
+# Iterate over files.
+#
+
+
+for n, filename in enumerate(filenames):
+	#
+	# Load the file.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	xmldoc = utils.load_filename(filename, options.verbose)
+	lsctables.table.InterningRowBuilder.strings.clear()
+
+	#
+	# Have we already processed it?
+	#
+
+	if ligolw_process.doc_includes_process(xmldoc, ligolw_burca.process_program_name):
+		if options.verbose:
+			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
+		if not options.force:
+			if options.verbose:
+				print >>sys.stderr, "skipping"
+			continue
+		if options.verbose:
+			print >>sys.stderr, "continuing by --force"
+
+	#
+	# Add an entry to the process table.
+	#
+
+	process = ligolw_burca.append_process(xmldoc, **options.__dict__)
+
+	#
+	# Run coincidence algorithm.
+	#
+
+	ligolw_burca.ligolw_burca(
+		xmldoc = xmldoc,
+		process_id = process.process_id,
+		EventListType = EventListType,
+		CoincTables = CoincTables,
+		coinc_definer_row = CoincDef,
+		event_comparefunc = comparefunc,
+		thresholds = options.thresholds,
+		ntuple_comparefunc = ntuple_comparefunc,
+		verbose = options.verbose
+	)
+
+	#
+	# Close out the process table.
+	#
+
+	llwapp.set_process_end_time(process)
+
+	#
+	# Write back to disk, and clean up.
+	#
+
+	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	xmldoc.unlink()
+	lsctables.table.reset_next_ids(lsctables.TableByName.values())

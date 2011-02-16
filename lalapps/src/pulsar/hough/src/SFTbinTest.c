@@ -17,27 +17,11 @@
 *  MA  02111-1307  USA
 */
 
-/*-----------------------------------------------------------------------
- *
- * File Name: SFTbinTest.c
- * Authors: Sintes, A.M., 
- *
- * Revision: $Id$
- *
- * History:   Created by Sintes May 21, 2003
- *            Modified...
- *
- *-----------------------------------------------------------------------
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Alicia Sintes Olives, Badri Krishnan
  */
-/************************************ <lalVerbatim file="SFTbinTestCV">
-Author: Sintes, A.M.,
-$Id$
-************************************* </lalVerbatim> */
-
-/* <lalLaTeX>  *******************************************************
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-*********************************************** </lalLaTeX> */
-
 
 #include "./SFTbin.h"
 
@@ -45,7 +29,7 @@ NRCSID (SFTBINTESTC, "$Id$");
 
 /* Error codes and messages */
 
-/************** <lalErrTable file="SFTBINTESTCErrorTable"> */
+/**\name Error Codes */ /*@{*/
 #define SFTBINTESTC_ENORM 0
 #define SFTBINTESTC_ESUB  1
 #define SFTBINTESTC_EARG  2
@@ -57,7 +41,7 @@ NRCSID (SFTBINTESTC, "$Id$");
 #define SFTBINTESTC_MSGEARG  "Error parsing arguments"
 #define SFTBINTESTC_MSGEBAD  "Bad argument values"
 #define SFTBINTESTC_MSGEFILE "Could not create output file"
-/******************************************** </lalErrTable> */
+/*@}*/
 
 
 /* Default parameters. */
@@ -83,7 +67,7 @@ INT4 lalDebugLevel=0;
 #define ERROR( code, msg, statement )                                \
 do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
-    LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
               __LINE__, SFTBINTESTC, statement ? statement :  \
                    "", (msg) );                                      \
@@ -92,7 +76,7 @@ do {                                                                 \
 #define INFO( statement )                                            \
 do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
-    LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
+    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
               SFTBINTESTC, (statement) );                     \
 } while (0)
@@ -147,7 +131,7 @@ int main(int argc, char *argv[]){
         lalDebugLevel = atoi( argv[arg++] );
       } else {
         ERROR( SFTBINTESTC_EARG, SFTBINTESTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return SFTBINTESTC_EARG;
       }
     }
@@ -158,7 +142,7 @@ int main(int argc, char *argv[]){
         fname = argv[arg++];
       } else {
         ERROR( SFTBINTESTC_EARG, SFTBINTESTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return SFTBINTESTC_EARG;
       }
     }  
@@ -168,14 +152,14 @@ int main(int argc, char *argv[]){
         linefname = argv[arg++];
       } else {
         ERROR( SFTBINTESTC_EARG, SFTBINTESTC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return SFTBINTESTC_EARG;
       }
     }  
     /* Unrecognized option. */
     else {
       ERROR( SFTBINTESTC_EARG, SFTBINTESTC_MSGEARG, 0 );
-      LALPrintError( USAGE, *argv );
+      XLALPrintError( USAGE, *argv );
       return SFTBINTESTC_EARG;
     }
   } /* End of argument parsing loop. */

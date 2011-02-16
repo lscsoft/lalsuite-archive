@@ -22,11 +22,9 @@
  * \author Reinhard Prix
  * \date 2006
  * \file 
+ * \ingroup pulsarApps
  * \brief Code to convert given input-SFTs (v1 or v2) to v2-SFTs with given extra-comment, 
  *        and write them out following the SFTv2 naming conventions (see LIGO-T040164-01-Z)
- *
- * $Id$
- *
  */
 
 /* ---------- includes ---------- */
@@ -149,7 +147,7 @@ main(int argc, char *argv[])
 
   if ( !FullCatalog || (FullCatalog->length == 0)  ) 
     {
-      LALPrintError ("\nSorry, didn't find any matching SFTs with pattern '%s'!\n\n", uvar_inputSFTs );
+      XLALPrintError ("\nSorry, didn't find any matching SFTs with pattern '%s'!\n\n", uvar_inputSFTs );
       return CONVERTSFT_EINPUT;
     }
 
@@ -161,7 +159,7 @@ main(int argc, char *argv[])
       len += strlen ( uvar_extraComment );
 
     if ( ( add_comment = LALCalloc ( 1, len )) == NULL ) {
-      LALPrintError ( "\nOut of memory!\n");
+      XLALPrintError ( "\nOut of memory!\n");
       return CONVERTSFT_EMEM;
     }
 
@@ -200,7 +198,7 @@ main(int argc, char *argv[])
 	comment_len += strlen ( sft_comment );
 
       if ( ( new_comment  = LALCalloc (1, comment_len )) == NULL ) {
-	LALPrintError ( CONVERTSFT_MSGEMEM );
+	XLALPrintError ( CONVERTSFT_MSGEMEM );
 	return CONVERTSFT_EMEM;
       }
       if ( sft_comment ) {

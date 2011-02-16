@@ -10,7 +10,7 @@ notify_fail_only = true
 # stream "live" stdout/err from tasks back to the submit node
 stream_user_io = true
 
-inputs = scripts.git, unit_a.nmi, unit_b.nmi
+inputs = scripts.git, ligolw_diff.git, unit_a.nmi, unit_b.nmi
 
 remote_task = remote_task.sh
 remote_task_args = $(GIT_ID_A) $(GIT_ID_B)

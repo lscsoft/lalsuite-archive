@@ -82,22 +82,19 @@ void LALTaylorT4Derivatives4PN(
 )
 {
    InspiralDerivativesIn *ak;
-   REAL8 v, v2, v3, v4, v5, v6, v7, v9, eta, eta2, eta3, pisq, fourpi;
+   REAL8 v, v2, v3, v4, v5, v6, v9, eta, eta2, fourpi;
 
    ak = (InspiralDerivativesIn *) funcParams;
    eta = ak->coeffs->eta;
 
    v = values->data[0];
    eta2 = eta * eta;
-   eta3 = eta2 * eta;
    v2 = v*v;
    v3 = v2*v;
    v4 = v3*v;
    v5 = v4*v;
    v6 = v5*v;
-   v7 = v6*v;
    v9 = v6*v3;
-   pisq = LAL_PI*LAL_PI;
    fourpi = 4.*LAL_PI;
 
    /*--------------------------------------------------------------------*/
@@ -128,22 +125,19 @@ void LALTaylorT4Derivatives5PN(
 )
 {
    InspiralDerivativesIn *ak;
-   REAL8 v, v2, v3, v4, v5, v6, v7, v9, eta, eta2, eta3, pisq, fourpi;
+   REAL8 v, v2, v3, v4, v5, v6, v9, eta, eta2, fourpi;
 
    ak = (InspiralDerivativesIn *) funcParams;
    eta = ak->coeffs->eta;
 
    v = values->data[0];
    eta2 = eta * eta;
-   eta3 = eta2 * eta;
    v2 = v*v;
    v3 = v2*v;
    v4 = v3*v;
    v5 = v4*v;
    v6 = v5*v;
-   v7 = v6*v;
    v9 = v6*v3;
-   pisq = LAL_PI*LAL_PI;
    fourpi = 4.*LAL_PI;
 
    /*--------------------------------------------------------------------*/
@@ -175,7 +169,7 @@ void LALTaylorT4Derivatives6PN(
 )
 {
    InspiralDerivativesIn *ak;
-   REAL8 v, v2, v3, v4, v5, v6, v7, v9, eta, eta2, eta3, pisq, fourpi;
+   REAL8 v, v2, v3, v4, v5, v6, v9, eta, eta2, eta3, pisq, fourpi;
 
    ak = (InspiralDerivativesIn *) funcParams;
    eta = ak->coeffs->eta;
@@ -188,7 +182,6 @@ void LALTaylorT4Derivatives6PN(
    v4 = v3*v;
    v5 = v4*v;
    v6 = v5*v;
-   v7 = v6*v;
    v9 = v6*v3;
    pisq = LAL_PI*LAL_PI;
    fourpi = 4.*LAL_PI;

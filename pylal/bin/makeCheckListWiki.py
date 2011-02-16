@@ -72,6 +72,29 @@ def scanTreeFnMatch(parentPath='.',levels=int(100),filemask='*'):
           matchingFiles.append(myFile)
   return matchingFiles
 
+def __patchFrameTypeDef__(frametype=None,ifo=None,gpstime=None):
+  """
+  Temporary patch function, to adjust specfied frame type used in
+  searching the filesystem for files to display in followup.
+  """
+  if frametype == None:
+    raise Exception, "input to __patchFrameTypeDef__ included a \
+    frametype argument specified as None\n"
+    return None
+  if gpstime == None:
+    raise Warning, "input to __patchFrameTypeDef__ included a \
+    gps time argument specified as None\n"
+    return frametype
+  if ifo == None:
+    raise Warning, "input to __patchFrameTypeDef__ included an \
+    ifo argument specified as None\n"
+    return frametype
+  endOfS5=int(875232014)
+  if int(gpstime)<=endOfS5 or ifo=="V1":
+    if not frametype.lower().startswith(ifo.lower()):
+      return ifo+"_"+frametype
+  return frametype
+
 class findFileType(object):
   """
   Initialized with a file structure and coinc data it can return a
@@ -84,7 +107,7 @@ class findFileType(object):
     else:
       self.fsys=fStructure
       self.coinc=myCoinc
-
+  
   def __readZranks__(self,myFilename=None):
     """
     Takes a file and returns a structure (list) of information from
@@ -202,8 +225,8 @@ class findFileType(object):
     for sngl in self.coinc.sngls:
       #Determine file type
       frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-      if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      #Patch
+      frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
       myMaskIndex="*/%s/*/%s/index.html"%(frametype,sngl.time)
       myMaskPNG="*/%s/*/%s/*.png"%(frametype,sngl.time)
       myMaskSummary="*/%s/*/%s/*summary.txt"%(frametype,sngl.time)
@@ -219,8 +242,8 @@ class findFileType(object):
     for sngl in self.coinc.sngls:
       #Determine file type
       frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-      if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      #Patch
+      frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
       frametype = frametype + "_SEIS"
       myMaskIndex="*/%s*/%s/*.html"%(frametype,sngl.time)
       myMaskPNG="*/%s*/%s/*.png"%(frametype,sngl.time)
@@ -358,6 +381,14 @@ class findFileType(object):
     cacheFiles=self.__readCache__(cacheList)
     return cacheFiles         
 
+  def get_customfoms(self):
+    """
+    """
+    #FilenameMask "FOM_GPSTIME_GRAPHNAME.png"
+    tmpList=list()
+    myMask="*/FOM_%s*png"%(self.coinc.time)
+    tmpList.extend(fnmatch.filter(self.fsys,myMask))
+    return tmpList
   
   def get_all(self):
     """
@@ -374,6 +405,7 @@ class findFileType(object):
     globalList.extend(self.get_findVetos())
     globalList.extend(self.get_effDRatio())
     globalList.extend(self.get_findFlags())    
+    globalList.extend(self.get_customfoms())
     return globalList
                  
 def matchFiles(fileList=None,jobString=None,instruments=None,ifos=None,time=None):
@@ -629,6 +661,43 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
     self.content.append(tableContent)                      
     obj.data[0][0]=oldCell
 
+  def insertTableOfPlots(self,legends=None,images=None,thumbnails=None,columnCount=3,defaultHeadline=""):
+    """
+    Generic method to make the most condensed table to insert
+    graphics.  The inputs are lists and need to
+    have the same number of elements each, and be indexed
+    identically,  legends[0] label for thumbnails[0] which
+    if clicked links to images[0]
+    """
+    # Check that all input lists are same length
+    if columnCount < 1:
+      sys.stderr.write("Graph table could not be properly formed, not inserted!\n")
+      sys.stderr.flush()
+      self.putText("Graph Table Place Holder.\n")
+    if not len(legends)==len(thumbnails)==len(images):
+      sys.stderr.write("Graph table could not be properly formed, not inserted!\n")
+      sys.stderr.flush()
+      self.putText("Graph Table Place Holder.\n")
+    else:
+      # Determine how may rows we need
+      fullRows,partialRows=divmod(len(legends),columnCount)
+      if partialRows > 0:
+        rowCount=fullRows+1
+      else:
+        rowCount=fullRows
+      myTable=self.wikiTable(rowCount,columnCount)
+      myTable.setTableStyle("text-align:center")
+      myTable.setTableHeadline(defaultHeadline)
+      for cellNum in range(len(legends)):
+        cellString=""
+        cellString+="%s <<BR>> "%legends[cellNum]
+        cellString+="%s "%self.linkedRemoteImage(thumbnails[cellNum],\
+                                                 images[cellNum])
+        #Insert string in wikiTable object
+        myRow,myCol=divmod(cellNum,columnCount)
+        myTable.data[myRow][myCol]=" %s "%cellString
+      self.insertTable(myTable)
+    
   def insertQscanTable(self,images=None,thumbs=None,indexes=None):
     """
     Inserts a table constructured of thumbnails linked to larger
@@ -1054,8 +1123,32 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
          fTable.data[myRow][myCol]="%s"%(wikiPage.linkedRemoteImage(thumb,link))
          currentIndex=currentIndex+1
     wikiPage.insertTable(fTable)
+    #
+    # Code to add in custom FOM plots
+    #
+    imageDict=dict()
+    thumbDict=dict()
+    legendDict=dict()
+    thumbDict["FOM"]=fnmatch.filter(wikiFileFinder.get_customfoms(),\
+                                    "*.thumb.png")
+    imageDict["FOM"]=[str(x).replace(".thumb.png",".png") \
+                      for x in thumbDict["FOM"]]
+    legendDict["FOM"]=[os.path.basename(str(x)).replace(".thumb.png","") \
+                      for x in thumbDict["FOM"]]
+    thumbDict["FOM"]=[file2URL.convert(x) for x in thumbDict["FOM"]]
+    imageDict["FOM"]=[file2URL.convert(x) for x in imageDict["FOM"]]
+    if len(imageDict["FOM"])<1:
+      wikiPage.putText("Custom Figure Of Merit plots not available.\n")
+    else:
+      wikiPage.insertTableOfPlots(legendDict["FOM"],\
+                                  imageDict["FOM"],\
+                                  thumbDict["FOM"],\
+                                  3,\
+                                  "Custom Figures Of Merit")
   else:
-    wikiPage.putText("Can not automatically fetch S5 FOM links.")  
+    wikiPage.putText("Can not automatically fetch S5 FOM links.\n")  
+  #Add in wiki synxtax to included the custom FOMs
+  #Simple thing for now just links to thumbnail and full images
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -1073,8 +1166,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'hoft')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    #For HofT frame type strings vary differently than other search strings!
+    #frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time) #(NoPatchNeeded)
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
                                        "*/%s/*/%s/*index.html"%(frametype,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
@@ -1120,8 +1213,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
     if sngl.ifo == "V1":
       chankey = "Em_SE"
     else:
@@ -1142,7 +1234,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         if chankey in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
-      sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
+      sys.stdout.write("Omega scan summary file not found or seen empty for %s. ...continuing...\n"%sngl.ifo)
     #Search for analyzeQscan files
     timeString=str(float(sngl.time)).replace(".","_")
     indexDictAQ[sngl.ifo]=fnmatch.filter(filesAnalyze,\
@@ -1206,8 +1298,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
     if sngl.ifo == "V1":
       chankeyseis = "Em_SE"
       chankeyenv = "Em_"
@@ -1237,7 +1328,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         if chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
-      sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
+      sys.stdout.write("Omega scan summary file not found or seen empty for %s. ...continuing...\n"%sngl.ifo)
     #Select associated analyzeQscans
     timeString=str(float(sngl.time)).replace(".","_")
     for myFile in fnmatch.filter(filesAnalyze,\
@@ -1304,8 +1395,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   filesAnalyze=wikiFileFinder.get_analyzeQscan_RDS()
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
-    if not sngl.ifo in frametype:
-      frametype = sngl.ifo + "_" + frametype
+    frametype=__patchFrameTypeDef__(frametype,sngl.ifo,sngl.time)
     if sngl.ifo == "V1":
       chankeyseis = "Em_SE"
       chankeyenv = "Em_"
@@ -1335,7 +1425,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         if not chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
-      sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
+      sys.stdout.write("Omega scan summary file not found or seen empty for %s. ...continuing...\n"%sngl.ifo)
     #Select associated analyzeQscans
     timeString=str(float(sngl.time)).replace(".","_")    
     for myFile in fnmatch.filter(filesAnalyze,\

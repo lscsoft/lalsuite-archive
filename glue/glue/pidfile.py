@@ -11,25 +11,14 @@ import errno
 import fcntl
 import time
 
+import glue.utils
+
+
 # from glue import git_version
 
 # __author__ = 'Peter Couvares <pfcouvar@syr.edu>'
 # __version__ = "git id %s" % git_version.id
 #__date__ = git_version.date
-
-
-# inspired by Larz Wirzenius <http://stackoverflow.com/questions/1005972>
-def pid_exists(pid):
-    """ Returns true if the given pid exists, false otherwise. """
-    try:
-        # signal 0 is harmless and can be safely used to probe pid existence
-        # faster and more unix-portable than looking in /proc
-        os.kill(pid, 0)
-    except OSError, e:
-        # "permission denied" proves existence; otherwise, no such pid
-        return e.errno == errno.EPERM
-    else:
-        return True
 
 
 def get_lock(lockfile):
@@ -53,16 +42,17 @@ def get_lock(lockfile):
     except IOError,e:
         raise RuntimeError, "failed to lock %s: %s" % (lockfile, e)
 
-    # we got the file lock, so check the pid therein
+    # we got the file lock, so check for a pid therein
     pidfile.seek(0)
     pidfile_pid = pidfile.readline().strip()
-    
-    if pidfile_pid.isdigit() and pid_exists(int(pidfile_pid)):
-        raise RuntimeError, ("pidfile %s contains pid (%s) of a running "
-                             "process" % (lockfile, pidfile_pid))
-    else:
-        print ("pidfile %s contains stale pid %s; writing new lock" %
-               (lockfile, pidfile_pid))
+
+    if pidfile_pid.isdigit():
+        if glue.utils.pid_exists(int(pidfile_pid)):
+            raise RuntimeError, ("pidfile %s contains pid (%s) of a running "
+                                 "process" % (lockfile, pidfile_pid))
+        else:
+            print ("pidfile %s contains stale pid %s; writing new lock" %
+                   (lockfile, pidfile_pid))
 
     # the pidfile didn't exist or was stale, so grab a new lock
     pidfile.truncate(0)

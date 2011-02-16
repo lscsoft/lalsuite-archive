@@ -96,7 +96,7 @@ class RemoteCache(object):
 		if ret:
 			print >>sys.stderr, "retrieve failed with %d try #%d" % (ret,n)
 			if n>3: sys.exit(1)
-			self.retrieve_file(remotepath, localpath, n=n+1)
+			self.retrieve_file(remotepath, localpath, filelist=filelist, n=n+1)
 
 	def parse_cache_and_get_dirs(self):
 		self.remote_dir_set = set([])

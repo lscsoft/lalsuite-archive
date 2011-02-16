@@ -28,7 +28,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.32"
+ver = "1.33"
 
 def remove_root(path,root):
   if root:
@@ -187,7 +187,7 @@ setup(
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  packages = [ 'glue', 'glue.gracedb', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb' ],
+  packages = [ 'glue', 'glue.gracedb', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb', 'glue.nmi' ],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,
@@ -240,6 +240,7 @@ setup(
     os.path.join('bin','ligolw_print'),
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_segments_from_cats'),
+    os.path.join('bin','ligolw_segments_from_cats_split'),
     os.path.join('bin','ligolw_cbc_glitch_page'),
     os.path.join('bin','ligolw_segment_insert'),
     os.path.join('bin','ligolw_segment_intersect'),
@@ -257,8 +258,11 @@ setup(
        os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
     os.path.join('bin','ligolw_diff'),
+    os.path.join('bin','ligolw_geo_fr_to_dq'),
     os.path.join('bin','segdb_coalesce'),
-    os.path.join('bin', 'ligolw_print_tables') ],
+    os.path.join('bin', 'glue_nmi_genbuild'),
+    os.path.join('bin', 'ligolw_print_tables'),
+    os.path.join('bin', 'ligolw_veto_def_check')],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
@@ -272,6 +276,12 @@ setup(
         os.path.join('etc','ligolw.js'),
         os.path.join('etc','LDBDWServer.wsgi'),
         os.path.join('etc','ligolw_dtd.txt') ]
+    ),
+    ( os.path.join( 'share','nmi' ),
+      [ 
+        os.path.join('src', 'nmi', 'builds', 'lalsuite-build.spec'),
+        os.path.join('src', 'nmi', 'builds', 'lalsuite-build-scripts.location'),
+      ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),
       [

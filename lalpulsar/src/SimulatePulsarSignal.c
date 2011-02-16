@@ -90,7 +90,7 @@ detector at UTC-time \f$t\f$, which depends on the source-position
   \tau (t) = t + { \vec{r}(t)\cdot\vec{n} \over c}\,,
 \f}
 where \f$\vec{r}(t)\f$ is the vector from SSB to the detector, and \f$\vec{n}\f$
-is the unit-vector pointing \emph{to} the source.
+is the unit-vector pointing <em>to</em> the source.
 
 This is a standalone "clean-room" implementation using no other
 outside-functions <em>except</em> for LALGPStoLMST1() to calculate
@@ -217,7 +217,7 @@ LALSimulateExactPulsarSignal (LALStatus *status,
   /* create output timeseries (FIXME: should really know *detector* here, not just site!!) */
   if ( (channel = XLALGetChannelPrefix ( site->name )) == NULL )
     {
-      LALPrintError ("\nXLALGetChannelPrefix() Failed to extract channel-prefix from site '%s'\n\n", site->name );
+      XLALPrintError ("\nXLALGetChannelPrefix() Failed to extract channel-prefix from site '%s'\n\n", site->name );
       ABORT (status, GENERATEPULSARSIGNALH_EDETECTOR, GENERATEPULSARSIGNALH_MSGEDETECTOR );
     }
 
@@ -248,7 +248,7 @@ LALSimulateExactPulsarSignal (LALStatus *status,
 
   if ( params->pulsar.spindown && (params->pulsar.spindown->length > numSpins) )
     {
-      LALPrintError ("Sorry, SimulatePulsarSignal() only supports up to %d spindowns!\n", numSpins );
+      XLALPrintError ("Sorry, SimulatePulsarSignal() only supports up to %d spindowns!\n", numSpins );
       ABORT (status,  SIMULATEPULSARSIGNAL_EINPUT,  SIMULATEPULSARSIGNAL_MSGEINPUT);
     }
   if ( params->pulsar.spindown && (params->pulsar.spindown->length >= 3 ) )

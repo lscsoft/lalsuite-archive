@@ -646,6 +646,7 @@ class FollowupTrigger:
           loudest_details[ifo] = {}
           loudest_details[ifo]["snr"] = loudest.snr
           loudest_details[ifo]["mchirp"] = loudest.mchirp
+          loudest_details[ifo]["eta"] = loudest.eta
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
           loudest_details[ifo]["chisq"] = loudest.chisq
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
@@ -769,6 +770,7 @@ class FollowupTrigger:
     self.fill_table( page, ['mass2', '%.2f'% inj.mass2] )
     self.fill_table( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
     self.fill_table( page, ['mchirp', '%.2f' % (inj.mchirp)] )
+    self.fill_table( page, ['eta', '%.2f' % (inj.eta)] )
     self.fill_table( page, ['end_time', '%010d' % inj.geocent_end_time] )
     self.fill_table( page, ['end_time_ns', '%09d' %inj.geocent_end_time_ns] )    
     self.fill_table( page, ['distance', '%.1f' % inj.distance] )
@@ -869,27 +871,28 @@ class FollowupTrigger:
       if trig:
         page.add('<td><table border="2" >')        
     
-        self.fill_table( page, ['parameter',ifo],header=True )
+        self.fill_table( page, ['parameter', ifo], header=True )
         self.fill_table( page, ['Number', self.number] )
         self.fill_table( page, ['inj ID', self.injection_id] )
-        self.fill_table( page, ['Effective SNR',self.get_effective_snr(trig)] )
-        self.fill_table( page, ['New snr',self.get_new_snr(trig)])
-        self.fill_table( page, ['SNR', trig.snr] )
-        self.fill_table( page, ['ChiSq', trig.chisq] )
-        self.fill_table( page, ['RSQ', trig.rsqveto_duration] )                        
-        self.fill_table( page, ['Mass1', '%.2f'% trig.mass1] )
-        self.fill_table( page, ['Mass2', '%.2f'% trig.mass2] )
-        self.fill_table( page, ['Mtotal', '%.2f' % (trig.mass1+trig.mass2)] )
-        self.fill_table( page, ['Mchirp', '%.2f' % (trig.mchirp)] )
+        self.fill_table( page, ['Effective SNR', '%.3f' % self.get_effective_snr(trig)] )
+        self.fill_table( page, ['New SNR', '%.3f' % self.get_new_snr(trig)] )
+        self.fill_table( page, ['SNR', '%.3f' % trig.snr] )
+        self.fill_table( page, ['Chisq', '%.2f' % trig.chisq] )
+        self.fill_table( page, ['Rsq duration (s)', '%.4f' % trig.rsqveto_duration] )            
+        self.fill_table( page, ['''Mass1 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass1] )
+        self.fill_table( page, ['''Mass2 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass2] )
+        self.fill_table( page, ['''Mtotal (M<sub>&#x2A00;</sub>)''', '%.2f' % (trig.mass1+trig.mass2)] )
+        self.fill_table( page, ['''Mchirp (M<sub>&#x2A00;</sub>)''', '%.3f' % trig.mchirp] )
+        self.fill_table( page, ['Template duration (s)', '%.3f' % trig.template_duration ] )
         if timeSlide:
           endTime = trig.end_time + 1E-9*trig.end_time_ns
-          self.fill_table( page, ['Slid end_time', '%.4f' % endTime] )
+          self.fill_table( page, ['Slid GPS end time', '%.4f' % endTime] )
           slidEndTime = trig2.end_time + 1E-9*trig2.end_time_ns
-          self.fill_table( page, ['Unslid end_time', '%.4f' % slidEndTime] ) 
+          self.fill_table( page, ['Unslid end time', '%.4f' % slidEndTime] ) 
         else:
           endTime = trig.end_time + 1E-9*trig.end_time_ns
-          self.fill_table( page, ['end_time', '%.4f' % endTime] )
-        self.fill_table( page, ['eff_distance', '%.1f' % trig.eff_distance] )
+          self.fill_table( page, ['GPS end time', '%.4f' % endTime] )
+        self.fill_table( page, ['Effective distance (Mpc)', '%.1f' % trig.eff_distance] )
         page.add('</table></td>')                
 
     page.add('</table><br>')
@@ -930,7 +933,7 @@ class FollowupTrigger:
     page.add('<table border="2" >')
     page.add('<caption><b> Parameters of the loudest (by SNR) recovered single ifo triggers at each stage of the pipeline </b> </caption>')
     self.fill_table( page, ['step','F/M', 'SNR', \
-                            'Mchirp', 'eff_dist', \
+                            'Mchirp', 'eta','eff_dist', \
                             'chisq', 'eff_snr',\
                             'new_snr','end_time','ethinca', 'Veto ON/OFF'],header=True )
 
@@ -944,6 +947,7 @@ class FollowupTrigger:
         found_ifo = ''
         loudest_snr = ''
         loudest_mchirp = ''
+        loudest_eta = ''
         loudest_eff_dist = ''
         loudest_chisq = ''
 	loudest_effsnr = ''
@@ -964,6 +968,8 @@ class FollowupTrigger:
                          (ifo, result['loudest_details'][ifo]['snr'])
 	  loudest_mchirp += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['mchirp'])
+          loudest_eta += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['eta'])
 	  loudest_eff_dist += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['eff_dist'])
 	  loudest_chisq += "%s : %.3f <br>" % \
@@ -1002,6 +1008,7 @@ class FollowupTrigger:
           self.fill_table( page, [ stage,  'FOUND in <br>'+found_ifo, \
                                    loudest_snr, \
                                    loudest_mchirp, \
+                                   loudest_eta, \
                                    loudest_eff_dist,\
                                    loudest_chisq, \
                                    loudest_effsnr, 
@@ -1238,7 +1245,8 @@ class FollowupTrigger:
       for c in cache:
 
         # check the time and the injection ID
-        if self.followup_time in c.segment:
+        # Also pick up files +/- 2048s of this trigger to avoid boundary issues
+        if (self.followup_time in c.segment) or ((self.followup_time-2048) in c.segment) or ((self.followup_time+2048) in c.segment):
           if not self.injection_id or \
                  (self.injection_id and \
                   self.get_injection_id(url = c.url) == self.injection_id):

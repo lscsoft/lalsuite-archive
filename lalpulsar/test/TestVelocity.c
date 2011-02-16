@@ -35,67 +35,46 @@
  * 1.  An author and Id block
  */
 
-/************************************ <lalVerbatim file="TestVelocityCV">
-Author: Krishnan, B., Sintes, A.M.
-$Id$
-************************************* </lalVerbatim> */
+/**
+\author Krishnan, B., Sintes, A.M.
+\file
+\ingroup Velocity_h
+\brief Tests the calculation of the averaged velocity of a given detector.
 
-/*
- * 2. Commented block with the documetation of this module
- */
-/* ************************************************<lalLaTeX>
-\subsection{Program \ \texttt{TestVelocity.c}}
-\label{s:TestVelocity.c}
-Tests the calculation of the averaged velocity of a given detector.
+\heading{Program \ref TestVelocity.c}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Usage}
-\begin{verbatim}
+\heading{Usage}
+\code
 TestVelocity  [-d debuglevel] [-a accuracy]
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Description}
+\heading{Description}
 This program computes the averaged velocity  of the GEO600 detector
 between the times 730000044 and 730003644 with a default accuracy of 0.01.
-The two ephemeris files (e.g., for data taken in 2003, \verb@sun03.dat@ and
-\verb@earth03.dat@) are assumed to be in the  directory
-\verb@lal/packages/pulsar/test/@.
+The two ephemeris files (e.g., for data taken in 2003, <tt>sun03.dat</tt> and
+<tt>earth03.dat</tt>) are assumed to be in the  directory
+<tt>lal/packages/pulsar/test/</tt>.
 
-The \verb@-d@ option sets the debug level to the specified value
-\verb@debuglevel@.  The \verb@-a@ flag tells the program which accuracy to use.
+The <b>-d</b> option sets the debug level to the specified value
+\c debuglevel.  The <b>-a</b> flag tells the program which accuracy to use.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Exit codes}
-\vspace{0.1in}
-\input{TESTVELOCITYCErrorTable}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Uses}
-\begin{verbatim}
+\heading{Uses}
+\code
 LALAvgDetectorVel()
 LALPrintError()
 LALMalloc()
 LALFree()
 LALCheckMemoryLeaks()
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Notes}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\vfill{\footnotesize\input{TestVelocityCV}}
-
-********************************************</lalLaTeX> */
+*/
 
 /* #include "./Velocity.h" */
 #include <lal/Velocity.h>
 
-NRCSID (TESTVELOCITYC, "$Id$");
-
-
 /* Error codes and messages */
 
-/************** <lalErrTable file="TESTVELOCITYCErrorTable"> */
+/**\name Error Codes */ /*@{*/
 #define TESTVELOCITYC_ENORM 0
 #define TESTVELOCITYC_ESUB  1
 #define TESTVELOCITYC_EARG  2
@@ -107,8 +86,10 @@ NRCSID (TESTVELOCITYC, "$Id$");
 #define TESTVELOCITYC_MSGEARG  "Error parsing arguments"
 #define TESTVELOCITYC_MSGEBAD  "Bad argument values"
 #define TESTVELOCITYC_MSGEFILE "Could not create output file"
-/******************************************** </lalErrTable> */
+/*@}*/
 
+/** \cond DONT_DOXYGEN */
+NRCSID (TESTVELOCITYC, "$Id$");
 
 /* Default parameters. */
 
@@ -137,7 +118,7 @@ char SUNDATA[] = SUNDATAFILE;
 #define ERROR( code, msg, statement )                                \
 do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
-    LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
               __LINE__, TESTVELOCITYC, statement ? statement :  \
                    "", (msg) );                                      \
@@ -146,7 +127,7 @@ do {                                                                 \
 #define INFO( statement )                                            \
 do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
-    LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
+    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
               TESTVELOCITYC, (statement) );                     \
 } while (0)
@@ -203,7 +184,7 @@ int main(int argc, char *argv[]){
         lalDebugLevel = atoi( argv[arg++] );
       } else {
         ERROR( TESTVELOCITYC_EARG, TESTVELOCITYC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTVELOCITYC_EARG;
       }
     }
@@ -215,14 +196,14 @@ int main(int argc, char *argv[]){
         velPar.vTol= vTol;
       } else {
         ERROR( TESTVELOCITYC_EARG, TESTVELOCITYC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTVELOCITYC_EARG;
       }
     }
     /* Unrecognized option. */
     else {
       ERROR( TESTVELOCITYC_EARG, TESTVELOCITYC_MSGEARG, 0 );
-      LALPrintError( USAGE, *argv );
+      XLALPrintError( USAGE, *argv );
       return TESTVELOCITYC_EARG;
     }
   } /* End of argument parsing loop. */
@@ -272,12 +253,4 @@ int main(int argc, char *argv[]){
 
 /* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
 
-
-
-
-
-
-
-
-
-
+/** \endcond */
