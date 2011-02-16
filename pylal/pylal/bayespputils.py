@@ -1388,6 +1388,7 @@ def sph2cart(r,theta,phi):
     """
     Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
     """
+    print r,theta,phi
     x = r*np.sin(theta)*np.cos(phi)
     y = r*np.sin(theta)*np.sin(phi)
     z = r*np.cos(theta)
@@ -1410,7 +1411,12 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     np.seterr(under='ignore')
 
-    skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+    if 'ra' in posterior.names and 'dec' in posterior.names:
+        skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+    elif 'rightascension' in posterior.names and 'declination' in posterior.names:
+        skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+    else:
+        raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
