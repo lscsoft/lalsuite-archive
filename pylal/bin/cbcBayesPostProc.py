@@ -247,9 +247,10 @@ def cbcBayesPostProc(
 
 
     #Calculate tilts from spin angles
-    if injection:
-        if 'theta1' in pos.names and 'phi1' in pos.names and \
-           'tilt1' not in pos.names and 'tilt2' not in pos.names:
+    if 'theta1' in pos.names and 'phi1' in pos.names and \
+      'tilt1' not in pos.names and 'tilt2' not in pos.names:
+        inj_tilt1 = inj_tilt2 = None
+        if injection:
             inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
             inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
             inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
@@ -270,7 +271,9 @@ def cbcBayesPostProc(
             pos.append(tilt1_pos)
             pos.append(tilt2_pos)
 
-        if 'tilt1' in pos.names and 'tilt2' in pos.names:
+    if 'tilt1' in pos.names and 'tilt2' in pos.names:
+        inj_costilt1 = inj_costilt2 = None
+        if injection:
             inj_costilt1 = cos(pos['tilt1'].injval)
             inj_costilt2 = cos(pos['tilt2'].injval)
 
