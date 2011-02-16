@@ -247,40 +247,41 @@ def cbcBayesPostProc(
 
 
     #Calculate tilts from spin angles
-    if 'theta1' in pos.names and 'phi1' in pos.names and \
-    'tilt1' not in pos.names and 'tilt2' not in pos.names:
-        inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
-        inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
-        inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
+    if injection:
+        if 'theta1' in pos.names and 'phi1' in pos.names and \
+           'tilt1' not in pos.names and 'tilt2' not in pos.names:
+            inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
+            inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
+            inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
 
-        inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
-        inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
+            inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
+            inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
 
-        S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
-        S2nx,S2ny,S2nz = bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
-        Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
+            S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
+            S2nx,S2ny,S2nz = bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
+            Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
 
-        tilt1_samps = arccos(S1nx*Lnx + S1ny*Lny + S1nz*Lnz)
-        tilt2_samps = arccos(S2nx*Lnx + S2ny*Lny + S2nz*Lnz)
+            tilt1_samps = arccos(S1nx*Lnx + S1ny*Lny + S1nz*Lnz)
+            tilt2_samps = arccos(S2nx*Lnx + S2ny*Lny + S2nz*Lnz)
 
-        tilt1_pos = bppu.OneDPosterior('tilt1',tilt1_samps,injected_value=inj_tilt1)
-        tilt2_pos = bppu.OneDPosterior('tilt2',tilt2_samps,injected_value=inj_tilt2)
+            tilt1_pos = bppu.OneDPosterior('tilt1',tilt1_samps,injected_value=inj_tilt1)
+            tilt2_pos = bppu.OneDPosterior('tilt2',tilt2_samps,injected_value=inj_tilt2)
 
-        pos.append(tilt1_pos)
-        pos.append(tilt2_pos)
+            pos.append(tilt1_pos)
+            pos.append(tilt2_pos)
 
-    if 'tilt1' in pos.names and 'tilt2' in pos.names:
-        inj_costilt1 = cos(pos['tilt1'].injval)
-        inj_costilt2 = cos(pos['tilt2'].injval)
+        if 'tilt1' in pos.names and 'tilt2' in pos.names:
+            inj_costilt1 = cos(pos['tilt1'].injval)
+            inj_costilt2 = cos(pos['tilt2'].injval)
 
-        costilt1_samps = cos(pos['tilt1'].samples)
-        costilt2_samps = cos(pos['tilt2'].samples)
+            costilt1_samps = cos(pos['tilt1'].samples)
+            costilt2_samps = cos(pos['tilt2'].samples)
         
-        costilt1_pos = bppu.OneDPosterior('costilt1',costilt1_samps,injected_value=inj_costilt1)
-        costilt2_pos = bppu.OneDPosterior('costilt2',costilt2_samps,injected_value=inj_costilt2)
+            costilt1_pos = bppu.OneDPosterior('costilt1',costilt1_samps,injected_value=inj_costilt1)
+            costilt2_pos = bppu.OneDPosterior('costilt2',costilt2_samps,injected_value=inj_costilt2)
 
-        pos.append(costilt1_pos)
-        pos.append(costilt2_pos)
+            pos.append(costilt1_pos)
+            pos.append(costilt2_pos)
 
         
     ##Print some summary stats for the user...##
@@ -371,7 +372,9 @@ def cbcBayesPostProc(
     #If sky resolution parameter has been specified try and create sky map...
     skyreses=None
     sky_injection_cl=None
-    if skyres is not None and 'ra' in pos.names and 'dec' in pos.names:
+    if skyres is not None and \
+       (('ra' in pos.names and 'dec' in pos.names) or \
+        ('rightascension' in pos.names and 'declination' in pos.names)):
         #Greedy bin sky samples (ra,dec) into a grid on the sky which preserves
         #?
         top_ranked_sky_pixels,sky_injection_cl,skyreses,injection_area=bppu.greedy_bin_sky(pos,skyres,confidence_levels)
