@@ -926,6 +926,17 @@ tagInspiralInit
 \idx[Type]{InspiralInit}
 </lalLaTeX>  */
 
+typedef struct
+tagEOBNonQCCoeffs
+{
+  REAL8 a1;
+  REAL8 a2;
+  REAL8 a3;
+  REAL8 a4;
+  REAL8 b1;
+  REAL8 b2;
+} EOBNonQCCoeffs;
+
 /* <lalVerbatim file="LALInspiralApplyTaperH">  */
 typedef enum
 {
