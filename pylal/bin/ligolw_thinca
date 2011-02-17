@@ -37,7 +37,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
-from glue import segmentUtils
+from glue import segmentsUtils
 # Don't use sngl_inspiral event_id derived from the long built-in.  this
 # must be done before importing pylal.xlal.tools or bad things happen.
 # FIXME:  remove when thinca no longer generates bazillion-digit long
@@ -86,11 +86,12 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "%prog implements the inspiral coincidence algorithm for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+		description = "%prog implements the inspiral coincidence algorithm for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Gzipped files will be autodetected on input, if a file's name ends in \".gz\" it will be gzip-compressed on output."
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
+	parser.add_option("--exact-mass", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact mass coincidence.")
 	parser.add_option("-a", "--effective-snr", metavar = "{inspiral|gstlal}", help = "Select effective SNR algorithm (required).  \"inspiral\" reproduces the algorithm used by lalapps_thinca, \"gstlal\" is an algorithm appropriate for use with gstlal_inspiral.")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor used with the \"inspiral\" effective SNR (default = 250.0).")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
@@ -110,10 +111,10 @@ def parse_command_line():
 	if options.effective_snr not in ("inspiral", "gstlal"):
 		raise ValueError, "unrecognized --effective-snr %s" % options.effective_snr
 
-	if options.coinc_end_time_segments is not None:
-		if ',' in options.coinc_end_time_segments:
-			raise ValueError, "--coinc-end-time-segments may only contain a single segment"
-		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segments], boundtype = LIGOTimeGPS).coalesce()
+	if options.coinc_end_time_segment is not None:
+		if ',' in options.coinc_end_time_segment:
+			raise ValueError, "--coinc-end-time-segment may only contain a single segment"
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
 
@@ -122,23 +123,6 @@ def parse_command_line():
 	#
 
 	return options, (filenames or [None])
-
-
-#
-# =============================================================================
-#
-#                        Custom Ntuple Comparison Function
-#
-# =============================================================================
-#
-
-
-def restricted_endtime_ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_seg):
-	"""
-	Return False (ntuple should be retained) if the end time of the
-	coinc is in the segmentlist segs.
-	"""
-	return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
 
 
 #
@@ -168,11 +152,29 @@ if options.effective_snr == "gstlal":
 
 
 #
+# Select event_comparefunc form
+#
+
+if options.exact_mass:
+	# Require exact mass coincidence
+	event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact
+else:
+	event_comparefunc = ligolw_thinca.inspiral_coinc_compare
+
+#
 # Select ntuple_comparefunc form
 #
 
 
 if options.coinc_end_time_segs is not None:
+	# Custom Ntuple Comparison Function
+	def restricted_endtime_ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
+		"""
+		Return False (ntuple should be retained) if the end time of the
+		coinc is in the segmentlist segs.
+		"""
+		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
+
 	ntuple_comparefunc = restricted_endtime_ntuple_comparefunc
 else:
 	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
@@ -190,7 +192,7 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	xmldoc = utils.load_filename(filename, options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
@@ -216,6 +218,7 @@ for n, filename in enumerate(filenames):
 		comment = options.comment,
 		force = options.force,
 		e_thinca_parameter = options.e_thinca_parameter,
+		exact_mass = options.exact_mass,
 		effective_snr_factor = options.effective_snr_factor,
 		vetoes_name = options.vetoes_name,
 		trigger_program = options.trigger_program,
@@ -270,7 +273,7 @@ for n, filename in enumerate(filenames):
 		EventListType = ligolw_thinca.InspiralEventList,
 		CoincTables = ligolw_thinca.InspiralCoincTables,
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
-		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact,
+		event_comparefunc = event_comparefunc,
 		thresholds = options.e_thinca_parameter,
 		ntuple_comparefunc = ntuple_comparefunc,
 		effective_snr_factor = options.effective_snr_factor,

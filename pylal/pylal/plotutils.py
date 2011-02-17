@@ -553,25 +553,24 @@ class SixStripSeriesPlot(BasicPlot):
 
         self.x_coord_sets = []
         self.y_coord_sets = []
-        self.data_labels = []
-        self.formats = []
+        self.kwarg_sets = []
 
-    def add_content(self, x_coords, y_coords, label="_nolabel_", format=None):
+    def add_content(self, x_coords, y_coords, **kwargs):
         if len(x_coords) != len(y_coords):
             raise ValueError, "x and y coords have different length"
-        if (iterutils.any(c is None for c in self.formats) \
-            and format is not None) \
-           or (iterutils.any(c is not None for c in self.formats) \
-               and format is None):
-            raise ValueError, "cannot mix explicit and automatic formating"
+        if len(self.kwarg_sets) and \
+            (iterutils.any("color" in kw for kw in self.kwarg_sets)
+             ^ ("color" in kwargs)):
+            raise ValueError, "cannot mix explicit and automatic coloring"
 
         self.x_coord_sets.append(x_coords)
         self.y_coord_sets.append(y_coords)
-        self.data_labels.append(label)
-        self.formats.append(format)
+        self.kwarg_sets.append(kwargs)
 
     @method_callable_once
     def finalize(self, yscale="linear"):
+        for kw, c in zip(self.kwarg_sets, default_colors()):
+            kw.setdefault("color", c)
 
         min_x, max_x = determine_common_bin_limits(self.x_coord_sets)
 
@@ -592,22 +591,15 @@ class SixStripSeriesPlot(BasicPlot):
             # create one of the 6 axes
             ax = self.fig.add_axes([.12, .84-.155*j, .86, 0.124])
 
-            # Since default_colors() returns an infinite iterator, we need to
-            # initialize it again and again.
-            if iterutils.any(c is None for c in self.formats):
-                formats = default_colors()
-            else:
-                formats = self.formats
-
-            for x_coords, y_coords, label, format in zip(self.x_coord_sets,
-                self.y_coord_sets, self.data_labels, formats):
+            for x_coords, y_coords, kwarg_set in zip(self.x_coord_sets,
+                self.y_coord_sets, self.kwarg_sets):
                 # just look at the region relevant to our axis
                 ind = (x_coords >= freq_range[0]) & (x_coords < freq_range[1])
                 x = x_coords[ind]
                 y = y_coords[ind]
 
                 # add data to axes
-                ax.plot(x, y, format, label=label, markersize=1)
+                ax.plot(x, y, **kwarg_set)
 
                 # fix the limits and ticks
                 ax.set_xlim(freq_range)
@@ -702,6 +694,10 @@ class ROCPlot(BasicPlot):
         self.ax.grid(True)
         self.ax.set_xlim((0, 1))
         self.ax.set_ylim((0, 1))
+
+        # resize figure to make axes square
+        fig_side = min(self.fig.get_size_inches())
+        self.fig.set_size_inches(fig_side, fig_side)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc)
@@ -800,3 +796,168 @@ class QQPlot(BasicPlot):
         del self.fg_kwargs
         del self.bg_kwargs
         del self.kwargs
+
+class SimpleMapPlot(BasicPlot):
+    """
+    Class to create a clickable map html page. 
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.x_data_sets = []
+        self.y_data_sets = []
+        self.link_list = []        
+        self.kwarg_sets = []
+
+        self.click_size = 5
+        
+        self.click_x = []
+        self.click_y = []
+        self.click_link = []
+        
+    def set_click_size(self, size):
+        """
+        Sets the size of the area around a point that can be clicked at.
+        """
+        self.click_size = size
+
+    def add_content(self, x_data, y_data, link, **kwargs):
+        self.x_data_sets.append(x_data)
+        self.y_data_sets.append(y_data)
+        self.link_list.append(link)
+        self.kwarg_sets.append(kwargs)
+
+        
+    @method_callable_once
+    def finalize(self, loc=0):
+        
+        # make plot
+        for x_vals, y_vals, plot_kwargs in \
+            itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets):
+            self.ax.plot(x_vals, y_vals, **plot_kwargs)
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist(loc=loc)
+
+          
+    def rescale(self, dpi):
+        """
+        Calculate the rescaling to map the point coordinates
+        to the actual coordinates on the image.
+        """
+
+        # set the dpi used for the savefig
+        if dpi is None:
+            dpi = pylab.rcParams['savefig.dpi']
+        self.ax.get_figure().set_dpi(dpi)
+
+        # get the full extend of the final image
+        _, _, width, height = self.fig.bbox.extents
+
+        # set the pixels for each point that can be clicked
+        self.click_x = []
+        self.click_y = []
+        self.click_link = []
+        for xvec, yvec, link in \
+                itertools.izip(self.x_data_sets, self.y_data_sets, self.link_list):
+            # skip if no link is associated with these point(s)
+            if link is None:
+                continue
+            
+            for point in zip(xvec, yvec):
+
+                # transform the data coordinates into piel coordinates
+                pixel = self.ax.transData.transform(point)
+
+                # save the new coordinates. The y-coordinate is just
+                # the other way around. 
+                self.click_x.append(pixel[0])
+                self.click_y.append(height - pixel[1])
+                self.click_link.append(link)
+
+
+    def create_html(self, plotname, dpi = None):
+        """
+        Create the html file with the name of the plot
+        as the only additional input information needed.
+        If the actual plot is saved with a different
+        dpi than the standard one, it must be specified here!!
+        """
+                                  
+        # points need to be rescaled first
+        self.rescale(dpi)
+        
+        # get the full extend of the final image
+        _, _, width, height = self.fig.bbox.extents
+        
+        # create the map-page
+        page = ''
+        page += '<IMG src="%s" width=%dpx '\
+            'usemap="#map">' % ( plotname, width) 
+        page +=  '<MAP name="map"> <P>' 
+        n=0
+        for px, py, link in zip( self.click_x, self.click_y, self.click_link):
+            n+=1
+            page +=  '<area href="%s" shape="circle" '\
+                'coords="%d, %d, 5"> Point%d</a>' %\
+                ( link, px, py, n) 
+        page += '</P></MAP></OBJECT><br>'
+        page += "<hr/>"
+
+        # return the html code, to be saved to a file or embedded in a
+        # larger html page
+        return page
+
+
+    
+###################################################
+## unittest section
+###################################################
+
+import unittest
+
+# --------------------------------------------
+class TestSimpleMapPlot(unittest.TestCase):
+
+
+    def test_plot(self):
+        # set a different dpi for testing purposes
+        pylab.rcParams.update({"savefig.dpi": 120})
+
+        # define the SimpleMapPlot
+        plot = SimpleMapPlot(r"Range [km]", r"Take off weight [t]", "4 engine planes")
+
+        # define some data.
+        # Note: The third item consists of two points (with the same link)
+        # while the last data point has no link at all (link=None)
+        range = [ [14600], [14800], [13000, 14800], [2800], [4800], [14000]]
+        weight = [[365], [560], [374, 442], [46], [392], [50]]
+        links = ['http://de.wikipedia.org/wiki/Airbus_A340',\
+                'http://de.wikipedia.org/wiki/Airbus_A380',\
+                'http://de.wikipedia.org/wiki/Boeing_747',\
+                'http://de.wikipedia.org/wiki/Avro_RJ85',\
+                'http://de.wikipedia.org/wiki/Antonow_An-124',\
+                 None]
+        markers = ['ro','bD','yx','cs','g^','k>']
+
+        # set the data to plotutils
+        for x,y,link, mark in zip(range, weight, links, markers):
+            plot.add_content(x, y, link, color=mark[0], marker=mark[1])
+
+        # finalize the plot
+        plot.finalize()
+
+        # save the plot
+        plotname = 'plotutils_TestSimpleMapPlot.png'
+        plot.savefig(plotname)
+
+        # and here create the html click map and save the html file
+        html = plot.create_html(plotname)
+        f = file('plotutils_TestSimpleMapPlot.html','w')
+        f.write(html)
+        f.close()
+
+# --------------------------------------------    
+if __name__ == '__main__':
+
+    
+    unittest.main()

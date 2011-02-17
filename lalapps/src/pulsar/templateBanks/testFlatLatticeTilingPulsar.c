@@ -20,6 +20,7 @@
 /**
  * \author Karl Wette
  * \file
+ * \ingroup pulsarApps
  * \brief Test program for FlatLatticeTiling*
  */
 
@@ -49,7 +50,7 @@ RCSID("$Id$");
 
 #define LALAPPS_ERROR(message, errno) \
 {                                     \
-  LALPrintError(message);             \
+  XLALPrintError(message);             \
   return EXIT_FAILURE;                \
 }
 

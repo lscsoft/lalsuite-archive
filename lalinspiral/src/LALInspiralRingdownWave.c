@@ -101,8 +101,11 @@ LALFree
 #include <gsl/gsl_interp.h>
 #include <gsl/gsl_spline.h>
 
-/* macro to "use" unused function parameters */
-#define UNUSED(expr) do { (void)(expr); } while (0)
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 /* <lalVerbatim file="XLALInspiralHybridRingdownWaveCP">  */
 INT4 XLALInspiralHybridRingdownWave (
@@ -684,8 +687,8 @@ INT4 XLALGenerateWaveDerivatives (
 INT4 XLALGenerateQNMFreq(
 	COMPLEX8Vector		*modefreqs,
 	InspiralTemplate	*params,
-	UINT4			l,
-	UINT4			m,
+	UINT4			UNUSED l,
+	UINT4			UNUSED m,
 	UINT4			nmodes
 	)
 /* </lalVerbatim> */
@@ -701,10 +704,6 @@ INT4 XLALGenerateQNMFreq(
   REAL4 BCWim[8][3] = { {0.7000,  1.4187, -0.4990}, {0.1000,  0.5436, -0.4731}, {-0.1000,  0.4206, -0.4256},
 			{-0.1000,  0.4206, -0.4156},{-0.1000,  0.4206, -0.4056},{-0.1000,  0.4206, -0.3956}, 
 			{-0.1000,  0.4206, -0.3856}, {-0.1000,  0.4206, -0.3756} };
-
-  /* l and m are unused in this function */
-  UNUSED(l);
-  UNUSED(m);
 
   /* Get a local copy of the intrinstic parameters */
   totalMass = params->totalMass;
@@ -961,7 +960,7 @@ INT4 XLALInspiralAttachRingdownWave (
       REAL4Vector		*ddinspwave;
       REAL4VectorSequence	*inspwaves1;
       REAL4VectorSequence	*inspwaves2;
-      REAL8 omegamatch, dt, c1;
+      REAL8 omegamatch, dt;
 
    /* Attaching position set by omega_match */
    /* Omega_match is given by Eq.(37) of PRD 76, 104049 (2007) */
@@ -980,7 +979,6 @@ INT4 XLALInspiralAttachRingdownWave (
 	    }
 
       }
-      c1 = 1./(LAL_PI*LAL_MTSUN_SI*params->totalMass);
 
       /* Create memory for the QNM frequencies */
       nmodes = 3;

@@ -1,3 +1,9 @@
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Vladimir Dergachev
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -238,6 +244,15 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
 	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
 	
+
+	fprintf(LOG,"fake dInv: %g\n", args_info.fake_dInv_arg);
+	fprintf(LOG,"fake frequency modulation depth: %f\n", args_info.fake_freq_modulation_depth_arg);
+	fprintf(LOG,"fake frequency modulation frequency: %f\n", args_info.fake_freq_modulation_freq_arg);
+	fprintf(LOG,"fake frequency modulation phase: %f\n", args_info.fake_freq_modulation_phase_arg);
+	fprintf(LOG,"fake phase modulation depth: %f\n", args_info.fake_phase_modulation_depth_arg);
+	fprintf(LOG,"fake phase modulation frequency: %f\n", args_info.fake_phase_modulation_freq_arg);
+	fprintf(LOG,"fake phase modulation phase: %f\n", args_info.fake_phase_modulation_phase_arg);
+	fprintf(LOG,"fake injection window: %d\n", args_info.fake_injection_window_arg);
    	} else {
    	fprintf(LOG,"fake signal injection: none\n");
 	}
@@ -460,10 +475,10 @@ double f0=args_info.focus_f0_arg;
 //double dec=args_info.focus_dec_arg;
 double dInv=args_info.focus_dInv_arg;
 int point;
-int half_window=0;
+int half_window=1;
 int wing_step=round(nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
 int day_samples=round(SIDEREAL_DAY/args_info.coherence_length_arg);
-int fstep, nfsteps=2;
+int fstep, nfsteps=1;
 
 /* round of nsamples to contain integer number of sideral days */
 
@@ -577,10 +592,17 @@ for(n=0;n<d_free;n++) {
 		x2=x*c+y*s;
 		y2=-x*s+y*c;
 
-		samples->data[i].re=x2*(f_plus+f_cross)-y2*(f_plus-f_cross);
-		samples->data[i].im=x2*(f_plus+f_cross)+y2*(f_plus-f_cross);
-		
+		/* circular */
+// 		samples->data[i].re=x2*(f_plus+f_cross)-y2*(f_plus-f_cross);
+// 		samples->data[i].im=x2*(f_plus+f_cross)+y2*(f_plus-f_cross);
 		total_weight+=f_plus*f_plus+f_cross*f_cross;
+
+		/* plus */
+		samples->data[i].re=x2*f_plus;
+		samples->data[i].im=y2*f_plus;
+		//total_weight+=f_plus*f_plus+f_cross*f_cross;
+		total_weight+=f_plus*f_plus;
+
 
 		if(args_info.dump_stream_data_arg)fprintf(DATA_LOG, "stream: %d %d %d %d %lld %d %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
 				i, n, j, fstep, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,

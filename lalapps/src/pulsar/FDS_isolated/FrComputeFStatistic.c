@@ -17,6 +17,13 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Y. Ioth, M.A. Papa, X. Siemens, R. Prix, T. Creighton
+ * \brief F-statistic generation code for known pulsars
+ */
+
 /*********************************************************************************/
 /*                    F-statistic generation code for known pulsars              */
 /*                                                                               */
@@ -57,10 +64,7 @@ RCSID( "$Id$");
 #define FILE_SPRNG 
 */
 
-/********************************************************** <lalLaTeX>
-\subsection*{Error codes}
-</lalLaTeX>
-***************************************************** <lalErrTable> */
+/** \name Error Codes */ /*@{*/
 #define COMPUTEFSTATC_ENULL 		1
 #define COMPUTEFSTATC_ESYS     		2
 #define COMPUTEFSTATC_EINPUT   		3
@@ -68,7 +72,7 @@ RCSID( "$Id$");
 #define COMPUTEFSTATC_MSGENULL 		"Arguments contained an unexpected null pointer"
 #define COMPUTEFSTATC_MSGESYS		"System call failed (probably file IO)"
 #define COMPUTEFSTATC_MSGEINPUT   	"Invalid input"
-/*************************************************** </lalErrTable> */
+/*@}*/
 
 
 /*----------------------------------------------------------------------
@@ -1319,7 +1323,7 @@ SetGlobalVariables(LALStatus *status, ConfigVariables *cfg)
   /* safety-check: only allow EITHER of skyRegion OR (Alpha,AlphaBand, Delta, DeltaBand) */
   if ( !LALUserVarWasSet(&uvar_skyRegion) && (!LALUserVarWasSet(&uvar_Alpha)||!LALUserVarWasSet(&uvar_Delta)) ) 
     {
-      LALPrintError ("Either (Alpha,Delta) or a skyRegion have to be specified!\n");
+      XLALPrintError ("Either (Alpha,Delta) or a skyRegion have to be specified!\n");
       ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT);
     }
   /* now check that only one of those two has been given! ;) */
@@ -1327,7 +1331,7 @@ SetGlobalVariables(LALStatus *status, ConfigVariables *cfg)
        && (LALUserVarWasSet(&uvar_Alpha)||LALUserVarWasSet(&uvar_Delta)
 	   ||LALUserVarWasSet(&uvar_AlphaBand)||LALUserVarWasSet(&uvar_DeltaBand)) ) 
     {
-      LALPrintError ("ATTENTION: you can only specify *either* (Alpha,Delta,AlphaBand,DeltaBand) *or* skyRegion !\n");
+      XLALPrintError ("ATTENTION: you can only specify *either* (Alpha,Delta,AlphaBand,DeltaBand) *or* skyRegion !\n");
       ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT);
     }
 

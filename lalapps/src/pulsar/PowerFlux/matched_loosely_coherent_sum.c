@@ -19,6 +19,7 @@
 #include "power_cache.h"
 #include "summing_context.h"
 #include "power_sums.h"
+#include "hookup.h"
 #include "cmdline.h"
 #include "single_bin_loosely_coherent_sum.h"
 
@@ -54,9 +55,6 @@ typedef struct {
 
 /* Lanczos window actually vanishes */
 #define LOOSE_SEARCH_TOLERANCE 0.0
-
-/* Single-bin helper function useful for matched code */
-LALDetector get_detector_struct(char *det);
 
 
 /* 
@@ -803,7 +801,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			baryinput.site.location[2]=baryinput.site.location[2]/LAL_C_SI;
 			baryinput.alpha=ps[i].ra;
 			baryinput.delta=ps[i].dec;
-			baryinput.dInv=0; /* TODO: pass this from command line */
+			baryinput.dInv=args_info.dInv_arg;
 
 			LALBarycenter(&status, &(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state);
 			TESTSTATUS(&status);

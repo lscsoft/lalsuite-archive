@@ -37,13 +37,15 @@ option "sun-ephemeris" 	- "Sun ephemeris file, overrides ephemeris-path argument
 
 option "first-bin"   	f "first frequency bin in the band to be analyzed" int no
 option "nbins"   	n "number of frequency bins to analyze" int default="501" no
-option "side-cut"    	- "number of bins to cut from each side due to corruption from doppler shifts" int no
+option "side-cut"    	- "number of extra bins to load to accomodate doppler shifts and spindown" int no
+option "extra-side-cut"    	- "number of extra bins to load in addition to side-cut computed automatically" int default="0" no
 option "expected-timebase"    	- "expected timebase in months" double default="6" no
 option "hist-bins"      - "number of bins to use when producing histograms" int default="200" no
 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
 
 option "doppler-multiplier" - "a constant to multiply Doppler shifts by (1.0 corresponds to standard physics)" double default="1.0" no
+option "dInv" - "inverse distance to expected source in seconds" double default="0.0" no
 
 option "spindown-start-time" - "specify spindown start time in GPS sec. Assumed to be the first SFT segment by default" double no
 option "frequency-offset" - "(small) frequency offset - used to achieve fractional bin shifts" double default="0.0" no
@@ -86,14 +88,22 @@ groupoption "fake-linear" - "Inject linearly polarized fake signal" group="injec
 groupoption "fake-circular" - "Inject circularly polarized fake signal" group="injection"
 
 option "fake-ref-time"	- "time of signal start" double default="0" no
-option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
+option "fake-ra"	- "RA of fake signal to inject" double default="0.0" no
 option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no
 option "fake-iota"	- "iota of fake signal to inject" double default="0.0" no
 option "fake-psi"	- "orientation of fake signal to inject" double default="0.0" no
 option "fake-phi"	- "phase of fake signal to inject" double default="0.0" no
 option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0" no
-option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
+option "fake-strain"	- "amplitude of fake signal to inject" double default="0.0" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
+option "fake-dInv"	- "inverse distance to source of fake signal in seconds" double default="0.0" no
+option "fake-freq-modulation-depth" - "depth of additional sinusoidal frequency modulation in Hz" double default="0.0" no
+option "fake-freq-modulation-freq" - "frequency of additional sinusoidal frequency modulation" double default="1.0" no
+option "fake-freq-modulation-phase" - "phase of additional sinusoidal frequency modulation" double default="0.0" no
+option "fake-phase-modulation-depth" - "depth of additional sinusoidal phase modulation in radians" double default="0.0" no
+option "fake-phase-modulation-freq" - "frequency of additional sinusoidal phase modulation" double default="0.0" no
+option "fake-phase-modulation-phase" - "phase of additional sinusoidal phase modulation" double default="0.0" no
+option "fake-injection-window"	- "compute this number of frequency bins to the left and right of the central frequency" int default="5" no
 
 option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
 option "max-candidates"	- "Do not optimize more than this number of candidates" int default="-1" no
@@ -135,3 +145,7 @@ option "time-group-count" - "separate SFTs in that many groups by gps time" int 
 option "phase-mismatch" - "maximal phase mismatch over coherence length to assume when using loosely coherent mode" double default="1.570796" no
 option "bypass-powersum-cache" - "bypass partial power sum cache" int default="0" no
 
+option "preallocate-memory" - "preallocate this many gigabytes of memory for future usage" double default="0.0" no
+option "memory-allocation-retries" - "number of times to retry allocating memory before giving up" int default="1000" no
+
+option "extra-phase"		- "shift data of all datasets matching regexp by this phase (specify in degrees as \".*H1.* 45.3\")" string multiple no

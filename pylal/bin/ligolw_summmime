@@ -234,8 +234,8 @@ if (opts.insert_media):
         if myPath == "":
             myPath = "./"
         sys.stdout.write(\
-            "Inserting media files matching SHELLEXP %s in path %s into %s\n"%\
-                (myShellEx,myPath,xmlFile))
+            "Inserting media files matching SHELLEXP %s in path %s into %s(Directory Recursion:%s)\n"%\
+                (myShellEx,myPath,xmlFile,opts.tree))
         for myFile in recurseTreeFnmatch(myPath,myShellEx,opts.tree):
             insertMedia(xmlTable,myFile)
 #

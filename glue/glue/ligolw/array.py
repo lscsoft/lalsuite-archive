@@ -44,6 +44,7 @@ The array is stored as an attribute of the Array element.
 import numpy
 import re
 import sys
+import warnings
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl as Attributes
 
@@ -83,6 +84,8 @@ def StripArrayName(name):
 	Return the significant portion of an array name according to LIGO
 	LW naming conventions.
 	"""
+	if name.lower() != name:
+		warnings.warn("array name \"%s\" is not lower case" % name)
 	try:
 		return ArrayPattern.search(name).group("Name")
 	except AttributeError:
@@ -154,10 +157,6 @@ def get_array(xmldoc, name):
 #
 
 
-def IndexIter(shape):
-	return iterutils.MultiIter(*map(range, shape))
-
-
 class ArrayStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Arrays.  This element
@@ -175,15 +174,14 @@ class ArrayStream(ligolw.Stream):
 		# has been set.
 		self._tokenizer.set_types([parentNode.pytype])
 		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
-		self._index = iter(IndexIter(parentNode.array.shape))
+		self._index = 0
 		return self
 
 	def appendData(self, content):
 		# tokenize buffer, and assign to array
-		a = self.parentNode.array
-		n = self._index.next
-		for token in self._tokenizer.append(content):
-			a[n()] = token
+		tokens = tuple(self._tokenizer.append(content))
+		self.parentNode.array.T.flat[self._index : self._index + len(tokens)] = tokens
+		self._index += len(tokens)
 
 	def unlink(self):
 		"""
@@ -198,20 +196,23 @@ class ArrayStream(ligolw.Stream):
 		# delimiter after the last element.
 		delim = self.getAttribute(u"Delimiter")
 		format = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
-		a = self.parentNode.array
-		n = iter(IndexIter(a.shape)).next
+		elems = self.parentNode.array.T.flat
+		linelen = self.parentNode.array.shape[0]
+		totallen = self.parentNode.array.size
 		newline = u"\n" + indent + ligolw.Indent
-		file.write(self.start_tag(indent))
-		try:
-			indexes = n()
-			while True:
-				if not indexes[0]:
-					file.write(newline)
-				file.write(xmlescape(format(a[indexes])))
-				indexes = n()
-				file.write(delim)
-		except StopIteration:
-			file.write(u"\n" + self.end_tag(indent) + u"\n")
+		w = file.write
+		w(self.start_tag(indent))
+		if totallen:
+			# there will be at least one line of data
+			w(newline)
+		newline = delim + newline
+		while True:
+			w(xmlescape(delim.join(format(elems.next()) for i in xrange(linelen))))
+			if elems.index >= totallen:
+				break
+			w(newline)
+		w(u"\n" + self.end_tag(indent) + u"\n")
+		return
 
 
 class Array(ligolw.Array):

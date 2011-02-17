@@ -17,18 +17,40 @@
 *  MA  02111-1307  USA
 */
 
-/**
+#include <math.h>
+#include <stdlib.h>
+#include <gsl/gsl_matrix.h>
+#include <lal/AVFactories.h>
+#include <lal/DetectorSite.h>
+#include <lal/LALStdlib.h>
+#include <lal/PtoleMetric.h>
+#include <lal/PulsarTimes.h>
+#include <lal/StackMetric.h>
+
+/*---------- empty initializers ---------- */
+/* some empty structs for initializations */
+static const MetricParamStruc empty_MetricParamStruc;
+static const PulsarTimesParamStruc empty_PulsarTimesParamStruc;
+
+/** \cond DONT_DOXYGEN */
+NRCSID( PTOLEMETRICC, "$Id$" );
+/** \endcond */
+
+/* Bounds on acceptable parameters, may be somewhat arbitrary */
+#define MIN_DURATION (LAL_DAYSID_SI/LAL_TWOPI) /* Metric acts funny if duration too short */
+#define MIN_MAXFREQ  1.                        /* Arbitrary */
+
+/* A private factorial function */
+static int factrl( int );
+
+/** \ingroup PtoleMetric_h
  * \author Jones D. I., Owen, B. J., and Whitbeck, D. M.
  * \date 2001-2005
- * \file
- * \ingroup PulsarMetric
  * \brief Computes metric components for a pulsar search in the ``Ptolemaic''
- * approximation.  Both the Earth's spin and orbit are included.
+ * approximation; both the Earth's spin and orbit are included.
  *
- * $Id$
  *
-
- \par Description
+ \heading{Description}
 
  This function computes metric components in a way that yields results
  very similar to those of LALCoherentMetric() called with the
@@ -39,7 +61,7 @@
  Taylor series expansion is used to improve the accuracy with which several
  terms are computed.
 
- \par Algorithm
+ \heading{Algorithm}
 
  For speed and checking reasons, a minimum of numerical computation is
  involved. The metric components can be expressed analytically (though not
@@ -56,7 +78,7 @@
  scheme as in LALCoherentMetric(). The order of the parameters is
  \f$(f_0, \alpha, \delta)\f$.
 
- \par Notes
+ \heading{Notes}
 
  The analytic metric components were derived separately by Jones and
  Whitbeck (and partly by Owen) and found to agree.  Also, the output of this
@@ -71,38 +93,11 @@
  location.  The code contains (commented out) expressions for
  spindown-spindown metric components for an arbitrary number of spindowns,
  but the (commented out) spindown-sky components neglect orbital motion.
+
  A separate routine, XLALSpindownMetric(), has been added to compute the
  metric for multiple spindowns but for fixed sky position, suitable for
  e.g. directed searches.
-
 */
-
-#include <math.h>
-#include <stdlib.h>
-#include <gsl/gsl_matrix.h>
-#include <lal/AVFactories.h>
-#include <lal/DetectorSite.h>
-#include <lal/LALStdlib.h>
-#include <lal/PtoleMetric.h>
-#include <lal/PulsarTimes.h>
-#include <lal/StackMetric.h>
-
-/*---------- empty initializers ---------- */
-/* some empty structs for initializations */
-static const MetricParamStruc empty_MetricParamStruc;
-static const PulsarTimesParamStruc empty_PulsarTimesParamStruc;
-
-
-NRCSID( PTOLEMETRICC, "$Id$" );
-
-/* Bounds on acceptable parameters, may be somewhat arbitrary */
-#define MIN_DURATION (LAL_DAYSID_SI/LAL_TWOPI) /* Metric acts funny if
-                                                * duration too short */
-#define MIN_MAXFREQ  1.                        /* Arbitrary */
-
-/* A private factorial function */
-static int factrl( int );
-
 void LALPtoleMetric( LALStatus *status,
                      REAL8Vector *metric,
                      PtoleMetricIn *input )
@@ -147,9 +142,7 @@ void LALPtoleMetric( LALStatus *status,
   REAL8 D_cos_2p_s;
   /* Some useful short-hand notations involving spin and orbital phases: */
   REAL8 D_sin_p_o_plus_s;
-  REAL8 D_p_o_plus_s;
   REAL8 D_sin_p_o_minus_s;
-  REAL8 D_p_o_minus_s;
   REAL8 D_cos_p_o_plus_s;
   REAL8 D_cos_p_o_minus_s;
   /* Quantities related to the short-time Tatlor expansions : */
@@ -273,10 +266,8 @@ void LALPtoleMetric( LALStatus *status,
   /* Some mixed quantities: */
   D_sin_p_o_plus_s
     = (sin(phi_o_f+phi_s_f) - sin(phi_o_i+phi_s_i))/(D_p_o + D_p_s);
-  D_p_o_plus_s      = D_p_o + D_p_s;
   D_sin_p_o_minus_s
     = (sin(phi_o_f-phi_s_f) - sin(phi_o_i-phi_s_i))/(D_p_o - D_p_s);
-  D_p_o_minus_s     = D_p_o - D_p_s;
   D_cos_p_o_plus_s
     = (cos(phi_o_f+phi_s_f) - cos(phi_o_i+phi_s_i))/(D_p_o + D_p_s);
   D_cos_p_o_minus_s
@@ -640,11 +631,11 @@ static int factrl( int arg )
 } /* factrl() */
 
 
-/** Unified "wrapper" to provide a uniform interface to LALPtoleMetric()
- * and LALCoherentMetric(), from DopplerScan.c, written by Reinhard Prix.
+/** \ingroup PtoleMetric_h
+ * \brief Unified "wrapper" to provide a uniform interface to LALPtoleMetric() and LALCoherentMetric().
+ * \author Reinhard Prix
  *
- * The parameter structure of LALPtoleMetric() was used, because it's more
- * compact
+ * The parameter structure of LALPtoleMetric() was used, because it's more compact.
  */
 void LALPulsarMetric ( LALStatus *stat,
 		       REAL8Vector **metric,
@@ -780,7 +771,7 @@ void LALPulsarMetric ( LALStatus *stat,
       break;
 
     default:
-      LALPrintError ("Unknown metric type `%d`\n", input->metricType);
+      XLALPrintError ("Unknown metric type `%d`\n", input->metricType);
       ABORT (stat, PTOLEMETRICH_EMETRIC,  PTOLEMETRICH_MSGEMETRIC);
       break;
 
@@ -792,8 +783,10 @@ void LALPulsarMetric ( LALStatus *stat,
 } /* LALPulsarMetric() */
 
 
-/** Figure out dimension of a REAL8Vector-encoded (see PMETRIC_INDEX) metric.
- * Return error if input-vector is NULL or not consistent with a quadratic matrix */
+/** \ingroup PtoleMetric_h
+ * \brief Figure out dimension of a REAL8Vector -encoded metric (see PMETRIC_INDEX() ).
+ * Return error if input-vector is NULL or not consistent with a quadratic matrix.
+ */
 int
 XLALFindMetricDim ( const REAL8Vector *metric )
 {
@@ -803,7 +796,7 @@ XLALFindMetricDim ( const REAL8Vector *metric )
 
   if ( !metric )
     {
-      LALPrintError ("\nNULL Input received!\n\n");
+      XLALPrintError ("\nNULL Input received!\n\n");
       XLAL_ERROR ( "XLALFindMetricDim", XLAL_EINVAL);
     }
 
@@ -821,7 +814,7 @@ XLALFindMetricDim ( const REAL8Vector *metric )
     }
 
   /* no fitting dimension found ==> error */
-  LALPrintError ("\nInput vector is inconsisten with symmetric quadratic matrix!\n\n");
+  XLALPrintError ("\nInput vector is inconsisten with symmetric quadratic matrix!\n\n");
   XLAL_ERROR ( "XLALFindMetricDim", XLAL_EINVAL);
 
 }/* XLALFindMetricDim() */
@@ -856,3 +849,5 @@ gsl_matrix *XLALSpindownMetric(
   return metric;
 
 } /* XLALSpindownMetric */
+
+/*@}*/

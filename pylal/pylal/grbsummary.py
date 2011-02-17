@@ -1,7 +1,7 @@
 from __future__ import division
 
-import itertools
 import sys
+itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 import numpy
 
@@ -231,7 +231,7 @@ def get_exttrig_trials(on_segs, off_segs, veto_files):
     if abs(off_segs) % trial_len != 0:
         raise ValueError, "The provided file's analysis segment is not "\
             "divisible by the fold time."
-    extent = off_segs.extent()
+    extent = (off_segs | on_segs).extent()
 
     # generate bins for trials
     num_trials = int(abs(extent)) // trial_len
@@ -261,35 +261,6 @@ def get_mean_mchirp(coinc):
     Return the arithmetic average of the mchirps of all triggers in coinc.
     """
     return sum(t.mchirp for t in coinc) / coinc.numifos
-
-def get_mean_mchirp_lv(coinc):
-    """
-    Return the arithmetic average of the mchirps of all triggers in coinc,
-    taking into account the four different type of coincidences with LV.
-    """
-    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
-
-    ifos = ''
-    for ifo in ['H1','L1','V1']:
-      if hasattr(coinc, ifo):
-        ifos += ifo
-    print ifos, mean_mchirp
-    if ifos=='H1L1V1':
-      modified_mean_mchirp = mean_mchirp
-    elif ifos=='H1L1':
-      modified_mean_mchirp = mean_mchirp+20.0
-    elif ifos=='H1V1':
-      modified_mean_mchirp = mean_mchirp+40.0
-    elif ifos=='L1V1':
-      modified_mean_mchirp = mean_mchirp+60.0
-    else:
-      modified_mean_mchirp = -1
-
-    if mean_mchirp<0.0 or mean_mchirp>20.0:
-      raise ValueError, "The given mean_mchirp of %.2f is outside the "\
-                        " allowed range [0,20]." % mean_mchirp
-
-    return modified_mean_mchirp
 
 
 ##############################################################################
@@ -369,4 +340,42 @@ def get_num_slides(xmldoc):
            if row.param == "--num-slides":
                return int(row.value)
     return 0
+#####################################################################################
+#timeslides functions#
+#####################################################################################
 
+def retrieve_ring_boundaries(xmldoc):
+	#
+	# grab the segment list for any instrument selected at random (they
+	# are all the same)
+	#
+
+	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
+
+	#
+	# because the input often contains two thinca jobs the rings might
+	# be duplicated;  use set() to uniqueify them then sort them.
+	#
+
+	rings = segments.segmentlist(set(rings))
+	rings.sort()
+
+	#
+	# check that the (sorted) rings are non-intersecting
+	#
+
+	for i in range(len(rings) - 1):
+		if rings[i].intersects(rings[i + 1]):
+			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
+
+	#
+	# cast to int to prevent explosions later
+	#
+
+	for i, ring in enumerate(rings):
+		rings[i] = segments.segment(int(ring[0]), int(ring[1]))
+
+	#
+	# done
+	#
+	return rings

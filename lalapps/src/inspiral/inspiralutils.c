@@ -143,9 +143,9 @@ SummValueTable **add_summvalue_table(SummValueTable **newTable,
 
 
 
-void AddNumRelStrainModes(  LALStatus              *status,
-                            REAL4TimeVectorSeries  **outStrain, /** [out]  h+, hx data    */
-                            SimInspiralTable *thisinj     /** [in]   injection data */)
+void AddNumRelStrainModes(  LALStatus              *status,	/**< pointer to LALStatus structure */
+                            REAL4TimeVectorSeries  **outStrain, /**< [out]  h+, hx data    */
+                            SimInspiralTable *thisinj     	/**< [in]   injection data */)
 {
   INT4 modeL, modeM, modeLlo, modeLhi;
   INT4 len, lenPlus, lenCross, k;
@@ -295,14 +295,14 @@ void AddNumRelStrainModes(  LALStatus              *status,
     Takes as input a list of injections, and adds h(t) to a given 
     timeseries for a specified ifo and a dynamic range factor.
 */
-void InjectNumRelWaveforms (LALStatus           *status,
+void InjectNumRelWaveforms (LALStatus           *status,       /**< pointer to LALStatus structure */
                             REAL4TimeSeries     *chan,         /**< [out] the output time series */
                             SimInspiralTable    *injections,   /**< [in] list of injections */
                             CHAR                ifo[3],        /**< [in] 2 char code for interferometer */
                             REAL8               dynRange,      /**< [in] dynamic range factor for scaling time series */ 
                             REAL8               freqLowCutoff, /**< [in] Lower cutoff frequency */  
                             REAL8               snrLow,        /**< [in] lower cutoff value of snr */
-                            REAL8               snrHigh,
+                            REAL8               snrHigh,       /**< TO BE DOCUMENTED */
                             CHAR                *fname)       /**< [in] higher cutoff value of snr */
 {
 
@@ -336,7 +336,7 @@ void InjectNumRelWaveforms (LALStatus           *status,
           
           thisSNR = calculate_ligo_snr_from_strain( tempStrain, thisInj, ifo);
 
-          fprintf(stdout, "injection %s has a snr of %f\n", thisInj->numrel_data, thisSNR);          
+          fprintf(stdout, "injection %s at %d has an snr of %f\n", thisInj->numrel_data, thisInj->geocent_end_time.gpsSeconds, thisSNR);
 
           /* set channel name */
           snprintf( chan->name, LIGOMETA_CHANNEL_MAX * sizeof( CHAR ),

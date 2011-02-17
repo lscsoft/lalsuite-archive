@@ -1,0 +1,858 @@
+#!/usr/bin/python
+
+from __future__ import division
+
+import os
+import matplotlib
+matplotlib.use('Agg')
+import pylab
+import scipy.stats
+from optparse import OptionParser
+from pylal import SimInspiralUtils
+from pylal import MultiInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal.coh_PTF_pyutils import *
+
+usage = ""
+
+parser = OptionParser( usage )
+
+parser.add_option("-r", "--run-directory",action="store",type="string",\
+    default=None,\
+    help="The location of the run directory")
+parser.add_option("-n", "--grb-name",action="store",type="string",\
+    default=None,\
+    help="Name of the GRB such as 090802")
+parser.add_option("-i","--ifo-tag",action="store",type="string",\
+    default=None,\
+    help="The ifo tag, H1L1 or H1L1V1 for instance")
+parser.add_option("-t", "--trig-file",action="store",type="string",\
+    default=None,\
+    help="The location of the trigger file")
+parser.add_option("-I", "--inj-file",action="store",type="string",\
+    default=None,\
+    help="The location of the injection file")
+parser.add_option("-o", "--output-path",action="store",type="string",\
+    default='.',\
+    help="Output path for plots")
+
+(opts,args) = parser.parse_args()
+opts.output_path = opts.output_path + '/'
+if not os.path.isdir(opts.output_path):
+  os.makedirs(opts.output_path)
+
+if not opts.run_directory:
+  print "must provide run directory"
+  sys.exit(1)
+
+if not opts.grb_name:
+  print "must provide GRB name"
+  sys.exit(1)
+
+if not opts.ifo_tag:
+  print "must provide ifo tag"
+  sys.exit(1)
+
+if not opts.trig_file:
+  print "must provide trig file"
+  sys.exit(1)
+
+makePaperPlots()
+
+trigFile = opts.trig_file
+injFile = opts.inj_file
+tag="GRB" + opts.grb_name
+segTimes = readSegFiles(opts.run_directory)
+bufferStart = int(segTimes["buffer_start"])
+bufferEnd = int(segTimes["buffer_end"])
+onSourceStart = int(segTimes["on_start"])
+onSourceEnd = int(segTimes["on_end"])
+offSourceStart = int(segTimes["off_start"])
+offSourceEnd = int(segTimes["off_end"])
+ra,dec = get_ra_dec(opts.run_directory + '/triggerGRB'+opts.grb_name+'.xml')
+fPlus,fCross = get_det_response(ra,dec,onSourceEnd-1)
+h1Resp = fPlus['H1']*fPlus['H1'] + fCross['H1']*fCross['H1']
+h2Resp = fPlus['H2']*fPlus['H2'] + fCross['H2']*fCross['H2']
+l1Resp = fPlus['L1']*fPlus['L1'] + fCross['L1']*fCross['L1']
+v1Resp = fPlus['V1']*fPlus['V1'] + fCross['V1']*fCross['V1']
+fResp = {}
+fResp['H1'] = h1Resp
+fResp['H2'] = h2Resp
+fResp['L1'] = l1Resp
+fResp['V1'] = v1Resp
+
+if tag:
+  tag = tag + '_'
+
+xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
+trigs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+
+if injFile:
+  xmldoc2 = utils.load_filename(injFile,gz=injFile.endswith("gz"))
+  injs = table.get_table(xmldoc2, lsctables.MultiInspiralTable.tableName)
+
+trigTime = []
+trigSNR = []
+trigNullstat = []
+trigTraceSNR = []
+trigChiSquare = []
+trigBankVeto = []
+trigAutoVeto = []
+trigCoincSNR = []
+trigFirstSNR = []
+trigSecondSNR = []
+trigThirdSNR = []
+trigH1SNR = []
+trigL1SNR = []
+trigV1SNR = []
+trigH2SNR = []
+trigAmp1 = []
+trigAmp2 = []
+trigAmp3 = []
+trigAmp4 = []
+trigSigmaH1 = []
+trigSigmaH2 = []
+trigSigmaL1 = []
+trigSigmaV1 = []
+redtrigTime = []
+redtrigSNR = []
+redtrigNullstat = []
+redtrigTraceSNR = []
+
+injTime = []
+injSNR = []
+injNullstat = []
+injTraceSNR = []
+injChiSquare = []
+injBankVeto = []
+injAutoVeto = []
+injCoincSNR = []
+injFirstSNR = []
+injSecondSNR = []
+injThirdSNR = []
+injH1SNR = []
+injL1SNR = []
+injV1SNR = []
+injH2SNR = []
+injAmp1 = []
+injAmp2 = []
+injAmp3 = []
+injAmp4 = []
+redinjTime = []
+redinjSNR = []
+redinjNullstat = []
+redinjTraceSNR = []
+trigBestNRmk1 = []
+injBestNRmk1 = []
+trigBestNRmk2 = []
+injBestNRmk2 = []
+trigBestNRmk3 = []
+injBestNRmk3 = []
+trigBestNRmk4 = []
+injBestNRmk4 = []
+trigBestNRmk5 = []
+injBestNRmk5 = []
+trigBestNRmk6 = []
+injBestNRmk6 = []
+trigBestNRmk7 = []
+injBestNRmk7 = []
+trigBestNRmk8 = []
+injBestNRmk8 = []
+
+q = 4.
+nhigh = 3.
+
+q2 = 4.
+nhigh2 = 3.
+
+chiq = 4.
+chin = 3.
+
+nullt = 5.25
+nullo = 30.
+
+sigmaVals = read_sigma_vals(opts.run_directory + '/post_processing/sngl_snr_cut.dat')
+
+for trig in trigs:
+  compsList = [trig.chisq_h1,trig.chisq_l,trig.chisq_h2,trig.chisq_v]
+  compsList.sort()
+#  if trig.chisq == 0:
+#    continue
+#  if (compsList[1] < 16):
+#    continue
+  trigFirstSNR.append((compsList[-1]))
+  trigSecondSNR.append((compsList[-2]))
+  trigThirdSNR.append((compsList[-3]))
+  trigH1SNR.append((trig.chisq_h1))
+  trigL1SNR.append((trig.chisq_l))
+  trigV1SNR.append((trig.chisq_v))
+  trigH2SNR.append((trig.chisq_h2))
+  trigSigmaH1.append(trig.sigmasq_h1)
+  trigSigmaH2.append(trig.sigmasq_h2)
+  trigSigmaL1.append(trig.sigmasq_l)
+  trigSigmaV1.append(trig.sigmasq_v)
+
+  trigCoincSNR.append((trig.chisq_h1**2 + trig.chisq_l**2 + trig.chisq_h2**2 + trig.chisq_v**2)**0.5)
+
+  trigTime.append(trig.end_time + trig.end_time_ns*1E-9)
+  trigSNR.append(trig.snr)
+  trigNullstat.append(trig.null_statistic)
+  trigTraceSNR.append(trig.null_stat_degen)
+  if trig.chisq == 0:
+    trigChiSquare.append(0.0001)
+  else:
+    trigChiSquare.append(trig.chisq)
+  trigBankVeto.append(trig.bank_chisq)
+  trigAutoVeto.append(trig.cont_chisq)
+  trigAmp1.append(trig.h1quad_re)
+  trigAmp2.append(trig.h1quad_im)
+  trigAmp3.append(trig.h2quad_re)
+  trigAmp4.append(trig.h2quad_im)
+  sbvs = get_signal_vetoes(trig,bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,sigmaVals=sigmaVals,fResp = fResp)
+  trigBestNRmk1.append(sbvs['BestNR1'])
+  trigBestNRmk2.append(sbvs['BestNR2'])
+  trigBestNRmk3.append(sbvs['BestNR3'])
+  trigBestNRmk4.append(sbvs['BestNR4'])
+  trigBestNRmk5.append(sbvs['BestNR5'])
+  trigBestNRmk6.append(sbvs['BestNR6'])
+  trigBestNRmk7.append(sbvs['BestNR7'])
+  trigBestNRmk8.append(sbvs['BestNR8'])
+  if trig.snr > 7.5:
+    redtrigTime.append(trig.end_time + trig.end_time_ns*1E-9)
+    redtrigSNR.append(trig.snr)
+    redtrigNullstat.append(trig.null_statistic)
+    redtrigTraceSNR.append(trig.null_stat_degen)
+
+if injFile:
+  for trig in injs:
+    compsList = [trig.chisq_h1,trig.chisq_l,trig.chisq_h2,trig.chisq_v]
+    compsList.sort()
+#    if (compsList[1] < 16):
+#      continue
+    injFirstSNR.append((compsList[-1]))
+    injSecondSNR.append((compsList[-2]))
+    injThirdSNR.append((compsList[-3]))
+    injH1SNR.append((trig.chisq_h1))
+    injL1SNR.append((trig.chisq_l))
+    injV1SNR.append((trig.chisq_v))
+    injH2SNR.append((trig.chisq_h2))
+    injCoincSNR.append((trig.chisq_h1**2 + trig.chisq_l**2 + trig.chisq_h2**2 + trig.chisq_v**2)**0.5)
+    injTime.append(trig.end_time + trig.end_time_ns*1E-9)
+    injSNR.append(trig.snr)
+    injNullstat.append(trig.null_statistic)
+    injTraceSNR.append(trig.null_stat_degen)
+    if trig.chisq == 0:  
+      injChiSquare.append(0.0001)
+    else:
+      injChiSquare.append(trig.chisq)
+    injBankVeto.append(trig.bank_chisq)
+    injAutoVeto.append(trig.cont_chisq)
+    injAmp1.append(trig.h1quad_re)
+    injAmp2.append(trig.h1quad_im)
+    injAmp3.append(trig.h2quad_re)
+    injAmp4.append(trig.h2quad_im)
+    sbvs = get_signal_vetoes(trig,bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,sigmaVals=sigmaVals,fResp = fResp)
+    injBestNRmk1.append(sbvs['BestNR1'])
+    injBestNRmk2.append(sbvs['BestNR2'])
+    injBestNRmk3.append(sbvs['BestNR3'])
+    injBestNRmk4.append(sbvs['BestNR4'])
+    injBestNRmk5.append(sbvs['BestNR5'])
+    injBestNRmk6.append(sbvs['BestNR6'])
+    injBestNRmk7.append(sbvs['BestNR7'])
+    injBestNRmk8.append(sbvs['BestNR8'])
+    if trig.snr > 7.5:
+      redinjTime.append(trig.end_time + trig.end_time_ns*1E-9)
+      redinjSNR.append(trig.snr)
+      redinjNullstat.append(trig.null_statistic)
+      redinjTraceSNR.append(trig.null_stat_degen)
+      
+trigSNR = pylab.asarray(trigSNR)
+trigChiSquare = pylab.asarray(trigChiSquare)
+trigNullstat = pylab.asarray(trigNullstat)
+trigTraceSNR = pylab.asarray(trigTraceSNR)
+trigCoincSNR = pylab.asarray(trigCoincSNR)
+trigNullstat2 = (trigCoincSNR**2 - trigSNR**2)**0.5
+trigAmp1 = pylab.asarray(trigAmp1)
+trigAmp2 = pylab.asarray(trigAmp2)
+trigAmp3 = pylab.asarray(trigAmp3)
+trigAmp4 = pylab.asarray(trigAmp4)
+trigRelAmp1 = pylab.sqrt((trigAmp1**2 + trigAmp2**2)/(trigAmp3**2+trigAmp4**2))
+trigGammaR = trigAmp1 - trigAmp4
+trigGammaI = trigAmp2 + trigAmp3
+trigDeltaR = trigAmp1 + trigAmp4
+trigDeltaI = trigAmp3 - trigAmp2
+trigNorm1 = trigDeltaR*trigDeltaR + trigDeltaI*trigDeltaI
+trigNorm2 = trigGammaR*trigGammaR + trigGammaI*trigGammaI
+trigNorm3 = ((trigNorm1**0.25) + (trigNorm2**0.25))**2
+trigAmpPlus = (trigNorm1)**0.5 + (trigNorm2)**0.5
+trigAmpCross = ((trigNorm1)**0.5 - (trigNorm2)**0.5).__abs__()
+trigRelAmp2 = trigAmpPlus/trigAmpCross
+trigInclination = trigAmpCross/trigNorm3
+trigSigmaH1 = pylab.asarray(trigSigmaH1)
+trigSigmaH2 = pylab.asarray(trigSigmaH2)
+trigSigmaL1 = pylab.asarray(trigSigmaL1)
+trigSigmaV1 = pylab.asarray(trigSigmaV1)
+trigSigmaTot = trigSigmaH1*(fPlus['H1']*fPlus['H1'] + fCross['H1']*fCross['H1'])
+trigSigmaTot +=trigSigmaH2*(fPlus['H2']*fPlus['H2'] + fCross['H2']*fCross['H2'])
+trigSigmaTot +=trigSigmaL1*(fPlus['L1']*fPlus['L1'] + fCross['L1']*fCross['L1'])
+trigSigmaTot +=trigSigmaV1*(fPlus['V1']*fPlus['V1'] + fCross['V1']*fCross['V1'])
+trigSigmaH1 = trigSigmaH1/trigSigmaTot
+trigSigmaH2 = trigSigmaH2/trigSigmaTot
+trigSigmaL1 = trigSigmaL1/trigSigmaTot
+trigSigmaV1 = trigSigmaV1/trigSigmaTot
+
+h1Resp = fPlus['H1']*fPlus['H1'] + fCross['H1']*fCross['H1']
+h2Resp = fPlus['H2']*fPlus['H2'] + fCross['H2']*fCross['H2']
+l1Resp = fPlus['L1']*fPlus['L1'] + fCross['L1']*fCross['L1']
+v1Resp = fPlus['V1']*fPlus['V1'] + fCross['V1']*fCross['V1']
+
+if injFile:
+  injSNR = pylab.asarray(injSNR)
+  injChiSquare = pylab.asarray(injChiSquare)
+  injNullstat = pylab.asarray(injNullstat)
+  injTraceSNR = pylab.asarray(injTraceSNR)
+  injCoincSNR = pylab.asarray(injCoincSNR)
+  injNullstat2 = (injCoincSNR**2 - injSNR**2)**0.5
+  injAmp1 = pylab.asarray(injAmp1)
+  injAmp2 = pylab.asarray(injAmp2)
+  injAmp3 = pylab.asarray(injAmp3)
+  injAmp4 = pylab.asarray(injAmp4)
+  injRelAmp1 = pylab.sqrt((injAmp1**2 + injAmp2**2)/(injAmp3**2+injAmp4**2))
+  injGammaR = injAmp1 - injAmp4
+  injGammaI = injAmp2 + injAmp3
+  injDeltaR = injAmp1 + injAmp4
+  injDeltaI = injAmp3 - injAmp2
+  injNorm1 = injDeltaR*injDeltaR + injDeltaI*injDeltaI
+  injNorm2 = injGammaR*injGammaR + injGammaI*injGammaI
+  injNorm3 = ((injNorm1**0.25) + (injNorm2**0.25))**2
+  injAmpPlus = (injNorm1)**0.5 + (injNorm2)**0.5
+  injAmpCross = ((injNorm1)**0.5 - (injNorm2)**0.5).__abs__()
+  injRelAmp2 = injAmpPlus/injAmpCross
+  injInclination = injAmpCross/injNorm3
+
+trigBestNRmk1 = pylab.asarray(trigBestNRmk1)
+trigBestNRmk2 = pylab.asarray(trigBestNRmk2)
+trigBestNRmk3 = pylab.asarray(trigBestNRmk3)
+trigBestNRmk4 = pylab.asarray(trigBestNRmk4)
+trigBestNRmk5 = pylab.asarray(trigBestNRmk5)
+trigBestNRmk6 = pylab.asarray(trigBestNRmk6)
+trigBestNRmk7 = pylab.asarray(trigBestNRmk7)
+trigBestNRmk8 = pylab.asarray(trigBestNRmk8)
+injBestNRmk6 = pylab.asarray(injBestNRmk6)
+injBestNRmk7 = pylab.asarray(injBestNRmk7)
+injBestNRmk8 = pylab.asarray(injBestNRmk8)
+
+trigSigmaH1mean = trigSigmaH1.mean()
+trigSigmaH1max = trigSigmaH1.max()
+trigSigmaH1min = trigSigmaH1.min()
+trigSigmaL1mean = trigSigmaL1.mean()
+trigSigmaL1max = trigSigmaL1.max()
+trigSigmaL1min = trigSigmaL1.min()
+trigSigmaV1mean = trigSigmaV1.mean()
+trigSigmaV1max = trigSigmaV1.max()
+trigSigmaV1min = trigSigmaV1.min()
+print trigSigmaH1.mean(),trigSigmaH1.max(),trigSigmaH1.min()
+print trigSigmaL1.mean(),trigSigmaL1.max(),trigSigmaL1.min()
+print trigSigmaV1.mean(),trigSigmaV1.max(),trigSigmaV1.min()
+
+print "Loudest trigger by SNR:",trigSNR.max()
+print "Loudest trigger by BestNRmk1:",trigBestNRmk1.max()
+print "Loudest trigger by BestNRmk2:",trigBestNRmk2.max()
+print "Loudest trigger by BestNRmk3:",trigBestNRmk3.max()
+print "Loudest trigger by BestNRmk4:",trigBestNRmk4.max()
+print "Loudest trigger by BestNRmk5:",trigBestNRmk5.max()
+print "Loudest trigger by BestNRmk6:",trigBestNRmk6.max()
+print "Loudest trigger by BestNRmk7:",trigBestNRmk7.max()
+print "Loudest trigger by BestNRmk8:",trigBestNRmk8.max()
+
+bank_conts,auto_conts,chi_conts,null_cont,snr_vals,colors = calculate_contours(bankq=q,bankn=nhigh,autoq=q2,auton=nhigh2,chiq=chiq,chin=chin,nullt=nullt,nullo=nullo)
+
+ptfcolormap = pylab.cm.spring
+ptfcolormap.set_over('g')
+      
+pylab.figure()
+pylab.plot(trigTime,trigSNR,'bx')
+pylab.xlabel("GPS time")
+pylab.ylabel("Coherent SNR")
+#pylab.ylim([6,18])
+pylab.savefig(opts.output_path+tag+"triggers_vs_time_noinj.png")
+if injFile:
+  pylab.plot(injTime,injSNR,'rx')
+  pylab.savefig(opts.output_path+tag+"triggers_vs_time.png")
+
+pylab.figure()
+pylab.plot(trigTime,trigH1SNR,'bx')
+pylab.xlabel("GPS time")
+pylab.ylabel("H1 SNR")
+#pylab.ylim([6,18])
+pylab.savefig(opts.output_path+tag+"H1_triggers_vs_time_noinj.png")
+if injFile:
+  pylab.plot(injTime,injH1SNR,'rx')
+  pylab.savefig(opts.output_path+tag+"H1_triggers_vs_time.png")
+
+pylab.figure()
+pylab.plot(trigTime,trigL1SNR,'bx')
+pylab.xlabel("GPS time")
+pylab.ylabel("L1 SNR")
+#pylab.ylim([6,18])
+pylab.savefig(opts.output_path+tag+"L1_triggers_vs_time_noinj.png")
+if injFile:
+  pylab.plot(injTime,injL1SNR,'rx')
+  pylab.savefig(opts.output_path+tag+"L1_triggers_vs_time.png")
+
+pylab.figure()
+pylab.plot(trigTime,trigV1SNR,'bx')
+pylab.xlabel("GPS time")
+pylab.ylabel("V1 SNR")
+#pylab.ylim([6,18])
+pylab.savefig(opts.output_path+tag+"V1_triggers_vs_time_noinj.png")
+if injFile:
+  pylab.plot(injTime,injV1SNR,'rx')
+  pylab.savefig(opts.output_path+tag+"V1_triggers_vs_time.png")
+
+pylab.figure()
+pylab.plot(trigTime,trigNullstat,'bx')
+pylab.xlabel("GPS time")
+pylab.ylabel("Null SNR")
+#pylab.ylim([6,18])
+pylab.savefig(opts.output_path+tag+"NullSNR_vs_time_noinj.png")
+if injFile:
+  pylab.plot(injTime,injNullstat,'rx')
+  pylab.savefig(opts.output_path+tag+"NullSNR_vs_time.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigNullstat,'bx')
+if injFile:
+  pylab.plot(injSNR,injNullstat,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Null statistic")
+pylab.plot(snr_vals,null_cont,'k-')
+pylab.savefig(opts.output_path+tag+"null_stat_vs_snr.png")
+pylab.plot([0,30],[3.5,3.5],'g-')
+pylab.plot([0,30],[4.5,4.5],'m-')
+pylab.xlim([6,30])
+pylab.ylim([0,30])
+pylab.savefig(opts.output_path+tag+"null_stat_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigNullstat2,'bx')
+if injFile:
+  pylab.plot(injSNR,injNullstat2,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Overwhitened null statistic")
+pylab.plot(snr_vals,null_cont,'k-')
+pylab.savefig(opts.output_path+tag+"null_stat2_vs_snr.png")
+pylab.plot([0,30],[3.5,3.5],'g-')
+pylab.plot([0,30],[4.5,4.5],'m-')
+pylab.xlim([6,30])
+pylab.ylim([0,30])
+pylab.savefig(opts.output_path+tag+"null_stat2_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk1,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk1,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk1")
+pylab.savefig(opts.output_path+tag+"bestnrmk1_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk1_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk2,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk2,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk2")
+pylab.savefig(opts.output_path+tag+"bestnrmk2_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk2_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk3,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk3,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk3")
+pylab.savefig(opts.output_path+tag+"bestnrmk3_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk3_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk4,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk4,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk4")
+pylab.savefig(opts.output_path+tag+"bestnrmk4_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk4_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk5,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk5,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk5")
+pylab.savefig(opts.output_path+tag+"bestnrmk5_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk5_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk6,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk6,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk6")
+pylab.savefig(opts.output_path+tag+"bestnrmk6_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk6_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk7,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk7,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk7")
+pylab.savefig(opts.output_path+tag+"bestnrmk7_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk7_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigBestNRmk8,'bx')
+if injFile:
+  pylab.plot(injSNR,injBestNRmk8,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("BestNRmk8")
+pylab.savefig(opts.output_path+tag+"bestnrmk8_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([0,25])
+pylab.savefig(opts.output_path+tag+"bestnrmk8_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigCoincSNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injCoincSNR,'rx')
+pylab.plot([4,30],[4,30],'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Coincidence SNR")
+pylab.savefig(opts.output_path+tag+"coinc_snr_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([4,30])
+pylab.savefig(opts.output_path+tag+"coinc_snr_vs_snr_zoom.png")
+
+aT = [6,30]
+bT = [6,27.5]
+
+maxSNR = trigSNR.max()
+if injFile:
+  if injSNR.max() > maxSNR:
+    maxSNR = injSNR.max()
+zoomSNR = pylab.arange(0.01,maxSNR,0.01)
+
+pylab.figure()
+pylab.plot(trigSNR,trigTraceSNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injTraceSNR,'rx')
+pylab.plot(aT,bT,'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Trace SNR")
+pylab.savefig(opts.output_path+tag+"trace_snr_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([4,30])
+pylab.savefig(opts.output_path+tag+"trace_snr_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigBestNRmk4,trigTraceSNR,'bx')
+if injFile:
+  pylab.plot(injBestNRmk4,injTraceSNR,'rx')
+pylab.xlabel("BestNRmk4")
+pylab.ylabel("Trace SNR")
+pylab.savefig(opts.output_path+tag+"trace_snr_vs_bestnr4.png")
+pylab.xlim([6,30])
+pylab.ylim([4,30])
+pylab.savefig(opts.output_path+tag+"trace_snr_vs_bestnr4_zoom.png")
+
+pylab.figure()
+pylab.plot(trigCoincSNR,trigTraceSNR,'bx')
+if injFile:
+  pylab.plot(injCoincSNR,injTraceSNR,'rx')
+pylab.xlabel("Coincidence SNR")
+pylab.ylabel("Trace SNR")
+pylab.savefig(opts.output_path+tag+"trace_snr_vs_coinc_snr.png")
+pylab.xlim([0,30])
+pylab.ylim([0,30])
+pylab.savefig(opts.output_path+tag+"trace_snr_vs_coinc_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR,trigBankVeto,'bx')
+if injFile:
+  pylab.loglog(injSNR,injBankVeto,'rx')
+plot_contours(snr_vals,bank_conts,colors)
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Bank Veto")
+pylab.xlim([6,1000])
+pylab.savefig(opts.output_path+tag+"bank_veto_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([1,2000])
+pylab.savefig(opts.output_path+tag+"bank_veto_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR,trigChiSquare,'bx')
+if injFile:
+  pylab.loglog(injSNR,injChiSquare,'rx')
+plot_contours(snr_vals,chi_conts,colors)
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Chi Square")
+pylab.xlim([6,1000])
+pylab.savefig(opts.output_path+tag+"chi_square_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([1,2000])
+pylab.savefig(opts.output_path+tag+"chi_square_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR[trigBestNRmk6 != 0],trigChiSquare[trigBestNRmk6 != 0],'bx')
+if injFile:
+  pylab.loglog(injSNR[injBestNRmk6 != 0],injChiSquare[injBestNRmk6 != 0],'rx')
+plot_contours(snr_vals,chi_conts,colors)
+pylab.xlabel("SNR")
+pylab.ylabel("Chi Square")
+pylab.xlim([6,1000])
+pylab.savefig(opts.output_path+tag+"chi_square_6_vs_snr.png")
+pylab.xlim([0,50])
+pylab.ylim([1,2000])
+pylab.savefig(opts.output_path+tag+"chi_square_6_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR[trigBestNRmk7 != 0],trigChiSquare[trigBestNRmk7 != 0],'bx')
+if injFile:
+  pylab.loglog(injSNR[injBestNRmk7 != 0],injChiSquare[injBestNRmk7 != 0],'rx')
+plot_contours(snr_vals,chi_conts,colors)
+pylab.xlabel("SNR")
+pylab.ylabel("Chi Square")
+pylab.xlim([6,1000])
+pylab.savefig(opts.output_path+tag+"chi_square_7_vs_snr.png")
+pylab.xlim([0,50])
+pylab.ylim([1,2000])
+pylab.savefig(opts.output_path+tag+"chi_square_7_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR[trigBestNRmk8 != 0],trigChiSquare[trigBestNRmk8 != 0],'bx')
+if injFile:
+  pylab.loglog(injSNR[injBestNRmk8 != 0],injChiSquare[injBestNRmk8 != 0],'rx')
+plot_contours(snr_vals,chi_conts,colors)
+pylab.xlabel("SNR")
+pylab.ylabel("Chi Square")
+pylab.xlim([6,1000])
+pylab.savefig(opts.output_path+tag+"chi_square_8_vs_snr.png")
+pylab.xlim([0,50])
+pylab.ylim([1,2000])
+pylab.savefig(opts.output_path+tag+"chi_square_8_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigFirstSNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injFirstSNR,'rx')
+pylab.plot([0,50],[4,4],'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("First loudest sngl SNR")
+pylab.savefig(opts.output_path+tag+"first_snr_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"first_snr_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigSecondSNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injSecondSNR,'rx')
+pylab.plot([6,10,50],[2.5,3.5,13.5],'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Second loudest sngl SNR")
+pylab.savefig(opts.output_path+tag+"second_snr_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"second_snr_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigBestNRmk5,trigSecondSNR,'bx')
+if injFile:
+  pylab.plot(injBestNRmk5,injSecondSNR,'rx')
+pylab.xlabel("BestNRmk5")
+pylab.ylabel("Second loudest sngl SNR")
+pylab.savefig(opts.output_path+tag+"second_snr_vs_bestnr5.png")
+pylab.xlim([0,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"second_snr_vs_bestnr5_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigThirdSNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injThirdSNR,'rx')
+pylab.plot([0,50],[4,4],'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Third loudest sngl SNR")
+pylab.savefig(opts.output_path+tag+"third_snr_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"third_snr_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigH1SNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injH1SNR,'rx')
+pylab.plot(zoomSNR,((h1Resp*trigSigmaH1mean)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((h1Resp*trigSigmaH1min)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((h1Resp*trigSigmaH1max)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.0455/2.,2,(h1Resp*trigSigmaH1min)*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.0455/2.,2,(h1Resp*trigSigmaH1max)*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.00135/2.,2,(h1Resp*trigSigmaH1min)*zoomSNR**2)**0.5,'c-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.00135/2.,2,(h1Resp*trigSigmaH1max)*zoomSNR**2)**0.5,'c-')
+pylab.plot([0,50],[4,4],'k-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("H1 sngl SNR")
+pylab.savefig(opts.output_path+tag+"H1_snr_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"H1_snr_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigL1SNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injL1SNR,'rx')
+pylab.plot(zoomSNR,((l1Resp*trigSigmaL1mean)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((l1Resp*trigSigmaL1min)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((l1Resp*trigSigmaL1max)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.0455/2.,2,(l1Resp*trigSigmaL1min)*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.0455/2.,2,(l1Resp*trigSigmaL1max)*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.00135/2.,2,(l1Resp*trigSigmaL1min)*zoomSNR**2)**0.5,'c-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.00135/2.,2,(l1Resp*trigSigmaL1max)*zoomSNR**2)**0.5,'c-')
+pylab.plot([0,50],[4,4],'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("L1 sngl SNR")
+pylab.savefig(opts.output_path+tag+"L1_snr_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"L1_snr_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigV1SNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injV1SNR,'rx')
+pylab.plot(zoomSNR,((v1Resp*trigSigmaV1mean)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((v1Resp*trigSigmaV1min)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((v1Resp*trigSigmaV1max)**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.0455/2.,2,(v1Resp*trigSigmaV1min)*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.0455/2.,2,(v1Resp*trigSigmaV1max)*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.00135/2.,2,(v1Resp*trigSigmaV1min)*zoomSNR**2)**0.5,'c-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.00135/2.,2,(v1Resp*trigSigmaV1max)*zoomSNR**2)**0.5,'c-')
+pylab.plot([0,50],[3,3],'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("V1 sngl SNR")
+pylab.savefig(opts.output_path+tag+"V1_snr_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"V1_snr_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigH2SNR,'bx')
+if injFile:
+  pylab.plot(injSNR,injH2SNR,'rx')
+pylab.plot(zoomSNR,((h2Resp*trigSigmaH2.mean())**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((h2Resp*trigSigmaH2.min())**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,((h2Resp*trigSigmaH2.max())**0.5)*zoomSNR,'g-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.0455/2.,2,(h2Resp*trigSigmaH2.min())*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.0455/2.,2,(h2Resp*trigSigmaH2.max())*zoomSNR**2)**0.5,'m-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(0.00135/2.,2,(h2Resp*trigSigmaH2.min())*zoomSNR**2)**0.5,'c-')
+pylab.plot(zoomSNR,scipy.stats.ncx2.ppf(1-0.00135/2.,2,(h2Resp*trigSigmaH2.max())*zoomSNR**2)**0.5,'c-')
+pylab.plot([0,50],[4,4],'g-')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("H2 sngl SNR")
+pylab.savefig(opts.output_path+tag+"H2_snr_vs_snr.png")
+pylab.xlim([6,50])
+pylab.ylim([0,20])
+pylab.savefig(opts.output_path+tag+"H2_snr_vs_snr_zoom.png")
+
+
+pylab.figure()
+pylab.loglog(trigSNR,trigAutoVeto,'bx')
+if injFile:
+  pylab.loglog(injSNR,injAutoVeto,'rx')
+plot_contours(snr_vals,auto_conts,colors)
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Auto Veto")
+pylab.savefig(opts.output_path+tag+"auto_veto_vs_snr.png")
+pylab.xlim([6,30])
+pylab.ylim([10,20000])
+pylab.savefig(opts.output_path+tag+"auto_veto_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigSNR,trigSNR - trigTraceSNR,'bx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("SNR - Trace SNR")
+pylab.savefig(opts.output_path+tag+"tracediff_noinj.png")
+if injFile:
+  pylab.plot(injSNR,injSNR - injTraceSNR,'rx')
+  pylab.savefig(opts.output_path+tag+"trace_diff_vs_snr.png")
+  pylab.xlim([6,20])
+  pylab.ylim([-5,10])
+  pylab.savefig(opts.output_path+tag+"trace_diff_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.plot(trigTime,trigNullstat,'bx')
+if injFile:
+  pylab.plot(injTime,injNullstat,'rx')
+pylab.xlabel("GPS time")
+pylab.ylabel("Null SNR")
+pylab.savefig(opts.output_path+tag+"null_snr_vs_time.png")
+
+pylab.figure()
+pylab.loglog(trigSNR,trigRelAmp1,'bx')
+if injFile:
+  pylab.loglog(injSNR,injRelAmp1,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Relative amplitude")
+pylab.savefig(opts.output_path+tag+"rel_amp_vs_snr.png")
+pylab.xlim([6,30])
+pylab.savefig(opts.output_path+tag+"rel_amp_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR,trigRelAmp2,'bx')
+if injFile:
+  pylab.loglog(injSNR,injRelAmp2,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Relative amplitude")
+pylab.savefig(opts.output_path+tag+"rel_amp2_vs_snr.png")
+pylab.xlim([6,30])
+pylab.savefig(opts.output_path+tag+"rel_amp2_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR,trigNorm3,'bx')
+if injFile:
+  pylab.loglog(injSNR,injNorm3,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("Amplitude factor")
+pylab.savefig(opts.output_path+tag+"norm3_vs_snr.png")
+pylab.xlim([6,30])
+pylab.savefig(opts.output_path+tag+"norm3_vs_snr_zoom.png")
+
+pylab.figure()
+pylab.loglog(trigSNR,trigInclination,'bx')
+if injFile:
+  pylab.loglog(injSNR,injInclination,'rx')
+pylab.xlabel("Coherent SNR")
+pylab.ylabel("|cos inclination|")
+pylab.savefig(opts.output_path+tag+"inclination_vs_snr.png")
+pylab.xlim([6,30])
+pylab.savefig(opts.output_path+tag+"inclination_vs_snr_zoom.png")

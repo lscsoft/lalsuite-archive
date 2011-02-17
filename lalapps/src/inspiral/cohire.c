@@ -53,6 +53,11 @@ snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 
 #define MAX_PATH 4096
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 /*
  *
@@ -135,7 +140,6 @@ int main( int argc, char *argv[] )
   char *injectFileName = NULL;
   char *vetoFileName = NULL;
   char *missedFileName = NULL;
-  char line[MAX_PATH];
   REAL4 snrStar = -1;
   REAL4 rsqVetoThresh = -1;
   REAL4 rsqMaxSnr     = -1;
@@ -161,7 +165,6 @@ int main( int argc, char *argv[] )
   SimInspiralTable     *tmpSimEvent = NULL;
 
   SearchSummvarsTable  *inputFiles = NULL;
-  SearchSummvarsTable  *thisInputFile = NULL;
 
   SearchSummaryTable   *searchSummList = NULL;
   SearchSummaryTable   *thisSearchSumm = NULL;
@@ -191,7 +194,7 @@ int main( int argc, char *argv[] )
 
   LIGOLwXMLStream       xmlStream;
   MetadataTable         outputTable;
-  MetadataTable         savedEvents;
+  MetadataTable         UNUSED savedEvents;
   MetadataTable         searchSummvarsTable;
 
   /*

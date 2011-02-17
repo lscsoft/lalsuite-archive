@@ -17,27 +17,11 @@
 *  MA  02111-1307  USA
 */
 
-/*-----------------------------------------------------------------------
- *
- * File Name: SFTclean.c
- * Authors:  Krishnan, B. 
- *
- * Revision: $Id$
- *
- * History:   Created by Krishnan July 12, 2004
- *            Modified...
- *
- *-----------------------------------------------------------------------
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Badri Krishnan
  */
-/************************************ <lalVerbatim file="SFTbinTestCV">
-Author: Krishnan, B.  
-$Id$
-************************************* </lalVerbatim> */
-
-/* <lalLaTeX>  *******************************************************
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-*********************************************** </lalLaTeX> */
-
 
 #include <lal/SFTClean.h>
 #include <glob.h> 
@@ -47,7 +31,7 @@ NRCSID (SFTCLEANC, "$Id$");
 
 /* Error codes and messages */
 
-/************** <lalErrTable file="SFTCLEANCErrorTable"> */
+/**\name Error Codes */ /*@{*/
 #define SFTCLEANC_ENORM 0
 #define SFTCLEANC_ESUB  1
 #define SFTCLEANC_EARG  2
@@ -59,7 +43,7 @@ NRCSID (SFTCLEANC, "$Id$");
 #define SFTCLEANC_MSGEARG  "Error parsing arguments"
 #define SFTCLEANC_MSGEBAD  "Bad argument values"
 #define SFTCLEANC_MSGEFILE "Could not create output file"
-/******************************************** </lalErrTable> */
+/*@}*/
 
 
 /* Default parameters. */
@@ -85,7 +69,7 @@ INT4 lalDebugLevel=0;
 #define ERROR( code, msg, statement )                                \
 do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
-    LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
               __LINE__, SFTCLEANC, statement ? statement :  \
                    "", (msg) );                                      \
@@ -94,7 +78,7 @@ do {                                                                 \
 #define INFO( statement )                                            \
 do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
-    LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
+    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
               SFTCLEANC, (statement) );                     \
 } while (0)

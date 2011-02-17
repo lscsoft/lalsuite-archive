@@ -1,4 +1,4 @@
-AC_INIT([lalmetaio],[1.0.0.2],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalmetaio],[1.0.1.1],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALMetaIOConfig.h])
 AC_CONFIG_SRCDIR([src/LIGOLwXML.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -31,9 +31,9 @@ AC_CANONICAL_HOST
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[0])
+AC_SUBST([LIBCURRENT],[1])
 AC_SUBST([LIBREVISION],[0])
-AC_SUBST([LIBAGE],[0])
+AC_SUBST([LIBAGE],[1])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
 # default install path
@@ -43,8 +43,22 @@ AC_PREFIX_DEFAULT([/opt/lscsoft/lalmetaio])
 LALSUITE_ENABLE_NIGHTLY
 
 # put version/configure info in config header
+lalmetaio_version_major=`echo "$VERSION" | cut -d. -f1`
+lalmetaio_version_minor=`echo "$VERSION" | cut -d. -f2`
+lalmetaio_version_micro=`echo "$VERSION" | cut -d. -f3`
+lalmetaio_version_devel=`echo "$VERSION" | cut -d. -f4-`
+test -z "$lalmetaio_version_micro" && lalmetaio_version_micro=0
+test -z "$lalmetaio_version_devel" && lalmetaio_version_devel=0
 lalmetaio_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
 AC_DEFINE_UNQUOTED([LALMETAIO_VERSION],["$VERSION"],[LALMetaIO Version])
+AC_DEFINE_UNQUOTED([LALMETAIO_VERSION_MAJOR],[$lalmetaio_version_major],
+                   [LALMetaIO Version Major Number])
+AC_DEFINE_UNQUOTED([LALMETAIO_VERSION_MINOR],[$lalmetaio_version_minor],
+                   [LALMetaIO Version Minor Number])
+AC_DEFINE_UNQUOTED([LALMETAIO_VERSION_MICRO],[$lalmetaio_version_micro],
+                   [LALMetaIO Version Micro Number])
+AC_DEFINE_UNQUOTED([LALMETAIO_VERSION_DEVEL],[$lalmetaio_version_devel],
+                   [LALMetaIO Version Devel Number])
 AC_DEFINE_UNQUOTED([LALMETAIO_CONFIGURE_ARGS],["$ac_configure_args"],
                    [LALMetaIO Configure Arguments])
 AC_DEFINE_UNQUOTED([LALMETAIO_CONFIGURE_DATE],["$lalmetaio_configure_date"],
@@ -68,25 +82,10 @@ LT_INIT
 AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
 
 # check for supported mac os x version
-if test "x$build_vendor" = "xapple"; then
-  AC_CHECK_PROGS([SW_VERS],[sw_vers])
-  if test "x$SW_VERS" != "x"; then
-    AC_MSG_CHECKING([Mac OS X version])
-    MACOSX_VERSION=`$SW_VERS -productVersion`
-    AC_MSG_RESULT([$MACOSX_VERSION])
-  fi
-  case "$MACOSX_VERSION" in
-    10.0*|10.1*|10.2*|10.3*)
-      AC_MSG_ERROR([This version of Mac OS X is not supported])
-      ;;
-    10.4*|10.5*|10.6*)
-      # supported version
-      ;;
-    *)
-      AC_MSG_WARN([Unknown Mac OS X version])
-      ;;
-  esac
-fi
+LALSUITE_OSX_VERSION_CHECK
+
+# link tests using libtool
+LALSUITE_USE_LIBTOOL
 
 # check for header files
 AC_HEADER_STDC
@@ -104,8 +103,8 @@ AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio lib
 AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.4.1.2],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.4.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
 
 # add gcc specific flags
 if test "$GCC" = yes; then

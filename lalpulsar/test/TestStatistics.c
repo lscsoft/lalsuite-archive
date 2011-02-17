@@ -31,66 +31,43 @@
  *-----------------------------------------------------------------------
  */
 
-/************************************ <lalVerbatim file="TestStatisticsCV">
-Author: Krishnan, B., Sintes, A.M.
-$Id$
-********************************************************* </lalVerbatim> */
+/**
+\author Krishnan, B., Sintes, A.M.
+\file
+\ingroup Statistics_h
+\brief Tests the statistics and the histogram number count of a given total Hough map.
 
-/* ************************************************************<lalLaTeX>
-\subsection{Program \ \texttt{TestStatistics.c}}
-\label{s:TestStatistics.c}
-Tests the statistics and the histogram number count of
-a given total Hough map.
+\heading{Program \ref TestStatistics.c}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Usage}
-\begin{verbatim}
+\heading{Usage}
+\code
 TestStatistics [-d debuglevel] [-o outfile]
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Description}
+\heading{Description}
 This program creates a Hough map and ...
 
-The \verb@-d@ option sets the debug level to the specified value
-\verb@debuglevel@.  The \verb@-o@ flag tells the program to print the histogram
-of the Hough number counts to the specified data file \verb@outfile@.
+The <b>-d</b> option sets the debug level to the specified value
+\c debuglevel.  The <b>-o</b> flag tells the program to print the histogram
+of the Hough number counts to the specified data file \c outfile.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Exit codes}
-\vspace{0.1in}
-\input{TESTSTATISTICSCErrorTable}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Uses}
-\begin{verbatim}
+\heading{Uses}
+\code
 LALHoughStatistics()
 LALHoughHistogram()
 LALPrintError()
 LALMalloc()
 LALFree()
 LALCheckMemoryLeaks()
-\end{verbatim}
+\endcode
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection*{Notes}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\vfill{\footnotesize\input{TestStatisticsCV}}
-
-********************************************</lalLaTeX> */
-
+*/
 
 #include <lal/LALStdio.h>
 #include <lal/Statistics.h>
-/*#include "./Statistics.h"*/
 
 
-NRCSID (TESTSTATISTICSC, "$Id$");
-
-
-/* Error codes and messages */
-
-/************** <lalErrTable file="TESTSTATISTICSCErrorTable"> */
+/**\name Error Codes */ /*@{*/
 #define TESTSTATISTICSC_ENORM 0
 #define TESTSTATISTICSC_ESUB  1
 #define TESTSTATISTICSC_EARG  2
@@ -102,8 +79,10 @@ NRCSID (TESTSTATISTICSC, "$Id$");
 #define TESTSTATISTICSC_MSGEARG  "Error parsing arguments"
 #define TESTSTATISTICSC_MSGEBAD  "Bad argument values"
 #define TESTSTATISTICSC_MSGEFILE "Could not create output file"
-/******************************************** </lalErrTable> */
+/*@}*/
 
+/** \cond DONT_DOXYGEN */
+NRCSID (TESTSTATISTICSC, "$Id$");
 
 /* Default parameters. */
 
@@ -120,7 +99,7 @@ INT4 lalDebugLevel=0;
 #define ERROR( code, msg, statement )                                \
 do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
-    LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
+    XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
               __LINE__, TESTSTATISTICSC, statement ? statement :  \
                    "", (msg) );                                      \
@@ -129,7 +108,7 @@ do {                                                                 \
 #define INFO( statement )                                            \
 do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
-    LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
+    XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
               TESTSTATISTICSC, (statement) );                     \
 } while (0)
@@ -177,7 +156,7 @@ int main(int argc, char *argv[]){
         lalDebugLevel = atoi( argv[arg++] );
       } else {
         ERROR( TESTSTATISTICSC_EARG, TESTSTATISTICSC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTSTATISTICSC_EARG;
       }
     }
@@ -188,14 +167,14 @@ int main(int argc, char *argv[]){
         fname = argv[arg++];
       } else {
         ERROR( TESTSTATISTICSC_EARG, TESTSTATISTICSC_MSGEARG, 0 );
-        LALPrintError( USAGE, *argv );
+        XLALPrintError( USAGE, *argv );
         return TESTSTATISTICSC_EARG;
       }
     }
     /* Unrecognized option. */
     else {
       ERROR( TESTSTATISTICSC_EARG, TESTSTATISTICSC_MSGEARG, 0 );
-      LALPrintError( USAGE, *argv );
+      XLALPrintError( USAGE, *argv );
       return TESTSTATISTICSC_EARG;
     }
   } /* End of argument parsing loop. */
@@ -253,8 +232,4 @@ int main(int argc, char *argv[]){
 
 /* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
 
-
-
-
-
-
+/** \endcond */

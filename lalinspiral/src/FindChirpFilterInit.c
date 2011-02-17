@@ -52,8 +52,6 @@ $Id$
 #include <lal/LALDatatypes.h>
 #include <lal/FindChirpACTD.h>
 
-double rint(double x);
-
 NRCSID (FINDCHIRPFILTERINITC, "$Id$");
 
 
@@ -106,6 +104,7 @@ LALCreateFindChirpInput (
     case BCV:
     case BCVSpin:
     case AmpCorPPN:
+    case IMRPhenomB:
       break;
     default:
       ABORT( status, FINDCHIRPH_EUAPX, FINDCHIRPH_MSGEUAPX );
@@ -376,6 +375,7 @@ LALFindChirpFilterInit (
     case FindChirpPTF:
     case BCV:
     case BCVSpin:
+    case IMRPhenomB:
     case AmpCorPPN:
       break;
     default:

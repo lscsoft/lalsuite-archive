@@ -47,6 +47,7 @@ columns of the table.
 import copy
 import re
 import sys
+import warnings
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
 
@@ -79,7 +80,16 @@ __date__ = git_version.date
 # r"(?:\A[a-z0-9_]+:|\A)(?P<FullName>(?:[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+))\Z"
 #
 # but people are putting upper case letters in names!!!!!  Someone is going
-# to get the beats.
+# to get the beats.  There is a reason for requiring names to be all lower
+# case:  SQL table and column names are case insensitive, therefore (i) in
+# general it is not possible to preserve case when documents are converted
+# into SQL databases and then converted back again, and (ii) when converted
+# to SQL the columns "Rho" and "rho" become indistinguishable and so it is
+# impossible to convert a document into an SQL database that has degenerate
+# names like this.  Requiring names to be all lower-case breaks the
+# degeneracy, helping to ensure that XML documents can be safely converted
+# to SQL databases (other rules can be imagined that would work as well,
+# this is the one that got chosen).
 
 
 ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:(?P<Table>\w+):|\A)(?P<Name>\w+))\Z")
@@ -90,6 +100,11 @@ def StripColumnName(name):
 	Return the significant portion of a column name according to LIGO
 	LW naming conventions.
 	"""
+	# FIXME:  enable warning.  since this is merely annoying, it does
+	# not break any code, this should be done to encourage the
+	# correction of non-conforming code.
+	#if name.lower() != name:
+	#	warnings.warn("column name \"%s\" is not lower case" % name)
 	try:
 		return ColumnPattern.search(name).group("Name")
 	except AttributeError:
@@ -132,6 +147,8 @@ def StripTableName(name):
 	Return the significant portion of a table name according to LIGO LW
 	naming conventions.
 	"""
+	if name.lower() != name:
+		warnings.warn("table name \"%s\" is not lower case" % name)
 	try:
 		return TablePattern.search(name).group("Name")
 	except AttributeError:
@@ -422,10 +439,13 @@ class TableStream(ligolw.Stream):
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
+		# retrieve the .write() method of the file object to avoid
+		# doing the attribute lookup in loops
+		w = file.write
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row
 		# unless it ends with a null token
-		file.write(self.start_tag(indent))
+		w(self.start_tag(indent))
 		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
 		rowdumper.dump(self.parentNode)
 		try:
@@ -436,25 +456,25 @@ class TableStream(ligolw.Stream):
 		else:
 			# write first row
 			newline = u"\n" + indent + ligolw.Indent
-			file.write(newline)
+			w(newline)
 			# the xmlescape() call replaces things like "<"
 			# with "&lt;" so that the string will not confuse
 			# an XML parser when the file is read.  turning
 			# "&lt;" back into "<" during file reading is
 			# handled by the XML parser, so there is no code
 			# in Glue related to that.
-			file.write(xmlescape(line))
+			w(xmlescape(line))
 			# now add delimiter and write the remaining rows
 			newline = rowdumper.delimiter + newline
 			for line in rowdumper:
-				file.write(newline)
-				file.write(xmlescape(line))
+				w(newline)
+				w(xmlescape(line))
 			if rowdumper.tokens and rowdumper.tokens[-1] == u"":
 				# the last token of the last row was null:
 				# add a final delimiter to indicate that a
 				# token is present
-				file.write(rowdumper.delimiter)
-		file.write(u"\n" + self.end_tag(indent) + u"\n")
+				w(rowdumper.delimiter)
+		w(u"\n" + self.end_tag(indent) + u"\n")
 
 	# FIXME: This function is for the metaio library:  metaio cares
 	# what order the attributes of XML tags come in.  This function

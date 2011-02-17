@@ -1,4 +1,5 @@
 EXTRA_DIST = \
+	ax_mpi.m4 \
 	compile \
 	config.guess \
 	config.sub \
@@ -7,6 +8,7 @@ EXTRA_DIST = \
 	lalapps.m4 \
 	lalsuite_build.m4 \
 	lalsuite_c99.m4 \
+	lalsuite_gccflags.m4
 	libtool.m4 \
 	ltmain.sh \
 	ltoptions.m4 \
@@ -15,7 +17,6 @@ EXTRA_DIST = \
 	lt~obsolete.m4 \
 	missing \
 	mkinstalldirs \
-	pkg.m4 \
 	py-compile \
 	vcsID.common
 

@@ -20,6 +20,7 @@
 #include "power_cache.h"
 #include "summing_context.h"
 #include "power_sums.h"
+#include "hookup.h"
 #include "cmdline.h"
 
 extern DATASET *datasets;
@@ -514,20 +515,6 @@ sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
 
 extern EphemerisData ephemeris;
 
-LALDetector get_detector_struct(char *det) 
-{
-if(!strcasecmp("LHO", det)){
-	return lalCachedDetectors[LALDetectorIndexLHODIFF];
-	} else 
-if(!strcasecmp("LLO", det)){
-	return lalCachedDetectors[LALDetectorIndexLLODIFF];
-	} else {
-	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
-	exit(-1);
-	}
-}
-
-
 /* This function is meant to work with get_uncached_loose_partial_power_sum */
 void accumulate_single_bin_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
 {
@@ -596,7 +583,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			baryinput.site.location[2]=baryinput.site.location[2]/LAL_C_SI;
 			baryinput.alpha=ps[i].ra;
 			baryinput.delta=ps[i].dec;
-			baryinput.dInv=0; /* TODO: pass this from command line */
+			baryinput.dInv=args_info.dInv_arg;
 
 			/* Fixup - LAL library issues an error if RA exceeds 2*pi in absolute value which can get triggered at the right edge, since PowerFlux uses RA from 0 to 2*pi */
 			if(baryinput.alpha>M_PI)baryinput.alpha-=2*M_PI;

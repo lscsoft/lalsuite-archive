@@ -17,6 +17,12 @@
 *  MA  02111-1307  USA
 */
 
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Vladimir Dergachev
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -398,7 +404,7 @@ if(!args_info.side_cut_given){
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=260+ceil(M_PI/resolution)/6.0+ceil((1800.0)*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	side_cut=260+args_info.extra_side_cut_arg+ceil(M_PI/resolution)/6.0+ceil((1800.0)*max_spindown*args_info.expected_timebase_arg*3600*24*31);
 	/* round it up to a multiple of 450 */
 	side_cut=450*ceil(side_cut/450.0);
 	}
@@ -494,7 +500,16 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
 	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
 	
-   	} else {
+	fprintf(LOG,"fake dInv: %g\n", args_info.fake_dInv_arg);
+	fprintf(LOG,"fake frequency modulation depth: %f\n", args_info.fake_freq_modulation_depth_arg);
+	fprintf(LOG,"fake frequency modulation frequency: %f\n", args_info.fake_freq_modulation_freq_arg);
+	fprintf(LOG,"fake frequency modulation phase: %f\n", args_info.fake_freq_modulation_phase_arg);
+	fprintf(LOG,"fake phase modulation depth: %f\n", args_info.fake_phase_modulation_depth_arg);
+	fprintf(LOG,"fake phase modulation frequency: %f\n", args_info.fake_phase_modulation_freq_arg);
+	fprintf(LOG,"fake phase modulation phase: %f\n", args_info.fake_phase_modulation_phase_arg);
+	fprintf(LOG,"fake injection window: %d\n", args_info.fake_injection_window_arg);
+
+	} else {
    	fprintf(LOG,"fake signal injection: none\n");
 	}
 
@@ -802,7 +817,7 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 
 	if(args_info.only_large_cos_given) {
 		fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
-   		mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+   		mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[2], args_info.only_large_cos_arg);
 		propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 		}
 

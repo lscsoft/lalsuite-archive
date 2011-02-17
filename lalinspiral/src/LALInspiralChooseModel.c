@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2007 David Churches, Jolien Creighton, David McKechan, B.S. Sathyaprakash, Thomas Cokelaer, Duncan Brown
+*  Copyright (C) 2007 David Churches, Jolien Creighton, David McKechan, B.S. Sathyaprakash, Thomas Cokelaer, Duncan Brown, Riccardo Sturani
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -534,6 +534,8 @@ LALInspiralChooseModel(
          case TaylorF2:
          case SpinTaylorT3:
          case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -578,6 +580,8 @@ LALInspiralChooseModel(
          case TaylorF2:
          case SpinTaylorT3:
          case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -620,6 +624,8 @@ LALInspiralChooseModel(
          case TaylorF2:
          case SpinTaylorT3:
          case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -665,6 +671,8 @@ LALInspiralChooseModel(
          case TaylorF2:
          case SpinTaylorT3:
          case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
 /*
    The value vlsoT4 is too large and doesn't work sometimes;
    so we use vlsoT2.
@@ -714,6 +722,8 @@ LALInspiralChooseModel(
          case TaylorF2:
          case SpinTaylorT3:
          case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
 /*
    The value vlsoT4 is too large and doesn't work with 2.5 PN
    Taylor approximant; so we use vlsoT2.
@@ -763,7 +773,9 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case SpinTaylorT3:
-      case SpinTaylor:
+         case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
 /*
    vlsoT6 is as yet undetermined and vlsoT4 is too large in
    certain cases (TaylorT2 crashes for (1.4,10)); using vlsoT2;
@@ -814,6 +826,8 @@ LALInspiralChooseModel(
          case TaylorF2:
          case SpinTaylorT3:
          case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
             ak->vn = ak->vlso = vlso = ak->vlsoT2;
             f->dEnergy = dEt6;
             f->flux = Ft7;
@@ -875,6 +889,8 @@ LALInspiralChooseModel(
          case TaylorF2:
          case SpinTaylorT3:
          case SpinTaylor:
+         case PhenSpinTaylorRD:
+         case PhenSpinTaylorRDF:
          case PadeT1:
          case PadeF1:
          case TaylorEt:
@@ -905,6 +921,8 @@ LALInspiralChooseModel(
    case TaylorF2:
    case SpinTaylorT3:
    case SpinTaylor:
+   case PhenSpinTaylorRD:
+   case PhenSpinTaylorRDF:
    case TaylorEt:
    case TaylorT4:
    case TaylorN:
@@ -944,11 +962,13 @@ LALInspiralChooseModel(
      break;
  case BCV:
  case BCVSpin:
+   ak->tn = 100.;
+   break;
  case IMRPhenomA:
  case IMRPhenomB:
  case IMRPhenomFA:
  case IMRPhenomFB:
-   ak->tn = 100.;
+   ak->tn = 5.*ak->totalmass/(256.*ak->eta*pow(ak->v0,8.)) + 1000.*ak->totalmass;
    break;
  case Eccentricity:
    /* The eccentric waveforms contain harmonic, so similarly to amplitude corrected waveforms
