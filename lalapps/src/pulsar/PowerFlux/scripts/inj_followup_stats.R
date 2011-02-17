@@ -185,3 +185,13 @@ dev.off()
 make_plot("distance_improvement_rel_zoomed")
 ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationTolerance))
 dev.off()
+
+#
+# Try to extract phases if they exist in this run
+#
+try({
+Output[,"phase"]<-as.integer(as.character(gsub("^[^_]*_([^_/]*)/.*", "\\1", Output[,"tag"])))
+make_plot("phase_primary")
+print(xyplot(phase~h0_inj, Output[Output[,"primary"],,drop=FALSE], scales=list(x=list(log=TRUE))))
+dev.off()
+})

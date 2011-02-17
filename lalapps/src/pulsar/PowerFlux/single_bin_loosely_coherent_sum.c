@@ -294,7 +294,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	f0m32_c=f0m_c;
 	f0m32_s=f0m_s;
 	
-	if(phase_increment>(M_PI-0.5)) {
+	if(phase_increment>(M_PI_2)) {
 		sincosf(-(double)(phase_increment-M_PI), &inc_s, &inc_c);
 		inc_c=-inc_c;
 		inc_s=-inc_s;
@@ -355,7 +355,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 			#if 0
 
-			if(phase_increment>(M_PI-0.5)) {
+			if(phase_increment>(M_PI_2)) {
 				sincosf(-phase_offset-i*(phase_increment-M_PI), &y, &x);
 				if(i & 1) {
 					x=-x;
@@ -426,7 +426,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 			#if 0
 
-			if(phase_increment>(M_PI-0.5)) {
+			if(phase_increment>(M_PI_2)) {
 				sincosf(-phase_offset-i*(phase_increment-M_PI), &y, &x);
 				if(i & 1) {
 					x=-x;
@@ -689,7 +689,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	/* Move values over 1.5*M_PI below zero */
 	if(phase_increment>1.5*M_PI) phase_increment-=2*M_PIl;
 
-	if(phase_increment>(M_PI-0.5)) {
+	if(phase_increment>(M_PI_2)) {
 		sincosf(-(double)(phase_increment-M_PIl), &inc_s, &inc_c);
 		inc_c=-inc_c;
 		inc_s=-inc_s;
@@ -785,7 +785,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 			{ int j;
 			for(j=0;j<4;j++) {
-				if(phase_increment>(M_PI-0.5)) {
+				if(phase_increment>(M_PI_2)) {
 					sincosf(-(double)(phase_offset+(i+j)*(double)(phase_increment-M_PI)), &x, &y);
 					if((i+j) & 1) {
 						x=-x;
@@ -871,7 +871,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 		sincosf(-tail_phase, &f0m_s, &f0m_c);
 
 		#if 0
-		if(phase_increment>(M_PI-0.5)) {
+		if(phase_increment>(M_PI_2)) {
 			sincosf(-phase_offset-i*(double)(phase_increment-M_PI), &x, &y);
 			if(i & 1) {
 				x=-x;
@@ -931,7 +931,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 			{ int j;
 			for(j=0;j<4;j++) {
-				if(phase_increment>(M_PI-0.5)) {
+				if(phase_increment>(M_PI_2)) {
 					sincosf(-(double)(phase_offset+(i+j)*(double)(phase_increment-M_PI)), &x, &y);
 					if((i+j) & 1) {
 						x=-x;
@@ -1014,7 +1014,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 		sincosf(-tail_phase, &f0m_s, &f0m_c);
 		
 		#if 0
-		if(phase_increment>(M_PI-0.5)) {
+		if(phase_increment>(M_PI_2)) {
 			sincosf(-(phase_offset+i*(double)(phase_increment-M_PI)), &x, &y);
 			if(i & 1) {
 				x=-x;

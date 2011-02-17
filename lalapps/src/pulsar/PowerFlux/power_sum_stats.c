@@ -53,7 +53,7 @@ adiff=0.25*(a_plus_sq-a_cross_sq);
 ac->pp=(asum+adiff*cpsi);
 ac->pc=2*adiff*spsi;
 ac->cc=(asum-adiff*cpsi);
-ac->im_pc=0.125*(1+a)*cos(ac->iota);
+ac->im_pc=0.125*(1+a)*cos(ac->iota)*2;
 
 ac->pppp=ac->pp*ac->pp;
 ac->pppc=2*ac->pp*ac->pc;
@@ -67,10 +67,12 @@ void generate_alignment_grid(void)
 {
 int i, j, k;
 int npsi=args_info.npsi_arg, niota=args_info.niota_arg;
-float iota_start=args_info.compute_cross_terms_arg ? -1 : 0;
 
-alignment_grid_size=npsi*niota+1;
-alignment_grid_free=npsi*niota+1;
+if(args_info.compute_cross_terms_arg)
+	alignment_grid_size=npsi*(2*niota-1)+2;
+	else
+	alignment_grid_size=npsi*niota+1;
+alignment_grid_free=alignment_grid_size;
 alignment_grid=do_alloc(alignment_grid_size, sizeof(*alignment_grid));
 
 /* First polarization is circular one */
@@ -82,9 +84,28 @@ for(j=0;j<niota;j++)
 	for(i=0;i<npsi;i++) {
 		/* note: make better grid by not overcovering circular polarization neighbourhood */
 		alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
-		alignment_grid[k].iota=acos(iota_start+((1.0-iota_start)*j)/niota); 
+		alignment_grid[k].iota=acos((1.0*j)/niota); 
 		k++;
 		}
+		
+if(args_info.compute_cross_terms_arg) {
+	alignment_grid[k].psi=0.0;
+	alignment_grid[k].iota=M_PI;
+	k++;
+
+	for(j=1;j<niota;j++)
+		for(i=0;i<npsi;i++) {
+			/* note: make better grid by not overcovering circular polarization neighbourhood */
+			alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
+			alignment_grid[k].iota=acos(-(1.0*j)/niota); 
+			k++;
+			}	
+	}
+	
+if(k-1>alignment_grid_free) {
+	fprintf(stderr, "*** INTERNAL ERROR: insuffient space allocated for alignment coefficients array (%d vs %d)\n", k, alignment_grid_free);
+	exit(-1);
+	}
 
 for(k=0;k<alignment_grid_free;k++) {
 	fprintf(LOG, "alignment entry %d: %f %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi);
