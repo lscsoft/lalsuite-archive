@@ -44,6 +44,7 @@ The array is stored as an attribute of the Array element.
 import numpy
 import re
 import sys
+import warnings
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl as Attributes
 
@@ -83,6 +84,8 @@ def StripArrayName(name):
 	Return the significant portion of an array name according to LIGO
 	LW naming conventions.
 	"""
+	if name.lower() != name:
+		warnings.warn("array name \"%s\" is not lower case" % name)
 	try:
 		return ArrayPattern.search(name).group("Name")
 	except AttributeError:
