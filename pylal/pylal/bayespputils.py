@@ -1606,6 +1606,10 @@ def plot_one_param_pdf(posterior,plot1DParams):
         strticks=map(getDecString,locs)
         plt.xticks(locs,strticks,rotation=45)
 
+    if(param.lower()=='time'):
+        locs, ticks = plt.xticks()
+        plt.xticks(locs,ticks,rotation=45)
+
     return rbins,myfig#,rkde
 #
 
@@ -1826,29 +1830,33 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs,rotation=45)
+        plt.xticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
-        strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getDecString,locs,rotation=45)
+        plt.xticks(locs,strticks)
 
+    # for the time rotate the axis label
+    if(par2_name.lower()=='time'):
+        locs, ticks = plt.xticks()
+        plt.xticks(locs, ticks, rotation=45)
 
     return fig
 #
@@ -1931,28 +1939,33 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs,rotation=45)
+        plt.xticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
-        strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getDecString,locs,rotation=45)
+        plt.xticks(locs,strticks)
+
+    # for the time rotate the axis label
+    if(par2_name.lower()=='time'):
+        locs, ticks = plt.xticks()
+        plt.xticks(locs, ticks, rotation=45)
 
     return myfig
 
