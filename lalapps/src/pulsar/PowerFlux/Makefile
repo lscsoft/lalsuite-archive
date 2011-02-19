@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.45-64
+VERSION=1.4.47-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -15,6 +15,7 @@ OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+#OPTFLAGS=-O6 -funroll-loops -msse3
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC
 CC=gcc $(CFLAGS)
@@ -264,9 +265,19 @@ test4i: powerflux-valgrind2
 	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --num-threads=1 --config=config.valgrind \
 	)
 
+test4inov: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	./powerflux-valgrind2 --num-threads=1 --config=config.valgrind \
+	)
+
 test4j: powerflux-valgrind2
 	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
 	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config_loose_pi_2.valgrind \
+	)
+
+test4jnov: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	./powerflux-valgrind2 --config=config_loose_pi_2.valgrind \
 	)
 
 test5: powerflux
@@ -276,19 +287,20 @@ test5: powerflux
 		--fake-strain=0.3e-22 --config=test_conf --resolution-ratio=1.0 \
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
-test5c: powerflux-mt
-	 ./powerflux-mt --dataset=random.dst -f 180002 -n 501 \
-		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--averaging-mode=single --do-cutoff=1 --lock-file=test.lock \
+test5c: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=1 --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=1 --ks-test=1 --filter-lines=0 \
 		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
 		--dump-candidates=0 \
 		--dump-points=0 --no-secondary-skymaps=1 \
 		--sky-marks-file=all_sky_marks.txt \
-	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
-        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
-  		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 
+  		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 \
+		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180"
 
 #  		--fake-ref-time=793154935 \
 #  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
@@ -408,9 +420,11 @@ cmdline2.c: powerflux2.ggo
 clean:
 	rm -f core *.bck *.o
 
-upload: powerflux-condor powerflux-mt
+upload: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)
 	gsiscp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-condor2 hydra.phys.uwm.edu:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 hydra.phys.uwm.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
 upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
@@ -428,6 +442,7 @@ upload.g: powerflux-condor powerflux-mt
 upload.h: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	gsiscp -C powerflux-condor2 ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
 upload.l: powerflux-condor powerflux-mt

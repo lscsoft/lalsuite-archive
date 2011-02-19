@@ -346,7 +346,7 @@ class lalapps_run_sqlite_node(pipeline.CondorDAGNode):
 class lalapps_ringcorse_node(pipeline.CondorDAGNode):
         """
         """
-        def __init__(self, job, dag, categories="frequency-ifos-oninstruments", rank_by="snr", frequency_bins="0,30,inf", live_time_program="lalapps_ring",p_node=[]):
+        def __init__(self, job, dag, categories="frequency-ifos-oninstruments", rank_by="snr", frequency_bins="0,30,inf", live_time_program="lalapps_ring", veto_segments_name="vetoes", p_node=[]):
                 pipeline.CondorDAGNode.__init__(self,job)
                 #FIXME add tmp file s
                 self.add_macro("macroid", dag.id)
@@ -357,6 +357,7 @@ class lalapps_ringcorse_node(pipeline.CondorDAGNode):
                 self.add_var_opt("rank-by", rank_by)
 		self.add_var_opt("frequency-bins", frequency_bins)
 		self.add_var_opt("live-time-program", live_time_program)
+		self.add_var_opt("veto-segments-name", veto_segments_name)
                 for p in p_node:
                         self.add_parent(p)
                 dag.add_node(self)
@@ -427,6 +428,7 @@ categories = str(cp.get("ringcorse","categories"))
 rank_by = str(cp.get("ringcorse","rank-by"))
 frequency_bins = str(cp.get("ringcorse","frequency-bins"))
 live_time_program = str(cp.get("ringcorse","live-time-program"))
+veto_segments_name = str(cp.get("ringcorse","veto-segments-name"))
 dag = ring_post_DAG(ininame, opts.log_path)
 
 #ligolw_add
@@ -496,7 +498,7 @@ for (desc, cachefile) in cachenamestypes.items():
 			injfind_node[f] = lalapps_cbc_injfind_node(injfind_job, dag, [xml], p_node=[sqlitex_node[f]])
 			sqlite_node[f] = ligolw_sqlite_node(sqlite_job, dag, db, [xml], p_node=[injfind_node[f]])
 
-ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, categories, rank_by, frequency_bins, live_time_program, p_node=runsql_node.values())
+ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, categories, rank_by, frequency_bins, live_time_program, veto_segments_name, p_node=runsql_node.values())
 dag.write_sub_files()
 dag.write_dag()
 dag.write_script()

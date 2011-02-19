@@ -3,6 +3,7 @@ input-format GEO
 earth-ephemeris testsuite/earth05-09.dat
 sun-ephemeris testsuite/sun05-09.dat
 sky-marks all_sky_marks.txt
+sky-grid targeted_rectangular
 first-bin 180000
 nbins 501
 do-cutoff 0
@@ -11,28 +12,34 @@ averaging-mode one
 spindown-start-time 793154935 
 spindown-start -1e-8
 
-write-dat NONE
-write-png NONE
+#write-dat NONE
+#write-png NONE
+compute-skymaps 1
 subtract-background 1
 ks-test 1
 compute-betas 0
 output-initial 1
 max-candidates 0
+skymap-resolution-ratio 0.1
 
-fake-ref-time 793154935
-fake-ra 2.0
-fake-dec 1.0
-fake-iota 1.570796
-fake-psi 0.392699
-fake-phi 0.0
-fake-spindown -1e-8
-fake-strain 2e-23
-fake-freq 100.1389
+#fake-ref-time 793154935
+#fake-ra 2.0
+#fake-dec 1.0
+#fake-iota 1.570796
+#fake-psi 0.392699
+#fake-phi 0.0
+#fake-spindown -1e-8
+#fake-strain 2e-23
+#fake-freq 100.1389
 
 focus-ra 2.0
 focus-dec 1.0
 focus-radius 0.1
 
 initial-dataset-seed 0
- 
+
+fine-factor 1 
+
+nchunks 2
+
  
