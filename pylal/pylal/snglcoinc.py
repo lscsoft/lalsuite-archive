@@ -35,7 +35,7 @@ import itertools
 import math
 import numpy
 import random
-import scipy.constants
+from pylal import lalconstants
 import scipy.optimize
 import sys
 
@@ -973,7 +973,7 @@ class TOATriangulator(object):
 	information derived by solving for the maximum-likelihood source
 	location assuming Gaussian-distributed timing errors.
 	"""
-	def __init__(self, rs, sigmas, v = scipy.constants.c):
+	def __init__(self, rs, sigmas, v = lalconstants.LAL_C_SI):
 		"""
 		Create and initialize a triangulator object.
 
