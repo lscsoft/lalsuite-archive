@@ -4,6 +4,7 @@
 #
 #       Copyright 2010
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
+#       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #
@@ -55,7 +56,7 @@ from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -219,6 +220,31 @@ def _inj_phi2(inj):
             return phi_mpi_to_pi + 2*pi_constant
         else:
             return phi_mpi_to_pi
+
+def _inj_tilt1(inj):
+    Sx  = inj.spin1x
+    Sy  = inj.spin1y
+    Sz  = inj.spin1z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
+def _inj_tilt2(inj):
+    Sx  = inj.spin2x
+    Sy  = inj.spin2y
+    Sz  = inj.spin2z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
 
 #===============================================================================
 # Class definitions
@@ -519,7 +545,9 @@ class Posterior(object):
                         'theta1':_inj_theta1,
                         'theta2':_inj_theta2,
                         'phi1':_inj_phi1,
-                        'phi2':_inj_phi2
+                        'phi2':_inj_phi2,
+                        'tilt1':_inj_tilt1,
+                        'tilt2':_inj_tilt2
                        }
 
     def _getinjpar(self,paramname):
@@ -1356,6 +1384,16 @@ def pol2cart(long,lat):
     return np.array([x,y,z])
 #
 
+def sph2cart(r,theta,phi):
+    """
+    Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
+    """
+    print r,theta,phi
+    x = r*np.sin(theta)*np.cos(phi)
+    y = r*np.sin(theta)*np.sin(phi)
+    z = r*np.cos(theta)
+    return x,y,z
+
 
 def greedy_bin_sky(posterior,skyres,confidence_levels):
     """
@@ -1373,7 +1411,12 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     np.seterr(under='ignore')
 
-    skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+    if 'ra' in posterior.names and 'dec' in posterior.names:
+        skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+    elif 'rightascension' in posterior.names and 'declination' in posterior.names:
+        skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+    else:
+        raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
@@ -1562,6 +1605,10 @@ def plot_one_param_pdf(posterior,plot1DParams):
         locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
         plt.xticks(locs,strticks,rotation=45)
+
+    if(param.lower()=='time'):
+        locs, ticks = plt.xticks()
+        plt.xticks(locs,ticks,rotation=45)
 
     return rbins,myfig#,rkde
 #
@@ -1783,29 +1830,33 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs,rotation=45)
+        plt.xticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
-        strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getDecString,locs,rotation=45)
+        plt.xticks(locs,strticks)
 
+    # for the time rotate the axis label
+    if(par2_name.lower()=='time'):
+        locs, ticks = plt.xticks()
+        plt.xticks(locs, ticks, rotation=45)
 
     return fig
 #
@@ -1851,6 +1902,7 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par2_injvalue=posterior[par2_name.lower()].injval
 
     myfig=plt.figure(1,figsize=(10,8),dpi=300)
+    myfig.add_axes([0.2,0.2,0.8,0.8])
     plt.clf()
     plt.xlabel(par2_name)
     plt.ylabel(par1_name)
@@ -1887,28 +1939,33 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs,rotation=45)
+        plt.xticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
-        strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getDecString,locs,rotation=45)
+        plt.xticks(locs,strticks)
+
+    # for the time rotate the axis label
+    if(par2_name.lower()=='time'):
+        locs, ticks = plt.xticks()
+        plt.xticks(locs, ticks, rotation=45)
 
     return myfig
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2006--2010  Kipp Cannon, Drew G. Keppel, Jolien Creighton
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -32,7 +32,11 @@ Light Weight XML documents.
 
 import bisect
 import itertools
+import math
+import numpy
 import random
+import scipy.constants
+import scipy.optimize
 import sys
 
 
@@ -943,3 +947,184 @@ def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow
 		# return acceptable event tuples
 		if keep:
 			yield tuple(event for instrument, event in events)
+
+
+#
+# =============================================================================
+#
+#                                Triangulation
+#
+# =============================================================================
+#
+
+
+#
+#
+
+
+class TOATriangulator(object):
+	"""
+	Time-of-arrival triangulator.  See section 6.6.4 of
+	"Gravitational-Wave Physics and Astronomy" by Creighton and
+	Anderson.
+
+	An instance of this class is a function-like object that accepts a
+	tuple of event arival times and returns a tuple providing
+	information derived by solving for the maximum-likelihood source
+	location assuming Gaussian-distributed timing errors.
+	"""
+	def __init__(self, rs, sigmas, v = scipy.constants.c):
+		"""
+		Create and initialize a triangulator object.
+
+		rs is a sequence of location 3-vectors, sigmas is a
+		sequence of the timing uncertainties for those locations.
+		Both sequences must be in the same order --- the first
+		sigma in the sequence is interpreted as belonging to the
+		first location 3-vector --- and, of course, they must be
+		the same length.
+
+		v is the speed at which the wave carrying the signals
+		travels.  The rs 3-vectors carry units of distance, the
+		sigmas carry units of time, v carries units of
+		distance/time.  What units are used for the three is
+		arbitrary, but they must be mutually consistent.  The
+		default value for v in c, the speed of light, in
+		metres/second, therefore the location 3-vectors should be
+		given in metres and the sigmas should be given in seconds
+		unless a value for v is provided with different units.
+
+		Example:
+
+		>>> from numpy import array
+		>>> triangulator = TOATriangulator([
+			array([-2161414.92636, -3834695.17889, 4600350.22664]),
+			array([  -74276.0447238, -5496283.71971  ,  3224257.01744  ]),
+			array([ 4546374.099   ,   842989.697626,  4378576.96241 ])
+		], [
+			0.005,
+			0.005,
+			0.005
+		])
+
+		This creates a TOATriangulator instance configured for the
+		LIGO Hanford, LIGO Livingston and Virgo antennas with 5 ms
+		timing uncertainties at each location.
+		"""
+		assert len(rs) == len(sigmas)
+		assert len(rs) >= 3
+
+		self.rs = numpy.vstack(rs)
+		self.sigmas = numpy.array(sigmas)
+		self.v = v
+
+		# sigma^-2 -weighted mean of locations
+		rbar = sum(self.rs / self.sigmas[:,numpy.newaxis]**2) / sum(1 / self.sigmas**2)
+
+		# the ith row is r - \bar{r} for the ith location
+		self.R = self.rs - rbar
+
+		# ith row is \sigma_i^-2 (r_i - \bar{r}) / c
+		M = self.R / (self.v * self.sigmas[:,numpy.newaxis]**2)
+
+		self.U, self.S, self.VT = numpy.linalg.svd(M)
+
+		# if the smallest singular value is less than 10^-8 * the
+		# largest singular value, assume the network is degenerate
+		self.singular = abs(self.S.min() / self.S.max()) < 1e-8
+
+
+	def __call__(self, ts):
+		"""
+		Triangulate the direction to the source of a signal based
+		on a tuple of times when the signal was observed.  ts is a
+		sequence of signal arrival times.  One arrival time must be
+		provided for each of the observation locations provided
+		when the instance was created, and the units of the arrival
+		times must be the same as the units used for the sequence
+		of sigmas.
+
+		The return value is a tuple of information derived by
+		solving for the maximum-likelihood source location assuming
+		Gaussian-distributed timing errors.  The return value is
+
+			(n, toa, chi2 / DOF, dt)
+
+		where n is a unit 3-vector pointing from the co-ordinate
+		origin towards the source of the signal, toa is the
+		time-of-arrival of the signal at the co-ordinate origin,
+		chi2 / DOF is the \chi^{2} per degree-of-freedom from to
+		the arrival time residuals, and dt is the root-sum-square
+		of the arrival time residuals.
+
+		Example:
+
+		>>> n, toa, chi2_per_dof, dt = triangulator([
+			794546669.429688,
+			794546669.41333,
+			794546669.431885
+		])
+		>>> n
+		array([ 0.28747132, -0.37035214,  0.88328904])
+		>>> toa
+		794546669.40874898
+		>>> chi2_per_dof
+		2.7407579727907194
+		>>> dt
+		0.01433725384999875
+		"""
+		assert len(ts) == len(self.sigmas)
+
+		# change of t co-ordinate to avoid LIGOTimeGPS overflow
+		t0 = min(ts)
+		ts = numpy.array([float(t - t0) for t in ts])
+
+		# sigma^-2 -weighted mean of arrival times
+		tbar = sum(ts / self.sigmas**2) / sum(1 / self.sigmas**2)
+		tau = ts - tbar
+		tau_prime = numpy.dot(self.U.T, tau)
+
+		if self.singular:
+			l = 0.0
+			np = tau_prime[:3] / self.S
+			try:
+				np[2] = math.sqrt(1.0 - np[0]**2 - np[1]**2)
+			except ValueError:
+				np[2] = 0.0
+				np /= math.sqrt(numpy.dot(np, np))
+		else:
+			def n_prime(l, S = self.S, tau_prime = tau_prime[:3]):
+				return S * tau_prime / (S * S + l)
+			def secular_equation(l):
+				np = n_prime(l)
+				return numpy.dot(np, np) - 1
+
+			# values of l that make the denominator of n'(l) 0
+			lsing = -self.S * self.S
+			# least negative of them
+			l_lo = lsing[-1]
+
+			# solve for l
+			l = scipy.optimize.brentq(secular_equation, l_lo, 1.0)
+
+			# compute n'
+			np = n_prime(l)
+
+		# compute n from n'
+		n = numpy.dot(self.VT.T, np)
+
+		# safety check the nomalization of the result
+		assert abs(numpy.dot(n, n) - 1.0) < 1e-8
+
+		# arrival time at origin
+		toa = sum((ts - numpy.dot(self.rs, n) / self.v) / self.sigmas**2) / sum(1 / self.sigmas**2)
+
+		# chi^{2}
+		chi2 = sum(((numpy.dot(self.R, n) / self.v - tau) / self.sigmas)**2)
+
+		# root-sum-square timing residual
+		dt = ts - toa - numpy.dot(self.rs, n) / self.v
+		dt = math.sqrt(numpy.dot(dt, dt))
+
+		# done
+		return n, t0 + toa, chi2 / len(self.sigmas), dt
