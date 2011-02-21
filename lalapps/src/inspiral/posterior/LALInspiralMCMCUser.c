@@ -763,9 +763,7 @@ int CubeToNestPriorPhenSpin(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
 {
 
   (void)inputMCMC;
-  REAL8 m1,m2;
   parameter->logPrior=0.0;
-  REAL8 mc,eta;
   REAL8 minCompMass = 1.0;
   REAL8 maxCompMass = 34.0;
   REAL8 maxMTotal= 35.0;
