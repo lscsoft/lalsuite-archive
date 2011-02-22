@@ -35,7 +35,10 @@ import itertools
 import math
 import numpy
 import random
-import scipy.constants
+try:
+	from scipy.constants import c as speed_of_light
+except ImportError:
+	from pylal.lalconsants import LAL_C_SI as speed_of_light
 import scipy.optimize
 import sys
 
@@ -973,7 +976,7 @@ class TOATriangulator(object):
 	information derived by solving for the maximum-likelihood source
 	location assuming Gaussian-distributed timing errors.
 	"""
-	def __init__(self, rs, sigmas, v = scipy.constants.c):
+	def __init__(self, rs, sigmas, v = speed_of_light):
 		"""
 		Create and initialize a triangulator object.
 
