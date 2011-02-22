@@ -1468,14 +1468,18 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     if 'ra' in posterior.names and 'dec' in posterior.names:
         skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+        raname='ra'
+        decname='dec'
     elif 'rightascension' in posterior.names and 'declination' in posterior.names:
         skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+        raname='rightascension'
+        decname='declination'
     else:
         raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
-    sky_injpoint=(posterior['ra'].injval,posterior['dec'].injval)
+    sky_injpoint=(posterior[raname].injval,posterior[decname].injval)
 
     skypoints=np.array(skylocutils.gridsky(float(skyres)))
     skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
