@@ -38,8 +38,11 @@ ecliptic_dist<-function(ra1, dec1, ra2, dec2) {
 
 Input[,"dist"]<-dist(Input[,"ra"], Input[,"dec"], Input[,"ra_inj"], Input[,"dec_inj"])
 Input[is.na(Input[,"dist"]), "dist"]<-0.3
+Input[,"h0_rel"]<-Input[,"h0_inj"]/FoundUpperLimit
+
 Output[,"dist"]<-dist(Output[,"ra_orig"], Output[,"dec_orig"], Output[,"ra_inj"], Output[,"dec_inj"])
 Output[is.na(Output[,"dist"]), "dist"]<-0.3
+Output[,"h0_rel"]<-Output[,"h0_inj"]/FoundUpperLimit
 
 ROC_table<-function(table, col="h0_inj", group.func=function(x)return(x), groups) {
 	table[,"Found"]<- as.integer(!is.na(table[,"snr"]))
@@ -81,9 +84,17 @@ make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
 	png(p(name, ".png"), width=width, height=height, res=dpi, pointsize=18, ...)
 	}
 
+# make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
+# 	pdf(p(name, ".pdf"), width=width*5/600, height=height*5/600, bg="white", ...)
+# 	}
+
 
 make_plot("injection_recovery")
 ROC_plot(group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0", ylab="% found")
+dev.off()
+
+make_plot("injection_recovery_rel")
+ROC_plot(col="h0_rel", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found")
 dev.off()
 
 make_plot("injection_recovery_by_f0")
@@ -103,30 +114,84 @@ make_plot("snr_improvement")
 ComparisonPlot(I(snr_output/snr_input)~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input", pch=3)
 dev.off()
 
+make_plot("snr_improvement_rel")
+ComparisonPlot(I(snr_output/snr_input)~h0_rel_input, auto.key=FALSE, xlab="h0 relative to upper limit", ylab="SNR Output/SNR input", pch=3)
+dev.off()
+
 make_plot("snr_improvement_zoomed")
 ComparisonPlot(I(pmin(snr_output/snr_input, 3))~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input", pch=3)
+dev.off()
+
+make_plot("snr_improvement_rel_zoomed")
+ComparisonPlot(I(pmin(snr_output/snr_input, 3))~h0_rel_input, auto.key=FALSE, xlab="h0 relative to upper limit", ylab="SNR Output/SNR input", pch=3)
+dev.off()
+
+make_plot("snr_improvement_vs_snr_zoomed")
+ComparisonPlot(I(pmin(snr_output/snr_input, 3))~log10(snr_input), auto.key=FALSE, xlab="log10(snr)", ylab="SNR Output/SNR input", pch=3)
+dev.off()
+
+make_plot("snr_improvement_vs_iota_zoomed")
+ComparisonPlot(I(pmin(snr_output/snr_input, 3))~iota_inj_input, auto.key=FALSE, xlab="iota", ylab="SNR Output/SNR input", pch=3)
+dev.off()
+
+make_plot("snr_improvement_vs_dist_zoomed")
+ComparisonPlot(I(pmin(snr_output/snr_input, 3))~dist(ra_output, dec_output, ra_inj_input, dec_inj_input), auto.key=FALSE, xlab="dist_output", ylab="SNR Output/SNR input", pch=3)
 dev.off()
 
 make_plot("f0_improvement")
 ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_input, xlab="h0", ylab="Frequency mismatch, Hz", best.snr=TRUE)
 dev.off()
 
+make_plot("f0_improvement_rel")
+ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Frequency mismatch, Hz", best.snr=TRUE)
+dev.off()
+
 make_plot("f0_improvement_zoomed")
 ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_input, xlab="h0", ylab="Frequency mismatch, Hz", best.snr=TRUE, ylim=c(0, 2*FrequencyTolerance))
+dev.off()
+
+make_plot("f0_improvement_rel_zoomed")
+ComparisonPlot(I(abs(f0_input-f0_inj_input))+I(abs(f0_output-f0_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Frequency mismatch, Hz", best.snr=TRUE, ylim=c(0, 2*FrequencyTolerance))
 dev.off()
 
 make_plot("spindown_improvement")
 ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_input, xlab="h0", ylab="Spindown mismatch, Hz/s", best.snr=TRUE)
 dev.off()
 
+make_plot("spindown_improvement_rel")
+ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Spindown mismatch, Hz/s", best.snr=TRUE)
+dev.off()
+
 make_plot("spindown_improvement_zoomed")
 ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_input, xlab="h0", ylab="Spindown mismatch, Hz/s", best.snr=TRUE, ylim=c(0, 2*SpindownTolerance))
+dev.off()
+
+make_plot("spindown_improvement_rel_zoomed")
+ComparisonPlot(I(abs(spindown_input-spindown_inj_input))+I(abs(spindown_output-spindown_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Spindown mismatch, Hz/s", best.snr=TRUE, ylim=c(0, 2*SpindownTolerance))
 dev.off()
 
 make_plot("distance_improvement")
 ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE)
 dev.off()
 
+make_plot("distance_improvement_rel")
+ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Distance from injection, rad", best.snr=TRUE)
+dev.off()
+
 make_plot("distance_improvement_zoomed")
 ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationTolerance))
 dev.off()
+
+make_plot("distance_improvement_rel_zoomed")
+ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationTolerance))
+dev.off()
+
+#
+# Try to extract phases if they exist in this run
+#
+try({
+Output[,"phase"]<-as.integer(as.character(gsub("^[^_]*_([^_/]*)/.*", "\\1", Output[,"tag"])))
+make_plot("phase_primary")
+print(xyplot(phase~h0_inj, Output[Output[,"primary"],,drop=FALSE], scales=list(x=list(log=TRUE))))
+dev.off()
+})
