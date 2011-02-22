@@ -103,6 +103,10 @@ def parse_command_line():
         help =
             "Square the ranking-stat before plotting."
         )
+    parser.add_option( "", "--log-stats", action = "store_true", default = False,
+        help =
+            "Take logs of the ranking-stat before plotting."
+        ) 
     parser.add_option( "", "--param-name", action = "store", default = None,
         metavar = "PARAMETER", 
         help = 
@@ -128,6 +132,8 @@ def parse_command_line():
     #check if required options specified and for self-consistency
     if not options.input:
         raise ValueError, "--input must be specified"
+    if options.log_stats and options.square_stats:
+        raise ValueError, "cannot plot both log10 and square of the statistic"
 
     return options, sys.argv[1:]
             
@@ -277,6 +283,8 @@ if 'coinc_inspiral.' not in ranking_stat:
 plot_stat_name = ranking_stat.replace('coinc_inspiral.', '')
 if opts.square_stats:
     plot_stat_name += '$^{2}$'
+if opts.log_stats:
+    plot_stat_name = 'log10_'+plot_stat_name
 
 rank_by = opts.rank_by.strip().upper()
 if rank_by != 'MAX' and rank_by != 'MIN':
@@ -362,6 +370,8 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         if opts.square_stats:
             stat = stat**2.
+        if opts.log_stats:
+            stat = log10(stat)
         if datatype != 'slide':
             durations[datatype] = float(duration)
             if opts.plot_playground_only and (datatype == 'all_data' or datatype == 'exclude_play'):
