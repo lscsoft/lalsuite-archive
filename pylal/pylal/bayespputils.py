@@ -1955,12 +1955,12 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
-        strticks=map(getRAString,locs,rotation=45)
-        plt.xticks(locs,strticks)
+        strticks=map(getRAString,locs)
+        plt.xticks(locs,strticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.xticks()
-        strticks=map(getDecString,locs,rotation=45)
-        plt.xticks(locs,strticks)
+        strticks=map(getDecString,locs)
+        plt.xticks(locs,strticks,rotation=45)
 
     # for the time rotate the axis label
     if(par2_name.lower()=='time'):
