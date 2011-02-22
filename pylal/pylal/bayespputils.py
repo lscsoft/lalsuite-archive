@@ -2222,6 +2222,7 @@ class PEOutputParser(object):
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
+                print "Processing file %s to posterior_samples.dat"%infilename
                 header=self._clear_infmcmc_header(infile)
                 # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
                 header=[self._swaplabel12(label) for label in header if label in allowedCols]
