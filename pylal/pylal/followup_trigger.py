@@ -114,7 +114,7 @@ class FollowupTrigger:
     
 
     # setting the color definition and the stages of the pipeline
-    self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
+    self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c','E1':'r','E2':'g','E3':'b'}
     if do_slides:
       self.stageLabels = ['INSPIRAL_FIRST', 'THINCA_SLIDE_FIRST',\
                         'INSPIRAL_SECOND', 'THINCA_SLIDE_SECOND']
@@ -856,7 +856,7 @@ class FollowupTrigger:
 
     page.add('<table border="2" >')
     page.add('<caption><b>Individual IFO Information</b></caption>')
-    for ifo in ['H1','H2','L1','V1','G1']:
+    for ifo in ['H1','H2','L1','V1','G1','E1','E2','E3']:
       trig = None
       if snglInspirals:
         for sngl in snglInspirals:
