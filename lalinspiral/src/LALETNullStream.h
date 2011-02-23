@@ -25,8 +25,13 @@
 #include <string.h>
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
+#include <lal/LALConfig.h>
+#include <lal/TimeFreqFFT.h>
 #include <lal/LALConstants.h>
 #include <lal/DetectorSite.h>
+#include <lal/LALDetectors.h>
+#include <lal/LALStatusMacros.h>
+#include <lal/LALNoiseModels.h>
 #include <lal/LALComplex.h>
 #include <lal/Units.h>
 #include <lal/Date.h>
@@ -35,16 +40,29 @@
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
 #include <lal/LALCalibration.h>
+#include <lal/FrameCache.h>
+#include <lal/FrameStream.h>
+#include <lal/ResampleTimeSeries.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 	
 NRCSID (LALETNULLSTREAMH,"$Id$");
-	
-void LALETNullStream ( LALStatus *status );
-	
-	
+    
+    REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration );
+
+    REAL8TimeSeries *ReadTimeSerieFromCache(const CHAR *cachefile, const CHAR *channel, LIGOTimeGPS *start, REAL8 duration);
+    
+    void PopulateNullStream(REAL8TimeSeries *NullStream, REAL8TimeSeries *RawData);
+    
+    void PopulateHplus(REAL8TimeSeries *hplus, REAL8TimeSeries *RawData);
+    
+    void PopulateHcross(REAL8TimeSeries *hcross, REAL8TimeSeries *RawData);
+    
+    void ComputePSDfromNullStream(REAL8FrequencySeries *psd, REAL8TimeSeries *RawData);
+    
+
 #ifdef  __cplusplus
 }
 #endif      /* Close C++ protection */

@@ -14,7 +14,6 @@ libtools_la_SOURCES = \
 	FlatLatticeTiling.c \
 	FrequencySeries.c \
 	LALBarycenter.c \
-	LALETNullStream.c \
 	LALCalibration.c \
 	ResampleTimeSeries.c \
 	Segments.c \
