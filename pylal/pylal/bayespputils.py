@@ -1606,10 +1606,6 @@ def plot_one_param_pdf(posterior,plot1DParams):
         strticks=map(getDecString,locs)
         plt.xticks(locs,strticks,rotation=45)
 
-    if(param.lower()=='time'):
-        locs, ticks = plt.xticks()
-        plt.xticks(locs,ticks,rotation=45)
-
     return rbins,myfig#,rkde
 #
 
@@ -1710,8 +1706,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
         locs, ticks = plt.yticks()
         strticks=map(getDecString,locs)
         plt.yticks(locs,strticks)
-
-
 
     return myfig
 #
@@ -1853,11 +1847,6 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         strticks=map(getDecString,locs)
         plt.xticks(locs,strticks,rotation=45)
 
-    # for the time rotate the axis label
-    if(par2_name.lower()=='time'):
-        locs, ticks = plt.xticks()
-        plt.xticks(locs, ticks, rotation=45)
-
     return fig
 #
 
@@ -1961,11 +1950,6 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
         plt.xticks(locs,strticks,rotation=45)
-
-    # for the time rotate the axis label
-    if(par2_name.lower()=='time'):
-        locs, ticks = plt.xticks()
-        plt.xticks(locs, ticks, rotation=45)
 
     return myfig
 
