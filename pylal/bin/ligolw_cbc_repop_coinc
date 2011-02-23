@@ -121,6 +121,11 @@ def parse_command_line():
         help =
           "prefactor for power of V1 statistic in combined statistic; default is 1."
         )
+    parser.add_option("", "--einstein-factor", action="store", type="float",
+        default=1.,
+        help =
+          "prefactor for power of E1,2,3 statistic in combined statistic; default is 1."
+        )
 
     (options, args) = parser.parse_args()
 
@@ -166,7 +171,7 @@ class CombiningFunctions:
     when computing the results in the UPDATE SET command.
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
-      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1. ):
+      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., efac = 1. ):
         """
         Sets outside variables.
         """
@@ -179,6 +184,7 @@ class CombiningFunctions:
         self.hfac = hfac
         self.lfac = lfac
         self.vfac = vfac
+        self.efac = efac
     
     def compute_combined_snr( self, coinc_sngls ):
         """
@@ -326,7 +332,7 @@ create_column( connection, 'coinc_inspiral', output_column )
 # 1. initialize the combining function class
 function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
     durthresh = opts.duration_threshold, power = opts.snr_power, 
-    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor )
+    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, efac = opts.einstein_factor )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'snr':
     function = 'compute_combined_snr'

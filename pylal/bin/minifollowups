@@ -319,7 +319,7 @@ elif FUPtype == 'LE':
         slideDict = {}
         # If the detector didnt have a trigger but was on we need to know how
         # much it was being slid by.
-        for ifo in ['H1','L1','H2','V1','G1','T1']:
+        for ifo in ['H1','L1','H2','V1','G1','T1','E1','E2','E3']:
           if seg_lists.has_key(ifo):
             sngl = copy.deepcopy(coinc[1][0])
             if (sngl.get_end() in seg_lists[ifo]):
