@@ -10,7 +10,6 @@ check_PROGRAMS = \
 	DetectorSiteTest \
 	FrequencySeriesTest \
 	LALBarycenterTest \
-	LALETNullStreamTest \
 	LALIndependentTestDetResponse \
 	LALTestDetResponse0 \
 	SegmentsTest \
@@ -43,11 +42,6 @@ LALBarycenterTest_SOURCES = LALBarycenterTest.c
 LALBarycenterTest_LDADD = \
 	$(top_builddir)/lib/liblal.la \
 	$(top_builddir)/packages/support/src/liblalsupport.la
-
-LALETNullStreamTest_SOURCES = LALETNullStreamTest.c
-LALETNullStreamTest_LDADD = \
-        $(top_builddir)/lib/liblal.la \
-        $(top_builddir)/packages/support/src/liblalsupport.la
 
 LALIndependentTestDetResponse_SOURCES = LALIndependentTestDetResponse.c
 LALIndependentTestDetResponse_LDADD = \

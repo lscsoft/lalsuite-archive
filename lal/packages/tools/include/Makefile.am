@@ -8,7 +8,6 @@ pkginclude_HEADERS = \
 	FlatLatticeTiling.h \
 	FrequencySeries.h \
 	LALBarycenter.h \
-	LALETNullStream.h \
 	LALCalibration.h \
 	LALDetectors.h \
 	LALTrigScanCluster.h \
