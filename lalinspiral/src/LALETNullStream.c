@@ -21,7 +21,7 @@
 
 NRCSID (LALETNULLSTREAMC,"$Id$");
 
-void LALETNullStream ( LALStatus *status, REAL8TimeSeries *NullStream, LIGOTimeGPS *GPSStart, REAL8 duration )
+REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration )
 {
     /***************************************************************************
      *
@@ -35,8 +35,8 @@ void LALETNullStream ( LALStatus *status, REAL8TimeSeries *NullStream, LIGOTimeG
      *
      **************************************************************************/
     
-    INITSTATUS( status, "LALETNullStream", LALETNULLSTREAMC);
-	ATTATCHSTATUSPTR( status );
+    //INITSTATUS( status, "LALETNullStream", LALETNULLSTREAMC);
+	//ATTATCHSTATUSPTR( status );
     
     /***************************************************************************
      *
@@ -46,6 +46,7 @@ void LALETNullStream ( LALStatus *status, REAL8TimeSeries *NullStream, LIGOTimeG
     
     UINT4 i=0;
     REAL8TimeSeries *RawData[3];
+    REAL8TimeSeries *NullStream;
     
     /***************************************************************************
      *
@@ -54,7 +55,7 @@ void LALETNullStream ( LALStatus *status, REAL8TimeSeries *NullStream, LIGOTimeG
      *
      **************************************************************************/  
     
-	const CHAR *ChannelNames[3] = {"E1:STRAIN", "E2:STRAIN", "E1:STRAIN"};
+	const CHAR *ChannelNames[3] = {"E1:STRAIN", "E2:STRAIN", "E3:STRAIN"};
     const CHAR *CacheFileNames[3] = {"/home/tania/ET_mdc/data/cache/E1.cache","/home/tania/ET_mdc/data/cache/E2.cache","/home/tania/ET_mdc/data/cache/E3.cache"};
     
     /* Set up the Channel Names */ 
@@ -123,8 +124,7 @@ void LALETNullStream ( LALStatus *status, REAL8TimeSeries *NullStream, LIGOTimeG
      *
      **************************************************************************/ 
     
-	DETATCHSTATUSPTR( status );
-	RETURN (status);
+	return NullStream;
 }
 
 REAL8TimeSeries *ReadTimeSerieFromCache(const CHAR *cachefile, const CHAR *channel, LIGOTimeGPS *start, REAL8 duration)

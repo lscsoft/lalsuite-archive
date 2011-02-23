@@ -76,11 +76,13 @@ int main( int argc, char *argv[] )
      **************************************************************************/
     
     UINT4 j;
-    REAL8TimeSeries NullStream;
+    REAL8TimeSeries *NullStream;
     REAL8FrequencySeries *inverse_spectrum;
     REAL8FFTPlan *fwdplan = NULL;
 	REAL8Window  *windowplan = NULL;
     REAL8 deltaF=0.0;
+    
+    NullStream = (REAL8TimeSeries *) LALMalloc(sizeof(REAL8TimeSeries));
     
     /***************************************************************************
      *
@@ -90,10 +92,10 @@ int main( int argc, char *argv[] )
     
     /* Get the arguments and act on them */
     initialise(argc,argv); 
-    LALETNullStream(&status,&NullStream, &GPSStart_global,duration_global);
+    NullStream = LALETNullStream(&GPSStart_global,duration_global);
     
     // RESAMPLE TIMESERIES (WHY IS THIS DONE?)
-    XLALResampleREAL8TimeSeries(&NullStream,1.0/SampleRate_global);
+    XLALResampleREAL8TimeSeries(NullStream,1.0/SampleRate_global);
     deltaF=(REAL8)SampleRate_global/duration_global;
     
     /***************************************************************************
@@ -105,10 +107,10 @@ int main( int argc, char *argv[] )
     
     windowplan = XLALCreateTukeyREAL8Window( duration_global, 0.1);
     fwdplan = XLALCreateForwardREAL8FFTPlan(duration_global, 0 );
-    inverse_spectrum = (REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&(NullStream.epoch),0.0,deltaF,&lalDimensionlessUnit,NullStream.data->length/2);
+    inverse_spectrum = (REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&(NullStream->epoch),0.0,deltaF,&lalDimensionlessUnit,NullStream->data->length/2);
     
     XLALREAL8AverageSpectrumMedian(inverse_spectrum ,
-                                         &NullStream,
+                                         NullStream,
                                          ((size_t)duration_global),
                                          0.0,
                                          windowplan,
@@ -133,7 +135,7 @@ int main( int argc, char *argv[] )
      * 
      **************************************************************************/
       
-    XLALDestroyREAL8TimeSeries(&NullStream);
+    XLALDestroyREAL8TimeSeries(NullStream);
     XLALDestroyREAL8FrequencySeries(inverse_spectrum);
     XLALDestroyREAL8FFTPlan(fwdplan);
     XLALDestroyREAL8Window(windowplan);

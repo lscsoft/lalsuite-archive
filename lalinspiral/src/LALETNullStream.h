@@ -50,7 +50,7 @@ extern "C" {
 	
 NRCSID (LALETNULLSTREAMH,"$Id$");
     
-    void LALETNullStream ( LALStatus *status, REAL8TimeSeries *NullStream, LIGOTimeGPS *GPSStart, REAL8 duration );
+    REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration );
 
     REAL8TimeSeries *ReadTimeSerieFromCache(const CHAR *cachefile, const CHAR *channel, LIGOTimeGPS *start, REAL8 duration);
     
