@@ -192,6 +192,7 @@ if(partial->power_im_pc!=NULL) {
 		a1++;
 		p1++;
 		}
+	accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 	}
 
 if(partial->weight_arrays_non_zero) {
@@ -233,7 +234,6 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
-accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 int SUFFIX(compare_partial_power_sums)(char *prefix, SUFFIX(PARTIAL_POWER_SUM) *ref, SUFFIX(PARTIAL_POWER_SUM) *test, REAL rel_tolerance, REAL rel_abs_tolerance)
@@ -355,6 +355,7 @@ if(partial->power_im_pc!=NULL) {
 		}
 
 	CBLAS_AXPY(pps_bins, 1.0, &(partial->power_im_pc[shift]), 1, accum->power_im_pc, 1);
+	accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 	}
 
 
@@ -373,7 +374,6 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
-accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void SUFFIX(sse_accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial)
@@ -417,6 +417,7 @@ if(partial->power_im_pc!=NULL) {
 		}
 
 	SSE_SUM(pps_bins, &(partial->power_im_pc[shift]), accum->power_im_pc);
+	accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 	}
 
 if(partial->weight_arrays_non_zero) {
@@ -434,7 +435,6 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
-accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void SUFFIX(dump_partial_power_sum)(FILE *out, SUFFIX(PARTIAL_POWER_SUM) *pps)
