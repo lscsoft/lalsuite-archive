@@ -188,7 +188,7 @@ unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
 int injONLY=0;
 REAL8 calibration_percent=1;
-int zero_V1=1;
+int zero_V1=0;
 
 // types for the selection of the calibration functions //
 typedef REAL8 (AmplitudeCalib)(REAL8 f);
@@ -1066,7 +1066,31 @@ int main( int argc, char *argv[])
 			
 			/* Create the fake data */
 			for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-				inputMCMC.invspec[i]->data->data[j]=1.0/(scalefactor*inputMCMC.invspec[i]->data->data[j]);
+                                inputMCMC.invspec[i]->data->data[j]=1.0/(scalefactor*inputMCMC.invspec[i]->data->data[j]);
+
+                            if(enable_calamp || enable_calfreq){
+                                if(j==1){fprintf(stderr,"Applying calibration errors to %s\ns noise ", IFOnames[i]);}
+                                int IFOnum=0;
+                                if(!strcmp(IFOnames[i],"H1")){IFOnum =1;}
+                                if(!strcmp(IFOnames[i],"L1")){IFOnum =2;}
+                                if(!strcmp(IFOnames[i],"V1")){IFOnum =3;}
+                                switch(IFOnum) {
+                                    case 1:
+                                    R_A=&Amp_H1;
+                                    break;
+                                    case 2:
+                                    R_A=&Amp_L1;
+                                    break;
+                                    case 3:
+                                    R_A=&Amp_V1;
+                                    break;
+                                    default:
+                                     exit(-1);
+                                 }
+                            if(enable_calamp){  inputMCMC.invspec[i]->data->data[j]/=((REAL8)CalAmpFacs[i]*(REAL8)CalAmpFacs[i]);}
+                            else if(enable_calfreq){ inputMCMC.invspec[i]->data->data[j]/=(R_A(j*inputMCMC.deltaF)*R_A(j*inputMCMC.deltaF));}
+                            }
+
 				inputMCMC.stilde[i]->data->data[j].re=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 				inputMCMC.stilde[i]->data->data[j].im=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 			}
@@ -1199,8 +1223,12 @@ int main( int argc, char *argv[])
 			/* Inject incoherently */
 			if(decohereflag){
 				memcpy(&realSegStart,&segmentStart,sizeof(realSegStart));
-				XLALGPSAdd(&segmentStart,((REAL8) i+1)*offset);
-				fprintf(stdout,"Offset injection by %lf s\n",((REAL8) i+1)*offset);
+				//XLALGPSAdd(&segmentStart,((REAL8) i+1)*offset);
+				if(!strcmp(IFOnames[i],"H1")) offset=0.000010;
+                                else if (!strcmp(IFOnames[i],"L1")) offset=1.0*calibration_percent*calibration_out_max;
+                                else if (!strcmp(IFOnames[i],"V1")) offset=0.000020;
+                                XLALGPSAdd(&segmentStart,(1.00000)*offset);
+                                fprintf(stderr,"Offset injection by %lf s\n",(1.0)*offset);
 			}
 			/* Create a buffer long enough to hold the signal */
 			UINT4 bufferlength = (UINT4)(100.0/inputMCMC.deltaT);
@@ -1247,6 +1275,52 @@ int main( int argc, char *argv[])
 			XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
 			
 			REPORTSTATUS(&status);
+
+                REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+
+                /* Modify the waveform and the noise if a calibration error is present. This is done before the SNR is calculated */
+                if(enable_calamp || enable_calfreq){
+
+                int isWavesDir;
+                FILE *uncalib_waveout;
+                    char uncalib_wavename[100];
+
+                if(stat("./waves",&st) == 0){
+                     isWavesDir=1;
+                     fprintf(stderr,"waves directory is present\n");
+                     fprintf(stderr,"Writing uncalibrated waves \n");
+                     sprintf(uncalib_wavename,"./waves/uncalibwave_%s_%9.0f.dat",IFOnames[i],injTime);}
+                else { isWavesDir=0;
+                      fprintf(stderr,"waves directory is not present\n");
+                      fprintf(stderr,"Writing uncalibrated waves on the run directory.\n");
+                      sprintf(uncalib_wavename,"uncalibwave_%s_%9.0f.dat",IFOnames[i],injTime);}
+
+                    uncalib_waveout=fopen(uncalib_wavename,"w");
+
+                    for(j=0;j<injF->data->length;j++) fprintf(uncalib_waveout,"%g\t%g\t%g\n",j*(injF->deltaF),sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0)) ,atan2(injF->data->data[j].im,injF->data->data[j].re) );
+                    fclose(uncalib_waveout);
+
+                if(enable_calamp){
+                    for(j=0;j<injF->data->length;j++) {
+                        injF->data->data[j].re*=(REAL8)CalAmpFacs[i];
+                        injF->data->data[j].im*=(REAL8)CalAmpFacs[i];
+                        }
+
+                }
+
+                if(enable_calfreq){
+                    COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+                    CalibPolar(injF,CalibInj,IFOnames[i],injTime,isWavesDir);
+                    fprintf(stderr,"iswaves equal to %2.0f",isWavesDir);
+
+                        for(j=0;j<injF->data->length;j++){
+                            injF->data->data[j].re = CalibInj->data->data[j].re;
+                            injF->data->data[j].im = CalibInj->data->data[j].im;
+                        }
+                    XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
+                }
+                }
+
 			if(estimatenoise){
 				for(j=(UINT4) (inputMCMC.fLow/inputMCMC.invspec[i]->deltaF),SNR=0.0;j<inputMCMC.invspec[i]->data->length;j++){
 					SNR+=((REAL8)injF->data->data[j].re)*((REAL8)injF->data->data[j].re)*inputMCMC.invspec[i]->data->data[j];
