@@ -38,7 +38,7 @@ RCSID(LALAPPS_VCS_IDENT_ID);
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
-#define DEBUG 0
+#define DEBUG 1
 #define USAGE "lalapps_inspnest ARGUMENTS [OPTIONS]\n \
 Necessary ARGUMENTS:\n \
 -o outfile\t:\tOutput samples to outfile\n \
@@ -158,6 +158,7 @@ unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
 int injONLY=0;
 REAL8 calibration_percent=1;
+int zero_V1=1;
 
 // types for the selection of the calibration functions //
 typedef REAL8 (AmplitudeCalib)(REAL8 f);
@@ -914,7 +915,7 @@ int main( int argc, char *argv[])
                 XLALDestroyRandomParams(randparam);
             }
             /* set up a Tukey Window with tails of 1s at each end */
-            if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
+            if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen,0.1*8.0/(SampleRate/(REAL8)seglen));
             /* Read the data from disk into a vector (RawData) */
             if(!FakeFlag){
                 RawData = readTseries(CacheFileNames[i],ChannelNames[i],datastart,duration); /* This reads the raw data from the cache */
@@ -1021,6 +1022,22 @@ int main( int argc, char *argv[])
                 }
                 REAL8TimeSeries *inj8Wave=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("injection",&segmentStart,0.0,inputMCMC.deltaT,&lalDimensionlessUnit,(size_t)seglen);
                 for (j=0;j<injWave->data->length;j++) inj8Wave->data->data[j]=(REAL8)injWave->data->data[j]; /* Move into a REAL8 vector */
+
+                REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+
+                FILE *wave_time_dom;
+                char wave_time_dom_name[100];
+                sprintf(wave_time_dom_name,"wave_time_%s_%9.0f.dat",IFOnames[i],injTime);
+                wave_time_dom=fopen(wave_time_dom_name,"w");
+                REAL8 delta_t;
+                delta_t=segDur/((REAL8) seglen);
+                    for(j=0;j<inj8Wave->data->length;j++) 
+                    if ( inj8Wave->data->data[j]!=0) {fprintf(wave_time_dom,"%9.9f\t%g\n",injWave->epoch.gpsSeconds+1e-9*injWave->epoch.gpsNanoSeconds +j*delta_t,inj8Wave->data->data[j] );}
+                    fclose(wave_time_dom);
+
+
+
+
                 /* Compute the frequency domain wave for SNR calculation */
                 RealFFTPlan *inj_plan = XLALCreateForwardREAL4FFTPlan( seglen, 0 );
                 COMPLEX16FrequencySeries *injF = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injFD",&(segmentStart),0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
@@ -1028,11 +1045,16 @@ int main( int argc, char *argv[])
                 REAL4 WinNorm = sqrt(windowplan->sumofsquares/windowplan->data->length);
                 for(j=0;j<inj8Wave->data->length;j++) inj8Wave->data->data[j]*=SNRfac*windowplan->data->data[j]/WinNorm;
                 XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
-
                 REPORTSTATUS(&status);
 
-REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+                FILE *wave_freq_dom;
+                char wave_freq_dom_name[100];
+                sprintf(wave_freq_dom_name,"wave_freq_%s_%9.0f.dat",IFOnames[i],injTime);
+                wave_freq_dom=fopen(wave_freq_dom_name,"w");
 
+                    for(j=0;j<injF->data->length;j++) fprintf(wave_freq_dom,"%g\t%g\t%g\n",j*(injF->deltaF),injF->data->data[j].re, injF->data->data[j].im );
+                    fclose(wave_freq_dom);
+ 
                 /* Modify the waveform and the noise if a calibration error is present. This is done before the SNR is calculated */
                 if(enable_calamp || enable_calfreq){
 
@@ -1088,10 +1110,19 @@ REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geoce
                 SNR=sqrt(SNR);
 
                 /* Actually inject the waveform */
-                if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
+                
+                if(!FakeFlag){
+                    if (!strcmp(IFOnames[i],"V1") && zero_V1==1) { fprintf(stderr,"Excluding the wave in V1");}
+                    else {
+                         for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
+                          }
+                } 
+                 if (!strcmp(IFOnames[i],"V1") && zero_V1==1) { fprintf(stderr,"Excluding the wave in V1");}
+                else{
                 for(j=0;j<injF->data->length;j++) {
                     inputMCMC.stilde[i]->data->data[j].re+=(REAL8)injF->data->data[j].re;
                     inputMCMC.stilde[i]->data->data[j].im+=(REAL8)injF->data->data[j].im;
+                      }
                 }
 
                 #if DEBUG
