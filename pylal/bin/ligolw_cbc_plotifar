@@ -368,7 +368,7 @@ else:
     param_ranges_legend[(param_name, 0 )]['range'] = ''
     param_ranges_legend[(param_name, 0 )]['marker'] = '^'
     param_ranges_legend[(param_name, 0 )]['linestyle'] = '--'
-    param_ranges_legend[(param_name, n)]['label'] = 'No binning'
+    param_ranges_legend[(param_name, 0)]['label'] = 'No binning'
 
 # get datatype
 plot_datatype = opts.datatype.strip().lower()

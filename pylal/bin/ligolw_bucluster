@@ -54,7 +54,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "Run a single-instrument burst clustering algorithm on the sngl_burst events contained in LIGO Light Weight XML files.  Files can be listed on the command line and/or in one or more LAL cache files.  If no files are named, then input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip-compressed."
+		description = "Run a single-instrument burst clustering algorithm on the sngl_burst events contained in LIGO Light Weight XML files.  Files can be listed on the command line and/or in one or more LAL cache files.  If no files are named, then input is read from stdin and written to stdout."
 	)
 	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be recorded in the process table (default = None).")
 	parser.add_option("-c", "--cluster-algorithm", metavar = "[excesspower]", help = "Set clustering method (required).")
@@ -128,7 +128,7 @@ for filename in filenames:
 	# Load document
 	#
 
-	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#

@@ -130,7 +130,7 @@ options, filenames = parse_command_line()
 
 
 if options.add_to is not None:
-	time_slides = ligolw_tisi.load_time_slides(options.add_to, gz = options.add_to.endswith(".gz"), verbose = options.verbose)
+	time_slides = ligolw_tisi.load_time_slides(options.add_to, verbose = options.verbose)
 	if options.verbose:
 		print >>sys.stderr, "Loaded %d time slides." % len(time_slides)
 else:

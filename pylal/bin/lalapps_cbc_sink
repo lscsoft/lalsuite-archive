@@ -154,7 +154,7 @@ class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
 	validcolumns = {"total_mass":"lstring","chirp_mass":"lstring","mass1":"lstring","mass2":"lstring", #FIXME add units?
                         "volume_in_Mpc3_yr":"real_8","range_in_Mpc":"real_8","lambda_ratio":"real_8","fractional_error":"real_8",
-			"upper_limit":"real_8","marginalized_upper_limit":"real_8",
+			"upper_limit":"real_8","marginalized_upper_limit":"real_8","effective_numerator":"real_8",
 			"livetime_in_days":"real_8", # FIXME alan doesn't want this as a column
 			"injections_found":"int_4s","injections_missed":"int_4s"}
 
@@ -207,7 +207,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    __prog__ = "lalapps_cbc_sink_by_"+bin_type.lower() # have you ever met a program with multiple identities?
    total_vol = total_err = total_found = total_missed = total_lt = 0
 
-   files = opts.input_cache.sieve(description=bin_type.upper())
+   files = opts.input_cache.sieve(description=bin_type)
    if len(files) == 0: continue
 
    # read in the data produced by lalapps_cbc_svim
@@ -250,26 +250,26 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       InspiralUtilsOpts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg )
 
       # Make a table summarizing the results
-      summary_file = open("%s%s-%s_%s_range_summary-%d-%d.%s"%(opts.output_path,opts.ifo_times,opts.user_tag,bin_type.lower(),opts.gps_start_time,opts.gps_end_time-opts.gps_start_time,+opts.output_format),'w')
+      summary_file = open("%s%s-%s_range_summary-%s_-%d-%d.%s"%(opts.output_path,opts.ifo_times,__prog__,opts.user_tag,opts.gps_start_time,opts.gps_end_time-opts.gps_start_time,opts.output_format),'w')
       summary_doc = ligolw.Document()
       summary_doc.appendChild(ligolw.LIGO_LW())
       ul_table = lsctables.New(UpperLimitTable)
       summary_doc.childNodes[0].appendChild(ul_table)
 
-      if len(bins) == 2: # in twod case, just choose a few representative bins
-        mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-        maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-        if bin_type == "BNS_BBH": # only print out the fun bins 1.35-1.35 (BNS), 5-5 (BBH) and 1.35-5 (NSBH)
-          representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
-        else:
-          representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
+      if bin_type == "BNS_BBH": # only print out the fun bins 1.35-1.35 (BNS), 5-5 (BBH) and 1.35-5 (NSBH)
+        representative_bins = [(1.3,1.3),(5.0,1.3),(5.0,5.0)]
 
       for mbin in iterutils.MultiIter(*bins.centres()):
 
         row = ul_table.RowType()
 
-        if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+        if bin_type == "BNS_BBH":
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+          row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+          row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
+          columnList = ['mass1','mass2']
+        if bin_type == "Mass1_Mass2":
+          if bins.upper()[0][bins[mbin][0]] <= bins.lower()[1][bins[mbin][1]]: continue
           row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
           row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
           columnList = ['mass1','mass2']
@@ -303,10 +303,10 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
 
       last_row.range_in_Mpc = (sec_in_yr*vA.array.sum()/total_lt[mbin] /(4*numpy.pi/3) )**(1./3)
       last_row.volume_in_Mpc3_yr = vA.array.sum()
-      last_row.fractional_error = 0
-      last_row.upper_limit = 0
-      last_row.lambda_ratio = 0
-      last_row.marginalized_upper_limit = 0
+      last_row.fractional_error = ' '
+      last_row.upper_limit = ' '
+      last_row.lambda_ratio = ' '
+      last_row.marginalized_upper_limit = ' '
       last_row.injections_found = found.array.sum()
       last_row.injections_missed = missed.array.sum()
       last_row.livetime_in_days = ltA.array.max()/(3600*24.0)
@@ -324,11 +324,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       # posterior plots
       #
       for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-        # we only plot a few bins to avoid clutter
-        if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+        if bin_type in ["BNS_BBH"]:
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-        else:
-          if j > 6: continue
         if found[mbin] > 0:
           pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
       pylab.title(entry.observatory+ " Cumulative Posterior Rate Distributions",fontsize=14)
@@ -337,8 +334,23 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
       pylab.ylim([1e-2, 1])
       pylab.grid()
-      pylab.xlim([1e-6, 1e-1]) #FIXME hardcoded rate limits are bad for advanced ligo
+      #pylab.xlim([1e-6, 1e-1]) #FIXME hardcoded rate limits are bad for advanced ligo
       savefig_pylal('posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+      pylab.clf()
+
+      for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
+        if bin_type in ["BNS_BBH"]:
+          if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+        if found[mbin] > 0:
+          pylab.semilogx(mu,post_werrs[bins[mbin]],label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
+      pylab.title(entry.observatory+ " Posterior Rate Densities",fontsize=14)
+      pylab.legend(loc='upper left')
+      pylab.ylabel("Probability Density",fontsize=14)
+      pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
+      #pylab.ylim([1e-2, 1])
+      pylab.grid()
+      #pylab.xlim([1e-6, 1e-1]) #FIXME hardcoded rate limits are bad for advanced ligo
+      savefig_pylal('posterior_density', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
       pylab.clf()
 
       if len(bins) == 1:
@@ -503,11 +515,13 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    # now write out the special combined case
    ###############################################################################
 
+   if len(files) == 1: continue
+
    # Initialize inspiral utility plotting helper
    __prog__ = "lalapps_cbc_combined_sink_by_"+bin_type.lower()
    opts.ifo_times = combined_ifos
-   opts.gps_start_time = numpy.min([entry.segment[0] for entry in opts.input_cache])
-   opts.gps_end_time = numpy.max([entry.segment[1] for entry in opts.input_cache])
+   opts.gps_start_time = numpy.min([entry.segment[0] for entry in files])
+   opts.gps_end_time = numpy.max([entry.segment[1] for entry in files])
    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
    fnameList = []; tagList = []
 
@@ -536,11 +550,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    # combined posterior plot
    #
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-     # we only plot a few bins to avoid clutter
-     if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+     if bin_type in ["BNS_BBH"]:
        if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-     else:
-       if j > 6: continue
      if combined_upper_limit[mbin] < float('inf'):
        pylab.semilogx(mu,combined_post[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
    pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=14)
@@ -549,7 +560,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
    pylab.ylim([1e-2, 1])
    pylab.grid()
-   pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
+   #pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
    savefig_pylal('combined_posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
 
@@ -557,11 +568,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    # combined posterior plot
    #
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-     # we only plot a few bins to avoid clutter
-     if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+     if bin_type in ["BNS_BBH"]:
        if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-     else:
-       if j > 6: continue
      if combined_upper_limit[mbin] < float('inf'):
        pylab.semilogx(mu,combined_post[bins[mbin]],label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
    pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=14)
@@ -569,7 +577,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    pylab.ylabel("Probability (unnormalized)",fontsize=14)
    pylab.xlabel("Merger Rate (1/Mpc$^3$/yr)",fontsize=14)
    pylab.grid()
-   pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
+   #pylab.xlim([1e-7, 1e-2]) #FIXME hardcoded rate limits are bad for advanced ligo
    savefig_pylal('combined_posterior_density', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
 
@@ -642,6 +650,35 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       savefig_pylal('combined_distance', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
       pylab.clf()
 
+   if bin_type == "BNS_BBH":
+      #FIXME hard limits at log(rate) of -7, 0
+      pylab.bar([0,1,2],[pylab.log10(combined_upper_limit_werrs[mbin]) for mbin in representative_bins],color='b',width=1)
+      pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array.max()/(24.0*3600)),fontsize=14)
+      pylab.xticks([0.5,1.5,2.5],["BNS","NSBH","BBH"])
+      pylab.xlim([-0.5,3.5])
+      pylab.ylim([-7,0])
+      pylab.xlabel("NS= 1.3+/-0.3M$_{\odot}$, BH= 5+/-1M$_{\odot}$",fontsize=14)
+      pylab.ylabel("Rate Upper Limit (log$_{10}$ 1/Mpc$^3$/yr)", fontsize=14)
+      pylab.grid()
+      savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+      pylab.clf()
+
+      #
+      # distance plot in 1d
+      #
+      distance = (sec_in_yr*total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
+      derr = (distance /3) *( total_err.array**0.5 / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
+      pylab.bar([0,1,2],[distance[bins[mbin]] for mbin in representative_bins],yerr=[derr[bins[mbin]] for mbin in representative_bins],width=1)
+      pylab.grid()
+      pylab.xticks([0.5,1.5,2.5],["BNS","NSBH","BBH"])
+      pylab.xlim([-0.5,3.5])
+      pylab.ylim([0,150]) #FIXME don't hardcode limits?
+      pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array.max()/(24*3600.0)),fontsize=14)
+      pylab.xlabel("NS= 1.3+/-0.3M$_{\odot}$, BH= 5+/-1M$_{\odot}$",fontsize=14)
+      pylab.ylabel("Range (Mpc)",fontsize=14)
+      savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+      pylab.clf()
+
    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [], fnameList,
 					       tagList, add_box_flag = False ) #FIXME
    InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
@@ -649,7 +686,9 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    #
    # write out combined statistics
    #
-   summary_file = open(opts.output_path + combined_ifos + '-' + opts.user_tag +'_'+ bin_type.lower()+'_combined_upper_limit.'+opts.output_format,'w')
+   summary_file = open( '%s%s-%s_combined_upper_limit_%s-%d-%d.%s'%(opts.output_path,combined_ifos,__prog__,opts.user_tag,opts.gps_start_time, opts.gps_end_time-opts.gps_start_time, opts.output_format),'w')
+   # FIXME put in the correct spanned GPS times here.
+
    summary_doc = ligolw.Document()
    summary_doc.appendChild(ligolw.LIGO_LW())
    ul_table = lsctables.New(UpperLimitTable)
@@ -659,8 +698,13 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
 
       row = ul_table.RowType()
 
-      if bin_type in ["Mass1_Mass2","BNS_BBH"]:
+      if bin_type in ["BNS_BBH"]:
         if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+        row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+        row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
+        columnList = ['mass1','mass2']
+      if bin_type == "Mass1_Mass2":
+        if bins.upper()[0][bins[mbin][0]] <= bins.lower()[1][bins[mbin][1]]: continue #these are 0 by design
         row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
         row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
         columnList = ['mass1','mass2']
@@ -677,8 +721,8 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
       row.injections_found = total_found[mbin]
       row.injections_missed = total_missed[mbin]
       row.livetime_in_days = total_lt[mbin]/(3600*24.0)
-      row.upper_limit = combined_upper_limit[mbin]
-      row.marginalized_upper_limit = combined_upper_limit_werrs[mbin]
+      row.upper_limit = combined_upper_limit_werrs[mbin]
+      row.effective_numerator = combined_upper_limit_werrs[mbin]*total_vol[mbin]
       ul_table.append(row)
 
    last_row = ul_table.RowType()
@@ -695,13 +739,13 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass","BNS_BBH"]:
    last_row.range_in_Mpc = ''
    last_row.fractional_error = ''
    last_row.upper_limit = ''
-   last_row.marginalized_upper_limit = ''
+   last_row.effective_numerator = ''
    last_row.injections_found = total_found.array.sum()
    last_row.injections_missed = total_missed.array.sum()
    last_row.livetime_in_days = ''
    ul_table.append(last_row)
 
-   columnList += ['volume_in_Mpc3_yr','fractional_error','range_in_Mpc','upper_limit','marginalized_upper_limit','injections_found','injections_missed','livetime_in_days']
+   columnList += ['range_in_Mpc','volume_in_Mpc3_yr','upper_limit','effective_numerator','fractional_error','injections_found','injections_missed','livetime_in_days']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
