@@ -44,6 +44,8 @@ import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 
+import random
+
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 except ImportError:
@@ -453,6 +455,29 @@ class Posterior(object):
             sys.exit(1)
 
         return
+
+    def bootstrap(self):
+        """
+        Returns a new Posterior object that contains a bootstrap
+        sample of self.
+        """
+        names=[]
+        samples=[]
+        for name,oneDpos in self._posterior.items():
+            names.append(name)
+            samples.append(oneDpos.samples)
+
+        samplesBlock=np.hstack(samples)
+
+        bootstrapSamples=samplesBlock[:,:]
+        Nsamp=bootstrapSamples.shape[0]
+
+        rows=np.vsplit(samplesBlock,Nsamp)
+
+        for i in range(Nsamp):
+            bootstrapSamples[i,:]=random.choice(rows)
+
+        return Posterior((names,bootstrapSamples),self._injection)
 
     def delete_samples_by_idx(self,samples):
         """
@@ -1707,8 +1732,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
         strticks=map(getDecString,locs)
         plt.yticks(locs,strticks)
 
-
-
     return myfig
 #
 
@@ -1826,29 +1849,28 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        plt.xticks(locs,strticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
-
+        plt.xticks(locs,strticks,rotation=45)
 
     return fig
 #
@@ -1931,28 +1953,28 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        plt.xticks(locs,strticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
+        plt.xticks(locs,strticks,rotation=45)
 
     return myfig
 
@@ -2209,6 +2231,7 @@ class PEOutputParser(object):
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
+                print "Processing file %s to posterior_samples.dat"%infilename
                 header=self._clear_infmcmc_header(infile)
                 # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
                 header=[self._swaplabel12(label) for label in header if label in allowedCols]
