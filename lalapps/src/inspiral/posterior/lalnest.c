@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <sys/stat.h>
-
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
 #include <lal/FrameCache.h>
