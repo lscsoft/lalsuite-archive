@@ -44,6 +44,8 @@ import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 
+import random
+
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 except ImportError:
@@ -453,6 +455,29 @@ class Posterior(object):
             sys.exit(1)
 
         return
+
+    def bootstrap(self):
+        """
+        Returns a new Posterior object that contains a bootstrap
+        sample of self.
+        """
+        names=[]
+        samples=[]
+        for name,oneDpos in self._posterior.items():
+            names.append(name)
+            samples.append(oneDpos.samples)
+
+        samplesBlock=np.hstack(samples)
+
+        bootstrapSamples=samplesBlock[:,:]
+        Nsamp=bootstrapSamples.shape[0]
+
+        rows=np.vsplit(samplesBlock,Nsamp)
+
+        for i in range(Nsamp):
+            bootstrapSamples[i,:]=random.choice(rows)
+
+        return Posterior((names,bootstrapSamples),self._injection)
 
     def delete_samples_by_idx(self,samples):
         """
