@@ -644,7 +644,10 @@ int main( int argc, char *argv[])
 	if(ETgpsSeconds>datastart.gpsSeconds+duration) {fprintf(stderr,"Error, trigger lies outwith data range %i - %i\n",datastart.gpsSeconds,datastart.gpsSeconds+(INT4)duration); exit(-1);}
 
 	datarandparam=XLALCreateRandomParams(dataseed);
-
+    
+    Approximant check_approx;
+    LALGetApproximantFromString(&status,injTable->waveform,&check_approx);
+        
 	/* Read in the data for each IFO */
 	for(i=0,j=0;i<nIFO;i++){
 		INT4 TrigSegStart,TrigSample;
@@ -800,20 +803,10 @@ int main( int argc, char *argv[])
 		} /* End if(!FakeFlag) */
 		
 		/* Perform injection */
-        if(NULL!=injXMLFile && fakeinj==0) {
-            Approximant check_approx;
-            LALGetApproximantFromString(&status,injTable->waveform,&check_approx);
-            /* if the injection approximant is TaylorF2 inject in the frequency domain */
-            if (check_approx==TaylorF2) 
-            {
-                fprintf(stdout,"Injecting in the frequency domain\n");
-                SimInspiralTable this_injection;
-                memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
-                this_injection.next=NULL;
-                InjectFD(status, &inputMCMC, &this_injection);
-            }  
-            else 
-            {
+
+        if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test)) {
+        
+            /* if the injection approximant is TaylorF2 or TaylorF2Test inject in the frequency domain */
             DetectorResponse det;
 			REAL8 SNR=0.0;
 			LIGOTimeGPS realSegStart;
@@ -911,12 +904,20 @@ int main( int argc, char *argv[])
 
 			if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
 			else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
-            }
 		}
 
 	} /* End loop over IFOs */
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
+    /* if the injection approximant is TaylorF2 or TaylorF2Test inject in the frequency domain */
+    if (check_approx==TaylorF2 || check_approx==TaylorF2Test) 
+    {
+                fprintf(stdout,"Injecting in the frequency domain\n");
+                SimInspiralTable this_injection;
+                memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
+                this_injection.next=NULL;
+                InjectFD(status, &inputMCMC, &this_injection);
+    }  
 
 	if(estimatenoise && DEBUG){
 		for(j=0;j<nIFO;j++){
@@ -1551,9 +1552,56 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
     
     /* add the Phitest parameter */
-    
-    if (PhaseTestParam!=-1) {XLALMCMCAddParam(parameter,"phiTest",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);}
-    
+    if(checkParamInList(pinned_params,"phi0"))
+        XLALMCMCAddParam(parameter,"phi0",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi0",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi1"))
+        XLALMCMCAddParam(parameter,"phi1",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi1",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi2"))
+        XLALMCMCAddParam(parameter,"phi2",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi2",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi3"))
+        XLALMCMCAddParam(parameter,"phi3",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi3",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi4"))
+        XLALMCMCAddParam(parameter,"phi4",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi4",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi5"))
+        XLALMCMCAddParam(parameter,"phi5",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi5",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi6"))
+        XLALMCMCAddParam(parameter,"phi6",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi6",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi7"))
+        XLALMCMCAddParam(parameter,"phi7",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi5l"))
+        XLALMCMCAddParam(parameter,"phi5l",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi5l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(checkParamInList(pinned_params,"phi6l"))
+        XLALMCMCAddParam(parameter,"phi6l",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi6l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
 	for (head=parameter->param;head;head=head->next)
 	{
 		if(head->core->wrapping==-1)
@@ -1651,8 +1699,14 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 /*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
 	ChirpISCOLength=ak.tn;
     
-    //if(!strcmp(injapprox,"TaylorF2")) LALInspiralStationaryPhaseApprox2(&status,injWaveFD,&template); 
     LALInspiralWave(&status,injWaveFD,&template);
+    
+	FILE *outInjB=fopen("injection_preInj.dat","w");
+    for (UINT4 i=0; i<injWaveFD->length; i++) {
+            fprintf(outInjB,"%lf %e \n",i*deltaF,injWaveFD->data[i]);
+    }
+    fclose(outInjB);
+    
     end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1e-9;
     end_time-=ChirpISCOLength;
 
@@ -1672,8 +1726,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	REAL8 SNRinj=0;
 
 	REAL8 time_sin,time_cos;
-    inputMCMC->numberDataStreams=nIFO;
-	for (det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){ //nIFO
+    //inputMCMC->numberDataStreams=nIFO;
+	for (det_i=0;det_i<nIFO;det_i++){ //nIFO
         UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
         UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
         if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
@@ -1708,6 +1762,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 		}
 		chisq*=4.0;
+        fprintf(stdout,"Injected signal in %s, SNR = %f\n",inputMCMC->ifoID[det_i],sqrt(chisq));
 		SNRinj+=chisq;
 		fclose(outInj);
 	}

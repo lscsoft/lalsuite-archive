@@ -443,7 +443,18 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-    if (PhaseTestParam!=-1) {parameter->logPrior+=-0.5*pow(XLALMCMCGetParameter(parameter,"phiTest"),2.0)/25.0;}
+    
+    if(XLALMCMCCheckParameter(parameter,"phi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi0")*XLALMCMCGetParameter(parameter,"phi0")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi1")*XLALMCMCGetParameter(parameter,"phi1")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi2")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi2")*XLALMCMCGetParameter(parameter,"phi2")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi3")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi3")*XLALMCMCGetParameter(parameter,"phi3")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi4")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi4")*XLALMCMCGetParameter(parameter,"phi4")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi5")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi5")*XLALMCMCGetParameter(parameter,"phi5")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi6")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi6")*XLALMCMCGetParameter(parameter,"phi6")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi7")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi7")*XLALMCMCGetParameter(parameter,"phi7")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi5l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi5l")*XLALMCMCGetParameter(parameter,"phi5l")/25.);
+    if(XLALMCMCCheckParameter(parameter,"phi6l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi6l")*XLALMCMCGetParameter(parameter,"phi6l")/25.);
+    
         /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
                                  (-1.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/(m1+m2));
@@ -1822,8 +1833,9 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
 void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
 
     //(void)parameter;
-    //(void)inputMCMC;
-    UINT4 i=0;
+    (void)inputMCMC;
+    REAL8 phaseParams[10];
+    //UINT4 i=0;
     
 	/* Compute frequency-domain waveform in free space */
 
@@ -1851,7 +1863,16 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
     
     /* TGFLI: NEED TO FIND WAY OF PASSING TESTPARAMETER TO LALINSPIRALWAVE */
     if (template->approximant == TaylorF2Test) {
-        LALInspiralStationaryPhaseApprox2Test(status, model, template, PhaseTestParam, XLALMCMCGetParameter(parameter,"phiTest") );
+    /* Fill array of PN coefficients */
+    int i;
+    const char *paramName[]={
+        "phi0","phi1","phi2","phi3","phi4","phi5","phi5l","phi6","phi6l","phi7"};
+    for(i=0;i<10;i++)
+    {
+        phaseParams[i]=XLALMCMCGetParameter(parameter,paramName[i]);
+    }
+    
+        LALInspiralStationaryPhaseApprox2Test(status, model, template, phaseParams );
     }
     else {
         LALInspiralWave(status,model,template);

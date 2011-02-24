@@ -113,8 +113,7 @@ LALInspiralStationaryPhaseApprox2Test (
                                        LALStatus        *status,
                                        REAL4Vector      *signalvec,
                                        InspiralTemplate *params,
-                                       INT4 testParam,
-                                       REAL8 deltaTestParam)
+                                       REAL8 *TestphaseParamsValues)
 { /* </lalVerbatim>  */
    REAL8 Oneby3, UNUSED h1, UNUSED h2, pimmc, f, v, df, shft, phi, amp0, amp, psif, psi;
    INT4 n, nby2, i, f0, fn;
@@ -142,7 +141,7 @@ LALInspiralStationaryPhaseApprox2Test (
    pimmc = LAL_PI * params->totalMass * LAL_MTSUN_SI;
    f0 = params->fLower;
    fn = (params->fCutoff < ak.fn) ? params->fCutoff : ak.fn;
-   v = pow(pimmc*f0, Oneby3);
+   v = cbrt(pimmc*f0);
 
    /* If we want to pad with zeroes in the beginning then the instant of
     * coalescence will be the chirp time + the duration for which padding
@@ -152,7 +151,7 @@ LALInspiralStationaryPhaseApprox2Test (
     */
    shft = 2.L*LAL_PI * (ak.tn + params->nStartPad/params->tSampling + params->startTime);
    phi =  params->startPhase + LAL_PI/4.L;
-   amp0 = params->signalAmplitude * ak.totalmass * pow(LAL_PI/12.L, 0.5L) * df;
+   amp0 = params->signalAmplitude * ak.totalmass * sqrt(LAL_PI/12.L) * df;
 /*
    Compute the standard stationary phase approximation.
 */
@@ -161,7 +160,7 @@ LALInspiralStationaryPhaseApprox2Test (
     
     /* FILL PHASE COEFFICIENTS */
     REAL8 phaseParams[10] = {0.0};
-    TaylorF2fillPhaseParams(params, phaseParams, testParam, deltaTestParam);
+    TaylorF2fillPhaseParams(params, phaseParams, TestphaseParamsValues);
 
 //	FILE* model_output;
 //	model_output=fopen("output_TF2T.dat","w");
@@ -221,101 +220,49 @@ void LALInspiralTaylorF2PhasingTest(
                           REAL8 *phaseParams,
                           REAL8 *psif)
 {
-    
+    // x is an alias for f^1/3
+    REAL8 x=cbrt(f);
+    REAL8 psif_loc=0.0;
     // FILL PHASE PARAMETERS
     switch (params->order)
     {
-        case LAL_PNORDER_NEWTONIAN:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-            );
-        case LAL_PNORDER_HALF:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-             + phaseParams[1]*pow(f, -4.0/3.0)
-            );
-            break;
-        case LAL_PNORDER_ONE:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-             + phaseParams[1]*pow(f, -4.0/3.0)
-             + phaseParams[2]*pow(f, -3.0/3.0)
-            );
-            break;
-        case LAL_PNORDER_ONE_POINT_FIVE:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-             + phaseParams[1]*pow(f, -4.0/3.0)
-             + phaseParams[2]*pow(f, -3.0/3.0)
-             + phaseParams[3]*pow(f, -2.0/3.0)
-            );
-            break;
-        case LAL_PNORDER_TWO:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-             + phaseParams[1]*pow(f, -4.0/3.0)
-             + phaseParams[2]*pow(f, -3.0/3.0)
-             + phaseParams[3]*pow(f, -2.0/3.0)
-             + phaseParams[4]*pow(f, -1.0/3.0)
-            );
-            break;
-        case LAL_PNORDER_TWO_POINT_FIVE:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-             + phaseParams[1]*pow(f, -4.0/3.0)
-             + phaseParams[2]*pow(f, -3.0/3.0)
-             + phaseParams[3]*pow(f, -2.0/3.0)
-             + phaseParams[4]*pow(f, -1.0/3.0)
-            + phaseParams[5]
-            + phaseParams[6]*log(f)
-            );
-            break;
-        case LAL_PNORDER_THREE:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-             + phaseParams[1]*pow(f, -4.0/3.0)
-             + phaseParams[2]*pow(f, -3.0/3.0)
-             + phaseParams[3]*pow(f, -2.0/3.0)
-             + phaseParams[4]*pow(f, -1.0/3.0)
-            + phaseParams[5]
-            + phaseParams[6]*log(f)
-            + phaseParams[7]*pow(f, 1.0/3.0)
-            + phaseParams[8]*pow(f, 1.0/3.0)*log(f)
-            );
-            break;
-        case LAL_PNORDER_THREE_POINT_FIVE:
-            *psif =  
-            (  phaseParams[0]*pow(f, -5.0/3.0)
-             + phaseParams[1]*pow(f, -4.0/3.0)
-             + phaseParams[2]*pow(f, -3.0/3.0)
-             + phaseParams[3]*pow(f, -2.0/3.0)
-             + phaseParams[4]*pow(f, -1.0/3.0)
-            + phaseParams[5]
-            + phaseParams[6]*log(f)
-            + phaseParams[7]*pow(f, 1.0/3.0)
-            + phaseParams[8]*pow(f, 1.0/3.0)*log(f)
-            + phaseParams[9]*pow(f, 2.0/3.0)
-            );
-            break;
-        default:
-            printf("INVALID PN ORDER!");
-            exit(-1);
+            case LAL_PNORDER_THREE_POINT_FIVE:
+                psif_loc +=phaseParams[9]*x*x;
+            case LAL_PNORDER_THREE:
+                psif_loc +=phaseParams[8]*x*log(f)
+                         + phaseParams[7]*x;
+            case LAL_PNORDER_TWO_POINT_FIVE:
+                psif_loc +=phaseParams[6]*log(f)
+                         + phaseParams[5];
+            case LAL_PNORDER_TWO:
+                psif_loc += phaseParams[4]/x;
+            case LAL_PNORDER_ONE_POINT_FIVE:
+                psif_loc += phaseParams[3]/(x*x);
+            case LAL_PNORDER_ONE:
+                psif_loc += phaseParams[2]/f;
+            case LAL_PNORDER_HALF:
+                psif_loc += phaseParams[1]/(f*x);
+            case LAL_PNORDER_NEWTONIAN:
+                psif_loc += phaseParams[0]*(f*x*x);
+                break;
+            default:
+                printf("INVALID PN ORDER!");
+                exit(-1);
     }
-    
+    *psif=psif_loc;    
     return;
 }
 
 void TaylorF2fillPhaseParams(
                                          InspiralTemplate *params,
                                          REAL8 *phaseParams,
-                                         INT4    testParam,
-                                         REAL8 testParamValue)
+                                         REAL8 *testParamValues)
 {
     
     // SYSTEM DEPENDENT PARAMETER - DUMMIES, NEED TO GET FROM PARAMETER STRUCTURES
     REAL8 mtot = params->totalMass;
     REAL8 eta = params->eta;
-    
+    UINT4 i;
     REAL8 twopimtot = 2*LAL_TWOPI*mtot*LAL_MTSUN_SI;
     REAL8 comprefac = 3.0/(256.0*eta);
     
@@ -333,30 +280,22 @@ void TaylorF2fillPhaseParams(
     phaseParams[8] = 3.0/(128.0*eta)*pow(LAL_PI*LAL_MTSUN_SI*mtot,1.0/3.0)* -6848.0/21.0; //phi6l
     phaseParams[9] = 3.0/(128.0*eta)*pow(LAL_PI*LAL_MTSUN_SI*mtot,2.0/3.0)* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*pow(eta, 2.0)); //phi7
      */
-    
+     // x is an alias for (pi*m*f)^(1/3)
+    REAL8 x=cbrt(twopimtot);
     
     // SEE arXiv:1005.0304
-    phaseParams[0] = comprefac*pow(twopimtot, -5.0/3.0); //phi0
-    phaseParams[1] = comprefac*pow(twopimtot,-4.0/3.0)* 0.0; //phi1
-    phaseParams[2] = comprefac*pow(twopimtot,-3.0/3.0)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
-    phaseParams[3] = comprefac*pow(twopimtot,-2.0/3.0)* -16.0*LAL_PI; //phi3
-    phaseParams[4] = comprefac*pow(twopimtot,-1.0/3.0)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*pow(eta, 2.0)); // phi4
-    phaseParams[5] = comprefac*pow(twopimtot,-0.0/3.0)* LAL_PI*(38645.0/756.0 - 65.0/9.0*eta)*(1.0+log(twopimtot*pow(6.0, 1.5))); //phi5
-    phaseParams[6] = comprefac*pow(twopimtot,-0.0/3.0)* LAL_PI*(38645.0/756.0 - 65.0/9.0*eta); //phi5l
-    phaseParams[7] = comprefac*pow(twopimtot,1.0/3.0)* ((11583231236531.0/4694215680.0 - 640.0/3.0*pow(LAL_PI, 2.0) - 6848.0/21.0*LAL_GAMMA) + eta*(-15737765635.0/3048192.0 + 2255.0/12.0*pow(LAL_PI, 2.0)) + 76055.0/1728.0*pow(eta, 2.0) - 127825.0/1296.0*pow(eta, 3.0) + -6848.0/63.0*log(64.0*twopimtot)); //phi6
-    phaseParams[8] = comprefac*pow(twopimtot,1.0/3.0)* -6848.0/63.0; //phi6l
-    phaseParams[9] = comprefac*pow(twopimtot,2.0/3.0)* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*pow(eta, 2.0)); //phi7
+    phaseParams[0] = comprefac*(1.0/(x*x*x*x*x)); //phi0
+    phaseParams[1] = comprefac*(1.0/(x*x*x*x))* 0.0; //phi1
+    phaseParams[2] = comprefac*(1.0/twopimtot)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
+    phaseParams[3] = comprefac*(1.0/(x*x))* -16.0*LAL_PI; //phi3
+    phaseParams[4] = comprefac*(1.0/x)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta); // phi4
+    phaseParams[5] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta)*(1.0+log(twopimtot*pow(6.0, 1.5))); //phi5
+    phaseParams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta); //phi5l
+    phaseParams[7] = comprefac*x* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta*(-15737765635.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI)) + 76055.0/1728.0*eta*eta - 127825.0/1296.0*eta*eta*eta + -6848.0/63.0*log(64.0*twopimtot)); //phi6
+    phaseParams[8] = comprefac*x* -6848.0/63.0; //phi6l
+    phaseParams[9] = comprefac*x*x* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
     
-    if      (testParam==0){phaseParams[0] += testParamValue;}
-    else if (testParam==1){phaseParams[1] += testParamValue;}
-    else if (testParam==2){phaseParams[2] += testParamValue;}
-    else if (testParam==3){phaseParams[3] += testParamValue;}
-    else if (testParam==4){phaseParams[4] += testParamValue;}
-    else if (testParam==5){phaseParams[5] += testParamValue;}
-    else if (testParam==6){phaseParams[6] += testParamValue;}
-    else if (testParam==7){phaseParams[7] += testParamValue;}
-    else if (testParam==8){phaseParams[8] += testParamValue;}
-    else if (testParam==9){phaseParams[9] += testParamValue;}
+    for(i=0;i<10;i++) phaseParams[i]+=testParamValues[i];
     
     return;
 }
