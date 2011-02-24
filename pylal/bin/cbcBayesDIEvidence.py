@@ -62,6 +62,7 @@ if __name__=='__main__':
                 ev=pos.bootstrap().di_evidence(boxing=opts.Nboxing)
             print 'log(evidence) with Nboxing = %d is %.1f (evidence is %g)'%(opts.Nboxing,np.log(ev),ev)
             if outfile:
-                outfile.write('%g'%np.log(ev))
+                outfile.write('%g\n'%np.log(ev))
     finally:
-        outfile.close()
+        if outfile:
+            outfile.close()
