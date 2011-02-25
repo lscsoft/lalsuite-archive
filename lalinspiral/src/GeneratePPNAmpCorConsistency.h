@@ -54,7 +54,7 @@ typedef struct tagPPNConsistencyParamStruc {
 	
 	/* PN phasing coefficients for use in AmpCorConsistency */
 	REAL4 phi0, phi2, phi3, phi4, phi5, phi5l, phi6, phi6l, phi7;
-	REAL4 phasePNparams[9];
+	REAL4 phasePNparams[10];
 	
 	/* Output parameters. */
 	REAL8 tc;         /* time to coalescence from start of waveform */
@@ -76,7 +76,7 @@ void LALGeneratePPNAmpCorConsistency(
                             );
 
 /* function to populate phaseParams */                            
-void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params, INT4 TestParam, REAL8 TestParamValue);
+void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params, REAL8 *TestParamValue);
 
 void XLALCopyPPNConsistencyFromPPNParamStruc (
                                               PPNParamStruc                        *inputParams,

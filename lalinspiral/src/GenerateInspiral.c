@@ -222,7 +222,7 @@ LALGenerateInspiral(
     LALSDestroyVector(status->statusPtr, &(duplicateParams.ppn) );
     CHECKSTATUSPTR(status);
   }
-  /* WDP: here we need the AmpCorPPNTest case to populate the PN coefficients + the phiTest */
+
   else
   {
     inspiralParams.approximant = approximant;
@@ -403,6 +403,10 @@ LALGetApproximantFromString(
   {
     *approximant = TaylorT3;
   }
+  else if ( strstr(thisEvent, "TaylorF2Test") )
+  {
+	*approximant = TaylorF2Test;
+  }
   else if ( strstr(thisEvent, "TaylorF2") )
   {
 	*approximant = TaylorF2;
@@ -427,13 +431,13 @@ LALGetApproximantFromString(
   {
     *approximant = PadeT1;
   }
-  else if ( strstr(thisEvent, "AmpCorPPN" ) )
-  {
-    *approximant = AmpCorPPN;
-  }
   else if ( strstr(thisEvent, "AmpCorPPNTest"))
   {
     *approximant = AmpCorPPNTest;
+  }
+  else if ( strstr(thisEvent, "AmpCorPPN" ) )
+  {
+    *approximant = AmpCorPPN;
   }
   else if ( strstr(thisEvent, "GeneratePPN" ) )
   {

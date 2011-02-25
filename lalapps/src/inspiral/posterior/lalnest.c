@@ -86,7 +86,6 @@ Optional OPTIONS:\n \
 [--version\t:\tPrint version information and exit]\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
 [--help\t:\tPrint this message]\n \
-[--phaseParamTest\t STRING:\t where STRING is (phi0|[phi1 NOT IMPLEMENTED!]|phi2|phi3|phi4|phi5|phi5l|phi6|phi6l|phi7)]\n \
 [--flow NUM\t:\t:Set low frequency cutoff (default 40Hz)]\n\
 [--help\t:\tPrint this message]\n \
 "
@@ -98,7 +97,6 @@ Optional OPTIONS:\n \
 
 extern CHAR outfile[FILENAME_MAX];
 CHAR *datadump=NULL;
-CHAR *PhaseTest=NULL;
 extern double etawindow;
 extern double timewindow;
 CHAR **CacheFileNames = NULL;
@@ -155,7 +153,6 @@ INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
 
-INT4 PhaseTestParam;
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 
@@ -257,7 +254,6 @@ void initialise(int argc, char *argv[]){
 		{"help",no_argument,0,'h'},
 		{"pinparams",required_argument,0,21},
 		{"datadump",required_argument,0,22},
-		{"phaseParamTest",required_argument,0,'Q'},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -432,10 +428,6 @@ void initialise(int argc, char *argv[]){
 		case 'L':
 			timeslides=1;
 			break;
-		case 'Q':
-            PhaseTest=(CHAR *)malloc(strlen(optarg)+1);
-            strcpy(PhaseTest,optarg);
-            break;
         default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
@@ -833,9 +825,7 @@ int main( int argc, char *argv[])
 			COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&bufferstart,0.0,inputMCMC.deltaF,(const LALUnit *)&strainPerCount,seglen);
 			for(j=0;j<resp->data->length;j++) {resp->data->data[j].re=(REAL4)1.0; resp->data->data[j].im=0.0;}
 			SimInspiralTable this_injection;
-            printf("injection table waveform: %s\n",injTable->waveform);
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
-            printf("this injection waveform %s\n",this_injection.waveform);
 			this_injection.next=NULL;
 			LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
             /*char InjTestName1[50];
@@ -1028,22 +1018,6 @@ int main( int argc, char *argv[])
 		default:
 			inputMCMC.phaseOrder=LAL_PNORDER_TWO;
 	}
-
-    /* Set the test phase coefficient from string */
-    if (PhaseTest==NULL){ PhaseTestParam = -1;}
-    else if (!strcmp(PhaseTest,"phi0")){ PhaseTestParam = 0;}
-    else if (!strcmp(PhaseTest,"phi1")){ fprintf(stderr,"Not implemented! Exiting.\n");exit(-1); }
-    else if (!strcmp(PhaseTest,"phi2")){ PhaseTestParam = 1;}
-    else if (!strcmp(PhaseTest,"phi3")){ PhaseTestParam = 2;}
-    else if (!strcmp(PhaseTest,"phi4")){ PhaseTestParam = 3;}
-    else if (!strcmp(PhaseTest,"phi5")){ PhaseTestParam = 4;}
-    else if (!strcmp(PhaseTest,"phi5l")){ PhaseTestParam = 5;}
-    else if (!strcmp(PhaseTest,"phi6")){ PhaseTestParam = 6;}
-    else if (!strcmp(PhaseTest,"phi6l")){ PhaseTestParam = 7;}
-    else if (!strcmp(PhaseTest,"phi7")){ PhaseTestParam = 8;}
-    else {fprintf(stderr,"Unknown testing phase coefficient: %s\n",PhaseTest); exit(-1);}
-    fprintf(stderr,"phasetest: %s\t phasetestindex %i\n",PhaseTest,PhaseTestParam);
-        
         
 	/* Set the initialisation and likelihood functions */
 	if(SkyPatch) {inputMCMC.funcInit = NestInitSkyPatch; goto doneinit;}
@@ -1582,25 +1556,25 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
     else 
         XLALMCMCAddParam(parameter,"phi5",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
+    if(checkParamInList(pinned_params,"phi5l"))
+       XLALMCMCAddParam(parameter,"phi5l",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi5l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        
     if(checkParamInList(pinned_params,"phi6"))
         XLALMCMCAddParam(parameter,"phi6",0,phiMin,phiMax,-1);
     else 
         XLALMCMCAddParam(parameter,"phi6",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi7"))
-        XLALMCMCAddParam(parameter,"phi7",0,phiMin,phiMax,-1);
-    else 
-        XLALMCMCAddParam(parameter,"phi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
-
-    if(checkParamInList(pinned_params,"phi5l"))
-        XLALMCMCAddParam(parameter,"phi5l",0,phiMin,phiMax,-1);
-    else 
-        XLALMCMCAddParam(parameter,"phi5l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
-
     if(checkParamInList(pinned_params,"phi6l"))
         XLALMCMCAddParam(parameter,"phi6l",0,phiMin,phiMax,-1);
     else 
         XLALMCMCAddParam(parameter,"phi6l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        
+    if(checkParamInList(pinned_params,"phi7"))
+        XLALMCMCAddParam(parameter,"phi7",0,phiMin,phiMax,-1);
+    else 
+        XLALMCMCAddParam(parameter,"phi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
 	for (head=parameter->param;head;head=head->next)
 	{
@@ -1698,7 +1672,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	TofVparams.totalmass=ak.totalmass;
 /*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
 	ChirpISCOLength=ak.tn;
-    
+    printf("Injection Approx: %i\n",template.approximant);
     LALInspiralWave(&status,injWaveFD,&template);
     
 	FILE *outInjB=fopen("injection_preInj.dat","w");

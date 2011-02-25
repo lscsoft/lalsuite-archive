@@ -159,9 +159,9 @@ LALInspiralStationaryPhaseApprox2Test (
    h2 = signalvec->data[nby2] = 0.L;
     
     /* FILL PHASE COEFFICIENTS */
-    REAL8 phaseParams[10] = {0.0};
+    REAL8 phaseParams[10] = {0,0,0,0,0,0,0,0,0,0};
     TaylorF2fillPhaseParams(params, phaseParams, TestphaseParamsValues);
-
+    
 //	FILE* model_output;
 //	model_output=fopen("output_TF2T.dat","w");
 
@@ -169,7 +169,6 @@ LALInspiralStationaryPhaseApprox2Test (
 
 //	fprintf(model_output,"Mass 1: %lf\n",params->mass1);
 //	fprintf(model_output,"Mass 2: %lf\n",params->mass2);
-
 
    for (i=1; i<nby2; i++) {
       f = i * df;
@@ -243,7 +242,7 @@ void LALInspiralTaylorF2PhasingTest(
             case LAL_PNORDER_HALF:
                 psif_loc += phaseParams[1]/(f*x);
             case LAL_PNORDER_NEWTONIAN:
-                psif_loc += phaseParams[0]*(f*x*x);
+                psif_loc += phaseParams[0]/(f*x*x);
                 break;
             default:
                 printf("INVALID PN ORDER!");
@@ -263,7 +262,7 @@ void TaylorF2fillPhaseParams(
     REAL8 mtot = params->totalMass;
     REAL8 eta = params->eta;
     UINT4 i;
-    REAL8 twopimtot = 2*LAL_TWOPI*mtot*LAL_MTSUN_SI;
+    REAL8 twopimtot = LAL_TWOPI*mtot*LAL_MTSUN_SI;
     REAL8 comprefac = 3.0/(256.0*eta);
     
     // POPULATE INDIVIDUAL PHASE PARAMETERS
@@ -280,7 +279,7 @@ void TaylorF2fillPhaseParams(
     phaseParams[8] = 3.0/(128.0*eta)*pow(LAL_PI*LAL_MTSUN_SI*mtot,1.0/3.0)* -6848.0/21.0; //phi6l
     phaseParams[9] = 3.0/(128.0*eta)*pow(LAL_PI*LAL_MTSUN_SI*mtot,2.0/3.0)* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*pow(eta, 2.0)); //phi7
      */
-     // x is an alias for (pi*m*f)^(1/3)
+     // x is an alias for (2pi*m)^(1/3)
     REAL8 x=cbrt(twopimtot);
     
     // SEE arXiv:1005.0304
@@ -295,7 +294,7 @@ void TaylorF2fillPhaseParams(
     phaseParams[8] = comprefac*x* -6848.0/63.0; //phi6l
     phaseParams[9] = comprefac*x*x* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
     
-    for(i=0;i<10;i++) phaseParams[i]+=testParamValues[i];
+    for(i=0;i<10;i++) {phaseParams[i]+=testParamValues[i];}
     
     return;
 }

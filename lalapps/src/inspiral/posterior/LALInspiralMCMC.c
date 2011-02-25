@@ -1678,7 +1678,7 @@ XLALCheckPositiveDefinite(
   /* test the result */
   for (i = 0; i < dim; i++)
     {
-      /* printf("diag: %f | eigen[%d]= %f\n", gsl_matrix_get( matrix,i,i), i, eigen->data[i]);*/
+    /*printf("diag: %f | eigen[%d]= %f\n", gsl_matrix_get( matrix,i,i), i, eigen->data[i]);*/
     if (eigen->data[i]<0) 
     {
       printf("NEGATIVE EIGEN VALUE!!! PANIC\n");
