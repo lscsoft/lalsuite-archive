@@ -188,12 +188,12 @@ def get_main_dir():
   Returns the main directory of the analysis from the
   cp file. If that does not exist, returns the current directory.
   """
-  if cp is not None:
-    main_dir = cp.get('paths','main')+'/'
-  elif maindir is not None:
-    main_dir = maindir
-  else:
-    main_dir = './'
+ # if cp is not None:
+ #   main_dir = cp.get('paths','main')+'/'
+ # elif maindir is not None:
+ #   main_dir = maindir
+ # else:
+  main_dir = './'
   return main_dir
 
 # -----------------------------------------------------
@@ -951,8 +951,8 @@ class GRB(object):
 
     # datafind variables
     self.use_offline_data = False
-    self.type_online = {'H1':cp.get('data','channel_online_H1'), 'L1':cp.get('data','channel_online_L1'), 'V1':cp.get('data','channel_online_V1')}
-    self.type_offline = {'H1':cp.get('data','channel_offline_H1'), 'L1':cp.get('data','channel_offline_L1'), 'V1':cp.get('data','channel_offline_V1')}
+#    self.type_online = {'H1':cp.get('data','channel_online_H1'), 'L1':cp.get('data','channel_online_L1'), 'V1':cp.get('data','channel_online_V1')}
+#    self.type_offline = {'H1':cp.get('data','channel_offline_H1'), 'L1':cp.get('data','channel_offline_L1'), 'V1':cp.get('data','channel_offline_V1')}
 
     # veto handling
     self.veto_definer = None
@@ -1418,19 +1418,26 @@ class GRB(object):
     
     # get the name of the ini-file to be used
     # note: must be the inifile from CVS, just to create some information
-    ini_file = cp.get('paths','cvs') + '/'+cp.get('analysis','ini_file')
+#    ini_file = cp.get('paths','cvs') + '/'+cp.get('analysis','ini_file')
  
     # the following is just a copy-and-paste from trigger_hipe
     # having replaced 'cp' by 'pc'
-    pc = ConfigParser.ConfigParser()
-    pc.read(ini_file)
+#    pc = ConfigParser.ConfigParser()
+#    pc.read(ini_file)
+
+    pc = cp
+
     paddata = int(pc.get('data', 'pad-data'))
-    n = int(pc.get('data', 'segment-length'))
-    s = int(pc.get('data', 'number-of-segments'))
-    r = int(pc.get('data', 'sample-rate'))
-    o = int(pc.get('inspiral', 'segment-overlap'))
-    length = ( n * s - ( s - 1 ) * o ) / r
-    overlap = o / r
+#    n = int(pc.get('data', 'segment-length'))
+#    s = int(pc.get('data', 'number-of-segments'))
+#    r = int(pc.get('data', 'sample-rate'))
+#    o = int(pc.get('inspiral', 'segment-overlap'))
+#    length = ( n * s - ( s - 1 ) * o ) / r
+#    overlap = o / r
+    length = int(cp.get('data','block-duration'))
+    overlap = int(cp.get('data','segment-duration'))/2
+
+
     minsciseg = length + 2 * paddata
     
     return minsciseg
@@ -1482,8 +1489,8 @@ class GRB(object):
     @param timeoffset: The offset in time for downloading those segments
     """
 
-    seg_names = ['H1:DMT-SCIENCE:1','L1:DMT-SCIENCE:1','V1:ITF_SCIENCEMODE']
     ifo_list = ['H1','L1','V1']
+    seg_names = [cp.get('segments','h1-analyze'),cp.get('segments','l1-analyze'),cp.get('segments','v1-analyze')]
     starttime = self.time-timeoffset
     endtime = self.time+timeoffset
 
@@ -1493,9 +1500,9 @@ class GRB(object):
       segtxtfile = "%s/%s-science_grb%s.txt" % (self.main_dir, ifo, self.name)
 
       if not check_file(segxmlfile):
-        cmd = "%s/bin/ligolw_segment_query --database --query-segments --include-segments '%s' --gps-start-time %d --gps-end-time %d "\
+        cmd = "ligolw_segment_query --database --query-segments --include-segments '%s' --gps-start-time %d --gps-end-time %d "\
                     "> %s" %\
-                    (self.get_glue_dir(), seg, starttime, endtime, segxmlfile)
+                    (seg, starttime, endtime, segxmlfile)
         system_call(self.name, cmd, False)
 
       # 'convert' the data from the xml format to a useable format...
