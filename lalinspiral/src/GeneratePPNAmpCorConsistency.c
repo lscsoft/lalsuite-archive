@@ -402,14 +402,15 @@ LALGeneratePPNAmpCorConsistency(
   ASSERT( eta != 0.0, stat, GENERATEPPNINSPIRALH_EMBAD,
     GENERATEPPNINSPIRALH_MSGEMBAD );
   phi0 = p[0]*params->phasePNparams[0];
-  phi2 = p[2]*params->phasePNparams[1];
-  phi3 = p[3]*params->phasePNparams[2];
-  phi4 = p[4]*params->phasePNparams[3];
-  phi5 = p[5]*params->phasePNparams[4];
-  phi5l = p[5]*params->phasePNparams[5];
-  phi6 = p[6]*params->phasePNparams[6];
-  phi6l = p[6]*params->phasePNparams[7];
-  phi7 = p[7]*params->phasePNparams[8];
+//phi1 = p[1]*params->phasePNparams[1];
+  phi2 = p[2]*params->phasePNparams[2];
+  phi3 = p[3]*params->phasePNparams[3];
+  phi4 = p[4]*params->phasePNparams[4];
+  phi5 = p[5]*params->phasePNparams[5];
+  phi5l = p[5]*params->phasePNparams[6];
+  phi6 = p[6]*params->phasePNparams[7];
+  phi6l = p[6]*params->phasePNparams[8];
+  phi7 = p[7]*params->phasePNparams[9];
   mu = eta*mTot;
   
   cosI = cos(params->inc);
