@@ -186,9 +186,17 @@ int enable_calamp=0;
 unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
 int injONLY=0;
-REAL8 calibration_percent=1;
+REAL8 calibration_percent=1.0;
 int zero_V1=0;
 REAL8 calibration_out_max=1.0;
+
+REAL8 calibration_systematic_L1_AM=0.15; // systematic errors as read from the calibration document. They are added in quadrature to the random errors in calibpolar.
+REAL8 calibration_systematic_H1_AM=0.035;
+REAL8 calibration_systematic_V1_AM=0.0; 
+REAL8 calibration_systematic_L1_PH=3.8; // systematic errors as read from the calibration document. They are added in quadrature to the random errors in calibpolar.
+REAL8 calibration_systematic_H1_PH=2.6;
+REAL8 calibration_systematic_V1_PH=0.0;
+
 // types for the selection of the calibration functions //
 typedef REAL8 (AmplitudeCalib)(REAL8 f);
 typedef REAL8 (PhaseCalib)(REAL8 f);
@@ -338,8 +346,8 @@ REAL8 Amp_H1(REAL8 f){
 			output = 3.04006e-05*f+0.977116+1.35158*pow(f,-1.0);
 
 		// return a constant 
-		//output=1.17;
-		return 1+(output-1)*calibration_percent;
+		output= output-1.0;
+		return 1+(sqrt(output*output + calibration_systematic_H1_AM*calibration_systematic_H1_AM))*calibration_percent;
 }
 REAL8 Amp_L1(REAL8 f){
 		double output = 1.0;
@@ -349,8 +357,8 @@ output = -1.95484+0.170278*f-0.388292e-02*pow(f,2)+0.448703e-04*pow(f,3)-2.71089
 	        if(f>150.0 && f<=500.0)
 output = 0.808333+0.453077e-02*f-0.390407e-04*pow(f,2)+1.77562e-07*pow(f,3)-4.72241e-10*pow(f,4)+7.34368e-13*pow(f,5)-6.15246e-16*pow(f,6)+2.12688e-19*pow(f,7);
 		// return a constant
-		//output = 1.1; 
-		return 1+(output-1)*calibration_percent;
+		output = output-1.0;
+		return 1+(sqrt(output*output + calibration_systematic_L1_AM*calibration_systematic_L1_AM))*calibration_percent;
 }
 REAL8 Amp_V1(REAL8 f){
 		double output = 1.0;
@@ -373,8 +381,8 @@ REAL8 Amp_V1(REAL8 f){
 	        }
 		
                 //return a constant
-		//output = 1.15;
-		return 1+(output-1)*calibration_percent;
+		output = output-1.0;
+		return 1+(sqrt(output*output + calibration_systematic_V1_AM*calibration_systematic_V1_AM))*calibration_percent;;
 
 }
 REAL8 Ph_H1(REAL8 f){
@@ -385,7 +393,7 @@ REAL8 Ph_H1(REAL8 f){
 		if(f>80.0 && f<=500.0)
 			output = -0.0701154 +0.0170887*log(0.914066*f)-15.5936*pow(f,-1);
                 /* convert in rads */
-		return (LAL_PI*output/180.0)*calibration_percent;
+		return (LAL_PI*sqrt(output*output + calibration_systematic_H1_PH*calibration_systematic_H1_PH)/180.0)*calibration_percent;
 }
 REAL8 Ph_L1(REAL8 f){
 		double output = 0.0;
@@ -397,7 +405,7 @@ REAL8 Ph_L1(REAL8 f){
 			output = -0.040558+0.315112+0.012216*f-0.00022649*pow(f,2)+9.75241e-07*pow(f,3)-1.72514e-09*pow(f,4)+1.11536e-12*pow(f,5);
 
                 /* convert in rads */
-		return  (LAL_PI*output/180.0)*calibration_percent;
+		return  (LAL_PI*sqrt(output*output+calibration_systematic_L1_PH*calibration_systematic_L1_PH)/180.0)*calibration_percent;
 }
 REAL8 Ph_V1(REAL8 f){
 		double output = 0.0;
@@ -415,7 +423,7 @@ REAL8 Ph_V1(REAL8 f){
 		output = -0.392164e-02 + 2.66324 - 3.48059*pow(log10(f),1.0) + 1.76342*pow(log10(f), 2.0) - 0.415683*pow(log10(f),3.0) + 0.0393829*pow(log10(f),4.0);
 	        }
                /* Virgo data are already in rads */
-		return output*calibration_percent;
+		return sqrt(output*output+calibration_systematic_V1_PH*calibration_systematic_V1_PH)*calibration_percent;
 }
 
 void initialise(int argc, char *argv[]){
