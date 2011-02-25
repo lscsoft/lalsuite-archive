@@ -188,7 +188,7 @@ int enable_calfreq=0;
 int injONLY=0;
 REAL8 calibration_percent=1;
 int zero_V1=0;
-
+REAL8 calibration_out_max=1.0;
 // types for the selection of the calibration functions //
 typedef REAL8 (AmplitudeCalib)(REAL8 f);
 typedef REAL8 (PhaseCalib)(REAL8 f);
