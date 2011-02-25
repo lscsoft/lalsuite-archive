@@ -1933,6 +1933,13 @@ XLALGetFactorizedWaveform(
                       const INT4            m
                      );
 
+int  XLALEOBNonQCCorrection(
+                      COMPLEX16             *nqc,
+                      REAL8Vector           *values,
+                      REAL8Vector           *dvalues,
+                      EOBNonQCCoeffs        *coeffs
+                     );
+
 /*---------------------------------------------------------------- */
 
 #ifdef  __cplusplus
