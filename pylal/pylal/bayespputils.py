@@ -4,6 +4,7 @@
 #
 #       Copyright 2010
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
+#       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #
@@ -43,6 +44,8 @@ import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 
+import random
+
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 except ImportError:
@@ -55,7 +58,7 @@ from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -67,9 +70,8 @@ __date__= git_version.date
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
 __default_color_lst=['r','b','y','g','k']
-#A default css string for use in html results pages. 
+#A default css string for use in html results pages.
 __default_css_string="""
-
 p,h1,h2,h3,h4,h5
 {
 font-family:"Trebuchet MS", Arial, Helvetica, sans-serif;
@@ -139,6 +141,114 @@ border-bottom-style:double;
 """
 
 #===============================================================================
+# Functions used to parse injection structure.
+#===============================================================================
+def _inj_m1(inj):
+    """
+    Function mapping (mchirp,eta)->m1; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass1
+def _inj_m2(inj):
+    """
+    Function mapping (mchirp,eta)->m2; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass2
+
+def _inj_longitude(inj):
+    """
+    Map the value of the longitude found in inj to an interval [0,2*pi).
+    """
+    if inj.longitude>2*pi_constant or inj.longitude<0.0:
+        maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
+        print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
+        return maplong
+    else:
+        return inj.longitude
+
+def _inj_a1(inj):
+    x = inj.spin1x
+    y = inj.spin1y
+    z = inj.spin1z
+    return sqrt(x*x + y*y + z*z)
+
+def _inj_a2(inj):
+    x = inj.spin2x
+    y = inj.spin2y
+    z = inj.spin2z
+    return sqrt(x*x + y*y + z*z)
+
+def _inj_theta1(inj):
+    x = inj.spin1x
+    y = inj.spin1y
+    z = inj.spin1z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        return np.arccos( z / sqrt(x*x+y*y+z*z) )
+
+def _inj_theta2(inj):
+    x = inj.spin2x
+    y = inj.spin2y
+    z = inj.spin2z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        return np.arccos( z / sqrt(x*x+y*y+z*z) )
+
+def _inj_phi1(inj):
+    x = inj.spin1x
+    y = inj.spin1y
+    z = inj.spin1z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        phi_mpi_to_pi = np.arctan2(y, x)
+        if phi_mpi_to_pi < 0.0:
+            return phi_mpi_to_pi + 2*pi_constant
+        else:
+            return phi_mpi_to_pi
+
+def _inj_phi2(inj):
+    x = inj.spin2x
+    y = inj.spin2y
+    z = inj.spin2z
+    if x == 0.0 and y == 0.0 and z == 0.0:
+        return None
+    else:
+        phi_mpi_to_pi = np.arctan2(y, x)
+        if phi_mpi_to_pi < 0.0:
+            return phi_mpi_to_pi + 2*pi_constant
+        else:
+            return phi_mpi_to_pi
+
+def _inj_tilt1(inj):
+    Sx  = inj.spin1x
+    Sy  = inj.spin1y
+    Sz  = inj.spin1z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
+def _inj_tilt2(inj):
+    Sx  = inj.spin2x
+    Sy  = inj.spin2y
+    Sz  = inj.spin2z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
+
+#===============================================================================
 # Class definitions
 #===============================================================================
 
@@ -149,7 +259,7 @@ class OneDPosterior(object):
     def __init__(self,name,posterior_samples,injected_value=None,prior=None):
         """
         Constructor.
-        
+
         @param name: A literal string name for the parameter.
         @param posterior_samples: A 1D array of the samples.
         @keyword injected_value: The injected or real value of the parameter.
@@ -219,10 +329,10 @@ class OneDPosterior(object):
     def set_injval(self,new_injval):
         """
         Set the injected/real value of the parameter.
-        
+
         @param new_injval: The injected/real value to set.
         """
-        
+
         self.__injval=new_injval
 
     @property
@@ -235,7 +345,7 @@ class OneDPosterior(object):
     def delete_samples_by_idx(self,samples):
         """
         Remove samples from posterior, analagous to numpy.delete but opperates in place.
-        
+
         @param samples: A list of the indexes of the samples to remove.
         """
         self.__posterior_samples=np.delete(self.__posterior_samples,samples).reshape(-1,1)
@@ -263,7 +373,7 @@ class OneDPosterior(object):
     def prob_interval(self,intervals):
         """
         Evaluate probability intervals.
-        
+
         @param intervals: A list of the probability intervals [0-1]
         """
         list_of_ci=[]
@@ -296,10 +406,10 @@ class Posterior(object):
     def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
         """
         Constructor.
-        
-        @param commonResultsFormatData: A 2D array containing the posterior 
+
+        @param commonResultsFormatData: A 2D array containing the posterior
             samples and related data. The samples chains form the columns.
-                
+
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
@@ -346,10 +456,33 @@ class Posterior(object):
 
         return
 
+    def bootstrap(self):
+        """
+        Returns a new Posterior object that contains a bootstrap
+        sample of self.
+        """
+        names=[]
+        samples=[]
+        for name,oneDpos in self._posterior.items():
+            names.append(name)
+            samples.append(oneDpos.samples)
+
+        samplesBlock=np.hstack(samples)
+
+        bootstrapSamples=samplesBlock[:,:]
+        Nsamp=bootstrapSamples.shape[0]
+
+        rows=np.vsplit(samplesBlock,Nsamp)
+
+        for i in range(Nsamp):
+            bootstrapSamples[i,:]=random.choice(rows)
+
+        return Posterior((names,bootstrapSamples),self._injection)
+
     def delete_samples_by_idx(self,samples):
         """
         Remove samples from all OneDPosteriors.
-        
+
         @param samples: The indixes of the samples to remove.
         """
         for name,pos in self:
@@ -360,7 +493,7 @@ class Posterior(object):
         """
         Return the injected values .
         """
-        
+
         return self._injection
 
     def _total_incl_restarts(self, samples):
@@ -397,7 +530,7 @@ class Posterior(object):
     def set_injection(self,injection):
         """
         Set the injected values of the parameters.
-        
+
         @param injection: A SimInspiralTable row object.
         """
         if injection is not None:
@@ -408,38 +541,6 @@ class Posterior(object):
                     self[name].set_injval(new_injval)
 
 
-    def _inj_m1(inj):
-        """
-        Function mapping (mchirp,eta)->m1; m1>m2 .
-        """
-        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-        return mass1
-    def _inj_m2(inj):
-        """
-        Function mapping (mchirp,eta)->m2; m1>m2 .
-        """
-        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-        return mass2
-
-    def _inj_mchirp(inj):
-
-        return inj.mchirp
-
-    def _inj_eta(inj):
-        return inj.eta
-
-    def _inj_longitude(inj):
-        """
-        Map the value of the longitude found in inj to an interval [0,2*pi).
-        """
-        
-        if inj.longitude>2*pi_constant or inj.longitude<0.0:
-            maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
-            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
-            return maplong
-        else:
-            return inj.longitude
-    
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
@@ -451,6 +552,7 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
+                        'phi_orb': lambda inj: inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
@@ -462,7 +564,15 @@ class Posterior(object):
                         'psi': lambda inj: inj.polarization,
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
-                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z)
+                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
+                        'a1':_inj_a1,
+                        'a2':_inj_a2,
+                        'theta1':_inj_theta1,
+                        'theta2':_inj_theta2,
+                        'phi1':_inj_phi1,
+                        'phi2':_inj_phi2,
+                        'tilt1':_inj_tilt1,
+                        'tilt2':_inj_tilt2
                        }
 
     def _getinjpar(self,paramname):
@@ -471,7 +581,7 @@ class Posterior(object):
         """
         if self._injection is not None:
             for key,value in self._injXMLFuncMap.items():
-                if paramname in key:
+                if paramname.lower().strip() == key.lower().strip():
                     return self._injXMLFuncMap[key](self._injection)
         return None
 
@@ -762,6 +872,11 @@ class KDTree(object):
             self._objects = objects[:]
             coord=self._objects[0].coord()
             self._bounds = coord,coord
+        elif self._same_coords(objects):
+            # All the same coordinates
+            self._objects = [ objects[0] ]
+            coord=self._objects[0].coord()
+            self._bounds = coord,coord
         else:
             self._objects = objects[:]
             self._bounds = self._bounds_of_objects()
@@ -780,6 +895,20 @@ class KDTree(object):
                 high = [obj for obj in self._objects if obj.coord()[longest_dim] > bound]
             self._left = KDTree(low)
             self._right = KDTree(high)
+
+    def _same_coords(self, objects):
+        """
+        True if and only if all the given objects have the same
+        coordinates.
+        """
+        if len(objects) <= 1:
+            return True
+        coords = [obj.coord() for obj in objects]
+        c0 = coords[0]
+        for ci in coords[1:]:
+            if not np.all(ci == c0):
+                return False
+        return True
 
     def _bounds_of_objects(self):
         """
@@ -989,7 +1118,7 @@ class htmlPage(htmlChunk):
     """
     A concrete class for generating an XHTML(1) document. Inherits from htmlChunk.
     """
-    def __init__(self,title=None,css=None):
+    def __init__(self,title=None,css=None,toc=False):
         htmlChunk.__init__(self,'html',attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
         self.doctype_str='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
 
@@ -1126,23 +1255,6 @@ def _calculate_sky_confidence_slow(
         skyreses.append((frac,Nbins*float(skyres_)*float(skyres_)))
         toppoints=toppoints[:Nbins]
     return injectionconfidence,toppoints,skyreses
-
-def _histN(mat,N):
-    """
-    @deprecated: UNUSED .
-    """
-    Nd=size(N)
-    histo=zeros(N)
-    scale=array(map(lambda a,b:a/b,map(lambda a,b:(1*a)-b,map(max,mat),map(min,mat)),N))
-    axes=array(map(lambda a,N:linspace(min(a),max(a),N),mat,N))
-    bins=floor(map(lambda a,b:a/b , map(lambda a,b:a-b, mat, map(min,mat) ),scale*1.01))
-
-    hbins=reshape(map(int,bins.flat),bins.shape)
-    for co in transpose(hbins):
-        t=tuple(co)
-        histo[t[::-1]]=histo[t[::-1]]+1
-    return (axes,histo)
-#
 
 def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,confidence_levels):
     """
@@ -1297,6 +1409,16 @@ def pol2cart(long,lat):
     return np.array([x,y,z])
 #
 
+def sph2cart(r,theta,phi):
+    """
+    Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
+    """
+    print r,theta,phi
+    x = r*np.sin(theta)*np.cos(phi)
+    y = r*np.sin(theta)*np.sin(phi)
+    z = r*np.cos(theta)
+    return x,y,z
+
 
 def greedy_bin_sky(posterior,skyres,confidence_levels):
     """
@@ -1314,7 +1436,12 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     np.seterr(under='ignore')
 
-    skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+    if 'ra' in posterior.names and 'dec' in posterior.names:
+        skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+    elif 'rightascension' in posterior.names and 'declination' in posterior.names:
+        skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+    else:
+        raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
@@ -1358,8 +1485,10 @@ def plot_sky_map(top_ranked_pixels,outdir):
     myfig=plt.figure()
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
+
     plx,ply=m(
-              np.asarray(top_ranked_pixels)[::-1,1]*57.296,
+              ra_reverse,
               np.asarray(top_ranked_pixels)[::-1,0]*57.296
               )
 
@@ -1459,6 +1588,8 @@ def plot_one_param_pdf(posterior,plot1DParams):
     injpar=posterior[param].injval
 
     myfig=plt.figure(figsize=(4,3.5),dpi=200)
+    axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+    myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
     histbinSize=bins[1]-bins[0]
@@ -1509,7 +1640,7 @@ def getRAString(radians):
     mins = floor(rem*((12*60)/pi_constant))
     rem = rem - mins*(pi_constant/(12*60))
     secs = rem*(12*3600/pi_constant)
-    return '%ih%im%2.0fs'%(hours,mins,secs)
+    return '$%i\mathrm{h}%i^{\'}%2.0f^{\'\'}$'%(hours,mins,secs)
 
 def getDecString(radians):
     if(radians<0):
@@ -1523,7 +1654,7 @@ def getDecString(radians):
     mins = round(rem*((180.0*60.0)/pi_constant))
     rem = rem - mins*(pi_constant/(180.0*60.0))
     secs = rem * (180.0*60.0*60.0)/pi_constant
-    return '%ideg%im%2.0fs'%(deg,sign*mins,sign*secs)
+    return '$%i^\circ%i^{\'}%2.0f^{\'\'}$'%(deg,sign*mins,sign*secs)
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -1550,6 +1681,7 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     sp_seterr(under='ignore')
 
     myfig=plt.figure(1,figsize=(6,4),dpi=200)
+    myfig.add_axes(plt.Axes(myfig,[0.2,0.25,0.75,0.7]))
     plt.clf()
 
     xax=np.linspace(min(xdat),max(xdat),Nx)
@@ -1593,17 +1725,23 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
         plt.ylim(ymax,ymin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
+        strticks=map(getRAString,locs)
         plt.yticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.yticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
-
-
+        plt.yticks(locs,strticks)
 
     return myfig
 #
+
+def get_inj_by_time(injections,time):
+    """
+    Filter injections to find the injection with end time given by time +/- 0.1s
+    """
+    import itertools
+    injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
+    return injection
 
 def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles):
     """
@@ -1623,7 +1761,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig=plt.figure(1,figsize=(30,20),dpi=150)
     plt.clf()
 
-    fig.add_axes([0.1,0.1,0.58,0.85])
+    fig.add_axes([0.2,0.2,0.48,0.75])
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
@@ -1637,7 +1775,6 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         name_list.append(name)
         #Extract parameter names
         par1_name,par2_name=greedy2Params.keys()
-
         #Extract bin sizes
         par1_bin=greedy2Params[par1_name]
         par2_bin=greedy2Params[par2_name]
@@ -1685,8 +1822,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
 
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par1_name)
-    plt.ylabel(par2_name)
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
 
     if len(name_list)!=len(CSlst):
         print "Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name."
@@ -1703,7 +1840,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst = [cs.collections[0] for cs in CSlst]
 
     fig_actor_lst.extend(dummy_lines)
-    fig.savefig('test.png')
+
     twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
@@ -1712,29 +1849,28 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs)
+        plt.xticks(locs,strticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
-
+        plt.xticks(locs,strticks,rotation=45)
 
     return fig
 #
@@ -1758,7 +1894,6 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     #Extract parameter names
     par1_name,par2_name=greedy2Params.keys()
-
     #Extract bin sizes
     par1_bin=greedy2Params[par1_name]
     par2_bin=greedy2Params[par2_name]
@@ -1781,40 +1916,65 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par2_injvalue=posterior[par2_name.lower()].injval
 
     myfig=plt.figure(1,figsize=(10,8),dpi=300)
+    myfig.add_axes([0.2,0.2,0.8,0.8])
     plt.clf()
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
 
-    #bins=(par1pos_Nbins, par2pos_Nbins)
     bins=(100,100)
 
-    H, xedges, yedges = np.histogram2d(a,b, bins,normed=True)
+    H, xedges, yedges = np.histogram2d(a,b, bins,normed=False)
+
+    #Replace H with greedy bin confidence levels at each pixel...
+    temp=np.copy(H)
+    temp=temp.flatten()
+
+    Hsum=0
+    Hsum_actual=np.sum(H)
+
+    while Hsum<Hsum_actual:
+        ind = np.argsort(temp)
+        max_i=ind[-1:]
+        val = temp[max_i]
+        Hsum+=int(val)
+        temp[max_i]=0
+
+        #print Hsum,Hsum_actual
+        H.flat[max_i]=1-float(Hsum)/float(Hsum_actual)
+
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-    plt.imshow(H, aspect='equal', extent=None, interpolation='nearest')
+    plt.imshow(np.flipud(H), aspect='auto', extent=extent, interpolation='nearest')
+    plt.gca().autoscale_view()
     plt.colorbar()
+
+    if par1_injvalue is not None and par2_injvalue is not None:
+        plt.plot([par1_injvalue],[par2_injvalue],'go',scalex=False,scaley=False)
+
 
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs)
+        plt.xticks(locs,strticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
+        plt.xticks(locs,strticks,rotation=45)
 
     return myfig
 
@@ -2071,6 +2231,7 @@ class PEOutputParser(object):
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
+                print "Processing file %s to posterior_samples.dat"%infilename
                 header=self._clear_infmcmc_header(infile)
                 # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
                 header=[self._swaplabel12(label) for label in header if label in allowedCols]

@@ -5,6 +5,7 @@
 #
 #       Copyright 2010
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
+#       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #
@@ -38,7 +39,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot
 
 import matplotlib
 matplotlib.use("Agg")
@@ -49,7 +50,7 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -84,7 +85,9 @@ def cbcBayesPostProc(
                         #followupMCMC options
                         fm_flag=False,
                         # on ACF?
-                        noacf=False
+                        noacf=False,
+                        #Turn on 2D kdes
+                        twodkdeplots=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -202,7 +205,91 @@ def cbcBayesPostProc(
         pos.append(mass1_pos)
         pos.append(mass2_pos)
 
+    # Compute time delays from sky position
+    if ('ra' in pos.names or 'rightascension' in pos.names) \
+    and ('declination' in pos.names or 'dec' in pos.names) \
+    and 'time' in pos.names:
+        from pylal import antenna
+        from pylal import xlal
+        from pylal.xlal import tools,datatypes
+        from pylal import date
+        from pylal.date import XLALTimeDelayFromEarthCenter
+        from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+        import itertools
+        detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
+                'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
+        if 'ra' in pos.names:
+            ra_name='ra'
+        else: ra_name='rightascension'
+        if 'dec' in pos.names:
+            dec_name='dec'
+        else: dec_name='declination'
+        ifo_times={}
+        my_ifos=['H1','L1','V1']
+        for ifo in my_ifos:
+            inj_time=None
+            if injection:
+                inj_time=float(injection.get_end(ifo[0]))
+            location=tools.cached_detector[detMap[ifo]].location
+            ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
+            loc_end_time=bppu.OneDPosterior(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
+            pos.append(loc_end_time)
+        for ifo1 in my_ifos:
+            for ifo2 in my_ifos:
+                if ifo1==ifo2: continue
+                delay_time=ifo_times[ifo2]-ifo_times[ifo1]
+                if injection:
+                    inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
+                else:
+                    inj_delay=None
+                time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
+                pos.append(time_delay)
 
+
+    #Calculate tilts from spin angles
+    if 'theta1' in pos.names and 'phi1' in pos.names and \
+      'tilt1' not in pos.names and 'tilt2' not in pos.names:
+        inj_tilt1 = inj_tilt2 = None
+        if injection:
+            inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
+
+            if pos['a1'].injval != 0.0:
+                inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
+                inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
+            
+            if pos['a2'].injval != 0.0:
+                inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
+                inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
+
+        S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
+        S2nx,S2ny,S2nz = bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
+        Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
+
+        tilt1_samps = arccos(S1nx*Lnx + S1ny*Lny + S1nz*Lnz)
+        tilt2_samps = arccos(S2nx*Lnx + S2ny*Lny + S2nz*Lnz)
+
+        tilt1_pos = bppu.OneDPosterior('tilt1',tilt1_samps,injected_value=inj_tilt1)
+        tilt2_pos = bppu.OneDPosterior('tilt2',tilt2_samps,injected_value=inj_tilt2)
+
+        pos.append(tilt1_pos)
+        pos.append(tilt2_pos)
+
+    if 'tilt1' in pos.names and 'tilt2' in pos.names:
+        inj_costilt1 = inj_costilt2 = None
+        if injection:
+            if pos['tilt1'].injval: inj_costilt1 = cos(pos['tilt1'].injval)
+            if pos['tilt2'].injval: inj_costilt2 = cos(pos['tilt2'].injval)
+
+        costilt1_samps = cos(pos['tilt1'].samples)
+        costilt2_samps = cos(pos['tilt2'].samples)
+    
+        costilt1_pos = bppu.OneDPosterior('costilt1',costilt1_samps,injected_value=inj_costilt1)
+        costilt2_pos = bppu.OneDPosterior('costilt2',costilt2_samps,injected_value=inj_costilt2)
+
+        pos.append(costilt1_pos)
+        pos.append(costilt2_pos)
+
+        
     ##Print some summary stats for the user...##
     #Number of samples
     print "Number of posterior samples: %i"%len(pos)
@@ -280,7 +367,7 @@ def cbcBayesPostProc(
     for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
         cov_table_string+='<tr><th>%s</th>'%cov_column_name
         for cov_column_element in cov_column:
-            cov_table_string+='<td>%s</td>'%str(cov_column_element[0])
+            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
         cov_table_string+='</tr>'
     cov_table_string+='</table>'
     html_stats_cov.write(cov_table_string)
@@ -291,7 +378,9 @@ def cbcBayesPostProc(
     #If sky resolution parameter has been specified try and create sky map...
     skyreses=None
     sky_injection_cl=None
-    if skyres is not None and 'ra' in pos.names and 'dec' in pos.names:
+    if skyres is not None and \
+       (('ra' in pos.names and 'dec' in pos.names) or \
+        ('rightascension' in pos.names and 'declination' in pos.names)):
         #Greedy bin sky samples (ra,dec) into a grid on the sky which preserves
         #?
         top_ranked_sky_pixels,sky_injection_cl,skyreses,injection_area=bppu.greedy_bin_sky(pos,skyres,confidence_levels)
@@ -415,7 +504,7 @@ def cbcBayesPostProc(
         ##Produce plot of raw samples
         myfig=plt.figure(figsize=(4,3.5),dpi=200)
         pos_samps=pos[par_name].samples
-        if not ("chain" in pos.names) or fm_flag:
+        if not ("chain" in pos.names):
             # If there is not a parameter named "chain" in the
             # posterior, then just produce a plot of the samples.
             plt.plot(pos_samps,'.',figure=myfig)
@@ -434,7 +523,7 @@ def cbcBayesPostProc(
             for rng, data in zip(chainDataRanges, chainData):
                 plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
             plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
-            
+
             #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
             #flattenedData=[ item for pair in dataPairs for item in pair ]
             #maxLen=max([len(data) for data in flattenedData])
@@ -455,13 +544,21 @@ def cbcBayesPostProc(
                 mu=mean(data)
                 corr=correlate((data-mu),(data-mu),mode='full')
                 N=len(data)
-                plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                try:
+                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                except FloatingPointError:
+                    # Ignore
+                    pass
             else:
                 for rng, data in zip(chainDataRanges, chainData):
                     mu=mean(data)
                     corr=correlate(data-mu,data-mu,mode='full')
                     N=len(data)
-                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    try:
+                        plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    except FloatingPointError:
+                        # Ignore
+                        pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
 
@@ -512,13 +609,19 @@ def cbcBayesPostProc(
         html_tcig_write+='<th>Injection Confidence Interval</th>'
     html_tcig_write+='</tr>'
 
-    #=  Add a section for a table of 2D marginal PDFs (kde)
-    html_tcmp=html.add_section('2D Marginal PDFs')
 
-    #Table matter
-    html_tcmp_write='<table border="1">'
+    #=  Add a section for a table of 2D marginal PDFs (kde)
+    twodkdeplots_flag=twodkdeplots
+    if twodkdeplots_flag:
+        html_tcmp=html.add_section('2D Marginal PDFs')
+        #Table matter
+        html_tcmp_write='<table border="1">'
+
+    html_tgbh=html.add_section('2D Greedy Bin Histograms')
+    html_tgbh_write='<table border="1">'
 
     row_count=0
+    row_count_gb=0
 
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
@@ -582,10 +685,12 @@ def cbcBayesPostProc(
         #= Plot 2D histograms of greedily binned points =#
 
         greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
-        greedy2ContourPlot.savefig(os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name)))
+        greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
+        greedy2ContourPlot.savefig(greedy2contourpath)
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
-        greedy2HistFig.savefig(os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name)))
+        greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
+        greedy2HistFig.savefig(greedy2histpath)
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -594,47 +699,80 @@ def cbcBayesPostProc(
             greedyFile.write("%lf %lf\n"%(cl,reses[cl]))
         greedyFile.close()
 
-        #= Generate 2D kde plots =#
-        if [par1_name,par2_name] in twoDplots or [par2_name,par1_name] in twoDplots:
-            print 'Generating %s-%s plot'%(par1_name,par2_name)
+        if [par1_name,par2_name] in twoDplots or [par2_name,par1_name] in twoDplots :
+            print 'Generating %s-%s greedy hist plot'%(par1_name,par2_name)
 
             par1_pos=pos[par1_name].samples
             par2_pos=pos[par2_name].samples
 
             if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
                 continue
+            head,figname=os.path.split(greedy2histpath)
+            head,figname_c=os.path.split(greedy2contourpath)
+            if row_count_gb==0:
+                html_tgbh_write+='<tr>'
+            html_tgbh_write+='<td width="30%"><img width="100%" src="greedy2Dbins/'+figname+'"/>[<a href="greedy2Dbins/'+figname_c+'">contour</a>]</td>'
+            row_count_gb+=1
+            if row_count_gb==3:
+                html_tgbh_write+='</tr>'
+                row_count_gb=0
 
-            plot2DkdeParams={par1_name:50,par2_name:50}
-            myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
+        #= Generate 2D kde plots =#
 
-            figname=par1_name+'-'+par2_name+'_2Dkernel.png'
-            twoDKdePath=os.path.join(margdir,figname)
+        if twodkdeplots_flag is True:
+            if [par1_name,par2_name] in twoDplots or [par2_name,par1_name] in twoDplots :
+                print 'Generating %s-%s plot'%(par1_name,par2_name)
 
-            if row_count==0:
-                html_tcmp_write+='<tr>'
-            html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
-            row_count+=1
-            if row_count==3:
-                html_tcmp_write+='</tr>'
-                row_count=0
+                par1_pos=pos[par1_name].samples
+                par2_pos=pos[par2_name].samples
 
-            myfig.savefig(twoDKdePath)
+                if (size(unique(par1_pos))<2 or size(unique(par2_pos))<2):
+                    continue
 
+                plot2DkdeParams={par1_name:50,par2_name:50}
+                myfig=bppu.plot_two_param_kde(pos,plot2DkdeParams)
+
+                figname=par1_name+'-'+par2_name+'_2Dkernel.png'
+                twoDKdePath=os.path.join(margdir,figname)
+
+                if row_count==0:
+                    html_tcmp_write+='<tr>'
+                html_tcmp_write+='<td width="30%"><img width="100%" src="2Dkde/'+figname+'"/></td>'
+                row_count+=1
+                if row_count==3:
+                    html_tcmp_write+='</tr>'
+                    row_count=0
+
+                myfig.savefig(twoDKdePath)
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
     html_tcig.write(html_tcig_write)
+
+    if twodkdeplots_flag is True:
     #Finish off the 2D kde plot table
-    while row_count!=0:
-        html_tcmp_write+='<td/>'
-        row_count+=1
-        if row_count==3:
-            row_count=0
-            html_tcmp_write+='</tr>'
-    html_tcmp_write+='</table>'
-    html_tcmp.write(html_tcmp_write)
+        while row_count!=0:
+            html_tcmp_write+='<td/>'
+            row_count+=1
+            if row_count==3:
+                row_count=0
+                html_tcmp_write+='</tr>'
+        html_tcmp_write+='</table>'
+        html_tcmp.write(html_tcmp_write)
+        #Add a link to all plots
+        html_tcmp.a("2Dkde/",'All 2D marginal PDFs (kde)')
+
+    #Finish off the 2D greedy histogram plot table
+    while row_count_gb!=0:
+        html_tgbh_write+='<td/>'
+        row_count_gb+=1
+        if row_count_gb==3:
+            row_count_gb=0
+            html_tgbh_write+='</tr>'
+    html_tgbh_write+='</table>'
+    html_tgbh.write(html_tgbh_write)
     #Add a link to all plots
-    html_tcmp.a("2Dkde/",'All 2D marginal PDFs (kde)')
+    html_tgbh.a("greedy2Dbins/",'All 2D Greedy Bin Histograms')
 
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
@@ -687,19 +825,29 @@ if __name__=='__main__':
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     # ACF plots off?
     parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
+    # Turn on 2D kdes
+    parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','chi']
-    #List of parameter pairs to bin . Need to match (converted) column names.
+    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
+    ifos_menu=['h1','l1','v1']
+    for ifo1 in ifos_menu:
+        for ifo2 in ifos_menu:
+            if ifo1==ifo2: continue
+            oneDMenu.append(ifo1+ifo2+'_delay')
+    #oneDMenu=[]
     twoDGreedyMenu=[]
+    #List of parameter pairs to bin . Need to match (converted) column names.
     for i in range(0,len(oneDMenu)):
         for j in range(i+1,len(oneDMenu)):
             twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
 
-    # twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
+    #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02}
+    for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
+        greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
@@ -724,6 +872,8 @@ if __name__=='__main__':
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?
-                        noacf=opts.noacf
+                        noacf=opts.noacf,
+                        #Turn on 2D kdes
+                        twodkdeplots=opts.twodkdeplots
                     )
 #

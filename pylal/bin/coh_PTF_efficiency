@@ -628,7 +628,7 @@ if opts.do_injections:
     print >>file, "Injected inclination angle:",inj.inclination
     print >>file,"Statistics SNR:",trig.snr," Chi squared:",trig.chisq, "Bank veto: ",trig.bank_chisq
     print >>file,"Auto veto:",trig.cont_chisq,"Null SNR", trig.null_statistic
-    print >>file,"SNRs: H1:", trig.chisq_h1, "L1:" , trig.chisq_l, "V1:" , trig.chisq_v
+    print >>file,"SNRs: H1:", trig.snr_h1, "L1:" , trig.snr_l, "V1:" , trig.snr_v
     print >>file,"BestNR1:", sbvs['BestNR1'],"BestNR2:", sbvs['BestNR2'],"BestNR3:", sbvs['BestNR3'],"BestNR4:", sbvs['BestNR4']
     print >>file,"BestNR5:", sbvs['BestNR5'],"BestNR6:", sbvs['BestNR6'],"BestNR7:", sbvs['BestNR7'],"BestNR8:", sbvs['BestNR8']
     print >>file, "FAP:",gQuietFound[i][3]
@@ -742,7 +742,7 @@ if onsourceFile:
       print >>file,"Recovered masses Mass 1:", trig.mass1, "Mass2:", trig.mass2, "Mchirp", trig.mchirp
       print >>file,"Statistics SNR:",trig.snr," Chi squared:",trig.chisq, "Bank veto: ",trig.bank_chisq
       print >>file,"Auto veto:",trig.cont_chisq,"Null SNR", trig.null_statistic
-      print >>file,"SNRs: H1:", trig.chisq_h1, "L1:" , trig.chisq_l, "V1:" , trig.chisq_v
+      print >>file,"SNRs: H1:", trig.snr_h1, "L1:" , trig.snr_l, "V1:" , trig.snr_v
       print >>file,"BestNR1:", sbvs['BestNR1'],"BestNR2:", sbvs['BestNR2'],"BestNR3:", sbvs['BestNR3'],"BestNR4:", sbvs['BestNR4']
       print >>file,"BestNR5:", sbvs['BestNR5'],"BestNR6:", sbvs['BestNR6'],"BestNR7:", sbvs['BestNR7'],"BestNR8:", sbvs['BestNR8']
       print >>file
