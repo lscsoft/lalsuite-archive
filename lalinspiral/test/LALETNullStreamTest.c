@@ -86,6 +86,7 @@ int main( int argc, char *argv[] )
     UINT4 nSegs=0;
     REAL8 segDur,strideDur;
     UINT4 seglen,stride;
+    REAL8 end_freq=10.0; /* cutoff frequency */ 
     
     initialise(argc,argv);	
     nSegs=Nsegs_global;
@@ -118,9 +119,13 @@ int main( int argc, char *argv[] )
     fclose(nsout);
     */ 
     // RESAMPLE TIMESERIES (WHY IS THIS DONE?)
-    //XLALResampleREAL8TimeSeries(NullStream,1.0/SampleRate_global);
+    if (SampleRate_global!=2048) {
+	fprintf(stderr,"Sample rate %d, resampling...\n",SampleRate_global);
+	XLALResampleREAL8TimeSeries(NullStream,1.0/SampleRate_global);
+	fprintf(stderr,"done\n");
+	}
     deltaF=(REAL8)SampleRate_global/seglen;
-    printf("deltaF : %g\n",deltaF);    
+    fprintf(stderr,"deltaF : %g\n",deltaF);    
     /***************************************************************************
      *
      *  COMPUTE PSD (PUT IN FUNCTION INSTEAD OF IN THE TEST FUNCTION)
@@ -138,7 +143,7 @@ int main( int argc, char *argv[] )
     inverse_spectrum = (REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&(NullStream->epoch),0.0,deltaF,&lalDimensionlessUnit,seglen/2+1);
     check=XLALREAL8AverageSpectrumMedian(inverse_spectrum,NullStream,(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
     if (check) {fprintf(stderr,"Failed! \n");exit(-1);}
-    check|=XLALREAL8SpectrumInvertTruncate(inverse_spectrum, 10.0, seglen, (seglen-stride)/4, fwdplan, revplan ); 
+    check|=XLALREAL8SpectrumInvertTruncate(inverse_spectrum, end_freq, seglen, (seglen-stride)/4, fwdplan, revplan ); 
     if (check) {fprintf(stderr,"Failed computing spectrum! Exiting...\n");exit(-1);}    
     // PSD OUTPUT FILE
     FILE *psdout;
