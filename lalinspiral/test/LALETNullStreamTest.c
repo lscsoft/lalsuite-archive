@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2007 Jolien Creighton
+*  Copyright (C) 2011 Walter Del Pozzo, Tjonnie Li
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -19,11 +19,12 @@
 
 /* <lalVerbatim> */
 #include <stdlib.h>
+#include <getopt.h>
 #include <lal/LALETNullStream.h>
 
 NRCSID( LALETNULLSTREAMTESTC, "$Id$" );
 
-#define USAGE "Usage: %s [--GPSStart INT] [--Nsegs INT] [--SegDur REAL8] [--Srate REAL8]\n"
+#define USAGE "Usage: LALETNullStreamTest [--duration REAL8] [--GPSstart INT] [--Nsegs INT] [--Srate [OPTIONAL] REAL8 [DEFAULT:2048]]\n"
 
 extern int lalDebugLevel;
 
@@ -34,10 +35,10 @@ extern int lalDebugLevel;
  ******************************************************************************/
 
 // GLOBAL VARIABLES USED IN ARGUMENT PARSING - SETS THE DEFAULT VALUE
-REAL8 duration_global=1000.0;
+REAL8 duration_global=100.0;
 LIGOTimeGPS GPSStart_global; // NB: NO INFRASTRUCTURE FOR NANOSECOND INPUT!
-REAL8 SampleRate_global=2048.0; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
-
+UINT4 SampleRate_global=2048; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
+UINT4 Nsegs_global=10; 
 /*******************************************************************************
  *
  *  FUNCTION PROTOTYPES
@@ -82,10 +83,12 @@ int main( int argc, char *argv[] )
     REAL8FFTPlan *revplan = NULL;
     REAL8Window  *windowplan = NULL;
     REAL8 deltaF=0.0;
-    UINT4 nSegs=100;
+    UINT4 nSegs=0;
     REAL8 segDur,strideDur;
     UINT4 seglen,stride;
-    GPSStart_global.gpsSeconds=802338816;
+    
+    initialise(argc,argv);	
+    nSegs=Nsegs_global;
     NullStream = (REAL8TimeSeries *) LALMalloc(sizeof(REAL8TimeSeries));
     segDur = duration_global/(REAL8)nSegs;
     seglen=(UINT4)(segDur*SampleRate_global);
@@ -104,18 +107,19 @@ int main( int argc, char *argv[] )
      **************************************************************************/
     
     /* Get the arguments and act on them */
-    initialise(argc,argv); 
     NullStream = LALETNullStream(&GPSStart_global,duration_global);
+    /*
     FILE *nsout;
     nsout=fopen("temp_ns.dat","w");
     uint k;
     for (k=0;k<NullStream->data->length;k++){
 	fprintf(nsout,"%g %g\n",k*NullStream->deltaT,NullStream->data->data[k]);
 	}
-    fclose(nsout); 
+    fclose(nsout);
+    */ 
     // RESAMPLE TIMESERIES (WHY IS THIS DONE?)
     //XLALResampleREAL8TimeSeries(NullStream,1.0/SampleRate_global);
-    deltaF=(REAL8)SampleRate_global/seglen;//(REAL8)1.0/((REAL8) NullStream->data->length*NullStream->deltaT);
+    deltaF=(REAL8)SampleRate_global/seglen;
     printf("deltaF : %g\n",deltaF);    
     /***************************************************************************
      *
@@ -139,7 +143,7 @@ int main( int argc, char *argv[] )
     // PSD OUTPUT FILE
     FILE *psdout;
 	char psdname[100];
-	sprintf(psdname,"nullstream_%g.dat",SampleRate_global);
+	sprintf(psdname,"nullstream_%i.dat",SampleRate_global);
 	psdout=fopen(psdname,"w");
     
     // PRINT FILE
@@ -159,7 +163,6 @@ int main( int argc, char *argv[] )
     XLALDestroyREAL8FFTPlan(fwdplan);
     XLALDestroyREAL8Window(windowplan);
     
-    REPORTSTATUS( &status );
     return status.statusCode;
 }
 
@@ -169,116 +172,39 @@ int main( int argc, char *argv[] )
  * 
  ******************************************************************************/
 
-void initialise(INT4 argc, char *argv[])
+void initialise(int argc, char *argv[])
 {
-    
-	/***************************************************************************
-     *
-     *  Argument Parsing
-     * 
-     **************************************************************************/
-	
-    // ARGUMENT LOOP INTEGER
-    INT4 arg = 0;
-    
-    
-    // GET INPUT FROM --GPSSTART FLAG (OPTIONAL, DEFAULT DEFINED AS GLOBAL)
-	for (arg=1; arg<argc; arg++)
-	{
-		if (!strcmp(argv[arg],"--GPSstart")) 
-		{
-			if(argc<=arg+1)
-			{
-				LALPrintError( USAGE, *argv );
-				exit(-1);
-			}
-			else if( (argv[arg+1][0]=='-') )
-			{
-				LALPrintError( USAGE, *argv );
-				exit(-1);
-			}
-			else if( argc>arg+2 )
-			{
-				if(argv[arg+2][0]!='-')
-				{
-					LALPrintError( USAGE, *argv );
-					exit(-1);
-				}
-				else
-				{
-					GPSStart_global.gpsSeconds = atoi(argv[++arg]);
-				}
-			}
-			else
-			{
-				GPSStart_global.gpsSeconds = atoi(argv[++arg]);
-			}
-        }
-        
-        // GET INPUT FROM --DURATION FLAG (OPTIONAL, DEFAULT DEFINED AS GLOBAL)
-		else if (!strcmp(argv[arg],"--duration")) 
-		{
-			if(argc<=arg+1)
-			{
-				LALPrintError( USAGE, *argv );
-				exit(-1);
-			}
-			else if( (argv[arg+1][0]=='-') )
-			{
-				LALPrintError( USAGE, *argv );
-				exit(-1);
-			}
-			else if( argc>arg+2 )
-			{
-				if(argv[arg+2][0]!='-')
-				{
-					LALPrintError( USAGE, *argv );
-					exit(-1);
-				}
-				else
-				{
-					duration_global = atof(argv[++arg]);
-				}
-			}
-			else
-			{
-				duration_global = atof(argv[++arg]);
+	int i;
+	double GPS;
+	/*	sprintf(outfile,"default.dat"); */
+	/* Sets up global variables from the command line */
+	static struct option long_options[]=
+	{	{"duration",required_argument,0,'a'},
+		{"GPSstart",required_argument,0,'b'},
+		{"Nsegs",required_argument,0,'c'},
+		{"Srate",required_argument,0,'d'},
+		{0,0,0,0}};
+	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
+	while((i=getopt_long(argc,argv,"a:b:c:d",long_options,&i))!=-1)
+		{ 
+		switch(i) {
+			case 'a':
+				duration_global=atof(optarg);
+				break;	
+			case 'b':
+				GPS=atof(optarg);
+				XLALGPSSetREAL8(&GPSStart_global,GPS);
+				break;
+			case 'c':
+				Nsegs_global=atoi(optarg);
+				break;
+			case 'd':
+				SampleRate_global=atof(optarg);
+				break;
+			default:
+				fprintf(stdout,USAGE); exit(0);
+				break;
 			}
 		}
-        
-        // GET INPUT FROM --SRATE FLAG (OPTIONAL, DEFAULT DEFINED AS GLOBAL)
-		else if (!strcmp(argv[arg],"--Srate")) 
-		{
-			if(argc<=arg+1)
-			{
-				LALPrintError( USAGE, *argv );
-				exit(-1);
-			}
-			else if( (argv[arg+1][0]=='-') )
-			{
-				LALPrintError( USAGE, *argv );
-				exit(-1);
-			}
-			else if( argc>arg+2 )
-			{
-				if(argv[arg+2][0]!='-')
-				{
-					LALPrintError( USAGE, *argv );
-					exit(-1);
-				}
-				else
-				{
-					SampleRate_global = atof(argv[++arg]);
-				}
-			}
-			else
-			{
-				SampleRate_global = atof(argv[++arg]);
-			}
-		}
-    }
-    
-    
 }
 
-/* </lalVerbatim> */
