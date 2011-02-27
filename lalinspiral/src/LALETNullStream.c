@@ -147,7 +147,7 @@ REAL8TimeSeries *ReadTimeSerieFromCache(const CHAR *cachefile, const CHAR *chann
     output = XLALFrInputREAL8TimeSeries(stream,channel,start,duration,0);
     if (output==NULL) {
         fprintf(stderr,"ERROR: unable to read channel %s from %s at time %i \n", cachefile, channel, start->gpsSeconds);
-        fprintf(stderr,"Check that the specified data duration is not too long\n");
+        fprintf(stderr,"Check that the specified data exist or that the duration is not too long\n");
         exit(-1);
     }
     LALDestroyFrCache(&status,&cache);

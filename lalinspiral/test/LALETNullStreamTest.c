@@ -205,6 +205,7 @@ void initialise(int argc, char *argv[])
 				break;
 			case 'd':
 				SampleRate_global=atof(optarg);
+				fprintf(stderr,"Setting the sample rate to %i. This might not be what you want!\n",SampleRate_global);
 				break;
 			default:
 				fprintf(stdout,USAGE); exit(0);
