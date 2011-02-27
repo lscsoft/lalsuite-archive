@@ -144,7 +144,11 @@ int main( int argc, char *argv[] )
     check=XLALREAL8AverageSpectrumMedian(inverse_spectrum,NullStream,(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
     if (check) {fprintf(stderr,"Failed! \n");exit(-1);}
     check|=XLALREAL8SpectrumInvertTruncate(inverse_spectrum, end_freq, seglen, (seglen-stride)/4, fwdplan, revplan ); 
-    if (check) {fprintf(stderr,"Failed computing spectrum! Exiting...\n");exit(-1);}    
+    if (check) {fprintf(stderr,"Failed computing spectrum! Exiting...\n");exit(-1);}
+    /* Normalize */
+    for (j=0;j<inverse_spectrum->data->length;j++) {
+    	inverse_spectrum->data->data[j]*=1.0L/3.0L;
+    }    
     // PSD OUTPUT FILE
     FILE *psdout;
 	char psdname[100];

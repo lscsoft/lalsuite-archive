@@ -55,34 +55,10 @@ REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration )
      *
      **************************************************************************/  
     
-	const CHAR *ChannelNames[3] = {"E1:STRAIN", "E2:STRAIN", "E3:STRAIN"};
+    const CHAR *ChannelNames[3] = {"E1:STRAIN", "E2:STRAIN", "E3:STRAIN"};
     const CHAR *CacheFileNames[3] = {"/home/tania/ET_mdc/data/cache/E1.cache","/home/tania/ET_mdc/data/cache/E2.cache","/home/tania/ET_mdc/data/cache/E3.cache"};
     
-    /* Set up the Channel Names */ 
-    
-    /*
-    ChannelNames = malloc(3 * sizeof *ChannelNames);
-    ChannelNames[0] = malloc(strlen("E1:STRAIN") + 1);
-    strcpy(ChannelNames[0],"E1:STRAIN");
-    ChannelNames[1] = malloc(strlen("E2:STRAIN") + 1);
-    strcpy(ChannelNames[1],"E2:STRAIN");
-    ChannelNames[2] = malloc(strlen("E3:STRAIN") + 1);
-    strcpy(ChannelNames[2],"E3:STRAIN");
-     */
-    
-    /* Set up the Cache File names */
-    
-    /*
-    CacheFileNames=malloc(3 * sizeof *CacheFileNames);
-    CacheFileNames[0]=malloc(strlen("/home/tania/ET_mdc/data/cache/E1.cache") + 1);
-    strcpy(CacheFileNames[0],"/home/tania/ET_mdc/data/cache/E1.cache");
-    CacheFileNames[1]=malloc(strlen("/home/tania/ET_mdc/data/cache/E2.cache") + 1);
-    strcpy(CacheFileNames[1],"/home/tania/ET_mdc/data/cache/E2.cache");
-    CacheFileNames[2]=malloc(strlen("/home/tania/ET_mdc/data/cache/E3.cache") + 1);
-    strcpy(CacheFileNames[2],"/home/tania/ET_mdc/data/cache/E3.cache");
-     */
-    
-    /***************************************************************************
+    /************************************************************************** 
      *
      *  READ DATA FROM CACHE FILE
      *
@@ -165,9 +141,9 @@ void PopulateNullStream(REAL8TimeSeries *NullStream, REAL8TimeSeries *RawData)
      **************************************************************************/
     
     UINT4 i=0;
-    REAL8 onebythree = 1.0L/3.0L;
-    for (i=0; i<RawData->data->length; i++) {
-        NullStream->data->data[i]+=onebythree*RawData->data->data[i];
+    REAL8 onethird=1.0L/3.0;
+    for (i=0; i<NullStream->data->length; i++) {
+        NullStream->data->data[i]+=onethird*RawData->data->data[i];
     }
     
     // (TJONNIE) SUPERFLUOUS, MIGHT WANT TO DELETE
@@ -184,10 +160,9 @@ void PopulateHplus(REAL8TimeSeries *hplus, REAL8TimeSeries *RawData)
      *      NB: NOT CODED YET
      *
      **************************************************************************/
-    
-    hplus = NULL;
+    hplus=NULL;
     RawData = NULL;
-    
+
     return;
 }
 
