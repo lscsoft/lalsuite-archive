@@ -87,7 +87,9 @@ def cbcBayesPostProc(
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
-                        twodkdeplots=False
+                        twodkdeplots=False,
+                        #Turn on R convergence tests
+                        RconvergenceTests=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -164,6 +166,21 @@ def cbcBayesPostProc(
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
+
+    if RconvergenceTests is True:
+        convergenceResults=bppu.convergenceTests(pos,gelman=False)
+
+        if convergenceResults is not None:
+            for test,test_data in convergenceResults.items():
+                if test_data:
+                    print test
+                    for chain,chain_data in test_data.items():
+                        print "\tChain "+chain
+                        
+                        for data in chain_data:
+                            if len(data)==2:
+                                print "\t\t%s:%s"%(data[0],data[1])
+
 
     if eventnum is None and injfile is not None:
         import itertools
@@ -464,7 +481,7 @@ def cbcBayesPostProc(
 
         toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
 
-        oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
+        #oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
 
         #Generate new BCI html table row
         BCItableline='<tr><td>%s</td>'%(par_name)
@@ -827,6 +844,8 @@ if __name__=='__main__':
     parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
     # Turn on 2D kdes
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
+    # Turn on R convergence tests
+    parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
@@ -874,6 +893,8 @@ if __name__=='__main__':
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
-                        twodkdeplots=opts.twodkdeplots
+                        twodkdeplots=opts.twodkdeplots,
+                        #Turn on R convergence tests
+                        RconvergenceTests=opts.RconvergenceTests
                     )
 #

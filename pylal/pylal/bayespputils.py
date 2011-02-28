@@ -403,7 +403,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,name=None,description=None):
         """
         Constructor.
 
@@ -453,6 +453,12 @@ class Posterior(object):
             print "No likelihood/posterior values found!"
             import sys
             sys.exit(1)
+
+        if name is not None:
+            self.__name=name
+            
+        if description is not None:
+            self.__description=description
 
         return
 
@@ -667,6 +673,20 @@ class Posterior(object):
         for name,pos in self:
             mediansdict[name]=pos.median
         return mediansdict
+
+    @property
+    def name(self):
+        """
+        Return qualified string containing the 'name' of the Posterior instance.
+        """
+        return self.__name
+
+    @property
+    def description(self):
+        """
+        Return qualified string containing a 'description' of the Posterior instance.
+        """
+        return self.__description
 
     def append(self,one_d_posterior):
         """
@@ -2449,4 +2469,226 @@ class PEOutputParser(object):
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
         return header,flines
+#
+
+def parse_converge_output_section(fo):
+        result={}
+        lines=fo.split('\n')
+        chain_line=False
+        for line in lines:
+            
+            if '[1]' in line:
+                key=line.replace('[1]','').strip(' ').strip('"')
+                result[key]={}
+                out=result[key]
+                continue
+            if result is not {}:
+                if 'chain' in line:
+                    chain_line=True
+                    continue
+                if chain_line:
+                    chain_line=False
+                    key=line.strip('"').split()[1]
+                    out[key]=[]
+                    out2=out[key]
+                else:
+                    try:
+                        newline=line.strip('"').split()
+                        if newline is not []:
+                            out2.append(line.strip('"').split())
+                    except:
+                        pass
+
+        return result
+
+def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_frac2=0.5,heidelberger=True,effectiveSize=True,warnings=False):
+    """
+    This function spawns a process to run an R script to use the coda package
+    to calculate the following convergence diagnostics for the chains contained in the input
+    Posterior instance:
+    
+    Gelman-Rubin
+    Geweke
+    Heidelberger & Welch
+    Effective sample sizes
+
+    These can be turned on and off using the flags.
+    
+    Python scrapes the output produced by the R script and returns a (nested) dictionary:
+    {'test':{'chainN':[['param':'test_value'],...],...},...}
+
+    You will need R with the coda and lattice libraries for this to work . 
+    """
+    from subprocess import Popen,PIPE
+
+    print "Calculating convergence diagnostics using R coda library..."
+
+    posterior.write_to_file('tmp.dat')
+
+    R_process=Popen(["R","-q","--vanilla","--slave"],stdin=PIPE,stdout=PIPE)
+    script=convergenceTests_R%(str(gelman).upper(),str(geweke).upper(),geweke_frac1,geweke_frac2,str(heidelberger).upper(),str(effectiveSize).upper(),str(warnings).upper())
+    #print script
+    rp_stdout,rp_stderr=R_process.communicate(input=script)
+
+    outdict=parse_converge_output_section(rp_stdout)
+    
+    #Check outdict
+    if outdict is {}:
+        print "No results found! Check for any errors above. You can turn on the R warning messages with warnings=True ."
+        return None
+    else:
+        test_pass=False
+        for test,test_result in outdict.items():
+            
+            if not test_result:
+                print "Convergence test failed : %s ! Check for any errors above. You can turn on the R warning messages with warnings=True ."%test
+            else:
+                test_pass=True
+
+        if test_pass:
+            return outdict
+
+        else:
+            return None
+    
+#
+
+#R convergenceTest script
+convergenceTests_R="""
+convergenceTests <- function(data,
+                             gelman=TRUE,
+                             geweke=TRUE, geweke.frac1=0.1, geweke.frac2=0.5,
+                             heidelberger=TRUE,
+                             effectiveSize=TRUE)
+# The argument `data' is a matrix (or data frame)
+# of (supposedly post burn-in) posterior samples.
+# Rows correspond to samples, columns correspond to variables.
+# If `data' contains a variable named "chain",
+# this is assumed to indicate chains from independent runs.
+# By default, Gelman's, Geweke's and Heidelberger & Welch's convergence
+# diagnostics, and effectice sample sizes are computed.
+# Geweke's diagnostic is directly converted to p-values,
+# and the effective sample size is divided by the number of MCMC samples
+# to give /relative/ sample sizes.
+# In order to suppress computation of any of the 3 figures, supply
+# an additional (e.g.)  `geweke=FALSE'  or  `geweke=F'  argument.
+{
+  # check whether "coda" library is installed:
+  codaInstalled <- require("coda")
+  if (codaInstalled) {
+    # check whether a "chain" variable indicates presence of multiple chains:
+    if (is.element("chain",colnames(data))) {
+      chainIndicator <- data[,"chain"]
+      # which chains present?:
+      chainLabels <- sort(unique(data[,"chain"]))
+      # how many samples of each chain?:
+      chainFrequencies <- table(dat[,"chain"])
+      # drop "chain" column from data:
+      data <- data[,colnames(data)!="chain"]
+    }
+    else { # (no "chain" indicator means a single chain)
+      chainIndicator <- rep(1, nrow(data))
+      chainLabels <- 1
+      chainFrequencies <- c("1"=nrow(data))
+    }
+
+    
+    # Gelman diagnostic - need at least 2 chains with at least 2 samples:
+    if (gelman && (length(chainFrequencies>=2) >= 2)) {
+      codaList <- mcmc.list()
+      for (i in 1:sum(chainFrequencies>=2)){
+        # filter out i-th chain:
+        finalSamples <- which(chainIndicator==chainLabels[chainFrequencies>=2][i])
+        # filter out final samples:
+        finalSamples <- finalSamples[length(finalSamples)+((-(min(chainFrequencies[chainFrequencies>=2])-1)):0)]
+        # add to list:
+        codaList[[i]] <- mcmc(data=data[finalSamples,])
+      }
+      GD <- try(gelman.diag(codaList), silent=TRUE)
+      rm("codaList")
+      if (class(GD) != "try-error") RHatP <- c("RHatP"=Re(GD$mpsrf))
+      else RHatP <- c("RHatP"=NA)
+    }
+    else RHatP <- c("RHatP"=NA)
+
+    
+    # Geweke diagnostic:
+    if (geweke) {
+      geweke.p <- geweke.z <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute diagnostic for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        GD <- try(geweke.diag(mcmc(data[chainIndicator==chainLabels[i],]),
+                              frac1=geweke.frac1, frac2=geweke.frac2))
+        if (class(GD) != "try-error") zScores <- GD$z
+        else zScores <- rep(NA, ncol(data))
+        geweke.z[,i] <- zScores
+      }
+      # compute corresponding matrix of p-values:
+      geweke.p <- (1.0 - pnorm(abs(geweke.z))) / 2.0
+    }
+    else geweke.p <- NA
+
+    
+    # Heidelberger & Welch diagnostic:
+    if (heidelberger) {
+      heidelberger.p  <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                                    dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute diagnostic for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        HWD <- try(heidel.diag(mcmc(data[chainIndicator==chainLabels[i],])))
+        if (class(HWD) != "try-error") pvalues <- HWD[,"pvalue"]
+        else pvalues <- rep(NA, ncol(data))
+        heidelberger.p[,i] <- pvalues
+      }
+    }
+    else heidelberger.p <- NA
+
+    
+    # effective sample size:
+    if (effectiveSize) {
+      Neff <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute N_eff for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        ES <- try(effectiveSize(mcmc(data[chainIndicator==chainLabels[i],])))
+        if (class(ES) != "try-error") sizes <- ES
+        else sizes <- rep(NA, ncol(data))
+        Neff[,i] <- sizes
+      }
+      # normalize (to /relative/ sample sizes):
+      Reff <- Neff / matrix(chainFrequencies, nrow=ncol(data), ncol=length(chainLabels), byrow=TRUE)
+    }
+    else Reff <- NA
+
+    
+    # assemble eventual results:
+    result <- list("gelman"       = RHatP,          # "multivariate scale reduction factor", $\hat{R}^p$
+                   "geweke"       = geweke.p,       # matrix of p-values
+                   "heidelberger" = heidelberger.p, # matrix of p-values
+                   "effectiveSize"     = Reff)           # matrix of /relative/ effective sample sizes
+  }
+  else {
+    warning("coda library not installed.")
+    result <- list("gelman"       = NA,
+                   "geweke"       = NA,
+                   "heidelberger" = NA,
+                   "effectiveSize"     = NA)
+  }
+  return(result)
+} 
+
+A <- read.table("tmp.dat",header=TRUE)
+result <- convergenceTests(A,gelman=%s,geweke=%s,geweke.frac1=%f, geweke.frac2=%f,heidelberger=%s,effectiveSize=%s)
+for (name in names(result)) {
+    print(name)
+    print(result[[name]])
+    
+}
+warnings_flag <- %s
+if (warnings_flag){
+    warnings()
+}
+
+"""
 #
