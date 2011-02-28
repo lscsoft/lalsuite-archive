@@ -1200,7 +1200,7 @@ int main( int argc, char *argv[])
 			
 			if(enable_calamp || enable_calfreq){
               fprintf(stderr,"Applying calibration errors to %s noise \n", IFOnames[i]);
- 
+
 
                 int IFOnum=0;
                 if(!strcmp(IFOnames[i],"H1")){IFOnum =1;}
