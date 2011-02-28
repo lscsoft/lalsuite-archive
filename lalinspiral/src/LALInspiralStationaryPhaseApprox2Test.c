@@ -160,6 +160,7 @@ LALInspiralStationaryPhaseApprox2Test (
     
     /* FILL PHASE COEFFICIENTS */
     REAL8 phaseParams[10] = {0,0,0,0,0,0,0,0,0,0};
+  
     TaylorF2fillPhaseParams(params, phaseParams, TestphaseParamsValues);
     
 //	FILE* model_output;
@@ -167,8 +168,8 @@ LALInspiralStationaryPhaseApprox2Test (
 
 //	fprintf(model_output,"Sampling frequency: %lf\n",params->tSampling);
 
-//	fprintf(model_output,"Mass 1: %lf\n",params->mass1);
-//	fprintf(model_output,"Mass 2: %lf\n",params->mass2);
+//	fprintf(stderr,"Mass 1: %lf\n",params->mass1);
+//	fprintf(stderr,"Mass 2: %lf\n",params->mass2);
 
    for (i=1; i<nby2; i++) {
       f = i * df;
@@ -196,7 +197,7 @@ LALInspiralStationaryPhaseApprox2Test (
 	      amp = amp0 * pow(-func.dEnergy(v,&ak)/func.flux(v,&ak),0.5L) * v;
 	      signalvec->data[i] = (REAL4) (amp * cos(psi));
 	      signalvec->data[n-i] = (REAL4) (-amp * sin(psi));
-//          fprintf(model_output,"%g\t %g\t %g\n",i*df,signalvec->data[i],signalvec->data[n-i]);  
+//          fprintf(model_output,"%e\t %e\t %e\t %e\n",i*df,signalvec->data[i],signalvec->data[n-i],psif);  
       }
       	
       /*
@@ -262,8 +263,9 @@ void TaylorF2fillPhaseParams(
     REAL8 mtot = params->totalMass;
     REAL8 eta = params->eta;
     UINT4 i;
-    REAL8 twopimtot = LAL_TWOPI*mtot*LAL_MTSUN_SI;
-    REAL8 comprefac = 3.0/(256.0*eta);
+    REAL8 pimtot = LAL_PI*mtot*LAL_MTSUN_SI;
+    REAL8 comprefac = 3.0/(128.0*eta);
+    //REAL8 comprefac = 3.0/(256.0*eta);
     
     // POPULATE INDIVIDUAL PHASE PARAMETERS
     // SEE arXiv:gr-qc/0411146
@@ -279,22 +281,22 @@ void TaylorF2fillPhaseParams(
     phaseParams[8] = 3.0/(128.0*eta)*pow(LAL_PI*LAL_MTSUN_SI*mtot,1.0/3.0)* -6848.0/21.0; //phi6l
     phaseParams[9] = 3.0/(128.0*eta)*pow(LAL_PI*LAL_MTSUN_SI*mtot,2.0/3.0)* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*pow(eta, 2.0)); //phi7
      */
-     // x is an alias for (2pi*m)^(1/3)
-    REAL8 x=cbrt(twopimtot);
+     // pimtot1by3 is an alias for (pi*m)^(1/3)
+    REAL8 pimtot1by3=cbrt(pimtot);
     
     // SEE arXiv:1005.0304
-    phaseParams[0] = comprefac*(1.0/(x*x*x*x*x)); //phi0
-    phaseParams[1] = comprefac*(1.0/(x*x*x*x))* 0.0; //phi1
-    phaseParams[2] = comprefac*(1.0/twopimtot)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
-    phaseParams[3] = comprefac*(1.0/(x*x))* -16.0*LAL_PI; //phi3
-    phaseParams[4] = comprefac*(1.0/x)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta); // phi4
-    phaseParams[5] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta)*(1.0+log(twopimtot*pow(6.0, 1.5))); //phi5
+    phaseParams[0] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3)); //phi0
+    phaseParams[1] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3))* 0.0; //phi1
+    phaseParams[2] = comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
+    phaseParams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI; //phi3
+    phaseParams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta); // phi4
+    phaseParams[5] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta)*(1.0+log(pimtot*pow(6.0, 1.5))); //phi5
     phaseParams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta); //phi5l
-    phaseParams[7] = comprefac*x* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta*(-15737765635.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI)) + 76055.0/1728.0*eta*eta - 127825.0/1296.0*eta*eta*eta + -6848.0/63.0*log(64.0*twopimtot)); //phi6
-    phaseParams[8] = comprefac*x* -6848.0/63.0; //phi6l
-    phaseParams[9] = comprefac*x*x* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
+    phaseParams[7] = comprefac*pimtot1by3* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta*(-15737765635.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI)) + 76055.0/1728.0*eta*eta - 127825.0/1296.0*eta*eta*eta + -6848.0/63.0*log(64.0*pimtot)); //phi6
+    phaseParams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
+    phaseParams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
     
     for(i=0;i<10;i++) {phaseParams[i]+=testParamValues[i];}
-    
+        
     return;
 }

@@ -187,6 +187,10 @@ LALInspiralStationaryPhaseApprox2 (
 /*
    Compute the standard stationary phase approximation.
 */
+//	FILE* model_output;
+//    model_output=fopen("output_TF2.dat","w");
+//   fprintf(stderr,"Mass 1: %lf\n",params->mass1);
+//   fprintf(stderr,"Mass 2: %lf\n",params->mass2);
    h1 = signalvec->data[0] = 0.L;
    h2 = signalvec->data[nby2] = 0.L;
    for (i=1; i<nby2; i++) {
@@ -215,7 +219,7 @@ LALInspiralStationaryPhaseApprox2 (
 	      amp = amp0 * pow(-func.dEnergy(v,&ak)/func.flux(v,&ak),0.5L) * v;
 	      signalvec->data[i] = (REAL4) (amp * cos(psi));
 	      signalvec->data[n-i] = (REAL4) (-amp * sin(psi));
-
+//        fprintf(model_output,"%e\t %e\t %e\t %e\n",i*df,signalvec->data[i],signalvec->data[n-i],psif);
       }
       /*
 	 printf ("%e %e \n", v, psif);
@@ -224,6 +228,8 @@ LALInspiralStationaryPhaseApprox2 (
        */
 
    }
+//    fclose(model_output);
+//   exit(0);
    params->fFinal = fn;
    DETATCHSTATUSPTR(status);
    RETURN(status);

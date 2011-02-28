@@ -1677,7 +1677,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     
 	FILE *outInjB=fopen("injection_preInj.dat","w");
     for (UINT4 i=0; i<injWaveFD->length; i++) {
-            fprintf(outInjB,"%lf %e \n",i*deltaF,injWaveFD->data[i]);
+            fprintf(outInjB,"%lf %e %e\n",i*deltaF,injWaveFD->data[i],injWaveFD->data[injWaveFD->length-i]);
     }
     fclose(outInjB);
     
