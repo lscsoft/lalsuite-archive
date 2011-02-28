@@ -17,60 +17,57 @@
 *  MA  02111-1307  USA
 */
 
-/*  <lalVerbatim file="LALAdaptiveRungeKutta4CV">
-Author: Vallisneri, M.
-$Id:$
-</lalVerbatim>  */
-
-/* TO DO: XLAL or LAL in these docfile declarations? */
-
-/*  <lalLaTeX>
-
-\subsection{Module \texttt{LALAdaptiveRungeKutta4.c}}
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{LALAdaptiveRungeKutta4CP}
-\idx{XLALAdaptiveRungeKutta4()}
-
-\begin{itemize}
-\item {\tt integrator} Integration structure (quasi-class). Created using {\tt XLALAdaptiveRungeKutta4Init()}.
-...
-\end{itemize}
-
-\subsubsection*{Description}
-The code \texttt{LALAdaptiveRungeKutta4.c} evolves a system of $n$ coupled first--order differential equations.
-Internally, it uses GSL routines to perform adaptive-step evolution, and then interpolates the resulting
-trajectories to a fixed step size.
-
-Prior to evolving a system using {\tt XLALAdaptiveRungeKutta4()}, it is necessary to create an integrator structure using
-{\tt XLALAdaptiveRungeKutta4Init()}. Once you are done with the integrator, free it with {\tt XLALAdaptiveRungeKutta4Free()}.
-\subsubsection*{Algorithm}
-TBF.
-
-\subsubsection*{Uses}
-For updated SpinTaylor waveforms.
-
-\subsubsection*{Notes}
-None so far...
-
-\vfill{\footnotesize\input{LALAdaptiveRungeKutta4CV}}
-
-</lalLaTeX>  */
+/**
+ * \file LALAdaptiveRungeKutta4.c
+ * \ingroup LALAdaptiveRungeKutta4
+ * \author M.Vallisneri
+ *
+ * \breif Functions associated with the XLALAdaptiveRungeKutta4.
+ *
+ * Prototypes:
+ *   - integrator
+ *     Integration structure (quasi-class). Created using XLALAdaptiveRungeKutta4Init().
+ *   - ...
+ *   .
+ *
+ * Description
+ *
+ * The code LALAdaptiveRungeKutta4.c evolves a system of \f$n\f$ coupled first--order differential equations.
+ * Internally, it uses GSL routines to perform adaptive-step evolution, and then interpolates the resulting
+ * trajectories to a fixed step size.
+ *
+ * Prior to evolving a system using XLALAdaptiveRungeKutta4(), it is necessary to create an integrator structure using
+ * XLALAdaptiveRungeKutta4Init(). Once you are done with the integrator, free it with XLALAdaptiveRungeKutta4Free().
+ *
+ * Algorithm
+ *
+ * TBF.
+ *
+ * Uses
+ *
+ * For updated SpinTaylor waveforms.
+ *
+ * Notes
+ *
+ * None so far...
+ */
 
 #include <LALAdaptiveRungeKutta4.h>
 
 NRCSID (LALADAPTIVERUNGEKUTTA4C, "$Id$");
 
-/* <lalVerbatim file="XLALAdaptiveRungeKutta4CP"> */
-ark4GSLIntegrator *
-XLALAdaptiveRungeKutta4Init(
-		int dim,
-		int (* dydt) (double t, const double y[], double dydt[], void * params),  /* These are XLAL functions! */
-		int (* stop) (double t, const double y[], double dydt[], void * params),
-		double eps_abs, double eps_rel
+/**
+ * The initialization function for the XLALAdaptiveRungeKutta4 integrator
+ */
+ark4GSLIntegrator *XLALAdaptiveRungeKutta4Init(
+		int dim,  /**< dimensionality of the integration functions */
+		int (* dydt) (double t, const double y[], double dydt[], void * params),  /**< derivatives functions */ /* These are XLAL functions! */
+		int (* stop) (double t, const double y[], double dydt[], void * params),  /**< stopping comditions */
+		double eps_abs,  /**< abosolute error tolerance */ /* FIXME: is this right? */
+		double eps_rel  /**< relative error tolerance */ /* FIXME: is this right? */
 		)
-{ /* </lalVerbatim> */
-	static const char *func = "XLALAdaptiveRungeKutta4Init"; /* TO DO: is this correct XLAL etiquette? */
+{
+	static const char *func = "XLALAdaptiveRungeKutta4Init";
 
 	ark4GSLIntegrator *integrator;
   
@@ -109,12 +106,13 @@ XLALAdaptiveRungeKutta4Init(
 	return integrator;
 }
 
-/* <lalVerbatim file="XLALAdaptiveRungeKutta4CP"> */
-void
-XLALAdaptiveRungeKutta4Free(
-		ark4GSLIntegrator *integrator
+/**
+ * The function that frees a XLALAdaptiveRungeKutta4 integrator
+ */
+void XLALAdaptiveRungeKutta4Free(
+		ark4GSLIntegrator *integrator /**< pointer to the integrator */
 		)
-{	/* </lalVerbatim>  */
+{
 	if (!integrator) return;
 
 	if (integrator->evolve)  XLAL_CALLGSL( gsl_odeiv_evolve_free(integrator->evolve) );
@@ -127,16 +125,22 @@ XLALAdaptiveRungeKutta4Free(
 	return;
 }
 
-/* <lalVerbatim file="XLALAdaptiveRungeKutta4CP"> */
-unsigned int
-XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
-		void *params,
-		REAL8 *yinit,
-		REAL8 tinit, REAL8 tend, REAL8 deltat,
-		REAL8Array **yout
+/**
+ * The XLALAdaptiveRungeKutta4 integrator itself
+ */
+unsigned int XLALAdaptiveRungeKutta4(
+		/* FIXME: are these descriptions correct? */
+		ark4GSLIntegrator *integrator,  /**< pointer to integrator */
+		void *params,  /**< integrator parameters */
+		REAL8 *yinit,  /**< initial parameters */
+		REAL8 tinit,  /**< initial time */
+		REAL8 tend,  /**< end time */
+		REAL8 deltat,  /**< fixed deltat between sample to interpolate onto */
+		REAL8Array **yout  /**< output array */
 		)
-{ /* </lalVerbatim> */
-	static const char *func = "XLALAdaptiveRungeKutta4"; /* TO DO: is this correct XLAL etiquette? */  
+{
+	static const char *func = "XLALAdaptiveRungeKutta4";
+  
 	int status;  /* used throughout */
 	
 	/* needed for the integration */	
