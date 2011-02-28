@@ -24,7 +24,8 @@
 
 NRCSID( LALETNULLSTREAMTESTC, "$Id$" );
 
-#define USAGE "Usage: LALETNullStreamTest [--duration REAL8] [--GPSstart INT] [--Nsegs INT] [--Srate [OPTIONAL] REAL8 [DEFAULT:2048]]\n"
+#define USAGE "Usage: LALETNullStreamTest [--duration REAL8] [--GPSstart INT] [--Nsegs INT] [--o output] \n \
+	 [OPTIONAL] [--Srate REAL8 [DEFAULT:2048]]\n"
 
 extern int lalDebugLevel;
 
@@ -35,6 +36,8 @@ extern int lalDebugLevel;
  ******************************************************************************/
 
 // GLOBAL VARIABLES USED IN ARGUMENT PARSING - SETS THE DEFAULT VALUE
+
+CHAR outfile[FILENAME_MAX];
 REAL8 duration_global=100.0;
 LIGOTimeGPS GPSStart_global; // NB: NO INFRASTRUCTURE FOR NANOSECOND INPUT!
 UINT4 SampleRate_global=2048; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
@@ -151,9 +154,9 @@ int main( int argc, char *argv[] )
     }    
     // PSD OUTPUT FILE
     FILE *psdout;
-	char psdname[100];
-	sprintf(psdname,"nullstream_%i.dat",SampleRate_global);
-	psdout=fopen(psdname,"w");
+	//char psdname[100];
+	//sprintf(psdname,"nullstream_%i.dat",SampleRate_global);
+	psdout=fopen(outfile,"w");
     
     // PRINT FILE
 	for(j=0;j<inverse_spectrum->data->length;j++) {
@@ -192,9 +195,10 @@ void initialise(int argc, char *argv[])
 		{"GPSstart",required_argument,0,'b'},
 		{"Nsegs",required_argument,0,'c'},
 		{"Srate",required_argument,0,'d'},
+                {"out",required_argument,0,'e'},
 		{0,0,0,0}};
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
-	while((i=getopt_long(argc,argv,"a:b:c:d",long_options,&i))!=-1)
+	while((i=getopt_long(argc,argv,"a:b:c:d:e",long_options,&i))!=-1)
 		{ 
 		switch(i) {
 			case 'a':
@@ -211,6 +215,9 @@ void initialise(int argc, char *argv[])
 				SampleRate_global=atof(optarg);
 				fprintf(stderr,"Setting the sample rate to %i. This might not be what you want!\n",SampleRate_global);
 				break;
+                        case 'e':
+				strcpy(outfile,optarg);
+                                break;  
 			default:
 				fprintf(stdout,USAGE); exit(0);
 				break;
