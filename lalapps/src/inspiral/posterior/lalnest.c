@@ -253,23 +253,23 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT);
 void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname, REAL8 InjTime,int isWavesDir);
-REAL8 *GenerateFrequencySamples(REAL8 fmix, REAL8 fmax, UINT4 length);
-REAL8 *SampleCalibrationErrorsAmplitude(REAL8 logF, CHAR *ifoname);
-REAL8 *SampleCalibrationErrorsPhase(REAL8 logF, CHAR *ifoname);
+REAL8 GenerateFrequencySamples(REAL8 f_min, REAL8 f_max, UINT4 length);
+REAL8 SampleCalibrationErrorsAmplitude(REAL8 *logF, CHAR *ifoname);
+REAL8 SampleCalibrationErrorsPhase(REAL8 *logF, CHAR *ifoname);
 
 /* function to return a frequency array logarithmic spaced */
-REAL8 *GenerateFrequencySamples(REAL8 fmix, REAL8 fmax, UINT4 length){
-    REAL8 logFreq[length]={0.0};
+REAL8 GenerateFrequencySamples(REAL8 f_min, REAL8 f_max, UINT4 length){
+    REAL8 logFreq[length];
     UINT4 i;
-    REAL8 step=(log(fmax)-log(fmin))/length;
+    REAL8 step=(log(f_max)-log(f_min))/length;
     for (i=0; i<length; i++) {
-        logFreq[i]=log(fmin)-step*i;
+        logFreq[i]=log(f_min)-step*i;
     }
-    return logFreq;
+    return *logFreq;
 }
 /* function to return the random amplitude calibration errors in the logfrequency array */
 
-REAL8 *SampleCalibrationErrorsAmplitude(REAL8 logF, CHAR *IFOname){
+REAL8 SampleCalibrationErrorsAmplitude(REAL8 *logF, CHAR *IFOname){
     UINT4 i;
     UINT4 length;
 /*  H1:{0.104,0.154,0.242};
@@ -281,14 +281,20 @@ REAL8 *SampleCalibrationErrorsAmplitude(REAL8 logF, CHAR *IFOname){
     if(!strcmp(IFOname,"L1")){IFO =2;}
     if(!strcmp(IFOname,"V1")){IFO =3;}
     switch (IFO) {
-        case 'H1':
-            REAL8 stddev[3]={0.104,0.154,0.242};
+        case 1:
+            stddev[0]=0.104;
+            stddev[1]=0.154;
+            stddev[2]=0.242;
             break;
-        case 'L1':
-            REAL8 stddev[3]={0.144,0.139,0.138};
+        case 2:
+            stddev[0]=0.144;
+            stddev[1]=0.139;
+            stddev[2]=0.138;
             break;
-        case 'V1':
-            REAL8 stddev[3]={0.144,0.139,0.138};
+        case 3:
+            stddev[0]=0.144;
+            stddev[1]=0.139;
+            stddev[2]=0.138;
             break;
         default:
             fprintf(stderr,"Unknown IFO! Valid codes are H1, L1, V1. Aborting\n");
@@ -297,21 +303,21 @@ REAL8 *SampleCalibrationErrorsAmplitude(REAL8 logF, CHAR *IFOname){
     }
     
     length = sizeof(logF)/sizeof(*logF);
-    REAL8 errors[length]={0.0};
+    REAL8 errors[length];
     for (i=0; i<length; i++) {
         if (logF[i]>log(40.0) && logF[i]<log(2000.0)) {
-            errors=gsl_ran_gaussian(stddev[0]);
+            errors[i]=gsl_ran_gaussian(stddev[0]);
         } else if (logF[i]>=log(2000.0) && logF[i]<log(4000.0)){
-            errors=gsl_ran_gaussian(stddev[1]);
+            errors[i]=gsl_ran_gaussian(stddev[1]);
         } else if (logF[i]>=log(2000.0) && logF[i]<log(4000.0)){
-            errors=gsl_ran_gaussian(stddev[2]);}
+            errors[i]=gsl_ran_gaussian(stddev[2]);}
     }
-    return errors;    
+    return *errors;    
 }
 
 /* function to return the random phase calibration errors in the logfrequency array */
 
-REAL8 *SampleCalibrationErrorsPhase(REAL8 logF, CHAR *IFOname){
+REAL8 SampleCalibrationErrorsPhase(REAL8 *logF, CHAR *IFOname){
     UINT4 i;
     UINT4 length;
 /*  H1:{4.5,4.9,5.8};
@@ -324,13 +330,19 @@ REAL8 *SampleCalibrationErrorsPhase(REAL8 logF, CHAR *IFOname){
     if(!strcmp(IFOname,"V1")){IFO =3;}
     switch (IFO) {
         case 1:
-            REAL8 stddev[3]={4.5,4.9,5.8};
+            stddev[0]=4.5;
+            stddev[1]=4.9;
+            stddev[2]=5.8;
             break;
         case 2:
-            REAL8 stddev[3]={4.2,3.6,3.3};
+            stddev[0]=4.2;
+            stddev[1]=3.6;
+            stddev[2]=3.3;
             break;
         case 3:
-            REAL8 stddev[3]={4.2,3.6,3.3};
+            stddev[0]=4.2;
+            stddev[1]=3.6;
+            stddev[2]=3.3;
             break;
         default:
             fprintf(stderr,"Unknown IFO! Valid codes are H1, L1, V1. Aborting\n");
@@ -339,16 +351,16 @@ REAL8 *SampleCalibrationErrorsPhase(REAL8 logF, CHAR *IFOname){
     }
     
     length = sizeof(logF)/sizeof(*logF);
-    REAL8 errors[length]={0.0};
+    REAL8 errors[length];
     for (i=0; i<length; i++) {
         if (logF[i]>log(40.0) && logF[i]<log(2000.0)) {
-            errors=gsl_ran_gaussian(stddev[0]);
+            errors[i]=gsl_ran_gaussian(stddev[0]);
         } else if (logF[i]>=log(2000.0) && logF[i]<log(4000.0)){
-            errors=gsl_ran_gaussian(stddev[1]);
+            errors[i]=gsl_ran_gaussian(stddev[1]);
         } else if (logF[i]>=log(2000.0) && logF[i]<log(4000.0)){
-            errors=gsl_ran_gaussian(stddev[2]);}
+            errors[i]=gsl_ran_gaussian(stddev[2]);}
     }
-    return errors; /* this is in DEGREES! */   
+    return *errors; /* this is in DEGREES! */   
 }
 
 void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname, REAL8 InjTime,int isWavesDir){
@@ -1415,7 +1427,7 @@ int main( int argc, char *argv[])
                 if(enable_calfreq){
                     COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                     CalibPolar(injF,CalibInj,IFOnames[i],injTime,isWavesDir);
-                    fprintf(stderr,"iswaves equal to %2.0f",isWavesDir);
+                    fprintf(stderr,"iswaves equal to %i",isWavesDir);
 
                         for(j=0;j<injF->data->length;j++){
                             injF->data->data[j].re = CalibInj->data->data[j].re;
