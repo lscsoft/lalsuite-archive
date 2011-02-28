@@ -1212,13 +1212,13 @@ int main( int argc, char *argv[])
                                     default:
                                      exit(-1);
                                  }
-                
+                /* Modify the noise PSD */
                 for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
 					if(enable_calamp){  inputMCMC.invspec[i]->data->data[j]/=((REAL8)CalAmpFacs[i]*(REAL8)CalAmpFacs[i]);}
 					else if(enable_calfreq){ inputMCMC.invspec[i]->data->data[j]/=(R_A(j*inputMCMC.deltaF)*R_A(j*inputMCMC.deltaF));}
 				}
 								
-			/* Modify the noise datastream if a calibration error is present. This is done before the SNR is calculated */
+			/* Modify the noise datastream  */
                 
                 FILE *uncalib_noiseout;
                 char uncalib_noisename[100];
