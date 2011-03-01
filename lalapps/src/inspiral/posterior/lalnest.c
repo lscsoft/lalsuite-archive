@@ -32,6 +32,7 @@
 #include <LALAppsVCSInfo.h>
 #include <lalapps.h>
 #include <lal/GeneratePPNAmpCorConsistency.h>
+#include <lal/LALInspiralStationaryPhaseApprox2Test.h>
 
 #include "nest_calc.h"
 
@@ -826,6 +827,18 @@ int main( int argc, char *argv[])
 			for(j=0;j<resp->data->length;j++) {resp->data->data[j].re=(REAL4)1.0; resp->data->data[j].im=0.0;}
 			SimInspiralTable this_injection;
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
+            REAL8 dphis[10]={0.0};
+            dphis[0]=this_injection.dphi0;
+            dphis[1]=this_injection.dphi1;
+            dphis[2]=this_injection.dphi2;
+            dphis[3]=this_injection.dphi3;
+            dphis[4]=this_injection.dphi4;
+            dphis[5]=this_injection.dphi5;
+            dphis[6]=this_injection.dphi5l;
+            dphis[7]=this_injection.dphi6;
+            dphis[8]=this_injection.dphi6l;
+            dphis[9]=this_injection.dphi7;
+            for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
 			this_injection.next=NULL;
 			LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
             /*char InjTestName1[50];
@@ -897,9 +910,10 @@ int main( int argc, char *argv[])
 		}
 
 	} /* End loop over IFOs */
+
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
-    /* if the injection approximant is TaylorF2 or TaylorF2Test inject in the frequency domain */
+
     if (check_approx==TaylorF2 || check_approx==TaylorF2Test) 
     {
                 fprintf(stdout,"Injecting in the frequency domain\n");
@@ -1526,55 +1540,55 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
     
     /* add the Phitest parameter */
-    if(checkParamInList(pinned_params,"phi0"))
-        XLALMCMCAddParam(parameter,"phi0",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi0"))
+        XLALMCMCAddParam(parameter,"dphi0",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi0",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi0",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi1"))
-        XLALMCMCAddParam(parameter,"phi1",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi1"))
+        XLALMCMCAddParam(parameter,"dphi1",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi1",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi1",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi2"))
-        XLALMCMCAddParam(parameter,"phi2",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi2"))
+        XLALMCMCAddParam(parameter,"dphi2",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi2",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi2",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi3"))
-        XLALMCMCAddParam(parameter,"phi3",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi3"))
+        XLALMCMCAddParam(parameter,"dphi3",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi3",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi3",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi4"))
-        XLALMCMCAddParam(parameter,"phi4",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi4"))
+        XLALMCMCAddParam(parameter,"dphi4",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi4",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi4",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi5"))
-        XLALMCMCAddParam(parameter,"phi5",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi5"))
+        XLALMCMCAddParam(parameter,"dphi5",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi5",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi5",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi5l"))
-       XLALMCMCAddParam(parameter,"phi5l",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi5l"))
+       XLALMCMCAddParam(parameter,"dphi5l",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi5l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi5l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
         
-    if(checkParamInList(pinned_params,"phi6"))
-        XLALMCMCAddParam(parameter,"phi6",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi6"))
+        XLALMCMCAddParam(parameter,"dphi6",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi6",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi6",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"phi6l"))
-        XLALMCMCAddParam(parameter,"phi6l",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi6l"))
+        XLALMCMCAddParam(parameter,"dphi6l",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi6l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi6l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
         
-    if(checkParamInList(pinned_params,"phi7"))
-        XLALMCMCAddParam(parameter,"phi7",0,phiMin,phiMax,-1);
+    if(checkParamInList(pinned_params,"dphi7"))
+        XLALMCMCAddParam(parameter,"dphi7",0,phiMin,phiMax,-1);
     else 
-        XLALMCMCAddParam(parameter,"phi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+        XLALMCMCAddParam(parameter,"dphi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
 	for (head=parameter->param;head;head=head->next)
 	{
@@ -1621,7 +1635,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	UINT4 Nmodel; /* Length of the model */
 	LALDetAMResponse det_resp;
     memset(&template,0,sizeof(InspiralTemplate));
-    
+    REAL8 dphis[10]={0.0};
     /* Populate the template */
 	REAL8 ChirpISCOLength;
 	expnFunc expnFunction;
@@ -1673,7 +1687,23 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 /*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
 	ChirpISCOLength=ak.tn;
     printf("Injection Approx: %i\n",template.approximant);
-    LALInspiralWave(&status,injWaveFD,&template);
+    if (template.approximant==5){
+        dphis[0]=inj_table->dphi0;
+        dphis[1]=inj_table->dphi1;
+        dphis[2]=inj_table->dphi2;
+        dphis[3]=inj_table->dphi3;
+        dphis[4]=inj_table->dphi4;
+        dphis[5]=inj_table->dphi5;
+        dphis[6]=inj_table->dphi5l;
+        dphis[7]=inj_table->dphi6;
+        dphis[8]=inj_table->dphi6l;
+        dphis[9]=inj_table->dphi7;
+        for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+        LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis);
+        }
+    else {
+        LALInspiralWave(&status,injWaveFD,&template);
+    }
     
 	FILE *outInjB=fopen("injection_preInj.dat","w");
     for (UINT4 i=0; i<injWaveFD->length; i++) {

@@ -1320,7 +1320,6 @@ void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params, REAL8 *TestParam
 	/* REFILL PHI_I*/
     params->phasePNparams[0] = -pow(params->eta,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-5.0/8.0); 
     params->phasePNparams[1] = 0.0;
-    // add the 1PN coefficient!!!
 	params->phasePNparams[2] = -(3715.0/8064.0 + 55.0/96.0*params->eta)*pow(params->eta,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-3.0/8.0);
 	params->phasePNparams[3] = 3.0/4.0*LAL_PI*pow(params->eta,-0.75)*pow(5.0*LAL_MTSUN_SI*params->mTot,-0.25); 
 	params->phasePNparams[4] = -(9275495.0/14450688.0 + 284875.0/258048.0*params->eta + 1855.0/2048.0*pow(params->eta,2.0))*pow(params->eta,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*params->mTot,-1.0/8.0);

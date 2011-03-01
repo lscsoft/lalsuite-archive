@@ -211,9 +211,20 @@ LALGenerateInspiral(
     /* COPY PPNPARAMSTRUC INTO PPNCONSISTENCYPARAMSTRUC */
       PPNConsistencyParamStruc duplicateParams;
       duplicateParams.ppn = XLALCreateREAL4Vector( ppnParams->ppn->length );
-      
+      REAL8 dphis[10]={0.0};
       XLALCopyPPNConsistencyFromPPNParamStruc(ppnParams, &duplicateParams);
-      
+      dphis[0]=thisEvent->dphi0;
+      dphis[1]=thisEvent->dphi1;
+      dphis[2]=thisEvent->dphi2;
+      dphis[3]=thisEvent->dphi3;
+      dphis[4]=thisEvent->dphi4;
+      dphis[5]=thisEvent->dphi5;
+      dphis[6]=thisEvent->dphi5l;
+      dphis[7]=thisEvent->dphi6;
+      dphis[8]=thisEvent->dphi6l;
+      dphis[9]=thisEvent->dphi7;
+    /* populate the phasing coefficients */
+    LALPopulatePhasePNparams(&duplicateParams, dphis);
     /* generate PPN waveform */
     LALGeneratePPNAmpCorConsistency(status->statusPtr, waveform, &duplicateParams);
     CHECKSTATUSPTR(status);

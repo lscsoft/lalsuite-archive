@@ -154,6 +154,7 @@ LALInspiralWave(
    ASSERT((UINT4)params->order < (UINT4)LAL_PNORDER_NUM_ORDER,
             status, LALINSPIRALH_EORDER, LALINSPIRALH_MSGEORDER);
    REAL8 phaseParams[10] = {0.0};
+
    switch (params->approximant)
    {
       case TaylorT1:
@@ -202,7 +203,7 @@ LALInspiralWave(
            CHECKSTATUSPTR(status);
 	   break;
       case TaylorF2Test:
-           /* HARDCODE WITHOUT CHANGES, USE LALInspiralStationaryPhaseApprox2Test INSTEAD! */
+           /* UNUSED! HARDCODE WITHOUT CHANGES, USE LALInspiralStationaryPhaseApprox2Test INSTEAD! */
            LALInspiralStationaryPhaseApprox2Test(status->statusPtr, signalvec, params, phaseParams);
            CHECKSTATUSPTR(status);
 	   break;

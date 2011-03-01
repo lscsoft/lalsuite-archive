@@ -1369,8 +1369,16 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
-    {"indexPhiTest",        -1, 56},
-    {"PhiTest",             -1, 57},
+    {"dphi0",               -1, 56},
+    {"dphi1",               -1, 57},
+    {"dphi2",               -1, 58},
+    {"dphi3",               -1, 59},
+    {"dphi4",               -1, 60},
+    {"dphi5",               -1, 61},
+    {"dphi5l",              -1, 62},
+    {"dphi6",               -1, 63},
+    {"dphi6l",              -1, 64},
+    {"dphi7",               -1, 65},
     {NULL,                   0, 0}
   };
 
@@ -1671,11 +1679,43 @@ SimInspiralTableFromLIGOLw (
         }
         else if ( tableDir[j].idx == 56 )
         {
-            thisSim->indexPhiTest = i4colData;
+            thisSim->dphi0 = r4colData;
         }
         else if ( tableDir[j].idx == 57 )
         {
-            thisSim->PhiTest = r4colData;
+            thisSim->dphi1 = r4colData;
+        }
+        else if ( tableDir[j].idx == 58 )
+        {
+            thisSim->dphi2 = r4colData;
+        }
+        else if ( tableDir[j].idx == 59 )
+        {
+            thisSim->dphi3 = r4colData;
+        }
+        else if ( tableDir[j].idx == 60 )
+        {
+            thisSim->dphi4 = r4colData;
+        }
+        else if ( tableDir[j].idx == 61 )
+        {
+            thisSim->dphi5 = r4colData;
+        }
+        else if ( tableDir[j].idx == 62 )
+        {
+            thisSim->dphi5l = r4colData;
+        }
+        else if ( tableDir[j].idx == 63 )
+        {
+            thisSim->dphi6 = r4colData;
+        }
+        else if ( tableDir[j].idx == 64 )
+        {
+            thisSim->dphi6l = r4colData;
+        }
+        else if ( tableDir[j].idx == 65 )
+        {
+            thisSim->dphi7 = r4colData;
         }
         else
         {

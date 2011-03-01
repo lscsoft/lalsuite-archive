@@ -853,8 +853,16 @@ LALWriteLIGOLwXMLTable (
 	      tablePtr.simInspiralTable->amp_order,
 	      tablePtr.simInspiralTable->taper,
 	      tablePtr.simInspiralTable->bandpass,
-          tablePtr.simInspiralTable->indexPhiTest,
-          tablePtr.simInspiralTable->PhiTest,
+          tablePtr.simInspiralTable->dphi0,
+          tablePtr.simInspiralTable->dphi1,
+          tablePtr.simInspiralTable->dphi2,
+          tablePtr.simInspiralTable->dphi3,
+          tablePtr.simInspiralTable->dphi4,
+          tablePtr.simInspiralTable->dphi5,
+          tablePtr.simInspiralTable->dphi5l,
+          tablePtr.simInspiralTable->dphi6,
+          tablePtr.simInspiralTable->dphi6l,
+          tablePtr.simInspiralTable->dphi7,
               xml->rowCount
               );
         tablePtr.simInspiralTable = tablePtr.simInspiralTable->next;

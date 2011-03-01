@@ -172,8 +172,16 @@ REAL8 redshift;
 /* PhiTest parameters */
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
-INT4 indexPhiTest=-1;
-REAL8 PhiTest=0.0;
+REAL8 dphi0=0.0;
+REAL8 dphi1=0.0;
+REAL8 dphi2=0.0;
+REAL8 dphi3=0.0;
+REAL8 dphi4=0.0;
+REAL8 dphi5=0.0;
+REAL8 dphi5l=0.0;
+REAL8 dphi6=0.0;
+REAL8 dphi6l=0.0;
+REAL8 dphi7=0.0;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
@@ -523,9 +531,17 @@ static void print_usage(char *program)
       "                           to abskappa1max (1.0)\n\n");
 fprintf(stderr,
       "Test parameter information:\n"\
-      " --enable-PhiTest          enable phiTest injections\n"\
-      " --PhiTest-index index     index of the Test parameter\n"\
-      " --PhiTest-value value     value of the Test parameter\n");
+      " --enable-dphi             enable phiTest injections\n"\
+      " --dphi0 value             value of the dphi0 parameter\n"\
+      " --dphi1 value             value of the dphi1 parameter\n"\
+      " --dphi2 value             value of the dphi2 parameter\n"\
+      " --dphi3 value             value of the dphi3 parameter\n"\
+      " --dphi4 value             value of the dphi4 parameter\n"\
+      " --dphi5 value             value of the dphi5 parameter\n"\
+      " --dphi5l value            value of the dphi5l parameter\n"\
+      " --dphi6 value             value of the dphi6 parameter\n"\
+      " --dphi6l value            value of the dphi6l parameter\n"\
+      " --dphi7 value             value of the dphi7 parameter\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1249,9 +1265,17 @@ int main( int argc, char *argv[] )
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
-    {"enable-PhiTest",          no_argument,       0,                 '@'},
-    {"PhiTest-index",           required_argument, 0,                 '|'},
-    {"PhiTest-value",           required_argument, 0,                 '$'},          
+    {"enable-dphi",             no_argument,       0,                 '@'},
+    {"dphi0",                   required_argument, 0,                 1000},
+    {"dphi1",                   required_argument, 0,                 1001},
+    {"dphi2",                   required_argument, 0,                 1002},
+    {"dphi3",                   required_argument, 0,                 1003},
+    {"dphi4",                   required_argument, 0,                 1004},
+    {"dphi5",                   required_argument, 0,                 1005},
+    {"dphi5l",                  required_argument, 0,                 1006},
+    {"dphi6",                   required_argument, 0,                 1007},
+    {"dphi6l",                  required_argument, 0,                 1008},
+    {"dphi7",                   required_argument, 0,                 1009},          
     {0, 0, 0, 0}
   };
   int c;
@@ -2074,16 +2098,66 @@ int main( int argc, char *argv[] )
               "" );
         phiTestInjections = 1;
         break;
-      case '|':
-        indexPhiTest=atof(optarg);
-        this_proc_param = this_proc_param->next = 
-        next_process_param( long_options[option_index].name, "int", "%ld", indexPhiTest);
-        break;
-      case '$':
-        PhiTest=atof(optarg);
-        this_proc_param = this_proc_param->next = 
-        next_process_param( long_options[option_index].name, "float", optarg);
-        break;
+      case 1000:
+            dphi0 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi0 );
+          break;
+      case 1001:
+            dphi1 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi1 );
+          break;
+      case 1002:
+            dphi2 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi2 );
+          break;
+     case 1003 :
+            dphi3 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi3 );
+          break;
+      case 1004:
+            dphi4 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi4 );
+          break;
+      case 1005:
+            dphi5 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi5 );
+          break;
+      case 1006:
+            dphi5l = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi5l );
+          break;
+      case 1007:
+            dphi6 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi6 );
+          break;
+      case 1008:
+            dphi6l = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi6l );
+          break;
+      case 1009:
+            dphi7 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi7 );
+          break;
 
       case 'h':
         print_usage(argv[0]);
@@ -2751,14 +2825,16 @@ int main( int argc, char *argv[] )
     simTable->bandpass = bandPassInj;
 
     /* populate the test parameters */
-    if (phiTestInjections) {
-        simTable->indexPhiTest=indexPhiTest;
-        simTable->PhiTest=PhiTest;
-    }
-    else {
-        simTable->indexPhiTest=-1;
-        simTable->PhiTest=0.0;
-    }
+    simTable->dphi0=dphi0;
+    simTable->dphi1=dphi1;
+    simTable->dphi2=dphi2;
+    simTable->dphi3=dphi3;
+    simTable->dphi4=dphi4;
+    simTable->dphi5=dphi5;
+    simTable->dphi5l=dphi5l;
+    simTable->dphi6=dphi6;
+    simTable->dphi6l=dphi6l;
+    simTable->dphi7=dphi7;
     
     /* populate the sim_ringdown table */ 
    if ( writeSimRing )

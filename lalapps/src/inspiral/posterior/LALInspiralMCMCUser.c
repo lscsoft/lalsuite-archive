@@ -444,16 +444,16 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"lat"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
     
-    if(XLALMCMCCheckParameter(parameter,"phi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi0")*XLALMCMCGetParameter(parameter,"phi0")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi1")*XLALMCMCGetParameter(parameter,"phi1")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi2")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi2")*XLALMCMCGetParameter(parameter,"phi2")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi3")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi3")*XLALMCMCGetParameter(parameter,"phi3")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi4")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi4")*XLALMCMCGetParameter(parameter,"phi4")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi5")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi5")*XLALMCMCGetParameter(parameter,"phi5")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi6")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi6")*XLALMCMCGetParameter(parameter,"phi6")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi7")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi7")*XLALMCMCGetParameter(parameter,"phi7")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi5l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi5l")*XLALMCMCGetParameter(parameter,"phi5l")/25.);
-    if(XLALMCMCCheckParameter(parameter,"phi6l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"phi6l")*XLALMCMCGetParameter(parameter,"phi6l")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi0")*XLALMCMCGetParameter(parameter,"dphi0")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi1")*XLALMCMCGetParameter(parameter,"dphi1")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi2")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi2")*XLALMCMCGetParameter(parameter,"dphi2")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi3")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi3")*XLALMCMCGetParameter(parameter,"dphi3")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi4")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi4")*XLALMCMCGetParameter(parameter,"dphi4")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi5")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi5")*XLALMCMCGetParameter(parameter,"dphi5")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi6")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi6")*XLALMCMCGetParameter(parameter,"dphi6")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi7")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi7")*XLALMCMCGetParameter(parameter,"dphi7")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi5l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi5l")*XLALMCMCGetParameter(parameter,"dphi5l")/25.);
+    if(XLALMCMCCheckParameter(parameter,"dphi6l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi6l")*XLALMCMCGetParameter(parameter,"dphi6l")/25.);
     
         /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
@@ -519,7 +519,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
     UINT4 k;
     REAL8 phaseParams[10]={0.0};
     const char *paramName[]={
-        "phi0","phi1","phi2","phi3","phi4","phi5","phi5l","phi6","phi6l","phi7"};
+        "dphi0","dphi1","dphi2","dphi3","dphi4","dphi5","dphi5l","dphi6","dphi6l","dphi7"};
     for(k=0;k<10;k++)
     {
         if (XLALMCMCCheckParameter(parameter,paramName[k])) {
@@ -1685,7 +1685,7 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
     /* Fill array of PN coefficients */
     UINT4 i;
     const char *paramName[]={
-        "phi0","phi1","phi2","phi3","phi4","phi5","phi5l","phi6","phi6l","phi7"};
+        "dphi0","dphi1","dphi2","dphi3","dphi4","dphi5","dphi5l","dphi6","dphi6l","dphi7"};
     for(i=0;i<10;i++)
     {
         if (XLALMCMCCheckParameter(parameter,paramName[i])) {
