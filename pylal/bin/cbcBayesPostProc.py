@@ -167,21 +167,6 @@ def cbcBayesPostProc(
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
 
-    if RconvergenceTests is True:
-        convergenceResults=bppu.convergenceTests(pos,gelman=False)
-
-        if convergenceResults is not None:
-            for test,test_data in convergenceResults.items():
-                if test_data:
-                    print test
-                    for chain,chain_data in test_data.items():
-                        print "\tChain "+chain
-                        
-                        for data in chain_data:
-                            if len(data)==2:
-                                print "\t\t%s:%s"%(data[0],data[1])
-
-
     if eventnum is None and injfile is not None:
         import itertools
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
@@ -791,6 +776,38 @@ def cbcBayesPostProc(
     #Add a link to all plots
     html_tgbh.a("greedy2Dbins/",'All 2D Greedy Bin Histograms')
 
+    if RconvergenceTests is True:
+        convergenceResults=bppu.convergenceTests(pos,gelman=False)
+        
+        if convergenceResults is not None:
+            html_conv_test=html.add_section('Convergence tests')
+            data_found=False
+            for test,test_data in convergenceResults.items():
+                
+                if test_data:
+                    data_found=True
+                    html_conv_test.h3(test)
+                                       
+                    html_conv_table_rows={}
+                    html_conv_table_header=''
+                    for chain,chain_data in test_data.items():
+                        html_conv_table_header+='<th>%s</th>'%chain
+                        
+                        
+                        for data in chain_data:
+                            if len(data)==2:
+                                try:
+                                    html_conv_table_rows[data[0]]+='<td>'+data[1]+'</td>'
+                                except KeyError:
+                                    html_conv_table_rows[data[0]]='<td>'+data[1]+'</td>'
+                                
+                    html_conv_table='<table><tr><th>Chain</th>'+html_conv_table_header+'</tr>'
+                    for row_name,row in html_conv_table_rows.items():
+                        html_conv_table+='<tr><td>%s</td>%s</tr>'%(row_name,row)
+                    html_conv_table+='</table>'
+                    html_conv_test.write(html_conv_table)
+            if data_found is False:
+                html_conv_test.p('No convergence diagnostics generated!')
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
 
