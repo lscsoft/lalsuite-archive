@@ -264,8 +264,10 @@ AC_DEFUN([LALSUITE_WITH_CUDA],
     yes)
       AC_MSG_WARN([No path for CUDA specifed, using /opt/cuda])
       cuda=true
-      if test "x$build_cpu" = "xx86_64"; then
-        CLIBS="lib64"
+      if test "x$build_os" = "xlinux"; then
+        if test "x$build_cpu" = "xx86_64"; then
+          CLIBS="lib64"
+        fi
       else
         CLIBS="lib"
       fi
@@ -279,8 +281,10 @@ AC_DEFUN([LALSUITE_WITH_CUDA],
     *)
       AC_MSG_NOTICE([Using ${with_cuda} as CUDA path])
       cuda=true
-      if test "x$build_cpu" = "xx86_64"; then
-        CLIBS="lib64"
+      if test "x$build_os" = "xlinux"; then
+        if test "x$build_cpu" = "xx86_64"; then
+          CLIBS="lib64"
+        fi
       else
         CLIBS="lib"
       fi
