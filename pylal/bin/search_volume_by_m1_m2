@@ -21,7 +21,7 @@ from glue.ligolw import utils
 from glue.ligolw import table
 from glue import segmentsUtils
 from glue.ligolw.utils import process
-
+from glue.ligolw.utils import segments as ligolw_segments
 
 from pylal import db_thinca_rings
 from pylal import llwapp
@@ -150,14 +150,16 @@ class upper_limit(object):
     if self.multi_burst_table:
       if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
       if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
-    segs -= self.get_veto_segments(connection)
+    segs -= self.get_veto_segments(connection, xmldoc)
     return segs
 
-  def get_veto_segments(self, connection):
+  def get_veto_segments(self, connection, xmldoc=None):
     if self.coinc_inspiral_table:
       if self.opts.veto_segments_name is not None: return db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
         # FIXME BURST CASE VETOS NOT HANDLED
       else: return segments.segmentlistdict()
+    if self.coinc_ringdown_table:
+      if self.opts.veto_segments_name is not None: return ligolw_segments.segmenttable_get_by_name(xmldoc, self.opts.veto_segments_name).coalesce()
     else: return segments.segmentlistdict()
 
   def get_distance_bins(self, instruments, found=None, missed=None):

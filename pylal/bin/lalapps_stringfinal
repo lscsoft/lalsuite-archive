@@ -102,6 +102,7 @@ def parse_command_line():
 	parser.add_option("-o", "--open-box", action = "store_true", help = "Perform open-box analysis.  In a closed-box analysis (the default), information about the events seen at zero-lag is concealed:  the rate vs. threshold plot only shows the rate of events seen in the background, the detection threshold used to measure the efficiency curves is obtained from n-th loudest background event where n is (the integer closest to) the ratio of background livetime to zero-lag livetime, and messages to stdout and stderr that contain information about event counts at zero-lag are silenced.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--vetoes-name", metavar = "name", help = "Set the name of the segment lists to use as vetoes (default = do not apply vetoes).")
+	parser.add_option("--detection-threshold", metavar = "likelihood", type = "float", help = "Override the detection threshold.  Only injection files will be processed, and the efficiency curve measured.")
 	parser.add_option("--record-background", metavar = "N", type = "int", default = 100000000, help = "Set the number of background likelihood ratios to hold in memory for producing the rate vs. threshold plot (default = 100000000).")
 	parser.add_option("--record-candidates", metavar = "N", type = "int", default = 100, help = "Set the number of highest-ranked zero-lag candidates to dump to the candidate file (default = 100).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -501,7 +502,8 @@ class Efficiency(object):
 		self.seglists = segments.segmentlistdict()
 		self.vetoseglists = segments.segmentlistdict()
 		self.found = []
-		self.missed = iterutils.Highest(max = 100)	# keep 100 loudest missed injections
+		self.loudest_missed = iterutils.Highest(max = 100)	# keep 100 loudest missed injections
+		self.quietest_found = iterutils.Highest(max = 100)	# keep 100 quietest found injections
 		self.all = []
 
 	def add_contents(self, contents, verbose = False):
@@ -522,7 +524,8 @@ class Efficiency(object):
 		# injection or null if no burst coincs matched the
 		# injection
 		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
-		missed = []
+		loudest_missed = []
+		quietest_found = []
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -543,16 +546,20 @@ FROM
 				self.all.append(sim)
 				if found and likelihood_ratio > self.detection_threshold:
 					self.found.append(sim)
+					# 1/amplitude needs to be first so
+					# that it acts as the sort key
+					quietest_found.append((1.0 / sim.amplitude, sim, contents.filename, likelihood_ratio))
 				else:
 					# amplitude needs to be first so
 					# that it acts as the sort key
-					missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
+					loudest_missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
 			elif found:
 				# no
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 		# this is much faster than appending each element into the
 		# Highest object one-by-one
-		self.missed.extend(missed)
+		self.loudest_missed.extend(loudest_missed)
+		self.quietest_found.extend(quietest_found)
 
 	def finish(self):
 		fig, axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
@@ -603,13 +610,13 @@ FROM
 
 		#
 		# dump some information about the highest-amplitude missed
-		# injections
+		# and quietest-amplitude found injections
 		#
 
-		f = file("string_missed_injections.txt", "w")
+		f = file("string_loud_missed_injections.txt", "w")
 		print >>f, "Highest Amplitude Missed Injections"
 		print >>f, "==================================="
-		for amplitude, sim, filename, likelihood_ratio in self.missed:
+		for amplitude, sim, filename, likelihood_ratio in self.loudest_missed:
 			print >>f
 			print >>f, "%s in %s:" % (str(sim.simulation_id), filename)
 			if likelihood_ratio is None:
@@ -617,9 +624,29 @@ FROM
 			else:
 				print >>f, "Recovered with \\Lambda = %.16g, detection threshold was %.16g" % (likelihood_ratio, self.detection_threshold)
 			for instrument in self.seglists:
-				print >>f, "%s:" % instrument
-				print >>f, "\tAmplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
-				print >>f, "\tTime:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument)
+				print >>f, "In %s:" % instrument
+				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
+				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument)
+			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
+			t = sim.get_time_geocent()
+			print >>f, "Time at geocentre:\t%s s" % t
+			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.seglists))
+			print >>f, "Vetoes within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.vetoseglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.vetoseglists))
+
+		f = file("string_quiet_found_injections.txt", "w")
+		print >>f, "Lowest Amplitude Found Injections"
+		print >>f, "================================="
+		for inv_amplitude, sim, filename, likelihood_ratio in self.quietest_found:
+			print >>f
+			print >>f, "%s in %s:" % (str(sim.simulation_id), filename)
+			if likelihood_ratio is None:
+				print >>f, "Not recovered"
+			else:
+				print >>f, "Recovered with \\Lambda = %.16g, detection threshold was %.16g" % (likelihood_ratio, self.detection_threshold)
+			for instrument in self.seglists:
+				print >>f, "In %s:" % instrument
+				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
+				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument)
 			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
@@ -746,25 +773,34 @@ if options.verbose:
 	print >>sys.stderr, "Identifying injection and non-injection databases ..."
 injection_filenames, noninjection_filenames = group_files(filenames, verbose = options.verbose)
 
-if options.verbose:
-	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
-rate_vs_threshold = RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates)
-process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
-write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = False)
+if options.detection_threshold is None:
+	if options.verbose:
+		print >>sys.stderr, "Collecting background and zero-lag statistics ..."
+	rate_vs_threshold = RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates)
+	process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+	write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = False)
 
-
-if options.open_box:
-	print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
-print >>sys.stderr, "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
-print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
-print >>sys.stderr, "Total time in time-slide segments: %s s" % str(rate_vs_threshold.background_time)
-if options.open_box:
-	detection_threshold = rate_vs_threshold.zero_lag[-1]
-	print >>sys.stderr, "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
+	if options.open_box:
+		print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
+	print >>sys.stderr, "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
+	print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
+	print >>sys.stderr, "Total time in time-slide segments: %s s" % str(rate_vs_threshold.background_time)
+	if options.open_box:
+		detection_threshold = rate_vs_threshold.zero_lag[-1]
+		print >>sys.stderr, "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
+	else:
+		# the ranking statistic values are stored in decreasing order.  if
+		# the background and zero-lag live times are identical, then the
+		# loudest zero-lag event is simulated by the loudest background
+		# event so we want entry 0 in the list;  if the background livetime
+		# is twice the zero-lag live time then the loudest zero-lag event
+		# is simulated by the 2nd loudest background event so we want entry
+		# 1 in the list.
+		detection_threshold = rate_vs_threshold.background[int(round(rate_vs_threshold.background_time / rate_vs_threshold.zero_lag_time)) - 1]
+		print >>sys.stderr, "Simulated likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
 else:
-	detection_threshold = rate_vs_threshold.background[-int(round(rate_vs_threshold.background_time / rate_vs_threshold.zero_lag_time))]
-	print >>sys.stderr, "Simulated likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
-
+	detection_threshold = options.detection_threshold
+	print >>sys.stderr, "Likelihood ratio for highest-ranked zero-lag survivor from command line: %.9g" % detection_threshold
 
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."

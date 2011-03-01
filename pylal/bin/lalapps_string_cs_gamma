@@ -154,8 +154,7 @@ for i in range(ops.nepsilon):
             gammaAverage = sum(eff[:-1] * zofA[:-1] * dRdz[:-1] * -Dlnz) * c/p
             gammaMin = sum(numpy.clip(eff[:-1] - Deff[:-1], 0.0, +numpy.inf) * zofA[:-1] * dRdz[:-1] * -Dlnz) * c/p
             gammaMax = sum(numpy.clip(eff[:-1] + Deff[:-1], -numpy.inf, 1.0) * zofA[:-1] * dRdz[:-1] * -Dlnz) * c/p
-
-            outfile.write("%.17g  %.17g  %.17g  %.17g  %.17g  %.17g  %.17g\n"
-                %   (p, ops.index, epsilon, Gmu, gammaAverage, gammaMin, gammaMax))
+            
+            outfile.write("%.17g  %.17g  %.17g  %.17g  %.17g  %.17g  %.17g\n" % (p, ops.index, epsilon, Gmu, gammaAverage, gammaMin, gammaMax))
             n += 1
 print "100.0%%: computing effective rate for Gmu=%.4g, epsilon=%.4g, p=%.4g" % (Gmu, epsilon, p)
