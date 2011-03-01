@@ -116,7 +116,7 @@ def blob_format_func(b):
 
 
 def mk_complex_format_func(fmt):
-	fmt = fmt + u"+I" + fmt
+	fmt = fmt + u"+i" + fmt
 	def complex_format_func(z):
 		return fmt % (z.real, z.imag)
 	return complex_format_func
@@ -156,7 +156,7 @@ FormatFunc = {
 
 
 def parse_complex(s):
-	return complex(*map(float, s.split(u"+I")))
+	return complex(*map(float, s.split(u"+i")))
 
 
 ToPyType = {
