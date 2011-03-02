@@ -45,7 +45,6 @@ lalinspiralinclude_HEADERS = \
 
 lib_LTLIBRARIES = liblalinspiral.la
 liblalinspiral_la_SOURCES = \
-	Chisq_GPU.cpp \
 	BandPassInspiralTemplate.c \
 	BlackHoleMode.c \
 	CoherentInspiralFilter.c \
@@ -197,6 +196,10 @@ liblalinspiral_la_SOURCES = \
 	TrigScanEThincaCommon.c \
 	check_series_macros.h
 
+if CUDA
+liblalinspiral_la_SOURCES += Chisq_GPU.cu
+endif
+
 liblalinspiral_la_LDFLAGS = -version-info $(LIBVERSION)
 
 CLEANFILES = \
@@ -263,3 +266,6 @@ LALInspiralVCSInfo.h: ._vcsinfo
 	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALInspiral $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@
+
+# cuda build rules
+include $(top_srcdir)/gnuscripts/cuda.common
