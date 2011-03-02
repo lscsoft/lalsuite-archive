@@ -348,18 +348,18 @@ int CubeToCommonPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   
   // latitude
   double lat = asin(2.0 * Cube[i] - 1.0);
-  XLALMCMCSetParameter(parameter, "lat", lat);
+  XLALMCMCSetParameter(parameter, "dec", lat);
   Cube[i] = lat;
   i++;
   
   // longitude
   param = NULL;
   double longitudeMax, longitudeMin;
-  param = XLALMCMCGetParam(parameter, "long");
+  param = XLALMCMCGetParam(parameter, "ra");
   longitudeMin = param->core->minVal;
   longitudeMax = param->core->maxVal;
   double longitude = flatPrior(Cube[i], longitudeMin, longitudeMax);
-  XLALMCMCSetParameter(parameter, "long", longitude);
+  XLALMCMCSetParameter(parameter, "ra", longitude);
   Cube[i] = longitude;
   i++;
   
