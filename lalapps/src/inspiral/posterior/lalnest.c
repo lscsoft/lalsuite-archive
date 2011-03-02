@@ -1540,54 +1540,54 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
     
     /* add the Phitest parameter */
-    if(checkParamInList(pinned_params,"dphi0"))
-        XLALMCMCAddParam(parameter,"dphi0",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi0"))
+    //    XLALMCMCAddParam(parameter,"dphi0",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi0",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"dphi1"))
-        XLALMCMCAddParam(parameter,"dphi1",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi1"))
+    //    XLALMCMCAddParam(parameter,"dphi1",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi1",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"dphi2"))
-        XLALMCMCAddParam(parameter,"dphi2",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi2"))
+    //    XLALMCMCAddParam(parameter,"dphi2",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi2",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"dphi3"))
-        XLALMCMCAddParam(parameter,"dphi3",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi3"))
+    //    XLALMCMCAddParam(parameter,"dphi3",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi3",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"dphi4"))
-        XLALMCMCAddParam(parameter,"dphi4",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi4"))
+    //    XLALMCMCAddParam(parameter,"dphi4",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi4",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"dphi5"))
-        XLALMCMCAddParam(parameter,"dphi5",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi5"))
+    //    XLALMCMCAddParam(parameter,"dphi5",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi5",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"dphi5l"))
-       XLALMCMCAddParam(parameter,"dphi5l",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi5l"))
+    //   XLALMCMCAddParam(parameter,"dphi5l",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi5l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
         
-    if(checkParamInList(pinned_params,"dphi6"))
-        XLALMCMCAddParam(parameter,"dphi6",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi6"))
+    //    XLALMCMCAddParam(parameter,"dphi6",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi6",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
-    if(checkParamInList(pinned_params,"dphi6l"))
-        XLALMCMCAddParam(parameter,"dphi6l",0,phiMin,phiMax,-1);
-    else 
+    if(!checkParamInList(pinned_params,"dphi6l"))
+    //    XLALMCMCAddParam(parameter,"dphi6l",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi6l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
         
     if(checkParamInList(pinned_params,"dphi7"))
-        XLALMCMCAddParam(parameter,"dphi7",0,phiMin,phiMax,-1);
-    else 
+    //    XLALMCMCAddParam(parameter,"dphi7",0,phiMin,phiMax,-1);
+    //else 
         XLALMCMCAddParam(parameter,"dphi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
 
 	for (head=parameter->param;head;head=head->next)
