@@ -178,10 +178,7 @@ void LALGenerateInspiral(LALStatus *status, CoherentGW *waveform, SimInspiralTab
 					thisEvent->waveform) == XLAL_FAILURE) {
 				ABORTXLAL(status);
 			}
-			if (XLALGetAmplitudeContributionFromString(&inspiralParams.ampOrder,
-					thisEvent->waveform) == XLAL_FAILURE) {
-				ABORTXLAL(status);
-			}
+			inspiralParams.ampOrder = thisEvent->amp_order;
 		}
 
 		/* We fill ppnParams */

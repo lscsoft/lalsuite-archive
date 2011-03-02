@@ -324,6 +324,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 			< params->samplingFreq / 2./* && values[LALSQTPN_OMEGA] / freq_Step < params->finalFreq*/);
 	if (waveform->waveform->h) {
 		params->finalFreq = values[LALSQTPN_OMEGA] / (LAL_PI * geometrized_m_total);
+		params->finalFreq = waveform->waveform->f->data->data[i - 1];
 		params->coalescenceTime = time;
 	}
 	if (waveform->waveform->a) {
@@ -347,24 +348,24 @@ void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL
 	REAL8 sinPow2_Iota = SQT_SQR(sin_Iota);
 	REAL8 cos_iPhi[5], sin_iPhi[5];
 
-	REAL8 contribution[3][2] = { { 0., 0. }, { 0., 0. }, { 0., 0. } };
-	REAL8 cosine_Part[3][2] = { { 0., 0. }, { 0., 0. }, { 0., 0. } };
-	REAL8 sine_Part[3][2] = { { 0., 0. }, { 0., 0. }, { 0., 0. } };
-	REAL8 K[2] = { 0., 0. };
+	REAL8 contribution[3][2];
+	REAL8 cosine_Part[3][2];
+	REAL8 sine_Part[3][2];
+	REAL8 K[2];
 	UINT2 i;
 	for (i = 0; i < 5; i++) {
 		cos_iPhi[i] = cos((double) i * values[LALSQTPN_PHASE]);
 		sin_iPhi[i] = sin((double) i * values[LALSQTPN_PHASE]);
 	}
-	if ((params->amplitudeContribution & LAL_PNORDER_ONE) == LAL_PNORDER_ONE) {
+	if ((params->amplitudeContribution & LALSQTPN_1_0) == LALSQTPN_1_0) {
 		REAL8 DELTAX = params->totalMass * (params->chi[1][0] * params->mass[1] - params->chi[0][0]
 				* params->mass[0]);
 		REAL8 DELTAY = params->totalMass * (params->chi[1][1] * params->mass[1] - params->chi[0][1]
 				* params->mass[0]);
 		cosine_Part[LAL_PNORDER_ONE][LALSQTPN_PLUS] = -(DELTAY * sin(alpha) - DELTAX * cos(alpha))
-				/ params->totalMass;
+				/ SQT_SQR(params->totalMass);
 		cosine_Part[LAL_PNORDER_ONE][LALSQTPN_CROSS] = (DELTAY * cos(alpha) + DELTAX * sin(alpha))
-				/ params->totalMass;
+				/ SQT_SQR(params->totalMass);
 		REAL8 cosine = cos_Iota * cos(alpha);
 		REAL8 sine = cos_Iota * sin(alpha);
 		sine_Part[LAL_PNORDER_ONE][LALSQTPN_PLUS] = -(DELTAY * cosine + DELTAX * sine)
@@ -372,8 +373,8 @@ void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL
 		sine_Part[LAL_PNORDER_ONE][LALSQTPN_CROSS] = (DELTAY * sine + DELTAX * cosine)
 				/ SQT_SQR(params->totalMass);
 	}
-	if ((params->amplitudeContribution & LAL_PNORDER_HALF) == LAL_PNORDER_HALF
-			|| (params->amplitudeContribution & LAL_PNORDER_ONE) == LAL_PNORDER_ONE) {
+	if ((params->amplitudeContribution & LALSQTPN_0_5) == LALSQTPN_0_5
+			|| (params->amplitudeContribution & LALSQTPN_1_0) == LALSQTPN_1_0) {
 		K[LALSQTPN_PLUS] = -1. / 2. * cos(twoAlpha) * sinPow2_Iota;
 		K[LALSQTPN_CROSS] = -1. / 2. * sin(twoAlpha) * sinPow2_Iota;
 	}
@@ -385,23 +386,24 @@ void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL
 	sine_Part[LAL_PNORDER_NEWTONIAN][LALSQTPN_PLUS] = cos_Iota * sin(twoAlpha);
 	sine_Part[LAL_PNORDER_NEWTONIAN][LALSQTPN_CROSS] = -cos_Iota * cos(twoAlpha);
 	//}
-	if ((params->amplitudeContribution & LAL_PNORDER_NEWTONIAN) == LAL_PNORDER_NEWTONIAN) {
+	if ((params->amplitudeContribution & LALSQTPN_0_0) == LALSQTPN_0_0
+			|| (params->amplitudeContribution & LALSQTPN_1_0) == LALSQTPN_1_0) {
 		for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
-			contribution[LAL_PNORDER_NEWTONIAN][i] += -2. * (cosine_Part[LAL_PNORDER_NEWTONIAN][i]
+			contribution[LAL_PNORDER_NEWTONIAN][i] = -2. * (cosine_Part[LAL_PNORDER_NEWTONIAN][i]
 					* cos_iPhi[2] + sine_Part[LAL_PNORDER_NEWTONIAN][i] * sin_iPhi[2]);
 		}
 	}
-	if ((params->amplitudeContribution & LAL_PNORDER_HALF) == LAL_PNORDER_HALF) {
+	if ((params->amplitudeContribution & LALSQTPN_0_5) == LALSQTPN_0_5) {
 		for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
-			contribution[LAL_PNORDER_HALF][i] += 1. / 4. * deltaM / params->totalMass * (3.
+			contribution[LAL_PNORDER_HALF][i] = 1. / 4. * deltaM / params->totalMass * (3.
 					* cosine_Part[LAL_PNORDER_NEWTONIAN][i] * sin_Iota * (3. * cos_iPhi[3]
 					- cos_iPhi[1]) + 3. * sine_Part[LAL_PNORDER_NEWTONIAN][i] * sin_Iota * (3.
 					* sin_iPhi[3] - sin_iPhi[1]) - 2. * K[i] * sin_Iota * cos_iPhi[1]);
 		}
 	}
-	if ((params->amplitudeContribution & LAL_PNORDER_ONE) == LAL_PNORDER_ONE) {
+	if ((params->amplitudeContribution & LALSQTPN_1_0) == LALSQTPN_1_0) {
 		for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
-			contribution[LAL_PNORDER_ONE][i] += -8. / 3. * (1. - 3. * params->eta) * sinPow2_Iota
+			contribution[LAL_PNORDER_ONE][i] = -8. / 3. * (1. - 3. * params->eta) * sinPow2_Iota
 					* (cosine_Part[LAL_PNORDER_NEWTONIAN][i] * cos_iPhi[4]
 							+ sine_Part[LAL_PNORDER_NEWTONIAN][i] * sin_iPhi[4])
 					+ cosine_Part[LAL_PNORDER_ONE][i] * cos_iPhi[1] + sine_Part[LAL_PNORDER_ONE][i]
@@ -411,8 +413,16 @@ void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL
 		}
 	}
 	for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
-		h[i] = amp * (contribution[LAL_PNORDER_NEWTONIAN][i] + contribution[LAL_PNORDER_HALF][i]
-				* pow(values[LALSQTPN_OMEGA], 1. / 3.) + contribution[LAL_PNORDER_ONE][i] * pow(
-				values[LALSQTPN_OMEGA], 2. / 3.));
+		h[i] = 0.0;
+		if ((params->amplitudeContribution & LALSQTPN_1_0) == LALSQTPN_1_0) {
+			h[i] += contribution[LAL_PNORDER_ONE][i] * pow(values[LALSQTPN_OMEGA], 2. / 3.);
+		}
+		if ((params->amplitudeContribution & LALSQTPN_0_5) == LALSQTPN_0_5) {
+			h[i] += contribution[LAL_PNORDER_HALF][i] * pow(values[LALSQTPN_OMEGA], 1. / 3.);
+		}
+		if ((params->amplitudeContribution & LALSQTPN_0_0) == LALSQTPN_0_0) {
+			h[i] += contribution[LAL_PNORDER_NEWTONIAN][i];
+		}
+		h[i] *= amp;
 	}
 }

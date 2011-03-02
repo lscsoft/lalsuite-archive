@@ -40,9 +40,12 @@ NRCSID (LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
  */
 #define SQT_SQR(a) ((a)*(a))
 
+typedef enum LALSQTPNAmplitudeOrder {
+	LALSQTPN_0_0 = 1, LALSQTPN_0_5 = 2, LALSQTPN_1_0 = 4,
+} LALSQTPNAmplitudeOrder;
+
 typedef enum {
-	LALSQTPN_PLUS = 0,
-	LALSQTPN_CROSS = 1,
+	LALSQTPN_PLUS = 0, LALSQTPN_CROSS = 1,
 } LALSQTPNConstants;
 
 typedef struct tagLALSQTPNWave {
@@ -78,7 +81,7 @@ typedef struct tagLALSQTPNCoefficients {
 	REAL8 mecoSO[3]; ///< spin-orbit coefficients for MECO
 	REAL8 mecoSS; ///< spin1-spin2 coefficients for MECO
 	REAL8 mecoQM; ///< quadropole-monopole coefficients for MECO
-//@}
+	//@}
 } LALSQTPNCoefficients;
 
 /**		The structure contains the system's and the generator's parameters.
@@ -117,7 +120,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
 	LALPNOrder amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
-//@}
+	//@}
 } LALSQTPNWaveformParams;
 
 /**		The function fills the #LALSQTPNCoefficients structure with the needed
@@ -229,6 +232,17 @@ typedef enum {
 void
 LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
 
+/**
+ * \f[
+ * 	\newcommand{\OM}[1]{\left(M\omega\right)^{#1/3}}
+ * 	h_i=A\left(Q_i^0+Q_i^{0.5}\OM{1}+Q_i^1\OM{2}\right)\\
+ * 	Q_i^0=-2\left(C_i^0\cos2\phi+S_i^0\sin2\phi\right)\\
+ * 	Q_i^{0.5}=\frac{1}{4}\frac{m_1-m_2}{M}\left[3C_i^0\sin\iota\left(3\cos3\phi-\cos\phi\right)+3S_i^0*\sin\iota\left(3\sin3\phi-\sin\phi\right)-2K_i\sin\iota\cos\phi\right]
+ * \f]
+ * @param params
+ * @param values
+ * @param h
+ */
 void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h);
 
 #ifdef __cplusplus
