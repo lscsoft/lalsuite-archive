@@ -219,7 +219,7 @@ int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
 
-pps=allocate_partial_power_sum_F(useful_bins);
+pps=allocate_partial_power_sum_F(useful_bins, 1);
 memset(&pstats_accum, 0, sizeof(pstats_accum));
 pstats_accum.max_weight=-1;
 
@@ -658,7 +658,7 @@ POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
 
 //fprintf(stderr, "%d ", pi);
-generate_patch_templates(pi, &(ps[0]), &count);
+generate_patch_templates(ctx, pi, &(ps[0]), &count);
 
 if(count<1) {
 	free(ps[0]);
@@ -667,7 +667,7 @@ if(count<1) {
 	}
 
 for(i=1;i<nchunks;i++) {
-	clone_templates(ps[0], count, &(ps[i]));
+	clone_templates(ctx, ps[0], count, &(ps[i]));
 	}
 for(i=0;i<args_info.nchunks_arg;i++) {
 	for(k=0;k<veto_free;k++) {

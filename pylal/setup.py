@@ -565,6 +565,7 @@ setup(
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
 		os.path.join("bin", "upper_limit_results"),
 		os.path.join("bin", "pylal_expose"),
+		os.path.join("bin", "ligolw_cbc_align_total_spin"),
 		os.path.join("bin", "ligolw_cbc_dbsimplify"),
 		os.path.join("bin", "ligolw_cbc_dbaddinj"),
 		os.path.join("bin", "ligolw_cbc_printlc"),
@@ -620,6 +621,8 @@ setup(
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
+                os.path.join("bin", "cbcBayesDIEvidence.py"),
+        os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "ligo_channel_query")
 	],
 	data_files = [ ("etc", [
