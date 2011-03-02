@@ -1687,7 +1687,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 /*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
 	ChirpISCOLength=ak.tn;
     printf("Injection Approx: %i\n",template.approximant);
-    if (template.approximant==5){
+    if (template.approximant==TaylorF2Test){
         dphis[0]=inj_table->dphi0;
         dphis[1]=inj_table->dphi1;
         dphis[2]=inj_table->dphi2;
@@ -1700,7 +1700,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         dphis[9]=inj_table->dphi7;
         for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
         LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis);
-        }
+    }
     else {
         LALInspiralWave(&status,injWaveFD,&template);
     }
