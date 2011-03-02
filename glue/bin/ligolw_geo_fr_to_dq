@@ -172,12 +172,12 @@ def get_dq_flags(file, ifo, bitmask=4032, verbose=False):
     # initialize the DQ hash
     dq = {}
     # if any of the first six bits are set, science is False
-    dq['GEO-SCIENCE'] = bool(state_vec[0][0] & 0x111111)
+    dq['GEO-SCIENCE'] = not bool(state_vec[0][0] & int('111111',2))
     # iterate through the DQ word and set dq{} according to dq_word_key[]
     for i, name in enumerate(dq_word_key):
         # if bitmask includes this bit, add its name/value to the hash
-        if (bitmask >> i) & 0x1:
-            bit = (state_vec[0][0] >> i) & 0x1
+        if (bitmask >> i) & 1:
+            bit = (state_vec[0][0] >> i) & 1
             dq[name] = bool(bit)
     return (gps_start, duration, dq)
 
@@ -234,7 +234,7 @@ def frame_to_dq_xml(frame_file, frame_dir, xml_root, ifo, type, version, comment
     frame_file = fr_lfn_to_pfn_hack(frame_file, frame_dir, ifo, type, hack_gps_start)
 
     # extract the frame's metadata and DQ flags
-    (gps_start, duration, dq) = get_dq_flags(frame_file, ifo, verbose=verbose)
+    (gps_start, duration, dq) = get_dq_flags(frame_file, ifo, verbose=verbose, bitmask=0)
 
     # just for ho-ho's, since we now have both, let's double-check our
     # "hack" metadata with what we pulled out of the frame itself
