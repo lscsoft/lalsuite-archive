@@ -109,7 +109,7 @@ void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 	int mmodal = 0;
 	int ceff = 0;
 	int nlive = Nlive;
-	double efr = 0.8;
+	double efr = 0.01;
 	double tol = 0.5;
 	int ndims = MCMCinput->dim;
 	int nPar = ndims + 2;
