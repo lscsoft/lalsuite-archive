@@ -87,7 +87,9 @@ def cbcBayesPostProc(
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
-                        twodkdeplots=False
+                        twodkdeplots=False,
+                        #Turn on R convergence tests
+                        RconvergenceTests=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -464,7 +466,7 @@ def cbcBayesPostProc(
 
         toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
 
-        oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
+        #oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
 
         #Generate new BCI html table row
         BCItableline='<tr><td>%s</td>'%(par_name)
@@ -774,6 +776,38 @@ def cbcBayesPostProc(
     #Add a link to all plots
     html_tgbh.a("greedy2Dbins/",'All 2D Greedy Bin Histograms')
 
+    if RconvergenceTests is True:
+        convergenceResults=bppu.convergenceTests(pos,gelman=False)
+        
+        if convergenceResults is not None:
+            html_conv_test=html.add_section('Convergence tests')
+            data_found=False
+            for test,test_data in convergenceResults.items():
+                
+                if test_data:
+                    data_found=True
+                    html_conv_test.h3(test)
+                                       
+                    html_conv_table_rows={}
+                    html_conv_table_header=''
+                    for chain,chain_data in test_data.items():
+                        html_conv_table_header+='<th>%s</th>'%chain
+                        
+                        
+                        for data in chain_data:
+                            if len(data)==2:
+                                try:
+                                    html_conv_table_rows[data[0]]+='<td>'+data[1]+'</td>'
+                                except KeyError:
+                                    html_conv_table_rows[data[0]]='<td>'+data[1]+'</td>'
+                                
+                    html_conv_table='<table><tr><th>Chain</th>'+html_conv_table_header+'</tr>'
+                    for row_name,row in html_conv_table_rows.items():
+                        html_conv_table+='<tr><td>%s</td>%s</tr>'%(row_name,row)
+                    html_conv_table+='</table>'
+                    html_conv_test.write(html_conv_table)
+            if data_found is False:
+                html_conv_test.p('No convergence diagnostics generated!')
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
 
@@ -827,10 +861,22 @@ if __name__=='__main__':
     parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
     # Turn on 2D kdes
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
+    # Turn on R convergence tests
+    parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
+    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','massratio']
+    distParams=['distance','distMPC','dist']
+    incParams=['iota','inclination']
+    polParams=['psi']
+    skyParams=['ra','rightascension','declination','dec']
+    timeParams=['time']
+    spinParams=['a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin']
+    phaseParams=['phase']
+    endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams
+    # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     for ifo1 in ifos_menu:
         for ifo2 in ifos_menu:
@@ -838,10 +884,39 @@ if __name__=='__main__':
             oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
-    #List of parameter pairs to bin . Need to match (converted) column names.
-    for i in range(0,len(oneDMenu)):
-        for j in range(i+1,len(oneDMenu)):
-            twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+    for mp1 in massParams:
+        for mp2 in massParams:
+            if not (mp1 == mp2):
+                twoDGreedyMenu.append([mp1, mp2])
+    for mp in massParams:
+        for d in distParams:
+            twoDGreedyMenu.append([mp,d])
+    for mp in massParams:
+        for sp in spinParams:
+            twoDGreedyMenu.append([mp,sp])
+    for dp in distParams:
+        for ip in incParams:
+            twoDGreedyMenu.append([dp,ip])
+    for dp in distParams:
+        for sp in skyParams:
+            twoDGreedyMenu.append([dp,sp])
+    for dp in distParams:
+        for sp in spinParams:
+            twoDGreedyMenu.append([dp,sp])
+    for ip in incParams:
+        for sp in skyParams:
+            twoDGreedyMenu.append([ip,sp])
+    for ip in incParams:
+        for sp in spinParams:
+            twoDGreedyMenu.append([ip,sp])
+    for sp1 in skyParams:
+        for sp2 in skyParams:
+            if not (sp1 == sp2):
+                twoDGreedyMenu.append([sp1, sp2])
+    for sp1 in spinParams:
+        for sp2 in spinParams:
+            if not (sp1 == sp2):
+                twoDGreedyMenu.append([sp1, sp2])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
@@ -874,6 +949,8 @@ if __name__=='__main__':
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
-                        twodkdeplots=opts.twodkdeplots
+                        twodkdeplots=opts.twodkdeplots,
+                        #Turn on R convergence tests
+                        RconvergenceTests=opts.RconvergenceTests
                     )
 #

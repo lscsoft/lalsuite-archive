@@ -208,9 +208,9 @@ int main(int argc, char *argv[])
    }
    
    //Second fft plan, only need to make this once for all the exact templates
-   REAL4FFTPlan *secondFFTplan = XLALCreateForwardREAL4FFTPlan(ffdata->numffts, 0);
+   REAL4FFTPlan *secondFFTplan = XLALCreateForwardREAL4FFTPlan(ffdata->numffts, inputParams->FFTplanFlag);
    if (secondFFTplan==NULL) {
-      fprintf(stderr, "%s: XLALCreateForwardREAL4FFTPlan(%d,%d) failed.\n", fn, ffdata->numffts, 0);
+      fprintf(stderr, "%s: XLALCreateForwardREAL4FFTPlan(%d,%d) failed.\n", fn, ffdata->numffts, inputParams->FFTplanFlag);
       XLAL_ERROR(fn, XLAL_EFUNC);
    }
    
@@ -398,9 +398,9 @@ int main(int argc, char *argv[])
          XLAL_ERROR(fn, XLAL_EFUNC);
       }
       //fprintf(stderr, "Mean of TFdata_slided %g, background_slided %g\n", calcMean(TFdata_slided), calcMean(background_slided));
-      FILE *TFBACKGROUND = fopen("./output/tfbackground.dat","w");
+      /* FILE *TFBACKGROUND = fopen("./output/tfbackground.dat","w");
       for (ii=0; ii<(INT4)background_slided->length; ii++) fprintf(TFBACKGROUND, "%.6g\n", background_slided->data[ii]);
-      fclose(TFBACKGROUND);
+      fclose(TFBACKGROUND); */
       
       //Check the RMS of the antenna weights, if bigger than standard deviation then reset the IHS FAR and the average noise background of the 2nd FFT
       if (antweightsrms == 0.0) {
@@ -1833,7 +1833,7 @@ void tfWeightMeanSubtract(REAL4Vector *output, REAL4Vector *tfdata, REAL4Vector 
    XLALDestroyREAL4Vector(antweightssq);
    XLALDestroyREAL4Vector(rngMeanssq);
    
-   fprintf(stderr,"TF after weighting, mean subtraction = %g\n",calcMean(output));
+   //fprintf(stderr,"TF after weighting, mean subtraction = %g\n",calcMean(output));
 
 } /* tfWeightMeanSubtract() */
 
@@ -2237,6 +2237,7 @@ INT4 readTwoSpectInputParams(inputParamsStruct *params, struct gengetopt_args_in
    params->antennaOff = args_info.antennaOff_given;
    params->noiseWeightOff = args_info.noiseWeightOff_given;
    params->markBadSFTs = args_info.markBadSFTs_given;
+   params->FFTplanFlag = args_info.FFTplanFlag_arg;
    
    //Non-default arguments
    if (args_info.Tobs_given) params->Tobs = args_info.Tobs_arg;
@@ -2341,6 +2342,7 @@ INT4 readTwoSpectInputParams(inputParamsStruct *params, struct gengetopt_args_in
    fprintf(LOG,"dfmin = %f Hz\n",params->dfmin);
    fprintf(LOG,"dfmax = %f Hz\n",params->dfmax);
    fprintf(LOG,"Running median blocksize = %d\n",params->blksize);
+   fprintf(LOG,"FFT plan flag = %d\n", params->FFTplanFlag);
    fprintf(stderr,"Tobs = %f sec\n",params->Tobs);
    fprintf(stderr,"Tcoh = %f sec\n",params->Tcoh);
    fprintf(stderr,"SFToverlap = %f sec\n",params->SFToverlap);
@@ -2351,6 +2353,7 @@ INT4 readTwoSpectInputParams(inputParamsStruct *params, struct gengetopt_args_in
    fprintf(stderr,"dfmin = %f Hz\n",params->dfmin);
    fprintf(stderr,"dfmax = %f Hz\n",params->dfmax);
    fprintf(stderr,"Running median blocksize = %d\n",params->blksize);
+   fprintf(stderr,"FFT plan flag = %d\n", params->FFTplanFlag);
    if (args_info.ihsfomfar_given) {
       fprintf(LOG,"IHS FOM FAR = %f\n", params->ihsfomfar);
       fprintf(stderr,"IHS FOM FAR = %f\n", params->ihsfomfar);

@@ -11,6 +11,7 @@ filter-lines 1
 averaging-mode one 
 spindown-start-time 793154935 
 spindown-start -1e-8
+expected-timebase 27
 
 #write-dat NONE
 #write-png NONE

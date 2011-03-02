@@ -35,7 +35,11 @@ import itertools
 import math
 import numpy
 import random
-import scipy.constants
+try:
+	from scipy.constants import c as speed_of_light
+except ImportError:
+	from pylal.lalconstants import LAL_C_SI as speed_of_light
+	speed_of_light = float(speed_of_light)
 import scipy.optimize
 import sys
 
@@ -783,8 +787,12 @@ def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow
 	is a glue.segments.segmentlistdict object describing the
 	observation segments for each of instruments.  timefunc is a
 	function for computing the "time" of an event, its signature should
-	be timefunc(event).  delta_t is a time window in seconds, the light
-	travel time between instrument pairs is added to this internally.
+	be
+
+		t = timefunc(event)
+
+	delta_t is a time window in seconds, the light travel time between
+	instrument pairs is added to this internally.
 
 	Using the mean event rates and the coincidence window, the function
 	first computes the relative frequency of each of the combinations
@@ -973,7 +981,7 @@ class TOATriangulator(object):
 	information derived by solving for the maximum-likelihood source
 	location assuming Gaussian-distributed timing errors.
 	"""
-	def __init__(self, rs, sigmas, v = scipy.constants.c):
+	def __init__(self, rs, sigmas, v = speed_of_light):
 		"""
 		Create and initialize a triangulator object.
 
@@ -1009,7 +1017,7 @@ class TOATriangulator(object):
 
 		This creates a TOATriangulator instance configured for the
 		LIGO Hanford, LIGO Livingston and Virgo antennas with 5 ms
-		timing uncertainties at each location.
+		time-of-arrival uncertainties at each location.
 		"""
 		assert len(rs) == len(sigmas)
 		assert len(rs) >= 3

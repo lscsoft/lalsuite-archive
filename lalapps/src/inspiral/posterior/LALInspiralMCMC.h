@@ -486,6 +486,11 @@ void XLALMCMCRotateSky(
 	LALMCMCParameter *parameter
 	);
 
+INT4 XLALMCMCJumpHarmonic(
+  LALMCMCInput *inputMCMC,
+  LALMCMCParameter *parameter
+     );
+
 void XLALMCMCJumpSingle(
   LALMCMCInput *inputMCMC,
   LALMCMCParameter *parameter,
