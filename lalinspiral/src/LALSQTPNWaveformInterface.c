@@ -220,30 +220,35 @@ void XLALSQTPNDestroyCoherentGW(CoherentGW *wave) {
 			XLALDestroyREAL4VectorSequence(wave->h->data);
 		}
 		XLALFree(wave->h);
+		wave->h = NULL;
 	}
 	if (wave->a) {
 		if (wave->a->data) {
 			XLALDestroyREAL4VectorSequence(wave->a->data);
 		}
 		XLALFree(wave->a);
+		wave->a = NULL;
 	}
 	if (wave->f) {
 		if (wave->f->data) {
 			XLALDestroyREAL4Vector(wave->f->data);
 		}
 		XLALFree(wave->f);
+		wave->f = NULL;
 	}
 	if (wave->phi) {
 		if (wave->phi->data) {
 			XLALDestroyREAL8Vector(wave->phi->data);
 		}
 		XLALFree(wave->phi);
+		wave->phi = NULL;
 	}
 	if (wave->shift) {
 		if (wave->shift->data) {
 			XLALDestroyREAL4Vector(wave->shift->data);
 		}
 		XLALFree(wave->shift);
+		wave->shift = NULL;
 	}
 }
 
