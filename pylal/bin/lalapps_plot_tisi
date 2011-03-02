@@ -156,7 +156,7 @@ options, filenames = parse_command_line()
 
 
 for n, filename in enumerate(filenames):
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	xmldoc = utils.load_filename(filename, verbose = options.verbose)
 
 	if options.verbose:
 		print >>sys.stderr, "plotting ..."

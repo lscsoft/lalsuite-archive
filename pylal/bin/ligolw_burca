@@ -164,7 +164,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Gzipped files will be autodetected on input, if a file's name ends in \".gz\" it will be gzip-compressed on output."
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
@@ -269,7 +269,7 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	xmldoc = utils.load_filename(filename, options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#

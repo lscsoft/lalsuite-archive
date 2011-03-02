@@ -45,7 +45,6 @@ lalinspiralinclude_HEADERS = \
 
 lib_LTLIBRARIES = liblalinspiral.la
 liblalinspiral_la_SOURCES = \
-	Chisq_GPU.cpp \
 	BandPassInspiralTemplate.c \
 	BlackHoleMode.c \
 	CoherentInspiralFilter.c \
@@ -127,6 +126,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralGetApproximantString.c \
 	LALInspiralHexagonalBank.c \
 	LALInspiralHybridHexagonalBank.c \
+	LALInspiralIIR.c \
 	LALInspiralInit.c \
 	LALInspiralLongestTemplateInBank.c \
 	LALInspiralMoments.c \
@@ -170,6 +170,8 @@ liblalinspiral_la_SOURCES = \
 	LALInverse3.c \
 	LALMatrixTransform.c \
 	LALPhenomWaveform.c \
+	LALPSpinInspiralRD.c \
+	LALPSpinInspiralRingdownWave.c \
 	LALPrintTimeseries.c \
 	LALRandomInspiralSignal.c \
 	LALRectangleVertices.c \
@@ -193,6 +195,10 @@ liblalinspiral_la_SOURCES = \
 	SnglRingdownUtils.c \
 	TrigScanEThincaCommon.c \
 	check_series_macros.h
+
+if CUDA
+liblalinspiral_la_SOURCES += Chisq_GPU.cu
+endif
 
 liblalinspiral_la_LDFLAGS = -version-info $(LIBVERSION)
 
@@ -260,3 +266,6 @@ LALInspiralVCSInfo.h: ._vcsinfo
 	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALInspiral $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@
+
+# cuda build rules
+include $(top_srcdir)/gnuscripts/cuda.common

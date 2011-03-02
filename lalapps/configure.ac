@@ -1,4 +1,4 @@
-AC_INIT([lalapps],[6.4.0.4],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalapps],[6.5.0.1],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([misc])
@@ -64,6 +64,8 @@ LALAPPS_WITH_EXTRA_CPPFLAGS
 LALAPPS_WITH_EXTRA_CFLAGS
 LALAPPS_WITH_EXTRA_LDFLAGS
 LALAPPS_WITH_EXTRA_LIBS
+
+LALSUITE_WITH_CUDA
 
 LALSUITE_ENABLE_GCC_FLAGS
 LALSUITE_ENABLE_NIGHTLY
@@ -333,15 +335,15 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.4.1.4],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.4.0],[LALOpenDataFile],[lal/FileIO.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.0.2],[LALFrOpen],[lal/LALFrameL.h])
-LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.0.0.2],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.0.0.4],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALBurst],[1.0.0.2],[XLALEPSearch],[lal/EPSearch.h])
-LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.0.0.2],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.0.0.4],[XLALComputeFaFb],[lal/ComputeFstat.h])
-LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.0.2],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
+LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.1],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.0.1],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_OPT_LIB([LALBurst],[1.0.1],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.1.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.1.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.1],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.0.1],[XLALXMLFilePrintElements],[lal/LALXML.h])
 
 # back to c mode
 if test "${boinc}" = "true" ; then
@@ -365,12 +367,22 @@ AC_DEFINE_UNQUOTED([PREFIX],["$prefix"],[Install prefix])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS $lal_gcc_flags"
+  # don't use gcc flags when cuda is enabled
+  if test "${cuda}" != "true"; then
+    CFLAGS="$CFLAGS $lal_gcc_flags"
+  else
+    AC_MSG_NOTICE([CUDA support is enabled, disabling GCC flags])
+  fi
 
   # add mac os x specific flags
   if test "x$MACOSX_VERSION" != "x"; then
     CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
   fi
+fi
+
+# define if CUDA is enabled
+if test "${cuda}" = "true"; then
+  AC_DEFINE([LALAPPS_CUDA_ENABLED],[1],[Define if using cuda library])
 fi
 
 # enable condor compile
@@ -415,6 +427,7 @@ echo "
                 Condor support is $CONDOR_ENABLE_VAL
                 BOINC support is $BOINC_ENABLE_VAL
                 MPI support is $MPI_ENABLE_VAL
+                CUDA support is $CUDA_ENABLE_VAL
 
         Now run 'make' to build LALApps
         and run 'make install' to install LALApps

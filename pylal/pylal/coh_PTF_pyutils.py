@@ -59,7 +59,7 @@ def get_signal_vetoes(trigger,bankq=0,bankn=0,autoq=0,auton=0,chiq=0,chin=0,sigm
 #    sbvs['BestNR5'] = sbvs['BestNR4'] 
 
 
-#  compsList = [trigger.chisq_h1,trigger.chisq_l,trigger.chisq_v]
+#  compsList = [trigger.snr_h1,trigger.snr_l,trigger.snr_v]
 #  compsList.sort()
 #  if pylab.sqrt(compsList[1]) < (secondM*trigger.snr + secondC):
 #    sbvs['BestNR6'] = 0
@@ -68,7 +68,7 @@ def get_signal_vetoes(trigger,bankq=0,bankn=0,autoq=0,auton=0,chiq=0,chin=0,sigm
 
 #  sbvs['BestNR6'] = sbvs['BestNR5']
 
-#  if trigger.chisq_h1 < 4 or trigger.chisq_l < 4:
+#  if trigger.snr_h1 < 4 or trigger.snr_l < 4:
 #    sbvs['BestNR6'] = 0
 #  else:
 #    sbvs['BestNR6'] = sbvs['BestNR5']
@@ -89,7 +89,7 @@ def get_signal_vetoes(trigger,bankq=0,bankn=0,autoq=0,auton=0,chiq=0,chin=0,sigm
   else:
     sbvs['BestNR5'] = sbvs['BestNR4']
 
-  if trigger.chisq_h1 < 4 or trigger.chisq_v < 4:
+  if trigger.snr_h1 < 4 or trigger.snr_v < 4:
     sbvs['BestNR8'] = 0
   else:
     sbvs['BestNR8'] = sbvs['BestNR5']
@@ -97,34 +97,34 @@ def get_signal_vetoes(trigger,bankq=0,bankn=0,autoq=0,auton=0,chiq=0,chin=0,sigm
 
   if sbvs['BestNR5'] == 0:
     sbvs['BestNR6'] = 0
-  elif scipy.stats.ncx2.ppf(0.00135/2.,2,fResp['H1']*sigmaVals['H1min']*trigger.snr**2) > trigger.chisq_h1**2:
+  elif scipy.stats.ncx2.ppf(0.00135/2.,2,fResp['H1']*sigmaVals['H1min']*trigger.snr**2) > trigger.snr_h1**2:
     sbvs['BestNR6'] = 0
-  elif scipy.stats.ncx2.ppf(1-0.00135/2.,2,fResp['H1']*sigmaVals['H1max']*trigger.snr**2) < trigger.chisq_h1**2:
+  elif scipy.stats.ncx2.ppf(1-0.00135/2.,2,fResp['H1']*sigmaVals['H1max']*trigger.snr**2) < trigger.snr_h1**2:
     sbvs['BestNR6'] = 0
-  elif scipy.stats.ncx2.ppf(0.00135/2.,2,fResp['L1']*sigmaVals['L1min']*trigger.snr**2) > trigger.chisq_l**2:
+  elif scipy.stats.ncx2.ppf(0.00135/2.,2,fResp['L1']*sigmaVals['L1min']*trigger.snr**2) > trigger.snr_l**2:
     sbvs['BestNR6'] = 0
-  elif scipy.stats.ncx2.ppf(1-0.00135/2.,2,fResp['L1']*sigmaVals['L1max']*trigger.snr**2) < trigger.chisq_l**2:
+  elif scipy.stats.ncx2.ppf(1-0.00135/2.,2,fResp['L1']*sigmaVals['L1max']*trigger.snr**2) < trigger.snr_l**2:
     sbvs['BestNR6'] = 0
-  elif scipy.stats.ncx2.ppf(0.00135/2.,2,fResp['V1']*sigmaVals['V1min']*trigger.snr**2) > trigger.chisq_v**2:
+  elif scipy.stats.ncx2.ppf(0.00135/2.,2,fResp['V1']*sigmaVals['V1min']*trigger.snr**2) > trigger.snr_v**2:
     sbvs['BestNR6'] = 0
-  elif scipy.stats.ncx2.ppf(1-0.00135/2.,2,fResp['V1']*sigmaVals['V1max']*trigger.snr**2) < trigger.chisq_v**2:
+  elif scipy.stats.ncx2.ppf(1-0.00135/2.,2,fResp['V1']*sigmaVals['V1max']*trigger.snr**2) < trigger.snr_v**2:
     sbvs['BestNR6'] = 0
   else: 
     sbvs['BestNR6'] = sbvs['BestNR5']
 
   if sbvs['BestNR6'] == 0:
     sbvs['BestNR7'] = 0
-  elif scipy.stats.ncx2.ppf(0.0455/2.,2,fResp['H1']*sigmaVals['H1min']*trigger.snr**2) > trigger.chisq_h1**2:
+  elif scipy.stats.ncx2.ppf(0.0455/2.,2,fResp['H1']*sigmaVals['H1min']*trigger.snr**2) > trigger.snr_h1**2:
     sbvs['BestNR7'] = 0
-  elif scipy.stats.ncx2.ppf(1-0.0455/2.,2,fResp['H1']*sigmaVals['H1max']*trigger.snr**2) < trigger.chisq_h1**2:
+  elif scipy.stats.ncx2.ppf(1-0.0455/2.,2,fResp['H1']*sigmaVals['H1max']*trigger.snr**2) < trigger.snr_h1**2:
     sbvs['BestNR7'] = 0
-  elif scipy.stats.ncx2.ppf(0.0455/2.,2,fResp['L1']*sigmaVals['L1min']*trigger.snr**2) > trigger.chisq_l**2:
+  elif scipy.stats.ncx2.ppf(0.0455/2.,2,fResp['L1']*sigmaVals['L1min']*trigger.snr**2) > trigger.snr_l**2:
     sbvs['BestNR7'] = 0
-  elif scipy.stats.ncx2.ppf(1-0.0455/2.,2,fResp['L1']*sigmaVals['L1max']*trigger.snr**2) < trigger.chisq_l**2:
+  elif scipy.stats.ncx2.ppf(1-0.0455/2.,2,fResp['L1']*sigmaVals['L1max']*trigger.snr**2) < trigger.snr_l**2:
     sbvs['BestNR7'] = 0
-  elif scipy.stats.ncx2.ppf(0.0455/2.,2,fResp['V1']*sigmaVals['V1min']*trigger.snr**2) > trigger.chisq_v**2:
+  elif scipy.stats.ncx2.ppf(0.0455/2.,2,fResp['V1']*sigmaVals['V1min']*trigger.snr**2) > trigger.snr_v**2:
     sbvs['BestNR7'] = 0
-  elif scipy.stats.ncx2.ppf(1-0.0455/2.,2,fResp['V1']*sigmaVals['V1max']*trigger.snr**2) < trigger.chisq_v**2:
+  elif scipy.stats.ncx2.ppf(1-0.0455/2.,2,fResp['V1']*sigmaVals['V1max']*trigger.snr**2) < trigger.snr_v**2:
     sbvs['BestNR7'] = 0
   else:
     sbvs['BestNR7'] = sbvs['BestNR6']
