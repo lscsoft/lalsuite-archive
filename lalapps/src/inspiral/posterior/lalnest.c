@@ -845,7 +845,7 @@ int main( int argc, char *argv[])
             sprintf(InjTestName1,"injection_test1.dat");
             FILE *outInj_test1=fopen(InjTestName1,"w");
             for(i=1;i<injWave->data->length;i++){
-                fprintf(outInj_test1,"%lf %e\n",i*inputMCMC.deltaF,injWave->data->data[i]);
+                fprintf(outInj_test1,"%d %e\n",i,injWave->data->data[i]);
             }
             fclose(outInj_test1);*/
             XLALDestroyCOMPLEX8FrequencySeries(resp);
