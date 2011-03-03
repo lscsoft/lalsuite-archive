@@ -5,25 +5,20 @@
 # =============================================================================
 
 from __future__ import division
-import sys,os,re,numpy,math,shlex,subprocess,datetime,glob,tempfile,copy
-from socket import getfqdn
+import re,numpy,math,subprocess
 
 from glue.ligolw import ligolw,table,lsctables,utils
 from glue.ligolw.utils import process as ligolw_process
-from glue.segments import segment, segmentlist
-from glue.segmentdb import segmentdb_utils
-from glue.lal import Cache as LALCache
-from glue.lal import CacheEntry as LALCacheEntry
+from glue import segments
 
-from pylal import date,llwapp
+from pylal import llwapp
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.dq.dqTriggerUtils import KWCacheEntry
+from pylal.dq import dqTriggerUtils
 
 # Hey, scipy, shut up about your nose already.
 import warnings
 warnings.filterwarnings("ignore")
 from scipy import signal as signal
-from scipy.fftpack import fft, ifft, ifftshift, fft2, ifft2
 
 from matplotlib import use
 use('Agg')
@@ -60,7 +55,7 @@ def make_external_call(command):
 # Read injection files
 # =============================================================================
 
-def frominjectionfile(file,type,ifo=None):
+def frominjectionfile( file, type, ifo=None, start=None, end=None):
   
   """
     Read generic injection file object file containing injections of the given
@@ -122,25 +117,65 @@ def frominjectionfile(file,type,ifo=None):
       if file.readlines()[0].startswith('filestart'):
         # if given parsed burst file
         file.seek(0)
+
+        snrcol = { 'G1':23, 'H1':19, 'L1':21, 'V1':25 }
+
         for line in file.readlines():
           inj = lsctables.SimBurst()
           # split data
           sep = re.compile('[\s,]+')
           data = sep.split(line)
           # set attributes
-          geocent = LIGOTimeGPS(data[3])
-          inj.time_geocent_gps    = geocent.seconds
-          inj.time_geocent_gps_ns = geocent.nanoseconds
-          inj.waveform            = data[4]
-          inj.waveform_number     = int(data[5])
-          inj.frequency           = float(data[9])
+
+          # gps time
+          if 'burstgps' in data:
+            idx = data.index( 'burstgps' )+1
+            geocent = LIGOTimeGPS(data[idx])
+
+            inj.time_geocent_gps    = geocent.seconds
+            inj.time_geocent_gps_ns = geocent.nanoseconds
+          else:
+            continue
+
+
+          #inj.waveform            = data[4]
+          #inj.waveform_number     = int(data[5])
+
+          # frequency
+          if 'freq' in data:
+            idx = data.index( 'freq' )+1
+            inj.frequency = float( data[idx] )
+          else:
+            continue
+
+          # SNR a.k.a. amplitude
+          if ifo and 'snr%s' % ifo in data:
+            idx = data.index( 'snr%s' % ifo )+1
+            inj.amplitude = float( data[idx] )
+          elif 'rmsSNR' in data:
+            idx = data.index( 'rmsSNR' )+1
+            inj.amplitude = float( data[idx] )
+          else:
+            continue
+
+          if 'phi' in data:
+            idx = data.index( 'phi'  )+1
+            inj.ra = float(data[idx])*24/(2*math.pi)       
+
+          if 'theta' in data:
+            idx = data.index( 'theta'  )+1 
+            inj.ra = 90-(float(data[idx])*180/math.pi)
+
+          if ifo and 'hrss%s' % ifo in data:
+            idx = data.index( 'hrss%s' % ifo )+1
+            inj.hrss = float( data[idx] )
+          elif 'hrss' in data:
+            idx = data.index( 'hrss' )+1
+            inj.hrss = float( data[idx] )
 
           # extra columns to be added when I know how
-
+          #inj.q = 0
           #inj.q                   = float(data[11])
-          #inj.hrss                = float(data[17])
-          #inj.ra                  = float(data[19])*24/(2*math.pi)
-          #inj.dec                 = 90-(float(data[21])*180/math.pi)
           #h_delay = LIGOTimeGPS(data[41])
           #inj.h_peak_time         = inj.time_geocent_gps+h_delay.seconds
           #inj.h_peak_time_ns      = inj.time_geocent_gps_ns+h_delay.nanoseconds
@@ -168,7 +203,14 @@ def frominjectionfile(file,type,ifo=None):
 
           injtable.append(inj)
 
-  return injtable
+  injections = table.new_from_template( injtable )
+  if not start:  start = 0
+  if not end:    end   = 9999999999
+  span = segments.segmentlist([ segments.segment(start, end) ])
+  get_time = dqTriggerUtils.def_get_time( injections.tableName )
+  injections.extend( inj for inj in injtable if get_time(inj) in span )
+
+  return injections
 
 # =============================================================================
 # Calculate band-limited root-mean-square

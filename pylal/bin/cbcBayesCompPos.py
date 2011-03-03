@@ -438,7 +438,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     name_list=[]
                     cs_list=[]
 
-                    cllst=[0.95]
+                    cllst=[0.90]
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
 
                     fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,cllst,color_by_name)

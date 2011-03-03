@@ -4,7 +4,7 @@
 # Preamble
 # ==============================================================================
 
-import os,sys,re,operator
+import os,sys,re,operator,math
 from StringIO import StringIO
 from glue.segments import segment, segmentlist
 from glue.ligolw import ligolw,lsctables,table,utils
@@ -171,8 +171,8 @@ def grab_segments(start,end,flag):
   """
 
   # set times
-  start = int(start)
-  end   = int(end)
+  start = int( math.floor(start) )
+  end   = int( math.ceil(end) )
 
   # set query engine
   database_location = os.environ['S6_SEGMENT_SERVER']
@@ -182,16 +182,15 @@ def grab_segments(start,end,flag):
   # format flag name
   spec = flag.split(':')
   if len(spec) < 2 or len(spec) > 3:
-    print >>sys.stderr, "Included segements must be of the form ifo:name:version or ifo:name:*"
-    sys.exit(1)
+    raise AttributeError, "Included segements must be of the form ifo:name:version or ifo:name:*" 
 
   ifo     = spec[0]
   name    = spec[1]
+
   if len(spec) is 3 and spec[2] is not '*':
     version = int(spec[2])
     if version < 1:
-      print >>sys.stderr, "Segment version numbers must be greater than zero"
-      sys.exit(1)
+      raise AttributeError, "Segment version numbers must be greater than zero"
   else:
     version = '*'
 
