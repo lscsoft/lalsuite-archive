@@ -69,7 +69,7 @@ def grab_data(start,end,ifo,channel,type,\
 
   # find FrCheck
   frcheck,err = make_external_call('which FrCheck')
-  if err:
+  if err or not frcheck:
     raise ValueError, "FrCheck not found."
   frcheck = frcheck.replace('\n','')
 
@@ -91,8 +91,8 @@ def grab_data(start,end,ifo,channel,type,\
     if not os.path.isfile(frame.path()):  continue
 
     # check for Segmentation fault
-    segtest = subprocess.Popen([frcheck,"-i",frame.path()],\
-                               stdout=subprocess.PIPE)
+    segtest = subprocess.Popen([frcheck, "-i", frame.path()],\
+                                 stdout=subprocess.PIPE )
     if os.waitpid(segtest.pid,0)[1]==11:  
       print >>sys.stderr, "Warning. Segmentation fault detected with command:"
       print >>sys.stderr, "FrCheck -i "+frame.path()
@@ -100,27 +100,22 @@ def grab_data(start,end,ifo,channel,type,\
     segtest.stdout.close()
 
     # try to extract data from frame
-    try:
-      frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path(),\
+    frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path(),\
                                                       ':'.join([ifo,channel]))
-      if frame_data==[]:
-        print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
-        continue
-
-      # construct time array
-      frame_length = float(dt)*len(frame_data)
-      frame_time = data_start+dt*numpy.arange(len(frame_data))
-
-      # discard frame data outside of time span
-      for i in range(len(frame_data)):
-        if frame_time[i] < start:  continue
-        if frame_time[i] > end:  continue
-        time.append(frame_time[i])
-        data.append(frame_data[i])
-
-    except:
-      print >>sys.stderr, "Failed to access frame: \n%s" % (frame)
+    if frame_data==[]:
+      print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
       continue
+
+    # construct time array
+    frame_length = float(dt)*len(frame_data)
+    frame_time = data_start+dt*numpy.arange(len(frame_data))
+
+    # discard frame data outside of time span
+    for i in range(len(frame_data)):
+      if frame_time[i] < start:  continue
+      if frame_time[i] > end:  continue
+      time.append(frame_time[i])
+      data.append(frame_data[i])
 
   return time,data
 
@@ -391,7 +386,7 @@ def find_channels(channels=None,\
 
   # find FrCheck
   frcheck,err = make_external_call('which FrCheck')
-  if err:
+  if err or not frcheck:
     raise ValueError, "FrCheck not found."
   frcheck = frcheck.replace('\n','')
 
@@ -489,7 +484,7 @@ def find_channels(channels=None,\
           if match and (name in channels):
             pass
           elif channels and\
-              not ['match' for ch in channels if re.search(ch,name)]:
+              not ['match' for ch in channels if re.match('%s\Z' % ch,name)]:
             continue
 
           # generate structure and append to list  
@@ -626,36 +621,44 @@ c.system = 'LSC'
 c.subsystem = 'DARM'
 c.signal = 'ERR'
     """
+
+    attributes = ['ifo','site','name',\
+                  'system','subsystem','signal',\
+                  'type',\
+                  'sampling']
+
+    __slots__ = attributes
+
     # extract name attributes
-    try:
+    if ':' in name:
       self.ifo,self.name         = re.split(':',name,maxsplit=1)
       self.site                  = self.ifo[0]
-    except:
-      self.ifo = ''
-      self.site = ''
+    else:
       self.name = name
-    try:
-      self.system, tmp           = re.split('[-_]',self.name,maxsplit=1)
-      self.subsystem,self.signal = re.split('[-_]',tmp,maxsplit=1)
-    except:
-      self.system=self.subsystem=self.signal = ''    
+
+    tags = re.split('[-_]',self.name,maxsplit=3)
+
+    self.system = tags[0]
+
+    if len(tags)>1:
+      self.subsystem = tags[1]
+
+    if len(tags)>2:
+      self.signal    = tags[2]
 
     if type:
       self.type = str(type)
+
     if sampling:
-      try:
-        if sampling==int(sampling):
-          self.sampling = int(sampling)
-        else:
-          self.sampling = float(sampling)
-      except:
-        self.sampling = float(sampling)
+      self.sampling = float(sampling)
 
   def __getattribute__(self,name):
-    if name=='test':
-      return 0.
-    else:
-      return self.__dict__[name]
+
+    return self.__dict__[name]
+
+  def __str__( self ):
+
+    return '%s:%s' % ( self.ifo, self.name )
 
 # ==============================================================================
 # Function to generate a framecache of /dmt types
@@ -822,13 +825,12 @@ class FrameCacheEntry(LALCacheEntry):
     """
     if self.segment is not None:
       start,end = [str(t) for t in self.segment]
-      duration = str(abs(self.segment))
     else:
       start    = "-"
       end      = "-"
       duration = "-"
 
-    return "%s %s %s %s %s %s" % (self.observatory or "-", self.description or "-", start, end, duration, self.url)
+    return "%s %s %s %s %s %s" % (self.observatory or "-", self.description or "-", start, end, self.duration, self.url)
 
   def __cmp__(self, other):
     """
@@ -853,6 +855,34 @@ class FrameCacheEntry(LALCacheEntry):
                 abs(e.segment)==self.duration]
 
     return cache
+    
+  def from_T050017(cls, url, coltype = LIGOTimeGPS):      
+
+    """      
+    Parse a URL in the style of T050017-00 into a FrameCacheEntry.      
+    The T050017-00 file name format is, essentially,  
+  
+    observatory-description-start-dur.ext  
+  
+    """      
+    match = cls._url_regex.search(url)      
+    if not match:      
+            raise ValueError, "could not convert %s to CacheEntry" % repr(url)      
+    observatory = match.group("obs")      
+    description = match.group("dsc")      
+    start = match.group("strt")      
+    duration = match.group("dur")      
+    if start == "-" and duration == "-":      
+            # no segment information      
+            segment = None      
+    else:      
+            segment = segments.segment(coltype(start), coltype(start) + coltype(duration))      
+    return cls(observatory, description, segment, duration,\
+               os.path.split(url)[0])    
+
+
+  from_T050017 = classmethod(from_T050017)
+
 
 # ==============================================================================
 # Class for FrameCacheEntry 
@@ -900,3 +930,63 @@ class FrameCache(LALCache):
       c = [entry for entry in c if entry.duration==duration]
 
     return self.__class__(c)
+
+def FrameCachetoLALCache( fcache ):
+
+  lcache = FrameCache()
+
+  for e in fcache:
+    files = e.get_files()
+    for f in files:
+      lcache.append(LALCacheEntry.from_T050017( f ))
+  
+
+  return 0
+
+def LALCachetoFrameCache( lcache ):
+
+  lcache.sort( key=lambda e: (e.path(),e.segment[0]) )
+
+  fcache = FrameCache()
+
+  for e in lcache:
+
+    matched = False
+
+    dir = os.path.split(e.path())[0]
+
+    # if path found in FrameCache try to coalesce with other entries
+    dirs = [d.path() for d in fcache]
+
+    if dir in dirs:
+
+      pathentries = [fe for fe in fcache if fe.path()==dir]
+
+      # test current entry against other entries for the same path in the
+      # new cache
+      for i,pe in enumerate( pathentries ):
+
+        notdisjoint = e.segment[0] <= pe.segment[1]
+
+        # if entries match in directory, duration, and are contiguous, append
+        if pe.path()==os.path.split(e.path())[0]\
+             and e.segment.__abs__() == pe.duration\
+             and notdisjoint:
+          seg = segments.segment( min(pe.segment[0], e.segment[0]),\
+                                  max(pe.segment[1], e.segment[1]) )
+          fcache[i].segment = seg
+
+          matched = True
+          break
+
+      # if we haven't matched the entry to anything already in the cache add now
+      if not matched:
+        fe = FrameCacheEntry.from_T050017( e.path() )
+        fcache.append(fe)
+
+    # if from a new directory add
+    else:
+      fe = FrameCacheEntry.from_T050017( e.path() )
+      fcache.append(fe)
+
+  return fcache
