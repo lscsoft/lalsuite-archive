@@ -675,6 +675,16 @@ class Posterior(object):
         return mediansdict
 
     @property
+    def stdevs(self):
+        """
+        Return dict {paramName:paramStandardDeviation} .
+        """
+        stdsdict={}
+        for name,pos in self:
+            stdsdict[name]=pos.stdev
+        return stdsdict
+
+    @property
     def name(self):
         """
         Return qualified string containing the 'name' of the Posterior instance.
