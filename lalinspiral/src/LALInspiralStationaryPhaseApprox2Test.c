@@ -265,7 +265,6 @@ void TaylorF2fillPhaseParams(
     UINT4 i;
     REAL8 pimtot = LAL_PI*mtot*LAL_MTSUN_SI;
     REAL8 comprefac = 3.0/(128.0*eta);
-    REAL8 onethird=1.0L/3.0L;
     //REAL8 comprefac = 3.0/(256.0*eta);
     
     // POPULATE INDIVIDUAL PHASE PARAMETERS
@@ -291,8 +290,8 @@ void TaylorF2fillPhaseParams(
     phaseParams[2] = comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
     phaseParams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI; //phi3
     phaseParams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta); // phi4
-    phaseParams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta)+onethird*((38645.0/756.0 - 65.0/3.0*eta)*log(pimtot*pow(6.0, 1.5)))); //phi5
-    phaseParams[6] = onethird*comprefac*LAL_PI*(38645.0/756.0 - 65.0/3.0*eta); //phi5l
+    phaseParams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta)+((38645.0/756.0 - 65.0/9.0*eta)*log(pimtot*pow(6.0, 1.5)))); //phi5
+    phaseParams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta); //phi5l
     phaseParams[7] = comprefac*pimtot1by3* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta*(-15335597827.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI) + 47324.0/63.0-7948.0/9.0) + 76055.0/1728.0*eta*eta - 127825.0/1296.0*eta*eta*eta + -6848.0/21.0*log(4.0*pimtot1by3)); //phi6
     phaseParams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
     phaseParams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
