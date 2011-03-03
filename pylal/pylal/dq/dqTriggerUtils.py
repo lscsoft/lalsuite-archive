@@ -36,18 +36,34 @@ cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
 # Define get_time choice
 # =============================================================================
 
-def def_get_time(tableName):
+def def_get_time( tableName, ifo=None ):
 
   """
     Define the get_time() function for given table
   """
 
-  if re.search('inspiral',tableName):
-    get_time = lambda row: row.get_end()
-  elif re.search('ringdown',tableName):
-    get_time = lambda row: row.get_start()
-  else:
-    get_time = lambda row: row.get_peak()
+  get_time = None
+
+  if ifo:  ifo = ifo[0]
+
+  # if given an injection table:
+  if re.match( 'sim', tableName ):
+
+    if re.search('inspiral',tableName):
+      get_time = lambda row: row.get_end( site=ifo )  
+    else:
+      get_time = lambda row: row.get_time_geocent()
+
+
+  # if given a sngl trigger table
+  elif re.match( 'sngl', tableName ):
+
+    if re.search('inspiral',tableName):
+      get_time = lambda row: row.get_end()
+    elif re.search('ringdown',tableName):
+      get_time = lambda row: row.get_start()
+    else:
+      get_time = lambda row: row.get_peak()
 
   return get_time
 
@@ -157,8 +173,8 @@ def trigger(data,etg,ifo=None,channel=None):
     energy                = float(data[4])
     trig.amplitude             = float(data[5])
     n_pix                 = float(data[6])
-    significance          = float(data[7])
-    N                     = float(data[8])
+    #significance          = float(data[7])
+    #N                     = float(data[8])
     trig.snr                   = math.sqrt(trig.amplitude-n_pix)
 
   # =====
@@ -425,10 +441,10 @@ def totrigfile(file,table,etg,header=True,columns=None):
            entry = str(row.get_start())
          elif col=='ms_start_time':
            entry = str(row.get_ms_start())
-         elif col=='end_time':
-           entry = str(row.get_end())
-         elif col=='ms_end_time':
-           entry = str(row.get_ms_end())
+         elif col=='stop_time':
+           entry = str(row.get_stop())
+         elif col=='ms_stop_time':
+           entry = str(row.get_ms_stop())
          else:
            entry = str(row.__getattribute__(col))
 
