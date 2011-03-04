@@ -250,7 +250,9 @@ def cbcBayesPostProc(
 
     #Calculate tilts from spin angles
     if 'theta1' in pos.names and 'phi1' in pos.names and \
-      'tilt1' not in pos.names and 'tilt2' not in pos.names:
+      'tilt1' not in pos.names and 'tilt2' not in pos.names \
+      and 'theta2' in pos.names and 'phi2' in pos.names and 'iota' in pos.names and \
+      'a1' in pos.names and 'a2' in pos.names:
         inj_tilt1 = inj_tilt2 = None
         if injection:
             inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
