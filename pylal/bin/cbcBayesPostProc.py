@@ -209,27 +209,42 @@ def cbcBayesPostProc(
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
-            
+    elif ('m' in pos.names):  #### this is misleading: m is still the chirp mass
+        mchirp_name='mchirp'
+        mchirp_samps=pos['m'].samples
+        mchirp_pos=bppu.OneDPosterior('mchirp',mchirp_samps,injected_value=injection.mchirp)
+        pos.append(mchirp_pos)
+        inj_mass1=None
+        inj_mass2=None
+        if injection:
+            inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
+        mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
+        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
+        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
+        pos.append(mass1_pos)
+        pos.append(mass2_pos)
+
+
     # print means, variances, and bayes factor in a summary file. The order of parameters is then one given here
-    pars=['mchirp', 'eta','time','phi0','dist','RA','dec','psi','iota','m1','m2']
+    pars=['mchirp', 'eta','time','phi','dist','ra','dec','psi','iota','m1','m2']
     summary_path=os.path.join(str(outdir),'summary.ini')
+    if os.path.isfile(summary_path):
+        os.remove(summary_path)
     summary_file=open(str(summary_path),'w')
     data_path=(str(data)[2:-2])
     data_array=np.loadtxt(str(data_path),skiprows=1)
-    for i in pars:    
+    for i in pars:
         summary_file.write('mean_'+str(i) +'\t'+'stdev_'+str(i)+'\t')
     summary_file.write('BSN \t BCI \n')
     for i in pars:
-        if not (i=='m1' or i=='m2'):
+        if 1==1:
             I=pars.index(i)
-            summary_file.write(repr(np.mean(data_array[:,I]))+'\t')
-            summary_file.write(repr(sqrt(np.var(data_array[:,I])))+'\t')
-        elif i=='m1':
-            summary_file.write(repr(np.mean(mass1_samps))+'\t')
-            summary_file.write(repr(sqrt(np.var(mass1_samps)))+'\t')
-        elif i=='m2':
-            summary_file.write(repr(np.mean(mass2_samps))+'\t')
-            summary_file.write(repr(sqrt(np.var(mass2_samps)))+'\t')
+            mean_i="pos[\'"+str(i)+"\'].mean"
+            mean_i=eval(mean_i)
+            stdev_i="pos[\'"+str(i)+"\'].stdev"
+            stdev_i=eval(stdev_i)
+            summary_file.write(repr(mean_i)+'\t')
+            summary_file.write(repr(stdev_i)+'\t')
 
     if bayesfactornoise is not None:
         summary_file.write(str(BSN)+'\t')
