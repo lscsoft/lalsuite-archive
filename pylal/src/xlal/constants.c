@@ -39,6 +39,7 @@ static int add_const_double(PyObject *m, const char *name, double val) {
     return -1;
 }
 #define add_double_macro(m, c) add_const_double(m, #c, c)
+#define add_int_macro(m, c) PyModule_AddIntConstant(m, #c, c)
 
 PyMODINIT_FUNC initconstants(void) {
     PyObject *m;
@@ -53,11 +54,11 @@ PyMODINIT_FUNC initconstants(void) {
       | awk '{ print "add_double_macro(m, " $2 ");" }'
     Then a few were corrected to integers as necessary.
     */
-    PyModule_AddIntMacro(m, LAL_REAL4_MANT);
+    add_int_macro(m, LAL_REAL4_MANT);
     add_double_macro(m, LAL_REAL4_MAX);
     add_double_macro(m, LAL_REAL4_MIN);
     add_double_macro(m, LAL_REAL4_EPS);
-    PyModule_AddIntMacro(m, LAL_REAL8_MANT);
+    add_int_macro(m, LAL_REAL8_MANT);
     add_double_macro(m, LAL_REAL8_MAX);
     add_double_macro(m, LAL_REAL8_MIN);
     add_double_macro(m, LAL_REAL8_EPS);
@@ -79,12 +80,12 @@ PyMODINIT_FUNC initconstants(void) {
     add_double_macro(m, LAL_2_SQRTPI);
     add_double_macro(m, LAL_PI_180);
     add_double_macro(m, LAL_180_PI);
-    PyModule_AddIntMacro(m, LAL_C_SI);
+    add_int_macro(m, LAL_C_SI);
     add_double_macro(m, LAL_EPSILON0_SI);
     add_double_macro(m, LAL_MU0_SI);
     add_double_macro(m, LAL_GEARTH_SI);
-    PyModule_AddIntMacro(m, LAL_PATM_SI);
-    PyModule_AddIntMacro(m, LAL_YRJUL_SI);
+    add_int_macro(m, LAL_PATM_SI);
+    add_int_macro(m, LAL_YRJUL_SI);
     add_double_macro(m, LAL_LYR_SI);
     add_double_macro(m, LAL_G_SI);
     add_double_macro(m, LAL_H_SI);
