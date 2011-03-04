@@ -2,9 +2,10 @@ INCLUDES = -I$(top_builddir)/include
 
 lalinspiralincludedir = $(includedir)/lal
 lalinspiralinclude_HEADERS = \
-	Chisq_GPU.h \
 	BBHPhenomCoeffs.h \
 	BlackHoleMode.h \
+	Chisq_CPU.h \
+	Chisq_GPU.h \
 	CoherentInspiral.h \
 	CoincInspiralEllipsoid.h \
 	FindChirp.h \
@@ -198,6 +199,8 @@ liblalinspiral_la_SOURCES = \
 
 if CUDA
 liblalinspiral_la_SOURCES += Chisq_GPU.cu
+else
+liblalinspiral_la_SOURCES += Chisq_CPU.c
 endif
 
 liblalinspiral_la_LDFLAGS = -version-info $(LIBVERSION)

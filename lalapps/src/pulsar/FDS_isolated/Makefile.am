@@ -18,7 +18,7 @@ bin_PROGRAMS = lalapps_ComputeFStatistic lalapps_FstatShapeTest lalapps_SemiAnal
 check_PROGRAMS = testFstat_v3
 
 EXTRA_PROGRAMS = lalapps_CFSv3 eah_PredictFStat \
-		 lalapps_ComputeFStatistic_v2_sse lalapps_ComputeFStatistic_v2_sse2 lalapps_ComputeFStatistic_v2_cuda
+		 lalapps_ComputeFStatistic_v2_sse lalapps_ComputeFStatistic_v2_sse2
 
 # CFSv2 doesn't compile with Condor
 #if CONDOR_ENABLED
@@ -62,18 +62,20 @@ lalapps_ComputeFStatistic_v2_SOURCES = $(ComputeFStatisticV2Sources)
 
 ## optimized ComputeFStatistic_v2 targets
 
+if CUDA
+lalapps_ComputeFStatistic_v2_SOURCES += OptimizedCFS/ComputeFstatREAL4CUDA.c OptimizedCFS/FStatCUDA.cu
+lalapps_ComputeFStatistic_v2_CPPFLAGS = $(AM_CPPFLAGS) -DUSE_CUDA
+endif
+
+# cuda build rules
+include $(top_srcdir)/misc/cuda.common
+
 # compilation of SSE targets requires a valid CPU architecture being set in AM_CFLAGS
 # (e.g. configure with CFLAGS=-march=pentium-m),
 lalapps_ComputeFStatistic_v2_sse_SOURCES = $(ComputeFStatisticV2Sources)
 lalapps_ComputeFStatistic_v2_sse_CFLAGS = $(AM_CFLAGS) -msse -mfpmath=sse
 lalapps_ComputeFStatistic_v2_sse2_SOURCES = $(ComputeFStatisticV2Sources)
 lalapps_ComputeFStatistic_v2_sse2_CFLAGS = $(AM_CFLAGS) -msse -msse2 -mfpmath=sse
-
-# compilation of CUDA target requires cuda header and library directories included in
-# CPPFLAGS and LDFLAGS respectively (until LAL/LALAapps have a proper CUDA detection in configure)
-lalapps_ComputeFStatistic_v2_cuda_SOURCES = $(ComputeFStatisticV2Sources) OptimizedCFS/ComputeFstatREAL4CUDA.c OptimizedCFS/FStatCUDA.cu
-lalapps_ComputeFStatistic_v2_cuda_CPPFLAGS = $(AM_CPPFLAGS) -DUSE_CUDA
-lalapps_ComputeFStatistic_v2_cuda_LDADD = $(LDADD) -lcudart
 
 lalapps_PredictFStat_SOURCES = PredictFStat.c
 # force linking in C++ mode for E@H
@@ -103,11 +105,6 @@ LALSUITE_TOP_SRCDIR=$(LALSUITE_TOP_SRCDIR) \
 LAL_DATA_PATH=.:$${LALPULSAR_PREFIX:+"$${LALPULSAR_PREFIX}/share/lalpulsar"}:$${LALSUITE_TOP_SRCDIR:+"$${LALSUITE_TOP_SRCDIR}/lalpulsar/test/"}
 
 CLEANFILES = testFstat_v3-LFT.sft testFstat_v3-timeseries.dat
-
-# how to compile CUDA files (.cu)
-NVCC ?= nvcc
-.cu.o:
-	$(NVCC) $(CPPFLAGS) -c $< -o $@
 
 ## make sure lalapps.la is rebuilt when appropriate
 BUILT_SOURCES =

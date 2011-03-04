@@ -78,16 +78,11 @@ LALCOMPLEX8VectorFFT()
 #include <lal/ComplexFFT.h>
 #include <lal/FindChirp.h>
 #include <lal/FindChirpChisq.h>
+#include <lal/Chisq_GPU.h>
+#include <lal/Chisq_CPU.h>
+
 
 NRCSID (FINDCHIRPCHISQC, "$Id$");
-
-#define CHISQ_TEST_GPU
-
-#ifdef CHISQ_TEST_GPU
-#include "Chisq_GPU.h"
-#else
-#include "Chisq_CPU.h"
-#endif
 
 /* <lalVerbatim file="FindChirpChisqCP"> */
 void
@@ -281,16 +276,12 @@ LALFindChirpChisqVeto (
   }
 
 
-#ifdef CHISQ_TEST_GPU
-
-  Chisq_GPU(chisqVec->data, input->qVec->data, input->qtildeVec->data, params->chisqBinVec->data, 
-	    input->qVec->length, params->chisqBinVec->length - 1, sqrt( params->norm ));
+#ifdef LALINSPIRAL_CUDA_ENABLED
+  Chisq_GPU(chisqVec->data, input->qVec->data, input->qtildeVec->data, params->chisqBinVec->data,
+      input->qVec->length, params->chisqBinVec->length - 1, sqrt( params->norm ));
 #else
-
-  Chisq_CPU(chisqVec->data, input->qVec->data, input->qtildeVec->data, params, 
-	    input->qVec->length, params->chisqBinVec->length - 1, 
-	    sqrt( params->norm ), status);
-
+  Chisq_CPU(chisqVec->data, input->qVec->data, input->qtildeVec->data, params,
+      input->qVec->length, params->chisqBinVec->length - 1, sqrt( params->norm ), status);
 #endif
 
   /* normal exit */
