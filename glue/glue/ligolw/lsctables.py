@@ -1810,6 +1810,16 @@ class SimInspiralTable(table.Table):
 		"amp_order": "int_4s",
 		"taper": "lstring",
 		"bandpass": "int_4s",
+		"dphi0": "real_4",
+		"dphi1": "real_4",
+		"dphi2": "real_4",
+		"dphi3": "real_4",
+		"dphi4": "real_4",
+		"dphi5": "real_4",
+		"dphi5l": "real_4",
+		"dphi6": "real_4",
+		"dphi6l": "real_4",
+		"dphi7": "real_4",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
