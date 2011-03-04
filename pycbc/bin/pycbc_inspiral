@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+import pycbc
+
+# read the input h(t) from a single detector
+data = pycbc.cbc_strain_t()
+data.read_frames( "H1:LSC-STRAIN", t_start, t_end, "/path/to/cache.txt" )
+
+# perform software injections
+injections = pycbc.injection_t( "/path/to/injections.xml" )
+injections.inject( data )
+
+# reseample the data to the desired rate
+resample_filter = pycbc.resample_filter_t( delta_t )
+resample_filter.resample( data )
+
+# high pass the strain data to avoid dynamic range problems
+high_pass_filter = pycbc.band_pass_filter_t( "high", 35.0, 8 )
+
+# convert the data to a four-byte floating point number
+data.to_float()
+
+# create the overwhitening filter
+psd = pycbc.spectrum_t( "medianmean", "hann", delta_t, N )
+psd.power_spectrum( data )
+psd.inverse()
+psd.truncate( 16 )
+
+# create the overwhitened data segments in the frequency domain
+data.fft_segments( 256, 128 )
+d *= p
+
+# create a template bank to filter against
+bank = pycbc.template_bank_t()
+bank.read_templates( "/path/to/templates.xml" )
+
+# apply any template-specific data preconditioning
+d *= bank.condition_data()
+
+# create the objects needed to perform the filtering
+matched_filter = pycbc.matched_filter_t( data )
+chisq_veto = pycbc.cbc_chisq_veto_t( 15, psd )
+events = pycbc.cbc_event_t()
+
+# filter the data against the template bank
+for b in bank:
+	b.generate_waveform()
+	chisq.compute_bins()
+	for d in data:
+		matched_filter.generate_snr( d, b )
+		if matched_filter.above( 5.5 ):
+			chisq_veto.generate_chisq( matched_filter )
+			events.find_events( b, matched_filter, chisq_veto )
+
+# cluster the events across the template bank
+events.cluster_events( "trigscan", 0.1 )
+events.write( "/path/to/output.xml" )
