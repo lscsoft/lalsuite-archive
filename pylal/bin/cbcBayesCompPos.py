@@ -60,6 +60,10 @@ confidenceLevels=[0.67,0.9,0.95]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec']]
 allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)']
 
+contour_figsize=(7,6)
+contour_dpi=250
+contour_figposition=[0.2,0.2,0.48,0.75]
+
 def open_url(url,username,password):
 
     import urllib
@@ -325,7 +329,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
 
         elif pfu_scheme is '' or pfu_scheme is 'file':
-            pos_file=os.path.join(pos_folder,'posterior_samples.dat')
+            pos_file=os.path.join(pos_folder,'%s.dat'%name)
 
         else:
             print "Unknown scheme for input data url: %s\nFull URL: %s"%(pfu_scheme,str(pos_folder_url))
@@ -441,7 +445,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     cllst=[0.90]
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
 
-                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,cllst,color_by_name)
+                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,cllst,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
 
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
