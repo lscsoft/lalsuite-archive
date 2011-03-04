@@ -38,7 +38,7 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import date
 from pylal import git_version
 from pylal import sphericalutils as su
-from pylal.lalconstants import LAL_PI, LAL_TWOPI, LAL_MTSUN_SI
+from pylal.xlal.constants import LAL_PI, LAL_TWOPI, LAL_MTSUN_SI
 from pylal.xlal import inject
 from pylal.xlal import tools
 
