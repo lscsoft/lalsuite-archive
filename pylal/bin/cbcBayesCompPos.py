@@ -60,10 +60,6 @@ confidenceLevels=[0.67,0.9,0.95]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec']]
 allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)']
 
-contour_figsize=(7,6)
-contour_dpi=250
-contour_figposition=[0.2,0.2,0.48,0.75]
-
 def open_url(url,username,password):
 
     import urllib
@@ -274,8 +270,12 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(7,6),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75]):
 
+    
+    
+    
+    
     injection=None
 
     if injection_path is not None and os.path.exists(injection_path) and eventnum is not None:
@@ -442,7 +442,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     name_list=[]
                     cs_list=[]
 
-                    cllst=[0.90]
+                    cllst=[0.9]
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
 
                     fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,cllst,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
@@ -508,6 +508,11 @@ if __name__ == '__main__':
     parser.add_option("-x",dest="password",help="Password for https authenticated content (optional).")
     parser.add_option("--reload",dest="reload_flag",action="store_true",help="Re-download all pos files (optional).")
     parser.add_option("--hide-cl-lines",dest="clf",action="store_false",default=True,help="Hide confidence level lines on 1D plots for clarity (optional).")
+    parser.add_option("--contour-dpi",dest="cdpi",default=250,help="DPI for contour plot (optional).")
+    parser.add_option("--contour-width",dest="cw",default=7,help="Width (in inches) of contour plots (optional).")
+    parser.add_option("--contour-height",dest="ch",default=6,help="Height (in inches) of contour plots (optional).")
+    parser.add_option("--contour-plot-width",dest="cpw",default=0.5,help="Relative width of plot element 0.15<width<1 (optional).")
+    parser.add_option("--contour-plot-height",dest="cph",default=0.76,help="Relative height of plot element 0.15<width<1 (optional).")
     (opts,args)=parser.parse_args()
 
     if opts.outpath is None:
@@ -531,7 +536,7 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf)
+    greedy2savepaths,oned_data=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)])
 
     ####Print HTML!#######
 
