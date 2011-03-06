@@ -69,9 +69,9 @@ def coalesce_seg(database, start_time, end_time):
 
   
     # prepare values for the new row to be inserted into the process table
-    program = sys.argv[0].replace('./','')
+    program = os.path.abspath(sys.argv[0])
     node = socket.gethostname()
-    username = pwd.getpwuid(os.getuid())[0]
+    username = pwd.getpwuid(os.getuid()).pw_name
     unix_procid = os.getpid()
     proc_start_time = gpstime.GpsSecondsFromPyUTC(time.time())
     end_time = None
