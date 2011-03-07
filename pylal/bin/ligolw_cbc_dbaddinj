@@ -21,6 +21,8 @@ from glue.ligolw import dbtables
 from glue.ligolw.utils import process
 from glue import git_version
 
+from pylal import ligolw_sqlutils as sqlutils
+
 __prog__ = "ligolw_cbc_dbaddinj"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 
@@ -52,6 +54,11 @@ def parse_command_line():
         help =
             "Injection file to add and to point experiments to."
             )
+    parser.add_option( "-s", "--sim-table", action = "store", type = "string", default = None,
+        help =
+            "Simulation table to get the injections' process ids from. If multiple injection tables exist " +
+            "in the injection-file, just pick one. Examples are sim_inspiral, sim_ringdown."
+            )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help =
@@ -72,6 +79,8 @@ def parse_command_line():
     # check for required options and for self-consistency
     if not options.database:
         raise ValueError, "No database specified."
+    if options.sim_table is None:
+        raise ValueError, "sim-table is a required argument"
 
     return options, sys.argv[1:]
 
@@ -92,6 +101,9 @@ if not os.path.isfile( filename ):
 # get Injection file
 if not ( os.path.isfile( opts.injection_file ) or urllib2.urlopen( opts.injection_file ) ):
     raise ValueError, "The injection file, %s, cannot be found." % opts.injection_file
+
+# get sim table
+sim_table = sqlutils.validate_option( opts.sim_table )
 
 # Setup working databases and connections
 if opts.verbose: 
@@ -129,7 +141,7 @@ if opts.verbose:
 
 # the process_id of the added injection file should be whatever the
 # largest process_id is in the sim_inspiral table
-sqlquery = """
+sqlquery = ''.join(["""
     UPDATE
         experiment_summary
     SET
@@ -137,13 +149,13 @@ sqlquery = """
             SELECT DISTINCT 
                 process_id 
             FROM 
-                sim_inspiral 
+                """, sim_table, """ 
             ORDER BY 
                 process_id 
             DESC LIMIT 1 ) 
     WHERE 
         sim_proc_id IS NULL
-    """
+    """])
 if opts.debug:
     import time
     print >> sys.stderr, sqlquery
