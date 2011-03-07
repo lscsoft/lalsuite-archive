@@ -220,8 +220,8 @@ def instrumentgroup_plot(key, xcoords, background_data, injections_data):
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
-	axes.plot(xcoords, background_data, "ko-", label = "Background")
-	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
+	axes.semilogy(xcoords, background_data, "ko-", label = "Background")
+	axes.semilogy(xcoords, injections_data, "ro-", label = "Injections")
 	axes.legend(loc = "upper right")
 
 	axes.set_title("Detector Coincidence")
@@ -318,7 +318,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	elif name == "instrumentgroup":
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
-		fig = nevents_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
+		fig = instrumentgroup_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
 		for extension in options.format:
 			outname = "%s.%s" % (name, extension)
 			if options.verbose:
