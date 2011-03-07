@@ -158,6 +158,11 @@ def parse_command_line():
         help = 
             "enable the generation of html and cache documents" 
         )
+    parser.add_option( "", "--coinc-table", action = "store", type = "string",\
+        default =  None, \
+        help = 
+            "Required. Can be any table with a coinc_event_id and a time column. Ex. coinc_inspiral." 
+        )
     parser.add_option( "-s", "--show-plot", action = "store_true", default = False, \
         help = 
             "display the plots on the terminal" 
@@ -319,6 +324,8 @@ if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
+coinc_table = sqlutils.validate_option( opts.coinc_table )
+
 #
 #   Plotting Initialization
 #
@@ -345,7 +352,7 @@ trigsymbols = itertools.cycle(( 'v', 'o', 's' ))
 linestyles = itertools.cycle(( ':', '-.', '--' ))
 if opts.param_name:
     opts.param_name, param_label = len(opts.param_name.split(':')) == 2 and opts.param_name.split(':') or [opts.param_name, opts.param_name.replace('_', ' ')]
-    param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name,
+    param_parser = sqlutils.parse_param_ranges( coinc_table, opts.param_name,
         opts.param_ranges, verbose = opts.verbose )
     param_name = param_parser.param.split('.')[1]
     connection.create_function("group_by_param", 1, param_parser.group_by_param_range)
@@ -385,11 +392,11 @@ connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 
 # get desired ifo grouping for uncombined plots
 if opts.group_by_ifos:
-    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping_table = coinc_table
     ifo_grouping = '.'.join([ ifo_grouping_table, 'ifos' ])
     opts.group_by_multiplicity = False # done so later coloring/labelling will be correct
 elif opts.group_by_multiplicity:
-    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping_table = coinc_table
     ifo_grouping = ''.join(['get_ifo_multiplicity(', ifo_grouping_table, '.ifos)'])
     connection.create_function('get_ifo_multiplicity', 1, get_ifo_multiplicity)
 else:
@@ -397,8 +404,8 @@ else:
     ifo_grouping = '"ALL_IFOS"'
 
 # get combined and uncombined columns
-uncombined_column = '.'.join([ 'coinc_inspiral', sqlutils.validate_option( opts.uncombined_column ) ])
-combined_column = '.'.join([ 'coinc_inspiral', sqlutils.validate_option( opts.combined_column ) ])
+uncombined_column = '.'.join([ coinc_table, sqlutils.validate_option( opts.uncombined_column ) ])
+combined_column = '.'.join([ coinc_table, sqlutils.validate_option( opts.combined_column ) ])
 
 #
 #   Cycle over each available experiment, collecting information
@@ -477,11 +484,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             """, uncombined_column, """,
             """, combined_column, """
         FROM 
-            coinc_inspiral
+            """, coinc_table, """
         JOIN 
             experiment_summary, experiment_map ON (
                 experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
+                AND experiment_map.coinc_event_id == """, coinc_table, """.coinc_event_id)
         WHERE 
             experiment_summary.experiment_id == ? AND (
                 experiment_summary.datatype == "slide" 
@@ -511,11 +518,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             """, ifo_grouping, """,
             """, param_grouping, """
             FROM 
-                coinc_inspiral
+                """, coinc_table, """
             JOIN 
                 experiment_summary, experiment_map ON (
                     experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                    AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
+                    AND experiment_map.coinc_event_id == """, coinc_table, """.coinc_event_id )
             WHERE 
                 experiment_summary.experiment_id == ? AND
                 experiment_summary.datatype == "slide"
