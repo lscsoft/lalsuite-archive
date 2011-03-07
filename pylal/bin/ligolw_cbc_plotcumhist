@@ -69,6 +69,11 @@ def parse_command_line():
         help = 
             "enable the generation of html and cache documents" 
         )
+    parser.add_option( "", "--coinc-table", action = "store", type = "string", \
+        default = None, \
+        help =
+            "Required. Can be any table with a coinc_event_id and a time column. Ex. coinc_inspiral."
+        )
     parser.add_option( "-p", "--plot-playground-only", action = "store_true",
         default = False,
         help =
@@ -90,7 +95,7 @@ def parse_command_line():
     parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
         help =
             "Required. The stat to use to rank triggers for plotting. " +
-            "This can be any column in the coinc_inspiral table."
+            "This can be any column in the coinc_inspiral  table."
         )
     parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
         metavar = "MAX or MIN",
@@ -245,6 +250,8 @@ if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
+coinc_table = sqlutils.validate_option( opts.coinc_table )
+
 #
 #   Plotting Initialization
 #
@@ -271,10 +278,10 @@ nbins = opts.num_bins
 if " " in opts.ranking_stat.strip():
     raise ValueError, "ranking-stat must not contain spaces"
 ranking_stat =  opts.ranking_stat.strip()
-if 'coinc_inspiral.' not in ranking_stat:
-    ranking_stat = '.'.join(['coinc_inspiral', ranking_stat])
+if coinc_table+'.' not in ranking_stat:
+    ranking_stat = '.'.join([coinc_table, ranking_stat])
 # set plot-stat: this is just for plot titles and file naming
-plot_stat_name = ranking_stat.replace('coinc_inspiral.', '')
+plot_stat_name = ranking_stat.replace(coinc_table+'.', '')
 if opts.square_stats:
     plot_stat_name += '$^{2}$'
 
@@ -285,7 +292,7 @@ if rank_by != 'MAX' and rank_by != 'MIN':
 # get param-ranges
 if opts.param_name:
     trigsymbols = itertools.cycle(( 'v', 'o', 's' ))
-    param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name,
+    param_parser = sqlutils.parse_param_ranges( coinc_table, opts.param_name,
         opts.param_ranges, verbose = opts.verbose )
     param_name = param_parser.param.split('.')[1]
     connection.create_function("group_by_param", 1, param_parser.group_by_param_range)
@@ -343,15 +350,15 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             experiment_summary.experiment_summ_id,
             experiment_summary.duration,
             experiment_summary.datatype,
-            coinc_inspiral.ifos,
+            """, coinc_table, """.ifos,
             """, param_grouping, """,
             """, ranking_stat, """
         FROM
             experiment_summary
         JOIN
-            coinc_inspiral, experiment_map ON (
+            """, coinc_table, """, experiment_map ON (
                 experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
+                AND experiment_map.coinc_event_id == """, coinc_table, """.coinc_event_id )
         WHERE
             experiment_summary.datatype != "simulation"
             AND experiment_summary.experiment_id == """, '"', this_eid, '"' ])
