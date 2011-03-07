@@ -13,6 +13,7 @@ A collection of utilities to assist in printing out information from an xmldoc.
 import sys, re, math
 import time, datetime
 
+from glue.iterutils import any
 from glue.ligolw.utils import print_tables
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -103,8 +104,8 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")][0]
         columnList = [
             rankname,
-            'injected_end_time',
-            'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
+            'injected_gps_time',
+            'injected_event_time_utc__Px_click_for_daily_ihope_xP_',
             'elogs',
             'mini_followup',
             'omega_scan',
@@ -119,13 +120,13 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'recovered_fap',
             'recovered_fap_1yr',
             'recovered_snr',
-            'recovered_end_time',
+            'recovered_gps_time',
             'recovered_mchirp',
             'recovered_mass']
         row_span_columns = rspan_break_columns = [
             rankname,
-            'injected_end_time',
-            'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
+            'injected_gps_time',
+            'injected_event_time_utc__Px_click_for_daily_ihope_xP_',
             'elogs',
             'mini_followup',
             'omega_scan',
@@ -138,8 +139,8 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
         columnList = [
             'rank',
             'decisive_distance',
-            'end_time',
-            'end_time_utc__Px_click_for_daily_ihope_xP_',
+            'gps_time',
+            'injection_time_utc__Px_click_for_daily_ihope_xP_',
             'elogs',
             'mchirp',
             'mass1',
@@ -470,7 +471,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
             injected_cols.append('simulation_id')
         else:
             injected_cols.append('injected_'+col)
-    injected_cols.extend(['injected_decisive_distance','injected_end_time', 'injected_end_time_ns', 'injected_end_time_utc__Px_click_for_daily_ihope_xP_'])
+    injected_cols.extend(['injected_decisive_distance','injected_gps_time', 'injected_gps_time_ns', 'injected_event_time_utc__Px_click_for_daily_ihope_xP_'])
     
     # Get list of column names from the recovery table
     recovered_cols = []
@@ -494,6 +495,13 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
         validcolumns = dict([ [col, sqlutils.get_col_type(simulation_table, col)] for col in simulation_table_columns ])
     class tmpSim(object):
         __slots__ = tmpSimTable.validcolumns.keys()
+        def get_gps_time(self, site):
+            if '%s_start_time' % site in self.__slots__:
+                return LIGOTimeGPS(getattr(self, '%s_start_time' % site ), getattr(self, '%s_start_time_ns' % site))
+            elif '%s_end_time' % site in self.__slots__:
+                return LIGOTimeGPS(getattr(self, '%s_end_time' % site ), getattr(self, '%s_end_time_ns' % site))
+            else:
+                raise AttributeError, "could not find an injected %s_start_time nor an injected %s_end_time" %(site,site)
         def get_pyvalue(self):
             return generic_get_pyvalue(self)
     
@@ -502,6 +510,13 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
         validcolumns = dict([ [col, sqlutils.get_col_type(recovery_table, col)] for col in recovery_table_columns ])
     class tmpRec(object):
         __slots__ = tmpRecTable.validcolumns.keys()
+        def get_gps_time(self):
+            if 'start_time' in self.__slots__:
+                return LIGOTimeGPS(self.start_time, self.start_time_ns)
+            elif 'end_time' in self.__slots__:
+                return LIGOTimeGPS(self.end_time, self.end_time_ns)
+            else:
+                raise AttributeError, "could not find a recovered start_time or recovered end_time"
         def get_pyvalue(self):
             return generic_get_pyvalue(self)
     
@@ -515,7 +530,9 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
                 validcolumns[col_name] = "real_8"
             elif 'instruments_on' == col_name:
                 validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
-            elif col_name == 'injected_end_time' or col_name == 'injected_end_time_ns':
+            elif col_name == 'injected_start_time' or col_name == 'injected_start_time_ns':
+                validcolumns[col_name] = "int_4s"
+            elif col_name == 'injected_gps_time' or col_name == 'injected_gps_time_ns':
                 validcolumns[col_name] = "int_4s"
             elif col_name == 'injected_decisive_distance':
                 validcolumns[col_name] = "real_8"
@@ -533,6 +550,42 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     class SelectedFound(object):
         __slots__ = SelectedFoundTable.validcolumns.keys()
     
+        def set_recovered_gps_time(self, gps_time):
+            if 'recovered_start_time' in self.__slots__:
+                self.recovered_start_time = gps_time.seconds
+                self.recovered_start_time_ns = gps_time.nanoseconds
+            elif 'recovered_end_time' in self.__slots__:
+                self.recovered_end_time = gps_time.seconds
+                self.recovered_end_time_ns = gps_time.nanoseconds
+            else:
+                raise AttributeError, "could not find a recovered_start_time or recovered_end_time"
+
+        def get_recovered_gps_time(self):
+            if 'recovered_start_time' in self.__slots__:
+                return LIGOTimeGPS(self.recovered_start_time, self.recovered_start_time_ns)
+            elif 'recovered_end_time' in self.__slots__:
+                return LIGOTimeGPS(self.recovered_end_time, self.recovered_end_time_ns)
+            else:
+                raise AttributeError, "could not find a recovered_start_time or recovered_end_time"
+
+        def set_injected_gps_time(self, site, gps_time):
+            if 'injected_%s_start_time' % site in self.__slots__:
+                setattr(self, 'injected_%s_start_time' % site, gps_time.seconds)
+                setattr(self, 'injected_%s_start_time_ns' % site, gps_time.nanoseconds)
+            elif 'injected_%s_end_time' % site in self.__slots__:
+                setattr(self, 'injected_%s_end_time' % site, gps_time.seconds)
+                setattr(self, 'injected_%s_end_time_ns' % site, gps_time.nanoseconds)
+            else:
+                raise AttributeError, "could not find an injected_%s_start_time nor an injected_%s_end_time" %(site,site)
+
+        def get_injected_gps_time(self, site):
+            if 'injected_%s_start_time' % site in self.__slots__:
+                return LIGOTimeGPS(getattr(self, 'injected_%s_start_time' % site ), getattr(self, 'injected_%s_start_time_ns' % site))
+            elif 'injected_%s_end_time' % site in self.__slots__:
+                return LIGOTimeGPS(getattr(self, 'injected_%s_end_time' % site ), getattr(self, 'injected_%s_end_time_ns' % site))
+            else:
+                raise AttributeError, "could not find an injected_%s_start_time nor an injected_%s_end_time" %(site,site)
+
         def get_pyvalue(self):
             return generic_get_pyvalue(self)
     
@@ -606,8 +659,9 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
         sfrow.recovered_match_rank = current_match_rank
         # set the injected parameters
         use_this_site = sorted(on_instruments)[0][0].lower()
-        sfrow.injected_end_time = getattr( tmp_sim_row, use_this_site+'_end_time' )
-        sfrow.injected_end_time_ns = getattr( tmp_sim_row, use_this_site+'_end_time_ns' )
+        injected_time = tmp_sim_row.get_gps_time( use_this_site )
+        sfrow.injected_gps_time = injected_time.seconds
+        sfrow.injected_gps_time_ns = injected_time.nanoseconds
         for col in simulation_table_columns:
             if col == "simulation_id":
                 sfrow.simulation_id = tmp_sim_row.simulation_id 
@@ -628,12 +682,12 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
             sfrow.recovered_fap = None
             sfrow.recovered_fap_1yr = None
         # set elog page
-        elog_pages = [(ifo, get_elog_page(ifo, sfrow.injected_end_time)) for ifo in on_instruments]
+        elog_pages = [(ifo, get_elog_page(ifo, sfrow.injected_gps_time)) for ifo in on_instruments]
         sfrow.elogs = ','.join([ create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
         # set daily_ihope page
-        end_time_utc = format_end_time_in_utc( sfrow.injected_end_time ) 
-        daily_ihope_address = get_daily_ihope_page(sfrow.injected_end_time, pages_location = daily_ihope_pages_location)
-        sfrow.injected_end_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, end_time_utc ) 
+        event_time_utc = format_end_time_in_utc( sfrow.injected_gps_time ) 
+        daily_ihope_address = get_daily_ihope_page(sfrow.injected_gps_time, pages_location = daily_ihope_pages_location)
+        sfrow.injected_event_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, event_time_utc ) 
         # set any other info
         sfrow.instruments_on = ','.join(sorted(on_instruments))
         sfrow.injected_decisive_distance = sorted([getattr(sfrow, 'injected_eff_dist_%s' % ifo[0].lower()) for ifo in on_instruments])[1]
@@ -662,7 +716,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
 
 
 
-def printmissed(connection, simulation_table, recovery_table,
+def printmissed(connection, simulation_table, recovery_table, livetime_program,
     param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ',
     limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
@@ -685,7 +739,7 @@ def printmissed(connection, simulation_table, recovery_table,
     # Get simulation table column names from database
     simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
     column_names = simulation_table_columns + \
-        ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'instruments_on', 'veto_def_name', 'mini_followup','omega_scan', 'sim_tag']
+        ['rank', 'decisive_distance', 'gps_time', 'gps_time_ns', 'injection_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'instruments_on', 'veto_def_name', 'mini_followup','omega_scan', 'sim_tag']
     
     
     # define needed tables
@@ -701,7 +755,7 @@ def printmissed(connection, simulation_table, recovery_table,
                 validcolumns[col_name] = lsctables.ExperimentSummaryTable.validcolumns['veto_def_name']
             elif 'decisive_distance' == col_name:
                 validcolumns[col_name] = sqlutils.get_col_type(simulation_table, 'eff_dist_h')
-            elif 'end_time' == col_name or 'end_time_ns' == col_name:
+            elif 'gps_time' == col_name or 'gps_time_ns' == col_name:
                 validcolumns[col_name] = "int_4s"
             elif 'sim_tag' == col_name:
                 validcolumns[col_name] = "lstring"
@@ -757,7 +811,9 @@ def printmissed(connection, simulation_table, recovery_table,
     #   Get the veto segments
     #
 
-    ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
+    ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = livetime_program)
+    if ring_sets == {}:
+        raise ValueError, "Cannot find any analysis segments using %s as a livetime program; cannot get missed injections." % livetime_program
     
     if verbose:
         print >> sys.stderr, "Getting all veto category names from the experiment_summary table..."
@@ -831,15 +887,17 @@ def printmissed(connection, simulation_table, recovery_table,
             for instrument in on_instruments:
                 on_times = on_times - veto_segments[instrument]
             
-            def is_in_on_time(gps_end_time, gps_end_time_ns):
-                return LIGOTimeGPS(gps_end_time, gps_end_time_ns) in on_times
+            def is_in_on_time(gps_time, gps_time_ns):
+                return LIGOTimeGPS(gps_time, gps_time_ns) in on_times
             
             connection.create_function('is_in_on_time', 2, is_in_on_time)
             
             # add the check for on time to the filter
             in_this_filter = filter
+            # figure out if simulation_table has end_times or start_times
+            end_or_start = any('end_time' in c for c in simulation_table_columns) and '_end_time' or '_start_time'
             for instrument in on_instruments:
-                inst_time = instrument.lower()[0] + '_end_time'
+                inst_time = instrument.lower()[0] + end_or_start
                 inst_time_ns = inst_time + '_ns' 
                 in_this_filter = ''.join([ in_this_filter,
                     '\n\tAND is_in_on_time(', inst_time, ',', inst_time_ns, ')' ])
@@ -896,15 +954,15 @@ def printmissed(connection, simulation_table, recovery_table,
                 cmrow.sim_tag = values[-3]
                 cmrow.mini_followup = None
                 cmrow.omega_scan = None
-                cmrow.end_time = getattr(cmrow, sorted(on_instruments)[0][0].lower() + '_end_time')
-                cmrow.end_time_ns = getattr(cmrow, sorted(on_instruments)[0][0].lower() + '_end_time_ns')
+                cmrow.gps_time = getattr(cmrow, sorted(on_instruments)[0][0].lower() + end_or_start)
+                cmrow.gps_time_ns = getattr(cmrow, sorted(on_instruments)[0][0].lower() + end_or_start + '_ns')
                 # set  elog page
-                elog_pages = [(ifo, get_elog_page(ifo, cmrow.end_time)) for ifo in on_instruments]
+                elog_pages = [(ifo, get_elog_page(ifo, cmrow.gps_time)) for ifo in on_instruments]
                 cmrow.elogs = ','.join([ create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
                 # set daily_ihope page
-                end_time_utc = format_end_time_in_utc( cmrow.end_time ) 
-                daily_ihope_address = get_daily_ihope_page(cmrow.end_time, pages_location = daily_ihope_pages_location)
-                cmrow.end_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, end_time_utc ) 
+                injection_time_utc = format_end_time_in_utc( cmrow.gps_time ) 
+                daily_ihope_address = get_daily_ihope_page(cmrow.gps_time, pages_location = daily_ihope_pages_location)
+                cmrow.injection_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, injection_time_utc ) 
             
                 # add the row
                 cmtable.append(cmrow)
