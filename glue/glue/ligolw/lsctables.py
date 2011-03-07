@@ -1492,8 +1492,10 @@ class SnglRingdownTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = SnglRingdownID(0)
-	interncolumns = ("process_id", "ifo", "search", "channel")
+	interncolumns = ("process_id", "ifo", "channel")
 
+	def get_start(self):
+		return [row.get_start() for row in self]
 
 class SnglRingdown(object):
 	__slots__ = SnglRingdownTable.validcolumns.keys()
@@ -1504,9 +1506,18 @@ class SnglRingdown(object):
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_id_parts(self):
+		"""
+		Return the three pieces of the int_8s-style event_id.
+		"""
+		int_event_id = int(self.event_id)
+		a = int_event_id // 1000000000
+		slidenum = (int_event_id % 1000000000) // 100000
+		b = int_event_id % 100000
+		return int(a), int(slidenum), int(b)
+
 
 SnglRingdownTable.RowType = SnglRingdown
-
 
 #
 # =============================================================================
@@ -1526,10 +1537,14 @@ class CoincRingdownTable(table.Table):
 		"start_time_ns": "int_4s",
 		"frequency": "real_8",
 		"quality": "real_8",
+		"ds2_H1H2": "real_8",
+		"ds2_H1L1": "real_8",
+		"ds2_H2L1": "real_8",
 		"snr": "real_8",
-		"false_alarm_rate": "real_8"
+		"false_alarm_rate": "real_8",
+		"combined_far": "real_8"
 	}
-	constraints = "PRIMARY KEY (coinc_event_id)"
+	# constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
 		"cr_cei_index": ("coinc_event_id",)
 	}
@@ -1956,6 +1971,8 @@ class SimRingdownTable(table.Table):
 		"h_start_time_ns": "int_4s",
 		"l_start_time": "int_4s",
 		"l_start_time_ns": "int_4s",
+		"v_start_time": "int_4s",
+		"v_start_time_ns": "int_4s",
 		"start_time_gmst": "real_8",
 		"longitude": "real_4",
 		"latitude": "real_4",
@@ -1971,9 +1988,11 @@ class SimRingdownTable(table.Table):
 		"amplitude": "real_4",
 		"eff_dist_h": "real_4",
 		"eff_dist_l": "real_4",
+		"eff_dist_v": "real_4",
 		"hrss": "real_4",
 		"hrss_h": "real_4",
 		"hrss_l": "real_4",
+		"hrss_v": "real_4",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
