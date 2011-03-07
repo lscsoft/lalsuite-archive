@@ -4,10 +4,14 @@ from scipy import interpolate
 import bisect
 import sys
 
+import matplotlib
+matplotlib.use("agg")
+from matplotlib import pyplot
+
 from pylal import rate
 
 
-L10s_per_Mpc3 = 50.0 #FIXME
+L10s_per_Mpc3 = 1./50.0 #FIXME
 
 
 def compute_posterior(vA, vA2, dvA, mu, prior):
@@ -95,42 +99,54 @@ def confidence_interval( mu, post, alpha = 0.9 ):
     return mu_low, mu_high
 
 
-def compute_efficiency( f_dist, m_dist, dbins = None):
+def integrate_efficiency(dbins, eff, err=0, logbins=False):
+
+    if logbins:
+        logd = numpy.log10(dbins)
+        dlogd = logd[1:]-logd[:-1]
+        dreps = 10**((numpy.log10(dbins[1:])+numpy.log10(dbins[:-1]))/2) # log midpoint
+        vol = numpy.sum( 4*numpy.pi *dreps**3 *eff *dlogd )
+        verr = numpy.sum( (4*numpy.pi *dreps**3 *err *dlogd)**2 ) #propagate errors in eff to errors in v
+    else:
+        dd = dbins[1:]-dbins[:-1]
+        dreps = (dbins[1:]+dbins[:-1])/2 #midpoint
+        vol = numpy.sum( 4*numpy.pi *dreps**2 *eff *dd )
+        verr = numpy.sum( (4*numpy.pi *dreps**2 *err *dd)**2 ) #propagate errors in eff to errors in v
+
+    verr = numpy.sqrt(verr)
+
+    return vol, verr
+
+
+def compute_efficiency(f_dist,m_dist,dbins):
     '''
     Compute the efficiency as a function of distance for the given sets of found
     and missed injection distances.
+    Note that injections that do not fit into any dbin get lost :(.
     '''
-    if dbins is None:
-        dbins = numpy.logspace( numpy.min(numpy.log10(f_dist)), numpy.max(numpy.log10(f_dist)), 50)
-
     efficiency = numpy.zeros( len(dbins)-1 )
     for j, dlow in enumerate(dbins[:-1]):
         dhigh = dbins[j+1]
         found = numpy.sum( f_dist[(dlow <= f_dist)*(f_dist < dhigh)] )
         missed = numpy.sum( m_dist[(dlow <= m_dist)*(m_dist < dhigh)] )
         if found+missed == 0: missed = 1.0 #avoid divide by 0 in empty bins
-        efficiency[j] = found /(found + missed)
+        efficiency[j] = 1.0*found /(found + missed)
 
-    return dbins, efficiency
-
-
-def integrate_efficiency(dbins, efficiency):
-    logd = numpy.log(dbins)
-    dlogd = logd[1:]-logd[:-1]
-    vol = numpy.sum( 4*numpy.pi *dbins[:-1]**3 *efficiency *dlogd )
-    return vol
+    return efficiency
 
 
-def compute_luminosity_from_volume(found, missed, dbins=None, bootnum=1, relerr=0.0):
-    """
-    FIXME
-    """
-    # convert to distances
+def mean_efficiency(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
+
+    if len(found) == 0: # no efficiency here
+        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1)
+
+    # only need distances
     found_dist = numpy.array([l.distance for l in found])
     missed_dist = numpy.array([l.distance for l in missed])
 
-    # store the volume for each bootstrap trial
-    lum = numpy.zeros(bootnum)
+    # initialize the efficiency array
+    eff = numpy.zeros(len(dbins)-1)
+    eff2 = numpy.zeros(len(dbins)-1)
 
     # bootstrap to account for statistical and amplitude calibration errors
     for trial in range(bootnum):
@@ -142,17 +158,22 @@ def compute_luminosity_from_volume(found, missed, dbins=None, bootnum=1, relerr=
           m_dist = numpy.array([missed_dist[-(i+1)] for i in ix if i < 0])
 
           # apply log-normal random amplitude (distance) error
-          f_dist *= numpy.exp( relerr*random.randn(len(f_dist)) )
-          m_dist *= numpy.exp( relerr*random.randn(len(m_dist)) )
+          f_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(f_dist)) )
+          m_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(m_dist)) )
       else:
           # use what we got first time through
           f_dist, m_dist = found_dist, missed_dist
 
-      # compute the efficiency and volume
-      dbins, efficiency = compute_efficiency( f_dist, m_dist, dbins )
-      lum[trial] = L10s_per_Mpc3*integrate_efficiency( dbins, efficiency )
+      # compute the efficiency and its variance
+      tmpeff = compute_efficiency(f_dist,m_dist,dbins)
+      eff += tmpeff
+      eff2 += tmpeff**2
 
-    return lum
+    eff /= bootnum #normalize
+    eff2 /= bootnum
+    err = numpy.sqrt(eff2-eff**2)
+
+    return eff, err
 
 
 def find_host_luminosity(inj, catalog):
@@ -207,11 +228,13 @@ def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
         newinjs = [l for l in injs if (mlow <= l.mass1+l.mass2 < mhigh)]
     elif bin_type == "Component_Mass": #it is assumed that m2 is fixed
         newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
+    elif bin_type == "BNS_BBH":
+        newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
 
     return newinjs
 
 
-def compute_luminosity_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalog=None, dbins=None):
+def compute_luminosity_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalog=None, dbins=None, relerr=0.0, syserr=0.0, ploteff=False,logd=False):
     """
     Compute the average luminosity an experiment was sensitive to given the sets
     of found and missed injections and assuming luminosity is unformly distributed
@@ -228,6 +251,8 @@ def compute_luminosity_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, ca
     #
     # compute the mean luminosity in each mass bin
     #
+    effvmass = []
+    errvmass = []
     for ml,mc,mh in zip(mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
 
         # filter out injections not in this mass bin
@@ -237,18 +262,16 @@ def compute_luminosity_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, ca
         foundArray[(mc,)] = len(newfound)
         missedArray[(mc,)] = len(newmissed)
 
-        if len(newfound) == 0: continue #no sensitivity in this mass bin
-
         # compute the volume using this injection set
-        if catalog is None:
-            lum = compute_luminosity_from_volume(newfound, newmissed, bootnum=bootnum, dbins=dbins)
-        else:
-            lum = compute_luminosity_from_catalog(newfound, newmissed, catalog)
+        eff, err = mean_efficiency(newfound, newmissed, dbins, bootnum=bootnum, randerr=relerr, syserr=syserr)
+        effvmass.append(eff)
+        errvmass.append(err)
+        lum, lerr = [L10s_per_Mpc3*v for v in integrate_efficiency(dbins, eff, err, logd)]
 
-        lumArray[(mc,)] = lum.mean()
-        lum2Array[(mc,)] = lum.std()
+        lumArray[(mc,)] = lum
+        lum2Array[(mc,)] = lerr
 
-    return lumArray, lum2Array, foundArray, missedArray
+    return lumArray, lum2Array, foundArray, missedArray, effvmass, errvmass
 
 
 def log_volume_derivative_fit(x, vols, xhat):
@@ -256,6 +279,10 @@ def log_volume_derivative_fit(x, vols, xhat):
     Relies on scipy spline fits for each mass bin to find the (logarithmic)
     derivitave of the search volume vs x at the given xhat.
     '''
+    if numpy.min(vols) == 0:
+        print >> sys.stderr, "Warning: cannot fit to log-volume."
+        return 0
+
     fit = interpolate.splrep(x,numpy.log10(vols),k=3)
     val = interpolate.splev(xhat,fit,der=1)
     if val < 0:

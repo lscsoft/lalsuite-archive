@@ -11,6 +11,10 @@ except ImportError:
   # pre 2.5.x
   from pysqlite2 import dbapi2 as sqlite3
 
+import matplotlib
+matplotlib.use("agg")
+from matplotlib import pyplot
+
 import os
 import sys
 import copy
@@ -50,11 +54,21 @@ def chirp_mass(m1,m2):
   mtotal = m1+m2
   return mu**(3./5) *mtotal**(2./5)
 
+def plot_efficiency(eff,err,dbins,mass_bins,tag):
+  for j,ml,mc,mh in zip(range(len(mass_bins.centres()[0])),mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
+    pyplot.errorbar(dbins[:-1], eff[j], yerr=err[j],label="%.1f-%.1f"%(ml,mh))
+
+  pyplot.legend(loc='upper right')
+  pyplot.ylim([0,1])
+  pyplot.xlabel("Distance (Mpc)")
+  pyplot.ylabel("Efficiency")
+  pyplot.savefig(tag +".png")
+  pyplot.close()
+
 
 #
 # Functions for reading from results DB
 #
-
 def get_on_instruments(connection):
   '''
   Retrieve the sets of instruments which were on during the search.
@@ -148,6 +162,8 @@ class upper_limit(object):
       self.mass_bins["Component_Mass"] = self.set_component_mass_bins()
     if self.opts.bin_by_chirp_mass:
       self.mass_bins["Chirp_Mass"] = self.set_chirp_mass_bins()
+    if self.opts.bin_by_bns_bbh:
+      self.mass_bins["BNS_BBH"] = self.set_bns_bbh_bins()
 
     # get the rest of the goodies
     self.get_segments()                   #get single ifo segments with vetoes applied
@@ -222,14 +238,19 @@ class upper_limit(object):
 
   def get_distance_bins(self):
     '''Determine distance bins to use for the calculation.'''
-    self.dmin = float('inf')
-    self.dmax = 0
+    self.dbins = {}
     for instr in self.instruments:
-      f,m = self.get_injections(instr,0)
-      self.dmin = numpy.min([ self.dmin, numpy.min([j.distance for j in m]) ])
-      self.dmax = numpy.max([ self.dmax, numpy.max([j.distance for j in m]) ])
+      f,m = self.get_injections(instr,FAR=-1)
+      # only need missed distances (no found injections here ;)
+      missed_dist = numpy.array([l.distance for l in m])
+      dmin = numpy.min(missed_dist) #if the code breaks here, just give up
+      dmax = numpy.max(missed_dist)
+      #calibration errors can kick injections outside dmin,dmax
+      if self.opts.log_dist_bins:
+        self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
+      else:
+        self.dbins[instr] = numpy.linspace(0.5*dmin, 1.5*dmax,self.opts.dist_bins)
 
-    self.dbins = rate.LogarithmicBins(0.99*self.dmin,1.01*self.dmax, int(self.opts.dist_bins))
     return self.dbins
 
 
@@ -279,6 +300,15 @@ class upper_limit(object):
     self.chirp_mass_bins = rate.NDBins((rate.IrregularBins(binEdges),))
 
     return self.chirp_mass_bins
+
+
+  def set_bns_bbh_bins(self):
+    # BNS == 0
+    # NSBH == 1
+    # BBH == 2
+    # think of bin number as the number of black holes
+    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins([-0.5,0.5,1.5,2.5]),))
+    return self.bns_bbh_bins
 
 
   def get_far_thresholds(self):
@@ -338,38 +368,34 @@ class upper_limit(object):
     """
     Compute the derivative of the search volume at the FAR of the loudest event
     """
-    mass_bins = self.mass_bins[bin_type]
-
-    # use fixed distance binning to avoid binning fluctuations in volume
-    found, missed = self.get_injections(instruments,float('inf'),bin_type)
-    dbins = numpy.logspace(numpy.log10(numpy.min([l.distance for l in found])),
-                           numpy.log10(numpy.max([l.distance for l in found])),100)
-
-    # estimate the derivative by evaluating V at a few different FARs
-    print "\nCOMPUTING LAMBDA AT far=%f"%(FAR,)
+    # choose a range of fars at which to evaluate the volume
     FARh = FAR*1000
     FARl = FAR*0.0001
     nbins = 5
     fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
+    if self.opts.verbose:
+      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f"%(FAR,)
+      print >>sys.stdout, "FARs =",fars
 
+    # compute the volume in each mass bin for a few fars
     vA = []
     for far in fars:
       found, missed = self.get_injections(instruments,far)
-      print "f/m=%d/%d at far = %f" %(len(found),len(missed),far)
-      vAt, vA2t, f,m = upper_limit_utils.compute_luminosity_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, dbins=dbins)
+      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_luminosity_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
-      print vAt.array
 
     # compute the volume derivative in each mass bin
-    volDeriv = rate.BinnedArray(mass_bins)
-    for m in mass_bins.centres()[0]:
+    volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
+    for m in self.mass_bins[bin_type].centres()[0]:
       vtmp = numpy.array([v[(m,)] for v in vA])
-      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR)
-
-    # normalize derivative to search livetime
-    volDeriv.array /= self.livetime[instruments]
+      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR) /self.livetime[instruments]
+      if self.opts.verbose:
+        print >> sys.stdout, "mass bin = %f" %(m,)
+        print >> sys.stdout, "vols = ", vtmp
+        print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m,)],)
 
     return volDeriv
+
 
   def filter_injection(self,sim,bin_type):
     if sim.waveform in self.opts.exclude_sim_type:
@@ -385,6 +411,14 @@ class upper_limit(object):
         mass1 = sim.mass1 # the right mass component was there but in an inconvenient order
         sim.mass1 = sim.mass2
         sim.mass2 = mass1
+
+    if bin_type == "BNS_BBH":
+      bhs = numpy.sum([self.opts.min_bhmass < sim.mass1 < self.opts.max_bhmass,
+                       self.opts.min_bhmass < sim.mass2 < self.opts.max_bhmass])
+      nss = numpy.sum([self.opts.min_nsmass < sim.mass1 < self.opts.max_nsmass,
+                       self.opts.min_nsmass < sim.mass2 < self.opts.max_nsmass])
+      if bhs + nss == 0: return True # neither component in the right range, throw out injection
+      else: sim.mass1 = bhs # the injection will be identified by how many BHs it has
 
     return False
 
@@ -473,6 +507,13 @@ def parse_command_line():
   parser.add_option("--min-mass2", metavar = "m", type = 'float', default = 1.0, help = "Specify the minimum of the seconds component's mass bins.")
   parser.add_option("--max-mass2", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum of the seconds component's mass bins.")
 
+  # Bin injections into three
+  parser.add_option("--bin-by-bns-bbh", default = False, action = "store_true", help = "Compute the sensitive volume for three mass bins: BNS, NSBH, and BBH.")
+  parser.add_option("--min-nsmass", metavar = "m", type = 'float', default = 1.0, help = "Specify the minimum mass for a neutron star (default is 1Msun)")
+  parser.add_option("--max-nsmass", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum mass for a neutron star (default is 3Msun)")
+  parser.add_option("--min-bhmass", metavar = "m", type = 'float', default = 4.0, help = "Specify the minimum mass for a black hole (default is 4Msun)")
+  parser.add_option("--max-bhmass", metavar = "m", type = 'float', default = 6.0, help = "Specify the maximum mass for a black hole (default is 6Msun)")
+
   # Specify which instrument set to look for
   parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the minimum total mass to consider among the injections found in the DB.")
   parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum total mass to consider among the injections found in the DB.")
@@ -484,12 +525,13 @@ def parse_command_line():
   # These options control the volume uncertainty estimation.
   parser.add_option("--iterations", default = 1000, metavar = "integer", type = "int", help = "Number of trials to use for computing the mean and variance of the search volume. A good number is 10000.")
   parser.add_option("--bootstrap", default = False, action = "store_true", help = "Turn on bootstrapping (injection population resampling). Override default nubmer of trials with --iterations.")
-  parser.add_option("--dist-err", default = 0.197, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
-  parser.add_option("--dist-sys-err", default = 0.074, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst)")
+  parser.add_option("--dist-err", default = 0.20, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
+  parser.add_option("--dist-sys-err", default = 0.0, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst)")
   parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
-  parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
+  parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
+  parser.add_option("--log-dist-bins", default = False, action="store_true", help = "Number of bins to use for integration over distance.")
   parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "Number of mass bins along 1 dimension (Note the total number of mass bins will generally be less than --mass-bins * --mass-bins once the actual parameter space is carved out)")
 
   # Options to control the FAR used for computing the search volume. The default behavior is to use
@@ -521,7 +563,7 @@ def parse_command_line():
   if opts.total_mass_bins:
     opts.bin_by_total_mass = True
 
-  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass):
+  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh):
     opts.bin_by_total_mass = True # choose a default binning method
 
   return opts, filenames[0]
@@ -554,7 +596,6 @@ opts, database = parse_command_line()
 
 # read in data from input database, store in upper limit object
 UL = upper_limit(database, opts)
-
 #
 # loop over the requested instruments and mass bin types,
 # compute the search volume and volume derivative at the specified
@@ -568,7 +609,21 @@ for instruments in UL.instruments:
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
-    vA, vA2, f, m  = upper_limit_utils.compute_luminosity_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type, bootnum=opts.iterations)
+    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_luminosity_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type, bootnum=opts.iterations,relerr=opts.dist_err,syserr=opts.dist_sys_err,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+
+    # it is useful to look at the efficiencies
+    if opts.verbose:
+      tag = "%s-SEARCH_EFFICIENCY-%s-BINNED_BY_%s-%d-%d" % ("".join(sorted(list(instruments))),opts.output_name_tag,bin_type.upper(),UL.start_time,UL.end_time-UL.start_time)
+      plot_efficiency(eff,err,UL.dbins[instruments],UL.mass_bins[bin_type],tag)
+
+      wikisum = tag + ".wiki"
+      fd = open(wikisum,'w')
+      masstags = ''.join(["'''%.1f-%.1f Msun''' Vol (L10s) / Lambda||||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
+      fd.write("|| '''Analysis time''' || '''Instrument Set''' || '''Livetime''' (exc. play, secs/days) || '''FAR of Loudest Event''' (1/yr) || %s\n"%(masstags,))
+      masstags = ''.join(["  %.0f || %.1f ||"%(v,dv) for v,dv in zip(vA.array,dvA.array)])
+      fd.write("|| %d-%d || !%s || %d (%f) || %.2f || || %s\n" %(UL.start_time,UL.end_time,"".join(sorted(list(instruments))),UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),UL.far[instruments],masstags))
+      fd.close()
+
 
     vA.array *= UL.livetime[instruments] #preferred unit is L10*yr
     vA2.array *= UL.livetime[instruments] #preferred unit is L10*yr
