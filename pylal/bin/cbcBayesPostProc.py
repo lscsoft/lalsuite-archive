@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-
-# Demonstrates use of the pylal.bayespputils module for producing stats/plots based on results of
-# parameter estimation codes.
-# This version print a summary file with means and variances
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
@@ -92,7 +88,9 @@ def cbcBayesPostProc(
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
-                        twodkdeplots=False
+                        twodkdeplots=False,
+                        #Turn on R convergence tests
+                        RconvergenceTests=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -188,6 +186,7 @@ def cbcBayesPostProc(
                 print "Warning: No 'time' column!"
 
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
+    print pos.names
     if ('mc' in pos.names or 'mchirp' in pos.names) and \
     'eta' in pos.names and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and\
@@ -209,7 +208,7 @@ def cbcBayesPostProc(
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
-    elif ('m' in pos.names):  #### this is misleading: m is still the chirp mass
+    elif ('m' in pos.names):
         mchirp_name='mchirp'
         mchirp_samps=pos['m'].samples
         mchirp_pos=bppu.OneDPosterior('mchirp',mchirp_samps,injected_value=injection.mchirp)
@@ -218,6 +217,7 @@ def cbcBayesPostProc(
         inj_mass2=None
         if injection:
             inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
+
         mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
         mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
         mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
@@ -250,7 +250,7 @@ def cbcBayesPostProc(
         summary_file.write(str(BSN)+'\t')
     if bayesfactorcoherent is not None:
         summary_file.write(str(BCI)+'\t')
-    summary_file.write('\n')       
+    summary_file.write('\n')
     summary_file.close()
 
     # Compute time delays from sky position
@@ -296,45 +296,68 @@ def cbcBayesPostProc(
 
     #Calculate tilts from spin angles
     if 'theta1' in pos.names and 'phi1' in pos.names and \
-      'tilt1' not in pos.names and 'tilt2' not in pos.names:
-        inj_tilt1 = inj_tilt2 = None
+       'iota' in pos.names and \
+       'a1' in pos.names and \
+       'tilt1' not in pos.names:
+        inj_tilt1 = None
         if injection:
             inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
 
             if pos['a1'].injval != 0.0:
                 inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
                 inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
-            
+
+        S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
+        Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
+
+        tilt1_samps = arccos(S1nx*Lnx + S1ny*Lny + S1nz*Lnz)
+
+        tilt1_pos = bppu.OneDPosterior('tilt1',tilt1_samps,injected_value=inj_tilt1)
+
+        pos.append(tilt1_pos)
+
+    if 'theta2' in pos.names and 'phi2' in pos.names and \
+       'iota' in pos.names and \
+       'a2' in pos.names and \
+       'tilt2' not in pos.names:
+        inj_tilt2 = None
+        if injection:
+            inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
+
             if pos['a2'].injval != 0.0:
                 inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
                 inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
 
-        S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
         S2nx,S2ny,S2nz = bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
         Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
 
-        tilt1_samps = arccos(S1nx*Lnx + S1ny*Lny + S1nz*Lnz)
         tilt2_samps = arccos(S2nx*Lnx + S2ny*Lny + S2nz*Lnz)
 
-        tilt1_pos = bppu.OneDPosterior('tilt1',tilt1_samps,injected_value=inj_tilt1)
         tilt2_pos = bppu.OneDPosterior('tilt2',tilt2_samps,injected_value=inj_tilt2)
 
-        pos.append(tilt1_pos)
         pos.append(tilt2_pos)
 
-    if 'tilt1' in pos.names and 'tilt2' in pos.names:
-        inj_costilt1 = inj_costilt2 = None
+    if 'tilt1' in pos.names:
+        inj_costilt1 = None
+
         if injection:
             if pos['tilt1'].injval: inj_costilt1 = cos(pos['tilt1'].injval)
-            if pos['tilt2'].injval: inj_costilt2 = cos(pos['tilt2'].injval)
 
         costilt1_samps = cos(pos['tilt1'].samples)
-        costilt2_samps = cos(pos['tilt2'].samples)
-    
+
         costilt1_pos = bppu.OneDPosterior('costilt1',costilt1_samps,injected_value=inj_costilt1)
-        costilt2_pos = bppu.OneDPosterior('costilt2',costilt2_samps,injected_value=inj_costilt2)
 
         pos.append(costilt1_pos)
+
+    if 'tilt2' in pos.names:
+        inj_costilt2 = None
+        if injection:
+            if pos['tilt2'].injval: inj_costilt2 = cos(pos['tilt2'].injval)
+
+        costilt2_samps = cos(pos['tilt2'].samples)
+    
+        costilt2_pos = bppu.OneDPosterior('costilt2',costilt2_samps,injected_value=inj_costilt2)
+
         pos.append(costilt2_pos)
 
         
@@ -394,7 +417,6 @@ def cbcBayesPostProc(
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
     html_stats.write(str(pos))
-    
 
     #Create a section for the covariance matrix
     html_stats_cov=html.add_section('Covariance matrix')
@@ -513,7 +535,7 @@ def cbcBayesPostProc(
 
         toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
 
-        oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
+        #oneDContCL,oneDContInj = bppu.contigious_interval_one_param(pos,binParams,confidence_levels)
 
         #Generate new BCI html table row
         BCItableline='<tr><td>%s</td>'%(par_name)
@@ -823,6 +845,38 @@ def cbcBayesPostProc(
     #Add a link to all plots
     html_tgbh.a("greedy2Dbins/",'All 2D Greedy Bin Histograms')
 
+    if RconvergenceTests is True:
+        convergenceResults=bppu.convergenceTests(pos,gelman=False)
+        
+        if convergenceResults is not None:
+            html_conv_test=html.add_section('Convergence tests')
+            data_found=False
+            for test,test_data in convergenceResults.items():
+                
+                if test_data:
+                    data_found=True
+                    html_conv_test.h3(test)
+                                       
+                    html_conv_table_rows={}
+                    html_conv_table_header=''
+                    for chain,chain_data in test_data.items():
+                        html_conv_table_header+='<th>%s</th>'%chain
+                        
+                        
+                        for data in chain_data:
+                            if len(data)==2:
+                                try:
+                                    html_conv_table_rows[data[0]]+='<td>'+data[1]+'</td>'
+                                except KeyError:
+                                    html_conv_table_rows[data[0]]='<td>'+data[1]+'</td>'
+                                
+                    html_conv_table='<table><tr><th>Chain</th>'+html_conv_table_header+'</tr>'
+                    for row_name,row in html_conv_table_rows.items():
+                        html_conv_table+='<tr><td>%s</td>%s</tr>'%(row_name,row)
+                    html_conv_table+='</table>'
+                    html_conv_test.write(html_conv_table)
+            if data_found is False:
+                html_conv_test.p('No convergence diagnostics generated!')
     html_footer=html.add_section('')
     html_footer.p('Produced using cbcBayesPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S")+' .')
 
@@ -876,10 +930,22 @@ if __name__=='__main__':
     parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
     # Turn on 2D kdes
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
+    # Turn on R convergence tests
+    parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
+    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','massratio']
+    distParams=['distance','distMPC','dist']
+    incParams=['iota','inclination']
+    polParams=['psi']
+    skyParams=['ra','rightascension','declination','dec']
+    timeParams=['time']
+    spinParams=['a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin']
+    phaseParams=['phase']
+    endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams
+    # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     for ifo1 in ifos_menu:
         for ifo2 in ifos_menu:
@@ -887,10 +953,39 @@ if __name__=='__main__':
             oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
-    #List of parameter pairs to bin . Need to match (converted) column names.
-    for i in range(0,len(oneDMenu)):
-        for j in range(i+1,len(oneDMenu)):
-            twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+    for mp1 in massParams:
+        for mp2 in massParams:
+            if not (mp1 == mp2):
+                twoDGreedyMenu.append([mp1, mp2])
+    for mp in massParams:
+        for d in distParams:
+            twoDGreedyMenu.append([mp,d])
+    for mp in massParams:
+        for sp in spinParams:
+            twoDGreedyMenu.append([mp,sp])
+    for dp in distParams:
+        for ip in incParams:
+            twoDGreedyMenu.append([dp,ip])
+    for dp in distParams:
+        for sp in skyParams:
+            twoDGreedyMenu.append([dp,sp])
+    for dp in distParams:
+        for sp in spinParams:
+            twoDGreedyMenu.append([dp,sp])
+    for ip in incParams:
+        for sp in skyParams:
+            twoDGreedyMenu.append([ip,sp])
+    for ip in incParams:
+        for sp in spinParams:
+            twoDGreedyMenu.append([ip,sp])
+    for sp1 in skyParams:
+        for sp2 in skyParams:
+            if not (sp1 == sp2):
+                twoDGreedyMenu.append([sp1, sp2])
+    for sp1 in spinParams:
+        for sp2 in spinParams:
+            if not (sp1 == sp2):
+                twoDGreedyMenu.append([sp1, sp2])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
@@ -923,6 +1018,8 @@ if __name__=='__main__':
                         # Turn of ACF?
                         noacf=opts.noacf,
                         #Turn on 2D kdes
-                        twodkdeplots=opts.twodkdeplots
+                        twodkdeplots=opts.twodkdeplots,
+                        #Turn on R convergence tests
+                        RconvergenceTests=opts.RconvergenceTests
                     )
 #
