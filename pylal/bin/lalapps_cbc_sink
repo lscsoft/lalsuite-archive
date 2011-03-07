@@ -37,7 +37,7 @@ __prog__ = "lalapps_cbc_sink"
 # FIXME:  the latex rendering sucks :(
 matplotlib.rcParams.update({"text.usetex": False})
 
-Mpc3_per_L10 = 1./50 #FIXME
+Mpc3_per_L10 = 50.0 #FIXME
 
 def edges(bins):
   """Get the boundary points of a rate.NDBins object."""
@@ -176,24 +176,18 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
    combined_upper_limit = rate.BinnedArray(bins)
 
-   if bin_type == "BNS_BBH": # only print out the fun bins 1.35-1.35 (BNS), 5-5 (BBH) and 1.35-5 (NSBH)
-     representative_bins = [(1.3,1.3),(5.0,1.3),(5.0,5.0)]
-
    # Gather priors.
    if opts.prior_cache:
      priors = lal.Cache.fromfile(open(opts.prior_cache))
    else:
      priors = lal.Cache([])
 
-   mu_min = 1e-8
-   mu_max = 1e-2
+   mu_min = 1e-7 #FIXME don't hardcode rates
+   mu_max = 1e-1
    mu = numpy.arange(0,mu_max,mu_min) #FIXME hardcoded rates are bad
 
    # compute the combined posterior with errors included
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-     if bin_type in ["BNS_BBH"]:
-       if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-
      pk = priors.sieve(description=bin_type+":"+str(j+1))
      length = 100000
      if len(pk) == 1: # use given prior
@@ -259,20 +253,25 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.clf()
 
 
+   tick_locs = edges(bins)[0]
+   if bin_type == "BNS_BBH":
+     tick_locs += 0.5 #center the labels
+     tick_strings = ["BNS","NSBH","BBH"]
+   else:
+     tick_strings = ["%.1f"% m for m in tick_locs]
+
    #
    # combined upper limit plot
    #
-   tick_locs = edges(bins)[0]
-   tick_strings = ["%.1f"% m for m in tick_locs]
    fudge = 1e-9
    width = bins.upper()[0]-bins.lower()[0]
-   top = pylab.log10(combined_upper_limit.array)
+   top = pylab.log10(combined_upper_limit.array + fudge)
    bottom = pylab.log10(1e-10)
    pylab.bar(bins.lower()[0],top-bottom,width, bottom = bottom, color='b')
    pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=14)
    pylab.xticks(tick_locs,tick_strings)
    pylab.xlim([numpy.min(bins.lower()[0])-numpy.min(width)/2,numpy.max(bins.upper()[0])+numpy.min(width)/2])
-   pylab.ylim([-8,-2])
+   pylab.ylim([numpy.log10(mu_min),numpy.log10(mu_max)])
    pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=14)
    pylab.ylabel("Rate (log$_{10}$ 1/L10/yr)", fontsize=14)
    pylab.grid()
@@ -294,35 +293,6 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.ylabel("Range (Mpc)",fontsize=14)
    savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
-
-   if bin_type == "BNS_BBH":
-      #FIXME hard limits at log(rate) of -7, 0
-      pylab.bar([0,1,2],[pylab.log10(combined_upper_limit[mbin]) for mbin in representative_bins],color='b',width=1)
-      pylab.title("Combined 90%s Upper Limit (%.2f yrs livetime)"%('%',total_lt.array.max()),fontsize=14)
-      pylab.xticks([0.5,1.5,2.5],["BNS","NSBH","BBH"])
-      pylab.xlim([-0.5,3.5])
-      pylab.ylim([-8,-2])
-      pylab.xlabel("NS= 1.3+/-0.3M$_{\odot}$, BH= 5+/-1M$_{\odot}$",fontsize=14)
-      pylab.ylabel("Rate Upper Limit (log$_{10}$ 1/L10/yr)", fontsize=14)
-      pylab.grid()
-      savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-      pylab.clf()
-
-      #
-      # distance plot in 1d
-      #
-      distance = (Mpc3_per_L10*total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
-      derr = (distance /3) *( total_err.array**0.5 / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
-      pylab.bar([0,1,2],[distance[bins[mbin]] for mbin in representative_bins],yerr=[derr[bins[mbin]] for mbin in representative_bins],width=1)
-      pylab.grid()
-      pylab.xticks([0.5,1.5,2.5],["BNS","NSBH","BBH"])
-      pylab.xlim([-0.5,3.5])
-      pylab.ylim([0,150]) #FIXME don't hardcode limits?
-      pylab.title("%s Search Range (%.1f yrs livetime)"%(combined_ifos,total_lt.array.max()),fontsize=14)
-      pylab.xlabel("NS= 1.3+/-0.3M$_{\odot}$, BH= 5+/-1M$_{\odot}$",fontsize=14)
-      pylab.ylabel("Range (Mpc)",fontsize=14)
-      savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-      pylab.clf()
 
    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [], fnameList,
 					       tagList, add_box_flag = False ) #FIXME
@@ -354,7 +324,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
       ul_table.append(row)
 
-   columnList = ['mass_bin','sensitivity_in_L10_yr','livetime_in_day','avg_reach_in_L10s','avg_reach_in_Mpc','upper_limit_in_mergers_per_L10_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
+   columnList = ['mass_bin','sensitivity_in_L10_yr','livetime_in_days','avg_reach_in_L10s','avg_reach_in_Mpc','upper_limit_in_mergers_per_L10_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
