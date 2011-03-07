@@ -868,7 +868,7 @@ class Posterior(object):
             maxL=oned_pos.samples[max_i][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
-            median=str(oned_pos.median)
+            median=str(numpy.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
 
