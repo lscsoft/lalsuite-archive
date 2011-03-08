@@ -46,19 +46,19 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','a1','a2','phi1','theta1','phi2','theta2']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2']
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)']]
 #Bin size/resolution for binning. Need to match (converted) column names.
 
-greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01}
+greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05}
 
 #Confidence levels
 confidenceLevels=[0.67,0.9,0.95]
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)']
+allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2']
 
 def open_url(url,username,password):
 
@@ -366,6 +366,22 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         except:
             pass
 
+        try:
+            print "Converting tilt1 -> cos(tilt1)"
+            idx=common_output_table_header.index('tilt1')
+            common_output_table_header[idx]='cos(tilt1)'
+            common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
+        except:
+            pass
+
+        try:
+            print "Converting tilt2 -> cos(tilt2)"
+            idx=common_output_table_header.index('tilt2')
+            common_output_table_header[idx]='cos(tilt2)'
+            common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
+        except:
+            pass
+        
         pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
 
         try:
