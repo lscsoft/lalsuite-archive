@@ -1237,8 +1237,31 @@ class AnalysisSingleton(Singleton):
     def read_basic_setup(self):
       self.init = True
 
-      # create the filename
-      basic_file = os.getenv('HOME')+'/.basic.config'
+      # set a run lock
+      self.set_lock()
+
+      # create the basic configuration filename
+      basic_file = os.getenv('HOME')+'/.exttrig_basic.config'
+      if not os.path.exists(basic_file):
+        text = """
+[cluster]
+; name of the cluster
+name = UWM
+; path to where to put files for html access
+publishing_path = /home/dietz/public_html/
+; the url of the above path;
+publishing_url = https://ldas-jobs.phys.uwm.edu/~dietz
+; path to the CVS
+cvs = /home/dietz/CVS/cbc/
+; condor log-path for this cluster
+condor_log_path = /people/dietz
+        """
+        raise ValueError, "\n\nERROR: The basic configuration file in the HOME directory is missing!\n"\
+                   "  Please create a file named '.exttrig_basic_config' in your home directory\n"\
+                   "  with the following content (adjusted to your individual settings) \n"\
+                   "  which makes it much easier to run the code on different places "\
+                   "with the SAME config files otherwise: \n\n"+text
+
       self.bc = ConfigParser.ConfigParser()
       self.bc.read(basic_file)
 
@@ -1249,7 +1272,6 @@ class AnalysisSingleton(Singleton):
       self.cvs = self.bc.get('cluster','cvs')
       self.condor_log_path = self.bc.get('cluster','condor_log_path')
 
-      self.set_lock()
 
     # -----------------------------------------------------
     def set_cp(self, cp):
