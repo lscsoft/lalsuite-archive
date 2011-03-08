@@ -1773,7 +1773,7 @@ def get_inj_by_time(injections,time):
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75]):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -1788,10 +1788,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     """
 
-    fig=plt.figure(1,figsize=(30,20),dpi=150)
+    fig=plt.figure(1,figsize=figsize,dpi=dpi)
     plt.clf()
 
-    fig.add_axes([0.2,0.2,0.48,0.75])
+    fig.add_axes(figposition)
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):

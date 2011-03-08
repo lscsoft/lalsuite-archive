@@ -623,7 +623,9 @@ setup(
 		os.path.join("bin", "cbcBayesCompPos.py"),
                 os.path.join("bin", "cbcBayesDIEvidence.py"),
         os.path.join("bin", "cbcBayesInjProc.py"),
-		os.path.join("bin", "ligo_channel_query")
+		os.path.join("bin", "ligo_channel_query"),
+        os.path.join("bin", "pylal_exttrig_dataquery"),
+        os.path.join("bin", "pylal_exttrig_allquery")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
