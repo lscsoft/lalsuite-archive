@@ -269,9 +269,10 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    #
    fudge = 1e-9
    width = bins.upper()[0]-bins.lower()[0]
-   top = pylab.log10(combined_upper_limit.array + fudge)
-   bottom = pylab.log10(1e-10)
-   pylab.bar(bins.lower()[0],top-bottom,width, bottom = bottom, color='b')
+   bottom = pylab.log10(combined_upper_limit.array + fudge)
+   top = pylab.log10(1)
+   pylab.bar(bins.lower()[0],top-bottom,width, bottom = bottom)
+   pylab.gray()
    pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=14)
    pylab.xticks(tick_locs,tick_strings)
    pylab.xlim([numpy.min(bins.lower()[0])-numpy.min(width)/2,numpy.max(bins.upper()[0])+numpy.min(width)/2])
