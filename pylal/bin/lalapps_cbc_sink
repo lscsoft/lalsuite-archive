@@ -88,7 +88,7 @@ class UpperLimitTable(table.Table):
                         "avg_reach_in_Mpc":"lstring",
                         "lambda_ratio":"lstring",
                         "fractional_error":"lstring",
-                        "upper_limit_in_mergers_per_L10_per_yr":"lstring",
+                        "upper_limit_in_mergers_per_Mpc3_per_yr":"lstring",
                         "effective_numerator":"lstring",
                         "livetime_in_days":"lstring",
                         "injs_found":"int_4s",
@@ -183,7 +183,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
      priors = lal.Cache([])
 
    mu_min = 1e-7 #FIXME don't hardcode rates
-   mu_max = 1e-1
+   mu_max = 1e-2
    mu = numpy.arange(0,mu_max,mu_min) #FIXME hardcoded rates are bad
 
    # compute the combined posterior with errors included
@@ -191,8 +191,8 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
      pk = priors.sieve(description=bin_type+":"+str(j+1))
      length = 100000
      if len(pk) == 1: # use given prior
-       mu_in = numpy.loadtxt(pk[0].path())[:,0]
-       prior = numpy.loadtxt(pk[0].path())[:,1]
+       mu_in = numpy.loadtxt(pk[0].path())[:,0] / Mpc3_per_L10
+       prior = numpy.loadtxt(pk[0].path())[:,1] / Mpc3_per_L10
        #create a linear spline representation of the prior, with no smoothing
        prior = interpolate.splrep(mu_in, prior, s=0, k=1)
        #choose new values for mu and interpolate the prior to these new values
@@ -224,7 +224,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=14)
    pylab.legend(loc='lower right')
    pylab.ylabel("Probability",fontsize=14)
-   pylab.xlabel("Merger Rate (1/L10/yr)",fontsize=14)
+   pylab.xlabel("Merger Rate $(Mpc^{-3} yr^{-1})$",fontsize=14)
    pylab.grid()
    pylab.xlim([mu_min, mu_max]) #FIXME hardcoded rate limits are bad for advanced ligo
    #pylab.ylim([0, 1e-1])
@@ -235,7 +235,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=14)
    pylab.legend(loc='lower right')
    pylab.ylabel("Cumulative Probability",fontsize=14)
-   pylab.xlabel("Merger Rate (1/L10/yr)",fontsize=14)
+   pylab.xlabel("Merger Rate $(Mpc^{-3} yr^{-1})$",fontsize=14)
    pylab.ylim([1e-2, 1])
    pylab.grid()
    pylab.xlim([mu_min, mu_max]) #FIXME hardcoded rate limits are bad for advanced ligo
@@ -246,7 +246,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.title(combined_ifos+ " Prior Rate Distributions",fontsize=14)
    pylab.legend(loc='lower right')
    pylab.ylabel("Cumulative Probability",fontsize=14)
-   pylab.xlabel("Merger Rate (1/L10/yr)",fontsize=14)
+   pylab.xlabel("Merger Rate $(Mpc^{-3} yr^{-1})$",fontsize=14)
    pylab.grid()
    pylab.xlim([mu_min, mu_max]) #FIXME hardcoded rate limits are bad for advanced ligo
    savefig_pylal('prior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
@@ -273,7 +273,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.xlim([numpy.min(bins.lower()[0])-numpy.min(width)/2,numpy.max(bins.upper()[0])+numpy.min(width)/2])
    pylab.ylim([numpy.log10(mu_min),numpy.log10(mu_max)])
    pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=14)
-   pylab.ylabel("Rate (log$_{10}$ 1/L10/yr)", fontsize=14)
+   pylab.ylabel("Rate $(Mpc^{-3} yr^{-1})$", fontsize=14)
    pylab.grid()
    savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
@@ -316,7 +316,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
       row.livetime_in_days = "%f" % (total_lt[mbin]*constants.LAL_YRJUL_SI/(3600*24),)
       row.avg_reach_in_L10s = "%.3g" % (total_vol[mbin]/total_lt[mbin],)
       row.avg_reach_in_Mpc = "%.1f" % ((Mpc3_per_L10*total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
-      row.upper_limit_in_mergers_per_L10_per_yr = "%.3g" % (combined_upper_limit[mbin],)
+      row.upper_limit_in_mergers_per_Mpc3_per_yr = "%.3g" % (combined_upper_limit[mbin],)
       row.effective_numerator = "%.2f" % (combined_upper_limit[mbin]*total_vol[mbin],)
       row.fractional_error = "%.2f" % (total_err[mbin]**0.5 / total_vol[mbin],)
       row.injs_found = total_found[mbin]
@@ -324,7 +324,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
       ul_table.append(row)
 
-   columnList = ['mass_bin','sensitivity_in_L10_yr','livetime_in_days','avg_reach_in_L10s','avg_reach_in_Mpc','upper_limit_in_mergers_per_L10_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
+   columnList = ['mass_bin','sensitivity_in_L10_yr','livetime_in_days','avg_reach_in_L10s','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
