@@ -46,7 +46,7 @@ def call_segment_query(starttime, endtime, vetodef_file,grb_name):
   peu.system_call(grb_name,cmd)
     
 # -----------------------------------------------------
-def plot_segments_around(cat, plotrange, grbtag, useold = False, verbose = False):
+def plot_segments_around(gpstime, cat, plotrange, grbtag, useold = False, verbose = False):
   """
   Create a plot with all the vetoes around the trigger time
   """
@@ -59,12 +59,14 @@ def plot_segments_around(cat, plotrange, grbtag, useold = False, verbose = False
   duration = endtime-starttime
 
   # loops over the IFOs
-  for ifoindex, ifo in enumerate(ifo_list):
+  for ifoindex, ifo in enumerate(peu.basic_ifolist):
 
     # try to open the veto file. Download recent file, if required
     vetofile = "%s-VETOTIME_%s-%d-%d.xml" % (ifo, cat, starttime, duration)
     if not os.path.exists(vetofile) or not useold:
-      call_segment_query(starttime, endtime, veto_files[run],grbtag)
+      pas = peu.AnalysisSingleton()
+      veto_definer = pas.cp.get('data','veto_definer')
+      call_segment_query(starttime, endtime, veto_definer,grbtag)
       
     # load the content of the veto-file
     xmldoc = utils.load_filename(vetofile, gz = False)
@@ -77,10 +79,10 @@ def plot_segments_around(cat, plotrange, grbtag, useold = False, verbose = False
     ndef = len(segdefs)
     for i, segdef in enumerate(segdefs):
       defdict[segdef.segment_def_id] = segdef.name
-      coldict[segdef.segment_def_id] = (i, colors.next())
+      coldict[segdef.segment_def_id] = (i, peu.colors.next())
 
     # creates a subplot for an IFO
-    ax = fig.add_subplot(len(ifo_list), 1, ifoindex+1)
+    ax = fig.add_subplot(len(peu.basic_ifolist), 1, ifoindex+1)
     o = 0.5
     fs = 12
     if ndef>12:
@@ -171,7 +173,7 @@ def parse_args():
     options.make_xml = False
  
   if options.make_xml:
-    if not options.grb_ra or not options.grb_dec:
+    if not options.ra or not options.dec:
       raise ValueError, "The right ascension (--ra) and the declination (--dec) is required"\
                         " to be specified, because --make-xml was set."
 
@@ -257,7 +259,7 @@ if opts.make_plots:
   # calculate some time ranges for the veto plots
   if len(ifos)>1:
     # define some time ranges
-    deltat = 500
+    deltat = 2000
     starttime = offsource[0]-deltat
     endtime   = offsource[1]+deltat
   else:
@@ -268,15 +270,16 @@ if opts.make_plots:
     endtime = grb_time + deltat
 
   # make a visual plot of the CAT1 and CAT2 vetoes around the trigger time
-  plot_segments_around('CAT1', [starttime, endtime], grbtag, opts.useold, verbose = True)
-  plot_segments_around('CAT2', [starttime, endtime], grbtag, opts.useold, verbose = True)
+  plot_segments_around(grb_time, 'CAT1', [starttime, endtime], grbtag, opts.useold, verbose = True)
+  plot_segments_around(grb_time, 'CAT2', [starttime, endtime], grbtag, opts.useold, verbose = True)
 
 
 if opts.make_xml:
 
-  # extract the positional information of this GRB
-  grb_ra = float(opts.ra)
-  grb_dec = float(opts.dec)
+  if not opts.grb_file:
+    # extract the positional information of this GRB
+    grb_ra = float(opts.ra)
+    grb_dec = float(opts.dec)
 
   # create a new xml document with an ExtTriggers Table
   xmldoc = ligolw.Document()
