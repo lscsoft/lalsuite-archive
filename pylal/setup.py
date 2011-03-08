@@ -317,6 +317,8 @@ setup(
 		os.path.join("bin", "pylal_expose"),
 		os.path.join("bin", "ligolw_cbc_align_total_spin"),
 		os.path.join("bin", "ligolw_cbc_jitter_skyloc")
+        os.path.join("bin", "pylal_exttrig_dataquery"),
+        os.path.join("bin", "pylal_exttrig_allquery")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
