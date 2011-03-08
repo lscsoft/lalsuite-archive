@@ -213,12 +213,16 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
      combined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, combined_post, 0.90)
 
      if combined_upper_limit[mbin] == 0: continue
+     if bin_type == "BNS_BBH":
+       label = {0:"BNS",1:"NSBH",2:"BBH"}[mbin[0]]
+     else:
+       label = ','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
      pylab.figure(1)
-     pylab.semilogx(mu,combined_post/combined_post.sum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
+     pylab.semilogx(mu,combined_post/combined_post.sum(),label=label)
      pylab.figure(2)
-     pylab.semilogx(mu,combined_post.cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
+     pylab.semilogx(mu,combined_post.cumsum(),label=label)
      pylab.figure(3)
-     pylab.semilogx(mu,prior/prior.sum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
+     pylab.semilogx(mu,prior/prior.sum(),label=label)
 
    pylab.figure(1)
    pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=14)
