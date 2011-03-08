@@ -14,7 +14,7 @@ from pylal import rate
 L10s_per_Mpc3 = 1./50.0 #FIXME
 
 
-def compute_posterior(vA, vA2, dvA, mu, prior):
+def compute_posterior(vA, vA2, dvA, mu_in=None, prior=None):
     '''
     This function computes the posterior distribution on the rate parameter
     mu resulting from an experiment which was sensitive to a volume vA. This
@@ -23,7 +23,30 @@ def compute_posterior(vA, vA2, dvA, mu, prior):
     Creighton, Brady, Fairhurst, eqn 24). Where the sensitive volume is zero,
     the posterior is equal to the prior, which is taken to be a constant.
     '''
-    if vA == 0: return mu, prior
+    if vA == 0: return mu_in, prior
+
+    if mu_in is not None and prior is not None: #give me a rate w/o a prior, shame on you
+       #create a linear spline representation of the prior, with no smoothing
+       prior = interpolate.splrep(mu_in, prior, s=0, k=1)
+
+       #choose new values for mu and interpolate the prior to these new values
+       mu_min = mu_in[mu_in>0].min() - 1000.0*vA*mu_in[mu_in>0].min()**2 # guess a new lower rate limit, 1000 to be conservative
+       mu_max = mu_in.max()
+
+       if mu_min < 0:
+           mu_min = 1e-7
+
+       if mu_max/mu_min > 1e6: #FIXME this is a hack to avoid memory errors
+           mu_max = 1e6*mu_min #really shouldn't need more than 6 OOMs
+
+       mu = numpy.arange(0,mu_max,mu_min)
+       prior = interpolate.splev(mu, prior)
+       prior[prior < 0] = 0 #prevent interpolation from giving negative probs
+    else:
+       mu_max = 50.0/vA
+       mu_min = 0.001/vA
+       mu = numpy.arange(0,mu_max,mu_min)
+       prior = numpy.ones(len(mu))
 
     if vA2 == 0:
         # we have perfectly measured our efficiency in this mass bin
