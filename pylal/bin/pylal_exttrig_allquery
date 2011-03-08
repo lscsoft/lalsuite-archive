@@ -123,7 +123,7 @@ for index in range(n):
   pas.set_cp(cp)
 
   # set the ini-file and take the minimum science segment
-  inifilename = pas.cvs+'/'+cp.get('analysis','ini_file')
+  inifilename = os.path.join(pas.cvs, cp.get('paths','cvs'))+'/'+cp.get('analysis','ini_file')
   inip = ConfigParser.ConfigParser()
   inip.read(inifilename)
   minscilength = peu.get_minimum_scienceseg_length(inip)
