@@ -178,20 +178,20 @@ def cbcBayesPostProc(
     for i in pars:
         if not (i=='m1' or i=='m2'):
             I=pars.index(i)
-            summary_file.write(str(np.mean(data_array[:,I]))+'\t')
-            summary_file.write(str(sqrt(np.var(data_array[:,I])))+'\t')
+            summary_file.write(repr(np.mean(data_array[:,I]))+'\t')
+            summary_file.write(repr(sqrt(np.var(data_array[:,I])))+'\t')
         elif i=='m1':
-            summary_file.write(str(np.mean(mass1_samps))+'\t')
-            summary_file.write(str(sqrt(np.var(mass1_samps)))+'\t')
+            summary_file.write(repr(np.mean(mass1_samps))+'\t')
+            summary_file.write(repr(sqrt(np.var(mass1_samps)))+'\t')
         elif i=='m2':
-            summary_file.write(str(np.mean(mass2_samps))+'\t')
-            summary_file.write(str(sqrt(np.var(mass2_samps)))+'\t')
+            summary_file.write(repr(np.mean(mass2_samps))+'\t')
+            summary_file.write(repr(sqrt(np.var(mass2_samps)))+'\t')
 
     if bayesfactornoise is not None:
         summary_file.write(str(BSN)+'\t')
     if bayesfactorcoherent is not None:
         summary_file.write(str(BCI)+'\t')
-    summary_file.write('\n')       
+    summary_file.write(' \n')       
     summary_file.close()
 
     ##Print some summary stats for the user...##
