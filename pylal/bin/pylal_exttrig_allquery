@@ -33,7 +33,8 @@ def parse_args():
   parser = optparse.OptionParser(version=git_version.verbose_msg)
 
   # specify config file
-  parser.add_option("--trigger-file", help="Specifies the config file to use.")
+  parser.add_option("--config-file", help="Specifies the config file to use.")
+  parser.add_option("--trigger-file", help="Specifies the trigger file to use.")
   parser.add_option("--subrun", help="Specifies the subrun to check (A-D)")
   parser.add_option("--lc-comment-file", help="(Optional) file containing the updated onsource windows"\
                     " from the manual lightcurve checks (Jordi format required)", default = None)
@@ -60,6 +61,9 @@ def parse_args():
     raise ValueError, "Must specify a trigger-file (e.g. Isabels final list) "\
           "with --trigger-file <file> and the sub run to check for (i.e. A,B,C or D) "\
           "with --subrun X."
+
+  if not options.config_file:
+    raise ValueError, "Must specify config file with --config-file"
 
   if not options.output_pickle:
     raise ValueError, "Name of the output pickle file must be specified with --output-pickle."
@@ -89,6 +93,17 @@ if opts.lc_comment_file:
 pas = peu.AnalysisSingleton()
 pas.set_logfile(opts.log_file)
 
+# chose the config file
+if not os.path.exists(opts.config_file):
+  raise ValueError, "config file '%s' does not exist!"%(opts.config_file)
+if not opts.subrun in opts.config_file:
+  print "WARNING: Is %s the correct config file for subrun %s?"%\
+        (opts.config_file, opts.subrun)
+
+# read the config parser and pass it to llutils
+cp = ConfigParser.ConfigParser()
+cp.read(opts.config_file)
+pas.set_cp(cp)
 
 # loop over each GRB
 use_grb = []
@@ -111,17 +126,6 @@ for index in range(n):
   if run!=opts.subrun:
     continue
 
-  # load the correct configuration file
-  config_file = 'llmonitorS6%s.conf'%run
-  print "Trying to use generic config file '%s'."%(config_file)
-  if not os.path.exists(config_file):
-    raise ValueError, "config file '%s' does not exist!"%(config_file)
-
-  # read the config parser and pass it to llutils
-  cp = ConfigParser.ConfigParser()
-  cp.read(config_file)
-  pas.set_cp(cp)
-
   # set the ini-file and take the minimum science segment
   inifilename = os.path.join(pas.cvs, cp.get('paths','cvs'))+'/'+cp.get('analysis','ini_file')
   inip = ConfigParser.ConfigParser()
@@ -139,8 +143,15 @@ for index in range(n):
 
   ## perform the main check for this GRB
   mainpath = '.'
-  ifos, onsource, offsource  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, \
+  ifos, onsource, offsource, trend  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, \
                                    tag = grbtag, useold = opts.useold, onsource = test_onsource)
+
+  txt = " SUMMARY "
+  for i, l in enumerate(trend):
+    if len(l)==0: tifo = '---'
+    else: tifo = ''.join(l)
+    txt += " | %s after check %d "%(tifo, i) 
+  pas.info(txt, grb_name)
 
   if len(ifos)>1:
     grb = peu.GRB(grb_name=grb_name, grb_ra=grb_ra, grb_de=grb_dec,  grb_time=grb_time,\
