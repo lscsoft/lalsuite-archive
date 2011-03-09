@@ -208,7 +208,8 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
      combined_post = prior
      for vol,vol2,lam in zip(vols,volErrs,volDerivs):
        mu, combined_post = upper_limit_utils.compute_posterior(vol[mbin],vol2[mbin],lam[mbin],mu,combined_post)
-       combined_post /= combined_post.sum()
+       if mu is not None:
+         combined_post /= combined_post.sum()
      combined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, combined_post, 0.90)
 
      if combined_upper_limit[mbin] == 0: continue
