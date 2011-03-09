@@ -1,4 +1,4 @@
-SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(int pps_bins)
+SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(int pps_bins, int cross_terms_present)
 {
 SUFFIX(PARTIAL_POWER_SUM) *r;
 int i;
@@ -30,12 +30,21 @@ for(i=0;i<pps_bins;i++) {
 	r->power_pc[i]=NAN;
 	r->power_cc[i]=NAN;
 	}
+	
+if(cross_terms_present) {
+	r->power_im_pc=do_alloc(pps_bins, sizeof(*(r->power_pc)));
+	for(i=0;i<pps_bins;i++) {
+		r->power_im_pc[i]=NAN;
+		}
+	} else 
+	r->power_im_pc=NULL;
 
 r->c_weight_pppp=NAN;
 r->c_weight_pppc=NAN;
 r->c_weight_ppcc=NAN;
 r->c_weight_pccc=NAN;
 r->c_weight_cccc=NAN;
+r->c_weight_im_ppcc=NAN;
 
 r->weight_arrays_non_zero=1;
 r->collapsed_weight_arrays=0;
@@ -64,12 +73,19 @@ for(i=0;i<pps_bins;i++) {
 	pps->power_pc[i]=0;
 	pps->power_cc[i]=0;
 	}
+	
+if(pps->power_im_pc!=NULL) {
+	for(i=0;i<pps_bins;i++) {
+		pps->power_im_pc[i]=0;
+		}
+	}
 
 pps->c_weight_pppp=0;
 pps->c_weight_pppc=0;
 pps->c_weight_ppcc=0;
 pps->c_weight_pccc=0;
 pps->c_weight_cccc=0;
+pps->c_weight_im_ppcc=0;
 
 pps->weight_arrays_non_zero=0;
 pps->collapsed_weight_arrays=0;
@@ -98,11 +114,18 @@ for(i=0;i<pps_bins;i++) {
 	pps->power_cc[i]=(rand()*100.0)/RAND_MAX;
 	}
 
+if(pps->power_im_pc!=NULL) {
+	for(i=0;i<pps_bins;i++) {
+		pps->power_im_pc[i]=(rand()*100.0)/RAND_MAX;
+		}
+	}
+
 pps->c_weight_pppp=(rand()*100.0)/RAND_MAX;
 pps->c_weight_pppc=(rand()*100.0)/RAND_MAX;
 pps->c_weight_ppcc=(rand()*100.0)/RAND_MAX;
 pps->c_weight_pccc=(rand()*100.0)/RAND_MAX;
 pps->c_weight_cccc=(rand()*100.0)/RAND_MAX;
+pps->c_weight_im_ppcc= (pps->power_im_pc!=NULL) ? (rand()*100.0)/RAND_MAX : 0.0;
 
 pps->weight_arrays_non_zero=1;
 pps->collapsed_weight_arrays=0;
@@ -156,6 +179,21 @@ for(i=0;i<pps_bins;i++) {
 	p3++;
 	}
 
+if(partial->power_im_pc!=NULL) {
+	if(accum->power_im_pc==NULL) {
+		fprintf(stderr, "*** INTERNAL ERROR: attempt to accumulate partial power sum with cross terms into accumulator without\n");
+		exit(-1);
+		}
+	a1=accum->power_im_pc;
+	p1=&(partial->power_im_pc[shift]);
+	for(i=0;i<pps_bins;i++) {
+		(*a1)+=*p1;
+		
+		a1++;
+		p1++;
+		}
+	}
+
 if(partial->weight_arrays_non_zero) {
 	a1=accum->weight_pppp;
 	a2=accum->weight_pppc;
@@ -195,9 +233,10 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
+accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
-int SUFFIX(compare_partial_power_sums)(char *prefix, SUFFIX(PARTIAL_POWER_SUM) *ref, SUFFIX(PARTIAL_POWER_SUM) *test)
+int SUFFIX(compare_partial_power_sums)(char *prefix, SUFFIX(PARTIAL_POWER_SUM) *ref, SUFFIX(PARTIAL_POWER_SUM) *test, REAL rel_tolerance, REAL rel_abs_tolerance)
 {
 int i;
 int pps_bins=ref->nbins;
@@ -228,34 +267,53 @@ TEST(nbins, "%d", -1)
 TEST(weight_arrays_non_zero, "%d", -1)
 TEST(collapsed_weight_arrays, "%d", -1)
 
-TEST(c_weight_pppp, "%g", 1e-4)
-TEST(c_weight_pppc, "%g", 1e-4)
-TEST(c_weight_ppcc, "%g", 1e-4)
-TEST(c_weight_pccc, "%g", 1e-4)
-TEST(c_weight_cccc, "%g", 1e-4)
+TEST(c_weight_pppp, "%g", rel_tolerance)
+TEST(c_weight_pppc, "%g", rel_tolerance)
+TEST(c_weight_ppcc, "%g", rel_tolerance)
+TEST(c_weight_pccc, "%g", rel_tolerance)
+TEST(c_weight_cccc, "%g", rel_tolerance)
+TEST(c_weight_im_ppcc, "%g", rel_tolerance)
 
 #undef TEST
 
-#define TEST(field, tolerance) \
-	if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
-		fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
-		return -4; \
-		}
-
-for(i=0;i<pps_bins;i++) {
-	TEST(power_pp, 1e-4)
-	TEST(power_pc, 1e-4)
-	TEST(power_cc, 1e-4)
+#define TEST(field) \
+	{ \
+	REAL max_field=0.0; \
+	for(i=0;i<pps_bins;i++) { \
+		if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
+			fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
+			return -4; \
+			} \
+		if(fabs(ref->field[i])>max_field)max_field=fabs(ref->field[i]); \
+		if(fabs(test->field[i])>max_field)max_field=fabs(test->field[i]); \
+		} \
+	for(i=0;i<pps_bins;i++) { \
+		if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_abs_tolerance*max_field)) { \
+			fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g max_field=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i], max_field); \
+			return -5; \
+			} \
+		} \
 	}
 
-if(ref->weight_arrays_non_zero) {
-	for(i=0;i<pps_bins;i++) {
-		TEST(weight_pppp, 1e-4)
-		TEST(weight_pppc, 1e-4)
-		TEST(weight_ppcc, 1e-4)
-		TEST(weight_pccc, 1e-4)
-		TEST(weight_cccc, 1e-4)
+TEST(power_pp)
+TEST(power_pc)
+TEST(power_cc)
+	
+if(ref->power_im_pc!=NULL || test->power_im_pc!=NULL) {
+	if(ref->power_im_pc==NULL || test->power_im_pc==NULL) {
+		fprintf(stderr, "mismatch: test->power_im_pc=%p ref->power_im_pc=%p\n", test->power_im_pc, ref->power_im_pc);
+		} else {
+		TEST(power_im_pc)
 		}
+	}
+	
+
+if(ref->weight_arrays_non_zero) {
+	TEST(weight_pppp)
+	TEST(weight_pppc)
+	TEST(weight_ppcc)
+	TEST(weight_pccc)
+	TEST(weight_cccc)
 	}
 
 #undef TEST
@@ -290,6 +348,16 @@ CBLAS_AXPY(pps_bins, 1.0, &(partial->power_pp[shift]), 1, accum->power_pp, 1);
 CBLAS_AXPY(pps_bins, 1.0, &(partial->power_pc[shift]), 1, accum->power_pc, 1);
 CBLAS_AXPY(pps_bins, 1.0, &(partial->power_cc[shift]), 1, accum->power_cc, 1);
 
+if(partial->power_im_pc!=NULL) {
+	if(accum->power_im_pc==NULL) {
+		fprintf(stderr, "*** INTERNAL ERROR: attempt to accumulate partial power sum with cross terms into accumulator without\n");
+		exit(-1);
+		}
+
+	CBLAS_AXPY(pps_bins, 1.0, &(partial->power_im_pc[shift]), 1, accum->power_im_pc, 1);
+	}
+
+
 if(partial->weight_arrays_non_zero) {
 	CBLAS_AXPY(pps_bins, 1.0, &(partial->weight_pppp[shift]), 1, accum->weight_pppp, 1);
 	CBLAS_AXPY(pps_bins, 1.0, &(partial->weight_pppc[shift]), 1, accum->weight_pppc, 1);
@@ -305,6 +373,7 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
+accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void SUFFIX(sse_accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial)
@@ -341,6 +410,15 @@ SSE_SUM(pps_bins, &(partial->power_pp[shift]), accum->power_pp);
 SSE_SUM(pps_bins, &(partial->power_pc[shift]), accum->power_pc);
 SSE_SUM(pps_bins, &(partial->power_cc[shift]), accum->power_cc);
 
+if(partial->power_im_pc!=NULL) {
+	if(accum->power_im_pc==NULL) {
+		fprintf(stderr, "*** INTERNAL ERROR: attempt to accumulate partial power sum with cross terms into accumulator without\n");
+		exit(-1);
+		}
+
+	SSE_SUM(pps_bins, &(partial->power_im_pc[shift]), accum->power_im_pc);
+	}
+
 if(partial->weight_arrays_non_zero) {
 	SSE_SUM(pps_bins, &(partial->weight_pppp[shift]), accum->weight_pppp);
 	SSE_SUM(pps_bins, &(partial->weight_pppc[shift]), accum->weight_pppc);
@@ -356,6 +434,7 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
+accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void SUFFIX(dump_partial_power_sum)(FILE *out, SUFFIX(PARTIAL_POWER_SUM) *pps)
@@ -369,12 +448,14 @@ if(pps->type!=sizeof(REAL)) {
 	exit(-1);
 	}
 
-fprintf(out, "%g %g %g %g %g", 
+fprintf(out, "%g %g %g %g %g %g", 
 	pps->c_weight_pppp,
 	pps->c_weight_pppc,
 	pps->c_weight_ppcc,
 	pps->c_weight_pccc,
-	pps->c_weight_cccc );
+	pps->c_weight_cccc,
+	pps->c_weight_im_ppcc
+       );
 
 for(i=0;i<pps_bins;i++) fprintf(out, " %g", pps->weight_pppp[i]);
 for(i=0;i<pps_bins;i++) fprintf(out, " %g", pps->weight_pppc[i]);
@@ -385,6 +466,12 @@ for(i=0;i<pps_bins;i++) fprintf(out, " %g", pps->weight_cccc[i]);
 for(i=0;i<pps_bins;i++) fprintf(out, " %g", pps->power_pp[i]);
 for(i=0;i<pps_bins;i++) fprintf(out, " %g", pps->power_pc[i]);
 for(i=0;i<pps_bins;i++) fprintf(out, " %g", pps->power_cc[i]);
+
+if(pps->power_im_pc!=NULL) {
+	for(i=0;i<pps_bins;i++) fprintf(out, " %g", pps->power_im_pc[i]);
+	} else {
+	fprintf(out, " power_im_pc=NULL");
+	}
 }
 
 void SUFFIX(free_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps)
@@ -405,6 +492,8 @@ free(pps->weight_cccc);
 free(pps->power_pp);
 free(pps->power_pc);
 free(pps->power_cc);
+
+if(pps->power_im_pc!=NULL)free(pps->power_im_pc);
 
 memset(pps, 0, sizeof(*pps));
 free(pps);

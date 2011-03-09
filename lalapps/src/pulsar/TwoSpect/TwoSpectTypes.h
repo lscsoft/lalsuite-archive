@@ -29,6 +29,9 @@ typedef struct
    REAL4Vector *ffdata;    //Doubly Fourier transformed data
    REAL8 tfnormalization;
    REAL8 ffnormalization;
+   INT4 numffts;
+   INT4 numfbins;
+   INT4 numfprbins;
 } ffdataStruct;
 
 typedef struct
@@ -44,10 +47,19 @@ typedef struct
    REAL8 dfmin;
    REAL8 dfmax;
    REAL4 dopplerMultiplier;
+   REAL4 ihsfar;
+   REAL4 ihsfom;
+   REAL4 ihsfomfar;
    INT4 blksize;
    INT4 maxbinshift;
    INT4 templatelength;
-   LALDetector *det;
+   INT4 rootFindingMethod;
+   LALDetector det;
+   CHAR* sftType;
+   INT4 markBadSFTs;
+   INT4 FFTplanFlag;
+   INT4 antennaOff;
+   INT4 noiseWeightOff;
 } inputParamsStruct;
 
 typedef struct
@@ -74,6 +86,8 @@ typedef struct
 typedef struct
 {
    REAL4Vector *maxima;
+   REAL4Vector *foms;
+   REAL4Vector *ihsForEachFbin;
    INT4Vector *locations;
    INT4 columns;
 } ihsMaximaStruct;
@@ -89,6 +103,7 @@ typedef struct
    REAL4Vector *ihsfar;
    REAL4Vector *ihsdistMean;
    REAL4Vector *ihsdistSigma;
+   REAL4Vector *fomfarthresh;
 } ihsfarStruct;
 
 typedef struct
@@ -106,6 +121,9 @@ typedef struct
    INT4Vector *pixellocations;      //pixel locations
    INT4Vector *firstfftfrequenciesofpixels;  //pixel first frequency values
    INT4Vector *secondfftfrequencies;   //pixel second frequency values
+   REAL8 f0;
+   REAL8 period;
+   REAL8 moddepth;
 } templateStruct;
 
 
