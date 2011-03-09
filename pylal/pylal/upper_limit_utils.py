@@ -69,6 +69,29 @@ def compute_posterior(vA, vA2, dvA, mu_in=None, prior=None):
     return mu, post
 
 
+def compute_many_posterior(vAs, vA2s, dvAs, mu_in=None, prior=None, mkplot=False, plottag='posterior'):
+    '''
+    Compute the posterior from multiple independent experiments for the given prior.
+    '''
+    mu = mu_in
+    post = prior
+
+    for vol,vol2,lam in zip(vAs,vA2s,dvAs):
+        mu, post = upper_limit_utils.compute_posterior(vol[mbin],vol2[mbin],lam[mbin],mu,combined_post)
+        if post is not None:
+            post /= post.sum()
+
+    if mkplot:
+        pyplot.semilogx(mu_in,prior,label="prior")
+        pyplot.semilogx(mu,post,label="posterior")
+        pyplot.legend()
+        pyplot.savefig(plottag + ".png")
+        pyplot.close()
+
+    return mu, post
+
+
+
 def compute_upper_limit(mu, post, alpha = 0.9):
     """
     Returns the upper limit mu_high of confidence level alpha for a
