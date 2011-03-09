@@ -251,7 +251,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		for(j=0;j<Nlive;j++) {if(Live[j]->logLikelihood <= Live[minpos]->logLikelihood) minpos=j;}
 		logLmin = Live[minpos]->logLikelihood;
 		logWt = logw + Live[minpos]->logLikelihood;
-		fprintSample(fpout,Live[minpos]);
+		fprintSample(fpout,Live[minpos]); 
 		/* update evidence array */
 		for(j=0;j<Nruns;j++){
 			logZarray[j]=logadd(logZarray[j],Live[minpos]->logLikelihood + logwarray[j]);
@@ -269,6 +269,15 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		/* Replace the previous sample by a new one */
 		
 		/* Update covariance matrix every so often */
+		//LALMCMCParam *current=NULL;
+		/*FILE *outlive;
+		outlive=fopen("live_out.txt","w");
+		for (uint kappa=0; kappa<Nlive; kappa++){
+			current=XLALMCMCGetParam(Live[kappa],"dphi3");
+			fprintf(outlive,"%e \n",current->value );	
+		}
+		fclose(outlive);*/
+		
 		if(!(i%(Nlive/4)))	calcCVM(cov_mat,Live,Nlive);
 		/* generate new live point */
 		do{
@@ -310,7 +319,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		fprintSample(fpout,Live[i]);
 	}
 	
-	/* Output the aximum template, data, etc */
+	/* Output the maximum template, data, etc */
 	sprintf(outEnd,"%s_maxLdata.dat",outfile);
 	MCMCinput->dumpfile=outEnd;
 	MCMCinput->funcLikelihood(MCMCinput,Live[Nlive-1]);
@@ -404,7 +413,7 @@ void calcCVM(gsl_matrix *cvm, LALMCMCParameter **samples,UINT4 N)
 	LALMCMCParam *jp;
 	LALMCMCParam *kp;
 	gsl_matrix *oldcvm;
-	
+	//if (!checkParamInList(samples,"dphi3")) {ND-=1;}
 	oldcvm = gsl_matrix_alloc(ND,ND);
 	gsl_matrix_memcpy (oldcvm, cvm);
 	
@@ -416,13 +425,17 @@ void calcCVM(gsl_matrix *cvm, LALMCMCParameter **samples,UINT4 N)
 	for(i=0;i<ND;i++) means[i]=0.0;
 	for(i=0;i<N;i++){
 		p=samples[i]->param;
-		for(j=0;j<ND;j++) {if(p->core->wrapping==0) {means[j]+=p->value;} p=p->next;}
+		
+		for(j=0;j<ND;j++) {
+	//		if (!strcmp(p->core->name,"dphi3")) {p=p->next;}
+			if (p->core->wrapping==0) {means[j]+=p->value;} p=p->next;}
 	}
 	for(j=0;j<ND;j++) means[j]/=(REAL8)N;
 	
 	/* Find the (co)-variances */
 	for(i=0;i<N;i++){
 		kp=jp=p=samples[i]->param;
+		
 		for(j=0;j<ND;j++){
 			for(k=0,kp=p;k<=j;k++){
 				gsl_matrix_set(cvm,j,k,gsl_matrix_get(cvm,j,k) + (kp->value - means[k])*(jp->value - means[j]));

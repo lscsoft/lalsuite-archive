@@ -163,9 +163,6 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
 
 UINT4 fLowFlag=0;
 
-REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
-int checkParamInList(const char *list, const char *param);
-
 /* */
 
 void NestInitManual(LALMCMCParameter *parameter, void *iT);
@@ -1585,7 +1582,7 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
     //else 
         XLALMCMCAddParam(parameter,"dphi6l",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
         
-    if(checkParamInList(pinned_params,"dphi7"))
+    if(!checkParamInList(pinned_params,"dphi7"))
     //    XLALMCMCAddParam(parameter,"dphi7",0,phiMin,phiMax,-1);
     //else 
         XLALMCMCAddParam(parameter,"dphi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
@@ -1716,7 +1713,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 	/* Calculate response of the detectors */
 	LALSource source;
-	memset(&source,sizeof(LALSource),0);
+	memset(&source,0,sizeof(LALSource));
 	source.equatorialCoords.longitude = (REAL8) inj_table->longitude;
 	source.equatorialCoords.latitude = (REAL8) inj_table->latitude;
 	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;

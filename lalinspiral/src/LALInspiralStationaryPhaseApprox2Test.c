@@ -113,7 +113,7 @@ LALInspiralStationaryPhaseApprox2Test (
                                        LALStatus        *status,
                                        REAL4Vector      *signalvec,
                                        InspiralTemplate *params,
-                                       REAL8 *TestphaseParamsValues)
+                                       REAL8 *dphis)
 { /* </lalVerbatim>  */
    REAL8 Oneby3, UNUSED h1, UNUSED h2, pimmc, f, v, df, shft, phi, amp0, amp, psif, psi;
    INT4 n, nby2, i, f0, fn;
@@ -159,10 +159,10 @@ LALInspiralStationaryPhaseApprox2Test (
    h2 = signalvec->data[nby2] = 0.L;
     
     /* FILL PHASE COEFFICIENTS */
-    REAL8 phaseParams[10] = {0,0,0,0,0,0,0,0,0,0};
+    REAL8 phaseParams[10] = {0.0};
   
-    TaylorF2fillPhaseParams(params, phaseParams, TestphaseParamsValues);
-    
+    TaylorF2fillPhaseParams(params, phaseParams, dphis);
+    for (int k=0;k<10;k++) fprintf(stderr,"dphi%i = %e\n",k,dphis[k]);
 //	FILE* model_output;
 //	model_output=fopen("output_TF2T.dat","w");
 
@@ -256,7 +256,7 @@ void LALInspiralTaylorF2PhasingTest(
 void TaylorF2fillPhaseParams(
                                          InspiralTemplate *params,
                                          REAL8 *phaseParams,
-                                         REAL8 *testParamValues)
+                                         REAL8 *dphis)
 {
     
     // SYSTEM DEPENDENT PARAMETER - DUMMIES, NEED TO GET FROM PARAMETER STRUCTURES
@@ -296,7 +296,7 @@ void TaylorF2fillPhaseParams(
     phaseParams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
     phaseParams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
     
-    for(i=0;i<10;i++) {phaseParams[i]+=testParamValues[i];}
+    for(i=0;i<10;i++) {phaseParams[i]+=dphis[i];}
         
     return;
 }

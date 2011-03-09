@@ -518,7 +518,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCorTest(LALMCMCInput *inputMCMC, LALMCMCPara
     /* GET TEST PHASE PARAMETER FROM MCMC STRUCTURE AND USE IT TO POPULATE THE PN STRUCTURE */
     UINT4 k;
     REAL8 phaseParams[10]={0.0};
-    const char *paramName[]={
+    const CHAR *paramName[10]={
         "dphi0","dphi1","dphi2","dphi3","dphi4","dphi5","dphi5l","dphi6","dphi6l","dphi7"};
     for(k=0;k<10;k++)
     {
@@ -1676,25 +1676,25 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 	LALInspiralRestrictedAmplitude(status,template);
 /*    printf("Mass 1: %lf\n",template->mass1);
 	printf("Mass 2: %lf\n",template->mass2);
-    printf("M Chirp : %lf\n",template->chirpMass);
-	printf("eta: %lf\n",template->eta);*/
+    printf("M Chirp : %lf\n",template->chirpMass);*/
+//	printf("eta: %lf\n",template->eta);
     
     
     /* TGFLI: NEED TO FIND WAY OF PASSING TESTPARAMETER TO LALINSPIRALWAVE */
     if (template->approximant == TaylorF2Test) {
     /* Fill array of PN coefficients */
-    UINT4 i;
-    const char *paramName[]={
+		UINT4 i;
+		const CHAR *paramName[10]={
         "dphi0","dphi1","dphi2","dphi3","dphi4","dphi5","dphi5l","dphi6","dphi6l","dphi7"};
-    for(i=0;i<10;i++)
-    {
-        if (XLALMCMCCheckParameter(parameter,paramName[i])) {
-            phaseParams[i]=XLALMCMCGetParameter(parameter,paramName[i]);
-        }
+		for(i=0;i<10;i++)
+		{
+			if (XLALMCMCCheckParameter(parameter,paramName[i])) {
+				phaseParams[i]=XLALMCMCGetParameter(parameter,paramName[i]);
+			}
             
-    }
-    
-        LALInspiralStationaryPhaseApprox2Test(status, model, template, phaseParams );
+		}
+		
+		LALInspiralStationaryPhaseApprox2Test(status, model, template, phaseParams );
     }
     else {
         LALInspiralWave(status,model,template);
