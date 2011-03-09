@@ -205,11 +205,12 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
        prior = None
 
      # compute posterior/upper limits marginalizing over uncertainties
-     combined_post = prior
-     for vol,vol2,lam in zip(vols,volErrs,volDerivs):
-       mu, combined_post = upper_limit_utils.compute_posterior(vol[mbin],vol2[mbin],lam[mbin],mu,combined_post)
-       if mu is not None:
-         combined_post /= combined_post.sum()
+     mu, combined_post = upper_limit_utils.compute_many_posterior([v[mbin] for v in vols],
+                                                                  [v[mbin] for v in volErrs],
+                                                                  [v[mbin] for v in volDerivs],
+                                                                  mu_in = mu, prior = prior,
+                                                                  mkplot = True,
+                                                                  plottag = '%s%s-%s_combined_posterior_by_%s_bin%d-%d-%d'%(opts.output_path,combined_ifos,__prog__,bin_type.lower(), j, opts.user_tag,opts.gps_start_time, opts.gps_end_time-opts.gps_start_time))
      combined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, combined_post, 0.90)
 
      if combined_upper_limit[mbin] == 0: continue
