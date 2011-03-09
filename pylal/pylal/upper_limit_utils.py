@@ -77,13 +77,29 @@ def compute_many_posterior(vAs, vA2s, dvAs, mu_in=None, prior=None, mkplot=False
     post = prior
 
     for vol,vol2,lam in zip(vAs,vA2s,dvAs):
-        mu, post = upper_limit_utils.compute_posterior(vol[mbin],vol2[mbin],lam[mbin],mu,combined_post)
+        mu, post = compute_posterior(vol,vol2,lam,mu,post)
         if post is not None:
             post /= post.sum()
 
     if mkplot:
-        pyplot.semilogx(mu_in,prior,label="prior")
-        pyplot.semilogx(mu,post,label="posterior")
+        pyplot.clf()
+        if mu_in is not None:
+            #create a linear spline representation of the prior, with no smoothing
+            prior = interpolate.splrep(mu_in, prior, s=0, k=1)
+            prior = interpolate.splev(mu, prior)
+            prior[prior < 0] = 0 #prevent interpolation from giving negative probs
+            pyplot.semilogx(mu[mu>0],prior[mu>0]/prior[mu>0].sum(), '-b', linewidth = 2)
+            pyplot.axvline(x=compute_upper_limit(mu,prior), color = 'b', label = "prior %d%s conf"%(90,'%'))
+
+        pyplot.semilogx(mu[mu>0],post[mu>0]/post[mu>0].sum(),'-r', linewidth = 2)
+        pyplot.axvline(x=compute_upper_limit(mu,post), color = 'r', label = "post %d%s conf"%(90,'%'))
+        pyplot.grid()
+        pyplot.xlabel("mergers $\mathrm{(Mpc^{-3} yr^{-1})}$")
+        pyplot.ylabel("Probability Density")
+        pyplot.ylim(ymin=0)
+        pyplot.legend()
+        pyplot.savefig(plottag + ".png")
+        pyplot.xlim(1e-7,1e-2) #FIXME
         pyplot.legend()
         pyplot.savefig(plottag + ".png")
         pyplot.close()
