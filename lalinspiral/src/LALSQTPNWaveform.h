@@ -81,7 +81,7 @@ typedef struct tagLALSQTPNCoefficients {
 	REAL8 mecoSO[3]; ///< spin-orbit coefficients for MECO
 	REAL8 mecoSS; ///< spin1-spin2 coefficients for MECO
 	REAL8 mecoQM; ///< quadropole-monopole coefficients for MECO
-	//@}
+//@}
 } LALSQTPNCoefficients;
 
 /**		The structure contains the system's and the generator's parameters.
@@ -120,7 +120,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
 	LALPNOrder amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
-	//@}
+//@}
 } LALSQTPNWaveformParams;
 
 /**		The function fills the #LALSQTPNCoefficients structure with the needed
@@ -244,6 +244,18 @@ LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformPar
  * @param h
  */
 void XLALSQTPNCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h);
+
+void XLALSQTPNCalculateAmplitudeContribution0_0(REAL8 values[], REAL8 contribution[]);
+void XLALSQTPNCalculateAmplitudeContribution0_5(LALSQTPNWaveformParams *params, REAL8 values[],
+		REAL8 contribution[]);
+void XLALSQTPNCalculateAmplitudeContribution1_0(LALSQTPNWaveformParams *params, REAL8 values[],
+		REAL8 contribution[]);
+
+void XLALSQTPNCalculateCoefficients0_0order(REAL8 values[], REAL8 cosine[], REAL8 sine[]);
+void XLALSQTPNCalculateCoefficients0_5order(REAL8 values[], REAL8 cosine[]);
+void XLALSQTPNCalculateCoefficients1_0order(LALSQTPNWaveformParams *params, REAL8 values[],
+		REAL8 cosine[], REAL8 sine[]);
+void XLALSQTPNCalculateHPHC2(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h);
 
 #ifdef __cplusplus
 }
