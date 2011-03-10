@@ -41,7 +41,7 @@ from pylal.xlal import constants
 from pylal import upper_limit_utils
 
 from pylal import git_version
-__author__ = "Stephen Privitera <sprivite@caltech.edu>"
+__author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
