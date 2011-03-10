@@ -258,6 +258,7 @@ void XLALSQTPNCalculateCoefficients1_0order(LALSQTPNWaveformParams *params, REAL
 void XLALSQTPNCalculateHPHC2(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h);
 
 void XLALSQTPNAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 values[], REAL8 dvalues[]);
+void XLALSQTPNAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 values[], REAL8 dvalues[]);
 
 #ifdef __cplusplus
 }
