@@ -46,19 +46,19 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','a1','a2','phi1','theta1','phi2','theta2']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2']
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)']]
 #Bin size/resolution for binning. Need to match (converted) column names.
 
-greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01}
+greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05}
 
 #Confidence levels
 confidenceLevels=[0.67,0.9,0.95]
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)']
+allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2']
 
 def open_url(url,username,password):
 
@@ -270,7 +270,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(7,6),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75]):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(7,6),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
     
     
@@ -330,19 +330,28 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
         elif pfu_scheme is '' or pfu_scheme is 'file':
             pos_file=os.path.join(pos_folder,'%s.dat'%name)
-
+            # Try looking for posterior_samples.dat if name.dat doesn't exist
+            if not os.path.exists(pos_file):
+                print '%s does not exist, trying posterior_samples.dat'%(pos_file)
+                pos_file=os.path.join(pos_folder,'posterior_samples.dat')
         else:
             print "Unknown scheme for input data url: %s\nFull URL: %s"%(pfu_scheme,str(pos_folder_url))
             exit(0)
 
         print "Reading posterior samples from %s ..."%pos_file
 
-        common_output_table_header,common_output_table_raw=peparser.parse(open(pos_file,'r'))
+        try:
+            common_output_table_header,common_output_table_raw=peparser.parse(open(pos_file,'r'))
+        except IOError:
+            print 'Unable to read file '+pos_file
+            continue
 
         test_and_switch_param(common_output_table_header,'distance','dist')
         test_and_switch_param(common_output_table_header,'chirpmass','mchirp')
         test_and_switch_param(common_output_table_header,'mc','mchirp')
-
+        test_and_switch_param(common_output_table_header,'RA','ra')
+        test_and_switch_param(common_output_table_header,'rightascension','ra')
+        test_and_switch_param(common_output_table_header,'declination','dec')
 
 
         if 'LI_MCMC' in name or 'FU_MCMC' in name:
@@ -366,6 +375,22 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         except:
             pass
 
+        try:
+            print "Converting tilt1 -> cos(tilt1)"
+            idx=common_output_table_header.index('tilt1')
+            common_output_table_header[idx]='cos(tilt1)'
+            common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
+        except:
+            pass
+
+        try:
+            print "Converting tilt2 -> cos(tilt2)"
+            idx=common_output_table_header.index('tilt2')
+            common_output_table_header[idx]='cos(tilt2)'
+            common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
+        except:
+            pass
+        
         pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
 
         try:
@@ -513,6 +538,7 @@ if __name__ == '__main__':
     parser.add_option("--contour-height",dest="ch",default=6,help="Height (in inches) of contour plots (optional).")
     parser.add_option("--contour-plot-width",dest="cpw",default=0.5,help="Relative width of plot element 0.15<width<1 (optional).")
     parser.add_option("--contour-plot-height",dest="cph",default=0.76,help="Relative height of plot element 0.15<width<1 (optional).")
+    parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing")
     (opts,args)=parser.parse_args()
 
     if opts.outpath is None:
@@ -536,7 +562,7 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)])
+    greedy2savepaths,oned_data=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
 
     ####Print HTML!#######
 

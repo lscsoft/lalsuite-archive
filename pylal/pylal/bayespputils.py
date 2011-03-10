@@ -418,6 +418,16 @@ class Posterior(object):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
 
+        if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
+        and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
+            try:
+                print 'Inferring m1 and m2 from mchirp and eta'
+                (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
+                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'))
+                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'))
+            except KeyError:
+                print 'Unable to deduce m1 and m2 from input columns'
+
         if 'logl' in common_output_table_header:
             try:
                 self._logL=self._posterior['logl'].samples
@@ -578,7 +588,8 @@ class Posterior(object):
                         'phi1':_inj_phi1,
                         'phi2':_inj_phi2,
                         'tilt1':_inj_tilt1,
-                        'tilt2':_inj_tilt2
+                        'tilt2':_inj_tilt2,
+                        'cos(iota)': lambda inj: np.cos(inj.inclination)
                        }
 
     def _getinjpar(self,paramname):
@@ -632,7 +643,7 @@ class Posterior(object):
         current_item=0
         pos_array,header=self.samples
         while current_item < len(self):
-            sample_array=(numpy.squeeze(pos_array[current_item,:]))
+            sample_array=(np.squeeze(pos_array[current_item,:]))
             yield ParameterSample(sample_array, header, header)
             current_item += 1
 
@@ -868,7 +879,7 @@ class Posterior(object):
             maxL=oned_pos.samples[max_i][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
-            median=str(oned_pos.median)
+            median=str(np.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
 
@@ -1468,14 +1479,18 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     if 'ra' in posterior.names and 'dec' in posterior.names:
         skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+        raname='ra'
+        decname='dec'
     elif 'rightascension' in posterior.names and 'declination' in posterior.names:
         skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+        raname='rightascension'
+        decname='declination'
     else:
         raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
-    sky_injpoint=(posterior['ra'].injval,posterior['dec'].injval)
+    sky_injpoint=(posterior[raname].injval,posterior[decname].injval)
 
     skypoints=np.array(skylocutils.gridsky(float(skyres)))
     skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
@@ -1880,6 +1895,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             ymin,ymax=plt.ylim()
+            if(ymin<0.0): ylim=0.0
+            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
             plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.yticks()
@@ -1892,6 +1909,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
@@ -1996,6 +2015,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
+        if(xmin)<0.0: xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()

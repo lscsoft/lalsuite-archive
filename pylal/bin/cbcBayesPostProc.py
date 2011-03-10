@@ -112,7 +112,6 @@ def cbcBayesPostProc(
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
     #
-
     if fm_flag:
         peparser=bppu.PEOutputParser('fm')
         commonResultsObj=peparser.parse(data)
@@ -951,7 +950,6 @@ if __name__=='__main__':
     #2D plots list
     #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
     twoDplots=twoDGreedyMenu
-
     cbcBayesPostProc(
                         opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,

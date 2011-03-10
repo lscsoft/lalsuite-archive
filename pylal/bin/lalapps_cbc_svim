@@ -41,7 +41,7 @@ from pylal.xlal import constants
 from pylal import upper_limit_utils
 
 from pylal import git_version
-__author__ = "Stephen Privitera <sprivite@caltech.edu>"
+__author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
@@ -85,16 +85,21 @@ def get_on_instruments(connection):
   return instruments
 
 
-def get_livetime(connection):
+def get_livetime(connection, include_play=False):
   '''
   Query the database for the livetime for the input instruments set.
   '''
+  if include_play:
+    datatype = "all_data"
+  else:
+    datatype = "exclude_play"
+
   livetime_query = """
   SELECT instruments,duration
   FROM experiment_summary
   JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-  WHERE experiment_summary.datatype == "exclude_play";
-  """
+  WHERE experiment_summary.datatype == "%s";
+  """ % (datatype,)
   livetime = {}
   for inst,lt in connection.cursor().execute(livetime_query):
     inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
@@ -148,7 +153,7 @@ class upper_limit(object):
     # read in goodies from DB
     self.instruments = get_on_instruments(self.connection)  #find out which instruments were on during search
     self.set_instruments()                                  #figure out which instrument sets the user wants us to use
-    self.livetime = get_livetime(self.connection)           #get the livetime for the chosen set of instruments
+    self.livetime = get_livetime(self.connection,opts.include_play)           #get the livetime for the chosen set of instruments
     (self.minmass,
      self.maxmass,
      self.mintotal,
@@ -231,7 +236,8 @@ class upper_limit(object):
       if self.opts.verbose:
         print >>sys.stdout,"\t%s were on for %g seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
 
-      self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
+      if not self.opts.include_play: #subtract playground segments
+        self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
 
     return self.zero_lag_segments
 
@@ -325,15 +331,20 @@ class upper_limit(object):
       for inst in self.instruments:
         self.far[inst] = self.opts.far
     else:
+      if self.opts.include_play:
+        datatype = "all_data"
+      else:
+        datatype = "exclude_play"
+
       far_threshold_query = """
       SELECT coinc_event.instruments,MIN(combined_far)
       FROM coinc_inspiral
       JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
       JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id)
       JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
-      WHERE experiment_summary.datatype == "exclude_play"
+      WHERE experiment_summary.datatype == "%s"
       GROUP BY coinc_event.instruments;
-      """
+      """ %(datatype,)
       if self.opts.verbose: print >>sys.stdout,"\t"+far_threshold_query
 
       for inst, far in self.connection.cursor().execute(far_threshold_query):
@@ -417,7 +428,7 @@ class upper_limit(object):
                        self.opts.min_bhmass < sim.mass2 < self.opts.max_bhmass])
       nss = numpy.sum([self.opts.min_nsmass < sim.mass1 < self.opts.max_nsmass,
                        self.opts.min_nsmass < sim.mass2 < self.opts.max_nsmass])
-      if bhs + nss == 0: return True # neither component in the right range, throw out injection
+      if bhs + nss < 2: return True # components not in the right range, throw out injection
       else: sim.mass1 = bhs # the injection will be identified by how many BHs it has
 
     return False
@@ -538,6 +549,7 @@ def parse_command_line():
   # the FAR of the loudest non-playground event.
   parser.add_option("--far", type = "float", help = "FAR to use for injection finding instead of loudest event.")
   parser.add_option("--use-expected-loudest-event", default=False, action = "store_true", help = "Instead of using the observed FAR for the loudest event, estimate the FAR based on livetime. This option overrides the --far option.")
+  parser.add_option("--include-play", default=False, action = "store_true", help = "Include playground data in computing the livetime and volume.")
 
   # Techincal options which the general user won't care about
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
@@ -621,7 +633,7 @@ for instruments in UL.instruments:
       masstags = ''.join(["'''%.1f-%.1f Msun''' Vol (L10s) / Lambda||||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
       fd.write("|| '''Analysis time''' || '''Instrument Set''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
       masstags = ''.join(["  %.0f || %.1f ||"%(v,dv) for v,dv in zip(vA.array,dvA.array)])
-      fd.write("|| %d-%d || !%s || %d (%f) || %.2f || || %s\n" %(UL.start_time,UL.end_time,"".join(sorted(list(instruments))),UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),UL.far[instruments]*UL.livetime[instruments],masstags))
+      fd.write("|| %d-%d || !%s || %d (%f) || %.2f || || %s\n" %(UL.start_time,UL.end_time,"".join(sorted(list(instruments))),UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
       fd.close()
 
 

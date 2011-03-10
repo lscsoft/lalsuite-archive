@@ -677,6 +677,8 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
     'analysis','onsource_right'
   """
 
+  trend_ifos = []
+
   # get the Pylal Analysis Singleton
   pas = AnalysisSingleton()
 
@@ -693,6 +695,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   if onsource is None:
     onsource = [trigger - int(pas.cp.get('analysis','onsource_left')), trigger + int(pas.cp.get('analysis','onsource_right'))]
   offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, tag = tag, path = path)
+  trend_ifos.append(ifolist)
 
   # check the vetoes if there is enough data
   if len(ifolist)>1:
@@ -726,16 +729,18 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
     outname = 'plot_segments_%s.png' % tag
     offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, plot_segments_file=outname, \
          segs1 = segsdict, tag = tag, path = path)
+    trend_ifos.append(ifolist)
 
     # check any CAT2/3 interference with the onsource
     new_ifos = check_veto_time(ifolist, [2,3], onsource, tag = tag, path = path)
     nifos = "".join(new_ifos)
+    trend_ifos.append(new_ifos)
 
     # return the list of available IFOs and the offsource segment
-    return new_ifos, onsource, offsource
+    return new_ifos, onsource, offsource, trend_ifos
 
   else:
-    return ifolist, onsource, offsource
+    return ifolist, onsource, offsource, trend_ifos
 
 # -----------------------------------------------------
 def read_adjusted_onsource(filename):
