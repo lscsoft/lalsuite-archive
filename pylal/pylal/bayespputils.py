@@ -632,7 +632,7 @@ class Posterior(object):
         current_item=0
         pos_array,header=self.samples
         while current_item < len(self):
-            sample_array=(numpy.squeeze(pos_array[current_item,:]))
+            sample_array=(np.squeeze(pos_array[current_item,:]))
             yield ParameterSample(sample_array, header, header)
             current_item += 1
 
@@ -868,7 +868,7 @@ class Posterior(object):
             maxL=oned_pos.samples[max_i][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
-            median=str(numpy.squeeze(oned_pos.median))
+            median=str(np.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
 
