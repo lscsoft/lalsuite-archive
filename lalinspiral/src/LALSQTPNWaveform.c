@@ -152,6 +152,7 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 
 	// calculating the other derivatives and the domega and MECO with spin
 	// components
+
 	switch (params->order) {
 	case LAL_PNORDER_THREE_POINT_FIVE:
 	case LAL_PNORDER_THREE:
@@ -188,22 +189,9 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 			}
 		}
 		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
-			QM_Omega = params->coeff.domegaQMConst;
-			for (i = 0; i < 2; i++) {
-				QM_Omega += params->coeff.domegaQM[i] * SQT_SQR(LNhchih[i]);
-				// QM for dchih
-				for (j = 0; j < 3; j++) {
-					// the 3*index is used, to acces the first spin, if index=0,
-					// otherwise the second spin
-					dvalues[LALSQTPN_CHIH1_1 + 3 * i + j] += params->coeff.dchihQM[i] * LNhchih[i]
-							* LNhxchih[i][j] * omegaPowi_3[6];
-				}
-			}
-			// QM for MECO
-			dvalues[LALSQTPN_MECO] += params->coeff.mecoQM * QM_Omega * omegaPowi_3[3];
+			XLALSQTPNAddQMContributions(params, values, dvalues);
 		}
-		dvalues[LALSQTPN_OMEGA] += (QM_Omega + SSself_Omega + SS_Omega)
-				* omegaPowi_3[LAL_PNORDER_TWO];
+		dvalues[LALSQTPN_OMEGA] += (SSself_Omega + SS_Omega) * omegaPowi_3[LAL_PNORDER_TWO];
 	case LAL_PNORDER_ONE_POINT_FIVE:
 		if (params->spinInteraction != 0) {
 			// SO for domega and MECO
@@ -554,4 +542,24 @@ void XLALSQTPNCalculateHPHC2(LALSQTPNWaveformParams *params, REAL8 values[], REA
 	for (short i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
 		h[i] *= amp;
 	}
+}
+
+void XLALSQTPNAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
+		REAL8 dvalues[]) {
+	REAL8 temp = params->coeff.domegaQMConst;
+	REAL8 LNhchih[2], LNhxchih[2][3];
+	const REAL8 *chi_p[2] = { values + LALSQTPN_CHIH1_1, values + LALSQTPN_CHIH2_1 };
+	for (short i = 0; i < 2; i++) {
+		LNhchih[i] = SCALAR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i]);
+		VECTOR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i], LNhxchih[i]);
+	}
+	for (short i = 0; i < 2; i++) {
+		temp += params->coeff.domegaQM[i] * SQT_SQR(LNhchih[i]);
+		for (short j = 0; j < 3; j++) {
+			dvalues[LALSQTPN_CHIH1_1 + 3 * i + j] += params->coeff.dchihQM[i] * LNhchih[i]
+					* LNhxchih[i][j] * SQT_SQR(values[LALSQTPN_OMEGA]);
+		}
+	}
+	dvalues[LALSQTPN_OMEGA] += temp * pow(values[LALSQTPN_OMEGA], 4. / 3.);
+	dvalues[LALSQTPN_MECO] += params->coeff.mecoQM * temp * values[LALSQTPN_OMEGA];
 }
