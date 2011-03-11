@@ -734,6 +734,18 @@ tagexpnCoeffs {
 \idx[Type]{expnCoeffs}
 </lalLaTeX>  */
 
+/* Coefficients for the EOB non-quasi-circular correction */
+typedef struct
+tagEOBNonQCCoeffs
+{
+  REAL8 a1;
+  REAL8 a2;
+  REAL8 a3;
+  REAL8 a4;
+  REAL8 b1;
+  REAL8 b2;
+} EOBNonQCCoeffs;
+
 /* <lalVerbatim file="LALEnergyAndFluxFunctionsH"> */
 
 typedef REAL8 EnergyFunction(
@@ -834,6 +846,7 @@ tagInspiralDerivativesIn
    EnergyFunction *dEnergy;
    FluxFunction *flux;
    expnCoeffs *coeffs;
+   EOBNonQCCoeffs *nqcCoeffs;
 } InspiralDerivativesIn;
 /* </lalVerbatim>  */
 
@@ -925,17 +938,6 @@ tagInspiralInit
 /* <lalLaTeX>
 \idx[Type]{InspiralInit}
 </lalLaTeX>  */
-
-typedef struct
-tagEOBNonQCCoeffs
-{
-  REAL8 a1;
-  REAL8 a2;
-  REAL8 a3;
-  REAL8 a4;
-  REAL8 b1;
-  REAL8 b2;
-} EOBNonQCCoeffs;
 
 /* <lalVerbatim file="LALInspiralApplyTaperH">  */
 typedef enum
@@ -1902,6 +1904,19 @@ int  XLALEOBNonQCCorrection(
                       REAL8Vector           *dvalues,
                       EOBNonQCCoeffs        *coeffs
                      );
+
+int XLALCalculateNQCCoefficients(
+                 REAL8Vector    * restrict amplitude,
+                 REAL8Vector    * restrict phase,
+                 REAL8Vector    * restrict q1,
+                 REAL8Vector    * restrict q2,
+                 REAL8Vector    * restrict q3,
+                 REAL8Vector    * restrict p1,
+                 REAL8Vector    * restrict p2,
+                 UINT4                     peakIdx,
+                 REAL8                     deltaT,
+                 REAL8                     eta,
+                 EOBNonQCCoeffs * restrict coeffs );
 
 /*---------------------------------------------------------------- */
 
