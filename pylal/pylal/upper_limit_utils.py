@@ -11,9 +11,6 @@ from matplotlib import pyplot
 from pylal import rate
 
 
-L10s_per_Mpc3 = 1./50.0 #FIXME
-
-
 def compute_posterior(vA, vA2, dvA, mu_in=None, prior=None):
     '''
     This function computes the posterior distribution on the rate parameter
@@ -292,15 +289,15 @@ def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
     return newinjs
 
 
-def compute_luminosity_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalog=None, dbins=None, relerr=0.0, syserr=0.0, ploteff=False,logd=False):
+def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalog=None, dbins=None, relerr=0.0, syserr=0.0, ploteff=False,logd=False):
     """
     Compute the average luminosity an experiment was sensitive to given the sets
     of found and missed injections and assuming luminosity is unformly distributed
     in space.
     """
     # mean and std estimate for luminosity (in L10s)
-    lumArray = rate.BinnedArray(mass_bins)
-    lum2Array = rate.BinnedArray(mass_bins)
+    volArray = rate.BinnedArray(mass_bins)
+    vol2Array = rate.BinnedArray(mass_bins)
 
     # found/missed stats
     foundArray = rate.BinnedArray(mass_bins)
@@ -324,12 +321,12 @@ def compute_luminosity_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, ca
         eff, err = mean_efficiency(newfound, newmissed, dbins, bootnum=bootnum, randerr=relerr, syserr=syserr)
         effvmass.append(eff)
         errvmass.append(err)
-        lum, lerr = [L10s_per_Mpc3*v for v in integrate_efficiency(dbins, eff, err, logd)]
+        vol, volerr = integrate_efficiency(dbins, eff, err, logd)
 
-        lumArray[(mc,)] = lum
-        lum2Array[(mc,)] = lerr
+        volArray[(mc,)] = vol
+        vol2Array[(mc,)] = volerr
 
-    return lumArray, lum2Array, foundArray, missedArray, effvmass, errvmass
+    return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
 
 
 def log_volume_derivative_fit(x, vols, xhat):
