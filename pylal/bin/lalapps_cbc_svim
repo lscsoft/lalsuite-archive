@@ -392,7 +392,7 @@ class upper_limit(object):
     vA = []
     for far in fars:
       found, missed = self.get_injections(instruments,far)
-      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_luminosity_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
+      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
 
     # compute the volume derivative in each mass bin
@@ -621,7 +621,10 @@ for instruments in UL.instruments:
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
-    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_luminosity_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type, bootnum=opts.iterations,relerr=opts.dist_err,syserr=opts.dist_sys_err,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type, bootnum=opts.iterations,relerr=opts.dist_err,syserr=opts.dist_sys_err,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+
+    vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
+    vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
 
     # it is useful to look at the efficiencies
     if opts.verbose:
@@ -630,15 +633,12 @@ for instruments in UL.instruments:
 
       wikisum = tag + ".wiki"
       fd = open(wikisum,'w')
-      masstags = ''.join(["'''%.1f-%.1f Msun''' Vol (L10s) / Lambda||||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
+      masstags = ''.join(["'''%.1f-%.1f Msun''' VT (Mpc^3*yr) / Lambda||||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
       fd.write("|| '''Analysis time''' || '''Instrument Set''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
-      masstags = ''.join(["  %.0f || %.1f ||"%(v,dv) for v,dv in zip(vA.array,dvA.array)])
+      masstags = ''.join(["  %.0f || %.2f ||"%(v,dv) for v,dv in zip(vA.array,dvA.array)])
       fd.write("|| %d-%d || !%s || %d (%f) || %.2f || || %s\n" %(UL.start_time,UL.end_time,"".join(sorted(list(instruments))),UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
       fd.close()
 
-
-    vA.array *= UL.livetime[instruments] #preferred unit is L10*yr
-    vA2.array *= UL.livetime[instruments] #preferred unit is L10*yr
 
     # make a live time table
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
