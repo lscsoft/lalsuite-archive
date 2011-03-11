@@ -54,7 +54,9 @@ twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['dis
 greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05}
 
 #Confidence levels
-confidenceLevels=[0.67,0.9,0.95]
+OneDconfidenceLevels=[0.9]
+TwoDconfidenceLevels=OneDconfidenceLevels
+
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec']]
@@ -472,10 +474,9 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     name_list=[]
                     cs_list=[]
 
-                    cllst=[0.9]
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
 
-                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,cllst,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
+                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
 
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
@@ -491,7 +492,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             cl_table={}
             save_paths=[]
             cl_table_min_max_str='<tr><td> Min | Max </td>'
-            for confidence_level in confidenceLevels:
+            for confidence_level in OneDconfidenceLevels:
 
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
                 hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
