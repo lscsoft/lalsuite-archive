@@ -26,17 +26,17 @@ def compute_posterior(vA, vA2, dvA, mu_in=None, prior=None):
     if vA == 0: return mu_in, prior
 
     if mu_in is not None and prior is not None: #give me a rate w/o a prior, shame on you
+       #choose new values for mu, as necessary to avoid having the posterior having
+       #significant support outside the chosen values of mu
+       mu_10 = compute_upper_limit(mu_in, prior,0.10)
+       mu_90 = compute_upper_limit(mu_in, prior,0.90)
+
+       mu_min = 0.01*mu_10 #that should cover it, right?
+       mu_max = 50*mu_90
+       mu = numpy.arange(0,mu_max,mu_min)
+
        #create a linear spline representation of the prior, with no smoothing
        prior = interpolate.splrep(mu_in, prior, s=0, k=1)
-
-       #choose new values for mu and interpolate the prior to these new values
-       mu_min = (vA+5./mu_in[mu_in>0].min())**(-1) # guess a new lower rate limit, 5 to be conservative
-       mu_max = mu_in.max()
-
-       if mu_max/mu_min > 1e6: #FIXME this is a hack to avoid memory errors
-           mu_max = 1e6*mu_min #really shouldn't need more than 6 OOMs
-
-       mu = numpy.arange(0,mu_max,mu_min)
        prior = interpolate.splev(mu, prior)
        prior[prior < 0] = 0 #prevent interpolation from giving negative probs
     else:
