@@ -204,7 +204,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
      # compute posterior/upper limits marginalizing over uncertainties
      mu, combined_post = upper_limit_utils.compute_many_posterior([v[mbin] for v in vols],
-                                                                  [v[mbin]**2 for v in volErrs],
+                                                                  [v2[mbin]/v[mbin] for v2,v in zip(volErrs,vols)],
                                                                   [v[mbin] for v in volDerivs],
                                                                   mu_in = mu, prior = prior,
                                                                   mkplot = True,

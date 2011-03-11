@@ -11,7 +11,7 @@ from matplotlib import pyplot
 from pylal import rate
 
 
-def compute_posterior(vA, vA2, dvA, mu_in=None, prior=None):
+def compute_posterior(vA, err, dvA, mu_in=None, prior=None):
     '''
     This function computes the posterior distribution on the rate parameter
     mu resulting from an experiment which was sensitive to a volume vA. This
@@ -42,14 +42,14 @@ def compute_posterior(vA, vA2, dvA, mu_in=None, prior=None):
        mu = numpy.arange(0,mu_max,mu_min)
        prior = numpy.ones(len(mu))
 
-    if vA2 == 0:
+    if err == 0:
         # we have perfectly measured our efficiency in this mass bin
 	# so the posterior is given by eqn (11) in BCB
 	post = prior*(1+mu*vA*dvA)*numpy.exp(-mu*vA)
     else:
         # we have uncertainty in our efficiency in this mass bin and
 	# want to marginalize it out using eqn (24) of BCB
-	k = vA**2/vA2
+	k = 1./err # k is 1./fractional_error
 	# FIXME it remains to check whether using a Gamma distribution for
 	# the volume error model is sensible
 	post = prior*( (1.0 + mu*vA/k)**(-k-1) + (mu*vA*dvA)*(1.0 + 1.0/k)/(1.0 + mu*vA/k)**(k+2) )
