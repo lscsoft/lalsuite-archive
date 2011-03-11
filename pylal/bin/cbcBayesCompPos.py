@@ -218,17 +218,26 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     injvals=[]
 
     patch_list=[]
+    max_y=0
+    
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
-        (n, bins, patches)=plt.hist(posterior[param].samples,bins=100,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
+        try:
+            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
+        except:
+            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
+        
+        locmaxy=max(n)
+        if locmaxy>max_y: max_y=locmaxy
+        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
 
         patch_list.append(patches[0])
 
-    max_y=myfig.gca().get_ylim()[1]
+    
 
     top_cl_intervals_list={}
     pos_names=list_of_pos_by_name.keys()
@@ -272,10 +281,6 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
 def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(7,6),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
-    
-    
-    
-    
     injection=None
 
     if injection_path is not None and os.path.exists(injection_path) and eventnum is not None:
@@ -538,7 +543,7 @@ if __name__ == '__main__':
     parser.add_option("--contour-height",dest="ch",default=6,help="Height (in inches) of contour plots (optional).")
     parser.add_option("--contour-plot-width",dest="cpw",default=0.5,help="Relative width of plot element 0.15<width<1 (optional).")
     parser.add_option("--contour-plot-height",dest="cph",default=0.76,help="Relative height of plot element 0.15<width<1 (optional).")
-    parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing")
+    parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing (optional).")
     (opts,args)=parser.parse_args()
 
     if opts.outpath is None:
