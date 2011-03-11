@@ -30,11 +30,8 @@ def compute_posterior(vA, vA2, dvA, mu_in=None, prior=None):
        prior = interpolate.splrep(mu_in, prior, s=0, k=1)
 
        #choose new values for mu and interpolate the prior to these new values
-       mu_min = mu_in[mu_in>0].min() - 1000.0*vA*mu_in[mu_in>0].min()**2 # guess a new lower rate limit, 1000 to be conservative
+       mu_min = (vA+5./mu_in[mu_in>0].min())**(-1) # guess a new lower rate limit, 5 to be conservative
        mu_max = mu_in.max()
-
-       if mu_min < 0:
-           mu_min = 1e-7
 
        if mu_max/mu_min > 1e6: #FIXME this is a hack to avoid memory errors
            mu_max = 1e6*mu_min #really shouldn't need more than 6 OOMs
@@ -99,7 +96,6 @@ def compute_many_posterior(vAs, vA2s, dvAs, mu_in=None, prior=None, mkplot=False
         pyplot.ylim(ymin=0)
         pyplot.legend()
         pyplot.savefig(plottag + ".png")
-        pyplot.xlim(1e-7,1e-2) #FIXME
         pyplot.legend()
         pyplot.savefig(plottag + ".png")
         pyplot.close()
