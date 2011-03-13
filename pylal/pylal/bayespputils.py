@@ -1504,7 +1504,6 @@ def sph2cart(r,theta,phi):
     """
     Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
     """
-    print r,theta,phi
     x = r*np.sin(theta)*np.cos(phi)
     y = r*np.sin(theta)*np.sin(phi)
     z = r*np.cos(theta)

@@ -335,10 +335,25 @@ def cbcBayesPostProc(
             inj_beta=None
             if injection:
                 inj_Lmag = power(pos[mchirp_name].injval,5.0/3.0) / power(pi_constant * mtsun * f_inj,1.0/3.0)
-                inj_Lx,inj_Ly,inj_Lz = inj_Lmag*bppu.sph2cart(1.0,pos['iota'].injval,0.0)
+                
+                inj_Lx, inj_Ly, inj_Lz = bppu.sph2cart(1.0,pos['iota'].injval,0.0)
+                inj_Lx *= inj_Lmag
+                inj_Ly *= inj_Lmag
+                inj_Lz *= inj_Lmag
 
-                inj_S1x,inj_S1y,inj_S1z = pos['m1'].injval*pos['m1'].injval*bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
-                inj_S2x,inj_S2y,inj_S2z = pos['m2'].injval*pos['m2'].injval*bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
+                m1inj = pos['m1'].injval
+                m2inj = pos['m2'].injval
+
+                inj_S1x, inj_S1y, inj_S1z = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
+                inj_S2x, inj_S2y, inj_S2z = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
+
+                inj_S1x *= m1inj*m1inj
+                inj_S1y *= m1inj*m1inj
+                inj_S1z *= m1inj*m1inj
+                
+                inj_S2x *= m2inj*m2inj
+                inj_S2y *= m2inj*m2inj
+                inj_S2z *= m2inj*m2inj
 
                 inj_Jx = inj_Lx + inj_S1x + inj_S2x
                 inj_Jy = inj_Ly + inj_S1y + inj_S2y
