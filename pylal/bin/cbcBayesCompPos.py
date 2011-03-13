@@ -280,6 +280,91 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     return myfig,top_cl_intervals_list#,rkde
 
+#
+def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
+
+
+    """
+    Plots a gaussian kernel density estimate for a set
+    of Posteriors onto the same axis.
+
+    @param list_of_pos: a list of Posterior class instances.
+
+    @param plot1DParams: a dict; {paramName:Nbins}
+
+    """
+
+    from scipy import seterr as sp_seterr
+
+    #Create common figure
+    myfig=plt.figure(figsize=(18,12),dpi=300)
+    myfig.add_axes([0.1,0.1,0.65,0.85])
+    list_of_pos=list_of_pos_by_name.values()
+    list_of_pos_names=list_of_pos_by_name.keys()
+
+    injvals=[]
+
+    patch_list=[]
+    max_y=0
+    
+    for name,posterior in list_of_pos_by_name.items():
+        colour=color_by_name[name]
+        myfig.gca(autoscale_on=True)
+        if posterior[param].injval:
+            injvals.append(posterior[param].injval)
+
+        try:
+            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
+        except:
+            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
+        
+        locmaxy=max(n)
+        if locmaxy>max_y: max_y=locmaxy
+        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name],cumulative='True')#range=(min_pos,max_pos)
+
+        patch_list.append(patches[0])
+
+    
+
+    top_cl_intervals_list={}
+    pos_names=list_of_pos_by_name.keys()
+
+
+    for name,posterior in list_of_pos_by_name.items():
+        #toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(posterior,{param:greedyBinSizes[param]},[cl])
+        cl_intervals=posterior[param].prob_interval([cl])
+        colour=color_by_name[name]
+        if cl_intervals[0] is not None and cl_lines_flag:
+            try:
+                plt.plot([cl_intervals[0][0],cl_intervals[0][0]],[0,max_y],color=colour,linestyle='--')
+                plt.plot([cl_intervals[0][1],cl_intervals[0][1]],[0,max_y],color=colour,linestyle='--')
+            except:
+                print "MAX_Y",max_y,[cl_intervals[0][0],cl_intervals[0][0]],[cl_intervals[0][1],cl_intervals[0][1]]
+        top_cl_intervals_list[name]=(cl_intervals[0][0],cl_intervals[0][1])
+
+    if cl_lines_flag:
+        pos_names.append(str(int(cl*100))+'%')
+        patch_list.append(mpl.lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),linestyle='--',color='black'))
+
+    plt.grid()
+
+    oned_legend=plt.figlegend(patch_list,pos_names,'right')
+    for text in oned_legend.get_texts():
+        text.set_fontsize('small')
+    plt.xlabel(param)
+    plt.ylabel('Probability density')
+    plt.draw()
+
+    if injvals:
+        print "Injection parameter is %f"%(float(injvals[0]))
+        injpar=injvals[0]
+        #if min(pos_samps)<injpar and max(pos_samps)>injpar:
+        plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
+
+    #
+
+    return myfig,top_cl_intervals_list#,rkde
+
 
 def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(7,6),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
@@ -496,11 +581,15 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
                 hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
+                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
 
                 save_path=''
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
                     hist_fig.savefig(save_path)
+                    save_paths.append(save_path)
+                    save_path=os.path.join(outdir,'%s_%i_cum.png'%(param,int(100*confidence_level)))
+                    hist_fig2.savefig(save_path)
                     save_paths.append(save_path)
                 min_low,max_high=cl_intervals.values()[0]
                 for name,interval in cl_intervals.items():
@@ -592,9 +681,9 @@ if __name__ == '__main__':
             clf_toggle=False
             for save_path in save_paths:
                 head,plotfile=os.path.split(save_path)
-                if not clf_toggle:
-                    clf_toggle=(not opts.clf)
-                    param_section.write('<img src="%s"/>'%str(plotfile))
+#                if not clf_toggle:
+ #                   clf_toggle=(not opts.clf)
+                param_section.write('<img src="%s"/>'%str(plotfile))
 
             param_section.write(cl_table_str)
 
