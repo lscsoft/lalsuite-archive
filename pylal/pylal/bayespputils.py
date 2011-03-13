@@ -69,7 +69,7 @@ __date__= git_version.date
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
-__default_color_lst=['r','b','y','g','k']
+__default_color_lst=['r','b','y','g','c','m']
 #A default css string for use in html results pages.
 __default_css_string="""
 p,h1,h2,h3,h4,h5

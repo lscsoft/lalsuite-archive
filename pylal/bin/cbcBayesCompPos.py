@@ -28,10 +28,13 @@ import random
 
 #related third party imports
 import numpy as np
+from numpy import floor
+
 import matplotlib as mpl
 mpl.use("AGG")
 from matplotlib import pyplot as plt
 from matplotlib import colors as mpl_colors
+from matplotlib import cm as mpl_cm
 
 
 from scipy import stats
@@ -221,7 +224,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     patch_list=[]
     max_y=0
-    
+
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
@@ -232,14 +235,14 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
             n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
         except:
             n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
-        
+
         locmaxy=max(n)
         if locmaxy>max_y: max_y=locmaxy
         (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
 
         patch_list.append(patches[0])
 
-    
+
 
     top_cl_intervals_list={}
     pos_names=list_of_pos_by_name.keys()
@@ -283,7 +286,6 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 #
 def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
 
-
     """
     Plots a gaussian kernel density estimate for a set
     of Posteriors onto the same axis.
@@ -305,8 +307,8 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     injvals=[]
 
     patch_list=[]
-    max_y=0
-    
+    max_y=1.
+
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
@@ -317,14 +319,10 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
             n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
         except:
             n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
-        
-        locmaxy=max(n)
-        if locmaxy>max_y: max_y=locmaxy
+
         (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name],cumulative='True')#range=(min_pos,max_pos)
 
         patch_list.append(patches[0])
-
-    
 
     top_cl_intervals_list={}
     pos_names=list_of_pos_by_name.keys()
@@ -360,8 +358,6 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
         injpar=injvals[0]
         #if min(pos_samps)<injpar and max(pos_samps)>injpar:
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
-
-    #
 
     return myfig,top_cl_intervals_list#,rkde
 
@@ -482,7 +478,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             common_output_table_raw[:,idx]=np.cos(common_output_table_raw[:,idx])
         except:
             pass
-        
+
         try:
             print "Converting thetas -> cos(thetas)"
             idx=common_output_table_header.index('thetas')
@@ -545,7 +541,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         os.makedirs(outdir)
 
     greedy2savepaths=[]
-    my_color_converter=mpl_colors.ColorConverter()
+
     if common_params is not [] and common_params is not None: #If there are common parameters....
         colorlst=bppu.__default_color_lst
 
@@ -553,10 +549,16 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             temp=copy.copy(common_params)
             #Plot two param contour plots
 
-            #Assign some colours to each different analysis
+            #Assign some colours to each different analysis result
             color_by_name={}
+            cmap_size=1000
+            color_idx=0
+            color_idx_max=len(names_and_pos_folders)
+            cmap_array=mpl_cm.jet(np.array(range(cmap_size)))
             for name,infolder in names_and_pos_folders:
-                color_by_name[name]=my_color_converter.to_rgb((random.uniform(0.1,1),random.uniform(0.1,1),random.uniform(0.1,1)))
+
+                color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
+                color_idx+=1
 
             for i,j in all_pairs(temp):#Iterate over all unique pairs in the set of common parameters
                 pplst=[i,j]
