@@ -38,8 +38,6 @@ __prog__ = "lalapps_cbc_sink"
 pylab.rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
 matplotlib.rcParams.update({"text.usetex": False})
 
-Mpc3_per_L10 = 50.0 #FIXME
-
 def edges(bins):
   """Get the boundary points of a rate.NDBins object."""
   return tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(bins.lower(),bins.upper()) )
@@ -89,8 +87,7 @@ class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
 
         validcolumns = {"mass_bin":"lstring",
-                        "sensitivity_in_L10_yr":"lstring",
-                        "avg_reach_in_L10s":"lstring",
+                        "sensitivity_in_Mpc3_yr":"lstring",
                         "avg_reach_in_Mpc":"lstring",
                         "lambda_ratio":"lstring",
                         "fractional_error":"lstring",
@@ -132,6 +129,7 @@ def parse_command_line():
 
 opts  = parse_command_line()
 
+Mpc3_per_L10 = 50.0
 
 # a lot of work to get the list of instruments that were used
 def any(iterable):
@@ -155,8 +153,8 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
    # read in the data produced by lalapps_cbc_svim
    bins = get_bins(files[0].path(),bin_type) # better use same binning in all files!!
-   vols = [rate.BinnedArray(bins,array=Mpc3_per_L10*get_data(entry.path(),"SearchVolumeFirstMoment")) for entry in files]
-   volErrs = [rate.BinnedArray(bins,array=Mpc3_per_L10*get_data(entry.path(),"SearchVolumeSecondMoment")) for entry in files]
+   vols = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeFirstMoment")) for entry in files]
+   volErrs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeSecondMoment")) for entry in files]
    volDerivs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeDerivative")) for entry in files]
    foundInjs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeFoundInjections")) for entry in files]
    missedInjs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeMissedInjections")) for entry in files]
@@ -206,7 +204,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
      # compute posterior/upper limits marginalizing over uncertainties
      mu, combined_post = upper_limit_utils.compute_many_posterior([v[mbin] for v in vols],
-                                                                  [v[mbin] for v in volErrs],
+                                                                  [v2[mbin]/v[mbin] for v2,v in zip(volErrs,vols)],
                                                                   [v[mbin] for v in volDerivs],
                                                                   mu_in = mu, prior = prior,
                                                                   mkplot = True,
@@ -321,9 +319,8 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
       row = ul_table.RowType()
 
       row.mass_bin = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
-      row.sensitivity_in_L10_yr = "%.3g" % (total_vol[mbin],)
+      row.sensitivity_in_Mpc3_yr = "%.3g" % (total_vol[mbin],)
       row.livetime_in_days = "%f" % (total_lt[mbin]*constants.LAL_YRJUL_SI/(3600*24),)
-      row.avg_reach_in_L10s = "%.3g" % (total_vol[mbin]/total_lt[mbin],)
       row.avg_reach_in_Mpc = "%.1f" % ((total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
       row.upper_limit_in_mergers_per_Mpc3_per_yr = "%.3g" % (combined_upper_limit[mbin],)
       row.effective_numerator = "%.2f" % (combined_upper_limit[mbin]*total_vol[mbin],)
@@ -333,7 +330,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
       ul_table.append(row)
 
-   columnList = ['mass_bin','sensitivity_in_L10_yr','livetime_in_days','avg_reach_in_L10s','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
+   columnList = ['mass_bin','sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
