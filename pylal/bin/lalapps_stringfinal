@@ -36,6 +36,7 @@ from optparse import OptionParser
 import math
 from matplotlib import patches
 import numpy
+import pickle
 from scipy import interpolate
 from scipy import optimize
 try:
@@ -121,7 +122,7 @@ def parse_command_line():
 	if not filenames:
 		raise ValueError, "must provide at least one filename"
 
-	if options,threads < 1:
+	if options.threads < 1:
 		raise ValueError, "--threads must be >= 1"
 
 	return options, filenames
@@ -769,7 +770,12 @@ def write_products(products, prefix, image_formats, verbose = False):
 	while products:
 		if verbose:
 			print >>sys.stderr, "finishing product %d ..." % n
-		for m, fig in enumerate(products.pop(0).finish()):
+		product = products.pop(0)
+		filename = "%sdump_%d.pickle" % (prefix, n)
+		if verbose:
+			print >>sys.stderr, "writing %s ..." % filename
+		pickle.dump(product, open(filename, "w"))
+		for m, fig in enumerate(product.finish()):
 			for ext in image_formats:
 				filename = format % (prefix, n, chr(m + 97), ext)
 				if verbose:
