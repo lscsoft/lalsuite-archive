@@ -2292,7 +2292,7 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,newmassconvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
@@ -2307,13 +2307,13 @@ class PEOutputParser(object):
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, newmassconvention)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, newmassconvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
@@ -2334,7 +2334,10 @@ class PEOutputParser(object):
                 print "Processing file %s to posterior_samples.dat"%infilename
                 header=self._clear_infmcmc_header(infile)
                 # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
-                header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                if not newmassconvention:
+                    header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                else:
+                    header=[label for label in header if label in allowedCols]
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)

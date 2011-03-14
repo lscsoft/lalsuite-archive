@@ -81,7 +81,7 @@ def cbcBayesPostProc(
                         #spinspiral/mcmc options
                         ss_flag=False,ss_deltaLogL=None,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,nDownsample=1,
+                        li_flag=False,nDownsample=1,newmassconvention=False,
                         #followupMCMC options
                         fm_flag=False,
                         # on ACF?
@@ -126,7 +126,7 @@ def cbcBayesPostProc(
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample)
+        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample,newmassconvention=newmassconvention)
 
     elif ss_flag and ns_flag:
         print "Undefined input format. Choose only one of:"
@@ -969,6 +969,7 @@ if __name__=='__main__':
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
+    parser.add_option("--newmassconvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m1 > m2; otherwise m2 > m1 in PTMCMC.output.*.00")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
     # ACF plots off?
@@ -1056,7 +1057,7 @@ if __name__=='__main__':
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_deltaLogL=opts.deltaLogL,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,
+                        li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,newmassconvention=opts.newmassconvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?
