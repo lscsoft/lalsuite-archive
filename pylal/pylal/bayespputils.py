@@ -1510,6 +1510,17 @@ def sph2cart(r,theta,phi):
     return x,y,z
 
 
+def cart2sph(x,y,z):
+    """
+    Utility function to convert cartesian coords to r,theta,phi.
+    """
+    r = np.sqrt(x*x + y*y + z*z)
+    theta = np.arccos(z/r)
+    phi = np.fmod(2*pi_constant + np.arctan2(y,x), 2*pi_constant)
+    
+    return r,theta,phi
+
+
 def greedy_bin_sky(posterior,skyres,confidence_levels):
     """
     Greedy bins the sky posterior samples into a grid on the sky constructed so that
