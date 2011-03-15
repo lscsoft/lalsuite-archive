@@ -611,8 +611,8 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
 
     # convert string in integer
     pas = AnalysisSingleton()
-    padding_time = int(pas.cp.get('analysis','padding_time'))
-    num_trials = int(pas.cp.get('analysis','num_trials'))
+    padding_time = int(pas.cp.get('exttrig','padding_time'))
+    num_trials = int(pas.cp.get('exttrig','num_trials'))
     symmetric = False
     offSourceSegment, grb_ifolist = micos(segdict, onSourceSegment,\
                          padding_time = padding_time, max_trials = num_trials,\
@@ -643,7 +643,7 @@ def plot_segment_info(segdict, onsource, offsource, centertime, output_filename,
 
   # get some basic information
   pas = AnalysisSingleton()
-  num_trials = int(pas.cp.get('analysis','num_trials'))
+  num_trials = int(pas.cp.get('exttrig','num_trials'))
 
   # calculate the times
   length_off_source = num_trials*(abs(onsource))
@@ -685,7 +685,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   # get the science segment specifier from the config file
   seg_names = {}
   for ifo in basic_ifolist:
-    seg_names[ifo] = pas.cp.get('data','science_segment_%s'%ifo)
+    seg_names[ifo] = pas.cp.get('input','%s-segments'%ifo.lower())
 
   # update the science segments around the trigger time
   timerange = [ trigger - offset, trigger + offset]
@@ -693,7 +693,8 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
   # check if enough data is available
   if onsource is None:
-    onsource = [trigger - int(pas.cp.get('analysis','onsource_left')), trigger + int(pas.cp.get('analysis','onsource_right'))]
+    onsource = [trigger - int(pas.cp.get('exttrig','onsource_left')), \
+                    trigger + int(pas.cp.get('exttrig','onsource_right'))]
   offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, tag = tag, path = path)
   trend_ifos.append(ifolist)
 
@@ -715,8 +716,10 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
     # update the veto list if required or if files are missing
     if not useold or not avail:
-      veto_definer_file = pas.cp.get('data','veto_definer')
-      update_veto_lists(veto_definer_file, [starttime, endtime], tag = tag, path = path)
+      veto_definer_file = os.path.join(pas.cvs, \
+                        pas.cp.get('exttrig','cvs_veto_definer'))
+      update_veto_lists(veto_definer_file, [starttime, endtime], \
+                            tag = tag, path = path)
 
 
     # read all CAT1 veto lists into a dictionary
@@ -1218,6 +1221,17 @@ def get_code_tag():
                        "lscsource script, called within runmonitor. Please check"
   return tag
 
+# -----------------------------------------------------
+def get_env(name, required = False):
+    
+    # get the content of the variable
+    content = os.getenv(name)
+    
+    # is it required?
+    if required and not content:
+        raise ValueError, "Environment variable '%s' needs to be set!"%name
+    
+    return content
 
 # -----------------------------------------------------
 # -----------------------------------------------------
@@ -1242,40 +1256,15 @@ class AnalysisSingleton(Singleton):
     def read_basic_setup(self):
       self.init = True
 
-      # set a run lock
-      self.set_lock()
-
-      # create the basic configuration filename
-      basic_file = os.getenv('HOME')+'/.exttrig_basic.config'
-      if not os.path.exists(basic_file):
-        text = """
-[cluster]
-; name of the cluster
-name = UWM
-; path to where to put files for html access
-publishing_path = /home/dietz/public_html/
-; the url of the above path;
-publishing_url = https://ldas-jobs.phys.uwm.edu/~dietz
-; path to the CVS
-cvs = /home/dietz/CVS/cbc/
-; condor log-path for this cluster
-condor_log_path = /people/dietz
-        """
-        raise ValueError, "\n\nERROR: The basic configuration file in the HOME directory is missing!\n"\
-                   "  Please create a file named '.exttrig_basic_config' in your home directory\n"\
-                   "  with the following content (adjusted to your individual settings) \n"\
-                   "  which makes it much easier to run the code on different places "\
-                   "with the SAME config files otherwise: \n\n"+text
-
-      self.bc = ConfigParser.ConfigParser()
-      self.bc.read(basic_file)
+      import socket
 
       # set all the basic things
-      self.cluster = self.bc.get('cluster','name')
-      self.publishing_path = self.bc.get('cluster','publishing_path')
-      self.publishing_url = self.bc.get('cluster','publishing_url')
-      self.cvs = self.bc.get('cluster','cvs')
-      self.condor_log_path = self.bc.get('cluster','condor_log_path')
+      self.hostname = socket.gethostname()
+      self.publishing_path = get_env('USER_PUB')
+      self.publishing_url = get_env('USER_URL')
+      self.cvs = get_env('USER_CVS', True)
+      self.condor_log_path = get_env('USER_LOG', 1)
+      self.email = get_env('USER_EMAIL')
 
 
     # -----------------------------------------------------
@@ -1395,9 +1384,6 @@ condor_log_path = /people/dietz
       self.info('Program exit normally', 'monitor')
 
 
-    def __del__(self):
-
-      print "Destructor???"
 
 
 # -----------------------------------------------------
