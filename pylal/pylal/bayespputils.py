@@ -1516,7 +1516,8 @@ def cart2sph(x,y,z):
     """
     r = np.sqrt(x*x + y*y + z*z)
     theta = np.arccos(z/r)
-    phi = np.arctan2(y,x)
+    phi = np.fmod(2*pi_constant + np.arctan2(y,x), 2*pi_constant)
+    
     return r,theta,phi
 
 
