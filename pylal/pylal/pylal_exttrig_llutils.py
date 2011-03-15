@@ -1,15 +1,10 @@
 #!/usr/bin/python
 
-import os
-import sys
-import pickle
-import time
-import subprocess
-import ConfigParser
-import optparse
-import pickle
-import glob
-import commands
+import os, sys, shutil, time
+import pickle, glob
+import subprocess, commands
+import ConfigParser, optparse
+import itertools
 from datetime import datetime
 
 import numpy as np
@@ -26,7 +21,7 @@ from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
 from pylal.xlal import date
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+#from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import git_version
 
 # the config parser to be used in some of the functions
@@ -45,10 +40,20 @@ template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --user-tag inj "\
   " --overwrite-dir"
 
-ifo_list = ['H1','L1','V1']
+# list of used IFOs
+basic_ifolist = ['H1','L1','V1']
+
+# some predefinitions of colors and run times in S6
+colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
+
+# specify the runtimes during S6
+runtimes = {'A':[931035296,935798487],'B':[937800015,947260815],\
+            'C':[949003215,961545615],'D':[961545615, 971654415] }
+
 
 offset_gps_to_linux = 315964800 # see http://www.epochconverter.com/ for 6 Jan 1980 00:00:00 GPS = 000000000
 
+### template for generating webpages (probably outdated)
 total_summary_prefix = """
 <body style="color: rgb(0, 0, 0); background-color: rgb(221, 255, 255);" alink="#000099" link="#000099" vlink="#990099">
 
@@ -89,7 +94,7 @@ Date of last creation: %s<br><br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Sanity<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Result<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Box<br>
-"""
+"""#"
 
 # -----------------------------------------------------
 def external_call(command):
@@ -339,6 +344,7 @@ def get_dag_part(ini_file):
 def check_file(filename):
   """
   Check the existance of a file and that it is non-zero in size
+  (which is useful for segment files...)
   @param filename: name of the file to check
   @return: True or False
   """
@@ -354,6 +360,502 @@ def check_file(filename):
   else:
     return True
 
+# -----------------------------------------------------
+def get_minimum_scienceseg_length(cp):
+    """
+    Calculate the minimum science segment that
+    can be used with the data given in the actual ini-file.
+    The procedure below is taken from trigger_hipe.
+    @params cp: the config parser instance
+    """
+
+    # the following is just a copy-and-paste from trigger_hipe
+    paddata = int(cp.get('data', 'pad-data'))
+    n = int(cp.get('data', 'segment-length'))
+    s = int(cp.get('data', 'number-of-segments'))
+    r = int(cp.get('data', 'sample-rate'))
+    o = int(cp.get('inspiral', 'segment-overlap'))
+    length = ( n * s - ( s - 1 ) * o ) / r
+    overlap = o / r
+    minsciseg = length + 2 * paddata
+    
+    # returns the result
+    return minsciseg
+
+# -----------------------------------------------------
+def convert_segxml_to_segtxt(segxmlfile, segtxtfile):
+  """
+  Converts a segment xml file into a segment text file for convenience.
+  """
+  # try to open the file
+  try:
+    doc = utils.load_filename(segxmlfile)
+  except:
+    raise IOError, "Error reading file %s" % segxmlfile
+
+  # extract the segment list
+  segs = table.get_table(doc, "segment")
+  seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
+  
+  # and store it to a file
+  segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
+
+# --------------------------------------
+def read_xmlsegfile(xmlsegfile):
+  """
+  Function to read a segment list from a xml segment file
+  """
+  # open the file as document and extract the segments
+  doc = utils.load_filename(xmlsegfile)
+  segs = table.get_table(doc, "segment")
+  vetolist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
+  return vetolist
+
+# --------------------------------------
+def update_segment_lists(segdict, timerange, tag = None, outputdir = '.'):
+  """
+  Function to download the latest segment lists.
+  @param segdict: the names of the segment for each IFO
+  @param timerange: the timerange the segments should cover
+  @param tag: optional parameter indicating the tag (e.g. 'grb090802')
+  @param outputdir: optional parameter indicating the output directory.
+  """
+
+  # add an underscore in front of the tag
+  if tag is not None:
+    tag = '_'+tag
+  else:
+    tag = ''
+
+  # loop over each IFO and the associated segment
+  for ifo, seg in segdict.iteritems():
+
+    # create the filenames
+    segxmlfile = "%s/segments%s%s.xml" % (outputdir, ifo, tag)
+    segtxtfile = "%s/%s-science%s.txt" % (outputdir, ifo, tag)
+    
+    if not check_file(segxmlfile):
+
+        cmd = "ligolw_segment_query --database --query-segments --include-segments '%s'"\
+            " --gps-start-time %d --gps-end-time %d > %s" %\
+            (seg, timerange[0], timerange[1], segxmlfile)
+        pas = AnalysisSingleton()
+        pas.system(cmd, item = tag[4:], divert_output_to_log = False)
+
+    # 'convert' the data from the xml format to a convenient format
+    convert_segxml_to_segtxt(segxmlfile, segtxtfile)
+    
+
+# -----------------------------------------------------
+def update_veto_lists(veto_definer, timerange, path = '.', tag = None):
+    """
+    Function to update the veto files for a given time range
+    @veto_definer: Veto definer file to use
+    @timerange: Time range to download the vetoes for
+    @path: Output path for the segment files [optional]
+    @param tag: Tag for the output files [optional]
+    """
+    
+    # add an underscore in front of the tag
+    if tag is not None:
+        tag = '_'+tag
+    else:
+        tag = ''
+
+    # prepare the call to get the veto-lists from the database
+    pas = AnalysisSingleton()
+    cmd = "ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          % (veto_definer, timerange[0], timerange[1], path)
+    pas.system(cmd, tag[4:])
+
+
+    # Rename the veto files for easier handling
+    veto_files = glob.glob('%s/*VETOTIME_CAT*%d*xml'% (path, timerange[0]))
+    for filename in veto_files:
+      # rename the xml file
+      p = filename.split('-')
+      newname = "%s-%s%s.xml"%(p[0], p[1], tag)
+      shutil.move(filename, newname)
+
+# -----------------------------------------------------
+def get_veto_overlaps(segment, xmlsegfile):
+  """
+  Returns all vetoes from the file 'xmlsegfile' that overlap with the given 'segment'
+  """
+  
+  # converts the segment into a segments-segment
+  testseg = segments.segment(segment)
+ 
+  # prepare the list of vetoes 
+  list_vetoes = []
+    
+  # load the content of the veto-file 
+  xmldoc = utils.load_filename(xmlsegfile, gz = False)
+  segs = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+  segdefs = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+    
+  # create a mapping between the segments and their definitions
+  defdict = {}
+  for segdef in segdefs:
+      defdict[segdef.segment_def_id] = segdef.name
+
+  # loop over each segment
+  for seg in segs:
+    
+    # need to convert to segment first ...
+    s = segments.segment(seg.start_time, seg.end_time)
+      
+    # Make a printout if there is an overlap with a veto and the
+    # given segment (e.g. onsource segment)
+    if testseg.intersects(s):
+      id = seg.segment_def_id
+      list_vetoes.append([defdict[id], seg.start_time, seg.end_time])
+
+  return list_vetoes
+
+# -----------------------------------------------------
+def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
+    """
+    Function to check if the given timerange overlaps with some CAT veto
+    @param used_ifos: A list of used ifos for which SCIENCE data is available
+    @param list_cat: A list of numbers, specifying the categories that should be checked for
+    @param timerange: The range of time that should be checked
+    @param path: Output path for the segment files [optional]
+    @param tag: Tag for the output files [optional]
+    """
+
+    pas = AnalysisSingleton()
+
+    # add an underscore in front of the tag
+    if tag is not None:
+        tag = '_'+tag
+    else:
+        tag = ''
+
+    # Loops over each IFO and check if the onsource overlaps a veto
+    clear_ifos = []
+    for ifo in used_ifos:
+        
+        # loop over all the CATs
+        vetoed_ifos = set()
+        for cat in list_cat:
+
+            # create the filename
+            xmlsegfile = "%s/%s-VETOTIME_CAT%d%s.xml" % \
+                            (path, ifo, cat, tag)
+            vetolist = read_xmlsegfile(xmlsegfile)
+   
+            # check for overlaps, and give detailed list of veto details
+            list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
+            for name, segstart, segend in list_overlaps:
+              pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%(ifo, segstart, segend, cat, name), tag[4:])
+            if vetolist.intersects_segment(segments.segment(timerange)):
+                vetoed_ifos.add(ifo)
+
+        # Check if the detector is being vetoed
+        if len(vetoed_ifos)==0:
+              clear_ifos.append(ifo)
+        else:
+              # a little bit of nice grammar
+              if len(vetoed_ifos)==1:
+                pas.info("IFO %s has been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
+              else:
+                pas.info("IFOs %s have been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
+                
+
+    return clear_ifos
+ 
+# -----------------------------------------------------
+def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.', tag = None, segs1 = None):
+    """
+    Function to get the segment info for a timerange
+    @param timerange: The range of time the SCIENCE segments should be checked
+    @param minsciseg: The minimum time length (in seconds) for an analyzable consecutive segment
+    @param plot_segments_file: Name of the output name for the plot [optional]
+    @param path: Output path for the segment files (NOT the image) [optional]
+    @param tag: Tag for the files [optional]
+    @param segscat1: CAT1 veto times to be considered when finding the best segment [optional]
+    """
+
+    # add an underscore in front of the tag
+    if tag is not None:
+        tag = '_'+tag
+    else:
+        tag = ''
+
+    # prepare a segment dict
+    segdict = segments.segmentlistdict()
+
+    # get the segment dicts, check ALL ifos
+    for ifo in basic_ifolist:
+      ifo_segfile = '%s/%s-science%s.txt' % (path, ifo, tag)
+      if ifo_segfile is not None:
+        tmplist = segmentsUtils.fromsegwizard(open(ifo_segfile))
+        segdict[ifo] = segments.segmentlist([s for s in tmplist \
+                                             if abs(s) > minsciseg])
+
+        # check if there are CAT1 segments to take into account
+        # i.e. take them out before checking available data
+        if segs1:
+          segdict[ifo] -= segs1[ifo]
+          if abs(segs1[ifo])>0:
+            print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
+                   (ifo, segs1[ifo])
+
+    ifolist = segdict.keys()
+    ifolist.sort()
+
+    # create the onsource segment
+    onSourceSegment = segments.segment(timerange[0], timerange[1])
+
+    # convert string in integer
+    pas = AnalysisSingleton()
+    padding_time = int(pas.cp.get('analysis','padding_time'))
+    num_trials = int(pas.cp.get('analysis','num_trials'))
+    symmetric = False
+    offSourceSegment, grb_ifolist = micos(segdict, onSourceSegment,\
+                         padding_time = padding_time, max_trials = num_trials,\
+                         min_trials = num_trials, symmetric = symmetric)
+
+    grb_ifolist.sort()
+    ifo_times = "".join(grb_ifolist)
+
+    # make a plot of the segments if required
+    if plot_segments_file:
+      plot_segment_info(segdict, onSourceSegment, offSourceSegment, timerange[1]-1, plot_segments_file)
+
+    # return the essential data
+    return offSourceSegment, grb_ifolist, ifo_times
+
+# -----------------------------------------------------
+def plot_segment_info(segdict, onsource, offsource, centertime, output_filename, plot_offset = 1000, tag = ''):
+  """
+  Function to plot the segments around a 'centertime'
+  @param segdict: dictionary containing the segments of the science data
+  @param onsource: the onsource segment
+  @param offsource: the offsource segment
+  @param centertime: the time at which the origin is set
+  @param output_filename: output filename of the plot
+  @param plot_offet: additional times (in second) on either side of the range
+  @param tag: full tag denoting e.g. the GRB (with the underscore before)
+  """
+
+  # get some basic information
+  pas = AnalysisSingleton()
+  num_trials = int(pas.cp.get('analysis','num_trials'))
+
+  # calculate the times
+  length_off_source = num_trials*(abs(onsource))
+  plot_offSourceSegment = segments.segment(onsource[0] - length_off_source,
+                                           onsource[1] + length_off_source)
+
+  effective_window = segments.segmentlist([plot_offSourceSegment]).\
+                         protract(plot_offset)
+  effective_segdict = segdict.map(lambda sl: sl & effective_window)
+
+  # create the plot
+  plot = PlotSegmentsPlot(centertime)
+  plot.add_contents(effective_segdict)
+  if offsource:
+    plot.set_window(offsource, plot_offset)
+  plot.highlight_segment(onsource)
+  plot.finalize()
+  plot.ax.set_title('Segments for GRB '+tag[4:])
+  plot.savefig(output_filename)
+  plot.close()
+
+
+# -----------------------------------------------------
+def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = False, offset = 2000, onsource = None):
+  """
+  Function for a full scale check how many IFOs are available for a given time
+  Requires a CP to be set with the following fileds:
+    'data','science_segment_[IFO]'
+    'data','veto_definer'
+    'analysis','onsource_left'
+    'analysis','onsource_right'
+  """
+
+  trend_ifos = []
+
+  # get the Pylal Analysis Singleton
+  pas = AnalysisSingleton()
+
+  # get the science segment specifier from the config file
+  seg_names = {}
+  for ifo in basic_ifolist:
+    seg_names[ifo] = pas.cp.get('data','science_segment_%s'%ifo)
+
+  # update the science segments around the trigger time
+  timerange = [ trigger - offset, trigger + offset]
+  update_segment_lists(seg_names, timerange, tag = tag, outputdir = path)
+
+  # check if enough data is available
+  if onsource is None:
+    onsource = [trigger - int(pas.cp.get('analysis','onsource_left')), trigger + int(pas.cp.get('analysis','onsource_right'))]
+  offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, tag = tag, path = path)
+  trend_ifos.append(ifolist)
+
+  # check the vetoes if there is enough data
+  if len(ifolist)>1:
+
+    # define some time ranges
+    deltat = 500
+    starttime = offsource[0]-deltat
+    endtime   = offsource[1]+deltat
+    duration = endtime-starttime
+
+    # check if these files are available
+    avail = True
+    for ifo in ifolist:
+      for cat in [1,2,3]:
+        xmlsegfile = "%s/%s-VETOTIME_CAT%d_%s.xml" % (path, ifo, cat, tag)
+        if not os.path.exists(xmlsegfile): avail = False
+
+    # update the veto list if required or if files are missing
+    if not useold or not avail:
+      veto_definer_file = pas.cp.get('data','veto_definer')
+      update_veto_lists(veto_definer_file, [starttime, endtime], tag = tag, path = path)
+
+
+    # read all CAT1 veto lists into a dictionary
+    segsdict = {}
+    for ifo in basic_ifolist:
+      xmlsegfile = "%s/%s-VETOTIME_CAT1_%s.xml" % (path, ifo,tag)
+      segsdict[ifo] = read_xmlsegfile(xmlsegfile)
+
+    # do the segment check again, including the CAT1 segs
+    outname = 'plot_segments_%s.png' % tag
+    offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, plot_segments_file=outname, \
+         segs1 = segsdict, tag = tag, path = path)
+    trend_ifos.append(ifolist)
+
+    # check any CAT2/3 interference with the onsource
+    new_ifos = check_veto_time(ifolist, [2,3], onsource, tag = tag, path = path)
+    nifos = "".join(new_ifos)
+    trend_ifos.append(new_ifos)
+
+    # return the list of available IFOs and the offsource segment
+    return new_ifos, onsource, offsource, trend_ifos
+
+  else:
+    return ifolist, onsource, offsource, trend_ifos
+
+# -----------------------------------------------------
+def read_adjusted_onsource(filename):
+  """
+  Reads the adjusted onsource times for GRBs inspected manually.
+  Uses the Jordi-type of file
+  """
+
+  grbs = {}
+  # loop over the lines of the file
+  for line in file(filename):
+    w = line.split()
+    if len(w)<7:
+      continue
+
+    # read the information
+    name = w[1]
+    try:
+      number = int(name[:6])
+    except:
+      continue
+
+    try:
+      start = int(w[3])
+      end = int(w[5])
+      used = True
+    except:
+      used = False
+
+
+    comment = line[40:].replace('\n','').replace('|','').strip()
+
+    if used:
+        grbs[name] = {'onsource':[start, end], 'used':used,\
+                          'comment':comment}
+    else:
+        grbs[name] = {'onsource':None, 'used':used, 'comment':comment}
+            
+  return grbs
+
+# -----------------------------------------------------
+def parse_trigger_list(trigger_file, processed = [], max_number = None, specific_name = None):
+  """
+  This function parses the GRB list provided by Isabel
+  and returns a list of new GRBs
+  @param trigger_file: The name of the trigger file to parse
+  @param processed: List of triggers already processed [optional]
+  @param max_number: Returns at maximum this number of new triggers
+  @param specific_name: Will return a list with only the trigger information
+                        for this specific item, if it is found [optional]
+  """
+
+  # prepare the list of new triggers
+  counter = 0
+  new_triggers = {'name':[], 'ra':[], 'de':[], 'box':[],'gps':[],\
+                   'duration':[], 'sat':[]}
+
+  # open the file
+  for line in file(trigger_file):
+
+    # leave out any empty or commented line
+    if len(line)==0 or line[0]=="#":
+      continue
+
+    # check if we have reached the maximum number of GRBs
+    # to start in this round
+    if max_number:
+      if counter>=max_number:
+        break
+
+    # extract the useful information
+    w = line.split()
+
+    # get the name of the trigger
+    grb_name = w[0]
+
+    # skip if this GRB already had been processed
+    if grb_name in processed:
+      continue
+
+    # check if only a certain GRB should be processed
+    if specific_name:
+      if grb_name!=specific_name:
+        continue
+
+    # we found a new GRB!!
+
+    # check out the duration
+    try:
+      grb_duration = float(w[8])
+    except:
+      grb_duration = None
+
+    # checkout the error box
+    try:
+      errorbox = float(w[4])
+    except:
+      errorbox = None
+
+    # convert the time to GPS
+    grb_time = w[6]
+    grb_date = grb_name[:6]
+    grb_gps_time = get_gps_from_asc(grb_date, grb_time)
+
+    # store temporary in a dictionary
+    new_triggers['name'].append(grb_name)
+    new_triggers['ra'].append(float(w[1]))
+    new_triggers['de'].append(float(w[2]))
+    new_triggers['box'].append(errorbox)
+    new_triggers['gps'].append(grb_gps_time)
+    new_triggers['duration'].append(grb_duration)
+    new_triggers['sat'].append(w[10])
+    counter += 1
+
+  return new_triggers
 
 # --------------------------------------
 def get_empty_exttrig_row():
@@ -644,7 +1146,7 @@ def generate_summary(publish_path, publish_url):
     table = add_linked_value(table, grb.redshift, None )
     table = add_linked_value(table, grb.duration, None)
     table = add(table, '%.2f<br>%.2f' % (grb.ra, grb.de))
-    for ifo in ifo_list:
+    for ifo in basic_ifolist:
       segplot_link = 'GRB%s/plot_segments_grb%s.png'%(grb.name, grb.name)
       
       if ifo in grb.ifos:
@@ -715,6 +1217,188 @@ def get_code_tag():
                        "tag of the code used, e.g. s6_exttrig_100119b. This should have been set in the "\
                        "lscsource script, called within runmonitor. Please check"
   return tag
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+class Singleton(object):
+    def __new__(cls, *args, **kw):
+        if not hasattr(cls, '_instance'):
+            orig = super(Singleton, cls)
+            cls._instance = orig.__new__(cls, *args, **kw)
+        return cls._instance
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+class AnalysisSingleton(Singleton):
+  
+   
+    # -----------------------------------------------------
+    def __init__(self):
+        if not hasattr(self, 'init'):
+          self.read_basic_setup()
+
+    # -----------------------------------------------------
+    def read_basic_setup(self):
+      self.init = True
+
+      # set a run lock
+      self.set_lock()
+
+      # create the basic configuration filename
+      basic_file = os.getenv('HOME')+'/.exttrig_basic.config'
+      if not os.path.exists(basic_file):
+        text = """
+[cluster]
+; name of the cluster
+name = UWM
+; path to where to put files for html access
+publishing_path = /home/dietz/public_html/
+; the url of the above path;
+publishing_url = https://ldas-jobs.phys.uwm.edu/~dietz
+; path to the CVS
+cvs = /home/dietz/CVS/cbc/
+; condor log-path for this cluster
+condor_log_path = /people/dietz
+        """
+        raise ValueError, "\n\nERROR: The basic configuration file in the HOME directory is missing!\n"\
+                   "  Please create a file named '.exttrig_basic_config' in your home directory\n"\
+                   "  with the following content (adjusted to your individual settings) \n"\
+                   "  which makes it much easier to run the code on different places "\
+                   "with the SAME config files otherwise: \n\n"+text
+
+      self.bc = ConfigParser.ConfigParser()
+      self.bc.read(basic_file)
+
+      # set all the basic things
+      self.cluster = self.bc.get('cluster','name')
+      self.publishing_path = self.bc.get('cluster','publishing_path')
+      self.publishing_url = self.bc.get('cluster','publishing_url')
+      self.cvs = self.bc.get('cluster','cvs')
+      self.condor_log_path = self.bc.get('cluster','condor_log_path')
+
+
+    # -----------------------------------------------------
+    def set_cp(self, cp):
+        self.cp = cp
+        
+    # -----------------------------------------------------
+    def get_cp(self):
+        return self.cp
+        
+    # -----------------------------------------------------
+    def set_logfile(self, logfile):
+        self.logfile = logfile
+
+    # -----------------------------------------------------
+    def get_logfile(self):
+        return self.logfile
+
+    # -----------------------------------------------------
+    def info(self, text, item = None, onscreen = True):
+        """
+        Puts some information onto the logfile
+        @params text: The information to be put out.
+        @params item: optional text specifying the context of the text (e.g. GRB name).
+        @params onscreen: optional flag to have the message printed to stdout as well.
+        """
+
+        if item is None:
+            msg = get_time() + ': '+text
+        else:
+            msg = get_time() + ' ('+item+'): '+text
+
+    
+        logfile = open(self.logfile,'a')
+        logfile.write(msg+'\n')
+        logfile.close()
+
+        # write the message out on the screen as well
+        if onscreen:
+            print msg
+    
+    # -----------------------------------------------------
+    def system(self, cmd, item = None, divert_output_to_log = True):      
+        """
+        Makes a system call.
+        @params command: the command to be executed on the bash
+        @params item: a text specifying the content of the text
+                (e.g. number of the GRB the message is associated with)
+                (see also 'info')
+        @params divert_output_to_log: If this flag is set to True the output of the 
+            given command is automatically put into the log-file.
+            If the output of some command itself is further used,
+            like science segments, this flag must be set 
+            to False, so that the output is diverted where it should go.
+        """
+
+        # put the command used into the log file
+        self.info(">>> "+cmd, item)
+
+        # and the output (and error) of the command as well
+        if divert_output_to_log:
+            command = cmd+' >>%s 2>>%s '%(self.logfile, self.logfile)
+        else:
+            command = cmd +' 2>>%s '%self.logfile
+   
+        # perform the command
+        code, out, err = external_call(command)
+
+        # check if there was an error
+        if code>0 and len(err)>0:
+            info("ERROR: " +err, item)
+
+    # --------------------------------------
+    def get_lockname(self):
+      """
+      Returns the name of the lock file
+      """
+      return os.path.expanduser('~/.llmonitor.lock')
+
+    # --------------------------------------
+    def check_lock(self):
+      """
+      Checks if another instance of this code is running.
+      See http://code.activestate.com/recipes/546512/
+     """
+      lockname = self.get_lockname()
+      if os.path.exists(lockname):
+        pid=open(lockname, 'r').read().strip()
+        pidRunning=commands.getoutput('ls /proc | grep %s' % pid)
+        if pidRunning:
+          return pid
+        else:
+          return None
+
+      return None
+
+    # --------------------------------------
+    def set_lock(self):
+      """
+      Sets the lock file and writes the PID of this process
+      """
+      if self.check_lock() is not None:
+        print "ERROR: Program seems to be running"
+        sys.exit(0)
+
+      f = file(self.get_lockname(),'w')
+      f.write(str(os.getpid()))
+      f.close()
+
+    # --------------------------------------
+    def del_lock(self):
+      """
+      Removes the lock file
+      """
+      if os.path.exists(self.get_lockname()):
+        os.remove(self.get_lockname())
+      self.info('Program exit normally', 'monitor')
+
+
+    def __del__(self):
+
+      print "Destructor???"
+
 
 # -----------------------------------------------------
 # -----------------------------------------------------
@@ -826,7 +1510,6 @@ class AnalysisDag(object):
     cmd += 'cd %s;' % dir
     cmd += 'condor_submit_dag %s' % dagname
     system_call(self.name, cmd)
-    #print "DAG NOT SUBMITTED BECAUSE OF TESTING!!!"
 
     # change the status
     self.status = 1
@@ -905,6 +1588,10 @@ class AnalysisDag(object):
 
     return fstat
 
+
+
+
+
   
 # -----------------------------------------------------
 # -----------------------------------------------------
@@ -915,13 +1602,15 @@ class GRB(object):
   """
 
   # -----------------------------------------------------
-  def __init__(self, grb_name=None, grb_ra=None, grb_de=None, grb_time=None):
+  def __init__(self, grb_name=None, grb_ra=None, grb_de=None, grb_time=None, errorbox = None, sat = None):
     """
     Initializes the GRB class with a basic set of information
     @param grb_name: the name of the GRB without the term 'GRB' (e.g.: 070201)
-    @param grb_ra: right ascension of this GRB given in ???
-    @param grb_de: declination of this GRB given in ??
+    @param grb_ra: right ascension of this GRB given in degrees
+    @param grb_de: declination of this GRB given in degrees
     @param grb_time: GPS trigger time of the GRB 
+    @param errorbox: size of the errorbox as stated in Isabel's list
+    @param sat: Name of the satellite providing those data
     """
     self.name = grb_name # just the number, i.e. 091023C
     self.ra = float(grb_ra)
@@ -930,8 +1619,10 @@ class GRB(object):
 
     # additional GRB infos
     self.ifos = ''
+    self.errorbox = errorbox
     self.duration = None
     self.redshift = None
+    self.sat = sat
     self.starttime = None
     self.endtime = None
     self.openbox = False
@@ -949,13 +1640,15 @@ class GRB(object):
     self.onsource_segment = None
     self.ifolist  = []
 
+    # create the PAS instance
+    self.pas = AnalysisSingleton()
+    self.cp = self.pas.get_cp()
+
     # datafind variables
     self.use_offline_data = False
-    self.type_online = {'H1':cp.get('data','channel_online_H1'), 'L1':cp.get('data','channel_online_L1'), 'V1':cp.get('data','channel_online_V1')}
-    self.type_offline = {'H1':cp.get('data','channel_offline_H1'), 'L1':cp.get('data','channel_offline_L1'), 'V1':cp.get('data','channel_offline_V1')}
+    self.type_online = {'H1':self.cp.get('data','channel_online_H1'), 'L1':self.cp.get('data','channel_online_L1'), 'V1':self.cp.get('data','channel_online_V1')}
+    self.type_offline = {'H1':self.cp.get('data','channel_offline_H1'), 'L1':self.cp.get('data','channel_offline_L1'), 'V1':self.cp.get('data','channel_offline_V1')}
 
-    # veto handling
-    self.veto_definer = None
 
   # -----------------------------------------------------
   def set_paths(self, input_dir=None, main_dir=None,\
@@ -1114,7 +1807,7 @@ class GRB(object):
 
     # and run the datafind command for each IFO, putting
     # the cache files directly into them
-    for ifo in ifo_list:
+    for ifo in basic_ifolist:
 
       # create common cache-file names
       output_location = '%s/%s-DATA-%9d-%9d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
@@ -1177,12 +1870,12 @@ class GRB(object):
     cmd += " --v1-segments V1-science_grb%s.txt" % self.name
     cmd += " --list "+self.trigger_file
     cmd += " --grb "+self.name
-    cmd += " --onsource-left "+cp.get('analysis','onsource_left')
-    cmd += " --onsource-right "+cp.get('analysis','onsource_right')
+    cmd += " --onsource-left "+self.cp.get('analysis','onsource_left')
+    cmd += " --onsource-right "+self.cp.get('analysis','onsource_right')
     cmd += " --config-file "+self.inifile
     cmd += " --log-path "+self.condor_log_path
-    cmd += " --num-trials "+cp.get('analysis','num_trials')
-    cmd += " --padding-time "+cp.get('analysis','padding_time')
+    cmd += " --num-trials "+self.cp.get('analysis','num_trials')
+    cmd += " --padding-time "+self.cp.get('analysis','padding_time')
     return cmd
  
   # -----------------------------------------------------
@@ -1298,7 +1991,7 @@ class GRB(object):
     pylal_dir = self.get_pylal_dir()
 
     # make a consistency check
-    test_dir = cp.get('paths','lalsuite')+'/'+tag+'.pylal'
+    test_dir = self.cp.get('paths','lalsuite')+'/'+tag+'.pylal'
     if os.path.normpath(test_dir)!=os.path.normpath(pylal_dir):
       del_lock()
       raise NameError, "The paths to the pylal directory does not agree. Possible error in the setup scripts. \n"\
@@ -1407,33 +2100,6 @@ class GRB(object):
 
       return 1
       
-  # -----------------------------------------------------
-  def get_minimum_scienceseg_length(self):
-    """
-    Calculate the minimum science segment that
-    can be used with the data given in the actual ini-file.
-    The procedure below is from trigger_hipe, after
-    having replaced 'cp by 'pc'
-    """
-    
-    # get the name of the ini-file to be used
-    # note: must be the inifile from CVS, just to create some information
-    ini_file = cp.get('paths','cvs') + '/'+cp.get('analysis','ini_file')
- 
-    # the following is just a copy-and-paste from trigger_hipe
-    # having replaced 'cp' by 'pc'
-    pc = ConfigParser.ConfigParser()
-    pc.read(ini_file)
-    paddata = int(pc.get('data', 'pad-data'))
-    n = int(pc.get('data', 'segment-length'))
-    s = int(pc.get('data', 'number-of-segments'))
-    r = int(pc.get('data', 'sample-rate'))
-    o = int(pc.get('inspiral', 'segment-overlap'))
-    length = ( n * s - ( s - 1 ) * o ) / r
-    overlap = o / r
-    minsciseg = length + 2 * paddata
-    
-    return minsciseg
 
   # --------------------------------------
   def make_cvs_copy(self, files, dest_dir):
@@ -1476,221 +2142,6 @@ class GRB(object):
      f.close()
      
   # --------------------------------------
-  def update_segment_lists(self, timeoffset):
-    """
-    Function to download the latest segment lists.
-    @param timeoffset: The offset in time for downloading those segments
-    """
-
-    seg_names = [cp.get('data','science_segment_H1'), cp.get('data','science_segment_L1'), cp.get('data','science_segment_V1')]
-    ifo_list = ['H1','L1','V1']
-    starttime = self.time-timeoffset
-    endtime = self.time+timeoffset
-
-    for ifo, seg in zip(ifo_list, seg_names):
-
-      segxmlfile = "%s/segments%s_grb%s.xml" % (self.main_dir, ifo, self.name)
-      segtxtfile = "%s/%s-science_grb%s.txt" % (self.main_dir, ifo, self.name)
-
-      if not check_file(segxmlfile):
-        cmd = "%s/bin/ligolw_segment_query --database --query-segments --include-segments '%s' --gps-start-time %d --gps-end-time %d "\
-                    "> %s" %\
-                    (self.get_glue_dir(), seg, starttime, endtime, segxmlfile)
-        system_call(self.name, cmd, False)
-
-      # 'convert' the data from the xml format to a useable format...
-      self.convert_segxml_to_segtxt(segxmlfile, segtxtfile)
-
-  # -----------------------------------------------------
-  def update_veto_lists(self, timeoffset, veto_definer = None):
-
-    definer_file = cp.get('data','veto_definer')
-    starttime = self.time-timeoffset
-    endtime = self.time+timeoffset
-
-    #if self.veto_definer == os.path.basename(definer_file):
-    #  # Same veto definer file; nothing to do
-    #  return
-
-    if not veto_definer:
-      # check for the files first
-      files_ready = True
-      for ifo in ifo_list:
-        name = '%s/%s-VETOTIME_CAT2_grb%s.txt'%(self.main_dir, ifo, self.name)
-        if not check_file(name):
-          files_ready = False
-
-      if files_ready:
-        # All files exist, nothing to do
-        return
-    else:
-      definer_file = veto_definer
-    
-    # veto-definer files do not exist or this is a rerun with a specific definition 
-    # of this file
-
-    cmd = "%s/bin/ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
-          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
-          % (self.get_glue_dir(), definer_file, starttime, endtime, self.main_dir)
-    system_call(self.name, cmd)
-
-    # Rename the veto files for easier handling
-    veto_files = glob.glob('%s/*VETOTIME_CAT2*%d*xml'% (self.main_dir, starttime))
-    for file in veto_files:
-      file_parts = file.split('-')
-      segtxtfile = file_parts[0]+'-'+file_parts[1]+'_grb%s'%self.name+'.txt'
-      self.convert_segxml_to_segtxt(file, segtxtfile)
-
-    # Call the cleanup routine if the veto-definer field is already defined. 
-    # Then the definer file has been updated, and will be copied into the right directory
-    if self.veto_definer:
-       info(self.name, "The veto files for GRB %s has been updated with veto-definer %s" %\
-           ( self.name,definer_file))
-       thispath = self.main_dir +'/GRB'+self.name
-       self.cleanup(thispath)
-
-    # download the original VD file for later review issues
-    # if the path already exists
-    if os.path.exists(self.analysis_dir):
-      self.get_veto_definer(definer_file)
-
-    # remember the veto definer file used
-    self.veto_definer = os.path.basename(definer_file)
-
-  # -----------------------------------------------------
-  def get_veto_definer(self, definer_file):
-    """
-    Downloading the veto-definer file and keeping the original name.
-    """
-
-    filename = os.path.basename(definer_file)
-    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
-    system_call(self.name, cmd)
-
-  # -----------------------------------------------------
-  def check_veto_onsource(self):
-    """
-    Function to check if the CAT2 veto overlap the onsource segment
-    """
-    # Loops over each used IFO and check if the CAT2 time 
-    # overlaps the onsource segment
-    new_ifolist = []
-    for ifo in self.ifolist:
-       segtxtfile = "%s/%s-VETOTIME_CAT2_grb%s.txt" % (self.main_dir, ifo, self.name)
-       vetolist = segmentsUtils.fromsegwizard(open(segtxtfile), coltype=int)
-       if not vetolist.intersects_segment(segments.segment(self.onsource_segment)):
-         new_ifolist.append(ifo)
-       else:
-         info(self.name, "IFO %s has been vetoed by a CAT2 veto" % ifo)
- 
-    # update the ifo list
-    self.ifolist = new_ifolist       
-
-    # re-check for available data
-    if len(self.ifolist)>=2:
-      self.has_data = True
-    else:
-      self.has_data = False
-      info(self.name, "Although data is available, it has been vetoed. Remaining IFOs: %s"%self.ifolist)
-
-
-  # -----------------------------------------------------
-  def convert_segxml_to_segtxt(self, segxmlfile, segtxtfile):
-    """
-    Converts a segment xml file into a segment text file. 
-    FIXME: The other places should be fixed to accept segment xml files
-    """
-    # try to open the file
-    try:
-      doc = utils.load_filename(segxmlfile)
-    except:
-      del_lock()
-      raise IOError, "Error reading file %s" % segxmlfile
-
-    # extract the segment list
-    segs = table.get_table(doc, "segment")
-    seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
-
-    # and store it to a file
-    segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
- 
- 
-  # -----------------------------------------------------
-  def get_segment_info(self,plot_segments_file = None):
-
-    minsciseg = self.get_minimum_scienceseg_length()
-    segdict = segments.segmentlistdict()
-
-    # get the segment dicts
-    for ifo in ifo_list:
-      ifo_segfile = '%s/%s-science_grb%s.txt' % (self.main_dir, ifo, self.name)
-      if ifo_segfile is not None:
-        tmplist = segmentsUtils.fromsegwizard(open(ifo_segfile))
-        segdict[ifo] = segments.segmentlist([s for s in tmplist \
-                                             if abs(s) > minsciseg])
-    ifolist = segdict.keys()
-    ifolist.sort()
-
-    # create the onsource segment
-    onsource_left = int(cp.get('analysis','onsource_left'))
-    onsource_right = int(cp.get('analysis','onsource_right'))
-    trigger = int(self.time)
-    onSourceSegment = segments.segment(trigger - onsource_left,
-                                       trigger + onsource_right)
-
-    # segment objects can't be pickled, so it has to be that way
-    self.onsource_segment = [onSourceSegment[0], onSourceSegment[1]]
-
-    # convert string in integer
-    padding_time = int(cp.get('analysis','padding_time'))
-    num_trials = int(cp.get('analysis','num_trials'))
-    symmetric = False
-    offSourceSegment, grb_ifolist = micos(segdict, onSourceSegment,
-                                          padding_time = padding_time, \
-                                          max_trials = num_trials,
-                                          min_trials = num_trials, \
-                                          symmetric = symmetric)
-
-    grb_ifolist.sort()
-    ifo_times = "".join(grb_ifolist)
-
-    # make a plot of the segments if required
-    if plot_segments_file:
-
-      plot_offset = 1000
-
-      length_off_source = num_trials*(abs(onSourceSegment))
-      plot_offSourceSegment = segments.segment(onSourceSegment[0] - length_off_source,
-                                          onSourceSegment[1] + length_off_source)
-
-      effective_window = segments.segmentlist([plot_offSourceSegment]).\
-                         protract(plot_offset)
-      effective_segdict = segdict.map(lambda sl: sl & effective_window)
-      plot = PlotSegmentsPlot(trigger)
-      plot.add_contents(effective_segdict)
-      if offSourceSegment:
-        plot.set_window(offSourceSegment, plot_offset)
-      plot.highlight_segment(onSourceSegment)
-      plot.finalize()
-      plot.ax.set_title('Segments for GRB '+self.name)
-      plot.savefig(plot_segments_file)
-      plot.close()
-
-    # store the results, cannot pickle segments objects
-    if offSourceSegment:
-      # segment objects can't be pickled, so it has to be that way
-      self.offsource_segment = [offSourceSegment[0], offSourceSegment[1]]
-      self.starttime = offSourceSegment[0]
-      self.endtime = offSourceSegment[1]
-    self.ifolist = grb_ifolist
-    if len(self.ifolist)>=2:
-      self.has_data = True
-    else:
-      self.has_data = False
-
-    self.ifos = ''.join(self.ifolist) 
-
-  # --------------------------------------
   def get_html_status(self):
     """
     Returns the status of the DAGs of this instance
@@ -1720,7 +2171,7 @@ class GRB(object):
   def calculate_optimality(self):
 
     # Calculate the antenna factors (for informational purpose only)
-    for ifo in ifo_list:
+    for ifo in basic_ifolist:
       _, _, _, q = antenna.response(self.time, self.ra, self.de, \
                                     0.0, 0.0, 'degree', ifo)
       self.qvalues[ifo]=q

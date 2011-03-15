@@ -69,7 +69,7 @@ __date__= git_version.date
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
-__default_color_lst=['r','b','y','g','k']
+__default_color_lst=['r','b','y','g','c','m']
 #A default css string for use in html results pages.
 __default_css_string="""
 p,h1,h2,h3,h4,h5
@@ -247,6 +247,54 @@ def _inj_tilt2(inj):
     else:
         return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
 
+def _inj_thetas(inj):
+    mtsun = 4.92549095e-06  #Msol in seconds
+    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+
+    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
+    Lx = Lmag * np.arcsin(inj.inclination)
+    Ly = 0.0
+    Lz = Lmag * np.arccos(inj.inclination)
+    
+    S1x  = inj.m1*inj.m1*inj.spin1x
+    S1y  = inj.m1*inj.m1*inj.spin1y
+    S1z  = inj.m1*inj.m1*inj.spin1z
+    
+    S2x  = inj.m2*inj.m2*inj.spin2x
+    S2y  = inj.m2*inj.m2*inj.spin2y
+    S2z  = inj.m2*inj.m2*inj.spin2z
+
+    Jx = Lx + S1x + S2x
+    Jy = Ly + S1y + S2y
+    Jz = Lz + S1z + S2z
+    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
+
+    return np.arccos(Jz/Jmag)
+    
+def _inj_beta(inj):
+    mtsun = 4.92549095e-06  #Msol in seconds
+    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+
+    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
+    Lx = Lmag * np.arcsin(inj.inclination)
+    Ly = 0.0
+    Lz = Lmag * np.arccos(inj.inclination)
+    
+    S1x  = inj.m1*inj.m1*inj.spin1x
+    S1y  = inj.m1*inj.m1*inj.spin1y
+    S1z  = inj.m1*inj.m1*inj.spin1z
+    
+    S2x  = inj.m2*inj.m2*inj.spin2x
+    S2y  = inj.m2*inj.m2*inj.spin2y
+    S2z  = inj.m2*inj.m2*inj.spin2z
+
+    Jx = Lx + S1x + S2x
+    Jy = Ly + S1y + S2y
+    Jz = Lz + S1z + S2z
+    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
+
+    return np.arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
+
 
 #===============================================================================
 # Class definitions
@@ -418,6 +466,16 @@ class Posterior(object):
             param_name=param_name.lower()
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
 
+        if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
+        and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
+            try:
+                print 'Inferring m1 and m2 from mchirp and eta'
+                (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
+                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'))
+                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'))
+            except KeyError:
+                print 'Unable to deduce m1 and m2 from input columns'
+
         if 'logl' in common_output_table_header:
             try:
                 self._logL=self._posterior['logl'].samples
@@ -578,7 +636,10 @@ class Posterior(object):
                         'phi1':_inj_phi1,
                         'phi2':_inj_phi2,
                         'tilt1':_inj_tilt1,
-                        'tilt2':_inj_tilt2
+                        'tilt2':_inj_tilt2,
+                        'cos(iota)': lambda inj: np.cos(inj.inclination),
+                        'theta_s':_inj_thetas,
+                        'beta':_inj_beta
                        }
 
     def _getinjpar(self,paramname):
@@ -632,7 +693,7 @@ class Posterior(object):
         current_item=0
         pos_array,header=self.samples
         while current_item < len(self):
-            sample_array=(numpy.squeeze(pos_array[current_item,:]))
+            sample_array=(np.squeeze(pos_array[current_item,:]))
             yield ParameterSample(sample_array, header, header)
             current_item += 1
 
@@ -868,7 +929,7 @@ class Posterior(object):
             maxL=oned_pos.samples[max_i][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
-            median=str(oned_pos.median)
+            median=str(np.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
 
@@ -1443,7 +1504,6 @@ def sph2cart(r,theta,phi):
     """
     Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
     """
-    print r,theta,phi
     x = r*np.sin(theta)*np.cos(phi)
     y = r*np.sin(theta)*np.sin(phi)
     z = r*np.cos(theta)
@@ -1468,14 +1528,18 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     if 'ra' in posterior.names and 'dec' in posterior.names:
         skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+        raname='ra'
+        decname='dec'
     elif 'rightascension' in posterior.names and 'declination' in posterior.names:
         skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+        raname='rightascension'
+        decname='declination'
     else:
         raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
-    sky_injpoint=(posterior['ra'].injval,posterior['dec'].injval)
+    sky_injpoint=(posterior[raname].injval,posterior[decname].injval)
 
     skypoints=np.array(skylocutils.gridsky(float(skyres)))
     skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
@@ -1880,6 +1944,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             ymin,ymax=plt.ylim()
+            if(ymin<0.0): ylim=0.0
+            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
             plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.yticks()
@@ -1892,6 +1958,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
@@ -1996,6 +2064,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
+        if(xmin)<0.0: xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
@@ -2222,7 +2292,7 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,newmassconvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
@@ -2237,13 +2307,13 @@ class PEOutputParser(object):
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, newmassconvention)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, newmassconvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
@@ -2264,7 +2334,10 @@ class PEOutputParser(object):
                 print "Processing file %s to posterior_samples.dat"%infilename
                 header=self._clear_infmcmc_header(infile)
                 # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
-                header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                if not newmassconvention:
+                    header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                else:
+                    header=[label for label in header if label in allowedCols]
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
@@ -2592,7 +2665,7 @@ convergenceTests <- function(data,
       # which chains present?:
       chainLabels <- sort(unique(data[,"chain"]))
       # how many samples of each chain?:
-      chainFrequencies <- table(dat[,"chain"])
+      chainFrequencies <- table(data[,"chain"])
       # drop "chain" column from data:
       data <- data[,colnames(data)!="chain"]
     }
