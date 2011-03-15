@@ -120,9 +120,6 @@ def parse_command_line():
 	if options.input_cache:
 		filenames += [CacheEntry(line).url for line in file(options.input_cache)]
 
-	if not filenames:
-		raise ValueError, "must provide at least one filename"
-
 	if options.threads < 1:
 		raise ValueError, "--threads must be >= 1"
 
@@ -873,10 +870,13 @@ if options.detection_threshold is None:
 	# collect all threads, combine results
 	for thread in threads:
 		thread.join()
-	if rate_vs_threshold is None:
-		rate_vs_threshold = rate_vs_thresholds.pop()
 	while rate_vs_thresholds:
-		rate_vs_threshold += rate_vs_thresholds.pop()
+		if rate_vs_threshold is None:
+			rate_vs_threshold = rate_vs_thresholds.pop()
+		else:
+			rate_vs_threshold += rate_vs_thresholds.pop()
+	if rate_vs_threshold is None:
+		raise ValueError, "no non-injection data available:  cannot determine detection threshold.  provide non-injection data or set an explicit detection treshold.  Consult --help for more information."
 
 	# write data products
 	write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = options.verbose)
@@ -931,14 +931,18 @@ for i in range(n_threads):
 # collect all threads, combine results
 for thread in threads:
 	thread.join()
-if efficiency is None:
-	efficiency = efficiencies.pop()
 while efficiencies:
-	efficiency += efficiencies.pop()
+	if efficiency is None:
+		efficiency = efficiencies.pop()
+	else:
+		efficiency += efficiencies.pop()
 
 # write data products
-write_products([efficiency], "string_efficiency_", options.image_formats, verbose = options.verbose)
-
+if efficiency is not None:
+	write_products([efficiency], "string_efficiency_", options.image_formats, verbose = options.verbose)
+else:
+	if options.verbose:
+		print >>sys.stderr, "no injection data available, not writing efficiency data products."
 
 if options.verbose:
 	print >>sys.stderr, "done."
