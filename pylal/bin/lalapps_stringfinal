@@ -36,6 +36,7 @@ from optparse import OptionParser
 import math
 from matplotlib import patches
 import numpy
+import cPickle as pickle
 from scipy import interpolate
 from scipy import optimize
 try:
@@ -44,6 +45,7 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
+import threading
 
 
 from glue import iterutils
@@ -97,6 +99,7 @@ def parse_command_line():
 	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).  This option is required, use 0 to disable calibration uncertainty.")
 	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves (default = 16.7).")
 	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
+	parser.add_option("--import-dump", metavar = "filename", action = "append", help = "Import additional rate vs. threshold or efficiency data from this dump file.  Dump files are one of the data products produced by this program.  Whether the file provides rate vs. threshold data or efficiency data will be determined automatically.  This option can be given multiple times")
 	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions (default = \"png,pdf\").")
 	parser.add_option("-p", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
 	parser.add_option("-o", "--open-box", action = "store_true", help = "Perform open-box analysis.  In a closed-box analysis (the default), information about the events seen at zero-lag is concealed:  the rate vs. threshold plot only shows the rate of events seen in the background, the detection threshold used to measure the efficiency curves is obtained from n-th loudest background event where n is (the integer closest to) the ratio of background livetime to zero-lag livetime, and messages to stdout and stderr that contain information about event counts at zero-lag are silenced.")
@@ -105,6 +108,7 @@ def parse_command_line():
 	parser.add_option("--detection-threshold", metavar = "likelihood", type = "float", help = "Override the detection threshold.  Only injection files will be processed, and the efficiency curve measured.")
 	parser.add_option("--record-background", metavar = "N", type = "int", default = 100000000, help = "Set the number of background likelihood ratios to hold in memory for producing the rate vs. threshold plot (default = 100000000).")
 	parser.add_option("--record-candidates", metavar = "N", type = "int", default = 100, help = "Set the number of highest-ranked zero-lag candidates to dump to the candidate file (default = 100).")
+	parser.add_option("--threads", metavar = "N", type = "int", default = 1, help = "Set the maximum number of parallel threads to use for processing files (default = 1).  Contention for the global Python interpreter lock will throttle the true number that can run.  The number of threads will be automatically adjusted downwards if the number requested exceeds the number of input files.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -116,8 +120,8 @@ def parse_command_line():
 	if options.input_cache:
 		filenames += [CacheEntry(line).url for line in file(options.input_cache)]
 
-	if not filenames:
-		raise ValueError, "must provide at least one filename"
+	if options.threads < 1:
+		raise ValueError, "--threads must be >= 1"
 
 	return options, filenames
 
@@ -188,6 +192,14 @@ class RateVsThreshold(object):
 		self.background_time = 0.0
 		self.open_box = open_box
 
+	def __iadd__(self, other):
+		self.zero_lag.extend(other.zero_lag)
+		self.background.extend(other.background)
+		self.candidates.extend(other.candidates)
+		self.zero_lag_time += other.zero_lag_time
+		self.background_time += other.background_time
+		return self
+
 	def add_contents(self, contents, verbose = False):
 		#
 		# retrieve the offset vectors, retain only instruments that
@@ -246,7 +258,6 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
-			instruments = dbtables.lsctables.instrument_set_from_ifos(instruments)
 			if likelihood_ratio is None:
 				# coinc got vetoed (unable to compute
 				# likelihood)
@@ -259,7 +270,7 @@ WHERE
 				self.zero_lag.append(likelihood_ratio)
 				# likelihood ratio must be listed first to
 				# act as the sort key
-				candidates.append((likelihood_ratio, contents.filename, coinc_event_id, instruments, peak_time))
+				candidates.append((likelihood_ratio, contents.filename, coinc_event_id, dbtables.lsctables.instrument_set_from_ifos(instruments), peak_time))
 		# this is much faster than appending each element into the
 		# Highest object one-by-one
 		self.background.extend(background)
@@ -498,13 +509,23 @@ class Efficiency(object):
 	def __init__(self, detection_threshold, cal_uncertainty, filter_width):
 		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
-		self.width = filter_width
+		self.filter_width = filter_width
 		self.seglists = segments.segmentlistdict()
 		self.vetoseglists = segments.segmentlistdict()
 		self.found = []
 		self.loudest_missed = iterutils.Highest(max = 100)	# keep 100 loudest missed injections
 		self.quietest_found = iterutils.Highest(max = 100)	# keep 100 quietest found injections
 		self.all = []
+
+	def __iadd__(self, other):
+		assert other.detection_threshold == self.detection_threshold
+		self.seglists |= other.seglists
+		self.vetoseglists |= other.vetoseglists
+		self.found.extend(other.found)
+		self.loudest_missed.extend(other.loudest_missed)
+		self.quietest_found.extend(other.quietest_found)
+		self.all.extend(other.all)
+		return self
 
 	def add_contents(self, contents, verbose = False):
 		#
@@ -555,7 +576,7 @@ FROM
 					loudest_missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
 			elif found:
 				# no
-				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
+				print >>sys.stderr, "%s: odd, injection %s was found but not injected ..." % (contents.filename, sim.simulation_id)
 		# this is much faster than appending each element into the
 		# Highest object one-by-one
 		self.loudest_missed.extend(loudest_missed)
@@ -590,7 +611,7 @@ FROM
 		# numerator and denominator arrays.  we do this for the
 		# purpose of computing the Poisson error bars, which
 		# requires us to know the counts for the bins
-		windowfunc = rate.gaussian_window(self.width)
+		windowfunc = rate.gaussian_window(self.filter_width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_binned_ratios(efficiency, windowfunc)
 
@@ -598,7 +619,7 @@ FROM
 		# 0, not NaN
 		efficiency.regularize()
 
-		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
+		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), axes, efficiency, self.cal_uncertainty, self.filter_width, colour = "k", linestyle = "-", erroralpha = 0.2)
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
@@ -689,6 +710,32 @@ def group_files(filenames, verbose = False):
 	return injection_filenames, noninjection_filenames
 
 
+def import_dumps(filenames, verbose = False):
+	rate_vs_threshold = None
+	efficiency = None
+	for filename in filenames:
+		if verbose:
+			print >>sys.stderr, "\t%s ..." % filename,
+		dump = pickle.load(open(filename))
+		if type(dump) is RateVsThreshold:
+			if verbose:
+				print >>sys.stderr, "found rate vs. threshold data"
+			if rate_vs_threshold is None:
+				rate_vs_threshold = dump
+			else:
+				rate_vs_threshold += dump
+		elif type(dump) is Efficiency:
+			if verbose:
+				print >>sys.stderr, "found efficiency data"
+			if efficiency is None:
+				efficiency = dump
+			else:
+				efficiency += dump
+		else:
+			raise ValueError, "cannot determine contents of %s" % filename
+	return rate_vs_threshold, efficiency
+
+
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
@@ -702,7 +749,7 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		dbtables.DBTable_set_connection(connection)
 		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
 		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents)
+			SnglBurstUtils.summarize_coinc_database(contents, filename = working_filename)
 
 		#
 		# augment summary with extra stuff we need.  the filename
@@ -730,7 +777,7 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 
 		for n, product in enumerate(products):
 			if verbose:
-				print >>sys.stderr, "adding to product %d ..." % n
+				print >>sys.stderr, "%s: adding to product %d ..." % (working_filename, n)
 			product.add_contents(contents, verbose = verbose)
 
 		#
@@ -746,12 +793,17 @@ def write_products(products, prefix, image_formats, verbose = False):
 	n = 1
 	while products:
 		if verbose:
-			print >>sys.stderr, "finishing product %d ..." % n
-		for m, fig in enumerate(products.pop(0).finish()):
+			print >>sys.stderr, "finishing product %d ..." % (n - 1)
+		product = products.pop(0)
+		filename = "%sdump_%d.pickle" % (prefix, n)
+		if verbose:
+			print >>sys.stderr, "\twriting %s ..." % filename
+		pickle.dump(product, open(filename, "w"))
+		for m, fig in enumerate(product.finish()):
 			for ext in image_formats:
 				filename = format % (prefix, n, chr(m + 97), ext)
 				if verbose:
-					print >>sys.stderr, "writing %s ..." % filename
+					print >>sys.stderr, "\twriting %s ..." % filename
 				fig.savefig(filename)
 		n += 1
 
@@ -769,17 +821,67 @@ PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
 """
 
 
+#
+# figure out which files are from injection runs and which aren't
+#
+
+
 if options.verbose:
 	print >>sys.stderr, "Identifying injection and non-injection databases ..."
 injection_filenames, noninjection_filenames = group_files(filenames, verbose = options.verbose)
 
+
+#
+# intialize the data collection objects
+#
+
+
+if options.import_dump:
+	if options.verbose:
+		print >>sys.stderr, "Loading dump files ..."
+	rate_vs_threshold, efficiency = import_dumps(options.import_dump, verbose = options.verbose)
+else:
+	rate_vs_threshold, efficiency = None, None
+
+
+#
+# collect zero-lag and background statistics
+#
+
+
 if options.detection_threshold is None:
 	if options.verbose:
 		print >>sys.stderr, "Collecting background and zero-lag statistics ..."
-	rate_vs_threshold = RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates)
-	process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
-	write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = False)
 
+	threads = []
+	rate_vs_thresholds = []
+	# can't use more threads than there are files
+	n_threads = min(options.threads, len(noninjection_filenames))
+	for i in range(n_threads):
+		# how many files for this thread?
+		n = len(noninjection_filenames) // (n_threads - i)
+		# create a new book-keeping object
+		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
+		# launch thread
+		threads.append(threading.Thread(target = process_files, args = (noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+		threads[-1].start()
+		#process_files(noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+		del noninjection_filenames[:n]
+	# collect all threads, combine results
+	for thread in threads:
+		thread.join()
+	while rate_vs_thresholds:
+		if rate_vs_threshold is None:
+			rate_vs_threshold = rate_vs_thresholds.pop()
+		else:
+			rate_vs_threshold += rate_vs_thresholds.pop()
+	if rate_vs_threshold is None:
+		raise ValueError, "no non-injection data available:  cannot determine detection threshold.  provide non-injection data or set an explicit detection treshold.  Consult --help for more information."
+
+	# write data products
+	write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = options.verbose)
+
+	# print summary information, and set detection threshold
 	if options.open_box:
 		print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
 	print >>sys.stderr, "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
@@ -789,25 +891,58 @@ if options.detection_threshold is None:
 		detection_threshold = rate_vs_threshold.zero_lag[-1]
 		print >>sys.stderr, "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
 	else:
-		# the ranking statistic values are stored in decreasing order.  if
-		# the background and zero-lag live times are identical, then the
-		# loudest zero-lag event is simulated by the loudest background
-		# event so we want entry 0 in the list;  if the background livetime
-		# is twice the zero-lag live time then the loudest zero-lag event
-		# is simulated by the 2nd loudest background event so we want entry
-		# 1 in the list.
+		# the ranking statistic values are stored in decreasing
+		# order.  if the background and zero-lag live times are
+		# identical, then the loudest zero-lag event is simulated
+		# by the loudest background event so we want entry 0 in the
+		# list; if the background livetime is twice the zero-lag
+		# live time then the loudest zero-lag event is simulated by
+		# the next-to-loudest background event so we want entry 1
+		# in the list.
 		detection_threshold = rate_vs_threshold.background[int(round(rate_vs_threshold.background_time / rate_vs_threshold.zero_lag_time)) - 1]
 		print >>sys.stderr, "Simulated likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
 else:
 	detection_threshold = options.detection_threshold
 	print >>sys.stderr, "Likelihood ratio for highest-ranked zero-lag survivor from command line: %.9g" % detection_threshold
 
+
+#
+# measure detection efficiency based on loudest (simulated, if box is
+# closed) zero-lag survivor
+#
+
+
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
-efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size)
-process_files(injection_filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
-write_products([efficiency], "string_efficiency_", options.image_formats, verbose = False)
+threads = []
+efficiencies = []
+# can't use more threads than there are files
+n_threads = min(options.threads, len(injection_filenames))
+for i in range(n_threads):
+	# how many files for this thread?
+	n = len(injection_filenames) // (n_threads - i)
+	# create new book-keeping object
+	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
+	# launch thread
+	threads.append(threading.Thread(target = process_files, args = (injection_filenames[:n], efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+	threads[-1].start()
+	#process_files(injection_filenames[:n], efficiencies[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+	del injection_filenames[:n]
+# collect all threads, combine results
+for thread in threads:
+	thread.join()
+while efficiencies:
+	if efficiency is None:
+		efficiency = efficiencies.pop()
+	else:
+		efficiency += efficiencies.pop()
 
+# write data products
+if efficiency is not None:
+	write_products([efficiency], "string_efficiency_", options.image_formats, verbose = options.verbose)
+else:
+	if options.verbose:
+		print >>sys.stderr, "no injection data available, not writing efficiency data products."
 
 if options.verbose:
 	print >>sys.stderr, "done."

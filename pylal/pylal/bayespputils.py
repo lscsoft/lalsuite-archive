@@ -69,7 +69,7 @@ __date__= git_version.date
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
-__default_color_lst=['r','b','y','g','k']
+__default_color_lst=['r','b','y','g','c','m']
 #A default css string for use in html results pages.
 __default_css_string="""
 p,h1,h2,h3,h4,h5
@@ -1510,6 +1510,17 @@ def sph2cart(r,theta,phi):
     return x,y,z
 
 
+def cart2sph(x,y,z):
+    """
+    Utility function to convert cartesian coords to r,theta,phi.
+    """
+    r = np.sqrt(x*x + y*y + z*z)
+    theta = np.arccos(z/r)
+    phi = np.fmod(2*pi_constant + np.arctan2(y,x), 2*pi_constant)
+    
+    return r,theta,phi
+
+
 def greedy_bin_sky(posterior,skyres,confidence_levels):
     """
     Greedy bins the sky posterior samples into a grid on the sky constructed so that
@@ -2292,7 +2303,7 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
@@ -2307,18 +2318,19 @@ class PEOutputParser(object):
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, oldMassConvention)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
         log(L) > logLThreshold are concatenated.
         """
+        print oldMassConvention
         allowedCols=["cycle", "logl", "logpost", "logprior",
                      "a1", "theta1", "phi1",
                      "a2", "theta2", "phi2",
@@ -2334,7 +2346,10 @@ class PEOutputParser(object):
                 print "Processing file %s to posterior_samples.dat"%infilename
                 header=self._clear_infmcmc_header(infile)
                 # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
-                header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                if oldMassConvention:
+                    header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                else:
+                    header=[label for label in header if label in allowedCols]
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
