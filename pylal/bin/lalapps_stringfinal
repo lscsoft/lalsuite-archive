@@ -36,7 +36,7 @@ from optparse import OptionParser
 import math
 from matplotlib import patches
 import numpy
-import pickle
+import cPickle as pickle
 from scipy import interpolate
 from scipy import optimize
 try:
@@ -99,6 +99,7 @@ def parse_command_line():
 	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).  This option is required, use 0 to disable calibration uncertainty.")
 	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves (default = 16.7).")
 	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
+	parser.add_option("--import-dump", metavar = "filename", action = "append", help = "Import additional rate vs. threshold or efficiency data from this dump file.  Dump files are one of the data products produced by this program.  Whether the file provides rate vs. threshold data or efficiency data will be determined automatically.  This option can be given multiple times")
 	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions (default = \"png,pdf\").")
 	parser.add_option("-p", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
 	parser.add_option("-o", "--open-box", action = "store_true", help = "Perform open-box analysis.  In a closed-box analysis (the default), information about the events seen at zero-lag is concealed:  the rate vs. threshold plot only shows the rate of events seen in the background, the detection threshold used to measure the efficiency curves is obtained from n-th loudest background event where n is (the integer closest to) the ratio of background livetime to zero-lag livetime, and messages to stdout and stderr that contain information about event counts at zero-lag are silenced.")
@@ -712,6 +713,32 @@ def group_files(filenames, verbose = False):
 	return injection_filenames, noninjection_filenames
 
 
+def import_dumps(filenames, verbose = False):
+	rate_vs_threshold = None
+	efficiency = None
+	for filename in filenames:
+		if verbose:
+			print >>sys.stderr, "\t%s ..." % filename,
+		dump = pickle.load(open(filename))
+		if type(dump) is RateVsThreshold:
+			if verbose:
+				print >>sys.stderr, "found rate vs. threshold data"
+			if rate_vs_threshold is None:
+				rate_vs_threshold = dump
+			else:
+				rate_vs_threshold += dump
+		elif type(dump) is Efficiency:
+			if verbose:
+				print >>sys.stderr, "found efficiency data"
+			if efficiency is None:
+				efficiency = dump
+			else:
+				efficiency += dump
+		else:
+			raise ValueError, "cannot determine contents of %s" % filename
+	return rate_vs_threshold, efficiency
+
+
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
@@ -769,17 +796,17 @@ def write_products(products, prefix, image_formats, verbose = False):
 	n = 1
 	while products:
 		if verbose:
-			print >>sys.stderr, "finishing product %d ..." % n
+			print >>sys.stderr, "finishing product %d ..." % (n - 1)
 		product = products.pop(0)
 		filename = "%sdump_%d.pickle" % (prefix, n)
 		if verbose:
-			print >>sys.stderr, "writing %s ..." % filename
+			print >>sys.stderr, "\twriting %s ..." % filename
 		pickle.dump(product, open(filename, "w"))
 		for m, fig in enumerate(product.finish()):
 			for ext in image_formats:
 				filename = format % (prefix, n, chr(m + 97), ext)
 				if verbose:
-					print >>sys.stderr, "writing %s ..." % filename
+					print >>sys.stderr, "\twriting %s ..." % filename
 				fig.savefig(filename)
 		n += 1
 
@@ -805,9 +832,19 @@ PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
 if options.verbose:
 	print >>sys.stderr, "Identifying injection and non-injection databases ..."
 injection_filenames, noninjection_filenames = group_files(filenames, verbose = options.verbose)
-# can't use more threads than there are files
-if options.threads > min(len(injection_filenames), len(noninjection_filenames)):
-	options.threads = min(len(injection_filenames), len(noninjection_filenames))
+
+
+#
+# intialize the data collection objects
+#
+
+
+if options.import_dump:
+	if options.verbose:
+		print >>sys.stderr, "Loading dump files ..."
+	rate_vs_threshold, efficiency = import_dumps(options.import_dump, verbose = options.verbose)
+else:
+	rate_vs_threshold, efficiency = None, None
 
 
 #
@@ -820,26 +857,29 @@ if options.detection_threshold is None:
 		print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 
 	threads = []
-	rate_vs_threshold = []
-	for i in range(options.threads):
+	rate_vs_thresholds = []
+	# can't use more threads than there are files
+	n_threads = min(options.threads, len(noninjection_filenames))
+	for i in range(n_threads):
 		# how many files for this thread?
-		n = len(noninjection_filenames) // (options.threads - i)
+		n = len(noninjection_filenames) // (n_threads - i)
 		# create a new book-keeping object
-		rate_vs_threshold.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
+		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
 		# launch thread
-		threads.append(threading.Thread(target = process_files, args = (noninjection_filenames[:n], rate_vs_threshold[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+		threads.append(threading.Thread(target = process_files, args = (noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
 		threads[-1].start()
-		#process_files(noninjection_filenames[:n], rate_vs_threshold[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+		#process_files(noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 		del noninjection_filenames[:n]
 	# collect all threads, combine results
 	for thread in threads:
 		thread.join()
-	while len(rate_vs_threshold) > 1:
-		rate_vs_threshold[0] += rate_vs_threshold.pop()
-	rate_vs_threshold = rate_vs_threshold[0]
+	if rate_vs_threshold is None:
+		rate_vs_threshold = rate_vs_thresholds.pop()
+	while rate_vs_thresholds:
+		rate_vs_threshold += rate_vs_thresholds.pop()
 
 	# write data products
-	write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = False)
+	write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = options.verbose)
 
 	# print summary information, and set detection threshold
 	if options.open_box:
@@ -871,34 +911,33 @@ else:
 # closed) zero-lag survivor
 #
 
-# force a single thread for efficiency measurement
-# FIXME:  it works, but there's no speed benefit, the program only gets a
-# single thread, and it seems to go slower overall
-options.threads = 1
 
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
 threads = []
-efficiency = []
-for i in range(options.threads):
+efficiencies = []
+# can't use more threads than there are files
+n_threads = min(options.threads, len(injection_filenames))
+for i in range(n_threads):
 	# how many files for this thread?
-	n = len(injection_filenames) // (options.threads - i)
+	n = len(injection_filenames) // (n_threads - i)
 	# create new book-keeping object
-	efficiency.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
+	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
 	# launch thread
-	threads.append(threading.Thread(target = process_files, args = (injection_filenames[:n], efficiency[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+	threads.append(threading.Thread(target = process_files, args = (injection_filenames[:n], efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
 	threads[-1].start()
-	#process_files(injection_filenames[:n], efficiency[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+	#process_files(injection_filenames[:n], efficiencies[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 	del injection_filenames[:n]
 # collect all threads, combine results
 for thread in threads:
 	thread.join()
-while len(efficiency) > 1:
-	efficiency[0] += efficiency.pop()
-efficiency = efficiency[0]
+if efficiency is None:
+	efficiency = efficiencies.pop()
+while efficiencies:
+	efficiency += efficiencies.pop()
 
 # write data products
-write_products([efficiency], "string_efficiency_", options.image_formats, verbose = False)
+write_products([efficiency], "string_efficiency_", options.image_formats, verbose = options.verbose)
 
 
 if options.verbose:
