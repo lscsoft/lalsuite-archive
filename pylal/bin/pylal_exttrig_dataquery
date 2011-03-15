@@ -221,10 +221,9 @@ for run, rrange in peu.runtimes.iteritems():
 if opts.config_file:
   config_file = opts.config_file
 else:
-  config_file = 'llmonitorS6%s.conf'%run
-  print "Trying to use generic config file '%s'."%(config_file)
+  config_file = 'S6%s_exttrig.ini'%run
 if not os.path.exists(config_file):
-  raise ValueError, "config file '%s' does not exist!"%(config_file)
+  raise ValueError, "config file '%s' does not exist! Either copy the file from CVS or specify it with --config-file <file>"%(config_file)
 
 # read the config parser and pass it to llutils
 cp = ConfigParser.ConfigParser()
@@ -236,17 +235,13 @@ pas.set_cp(cp)
 pas.set_logfile(opts.log_file)
 
 # set the ini-file and take the minimum science segment
-inifilename = os.path.join(pas.cvs, cp.get('paths','cvs'))+'/'+cp.get('analysis','ini_file')
-inip = ConfigParser.ConfigParser()
-inip.read(inifilename)
-minscilength = peu.get_minimum_scienceseg_length(inip)
+minscilength = peu.get_minimum_scienceseg_length(cp)
 print "Minimum required science segment: %d s"%minscilength
 
 ## single check of data availability
 mainpath = '.'
-ifos, onsource, offsource  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, tag = grbtag, useold = opts.useold)
+ifos, onsource, offsource,_  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, tag = grbtag, useold = opts.useold)
 
-print ifos
 if len(ifos)>1:
     pas.info("GRB accepted with IFOs %s from GPS %d to %d"%(ifos, offsource[0], offsource[1]), grb_name)
 else:
@@ -303,4 +298,3 @@ if opts.make_xml:
   utils.write_filename(xmldoc, filename)
 
 
-# Perform a cleanup of the data
