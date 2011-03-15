@@ -20,14 +20,12 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 # TODO: convert debugging output from print() to logger()
 
 import os
 import sys
 import time
 import pwd
-import re
 
 from optparse import OptionParser
 
@@ -72,12 +70,7 @@ dq_word_key = [
 
 __author__  = "Peter Couvares <pfcouvar@syr.edu>"
 
-
-### globals ###
-
-USER_NAME = pwd.getpwuid(os.getuid()).pw_name
-PROGRAM_NAME = sys.argv[0].replace("./","")
-PROGRAM_PID  = os.getpid()
+PROGRAM_NAME = os.path.abspath(sys.argv[0])
 
 
 """
@@ -90,22 +83,24 @@ version information -- it's assumed you will specify a new state file
 if/when you want to process a newer version of any frame files, since
 the segments may overlap with previous versions.
 """
-def get_pending_fr_segments(state_file, gps_start, gps_end, verbose=False):
+def get_pending_segments(state_file, gps_start, gps_end, verbose=False):
     if verbose: print "reading state from %s" % state_file
     # load our state file and extract processed/excluded segment lists
-    indoc = ligolw_utils.load_url(state_file, gz = (state_file or "stdin").endswith(".gz"))
+    indoc = ligolw_utils.load_url(state_file)
     processed_segments = segmentdb_utils.find_segments(indoc,"P1:PROCESSED:0")
     exclude_segments = segmentdb_utils.find_segments(indoc,"P1:EXCLUDE:0")
-    if verbose: print "processed segments = %s" % processed_segments
-    if verbose: print"excluded segments = %s" % exclude_segments
-    # make a list of the segments that need to be processed
-    all_time = segments.segmentlist([segments.segment(gps_start, gps_end)])
-    pending_segments = (all_time - processed_segments) - exclude_segments
-    if verbose: print "pending segments within %s = %s" % (all_time, pending_segments)
+    if verbose: print "processed segments =", processed_segments
+    if verbose: print "excluded segments =", exclude_segments
+    # calculate segments to be processed
+    gps_range = segments.segmentlist([segments.segment(gps_start, gps_end)])
+    if verbose: print "gps range =", gps_range
+    pending_segments = (gps_range - processed_segments) - exclude_segments
+    if verbose:
+        print "pending segments within %s = %s" % (gps_range, pending_segments)
     return pending_segments
 
 
-# TODO: refactor get_pending_fr_segments() and append_processed_fr_segments()
+# TODO: refactor get_pending_segments() and append_processed_segments()
 # to use some kind of common state_file object, so we don't have open & read
 # the same state file in each
 
@@ -113,10 +108,10 @@ def get_pending_fr_segments(state_file, gps_start, gps_end, verbose=False):
 Given a state file and segmentlist, add the segments to the table of
 processed segments.
 """
-def append_processed_fr_segments(state_file, segmentlist, verbose=False):
+def append_processed_segments(state_file, segmentlist, verbose=False):
     if verbose: print "appending segmentlist %s to state file %s" % (segmentlist, state_file)
     # load existing state file and extract processed/excluded segment lists
-    indoc = ligolw_utils.load_url(state_file, gz = (state_file or "stdin").endswith(".gz"))
+    indoc = ligolw_utils.load_url(state_file)
     processed_segments = segmentdb_utils.find_segments(indoc,"P1:PROCESSED:0")
     exclude_segments = segmentdb_utils.find_segments(indoc,"P1:EXCLUDE:0")
     # construct new state file with updated segments
@@ -125,7 +120,7 @@ def append_processed_fr_segments(state_file, segmentlist, verbose=False):
     proc_id = ligolw_process.register_to_xmldoc(outdoc, PROGRAM_NAME, options.__dict__).process_id
     excl_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","EXCLUDE",0)
     pub_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","PROCESSED",0)
-    if verbose: print "old processed segments = %s" % processed_segments
+    if verbose: print "previously processed segments = %s" % processed_segments
     # append new segments
     processed_segments += segmentlist
     # Do I need to explicity coalesce here?  Let's do so, just to be safe.
@@ -137,26 +132,9 @@ def append_processed_fr_segments(state_file, segmentlist, verbose=False):
 
 
 """
-Given a state file, diskCache, IFO attributes, and GPS time range,
-returns a list of all matching frame PFNs that have not yet been
-processed into DQ XML files.
-"""
-def get_pending_files(state_file, diskcache_file, ifo, frame_type, gps_start, gps_end, verbose=False):
-    pending_segments = get_pending_fr_segments(state_file, gps_start, gps_end, verbose=verbose)
-    if verbose: print "pending segments =", pending_segments
-    cache = glue.pipeline.LsyncCache(diskcache_file)
-    cache.parse()
-    pending_files = []
-    for segment in pending_segments:
-        pending_files += cache.get_lfns('G', ifo + '_' + frame_type, segment[0], segment[1])
-        if verbose: print "pending files for segment %s = %s" % (segment, pending_files)
-    return pending_files
-
-
-"""
 Given a GEO h(t) frame file and optional DQ word bitmask, return two
-name->segmentlist hashes: one containing summary segments and one
-containing regular segments.
+name->segmentlist hashes: one containing DQ summary segments and one
+containing the DQ segments themselves.
 
 The default bitmask (4032 or int('111111000000',2)) omits the first
 six low-order bits, since they are summarized by the GEO-SCIENCE flag.
@@ -165,7 +143,8 @@ the bitmask.)
 """
 def get_dq_flags(file, ifo, bitmask=4032, verbose=False):
     # extract the DQ state vector from the frame file
-    state_vec = pylal.Fr.frgetvect(file, ifo + ':DER_DATA_QUALITY', start=-1, span=-1, verbose=verbose)
+    state_vec = pylal.Fr.frgetvect(file, ifo + ':DER_DATA_QUALITY', start=-1,
+                                   span=-1, verbose=verbose)
     # read the frame's start time and duration
     gps_start = int(state_vec[1])
     num_frames = len(state_vec[0])
@@ -215,64 +194,26 @@ def get_dq_flags(file, ifo, bitmask=4032, verbose=False):
     return (gps_start, total_len, summary_segs, segs)
 
 
-"""
-Given an XML root dir, IFO name, GPS start time, and frame duration,
-returns the full-path data-quality XML filename into which the
-segments should be written, following our (undocumented?) DQ XML
-directory and file-naming conventions.
-"""
 def gen_dq_xml_filename(xml_root, ifo, gps_start, duration):
+    """
+    Given an XML root dir, IFO name, GPS start time, and frame duration,
+    returns the full-path data-quality XML filename into which the
+    segments should be written, following our (undocumented?) DQ XML
+    directory and file-naming conventions.
+    """
     subdir = "%c-DQ_Segments-%d" % (ifo[0], gps_start/100000)
     file = "%c-DQ_Segments-%d-%d.xml" % (ifo[0], gps_start, duration)
     return os.path.join(xml_root, subdir, file)
 
 
-"""
-THIS SHOULD BE RIPPED OUT AND THE CODE THAT USES IT REFACTORED TO USE
-THE PROPER DISKCACHE API.
-
-Given a frame LFN (e.g., as returned by
-glue.pipeline.LsyncCache.get_lfns()), a root frame directory, and
-various frame metadata, returns the physical path to that frame file
-(e.g., "/archive/frames/GEOHF/L3/GEO/G-G1_RDS_C01_L3-9631")
-
-Relies on undocumented (?) LSC directory naming conventions.
-"""
-def fr_lfn_to_pfn_hack(lfn, frame_dir, ifo, frame_type, start_time):
-    subdir = "%c-%s_%s-%d" % (ifo[0], ifo, frame_type, start_time / 100000)
-    return os.path.join(frame_dir, subdir, lfn)
-
-
-"""
-
-Given a single frame file (basename), frame file dir, output xml root
-dir, and various frame attributes, write a ligolw XML file containing
-the DQ flags for the frame.
-
-THIS SHOULD BE REFACTORED to take a full frame file PFN (instead of
-using the frame file basename, frame dir, ifo, and frame type to call
-fr_lfn_to_pfn_hack() to generate the PFN).
-"""
-def frame_to_dq_xml(frame_file, frame_dir, xml_root, ifo, type, version, comment, verbose=False):
-    # these next two lines are ugly: we don't know the frame's
-    # gps_start time until we open it to extract the metadata -- but
-    # in order to convert the frame LFN to a PFN we can open, we need
-    # to know the gps_start.  So we parse it out of the LFN itself.
-    # If/when I learn how to properly convert LFNs to PFNs this will
-    # hopefully no longer be necessary except as a sanity-check.
-    regexp = re.search("(\d+)-(\d+)\.gwf$", frame_file)
-    hack_gps_start = int(regexp.group(1))
-    hack_duration = int(regexp.group(2))
-    # replace the LFN with a PFN
-    frame_file = fr_lfn_to_pfn_hack(frame_file, frame_dir, ifo, type, hack_gps_start)
-
-    # extract the frame's metadata and segmentlist hashes
+def frame_to_dq_xml(frame_file, xml_root, ifo, type, version, comment, verbose=False):
+    """
+    Given a frame file, output xml root dir, and various frame
+    attributes, write a ligolw XML file containing the frame's DQ
+    segments.
+    """
+    # extract the frame's DQ info
     (gps_start, duration, summary_segs, segs) = get_dq_flags(frame_file, ifo, verbose=verbose, bitmask=0)
-
-    # just for ho-ho's, since we now have both, let's double-check our
-    # "hack" metadata with what we pulled out of the frame itself
-    assert hack_gps_start == gps_start
-    assert hack_duration == duration
 
     # create a blank xml document and add the process id
     outdoc = ligolw.Document()
@@ -284,7 +225,6 @@ def frame_to_dq_xml(frame_file, frame_dir, xml_root, ifo, type, version, comment
         summary_segs[flag].coalesce()
         if verbose: print "flag =", flag, "\nsums =", summary_segs[flag]
         seg_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,ifo,flag,version,comment=comment)
-#        intervals = [segments.segment(gps_start, gps_start + duration)]
         segmentdb_utils.add_to_segment_summary(outdoc,proc_id,seg_def_id,summary_segs[flag],comment=type)
         if flag in segs:
             segs[flag].coalesce()
@@ -309,10 +249,8 @@ parser = OptionParser(
     description = "Extracts data quality segments from GEO h(t) frame files, and writes it to XML." )
 
 # defaults are set for use on segdb.ligo.caltech.edu (circa July 2010)
-parser.add_option('-s', '--state-file', metavar='FILE', help='state file',
-                  default="%s_state.xml" % os.path.basename(sys.argv[0]) )
-parser.add_option('-c', '--cache-file', metavar='FILE', help='diskCache file',
-                  default='/ldas_outgoing/diskcacheAPI/frame_cache_dump')
+parser.add_option('-s', '--state-file', metavar='FILE', help='state file')
+parser.add_option('-c', '--cache-file', metavar='FILE', help='diskCache file')
 parser.add_option('-d', '--frame-dir', metavar='DIR', help='GEO frame directory',
                   default='/archive/frames/GEOHF/L3/GEO')
 parser.add_option('-x', '--xml-root', metavar='DIR', help='XML output directory',
@@ -321,13 +259,13 @@ parser.add_option('-l', '--lock_dir', metavar='DIR', help='lock file directory (
 parser.add_option("-t", '--frame-type', metavar='RDS_TYPE', help='RDS frame type',
                   default='RDS_C01_L3' )
 parser.add_option('-v', '--segment-version', metavar="VERSION",
-                  help="create segments as version number VERSION", type=int,
+                  help="create segments as version number VERSION", type="int",
                   default=1)
 parser.add_option('-i', '--ifo', metavar='IFO', default='G1' )
 parser.add_option('--gps-start', metavar='GPS_TIME', help='GPS start time',
-                  default=0 )
+                  type="int", default=0 )
 parser.add_option('--gps-end', metavar='GPS_TIME', help='GPS end time',
-                  default=gpstime.GpsSecondsFromPyUTC(time.time()) )
+                  type="int", default=gpstime.GpsSecondsFromPyUTC(time.time()) )
 parser.add_option("-C", "--comment", metavar="STRING",
                   help="add the optional STRING as the process:comment",
                   default='' )
@@ -335,14 +273,19 @@ parser.add_option("-V", "--verbose", action="store_true",
                   help="print extra debugging information",
                   default=False )
 
-options, filenames = parser.parse_args()
+options, argv_frame_files = parser.parse_args()
 
-if not os.path.isfile(options.state_file):
+if options.cache_file:
+    if len(argv_frame_files) > 0:
+        raise ValueError, "individual frame files cannot be specified along with a diskCache"
+    if not os.path.isfile(options.cache_file):
+        raise ValueError, "diskCache file not found (%s)" % options.cache_file
+else:
+    if len(argv_frame_files) == 0:
+        raise ValueError, "no diskCache or frame files specified"
+
+if options.state_file and not os.path.isfile(options.state_file):
     raise ValueError, "state file not found (%s)" % options.state_file
-if not os.path.isfile(options.cache_file):
-    raise ValueError, "diskCache file not found (%s)" % options.cache_file
-if not os.path.isdir(options.frame_dir):
-    raise ValueError, "frame directory not found (%s)" % options.frame_dir
 if not os.path.isdir(options.xml_root):
     raise ValueError, "XML root directory not found (%s)" % options.xml_root
 
@@ -353,7 +296,6 @@ if not os.path.isdir(xml_root):
         xml_root = options.xml_root
     else:
         raise ValueError, "XML root dir '%s' does not contain necessary IFO subdir '%s'" % (options.xml_root, options.ifo)
-
 
 ### main ###
 
@@ -371,19 +313,43 @@ lockfile = os.path.join(lock_dir, "%s.pid" % os.path.basename(PROGRAM_NAME))
 pidfile.get_lock(lockfile)
 
 # find any unprocessed frame files
-pending_files = get_pending_files(options.state_file, options.cache_file, options.ifo,
-                                  options.frame_type, options.gps_start,
-                                  options.gps_end, verbose=options.verbose)
+
+pending_segments = segments.segmentlist()
+if options.state_file:
+    pending_segments = get_pending_segments(options.state_file,
+                                            options.gps_start,
+                                            options.gps_end,
+                                            options.verbose)
+else:
+    pending_segments = segments.segmentlist([segments.segment(options.gps_start, options.gps_end)])
+if options.verbose: print "pending_segments =", pending_segments
+
+pending_files = []
+if options.cache_file:
+    cache = lal.Cache.fromfile(open(options.cache_file), coltype=int)
+    foo = [entry.path() for entry in cache]
+#    if options.verbose: print "cache =", foo
+    sieved_cache = cache.sieve(description=options.frame_type,
+                               ifos=options.ifo[0],
+                               segmentlist=pending_segments)
+    foo = [entry.path() for entry in sieved_cache]
+    if options.verbose: print "sieved_cache =", foo
+    pending_files = [e.path() for e in sieved_cache.checkfilesexist()[0]]
+else:
+    pending_files = argv_frame_files
+
 if options.verbose: print "pending files =", pending_files
 
 newly_processed_segments = segments.segmentlist([])
 for file in pending_files:
-    segment = frame_to_dq_xml(file, options.frame_dir, xml_root, options.ifo,
+    segment = frame_to_dq_xml(file, options.xml_root, options.ifo,
                               options.frame_type, options.segment_version,
                               options.comment, verbose=options.verbose)
     newly_processed_segments += [segment]
-    
-# update state file with newly-processed frame segments
-append_processed_fr_segments(options.state_file, newly_processed_segments, verbose=options.verbose)
+
+if options.state_file:
+    # update state file with newly-processed frame segments
+    append_processed_segments(options.state_file, newly_processed_segments,
+                              verbose=options.verbose)
 
 os.remove(lockfile)
