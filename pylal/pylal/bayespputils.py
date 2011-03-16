@@ -482,9 +482,9 @@ class Posterior(object):
 
         
         logLFound=False
-        print common_output_table_header
+        
         for loglalias in self._loglaliases:
-            print loglalias
+        
             if loglalias in common_output_table_header:
                 try:
                     self._logL=self._posterior[loglalias].samples
