@@ -463,9 +463,11 @@ class Posterior(object):
         self._posterior={}
         self._injection=SimInspiralTableEntry
         self._loglaliases=['logl','logL','likelihood','posterior']
+
+        common_output_table_header=[i.lower() for i in common_output_table_header]
         
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
-            param_name=param_name.lower()
+            
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
@@ -480,9 +482,9 @@ class Posterior(object):
 
         
         logLFound=False
-
+        print common_output_table_header
         for loglalias in self._loglaliases:
-            
+            print loglalias
             if loglalias in common_output_table_header:
                 try:
                     self._logL=self._posterior[loglalias].samples
