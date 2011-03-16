@@ -2314,7 +2314,6 @@ class PEOutputParser(object):
         For each file, only those samples past the point where the
         log(L) > logLThreshold are concatenated.
         """
-        print oldMassConvention
         allowedCols=["cycle", "logl", "logpost", "logprior",
                      "a1", "theta1", "phi1",
                      "a2", "theta2", "phi2",
