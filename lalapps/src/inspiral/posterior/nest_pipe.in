@@ -60,8 +60,12 @@ parser.add_option("--notify",action="store",default=None,help="Optional e-mail a
 (opts,args)=parser.parse_args()
 
 cp=ConfigParser.ConfigParser()
-cp.read(opts.ini_file)
+cp.optionxform = str
+cp.readfp(open(opts.ini_file))
+#print cp.items('inspnest_all')
+#cp.read(opts.ini_file)
 #Get ifos from string list
+
 ifos=eval(cp.get('analysis','ifos'))
 
 
@@ -96,6 +100,7 @@ checkDir(opts.log_path)
 # Read the ini file using ConfigParser
 
 cp = ConfigParser.ConfigParser()
+cp.optionxform = str
 cp.readfp(open(opts.ini_file))
 dt=float(cp.get('inspnest','dt'))
 
@@ -349,6 +354,16 @@ inspnest_subfile=os.path.join(opts.run_path,'inspnest.sub')
 inspnest_job=OddsPipeline.InspNestJob(cp,inspnest_subfile,opts.log_path)
 inspnest_job.add_opt('Nlive',cp.get('analysis','nlive'))
 inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
+#option for phitest
+if cp.has_option('inspnest','phaseParamTest'):
+    inspnest_job.add_opt('phaseParamTest',cp.get('inspnest','phaseParamTest'))
+
+#print cp.items('inspnest_all')
+#print inspnest_job.__options
+
+for option in cp.items('inspnest_all'):
+    print option[0]
+    inspnest_job.add_opt(option[0],option[1])
 
 if opts.inj and not opts.disable_inject:
     inspnest_job.add_opt('inj',opts.inj)
