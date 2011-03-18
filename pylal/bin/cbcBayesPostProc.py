@@ -102,12 +102,10 @@ def cbcBayesPostProc(
         print "You specified an event number but no injection file. Ignoring!"
 
     if data is None:
-        print 'You must specify an input data file'
-        exit(1)
+        raise RuntimeError('You must specify an input data file')
     #
     if outdir is None:
-        print "You must specify an output directory."
-        exit(1)
+        raise RuntimeError("You must specify an output directory.")
 
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
@@ -129,8 +127,7 @@ def cbcBayesPostProc(
         commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
 
     elif ss_flag and ns_flag:
-        print "Undefined input format. Choose only one of:"
-        exit(1)
+        raise RuntimeError("Undefined input format. Choose only one of:")
 
     else:
         peparser=bppu.PEOutputParser('common')
@@ -143,8 +140,7 @@ def cbcBayesPostProc(
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
         if eventnum is not None:
             if(len(injections)<eventnum):
-                print "Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections))
-                sys.exit(1)
+                raise RuntimeError("Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections)))
             else:
                 injection=injections[eventnum]
 

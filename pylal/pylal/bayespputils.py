@@ -1458,8 +1458,7 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
         try:
             greedyHist[par1_binNumber+par2_binNumber*par1pos_Nbins]+=1
         except:
-            print par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin
-            exit(1)
+            raise RuntimeError("Problem binning samples: %i,%i,%i,%i,%i,%f,%f,%f,%f,%f,%f .")%(par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin)
     #Call greedy bins routine
     toppoints,injection_cl,reses,injection_area=\
                                 _greedy_bin(
@@ -1855,8 +1854,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
-        print "Error: Need as many or more line styles to choose from as confidence levels to plot!"
-        exit(0)
+        raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
 
     CSlst=[]
     name_list=[]
@@ -1916,8 +1914,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     plt.ylabel(par1_name)
 
     if len(name_list)!=len(CSlst):
-        print "Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name."
-        exit(0)
+        raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
     full_name_list=[]
     dummy_lines=[]
 
@@ -2469,11 +2466,11 @@ class PEOutputParser(object):
             from lalapps.combine_evidence import combine_evidence
         except ImportError:
             print "Need lalapps.combine_evidence to convert nested sampling output!"
-            exit(1)
+            raise
 
         if Nlive is None:
-            print "Need to specify number of live points in positional arguments of parse!"
-            exit(1)
+            raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
+            
 
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
