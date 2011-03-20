@@ -259,6 +259,7 @@ void XLALSQTPNCalculateHPHC2(LALSQTPNWaveformParams *params, REAL8 values[], REA
 
 void XLALSQTPNAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 values[], REAL8 dvalues[]);
 void XLALSQTPNAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 values[], REAL8 dvalues[]);
+void XLALSQTPNAddSelfContributions(LALSQTPNWaveformParams *params, const REAL8 values[], REAL8 dvalues[]);
 
 #ifdef __cplusplus
 }

@@ -164,16 +164,11 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 			XLALSQTPNAddSSContributions(params, values, dvalues);
 		}
 		if ((params->spinInteraction & LAL_SSselfInter) == LAL_SSselfInter) {
-			// SSself for domega
-			SSself_Omega = params->coeff.domegaSSselfConst;
-			for (i = 0; i < 2; i++) {
-				SSself_Omega += params->coeff.domegaSSself[i] * SQT_SQR(LNhchih[i]);
-			}
+			XLALSQTPNAddSelfContributions(params, values, dvalues);
 		}
 		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
 			XLALSQTPNAddQMContributions(params, values, dvalues);
 		}
-		dvalues[LALSQTPN_OMEGA] += SSself_Omega * omegaPowi_3[LAL_PNORDER_TWO];
 	case LAL_PNORDER_ONE_POINT_FIVE:
 		if (params->spinInteraction != 0) {
 			// SO for domega and MECO
@@ -567,4 +562,16 @@ void XLALSQTPNAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 val
 			* values[LALSQTPN_OMEGA];
 	dvalues[LALSQTPN_OMEGA] += (params->coeff.domegaSS[0] * LNhchih[0] * LNhchih[1]
 			+ params->coeff.domegaSS[1] * chih1chih2) * pow(values[LALSQTPN_OMEGA], 4. / 3.);
+}
+
+inline void XLALSQTPNAddSelfContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
+		REAL8 dvalues[]) {
+	REAL8 temp = params->coeff.domegaSSselfConst;
+	REAL8 LNhchih;
+	const REAL8 *chi_p[2] = { values + LALSQTPN_CHIH1_1, values + LALSQTPN_CHIH2_1 };
+	for (short i = 0; i < 2; i++) {
+		LNhchih = SCALAR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i]);
+		temp += params->coeff.domegaSSself[i] * SQT_SQR(LNhchih);
+	}
+	dvalues[LALSQTPN_OMEGA] += temp * pow(values[LALSQTPN_OMEGA], 4. / 3.);
 }
