@@ -72,6 +72,12 @@ typedef struct tagLALSQTPNWave {
 	UINT4 length;
 } LALSQTPNWave;
 
+typedef struct tagLALSQTPNVariable {
+	REAL8 LNhchih[2];
+	REAL8 LNhxchih[2][3];
+	REAL8 omegaPowi_3[LAL_PNORDER_NUM_ORDER];
+} LALSQTPNVariable;
+
 /**		The structure contains the coefficients for calculating the derivatives
  * of the evolving quantities.
  */
@@ -100,6 +106,7 @@ typedef struct tagLALSQTPNCoefficients {
 	REAL8 mecoSO[3]; ///< spin-orbit coefficients for MECO
 	REAL8 mecoSS; ///< spin1-spin2 coefficients for MECO
 	REAL8 mecoQM; ///< quadropole-monopole coefficients for MECO
+	LALSQTPNVariable variables;
 //@}
 } LALSQTPNCoefficients;
 
@@ -139,7 +146,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
 	LALPNOrder amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
-//@}
+	//@}
 } LALSQTPNWaveformParams;
 
 /**		The function generates the parameters of the waveform.
@@ -235,8 +242,7 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 void XLALSQTPNAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
 		REAL8 dvalues[]);
 
-void XLALSQTPNAddSelfContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
-		REAL8 dvalues[]);
+void XLALSQTPNAddSelfContributions(LALSQTPNWaveformParams *params, REAL8 dvalues[]);
 
 void XLALSQTPNAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
 		REAL8 dvalues[]);
