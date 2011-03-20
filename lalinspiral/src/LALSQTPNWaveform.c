@@ -96,13 +96,17 @@ void XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 		params->coeff.meco[LAL_PNORDER_TWO] *= (-81. + 57. * params->eta - etaPow2) / 24.;
 	case LAL_PNORDER_ONE_POINT_FIVE:
 		params->coeff.domega[LAL_PNORDER_ONE_POINT_FIVE] = 4. * LAL_PI;
+		if ((params->spinInteraction & LAL_SOInter) == LAL_SOInter) {
+			for (short j = 0; j < 2; j++) {
+				params->coeff.domegaSO[j] = -spin_MPow2[j] * (113.0 + 75.0 * m_m[j]) / 12.0;
+				params->coeff.mecoSO[j] = -spin_MPow2[j] * 5.0 * params->eta * (4.0 + 3.0 * m_m[j])
+						/ 9.;
+				params->coeff.dchihSO[j] = (4.0 + 3.0 * m_m[j]) * params->eta / 2.0;
+			}
+		}
 		if (params->spinInteraction != 0) {
 			for (i = 0; i < 2; i++) {
-				params->coeff.dchihSO[i] = (4. + 3. * m_m[i]) * params->eta / 2.;
 				params->coeff.dLNh[i] = -spin_MPow2[i] / params->eta;
-				params->coeff.domegaSO[i] = -spin_MPow2[i] * (113. + 75. * m_m[i]) / 12.;
-				params->coeff.mecoSO[i] = -spin_MPow2[i] * 5. * params->eta * (4. + 3. * m_m[i])
-						/ 9.;
 			}
 		}
 	case LAL_PNORDER_ONE:
@@ -170,19 +174,11 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 			XLALSQTPNAddQMContributions(params, values, dvalues);
 		}
 	case LAL_PNORDER_ONE_POINT_FIVE:
-		if (params->spinInteraction != 0) {
-			// SO for domega and MECO
-			for (i = 0; i < 2; i++) {
-				dvalues[LALSQTPN_OMEGA] += params->coeff.domegaSO[i] * LNhchih[i]
-						* omegaPowi_3[LAL_PNORDER_ONE_POINT_FIVE];
-				dvalues[LALSQTPN_MECO] += params->coeff.mecoSO[i] * LNhchih[i] * omegaPowi_3[2];
-			}
-			// dLNh and SO for dchih
+		if ((params->spinInteraction & LAL_SOInter) == LAL_SOInter) {
+			XLALSQTPNAddSOContributions(params, values, dvalues);
+		}
+		if (params->spinInteraction) {
 			for (i = 0; i < 3; i++) {
-				dvalues[LALSQTPN_CHIH1_1 + i] += params->coeff.dchihSO[0] * LNhxchih[0][i]
-						* omegaPowi_3[5];
-				dvalues[LALSQTPN_CHIH2_1 + i] += params->coeff.dchihSO[1] * LNhxchih[1][i]
-						* omegaPowi_3[5];
 				dvalues[LALSQTPN_LNH_1 + i] += (params->coeff.dLNh[0] * dvalues[LALSQTPN_CHIH1_1
 						+ i] + params->coeff.dLNh[1] * dvalues[LALSQTPN_CHIH2_1 + i])
 						* omegaPowi_3[1];
@@ -574,4 +570,23 @@ inline void XLALSQTPNAddSelfContributions(LALSQTPNWaveformParams *params, const 
 		temp += params->coeff.domegaSSself[i] * SQT_SQR(LNhchih);
 	}
 	dvalues[LALSQTPN_OMEGA] += temp * pow(values[LALSQTPN_OMEGA], 4. / 3.);
+}
+
+
+inline void XLALSQTPNAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
+		REAL8 dvalues[]) {
+	REAL8 LNhchih, LNhxchih[2][3];
+	REAL8 omegaPow5_3 = pow(values[LALSQTPN_OMEGA], 5.0 / 3.0);
+	const REAL8 *chi_p[2] = { values + LALSQTPN_CHIH1_1, values + LALSQTPN_CHIH2_1 };
+	for (short i = 0; i < 2; i++) {
+		LNhchih = SCALAR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i]);
+		VECTOR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i], LNhxchih[i]);
+		dvalues[LALSQTPN_OMEGA] += params->coeff.domegaSO[i] * LNhchih * values[LALSQTPN_OMEGA];
+		dvalues[LALSQTPN_MECO] += params->coeff.mecoSO[i] * LNhchih * pow(values[LALSQTPN_OMEGA],
+				2.0 / 3.0);
+	}
+	for (short i = 0; i < 3; i++) {
+		dvalues[LALSQTPN_CHIH1_1 + i] += params->coeff.dchihSO[0] * LNhxchih[0][i] * omegaPow5_3;
+		dvalues[LALSQTPN_CHIH2_1 + i] += params->coeff.dchihSO[1] * LNhxchih[1][i] * omegaPow5_3;
+	}
 }
