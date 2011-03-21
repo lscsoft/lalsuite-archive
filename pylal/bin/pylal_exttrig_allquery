@@ -1,0 +1,175 @@
+#!/usr/bin/python
+
+import os, sys, pickle
+import ConfigParser, optparse
+
+from pylal import pylal_exttrig_llutils as peu
+from pylal import git_version
+
+# -----------------------------------------------------
+def check_adjusted_onsource(grb_name, grb_time, adj_onsource):
+  """
+  Checks if there is an updated onsource window information
+  """
+
+  if grb_name in adj_onsource.keys():
+    corr = adj_onsource[grb_name]
+    if corr['used']:
+      seg = corr['onsource']
+      pas.info("Updated onsource window %s  (%s)"%\
+          (seg, corr['comment']), grb_name)
+      return [seg[0]+grb_time, seg[1]+grb_time]
+    else:
+      return -1
+  else:
+    pas.info("No updated onsource window available! Lightcurve missing? ", grb_name)
+    return None
+
+# -----------------------------------------------------
+def parse_args():
+  """
+  Parsing the command line arguments
+  """
+  parser = optparse.OptionParser(version=git_version.verbose_msg)
+
+  # specify config file
+  parser.add_option("--config-file", help="Specifies the config file to use.")
+  parser.add_option("--trigger-file", help="Specifies the trigger file to use.")
+  parser.add_option("--subrun", help="Specifies the subrun to check (A-D)")
+  parser.add_option("--lc-comment-file", help="(Optional) file containing the updated onsource windows"\
+                    " from the manual lightcurve checks (Jordi format required)", default = None)
+  parser.add_option("--output-pickle",help="Name of the output pickle file with the analyzable GRBs"\
+                    " and the correct segments") 
+  parser.add_option("--log-file", help="Specifies the log file for any outputs.",\
+                   default = "default.log")
+
+  # Additional steering arguments
+  parser.add_option("--grb", help="Optional argument to specify a single GRB to be checked.",\
+                    default = None)
+  parser.add_option("--number", help="Optional argument to specify the number of GRBs "\
+                   "with data to be checked.", default = None)
+
+
+  parser.add_option("--useold", action="store_true", default=False,
+                    help="If this option is specified, the old old segment files will be used. "\
+                    "Otherwise they will be queries freshly.")
+
+
+  options, arguments = parser.parse_args()
+
+  if not options.trigger_file and not options.subrun:
+    raise ValueError, "Must specify a trigger-file (e.g. Isabels final list) "\
+          "with --trigger-file <file> and the sub run to check for (i.e. A,B,C or D) "\
+          "with --subrun X."
+
+  if not options.config_file:
+    raise ValueError, "Must specify config file with --config-file"
+
+  if not options.output_pickle:
+    raise ValueError, "Name of the output pickle file must be specified with --output-pickle."
+
+
+  return options, arguments
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+
+# parse the command arguments
+opts, args = parse_args()
+
+
+# read all the GRB triggers from the CVS file
+triggers = peu.parse_trigger_list(opts.trigger_file, max_number = opts.number, specific_name = opts.grb)
+
+n = len(triggers['name'])
+print "read %d triggers in total "%(n)
+
+# read the adjusted onsource data
+if opts.lc_comment_file:
+  adj_onsource = peu.read_adjusted_onsource(opts.lc_comment_file)
+
+# create the PAS instance
+pas = peu.AnalysisSingleton()
+pas.set_logfile(opts.log_file)
+
+# chose the config file
+if not os.path.exists(opts.config_file):
+  raise ValueError, "config file '%s' does not exist!"%(opts.config_file)
+if not opts.subrun in opts.config_file:
+  print "WARNING: Is %s the correct config file for subrun %s?"%\
+        (opts.config_file, opts.subrun)
+
+# read the config parser and pass it to llutils
+cp = ConfigParser.ConfigParser()
+cp.read(opts.config_file)
+pas.set_cp(cp)
+
+# loop over each GRB
+use_grb = []
+for index in range(n):
+
+  # or get the information directly from the command line
+  grb_name = triggers['name'][index]
+  grb_ra = triggers['ra'][index]
+  grb_dec = triggers['de'][index]
+  grb_time = triggers['gps'][index]
+  grbtag = 'grb%s'%grb_name
+
+  # find the part of S6 during which the GRB occured
+  # to chose the correct veto definer file
+  for run, rrange in peu.runtimes.iteritems():
+    if grb_time>rrange[0] and grb_time<rrange[1]:
+      break
+
+  # Check the correct subrun
+  if run!=opts.subrun:
+    continue
+
+  # set the ini-file and take the minimum science segment
+  inifilename = os.path.join(pas.cvs, cp.get('paths','cvs'))+'/'+cp.get('analysis','ini_file')
+  inip = ConfigParser.ConfigParser()
+  inip.read(inifilename)
+  minscilength = peu.get_minimum_scienceseg_length(inip)
+
+  # Check if there is an manual adjusted onsource segment available
+  if opts.lc_comment_file:
+    test_onsource = check_adjusted_onsource(grb_name, grb_time, adj_onsource)
+  else:
+    test_onsource = None
+  if test_onsource == -1:
+    pas.info("THIS GRB HAS BEEN RETRACTED by LC checking and will not be analyzed.", grb_name)
+    continue
+
+  ## perform the main check for this GRB
+  mainpath = '.'
+  ifos, onsource, offsource, trend  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, \
+                                   tag = grbtag, useold = opts.useold, onsource = test_onsource)
+
+  txt = " SUMMARY "
+  for i, l in enumerate(trend):
+    if len(l)==0: tifo = '---'
+    else: tifo = ''.join(l)
+    txt += " | %s after check %d "%(tifo, i) 
+  pas.info(txt, grb_name)
+
+  if len(ifos)>1:
+    grb = peu.GRB(grb_name=grb_name, grb_ra=grb_ra, grb_de=grb_dec,  grb_time=grb_time,\
+             errorbox = triggers['box'][index], sat = triggers['sat'][index])
+
+    # set the final timing parameters into the GRB object
+    grb.duration = triggers['duration'][index]
+    grb.onsource_segment = [onsource[0], onsource[1] ]
+    grb.offsource_segment = [offsource[0], offsource[1]]
+    grb.starttime = offsource[0]
+    grb.endtime = offsource[1]
+    grb.has_data = True
+    grb.ifos = ''.join(ifos)
+    grb.ifolist = ifos
+    use_grb.append(grb)
+
+    pas.info("GRB accepted with IFOs %s from GPS %d to %d"%(ifos, offsource[0], offsource[1]), grb_name)
+  else:
+    pas.info("GRB has not enough data!", grb_name)
+
+pickle.dump(use_grb, file(opts.output_pickle,'w'))

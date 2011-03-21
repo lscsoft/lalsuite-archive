@@ -494,6 +494,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	gps_mid=0.5*(gps1+gps2);
 
 	phase_offset=((first_bin+side_cut)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid)*gps_delta;
+	/* we get an extra M_PI in phase from jumping one bin
+	 * This happens because SFT is computed from t=0 but our gps refers to middle of the interval
+	 * Every other bin picks one pie of phase.
+	 */
+	phase_offset+=0.5*(rintf(si_local->bin_shift)-rintf(si_local2->bin_shift));
 
 	phase_increment=gps_delta*priv->inv_coherence_length;
 
@@ -568,34 +573,6 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 		/**/
 		}
 
-	pp=pps->power_pp;
-	pc=pps->power_pc;
-	cc=pps->power_cc;
-
-	/*
-
-	for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
-		m=d->lines_report->lines_list[n];
-		i=m-side_cut-bin_shift;
-		if(i<0)continue;
-		if(i>=pps_bins)continue;
-
-		a=power[i]*weight;
-
-		pp[i]-=a*f_plus*f_plus;
-		pc[i]-=a*f_plus*f_cross;
-		cc[i]-=a*f_cross*f_cross;
-
-		pps->weight_pppp[i]-=weight*f_plus*f_plus*f_plus*f_plus;
-		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
-		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
-		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
-		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
-
-		pps->weight_arrays_non_zero=1;
-		}
-
-	*/
 	}
 
 pps->c_weight_pppp=weight_pppp;

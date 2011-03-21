@@ -122,7 +122,7 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -142,6 +142,8 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--effective-snr", u"lstring", effective_snr)]
 	if coinc_end_time_segment is not None:
 		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
+	if exact_mass is not None:
+		params += [(u"--exact-mass", None, None)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -232,6 +234,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			coinc_inspiral.snr = None
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
+		coinc_inspiral.minimum_duration = None
 		coinc_inspiral.set_end(coinc_inspiral_end_time(events, self.time_slide_index[time_slide_id]))
 		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)

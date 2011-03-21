@@ -161,7 +161,8 @@ extern int vrbflg;                      /* verbocity of lal function    */
 INT4  dataCheckpoint = 0;               /* condor checkpoint after data */
 CHAR  ckptPath[FILENAME_MAX];           /* input and ckpt file path     */
 CHAR  outputPath[FILENAME_MAX];         /* output data file path        */
-CHAR  username[FILENAME_MAX];         /* username for output data file path */
+CHAR  outputDir[FILENAME_MAX];          /* output dir on compute nodes for cdata*/
+CHAR  username[FILENAME_MAX];           /* username for output data file path */
 
 /* input data parameters */
 INT8  gpsStartTimeNS   = 0;             /* input data GPS start time ns */
@@ -499,6 +500,7 @@ int main( int argc, char *argv[] )
   /* zero out the checkpoint and output paths */
   memset( ckptPath, 0, FILENAME_MAX * sizeof(CHAR) );
   memset( outputPath, 0, FILENAME_MAX * sizeof(CHAR) );
+  memset( outputDir, 0, FILENAME_MAX * sizeof(CHAR) );
   memset( username, 0, FILENAME_MAX * sizeof(CHAR) );
 
   /* call the argument parse and check function */
@@ -629,6 +631,12 @@ int main( int argc, char *argv[] )
       XLALINT8NSToGPS( &(searchsumm.searchSummaryTable->out_end_time),
                        trigEndTimeNS );
     }
+
+    if( writeCData ) 
+    {
+      goto cleanexit;
+    }
+
   }
 
   if ( vrbflg ) fprintf( stdout, "parsed %d templates from %s\n",
@@ -1939,6 +1947,7 @@ int main( int argc, char *argv[] )
       case EOB:
       case EOBNR:
       case FindChirpPTF:
+      case IMRPhenomB:
         if ( vrbflg )
           fprintf( stdout, "findchirp conditioning data for TD or PTF\n" );
         LAL_CALL( LALFindChirpTDData( &status, fcSegVec, dataSegVec,
@@ -2222,6 +2231,7 @@ int main( int argc, char *argv[] )
           case PadeT1:
           case EOB:
           case EOBNR:
+          case IMRPhenomB:
             LAL_CALL( LALFindChirpTDTemplate( &status, fcFilterInput->fcTmplt,
                   bankCurrent, fcTmpltParams ), &status );
             break;
@@ -2411,6 +2421,7 @@ int main( int argc, char *argv[] )
               case PadeT1:
               case EOB:
               case EOBNR:
+              case IMRPhenomB:
                 /* construct normalization for time domain templates... */
                 LAL_CALL( LALFindChirpTDNormalize( &status,
                       fcFilterInput->fcTmplt, fcFilterInput->segment,
@@ -2468,11 +2479,13 @@ int main( int argc, char *argv[] )
 
             if ( writeCData && ! strcmp(ifo, bankCurrent->ifo) )
             {
+              /* Discard 64s of analysis segment at both ends */
+              REAL8 buffer = 64.0;
               trigTime = bankCurrent->end_time.gpsSeconds + 1e-9 *
                 bankCurrent->end_time.gpsNanoSeconds;
 
-              lowerBound = gpsStartTime.gpsSeconds;
-              upperBound = gpsEndTime.gpsSeconds;
+              lowerBound = rint(fcSegStartTimeNS/1000000000L) + buffer;
+              upperBound = rint(fcSegEndTimeNS/1000000000L) - buffer;
 
               if ( vrbflg ) fprintf(stdout,
                  "GPS end time of bankCurrent in s and ns are %d and %d; trigtime in (s) is %12.3f; lower and upper bounds in (s) is %12.3f, %12.3f\n",
@@ -2688,6 +2701,7 @@ int main( int argc, char *argv[] )
               case PadeT1:
               case EOB:
               case EOBNR:
+              case IMRPhenomB:
                 /* recompute the template norm since it has been over written */
                 /* ( When doing the chisq test and the bank veto for          */
                 /* time domain searches that don't use the                    */
@@ -2797,6 +2811,7 @@ int main( int argc, char *argv[] )
         case EOB:
         case EOBNR:
         case FindChirpSP:
+        case IMRPhenomB:
           /* the chisq bins need to be re-computed for the next template */
           for ( i = 0; i < fcSegVec->length ; ++i )
           {
@@ -2985,18 +3000,41 @@ int main( int argc, char *argv[] )
    *
    */
 
+  cleanexit:
 
   if ( writeCohTrigs || writeCData ) 
   {
     char *cdata_cwd = NULL;
     int cdata_rc = 0;
+    int checkdir = 0;
+    char full_cdata_path[MAXPATHLEN];
     hostnameTmp[1023] = '\0';
     hostname[1023] = '\0';
-    
+  
+    if (outputPath[0]) {
+
+      if ( username == NULL ) 
+      {
+        fprintf( stderr, 
+            "error: must specify username for cdata when using output-path" );
+        exit( 1 );
+      }
+      else
+      {
+        if ( vrbflg ) fprintf( stdout, "username is %s\n", username );
+      }
+   
+    }/*closes if outputpath */   
+
     if ( (cdata_rc = gethostname(hostnameTmp, 1023)) )
     {
       perror( "Error getting hostname for cdata" );
       exit( 1 );
+    }
+    else
+    {
+      strcpy( hostname, hostnameTmp );
+      if ( vrbflg ) fprintf( stdout, "hostname now is %s\n", hostname );
     }
 
     cdata_cwd = getcwd(runpathTmp, MAXPATHLEN);
@@ -3005,11 +3043,46 @@ int main( int argc, char *argv[] )
       perror( "Error getting current directory for cdata frames" );
       exit( 1 );
     }
-    strcpy( hostname, hostnameTmp );
-    if ( vrbflg ) 
+    else
     {
-      fprintf( stdout, "hostname now is %s\n", hostname );
-      fprintf( stdout, "username now is %s\n", username );
+      if ( vrbflg ) fprintf( stdout, "run path now is %s\n", runpathTmp );
+    }
+
+    /* Construct the output directory on the compute node  */
+    if ( outputPath[0] && username[0] )
+    {
+      strcpy( full_cdata_path, outputPath );
+      strcat( full_cdata_path, "/" );
+      strcat( full_cdata_path, hostname );
+      strcat( full_cdata_path, "/" );
+      strcat( full_cdata_path, username );
+      strcat( full_cdata_path, "/" );
+      if ( outputDir[0] ) 
+      {
+        strcat( full_cdata_path, outputDir );
+        strcat( full_cdata_path, "/" );
+      }
+
+      if ( (checkdir = mkdir(full_cdata_path, S_IRWXU)) )
+      {
+        if ( errno == EEXIST )
+        {
+          if ( vrbflg ) fprintf( stdout, "The c-data directory %s exists.\n", 
+                                    full_cdata_path);
+        }
+        else
+        {
+          perror( "Error creating c-data directory on compute-node.");
+          if ( vrbflg ) fprintf( stderr, "Error creating c-data directory = %s\n", 
+                                    full_cdata_path );
+          exit( 1 );
+        }
+      }
+      else
+      {
+       if ( vrbflg ) fprintf( stdout, "Created compute-node directory %s\n",
+                                 full_cdata_path);
+      }
     }
   }
 
@@ -3019,17 +3092,22 @@ int main( int argc, char *argv[] )
   {
     if ( outputPath[0] )
     {
-      if ( writeCData ) {
+      if ( writeCData && outputDir[0] && username[0] ) {
+        snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s/%s.gwf",
+                  outputPath, hostname, username, outputDir, fileName );
+      }
+      else if ( writeCData && !outputDir[0] && username[0] ) {
         snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s.gwf",
                   outputPath, hostname, username, fileName );
-        snprintf( runpath, FILENAME_MAX, "%s/%s.gwf",
-                  runpathTmp, fileName );
-        if ( vrbflg ) fprintf( stdout, "Creating frame as %s\n", runpath );
       }
       else {
         snprintf( fname, FILENAME_MAX, "%s/%s.gwf",
                   outputPath, fileName );
       }
+
+      snprintf( runpath, FILENAME_MAX, "%s/%s.gwf",
+                runpathTmp, fileName );
+      if ( vrbflg ) fprintf( stdout, "Creating frame as %s\n", runpath );
     }
     else
     {
@@ -3055,10 +3133,9 @@ int main( int argc, char *argv[] )
     FrFileOEnd( frOutFile );
     if ( vrbflg ) fprintf( stdout, "done\n" );
 
-    if ( writeCData ) 
+    if ( writeCData && outputPath[0] ) 
     {
       int cdata_rc = 0;
-      if ( vrbflg ) fprintf( stdout, "Creating symlink for %s...", runpath );
 
       /* remove any old symbolic link that may exist from a previous run */
       if ( (cdata_rc = unlink(runpath)) )
@@ -3080,14 +3157,17 @@ int main( int argc, char *argv[] )
       }
 
       /* create a new symbolic link */
-      if ( outputPath[0] ) 
+      if ( username[0] )
       {
-        if ( (cdata_rc = symlink( fname, runpath )) )
+        if ( vrbflg ) fprintf( stdout, "Creating symlink for %s...\n", runpath );
+  
+        if ( (cdata_rc = symlink( fname, runpath ))  )
         {
-          perror( "Error creating symlink for output cdata frame" );
-          exit( 1 );
-        }
-      }
+            perror( "Error creating symlink for output cdata frame" );
+            exit( 1 );
+          }
+      }  
+      
     }
   }
 
@@ -3204,7 +3284,19 @@ int main( int argc, char *argv[] )
   memset( &results, 0, sizeof(LIGOLwXMLStream) );
   if ( outputPath[0] )
   {
-    if ( writeCohTrigs || writeCData ) {
+    if ( (writeCohTrigs || writeCData) && outputDir[0] && username[0] ) {
+      if ( outCompress )
+      {
+        snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s/%s.xml.gz",
+                  outputPath, hostname, username, outputDir, fileName );
+      }
+      else
+      {
+        snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s/%s.xml",
+                  outputPath, hostname, username, outputDir, fileName );
+      }
+    }
+    else if ( (writeCohTrigs || writeCData) && !outputDir[0] && username[0] ) {
       if ( outCompress )
       {
         snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s.xml.gz",
@@ -3256,8 +3348,13 @@ int main( int argc, char *argv[] )
     printf("%s\n", runpath);
     remove(runpath);
     unlink(runpath);
-    if ( outputPath[0] ) {
-      symlink(fname,runpath);
+    if ( outputPath[0] && username[0] ) {
+      int cdata_rc = 0;
+      if ( (cdata_rc = symlink(fname,runpath)) )
+      {
+         perror( "Error creating symlink for output cdata frame" );
+         exit( 1 );
+      }
     }
   }
   LAL_CALL( LALOpenLIGOLwXMLFile( &status, &results, fname ), &status );
@@ -3539,7 +3636,7 @@ fprintf( a, "  --inverse-spec-length T      set length of inverse spectrum to T 
 fprintf( a, "  --dynamic-range-exponent X   set dynamic range scaling to 2^X\n");\
 fprintf( a, "\n");\
 fprintf( a, "  --approximant APPROX         set approximant of the waveform to APPROX\n");\
-fprintf( a, "                               (FindChirpSP|BCV|BCVC|BCVSpin|TaylorT1|TaylorT2|\n");\
+fprintf( a, "                               (FindChirpSP|BCV|BCVC|BCVSpin|TaylorT1|TaylorT2|IMRPhenomB\n");\
 fprintf( a, "                                  TaylorT3|PadeT1|EOB|GeneratePPN|FindChirpPTF) \n");\
 fprintf( a, "  --order ORDER                set the pN order of the waveform to ORDER\n");\
 fprintf( a, "                               (twoPN|twoPointFivePN|threePN|threePointFivePN|\n");\
@@ -3618,6 +3715,7 @@ fprintf( a, "  --data-checkpoint            checkpoint and exit after data is re
 fprintf( a, "  --checkpoint-path PATH       write checkpoint file under PATH\n");\
 fprintf( a, "  --output-path PATH           write output data to PATH\n");\
 fprintf( a, "  --username                   username for constructing output data PATH\n");\
+fprintf( a, "  --compute-node-dir PATH      write output data to PATH on compute node\n");\
 fprintf( a, "\n");\
 fprintf( a, "  --write-raw-data             write raw data to a frame file\n");\
 fprintf( a, "  --write-filter-data          write data that is passed to filter to a frame\n");\
@@ -3739,6 +3837,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"taper-template",          required_argument, 0,                '{'},
     {"cdata-length",            required_argument, 0,                '|'},
     {"username",                required_argument, 0,                '~'},
+    {"compute-node-dir",        required_argument, 0,                '$'},
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-filter-data",       no_argument,       &writeFilterData,  1 },
@@ -3776,7 +3875,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     c = getopt_long_only( argc, argv,
         "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:?:X:Y:Z:"
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:{:}:|:~:+:=:^:.:",
+        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:{:}:|:~:$:+:=:^:.:",
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -4323,12 +4422,17 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           approximant = FindChirpPTF;
         }
+        else if ( ! strcmp( "IMRPhenomB", optarg ) )
+        {
+          approximant = IMRPhenomB;
+        }
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown order specified: "
-              "%s (must be either FindChirpSP, BCV, BCVC, BCVSpin, FindChirpPTF\n"
-              "TaylorT1, TaylorT2, TaylorT3, GeneratePPN, PadeT1 or EOB)\n",
+              "%s (must be either FindChirpSP, BCV, BCVC, BCVSpin, \n"
+              "FindChirpPTF,TaylorT1, TaylorT2, TaylorT3, GeneratePPN,\n"
+              "IMRPhenomB, PadeT1 or EOB)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -4683,6 +4787,17 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           fprintf( stderr, "invalid argument to --%s\n"
               "username %s too long: string truncated\n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        break;
+
+      case '$':
+        if ( snprintf( outputDir, FILENAME_MAX, "%s", optarg ) < 0 )
+        {
+          fprintf( stderr, "invalid argument to --%s\n"
+              "output dir %s too long: string truncated\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }

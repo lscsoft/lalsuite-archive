@@ -24,7 +24,6 @@ doc/autodoc/lal.sty
 doc/autodoc/lalspec.*
 doc/autodoc/ligodcc.cls
 doc/autodoc/lsd.*
-doc/doxygen/
 doc/lal-install.*
 doc/lal-preinstall.*
 doc/laldoc/laldoc
@@ -41,7 +40,6 @@ include/lal/*.h
 include/lal/stamp-h2
 include/stamp-h1
 lal-*.tar.gz
-lal-config
 lal.spec
 lib/.vcsinfo
 lib/LALBuildDate.c

@@ -624,7 +624,7 @@ def write_summary(page,opts,thisSearch='playground',injection = 'allinj',
   section = 'ifar4'
   sections.append(section)
   htmlAndPlot.append(section)
-  titles[section] = "IFAR and loudest event tables at with CAT2 and CAT3 vetoes applied and CBC hardware injections removed."
+  titles[section] = "IFAR and loudest event tables with CAT2 and CAT3 vetoes applied and CBC hardware injections removed."
   tags[section] = '*plotifar*'+ifartag[0]+'*CAT_4*'+ifartag[1] + '*'
   htmltags[section] = '*'+ifartag[0]+'*CAT_4_VETO_LOUDEST*'+ifartag[1]+'*_EVENTS_BY_COMBINED_FAR*'
   imagetags[section] = ['cumhist_combined_ifar']
@@ -2694,7 +2694,7 @@ except:
 #sub-products of the ini file parsing
 opts.gpsdir =  '/'+str(opts.gps_start_time)+'-'+str(opts.gps_end_time)+'/'   # note the / at the end
 opts.duration = str(int(opts.gps_end_time) - int(opts.gps_start_time))
-opts.daydur = int(opts.duration) / 86400
+opts.daydur = float(opts.duration) / 86400
 opts.webdir = './'
 opts.datadir = opts.ihope_directory + opts.gpsdir 
 opts.physdir = opts.html_directory + opts.gpsdir

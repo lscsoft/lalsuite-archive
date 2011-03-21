@@ -1084,30 +1084,39 @@ class ThincaNode(InspiralAnalysisNode):
     self.__ifo_v1 = None
     self.__num_slides = None
 
-  def set_ifo(self, ifo):
+  def set_ifo(self, ifo, pass_to_command_line=True):
     """
     Add the interferometer to the list of ifos
-    ifo = IFO code (e.g. G1,L1, H1 or H2).
+    ifo = IFO code (e.g. G1,L1,V1,T1, H1 or H2).
+    pass_to_command_line = boolean for adding ifo-triggers as a variable option
     """
+    #FIXME: Once thinca no longer needs --IFO-triggers flags,
+    # use AnalysisNode's set_ifos method
     if ifo == 'G1':
-      self.add_var_opt('g1-triggers','')
+      if pass_to_command_line:
+        self.add_var_opt('g1-triggers','')
       self.__ifo_g1 = 'G1'
     elif ifo == 'H1':
-      self.add_var_opt('h1-triggers','')
+      if pass_to_command_line:
+        self.add_var_opt('h1-triggers','')
       self.__ifo_h1 = 'H1'
     elif ifo == 'H2':
-      self.add_var_opt('h2-triggers','')
+      if pass_to_command_line:
+        self.add_var_opt('h2-triggers','')
       self.__ifo_h2 = 'H2'
     elif ifo == 'L1':
-      self.add_var_opt('l1-triggers','')
+      if pass_to_command_line:
+        self.add_var_opt('l1-triggers','')
       self.__ifo_l1 = 'L1'
     elif ifo == 'T1':
-      self.add_var_opt('t1-triggers','')
+      if pass_to_command_line:
+        self.add_var_opt('t1-triggers','')
       self.__ifo_t1 = 'T1'
     elif ifo == 'V1':
-      self.add_var_opt('v1-triggers','')
+      if pass_to_command_line:
+        self.add_var_opt('v1-triggers','')
       self.__ifo_v1 = 'V1'
-  
+ 
   def get_ifo_g1(self):
     """
     Returns the IFO code of g1.
@@ -2656,6 +2665,31 @@ class DBAddInjNode(pipeline.SqliteNode):
     Returns injection file for this node.
     """
     return self._injection_file
+
+
+class RepopCoincJob(pipeline.SqliteJob):
+  """
+  A repop_coinc job. The static options are read from the section
+  [repop_coinc] in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """  
+    exec_name = 'repop_coinc'
+    sections = ['repop_coinc']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class RepopCoincNode(pipeline.SqliteNode):
+  """
+  A repop_coinc node.
+  """
+  def __init__(self, job):
+    """
+    @job: a RepopCoincJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
 
 
 class ClusterCoincsJob(pipeline.SqliteJob):

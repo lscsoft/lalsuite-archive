@@ -38,3 +38,5 @@ lalinspiral/main.c
 lalinspiral/src/integrator.patch
 lalmetaio/.settings/
 lalmetaio/main.c
+TAGS
+auto/

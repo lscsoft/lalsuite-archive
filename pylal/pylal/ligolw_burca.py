@@ -80,7 +80,6 @@ def append_process(xmldoc, **kwargs):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 	params = [
-		(u"--program", u"lstring", kwargs["program"]),
 		(u"--coincidence-algorithm", u"lstring", kwargs["coincidence_algorithm"])
 	]
 	if "stringcusp_params" in kwargs:

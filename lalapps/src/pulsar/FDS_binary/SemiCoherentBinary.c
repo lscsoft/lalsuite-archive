@@ -1,5 +1,4 @@
-/*
- * Copyright (C) 2010 Chris Messenger
+/*  Copyright (C) 2010 Chris Messenger
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,7 +17,7 @@
  */
 
 /** \author C.Messenger
- * \ingroup pulsarCoherent
+ * \ingroup pulsarApps
  * \file
  * \brief
  * This code is designed to compute the Bayes factor for a semi-coherent analysis
@@ -56,10 +55,12 @@
 /* some global constants */
 
 #define STRINGLENGTH 256              /* the length of general string */
+#define APIDLENGTH 5                  /* the length of an APID string */
 #define LONGSTRINGLENGTH 1024         /* the length of general string */
 #define NFREQMAX 4                    /* the max dimensionality of the frequency derivitive grid */
 #define NBINMAX 4                     /* the number of binary parameter dimensions */
-#define WINGS_FACTOR 1.05             /* the safety factor in reading extra frequency from SFTs */
+#define NBINS 4                       /* the number of bins to add to each side of the fft for safety */
+#define WINGS_FACTOR 2                /* the safety factor in reading extra frequency from SFTs */
 #define PCU_AREA 0.13                 /* the collecting area of a single PCU in square metres */
 #define DEFAULT_SOURCE "SCOX1"        /* the default source name */
 #define AMPVECLENGTH 25               /* the fixed number of amplitude values to sample */
@@ -286,7 +287,7 @@ REAL8 BESSCO_LOW[] = {1.0,3.5156229,3.0899424,1.2067492,0.2659732,0.0360768,0.00
 /* define functions */
 int main(int argc,char *argv[]);
 int XLALReadUserVars(int argc,char *argv[],UserInput_t *uvar, CHAR **clargs);
-int XLALDefineBinaryParameterSpace(REAL8Space **space,UserInput_t *uvar); 
+int XLALDefineBinaryParameterSpace(REAL8Space **space,LIGOTimeGPS epoch, REAL8 span,UserInput_t *uvar); 
 int XLALComputeAmplitudeParams(REAL8Dimension **ampspace,Grid **ampgrid,REAL8Priors **amppriors,REAL8 ampsigma); 
 int XLALReadSFTs(SFTVector **sfts,SegmentParams **segparams,CHAR *sftbasename, REAL8 freq, REAL8 freqband, INT4 gpsstart, INT4 gpsend,CHAR *obsid_pattern);
 int XLALComputeFreqGridParamsVector(GridParametersVector **freqgridparams,REAL8Space *pspace, SFTVector *sftvec, REAL8 mu);
@@ -360,32 +361,15 @@ int main( int argc, char *argv[] )  {
   }
   LogPrintf(LOG_DEBUG,"%s : read in uservars\n",fn);
 
-  /**********************************************************************************/
-  /* DEFINE THE BINARY PARAMETER SPACE */
-  /**********************************************************************************/
-
-  /* register and read all user-variables */
-  if (XLALDefineBinaryParameterSpace(&(pspace.space),&uvar)) {
-    LogPrintf(LOG_CRITICAL,"%s : XLALDefineBinaryParameterSpace() failed with error = %d\n",fn,xlalErrno);
-    return 1;
-  }
-  LogPrintf(LOG_DEBUG,"%s : defined binary parameter prior space\n",fn);
-
   /* make crude but safe estimate of the bandwidth required for the source */
-  fmin_read = pspace.space->data[0].min - WINGS_FACTOR*pspace.space->data[0].min*pspace.space->data[1].max*pspace.space->data[3].max;
-  fmax_read = pspace.space->data[0].max + WINGS_FACTOR*pspace.space->data[0].max*pspace.space->data[1].max*pspace.space->data[3].max;
-  fband_read = fmax_read - fmin_read;
-  LogPrintf(LOG_DEBUG,"%s : reading in SFT frequency band [%f -> %f]\n",fn,fmin_read,fmax_read);
- 
-  /**********************************************************************************/
-  /* DEFINE THE AMPLITUDE PARAMETERS IF USING A FIXED AMPLITUDE SIGNAL MODEL */
-  /**********************************************************************************/
-
-  if (uvar.fixedamp) {
-    if (XLALComputeAmplitudeParams(&(pspace.ampspace),&(pspace.ampgrid),&(pspace.amppriors),uvar.sigalpha)) {
-      LogPrintf(LOG_CRITICAL,"%s : XLALComputeAmplitudeParams() failed with error = %d\n",fn,xlalErrno);
-      return 1;
-    }
+ /*  fmin_read = pspace.space->data[0].min - WINGS_FACTOR*pspace.space->data[0].min*pspace.space->data[1].max*pspace.space->data[3].max; */
+/*   fmax_read = pspace.space->data[0].max + WINGS_FACTOR*pspace.space->data[0].max*pspace.space->data[1].max*pspace.space->data[3].max; */
+  {
+    REAL8 wings = LAL_TWOPI*(uvar.asini + uvar.deltaasini*uvar.nsig)/(uvar.orbperiod - uvar.deltaorbperiod*uvar.nsig);
+    fmin_read = uvar.freq - WINGS_FACTOR*uvar.freq*wings;
+    fmax_read = uvar.freq + uvar.freqband + WINGS_FACTOR*(uvar.freq + uvar.freqband)*wings;
+    fband_read = fmax_read - fmin_read;
+    LogPrintf(LOG_DEBUG,"%s : reading in SFT frequency band [%f -> %f]\n",fn,fmin_read,fmax_read); 
   }
  
   /**********************************************************************************/
@@ -406,6 +390,28 @@ int main( int argc, char *argv[] )  {
   sprintf(pspace.source,"%s",uvar.source);
   LogPrintf(LOG_DEBUG,"%s : SFT length = %f seconds\n",fn,pspace.tseg);
   LogPrintf(LOG_DEBUG,"%s : entire dataset starts at GPS time %d contains %d SFTS and spans %.0f seconds\n",fn,pspace.epoch.gpsSeconds,sftvec->length,pspace.span);
+  
+  /**********************************************************************************/
+  /* DEFINE THE BINARY PARAMETER SPACE */
+  /**********************************************************************************/
+  
+  /* register and read all user-variables */
+  if (XLALDefineBinaryParameterSpace(&(pspace.space),pspace.epoch,pspace.span,&uvar)) {
+    LogPrintf(LOG_CRITICAL,"%s : XLALDefineBinaryParameterSpace() failed with error = %d\n",fn,xlalErrno);
+    return 1;
+  }
+  LogPrintf(LOG_DEBUG,"%s : defined binary parameter prior space\n",fn);
+
+  /**********************************************************************************/
+  /* DEFINE THE AMPLITUDE PARAMETERS IF USING A FIXED AMPLITUDE SIGNAL MODEL */
+  /**********************************************************************************/
+  
+  if (uvar.fixedamp) {
+    if (XLALComputeAmplitudeParams(&(pspace.ampspace),&(pspace.ampgrid),&(pspace.amppriors),uvar.sigalpha)) {
+      LogPrintf(LOG_CRITICAL,"%s : XLALComputeAmplitudeParams() failed with error = %d\n",fn,xlalErrno);
+      return 1;
+    }
+  }
 
   /**********************************************************************************/
   /* COMPUTE THE FINE GRID PARAMETERS */
@@ -691,12 +697,17 @@ int XLALReadUserVars(int argc,            /**< [in] the command line argument co
  * Gaussian prior and specify the sigma of that prior.
  *
  */
-int XLALDefineBinaryParameterSpace(REAL8Space **space,                 /**< [out] the parameter space  */ 
+int XLALDefineBinaryParameterSpace(REAL8Space **space,                 /**< [out] the parameter space  */
+				   LIGOTimeGPS epoch,                  /**< [in] the observation start epoch */
+				   REAL8 span,                         /**< [in] the observation span */
 				   UserInput_t *uvar                   /**< [in] the user input variables */
 				   )
 {
   
   const CHAR *fn = __func__;   /* store function name for log output */
+  REAL8 midpoint;              /* the midpoint of the observation */
+  REAL8 newtasc;               /* shifted value of tasc */
+  REAL8 newdeltatasc;          /* updated uncertainty on tasc after shifting */
 
   /* validate input variables */
   if ((*space) != NULL) {
@@ -706,7 +717,15 @@ int XLALDefineBinaryParameterSpace(REAL8Space **space,                 /**< [out
   if (uvar == NULL) {
     LogPrintf(LOG_CRITICAL,"%s : Invalid input, input UserInput_t structure = NULL.\n",fn);
     XLAL_ERROR(fn,XLAL_EINVAL);
-  }  
+  }
+  if (epoch.gpsSeconds < 0) {
+    LogPrintf(LOG_CRITICAL,"%s : Invalid input, observation epoch < 0.\n",fn);
+    XLAL_ERROR(fn,XLAL_EINVAL);
+  }
+  if (span < 0) {
+    LogPrintf(LOG_CRITICAL,"%s : Invalid input, observation span < 0.\n",fn);
+    XLAL_ERROR(fn,XLAL_EINVAL);
+  }
   
   /* allocate memory for the parameter space */
   if ( ((*space) = XLALCalloc(1,sizeof(REAL8Space))) == NULL) {
@@ -719,6 +738,20 @@ int XLALDefineBinaryParameterSpace(REAL8Space **space,                 /**< [out
     XLAL_ERROR(fn,XLAL_ENOMEM);
   }
 
+  /* define observaton midpoint */
+  midpoint = XLALGPSGetREAL8(&epoch) + 0.5*span;
+
+  /* find the closest instance of ascension to the midpoint */
+  /* the midpoint is defined in the detector frame and the time of */
+  /* ascension is in the SSB frame but we only need to be roughly */
+  /* correct in the number of orbits we shift by */
+  {
+    INT4 n = (INT4)floor(0.5 + (midpoint - uvar->tasc)/uvar->orbperiod);
+    newtasc = uvar->tasc + n*uvar->orbperiod;
+    newdeltatasc = sqrt(uvar->deltatasc*uvar->deltatasc + n*n*uvar->deltaorbperiod*uvar->deltaorbperiod);
+    LogPrintf(LOG_DEBUG,"%s : shifted tasc by %d orbits, uncertainty equals %f sec\n",fn,n,newdeltatasc);
+  }
+  
   /* this represents a hyper-cubic parameter space */
   /* we make sure that parameter ranges are consistent i.e asini > 0 etc.. */
   /* frequency */
@@ -741,10 +774,10 @@ int XLALDefineBinaryParameterSpace(REAL8Space **space,                 /**< [out
   
   /* tasc */
   snprintf((*space)->data[2].name,LALNameLength,"tasc");
-  (*space)->data[2].min = uvar->tasc - fabs(uvar->nsig*uvar->deltatasc);
-  (*space)->data[2].max = uvar->tasc + fabs(uvar->nsig*uvar->deltatasc);
-  (*space)->data[2].mid = uvar->tasc;
-  (*space)->data[2].sig = uvar->deltatasc;
+  (*space)->data[2].min = newtasc - fabs(uvar->nsig*newdeltatasc);
+  (*space)->data[2].max = newtasc + fabs(uvar->nsig*newdeltatasc);
+  (*space)->data[2].mid = newtasc;
+  (*space)->data[2].sig = newdeltatasc;
   (*space)->data[2].span = (*space)->data[2].max - (*space)->data[2].min;
   (*space)->data[2].gaussian = uvar->gaussianpriors;
   
@@ -1152,6 +1185,7 @@ int XLALReadSFTs(SFTVector **sftvec,        /**< [out] the input SFT data */
   LIGOTimeGPS gpsstart, gpsend;
   UINT4 i;                                    /* counters */
   INT4 count = 0;
+  CHAR apid[APIDLENGTH];
   LALStatus status = blank_status;              /* for use wih non-XLAL functions */
   
   /* validate input variables */
@@ -1198,7 +1232,8 @@ int XLALReadSFTs(SFTVector **sftvec,        /**< [out] the input SFT data */
   freqmax = freqmin + freqband;
 
   /* allocate memory for the temporary catalog */
-  if (obsid_pattern != NULL) { 
+  if (obsid_pattern != NULL) {
+    snprintf(apid,APIDLENGTH,"%s",obsid_pattern); 
     if ( (newcat = XLALCalloc(1,sizeof(SFTCatalog))) == NULL) {
       LogPrintf(LOG_CRITICAL,"%s: XLALCalloc() failed with error = %d\n",fn,xlalErrno);
       XLAL_ERROR(fn,XLAL_ENOMEM);
@@ -1230,7 +1265,7 @@ int XLALReadSFTs(SFTVector **sftvec,        /**< [out] the input SFT data */
       snprintf(obsid_string,strlen(s_obsid) - strlen(e_obsid) + 1,"%s",s_obsid);
 
       /* if the obsid is not consistent with the requested pattern then we ignore this SFT */
-      if (strstr(obsid_string,obsid_pattern) != NULL) {
+      if (strstr(obsid_string,apid) != NULL) {
 	if (!((sft_fmin>freqmax) || (sft_fmax<freqmin))) {
 	  memcpy(&(newcat->data[newcat->length]),&(catalog->data[i]),sizeof(SFTDescriptor));
 	  newcat->length++;
@@ -1658,8 +1693,8 @@ int XLALComputeFreqGridParams(GridParameters **gridparams,              /**< [ou
      REAL8 deltafn = 2.0*sqrt(mu/(ndim*gnn));
 
      /* compute number of grid points in this dimension and enforce a grid centered on the middle of the parameter space */
-     INT4 length = (INT4)ceil((fnmax[n]-fnmin[n])/deltafn);
-     REAL8 minfn = 0.5*(fnmin[n]+fnmax[n]) - 0.5*(length-1)*deltafn;
+     INT4 length = (INT4)ceil((fnmax[n]-fnmin[n])/deltafn) + 2*NBINS;                      /* add bins at each end for safety */
+     REAL8 minfn = 0.5*(fnmin[n]+fnmax[n]) - 0.5*(length-1)*deltafn;  
      
      (*gridparams)->grid[n].delta = deltafn;
      (*gridparams)->grid[n].oneoverdelta = 1.0/deltafn;
@@ -2238,7 +2273,8 @@ int XLALComputeBayesFactor(BayesianProducts **Bayes,                /**< [out] t
       GridParameters *fdotgrid = power->segment[i]->gridparams;
       REAL8 tmid = XLALGPSGetREAL8(&(power->segment[i]->epoch)) + 0.5*pspace->tseg;
       LikelihoodParams Lparams = Lparamsvec->data[i];
-      UINT4 idx = 0;
+      /* UINT4 idx = 0; */
+      INT4 idx = 0;
       REAL8 logLratio = 0.0;
       
       /* compute instantaneous frequency derivitives corresponding to the current template for this segment */
@@ -2249,6 +2285,15 @@ int XLALComputeBayesFactor(BayesianProducts **Bayes,                /**< [out] t
 	UINT4 tempidx = 0.5 + (fdots.x[j] - fdotgrid->grid[j].min)*fdotgrid->grid[j].oneoverdelta;
 	idx += tempidx*fdotgrid->prod[j];
       }
+
+      /** DEBUGGING - remove me **/
+      /* if ((idx>=(INT4)currentpower->data->length)||(idx<0)) { 
+        printf("segment number %d start time = %d %d\n",i,power->segment[i]->epoch.gpsSeconds,power->segment[i]->epoch.gpsNanoSeconds);
+        printf("idx = %d\n",idx);
+	printf("binary template params (nu = %6.12f asini = %6.12f tasc = %6.12f W = %6.12f)\n",bintemp->x[0],bintemp->x[1],bintemp->x[2],bintemp->x[3]);
+        printf("freq derivitives (f0 = %6.12f)\n",fdots.x[0]);
+        printf("data boundaries (fstart = %6.12f fend = %6.12f delta = %6.12f length = %d)\n",power->segment[i]->gridparams->grid[0].min,power->segment[i]->gridparams->grid[0].min+power->segment[i]->gridparams->grid[0].delta*power->segment[i]->gridparams->grid[0].length,power->segment[i]->gridparams->grid[0].delta,power->segment[i]->gridparams->grid[0].length);
+      } */
       
       /* define the power at this location in this segment */
       Lparamsvec->power->data[i] = currentpower->data->data[idx];
@@ -2873,14 +2918,16 @@ int XLALOutputBayesResults(CHAR *outputdir,            /**< [in] the output dire
   /* output header information */
   fprintf(fp,"%s \n",version_string);
   fprintf(fp,"%%%% command line args\t\t= %s\n",clargs);
-  fprintf(fp,"%%%% filename\t\t\t= %s\n",outputfile);
-  fprintf(fp,"%%%% date\t\t\t\t= %s\n",time_string);
+  fprintf(fp,"%%%% filename\t\t\t\t= %s\n",outputfile);
+  fprintf(fp,"%%%% date\t\t\t\t\t= %s\n",time_string);
   fprintf(fp,"%%%% start time (GPS sec)\t\t= %d\n",pspace->epoch.gpsSeconds);
   fprintf(fp,"%%%% observation span (sec)\t= %d\n",(UINT4)pspace->span);
   fprintf(fp,"%%%% coherent time (sec)\t\t= %d\n",(UINT4)pspace->tseg);
   fprintf(fp,"%%%% number of segments\t\t= %d\n",Bayes->nsegments);
-  fprintf(fp,"%%%% number of dimensions\t\t= %d\n",Bayes->gridparams->ndim);
-  fprintf(fp,"%%%% mismatch\t\t\t= %6.12f\n",Bayes->gridparams->mismatch);
+  fprintf(fp,"%%%% number of dimensions\t= %d\n",Bayes->gridparams->ndim);
+  if (pspace->ampspace) fprintf(fp,"%%%% amplitude dimension\t\t\t= 1\n");
+  else fprintf(fp,"%%%% amplitude dimension\t\t\t= 0\n");
+  fprintf(fp,"%%%% mismatch\t\t\t\t= %6.12f\n",Bayes->gridparams->mismatch);
   fprintf(fp,"%%%%\n");
 
   /* if an injection has been performed we output the injection parameters */
@@ -2899,7 +2946,7 @@ int XLALOutputBayesResults(CHAR *outputdir,            /**< [in] the output dire
   fprintf(fp,"%%%% log Bayes Factor (phase and amplitude marginalised per segment)\t= %6.12e\n",Bayes->logBayesFactor_phaseamp);
   fprintf(fp,"%%%% log Bayes Factor (phase marginalised per segment)\t\t\t= %6.12e\n",Bayes->logBayesFactor_phase);
   fprintf(fp,"%%%%\n");
-  fprintf(fp,"%%%% log Bayes Factor (phase and amplitude marginalised per segment)\n");
+  fprintf(fp,"%%%% GPS start\tGPS end\tlog Bayes Factor\n");
   fprintf(fp,"%%%%\n");
 
   /* output the Bayes factor for each segment */
@@ -2912,16 +2959,17 @@ int XLALOutputBayesResults(CHAR *outputdir,            /**< [in] the output dire
   /* output the amplitude posterior */
   if (pspace->ampspace) {
     fprintf(fp,"%%%% -------------------------------------------------------------------------------------------------------\n%%%%\n");
-    fprintf(fp,"%%%% name_amp\t= %s\n",Bayes->ampgrid->name);
-    fprintf(fp,"%%%% min_amp\t= %6.12e\n",pspace->ampspace->min);
-    fprintf(fp,"%%%% max_amp\t= %6.12e\n",pspace->ampspace->max);
-    fprintf(fp,"%%%% sig_amp\t= %6.12e\n",pspace->ampspace->sig);
-    fprintf(fp,"%%%% start_amp\t= %6.12e\n",Bayes->ampgrid->min);
-    fprintf(fp,"%%%% delta_amp\t= %6.12e\n",Bayes->ampgrid->delta);
-    fprintf(fp,"%%%% length_amp\t= %d\n",Bayes->ampgrid->length);
-    if (pspace->amppriors->gaussian) fprintf(fp,"%%%%a prior_amp\t= GAUSSIAN\n");
-    else fprintf(fp,"%%%% prior_amp\t= FLAT\n"); 
-    fprintf(fp,"%%%%\n%%%%\t%s\t\tlog_post(%s)\t\tnorm_post(%s)\tnorm_prior(%s)\n%%%%\n",
+    fprintf(fp,"%%%% name_0\t= %s\n",Bayes->ampgrid->name);
+    fprintf(fp,"%%%% min_0\t= %6.12e\n",pspace->ampspace->min);
+    fprintf(fp,"%%%% max_0\t= %6.12e\n",pspace->ampspace->max);
+    fprintf(fp,"%%%% sig_0\t= %6.12e\n",pspace->ampspace->sig);
+    fprintf(fp,"%%%% start_0\t= %6.12e\n",Bayes->ampgrid->min);
+    fprintf(fp,"%%%% delta_0\t= %6.12e\n",Bayes->ampgrid->delta);
+    fprintf(fp,"%%%% length_0\t= %d\n",Bayes->ampgrid->length);
+    if (pspace->amppriors->gaussian) fprintf(fp,"%%%% prior_0\t= GAUSSIAN\n");
+    else fprintf(fp,"%%%% prior_0\t= FLAT\n"); 
+    fprintf(fp,"%%%%\n%%%%\t%s\t\tlog_post(%s)\t\tnorm_post(%s)\tlog_post_fixedamp(%s)\t\tnorm_post_fixedamp(%s)\tnorm_prior(%s)\n%%%%\n",
+	    Bayes->ampgrid->name,Bayes->ampgrid->name,
 	    Bayes->ampgrid->name,Bayes->ampgrid->name,
 	    Bayes->ampgrid->name,Bayes->ampgrid->name);
   
@@ -2942,7 +2990,7 @@ int XLALOutputBayesResults(CHAR *outputdir,            /**< [in] the output dire
 	REAL8 log_post = Bayes->logposterior_amp->data[j];
 	REAL8 norm_post = exp(Bayes->logposterior_amp->data[j]-mx)/sum;
 	REAL8 norm_prior = exp(pspace->amppriors->logpriors->data[j]);
-	fprintf(fp,"%6.12e\t%6.12e\t%6.12e\t%6.12e\n",x,log_post,norm_post,norm_prior);
+	fprintf(fp,"%6.12e\t%6.12e\t%6.12e\t0.0\t0.0\t%6.12e\n",x,log_post,norm_post,norm_prior);
       }
   
     }
@@ -2951,16 +2999,18 @@ int XLALOutputBayesResults(CHAR *outputdir,            /**< [in] the output dire
 
   /* loop over each search dimension and output the grid parameters and posteriors */
   for (i=0;i<Bayes->gridparams->ndim;i++) {
+    UINT4 idx = i;
+    if (pspace->ampspace) idx = i+1;
     fprintf(fp,"%%%% -------------------------------------------------------------------------------------------------------\n%%%%\n");
-    fprintf(fp,"%%%% name_%d\t= %s\n",i,Bayes->gridparams->grid[i].name);
-    fprintf(fp,"%%%% min_%d\t= %6.12e\n",i,pspace->space->data[i].min);
-    fprintf(fp,"%%%% max_%d\t= %6.12e\n",i,pspace->space->data[i].max);
-    fprintf(fp,"%%%% sig_%d\t= %6.12e\n",i,pspace->space->data[i].sig);
-    fprintf(fp,"%%%% start_%d\t= %6.12e\n",i,Bayes->gridparams->grid[i].min);
-    fprintf(fp,"%%%% delta_%d\t= %6.12e\n",i,Bayes->gridparams->grid[i].delta);
-    fprintf(fp,"%%%% length_%d\t= %d\n",i,Bayes->gridparams->grid[i].length);
-    if (pspace->priors->data[i].gaussian) fprintf(fp,"%%%% prior_%d\t= GAUSSIAN\n",i);
-    else fprintf(fp,"%%%% prior_%d\t= FLAT\n",i); 
+    fprintf(fp,"%%%% name_%d\t= %s\n",idx,Bayes->gridparams->grid[i].name);
+    fprintf(fp,"%%%% min_%d\t= %6.12e\n",idx,pspace->space->data[i].min);
+    fprintf(fp,"%%%% max_%d\t= %6.12e\n",idx,pspace->space->data[i].max);
+    fprintf(fp,"%%%% sig_%d\t= %6.12e\n",idx,pspace->space->data[i].sig);
+    fprintf(fp,"%%%% start_%d\t= %6.12e\n",idx,Bayes->gridparams->grid[i].min);
+    fprintf(fp,"%%%% delta_%d\t= %6.12e\n",idx,Bayes->gridparams->grid[i].delta);
+    fprintf(fp,"%%%% length_%d\t= %d\n",idx,Bayes->gridparams->grid[i].length);
+    if (pspace->priors->data[i].gaussian) fprintf(fp,"%%%% prior_%d\t= GAUSSIAN\n",idx);
+    else fprintf(fp,"%%%% prior_%d\t= FLAT\n",idx); 
     fprintf(fp,"%%%%\n%%%%\t%s\t\tlog_post(%s)\t\tnorm_post(%s)\tlog_post_fixedamp(%s)\t\tnorm_post_fixedamp(%s)\tnorm_prior(%s)\n%%%%\n",
 	    Bayes->gridparams->grid[i].name,Bayes->gridparams->grid[i].name,
 	    Bayes->gridparams->grid[i].name,Bayes->gridparams->grid[i].name,

@@ -1,4 +1,5 @@
 EXTRA_DIST = \
+	ax_mpi.m4 \
 	compile \
 	config.guess \
 	config.sub \
@@ -16,7 +17,6 @@ EXTRA_DIST = \
 	lt~obsolete.m4 \
 	missing \
 	mkinstalldirs \
-	pkg.m4 \
 	py-compile \
 	vcsID.common
 
