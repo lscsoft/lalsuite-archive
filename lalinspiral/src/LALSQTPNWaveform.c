@@ -79,6 +79,16 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 		amp = params->signalAmp * pow(values[LALSQTPN_OMEGA], 2.0 / 3.0);
 
 		// calculating the waveform components
+		if (waveform->hp || waveform->hc) {
+			REAL4 h[2];
+			XLALSQTPNCalculateHPHC2(params, values, h);
+			if (waveform->hp) {
+				waveform->hp[i] = h[0];
+			}
+			if (waveform->hc) {
+				waveform->hc[i] = h[1];
+			}
+		}
 		if (waveform->waveform->h) {
 			XLALSQTPNCalculateHPHC2(params, values, &(waveform->waveform->h->data->data[2 * i]));
 		}

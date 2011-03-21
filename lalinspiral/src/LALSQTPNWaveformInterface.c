@@ -41,6 +41,8 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 
 	wave.waveform = NULL;
 	wave.waveform->h = NULL;
+	wave.hp = signalvec1;
+	wave.hc = signalvec2;
 
 	/* Call the engine function */
 	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
@@ -59,6 +61,8 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 	memset(&wave, 0, sizeof(LALSQTPNWave));
 	wave.waveform->h = NULL;
 	wave.waveform = NULL;
+	wave.hp = signalvec1;
+	wave.hc = NULL;
 
 	ASSERT(signalvec, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	ASSERT(signalvec->data, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -73,12 +77,12 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 	LALInspiralChooseModel(status->statusPtr, &(paramsInit.func), &(paramsInit.ak), params);
 	CHECKSTATUSPTR(status);
 	XLALSQTPNFillParams(&wave_Params, params);
-	wave_Params.distance *= LAL_PC_SI * 1.e6;
-	wave_Params.signalAmp /= LAL_PC_SI * 1.e6;
+	//wave_Params.distance *= LAL_PC_SI * 1.e6;
+	//wave_Params.signalAmp /= LAL_PC_SI * 1.e6;
 
 	/* Call the engine function */
 	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
-	params->tC = wave_Params.coalescenceTime;
+	//params->tC = wave_Params.coalescenceTime;
 	CHECKSTATUSPTR(status);
 	DETATCHSTATUSPTR(status);
 	RETURN(status);

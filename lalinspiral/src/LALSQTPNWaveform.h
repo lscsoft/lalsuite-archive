@@ -69,6 +69,8 @@ typedef enum {
 
 typedef struct tagLALSQTPNWave {
 	CoherentGW *waveform;
+	REAL4Vector *hp;
+	REAL4Vector *hc;
 	UINT4 length;
 } LALSQTPNWave;
 
