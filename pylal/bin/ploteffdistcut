@@ -455,9 +455,9 @@ if opts.dist_hist:
   clf()
   if opts.slide_glob or opts.slide_pattern:
     if len(slide_num)>0:
-      bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='k')
+      bar(slide_bin[:-1],slide_num,slide_bin[1]-slide_bin[0],color='k')
   if len(inj_num)>0:
-    bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
+    bar(inj_bin[:-1],inj_num,inj_bin[1]-inj_bin[0],color='r')
   if not opts.epsilon and opts.kappa:
     axvline(opts.kappa,linewidth=2,color='k')
   xticks(fontsize=opts.font_size)

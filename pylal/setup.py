@@ -285,6 +285,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.datatypes.simburst",
+			["src/xlal/datatypes/simburst.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.datatypes.siminspiraltable",
 			["src/xlal/datatypes/siminspiraltable.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
@@ -348,6 +357,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.lalburst",
+			["src/xlal/lalburst.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalburst_pkg_config.incdirs + ["src/xlal"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalburst_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.noisemodels",
 			["src/xlal/noisemodels.c"],
 			include_dirs = lal_pkg_config.incdirs,
@@ -384,8 +402,8 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags + lalburst_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.spawaveform",
-			["src/spawaveform.c"],
+			"pylal._spawaveform",
+			["src/_spawaveform.c"],
 			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
@@ -393,8 +411,8 @@ setup(
 		),
 		Extension(
 			"pylal._bayespputils",
-			["src/bayespputils.c"],
-			include_dirs = [numpy_get_include()]
+			["src/bayespputils.c","src/burnin.c"],
+			include_dirs = [numpy_get_include(),'src/']
 		),
 		Extension(
 			"pylal.cs_gamma",
@@ -469,6 +487,7 @@ setup(
 		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_exttrig_llpage"),
 		os.path.join("bin", "pylal_relic"),
+		os.path.join("bin", "pylal_version"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "ploteffdistcut"),
 		os.path.join("bin", "plotefficiency"),
@@ -482,6 +501,7 @@ setup(
 		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "antime"),
 		os.path.join("bin", "septime"),
+		os.path.join("bin", "lalapps_binj_pic"),
 		os.path.join("bin", "lalapps_burca_tailor"),
 		os.path.join("bin", "lalapps_cbc_plotroc"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
@@ -492,6 +512,7 @@ setup(
 		os.path.join("bin", "lalapps_farburst"),
 		os.path.join("bin", "lalapps_followup_pipe"),
 		os.path.join("bin", "lalapps_followup_page"),
+		os.path.join("bin", "WOD_Bologna.py"),
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
@@ -544,6 +565,7 @@ setup(
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
 		os.path.join("bin", "upper_limit_results"),
 		os.path.join("bin", "pylal_expose"),
+		os.path.join("bin", "ligolw_cbc_align_total_spin"),
 		os.path.join("bin", "ligolw_cbc_dbsimplify"),
 		os.path.join("bin", "ligolw_cbc_dbaddinj"),
 		os.path.join("bin", "ligolw_cbc_printlc"),
@@ -553,11 +575,11 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotslides"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
 		os.path.join("bin", "ligolw_cbc_plotfm"),
+        os.path.join("bin", "lalapps_cbc_plotrates"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "ligolw_segments_compat"),
 		os.path.join("bin", "extractCommand"),
-		os.path.join("bin", "OddsPostProc.py"),
 		os.path.join("bin", "make_inspiral_summary_page"),
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
@@ -568,8 +590,12 @@ setup(
 		os.path.join("bin", "qsub_wscanlite.sh"),
 		os.path.join("bin", "search_volume_by_m1_m2"),
 		os.path.join("bin", "search_upper_limit_by_m1_m2"),
-		os.path.join("bin", "search_volume_by_s1_s2"),
-		os.path.join("bin", "search_upper_limit_by_s1_s2"),
+		os.path.join("bin", "search_upper_limit_by_s1z_s2z"),
+		os.path.join("bin", "search_volume_by_s1z_s2z"),
+		os.path.join("bin", "search_upper_limit_by_m_chi"),
+		os.path.join("bin", "search_volume_by_m_chi"),		
+		os.path.join("bin", "imr_compare"),		
+		os.path.join("bin", "imr_roc"),				
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),
@@ -593,7 +619,13 @@ setup(
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "ring_post"),
-		os.path.join("bin","cbcBayesSkyRes.py")
+		os.path.join("bin", "cbcBayesPostProc.py"),
+		os.path.join("bin", "cbcBayesCompPos.py"),
+                os.path.join("bin", "cbcBayesDIEvidence.py"),
+        os.path.join("bin", "cbcBayesInjProc.py"),
+		os.path.join("bin", "ligo_channel_query"),
+        os.path.join("bin", "pylal_exttrig_dataquery"),
+        os.path.join("bin", "pylal_exttrig_allquery")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

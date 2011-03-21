@@ -110,6 +110,8 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     event->mchirp = GetAttrFloat(row, "mchirp");
     event->mtotal = GetAttrFloat(row, "mtotal");
     event->eta = GetAttrFloat(row, "eta");
+    event->kappa = GetAttrFloat(row, "kappa");
+    event->chi = GetAttrFloat(row, "chi");
     event->tau0 = GetAttrFloat(row, "tau0");
     event->tau2 = GetAttrFloat(row, "tau2");
     event->tau3 = GetAttrFloat(row, "tau3");
