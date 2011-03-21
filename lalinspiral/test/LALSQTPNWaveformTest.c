@@ -69,28 +69,21 @@ int tryAmplitudeMod(int argc, char *argv[]) {
 	memset(&injParams, 0, sizeof(SimInspiralTable));
 	memset(&ppnParams, 0, sizeof(PPNParamStruc));
 	//	setting the parameters
-	REAL8 multi = M_PI / 180.;
-	REAL8 ampl[2], incl[2], azim[2];
 	injParams.mass1 = atof(argv[1]);
 	injParams.mass2 = atof(argv[2]);
-	ampl[0] = atof(argv[3]);
-	incl[0] = atof(argv[4]) * multi;
-	azim[0] = atof(argv[5]) * multi;
-	injParams.spin1x = ampl[0] * sin(incl[0]) * cos(azim[0]);
-	injParams.spin1y = ampl[0] * sin(incl[0]) * sin(azim[0]);
-	injParams.spin1z = ampl[0] * cos(incl[0]);
-	ampl[1] = atof(argv[6]);
-	incl[1] = atof(argv[7]) * multi;
-	azim[1] = atof(argv[8]) * multi;
-	injParams.spin2x = ampl[1] * sin(incl[1]) * cos(azim[1]);
-	injParams.spin2y = ampl[1] * sin(incl[1]) * sin(azim[1]);
-	injParams.spin2z = ampl[1] * cos(incl[1]);
+	injParams.spin1x = atof(argv[3]);
+	injParams.spin1y = atof(argv[4]);
+	injParams.spin1z = atof(argv[5]);
+	injParams.spin2x = atof(argv[6]);
+	injParams.spin2y = atof(argv[7]);
+	injParams.spin2z = atof(argv[8]);
 	injParams.distance = atof(argv[9]);
 	injParams.inclination = atof(argv[10]) * multi;
 	ppnParams.deltaT = 1./atof(argv[11]);
 	injParams.f_lower = atof(argv[12]);
+	injParams.amp_order = atoi(argv[13]);
 
-	sprintf(PNString, "SpinQuadTaylor%s%s%s", argv[13], argv[14], argv[15]);
+	sprintf(PNString, "SpinQuadTaylor%s%s%s", argv[14], argv[15]);
 	filename = argv[16];
 	//injParams.f_final = atof(argv[11]);
 	snprintf(injParams.waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR), PNString);
@@ -105,6 +98,8 @@ int tryAmplitudeMod(int argc, char *argv[]) {
 	INT4 i, length = thewaveform.f->data->length;
 	REAL8 dt = thewaveform.phi->deltaT;
 	REAL8 h1, h2, a1, a2, phi, shift;
+	// h1, h2 contains the amplitude corrected waveform,
+	// and from a1, a2, shift and phi can be constructed the waveform with newtonian amplitude
 	for (i = 0; i < length; i++) {
 		h1 = thewaveform.h->data->data[2 * i];
 		h2 = thewaveform.h->data->data[2 * i + 1];

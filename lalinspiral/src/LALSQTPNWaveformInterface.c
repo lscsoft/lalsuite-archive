@@ -40,7 +40,6 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 	XLALSQTPNFillParams(&wave_Params, params);
 
 	wave.waveform = NULL;
-	wave.waveform->h = NULL;
 	wave.hp = signalvec1;
 	wave.hc = signalvec2;
 
@@ -59,9 +58,8 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 	LALSQTPNWaveformParams wave_Params;
 	LALSQTPNWave wave;
 	memset(&wave, 0, sizeof(LALSQTPNWave));
-	wave.waveform->h = NULL;
 	wave.waveform = NULL;
-	wave.hp = signalvec1;
+	wave.hp = signalvec;
 	wave.hc = NULL;
 
 	ASSERT(signalvec, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -116,6 +114,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 
 	LALSQTPNWave wave;
 	wave.waveform = waveform;
+	wave.hp = wave.hc = NULL;
 	LALSQTPNWaveformParams wave_Params;
 
 	// filling the parameters
@@ -316,9 +315,6 @@ void XLALSQTPNCalcHpHcFromCoherentGWat(INT4 ind, INT2 amplitude,CoherentGW *wave
 	values[LALSQTPN_LNH_3] = -wave->a->data->data[2*ind+1] / amp1;
 	REAL8 twoAlpha = wave->shift->data->data[ind];
 	INT2 i;
-	if (ind == 0 || ind == 1) {
-		printf("X: %d %lg %lg %lg %lg\n", ind, values[LALSQTPN_OMEGA], values[LALSQTPN_PHASE], values[LALSQTPN_LNH_3], twoAlpha);
-	}
 	REAL8 amp2 = -2.0 * pow(values[LALSQTPN_OMEGA], 2.0 / 3.0) * params.totalMass * params.eta
 			* LAL_MRSUN_SI / params.distance;
 	if ((amplitude & LALSQTPN_1_0) == LALSQTPN_1_0) {

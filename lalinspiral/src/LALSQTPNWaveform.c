@@ -83,10 +83,10 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 			REAL4 h[2];
 			XLALSQTPNCalculateHPHC2(params, values, h);
 			if (waveform->hp) {
-				waveform->hp[i] = h[0];
+				waveform->hp->data[i] = h[0];
 			}
 			if (waveform->hc) {
-				waveform->hc[i] = h[1];
+				waveform->hc->data[i] = h[1];
 			}
 		}
 		if (waveform->waveform->h) {
@@ -99,9 +99,6 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 			waveform->waveform->phi->data->data[i] = 2.0 * (values[LALSQTPN_PHASE] - params->phi);
 			waveform->waveform->shift->data->data[i] = 2.0 * alpha;
 			waveform->waveform->f->data->data[i] = values[LALSQTPN_OMEGA] / freq_Step;
-			if (i == 0 || i == 1) {
-				printf("O: %d %lg %lg %lg %lg\n", i, values[LALSQTPN_OMEGA], values[LALSQTPN_PHASE], values[LALSQTPN_LNH_3], 2.0*alpha);
-			}
 		}
 
 		// evolving
@@ -442,7 +439,7 @@ inline void XLALSQTPNCalculateAmplitudeContribution0_5(LALSQTPNWaveformParams *p
 	REAL8 sine_Part[2];
 	REAL8 cos_Iota = values[LALSQTPN_LNH_3];
 	REAL8 sin_Iota = sin(acos(cos_Iota));
-	REAL8 deltaM = (params->mass[0] - params->mass[1]);
+	REAL8 deltaM = fabs(params->mass[0] - params->mass[1]);
 	REAL8 sin_Phi = sin(values[LALSQTPN_PHASE]);
 	REAL8 cos_Phi = cos(values[LALSQTPN_PHASE]);
 	REAL8 sin_3Phi = sin(3.0 * values[LALSQTPN_PHASE]);
