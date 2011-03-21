@@ -287,7 +287,7 @@ if opts.tmp_space:
 dbtables.DBTable_set_connection( connection )
 
 if opts.time_table is None:
-    time_table = recovery_table
+    time_table = sqlutils.validate_option( opts.recovery_table )
 else:
     time_table = sqlutils.validate_option( opts.time_table )
 time_column = sqlutils.validate_option( opts.time_column )
