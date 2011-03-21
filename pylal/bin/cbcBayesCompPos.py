@@ -551,13 +551,15 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
-            cmap_size=1000
+            my_cm=mpl_cm.jet
+            cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)
-            cmap_array=mpl_cm.jet(np.array(range(cmap_size)))
+            cmap_array=my_cm(np.array(range(cmap_size)))
             for name,infolder in names_and_pos_folders:
 
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
+                
                 color_idx+=1
 
             for i,j in all_pairs(temp):#Iterate over all unique pairs in the set of common parameters
