@@ -5,6 +5,16 @@ function msg(varargin)
   disp([program_name, ": ", sprintf(varargin{:})]);
 endfunction
 
+## check that the module loads
+try
+  addpath(pwd(), 0);
+  swiglal;
+catch
+  msg("FAILED module load");
+  exit(1);
+end_try_catch
+swiglal.cvar.lalDebugLevel = 1;
+
 ## check memory allocation
 if !cvar.swiglal_debug
   msg("skipping memory allocation");

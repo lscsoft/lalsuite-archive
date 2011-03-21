@@ -1,11 +1,20 @@
 # check SWIG Python module wrapping the LAL library
 # Author: Karl Wette, 2011
 
-import os
+import sys, os
 import datetime
 
 def msg(str):
     print(os.path.basename(__file__) + ": " + str)
+
+# check that the module loads
+try:
+    sys.path.insert(0, os.getcwd())
+    from swiglal import *
+except:
+    msg("FAILED module load")
+    exit(1)
+cvar.lalDebugLevel = 1
 
 # check memory allocation
 if not cvar.swiglal_debug:
