@@ -27,14 +27,15 @@ NRCSID (LALSQTPNWAVEFORMINTERFACEH, "$Id LALSQTPNWaveformInterface.h$");
 #define LALSQTPN_ZEROLENGTH 3
 #define LALSQTPN_MSGZEROLENGTH "the given length is not positive"
 
-void LALSQTPNWaveformTemplates (LALStatus *status, REAL4Vector *signalvec1, REAL4Vector *signalvec2, InspiralTemplate *params);
+void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4Vector *signalvec2,
+		InspiralTemplate *params);
 
 /**		The function returns the generated waveform.
  * @param[in,out]	status	: LAL universal status structure
  * @param[out]	signalvec	: array containing the waveform \f$(h_+, h_\times)\f$
  * @param[in]	params		: structure containing the inspiral parameters
  */
-void LALSQTPNWaveform (LALStatus *status, REAL4Vector *signalvec, InspiralTemplate *params);
+void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplate *params);
 
 /**		The function returns the generated waveform for injection.
  * @param[in,out]	status	: LAL universal status structure
@@ -98,6 +99,9 @@ void XLALSQTPNDestroyCoherentGW(CoherentGW *wave);
  * @param[in]		params	: the inspiral parameters
  */
 void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params);
+
+void XLALSQTPNCalcHpHcFromCoherentGWat(INT4 ind, INT2 amplitude, CoherentGW *wave, REAL8 mass[],
+		REAL8 distance, REAL4 h[]);
 
 #ifdef __cplusplus
 }

@@ -252,20 +252,20 @@ void XLALSQTPNAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 val
 
 void XLALSQTPNCalculateHPHC2(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h);
 
-void XLALSQTPNCalculateAmplitudeContribution1_0(LALSQTPNWaveformParams *params, REAL8 values[],
+void XLALSQTPNCalculateAmplitudeContribution1_0(LALSQTPNWaveformParams *params, REAL8 values[], REAL8 twoAlpha,
 		REAL8 contribution[]);
 
-void XLALSQTPNCalculateAmplitudeContribution0_5(LALSQTPNWaveformParams *params, REAL8 values[],
+void XLALSQTPNCalculateAmplitudeContribution0_5(LALSQTPNWaveformParams *params, REAL8 values[], REAL8 twoAlpha,
 		REAL8 contribution[]);
 
-void XLALSQTPNCalculateAmplitudeContribution0_0(REAL8 values[], REAL8 contribution[]);
+void XLALSQTPNCalculateAmplitudeContribution0_0(REAL8 values[], REAL8 twoAlpha, REAL8 contribution[]);
 
-void XLALSQTPNCalculateCoefficients1_0order(LALSQTPNWaveformParams *params, REAL8 values[],
+void XLALSQTPNCalculateCoefficients1_0order(LALSQTPNWaveformParams *params, REAL8 values[], REAL8 twoALpha,
 		REAL8 cosine[], REAL8 sine[]);
 
-void XLALSQTPNCalculateCoefficients0_5order(REAL8 values[], REAL8 cosine[]);
+void XLALSQTPNCalculateCoefficients0_5order(REAL8 values[], REAL8 twoAlpha, REAL8 cosine[]);
 
-void XLALSQTPNCalculateCoefficients0_0order(REAL8 values[], REAL8 cosine[], REAL8 sine[]);
+void XLALSQTPNCalculateCoefficients0_0order(REAL8 values[], REAL8 twoAlpha, REAL8 cosine[], REAL8 sine[]);
 
 #ifdef __cplusplus
 }

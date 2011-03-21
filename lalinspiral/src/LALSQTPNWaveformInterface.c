@@ -41,8 +41,6 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 
 	wave.waveform = NULL;
 	wave.waveform->h = NULL;
-	//wave.hp = signalvec1;
-	//wave.hc = signalvec2;
 
 	/* Call the engine function */
 	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
@@ -60,8 +58,6 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 	LALSQTPNWave wave;
 	memset(&wave, 0, sizeof(LALSQTPNWave));
 	wave.waveform->h = NULL;
-	//wave.hp = signalvec;
-	//wave.hc = NULL;
 	wave.waveform = NULL;
 
 	ASSERT(signalvec, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -125,8 +121,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
 	BEGINFAIL(status) {
 		XLALSQTPNDestroyCoherentGW(waveform);
-	}
-	ENDFAIL(status);
+	}ENDFAIL(status);
 	params->fFinal = wave_Params.finalFreq;
 	for (i = 0; i < wave.length; i++) {
 		if (waveform->phi->data->data[i] != 0.) {
@@ -147,7 +142,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 			for (i = 0; i < wave.length; i++) {
 				// (PPNParamStruct)ppnParams->phi === (InspiralTemplate)params->startPhase === (SimInspiralTable)injparams/this_event->coa_phase it is set to 0 in LALSQTPNWaveformTest.c at line 83.
 				waveform->phi->data->data[i] = waveform->phi->data->data[i]
-						- waveform->phi->data->data[wave.length - 1] + ppnParams->phi;
+				      - waveform->phi->data->data[wave.length - 1] + ppnParams->phi;
 			}
 			waveform->a->deltaT = waveform->f->deltaT = waveform->phi->deltaT
 					= waveform->shift->deltaT = 1. / params->tSampling;
@@ -169,7 +164,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 		ppnParams->tc = (REAL8)(wave.length - 1) / params->tSampling;
 		ppnParams->length = wave.length;
 		ppnParams->dfdt = ((REAL4)(waveform->f->data->data[wave.length - 1]
-				- waveform->f->data->data[wave.length - 2])) * ppnParams->deltaT;
+					- waveform->f->data->data[wave.length - 2])) * ppnParams->deltaT;
 		ppnParams->fStop = params->fFinal;
 		ppnParams->termCode = GENERATEPPNINSPIRALH_EFSTOP;
 		ppnParams->termDescription = GENERATEPPNINSPIRALH_MSGEFSTOP;
@@ -191,11 +186,11 @@ int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length) {
 	if (wave->a || wave->f || wave->phi || wave->shift) {
 		XLAL_ERROR(func, XLAL_EFAULT);
 	}
-	wave->h = (REAL4TimeVectorSeries *) LALMalloc(sizeof(REAL4TimeVectorSeries));
-	wave->a = (REAL4TimeVectorSeries *) LALMalloc(sizeof(REAL4TimeVectorSeries));
-	wave->f = (REAL4TimeSeries *) LALMalloc(sizeof(REAL4TimeSeries));
-	wave->phi = (REAL8TimeSeries *) LALMalloc(sizeof(REAL8TimeSeries));
-	wave->shift = (REAL4TimeSeries *) LALMalloc(sizeof(REAL4TimeSeries));
+	wave->h = (REAL4TimeVectorSeries *)LALMalloc(sizeof(REAL4TimeVectorSeries));
+	wave->a = (REAL4TimeVectorSeries *)LALMalloc(sizeof(REAL4TimeVectorSeries));
+	wave->f = (REAL4TimeSeries *)LALMalloc(sizeof(REAL4TimeSeries));
+	wave->phi = (REAL8TimeSeries *)LALMalloc(sizeof(REAL8TimeSeries));
+	wave->shift = (REAL4TimeSeries *)LALMalloc(sizeof(REAL4TimeSeries));
 	if (!(wave->h && wave->a && wave->f && wave->phi && wave->shift)) {
 		XLALSQTPNDestroyCoherentGW(wave);
 		XLAL_ERROR(func, XLAL_ENOMEM);
@@ -298,17 +293,49 @@ void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params)
 		wave->spinInteraction |= LAL_SOInter;
 	}
 	wave->amplitudeContribution = params->ampOrder;
-	/*printf("masses: %lg %lg\n", wave->mass[0], wave->mass[1]);
-	 printf("chis1: %lg %lg %lg\n", wave->chi[0][0], wave->chi[0][1], wave->chi[0][2]);
-	 printf("chis2: %lg %lg %lg\n", wave->chi[1][0], wave->chi[1][1], wave->chi[1][2]);
-	 printf("qmParams: %lg %lg\n", wave->qmParameter[0], wave->qmParameter[1]);
-	 printf("dist: %lg\n", wave->distance);
-	 printf("incl: %lg\n", wave->inclination);
-	 printf("Freq: %lg\n", wave->lowerFreq);
-	 printf("sF: %lg\n", wave->samplingFreq);
-	 printf("sT: %lg\n", wave->samplingTime);
-	 printf("amp: %lg\n", wave->signalAmp);
-	 printf("order: %d\n", wave->order);
-	 printf("spin: %d\n", wave->spinInteraction);*/
 }
 
+void XLALSQTPNCalcHpHcFromCoherentGWat(INT4 ind, INT2 amplitude,CoherentGW *wave, REAL8 mass[], REAL8 distance, REAL4 h[]) {
+	REAL8 contribution[3][2];
+	h[LALSQTPN_PLUS] = h[LALSQTPN_CROSS] = 0.0;
+	LALSQTPNWaveformParams params;
+	params.mass[0] = mass[0];
+	params.mass[1] = mass[1];
+	params.totalMass = params.mass[0] + params.mass[1];
+	params.eta = params.mass[0] * params.mass[1] / (params.totalMass*params.totalMass);
+	params.distance = distance * LAL_PC_SI * 1e6;
+	REAL8 values[LALSQTPN_NUM_OF_VAR];
+	const REAL8 freq_Step = params.totalMass * LAL_MTSUN_SI * LAL_PI;
+	values[LALSQTPN_OMEGA] = wave->f->data->data[ind] * freq_Step;
+	REAL8 amp1 = 4. * params.totalMass * params.eta * LAL_MRSUN_SI / params.distance * pow(values[LALSQTPN_OMEGA], 2.0 / 3.0);
+	values[LALSQTPN_PHASE] = (wave->phi->data->data[ind]-wave->phi->data->data[0]) / 2.0;
+	values[LALSQTPN_LNH_3] = -wave->a->data->data[2*ind+1] / amp1;
+	REAL8 twoAlpha = wave->shift->data->data[ind];
+	INT2 i;
+	if (ind == 0 || ind == 1) {
+		printf("X: %d %lg %lg %lg %lg\n", ind, values[LALSQTPN_OMEGA], values[LALSQTPN_PHASE], values[LALSQTPN_LNH_3], twoAlpha);
+	}
+	REAL8 amp2 = -2.0 * pow(values[LALSQTPN_OMEGA], 2.0 / 3.0) * params.totalMass * params.eta
+			* LAL_MRSUN_SI / params.distance;
+	if ((amplitude & LALSQTPN_1_0) == LALSQTPN_1_0) {
+		XLALSQTPNCalculateAmplitudeContribution1_0(&params, values, twoAlpha, contribution[LAL_PNORDER_ONE]);
+		for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+			h[i] += contribution[LAL_PNORDER_ONE][i] * pow(values[LALSQTPN_OMEGA], 2.0 / 3.0);
+		}
+	}
+	if ((amplitude & LALSQTPN_0_5) == LALSQTPN_0_5) {
+		XLALSQTPNCalculateAmplitudeContribution0_5(&params, values, twoAlpha, contribution[LAL_PNORDER_HALF]);
+		for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+			h[i] += contribution[LAL_PNORDER_HALF][i] * pow(values[LALSQTPN_OMEGA], 1.0 / 3.0);
+		}
+	}
+	if ((amplitude & LALSQTPN_0_0) == LALSQTPN_0_0) {
+		XLALSQTPNCalculateAmplitudeContribution0_0(values, twoAlpha, contribution[LAL_PNORDER_NEWTONIAN]);
+		for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+			h[i] += contribution[LAL_PNORDER_NEWTONIAN][i];
+		}
+	}
+	for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+		h[i] *= amp2;
+	}
+}
