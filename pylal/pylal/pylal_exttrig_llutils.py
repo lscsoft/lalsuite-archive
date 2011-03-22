@@ -1645,9 +1645,10 @@ class GRB(object):
     self.cp = self.pas.get_cp()
 
     # datafind variables
-    self.use_offline_data = False
-    self.type_online = {'H1':self.cp.get('data','channel_online_H1'), 'L1':self.cp.get('data','channel_online_L1'), 'V1':self.cp.get('data','channel_online_V1')}
-    self.type_offline = {'H1':self.cp.get('data','channel_offline_H1'), 'L1':self.cp.get('data','channel_offline_L1'), 'V1':self.cp.get('data','channel_offline_V1')}
+    self.use_offline_data = True
+    #self.type_online = {'H1':self.cp.get('data','channel_online_H1'), 'L1':self.cp.get('data','channel_online_L1'), 'V1':self.cp.get('data','channel_online_V1')}
+    self.type_online = None
+    self.type_offline = {'H1':'H1_'+self.cp.get('input','ligo-type'), 'L1':'L1_'+self.cp.get('input','ligo-type'), 'V1':self.cp.get('input','virgo-type')}
 
 
   # -----------------------------------------------------
