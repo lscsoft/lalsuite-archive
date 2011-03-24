@@ -73,6 +73,48 @@ __author__  = "Peter Couvares <pfcouvar@syr.edu>"
 PROGRAM_NAME = os.path.abspath(sys.argv[0])
 
 
+class diskcacheEntry(object):
+    """
+    An object representing one line in a diskcache file.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Intialize a diskcacheEntry object.  Takes a single string
+        argument, which is interpreted and parsed as a line from a
+        diskcache file.
+        """
+
+        if len(args) != 1:
+            raise TypeError, "invalid arguments: %s" % args
+
+        line = args[0]
+        # parse line of text as an entry in a cache file
+        try:
+            # split on spaces and then comma to get the parts
+            header, self.modTime, self.fileCount, times = line.strip().split(' ', 3)
+            self.dir, self.site, self.frameType, self.frameCount, self.duration = header.split(',')
+            self.fileCount = int(self.fileCount)
+            self.modTime = int(self.modTime)
+            self.frameCount = int(self.frameCount)
+            self.duration = int(self.duration)
+
+            # times string has form { t1 t2 t3 t4 t5 t6 ... tN t(N+1) }
+            # where the (ti, t(i+1)) represent segments
+            #
+            # first turn the times string into a list of integers
+            times = [ int(s) for s in times[1:-1].strip().split(' ') ]
+
+            # group the integers by two and turn those tuples into segments
+            assert len(times) % 2 is 0
+            self.segments = glue.segments.segmentlist([ glue.segments.segment(t) for t in zip(times[::2],times[1::2]) ])
+
+        except Exception, e:
+            msg = "Error parsing frame cache file with line %s: %s" % (line, e)
+            raise ValueError, msg
+            return
+
+
 """
 Given a state file and GPS time range, returns all segments within
 that range for which GEO frame files have *not* been processed into DQ
@@ -251,8 +293,6 @@ parser = OptionParser(
 # defaults are set for use on segdb.ligo.caltech.edu (circa July 2010)
 parser.add_option('-s', '--state-file', metavar='FILE', help='state file')
 parser.add_option('-c', '--cache-file', metavar='FILE', help='diskCache file')
-parser.add_option('-d', '--frame-dir', metavar='DIR', help='GEO frame directory',
-                  default='/archive/frames/GEOHF/L3/GEO')
 parser.add_option('-x', '--xml-root', metavar='DIR', help='XML output directory',
                   default='/archive/frames/online/DQ')
 parser.add_option('-l', '--lock_dir', metavar='DIR', help='lock file directory (use with caution)')
@@ -326,15 +366,15 @@ if options.verbose: print "pending_segments =", pending_segments
 
 pending_files = []
 if options.cache_file:
-    cache = lal.Cache.fromfile(open(options.cache_file), coltype=int)
-    foo = [entry.path() for entry in cache]
-#    if options.verbose: print "cache =", foo
-    sieved_cache = cache.sieve(description=options.frame_type,
-                               ifos=options.ifo[0],
-                               segmentlist=pending_segments)
-    foo = [entry.path() for entry in sieved_cache]
-    if options.verbose: print "sieved_cache =", foo
-    pending_files = [e.path() for e in sieved_cache.checkfilesexist()[0]]
+    # find all frame files for our ifo, type, and pending_segments
+    cache_f = open(options.cache_file, 'r')
+    for line in cache_f:
+        entry = diskcacheEntry(line)
+        if ((entry.frameType is options.frame_type) and
+            (entry.site is options.ifo[0]) and
+            (pending_segments.intersects(entry.segments)) and
+            (os.path.isfile(entry.dir))):
+            pending_files.append(entry.dir)
 else:
     pending_files = argv_frame_files
 
