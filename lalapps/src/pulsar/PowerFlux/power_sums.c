@@ -26,7 +26,7 @@ extern DATASET *datasets;
 
 INT64 spindown_start;
 
-void generate_patch_templates(int pi, POWER_SUM **ps, int *count)
+void generate_patch_templates(SUMMING_CONTEXT *ctx, int pi, POWER_SUM **ps, int *count)
 {
 POWER_SUM *p;
 int i, j, k, kk;
@@ -69,7 +69,7 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 			/* TODO - this effectively requires skybands do not depend on spindown it would be nice if that was not so */			
 			p->skyband=skyband;
 
-			p->pps=allocate_partial_power_sum_F(useful_bins);
+			p->pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
 			zero_partial_power_sum_F(p->pps);
 
 			(*count)++;
@@ -79,7 +79,7 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 	}
 }
 
-void clone_templates(POWER_SUM *ps, int count, POWER_SUM **ps_out)
+void clone_templates(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, POWER_SUM **ps_out)
 {
 int i, k;
 *ps_out=do_alloc(count, sizeof(POWER_SUM));
@@ -101,7 +101,7 @@ for(i=0;i<count;i++) {
 
 	(*ps_out)[i].skyband=ps[i].skyband;
 
-	(*ps_out)[i].pps=allocate_partial_power_sum_F(useful_bins);
+	(*ps_out)[i].pps=allocate_partial_power_sum_F(useful_bins, ctx->cross_terms_present);
 	zero_partial_power_sum_F((*ps_out)[i].pps);
 	}
 }

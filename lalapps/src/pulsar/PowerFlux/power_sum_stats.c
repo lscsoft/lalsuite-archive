@@ -53,12 +53,14 @@ adiff=0.25*(a_plus_sq-a_cross_sq);
 ac->pp=(asum+adiff*cpsi);
 ac->pc=2*adiff*spsi;
 ac->cc=(asum-adiff*cpsi);
+ac->im_pc=0.125*(1+a)*cos(ac->iota)*2;
 
 ac->pppp=ac->pp*ac->pp;
 ac->pppc=2*ac->pp*ac->pc;
 ac->ppcc=2*ac->pp*ac->cc+ac->pc*ac->pc;
 ac->pccc=2*ac->pc*ac->cc;
 ac->cccc=ac->cc*ac->cc;
+ac->im_ppcc=ac->im_pc*ac->im_pc;
 }
 
 void generate_alignment_grid(void)
@@ -66,8 +68,11 @@ void generate_alignment_grid(void)
 int i, j, k;
 int npsi=args_info.npsi_arg, niota=args_info.niota_arg;
 
-alignment_grid_size=npsi*niota+1;
-alignment_grid_free=npsi*niota+1;
+if(args_info.compute_cross_terms_arg)
+	alignment_grid_size=npsi*(2*niota-1)+2;
+	else
+	alignment_grid_size=npsi*niota+1;
+alignment_grid_free=alignment_grid_size;
 alignment_grid=do_alloc(alignment_grid_size, sizeof(*alignment_grid));
 
 /* First polarization is circular one */
@@ -82,6 +87,25 @@ for(j=0;j<niota;j++)
 		alignment_grid[k].iota=acos((1.0*j)/niota); 
 		k++;
 		}
+		
+if(args_info.compute_cross_terms_arg) {
+	alignment_grid[k].psi=0.0;
+	alignment_grid[k].iota=M_PI;
+	k++;
+
+	for(j=1;j<niota;j++)
+		for(i=0;i<npsi;i++) {
+			/* note: make better grid by not overcovering circular polarization neighbourhood */
+			alignment_grid[k].psi=(0.5*M_PI*(i+0.5*(j&1)))/npsi;
+			alignment_grid[k].iota=acos(-(1.0*j)/niota); 
+			k++;
+			}	
+	}
+	
+if(k-1>alignment_grid_free) {
+	fprintf(stderr, "*** INTERNAL ERROR: insuffient space allocated for alignment coefficients array (%d vs %d)\n", k, alignment_grid_free);
+	exit(-1);
+	}
 
 for(k=0;k<alignment_grid_free;k++) {
 	fprintf(LOG, "alignment entry %d: %f %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi);
@@ -536,6 +560,10 @@ if(args_info.ks_test_arg){
 		| STAT_FLAG_COMPUTE_KS_TEST;
 	}
 
+if(pps->power_im_pc==NULL) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
+	exit(-1);
+	}
 
 if(pps->weight_arrays_non_zero) {
 	max_weight=0;
@@ -567,22 +595,22 @@ if(pps->weight_arrays_non_zero) {
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
-		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
-			
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
 		}
 	} else {
 	weight=(pps->c_weight_pppp*ag->pppp+
 		pps->c_weight_pppc*ag->pppc+
 		pps->c_weight_ppcc*ag->ppcc+
 		pps->c_weight_pccc*ag->pccc+
-		pps->c_weight_cccc*ag->cccc);
+		pps->c_weight_cccc*ag->cccc+
+		pps->c_weight_im_ppcc*ag->im_ppcc);
 	max_weight=weight;
 	min_weight=weight;
 
 	inv_weight=1.0/weight;
 
 	for(i=0;i<useful_bins;i++) {
-		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc)*inv_weight;
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
 		}
 	}
 
@@ -670,6 +698,11 @@ int half_window=args_info.half_window_arg;
 /* allocate on stack, for speed */
 tmp=aligned_alloca(useful_bins*sizeof(*tmp));
 
+if(pps->power_im_pc==NULL) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
+	exit(-1);
+	}
+
 if(pps->weight_arrays_non_zero) {
 	max_weight=0;
 	min_weight=1e50;
@@ -700,7 +733,7 @@ if(pps->weight_arrays_non_zero) {
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
-		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
 			
 		}
 	} else {
@@ -708,14 +741,15 @@ if(pps->weight_arrays_non_zero) {
 		pps->c_weight_pppc*ag->pppc+
 		pps->c_weight_ppcc*ag->ppcc+
 		pps->c_weight_pccc*ag->pccc+
-		pps->c_weight_cccc*ag->cccc);
+		pps->c_weight_cccc*ag->cccc+
+		pps->c_weight_im_ppcc*ag->im_ppcc);
 	max_weight=weight;
 	min_weight=weight;
 
 	inv_weight=1.0/weight;
 
 	for(i=0;i<useful_bins;i++) {
-		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc)*inv_weight;
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+(float)pps->power_im_pc[i]*ag->im_pc)*inv_weight;
 		}
 	}
 
@@ -900,6 +934,7 @@ if(pps->weight_arrays_non_zero) {
 	cblas_sscal(useful_bins, ag->pp, tmp, 1);
 	cblas_saxpy(useful_bins, ag->pc, pps->power_pc, 1, tmp, 1);
 	cblas_saxpy(useful_bins, ag->cc, pps->power_cc, 1, tmp, 1);
+	if(pps->power_im_pc!=NULL)cblas_saxpy(useful_bins, ag->im_pc, pps->power_im_pc, 1, tmp, 1);
 
 	for(i=0;i<useful_bins;i++) {
 
@@ -922,7 +957,8 @@ if(pps->weight_arrays_non_zero) {
 		pps->c_weight_pppc*ag->pppc+
 		pps->c_weight_ppcc*ag->ppcc+
 		pps->c_weight_pccc*ag->pccc+
-		pps->c_weight_cccc*ag->cccc);
+		pps->c_weight_cccc*ag->cccc+
+		pps->c_weight_im_ppcc*ag->im_ppcc);
 	max_weight=weight;
 	min_weight=weight;
 
@@ -933,6 +969,7 @@ if(pps->weight_arrays_non_zero) {
 	cblas_sscal(useful_bins, ag->pp*inv_weight, tmp, 1);
 	cblas_saxpy(useful_bins, ag->pc*inv_weight, pps->power_pc, 1, tmp, 1);
 	cblas_saxpy(useful_bins, ag->cc*inv_weight, pps->power_cc, 1, tmp, 1);
+	if(pps->power_im_pc!=NULL)cblas_saxpy(useful_bins, ag->im_pc*inv_weight, pps->power_im_pc, 1, tmp, 1);
 	}
 
 /* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
@@ -1082,6 +1119,11 @@ if(args_info.ks_test_arg){
 	}
 
 
+if(pps->power_im_pc==NULL) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s requires pps->power_im_pc!=NULL\n", __FUNCTION__);
+	exit(-1);
+	}
+
 if(pps->weight_arrays_non_zero) {
 	max_weight=0;
 	min_weight=1e50;
@@ -1170,6 +1212,12 @@ if(pps->weight_arrays_non_zero) {
 
 		v4tmp=_mm_add_ps(v4tmp, v4c);
 
+		v4a=_mm_load_ps(&(pps->power_im_pc[i]));
+		v4b=_mm_load1_ps(&ag->im_pc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
 		v4tmp=_mm_div_ps(v4tmp, v4weight);
 
 		_mm_store_ps(&(tmp[i]), v4tmp);
@@ -1186,7 +1234,7 @@ if(pps->weight_arrays_non_zero) {
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
-		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)/weight;
 			
 		}
 
@@ -1238,7 +1286,8 @@ if(pps->weight_arrays_non_zero) {
 		pps->c_weight_pppc*ag->pppc+
 		pps->c_weight_ppcc*ag->ppcc+
 		pps->c_weight_pccc*ag->pccc+
-		pps->c_weight_cccc*ag->cccc);
+		pps->c_weight_cccc*ag->cccc+
+		pps->c_weight_im_ppcc*ag->im_ppcc);
 	max_weight=weight;
 	min_weight=weight;
 
@@ -1263,6 +1312,12 @@ if(pps->weight_arrays_non_zero) {
 
 		v4tmp=_mm_add_ps(v4tmp, v4c);
 
+		v4a=_mm_load_ps(&(pps->power_im_pc[i]));
+		v4b=_mm_load1_ps(&ag->im_pc);
+		v4c=_mm_mul_ps(v4a, v4b);
+
+		v4tmp=_mm_add_ps(v4tmp, v4c);
+
 		v4a=_mm_load1_ps(&inv_weight);
 
 		v4tmp=_mm_mul_ps(v4tmp, v4a);
@@ -1271,7 +1326,7 @@ if(pps->weight_arrays_non_zero) {
 		}
 
 	for(;i<useful_bins;i++) {
-		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc)*inv_weight;
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc+pps->power_im_pc[i]*ag->im_pc)*inv_weight;
 		}
 	}
 
@@ -1551,8 +1606,8 @@ int result=0;
 memset(&pst_ref, 0, sizeof(pst_ref));
 memset(&pst_test, 0, sizeof(pst_test));
 
-ps1=allocate_partial_power_sum_F(useful_bins);
-ps2=allocate_partial_power_sum_F(useful_bins);
+ps1=allocate_partial_power_sum_F(useful_bins, 1);
+ps2=allocate_partial_power_sum_F(useful_bins, 1);
 
 randomize_partial_power_sum_F(ps1);
 

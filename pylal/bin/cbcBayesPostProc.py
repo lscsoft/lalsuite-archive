@@ -272,7 +272,7 @@ def cbcBayesPostProc(
         except KeyError:
             print "Warning: Couldn't compute tilt1 values."
 
-    if 'theta2' not in pos.names:
+    if 'tilt2' not in pos.names:
         try:
             inj_tilt2 = None
             if injection:
@@ -339,8 +339,8 @@ def cbcBayesPostProc(
                 m1inj = pos['m1'].injval
                 m2inj = pos['m2'].injval
 
-                inj_S1x, inj_S1y, inj_S1z = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
-                inj_S2x, inj_S2y, inj_S2z = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
+                inj_S1x, inj_S1y, inj_S1z = injection.spin1x, injection.spin1y, injection.spin1z
+                inj_S2x, inj_S2y, inj_S2z = injection.spin2x, injection.spin2y, injection.spin2z
 
                 inj_S1x *= m1inj*m1inj
                 inj_S1y *= m1inj*m1inj
@@ -362,8 +362,8 @@ def cbcBayesPostProc(
             Lmag = power(pos[mchirp_name].samples,5.0/3.0) / power(pi_constant * mtsun * pos['f_lower'].samples,1.0/3.0)
             Lx,Ly,Lz = Lmag*bppu.sph2cart(1.0,pos['iota'].samples,0.0)
 
-            S1x,S1y,S1z = pos['m1'].samples*pos['m1'].samples*bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
-            S2x,S2y,S2z = pos['m2'].samples*pos['m2'].samples*bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
+            S1x,S1y,S1z = pos['m1'].samples*pos['m1'].samples*bppu.sph2cart(pos['a1'].samples,pos['theta1'].samples,pos['phi1'].samples)
+            S2x,S2y,S2z = pos['m2'].samples*pos['m2'].samples*bppu.sph2cart(pos['a2'].samples,pos['theta2'].samples,pos['phi2'].samples)
 
             Jx = Lx + S1x + S2x
             Jy = Ly + S1y + S2y
