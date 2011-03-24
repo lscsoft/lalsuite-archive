@@ -63,7 +63,7 @@ estimated_fstat_timebase<-function(h0, ra, dec, iota, psi, M.H1, M.L1,  twoFcuto
 
 	A2_LHO<- ifo_A2(ra, dec, iota, psi, gamma_LHO, lambda_LHO)
 	
-	# LHO position
+	# LLO position
 	gamma_LLO<-243.0*pi/180
 	lambda_LLO<- 30.56*pi/180
 
