@@ -62,9 +62,6 @@ def parse_args():
           "with --trigger-file <file> and the sub run to check for (i.e. A,B,C or D) "\
           "with --subrun X."
 
-  if not options.output_pickle:
-    raise ValueError, "Name of the output pickle file must be specified with --output-pickle."
-
 
   return options, arguments
 
@@ -102,10 +99,12 @@ for index in range(n):
   grb_time = triggers['gps'][index]
   grbtag = 'grb%s'%grb_name
 
-  # find the part of S6 during which the GRB occured
+  # find the part of S6 during which the GRB occurred
   # to chose the correct veto definer file
-  for run, rrange in peu.runtimes.iteritems():
+  run = None
+  for rrun, rrange in peu.runtimes.iteritems():
     if grb_time>rrange[0] and grb_time<rrange[1]:
+      run=rrun
       break
 
   # Check the correct subrun
@@ -161,4 +160,6 @@ for index in range(n):
   else:
     pas.info("GRB has not enough data!", grb_name)
 
-pickle.dump(use_grb, file(opts.output_pickle,'w'))
+# optional output into pickle file
+if opts.output_pickle:
+  pickle.dump(use_grb, file(opts.output_pickle,'w'))

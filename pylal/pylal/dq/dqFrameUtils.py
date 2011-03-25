@@ -100,20 +100,19 @@ def grab_data(start,end,ifo,channel,type,\
     segtest.stdout.close()
 
     # try to extract data from frame
-    frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path(),\
-                                                      ':'.join([ifo,channel]))
+    frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d( frame.path(),\
+                                                     ':'.join([ ifo, channel ]))
     if frame_data==[]:
       print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
       continue
 
     # construct time array
-    frame_length = float(dt)*len(frame_data)
     frame_time = data_start+dt*numpy.arange(len(frame_data))
 
     # discard frame data outside of time span
     for i in range(len(frame_data)):
-      if frame_time[i] < start:  continue
-      if frame_time[i] > end:  continue
+      if frame_time[i] <= start:  continue
+      if frame_time[i] >= end:  continue
       time.append(frame_time[i])
       data.append(frame_data[i])
 
@@ -846,7 +845,10 @@ class FrameCacheEntry(LALCacheEntry):
     Return Find all files described by this FrameCacheEntry.
     """
 
-    filenames = glob.glob(os.path.join(self.path(),'*'))
+    filenames = glob.glob( os.path.join( self.path(),\
+                                         '%s-%s*-%s.*' % ( self.observatory,\
+                                                           self.description,\
+                                                           self.duration ) ) )
     cache = [e.path() for e in\
                  LALCache([LALCacheEntry.from_T050017(f) for f in filenames])\
              if e.observatory==self.observatory and\
@@ -931,17 +933,22 @@ class FrameCache(LALCache):
 
     return self.__class__(c)
 
+  def get_files(self):
+    c = []
+    for e in self:
+      c.extend(e.get_files())
+    return c
+
 def FrameCachetoLALCache( fcache ):
 
   lcache = FrameCache()
 
-  for e in fcache:
-    files = e.get_files()
-    for f in files:
-      lcache.append(LALCacheEntry.from_T050017( f ))
-  
+  files = fcache.get_files()
 
-  return 0
+  for f in files:
+    lcache.append(LALCacheEntry.from_T050017(f))
+  
+  return lcache
 
 def LALCachetoFrameCache( lcache ):
 
