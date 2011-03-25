@@ -4,13 +4,17 @@
 # Preamble
 # ==============================================================================
 
-import os,sys,re,operator,math
+import os,sys,re,operator
 from StringIO import StringIO
 from glue.segments import segment, segmentlist
 from glue.ligolw import ligolw,lsctables,table,utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.segmentdb import query_engine,segmentdb_utils
 from pylal import llwapp
+from pylal.dq.dqFrameUtils import grab_data
+from pylal.dq.dqTriggerUtils import def_get_time
+
+from scipy.stats import poisson
 
 LIGOTimeGPS = lsctables.LIGOTimeGPS
 
@@ -182,7 +186,8 @@ def grab_segments(start,end,flag):
   # format flag name
   spec = flag.split(':')
   if len(spec) < 2 or len(spec) > 3:
-    raise AttributeError, "Included segements must be of the form ifo:name:version or ifo:name:*" 
+    raise AttributeError, "Included segements must be of the form "+\
+                          "ifo:name:version or ifo:name:*"
 
   ifo     = spec[0]
   name    = spec[1]
@@ -353,4 +358,46 @@ def dump_flags(ifos=None,segment_url=None,match=None,unmatch=None,latest=False,\
         break
 
   return flags
+
+# ==============================================================================
+# Calculate Poisson safety
+# ==============================================================================
+
+def poisson_safety( segs, injTable, livetime, returnall=False ):
+
+  """
+    Calculates the safety probability of a given segments.segmentlist segs
+    based on the number of injections vetoed relative to random chance
+    according to Poisson statistics.
+
+    Arguments:
+
+      segs : glue.segments.segmentlist
+        list of segments to be tested
+      injTable : [ SimBurstTable | SimInspiralTable | SimRingdownTable ]
+        table of injections
+      livetime : [ float ]
+        livetime of search
+
+    Keyword arguments : 
+
+      returnall : [ False | True ]
+        return the tuple (numbervetoed, numberexpected, probability), default:
+        False returns probability
+
+    """
+
+  deadtime = segs.__abs__()
+
+  get_time = def_get_time( injTable.tableName )
+  injvetoed = len([ inj for inj in injTable if get_time(inj) in segs ])
+
+  injexp = len(injTable) * float(deadtime) / float(livetime)
+
+  prob = 1 - poisson.cdf( injvetoed-1, injexp )
+
+  if returnall:
+    return injvetoed,injexp,prob
+  else:
+    return prob
 
