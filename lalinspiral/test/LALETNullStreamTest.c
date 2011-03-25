@@ -25,7 +25,7 @@
 NRCSID( LALETNULLSTREAMTESTC, "$Id$" );
 
 #define USAGE "Usage: LALETNullStreamTest [--duration REAL8] [--GPSstart INT] [--Nsegs INT] [--o output] \n \
-	 [OPTIONAL] [--Srate REAL8 [DEFAULT:2048]]\n"
+	 [OPTIONAL] [--Srate REAL8 [DEFAULT:8192]]\n"
 
 extern int lalDebugLevel;
 
@@ -37,10 +37,14 @@ extern int lalDebugLevel;
 
 // GLOBAL VARIABLES USED IN ARGUMENT PARSING - SETS THE DEFAULT VALUE
 
+
+CHAR ifo[LALNameLength] = "NS";
+CHAR channel[LALNameLength]="NS:STRAIN";
+
 CHAR outfile[FILENAME_MAX];
 REAL8 duration_global=100.0;
 LIGOTimeGPS GPSStart_global; // NB: NO INFRASTRUCTURE FOR NANOSECOND INPUT!
-UINT4 SampleRate_global=2048; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
+UINT4 SampleRate_global=8192; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
 UINT4 Nsegs_global=10; 
 /*******************************************************************************
  *
@@ -90,7 +94,7 @@ int main( int argc, char *argv[] )
     REAL8 segDur,strideDur;
     UINT4 seglen,stride;
     REAL8 end_freq=10.0; /* cutoff frequency */ 
-    
+    FrOutPar frSerie = {ifo, channel, ADCDataChannel, 1, 0, 0 };
     initialise(argc,argv);	
     nSegs=Nsegs_global;
     NullStream = (REAL8TimeSeries *) LALMalloc(sizeof(REAL8TimeSeries));
@@ -112,6 +116,11 @@ int main( int argc, char *argv[] )
     
     /* Get the arguments and act on them */
     NullStream = LALETNullStream(&GPSStart_global,duration_global);
+    
+    /* write the null stream to a frame file */
+    printf("writing the NullStream time serie to file...\n");
+    LALFrWriteREAL8TimeSeries(&status,NullStream,&frSerie);
+    printf("done\n");
     /*
     FILE *nsout;
     nsout=fopen("temp_ns.dat","w");
@@ -122,8 +131,8 @@ int main( int argc, char *argv[] )
     fclose(nsout);
     */ 
     // RESAMPLE TIMESERIES (WHY IS THIS DONE?)
-    if (SampleRate_global!=2048) {
-	fprintf(stderr,"Sample rate %d, resampling...\n",SampleRate_global);
+    if (SampleRate_global!=8192) {
+	fprintf(stderr,"Sample rate %d, resampling...\r",SampleRate_global);
 	XLALResampleREAL8TimeSeries(NullStream,1.0/SampleRate_global);
 	fprintf(stderr,"done\n");
 	}
