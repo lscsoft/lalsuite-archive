@@ -138,7 +138,7 @@ class Summary(object):
 		else: return segments.segmentlistdict()
 
 	def get_instruments(self, connection):
-		for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
+		for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""'):
 			if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
 
 	def get_injections(self, instruments, FAR=float("inf")):
@@ -150,14 +150,14 @@ class Summary(object):
 		sims = []
 		print >>sys.stderr, ""
 		for cnt, f in enumerate(injfnames):
-			print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
+			print >>sys.stderr, f +  " getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
 			working_filename = dbtables.get_connection_filename(f, tmp_path = opts.tmp_space, verbose = verbose)
 			connection = sqlite3.connect(working_filename)
 			dbtables.DBTable_set_connection(connection)
 			xmldoc = dbtables.get_xml(connection)
 			# DON'T BOTHER CONTINUING IF THE INSTRUMENTS OF INTEREST ARE NOT HERE
 			instruments_in_this_file = []
-			for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
+			for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""'):
 				if i[0]: instruments_in_this_file.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
 			if instruments not in instruments_in_this_file:
 				connection.close()
@@ -312,7 +312,7 @@ WHERE
 			#return frozenset(lsctables.instrument_set_from_ifos(i[0]))
 			return [self.opts.instruments]
 		else:
-			print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
+			print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (self.instruments,)
 		return []
 
 
