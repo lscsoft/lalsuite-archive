@@ -39,7 +39,8 @@ extern int lalDebugLevel;
 
 
 CHAR ifo[LALNameLength] = "NS";
-CHAR channel[LALNameLength]="NS:STRAIN";
+CHAR channel_time[LALNameLength]="NS:STRAIN";
+CHAR channel_freq[LALNameLength]="NS:INV_SPEC";
 
 CHAR outfile[FILENAME_MAX];
 REAL8 duration_global=100.0;
@@ -94,7 +95,8 @@ int main( int argc, char *argv[] )
     REAL8 segDur,strideDur;
     UINT4 seglen,stride;
     REAL8 end_freq=10.0; /* cutoff frequency */ 
-    FrOutPar frSerie = {ifo, channel, ADCDataChannel, 1, 0, 0 };
+    FrOutPar frSerie_time = {ifo, channel_time, ADCDataChannel, 1, 0, 0 };
+    FrOutPar frSerie_freq = {ifo, channel_freq, ADCDataChannel, 1, 0, 0 };
     initialise(argc,argv);	
     nSegs=Nsegs_global;
     NullStream = (REAL8TimeSeries *) LALMalloc(sizeof(REAL8TimeSeries));
@@ -119,7 +121,7 @@ int main( int argc, char *argv[] )
     
     /* write the null stream to a frame file */
     printf("writing the NullStream time serie to file...\n");
-    LALFrWriteREAL8TimeSeries(&status,NullStream,&frSerie);
+    LALFrWriteREAL8TimeSeries(&status,NullStream,&frSerie_time);
     printf("done\n");
     /*
     FILE *nsout;
@@ -171,9 +173,12 @@ int main( int argc, char *argv[] )
 	for(j=0;j<inverse_spectrum->data->length;j++) {
        fprintf(psdout,"%10.10lf %10.10e\n",j*deltaF,inverse_spectrum->data->data[j]); 
     }
-	fclose(psdout);
-    
-    /***************************************************************************
+    fclose(psdout);
+    /* write the inverse spectrum to a frequency serie */     
+    printf("writing the inverse spectrum to a frame file\n");
+    LALFrWriteREAL8FrequencySeries(&status,inverse_spectrum,&frSerie_freq,1);
+    printf("done\n");
+     /***************************************************************************
      *
      *  CLEAN AND EXIT
      * 
