@@ -1262,8 +1262,8 @@ class AnalysisSingleton(Singleton):
       self.hostname = socket.gethostname()
       self.publishing_path = get_env('USER_PUB')
       self.publishing_url = get_env('USER_URL')
-      self.cvs = get_env('USER_CVS', True)
-      self.condor_log_path = get_env('USER_LOG', 1)
+      self.cvs = get_env('USER_CVS')
+      self.condor_log_path = get_env('USER_LOG')
       self.email = get_env('USER_EMAIL')
 
 
