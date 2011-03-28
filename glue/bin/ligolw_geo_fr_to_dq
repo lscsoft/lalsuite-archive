@@ -182,8 +182,9 @@ def get_pending_segments(state_file, gps_start, gps_end, verbose=False):
 Given a state file and segmentlist, add the segments to the table of
 processed segments.
 """
-def append_processed_segments(state_file, segmentlist, verbose=False):
+def append_processed_segments(state_file, segmentlist, exclude_segmentlist, verbose=False):
     if verbose: print "appending segmentlist %s to state file %s" % (segmentlist, state_file)
+    if verbose: print "appending exclude_segmentlist %s to state file %s" % (segmentlist, state_file)
     # load existing state file and extract processed/excluded segment lists
     indoc = ligolw_utils.load_url(state_file)
     processed_segments = segmentdb_utils.find_segments(indoc,"P1:PROCESSED:0")
@@ -197,9 +198,12 @@ def append_processed_segments(state_file, segmentlist, verbose=False):
     if verbose: print "previously processed segments = %s" % processed_segments
     # append new segments
     processed_segments += segmentlist
+    exclude_segments += exclude_segmentlist
     # Do I need to explicity coalesce here?  Let's do so, just to be safe.
     processed_segments.coalesce()
+    exclude_segments.coalesce()
     if verbose: print "new processed segments = %s" % processed_segments
+    if verbose: print "new excluded segments = %s" % exclude_segments
     segmentdb_utils.add_to_segment(outdoc,proc_id,excl_def_id,exclude_segments)
     segmentdb_utils.add_to_segment(outdoc,proc_id,pub_def_id,processed_segments)
     ligolw_utils.write_filename(outdoc, state_file)
@@ -424,15 +428,24 @@ else:
 if options.verbose: print "pending files =", pending_files
 
 newly_processed_segments = segments.segmentlist([])
+corrupt_frame_segments = segments.segmentlist([])
 for file in pending_files:
-    segment = frame_to_dq_xml(file, options.xml_root, options.ifo,
-                              options.frame_type, options.segment_version,
-                              options.comment, verbose=options.verbose)
+    try:
+        segment = frame_to_dq_xml(file, options.xml_root, options.ifo,
+                                  options.frame_type, options.segment_version,
+                                  options.comment, verbose=options.verbose)
+    except Exception, e:
+        if str(e).startswith(" *** FrError: in FrFileIOpen unknown format"):
+            corrupt_frame_segments += [segment]
+            continue
+        else:
+            raise Exception, e
+
     newly_processed_segments += [segment]
 
 if options.state_file:
     # update state file with newly-processed frame segments
-    append_processed_segments(options.state_file, newly_processed_segments,
+    append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments
                               verbose=options.verbose)
 
 os.remove(lockfile)
