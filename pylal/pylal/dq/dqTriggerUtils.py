@@ -694,25 +694,26 @@ def omega_online_cache(start,end,ifo):
                                   % (str(ifo)))
     basetime = LIGOTimeGPS(931211808)
 
-  # triggers are numbered from a given start time, which for S6 is:
-  triglength = 64
+  dt = 10000 
+  t = int(start)
 
-  start_time = int(start-math.fmod(start-basetime,triglength))
-  t = start_time
+  while t<=end:
 
-  # loop over time segments constructing files and appending to the list
-  while t < end:
-    dirstart = "%.10d" % t
-    dirend   = "%.10d" % (t+triglength)
-    dirpath  = os.path.join(basedir,dirstart+'-'+dirend)
-    trigfile = os.path.join(dirpath,'-'.join([ifo,\
-                                              'OMEGA_TRIGGERS_CLUSTER',\
-                                              dirstart,str(triglength)])+'.txt')
-    if os.path.isfile(trigfile):
-      e = LALCacheEntry.from_T050017(trigfile)
-      if span.intersects(e.segment):  cache.append(e)
+    tstr = '%.6s' % ('%.10d' % t)
 
-    t+=triglength
+    dirstr = '%s/%s*' % ( basedir, tstr )
+    dirs = glob.glob( dirstr )
+
+    for dir in dirs:
+      files = glob.glob( '%s/%s-OMEGA_TRIGGERS_CLUSTER*.txt' % ( dir, ifo ) )
+
+      for f in files:
+        e = LALCacheEntry.from_T050017(f)
+
+        if span.intersects(e.segment):
+          cache.append(e)
+
+    t+=dt
 
   cache.sort(key=lambda e: e.path())
 
