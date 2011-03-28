@@ -445,7 +445,7 @@ for file in pending_files:
 
 if options.state_file:
     # update state file with newly-processed frame segments
-    append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments
+    append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments,
                               verbose=options.verbose)
 
 os.remove(lockfile)
