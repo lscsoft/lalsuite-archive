@@ -941,7 +941,7 @@ class FrameCache(LALCache):
 
 def FrameCachetoLALCache( fcache ):
 
-  lcache = FrameCache()
+  lcache = LALCache()
 
   files = fcache.get_files()
 
