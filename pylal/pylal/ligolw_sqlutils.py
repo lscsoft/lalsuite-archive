@@ -1282,6 +1282,11 @@ def apply_inclusion_rules_to_coinc_table( connection, coinc_table, exclude_coinc
             join_conditions,
             save_filters = param_filters, verbose = verbose )
 
+    # remove deleted coincs from other tables
+    clean_using_coinc_table( connection, coinc_table, verbose = verbose,
+            clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+            clean_coinc_event_map = True, clean_mapped_tables = True )
+
 # =============================================================================
 #
 #                             CoincEventMap Utilities
