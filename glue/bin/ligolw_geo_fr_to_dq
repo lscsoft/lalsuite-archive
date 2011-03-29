@@ -291,7 +291,7 @@ def frame_to_dq_xml(frame_file, xml_root, ifo, type, version, comment, verbose=F
     segments.
     """
     # extract the frame's DQ info
-    (gps_start, duration, summary_segs, segs) = get_dq_flags(frame_file, ifo, verbose=verbose, bitmask=0)
+    (gps_start, duration, summary_segs, segs) = get_dq_flags(frame_file, ifo, verbose=verbose)
 
     # create a blank xml document and add the process id
     outdoc = ligolw.Document()
@@ -333,7 +333,7 @@ parser.add_option('-x', '--xml-root', metavar='DIR', help='XML output directory'
                   default='/archive/frames/online/DQ')
 parser.add_option('-l', '--lock_dir', metavar='DIR', help='lock file directory (use with caution)')
 parser.add_option("-t", '--frame-type', metavar='RDS_TYPE', help='RDS frame type',
-                  default='RDS_C01_L3' )
+                  default='G1_RDS_C01_L3' )
 parser.add_option('-v', '--segment-version', metavar="VERSION",
                   help="create segments as version number VERSION", type="int",
                   default=1)
@@ -434,14 +434,22 @@ for file in pending_files:
         segment = frame_to_dq_xml(file, options.xml_root, options.ifo,
                                   options.frame_type, options.segment_version,
                                   options.comment, verbose=options.verbose)
+        newly_processed_segments += [segment]
+#        assert [segment] == segmentsUtils.fromfilenames([file])
     except Exception, e:
-        if str(e).startswith(" *** FrError: in FrFileIOpen unknown format"):
-            corrupt_frame_segments += [segment]
-            continue
+        if (str(e).startswith(" *** FrError: in FrFileIOpen unknown format") or
+            "vector not found" in str(e)):
+            # add the current corrupt frame's segment to the exclude list
+            corrupt_frame_segments += segmentsUtils.fromfilenames([file])
+            if options.state_file:
+                # update state file with newly-processed frame segments
+                append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments, verbose=options.verbose)
         else:
+            # update the state file in case we're about to die
+            if options.state_file:
+                append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments, verbose=options.verbose)
             raise Exception, e
 
-    newly_processed_segments += [segment]
 
 if options.state_file:
     # update state file with newly-processed frame segments
