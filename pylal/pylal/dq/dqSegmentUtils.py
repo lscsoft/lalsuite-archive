@@ -4,7 +4,7 @@
 # Preamble
 # ==============================================================================
 
-import os,sys,re,operator
+import os,sys,re,operator,math
 from StringIO import StringIO
 from glue.segments import segment, segmentlist
 from glue.ligolw import ligolw,lsctables,table,utils
@@ -167,7 +167,7 @@ def crop_segmentlist(seglist, end_chop = 30):
 # Function to return segments in given gps time range
 # =============================================================================
 
-def grab_segments(start,end,flag):
+def grab_segments(start,end,flag,segment_url='https://segdb.ligo.caltech.edu'):
 
   """
     Returns a segmentlist containing the segments during which the given flag
@@ -179,8 +179,7 @@ def grab_segments(start,end,flag):
   end   = int( math.ceil(end) )
 
   # set query engine
-  database_location = os.environ['S6_SEGMENT_SERVER']
-  connection        = segmentdb_utils.setup_database(database_location)
+  connection        = segmentdb_utils.setup_database(segment_url)
   engine            = query_engine.LdbdQueryEngine(connection)
 
   # format flag name
