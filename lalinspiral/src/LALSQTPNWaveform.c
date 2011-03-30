@@ -34,8 +34,119 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	ATTATCHSTATUSPTR(status);
 	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+	const REAL8 geometrized_m_total = params->totalMass * LAL_MTSUN_SI;
+	const REAL8 freq_Step = geometrized_m_total * LAL_PI;
+	const REAL8 lengths = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0) * pow(params->chirpMass
+			* LAL_MTSUN_SI * params->lowerFreq, -5.0 / 3.0) / params->lowerFreq;
+	xlalErrno = 0;
+	XLALSQTPNFillCoefficients(params);
+	if (xlalErrno) {
+		ABORTXLAL(status);
+	}
+	REAL8 valuesInitial[LALSQTPN_NUM_OF_VAR], valuesHelp[LALSQTPN_NUM_OF_VAR];
+	valuesInitial[LALSQTPN_PHASE] = params->phi;
+	valuesInitial[LALSQTPN_OMEGA] = params->lowerFreq * freq_Step;
+	valuesInitial[LALSQTPN_LNH_1] = sin(params->inclination); ///< \f$\hat{L_N}=\sin\iota\f$
+	valuesInitial[LALSQTPN_LNH_2] = 0.0; ///< \f$\hat{L_N}=0\f$
+	valuesInitial[LALSQTPN_LNH_3] = cos(params->inclination); ///< \f$\hat{L_N}=\cos\iota\f$
+	valuesInitial[LALSQTPN_MECO] = 0.;
+	for (UINT2 i = 0; i < 3; i++) {
+		valuesInitial[LALSQTPN_CHIH1_1 + i] = params->chih[0][i];
+		valuesInitial[LALSQTPN_CHIH2_1 + i] = params->chih[1][i];
+	}
+	ark4GSLIntegrator *integrator;
+	xlalErrno = 0;
+	integrator = XLALAdaptiveRungeKutta4Init(14, LALSQTPNDerivator, XLALSQTPNTest, 1.0e-6, 1.0e-6);
+	if (!integrator) {
+		if (XLALClearErrno() == XLAL_ENOMEM)
+			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
+		else
+			ABORTXLAL(status);
+	}
+	integrator->stopontestonly = 1;
+	REAL8Array *values;
+	UINT4 size = XLALAdaptiveRungeKutta4(integrator, (void *)&params, valuesInitial, 0.0, lengths
+			/ geometrized_m_total, params->samplingFreq / geometrized_m_total, &values);
+	INT4 intreturn = integrator->returncode;
+	XLALAdaptiveRungeKutta4Free(integrator);
+	if (!size) {
+		if (XLALClearErrno() == XLAL_ENOMEM) {
+			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
+		} else {
+			fprintf(stderr, "LALSQTPNWaveform: integration failed with errorcode %d.\n", intreturn);
+			ABORTXLAL(status);
+		}
+	}
+	if (intreturn != 0 && intreturn != LALSQTPN_ENERGY && intreturn != LALSQTPN_OMEGADOT) {
+		fprintf(stderr, "LALSQTPNWaveform WARNING: integration terminated with code %d.\n",
+				intreturn);
+		fprintf(
+				stderr,
+				"                 Waveform parameters were m1 = %e, m2 = %e, chi1 = (%e,%e,%e), chi2 = (%e,%e,%e), inc = %e.",
+				params->mass[0], params->mass[1], params->chi[0][0], params->chi[0][1],
+				params->chi[0][2], params->chi[1][0], params->chi[1][1], params->chi[1][2],
+				params->inclination);
+	}
+	if ((waveform->hp && size >= waveform->hp->length) || (waveform->waveform->f && size
+			>= waveform->waveform->f->data->length)) {
+		if (waveform->hp) {
+			fprintf(stderr, "LALSQTPNWaveform: no space to write in signalvec1: %d vs. %d\n", size,
+					waveform->hp->length);
+		} else if (waveform->waveform->f) {
+			fprintf(stderr, "LALQSTPNWaveform: no space to write in ff: %d vs. %d\n", size,
+					waveform->waveform->f->data->length);
+		} else {
+			fprintf(stderr, "LALSQTPNWaveform: no space to write anywhere!\n");
+		}
+		ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+	} else {
+		REAL8 alpha, amp;
+		for (UINT8 i = 0; i < size; i++) {
+			for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
+				valuesHelp[j] = values->data[(j + 1) * size + i];
+			}
+			alpha = atan2(valuesHelp[LALSQTPN_LNH_2], valuesHelp[LALSQTPN_LNH_1]);
+			amp = params->signalAmp * pow(valuesHelp[LALSQTPN_OMEGA], 2.0 / 3.0);
+			if (waveform->hp || waveform->hc) {
+				REAL4 h[2];
+				XLALSQTPNCalculateHPHC2(params, valuesHelp, h);
+				if (waveform->hp) {
+					waveform->hp->data[i] = h[0];
+				}
+				if (waveform->hc) {
+					waveform->hc->data[i] = h[1];
+				}
+			}
+			if (waveform->waveform->h) {
+				XLALSQTPNCalculateHPHC2(params, valuesHelp, &(waveform->waveform->h->data->data[2
+						* i]));
+			}
+			if (waveform->waveform->a) {
+				waveform->waveform->a->data->data[2 * i] = -amp * 0.5 * (1.
+						+ valuesHelp[LALSQTPN_LNH_3] * valuesHelp[LALSQTPN_LNH_3]);
+				waveform->waveform->a->data->data[2 * i + 1] = -amp * valuesHelp[LALSQTPN_LNH_3];
+				waveform->waveform->phi->data->data[i] = 2.0 * (valuesHelp[LALSQTPN_PHASE]
+						- params->phi);
+				waveform->waveform->shift->data->data[i] = 2.0 * alpha;
+				waveform->waveform->f->data->data[i] = valuesHelp[LALSQTPN_OMEGA] / freq_Step;
+			}
+		}
+	}
+	if (values) {
+		XLALDestroyREAL8Array(values);
+	}
+	DETATCHSTATUSPTR(status);
+	RETURN(status);
+}
+
+void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform,
+		LALSQTPNWaveformParams *params) {
+	INITSTATUS(status, "LALSQTPNGenerator", LALSQTPNWAVEFORMC);
+	ATTATCHSTATUSPTR(status);
+	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+	ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	// variable declaration and initialization
-	UINT4 i = 0; // index
+	INT8 i = 0;
 	REAL8 time = 0.0;
 	REAL8 LNhztol = 1.0e-8;
 	REAL8 alpha, amp;
@@ -231,12 +342,14 @@ inline void XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 	}
 }
 
-int XLALSQTPNTest(const REAL8 values[], REAL8 dvalues[], void *param) {
+int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param) {
+	UNUSED(t);
 	LALSQTPNWaveformParams *params = param;
+	const REAL8 geometrized_m_total = params->totalMass * LAL_MTSUN_SI;
+	const REAL8 freq_Step = geometrized_m_total * LAL_PI;
 	REAL8 meco = params->coeff.meco[0] / params->coeff.variables.omegaPowi_3[1];
 	for (UINT2 i = LAL_PNORDER_NEWTONIAN + 2; i <= params->order; i += 2) {
-		meco += params->coeff.meco[i]
-				* params->coeff.variables.omegaPowi_3[i - 1];
+		meco += params->coeff.meco[i] * params->coeff.variables.omegaPowi_3[i - 1];
 	}
 	switch (params->order) {
 	case LAL_PNORDER_PSEUDO_FOUR:
@@ -245,10 +358,9 @@ int XLALSQTPNTest(const REAL8 values[], REAL8 dvalues[], void *param) {
 	case LAL_PNORDER_TWO_POINT_FIVE:
 	case LAL_PNORDER_TWO:
 		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
-			meco += params->coeff.mecoSS
-					* (params->coeff.variables.chih1chih2 - 3.0
-							* params->coeff.variables.LNhchih[0]
-							* params->coeff.variables.LNhchih[1]) * values[LALSQTPN_OMEGA];
+			meco += params->coeff.mecoSS * (params->coeff.variables.chih1chih2 - 3.0
+					* params->coeff.variables.LNhchih[0] * params->coeff.variables.LNhchih[1])
+					* values[LALSQTPN_OMEGA];
 		}
 		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
 			REAL8 temp = params->coeff.domegaQMConst;
@@ -273,6 +385,9 @@ int XLALSQTPNTest(const REAL8 values[], REAL8 dvalues[], void *param) {
 	}
 	if (dvalues[LALSQTPN_OMEGA] < 0.0) {
 		return LALSQTPN_OMEGADOT;
+	}
+	if (values[LALSQTPN_OMEGA] / freq_Step > 0.5 * params->samplingFreq) {
+		return LALSQTPN_NYQUIST;
 	}
 	if (isnan(values[LALSQTPN_OMEGA])) {
 		return LALSQTPN_OMEGANAN;
@@ -310,6 +425,10 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	}
 	for (i = LAL_PNORDER_NEWTONIAN; i <= params->order; i++) {
 		dvalues[LALSQTPN_OMEGA] += params->coeff.domega[i] * params->coeff.variables.omegaPowi_3[i];
+	}
+	dvalues[LALSQTPN_MECO] += params->coeff.meco[0] / params->coeff.variables.omegaPowi_3[1];
+	for (i = LAL_PNORDER_NEWTONIAN + 2; i <= params->order; i += 2) {
+		dvalues[LALSQTPN_MECO] += params->coeff.meco[i] * params->coeff.variables.omegaPowi_3[i - 1];
 	}
 	switch (params->order) {
 	case LAL_PNORDER_THREE_POINT_FIVE:
@@ -369,6 +488,9 @@ inline void XLALSQTPNAddSSContributions(LALSQTPNWaveformParams *params, const RE
 					* SQT_SQR(values[LALSQTPN_OMEGA]);
 		}
 	}
+	dvalues[LALSQTPN_MECO] += params->coeff.mecoSS * (params->coeff.variables.chih1chih2 - 3.0
+			* params->coeff.variables.LNhchih[0] * params->coeff.variables.LNhchih[1])
+			* values[LALSQTPN_OMEGA];
 	dvalues[LALSQTPN_OMEGA] += (params->coeff.domegaSS[0] * params->coeff.variables.LNhchih[0]
 			* params->coeff.variables.LNhchih[1] + params->coeff.domegaSS[1]
 			* params->coeff.variables.chih1chih2) * params->coeff.variables.omegaPowi_3[4];
@@ -396,6 +518,7 @@ inline void XLALSQTPNAddQMContributions(LALSQTPNWaveformParams *params, const RE
 		}
 	}
 	dvalues[LALSQTPN_OMEGA] += temp * params->coeff.variables.omegaPowi_3[4];
+	dvalues[LALSQTPN_MECO] += params->coeff.mecoQM * temp * values[LALSQTPN_OMEGA];
 }
 
 inline void XLALSQTPNAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
@@ -404,6 +527,8 @@ inline void XLALSQTPNAddSOContributions(LALSQTPNWaveformParams *params, const RE
 	for (i = 0; i < 2; i++) {
 		dvalues[LALSQTPN_OMEGA] += params->coeff.domegaSO[i] * params->coeff.variables.LNhchih[i]
 				* values[LALSQTPN_OMEGA];
+		dvalues[LALSQTPN_MECO] += params->coeff.mecoSO[i] * params->coeff.variables.LNhchih[i]
+				* params->coeff.variables.omegaPowi_3[2];
 	}
 	for (i = 0; i < 3; i++) {
 		dvalues[LALSQTPN_CHIH1_1 + i] += params->coeff.dchihSO[0]

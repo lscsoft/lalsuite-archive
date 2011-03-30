@@ -45,10 +45,16 @@ typedef enum LALSQTPNAmplitudeOrder {
 } LALSQTPNAmplitudeOrder;
 
 typedef enum {
-	LALSQTPN_PLUS = 0, LALSQTPN_CROSS = 1, LALSQTPN_ENERGY = 1025, LALSQTPN_OMEGADOT, LALSQTPN_OMEGANAN, LALSQTPN_NAN,
+	LALSQTPN_PLUS = 0,
+	LALSQTPN_CROSS = 1,
+	LALSQTPN_ENERGY = 1025,
+	LALSQTPN_OMEGADOT,
+	LALSQTPN_OMEGANAN,
+	LALSQTPN_NYQUIST,
+	LALSQTPN_NAN,
 } LALSQTPNConstants;
 
-/**		Enumeration to index the dynamic variables in the LALSQTPNGenerator function.
+/**		Enumeration to index the dynamic variables in the LALSQTPNGenerator_Old function.
  */
 typedef enum {
 	LALSQTPN_PHASE, ///< index of the phase
@@ -149,7 +155,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
 	LALPNOrder amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
-	//@}
+//@}
 } LALSQTPNWaveformParams;
 
 /**		The function generates the parameters of the waveform.
@@ -174,6 +180,8 @@ typedef struct tagLALSQTPNWaveformParams {
  * @param[in]		params		: the input parameters
  */
 void
+LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
+void
 LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
 
 /**		The function fills the #LALSQTPNCoefficients structure with the needed
@@ -185,7 +193,7 @@ LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformPar
  */
 void XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params);
 
-int XLALSQTPNTest(const REAL8 values[], REAL8 dvalues[], void *param);
+int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
 
 /**		The function calculates the derived values.
  * The formulae are:
@@ -257,20 +265,22 @@ void XLALSQTPNAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 val
 
 void XLALSQTPNCalculateHPHC2(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h);
 
-void XLALSQTPNCalculateAmplitudeContribution1_0(LALSQTPNWaveformParams *params, REAL8 values[], REAL8 twoAlpha,
+void XLALSQTPNCalculateAmplitudeContribution1_0(LALSQTPNWaveformParams *params, REAL8 values[],
+		REAL8 twoAlpha, REAL8 contribution[]);
+
+void XLALSQTPNCalculateAmplitudeContribution0_5(LALSQTPNWaveformParams *params, REAL8 values[],
+		REAL8 twoAlpha, REAL8 contribution[]);
+
+void XLALSQTPNCalculateAmplitudeContribution0_0(REAL8 values[], REAL8 twoAlpha,
 		REAL8 contribution[]);
 
-void XLALSQTPNCalculateAmplitudeContribution0_5(LALSQTPNWaveformParams *params, REAL8 values[], REAL8 twoAlpha,
-		REAL8 contribution[]);
-
-void XLALSQTPNCalculateAmplitudeContribution0_0(REAL8 values[], REAL8 twoAlpha, REAL8 contribution[]);
-
-void XLALSQTPNCalculateCoefficients1_0order(LALSQTPNWaveformParams *params, REAL8 values[], REAL8 twoALpha,
-		REAL8 cosine[], REAL8 sine[]);
+void XLALSQTPNCalculateCoefficients1_0order(LALSQTPNWaveformParams *params, REAL8 values[],
+		REAL8 twoALpha, REAL8 cosine[], REAL8 sine[]);
 
 void XLALSQTPNCalculateCoefficients0_5order(REAL8 values[], REAL8 twoAlpha, REAL8 cosine[]);
 
-void XLALSQTPNCalculateCoefficients0_0order(REAL8 values[], REAL8 twoAlpha, REAL8 cosine[], REAL8 sine[]);
+void XLALSQTPNCalculateCoefficients0_0order(REAL8 values[], REAL8 twoAlpha, REAL8 cosine[],
+		REAL8 sine[]);
 
 #ifdef __cplusplus
 }
