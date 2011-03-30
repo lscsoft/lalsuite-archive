@@ -45,7 +45,7 @@ typedef enum LALSQTPNAmplitudeOrder {
 } LALSQTPNAmplitudeOrder;
 
 typedef enum {
-	LALSQTPN_PLUS = 0, LALSQTPN_CROSS = 1,
+	LALSQTPN_PLUS = 0, LALSQTPN_CROSS = 1, LALSQTPN_ENERGY = 1025, LALSQTPN_OMEGADOT, LALSQTPN_OMEGANAN, LALSQTPN_NAN,
 } LALSQTPNConstants;
 
 /**		Enumeration to index the dynamic variables in the LALSQTPNGenerator function.
@@ -75,6 +75,7 @@ typedef struct tagLALSQTPNWave {
 } LALSQTPNWave;
 
 typedef struct tagLALSQTPNVariable {
+	REAL8 chih1chih2;
 	REAL8 LNhchih[2];
 	REAL8 LNhxchih[2][3];
 	REAL8 omegaPowi_3[LAL_PNORDER_NUM_ORDER];
@@ -183,6 +184,8 @@ LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformPar
  * @param[in,out]	params	: the LALSQTPN_Generator's parameters
  */
 void XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params);
+
+int XLALSQTPNTest(const REAL8 values[], REAL8 dvalues[], void *param);
 
 /**		The function calculates the derived values.
  * The formulae are:
