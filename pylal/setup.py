@@ -497,8 +497,6 @@ setup(
 		os.path.join("bin", "plotmcmc.py"),
 		os.path.join("bin", "plotspinmcmc.py"),
 		os.path.join("bin", "plotinsppop"),
-		os.path.join("bin", "antime"),
-		os.path.join("bin", "septime"),
 		os.path.join("bin", "lalapps_binj_pic"),
 		os.path.join("bin", "lalapps_burca_tailor"),
 		os.path.join("bin", "lalapps_cbc_plotroc"),
