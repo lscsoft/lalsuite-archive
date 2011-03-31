@@ -56,7 +56,8 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	}
 	ark4GSLIntegrator *integrator;
 	xlalErrno = 0;
-	integrator = XLALAdaptiveRungeKutta4Init(14, LALSQTPNDerivator, XLALSQTPNTest, 1.0e-6, 1.0e-6);
+	integrator = XLALAdaptiveRungeKutta4Init(14, LALSQTPNDerivator_Old, XLALSQTPNTest, 1.0e-6,
+			1.0e-6);
 	if (!integrator) {
 		if (XLALClearErrno() == XLAL_ENOMEM)
 			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
@@ -65,8 +66,8 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	}
 	integrator->stopontestonly = 1;
 	REAL8Array *values;
-	UINT4 size = XLALAdaptiveRungeKutta4(integrator, (void *)&params, valuesInitial, 0.0, lengths
-			/ geometrized_m_total, params->samplingFreq / geometrized_m_total, &values);
+	UINT4 size = XLALAdaptiveRungeKutta4(integrator, (void *)params, valuesInitial, 0.0, lengths
+			/ geometrized_m_total, params->samplingTime / geometrized_m_total, &values);
 	INT4 intreturn = integrator->returncode;
 	XLALAdaptiveRungeKutta4Free(integrator);
 	if (!size) {
@@ -77,7 +78,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 			ABORTXLAL(status);
 		}
 	}
-	if (intreturn != 0 && intreturn != LALSQTPN_ENERGY && intreturn != LALSQTPN_OMEGADOT) {
+	if (intreturn && intreturn != LALSQTPN_ENERGY && intreturn != LALSQTPN_OMEGADOT) {
 		fprintf(stderr, "LALSQTPNWaveform WARNING: integration terminated with code %d.\n",
 				intreturn);
 		fprintf(
@@ -132,6 +133,10 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 			}
 		}
 	}
+	params->finalFreq = waveform->waveform->f->data->data[size - 1];
+	params->coalescenceTime = values->data[size - 1];
+	waveform->length = size;
+
 	if (values) {
 		XLALDestroyREAL8Array(values);
 	}
@@ -146,7 +151,7 @@ void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform,
 	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	// variable declaration and initialization
-	INT8 i = 0;
+	unsigned long i = 0;
 	REAL8 time = 0.0;
 	REAL8 LNhztol = 1.0e-8;
 	REAL8 alpha, amp;
@@ -156,7 +161,7 @@ void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform,
 	REAL8 values[LALSQTPN_NUM_OF_VAR], dvalues[LALSQTPN_NUM_OF_VAR];
 	LALSQTPNIntegratorSystem integrator;
 	xlalErrno = 0;
-	if (XLALSQTPNIntegratorInit(&integrator, LALSQTPN_NUM_OF_VAR, params, LALSQTPNDerivator)) {
+	if (XLALSQTPNIntegratorInit(&integrator, LALSQTPN_NUM_OF_VAR, params, LALSQTPNDerivator_Old)) {
 		if (XLAL_ENOMEM == XLALClearErrno()) {
 			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
 		} else {
@@ -182,7 +187,7 @@ void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform,
 	if (xlalErrno) {
 		ABORTXLAL(status);
 	}
-	LALSQTPNDerivator(time, values, dvalues, params);
+	LALSQTPNDerivator_Old(time, values, dvalues, params);
 	dvalues[LALSQTPN_MECO] = -1.; // to be able to start the loop
 	i = 0;
 	do {
@@ -218,6 +223,7 @@ void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform,
 		if (XLALSQTPNIntegratorFunc(values, &integrator, step)) {
 			ABORTXLAL(status);
 		}
+
 		// if one of the variables is nan, the PN approximation braked down
 		if (isnan(values[LALSQTPN_PHASE]) || isnan(values[LALSQTPN_OMEGA]) || isnan(
 				values[LALSQTPN_LNH_1]) || isnan(values[LALSQTPN_LNH_2]) || isnan(
@@ -227,7 +233,7 @@ void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform,
 				values[LALSQTPN_CHIH2_3])) {
 			break;
 		}
-		LALSQTPNDerivator(time, values, dvalues, params);
+		LALSQTPNDerivator_Old(time, values, dvalues, params);
 		if ((waveform->waveform && i == waveform->waveform->f->data->length)) {
 			XLALSQTPNIntegratorFree(&integrator);
 			ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
@@ -428,7 +434,76 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	}
 	dvalues[LALSQTPN_MECO] += params->coeff.meco[0] / params->coeff.variables.omegaPowi_3[1];
 	for (i = LAL_PNORDER_NEWTONIAN + 2; i <= params->order; i += 2) {
-		dvalues[LALSQTPN_MECO] += params->coeff.meco[i] * params->coeff.variables.omegaPowi_3[i - 1];
+		dvalues[LALSQTPN_MECO] += params->coeff.meco[i]
+				* params->coeff.variables.omegaPowi_3[i - 1];
+	}
+	switch (params->order) {
+	case LAL_PNORDER_THREE_POINT_FIVE:
+	case LAL_PNORDER_THREE:
+		dvalues[LALSQTPN_OMEGA] += params->coeff.domegaLN * log(16.0
+				* params->coeff.variables.omegaPowi_3[2])
+				* params->coeff.variables.omegaPowi_3[LAL_PNORDER_THREE];
+	case LAL_PNORDER_TWO_POINT_FIVE:
+	case LAL_PNORDER_TWO:
+		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
+			XLALSQTPNAddSSContributions(params, values, dvalues);
+		}
+		if ((params->spinInteraction & LAL_SSselfInter) == LAL_SSselfInter) {
+			XLALSQTPNAddSelfContributions(params, dvalues);
+		}
+		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
+			XLALSQTPNAddQMContributions(params, values, dvalues);
+		}
+	case LAL_PNORDER_ONE_POINT_FIVE:
+		if ((params->spinInteraction & LAL_SOInter) == LAL_SOInter) {
+			XLALSQTPNAddSOContributions(params, values, dvalues);
+		}
+		if (params->spinInteraction) {
+			for (i = 0; i < 3; i++) {
+				dvalues[LALSQTPN_LNH_1 + i] += (params->coeff.dLNh[0] * dvalues[LALSQTPN_CHIH1_1
+						+ i] + params->coeff.dLNh[1] * dvalues[LALSQTPN_CHIH2_1 + i])
+						* params->coeff.variables.omegaPowi_3[1];
+			}
+		}
+	case LAL_PNORDER_ONE:
+	case LAL_PNORDER_HALF:
+	case LAL_PNORDER_NEWTONIAN:
+	default:
+		break;
+	}
+	dvalues[LALSQTPN_OMEGA] *= params->coeff.domegaGlobal * params->coeff.variables.omegaPowi_3[7]
+			* params->coeff.variables.omegaPowi_3[4];
+	dvalues[LALSQTPN_PHASE] = values[LALSQTPN_OMEGA];
+	return GSL_SUCCESS;
+}
+
+int LALSQTPNDerivator_Old(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
+
+	// variable declaration and initialization
+	LALSQTPNWaveformParams *params = param;
+	UNUSED(t);
+	const REAL8 *chi_p[2] = { values + LALSQTPN_CHIH1_1, values + LALSQTPN_CHIH2_1 };
+	UINT2 i; // indexes
+	memset(dvalues, 0, LALSQTPN_NUM_OF_VAR * sizeof(REAL8));
+	params->coeff.variables.omegaPowi_3[0] = 1.;
+	params->coeff.variables.omegaPowi_3[1] = cbrt(values[LALSQTPN_OMEGA]);
+	for (i = 2; i < 8; i++) {
+		params->coeff.variables.omegaPowi_3[i] = params->coeff.variables.omegaPowi_3[i - 1]
+				* params->coeff.variables.omegaPowi_3[1];
+	}
+	//REAL8 chih1chih2 = SCALAR_PRODUCT3(chi_p[0], chi_p[1]);
+	params->coeff.variables.chih1chih2 = SCALAR_PRODUCT3(chi_p[0], chi_p[1]);
+	for (i = 0; i < 2; i++) {
+		params->coeff.variables.LNhchih[i] = SCALAR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i]);
+		VECTOR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i], params->coeff.variables.LNhxchih[i]);
+	}
+	for (i = LAL_PNORDER_NEWTONIAN; i <= params->order; i++) {
+		dvalues[LALSQTPN_OMEGA] += params->coeff.domega[i] * params->coeff.variables.omegaPowi_3[i];
+	}
+	dvalues[LALSQTPN_MECO] += params->coeff.meco[0] / params->coeff.variables.omegaPowi_3[1];
+	for (i = LAL_PNORDER_NEWTONIAN + 2; i <= params->order; i += 2) {
+		dvalues[LALSQTPN_MECO] += params->coeff.meco[i]
+				* params->coeff.variables.omegaPowi_3[i - 1];
 	}
 	switch (params->order) {
 	case LAL_PNORDER_THREE_POINT_FIVE:

@@ -296,6 +296,7 @@ unsigned int XLALAdaptiveRungeKutta4(ark4GSLIntegrator *integrator, void *params
 	outputlen = (int)(t / deltat) + 1;
 	output = XLALCreateREAL8ArrayL(2, dim + 1, outputlen);
 
+
 	if (!interp || !accel || !output) {
 		status = XLAL_ENOMEM; /* ouch again, ran out of memory */
 		if (output)

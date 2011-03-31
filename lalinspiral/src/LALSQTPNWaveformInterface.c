@@ -121,7 +121,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 	XLALSQTPNFillParams(&wave_Params, params);
 
 	// calling the engine function
-	LALSQTPNGenerator_Old(status->statusPtr, &wave, &wave_Params);
+	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
 	BEGINFAIL(status) {
 		XLALSQTPNDestroyCoherentGW(waveform);
 	}ENDFAIL(status);
