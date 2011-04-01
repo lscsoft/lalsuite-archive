@@ -1843,7 +1843,7 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 
 }
     
-// Init function for the AmpCorTest waveform
+// Init function for the Test waveforms
 
 void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 {

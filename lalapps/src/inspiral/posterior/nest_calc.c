@@ -316,7 +316,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 			MCMCinput->funcLikelihood(MCMCinput,Live[minpos]);
 			MCMCinput->funcPrior(MCMCinput,Live[minpos]);
 			MCMCfail+=1.0;
-		}while((Live[minpos]->logLikelihood<=logLmin)||(accept==0.0));
+		}while((Live[minpos]->logLikelihood<logLmin)||(accept==0.0));
 		if(Live[minpos]->logLikelihood > logLmax) logLmax = Live[minpos]->logLikelihood;
 		for(j=0;j<Nruns;j++) logwarray[j]+=sample_logt(Nlive);
 		logw=mean(logwarray,Nruns);
