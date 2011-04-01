@@ -46,8 +46,9 @@ basic_ifolist = ['H1','L1','V1']
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
 
-# specify the runtimes during S6
-runtimes = {'A':[931035296,935798487],'B':[937800015,947260815],\
+# specify the runtimes during S6; the end of S6B is adjusted so to consider
+# GRB 100112 inside S6B
+runtimes = {'A':[931035296,935798487],'B':[937800015,947347215],\
             'C':[949003215,961545615],'D':[961545615, 971654415] }
 
 
