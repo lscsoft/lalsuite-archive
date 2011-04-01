@@ -371,12 +371,19 @@ def get_minimum_scienceseg_length(cp):
 
     # the following is just a copy-and-paste from trigger_hipe
     paddata = int(cp.get('data', 'pad-data'))
-    n = int(cp.get('data', 'segment-length'))
-    s = int(cp.get('data', 'number-of-segments'))
-    r = int(cp.get('data', 'sample-rate'))
-    o = int(cp.get('inspiral', 'segment-overlap'))
-    length = ( n * s - ( s - 1 ) * o ) / r
-    overlap = o / r
+    if cp.has_option('data', 'segment-length'):
+      n = int(cp.get('data', 'segment-length'))
+      s = int(cp.get('data', 'number-of-segments'))
+      r = int(cp.get('data', 'sample-rate'))
+      o = int(cp.get('inspiral', 'segment-overlap'))
+      length = ( n * s - ( s - 1 ) * o ) / r
+      overlap = o / r
+    elif cp.has_option('data','block-duration'):
+      length = int(cp.get('data','block-duration'))
+      overlap = int(cp.get('data','segment-duration'))/2
+    else:
+      raise ValueError, "Cannot find segment information in [data] section of ini file."
+      
     minsciseg = length + 2 * paddata
     
     # returns the result
@@ -685,7 +692,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   # get the science segment specifier from the config file
   seg_names = {}
   for ifo in basic_ifolist:
-    seg_names[ifo] = pas.cp.get('input','%s-segments'%ifo.lower())
+    seg_names[ifo] = pas.cp.get('segments','%s-segments'%ifo.lower())
 
   # update the science segments around the trigger time
   timerange = [ trigger - offset, trigger + offset]
