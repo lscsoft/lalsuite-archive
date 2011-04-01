@@ -10,27 +10,25 @@ const char LIDocString[] =
 typedef struct {
     PyObject_HEAD
     /* Type-specific fields go here */
-    LALVariables* var;
+    LALVariables vars;
 } li_LALVariablesObject;
 
 /* Destructor for LALVariables */
 static void LALVariables_dealloc(li_LALVariablesObject *self)
 {
-    destroyVariables(&(self->var));
+    destroyVariables(&self->vars);
     self->ob_type->tp_free((PyObject *)self);
 }
-
-static PyMethodDef LALVariables_methods[]= {
-    /* {"name", (PyCFunction)function, METH_NOARGS, "DESCR"}, */
-    {NULL} /* Sentinel */
-};
 
 static int add_variable(li_LALVariablesObject *self,PyObject* args){
     PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL;
 
     char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
     
-    if (! PyArg_ParseTuple(args,"OOO",&pyname,&pyvalue,&pyvarytype)) return -1;
+    if (! PyArg_ParseTuple(args,"OOO",&pyname,&pyvalue,&pyvarytype)) {
+        PyErr_SetString(PyExc_TypeError, "Input")
+        return -1;
+    }
 
     /*Extract name of variable*/
     if(PyString_Check(pyname)){
@@ -43,11 +41,13 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
 
     /*Extract and determine type of parameter value*/
     if(PyInt_Check(pyvalue)){
-        value=(void*)((INT8_t*)PyInt_AsLong(pyvalue));
+        value=(void*)((INT8*)PyInt_AsLong(pyvalue));
         type=INT8_t;
     }   
     else if(PyFloat_Check(pyvalue)){
-        value=(void*)((REAL8_t*)PyFloat_AsDouble(pyvalue));
+        REAL8 cast_value=((REAL8)PyFloat_AsDouble(pyvalue));
+        REAL8* cast_valuep=&cast_value;
+        value=(void*)cast_valuep;
         type=REAL8_t;
     }
     else{
@@ -81,20 +81,117 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
         return -1;
     }
 
-    /* If we survived then call addVariable with self->var ...*/
+    /* If we survived then call addVariable with self->vars ...*/
 
-    addVariable(self->var,name,value,type,varytype);
+    addVariable(&self->vars,name,value,type,varytype);
 
+    return 0;
 }
+
+static PyObject* check_variable(li_LALVariablesObject *self,PyObject* args)
+/* Check for existence of name */
+{
+    PyObject* pyname;
+    char* name;
+    
+    if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
+
+    name=PyString_AsString(pyname);
+
+    if(getItem(&self->vars,name)){
+        Py_RETURN_TRUE;
+    }
+    else{
+        Py_RETURN_FALSE;
+    }
+}
+
+
+PyObject* convert_livar_value_to_pyobj(li_LALVariablesObject *pyvars,char* name){
+    VariableType type;
+    
+    PyObject* returnObj;
+    
+    
+    type=getVariableType(&pyvars->vars,name);
+    
+    if(type==INT4_t){
+        returnObj=PyInt_FromLong(*(long int*)getVariable(&pyvars->vars,name));
+    }
+    else if(type==INT8_t){
+        returnObj=PyInt_FromLong(*(long int*)getVariable(&pyvars->vars,name));
+    }
+    else if(type==UINT4_t){
+        returnObj=PyInt_FromLong(*(long int*)getVariable(&pyvars->vars,name));
+    }
+    else if(type==REAL4_t){
+        returnObj=PyFloat_FromDouble(*(double*)getVariable(&pyvars->vars,name));
+    }
+    else if(type==REAL8_t){
+        returnObj=PyFloat_FromDouble(*(double*)getVariable(&pyvars->vars,name));
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,"This type of variable cannot be converted to a python type!");
+        return NULL;
+    }
+    
+    return Py_BuildValue("O",returnObj);
+}
+
+void* convert_pyobj_to_livar_value(PyObject* inObj){
+    void* value=NULL;
+    if(PyInt_Check(inObj)){
+        INT8 cast_value=((INT8)PyInt_AsLong(inObj));
+        value=(void*)&cast_value;
+        
+    }
+    else if(PyFloat_Check(inObj)){
+        REAL8 cast_value=((REAL8)PyFloat_AsDouble(inObj));
+        value=(void*)&cast_value;
+    }
+    else{
+    }
+    return value;
+}
+
+static int remove_variable(li_LALVariablesObject *self,PyObject* args){
+    PyObject* pyname;
+    char* name;
+    
+    if (! PyArg_ParseTuple(args,"O",&pyname)) return -1;
+
+    name=PyString_AsString(pyname);
+    removeVariable(&self->vars,name);
+    
+    return 0;
+}
+
+static PyObject* get_variable(li_LALVariablesObject *self,PyObject* args){
+    PyObject* pyname;
+    char* name;
+    
+    if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
+    name=PyString_AsString(pyname);
+    return convert_livar_value_to_pyobj(self,name);
+    
+}
+    
 
 static int LALVariables_init(li_LALVariablesObject *self, PyObject *args, PyObject *kwds)
 {
     /* Should fill in the array using a dictionary as input */
     
-    memset(self->var,0,sizeof(LALVariables));
+    //memset(self->vars,0,sizeof(LALVariables));
 
     return 0;
 }
+
+static PyMethodDef LALVariables_methods[]= {
+    /* {"name", (PyCFunction)function, METH_NOARGS, "DESCR"}, */
+    {"addVariable",(PyCFunction)add_variable,METH_VARARGS,""},
+    {"getVariable",(PyCFunction)get_variable,METH_VARARGS,""},
+    {NULL} /* Sentinel */
+};
 
 static PyTypeObject li_LALVariablesType = {
     PyObject_HEAD_INIT(NULL)
@@ -147,7 +244,7 @@ init_lalinference(void)
     if (PyType_Ready(&li_LALVariablesType) < 0)
         return;
     
-    m = Py_InitModule3(MODULE_NAME,li_methods,LIDocString);
+    m = Py_InitModule3(MODULE_NAME,LALVariables_methods,LIDocString);
     Py_INCREF(&li_LALVariablesType);
     PyModule_AddObject(m, "LALVariables", (PyObject *)&li_LALVariablesType);
 }
