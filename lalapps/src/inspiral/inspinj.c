@@ -1267,16 +1267,16 @@ int main( int argc, char *argv[] )
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
     {"enable-dphi",             no_argument,       0,                 '@'},
-    {"dphi0",                   required_argument, 0,                 1000},
-    {"dphi1",                   required_argument, 0,                 1001},
-    {"dphi2",                   required_argument, 0,                 1002},
-    {"dphi3",                   required_argument, 0,                 1003},
-    {"dphi4",                   required_argument, 0,                 1004},
-    {"dphi5",                   required_argument, 0,                 1005},
-    {"dphi5l",                  required_argument, 0,                 1006},
-    {"dphi6",                   required_argument, 0,                 1007},
-    {"dphi6l",                  required_argument, 0,                 1008},
-    {"dphi7",                   required_argument, 0,                 1009},          
+    {"dphi0",                   required_argument, 0,                 1010},
+    {"dphi1",                   required_argument, 0,                 1011},
+    {"dphi2",                   required_argument, 0,                 1012},
+    {"dphi3",                   required_argument, 0,                 1013},
+    {"dphi4",                   required_argument, 0,                 1014},
+    {"dphi5",                   required_argument, 0,                 1015},
+    {"dphi5l",                  required_argument, 0,                 1016},
+    {"dphi6",                   required_argument, 0,                 1017},
+    {"dphi6l",                  required_argument, 0,                 1018},
+    {"dphi7",                   required_argument, 0,                 1019},          
     {0, 0, 0, 0}
   };
   int c;
@@ -2114,61 +2114,61 @@ int main( int argc, char *argv[] )
               "" );
         phiTestInjections = 1;
         break;
-      case 1000:
+      case 1010:
             dphi0 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi0 );
           break;
-      case 1001:
+      case 1011:
             dphi1 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi1 );
           break;
-      case 1002:
+      case 1012:
             dphi2 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi2 );
           break;
-     case 1003 :
+     case 1013 :
             dphi3 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi3 );
           break;
-      case 1004:
+      case 1014:
             dphi4 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi4 );
           break;
-      case 1005:
+      case 1015:
             dphi5 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi5 );
           break;
-      case 1006:
+      case 1016:
             dphi5l = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi5l );
           break;
-      case 1007:
+      case 1017:
             dphi6 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi6 );
           break;
-      case 1008:
+      case 1018:
             dphi6l = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi6l );
           break;
-      case 1009:
+      case 1019:
             dphi7 = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
