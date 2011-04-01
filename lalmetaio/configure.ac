@@ -1,4 +1,4 @@
-AC_INIT([lalmetaio],[1.0.1.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalmetaio],[1.0.1.2],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALMetaIOConfig.h])
 AC_CONFIG_SRCDIR([src/LIGOLwXML.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -92,6 +92,7 @@ AC_HEADER_STDC
 
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
+AC_CHECK_LIB([z],[compress],,[AC_MSG_ERROR([could not find the zlib library])])
 
 # metaio
 PKG_CHECK_MODULES([METAIO],[libmetaio],[true],[false])

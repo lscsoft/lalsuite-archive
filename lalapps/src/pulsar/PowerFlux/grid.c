@@ -1311,6 +1311,7 @@ free_grid(sg->super_grid);
 sg->first_map=NULL;
 sg->list_map=NULL;
 sg->reverse_map=NULL;
+free(sg);
 }
 
 

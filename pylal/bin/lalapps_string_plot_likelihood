@@ -215,6 +215,23 @@ def nevents_plot(key, xcoords, background_data, injections_data):
 
 	return fig
 
+def instrumentgroup_plot(key, xcoords, background_data, injections_data):
+	fig = figure.Figure(figsize = (4, 4 / golden_ratio))
+	FigureCanvas(fig)
+	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	axes.plot(xcoords, background_data, "ko-", label = "Background")
+	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
+	axes.legend(loc = "upper right")
+
+	axes.set_title("Detector Coincidence")
+	axes.set_xlabel("Detector Combination")
+	axes.set_ylabel("$P(N)$")
+	axes.xaxis.grid(True, which = "major,minor")
+	axes.yaxis.grid(True, which = "major,minor")
+
+	return fig
+
 
 #
 # =============================================================================
@@ -290,6 +307,15 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 				print >>sys.stderr, "\twriting %s ..." % outname
 			fig.savefig(outname)
 	elif name == "nevents":
+		if options.verbose:
+			print >>sys.stderr, "generating plots for %s ..." % name
+		fig = nevents_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
+		for extension in options.format:
+			outname = "%s.%s" % (name, extension)
+			if options.verbose:
+				print >>sys.stderr, "\twriting %s ..." % outname
+			fig.savefig(outname)
+	elif name == "instrumentgroup":
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
 		fig = nevents_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
