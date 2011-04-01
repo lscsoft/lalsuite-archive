@@ -26,7 +26,7 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
     char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
     
     if (! PyArg_ParseTuple(args,"OOO",&pyname,&pyvalue,&pyvarytype)) {
-        PyErr_SetString(PyExc_TypeError, "Input")
+        PyErr_SetString(PyExc_TypeError, "Input");
         return -1;
     }
 
@@ -59,6 +59,7 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
     if(PyString_Check(pyvarytype)){
         temp=PyString_AsString(pyvarytype);
         Py_INCREF(pyvarytype);
+        printf("Is a string");
         if(!strcmp(temp,"linear")){
             varytype=PARAM_LINEAR;
         }
@@ -75,6 +76,7 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
             PyErr_SetObject(PyExc_ValueError,pyvarytype);
             return -1;
         }
+        Py_DECREF(pyvarytype);
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyvarytype);
