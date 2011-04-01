@@ -465,7 +465,7 @@ def update_veto_lists(veto_definer, timerange, path = '.', tag = None):
     # prepare the call to get the veto-lists from the database
     pas = AnalysisSingleton()
     cmd = "ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
-          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s --individual-results"\
           % (veto_definer, timerange[0], timerange[1], path)
     pas.system(cmd, tag[4:])
 
