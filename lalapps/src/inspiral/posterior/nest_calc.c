@@ -298,8 +298,8 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		/* Replace the previous sample by a new one */
 		
 		/* Update covariance matrix every so often */
-		//LALMCMCParam *current=NULL;
-		/*FILE *outlive;
+		/*LALMCMCParam *current=NULL;
+		FILE *outlive;
 		outlive=fopen("live_out.txt","w");
 		for (uint kappa=0; kappa<Nlive; kappa++){
 			current=XLALMCMCGetParam(Live[kappa],"dphi3");
