@@ -192,6 +192,49 @@ static PyObject* get_variable_name(li_LALVariablesObject *self,PyObject* args){
     return PyString_FromString(name);
     
 }
+
+char* get_type_string(VariableType type){
+    char* type_name=NULL;
+    
+    if(type==INT4_t){
+        type_name="INT4";
+    }
+    else if(type==UINT4_t){
+        type_name="UINT4";
+    }
+    else if(type==INT8_t){
+        type_name="INT8";
+    }
+    else if(type==REAL4_t){
+        type_name="REAL4";
+    }
+    else if(type==REAL8_t){
+        type_name="REAL8";
+    }
+    
+    return type_name;
+}
+
+static PyObject* get_variable_type(li_LALVariablesObject *self,PyObject* args){
+    VariableType type;
+    char* name;
+    PyObject* pyname;
+    char* type_name=NULL;
+    if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
+    
+    name=PyString_FromString(pyname);
+    type=getVariableType(&self->vars,name);
+    
+    type_name=get_type_string(type);
+    
+    if(type_name==NULL){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }    
+    
+    return PyString_FromString(type_name);
+    
+}
     
 static PyObject* get_variable_type_by_index(li_LALVariablesObject *self,PyObject* args){
     VariableType type;
@@ -200,8 +243,49 @@ static PyObject* get_variable_type_by_index(li_LALVariablesObject *self,PyObject
     if (! PyArg_ParseTuple(args,"i",&var_idx)) return NULL;
     
     type=getVariableTypeByIndex(&self->vars,(int)var_idx);
+    type_name=get_type_string(type);
     
     return PyString_FromString(type_name);
+    
+}
+
+char* get_varytype_string(ParamVaryType varytype){
+    
+    char* varytype_name=NULL;
+    if(varytype==PARAM_LINEAR){
+        varytype_name="linear";
+    }
+    else if(varytype==PARAM_CIRCULAR){
+        varytype_name="circular";
+    }
+    else if(varytype==PARAM_FIXED){
+        varytype_name="fixed";
+    }
+    else if(varytype==PARAM_OUTPUT){
+        varytype_name="output";
+    }
+    
+    return varytype_name;
+    
+}
+
+static PyObject* get_variable_vary_type(li_LALVariablesObject *self,PyObject* args){
+    ParamVaryType varytype;
+    char* name;
+    PyObject* pyname;
+    char* varytype_name=NULL;
+    if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
+    
+    name=PyString_FromString(pyname);
+    varytype=getVariableVaryType(&self->vars,name);
+    varytype_name=get_varytype_string(varytype);
+    
+    if(varytype_name==NULL){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }    
+    
+    return PyString_FromString(varytype_name);
     
 }
 
@@ -221,7 +305,10 @@ static PyMethodDef LALVariables_methods[]= {
     {"checkVariable",(PyCFunction)check_variable,METH_VARARGS,""},
     {"removeVariable",(PyCFunction)remove_variable,METH_VARARGS,""},
     {"getVariableName",(PyCFunction)get_variable_name,METH_VARARGS,""},
+    {"getVariableType",(PyCFunction)get_variable_type,METH_VARARGS,""},
     {"getVariableTypeByIndex",(PyCFunction)get_variable_type_by_index,METH_VARARGS,""},
+    {"getVariableVaryType",(PyCFunction)get_variable_vary_type,METH_VARARGS,""},
+    
     {NULL} /* Sentinel */
 };
 
