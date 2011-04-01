@@ -61,7 +61,7 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
     if(PyString_Check(pyvarytype)){
         temp=PyString_AsString(pyvarytype);
         Py_INCREF(pyvarytype);
-        
+
         if(!strcmp(temp,"linear")){
             varytype=PARAM_LINEAR;
         }
