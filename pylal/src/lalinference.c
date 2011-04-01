@@ -1,4 +1,6 @@
 #include <Python.h>
+#include <structmember.h>
+
 #include <lal/LALInference.h>
 
 #define MODULE_NAME "_lalinference"
@@ -20,14 +22,14 @@ static void LALVariables_dealloc(li_LALVariablesObject *self)
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int add_variable(li_LALVariablesObject *self,PyObject* args){
+static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
     PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL;
 
     char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
     
     if (! PyArg_ParseTuple(args,"OOO",&pyname,&pyvalue,&pyvarytype)) {
         PyErr_SetString(PyExc_TypeError, "Input");
-        return -1;
+        return NULL;
     }
 
     /*Extract name of variable*/
@@ -36,7 +38,7 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyname);
-        return -1;
+        return NULL;
     }
 
     /*Extract and determine type of parameter value*/
@@ -52,14 +54,14 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyvalue);
-        return -1;
+        return NULL;
     }
 
     /*Determine variable wrapping type from string*/
     if(PyString_Check(pyvarytype)){
         temp=PyString_AsString(pyvarytype);
         Py_INCREF(pyvarytype);
-        printf("Is a string");
+        
         if(!strcmp(temp,"linear")){
             varytype=PARAM_LINEAR;
         }
@@ -73,21 +75,22 @@ static int add_variable(li_LALVariablesObject *self,PyObject* args){
             varytype=PARAM_OUTPUT;
         }
         else {
+            
             PyErr_SetObject(PyExc_ValueError,pyvarytype);
-            return -1;
+            return NULL;
         }
         Py_DECREF(pyvarytype);
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyvarytype);
-        return -1;
+        return NULL;
     }
 
     /* If we survived then call addVariable with self->vars ...*/
-
-    addVariable(&self->vars,name,value,type,varytype);
-
-    return 0;
+    //DEBUG//printf("%s %lf %d %d\n",name,*(double*)value,type,varytype);
+    addVariable(&(self->vars),name,value,type,varytype);
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyObject* check_variable(li_LALVariablesObject *self,PyObject* args)
@@ -177,7 +180,30 @@ static PyObject* get_variable(li_LALVariablesObject *self,PyObject* args){
     return convert_livar_value_to_pyobj(self,name);
     
 }
+
+static PyObject* get_variable_name(li_LALVariablesObject *self,PyObject* args){
+    char* name;
+    long var_idx;
     
+    if (! PyArg_ParseTuple(args,"i",&var_idx)) return NULL;
+    
+    name=getVariableName(&self->vars,(int)var_idx);
+    
+    return PyString_FromString(name);
+    
+}
+    
+static PyObject* get_variable_type_by_index(li_LALVariablesObject *self,PyObject* args){
+    VariableType type;
+    long var_idx;
+    char* type_name=NULL;
+    if (! PyArg_ParseTuple(args,"i",&var_idx)) return NULL;
+    
+    type=getVariableTypeByIndex(&self->vars,(int)var_idx);
+    
+    return PyString_FromString(type_name);
+    
+}
 
 static int LALVariables_init(li_LALVariablesObject *self, PyObject *args, PyObject *kwds)
 {
@@ -192,6 +218,10 @@ static PyMethodDef LALVariables_methods[]= {
     /* {"name", (PyCFunction)function, METH_NOARGS, "DESCR"}, */
     {"addVariable",(PyCFunction)add_variable,METH_VARARGS,""},
     {"getVariable",(PyCFunction)get_variable,METH_VARARGS,""},
+    {"checkVariable",(PyCFunction)check_variable,METH_VARARGS,""},
+    {"removeVariable",(PyCFunction)remove_variable,METH_VARARGS,""},
+    {"getVariableName",(PyCFunction)get_variable_name,METH_VARARGS,""},
+    {"getVariableTypeByIndex",(PyCFunction)get_variable_type_by_index,METH_VARARGS,""},
     {NULL} /* Sentinel */
 };
 
@@ -216,7 +246,7 @@ static PyTypeObject li_LALVariablesType = {
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,        /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
     "LALInference LALVariables objects", /* tp_doc */
     0,                     /* tp_traverse */
     0,                     /* tp_clear */
@@ -237,6 +267,9 @@ static PyTypeObject li_LALVariablesType = {
     PyType_GenericNew,                 /* tp_new */
 };
 
+static PyMethodDef module_methods[] = {
+    {NULL}  /* Sentinel */
+};
 
 PyMODINIT_FUNC
 init_lalinference(void)
@@ -246,7 +279,7 @@ init_lalinference(void)
     if (PyType_Ready(&li_LALVariablesType) < 0)
         return;
     
-    m = Py_InitModule3(MODULE_NAME,LALVariables_methods,LIDocString);
+    m = Py_InitModule3(MODULE_NAME,module_methods,LIDocString);
     Py_INCREF(&li_LALVariablesType);
     PyModule_AddObject(m, "LALVariables", (PyObject *)&li_LALVariablesType);
 }
