@@ -3,11 +3,11 @@
 
 #include <lal/LALInference.h>
 
-#define MODULE_NAME "_lalinference"
+#define MODULE_NAME "pylal._lalinference.lalvariables"
 
 const char LIDocString[] =
 "This module provides data types and function wrappers for"
-"LALInference.";
+"LALVariables.";
 
 typedef struct {
     PyObject_HEAD
@@ -24,11 +24,47 @@ static void LALVariables_dealloc(li_LALVariablesObject *self)
 
 VariableType infer_litype_from_pyvalue(PyObject* pyvalue){
 
+    VariableType type;
+    
+    if(PyInt_Check(pyvalue)){
+        type=INT8_t;
+    }   
+    else if(PyFloat_Check(pyvalue)){
+        type=REAL8_t;
+    }
+    else{
+        PyErr_SetObject(PyExc_TypeError, pyvalue);
+        return NULL;
+    }
+
+    return type;
 }
 
 VariableType convert_string_to_litype(char* typestring){
 
+    VariableType type;
+    if(!strcmp(typestring,"INT4")){
+        type=INT4_t;
+    }
+    else if(!strcmp(typestring,"INT8")){
+        type=INT8_t;
+    }
+    else if(!strcmp(typestring,"UINT4")){
+        type=UINT4_t;
+    }
+    else if(!strcmp(typestring,"REAL4")){
+        type=REAL4_t;
+    }
+    else if(!strcmp(typestring,"REAL8")){
+        type=REAL8_t;
+    }
+    else{
+        PyErr_SetString(PyExc_TypeError,"LALInference type not found!!");
+        return NULL;
+    }
+    return type;
 }
+
 
 static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
     PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL;
@@ -53,9 +89,11 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
     /*Extract and determine type of parameter value*/
 
     //If type given convert string to type...
-    if(typestring) type=convert_string_to_litype(typestring);
+    //if(typestring) type=convert_string_to_litype(typestring);
     //...else infer type from python object type (this is more limited).
-    else: type=infer_litype_from_pyvalue(pyvalue);
+    //else{
+        type=infer_litype_from_pyvalue(pyvalue);
+    //}
     
     if(PyInt_Check(pyvalue)){
         value=(void*)((INT8*)PyInt_AsLong(pyvalue));
@@ -374,7 +412,7 @@ static PyMethodDef module_methods[] = {
 };
 
 PyMODINIT_FUNC
-init_lalinference(void)
+init_lalvariables(void)
 {
     PyObject *m;
     li_LALVariablesType.tp_new = PyType_GenericNew;
