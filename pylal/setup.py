@@ -190,8 +190,17 @@ setup(
 	},
 	ext_modules = [
 		Extension(
-			"pylal._lalinference",
-			["src/lalinference.c"],
+			"pylal._lalinference.lalvariables",
+			["src/lalinference/LALVariables.c"],
+			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs,
+			library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
+			libraries = lalinference_pkg_config.libs + lalpulsar_pkg_config.libs,
+			runtime_library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
+			extra_compile_args = lalinference_pkg_config.extra_cflags + lalpulsar_pkg_config.extra_cflags
+		),
+        Extension(
+			"pylal._lalinference.lalifodata",
+			["src/lalinference/LALIFOData.c"],
 			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs,
 			library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
 			libraries = lalinference_pkg_config.libs + lalpulsar_pkg_config.libs,

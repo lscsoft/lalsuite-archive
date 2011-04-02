@@ -22,10 +22,19 @@ static void LALVariables_dealloc(li_LALVariablesObject *self)
     self->ob_type->tp_free((PyObject *)self);
 }
 
+VariableType infer_litype_from_pyvalue(PyObject* pyvalue){
+
+}
+
+VariableType convert_string_to_litype(char* typestring){
+
+}
+
 static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
     PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL;
 
     char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
+    char *typestring=NULL;
     
     if (! PyArg_ParseTuple(args,"OOO",&pyname,&pyvalue,&pyvarytype)) {
         PyErr_SetString(PyExc_TypeError, "Input");
@@ -42,6 +51,12 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
     }
 
     /*Extract and determine type of parameter value*/
+
+    //If type given convert string to type...
+    if(typestring) type=convert_string_to_litype(typestring);
+    //...else infer type from python object type (this is more limited).
+    else: type=infer_litype_from_pyvalue(pyvalue);
+    
     if(PyInt_Check(pyvalue)){
         value=(void*)((INT8*)PyInt_AsLong(pyvalue));
         type=INT8_t;
@@ -315,7 +330,7 @@ static PyMethodDef LALVariables_methods[]= {
 static PyTypeObject li_LALVariablesType = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
-    "lalinference.LALVariables",    /* tp_name, name of type */
+    "lalinference.BaseLALVariables",    /* tp_name, name of type */
     sizeof(li_LALVariablesObject),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
     (destructor)LALVariables_dealloc,  /*tp_dealloc*/
@@ -334,7 +349,7 @@ static PyTypeObject li_LALVariablesType = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
-    "LALInference LALVariables objects", /* tp_doc */
+    "LALInference BaseLALVariables objects", /* tp_doc */
     0,                     /* tp_traverse */
     0,                     /* tp_clear */
     0,                     /* tp_richcompare */
@@ -368,5 +383,5 @@ init_lalinference(void)
     
     m = Py_InitModule3(MODULE_NAME,module_methods,LIDocString);
     Py_INCREF(&li_LALVariablesType);
-    PyModule_AddObject(m, "LALVariables", (PyObject *)&li_LALVariablesType);
+    PyModule_AddObject(m, "BaseLALVariables", (PyObject *)&li_LALVariablesType);
 }
