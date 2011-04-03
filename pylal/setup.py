@@ -191,7 +191,7 @@ setup(
 	ext_modules = [
 		Extension(
 			"pylal._lalinference",
-			["src/lalinference/lalinference.c"],
+			["src/lalinference.c"],
 			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs,
 			library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
 			libraries = lalinference_pkg_config.libs + lalpulsar_pkg_config.libs,

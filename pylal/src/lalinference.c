@@ -77,16 +77,15 @@ VariableType convert_string_to_litype(char* typestring){
 }
 
 
-static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
-    PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL;
+static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args,PyObject* kwds){
+    PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL,*pytype=NULL;
 
     char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
     char *typestring=NULL;
+
+    static char *kwlist[]={"name","value","varytype","type"};
     
-    if (! PyArg_ParseTuple(args,"OOO",&pyname,&pyvalue,&pyvarytype)) {
-        PyErr_SetString(PyExc_TypeError, "Input");
-        return NULL;
-    }
+    if (! PyArg_ParseTupleAndKeywords(args,kwds,"OOO|O",kwlist,&pyname,&pyvalue,&pyvarytype,&pytype)) return NULL;
 
     /*Extract name of variable*/
     if(PyString_Check(pyname)){
@@ -100,21 +99,23 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args){
     /*Extract and determine type of parameter value*/
 
     //If type given convert string to type...
-    //if(typestring) type=convert_string_to_litype(typestring);
+    if(pytype) {
+        typestring=PyString_AsString(pytype);
+        type=convert_string_to_litype(typestring);
+    }
     //...else infer type from python object type (this is more limited).
-    //else{
-        type=infer_litype_from_pyvalue(pyvalue);
-    //}
+    else type=infer_litype_from_pyvalue(pyvalue);
     
-    if(PyInt_Check(pyvalue)){
+    
+    if(type==INT4_t|type==INT8_t|type==UINT4_t){
         value=(void*)((INT8*)PyInt_AsLong(pyvalue));
-        type=INT8_t;
+        
     }   
-    else if(PyFloat_Check(pyvalue)){
+    else if(type==REAL4_t|type==REAL8_t){
         REAL8 cast_value=((REAL8)PyFloat_AsDouble(pyvalue));
         REAL8* cast_valuep=&cast_value;
         value=(void*)cast_valuep;
-        type=REAL8_t;
+        
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyvalue);
@@ -353,6 +354,18 @@ static PyObject* get_variable_vary_type(li_LALVariablesObject *self,PyObject* ar
     
 }
 
+static PyObject* get_variable_dimension(li_LALVariablesObject *self){
+    long dimension;
+    PyObject* pydimension=NULL;
+    
+    dimension=(long int)getVariableDimension(&self->vars);
+
+    pydimension=PyInt_FromLong(dimension);
+
+    return pydimension;
+    
+}
+
 static int LALVariables_init(li_LALVariablesObject *self, PyObject *args, PyObject *kwds)
 {
     /* Should fill in the array using a dictionary as input */
@@ -372,6 +385,7 @@ static PyMethodDef LALVariables_methods[]= {
     {"getVariableType",(PyCFunction)get_variable_type,METH_VARARGS,""},
     {"getVariableTypeByIndex",(PyCFunction)get_variable_type_by_index,METH_VARARGS,""},
     {"getVariableVaryType",(PyCFunction)get_variable_vary_type,METH_VARARGS,""},
+    {"getVariableDimension",(PyCFunction)get_variable_dimension,METH_NOARGS,""},
     
     {NULL} /* Sentinel */
 };
