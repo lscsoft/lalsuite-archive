@@ -416,7 +416,7 @@ static int LALVariables_init(li_LALVariablesObject *self, PyObject *args, PyObje
     /* Should fill in the array using a dictionary as input */
     
     self->vars=(LALVariables*)malloc(sizeof(LALVariables));
-
+	memset((void*)self->vars,0,sizeof(LALVariables));
     return 0;
 }
 
