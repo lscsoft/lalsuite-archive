@@ -46,8 +46,9 @@ basic_ifolist = ['H1','L1','V1']
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
 
-# specify the runtimes during S6
-runtimes = {'A':[931035296,935798487],'B':[937800015,947260815],\
+# specify the runtimes during S6; the end of S6B is adjusted so to consider
+# GRB 100112 inside S6B
+runtimes = {'A':[931035296,935798487],'B':[937800015,947347215],\
             'C':[949003215,961545615],'D':[961545615, 971654415] }
 
 
@@ -371,12 +372,19 @@ def get_minimum_scienceseg_length(cp):
 
     # the following is just a copy-and-paste from trigger_hipe
     paddata = int(cp.get('data', 'pad-data'))
-    n = int(cp.get('data', 'segment-length'))
-    s = int(cp.get('data', 'number-of-segments'))
-    r = int(cp.get('data', 'sample-rate'))
-    o = int(cp.get('inspiral', 'segment-overlap'))
-    length = ( n * s - ( s - 1 ) * o ) / r
-    overlap = o / r
+    if cp.has_option('data', 'segment-length'):
+      n = int(cp.get('data', 'segment-length'))
+      s = int(cp.get('data', 'number-of-segments'))
+      r = int(cp.get('data', 'sample-rate'))
+      o = int(cp.get('inspiral', 'segment-overlap'))
+      length = ( n * s - ( s - 1 ) * o ) / r
+      overlap = o / r
+    elif cp.has_option('data','block-duration'):
+      length = int(cp.get('data','block-duration'))
+      overlap = int(cp.get('data','segment-duration'))/2
+    else:
+      raise ValueError, "Cannot find segment information in [data] section of ini file."
+      
     minsciseg = length + 2 * paddata
     
     # returns the result
@@ -465,7 +473,7 @@ def update_veto_lists(veto_definer, timerange, path = '.', tag = None):
     # prepare the call to get the veto-lists from the database
     pas = AnalysisSingleton()
     cmd = "ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
-          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s --individual-results"\
           % (veto_definer, timerange[0], timerange[1], path)
     pas.system(cmd, tag[4:])
 
@@ -685,7 +693,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   # get the science segment specifier from the config file
   seg_names = {}
   for ifo in basic_ifolist:
-    seg_names[ifo] = pas.cp.get('input','%s-segments'%ifo.lower())
+    seg_names[ifo] = pas.cp.get('segments','%s-segments'%ifo.lower())
 
   # update the science segments around the trigger time
   timerange = [ trigger - offset, trigger + offset]

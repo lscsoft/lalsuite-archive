@@ -39,6 +39,7 @@ import numpy
 import cPickle as pickle
 from scipy import interpolate
 from scipy import optimize
+import Queue as queue
 try:
 	import sqlite3
 except ImportError:
@@ -106,7 +107,7 @@ def parse_command_line():
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--vetoes-name", metavar = "name", help = "Set the name of the segment lists to use as vetoes (default = do not apply vetoes).")
 	parser.add_option("--detection-threshold", metavar = "likelihood", type = "float", help = "Override the detection threshold.  Only injection files will be processed, and the efficiency curve measured.")
-	parser.add_option("--record-background", metavar = "N", type = "int", default = 100000000, help = "Set the number of background likelihood ratios to hold in memory for producing the rate vs. threshold plot (default = 100000000).")
+	parser.add_option("--record-background", metavar = "N", type = "int", default = 10000000, help = "Set the number of background likelihood ratios to hold in memory for producing the rate vs. threshold plot (default = 10000000).")
 	parser.add_option("--record-candidates", metavar = "N", type = "int", default = 100, help = "Set the number of highest-ranked zero-lag candidates to dump to the candidate file (default = 100).")
 	parser.add_option("--threads", metavar = "N", type = "int", default = 1, help = "Set the maximum number of parallel threads to use for processing files (default = 1).  Contention for the global Python interpreter lock will throttle the true number that can run.  The number of threads will be automatically adjusted downwards if the number requested exceeds the number of input files.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -736,56 +737,66 @@ def import_dumps(filenames, verbose = False):
 	return rate_vs_threshold, efficiency
 
 
-def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
-	for n, filename in enumerate(filenames):
+def process_file(filename, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
+	#
+	# connect to database and summarize contents
+	#
+
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
+	connection = sqlite3.connect(working_filename)
+	dbtables.DBTable_set_connection(connection)
+	contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
+	if verbose:
+		SnglBurstUtils.summarize_coinc_database(contents, filename = working_filename)
+
+	#
+	# augment summary with extra stuff we need.  the filename
+	# is recorded for dumping debuggin information related to
+	# missed injections.  if burca was run with the
+	# --coincidence-segments option then the value is copied
+	# into a segmentlistdict to facilitate the computation of
+	# livetime
+	#
+
+	contents.filename = filename
+
+	contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+	if contents.coincidence_segments:
+		# as a side-effect, this enforces the rule that
+		# burca has been run on the input file exactly once
+		contents.coincidence_segments, = contents.coincidence_segments
+		contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
+	else:
+		contents.coincidence_segments = None
+
+	#
+	# process contents
+	#
+
+	for n, product in enumerate(products):
 		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-		#
-		# connect to database and summarize contents
-		#
+			print >>sys.stderr, "%s: adding to product %d ..." % (working_filename, n)
+		product.add_contents(contents, verbose = verbose)
 
-		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
-		connection = sqlite3.connect(working_filename)
-		dbtables.DBTable_set_connection(connection)
-		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
-		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents, filename = working_filename)
+	#
+	# close
+	#
 
-		#
-		# augment summary with extra stuff we need.  the filename
-		# is recorded for dumping debuggin information related to
-		# missed injections.  if burca was run with the
-		# --coincidence-segments option then the value is copied
-		# into a segmentlistdict to facilitate the computation of
-		# livetime
-		#
+	connection.close()
+	dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
-		contents.filename = filename
 
-		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
-		if contents.coincidence_segments:
-			# as a side-effect, this enforces the rule that
-			# burca has been run on the input file exactly once
-			contents.coincidence_segments, = contents.coincidence_segments
-			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
-		else:
-			contents.coincidence_segments = None
-
-		#
-		# process contents
-		#
-
-		for n, product in enumerate(products):
+def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False, exception_queue = None):
+	try:
+		for n, filename in enumerate(filenames):
 			if verbose:
-				print >>sys.stderr, "%s: adding to product %d ..." % (working_filename, n)
-			product.add_contents(contents, verbose = verbose)
-
-		#
-		# close
-		#
-
-		connection.close()
-		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
+				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+			process_file(filename, products, live_time_program, tmp_path = tmp_path, veto_segments_name = veto_segments_name, verbose = verbose)
+	except Exception:
+		if exception_queue is not None:
+			exception_queue.put(sys.exc_info())
+		else:
+			raise
 
 
 def write_products(products, prefix, image_formats, verbose = False):
@@ -853,6 +864,7 @@ if options.detection_threshold is None:
 	if options.verbose:
 		print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 
+	exception_queue = queue.Queue()
 	threads = []
 	rate_vs_thresholds = []
 	# can't use more threads than there are files
@@ -863,13 +875,16 @@ if options.detection_threshold is None:
 		# create a new book-keeping object
 		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
 		# launch thread
-		threads.append(threading.Thread(target = process_files, args = (noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+		threads.append(threading.Thread(target = process_files, args = (noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
 		threads[-1].start()
-		#process_files(noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 		del noninjection_filenames[:n]
-	# collect all threads, combine results
+	# collect all threads, re-raise any exceptions that occured,
+	# combine results
 	for thread in threads:
 		thread.join()
+	while not exception_queue.empty():
+		exc_type, exc_value, exc_traceback = exception_queue.get()
+		raise exc_type, exc_value, exc_traceback
 	while rate_vs_thresholds:
 		if rate_vs_threshold is None:
 			rate_vs_threshold = rate_vs_thresholds.pop()
@@ -914,6 +929,7 @@ else:
 
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
+exception_queue = queue.Queue()
 threads = []
 efficiencies = []
 # can't use more threads than there are files
@@ -924,13 +940,15 @@ for i in range(n_threads):
 	# create new book-keeping object
 	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
 	# launch thread
-	threads.append(threading.Thread(target = process_files, args = (injection_filenames[:n], efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+	threads.append(threading.Thread(target = process_files, args = (injection_filenames[:n], efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
 	threads[-1].start()
-	#process_files(injection_filenames[:n], efficiencies[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 	del injection_filenames[:n]
-# collect all threads, combine results
+# collect all threads, reraise any exceptions that occured, combine results
 for thread in threads:
 	thread.join()
+while not exception_queue.empty():
+	exc_type, exc_value, exc_traceback = exception_queue.get()
+	raise exc_type, exc_value, exc_traceback
 while efficiencies:
 	if efficiency is None:
 		efficiency = efficiencies.pop()
