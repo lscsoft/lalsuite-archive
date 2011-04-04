@@ -946,7 +946,7 @@ for i in range(n_threads):
 # collect all threads, reraise any exceptions that occured, combine results
 for thread in threads:
 	thread.join()
-while not exception_queue.is_empty():
+while not exception_queue.empty():
 	exc_type, exc_value, exc_traceback = exception_queue.get()
 	raise exc_type, exc_value, exc_traceback
 while efficiencies:
