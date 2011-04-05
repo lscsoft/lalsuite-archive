@@ -77,44 +77,40 @@ VariableType convert_string_to_litype(char* typestring){
 }
 
 void* convert_pyobj_to_livar_value(PyObject* pyvalue,VariableType type){
-    void* value=NULL;
+    void* value=(void *)malloc(typeSize[type]);
     
     if(type==INT4_t){
         INT4 cast_value=((INT4)PyInt_AsLong(pyvalue));
         INT4* cast_valuep=&cast_value;
-        value=(void*)cast_valuep;
+        memcpy(value,(void*)cast_valuep,typeSize[type]);
     }
     else if(type==INT8_t){
         INT8 cast_value=((INT8)PyInt_AsLong(pyvalue));
-        //printf("%li\n",(long int)cast_value);
         INT8* cast_valuep=&cast_value;
-        value=(void*)cast_valuep;
+        memcpy(value,(void*)cast_valuep,typeSize[type]);
     }
     else if(type==UINT4_t){
         UINT4 cast_value=(UINT4)((unsigned long int)PyInt_AsLong(pyvalue));
-        //printf("%lu\n",(unsigned long int)cast_value);
         UINT4* cast_valuep=&cast_value;
-        
-        value=(void*)cast_valuep;
+        memcpy(value,(void*)cast_valuep,typeSize[type]);
     }   
     else if(type==REAL4_t){
     
         REAL4 cast_value=((REAL4)PyFloat_AsDouble(pyvalue));
         REAL4* cast_valuep=&cast_value;
-        value=(void*)cast_valuep;
+        memcpy(value,(void*)cast_valuep,typeSize[type]);
         
     }
     else if(type==REAL8_t){
         REAL8 cast_value=((REAL8)PyFloat_AsDouble(pyvalue));
-        
         REAL8* cast_valuep=&cast_value;
-        printf("%f\n",*cast_valuep);
-        value=(void*)cast_valuep;
+        memcpy(value,(void*)cast_valuep,typeSize[type]);
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyvalue);
         return NULL;
     }
+    
     return value;
 }
 
@@ -148,7 +144,7 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args,PyObjec
     else type=infer_litype_from_pyvalue(pyvalue);
     
     value=convert_pyobj_to_livar_value(pyvalue,type);
-
+	
     /*Determine variable wrapping type from string*/
     if(PyString_Check(pyvarytype)){
         temp=PyString_AsString(pyvarytype);
@@ -178,8 +174,10 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args,PyObjec
         return NULL;
     }
 
+    
+	
     /* If we survived then call addVariable with self->vars ...*/
-    printf("%s %f %d %d\n",name,*((REAL8*)value),type,varytype);//DEBUG//
+    
     addVariable((self->vars),name,value,type,varytype);
     Py_INCREF(Py_None);
     return Py_None;
@@ -207,27 +205,28 @@ static PyObject* check_variable(li_LALVariablesObject *self,PyObject* args)
 PyObject* convert_livar_value_to_pyobj(li_LALVariablesObject *pyvars,char* name){
     VariableType type;
     
-    PyObject* returnObj;
+    PyObject* returnObj=NULL;
     
     type=getVariableType(pyvars->vars,name);
-    
+    void* uncastval=getVariable(pyvars->vars,name);
     if(type==INT4_t){
-        returnObj=PyInt_FromLong((long int)(*(INT4*)getVariable(pyvars->vars,name)));
+		
+		long int cast_val=(long int)(*(INT4*)uncastval);
+        returnObj=PyInt_FromLong(cast_val);
     }
     else if(type==INT8_t){
-        returnObj=PyInt_FromLong(*(INT8*)getVariable(pyvars->vars,name));
+		long long cast_val=(long long)(*(INT8*)uncastval);
+        returnObj=PyInt_FromLong(cast_val);
     }
     else if(type==UINT4_t){
-        returnObj=PyInt_FromLong((long int)(*(UINT4*)getVariable(pyvars->vars,name)));
+        returnObj=PyInt_FromLong(*(UINT4*)uncastval);
     }
     else if(type==REAL4_t){
-        returnObj=PyFloat_FromDouble((double)(*(REAL4*)getVariable(pyvars->vars,name)));
+		float cast_val=(float)(*(REAL4*)uncastval);
+        returnObj=PyFloat_FromDouble(cast_val);
     }
     else if(type==REAL8_t){
-        REAL8 val=*((REAL8*)getVariable(pyvars->vars,name));
-        printf("%f",val);
-        
-        returnObj=PyFloat_FromDouble(val);
+        returnObj=PyFloat_FromDouble(*(REAL8*)uncastval);
         
     }
     else {
@@ -251,13 +250,13 @@ static int remove_variable(li_LALVariablesObject *self,PyObject* args){
 }
 
 static PyObject* get_variable(li_LALVariablesObject *self,PyObject* args){
-    PyObject* pyname;
+    PyObject* pyname=NULL,*returnObj=NULL;
     char* name;
     
     if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
     name=PyString_AsString(pyname);
-    return convert_livar_value_to_pyobj(self,name);
-    
+    returnObj=convert_livar_value_to_pyobj(self,name);
+    return returnObj;
 }
 
 static PyObject* get_variable_name(li_LALVariablesObject *self,PyObject* args){
@@ -505,6 +504,7 @@ static void LALIFOData_dealloc(li_LALIFODataObject *self)
 static int LALIFOData_init(li_LALIFODataObject *self, PyObject *args, PyObject *kwds)
 {
     self->data=(LALIFOData*)malloc(sizeof(LALIFOData));
+    memset((void*)self->data,0,sizeof(LALIFOData));
     return 0;
 }
 
@@ -738,20 +738,34 @@ static int LALIFOData_setfHigh(li_LALIFODataObject *self, PyObject *value, void 
 /*modelParams*/
 static PyObject* LALIFOData_getmodelParams(li_LALIFODataObject *self, void *closure)
 {
-    LALVariables* val=(LALVariables*)malloc(sizeof(LALVariables));
-    copyVariables(val,self->data->modelParams);
-    return NULL;
+    if(self->data->modelParams){
+		
+		li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
+		copyVariables(newLV->vars,self->data->modelParams);
+		
+		return (PyObject*)newLV;
+	}
+    else {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 }
 
 static int LALIFOData_setmodelParams(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
+{	
+	//printf("stage");
+	
+    if (!value) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the modelParams attribute");
         return -1;
     }
-
-    
-    
+    li_LALVariablesObject* existingLV=(li_LALVariablesObject*)value;
+    if(!self->data->modelParams){
+		self->data->modelParams=(LALVariables*)malloc(sizeof(LALVariables));
+	}
+	
+    copyVariables(self->data->modelParams,existingLV->vars);
+	printf("%lf\n",*(REAL8*)getVariable(self->data->modelParams,"myvar"));
   return 0;
 }
 
