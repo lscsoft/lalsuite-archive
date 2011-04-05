@@ -337,8 +337,9 @@ static PyObject *PyIIR(PyObject *self, PyObject *args)
 	a1_pyob = PyArray_SimpleNewFromData(1, a1_length, NPY_CDOUBLE, (void *) a1->data);
 	b0_pyob = PyArray_SimpleNewFromData(1, b0_length, NPY_CDOUBLE, (void *) b0->data);
 	delay_pyob = PyArray_SimpleNewFromData(1, delay_length, NPY_INT, (void *) delay->data);
-	
 	out = Py_BuildValue("OOO", a1_pyob, b0_pyob, delay_pyob);
+	Py_DECREF(amp_array);
+	Py_DECREF(phase_array);
 	return out;
 }
 
@@ -378,6 +379,9 @@ static PyObject *PyIIRResponse(PyObject *self, PyObject *args)
 	memcpy(PyArray_DATA(resp_pyob), resp->data, resp->length * sizeof(*resp->data));
 		
 	XLALDestroyCOMPLEX16Vector(resp);
+	Py_DECREF(a1_array);
+	Py_DECREF(b0_array);
+	Py_DECREF(delay_array);
 
 	return resp_pyob;
 }
@@ -413,6 +417,10 @@ static PyObject *PyIIRInnerProduct(PyObject *self, PyObject *args)
 	psd_real8.length = psd_arraydims[0];
 	psd_real8.data = PyArray_DATA(psd_array);
 	XLALInspiralCalculateIIRSetInnerProduct(&a1_complex16, &b0_complex16, &delay_int4, &psd_real8, &ip);
+	Py_DECREF(a1_array);
+	Py_DECREF(b0_array);
+	Py_DECREF(delay_array);
+	Py_DECREF(psd_array);
 
 	return Py_BuildValue("d", ip);
 }

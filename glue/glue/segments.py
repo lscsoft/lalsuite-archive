@@ -1223,3 +1223,18 @@ try:
 	from __segments import *
 except ImportError:
 	pass
+
+
+#
+# =============================================================================
+#
+#                                Pickle Support
+#
+# =============================================================================
+#
+
+
+import copy_reg
+
+copy_reg.pickle(segment, lambda x: (segment, tuple(x)))
+copy_reg.pickle(segmentlist, lambda x: (segmentlist, (), None, iter(x)))

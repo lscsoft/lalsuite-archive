@@ -1,4 +1,4 @@
-/*
+    /*
 *  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer, Tjonnie G.F. Li, Walter Del Pozzo
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -162,7 +162,7 @@ LALInspiralStationaryPhaseApprox2Test (
     REAL8 phaseParams[10] = {0.0};
   
     TaylorF2fillPhaseParams(params, phaseParams, dphis);
-    for (int k=0;k<10;k++) fprintf(stderr,"dphi%i = %e\n",k,dphis[k]);
+//    for (int k=0;k<10;k++) fprintf(stderr,"dphi%i = %e\n",k,dphis[k]);
 //	FILE* model_output;
 //	model_output=fopen("output_TF2T.dat","w");
 
