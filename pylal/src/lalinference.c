@@ -741,7 +741,7 @@ static PyObject* LALIFOData_getmodelParams(li_LALIFODataObject *self, void *clos
     if(self->data->modelParams){
 		
 		li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
-		copyVariables(newLV->vars,self->data->modelParams);
+		copyVariables(self->data->modelParams,newLV->vars);
 		
 		return (PyObject*)newLV;
 	}
@@ -753,19 +753,53 @@ static PyObject* LALIFOData_getmodelParams(li_LALIFODataObject *self, void *clos
 
 static int LALIFOData_setmodelParams(li_LALIFODataObject *self, PyObject *value, void *closure)
 {	
-	//printf("stage");
-	
     if (!value) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the modelParams attribute");
         return -1;
     }
+    
     li_LALVariablesObject* existingLV=(li_LALVariablesObject*)value;
+    
     if(!self->data->modelParams){
 		self->data->modelParams=(LALVariables*)malloc(sizeof(LALVariables));
 	}
 	
-    copyVariables(self->data->modelParams,existingLV->vars);
-	printf("%lf\n",*(REAL8*)getVariable(self->data->modelParams,"myvar"));
+    copyVariables(existingLV->vars,self->data->modelParams);
+	
+  return 0;
+}
+
+/*dataParams*/
+static PyObject* LALIFOData_getdataParams(li_LALIFODataObject *self, void *closure)
+{
+    if(self->data->dataParams){
+		
+		li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
+		copyVariables(self->data->dataParams,newLV->vars);
+		
+		return (PyObject*)newLV;
+	}
+    else {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+}
+
+static int LALIFOData_setdataParams(li_LALIFODataObject *self, PyObject *value, void *closure)
+{	
+    if (!value) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the dataParams attribute");
+        return -1;
+    }
+    
+    li_LALVariablesObject* existingLV=(li_LALVariablesObject*)value;
+    
+    if(!self->data->dataParams){
+		self->data->dataParams=(LALVariables*)malloc(sizeof(LALVariables));
+	}
+	
+    copyVariables(existingLV->vars,self->data->dataParams);
+	
   return 0;
 }
 
@@ -811,6 +845,10 @@ static PyGetSetDef LALIFOData_getseters[] = {
     {"modelParams", 
      (getter)LALIFOData_getmodelParams, (setter)LALIFOData_setmodelParams,
      "modelParams",
+     NULL},
+     {"dataParams", 
+     (getter)LALIFOData_getdataParams, (setter)LALIFOData_setdataParams,
+     "dataParams",
      NULL},
     {NULL}  /* Sentinel */
 };
