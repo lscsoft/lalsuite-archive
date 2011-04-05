@@ -131,7 +131,6 @@ def cbcBayesPostProc(
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'))
-
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
     if injfile:
@@ -161,6 +160,7 @@ def cbcBayesPostProc(
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
+    print "pos names " + str(pos.names) +"\n"
 
     if eventnum is None and injfile is not None:
         import itertools
@@ -370,7 +370,6 @@ def cbcBayesPostProc(
         except KeyError:
             print "Bin size is not set for %s, skipping binning."%par_name
             continue
-
         binParams={par_name:par_bin}
 
         toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
@@ -548,7 +547,7 @@ def cbcBayesPostProc(
 
         #Form greedy binning input structure
         greedy2Params={par1_name:par1_bin,par2_name:par2_bin}
-
+        print "greedy2Params "+ str(greedy2Params) +"\n"
         #Greedy bin the posterior samples
         toppoints,injection_cl,reses,injection_area=\
         bppu.greedy_bin_two_param(pos,greedy2Params,confidence_levels)
@@ -690,16 +689,16 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','chi']
+    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','chi','dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7','long','lat','dist','m']
     #List of parameter pairs to bin . Need to match (converted) column names.
     twoDGreedyMenu=[]
     for i in range(0,len(oneDMenu)):
         for j in range(i+1,len(oneDMenu)):
             twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
-
+    #print "twoDGreedyMenu "+ str(twoDGreedyMenu)+"\n"
     # twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'dphi3':0.5,'m':0.025}
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
