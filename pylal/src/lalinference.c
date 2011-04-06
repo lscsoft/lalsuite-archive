@@ -11,6 +11,7 @@
 #include <real8fftplan.h>
 #include <real8frequencyseries.h>
 #include <real8timeseries.h>
+#include <ligotimegps.h>
 
 #define MODULE_NAME "pylal._lalinference"
 
@@ -28,15 +29,16 @@ const char LIDocString[] =
 
 typedef struct {
     PyObject_HEAD
+    PyObject* owner;
     /* Type-specific fields go here */
     LALVariables* vars;
-} li_LALVariablesObject;
+} li_LALVariables;
 
 /*Methods*/
 
 
 /* Destructor for LALVariables */
-static void LALVariables_dealloc(li_LALVariablesObject *self)
+static void LALVariables_dealloc(li_LALVariables *self)
 {
     destroyVariables(self->vars);
     self->ob_type->tp_free((PyObject *)self);
@@ -123,7 +125,7 @@ void* LALVariables_convert_pyobj_to_livar_value(PyObject* pyvalue,VariableType t
     return value;
 }
 
-static PyObject* LALVariables_add_variable(li_LALVariablesObject *self,PyObject* args,PyObject* kwds){
+static PyObject* LALVariables_add_variable(li_LALVariables *self,PyObject* args,PyObject* kwds){
     PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL,*pytype=NULL;
 
     char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
@@ -190,7 +192,7 @@ static PyObject* LALVariables_add_variable(li_LALVariablesObject *self,PyObject*
     return Py_None;
 }
 
-static PyObject* LALVariables_check_variable(li_LALVariablesObject *self,PyObject* args)
+static PyObject* LALVariables_check_variable(li_LALVariables *self,PyObject* args)
 /* Check for existence of name */
 {
     PyObject* pyname;
@@ -209,7 +211,7 @@ static PyObject* LALVariables_check_variable(li_LALVariablesObject *self,PyObjec
 }
 
 
-PyObject* LALVariables_convert_livar_value_to_pyobj(li_LALVariablesObject *pyvars,char* name){
+PyObject* LALVariables_convert_livar_value_to_pyobj(li_LALVariables *pyvars,char* name){
     VariableType type;
     
     PyObject* returnObj=NULL;
@@ -244,7 +246,7 @@ PyObject* LALVariables_convert_livar_value_to_pyobj(li_LALVariablesObject *pyvar
     return returnObj;
 }
 
-static int LALVariables_remove_variable(li_LALVariablesObject *self,PyObject* args){
+static int LALVariables_remove_variable(li_LALVariables *self,PyObject* args){
     PyObject* pyname;
     char* name;
     
@@ -256,7 +258,7 @@ static int LALVariables_remove_variable(li_LALVariablesObject *self,PyObject* ar
     return 0;
 }
 
-static PyObject* LALVariables_get_variable(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable(li_LALVariables *self,PyObject* args){
     PyObject* pyname=NULL,*returnObj=NULL;
     char* name;
     
@@ -266,7 +268,7 @@ static PyObject* LALVariables_get_variable(li_LALVariablesObject *self,PyObject*
     return returnObj;
 }
 
-static PyObject* LALVariables_get_variable_name(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_name(li_LALVariables *self,PyObject* args){
     char* name;
     long var_idx;
     
@@ -278,7 +280,7 @@ static PyObject* LALVariables_get_variable_name(li_LALVariablesObject *self,PyOb
     
 }
 
-static int LALVariables_set_variable(li_LALVariablesObject *self,PyObject* args){
+static int LALVariables_set_variable(li_LALVariables *self,PyObject* args){
     PyObject* pyname;char* name;
     PyObject* pynew_var_value;void* new_var_value;
     VariableType type;
@@ -319,7 +321,7 @@ char* LALVariables_get_type_string(VariableType type){
     return type_name;
 }
 
-static PyObject* LALVariables_get_variable_type(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_type(li_LALVariables *self,PyObject* args){
     VariableType type;
     char* name;
     PyObject* pyname;
@@ -340,7 +342,7 @@ static PyObject* LALVariables_get_variable_type(li_LALVariablesObject *self,PyOb
     
 }
     
-static PyObject* LALVariables_get_variable_type_by_index(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_type_by_index(li_LALVariables *self,PyObject* args){
     VariableType type;
     long var_idx;
     char* type_name=NULL;
@@ -373,7 +375,7 @@ char* LALVariables_get_varytype_string(ParamVaryType varytype){
     
 }
 
-static PyObject* LALVariables_get_variable_vary_type(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_vary_type(li_LALVariables *self,PyObject* args){
     ParamVaryType varytype;
     char* name;
     PyObject* pyname;
@@ -393,7 +395,7 @@ static PyObject* LALVariables_get_variable_vary_type(li_LALVariablesObject *self
     
 }
 
-static PyObject* LALVariables_get_variable_dimension(li_LALVariablesObject *self){
+static PyObject* LALVariables_get_variable_dimension(li_LALVariables *self){
     long dimension;
     PyObject* pydimension=NULL;
     
@@ -405,7 +407,7 @@ static PyObject* LALVariables_get_variable_dimension(li_LALVariablesObject *self
     
 }
 
-static PyObject* LALVariables_get_variable_dimension_non_fixed(li_LALVariablesObject *self){
+static PyObject* LALVariables_get_variable_dimension_non_fixed(li_LALVariables *self){
     long dimension;
     PyObject* pydimension=NULL;
     
@@ -417,13 +419,47 @@ static PyObject* LALVariables_get_variable_dimension_non_fixed(li_LALVariablesOb
     
 }
 
-static int LALVariables_init(li_LALVariablesObject *self, PyObject *args, PyObject *kwds)
+static int LALVariables_init(li_LALVariables *self, PyObject *args, PyObject *kwds)
 {
     /* Should fill in the array using a dictionary as input */
     
     self->vars=(LALVariables*)malloc(sizeof(LALVariables));
     memset((void*)self->vars,0,sizeof(LALVariables));
     return 0;
+}
+
+static int LALVariables_new(LALVariables *vars, PyObject *owner){
+	PyObject *empty_tuple = PyTuple_New(0);
+	li_LALVariables *obj = (li_LALVariables *) PyType_GenericNew(&li_LALVariables_Type,empty_tuple,NULL);
+	Py_DECREF(empty_tuple);
+	
+	if(!obj) {
+		if(!owner)
+			return NULL;
+	}
+	if(owner)
+		Py_INCREF(owner);
+	obj->owner = owner;
+	destroyVariables(obj->vars);
+	obj->vars = vars;
+	return (PyObject *) obj;
+}
+
+static int LALVariables_copy(LALVariables *vars, PyObject *owner){
+	PyObject *empty_tuple = PyTuple_New(0);
+	li_LALVariables *obj = (li_LALVariables *) PyType_GenericNew(&li_LALVariables_Type,empty_tuple,NULL);
+	Py_DECREF(empty_tuple);
+	
+	if(!obj) {
+		if(!owner)
+			return NULL;
+	}
+	if(owner)
+		Py_INCREF(owner);
+	obj->owner = owner;
+	destroyVariables(obj->vars);
+	obj->vars = vars;
+	return (PyObject *) obj;
 }
 
 static PyMethodDef LALVariables_methods[]= {
@@ -447,7 +483,7 @@ static PyTypeObject li_LALVariablesType = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
     "lalinference.BaseLALVariables",    /* tp_name, name of type */
-    sizeof(li_LALVariablesObject),  /* tp_basicsize */
+    sizeof(li_LALVariables),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
     (destructor)LALVariables_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
@@ -495,22 +531,23 @@ static PyTypeObject li_LALVariablesType = {
 
 typedef struct {
     PyObject_HEAD
+    PyObject* owner;
     /* Type-specific fields go here */
     LALIFOData data;
     PyObject* window;
      
-} li_LALIFODataObject;
+} li_LALIFOData;
 
 
 /*Methods*/
 
  /* Destructor for LALIFOData */
-static void LALIFOData_dealloc(li_LALIFODataObject *self)
+static void LALIFOData_dealloc(li_LALIFOData *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALIFOData_init(li_LALIFODataObject *self, PyObject *args, PyObject *kwds)
+static int LALIFOData_init(li_LALIFOData *self, PyObject *args, PyObject *kwds)
 {
     //self->data=(LALIFOData*)malloc(sizeof(LALIFOData));
     memset((void*)&self->data,0,sizeof(LALIFOData));
@@ -521,12 +558,12 @@ static int LALIFOData_init(li_LALIFODataObject *self, PyObject *args, PyObject *
 
 /*name*/
 
-static PyObject* LALIFOData_getname(li_LALIFODataObject *self, void *closure)
+static PyObject* LALIFOData_getname(li_LALIFOData *self, void *closure)
 {
     return PyString_FromString(self->data.name);
 }
 
-static int LALIFOData_setname(li_LALIFODataObject *self, PyObject *value, void *closure)
+static int LALIFOData_setname(li_LALIFOData *self, PyObject *value, void *closure)
 {
   if (value == NULL) {
     PyErr_SetString(PyExc_TypeError, "Cannot delete the name attribute");
@@ -546,14 +583,10 @@ static int LALIFOData_setname(li_LALIFODataObject *self, PyObject *value, void *
 }
 
 /*modelParams*/
-static PyObject* LALIFOData_getmodelParams(li_LALIFODataObject *self, void *closure)
+static PyObject* LALIFOData_getmodelParams(li_LALIFOData *self, void *closure)
 {
     if(self->data.modelParams){
-        
-        li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
-        copyVariables(self->data.modelParams,newLV->vars);
-        
-        return (PyObject*)newLV;
+        return LALVariables_new(self->data.modelParams,(PyObject*)self);
     }
     else {
         Py_INCREF(Py_None);
@@ -561,18 +594,21 @@ static PyObject* LALIFOData_getmodelParams(li_LALIFODataObject *self, void *clos
     }
 }
 
-static int LALIFOData_setmodelParams(li_LALIFODataObject *self, PyObject *value, void *closure)
+static int LALIFOData_setmodelParams(li_LALIFOData *self, PyObject *value, void *closure)
 {   
     if (!value) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the modelParams attribute");
         return -1;
     }
     
-    li_LALVariablesObject* existingLV=(li_LALVariablesObject*)value;
+    li_LALVariables* existingLV=(li_LALVariables*)value;
     
     if(!self->data.modelParams){
         self->data.modelParams=(LALVariables*)malloc(sizeof(LALVariables));
     }
+    else{
+		destroyVariables(self->data.modelParams);
+	}
     
     copyVariables(existingLV->vars,self->data.modelParams);
     
@@ -580,14 +616,10 @@ static int LALIFOData_setmodelParams(li_LALIFODataObject *self, PyObject *value,
 }
 
 /*dataParams*/
-static PyObject* LALIFOData_getdataParams(li_LALIFODataObject *self, void *closure)
+static PyObject* LALIFOData_getdataParams(li_LALIFOData *self, void *closure)
 {
     if(self->data.dataParams){
-        
-        li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
-        copyVariables(self->data.dataParams,newLV->vars);
-        
-        return (PyObject*)newLV;
+        return LALVariables_new(self->data.dataParams,(PyObject*)self);
     }
     else {
         Py_INCREF(Py_None);
@@ -595,14 +627,14 @@ static PyObject* LALIFOData_getdataParams(li_LALIFODataObject *self, void *closu
     }
 }
 
-static int LALIFOData_setdataParams(li_LALIFODataObject *self, PyObject *value, void *closure)
+static int LALIFOData_setdataParams(li_LALIFOData *self, PyObject *value, void *closure)
 {   
     if (!value) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the dataParams attribute");
         return -1;
     }
     
-    li_LALVariablesObject* existingLV=(li_LALVariablesObject*)value;
+    li_LALVariables* existingLV=(li_LALVariables*)value;
     
     if(!self->data.dataParams){
         self->data.dataParams=(LALVariables*)malloc(sizeof(LALVariables));
@@ -613,7 +645,7 @@ static int LALIFOData_setdataParams(li_LALIFODataObject *self, PyObject *value, 
   return 0;
 }
 
-static PyObject* LALIFOData_getmodelDomain(li_LALIFODataObject *self, void *closure)
+static PyObject* LALIFOData_getmodelDomain(li_LALIFOData *self, void *closure)
 {
 
     if(self->data.modelDomain==timeDomain){
@@ -625,7 +657,7 @@ static PyObject* LALIFOData_getmodelDomain(li_LALIFODataObject *self, void *clos
     else return NULL;
 }
 
-static int LALIFOData_setmodelDomain(li_LALIFODataObject *self, PyObject *value, void *closure)
+static int LALIFOData_setmodelDomain(li_LALIFOData *self, PyObject *value, void *closure)
 {
     if (value == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the name attribute");
@@ -668,43 +700,29 @@ int setREAL8TimeSeriesFromLALIFOData(REAL8TimeSeries* target,PyObject* origin){
     int n=originvec->series->data->length;
     if(n != target->data->length)
         XLALResizeREAL8Sequence(target->data, 0, n);
-        
+    memcpy(target,originvec->series,sizeof(REAL8TimeSeries));    
     memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
     return 0;
 }
 
-//PyObject* getREAL8TimeSeriesFromLALIFOData(REAL8TimeSeries* target){
-
-    //pylal_REAL8TimeSeries* new=(pylal_REAL8TimeSeries*)PyObject_CallFunction((PyObject *)&pylal_REAL8TimeSeries_Type,NULL);
-
-    //int n=target->data->length;
-    
-    //memcpy(new->series,target,sizeof(REAL8TimeSeries));
-    //XLALResizeREAL8Sequence(new->series->data, 0, n);
-    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
-    //return (PyObject*)new;
-
-    
-//}
-
 /* timeData */
-static int LALIFOData_settimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeData,value);}
-static PyObject* LALIFOData_gettimeData(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeData,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeData);}
+static int LALIFOData_settimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeData,value);}
+static PyObject* LALIFOData_gettimeData(li_LALIFOData *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeData,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeData);}
 /* timeModelhPlus */
-static int LALIFOData_settimeModelhPlus(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus,value);}
-static PyObject* LALIFOData_gettimeModelhPlus(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeModelhPlus,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus);}
+static int LALIFOData_settimeModelhPlus(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus,value);}
+static PyObject* LALIFOData_gettimeModelhPlus(li_LALIFOData *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeModelhPlus,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus);}
 /* timeModelhCross */
-static int LALIFOData_settimeModelhCross(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross,value);}
-static PyObject* LALIFOData_gettimeModelhCross(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeModelhCross,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross);}
+static int LALIFOData_settimeModelhCross(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross,value);}
+static PyObject* LALIFOData_gettimeModelhCross(li_LALIFOData *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeModelhCross,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross);}
 /* whiteTimeData */
-static int LALIFOData_setwhiteTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData,value);}
-static PyObject* LALIFOData_getwhiteTimeData(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.whiteTimeData,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData);}
+static int LALIFOData_setwhiteTimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData,value);}
+static PyObject* LALIFOData_getwhiteTimeData(li_LALIFOData *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.whiteTimeData,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData);}
 /* windowedTimeData */
-static int LALIFOData_setwindowedTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData,value);}
-static PyObject* LALIFOData_getwindowedTimeData(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.windowedTimeData,(PyObject*)self);}//getREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData);}
+static int LALIFOData_setwindowedTimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData,value);}
+static PyObject* LALIFOData_getwindowedTimeData(li_LALIFOData *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.windowedTimeData,(PyObject*)self);}//getREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData);}
 /* timeDomainNoiseWeights */
-static int LALIFOData_settimeDomainNoiseWeights(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights,value);}
-static PyObject* LALIFOData_gettimeDomainNoiseWeights(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeDomainNoiseWeights,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights);}
+static int LALIFOData_settimeDomainNoiseWeights(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights,value);}
+static PyObject* LALIFOData_gettimeDomainNoiseWeights(li_LALIFOData *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeDomainNoiseWeights,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights);}
 
 int setREAL8FrequencySeriesFromLALIFOData(REAL8FrequencySeries* target,PyObject* origin){
     /* require pylal_REAL8TimeSeries */
@@ -718,28 +736,14 @@ int setREAL8FrequencySeriesFromLALIFOData(REAL8FrequencySeries* target,PyObject*
     int n=originvec->series->data->length;
     if(n != target->data->length)
         XLALResizeREAL8Sequence(target->data, 0, n);
-        
+    memcpy(target,originvec->series,sizeof(REAL8FrequencySeries));    
     memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
     return 0;
 }
 
-//PyObject* getREAL8FrequencySeriesFromLALIFOData(REAL8FrequencySeries* target){
-
-    //pylal_REAL8FrequencySeries* new=(pylal_REAL8FrequencySeries*)PyObject_CallFunction((PyObject *)&pylal_REAL8FrequencySeries_Type,NULL);
-
-    //int n=target->data->length;
-    
-    //memcpy(new->series,target,sizeof(REAL8FrequencySeries));
-    //XLALResizeREAL8Sequence(new->series->data, 0, n);
-    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
-    //return (PyObject*)new;
-
-    
-//}
-
 /* oneSidedNoisePowerSpectrum */
-static int LALIFOData_setoneSidedNoisePowerSpectrum(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8FrequencySeriesFromLALIFOData(self->data.oneSidedNoisePowerSpectrum,value);}
-static PyObject* LALIFOData_getoneSidedNoisePowerSpectrum(li_LALIFODataObject *self, void *closure) {return pylal_REAL8FrequencySeries_new(self->data.oneSidedNoisePowerSpectrum,(PyObject*)self);}//{return getREAL8FrequencySeriesFromLALIFOData(self->data.oneSidedNoisePowerSpectrum);}
+static int LALIFOData_setoneSidedNoisePowerSpectrum(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8FrequencySeriesFromLALIFOData(self->data.oneSidedNoisePowerSpectrum,value);}
+static PyObject* LALIFOData_getoneSidedNoisePowerSpectrum(li_LALIFOData *self, void *closure) {return pylal_REAL8FrequencySeries_new(self->data.oneSidedNoisePowerSpectrum,(PyObject*)self);}//{return getREAL8FrequencySeriesFromLALIFOData(self->data.oneSidedNoisePowerSpectrum);}
 
 
 int setCOMPLEX16FrequencySeriesFromLALIFOData(COMPLEX16FrequencySeries* target,PyObject* origin){
@@ -754,33 +758,23 @@ int setCOMPLEX16FrequencySeriesFromLALIFOData(COMPLEX16FrequencySeries* target,P
     int n=originvec->series->data->length;
     if(n != target->data->length)
         XLALResizeCOMPLEX16Sequence(target->data, 0, n);
-        
+    memcpy(target,originvec->series,sizeof(COMPLEX16FrequencySeries));
     memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
     return 0;
 }
-//PyObject* getCOMPLEX16FrequencySeriesFromLALIFOData(COMPLEX16FrequencySeries* target){
-	//pylal_COMPLEX16FrequencySeries* new=(pylal_COMPLEX16FrequencySeries*)PyObject_CallFunction((PyObject *)&pylal_COMPLEX16FrequencySeries_Type,NULL);
-
-    //int n=target->data->length;
-    
-    //memcpy(new->series,target,sizeof(COMPLEX16FrequencySeries));
-    //XLALResizeCOMPLEX16Sequence(new->series->data, 0, n);
-    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
-    //return (PyObject*)new;
-//}
 
 /*freqData*/
-static int LALIFOData_setfreqData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqData,value);}
-static PyObject* LALIFOData_getfreqData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqData,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqData);}
+static int LALIFOData_setfreqData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqData,value);}
+static PyObject* LALIFOData_getfreqData(li_LALIFOData *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqData,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqData);}
 /*freqModelhPlus*/
-static int LALIFOData_setfreqModelhPlus(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhPlus,value);}
-static PyObject* LALIFOData_getfreqModelhPlus(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqModelhPlus,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhPlus);}
+static int LALIFOData_setfreqModelhPlus(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhPlus,value);}
+static PyObject* LALIFOData_getfreqModelhPlus(li_LALIFOData *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqModelhPlus,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhPlus);}
 /*freqModelhCross*/
-static int LALIFOData_setfreqModelhCross(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhCross,value);}
-static PyObject* LALIFOData_getfreqModelhCross(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqModelhCross,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhCross);}
+static int LALIFOData_setfreqModelhCross(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhCross,value);}
+static PyObject* LALIFOData_getfreqModelhCross(li_LALIFOData *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqModelhCross,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhCross);}
 /*whiteFreqData*/
-static int LALIFOData_setwhiteFreqData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.whiteFreqData,value);}
-static PyObject* LALIFOData_getwhiteFreqData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.whiteFreqData,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.whiteFreqData);}
+static int LALIFOData_setwhiteFreqData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.whiteFreqData,value);}
+static PyObject* LALIFOData_getwhiteFreqData(li_LALIFOData *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.whiteFreqData,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.whiteFreqData);}
 
 int setCOMPLEX16TimeSeriesFromLALIFOData(COMPLEX16TimeSeries* target,PyObject* origin){
 	/* require pylal_COMPLEX16TimeSeries */
@@ -794,41 +788,54 @@ int setCOMPLEX16TimeSeriesFromLALIFOData(COMPLEX16TimeSeries* target,PyObject* o
     int n=originvec->series->data->length;
     if(n != target->data->length)
         XLALResizeCOMPLEX16Sequence(target->data, 0, n);
-        
+    memcpy(target,originvec->series,sizeof(COMPLEX16TimeSeries));
     memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
     return 0;
 }
-//PyObject* getCOMPLEX16TimeSeriesFromLALIFOData(COMPLEX16TimeSeries* target){
-	//pylal_COMPLEX16TimeSeries* new=(pylal_COMPLEX16TimeSeries*)PyObject_CallFunction((PyObject *)&pylal_COMPLEX16TimeSeries_Type,NULL);
-
-    //int n=target->data->length;
-    
-    //memcpy(new->series,target,sizeof(COMPLEX16TimeSeries));
-    //XLALResizeCOMPLEX16Sequence(new->series->data, 0, n);
-    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
-    //return (PyObject*)new;
-//}
 
 /*compTimeData*/
-static int LALIFOData_setcompTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromLALIFOData(self->data.compTimeData,value);}
-static PyObject* LALIFOData_getcompTimeData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16TimeSeries_new(self->data.compTimeData,(PyObject*)self);}
+static int LALIFOData_setcompTimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromLALIFOData(self->data.compTimeData,value);}
+static PyObject* LALIFOData_getcompTimeData(li_LALIFOData *self, void *closure) {return pylal_COMPLEX16TimeSeries_new(self->data.compTimeData,(PyObject*)self);}
 
 /*compModelData*/
-static int LALIFOData_setcompModelData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromLALIFOData(self->data.compModelData,value);}
-static PyObject* LALIFOData_getcompModelData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16TimeSeries_new(self->data.compModelData,(PyObject*)self);}
+static int LALIFOData_setcompModelData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromLALIFOData(self->data.compModelData,value);}
+static PyObject* LALIFOData_getcompModelData(li_LALIFOData *self, void *closure) {return pylal_COMPLEX16TimeSeries_new(self->data.compModelData,(PyObject*)self);}
 
-int setREAL8FFTPlanFromLALIFOData(REAL8FFTPlan* target,PyObject* origin){
-    
+int setREAL8FFTPlanFromLALIFOData(REAL8FFTPlan* target,PyObject* origin,PyObject* IFODataOwner){
+    if(!PyObject_TypeCheck(origin, &pylal_REAL8FFTPlan_Type)){
+		PyErr_SetObject(PyExc_TypeError, origin);
+        return -1;
+	}
+	
+	pylal_REAL8FFTPlan* originplan=(pylal_REAL8FFTPlan*)origin;
+	Py_INCREF(IFODataOwner);
+	target=originplan->plan;
     return 0;
 }
 
 /*timeToFreqFFTPlan*/
-static int LALIFOData_settimeToFreqFFTPlan(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromLALIFOData(self->data.timeToFreqFFTPlan,value);}
-static PyObject* LALIFOData_gettimeToFreqFFTPlan(li_LALIFODataObject *self, void *closure) {return pylal_REAL8FFTPlan_new(self->data.timeToFreqFFTPlan,(PyObject*)self);}
+static int LALIFOData_settimeToFreqFFTPlan(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromLALIFOData(self->data.timeToFreqFFTPlan,value,(PyObject*)self);}
+static PyObject* LALIFOData_gettimeToFreqFFTPlan(li_LALIFOData *self, void *closure) {return pylal_REAL8FFTPlan_new(self->data.timeToFreqFFTPlan,(PyObject*)self);}
 
 /*freqToTimeFFTPlan*/
-static int LALIFOData_setfreqToTimeFFTPlan(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromLALIFOData(self->data.freqToTimeFFTPlan,value);}
-static PyObject* LALIFOData_getfreqToTimeFFTPlan(li_LALIFODataObject *self, void *closure) {return pylal_REAL8FFTPlan_new(self->data.freqToTimeFFTPlan,(PyObject*)self);}
+static int LALIFOData_setfreqToTimeFFTPlan(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromLALIFOData(self->data.freqToTimeFFTPlan,value,(PyObject*)self);}
+static PyObject* LALIFOData_getfreqToTimeFFTPlan(li_LALIFOData *self, void *closure) {return pylal_REAL8FFTPlan_new(self->data.freqToTimeFFTPlan,(PyObject*)self);}
+
+int setLIGOTimeGPSFromLALIFOData(LIGOTimeGPS target,PyObject* origin){
+    if(!PyObject_TypeCheck(origin, &pylal_REAL8FFTPlan_Type)){
+		PyErr_SetObject(PyExc_TypeError, origin);
+        return -1;
+	}
+	
+	pylal_LIGOTimeGPS* origingpstime=(pylal_LIGOTimeGPS*)origin;
+	XLALGPSSet(&target, origingpstime->gps.gpsSeconds, origingpstime->gps.gpsNanoSeconds);
+	
+    return 0;
+}
+
+/* epoch */
+static int LALIFOData_setepoch(li_LALIFOData *self, PyObject *value, void *closure) {return setLIGOTimeGPSFromLALIFOData(self->data.epoch,value);}
+static PyObject* LALIFOData_getepoch(li_LALIFOData *self, void *closure) {return pylal_LIGOTimeGPS_new(self->data.epoch);}
 
 
 /**getsetters registration struct**/
@@ -860,22 +867,24 @@ static PyGetSetDef LALIFOData_getseters[] = {
     //REAL8FFTPlan
     {"timeToFreqFFTPlan",(getter)LALIFOData_gettimeToFreqFFTPlan,(setter)LALIFOData_settimeToFreqFFTPlan,"timeToFreqFFTPlan",NULL},
     {"freqToTimeFFTPlan",(getter)LALIFOData_getfreqToTimeFFTPlan,(setter)LALIFOData_setfreqToTimeFFTPlan,"freqToTimeFFTPlan",NULL},
+    //LIGOTimeGPS
+    {"epoch",(getter)LALIFOData_getepoch,(setter)LALIFOData_setepoch,"epoch",NULL},
     {NULL}  /* Sentinel */
 };
 
 static struct PyMemberDef LALIFOData_members[] = {
     //REAL8's
-    {"nullloglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.nullloglikelihood), 0, "nullloglikelihood"},
-    {"loglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.loglikelihood), 0, "loglikelihood"},
-    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "acceptedloglikelihood"},
-    {"fPlus", T_DOUBLE, offsetof(li_LALIFODataObject, data.fPlus), 0, "fPlus"},
-    {"fCross", T_DOUBLE, offsetof(li_LALIFODataObject, data.fCross), 0, "fCross"},
-    {"timeshift", T_DOUBLE, offsetof(li_LALIFODataObject, data.timeshift), 0, "timeshift"},
-    {"fLow", T_DOUBLE, offsetof(li_LALIFODataObject, data.fLow), 0, "fLow"},
-    {"fHigh", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "fHigh"},
-    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "acceptedloglikelihood"},
+    {"nullloglikelihood", T_DOUBLE, offsetof(li_LALIFOData, data.nullloglikelihood), 0, "nullloglikelihood"},
+    {"loglikelihood", T_DOUBLE, offsetof(li_LALIFOData, data.loglikelihood), 0, "loglikelihood"},
+    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFOData, data.acceptedloglikelihood), 0, "acceptedloglikelihood"},
+    {"fPlus", T_DOUBLE, offsetof(li_LALIFOData, data.fPlus), 0, "fPlus"},
+    {"fCross", T_DOUBLE, offsetof(li_LALIFOData, data.fCross), 0, "fCross"},
+    {"timeshift", T_DOUBLE, offsetof(li_LALIFOData, data.timeshift), 0, "timeshift"},
+    {"fLow", T_DOUBLE, offsetof(li_LALIFOData, data.fLow), 0, "fLow"},
+    {"fHigh", T_DOUBLE, offsetof(li_LALIFOData, data.acceptedloglikelihood), 0, "fHigh"},
+    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFOData, data.acceptedloglikelihood), 0, "acceptedloglikelihood"},
 	
-    {"window", T_OBJECT, offsetof(li_LALIFODataObject,window), 0, "window"},
+    {"window", T_OBJECT, offsetof(li_LALIFOData,window), 0, "window"},
     
     {NULL,}
 };
@@ -889,7 +898,7 @@ static PyTypeObject li_LALIFODataType = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
     "lalinference.BaseLALIFOData",    /* tp_name, name of type */
-    sizeof(li_LALIFODataObject),  /* tp_basicsize */
+    sizeof(li_LALIFOData),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
     (destructor)LALIFOData_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
@@ -959,6 +968,7 @@ init_lalinference(void)
     pylal_real8fftplan_import();
     pylal_real8frequencyseries_import();
     pylal_real8timeseries_import();
+    pylal_ligotimegps_import();
     
     Py_INCREF(&li_LALVariablesType);
     PyModule_AddObject(m, "BaseLALVariables", (PyObject *)&li_LALVariablesType);
