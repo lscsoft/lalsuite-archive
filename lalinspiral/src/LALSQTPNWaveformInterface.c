@@ -12,6 +12,91 @@
 
 NRCSID (LALSQTPNWAVEFORMINTERFACEC, "$Id LALSQTPNWaveformInterface.c$");
 
+/**		The function calculates the parameters from the InspiralTemplate
+ * structure. <em>The used parameters are:</em>
+ * <ul>
+ *	<li>masses of the BHs (or NSs) \f$m_i\f$ in \f$M_\odot\f$</li>
+ *	<li>the spin components \f$\chi_{ij}\f$, the values of \f$\sqrt{\sum_j\chi_{ij}}\f$, are between 0 and 1</li>
+ *	<li>the quadrupole parameters \f$w_i\in(4,8)\f$ for NSs [1] and \f$w_i=1\f$ for BHs[2] are 1 (default 1)</li>
+ *	<li>the inclination (angle between the line of sight and Newtonian orbital angular momentum) \f$\iota\f$ in \f$rad\f$
+ *	<li>the initial frequency \f$f_L\f$ in \f$Hz\f$</li>
+ *	<li>the distance \f$d\f$ in \f$Mpc\f$</li>
+ *	<li>the sampling time \f$t_s\f$ in \f$s\f$</li>
+ *	<li>the PN order, see #LALPNOrder</li>
+ *	<li>level of accuracy in including spin and quadrupole contributions, see
+ *	#LALSQTPNSpinInteraction</li>
+ * <ul><br />
+ * <em>The calculated parameters:</em>
+ *	\f{center}{
+ *	\begin{gather}
+ *		\displaystyle M_{in}=m_1+m_2,\quad
+ *		\mu=\frac{m_1m_2}{M_{in}},\quad
+ *		\eta=\frac{\mu}{M_{in}},\\
+ *		\chi_i=\sqrt{\sum_{j}\chi_{ij}^2},\quad
+ *		\hat{\chi}_{ij}=\dfrac{\chi_{ij}}{\chi_i},\\
+ *		f_s=t_s^{-1}\\
+ *		A=\frac{4\cdot\eta M_{in}M_\odot\displaystyle\frac{G}{c^2}}{d\cdot3.0856775807\cdot10^{16}\cdot10^6}
+ *	\end{gather}
+ *	\f}
+ * and the initial phase \f$\phi=0\f$
+ * Assuming that:
+ * <ul>
+ * <li>masses are positive</li>
+ * <li>eta is positive</li>
+ * <li>sampling frequency is positive</li>
+ * <li>distance is positive</li>
+ * </ul>
+ * @param[out]	wave		: the used parameters
+ * @param[in]		params	: the inspiral parameters
+ */
+static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params) {
+	wave->mass[0] = params->mass1;
+	wave->mass[1] = params->mass2;
+	wave->totalMass = wave->mass[0] + wave->mass[1];
+	wave->mu = wave->mass[0] * wave->mass[1] / wave->totalMass;
+	wave->eta = wave->mu / wave->totalMass;
+	wave->chirpMass = wave->totalMass * pow(wave->eta, 3. / 5.);
+	wave->chiAmp[0] = wave->chiAmp[1] = 0.;
+	INT2 i;
+	for (i = 0; i < 3; i++) {
+		wave->chi[0][i] = params->spin1[i];
+		wave->chi[1][i] = params->spin2[i];
+		wave->chiAmp[0] += SQT_SQR(wave->chi[0][i]);
+		wave->chiAmp[1] += SQT_SQR(wave->chi[1][i]);
+	}
+	wave->chiAmp[0] = sqrt(wave->chiAmp[0]);
+	wave->chiAmp[1] = sqrt(wave->chiAmp[1]);
+	for (i = 0; i < 3; i++) {
+		if (wave->chiAmp[0] != 0.) {
+			wave->chih[0][i] = wave->chi[0][i] / wave->chiAmp[0];
+		} else {
+			wave->chih[0][i] = 0.;
+		}
+		if (wave->chiAmp[1] != 0.) {
+			wave->chih[1][i] = wave->chi[1][i] / wave->chiAmp[1];
+		} else {
+			wave->chih[1][i] = 0.;
+		}
+	}
+	wave->qmParameter[0] = 1.;//params->qmParameter[0];
+	wave->qmParameter[1] = 1.;//params->qmParameter[1];
+	wave->distance = params->distance;
+	wave->inclination = params->inclination;
+	wave->lowerFreq = params->fLower;
+	wave->finalFreq = (params->fFinal < params->fLower ? params->fCutoff : (params->fCutoff
+			< params->fFinal ? params->fCutoff : params->fFinal));
+	wave->samplingFreq = params->tSampling;
+	wave->samplingTime = 1. / wave->samplingFreq;
+	wave->phi = 0.;
+	wave->signalAmp = 4. * wave->totalMass * wave->eta * LAL_MRSUN_SI / wave->distance;
+	wave->order = params->order;
+	wave->spinInteraction = params->spinInteraction;
+	if (wave->spinInteraction) {
+		wave->spinInteraction |= LAL_SOInter;
+	}
+	wave->amplitudeContribution = params->ampOrder;
+}
+
 void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4Vector *signalvec2,
 		InspiralTemplate *params) {
 
@@ -241,52 +326,4 @@ void XLALSQTPNDestroyCoherentGW(CoherentGW *wave) {
 		XLALFree(wave->shift);
 		wave->shift = NULL;
 	}
-}
-
-void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params) {
-	wave->mass[0] = params->mass1;
-	wave->mass[1] = params->mass2;
-	wave->totalMass = wave->mass[0] + wave->mass[1];
-	wave->mu = wave->mass[0] * wave->mass[1] / wave->totalMass;
-	wave->eta = wave->mu / wave->totalMass;
-	wave->chirpMass = wave->totalMass * pow(wave->eta, 3. / 5.);
-	wave->chiAmp[0] = wave->chiAmp[1] = 0.;
-	INT2 i;
-	for (i = 0; i < 3; i++) {
-		wave->chi[0][i] = params->spin1[i];
-		wave->chi[1][i] = params->spin2[i];
-		wave->chiAmp[0] += SQT_SQR(wave->chi[0][i]);
-		wave->chiAmp[1] += SQT_SQR(wave->chi[1][i]);
-	}
-	wave->chiAmp[0] = sqrt(wave->chiAmp[0]);
-	wave->chiAmp[1] = sqrt(wave->chiAmp[1]);
-	for (i = 0; i < 3; i++) {
-		if (wave->chiAmp[0] != 0.) {
-			wave->chih[0][i] = wave->chi[0][i] / wave->chiAmp[0];
-		} else {
-			wave->chih[0][i] = 0.;
-		}
-		if (wave->chiAmp[1] != 0.) {
-			wave->chih[1][i] = wave->chi[1][i] / wave->chiAmp[1];
-		} else {
-			wave->chih[1][i] = 0.;
-		}
-	}
-	wave->qmParameter[0] = 1.;//params->qmParameter[0];
-	wave->qmParameter[1] = 1.;//params->qmParameter[1];
-	wave->distance = params->distance;
-	wave->inclination = params->inclination;
-	wave->lowerFreq = params->fLower;
-	wave->finalFreq = (params->fFinal < params->fLower ? params->fCutoff : (params->fCutoff
-			< params->fFinal ? params->fCutoff : params->fFinal));
-	wave->samplingFreq = params->tSampling;
-	wave->samplingTime = 1. / wave->samplingFreq;
-	wave->phi = 0.;
-	wave->signalAmp = 4. * wave->totalMass * wave->eta * LAL_MRSUN_SI / wave->distance;
-	wave->order = params->order;
-	wave->spinInteraction = params->spinInteraction;
-	if (wave->spinInteraction) {
-		wave->spinInteraction |= LAL_SOInter;
-	}
-	wave->amplitudeContribution = params->ampOrder;
 }

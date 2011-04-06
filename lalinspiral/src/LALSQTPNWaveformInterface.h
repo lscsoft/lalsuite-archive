@@ -54,51 +54,10 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *wave_out,
  */
 int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length);
 
-int XLALSQTPNAllocateCoherentGWH(CoherentGW *wave, UINT4 length);
-
 /**		The function deallocates memory of the waveform.
  * @param[out]		waveform	: pointer to the allocated waveform
  */
 void XLALSQTPNDestroyCoherentGW(CoherentGW *wave);
-
-/**		The function calculates the parameters from the InspiralTemplate
- * structure. <em>The used parameters are:</em>
- * <ul>
- *	<li>masses of the BHs (or NSs) \f$m_i\f$ in \f$M_\odot\f$</li>
- *	<li>the spin components \f$\chi_{ij}\f$, the values of \f$\sqrt{\sum_j\chi_{ij}}\f$, are between 0 and 1</li>
- *	<li>the quadrupole parameters \f$w_i\in(4,8)\f$ for NSs [1] and \f$w_i=1\f$ for BHs[2] are 1 (default 1)</li>
- *	<li>the inclination (angle between the line of sight and Newtonian orbital angular momentum) \f$\iota\f$ in \f$rad\f$
- *	<li>the initial frequency \f$f_L\f$ in \f$Hz\f$</li>
- *	<li>the distance \f$d\f$ in \f$Mpc\f$</li>
- *	<li>the sampling time \f$t_s\f$ in \f$s\f$</li>
- *	<li>the PN order, see #LALPNOrder</li>
- *	<li>level of accuracy in including spin and quadrupole contributions, see
- *	#LALSQTPNSpinInteraction</li>
- * <ul><br />
- * <em>The calculated parameters:</em>
- *	\f{center}{
- *	\begin{gather}
- *		\displaystyle M_{in}=m_1+m_2,\quad
- *		\mu=\frac{m_1m_2}{M_{in}},\quad
- *		\eta=\frac{\mu}{M_{in}},\\
- *		\chi_i=\sqrt{\sum_{j}\chi_{ij}^2},\quad
- *		\hat{\chi}_{ij}=\dfrac{\chi_{ij}}{\chi_i},\\
- *		f_s=t_s^{-1}\\
- *		A=\frac{4\cdot\eta M_{in}M_\odot\displaystyle\frac{G}{c^2}}{d\cdot3.0856775807\cdot10^{16}\cdot10^6}
- *	\end{gather}
- *	\f}
- * and the initial phase \f$\phi=0\f$
- * Assuming that:
- * <ul>
- * <li>masses are positive</li>
- * <li>eta is positive</li>
- * <li>sampling frequency is positive</li>
- * <li>distance is positive</li>
- * </ul>
- * @param[out]	wave		: the used parameters
- * @param[in]		params	: the inspiral parameters
- */
-void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params);
 
 #ifdef __cplusplus
 }
