@@ -180,8 +180,6 @@ typedef struct tagLALSQTPNWaveformParams {
  * @param[in]		params		: the input parameters
  */
 void
-LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
-void
 LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
 
 /**		The function fills the #LALSQTPNCoefficients structure with the needed
@@ -250,7 +248,6 @@ int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
  * @param[out]	dvalues	: the derived values and the last element is the MECO
  * @param[in]	params	: the LALSQTPN_Generator's parameters
  */
-int LALSQTPNDerivator_Old(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 
 void XLALSQTPNAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 values[],

@@ -100,9 +100,6 @@ void XLALSQTPNDestroyCoherentGW(CoherentGW *wave);
  */
 void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *params);
 
-void XLALSQTPNCalcHpHcFromCoherentGWat(INT4 ind, INT2 amplitude, CoherentGW *wave, REAL8 mass[],
-		REAL8 distance, REAL4 h[]);
-
 #ifdef __cplusplus
 }
 #endif

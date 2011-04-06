@@ -56,8 +56,8 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	}
 	ark4GSLIntegrator *integrator;
 	xlalErrno = 0;
-	integrator = XLALAdaptiveRungeKutta4Init(14, LALSQTPNDerivator_Old, XLALSQTPNTest, 1.0e-6,
-			1.0e-6);
+	integrator = XLALAdaptiveRungeKutta4Init(LALSQTPN_NUM_OF_VAR, LALSQTPNDerivator, XLALSQTPNTest,
+			1.0e-6, 1.0e-6);
 	if (!integrator) {
 		if (XLALClearErrno() == XLAL_ENOMEM)
 			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
@@ -102,6 +102,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 		ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
 	} else {
 		REAL8 alpha, amp;
+		REAL4 h[2];
 		for (UINT8 i = 0; i < size; i++) {
 			for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
 				valuesHelp[j] = values->data[(j + 1) * size + i];
@@ -109,7 +110,6 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 			alpha = atan2(valuesHelp[LALSQTPN_LNH_2], valuesHelp[LALSQTPN_LNH_1]);
 			amp = params->signalAmp * pow(valuesHelp[LALSQTPN_OMEGA], 2.0 / 3.0);
 			if (waveform->hp || waveform->hc) {
-				REAL4 h[2];
 				XLALSQTPNCalculateHPHC2(params, valuesHelp, h);
 				if (waveform->hp) {
 					waveform->hp->data[i] = h[0];
@@ -123,134 +123,22 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 						* i]));
 			}
 			if (waveform->waveform->a) {
-				waveform->waveform->a->data->data[2 * i] = -amp * 0.5 * (1.
-						+ valuesHelp[LALSQTPN_LNH_3] * valuesHelp[LALSQTPN_LNH_3]);
-				waveform->waveform->a->data->data[2 * i + 1] = -amp * valuesHelp[LALSQTPN_LNH_3];
-				waveform->waveform->phi->data->data[i] = 2.0 * (valuesHelp[LALSQTPN_PHASE]
-						- params->phi);
-				waveform->waveform->shift->data->data[i] = 2.0 * alpha;
+				XLALSQTPNCalculateHPHC2(params, valuesHelp, h);
+				waveform->waveform->a->data->data[2 * i] = h[0];
+				waveform->waveform->a->data->data[2 * i + 1] = h[1];
 				waveform->waveform->f->data->data[i] = valuesHelp[LALSQTPN_OMEGA] / freq_Step;
+				waveform->waveform->phi->data->data[i] = LAL_PI_4;
+				waveform->waveform->shift->data->data[i] = 0.0;
 			}
 		}
 	}
-	params->finalFreq = waveform->waveform->f->data->data[size - 1];
+	params->finalFreq = valuesHelp[LALSQTPN_OMEGA] / freq_Step;
 	params->coalescenceTime = values->data[size - 1];
 	waveform->length = size;
 
 	if (values) {
 		XLALDestroyREAL8Array(values);
 	}
-	DETATCHSTATUSPTR(status);
-	RETURN(status);
-}
-
-void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform,
-		LALSQTPNWaveformParams *params) {
-	INITSTATUS(status, "LALSQTPNGenerator", LALSQTPNWAVEFORMC);
-	ATTATCHSTATUSPTR(status);
-	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-	ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-	// variable declaration and initialization
-	unsigned long i = 0;
-	REAL8 time = 0.0;
-	REAL8 LNhztol = 1.0e-8;
-	REAL8 alpha, amp;
-	const REAL8 geometrized_m_total = params->totalMass * LAL_MTSUN_SI;
-	const REAL8 freq_Step = geometrized_m_total * LAL_PI;
-	const REAL8 step = params->samplingTime / geometrized_m_total;
-	REAL8 values[LALSQTPN_NUM_OF_VAR], dvalues[LALSQTPN_NUM_OF_VAR];
-	LALSQTPNIntegratorSystem integrator;
-	xlalErrno = 0;
-	if (XLALSQTPNIntegratorInit(&integrator, LALSQTPN_NUM_OF_VAR, params, LALSQTPNDerivator_Old)) {
-		if (XLAL_ENOMEM == XLALClearErrno()) {
-			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
-		} else {
-			ABORTXLAL(status);
-		}
-	}
-
-	// initializing the dynamic variables
-	values[LALSQTPN_PHASE] = params->phi;
-	values[LALSQTPN_OMEGA] = params->lowerFreq * freq_Step;
-	values[LALSQTPN_LNH_1] = sin(params->inclination); ///< \f$\hat{L_N}=\sin\iota\f$
-	values[LALSQTPN_LNH_2] = 0.0; ///< \f$\hat{L_N}=0\f$
-	values[LALSQTPN_LNH_3] = cos(params->inclination); ///< \f$\hat{L_N}=\cos\iota\f$
-	values[LALSQTPN_MECO] = 0.;
-	for (i = 0; i < 3; i++) {
-		values[LALSQTPN_CHIH1_1 + i] = params->chih[0][i];
-		values[LALSQTPN_CHIH2_1 + i] = params->chih[1][i];
-	}
-
-	// filling the LALSQTPNCoefficients
-	xlalErrno = 0;
-	XLALSQTPNFillCoefficients(params);
-	if (xlalErrno) {
-		ABORTXLAL(status);
-	}
-	LALSQTPNDerivator_Old(time, values, dvalues, params);
-	dvalues[LALSQTPN_MECO] = -1.; // to be able to start the loop
-	i = 0;
-	do {
-		alpha = atan2(values[LALSQTPN_LNH_2], values[LALSQTPN_LNH_1]);
-		amp = params->signalAmp * pow(values[LALSQTPN_OMEGA], 2.0 / 3.0);
-
-		// calculating the waveform components
-		if (waveform->hp || waveform->hc) {
-			REAL4 h[2];
-			XLALSQTPNCalculateHPHC2(params, values, h);
-			if (waveform->hp) {
-				waveform->hp->data[i] = h[0];
-			}
-			if (waveform->hc) {
-				waveform->hc->data[i] = h[1];
-			}
-		}
-		if (waveform->waveform->h) {
-			XLALSQTPNCalculateHPHC2(params, values, &(waveform->waveform->h->data->data[2 * i]));
-		}
-		if (waveform->waveform->a) {
-			waveform->waveform->a->data->data[2 * i] = -amp * 0.5 * (1. + values[LALSQTPN_LNH_3]
-					* values[LALSQTPN_LNH_3]);
-			waveform->waveform->a->data->data[2 * i + 1] = -amp * values[LALSQTPN_LNH_3];
-			waveform->waveform->phi->data->data[i] = 2.0 * (values[LALSQTPN_PHASE] - params->phi);
-			waveform->waveform->shift->data->data[i] = 2.0 * alpha;
-			waveform->waveform->f->data->data[i] = values[LALSQTPN_OMEGA] / freq_Step;
-		}
-
-		// evolving
-		time = i++ * params->samplingTime;
-		xlalErrno = 0;
-		if (XLALSQTPNIntegratorFunc(values, &integrator, step)) {
-			ABORTXLAL(status);
-		}
-
-		// if one of the variables is nan, the PN approximation braked down
-		if (isnan(values[LALSQTPN_PHASE]) || isnan(values[LALSQTPN_OMEGA]) || isnan(
-				values[LALSQTPN_LNH_1]) || isnan(values[LALSQTPN_LNH_2]) || isnan(
-				values[LALSQTPN_LNH_3]) || isnan(values[LALSQTPN_CHIH1_1]) || isnan(
-				values[LALSQTPN_CHIH1_2]) || isnan(values[LALSQTPN_CHIH1_3]) || isnan(
-				values[LALSQTPN_CHIH2_1]) || isnan(values[LALSQTPN_CHIH2_2]) || isnan(
-				values[LALSQTPN_CHIH2_3])) {
-			break;
-		}
-		LALSQTPNDerivator_Old(time, values, dvalues, params);
-		if ((waveform->waveform && i == waveform->waveform->f->data->length)) {
-			XLALSQTPNIntegratorFree(&integrator);
-			ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
-		}
-	} while (dvalues[LALSQTPN_MECO] < 0.0 && dvalues[LALSQTPN_OMEGA] > 0.0 && SQT_SQR(
-			values[LALSQTPN_LNH_3]) < 1.0 - LNhztol && values[LALSQTPN_OMEGA] / freq_Step
-			< params->samplingFreq / 2.0);
-	if (waveform->waveform->h) {
-		params->finalFreq = values[LALSQTPN_OMEGA] / (LAL_PI * geometrized_m_total);
-		params->finalFreq = waveform->waveform->f->data->data[i - 1];
-		params->coalescenceTime = time;
-	}
-	if (waveform->waveform->a) {
-		params->finalFreq = waveform->waveform->f->data->data[i - 1];
-	}
-	waveform->length = i;
-	XLALSQTPNIntegratorFree(&integrator);
 	DETATCHSTATUSPTR(status);
 	RETURN(status);
 }
@@ -474,77 +362,6 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	dvalues[LALSQTPN_OMEGA] *= params->coeff.domegaGlobal * params->coeff.variables.omegaPowi_3[7]
 			* params->coeff.variables.omegaPowi_3[4];
 	dvalues[LALSQTPN_PHASE] = values[LALSQTPN_OMEGA];
-	return GSL_SUCCESS;
-}
-
-int LALSQTPNDerivator_Old(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
-
-	// variable declaration and initialization
-	LALSQTPNWaveformParams *params = param;
-	UNUSED(t);
-	const REAL8 *chi_p[2] = { values + LALSQTPN_CHIH1_1, values + LALSQTPN_CHIH2_1 };
-	UINT2 i; // indexes
-	memset(dvalues, 0, LALSQTPN_NUM_OF_VAR * sizeof(REAL8));
-	params->coeff.variables.omegaPowi_3[0] = 1.;
-	params->coeff.variables.omegaPowi_3[1] = cbrt(values[LALSQTPN_OMEGA]);
-	for (i = 2; i < 8; i++) {
-		params->coeff.variables.omegaPowi_3[i] = params->coeff.variables.omegaPowi_3[i - 1]
-				* params->coeff.variables.omegaPowi_3[1];
-	}
-	//REAL8 chih1chih2 = SCALAR_PRODUCT3(chi_p[0], chi_p[1]);
-	params->coeff.variables.chih1chih2 = SCALAR_PRODUCT3(chi_p[0], chi_p[1]);
-	for (i = 0; i < 2; i++) {
-		params->coeff.variables.LNhchih[i] = SCALAR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i]);
-		VECTOR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i], params->coeff.variables.LNhxchih[i]);
-	}
-	for (i = LAL_PNORDER_NEWTONIAN; i <= params->order; i++) {
-		dvalues[LALSQTPN_OMEGA] += params->coeff.domega[i] * params->coeff.variables.omegaPowi_3[i];
-	}
-	dvalues[LALSQTPN_MECO] += params->coeff.meco[0] / params->coeff.variables.omegaPowi_3[1];
-	for (i = LAL_PNORDER_NEWTONIAN + 2; i <= params->order; i += 2) {
-		dvalues[LALSQTPN_MECO] += params->coeff.meco[i]
-				* params->coeff.variables.omegaPowi_3[i - 1];
-	}
-	switch (params->order) {
-	case LAL_PNORDER_THREE_POINT_FIVE:
-	case LAL_PNORDER_THREE:
-		dvalues[LALSQTPN_OMEGA] += params->coeff.domegaLN * log(16.0
-				* params->coeff.variables.omegaPowi_3[2])
-				* params->coeff.variables.omegaPowi_3[LAL_PNORDER_THREE];
-	case LAL_PNORDER_TWO_POINT_FIVE:
-	case LAL_PNORDER_TWO:
-		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
-			XLALSQTPNAddSSContributions(params, values, dvalues);
-		}
-		if ((params->spinInteraction & LAL_SSselfInter) == LAL_SSselfInter) {
-			XLALSQTPNAddSelfContributions(params, dvalues);
-		}
-		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
-			XLALSQTPNAddQMContributions(params, values, dvalues);
-		}
-	case LAL_PNORDER_ONE_POINT_FIVE:
-		if ((params->spinInteraction & LAL_SOInter) == LAL_SOInter) {
-			XLALSQTPNAddSOContributions(params, values, dvalues);
-		}
-		if (params->spinInteraction) {
-			for (i = 0; i < 3; i++) {
-				dvalues[LALSQTPN_LNH_1 + i] += (params->coeff.dLNh[0] * dvalues[LALSQTPN_CHIH1_1
-						+ i] + params->coeff.dLNh[1] * dvalues[LALSQTPN_CHIH2_1 + i])
-						* params->coeff.variables.omegaPowi_3[1];
-			}
-		}
-	case LAL_PNORDER_ONE:
-	case LAL_PNORDER_HALF:
-	case LAL_PNORDER_NEWTONIAN:
-	default:
-		break;
-	}
-	dvalues[LALSQTPN_OMEGA] *= params->coeff.domegaGlobal * params->coeff.variables.omegaPowi_3[7]
-			* params->coeff.variables.omegaPowi_3[4];
-	dvalues[LALSQTPN_PHASE] = values[LALSQTPN_OMEGA] + values[LALSQTPN_LNH_3]
-			* (values[LALSQTPN_LNH_2] * dvalues[LALSQTPN_LNH_1] - values[LALSQTPN_LNH_1]
-					* dvalues[LALSQTPN_LNH_2]) / (SQT_SQR(values[LALSQTPN_LNH_1]) + SQT_SQR(
-			values[LALSQTPN_LNH_2]));
 	return GSL_SUCCESS;
 }
 
