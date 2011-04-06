@@ -303,6 +303,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.datatypes.snglburst",
+			["src/xlal/datatypes/snglburst.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.datatypes.snglinspiraltable",
 			["src/xlal/datatypes/snglinspiraltable.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
@@ -428,9 +437,7 @@ setup(
 		os.path.join("bin", "analyseQscan.py"),
 		os.path.join("bin", "distrib_fu_qscan_results.py"),
 		os.path.join("bin", "submit_remote_scan.py"),
-		os.path.join("bin", "exttrig_likelihood_pipe"),
 		os.path.join("bin", "fup_triggers.py"),
-		os.path.join("bin", "grbSelect"),
 		os.path.join("bin", "galaxies_in_polygon"),
 		os.path.join("bin", "lal_query_cache"),
 		os.path.join("bin", "makeCheckList.py"),
@@ -442,7 +449,6 @@ setup(
 		os.path.join("bin", "followupGenerateDQBackground.py"),
 		os.path.join("bin", "followupCustomFOM.py"),
 		os.path.join("bin", "followupPDSurface.py"),		
-		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotcohsnr"),
