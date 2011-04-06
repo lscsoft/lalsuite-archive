@@ -497,21 +497,8 @@ typedef struct {
     PyObject_HEAD
     /* Type-specific fields go here */
     LALIFOData data;
-    //PyObject* timeData;
-    //PyObject* timeModelhPlus;
-    //PyObject* timeModelhCross;
-    //PyObject* whiteTimeData;
-    //PyObject* windowedTimeData;
-    PyObject* freqData;
-    PyObject* freqModelhPlus;
-    PyObject* freqModelhCross;
-    PyObject* whiteFreqData;
-    PyObject* oneSidedNoisePowerSpectrum;
     PyObject* window;
-    PyObject* timeToFreqFFTPlan;
-    PyObject* freqToTimeFFTPlan;
-    PyObject* compTimeData;
-    PyObject* compModelData;  
+     
 } li_LALIFODataObject;
 
 
@@ -686,38 +673,163 @@ int setREAL8TimeSeriesFromLALIFOData(REAL8TimeSeries* target,PyObject* origin){
     return 0;
 }
 
-PyObject* getREAL8TimeSeriesFromLALIFOData(REAL8TimeSeries* target){
+//PyObject* getREAL8TimeSeriesFromLALIFOData(REAL8TimeSeries* target){
 
-    pylal_REAL8TimeSeries* new=(pylal_REAL8TimeSeries*)PyObject_CallFunction((PyObject *)&pylal_REAL8TimeSeries_Type,NULL);
+    //pylal_REAL8TimeSeries* new=(pylal_REAL8TimeSeries*)PyObject_CallFunction((PyObject *)&pylal_REAL8TimeSeries_Type,NULL);
 
-    int n=target->data->length;
+    //int n=target->data->length;
     
-    memcpy(new->series,target,sizeof(REAL8TimeSeries));
-    XLALResizeREAL8Sequence(new->series->data, 0, n);
-    memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
-    return 0;
+    //memcpy(new->series,target,sizeof(REAL8TimeSeries));
+    //XLALResizeREAL8Sequence(new->series->data, 0, n);
+    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
+    //return (PyObject*)new;
 
     
-}
+//}
 
 /* timeData */
 static int LALIFOData_settimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeData,value);}
-static PyObject* LALIFOData_gettimeData(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeData);}
+static PyObject* LALIFOData_gettimeData(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeData,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeData);}
 /* timeModelhPlus */
 static int LALIFOData_settimeModelhPlus(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus,value);}
-static PyObject* LALIFOData_gettimeModelhPlus(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus);}
+static PyObject* LALIFOData_gettimeModelhPlus(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeModelhPlus,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus);}
 /* timeModelhCross */
 static int LALIFOData_settimeModelhCross(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross,value);}
-static PyObject* LALIFOData_gettimeModelhCross(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross);}
+static PyObject* LALIFOData_gettimeModelhCross(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeModelhCross,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross);}
 /* whiteTimeData */
 static int LALIFOData_setwhiteTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData,value);}
-static PyObject* LALIFOData_getwhiteTimeData(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData);}
+static PyObject* LALIFOData_getwhiteTimeData(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.whiteTimeData,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData);}
 /* windowedTimeData */
 static int LALIFOData_setwindowedTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData,value);}
-static PyObject* LALIFOData_getwindowedTimeData(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData);}
+static PyObject* LALIFOData_getwindowedTimeData(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.windowedTimeData,(PyObject*)self);}//getREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData);}
 /* timeDomainNoiseWeights */
 static int LALIFOData_settimeDomainNoiseWeights(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights,value);}
-static PyObject* LALIFOData_gettimeDomainNoiseWeights(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights);}
+static PyObject* LALIFOData_gettimeDomainNoiseWeights(li_LALIFODataObject *self, void *closure) {return pylal_REAL8TimeSeries_new(self->data.timeDomainNoiseWeights,(PyObject*)self);}//{return getREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights);}
+
+int setREAL8FrequencySeriesFromLALIFOData(REAL8FrequencySeries* target,PyObject* origin){
+    /* require pylal_REAL8TimeSeries */
+    if(!PyObject_TypeCheck(origin, &pylal_REAL8FrequencySeries_Type)){
+        PyErr_SetObject(PyExc_TypeError, origin);
+        return -1;
+    }
+
+    pylal_REAL8FrequencySeries* originvec=(pylal_REAL8FrequencySeries*)origin;
+
+    int n=originvec->series->data->length;
+    if(n != target->data->length)
+        XLALResizeREAL8Sequence(target->data, 0, n);
+        
+    memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
+    return 0;
+}
+
+//PyObject* getREAL8FrequencySeriesFromLALIFOData(REAL8FrequencySeries* target){
+
+    //pylal_REAL8FrequencySeries* new=(pylal_REAL8FrequencySeries*)PyObject_CallFunction((PyObject *)&pylal_REAL8FrequencySeries_Type,NULL);
+
+    //int n=target->data->length;
+    
+    //memcpy(new->series,target,sizeof(REAL8FrequencySeries));
+    //XLALResizeREAL8Sequence(new->series->data, 0, n);
+    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
+    //return (PyObject*)new;
+
+    
+//}
+
+/* oneSidedNoisePowerSpectrum */
+static int LALIFOData_setoneSidedNoisePowerSpectrum(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8FrequencySeriesFromLALIFOData(self->data.oneSidedNoisePowerSpectrum,value);}
+static PyObject* LALIFOData_getoneSidedNoisePowerSpectrum(li_LALIFODataObject *self, void *closure) {return pylal_REAL8FrequencySeries_new(self->data.oneSidedNoisePowerSpectrum,(PyObject*)self);}//{return getREAL8FrequencySeriesFromLALIFOData(self->data.oneSidedNoisePowerSpectrum);}
+
+
+int setCOMPLEX16FrequencySeriesFromLALIFOData(COMPLEX16FrequencySeries* target,PyObject* origin){
+	/* require pylal_COMPLEX16TimeSeries */
+    if(!PyObject_TypeCheck(origin, &pylal_COMPLEX16FrequencySeries_Type)){
+        PyErr_SetObject(PyExc_TypeError, origin);
+        return -1;
+    }
+
+    pylal_COMPLEX16FrequencySeries* originvec=(pylal_COMPLEX16FrequencySeries*)origin;
+
+    int n=originvec->series->data->length;
+    if(n != target->data->length)
+        XLALResizeCOMPLEX16Sequence(target->data, 0, n);
+        
+    memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
+    return 0;
+}
+//PyObject* getCOMPLEX16FrequencySeriesFromLALIFOData(COMPLEX16FrequencySeries* target){
+	//pylal_COMPLEX16FrequencySeries* new=(pylal_COMPLEX16FrequencySeries*)PyObject_CallFunction((PyObject *)&pylal_COMPLEX16FrequencySeries_Type,NULL);
+
+    //int n=target->data->length;
+    
+    //memcpy(new->series,target,sizeof(COMPLEX16FrequencySeries));
+    //XLALResizeCOMPLEX16Sequence(new->series->data, 0, n);
+    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
+    //return (PyObject*)new;
+//}
+
+/*freqData*/
+static int LALIFOData_setfreqData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqData,value);}
+static PyObject* LALIFOData_getfreqData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqData,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqData);}
+/*freqModelhPlus*/
+static int LALIFOData_setfreqModelhPlus(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhPlus,value);}
+static PyObject* LALIFOData_getfreqModelhPlus(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqModelhPlus,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhPlus);}
+/*freqModelhCross*/
+static int LALIFOData_setfreqModelhCross(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhCross,value);}
+static PyObject* LALIFOData_getfreqModelhCross(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.freqModelhCross,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.freqModelhCross);}
+/*whiteFreqData*/
+static int LALIFOData_setwhiteFreqData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromLALIFOData(self->data.whiteFreqData,value);}
+static PyObject* LALIFOData_getwhiteFreqData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16FrequencySeries_new(self->data.whiteFreqData,(PyObject*)self);}//{return getCOMPLEX16FrequencySeriesFromLALIFOData(self->data.whiteFreqData);}
+
+int setCOMPLEX16TimeSeriesFromLALIFOData(COMPLEX16TimeSeries* target,PyObject* origin){
+	/* require pylal_COMPLEX16TimeSeries */
+    if(!PyObject_TypeCheck(origin, &pylal_COMPLEX16TimeSeries_Type)){
+        PyErr_SetObject(PyExc_TypeError, origin);
+        return -1;
+    }
+
+    pylal_COMPLEX16TimeSeries* originvec=(pylal_COMPLEX16TimeSeries*)origin;
+
+    int n=originvec->series->data->length;
+    if(n != target->data->length)
+        XLALResizeCOMPLEX16Sequence(target->data, 0, n);
+        
+    memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
+    return 0;
+}
+//PyObject* getCOMPLEX16TimeSeriesFromLALIFOData(COMPLEX16TimeSeries* target){
+	//pylal_COMPLEX16TimeSeries* new=(pylal_COMPLEX16TimeSeries*)PyObject_CallFunction((PyObject *)&pylal_COMPLEX16TimeSeries_Type,NULL);
+
+    //int n=target->data->length;
+    
+    //memcpy(new->series,target,sizeof(COMPLEX16TimeSeries));
+    //XLALResizeCOMPLEX16Sequence(new->series->data, 0, n);
+    //memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
+    //return (PyObject*)new;
+//}
+
+/*compTimeData*/
+static int LALIFOData_setcompTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromLALIFOData(self->data.compTimeData,value);}
+static PyObject* LALIFOData_getcompTimeData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16TimeSeries_new(self->data.compTimeData,(PyObject*)self);}
+
+/*compModelData*/
+static int LALIFOData_setcompModelData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromLALIFOData(self->data.compModelData,value);}
+static PyObject* LALIFOData_getcompModelData(li_LALIFODataObject *self, void *closure) {return pylal_COMPLEX16TimeSeries_new(self->data.compModelData,(PyObject*)self);}
+
+int setREAL8FFTPlanFromLALIFOData(REAL8FFTPlan* target,PyObject* origin){
+    
+    return 0;
+}
+
+/*timeToFreqFFTPlan*/
+static int LALIFOData_settimeToFreqFFTPlan(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromLALIFOData(self->data.timeToFreqFFTPlan,value);}
+static PyObject* LALIFOData_gettimeToFreqFFTPlan(li_LALIFODataObject *self, void *closure) {return pylal_REAL8FFTPlan_new(self->data.timeToFreqFFTPlan,(PyObject*)self);}
+
+/*freqToTimeFFTPlan*/
+static int LALIFOData_setfreqToTimeFFTPlan(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromLALIFOData(self->data.freqToTimeFFTPlan,value);}
+static PyObject* LALIFOData_getfreqToTimeFFTPlan(li_LALIFODataObject *self, void *closure) {return pylal_REAL8FFTPlan_new(self->data.freqToTimeFFTPlan,(PyObject*)self);}
+
 
 /**getsetters registration struct**/
 
@@ -736,6 +848,18 @@ static PyGetSetDef LALIFOData_getseters[] = {
     {"windowedTimeData",(getter)LALIFOData_getwindowedTimeData,(setter)LALIFOData_setwindowedTimeData,"windowedTimeData",NULL},
     {"timeDomainNoiseWeights",(getter)LALIFOData_gettimeDomainNoiseWeights,(setter)LALIFOData_settimeDomainNoiseWeights,"timeDomainNoiseWeights",NULL},
     //COMPLEX16FrequencySeries
+    {"freqData",(getter)LALIFOData_getfreqData,(setter)LALIFOData_setfreqData,"freqData",NULL},
+    {"freqModelhPlus",(getter)LALIFOData_getfreqModelhPlus,(setter)LALIFOData_setfreqModelhPlus,"freqModelhPlus",NULL},
+    {"freqModelhCross",(getter)LALIFOData_getfreqModelhCross,(setter)LALIFOData_setfreqModelhCross,"freqModelhCross",NULL},
+    {"whiteFreqData",(getter)LALIFOData_getwhiteFreqData,(setter)LALIFOData_setwhiteFreqData,"whiteFreqData",NULL},
+    //COMPLEX16TimeSeries
+    {"compTimeData",(getter)LALIFOData_getcompTimeData,(setter)LALIFOData_setcompTimeData,"compTimeData",NULL},
+    {"compModelData",(getter)LALIFOData_getcompModelData,(setter)LALIFOData_setcompModelData,"compModelData",NULL},
+    //REAL8FrequencySeries
+    {"oneSidedNoisePowerSpectrum",(getter)LALIFOData_getoneSidedNoisePowerSpectrum,(setter)LALIFOData_setoneSidedNoisePowerSpectrum,"oneSidedNoisePowerSpectrum",NULL},
+    //REAL8FFTPlan
+    {"timeToFreqFFTPlan",(getter)LALIFOData_gettimeToFreqFFTPlan,(setter)LALIFOData_settimeToFreqFFTPlan,"timeToFreqFFTPlan",NULL},
+    {"freqToTimeFFTPlan",(getter)LALIFOData_getfreqToTimeFFTPlan,(setter)LALIFOData_setfreqToTimeFFTPlan,"freqToTimeFFTPlan",NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -750,20 +874,9 @@ static struct PyMemberDef LALIFOData_members[] = {
     {"fLow", T_DOUBLE, offsetof(li_LALIFODataObject, data.fLow), 0, "fLow"},
     {"fHigh", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "fHigh"},
     {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "acceptedloglikelihood"},
-
-    {"freqData", T_OBJECT, offsetof(li_LALIFODataObject,freqData ), 0, "freqData"},
-    {"freqModelhPlus", T_OBJECT, offsetof(li_LALIFODataObject,freqModelhPlus ), 0, "freqModelhPlus"},
-    {"freqModelhCross", T_OBJECT, offsetof(li_LALIFODataObject,freqModelhCross ), 0, "freqModelhCross"},
-    {"whiteFreqData", T_OBJECT, offsetof(li_LALIFODataObject,whiteFreqData), 0, "whiteFreqData"},
-
-    {"oneSidedNoisePowerSpectrum", T_OBJECT, offsetof(li_LALIFODataObject,oneSidedNoisePowerSpectrum), 0, "oneSidedNoisePowerSpectrum"},
+	
     {"window", T_OBJECT, offsetof(li_LALIFODataObject,window), 0, "window"},
-    {"timeToFreqFFTPlan", T_OBJECT, offsetof(li_LALIFODataObject,timeToFreqFFTPlan ), 0, "timeToFreqFFTPlan"},
-    {"freqToTimeFFTPlan", T_OBJECT, offsetof(li_LALIFODataObject,freqToTimeFFTPlan), 0, "freqToTimeFFTPlan"},
-
-    {"compTimeData", T_OBJECT, offsetof(li_LALIFODataObject,compTimeData), 0, "compTimeData"},
-    {"compModelData", T_OBJECT, offsetof(li_LALIFODataObject,compModelData), 0, "compModelData"},
-
+    
     {NULL,}
 };
 
