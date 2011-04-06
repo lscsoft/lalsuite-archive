@@ -1,7 +1,16 @@
 #include <Python.h>
 #include <structmember.h>
 
+#include <numpy/arrayobject.h>
+
 #include <lal/LALInference.h>
+#include <lal/Sequence.h>
+
+#include <complex16frequencyseries.h>
+#include <complex16timeseries.h>
+#include <real8fftplan.h>
+#include <real8frequencyseries.h>
+#include <real8timeseries.h>
 
 #define MODULE_NAME "pylal._lalinference"
 
@@ -33,7 +42,7 @@ static void LALVariables_dealloc(li_LALVariablesObject *self)
     self->ob_type->tp_free((PyObject *)self);
 }
 
-VariableType infer_litype_from_pyvalue(PyObject* pyvalue){
+VariableType LALVariables_infer_litype_from_pyvalue(PyObject* pyvalue){
 
     VariableType type;
     
@@ -51,7 +60,7 @@ VariableType infer_litype_from_pyvalue(PyObject* pyvalue){
     return type;
 }
 
-VariableType convert_string_to_litype(char* typestring){
+VariableType LALVariables_convert_string_to_litype(char* typestring){
 
     VariableType type;
     if(!strcmp(typestring,"INT4")){
@@ -76,7 +85,7 @@ VariableType convert_string_to_litype(char* typestring){
     return type;
 }
 
-void* convert_pyobj_to_livar_value(PyObject* pyvalue,VariableType type){
+void* LALVariables_convert_pyobj_to_livar_value(PyObject* pyvalue,VariableType type){
     void* value=(void *)malloc(typeSize[type]);
     
     if(type==INT4_t){
@@ -114,7 +123,7 @@ void* convert_pyobj_to_livar_value(PyObject* pyvalue,VariableType type){
     return value;
 }
 
-static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args,PyObject* kwds){
+static PyObject* LALVariables_add_variable(li_LALVariablesObject *self,PyObject* args,PyObject* kwds){
     PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL,*pytype=NULL;
 
     char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
@@ -138,13 +147,13 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args,PyObjec
     //If type given convert string to type...
     if(pytype) {
         typestring=PyString_AsString(pytype);
-        type=convert_string_to_litype(typestring);
+        type=LALVariables_convert_string_to_litype(typestring);
     }
     //...else infer type from python object type (this is more limited).
-    else type=infer_litype_from_pyvalue(pyvalue);
+    else type=LALVariables_infer_litype_from_pyvalue(pyvalue);
     
-    value=convert_pyobj_to_livar_value(pyvalue,type);
-	
+    value=LALVariables_convert_pyobj_to_livar_value(pyvalue,type);
+    
     /*Determine variable wrapping type from string*/
     if(PyString_Check(pyvarytype)){
         temp=PyString_AsString(pyvarytype);
@@ -174,8 +183,6 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args,PyObjec
         return NULL;
     }
 
-    
-	
     /* If we survived then call addVariable with self->vars ...*/
     
     addVariable((self->vars),name,value,type,varytype);
@@ -183,7 +190,7 @@ static PyObject* add_variable(li_LALVariablesObject *self,PyObject* args,PyObjec
     return Py_None;
 }
 
-static PyObject* check_variable(li_LALVariablesObject *self,PyObject* args)
+static PyObject* LALVariables_check_variable(li_LALVariablesObject *self,PyObject* args)
 /* Check for existence of name */
 {
     PyObject* pyname;
@@ -202,7 +209,7 @@ static PyObject* check_variable(li_LALVariablesObject *self,PyObject* args)
 }
 
 
-PyObject* convert_livar_value_to_pyobj(li_LALVariablesObject *pyvars,char* name){
+PyObject* LALVariables_convert_livar_value_to_pyobj(li_LALVariablesObject *pyvars,char* name){
     VariableType type;
     
     PyObject* returnObj=NULL;
@@ -210,19 +217,19 @@ PyObject* convert_livar_value_to_pyobj(li_LALVariablesObject *pyvars,char* name)
     type=getVariableType(pyvars->vars,name);
     void* uncastval=getVariable(pyvars->vars,name);
     if(type==INT4_t){
-		
-		long int cast_val=(long int)(*(INT4*)uncastval);
+        
+        long int cast_val=(long int)(*(INT4*)uncastval);
         returnObj=PyInt_FromLong(cast_val);
     }
     else if(type==INT8_t){
-		long long cast_val=(long long)(*(INT8*)uncastval);
+        long long cast_val=(long long)(*(INT8*)uncastval);
         returnObj=PyInt_FromLong(cast_val);
     }
     else if(type==UINT4_t){
         returnObj=PyInt_FromLong(*(UINT4*)uncastval);
     }
     else if(type==REAL4_t){
-		float cast_val=(float)(*(REAL4*)uncastval);
+        float cast_val=(float)(*(REAL4*)uncastval);
         returnObj=PyFloat_FromDouble(cast_val);
     }
     else if(type==REAL8_t){
@@ -237,7 +244,7 @@ PyObject* convert_livar_value_to_pyobj(li_LALVariablesObject *pyvars,char* name)
     return returnObj;
 }
 
-static int remove_variable(li_LALVariablesObject *self,PyObject* args){
+static int LALVariables_remove_variable(li_LALVariablesObject *self,PyObject* args){
     PyObject* pyname;
     char* name;
     
@@ -249,17 +256,17 @@ static int remove_variable(li_LALVariablesObject *self,PyObject* args){
     return 0;
 }
 
-static PyObject* get_variable(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable(li_LALVariablesObject *self,PyObject* args){
     PyObject* pyname=NULL,*returnObj=NULL;
     char* name;
     
     if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
     name=PyString_AsString(pyname);
-    returnObj=convert_livar_value_to_pyobj(self,name);
+    returnObj=LALVariables_convert_livar_value_to_pyobj(self,name);
     return returnObj;
 }
 
-static PyObject* get_variable_name(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_name(li_LALVariablesObject *self,PyObject* args){
     char* name;
     long var_idx;
     
@@ -271,7 +278,7 @@ static PyObject* get_variable_name(li_LALVariablesObject *self,PyObject* args){
     
 }
 
-static int set_variable(li_LALVariablesObject *self,PyObject* args){
+static int LALVariables_set_variable(li_LALVariablesObject *self,PyObject* args){
     PyObject* pyname;char* name;
     PyObject* pynew_var_value;void* new_var_value;
     VariableType type;
@@ -282,7 +289,7 @@ static int set_variable(li_LALVariablesObject *self,PyObject* args){
 
     type=getVariableType(self->vars,name);
 
-    new_var_value=convert_pyobj_to_livar_value(pynew_var_value,type);
+    new_var_value=LALVariables_convert_pyobj_to_livar_value(pynew_var_value,type);
 
     setVariable(self->vars,name,new_var_value);
     
@@ -290,7 +297,7 @@ static int set_variable(li_LALVariablesObject *self,PyObject* args){
     
 }
 
-char* get_type_string(VariableType type){
+char* LALVariables_get_type_string(VariableType type){
     char* type_name=NULL;
     
     if(type==INT4_t){
@@ -312,7 +319,7 @@ char* get_type_string(VariableType type){
     return type_name;
 }
 
-static PyObject* get_variable_type(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_type(li_LALVariablesObject *self,PyObject* args){
     VariableType type;
     char* name;
     PyObject* pyname;
@@ -322,7 +329,7 @@ static PyObject* get_variable_type(li_LALVariablesObject *self,PyObject* args){
     name=PyString_AsString(pyname);
     type=getVariableType(self->vars,name);
     
-    type_name=get_type_string(type);
+    type_name=LALVariables_get_type_string(type);
     
     if(type_name==NULL){
         Py_INCREF(Py_None);
@@ -333,20 +340,20 @@ static PyObject* get_variable_type(li_LALVariablesObject *self,PyObject* args){
     
 }
     
-static PyObject* get_variable_type_by_index(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_type_by_index(li_LALVariablesObject *self,PyObject* args){
     VariableType type;
     long var_idx;
     char* type_name=NULL;
     if (! PyArg_ParseTuple(args,"i",&var_idx)) return NULL;
     
     type=getVariableTypeByIndex(self->vars,(int)var_idx);
-    type_name=get_type_string(type);
+    type_name=LALVariables_get_type_string(type);
     
     return PyString_FromString(type_name);
     
 }
 
-char* get_varytype_string(ParamVaryType varytype){
+char* LALVariables_get_varytype_string(ParamVaryType varytype){
     
     char* varytype_name=NULL;
     if(varytype==PARAM_LINEAR){
@@ -366,7 +373,7 @@ char* get_varytype_string(ParamVaryType varytype){
     
 }
 
-static PyObject* get_variable_vary_type(li_LALVariablesObject *self,PyObject* args){
+static PyObject* LALVariables_get_variable_vary_type(li_LALVariablesObject *self,PyObject* args){
     ParamVaryType varytype;
     char* name;
     PyObject* pyname;
@@ -375,7 +382,7 @@ static PyObject* get_variable_vary_type(li_LALVariablesObject *self,PyObject* ar
     
     name=PyString_AsString(pyname);
     varytype=getVariableVaryType(self->vars,name);
-    varytype_name=get_varytype_string(varytype);
+    varytype_name=LALVariables_get_varytype_string(varytype);
     
     if(varytype_name==NULL){
         Py_INCREF(Py_None);
@@ -386,7 +393,7 @@ static PyObject* get_variable_vary_type(li_LALVariablesObject *self,PyObject* ar
     
 }
 
-static PyObject* get_variable_dimension(li_LALVariablesObject *self){
+static PyObject* LALVariables_get_variable_dimension(li_LALVariablesObject *self){
     long dimension;
     PyObject* pydimension=NULL;
     
@@ -398,7 +405,7 @@ static PyObject* get_variable_dimension(li_LALVariablesObject *self){
     
 }
 
-static PyObject* get_variable_dimension_non_fixed(li_LALVariablesObject *self){
+static PyObject* LALVariables_get_variable_dimension_non_fixed(li_LALVariablesObject *self){
     long dimension;
     PyObject* pydimension=NULL;
     
@@ -415,23 +422,23 @@ static int LALVariables_init(li_LALVariablesObject *self, PyObject *args, PyObje
     /* Should fill in the array using a dictionary as input */
     
     self->vars=(LALVariables*)malloc(sizeof(LALVariables));
-	memset((void*)self->vars,0,sizeof(LALVariables));
+    memset((void*)self->vars,0,sizeof(LALVariables));
     return 0;
 }
 
 static PyMethodDef LALVariables_methods[]= {
     /* {"name", (PyCFunction)function, METH_NOARGS, "DESCR"}, */
-    {"addVariable",(PyCFunction)add_variable,METH_VARARGS,""},
-    {"getVariable",(PyCFunction)get_variable,METH_VARARGS,""},
-    {"checkVariable",(PyCFunction)check_variable,METH_VARARGS,""},
-    {"removeVariable",(PyCFunction)remove_variable,METH_VARARGS,""},
-    {"getVariableName",(PyCFunction)get_variable_name,METH_VARARGS,""},
-    {"getVariableType",(PyCFunction)get_variable_type,METH_VARARGS,""},
-    {"getVariableTypeByIndex",(PyCFunction)get_variable_type_by_index,METH_VARARGS,""},
-    {"getVariableVaryType",(PyCFunction)get_variable_vary_type,METH_VARARGS,""},
-    {"setVariable",(PyCFunction)set_variable,METH_VARARGS,""},
-    {"getVariableDimension",(PyCFunction)get_variable_dimension,METH_NOARGS,""},
-    {"getVariableDimensionNonFixed",(PyCFunction)get_variable_dimension_non_fixed,METH_NOARGS,""},
+    {"addVariable",(PyCFunction)LALVariables_add_variable,METH_VARARGS,""},
+    {"getVariable",(PyCFunction)LALVariables_get_variable,METH_VARARGS,""},
+    {"checkVariable",(PyCFunction)LALVariables_check_variable,METH_VARARGS,""},
+    {"removeVariable",(PyCFunction)LALVariables_remove_variable,METH_VARARGS,""},
+    {"getVariableName",(PyCFunction)LALVariables_get_variable_name,METH_VARARGS,""},
+    {"getVariableType",(PyCFunction)LALVariables_get_variable_type,METH_VARARGS,""},
+    {"getVariableTypeByIndex",(PyCFunction)LALVariables_get_variable_type_by_index,METH_VARARGS,""},
+    {"getVariableVaryType",(PyCFunction)LALVariables_get_variable_vary_type,METH_VARARGS,""},
+    {"setVariable",(PyCFunction)LALVariables_set_variable,METH_VARARGS,""},
+    {"getVariableDimension",(PyCFunction)LALVariables_get_variable_dimension,METH_NOARGS,""},
+    {"getVariableDimensionNonFixed",(PyCFunction)LALVariables_get_variable_dimension_non_fixed,METH_NOARGS,""},
     
     {NULL} /* Sentinel */
 };
@@ -489,7 +496,22 @@ static PyTypeObject li_LALVariablesType = {
 typedef struct {
     PyObject_HEAD
     /* Type-specific fields go here */
-    LALIFOData* data;
+    LALIFOData data;
+    //PyObject* timeData;
+    //PyObject* timeModelhPlus;
+    //PyObject* timeModelhCross;
+    //PyObject* whiteTimeData;
+    //PyObject* windowedTimeData;
+    PyObject* freqData;
+    PyObject* freqModelhPlus;
+    PyObject* freqModelhCross;
+    PyObject* whiteFreqData;
+    PyObject* oneSidedNoisePowerSpectrum;
+    PyObject* window;
+    PyObject* timeToFreqFFTPlan;
+    PyObject* freqToTimeFFTPlan;
+    PyObject* compTimeData;
+    PyObject* compModelData;  
 } li_LALIFODataObject;
 
 
@@ -503,8 +525,8 @@ static void LALIFOData_dealloc(li_LALIFODataObject *self)
 
 static int LALIFOData_init(li_LALIFODataObject *self, PyObject *args, PyObject *kwds)
 {
-    self->data=(LALIFOData*)malloc(sizeof(LALIFOData));
-    memset((void*)self->data,0,sizeof(LALIFOData));
+    //self->data=(LALIFOData*)malloc(sizeof(LALIFOData));
+    memset((void*)&self->data,0,sizeof(LALIFOData));
     return 0;
 }
 
@@ -514,7 +536,7 @@ static int LALIFOData_init(li_LALIFODataObject *self, PyObject *args, PyObject *
 
 static PyObject* LALIFOData_getname(li_LALIFODataObject *self, void *closure)
 {
-    return PyString_FromString(self->data->name);
+    return PyString_FromString(self->data.name);
 }
 
 static int LALIFOData_setname(li_LALIFODataObject *self, PyObject *value, void *closure)
@@ -531,206 +553,7 @@ static int LALIFOData_setname(li_LALIFODataObject *self, PyObject *value, void *
   }
   Py_INCREF(value);
   
-  strcpy(self->data->name,PyString_AsString(value));
-
-  return 0;
-}
-
-/*nullloglikelihood*/
-
-static PyObject* LALIFOData_getnullloglikelihood(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->nullloglikelihood));
-}
-
-static int LALIFOData_setnullloglikelihood(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the nullloglikelihood attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The nullloglikelihood attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->nullloglikelihood=(REAL8)PyFloat_AsDouble(value);
-
-  return 0;
-}
-
-/*loglikelihood*/
-
-static PyObject* LALIFOData_getloglikelihood(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->loglikelihood));
-}
-
-static int LALIFOData_setloglikelihood(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the loglikelihood attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The loglikelihood attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->loglikelihood=(REAL8)PyFloat_AsDouble(value);
-
-  return 0;
-}
-
-/*acceptedloglikelihood*/
-
-
-static PyObject* LALIFOData_getacceptedloglikelihood(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->acceptedloglikelihood));
-}
-
-static int LALIFOData_setacceptedloglikelihood(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the acceptedloglikelihood attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The acceptedloglikelihood attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->acceptedloglikelihood=(REAL8)PyFloat_AsDouble(value);
-
-  return 0;
-}
-
-/*fPlus*/
-
-static PyObject* LALIFOData_getfPlus(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->fPlus));
-}
-
-static int LALIFOData_setfPlus(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the fPlus attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The fPlus attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->fPlus=(REAL8)PyFloat_AsDouble(value);
-
-  return 0;
-}
-
-/*fCross*/
-
-static PyObject* LALIFOData_getfCross(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->fCross));
-}
-
-static int LALIFOData_setfCross(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the fCross attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The fCross attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->fCross=(REAL8)PyFloat_AsDouble(value);
-
-  return 0;
-}
-
-/*timeshift*/
-
-static PyObject* LALIFOData_gettimeshift(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->timeshift));
-}
-
-static int LALIFOData_settimeshift(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the timeshift attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The timeshift attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->timeshift=(REAL8)PyFloat_AsDouble(value);
-
-  return 0;
-}
-
-/*fLow*/
-static PyObject* LALIFOData_getfLow(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->fLow));
-}
-
-static int LALIFOData_setfLow(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the fLow attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The fLow attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->fLow=(REAL8)PyFloat_AsDouble(value);
-
-  return 0;
-}
-
-/*fHigh*/
-static PyObject* LALIFOData_getfHigh(li_LALIFODataObject *self, void *closure)
-{
-    return PyFloat_FromDouble((double)(self->data->fHigh));
-}
-
-static int LALIFOData_setfHigh(li_LALIFODataObject *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-    PyErr_SetString(PyExc_TypeError, "Cannot delete the fHigh attribute");
-    return -1;
-  }
-  
-  if (! PyFloat_Check(value)) {
-    PyErr_SetString(PyExc_TypeError, 
-                    "The fHigh attribute value must be a float");
-    return -1;
-  }
-      
-  self->data->fHigh=(REAL8)PyFloat_AsDouble(value);
+  strcpy(self->data.name,PyString_AsString(value));
 
   return 0;
 }
@@ -738,21 +561,21 @@ static int LALIFOData_setfHigh(li_LALIFODataObject *self, PyObject *value, void 
 /*modelParams*/
 static PyObject* LALIFOData_getmodelParams(li_LALIFODataObject *self, void *closure)
 {
-    if(self->data->modelParams){
-		
-		li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
-		copyVariables(self->data->modelParams,newLV->vars);
-		
-		return (PyObject*)newLV;
-	}
+    if(self->data.modelParams){
+        
+        li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
+        copyVariables(self->data.modelParams,newLV->vars);
+        
+        return (PyObject*)newLV;
+    }
     else {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
 }
 
 static int LALIFOData_setmodelParams(li_LALIFODataObject *self, PyObject *value, void *closure)
-{	
+{   
     if (!value) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the modelParams attribute");
         return -1;
@@ -760,33 +583,33 @@ static int LALIFOData_setmodelParams(li_LALIFODataObject *self, PyObject *value,
     
     li_LALVariablesObject* existingLV=(li_LALVariablesObject*)value;
     
-    if(!self->data->modelParams){
-		self->data->modelParams=(LALVariables*)malloc(sizeof(LALVariables));
-	}
-	
-    copyVariables(existingLV->vars,self->data->modelParams);
-	
+    if(!self->data.modelParams){
+        self->data.modelParams=(LALVariables*)malloc(sizeof(LALVariables));
+    }
+    
+    copyVariables(existingLV->vars,self->data.modelParams);
+    
   return 0;
 }
 
 /*dataParams*/
 static PyObject* LALIFOData_getdataParams(li_LALIFODataObject *self, void *closure)
 {
-    if(self->data->dataParams){
-		
-		li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
-		copyVariables(self->data->dataParams,newLV->vars);
-		
-		return (PyObject*)newLV;
-	}
+    if(self->data.dataParams){
+        
+        li_LALVariablesObject* newLV=(li_LALVariablesObject*)PyObject_CallFunction((PyObject *)&li_LALVariablesType,NULL);
+        copyVariables(self->data.dataParams,newLV->vars);
+        
+        return (PyObject*)newLV;
+    }
     else {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
 }
 
 static int LALIFOData_setdataParams(li_LALIFODataObject *self, PyObject *value, void *closure)
-{	
+{   
     if (!value) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the dataParams attribute");
         return -1;
@@ -794,63 +617,154 @@ static int LALIFOData_setdataParams(li_LALIFODataObject *self, PyObject *value, 
     
     li_LALVariablesObject* existingLV=(li_LALVariablesObject*)value;
     
-    if(!self->data->dataParams){
-		self->data->dataParams=(LALVariables*)malloc(sizeof(LALVariables));
-	}
-	
-    copyVariables(existingLV->vars,self->data->dataParams);
-	
+    if(!self->data.dataParams){
+        self->data.dataParams=(LALVariables*)malloc(sizeof(LALVariables));
+    }
+    
+    copyVariables(existingLV->vars,self->data.dataParams);
+    
   return 0;
 }
+
+static PyObject* LALIFOData_getmodelDomain(li_LALIFODataObject *self, void *closure)
+{
+
+    if(self->data.modelDomain==timeDomain){
+        return PyString_FromString("timeDomain");
+    }
+    else if(self->data.modelDomain==frequencyDomain){
+        return PyString_FromString("freqDomain");
+    }
+    else return NULL;
+}
+
+static int LALIFOData_setmodelDomain(li_LALIFODataObject *self, PyObject *value, void *closure)
+{
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the name attribute");
+        return -1;
+    }
+    
+    if (! PyString_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, 
+                    "The name attribute value must be a string");
+        return -1;
+    }
+    
+    Py_INCREF(value);
+
+    char* name=PyString_AsString(value);
+    LALDomain var;
+
+    if(!strcmp(name,"timeDomain")){
+        var=timeDomain;
+    }
+    else if(!strcmp(name,"freqDomain")){
+        var=frequencyDomain;
+    }
+    else{
+        die("modelDomain must be one of 'freqDomain' or 'timeDomain'");
+    }
+
+    return 0;
+}
+
+int setREAL8TimeSeriesFromLALIFOData(REAL8TimeSeries* target,PyObject* origin){
+    /* require pylal_REAL8TimeSeries */
+    if(!PyObject_TypeCheck(origin, &pylal_REAL8TimeSeries_Type)){
+        PyErr_SetObject(PyExc_TypeError, origin);
+        return -1;
+    }
+
+    pylal_REAL8TimeSeries* originvec=(pylal_REAL8TimeSeries*)origin;
+
+    int n=originvec->series->data->length;
+    if(n != target->data->length)
+        XLALResizeREAL8Sequence(target->data, 0, n);
+        
+    memcpy(target->data->data,originvec->series->data->data,n * sizeof(*originvec->series->data->data));
+    return 0;
+}
+
+PyObject* getREAL8TimeSeriesFromLALIFOData(REAL8TimeSeries* target){
+
+    pylal_REAL8TimeSeries* new=(pylal_REAL8TimeSeries*)PyObject_CallFunction((PyObject *)&pylal_REAL8TimeSeries_Type,NULL);
+
+    int n=target->data->length;
+    
+    memcpy(new->series,target,sizeof(REAL8TimeSeries));
+    XLALResizeREAL8Sequence(new->series->data, 0, n);
+    memcpy(new->series->data->data,target->data->data,n * sizeof(*target->data->data));
+    return 0;
+
+    
+}
+
+/* timeData */
+static int LALIFOData_settimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeData,value);}
+static PyObject* LALIFOData_gettimeData(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeData);}
+/* timeModelhPlus */
+static int LALIFOData_settimeModelhPlus(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus,value);}
+static PyObject* LALIFOData_gettimeModelhPlus(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhPlus);}
+/* timeModelhCross */
+static int LALIFOData_settimeModelhCross(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross,value);}
+static PyObject* LALIFOData_gettimeModelhCross(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeModelhCross);}
+/* whiteTimeData */
+static int LALIFOData_setwhiteTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData,value);}
+static PyObject* LALIFOData_getwhiteTimeData(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.whiteTimeData);}
+/* windowedTimeData */
+static int LALIFOData_setwindowedTimeData(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData,value);}
+static PyObject* LALIFOData_getwindowedTimeData(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.windowedTimeData);}
+/* timeDomainNoiseWeights */
+static int LALIFOData_settimeDomainNoiseWeights(li_LALIFODataObject *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights,value);}
+static PyObject* LALIFOData_gettimeDomainNoiseWeights(li_LALIFODataObject *self, void *closure) {return getREAL8TimeSeriesFromLALIFOData(self->data.timeDomainNoiseWeights);}
 
 /**getsetters registration struct**/
 
 static PyGetSetDef LALIFOData_getseters[] = {
-    {"name", 
-     (getter)LALIFOData_getname, (setter)LALIFOData_setname,
-     "name",
-     NULL},
-     {"nullloglikelihood", 
-     (getter)LALIFOData_getnullloglikelihood, (setter)LALIFOData_setnullloglikelihood,
-     "nullloglikelihood",
-     NULL},
-     {"loglikelihood", 
-     (getter)LALIFOData_getloglikelihood, (setter)LALIFOData_setloglikelihood,
-     "loglikelihood",
-     NULL},
-     {"acceptedloglikelihood", 
-     (getter)LALIFOData_getacceptedloglikelihood, (setter)LALIFOData_setacceptedloglikelihood,
-     "acceptedloglikelihood",
-     NULL},
-     {"fPlus", 
-     (getter)LALIFOData_getfPlus, (setter)LALIFOData_setfPlus,
-     "fPlus",
-     NULL},
-     {"fCross", 
-     (getter)LALIFOData_getfCross, (setter)LALIFOData_setfCross,
-     "fCross",
-     NULL},
-     {"timeshift", 
-     (getter)LALIFOData_gettimeshift, (setter)LALIFOData_settimeshift,
-     "timeshift",
-     NULL},
-     {"fLow", 
-     (getter)LALIFOData_getfLow, (setter)LALIFOData_setfLow,
-     "fLow",
-     NULL},
-     {"fHigh", 
-     (getter)LALIFOData_getfHigh, (setter)LALIFOData_setfHigh,
-     "fHigh",
-     NULL},
-    {"modelParams", 
-     (getter)LALIFOData_getmodelParams, (setter)LALIFOData_setmodelParams,
-     "modelParams",
-     NULL},
-     {"dataParams", 
-     (getter)LALIFOData_getdataParams, (setter)LALIFOData_setdataParams,
-     "dataParams",
-     NULL},
+    {"name",(getter)LALIFOData_getname,(setter)LALIFOData_setname,"name",NULL},
+    //LALVariables
+    {"modelParams",(getter)LALIFOData_getmodelParams,(setter)LALIFOData_setmodelParams,"modelParams",NULL},
+    {"dataParams",(getter)LALIFOData_getdataParams,(setter)LALIFOData_setdataParams,"dataParams",NULL},
+    //LALDomain ...represented as string
+    {"modelDomain",(getter)LALIFOData_getmodelDomain,(setter)LALIFOData_setmodelDomain,"modelDomain",NULL},
+    //REAL8TimeSeries
+    {"timeData",(getter)LALIFOData_gettimeData,(setter)LALIFOData_settimeData,"timeData",NULL},
+    {"timeModelhPlus",(getter)LALIFOData_gettimeModelhPlus,(setter)LALIFOData_settimeModelhPlus,"timeModelhPlus",NULL},
+    {"timeModelhCross",(getter)LALIFOData_gettimeModelhCross,(setter)LALIFOData_settimeModelhCross,"timeModelhCross",NULL},
+    {"whiteTimeData",(getter)LALIFOData_getwhiteTimeData,(setter)LALIFOData_setwhiteTimeData,"whiteTimeData",NULL},
+    {"windowedTimeData",(getter)LALIFOData_getwindowedTimeData,(setter)LALIFOData_setwindowedTimeData,"windowedTimeData",NULL},
+    {"timeDomainNoiseWeights",(getter)LALIFOData_gettimeDomainNoiseWeights,(setter)LALIFOData_settimeDomainNoiseWeights,"timeDomainNoiseWeights",NULL},
+    //COMPLEX16FrequencySeries
     {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALIFOData_members[] = {
+    //REAL8's
+    {"nullloglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.nullloglikelihood), 0, "nullloglikelihood"},
+    {"loglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.loglikelihood), 0, "loglikelihood"},
+    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "acceptedloglikelihood"},
+    {"fPlus", T_DOUBLE, offsetof(li_LALIFODataObject, data.fPlus), 0, "fPlus"},
+    {"fCross", T_DOUBLE, offsetof(li_LALIFODataObject, data.fCross), 0, "fCross"},
+    {"timeshift", T_DOUBLE, offsetof(li_LALIFODataObject, data.timeshift), 0, "timeshift"},
+    {"fLow", T_DOUBLE, offsetof(li_LALIFODataObject, data.fLow), 0, "fLow"},
+    {"fHigh", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "fHigh"},
+    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFODataObject, data.acceptedloglikelihood), 0, "acceptedloglikelihood"},
+
+    {"freqData", T_OBJECT, offsetof(li_LALIFODataObject,freqData ), 0, "freqData"},
+    {"freqModelhPlus", T_OBJECT, offsetof(li_LALIFODataObject,freqModelhPlus ), 0, "freqModelhPlus"},
+    {"freqModelhCross", T_OBJECT, offsetof(li_LALIFODataObject,freqModelhCross ), 0, "freqModelhCross"},
+    {"whiteFreqData", T_OBJECT, offsetof(li_LALIFODataObject,whiteFreqData), 0, "whiteFreqData"},
+
+    {"oneSidedNoisePowerSpectrum", T_OBJECT, offsetof(li_LALIFODataObject,oneSidedNoisePowerSpectrum), 0, "oneSidedNoisePowerSpectrum"},
+    {"window", T_OBJECT, offsetof(li_LALIFODataObject,window), 0, "window"},
+    {"timeToFreqFFTPlan", T_OBJECT, offsetof(li_LALIFODataObject,timeToFreqFFTPlan ), 0, "timeToFreqFFTPlan"},
+    {"freqToTimeFFTPlan", T_OBJECT, offsetof(li_LALIFODataObject,freqToTimeFFTPlan), 0, "freqToTimeFFTPlan"},
+
+    {"compTimeData", T_OBJECT, offsetof(li_LALIFODataObject,compTimeData), 0, "compTimeData"},
+    {"compModelData", T_OBJECT, offsetof(li_LALIFODataObject,compModelData), 0, "compModelData"},
+
+    {NULL,}
 };
 
 static PyMethodDef LALIFOData_methods[]= {
@@ -888,7 +802,7 @@ static PyTypeObject li_LALIFODataType = {
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
     LALIFOData_methods,             /* tp_methods */
-    0,             /* tp_members */
+    LALIFOData_members,             /* tp_members */
     LALIFOData_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
@@ -925,6 +839,13 @@ init_lalinference(void)
         return;
     
     m = Py_InitModule3(MODULE_NAME,module_methods,LIDocString);
+
+    import_array();
+    pylal_complex16frequencyseries_import();
+    pylal_complex16timeseries_import();
+    pylal_real8fftplan_import();
+    pylal_real8frequencyseries_import();
+    pylal_real8timeseries_import();
     
     Py_INCREF(&li_LALVariablesType);
     PyModule_AddObject(m, "BaseLALVariables", (PyObject *)&li_LALVariablesType);

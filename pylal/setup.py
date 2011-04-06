@@ -192,7 +192,7 @@ setup(
 		Extension(
 			"pylal._lalinference",
 			["src/lalinference.c"],
-			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs,
+			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
 			libraries = lalinference_pkg_config.libs + lalpulsar_pkg_config.libs,
 			runtime_library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
