@@ -101,34 +101,39 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 		}
 		ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
 	} else {
-		REAL8 alpha, amp;
 		REAL4 h[2];
-		for (UINT8 i = 0; i < size; i++) {
-			for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
-				valuesHelp[j] = values->data[(j + 1) * size + i];
-			}
-			alpha = atan2(valuesHelp[LALSQTPN_LNH_2], valuesHelp[LALSQTPN_LNH_1]);
-			amp = params->signalAmp * pow(valuesHelp[LALSQTPN_OMEGA], 2.0 / 3.0);
-			if (waveform->hp || waveform->hc) {
-				XLALSQTPNCalculateHPHC2(params, valuesHelp, h);
-				if (waveform->hp) {
-					waveform->hp->data[i] = h[0];
+		if (waveform->waveform->h) {
+			for (UINT8 i = 0; i < size; i++) {
+				for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
+					valuesHelp[j] = values->data[(j + 1) * size + i];
 				}
-				if (waveform->hc) {
-					waveform->hc->data[i] = h[1];
-				}
-			}
-			if (waveform->waveform->h) {
 				XLALSQTPNCalculateHPHC2(params, valuesHelp, &(waveform->waveform->h->data->data[2
 						* i]));
 			}
-			if (waveform->waveform->a) {
+		}
+		if (waveform->waveform->a) {
+			for (UINT8 i = 0; i < size; i++) {
+				for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
+					valuesHelp[j] = values->data[(j + 1) * size + i];
+				}
 				XLALSQTPNCalculateHPHC2(params, valuesHelp, h);
 				waveform->waveform->a->data->data[2 * i] = h[0];
 				waveform->waveform->a->data->data[2 * i + 1] = h[1];
 				waveform->waveform->f->data->data[i] = valuesHelp[LALSQTPN_OMEGA] / freq_Step;
 				waveform->waveform->phi->data->data[i] = LAL_PI_4;
 				waveform->waveform->shift->data->data[i] = 0.0;
+			}
+		}
+		if (waveform->hp) {
+			for (UINT8 i = 0; i < size; i++) {
+				for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
+					valuesHelp[j] = values->data[(j + 1) * size + i];
+				}
+				XLALSQTPNCalculateHPHC2(params, valuesHelp, h);
+				waveform->hp->data[i] = h[0];
+				if (waveform->hc) {
+					waveform->hc->data[i] = h[1];
+				}
 			}
 		}
 	}
