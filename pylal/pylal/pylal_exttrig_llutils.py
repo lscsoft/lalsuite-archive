@@ -547,6 +547,7 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
         
         # loop over all the CATs
         vetoed_ifos = set()
+        vetoed_cats = set()
         for cat in list_cat:
 
             # create the filename
@@ -560,16 +561,13 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
               pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%(ifo, segstart, segend, cat, name), tag[4:])
             if vetolist.intersects_segment(segments.segment(timerange)):
                 vetoed_ifos.add(ifo)
+                vetoed_cats.add(cat)
 
         # Check if the detector is being vetoed
         if len(vetoed_ifos)==0:
               clear_ifos.append(ifo)
         else:
-              # a little bit of nice grammar
-              if len(vetoed_ifos)==1:
-                pas.info("IFO %s has been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
-              else:
-                pas.info("IFOs %s have been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
+            pas.info("IFO(s) %s vetoed by CAT(s): %s" % (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
                 
 
     return clear_ifos
