@@ -5,6 +5,7 @@ import pickle, glob
 import subprocess, commands
 import ConfigParser, optparse
 import itertools
+import urllib
 from datetime import datetime
 
 import numpy as np
@@ -46,8 +47,9 @@ basic_ifolist = ['H1','L1','V1']
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
 
-# specify the runtimes during S6
-runtimes = {'A':[931035296,935798487],'B':[937800015,947260815],\
+# specify the runtimes during S6; the end of S6B is adjusted so to consider
+# GRB 100112 inside S6B
+runtimes = {'A':[931035296,935798487],'B':[937800015,947347215],\
             'C':[949003215,961545615],'D':[961545615, 971654415] }
 
 
@@ -371,12 +373,19 @@ def get_minimum_scienceseg_length(cp):
 
     # the following is just a copy-and-paste from trigger_hipe
     paddata = int(cp.get('data', 'pad-data'))
-    n = int(cp.get('data', 'segment-length'))
-    s = int(cp.get('data', 'number-of-segments'))
-    r = int(cp.get('data', 'sample-rate'))
-    o = int(cp.get('inspiral', 'segment-overlap'))
-    length = ( n * s - ( s - 1 ) * o ) / r
-    overlap = o / r
+    if cp.has_option('data', 'segment-length'):
+      n = int(cp.get('data', 'segment-length'))
+      s = int(cp.get('data', 'number-of-segments'))
+      r = int(cp.get('data', 'sample-rate'))
+      o = int(cp.get('inspiral', 'segment-overlap'))
+      length = ( n * s - ( s - 1 ) * o ) / r
+      overlap = o / r
+    elif cp.has_option('data','block-duration'):
+      length = int(cp.get('data','block-duration'))
+      overlap = int(cp.get('data','segment-duration'))/2
+    else:
+      raise ValueError, "Cannot find segment information in [data] section of ini file."
+      
     minsciseg = length + 2 * paddata
     
     # returns the result
@@ -465,7 +474,7 @@ def update_veto_lists(veto_definer, timerange, path = '.', tag = None):
     # prepare the call to get the veto-lists from the database
     pas = AnalysisSingleton()
     cmd = "ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
-          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s --individual-results"\
           % (veto_definer, timerange[0], timerange[1], path)
     pas.system(cmd, tag[4:])
 
@@ -539,6 +548,7 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
         
         # loop over all the CATs
         vetoed_ifos = set()
+        vetoed_cats = set()
         for cat in list_cat:
 
             # create the filename
@@ -552,16 +562,13 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
               pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%(ifo, segstart, segend, cat, name), tag[4:])
             if vetolist.intersects_segment(segments.segment(timerange)):
                 vetoed_ifos.add(ifo)
+                vetoed_cats.add(cat)
 
         # Check if the detector is being vetoed
         if len(vetoed_ifos)==0:
               clear_ifos.append(ifo)
         else:
-              # a little bit of nice grammar
-              if len(vetoed_ifos)==1:
-                pas.info("IFO %s has been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
-              else:
-                pas.info("IFOs %s have been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
+            pas.info("IFO(s) %s vetoed by CAT(s): %s" % (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
                 
 
     return clear_ifos
@@ -685,7 +692,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   # get the science segment specifier from the config file
   seg_names = {}
   for ifo in basic_ifolist:
-    seg_names[ifo] = pas.cp.get('input','%s-segments'%ifo.lower())
+    seg_names[ifo] = pas.cp.get('segments','%s-segments'%ifo.lower())
 
   # update the science segments around the trigger time
   timerange = [ trigger - offset, trigger + offset]
@@ -716,8 +723,8 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
     # update the veto list if required or if files are missing
     if not useold or not avail:
-      veto_definer_file = os.path.join(pas.cvs, \
-                        pas.cp.get('exttrig','cvs_veto_definer'))
+      veto_definer_file_url = pas.cp.get('exttrig','cvs_veto_definer')
+      veto_definer_file,headers = urllib.urlretrieve(veto_definer_file_url,os.path.basename(veto_definer_file_url))
       update_veto_lists(veto_definer_file, [starttime, endtime], \
                             tag = tag, path = path)
 
