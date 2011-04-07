@@ -85,6 +85,8 @@ typedef struct tagLALSQTPNVariable {
 	REAL8 LNhchih[2];
 	REAL8 LNhxchih[2][3];
 	REAL8 omegaPowi_3[LAL_PNORDER_NUM_ORDER];
+	REAL8 coefficient_Cosine[2];
+	REAL8 coefficient_Sine[2];
 } LALSQTPNVariable;
 
 /**		The structure contains the coefficients for calculating the derivatives
@@ -129,6 +131,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	REAL8 chirpMass; ///< chirp mass in \f$M_\odot\f$
 	REAL8 mu; ///< reduced mass in \f$M_\odot\f$
 	REAL8 eta; ///< symmetric mass ratio
+	REAL8 deltam_M;
 	//@}
 	///@name spin-parameters
 	//@{

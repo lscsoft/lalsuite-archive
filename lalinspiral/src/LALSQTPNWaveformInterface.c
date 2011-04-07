@@ -56,6 +56,7 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 	wave->mu = wave->mass[0] * wave->mass[1] / wave->totalMass;
 	wave->eta = wave->mu / wave->totalMass;
 	wave->chirpMass = wave->totalMass * pow(wave->eta, 3. / 5.);
+	wave->deltam_M = sqrt(1.0 - 4.0 * wave->eta);
 	wave->chiAmp[0] = wave->chiAmp[1] = 0.;
 	INT2 i;
 	for (i = 0; i < 3; i++) {
@@ -247,7 +248,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 		ppnParams->tc = (REAL8)(wave.length - 1) / params->tSampling;
 		ppnParams->length = wave.length;
 		ppnParams->dfdt = ((REAL4)(waveform->f->data->data[wave.length - 1]
-					- waveform->f->data->data[wave.length - 2])) * ppnParams->deltaT;
+				- waveform->f->data->data[wave.length - 2])) * ppnParams->deltaT;
 		ppnParams->fStop = params->fFinal;
 		ppnParams->termCode = GENERATEPPNINSPIRALH_EFSTOP;
 		ppnParams->termDescription = GENERATEPPNINSPIRALH_MSGEFSTOP;

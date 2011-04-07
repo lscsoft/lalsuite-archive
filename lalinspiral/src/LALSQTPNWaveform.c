@@ -180,7 +180,6 @@ static void XLALCalculateAmplitudeContributionForOrder0_5(LALSQTPNWaveformParams
 	REAL8 sine_Part[2];
 	REAL8 cos_Iota = values[LALSQTPN_LNH_3];
 	REAL8 sin_Iota = sin(acos(cos_Iota));
-	REAL8 deltaM = fabs(params->mass[0] - params->mass[1]);
 	REAL8 sin_Phi = sin(values[LALSQTPN_PHASE]);
 	REAL8 cos_Phi = cos(values[LALSQTPN_PHASE]);
 	REAL8 sin_3Phi = sin(3.0 * values[LALSQTPN_PHASE]);
@@ -188,9 +187,9 @@ static void XLALCalculateAmplitudeContributionForOrder0_5(LALSQTPNWaveformParams
 	XLALCalculateCoefficientsForOrder0_0(values, twoAlpha, cosine_Part, sine_Part);
 	XLALCalculateCoefficientsForOrder0_5(values, twoAlpha, K);
 	for (UINT2 i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
-		contribution[i] = 0.25 * deltaM / params->totalMass * (3.0 * cosine_Part[i] * sin_Iota
-				* (3.0 * cos_3Phi - cos_Phi) + 3.0 * sine_Part[i] * sin_Iota * (3.0 * sin_3Phi
-				- sin_Phi) - 2.0 * K[i] * sin_Iota * cos_Phi);
+		contribution[i] = 0.25 * params->deltam_M * (3.0 * cosine_Part[i] * sin_Iota * (3.0
+				* cos_3Phi - cos_Phi) + 3.0 * sine_Part[i] * sin_Iota * (3.0 * sin_3Phi - sin_Phi)
+				- 2.0 * K[i] * sin_Iota * cos_Phi);
 	}
 }
 
