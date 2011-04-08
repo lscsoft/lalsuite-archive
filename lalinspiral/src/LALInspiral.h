@@ -1297,6 +1297,7 @@ void LALBBHPhenTimeDomEngine( LALStatus        *status,
 			      REAL4Vector      *a,
 			      REAL4Vector      *f,
 			      REAL8Vector      *phiOut,
+				  UINT4            *countback,
 			      InspiralTemplate *params);
 
 void LALBBHPhenWaveTimeDomForInjection (LALStatus        *status,
