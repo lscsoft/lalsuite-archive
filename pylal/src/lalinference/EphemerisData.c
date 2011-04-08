@@ -9,7 +9,7 @@
 
 #include <tools.h>
 
-
+#include "PosVelAcc.h"
 #include "EphemerisData.h"
 
 /*
@@ -56,41 +56,62 @@ static PyObject* EphemerisData__new__(PyTypeObject *type, PyObject *args, PyObje
 }
 
 int setPosVelAccFromData(PosVelAcc* internal,PyObject* old,PyObject* new){
-    if (origin == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALDetector attribute");
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the PosVelAcc attribute");
         return -1;
     }
     
-    if(!PyObject_TypeCheck(origin, &pylal_LALDetector_Type)){
-        PyErr_SetObject(PyExc_TypeError, origin);
+    if(!PyObject_TypeCheck(new, &li_PosVelAcc_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
+
     if(old) Py_DECREF(old);
-    
-    pylal_LALDetector* origindet=(pylal_LALDetector*)origin;
-    Py_INCREF(origin);
-    old=origin;
-    memcpy((void*)target,(void*)&origindet->detector,sizeof(LALDetector));
+    Py_INCREF(new);
+    old=new;
+
+    li_PosVelAcc* newpva=(li_PosVelAcc*)new;
+    internal=newpva->data;
     
     return 0;
 }
 
-PyObject* getPosVelAccFromData(PosVelAcc* internal,PyObject* owner){
-    PyObject *empty_tuple = PyTuple_New(0);
-    pylal_PosVelAcc *obj = (pylal_PosVelAcc *) PyType_GenericNew(&pylal_PosVelAcc_Type,empty_tuple,NULL);
-    Py_DECREF(empty_tuple);
-
-    if(!obj) {
-        return NULL;
+PyObject* getPosVelAccFromData(PosVelAcc* internal,PyObject* pva){
+    if(pva==NULL){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        return li_PosVelAcc_new(internal,pva);
     }
-    
-    memcpy((void*)&obj->detector,(void*)&internal,sizeof(PosVelAcc));
-    return (PyObject *) obj;
 }
-/*site*/
 
-static PyObject* EphemerisData_getephemE(li_EphemerisData *self, void *closure){return getLALDetectorFromData(self->data->site);}
-static int EphemerisData_setephemE(li_EphemerisData *self, PyObject *value, void *closure){return setLALDetectorFromData(&self->data->site,self->site,value);}
+int setTwoTupleOfCharsFromData(EphemerisFilenames internal,PyObject* old,PyObject* new){
+    
+    return 0;
+}
+
+PyObject* getTwoTupleOfCharsFromData(PyObject* pva){
+    if(pva==NULL){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        Py_INCREF(pva);
+        return pva;
+    }
+}
+
+
+/*ephemE*/
+static PyObject* EphemerisData_getephemE(li_EphemerisData *self, void *closure){return getPosVelAccFromData(self->data->ephemE,self->ephemE);}
+static int EphemerisData_setephemE(li_EphemerisData *self, PyObject *value, void *closure){return setPosVelAccFromData(self->data->ephemE,self->ephemE,value);}
+
+/*ephemS*/
+static PyObject* EphemerisData_getephemS(li_EphemerisData *self, void *closure){return getPosVelAccFromData(self->data->ephemS,self->ephemS);}
+static int EphemerisData_setephemS(li_EphemerisData *self, PyObject *value, void *closure){return setPosVelAccFromData(self->data->ephemS,self->ephemS,value);}
+
+/*ephemS*/
+static PyObject* EphemerisData_getephiles(li_EphemerisData *self, void *closure){return getTwoTupleOfCharsFromData(self->ephiles);}
+static int EphemerisData_setephiles(li_EphemerisData *self, PyObject *value, void *closure){return setTwoTupleOfCharsFromData(self->data->ephiles,self->ephiles,value);}
 
 
 static PyMethodDef EphemerisData_methods[]= {
@@ -156,9 +177,20 @@ static PyTypeObject li_ephemerisdata_type = {
     0,                         /* tp_alloc */
     EphemerisData__new__,                 /* tp_new */
 };
+/*
+ * ============================================================================
+ *
+ *                            Module Registration
+ *
+ * ============================================================================
+ */
+ 
+static PyMethodDef module_methods[] = {
+    {NULL}  /* Sentinel */
+};
 
 PyMODINIT_FUNC
-init_lalinference(void)
+init_ephemerisdata(void)
 {
     PyObject *m;
 

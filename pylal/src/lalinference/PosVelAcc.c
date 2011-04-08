@@ -154,6 +154,17 @@ static PyTypeObject li_posvelacc_type = {
     0,                         /* tp_alloc */
     PosVelAcc__new__,                 /* tp_new */
 };
+/*
+ * ============================================================================
+ *
+ *                            Module Registration
+ *
+ * ============================================================================
+ */
+ 
+static PyMethodDef module_methods[] = {
+    {NULL}  /* Sentinel */
+};
 
 PyMODINIT_FUNC
 init_posvelacc(void)

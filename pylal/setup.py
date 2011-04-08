@@ -182,6 +182,7 @@ setup(
 		"pylal.xlal",
 		"pylal.xlal.datatypes",
         "pylal.dq"
+        
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -191,48 +192,12 @@ setup(
 	ext_modules = [
 		Extension(
 			"pylal._lalinference",
-			["src/lalinference/lalinference.c"],
-			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs + [numpy_get_include()]+ ["src/xlal", "src/xlal/datatypes"] ,
+			["src/lalinference.c","src/xlal/tools.c"],
+			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs + [numpy_get_include(),"src/xlal", "src/xlal/datatypes"] ,
 			library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
 			libraries = lalinference_pkg_config.libs + lalpulsar_pkg_config.libs,
 			runtime_library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
 			extra_compile_args = lalinference_pkg_config.extra_cflags + lalpulsar_pkg_config.extra_cflags
-		),
-        Extension(
-			"pylal.lalinference.lalvariables",
-			["src/lalinference/LALVariables.c"],
-			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs+ [numpy_get_include()],
-			library_dirs = lalinference_pkg_config.libdirs+ lalpulsar_pkg_config.libdirs,
-			libraries = lalinference_pkg_config.libs+ lalpulsar_pkg_config.libs,
-			runtime_library_dirs = lalinference_pkg_config.libdirs+ lalpulsar_pkg_config.libdirs,
-			extra_compile_args = lalinference_pkg_config.extra_cflags+ lalpulsar_pkg_config.extra_cflags
-		),
-        Extension(
-			"pylal.lalinference.lalifodata",
-			["src/lalinference/LALIFOData.c"],
-			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			library_dirs = lalinference_pkg_config.libdirs+ lalpulsar_pkg_config.libdirs,
-			libraries = lalinference_pkg_config.libs+ lalpulsar_pkg_config.libs,
-			runtime_library_dirs = lalinference_pkg_config.libdirs+ lalpulsar_pkg_config.libdirs,
-			extra_compile_args = lalinference_pkg_config.extra_cflags+ lalpulsar_pkg_config.extra_cflags
-		),
-        Extension(
-			"pylal.lalinference.ephemerisdata",
-			["src/lalinference/EphemerisData.c"],
-			include_dirs = lalinference_pkg_config.incdirs+ lalpulsar_pkg_config.incdirs+ ["src/xlal", "src/xlal/datatypes"],
-			library_dirs = lalinference_pkg_config.libdirs+ lalpulsar_pkg_config.libdirs,
-			libraries = lalinference_pkg_config.libs+ lalpulsar_pkg_config.libs,
-			runtime_library_dirs = lalinference_pkg_config.libdirs+ lalpulsar_pkg_config.libdirs,
-			extra_compile_args = lalinference_pkg_config.extra_cflags+ lalpulsar_pkg_config.extra_cflags
-		),
-        Extension(
-			"pylal.lalinference.barycenterinput",
-			["src/lalinference/BarycenterInput.c"],
-			include_dirs = lalinference_pkg_config.incdirs + [numpy_get_include()],
-			library_dirs = lalinference_pkg_config.libdirs,
-			libraries = lalinference_pkg_config.libs,
-			runtime_library_dirs = lalinference_pkg_config.libdirs,
-			extra_compile_args = lalinference_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.Fr",

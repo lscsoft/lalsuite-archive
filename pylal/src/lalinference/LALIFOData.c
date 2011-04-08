@@ -10,22 +10,12 @@
 #include <lal/LALBarycenter.h>
 #include <lal/LALDetectors.h>
 
-#include <complex16frequencyseries.h>
-#include <complex16timeseries.h>
-#include <real8fftplan.h>
-#include <real8frequencyseries.h>
-#include <real8timeseries.h>
 #include <ligotimegps.h>
-#include <real8window.h>
-#include <tools.h>
 
 #include "lalinference.h"
 
-#include "LALVariables.h"
 #include "LALIFOData.h"
-#include "BarycenterInput.h"
-#include "EphemerisData.h"
-
+#include "LALVariables.h"
 
 
 /*
@@ -418,18 +408,8 @@ init_lalifodata(void)
     m = Py_InitModule3(MODULE_NAME,module_methods,LIDDocString);
 
     import_array();
-    pylal_complex16frequencyseries_import();
-    pylal_complex16timeseries_import();
-    pylal_real8fftplan_import();
-    pylal_real8frequencyseries_import();
-    pylal_real8timeseries_import();
     pylal_ligotimegps_import();
-    pylal_real8window_import();
-
     LALVariables_import();
-    BarycenterInput_import();
-    EmpherisData_import();
-
     Py_INCREF(&li_LALIFOData_Type);
     PyModule_AddObject(m, "LALIFOData", (PyObject *)&li_LALIFOData_Type);
 }

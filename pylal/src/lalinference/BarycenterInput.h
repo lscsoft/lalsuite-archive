@@ -1,6 +1,6 @@
 //BarycenterInput.h
 #include <lal/LALBarycenter.h>
-#define LALINFERENCE_BARYCENTERINPUT_MODULE_NAME "pylal.lalinference.barycenterinput"
+#define LALINFERENCE_BARYCENTERINPUT_MODULE_NAME "pylal._lalinference"
 
 static PyTypeObject *_li_BarycenterInput_Type = NULL;
 #define li_BarycenterInput_Type (*_li_BarycenterInput_Type)

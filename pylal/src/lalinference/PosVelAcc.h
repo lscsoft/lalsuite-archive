@@ -1,6 +1,6 @@
 //PosVelAcc.h
 #include <lal/LALBarycenter.h>
-#define LALINFERENCE_POSVELACC_MODULE_NAME "pylal.lalinference.PosVelAcc"
+#define LALINFERENCE_POSVELACC_MODULE_NAME "pylal._lalinference"
 
 static PyTypeObject *_li_PosVelAcc_Type = NULL;
 #define li_PosVelAcc_Type (*_li_PosVelAcc_Type)

@@ -1,6 +1,6 @@
 //EmpherisData.h
 #include <lal/LALBarycenter.h>
-#define LALINFERENCE_EPHEMERISDATA_MODULE_NAME "pylal.lalinference.ephemerisdata"
+#define LALINFERENCE_EPHEMERISDATA_MODULE_NAME "pylal._lalinference"
 
 static PyTypeObject *_li_EphemerisData_Type = NULL;
 #define li_EphemerisData_Type (*_li_EphemerisData_Type)

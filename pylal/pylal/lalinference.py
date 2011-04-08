@@ -33,7 +33,7 @@ classes.
 
 from pylal import git_version
 
-from pylal._lalinference import BaseLALVariables,BaseLALIFOData
+from pylal._lalinference import BaseLALVariables,BaseLALIFOData,BarycenterInput,PosVelAcc,EphemerisData
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id

@@ -1,6 +1,6 @@
 //LALVariables.h
 
-#define LALINFERENCE_LALVARIABLES_MODULE_NAME "pylal.lalinference.lalvariables"
+#define LALINFERENCE_LALVARIABLES_MODULE_NAME "pylal._lalinference"
 
 static PyTypeObject *_li_LALVariables_Type = NULL;
 #define li_LALVariables_Type (*_li_LALVariables_Type)

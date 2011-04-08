@@ -12,7 +12,7 @@
 #include <ligotimegps.h>
 #include <tools.h>
 
-#include "lalvariables.h"
+#include "lalinference.h"
 #include "BarycenterInput.h"
 
 /*
@@ -24,6 +24,9 @@
  */
 
 #define MODULE_NAME LALINFERENCE_BARYCENTERINPUT_MODULE_NAME
+const char BIDocString[] =
+"This module provides data types and function wrappers for"
+"BarycenterInput.";
 
 /*Methods*/
 
@@ -55,7 +58,7 @@ static PyObject* BarycenterInput__new__(PyTypeObject *type, PyObject *args, PyOb
 
 /*tgps*/
 static PyObject* BarycenterInput_gettgps(li_BarycenterInput *self, void *closure){return pylal_LIGOTimeGPS_new(self->data->tgps);}
-static int BarycenterInput_settgps(li_BarycenterInput *self, PyObject *value, void *closure){return setLIGOTimeGPSFromLALIFOData(self->data->tgps,value);}
+static int BarycenterInput_settgps(li_BarycenterInput *self, PyObject *value, void *closure){return setLIGOTimeGPSFromData(self->data->tgps,value);}
 
 /*site*/
 static PyObject* BarycenterInput_getsite(li_BarycenterInput *self, void *closure){return getLALDetectorFromData(self->data->site);}
@@ -151,6 +154,6 @@ init_barycenterinput(void)
     
     pylal_ligotimegps_import();
     
-    Py_INCREF(&li_LALIFOData_Type);
+    Py_INCREF(&li_BarycenterInput_Type);
     PyModule_AddObject(m, "BarycenterInput", (PyObject *)&li_BarycenterInput_Type);
 }
