@@ -178,6 +178,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
    fnameList = []; tagList = []
 
+   prior_upper_limit = rate.BinnedArray(bins)
    combined_upper_limit = rate.BinnedArray(bins)
 
    # Gather priors.
@@ -210,6 +211,8 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
                                                                   mkplot = True,
                                                                   plottag = '%s%s-%s_combined_posterior_by_%s_bin%d-%d-%d'%(opts.output_path,combined_ifos,__prog__,bin_type.lower(), j,opts.gps_start_time, opts.gps_end_time-opts.gps_start_time))
      combined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, combined_post, 0.90)
+     if prior is not None:
+       prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu_in, prior, 0.90)
 
      if combined_upper_limit[mbin] == 0: continue
      if bin_type == "BNS_BBH":
@@ -270,6 +273,10 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    #
    width = bins.upper()[0]-bins.lower()[0]
    bottom = combined_upper_limit.array
+   top = numpy.ones(len(bottom))
+   pylab.bar(bins.lower()[0],top, width, bottom = bottom, color='black', alpha=0.8)
+   width = bins.upper()[0]-bins.lower()[0]
+   bottom = prior_upper_limit.array
    top = numpy.ones(len(bottom))
    pylab.bar(bins.lower()[0],top, width, bottom = bottom, color='gray')
    pylab.gca().semilogy()

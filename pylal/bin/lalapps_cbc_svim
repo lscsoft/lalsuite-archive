@@ -633,10 +633,10 @@ for instruments in UL.instruments:
 
       wikisum = tag + ".wiki"
       fd = open(wikisum,'w')
-      masstags = ''.join(["'''%.1f-%.1f Msun''' VT (Mpc^3*yr) / Lambda||||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
-      fd.write("|| '''Analysis time''' || '''Instrument Set''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
-      masstags = ''.join(["  %.0f || %.2f ||"%(v,dv) for v,dv in zip(vA.array,dvA.array)])
-      fd.write("|| %d-%d || !%s || %d (%f) || %.2f || || %s\n" %(UL.start_time,UL.end_time,"".join(sorted(list(instruments))),UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
+      masstags = ''.join([" ||<-3>'''%.1f-%.1f Msun''' VT (Mpc3*yr) / Lambda / error ||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
+      fd.write("|| '''Analysis time''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
+      masstags = ''.join([" ||  %.0f || %.2f || %.2f ||"%(v,dv,er) for v,dv,er in zip(vA.array,dvA.array,vA2.array/vA.array)])
+      fd.write("|| %d-%d || %d (%f) || %.2f || %s\n" %(UL.start_time,UL.end_time,UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
       fd.close()
 
 
