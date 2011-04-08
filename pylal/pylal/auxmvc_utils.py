@@ -12,7 +12,7 @@ def ReadKWAuxTriggers(files):
   return KWTriggers
 
 
-def ConvertKWauxTriggersToMVSC(KWTriggers):
+def ConvertKWAuxTriggersToMVSC(KWTriggers):
 
   """
   Convert KW auxiliary triggers into MVSC input triggers
