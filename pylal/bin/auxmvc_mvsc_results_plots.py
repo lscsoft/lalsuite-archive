@@ -7,7 +7,7 @@ matplotlib.use('Agg')
 import pylab
 import pdb
 import numpy
-import auxmvc_utils 
+from pylal import auxmvc_utils 
 
 parser=OptionParser(usage="Generates summary plots for MVSC that processed KW aux-triggers", version = "Kari Hodge")
 parser.add_option("","--histograms", action="store_true", default=False, help="use if you want to produce histograms for each dimension")
