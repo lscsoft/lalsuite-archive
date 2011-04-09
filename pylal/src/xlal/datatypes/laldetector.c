@@ -95,6 +95,18 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
+static void __del__(PyObject *obj)
+{
+	pylal_LALDetector *detector = (pylal_LALDetector *) obj;
+	Py_DECREF(detector->location);
+	detector->location = NULL;
+	Py_DECREF(detector->response);
+	detector->response = NULL;
+
+	pylal_LALDetector_Type.tp_free(obj);
+}
+
+
 /*
  * Type
  */
@@ -108,6 +120,7 @@ PyTypeObject pylal_laldetector_type = {
 	.tp_members = members,
 	.tp_name = MODULE_NAME ".LALDetector",
 	.tp_new = __new__,
+	.tp_dealloc = __del__,
 };
 
 

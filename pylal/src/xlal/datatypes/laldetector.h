@@ -65,12 +65,15 @@ static PyObject *pylal_laldetector_import(void)
 	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 
+	if(_import_array() < 0) {
+		Py_DECREF(module);
+		return NULL;
+	}
+
 	name = PyString_FromString("LALDetector");
 	_pylal_LALDetector_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
 	Py_INCREF(&pylal_LALDetector_Type);
 	Py_DECREF(name);
-
-	import_array();
 
 	return module;
 }
