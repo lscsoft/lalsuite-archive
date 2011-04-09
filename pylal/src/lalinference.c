@@ -277,7 +277,7 @@ PyObject* getREAL8TimeSeriesFromData(REAL8TimeSeries* internal,PyObject* owner){
     }
 }
 
-int setLALDetectorFromData(LALDetector* target,PyObject* old,PyObject* origin){
+int setLALDetectorFromData(LALDetector target,PyObject* old,PyObject* origin){
     if (origin == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the LALDetector attribute");
         return -1;
@@ -292,22 +292,19 @@ int setLALDetectorFromData(LALDetector* target,PyObject* old,PyObject* origin){
     pylal_LALDetector* origindet=(pylal_LALDetector*)origin;
     Py_INCREF(origin);
     old=origin;
-    memcpy((void*)target,(void*)&origindet->detector,sizeof(LALDetector));
+    target=origindet->detector;
     
     return 0;
 }
 
-PyObject* getLALDetectorFromData(LALDetector internal){
-    PyObject *empty_tuple = PyTuple_New(0);
-    pylal_LALDetector *obj = (pylal_LALDetector *) PyType_GenericNew(&pylal_LALDetector_Type,empty_tuple,NULL);
-    Py_DECREF(empty_tuple);
-
-    if(!obj) {
-        return NULL;
+PyObject* getLALDetectorFromData(LALDetector internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return pylal_LALDetector_new(internal,owner);
     }
-    
-    memcpy((void*)&obj->detector,(void*)&internal,sizeof(LALDetector));
-    return (PyObject *) obj;
 }
 
 int setLIGOTimeGPSFromData(LIGOTimeGPS target,PyObject* origin){
@@ -530,8 +527,8 @@ static PyObject* BarycenterInput_gettgps(li_BarycenterInput *self, void *closure
 static int BarycenterInput_settgps(li_BarycenterInput *self, PyObject *value, void *closure){return setLIGOTimeGPSFromData(self->data->tgps,value);}
 
 /*site*/
-static PyObject* BarycenterInput_getsite(li_BarycenterInput *self, void *closure){return getLALDetectorFromData(self->data->site);}
-static int BarycenterInput_setsite(li_BarycenterInput *self, PyObject *value, void *closure){return setLALDetectorFromData(&self->data->site,self->site,value);}
+static PyObject* BarycenterInput_getsite(li_BarycenterInput *self, void *closure){return getLALDetectorFromData(self->data->site,self->site);}
+static int BarycenterInput_setsite(li_BarycenterInput *self, PyObject *value, void *closure){return setLALDetectorFromData(self->data->site,self->site,value);}
 
 
 static PyMethodDef BarycenterInput_methods[]= {
@@ -1586,7 +1583,8 @@ init_lalinference(void)
     pylal_real8timeseries_import();
     pylal_ligotimegps_import();
     pylal_real8window_import();
-
+    pylal_laldetector_import();
+    
     _li_EphemerisData_Type = &li_ephemerisdata_type;
     if (PyType_Ready(&li_EphemerisData_Type) < 0)
         return;
@@ -1623,5 +1621,5 @@ init_lalinference(void)
     PyModule_AddObject(m, "PosVelAcc", (PyObject *)&li_PosVelAcc_Type);
 
     Py_INCREF(&li_LALIFOData_Type);
-    PyModule_AddObject(m, "LALIFOData", (PyObject *)&li_LALIFOData_Type);
+    PyModule_AddObject(m, "BaseLALIFOData", (PyObject *)&li_LALIFOData_Type);
 }
