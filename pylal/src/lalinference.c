@@ -91,6 +91,37 @@ PyObject* getBarycenterInputFromData(BarycenterInput* internal,PyObject* owner){
     }
 }
 
+int setEphemerisDataFromData(EphemerisData* internal,PyObject* old,PyObject* new){
+    /* require li_BarycenterInput*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the BarycenterInput attribute");
+        return -1;
+    }
+    if(!PyObject_TypeCheck(new, &li_EphemerisData_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+
+    if(old) Py_DECREF(old);
+
+    Py_INCREF(new);
+    old=new;
+
+    li_EphemerisData* newephem=(li_EphemerisData*)new;
+    internal=newephem->data;
+    return 0;
+}
+
+PyObject* getEphemerisDataFromData(EphemerisData* internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return li_EphemerisData_new(internal,owner);
+    }
+}
+
 int setREAL8WindowFromData(REAL8Window* internal,PyObject* old,PyObject* new){
     /* require pylal_REAL8Window*/
     if (new == NULL) {
@@ -592,6 +623,7 @@ static PyTypeObject li_barycenterinput_type = {
     0,                         /* tp_alloc */
     BarycenterInput__new__,                 /* tp_new */
 };
+
 /*
  * ============================================================================
  *
@@ -849,6 +881,11 @@ static PyObject* LALIFOData_getnext(li_LALIFOData *self, void *closure) {return 
 static int LALIFOData_setbary(li_LALIFOData *self, PyObject *value, void *closure) {return setBarycenterInputFromData(self->data->bary,self->bary,value);}
 static PyObject* LALIFOData_getbary(li_LALIFOData *self, void *closure) {return getBarycenterInputFromData(self->data->bary,(PyObject*)self->bary);}
 
+/* ephem */
+static int LALIFOData_setephem(li_LALIFOData *self, PyObject *value, void *closure) {return setEphemerisDataFromData(self->data->ephem,self->ephem,value);}
+static PyObject* LALIFOData_getephem(li_LALIFOData *self, void *closure) {return getEphemerisDataFromData(self->data->ephem,(PyObject*)self->ephem);}
+
+ephem
 /**getsetters registration struct**/
 
 static PyGetSetDef LALIFOData_getseters[] = {
@@ -886,6 +923,8 @@ static PyGetSetDef LALIFOData_getseters[] = {
     {"next",(getter)LALIFOData_getnext,(setter)LALIFOData_setnext,"next",NULL},
     //BarycenterInput
     {"bary",(getter)LALIFOData_getbary,(setter)LALIFOData_setbary,"bary",NULL},
+    //EphemerisData
+    {"ephem",(getter)LALIFOData_getephem,(setter)LALIFOData_setephem,"ephem",NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -948,6 +987,152 @@ static PyTypeObject li_lalifodata_type = {
     (initproc)LALIFOData__init__,      /* tp_init */
     0,                         /* tp_alloc */
     LALIFOData__new__,                 /* tp_new */
+    
+};
+
+/*
+ * ============================================================================
+ *
+ *                            LALInferenceRunState
+ *
+ * ============================================================================
+ */
+
+/*Methods*/
+
+ /* Destructor for LALInferenceRunState */
+static void LALInferenceRunState_dealloc(li_LALInferenceRunState *self)
+{
+    self->ob_type->tp_free((PyObject *)self);
+}
+
+static int LALInferenceRunState__init__(li_LALInferenceRunState *self, PyObject *args, PyObject *kwds)
+{
+    self->data=(LALInferenceRunState*)malloc(sizeof(LALInferenceRunState));
+    memset((void*)self->data,0,sizeof(LALInferenceRunState));
+    return 0;
+}
+
+static PyObject* LALInferenceRunState__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    
+    li_LALInferenceRunState *obj = (li_LALInferenceRunState*) PyType_GenericNew(type, args, kwds);
+    if(!obj)
+        return NULL;
+    obj->state=(LALInferenceRunState*)malloc(sizeof(LALInferenceRunState));
+    memset((void*)obj->data,0,sizeof(LALInferenceRunState));
+    obj->owner=NULL;
+    //ProcessParams*
+    obj->commandLine=NULL;
+    //LALAlgorithm*
+    obj->algorithm=NULL;
+    //LALEvolveOneStepFunction*
+    obj->evolve=NULL;
+    //LALPriorFunction*
+    obj->prior=NULL;
+    //LALLikelihoodFunction*
+    obj->likelihood=NULL;
+    //LALProposalFunction*
+    obj->proposal=NULL;
+    //LALTemplateFunction*
+    obj->template=NULL;
+    //struct tagLALIFOData*
+    obj->data=NULL;
+    //LALVariables*
+    obj->currentParams=NULL;
+    obj->priorArgs=NULL;
+    obj->proposalArgs=NULL;
+    obj->algorithmParams=NULL; /* Parameters which control the running of the algorithm */
+    //LALVariables**
+    obj->livePoints=NULL; /* Array of live points for Nested Sampling */
+    obj->differentialPoints=NULL;
+    //gsl_rng*
+    obj->GSLrandom=NULL; 
+    return (PyObject*)obj;
+}
+
+/***********getsetters******************/
+/*algorithm*/
+static PyObject* LALInferenceRunState_getalgorithm(li_LALInferenceRunState *self, void *closure) {return getLALAlgorithmFromData(self->state->algorithm,self->algorithm);};
+static int LALInferenceRunState_setalgorithm(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALAlgorithmFromData(self->state->algorithm,(PyObject*)self->algorithm,value);}
+/*evolve*/
+static PyObject* LALInferenceRunState_getevolve(li_LALInferenceRunState *self, void *closure) {return getLALEvolveOneStepFunctionFromData(self->state->evolve,self->evolve);};
+static int LALInferenceRunState_setevolve(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALEvolveOneStepFunctionFromData(self->state->evolve,(PyObject*)self->evolve,value);}
+
+/**getsetters registration struct**/
+
+static PyGetSetDef LALInferenceRunState_getseters[] = {
+    {"algorithm",(getter)LALInferenceRunState_getalgorithm,(setter)LALInferenceRunState_setalgorithm,"algorithm",NULL},
+    {"evolve",(getter)LALInferenceRunState_getevolve,(setter)LALInferenceRunState_setevolve,"evolve",NULL},
+    {"prior",(getter)LALInferenceRunState_getprior,(setter)LALInferenceRunState_setprior,"prior",NULL},
+    {"likelihood",(getter)LALInferenceRunState_getlikelihood,(setter)LALInferenceRunState_setlikelihood,"likelihood",NULL},
+    {"proposal",(getter)LALInferenceRunState_getproposal,(setter)LALInferenceRunState_setproposal,"proposal",NULL},
+    {"template",(getter)LALInferenceRunState_gettemplate,(setter)LALInferenceRunState_settemplate,"template",NULL},
+    //LALVariables*
+    {"currentParams",(getter)LALInferenceRunState_getcurrentParams,(setter)LALInferenceRunState_setcurrentParams,"currentParams",NULL},
+    {"priorArgs",(getter)LALInferenceRunState_getpriorArgs,(setter)LALInferenceRunState_setpriorArgs,"priorArgs",NULL},
+    {"proposalArgs",(getter)LALInferenceRunState_getproposalArgs,(setter)LALInferenceRunState_setproposalArgs,"proposalArgs",NULL},
+    {"algorithmParams",(getter)LALInferenceRunState_getalgorithmParams,(setter)LALInferenceRunState_setalgorithmParams,"algorithmParams",NULL},
+    //LALVariables**
+    {"livePoints",(getter)LALInferenceRunState_getlivePoints,(setter)LALInferenceRunState_setlivePoints,"livePoints",NULL},
+    {"differentialPoints",(getter)LALInferenceRunState_getdifferentialPoints,(setter)LALInferenceRunState_setdifferentialPoints,"differentialPoints",NULL},
+    //LALIFOData*
+    {"data",(getter)LALInferenceRunState_getdata,(setter)LALInferenceRunState_setdata,"data",NULL},
+    {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALInferenceRunState_members[] = {
+    {"currentLikelihood", T_DOUBLE, offsetof(li_LALInferenceRunState,state)+offsetof(LALInferenceRunState,currentLikelihood), 0, "currentLikelihood"},
+    {"currentPrior", T_DOUBLE, offsetof(li_LALInferenceRunState,state)+offsetof(LALInferenceRunState,currentPrior), 0, "currentPrior"},
+    {"differentialPointsLength", T_UINT, offsetof(li_LALInferenceRunState,state)+offsetof(LALInferenceRunState,differentialPointsLength), 0, "differentialPointsLength",
+    {NULL,}
+};
+
+static PyMethodDef LALInferenceRunState_methods[]= {
+    /* {"name", (PyCFunction)function, METH_NOARGS, "DESCR"}, */
+    {NULL} /* Sentinel */
+};
+
+static PyTypeObject li_lalinferencerunstate_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,              /* obj_size - unused (must be 0) */
+    "lalinference.LALInferenceRunState",    /* tp_name, name of type */
+    sizeof(li_LALInferenceRunState),  /* tp_basicsize */
+    0,              /* tp_itemsize, need to check */
+    (destructor)LALInferenceRunState_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
+    "LALInference LALInferenceRunState object.", /* tp_doc */
+    0,                     /* tp_traverse */
+    0,                     /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    LALInferenceRunState_methods,             /* tp_methods */
+    LALInferenceRunState_members,             /* tp_members */
+    LALInferenceRunState_getseters,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)LALInferenceRunState__init__,      /* tp_init */
+    0,                         /* tp_alloc */
+    LALInferenceRunState__new__,                 /* tp_new */
     
 };
 /*
@@ -1604,6 +1789,9 @@ init_lalinference(void)
     _li_LALIFOData_Type = &li_lalifodata_type;
     if (PyType_Ready(&li_LALIFOData_Type) < 0)
         return;
+    _li_LALInferenceRunState_Type = &li_lalinferencerunstate_type;
+    if (PyType_Ready(&li_LALInferenceRunState_Type) < 0)
+        return;
 
     m = Py_InitModule3(MODULE_NAME,module_methods,LIDocString);
     
@@ -1622,4 +1810,7 @@ init_lalinference(void)
 
     Py_INCREF(&li_LALIFOData_Type);
     PyModule_AddObject(m, "BaseLALIFOData", (PyObject *)&li_LALIFOData_Type);
+
+    Py_INCREF(&li_LALIFOData_Type);
+    PyModule_AddObject(m, "LALInferenceRunState", (PyObject *)&li_LALInferenceRunState_Type);
 }
