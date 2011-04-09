@@ -22,6 +22,7 @@
 #include "lalinference/EphemerisData.h"
 #include "lalinference/LALVariables.h"
 #include "lalinference/PosVelAcc.h"
+#include "lalinference/LALInferenceRunState.h"
 
 #define MODULE_NAME "pylal._lalinference"
 
@@ -354,7 +355,6 @@ PyObject* getLIGOTimeGPSFromData(LIGOTimeGPS target){
     
     return pylal_LIGOTimeGPS_new(target);
 }
-
 
 /*
  * ============================================================================
@@ -885,7 +885,6 @@ static PyObject* LALIFOData_getbary(li_LALIFOData *self, void *closure) {return 
 static int LALIFOData_setephem(li_LALIFOData *self, PyObject *value, void *closure) {return setEphemerisDataFromData(self->data->ephem,self->ephem,value);}
 static PyObject* LALIFOData_getephem(li_LALIFOData *self, void *closure) {return getEphemerisDataFromData(self->data->ephem,(PyObject*)self->ephem);}
 
-ephem
 /**getsetters registration struct**/
 
 static PyGetSetDef LALIFOData_getseters[] = {
@@ -1064,28 +1063,28 @@ static int LALInferenceRunState_setevolve(li_LALInferenceRunState *self, PyObjec
 static PyGetSetDef LALInferenceRunState_getseters[] = {
     {"algorithm",(getter)LALInferenceRunState_getalgorithm,(setter)LALInferenceRunState_setalgorithm,"algorithm",NULL},
     {"evolve",(getter)LALInferenceRunState_getevolve,(setter)LALInferenceRunState_setevolve,"evolve",NULL},
-    {"prior",(getter)LALInferenceRunState_getprior,(setter)LALInferenceRunState_setprior,"prior",NULL},
-    {"likelihood",(getter)LALInferenceRunState_getlikelihood,(setter)LALInferenceRunState_setlikelihood,"likelihood",NULL},
-    {"proposal",(getter)LALInferenceRunState_getproposal,(setter)LALInferenceRunState_setproposal,"proposal",NULL},
-    {"template",(getter)LALInferenceRunState_gettemplate,(setter)LALInferenceRunState_settemplate,"template",NULL},
-    //LALVariables*
-    {"currentParams",(getter)LALInferenceRunState_getcurrentParams,(setter)LALInferenceRunState_setcurrentParams,"currentParams",NULL},
-    {"priorArgs",(getter)LALInferenceRunState_getpriorArgs,(setter)LALInferenceRunState_setpriorArgs,"priorArgs",NULL},
-    {"proposalArgs",(getter)LALInferenceRunState_getproposalArgs,(setter)LALInferenceRunState_setproposalArgs,"proposalArgs",NULL},
-    {"algorithmParams",(getter)LALInferenceRunState_getalgorithmParams,(setter)LALInferenceRunState_setalgorithmParams,"algorithmParams",NULL},
-    //LALVariables**
-    {"livePoints",(getter)LALInferenceRunState_getlivePoints,(setter)LALInferenceRunState_setlivePoints,"livePoints",NULL},
-    {"differentialPoints",(getter)LALInferenceRunState_getdifferentialPoints,(setter)LALInferenceRunState_setdifferentialPoints,"differentialPoints",NULL},
-    //LALIFOData*
-    {"data",(getter)LALInferenceRunState_getdata,(setter)LALInferenceRunState_setdata,"data",NULL},
+    //{"prior",(getter)LALInferenceRunState_getprior,(setter)LALInferenceRunState_setprior,"prior",NULL},
+    //{"likelihood",(getter)LALInferenceRunState_getlikelihood,(setter)LALInferenceRunState_setlikelihood,"likelihood",NULL},
+    //{"proposal",(getter)LALInferenceRunState_getproposal,(setter)LALInferenceRunState_setproposal,"proposal",NULL},
+    //{"template",(getter)LALInferenceRunState_gettemplate,(setter)LALInferenceRunState_settemplate,"template",NULL},
+    ////LALVariables*
+    //{"currentParams",(getter)LALInferenceRunState_getcurrentParams,(setter)LALInferenceRunState_setcurrentParams,"currentParams",NULL},
+    //{"priorArgs",(getter)LALInferenceRunState_getpriorArgs,(setter)LALInferenceRunState_setpriorArgs,"priorArgs",NULL},
+    //{"proposalArgs",(getter)LALInferenceRunState_getproposalArgs,(setter)LALInferenceRunState_setproposalArgs,"proposalArgs",NULL},
+    //{"algorithmParams",(getter)LALInferenceRunState_getalgorithmParams,(setter)LALInferenceRunState_setalgorithmParams,"algorithmParams",NULL},
+    ////LALVariables**
+    //{"livePoints",(getter)LALInferenceRunState_getlivePoints,(setter)LALInferenceRunState_setlivePoints,"livePoints",NULL},
+    //{"differentialPoints",(getter)LALInferenceRunState_getdifferentialPoints,(setter)LALInferenceRunState_setdifferentialPoints,"differentialPoints",NULL},
+    ////LALIFOData*
+    //{"data",(getter)LALInferenceRunState_getdata,(setter)LALInferenceRunState_setdata,"data",NULL},
     {NULL}  /* Sentinel */
 };
 
 static struct PyMemberDef LALInferenceRunState_members[] = {
     {"currentLikelihood", T_DOUBLE, offsetof(li_LALInferenceRunState,state)+offsetof(LALInferenceRunState,currentLikelihood), 0, "currentLikelihood"},
     {"currentPrior", T_DOUBLE, offsetof(li_LALInferenceRunState,state)+offsetof(LALInferenceRunState,currentPrior), 0, "currentPrior"},
-    {"differentialPointsLength", T_UINT, offsetof(li_LALInferenceRunState,state)+offsetof(LALInferenceRunState,differentialPointsLength), 0, "differentialPointsLength",
-    {NULL,}
+    {"differentialPointsLength", T_UINT, offsetof(li_LALInferenceRunState,state)+offsetof(LALInferenceRunState,differentialPointsLength), 0, "differentialPointsLength"},
+    {NULL}
 };
 
 static PyMethodDef LALInferenceRunState_methods[]= {
