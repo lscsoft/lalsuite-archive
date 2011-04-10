@@ -895,6 +895,96 @@ static PyTypeObject li_lalproposalfunction_type = {
     0,                         /* tp_alloc */
     LALProposalFunction__new__,                 /* tp_new */
 };
+
+/*
+ * ============================================================================
+ *
+ *                            LALEvolveOneStepFunction
+ *
+ * ============================================================================
+ */
+
+/*Methods*/
+
+ /* Destructor for LALIFOData */
+static void LALEvolveOneStepFunction_dealloc(li_LALEvolveOneStepFunction *self)
+{
+    self->ob_type->tp_free((PyObject *)self);
+}
+
+static int LALEvolveOneStepFunction__init__(li_LALEvolveOneStepFunction *self, PyObject *args, PyObject *kwds)
+{    
+    return 0;
+}
+
+static PyObject* LALEvolveOneStepFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    
+    li_LALEvolveOneStepFunction *obj = (li_LALEvolveOneStepFunction*) PyType_GenericNew(type, args, kwds);
+    if(!obj)
+        return NULL;
+    obj->func=NULL;
+    return (PyObject*)obj;
+}
+
+static PyObject* LALEvolveOneStepFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+    return NULL;
+}
+
+static PyMethodDef LALEvolveOneStepFunction_methods[]= {
+    {NULL} /* Sentinel */
+};
+
+static PyGetSetDef LALEvolveOneStepFunction_getseters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALEvolveOneStepFunction_members[] = {
+    {NULL,}
+};
+
+static PyTypeObject li_lalevolveonestepfunction_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,              /* obj_size - unused (must be 0) */
+    "lalinference.LALEvolveOneStepFunction",    /* tp_name, name of type */
+    sizeof(li_LALEvolveOneStepFunction),  /* tp_basicsize */
+    0,              /* tp_itemsize, need to check */
+    (destructor)LALEvolveOneStepFunction_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    LALEvolveOneStepFunction__call__,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
+    "", /* tp_doc */
+    0,                     /* tp_traverse */
+    0,                     /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    LALEvolveOneStepFunction_methods,             /* tp_methods */
+    LALEvolveOneStepFunction_members,             /* tp_members */
+    LALEvolveOneStepFunction_getseters,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)LALEvolveOneStepFunction__init__,      /* tp_init */
+    0,                         /* tp_alloc */
+    LALEvolveOneStepFunction__new__,                 /* tp_new */
+};
+
 /*
  * ============================================================================
  *
@@ -2462,6 +2552,10 @@ init_lalinference(void)
     if (PyType_Ready(&li_LALLikelihoodFunction_Type) < 0)
         return;
 
+    _li_LALEvolveOneStepFunction_Type = &li_lalevolveonestepfunction_type;
+    if (PyType_Ready(&li_LALEvolveOneStepFunction_Type) < 0)
+        return;
+
     m = Py_InitModule3(MODULE_NAME,module_methods,LIDocString);
     
         
@@ -2497,4 +2591,7 @@ init_lalinference(void)
 
     Py_INCREF(&li_LALLikelihoodFunction_Type);
     PyModule_AddObject(m, "LALLikelihoodFunction", (PyObject *)&li_LALLikelihoodFunction_Type);
+
+    Py_INCREF(&li_LALEvolveOneStepFunction_Type);
+    PyModule_AddObject(m, "LALEvolveOneStepFunction", (PyObject *)&li_LALEvolveOneStepFunction_Type);
 }
