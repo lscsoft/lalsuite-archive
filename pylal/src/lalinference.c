@@ -23,6 +23,13 @@
 #include "lalinference/LALVariables.h"
 #include "lalinference/PosVelAcc.h"
 #include "lalinference/LALInferenceRunState.h"
+#include "lalinference/LALAlgorithm.h"
+#include "lalinference/LALPriorFunction.h"
+#include "lalinference/LALTemplateFunction.h"
+#include "lalinference/LALEvolveOneStepFunction.h"
+#include "lalinference/LALLikelihoodFunction.h"
+#include "lalinference/LALProposalFunction.h"
+
 
 #define MODULE_NAME "pylal._lalinference"
 
@@ -623,6 +630,447 @@ static PyTypeObject li_barycenterinput_type = {
     0,                         /* tp_alloc */
     BarycenterInput__new__,                 /* tp_new */
 };
+/*
+ * ============================================================================
+ *
+ *                            LALAlgorithm
+ *
+ * ============================================================================
+ */
+
+/*Methods*/
+
+ /* Destructor for LALIFOData */
+static void LALAlgorithm_dealloc(li_LALAlgorithm *self)
+{
+    self->ob_type->tp_free((PyObject *)self);
+}
+
+static int LALAlgorithm__init__(li_LALAlgorithm *self, PyObject *args, PyObject *kwds)
+{    
+    return 0;
+}
+
+static PyObject* LALAlgorithm__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    
+    li_LALAlgorithm *obj = (li_LALAlgorithm*) PyType_GenericNew(type, args, kwds);
+    if(!obj)
+        return NULL;
+    obj->func=NULL;
+    return (PyObject*)obj;
+}
+
+static PyObject* LALAlgorithm__call__(PyObject *self, PyObject *args, PyObject *kwds){
+    return NULL;
+}
+
+static PyMethodDef LALAlgorithm_methods[]= {
+    {NULL} /* Sentinel */
+};
+
+static PyGetSetDef LALAlgorithm_getseters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALAlgorithm_members[] = {
+    {NULL,}
+};
+
+static PyTypeObject li_lalalgorithm_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,              /* obj_size - unused (must be 0) */
+    "lalinference.LALAlgorithm",    /* tp_name, name of type */
+    sizeof(li_LALAlgorithm),  /* tp_basicsize */
+    0,              /* tp_itemsize, need to check */
+    (destructor)LALAlgorithm_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    LALAlgorithm__call__,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
+    "", /* tp_doc */
+    0,                     /* tp_traverse */
+    0,                     /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    LALAlgorithm_methods,             /* tp_methods */
+    LALAlgorithm_members,             /* tp_members */
+    LALAlgorithm_getseters,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)LALAlgorithm__init__,      /* tp_init */
+    0,                         /* tp_alloc */
+    LALAlgorithm__new__,                 /* tp_new */
+};
+
+/*
+ * ============================================================================
+ *
+ *                            LALTemplateFunction
+ *
+ * ============================================================================
+ */
+
+/*Methods*/
+
+ /* Destructor for LALIFOData */
+static void LALTemplateFunction_dealloc(li_LALTemplateFunction *self)
+{
+    self->ob_type->tp_free((PyObject *)self);
+}
+
+static int LALTemplateFunction__init__(li_LALTemplateFunction *self, PyObject *args, PyObject *kwds)
+{    
+    return 0;
+}
+
+static PyObject* LALTemplateFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    
+    li_LALTemplateFunction *obj = (li_LALTemplateFunction*) PyType_GenericNew(type, args, kwds);
+    if(!obj)
+        return NULL;
+    obj->func=NULL;
+    return (PyObject*)obj;
+}
+
+static PyObject* LALTemplateFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+    return NULL;
+}
+
+static PyMethodDef LALTemplateFunction_methods[]= {
+    {NULL} /* Sentinel */
+};
+
+static PyGetSetDef LALTemplateFunction_getseters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALTemplateFunction_members[] = {
+    {NULL,}
+};
+
+static PyTypeObject li_laltemplatefunction_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,              /* obj_size - unused (must be 0) */
+    "lalinference.LALTemplateFunction",    /* tp_name, name of type */
+    sizeof(li_LALTemplateFunction),  /* tp_basicsize */
+    0,              /* tp_itemsize, need to check */
+    (destructor)LALTemplateFunction_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    LALTemplateFunction__call__,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
+    "", /* tp_doc */
+    0,                     /* tp_traverse */
+    0,                     /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    LALTemplateFunction_methods,             /* tp_methods */
+    LALTemplateFunction_members,             /* tp_members */
+    LALTemplateFunction_getseters,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)LALTemplateFunction__init__,      /* tp_init */
+    0,                         /* tp_alloc */
+    LALTemplateFunction__new__,                 /* tp_new */
+};
+/*
+ * ============================================================================
+ *
+ *                            LALProposalFunction
+ *
+ * ============================================================================
+ */
+
+/*Methods*/
+
+ /* Destructor for LALIFOData */
+static void LALProposalFunction_dealloc(li_LALProposalFunction *self)
+{
+    self->ob_type->tp_free((PyObject *)self);
+}
+
+static int LALProposalFunction__init__(li_LALProposalFunction *self, PyObject *args, PyObject *kwds)
+{    
+    return 0;
+}
+
+static PyObject* LALProposalFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    
+    li_LALProposalFunction *obj = (li_LALProposalFunction*) PyType_GenericNew(type, args, kwds);
+    if(!obj)
+        return NULL;
+    obj->func=NULL;
+    return (PyObject*)obj;
+}
+
+static PyObject* LALProposalFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+    return NULL;
+}
+
+static PyMethodDef LALProposalFunction_methods[]= {
+    {NULL} /* Sentinel */
+};
+
+static PyGetSetDef LALProposalFunction_getseters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALProposalFunction_members[] = {
+    {NULL,}
+};
+
+static PyTypeObject li_lalproposalfunction_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,              /* obj_size - unused (must be 0) */
+    "lalinference.LALProposalFunction",    /* tp_name, name of type */
+    sizeof(li_LALProposalFunction),  /* tp_basicsize */
+    0,              /* tp_itemsize, need to check */
+    (destructor)LALProposalFunction_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    LALProposalFunction__call__,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
+    "", /* tp_doc */
+    0,                     /* tp_traverse */
+    0,                     /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    LALProposalFunction_methods,             /* tp_methods */
+    LALProposalFunction_members,             /* tp_members */
+    LALProposalFunction_getseters,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)LALProposalFunction__init__,      /* tp_init */
+    0,                         /* tp_alloc */
+    LALProposalFunction__new__,                 /* tp_new */
+};
+/*
+ * ============================================================================
+ *
+ *                            LALPriorFunction
+ *
+ * ============================================================================
+ */
+
+/*Methods*/
+
+ /* Destructor for LALIFOData */
+static void LALPriorFunction_dealloc(li_LALPriorFunction *self)
+{
+    self->ob_type->tp_free((PyObject *)self);
+}
+
+static int LALPriorFunction__init__(li_LALPriorFunction *self, PyObject *args, PyObject *kwds)
+{    
+    return 0;
+}
+
+static PyObject* LALPriorFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    
+    li_LALPriorFunction *obj = (li_LALPriorFunction*) PyType_GenericNew(type, args, kwds);
+    if(!obj)
+        return NULL;
+    obj->func=NULL;
+    return (PyObject*)obj;
+}
+
+static PyObject* LALPriorFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+    return NULL;
+}
+
+static PyMethodDef LALPriorFunction_methods[]= {
+    {NULL} /* Sentinel */
+};
+
+static PyGetSetDef LALPriorFunction_getseters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALPriorFunction_members[] = {
+    {NULL,}
+};
+
+static PyTypeObject li_lalpriorfunction_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,              /* obj_size - unused (must be 0) */
+    "lalinference.LALPriorFunction",    /* tp_name, name of type */
+    sizeof(li_LALPriorFunction),  /* tp_basicsize */
+    0,              /* tp_itemsize, need to check */
+    (destructor)LALPriorFunction_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    LALPriorFunction__call__,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
+    "", /* tp_doc */
+    0,                     /* tp_traverse */
+    0,                     /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    LALPriorFunction_methods,             /* tp_methods */
+    LALPriorFunction_members,             /* tp_members */
+    LALPriorFunction_getseters,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)LALPriorFunction__init__,      /* tp_init */
+    0,                         /* tp_alloc */
+    LALPriorFunction__new__,                 /* tp_new */
+};
+/*
+ * ============================================================================
+ *
+ *                            LALLikelihoodFunction
+ *
+ * ============================================================================
+ */
+
+/*Methods*/
+
+ /* Destructor for LALIFOData */
+static void LALLikelihoodFunction_dealloc(li_LALLikelihoodFunction *self)
+{
+    self->ob_type->tp_free((PyObject *)self);
+}
+
+static int LALLikelihoodFunction__init__(li_LALLikelihoodFunction *self, PyObject *args, PyObject *kwds)
+{    
+    return 0;
+}
+
+static PyObject* LALLikelihoodFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    
+    li_LALLikelihoodFunction *obj = (li_LALLikelihoodFunction*) PyType_GenericNew(type, args, kwds);
+    if(!obj)
+        return NULL;
+    obj->func=NULL;
+    return (PyObject*)obj;
+}
+
+static PyObject* LALLikelihoodFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+    return NULL;
+}
+
+static PyMethodDef LALLikelihoodFunction_methods[]= {
+    {NULL} /* Sentinel */
+};
+
+static PyGetSetDef LALLikelihoodFunction_getseters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static struct PyMemberDef LALLikelihoodFunction_members[] = {
+    {NULL,}
+};
+
+static PyTypeObject li_lallikelihoodfunction_type = {
+    PyObject_HEAD_INIT(NULL)
+    0,              /* obj_size - unused (must be 0) */
+    "lalinference.LALLikelihoodFunction",    /* tp_name, name of type */
+    sizeof(li_LALLikelihoodFunction),  /* tp_basicsize */
+    0,              /* tp_itemsize, need to check */
+    (destructor)LALLikelihoodFunction_dealloc,  /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number*/
+    0,                         /*tp_as_sequence*/
+    0,                         /*tp_as_mapping*/
+    0,                         /*tp_hash */
+    LALLikelihoodFunction__call__,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
+    "", /* tp_doc */
+    0,                     /* tp_traverse */
+    0,                     /* tp_clear */
+    0,                     /* tp_richcompare */
+    0,                     /* tp_weaklistoffset */
+    0,                     /* tp_iter */
+    0,                     /* tp_iternext */
+    LALLikelihoodFunction_methods,             /* tp_methods */
+    LALLikelihoodFunction_members,             /* tp_members */
+    LALLikelihoodFunction_getseters,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)LALLikelihoodFunction__init__,      /* tp_init */
+    0,                         /* tp_alloc */
+    LALLikelihoodFunction__new__,                 /* tp_new */
+};
 
 /*
  * ============================================================================
@@ -1007,7 +1455,7 @@ static void LALInferenceRunState_dealloc(li_LALInferenceRunState *self)
 
 static int LALInferenceRunState__init__(li_LALInferenceRunState *self, PyObject *args, PyObject *kwds)
 {
-    self->data=(LALInferenceRunState*)malloc(sizeof(LALInferenceRunState));
+    self->state=(LALInferenceRunState*)malloc(sizeof(LALInferenceRunState));
     memset((void*)self->data,0,sizeof(LALInferenceRunState));
     return 0;
 }
@@ -1051,22 +1499,223 @@ static PyObject* LALInferenceRunState__new__(PyTypeObject *type, PyObject *args,
 }
 
 /***********getsetters******************/
+
+int setLALAlgorithmFromData(LALAlgorithm* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALAlgorithm*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALAlgorithm attribute");
+        return -1;
+    }
+    if(!PyObject_TypeCheck(new, &li_LALAlgorithm_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+
+    if(old) Py_DECREF(old);
+
+    Py_INCREF(new);
+    old=new;
+
+    li_LALAlgorithm* newalgo=(li_LALAlgorithm*)new;
+    internal=newalgo->func;
+    return 0;
+}
+
+PyObject* getLALAlgorithmFromData(LALAlgorithm* internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return li_LALAlgorithm_new(internal,owner);
+    }
+}
+
+int setLALEvolveOneStepFunctionFromData(LALEvolveOneStepFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALEvolveOneStepFunction*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALEvolveOneStepFunction attribute");
+        return -1;
+    }
+    if(!PyObject_TypeCheck(new, &li_LALEvolveOneStepFunction_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+
+    if(old) Py_DECREF(old);
+
+    Py_INCREF(new);
+    old=new;
+
+    li_LALEvolveOneStepFunction* newosf=(li_LALEvolveOneStepFunction*)new;
+    internal=newosf->func;
+    return 0;
+}
+
+PyObject* getLALEvolveOneStepFunctionFromData(LALEvolveOneStepFunction* internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return li_LALEvolveOneStepFunction_new(internal,owner);
+    }
+}
+
+int setLALPriorFunctionFromData(LALPriorFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALPriorFunction*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALPriorFunction attribute");
+        return -1;
+    }
+    if(!PyObject_TypeCheck(new, &li_LALPriorFunction_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+
+    if(old) Py_DECREF(old);
+
+    Py_INCREF(new);
+    old=new;
+
+    li_LALPriorFunction* newosf=(li_LALPriorFunction*)new;
+    internal=newosf->func;
+    return 0;
+}
+
+PyObject* getLALPriorFunctionFromData(LALPriorFunction* internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return li_LALPriorFunction_new(internal,owner);
+    }
+}
+
+int setLALLikelihoodFunctionFromData(LALLikelihoodFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALLikelihoodFunction*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALLikelihoodFunction attribute");
+        return -1;
+    }
+    if(!PyObject_TypeCheck(new, &li_LALLikelihoodFunction_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+
+    if(old) Py_DECREF(old);
+
+    Py_INCREF(new);
+    old=new;
+
+    li_LALLikelihoodFunction* newosf=(li_LALLikelihoodFunction*)new;
+    internal=newosf->func;
+    return 0;
+}
+
+PyObject* getLALLikelihoodFunctionFromData(LALLikelihoodFunction* internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return li_LALLikelihoodFunction_new(internal,owner);
+    }
+}
+
+int setLALProposalFunctionFromData(LALProposalFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALProposalFunction*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALProposalFunction attribute");
+        return -1;
+    }
+    if(!PyObject_TypeCheck(new, &li_LALProposalFunction_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+
+    if(old) Py_DECREF(old);
+
+    Py_INCREF(new);
+    old=new;
+
+    li_LALProposalFunction* newosf=(li_LALProposalFunction*)new;
+    internal=newosf->func;
+    return 0;
+}
+
+PyObject* getLALProposalFunctionFromData(LALProposalFunction* internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return li_LALProposalFunction_new(internal,owner);
+    }
+}
+
+int setLALTemplateFunctionFromData(LALTemplateFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALTemplateFunction*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALTemplateFunction attribute");
+        return -1;
+    }
+    if(!PyObject_TypeCheck(new, &li_LALTemplateFunction_Type)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+
+    if(old) Py_DECREF(old);
+
+    Py_INCREF(new);
+    old=new;
+
+    li_LALTemplateFunction* newosf=(li_LALTemplateFunction*)new;
+    internal=newosf->func;
+    return 0;
+}
+
+PyObject* getLALTemplateFunctionFromData(LALTemplateFunction* internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+        
+        return li_LALTemplateFunction_new(internal,owner);
+    }
+}
+
+
+
 /*algorithm*/
 static PyObject* LALInferenceRunState_getalgorithm(li_LALInferenceRunState *self, void *closure) {return getLALAlgorithmFromData(self->state->algorithm,self->algorithm);};
 static int LALInferenceRunState_setalgorithm(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALAlgorithmFromData(self->state->algorithm,(PyObject*)self->algorithm,value);}
 /*evolve*/
 static PyObject* LALInferenceRunState_getevolve(li_LALInferenceRunState *self, void *closure) {return getLALEvolveOneStepFunctionFromData(self->state->evolve,self->evolve);};
 static int LALInferenceRunState_setevolve(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALEvolveOneStepFunctionFromData(self->state->evolve,(PyObject*)self->evolve,value);}
+/*prior*/
+static PyObject* LALInferenceRunState_getprior(li_LALInferenceRunState *self, void *closure) {return getLALPriorFunctionFromData(self->state->prior,self->prior);};
+static int LALInferenceRunState_setprior(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALPriorFunctionFromData(self->state->prior,(PyObject*)self->prior,value);}
+/*likelihood*/
+static PyObject* LALInferenceRunState_getlikelihood(li_LALInferenceRunState *self, void *closure) {return getLALLikelihoodFunctionFromData(self->state->likelihood,self->likelihood);};
+static int LALInferenceRunState_setlikelihood(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALLikelihoodFunctionFromData(self->state->likelihood,(PyObject*)self->likelihood,value);}
+/*proposal*/
+static PyObject* LALInferenceRunState_getproposal(li_LALInferenceRunState *self, void *closure) {return getLALProposalFunctionFromData(self->state->proposal,self->proposal);};
+static int LALInferenceRunState_setproposal(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALProposalFunctionFromData(self->state->proposal,(PyObject*)self->proposal,value);}
+/*template*/
+static PyObject* LALInferenceRunState_gettemplate(li_LALInferenceRunState *self, void *closure) {return getLALTemplateFunctionFromData(self->state->template,self->template);};
+static int LALInferenceRunState_settemplate(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALTemplateFunctionFromData(self->state->template,(PyObject*)self->template,value);}
 
 /**getsetters registration struct**/
 
 static PyGetSetDef LALInferenceRunState_getseters[] = {
     {"algorithm",(getter)LALInferenceRunState_getalgorithm,(setter)LALInferenceRunState_setalgorithm,"algorithm",NULL},
     {"evolve",(getter)LALInferenceRunState_getevolve,(setter)LALInferenceRunState_setevolve,"evolve",NULL},
-    //{"prior",(getter)LALInferenceRunState_getprior,(setter)LALInferenceRunState_setprior,"prior",NULL},
-    //{"likelihood",(getter)LALInferenceRunState_getlikelihood,(setter)LALInferenceRunState_setlikelihood,"likelihood",NULL},
-    //{"proposal",(getter)LALInferenceRunState_getproposal,(setter)LALInferenceRunState_setproposal,"proposal",NULL},
-    //{"template",(getter)LALInferenceRunState_gettemplate,(setter)LALInferenceRunState_settemplate,"template",NULL},
+    {"prior",(getter)LALInferenceRunState_getprior,(setter)LALInferenceRunState_setprior,"prior",NULL},
+    {"likelihood",(getter)LALInferenceRunState_getlikelihood,(setter)LALInferenceRunState_setlikelihood,"likelihood",NULL},
+    {"proposal",(getter)LALInferenceRunState_getproposal,(setter)LALInferenceRunState_setproposal,"proposal",NULL},
+    {"template",(getter)LALInferenceRunState_gettemplate,(setter)LALInferenceRunState_settemplate,"template",NULL},
     ////LALVariables*
     //{"currentParams",(getter)LALInferenceRunState_getcurrentParams,(setter)LALInferenceRunState_setcurrentParams,"currentParams",NULL},
     //{"priorArgs",(getter)LALInferenceRunState_getpriorArgs,(setter)LALInferenceRunState_setpriorArgs,"priorArgs",NULL},
@@ -1788,8 +2437,29 @@ init_lalinference(void)
     _li_LALIFOData_Type = &li_lalifodata_type;
     if (PyType_Ready(&li_LALIFOData_Type) < 0)
         return;
+        
     _li_LALInferenceRunState_Type = &li_lalinferencerunstate_type;
     if (PyType_Ready(&li_LALInferenceRunState_Type) < 0)
+        return;
+
+    _li_LALAlgorithm_Type = &li_lalalgorithm_type;
+    if (PyType_Ready(&li_LALAlgorithm_Type) < 0)
+        return;
+
+    _li_LALPriorFunction_Type = &li_lalpriorfunction_type;
+    if (PyType_Ready(&li_LALPriorFunction_Type) < 0)
+        return;
+
+    _li_LALProposalFunction_Type = &li_lalproposalfunction_type;
+    if (PyType_Ready(&li_LALProposalFunction_Type) < 0)
+        return;
+
+    _li_LALTemplateFunction_Type = &li_laltemplatefunction_type;
+    if (PyType_Ready(&li_LALTemplateFunction_Type) < 0)
+        return;
+
+    _li_LALLikelihoodFunction_Type = &li_lallikelihoodfunction_type;
+    if (PyType_Ready(&li_LALLikelihoodFunction_Type) < 0)
         return;
 
     m = Py_InitModule3(MODULE_NAME,module_methods,LIDocString);
@@ -1812,4 +2482,19 @@ init_lalinference(void)
 
     Py_INCREF(&li_LALIFOData_Type);
     PyModule_AddObject(m, "LALInferenceRunState", (PyObject *)&li_LALInferenceRunState_Type);
+
+    Py_INCREF(&li_LALAlgorithm_Type);
+    PyModule_AddObject(m, "LALAlgorithm", (PyObject *)&li_LALAlgorithm_Type);
+
+    Py_INCREF(&li_LALPriorFunction_Type);
+    PyModule_AddObject(m, "LALPriorFunction", (PyObject *)&li_LALPriorFunction_Type);
+
+    Py_INCREF(&li_LALProposalFunction_Type);
+    PyModule_AddObject(m, "LALProposalFunction", (PyObject *)&li_LALProposalFunction_Type);
+
+    Py_INCREF(&li_LALTemplateFunction_Type);
+    PyModule_AddObject(m, "LALTemplateFunction", (PyObject *)&li_LALTemplateFunction_Type);
+
+    Py_INCREF(&li_LALLikelihoodFunction_Type);
+    PyModule_AddObject(m, "LALLikelihoodFunction", (PyObject *)&li_LALLikelihoodFunction_Type);
 }

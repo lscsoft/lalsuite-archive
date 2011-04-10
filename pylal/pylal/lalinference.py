@@ -47,7 +47,7 @@ class LALVariables(BaseLALVariables):
     """
     This class dresses what is found BaseLALVariables with special python
     methods. It is the preferred method of interacting with LALVariables
-    data. 
+    data structures. 
     """
     def __init__(self,initDict=None):
         BaseLALVariables.__init__(self)
@@ -71,7 +71,7 @@ class LALIFOData(BaseLALIFOData):
     """
     This class dresses what is found BaseLALIFOData with special python
     methods. It is the preferred method of interacting with LALIFOData
-    data. 
+    data structures. 
     """
     def __init__(self):
         BaseLALIFOData.__init__(self)
