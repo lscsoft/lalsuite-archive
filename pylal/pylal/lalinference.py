@@ -30,6 +30,7 @@
 This module exposes the data structures used in LALInference in convenience
 classes.
 """
+import unittest
 
 from pylal import git_version
 
@@ -77,8 +78,16 @@ class LALIFOData(BaseLALIFOData):
     def __init__(self):
         BaseLALIFOData.__init__(self)
 
+class TestLALVariables(unittest.TestCase):
     
+    def setUp(self):
+        self.livars=LALVariables()
 
+    def test_add(self):
+        self.livars.addVariable("myvar1",9.0,"fixed")
+        self.livars.addVariable("myvar2",9.0,"fixed","REAL8")
+        self.livars.addVariable("myvar3",9.0,"fixed","INT4")
+        self.assertTrue(self.livars.getVariable("myvar1")==self.livars.getVariable("myvar1"))
+        self.assertFalse(type(self.livars.getVariable("myvar1"))==type(self.livars.getVariable("myvar3")))
 if __name__ == '__main__':
-    #Run unit tests
-    pass
+    unittest.main()

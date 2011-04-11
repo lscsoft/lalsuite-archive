@@ -1260,7 +1260,7 @@ static int LALIFOData_setname(li_LALIFOData *self, PyObject *value, void *closur
 }
 
 
-PyObject* LALIFOData_getLALVariables(LALVariables* internallv,PyObject* owner){
+PyObject* getLALVariablesFromData(LALVariables* internallv,PyObject* owner){
     if(owner){
         return LALVariables_new(internallv,owner);
     }
@@ -1270,7 +1270,7 @@ PyObject* LALIFOData_getLALVariables(LALVariables* internallv,PyObject* owner){
     }
 }
 
-int LALIFOData_setLALVariables(LALVariables* internallv,PyObject* oldlv,PyObject* newlv){
+int setLALVariablesFromData(LALVariables* internallv,PyObject* oldlv,PyObject* newlv){
     if (!newlv) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the attribute");
         return -1;
@@ -1292,12 +1292,12 @@ int LALIFOData_setLALVariables(LALVariables* internallv,PyObject* oldlv,PyObject
 }
 
 /*modelParams*/
-static PyObject* LALIFOData_getmodelParams(li_LALIFOData *self, void *closure) {return LALIFOData_getLALVariables(self->data->modelParams,self->modelParams);};
-static int LALIFOData_setmodelParams(li_LALIFOData *self, PyObject *value, void *closure){return LALIFOData_setLALVariables(self->data->modelParams,(PyObject*)self->modelParams,value);}
+static PyObject* LALIFOData_getmodelParams(li_LALIFOData *self, void *closure) {return getLALVariablesFromData(self->data->modelParams,self->modelParams);};
+static int LALIFOData_setmodelParams(li_LALIFOData *self, PyObject *value, void *closure){return setLALVariablesFromData(self->data->modelParams,(PyObject*)self->modelParams,value);}
 
 /*dataParams*/
-static PyObject* LALIFOData_getdataParams(li_LALIFOData *self, void *closure) {return LALIFOData_getLALVariables(self->data->dataParams,self->dataParams);};
-static int LALIFOData_setdataParams(li_LALIFOData *self, PyObject *value, void *closure){return LALIFOData_setLALVariables(self->data->dataParams,(PyObject*)self->dataParams,value);}
+static PyObject* LALIFOData_getdataParams(li_LALIFOData *self, void *closure) {return getLALVariablesFromData(self->data->dataParams,self->dataParams);};
+static int LALIFOData_setdataParams(li_LALIFOData *self, PyObject *value, void *closure){return setLALVariablesFromData(self->data->dataParams,(PyObject*)self->dataParams,value);}
 
 
 static PyObject* LALIFOData_getmodelDomain(li_LALIFOData *self, void *closure)
@@ -1776,7 +1776,59 @@ PyObject* getLALTemplateFunctionFromData(LALTemplateFunction* internal,PyObject*
     }
 }
 
+int setLALVariablesListFromData(LALVariables** internal,PyObject* old,PyObject* new){
+    /* require list of li_LALVariables*/
+    if (new == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALTemplateFunction attribute");
+        return -1;
+    }
+    if(!PyList_CheckExact(new)){
+        PyErr_SetObject(PyExc_TypeError, new);
+        return -1;
+    }
+    Py_ssize_t i;
+    Py_ssize_t lst_n=PyList_Size(new);
 
+    LALVariables** LVlist=(LALVariables**)malloc((int)lst_n*sizeof(LALVariables*));
+    
+    for(i=0;i<lst_n;i++){
+        PyObject* item=PyList_GetItem(new,i);
+        if(!PyObject_TypeCheck(new, &li_LALVariables_Type)){
+            PyErr_SetObject(PyExc_TypeError,item);
+            Py_ssize_t j;
+            for(j=0;j<i;j++){
+                item=PyList_GetItem(new,i);
+                Py_DECREF(item);
+                Py_DECREF(item);
+            }
+            return -1;
+            
+        }else{
+            
+            *(LVlist+(int)i)=((li_LALVariables*)item)->vars;
+        }
+    }
+    if(old) {
+        free(internal);
+        Py_DECREF(old);
+    }
+
+    Py_INCREF(new);
+    old=new;
+    
+    internal=LVlist;
+    return 0;
+}
+
+PyObject* getLALVariablesListFromData(LALVariables** internal,PyObject* owner){
+    if(!owner){
+        Py_INCREF(Py_None);
+        return Py_None;
+    }else{
+         
+        return NULL;
+    }
+}
 
 /*algorithm*/
 static PyObject* LALInferenceRunState_getalgorithm(li_LALInferenceRunState *self, void *closure) {return getLALAlgorithmFromData(self->state->algorithm,self->algorithm);};
@@ -1796,7 +1848,27 @@ static int LALInferenceRunState_setproposal(li_LALInferenceRunState *self, PyObj
 /*template*/
 static PyObject* LALInferenceRunState_gettemplate(li_LALInferenceRunState *self, void *closure) {return getLALTemplateFunctionFromData(self->state->template,self->template);};
 static int LALInferenceRunState_settemplate(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALTemplateFunctionFromData(self->state->template,(PyObject*)self->template,value);}
-
+/*currentParams*/
+static PyObject* LALInferenceRunState_getcurrentParams(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->currentParams,self->currentParams);};
+static int LALInferenceRunState_setcurrentParams(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->currentParams,(PyObject*)self->currentParams,value);}
+/*priorArgs*/
+static PyObject* LALInferenceRunState_getpriorArgs(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->priorArgs,self->priorArgs);};
+static int LALInferenceRunState_setpriorArgs(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->priorArgs,(PyObject*)self->priorArgs,value);}
+/*proposalArgs*/
+static PyObject* LALInferenceRunState_getproposalArgs(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->proposalArgs,self->proposalArgs);};
+static int LALInferenceRunState_setproposalArgs(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->proposalArgs,(PyObject*)self->proposalArgs,value);}
+/*algorithmParams*/
+static PyObject* LALInferenceRunState_getalgorithmParams(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->algorithmParams,self->algorithmParams);};
+static int LALInferenceRunState_setalgorithmParams(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->algorithmParams,(PyObject*)self->algorithmParams,value);}
+/*data*/
+static PyObject* LALInferenceRunState_getdata(li_LALInferenceRunState *self, void *closure) {return getLALIFODataFromData(self->state->data,self->data);};
+static int LALInferenceRunState_setdata(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALIFODataFromData(self->state->data,(PyObject*)self->data,value);}
+/*livePoints*/
+static PyObject* LALInferenceRunState_getlivePoints(li_LALInferenceRunState *self, void *closure) {return getLALVariablesListFromData(self->state->livePoints,self->livePoints);};
+static int LALInferenceRunState_setlivePoints(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesListFromData(self->state->livePoints,(PyObject*)self->livePoints,value);}
+/*differentialPoints*/
+static PyObject* LALInferenceRunState_getdifferentialPoints(li_LALInferenceRunState *self, void *closure) {return getLALVariablesListFromData(self->state->differentialPoints,self->differentialPoints);};
+static int LALInferenceRunState_setdifferentialPoints(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesListFromData(self->state->differentialPoints,(PyObject*)self->differentialPoints,value);}
 /**getsetters registration struct**/
 
 static PyGetSetDef LALInferenceRunState_getseters[] = {
@@ -1806,16 +1878,16 @@ static PyGetSetDef LALInferenceRunState_getseters[] = {
     {"likelihood",(getter)LALInferenceRunState_getlikelihood,(setter)LALInferenceRunState_setlikelihood,"likelihood",NULL},
     {"proposal",(getter)LALInferenceRunState_getproposal,(setter)LALInferenceRunState_setproposal,"proposal",NULL},
     {"template",(getter)LALInferenceRunState_gettemplate,(setter)LALInferenceRunState_settemplate,"template",NULL},
-    ////LALVariables*
-    //{"currentParams",(getter)LALInferenceRunState_getcurrentParams,(setter)LALInferenceRunState_setcurrentParams,"currentParams",NULL},
-    //{"priorArgs",(getter)LALInferenceRunState_getpriorArgs,(setter)LALInferenceRunState_setpriorArgs,"priorArgs",NULL},
-    //{"proposalArgs",(getter)LALInferenceRunState_getproposalArgs,(setter)LALInferenceRunState_setproposalArgs,"proposalArgs",NULL},
-    //{"algorithmParams",(getter)LALInferenceRunState_getalgorithmParams,(setter)LALInferenceRunState_setalgorithmParams,"algorithmParams",NULL},
-    ////LALVariables**
-    //{"livePoints",(getter)LALInferenceRunState_getlivePoints,(setter)LALInferenceRunState_setlivePoints,"livePoints",NULL},
-    //{"differentialPoints",(getter)LALInferenceRunState_getdifferentialPoints,(setter)LALInferenceRunState_setdifferentialPoints,"differentialPoints",NULL},
-    ////LALIFOData*
-    //{"data",(getter)LALInferenceRunState_getdata,(setter)LALInferenceRunState_setdata,"data",NULL},
+    //LALVariables*
+    {"currentParams",(getter)LALInferenceRunState_getcurrentParams,(setter)LALInferenceRunState_setcurrentParams,"currentParams",NULL},
+    {"priorArgs",(getter)LALInferenceRunState_getpriorArgs,(setter)LALInferenceRunState_setpriorArgs,"priorArgs",NULL},
+    {"proposalArgs",(getter)LALInferenceRunState_getproposalArgs,(setter)LALInferenceRunState_setproposalArgs,"proposalArgs",NULL},
+    {"algorithmParams",(getter)LALInferenceRunState_getalgorithmParams,(setter)LALInferenceRunState_setalgorithmParams,"algorithmParams",NULL},
+    //LALVariables**
+    {"livePoints",(getter)LALInferenceRunState_getlivePoints,(setter)LALInferenceRunState_setlivePoints,"livePoints",NULL},
+    {"differentialPoints",(getter)LALInferenceRunState_getdifferentialPoints,(setter)LALInferenceRunState_setdifferentialPoints,"differentialPoints",NULL},
+    //LALIFOData*
+    {"data",(getter)LALInferenceRunState_getdata,(setter)LALInferenceRunState_setdata,"data",NULL},
     {NULL}  /* Sentinel */
 };
 
