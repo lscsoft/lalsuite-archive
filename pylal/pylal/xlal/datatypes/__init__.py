@@ -15,13 +15,16 @@ __all__ = [
 	"complex16fftplan",
 	"complex16frequencyseries",
 	"complex16timeseries",
+	"laldetector",
 	"lalunit",
 	"ligotimegps",
 	"real8fftplan",
 	"real8frequencyseries",
 	"real8timeseries",
 	"real8window",
+	"simburst",
 	"siminspiraltable",
+	"snglburst",
 	"snglinspiraltable",
 	"snglringdowntable"
 ]
