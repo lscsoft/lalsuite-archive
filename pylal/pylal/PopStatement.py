@@ -23,6 +23,7 @@ import random
 
 import numpy as np
 from scipy import optimize
+from scipy import special
 from scipy import stats
 
 from glue import iterutils
@@ -706,11 +707,23 @@ def mannwhitney_p(U, n1, n2):
     stdev_U = np.sqrt(n1 * n2 * (n1 + n2 + 1) / 12.)
     return stats.norm.sf((U - mean_U) / stdev_U)
 
+def grbbinomial_Pmin_raw(localProb, Ndraws):
+    localProb = np.asarray(localProb)
+    Ntail = len(localProb)
+
+    # Cumulative binomial probability of getting (1+,2+,...Ntail+) events this improbable.
+    # NB: stats.binom.sf maps to the lower level special.bdtrc
+    P = special.bdtrc(np.arange(Ntail), Ndraws, localProb)
+    index = P.argmin()
+    Pmin_raw = P[index]
+
+    return Pmin_raw, index + 1
+
 def grbbinomialtest(localProb, Ndraws, Nmc, discreteness=None):
     """
     Adapted from https://trac.ligo.caltech.edu/xpipeline/browser/trunk/utilities/grbbinomialtest.m
 
-    localProb is an array of FAP values, one per GRB to be tested
+    localProb is a *sorted* array of FAP values, one per GRB to be tested
     Ndraws is a scalar saying how many GRBs were analyzed in total
     Nmc is the number of Monte-Carlo simulations to perform in assessing
         significance.
@@ -727,14 +740,8 @@ def grbbinomialtest(localProb, Ndraws, Nmc, discreteness=None):
     Nmin         Number of tail values to include at which the binomial
                  probability Pmin_raw occurs.
     """
-    localProb = np.array(localProb)  # always copies
-    localProb.sort()
     Ntail = len(localProb)
-
-    # Cumulative binomial probability of getting (1+,2+,...Ntail+) events this improbable.
-    P = stats.binom.sf(np.arange(Ntail)[None, :], Ndraws, localProb[None, :])
-    Pmin_raw = P.min()
-    index = P.argmin()
+    Pmin_raw, Nmin = grbbinomial_Pmin_raw(localProb, Ndraws, discreteness)
 
     # Do a Monte-Carlo to determine significance
     if discreteness is None:
@@ -746,11 +753,11 @@ def grbbinomialtest(localProb, Ndraws, Nmc, discreteness=None):
     localProbMC.sort(axis=1)
     localProbMC = localProbMC[:, :Ntail]
 
-    PMC = stats.binom.sf(np.arange(Ntail)[None, :], Ndraws, localProbMC)
+    PMC = special.bdtrc(np.arange(Ntail)[None, :], Ndraws, localProbMC)
     PminMC = PMC.min(axis=1)
     Pmin = (PminMC <= Pmin_raw).mean()
 
-    return Pmin_raw, Pmin, index + 1
+    return Pmin_raw, Pmin, Nmin
 
 def grbbinomialtest_threshold(Ndraws, Ntail, percentile, Nmc, discreteness=None):
     """
@@ -778,7 +785,8 @@ def grbbinomialtest_threshold(Ndraws, Ntail, percentile, Nmc, discreteness=None)
     localProbMC.sort(axis=1)
     localProbMC = localProbMC[:, :Ntail]
 
-    PMC = stats.binom.sf(np.arange(Ntail)[None, :], Ndraws, localProbMC)
+    # NB: stats.binom.sf maps to the lower level special.bdtrc
+    PMC = special.bdtrc(np.arange(Ntail)[None, :], Ndraws, localProbMC)
     PMC.sort(axis=1)
     PminMC = PMC[:, 0]
 
