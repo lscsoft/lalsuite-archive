@@ -48,54 +48,6 @@
 /*
  * ============================================================================
  *
- *                              LALDetector Type
- *
- * ============================================================================
- */
-
-
-/*
- * Member access
- */
-
-
-static struct PyMemberDef pylal_LALDetector_members[] = {
-	{"name", T_STRING_INPLACE, offsetof(pylal_LALDetector, detector.frDetector.name), READONLY, "name"},
-	{"prefix", T_STRING_INPLACE, offsetof(pylal_LALDetector, detector.frDetector.prefix), READONLY, "prefix"},
-	{"vertexLongitudeRadians", T_DOUBLE, offsetof(pylal_LALDetector, detector.frDetector.vertexLongitudeRadians), READONLY, "vertexLongitudeRadians"},
-	{"vertexLatitudeRadians", T_DOUBLE, offsetof(pylal_LALDetector, detector.frDetector.vertexLatitudeRadians), READONLY, "vertexLatitudeRadians"},
-	{"vertexElevation", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.vertexElevation), READONLY, "vertexElevation"},
-	{"xArmAltitudeRadians", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.xArmAltitudeRadians), READONLY, "xArmAltitudeRadians"},
-	{"xArmAzimuthRadians", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.xArmAzimuthRadians), READONLY, "xArmAzimuthRadians"},
-	{"yArmAltitudeRadians", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.yArmAltitudeRadians), READONLY, "yArmAltitudeRadians"},
-	{"yArmAzimuthRadians", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.yArmAzimuthRadians), READONLY, "yArmAzimuthRadians"},
-	{"xArmMidpoint", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.xArmMidpoint), READONLY, "xArmMidpoint"},
-	{"yArmMidpoint", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.yArmMidpoint), READONLY, "yArmMidpoint"},
-	{"location", T_OBJECT, offsetof(pylal_LALDetector, location), READONLY, "location"},
-	{"response", T_OBJECT, offsetof(pylal_LALDetector, response), READONLY, "response"},
-	{NULL,}
-};
-
-
-/*
- * Type
- */
-
-
-PyTypeObject pylal_laldetector_type = {
-	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(pylal_LALDetector),
-	.tp_doc = "LALDetector structure",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_members = pylal_LALDetector_members,
-	.tp_name = MODULE_NAME ".LALDetector",
-	.tp_new = PyType_GenericNew,
-};
-
-
-/*
- * ============================================================================
- *
  *                                 Coinc Type
  *
  * ============================================================================
@@ -441,9 +393,7 @@ void inittools(void)
 	coinc_event_id_type = pylal_get_ilwdchar_class("coinc_event", "coinc_event_id");
 	time_slide_id_type = pylal_get_ilwdchar_class("time_slide", "time_slide_id");
 
-<<<<<<< HEAD
 	/* cached_detector */
-=======
 	/* LALDetector */
     _pylal_LALDetector_Type = &pylal_laldetector_type;
 	if(PyType_Ready(&pylal_LALDetector_Type) < 0)
@@ -451,7 +401,6 @@ void inittools(void)
 	Py_INCREF(&pylal_LALDetector_Type);
     
 	PyModule_AddObject(module, "LALDetector", (PyObject *) &pylal_LALDetector_Type);
->>>>>>> Modified pylal.xlal.tools so LALDetector wrapper can be 'imported' into LALInference awrapper.
 	PyModule_AddObject(module, "cached_detector", make_cached_detectors());
 
 	/* Coinc */
