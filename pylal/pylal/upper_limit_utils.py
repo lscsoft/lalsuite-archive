@@ -28,6 +28,7 @@ def compute_posterior(vA, err, dvA, mu_in=None, prior=None):
        mu_10 = compute_upper_limit(mu_in, prior,0.10)
        mu_90 = compute_upper_limit(mu_in, prior,0.90)
 
+       if mu_10 == 0: mu_10 = numpy.min(mu_in[mu_in>0])
        mu_min = 0.01*mu_10 #that should cover it, right?
        mu_max = 50*mu_90
        mu = numpy.arange(0,mu_max,mu_min)
@@ -76,7 +77,7 @@ def compute_many_posterior(vAs, vA2s, dvAs, mu_in=None, prior=None, mkplot=False
             post /= post.sum()
 
     if mkplot:
-        pyplot.clf()
+        pyplot.figure()
         if mu_in is not None:
             #create a linear spline representation of the prior, with no smoothing
             prior = interpolate.splrep(mu_in, prior, s=0, k=1)
