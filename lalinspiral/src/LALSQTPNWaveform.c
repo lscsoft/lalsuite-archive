@@ -343,9 +343,9 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 				for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
 					valuesHelp[j] = values->data[(j + 1) * size + i];
 				}
-				XLALCalculateHPHC(params, valuesHelp, h);
-				waveform->waveform->a->data->data[2 * i] = h[0];
-				waveform->waveform->a->data->data[2 * i + 1] = h[1];
+				XLALCalculateHPHC(params, valuesHelp, &(waveform->waveform->a->data->data[2 * i]));
+				waveform->waveform->a->data->data[2 * i] *= 2.0 * LAL_SQRT1_2;
+				waveform->waveform->a->data->data[2 * i + 1] *= 2.0 * LAL_SQRT1_2;
 				waveform->waveform->f->data->data[i] = valuesHelp[LALSQTPN_OMEGA] / freq_Step;
 				waveform->waveform->phi->data->data[i] = LAL_PI_4;
 				waveform->waveform->shift->data->data[i] = 0.0;
@@ -500,7 +500,15 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	}
 	dvalues[LALSQTPN_OMEGA] *= params->coeff.domegaGlobal * params->coeff.variables.omegaPowi_3[7]
 			* params->coeff.variables.omegaPowi_3[4];
-	dvalues[LALSQTPN_PHASE] = values[LALSQTPN_OMEGA];
+	REAL8 LNhxy = SQT_SQR(values[LALSQTPN_LNH_1]) + SQT_SQR(values[LALSQTPN_LNH_2]);
+	REAL8 alphadotcosi;
+	if (LNhxy > 0.0) {
+		alphadotcosi = values[LALSQTPN_LNH_3] * (values[LALSQTPN_LNH_1] * dvalues[LALSQTPN_LNH_2]
+				- values[LALSQTPN_LNH_2] * dvalues[LALSQTPN_LNH_1]) / LNhxy;
+	} else {
+		alphadotcosi = 0.0;
+	}
+	dvalues[LALSQTPN_PHASE] = values[LALSQTPN_OMEGA] - alphadotcosi;
 	return GSL_SUCCESS;
 }
 
