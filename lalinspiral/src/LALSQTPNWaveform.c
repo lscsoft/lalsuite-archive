@@ -277,7 +277,6 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	valuesInitial[LALSQTPN_LNH_1] = sin(params->inclination); ///< \f$\hat{L_N}=\sin\iota\f$
 	valuesInitial[LALSQTPN_LNH_2] = 0.0; ///< \f$\hat{L_N}=0\f$
 	valuesInitial[LALSQTPN_LNH_3] = cos(params->inclination); ///< \f$\hat{L_N}=\cos\iota\f$
-	valuesInitial[LALSQTPN_MECO] = 0.;
 	for (UINT2 i = 0; i < 3; i++) {
 		valuesInitial[LALSQTPN_CHIH1_1 + i] = params->chih[0][i];
 		valuesInitial[LALSQTPN_CHIH2_1 + i] = params->chih[1][i];
@@ -390,9 +389,6 @@ static void XLALAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 v
 					* SQT_SQR(values[LALSQTPN_OMEGA]);
 		}
 	}
-	dvalues[LALSQTPN_MECO] += params->coeff.mecoSS * (params->coeff.variables.chih1chih2 - 3.0
-			* params->coeff.variables.LNhchih[0] * params->coeff.variables.LNhchih[1])
-			* values[LALSQTPN_OMEGA];
 	dvalues[LALSQTPN_OMEGA] += (params->coeff.domegaSS[0] * params->coeff.variables.LNhchih[0]
 			* params->coeff.variables.LNhchih[1] + params->coeff.domegaSS[1]
 			* params->coeff.variables.chih1chih2) * params->coeff.variables.omegaPowi_3[4];
@@ -419,7 +415,6 @@ static void XLALAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 v
 		}
 	}
 	dvalues[LALSQTPN_OMEGA] += temp * params->coeff.variables.omegaPowi_3[4];
-	dvalues[LALSQTPN_MECO] += params->coeff.mecoQM * temp * values[LALSQTPN_OMEGA];
 }
 
 static void XLALAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
@@ -428,8 +423,6 @@ static void XLALAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 v
 	for (i = 0; i < 2; i++) {
 		dvalues[LALSQTPN_OMEGA] += params->coeff.domegaSO[i] * params->coeff.variables.LNhchih[i]
 				* values[LALSQTPN_OMEGA];
-		dvalues[LALSQTPN_MECO] += params->coeff.mecoSO[i] * params->coeff.variables.LNhchih[i]
-				* params->coeff.variables.omegaPowi_3[2];
 	}
 	for (i = 0; i < 3; i++) {
 		dvalues[LALSQTPN_CHIH1_1 + i] += params->coeff.dchihSO[0]
@@ -458,11 +451,6 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	}
 	for (i = LAL_PNORDER_NEWTONIAN; i <= params->order; i++) {
 		dvalues[LALSQTPN_OMEGA] += params->coeff.domega[i] * params->coeff.variables.omegaPowi_3[i];
-	}
-	dvalues[LALSQTPN_MECO] += params->coeff.meco[0] / params->coeff.variables.omegaPowi_3[1];
-	for (i = LAL_PNORDER_NEWTONIAN + 2; i <= params->order; i += 2) {
-		dvalues[LALSQTPN_MECO] += params->coeff.meco[i]
-				* params->coeff.variables.omegaPowi_3[i - 1];
 	}
 	switch (params->order) {
 	case LAL_PNORDER_THREE_POINT_FIVE:
@@ -512,6 +500,25 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	return GSL_SUCCESS;
 }
 
+/**
+ * \f{center}
+ *		\begin{gathered}
+ *			\begin{split}
+ *				MECO&=-0.5\eta\frac{2}{3}\OM{-1}+0.5\eta\frac{4}{3}\frac{9+\eta}{12}\OM{1}\\&\quad+
+ *				SO_{MECO}\OM{2}+\Big(0.5\eta\frac{6}{3}\frac{81-57\eta+\eta^2}{24}\Big.\\&\quad+
+ *				\Big.SS_{MECO}+QM_{MECO}\Big)\OM{3},
+ *			\end{split}\\
+ *			SO_{MECO}=\sum_{i}-\frac{5}{9}\eta\frac{\chi_im_i^2}{M^2}\left(4+3\frac{m_j}{m_i}\right)\SP{\hat{L}_N}{\hat{\chi}_i};\quad
+ *			QM_{MECO}=2\eta QM_{\omega}\\
+ *			SS_{MECO}=-\displaystyle\frac{\chi_1m_1^2}{M^2}\frac{\chi_2m_2^2}{M^2}\left[\SP{\hat{\chi}_1}{\hat{\chi}_2}-3\SP{\hat{L}_N}{\hat{\chi}_1}\SP{\hat{L}_N}{\hat{\chi}_2}\right]
+ *		\end{gathered}
+ * \f}
+ * @param t
+ * @param values
+ * @param dvalues
+ * @param param
+ * @return
+ */
 int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param) {
 	UNUSED(t);
 	LALSQTPNWaveformParams *params = param;

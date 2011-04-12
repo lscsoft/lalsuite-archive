@@ -68,7 +68,6 @@ typedef enum {
 	LALSQTPN_CHIH2_1, ///< index of the \f$\hat{\chi}_2\f$'s x component
 	LALSQTPN_CHIH2_2, ///< index of the \f$\hat{\chi}_2\f$'s y component
 	LALSQTPN_CHIH2_3, ///< index of the \f$\hat{\chi}_2\f$'s z component
-	LALSQTPN_MECO, ///< index of the MECO
 	LALSQTPN_NUM_OF_VAR
 ///< number of the dynamic variables
 } LALSQTPNGeneratorVariables;
