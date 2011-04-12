@@ -15,7 +15,7 @@
 #include <real8timeseries.h>
 #include <ligotimegps.h>
 #include <real8window.h>
-#include <tools.h>
+#include <laldetector.h>
 
 #include "lalinference/LALIFOData.h"
 #include "lalinference/BarycenterInput.h"
@@ -336,13 +336,13 @@ int setLALDetectorFromData(LALDetector target,PyObject* old,PyObject* origin){
     return 0;
 }
 
-PyObject* getLALDetectorFromData(LALDetector internal,PyObject* owner){
+PyObject* getLALDetectorFromData(LALDetector* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return pylal_LALDetector_new(internal,owner);
+        return pylal_LALDetector_new(internal);
     }
 }
 
@@ -565,7 +565,7 @@ static PyObject* BarycenterInput_gettgps(li_BarycenterInput *self, void *closure
 static int BarycenterInput_settgps(li_BarycenterInput *self, PyObject *value, void *closure){return setLIGOTimeGPSFromData(self->data->tgps,value);}
 
 /*site*/
-static PyObject* BarycenterInput_getsite(li_BarycenterInput *self, void *closure){return getLALDetectorFromData(self->data->site,self->site);}
+static PyObject* BarycenterInput_getsite(li_BarycenterInput *self, void *closure){return getLALDetectorFromData(&self->data->site,self->site);}
 static int BarycenterInput_setsite(li_BarycenterInput *self, PyObject *value, void *closure){return setLALDetectorFromData(self->data->site,self->site,value);}
 
 
