@@ -56,7 +56,7 @@ REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration )
      **************************************************************************/  
     
     const CHAR *ChannelNames[3] = {"E1:STRAIN", "E2:STRAIN", "E3:STRAIN"};
-    const CHAR *CacheFileNames[3] = {"/home/tania/ET_mdc/data/cache/E1.cache","/home/tania/ET_mdc/data/cache/E2.cache","/home/tania/ET_mdc/data/cache/E3.cache"};
+    const CHAR *CacheFileNames[3] = {"/atlas/user/scr01/tania/data/cache/E1.cache","/atlas/user/scr01/tania/data/cache/E2.cache","/atlas/user/scr01/tania/data/cache/E3.cache"};
     
     /************************************************************************** 
      *
