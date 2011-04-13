@@ -179,7 +179,7 @@ nullo = 30.
 sigmaVals = read_sigma_vals(opts.run_directory + '/post_processing/sngl_snr_cut.dat')
 
 for trig in trigs:
-  compsList = [trig.chisq_h1,trig.chisq_l,trig.chisq_h2,trig.chisq_v]
+  compsList = [trig.snr_h1,trig.snr_l,trig.snr_h2,trig.snr_v]
   compsList.sort()
 #  if trig.chisq == 0:
 #    continue
@@ -188,16 +188,16 @@ for trig in trigs:
   trigFirstSNR.append((compsList[-1]))
   trigSecondSNR.append((compsList[-2]))
   trigThirdSNR.append((compsList[-3]))
-  trigH1SNR.append((trig.chisq_h1))
-  trigL1SNR.append((trig.chisq_l))
-  trigV1SNR.append((trig.chisq_v))
-  trigH2SNR.append((trig.chisq_h2))
+  trigH1SNR.append((trig.snr_h1))
+  trigL1SNR.append((trig.snr_l))
+  trigV1SNR.append((trig.snr_v))
+  trigH2SNR.append((trig.snr_h2))
   trigSigmaH1.append(trig.sigmasq_h1)
   trigSigmaH2.append(trig.sigmasq_h2)
   trigSigmaL1.append(trig.sigmasq_l)
   trigSigmaV1.append(trig.sigmasq_v)
 
-  trigCoincSNR.append((trig.chisq_h1**2 + trig.chisq_l**2 + trig.chisq_h2**2 + trig.chisq_v**2)**0.5)
+  trigCoincSNR.append((trig.snr_h1**2 + trig.snr_l**2 + trig.snr_h2**2 + trig.snr_v**2)**0.5)
 
   trigTime.append(trig.end_time + trig.end_time_ns*1E-9)
   trigSNR.append(trig.snr)
@@ -230,18 +230,18 @@ for trig in trigs:
 
 if injFile:
   for trig in injs:
-    compsList = [trig.chisq_h1,trig.chisq_l,trig.chisq_h2,trig.chisq_v]
+    compsList = [trig.snr_h1,trig.snr_l,trig.snr_h2,trig.snr_v]
     compsList.sort()
 #    if (compsList[1] < 16):
 #      continue
     injFirstSNR.append((compsList[-1]))
     injSecondSNR.append((compsList[-2]))
     injThirdSNR.append((compsList[-3]))
-    injH1SNR.append((trig.chisq_h1))
-    injL1SNR.append((trig.chisq_l))
-    injV1SNR.append((trig.chisq_v))
-    injH2SNR.append((trig.chisq_h2))
-    injCoincSNR.append((trig.chisq_h1**2 + trig.chisq_l**2 + trig.chisq_h2**2 + trig.chisq_v**2)**0.5)
+    injH1SNR.append((trig.snr_h1))
+    injL1SNR.append((trig.snr_l))
+    injV1SNR.append((trig.snr_v))
+    injH2SNR.append((trig.snr_h2))
+    injCoincSNR.append((trig.snr_h1**2 + trig.snr_l**2 + trig.snr_h2**2 + trig.snr_v**2)**0.5)
     injTime.append(trig.end_time + trig.end_time_ns*1E-9)
     injSNR.append(trig.snr)
     injNullstat.append(trig.null_statistic)

@@ -532,6 +532,7 @@ float e[GRID_E_COUNT];
 int bin;
 int i,j,k,n;
 EmissionTime emission_time;
+EmissionTime emission_time2;
 LIGOTimeGPS tGPS;
 
 //fprintf(stderr,"f0=%g bin=%d\n", f0, bin);
@@ -553,6 +554,8 @@ for(n=0;n<d_free;n++) {
 		tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
 		tGPS.gpsNanoSeconds=0;
 		get_emission_time(&emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
+		get_emission_time(&emission_time2, &(datasets[n].earth_state[j]), args_info.focus_ra_arg, args_info.focus_dec_arg, dInv, datasets[n].detector, tGPS);
+
 
 		i=round(2.0*(datasets[n].gps[j]-first_gps)/args_info.coherence_length_arg);
 /*		i=round(2.0*((emission_time.te.gpsSeconds-first_gps)+1e-9*emission_time.te.gpsNanoSeconds)/args_info.coherence_length_arg);*/
@@ -603,15 +606,17 @@ for(n=0;n<d_free;n++) {
 		//total_weight+=f_plus*f_plus+f_cross*f_cross;
 		total_weight+=f_plus*f_plus;
 
-
-		if(args_info.dump_stream_data_arg)fprintf(DATA_LOG, "stream: %d %d %d %d %lld %d %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
-				i, n, j, fstep, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
-				x, y, samples->data[i].re, samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase);
+		if(1 || args_info.dump_stream_data_arg)fprintf(DATA_LOG, "stream: %d %d %d %d %lld %d %d %d %d %.12g %.12g %.12g %.12g %.12f %.12f %.12f %.12f %d %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f\n",
+				i, n, j, fstep, datasets[n].gps[j], 
+				emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
+				emission_time2.te.gpsSeconds, emission_time2.te.gpsNanoSeconds,
+				x, y, samples->data[i].re, samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase,datasets[n].earth_state[j].posNow[0], datasets[n].earth_state[j].posNow[1], datasets[n].earth_state[j].posNow[2], ra, dec, args_info.focus_ra_arg, args_info.focus_dec_arg);
 		
 		}
 	}
+fprintf(stderr, "total_weight=%g\n", total_weight);
 }
-//exit(-1);
+exit(-1);
 {
 double norm, a, b, c, x, y, x1, y1;
 double sum;
