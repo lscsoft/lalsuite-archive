@@ -736,8 +736,11 @@ d->earth_state=do_alloc(d->free, sizeof(EarthState));
 
 fprintf(stderr, "Computing Earth state\n");
 for(i=0;i<d->free;i++) {
-	tGPS.gpsSeconds=round(d->gps[i]+d->coherence_time*0.5);
-	tGPS.gpsNanoSeconds=round((d->gps[i]+d->coherence_time*0.5-tGPS.gpsSeconds)*1e9);
+/*	tGPS.gpsSeconds=round(d->gps[i]+d->coherence_time*0.5);
+	tGPS.gpsNanoSeconds=round((d->gps[i]+d->coherence_time*0.5-tGPS.gpsSeconds)*1e9);*/
+	/* It is best to compute Earth state at gps=0 as this is the reference time for the phase of the SFT */
+	tGPS.gpsSeconds=round(d->gps[i]);
+	tGPS.gpsNanoSeconds=round((d->gps[i]-tGPS.gpsSeconds)*1e9);
 	LALBarycenterEarth(&status, &(d->earth_state[i]), &tGPS, &ephemeris);
 	TESTSTATUS(&status);
 	}
@@ -1232,6 +1235,7 @@ if(fread(&ht, sizeof(ht), 1, fin)<1) {
 	return -1;
 	}
 
+
 /* fprintf(stderr, "%s gps=%d nsamples=%d\n", filename, ht.gps_sec, ht.nsamples); */
 
 *gps=ht.gps_sec;
@@ -1246,7 +1250,6 @@ if(check_intervals(d->veto_segment_list, *gps)>0){
 if(d->no_duplicate_gps && gps_exists(d, *gps)) {
 	return -(48+ht.nsamples*8+ht.comment_length);
 	}
-
 
 /* timebase */
 timebase=ht.tbase;
@@ -1403,7 +1406,7 @@ while(1) {
 		free(buffer);
 		return;
 		}
-	if(d->free>100000) {
+	if(0 && d->free>100000) {
 		TODO("remove SFT limit when SFT loading code is fast enough")
 		fclose(fin);
 		free(buffer);

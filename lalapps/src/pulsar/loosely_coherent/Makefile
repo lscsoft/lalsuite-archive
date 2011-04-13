@@ -95,6 +95,21 @@ test3e: loosely_coherent1
 	./loosely_coherent1 --config=config.3e
 	head 1626-406.500000/data.log
 
+test3j: loosely_coherent1
+	./loosely_coherent1 --config=config.3j
+	head 1626-406.500000/data.log
+
+test_make_dst: loosely_coherent1
+	./loosely_coherent1 --config=config.make_dst
+	head 1626-406.500000/data.log
+
+test2cl3e: loosely_coherent2cl
+	./loosely_coherent2cl --config=config.3e
+	head 1626-406.500000/data.log
+
+test2cl3j: loosely_coherent2cl
+	./loosely_coherent2cl --config=config.3j
+	head 1626-406.500000/data.log
 
 dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
 	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
@@ -116,6 +131,13 @@ loosely_coherent1.dyn: $(OBJS) jobs.o util.o
 loosely_coherent1-condor: $(OBJS) jobs.o util-condor.o
 	 condor_compile $(CC) $(OBJS) jobs.o util-condor.o -o loosely_coherent1-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l loosely_coherent1-condor
+
+loosely_coherent2cl: $(OBJS) jobs.o util.o ocl1.o loosely_coherent2cl.o
+	$(CC) $(COMMON_OBJS) loosely_coherent2cl.o jobs.o util.o ocl1.o -lOpenCL -o loosely_coherent2cl  $(LDFLAGS) -lgsl -lgslcblas -lm
+	ls -l loosely_coherent2cl
+
+ocl1.o: ocl1.c ocl1.h
+	$(CC) $(CFLAGS) -I/usr/local/cuda/include -c ocl1.c
 
 jobs-mt.o: jobs.c jobs.h
 	$(CC) $(CFLAGS) -DLINUX_THREADS -c jobs.c -o jobs-mt.o
