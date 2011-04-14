@@ -1738,19 +1738,39 @@ def plot_one_param_pdf(posterior,plot1DParams):
             chirp_rec=posterior['m'].mean
             m1_rec,m2_rec=mc2ms(chirp_rec,eta_rec)
             mTot_rec=m1_rec+m2_rec
-            phi_rec={'phi0_rec':-eta_rec**(-3.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-5.0/8.0),'phi1_rec':0.0,'phi2_rec':-(3715.0/8064.0 + 55.0/96.0*eta_rec)*eta_rec**(-5.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-3.0/8.0),'phi3_rec':3.0/4.0*LAL_PI*eta_rec**(-0.75)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-1.0/4.0),'phi4_rec':-(9275495.0/14450688.0 + 284875.0/258048.0*eta_rec + 1855.0/2048.0*eta_rec*eta_rec)*eta_rec**(-7.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-1.0/8.0),'phi5l_rec':-1.0/eta_rec*(-38645.0/172032.0 + 65.0/2048.0*eta_rec)*LAL_PI*log(eta_rec/(5.0*LAL_MTSUN_SI*mTot_rec)),'phi5_rec':-1.0/eta_rec*(-38645.0/172032.0 + 65.0/2048.0*eta_rec)*LAL_PI,'phi6l_rec':-(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(eta_rec/(256*5.0*LAL_MTSUN_SI*mTot_rec)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*eta_rec + 154565.0/1835008.0*(eta_rec*eta_rec) - 1179625.0/1769472.0*eta_rec**3.0)*eta_rec**(-9.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/8.0),'phi6_rec':-107.0/448.0*eta_rec**(-9.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/8.0),'phi7_rec':-(188516689.0/173408256.0 + 488825.0/516096.0*eta_rec - 141769.0/516096.0*eta_rec**2.0)*LAL_PI*eta_rec**(-5.0/4.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/4.0)}
+            phi_rec={'phi0_rec':-eta_rec**(-3.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-5.0/8.0),'phi1_rec':0.0,'phi2_rec':-(3715.0/8064.0 + 55.0/96.0*eta_rec)*eta_rec**(-5.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-3.0/8.0),'phi3_rec':3.0/4.0*LAL_PI*eta_rec**(-0.75)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-1.0/4.0),'phi4_rec':-(9275495.0/14450688.0 + 284875.0/258048.0*eta_rec + 1855.0/2048.0*eta_rec*eta_rec)*eta_rec**(-7.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-1.0/8.0),'phi5_rec':-1.0/eta_rec*(-38645.0/172032.0 + 65.0/2048.0*eta_rec)*LAL_PI*log(eta_rec/(5.0*LAL_MTSUN_SI*mTot_rec)),'phi5l_rec':-1.0/eta_rec*(-38645.0/172032.0 + 65.0/2048.0*eta_rec)*LAL_PI,'phi6_rec':-(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(eta_rec/(256*5.0*LAL_MTSUN_SI*mTot_rec)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*eta_rec + 154565.0/1835008.0*(eta_rec*eta_rec) - 1179625.0/1769472.0*eta_rec**3.0)*eta_rec**(-9.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/8.0),'phi6l_rec':-107.0/448.0*eta_rec**(-9.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/8.0),'phi7_rec':-(188516689.0/173408256.0 + 488825.0/516096.0*eta_rec - 141769.0/516096.0*eta_rec**2.0)*LAL_PI*eta_rec**(-5.0/4.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/4.0)}
             for i in phi_rec.keys():
-                if find(i,param.lower()[1:len(i)])!=-1 and param.lower()!='phi':
+                if find(i,param.lower()[1:len(i)])!=-1:
                     phi_rec_true=phi_rec[i]
 	    print 'The recovered phi were:\n phi0 ' +str(phi_rec['phi0_rec'])+'\n phi1 '+str(phi_rec['phi1_rec'])+'\n phi2 '+str(phi_rec['phi2_rec'])+'\n phi3 '+str(phi_rec['phi3_rec'])+'\n phi4 '+str(phi_rec['phi4_rec'])+'\n phi5 '+str(phi_rec['phi5_rec'])+'\n phi5l '+ str(phi_rec['phi5l_rec'])+'\n phi6 '+str(phi_rec['phi6_rec'])+ '\n phi6l '+str(phi_rec['phi6l_rec'])+'\n phi7 '+str(phi_rec['phi7_rec'])+'\n'
             
         if find(posterior.injection.waveform,"TaylorF2")!=-1:
-            print "I'm not yet ready to deal with TaylorF2. The percent axis in the phiT plot will not be created. \n"
+            print "The waveform is "+str(posterior.injection.waveform)+"\n"
+            LAL_GAMMA=0.5772156649015328606065120900824024
+            LAL_PI=3.1415926535897932384626433832795029
+            LAL_MTSUN_SI=4.92549095e-6
+            eta_rec=posterior['eta'].mean
+            chirp_rec=posterior['m'].mean
+            comprefac = 3.0/(128.0*eta_rec)
+            m1_rec,m2_rec=mc2ms(chirp_rec,eta_rec)
+            mTot_rec=m1_rec+m2_rec
+            pimtot=LAL_PI*mTot_rec*LAL_MTSUN_SI
+            pimtot1by3=(LAL_PI*mTot_rec*LAL_MTSUN_SI)**(1.0/3.0)
+            phi_rec={'phi0_rec':comprefac*(1.0/pimtot1by3**(5.0)),'phi1_rec':0.0,'phi2_rec':comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta_rec),'phi3_rec':comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI,'phi4_rec':comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta_rec*eta_rec),'phi5l_rec':comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta),'phi5_rec': comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta)+((38645.0/756.0 - 65.0/9.0*eta)*log(pimtot*pow(6.0, 1.5)))),'phi6_rec':comprefac*pimtot1by3* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta_rec*(-15335597827.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI) + 47324.0/63.0-7948.0/9.0) + 76055.0/1728.0*eta_rec*eta_rec - 127825.0/1296.0*eta_rec**3 + -6848.0/21.0*log(4.0*pimtot1by3)),'phi6l_rec':comprefac*pimtot1by3* -6848.0/63.0,'phi7_rec':comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta_rec - 74045.0/756.0*eta_rec*eta_rec)}
+            for i in phi_rec.keys():
+                if find(i,param.lower()[1:len(i)])!=-1:
+                    phi_rec_true=phi_rec[i]
+                    
+            print 'The recovered phi were:\n phi0 ' +str(phi_rec['phi0_rec'])+'\n phi1 '+str(phi_rec['phi1_rec'])+'\n phi2 '+str(phi_rec['phi2_rec'])+'\n phi3 '+str(phi_rec['phi3_rec'])+'\n phi4 '+str(phi_rec['phi4_rec'])+'\n phi5 '+str(phi_rec['phi5_rec'])+'\n phi5l '+ str(phi_rec['phi5l_rec'])+'\n phi6 '+str(phi_rec['phi6_rec'])+ '\n phi6l '+str(phi_rec['phi6l_rec'])+'\n phi7 '+str(phi_rec['phi7_rec'])+'\n'
       
-        xmin,xmax=plt.xlim()
-        axes_percent=axes.twiny()
-        myfig.add_axes(axes_percent)
-        axes_percent.set_xlim([100.0*xmin/phi_rec_true,100.0*xmax/phi_rec_true ])
+        if phi_rec_true==0.0:
+            print "The recovered value for "+str(param.lower()) + " is zero, the percent axis will not be created\n"
+        else:
+            xmin,xmax=plt.xlim()
+            axes_percent=axes.twiny()
+            axes_percent.set_xlim([100.0*xmin/phi_rec_true,100.0*xmax/phi_rec_true ])
+            axes_percent.set_xlabel("\n"+str(param.lower()) + " [%]",size="small",fontsize="small",position=(-.1,0),verticalalignment='center')
+            myfig.add_axes(axes_percent)
 
 
     return rbins,myfig#,rkde
