@@ -100,6 +100,7 @@ int main( int argc, char *argv[] )
     initialise(argc,argv);	
     nSegs=Nsegs_global;
     NullStream = (REAL8TimeSeries *) LALMalloc(sizeof(REAL8TimeSeries));
+    inverse_spectrum = (REAL8FrequencySeries *) LALMalloc(sizeof(REAL8FrequencySeries));
     segDur = duration_global/(REAL8)nSegs;
     seglen=(UINT4)(segDur*SampleRate_global);
     segDur = seglen/SampleRate_global;
@@ -149,11 +150,12 @@ int main( int argc, char *argv[] )
     
     windowplan = XLALCreateTukeyREAL8Window(seglen,0.1*(REAL8)8.0*SampleRate_global/(REAL8)seglen);
     int check=0;
-    fwdplan = XLALCreateForwardREAL8FFTPlan( seglen, 0 );
-    revplan = XLALCreateReverseREAL8FFTPlan( seglen, 0 );
+    fwdplan = XLALCreateForwardREAL8FFTPlan( seglen, 1 );
+    revplan = XLALCreateReverseREAL8FFTPlan( seglen, 1 );
     fprintf(stderr,"Shrinking... (lost %d samples from end)\n",NullStream->data->length-(seglen*nSegs));
     NullStream=(REAL8TimeSeries *)XLALShrinkREAL8TimeSeries(NullStream,(size_t) 0, (size_t) seglen*nSegs);
     fprintf(stderr,"Computing power spectrum, seglen %i stride %i\n",seglen,stride);
+    
     inverse_spectrum = (REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&(NullStream->epoch),0.0,deltaF,&lalDimensionlessUnit,seglen/2+1);
     check=XLALREAL8AverageSpectrumMedian(inverse_spectrum,NullStream,(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
     if (check) {fprintf(stderr,"Failed! \n");exit(-1);}
