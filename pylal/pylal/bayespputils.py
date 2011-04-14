@@ -7,7 +7,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
-#
+#       Salvatore Vitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ of the Bayesian parameter estimation codes.
 
 #standard library imports
 import os
-from math import ceil,floor,sqrt,pi as pi_constant
+from math import log,ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
 
@@ -57,7 +57,7 @@ import pylal
 from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
-
+from string import find
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
@@ -624,7 +624,16 @@ class Posterior(object):
                         'tilt2':_inj_tilt2,
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
                         'theta_s':_inj_thetas,
-                        'beta':_inj_beta
+                        'beta':_inj_beta,
+                        'dphi1':lambda inj:inj.dphi1,
+                        'dphi2':lambda inj:inj.dphi2,
+                        'dphi3':lambda inj:inj.dphi3,
+                        'dphi4':lambda inj:inj.dphi4,
+                        'dphi5':lambda inj:inj.dphi5,
+                        'dphi5l':lambda inj:inj.dphi5l,
+                        'dphi6':lambda inj:inj.dphi6,
+                        'dphi6l':lambda inj:inj.dphi6l,
+                        'dphi7':lambda inj:inj.dphi7
                        }
 
     def _getinjpar(self,paramname):
@@ -1679,7 +1688,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
     myfig=plt.figure(figsize=(4,3.5),dpi=200)
     axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
     myfig.add_axes(axes)
-
+    
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
     histbinSize=bins[1]-bins[0]
 
@@ -1719,6 +1728,30 @@ def plot_one_param_pdf(posterior,plot1DParams):
         locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
         plt.xticks(locs,strticks,rotation=45)
+    if find(param.lower(),'dphi')!=-1:
+        if find(posterior.injection.waveform,"AmpCor")!=-1:
+            print "The waveform is "+str(posterior.injection.waveform)+"\n"
+            LAL_GAMMA=0.5772156649015328606065120900824024
+            LAL_PI=3.1415926535897932384626433832795029
+            LAL_MTSUN_SI=4.92549095e-6
+            eta_rec=posterior['eta'].mean
+            chirp_rec=posterior['m'].mean
+            m1_rec,m2_rec=mc2ms(chirp_rec,eta_rec)
+            mTot_rec=m1_rec+m2_rec
+            phi_rec={'phi0_rec':-eta_rec**(-3.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-5.0/8.0),'phi1_rec':0.0,'phi2_rec':-(3715.0/8064.0 + 55.0/96.0*eta_rec)*eta_rec**(-5.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-3.0/8.0),'phi3_rec':3.0/4.0*LAL_PI*eta_rec**(-0.75)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-1.0/4.0),'phi4_rec':-(9275495.0/14450688.0 + 284875.0/258048.0*eta_rec + 1855.0/2048.0*eta_rec*eta_rec)*eta_rec**(-7.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(-1.0/8.0),'phi5l_rec':-1.0/eta_rec*(-38645.0/172032.0 + 65.0/2048.0*eta_rec)*LAL_PI*log(eta_rec/(5.0*LAL_MTSUN_SI*mTot_rec)),'phi5_rec':-1.0/eta_rec*(-38645.0/172032.0 + 65.0/2048.0*eta_rec)*LAL_PI,'phi6l_rec':-(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(eta_rec/(256*5.0*LAL_MTSUN_SI*mTot_rec)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*eta_rec + 154565.0/1835008.0*(eta_rec*eta_rec) - 1179625.0/1769472.0*eta_rec**3.0)*eta_rec**(-9.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/8.0),'phi6_rec':-107.0/448.0*eta_rec**(-9.0/8.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/8.0),'phi7_rec':-(188516689.0/173408256.0 + 488825.0/516096.0*eta_rec - 141769.0/516096.0*eta_rec**2.0)*LAL_PI*eta_rec**(-5.0/4.0)*(5.0*LAL_MTSUN_SI*mTot_rec)**(1.0/4.0)}
+            for i in phi_rec.keys():
+                if find(i,param.lower()[1:len(i)])!=-1 and param.lower()!='phi':
+                    phi_rec_true=phi_rec[i]
+	    print 'The recovered phi were:\n phi0 ' +str(phi_rec['phi0_rec'])+'\n phi1 '+str(phi_rec['phi1_rec'])+'\n phi2 '+str(phi_rec['phi2_rec'])+'\n phi3 '+str(phi_rec['phi3_rec'])+'\n phi4 '+str(phi_rec['phi4_rec'])+'\n phi5 '+str(phi_rec['phi5_rec'])+'\n phi5l '+ str(phi_rec['phi5l_rec'])+'\n phi6 '+str(phi_rec['phi6_rec'])+ '\n phi6l '+str(phi_rec['phi6l_rec'])+'\n phi7 '+str(phi_rec['phi7_rec'])+'\n'
+            
+        if find(posterior.injection.waveform,"TaylorF2")!=-1:
+            print "I'm not yet ready to deal with TaylorF2. The percent axis in the phiT plot will not be created. \n"
+      
+        xmin,xmax=plt.xlim()
+        axes_percent=axes.twiny()
+        myfig.add_axes(axes_percent)
+        axes_percent.set_xlim([100.0*xmin/phi_rec_true,100.0*xmax/phi_rec_true ])
+
 
     return rbins,myfig#,rkde
 #
