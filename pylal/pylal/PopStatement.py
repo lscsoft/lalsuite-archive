@@ -28,7 +28,6 @@ from scipy import stats
 from glue import iterutils
 from pylal import plotutils
 from pylal import rate
-from pylal.stats import rankdata
 
 ####################################################
 ## class GRBdata
@@ -371,7 +370,7 @@ class PopStatement(object):
         n1 = len(x)
         n2 = len(y)
 
-        ranked = rankdata(np.concatenate((x,y)))
+        ranked = stats.rankdata(np.concatenate((x,y)))
         rankx = ranked[0:n1]  # get the x-ranks
         u1 = n1 * n2 + (n1 * (n1 + 1)) / 2.0 - rankx.sum()  # calc U for x
         self.u =  n1 * n2 - u1  # return U for y
@@ -692,7 +691,7 @@ def mannwhitney_u(x, y):
     n1 = len(x)
     n2 = len(y)
 
-    ranked = rankdata(np.concatenate((x,y)))
+    ranked = stats.rankdata(np.concatenate((x,y)))
     rankx = ranked[0:n1]  # get the x-ranks
     u1 = n1 * n2 + (n1 * (n1 + 1)) / 2.0 - rankx.sum()  # calc U for x
     return n1 * n2 - u1  # return U for y
