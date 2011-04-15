@@ -78,34 +78,26 @@ static int rankdata(const double *array, const size_t len, double *out_array) {
         }
     }
 
-    /* clean up */
-    free(ind_array);
-
     return 0;
 }
 
 static PyObject *pylal_stats_rankdata(PyObject *self, PyObject *args) {
     PyObject *in_arr, *out_arr;
-    int must_clean_up = 0;
     npy_intp dims[1] = {0};
 
     if (!PyArg_ParseTuple(args, "O", &in_arr)) return NULL;
     if (!PyArray_Check(in_arr) || (PyArray_TYPE(in_arr) != NPY_DOUBLE)) {
         in_arr = PyArray_FROMANY(in_arr, NPY_DOUBLE, 1, 1, NPY_CARRAY_RO);
-        must_clean_up = 1;
     }
     dims[0] = PyArray_SIZE(in_arr);
     out_arr = PyArray_SimpleNew(1, dims, NPY_DOUBLE);
 
     if (rankdata((double *) PyArray_DATA(in_arr), dims[0], (double *) PyArray_DATA(out_arr))) {
         PyErr_SetString(PyExc_ValueError, "rankdata failed");
-        if (must_clean_up) { Py_DECREF(in_arr); }
-        Py_DECREF(out_arr);
         return NULL;
     }
 
-    if (must_clean_up) { Py_DECREF(in_arr); }
-    return out_arr;
+    return Py_BuildValue("N", out_arr);
 }
 
 static struct PyMethodDef methods[] = {
