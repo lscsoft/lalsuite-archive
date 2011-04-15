@@ -2869,10 +2869,10 @@ int main( int argc, char *argv[] )
     if (phiTestPercent)
     {
     char *wform       = NULL;
-    char *AmpCorPPNTest = NULL;
-        AmpCorPPNTest="AmpCorPPNTest";
+    char *AmpCorPPNTestString = NULL;
+        AmpCorPPNTestString="AmpCorPPNTest";
         wform=simTable->waveform;
-    if (strstr(wform,AmpCorPPNTest)!=NULL) 
+    if (strstr(wform,AmpCorPPNTestString)!=NULL) 
         {
         fprintf( stderr, "Calculating the values of the PN coeff... \n" );
         REAL8 phasePNparams[10];
