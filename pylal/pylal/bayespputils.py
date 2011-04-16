@@ -55,6 +55,7 @@ except ImportError:
 #local application/library specific imports
 import pylal
 from pylal import git_version
+from pylab import fabs
 #C extensions
 from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
 from string import find
@@ -1768,7 +1769,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
         else:
             xmin,xmax=plt.xlim()
             axes_percent=axes.twiny()
-            axes_percent.set_xlim([100.0*xmin/phi_rec_true,100.0*xmax/phi_rec_true ])
+            axes_percent.set_xlim([-100.0*fabs(xmin/phi_rec_true),100.0*fabs(xmax/phi_rec_true) ])
             axes_percent.set_xlabel("\n"+str(param.lower()) + " [%]",size="small",fontsize="small",position=(-.1,0),verticalalignment='center')
             myfig.add_axes(axes_percent)
 
