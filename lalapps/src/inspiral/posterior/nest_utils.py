@@ -221,6 +221,12 @@ def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):
     nest_node.set_trig_time(end_time)
     nest_node.set_event_number(event)
     nest_node.add_ifo_data(data,ifos)
+    if cp.has_option('analysis','seed'):
+        if cp.get('analysis','nparallel')=="1":
+            nest_node.add_var_opt('seed',str(cp.get('analysis','seed')))
+    else:
+        if cp.get('analysis','nparallel')=="1":
+            nest_node.add_var_opt('seed',str(100))
     outfile_name=os.path.join(path,'outfile_%f_%s.dat'%(end_time,nest_node.get_ifos()))
     nest_node.set_output(outfile_name)
     return nest_node

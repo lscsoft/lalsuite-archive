@@ -360,18 +360,18 @@ if cp.has_option('inspnest','phaseParamTest'):
 
 if cp.has_option('analysis','data_seed'):
     inspnest_job.add_opt('dataseed',cp.get('analysis','data_seed'))
-    print "Using a dataseed of " + str(cp.get('analysis','data_seed')) +"\n"
+    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +"\n"
 else:
     inspnest_job.add_opt('dataseed',"1234")
-    print "Using a default dataseed of 1234. Use data_seed=X in the analysis section of the parser if you want to change it. \n"
+    print "Using default dataseed=1234. Add data_seed=X in the analysis section of the parser if you want to change it. \n"
 
 #print cp.items('inspnest_all')
 #print inspnest_job.__options
 
 if cp.has_option('analysis','seed'):
-    print "Using a seed of " + str(cp.get('analysis','seed')) +" for the fist run (seed is incremented by one for each parallel run) \n"
+    print "Using  seed= " + str(cp.get('analysis','seed')) +" for the fist run (seed is incremented by one for each parallel run) \n"
 else:
-    print "Using a default seed of 100. Add seed=X in the analysis section of the parser file to use a different value \n"
+    print "Using default seed=100. Add seed=X in the analysis section of the parser file to use a different value \n"
 
 for option in cp.items('inspnest_all'):
     inspnest_job.add_opt(option[0],option[1])
