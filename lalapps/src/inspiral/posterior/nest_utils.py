@@ -239,6 +239,10 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
     """
     nparallel=int(cp.get('analysis','nparallel'))
     merge_node=MergeNode(merge_job)
+    if cp.has_option('analysis','seed'):
+        seed_initial=int(cp.get('analysis','seed'))
+    else:
+        seed_initial=100
     merge_node.add_var_opt('Nlive',cp.get('analysis','nlive'))
     nest_nodes=[]
     for i in range(nparallel):
@@ -248,7 +252,7 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
         nest_node.add_ifo_data(data,ifos)
         nest_node.set_event_number(event)
         p_outfile_name=os.path.join(path,'outfile_%f_%i_%s.dat'%(end_time,i,nest_node.get_ifos()))
-        nest_node.add_var_opt('seed',str(i+100))
+        nest_node.add_var_opt('seed',str(i+seed_initial))
         merge_node.add_parent(nest_node)
         merge_node.add_file_arg(p_outfile_name)
         nest_node.set_output(p_outfile_name)
