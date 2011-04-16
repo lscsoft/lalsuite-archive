@@ -1177,6 +1177,16 @@ XLALMCMCJump(
       }
       printf("\n");
     }
+    FILE *stackout=fopen("dump.txt","w");
+    for (i=0;i< inputMCMC->Nlive;i++) {
+        while (inputMCMC->Live[i]->param->next!=NULL) {
+            fprintf(stackout,"%e \t",inputMCMC->Live[i]->param->value);
+            inputMCMC->Live[i]->param=inputMCMC->Live[i]->param->next; 
+        }
+        fprintf(stackout,"\n"); 
+    }
+    fclose(stackout);
+
     exit(0);
   }
     
@@ -1186,10 +1196,10 @@ XLALMCMCJump(
   /* loop over all parameters */
   for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
   { 
-  /*  if (inputMCMC->verbose)
+    /*if (inputMCMC->verbose)
       printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n", 
-             paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);*/
-    
+             paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);
+        */
 	  if(paraHead->core->wrapping!=-1) paraHead->value += step->data[i];
 	}
   

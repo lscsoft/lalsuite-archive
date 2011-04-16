@@ -2869,10 +2869,10 @@ int main( int argc, char *argv[] )
     if (phiTestPercent)
     {
     char *wform       = NULL;
-    char *AmpCorPPNTest = NULL;
-        AmpCorPPNTest="AmpCorPPNTest";
+    char *AmpCorPPNTestString = NULL;
+        AmpCorPPNTestString="AmpCorPPNTest";
         wform=simTable->waveform;
-    if (strstr(wform,AmpCorPPNTest)!=NULL) 
+    if (strstr(wform,AmpCorPPNTestString)!=NULL) 
         {
         fprintf( stderr, "Calculating the values of the PN coeff... \n" );
         REAL8 phasePNparams[10];
@@ -2880,27 +2880,27 @@ int main( int argc, char *argv[] )
         eta_inj=simTable->eta;
         mTot_inj=simTable->mass1 + simTable->mass2;
 
-phasePNparams[0] = -pow(eta_inj,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-5.0/8.0);
-phasePNparams[1] = 0.0;
-phasePNparams[2] = -(3715.0/8064.0 + 55.0/96.0*eta_inj)*pow(eta_inj,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-3.0/8.0);
-phasePNparams[3] = 3.0/4.0*LAL_PI*pow(eta_inj,-0.75)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-0.25);
-phasePNparams[4] = -(9275495.0/14450688.0 + 284875.0/258048.0*eta_inj + 1855.0/2048.0*pow(eta_inj,2.0))*pow(eta_inj,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-1.0/8.0);
-phasePNparams[5] = -1.0/eta_inj*(-38645.0/172032.0 + 65.0/2048.0*eta_inj)*LAL_PI*log(eta_inj/(5.0*LAL_MTSUN_SI*mTot_inj));
-phasePNparams[6] = -1.0/eta_inj*(-38645.0/172032.0 + 65.0/2048.0*eta_inj)*LAL_PI;
-phasePNparams[7] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(eta_inj/(256*5.0*LAL_MTSUN_SI*mTot_inj)) + (-123292747421.0/4161798144.0 +2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*eta_inj + 154565.0/1835008.0*pow(eta_inj,2.0) - 1179625.0/1769472.0*pow(eta_inj,3.0))*pow(eta_inj,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/8.0);
-phasePNparams[8] = -107.0/448.0*pow(eta_inj,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/8.0);
-phasePNparams[9] = -(188516689.0/173408256.0 + 488825.0/516096.0*eta_inj - 141769.0/516096.0*pow(eta_inj,2.0))*LAL_PI*pow(eta_inj,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/4.0);
+        phasePNparams[0] = -pow(eta_inj,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-5.0/8.0);
+        phasePNparams[1] = 0.0;
+        phasePNparams[2] = -(3715.0/8064.0 + 55.0/96.0*eta_inj)*pow(eta_inj,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-3.0/8.0);
+        phasePNparams[3] = 3.0/4.0*LAL_PI*pow(eta_inj,-0.75)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-0.25);
+        phasePNparams[4] = -(9275495.0/14450688.0 + 284875.0/258048.0*eta_inj + 1855.0/2048.0*pow(eta_inj,2.0))*pow(eta_inj,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-1.0/8.0);
+        phasePNparams[5] = -1.0/eta_inj*(-38645.0/172032.0 + 65.0/2048.0*eta_inj)*LAL_PI*log(eta_inj/(5.0*LAL_MTSUN_SI*mTot_inj));
+        phasePNparams[6] = -1.0/eta_inj*(-38645.0/172032.0 + 65.0/2048.0*eta_inj)*LAL_PI;
+        phasePNparams[7] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(eta_inj/(256*5.0*LAL_MTSUN_SI*mTot_inj)) + (-123292747421.0/4161798144.0 +2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*eta_inj + 154565.0/1835008.0*pow(eta_inj,2.0) - 1179625.0/1769472.0*pow(eta_inj,3.0))*pow(eta_inj,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/8.0);
+        phasePNparams[8] = -107.0/448.0*pow(eta_inj,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/8.0);
+        phasePNparams[9] = -(188516689.0/173408256.0 + 488825.0/516096.0*eta_inj - 141769.0/516096.0*pow(eta_inj,2.0))*LAL_PI*pow(eta_inj,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/4.0);
 
-dphi0=(dphi0_perc/100.0)*phasePNparams[0];
-dphi1=(dphi1_perc/100.0)*phasePNparams[1];
-dphi2=(dphi2_perc/100.0)*phasePNparams[2];
-dphi3=(dphi3_perc/100.0)*phasePNparams[3];
-dphi4=(dphi4_perc/100.0)*phasePNparams[4];
-dphi5=(dphi5_perc/100.0)*phasePNparams[5];
-dphi5l=(dphi5l_perc/100.0)*phasePNparams[6];
-dphi6=(dphi6_perc/100.0)*phasePNparams[7];
-dphi6l=(dphi6l_perc/100.0)*phasePNparams[8];
-dphi7=(dphi7_perc/100.0)*phasePNparams[9];
+        dphi0=(dphi0_perc/100.0)*phasePNparams[0];
+        dphi1=(dphi1_perc/100.0)*phasePNparams[1];
+        dphi2=(dphi2_perc/100.0)*phasePNparams[2];
+        dphi3=(dphi3_perc/100.0)*phasePNparams[3];
+        dphi4=(dphi4_perc/100.0)*phasePNparams[4];
+        dphi5=(dphi5_perc/100.0)*phasePNparams[5];
+        dphi5l=(dphi5l_perc/100.0)*phasePNparams[6];
+        dphi6=(dphi6_perc/100.0)*phasePNparams[7];
+        dphi6l=(dphi6l_perc/100.0)*phasePNparams[8];
+        dphi7=(dphi7_perc/100.0)*phasePNparams[9];
 
         }   
     }

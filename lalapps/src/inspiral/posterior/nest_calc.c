@@ -392,12 +392,21 @@ REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, L
 	int ret=0;
 	
 	MCMCInput->funcPrior(MCMCInput,sample);
-                //fprintf(stderr,"Before CopyPara the matrix is \n");
-                //gsl_matrix_fwrite(stderr,covM);	
+/*	printf("Before\n");
+    for (int k=0; k<10; k++) {
+        for (int m=k; m<10; m++) {
+                    printf(" %e ",gsl_matrix_get( covM, k, m));
+        }
+        printf("\n");
+    }*/
 	XLALMCMCCopyPara(&temp,sample);
-                //fprintf(stderr,"After CopyPara the matrix is \n");
-                //gsl_matrix_fwrite(stderr,covM);          
-
+/*	printf("After\n");
+    for (int k=0; k<10; k++) {
+        for (int m=k; m<10; m++) {
+                    printf(" %e ",gsl_matrix_get( covM, k, m));
+        }
+        printf("\n");
+    }*/
 	i=0;
 	while (i<N || (nreflect==a_cnt && nreflect>0 && nreflect%2==0)){
 		i++;
