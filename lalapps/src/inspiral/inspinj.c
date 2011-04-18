@@ -2870,11 +2870,13 @@ int main( int argc, char *argv[] )
     {
     char *wform       = NULL;
     char *AmpCorPPNTestString = NULL;
+    char *TaylorF2TestString=NULL;
         AmpCorPPNTestString="AmpCorPPNTest";
+        TaylorF2TestString="TaylorF2Test";
         wform=simTable->waveform;
     if (strstr(wform,AmpCorPPNTestString)!=NULL) 
         {
-        fprintf( stderr, "Calculating the values of the PN coeff... \n" );
+        fprintf( stderr, "Calculating the values of the PN coeff for AmpCorPPNTest ... \n" );
         REAL8 phasePNparams[10];
         REAL8 mTot_inj,eta_inj;
         eta_inj=simTable->eta;
@@ -2903,7 +2905,43 @@ int main( int argc, char *argv[] )
         dphi7=(dphi7_perc/100.0)*phasePNparams[9];
 
         }   
-    }
+    if(strstr(wform,TaylorF2TestString)!=NULL)
+       {
+
+        fprintf( stderr, "Calculating the values of the PN coeff for TaylorF2Test... \n" );
+        REAL8 phasePNparams[10];
+        REAL8 mTot_inj,eta_inj;
+        eta_inj=simTable->eta;
+        mTot_inj=simTable->mass1 + simTable->mass2;
+        REAL8 pimtot = LAL_PI*mTot_inj*LAL_MTSUN_SI;
+        REAL8 comprefac = 3.0/(128.0*eta_inj);
+        REAL8 pimtot1by3=cbrt(pimtot);    
+        phasePNparams[0] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3)); //phi0
+        phasePNparams[1] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3))* 0.0; //phi1
+        phasePNparams[2] = comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta_inj); //phi2
+        phasePNparams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI; //phi3
+        phasePNparams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta_inj + 3085.0/72.0*eta_inj*eta_inj); // phi4
+        phasePNparams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta_inj)+((38645.0/756.0 - 65.0/9.0*eta_inj)*log(pimtot*pow(6.0, 1.5)))); //phi5
+        phasePNparams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta_inj); //phi5l
+        phasePNparams[7] = comprefac*pimtot1by3* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta_inj*(-15335597827.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI) + 47324.0/63.0-7948.0/9.0) + 76055.0/1728.0*eta_inj*eta_inj - 127825.0/1296.0*eta_inj*eta_inj*eta_inj + -6848.0/21.0*log(4.0*pimtot1by3)); //phi6
+        phasePNparams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
+        phasePNparams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta_inj - 74045.0/756.0*eta_inj*eta_inj); //phi7
+fprintf(stderr,"%f,%f,%f \n",phasePNparams[0],phasePNparams[2],phasePNparams[3]);
+fprintf(stderr,"%f \n",dphi3);        
+dphi0=(dphi0_perc/100.0)*phasePNparams[0];
+        dphi1=(dphi1_perc/100.0)*phasePNparams[1];
+        dphi2=(dphi2_perc/100.0)*phasePNparams[2];
+        dphi3=(dphi3_perc/100.0)*phasePNparams[3];
+        dphi4=(dphi4_perc/100.0)*phasePNparams[4];
+        dphi5=(dphi5_perc/100.0)*phasePNparams[5];
+        dphi5l=(dphi5l_perc/100.0)*phasePNparams[6];
+        dphi6=(dphi6_perc/100.0)*phasePNparams[7];
+        dphi6l=(dphi6l_perc/100.0)*phasePNparams[8];
+        dphi7=(dphi7_perc/100.0)*phasePNparams[9];
+        fprintf(stderr,"%f",dphi3_perc);
+}
+    
+}
 
 
 
