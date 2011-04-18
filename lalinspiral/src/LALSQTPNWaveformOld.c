@@ -29,7 +29,7 @@ NRCSID (LALSQTPNWAVEFORMC, "$Id LALSQTPN_Waveform.c$");
 	(product)[1] = ((left)[2] * (right)[0] - (left)[0] * (right)[2]);\
 	(product)[2] = ((left)[0] * (right)[1] - (left)[1] * (right)[0]);
 
-void XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
+void XLALSQTPNFillCoefficients_Old(LALSQTPNWaveformParams * const params) {
 
 	// variable declaration and initialization
 	REAL8 thetahat = 1039. / 4620.;
@@ -117,7 +117,7 @@ void XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 	}
 }
 
-int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
+int LALSQTPNDerivator_Old(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
 
 	// variable declaration and initialization
 	LALSQTPNWaveformParams *params = param;
@@ -240,7 +240,7 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	return GSL_SUCCESS;
 }
 
-void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
+void LALSQTPNGenerator_Old(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
 	INITSTATUS(status, "LALSQTPNGenerator", LALSQTPNWAVEFORMC);
 	ATTATCHSTATUSPTR(status);
 	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -257,7 +257,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	REAL8 values[LALSQTPN_NUM_OF_VAR], dvalues[LALSQTPN_NUM_OF_VAR];
 	LALSQTPNIntegratorSystem integrator;
 	xlalErrno = 0;
-	if (XLALSQTPNIntegratorInit(&integrator, LALSQTPN_NUM_OF_VAR, params, LALSQTPNDerivator)) {
+	if (XLALSQTPNIntegratorInit_Old(&integrator, LALSQTPN_NUM_OF_VAR, params, LALSQTPNDerivator_Old)) {
 		if (XLAL_ENOMEM == XLALClearErrno()) {
 			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
 		} else {
@@ -279,11 +279,11 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 
 	// filling the LALSQTPNCoefficients
 	xlalErrno = 0;
-	XLALSQTPNFillCoefficients(params);
+	XLALSQTPNFillCoefficients_Old(params);
 	if (xlalErrno) {
 		ABORTXLAL(status);
 	}
-	LALSQTPNDerivator(time, values, dvalues, params);
+	LALSQTPNDerivator_Old(time, values, dvalues, params);
 	dvalues[LALSQTPN_MECO] = -1.; // to be able to start the loop
 	i = 0;
 	do {
@@ -318,7 +318,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 		// evolving
 		time = i++ * params->samplingTime;
 		xlalErrno = 0;
-		if (XLALSQTPNIntegratorFunc(values, &integrator, step)) {
+		if (XLALSQTPNIntegratorFunc_Old(values, &integrator, step)) {
 			ABORTXLAL(status);
 		}
 		// if one of the variables is nan, the PN approximation braked down
@@ -330,10 +330,10 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 				values[LALSQTPN_CHIH2_3])) {
 			break;
 		}
-		LALSQTPNDerivator(time, values, dvalues, params);
+		LALSQTPNDerivator_Old(time, values, dvalues, params);
 		if ((waveform->waveform && i == waveform->waveform->f->data->length) || (waveform->hp && i
 				== waveform->hp->length) || (waveform->hc && i == waveform->hc->length)) {
-			XLALSQTPNIntegratorFree(&integrator);
+			XLALSQTPNIntegratorFree_Old(&integrator);
 			ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
 		}
 	} while (dvalues[LALSQTPN_MECO] < 0. && dvalues[LALSQTPN_OMEGA] > 0.0 && SQT_SQR(
@@ -348,7 +348,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	}
 
 	waveform->length = i;
-	XLALSQTPNIntegratorFree(&integrator);
+	XLALSQTPNIntegratorFree_Old(&integrator);
 	DETATCHSTATUSPTR(status);
 	RETURN(status);
 }

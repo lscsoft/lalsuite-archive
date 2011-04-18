@@ -10,7 +10,7 @@
 
 NRCSID (LALSQTPNINTEGRATORC, "$Id LALSQTPNIntegrator.c$");
 
-int XLALSQTPNIntegratorInit(LALSQTPNIntegratorSystem *integrator, INT2 num, void *params,
+int XLALSQTPNIntegratorInit_Old(LALSQTPNIntegratorSystem *integrator, INT2 num, void *params,
 		int(*derivator)(REAL8, const REAL8[], REAL8[], void *)) {
 	static const char *func = "XLALSQTPNIntegratorSystem";
 	
@@ -37,13 +37,13 @@ int XLALSQTPNIntegratorInit(LALSQTPNIntegratorSystem *integrator, INT2 num, void
 
 	// Check if the integrator is correctly allocated
 	if (!(integrator->step) || !(integrator->control) || !(integrator->evolve)) {
-		XLALSQTPNIntegratorFree(integrator);
+		XLALSQTPNIntegratorFree_Old(integrator);
 		XLAL_ERROR(func, XLAL_ENOMEM);
 	}
 	return XLAL_SUCCESS;
 }
 
-void XLALSQTPNIntegratorFree(LALSQTPNIntegratorSystem *integrator) {
+void XLALSQTPNIntegratorFree_Old(LALSQTPNIntegratorSystem *integrator) {
 	if (integrator->evolve) {
 		XLAL_CALLGSL(gsl_odeiv_evolve_free(integrator->evolve));
 	}
@@ -55,7 +55,7 @@ void XLALSQTPNIntegratorFree(LALSQTPNIntegratorSystem *integrator) {
 	}
 }
 
-int XLALSQTPNIntegratorFunc(REAL8 values[], LALSQTPNIntegratorSystem *integrator, REAL8 step) {
+int XLALSQTPNIntegratorFunc_Old(REAL8 values[], LALSQTPNIntegratorSystem *integrator, REAL8 step) {
 	static const char *func = "XLALSQTPNIntegratorFunc";
 	REAL8 time = 0., time_Old, step_X = step;
 	while (time < step) {

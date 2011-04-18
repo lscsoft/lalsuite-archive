@@ -19,3 +19,5 @@ temp
 Debug
 own
 *.patch
+configDir
+build_*

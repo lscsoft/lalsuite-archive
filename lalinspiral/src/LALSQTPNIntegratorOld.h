@@ -39,14 +39,14 @@ typedef struct tagLALSQTPNIntegratorSystem{
  * @param[in]		params	: the parameters used in the derivative function
  * @param[in]	derivator	: pointer to the derivative function
  */
-int XLALSQTPNIntegratorInit(LALSQTPNIntegratorSystem *integrator, INT2 num, void *params,
+int XLALSQTPNIntegratorInit_Old(LALSQTPNIntegratorSystem *integrator, INT2 num, void *params,
 		int(*derivator)(REAL8, const REAL8[], REAL8[], void *));
 
 /**		The function deallocates the memory allocated for the integrator
  * function.
  * @param[in]	integrator	: the structure containing the integration method
  */
-void XLALSQTPNIntegratorFree(LALSQTPNIntegratorSystem *integrator);
+void XLALSQTPNIntegratorFree_Old(LALSQTPNIntegratorSystem *integrator);
 
 /**		The function evolves the system with the given time-step.
  * @param[in,out]	values	: as input parameters the system's actual position,
@@ -54,7 +54,7 @@ void XLALSQTPNIntegratorFree(LALSQTPNIntegratorSystem *integrator);
  * @param[in]	integrator	: the integration method
  * @param[in]		step	: the step size
  */
-int XLALSQTPNIntegratorFunc(REAL8 values[], LALSQTPNIntegratorSystem *integrator, REAL8 step);
+int XLALSQTPNIntegratorFunc_Old(REAL8 values[], LALSQTPNIntegratorSystem *integrator, REAL8 step);
 
 #ifdef __cplusplus
 }
