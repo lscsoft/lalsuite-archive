@@ -12,6 +12,8 @@
 
 NRCSID (LALSQTPNWAVEFORMINTERFACEC, "$Id LALSQTPNWaveformInterface.c$");
 
+extern int switchMode;
+
 /**		The function calculates the parameters from the InspiralTemplate
  * structure. <em>The used parameters are:</em>
  * <ul>
@@ -130,7 +132,16 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 	wave.hc = signalvec2;
 
 	/* Call the engine function */
-	LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+	switch (switchMode) {
+		case LALSQTPN_ADAPTIVE:
+			LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+			break;
+		case LALSQTPN_PRECESSING:
+			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+			break;
+		default:
+			break;
+	}
 	CHECKSTATUSPTR(status);
 
 	DETATCHSTATUSPTR(status);
@@ -165,7 +176,16 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 	//wave_Params.signalAmp /= LAL_PC_SI * 1.e6;
 
 	/* Call the engine function */
-	LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+	switch (switchMode) {
+		case LALSQTPN_ADAPTIVE:
+			LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+			break;
+		case LALSQTPN_PRECESSING:
+			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+			break;
+		default:
+			break;
+	}
 	//params->tC = wave_Params.coalescenceTime;
 	CHECKSTATUSPTR(status);
 	DETATCHSTATUSPTR(status);
@@ -207,7 +227,18 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 	XLALSQTPNFillParams(&wave_Params, params);
 
 	// calling the engine function
-	LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+	switch (switchMode) {
+		case LALSQTPN_ADAPTIVE:
+			puts("Adaptive.");
+			LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+			break;
+		case LALSQTPN_PRECESSING:
+			puts("Precessing.");
+			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+			break;
+		default:
+			break;
+	}
 	BEGINFAIL(status) {
 		XLALSQTPNDestroyCoherentGW(waveform);
 	}ENDFAIL(status);
