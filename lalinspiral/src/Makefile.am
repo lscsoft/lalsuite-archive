@@ -26,6 +26,7 @@ lalinspiralinclude_HEADERS = \
 	LALInspiralBCVSpinBank.h \
 	LALInspiralBank.h \
 	LALInspiralConfig.h \
+	LALInspiralComputeWaveformAccuracies.h \
 	LALInspiralRandomBank.h \
 	LALInspiralStationaryPhaseApprox2Test.h\
 	LALInspiralVCSInfo.h \
@@ -118,6 +119,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralComputePTFMetric.c \
 	LALInspiralComputeParams.c \
 	LALInspiralComputeSNRIntegrand.c \
+	LALInspiralComputeWaveformAccuracies.c \
 	LALInspiralCreateCoarseBank.c \
 	LALInspiralCreateFineBank.c \
 	LALInspiralDerivatives.c \

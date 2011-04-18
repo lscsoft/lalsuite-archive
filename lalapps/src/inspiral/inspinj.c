@@ -173,7 +173,7 @@ REAL8 redshift;
 /* PhiTest parameters */
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
-INT4 phiTestPercent=0;
+
 REAL8 dphi0=0.0;
 REAL8 dphi1=0.0;
 REAL8 dphi2=0.0;
@@ -184,16 +184,6 @@ REAL8 dphi5l=0.0;
 REAL8 dphi6=0.0;
 REAL8 dphi6l=0.0;
 REAL8 dphi7=0.0;
-REAL8 dphi0_perc=0.0;
-REAL8 dphi1_perc=0.0;
-REAL8 dphi2_perc=0.0;
-REAL8 dphi3_perc=0.0;
-REAL8 dphi4_perc=0.0;
-REAL8 dphi5_perc=0.0;
-REAL8 dphi5l_perc=0.0;
-REAL8 dphi6_perc=0.0;
-REAL8 dphi6l_perc=0.0;
-REAL8 dphi7_perc=0.0;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
@@ -545,7 +535,6 @@ static void print_usage(char *program)
 fprintf(stderr,
       "Test parameter information:\n"\
       " --enable-dphi             enable phiTest injections\n"\
-      " --dphi-percent            the values of dphi are in pecent\n"\
       " --dphi0 value             value of the dphi0 parameter\n"\
       " --dphi1 value             value of the dphi1 parameter\n"\
       " --dphi2 value             value of the dphi2 parameter\n"\
@@ -1279,7 +1268,6 @@ int main( int argc, char *argv[] )
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
     {"enable-dphi",             no_argument,       0,                 '@'},
-    {"dphi-percent",            no_argument,       0,                 1020},
     {"dphi0",                   required_argument, 0,                 1010},
     {"dphi1",                   required_argument, 0,                 1011},
     {"dphi2",                   required_argument, 0,                 1012},
@@ -2187,23 +2175,6 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi7 );
           break;
-      case 1020:
-             /* The values of dphi are considered percent of the corresponding phi */
-        this_proc_param = this_proc_param->next =
-        next_process_param( long_options[option_index].name, "string",
-        "" );
-        phiTestPercent = 1;
-       dphi0_perc=dphi0;     
-       dphi1_perc=dphi1;
-       dphi2_perc=dphi2;
-       dphi3_perc=dphi3;
-       dphi4_perc=dphi4;
-       dphi5_perc=dphi5;
-       dphi5l_perc=dphi5l;
-       dphi6_perc=dphi6;
-       dphi6l_perc=dphi6l;
-       dphi7_perc=dphi7;
-   break;
 
       case 'h':
         print_usage(argv[0]);
@@ -2865,86 +2836,6 @@ int main( int argc, char *argv[] )
     
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
-    /* calculate the value of the test parameters for the injection and uses them to calculate which dphi correnspond to the percent value passed as an option */
-    if (phiTestPercent)
-    {
-    char *wform       = NULL;
-    char *AmpCorPPNTestString = NULL;
-    char *TaylorF2TestString=NULL;
-        AmpCorPPNTestString="AmpCorPPNTest";
-        TaylorF2TestString="TaylorF2Test";
-        wform=simTable->waveform;
-    if (strstr(wform,AmpCorPPNTestString)!=NULL) 
-        {
-        fprintf( stderr, "Calculating the values of the PN coeff for AmpCorPPNTest ... \n" );
-        REAL8 phasePNparams[10];
-        REAL8 mTot_inj,eta_inj;
-        eta_inj=simTable->eta;
-        mTot_inj=simTable->mass1 + simTable->mass2;
-
-        phasePNparams[0] = -pow(eta_inj,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-5.0/8.0);
-        phasePNparams[1] = 0.0;
-        phasePNparams[2] = -(3715.0/8064.0 + 55.0/96.0*eta_inj)*pow(eta_inj,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-3.0/8.0);
-        phasePNparams[3] = 3.0/4.0*LAL_PI*pow(eta_inj,-0.75)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-0.25);
-        phasePNparams[4] = -(9275495.0/14450688.0 + 284875.0/258048.0*eta_inj + 1855.0/2048.0*pow(eta_inj,2.0))*pow(eta_inj,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,-1.0/8.0);
-        phasePNparams[5] = -1.0/eta_inj*(-38645.0/172032.0 + 65.0/2048.0*eta_inj)*LAL_PI*log(eta_inj/(5.0*LAL_MTSUN_SI*mTot_inj));
-        phasePNparams[6] = -1.0/eta_inj*(-38645.0/172032.0 + 65.0/2048.0*eta_inj)*LAL_PI;
-        phasePNparams[7] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(eta_inj/(256*5.0*LAL_MTSUN_SI*mTot_inj)) + (-123292747421.0/4161798144.0 +2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*eta_inj + 154565.0/1835008.0*pow(eta_inj,2.0) - 1179625.0/1769472.0*pow(eta_inj,3.0))*pow(eta_inj,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/8.0);
-        phasePNparams[8] = -107.0/448.0*pow(eta_inj,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/8.0);
-        phasePNparams[9] = -(188516689.0/173408256.0 + 488825.0/516096.0*eta_inj - 141769.0/516096.0*pow(eta_inj,2.0))*LAL_PI*pow(eta_inj,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*mTot_inj,1.0/4.0);
-
-        dphi0=(dphi0_perc/100.0)*phasePNparams[0];
-        dphi1=(dphi1_perc/100.0)*phasePNparams[1];
-        dphi2=(dphi2_perc/100.0)*phasePNparams[2];
-        dphi3=(dphi3_perc/100.0)*phasePNparams[3];
-        dphi4=(dphi4_perc/100.0)*phasePNparams[4];
-        dphi5=(dphi5_perc/100.0)*phasePNparams[5];
-        dphi5l=(dphi5l_perc/100.0)*phasePNparams[6];
-        dphi6=(dphi6_perc/100.0)*phasePNparams[7];
-        dphi6l=(dphi6l_perc/100.0)*phasePNparams[8];
-        dphi7=(dphi7_perc/100.0)*phasePNparams[9];
-
-        }   
-    if(strstr(wform,TaylorF2TestString)!=NULL)
-       {
-
-        fprintf( stderr, "Calculating the values of the PN coeff for TaylorF2Test... \n" );
-        REAL8 phasePNparams[10];
-        REAL8 mTot_inj,eta_inj;
-        eta_inj=simTable->eta;
-        mTot_inj=simTable->mass1 + simTable->mass2;
-        REAL8 pimtot = LAL_PI*mTot_inj*LAL_MTSUN_SI;
-        REAL8 comprefac = 3.0/(128.0*eta_inj);
-        REAL8 pimtot1by3=cbrt(pimtot);    
-        phasePNparams[0] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3)); //phi0
-        phasePNparams[1] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3))* 0.0; //phi1
-        phasePNparams[2] = comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta_inj); //phi2
-        phasePNparams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI; //phi3
-        phasePNparams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta_inj + 3085.0/72.0*eta_inj*eta_inj); // phi4
-        phasePNparams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta_inj)+((38645.0/756.0 - 65.0/9.0*eta_inj)*log(pimtot*pow(6.0, 1.5)))); //phi5
-        phasePNparams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta_inj); //phi5l
-        phasePNparams[7] = comprefac*pimtot1by3* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta_inj*(-15335597827.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI) + 47324.0/63.0-7948.0/9.0) + 76055.0/1728.0*eta_inj*eta_inj - 127825.0/1296.0*eta_inj*eta_inj*eta_inj + -6848.0/21.0*log(4.0*pimtot1by3)); //phi6
-        phasePNparams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
-        phasePNparams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta_inj - 74045.0/756.0*eta_inj*eta_inj); //phi7
-fprintf(stderr,"%f,%f,%f \n",phasePNparams[0],phasePNparams[2],phasePNparams[3]);
-fprintf(stderr,"%f \n",dphi3);        
-dphi0=(dphi0_perc/100.0)*phasePNparams[0];
-        dphi1=(dphi1_perc/100.0)*phasePNparams[1];
-        dphi2=(dphi2_perc/100.0)*phasePNparams[2];
-        dphi3=(dphi3_perc/100.0)*phasePNparams[3];
-        dphi4=(dphi4_perc/100.0)*phasePNparams[4];
-        dphi5=(dphi5_perc/100.0)*phasePNparams[5];
-        dphi5l=(dphi5l_perc/100.0)*phasePNparams[6];
-        dphi6=(dphi6_perc/100.0)*phasePNparams[7];
-        dphi6l=(dphi6l_perc/100.0)*phasePNparams[8];
-        dphi7=(dphi7_perc/100.0)*phasePNparams[9];
-        fprintf(stderr,"%f",dphi3_perc);
-}
-    
-}
-
-
-
     /* populate the test parameters */
     simTable->dphi0=dphi0;
     simTable->dphi1=dphi1;

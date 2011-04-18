@@ -81,3 +81,7 @@ void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params, REAL8 *TestParam
 void XLALCopyPPNConsistencyFromPPNParamStruc (
                                               PPNParamStruc                        *inputParams,
                                               PPNConsistencyParamStruc             *duplicateParams );
+                                              
+void XLALCopyPPNConsistencyParamStruc (
+                                       PPNConsistencyParamStruc             *inputParams,
+                                       PPNConsistencyParamStruc             *duplicateParams );                                              
