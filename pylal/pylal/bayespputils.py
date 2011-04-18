@@ -485,7 +485,8 @@ class Posterior(object):
         logLFound=False
         
         for loglalias in self._loglaliases:
-        
+            print loglalias
+            print common_output_table_header
             if loglalias in common_output_table_header:
                 try:
                     self._logL=self._posterior[loglalias].samples
@@ -593,6 +594,7 @@ class Posterior(object):
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
+                        'm':lambda inj:inj.mchirp,
                         'mass1':_inj_m1,
                         'm1':_inj_m1,
                         'mass2':_inj_m2,
@@ -601,6 +603,7 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
+                        'phi':lambda inj:inj.phi0,                        
                         'phi_orb': lambda inj: inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
@@ -626,6 +629,7 @@ class Posterior(object):
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
                         'theta_s':_inj_thetas,
                         'beta':_inj_beta,
+                        'dphi0':lambda inj:inj.dphi0,
                         'dphi1':lambda inj:inj.dphi1,
                         'dphi2':lambda inj:inj.dphi2,
                         'dphi3':lambda inj:inj.dphi3,
@@ -1729,7 +1733,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
         locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
         plt.xticks(locs,strticks,rotation=45)
-    if find(param.lower(),'dphi')!=-1:
+'''    if find(param.lower(),'dphi')!=-1:
         if find(posterior.injection.waveform,"AmpCor")!=-1:
             print "The waveform is "+str(posterior.injection.waveform)+"\n"
             LAL_GAMMA=0.5772156649015328606065120900824024
@@ -1772,7 +1776,9 @@ def plot_one_param_pdf(posterior,plot1DParams):
             axes_percent.set_xlim([-100.0*fabs(xmin/phi_rec_true),100.0*fabs(xmax/phi_rec_true) ])
             axes_percent.set_xlabel("\n"+str(param.lower()) + " [%]",size="small",fontsize="small",position=(-.1,0),verticalalignment='center')
             myfig.add_axes(axes_percent)
-
+'''
+    if find(param.lower(),'dphi')!=-1:
+        axes.set_xlabel(str(param.lower()) + " [%]")
 
     return rbins,myfig#,rkde
 #
