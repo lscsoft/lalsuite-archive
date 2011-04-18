@@ -40,11 +40,12 @@ NRCSID (LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
  */
 #define SQT_SQR(a) ((a)*(a))
 
-typedef enum LALSQTPNAmplitudeOrder {
-	LALSQTPN_0_0 = 1, LALSQTPN_0_5 = 2, LALSQTPN_1_0 = 4,
-} LALSQTPNAmplitudeOrder;
-
+/** Various constants and error codes.
+ */
 typedef enum {
+	LALSQTPN_0_0 = 1,
+	LALSQTPN_0_5 = 2,
+	LALSQTPN_1_0 = 4,
 	LALSQTPN_PLUS = 0,
 	LALSQTPN_CROSS = 1,
 	LALSQTPN_ENERGY = 1025,
@@ -54,7 +55,25 @@ typedef enum {
 	LALSQTPN_NAN,
 } LALSQTPNConstants;
 
-/**		Enumeration to index the dynamic variables in the LALSQTPNGenerator_Old function.
+/**		Enumeration to index the dynamic variables in the LALSQTPNGeneratorAdaptive function.
+ */
+typedef enum {
+	LALSQTPN_ADAPT_PHASE, ///< index of the phase
+	LALSQTPN_ADAPT_OMEGA, ///< index of the \f$M\omega\f$
+	LALSQTPN_ADAPT_LNH_1, ///< index of the \f$\hat{L}_N\f$'s x component
+	LALSQTPN_ADAPT_LNH_2, ///< index of the \f$\hat{L}_N\f$'s y component
+	LALSQTPN_ADAPT_LNH_3, ///< index of the \f$\hat{L}_N\f$'s z component
+	LALSQTPN_ADAPT_CHIH1_1, ///< index of the \f$\hat{\chi}_1\f$'s x component
+	LALSQTPN_ADAPT_CHIH1_2, ///< index of the \f$\hat{\chi}_1\f$'s y component
+	LALSQTPN_ADAPT_CHIH1_3, ///< index of the \f$\hat{\chi}_1\f$'s z component
+	LALSQTPN_ADAPT_CHIH2_1, ///< index of the \f$\hat{\chi}_2\f$'s x component
+	LALSQTPN_ADAPT_CHIH2_2, ///< index of the \f$\hat{\chi}_2\f$'s y component
+	LALSQTPN_ADAPT_CHIH2_3, ///< index of the \f$\hat{\chi}_2\f$'s z component
+	LALSQTPN_ADAPT_NUM_OF_VAR
+///< number of the dynamic variables
+} LALSQTPNADAPTGeneratorVariables;
+
+/**		Enumeration to index the dynamic variables in the LALSQTPNGenerator function.
  */
 typedef enum {
 	LALSQTPN_PHASE, ///< index of the phase
@@ -68,10 +87,15 @@ typedef enum {
 	LALSQTPN_CHIH2_1, ///< index of the \f$\hat{\chi}_2\f$'s x component
 	LALSQTPN_CHIH2_2, ///< index of the \f$\hat{\chi}_2\f$'s y component
 	LALSQTPN_CHIH2_3, ///< index of the \f$\hat{\chi}_2\f$'s z component
+	LALSQTPN_E1_1,///< index of the \f$\hat{E}_1\f$'s x component
+	LALSQTPN_E1_2,///< index of the \f$\hat{E}_1\f$'s y component
+	LALSQTPN_E1_3,///< index of the \f$\hat{E}_1\f$'s z component
 	LALSQTPN_NUM_OF_VAR
 ///< number of the dynamic variables
 } LALSQTPNGeneratorVariables;
 
+/** Structure containing the various waveform conventions.
+ */
 typedef struct tagLALSQTPNWave {
 	CoherentGW *waveform;
 	REAL4Vector *hp;
@@ -181,6 +205,8 @@ typedef struct tagLALSQTPNWaveformParams {
  * @param[out]		waveform	: the generated waveform
  * @param[in]		params		: the input parameters
  */
+void LALSQTPNGeneratorAdaptive(LALStatus *status, LALSQTPNWave *waveform,
+		LALSQTPNWaveformParams *params);
 void
 LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
 
@@ -239,8 +265,10 @@ LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformPar
  * @param[out]	dvalues	: the derived values and the last element is the MECO
  * @param[in]	params	: the LALSQTPN_Generator's parameters
  */
+int LALSQTPNDerivatorAdaptive(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 
+int XLALSQTPNTestAdaptive(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
 int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
 
 #ifdef __cplusplus

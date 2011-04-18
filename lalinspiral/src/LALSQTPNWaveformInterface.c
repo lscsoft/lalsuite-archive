@@ -130,7 +130,7 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 	wave.hc = signalvec2;
 
 	/* Call the engine function */
-	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+	LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
 	CHECKSTATUSPTR(status);
 
 	DETATCHSTATUSPTR(status);
@@ -165,7 +165,7 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 	//wave_Params.signalAmp /= LAL_PC_SI * 1.e6;
 
 	/* Call the engine function */
-	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+	LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
 	//params->tC = wave_Params.coalescenceTime;
 	CHECKSTATUSPTR(status);
 	DETATCHSTATUSPTR(status);
@@ -207,7 +207,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 	XLALSQTPNFillParams(&wave_Params, params);
 
 	// calling the engine function
-	LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+	LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
 	BEGINFAIL(status) {
 		XLALSQTPNDestroyCoherentGW(waveform);
 	}ENDFAIL(status);
