@@ -555,7 +555,8 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
             xmlsegfile = "%s/%s-VETOTIME_CAT%d%s.xml" % \
                             (path, ifo, cat, tag)
             vetolist = read_xmlsegfile(xmlsegfile)
-   
+            vetolist.coalesce()
+
             # check for overlaps, and give detailed list of veto details
             list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
             for name, segstart, segend in list_overlaps:
