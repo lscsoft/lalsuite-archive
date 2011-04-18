@@ -1332,7 +1332,7 @@ void LALPopulatePhasePNparams(PPNConsistencyParamStruc *params, REAL8 *TestParam
     /* add the delta phi to the right parameter */
     UINT4 i;
     for (i=0; i<10; i++) {
-        params->phasePNparams[i] += TestParamValue[i];
+        params->phasePNparams[i] *= (1.0+TestParamValue[i]);
     }
 	
 	return;
