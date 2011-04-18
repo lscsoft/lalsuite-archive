@@ -1417,3 +1417,79 @@ void XLALCopyPPNConsistencyFromPPNParamStruc (
     return;
 }
 
+void XLALCopyPPNConsistencyParamStruc (
+                                       PPNConsistencyParamStruc             *inputParams,
+                                       PPNConsistencyParamStruc             *duplicateParams )
+{
+    // Counter
+    UINT4 i = 0;
+    
+    if ( inputParams && inputParams->ppn && duplicateParams)
+    {
+		/* Passed parameters. */
+		duplicateParams->position = inputParams->position; /* location of source on sky */
+		duplicateParams->psi = inputParams->psi;            /* polarization angle (radians) */
+		duplicateParams->epoch = inputParams->epoch;    /* start time of output time series */
+		
+		/* Input parameters. */
+		duplicateParams->mTot_real8 = inputParams->mTot; /* total system mass (Msun) */
+		duplicateParams->eta_real8 = inputParams->eta;  /* mass ratio */
+		//duplicateParams->delta = inputParams->delta;      /* sqrt(1-4eta) */
+		duplicateParams->mTot = inputParams->mTot;       /* total system mass (Msun) */
+		duplicateParams->eta = inputParams->eta;        /* mass ratio */
+		duplicateParams->d = inputParams->d;          /* distance (metres) */
+		duplicateParams->inc = inputParams->inc;        /* inclination angle (radians) */
+		duplicateParams->phi = inputParams->phi;        /* coalescence phase (radians) */
+		duplicateParams->deltaT = inputParams->deltaT;     /* requested sampling interval (s) */
+		duplicateParams->fStartIn = inputParams->fStartIn;   /* requested start frequency (Hz) */
+		duplicateParams->fStopIn = inputParams->fStopIn;    /* requested stop frequency (Hz) */
+		duplicateParams->lengthIn = inputParams->lengthIn;   /* maximum length of waveform */
+		duplicateParams->ampOrder = inputParams->ampOrder;    /* PN amplitude selection 0-5 */
+		//duplicateParams->tc = inputParams->tc;    /* PN amplitude selection 0-5 */
+		//duplicateParams->dfdt = inputParams->dfdt;    /* PN amplitude selection 0-5 */
+		//duplicateParams->fStart = inputParams->fStart;    /* PN amplitude selection 0-5 */
+		//duplicateParams->fStop = inputParams->fStop;    /* PN amplitude selection 0-5 */
+		
+		/* PN phasing coefficients for use in AmpCorConsistency are filled in the LALPopulatePhasePNparams */
+		
+		 duplicateParams->phi0 = inputParams->phi0;
+		 duplicateParams->phi2 = inputParams->phi2;
+		 duplicateParams->phi3 = inputParams->phi3;
+		 duplicateParams->phi4 = inputParams->phi4;
+		 duplicateParams->phi5 = inputParams->phi5;
+		 duplicateParams->phi5l = inputParams->phi5l;
+		 duplicateParams->phi6 = inputParams->phi6;
+		 duplicateParams->phi6l = inputParams->phi6l;
+		 duplicateParams->phi7 = inputParams->phi7;
+        
+        // Check if *.ppn vector is created
+        if ( !(duplicateParams->ppn) )
+        { // if not, create vector with the same length as input.ppn
+            duplicateParams->ppn = XLALCreateREAL4Vector(inputParams->ppn->length);
+            for (i=0; i<inputParams->ppn->length; i++)
+            {
+                //fprintf(stdout, "Copy PPNConsistencyParamStruc -> created new vector \n");
+                duplicateParams->ppn->data[i] = inputParams->ppn->data[i];
+            }      
+        }
+        else if( duplicateParams->ppn->length == inputParams->ppn->length)
+        { // check if the lengths are the same before filling
+            for (i=0; i<inputParams->ppn->length; i++)
+            {
+                //fprintf(stdout, "Copy PPNConsistencyParamStruc -> vector exists \n");
+                duplicateParams->ppn->data[i] = inputParams->ppn->data[i];
+            }
+        }
+        else
+        {
+			fprintf(stdout, "Could not copy PPNConsistencyParamStruc \n");
+        }
+    }
+    else
+    {
+        fprintf(stdout, "Empty input parameter \n");
+    }
+	
+    return;
+}
+
