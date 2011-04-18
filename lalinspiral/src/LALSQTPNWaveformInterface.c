@@ -9,6 +9,9 @@
 
 #include <lal/LALSQTPNWaveformInterface.h>
 #include <lal/LALSQTPNWaveform.h>
+#include <lal/LALSQTPNWaveformOld.h>
+
+extern int switchMode;
 
 NRCSID (LALSQTPNWAVEFORMINTERFACEC, "$Id LALSQTPNWaveformInterface.c$");
 
@@ -39,12 +42,22 @@ void LALSQTPNWaveformTemplates (LALStatus *status, REAL4Vector *signalvec1, REAL
 	XLALSQTPNFillParams(&wave_Params, params);
 
 	wave.waveform = NULL;
-	wave.h = NULL;
 	wave.hp = signalvec1;
 	wave.hc = signalvec2;
 
 	/* Call the engine function */
-	LALSQTPNGenerator_Old(status->statusPtr, &wave, &wave_Params);
+	switch (switchMode) {
+		case LALSQTPN_OLD:
+			LALSQTPNGenerator_Old(status->statusPtr, &wave, &wave_Params);
+			break;
+		case LALSQTPN_ADAPTIVE:
+			break;
+		case LALSQTPN_PRECESSING:
+			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+			break;
+		default:
+			break;
+	}
 	CHECKSTATUSPTR(status);
 
 	DETATCHSTATUSPTR(status);
@@ -58,7 +71,6 @@ void LALSQTPNWaveform (LALStatus *status, REAL4Vector *signalvec, InspiralTempla
 	LALSQTPNWaveformParams wave_Params;
 	LALSQTPNWave wave;
 	memset(&wave, 0, sizeof(LALSQTPNWave));
-	wave.h = NULL;
 	wave.hp = signalvec;
 	wave.hc = NULL;
 	wave.waveform = NULL;
@@ -80,7 +92,18 @@ void LALSQTPNWaveform (LALStatus *status, REAL4Vector *signalvec, InspiralTempla
 	wave_Params.signalAmp /= LAL_PC_SI * 1.e6;
 
 	/* Call the engine function */
-	LALSQTPNGenerator_Old(status->statusPtr, &wave, &wave_Params);
+	switch (switchMode) {
+		case LALSQTPN_OLD:
+			LALSQTPNGenerator_Old(status->statusPtr, &wave, &wave_Params);
+			break;
+		case LALSQTPN_ADAPTIVE:
+			break;
+		case LALSQTPN_PRECESSING:
+			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+			break;
+		default:
+			break;
+	}
 	params->tC = wave_Params.coalescenceTime;
 	CHECKSTATUSPTR(status);
 	DETATCHSTATUSPTR(status);
@@ -114,7 +137,6 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 	XLALSQTPNAllocateCoherentGW(waveform, paramsInit.nbins);
 
 	LALSQTPNWave wave;
-	wave.h = NULL;
 	wave.hp = wave.hc = NULL;
 	wave.waveform = waveform;
 	LALSQTPNWaveformParams wave_Params;
@@ -123,7 +145,19 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 	XLALSQTPNFillParams(&wave_Params, params);
 
 	// calling the engine function
-	LALSQTPNGenerator_Old(status->statusPtr, &wave, &wave_Params);
+	printf("%d\n", switchMode);
+	switch (switchMode) {
+		case LALSQTPN_OLD:
+			LALSQTPNGenerator_Old(status->statusPtr, &wave, &wave_Params);
+			break;
+		case LALSQTPN_ADAPTIVE:
+			break;
+		case LALSQTPN_PRECESSING:
+			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+			break;
+		default:
+			break;
+	}
 	BEGINFAIL(status) {
 		XLALSQTPNDestroyCoherentGW(waveform);
 	} ENDFAIL(status);
@@ -143,10 +177,6 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 		if (waveform->a != NULL) {
 			waveform->f->data->length = waveform->phi->data->length = waveform->shift->data->length = wave.length;
 			waveform->a->data->length = 2 * wave.length;
-			for (i = 0; i < wave.length; i++) {
-				// (PPNParamStruct)ppnParams->phi === (InspiralTemplate)params->startPhase === (SimInspiralTable)injparams/this_event->coa_phase it is set to 0 in LALSQTPNWaveformTest.c at line 83.
-				waveform->phi->data->data[i] = waveform->phi->data->data[i] - waveform->phi->data->data[wave.length-1] + ppnParams->phi;
-			}
 			waveform->a->deltaT = waveform->f->deltaT = waveform->phi->deltaT
 					= waveform->shift->deltaT = 1. / params->tSampling;
 

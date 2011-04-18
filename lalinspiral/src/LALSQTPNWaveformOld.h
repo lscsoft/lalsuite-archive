@@ -1,5 +1,5 @@
 /**
- * @file LALSQTPNWaveform.h
+ * @file LALSQTPNWaveformOld.h
  *		Contains the enumerations, structures and functions declarations to create GWforms.
  *	<b>Notations</b><br />
  *	\f$M=M_{in}M_\odot G/c^3\f$<br />
@@ -16,11 +16,12 @@
  * @date 2010.05.21.
  */
 
-#ifndef LALSQTPNWAVEFORM_H
-#define LALSQTPNWAVEFORM_H
+#ifndef LALSQTPNWAVEFORM_OLD_H
+#define LALSQTPNWAVEFORM_OLD_H
 
 #include <math.h>
 
+#include <lal/LALSQTPNWaveform.h>
 #include <lal/LALStatusMacros.h>
 #include <lal/LALInspiral.h>
 #include <lal/Units.h>
@@ -29,7 +30,7 @@
 extern "C" {
 #endif
 
-NRCSID (LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
+NRCSID (LALSQTPNWAVEFORMOLDH, "$Id$ LALSQTPNWaveform.h");
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
@@ -40,83 +41,24 @@ NRCSID (LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
  */
 #define SQT_SQR(a) ((a)*(a))
 
-typedef struct tagLALSQTPNWave{
-	CoherentGW *waveform;
-	REAL4Vector *h;
-	REAL4Vector *hp;
-	REAL4Vector *hc;
-	UINT4 length;
-} LALSQTPNWave;
-
-/**		The structure contains the coefficients for calculating the derivatives
- * of the evolving quantities.
+/**		Enumeration to index the dynamic variables in the LALSQTPNGenerator_Old function.
  */
-typedef struct tagLALSQTPNCoefficients{
-	///@name coefficients for domega
-	//@{
-	REAL8 domegaGlobal; ///< global coefficient for domega
-	REAL8 domega[LAL_PNORDER_PSEUDO_FOUR]; ///< coefficients for domega for every PN order
-	REAL8 domegaSO[3]; ///< the spin-orbit coefficients for domega
-	REAL8 domegaSS[3]; ///< the spin1-spin2 coefficients for domega
-	REAL8 domegaSSself[3]; ///< the spin-selft coefficients for domega
-	REAL8 domegaSSselfConst; ///< the constant spin-selft coefficients for domega
-	REAL8 domegaQM[3]; ///< the quadropole-monopole coefficients for domega
-	REAL8 domegaQMConst; ///< the constant quadropole-monopole coefficients for domega
-	REAL8 domegaLN; ///< coefficient for the ln component in domega
-	//@}
-	///@name coefficients for dchih and dLNh
-	REAL8 dchihSO[3]; ///< the spin-orbit coefficients for dchih
-	REAL8 dchihSS[3]; ///< the spin1-spin2 coefficientd for dchih
-	REAL8 dchihQM[3]; ///< the quadropole-monopole coefficients for dchih
-	REAL8 dLNh[3]; ///< coefficients for dLNh
-	//@}
-	///@name coefficients for MECO
-	//@{
-	REAL8 meco[8]; ///< coefficients for MECO-test
-	REAL8 mecoSO[3]; ///< spin-orbit coefficients for MECO
-	REAL8 mecoSS; ///< spin1-spin2 coefficients for MECO
-	REAL8 mecoQM; ///< quadropole-monopole coefficients for MECO
-	//@}
-} LALSQTPNCoefficients;
-
-/**		The structure contains the system's and the generator's parameters.
- */
-typedef struct tagLALSQTPNWaveformParams{
-	///@name mass-Parameters
-	//@{
-	REAL8 mass[2]; ///< masses of the BHs in \f$M_\odot\f$
-	REAL8 totalMass; ///< total mass in \f$M_\odot\f$
-	REAL8 chirpMass; ///< chirp mass in \f$M_\odot\f$
-	REAL8 mu; ///< reduced mass in \f$M_\odot\f$
-	REAL8 eta; ///< symmetric mass ratio
-	//@}
-	///@name spin-parameters
-	//@{
-	REAL8 chi[2][3]; ///< components of the normalized spin
-	REAL8 chih[2][3]; ///< components of the unity-vectors of the normalized spin
-	REAL8 chiAmp[2]; ///< amplitude of the normalized spin
-	//@}
-	///@name other system-parameters
-	//@{
-	REAL8 qmParameter[2]; ///< flatness of the BHs or NSs
-	REAL8 distance; ///< distance to the source in \f$Mps\f$
-	REAL8 inclination; ///< inclination of the system \f$rad\f$
-	REAL8 phi; ///< the initial phase (currently not in use)
-	//@}
-	///@name other parameters
-	//@{
-	REAL8 signalAmp; ///< the amplitude of the signal
-	REAL8 lowerFreq; ///< the detectors sensitivityband's lower border in \f$Hz\f$
-	REAL8 finalFreq;	///< the final frequency
-	REAL8 samplingFreq; ///< sampling frequency in \f$Hz\f$
-	REAL8 samplingTime; ///< sampling time in \f$s\f$
-	REAL8 coalescenceTime;	///< the time at the coalescence
-	LALPNOrder order; ///< the Post_Newtonian order of the GW generation
-	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
-	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
-	//@}
-} LALSQTPNWaveformParams;
-
+typedef enum {
+	LALSQTPN_OLD_PHASE, ///< index of the phase
+	LALSQTPN_OLD_OMEGA, ///< index of the \f$M\omega\f$
+	LALSQTPN_OLD_LNH_1, ///< index of the \f$\hat{L}_N\f$'s x component
+	LALSQTPN_OLD_LNH_2, ///< index of the \f$\hat{L}_N\f$'s y component
+	LALSQTPN_OLD_LNH_3, ///< index of the \f$\hat{L}_N\f$'s z component
+	LALSQTPN_OLD_CHIH1_1, ///< index of the \f$\hat{\chi}_1\f$'s x component
+	LALSQTPN_OLD_CHIH1_2, ///< index of the \f$\hat{\chi}_1\f$'s y component
+	LALSQTPN_OLD_CHIH1_3, ///< index of the \f$\hat{\chi}_1\f$'s z component
+	LALSQTPN_OLD_CHIH2_1, ///< index of the \f$\hat{\chi}_2\f$'s x component
+	LALSQTPN_OLD_CHIH2_2, ///< index of the \f$\hat{\chi}_2\f$'s y component
+	LALSQTPN_OLD_CHIH2_3, ///< index of the \f$\hat{\chi}_2\f$'s z component
+	LALSQTPN_OLD_MECO,
+	LALSQTPN_OLD_NUM_OF_VAR,
+///< number of the dynamic variables
+} LALSQTPNGeneratorVariablesOld;
 /**		The function fills the #LALSQTPNCoefficients structure with the needed
  *	coefficients for calculating the derived dynamic variables with the LALSQTPNDerivator_Old() function.
  *
@@ -183,24 +125,6 @@ void XLALSQTPNFillCoefficients_Old(LALSQTPNWaveformParams * const params);
  */
 int LALSQTPNDerivator_Old(REAL8 t, const REAL8 values[], REAL8 dvalues[],
 		void * params);
-
-/**		Enumeration to index the dynamic variables in the LALSQTPNGenerator_Old function.
- */
-typedef enum {
-	LALSQTPN_PHASE,	///< index of the phase
-	LALSQTPN_OMEGA,	///< index of the \f$M\omega\f$
-	LALSQTPN_LNH_1,	///< index of the \f$\hat{L}_N\f$'s x component
-	LALSQTPN_LNH_2,	///< index of the \f$\hat{L}_N\f$'s y component
-	LALSQTPN_LNH_3,	///< index of the \f$\hat{L}_N\f$'s z component
-	LALSQTPN_CHIH1_1,	///< index of the \f$\hat{\chi}_1\f$'s x component
-	LALSQTPN_CHIH1_2,	///< index of the \f$\hat{\chi}_1\f$'s y component
-	LALSQTPN_CHIH1_3,	///< index of the \f$\hat{\chi}_1\f$'s z component
-	LALSQTPN_CHIH2_1,	///< index of the \f$\hat{\chi}_2\f$'s x component
-	LALSQTPN_CHIH2_2,	///< index of the \f$\hat{\chi}_2\f$'s y component
-	LALSQTPN_CHIH2_3,	///< index of the \f$\hat{\chi}_2\f$'s z component
-	LALSQTPN_MECO,	///< index of the MECO
-	LALSQTPN_NUM_OF_VAR	///< number of the dynamic variables
-} LALSQTPNGeneratorVariables;
 
 /**		The function generates the parameters of the waveform.
  * The formulae are:
