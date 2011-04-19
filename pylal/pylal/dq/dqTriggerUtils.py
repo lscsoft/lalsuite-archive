@@ -58,7 +58,7 @@ def def_get_time( tableName, ifo=None ):
 
 
   # if given a sngl trigger table
-  elif re.match( 'sngl', tableName ):
+  elif re.match( '(sngl|multi|coinc)', tableName ):
 
     if re.search('inspiral',tableName):
       get_time = lambda row: row.get_end()
