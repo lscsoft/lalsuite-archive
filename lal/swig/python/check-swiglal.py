@@ -108,6 +108,76 @@ else:
         msg("FAILED static vector/matrix conversions #1")
         exit(1)
 
+# check dynamic vector/matrix conversions
+def check_dynamic_vector_matrix(ids, iv, ivl, rv, rvl, cm, cms1, cms2):
+    try:
+        assert(ivl == 5)
+        iv.data = [1, 3, 2, 4, 3]
+        assert(all(iv.data == [1, 3, 2, 4, 3]))
+        iv.data_setel(3, 7)
+        assert(iv.data_getel(3) == 7)
+        assert(rvl == 5)
+        rv.data = [1.2, 3.4, 2.6, 4.8, 3.5]
+        assert(all(rv.data == [1.2, 3.4, 2.6, 4.8, 3.5]))
+        rv.data_setel(rvl - 1, 7.5)
+        assert(rv.data_getel(rvl - 1) == 7.5)
+        try:
+            rv.data_setel(rvl, 99.9)
+            msg("FAILED dynamic vector/matrix conversions #2 (%s)" % ids)
+            exit(1)
+        except:
+            pass
+        try:
+            iv.data = rv.data
+            msg("FAILED dynamic vector/matrix conversions #3 (%s)" % ids)
+            exit(1)
+        except:
+            pass
+        try:
+            rv.data = iv.data
+            assert(all(rv.data == iv.data))
+        except:
+            msg("FAILED dynamic vector/matrix conversions #4 (%s)" % ids)
+            exit(1)
+        assert(cms1 == 4)
+        assert(cms2 == 6)
+        for i in range(0, cms1):
+            for j in range(0, cms2):
+                cm.data_setel(i, j, complex(i / 4.0, j / 2.0))
+        assert(cm.data_getel(2, 3) == complex(0.5, 1.5))
+        assert(cm.data_getel(3, 2) == complex(0.75, 1.0))
+        try:
+            iv.data_setel(0, cm.data_getel(2, 3))
+            msg("FAILED dynamic vector/matrix conversions #5 (%s)" % ids)
+            exit(1)
+        except:
+            pass
+        try:
+            rv.data_setel(0, cm.data_getel(3, 2))
+            msg("FAILED dynamic vector/matrix conversions #6 (%s)" % ids)
+            exit(1)
+        except:
+            pass
+    except:
+        msg("FAILED dynamic vector/matrix conversions #1 (%s)" % ids)
+        traceback.print_tb(sys.exc_info()[2])
+        exit(1)
+
+try:
+    # check LAL vector and matrix datatypes
+    iv = XLALCreateINT4Vector(5)
+    rv = XLALCreateREAL8Vector(5)
+    cm = XLALCreateCOMPLEX8VectorSequence(4, 6)
+    check_dynamic_vector_matrix("LAL", iv, iv.length, rv, rv.length,
+                                cm, cm.length, cm.vectorLength)
+    XLALDestroyINT4Vector(iv)
+    XLALDestroyREAL8Vector(rv)
+    XLALDestroyCOMPLEX8VectorSequence(cm)
+    LALCheckMemoryLeaks()
+except:
+    msg("FAILED dynamic vector/matrix conversions")
+    exit(1)
+
 # passed all tests!
 msg("================")
 msg("PASSED all tests")
