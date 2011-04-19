@@ -216,4 +216,60 @@ AC_DEFUN([LALSUITE_SWIG_LANG],[
 
 dnl SWIG languages
 AC_DEFUN([LALSUITE_SWIG_LANGUAGES],[
+  LALSUITE_SWIG_LANG_OCTAVE
+])
+
+dnl SWIG octave configuration
+AC_DEFUN([LALSUITE_SWIG_LANG_OCTAVE],[
+  LALSUITE_SWIG_LANG([octave],[
+
+    dnl minimum required octave version
+    OCTAVE_MIN_VERSION=3.2.4
+
+    dnl check for octave-config binary
+    AC_PATH_PROGS(OCTAVE_CONFIG,[octave-config],[])
+    AS_IF([test "x${OCTAVE_CONFIG}" = x],[
+      AC_MSG_ERROR([could not find 'octave-config' in path])
+    ])
+
+    dnl check for corresponding octave binary
+    AC_MSG_CHECKING([for octave])
+    OCTAVE=`${OCTAVE_CONFIG} -p BINDIR`/octave
+    AS_IF([test -f "${OCTAVE}" && test -x "${OCTAVE}"],[],[
+      AC_MSG_ERROR([could not find 'octave' in path])
+    ])
+    AC_MSG_RESULT([${OCTAVE}])
+    AC_SUBST(OCTAVE)
+    dnl add flags for silence and environment-independence
+    OCTAVE="${OCTAVE} -qfH"
+
+    dnl check for octave version
+    AC_MSG_CHECKING([for octave version])
+    octave_version=`${OCTAVE_CONFIG} --version`
+    AS_IF([test "x${octave_version}" = x],[
+      AC_MSG_ERROR([could not determine octave version])
+    ])
+    AC_MSG_RESULT([${octave_version}])
+
+    dnl check if octave version is newer than required
+    AS_VERSION_COMPARE([${OCTAVE_MIN_VERSION}],[${octave_version}],[],[],[
+      AC_MSG_ERROR([require octave version >= ${OCTAVE_MIN_VERSION}])
+    ])
+
+    dnl determine where to install .oct files:
+    dnl take site .oct install dir given by octave-config,
+    dnl and strip off prefix; thus, if LAL is installed in
+    dnl the same directory as octave, .oct files will be
+    dnl found by octave without having to add to OCTAVE_PATH
+    octave_prefix=[`${OCTAVE_CONFIG} -p PREFIX | ${SED} 's|/*$||'`]
+    AC_MSG_CHECKING([for octave .oct installation directory])
+    octave_localoctfiledir=[`${OCTAVE_CONFIG} -p LOCALOCTFILEDIR | ${SED} 's|/*$||'`]
+    OCTAVE_OCTFILEDIR=[`echo ${octave_localoctfiledir} | ${SED} "s|^${octave_prefix}/||"`]
+    AS_IF([test -n "`echo ${OCTAVE_OCTFILEDIR} | ${SED} -n '\|^/|p'`"],[
+      AC_MSG_ERROR([could not build relative path from '${OCTAVE_OCTFILEDIR}'])
+    ])
+    AC_MSG_RESULT([${OCTAVE_OCTFILEDIR}])
+    AC_SUBST(OCTAVE_OCTFILEDIR)
+
+  ])
 ])
