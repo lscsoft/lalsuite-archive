@@ -1867,6 +1867,8 @@ int XLALBandPassInspiralTemplate(
         REAL4          fSampling
         );
 
+/*---------------------------------------------------------------- */
+
 int XLALInspiralGenerateIIRSet(
 	REAL8Vector         *amp,
 	REAL8Vector         *phase,
