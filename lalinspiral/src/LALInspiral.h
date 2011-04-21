@@ -467,8 +467,7 @@ typedef enum {
    NumRel,
    Eccentricity,
    EOBNR,
-   EOBNR_PP,
-   EOBNR_PF,
+   EOBNRv2,
    IMRPhenomA,
    IMRPhenomB,
    IMRPhenomFA,
@@ -1782,6 +1781,14 @@ INT4 XLALGenerateQNMFreq(
 	UINT4			m,
 	UINT4			nmodes
 	);
+
+INT4 XLALGenerateQNMFreqV2(
+        COMPLEX8Vector          *modefreqs,
+        InspiralTemplate        *params,
+        UINT4                   l,
+        UINT4                   m,
+        UINT4                   nmodes
+        );
 
 INT4 XLALFinalMassSpin(
 	REAL8			*finalMass,
