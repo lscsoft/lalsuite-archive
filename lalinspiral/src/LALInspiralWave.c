@@ -173,8 +173,7 @@ LALInspiralWave(
            LALEOBWaveform(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
            break;
-      case EOBNR_PP:
-      case EOBNR_PF:
+      case EOBNRv2:
            LALEOBPPWaveform(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
 	   break;
@@ -306,8 +305,7 @@ LALInspiralWaveTemplates(
            LALEOBWaveformTemplates(status->statusPtr, signalvec1, signalvec2, params);
            CHECKSTATUSPTR(status);
            break;
-      case EOBNR_PP:
-      case EOBNR_PF:
+      case EOBNRv2:
            LALEOBPPWaveformTemplates(status->statusPtr, signalvec1, signalvec2, params);
            CHECKSTATUSPTR(status);
            break;
@@ -392,8 +390,7 @@ LALInspiralWaveForInjection(
        LALEOBWaveformForInjection(status->statusPtr, waveform, inspiralParams, ppnParams);
        CHECKSTATUSPTR(status);
 	   break;
-     case EOBNR_PP:
-     case EOBNR_PF:
+     case EOBNRv2:
        LALEOBPPWaveformForInjection(status->statusPtr, waveform, inspiralParams, ppnParams);
        CHECKSTATUSPTR(status);
        break;
