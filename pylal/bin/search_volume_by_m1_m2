@@ -179,9 +179,9 @@ class upper_limit(object):
   def set_instruments_to_calculate(self):
     if not opts.instruments: return self.instruments
     if opts.instruments in self.instruments:
-      return frozenset(lsctables.instrument_set_from_ifos(i[0]))
+      return [opts.instruments]
     else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(opts.instruments))
       return []
 
   def get_mass_ranges(self, connection):
@@ -680,7 +680,7 @@ def parse_command_line():
 
   opts, filenames = parser.parse_args()
 
-  if opts.instruments: opts.instruments = lsctables.instrument_set_from_ifos(opts.instruments)
+  if opts.instruments: opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
   if not filenames:
     print >>sys.stderr, "must specify at least one database file"
     sys.exit(1)
