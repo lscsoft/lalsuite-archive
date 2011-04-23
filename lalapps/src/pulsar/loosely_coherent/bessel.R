@@ -92,8 +92,8 @@ make_bessel_filter2<-function(df, coeffs) {
 	zcoeffs<-zcoeffs1*zcoeffs2[3]
 	zcoeffs[1:6]<-zcoeffs[1:6]+zcoeffs1[2:7]*zcoeffs2[2]
 	zcoeffs[2:7]<-zcoeffs[2:7]+zcoeffs1[1:6]*zcoeffs2[4]
-	zcoeffs[1:5]<-zcoeffs[1:5]+zcoeffs4[3:7]*zcoeffs2[1]
-	zcoeffs[3:7]<-zcoeffs[3:7]+zcoeffs4[1:5]*zcoeffs2[5]
+	zcoeffs[1:5]<-zcoeffs[1:5]+zcoeffs1[3:7]*zcoeffs2[1]
+	zcoeffs[3:7]<-zcoeffs[3:7]+zcoeffs1[1:5]*zcoeffs2[5]
 
 	zcoeffs4<-zcoeffs
 
