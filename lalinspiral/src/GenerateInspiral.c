@@ -208,7 +208,8 @@ LALGenerateInspiral(
   }
 
   /* If no waveform has been generated. (AmpCorPPN and PhenSpinTaylorRD fill waveform.h) */
-  if ( waveform->a == NULL && approximant != AmpCorPPN && approximant != PhenSpinTaylorRD )
+  if ( waveform->a == NULL && approximant != AmpCorPPN && approximant != PhenSpinTaylorRD
+       && approximant != EOBNRv2 )
   {
     snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),
         "No waveform generated (check lower frequency)\n");
