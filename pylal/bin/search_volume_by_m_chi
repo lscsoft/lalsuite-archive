@@ -67,12 +67,14 @@ class upper_limit(object):
     self.coinc_ringdown_table = None
 
     for f in flist:
-      if opts.verbose: print >> sys.stderr, "Gathering stats from: %s...." % (f,)
+      if opts.verbose:
+        print >> sys.stderr, "Gathering stats from: %s...." % (f,)
       working_filename = dbtables.get_connection_filename(f, tmp_path=opts.tmp_space, verbose = opts.verbose)
       connection = sqlite3.connect(working_filename)
       dbtables.DBTable_set_connection(connection)
       xmldoc = dbtables.get_xml(connection)
 
+      sim = False
       # look for a sim table
       try:
         sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
@@ -80,7 +82,6 @@ class upper_limit(object):
         sim = True
       except ValueError:
         self.non_inj_fnames.append(f)
-        sim = False
 
       # FIGURE OUT IF IT IS A BURST OR INSPIRAL RUN OR RINGDOWN RUN
       try:
@@ -96,13 +97,13 @@ class upper_limit(object):
       except ValueError:
         self.coinc_ringdown_table = None
 
-      if self.multi_burst_table and self.coinc_inspiral_table:
+      if self.multi_burst_table is not None and self.coinc_inspiral_table is not None:
         print >>sys.stderr, "both burst and inspiral tables found.  Aborting"
         raise ValueError
-      if self.coinc_inspiral_table and self.coinc_ringdown_table:
+      if self.coinc_inspiral_table is not None and self.coinc_ringdown_table is not None:
                                 print >>sys.stderr, "both ringdown and inspiral tables found.  Aborting"
                                 raise ValueError
-      if self.multi_burst_table and self.coinc_ringdown_table:
+      if self.multi_burst_table is not None and self.coinc_ringdown_table is not None:
                                 print >>sys.stderr, "both burst and ringdown tables found.  Aborting"
                                 raise ValueError
 
@@ -143,23 +144,26 @@ class upper_limit(object):
 
   def get_segments(self, connection, xmldoc):
     segs = segments.segmentlistdict()
-    if self.coinc_inspiral_table:
+    if self.coinc_inspiral_table is not None:
       segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
-    if self.coinc_ringdown_table:		
-      if opts.live_time_program == "lalapps_ring": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
-    if self.multi_burst_table:
-      if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
-      if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
+    if self.coinc_ringdown_table is not None:
+      if opts.live_time_program == "lalapps_ring":
+        segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+    if self.multi_burst_table is not None:
+      if opts.live_time_program == "omega_to_coinc":
+        segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+      if opts.live_time_program == "waveburst":
+        segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
     segs -= self.get_veto_segments(connection, xmldoc)
     return segs
 
 
   def get_veto_segments(self, connection, xmldoc=None):
-    if self.coinc_inspiral_table:
+    if self.coinc_inspiral_table is not None:
       if self.opts.veto_segments_name is not None: return db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
         # FIXME BURST CASE VETOS NOT HANDLED
       else: return segments.segmentlistdict()
-    if self.coinc_ringdown_table:
+    if self.coinc_ringdown_table is not None:
       if self.opts.veto_segments_name is not None: return ligolw_segments.segmenttable_get_by_name(xmldoc, self.opts.veto_segments_name).coalesce()
     else: return segments.segmentlistdict()
 
@@ -178,11 +182,11 @@ class upper_limit(object):
 
 
   def set_instruments_to_calculate(self):
-    if not opts.instruments: return self.instruments
+    if opts.instruments is None: return self.instruments
     if opts.instruments in self.instruments:
       return frozenset(lsctables.instrument_set_from_ifos(i[0]))
     else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (self.instruments,)
       return []
 
   def get_masschi_ranges(self, connection):
@@ -206,7 +210,7 @@ class upper_limit(object):
 
   def get_instruments(self, connection):
     instruments = []
-    for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
+    for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""'):
       if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
     return self.instruments
     # used to set instruments
@@ -321,14 +325,14 @@ class upper_limit(object):
     missed = []
     print >>sys.stderr, ""
     for cnt, f in enumerate(injfnames):
-      print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
+      print >>sys.stderr, f + "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
       working_filename = dbtables.get_connection_filename(f, tmp_path = opts.tmp_space, verbose = verbose)
       connection = sqlite3.connect(working_filename)
       xmldoc = dbtables.get_xml(connection)
 
       # DON'T BOTHER CONTINUING IF THE INSTRUMENTS OF INTEREST ARE NOT HERE
       instruments_in_this_file = []
-      for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
+      for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""'):
         if i[0]: instruments_in_this_file.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
       if instruments not in instruments_in_this_file:
         connection.close()
@@ -337,22 +341,22 @@ class upper_limit(object):
         continue
 
       # WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
-      segments = self.get_segments(connection, xmldoc)
+      segs = self.get_segments(connection, xmldoc)
       # FIXME ONLY ONE SET OF VETO SEGMENTS
-      #segments -= self.veto_segments
-      zero_lag_segments  = segments.intersection(instruments) - segments.union(set(segments.keys()) - instruments)
+      zero_lag_segments  = segs.intersection(instruments) - segs.union(set(segs.keys()) - instruments)
       ###############
       if zero_lag_segments:
         #FIXME we shouldn't assume that we want to remove playground
         zero_lag_segments -= segmentsUtils.S2playground(zero_lag_segments.extent())
+      if self.coinc_ringdown_table is not None:
         # check to see if a maxextent option was used in cafe/rinca land
-      coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
-      if len(coinc_end_time_seg_param) == 1:
-           segl = segmentsUtils.from_range_strings(coinc_end_time_seg_param,boundtype=float)
-           zero_lag_segments = zero_lag_segments & segl
-      else:
-            # FIXME what would that mean if it is greater than one???
-            pass	
+        coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
+        if len(coinc_end_time_seg_param) == 1:
+             segl = segmentsUtils.from_range_strings(coinc_end_time_seg_param,boundtype=float)
+             zero_lag_segments = zero_lag_segments & segl
+        else:
+             # FIXME what would that mean if it is greater than one???
+             pass
 
       ###############
 
@@ -367,7 +371,7 @@ class upper_limit(object):
       make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
 
       # INSPIRAL
-      if self.coinc_inspiral_table:
+      if self.coinc_inspiral_table is not None:
         for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,
@@ -402,7 +406,7 @@ WHERE
             missed.append(sim)
 
       # RINGDOWN
-      if self.coinc_ringdown_table:
+      if self.coinc_ringdown_table is not None:
        for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,
@@ -438,7 +442,7 @@ WHERE
 
 
       # BURSTS
-      if self.multi_burst_table:
+      if self.multi_burst_table is not None:
         for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,
