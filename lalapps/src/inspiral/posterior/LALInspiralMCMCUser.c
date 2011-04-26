@@ -431,6 +431,8 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 	ampli = log(sqrt(m1*m2)/(logdl*pow(m1+m2,1.0/6.0)));
     parameter->logPrior+= -log( 1.0+exp((ampli-a)/b) );
 */
+      REAL8 ldmax=(XLALMCMCGetParam(parameter,"logdist"))->core->maxVal;
+      REAL8 ldmin=(XLALMCMCGetParam(parameter,"logdist"))->core->minVal;
 /* Check in range */
 	if(XLALMCMCCheckParameter(parameter,"logM")) mc=exp(XLALMCMCGetParameter(parameter,"logM"));
 	else mc=XLALMCMCGetParameter(parameter,"mchirp");
@@ -444,19 +446,21 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 		parameter->logPrior+=3.0*XLALMCMCGetParameter(parameter,"logdist");
 	else
 		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
+
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-    
-    if(XLALMCMCCheckParameter(parameter,"dphi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi0")*XLALMCMCGetParameter(parameter,"dphi0")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi1")*XLALMCMCGetParameter(parameter,"dphi1")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi2")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi2")*XLALMCMCGetParameter(parameter,"dphi2")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi3")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi3")*XLALMCMCGetParameter(parameter,"dphi3")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi4")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi4")*XLALMCMCGetParameter(parameter,"dphi4")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi5")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi5")*XLALMCMCGetParameter(parameter,"dphi5")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi6")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi6")*XLALMCMCGetParameter(parameter,"dphi6")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi7")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi7")*XLALMCMCGetParameter(parameter,"dphi7")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi5l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi5l")*XLALMCMCGetParameter(parameter,"dphi5l")/25.);
-    if(XLALMCMCCheckParameter(parameter,"dphi6l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi6l")*XLALMCMCGetParameter(parameter,"dphi6l")/25.);
+
+    REAL8 std_dev=0.0011; 
+    if(XLALMCMCCheckParameter(parameter,"dphi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi0")*XLALMCMCGetParameter(parameter,"dphi0")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi1")*XLALMCMCGetParameter(parameter,"dphi1")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi2")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi2")*XLALMCMCGetParameter(parameter,"dphi2")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi3")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi3")*XLALMCMCGetParameter(parameter,"dphi3")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi4")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi4")*XLALMCMCGetParameter(parameter,"dphi4")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi5")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi5")*XLALMCMCGetParameter(parameter,"dphi5")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi6")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi6")*XLALMCMCGetParameter(parameter,"dphi6")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi7")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi7")*XLALMCMCGetParameter(parameter,"dphi7")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi5l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi5l")*XLALMCMCGetParameter(parameter,"dphi5l")/std_dev);
+    if(XLALMCMCCheckParameter(parameter,"dphi6l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi6l")*XLALMCMCGetParameter(parameter,"dphi6l")/std_dev);
     
         /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
@@ -1915,7 +1919,7 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 	fclose(model_output);
 
 	exit(0);*/
-    //REPORTSTATUS(status);
+        //REPORTSTATUS(status);
 
 	LALInspiralWave(status,model,template);
 
