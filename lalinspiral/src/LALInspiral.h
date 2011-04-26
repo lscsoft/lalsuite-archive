@@ -782,6 +782,14 @@ void LALInspiralParameterCalc (
      LALStatus *status,
      InspiralTemplate *params);
 
+void XLALInspiralParameterCalc (
+     InspiralTemplate *params);
+
+
+
+
+
+
 void LALInspiralRestrictedAmplitude(
      LALStatus *status,
      InspiralTemplate  *params);
