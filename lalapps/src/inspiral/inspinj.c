@@ -2762,10 +2762,12 @@ int main( int argc, char *argv[] )
     }
 
     /* populate polarization, inclination, and coa_phase */
+    
     do
     {
       simTable=XLALRandomInspiralOrientation(simTable, randParams,
                                              iDistr, inclStd);
+      if(simTable->polarization>LAL_PI && simTable->polarization<=LAL_TWOPI) simTable->polarization = (REAL4) (simTable->polarization - LAL_PI);
     } while ( (fabs(cos(simTable->inclination))<cos(max_inc)) );
 
     /* override inclination */
