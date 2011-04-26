@@ -693,8 +693,12 @@ def parse_command_line():
     sys.exit(1)
   return opts, filenames
 
-# FIXME These values should probably be command line arguments or derived from the database
-secs_in_year = 31556926.0
+
+# FIXME this should come from a constants package
+# Astronomers use Julian year
+#365.25 * 86400
+secs_in_year = 31557600.0
+
 
 opts, filenames = parse_command_line()
 
