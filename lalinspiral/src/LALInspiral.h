@@ -1239,6 +1239,11 @@ void LALEtaTau02(
      REAL8 eta,
      void  *in);
 
+REAL8 XLALEtaTau02(
+      REAL8 eta,
+      void  *in);
+
+
 
 
 
