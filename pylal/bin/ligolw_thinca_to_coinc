@@ -133,7 +133,6 @@ def parse_command_line():
 	parser.add_option("--experiment-end-time", type="int", help = "End time, in gps seconds, of the experiment being performed. This is NOT the end time of the thinca-files being used. Required.")
 	parser.add_option("--simulation", action = "store_true", default = False, help = "Turn on if thinca file contains injections. Doing so will causes only zero-lag entries to be written to the experiment_summary table whose datatype is 'simulation'.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
-	parser.add_option("--single-stage", action = "store_true", help = "Read INSPIRAL_FIRST rather than INSPIRAL_SECOND, as appropriate for a onestage analysis")
 	options, args = parser.parse_args()
 
 	if options.ihope_cache:
@@ -149,7 +148,7 @@ def parse_command_line():
 		for n, c in enumerate(lal.CacheEntry(line) for line in file(options.ihope_cache)):
 			if options.verbose and not n % 1597:
 				print >>sys.stderr, "\t%d lines\r" % n,
-			if ("INSPIRAL_SECOND" in c.url and not opts.single_stage) or ("INSPIRAL_FIRST" in c.url and opts.single_stage):
+			if "INSPIRAL_SECOND" in c.url:
 				metadata_cache[os.path.basename(c.path())] = c.url
 			category = pattern.match(c.description)
 			if category is None:
