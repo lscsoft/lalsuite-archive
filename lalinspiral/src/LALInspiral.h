@@ -1287,6 +1287,9 @@ void LALInspiralPhiofVIntegrand (
      REAL8,
      void *);
 
+REAL8 XLALInspiralPhiofVIntegrand (
+      REAL8,
+      void *);
 
 
 
