@@ -70,7 +70,7 @@ Optional OPTIONS:\n \
 [--srate rate (4096)\t:\tDownsample data to rate Hz]\n \
 [--pad padding (1s)\t:\tPadding for PSD Tukey window\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
-[--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior chirp masses\n \
+[--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior total mass\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
 [--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorF2Test|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
@@ -525,6 +525,10 @@ void initialise(int argc, char *argv[]){
 		case 'l':
 			studentt=1;
 			break;
+                case 23:
+                        fLow=atof(optarg);
+                        fLowFlag=1;
+                        break;
 		case 'v':
 			verbose=1;
 			break;
@@ -858,7 +862,8 @@ int main( int argc, char *argv[])
 			if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd;scalefactor = 1E-49;}
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
-			inputMCMC.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);				  inputMCMC_N.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+			inputMCMC.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);				  
+                        inputMCMC_N.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
 			/* Create fake data power spectral DENSITY */
 			for(j=0;j<inputMCMC.invspec[i]->data->length;j++){ PSD(&status,&(inputMCMC.invspec[i]->data->data[j]),j*inputMCMC.deltaF);}
 			/* Allocate buffer for fake freq domain data */
@@ -996,7 +1001,6 @@ int main( int argc, char *argv[])
 		/* Perform injection */
 
         if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test)) {
-        
             /* if the injection approximant is TaylorF2 or TaylorF2Test inject in the frequency domain */
             DetectorResponse det;
 			REAL8 SNR=0.0;
@@ -2035,6 +2039,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	template.approximant=injapprox;
 	template.tSampling = 1.0/inputMCMC->deltaT;
 	template.fCutoff = 0.5/inputMCMC->deltaT -1.0;
+        fprintf(stdout,"%f \n", template.fCutoff);
 	template.nStartPad = 0;
 	template.nEndPad =0;
     template.startPhase = inj_table->phi0;
@@ -2089,8 +2094,9 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
             fprintf(outInjB,"%lf %e %e\n",i*deltaF,injWaveFD->data[i],injWaveFD->data[injWaveFD->length-i]);
     }
     fclose(outInjB);
-    
-    end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1e-9;
+
+    end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
+    end_time-=(REAL8) inputMCMC->epoch.gpsSeconds + 1.0e-9*inputMCMC->epoch.gpsNanoSeconds;
     end_time-=ChirpISCOLength;
 
 	/* Calculate response of the detectors */
@@ -2133,11 +2139,10 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 			REAL8 hs = (REAL8)injWaveFD->data[Nmodel-idx]*time_cos - (REAL8)injWaveFD->data[idx]*time_sin;
 			resp_r = det_resp.plus * hc - det_resp.cross * hs;
 			resp_i = det_resp.cross * hc + det_resp.plus * hs;
-//            printf("det plus = %e\t det cross = %e\t \n",det_resp.plus,det_resp.cross);
 			resp_r/=deltaF; resp_i/=deltaF;
 			inputMCMC->stilde[det_i]->data->data[idx].re+=resp_r;
 			inputMCMC->stilde[det_i]->data->data[idx].im+=resp_i;
-//            printf("time sin = %e \t time cos = %e \t \n",time_sin,time_cos);
+
 //			fprintf(outInj,"%lf %e\n",idx*deltaF ,atan2(injWaveFD->data[Nmodel-idx],injWaveFD->data[idx]));
 			fprintf(outInj,"%lf %e %e %e %e %e\n",idx*deltaF ,inputMCMC->stilde[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im,resp_r,resp_i,inputMCMC->invspec[det_i]->data->data[idx]);
 			chisq+=inputMCMC->invspec[det_i]->data->data[idx]*(resp_r*resp_r+resp_i*resp_i)*deltaF;
