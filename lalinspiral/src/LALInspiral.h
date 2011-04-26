@@ -829,6 +829,12 @@ void LALInspiralSetup (
      expnCoeffs *ak,
      InspiralTemplate *params);
 
+void XLALInspiralSetup (
+     expnCoeffs *ak,
+     InspiralTemplate *params);
+
+
+
 
 
 
