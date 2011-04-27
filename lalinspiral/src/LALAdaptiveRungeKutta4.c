@@ -190,14 +190,17 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 	XLAL_BEGINGSL;
 	
   while(1) {
+
+     if (!integrator->stopontestonly && t >= tend) {
+                        break;
+     }
+
 		if (integrator->stop) {
       if ((status = integrator->stop(t,y,dydt_in,params)) != GSL_SUCCESS) {
 				integrator->returncode = status;
 				break;
 			}
-    } else if (!integrator->stopontestonly && t >= tend) {
-			break;
-		}
+    }
 		
 		/* ready to try stepping! */
     try_step:                         
@@ -213,7 +216,7 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 		/* note: If the user-supplied functions defined in the system dydt return a status other than GSL_SUCCESS,
 		   the step will be aborted. In this case, the elements of y will be restored to their pre-step values,
 		   and the error code from the user-supplied function will be returned. */
-		
+
 		/* did the stepper report a derivative-evaluation error? */
     if (status != GSL_SUCCESS) {
       if (retries--) {
