@@ -988,10 +988,16 @@ for instruments in summ.set_instruments_to_calculate():
     cb.set_label('Efficiency')
     pylab.savefig('source_param' + '_'+ opts.outnametag + '_' + 'Spin1z_Spin2z_Efficiency.png')
 
+    # efficiency curve plots
+    EffdistanceMin = min(H1distance_found + L1distance_found)
+    EffdistanceMax = max(H1distance_found + L1distance_found)
+    distanceMin = min(distance_found)
+    distanceMax = max(distance_found)
+    #binVec,centerVec = get_log_bin_vec(10,10000,20)
+    #binVec1,centerVec1 = get_log_bin_vec(10,1000,20)
+    binVec,centerVec = get_log_bin_vec(EffdistanceMin,EffdistanceMax,20)
+    binVec1,centerVec1 = get_log_bin_vec(distanceMin,distanceMax,20)
 
-    # efficiency plots
-    binVec,centerVec = get_log_bin_vec(10,10000,20)
-    binVec1,centerVec1 = get_log_bin_vec(10,1000,20)
     FoundBinH1effect = bin(H1distance_found, binVec)
     TotalBinH1effect = bin(H1distance_total, binVec)
     FoundBinL1effect = bin(L1distance_found, binVec)
@@ -1003,8 +1009,12 @@ for instruments in summ.set_instruments_to_calculate():
     efficiencydist = numpy.empty(len(centerVec1))
     amp = numpy.empty(len(centerVec))
     for b in range(len(centerVec)):
-     efficiencyH1effdist[b]  = float(len(FoundBinH1effect[b]))/float(len(TotalBinH1effect[b]))
-     efficiencyL1effdist[b]  = float(len(FoundBinL1effect[b]))/float(len(TotalBinL1effect[b]))
+     try: efficiencyH1effdist[b]  = float(len(FoundBinH1effect[b]))/float(len(TotalBinH1effect[b]))
+     except ZeroDivisionError: efficiencyH1effdist[b] = numpy.nan
+
+     try: efficiencyL1effdist[b]  = float(len(FoundBinL1effect[b]))/float(len(TotalBinL1effect[b]))
+     except ZeroDivisionError: efficiencyL1effdist[b] = numpy.nan
+
      amp[b] = float(centerVec[b])
 	
     def func50(x):
@@ -1013,6 +1023,7 @@ for instruments in summ.set_instruments_to_calculate():
      return fitfunc(p1,x)-0.9
 	
     p0 = [100.,50.,0.9999,0.55]
+
     wiki = open(opts.outnametag+'_'+'Efficiency.txt',"w")
     wiki.write("||'''distance'''||'''50 % distance(Mpc)'''||'''90 % distance(Mpc)'''||\n")
 
