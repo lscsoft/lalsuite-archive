@@ -37,15 +37,17 @@ Module to calculate the noise power spectral density for the Advanced Virgo dete
 
 The module takes as an input a frequency $f$ in Hz, and it
 calculates the noise spectral density (per Hz) $S_{h}(f)$
-for that frequency. The noise PSD is based on PhysRev D 82 124065 (2010) (NOTE: REPLACE WITH THE ORIGINAL SOURCE!)
+for that frequency. The noise PSD is based on PhysRev D 82 124065 (2010) and referencs.
 
 
-\begin{equation}
-   S_h(f) = S_0\left\{  \left(\frac{f}{f_0}\right)^{-4.14} - 5\left(\frac{f_0}{f}\right)^2 + 111  \left(\frac{1. -
-   \frac{f}{f_0}^2 + 0.5  \frac{f}{f_0}^4}{1. + 0.5\frac{f}{f_0}^2} \right)\right\};
-\end{equation}
-where, $f_0=215$Hz
-The returned value is scaled up by $S_0 = 10^{49}.$
+\begin{eqnarray}
+ S_h(f)&=& S_0 \bigg	[ 2.67\,10^{-7}\, x^{-5.6} +0.68\, e^{-0.73\, (\ln{x})^2 } x^{5.34} \nonumber\\
+ &+& 0.59\, e^{(\ln{x})^2\,\left[-3.2 -1.08 \ln{x} -0.13 (\ln{x})^2\right]} x^{-4.1} +\nonumber \\
+ &+& 0.68\, e^{-0.73\, (\ln{x})^2 } x^{5.34}\bigg],\; f\geq f_{low}\nonumber\\
+ S_h(f)&=&\infty, \;\;f\leq f_{low}
+ \end{eqnarray}
+ Where the lower frequency cutoff value is chosen to be $f_{low}=10\mbox{Hz}$, $x\equiv \frac{f}{f_0}$, $f_0= 720 \mbox{Hz}$, and $S_0= 10^{-47} \mbox{Hz}^{-1}$.
+The returned value is scaled up by $S_0 = 10^{47}.$
 
 \subsubsection*{Algorithm}
 
