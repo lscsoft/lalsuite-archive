@@ -11,6 +11,7 @@ LALStatsREAL4Vector.c\
 LALTAMAPsd.c\
 LALVIRGOPsd.c\
 LALAdvLIGOPsd.c\
+LALAdvVIRGOPsd.c\
 LALETBPsd.c
 INCLUDES = -I$(top_builddir)/include
 MOSTLYCLEANFILES = .dvi-dep
