@@ -753,8 +753,51 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   else:
     return ifolist, onsource, offsource, trend_ifos
 
+
+
 # -----------------------------------------------------
 def read_adjusted_onsource(filename):
+  """
+  Reads the adjusted onsource times for GRBs inspected manually.
+  Uses the simple file format
+  """
+
+  grbs = {}
+  # loop over the lines of the file
+  for linex in file(filename):
+    # reject any inline comments or empty lines
+    if len(linex)<3 or linex[0]=='#':
+      continue
+
+    # take out the \n signal
+    line = linex.replace('\n','')
+    
+    # split up the line
+    w = line.split()
+
+    # read the information
+    name = w[0]
+    try:
+      start = int(w[1])
+      end = int(w[2])
+      used = True
+    except:
+      used = False
+
+    comment = " ".join(w[3:])
+
+    if used:
+        grbs[name] = {'onsource':[start, end], 'used':used,\
+                          'comment':comment}
+    else:
+        grbs[name] = {'onsource':None, 'used':used, 'comment':comment}
+
+  return grbs
+
+
+
+# -----------------------------------------------------
+def read_adjusted_onsource_long(filename):
   """
   Reads the adjusted onsource times for GRBs inspected manually.
   Uses the Jordi-type of file
