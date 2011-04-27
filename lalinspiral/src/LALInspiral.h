@@ -1746,7 +1746,7 @@ INT4 XLALInspiralHybridRingdownWave (
 	REAL4VectorSequence		*inspwave1,
 	REAL4VectorSequence		*inspwave2,
 	COMPLEX8Vector			*modefreqs,
-	UINT4Vector			*matchrange
+	REAL8Vector			*matchrange
 	);
 
 INT4 XLALInspiralRingdownWave (
@@ -1762,8 +1762,9 @@ INT4 XLALGenerateHybridWaveDerivatives (
 	REAL4Vector		*rwave,
 	REAL4Vector		*dwave,
 	REAL4Vector		*ddwave,
+        REAL8Vector             *time,
 	REAL4Vector		*wave,
-	UINT4Vector		*matchrange,
+	REAL8Vector		*matchrange,
 	InspiralTemplate	*params
 	);
 
@@ -1799,7 +1800,8 @@ INT4 XLALFinalMassSpin(
 INT4 XLALInspiralHybridAttachRingdownWave (
         REAL4Vector 	 *signalvec1,
         REAL4Vector  	 *signalvec2,
-	UINT4Vector	 *matchrange,
+        REAL8Vector      *time,
+	REAL8Vector	 *matchrange,
         InspiralTemplate *params);
 
 INT4 XLALInspiralAttachRingdownWave (
