@@ -184,7 +184,7 @@ char *pinned_params=NULL;
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
-
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
 // init function for the Phi-parametrized AmpCor && TaylorF2 waveform
 
 void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
@@ -848,7 +848,7 @@ int main( int argc, char *argv[])
 		segmentStart = datastart;
 
 		/* Check for synthetic data */
-		if(!(strcmp(CacheFileNames[i],"LALLIGO") && strcmp(CacheFileNames[i],"LALVirgo") && strcmp(CacheFileNames[i],"LALGEO") && strcmp(CacheFileNames[i],"LALEGO") && strcmp(CacheFileNames[i],"LALAdLIGO")))
+		if(!(strcmp(CacheFileNames[i],"LALLIGO") && strcmp(CacheFileNames[i],"LALVirgo") && strcmp(CacheFileNames[i],"LALGEO") && strcmp(CacheFileNames[i],"LALEGO") && strcmp(CacheFileNames[i],"LALAdLIGO") && strcmp(CacheFileNames[i],"LALAdVirgo")))
 		{
 			typedef void (NoiseFunc)(LALStatus *status,REAL8 *psd,REAL8 f);
 			NoiseFunc *PSD=NULL;
@@ -860,6 +860,7 @@ int main( int argc, char *argv[])
 			if(!strcmp(CacheFileNames[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
 			if(!strcmp(CacheFileNames[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
 			if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd;scalefactor = 1E-49;}
+			if(!strcmp(CacheFileNames[i],"LALAdVirgo")) {PSD = &LALAdvVIRGOPsd;scalefactor = 1E-47;}
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
 			inputMCMC.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);				  
@@ -2003,6 +2004,16 @@ int checkParamInList(const char *list, const char *param)
 			return 0;
 	return 1;
 }
+
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
+{   CHAR *	pinned_params_temp;
+	pinned_params_temp=pinned_params;
+    pinned_params="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7";
+    MCMCinput->funcInit(parameter,iT);
+    pinned_params=pinned_params_temp;
+    return ;	
+	}
+
 
 ///*-----------------------------------------------------------*/
 void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table)
