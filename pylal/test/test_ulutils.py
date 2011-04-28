@@ -29,26 +29,23 @@ class test_ulutils(unittest.TestCase):
         '''
         Check the additivity property of posterior results.
         '''
+        mu_in = numpy.linspace(0,10,1e6)
+        prior = numpy.ones(mu_in.shape)
+
         # lambda = 0
-        print "lambda = 0"
-        mu, post = upper_limit_utils.compute_posterior(1, 0, 0)
+        mu, post = upper_limit_utils.compute_posterior(1, 0, 0, mu_in, prior)
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
-        print muhi
-        #self.assertTrue( 2.303 < muhi < 2.304 )
+        self.assertTrue( 2.30 < muhi < 2.31 )
 
         # lambda = 1
-        print "lambda = 1"
-        mu, post = upper_limit_utils.compute_posterior(1, 0, 1)
+        mu, post = upper_limit_utils.compute_posterior(1, 0, 1, mu_in, prior)
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
-        print muhi
-        #self.assertTrue( 3.272 < muhi < 3.273 )
+        self.assertTrue( 3.27 < muhi < 3.28 )
 
         # lambda = infinity
-        print "lambda = inf"
-        mu, post = upper_limit_utils.compute_posterior(1, 0, 1e6)
+        mu, post = upper_limit_utils.compute_posterior(1, 0, 1e6, mu_in, prior)
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
-        print muhi
-        #self.assertTrue( 3.890 < muhi < 3.891 )
+        self.assertTrue( 3.89 < muhi < 3.90 )
 
 
 
