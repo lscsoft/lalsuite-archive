@@ -1009,7 +1009,7 @@ if __name__=='__main__':
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     test_params=['dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams+ test_params
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + test_params  #+endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     for ifo1 in ifos_menu:
@@ -1051,6 +1051,14 @@ if __name__=='__main__':
         for sp2 in spinParams:
             if not (sp1 == sp2):
                 twoDGreedyMenu.append([sp1, sp2])
+    for mp in massParams:
+        for dphi in test_params:
+            twoDGreedyMenu.append([mp,dphi])
+			
+    for dphiA in test_params:
+        for dphiB in test_params:
+            if not (dphiA==dphiB):
+                twoDGreedyMenu.append([dphiA,dphiB])
    
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
