@@ -498,7 +498,67 @@ class upper_limit(object):
 
 
 def parse_command_line():
-  parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] database", description = "%prog computes the sensitive search volume as a function of mass for the search results described by the input database.")
+
+  description = '''
+   description:
+
+The program lalapps_cbc_svim computes the average volume to which a given CBC search was sensitive to its sources. For CBC searches whose characteristic range extends significantly beyond the local blue-light density fluctuations (about 20Mpc), the number of potential sources to which a search is exposed is proportional to (i) the volume of space from which the search could have detected a signal and (ii) the livetime of the search. In the case of a non-detection, the search volume can be used to consrtain the source event rate in the local universe.
+
+The search volume calculation implemented in lalapps_cbc_svim uses the loudest event statistic method (Biswas, Creighton, Fairhurst, 2007). The efficiency of the search is estimated by analysis of data with fake signals injected. The cFAR of the loudest zero-lag event sets a threshold which divides injections into found and missed categories. The efficiency of detecting an event depends on the source parameters, such as its component masses, distance, spin, inclination, sky position, etc. However, lalapps_cbc_svim only considers the dependency of the efficiency on distance and mass, marginalizing over the other parameters. Injections are binned in distance and mass and the estimated efficiency is integrated over distance to convert the efficiency into a physical volume.
+
+The input to lalapps_cbc_svim is a pipedown sqlite results database after combined false alarm rates (cFAR) for all triggers have been computed. In the naming scheme used by pipedown at the time of this writing, these databases have names of the form, e.g, H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite. By default, lalapps_cbc_svim computes the search volume for each instrument set found in the database as a function of total mass. However, other mass binnings and command-line tweaks are available. See below.
+
+
+implementation and workflow:
+
+1. Extract information about the particular search that was performed.
+  a. instruments that were on (used)
+  b. the segments of time during which the instruments were on
+  c. the significance of the loudest event
+  d. the mass ranges of the simulated waveforms from the injection runs
+  e. distance ranges of simulated waveforms
+2. Compute search volume above loudest event
+  a. query the database for all injections made
+  b. query the database for triggers that are louder than the loudest foreground event and that are also coincident with the time of the injection
+  c. compute the efficiency of the search as a function of distance
+  d. integrates the efficiency over space and time to compute the search volume.
+  e. Step 2 is (optionally) repeated a large number of times with bootstrapping to estimate uncertainties in the computed search volume.
+3. Compute volume derivative (lambda) at the cFAR of the loudest event
+  a. Choose a number of FARs log-spaced around the FAR of the loudest event.
+  b. Compute search below that FAR via previous method (calling the same routines)
+  c. Fit a curve to the resulting volume-versus-FAR data and estimate the slope near the loudest event FAR
+4. Write the computed search volume (for each instrument set found) and search volume derivative to disk, together with some diagnostic data.
+'''
+
+  usage = '''lalapps_cbc_svim [options] database
+
+lalapps_cbc_svim is supposed to \"just work\" and give the user control when needed. At the simplest level, all svim needs is a pipedown results database from which to read. The bare-bones command
+
+  lalapps_cbc_svim --bootstrap H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
+
+will compute from the results database the search volume, volume derivative, and volume uncertainty as a function of total mass for each IFO set found in the database. The user may desire the volume calculation to be organized differently on the m1-m2 plane. You can override the default mass binning and bin injections by chirp mass or component mass. For instance, the command
+
+  lalapps_cbc_svim --bin-by-component-mass --component-mass1-bins=\'1,3,8,13,18,23\' --min-mass2 1 --max-mass2 3 --bootstrap H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
+
+will compute the search volume using all injections with at least one component in the mass range 1-3Msun as a function of the other component mass, using the specified boundaries for the mass of the first object.
+
+You can compute multiple mass binnings at once if you like simply by specifying more than one type at the command line. For instance, the command
+
+  lalapps_cbc_svim --bin-by-component-mass --component-mass1-bins=\'1,3,8,13,18,23\' --min-mass2 1 --max-mass2 3 --bin-by-total-mass --total-mass-bin \'2,5,8,11,14,17,20,25\' --bin-by-bns-bbh --bin-by-chirp-mass --bootstrap H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
+
+By default, lalapps_cbc_svim makes no estimate of the volume uncertainty. With the bootstrap flag, svim will estimate the volume uncertainty associate with having a finite number of injections. If additionally an error distance estimate if provided by the user, svim will propagate the distance uncertainty into volume uncertainty during the bootstrapping process. The command
+
+  lalapps_cbc_svim --bootstrap --iterations 10000 --dist-err 0.2 --dist-sys-err 0.1 H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
+
+will compute the search volume 10000 times. Each time the injected distances will be adjusted according to a 10% systematic error and a random 20% log-normal rescaling factor.
+
+In the IHOPE workflow, the typical svim usage is much more complicated. In case you need this level of complication, here is an example command line that uses most of the available options:
+
+lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 0.20 --exclude-sim-type SpinTaylorthreePointFivePN --bin-by-chirp-mass --output-name-tag SEARCH_VOLUME --bin-by-bns-bbh  --bootstrap  --component-mass1-bins \'1,3,8,13,18,23\' --dist-sys-err 0.1 --max-mtotal 25 --total-mass-bins \'2,5,8,11,14,17,20,25\' --output-cache H1L1V1-FULL_DATA_CAT_4_VETO_SEARCH_VOLUME_CBC_RESULTS-968803143-1209744.cache --seed 1 --iterations 10000 --tmp-space /usr1/sprivite H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
+'''
+
+  print description
+  parser = OptionParser(version = git_version.verbose_msg, usage = usage)
 
   #
   # The code supports three mass binning modes.
@@ -513,7 +573,7 @@ def parse_command_line():
   parser.add_option("--chirp-mass-bins", default = None, metavar = "\'m0,m1,...,mk''", help = "Specify the boundaries of the chirp mass bins. Input should be a comma separated list of masses. Injections outside the range of the bins will be ignored. This option implies --bin-by-chirp-mass.")
 
   # Bin injections by component mass, with one mass fixed
-  parser.add_option("--bin-by-component-mass", default = False, action = "store_true", help = "Bin injections by the first component's mass with the second component restricted to a small bin (specifie by --min/max-mass2).")
+  parser.add_option("--bin-by-component-mass", default = False, action = "store_true", help = "Bin injections by the first component's mass with the second component restricted to a small bin (specified by --min/max-mass2).")
   parser.add_option("--component-mass1-bins", default = None, metavar = "\'m0,m1,...,mk''", help = "Specify the boundaries of the first component's mass bins. Input should be a comma separated list of masses. Injections outside the range of the bins will be ignored. This option implies --bin-by-component-mass.")
   parser.add_option("--min-mass2", metavar = "m", type = 'float', default = 1.0, help = "Specify the minimum of the seconds component's mass bins.")
   parser.add_option("--max-mass2", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum of the seconds component's mass bins.")
@@ -526,8 +586,8 @@ def parse_command_line():
   parser.add_option("--max-bhmass", metavar = "m", type = 'float', default = 6.0, help = "Specify the maximum mass for a black hole (default is 6Msun)")
 
   # Specify which instrument set to look for
-  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the minimum total mass to consider among the injections found in the DB.")
-  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum total mass to consider among the injections found in the DB.")
+  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the minimum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
+  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency
@@ -537,26 +597,26 @@ def parse_command_line():
   parser.add_option("--iterations", default = 1000, metavar = "integer", type = "int", help = "Number of trials to use for computing the mean and variance of the search volume. A good number is 10000.")
   parser.add_option("--bootstrap", default = False, action = "store_true", help = "Turn on bootstrapping (injection population resampling). Override default nubmer of trials with --iterations.")
   parser.add_option("--dist-err", default = 0.20, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
-  parser.add_option("--dist-sys-err", default = 0.0, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst)")
+  parser.add_option("--dist-sys-err", default = 0.0, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst).")
   parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
-  parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
-  parser.add_option("--log-dist-bins", default = False, action="store_true", help = "Number of bins to use for integration over distance.")
-  parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "Number of mass bins along 1 dimension (Note the total number of mass bins will generally be less than --mass-bins * --mass-bins once the actual parameter space is carved out)")
+  parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Space distance bins evenly and specify the number of distance bins to use.")
+  parser.add_option("--log-dist-bins", default = False, action="store_true", help = "Space distance bins evenly in log-distance and specify the number of bins to use for integration over distance.")
+  parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "If mass bin boundaries are not explicitly set by the user, you can specify here the number of mass bins to use along a single dimension.")
 
   # Options to control the FAR used for computing the search volume. The default behavior is to use
   # the FAR of the loudest non-playground event.
-  parser.add_option("--far", type = "float", help = "FAR to use for injection finding instead of loudest event.")
-  parser.add_option("--use-expected-loudest-event", default=False, action = "store_true", help = "Instead of using the observed FAR for the loudest event, estimate the FAR based on livetime. This option overrides the --far option.")
+  parser.add_option("--far", type = "float", help = "Specify the cFAR to use for classifying injections into found or missed instead of using the cFAR of the loudest event.")
+  parser.add_option("--use-expected-loudest-event", default=False, action = "store_true", help = "Instead of using the observed cFAR for the loudest event, estimate the cFAR based on livetime. This option overrides the --far option.")
   parser.add_option("--include-play", default=False, action = "store_true", help = "Include playground data in computing the livetime and volume.")
 
   # Techincal options which the general user won't care about
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-  parser.add_option("--veto-segments-name", default = "vetoes", help = "Set the name of the veto segments to use from the XML document.")
-  parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
+  parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
+  parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
-  parser.add_option("--output-cache", default = None, help = "Name of output cache file. If none is specified, then no cache file will be written.")
+  parser.add_option("--output-cache", default = None, help = "Name of output cache file. If not specified, then no cache file will be written.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
 
   opts, filenames = parser.parse_args()
