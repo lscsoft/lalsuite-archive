@@ -50,7 +50,7 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>, Salvatore  Vitale <svitale@nikhef.nl>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -1019,9 +1019,8 @@ if __name__=='__main__':
     #oneDMenu=[]
     twoDGreedyMenu=[]
     for mp1 in massParams:
-        for mp2 in massParams:
-            if not (mp1 == mp2):
-                twoDGreedyMenu.append([mp1, mp2])
+        for mp2 in massParams[0:massParams.index(mp1)]:
+            twoDGreedyMenu.append([mp1, mp2])
     for mp in massParams:
         for d in distParams:
             twoDGreedyMenu.append([mp,d])
@@ -1044,21 +1043,20 @@ if __name__=='__main__':
         for sp in spinParams:
             twoDGreedyMenu.append([ip,sp])
     for sp1 in skyParams:
-        for sp2 in skyParams:
-            if not (sp1 == sp2):
-                twoDGreedyMenu.append([sp1, sp2])
+        for sp2 in skyParams[0:skyParams.index(sp1)]:
+            twoDGreedyMenu.append([sp1, sp2])
     for sp1 in spinParams:
-        for sp2 in spinParams:
-            if not (sp1 == sp2):
-                twoDGreedyMenu.append([sp1, sp2])
+        for sp2 in spinParams[0:spinParams.index(sp1)]:
+            twoDGreedyMenu.append([sp1, sp2])
     for mp in massParams:
         for dphi in test_params:
             twoDGreedyMenu.append([mp,dphi])
-			
+    for dp in distParams:
+		for dphi in test_params:
+			twoDGreedyMenu.append([dp,dphi])		
     for dphiA in test_params:
-        for dphiB in test_params:
-            if not (dphiA==dphiB):
-                twoDGreedyMenu.append([dphiA,dphiB])
+        for dphiB in test_params[0:test_params.index(dphiA)]:
+            twoDGreedyMenu.append([dphiA,dphiB])
    
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
