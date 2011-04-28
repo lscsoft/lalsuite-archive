@@ -2008,7 +2008,7 @@ int checkParamInList(const char *list, const char *param)
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
 {   CHAR *	pinned_params_temp;
 	pinned_params_temp=pinned_params;
-    pinned_params="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7";
+    pinned_params="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7";
     MCMCinput->funcInit(parameter,iT);
     pinned_params=pinned_params_temp;
     return ;	
