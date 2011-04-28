@@ -10,12 +10,14 @@ typedef struct {
 	float pp;
 	float pc;
 	float cc;
+	float im_pc;
 
 	float pppp;
 	float pppc;
 	float ppcc;
 	float pccc;
 	float cccc;
+	float im_ppcc;
 	} ALIGNMENT_COEFFS;
 
 typedef struct {

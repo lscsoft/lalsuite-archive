@@ -35,8 +35,8 @@ import numpy
 ##############################################################################
 lsctables.SnglInspiralTable.loadcolumns = [
     "ifo",
-#    "end_time",
-#    "end_time_ns",
+    "end_time",
+    "end_time_ns",
 #    "eff_distance",
     "mass1",
     "mass2",

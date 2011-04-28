@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006  Kipp Cannon
+ * Copyright (C) 2006-2011  Kipp Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,40 +28,6 @@
 
 #ifndef _PYLAL_XLAL_TOOLS_H_
 #define _PYLAL_XLAL_TOOLS_H_
-
-
-#include <Python.h>
-#include <lal/LALDetectors.h>
-
-
-/*
- * ============================================================================
- *
- *                              LALDetector Type
- *
- * ============================================================================
- */
-
-
-/*
- * Type
- */
-
-
-extern PyTypeObject pylal_LALDetector_Type;
-
-
-/*
- * Structure
- */
-
-
-typedef struct {
-	PyObject_HEAD
-	LALDetector detector;
-	PyObject *location;
-	PyObject *response;
-} pylal_LALDetector;
 
 
 #endif /* _PYLAL_XLAL_TOOLS_H_ */
