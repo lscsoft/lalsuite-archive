@@ -19,7 +19,7 @@ sys.path.append('@PYTHONLIBDIR@')
 
 #Presets
 ifos=['H1','L1','V1']
-fakeTypes=["LALVirgo","LALLIGO","LALAdLIGO"]
+fakeTypes=["LALVirgo","LALLIGO","LALAdLIGO","LALAdVirgo"]
 
 # Read command line options
 usage=""" %prog [options]
