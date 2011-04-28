@@ -1106,7 +1106,6 @@ in the frequency domain */
 		ChirpISCOLength = template.tC;
 	}
 
-
 	/* This is the time of the start of the wave in the GeoCentre */
 	REAL8 TimeShiftToGC=XLALMCMCGetParameter(parameter,"time");
 
@@ -1920,8 +1919,6 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 
 	exit(0);*/
         //REPORTSTATUS(status);
-
-	LALInspiralWave(status,model,template);
 
 	return;
 
