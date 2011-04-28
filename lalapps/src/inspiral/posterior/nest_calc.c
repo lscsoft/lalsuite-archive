@@ -214,6 +214,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	}
 	logZnoise*=-2.0*MCMCinput->deltaF;
 	
+	/* Check if the parameters of the injected wave are within their ranges, otherwise exit */
 	if (MCMCinput->injectionTable!=NULL){ //add inspiral table too??
     INT4 in_range=0;
     REAL8 m1,m2;
@@ -244,7 +245,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	if(m1>maxCompMass || m2>maxCompMass) {fprintf(stderr,"m1 or m2 bigger than maxCompMass. Aborting..."); exit(-1);}
 	if(m1+m2>MAX_MTOT) {fprintf(stderr,"Mtot bigger than MAX_MTOT. Aborting..."); exit(-1);}
     
-    fprintf(stderr,"The injections' parameter are ok. \n");
+    fprintf(stderr,"The injection parameters are ok. \n");
     }
     
 	fprintf(stdout,"Noise evidence: %lf\n",logZnoise);
