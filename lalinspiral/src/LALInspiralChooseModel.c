@@ -507,6 +507,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -552,6 +553,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -595,6 +597,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -641,6 +644,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -691,6 +695,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -742,6 +747,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -793,6 +799,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -849,6 +856,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
@@ -880,6 +888,7 @@ LALInspiralChooseModel(
    case PadeF1:
    case TaylorF2:
    case TaylorF2Test:   
+   case MassiveGraviton:
    case SpinTaylorT3:
    case SpinTaylor:
    case PhenSpinTaylorRD:
