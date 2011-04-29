@@ -2101,6 +2101,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		fprintf(stderr,"Injecting logLambdaG = %e\n",inj_table->loglambdaG);
 		LALInspiralMassiveGraviton(&status, injWaveFD, &template);
 	} else {
+		fprintf(stderr,"GR injection");
         LALInspiralWave(&status,injWaveFD,&template);
     }
     
