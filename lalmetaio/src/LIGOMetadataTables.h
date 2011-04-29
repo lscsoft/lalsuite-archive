@@ -685,6 +685,7 @@ tagSimInspiralTable
   REAL4 	     dphi6;
   REAL4 	     dphi6l;
   REAL4 	     dphi7;
+  REAL4 		 loglambdaG;
 }
 SimInspiralTable;
 /* </lalVerbatim> */

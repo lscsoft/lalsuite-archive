@@ -880,6 +880,7 @@ LALWriteLIGOLwXMLTable (
           tablePtr.simInspiralTable->dphi6,
           tablePtr.simInspiralTable->dphi6l,
           tablePtr.simInspiralTable->dphi7,
+          tablePtr.simInspiralTable->loglambdaG,
               xml->rowCount
               );
         tablePtr.simInspiralTable = tablePtr.simInspiralTable->next;
