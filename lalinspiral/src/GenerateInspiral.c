@@ -422,6 +422,10 @@ LALGetApproximantFromString(
   {
 	*approximant = TaylorF2;
   }
+  else if ( strstr(thisEvent, "MassiveGraviton") )
+  {
+	*approximant = MassiveGraviton;
+  }  
   else if ( strstr(thisEvent, "EOBNR" ) )
   {
     *approximant = EOBNR;

@@ -210,6 +210,7 @@ LALInspiralWave(
 	   break;
 	  case MassiveGraviton:
 		   LALInspiralMassiveGraviton(status->statusPtr, signalvec, params);
+		   CHECKSTATUSPTR(status);
 		break;   	
       case PadeF1:
            ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);

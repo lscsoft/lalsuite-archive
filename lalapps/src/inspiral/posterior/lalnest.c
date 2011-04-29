@@ -33,6 +33,7 @@
 #include <lalapps.h>
 #include <lal/GeneratePPNAmpCorConsistency.h>
 #include <lal/LALInspiralStationaryPhaseApprox2Test.h>
+#include <lal/LALInspiralMassiveGraviton.h>
 #include <fftw3.h>
 
 
@@ -1001,7 +1002,7 @@ int main( int argc, char *argv[])
 		
 		/* Perform injection */
 
-        if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test)) {
+        if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton)) {
             /* if the injection approximant is TaylorF2 or TaylorF2Test inject in the frequency domain */
             DetectorResponse det;
 			REAL8 SNR=0.0;
@@ -1122,7 +1123,7 @@ int main( int argc, char *argv[])
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
 
-    if (check_approx==TaylorF2 || check_approx==TaylorF2Test) 
+    if (check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton) 
     {
                 fprintf(stdout,"Injecting in the frequency domain\n");
                 SimInspiralTable this_injection;
@@ -2096,7 +2097,10 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
         LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis);
     }
-    else {
+    else if (template.approximant==MassiveGraviton) {
+		fprintf(stderr,"Injecting logLambdaG = %e\n",inj_table->loglambdaG);
+		LALInspiralMassiveGraviton(&status, injWaveFD, &template);
+	} else {
         LALInspiralWave(&status,injWaveFD,&template);
     }
     
