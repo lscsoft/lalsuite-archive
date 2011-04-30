@@ -314,5 +314,13 @@ AC_DEFUN([LALSUITE_SWIG_LANG_PYTHON],[
     dnl check for python
     AM_PATH_PYTHON([2.4])
 
+    dnl check for numpy
+    AC_MSG_CHECKING([for numpy])
+    ${PYTHON} -c "import numpy" 2>/dev/null
+    AS_IF([test $? -ne 0],[
+      AC_MSG_ERROR([could not import numpy])
+    ])
+    AC_MSG_RESULT([yes])
+
   ])
 ])

@@ -6,6 +6,7 @@ from distutils import sysconfig
 from distutils.core import setup, Extension
 from distutils.command.build import build as _build
 from distutils.command.clean import clean as _clean
+from numpy.lib.utils import get_include as numpy_get_include
 
 # setup build directories
 def setup_build_dir(self):
@@ -42,6 +43,7 @@ modversion = os.environ['PACKAGE_VERSION']
 moddesc = 'SWIG-generated wrapping of the ' + os.environ['PACKAGE_NAME'] + ' library'
 modurl = 'https://www.lsc-group.phys.uwm.edu/daswg/projects/lalsuite.html'
 modkeywords = {
+    'Requires':'numpy'
 }
 
 # macro definitions
@@ -49,6 +51,7 @@ defines = map(lambda s : (s, None), os.environ['swig_defines'].split())
 
 # include directories
 incldirs = os.environ['swig_inclpath'].split()
+incldirs.append(numpy_get_include())
 
 # compile-time library directories
 libdirs = os.environ['swig_libpath'].split()
