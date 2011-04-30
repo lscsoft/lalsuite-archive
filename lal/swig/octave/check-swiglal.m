@@ -73,6 +73,48 @@ catch
   exit(1);
 end_try_catch
 
+## check static vector/matrix conversions
+if !cvar.swiglal_debug
+  msg("skipping static vector/matrix conversions");
+else
+  try
+    sts = new_swiglal_static_test_struct();
+    assert(length(sts.vector) == 3);
+    assert(length(sts.enum_vector) == 3);
+    assert(all(size(sts.matrix) == [2, 3]));
+    assert(all(size(sts.enum_matrix) == [2, 3]));
+    sts.vector = [3, 2, 1];
+    assert(all(sts.vector == [3, 2, 1]));
+    sts.matrix = [4, 5, 6; 9, 8, 7];
+    try
+      sts.matrix = [1.1, 2.3, 4.5; 6.5, 4.3, 2.1];
+      msg("FAILED static vector/matrix conversions #2");
+      exit(1);
+    end_try_catch
+    assert(all(sts.matrix == [4, 5, 6; 9, 8, 7]));
+    for i = 0:2
+      sts.enum_vector_setel(i, 2*i + 3);
+      assert(sts.enum_vector_getel(i) == (2*i + 3));
+    endfor
+    clear sts;
+    assert(!any(cvar.swiglal_static_test_vector));
+    assert(!any(cvar.swiglal_static_test_matrix(:)));
+    assert(!any(cvar.swiglal_static_test_enum_vector));
+    assert(!any(cvar.swiglal_static_test_enum_matrix(:)));
+    cvar.swiglal_static_test_vector = cvar.swiglal_static_test_const_vector;
+    assert(all(cvar.swiglal_static_test_vector == [1, 2, 4]));
+    assert(swiglal_static_test_const_vector_getel(2) == 4);
+    try
+      swiglal_static_test_const_vector_getel(20);
+      msg("FAILED static vector/matrix conversions #3");
+      exit(1);
+    end_try_catch
+  catch
+    msg("FAILED static vector/matrix conversions #1");
+    exit(1);
+  end_try_catch
+endif
+
 ## passed all tests!
 msg("================");
 msg("PASSED all tests");
