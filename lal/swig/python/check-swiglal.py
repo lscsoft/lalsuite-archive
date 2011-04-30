@@ -34,6 +34,21 @@ else:
         msg("FAILED memory allocation #1")
         exit(1)
 
+# check complex number conversions
+try:
+    args = [complex(1, 3), complex(2, -5), complex(3, -2)]
+    assert(XLALCOMPLEX8Add(args[0], args[1]) == args[2])
+    args = [complex(4, 2), complex(10, 5), complex(-6, -3)]
+    assert(XLALCOMPLEX8Sub(args[0], args[1]) == args[2])
+    args = [complex(10, -7), complex(30, 17), complex(419, -40)]
+    assert(XLALCOMPLEX16Mul(args[0], args[1]) == args[2])
+    args = [complex(111.75, -120.50), complex(5, 12), complex(-5.25, -11.5)]
+    assert(XLALCOMPLEX16Div(args[0], args[1]) == args[2])
+    LALCheckMemoryLeaks()
+except:
+    msg("FAILED complex number conversions")
+    exit(1)
+
 # passed all tests!
 msg("================")
 msg("PASSED all tests")
