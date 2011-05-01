@@ -604,8 +604,8 @@ setup(
 		os.path.join("bin", "search_upper_limit_by_s1z_s2z"),
 		os.path.join("bin", "search_volume_by_s1z_s2z"),
 		os.path.join("bin", "search_upper_limit_by_m_chi"),
-		os.path.join("bin", "search_volume_by_m_chi"),		
-		os.path.join("bin", "search_upper_limit_by_M")
+		os.path.join("bin", "search_volume_by_m_chi"),
+		os.path.join("bin", "search_upper_limit_by_M"),
 		os.path.join("bin", "imr_compare"),		
 		os.path.join("bin", "imr_roc"),				
 	        os.path.join("bin", "ligolw_omega_to_coinc"),
