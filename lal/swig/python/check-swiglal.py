@@ -49,6 +49,24 @@ except:
     msg("FAILED complex number conversions")
     exit(1)
 
+# check string conversions
+try:
+    strs = ["a", "bc", "def"]
+    sv = XLALCreateStringVector(*strs)
+    assert(sv.length == 3)
+    assert(all(sv.data == strs))
+    strs[0] = "ghijk"
+    sv.data_setel(0, strs[0])
+    strs.append("lmnopq")
+    XLALAppendString2Vector(sv, strs[3])
+    for i in range(0, sv.length):
+        assert(sv.data_getel(i) == strs[i])
+    XLALDestroyStringVector(sv)
+    LALCheckMemoryLeaks()
+except:
+    msg("FAILED string conversions")
+    exit(1)
+
 # passed all tests!
 msg("================")
 msg("PASSED all tests")

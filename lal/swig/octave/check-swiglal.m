@@ -53,6 +53,26 @@ catch
   exit(1);
 end_try_catch
 
+## check string conversions
+try
+  strs = {"a", "bc", "def"};
+  sv = XLALCreateStringVector(strs{:});
+  assert(sv.length == 3);
+  assert(all(strcmp(sv.data, strs)));
+  strs{1} = "ghijk";
+  sv.data_setel(0, strs{1});
+  strs{end+1} = "lmnopq";
+  XLALAppendString2Vector(sv, strs{4});
+  for i = 1:sv.length
+    assert(strcmp(sv.data_getel(i-1), strs{i}));
+  endfor
+  XLALDestroyStringVector(sv);
+  LALCheckMemoryLeaks();
+catch
+  msg("FAILED string conversions");
+  exit(1);
+end_try_catch
+
 ## passed all tests!
 msg("================");
 msg("PASSED all tests");
