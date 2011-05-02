@@ -2099,6 +2099,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     }
     else if (template.approximant==MassiveGraviton) {
 		fprintf(stderr,"Injecting logLambdaG = %e\n",inj_table->loglambdaG);
+        template.loglambdaG=inj_table->loglambdaG;
 		LALInspiralMassiveGraviton(&status, injWaveFD, &template);
 	} else {
 		fprintf(stderr,"GR injection");
