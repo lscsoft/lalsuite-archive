@@ -559,36 +559,43 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	b_b_def = {
 		"StringCusp": ligolw_burca.StringCuspBBCoincDef,
 		"excesspower": ligolw_burca.ExcessPowerBBCoincDef,
+		"waveburst": OmegaBBCoincDef,
 		"omega": OmegaBBCoincDef
 	}[search]
 	sb_b_def = {
 		"StringCusp": StringCuspSBBCoincDef,
 		"excesspower": ExcessPowerSBBCoincDef,
+		"waveburst": OmegaSBBCoincDef,
 		"omega": OmegaSBBCoincDef
 	}[search]
 	si_b_def = {
 		"StringCusp": StringCuspSIBCoincDef,
 		"excesspower": ExcessPowerSIBCoincDef,
+		"waveburst": OmegaSIBCoincDef,
 		"omega": OmegaSIBCoincDef
 	}[search]
 	sb_c_e_def = {
 		"StringCusp": StringCuspSBCCoincDef,
 		"excesspower": ExcessPowerSBCCoincDef,
+		"waveburst": OmegaSBCCoincDef,
 		"omega": OmegaSBCCoincDef
 	}[search]
 	sb_c_n_def = {
 		"StringCusp": StringCuspSBCNearCoincDef,
 		"excesspower": ExcessPowerSBCNearCoincDef,
+		"waveburst": OmegaSBCNearCoincDef,
 		"omega": OmegaSBCNearCoincDef
 	}[search]
 	si_c_e_def = {
 		"StringCusp": StringCuspSICCoincDef,
 		"excesspower": ExcessPowerSICCoincDef,
+		"waveburst": OmegaSICCoincDef,
 		"omega": OmegaSICCoincDef
 	}[search]
 	si_c_n_def = {
 		"StringCusp": StringCuspSICNearCoincDef,
 		"excesspower": ExcessPowerSICNearCoincDef,
+		"waveburst": OmegaSICNearCoincDef,
 		"omega": OmegaSICNearCoincDef
 	}[search]
 
@@ -605,7 +612,8 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		livetime_program = {
 			"StringCusp": "StringSearch",
 			"excesspower": "lalapps_power",
-			"omega": None	# FIXME:  this causes all segments in the search_summary table to be retrieved
+			"omega": None,	# FIXME:  this causes all segments in the search_summary table to be retrieved
+			"waveburst": None	# FIXME:  this causes all segments in the search_summary table to be retrieved
 		}[search]
 	)
 
@@ -641,7 +649,8 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	burst_peak_time_window += {
 		"StringCusp": SimBurstUtils.stringcusp_autocorrelation_width / 2,
 		"excesspower": 0.0,
-		"omega": 30.0
+		"omega": 30.0,
+		"waveburst": 30.0
 	}[search]
 
 	#
