@@ -179,11 +179,11 @@ class upper_limit(object):
 
 
   def set_instruments_to_calculate(self):
-    if not opts.instruments: return self.instruments
+    if opts.instruments is None: return self.instruments
     if opts.instruments in self.instruments:
-      return frozenset(lsctables.instrument_set_from_ifos(i[0]))
+      return [opts.instruments]
     else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (self.instruments,)
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(opts.instruments))
       return []
 
   def get_spin_ranges(self, connection):
@@ -369,13 +369,14 @@ class upper_limit(object):
         zero_lag_segments -= segmentsUtils.S2playground(zero_lag_segments.extent())
 
         # check to see if a maxextent option was used in cafe/rinca land
-      coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
-      if len(coinc_end_time_seg_param) == 1:
+      if self.coinc_ringdown_table is not None:
+        coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
+        if len(coinc_end_time_seg_param) == 1:
            segl = segmentsUtils.from_range_strings(coinc_end_time_seg_param,boundtype=float)
            zero_lag_segments = zero_lag_segments & segl
-      else:
-            # FIXME what would that mean if it is greater than one???
-            pass
+	else:
+             # FIXME what would that mean if it is greater than one???
+             pass
       ###############
       # DEFINE THE INJECTION WAS MADE FUNCTION
       def injection_was_made(geocent_end_time, geocent_end_time_ns, zero_lag_segments = zero_lag_segments):
@@ -702,7 +703,7 @@ def parse_command_line():
 
   opts, filenames = parser.parse_args()
 
-  if opts.instruments: opts.instruments = lsctables.instrument_set_from_ifos(opts.instruments)
+  if opts.instruments: opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
   if not filenames:
     print >>sys.stderr, "must specify at least one database file"
     sys.exit(1)
