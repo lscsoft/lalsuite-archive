@@ -97,6 +97,9 @@ def eff_distance(detector, sim):
 parser = optparse.OptionParser(usage=__doc__, version=git_version.verbose_msg)
 parser.add_option("--jitter-sigma-deg", metavar="JSIG", type="float",
     help="jitter injections with a Gaussian of standard deviation JSIG degrees")
+parser.add_option("--apply-fermi-error", action="store_true",default=False,
+    help="applies the statistical error from Fermi according to "\
+    "https://wiki.ligo.org/foswiki/bin/view/Bursts/S6VSR2InjectionSkyPositionJitter")
 parser.add_option("--output-file", metavar="OUTFILE",
     help="name of output XML file")
 opts, args = parser.parse_args()
@@ -110,6 +113,13 @@ if (opts.jitter_sigma_deg is None) or \
 
 siminsp_fname = args[0]
 jitter_sigma = np.radians(opts.jitter_sigma_deg)
+
+# for details on those parameters see 
+# https://wiki.ligo.org/foswiki/bin/view/Bursts/S6VSR2InjectionSkyPositionJitter
+err70 = np.radians(3.2)
+err30 = np.radians(9.5)
+jitter_fermi70 = np.sqrt(jitter_sigma*jitter_sigma + err70*err70 )
+jitter_fermi30 = np.sqrt(jitter_sigma*jitter_sigma + err30*err30 )
 
 #
 # Read inputs
@@ -135,11 +145,18 @@ site_location_list = [\
     ("t", tools.cached_detector["TAMA_300"]),
     ("v", tools.cached_detector["VIRGO"])]
 for sim in table.get_table(siminsp_doc, lsctables.SimInspiralTable.tableName):
+
     # The Fisher distribution is the appropriate generalization of a
     # Gaussian on a sphere.
+    if opts.apply_fermi_error:
+      jitter_sig = np.where(random.random()<0.3, jitter_fermi30, jitter_fermi70)      
+    else:
+      jitter_sig = jitter_sigma
+
+
     sim.longitude, sim.latitude = \
         polaz2lonlat(*su.fisher_rvs(np.array(\
-            lonlat2polaz(sim.longitude, sim.latitude)), jitter_sigma).squeeze())
+            lonlat2polaz(sim.longitude, sim.latitude)), jitter_sig).squeeze())
 
     # update arrival times and effective distances at the sites
     sim_geocent_end = sim.get_end()
