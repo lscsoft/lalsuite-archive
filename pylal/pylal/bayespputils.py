@@ -751,6 +751,18 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def append_1D_mapping(self, new_param_name, func, post_name):
+        """
+        Append a 1D-posterior containing func(post_name).
+        """
+        pos = self[post_name]
+        inj = None
+        if pos.injval: inj = func(pos.injval)
+        samps = func(pos.samples)
+        pos = OneDPosterior(new_param_name, samps, injected_value=inj)
+        self.append(pos)
+        return
+
     def _average_posterior(self, samples, post_name):
         ap = 0.0
         for samp in samples:
