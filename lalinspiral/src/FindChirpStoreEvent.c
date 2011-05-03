@@ -73,7 +73,7 @@ LALFindChirpStoreEvent (
   INT8                       timeNS;
   INT4                       timeIndex;
   UINT4                      numPoints;
-  REAL4                      deltaT;
+  REAL4                      deltaT, PTFsnr=0.0;
 
   INITSTATUS( status, "LALFindChirpStoreEvent", FINDCHIRPSTOREEVENTC );
   ATTATCHSTATUSPTR( status );
@@ -184,9 +184,12 @@ LALFindChirpStoreEvent (
                          input->fcTmplt->tmpltNorm / numPoints;
     thisEvent->snr = sqrt( thisEvent->snr );
 
+    PTFsnr = sqrt( params->PTFqVec->data[eventStartIdx].re * params->PTFqVec->data[eventStartIdx].re + 
+                 params->PTFqVec->data[eventStartIdx].im * params->PTFqVec->data[eventStartIdx].im )
+         
     /* Effective distance is: D_eff = sigma / rho  */
     thisEvent->eff_distance = 2 * input->segment->segNorm->data[kmax] * 
-           input->fcTmplt->tmpltNorm / params->PTFsnrVec->data[eventStartIdx];
+           input->fcTmplt->tmpltNorm / PTFsnr;
   }
   else
   {

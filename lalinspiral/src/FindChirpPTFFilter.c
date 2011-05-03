@@ -79,7 +79,7 @@ LALFindChirpPTFFilterSegment (
                         v1u1_minus_v2u2;
   REAL4                *Binv        = NULL;
   REAL4                *PTFP        = NULL;
-  REAL4                *rho         = NULL;
+  /*REAL4                *rho         = NULL; */
   COMPLEX8             *q           = NULL;
   COMPLEX8             *PTFQtilde   = NULL;
   COMPLEX8             *qtilde      = NULL;
@@ -192,7 +192,7 @@ LALFindChirpPTFFilterSegment (
   numPoints    = params->PTFqVec->vectorLength;
   N            = (REAL4) numPoints;
   /* workspace vectors */
-  rho          = params->PTFsnrVec->data;
+  /* rho          = params->PTFsnrVec->data; */
   q            = params->qVec->data;
   qtilde       = params->qtildeVec->data;
   PTFq         = params->PTFqVec->data;
@@ -272,7 +272,7 @@ LALFindChirpPTFFilterSegment (
    */
 
   /* clear the snr output vector and workspace*/
-  memset( params->PTFsnrVec->data, 0, numPoints * sizeof(REAL4) );
+  /* memset( params->PTFsnrVec->data, 0, numPoints * sizeof(REAL4) ); */
   memset( params->qVec->data, 0, numPoints * sizeof(COMPLEX8) );
   memset( params->PTFPVec->data, 0, 5 * numPoints * sizeof(REAL4) );
   memset( params->PTFqVec->data, 0, 5 * numPoints * sizeof(COMPLEX8) );
@@ -339,7 +339,7 @@ LALFindChirpPTFFilterSegment (
     max_eigen = 0.5 * ( v1_dot_u1 + v2_dot_u2 + sqrt( v1u1_minus_v2u2 * 
           v1u1_minus_v2u2 + 4 * v1_dot_u2 * v2_dot_u1 ));
     q[j].re = (REAL4) (2.0 * sqrt(max_eigen) / N); /* snr */
-    rho[j] = sqrt ( v1[0] * v1[0] + v2[0] * v2[0] ); /* sqrt(<s,Q_0^1>^2+<s,Q_pi^1>^2) */ 
+    /* rho[j] = sqrt ( v1[0] * v1[0] + v2[0] * v2[0] );  sqrt(<s,Q_0^1>^2+<s,Q_pi^1>^2) */ 
     
     /* evaluate extrinsic parameters for every coalescence time */
     c = ( max_eigen - v1_dot_u1 ) / v1_dot_u2 ;

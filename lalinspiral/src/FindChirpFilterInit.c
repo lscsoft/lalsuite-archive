@@ -521,8 +521,8 @@ LALFindChirpFilterInit (
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
 
-      outputPtr->PTFsnrVec = XLALCreateREAL4Vector( params->numPoints );
-      if ( ! outputPtr->PTFsnrVec )
+      /* outputPtr->PTFsnrVec = XLALCreateREAL4Vector( params->numPoints );
+      if ( ! outputPtr->PTFsnrVec ) */
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
@@ -1071,10 +1071,10 @@ LALFindChirpFilterFinalize (
   {
     XLALDestroyCOMPLEX8VectorSequence( outputPtr->PTFqtildeVec );
   }
-  if ( outputPtr->PTFsnrVec )
+  /*if ( outputPtr->PTFsnrVec )
   {
     XLALDestroyREAL4Vector( outputPtr->PTFsnrVec );
-  }
+  } */
   if ( outputPtr->PTFPVec )
   {
     XLALDestroyREAL4VectorSequence( outputPtr->PTFPVec );
