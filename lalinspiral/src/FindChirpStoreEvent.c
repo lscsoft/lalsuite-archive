@@ -185,7 +185,7 @@ LALFindChirpStoreEvent (
     thisEvent->snr = sqrt( thisEvent->snr );
 
     PTFsnr = sqrt( params->PTFqVec->data[eventStartIdx].re * params->PTFqVec->data[eventStartIdx].re + 
-                 params->PTFqVec->data[eventStartIdx].im * params->PTFqVec->data[eventStartIdx].im )
+                 params->PTFqVec->data[eventStartIdx].im * params->PTFqVec->data[eventStartIdx].im );
          
     /* Effective distance is: D_eff = sigma / rho  */
     thisEvent->eff_distance = 2 * input->segment->segNorm->data[kmax] * 
