@@ -284,7 +284,7 @@ LALFindChirpPTFFilterSegment (
 
     /* compute qtilde using data and Qtilde */
 
-    memset( qtildeVec->data, 0, numPoints * sizeof(COMPLEX8) );
+    memset( qtildeVec.data, 0, numPoints * sizeof(COMPLEX8) );
 
     /* qtilde positive frequency, not DC or nyquist */
     for ( k = kmin; k < kmax ; ++k )
