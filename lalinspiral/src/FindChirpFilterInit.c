@@ -651,7 +651,15 @@ LALFindChirpFilterInit (
       }
       ENDFAIL( status );
     }
-
+  }
+  else if ( params->approximant == FindChirpPTF )
+  {
+    outputPtr->PTFqtildeVec = 
+      XLALCreateCOMPLEX8VectorSequence ( 5, params->numPoints / 2 + 1 );
+    if ( ! outputPtr->PTFqtildeVec )
+    {
+      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+    }
   }
   else
   {

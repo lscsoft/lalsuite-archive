@@ -87,7 +87,7 @@ LALFindChirpPTFFilterSegment (
   COMPLEX8             *PTFq        = NULL;
   COMPLEX8             *inputData   = NULL;
   COMPLEX8             *tmpltSignal = NULL;
-  COMPLEX8Vector        qVec;
+  COMPLEX8Vector        qVec,qtildeVec;
   /* FindChirpBankVetoData clusterInput; */
   
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
@@ -122,8 +122,8 @@ LALFindChirpPTFFilterSegment (
   ASSERT( params->invPlan, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the workspace vectors exist */
-  ASSERT( params->qtildeVec, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->qtildeVec->data, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  /* ASSERT( params->qtildeVec, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( params->qtildeVec->data, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL ); */
 
   /* check that the chisq parameter and input structures exist */
   ASSERT( params->chisqParams, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
@@ -194,11 +194,11 @@ LALFindChirpPTFFilterSegment (
   /* workspace vectors */
   /* rho          = params->PTFsnrVec->data; */
   q            = params->qVec->data;
-  qtilde       = params->qtildeVec->data;
   PTFq         = params->PTFqVec->data;
   PTFqtilde    = params->PTFqtildeVec->data;
   PTFP         = params->PTFPVec->data;
-  qVec.length  = numPoints;
+  qVec.length  = qtildeVec.length = numPoints;
+  qtilde       = qtildeVec.data;
 
   /* template and data */
   tmpltSignal  = input->fcTmplt->data->data;
@@ -284,7 +284,7 @@ LALFindChirpPTFFilterSegment (
 
     /* compute qtilde using data and Qtilde */
 
-    memset( params->qtildeVec->data, 0, numPoints * sizeof(COMPLEX8) );
+    memset( qtildeVec->data, 0, numPoints * sizeof(COMPLEX8) );
 
     /* qtilde positive frequency, not DC or nyquist */
     for ( k = kmin; k < kmax ; ++k )

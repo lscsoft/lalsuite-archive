@@ -374,8 +374,8 @@ LALFindChirpChisqVeto (
           FINDCHIRPCHISQH_ENULL, FINDCHIRPCHISQH_MSGENULL );
       ASSERT( input->PTFqVec->data, status, 
           FINDCHIRPCHISQH_ENULL, FINDCHIRPCHISQH_MSGENULL );
-      ASSERT( input->PTFqtildeVec, status, 
-          FINDCHIRPCHISQH_ENULL, FINDCHIRPCHISQH_MSGENULL );
+      /* ASSERT( input->PTFqtildeVec, status, 
+          FINDCHIRPCHISQH_ENULL, FINDCHIRPCHISQH_MSGENULL ); */
       ASSERT( input->PTFqtildeVec->data, status, 
           FINDCHIRPCHISQH_ENULL, FINDCHIRPCHISQH_MSGENULL );
       ASSERT( input->PTFPVec, status, 
