@@ -87,7 +87,7 @@ LALFindChirpPTFFilterSegment (
   COMPLEX8             *PTFq        = NULL;
   COMPLEX8             *inputData   = NULL;
   COMPLEX8             *tmpltSignal = NULL;
-  COMPLEX8Vector        qVec,qtildeVec;
+  COMPLEX8Vector        qVec, qtildeVec;
   /* FindChirpBankVetoData clusterInput; */
   
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
@@ -301,7 +301,7 @@ LALFindChirpPTFFilterSegment (
     qVec.data = params->PTFqVec->data + (i * numPoints);
 
     /* inverse fft to get <s,Q_0>+i<s,Q_pi> */
-    LALCOMPLEX8VectorFFT( status->statusPtr, &qVec, params->qtildeVec, 
+    LALCOMPLEX8VectorFFT( status->statusPtr, &qVec, &qtilde, 
         params->invPlan );
     CHECKSTATUSPTR( status );
   }
