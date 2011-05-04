@@ -1,6 +1,6 @@
 /* Nested Sampler Using LAL bayesian framework
  (C) John Veitch 2009
-
+Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G. Li
  */
 
 #include <stdlib.h>
@@ -187,7 +187,6 @@ REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, 
 int checkParamInList(const char *list, const char *param);
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
 // init function for the Phi-parametrized AmpCor && TaylorF2 waveform
-
 void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
 
 UINT4 fLowFlag=0;
