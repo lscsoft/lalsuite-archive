@@ -1412,7 +1412,7 @@ while(1) {
 		free(buffer);
 		return;
 		}
-	if(1 && d->free>500000) {
+	if(0 && d->free>500000) {
 		TODO("remove SFT limit when SFT loading code is fast enough")
 		fclose(fin);
 		free(buffer);

@@ -11,6 +11,7 @@ zfilter<-function(z, f, ...) {
 N<-2e6
 
 df<-0.125
+df<-0.06
 
 idx<- (1:N)-1
 
@@ -78,7 +79,7 @@ fold_filter<-function(zcoeffs1, zcoeffs2, k) {
 	return(z)
 	}
 
-make_bessel_filter4<-function(df, coeffs) {
+make_bessel_filter4<-function(df, coeffs, N=4) {
 	if(df<0) {
 		df<- -df
 		coeffs<- -coeffs
@@ -97,8 +98,8 @@ make_bessel_filter4<-function(df, coeffs) {
 	# zcoeffs[1]<-zcoeffs[1]+besselJ(cnorm[3]*0.25, -1)* -1i/cunit[3]
 	# zcoeffs[7]<-zcoeffs[7]+besselJ(cnorm[3]*0.25, 1)*1i*cunit[3]
 
-	idx2<- -3:3
-	idx3<- -3:3
+	idx2<- -N:N
+	idx3<- -N:N
 	zcoeffs1<-besselJ(cnorm[1]*df*2, idx2)*( (1i*cunit[1])^idx2)
 	zcoeffs2<-besselJ(cnorm[2]*df*2, idx3)*( (1i*cunit[2])^idx3)
 	zcoeffs3<-besselJ(cnorm[3]*df*2, idx3)*( (1i*cunit[3])^idx3)
