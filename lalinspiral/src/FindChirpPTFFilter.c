@@ -292,15 +292,15 @@ LALFindChirpPTFFilterSegment (
       s = inputData[k].im; /* Im[s_tilde] */
       x = PTFQtilde[i * (numPoints / 2 + 1) + k].re; /* Re[Q*_0_tilde] */
       y = 0 - PTFQtilde[i * (numPoints / 2 + 1) + k].im; /* Im[Q*_0_tilde] */
-      qtildeVec->data[k].re = PTFqtilde[ i * (numPoints / 2 + 1) + k].re =  
+      qtildeVec.data[k].re = PTFqtilde[ i * (numPoints / 2 + 1) + k].re =  
                      2 * (r*x - s*y);
-      qtildeVec->data[k].im = PTFqtilde[ i * (numPoints / 2 + 1) + k].im =  
+      qtildeVec.data[k].im = PTFqtilde[ i * (numPoints / 2 + 1) + k].im =  
                      2 * (r*y + s*x);
     }
     qVec.data = params->PTFqVec->data + (i * numPoints);
 
     /* inverse fft to get <s,Q_0>+i<s,Q_pi> */
-    LALCOMPLEX8VectorFFT( status->statusPtr, &qVec, qtildeVec->data, 
+    LALCOMPLEX8VectorFFT( status->statusPtr, &qVec, &qtildeVec, 
         params->invPlan );
     CHECKSTATUSPTR( status );
   }
