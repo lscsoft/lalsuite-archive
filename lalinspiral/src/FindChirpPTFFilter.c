@@ -82,7 +82,7 @@ LALFindChirpPTFFilterSegment (
   /*REAL4                *rho         = NULL; */
   COMPLEX8             *q           = NULL;
   COMPLEX8             *PTFQtilde   = NULL;
-  COMPLEX8             *qtilde      = NULL;
+  /* COMPLEX8             *qtilde      = NULL; */
   COMPLEX8             *PTFqtilde   = NULL;
   COMPLEX8             *PTFq        = NULL;
   COMPLEX8             *inputData   = NULL;
