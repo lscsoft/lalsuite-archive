@@ -228,6 +228,12 @@ AC_DEFUN([LALSUITE_SWIG_LANG],[
         AC_MSG_ERROR([require swig version >= ${SWIG_MIN_VERSION}])
       ])
 
+      dnl check for perl binary
+      AC_PATH_PROGS(PERL,[perl],[])
+      AS_IF([test "x${PERL}" = x],[
+        AC_MSG_ERROR([could not find 'perl' in path])
+      ])
+
     ])
     swig_any_lang_found=yes
 
