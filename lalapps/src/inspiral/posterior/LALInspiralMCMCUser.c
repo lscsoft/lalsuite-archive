@@ -449,7 +449,7 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-
+/*
     REAL8 std_dev=0.0011; 
     if(XLALMCMCCheckParameter(parameter,"dphi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi0")*XLALMCMCGetParameter(parameter,"dphi0")/std_dev);
     if(XLALMCMCCheckParameter(parameter,"dphi1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi1")*XLALMCMCGetParameter(parameter,"dphi1")/std_dev);
@@ -461,7 +461,7 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
     if(XLALMCMCCheckParameter(parameter,"dphi7")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi7")*XLALMCMCGetParameter(parameter,"dphi7")/std_dev);
     if(XLALMCMCCheckParameter(parameter,"dphi5l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi5l")*XLALMCMCGetParameter(parameter,"dphi5l")/std_dev);
     if(XLALMCMCCheckParameter(parameter,"dphi6l")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi6l")*XLALMCMCGetParameter(parameter,"dphi6l")/std_dev);
-    
+  */  
         /*parameter->logPrior+=log(
                                  (-3.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/eta+
                                  (-1.0/4.0)*XLALMCMCGetParameter(parameter,"phiTest")/(m1+m2));

@@ -40,6 +40,7 @@ from time import strftime
 
 #related third party imports
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power
+import numpy as np
 
 import matplotlib
 matplotlib.use("Agg")
@@ -421,6 +422,34 @@ def cbcBayesPostProc(
         except KeyError:
             print "Warning: no spin2 values found."
 
+    # print means, variances, and bayes factor in a summary file. The order of parameters is then one given here
+    pars=['mchirp', 'm','logM','eta','time','phi','dist','ra','dec','psi','iota','m1','m2','dphi0','dphi1','dphi2','dphi3','dphi4']
+    summary_path=os.path.join(str(outdir),'summary.ini')
+    if os.path.isfile(summary_path):
+        os.remove(summary_path)
+    summary_file=open(str(summary_path),'w')
+    data_path=(str(data)[2:-2])
+    data_array=np.loadtxt(str(data_path),skiprows=1)
+    for i in pars:
+        if i in pos.names:
+            summary_file.write('mean_'+str(i) +'\t'+'stdev_'+str(i)+'\t')
+    summary_file.write('BSN \t BCI \n')
+    for i in pars:
+        if i in pos.names:
+            I=pars.index(i)
+            mean_i="pos[\'"+str(i)+"\'].mean"
+            mean_i=eval(mean_i)
+            stdev_i="pos[\'"+str(i)+"\'].stdev"
+            stdev_i=eval(stdev_i)
+            summary_file.write(repr(mean_i)+'\t')
+            summary_file.write(repr(stdev_i)+'\t')
+
+    if bayesfactornoise is not None:
+        summary_file.write(str(BSN)+'\t')
+    if bayesfactorcoherent is not None:
+        summary_file.write(str(BCI)+'\t')
+    summary_file.write(' \n')
+    summary_file.close()
 
 
 
