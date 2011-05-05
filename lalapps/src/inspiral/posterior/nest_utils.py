@@ -221,6 +221,7 @@ def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):
     nest_node.set_trig_time(end_time)
     nest_node.set_event_number(event)
     nest_node.add_ifo_data(data,ifos)
+    nest_node.add_var_opt('dataseed',str(first_data_seed))
     if cp.has_option('analysis','seed'):
         if cp.get('analysis','nparallel')=="1":
             nest_node.add_var_opt('seed',str(cp.get('analysis','seed')))
@@ -249,6 +250,7 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
         seed_initial=int(cp.get('analysis','seed'))
     else:
         seed_initial=100
+    nest_node.add_var_opt('dataseed',str(first_data_seed))
     merge_node.add_var_opt('Nlive',cp.get('analysis','nlive'))
     nest_nodes=[]
     for i in range(nparallel):
