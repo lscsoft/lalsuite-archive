@@ -358,7 +358,7 @@ inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
 if cp.has_option('inspnest','phaseParamTest'):
     inspnest_job.add_opt('phaseParamTest',cp.get('inspnest','phaseParamTest'))
 if cp.has_option('analysis','data_seed'):
-    first_data_seed=cp.get('analysis','data_seed'))
+    first_data_seed=cp.get('analysis','data_seed')
     print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first event. Incrementing by one for each other \n"
 else:
     first_data_seed="1234"
