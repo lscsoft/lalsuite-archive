@@ -180,6 +180,15 @@ try
   XLALDestroyREAL8Vector(rv);
   XLALDestroyCOMPLEX8VectorSequence(cm);
   LALCheckMemoryLeaks();
+  ## check GSL vectors and matrices
+  iv = gsl_vector_int_calloc(5);
+  rv = gsl_vector_calloc(5);
+  cm = gsl_matrix_complex_float_calloc(4, 6);
+  check_dynamic_vector_matrix("GSL", iv, iv.size, rv, rv.size,
+                              cm, cm.size1, cm.size2);
+  gsl_vector_int_free(iv);
+  gsl_vector_free(rv);
+  gsl_matrix_complex_float_free(cm);
 catch
   msg("FAILED dynamic vector/matrix conversions");
   exit(1);

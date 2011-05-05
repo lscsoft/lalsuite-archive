@@ -150,7 +150,7 @@ AC_DEFUN([LALSUITE_WITH_SWIG],[
 
     dnl common SWIG interface headers (with LAL only)
     AS_IF([${swig_islal}],[
-      SWIG_HEADERS="${SWIG_HEADERS} swiglal-common.i"
+      SWIG_HEADERS="${SWIG_HEADERS} swiglal-common.i swiglal-gsl.i"
     ])
 
     dnl path SWIG should look in for header files:
