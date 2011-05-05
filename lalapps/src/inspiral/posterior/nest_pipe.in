@@ -16,7 +16,7 @@ from glue import segmentdb
 from lalapps import inspiralutils
 import scipy
 sys.path.append('@PYTHONLIBDIR@')
-
+import numpy as np
 #Presets
 ifos=['H1','L1','V1']
 fakeTypes=["LALVirgo","LALLIGO","LALAdLIGO","LALAdVirgo"]
@@ -357,15 +357,15 @@ inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
 #option for phitest
 if cp.has_option('inspnest','phaseParamTest'):
     inspnest_job.add_opt('phaseParamTest',cp.get('inspnest','phaseParamTest'))
-if cp.has_option('analysis','data_seed'):
-    first_data_seed=cp.get('analysis','data_seed')
-    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first event. Incrementing by one for each other \n"
-else:
-    first_data_seed="1234"
-    print "Using default dataseed=1234. Add data_seed=X in the analysis section of the parser if you want to change it. \n"
+#if cp.has_option('analysis','data_seed'):
+#    first_data_seed=np.int(cp.get('analysis','data_seed'))
+#    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first event. Incrementing by one for each other \n"
+#else:
+#    first_data_seed=1234
+#    print "Using default dataseed=1234. Add data_seed=X in the analysis section of the parser if you want to change it. \n"
 #print cp.items('inspnest_all')
 #print inspnest_job.__options
-
+factor=0
 if cp.has_option('analysis','seed'):
     print "Using  seed= " + str(cp.get('analysis','seed')) +" for the fist run (seed is incremented by one for each parallel run) \n"
 else:
@@ -407,8 +407,8 @@ if nparallel==1:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-        inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent)
-        first_data_seed=first_data_seed+1
+        inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent,factor=factor)
+        factor=factor+1
         inspnest_nodes_by_time[time]=inspnest_node
         dag.add_node(inspnest_node)
         combine_each_time_nodes[time].add_parent(inspnest_node)
@@ -421,8 +421,8 @@ else:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-        (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent)
-        first_data_seed=first_data_seed+1
+        (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent,factor=factor)
+        factor=factor+1
         dag.add_node(merge_node)
         map(dag.add_node,inspnest_nodes)
         nest_files[time]=merge_node.get_output_files()[0]
@@ -472,7 +472,7 @@ if opts.coherence_test:
             else:
                 thisevent=None
             if nparallel>1:
-                (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent)
+                (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent,factor=factor)
                 dag.add_node(merge_node)
                 coherence_test_files[time][ifo]=merge_node.get_output_files()[0]
                 combine_node.add_parent(merge_node)

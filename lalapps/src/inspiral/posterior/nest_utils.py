@@ -4,7 +4,7 @@
 import glue
 from glue import pipeline
 import os
-
+import numpy as np
 
 class InspNestJob(pipeline.CondorDAGJob):
     """
@@ -208,7 +208,7 @@ class ResultsPageNode(pipeline.CondorDAGNode):
             self.add_var_arg('--eventnum '+str(event))
 # Function definitions for setting up groups of nodes
 
-def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):
+def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None,factor=None):
     """
     Setup nodes for analysing a single time
     cp - configparser object
@@ -221,7 +221,9 @@ def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):
     nest_node.set_trig_time(end_time)
     nest_node.set_event_number(event)
     nest_node.add_ifo_data(data,ifos)
-    nest_node.add_var_opt('dataseed',str(first_data_seed))
+    if factor==None:
+        factor=0
+    nest_node.add_var_opt('dataseed',str(np.int(cp.get('analysis','data_seed'))+factor))
     if cp.has_option('analysis','seed'):
         if cp.get('analysis','nparallel')=="1":
             nest_node.add_var_opt('seed',str(cp.get('analysis','seed')))
@@ -233,7 +235,7 @@ def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):
     return nest_node
 
 
-def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event=None):
+def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event=None,factor=None):
     """
     Setup nodes for analysing a single time using
     parallel runs
@@ -250,7 +252,8 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
         seed_initial=int(cp.get('analysis','seed'))
     else:
         seed_initial=100
-    nest_node.add_var_opt('dataseed',str(first_data_seed))
+    if factor==None:
+        factor=0
     merge_node.add_var_opt('Nlive',cp.get('analysis','nlive'))
     nest_nodes=[]
     for i in range(nparallel):
@@ -261,6 +264,7 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
         nest_node.set_event_number(event)
         p_outfile_name=os.path.join(path,'outfile_%f_%i_%s.dat'%(end_time,i,nest_node.get_ifos()))
         nest_node.add_var_opt('seed',str(i+seed_initial))
+        nest_node.add_var_opt('dataseed',str(np.int(cp.get('analysis','data_seed'))+factor))
         merge_node.add_parent(nest_node)
         merge_node.add_file_arg(p_outfile_name)
         nest_node.set_output(p_outfile_name)
