@@ -48,6 +48,7 @@
 #include <lal/GenerateInspiral.h>
 #include <lal/TimeDelay.h>
 #include <lal/GeneratePPNAmpCorConsistency.h>
+#include <lal/LALInspiralStationaryPhaseApprox2Test.h>
 
 #ifdef  __cplusplus   /* C++ protection. */
 extern "C" {
@@ -65,21 +66,19 @@ void LALInspiralComputeDhInDh (
 														PPNConsistencyParamStruc               *modelParams,
 														REAL8																	 fStart,
 														REAL8																	 fStop,
-														REAL8FrequencySeries									 *psd);
+														REAL8																	 *dhindh);
 
 void LALInspiralComputeSNR (
-														LALStatus															 *status,
-														PPNConsistencyParamStruc               *PPNparams,
-														REAL8																	 fStart,
-														REAL8																	 fStop,
-														REAL8FrequencySeries									 *psd,
-														REAL8																	 *SNR);
+														LALStatus												*status,
+														InspiralTemplate               	*inputParams,
+														REAL8														*dphis,
+														REAL8														*SNR);
 														
 void LALInspiralCombinePlusCross(
 																 LALStatus									*status,			// Status pointer
 																 CoherentGW									*GravWav,			// Input waveform, data[2i] = hp, data[2i+1] = hc
 																 PPNConsistencyParamStruc		*params,				// input parameters
-																 REAL4TimeSeries						*ht);					// combined h(t) from hp and hc		
+																 REAL4TimeSeries						*ht);					// combined h(t) from hp and hc	
 																 
 void XLALDestroyCoherentGW (CoherentGW  *GravWav   )	;															 											
 
