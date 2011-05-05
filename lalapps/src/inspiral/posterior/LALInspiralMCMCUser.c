@@ -204,14 +204,18 @@ int ParamInRange(LALMCMCParameter *parameter)
 {
 UINT4 i;
 int inrange=1;
+int minmax=0;
+
 LALMCMCParam *p=parameter->param;
 for(i=0;i<parameter->dimension;i++){
 	inrange &= (p->value<=p->core->maxVal)&&(p->value>=p->core->minVal);
+	if(p->core->maxVal<p->core->minVal) minmax+=1;	
 	p=p->next;
 }
  if(!inrange) {
    parameter->logPrior = -DBL_MAX;
  }
+ if (minmax!=0) fprintf(stderr,"One or more prior min values are bigger than the correnspondent max values. \n");
 return inrange;
 }
 
