@@ -1,7 +1,7 @@
 # SWIG configuration
 # Author: Karl Wette, 2011
 #
-# serial 5
+# serial 6
 
 # basic version string comparison
 # can only handle numeric versions separated by periods
@@ -165,7 +165,7 @@ AC_DEFUN([LALSUITE_WITH_SWIG],[
 
     # common SWIG interface headers (with LAL only)
     AS_IF([${swig_islal}],[
-      SWIG_HEADERS="${SWIG_HEADERS} swiglal-common.i"
+      SWIG_HEADERS="${SWIG_HEADERS} swiglal-common.i swiglal-gsl.i"
     ])
 
     # path SWIG should look in for header files:
