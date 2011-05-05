@@ -1,11 +1,11 @@
 /* Nested Sampler Using LAL bayesian framework
  (C) John Veitch 2009
-Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G. Li
+Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li
  */
 
 #include <stdlib.h>
 #include <getopt.h>
-
+#include <sys/stat.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
 #include <lal/FrameCache.h>
@@ -859,7 +859,7 @@ int main( int argc, char *argv[])
 			if(!strcmp(CacheFileNames[i],"LALVirgo")) {PSD = &LALVIRGOPsd; scalefactor=1.0;}
 			if(!strcmp(CacheFileNames[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
 			if(!strcmp(CacheFileNames[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
-			if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd;scalefactor = 1E-49;}
+			if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd;scalefactor = 1E-48;}
 			if(!strcmp(CacheFileNames[i],"LALAdVirgo")) {PSD = &LALAdvVIRGOPsd;scalefactor = 1E-47;}
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
@@ -2020,6 +2020,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 ///*-------------- Inject in Frequency domain -----------------*/
 {
 	/* Inject a gravitational wave into the data in the frequency domain */
+    struct stat st;
 	REAL4Vector *injWaveFD=NULL;
     InspiralTemplate template;
 	UINT4 det_i,idx;
@@ -2050,7 +2051,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	template.approximant=injapprox;
 	template.tSampling = 1.0/inputMCMC->deltaT;
 	template.fCutoff = 0.5/inputMCMC->deltaT -1.0;
-        fprintf(stdout,"%f \n", template.fCutoff);
+    //fprintf(stdout,"%f \n", template.fCutoff);
 	template.nStartPad = 0;
 	template.nEndPad =0;
     template.startPhase = inj_table->phi0;
@@ -2132,6 +2133,16 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 	REAL8 time_sin,time_cos;
     //inputMCMC->numberDataStreams=nIFO;
+    
+    /* open the SNR file */
+    char SnrName[50];
+    if (stat("./SNR",&st) == 0){
+        sprintf(SnrName,"./SNR/snr_%10.1f.dat",(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);}
+    else {
+        sprintf(SnrName,"snr_%10.1f.dat",(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+        }
+    FILE *snrout=fopen(SnrName,"w");
+    REAL8 SNRcut = 5.5;
 	for (det_i=0;det_i<nIFO;det_i++){ //nIFO
         UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
         UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
@@ -2162,16 +2173,27 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 //			fprintf(outInj,"%lf %e\n",idx*deltaF ,atan2(injWaveFD->data[Nmodel-idx],injWaveFD->data[idx]));
 			fprintf(outInj,"%lf %e %e %e %e %e\n",idx*deltaF ,inputMCMC->stilde[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im,resp_r,resp_i,inputMCMC->invspec[det_i]->data->data[idx]);
 			chisq+=inputMCMC->invspec[det_i]->data->data[idx]*(resp_r*resp_r+resp_i*resp_i)*deltaF;
+            
 //            printf("chisq = %e \t\n",chisq);
 
 		}
 		chisq*=4.0;
+        fprintf(snrout,"%s\t",inputMCMC->ifoID[det_i]);
+        fprintf(snrout,"%e\n",sqrt(chisq));
+        if (sqrt(chisq)<SNRcut) {
+            fprintf(stderr,"Injected signal SNR in %s = %f is smaller than %f, aborting...\n",inputMCMC->ifoID[det_i],sqrt(chisq),SNRcut);
+            exit(-1);
+        }
         fprintf(stdout,"Injected signal in %s, SNR = %f\n",inputMCMC->ifoID[det_i],sqrt(chisq));
 		SNRinj+=chisq;
 		fclose(outInj);
 	}
-	SNRinj=sqrt(SNRinj);
 
+	SNRinj=sqrt(SNRinj);
+    fprintf(snrout,"Network\t");
+    fprintf(snrout,"%e\n",SNRinj);
+    fprintf(snrout,"\n");
+    fclose(snrout);
 	fprintf(stdout,"Injected signal, network SNR = %f\n",SNRinj);
 	return;
 }

@@ -82,6 +82,11 @@ void XLALCopyPPNConsistencyFromPPNParamStruc (
                                               PPNParamStruc                        *inputParams,
                                               PPNConsistencyParamStruc             *duplicateParams );
                                               
+void XLALCopyPPNConsistencyFromInspiralTemplate (
+                                       InspiralTemplate                *inputParams,
+                                       PPNConsistencyParamStruc        *duplicateParams,
+                                       REAL8													 *dphis );                                              
+                                              
 void XLALCopyPPNConsistencyParamStruc (
                                        PPNConsistencyParamStruc             *inputParams,
                                        PPNConsistencyParamStruc             *duplicateParams );                                              
