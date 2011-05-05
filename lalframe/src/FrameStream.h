@@ -180,6 +180,9 @@ FrChanType;
 */
 
 
+#ifdef SWIG /* SWIG interface directives */
+%warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagFrChanIn::name;
+#endif /* SWIG */
 typedef struct
 tagFrChanIn
 {
@@ -199,6 +202,10 @@ FrChanIn;
 */
 
 
+#ifdef SWIG /* SWIG interface directives */
+%warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagFrOutPar::source;
+%warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagFrOutPar::description;
+#endif /* SWIG */
 typedef struct
 tagFrOutPar
 {
