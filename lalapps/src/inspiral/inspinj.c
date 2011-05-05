@@ -173,6 +173,7 @@ REAL8 redshift;
 /* PhiTest parameters */
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
+INT4 MGInjections = 0;
 
 REAL8 dphi0=0.0;
 REAL8 dphi1=0.0;
@@ -184,6 +185,7 @@ REAL8 dphi5l=0.0;
 REAL8 dphi6=0.0;
 REAL8 dphi6l=0.0;
 REAL8 dphi7=0.0;
+REAL8 loglambdaG=-10000.0;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
@@ -545,6 +547,10 @@ fprintf(stderr,
       " --dphi6 value             value of the dphi6 parameter\n"\
       " --dphi6l value            value of the dphi6l parameter\n"\
       " --dphi7 value             value of the dphi7 parameter\n");
+fprintf(stderr,
+	  "Massive Graviton Information:\n"\
+	  " --enable-mg				  enable Massive Graviton injections\n"\
+	  " --loglambdaG			  log Compton wavelength value\n"); 	
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1277,7 +1283,9 @@ int main( int argc, char *argv[] )
     {"dphi5l",                  required_argument, 0,                 1016},
     {"dphi6",                   required_argument, 0,                 1017},
     {"dphi6l",                  required_argument, 0,                 1018},
-    {"dphi7",                   required_argument, 0,                 1019},          
+    {"dphi7",                   required_argument, 0,                 1019},
+    {"enable-mg",               no_argument,       0,                 1020},   
+    {"loglambdaG",              required_argument, 0,                 1021},           
     {0, 0, 0, 0}
   };
   int c;
@@ -2175,7 +2183,19 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi7 );
           break;
-
+      case 1020:
+              /* enable massive graviton injections */
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name, "string", 
+              "" );
+        MGInjections = 1;
+        break;
+       case 1021:
+            loglambdaG = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", loglambdaG );
+          break;       
       case 'h':
         print_usage(argv[0]);
         exit( 0 );
@@ -2849,6 +2869,10 @@ int main( int argc, char *argv[] )
     simTable->dphi6=dphi6;
     simTable->dphi6l=dphi6l;
     simTable->dphi7=dphi7;
+    
+    /* populate the massive graviton parameter */
+    
+    simTable->loglambdaG=loglambdaG;
     
     /* populate the sim_ringdown table */ 
    if ( writeSimRing )

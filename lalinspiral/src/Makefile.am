@@ -29,6 +29,7 @@ lalinspiralinclude_HEADERS = \
 	LALInspiralComputeWaveformAccuracies.h \
 	LALInspiralRandomBank.h \
 	LALInspiralStationaryPhaseApprox2Test.h\
+	LALInspiralMassiveGraviton.h \
 	LALInspiralVCSInfo.h \
 	LALNoiseModelsInspiral.h \
 	LALSBBH-Metric.h \
@@ -134,6 +135,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralIIR.c \
 	LALInspiralInit.c \
 	LALInspiralLongestTemplateInBank.c \
+	LALInspiralMassiveGraviton.c \
 	LALInspiralMoments.c \
 	LALInspiralMomentsIntegrand.c \
 	LALInspiralNextTemplate.c \

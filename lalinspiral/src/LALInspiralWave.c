@@ -128,6 +128,7 @@ Depending on the user inputs one of the following functions is called:\\
 #include <lal/LALStdlib.h>
 #include <lal/GeneratePPNInspiral.h>
 #include <lal/LALInspiralStationaryPhaseApprox2Test.h>
+#include <lal/LALInspiralMassiveGraviton.h>
 
 NRCSID (LALINSPIRALWAVEC, "$Id$");
 
@@ -207,6 +208,10 @@ LALInspiralWave(
            LALInspiralStationaryPhaseApprox2Test(status->statusPtr, signalvec, params, phaseParams);
            CHECKSTATUSPTR(status);
 	   break;
+	  case MassiveGraviton:
+		   LALInspiralMassiveGraviton(status->statusPtr, signalvec, params);
+		   CHECKSTATUSPTR(status);
+		break;   	
       case PadeF1:
            ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
 	   break;

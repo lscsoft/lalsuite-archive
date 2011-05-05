@@ -1379,6 +1379,7 @@ SimInspiralTableFromLIGOLw (
     {"dphi6",               -1, 63},
     {"dphi6l",              -1, 64},
     {"dphi7",               -1, 65},
+    {"loglambdaG",          -1, 66},
     {NULL,                   0, 0}
   };
 
@@ -1716,6 +1717,10 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 65 )
         {
             thisSim->dphi7 = r4colData;
+        }
+        else if ( tableDir[j].idx == 66 )
+        {
+            thisSim->loglambdaG = r4colData;
         }
         else
         {

@@ -357,14 +357,12 @@ inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
 #option for phitest
 if cp.has_option('inspnest','phaseParamTest'):
     inspnest_job.add_opt('phaseParamTest',cp.get('inspnest','phaseParamTest'))
-
 if cp.has_option('analysis','data_seed'):
-    inspnest_job.add_opt('dataseed',cp.get('analysis','data_seed'))
-    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +"\n"
+    first_data_seed=cp.get('analysis','data_seed'))
+    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first event. Incrementing by one for each other \n"
 else:
-    inspnest_job.add_opt('dataseed',"1234")
+    first_data_seed="1234"
     print "Using default dataseed=1234. Add data_seed=X in the analysis section of the parser if you want to change it. \n"
-
 #print cp.items('inspnest_all')
 #print inspnest_job.__options
 
@@ -410,6 +408,7 @@ if nparallel==1:
         else:
                 thisevent=None
         inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent)
+        first_data_seed=first_data_seed+1
         inspnest_nodes_by_time[time]=inspnest_node
         dag.add_node(inspnest_node)
         combine_each_time_nodes[time].add_parent(inspnest_node)
@@ -423,6 +422,7 @@ else:
         else:
                 thisevent=None
         (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent)
+        first_data_seed=first_data_seed+1
         dag.add_node(merge_node)
         map(dag.add_node,inspnest_nodes)
         nest_files[time]=merge_node.get_output_files()[0]

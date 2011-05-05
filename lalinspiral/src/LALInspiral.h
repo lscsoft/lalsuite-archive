@@ -469,6 +469,7 @@ typedef enum {
    AmpCorPPN,
    AmpCorPPNTest, 
    NumRel,
+   MassiveGraviton,
    Eccentricity,
    EOBNR,
    IMRPhenomA,
@@ -585,6 +586,8 @@ tagInspiralTemplate
   REAL8 t7;
   REAL8 tC;
 
+/* Parameters for the massive graviton waveform */
+  REAL8 loglambdaG;
 /* Note that tc and fFinal are computed during waveform generation!!! */
 
   REAL4 minMatch;
