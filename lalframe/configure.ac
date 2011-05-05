@@ -12,6 +12,9 @@ AC_CONFIG_FILES([ \
   include/Makefile \
   include/lal/Makefile \
   src/Makefile \
+  swig/Makefile \
+  swig/octave/Makefile \
+  swig/python/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([foreign])
@@ -120,6 +123,9 @@ AC_CHECK_HEADERS([FrameL.h],,[AC_MSG_ERROR([could not find the FrameL.h header])
 LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
 LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
 
+# check for SWIG wrapping
+LALSUITE_WITH_SWIG
+
 # add gcc specific flags
 if test "$GCC" = yes; then
   CFLAGS="$CFLAGS $lal_gcc_flags"
@@ -138,7 +144,10 @@ AC_OUTPUT
 echo "
 ================================================================
 
-        LALFrame has now been successfully configured
+        LALFrame has now been successfully configured:
+
+                $SWIG_WRAPPINGS_MSG
+
         and will be installed under the directory:
 
           ${prefix}
