@@ -1,18 +1,18 @@
 //LALTemplateFunction.h
 
-static PyTypeObject *_li_LALTemplateFunction_Type = NULL;
-#define li_LALTemplateFunction_Type (*_li_LALTemplateFunction_Type)
+static PyTypeObject *_li_LALInferenceTemplateFunction_Type = NULL;
+#define li_LALInferenceTemplateFunction_Type (*_li_LALInferenceTemplateFunction_Type)
 
 typedef struct {
     PyObject_HEAD
     PyObject* owner;
     /* Type-specific fields go here */
-    LALTemplateFunction* func;
-} li_LALTemplateFunction;
+    LALInferenceTemplateFunction* func;
+} li_LALInferenceTemplateFunction;
 
-static PyObject* li_LALTemplateFunction_new(LALTemplateFunction* func, PyObject *owner){
+static PyObject* li_LALInferenceTemplateFunction_new(LALInferenceTemplateFunction* func, PyObject *owner){
     PyObject *empty_tuple = PyTuple_New(0);
-    li_LALTemplateFunction *obj = (li_LALTemplateFunction *) PyType_GenericNew(&li_LALTemplateFunction_Type,empty_tuple,NULL);
+    li_LALInferenceTemplateFunction *obj = (li_LALInferenceTemplateFunction *) PyType_GenericNew(&li_LALInferenceTemplateFunction_Type,empty_tuple,NULL);
     Py_DECREF(empty_tuple);
     
     if(!obj) {

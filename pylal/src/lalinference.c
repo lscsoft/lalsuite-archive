@@ -37,13 +37,13 @@ const char LIDocString[] =
 "This module provides data types and function wrappers for"
 "LALInference.";
 
-int setLALIFODataFromData(LALIFOData* internal,PyObject* old,PyObject* new){
+int setLALInferenceIFODataFromData(LALInferenceIFOData* internal,PyObject* old,PyObject* new){
     /* require li_LALIFOData*/
     if (new == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the REAL8Window attribute");
         return -1;
     }
-    if(!PyObject_TypeCheck(new, &li_LALIFOData_Type)){
+    if(!PyObject_TypeCheck(new, &li_LALInferenceIFOData_Type)){
         PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
@@ -53,18 +53,18 @@ int setLALIFODataFromData(LALIFOData* internal,PyObject* old,PyObject* new){
     Py_INCREF(new);
     old=new;
 
-    li_LALIFOData* newdata=(li_LALIFOData*)new;
+    li_LALInferenceIFOData* newdata=(li_LALInferenceIFOData*)new;
     internal=newdata->data;
     return 0;
 }
 
-PyObject* getLALIFODataFromData(LALIFOData* internal,PyObject* owner){
+PyObject* getLALInferenceIFODataFromData(LALInferenceIFOData* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return li_LALIFOData_new(internal,owner);
+        return li_LALInferenceIFOData_new(internal,owner);
     }
 }
 
@@ -641,39 +641,39 @@ static PyTypeObject li_barycenterinput_type = {
 /*Methods*/
 
  /* Destructor for LALIFOData */
-static void LALAlgorithm_dealloc(li_LALAlgorithm *self)
+static void LALInferenceAlgorithm_dealloc(li_LALInferenceAlgorithm *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALAlgorithm__init__(li_LALAlgorithm *self, PyObject *args, PyObject *kwds)
+static int LALInferenceAlgorithm__init__(li_LALInferenceAlgorithm *self, PyObject *args, PyObject *kwds)
 {    
     return 0;
 }
 
-static PyObject* LALAlgorithm__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* LALInferenceAlgorithm__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     
-    li_LALAlgorithm *obj = (li_LALAlgorithm*) PyType_GenericNew(type, args, kwds);
+    li_LALInferenceAlgorithm *obj = (li_LALInferenceAlgorithm*) PyType_GenericNew(type, args, kwds);
     if(!obj)
         return NULL;
     obj->func=NULL;
     return (PyObject*)obj;
 }
 
-static PyObject* LALAlgorithm__call__(PyObject *self, PyObject *args, PyObject *kwds){
+static PyObject* LALInferenceAlgorithm__call__(PyObject *self, PyObject *args, PyObject *kwds){
     return NULL;
 }
 
-static PyMethodDef LALAlgorithm_methods[]= {
+static PyMethodDef LALInferenceAlgorithm_methods[]= {
     {NULL} /* Sentinel */
 };
 
-static PyGetSetDef LALAlgorithm_getseters[] = {
+static PyGetSetDef LALInferenceAlgorithm_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static struct PyMemberDef LALAlgorithm_members[] = {
+static struct PyMemberDef LALInferenceAlgorithm_members[] = {
     {NULL,}
 };
 
@@ -681,9 +681,9 @@ static PyTypeObject li_lalalgorithm_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
     "lalinference.LALAlgorithm",    /* tp_name, name of type */
-    sizeof(li_LALAlgorithm),  /* tp_basicsize */
+    sizeof(li_LALInferenceAlgorithm),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALAlgorithm_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferenceAlgorithm_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -693,7 +693,7 @@ static PyTypeObject li_lalalgorithm_type = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    LALAlgorithm__call__,                         /*tp_call*/
+    LALInferenceAlgorithm__call__,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -706,17 +706,17 @@ static PyTypeObject li_lalalgorithm_type = {
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALAlgorithm_methods,             /* tp_methods */
-    LALAlgorithm_members,             /* tp_members */
-    LALAlgorithm_getseters,                         /* tp_getset */
+    LALInferenceAlgorithm_methods,             /* tp_methods */
+    LALInferenceAlgorithm_members,             /* tp_members */
+    LALInferenceAlgorithm_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALAlgorithm__init__,      /* tp_init */
+    (initproc)LALInferenceAlgorithm__init__,      /* tp_init */
     0,                         /* tp_alloc */
-    LALAlgorithm__new__,                 /* tp_new */
+    LALInferenceAlgorithm__new__,                 /* tp_new */
 };
 
 /*
@@ -729,50 +729,50 @@ static PyTypeObject li_lalalgorithm_type = {
 
 /*Methods*/
 
- /* Destructor for LALIFOData */
-static void LALTemplateFunction_dealloc(li_LALTemplateFunction *self)
+ /* Destructor for LALInferenceIFOData */
+static void LALInferenceTemplateFunction_dealloc(li_LALInferenceTemplateFunction *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALTemplateFunction__init__(li_LALTemplateFunction *self, PyObject *args, PyObject *kwds)
+static int LALInferenceTemplateFunction__init__(li_LALInferenceTemplateFunction *self, PyObject *args, PyObject *kwds)
 {    
     return 0;
 }
 
-static PyObject* LALTemplateFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* LALInferenceTemplateFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     
-    li_LALTemplateFunction *obj = (li_LALTemplateFunction*) PyType_GenericNew(type, args, kwds);
+    li_LALInferenceTemplateFunction *obj = (li_LALInferenceTemplateFunction*) PyType_GenericNew(type, args, kwds);
     if(!obj)
         return NULL;
     obj->func=NULL;
     return (PyObject*)obj;
 }
 
-static PyObject* LALTemplateFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+static PyObject* LALInferenceTemplateFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
     return NULL;
 }
 
-static PyMethodDef LALTemplateFunction_methods[]= {
+static PyMethodDef LALInferenceTemplateFunction_methods[]= {
     {NULL} /* Sentinel */
 };
 
-static PyGetSetDef LALTemplateFunction_getseters[] = {
+static PyGetSetDef LALInferenceTemplateFunction_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static struct PyMemberDef LALTemplateFunction_members[] = {
+static struct PyMemberDef LALInferenceTemplateFunction_members[] = {
     {NULL,}
 };
 
 static PyTypeObject li_laltemplatefunction_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
-    "lalinference.LALTemplateFunction",    /* tp_name, name of type */
-    sizeof(li_LALTemplateFunction),  /* tp_basicsize */
+    "lalinference.LALInferenceTemplateFunction",    /* tp_name, name of type */
+    sizeof(li_LALInferenceTemplateFunction),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALTemplateFunction_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferenceTemplateFunction_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -782,7 +782,7 @@ static PyTypeObject li_laltemplatefunction_type = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    LALTemplateFunction__call__,                         /*tp_call*/
+    LALInferenceTemplateFunction__call__,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -795,72 +795,72 @@ static PyTypeObject li_laltemplatefunction_type = {
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALTemplateFunction_methods,             /* tp_methods */
-    LALTemplateFunction_members,             /* tp_members */
-    LALTemplateFunction_getseters,                         /* tp_getset */
+    LALInferenceTemplateFunction_methods,             /* tp_methods */
+    LALInferenceTemplateFunction_members,             /* tp_members */
+    LALInferenceTemplateFunction_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALTemplateFunction__init__,      /* tp_init */
+    (initproc)LALInferenceTemplateFunction__init__,      /* tp_init */
     0,                         /* tp_alloc */
-    LALTemplateFunction__new__,                 /* tp_new */
+    LALInferenceTemplateFunction__new__,                 /* tp_new */
 };
 /*
  * ============================================================================
  *
- *                            LALProposalFunction
+ *                            LALInferenceProposalFunction
  *
  * ============================================================================
  */
 
 /*Methods*/
 
- /* Destructor for LALIFOData */
-static void LALProposalFunction_dealloc(li_LALProposalFunction *self)
+ /* Destructor for LALInferenceIFOData */
+static void LALInferenceProposalFunction_dealloc(li_LALInferenceProposalFunction *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALProposalFunction__init__(li_LALProposalFunction *self, PyObject *args, PyObject *kwds)
+static int LALInferenceProposalFunction__init__(li_LALInferenceProposalFunction *self, PyObject *args, PyObject *kwds)
 {    
     return 0;
 }
 
-static PyObject* LALProposalFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* LALInferenceProposalFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     
-    li_LALProposalFunction *obj = (li_LALProposalFunction*) PyType_GenericNew(type, args, kwds);
+    li_LALInferenceProposalFunction *obj = (li_LALInferenceProposalFunction*) PyType_GenericNew(type, args, kwds);
     if(!obj)
         return NULL;
     obj->func=NULL;
     return (PyObject*)obj;
 }
 
-static PyObject* LALProposalFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+static PyObject* LALInferenceProposalFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
     return NULL;
 }
 
-static PyMethodDef LALProposalFunction_methods[]= {
+static PyMethodDef LALInferenceProposalFunction_methods[]= {
     {NULL} /* Sentinel */
 };
 
-static PyGetSetDef LALProposalFunction_getseters[] = {
+static PyGetSetDef LALInferenceProposalFunction_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static struct PyMemberDef LALProposalFunction_members[] = {
+static struct PyMemberDef LALInferenceProposalFunction_members[] = {
     {NULL,}
 };
 
 static PyTypeObject li_lalproposalfunction_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
-    "lalinference.LALProposalFunction",    /* tp_name, name of type */
-    sizeof(li_LALProposalFunction),  /* tp_basicsize */
+    "lalinference.LALInferenceProposalFunction",    /* tp_name, name of type */
+    sizeof(li_LALInferenceProposalFunction),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALProposalFunction_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferenceProposalFunction_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -870,7 +870,7 @@ static PyTypeObject li_lalproposalfunction_type = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    LALProposalFunction__call__,                         /*tp_call*/
+    LALInferenceProposalFunction__call__,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -883,63 +883,63 @@ static PyTypeObject li_lalproposalfunction_type = {
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALProposalFunction_methods,             /* tp_methods */
-    LALProposalFunction_members,             /* tp_members */
-    LALProposalFunction_getseters,                         /* tp_getset */
+    LALInferenceProposalFunction_methods,             /* tp_methods */
+    LALInferenceProposalFunction_members,             /* tp_members */
+    LALInferenceProposalFunction_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALProposalFunction__init__,      /* tp_init */
+    (initproc)LALInferenceProposalFunction__init__,      /* tp_init */
     0,                         /* tp_alloc */
-    LALProposalFunction__new__,                 /* tp_new */
+    LALInferenceProposalFunction__new__,                 /* tp_new */
 };
 
 /*
  * ============================================================================
  *
- *                            LALEvolveOneStepFunction
+ *                            LALInferenceEvolveOneStepFunction
  *
  * ============================================================================
  */
 
 /*Methods*/
 
- /* Destructor for LALIFOData */
-static void LALEvolveOneStepFunction_dealloc(li_LALEvolveOneStepFunction *self)
+ /* Destructor for LALInferenceIFOData */
+static void LALInferenceEvolveOneStepFunction_dealloc(li_LALInferenceEvolveOneStepFunction *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALEvolveOneStepFunction__init__(li_LALEvolveOneStepFunction *self, PyObject *args, PyObject *kwds)
+static int LALInferenceEvolveOneStepFunction__init__(li_LALInferenceEvolveOneStepFunction *self, PyObject *args, PyObject *kwds)
 {    
     return 0;
 }
 
-static PyObject* LALEvolveOneStepFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* LALInferenceEvolveOneStepFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     
-    li_LALEvolveOneStepFunction *obj = (li_LALEvolveOneStepFunction*) PyType_GenericNew(type, args, kwds);
+    li_LALInferenceEvolveOneStepFunction *obj = (li_LALInferenceEvolveOneStepFunction*) PyType_GenericNew(type, args, kwds);
     if(!obj)
         return NULL;
     obj->func=NULL;
     return (PyObject*)obj;
 }
 
-static PyObject* LALEvolveOneStepFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+static PyObject* LALInferenceEvolveOneStepFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
     return NULL;
 }
 
-static PyMethodDef LALEvolveOneStepFunction_methods[]= {
+static PyMethodDef LALInferenceEvolveOneStepFunction_methods[]= {
     {NULL} /* Sentinel */
 };
 
-static PyGetSetDef LALEvolveOneStepFunction_getseters[] = {
+static PyGetSetDef LALInferenceEvolveOneStepFunction_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static struct PyMemberDef LALEvolveOneStepFunction_members[] = {
+static struct PyMemberDef LALInferenceEvolveOneStepFunction_members[] = {
     {NULL,}
 };
 
@@ -947,9 +947,9 @@ static PyTypeObject li_lalevolveonestepfunction_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
     "lalinference.LALEvolveOneStepFunction",    /* tp_name, name of type */
-    sizeof(li_LALEvolveOneStepFunction),  /* tp_basicsize */
+    sizeof(li_LALInferenceEvolveOneStepFunction),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALEvolveOneStepFunction_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferenceEvolveOneStepFunction_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -959,7 +959,7 @@ static PyTypeObject li_lalevolveonestepfunction_type = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    LALEvolveOneStepFunction__call__,                         /*tp_call*/
+    LALInferenceEvolveOneStepFunction__call__,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -972,73 +972,73 @@ static PyTypeObject li_lalevolveonestepfunction_type = {
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALEvolveOneStepFunction_methods,             /* tp_methods */
-    LALEvolveOneStepFunction_members,             /* tp_members */
-    LALEvolveOneStepFunction_getseters,                         /* tp_getset */
+    LALInferenceEvolveOneStepFunction_methods,             /* tp_methods */
+    LALInferenceEvolveOneStepFunction_members,             /* tp_members */
+    LALInferenceEvolveOneStepFunction_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALEvolveOneStepFunction__init__,      /* tp_init */
+    (initproc)LALInferenceEvolveOneStepFunction__init__,      /* tp_init */
     0,                         /* tp_alloc */
-    LALEvolveOneStepFunction__new__,                 /* tp_new */
+    LALInferenceEvolveOneStepFunction__new__,                 /* tp_new */
 };
 
 /*
  * ============================================================================
  *
- *                            LALPriorFunction
+ *                            LALInferencePriorFunction
  *
  * ============================================================================
  */
 
 /*Methods*/
 
- /* Destructor for LALIFOData */
-static void LALPriorFunction_dealloc(li_LALPriorFunction *self)
+ /* Destructor for LALInferenceIFOData */
+static void LALInferencePriorFunction_dealloc(li_LALInferencePriorFunction *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALPriorFunction__init__(li_LALPriorFunction *self, PyObject *args, PyObject *kwds)
+static int LALInferencePriorFunction__init__(li_LALInferencePriorFunction *self, PyObject *args, PyObject *kwds)
 {    
     return 0;
 }
 
-static PyObject* LALPriorFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* LALInferencePriorFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     
-    li_LALPriorFunction *obj = (li_LALPriorFunction*) PyType_GenericNew(type, args, kwds);
+    li_LALInferencePriorFunction *obj = (li_LALInferencePriorFunction*) PyType_GenericNew(type, args, kwds);
     if(!obj)
         return NULL;
     obj->func=NULL;
     return (PyObject*)obj;
 }
 
-static PyObject* LALPriorFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+static PyObject* LALInferencePriorFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
     return NULL;
 }
 
-static PyMethodDef LALPriorFunction_methods[]= {
+static PyMethodDef LALInferencePriorFunction_methods[]= {
     {NULL} /* Sentinel */
 };
 
-static PyGetSetDef LALPriorFunction_getseters[] = {
+static PyGetSetDef LALInferencePriorFunction_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static struct PyMemberDef LALPriorFunction_members[] = {
+static struct PyMemberDef LALInferencePriorFunction_members[] = {
     {NULL,}
 };
 
 static PyTypeObject li_lalpriorfunction_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
-    "lalinference.LALPriorFunction",    /* tp_name, name of type */
-    sizeof(li_LALPriorFunction),  /* tp_basicsize */
+    "lalinference.LALInferencePriorFunction",    /* tp_name, name of type */
+    sizeof(li_LALInferencePriorFunction),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALPriorFunction_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferencePriorFunction_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -1048,7 +1048,7 @@ static PyTypeObject li_lalpriorfunction_type = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    LALPriorFunction__call__,                         /*tp_call*/
+    LALInferencePriorFunction__call__,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -1061,72 +1061,72 @@ static PyTypeObject li_lalpriorfunction_type = {
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALPriorFunction_methods,             /* tp_methods */
-    LALPriorFunction_members,             /* tp_members */
-    LALPriorFunction_getseters,                         /* tp_getset */
+    LALInferencePriorFunction_methods,             /* tp_methods */
+    LALInferencePriorFunction_members,             /* tp_members */
+    LALInferencePriorFunction_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALPriorFunction__init__,      /* tp_init */
+    (initproc)LALInferencePriorFunction__init__,      /* tp_init */
     0,                         /* tp_alloc */
-    LALPriorFunction__new__,                 /* tp_new */
+    LALInferencePriorFunction__new__,                 /* tp_new */
 };
 /*
  * ============================================================================
  *
- *                            LALLikelihoodFunction
+ *                            LALInferenceLikelihoodFunction
  *
  * ============================================================================
  */
 
 /*Methods*/
 
- /* Destructor for LALIFOData */
-static void LALLikelihoodFunction_dealloc(li_LALLikelihoodFunction *self)
+ /* Destructor for LALInferenceIFOData */
+static void LALInferenceLikelihoodFunction_dealloc(li_LALInferenceLikelihoodFunction *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALLikelihoodFunction__init__(li_LALLikelihoodFunction *self, PyObject *args, PyObject *kwds)
+static int LALInferenceLikelihoodFunction__init__(li_LALInferenceLikelihoodFunction *self, PyObject *args, PyObject *kwds)
 {    
     return 0;
 }
 
-static PyObject* LALLikelihoodFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* LALInferenceLikelihoodFunction__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     
-    li_LALLikelihoodFunction *obj = (li_LALLikelihoodFunction*) PyType_GenericNew(type, args, kwds);
+    li_LALInferenceLikelihoodFunction *obj = (li_LALInferenceLikelihoodFunction*) PyType_GenericNew(type, args, kwds);
     if(!obj)
         return NULL;
     obj->func=NULL;
     return (PyObject*)obj;
 }
 
-static PyObject* LALLikelihoodFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
+static PyObject* LALInferenceLikelihoodFunction__call__(PyObject *self, PyObject *args, PyObject *kwds){
     return NULL;
 }
 
-static PyMethodDef LALLikelihoodFunction_methods[]= {
+static PyMethodDef LALInferenceLikelihoodFunction_methods[]= {
     {NULL} /* Sentinel */
 };
 
-static PyGetSetDef LALLikelihoodFunction_getseters[] = {
+static PyGetSetDef LALInferenceLikelihoodFunction_getseters[] = {
     {NULL}  /* Sentinel */
 };
 
-static struct PyMemberDef LALLikelihoodFunction_members[] = {
+static struct PyMemberDef LALInferenceLikelihoodFunction_members[] = {
     {NULL,}
 };
 
 static PyTypeObject li_lallikelihoodfunction_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
-    "lalinference.LALLikelihoodFunction",    /* tp_name, name of type */
-    sizeof(li_LALLikelihoodFunction),  /* tp_basicsize */
+    "lalinference.LALInferenceLikelihoodFunction",    /* tp_name, name of type */
+    sizeof(li_LALInferenceLikelihoodFunction),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALLikelihoodFunction_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferenceLikelihoodFunction_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -1136,7 +1136,7 @@ static PyTypeObject li_lallikelihoodfunction_type = {
     0,                         /*tp_as_sequence*/
     0,                         /*tp_as_mapping*/
     0,                         /*tp_hash */
-    LALLikelihoodFunction__call__,                         /*tp_call*/
+    LALInferenceLikelihoodFunction__call__,                         /*tp_call*/
     0,                         /*tp_str*/
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
@@ -1149,50 +1149,50 @@ static PyTypeObject li_lallikelihoodfunction_type = {
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALLikelihoodFunction_methods,             /* tp_methods */
-    LALLikelihoodFunction_members,             /* tp_members */
-    LALLikelihoodFunction_getseters,                         /* tp_getset */
+    LALInferenceLikelihoodFunction_methods,             /* tp_methods */
+    LALInferenceLikelihoodFunction_members,             /* tp_members */
+    LALInferenceLikelihoodFunction_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALLikelihoodFunction__init__,      /* tp_init */
+    (initproc)LALInferenceLikelihoodFunction__init__,      /* tp_init */
     0,                         /* tp_alloc */
-    LALLikelihoodFunction__new__,                 /* tp_new */
+    LALInferenceLikelihoodFunction__new__,                 /* tp_new */
 };
 
 /*
  * ============================================================================
  *
- *                            LALIFOData
+ *                            LALInferenceIFOData
  *
  * ============================================================================
  */
 
 /*Methods*/
 
- /* Destructor for LALIFOData */
-static void LALIFOData_dealloc(li_LALIFOData *self)
+ /* Destructor for LALInferenceIFOData */
+static void LALInferenceIFOData_dealloc(li_LALInferenceIFOData *self)
 {
     self->ob_type->tp_free((PyObject *)self);
 }
 
-static int LALIFOData__init__(li_LALIFOData *self, PyObject *args, PyObject *kwds)
+static int LALInferenceIFOData__init__(li_LALInferenceIFOData *self, PyObject *args, PyObject *kwds)
 {
-    self->data=(LALIFOData*)malloc(sizeof(LALIFOData));
-    memset((void*)self->data,0,sizeof(LALIFOData));
+    self->data=(LALInferenceIFOData*)malloc(sizeof(LALInferenceIFOData));
+    memset((void*)self->data,0,sizeof(LALInferenceIFOData));
     return 0;
 }
 
-static PyObject* LALIFOData__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* LALInferenceIFOData__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     
-    li_LALIFOData *obj = (li_LALIFOData*) PyType_GenericNew(type, args, kwds);
+    li_LALInferenceIFOData *obj = (li_LALInferenceIFOData*) PyType_GenericNew(type, args, kwds);
     if(!obj)
         return NULL;
-    obj->data=(LALIFOData*)malloc(sizeof(LALIFOData));
-    memset((void*)obj->data,0,sizeof(LALIFOData));
+    obj->data=(LALInferenceIFOData*)malloc(sizeof(LALInferenceIFOData));
+    memset((void*)obj->data,0,sizeof(LALInferenceIFOData));
     obj->owner=NULL;
     obj->name=NULL;
     obj->modelParams=NULL;
@@ -1226,7 +1226,7 @@ static PyObject* LALIFOData__new__(PyTypeObject *type, PyObject *args, PyObject 
 
 /*name*/
 
-static PyObject* LALIFOData_getname(li_LALIFOData *self, void *closure)
+static PyObject* LALInferenceIFOData_getname(li_LALInferenceIFOData *self, void *closure)
 {
     if(self->name){
         Py_INCREF(self->name);
@@ -1238,7 +1238,7 @@ static PyObject* LALIFOData_getname(li_LALIFOData *self, void *closure)
     }
 }
 
-static int LALIFOData_setname(li_LALIFOData *self, PyObject *value, void *closure)
+static int LALInferenceIFOData_setname(li_LALInferenceIFOData *self, PyObject *value, void *closure)
 {
     if(value==NULL){
         PyErr_SetString(PyExc_TypeError, "Cannot delete the attribute");
@@ -1260,9 +1260,9 @@ static int LALIFOData_setname(li_LALIFOData *self, PyObject *value, void *closur
 }
 
 
-PyObject* getLALVariablesFromData(LALVariables* internallv,PyObject* owner){
+PyObject* getLALInferenceVariablesFromData(LALInferenceVariables* internallv,PyObject* owner){
     if(owner){
-        return LALVariables_new(internallv,owner);
+        return LALInferenceVariables_new(internallv,owner);
     }
     else {
         Py_INCREF(Py_None);
@@ -1270,13 +1270,13 @@ PyObject* getLALVariablesFromData(LALVariables* internallv,PyObject* owner){
     }
 }
 
-int setLALVariablesFromData(LALVariables* internallv,PyObject* oldlv,PyObject* newlv){
+int setLALInferenceVariablesFromData(LALInferenceVariables* internallv,PyObject* oldlv,PyObject* newlv){
     if (!newlv) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the attribute");
         return -1;
     }
-    if (!PyObject_TypeCheck(newlv, &li_LALVariables_Type)){
-        PyErr_SetString(PyExc_TypeError, "The attribute must be a lalinference.LALVariables object.");
+    if (!PyObject_TypeCheck(newlv, &li_LALInferenceVariables_Type)){
+        PyErr_SetString(PyExc_TypeError, "The attribute must be a lalinference.LALInferenceVariables object.");
         return -1;
     }
 
@@ -1285,22 +1285,22 @@ int setLALVariablesFromData(LALVariables* internallv,PyObject* oldlv,PyObject* n
     Py_INCREF(newlv);
     oldlv=newlv;
 
-    li_LALVariables* valuelv=(li_LALVariables*)newlv;
+    li_LALInferenceVariables* valuelv=(li_LALInferenceVariables*)newlv;
     internallv=valuelv->vars;
     
     return 0;
 }
 
 /*modelParams*/
-static PyObject* LALIFOData_getmodelParams(li_LALIFOData *self, void *closure) {return getLALVariablesFromData(self->data->modelParams,self->modelParams);};
-static int LALIFOData_setmodelParams(li_LALIFOData *self, PyObject *value, void *closure){return setLALVariablesFromData(self->data->modelParams,(PyObject*)self->modelParams,value);}
+static PyObject* LALInferenceIFOData_getmodelParams(li_LALInferenceIFOData *self, void *closure) {return getLALInferenceVariablesFromData(self->data->modelParams,self->modelParams);};
+static int LALInferenceIFOData_setmodelParams(li_LALInferenceIFOData *self, PyObject *value, void *closure){return setLALInferenceVariablesFromData(self->data->modelParams,(PyObject*)self->modelParams,value);}
 
 /*dataParams*/
-static PyObject* LALIFOData_getdataParams(li_LALIFOData *self, void *closure) {return getLALVariablesFromData(self->data->dataParams,self->dataParams);};
-static int LALIFOData_setdataParams(li_LALIFOData *self, PyObject *value, void *closure){return setLALVariablesFromData(self->data->dataParams,(PyObject*)self->dataParams,value);}
+static PyObject* LALInferenceIFOData_getdataParams(li_LALInferenceIFOData *self, void *closure) {return getLALInferenceVariablesFromData(self->data->dataParams,self->dataParams);};
+static int LALInferenceIFOData_setdataParams(li_LALInferenceIFOData *self, PyObject *value, void *closure){return setLALInferenceVariablesFromData(self->data->dataParams,(PyObject*)self->dataParams,value);}
 
 
-static PyObject* LALIFOData_getmodelDomain(li_LALIFOData *self, void *closure)
+static PyObject* LALInferenceIFOData_getmodelDomain(li_LALInferenceIFOData *self, void *closure)
 {
 
     if(self->data->modelDomain==timeDomain){
@@ -1312,7 +1312,7 @@ static PyObject* LALIFOData_getmodelDomain(li_LALIFOData *self, void *closure)
     else return NULL;
 }
 
-static int LALIFOData_setmodelDomain(li_LALIFOData *self, PyObject *value, void *closure)
+static int LALInferenceIFOData_setmodelDomain(li_LALInferenceIFOData *self, PyObject *value, void *closure)
 {
     if (value == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete the modelDomain attribute");
@@ -1328,7 +1328,7 @@ static int LALIFOData_setmodelDomain(li_LALIFOData *self, PyObject *value, void 
     Py_INCREF(value);
     char* name=PyString_AsString(value);
 
-    LALDomain var;
+    LALInferenceDomain var;
 
     if(!strcmp(name,"timeDomain")){
         var=timeDomain;
@@ -1344,142 +1344,142 @@ static int LALIFOData_setmodelDomain(li_LALIFOData *self, PyObject *value, void 
 }
 
 /* timeData */
-static int LALIFOData_settimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeData,(PyObject*)self->timeData,value);}
-static PyObject* LALIFOData_gettimeData(li_LALIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeData,(PyObject*)self->timeData);}//{return getREAL8TimeSeriesFromData(self->data->timeData);}
+static int LALInferenceIFOData_settimeData(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeData,(PyObject*)self->timeData,value);}
+static PyObject* LALInferenceIFOData_gettimeData(li_LALInferenceIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeData,(PyObject*)self->timeData);}//{return getREAL8TimeSeriesFromData(self->data->timeData);}
 
 /* timeModelhPlus */
-static int LALIFOData_settimeModelhPlus(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeModelhPlus,(PyObject*)self->timeModelhPlus,value);}
-static PyObject* LALIFOData_gettimeModelhPlus(li_LALIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeModelhPlus,(PyObject*)self->timeModelhPlus);}//{return getREAL8TimeSeriesFromData(self->data->timeModelhPlus);}
+static int LALInferenceIFOData_settimeModelhPlus(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeModelhPlus,(PyObject*)self->timeModelhPlus,value);}
+static PyObject* LALInferenceIFOData_gettimeModelhPlus(li_LALInferenceIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeModelhPlus,(PyObject*)self->timeModelhPlus);}//{return getREAL8TimeSeriesFromData(self->data->timeModelhPlus);}
 
 /* timeModelhCross */
-static int LALIFOData_settimeModelhCross(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeModelhCross,(PyObject*)self->timeModelhCross,value);}
-static PyObject* LALIFOData_gettimeModelhCross(li_LALIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeModelhCross,(PyObject*)self->timeModelhCross);}//{return getREAL8TimeSeriesFromData(self->data->timeModelhCross);}
+static int LALInferenceIFOData_settimeModelhCross(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeModelhCross,(PyObject*)self->timeModelhCross,value);}
+static PyObject* LALInferenceIFOData_gettimeModelhCross(li_LALInferenceIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeModelhCross,(PyObject*)self->timeModelhCross);}//{return getREAL8TimeSeriesFromData(self->data->timeModelhCross);}
 
 /* whiteTimeData */
-static int LALIFOData_setwhiteTimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->whiteTimeData,(PyObject*)self->whiteTimeData,value);}
-static PyObject* LALIFOData_getwhiteTimeData(li_LALIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->whiteTimeData,(PyObject*)self->whiteTimeData);}//{return getREAL8TimeSeriesFromData(self->data->whiteTimeData);}
+static int LALInferenceIFOData_setwhiteTimeData(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->whiteTimeData,(PyObject*)self->whiteTimeData,value);}
+static PyObject* LALInferenceIFOData_getwhiteTimeData(li_LALInferenceIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->whiteTimeData,(PyObject*)self->whiteTimeData);}//{return getREAL8TimeSeriesFromData(self->data->whiteTimeData);}
 
 /* windowedTimeData */
-static int LALIFOData_setwindowedTimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->windowedTimeData,(PyObject*)self->windowedTimeData,value);}
-static PyObject* LALIFOData_getwindowedTimeData(li_LALIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->windowedTimeData,(PyObject*)self->windowedTimeData);}//getREAL8TimeSeriesFromData(self->data->windowedTimeData);}
+static int LALInferenceIFOData_setwindowedTimeData(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->windowedTimeData,(PyObject*)self->windowedTimeData,value);}
+static PyObject* LALInferenceIFOData_getwindowedTimeData(li_LALInferenceIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->windowedTimeData,(PyObject*)self->windowedTimeData);}//getREAL8TimeSeriesFromData(self->data->windowedTimeData);}
 
 /* timeDomainNoiseWeights */
-static int LALIFOData_settimeDomainNoiseWeights(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeDomainNoiseWeights,(PyObject*)self->timeDomainNoiseWeights,value);}
-static PyObject* LALIFOData_gettimeDomainNoiseWeights(li_LALIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeDomainNoiseWeights,(PyObject*)self->timeDomainNoiseWeights);}//{return getREAL8TimeSeriesFromData(self->data->timeDomainNoiseWeights);}
+static int LALInferenceIFOData_settimeDomainNoiseWeights(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8TimeSeriesFromData(self->data->timeDomainNoiseWeights,(PyObject*)self->timeDomainNoiseWeights,value);}
+static PyObject* LALInferenceIFOData_gettimeDomainNoiseWeights(li_LALInferenceIFOData *self, void *closure) {return getREAL8TimeSeriesFromData(self->data->timeDomainNoiseWeights,(PyObject*)self->timeDomainNoiseWeights);}//{return getREAL8TimeSeriesFromData(self->data->timeDomainNoiseWeights);}
 
 /* oneSidedNoisePowerSpectrum */
-static int LALIFOData_setoneSidedNoisePowerSpectrum(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8FrequencySeriesFromData(self->data->oneSidedNoisePowerSpectrum,self->oneSidedNoisePowerSpectrum,value);}
-static PyObject* LALIFOData_getoneSidedNoisePowerSpectrum(li_LALIFOData *self, void *closure) {return getREAL8FrequencySeriesFromData(self->data->oneSidedNoisePowerSpectrum,(PyObject*)self->oneSidedNoisePowerSpectrum);}
+static int LALInferenceIFOData_setoneSidedNoisePowerSpectrum(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8FrequencySeriesFromData(self->data->oneSidedNoisePowerSpectrum,self->oneSidedNoisePowerSpectrum,value);}
+static PyObject* LALInferenceIFOData_getoneSidedNoisePowerSpectrum(li_LALInferenceIFOData *self, void *closure) {return getREAL8FrequencySeriesFromData(self->data->oneSidedNoisePowerSpectrum,(PyObject*)self->oneSidedNoisePowerSpectrum);}
 
 /*freqData*/
-static int LALIFOData_setfreqData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->freqData,self->freqData,value);}
-static PyObject* LALIFOData_getfreqData(li_LALIFOData *self, void *closure) {return getCOMPLEX16FrequencySeriesFromData(self->data->freqData,(PyObject*)self->freqData);}
+static int LALInferenceIFOData_setfreqData(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->freqData,self->freqData,value);}
+static PyObject* LALInferenceIFOData_getfreqData(li_LALInferenceIFOData *self, void *closure) {return getCOMPLEX16FrequencySeriesFromData(self->data->freqData,(PyObject*)self->freqData);}
 
 /*freqModelhPlus*/
-static int LALIFOData_setfreqModelhPlus(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->freqModelhPlus,self->freqModelhPlus,value);}
-static PyObject* LALIFOData_getfreqModelhPlus(li_LALIFOData *self, void *closure) {return getCOMPLEX16FrequencySeriesFromData(self->data->freqModelhPlus,(PyObject*)self->freqModelhPlus);}
+static int LALInferenceIFOData_setfreqModelhPlus(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->freqModelhPlus,self->freqModelhPlus,value);}
+static PyObject* LALInferenceIFOData_getfreqModelhPlus(li_LALInferenceIFOData *self, void *closure) {return getCOMPLEX16FrequencySeriesFromData(self->data->freqModelhPlus,(PyObject*)self->freqModelhPlus);}
 
 /*freqModelhCross*/
-static int LALIFOData_setfreqModelhCross(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->freqModelhCross,self->freqModelhCross,value);}
-static PyObject* LALIFOData_getfreqModelhCross(li_LALIFOData *self, void *closure){return getCOMPLEX16FrequencySeriesFromData(self->data->freqModelhCross,(PyObject*)self->freqModelhCross);}
+static int LALInferenceIFOData_setfreqModelhCross(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->freqModelhCross,self->freqModelhCross,value);}
+static PyObject* LALInferenceIFOData_getfreqModelhCross(li_LALInferenceIFOData *self, void *closure){return getCOMPLEX16FrequencySeriesFromData(self->data->freqModelhCross,(PyObject*)self->freqModelhCross);}
 
 /*whiteFreqData*/
-static int LALIFOData_setwhiteFreqData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->whiteFreqData,self->whiteFreqData,value);}
-static PyObject* LALIFOData_getwhiteFreqData(li_LALIFOData *self, void *closure){return getCOMPLEX16FrequencySeriesFromData(self->data->whiteFreqData,(PyObject*)self->whiteFreqData);}
+static int LALInferenceIFOData_setwhiteFreqData(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16FrequencySeriesFromData(self->data->whiteFreqData,self->whiteFreqData,value);}
+static PyObject* LALInferenceIFOData_getwhiteFreqData(li_LALInferenceIFOData *self, void *closure){return getCOMPLEX16FrequencySeriesFromData(self->data->whiteFreqData,(PyObject*)self->whiteFreqData);}
 
 /*compTimeData*/
-static int LALIFOData_setcompTimeData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromData(self->data->compTimeData,self->compTimeData,value);}
-static PyObject* LALIFOData_getcompTimeData(li_LALIFOData *self, void *closure) {return getCOMPLEX16TimeSeriesFromData(self->data->compTimeData,self->compTimeData);}
+static int LALInferenceIFOData_setcompTimeData(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromData(self->data->compTimeData,self->compTimeData,value);}
+static PyObject* LALInferenceIFOData_getcompTimeData(li_LALInferenceIFOData *self, void *closure) {return getCOMPLEX16TimeSeriesFromData(self->data->compTimeData,self->compTimeData);}
 
 /*compModelData*/
-static int LALIFOData_setcompModelData(li_LALIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromData(self->data->compModelData,self->compModelData,value);}
-static PyObject* LALIFOData_getcompModelData(li_LALIFOData *self, void *closure) {return getCOMPLEX16TimeSeriesFromData(self->data->compModelData,(PyObject*)self->compModelData);}
+static int LALInferenceIFOData_setcompModelData(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setCOMPLEX16TimeSeriesFromData(self->data->compModelData,self->compModelData,value);}
+static PyObject* LALInferenceIFOData_getcompModelData(li_LALInferenceIFOData *self, void *closure) {return getCOMPLEX16TimeSeriesFromData(self->data->compModelData,(PyObject*)self->compModelData);}
 
 /*timeToFreqFFTPlan*/
-static int LALIFOData_settimeToFreqFFTPlan(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromData(self->data->timeToFreqFFTPlan,self->timeToFreqFFTPlan,value);}
-static PyObject* LALIFOData_gettimeToFreqFFTPlan(li_LALIFOData *self, void *closure) {return getREAL8FFTPlanFromData(self->data->timeToFreqFFTPlan,(PyObject*)self->timeToFreqFFTPlan);}
+static int LALInferenceIFOData_settimeToFreqFFTPlan(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromData(self->data->timeToFreqFFTPlan,self->timeToFreqFFTPlan,value);}
+static PyObject* LALInferenceIFOData_gettimeToFreqFFTPlan(li_LALInferenceIFOData *self, void *closure) {return getREAL8FFTPlanFromData(self->data->timeToFreqFFTPlan,(PyObject*)self->timeToFreqFFTPlan);}
 
 /*freqToTimeFFTPlan*/
-static int LALIFOData_setfreqToTimeFFTPlan(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromData(self->data->freqToTimeFFTPlan,self->freqToTimeFFTPlan,value);}
-static PyObject* LALIFOData_getfreqToTimeFFTPlan(li_LALIFOData *self, void *closure) {return getREAL8FFTPlanFromData(self->data->freqToTimeFFTPlan,(PyObject*)self->freqToTimeFFTPlan);}
+static int LALInferenceIFOData_setfreqToTimeFFTPlan(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8FFTPlanFromData(self->data->freqToTimeFFTPlan,self->freqToTimeFFTPlan,value);}
+static PyObject* LALInferenceIFOData_getfreqToTimeFFTPlan(li_LALInferenceIFOData *self, void *closure) {return getREAL8FFTPlanFromData(self->data->freqToTimeFFTPlan,(PyObject*)self->freqToTimeFFTPlan);}
 
 /* epoch */
-static int LALIFOData_setepoch(li_LALIFOData *self, PyObject *value, void *closure) {return setLIGOTimeGPSFromData(self->data->epoch,value);}
-static PyObject* LALIFOData_getepoch(li_LALIFOData *self, void *closure) {return pylal_LIGOTimeGPS_new(self->data->epoch);}
+static int LALInferenceIFOData_setepoch(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setLIGOTimeGPSFromData(self->data->epoch,value);}
+static PyObject* LALInferenceIFOData_getepoch(li_LALInferenceIFOData *self, void *closure) {return pylal_LIGOTimeGPS_new(self->data->epoch);}
 
 /* window */
-static int LALIFOData_setwindow(li_LALIFOData *self, PyObject *value, void *closure) {return setREAL8WindowFromData(self->data->window,self->window,value);}
-static PyObject* LALIFOData_getwindow(li_LALIFOData *self, void *closure) {return getREAL8WindowFromData(self->data->window,(PyObject*)self->window);}
+static int LALInferenceIFOData_setwindow(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setREAL8WindowFromData(self->data->window,self->window,value);}
+static PyObject* LALInferenceIFOData_getwindow(li_LALInferenceIFOData *self, void *closure) {return getREAL8WindowFromData(self->data->window,(PyObject*)self->window);}
 
 /* next */
-static int LALIFOData_setnext(li_LALIFOData *self, PyObject *value, void *closure) {return setLALIFODataFromData(self->data->next,self->next,value);}
-static PyObject* LALIFOData_getnext(li_LALIFOData *self, void *closure) {return getLALIFODataFromData(self->data->next,(PyObject*)self->next);}
+static int LALInferenceIFOData_setnext(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setLALInferenceIFODataFromData(self->data->next,self->next,value);}
+static PyObject* LALInferenceIFOData_getnext(li_LALInferenceIFOData *self, void *closure) {return getLALInferenceIFODataFromData(self->data->next,(PyObject*)self->next);}
 
 /* bary */
-static int LALIFOData_setbary(li_LALIFOData *self, PyObject *value, void *closure) {return setBarycenterInputFromData(self->data->bary,self->bary,value);}
-static PyObject* LALIFOData_getbary(li_LALIFOData *self, void *closure) {return getBarycenterInputFromData(self->data->bary,(PyObject*)self->bary);}
+static int LALInferenceIFOData_setbary(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setBarycenterInputFromData(self->data->bary,self->bary,value);}
+static PyObject* LALInferenceIFOData_getbary(li_LALInferenceIFOData *self, void *closure) {return getBarycenterInputFromData(self->data->bary,(PyObject*)self->bary);}
 
 /* ephem */
-static int LALIFOData_setephem(li_LALIFOData *self, PyObject *value, void *closure) {return setEphemerisDataFromData(self->data->ephem,self->ephem,value);}
-static PyObject* LALIFOData_getephem(li_LALIFOData *self, void *closure) {return getEphemerisDataFromData(self->data->ephem,(PyObject*)self->ephem);}
+static int LALInferenceIFOData_setephem(li_LALInferenceIFOData *self, PyObject *value, void *closure) {return setEphemerisDataFromData(self->data->ephem,self->ephem,value);}
+static PyObject* LALInferenceIFOData_getephem(li_LALInferenceIFOData *self, void *closure) {return getEphemerisDataFromData(self->data->ephem,(PyObject*)self->ephem);}
 
 /**getsetters registration struct**/
 
-static PyGetSetDef LALIFOData_getseters[] = {
-    {"name",(getter)LALIFOData_getname,(setter)LALIFOData_setname,"name",NULL},
-    //LALVariables
-    {"modelParams",(getter)LALIFOData_getmodelParams,(setter)LALIFOData_setmodelParams,"modelParams",NULL},
-    {"dataParams",(getter)LALIFOData_getdataParams,(setter)LALIFOData_setdataParams,"dataParams",NULL},
-    //LALDomain ...represented as string
-    {"modelDomain",(getter)LALIFOData_getmodelDomain,(setter)LALIFOData_setmodelDomain,"modelDomain",NULL},
+static PyGetSetDef LALInferenceIFOData_getseters[] = {
+    {"name",(getter)LALInferenceIFOData_getname,(setter)LALInferenceIFOData_setname,"name",NULL},
+    //LALInferenceVariables
+    {"modelParams",(getter)LALInferenceIFOData_getmodelParams,(setter)LALInferenceIFOData_setmodelParams,"modelParams",NULL},
+    {"dataParams",(getter)LALInferenceIFOData_getdataParams,(setter)LALInferenceIFOData_setdataParams,"dataParams",NULL},
+    //LALInferenceDomain ...represented as string
+    {"modelDomain",(getter)LALInferenceIFOData_getmodelDomain,(setter)LALInferenceIFOData_setmodelDomain,"modelDomain",NULL},
     //REAL8TimeSeries
-    {"timeData",(getter)LALIFOData_gettimeData,(setter)LALIFOData_settimeData,"timeData",NULL},
-    {"timeModelhPlus",(getter)LALIFOData_gettimeModelhPlus,(setter)LALIFOData_settimeModelhPlus,"timeModelhPlus",NULL},
-    {"timeModelhCross",(getter)LALIFOData_gettimeModelhCross,(setter)LALIFOData_settimeModelhCross,"timeModelhCross",NULL},
-    {"whiteTimeData",(getter)LALIFOData_getwhiteTimeData,(setter)LALIFOData_setwhiteTimeData,"whiteTimeData",NULL},
-    {"windowedTimeData",(getter)LALIFOData_getwindowedTimeData,(setter)LALIFOData_setwindowedTimeData,"windowedTimeData",NULL},
-    {"timeDomainNoiseWeights",(getter)LALIFOData_gettimeDomainNoiseWeights,(setter)LALIFOData_settimeDomainNoiseWeights,"timeDomainNoiseWeights",NULL},
+    {"timeData",(getter)LALInferenceIFOData_gettimeData,(setter)LALInferenceIFOData_settimeData,"timeData",NULL},
+    {"timeModelhPlus",(getter)LALInferenceIFOData_gettimeModelhPlus,(setter)LALInferenceIFOData_settimeModelhPlus,"timeModelhPlus",NULL},
+    {"timeModelhCross",(getter)LALInferenceIFOData_gettimeModelhCross,(setter)LALInferenceIFOData_settimeModelhCross,"timeModelhCross",NULL},
+    {"whiteTimeData",(getter)LALInferenceIFOData_getwhiteTimeData,(setter)LALInferenceIFOData_setwhiteTimeData,"whiteTimeData",NULL},
+    {"windowedTimeData",(getter)LALInferenceIFOData_getwindowedTimeData,(setter)LALInferenceIFOData_setwindowedTimeData,"windowedTimeData",NULL},
+    {"timeDomainNoiseWeights",(getter)LALInferenceIFOData_gettimeDomainNoiseWeights,(setter)LALInferenceIFOData_settimeDomainNoiseWeights,"timeDomainNoiseWeights",NULL},
     //COMPLEX16FrequencySeries
-    {"freqData",(getter)LALIFOData_getfreqData,(setter)LALIFOData_setfreqData,"freqData",NULL},
-    {"freqModelhPlus",(getter)LALIFOData_getfreqModelhPlus,(setter)LALIFOData_setfreqModelhPlus,"freqModelhPlus",NULL},
-    {"freqModelhCross",(getter)LALIFOData_getfreqModelhCross,(setter)LALIFOData_setfreqModelhCross,"freqModelhCross",NULL},
-    {"whiteFreqData",(getter)LALIFOData_getwhiteFreqData,(setter)LALIFOData_setwhiteFreqData,"whiteFreqData",NULL},
+    {"freqData",(getter)LALInferenceIFOData_getfreqData,(setter)LALInferenceIFOData_setfreqData,"freqData",NULL},
+    {"freqModelhPlus",(getter)LALInferenceIFOData_getfreqModelhPlus,(setter)LALInferenceIFOData_setfreqModelhPlus,"freqModelhPlus",NULL},
+    {"freqModelhCross",(getter)LALInferenceIFOData_getfreqModelhCross,(setter)LALInferenceIFOData_setfreqModelhCross,"freqModelhCross",NULL},
+    {"whiteFreqData",(getter)LALInferenceIFOData_getwhiteFreqData,(setter)LALInferenceIFOData_setwhiteFreqData,"whiteFreqData",NULL},
     //COMPLEX16TimeSeries
-    {"compTimeData",(getter)LALIFOData_getcompTimeData,(setter)LALIFOData_setcompTimeData,"compTimeData",NULL},
-    {"compModelData",(getter)LALIFOData_getcompModelData,(setter)LALIFOData_setcompModelData,"compModelData",NULL},
+    {"compTimeData",(getter)LALInferenceIFOData_getcompTimeData,(setter)LALInferenceIFOData_setcompTimeData,"compTimeData",NULL},
+    {"compModelData",(getter)LALInferenceIFOData_getcompModelData,(setter)LALInferenceIFOData_setcompModelData,"compModelData",NULL},
     //REAL8FrequencySeries
-    {"oneSidedNoisePowerSpectrum",(getter)LALIFOData_getoneSidedNoisePowerSpectrum,(setter)LALIFOData_setoneSidedNoisePowerSpectrum,"oneSidedNoisePowerSpectrum",NULL},
+    {"oneSidedNoisePowerSpectrum",(getter)LALInferenceIFOData_getoneSidedNoisePowerSpectrum,(setter)LALInferenceIFOData_setoneSidedNoisePowerSpectrum,"oneSidedNoisePowerSpectrum",NULL},
     //REAL8FFTPlan
-    {"timeToFreqFFTPlan",(getter)LALIFOData_gettimeToFreqFFTPlan,(setter)LALIFOData_settimeToFreqFFTPlan,"timeToFreqFFTPlan",NULL},
-    {"freqToTimeFFTPlan",(getter)LALIFOData_getfreqToTimeFFTPlan,(setter)LALIFOData_setfreqToTimeFFTPlan,"freqToTimeFFTPlan",NULL},
+    {"timeToFreqFFTPlan",(getter)LALInferenceIFOData_gettimeToFreqFFTPlan,(setter)LALInferenceIFOData_settimeToFreqFFTPlan,"timeToFreqFFTPlan",NULL},
+    {"freqToTimeFFTPlan",(getter)LALInferenceIFOData_getfreqToTimeFFTPlan,(setter)LALInferenceIFOData_setfreqToTimeFFTPlan,"freqToTimeFFTPlan",NULL},
     //LIGOTimeGPS
-    {"epoch",(getter)LALIFOData_getepoch,(setter)LALIFOData_setepoch,"epoch",NULL},
+    {"epoch",(getter)LALInferenceIFOData_getepoch,(setter)LALInferenceIFOData_setepoch,"epoch",NULL},
     //REAL8Window
-    {"window",(getter)LALIFOData_getwindow,(setter)LALIFOData_setwindow,"window",NULL},
-    //LALIFOData
-    {"next",(getter)LALIFOData_getnext,(setter)LALIFOData_setnext,"next",NULL},
+    {"window",(getter)LALInferenceIFOData_getwindow,(setter)LALInferenceIFOData_setwindow,"window",NULL},
+    //LALInferenceIFOData
+    {"next",(getter)LALInferenceIFOData_getnext,(setter)LALInferenceIFOData_setnext,"next",NULL},
     //BarycenterInput
-    {"bary",(getter)LALIFOData_getbary,(setter)LALIFOData_setbary,"bary",NULL},
+    {"bary",(getter)LALInferenceIFOData_getbary,(setter)LALInferenceIFOData_setbary,"bary",NULL},
     //EphemerisData
-    {"ephem",(getter)LALIFOData_getephem,(setter)LALIFOData_setephem,"ephem",NULL},
+    {"ephem",(getter)LALInferenceIFOData_getephem,(setter)LALInferenceIFOData_setephem,"ephem",NULL},
     {NULL}  /* Sentinel */
 };
 
-static struct PyMemberDef LALIFOData_members[] = {
+static struct PyMemberDef LALInferenceIFOData_members[] = {
     //REAL8's
-    {"nullloglikelihood", T_DOUBLE, offsetof(li_LALIFOData, data)+offsetof(LALIFOData,nullloglikelihood), 0, "nullloglikelihood"},
-    {"loglikelihood", T_DOUBLE, offsetof(li_LALIFOData, data)+offsetof(LALIFOData,loglikelihood), 0, "loglikelihood"},
-    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALIFOData, data)+offsetof(LALIFOData,acceptedloglikelihood), 0, "acceptedloglikelihood"},
-    {"fPlus", T_DOUBLE, offsetof(li_LALIFOData, data)+offsetof(LALIFOData,fPlus), 0, "fPlus"},
-    {"fCross", T_DOUBLE, offsetof(li_LALIFOData, data)+offsetof(LALIFOData,fCross), 0, "fCross"},
-    {"timeshift", T_DOUBLE, offsetof(li_LALIFOData, data)+offsetof(LALIFOData,timeshift), 0, "timeshift"},
-    {"fLow", T_DOUBLE, offsetof(li_LALIFOData, data)+offsetof(LALIFOData,fLow), 0, "fLow"},
-    {"fHigh", T_DOUBLE,offsetof(li_LALIFOData, data)+offsetof(LALIFOData,fHigh), 0, "fHigh"},
+    {"nullloglikelihood", T_DOUBLE, offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,nullloglikelihood), 0, "nullloglikelihood"},
+    {"loglikelihood", T_DOUBLE, offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,loglikelihood), 0, "loglikelihood"},
+    {"acceptedloglikelihood", T_DOUBLE, offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,acceptedloglikelihood), 0, "acceptedloglikelihood"},
+    {"fPlus", T_DOUBLE, offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,fPlus), 0, "fPlus"},
+    {"fCross", T_DOUBLE, offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,fCross), 0, "fCross"},
+    {"timeshift", T_DOUBLE, offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,timeshift), 0, "timeshift"},
+    {"fLow", T_DOUBLE, offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,fLow), 0, "fLow"},
+    {"fHigh", T_DOUBLE,offsetof(li_LALInferenceIFOData, data)+offsetof(LALInferenceIFOData,fHigh), 0, "fHigh"},
     
     {NULL,}
 };
 
-static PyMethodDef LALIFOData_methods[]= {
+static PyMethodDef LALInferenceIFOData_methods[]= {
     /* {"name", (PyCFunction)function, METH_NOARGS, "DESCR"}, */
     {NULL} /* Sentinel */
 };
@@ -1487,10 +1487,10 @@ static PyMethodDef LALIFOData_methods[]= {
 static PyTypeObject li_lalifodata_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
-    "lalinference.LALIFOData",    /* tp_name, name of type */
-    sizeof(li_LALIFOData),  /* tp_basicsize */
+    "lalinference.LALInferenceIFOData",    /* tp_name, name of type */
+    sizeof(li_LALInferenceIFOData),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALIFOData_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferenceIFOData_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -1506,24 +1506,24 @@ static PyTypeObject li_lalifodata_type = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
-    "LALInference LALIFOData object.", /* tp_doc */
+    "LALInference LALInferenceIFOData object.", /* tp_doc */
     0,                     /* tp_traverse */
     0,                     /* tp_clear */
     0,                     /* tp_richcompare */
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALIFOData_methods,             /* tp_methods */
-    LALIFOData_members,             /* tp_members */
-    LALIFOData_getseters,                         /* tp_getset */
+    LALInferenceIFOData_methods,             /* tp_methods */
+    LALInferenceIFOData_members,             /* tp_members */
+    LALInferenceIFOData_getseters,                         /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALIFOData__init__,      /* tp_init */
+    (initproc)LALInferenceIFOData__init__,      /* tp_init */
     0,                         /* tp_alloc */
-    LALIFOData__new__,                 /* tp_new */
+    LALInferenceIFOData__new__,                 /* tp_new */
     
 };
 
@@ -1573,14 +1573,14 @@ static PyObject* LALInferenceRunState__new__(PyTypeObject *type, PyObject *args,
     obj->proposal=NULL;
     //LALTemplateFunction*
     obj->template=NULL;
-    //struct tagLALIFOData*
+    //struct tagLALInferenceIFOData*
     obj->data=NULL;
-    //LALVariables*
+    //LALInferenceVariables*
     obj->currentParams=NULL;
     obj->priorArgs=NULL;
     obj->proposalArgs=NULL;
     obj->algorithmParams=NULL; /* Parameters which control the running of the algorithm */
-    //LALVariables**
+    //LALInferenceVariables**
     obj->livePoints=NULL; /* Array of live points for Nested Sampling */
     obj->differentialPoints=NULL;
     //gsl_rng*
@@ -1590,13 +1590,13 @@ static PyObject* LALInferenceRunState__new__(PyTypeObject *type, PyObject *args,
 
 /***********getsetters******************/
 
-int setLALAlgorithmFromData(LALAlgorithm* internal,PyObject* old,PyObject* new){
-    /* require pylal_LALAlgorithm*/
+int setLALInferenceAlgorithmFromData(LALInferenceAlgorithm* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALInferenceAlgorithm*/
     if (new == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALAlgorithm attribute");
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALInferenceAlgorithm attribute");
         return -1;
     }
-    if(!PyObject_TypeCheck(new, &li_LALAlgorithm_Type)){
+    if(!PyObject_TypeCheck(new, &li_LALInferenceAlgorithm_Type)){
         PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
@@ -1606,28 +1606,28 @@ int setLALAlgorithmFromData(LALAlgorithm* internal,PyObject* old,PyObject* new){
     Py_INCREF(new);
     old=new;
 
-    li_LALAlgorithm* newalgo=(li_LALAlgorithm*)new;
+    li_LALInferenceAlgorithm* newalgo=(li_LALInferenceAlgorithm*)new;
     internal=newalgo->func;
     return 0;
 }
 
-PyObject* getLALAlgorithmFromData(LALAlgorithm* internal,PyObject* owner){
+PyObject* getLALInferenceAlgorithmFromData(LALInferenceAlgorithm* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return li_LALAlgorithm_new(internal,owner);
+        return li_LALInferenceAlgorithm_new(internal,owner);
     }
 }
 
-int setLALEvolveOneStepFunctionFromData(LALEvolveOneStepFunction* internal,PyObject* old,PyObject* new){
-    /* require pylal_LALEvolveOneStepFunction*/
+int setLALInferenceEvolveOneStepFunctionFromData(LALInferenceEvolveOneStepFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALInferenceEvolveOneStepFunction*/
     if (new == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALEvolveOneStepFunction attribute");
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALInferenceEvolveOneStepFunction attribute");
         return -1;
     }
-    if(!PyObject_TypeCheck(new, &li_LALEvolveOneStepFunction_Type)){
+    if(!PyObject_TypeCheck(new, &li_LALInferenceEvolveOneStepFunction_Type)){
         PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
@@ -1637,28 +1637,28 @@ int setLALEvolveOneStepFunctionFromData(LALEvolveOneStepFunction* internal,PyObj
     Py_INCREF(new);
     old=new;
 
-    li_LALEvolveOneStepFunction* newosf=(li_LALEvolveOneStepFunction*)new;
+    li_LALInferenceEvolveOneStepFunction* newosf=(li_LALInferenceEvolveOneStepFunction*)new;
     internal=newosf->func;
     return 0;
 }
 
-PyObject* getLALEvolveOneStepFunctionFromData(LALEvolveOneStepFunction* internal,PyObject* owner){
+PyObject* getLALInferenceEvolveOneStepFunctionFromData(LALInferenceEvolveOneStepFunction* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return li_LALEvolveOneStepFunction_new(internal,owner);
+        return li_LALInferenceEvolveOneStepFunction_new(internal,owner);
     }
 }
 
-int setLALPriorFunctionFromData(LALPriorFunction* internal,PyObject* old,PyObject* new){
-    /* require pylal_LALPriorFunction*/
+int setLALInferencePriorFunctionFromData(LALInferencePriorFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALInferencePriorFunction*/
     if (new == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALPriorFunction attribute");
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALInferencePriorFunction attribute");
         return -1;
     }
-    if(!PyObject_TypeCheck(new, &li_LALPriorFunction_Type)){
+    if(!PyObject_TypeCheck(new, &li_LALInferencePriorFunction_Type)){
         PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
@@ -1668,28 +1668,28 @@ int setLALPriorFunctionFromData(LALPriorFunction* internal,PyObject* old,PyObjec
     Py_INCREF(new);
     old=new;
 
-    li_LALPriorFunction* newosf=(li_LALPriorFunction*)new;
+    li_LALInferencePriorFunction* newosf=(li_LALInferencePriorFunction*)new;
     internal=newosf->func;
     return 0;
 }
 
-PyObject* getLALPriorFunctionFromData(LALPriorFunction* internal,PyObject* owner){
+PyObject* getLALInferencePriorFunctionFromData(LALInferencePriorFunction* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return li_LALPriorFunction_new(internal,owner);
+        return li_LALInferencePriorFunction_new(internal,owner);
     }
 }
 
-int setLALLikelihoodFunctionFromData(LALLikelihoodFunction* internal,PyObject* old,PyObject* new){
-    /* require pylal_LALLikelihoodFunction*/
+int setLALInferenceLikelihoodFunctionFromData(LALInferenceLikelihoodFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALInferenceLikelihoodFunction*/
     if (new == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALLikelihoodFunction attribute");
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALInferenceLikelihoodFunction attribute");
         return -1;
     }
-    if(!PyObject_TypeCheck(new, &li_LALLikelihoodFunction_Type)){
+    if(!PyObject_TypeCheck(new, &li_LALInferenceLikelihoodFunction_Type)){
         PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
@@ -1699,28 +1699,28 @@ int setLALLikelihoodFunctionFromData(LALLikelihoodFunction* internal,PyObject* o
     Py_INCREF(new);
     old=new;
 
-    li_LALLikelihoodFunction* newosf=(li_LALLikelihoodFunction*)new;
+    li_LALInferenceLikelihoodFunction* newosf=(li_LALInferenceLikelihoodFunction*)new;
     internal=newosf->func;
     return 0;
 }
 
-PyObject* getLALLikelihoodFunctionFromData(LALLikelihoodFunction* internal,PyObject* owner){
+PyObject* getLALInferenceLikelihoodFunctionFromData(LALInferenceLikelihoodFunction* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return li_LALLikelihoodFunction_new(internal,owner);
+        return li_LALInferenceLikelihoodFunction_new(internal,owner);
     }
 }
 
-int setLALProposalFunctionFromData(LALProposalFunction* internal,PyObject* old,PyObject* new){
-    /* require pylal_LALProposalFunction*/
+int setLALInferenceProposalFunctionFromData(LALInferenceProposalFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALInferenceProposalFunction*/
     if (new == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALProposalFunction attribute");
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALInferenceProposalFunction attribute");
         return -1;
     }
-    if(!PyObject_TypeCheck(new, &li_LALProposalFunction_Type)){
+    if(!PyObject_TypeCheck(new, &li_LALInferenceProposalFunction_Type)){
         PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
@@ -1730,28 +1730,28 @@ int setLALProposalFunctionFromData(LALProposalFunction* internal,PyObject* old,P
     Py_INCREF(new);
     old=new;
 
-    li_LALProposalFunction* newosf=(li_LALProposalFunction*)new;
+    li_LALInferenceProposalFunction* newosf=(li_LALInferenceProposalFunction*)new;
     internal=newosf->func;
     return 0;
 }
 
-PyObject* getLALProposalFunctionFromData(LALProposalFunction* internal,PyObject* owner){
+PyObject* getLALInferenceProposalFunctionFromData(LALInferenceProposalFunction* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return li_LALProposalFunction_new(internal,owner);
+        return li_LALInferenceProposalFunction_new(internal,owner);
     }
 }
 
-int setLALTemplateFunctionFromData(LALTemplateFunction* internal,PyObject* old,PyObject* new){
-    /* require pylal_LALTemplateFunction*/
+int setLALInferenceTemplateFunctionFromData(LALInferenceTemplateFunction* internal,PyObject* old,PyObject* new){
+    /* require pylal_LALInferenceTemplateFunction*/
     if (new == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALTemplateFunction attribute");
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALInferenceTemplateFunction attribute");
         return -1;
     }
-    if(!PyObject_TypeCheck(new, &li_LALTemplateFunction_Type)){
+    if(!PyObject_TypeCheck(new, &li_LALInferenceTemplateFunction_Type)){
         PyErr_SetObject(PyExc_TypeError, new);
         return -1;
     }
@@ -1761,25 +1761,25 @@ int setLALTemplateFunctionFromData(LALTemplateFunction* internal,PyObject* old,P
     Py_INCREF(new);
     old=new;
 
-    li_LALTemplateFunction* newosf=(li_LALTemplateFunction*)new;
+    li_LALInferenceTemplateFunction* newosf=(li_LALInferenceTemplateFunction*)new;
     internal=newosf->func;
     return 0;
 }
 
-PyObject* getLALTemplateFunctionFromData(LALTemplateFunction* internal,PyObject* owner){
+PyObject* getLALInferenceTemplateFunctionFromData(LALInferenceTemplateFunction* internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
     }else{
         
-        return li_LALTemplateFunction_new(internal,owner);
+        return li_LALInferenceTemplateFunction_new(internal,owner);
     }
 }
 
-int setLALVariablesListFromData(LALVariables** internal,PyObject* old,PyObject* new){
-    /* require list of li_LALVariables*/
+int setLALInferenceVariablesListFromData(LALInferenceVariables** internal,PyObject* old,PyObject* new){
+    /* require list of li_LALInferenceVariables*/
     if (new == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALTemplateFunction attribute");
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the LALInferenceTemplateFunction attribute");
         return -1;
     }
     if(!PyList_CheckExact(new)){
@@ -1789,11 +1789,11 @@ int setLALVariablesListFromData(LALVariables** internal,PyObject* old,PyObject* 
     Py_ssize_t i;
     Py_ssize_t lst_n=PyList_Size(new);
 
-    LALVariables** LVlist=(LALVariables**)malloc((int)lst_n*sizeof(LALVariables*));
+    LALInferenceVariables** LVlist=(LALInferenceVariables**)malloc((int)lst_n*sizeof(LALInferenceVariables*));
     
     for(i=0;i<lst_n;i++){
         PyObject* item=PyList_GetItem(new,i);
-        if(!PyObject_TypeCheck(new, &li_LALVariables_Type)){
+        if(!PyObject_TypeCheck(new, &li_LALInferenceVariables_Type)){
             PyErr_SetObject(PyExc_TypeError,item);
             Py_ssize_t j;
             for(j=0;j<i;j++){
@@ -1805,7 +1805,7 @@ int setLALVariablesListFromData(LALVariables** internal,PyObject* old,PyObject* 
             
         }else{
             
-            *(LVlist+(int)i)=((li_LALVariables*)item)->vars;
+            *(LVlist+(int)i)=((li_LALInferenceVariables*)item)->vars;
         }
     }
     if(old) {
@@ -1820,7 +1820,7 @@ int setLALVariablesListFromData(LALVariables** internal,PyObject* old,PyObject* 
     return 0;
 }
 
-PyObject* getLALVariablesListFromData(LALVariables** internal,PyObject* owner){
+PyObject* getLALInferenceVariablesListFromData(LALInferenceVariables** internal,PyObject* owner){
     if(!owner){
         Py_INCREF(Py_None);
         return Py_None;
@@ -1831,44 +1831,44 @@ PyObject* getLALVariablesListFromData(LALVariables** internal,PyObject* owner){
 }
 
 /*algorithm*/
-static PyObject* LALInferenceRunState_getalgorithm(li_LALInferenceRunState *self, void *closure) {return getLALAlgorithmFromData(self->state->algorithm,self->algorithm);};
-static int LALInferenceRunState_setalgorithm(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALAlgorithmFromData(self->state->algorithm,(PyObject*)self->algorithm,value);}
+static PyObject* LALInferenceRunState_getalgorithm(li_LALInferenceRunState *self, void *closure) {return getLALInferenceAlgorithmFromData(self->state->algorithm,self->algorithm);};
+static int LALInferenceRunState_setalgorithm(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceAlgorithmFromData(self->state->algorithm,(PyObject*)self->algorithm,value);}
 /*evolve*/
-static PyObject* LALInferenceRunState_getevolve(li_LALInferenceRunState *self, void *closure) {return getLALEvolveOneStepFunctionFromData(self->state->evolve,self->evolve);};
-static int LALInferenceRunState_setevolve(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALEvolveOneStepFunctionFromData(self->state->evolve,(PyObject*)self->evolve,value);}
+static PyObject* LALInferenceRunState_getevolve(li_LALInferenceRunState *self, void *closure) {return getLALInferenceEvolveOneStepFunctionFromData(self->state->evolve,self->evolve);};
+static int LALInferenceRunState_setevolve(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceEvolveOneStepFunctionFromData(self->state->evolve,(PyObject*)self->evolve,value);}
 /*prior*/
-static PyObject* LALInferenceRunState_getprior(li_LALInferenceRunState *self, void *closure) {return getLALPriorFunctionFromData(self->state->prior,self->prior);};
-static int LALInferenceRunState_setprior(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALPriorFunctionFromData(self->state->prior,(PyObject*)self->prior,value);}
+static PyObject* LALInferenceRunState_getprior(li_LALInferenceRunState *self, void *closure) {return getLALInferencePriorFunctionFromData(self->state->prior,self->prior);};
+static int LALInferenceRunState_setprior(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferencePriorFunctionFromData(self->state->prior,(PyObject*)self->prior,value);}
 /*likelihood*/
-static PyObject* LALInferenceRunState_getlikelihood(li_LALInferenceRunState *self, void *closure) {return getLALLikelihoodFunctionFromData(self->state->likelihood,self->likelihood);};
-static int LALInferenceRunState_setlikelihood(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALLikelihoodFunctionFromData(self->state->likelihood,(PyObject*)self->likelihood,value);}
+static PyObject* LALInferenceRunState_getlikelihood(li_LALInferenceRunState *self, void *closure) {return getLALInferenceLikelihoodFunctionFromData(self->state->likelihood,self->likelihood);};
+static int LALInferenceRunState_setlikelihood(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceLikelihoodFunctionFromData(self->state->likelihood,(PyObject*)self->likelihood,value);}
 /*proposal*/
-static PyObject* LALInferenceRunState_getproposal(li_LALInferenceRunState *self, void *closure) {return getLALProposalFunctionFromData(self->state->proposal,self->proposal);};
-static int LALInferenceRunState_setproposal(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALProposalFunctionFromData(self->state->proposal,(PyObject*)self->proposal,value);}
+static PyObject* LALInferenceRunState_getproposal(li_LALInferenceRunState *self, void *closure) {return getLALInferenceProposalFunctionFromData(self->state->proposal,self->proposal);};
+static int LALInferenceRunState_setproposal(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceProposalFunctionFromData(self->state->proposal,(PyObject*)self->proposal,value);}
 /*template*/
-static PyObject* LALInferenceRunState_gettemplate(li_LALInferenceRunState *self, void *closure) {return getLALTemplateFunctionFromData(self->state->template,self->template);};
-static int LALInferenceRunState_settemplate(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALTemplateFunctionFromData(self->state->template,(PyObject*)self->template,value);}
+static PyObject* LALInferenceRunState_gettemplate(li_LALInferenceRunState *self, void *closure) {return getLALInferenceTemplateFunctionFromData(self->state->template,self->template);};
+static int LALInferenceRunState_settemplate(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceTemplateFunctionFromData(self->state->template,(PyObject*)self->template,value);}
 /*currentParams*/
-static PyObject* LALInferenceRunState_getcurrentParams(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->currentParams,self->currentParams);};
-static int LALInferenceRunState_setcurrentParams(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->currentParams,(PyObject*)self->currentParams,value);}
+static PyObject* LALInferenceRunState_getcurrentParams(li_LALInferenceRunState *self, void *closure) {return getLALInferenceVariablesFromData(self->state->currentParams,self->currentParams);};
+static int LALInferenceRunState_setcurrentParams(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceVariablesFromData(self->state->currentParams,(PyObject*)self->currentParams,value);}
 /*priorArgs*/
-static PyObject* LALInferenceRunState_getpriorArgs(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->priorArgs,self->priorArgs);};
-static int LALInferenceRunState_setpriorArgs(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->priorArgs,(PyObject*)self->priorArgs,value);}
+static PyObject* LALInferenceRunState_getpriorArgs(li_LALInferenceRunState *self, void *closure) {return getLALInferenceVariablesFromData(self->state->priorArgs,self->priorArgs);};
+static int LALInferenceRunState_setpriorArgs(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceVariablesFromData(self->state->priorArgs,(PyObject*)self->priorArgs,value);}
 /*proposalArgs*/
-static PyObject* LALInferenceRunState_getproposalArgs(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->proposalArgs,self->proposalArgs);};
-static int LALInferenceRunState_setproposalArgs(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->proposalArgs,(PyObject*)self->proposalArgs,value);}
+static PyObject* LALInferenceRunState_getproposalArgs(li_LALInferenceRunState *self, void *closure) {return getLALInferenceVariablesFromData(self->state->proposalArgs,self->proposalArgs);};
+static int LALInferenceRunState_setproposalArgs(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceVariablesFromData(self->state->proposalArgs,(PyObject*)self->proposalArgs,value);}
 /*algorithmParams*/
-static PyObject* LALInferenceRunState_getalgorithmParams(li_LALInferenceRunState *self, void *closure) {return getLALVariablesFromData(self->state->algorithmParams,self->algorithmParams);};
-static int LALInferenceRunState_setalgorithmParams(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesFromData(self->state->algorithmParams,(PyObject*)self->algorithmParams,value);}
+static PyObject* LALInferenceRunState_getalgorithmParams(li_LALInferenceRunState *self, void *closure) {return getLALInferenceVariablesFromData(self->state->algorithmParams,self->algorithmParams);};
+static int LALInferenceRunState_setalgorithmParams(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceVariablesFromData(self->state->algorithmParams,(PyObject*)self->algorithmParams,value);}
 /*data*/
-static PyObject* LALInferenceRunState_getdata(li_LALInferenceRunState *self, void *closure) {return getLALIFODataFromData(self->state->data,self->data);};
-static int LALInferenceRunState_setdata(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALIFODataFromData(self->state->data,(PyObject*)self->data,value);}
+static PyObject* LALInferenceRunState_getdata(li_LALInferenceRunState *self, void *closure) {return getLALInferenceIFODataFromData(self->state->data,self->data);};
+static int LALInferenceRunState_setdata(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceIFODataFromData(self->state->data,(PyObject*)self->data,value);}
 /*livePoints*/
-static PyObject* LALInferenceRunState_getlivePoints(li_LALInferenceRunState *self, void *closure) {return getLALVariablesListFromData(self->state->livePoints,self->livePoints);};
-static int LALInferenceRunState_setlivePoints(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesListFromData(self->state->livePoints,(PyObject*)self->livePoints,value);}
+static PyObject* LALInferenceRunState_getlivePoints(li_LALInferenceRunState *self, void *closure) {return getLALInferenceVariablesListFromData(self->state->livePoints,self->livePoints);};
+static int LALInferenceRunState_setlivePoints(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceVariablesListFromData(self->state->livePoints,(PyObject*)self->livePoints,value);}
 /*differentialPoints*/
-static PyObject* LALInferenceRunState_getdifferentialPoints(li_LALInferenceRunState *self, void *closure) {return getLALVariablesListFromData(self->state->differentialPoints,self->differentialPoints);};
-static int LALInferenceRunState_setdifferentialPoints(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALVariablesListFromData(self->state->differentialPoints,(PyObject*)self->differentialPoints,value);}
+static PyObject* LALInferenceRunState_getdifferentialPoints(li_LALInferenceRunState *self, void *closure) {return getLALInferenceVariablesListFromData(self->state->differentialPoints,self->differentialPoints);};
+static int LALInferenceRunState_setdifferentialPoints(li_LALInferenceRunState *self, PyObject *value, void *closure){return setLALInferenceVariablesListFromData(self->state->differentialPoints,(PyObject*)self->differentialPoints,value);}
 /**getsetters registration struct**/
 
 static PyGetSetDef LALInferenceRunState_getseters[] = {
@@ -1883,10 +1883,10 @@ static PyGetSetDef LALInferenceRunState_getseters[] = {
     {"priorArgs",(getter)LALInferenceRunState_getpriorArgs,(setter)LALInferenceRunState_setpriorArgs,"priorArgs",NULL},
     {"proposalArgs",(getter)LALInferenceRunState_getproposalArgs,(setter)LALInferenceRunState_setproposalArgs,"proposalArgs",NULL},
     {"algorithmParams",(getter)LALInferenceRunState_getalgorithmParams,(setter)LALInferenceRunState_setalgorithmParams,"algorithmParams",NULL},
-    //LALVariables**
+    //LALInferenceVariables**
     {"livePoints",(getter)LALInferenceRunState_getlivePoints,(setter)LALInferenceRunState_setlivePoints,"livePoints",NULL},
     {"differentialPoints",(getter)LALInferenceRunState_getdifferentialPoints,(setter)LALInferenceRunState_setdifferentialPoints,"differentialPoints",NULL},
-    //LALIFOData*
+    //LALInferenceIFOData*
     {"data",(getter)LALInferenceRunState_getdata,(setter)LALInferenceRunState_setdata,"data",NULL},
     {NULL}  /* Sentinel */
 };
@@ -1948,7 +1948,7 @@ static PyTypeObject li_lalinferencerunstate_type = {
 /*
  * ============================================================================
  *
- *                            LALVariables
+ *                            LALInferenceVariables
  *
  * ============================================================================
  */
@@ -1956,16 +1956,16 @@ static PyTypeObject li_lalinferencerunstate_type = {
 /*Methods*/
 
 
-/* Destructor for LALVariables */
-static void LALVariables_dealloc(li_LALVariables *self)
+/* Destructor for LALInferenceVariables */
+static void LALInferenceVariables_dealloc(li_LALInferenceVariables *self)
 {
-    destroyVariables(self->vars);
+    LALInferenceDestroyVariables(self->vars);
     self->ob_type->tp_free((PyObject *)self);
 }
 
-VariableType LALVariables_infer_litype_from_pyvalue(PyObject* pyvalue){
+LALInferenceVariableType LALInferenceVariables_infer_litype_from_pyvalue(PyObject* pyvalue){
 
-    VariableType type;
+    LALInferenceVariableType type;
     
     if(PyInt_Check(pyvalue)){
         type=INT8_t;
@@ -1981,9 +1981,9 @@ VariableType LALVariables_infer_litype_from_pyvalue(PyObject* pyvalue){
     return type;
 }
 
-VariableType LALVariables_convert_string_to_litype(char* typestring){
+LALInferenceVariableType LALInferenceVariables_convert_string_to_litype(char* typestring){
 
-    VariableType type;
+    LALInferenceVariableType type;
     if(!strcmp(typestring,"INT4")){
         type=INT4_t;
     }
@@ -2000,13 +2000,13 @@ VariableType LALVariables_convert_string_to_litype(char* typestring){
         type=REAL8_t;
     }
     else{
-        PyErr_SetString(PyExc_TypeError,"LALInference type not found!!");
+        PyErr_SetString(PyExc_TypeError,"LALInferenceInference type not found!!");
         return -1;
     }
     return type;
 }
 
-void* LALVariables_convert_pyobj_to_livar_value(PyObject* pyvalue,VariableType type){
+void* LALInferenceVariables_convert_pyobj_to_livar_value(PyObject* pyvalue,LALInferenceVariableType type){
     void* value=(void *)malloc(typeSize[type]);
     
     if(type==INT4_t){
@@ -2044,10 +2044,10 @@ void* LALVariables_convert_pyobj_to_livar_value(PyObject* pyvalue,VariableType t
     return value;
 }
 
-static PyObject* LALVariables_add_variable(li_LALVariables *self,PyObject* args,PyObject* kwds){
+static PyObject* LALInferenceVariables_add_variable(li_LALInferenceVariables *self,PyObject* args,PyObject* kwds){
     PyObject *pyname=NULL,*pyvalue=NULL,*pyvarytype=NULL,*pytype=NULL;
 
-    char *name;char* temp;void* value;VariableType type;ParamVaryType varytype;
+    char *name;char* temp;void* value;LALInferenceVariableType type;LALInferenceParamVaryType varytype;
     char *typestring=NULL;
 
     static char *kwlist[]={"name","value","varytype","type"};
@@ -2068,12 +2068,12 @@ static PyObject* LALVariables_add_variable(li_LALVariables *self,PyObject* args,
     //If type given convert string to type...
     if(pytype) {
         typestring=PyString_AsString(pytype);
-        type=LALVariables_convert_string_to_litype(typestring);
+        type=LALInferenceVariables_convert_string_to_litype(typestring);
     }
     //...else infer type from python object type (this is more limited).
-    else type=LALVariables_infer_litype_from_pyvalue(pyvalue);
+    else type=LALInferenceVariables_infer_litype_from_pyvalue(pyvalue);
     
-    value=LALVariables_convert_pyobj_to_livar_value(pyvalue,type);
+    value=LALInferenceVariables_convert_pyobj_to_livar_value(pyvalue,type);
     
     /*Determine variable wrapping type from string*/
     if(PyString_Check(pyvarytype)){
@@ -2104,14 +2104,14 @@ static PyObject* LALVariables_add_variable(li_LALVariables *self,PyObject* args,
         return NULL;
     }
 
-    /* If we survived then call addVariable with self->vars ...*/
+    /* If we survived then call LALInferenceAddVariable with self->vars ...*/
     
-    addVariable((self->vars),name,value,type,varytype);
+    LALInferenceAddVariable((self->vars),name,value,type,varytype);
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-static PyObject* LALVariables_check_variable(li_LALVariables *self,PyObject* args)
+static PyObject* LALInferenceVariables_check_variable(li_LALInferenceVariables *self,PyObject* args)
 /* Check for existence of name */
 {
     PyObject* pyname;
@@ -2121,7 +2121,7 @@ static PyObject* LALVariables_check_variable(li_LALVariables *self,PyObject* arg
 
     name=PyString_AsString(pyname);
 
-    if(getItem(self->vars,name)){
+    if(LALInferenceGetItem(self->vars,name)){
         Py_RETURN_TRUE;
     }
     else{
@@ -2130,13 +2130,13 @@ static PyObject* LALVariables_check_variable(li_LALVariables *self,PyObject* arg
 }
 
 
-PyObject* LALVariables_convert_livar_value_to_pyobj(li_LALVariables *pyvars,char* name){
-    VariableType type;
+PyObject* LALInferenceVariables_convert_livar_value_to_pyobj(li_LALInferenceVariables *pyvars,char* name){
+    LALInferenceVariableType type;
     
     PyObject* returnObj=NULL;
     
-    type=getVariableType(pyvars->vars,name);
-    void* uncastval=getVariable(pyvars->vars,name);
+    type=LALInferenceGetVariableType(pyvars->vars,name);
+    void* uncastval=LALInferenceGetVariable(pyvars->vars,name);
     if(type==INT4_t){
         
         long int cast_val=(long int)(*(INT4*)uncastval);
@@ -2165,60 +2165,60 @@ PyObject* LALVariables_convert_livar_value_to_pyobj(li_LALVariables *pyvars,char
     return returnObj;
 }
 
-static int LALVariables_remove_variable(li_LALVariables *self,PyObject* args){
+static int LALInferenceVariables_remove_variable(li_LALInferenceVariables *self,PyObject* args){
     PyObject* pyname;
     char* name;
     
     if (! PyArg_ParseTuple(args,"O",&pyname)) return -1;
 
     name=PyString_AsString(pyname);
-    removeVariable(self->vars,name);
+    LALInferenceRemoveVariable(self->vars,name);
     
     return 0;
 }
 
-static PyObject* LALVariables_get_variable(li_LALVariables *self,PyObject* args){
+static PyObject* LALInferenceVariables_get_variable(li_LALInferenceVariables *self,PyObject* args){
     PyObject* pyname=NULL,*returnObj=NULL;
     char* name;
     
     if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
     name=PyString_AsString(pyname);
-    returnObj=LALVariables_convert_livar_value_to_pyobj(self,name);
+    returnObj=LALInferenceVariables_convert_livar_value_to_pyobj(self,name);
     return returnObj;
 }
 
-static PyObject* LALVariables_get_variable_name(li_LALVariables *self,PyObject* args){
+static PyObject* LALInferenceVariables_get_variable_name(li_LALInferenceVariables *self,PyObject* args){
     char* name;
     long var_idx;
     
     if (! PyArg_ParseTuple(args,"i",&var_idx)) return NULL;
     
-    name=getVariableName(self->vars,(int)var_idx);
+    name=LALInferenceGetVariableName(self->vars,(int)var_idx);
     
     return PyString_FromString(name);
     
 }
 
-static int LALVariables_set_variable(li_LALVariables *self,PyObject* args){
+static int LALInferenceVariables_set_variable(li_LALInferenceVariables *self,PyObject* args){
     PyObject* pyname;char* name;
     PyObject* pynew_var_value;void* new_var_value;
-    VariableType type;
+    LALInferenceVariableType type;
 
     if (! PyArg_ParseTuple(args,"OO",&pyname,&pynew_var_value)) return -1;
 
     name=PyString_AsString(pyname);
 
-    type=getVariableType(self->vars,name);
+    type=LALInferenceGetVariableType(self->vars,name);
 
-    new_var_value=LALVariables_convert_pyobj_to_livar_value(pynew_var_value,type);
+    new_var_value=LALInferenceVariables_convert_pyobj_to_livar_value(pynew_var_value,type);
 
-    setVariable(self->vars,name,new_var_value);
+    LALInferenceSetVariable(self->vars,name,new_var_value);
     
     return 0;
     
 }
 
-char* LALVariables_get_type_string(VariableType type){
+char* LALInferenceVariables_get_type_string(LALInferenceVariableType type){
     char* type_name=NULL;
     
     if(type==INT4_t){
@@ -2240,17 +2240,17 @@ char* LALVariables_get_type_string(VariableType type){
     return type_name;
 }
 
-static PyObject* LALVariables_get_variable_type(li_LALVariables *self,PyObject* args){
-    VariableType type;
+static PyObject* LALInferenceVariables_get_variable_type(li_LALInferenceVariables *self,PyObject* args){
+    LALInferenceVariableType type;
     char* name;
     PyObject* pyname;
     char* type_name=NULL;
     if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
     
     name=PyString_AsString(pyname);
-    type=getVariableType(self->vars,name);
+    type=LALInferenceGetVariableType(self->vars,name);
     
-    type_name=LALVariables_get_type_string(type);
+    type_name=LALInferenceVariables_get_type_string(type);
     
     if(type_name==NULL){
         Py_INCREF(Py_None);
@@ -2261,20 +2261,20 @@ static PyObject* LALVariables_get_variable_type(li_LALVariables *self,PyObject* 
     
 }
     
-static PyObject* LALVariables_get_variable_type_by_index(li_LALVariables *self,PyObject* args){
-    VariableType type;
+static PyObject* LALInferenceVariables_get_variable_type_by_index(li_LALInferenceVariables *self,PyObject* args){
+    LALInferenceVariableType type;
     long var_idx;
     char* type_name=NULL;
     if (! PyArg_ParseTuple(args,"i",&var_idx)) return NULL;
     
-    type=getVariableTypeByIndex(self->vars,(int)var_idx);
-    type_name=LALVariables_get_type_string(type);
+    type=LALInferenceGetVariableTypeByIndex(self->vars,(int)var_idx);
+    type_name=LALInferenceVariables_get_type_string(type);
     
     return PyString_FromString(type_name);
     
 }
 
-char* LALVariables_get_varytype_string(ParamVaryType varytype){
+char* LALInferenceVariables_get_varytype_string(LALInferenceParamVaryType varytype){
     
     char* varytype_name=NULL;
     if(varytype==PARAM_LINEAR){
@@ -2294,16 +2294,16 @@ char* LALVariables_get_varytype_string(ParamVaryType varytype){
     
 }
 
-static PyObject* LALVariables_get_variable_vary_type(li_LALVariables *self,PyObject* args){
-    ParamVaryType varytype;
+static PyObject* LALInferenceVariables_get_variable_vary_type(li_LALInferenceVariables *self,PyObject* args){
+    LALInferenceParamVaryType varytype;
     char* name;
     PyObject* pyname;
     char* varytype_name=NULL;
     if (! PyArg_ParseTuple(args,"O",&pyname)) return NULL;
     
     name=PyString_AsString(pyname);
-    varytype=getVariableVaryType(self->vars,name);
-    varytype_name=LALVariables_get_varytype_string(varytype);
+    varytype=LALInferenceGetVariableVaryType(self->vars,name);
+    varytype_name=LALInferenceVariables_get_varytype_string(varytype);
     
     if(varytype_name==NULL){
         Py_INCREF(Py_None);
@@ -2314,11 +2314,11 @@ static PyObject* LALVariables_get_variable_vary_type(li_LALVariables *self,PyObj
     
 }
 
-static PyObject* LALVariables_get_variable_dimension(li_LALVariables *self){
+static PyObject* LALInferenceVariables_get_variable_dimension(li_LALInferenceVariables *self){
     long dimension;
     PyObject* pydimension=NULL;
     
-    dimension=(long int)getVariableDimension(self->vars);
+    dimension=(long int)LALInferenceGetVariableDimension(self->vars);
 
     pydimension=PyInt_FromLong(dimension);
 
@@ -2326,11 +2326,11 @@ static PyObject* LALVariables_get_variable_dimension(li_LALVariables *self){
     
 }
 
-static PyObject* LALVariables_get_variable_dimension_non_fixed(li_LALVariables *self){
+static PyObject* LALInferenceVariables_get_variable_dimension_non_fixed(li_LALInferenceVariables *self){
     long dimension;
     PyObject* pydimension=NULL;
     
-    dimension=(long int)getVariableDimensionNonFixed(self->vars);
+    dimension=(long int)LALInferenceGetVariableDimensionNonFixed(self->vars);
 
     pydimension=PyInt_FromLong(dimension);
 
@@ -2338,30 +2338,30 @@ static PyObject* LALVariables_get_variable_dimension_non_fixed(li_LALVariables *
     
 }
 
-static int LALVariables_init(li_LALVariables *self, PyObject *args, PyObject *kwds)
+static int LALInferenceVariables_init(li_LALInferenceVariables *self, PyObject *args, PyObject *kwds)
 {
     /* Should fill in the array using a dictionary as input */
     
-    self->vars=(LALVariables*)malloc(sizeof(LALVariables));
-    memset((void*)self->vars,0,sizeof(LALVariables));
+    self->vars=(LALInferenceVariables*)malloc(sizeof(LALInferenceVariables));
+    memset((void*)self->vars,0,sizeof(LALInferenceVariables));
     return 0;
 }
 
 
 
-static PyMethodDef LALVariables_methods[]= {
+static PyMethodDef LALInferenceVariables_methods[]= {
     /* {"name", (PyCFunction)function, METH_NOARGS, "DESCR"}, */
-    {"addVariable",(PyCFunction)LALVariables_add_variable,METH_VARARGS,""},
-    {"getVariable",(PyCFunction)LALVariables_get_variable,METH_VARARGS,""},
-    {"checkVariable",(PyCFunction)LALVariables_check_variable,METH_VARARGS,""},
-    {"removeVariable",(PyCFunction)LALVariables_remove_variable,METH_VARARGS,""},
-    {"getVariableName",(PyCFunction)LALVariables_get_variable_name,METH_VARARGS,""},
-    {"getVariableType",(PyCFunction)LALVariables_get_variable_type,METH_VARARGS,""},
-    {"getVariableTypeByIndex",(PyCFunction)LALVariables_get_variable_type_by_index,METH_VARARGS,""},
-    {"getVariableVaryType",(PyCFunction)LALVariables_get_variable_vary_type,METH_VARARGS,""},
-    {"setVariable",(PyCFunction)LALVariables_set_variable,METH_VARARGS,""},
-    {"getVariableDimension",(PyCFunction)LALVariables_get_variable_dimension,METH_NOARGS,""},
-    {"getVariableDimensionNonFixed",(PyCFunction)LALVariables_get_variable_dimension_non_fixed,METH_NOARGS,""},
+    {"LALInferenceAddVariable",(PyCFunction)LALInferenceVariables_add_variable,METH_VARARGS,""},
+    {"LALInferenceGetVariable",(PyCFunction)LALInferenceVariables_get_variable,METH_VARARGS,""},
+    {"LALInferenceCheckVariable",(PyCFunction)LALInferenceVariables_check_variable,METH_VARARGS,""},
+    {"LALInferenceRemoveVariable",(PyCFunction)LALInferenceVariables_remove_variable,METH_VARARGS,""},
+    {"LALInferenceGetVariableName",(PyCFunction)LALInferenceVariables_get_variable_name,METH_VARARGS,""},
+    {"LALInferenceGetVariableType",(PyCFunction)LALInferenceVariables_get_variable_type,METH_VARARGS,""},
+    {"LALInferenceGetVariableTypeByIndex",(PyCFunction)LALInferenceVariables_get_variable_type_by_index,METH_VARARGS,""},
+    {"LALInferenceGetVariableVaryType",(PyCFunction)LALInferenceVariables_get_variable_vary_type,METH_VARARGS,""},
+    {"LALInferenceSetVariable",(PyCFunction)LALInferenceVariables_set_variable,METH_VARARGS,""},
+    {"LALInferenceGetVariableDimension",(PyCFunction)LALInferenceVariables_get_variable_dimension,METH_NOARGS,""},
+    {"LALInferenceGetVariableDimensionNonFixed",(PyCFunction)LALInferenceVariables_get_variable_dimension_non_fixed,METH_NOARGS,""},
     
     {NULL} /* Sentinel */
 };
@@ -2369,10 +2369,10 @@ static PyMethodDef LALVariables_methods[]= {
 static PyTypeObject li_lalvariables_type = {
     PyObject_HEAD_INIT(NULL)
     0,              /* obj_size - unused (must be 0) */
-    "lalinference.BaseLALVariables",    /* tp_name, name of type */
-    sizeof(li_LALVariables),  /* tp_basicsize */
+    "lalinference.BaseLALInferenceVariables",    /* tp_name, name of type */
+    sizeof(li_LALInferenceVariables),  /* tp_basicsize */
     0,              /* tp_itemsize, need to check */
-    (destructor)LALVariables_dealloc,  /*tp_dealloc*/
+    (destructor)LALInferenceVariables_dealloc,  /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -2388,14 +2388,14 @@ static PyTypeObject li_lalvariables_type = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
-    "LALInference BaseLALVariables objects", /* tp_doc */
+    "LALInference BaseLALInferenceVariables objects", /* tp_doc */
     0,                     /* tp_traverse */
     0,                     /* tp_clear */
     0,                     /* tp_richcompare */
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    LALVariables_methods,             /* tp_methods */
+    LALInferenceVariables_methods,             /* tp_methods */
     0,             /* tp_members */
     0,                         /* tp_getset */
     0,                         /* tp_base */
@@ -2403,7 +2403,7 @@ static PyTypeObject li_lalvariables_type = {
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)LALVariables_init,      /* tp_init */
+    (initproc)LALInferenceVariables_init,      /* tp_init */
     0,                         /* tp_alloc */
     PyType_GenericNew,                 /* tp_new */
 };
@@ -2417,7 +2417,7 @@ static PyTypeObject li_lalvariables_type = {
 
 /*Methods*/
 
- /* Destructor for LALIFOData */
+ /* Destructor for LALInferenceIFOData */
 static void PosVelAcc_dealloc(li_PosVelAcc *self)
 {
     self->ob_type->tp_free((PyObject *)self);
@@ -2588,44 +2588,44 @@ init_lalinference(void)
     if (PyType_Ready(&li_BarycenterInput_Type) < 0)
         return;
 
-    _li_LALVariables_Type = &li_lalvariables_type;
-    if (PyType_Ready(&li_LALVariables_Type) < 0)
+    _li_LALInferenceVariables_Type = &li_lalvariables_type;
+    if (PyType_Ready(&li_LALInferenceVariables_Type) < 0)
         return;  
 
     _li_PosVelAcc_Type = &li_posvelacc_type;
     if (PyType_Ready(&li_PosVelAcc_Type) < 0)
         return;
     
-    _li_LALIFOData_Type = &li_lalifodata_type;
-    if (PyType_Ready(&li_LALIFOData_Type) < 0)
+    _li_LALInferenceIFOData_Type = &li_lalifodata_type;
+    if (PyType_Ready(&li_LALInferenceIFOData_Type) < 0)
         return;
         
     _li_LALInferenceRunState_Type = &li_lalinferencerunstate_type;
     if (PyType_Ready(&li_LALInferenceRunState_Type) < 0)
         return;
 
-    _li_LALAlgorithm_Type = &li_lalalgorithm_type;
-    if (PyType_Ready(&li_LALAlgorithm_Type) < 0)
+    _li_LALInferenceAlgorithm_Type = &li_lalalgorithm_type;
+    if (PyType_Ready(&li_LALInferenceAlgorithm_Type) < 0)
         return;
 
-    _li_LALPriorFunction_Type = &li_lalpriorfunction_type;
-    if (PyType_Ready(&li_LALPriorFunction_Type) < 0)
+    _li_LALInferencePriorFunction_Type = &li_lalpriorfunction_type;
+    if (PyType_Ready(&li_LALInferencePriorFunction_Type) < 0)
         return;
 
-    _li_LALProposalFunction_Type = &li_lalproposalfunction_type;
-    if (PyType_Ready(&li_LALProposalFunction_Type) < 0)
+    _li_LALInferenceProposalFunction_Type = &li_lalproposalfunction_type;
+    if (PyType_Ready(&li_LALInferenceProposalFunction_Type) < 0)
         return;
 
-    _li_LALTemplateFunction_Type = &li_laltemplatefunction_type;
-    if (PyType_Ready(&li_LALTemplateFunction_Type) < 0)
+    _li_LALInferenceTemplateFunction_Type = &li_laltemplatefunction_type;
+    if (PyType_Ready(&li_LALInferenceTemplateFunction_Type) < 0)
         return;
 
-    _li_LALLikelihoodFunction_Type = &li_lallikelihoodfunction_type;
-    if (PyType_Ready(&li_LALLikelihoodFunction_Type) < 0)
+    _li_LALInferenceLikelihoodFunction_Type = &li_lallikelihoodfunction_type;
+    if (PyType_Ready(&li_LALInferenceLikelihoodFunction_Type) < 0)
         return;
 
-    _li_LALEvolveOneStepFunction_Type = &li_lalevolveonestepfunction_type;
-    if (PyType_Ready(&li_LALEvolveOneStepFunction_Type) < 0)
+    _li_LALInferenceEvolveOneStepFunction_Type = &li_lalevolveonestepfunction_type;
+    if (PyType_Ready(&li_LALInferenceEvolveOneStepFunction_Type) < 0)
         return;
 
     m = Py_InitModule3(MODULE_NAME,module_methods,LIDocString);
@@ -2637,33 +2637,33 @@ init_lalinference(void)
     Py_INCREF(&li_BarycenterInput_Type);
     PyModule_AddObject(m, "BarycenterInput", (PyObject *)&li_BarycenterInput_Type);
     
-    Py_INCREF(&li_LALVariables_Type);
-    PyModule_AddObject(m, "BaseLALVariables", (PyObject *)&li_LALVariables_Type);
+    Py_INCREF(&li_LALInferenceVariables_Type);
+    PyModule_AddObject(m, "BaseLALInferenceVariables", (PyObject *)&li_LALInferenceVariables_Type);
 
     Py_INCREF(&li_PosVelAcc_Type);
     PyModule_AddObject(m, "PosVelAcc", (PyObject *)&li_PosVelAcc_Type);
 
-    Py_INCREF(&li_LALIFOData_Type);
-    PyModule_AddObject(m, "BaseLALIFOData", (PyObject *)&li_LALIFOData_Type);
+    Py_INCREF(&li_LALInferenceIFOData_Type);
+    PyModule_AddObject(m, "BaseLALInferenceIFOData", (PyObject *)&li_LALInferenceIFOData_Type);
 
-    Py_INCREF(&li_LALIFOData_Type);
+    Py_INCREF(&li_LALInferenceIFOData_Type);
     PyModule_AddObject(m, "LALInferenceRunState", (PyObject *)&li_LALInferenceRunState_Type);
 
-    Py_INCREF(&li_LALAlgorithm_Type);
-    PyModule_AddObject(m, "LALAlgorithm", (PyObject *)&li_LALAlgorithm_Type);
+    Py_INCREF(&li_LALInferenceAlgorithm_Type);
+    PyModule_AddObject(m, "LALInferenceAlgorithm", (PyObject *)&li_LALInferenceAlgorithm_Type);
 
-    Py_INCREF(&li_LALPriorFunction_Type);
-    PyModule_AddObject(m, "LALPriorFunction", (PyObject *)&li_LALPriorFunction_Type);
+    Py_INCREF(&li_LALInferencePriorFunction_Type);
+    PyModule_AddObject(m, "LALInferencePriorFunction", (PyObject *)&li_LALInferencePriorFunction_Type);
 
-    Py_INCREF(&li_LALProposalFunction_Type);
-    PyModule_AddObject(m, "LALProposalFunction", (PyObject *)&li_LALProposalFunction_Type);
+    Py_INCREF(&li_LALInferenceProposalFunction_Type);
+    PyModule_AddObject(m, "LALInferenceProposalFunction", (PyObject *)&li_LALInferenceProposalFunction_Type);
 
-    Py_INCREF(&li_LALTemplateFunction_Type);
-    PyModule_AddObject(m, "LALTemplateFunction", (PyObject *)&li_LALTemplateFunction_Type);
+    Py_INCREF(&li_LALInferenceTemplateFunction_Type);
+    PyModule_AddObject(m, "LALInferenceTemplateFunction", (PyObject *)&li_LALInferenceTemplateFunction_Type);
 
-    Py_INCREF(&li_LALLikelihoodFunction_Type);
-    PyModule_AddObject(m, "LALLikelihoodFunction", (PyObject *)&li_LALLikelihoodFunction_Type);
+    Py_INCREF(&li_LALInferenceLikelihoodFunction_Type);
+    PyModule_AddObject(m, "LALInferenceLikelihoodFunction", (PyObject *)&li_LALInferenceLikelihoodFunction_Type);
 
-    Py_INCREF(&li_LALEvolveOneStepFunction_Type);
-    PyModule_AddObject(m, "LALEvolveOneStepFunction", (PyObject *)&li_LALEvolveOneStepFunction_Type);
+    Py_INCREF(&li_LALInferenceEvolveOneStepFunction_Type);
+    PyModule_AddObject(m, "LALInferenceEvolveOneStepFunction", (PyObject *)&li_LALInferenceEvolveOneStepFunction_Type);
 }

@@ -1,13 +1,13 @@
 //LALIFOData.h
 
-static PyTypeObject *_li_LALIFOData_Type = NULL;
-#define li_LALIFOData_Type (*_li_LALIFOData_Type)
+static PyTypeObject *_li_LALInferenceIFOData_Type = NULL;
+#define li_LALInferenceIFOData_Type (*_li_LALInferenceIFOData_Type)
 
 typedef struct {
     PyObject_HEAD
     PyObject* owner;
     /* Type-specific fields go here */
-    LALIFOData *    data;
+    LALInferenceIFOData *    data;
     PyObject* name;
     //LALVariables
     PyObject* modelParams;
@@ -45,11 +45,11 @@ typedef struct {
     PyObject* ephem;
     
      
-} li_LALIFOData;
+} li_LALInferenceIFOData;
 
-static PyObject* li_LALIFOData_new(LALIFOData *data, PyObject *owner){
+static PyObject* li_LALInferenceIFOData_new(LALInferenceIFOData *data, PyObject *owner){
     PyObject *empty_tuple = PyTuple_New(0);
-    li_LALIFOData *obj = (li_LALIFOData *) PyType_GenericNew(&li_LALIFOData_Type,empty_tuple,NULL);
+    li_LALInferenceIFOData *obj = (li_LALInferenceIFOData *) PyType_GenericNew(&li_LALInferenceIFOData_Type,empty_tuple,NULL);
     Py_DECREF(empty_tuple);
     
     if(!obj) {

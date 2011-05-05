@@ -1,18 +1,18 @@
 //LALProposalFunction.h
 
-static PyTypeObject *_li_LALProposalFunction_Type = NULL;
-#define li_LALProposalFunction_Type (*_li_LALProposalFunction_Type)
+static PyTypeObject *_li_LALInferenceProposalFunction_Type = NULL;
+#define li_LALInferenceProposalFunction_Type (*_li_LALInferenceProposalFunction_Type)
 
 typedef struct {
     PyObject_HEAD
     PyObject* owner;
     /* Type-specific fields go here */
-    LALProposalFunction* func;
-} li_LALProposalFunction;
+    LALInferenceProposalFunction* func;
+} li_LALInferenceProposalFunction;
 
-static PyObject* li_LALProposalFunction_new(LALProposalFunction* func, PyObject *owner){
+static PyObject* li_LALInferenceProposalFunction_new(LALInferenceProposalFunction* func, PyObject *owner){
     PyObject *empty_tuple = PyTuple_New(0);
-    li_LALProposalFunction *obj = (li_LALProposalFunction *) PyType_GenericNew(&li_LALProposalFunction_Type,empty_tuple,NULL);
+    li_LALInferenceProposalFunction *obj = (li_LALInferenceProposalFunction *) PyType_GenericNew(&li_LALInferenceProposalFunction_Type,empty_tuple,NULL);
     Py_DECREF(empty_tuple);
     
     if(!obj) {

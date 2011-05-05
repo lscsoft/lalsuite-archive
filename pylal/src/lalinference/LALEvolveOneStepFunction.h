@@ -1,18 +1,18 @@
 //LALEvolveOneStepFunction.h
 
-static PyTypeObject *_li_LALEvolveOneStepFunction_Type = NULL;
-#define li_LALEvolveOneStepFunction_Type (*_li_LALEvolveOneStepFunction_Type)
+static PyTypeObject *_li_LALInferenceEvolveOneStepFunction_Type = NULL;
+#define li_LALInferenceEvolveOneStepFunction_Type (*_li_LALInferenceEvolveOneStepFunction_Type)
 
 typedef struct {
     PyObject_HEAD
     PyObject* owner;
     /* Type-specific fields go here */
-    LALEvolveOneStepFunction* func;
-} li_LALEvolveOneStepFunction;
+    LALInferenceEvolveOneStepFunction* func;
+} li_LALInferenceEvolveOneStepFunction;
 
-static PyObject* li_LALEvolveOneStepFunction_new(LALEvolveOneStepFunction* func, PyObject *owner){
+static PyObject* li_LALInferenceEvolveOneStepFunction_new(LALInferenceEvolveOneStepFunction* func, PyObject *owner){
     PyObject *empty_tuple = PyTuple_New(0);
-    li_LALEvolveOneStepFunction *obj = (li_LALEvolveOneStepFunction *) PyType_GenericNew(&li_LALEvolveOneStepFunction_Type,empty_tuple,NULL);
+    li_LALInferenceEvolveOneStepFunction *obj = (li_LALInferenceEvolveOneStepFunction *) PyType_GenericNew(&li_LALInferenceEvolveOneStepFunction_Type,empty_tuple,NULL);
     Py_DECREF(empty_tuple);
     
     if(!obj) {
