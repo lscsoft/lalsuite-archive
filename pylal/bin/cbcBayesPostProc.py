@@ -237,7 +237,7 @@ def cbcBayesPostProc(
         else: dec_name='declination'
         ifo_times={}
         my_ifos=['H1','L1','V1']
-        for ifo in my_ifos:
+        '''for ifo in my_ifos:
             inj_time=None
             if injection:
                 inj_time=float(injection.get_end(ifo[0]))
@@ -255,7 +255,7 @@ def cbcBayesPostProc(
                     inj_delay=None
                 time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
-
+        '''
     if 'iota' in pos.names and 'cosiota' not in pos.names:
         inj_cosiota=None
         if injection:
@@ -1105,9 +1105,10 @@ if __name__=='__main__':
    
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':5.0,'dist':5.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'dphi0':0.002,'dphi1':0.002,'dphi2':0.002,'dphi3':0.002,'dphi4':0.002,'dphi5':0.002,'dphi5l':0.002,'dphi6':0.002,'dphi6l':0.002,'dphi7':0.002,'m':0.025}
-    for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':5.0,'dist':5.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'dphi0':0.002,'dphi1':0.002,'dphi2':0.002,'dphi3':0.002,'dphi4':0.002,'dphi5':0.002,'dphi5l':0.002,'dphi6':0.002,'dphi6l':0.002,'dphi7':0.002,'loglambdaG':0.002,'m':0.025}
+    '''for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
+    '''
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
