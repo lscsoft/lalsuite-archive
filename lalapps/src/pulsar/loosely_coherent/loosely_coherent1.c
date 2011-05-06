@@ -1060,6 +1060,116 @@ for(i=0;i<nsamples;i++) {
 
 }
 
+void demodulate(LOOSE_CONTEXT *ctx)
+{
+int i, j, k, n;
+int nsamples=ctx->nsamples;
+double te, f, phase_spindown, phase_barycenter, phase_heterodyne, phase_bin, total_phase, x, y, c, s, x2, y2, dt;
+float e[GRID_E_COUNT];
+double ra, dec, f0, spindown, dInv;
+double f_cross, f_plus;
+int bin;
+LIGOTimeGPS tGPS;
+EmissionTime emission_time;
+EmissionTime emission_time2;
+
+ra=ctx->ra;
+dec=ctx->dec;
+f0=ctx->frequency;
+spindown=ctx->spindown;
+dInv=ctx->dInv;
+
+ctx->weight_pp=0.0;
+ctx->weight_pc=0.0;
+ctx->weight_cc=0.0;
+
+for(i=0;i<nsamples;i++) {
+	ctx->plus_samples->data[i].re=0.0;
+	ctx->plus_samples->data[i].im=0.0;
+	ctx->cross_samples->data[i].re=0.0;
+	ctx->cross_samples->data[i].im=0.0;
+	}
+
+precompute_am_constants(e, ctx->ra, ctx->dec);
+
+for(n=0;n<d_free;n++) {
+	for(j=0;j<datasets[n].free;j++) {
+		
+	//	tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
+		tGPS.gpsSeconds=datasets[n].gps[j]; /* SFTs count phase from 0 */
+		tGPS.gpsNanoSeconds=0;
+		fast_get_emission_time(&emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
+
+
+		i=round(2.0*(datasets[n].gps[j]-ctx->first_gps)/args_info.coherence_length_arg);
+/*		i=round(2.0*((emission_time.te.gpsSeconds-first_gps)+1e-9*emission_time.te.gpsNanoSeconds)/args_info.coherence_length_arg);*/
+		if(i<0)continue;
+		if(i>=nsamples)continue;
+		
+		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
+		
+		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+2.0*ctx->fstep/(ctx->n_fsteps*nsamples*datasets[0].coherence_time);
+		bin=round(datasets[0].coherence_time*f-first_bin);
+				
+		te=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
+				
+		phase_spindown=0.5*te*te*spindown;
+		
+		phase_barycenter=(f0+2.0*ctx->fstep/(ctx->n_fsteps*nsamples*datasets[0].coherence_time))*te;
+		
+		phase_heterodyne=(f0-(first_bin+bin+0.0)/datasets[0].coherence_time)*(datasets[n].gps[j]-spindown_start);
+
+		phase_bin=0.5*(f0*datasets[0].coherence_time-(first_bin+bin));
+		
+		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter)));
+
+		f_plus=F_plus_coeff(j, e, datasets[n].AM_coeffs_plus);
+		f_cross=F_plus_coeff(j, e, datasets[n].AM_coeffs_cross);
+		
+		x=datasets[n].re[j*datasets[n].nbins+bin];
+		y=datasets[n].im[j*datasets[n].nbins+bin];
+
+
+		c=cos(total_phase);
+		s=sin(total_phase);
+		
+// 		samples->data[i].re=x*c+y*s;
+// 		samples->data[i].im=-x*s+y*c;
+
+		x2=x*c+y*s;
+		y2=-x*s+y*c;
+
+		/* circular */
+// 		samples->data[i].re=x2*(f_plus+f_cross)-y2*(f_plus-f_cross);
+// 		samples->data[i].im=x2*(f_plus+f_cross)+y2*(f_plus-f_cross);
+
+		/* plus */
+		/* Hann window */
+		//c=0.5*(1.0-cos(2*M_PI*i/nsamples));
+		
+		ctx->plus_samples->data[i].re=x2*f_plus;
+		ctx->plus_samples->data[i].im=y2*f_plus;
+
+		ctx->cross_samples->data[i].re=x2*f_plus;
+		ctx->cross_samples->data[i].im=y2*f_plus;
+
+		ctx->weight_pp+=f_plus*f_plus;
+		ctx->weight_pc+=f_plus*f_cross;
+		ctx->weight_cc+=f_cross*f_cross;
+
+		if(args_info.dump_stream_data_arg) {
+			get_emission_time(&emission_time2, &(datasets[n].earth_state[j]), args_info.focus_ra_arg, args_info.focus_dec_arg, dInv, datasets[n].detector, tGPS);
+			fprintf(DATA_LOG, "stream: %d %d %d %d %lld %d %d %d %d %.12g %.12g %.12g %.12g %.12f %.12f %.12f %.12f %d %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f\n",
+				i, n, j, ctx->fstep, datasets[n].gps[j], 
+				emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
+				emission_time2.te.gpsSeconds, emission_time2.te.gpsNanoSeconds,
+				x, y, ctx->plus_samples->data[i].re, ctx->plus_samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase,datasets[n].earth_state[j].posNow[0], datasets[n].earth_state[j].posNow[1], datasets[n].earth_state[j].posNow[2], ra, dec, args_info.focus_ra_arg, args_info.focus_dec_arg);
+			}
+		
+		}
+	}
+}
+
 int main(int argc, char *argv[]) 
 {
 time_t start_time, input_done_time, end_time;
@@ -1422,39 +1532,30 @@ fflush(DATA_LOG);
 
 /* For testing - pick a bin and do phase correction */
 {
-double *re;
-double *im;
 double *power, *cross, *power_aux;
 int *index;
-COMPLEX16Vector *te_offsets;
-double first_gps=min_gps();
 int nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
 double f0=args_info.focus_f0_arg;
 //double ra=args_info.focus_ra_arg;
 //double dec=args_info.focus_dec_arg;
-double dInv=args_info.focus_dInv_arg;
 int point;
 int half_window=0;
 int wing_step=round(nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
 int day_samples=round(2.0*SIDEREAL_DAY/args_info.coherence_length_arg);
-int fstep, nfsteps=4;
+int fstep, nfsteps;
 LOOSE_CONTEXT *ctx;
 
 /* round of nsamples to contain integer number of sideral days */
 
 ctx=create_context();
 
+nfsteps=ctx->n_fsteps;
+
 nsamples=day_samples*floor(nsamples/day_samples);
 
 nsamples=ctx->nsamples;
 
 fprintf(stderr, "nsamples=%d day_samples=%d wing_step=%d half_window=%d\n", nsamples, day_samples, wing_step, half_window);
-
-te_offsets=XLALCreateCOMPLEX16Vector(nsamples);
-if(!te_offsets) {
-	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
-	exit(-1);
-	}
 
 power=do_alloc(nsamples, sizeof(*power));
 cross=do_alloc(nsamples, sizeof(*cross));
@@ -1468,135 +1569,22 @@ double dec=main_grid->latitude[point];
 
 if(point % 10==0)fprintf(stderr, "point=%d out of %d\n", point, main_grid->npoints);
 
+ctx->frequency=f0;
+ctx->spindown=args_info.spindown_start_arg;
+ctx->ra=ra;
+ctx->dec=dec;
+ctx->fstep=fstep;
+
+demodulate(ctx);
+
 {
-double x,y, x2, y2;
-double c,s;
-double dt, te;
-double phase_spindown;
-double phase_barycenter;
-double phase_heterodyne;
-double phase_bin;
-double total_phase;
-double f;
-float f_plus, f_cross;
-float e[GRID_E_COUNT];
-int bin;
-int i,j,k,n;
-EmissionTime emission_time;
-EmissionTime emission_time2;
-LIGOTimeGPS tGPS;
-
-//fprintf(stderr,"f0=%g bin=%d\n", f0, bin);
-	
-spindown=args_info.spindown_start_arg;
-
-ctx->weight_pp=0.0;
-ctx->weight_pc=0.0;
-ctx->weight_cc=0.0;
-
-for(i=0;i<nsamples;i++) {
-	ctx->plus_samples->data[i].re=0.0;
-	ctx->plus_samples->data[i].im=0.0;
-	ctx->cross_samples->data[i].re=0.0;
-	ctx->cross_samples->data[i].im=0.0;
-	}
-
-for(i=0;i<nsamples;i++) {
-	te_offsets->data[i].re=0.0;
-	te_offsets->data[i].im=0.0;
-	}
-
-precompute_am_constants(e, ra, dec);
-
-for(n=0;n<d_free;n++) {
-	for(j=0;j<datasets[n].free;j++) {
-		
-	//	tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
-		tGPS.gpsSeconds=datasets[n].gps[j]; /* SFTs count phase from 0 */
-		tGPS.gpsNanoSeconds=0;
-		fast_get_emission_time(&emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
-
-
-		i=round(2.0*(datasets[n].gps[j]-first_gps)/args_info.coherence_length_arg);
-/*		i=round(2.0*((emission_time.te.gpsSeconds-first_gps)+1e-9*emission_time.te.gpsNanoSeconds)/args_info.coherence_length_arg);*/
-		if(i<0)continue;
-		if(i>=nsamples)continue;
-		
-		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
-		
-		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+2.0*fstep/(nfsteps*nsamples*datasets[0].coherence_time);
-		bin=round(datasets[0].coherence_time*f-first_bin);
-				
-		te=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
-/*		te_offsets->data[i].re=te;*/
-				
-		phase_spindown=0.5*te*te*spindown;
-		
-		phase_barycenter=(f0+2.0*fstep/(nfsteps*nsamples*datasets[0].coherence_time))*te;
-		
-		phase_heterodyne=(f0-(first_bin+bin+0.0)/datasets[0].coherence_time)*(datasets[n].gps[j]-spindown_start);
-
-		phase_bin=0.5*(f0*datasets[0].coherence_time-(first_bin+bin));
-		
-		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter)));
-
-		f_plus=F_plus_coeff(j, e, datasets[n].AM_coeffs_plus);
-		f_cross=F_plus_coeff(j, e, datasets[n].AM_coeffs_cross);
-		
-		x=datasets[n].re[j*datasets[n].nbins+bin];
-		y=datasets[n].im[j*datasets[n].nbins+bin];
-
-
-		c=cos(total_phase);
-		s=sin(total_phase);
-		
-// 		samples->data[i].re=x*c+y*s;
-// 		samples->data[i].im=-x*s+y*c;
-
-		x2=x*c+y*s;
-		y2=-x*s+y*c;
-
-		/* circular */
-// 		samples->data[i].re=x2*(f_plus+f_cross)-y2*(f_plus-f_cross);
-// 		samples->data[i].im=x2*(f_plus+f_cross)+y2*(f_plus-f_cross);
-
-		/* plus */
-		/* Hann window */
-		//c=0.5*(1.0-cos(2*M_PI*i/nsamples));
-		
-		ctx->plus_samples->data[i].re=x2*f_plus;
-		ctx->plus_samples->data[i].im=y2*f_plus;
-
-		ctx->cross_samples->data[i].re=x2*f_plus;
-		ctx->cross_samples->data[i].im=y2*f_plus;
-
-		ctx->weight_pp+=f_plus*f_plus;
-		ctx->weight_pc+=f_plus*f_cross;
-		ctx->weight_cc+=f_cross*f_cross;
-
-		if(args_info.dump_stream_data_arg) {
-			get_emission_time(&emission_time2, &(datasets[n].earth_state[j]), args_info.focus_ra_arg, args_info.focus_dec_arg, dInv, datasets[n].detector, tGPS);
-			fprintf(DATA_LOG, "stream: %d %d %d %d %lld %d %d %d %d %.12g %.12g %.12g %.12g %.12f %.12f %.12f %.12f %d %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f %.12f\n",
-				i, n, j, fstep, datasets[n].gps[j], 
-				emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
-				emission_time2.te.gpsSeconds, emission_time2.te.gpsNanoSeconds,
-				x, y, ctx->plus_samples->data[i].re, ctx->plus_samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase,datasets[n].earth_state[j].posNow[0], datasets[n].earth_state[j].posNow[1], datasets[n].earth_state[j].posNow[2], ra, dec, args_info.focus_ra_arg, args_info.focus_dec_arg);
-			}
-		
-		}
-	}
-}
-{
-double norm, a, b, a2, b2, c, x, y, x1, y1;
-double sum;
-int i,j,k,m, i_filter, i_left, i_right;
+double norm;
 POWER_STATS ps;
 double sb_ra[2], sb_dec[2];
 
 //fprintf(stderr, "Running FFT\n");
 XLALCOMPLEX16VectorFFT(ctx->plus_fft, ctx->plus_samples, ctx->fft_plan);
 XLALCOMPLEX16VectorFFT(ctx->cross_fft, ctx->cross_samples, ctx->fft_plan);
-// XLALCOMPLEX16VectorFFT(te_fft, te_offsets, fft_plan);
 
 compute_te_offset_structure(ctx->te_sc, datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
 compute_spindown_offset_structure(ctx->spindown_sc, datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);

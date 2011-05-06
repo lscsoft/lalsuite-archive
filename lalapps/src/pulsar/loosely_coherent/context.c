@@ -52,6 +52,7 @@ int day_samples=round(2.0*SIDEREAL_DAY/args_info.coherence_length_arg);
 ctx=do_alloc(1, sizeof(*ctx));
 
 ctx->timebase=max_gps()-min_gps();
+ctx->first_gps=min_gps();
 	
 ctx->nsamples=1+ceil(2.0*ctx->timebase/args_info.coherence_length_arg);
 wing_step=round(ctx->nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
@@ -78,6 +79,14 @@ ctx->dec_sc=new_sparse_conv();
 /* Parameters */
 
 ctx->n_freq_adj_filter=7;
+ctx->n_fsteps=4;
+
+ctx->ra=0;
+ctx->dec=0;
+ctx->frequency=0;
+ctx->spindown=0;
+ctx->dInv=args_info.focus_dInv_arg;
+ctx->fstep=0;
 
 return(ctx);
 }

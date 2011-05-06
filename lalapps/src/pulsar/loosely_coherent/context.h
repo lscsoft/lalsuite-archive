@@ -21,6 +21,15 @@ typedef struct {
 typedef struct {
 	int nsamples; /* total number of samples in adjusted fft */
 	double timebase;
+	double first_gps;
+	
+	/* signal parameters */
+	double frequency;
+	double spindown;
+	double ra;
+	double dec;
+	double dInv;
+	int fstep;
 	
 	COMPLEX16FFTPlan *fft_plan;
 
@@ -44,6 +53,9 @@ typedef struct {
 	
 	/* frequency adjustment */
 	int n_freq_adj_filter;
+	
+	/* Number of sub-bin frequency steps */
+	int n_fsteps;
 	
 	COMPLEX16Vector *plus_te_fft;
 	COMPLEX16Vector *cross_te_fft;	
