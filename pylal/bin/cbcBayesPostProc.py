@@ -77,6 +77,8 @@ def cbcBayesPostProc(
                         dievidence=False,boxing=64,difactor=1.0,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
+                        #manual input for SNR in the IFOs, optional.
+                        snrfactor=None,
                         #nested sampling options
                         ns_flag=False,ns_xflag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
@@ -157,7 +159,18 @@ def cbcBayesPostProc(
         BCI=bfile.read()
         bfile.close()
         print 'BCI: %s'%BCI
-
+    if snrfactor is not None:
+        snrstring=""
+        snrfile=open(snrfactor,'r')
+        snrs=snrfile.readlines()
+        snrfile.close()
+        for snr in snrs:
+            if snr=="\n":
+                continue
+            snrstring=snrstring +" "+str(snr[0:-1])+" ,"
+        snrstring=snrstring[0:-1]
+        print 'SNR: %s'%snrstring
+        
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
@@ -491,7 +504,9 @@ def cbcBayesPostProc(
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
-
+    if snrfactor is not None:
+        html_snr=html.add_section('Signal to noise ratios')
+        html_snr.p('%s'%snrstring)
     if dievidence:
         html_model=html.add_section('Direct Integration Evidence')
         ev=difactor*pos.di_evidence(boxing=boxing)
@@ -1002,6 +1017,7 @@ if __name__=='__main__':
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
+    parser.add_option("--snr",action="store",default=None,help="Optional file containing the SNRs of the signal in each IFO",type="string")
     parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
     parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
     parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
@@ -1030,21 +1046,21 @@ if __name__=='__main__':
     #List of parameters to plot/bin . Need to match (converted) column names.
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','massratio','m']
     distParams=['distance','distMPC','dist']
-    incParams=['iota','inclination','cosiota']
+    incParams=['iota','inclination']  ## ,cosiota 
     polParams=['psi']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    test_params=['dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7']
+    test_params=['dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7','loglambdaG']
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + test_params  #+endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
-    for ifo1 in ifos_menu:
-        for ifo2 in ifos_menu:
-            if ifo1==ifo2: continue
-            oneDMenu.append(ifo1+ifo2+'_delay')
+    #for ifo1 in ifos_menu:
+    #    for ifo2 in ifos_menu:
+    #        if ifo1==ifo2: continue
+    #        oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
     for mp1 in massParams:
@@ -1106,6 +1122,8 @@ if __name__=='__main__':
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
+                        #manual input for SNR in the IFOs, optional.
+                        snrfactor=opts.snr,
                         #nested sampling options
                         ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options

@@ -203,6 +203,7 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         """
         Set the event number in the injection XML.
         """
+        
         if event is not None:
             self.__event=int(event)
             self.add_var_arg('--eventnum '+str(event))

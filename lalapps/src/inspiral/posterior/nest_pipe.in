@@ -381,6 +381,8 @@ nest_path=os.path.join(opts.run_path,'nest')
 checkDir(nest_path)
 
 combine_dir=os.path.join(opts.run_path,'combine')
+snr_dir=os.path.join(opts.run_path,'SNR')
+checkDir(snr_dir)
 time_combine_sub_file=os.path.join(opts.run_path,'combine_each_time.sub')
 combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.log_path)
 combine_each_time_nodes={}
@@ -392,15 +394,20 @@ nest_files={}
 nparallel=int(cp.get('analysis','nparallel'))
 posfiles_by_time={}
 bayesfiles_by_time={}
+snrs_by_time={}
 for time in times:
     posfile=os.path.join(combine_dir,'posterior_samples_%.3f'%(time))
     posfiles_by_time[time]=posfile
     combine_node=OddsPipeline.CombineZNode(combine_each_time_job)
     combine_node.add_file_opt('outpos',posfile,file_is_output_file=True)
     bayesfiles_by_time[time]=os.path.join(combine_dir,'bayesfactor_%.3f.txt'%(time))
+    snrs_by_time[time]=os.path.join(snr_dir,'snr_%9.1f.dat'%(time))
     combine_node.add_file_opt('bayesfactor',bayesfiles_by_time[time])
     combine_each_time_nodes[time]=combine_node
 # Set up inspnest jobs, using parallel if needed
+
+
+
 if nparallel==1:
     for time in times:
         if time_event is not None and not opts.disable_inject:
@@ -628,6 +635,8 @@ if opts.enable_pages_alltimes is True:
                 results_page_node.add_var_arg('--inj '+os.path.abspath(opts.inj))
         results_page_node.add_parent(combine_each_time_nodes[time])
         results_page_node.add_var_opt('bsn',bayesfiles_by_time[time])
+        results_page_node.add_var_arg('--snr '+snrs_by_time[time])
+
 	dag.add_node(results_page_node)
 
         if opts.coherence_test and (time in coherence_inspnest_nodes.keys()):
