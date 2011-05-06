@@ -8,7 +8,19 @@
 #include <lal/ComplexFFT.h>
 
 typedef struct {
+	int free;
+	int size;
+	
+	int *bin;
+	COMPLEX16 *data;
+	COMPLEX16 first9[9];
+	
+	double slope;
+	} SPARSE_CONV;
+
+typedef struct {
 	int nsamples; /* total number of samples in adjusted fft */
+	double timebase;
 	
 	COMPLEX16FFTPlan *fft_plan;
 
@@ -16,11 +28,26 @@ typedef struct {
 	COMPLEX16Vector *plus_samples;
 	COMPLEX16Vector *cross_samples;
 
+	double weight_pp;
+	double weight_pc;
+	double weight_cc;
+
 	COMPLEX16Vector *plus_fft;
 	COMPLEX16Vector *cross_fft;	
 
+	/* Bessel coeffs */
+	
+	SPARSE_CONV *te_sc;
+	SPARSE_CONV *spindown_sc;
+	SPARSE_CONV *ra_sc;
+	SPARSE_CONV *dec_sc;
+	
+	/* frequency adjustment */
+	int n_freq_adj_filter;
+	
 	COMPLEX16Vector *plus_te_fft;
 	COMPLEX16Vector *cross_te_fft;	
+	
 	} LOOSE_CONTEXT;
 
 LOOSE_CONTEXT * create_context(void);

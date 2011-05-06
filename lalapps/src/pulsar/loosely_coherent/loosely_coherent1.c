@@ -249,27 +249,8 @@ if(fabs(err)>1e-6) fprintf(stderr, "err=%g err2=%g dx=%g dt=%g range=%g gps=%g g
 }
 
 
-typedef struct {
-	int free;
-	int size;
-	
-	int *bin;
-	COMPLEX16 *data;
-	COMPLEX16 first9[9];
-	
-	double slope;
-	} SPARSE_CONV;
 
-void free_sparse_conv(SPARSE_CONV *sc)
-{
-free(sc->bin);
-free(sc->data);
-sc->bin=NULL;
-sc->data=NULL;
-free(sc);
-}
-
-SPARSE_CONV * compute_te_offset_structure(char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
+void compute_te_offset_structure(SPARSE_CONV *sc, char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
 {
 COMPLEX16Vector *te_offsets;
 COMPLEX16Vector *fft;
@@ -281,8 +262,6 @@ double slope;
 double a, max;
 int i;
 
-SPARSE_CONV *sc;
-	
 te_offsets=XLALCreateCOMPLEX16Vector(count);
 if(!te_offsets) {
 	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
@@ -334,13 +313,8 @@ slope=slope/step;
 XLALCOMPLEX16VectorFFT(fft, te_offsets, fft_plan);
 //dump_doubles("te_offsets_fft.dat", (double *)fft->data, 2*count, 1);
 
-sc=do_alloc(1, sizeof(*sc));
-sc->free=0;
-sc->size=20;
-sc->bin=do_alloc(sc->size, sizeof(*sc->bin));
-sc->data=do_alloc(sc->size, sizeof(*sc->data));
-
 sc->slope=slope;
+sc->free=0;
 
 /* ignore constant term */
 max=fft->data[1].re*fft->data[1].re+fft->data[1].im*fft->data[1].im;
@@ -353,7 +327,7 @@ for(i=1;i<count;i++) {
 	a=fft->data[i].re*fft->data[i].re+fft->data[i].im*fft->data[i].im;
 	if(a>(max*0.01)) {
 		if(sc->free>=sc->size) {
-			fprintf(stderr, "*** Aeiii ! Operator is too large\n");
+			fprintf(stderr, "*** Aeiii ! %s Operator is too large %d vs %d (i=%d)\n", __FUNCTION__, sc->free, sc->size, i);
 			exit(-1);
 			}
 		sc->bin[sc->free]=2*i<count ? i : i-count;
@@ -381,10 +355,9 @@ XLALDestroyCOMPLEX16FFTPlan(fft_plan);
 XLALDestroyCOMPLEX16Vector(te_offsets);
 XLALDestroyCOMPLEX16Vector(fft);
 
-return sc;
 }
 
-SPARSE_CONV * compute_spindown_offset_structure(char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
+void compute_spindown_offset_structure(SPARSE_CONV *sc, char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
 {
 COMPLEX16Vector *te_offsets;
 COMPLEX16Vector *fft;
@@ -396,8 +369,6 @@ double slope;
 double a, max;
 int i;
 
-SPARSE_CONV *sc;
-	
 te_offsets=XLALCreateCOMPLEX16Vector(count);
 if(!te_offsets) {
 	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
@@ -452,13 +423,8 @@ slope=slope/step;
 XLALCOMPLEX16VectorFFT(fft, te_offsets, fft_plan);
 //dump_doubles("te_offsets_fft.dat", (double *)fft->data, 2*count, 1);
 
-sc=do_alloc(1, sizeof(*sc));
-sc->free=0;
-sc->size=20;
-sc->bin=do_alloc(sc->size, sizeof(*sc->bin));
-sc->data=do_alloc(sc->size, sizeof(*sc->data));
-
 sc->slope=slope;
+sc->free=0;
 
 /* ignore constant term */
 max=fft->data[1].re*fft->data[1].re+fft->data[1].im*fft->data[1].im;
@@ -471,7 +437,7 @@ for(i=1;i<count;i++) {
 	a=fft->data[i].re*fft->data[i].re+fft->data[i].im*fft->data[i].im;
 	if(a>(max*0.01)) {
 		if(sc->free>=sc->size) {
-			fprintf(stderr, "*** Aeiii ! Operator is too large\n");
+			fprintf(stderr, "*** Aeiii ! %s Operator is too large %d vs %d (i=%d)\n", __FUNCTION__, sc->free, sc->size, i);
 			exit(-1);
 			}
 		sc->bin[sc->free]=2*i<count ? i : i-count;
@@ -498,8 +464,6 @@ for(i=0;i<9;i++) {
 XLALDestroyCOMPLEX16FFTPlan(fft_plan);
 XLALDestroyCOMPLEX16Vector(te_offsets);
 XLALDestroyCOMPLEX16Vector(fft);
-
-return sc;
 }
 
 void compute_sky_basis(double ra, double dec, double step, double *ra_out, double *dec_out)
@@ -537,7 +501,7 @@ dec_out[0]=asin(vp1[2]);
 dec_out[1]=asin(vp2[2]);
 }
 
-SPARSE_CONV * compute_sky_offset_structure(char *detector, double ra, double dec, double ra2, double dec2, double dInv, double gps_start, double step, int count)
+void compute_sky_offset_structure(SPARSE_CONV *sc, char *detector, double ra, double dec, double ra2, double dec2, double dInv, double gps_start, double step, int count)
 {
 COMPLEX16Vector *te_offsets;
 COMPLEX16Vector *fft;
@@ -549,8 +513,6 @@ double slope;
 double a, max;
 int i;
 
-SPARSE_CONV *sc;
-	
 te_offsets=XLALCreateCOMPLEX16Vector(count);
 if(!te_offsets) {
 	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
@@ -619,13 +581,8 @@ slope=slope/step;
 XLALCOMPLEX16VectorFFT(fft, te_offsets, fft_plan);
 //dump_doubles("te_offsets_fft.dat", (double *)fft->data, 2*count, 1);
 
-sc=do_alloc(1, sizeof(*sc));
-sc->free=0;
-sc->size=20;
-sc->bin=do_alloc(sc->size, sizeof(*sc->bin));
-sc->data=do_alloc(sc->size, sizeof(*sc->data));
-
 sc->slope=slope;
+sc->free=0;
 
 /* ignore constant term */
 max=fft->data[1].re*fft->data[1].re+fft->data[1].im*fft->data[1].im;
@@ -638,7 +595,7 @@ for(i=1;i<count;i++) {
 	a=fft->data[i].re*fft->data[i].re+fft->data[i].im*fft->data[i].im;
 	if(a>(max*0.001)) {
 		if(sc->free>=sc->size) {
-			fprintf(stderr, "*** Aeiii ! Operator is too large\n");
+			fprintf(stderr, "*** Aeiii ! %s Operator is too large %d vs %d (i=%d)\n", __FUNCTION__, sc->free, sc->size, i);
 			exit(-1);
 			}
 		sc->bin[sc->free]=2*i<count ? i : i-count;
@@ -665,8 +622,6 @@ for(i=0;i<9;i++) {
 XLALDestroyCOMPLEX16FFTPlan(fft_plan);
 XLALDestroyCOMPLEX16Vector(te_offsets);
 XLALDestroyCOMPLEX16Vector(fft);
-
-return sc;
 }
 
 
@@ -1055,6 +1010,56 @@ XLALDestroyCOMPLEX16Vector(fft4);
 XLALDestroyCOMPLEX16Vector(fft5);
 }
 
+void compute_te_ffts(LOOSE_CONTEXT *ctx)
+{
+int i, j, j2, k, i_filter, offset;
+int nsamples=ctx->nsamples;
+#define N_FREQ_ADJ_FILTER 9
+COMPLEX16 *filter;
+double a, b, a2, b2;
+
+filter=aligned_alloca(sizeof(*filter)*ctx->n_freq_adj_filter);
+offset=ctx->n_freq_adj_filter>>1;
+
+for(i=0;i<ctx->n_freq_adj_filter;i++) {
+	filter[i].re=0.0;
+	filter[i].im=0.0;
+	}
+filter[offset].re=1.0;
+filter[offset].im=0.0;
+i_filter=0;	
+
+for(i=0;i<nsamples;i++) {
+	if(i>i_filter+200) {
+		if((2*i)<nsamples)
+			make_bessel_filter(filter, ctx->n_freq_adj_filter, ctx->te_sc->first9, 6, -i*2*M_PI/ctx->timebase);
+			else 
+			make_bessel_filter(filter, ctx->n_freq_adj_filter, ctx->te_sc->first9, 6, (nsamples-i)*2*M_PI/ctx->timebase);
+		i_filter=i;
+		}
+	a=0.0;
+	b=0.0;
+	a2=0.0;
+	b2=0.0;
+	for(j=0;j<ctx->n_freq_adj_filter;j++) {
+		k=i-offset+j;
+		if(k<0)k=nsamples+k;
+		if(k>=nsamples)k=k-nsamples;
+		j2=ctx->n_freq_adj_filter-j-1;
+		a+=filter[j2].re*ctx->plus_fft->data[k].re-filter[j2].im*ctx->plus_fft->data[k].im;
+		b+=filter[j2].re*ctx->plus_fft->data[k].im+filter[j2].im*ctx->plus_fft->data[k].re;
+		a2+=filter[j2].re*ctx->cross_fft->data[k].re-filter[j2].im*ctx->cross_fft->data[k].im;
+		b2+=filter[j2].re*ctx->cross_fft->data[k].im+filter[j2].im*ctx->cross_fft->data[k].re;
+		}
+	
+	ctx->plus_te_fft->data[i].re=a;
+	ctx->plus_te_fft->data[i].im=b;
+	ctx->cross_te_fft->data[i].re=a2;
+	ctx->cross_te_fft->data[i].im=b2;
+	}
+
+}
+
 int main(int argc, char *argv[]) 
 {
 time_t start_time, input_done_time, end_time;
@@ -1424,7 +1429,6 @@ int *index;
 COMPLEX16Vector *te_offsets;
 double first_gps=min_gps();
 int nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
-double total_weight;
 double f0=args_info.focus_f0_arg;
 //double ra=args_info.focus_ra_arg;
 //double dec=args_info.focus_dec_arg;
@@ -1486,7 +1490,9 @@ LIGOTimeGPS tGPS;
 	
 spindown=args_info.spindown_start_arg;
 
-total_weight=0.0;
+ctx->weight_pp=0.0;
+ctx->weight_pc=0.0;
+ctx->weight_cc=0.0;
 
 for(i=0;i<nsamples;i++) {
 	ctx->plus_samples->data[i].re=0.0;
@@ -1553,7 +1559,6 @@ for(n=0;n<d_free;n++) {
 		/* circular */
 // 		samples->data[i].re=x2*(f_plus+f_cross)-y2*(f_plus-f_cross);
 // 		samples->data[i].im=x2*(f_plus+f_cross)+y2*(f_plus-f_cross);
-		//total_weight+=f_plus*f_plus+f_cross*f_cross;
 
 		/* plus */
 		/* Hann window */
@@ -1564,8 +1569,10 @@ for(n=0;n<d_free;n++) {
 
 		ctx->cross_samples->data[i].re=x2*f_plus;
 		ctx->cross_samples->data[i].im=y2*f_plus;
-		//total_weight+=f_plus*f_plus+f_cross*f_cross;
-		total_weight+=f_plus*f_plus;
+
+		ctx->weight_pp+=f_plus*f_plus;
+		ctx->weight_pc+=f_plus*f_cross;
+		ctx->weight_cc+=f_cross*f_cross;
 
 		if(args_info.dump_stream_data_arg) {
 			get_emission_time(&emission_time2, &(datasets[n].earth_state[j]), args_info.focus_ra_arg, args_info.focus_dec_arg, dInv, datasets[n].detector, tGPS);
@@ -1578,16 +1585,11 @@ for(n=0;n<d_free;n++) {
 		
 		}
 	}
-//fprintf(stderr, "total_weight=%g\n", total_weight);
 }
 {
 double norm, a, b, a2, b2, c, x, y, x1, y1;
 double sum;
 int i,j,k,m, i_filter, i_left, i_right;
-SPARSE_CONV *sc, *sp_sc, *ra_sc, *dec_sc;
-#define N_FREQ_ADJ_FILTER 9
-COMPLEX16 filter[N_FREQ_ADJ_FILTER];
-double timebase=max_gps()-min_gps();
 POWER_STATS ps;
 double sb_ra[2], sb_dec[2];
 
@@ -1596,31 +1598,31 @@ XLALCOMPLEX16VectorFFT(ctx->plus_fft, ctx->plus_samples, ctx->fft_plan);
 XLALCOMPLEX16VectorFFT(ctx->cross_fft, ctx->cross_samples, ctx->fft_plan);
 // XLALCOMPLEX16VectorFFT(te_fft, te_offsets, fft_plan);
 
-sc=compute_te_offset_structure(datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-sp_sc=compute_spindown_offset_structure(datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+compute_te_offset_structure(ctx->te_sc, datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+compute_spindown_offset_structure(ctx->spindown_sc, datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
 
 compute_sky_basis(ra, dec, resolution*0.5, sb_ra, sb_dec);
 fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ra, dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
-ra_sc=compute_sky_offset_structure(datasets[0].detector, ra, dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-dec_sc=compute_sky_offset_structure(datasets[0].detector, ra, dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+compute_sky_offset_structure(ctx->ra_sc, datasets[0].detector, ra, dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+compute_sky_offset_structure(ctx->dec_sc, datasets[0].detector, ra, dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
 
-fprintf(stderr, "point %d step %d slope %g\n", point, fstep, sc->slope);
+fprintf(stderr, "point %d step %d slope %g\n", point, fstep, ctx->te_sc->slope);
 for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", sc->first9[i].re, sc->first9[i].im);
+	fprintf(stderr, "  %g %g\n", ctx->te_sc->first9[i].re, ctx->te_sc->first9[i].im);
 
-fprintf(stderr, "sp_sc point %d slope %g\n", point, sp_sc->slope);
+fprintf(stderr, "sp_sc point %d slope %g\n", point, ctx->spindown_sc->slope);
 for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", sp_sc->first9[i].re, sp_sc->first9[i].im);
+	fprintf(stderr, "  %g %g\n", ctx->spindown_sc->first9[i].re, ctx->spindown_sc->first9[i].im);
 
-fprintf(stderr, "ra_sc point %d slope %g\n", point, ra_sc->slope);
+fprintf(stderr, "ra_sc point %d slope %g\n", point, ctx->ra_sc->slope);
 for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", ra_sc->first9[i].re, ra_sc->first9[i].im);
+	fprintf(stderr, "  %g %g\n", ctx->ra_sc->first9[i].re, ctx->ra_sc->first9[i].im);
 
-fprintf(stderr, "dec_sc point %d slope %g\n", point, dec_sc->slope);
+fprintf(stderr, "dec_sc point %d slope %g\n", point, ctx->dec_sc->slope);
 for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", dec_sc->first9[i].re, dec_sc->first9[i].im);
+	fprintf(stderr, "  %g %g\n", ctx->dec_sc->first9[i].re, ctx->dec_sc->first9[i].im);
 
-norm=1.0/total_weight;
+norm=1.0/ctx->weight_pp;
 norm/=args_info.coherence_length_arg*16384.0;
 norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
 norm*=args_info.strain_norm_factor_arg;
@@ -1632,47 +1634,9 @@ for(i=0;i<nsamples;i++) {
 	ctx->cross_fft->data[i].im*=norm;
 	}
 
-for(i=0;i<7;i++) {
-	filter[i].re=0.0;
-	filter[i].im=0.0;
-	}
-filter[3].re=1.0;
-filter[3].im=0.0;
-i_filter=0;	
+compute_te_ffts(ctx);
 
-for(i=0;i<nsamples;i++) {
-	if(i>i_filter+200) {
-		if((2*i)<nsamples)
-			make_bessel_filter(filter, N_FREQ_ADJ_FILTER, sc->first9, 6, -i*2*M_PI/timebase);
-			else 
-			make_bessel_filter(filter, N_FREQ_ADJ_FILTER, sc->first9, 6, (nsamples-i)*2*M_PI/timebase);
-/*		if(i<3000)for(j=0;j<7;j++) 
-			fprintf(stderr, "i=%d (%f) j=%d %g %g\n", i, i/timebase, j, filter[j].re, filter[j].im);*/
-		i_filter=i;
-		}
-/*	a=filter[6].re*fft->data[i-3].re-filter[6].im*fft->data[i-3].im;
-	b=filter[6].re*fft->data[i-3].im+filter[6].im*fft->data[i-3].re;*/
-	a=0.0;
-	b=0.0;
-	a2=0.0;
-	b2=0.0;
-	for(j=0;j<7;j++) {
-		k=i-3+j;
-		if(k<0)k=nsamples+k;
-		if(k>=nsamples)k=k-nsamples;
-		a+=filter[6-j].re*ctx->plus_fft->data[k].re-filter[6-j].im*ctx->plus_fft->data[k].im;
-		b+=filter[6-j].re*ctx->plus_fft->data[k].im+filter[6-j].im*ctx->plus_fft->data[k].re;
-		a2+=filter[6-j].re*ctx->cross_fft->data[k].re-filter[6-j].im*ctx->cross_fft->data[k].im;
-		b2+=filter[6-j].re*ctx->cross_fft->data[k].im+filter[6-j].im*ctx->cross_fft->data[k].re;
-		}
-	
-	ctx->plus_te_fft->data[i].re=a;
-	ctx->plus_te_fft->data[i].im=b;
-	ctx->cross_te_fft->data[i].re=a2;
-	ctx->cross_te_fft->data[i].im=b2;
-	}
-
-scan_fft_stats(ctx, power, nsamples, ra_sc->first9, dec_sc->first9, &ps);
+scan_fft_stats(ctx, power, nsamples, ctx->ra_sc->first9, ctx->dec_sc->first9, &ps);
 
 // -241
 if((point== -21) || args_info.dump_fft_data_arg) {
@@ -1689,9 +1653,6 @@ if(fabs(ra-args_info.focus_ra_arg)<0.5*resolution && fabs(dec-args_info.focus_de
 
 fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
 	point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ra, dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (power[0]-ps.mean)/ps.sd);
-
-free_sparse_conv(sc);
-free_sparse_conv(sp_sc);
 
 }
 }

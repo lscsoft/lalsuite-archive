@@ -19,6 +19,30 @@
 
 struct gengetopt_args_info args_info;
 
+SPARSE_CONV *new_sparse_conv(void)
+{
+SPARSE_CONV *sc;
+
+sc=do_alloc(1, sizeof(*sc));
+
+sc->free=0;
+sc->size=20;
+
+sc->bin=do_alloc(sc->size, sizeof(*sc->bin));
+sc->data=do_alloc(sc->size, sizeof(*sc->data));
+
+return(sc);
+}
+
+void free_sparse_conv(SPARSE_CONV *sc)
+{
+free(sc->bin);
+free(sc->data);
+sc->bin=NULL;
+sc->data=NULL;
+free(sc);
+}
+
 LOOSE_CONTEXT * create_context(void)
 {
 LOOSE_CONTEXT *ctx;
@@ -26,8 +50,10 @@ int wing_step;
 int day_samples=round(2.0*SIDEREAL_DAY/args_info.coherence_length_arg);
 
 ctx=do_alloc(1, sizeof(*ctx));
+
+ctx->timebase=max_gps()-min_gps();
 	
-ctx->nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
+ctx->nsamples=1+ceil(2.0*ctx->timebase/args_info.coherence_length_arg);
 wing_step=round(ctx->nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
 ctx->nsamples=day_samples*floor(ctx->nsamples/day_samples);
 ctx->nsamples=round235up_int(ctx->nsamples);
@@ -42,6 +68,16 @@ XALLOC(ctx->plus_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
 XALLOC(ctx->cross_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
 XALLOC(ctx->plus_te_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
 XALLOC(ctx->cross_te_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
+
+/* Bessel coeffs */
+ctx->te_sc=new_sparse_conv();
+ctx->spindown_sc=new_sparse_conv();
+ctx->ra_sc=new_sparse_conv();
+ctx->dec_sc=new_sparse_conv();
+
+/* Parameters */
+
+ctx->n_freq_adj_filter=7;
 
 return(ctx);
 }
