@@ -18,7 +18,7 @@ CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 CC=gcc $(CFLAGS)
 
 COMMON_OBJS=cmdline.o rastermagic.o lines.o polarization.o \
-	png.o intervals.o dataset.o skymarks.o hookup.o statistics.o grid.o bessel.o
+	png.o intervals.o dataset.o skymarks.o hookup.o statistics.o grid.o bessel.o context.o
 
 OBJS=$(COMMON_OBJS) loosely_coherent1.o
 

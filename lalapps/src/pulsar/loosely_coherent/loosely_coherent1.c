@@ -36,6 +36,7 @@ FILE *LOG=NULL, *FILE_LOG=NULL, *DATA_LOG=NULL;
 #include "util.h"
 #include "skymarks.h"
 #include "bessel.h"
+#include "context.h"
 
 struct gengetopt_args_info args_info;
 
@@ -89,10 +90,6 @@ return r;
 }
 
 char s[20000];
-
-#define SIDEREAL_DAY (23.93447*3600)
-#define SIDEREAL_MONTH (27.32166*24*3600)
-#define JULIAN_YEAR (365.25*24*3600)
 
 typedef struct {
 	double dc;
@@ -251,21 +248,6 @@ if(fabs(err)>1e-6) fprintf(stderr, "err=%g err2=%g dx=%g dt=%g range=%g gps=%g g
 	
 }
 
-int is_round235(int n)
-{
-while(n>1 && (n % 2==0))n=n/2;
-while(n>1 && (n % 3==0))n=n/3;
-while(n>1 && (n % 5==0))n=n/5;
-if(n==1)return 1;
-return 0;
-}
-
-/* make an integer round by being a product of 2 3 and 5 */
-int round235_int(int n)
-{
-while(!is_round235(n))n++;
-return(n);
-}
 
 typedef struct {
 	int free;
@@ -895,7 +877,7 @@ for(i=0;i<nsamples;i++) {
 	}	
 }
 
-void scan_fft_stats(COMPLEX16Vector *te_fft, double *power, int nsamples, COMPLEX16 *v1, COMPLEX16 *v2, POWER_STATS *ps)
+void scan_fft_stats(LOOSE_CONTEXT *ctx, double *power, int nsamples, COMPLEX16 *v1, COMPLEX16 *v2, POWER_STATS *ps)
 {
 COMPLEX16Vector *fft2, *fft3, *fft4, *fft5, *fft_tmp;	
 #define N_SCAN_FFT_FILTER 9
@@ -910,7 +892,7 @@ fft3=XLALCreateCOMPLEX16Vector(nsamples);
 fft4=XLALCreateCOMPLEX16Vector(nsamples);
 fft5=XLALCreateCOMPLEX16Vector(nsamples);
 
-compute_fft_stats(te_fft, power, nsamples, ps);
+compute_fft_stats(ctx->plus_te_fft, power, nsamples, ps);
 ms=ps->max_snr;
 
 make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, 2*M_PI/(nscan));
@@ -925,15 +907,15 @@ if(0) {
 		fprintf(stderr, "%d %f %f %f %f\n", i, filter1[i].re, filter1[i].im, filter2[i].re, filter2[i].im);
 	fprintf(stderr, "\n");
 
-	for(i=0;i<te_fft->length;i++)
-		fprintf(DATA_LOG, "te_fft: %d %g %g\n", i, te_fft->data[i].re, te_fft->data[i].im);
+	for(i=0;i<ctx->nsamples;i++)
+		fprintf(DATA_LOG, "te_fft: %d %g %g\n", i, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im);
 
 	fflush(DATA_LOG);
 	exit(-1);
 	}
 
 for(i=0;i<=nscan;i++) {
-	if(i==0)memcpy(fft2->data, te_fft->data, nsamples*sizeof(COMPLEX16));
+	if(i==0)memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
 		else {
 		shift_fft(fft3, fft2, filter1, N_SCAN_FFT_FILTER);
 		fft_tmp=fft2;
@@ -967,7 +949,7 @@ make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, 2*M_PI);
 
 for(i=0;i<=nscan;i++) {
 	if(i==0) {
-		memcpy(fft2->data, te_fft->data, nsamples*sizeof(COMPLEX16));
+		memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
 		continue;
 		}
 		else {
@@ -1001,7 +983,7 @@ make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, -2*M_PI);
 
 for(i=0;i<=nscan;i++) {
 	if(i==0) {
-		memcpy(fft2->data, te_fft->data, nsamples*sizeof(COMPLEX16));
+		memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
 		}
 		else {
 		shift_fft(fft3, fft2, filter1, N_SCAN_FFT_FILTER);
@@ -1036,7 +1018,7 @@ make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, -2*M_PI);
 
 for(i=0;i<=nscan;i++) {
 	if(i==0) {
-		memcpy(fft2->data, te_fft->data, nsamples*sizeof(COMPLEX16));
+		memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
 		continue;
 		}
 		else {
@@ -1439,11 +1421,7 @@ double *re;
 double *im;
 double *power, *cross, *power_aux;
 int *index;
-COMPLEX16Vector *samples;
 COMPLEX16Vector *te_offsets;
-COMPLEX16Vector *fft;
-COMPLEX16Vector *te_fft;
-COMPLEX16FFTPlan *fft_plan=NULL;
 double first_gps=min_gps();
 int nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
 double total_weight;
@@ -1456,47 +1434,24 @@ int half_window=0;
 int wing_step=round(nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
 int day_samples=round(2.0*SIDEREAL_DAY/args_info.coherence_length_arg);
 int fstep, nfsteps=4;
+LOOSE_CONTEXT *ctx;
 
 /* round of nsamples to contain integer number of sideral days */
 
+ctx=create_context();
+
 nsamples=day_samples*floor(nsamples/day_samples);
 
-nsamples=round235_int(nsamples);
+nsamples=ctx->nsamples;
 
 fprintf(stderr, "nsamples=%d day_samples=%d wing_step=%d half_window=%d\n", nsamples, day_samples, wing_step, half_window);
 
-samples=XLALCreateCOMPLEX16Vector(nsamples);
-if(!samples) {
-	fprintf(stderr, "**** ERROR: could not allocate samples\n");
-	exit(-1);
-	}
-
 te_offsets=XLALCreateCOMPLEX16Vector(nsamples);
-if(!samples) {
+if(!te_offsets) {
 	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
 	exit(-1);
 	}
 
-fft=XLALCreateCOMPLEX16Vector(nsamples);
-if(!fft) {
-	fprintf(stderr, "**** ERROR: could not allocate fft data\n");
-	exit(-1);
-	}
-
-te_fft=XLALCreateCOMPLEX16Vector(nsamples);
-if(!fft) {
-	fprintf(stderr, "**** ERROR: could not allocate te_fft data\n");
-	exit(-1);
-	}
-
-fprintf(stderr, "Creating FFT plan of length %d\n", nsamples);
-TODO("increase plan optimization level to 3")
-fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(nsamples, 0);
-if(!fft_plan) {
-	fprintf(stderr, "**** ERROR: could not create fft plan\n");
-	exit(-1);
-	}
-	
 power=do_alloc(nsamples, sizeof(*power));
 cross=do_alloc(nsamples, sizeof(*cross));
 power_aux=do_alloc(nsamples, sizeof(*power_aux));
@@ -1534,8 +1489,10 @@ spindown=args_info.spindown_start_arg;
 total_weight=0.0;
 
 for(i=0;i<nsamples;i++) {
-	samples->data[i].re=0.0;
-	samples->data[i].im=0.0;
+	ctx->plus_samples->data[i].re=0.0;
+	ctx->plus_samples->data[i].im=0.0;
+	ctx->cross_samples->data[i].re=0.0;
+	ctx->cross_samples->data[i].im=0.0;
 	}
 
 for(i=0;i<nsamples;i++) {
@@ -1602,8 +1559,11 @@ for(n=0;n<d_free;n++) {
 		/* Hann window */
 		//c=0.5*(1.0-cos(2*M_PI*i/nsamples));
 		
-		samples->data[i].re=x2*f_plus;
-		samples->data[i].im=y2*f_plus;
+		ctx->plus_samples->data[i].re=x2*f_plus;
+		ctx->plus_samples->data[i].im=y2*f_plus;
+
+		ctx->cross_samples->data[i].re=x2*f_plus;
+		ctx->cross_samples->data[i].im=y2*f_plus;
 		//total_weight+=f_plus*f_plus+f_cross*f_cross;
 		total_weight+=f_plus*f_plus;
 
@@ -1613,7 +1573,7 @@ for(n=0;n<d_free;n++) {
 				i, n, j, fstep, datasets[n].gps[j], 
 				emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
 				emission_time2.te.gpsSeconds, emission_time2.te.gpsNanoSeconds,
-				x, y, samples->data[i].re, samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase,datasets[n].earth_state[j].posNow[0], datasets[n].earth_state[j].posNow[1], datasets[n].earth_state[j].posNow[2], ra, dec, args_info.focus_ra_arg, args_info.focus_dec_arg);
+				x, y, ctx->plus_samples->data[i].re, ctx->plus_samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase,datasets[n].earth_state[j].posNow[0], datasets[n].earth_state[j].posNow[1], datasets[n].earth_state[j].posNow[2], ra, dec, args_info.focus_ra_arg, args_info.focus_dec_arg);
 			}
 		
 		}
@@ -1621,7 +1581,7 @@ for(n=0;n<d_free;n++) {
 //fprintf(stderr, "total_weight=%g\n", total_weight);
 }
 {
-double norm, a, b, c, x, y, x1, y1;
+double norm, a, b, a2, b2, c, x, y, x1, y1;
 double sum;
 int i,j,k,m, i_filter, i_left, i_right;
 SPARSE_CONV *sc, *sp_sc, *ra_sc, *dec_sc;
@@ -1632,7 +1592,8 @@ POWER_STATS ps;
 double sb_ra[2], sb_dec[2];
 
 //fprintf(stderr, "Running FFT\n");
-XLALCOMPLEX16VectorFFT(fft, samples, fft_plan);
+XLALCOMPLEX16VectorFFT(ctx->plus_fft, ctx->plus_samples, ctx->fft_plan);
+XLALCOMPLEX16VectorFFT(ctx->cross_fft, ctx->cross_samples, ctx->fft_plan);
 // XLALCOMPLEX16VectorFFT(te_fft, te_offsets, fft_plan);
 
 sc=compute_te_offset_structure(datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
@@ -1665,8 +1626,10 @@ norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 
 norm*=args_info.strain_norm_factor_arg;
 
 for(i=0;i<nsamples;i++) {
-	fft->data[i].re*=norm;
-	fft->data[i].im*=norm;
+	ctx->plus_fft->data[i].re*=norm;
+	ctx->plus_fft->data[i].im*=norm;
+	ctx->cross_fft->data[i].re*=norm;
+	ctx->cross_fft->data[i].im*=norm;
 	}
 
 for(i=0;i<7;i++) {
@@ -1691,25 +1654,31 @@ for(i=0;i<nsamples;i++) {
 	b=filter[6].re*fft->data[i-3].im+filter[6].im*fft->data[i-3].re;*/
 	a=0.0;
 	b=0.0;
+	a2=0.0;
+	b2=0.0;
 	for(j=0;j<7;j++) {
 		k=i-3+j;
 		if(k<0)k=nsamples+k;
 		if(k>=nsamples)k=k-nsamples;
-		a+=filter[6-j].re*fft->data[k].re-filter[6-j].im*fft->data[k].im;
-		b+=filter[6-j].re*fft->data[k].im+filter[6-j].im*fft->data[k].re;
+		a+=filter[6-j].re*ctx->plus_fft->data[k].re-filter[6-j].im*ctx->plus_fft->data[k].im;
+		b+=filter[6-j].re*ctx->plus_fft->data[k].im+filter[6-j].im*ctx->plus_fft->data[k].re;
+		a2+=filter[6-j].re*ctx->cross_fft->data[k].re-filter[6-j].im*ctx->cross_fft->data[k].im;
+		b2+=filter[6-j].re*ctx->cross_fft->data[k].im+filter[6-j].im*ctx->cross_fft->data[k].re;
 		}
 	
-	te_fft->data[i].re=a;
-	te_fft->data[i].im=b;
+	ctx->plus_te_fft->data[i].re=a;
+	ctx->plus_te_fft->data[i].im=b;
+	ctx->cross_te_fft->data[i].re=a2;
+	ctx->cross_te_fft->data[i].im=b2;
 	}
 
-scan_fft_stats(te_fft, power, nsamples, ra_sc->first9, dec_sc->first9, &ps);
+scan_fft_stats(ctx, power, nsamples, ra_sc->first9, dec_sc->first9, &ps);
 
 // -241
 if((point== -21) || args_info.dump_fft_data_arg) {
 	for(i=0;i<nsamples;i++) {
 		fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
-			i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ra, dec, fft->data[i].re, fft->data[i].im, te_fft->data[i].re, te_fft->data[i].im, power[i]);
+			i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ra, dec, ctx->plus_fft->data[i].re, ctx->plus_fft->data[i].im, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im, power[i]);
 		}
 	}
 
@@ -1728,13 +1697,8 @@ free_sparse_conv(sp_sc);
 }
 }
 
-XLALDestroyCOMPLEX16Vector(samples);
-XLALDestroyCOMPLEX16Vector(fft);
-XLALDestroyCOMPLEX16FFTPlan(fft_plan);
 }
 
-
-TODO("write main application loop")
 
 time(&end_time);
 fprintf(stderr, "exit memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);

@@ -69,4 +69,8 @@ return (a*a);
 	do_warn=0; \
 	}
 
+#define SIDEREAL_DAY (23.93447*3600)
+#define SIDEREAL_MONTH (27.32166*24*3600)
+#define JULIAN_YEAR (365.25*24*3600)
+
 #endif
