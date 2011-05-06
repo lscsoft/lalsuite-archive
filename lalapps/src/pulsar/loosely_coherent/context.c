@@ -80,6 +80,7 @@ ctx->dec_sc=new_sparse_conv();
 
 ctx->n_freq_adj_filter=7;
 ctx->n_fsteps=4;
+ctx->half_window=1;
 
 ctx->ra=0;
 ctx->dec=0;
@@ -87,6 +88,8 @@ ctx->frequency=0;
 ctx->spindown=0;
 ctx->dInv=args_info.focus_dInv_arg;
 ctx->fstep=0;
+
+fprintf(stderr, "nsamples=%d day_samples=%d wing_step=%d half_window=%d\n", ctx->nsamples, day_samples, wing_step, ctx->half_window);
 
 return(ctx);
 }

@@ -1532,16 +1532,10 @@ fflush(DATA_LOG);
 
 /* For testing - pick a bin and do phase correction */
 {
-double *power, *cross, *power_aux;
-int *index;
-int nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
+double *power;
+int nsamples;
 double f0=args_info.focus_f0_arg;
-//double ra=args_info.focus_ra_arg;
-//double dec=args_info.focus_dec_arg;
 int point;
-int half_window=0;
-int wing_step=round(nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
-int day_samples=round(2.0*SIDEREAL_DAY/args_info.coherence_length_arg);
 int fstep, nfsteps;
 LOOSE_CONTEXT *ctx;
 
@@ -1550,100 +1544,90 @@ LOOSE_CONTEXT *ctx;
 ctx=create_context();
 
 nfsteps=ctx->n_fsteps;
-
-nsamples=day_samples*floor(nsamples/day_samples);
-
 nsamples=ctx->nsamples;
 
-fprintf(stderr, "nsamples=%d day_samples=%d wing_step=%d half_window=%d\n", nsamples, day_samples, wing_step, half_window);
-
 power=do_alloc(nsamples, sizeof(*power));
-cross=do_alloc(nsamples, sizeof(*cross));
-power_aux=do_alloc(nsamples, sizeof(*power_aux));
-index=do_alloc(nsamples, sizeof(*index));
 
 for(fstep=0;fstep<nfsteps; fstep++) {
 for(point=0;point< main_grid->npoints;point++) {
-double ra=main_grid->longitude[point];
-double dec=main_grid->latitude[point];
 
-if(point % 10==0)fprintf(stderr, "point=%d out of %d\n", point, main_grid->npoints);
+	if(point % 10==0)fprintf(stderr, "point=%d out of %d\n", point, main_grid->npoints);
 
-ctx->frequency=f0;
-ctx->spindown=args_info.spindown_start_arg;
-ctx->ra=ra;
-ctx->dec=dec;
-ctx->fstep=fstep;
+	ctx->frequency=f0;
+	ctx->spindown=args_info.spindown_start_arg;
+	ctx->ra=main_grid->longitude[point];
+	ctx->dec=main_grid->latitude[point];
+	ctx->fstep=fstep;
 
-demodulate(ctx);
+	demodulate(ctx);
 
-{
-double norm;
-POWER_STATS ps;
-double sb_ra[2], sb_dec[2];
+	{
+	double norm;
+	POWER_STATS ps;
+	double sb_ra[2], sb_dec[2];
 
-//fprintf(stderr, "Running FFT\n");
-XLALCOMPLEX16VectorFFT(ctx->plus_fft, ctx->plus_samples, ctx->fft_plan);
-XLALCOMPLEX16VectorFFT(ctx->cross_fft, ctx->cross_samples, ctx->fft_plan);
+	//fprintf(stderr, "Running FFT\n");
+	XLALCOMPLEX16VectorFFT(ctx->plus_fft, ctx->plus_samples, ctx->fft_plan);
+	XLALCOMPLEX16VectorFFT(ctx->cross_fft, ctx->cross_samples, ctx->fft_plan);
 
-compute_te_offset_structure(ctx->te_sc, datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-compute_spindown_offset_structure(ctx->spindown_sc, datasets[0].detector, ra, dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+	compute_te_offset_structure(ctx->te_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+	compute_spindown_offset_structure(ctx->spindown_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
 
-compute_sky_basis(ra, dec, resolution*0.5, sb_ra, sb_dec);
-fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ra, dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
-compute_sky_offset_structure(ctx->ra_sc, datasets[0].detector, ra, dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-compute_sky_offset_structure(ctx->dec_sc, datasets[0].detector, ra, dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+	compute_sky_basis(ctx->ra, ctx->dec, resolution*0.5, sb_ra, sb_dec);
+	fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
+	compute_sky_offset_structure(ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
+	compute_sky_offset_structure(ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
 
-fprintf(stderr, "point %d step %d slope %g\n", point, fstep, ctx->te_sc->slope);
-for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", ctx->te_sc->first9[i].re, ctx->te_sc->first9[i].im);
+	fprintf(stderr, "point %d step %d slope %g\n", point, fstep, ctx->te_sc->slope);
+	for(i=0;i<9;i++)
+		fprintf(stderr, "  %g %g\n", ctx->te_sc->first9[i].re, ctx->te_sc->first9[i].im);
 
-fprintf(stderr, "sp_sc point %d slope %g\n", point, ctx->spindown_sc->slope);
-for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", ctx->spindown_sc->first9[i].re, ctx->spindown_sc->first9[i].im);
+	fprintf(stderr, "sp_sc point %d slope %g\n", point, ctx->spindown_sc->slope);
+	for(i=0;i<9;i++)
+		fprintf(stderr, "  %g %g\n", ctx->spindown_sc->first9[i].re, ctx->spindown_sc->first9[i].im);
 
-fprintf(stderr, "ra_sc point %d slope %g\n", point, ctx->ra_sc->slope);
-for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", ctx->ra_sc->first9[i].re, ctx->ra_sc->first9[i].im);
+	fprintf(stderr, "ra_sc point %d slope %g\n", point, ctx->ra_sc->slope);
+	for(i=0;i<9;i++)
+		fprintf(stderr, "  %g %g\n", ctx->ra_sc->first9[i].re, ctx->ra_sc->first9[i].im);
 
-fprintf(stderr, "dec_sc point %d slope %g\n", point, ctx->dec_sc->slope);
-for(i=0;i<9;i++)
-	fprintf(stderr, "  %g %g\n", ctx->dec_sc->first9[i].re, ctx->dec_sc->first9[i].im);
+	fprintf(stderr, "dec_sc point %d slope %g\n", point, ctx->dec_sc->slope);
+	for(i=0;i<9;i++)
+		fprintf(stderr, "  %g %g\n", ctx->dec_sc->first9[i].re, ctx->dec_sc->first9[i].im);
 
-norm=1.0/ctx->weight_pp;
-norm/=args_info.coherence_length_arg*16384.0;
-norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
-norm*=args_info.strain_norm_factor_arg;
+	norm=1.0/ctx->weight_pp;
+	norm/=args_info.coherence_length_arg*16384.0;
+	norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
+	norm*=args_info.strain_norm_factor_arg;
 
-for(i=0;i<nsamples;i++) {
-	ctx->plus_fft->data[i].re*=norm;
-	ctx->plus_fft->data[i].im*=norm;
-	ctx->cross_fft->data[i].re*=norm;
-	ctx->cross_fft->data[i].im*=norm;
-	}
-
-compute_te_ffts(ctx);
-
-scan_fft_stats(ctx, power, nsamples, ctx->ra_sc->first9, ctx->dec_sc->first9, &ps);
-
-// -241
-if((point== -21) || args_info.dump_fft_data_arg) {
 	for(i=0;i<nsamples;i++) {
-		fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
-			i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ra, dec, ctx->plus_fft->data[i].re, ctx->plus_fft->data[i].im, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im, power[i]);
+		ctx->plus_fft->data[i].re*=norm;
+		ctx->plus_fft->data[i].im*=norm;
+		ctx->cross_fft->data[i].re*=norm;
+		ctx->cross_fft->data[i].im*=norm;
 		}
+
+	compute_te_ffts(ctx);
+
+	scan_fft_stats(ctx, power, nsamples, ctx->ra_sc->first9, ctx->dec_sc->first9, &ps);
+
+	// -241
+	if((point== -21) || args_info.dump_fft_data_arg) {
+		for(i=0;i<nsamples;i++) {
+			fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
+				i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ctx->plus_fft->data[i].re, ctx->plus_fft->data[i].im, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im, power[i]);
+			}
+		}
+
+	if(fabs(ctx->ra-args_info.focus_ra_arg)<0.5*resolution && fabs(ctx->dec-args_info.focus_dec_arg)<0.5*resolution) {
+		fprintf(stderr, "Close point: %d\n", point);
+		}
+
+
+	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
+		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (power[0]-ps.mean)/ps.sd);
+
 	}
-
-if(fabs(ra-args_info.focus_ra_arg)<0.5*resolution && fabs(dec-args_info.focus_dec_arg)<0.5*resolution) {
-	fprintf(stderr, "Close point: %d\n", point);
 	}
-
-
-fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
-	point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ra, dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (power[0]-ps.mean)/ps.sd);
-
-}
-}
 }
 
 }

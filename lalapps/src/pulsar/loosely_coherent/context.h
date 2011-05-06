@@ -56,6 +56,8 @@ typedef struct {
 	
 	/* Number of sub-bin frequency steps */
 	int n_fsteps;
+
+	int half_window;
 	
 	COMPLEX16Vector *plus_te_fft;
 	COMPLEX16Vector *cross_te_fft;	
