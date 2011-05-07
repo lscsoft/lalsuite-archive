@@ -68,11 +68,20 @@ cp.readfp(open(opts.ini_file))
 
 ifos=eval(cp.get('analysis','ifos'))
 
+## This function is used to put the ifos.keys() in the same order than in the ifos section in the parser, while passing them to the inspnest nodes
+def sort_ifo(a,b):
+    global ifos
+    if ifos.index(a)<ifos.index(b):
+        return -1
+    elif ifos.index(a)>ifos.index(b):
+        return 1
+    else: 
+        return 0
+
 
 print 'Setting up pipeline with ifos '+' '.join(map(str,ifos))
 
 IFOs=''.join(map(str,ifos))
-print IFOs
 
 def checkDir(dir):
         if not os.access(dir,os.F_OK):
@@ -360,12 +369,10 @@ inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
 #option for phitest
 if cp.has_option('inspnest','phaseParamTest'):
     inspnest_job.add_opt('phaseParamTest',cp.get('inspnest','phaseParamTest'))
-#if cp.has_option('analysis','data_seed'):
-#    first_data_seed=np.int(cp.get('analysis','data_seed'))
-#    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first event. Incrementing by one for each other \n"
-#else:
-#    first_data_seed=1234
-#    print "Using default dataseed=1234. Add data_seed=X in the analysis section of the parser if you want to change it. \n"
+if cp.has_option('analysis','data_seed'):
+    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first injection. Incrementing by one for each other \n"
+else:
+    print "Using default dataseed=1234 for the first injection (incrementing by one for each other). Add data_seed=X in the analysis section of the parser if you want to change it. \n"
 #print cp.items('inspnest_all')
 #print inspnest_job.__options
 factor=0
@@ -417,7 +424,7 @@ if nparallel==1:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-        inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent,factor=factor)
+        inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent,factor=factor)
         factor=factor+1
         inspnest_nodes_by_time[time]=inspnest_node
         dag.add_node(inspnest_node)
@@ -431,7 +438,7 @@ else:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-        (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent,factor=factor)
+        (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent,factor=factor)
         factor=factor+1
         dag.add_node(merge_node)
         map(dag.add_node,inspnest_nodes)
@@ -443,6 +450,8 @@ for time in times:
     dag.add_node(combine_each_time_nodes[time])
     combine_each_time_nodes[time].add_var_arg(nest_files[time])
     combine_each_time_nodes[time].add_file_opt('headers',nest_files[time]+'_params.txt')
+
+factor=0 ## resetting the dataseed shift to zero
 
 # Set up coherence test jobs if required
 if opts.coherence_test:
@@ -492,7 +501,7 @@ if opts.coherence_test:
                 coherence_test_node.add_parent(merge_node)
                 coherence_inspnest_nodes[time][ifo]=merge_node
             else:
-                inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent)
+                inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent,factor=factor)
                 inspnest_nodes=[inspnest_node]
                 coherence_test_files[time][ifo]=inspnest_node.get_output_files()[0]
                 combine_node.add_parent(inspnest_node)
@@ -508,7 +517,7 @@ if opts.coherence_test:
         coherence_test_node.add_parent(inspnest_nodes_by_time[time])
         coherence_test_nodes[time]=coherence_test_node
         dag.add_node(coherence_test_node)
-
+        factor=factor+1
 
 times_by_seg={}
 seg_block={}
