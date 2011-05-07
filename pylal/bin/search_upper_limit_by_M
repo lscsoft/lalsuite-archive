@@ -15,7 +15,7 @@ import copy
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw, utils
 from glue import lal
-
+from scipy import interpolate
 
 from pylal import git_version
 __author__ = "Satya Mohapatra <satya@physics.umass.edu>"
@@ -128,6 +128,10 @@ f = pylab.figure(1)
 # loop over all the filenames and masses and compute the posteriors separately
 ###############################################################################
 
+AllDistance = numpy.empty([len(files)])
+
+
+
 for i, f in enumerate(files):
 	legend_str = []
 	lines = []
@@ -180,12 +184,22 @@ for i, f in enumerate(files):
 		distancebaraveraged[i]=numpy.average(distancebar[condlist])
 		distanceerrorbaraveraged[i]=max(distanceerrorbar[condlist])
 
+	#do interpolation
+	interpolation = interpolate.interp1d(massbarunique, distancebaraveraged)
+	mass = numpy.arange(min(massbarunique), massbarunique[-2], 0.1)
+	#apply interpolation
+	interpolationAPP = numpy.empty(len(mass))
+	for i in range(len(mass)):interpolationAPP[i] = interpolation(mass[i])
         # bar plot
-	pylab.bar(massbarunique,distancebaraveraged, width, yerr=distanceerrorbaraveraged,color='b',log='true',edgecolor='k')
+	#pylab.bar(massbarunique,distancebaraveraged, width, yerr=distanceerrorbaraveraged,color='b',log='true',edgecolor='k')
+	pylab.errorbar(massbarunique,distancebaraveraged,yerr=distanceerrorbaraveraged,xerr=width/4.,fmt='.')
+	pylab.plot(mass,interpolationAPP,'r-')
+	pylab.yscale('log')
 	pylab.xlim([min(massbar),max(massbar)])
+	pylab.ylim([1,1e3])
 	pylab.xlabel("Mass [$M_\odot$]",fontsize=14)
 	pylab.ylabel("Sensitivity Distance [Mpc]",fontsize=14)
-	pylab.savefig(ifos+'_distance_bar.png')
+	pylab.savefig(ifos+'_SensitivityDistance_curve.png')
 	pylab.clf()
 
 print >> sys.stderr, "ALL FINNISH!"
