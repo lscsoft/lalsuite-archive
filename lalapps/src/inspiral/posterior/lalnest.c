@@ -2135,14 +2135,27 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     //inputMCMC->numberDataStreams=nIFO;
     
     /* open the SNR file */
-    char SnrName[50];
-    if (stat("./SNR",&st) == 0){
-        sprintf(SnrName,"./SNR/snr_%10.1f.dat",(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);}
-    else {
-        sprintf(SnrName,"snr_%10.1f.dat",(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+    char SnrName[70];
+    char ListOfIFOs[10];
+    sprintf(ListOfIFOs,"");
+    fprintf(stderr,"snrname %s \n",ListOfIFOs);
+
+    for (det_i=0;det_i<nIFO;det_i++){
+        fprintf(stderr,"snrname %s \n",ListOfIFOs);
+         sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);
         }
+    fprintf(stderr,"snrname %s \n",ListOfIFOs);
+    if (stat("./SNR",&st) == 0){
+        sprintf(SnrName,"./SNR/snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);}
+    else {
+        sprintf(SnrName,"snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+        }
+    fprintf(stderr,"snrname %s \n",SnrName);
+
     FILE *snrout=fopen(SnrName,"w");
+    
     REAL8 SNRcut = 5.5;
+   
 	for (det_i=0;det_i<nIFO;det_i++){ //nIFO
         UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
         UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
@@ -2178,7 +2191,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 		}
 		chisq*=4.0;
-        fprintf(snrout,"%s\t",inputMCMC->ifoID[det_i]);
+        fprintf(snrout,"%s:\t",inputMCMC->ifoID[det_i]);
         fprintf(snrout,"%e\n",sqrt(chisq));
         if (sqrt(chisq)<SNRcut) {
             fprintf(stderr,"Injected signal SNR in %s = %f is smaller than %f, aborting...\n",inputMCMC->ifoID[det_i],sqrt(chisq),SNRcut);
@@ -2188,12 +2201,12 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		SNRinj+=chisq;
 		fclose(outInj);
 	}
-
-	SNRinj=sqrt(SNRinj);
-    fprintf(snrout,"Network\t");
+   	SNRinj=sqrt(SNRinj);
+    fprintf(snrout,"Network:\t");
     fprintf(snrout,"%e\n",SNRinj);
     fprintf(snrout,"\n");
     fclose(snrout);
+
 	fprintf(stdout,"Injected signal, network SNR = %f\n",SNRinj);
 	return;
 }
