@@ -72,7 +72,6 @@ ifos=eval(cp.get('analysis','ifos'))
 print 'Setting up pipeline with ifos '+' '.join(map(str,ifos))
 
 IFOs=''.join(map(str,ifos))
-print IFOs
 
 def checkDir(dir):
         if not os.access(dir,os.F_OK):
