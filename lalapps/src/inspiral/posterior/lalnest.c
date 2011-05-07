@@ -1,5 +1,5 @@
 /* Nested Sampler Using LAL bayesian framework
- (C) John Veitch 2009
+/ (C) John Veitch 2009
 Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li
  */
 
@@ -2138,20 +2138,18 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     char SnrName[70];
     char ListOfIFOs[10];
     sprintf(ListOfIFOs,"");
-    fprintf(stderr,"snrname %s \n",ListOfIFOs);
+    
 
     for (det_i=0;det_i<nIFO;det_i++){
-        fprintf(stderr,"snrname %s \n",ListOfIFOs);
          sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);
         }
-    fprintf(stderr,"snrname %s \n",ListOfIFOs);
+    
     if (stat("./SNR",&st) == 0){
         sprintf(SnrName,"./SNR/snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);}
     else {
         sprintf(SnrName,"snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
         }
-    fprintf(stderr,"snrname %s \n",SnrName);
-
+    
     FILE *snrout=fopen(SnrName,"w");
     
     REAL8 SNRcut = 5.5;
