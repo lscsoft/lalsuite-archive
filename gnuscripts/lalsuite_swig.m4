@@ -217,6 +217,7 @@ AC_DEFUN([LALSUITE_SWIG_LANG],[
 dnl SWIG languages
 AC_DEFUN([LALSUITE_SWIG_LANGUAGES],[
   LALSUITE_SWIG_LANG_OCTAVE
+  LALSUITE_SWIG_LANG_PYTHON
 ])
 
 dnl SWIG octave configuration
@@ -270,6 +271,16 @@ AC_DEFUN([LALSUITE_SWIG_LANG_OCTAVE],[
     ])
     AC_MSG_RESULT([${OCTAVE_OCTFILEDIR}])
     AC_SUBST(OCTAVE_OCTFILEDIR)
+
+  ])
+])
+
+dnl SWIG python configuration
+AC_DEFUN([LALSUITE_SWIG_LANG_PYTHON],[
+  LALSUITE_SWIG_LANG([python],[
+
+    dnl check for python
+    AM_PATH_PYTHON([2.4])
 
   ])
 ])
