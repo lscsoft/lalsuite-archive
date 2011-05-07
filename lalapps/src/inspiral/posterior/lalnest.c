@@ -2202,8 +2202,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		fclose(outInj);
 	}
    	SNRinj=sqrt(SNRinj);
-    fprintf(snrout,"Network:\t");
-    fprintf(snrout,"%e\n",SNRinj);
+    if (nIFO>1){  fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%e\n",SNRinj);}
     fprintf(snrout,"\n");
     fclose(snrout);
 
