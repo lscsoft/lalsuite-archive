@@ -79,30 +79,44 @@ static void __del__(PyObject *self)
 }
 
 
-static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
+static PyObject *get_sumofsquares(PyObject *self, void *unused)
 {
-	const char *name = PyString_AsString(attr_name);
 	pylal_REAL8Window *obj = (pylal_REAL8Window *) self;
-
-	if(!strcmp(name, "sumofsquares"))
-		return PyFloat_FromDouble(obj->window->sumofsquares);
-	if(!strcmp(name, "sum"))
-		return PyFloat_FromDouble(obj->window->sum);
-	if(!strcmp(name, "data")) {
-		npy_intp dims[] = {obj->window->data->length};
-		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, obj->window->data->data);
-		if(array) {
-			/* incref self to prevent data from disappearing
-			 * while array is still in use, and tell numpy to
-			 * decref self when the array is deallocated */
-			Py_INCREF(self);
-			PyArray_BASE(array) = self;
-		}
-		return array;
-	}
-	PyErr_SetString(PyExc_AttributeError, name);
-	return NULL;
+	return PyFloat_FromDouble(obj->window->sumofsquares);
 }
+
+
+static PyObject *get_sum(PyObject *self, void *unused)
+{
+	pylal_REAL8Window *obj = (pylal_REAL8Window *) self;
+	return PyFloat_FromDouble(obj->window->sum);
+}
+
+
+static PyObject *get_data(PyObject *self, void *unused)
+{
+	pylal_REAL8Window *obj = (pylal_REAL8Window *) self;
+	npy_intp dims[] = {obj->window->data->length};
+	PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, obj->window->data->data);
+	if(array) {
+		/* incref self to prevent data from disappearing
+		 * while array is still in use, and tell numpy to
+		 * decref self when the array is deallocated */
+		Py_INCREF(self);
+		PyArray_BASE(array) = self;
+	}
+	return array;
+}
+
+
+#define GETDEF(attr, doc, closure) {#attr, get_ ## attr, NULL, doc, closure}
+static struct PyGetSetDef getsetdefs[] = {
+	GETDEF(sumofsquares, NULL, NULL),
+	GETDEF(sum, NULL, NULL),
+	GETDEF(data, NULL, NULL),
+	{NULL, NULL, NULL, NULL, NULL}
+};
+#undef GETDEF
 
 
 static PyTypeObject pylal_real8window_type = {
@@ -111,7 +125,7 @@ static PyTypeObject pylal_real8window_type = {
 	.tp_dealloc = __del__,
 	.tp_doc = "REAL8Window structure",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_getattro = __getattro__,
+	.tp_getset = &getsetdefs,
 	.tp_name = MODULE_NAME ".REAL8Window",
 	.tp_new = __new__
 };

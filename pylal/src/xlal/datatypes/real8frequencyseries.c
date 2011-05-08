@@ -93,107 +93,140 @@ static void __del__(PyObject *self)
 }
 
 
-static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
+static PyObject *get_name(PyObject *self, void *unused)
 {
-	const char *name = PyString_AsString(attr_name);
 	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
-
-	if(!strcmp(name, "name"))
-		return PyString_FromString(obj->series->name);
-	if(!strcmp(name, "epoch"))
-		return pylal_LIGOTimeGPS_new(obj->series->epoch);
-	if(!strcmp(name, "f0"))
-		return PyFloat_FromDouble(obj->series->f0);
-	if(!strcmp(name, "deltaF"))
-		return PyFloat_FromDouble(obj->series->deltaF);
-	if(!strcmp(name, "sampleUnits"))
-		return pylal_LALUnit_new(0, obj->series->sampleUnits);
-	if(!strcmp(name, "data")) {
-		npy_intp dims[] = {obj->series->data->length};
-		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, obj->series->data->data);
-		PyObject *copy;
-		if(!array)
-			return NULL;
-		/* incref self to prevent data from disappearing while
-		 * array is still in use, and tell numpy to decref self
-		 * when the array is deallocated */
-		Py_INCREF(self);
-		PyArray_BASE(array) = self;
-		copy = PyArray_NewCopy((PyArrayObject *) array, NPY_ANYORDER);
-		Py_DECREF(array);
-		return copy;
-	}
-	PyErr_SetString(PyExc_AttributeError, name);
-	return NULL;
+	return PyString_FromString(obj->series->name);
 }
 
 
-static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
+static PyObject *get_epoch(PyObject *self, void *unused)
 {
-	const char *name = PyString_AsString(attr_name);
 	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	return pylal_LIGOTimeGPS_new(obj->series->epoch);
+}
 
-	if(!strcmp(name, "name")) {
-		const char *s = PyString_AsString(value);
-		if(PyErr_Occurred())
-			return -1;
-		if(strlen(s) >= sizeof(obj->series->name)) {
-			PyErr_Format(PyExc_ValueError, "name too long \"%s\"", s);
-			return -1;
-		}
-		strcpy(obj->series->name, s);
-		return 0;
+
+static PyObject *get_f0(PyObject *self, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	return PyFloat_FromDouble(obj->series->f0);
+}
+
+
+static PyObject *get_deltaF(PyObject *self, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	return PyFloat_FromDouble(obj->series->deltaF);
+}
+
+
+static PyObject *get_sampleUnits(PyObject *self, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	return pylal_LALUnit_new(0, obj->series->sampleUnits);
+}
+
+
+static PyObject *get_data(PyObject *self, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	npy_intp dims[] = {obj->series->data->length};
+	PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, obj->series->data->data);
+	PyObject *copy;
+	if(!array)
+		return NULL;
+	/* incref self to prevent data from disappearing while
+	 * array is still in use, and tell numpy to decref self
+	 * when the array is deallocated */
+	Py_INCREF(self);
+	PyArray_BASE(array) = self;
+	copy = PyArray_NewCopy((PyArrayObject *) array, NPY_ANYORDER);
+	Py_DECREF(array);
+	return copy;
+}
+
+
+static int set_name(PyObject *self, PyObject *value, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	const char *s = PyString_AsString(value);
+	if(PyErr_Occurred())
+		return -1;
+	if(strlen(s) >= sizeof(obj->series->name)) {
+		PyErr_Format(PyExc_ValueError, "name too long \"%s\"", s);
+		return -1;
 	}
-	if(!strcmp(name, "epoch")) {
-		if(!PyObject_TypeCheck(value, &pylal_LIGOTimeGPS_Type)) {
-			PyErr_SetObject(PyExc_TypeError, value);
-			return -1;
-		}
-		obj->series->epoch = ((pylal_LIGOTimeGPS *) value)->gps;
-		return 0;
+	strcpy(obj->series->name, s);
+	return 0;
+}
+
+
+static int set_epoch(PyObject *self, PyObject *value, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	if(!PyObject_TypeCheck(value, &pylal_LIGOTimeGPS_Type)) {
+		PyErr_SetObject(PyExc_TypeError, value);
+		return -1;
 	}
-	if(!strcmp(name, "f0")) {
-		double f0 = PyFloat_AsDouble(value);
-		if(PyErr_Occurred())
-			return -1;
-		obj->series->f0 = f0;
-		return 0;
+	obj->series->epoch = ((pylal_LIGOTimeGPS *) value)->gps;
+	return 0;
+}
+
+
+static int set_f0(PyObject *self, PyObject *value, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	double f0 = PyFloat_AsDouble(value);
+	if(PyErr_Occurred())
+		return -1;
+	obj->series->f0 = f0;
+	return 0;
+}
+
+
+static int set_deltaF(PyObject *self, PyObject *value, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	double deltaF = PyFloat_AsDouble(value);
+	if(PyErr_Occurred())
+		return -1;
+	obj->series->deltaF = deltaF;
+	return 0;
+}
+
+
+static int set_sampleUnits(PyObject *self, PyObject *value, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	if(!PyObject_TypeCheck(value, &pylal_LALUnit_Type)) {
+		PyErr_SetObject(PyExc_TypeError, value);
+		return -1;
 	}
-	if(!strcmp(name, "deltaF")) {
-		double deltaF = PyFloat_AsDouble(value);
-		if(PyErr_Occurred())
-			return -1;
-		obj->series->deltaF = deltaF;
-		return 0;
+	obj->series->sampleUnits = ((pylal_LALUnit *) value)->unit;
+	return 0;
+}
+
+
+static int set_data(PyObject *self, PyObject *value, void *unused)
+{
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	int n;
+	/* require array of double precision floats */
+	if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_DOUBLE)) {
+		PyErr_SetObject(PyExc_TypeError, value);
+		return -1;
 	}
-	if(!strcmp(name, "sampleUnits")) {
-		if(!PyObject_TypeCheck(value, &pylal_LALUnit_Type)) {
-			PyErr_SetObject(PyExc_TypeError, value);
-			return -1;
-		}
-		obj->series->sampleUnits = ((pylal_LALUnit *) value)->unit;
-		return 0;
+	/* require exactly 1 dimension */
+	if(((PyArrayObject *) value)->nd != 1) {
+		PyErr_SetObject(PyExc_ValueError, value);
+		return -1;
 	}
-	if(!strcmp(name, "data")) {
-		int n;
-		/* require array of double precision floats */
-		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_DOUBLE)) {
-			PyErr_SetObject(PyExc_TypeError, value);
-			return -1;
-		}
-		/* require exactly 1 dimension */
-		if(((PyArrayObject *) value)->nd != 1) {
-			PyErr_SetObject(PyExc_ValueError, value);
-			return -1;
-		}
-		n = PyArray_DIM(value, 0);
-		if(n != obj->series->data->length)
-			obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
-		memcpy(obj->series->data->data, PyArray_GETPTR1(value, 0), n * sizeof(*obj->series->data->data));
-		return 0;
-	}
-	PyErr_SetString(PyExc_AttributeError, name);
-	return -1;
+	n = PyArray_DIM(value, 0);
+	if(n != obj->series->data->length)
+		obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
+	memcpy(obj->series->data->data, PyArray_GETPTR1(value, 0), n * sizeof(*obj->series->data->data));
+	return 0;
 }
 
 
@@ -202,14 +235,26 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
  */
 
 
+#define GETSETDEF(attr, doc, closure) {#attr, get_ ## attr, set_ ## attr, doc, closure}
+static struct PyGetSetDef getsetdefs[] = {
+	GETSETDEF(name, NULL, NULL),
+	GETSETDEF(epoch, NULL, NULL),
+	GETSETDEF(f0, NULL, NULL),
+	GETSETDEF(deltaF, NULL, NULL),
+	GETSETDEF(sampleUnits, NULL, NULL),
+	GETSETDEF(data, NULL, NULL),
+	{NULL, NULL, NULL, NULL, NULL}
+};
+#undef GETSETDEF
+
+
 PyTypeObject pylal_real8frequencyseries_type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_REAL8FrequencySeries),
 	.tp_dealloc = __del__,
 	.tp_doc = "REAL8FrequencySeries structure",
 	.tp_flags = Py_TPFLAGS_DEFAULT,
-	.tp_getattro = __getattro__,
-	.tp_setattro = __setattro__,
+	.tp_getset = &getsetdefs,
 	.tp_name = MODULE_NAME ".REAL8FrequencySeries",
 	.tp_new = __new__,
 	.tp_init = __init__
