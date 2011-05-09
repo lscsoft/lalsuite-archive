@@ -6,7 +6,7 @@ if LALINSPIRAL
 if LALFRAME
 if LALMETAIO
 metaio_progs = lalapps_inspnest
-lalapps_inspnest_SOURCES = lalnest.c LALInspiralMCMC.c LALInspiralMCMCUser.c nest_calc.c nest_calc.h LALInspiralMCMC.h LALInspiralMCMCUser.h
+lalapps_inspnest_SOURCES = lalnest.c LALInspiralMCMC.c LALInspiralMCMCUser.c nest_calc.c nest_calc.h LALInspiralMCMC.h LALInspiralMCMCUser.h LALCalibrationErrors.h LALCalibrationErrors.c
 endif
 frame_progs = lalapps_followupMcmc
 lalapps_followupMcmc_SOURCES = followupMcmc.c
