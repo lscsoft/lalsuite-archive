@@ -1,4 +1,4 @@
-#!/usr/bin/env /usr/bin/python
+#!/usr/bin/env /opt/local/bin/python
 
 # DAG generation code for running inspnest pipeline
 # (C) 2010 John Veitch, Salvatore Vitale
@@ -15,7 +15,7 @@ from glue import segments
 from glue import segmentdb
 from lalapps import inspiralutils
 import scipy
-sys.path.append('/home/salvatore.vitale/opt/lalapps//lib/python2.4/site-packages/lalapps')
+sys.path.append('/Users/svitale/lalsuites/calibration/opt/lalapps/lib/python2.6/site-packages/lalapps')
 
 #Presets
 ifos=['H1','L1','V1']
