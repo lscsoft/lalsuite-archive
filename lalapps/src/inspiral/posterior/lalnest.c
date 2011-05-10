@@ -1978,6 +1978,7 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 	for (head=parameter->param;head;head=head->next)
 	{
 		if(head->core->wrapping==-1)
+            
 			fprintf(stdout,"Fixed parameter %s to %lf\n",head->core->name,head->value);
 	}
     
@@ -2006,11 +2007,23 @@ int checkParamInList(const char *list, const char *param)
 }
 
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
-{   CHAR *	pinned_params_temp;
-	pinned_params_temp=pinned_params;
-    pinned_params="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7";
+{   CHAR pinned_params_temp[100]="";
+    int pin_was_null=1;
+    char full_list[]="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG";
+    if (pinned_params!=NULL){
+        pin_was_null=0;
+        strcpy(pinned_params_temp,pinned_params);
+        strcpy(pinned_params,full_list);
+    }
+    else {
+        pinned_params=full_list ;
+    } 
+    
     MCMCinput->funcInit(parameter,iT);
-    pinned_params=pinned_params_temp;
+    if (pin_was_null)
+        pinned_params=NULL;
+    else
+        strcpy(pinned_params,pinned_params_temp);
     return ;	
 	}
 
