@@ -73,7 +73,7 @@ Optional OPTIONS:\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
 [--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior total mass\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
-[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorF2Test|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor)]\n \
+[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorF2Test|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor|MassiveGraviton)]\n \
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
 [--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\n\
 [--H1GPSshift FLOAT\t: Specify timeslide in H1]\n \
@@ -188,6 +188,12 @@ int checkParamInList(const char *list, const char *param);
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
 // init function for the Phi-parametrized AmpCor && TaylorF2 waveform
 void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
+// init function for the MassiveGraviton waveform
+
+void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT);
+/* variables for the MassiveGraviton waveform */
+double loglambdaG_min = 14.0;
+double loglambdaG_max = 24.0;
 
 UINT4 fLowFlag=0;
 
@@ -217,6 +223,7 @@ double lat_min=-LAL_PI/2.;
 double lat_max=LAL_PI/2.;
 double manual_chi_min=-1.;
 double manual_chi_max=1.;
+
 int mc_flag=0;
 double m_c_min=1.;
 /* */
@@ -1165,7 +1172,7 @@ int main( int argc, char *argv[])
 
 	/* Set up the approximant to use in the likelihood function */
 	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR TF2T[]="TaylorF2Test"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest"; CHAR PSTRD[]="PhenSpinTaylorRD";
-    CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low";
+    CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low"; CHAR MG[]="MassiveGraviton";
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
@@ -1182,6 +1189,7 @@ int main( int argc, char *argv[])
 	else if(!strcmp(approx,AMPCORTEST)) inputMCMC.approximant=AmpCorPPNTest;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
     else if(!strcmp(approx,LowMassIMRFB)) inputMCMC.approximant=IMRPhenomFB;
+    else if(!strcmp(approx,MG)) inputMCMC.approximant=MassiveGraviton;
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
 	if((inputMCMC.approximant!=AmpCorPPN || inputMCMC.approximant!=AmpCorPPNTest) && ampOrder!=0){
@@ -1260,17 +1268,23 @@ doneinit:
 	// If the approximant is the Test function use the proper init, prior and likelihood functions 
 	inputMCMC.funcPrior = NestPrior;
     if(inputMCMC.approximant==AmpCorPPNTest) {
-			inputMCMC.funcInit = NestInitConsistencyTest;
-			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCorTest;
-			inputMCMC.funcPrior = NestPriorConsistencyTest;
-            fprintf(stderr,"Switched to the testing likelihood for AmpCor\n");
+        inputMCMC.funcInit = NestInitConsistencyTest;
+        inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCorTest;
+        inputMCMC.funcPrior = NestPriorConsistencyTest;
+        fprintf(stderr,"Switched to the testing likelihood for AmpCor\n");
 	}			
     if (inputMCMC.approximant==TaylorF2Test) {
-            inputMCMC.funcInit = NestInitConsistencyTest;
-			inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
-			inputMCMC.funcPrior = NestPriorConsistencyTest;
-            fprintf(stderr,"Switched to the testing likelihood for TaylorF2\n");
+        inputMCMC.funcInit = NestInitConsistencyTest;
+        inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
+        inputMCMC.funcPrior = NestPriorConsistencyTest;
+        fprintf(stderr,"Switched to the testing likelihood for TaylorF2\n");
 	} 
+    if (inputMCMC.approximant==MassiveGraviton) {
+        inputMCMC.funcInit = NestInitMassiveGraviton;
+        inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
+        inputMCMC.funcPrior = NestPriorMassiveGraviton;
+        fprintf(stderr,"Switched to the testing likelihood for the MassiveGraviton\n");
+        }
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
 		inputMCMC.funcInit = NestInitGRB;
 	}
@@ -1974,6 +1988,95 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
     //    XLALMCMCAddParam(parameter,"dphi7",0.0,phiMin,phiMax,-1);
     //else 
         XLALMCMCAddParam(parameter,"dphi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+	for (head=parameter->param;head;head=head->next)
+	{
+		if(head->core->wrapping==-1)
+			fprintf(stdout,"Fixed parameter %s to %lf\n",head->core->name,head->value);
+	}
+    
+}
+
+// Init function for the MassiveGraviton waveforms
+
+void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT)
+{
+	REAL8 trg_time;
+	SimInspiralTable *injTable = (SimInspiralTable *)iT;
+	REAL4 UNUSED mtot, UNUSED eta, UNUSED mwindow, localetawin;
+	REAL8 UNUSED mc, mcmin, mcmax, lmmin, lmmax;
+	parameter->param = NULL;
+	parameter->dimension = 0;
+	trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
+	mtot = injTable->mass1 + injTable->mass2;
+	eta = injTable->eta;
+	mwindow = 0.2;
+	double etamin;
+	/*etamin = etamin<0.01?0.01:etamin;*/
+	etamin=0.01;
+	double etamax = 0.25;
+	mc=m2mc(injTable->mass1,injTable->mass2);
+	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
+    mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
+
+	lmmin=log(mcmin);
+	lmmax=log(mcmax);
+	localetawin=etamax-etamin;
+	
+	LALMCMCParam *head;
+	
+	if(checkParamInList(pinned_params,"logM")||checkParamInList(pinned_params,"mchirp"))
+		XLALMCMCAddParam(parameter,"logM",log(injTable->mchirp),lmmin,lmmax,-1);
+	else
+		XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+	/*XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
+    
+	if(checkParamInList(pinned_params,"eta"))
+		XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
+	else
+		XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*localetawin+etamin , etamin, etamax, 0);
+	
+	if(checkParamInList(pinned_params,"time"))
+		XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
+	else
+		XLALMCMCAddParam(parameter, "time",		(gsl_rng_uniform(RNG)-0.5)*timewindow + trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,0);
+	
+	if(checkParamInList(pinned_params,"phi"))
+		XLALMCMCAddParam(parameter,"phi",injTable->coa_phase,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter, "phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
+	
+	if(checkParamInList(pinned_params,"dist") || checkParamInList(pinned_params,"logdist") || checkParamInList(pinned_params,"distance") || checkParamInList(pinned_params,"logdistance"))
+		XLALMCMCAddParam(parameter,"logdist",log(injTable->distance),log(manual_dist_min),log(manual_dist_max),-1);
+	else
+		XLALMCMCAddParam(parameter,"logdist",(log(manual_dist_max)-log(manual_dist_min))*gsl_rng_uniform(RNG)+log(manual_dist_min) ,log(manual_dist_min),log(manual_dist_max),0);
+    
+	if(checkParamInList(pinned_params,"ra")||checkParamInList(pinned_params,"longitude")||checkParamInList(pinned_params,"RA"))
+		XLALMCMCAddParam(parameter,"ra",injTable->longitude,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter,"ra",gsl_rng_uniform(RNG)*LAL_TWOPI,0,LAL_TWOPI,1);
+	if(checkParamInList(pinned_params,"dec") || checkParamInList(pinned_params,"latitude") || checkParamInList(pinned_params,"dec"))
+		XLALMCMCAddParam(parameter,"dec",injTable->latitude,-LAL_PI/2.0,LAL_PI/2.0,-1);
+	else
+		XLALMCMCAddParam(parameter,"dec", acos(2.0*gsl_rng_uniform(RNG)-1.0)-LAL_PI/2.0,-LAL_PI/2.0,LAL_PI/2.0,0);
+    
+	if(checkParamInList(pinned_params,"psi")||checkParamInList(pinned_params,"polarization"))
+		XLALMCMCAddParam(parameter,"psi",injTable->polarization,0,LAL_PI,-1);
+	else
+		XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI,0,LAL_PI,1);
+	
+	if(checkParamInList(pinned_params,"iota") || checkParamInList(pinned_params,"inclination"))
+		XLALMCMCAddParam(parameter,"iota", injTable->inclination, 0, LAL_PI, -1);
+	else
+		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
+    
+    /* add loglambdaG parameter */
+
+	if(checkParamInList(pinned_params,"loglambdaG"))
+		XLALMCMCAddParam(parameter,"loglambdaG", injTable->loglambdaG, loglambdaG_min, loglambdaG_max, -1);
+	else
+		XLALMCMCAddParam(parameter,"loglambdaG", loglambdaG_min+(loglambdaG_max-loglambdaG_min)*gsl_rng_uniform(RNG), loglambdaG_min, loglambdaG_max,0);    
+    
 
 	for (head=parameter->param;head;head=head->next)
 	{
