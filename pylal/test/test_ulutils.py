@@ -2,6 +2,7 @@
 
 import unittest
 import numpy
+from numpy import random
 
 from pylal import upper_limit_utils
 
@@ -116,6 +117,37 @@ class test_ulutils(unittest.TestCase):
         vexpect = 1 - numpy.exp(-1)
         self.assertTrue(abs(v -vexpect ) < 0.1)
 
+
+    def test_mean_efficiency(self):
+        '''
+        Check the mean efficiency calculation in a controlled way.
+        '''
+        # Assume a sigmoidal mock efficiency curve.
+        def eff_model(inj, rchar = 25.0, order = 6.0):
+            return 1./(1+(inj/rchar)**order)
+
+        # think of these as log-d bins between 1 and 100 Mpc
+        bins = numpy.logspace(0, 2, num=50)
+        centres = 10**((numpy.log10(bins[1:])+numpy.log10(bins[:-1]))/2) # log midpoint
+
+        # generate a bunch of injections uniform in log-d
+        injections = random.uniform(1, 100, size=10000)
+        class MiniInj(object):
+            def __init__(self, distance):
+                self.distance = distance
+
+        found = []
+        missed = []
+        for inj in injections:
+            if random.binomial(1, eff_model(inj) ):
+                found.append( MiniInj(inj) )
+            else:
+                missed.append( MiniInj(inj) )
+
+        eff, err = upper_limit_utils.mean_efficiency(found, missed, bins, bootnum=10)
+        # the computed mean efficiency should agree with the efficiency
+        # model to at least ~5% (though this can fluctuate)
+        self.assertTrue( (eff - eff_model(centres)).sum()/len(eff) < 0.05 )
 
 # construct and run the test suite.
 suite = unittest.TestSuite()
