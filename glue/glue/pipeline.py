@@ -50,6 +50,8 @@ try:
 except:
   pass
 
+import Pegasus.DAX3
+
 def s2play(t):
   """
   Return True if t is in the S2 playground, False otherwise
@@ -583,11 +585,11 @@ class CondorDAGManJob:
     """
     return self.__pegasus_exec_dir
 
-  def add_pfn_cache(self,file):
+  def add_pfn_cache(self,pfn_list):
     """
     Add an lfn pfn and pool tuple to the pfn cache
     """
-    self.__pfn_cache.append(file)
+    self.__pfn_cache += pfn_list
 
   def get_pfn_cache(self):
     """
@@ -1012,10 +1014,9 @@ class CondorDAGNode:
       raise CondorDAGNodeError, "Parent must be a CondorDAGNode or a CondorDAGManNode"
     self.__parents.append( node )
 
-  def get_cmd_line(self):
+  def get_cmd_tuple_list(self):
     """
-    Return the full command line that will be used when this node
-    is run by DAGman.
+    Return a list of tuples containg the command line arguments
     """
 
     # pattern to find DAGman macros
@@ -1025,7 +1026,7 @@ class CondorDAGNode:
     options = self.job().get_opts()
     macros = self.get_opts()
 
-    cmd = ""
+    cmd_list = []
 
     for k in options:
       val = options[k]
@@ -1034,9 +1035,9 @@ class CondorDAGNode:
         key = m.group(1)
         value = macros[key]
 
-        cmd += "--%s %s " % (k, value)
+        cmd_list.append(("--%s" % k, str(value)))
       else:
-        cmd += "--%s %s " % (k, val)
+        cmd_list.append(("--%s" % k, str(val)))
 
     # second parse the short options and replace macros with values
     options = self.job().get_short_opts()
@@ -1048,9 +1049,9 @@ class CondorDAGNode:
         key = m.group(1)
         value = macros[key]
 
-        cmd += "-%s %s " % (k, value)
+        cmd_list.append(("-%s" % k, str(value)))
       else:
-        cmd += "-%s %s " % (k, val)
+        cmd_list.append(("-%s" % k, str(val)))
 
     # lastly parse the arguments and replace macros with values
     args = self.job().get_args()
@@ -1061,9 +1062,22 @@ class CondorDAGNode:
       if m:
         value = ' '.join(macros)
 
-        cmd += "%s " % (value)
+        cmd_list.append(("%s" % value, ""))
       else:
-        cmd += "%s " % (a)
+        cmd_list.append(("%s" % a, ""))
+
+    return cmd_list
+
+  def get_cmd_line(self):
+    """
+    Return the full command line that will be used when this node
+    is run by DAGman.
+    """
+    
+    cmd = ""
+    cmd_list = self.get_cmd_tuple_list()
+    for argument in cmd_list:
+      cmd += ' '.join(argument) + " "
 
     return cmd
 
@@ -1298,67 +1312,21 @@ class CondorDAG:
     if not self.__dax_file_path:
       # this workflow is not dax-compatible, so don't write a dax
       return
-    try:
-      dagfile = open( self.__dax_file_path, 'w' )
-    except:
-      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
 
-    # write the preamble
-    preamble = """<?xml version="1.0" encoding="UTF-8"?>
-<adag xmlns="http://pegasus.isi.edu/schema/DAX"
-xsi:schemaLocation="http://pegasus.isi.edu/schema/DAX http://pegasus.isi.edu/schema/dax-3.0.xsd"
-xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" index="0" """
+    # create the workflow object
     dax_name = os.path.split(self.__dax_file_path)[-1]
     dax_basename = '.'.join(dax_name.split('.')[0:-1])
-    preamble_2 = 'name="' + dax_basename  + '">'
-    print >>dagfile, preamble,preamble_2
-
-    # find unique input and output files from nodes
-    input_file_dict = {}
-    output_file_dict = {}
-
-    # creating dictionary for input- and output-files
-    for node in self.__nodes:
-
-      input_files = node.get_input_files()
-      output_files = node.get_output_files()
-      for f in input_files:
-        # FIXME need a better way of dealing with the cache subdirectory
-        f = os.path.basename(f)
-        input_file_dict[f] = 1
-      for f in output_files:
-        # FIXME need a better way of dealing with the cache subdirectory
-        f = os.path.basename(f)
-        output_file_dict[f] = 1
-
-    # move union of input and output into inout
-    inout_file_dict = {}
-
-    for f in input_file_dict:
-      if output_file_dict.has_key(f):
-         inout_file_dict[f] = 1
-
-    for f in inout_file_dict:
-      del input_file_dict[f]
-      del output_file_dict[f]
-
-    # create and soft input, inout, and output dictionaries
-    input_filelist = input_file_dict.keys()
-    input_filelist.sort()
-    inout_filelist = inout_file_dict.keys()
-    inout_filelist.sort()
-    output_filelist = output_file_dict.keys()
-    output_filelist.sort()
-
-    # write the jobs themselves to the DAX, making sure
-    # to replace logical file references by the appropriate
-    # xml, and adding the files used by each job both for
-    # input and output
+    workflow = Pegasus.DAX3.ADAG( dax_basename )
 
     # we save the ID number to DAG node name mapping so that
     # we can easily write out the child/parent relationship
     # later
-    node_name_id_dict = {}
+    node_job_object_dict = {}
+
+    # FIXME disctionary of executables and pfns in the workflow
+    # Pegasus should take care of this so we don't have to
+    workflow_executable_dict = {}
+    workflow_pfn_dict = {}
 
     id = 0
     for node in self.__nodes:
@@ -1369,7 +1337,6 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         id += 1
         id_tag = "ID%06d" % id
         node_name = node._CondorDAGNode__name
-        node_name_id_dict[node_name] = id_tag
 
         if node.job().get_dax() is None:
           # write this node as a sub-dag
@@ -1380,14 +1347,14 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           except AttributeError:
             subdag_exec_path = os.getcwd()
 
-          print >>dagfile, """<dag id="%s" file="%s">""" % (id_tag, subdag_name)
-          print >>dagfile, """
-     <profile namespace="dagman" key="DIR">%s</profile>""" % subdag_exec_path
-          print >>dagfile, """\
-     <uses file="%s" link="input" register="false" transfer="true" type="data">
-          <pfn url="%s" site="local"/>
-     </uses>
-</dag>""" % (subdag_name, os.path.join(subdag_exec_path,subdag_name))
+          subdag = Pegasus.DAX3.DAG(subdag_name,id=id_tag)
+          subdag.addProfile(Pegasus.DAX3.Profile("dagman","DIR",subdag_exec_path))
+
+          subdag_file = Pegasus.DAX3.File(subdag_name)
+          subdag_file.addPFN(Pegasus.DAX3.PFN(os.path.join(subdag_exec_path,subdag_name),"local"))
+          workflow.addFile(subdag_file)
+          workflow.addDAG(subdag)
+          node_job_object_dict[node_name] = subdag
 
         else:
           # write this node as a sub-dax
@@ -1400,38 +1367,36 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
             subdax_path = os.path.join(os.getcwd(),subdax_name)
             dax_subdir = '.'
             
-          print >>dagfile, """<dax id="%s" file="%s">""" % (id_tag, subdax_name)
+          subdax = Pegasus.DAX3.DAX(subdax_name,id=id_tag)
+
+          # FIXME pegasus should ensure these are unique
+          for pfn_tuple in node.job().get_pfn_cache():
+            workflow_pfn_dict[pfn_tuple[0]] = pfn_tuple
 
           # set the storage and execute directory locations
-          xml = """     <argument>-Dpegasus.dir.storage=%s """ % dax_subdir
-          xml += """--dir %s """ % dax_subdir
+          pegasus_args = """-Dpegasus.dir.storage=%s """ % dax_subdir
+          pegasus_args += """--dir %s """ % dax_subdir
 
           # set the maxjobs categories for the subdax
           # FIXME pegasus should expose this in the dax, so it can
           # be handled like the MAXJOBS keyword in dag files
           for maxjobcat in node.get_maxjobs_categories():
-            xml += "-Dpegasus.dagman." + maxjobcat[0] + ".maxjobs=" + maxjobcat[1] + " "
-
-          # FIXME pegasus should really do this for us
-          caches = recurse_pfn_cache(node)
-
-          caches += node.job().get_pfn_cache()
-          xml += "--cache " + ','.join(caches) + " "
+            pegasus_args += "-Dpegasus.dagman." + maxjobcat[0] + ".maxjobs=" + maxjobcat[1] + " "
 
           if not self.is_dax():
-            xml += "--nocleanup "
+            pegasus_args += "--nocleanup "
 
           if node.get_cluster_jobs():
-            xml += "--cluster " + node.get_cluster_jobs() + " "
+            pegasus_args += "--cluster " + node.get_cluster_jobs() + " "
 
-          xml += "-vvvvvv --force</argument>"
-          print >>dagfile, xml
+          pegasus_args += "-vvvvvv --force"
+          subdax.addArguments(pegasus_args)
 
-          print >>dagfile, """\
-     <uses file="%s" link="input" register="false" transfer="true" type="data">
-          <pfn url="%s" site="local"/>
-     </uses>
-</dax>""" % (subdax_name, subdax_path)
+          subdax_file = Pegasus.DAX3.File(subdax_name)
+          subdax_file.addPFN(Pegasus.DAX3.PFN(subdax_path,"local"))
+          workflow.addFile(subdax_file)
+          workflow.addDAX(subdax)
+          node_job_object_dict[node_name] = subdax
 
       else:
         # write this job as a regular node
@@ -1440,63 +1405,63 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 
         id += 1
         id_tag = "ID%06d" % id
-        node_name_id_dict[node_name] = id_tag
+        node_job_object_dict[node_name] = id_tag
 
-        cmd_line = node.get_cmd_line()
+        # get the name of the executable 
+        executable_base = os.path.basename(executable)
+
+        workflow_job = Pegasus.DAX3.Job(
+          namespace="ligo", name=executable_base, version="1.0", id=id_tag)
+
+        cmd_line = node.get_cmd_tuple_list()
 
         # loop through all filenames looking for them in the command
         # line so that they can be replaced appropriately by xml tags
         node_file_dict = {}
         for f in node.get_input_files():
           node_file_dict[f] = 1
+          workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.INPUT,register=False,transfer=True)
         for f in node.get_output_files():
           node_file_dict[f] = 1
-        for f in node_file_dict.keys():
-          # FIXME need a better way of dealing with the cache subdirectory
-          xml = '<filename file="%s" />' % os.path.basename(f)
-          cmd_line = cmd_line.replace(f, xml)
+          workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.OUTPUT,register=False,transfer=True)
 
-        template = """\
-<job id="%s" namespace="ligo" name="%s" version="1.0" level="1" dv-name="%s">
-     <argument>%s
-     </argument>
-"""
-        xml = template % (id_tag, os.path.basename(executable), node_name, cmd_line)
-
+        for job_arg in cmd_line:
+          if node_file_dict.has_key(job_arg[0]):
+            workflow_job.addArguments(Pegasus.DAX3.File(os.path.basename(job_arg[0])))
+          elif node_file_dict.has_key(job_arg[1]):
+            workflow_job.addArguments(job_arg[0], Pegasus.DAX3.File(os.path.basename(job_arg[1])))
+          else:
+            workflow_job.addArguments(job_arg[0], job_arg[1])
+            
         # write the executable into the dax
+        job_executable = Pegasus.DAX3.Executable(
+          namespace="ligo", name=executable_base, version="1.0",
+          os="linux", arch="x86_64")
+
         executable_path = os.path.join(os.getcwd(),executable)
         if self.is_dax():
           executable_path = '/'.join(
             ['gsiftp:/', socket.gethostbyaddr(socket.gethostname())[0], 
             executable_path.lstrip('/')])
-        else:
-          xml = xml + """     <execution key="site">local</execution>\n"""
-        xml = xml +  """     <execution key="executable">%s</execution>\n""" % executable_path
+        job_executable.addPFN(Pegasus.DAX3.PFN(executable_path,"local"))
 
-        # write the group if this node has one
-        if node.get_vds_group():
-          template = """     <profile namespace="pegasus" key="group">%s</profile>\n"""
-          xml = xml + template % (node.get_vds_group())
+        workflow_executable_dict[executable_base] = job_executable
 
         # write the bundle parameter if this node has one
         if node.get_dax_collapse():
-          template = """     <profile namespace="pegasus" key="collapse">%s</profile>\n"""
-          xml = xml + template % (node.get_dax_collapse())
+          workflow_job.addProfile(Pegasus.DAX3.Profile("pegasus","clusters.size",str(node.get_dax_collapse())))
 
         # write number of times the node should be retried
         if node.get_retry():
-          template = """     <profile namespace="dagman" key="retry">%s</profile>\n"""
-          xml = xml + template % (node.get_retry())
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","retry",str(node.get_retry())))
 
         # write the dag node category if this node has one
         if node.get_category():
-          template = """     <profile namespace="dagman" key="category">%s</profile>\n"""
-          xml = xml + template % (node.get_category())
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","category",str(node.get_category())))
 
         # write the dag node priority if this node has one
         if node.get_priority():
-          template = """     <profile namespace="condor" key="priority">%s</profile>\n"""
-          xml = xml + template % (node.get_priority())
+          workflow_job.addProfile(Pegasus.DAX3.Profile("condor","priority",str(node.get_priority())))
 
         if self.is_dax():
           # FIXME should put remote universe property here
@@ -1504,34 +1469,13 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         else:
           if node.get_dax_collapse():
             # collapsed jobs must run in the vanilla universe
-            template = """     <profile namespace="condor" key="universe">vanilla</profile>\n"""
-            xml = xml + template
+            workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe","vanilla"))
           else:
-            template = """     <profile namespace="condor" key="universe">%s</profile>\n"""
-            xml = xml + template % (node.job().get_universe())
+            workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
 
-        print >>dagfile, xml,
+        workflow.addJob(workflow_job)
+        node_job_object_dict[node_name] = workflow_job
 
-        for f in node.get_input_files():
-          # FIXME need a better way of dealing with the cache subdirectory
-          f = os.path.basename(f)
-          if f in inout_filelist:
-            print >>dagfile, """\
-     <uses file="%s" link="inout" register="false" transfer="true"/>\
-""" % f
-          else:
-            print >>dagfile, """\
-     <uses file="%s" link="input" register="false" transfer="true"/>\
-""" % f
-
-        for f in node.get_output_files():
-          # FIXME need a better way of dealing with the cache subdirectory
-          f = os.path.basename(f)
-          print >>dagfile, """\
-     <uses file="%s" link="output" register="false" transfer="true"/>\
-""" % f
-
-        print >>dagfile, "</job>"
 
     # print parent-child relationships to DAX
     for node in self.__nodes:
@@ -1540,20 +1484,28 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
       elif self.is_dax() and ( len(node._CondorDAGNode__parents) == 1 ) and isinstance(node._CondorDAGNode__parents[0], LSCDataFindNode):
         pass
       else:
-        child_id = node_name_id_dict[str(node)]
+        child_job_object = node_job_object_dict[str(node)]
         if node._CondorDAGNode__parents:
-          print >>dagfile, '<child ref="%s">' % child_id
           for parent in node._CondorDAGNode__parents:
             if self.is_dax() and isinstance(parent, LSCDataFindNode):
               pass
             else:
-              parent_id = node_name_id_dict[str(parent)]
-              print >>dagfile, '     <parent ref="%s"/>' % parent_id
-          print >>dagfile, '</child>'
+              parent_job_object = node_job_object_dict[str(parent)]
+              workflow.addDependency(parent=parent_job_object, child=child_job_object)
 
-    print >>dagfile, "</adag>"
+    # FIXME put all the executables in the workflow
+    for exec_key in workflow_executable_dict.keys():
+      workflow.addExecutable(workflow_executable_dict[exec_key])
 
-    dagfile.close()
+    # FIXME put all the pfns in the workflow
+    for pfn_key in workflow_pfn_dict.keys():
+      f = Pegasus.DAX3.File(workflow_pfn_dict[pfn_key][0])
+      f.addPFN(Pegasus.DAX3.PFN(workflow_pfn_dict[pfn_key][1],workflow_pfn_dict[pfn_key][2]))
+      workflow.addFile(f)
+
+    f = open(self.__dax_file_path,"w")
+    workflow.writeXML(f)
+    f.close()
 
     # write the site catalog file which is needed by the DAG
     try:
