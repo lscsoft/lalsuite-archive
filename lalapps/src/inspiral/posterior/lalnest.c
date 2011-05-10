@@ -193,7 +193,7 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
 void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT);
 /* variables for the MassiveGraviton waveform */
 double loglambdaG_min = 14.0;
-double loglambdaG_max = 24.0;
+double loglambdaG_max = 18.0;
 
 UINT4 fLowFlag=0;
 
@@ -1661,7 +1661,7 @@ void NestInitManual(LALMCMCParameter *parameter, void UNUSED *iT)
 	XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
 	XLALMCMCAddParam(parameter,"phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
 /*	XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax, 0);*/
-	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(1000.0)-log(1.0)),log(1.0),log(1000.0),0);
+	XLALMCMCAddParam(parameter,"logdist",lDmin+gsl_rng_uniform(RNG)*(lDmax-lDmin),lDmin,lDmax,0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
 	XLALMCMCAddParam(parameter,"psi",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,1);
@@ -2111,7 +2111,7 @@ int checkParamInList(const char *list, const char *param)
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
 {   CHAR *	pinned_params_temp;
 	pinned_params_temp=pinned_params;
-    pinned_params="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7";
+    pinned_params="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG";
     MCMCinput->funcInit(parameter,iT);
     pinned_params=pinned_params_temp;
     return ;	
