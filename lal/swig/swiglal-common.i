@@ -47,6 +47,7 @@
 %header %{
   #include <cstdlib>
   #include <cstring>
+  #include <ctime>
   #include <iostream>
   #include <string>
   #include <sstream>
@@ -1126,3 +1127,31 @@ fail: // SWIG doesn't add a fail label to a global variable '_get' function
 // Assumes that all printf-style LAL functions name the format
 // string either "format" or "fmt" in the header files.
 %apply (const char *format, ...) { (const char *fmt, ...) };
+
+// Helper function for converting 'tm' structs to/from native representations.
+// We want to use the C time functions in to fill in values for 'tm_wday' and
+// 'tm_yday', and normalise the ranges of the other members. mktime() does this,
+// but it also assumes local time, so that the 'tm' struct members are adjusted
+// according to the timezone. So instead, we use mktime() to get a local time
+// 't', subtract off the timezone (for this to work, 'tm_isdst' must be set to
+// zero before mktime() is called; its value is restored afterwards), then call
+// gmtime() to recreate the 'tm' struct from 't'. gmtime() assumes UTC time, so
+// it does no timezone modification.
+%header %{
+  SWIGINTERNINLINE bool    
+  swiglal_fill_struct_tm(struct tm *tm) {
+    tzset();
+    int isdst = tm->tm_isdst;
+    tm->tm_isdst = 0;
+    time_t t = mktime(tm);
+    if (t < 0) {
+      return false;
+    }
+    t -= timezone;
+    if (gmtime_r(&t, tm) == NULL) {
+      return false;
+    }
+    tm->tm_isdst = isdst;
+    return true;
+  }
+%}

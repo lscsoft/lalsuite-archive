@@ -194,6 +194,29 @@ catch
   exit(1);
 end_try_catch
 
+## check 'tm' struct conversions
+try
+  gps = 989168284;
+  utc = [2011, 5, 11, 16, 57, 49, 4, 131, 0];
+  assert(all(XLALGPSToUTC([], gps) == utc));
+  assert(XLALUTCToGPS(utc) == gps);
+  assert(XLALUTCToGPS(utc(1:6)) == gps);
+  utc(7) = utc(8) = 0;
+  for f = [-1, 0, 1]
+    utc(9) = f;
+    assert(XLALUTCToGPS(utc) == gps);
+  endfor
+  utcd = utc;
+  for d = 0:10
+    utcd(3) = utc(3) + d;
+    utcd = XLALGPSToUTC([], XLALUTCToGPS(utcd));
+    assert(utcd(7) == weekday(datenum(utcd(1:6))));
+  endfor
+catch
+  msg("FAILED 'tm' struct conversions");
+  exit(1);
+end_try_catch
+
 ## passed all tests!
 msg("================");
 msg("PASSED all tests");
