@@ -284,7 +284,7 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
     # Get exclude_coincs list if specified
     if exclude_coincs is not None:
         exclude_coinc_filters = sqlutils.parse_coinc_options( exclude_coincs, 
-            verbose = verbose ).get_coinc_filters()
+            verbose = verbose ).get_coinc_filters( coinc_instruments_table = tableName )
         # concatenate exclude_coinc_filters
         exclude_coinc_filters = '\n\t\tOR '.join( exclude_coinc_filters )
         # add to in_this_filter
@@ -293,7 +293,7 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
     # Get include_only_coincs list if specified
     if include_only_coincs is not None:
         include_coinc_filters = sqlutils.parse_coinc_options( include_only_coincs, 
-            verbose = verbose ).get_coinc_filters()
+            verbose = verbose ).get_coinc_filters( coinc_instruments_table = tableName )
         # concatenate include_coinc_filters
         include_coinc_filters = '\n\t\tOR '.join( include_coinc_filters )
         # add to in_this_filter
