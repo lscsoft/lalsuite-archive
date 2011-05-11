@@ -373,8 +373,7 @@ if cp.has_option('analysis','data_seed'):
     print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first injection. Incrementing by one for each other \n"
 else:
     print "Using default dataseed=1234 for the first injection (incrementing by one for each other). Add data_seed=X in the analysis section of the parser if you want to change it. \n"
-#print cp.items('inspnest_all')
-#print inspnest_job.__options
+
 factor=0
 if cp.has_option('analysis','seed'):
     print "Using  seed= " + str(cp.get('analysis','seed')) +" for the fist run (seed is incremented by one for each parallel run) \n"
