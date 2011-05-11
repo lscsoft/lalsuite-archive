@@ -85,7 +85,7 @@ def parse_command_line():
         default=None, metavar="STATTYPE",
         help =
             "type of single-ifo statistic to be computed: " +
-            "allowed values are mean, snr, choppedl, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, highstat"
+            "allowed values are mean, snr_mean, snr, choppedl, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, highstat"
         )
     parser.add_option("", "--nlow", action = "store", type = "float", default = 4.,
         help =
@@ -135,7 +135,7 @@ def parse_command_line():
         default=None,
         help =
           "Parameter that will be averaged for coinc table entry. Ex: ringdown frequency, quality." +
-          "Required if mean is specified as statistic-type."
+          "Required if mean or snr_mean is specified as statistic-type."
         )
     parser.add_option("", "--chopla", action="store", type="float",
         default=None,
@@ -220,6 +220,12 @@ class CombiningFunctions:
         Computes the mean param.
         """
         return sum([getattr(sngl, self.param) for sngl in coinc_sngls])/float(len(coinc_sngls))
+
+    def compute_snr_weighted_mean( self, coinc_sngls ):
+        """
+        Computes the snr-weighted mean param.
+        """
+        return sum([getattr(sngl, self.param) * sngl.snr for sngl in coinc_sngls])/sum(sngl.snr for sngl in coinc_sngls)
     
     def compute_combined_snr( self, coinc_sngls ):
         """
@@ -388,6 +394,8 @@ function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhi
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'mean':
     function = 'compute_mean'
+elif opts.statistic_type == 'snr_mean':
+    function = 'compute_snr_weighted_mean'
 elif opts.statistic_type == 'snr':
     function = 'compute_combined_snr'
 elif opts.statistic_type == 'choppedl':
