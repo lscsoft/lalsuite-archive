@@ -145,6 +145,11 @@ of the individual "filters" \f$F_a\f$ and \f$F_b\f$, depending on the
 #ifndef _LALDEMOD_H
 #define _LALDEMOD_H
 
+/* remove SWIG interface directives */
+#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
+#define SWIGLAL_STRUCT_LALALLOC(...)
+#endif
+
 #include <lal/LALDatatypes.h>
 #include <lal/LALComputeAM.h>
 
@@ -166,6 +171,7 @@ NRCSID (LALDEMODH, "$Id$");
 
 /* PARAMETERS */
 typedef struct DemodParTag{
+  SWIGLAL_STRUCT_LALALLOC();
   INT4		spinDwnOrder;	/* Maximum order of spdwn parameter */
   REAL8		*skyConst;	/* Constants computed in ComputeSky.c */
   REAL8		*spinDwn;	/* Spindown parameter set */
@@ -181,6 +187,7 @@ typedef struct DemodParTag{
 
 
 typedef struct {
+  SWIGLAL_STRUCT_LALALLOC();
   REAL8         *F;            /* Array of value of the F statistic */
   COMPLEX16     *Fa;           /* Results of match filter with a(t) */
   COMPLEX16     *Fb;           /* Results of match filter with b(t) */
@@ -191,6 +198,7 @@ typedef struct {
 /*This structure will hold a single FFT*/
 typedef struct FFTTag
 {
+  SWIGLAL_STRUCT_LALALLOC();
   COMPLEX8FrequencySeries *fft;
 } FFT;
 

@@ -84,6 +84,11 @@ know.
 #ifndef _PULSARCAT_H
 #define _PULSARCAT_H
 
+/* remove SWIG interface directives */
+#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
+#define SWIGLAL_STRUCT_LALALLOC(...)
+#endif
+
 #include <lal/LALStdlib.h>
 #include <lal/StringInput.h>
 #include <lal/SkyCoordinates.h>
@@ -149,6 +154,7 @@ radians/s.</dd>
 
 */
 typedef struct tagCompanionNode{
+  SWIGLAL_STRUCT_LALALLOC();
   LIGOTimeGPS epoch; /* epoch of periapsis */
   REAL8 x;           /* projected semimajor axis (a/c)sin(i), (s) */
   REAL8 p;           /* orbital period at epoch (s) */
@@ -240,6 +246,7 @@ list.</dd>
 
 */
 typedef struct tagPulsarCatNode {
+  SWIGLAL_STRUCT_LALALLOC();
   CHAR bname[10];   /* B1950 pulsar name */
   CHAR jname[12];   /* J2000 pulsar name */
   SkyPosition pos;  /* J2000 pulsar position */

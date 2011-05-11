@@ -105,6 +105,11 @@ B_{s \alpha}=\mathcal{T}_{SFT}\dot{T}_{\alpha}\Delta T_{\alpha}^{s}
 #ifndef _COMPUTESKY_H
 #define _COMPUTESKY_H
 
+/* remove SWIG interface directives */
+#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
+#define SWIGLAL_STRUCT_LALALLOC(...)
+#endif
+
 #include <lal/LALStdlib.h>
 #include <lal/LALBarycenter.h>
 
@@ -128,6 +133,7 @@ extern "C" {
 typedef struct
 tagCSParams
 {
+  SWIGLAL_STRUCT_LALALLOC();
   INT8			spinDwnOrder;	/**< The maximal number of spindown parameters per spindown parameter set */
   INT8			mObsSFT;	/**< The number of SFTs in the observation time */
   REAL8			tSFT;		/**< The timescale of one SFT */
