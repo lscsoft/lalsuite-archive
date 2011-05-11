@@ -1537,6 +1537,8 @@ class CoincRingdownTable(table.Table):
 		"start_time_ns": "int_4s",
 		"frequency": "real_8",
 		"quality": "real_8",
+		"mass": "real_8",
+		"spin": "real_8",
 		"ds2_H1H2": "real_8",
 		"ds2_H1L1": "real_8",
 		"ds2_H2L1": "real_8",
