@@ -90,7 +90,7 @@ def cbcBayesPostProc(
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
-                        twodkdeplots=False,
+                        twodkdeplots=True,
                         #Turn on R convergence tests
                         RconvergenceTests=False
                     ):
@@ -136,6 +136,10 @@ def cbcBayesPostProc(
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'))
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
+    if not os.path.isfile(snrfactor):
+        empty_snr_file=open(snrfactor,'w')
+        empty_snr_file.write("No snr file(s) provided\n")
+        empty_snr_file.close()
     injection=None
     if injfile:
         import itertools
@@ -1038,7 +1042,7 @@ if __name__=='__main__':
     # ACF plots off?
     parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
     # Turn on 2D kdes
-    parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
+    parser.add_option("--twodkdeplots", action="store_true", default=True, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
     (opts,args)=parser.parse_args()
