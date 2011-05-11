@@ -1065,8 +1065,10 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		# - end_time is the end time of the first trigger in
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
-		# - frequency is average of frequency, set in repop_coinc
-		# - quality is average of quality, set in repop_coinc
+		# - frequency is blank, set in repop_coinc
+		# - quality is blank, set in repop_coinc
+		# - mass is blank, set in repop_coinc
+		# - spin is blank, set in repop_coinc
 		# - ds2 values are set in repop_coinc; they will be
 		#   averaged values but should be same in both ifos so
 		#   averaging shouldn't matter.
@@ -1080,6 +1082,8 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		coinc_ringdown.set_ifos(str(event.ifo) for event in events)
 		coinc_ringdown.frequency = None
 		coinc_ringdown.quality = None
+		coinc_ringdown.mass = None
+		coinc_ringdown.spin = None
 		coinc_ringdown.ds2_H1H2 = None
 		coinc_ringdown.ds2_H1L1 = None
 		coinc_ringdown.ds2_H2L1 = None
