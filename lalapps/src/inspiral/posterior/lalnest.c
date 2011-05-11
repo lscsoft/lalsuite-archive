@@ -183,6 +183,7 @@ INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
 
+
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
@@ -242,6 +243,7 @@ void initialise(int argc, char *argv[]);
 // prototype for the FD injection code
 
 void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table);
+void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -672,6 +674,9 @@ int main( int argc, char *argv[])
 	REAL4 TSoffset;
 	LIGOTimeGPS realstart,segmentStart;
 	REAL8 networkSNR=0.0;
+    /* open the SNR file */
+    REAL8 * SNRs=NULL;
+    SNRs=calloc(nIFO+1 ,sizeof(REAL8));
 
 	lal_errhandler = LAL_ERR_EXIT;
         set_debug_level( "33" );
@@ -1096,6 +1101,7 @@ int main( int argc, char *argv[])
 			LALDestroyREAL4FFTPlan(&status,&inj_plan);
 
 			networkSNR+=SNR;
+            SNRs[i]=sqrt(SNR);
 			SNR=sqrt(SNR);
 
 			/* Actually inject the waveform */
@@ -1125,6 +1131,12 @@ int main( int argc, char *argv[])
 		}
 
 	} /* End loop over IFOs */
+
+if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton)) {
+    /* Print the SNRs in a file */
+    PrintSNRsToFile(SNRs,injTable,&inputMCMC);
+}
+
 
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
@@ -2136,7 +2148,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 ///*-------------- Inject in Frequency domain -----------------*/
 {
 	/* Inject a gravitational wave into the data in the frequency domain */
-    struct stat st;
 	REAL4Vector *injWaveFD=NULL;
     InspiralTemplate template;
 	UINT4 det_i,idx;
@@ -2152,7 +2163,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	expnFunc expnFunction;
 	expnCoeffs ak;
     TofVIn TofVparams;
-    
+    REAL8 * SNRs=NULL;
+    SNRs=calloc(nIFO+1 ,sizeof(REAL8));
     /* read in the injection approximant and determine whether is TaylorF2 or something else*/
     Approximant injapprox;
     LALPNOrder phase_order;
@@ -2249,24 +2261,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 	REAL8 time_sin,time_cos;
     //inputMCMC->numberDataStreams=nIFO;
-    
-    /* open the SNR file */
-    char SnrName[70];
-    char ListOfIFOs[10];
-    sprintf(ListOfIFOs,"");
-    
 
-    for (det_i=0;det_i<nIFO;det_i++){
-         sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);
-        }
-    
-    if (stat("./SNR",&st) == 0){
-        sprintf(SnrName,"./SNR/snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);}
-    else {
-        sprintf(SnrName,"snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
-        }
-    
-    FILE *snrout=fopen(SnrName,"w");
     
     REAL8 SNRcut = 5.5;
    
@@ -2305,23 +2300,50 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 		}
 		chisq*=4.0;
-        fprintf(snrout,"%s:\t",inputMCMC->ifoID[det_i]);
-        fprintf(snrout,"%e\n",sqrt(chisq));
+ 
         if (sqrt(chisq)<SNRcut) {
             fprintf(stderr,"Injected signal SNR in %s = %f is smaller than %f, aborting...\n",inputMCMC->ifoID[det_i],sqrt(chisq),SNRcut);
             exit(-1);
         }
         fprintf(stdout,"Injected signal in %s, SNR = %f\n",inputMCMC->ifoID[det_i],sqrt(chisq));
+        SNRs[det_i]=sqrt(chisq);
 		SNRinj+=chisq;
 		fclose(outInj);
 	}
    	SNRinj=sqrt(SNRinj);
-    if (nIFO>1){  fprintf(snrout,"Network:\t");
-    fprintf(snrout,"%e\n",SNRinj);}
-    fprintf(snrout,"\n");
-    fclose(snrout);
-
+    PrintSNRsToFile(SNRs,inj_table,inputMCMC);
 	fprintf(stdout,"Injected signal, network SNR = %f\n",SNRinj);
 	return;
 }
 
+void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
+/* open the SNR file */
+    struct stat st;
+    char SnrName[70];
+    char ListOfIFOs[10];
+    REAL8 NetSNR=0.0;
+    sprintf(ListOfIFOs,"");    
+
+    for (UINT4 det_i=0;det_i<nIFO;det_i++){
+         sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);
+        }
+    
+    if (stat("./SNR",&st) == 0){
+        sprintf(SnrName,"./SNR/snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+    }
+    else {
+        sprintf(SnrName,"snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+    }
+    
+    FILE *snrout=fopen(SnrName,"w");
+    for (UINT4 det_i=0;det_i<nIFO;det_i++){
+        fprintf(snrout,"%s:\t",inputMCMC->ifoID[det_i]);
+        fprintf(snrout,"%e\n",SNRs[det_i]);
+        NetSNR+=(SNRs[det_i]*SNRs[det_i]);
+    }		
+    if (nIFO>1){  fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%e\n",sqrt(NetSNR));}
+    fprintf(snrout,"\n");
+    fclose(snrout);
+
+}
