@@ -638,7 +638,9 @@ class Posterior(object):
                         'dphi5l':lambda inj:inj.dphi5l,
                         'dphi6':lambda inj:inj.dphi6,
                         'dphi6l':lambda inj:inj.dphi6l,
-                        'dphi7':lambda inj:inj.dphi7
+                        'dphi7':lambda inj:inj.dphi7,
+                        'lambdag':lambda inj:inj.loglambdaG,
+                        'loglambdag':lambda inj:inj.loglambdaG
                        }
 
     def _getinjpar(self,paramname):
@@ -763,6 +765,13 @@ class Posterior(object):
         Container method. Add a new OneDParameter to the Posterior instance.
         """
         self._posterior[one_d_posterior.name]=one_d_posterior
+        return
+
+    def remove(self,one_d_posterior):
+        """
+        Container method. Remove a OneDParameter from the Posterior instance.
+        """
+        del self._posterior[one_d_posterior.name]
         return
 
     def _average_posterior(self, samples, post_name):
@@ -2558,7 +2567,7 @@ class PEOutputParser(object):
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
+            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl' and header[i].lower()!='loglambdag':
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])

@@ -39,7 +39,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,log10
 import numpy as np
 
 import matplotlib
@@ -136,10 +136,6 @@ def cbcBayesPostProc(
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'))
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
-    if not os.path.isfile(snrfactor):
-        empty_snr_file=open(snrfactor,'w')
-        empty_snr_file.write("No snr file(s) provided\n")
-        empty_snr_file.close()
     injection=None
     if injfile:
         import itertools
@@ -163,6 +159,12 @@ def cbcBayesPostProc(
         BCI=bfile.read()
         bfile.close()
         print 'BCI: %s'%BCI
+    if not os.path.isfile(snrfactor):
+        print "No snr file provided or wrong path to snr file\n"
+        snrfactor=None
+        #empty_snr_file=open(snrfactor,'w')
+        #empty_snr_file.write("No snr file(s) provided\n")
+        #empty_snr_file.close()
     if snrfactor is not None:
         snrstring=""
         snrfile=open(snrfactor,'r')
@@ -219,7 +221,12 @@ def cbcBayesPostProc(
 
         pos.append(mass1_pos)
         pos.append(mass2_pos)
-
+    if 'lambdag' in pos.names:
+        loglambdaG_samps = log(pos['lambdag'].samples)
+        loglambdaG_pos = bppu.OneDPosterior('loglambdag',loglambdaG_samps,injected_value=pos['lambdag'].injval)
+        pos.append(loglambdaG_pos)
+        pos.remove(pos['lambdag'])
+        
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
     and ('declination' in pos.names or 'dec' in pos.names) \
@@ -1057,7 +1064,7 @@ if __name__=='__main__':
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    test_params=['dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7','lambdag','loglambdaG']
+    test_params=['dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7','loglambdag']
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + test_params  #+endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
@@ -1109,7 +1116,7 @@ if __name__=='__main__':
    
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':5.0,'dist':5.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'dphi0':0.002,'dphi1':0.002,'dphi2':0.002,'dphi3':0.002,'dphi4':0.002,'dphi5':0.002,'dphi5l':0.002,'dphi6':0.002,'dphi6l':0.002,'dphi7':0.002,'lambdag':1000,'m':0.025}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':5.0,'dist':5.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'dphi0':0.002,'dphi1':0.002,'dphi2':0.002,'dphi3':0.002,'dphi4':0.002,'dphi5':0.002,'dphi5l':0.002,'dphi6':0.002,'dphi6l':0.002,'dphi7':0.002,'loglambdag':0.25,'m':0.025}
     '''for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     '''
