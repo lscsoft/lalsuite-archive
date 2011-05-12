@@ -639,7 +639,8 @@ class Posterior(object):
                         'dphi6':lambda inj:inj.dphi6,
                         'dphi6l':lambda inj:inj.dphi6l,
                         'dphi7':lambda inj:inj.dphi7,
-                        'lambdag':lambda inj:inj.loglambdaG
+                        'lambdag':lambda inj:inj.loglambdaG,
+                        'loglambdag':lambda inj:inj.loglambdaG
                        }
 
     def _getinjpar(self,paramname):
@@ -2566,7 +2567,7 @@ class PEOutputParser(object):
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
+            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl' and header[i].lower()!='loglambdag':
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
