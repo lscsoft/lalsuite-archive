@@ -6,6 +6,8 @@
 #include <lal/LALDatatypes.h>
 #include <lal/AVFactories.h>
 #include <lal/ComplexFFT.h>
+#include <lal/DetectorSite.h>
+#include <lal/LALBarycenter.h>
 
 typedef struct {
 	int free;
@@ -17,6 +19,18 @@ typedef struct {
 	
 	double slope;
 	} SPARSE_CONV;
+
+typedef struct {
+	double ra;
+	double dec;
+	double dInv;
+	LIGOTimeGPS tGPS1;
+	LIGOTimeGPS tGPS2;
+	char *detector;
+	EmissionTime et1;
+	EmissionTime et2;
+	double range;
+	}  ETC;
 
 typedef struct {
 	int nsamples; /* total number of samples in adjusted fft */
@@ -61,6 +75,20 @@ typedef struct {
 	
 	COMPLEX16Vector *plus_te_fft;
 	COMPLEX16Vector *cross_te_fft;	
+	
+	/* scan_ffts */
+	double *power;
+	
+	/* compute_*_offset */
+	int offset_count;
+	COMPLEX16Vector *offset_in;
+	COMPLEX16Vector *offset_fft;	
+	COMPLEX16FFTPlan *offset_fft_plan;
+	
+	/* fast_get_emission_time */
+	ETC etc;
+	
+	COMPLEX16Vector *scan_tmp[4];
 	
 	} LOOSE_CONTEXT;
 

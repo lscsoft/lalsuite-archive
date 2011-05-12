@@ -46,6 +46,8 @@ free(sc);
 LOOSE_CONTEXT * create_context(void)
 {
 LOOSE_CONTEXT *ctx;
+int i;
+
 int wing_step;
 int day_samples=round(2.0*SIDEREAL_DAY/args_info.coherence_length_arg);
 
@@ -75,6 +77,21 @@ ctx->te_sc=new_sparse_conv();
 ctx->spindown_sc=new_sparse_conv();
 ctx->ra_sc=new_sparse_conv();
 ctx->dec_sc=new_sparse_conv();
+
+/* scan_ffts */
+
+ctx->power=do_alloc(ctx->nsamples, sizeof(*ctx->power));
+for(i=0;i<4;i++)
+	XALLOC(ctx->scan_tmp[i], XLALCreateCOMPLEX16Vector(ctx->nsamples));
+	
+/* fast_get_emission_time */
+ctx->etc=(ETC){-10, -10, -10, -1, -1, -1, -1, NULL};
+
+/* compute_*_offset */
+ctx->offset_count=4096;
+XALLOC(ctx->offset_in, XLALCreateCOMPLEX16Vector(ctx->offset_count));
+XALLOC(ctx->offset_fft, XLALCreateCOMPLEX16Vector(ctx->offset_count));
+XALLOC(ctx->offset_fft_plan, XLALCreateForwardCOMPLEX16FFTPlan(ctx->offset_count, 0));
 
 /* Parameters */
 

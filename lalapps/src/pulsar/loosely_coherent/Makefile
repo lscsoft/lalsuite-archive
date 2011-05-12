@@ -99,6 +99,10 @@ test3j: loosely_coherent1
 	./loosely_coherent1 --config=config.3j
 	head 1626-406.500000/data.log
 
+test3jmt: loosely_coherent1-mt
+	./loosely_coherent1-mt --config=config.3j
+	head 1626-406.500000/data.log
+
 test_make_dst: loosely_coherent1
 	./loosely_coherent1 --config=config.make_dst
 	head 1626-406.500000/data.log

@@ -161,74 +161,63 @@ ps->max_snr=(max-mean)/sd;
 ps->max_snr_index=idx;
 }
 
-struct {
-	double ra;
-	double dec;
-	double dInv;
-	LIGOTimeGPS tGPS1;
-	LIGOTimeGPS tGPS2;
-	char *detector;
-	EmissionTime et1;
-	EmissionTime et2;
-	double range;
-	}  ETC = {-10, -10, -10, -1, -1, -1, -1, NULL};
-
 extern EphemerisData ephemeris;
 
-void fast_get_emission_time(EmissionTime *emission_time, EarthState *earth_state, double ra, double dec, double dInv, char *detector, LIGOTimeGPS tGPS)
+void fast_get_emission_time(LOOSE_CONTEXT *ctx, EmissionTime *emission_time, EarthState *earth_state, double ra, double dec, double dInv, char *detector, LIGOTimeGPS tGPS)
 {
 double dx, dt;
 double step=90;
+ETC *etc=&(ctx->etc);
 
-if(ETC.ra!=ra || ETC.dec!=dec || ETC.dInv!=dInv || strcmp(ETC.detector, detector)) {
+if(etc->ra!=ra || etc->dec!=dec || etc->dInv!=dInv || strcmp(etc->detector, detector)) {
 
-	ETC.ra=ra;
-	ETC.dec=dec;
-	ETC.dInv=dInv;
-	ETC.tGPS1=tGPS;
-	ETC.tGPS2.gpsSeconds=-1;
-	free(ETC.detector);
-	ETC.detector=strdup(detector);
+	etc->ra=ra;
+	etc->dec=dec;
+	etc->dInv=dInv;
+	etc->tGPS1=tGPS;
+	etc->tGPS2.gpsSeconds=-1;
+	free(etc->detector);
+	etc->detector=strdup(detector);
 	
 	if(earth_state==NULL) {
 		EarthState earth_state1;
 		LALStatus status={level:0, statusPtr:NULL};
-		LALBarycenterEarth(&status, &(earth_state1), &ETC.tGPS1, &ephemeris);
+		LALBarycenterEarth(&status, &(earth_state1), &etc->tGPS1, &ephemeris);
 		TESTSTATUS(&status);
 		if(status.statusPtr)FREESTATUSPTR(&status);
 
-		get_emission_time(&(ETC.et1), &earth_state1, ra, dec, dInv, detector, tGPS);
+		get_emission_time(&(etc->et1), &earth_state1, ra, dec, dInv, detector, tGPS);
 		} else {
-		get_emission_time(&(ETC.et1), earth_state, ra, dec, dInv, detector, tGPS);
+		get_emission_time(&(etc->et1), earth_state, ra, dec, dInv, detector, tGPS);
 		}
-	memcpy(emission_time, &(ETC.et1), sizeof(ETC.et1));
+	memcpy(emission_time, &(etc->et1), sizeof(etc->et1));
 	return;	
 	}
 	
-if(tGPS.gpsSeconds+step*0.5<ETC.tGPS1.gpsSeconds || tGPS.gpsSeconds>ETC.tGPS1.gpsSeconds+step*1.5) {
-	ETC.ra=-10;
-	fast_get_emission_time(emission_time, earth_state, ra, dec, dInv, detector, tGPS);
+if(tGPS.gpsSeconds+step*0.5<etc->tGPS1.gpsSeconds || tGPS.gpsSeconds>etc->tGPS1.gpsSeconds+step*1.5) {
+	etc->ra=-10;
+	fast_get_emission_time(ctx, emission_time, earth_state, ra, dec, dInv, detector, tGPS);
 	return;
 	}
 	
-if(ETC.tGPS2.gpsSeconds<0) {
+if(etc->tGPS2.gpsSeconds<0) {
 	EarthState earth_state2;
 	LALStatus status={level:0, statusPtr:NULL};
 
-	ETC.tGPS2=ETC.tGPS1;
-	ETC.tGPS2.gpsSeconds+=step;
-	LALBarycenterEarth(&status, &(earth_state2), &ETC.tGPS2, &ephemeris);
+	etc->tGPS2=etc->tGPS1;
+	etc->tGPS2.gpsSeconds+=step;
+	LALBarycenterEarth(&status, &(earth_state2), &etc->tGPS2, &ephemeris);
 	TESTSTATUS(&status);
 	if(status.statusPtr)FREESTATUSPTR(&status);
-	get_emission_time(&(ETC.et2), &earth_state2, ra, dec, dInv, detector, ETC.tGPS2);
-	ETC.range=(double)(ETC.et2.te.gpsSeconds-ETC.et1.te.gpsSeconds)+1e-9*(double)(ETC.et2.te.gpsNanoSeconds-ETC.et1.te.gpsNanoSeconds);
+	get_emission_time(&(etc->et2), &earth_state2, ra, dec, dInv, detector, etc->tGPS2);
+	etc->range=(double)(etc->et2.te.gpsSeconds-etc->et1.te.gpsSeconds)+1e-9*(double)(etc->et2.te.gpsNanoSeconds-etc->et1.te.gpsNanoSeconds);
 	}
 	
-dx=((tGPS.gpsSeconds-ETC.tGPS1.gpsSeconds)+1e-9*(tGPS.gpsNanoSeconds-ETC.tGPS1.gpsNanoSeconds))/step;
+dx=((tGPS.gpsSeconds-etc->tGPS1.gpsSeconds)+1e-9*(tGPS.gpsNanoSeconds-etc->tGPS1.gpsNanoSeconds))/step;
 
-dt=ETC.range*dx+ETC.et1.te.gpsNanoSeconds*1e-9;
+dt=etc->range*dx+etc->et1.te.gpsNanoSeconds*1e-9;
 
-memcpy(emission_time, &(ETC.et1), sizeof(ETC.et1));
+memcpy(emission_time, &(etc->et1), sizeof(etc->et1));
 emission_time->te.gpsSeconds+=floor(dt);
 emission_time->te.gpsNanoSeconds=(dt-floor(dt))*1e9;
 
@@ -241,8 +230,8 @@ get_emission_time(&emission_time2, earth_state, ra, dec, dInv, detector, tGPS);
 err=(emission_time2.te.gpsSeconds-emission_time->te.gpsSeconds)+1e-9*(emission_time2.te.gpsNanoSeconds-emission_time->te.gpsNanoSeconds);
 
 if(fabs(err)>1e-6) fprintf(stderr, "err=%g err2=%g dx=%g dt=%g range=%g gps=%g gps_delta2=%g\n", err, 
-	(ETC.et2.te.gpsSeconds-emission_time->te.gpsSeconds)+1e-9*(ETC.et2.te.gpsNanoSeconds-emission_time->te.gpsNanoSeconds),
-	dx, dt, ETC.range, tGPS.gpsSeconds+1e-9*tGPS.gpsNanoSeconds, (ETC.tGPS2.gpsSeconds-tGPS.gpsSeconds)+1e-9*(ETC.tGPS2.gpsNanoSeconds-tGPS.gpsNanoSeconds));
+	(etc->et2.te.gpsSeconds-emission_time->te.gpsSeconds)+1e-9*(etc->et2.te.gpsNanoSeconds-emission_time->te.gpsNanoSeconds),
+	dx, dt, etc->range, tGPS.gpsSeconds+1e-9*tGPS.gpsNanoSeconds, (etc->tGPS2.gpsSeconds-tGPS.gpsSeconds)+1e-9*(etc->tGPS2.gpsNanoSeconds-tGPS.gpsNanoSeconds));
 }
 
 	
@@ -250,7 +239,7 @@ if(fabs(err)>1e-6) fprintf(stderr, "err=%g err2=%g dx=%g dt=%g range=%g gps=%g g
 
 
 
-void compute_te_offset_structure(SPARSE_CONV *sc, char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
+void compute_te_offset_structure(LOOSE_CONTEXT *ctx, SPARSE_CONV *sc, char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
 {
 COMPLEX16Vector *te_offsets;
 COMPLEX16Vector *fft;
@@ -262,30 +251,16 @@ double slope;
 double a, max;
 int i;
 
-te_offsets=XLALCreateCOMPLEX16Vector(count);
-if(!te_offsets) {
-	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
-	exit(-1);
-	}
-
-fft=XLALCreateCOMPLEX16Vector(count);
-if(!fft) {
-	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
-	exit(-1);
-	}
-	
-fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(count, 1);
-if(!fft_plan) {
-	fprintf(stderr, "**** ERROR: could not create fft plan\n");
-	exit(-1);
-	}
+te_offsets=ctx->offset_in;
+fft=ctx->offset_fft;
+fft_plan=ctx->offset_fft_plan;
 
 for(i=0;i<count;i++) {
 	t=gps_start+step*i;
 	tGPS.gpsSeconds=floor(t);
 	tGPS.gpsNanoSeconds=t-tGPS.gpsSeconds;
 
-	fast_get_emission_time(&emission_time, NULL, ra, dec, dInv, detector, tGPS);
+	fast_get_emission_time(ctx, &emission_time, NULL, ra, dec, dInv, detector, tGPS);
 	
 	te_offsets->data[i].re=(emission_time.te.gpsSeconds-t)+1e-9*emission_time.te.gpsNanoSeconds;
 	te_offsets->data[i].im=0;
@@ -351,13 +326,9 @@ for(i=0;i<9;i++) {
 //  	fprintf(stderr, "%d %g %g %g\n",i, sc->first3[i].re, sc->first3[i].im, sqrt(sc->first3[i].re*sc->first3[i].re+sc->first3[i].im*sc->first3[i].im));
 //  	}
 
-XLALDestroyCOMPLEX16FFTPlan(fft_plan);
-XLALDestroyCOMPLEX16Vector(te_offsets);
-XLALDestroyCOMPLEX16Vector(fft);
-
 }
 
-void compute_spindown_offset_structure(SPARSE_CONV *sc, char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
+void compute_spindown_offset_structure(LOOSE_CONTEXT *ctx, SPARSE_CONV *sc, char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
 {
 COMPLEX16Vector *te_offsets;
 COMPLEX16Vector *fft;
@@ -369,30 +340,16 @@ double slope;
 double a, max;
 int i;
 
-te_offsets=XLALCreateCOMPLEX16Vector(count);
-if(!te_offsets) {
-	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
-	exit(-1);
-	}
-
-fft=XLALCreateCOMPLEX16Vector(count);
-if(!fft) {
-	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
-	exit(-1);
-	}
-	
-fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(count, 1);
-if(!fft_plan) {
-	fprintf(stderr, "**** ERROR: could not create fft plan\n");
-	exit(-1);
-	}
+te_offsets=ctx->offset_in;
+fft=ctx->offset_fft;
+fft_plan=ctx->offset_fft_plan;
 
 for(i=0;i<count;i++) {
 	t=gps_start+step*i;
 	tGPS.gpsSeconds=floor(t);
 	tGPS.gpsNanoSeconds=t-tGPS.gpsSeconds;
 
-	fast_get_emission_time(&emission_time, NULL, ra, dec, dInv, detector, tGPS);
+	fast_get_emission_time(ctx, &emission_time, NULL, ra, dec, dInv, detector, tGPS);
 	
 	a=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
 	
@@ -460,10 +417,6 @@ for(i=0;i<9;i++) {
 // for(i=0;i<3;i++) {
 //  	fprintf(stderr, "%d %g %g %g\n",i, sc->first3[i].re, sc->first3[i].im, sqrt(sc->first3[i].re*sc->first3[i].re+sc->first3[i].im*sc->first3[i].im));
 //  	}
-
-XLALDestroyCOMPLEX16FFTPlan(fft_plan);
-XLALDestroyCOMPLEX16Vector(te_offsets);
-XLALDestroyCOMPLEX16Vector(fft);
 }
 
 void compute_sky_basis(double ra, double dec, double step, double *ra_out, double *dec_out)
@@ -501,7 +454,7 @@ dec_out[0]=asin(vp1[2]);
 dec_out[1]=asin(vp2[2]);
 }
 
-void compute_sky_offset_structure(SPARSE_CONV *sc, char *detector, double ra, double dec, double ra2, double dec2, double dInv, double gps_start, double step, int count)
+void compute_sky_offset_structure(LOOSE_CONTEXT *ctx, SPARSE_CONV *sc, char *detector, double ra, double dec, double ra2, double dec2, double dInv, double gps_start, double step, int count)
 {
 COMPLEX16Vector *te_offsets;
 COMPLEX16Vector *fft;
@@ -513,23 +466,9 @@ double slope;
 double a, max;
 int i;
 
-te_offsets=XLALCreateCOMPLEX16Vector(count);
-if(!te_offsets) {
-	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
-	exit(-1);
-	}
-
-fft=XLALCreateCOMPLEX16Vector(count);
-if(!fft) {
-	fprintf(stderr, "**** ERROR: could not allocate te_offsets\n");
-	exit(-1);
-	}
-	
-fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(count, 1);
-if(!fft_plan) {
-	fprintf(stderr, "**** ERROR: could not create fft plan\n");
-	exit(-1);
-	}
+te_offsets=ctx->offset_in;
+fft=ctx->offset_fft;
+fft_plan=ctx->offset_fft_plan;
 
 /* scan twice to make most use of fast_get_emission_time */
 for(i=0;i<count;i++) {
@@ -537,7 +476,7 @@ for(i=0;i<count;i++) {
 	tGPS.gpsSeconds=floor(t);
 	tGPS.gpsNanoSeconds=t-tGPS.gpsSeconds;
 
-	fast_get_emission_time(&emission_time, NULL, ra, dec, dInv, detector, tGPS);
+	fast_get_emission_time(ctx, &emission_time, NULL, ra, dec, dInv, detector, tGPS);
 	
 	a=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
 	
@@ -551,7 +490,7 @@ for(i=0;i<count;i++) {
 	tGPS.gpsSeconds=floor(t);
 	tGPS.gpsNanoSeconds=t-tGPS.gpsSeconds;
 
-	fast_get_emission_time(&emission_time, NULL, ra2, dec2, dInv, detector, tGPS);
+	fast_get_emission_time(ctx, &emission_time, NULL, ra2, dec2, dInv, detector, tGPS);
 	
 	a=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
 	
@@ -605,10 +544,10 @@ for(i=1;i<count;i++) {
 		}
 	}
 	
-fprintf(stderr, "Operator has %d elements, fft[0]=%g\n", sc->free, fft->data[0].re/(count));
-for(i=0;i<sc->free;i++) {
-	fprintf(stderr, "%d %d %g %g %g\n",i, sc->bin[i], sc->data[i].re, sc->data[i].im, sqrt(sc->data[i].re*sc->data[i].re+sc->data[i].im*sc->data[i].im));
-	}
+// fprintf(stderr, "Operator has %d elements, fft[0]=%g\n", sc->free, fft->data[0].re/(count));
+// for(i=0;i<sc->free;i++) {
+// 	fprintf(stderr, "%d %d %g %g %g\n",i, sc->bin[i], sc->data[i].re, sc->data[i].im, sqrt(sc->data[i].re*sc->data[i].re+sc->data[i].im*sc->data[i].im));
+// 	}
 
 for(i=0;i<9;i++) {
 	sc->first9[i].re=fft->data[i+1].re/count;
@@ -618,10 +557,6 @@ for(i=0;i<9;i++) {
 // for(i=0;i<3;i++) {
 //  	fprintf(stderr, "%d %g %g %g\n",i, sc->first3[i].re, sc->first3[i].im, sqrt(sc->first3[i].re*sc->first3[i].re+sc->first3[i].im*sc->first3[i].im));
 //  	}
-
-XLALDestroyCOMPLEX16FFTPlan(fft_plan);
-XLALDestroyCOMPLEX16Vector(te_offsets);
-XLALDestroyCOMPLEX16Vector(fft);
 }
 
 
@@ -832,7 +767,7 @@ for(i=0;i<nsamples;i++) {
 	}	
 }
 
-void scan_fft_stats(LOOSE_CONTEXT *ctx, double *power, int nsamples, COMPLEX16 *v1, COMPLEX16 *v2, POWER_STATS *ps)
+void scan_fft_stats(LOOSE_CONTEXT *ctx, POWER_STATS *ps)
 {
 COMPLEX16Vector *fft2, *fft3, *fft4, *fft5, *fft_tmp;	
 #define N_SCAN_FFT_FILTER 9
@@ -841,13 +776,16 @@ POWER_STATS ps2;
 double ms;
 int i, j;
 int nscan=2;
+int nsamples=ctx->nsamples;
+COMPLEX16 *v1=ctx->ra_sc->first9;
+COMPLEX16 *v2=ctx->dec_sc->first9; 
 
-fft2=XLALCreateCOMPLEX16Vector(nsamples);
-fft3=XLALCreateCOMPLEX16Vector(nsamples);
-fft4=XLALCreateCOMPLEX16Vector(nsamples);
-fft5=XLALCreateCOMPLEX16Vector(nsamples);
+fft2=ctx->scan_tmp[0];
+fft3=ctx->scan_tmp[1];
+fft4=ctx->scan_tmp[2];
+fft5=ctx->scan_tmp[3];
 
-compute_fft_stats(ctx->plus_te_fft, power, nsamples, ps);
+compute_fft_stats(ctx->plus_te_fft, ctx->power, nsamples, ps);
 ms=ps->max_snr;
 
 make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, 2*M_PI/(nscan));
@@ -889,10 +827,10 @@ for(i=0;i<=nscan;i++) {
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, power, nsamples, &ps2);
+		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
 /*		fprintf(stderr, "+ %.2f ", (ps2.max_snr-ps->max_snr)/ps->max_snr);*/
 		if(ps2.max_snr>ps->max_snr) {
-			fprintf(stderr, "* %f", ps2.max_snr-ms);
+			//fprintf(stderr, "* %f", ps2.max_snr-ms);
 			memcpy(ps, &ps2, sizeof(*ps));
 			}
 		}
@@ -925,9 +863,9 @@ for(i=0;i<=nscan;i++) {
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, power, nsamples, &ps2);
+		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
 		if(ps2.max_snr>ps->max_snr) {
-			fprintf(stderr, "* %f", ps2.max_snr-ms);
+			//fprintf(stderr, "* %f", ps2.max_snr-ms);
 			memcpy(ps, &ps2, sizeof(*ps));
 			}
 		}
@@ -960,9 +898,9 @@ for(i=0;i<=nscan;i++) {
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, power, nsamples, &ps2);
+		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
 		if(ps2.max_snr>ps->max_snr) {
-			fprintf(stderr, "* %f", ps2.max_snr-ms);
+			//fprintf(stderr, "* %f", ps2.max_snr-ms);
 			memcpy(ps, &ps2, sizeof(*ps));
 			}
 		}
@@ -996,18 +934,14 @@ for(i=0;i<=nscan;i++) {
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, power, nsamples, &ps2);
+		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
 		if(ps2.max_snr>ps->max_snr) {
-			fprintf(stderr, "* %f", ps2.max_snr-ms);
+			//fprintf(stderr, "* %f", ps2.max_snr-ms);
 			memcpy(ps, &ps2, sizeof(*ps));
 			}
 		}
 	}
 
-XLALDestroyCOMPLEX16Vector(fft2);
-XLALDestroyCOMPLEX16Vector(fft3);
-XLALDestroyCOMPLEX16Vector(fft4);
-XLALDestroyCOMPLEX16Vector(fft5);
 }
 
 void compute_te_ffts(LOOSE_CONTEXT *ctx)
@@ -1090,6 +1024,8 @@ for(i=0;i<nsamples;i++) {
 	ctx->cross_samples->data[i].im=0.0;
 	}
 
+TODO("add weights as described in loosely_coherent2")
+
 precompute_am_constants(e, ctx->ra, ctx->dec);
 
 for(n=0;n<d_free;n++) {
@@ -1098,7 +1034,7 @@ for(n=0;n<d_free;n++) {
 	//	tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
 		tGPS.gpsSeconds=datasets[n].gps[j]; /* SFTs count phase from 0 */
 		tGPS.gpsNanoSeconds=0;
-		fast_get_emission_time(&emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
+		fast_get_emission_time(ctx, &emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
 
 
 		i=round(2.0*(datasets[n].gps[j]-ctx->first_gps)/args_info.coherence_length_arg);
@@ -1170,11 +1106,115 @@ for(n=0;n<d_free;n++) {
 	}
 }
 
+MUTEX data_logging_mutex;
+
+LOOSE_CONTEXT **contexts=NULL;
+
+typedef struct {
+	int start;
+	int stop;
+	} CRUNCHER_BIT;
+	
+void loose_cruncher(int thread_id, CRUNCHER_BIT *bit)
+{
+LOOSE_CONTEXT *ctx=contexts[thread_id+1];
+int fstep, nfsteps=ctx->n_fsteps;
+int nsamples=ctx->nsamples;
+int i;
+int point;
+double f0=args_info.focus_f0_arg;
+double norm;
+POWER_STATS ps;
+double sb_ra[2], sb_dec[2];
+
+
+for(point=bit->start;point<bit->stop;point++)
+for(fstep=0;fstep<nfsteps; fstep++) {
+	ctx->frequency=f0;
+	ctx->spindown=args_info.spindown_start_arg;
+	ctx->ra=main_grid->longitude[point];
+	ctx->dec=main_grid->latitude[point];
+	ctx->fstep=fstep;
+
+	demodulate(ctx);
+
+	//fprintf(stderr, "Running FFT\n");
+	XLALCOMPLEX16VectorFFT(ctx->plus_fft, ctx->plus_samples, ctx->fft_plan);
+	XLALCOMPLEX16VectorFFT(ctx->cross_fft, ctx->cross_samples, ctx->fft_plan);
+
+	compute_te_offset_structure(ctx, ctx->te_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
+	compute_spindown_offset_structure(ctx, ctx->spindown_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
+
+	compute_sky_basis(ctx->ra, ctx->dec, resolution*0.5, sb_ra, sb_dec);
+	//fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
+	compute_sky_offset_structure(ctx, ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
+	compute_sky_offset_structure(ctx, ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
+
+	fprintf(stderr, "point %d step %d\n", point, fstep);
+	if(0) {
+		fprintf(stderr, "point %d step %d slope %g\n", point, fstep, ctx->te_sc->slope);
+		for(i=0;i<9;i++)
+			fprintf(stderr, "  %g %g\n", ctx->te_sc->first9[i].re, ctx->te_sc->first9[i].im);
+
+		fprintf(stderr, "sp_sc point %d slope %g\n", point, ctx->spindown_sc->slope);
+		for(i=0;i<9;i++)
+			fprintf(stderr, "  %g %g\n", ctx->spindown_sc->first9[i].re, ctx->spindown_sc->first9[i].im);
+
+		fprintf(stderr, "ra_sc point %d slope %g\n", point, ctx->ra_sc->slope);
+		for(i=0;i<9;i++)
+			fprintf(stderr, "  %g %g\n", ctx->ra_sc->first9[i].re, ctx->ra_sc->first9[i].im);
+
+		fprintf(stderr, "dec_sc point %d slope %g\n", point, ctx->dec_sc->slope);
+		for(i=0;i<9;i++)
+			fprintf(stderr, "  %g %g\n", ctx->dec_sc->first9[i].re, ctx->dec_sc->first9[i].im);
+		}
+
+	norm=1.0/ctx->weight_pp;
+	norm/=args_info.coherence_length_arg*16384.0;
+	norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
+	norm*=args_info.strain_norm_factor_arg;
+
+	for(i=0;i<nsamples;i++) {
+		ctx->plus_fft->data[i].re*=norm;
+		ctx->plus_fft->data[i].im*=norm;
+		ctx->cross_fft->data[i].re*=norm;
+		ctx->cross_fft->data[i].im*=norm;
+		}
+
+	compute_te_ffts(ctx);
+
+	scan_fft_stats(ctx, &ps);
+
+	thread_mutex_lock(data_logging_mutex);
+	// -241
+	if((point== -21) || args_info.dump_fft_data_arg) {
+		for(i=0;i<nsamples;i++) {
+			fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
+				i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ctx->plus_fft->data[i].re, ctx->plus_fft->data[i].im, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im, ctx->power[i]);
+			}
+		}
+
+	if(fabs(ctx->ra-args_info.focus_ra_arg)<0.5*resolution && fabs(ctx->dec-args_info.focus_dec_arg)<0.5*resolution) {
+		fprintf(stderr, "Close point: %d\n", point);
+		}
+
+
+	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
+		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (ctx->power[0]-ps.mean)/ps.sd);
+
+	thread_mutex_unlock(data_logging_mutex);
+	}
+}
+
 int main(int argc, char *argv[]) 
 {
 time_t start_time, input_done_time, end_time;
 struct rlimit rl;
 int i, j;
+int point;
+int k;
+CRUNCHER_BIT *cbt;
+int n_contexts;
 
 time(&start_time);
 
@@ -1529,108 +1569,45 @@ for(k=0;k<datasets[n].free;k+=10000) {
 fflush(DATA_LOG);
 }
 
+n_contexts=get_max_threads();
 
-/* For testing - pick a bin and do phase correction */
-{
-double *power;
-int nsamples;
-double f0=args_info.focus_f0_arg;
-int point;
-int fstep, nfsteps;
-LOOSE_CONTEXT *ctx;
+contexts=do_alloc(n_contexts, sizeof(*contexts));
 
-/* round of nsamples to contain integer number of sideral days */
+for(i=0;i<n_contexts;i++)
+	contexts[i]=create_context();
 
-ctx=create_context();
+//time(&start_time);
 
-nfsteps=ctx->n_fsteps;
-nsamples=ctx->nsamples;
+thread_mutex_init(&data_logging_mutex);
 
-power=do_alloc(nsamples, sizeof(*power));
+reset_jobs_done_ratio();
 
-for(fstep=0;fstep<nfsteps; fstep++) {
-for(point=0;point< main_grid->npoints;point++) {
+fprintf(stderr, "Main loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Main loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
-	if(point % 10==0)fprintf(stderr, "point=%d out of %d\n", point, main_grid->npoints);
-
-	ctx->frequency=f0;
-	ctx->spindown=args_info.spindown_start_arg;
-	ctx->ra=main_grid->longitude[point];
-	ctx->dec=main_grid->latitude[point];
-	ctx->fstep=fstep;
-
-	demodulate(ctx);
-
-	{
-	double norm;
-	POWER_STATS ps;
-	double sb_ra[2], sb_dec[2];
-
-	//fprintf(stderr, "Running FFT\n");
-	XLALCOMPLEX16VectorFFT(ctx->plus_fft, ctx->plus_samples, ctx->fft_plan);
-	XLALCOMPLEX16VectorFFT(ctx->cross_fft, ctx->cross_samples, ctx->fft_plan);
-
-	compute_te_offset_structure(ctx->te_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-	compute_spindown_offset_structure(ctx->spindown_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-
-	compute_sky_basis(ctx->ra, ctx->dec, resolution*0.5, sb_ra, sb_dec);
-	fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
-	compute_sky_offset_structure(ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-	compute_sky_offset_structure(ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, min_gps(), (max_gps()-min_gps())/4095, 4096);
-
-	fprintf(stderr, "point %d step %d slope %g\n", point, fstep, ctx->te_sc->slope);
-	for(i=0;i<9;i++)
-		fprintf(stderr, "  %g %g\n", ctx->te_sc->first9[i].re, ctx->te_sc->first9[i].im);
-
-	fprintf(stderr, "sp_sc point %d slope %g\n", point, ctx->spindown_sc->slope);
-	for(i=0;i<9;i++)
-		fprintf(stderr, "  %g %g\n", ctx->spindown_sc->first9[i].re, ctx->spindown_sc->first9[i].im);
-
-	fprintf(stderr, "ra_sc point %d slope %g\n", point, ctx->ra_sc->slope);
-	for(i=0;i<9;i++)
-		fprintf(stderr, "  %g %g\n", ctx->ra_sc->first9[i].re, ctx->ra_sc->first9[i].im);
-
-	fprintf(stderr, "dec_sc point %d slope %g\n", point, ctx->dec_sc->slope);
-	for(i=0;i<9;i++)
-		fprintf(stderr, "  %g %g\n", ctx->dec_sc->first9[i].re, ctx->dec_sc->first9[i].im);
-
-	norm=1.0/ctx->weight_pp;
-	norm/=args_info.coherence_length_arg*16384.0;
-	norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
-	norm*=args_info.strain_norm_factor_arg;
-
-	for(i=0;i<nsamples;i++) {
-		ctx->plus_fft->data[i].re*=norm;
-		ctx->plus_fft->data[i].im*=norm;
-		ctx->cross_fft->data[i].re*=norm;
-		ctx->cross_fft->data[i].im*=norm;
-		}
-
-	compute_te_ffts(ctx);
-
-	scan_fft_stats(ctx, power, nsamples, ctx->ra_sc->first9, ctx->dec_sc->first9, &ps);
-
-	// -241
-	if((point== -21) || args_info.dump_fft_data_arg) {
-		for(i=0;i<nsamples;i++) {
-			fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
-				i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ctx->plus_fft->data[i].re, ctx->plus_fft->data[i].im, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im, power[i]);
-			}
-		}
-
-	if(fabs(ctx->ra-args_info.focus_ra_arg)<0.5*resolution && fabs(ctx->dec-args_info.focus_dec_arg)<0.5*resolution) {
-		fprintf(stderr, "Close point: %d\n", point);
-		}
-
-
-	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
-		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (power[0]-ps.mean)/ps.sd);
-
+for(point=0;point< main_grid->npoints;point+=args_info.job_size_arg) {
+	cbt=do_alloc(1, sizeof(*cbt));
+	cbt->start=point;
+	cbt->stop=point+args_info.job_size_arg;
+	if(cbt->stop>main_grid->npoints)cbt->stop=main_grid->npoints;
+	submit_job(loose_cruncher, cbt);
 	}
-	}
-}
 
-}
+k=0;
+while(do_single_job(-1)) {
+	#if 0
+	time(&end_time);
+	if(end_time<start_time)end_time=start_time;
+	fprintf(stderr, "%d (%f patches/sec)\n", k, k/(1.0*(end_time-start_time+1.0)));
+	summing_contexts[0]->print_cache_stats(summing_contexts[0]);
+	fprintf(stderr, "%d\n", pi);
+	#endif
+
+	if(k % 10 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
+	k++;
+	}
+wait_for_all_done();
+fprintf(stderr, "% 3.1f\n", jobs_done_ratio()*100);
 
 
 time(&end_time);
