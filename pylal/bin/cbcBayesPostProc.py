@@ -76,6 +76,8 @@ def cbcBayesPostProc(
                         dievidence=False,boxing=64,difactor=1.0,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
+                        #manual input for SNR in the IFOs, optional.
+                        snrfactor=None,
                         #nested sampling options
                         ns_flag=False,ns_xflag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
@@ -157,7 +159,20 @@ def cbcBayesPostProc(
         BCI=bfile.read()
         bfile.close()
         print 'BCI: %s'%BCI
-
+    if not os.path.isfile(snrfactor):
+        print "No snr file provided or wrong path to snr file\n"
+        snrfactor=None
+    if snrfactor is not None:
+        snrstring=""
+        snrfile=open(snrfactor,'r')
+        snrs=snrfile.readlines()
+        snrfile.close()
+        for snr in snrs:
+            if snr=="\n":
+                continue
+            snrstring=snrstring +" "+str(snr[0:-1])+" ,"
+        snrstring=snrstring[0:-1]
+        
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
@@ -477,7 +492,11 @@ def cbcBayesPostProc(
         if 'logl' in pos.names:
             ev=pos.harmonic_mean_evidence()
             html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(ev,log(ev)))
-
+    #Create a section for SNR, if a file is provided
+    if snrfactor is not None:
+        html_snr=html.add_section('Signal to noise ratio(s)')
+        html_snr.p('%s'%snrstring)
+        
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
     html_stats.write(str(pos))
@@ -974,6 +993,7 @@ if __name__=='__main__':
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
+    parser.add_option("--snr",action="store",default=None,help="Optional file containing the SNRs of the signal in each IFO",type="string")
     parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
     parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
     parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
@@ -1071,6 +1091,8 @@ if __name__=='__main__':
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
+                        #manual input for SNR in the IFOs, optional.
+                        snrfactor=opts.snr,
                         #nested sampling options
                         ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
