@@ -22,6 +22,28 @@ def split_array(array, Nparts = 2):
   return subarrays
 
 
+def getKWAuxTriggerFromDQCAT(Triggers, DQ_category):
+  """
+  Returns KW triggers that were flagged by DQ vetoes in a particular category.Currently DQ categories are DQ2, DQ3, DQ4, DQ5, DQ23, DQ234. DQ5 corresponds to triggers not flagged by DQ flags. DQ23 and DQ234 correspond to triggers flagged by one of the categories present in the name.  
+  """
+
+    if DQ_category == 'DQ2':
+      return Triggers[numpy.nonzero(Triggers['DQ2'] == 1.0)[0],:]
+    elif DQ_category == 'DQ3':
+      return Triggers[numpy.nonzero(Triggers['DQ3'] == 1.0)[0],:]  
+    elif DQ_category == 'DQ4':
+      return Triggers[numpy.nonzero(Triggers['DQ4'] == 1.0)[0],:]
+    elif DQ_category == 'DQ5':
+       return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) *(Triggers['DQ3'] == 0.0) *(Triggers['DQ4'] == 0.0))[0],:]
+    elif DQ_category == 'DQ23':
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0)  + (Triggers['DQ3'] == 1.0))[0],:] 
+    elif DQ_category == 'DQ234':
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0)  + (Triggers['DQ3'] == 1.0) +(Triggers['DQ4'] == 1.0))[0],:]
+    else:
+      raise ValueError("Unknown DQ category") 
+
+
+
 def ReadKWAuxTriggers(files):
   
   """
