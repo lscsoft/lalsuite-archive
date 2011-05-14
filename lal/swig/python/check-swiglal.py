@@ -218,6 +218,36 @@ except:
     msg("FAILED 'tm' struct conversions")
     exit(1)
 
+# check LIGOTimeGPS arithmetic
+def check_LTGPS_op(lhs, rhs):
+    assert(lhs == rhs)
+    assert(isinstance(lhs, LIGOTimeGPS))
+try:
+    t0 = LIGOTimeGPS()
+    check_LTGPS_op(t0, 0)
+    t1 = LIGOTimeGPS(10.5)
+    t2 = LIGOTimeGPS(10, 500000000)
+    check_LTGPS_op(t1, t2)
+    check_LTGPS_op(t1 + 3.5, 14)
+    check_LTGPS_op(3.5 + t1, 14)
+    t2 -= 5.5
+    check_LTGPS_op(t2, 5)
+    check_LTGPS_op(t2 - 5, t0)
+    check_LTGPS_op(t1 * 3, 31.5)
+    check_LTGPS_op(3 * t1, 31.5)
+    check_LTGPS_op(t2 / 2.5, 2)
+    check_LTGPS_op(21 / t1 , 2)
+    check_LTGPS_op(t1 + t2, 15.5)
+    check_LTGPS_op(t1 - t2, 5.5)
+    check_LTGPS_op(t1 * t2, 52.5)
+    check_LTGPS_op(t2 * t1, 52.5)
+    check_LTGPS_op(t1 / t2, 2.1)
+    t1 += 812345667.5
+    assert(str(t1) == "812345678.000000000")
+except:
+    msg("FAILED LIGOTimeGPS arithmetic")
+    exit(1)
+
 # passed all tests!
 msg("================")
 msg("PASSED all tests")

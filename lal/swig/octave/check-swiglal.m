@@ -227,6 +227,42 @@ catch
   exit(1);
 end_try_catch
 
+## check LIGOTimeGPS arithmetic
+global op_any_add_LIGOTimeGPS = inline("LIGOTimeGPS___radd__(y,x)", "x", "y")
+global op_any_sub_LIGOTimeGPS = inline("LIGOTimeGPS___rsub__(y,x)", "x", "y")
+global op_any_mul_LIGOTimeGPS = inline("LIGOTimeGPS___rmul__(y,x)", "x", "y")
+global op_any_div_LIGOTimeGPS = inline("LIGOTimeGPS___rdiv__(y,x)", "x", "y")
+function check_LTGPS_op(lhs, rhs)
+  assert(lhs == rhs);
+  assert(strcmp(swig_type(lhs), "LIGOTimeGPS"));
+endfunction
+try
+  t0 = LIGOTimeGPS();
+  check_LTGPS_op(t0, 0);
+  t1 = LIGOTimeGPS(10.5);
+  t2 = LIGOTimeGPS(10, 500000000);
+  check_LTGPS_op(t1, t2);
+  check_LTGPS_op(t1 + 3.5, 14);
+  check_LTGPS_op(3.5 + t1, 14);
+  t2 -= 5.5;
+  check_LTGPS_op(t2, 5);
+  check_LTGPS_op(t2 - 5, t0);
+  check_LTGPS_op(t1 * 3, 31.5);
+  check_LTGPS_op(3 * t1, 31.5);
+  check_LTGPS_op(t2 / 2.5, 2);
+  check_LTGPS_op(21 / t1 , 2);
+  check_LTGPS_op(t1 + t2, 15.5);
+  check_LTGPS_op(t1 - t2, 5.5);
+  check_LTGPS_op(t1 * t2, 52.5);
+  check_LTGPS_op(t2 * t1, 52.5);
+  check_LTGPS_op(t1 / t2, 2.1);
+  t1 += 812345667.5;
+  assert(strcmp(t1.__str__(), "812345678.000000000"));
+catch
+  msg("FAILED LIGOTimeGPS arithmetic");
+  exit(1);
+end_try_catch
+
 ## passed all tests!
 msg("================");
 msg("PASSED all tests");
