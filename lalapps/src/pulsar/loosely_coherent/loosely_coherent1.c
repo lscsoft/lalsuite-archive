@@ -1307,6 +1307,7 @@ init_jobs();
 init_hookup();
 init_statistics();
 tabulate_hann_filter7();
+init_fft_stats();
 
 if(args_info.earth_ephemeris_given){
 	earth_ephemeris=args_info.earth_ephemeris_arg;
