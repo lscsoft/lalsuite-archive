@@ -324,8 +324,8 @@ swiglal_new_numpy_vecmat(COMPLEX16, NPY_CDOUBLE);
   $1->tm_wday  = ($1->tm_wday + 6) % 7;   // Python week days start from 0=Monday
   $1->tm_yday += 1;                       // Python year days start from 1
 
-  // Build a 9-element tuple
-  $result = Py_BuildValue("(iiiiiiiii)",
+  // Build a 9-element list
+  $result = Py_BuildValue("[iiiiiiiii]",
                           $1->tm_year, $1->tm_mon, $1->tm_mday,
                           $1->tm_hour, $1->tm_min, $1->tm_sec,
                           $1->tm_wday, $1->tm_yday, $1->tm_isdst);
