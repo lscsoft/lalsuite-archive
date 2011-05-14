@@ -606,7 +606,7 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
         # check if there are CAT1 segments to take into account
         # i.e. take them out before checking available data
         if segs1:
-          segdict[ifo] -= segs1[ifo]
+          segdict[ifo] -= segs1[ifo].coalesce()
           if abs(segs1[ifo])>0:
             print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
                    (ifo, segs1[ifo])
@@ -735,6 +735,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
     for ifo in basic_ifolist:
       xmlsegfile = "%s/%s-VETOTIME_CAT1_%s.xml" % (path, ifo,tag)
       segsdict[ifo] = read_xmlsegfile(xmlsegfile)
+      segsdict[ifo].coalesce()
 
     # do the segment check again, including the CAT1 segs
     outname = 'plot_segments_%s.png' % tag
