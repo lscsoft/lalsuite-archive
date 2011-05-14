@@ -40,6 +40,7 @@
 #include <regex.h>
 #include <time.h>
 #include <math.h>
+#include <fftw3.h>
 
 #include <lalapps.h>
 #include <series.h>
@@ -79,6 +80,7 @@
 #include <lal/NRWaveIO.h>
 #include <lal/NRWaveInject.h>
 #include <lal/LALFrameL.h>
+#include <lal/FFTWMutex.h>
 
 #include <LALAppsVCSInfo.h>
 
@@ -495,6 +497,14 @@ int main( int argc, char *argv[] )
   /* wind to the end of the process params table */
   for ( this_proc_param = procparams.processParamsTable; this_proc_param->next;
       this_proc_param = this_proc_param->next );
+
+  /* Import system wide FFTW wisdom file, if it exists.  Only single precision used. */
+
+#ifdef LAL_FFTW3_ENABLED
+  LAL_FFTW_PTHREAD_MUTEX_LOCK;
+  fftwf_import_system_wisdom();
+  LAL_FFTW_PTHREAD_MUTEX_UNLOCK;
+#endif
 
   /* can use LALMalloc() and LALCalloc() from here onwards */
 
