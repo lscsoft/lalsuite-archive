@@ -763,17 +763,21 @@ def read_adjusted_onsource(filename):
   """
 
   grbs = {}
+  refdict = {}
   # loop over the lines of the file
   for linex in file(filename):
+
+    # take out the \n and split up the line
+    line = linex.replace('\n','')
+    w = line.split()
+
     # reject any inline comments or empty lines
     if len(linex)<3 or linex[0]=='#':
-      continue
 
-    # take out the \n signal
-    line = linex.replace('\n','')
-    
-    # split up the line
-    w = line.split()
+      # fill the reference dict if this happens to be a reference entry
+      if 'REF' in linex:
+        refdict[int(w[2])] = w[3]
+      continue
 
     # read the information
     name = w[0]
@@ -792,7 +796,8 @@ def read_adjusted_onsource(filename):
     else:
         grbs[name] = {'onsource':None, 'used':used, 'comment':comment}
 
-  return grbs
+  # return the list of checks and the reference dict
+  return grbs, refdict
 
 
 
