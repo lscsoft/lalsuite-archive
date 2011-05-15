@@ -70,12 +70,15 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, pch=c(3, 1), cex=1, ...))
 	}
 
-ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
-	C<-merge(Input, Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"))
-	C<-C[!is.na(C[,"line_id"]),]
+ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
+	C<-merge(Input, Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=omit.found)
+	if(!omit.found)C<-C[!is.na(C[,"line_id"]),]
 	if(best.snr) {
 		C<-C[order(C[,"snr_output"], decreasing=TRUE),,drop=FALSE]
 		C<-C[!duplicated(C[,"i"]),,drop=FALSE]
+		}
+	if(omit.found) {
+		C<-C[is.na(C[,"snr_output"]) & !is.na(C[,"snr_input"]),,drop=FALSE]
 		}
 	print(xyplot(formula, C, auto.key=auto.key, pch=pch, ...))
 	}
@@ -184,6 +187,21 @@ dev.off()
 
 make_plot("distance_improvement_rel_zoomed")
 ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationTolerance))
+dev.off()
+
+#
+# Characterize missing injections, if any
+#
+make_plot("missing_injections_sky")
+ComparisonPlot(dec_inj_input~ra_inj_input, xlab="RA", ylab="DEC", best.snr=TRUE, omit.found=TRUE, pch=3)
+dev.off()
+
+make_plot("missing_injections_f0_fdot")
+ComparisonPlot(spindown_inj_input~f0_inj_input, xlab="f0", ylab="spindown", best.snr=TRUE, omit.found=TRUE, pch=3)
+dev.off()
+
+make_plot("missing_injections_alignment")
+ComparisonPlot(iota_inj_input~psi_inj_input, xlab="psi", ylab="iota", best.snr=TRUE, omit.found=TRUE, pch=3)
 dev.off()
 
 #

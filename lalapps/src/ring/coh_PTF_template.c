@@ -73,8 +73,40 @@ RCSID( "$Id$" );
 
 NRCSID(FINDCHIRPPTFTEMPLATEC, "$Id: FindChirpPTFTemplate.c,v 1.7 2008/06/26 19:05:07 dfazi Exp $");
 
+void coh_PTF_template (
+    FindChirpTemplate          *fcTmplt,
+    InspiralTemplate           *InspTmplt,
+    FindChirpTmpltParams       *params
+    )
+{
+  LALStatus status = blank_status;
+  switch ( params->approximant )
+  {
+    case TaylorT1:
+    case TaylorT2:
+    case TaylorT3:
+    case TaylorT4:
+    case GeneratePPN:
+    case PadeT1:
+    case EOB:
+    case EOBNR:
+    case IMRPhenomB:
+      LALFindChirpTDTemplate( &status,fcTmplt,InspTmplt,params );
+      break;
+    case FindChirpSP:
+      LALFindChirpSPTemplate( &status,fcTmplt,InspTmplt,params );
+      break;
+    case FindChirpPTF:
+      coh_PTF_template_PTF(fcTmplt,InspTmplt,params);
+      break;
+    default:
+      fprintf(stderr,"Waveform approximant not recognized at template generation\n");
+      exit(1);
+  }
+}
+
 void
-coh_PTF_template (
+coh_PTF_template_PTF (
     FindChirpTemplate          *fcTmplt,
     InspiralTemplate           *InspTmplt,
     FindChirpTmpltParams       *params
@@ -125,9 +157,9 @@ coh_PTF_template (
 
   N = params->PTFphi->length;
 
-  /* check that the parameter structure is set */
+  /* set the parameter structure */
   /* to the correct waveform approximant       */
-  sanity_check( InspTmplt->approximant == FindChirpPTF );
+  InspTmplt->approximant = FindChirpPTF;
   sanity_check( InspTmplt->fLower );
 
   /* copy the template parameters to the finchirp template structure */
@@ -276,8 +308,7 @@ void coh_PTF_normalize(
   sanity_check ( len == length ) ; 
   sanity_check ( fcTmplt->PTFQtilde->vectorLength == len);
 
-  /* check that the parameter structure is set to a time domain approximant */
-  sanity_check ( fcTmplt->tmplt.approximant == FindChirpPTF );
+//  sanity_check ( fcTmplt->tmplt.approximant == FindChirpPTF );
 
   /* Set parameters to determine spin/nonspin */
   /* For non-spin we only need one filter. For PTF all 5 are needed */

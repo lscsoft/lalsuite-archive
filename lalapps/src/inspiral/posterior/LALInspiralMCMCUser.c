@@ -422,7 +422,7 @@ REAL8 NestPriorPhenSpin(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 	REAL8 maxMTotal= 35.0;
 
 /* Check in range */
-        if(XLALMCMCCheckParameter(parameter,"logMc")) mc=exp(XLALMCMCGetParameter(parameter,"logMc"));
+        if(XLALMCMCCheckParameter(parameter,"logM")) mc=exp(XLALMCMCGetParameter(parameter,"logM"));
         else mc=XLALMCMCGetParameter(parameter,"mchirp");
         double logmc=log(mc);
         eta=XLALMCMCGetParameter(parameter,"eta");
@@ -471,7 +471,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	memset(&status,0,sizeof(LALStatus));
 	memset(&det,0,sizeof(DetectorResponse));
 	/* Populate the structures */
-	if(XLALMCMCCheckParameter(parameter,"logMc")) mc=exp(XLALMCMCGetParameter(parameter,"logMc"));
+	if(XLALMCMCCheckParameter(parameter,"logM")) mc=exp(XLALMCMCGetParameter(parameter,"logM"));
 	else mc=XLALMCMCGetParameter(parameter,"mchirp");
 	eta=XLALMCMCGetParameter(parameter,"eta");
 	PPNparams.position.longitude=XLALMCMCGetParameter(parameter,"ra");
@@ -794,7 +794,7 @@ in the frequency domain */
 		UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
 		UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
 		if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
-
+		if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==EOBNR) highBin=inputMCMC->stilde[det_i]->data->length-1;
 		for(idx=lowBin;idx<=highBin;idx++){
 			time_sin = sin(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
 			time_cos = cos(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
@@ -898,8 +898,8 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 
 	eta = XLALMCMCGetParameter(parameter,"eta");
 
-	if (XLALMCMCCheckParameter(parameter,"logMc")) {
-	  mchirp=exp(XLALMCMCGetParameter(parameter,"logMc"));
+	if (XLALMCMCCheckParameter(parameter,"logM")) {
+	  mchirp=exp(XLALMCMCGetParameter(parameter,"logM"));
 	  mtot=mchirp/pow(eta,3./5.);
 	}
 	else {
@@ -1495,7 +1495,6 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
 	}
 	/* Finally restore the proper value of distance */
     template->distance = distanceMPC;
-	/* P.S. I hate IMRPhenomB */
 }
 
 void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
@@ -1598,8 +1597,8 @@ void TaylorT_template(LALStatus *status,InspiralTemplate *template, LALMCMCParam
 void IMRPhenomB_template(LALStatus *status, InspiralTemplate *template, LALMCMCParameter *parameter, LALMCMCInput *inputMCMC)
 {
 	UINT4 NtimeModel, NfreqModel, idx;
-	REAL4 deltaF = inputMCMC->deltaF;
-	NtimeModel = inputMCMC->segment[0]->data->length;
+	/*REAL4 deltaF = inputMCMC->deltaF;*/
+	NtimeModel = 2*(inputMCMC->stilde[0]->data->length+1);
 	NfreqModel = inputMCMC->stilde[0]->data->length;
 	if(Tmodel ==NULL) LALCreateVector(status, &Tmodel, NtimeModel);
 	
@@ -1643,26 +1642,11 @@ void IMRPhenomB_template(LALStatus *status, InspiralTemplate *template, LALMCMCP
     template->distance = distanceMPC;
     
 	
-	/* Compute time shift between end of wave and end of buffer */
-	/*UINT4 start = template->nStartPad*inputMCMC->deltaT;
-	UINT4 max_time = template->tC+start;
-	UINT4 shift = inputMCMC->deltaT*NtimeModel - max_time;
-	*/
     float winNorm = sqrt(inputMCMC->window->sumofsquares/inputMCMC->window->data->length);
     float Norm = winNorm * inputMCMC->deltaT;
     for(idx=0;idx<Tmodel->length;idx++) Tmodel->data[idx]*=(REAL4)inputMCMC->window->data->data[idx] * Norm; /* window & normalise */
     if(inputMCMC->likelihoodPlan==NULL) {LALCreateForwardREAL4FFTPlan(status,&inputMCMC->likelihoodPlan,(UINT4) NtimeModel,FFTW_PATIENT);}
     LALREAL4VectorFFT(status,model,Tmodel,inputMCMC->likelihoodPlan); /* REAL4VectorFFT doesn't normalise like TimeFreqRealFFT, so we do this above in Norm */
-	/* Apply time shift to make peak time at end of buffer */
-	/*for(idx=0;idx<NfreqModel;idx++){
-		REAL4 time_sin=sin(LAL_TWOPI*idx*deltaF*shift);
-		REAL4 time_cos=cos(LAL_TWOPI*idx*deltaF*shift);
-		REAL4 real=model->data[idx];
-		REAL4 imag=model->data[NfreqModel-idx];
-		model->data[idx]	=     real*time_cos + imag*time_sin;
-		model->data[NfreqModel-idx]= -real*time_sin + imag*time_cos;
-	}
-	*/
 	return;
 
 }
@@ -1685,7 +1669,7 @@ void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParamet
 	template->Zeta2=0.;
 	template->Theta=1.;
 
-	NtimeModel = (inputMCMC->stilde[0]->data->length);
+	NtimeModel = (2*inputMCMC->stilde[0]->data->length-2);
 
 	if(Tmodel==NULL) {
 		LALCreateVector(status,&Tmodel,NtimeModel);

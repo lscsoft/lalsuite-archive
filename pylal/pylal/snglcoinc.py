@@ -787,8 +787,12 @@ def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow
 	is a glue.segments.segmentlistdict object describing the
 	observation segments for each of instruments.  timefunc is a
 	function for computing the "time" of an event, its signature should
-	be timefunc(event).  delta_t is a time window in seconds, the light
-	travel time between instrument pairs is added to this internally.
+	be
+
+		t = timefunc(event)
+
+	delta_t is a time window in seconds, the light travel time between
+	instrument pairs is added to this internally.
 
 	Using the mean event rates and the coincidence window, the function
 	first computes the relative frequency of each of the combinations
@@ -1013,7 +1017,7 @@ class TOATriangulator(object):
 
 		This creates a TOATriangulator instance configured for the
 		LIGO Hanford, LIGO Livingston and Virgo antennas with 5 ms
-		timing uncertainties at each location.
+		time-of-arrival uncertainties at each location.
 		"""
 		assert len(rs) == len(sigmas)
 		assert len(rs) >= 3

@@ -38,6 +38,8 @@ if __name__=='__main__':
     parser=OptionParser()
     parser.add_option("--data",dest="data",action="store",help="file of posterior samples",metavar="FILE")
     parser.add_option("--Nboxing",dest="Nboxing",action="store",default=64,type="int",metavar="N")
+    parser.add_option("--bootstrap", dest='bootstrap',action='store',default=1,type='int',metavar='N')
+    parser.add_option('--output',dest='output',action='store',default=None,metavar='FILE')
 
     (opts,args)=parser.parse_args()
 
@@ -49,7 +51,18 @@ if __name__=='__main__':
     finally:
         f.close()
 
-    ev=pos.di_evidence(boxing=opts.Nboxing)
-
-    print 'log(evidence) with Nboxing = %d is %.1f (evidence is %g)'%(opts.Nboxing,np.log(ev),ev)
-    
+    outfile=None
+    if opts.output:
+        outfile=open(opts.output,'w')
+    try:
+        for i in range(opts.bootstrap):
+            if i == 0:
+                ev=pos.di_evidence(boxing=opts.Nboxing)
+            else:
+                ev=pos.bootstrap().di_evidence(boxing=opts.Nboxing)
+            print 'log(evidence) with Nboxing = %d is %.1f (evidence is %g)'%(opts.Nboxing,np.log(ev),ev)
+            if outfile:
+                outfile.write('%g\n'%np.log(ev))
+    finally:
+        if outfile:
+            outfile.close()
