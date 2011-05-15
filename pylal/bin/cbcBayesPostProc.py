@@ -159,12 +159,13 @@ def cbcBayesPostProc(
         BCI=bfile.read()
         bfile.close()
         print 'BCI: %s'%BCI
-    if not os.path.isfile(snrfactor):
-        print "No snr file provided or wrong path to snr file\n"
-        snrfactor=None
-        #empty_snr_file=open(snrfactor,'w')
-        #empty_snr_file.write("No snr file(s) provided\n")
-        #empty_snr_file.close()
+    if snrfactor is not None:
+        if not os.path.isfile(snrfactor):
+            print "No snr file provided or wrong path to snr file\n"
+            snrfactor=None
+            #empty_snr_file=open(snrfactor,'w')
+            #empty_snr_file.write("No snr file(s) provided\n")
+            #empty_snr_file.close()
     if snrfactor is not None:
         snrstring=""
         snrfile=open(snrfactor,'r')
