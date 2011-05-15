@@ -686,7 +686,7 @@ void initialise(int argc, char *argv[]){
 
 int main( int argc, char *argv[])
 {
-	struct stat st;
+	
 	static LALStatus status;
 	LALMCMCParameter **Live = NULL; /* Structure which holds the parameters */
 	LALMCMCInput	inputMCMC;
