@@ -131,6 +131,39 @@ void Inject2PN(LALMCMCParameter *parameter, LALMCMCInput *inputMCMC, double SNR)
 	/*	free(model); */
 }
 
+void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
+	/* Check if the parameters of the injection are within their priors. If not, exit */
+	INT4 in_range=0;
+    REAL8 m1,m2;
+	REAL8 mc,eta;
+	REAL8 minCompMass = 1.0;
+	REAL8 maxCompMass = 34.0;
+	REAL8 MAX_MTOT=35.0;
+	fprintf(stderr,"Checking injected parameters in range... \n");
+	
+	if(MCMCinput->injectionTable!=NULL) NestInitInjectedParam(injected,(void *)MCMCinput->injectionTable, MCMCinput);
+	else NestInitInjectedParam(injected,(void *)MCMCinput->inspiralTable);
+	
+    in_range=ParamInRange(injected);
+        if (in_range==0){
+	        fprintf(stderr,"One or more injected parameters are outside their allowed ranges. Aborting... \n");
+	        exit(1);
+		}
+		
+	if(XLALMCMCCheckParameter(injected,"logM")) mc=exp(XLALMCMCGetParameter(injected,"logM"));
+	else mc=XLALMCMCGetParameter(injected,"mchirp");
+	double logmc=log(mc);
+	eta=XLALMCMCGetParameter(injected,"eta");
+	m1 = mc2mass1(mc,eta);
+	m2 = mc2mass2(mc,eta);	
+    
+    if(m1<minCompMass || m2<minCompMass) {fprintf(stderr,"m1 or m2 smaller than minCompMass. Aborting..."); exit(-1);}
+	if(m1>maxCompMass || m2>maxCompMass) {fprintf(stderr,"m1 or m2 bigger than maxCompMass. Aborting..."); exit(-1);}
+	if(m1+m2>MAX_MTOT) {fprintf(stderr,"Mtot bigger than MAX_MTOT. Aborting..."); exit(-1);}
+    
+    fprintf(stderr,"The injection parameters are ok. \n");
+    return;
+    }
 
 REAL8 computeZ(LALMCMCInput *MCMCinput)
 {
@@ -203,6 +236,12 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		for(j=topdown_sum[i]->length-2;j>0;j--) topdown_sum[i]->data[j]=topdown_sum[i]->data[j+1]+(pow(MCMCinput->stilde[i]->data->data[j].re,2.0)+pow(MCMCinput->stilde[i]->data->data[j].im,2.0))*MCMCinput->invspec[i]->data->data[j];
 	}
 	
+    	/* Check if the parameters of the injected wave are within their ranges, otherwise exit */
+	if (MCMCinput->injectionTable!=NULL){		
+        LALMCMCParameter *injected=(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));    
+        CheckInjectionInRange(injected,MCMCinput);
+    }
+    
 	if(MCMCinput->injectionTable!=NULL) MCMCinput->funcInit(temp,(void *)MCMCinput->injectionTable);
 	else MCMCinput->funcInit(temp,(void *)MCMCinput->inspiralTable);
 	
