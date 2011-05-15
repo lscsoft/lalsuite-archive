@@ -30,6 +30,7 @@ typedef struct {
 	double value;
 	int fft_bin;
 	int alignment_bin;
+	double fft_offset;
 	double iota;
 	double psi;
 	double phi;
@@ -44,8 +45,9 @@ typedef struct {
 
 void init_fft_stats(void);
 void init_stats(FFT_STATS *st);
+void log_stats(FILE *f, char *tag, FFT_STATS *st);
 void update_stats(FFT_STATS *st_accum, FFT_STATS *st);
-void compute_fft_stats(FFT_STATS *stats, COMPLEX16Vector *fft1, COMPLEX16Vector *fft2, double fpp, double fpc, double fcc);
+void compute_fft_stats(FFT_STATS *stats, COMPLEX16Vector *fft1, COMPLEX16Vector *fft2, double fpp, double fpc, double fcc, double fft_offset);
 
 
 #endif

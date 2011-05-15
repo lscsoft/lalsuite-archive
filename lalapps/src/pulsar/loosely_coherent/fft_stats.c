@@ -88,7 +88,17 @@ UPDATE_STAT(ul);
 UPDATE_STAT(circ_ul);
 }
 
-void fill_SNR_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin)
+void log_stats(FILE *f, char *tag, FFT_STATS *st)
+{
+#define LOG(a) \
+	fprintf(f, "stats: \"%s\" %s %lg %d %lg %lg %lg %lg %lg %lg\n", tag, #a, st->a.value, st->a.fft_bin, st->a.fft_offset, st->a.iota, st->a.psi, st->a.phi, st->a.z.re, st->a.z.im);
+	
+LOG(snr)
+LOG(ul)
+LOG(circ_ul)
+}
+
+void update_SNR_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
@@ -100,13 +110,14 @@ for(i=0;i<acd->free;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	p=x*x+y*y;
 	a=fpp*ac->w11+2*fpc*ac->w12+fcc*ac->w22;
-	b=p/sqrt(a);
+	b=p/a;
 	
 	if(b>st->value) {
 		st->value=b;
 		st->z.re=x;
 		st->z.im=y;
 		st->fft_bin=bin;
+		st->fft_offset=fft_offset;
 		st->alignment_bin=i;
 		st->iota=ac->iota;
 		st->psi=ac->psi;
@@ -117,7 +128,7 @@ for(i=0;i<acd->free;i++) {
 
 #define UL_CONFIDENCE_LEVEL 1.65
 
-void fill_UL_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin)
+void update_UL_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
@@ -129,13 +140,14 @@ for(i=0;i<acd->free;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	p=x*x+y*y;
 	a=fpp*ac->w11+2*fpc*ac->w12+fcc*ac->w22;
-	b=p/a+UL_CONFIDENCE_LEVEL/sqrt(a);
+	b=p/(a*a)+UL_CONFIDENCE_LEVEL/a;
 	
 	if(b>st->value) {
 		st->value=b;
 		st->z.re=x;
 		st->z.im=y;
 		st->fft_bin=bin;
+		st->fft_offset=fft_offset;
 		st->alignment_bin=i;
 		st->iota=ac->iota;
 		st->psi=ac->psi;
@@ -144,7 +156,7 @@ for(i=0;i<acd->free;i++) {
 	}
 }
 
-void fill_circ_UL_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin)
+void update_circ_UL_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
@@ -156,13 +168,14 @@ for(i=0;i<2;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	p=x*x+y*y;
 	a=fpp*ac->w11+2*fpc*ac->w12+fcc*ac->w22;
-	b=p/a+UL_CONFIDENCE_LEVEL/sqrt(a);
+	b=p/(a*a)+UL_CONFIDENCE_LEVEL/a;
 	
 	if(b>st->value) {
 		st->value=b;
 		st->z.re=x;
 		st->z.im=y;
 		st->fft_bin=bin;
+		st->fft_offset=fft_offset;
 		st->alignment_bin=i;
 		st->iota=ac->iota;
 		st->psi=ac->psi;
@@ -171,7 +184,7 @@ for(i=0;i<2;i++) {
 	}
 }
 
-void compute_fft_stats(FFT_STATS *stats, COMPLEX16Vector *fft1, COMPLEX16Vector *fft2, double fpp, double fpc, double fcc)
+void compute_fft_stats(FFT_STATS *stats, COMPLEX16Vector *fft1, COMPLEX16Vector *fft2, double fpp, double fpc, double fcc, double fft_offset)
 {
 double M[4];
 double V;
@@ -179,8 +192,6 @@ int idx;
 int i;
 
 for(i=0;i<4;i++)M[i]=0.0;
-stats->snr.value=0.0;
-stats->ul.value=0.0;
 
 for(i=0;i<fft1->length;i++) {
 	V=fft1->data[i].re*fft1->data[i].re+fft1->data[i].im*fft1->data[i].im+fft2->data[i].re*fft2->data[i].re+fft2->data[i].im*fft2->data[i].im;
@@ -195,9 +206,9 @@ for(i=0;i<fft1->length;i++) {
 	
 	if(V<0.5*M[idx])continue;
 	
-	fill_SNR_stats(&(stats->snr), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i);
-	fill_UL_stats(&(stats->ul), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i);
-	fill_circ_UL_stats(&(stats->circ_ul), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i);
+	update_SNR_stats(&(stats->snr), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i, fft_offset);
+	update_UL_stats(&(stats->ul), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i, fft_offset);
+	update_circ_UL_stats(&(stats->circ_ul), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i, fft_offset);
 	}
 }
 

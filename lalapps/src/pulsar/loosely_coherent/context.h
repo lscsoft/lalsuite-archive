@@ -9,6 +9,8 @@
 #include <lal/DetectorSite.h>
 #include <lal/LALBarycenter.h>
 
+#include "fft_stats.h"
+
 typedef struct {
 	int free;
 	int size;
@@ -45,6 +47,10 @@ typedef struct {
 	double dInv;
 	int fstep;
 	
+	float *power;
+	float *cum_power;
+	float *variance;
+	
 	COMPLEX16FFTPlan *fft_plan;
 
 	/* Demodulation code data */
@@ -73,11 +79,12 @@ typedef struct {
 
 	int half_window;
 	
+	int variance_half_window;
+	
+	int total_segments;
+	
 	COMPLEX16Vector *plus_te_fft;
 	COMPLEX16Vector *cross_te_fft;	
-	
-	/* scan_ffts */
-	double *power;
 	
 	/* compute_*_offset */
 	int offset_count;
@@ -88,7 +95,9 @@ typedef struct {
 	/* fast_get_emission_time */
 	ETC etc;
 	
-	COMPLEX16Vector *scan_tmp[4];
+	COMPLEX16Vector *scan_tmp[8];
+	
+	FFT_STATS stats;
 	
 	} LOOSE_CONTEXT;
 

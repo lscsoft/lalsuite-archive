@@ -36,6 +36,7 @@ FILE *LOG=NULL, *FILE_LOG=NULL, *DATA_LOG=NULL;
 #include "util.h"
 #include "skymarks.h"
 #include "bessel.h"
+#include "fft_stats.h"
 #include "context.h"
 
 struct gengetopt_args_info args_info;
@@ -563,75 +564,6 @@ for(i=0;i<9;i++) {
 /* TODO: optimize */
 
 
-void compute_fft_stats(COMPLEX16Vector *te_fft, double *power, int nsamples, POWER_STATS *ps)
-{
-int i, i_left, i_right;
-double a, b, x, y;
-double spread=0.05*0;
-
-for(i=0;i<nsamples;i++) {
-	i_left=i-1;
-	i_right=i+1;
-	if(i_left<0)i_left+=nsamples;
-	if(i_right>=nsamples)i_right-=nsamples;
-	
-	a=te_fft->data[i].re;
-	b=te_fft->data[i].im;
-	
-	x=a*(te_fft->data[i_left].re-te_fft->data[i_right].re)-b*(te_fft->data[i_left].im-te_fft->data[i_right].im);
-	y=b*(te_fft->data[i_left].re+te_fft->data[i_right].re)+a*(te_fft->data[i_left].im+te_fft->data[i_right].im);
-	
-	power[i]=a*a+b*b+spread*sqrt(x*x+y*y);
-	}
-
-// sum=0.0;
-// for(i=0;i<nsamples;i++) {
-// 	a=0.0;
-// 	b=0.0;
-// 	c=0.0;
-// 	for(j=i-half_window; j<=i+half_window;j++) {
-// 		k=j;
-// 		if(k<0)k+=nsamples;
-// 		if(k>=nsamples)k-=nsamples;
-// 		x=fft->data[k].re;
-// 		y=fft->data[k].im;
-// 		a+=x*x+y*y;
-// 
-// 		k=j+wing_step;
-// 		if(k<0)k+=nsamples;
-// 		if(k>=nsamples)k-=nsamples;
-// 		x1=fft->data[k].re;
-// 		y1=fft->data[k].im;
-// 		c+=(x1*x1+y1*y1);
-// 		b+=(x1*x+y1*y);
-// 
-// 		k=j-wing_step;
-// 		if(k<0)k+=nsamples;
-// 		if(k>=nsamples)k-=nsamples;
-// 		x1=fft->data[k].re;
-// 		y1=fft->data[k].im;
-// 		c+=(x1*x1+y1*y1);
-// 		b+=(x1*x+y1*y);
-// 		}
-// 	power[i]=a;
-// 	cross[i]=b;
-// 	power_aux[i]=c;
-// 
-// 	sum+=a+c;
-// 	}
-// 	
-// sum/=nsamples;
-
-
-// for(i=0;i<nsamples;i++) {
-// 	if(power[i]+power_aux[i]>3*sum)
-// 	fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
-// 		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ra, dec, power[i], cross[i], power_aux[i], fft->data[i].re, fft->data[i].im);
-// 	}
-
-compute_power_stats(ps, power, nsamples);
-}
-
 void compute_fft_statsf(COMPLEX16Vector *te_fft, double *power, int nsamples, POWER_STATS *ps)
 {
 int i, i_left, i_right;
@@ -767,26 +699,34 @@ for(i=0;i<nsamples;i++) {
 	}	
 }
 
-void scan_fft_stats(LOOSE_CONTEXT *ctx, POWER_STATS *ps)
+void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
-COMPLEX16Vector *fft2, *fft3, *fft4, *fft5, *fft_tmp;	
-#define N_SCAN_FFT_FILTER 9
+COMPLEX16Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;	
+#define N_SCAN_FFT_FILTER 7
 COMPLEX16 filter1[N_SCAN_FFT_FILTER], filter2[N_SCAN_FFT_FILTER];
-POWER_STATS ps2;
-double ms;
 int i, j;
 int nscan=2;
 int nsamples=ctx->nsamples;
 COMPLEX16 *v1=ctx->ra_sc->first9;
 COMPLEX16 *v2=ctx->dec_sc->first9; 
 
-fft2=ctx->scan_tmp[0];
-fft3=ctx->scan_tmp[1];
-fft4=ctx->scan_tmp[2];
-fft5=ctx->scan_tmp[3];
+#define SWAP_FFT(a,b)  {\
+	fft_tmp=a; \
+	a=b; \
+	b=fft_tmp; \
+	}
 
-compute_fft_stats(ctx->plus_te_fft, ctx->power, nsamples, ps);
-ms=ps->max_snr;
+fft2[0]=ctx->scan_tmp[0];
+fft3[0]=ctx->scan_tmp[1];
+fft4[0]=ctx->scan_tmp[2];
+fft5[0]=ctx->scan_tmp[3];
+
+fft2[1]=ctx->scan_tmp[4];
+fft3[1]=ctx->scan_tmp[5];
+fft4[1]=ctx->scan_tmp[6];
+fft5[1]=ctx->scan_tmp[7];
+
+compute_fft_stats(&(ctx->stats), ctx->plus_te_fft, ctx->cross_te_fft, ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
 
 make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, 2*M_PI/(nscan));
 make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, 2*M_PI/(nscan));
@@ -808,66 +748,61 @@ if(0) {
 	}
 
 for(i=0;i<=nscan;i++) {
-	if(i==0)memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		else {
-		shift_fft(fft3, fft2, filter1, N_SCAN_FFT_FILTER);
-		fft_tmp=fft2;
-		fft2=fft3;
-		fft3=fft_tmp;
+	if(i==0){
+		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
+		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
+		} else {
+		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
+		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
+		SWAP_FFT(fft2[0], fft3[0]);
+		SWAP_FFT(fft2[1], fft3[1]);
 		}
 	for(j=0;j<=nscan;j++) {
 
-		if(j==0)memcpy(fft4->data, fft2->data, nsamples*sizeof(COMPLEX16));
-			else {
-			shift_fft(fft5, fft4, filter2, N_SCAN_FFT_FILTER);
-			fft_tmp=fft4;
-			fft4=fft5;
-			fft5=fft_tmp;
+		if(j==0) {
+			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
+			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
+			} else {
+			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
+			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
+			SWAP_FFT(fft4[0], fft5[0]);
+			SWAP_FFT(fft4[1], fft5[1]);
 			}
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
-/*		fprintf(stderr, "+ %.2f ", (ps2.max_snr-ps->max_snr)/ps->max_snr);*/
-		if(ps2.max_snr>ps->max_snr) {
-			//fprintf(stderr, "* %f", ps2.max_snr-ms);
-			memcpy(ps, &ps2, sizeof(*ps));
-			}
+		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
 		}
-/*	fprintf(stderr, "\n");*/
 	}
 
 make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, -2*M_PI);
 make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, 2*M_PI);
 
 for(i=0;i<=nscan;i++) {
-	if(i==0) {
-		memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		continue;
-		}
-		else {
-		shift_fft(fft3, fft2, filter1, N_SCAN_FFT_FILTER);
-		fft_tmp=fft2;
-		fft2=fft3;
-		fft3=fft_tmp;
+	if(i==0){
+		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
+		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
+		} else {
+		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
+		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
+		SWAP_FFT(fft2[0], fft3[0]);
+		SWAP_FFT(fft2[1], fft3[1]);
 		}
 	for(j=0;j<=nscan;j++) {
 
-		if(j==0)memcpy(fft4->data, fft2->data, nsamples*sizeof(COMPLEX16));
-			else {
-			shift_fft(fft5, fft4, filter2, N_SCAN_FFT_FILTER);
-			fft_tmp=fft4;
-			fft4=fft5;
-			fft5=fft_tmp;
+		if(j==0) {
+			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
+			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
+			} else {
+			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
+			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
+			SWAP_FFT(fft4[0], fft5[0]);
+			SWAP_FFT(fft4[1], fft5[1]);
 			}
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
-		if(ps2.max_snr>ps->max_snr) {
-			//fprintf(stderr, "* %f", ps2.max_snr-ms);
-			memcpy(ps, &ps2, sizeof(*ps));
-			}
+		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
 		}
 	}
 
@@ -875,34 +810,30 @@ make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, 2*M_PI);
 make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, -2*M_PI);
 
 for(i=0;i<=nscan;i++) {
-	if(i==0) {
-		memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		}
-		else {
-		shift_fft(fft3, fft2, filter1, N_SCAN_FFT_FILTER);
-		fft_tmp=fft2;
-		fft2=fft3;
-		fft3=fft_tmp;
+	if(i==0){
+		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
+		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
+		} else {
+		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
+		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
+		SWAP_FFT(fft2[0], fft3[0]);
+		SWAP_FFT(fft2[1], fft3[1]);
 		}
 	for(j=0;j<=nscan;j++) {
 
 		if(j==0) {
-			memcpy(fft4->data, fft2->data, nsamples*sizeof(COMPLEX16));
-			continue;
+			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
+			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
 			} else {
-			shift_fft(fft5, fft4, filter2, N_SCAN_FFT_FILTER);
-			fft_tmp=fft4;
-			fft4=fft5;
-			fft5=fft_tmp;
+			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
+			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
+			SWAP_FFT(fft4[0], fft5[0]);
+			SWAP_FFT(fft4[1], fft5[1]);
 			}
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
-		if(ps2.max_snr>ps->max_snr) {
-			//fprintf(stderr, "* %f", ps2.max_snr-ms);
-			memcpy(ps, &ps2, sizeof(*ps));
-			}
+		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
 		}
 	}
 
@@ -910,35 +841,30 @@ make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, -2*M_PI);
 make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, -2*M_PI);
 
 for(i=0;i<=nscan;i++) {
-	if(i==0) {
-		memcpy(fft2->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		continue;
-		}
-		else {
-		shift_fft(fft3, fft2, filter1, N_SCAN_FFT_FILTER);
-		fft_tmp=fft2;
-		fft2=fft3;
-		fft3=fft_tmp;
+	if(i==0){
+		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
+		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
+		} else {
+		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
+		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
+		SWAP_FFT(fft2[0], fft3[0]);
+		SWAP_FFT(fft2[1], fft3[1]);
 		}
 	for(j=0;j<=nscan;j++) {
 
 		if(j==0) {
-			memcpy(fft4->data, fft2->data, nsamples*sizeof(COMPLEX16));
-			continue;
+			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
+			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
 			} else {
-			shift_fft(fft5, fft4, filter2, N_SCAN_FFT_FILTER);
-			fft_tmp=fft4;
-			fft4=fft5;
-			fft5=fft_tmp;
+			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
+			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
+			SWAP_FFT(fft4[0], fft5[0]);
+			SWAP_FFT(fft4[1], fft5[1]);
 			}
 
 		if(i==0 && j==0)continue;
 
-		compute_fft_stats(fft4, ctx->power, nsamples, &ps2);
-		if(ps2.max_snr>ps->max_snr) {
-			//fprintf(stderr, "* %f", ps2.max_snr-ms);
-			memcpy(ps, &ps2, sizeof(*ps));
-			}
+		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
 		}
 	}
 
@@ -998,7 +924,7 @@ void demodulate(LOOSE_CONTEXT *ctx)
 {
 int i, j, k, n;
 int nsamples=ctx->nsamples;
-double te, f, phase_spindown, phase_barycenter, phase_heterodyne, phase_bin, total_phase, x, y, c, s, x2, y2, dt;
+double te, f, phase_spindown, phase_barycenter, phase_heterodyne, phase_bin, total_phase, x, y, c, s, x2, y2, dt, a;
 float e[GRID_E_COUNT];
 double ra, dec, f0, spindown, dInv;
 double f_cross, f_plus;
@@ -1026,10 +952,51 @@ for(i=0;i<nsamples;i++) {
 
 TODO("add weights as described in loosely_coherent2")
 
+if(ctx->total_segments<2*ctx->variance_half_window+1) {
+	fprintf(stderr, "*** NOT ENOUGH DATA, aborting (total_segments=%d)\n", total_segments());
+	exit(-1);
+	}
+
 precompute_am_constants(e, ctx->ra, ctx->dec);
 
+k=0;
+y2=0.0;
 for(n=0;n<d_free;n++) {
 	for(j=0;j<datasets[n].free;j++) {
+		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+2.0*ctx->fstep/(ctx->n_fsteps*nsamples*datasets[0].coherence_time);
+		bin=round(datasets[0].coherence_time*f-first_bin);
+
+		x=datasets[n].re[j*datasets[n].nbins+bin];
+		y=datasets[n].im[j*datasets[n].nbins+bin];
+
+		x2=x*x+y*y;
+		ctx->power[k]=x2;
+		y2+=x2;
+		ctx->cum_power[k]=y2;
+		
+		k++;
+		}
+	}
+	
+y2=ctx->cum_power[ctx->variance_half_window*2]/(2*ctx->variance_half_window+1);
+for(k=0;k<=ctx->variance_half_window;k++)
+	ctx->variance[k]=y2;
+
+for(;k<ctx->total_segments-ctx->variance_half_window;k++)
+	ctx->variance[k]=(ctx->cum_power[k+ctx->variance_half_window]-ctx->cum_power[k-ctx->variance_half_window-1])/(2*ctx->variance_half_window+1);
+
+y2=ctx->cum_power[k-1];
+
+for(;k<ctx->total_segments;k++)
+	ctx->variance[k]=y2;
+	
+// for(k=0;k<ctx->total_segments;k++)
+// 	fprintf(DATA_LOG, "%g %g %g\n", ctx->power[k], ctx->cum_power[k], ctx->variance[k]);
+
+k=-1;
+for(n=0;n<d_free;n++) {
+	for(j=0;j<datasets[n].free;j++) {
+		k++;
 		
 	//	tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
 		tGPS.gpsSeconds=datasets[n].gps[j]; /* SFTs count phase from 0 */
@@ -1041,6 +1008,9 @@ for(n=0;n<d_free;n++) {
 /*		i=round(2.0*((emission_time.te.gpsSeconds-first_gps)+1e-9*emission_time.te.gpsNanoSeconds)/args_info.coherence_length_arg);*/
 		if(i<0)continue;
 		if(i>=nsamples)continue;
+		
+		/* avoid spikes */
+		if(ctx->power[k]>20*ctx->variance[k])continue;
 		
 		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
 		
@@ -1082,16 +1052,17 @@ for(n=0;n<d_free;n++) {
 		/* plus */
 		/* Hann window */
 		//c=0.5*(1.0-cos(2*M_PI*i/nsamples));
+		a=1.0/ctx->variance[k];
 		
-		ctx->plus_samples->data[i].re=x2*f_plus;
-		ctx->plus_samples->data[i].im=y2*f_plus;
+		ctx->plus_samples->data[i].re=x2*f_plus*a;
+		ctx->plus_samples->data[i].im=y2*f_plus*a;
 
-		ctx->cross_samples->data[i].re=x2*f_plus;
-		ctx->cross_samples->data[i].im=y2*f_plus;
+		ctx->cross_samples->data[i].re=x2*f_plus*a;
+		ctx->cross_samples->data[i].im=y2*f_plus*a;
 
-		ctx->weight_pp+=f_plus*f_plus;
-		ctx->weight_pc+=f_plus*f_cross;
-		ctx->weight_cc+=f_cross*f_cross;
+		ctx->weight_pp+=f_plus*f_plus*a;
+		ctx->weight_pc+=f_plus*f_cross*a;
+		ctx->weight_cc+=f_cross*f_cross*a;
 
 		if(args_info.dump_stream_data_arg) {
 			get_emission_time(&emission_time2, &(datasets[n].earth_state[j]), args_info.focus_ra_arg, args_info.focus_dec_arg, dInv, datasets[n].detector, tGPS);
@@ -1124,7 +1095,6 @@ int i;
 int point;
 double f0=args_info.focus_f0_arg;
 double norm;
-POWER_STATS ps;
 double sb_ra[2], sb_dec[2];
 
 
@@ -1135,6 +1105,8 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	ctx->ra=main_grid->longitude[point];
 	ctx->dec=main_grid->latitude[point];
 	ctx->fstep=fstep;
+	
+	init_stats(&(ctx->stats));
 
 	demodulate(ctx);
 
@@ -1183,25 +1155,27 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 
 	compute_te_ffts(ctx);
 
-	scan_fft_stats(ctx, &ps);
+	scan_fft_stats(ctx, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg));
 
 	thread_mutex_lock(data_logging_mutex);
 	// -241
-	if((point== -21) || args_info.dump_fft_data_arg) {
-		for(i=0;i<nsamples;i++) {
-			fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
-				i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ctx->plus_fft->data[i].re, ctx->plus_fft->data[i].im, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im, ctx->power[i]);
-			}
-		}
+// 	if((point== -21) || args_info.dump_fft_data_arg) {
+// 		for(i=0;i<nsamples;i++) {
+// 			fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
+// 				i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ctx->plus_fft->data[i].re, ctx->plus_fft->data[i].im, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im, ctx->power[i]);
+// 			}
+// 		}
+// 
+// 	if(fabs(ctx->ra-args_info.focus_ra_arg)<0.5*resolution && fabs(ctx->dec-args_info.focus_dec_arg)<0.5*resolution) {
+// 		fprintf(stderr, "Close point: %d\n", point);
+// 		}
+// 
+// 
+// 	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
+// 		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (ctx->power[0]-ps.mean)/ps.sd);
 
-	if(fabs(ctx->ra-args_info.focus_ra_arg)<0.5*resolution && fabs(ctx->dec-args_info.focus_dec_arg)<0.5*resolution) {
-		fprintf(stderr, "Close point: %d\n", point);
-		}
-
-
-	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
-		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (ctx->power[0]-ps.mean)/ps.sd);
-
+	log_stats(DATA_LOG, "point", &(ctx->stats));
+	
 	thread_mutex_unlock(data_logging_mutex);
 	}
 }

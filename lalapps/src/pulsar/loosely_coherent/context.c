@@ -55,11 +55,16 @@ ctx=do_alloc(1, sizeof(*ctx));
 
 ctx->timebase=max_gps()-min_gps();
 ctx->first_gps=min_gps();
+ctx->total_segments=total_segments();
 	
 ctx->nsamples=1+ceil(2.0*ctx->timebase/args_info.coherence_length_arg);
 wing_step=round(ctx->nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
 ctx->nsamples=day_samples*floor(ctx->nsamples/day_samples);
 ctx->nsamples=round235up_int(ctx->nsamples);
+
+ctx->power=do_alloc(ctx->total_segments, sizeof(*ctx->power));
+ctx->cum_power=do_alloc(ctx->total_segments, sizeof(*ctx->cum_power));
+ctx->variance=do_alloc(ctx->total_segments, sizeof(*ctx->variance));
 
 TODO("increase plan optimization level to 1")
 fprintf(stderr, "Creating FFT plan of length %d\n", ctx->nsamples);
@@ -80,8 +85,7 @@ ctx->dec_sc=new_sparse_conv();
 
 /* scan_ffts */
 
-ctx->power=do_alloc(ctx->nsamples, sizeof(*ctx->power));
-for(i=0;i<4;i++)
+for(i=0;i<8;i++)
 	XALLOC(ctx->scan_tmp[i], XLALCreateCOMPLEX16Vector(ctx->nsamples));
 	
 /* fast_get_emission_time */
@@ -93,11 +97,15 @@ XALLOC(ctx->offset_in, XLALCreateCOMPLEX16Vector(ctx->offset_count));
 XALLOC(ctx->offset_fft, XLALCreateCOMPLEX16Vector(ctx->offset_count));
 XALLOC(ctx->offset_fft_plan, XLALCreateForwardCOMPLEX16FFTPlan(ctx->offset_count, 0));
 
+/* statistics */
+init_stats(&(ctx->stats));
+
 /* Parameters */
 
 ctx->n_freq_adj_filter=7;
 ctx->n_fsteps=4;
 ctx->half_window=1;
+ctx->variance_half_window=50;
 
 ctx->ra=0;
 ctx->dec=0;
