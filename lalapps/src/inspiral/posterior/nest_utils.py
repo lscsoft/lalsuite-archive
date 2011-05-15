@@ -4,6 +4,7 @@
 import glue
 from glue import pipeline
 import os
+import numpy as np
 
 
 class InspNestJob(pipeline.CondorDAGJob):
