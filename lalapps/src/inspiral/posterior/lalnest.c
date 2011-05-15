@@ -88,7 +88,6 @@ Optional OPTIONS:\n \
 [--gradual_cal\t:\t Together with enable-calfreq, rescale the calibration errors by this quantity (from 0 to calibration_out_max).]\n\
 [--calibration_max\t:\t If given with enable-calfreq alone, the calibration function get multiplied by this factor. If given with gradual-cal, the calibration errors are 1.0+(R_Am*calibration_max-1.0)*calibration_percent for the amplitude and R_Ph*calibration_max]\n\
 [--enable-calfreq\t:\tEnable frequency dependent calibration error simulations. Both phase and Amplitude can be affected.]\n \
-[--injONLY\t:\tOnly writes the SNR of the injected waveform and exit. It does not perform any calculations.]\n \
 [--pinparams STRING\t:\tList parameters to be fixed to their injected values (, separated) i.e. --pinparams mchirp,longitude\n \
 [--version\t:\tPrint version information and exit]\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
@@ -188,7 +187,6 @@ INT4 ampOrder=0;
 int enable_calamp=0;
 unsigned int nCalAmpFacs=0;
 int enable_calfreq=0;
-int injONLY=0;
 int enable_gradual_cal=0;
 REAL8 calibration_percent=1.0;
 int zero_V1=0;
@@ -204,6 +202,8 @@ UINT4 fLowFlag=0;
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
+void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
 
 /* variables for NestInitManualPhenSpinRD_manual */
 double compmassmin=1.;
@@ -321,7 +321,6 @@ void initialise(int argc, char *argv[]){
         {"enable-calamp",no_argument,0,265},
        	{"calamp-fac",required_argument,0,266},
 		{"enable-calfreq",no_argument,0,300},
-        {"injONLY",no_argument,0,301},
         {"pinparams",required_argument,0,21},
 		{"datadump",required_argument,0,22},
 		{"flow",required_argument,0,23},
@@ -644,9 +643,6 @@ void initialise(int argc, char *argv[]){
        case 300:
             enable_calfreq=1;
 			break;
-       case 301:
-            injONLY=1;
-            break;
        case 302:
             calibration_percent=atof(optarg);
             enable_gradual_cal=1;
@@ -682,7 +678,7 @@ void initialise(int argc, char *argv[]){
 	if(studentt) estimatenoise=0;  
      if (enable_gradual_cal && !((enable_calfreq) || (decohereflag)) ) {fprintf(stderr,"Error: gradual_cal need enable-calfreq to be activated. Exiting...\n");exit(-1);}
     if(enable_calamp && nIFO!=nCalAmpFacs){fprintf(stderr,"Error: You must specify an amplitude calibration factor for each IFO (even if it is just 1.0)\n");exit(-1);}
-	//if(enable_calamp && enable_calfreq){fprintf(stderr,"Error: You cannot specify a constant amplitude calibration factor and a frequency dependent one at the same time. Exiting\n");exit(-1);}
+	if(enable_calamp && enable_calfreq){fprintf(stderr,"Error: You cannot specify a constant amplitude calibration factor and a frequency dependent one at the same time. Exiting\n");exit(-1);}
 	return;
 }
 
@@ -713,7 +709,8 @@ int main( int argc, char *argv[])
 	REAL4 TSoffset;
 	LIGOTimeGPS realstart,segmentStart;
 	REAL8 networkSNR=0.0;
-
+    REAL8 * SNRs=NULL;
+    SNRs=calloc(nIFO+1 ,sizeof(REAL8));
 	seed=0;
 	etawindow=1.0;
 	timewindow=0.05;
@@ -894,7 +891,7 @@ int main( int argc, char *argv[])
 		inputMCMC_N.deltaF = inputMCMC.deltaF;
 		datastart=realstart; /* Reset the datastart in case it has been slid previously */
 		segmentStart = datastart;
-                datarandparam=XLALCreateRandomParams(dataseed + (INT2) IFOnames[i][0] + (INT2) IFOnames[i][1]);     // Initialize the random chain using the dataseed and the name of the IFO
+        datarandparam=XLALCreateRandomParams(dataseed + (INT2) IFOnames[i][0] + (INT2) IFOnames[i][1]);     // Initialize the random chain using the dataseed and the name of the IFO
 
 		/* Check for synthetic data */
 		if(!(strcmp(CacheFileNames[i],"LALLIGO") && strcmp(CacheFileNames[i],"LALVirgo") && strcmp(CacheFileNames[i],"LALGEO") && strcmp(CacheFileNames[i],"LALEGO") && strcmp(CacheFileNames[i],"LALAdLIGO")))
@@ -1192,6 +1189,7 @@ int main( int argc, char *argv[])
 			LALDestroyREAL4FFTPlan(&status,&inj_plan);
 
 			networkSNR+=SNR;
+            SNRs[i]=sqrt(SNR);
 			SNR=sqrt(SNR);
 
 			/* Actually inject the waveform */
@@ -1217,23 +1215,7 @@ int main( int argc, char *argv[])
 
                 if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
                 else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
-
-               FILE *snrout;
-	//			REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
-				char snr_wavename[100];
-
-				if(stat("./SNR",&st) == 0){
-                    REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
-					fprintf(stderr,"SNR directory is present\n");
-                                        fprintf(stderr,"Writing...\n");	
-                                        if(enable_gradual_cal==1){sprintf(snr_wavename,"./SNR/snr_%s_%10.1lf_%1.8f.dat",IFOnames[i],injTime,calibration_percent) ;}
-                                        else {sprintf(snr_wavename,"./SNR/snr_%s_%10.1lf.dat",IFOnames[i],injTime );}
-					if(stat(snr_wavename,&st)){
-                                        snrout=fopen(snr_wavename,"w");
-					fprintf(snrout,"%10.1lf  %3.1lf",injTime,SNR);
-                                        fclose(snrout);
-				}   
-                                } 
+ 
 
             
 
@@ -1241,13 +1223,11 @@ int main( int argc, char *argv[])
         calib_seed=calib_seed+3;  // Vary the calib_seed for the next IFO. If we add injection in the frequency domain we need to update that.
         } /* End loop over IFOs */
 
-        //
-        if (injONLY) {
-        fprintf(stderr,"Injection performed correctly. SNRs wrote. Exiting\n");
-        exit(0);   
-        }
-
-	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
+    if(NULL!=injXMLFile && fakeinj==0) {
+        /* Print the SNRs in a file */
+        PrintSNRsToFile(SNRs,injTable,&inputMCMC);
+    }
+        /* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
 
 	if(estimatenoise && DEBUG){
@@ -1973,5 +1953,58 @@ int checkParamInList(const char *list, const char *param)
 		if(*post!=',')
 			return 0;
 	return 1;
+}
+
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
+{   CHAR pinned_params_temp[100]="";
+    int pin_was_null=1;
+    char full_list[]="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z";
+    if (pinned_params!=NULL){
+        pin_was_null=0;
+        strcpy(pinned_params_temp,pinned_params);
+        strcpy(pinned_params,full_list);
+    }
+    else {
+        pinned_params=full_list ;
+    } 
+  
+    MCMCinput->funcInit(parameter,iT);
+    if (pin_was_null)
+        pinned_params=NULL;
+    else
+        strcpy(pinned_params,pinned_params_temp);
+    return ;	
+	}
+
+void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
+/* open the SNR file */
+    struct stat st;
+    char SnrName[70];
+    char ListOfIFOs[10];
+    REAL8 NetSNR=0.0;
+    sprintf(ListOfIFOs,"");    
+
+    for (UINT4 det_i=0;det_i<nIFO;det_i++){
+         sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);
+        }
+    
+    if (stat("./SNR",&st) == 0){
+        sprintf(SnrName,"./SNR/snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+    }
+    else {
+        sprintf(SnrName,"snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+    }
+    
+    FILE *snrout=fopen(SnrName,"w");
+    for (UINT4 det_i=0;det_i<nIFO;det_i++){
+        fprintf(snrout,"%s:\t",inputMCMC->ifoID[det_i]);
+        fprintf(snrout,"%e\n",SNRs[det_i]);
+        NetSNR+=(SNRs[det_i]*SNRs[det_i]);
+    }		
+    if (nIFO>1){  fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%e\n",sqrt(NetSNR));}
+    fprintf(snrout,"\n");
+    fclose(snrout);
+
 }
 
