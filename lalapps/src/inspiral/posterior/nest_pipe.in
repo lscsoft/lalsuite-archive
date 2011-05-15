@@ -14,12 +14,13 @@ from glue import segmentsUtils
 from glue import segments
 from glue import segmentdb
 from lalapps import inspiralutils
+import numpy as np
 import scipy
 sys.path.append('@PYTHONLIBDIR@')
 
 #Presets
 ifos=['H1','L1','V1']
-fakeTypes=["LALVirgo","LALLIGO"]
+fakeTypes=["LALVirgo","LALLIGO","LALAdLIGO","LALAdVirgo"]
 
 # Read command line options
 usage=""" %prog [options]
@@ -60,12 +61,23 @@ parser.add_option("--notify",action="store",default=None,help="Optional e-mail a
 (opts,args)=parser.parse_args()
 
 cp=ConfigParser.ConfigParser()
-cp.read(opts.ini_file)
+cp.optionxform = str
+cp.readfp(open(opts.ini_file))
 #Get ifos from string list
 ifos=eval(cp.get('analysis','ifos'))
 
+## This function is used to put the ifos.keys() in the same order than in the ifos section in the parser, while passing them to the inspnest nodes
+def sort_ifo(a,b):
+    global ifos
+    if ifos.index(a)<ifos.index(b):
+        return -1
+    elif ifos.index(a)>ifos.index(b):
+        return 1
+    else: 
+        return 0
 
-print 'Setting up pipeline with ifos'+' '.join(map(str,ifos))
+print 'Setting up pipeline with ifos '+' '.join(map(str,ifos))
+IFOs=''.join(map(str,ifos))
 
 def checkDir(dir):
         if not os.access(dir,os.F_OK):
@@ -149,7 +161,7 @@ if opts.inj and cp.has_option('analysis','events'):
                     print "Error: in event config option; ':' must separate two numbers."
                     exit(0)
                 low=int(limits[0])
-                high=int(limits[1])
+                high=int(limits[1])+1
                 if low>high:
                     events.extend(range(int(high),int(low)))
                 elif high>low:
@@ -354,29 +366,21 @@ inspnest_job=OddsPipeline.InspNestJob(cp,inspnest_subfile,opts.log_path)
 inspnest_job.add_opt('Nlive',cp.get('analysis','nlive'))
 inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
 
+if cp.has_option('analysis','data_seed'):
+    print "Using dataseed= " + str(cp.get('analysis','data_seed')) +" for the first injection. Incrementing by one for each other \n"
+else:
+    print "Using default dataseed=1234 for the first injection (incrementing by one for each other). Add data_seed=X in the analysis section of the parser if you want to change it. \n"
+
+if cp.has_option('analysis','seed'):
+    print "Using  seed= " + str(cp.get('analysis','seed')) +" for the fist run (seed is incremented by one for each parallel run) \n"
+else:
+    print "Using default seed=100. Add seed=X in the analysis section of the parser file to use a different value \n"
+
+for option in cp.items('inspnest_all'):
+    inspnest_job.add_opt(option[0],option[1])
 
 if cp.has_option('data','decohere'):
     inspnest_job.add_opt('decohere',cp.get('data','decohere'))
-
-if cp.has_option('analysis','data_seed'):
-     dataseed=eval(cp.get('analysis','data_seed'))
-     print "data seed chosen to be" + str(dataseed)
-     inspnest_job.add_opt('dataseed',str(dataseed))
- 
-if cp.has_option('analysis','chain_seed'):
-     chain_seed=eval(cp.get('analysis','chain_seed'))
-     print "chain seed chosen to be" + str(chain_seed)
-     inspnest_job.add_opt('seed',str(chain_seed))
- 
-SNR_folder=str(os.path.join(opts.run_path,'SNR'))
-#print SNR_folder
-if os.path.isdir(SNR_folder):
-     for i in SNR_folder:
-         path_to_file=os.path.join(SNR_folder,i)
-         if os.path.isfile(path_to_file):
-            os.unlink(path_to_file)
-else: 
-     os.mkdir(str(SNR_folder))
 
 if cp.has_option('data','enable_calfreq'):
     inspnest_job.add_opt("enable-calfreq",'')
@@ -384,7 +388,7 @@ if cp.has_option('data','enable_calfreq'):
 if cp.has_option('data','calamp-facs'):
      inspnest_job.add_opt("enable-calamp",'')
 
-if cp.has_option('data','calamp-facs') or cp.has_option('data','enable_calfreq'):
+'''if cp.has_option('data','calamp-facs') or cp.has_option('data','enable_calfreq'):
     waves_folder=str(os.path.join(opts.run_path,'waves'))
     if os.path.isdir(waves_folder):
         for i in waves_folder:
@@ -393,11 +397,7 @@ if cp.has_option('data','calamp-facs') or cp.has_option('data','enable_calfreq')
                 os.unlink(path_to_file)
     else:
         os.mkdir(str(waves_folder))
- 
-if cp.has_option('analysis','injONLY'):
-     print "injONLY activated"
-     inspnest_job.add_opt('injONLY','')
-
+''' 
 
 if opts.inj and not opts.disable_inject:
     inspnest_job.add_opt('inj',opts.inj)
@@ -406,6 +406,10 @@ nest_path=os.path.join(opts.run_path,'nest')
 checkDir(nest_path)
 
 combine_dir=os.path.join(opts.run_path,'combine')
+
+snr_dir=os.path.join(opts.run_path,'SNR')
+checkDir(snr_dir)
+
 time_combine_sub_file=os.path.join(opts.run_path,'combine_each_time.sub')
 combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.log_path)
 combine_each_time_nodes={}
@@ -417,12 +421,14 @@ nest_files={}
 nparallel=int(cp.get('analysis','nparallel'))
 posfiles_by_time={}
 bayesfiles_by_time={}
+snrs_by_time={}
 for time in times:
     posfile=os.path.join(combine_dir,'posterior_samples_%.3f'%(time))
     posfiles_by_time[time]=posfile
     combine_node=OddsPipeline.CombineZNode(combine_each_time_job)
     combine_node.add_file_opt('outpos',posfile,file_is_output_file=True)
     bayesfiles_by_time[time]=os.path.join(combine_dir,'bayesfactor_%.3f.txt'%(time))
+    snrs_by_time[time]=os.path.join(snr_dir,'snr_%s_%9.1f.dat'%(IFOs,time))
     combine_node.add_file_opt('bayesfactor',bayesfiles_by_time[time])
     combine_each_time_nodes[time]=combine_node
 # Set up inspnest jobs, using parallel if needed
@@ -433,7 +439,7 @@ if nparallel==1:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-        inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent)
+        inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent)
         inspnest_nodes_by_time[time]=inspnest_node
         dag.add_node(inspnest_node)
         combine_each_time_nodes[time].add_parent(inspnest_node)
@@ -450,7 +456,7 @@ else:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-        (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=segments_by_time[time].keys(),event=thisevent)
+        (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent)
         dag.add_node(merge_node)
         map(dag.add_node,inspnest_nodes)
         nest_files[time]=merge_node.get_output_files()[0]
@@ -477,6 +483,7 @@ if opts.coherence_test:
     coherence_test_outfiles={}
     coherence_test_bfiles={}
     combine_nodes_by_time={}
+    snr_files_by_time={}
     coherence_test_dir=os.path.join(opts.run_path,'coherencetest')
     checkDir(coherence_test_dir)
     # Loop over all the times
@@ -493,6 +500,7 @@ if opts.coherence_test:
         coherence_test_bfiles[time]={}
         coherence_inspnest_nodes[time]={}
         combine_nodes_by_time[time]={}
+        snr_files_by_time[time]={}
         for ifo in segments_by_time[time].keys():
             combine_node=OddsPipeline.CombineZNode(combine_each_time_job)
             combine_nodes_by_time[time][ifo]=combine_node
@@ -500,6 +508,7 @@ if opts.coherence_test:
             coherence_test_bfiles[time][ifo]=os.path.join(combine_dir,'bayesfactor_%.3f_%s.txt'%(time,ifo))
             combine_node.add_file_opt('bayesfactor',coherence_test_bfiles[time][ifo],file_is_output_file=True),
             combine_node.add_file_opt('outpos',coherence_test_posfiles[time][ifo],file_is_output_file=True)
+            snr_files_by_time[time][ifo]=os.path.join(snr_dir,'snr_%s_%9.1f.dat'%(ifo,time))
             if time_event is not None and not opts.disable_inject:
                 thisevent=time_event[time]
             else:
@@ -541,6 +550,7 @@ if opts.coherence_test:
         coherence_test_node.add_parent(inspnest_nodes_by_time[time])
         coherence_test_nodes[time]=coherence_test_node
         dag.add_node(coherence_test_node)
+        
 
 
 times_by_seg={}
@@ -674,6 +684,7 @@ if opts.enable_pages_alltimes is True:
                 results_page_node.add_var_arg('--inj '+os.path.abspath(opts.inj))
         results_page_node.add_parent(combine_each_time_nodes[time])
         results_page_node.add_var_opt('bsn',bayesfiles_by_time[time])
+        results_page_node.add_var_arg('--snr '+snrs_by_time[time])
 	dag.add_node(results_page_node)
 
         if opts.coherence_test and (time in coherence_inspnest_nodes.keys()):
@@ -691,6 +702,7 @@ if opts.enable_pages_alltimes is True:
                     ifo_results_path=os.path.join(results_dir,ifo)
                     results_node.add_var_opt('outpath',ifo_results_path)
                     results_node.add_var_opt('bsn',coherence_test_bfiles[time][ifo])
+                    results_node.add_var_arg('--snr '+snr_files_by_time[time][ifo])
                 
                     dag.add_node(results_node)
 

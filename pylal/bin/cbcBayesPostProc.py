@@ -78,6 +78,8 @@ def cbcBayesPostProc(
                         dievidence=False,boxing=64,difactor=1.0,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
+                        #manual input for SNR in the IFOs, optional.
+                        snrfactor=None,
                         #nested sampling options
                         ns_flag=False,ns_xflag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
@@ -89,7 +91,7 @@ def cbcBayesPostProc(
                         # on ACF?
                         noacf=False,
                         #Turn on 2D kdes
-                        twodkdeplots=False,
+                        twodkdeplots=True,
                         #Turn on R convergence tests
                         RconvergenceTests=False
                     ):
@@ -159,6 +161,21 @@ def cbcBayesPostProc(
         BCI=bfile.read()
         bfile.close()
         print 'BCI: %s'%BCI
+    if snrfactor is not None:
+        if not os.path.isfile(snrfactor):
+            print "No snr file provided or wrong path to snr file\n"
+            snrfactor=None
+    if snrfactor is not None:
+        snrstring=""
+        snrfile=open(snrfactor,'r')
+        snrs=snrfile.readlines()
+        snrfile.close()
+        for snr in snrs:
+            if snr=="\n":
+                continue
+            snrstring=snrstring +" "+str(snr[0:-1])+" ,"
+        snrstring=snrstring[0:-1]
+        print 'SNR: %s'%snrstring
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
@@ -270,8 +287,8 @@ def cbcBayesPostProc(
         else: dec_name='declination'
         ifo_times={}
         my_ifos=['H1','L1','V1']
-        for ifo in my_ifos:
-    inj_time=None
+        '''for ifo in my_ifos:
+            inj_time=None
             if injection:
                 inj_time=float(injection.get_end(ifo[0]))
             location=tools.cached_detector[detMap[ifo]].location
@@ -288,7 +305,7 @@ def cbcBayesPostProc(
                     inj_delay=None
                 time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
-
+        '''
     if 'iota' in pos.names and 'cosiota' not in pos.names:
         inj_cosiota=None
         if injection:
@@ -510,7 +527,9 @@ def cbcBayesPostProc(
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
-
+    if snrfactor is not None:
+        html_snr=html.add_section('Signal to noise ratios')
+        html_snr.p('%s'%snrstring)
     if dievidence:
         html_model=html.add_section('Direct Integration Evidence')
         ev=difactor*pos.di_evidence(boxing=boxing)
@@ -1022,6 +1041,7 @@ if __name__=='__main__':
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
+    parser.add_option("--snr",action="store",default=None,help="Optional file containing the SNRs of the signal in each IFO",type="string")
     parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
     parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
     parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
@@ -1042,7 +1062,7 @@ if __name__=='__main__':
     # ACF plots off?
     parser.add_option("--no-acf", action="store_true", default=False, dest="noacf")
     # Turn on 2D kdes
-    parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
+    parser.add_option("--twodkdeplots", action="store_true", default=True, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
     (opts,args)=parser.parse_args()
@@ -1058,18 +1078,18 @@ if __name__=='__main__':
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams #+ endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
-    for ifo1 in ifos_menu:
+    '''for ifo1 in ifos_menu:
         for ifo2 in ifos_menu:
             if ifo1==ifo2: continue
             oneDMenu.append(ifo1+ifo2+'_delay')
+    '''
     #oneDMenu=[]
     twoDGreedyMenu=[]
     for mp1 in massParams:
-        for mp2 in massParams:
-            if not (mp1 == mp2):
+        for mp2 in massParams[0:massParams.index(mp1)]:
                 twoDGreedyMenu.append([mp1, mp2])
     for mp in massParams:
         for d in distParams:
@@ -1093,19 +1113,17 @@ if __name__=='__main__':
         for sp in spinParams:
             twoDGreedyMenu.append([ip,sp])
     for sp1 in skyParams:
-        for sp2 in skyParams:
-            if not (sp1 == sp2):
+        for sp2 in skyParams[0:skyParams.index(sp1)]:
                 twoDGreedyMenu.append([sp1, sp2])
     for sp1 in spinParams:
-        for sp2 in spinParams:
-            if not (sp1 == sp2):
+        for sp2 in spinParams[0:spinParams.index(sp1)]:
                 twoDGreedyMenu.append([sp1, sp2])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
     greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02}
-    for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
-        greedyBinSizes[derived_time]=greedyBinSizes['time']
+    #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
+    #    greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
@@ -1120,6 +1138,8 @@ if __name__=='__main__':
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
+                        #manual input for SNR in the IFOs, optional.
+                        snrfactor=opts.snr,
                         #nested sampling options
                         ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
