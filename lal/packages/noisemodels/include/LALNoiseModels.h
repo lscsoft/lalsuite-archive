@@ -188,7 +188,13 @@ extern "C" {
              REAL8     *shf,
              REAL8     x
             );
-
+   void
+            LALAdvVIRGOPsd
+            (
+             LALStatus *status,
+             REAL8     *shf,
+             REAL8     x
+            );
     REAL8
             XLALLIGOIPsd
             (

@@ -2709,11 +2709,7 @@ convergenceTests <- function(data,
       # which chains present?:
       chainLabels <- sort(unique(data[,"chain"]))
       # how many samples of each chain?:
-<<<<<<< HEAD
-      chainFrequencies <- table(dat[,"chain"])
-=======
       chainFrequencies <- table(data[,"chain"])
->>>>>>> master
       # drop "chain" column from data:
       data <- data[,colnames(data)!="chain"]
     }
