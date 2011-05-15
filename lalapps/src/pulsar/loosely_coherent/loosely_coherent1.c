@@ -633,72 +633,6 @@ for(i=0;i<nsamples;i++) {
 compute_power_stats(ps, power, nsamples);
 }
 
-void fast_shift_fft_R(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, int nsamples, double v0, double v1)
-{
-int i, i_left, i_right;
-double a, b, x, y;
-for(i=0;i<nsamples;i++) {
-	i_left=i-1;
-	i_right=i+1;
-	if(i_left<0)i_left+=nsamples;
-	if(i_right>=nsamples)i_right-=nsamples;
-	
-	a=fft_in->data[i_left].re;
-	b=fft_in->data[i_left].im;
-	
-	x=-v0*a;
-	y=-v0*b;
-
-	a=fft_in->data[i].re;
-	b=fft_in->data[i].im;
-	
-	x+=v1*a;
-	y+=v1*b;
-
-	a=fft_in->data[i_right].re;
-	b=fft_in->data[i_right].im;
-	
-	x+=v0*a;
-	y+=v0*b;
-	
-	fft_out->data[i].re=x;
-	fft_out->data[i].im=y;
-	}	
-}
-
-void fast_shift_fft_I(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, int nsamples, double v0, double v1)
-{
-int i, i_left, i_right;
-double a, b, x, y;
-for(i=0;i<nsamples;i++) {
-	i_left=i-1;
-	i_right=i+1;
-	if(i_left<0)i_left+=nsamples;
-	if(i_right>=nsamples)i_right-=nsamples;
-	
-	a=fft_in->data[i_left].re;
-	b=fft_in->data[i_left].im;
-	
-	x=-v0*b;
-	y=v0*a;
-
-	a=fft_in->data[i].re;
-	b=fft_in->data[i].im;
-	
-	x+=v1*a;
-	y+=v1*b;
-
-	a=fft_in->data[i_right].re;
-	b=fft_in->data[i_right].im;
-	
-	x+=-v0*b;
-	y+=v0*a;
-	
-	fft_out->data[i].re=x;
-	fft_out->data[i].im=y;
-	}	
-}
-
 void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
 COMPLEX16Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;	
@@ -1141,10 +1075,15 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 			fprintf(stderr, "  %g %g\n", ctx->dec_sc->first9[i].re, ctx->dec_sc->first9[i].im);
 		}
 
-	norm=1.0/ctx->weight_pp;
-	norm/=args_info.coherence_length_arg*16384.0;
+// 	norm=1.0;
+// 	norm/=args_info.coherence_length_arg*16384.0;
+// 	norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
+// 	norm*=args_info.strain_norm_factor_arg;
+
+	norm=1.0;
 	norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
-	norm*=args_info.strain_norm_factor_arg;
+	norm*=args_info.coherence_length_arg*16384.0;
+	norm/=args_info.strain_norm_factor_arg;
 
 	for(i=0;i<nsamples;i++) {
 		ctx->plus_fft->data[i].re*=norm;
@@ -1152,6 +1091,13 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 		ctx->cross_fft->data[i].re*=norm;
 		ctx->cross_fft->data[i].im*=norm;
 		}
+		
+	norm=1.0/args_info.strain_norm_factor_arg;
+	norm*=args_info.coherence_length_arg*16384.0;
+	norm*=norm;
+	ctx->weight_pp*=norm;
+	ctx->weight_pc*=norm;
+	ctx->weight_cc*=norm;
 
 	compute_te_ffts(ctx);
 

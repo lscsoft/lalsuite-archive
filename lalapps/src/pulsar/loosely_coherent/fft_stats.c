@@ -123,6 +123,7 @@ for(i=0;i<acd->free;i++) {
 		st->psi=ac->psi;
 		st->phi=atan2(x, y);
 		}
+		
 	}
 }
 
@@ -140,7 +141,7 @@ for(i=0;i<acd->free;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	p=x*x+y*y;
 	a=fpp*ac->w11+2*fpc*ac->w12+fcc*ac->w22;
-	b=p/(a*a)+UL_CONFIDENCE_LEVEL/a;
+	b=sqrt(p/(a*a)+UL_CONFIDENCE_LEVEL/a);
 	
 	if(b>st->value) {
 		st->value=b;
@@ -168,7 +169,7 @@ for(i=0;i<2;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	p=x*x+y*y;
 	a=fpp*ac->w11+2*fpc*ac->w12+fcc*ac->w22;
-	b=p/(a*a)+UL_CONFIDENCE_LEVEL/a;
+	b=sqrt(p/(a*a)+UL_CONFIDENCE_LEVEL/a);
 	
 	if(b>st->value) {
 		st->value=b;

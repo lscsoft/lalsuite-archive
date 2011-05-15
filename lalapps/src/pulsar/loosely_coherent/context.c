@@ -105,7 +105,7 @@ init_stats(&(ctx->stats));
 ctx->n_freq_adj_filter=7;
 ctx->n_fsteps=4;
 ctx->half_window=1;
-ctx->variance_half_window=50;
+ctx->variance_half_window=200;
 
 ctx->ra=0;
 ctx->dec=0;
