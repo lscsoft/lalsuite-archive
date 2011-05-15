@@ -557,7 +557,7 @@ void ApplyCalibrationErrorsToData(LALMCMCInput inputMCMC, COMPLEX16FrequencySeri
 /* Modify the noise datastream  */
 //injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
     int IFOnum=0;
-    int j;
+    UINT4 j;
     REAL8 fstart = 1.0;
     REAL8 fend = 4000.0;
     INT4 length= 13;
@@ -623,7 +623,7 @@ void ApplyCalibrationErrorsToData(LALMCMCInput inputMCMC, COMPLEX16FrequencySeri
 
 
 void ApplyCalibrationErrorsToWaveform(COMPLEX16FrequencySeries *injF,COMPLEX16FrequencySeries *CalibInj,CHAR *IFOname, int i,int seed){
-    int j;
+    UINT4 j;
     REAL8 fstart = 1.0;
     REAL8 fend = 4000.0;
     INT4 length= 13;
