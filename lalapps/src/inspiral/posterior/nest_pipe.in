@@ -162,7 +162,7 @@ if opts.inj and cp.has_option('analysis','events'):
                     print "Error: in event config option; ':' must separate two numbers."
                     exit(0)
                 low=int(limits[0])
-                high=int(limits[1])+1
+                high=int(limits[1])+1   # The plus one is to include the rigthmost extremum
                 if low>high:
                     events.extend(range(int(high),int(low)))
                 elif high>low:
