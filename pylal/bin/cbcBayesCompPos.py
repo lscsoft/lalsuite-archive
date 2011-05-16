@@ -559,7 +559,6 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             for name,infolder in names_and_pos_folders:
 
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
-                
                 color_idx+=1
 
             for i,j in all_pairs(temp):#Iterate over all unique pairs in the set of common parameters
@@ -625,7 +624,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 cl_table_min_max_str+='<td>%s</td><td>%s</td>'%(min_low,max_high)
             cl_table_str=cl_table_header
             for name,row_contents in cl_table.items():
-                cl_table_str+='<tr><td>%s<font color="%s"></font></td>'%(name,str(mpl_colors.rgb2hex(color_by_name[name])))#,'&#183;'.encode('utf-8'))
+                cl_table_str+='<tr><td>%s<font color="%s"></font></td>'%(name,str(mpl_colors.rgb2hex(color_by_name[name][0:3])))#,'&#183;'.encode('utf-8'))
 
                 cl_table_str+=row_contents+'</tr>'
             cl_table_str+=cl_table_min_max_str+'</tr>'
