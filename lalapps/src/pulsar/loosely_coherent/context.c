@@ -17,6 +17,8 @@
 	condor_safe_sleep(10); \
 	}
 
+#define SIDEREAL_DAY (23.93447*3600)
+
 struct gengetopt_args_info args_info;
 
 SPARSE_CONV *new_sparse_conv(void)
@@ -104,6 +106,7 @@ init_stats(&(ctx->stats));
 
 ctx->n_freq_adj_filter=7;
 ctx->n_fsteps=4;
+ctx->n_sky_scan=2;
 ctx->half_window=1;
 ctx->variance_half_window=200;
 

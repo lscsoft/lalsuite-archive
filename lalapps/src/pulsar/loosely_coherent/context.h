@@ -76,6 +76,7 @@ typedef struct {
 	
 	/* Number of sub-bin frequency steps */
 	int n_fsteps;
+	int n_sky_scan;
 
 	int half_window;
 	

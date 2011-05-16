@@ -21,7 +21,7 @@
 #define __GLOBAL_H__
 
 /* These affect compilation of entire program. 
-   Their are #define's not variables for efficiency */
+   They are #define's not variables for efficiency */
 
 #define WEIGHTED_SUM
 
@@ -68,9 +68,5 @@ return (a*a);
 	if(do_warn) fprintf(stderr, a); \
 	do_warn=0; \
 	}
-
-#define SIDEREAL_DAY (23.93447*3600)
-#define SIDEREAL_MONTH (27.32166*24*3600)
-#define JULIAN_YEAR (365.25*24*3600)
 
 #endif

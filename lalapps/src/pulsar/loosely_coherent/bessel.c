@@ -259,7 +259,7 @@ int i, j, k;
 float a, b;
 int nsamples=fft_in->length;
 COMPLEX8 *pf, *pd;
-float *filter_re, *filter_im, *tmp_re, *tmp_im, *tmp_ret, *tmp_imt, *px;
+float *filter_re, *filter_im, *tmp_re, *tmp_im;
 __m128 filter_re1, filter_re2, filter_im1, filter_im2, tmp_re1, tmp_re2, tmp_im1, tmp_im2, a1, a2, b1, b2;
 
 filter_re=aligned_alloca(8*sizeof(*filter_re));
@@ -364,17 +364,15 @@ for(;i<nsamples-5;i++) {
 	tmp_im1=_mm_shuffle_ps(tmp_im1, tmp_im1, _MM_SHUFFLE(2,1,0,3));
 	a1=_mm_hadd_ps(a1, a1);
 	tmp_im2=_mm_move_ss(_mm_shuffle_ps(tmp_im2, tmp_im2, _MM_SHUFFLE(2,1,0,3)), tmp_im1);
-	_mm_store_ss(&a, a1);
+	_mm_store_ss(&fft_out->data[i].re, a1);
 	tmp_im1=_mm_move_ss(tmp_im1, _mm_set_ss(fft_in->data[i+4].im));	
-	_mm_store_ss(&b, _mm_shuffle_ps(a1, a1, _MM_SHUFFLE(3,2,0,1)));
+	_mm_store_ss(&fft_out->data[i].im, _mm_shuffle_ps(a1, a1, _MM_SHUFFLE(3,2,0,1)));
 	#if 0
 	if(fabs(a-fft_out->data[i].re)>1e-4*fabs(a) || fabs(b-fft_out->data[i].im)>1e-4*fabs(b)) {
 		fprintf(stderr, "(%g, %g) vs (%g, %g)\n", fft_out->data[i].re, fft_out->data[i].im, a, b);
 		}
 	#endif
 
-	fft_out->data[i].re=a;
-	fft_out->data[i].im=b;
 	}
 
 for(;i<nsamples;i++) {

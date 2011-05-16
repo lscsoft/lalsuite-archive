@@ -633,13 +633,72 @@ for(i=0;i<nsamples;i++) {
 compute_power_stats(ps, power, nsamples);
 }
 
+void scan_fft_quadrant(LOOSE_CONTEXT *ctx, double fft_offset, int sign_mask, int zero_mask)
+{
+COMPLEX8Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;	
+#define N_SCAN_FFT_FILTER 7
+COMPLEX8 filter1[N_SCAN_FFT_FILTER], filter2[N_SCAN_FFT_FILTER];
+int i, j;
+int nscan=ctx->n_sky_scan;
+int nsamples=ctx->nsamples;
+COMPLEX8 *v1=ctx->ra_sc->first9;
+COMPLEX8 *v2=ctx->dec_sc->first9; 
+	
+#define SWAP_FFT(a,b)  {\
+	fft_tmp=a; \
+	a=b; \
+	b=fft_tmp; \
+	}
+
+fft2[0]=ctx->scan_tmp[0];
+fft3[0]=ctx->scan_tmp[1];
+fft4[0]=ctx->scan_tmp[2];
+fft5[0]=ctx->scan_tmp[3];
+
+fft2[1]=ctx->scan_tmp[4];
+fft3[1]=ctx->scan_tmp[5];
+fft4[1]=ctx->scan_tmp[6];
+fft5[1]=ctx->scan_tmp[7];
+	
+make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, (1-2*((sign_mask>>0) & 1))*2*M_PI/(nscan));
+make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, (1-2*((sign_mask>>1) & 1))*2*M_PI/(nscan));
+
+for(i=0;i<=nscan;i++) {
+	if(i==0){
+		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(*ctx->plus_te_fft->data));
+		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(*ctx->plus_te_fft->data));
+		} else {
+		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
+		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
+		SWAP_FFT(fft2[0], fft3[0]);
+		SWAP_FFT(fft2[1], fft3[1]);
+		}
+	for(j=0;j<=nscan;j++) {
+
+		if(j==0) {
+			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(*ctx->plus_te_fft->data));
+			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(*ctx->plus_te_fft->data));
+			} else {
+			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
+			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
+			SWAP_FFT(fft4[0], fft5[0]);
+			SWAP_FFT(fft4[1], fft5[1]);
+			}
+
+		if((i==0 || j==0) && (i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
+
+		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
+		}
+	}
+}
+
 void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
 COMPLEX8Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;	
 #define N_SCAN_FFT_FILTER 7
 COMPLEX8 filter1[N_SCAN_FFT_FILTER], filter2[N_SCAN_FFT_FILTER];
 int i, j;
-int nscan=2;
+int nscan=ctx->n_sky_scan;
 int nsamples=ctx->nsamples;
 COMPLEX8 *v1=ctx->ra_sc->first9;
 COMPLEX8 *v2=ctx->dec_sc->first9; 
@@ -662,146 +721,10 @@ fft5[1]=ctx->scan_tmp[7];
 
 compute_fft_stats(&(ctx->stats), ctx->plus_te_fft, ctx->cross_te_fft, ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
 
-make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, 2*M_PI/(nscan));
-make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, 2*M_PI/(nscan));
-
-if(0) {
-	for(i=0;i<3;i++)
-		fprintf(stderr, "%d %f %f %f %f\n", i, v1[i].re, v1[i].im, v2[i].re, v2[i].im);
-	fprintf(stderr, "\n");
-
-	for(i=0;i<N_SCAN_FFT_FILTER;i++)
-		fprintf(stderr, "%d %f %f %f %f\n", i, filter1[i].re, filter1[i].im, filter2[i].re, filter2[i].im);
-	fprintf(stderr, "\n");
-
-	for(i=0;i<ctx->nsamples;i++)
-		fprintf(DATA_LOG, "te_fft: %d %g %g\n", i, ctx->plus_te_fft->data[i].re, ctx->plus_te_fft->data[i].im);
-
-	fflush(DATA_LOG);
-	exit(-1);
-	}
-
-for(i=0;i<=nscan;i++) {
-	if(i==0){
-		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
-		} else {
-		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
-		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
-		SWAP_FFT(fft2[0], fft3[0]);
-		SWAP_FFT(fft2[1], fft3[1]);
-		}
-	for(j=0;j<=nscan;j++) {
-
-		if(j==0) {
-			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
-			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
-			} else {
-			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
-			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
-			SWAP_FFT(fft4[0], fft5[0]);
-			SWAP_FFT(fft4[1], fft5[1]);
-			}
-
-		if(i==0 && j==0)continue;
-
-		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
-		}
-	}
-
-make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, -2*M_PI);
-make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, 2*M_PI);
-
-for(i=0;i<=nscan;i++) {
-	if(i==0){
-		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
-		} else {
-		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
-		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
-		SWAP_FFT(fft2[0], fft3[0]);
-		SWAP_FFT(fft2[1], fft3[1]);
-		}
-	for(j=0;j<=nscan;j++) {
-
-		if(j==0) {
-			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
-			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
-			} else {
-			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
-			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
-			SWAP_FFT(fft4[0], fft5[0]);
-			SWAP_FFT(fft4[1], fft5[1]);
-			}
-
-		if(i==0 && j==0)continue;
-
-		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
-		}
-	}
-
-make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, 2*M_PI);
-make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, -2*M_PI);
-
-for(i=0;i<=nscan;i++) {
-	if(i==0){
-		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
-		} else {
-		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
-		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
-		SWAP_FFT(fft2[0], fft3[0]);
-		SWAP_FFT(fft2[1], fft3[1]);
-		}
-	for(j=0;j<=nscan;j++) {
-
-		if(j==0) {
-			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
-			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
-			} else {
-			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
-			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
-			SWAP_FFT(fft4[0], fft5[0]);
-			SWAP_FFT(fft4[1], fft5[1]);
-			}
-
-		if(i==0 && j==0)continue;
-
-		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
-		}
-	}
-
-make_bessel_filter(filter1, N_SCAN_FFT_FILTER, v1, 3, -2*M_PI);
-make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, -2*M_PI);
-
-for(i=0;i<=nscan;i++) {
-	if(i==0){
-		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(COMPLEX16));
-		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(COMPLEX16));
-		} else {
-		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
-		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
-		SWAP_FFT(fft2[0], fft3[0]);
-		SWAP_FFT(fft2[1], fft3[1]);
-		}
-	for(j=0;j<=nscan;j++) {
-
-		if(j==0) {
-			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(COMPLEX16));
-			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(COMPLEX16));
-			} else {
-			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
-			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
-			SWAP_FFT(fft4[0], fft5[0]);
-			SWAP_FFT(fft4[1], fft5[1]);
-			}
-
-		if(i==0 && j==0)continue;
-
-		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
-		}
-	}
-
+scan_fft_quadrant(ctx, fft_offset, 0, 0);
+scan_fft_quadrant(ctx, fft_offset, 1, 1);
+scan_fft_quadrant(ctx, fft_offset, 2, 2);
+scan_fft_quadrant(ctx, fft_offset, 3, 3);
 }
 
 void compute_te_ffts(LOOSE_CONTEXT *ctx)
