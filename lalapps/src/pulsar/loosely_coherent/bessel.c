@@ -355,25 +355,18 @@ for(;i<nsamples-5;i++) {
 	/* shuffle data and load next elements */
 	
 	tmp_re1=_mm_shuffle_ps(tmp_re1, tmp_re1, _MM_SHUFFLE(2,1,0,3));
+	a1=_mm_add_ps(a1, a2);
 	tmp_re2=_mm_move_ss(_mm_shuffle_ps(tmp_re2, tmp_re2, _MM_SHUFFLE(2,1,0,3)), tmp_re1);
+	b1=_mm_add_ps(b1, b2);
 	tmp_re1=_mm_move_ss(tmp_re1, _mm_set_ss(fft_in->data[i+4].re));
 	
+	a1=_mm_hadd_ps(a1, b1);
 	tmp_im1=_mm_shuffle_ps(tmp_im1, tmp_im1, _MM_SHUFFLE(2,1,0,3));
+	a1=_mm_hadd_ps(a1, a1);
 	tmp_im2=_mm_move_ss(_mm_shuffle_ps(tmp_im2, tmp_im2, _MM_SHUFFLE(2,1,0,3)), tmp_im1);
-	tmp_im1=_mm_move_ss(tmp_im1, _mm_set_ss(fft_in->data[i+4].re));
-	
-	a1=_mm_add_ps(a1, a2);
-	b1=_mm_add_ps(b1, b2);
-
-	a1=_mm_hadd_ps(a1, a1);
-	b1=_mm_hadd_ps(b1, b1);
-
-	a1=_mm_hadd_ps(a1, a1);
-	b1=_mm_hadd_ps(b1, b1);
-	
 	_mm_store_ss(&a, a1);
-	_mm_store_ss(&b, b1);
-	
+	tmp_im1=_mm_move_ss(tmp_im1, _mm_set_ss(fft_in->data[i+4].im));	
+	_mm_store_ss(&b, _mm_shuffle_ps(a1, a1, _MM_SHUFFLE(3,2,0,1)));
 	#if 0
 	if(fabs(a-fft_out->data[i].re)>1e-4*fabs(a) || fabs(b-fft_out->data[i].im)>1e-4*fabs(b)) {
 		fprintf(stderr, "(%g, %g) vs (%g, %g)\n", fft_out->data[i].re, fft_out->data[i].im, a, b);
