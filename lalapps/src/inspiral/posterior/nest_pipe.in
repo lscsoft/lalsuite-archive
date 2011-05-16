@@ -108,6 +108,7 @@ checkDir(opts.log_path)
 # Read the ini file using ConfigParser
 
 cp = ConfigParser.ConfigParser()
+cp.optionxform = str
 cp.readfp(open(opts.ini_file))
 dt=float(cp.get('inspnest','dt'))
 

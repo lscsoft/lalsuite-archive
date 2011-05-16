@@ -148,7 +148,7 @@ REAL8 minFreq=48.0;
 REAL4 padding=1.0;
 INT4 nSegs=0;
 INT4 Nruns=1;
-INT4 dataseed=0;
+INT4 dataseed=1;
 REAL4 fLow=40.0; /* Low-frequency cutoff */
 UINT4 Nlive=1000;
 CHAR *inputXMLFile;
