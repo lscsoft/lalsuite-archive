@@ -41,6 +41,9 @@ typedef struct {
 	STAT_INFO snr;
 	STAT_INFO ul;
 	STAT_INFO circ_ul;
+	
+	double template_count;
+	double stat_hit_count;
 	} FFT_STATS;
 
 void init_fft_stats(void);

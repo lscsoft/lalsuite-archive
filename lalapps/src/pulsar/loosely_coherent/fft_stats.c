@@ -96,6 +96,7 @@ void log_stats(FILE *f, char *tag, FFT_STATS *st)
 LOG(snr)
 LOG(ul)
 LOG(circ_ul)
+fprintf(f, "ratio: \"%s\" %g %g %f\n", tag, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count);
 }
 
 void update_SNR_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
@@ -210,7 +211,10 @@ for(i=0;i<fft1->length;i++) {
 	update_SNR_stats(&(stats->snr), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i, fft_offset);
 	update_UL_stats(&(stats->ul), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i, fft_offset);
 	update_circ_UL_stats(&(stats->circ_ul), fft1->data[i], fft2->data[i], fpp, fpc, fcc, i, fft_offset);
+	
+	stats->stat_hit_count++;
 	}
+stats->template_count+=fft1->length;
 }
 
 void init_fft_stats(void)

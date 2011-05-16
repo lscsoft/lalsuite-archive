@@ -2,6 +2,9 @@
 #include <math.h>
 #include <string.h>
 
+#include <pmmintrin.h>
+#include <xmmintrin.h>
+
 #include <gsl/gsl_sf.h>
 #include <lal/LALDatatypes.h>
 
@@ -250,6 +253,153 @@ for(;i<nsamples;i++) {
 
 }
 
+void shift_fft7_sse(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, COMPLEX16 *filter)
+{
+int i, j, k;
+float a, b;
+int nsamples=fft_in->length;
+COMPLEX16 *pf, *pd;
+float *filter_re, *filter_im, *tmp_re, *tmp_im, *tmp_ret, *tmp_imt, *px;
+__m128 filter_re1, filter_re2, filter_im1, filter_im2, tmp_re1, tmp_re2, tmp_im1, tmp_im2, a1, a2, b1, b2;
+
+filter_re=aligned_alloca(8*sizeof(*filter_re));
+filter_im=aligned_alloca(8*sizeof(*filter_im));
+tmp_re=aligned_alloca(8*sizeof(*tmp_re));
+tmp_im=aligned_alloca(8*sizeof(*tmp_im));
+// tmp_ret=aligned_alloca(8*sizeof(*tmp_re));
+// tmp_imt=aligned_alloca(8*sizeof(*tmp_im));
+
+if(fft_in->length!=fft_out->length) {
+	fprintf(stderr, "*** INTERNAL ERROR: fft lengths do not match %d vs %d\n", fft_in->length, fft_out->length);
+	exit(-1);
+	}
+	
+if(nsamples<10) {
+	fprintf(stderr, "*** INTERNAL ERROR: cannot filter very small SFTs (%d)\n", nsamples);
+	exit(-1);
+	}
+
+for(i=0;i<7;i++) {
+	filter_re[i]=filter[i].re;
+	filter_im[i]=filter[i].im;
+	}
+filter_re[7]=0.0;
+filter_im[7]=0.0;
+tmp_re[7]=0.0;
+tmp_im[7]=0.0;
+
+filter_re1=_mm_load_ps(filter_re);
+filter_re2=_mm_load_ps(&(filter_re[4]));
+filter_im1=_mm_load_ps(filter_im);
+filter_im2=_mm_load_ps(&(filter_im[4]));
+
+for(i=0;i<5;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<7;j++) {
+		k=i-3+j;
+		if(k<0)k=nsamples+k;
+		a+=filter[6-j].re*fft_in->data[k].re-filter[6-j].im*fft_in->data[k].im;
+		b+=filter[6-j].re*fft_in->data[k].im+filter[6-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+	
+for(j=0;j<7;j++) {
+	tmp_re[j]=fft_in->data[i+3-j].re;
+	tmp_im[j]=fft_in->data[i+3-j].im;
+	}
+
+tmp_re1=_mm_load_ps(tmp_re);
+tmp_im1=_mm_load_ps(tmp_im);
+
+tmp_re2=_mm_load_ps(&(tmp_re[4]));
+tmp_im2=_mm_load_ps(&(tmp_im[4]));
+
+for(;i<nsamples-5;i++) {
+	#if 0
+	a=0.0;
+	b=0.0;
+	
+	#define ADD {\
+		a+=(float)pf->re*(float)pd->re-(float)pf->im*(float)pd->im; \
+		b+=(float)pf->re*(float)pd->im+(float)pf->im*(float)pd->re; \
+		pf++; \
+		pd--; \
+		}
+		
+	
+	pf=filter;
+	pd=&(fft_in->data[i+3]);
+
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	#endif
+	
+	a1=_mm_sub_ps(_mm_mul_ps(tmp_re1, filter_re1), _mm_mul_ps(tmp_im1, filter_im1));
+	b1=_mm_add_ps(_mm_mul_ps(tmp_re1, filter_im1), _mm_mul_ps(tmp_im1, filter_re1));
+
+	a2=_mm_sub_ps(_mm_mul_ps(tmp_re2, filter_re2), _mm_mul_ps(tmp_im2, filter_im2));
+	b2=_mm_add_ps(_mm_mul_ps(tmp_re2, filter_im2), _mm_mul_ps(tmp_im2, filter_re2));	
+	
+	/* shuffle data and load next elements */
+	
+	tmp_re1=_mm_shuffle_ps(tmp_re1, tmp_re1, _MM_SHUFFLE(2,1,0,3));
+	tmp_re2=_mm_move_ss(_mm_shuffle_ps(tmp_re2, tmp_re2, _MM_SHUFFLE(2,1,0,3)), tmp_re1);
+	tmp_re1=_mm_move_ss(tmp_re1, _mm_set_ss(fft_in->data[i+4].re));
+	
+	tmp_im1=_mm_shuffle_ps(tmp_im1, tmp_im1, _MM_SHUFFLE(2,1,0,3));
+	tmp_im2=_mm_move_ss(_mm_shuffle_ps(tmp_im2, tmp_im2, _MM_SHUFFLE(2,1,0,3)), tmp_im1);
+	tmp_im1=_mm_move_ss(tmp_im1, _mm_set_ss(fft_in->data[i+4].re));
+	
+	a1=_mm_add_ps(a1, a2);
+	b1=_mm_add_ps(b1, b2);
+
+	a1=_mm_hadd_ps(a1, a1);
+	b1=_mm_hadd_ps(b1, b1);
+
+	a1=_mm_hadd_ps(a1, a1);
+	b1=_mm_hadd_ps(b1, b1);
+	
+	_mm_store_ss(&a, a1);
+	_mm_store_ss(&b, b1);
+	
+	#if 0
+	if(fabs(a-fft_out->data[i].re)>1e-4*fabs(a) || fabs(b-fft_out->data[i].im)>1e-4*fabs(b)) {
+		fprintf(stderr, "(%g, %g) vs (%g, %g)\n", fft_out->data[i].re, fft_out->data[i].im, a, b);
+		}
+	#endif
+
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+for(;i<nsamples;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<7;j++) {
+		k=i-3+j;
+		if(k>=nsamples)k=k-nsamples;
+		a+=filter[6-j].re*fft_in->data[k].re-filter[6-j].im*fft_in->data[k].im;
+		b+=filter[6-j].re*fft_in->data[k].im+filter[6-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+}
+
 void shift_fft9(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, COMPLEX16 *filter)
 {
 int i, j, k;
@@ -353,7 +503,7 @@ if(nsamples<=filter_size) {
 	}
 
 if(filter_size==7) {
-	shift_fft7(fft_out, fft_in, filter);
+	shift_fft7_sse(fft_out, fft_in, filter);
 	return;
 	}
 
