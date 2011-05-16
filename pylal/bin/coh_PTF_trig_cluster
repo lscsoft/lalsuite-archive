@@ -70,7 +70,9 @@ def main( trigFile, timeWindow, outdir, verbose=False ):
     print >>sys.stdout
     print >>sys.stdout, 'Loading triggers...'
 
-  currTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([trigFile])
+  oldxml   = utils.load_filename( trigFile,\
+                                  gz = trigFile.endswith("gz") )
+  currTrigs = table.get_table( oldxml, "multi_inspiral" )
   clstTrigs = lsctables.New(lsctables.MultiInspiralTable)
 
   if verbose:
@@ -80,14 +82,27 @@ def main( trigFile, timeWindow, outdir, verbose=False ):
   # bin all triggers in time
   numBins  = int((end-start)//timeWindow + 1) 
   timeBins = []
+  loudestTrigSNR = []
+  loudestTrigTime = []
 
   for n in range(numBins):
     timeBins.append([])
+    loudestTrigSNR.append(None)
+    loudestTrigTime.append(None)
 
   for trig in currTrigs:
     t = trig.get_end()
+    t = trig.end_time + trig.end_time_ns * 1E-9
     bin = int(float(t-start)//timeWindow)
     timeBins[bin].append(trig)
+    if not loudestTrigSNR[bin]:
+      loudestTrigSNR[bin] = trig.snr
+      loudestTrigTime[bin] = trig.end_time + trig.end_time_ns * 1E-9
+    else:
+      if loudestTrigSNR[bin] < trig.snr:
+        loudestTrigSNR[bin] = trig.snr
+        loudestTrigTime[bin] = trig.end_time + trig.end_time_ns * 1E-9
+      
 
   if verbose:
     print >>sys.stdout
@@ -110,33 +125,46 @@ def main( trigFile, timeWindow, outdir, verbose=False ):
  
     # loop all triggers in bin
     for trig in bin:
-      loudest=True
-      t = trig.get_end()
-
       # search this trigger's own bin
-      for trig2 in bin:
-        t2 = trig2.get_end()
-        if trig.snr < trig2.snr:
-          loudest = False
-          break
+      if trig.snr < loudestTrigSNR[i]:
+        continue
+
+      t = trig.end_time + trig.end_time_ns * 1E-9
+  
+      # if trigger was loudest in it's bin, search loudest event in previous bin
+      if not first:
+        if loudestTrigTime[p]:
+          if (loudestTrigTime[p]-t).__abs__() < timeWindow:
+            if trig.snr < loudestTrigSNR[p]:
+              continue
+
+      # Same for the next bin
+      if not last:
+        if loudestTrigTime[n]:
+          if (loudestTrigTime[n]-t).__abs__() < timeWindow:
+            if trig.snr < loudestTrigSNR[n]:
+              continue
  
+      loudest=True
       # if trigger was loudest in it's bin, search previous bin
-      if loudest and not first:
-        for trig2 in timeBins[p]:
-          t2 = trig2.get_end()
-          if (t2-t).__abs__() < timeWindow:
-            if trig.snr < trig2.snr:
-              loudest = False
-              break
+      if loudest and loudestTrigTime[p] and not first:
+        if not (loudestTrigTime[p]-t).__abs__() < timeWindow:
+          for trig2 in timeBins[p]:
+            t2 = trig2.end_time + trig2.end_time_ns * 1E-9
+            if (t2-t).__abs__() < timeWindow:
+              if trig.snr < trig2.snr:
+                loudest = False
+                break
 
       # if still loudest, check the next bin
-      if loudest and not last:
-        for trig2 in timeBins[n]:
-          t2 = trig2.get_end()
-          if (t2-t).__abs__() < timeWindow:
-            if trig.snr < trig2.snr:
-              loudest = False
-              break
+      if loudest and loudestTrigTime[n] and not last:
+        if not (loudestTrigTime[n]-t).__abs__() < timeWindow:
+          for trig2 in timeBins[n]:
+            t2 = trig2.end_time + trig2.end_time_ns * 1E-9
+            if (t2-t).__abs__() < timeWindow:
+              if trig.snr < trig2.snr:
+                loudest = False
+                break
 
       # if this was the loudest trigger in its vicinity, keep it and move to
       # the next bin
@@ -156,8 +184,6 @@ def main( trigFile, timeWindow, outdir, verbose=False ):
   xmldoc = append_process_params( xmldoc, sys.argv, __version__, __date__ )
 
   # get search summary table from old file
-  oldxml   = utils.load_filename( trigFile,\
-                                  gz = trigFile.endswith("gz") )
   oldSearchSummTable = table.get_table( oldxml, "search_summary" )
   xmldoc.childNodes[-1].appendChild( oldSearchSummTable )
   xmldoc.childNodes[-1].appendChild(clstTrigs)
