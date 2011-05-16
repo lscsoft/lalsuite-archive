@@ -635,14 +635,14 @@ compute_power_stats(ps, power, nsamples);
 
 void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
-COMPLEX16Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;	
+COMPLEX8Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;	
 #define N_SCAN_FFT_FILTER 7
-COMPLEX16 filter1[N_SCAN_FFT_FILTER], filter2[N_SCAN_FFT_FILTER];
+COMPLEX8 filter1[N_SCAN_FFT_FILTER], filter2[N_SCAN_FFT_FILTER];
 int i, j;
 int nscan=2;
 int nsamples=ctx->nsamples;
-COMPLEX16 *v1=ctx->ra_sc->first9;
-COMPLEX16 *v2=ctx->dec_sc->first9; 
+COMPLEX8 *v1=ctx->ra_sc->first9;
+COMPLEX8 *v2=ctx->dec_sc->first9; 
 
 #define SWAP_FFT(a,b)  {\
 	fft_tmp=a; \
@@ -809,7 +809,7 @@ void compute_te_ffts(LOOSE_CONTEXT *ctx)
 int i, j, j2, k, i_filter, offset;
 int nsamples=ctx->nsamples;
 #define N_FREQ_ADJ_FILTER 9
-COMPLEX16 *filter;
+COMPLEX8 *filter;
 double a, b, a2, b2;
 
 filter=aligned_alloca(sizeof(*filter)*ctx->n_freq_adj_filter);
@@ -1083,7 +1083,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	norm=1.0;
 	norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
 	norm*=args_info.coherence_length_arg*16384.0;
-	norm/=args_info.strain_norm_factor_arg;
+	//norm/=args_info.strain_norm_factor_arg;
 
 	for(i=0;i<nsamples;i++) {
 		ctx->plus_fft->data[i].re*=norm;
@@ -1091,8 +1091,9 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 		ctx->cross_fft->data[i].re*=norm;
 		ctx->cross_fft->data[i].im*=norm;
 		}
-		
-	norm=1.0/args_info.strain_norm_factor_arg;
+	
+	norm=1.0;
+	//norm=1.0/args_info.strain_norm_factor_arg;
 	norm*=args_info.coherence_length_arg*16384.0;
 	norm*=norm;
 	ctx->weight_pp*=norm;
@@ -1120,7 +1121,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 // 	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
 // 		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (ctx->power[0]-ps.mean)/ps.sd);
 
-	log_stats(DATA_LOG, "point", &(ctx->stats));
+	log_stats(DATA_LOG, "point", &(ctx->stats), args_info.strain_norm_factor_arg);
 	
 	thread_mutex_unlock(data_logging_mutex);
 	}

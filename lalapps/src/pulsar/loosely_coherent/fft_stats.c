@@ -88,18 +88,18 @@ UPDATE_STAT(ul);
 UPDATE_STAT(circ_ul);
 }
 
-void log_stats(FILE *f, char *tag, FFT_STATS *st)
+void log_stats(FILE *f, char *tag, FFT_STATS *st, double ul_adjust)
 {
-#define LOG(a) \
-	fprintf(f, "stats: \"%s\" %s %lg %d %lg %lg %lg %lg %lg %lg\n", tag, #a, st->a.value, st->a.fft_bin, st->a.fft_offset, st->a.iota, st->a.psi, st->a.phi, st->a.z.re, st->a.z.im);
+#define LOG(a, adj) \
+	fprintf(f, "stats: \"%s\" %s %lg %d %lg %lg %lg %lg %lg %lg\n", tag, #a, st->a.value*adj, st->a.fft_bin, st->a.fft_offset, st->a.iota, st->a.psi, st->a.phi, st->a.z.re, st->a.z.im);
 	
-LOG(snr)
-LOG(ul)
-LOG(circ_ul)
+LOG(snr, 1)
+LOG(ul, ul_adjust)
+LOG(circ_ul, ul_adjust)
 fprintf(f, "ratio: \"%s\" %g %g %f\n", tag, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count);
 }
 
-void update_SNR_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
+void update_SNR_stats(STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
@@ -130,7 +130,7 @@ for(i=0;i<acd->free;i++) {
 
 #define UL_CONFIDENCE_LEVEL 1.65
 
-void update_UL_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
+void update_UL_stats(STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
@@ -158,7 +158,7 @@ for(i=0;i<acd->free;i++) {
 	}
 }
 
-void update_circ_UL_stats(STAT_INFO *st, COMPLEX16 z1, COMPLEX16 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
+void update_circ_UL_stats(STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, double fpp, double fpc, double fcc, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
@@ -186,10 +186,10 @@ for(i=0;i<2;i++) {
 	}
 }
 
-void compute_fft_stats(FFT_STATS *stats, COMPLEX16Vector *fft1, COMPLEX16Vector *fft2, double fpp, double fpc, double fcc, double fft_offset)
+void compute_fft_stats(FFT_STATS *stats, COMPLEX8Vector *fft1, COMPLEX8Vector *fft2, double fpp, double fpc, double fcc, double fft_offset)
 {
-double M[4];
-double V;
+float M[4];
+float V;
 int idx;
 int i;
 

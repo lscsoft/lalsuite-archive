@@ -16,8 +16,8 @@ typedef struct {
 	int size;
 	
 	int *bin;
-	COMPLEX16 *data;
-	COMPLEX16 first9[9];
+	COMPLEX8 *data;
+	COMPLEX8 first9[9];
 	
 	double slope;
 	} SPARSE_CONV;
@@ -83,8 +83,8 @@ typedef struct {
 	
 	int total_segments;
 	
-	COMPLEX16Vector *plus_te_fft;
-	COMPLEX16Vector *cross_te_fft;	
+	COMPLEX8Vector *plus_te_fft;
+	COMPLEX8Vector *cross_te_fft;	
 	
 	/* compute_*_offset */
 	int offset_count;
@@ -95,7 +95,7 @@ typedef struct {
 	/* fast_get_emission_time */
 	ETC etc;
 	
-	COMPLEX16Vector *scan_tmp[8];
+	COMPLEX8Vector *scan_tmp[8];
 	
 	FFT_STATS stats;
 	

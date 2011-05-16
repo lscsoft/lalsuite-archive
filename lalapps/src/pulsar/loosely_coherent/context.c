@@ -74,8 +74,8 @@ XALLOC(ctx->plus_samples, XLALCreateCOMPLEX16Vector(ctx->nsamples));
 XALLOC(ctx->cross_samples, XLALCreateCOMPLEX16Vector(ctx->nsamples));
 XALLOC(ctx->plus_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
 XALLOC(ctx->cross_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
-XALLOC(ctx->plus_te_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
-XALLOC(ctx->cross_te_fft, XLALCreateCOMPLEX16Vector(ctx->nsamples));
+XALLOC(ctx->plus_te_fft, XLALCreateCOMPLEX8Vector(ctx->nsamples));
+XALLOC(ctx->cross_te_fft, XLALCreateCOMPLEX8Vector(ctx->nsamples));
 
 /* Bessel coeffs */
 ctx->te_sc=new_sparse_conv();
@@ -86,7 +86,7 @@ ctx->dec_sc=new_sparse_conv();
 /* scan_ffts */
 
 for(i=0;i<8;i++)
-	XALLOC(ctx->scan_tmp[i], XLALCreateCOMPLEX16Vector(ctx->nsamples));
+	XALLOC(ctx->scan_tmp[i], XLALCreateCOMPLEX8Vector(ctx->nsamples));
 	
 /* fast_get_emission_time */
 ctx->etc=(ETC){-10, -10, -10, -1, -1, -1, -1, NULL};

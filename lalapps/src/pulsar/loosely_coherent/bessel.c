@@ -11,14 +11,14 @@
 #include "global.h"
 #include "bessel.h"
 
-void make_bessel_filter(COMPLEX16 *filter, int filter_size, COMPLEX16 *coeffs, int coeffs_size, double scale)
+void make_bessel_filter(COMPLEX8 *filter, int filter_size, COMPLEX8 *coeffs, int coeffs_size, double scale)
 {
 double *bessel_values;
 double *cnorm;
-COMPLEX16 *cuniti, *filter_tmp;
+COMPLEX8 *cuniti, *filter_tmp;
 int i, j, k, m;
 int offset;
-COMPLEX16 a, b;
+COMPLEX8 a, b;
 
 if(!(filter_size & 1)) {
 	fprintf(stderr, "*** INTERNAL ERROR: filter size should be odd\n");
@@ -132,9 +132,9 @@ while((j<coeffs_size) && (j<offset)) {
 
 void test_bessel_filter(void)
 {
-COMPLEX16 harmonic_coeffs[3];
-COMPLEX16 filter_coeffs[7];
-COMPLEX16 filter_coeffs_gold[7];
+COMPLEX8 harmonic_coeffs[3];
+COMPLEX8 filter_coeffs[7];
+COMPLEX8 filter_coeffs_gold[7];
 int i;
 
 harmonic_coeffs[0].re=-5.32583;
@@ -174,12 +174,12 @@ for(i=0;i<7;i++) {
 	}
 }
 
-void shift_fft7(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, COMPLEX16 *filter)
+void shift_fft7(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter)
 {
 int i, j, k;
 double a, b;
 int nsamples=fft_in->length;
-COMPLEX16 *pf, *pd;
+COMPLEX8 *pf, *pd;
 
 if(fft_in->length!=fft_out->length) {
 	fprintf(stderr, "*** INTERNAL ERROR: fft lengths do not match %d vs %d\n", fft_in->length, fft_out->length);
@@ -253,12 +253,12 @@ for(;i<nsamples;i++) {
 
 }
 
-void shift_fft7_sse(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, COMPLEX16 *filter)
+void shift_fft7_sse(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter)
 {
 int i, j, k;
 float a, b;
 int nsamples=fft_in->length;
-COMPLEX16 *pf, *pd;
+COMPLEX8 *pf, *pd;
 float *filter_re, *filter_im, *tmp_re, *tmp_im, *tmp_ret, *tmp_imt, *px;
 __m128 filter_re1, filter_re2, filter_im1, filter_im2, tmp_re1, tmp_re2, tmp_im1, tmp_im2, a1, a2, b1, b2;
 
@@ -393,12 +393,12 @@ for(;i<nsamples;i++) {
 
 }
 
-void shift_fft9(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, COMPLEX16 *filter)
+void shift_fft9(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter)
 {
 int i, j, k;
 double a, b;
 int nsamples=fft_in->length;
-COMPLEX16 *pf, *pd;
+COMPLEX8 *pf, *pd;
 
 if(fft_in->length!=fft_out->length) {
 	fprintf(stderr, "*** INTERNAL ERROR: fft lengths do not match %d vs %d\n", fft_in->length, fft_out->length);
@@ -475,10 +475,10 @@ for(;i<nsamples;i++) {
 }
 
 
-void shift_fft(COMPLEX16Vector *fft_out, COMPLEX16Vector *fft_in, COMPLEX16 *filter, int filter_size)
+void shift_fft(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter, int filter_size)
 {
 int offset, i, j, k, nsamples=fft_out->length;
-COMPLEX16 a,b, *p, *o;
+COMPLEX8 a,b, *p, *o;
 
 if(!(filter_size & 1)) {
 	fprintf(stderr, "*** INTERNAL ERROR: filter size should be odd\n");
