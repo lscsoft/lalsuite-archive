@@ -665,8 +665,10 @@ make_bessel_filter(filter2, N_SCAN_FFT_FILTER, v2, 3, (1-2*((sign_mask>>1) & 1))
 
 for(i=0;i<=nscan;i++) {
 	if(i==0){
-		memcpy(fft2[0]->data, ctx->plus_te_fft->data, nsamples*sizeof(*ctx->plus_te_fft->data));
-		memcpy(fft2[1]->data, ctx->cross_te_fft->data, nsamples*sizeof(*ctx->plus_te_fft->data));
+		} else
+	if(i==1) {
+		shift_fft(fft2[0], ctx->plus_te_fft, filter1, N_SCAN_FFT_FILTER);
+		shift_fft(fft2[1], ctx->cross_te_fft, filter1, N_SCAN_FFT_FILTER);
 		} else {
 		shift_fft(fft3[0], fft2[0], filter1, N_SCAN_FFT_FILTER);
 		shift_fft(fft3[1], fft2[1], filter1, N_SCAN_FFT_FILTER);
@@ -676,8 +678,19 @@ for(i=0;i<=nscan;i++) {
 	for(j=0;j<=nscan;j++) {
 
 		if(j==0) {
-			memcpy(fft4[0]->data, fft2[0]->data, nsamples*sizeof(*ctx->plus_te_fft->data));
-			memcpy(fft4[1]->data, fft2[1]->data, nsamples*sizeof(*ctx->plus_te_fft->data));
+			if((i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
+			
+			compute_fft_stats(&(ctx->stats), fft2[0], fft2[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
+			continue;
+			} else 
+		if(j==1) {
+			if(i==0) {
+				shift_fft(fft4[0], ctx->plus_te_fft, filter2, N_SCAN_FFT_FILTER);
+				shift_fft(fft4[1], ctx->cross_te_fft, filter2, N_SCAN_FFT_FILTER);
+				} else {
+				shift_fft(fft4[0], fft2[0], filter2, N_SCAN_FFT_FILTER);
+				shift_fft(fft4[1], fft2[1], filter2, N_SCAN_FFT_FILTER);
+				}
 			} else {
 			shift_fft(fft5[0], fft4[0], filter2, N_SCAN_FFT_FILTER);
 			shift_fft(fft5[1], fft4[1], filter2, N_SCAN_FFT_FILTER);
