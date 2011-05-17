@@ -82,12 +82,12 @@ LALFindChirpPTFFilterSegment (
   /*REAL4                *rho         = NULL; */
   COMPLEX8             *q           = NULL;
   COMPLEX8             *PTFQtilde   = NULL;
-  /* COMPLEX8             *qtilde      = NULL; */
+  COMPLEX8             *qtilde      = NULL;
   COMPLEX8             *PTFqtilde   = NULL;
   COMPLEX8             *PTFq        = NULL;
   COMPLEX8             *inputData   = NULL;
   COMPLEX8             *tmpltSignal = NULL;
-  COMPLEX8Vector        qVec, qtildeVec;
+  COMPLEX8Vector        qVec;
   /* FindChirpBankVetoData clusterInput; */
   
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
@@ -122,8 +122,8 @@ LALFindChirpPTFFilterSegment (
   ASSERT( params->invPlan, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the workspace vectors exist */
-  /* ASSERT( params->qtildeVec, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->qtildeVec->data, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL ); */
+  ASSERT( params->qtildeVec, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( params->qtildeVec->data, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the chisq parameter and input structures exist */
   ASSERT( params->chisqParams, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
@@ -194,10 +194,11 @@ LALFindChirpPTFFilterSegment (
   /* workspace vectors */
   /* rho          = params->PTFsnrVec->data; */
   q            = params->qVec->data;
+  qtilde       = params->qtildeVec->data;
   PTFq         = params->PTFqVec->data;
   PTFqtilde    = params->PTFqtildeVec->data;
   PTFP         = params->PTFPVec->data;
-  qVec.length  = qtildeVec.length = numPoints;
+  qVec.length  = numPoints;
 
   /* template and data */
   tmpltSignal  = input->fcTmplt->data->data;
@@ -283,7 +284,7 @@ LALFindChirpPTFFilterSegment (
 
     /* compute qtilde using data and Qtilde */
 
-    memset( qtildeVec.data, 0, numPoints * sizeof(COMPLEX8) );
+    memset( params->qtildeVec->data, 0, numPoints * sizeof(COMPLEX8) );
 
     /* qtilde positive frequency, not DC or nyquist */
     for ( k = kmin; k < kmax ; ++k )
@@ -292,15 +293,15 @@ LALFindChirpPTFFilterSegment (
       s = inputData[k].im; /* Im[s_tilde] */
       x = PTFQtilde[i * (numPoints / 2 + 1) + k].re; /* Re[Q*_0_tilde] */
       y = 0 - PTFQtilde[i * (numPoints / 2 + 1) + k].im; /* Im[Q*_0_tilde] */
-      qtildeVec.data[k].re = PTFqtilde[ i * (numPoints / 2 + 1) + k].re =  
+      qtilde[k].re = PTFqtilde[ i * (numPoints / 2 + 1) + k].re =  
                      2 * (r*x - s*y);
-      qtildeVec.data[k].im = PTFqtilde[ i * (numPoints / 2 + 1) + k].im =  
+      qtilde[k].im = PTFqtilde[ i * (numPoints / 2 + 1) + k].im =  
                      2 * (r*y + s*x);
     }
     qVec.data = params->PTFqVec->data + (i * numPoints);
 
     /* inverse fft to get <s,Q_0>+i<s,Q_pi> */
-    LALCOMPLEX8VectorFFT( status->statusPtr, &qVec, &qtildeVec, 
+    LALCOMPLEX8VectorFFT( status->statusPtr, &qVec, params->qtildeVec, 
         params->invPlan );
     CHECKSTATUSPTR( status );
   }
