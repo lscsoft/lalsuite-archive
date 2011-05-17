@@ -9,7 +9,6 @@ from __future__ import division
 import os,sys,matplotlib,numpy,re
 matplotlib.use('Agg')
 import pylab
-from math import pi
 from optparse import OptionParser
 from pylal import SimInspiralUtils,MultiInspiralUtils
 from pylal import plotutils
@@ -139,7 +138,9 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     print >>sys.stdout, 'Loading segments...'
 
   segs = readSegFiles( segdir )
-  
+ 
+  fRadDeg = round( 180/numpy.pi, 2 )
+ 
   # Padding time = 7s for padding + 64s lost time
   paddingTime         = 71 
   trialTime           = abs(segs['on'])
@@ -206,11 +207,12 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           trigBin = bin
           trigBinNum = binNum
         else:
-          print "ERROR: Mass bins appear to overlap"
+          print >>sys.stderr, "ERROR: Mass bins appear to overlap"
       binNum += 1
   
     if not trigBin:
-      print "ERROR: No mass bins match trigger with mchirp %s" % chirpMass
+      print >>sys.stderr, "ERROR: No mass bins match trigger with mchirp %s"\
+                          % chirpMass
   
     trigTime[trigBin[0]].append( trig.get_end() )
     trigSNR[trigBin[0]].append( trig.snr )
@@ -218,8 +220,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     # get sky location and response
     trigPos = (trig.ra,trig.dec)
     if trigPos not in fResp.keys():
-      ra            = trig.ra*180/pi
-      dec           = trig.dec*180/pi
+      ra            = trig.ra*fRadDeg
+      dec           = trig.dec*fRadDeg
       fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
       fResp[trigPos] = {}
       for ifo in ifos:
@@ -244,7 +246,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                    // trialTime
     elif trig.get_end() > segs['buffer'][1]:
       if trig.get_end() > ( segs['off'][1] - paddingTime ):
-        print ValueError, "ERROR: trig time is outside given analysis "+\
+        raise ValueError, "ERROR: trig time is outside given analysis "+\
                           "window! %s" % trig.get_end()
       if trig.get_end() < endTimeAfter:
         chunkNum = float(trig.get_end() - segs['buffer'][1])\
@@ -373,6 +375,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     gFoundDetStat = []
     gFoundDist = []
     gFoundTime = []
+    gFoundSkyAngle = []
     gIFARMchirp = []
     gIFARMtot = []
     gIFAREffDist = []
@@ -385,6 +388,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     gIFARStat = []
     gIFARTrig = []
     gIFARInj = []
+    gIFARSkyAngle = []
     gMissed2Mchirp = []
     gMissed2Effdist = []
     gMissed2EffSitedist = {}
@@ -464,9 +468,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
  
       # get sky location and response
       trigPos = (trig.ra,trig.dec)
+      injPos  = (inj.longitude,inj.latitude)
       if trigPos not in fResp.keys():
-        ra            = trig.ra*180/pi
-        dec           = trig.dec*180/pi
+        ra            = trig.ra*fRadDeg
+        dec           = trig.dec*fRadDeg
         fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
         fResp[trigPos] = {}
         for ifo in ifos:
@@ -481,8 +486,14 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       foundMedList = [foundmedSNRinj]+[foundmedBestNR[i] for i in bestNRs]
       maxStatList  = [maxSNR]+[maxBestNR[i] for i in bestNRs]
       medStatList  = [medianSNR]+[medianBestNR[i] for i in bestNRs]
-  
+
+      # get sky angle between injected and recovered positions
+      centralAngle = numpy.arccos( numpy.cos(injPos[1]-trigPos[1]) -\
+                                   numpy.cos(injPos[1])*numpy.cos(trigPos[1]) *\
+                                   (1 - numpy.cos(injPos[0]-trigPos[0])) )  
+
       # Note that hero we are using BestNRmk8 as the detection stat
+      # if louder than all background:
       if sbvs[rankBestNR] > maxBestNR[rankBestNR][trigBin[0]]:
         gFoundEffDist.append(effDist)
         for site in sites:
@@ -493,6 +504,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gFoundMtot.append( inj.mass1 + inj.mass2 )
         gFoundDetStat.append( sbvs[rankBestNR] )
         gFoundTime.append( float(inj.get_time_geocent()) )
+        gFoundSkyAngle.append( float(centralAngle) )
+      #elif found at all:
       elif sbvs[rankBestNR] > 0:
         gIFARMchirp.append( inj.mchirp )
         gIFARMtot.append( inj.mass1 + inj.mass2 )
@@ -509,6 +522,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gIFARStat.append(numTrialsLouder/numSegs)
         gIFARTrig.append(trig)
         gIFARInj.append(inj)
+        gIFARSkyAngle.append( float(centralAngle) )
+      # else missed:
       else:
         gMissed2Effdist.append(effDist)
         for site in sites:
@@ -532,7 +547,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     for site in sites:  th.append( 'Eff. Dist %s' % site )
     th.extend([ 'Inj. m1', 'Inj. m2', 'Inj. Mc',\
                 'Rec. m1', 'Rec. m2', 'Rec. Mc',\
-                'Inj. inc', 'SNR', 'Chi^2', 'Bank veto', 'Auto veto',\
+                'Inj. inc', 'Inj. RA', 'Inj. Dec', 'Rec. RA', 'Rec. Dec',\
+                'SNR', 'Chi^2', 'Bank veto', 'Auto veto',\
                 'Null SNR'])
     for ifo in ifos:  th.append( 'SNR %s' % ifo )
     th.extend([ 'BestNR%d' % i for i in bestNRs ])
@@ -544,18 +560,26 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2, \
                                 auton=nhigh2, chiq=chiq, chin=chin,\
                                 fResp=fResp[trigPos] )
-
+      if len(ifos)>2:
+        nullsnr = ( sum([ trig.__getattribute__('snr_%s' % ifoAtt[ifo])**2\
+                          for ifo in ifos ])\
+                    - trig.snr**2 )**0.5
+      else:
+        nullsnr = 0
       d = [ i, inj.distance ]
       for site in sites:
         d.append( inj.__getattribute__( 'eff_dist_%s' % site.lower() ) )
       d.extend([ inj.mass1, inj.mass2, inj.mchirp,\
                  trig.mass1, trig.mass2, trig.mchirp,\
+                 inj.inclination, inj.longitude*fRadDeg, inj.latitude*fRadDeg,\
+                 trig.ra*fRadDeg, trig.dec*fRadDeg,\
                  trig.snr, trig.chisq, trig.bank_chisq,\
-                 trig.cont_chisq, trig.null_statistic ])
+                 trig.cont_chisq, nullsnr ])
       for ifo in ifos:
         d.append( trig.__getattribute__('snr_%s' % ifoAtt[ifo]) )
       d.extend([ sbvs[i] for i in bestNRs ])
- 
+      # append trigger to list
+      td.append(d) 
     page = markup.page()
     page = write_table( page, th, td )
     file = open( "%s/quiet_found_triggers.html" % outdir, "w" ) 
@@ -645,14 +669,14 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           break
   
       if not trigBin:
-        print "ERROR: No mass bins match on source trigger with mchirp "+\
-              "%s" % trig.mchirp
+        print >>sys.stderr, "ERROR: No mass bins match on source trigger"+\
+                            " with mchirp %s" % trig.mchirp
 
       # get sky location and response
       trigPos = (trig.ra,trig.dec)
       if trigPos not in fResp.keys():
-        ra            = trig.ra*180/pi
-        dec           = trig.dec*180/pi
+        ra            = trig.ra*fRadDeg
+        dec           = trig.dec*fRadDeg
         fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
         fResp[trigPos] = {}
         for ifo in ifos:
@@ -669,19 +693,17 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       else:
         loudSNR[trigBin[0]]      = trig.snr
         loudSNRTrigs[trigBin[0]] = trig
-      print trig.get_end(),trig.snr,sbvs[rankBestNR],trig.ra,trig.dec 
       if loudBestNRTrigs.has_key(trigBin[0]):
         if loudBestNR[trigBin[0]] < sbvs[rankBestNR]:
           loudBestNR[trigBin[0]] = sbvs[rankBestNR]
           loudBestNRTrigs[trigBin[0]] = trig
-          print trig.get_end(),trig.snr,sbvs[rankBestNR]
       elif sbvs[rankBestNR] != 0:
         loudBestNR[trigBin[0]] = sbvs[rankBestNR]
         loudBestNRTrigs[trigBin[0]] = trig
   
     file2 = open( '%s/loud_numbers.txt' % outdir, 'w' )
-    th = [ 'Bin', 'FAP', 'GPS', 'Rec. m1', 'Rec. m2', 'Rec. Mc', 'SNR',\
-           'Chi^2', 'Bank veto', 'Auto veto', 'Null SNR' ]
+    th = [ 'Bin', 'FAP', 'GPS', 'Rec. m1', 'Rec. m2', 'Rec. Mc', 'Rec. RA',\
+           'Rec. Dec', 'SNR', 'Chi^2', 'Bank veto', 'Auto veto', 'Null SNR' ]
     th.extend([ '%s SNR' % ifo for ifo in ifos ])
     th.extend([ 'BestNR%d' % i for i in bestNRs ])
     td = [] 
@@ -699,11 +721,18 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2,\
                                   auton=nhigh2, chiq=chiq, chin=chin,\
                                   fResp=fResp[trigPos] )
+        if len(ifos)>2:
+          nullsnr = ( sum([ trig.__getattribute__('snr_%s' % ifoAtt[ifo])**2\
+                            for ifo in ifos ])\
+                      - trig.snr**2 )**0.5
+        else:
+          nullsnr = 0
 
         d = [ '%s-%s' % tuple(bin), FAP, trig.get_end(),\
               trig.mass1, trig.mass2, trig.mchirp,\
+              trig.ra*fRadDeg, trig.dec*fRadDeg,\
               trig.snr, trig.chisq, trig.bank_chisq,\
-              trig.cont_chisq, trig.null_statistic ]
+              trig.cont_chisq, nullsnr ]
         d.extend([ trig.__getattribute__('snr_%s' % ifoAtt[ifo])\
                    for ifo in ifos ])
         d.extend([ sbvs[i] for i in bestNRs ])
@@ -986,7 +1015,35 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_xlim([ 0, end ])
     ax.set_ylim([ 0.5, 100 ])
     fig.savefig( "%s/found_missed_injections_dist_time.png" % outdir )
+
+    # plot sky recovery
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.plot( gFoundTime, gFoundSkyAngle, 'b.' )
+    ax.plot( gIFARTime, gIFARSkyAngle, 'b.' )
+    ax.set_xlabel( "Time since %d" % start )
+    ax.set_ylabel( "Rec. sky error (radians)" )
+    ax.set_xlim([ 0, end ])
+    fig.savefig( '%s/found_sky_error_time.png' % outdir )
   
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.plot( gFoundMchirp, gFoundSkyAngle, 'b.' )
+    ax.plot( gIFARMchirp, gIFARSkyAngle, 'b.' )
+    ax.set_xlabel( "Mchirp" )
+    ax.set_ylabel( "Rec. sky error (radians)" )
+    fig.savefig( '%s/found_sky_error_mchirp.png' % outdir )
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.plot( gFoundDist, gFoundSkyAngle, 'b.' )
+    ax.plot( gIFARDist, gIFARSkyAngle, 'b.' )
+    ax.set_xlabel( "Distance" )
+    ax.set_ylabel( "Rec. sky error (radians)" )
+    ax.semilogx()
+    ax.set_xlim([ 0.5,100 ])
+    fig.savefig( '%s/found_sky_error_distance.png' % outdir )
+ 
 if __name__=='__main__':
 
   opts, args = parse_command_line()

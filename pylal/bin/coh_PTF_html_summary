@@ -150,19 +150,19 @@ def write_offsource( page, ifos, grbtag, onsource=False ):
   th = ['BestNR 8', 'Coherent SNR']
 
   if onsource:
-    dir = 'ONSOURCE'
+    dir = 'ALL_TIMES'
   else:
     dir = 'OFFSOURCE'
 
   plot = markup.page()
-  p = "%s/GRB%s_bestnrmk8_vs_time_noinj.png" % ( dir, grbtag )
+  p = "%s/plots_clustered/GRB%s_bestnrmk8_vs_time_noinj.png" % ( dir, grbtag )
   plot.a( href=p, title="Coherent SNR versus time" )
   plot.img( src=p )
   plot.a.close()
   td = [ plot() ]
 
   plot = markup.page()
-  p = "%s/GRB%s_triggers_vs_time_noinj.png" % ( dir, grbtag )
+  p = "%s/plots/GRB%s_triggers_vs_time_noinj.png" % ( dir, grbtag )
   plot.a( href=p, title="Coherent SNR versus time" )
   plot.img( src=p )
   plot.a.close()
@@ -171,7 +171,7 @@ def write_offsource( page, ifos, grbtag, onsource=False ):
   for ifo in ifos:
     th.append('%s SNR' % ifo )
     plot = markup.page()
-    p = "%s/GRB%s_%s_triggers_vs_time_noinj.png" % ( dir, grbtag, ifo )
+    p = "%s/plots/GRB%s_%s_triggers_vs_time_noinj.png" % ( dir, grbtag, ifo )
     plot.a( href=p, title="%s SNR versus time" % ifo )
     plot.img( src=p )
     plot.a.close()
@@ -217,7 +217,7 @@ def write_inj_snrs( page, ifos, injList, grbtag ):
   th = ['']+injList
   td = []
 
-  plots = ['null_stat']+['%s_snr' % ifo for ifo in ifos]
+  plots = ['null_stat2']+['%s_snr' % ifo for ifo in ifos]
 
   for row in plots:
     pTag = row.replace('_',' ').title()
@@ -272,6 +272,37 @@ def write_found_missed( page, ifos, injList ):
 
   return page
 
+def write_recovery( page, injList ):
+
+  """
+    Write injection recovery plots to markup.page object page
+  """
+
+  th = ['']+injList
+  td = []
+
+  plots = ['sky_error_time','sky_error_mchirp','sky_error_distance']
+  text = { 'sky_error_time':'Sky error vs time',\
+           'sky_error_mchirp':'Sky error vs mchirp',\
+           'sky_error_distance':'Sky error vs distance' }
+
+  for row in plots:
+    pTag = text[row]
+    d = [pTag]
+    for inj in injList:
+      plot = markup.page()
+      plot = markup.page()
+      p = "%s/efficiency/found_%s.png" % ( inj, row )
+      plot.a( href=p, title=pTag )
+      plot.img( src=p )
+      plot.a.close()
+      d.append( plot() )
+    td.append(d)
+
+  page = write_table( page, th, td )
+
+  return page
+
 def write_loudest_events( page, bins, onsource=False ):
 
   """
@@ -294,7 +325,7 @@ def write_loudest_events( page, bins, onsource=False ):
     for bin in bins:
       b = '%s_%s' % tuple(bin)
       plot = markup.page()
-      p = "%s/%s_vs_fap_%s.png" % ( trial, row, b )
+      p = "%s/efficiency/%s_vs_fap_%s.png" % ( trial, row, b )
       plot.a( href=p, title="FAP versus %s" % pTag )
       plot.img( src=p )
       plot.a.close()
@@ -381,9 +412,9 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   # initialise page
   title   = 'Coherent PTF Inspiral search of GRB%s' % GRBnum
   banner  = write_banner( title, 'Test page' )
-  js = 'coh_PTF.js'
+  js = 'coh_PTF_html_summary.js'
   script = {js:'javascript'}
-  css = 'coh_PTF.css'
+  css = 'coh_PTF_html_summary.css'
   webpage = initialize_page( title, css, script, header=banner() )
   
   # set divs
@@ -427,7 +458,9 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   else:
     print >>sys.stderr, 'WARNING: Cannot find segments availability plot.'
   ## inifile is simply copied
-  shutil.copy( inifile, outdir )
+  if not os.path.samefile( inifile, '%s/%s'\
+                           % ( outdir, os.path.basename(inifile) ) ):
+    shutil.copy( inifile, outdir )
   
 
   # add off source trig plots
@@ -463,7 +496,7 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   secname = 'Found/missed injections'
   i += 1
   webpage.input( id="input_%s" % i, type="button", class_="h2",\
-                 onclick="toggleVisible('%s');" % i, value=secname )
+                 onclick="toggleVisible('%d');" % i, value=secname )
   webpage.div( id="div_%s" % i, style="display: none;" )
 
   webpage.h3()
@@ -487,6 +520,17 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
 
   webpage.div.close()
 
+  # add injection recovery plots
+  secname = 'Injection recovery'
+  i += 1
+  webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                 onclick="toggleVisible('%d');" % i, value=secname )
+  webpage.div( id="div_%s" % i, style="display: none;" )
+
+  webpage = write_recovery( webpage, injList )
+
+  webpage.div.close()
+
   # add loudest off source events
   secname = 'Loudest offsource events'
   i += 1
@@ -507,7 +551,7 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
                    onclick="toggleVisible('%s');" % i, value=secname )
     webpage.div( id="div_%s" % i, style="display: none;" )
 
-    file = open( '%s/loud_numbers.txt' % trial, 'r' )
+    file = open( '%s/efficiency/loud_numbers.txt' % trial, 'r' )
     FAPS = []
     for line in file:
       line = line.replace('\n','')
@@ -520,7 +564,7 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
     td = ['FAP']+FAPS
     webpage = write_table( webpage, th, td )
     webpage.add( 'For more details on the loudest events see')
-    webpage.a( href='%s/loudest_events.html' % trial )
+    webpage.a( href='%s/efficiency/loudest_events.html' % trial )
     webpage.add('here.')
     webpage.a.close()
   
@@ -542,17 +586,6 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
     webpage = write_offsource( webpage, ifos, GRBnum, onsource=True )
     webpage.div.close()
   
-    # add on source loudest
-    secname = 'Loudest %s events' % trial.replace('_',' ').title()
-    i += 1
-    webpage.input( id="input_%s" % i, type="button", class_="h2",\
-                   onclick="toggleVisible('%s');" % i, value=secname )
-    webpage.div( id="div_%s" % i, style="display: none;" )
-  
-    webpage = write_loudest_events( webpage, massbins, onsource=True )
-
-    webpage.div.close()
-
     # write on source events
     trial = 'ONSOURCE'
     secname = 'Events in %s' % trial.replace('_',' ').title()
@@ -561,7 +594,7 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
                    onclick="toggleVisible('%s');" % i, value=secname )
     webpage.div( id="div_%s" % i, style="display: none;" )
 
-    file = open( '%s/loud_numbers.txt' % trial, 'r' )
+    file = open( '%s/efficiency/loud_numbers.txt' % trial, 'r' )
     FAPS = []
     for line in file:
       line = line.replace('\n','')
@@ -574,7 +607,7 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
     td = ['FAP']+FAPS
     webpage = write_table( webpage, th, td )
     webpage.add( 'For more details on the loudest events see')
-    webpage.a( href='%s/loudest_events.html' % trial )
+    webpage.a( href='%s/efficiency/loudest_events.html' % trial )
     webpage.add('here.')
     webpage.a.close()
 
