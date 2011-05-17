@@ -69,7 +69,7 @@ __date__= git_version.date
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
-__default_color_lst=['r','b','y','g','k']
+__default_color_lst=['r','b','y','g','c','m']
 #A default css string for use in html results pages.
 __default_css_string="""
 p,h1,h2,h3,h4,h5
@@ -247,6 +247,54 @@ def _inj_tilt2(inj):
     else:
         return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
 
+def _inj_thetas(inj):
+    mtsun = 4.92549095e-06  #Msol in seconds
+    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+
+    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
+    Lx = Lmag * np.arcsin(inj.inclination)
+    Ly = 0.0
+    Lz = Lmag * np.arccos(inj.inclination)
+    
+    S1x  = inj.m1*inj.m1*inj.spin1x
+    S1y  = inj.m1*inj.m1*inj.spin1y
+    S1z  = inj.m1*inj.m1*inj.spin1z
+    
+    S2x  = inj.m2*inj.m2*inj.spin2x
+    S2y  = inj.m2*inj.m2*inj.spin2y
+    S2z  = inj.m2*inj.m2*inj.spin2z
+
+    Jx = Lx + S1x + S2x
+    Jy = Ly + S1y + S2y
+    Jz = Lz + S1z + S2z
+    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
+
+    return np.arccos(Jz/Jmag)
+    
+def _inj_beta(inj):
+    mtsun = 4.92549095e-06  #Msol in seconds
+    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+
+    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
+    Lx = Lmag * np.arcsin(inj.inclination)
+    Ly = 0.0
+    Lz = Lmag * np.arccos(inj.inclination)
+    
+    S1x  = inj.m1*inj.m1*inj.spin1x
+    S1y  = inj.m1*inj.m1*inj.spin1y
+    S1z  = inj.m1*inj.m1*inj.spin1z
+    
+    S2x  = inj.m2*inj.m2*inj.spin2x
+    S2y  = inj.m2*inj.m2*inj.spin2y
+    S2z  = inj.m2*inj.m2*inj.spin2z
+
+    Jx = Lx + S1x + S2x
+    Jy = Ly + S1y + S2y
+    Jz = Lz + S1z + S2z
+    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
+
+    return np.arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
+
 
 #===============================================================================
 # Class definitions
@@ -403,7 +451,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,name=None,description=None):
         """
         Constructor.
 
@@ -414,45 +462,45 @@ class Posterior(object):
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
+        self._loglaliases=['logl','logL','likelihood','posterior']
+
+        common_output_table_header=[i.lower() for i in common_output_table_header]
+        
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
-            param_name=param_name.lower()
+            
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
 
-        if 'logl' in common_output_table_header:
+        if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
+        and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
             try:
-                self._logL=self._posterior['logl'].samples
-
+                print 'Inferring m1 and m2 from mchirp and eta'
+                (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
+                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'))
+                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'))
             except KeyError:
-                print "No 'logl' column in input table!"
-                raise
-        elif 'likelihood' in common_output_table_header:
-            try:
-                self._logL=self._posterior['likelihood'].samples
+                print 'Unable to deduce m1 and m2 from input columns'
 
-            except KeyError:
-                print "No 'logl' column in input table!"
-                raise
+        
+        logLFound=False
+        
+        for loglalias in self._loglaliases:
+        
+            if loglalias in common_output_table_header:
+                try:
+                    self._logL=self._posterior[loglalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%loglalias
+                    continue
+                logLFound=True
+                
+        if not logLFound:
+            raise RuntimeError("No likelihood/posterior values found!")
 
-        elif 'post' in common_output_table_header:
-            try:
-                self._logL=self._posterior['post'].samples
-
-            except KeyError:
-                print "No 'post' column in input table!"
-                raise
-
-        elif 'posterior' in common_output_table_header:
-            try:
-                self._logL=self._posterior['posterior'].samples
-
-            except KeyError:
-                print "No 'posterior' column in input table!"
-                raise
-
-        else:
-            print "No likelihood/posterior values found!"
-            import sys
-            sys.exit(1)
+        if name is not None:
+            self.__name=name
+            
+        if description is not None:
+            self.__description=description
 
         return
 
@@ -565,6 +613,7 @@ class Posterior(object):
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
+                        'f_lower': lambda inj: inj.f_lower,
                         'a1':_inj_a1,
                         'a2':_inj_a2,
                         'theta1':_inj_theta1,
@@ -572,7 +621,10 @@ class Posterior(object):
                         'phi1':_inj_phi1,
                         'phi2':_inj_phi2,
                         'tilt1':_inj_tilt1,
-                        'tilt2':_inj_tilt2
+                        'tilt2':_inj_tilt2,
+                        'cos(iota)': lambda inj: np.cos(inj.inclination),
+                        'theta_s':_inj_thetas,
+                        'beta':_inj_beta
                        }
 
     def _getinjpar(self,paramname):
@@ -626,7 +678,7 @@ class Posterior(object):
         current_item=0
         pos_array,header=self.samples
         while current_item < len(self):
-            sample_array=(numpy.squeeze(pos_array[current_item,:]))
+            sample_array=(np.squeeze(pos_array[current_item,:]))
             yield ParameterSample(sample_array, header, header)
             current_item += 1
 
@@ -668,11 +720,47 @@ class Posterior(object):
             mediansdict[name]=pos.median
         return mediansdict
 
+    @property
+    def stdevs(self):
+        """
+        Return dict {paramName:paramStandardDeviation} .
+        """
+        stdsdict={}
+        for name,pos in self:
+            stdsdict[name]=pos.stdev
+        return stdsdict
+
+    @property
+    def name(self):
+        """
+        Return qualified string containing the 'name' of the Posterior instance.
+        """
+        return self.__name
+
+    @property
+    def description(self):
+        """
+        Return qualified string containing a 'description' of the Posterior instance.
+        """
+        return self.__description
+
     def append(self,one_d_posterior):
         """
         Container method. Add a new OneDParameter to the Posterior instance.
         """
         self._posterior[one_d_posterior.name]=one_d_posterior
+        return
+
+    def append_1D_mapping(self, new_param_name, func, post_name):
+        """
+        Append a 1D-posterior containing func(post_name).
+        """
+        pos = self[post_name]
+        inj = None
+        if pos.injval: inj = func(pos.injval)
+        samps = func(pos.samples)
+        pos = OneDPosterior(new_param_name, samps, injected_value=inj)
+        self.append(pos)
         return
 
     def _average_posterior(self, samples, post_name):
@@ -692,7 +780,7 @@ class Posterior(object):
         Returns the direct-integration evidence for the posterior
         samples.
         """
-        allowed_coord_names=["a1", "phi1", "theta1", "a2", "phi2", "theta2",
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
                              "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
         samples,header=self.samples()
@@ -838,7 +926,7 @@ class Posterior(object):
             maxL=oned_pos.samples[max_i][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
-            median=str(oned_pos.median)
+            median=str(np.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
 
@@ -1382,8 +1470,7 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
         try:
             greedyHist[par1_binNumber+par2_binNumber*par1pos_Nbins]+=1
         except:
-            print par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin
-            exit(1)
+            raise RuntimeError("Problem binning samples: %i,%i,%i,%i,%i,%f,%f,%f,%f,%f,%f .")%(par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin)
     #Call greedy bins routine
     toppoints,injection_cl,reses,injection_area=\
                                 _greedy_bin(
@@ -1413,11 +1500,21 @@ def sph2cart(r,theta,phi):
     """
     Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
     """
-    print r,theta,phi
     x = r*np.sin(theta)*np.cos(phi)
     y = r*np.sin(theta)*np.sin(phi)
     z = r*np.cos(theta)
     return x,y,z
+
+
+def cart2sph(x,y,z):
+    """
+    Utility function to convert cartesian coords to r,theta,phi.
+    """
+    r = np.sqrt(x*x + y*y + z*z)
+    theta = np.arccos(z/r)
+    phi = np.fmod(2*pi_constant + np.arctan2(y,x), 2*pi_constant)
+    
+    return r,theta,phi
 
 
 def greedy_bin_sky(posterior,skyres,confidence_levels):
@@ -1438,14 +1535,18 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     if 'ra' in posterior.names and 'dec' in posterior.names:
         skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+        raname='ra'
+        decname='dec'
     elif 'rightascension' in posterior.names and 'declination' in posterior.names:
         skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+        raname='rightascension'
+        decname='declination'
     else:
         raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
-    sky_injpoint=(posterior['ra'].injval,posterior['dec'].injval)
+    sky_injpoint=(posterior[raname].injval,posterior[decname].injval)
 
     skypoints=np.array(skylocutils.gridsky(float(skyres)))
     skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
@@ -1743,7 +1844,7 @@ def get_inj_by_time(injections,time):
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75]):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -1758,15 +1859,14 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     """
 
-    fig=plt.figure(1,figsize=(30,20),dpi=150)
+    fig=plt.figure(1,figsize=figsize,dpi=dpi)
     plt.clf()
 
-    fig.add_axes([0.2,0.2,0.48,0.75])
+    fig.add_axes(figposition)
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
-        print "Error: Need as many or more line styles to choose from as confidence levels to plot!"
-        exit(0)
+        raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
 
     CSlst=[]
     name_list=[]
@@ -1826,8 +1926,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     plt.ylabel(par1_name)
 
     if len(name_list)!=len(CSlst):
-        print "Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name."
-        exit(0)
+        raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
     full_name_list=[]
     dummy_lines=[]
 
@@ -1850,6 +1949,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             ymin,ymax=plt.ylim()
+            if(ymin<0.0): ylim=0.0
+            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
             plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.yticks()
@@ -1862,6 +1963,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
@@ -1966,6 +2069,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
+        if(xmin)<0.0: xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
@@ -2192,7 +2297,7 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
@@ -2207,38 +2312,37 @@ class PEOutputParser(object):
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, oldMassConvention)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
         log(L) > logLThreshold are concatenated.
         """
-        allowedCols=["cycle", "logl", "logpost", "logprior",
-                     "a1", "theta1", "phi1",
-                     "a2", "theta2", "phi2",
-                     "mc", "eta", "time",
-                     "phi_orb", "iota", "psi",
-                     "ra", "dec",
-                     "dist"]
         nRead=0
         outputHeader=False
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
                 print "Processing file %s to posterior_samples.dat"%infilename
+                f_lower=self._find_infmcmc_f_lower(infile)
                 header=self._clear_infmcmc_header(infile)
-                # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
-                header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                if oldMassConvention:
+                    # Swap #1 for #2 because our old mass convention
+                    # has m2 > m1, while the common convention has m1
+                    # > m2
+                    header=[self._swaplabel12(label) for label in header]
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
+                    outfile.write("f_lower")
+                    outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
                     outputHeader=header
@@ -2260,6 +2364,8 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write(" ")
+                            outfile.write(f_lower)
+                            outfile.write(" ")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
@@ -2321,6 +2427,23 @@ class PEOutputParser(object):
         else:
             return floor(ntot/nDownsample)
 
+    def _find_infmcmc_f_lower(self, infile):
+        """
+        Searches through header to determine starting frequency of waveform.
+        """
+        for line in infile:
+            headers=line.lstrip().lower().split()
+            if len(headers) is 0:
+                continue
+            if 'detector' in headers[0]:
+                for colNum in range(len(headers)):
+                    if 'f_low' in headers[colNum]:
+                        detectorInfo=infile.next().lstrip().lower().split()
+                        f_lower=detectorInfo[colNum]
+                        break
+                break
+        return f_lower
+
     def _clear_infmcmc_header(self, infile):
         """
         Reads past the header information from the
@@ -2355,11 +2478,11 @@ class PEOutputParser(object):
             from lalapps.combine_evidence import combine_evidence
         except ImportError:
             print "Need lalapps.combine_evidence to convert nested sampling output!"
-            exit(1)
+            raise
 
         if Nlive is None:
-            print "Need to specify number of live points in positional arguments of parse!"
-            exit(1)
+            raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
+            
 
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
@@ -2449,4 +2572,226 @@ class PEOutputParser(object):
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
         return header,flines
+#
+
+def parse_converge_output_section(fo):
+        result={}
+        lines=fo.split('\n')
+        chain_line=False
+        for line in lines:
+            
+            if '[1]' in line:
+                key=line.replace('[1]','').strip(' ').strip('"')
+                result[key]={}
+                out=result[key]
+                continue
+            if result is not {}:
+                if 'chain' in line:
+                    chain_line=True
+                    continue
+                if chain_line:
+                    chain_line=False
+                    key=line.strip('"').split()[1]
+                    out[key]=[]
+                    out2=out[key]
+                else:
+                    try:
+                        newline=line.strip('"').split()
+                        if newline is not []:
+                            out2.append(line.strip('"').split())
+                    except:
+                        pass
+
+        return result
+
+def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_frac2=0.5,heidelberger=True,effectiveSize=True,warnings=False):
+    """
+    This function spawns a process to run an R script to use the coda package
+    to calculate the following convergence diagnostics for the chains contained in the input
+    Posterior instance:
+    
+    Gelman-Rubin
+    Geweke
+    Heidelberger & Welch
+    Effective sample sizes
+
+    These can be turned on and off using the flags.
+    
+    Python scrapes the output produced by the R script and returns a (nested) dictionary:
+    {'test':{'chainN':[['param':'test_value'],...],...},...}
+
+    You will need R with the coda and lattice libraries for this to work . 
+    """
+    from subprocess import Popen,PIPE
+
+    print "Calculating convergence diagnostics using R coda library..."
+
+    posterior.write_to_file('tmp.dat')
+
+    R_process=Popen(["R","-q","--vanilla","--slave"],stdin=PIPE,stdout=PIPE)
+    script=convergenceTests_R%(str(gelman).upper(),str(geweke).upper(),geweke_frac1,geweke_frac2,str(heidelberger).upper(),str(effectiveSize).upper(),str(warnings).upper())
+    #print script
+    rp_stdout,rp_stderr=R_process.communicate(input=script)
+
+    outdict=parse_converge_output_section(rp_stdout)
+    
+    #Check outdict
+    if outdict is {}:
+        print "No results found! Check for any errors above. You can turn on the R warning messages with warnings=True ."
+        return None
+    else:
+        test_pass=False
+        for test,test_result in outdict.items():
+            
+            if not test_result:
+                print "Convergence test failed : %s ! Check for any errors above. You can turn on the R warning messages with warnings=True ."%test
+            else:
+                test_pass=True
+
+        if test_pass:
+            return outdict
+
+        else:
+            return None
+    
+#
+
+#R convergenceTest script
+convergenceTests_R="""
+convergenceTests <- function(data,
+                             gelman=TRUE,
+                             geweke=TRUE, geweke.frac1=0.1, geweke.frac2=0.5,
+                             heidelberger=TRUE,
+                             effectiveSize=TRUE)
+# The argument `data' is a matrix (or data frame)
+# of (supposedly post burn-in) posterior samples.
+# Rows correspond to samples, columns correspond to variables.
+# If `data' contains a variable named "chain",
+# this is assumed to indicate chains from independent runs.
+# By default, Gelman's, Geweke's and Heidelberger & Welch's convergence
+# diagnostics, and effectice sample sizes are computed.
+# Geweke's diagnostic is directly converted to p-values,
+# and the effective sample size is divided by the number of MCMC samples
+# to give /relative/ sample sizes.
+# In order to suppress computation of any of the 3 figures, supply
+# an additional (e.g.)  `geweke=FALSE'  or  `geweke=F'  argument.
+{
+  # check whether "coda" library is installed:
+  codaInstalled <- require("coda")
+  if (codaInstalled) {
+    # check whether a "chain" variable indicates presence of multiple chains:
+    if (is.element("chain",colnames(data))) {
+      chainIndicator <- data[,"chain"]
+      # which chains present?:
+      chainLabels <- sort(unique(data[,"chain"]))
+      # how many samples of each chain?:
+      chainFrequencies <- table(data[,"chain"])
+      # drop "chain" column from data:
+      data <- data[,colnames(data)!="chain"]
+    }
+    else { # (no "chain" indicator means a single chain)
+      chainIndicator <- rep(1, nrow(data))
+      chainLabels <- 1
+      chainFrequencies <- c("1"=nrow(data))
+    }
+
+    
+    # Gelman diagnostic - need at least 2 chains with at least 2 samples:
+    if (gelman && (length(chainFrequencies>=2) >= 2)) {
+      codaList <- mcmc.list()
+      for (i in 1:sum(chainFrequencies>=2)){
+        # filter out i-th chain:
+        finalSamples <- which(chainIndicator==chainLabels[chainFrequencies>=2][i])
+        # filter out final samples:
+        finalSamples <- finalSamples[length(finalSamples)+((-(min(chainFrequencies[chainFrequencies>=2])-1)):0)]
+        # add to list:
+        codaList[[i]] <- mcmc(data=data[finalSamples,])
+      }
+      GD <- try(gelman.diag(codaList), silent=TRUE)
+      rm("codaList")
+      if (class(GD) != "try-error") RHatP <- c("RHatP"=Re(GD$mpsrf))
+      else RHatP <- c("RHatP"=NA)
+    }
+    else RHatP <- c("RHatP"=NA)
+
+    
+    # Geweke diagnostic:
+    if (geweke) {
+      geweke.p <- geweke.z <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute diagnostic for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        GD <- try(geweke.diag(mcmc(data[chainIndicator==chainLabels[i],]),
+                              frac1=geweke.frac1, frac2=geweke.frac2))
+        if (class(GD) != "try-error") zScores <- GD$z
+        else zScores <- rep(NA, ncol(data))
+        geweke.z[,i] <- zScores
+      }
+      # compute corresponding matrix of p-values:
+      geweke.p <- (1.0 - pnorm(abs(geweke.z))) / 2.0
+    }
+    else geweke.p <- NA
+
+    
+    # Heidelberger & Welch diagnostic:
+    if (heidelberger) {
+      heidelberger.p  <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                                    dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute diagnostic for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        HWD <- try(heidel.diag(mcmc(data[chainIndicator==chainLabels[i],])))
+        if (class(HWD) != "try-error") pvalues <- HWD[,"pvalue"]
+        else pvalues <- rep(NA, ncol(data))
+        heidelberger.p[,i] <- pvalues
+      }
+    }
+    else heidelberger.p <- NA
+
+    
+    # effective sample size:
+    if (effectiveSize) {
+      Neff <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute N_eff for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        ES <- try(effectiveSize(mcmc(data[chainIndicator==chainLabels[i],])))
+        if (class(ES) != "try-error") sizes <- ES
+        else sizes <- rep(NA, ncol(data))
+        Neff[,i] <- sizes
+      }
+      # normalize (to /relative/ sample sizes):
+      Reff <- Neff / matrix(chainFrequencies, nrow=ncol(data), ncol=length(chainLabels), byrow=TRUE)
+    }
+    else Reff <- NA
+
+    
+    # assemble eventual results:
+    result <- list("gelman"       = RHatP,          # "multivariate scale reduction factor", $\hat{R}^p$
+                   "geweke"       = geweke.p,       # matrix of p-values
+                   "heidelberger" = heidelberger.p, # matrix of p-values
+                   "effectiveSize"     = Reff)           # matrix of /relative/ effective sample sizes
+  }
+  else {
+    warning("coda library not installed.")
+    result <- list("gelman"       = NA,
+                   "geweke"       = NA,
+                   "heidelberger" = NA,
+                   "effectiveSize"     = NA)
+  }
+  return(result)
+} 
+
+A <- read.table("tmp.dat",header=TRUE)
+result <- convergenceTests(A,gelman=%s,geweke=%s,geweke.frac1=%f, geweke.frac2=%f,heidelberger=%s,effectiveSize=%s)
+for (name in names(result)) {
+    print(name)
+    print(result[[name]])
+    
+}
+warnings_flag <- %s
+if (warnings_flag){
+    warnings()
+}
+
+"""
 #

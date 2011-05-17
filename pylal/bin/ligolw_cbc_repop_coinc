@@ -46,12 +46,10 @@ def parse_command_line():
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
-        help =
-            "Input database to read. Can only input one at a time."
+        help = "Input database to read. Can only input one at a time."
         )
     parser.add_option( "-o", "--output", action = "store", type = "string", default = None,
-        help =
-            "Name of output database to save to."
+        help = "Name of output database to save to."
         )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
@@ -62,13 +60,11 @@ def parse_command_line():
             "overwriting the input database."
         )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
-        help =
-            "Print progress information"
+        help = "Print progress information"
         )
     # following are standard options for database-based programs
     parser.add_option( "", "--output-column", action = "store", type = "string", default = None,
-        help =
-            "Required. Column in the coinc_inspiral table to store output to."
+        help = "Required. Column in the coinc_inspiral table to store output to."
         )
     # following are specific to this program
     parser.add_option("", "--statistic-type", action = "store", type="string",
@@ -87,41 +83,34 @@ def parse_command_line():
             "option for effsnrlike and newsnrlike statistics: power of snr followed by " +
             "contours of constant statistic at large snr"
         )
-    parser.add_option("", "--chisq-index", action="store", type="float", default=6.,
-        help =
-          "chisq index q for newsnr; default is 6."
+    parser.add_option("", "--chisq-index", action="store", type="float", default = 6.,
+        help = "chisq index q for newsnr; default is 6."
         )
-    parser.add_option("", "--crossover-snr", action="store", type="float", default=15.81,
+    parser.add_option("", "--crossover-snr", action="store", type="float", default = 15.81,
         help = 
           "crossover snr value for effective snr and " +
           "effsnrlike, equivalent to sqrt of magic number; default is sqrt(250)=15.81."
         )
-    parser.add_option("", "--duration-threshold", action="store", type="float", default=0.2,
-        help =
-          "threshold for dividing bins in highstat statistic" 
+    parser.add_option("", "--duration-threshold", action="store", type="float", default = 0.2,
+        help = "threshold for dividing bins in highstat statistic" 
         )
-    parser.add_option("", "--snr-power", action="store", type="float",
-        default=2.,
+    parser.add_option("", "--snr-power", action="store", type="float", default = 2.,
         help =
           "What powers of single ifo statistics to add together. " +
           "To add the logs choose snr-power=0. Default is 2."
         )
-    parser.add_option("", "--hanford-factor", action="store", type="float",
-        default=1.,
-        help =
-          "prefactor for power of H1 or H2 statistic in combined statistic; default is 1."
+    parser.add_option("", "--hanford-factor", action="store", type="float", default = 1.,
+        help = "prefactor for power of H1 or H2 statistic in combined statistic; default is 1."
         )
-    parser.add_option("", "--livingston-factor", action="store", type="float",
-        default=1.,
-        help =
-          "prefactor for power of L1 statistic in combined statistic; default is 1."
+    parser.add_option("", "--livingston-factor", action="store", type="float", default = 1.,
+        help = "prefactor for power of L1 statistic in combined statistic; default is 1."
         )
-    parser.add_option("", "--virgo-factor", action="store", type="float",
-        default=1.,
-        help =
-          "prefactor for power of V1 statistic in combined statistic; default is 1."
+    parser.add_option("", "--virgo-factor", action="store", type="float",  default = 1.,
+        help = "prefactor for power of V1 statistic in combined statistic; default is 1."
         )
-
+    parser.add_option("", "--virgo-run", action="store", type="int", default = 2,
+        help = "which Virgo science run to tune highstat for; default is 2"
+        )
     (options, args) = parser.parse_args()
 
     # check for required options and for self-consistency
@@ -133,6 +122,9 @@ def parse_command_line():
         raise ValueError, "--tmp-space is a required argument."
     if not options.output_column:
         raise ValueError, "--output-column is a required argument."
+    if options.statistic_type == 'highstat' and not options.virgo_run:
+        raise ValueError, "please specify --virgo-run to get correct highstat tuning, \
+        if not analyzing Virgo triggers set to your favourite integer"
 
     return options, sys.argv[1:]
 
@@ -166,7 +158,7 @@ class CombiningFunctions:
     when computing the results in the UPDATE SET command.
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
-      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1. ):
+      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., vsr = 2 ):
         """
         Sets outside variables.
         """
@@ -174,11 +166,12 @@ class CombiningFunctions:
         self.nlow = nlow
         self.nhigh = nhigh
         self.rhoc = rhoc
-        self.duration_threshold = durthresh
+        self.durthresh = durthresh
         self.power = power
         self.hfac = hfac
         self.lfac = lfac
         self.vfac = vfac
+        self.vsr = vsr
     
     def compute_combined_snr( self, coinc_sngls ):
         """
@@ -277,8 +270,10 @@ class CombiningFunctions:
         snglfac = numpy.zeros(n)
         for i, sngl in zip(numpy.arange(n), coinc_sngls):
             snglfac[i] = getattr(self, sngl.ifo[0].lower()+'fac')
-            if min_duration < 0.2 and sngl.ifo in ('H1', 'H2', 'L1'):
+            if min_duration < self.durthresh and (sngl.ifo in ('H1', 'H2', 'L1') or self.vsr != 2):
                 snglstat[i] = sngl.get_effective_snr(fac = self.rhoc**2)
+            # apply effsnr to LIGO triggers and VSR3 triggers if the minimum duration is below threshold
+            # but not to VSR2 triggers
             else:
                 snglstat[i] = sngl.get_new_snr(index = self.q)
         if self.power == 0:
@@ -326,7 +321,7 @@ create_column( connection, 'coinc_inspiral', output_column )
 # 1. initialize the combining function class
 function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
     durthresh = opts.duration_threshold, power = opts.snr_power, 
-    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor )
+    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, vsr = opts.virgo_run )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'snr':
     function = 'compute_combined_snr'

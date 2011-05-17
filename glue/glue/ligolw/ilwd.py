@@ -224,6 +224,11 @@ def get_ilwdchar_class(tbl_name, col_name):
 		table_name, column_name = key
 		index_offset = len("%s:%s:" % key)
 
+		def __reduce__(self):
+			# The presence of this method allows ilwdchar
+			# sub-classes to be pickled and unpickled
+			return get_ilwdchar, (unicode(self),)
+
 		def __conform__(self, protocol):
 			# The presence of this method allows ilwdchar
 			# sub-classes to be inserted directly into SQLite

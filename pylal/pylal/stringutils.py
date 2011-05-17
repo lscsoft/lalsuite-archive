@@ -53,8 +53,22 @@ __date__ = git_version.date
 
 
 #
+# A look-up table used to convert instrument names to powers of 2.  Why?
+# To create a bidirectional mapping between cominations of instrument names
+# and integers.
+#
+
+
+instrument_to_factor = dict((instrument, 2**n) for n, instrument in enumerate(("G1", "H1", "H2", "H1+H2", "H1-H2", "L1", "V1")))
+
+
+#
 # Coinc params function
 #
+
+
+def instrument_category(instruments):
+	return (sum(instrument_to_factor[instrument] for instrument in instruments),)
 
 
 def coinc_params_func(events, offsetvector):
@@ -71,7 +85,7 @@ def coinc_params_func(events, offsetvector):
 	# zero-instrument parameters
 	#
 
-	params["nevents"] = (len(events),)
+	params["instrumentgroup"] = instrument_category([event.ifo for event in events])
 
 	#
 	# one-instrument parameters
@@ -149,7 +163,7 @@ class DistributionsStats(object):
 		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
 		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
 		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
-		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
+		"instrumentgroup": rate.NDBins((rate.LinearBins(0.5, sum(instrument_to_factor.values()) + 0.5, sum(instrument_to_factor.values())),))	# bin centres are at 1, 2, 3, ...
 	}
 
 	filters = {
@@ -175,7 +189,7 @@ class DistributionsStats(object):
 		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
 		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
-		"nevents": rate.tophat_window(1)	# no-op
+		"instrumentgroup": rate.tophat_window(1)	# no-op
 	}
 
 	def __init__(self):
