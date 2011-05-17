@@ -1,5 +1,5 @@
 PACKAGE=\"loosely_coherently_coherent\"
-VERSION=0.0.2-64
+VERSION=0.20.0-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
@@ -166,8 +166,6 @@ upload: loosely_coherent1-condor loosely_coherent1-mt
 upload.a: loosely_coherent1-condor loosely_coherent1-mt loosely_coherent1-condor2 loosely_coherent1-mt2
 	gsiscp -C loosely_coherent1-condor h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-mt.$(VERSION)
-	gsiscp -C loosely_coherent1-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-condor2.$(VERSION)
-	gsiscp -C loosely_coherent1-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-mt2.$(VERSION)
 	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: loosely_coherent1-condor loosely_coherent1-mt
@@ -186,8 +184,6 @@ upload.l: loosely_coherent1-condor loosely_coherent1-mt
 upload.c: loosely_coherent1-condor loosely_coherent1-mt loosely_coherent1-condor2 loosely_coherent1-mt2
 	gsiscp -C loosely_coherent1-condor ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-mt.$(VERSION)
-	gsiscp -C loosely_coherent1-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-condor2.$(VERSION)
-	gsiscp -C loosely_coherent1-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.m: loosely_coherent1-condor loosely_coherent1-mt
