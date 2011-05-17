@@ -522,10 +522,10 @@ LALFindChirpFilterInit (
       }
 
       /* outputPtr->PTFsnrVec = XLALCreateREAL4Vector( params->numPoints );
-      if ( ! outputPtr->PTFsnrVec ) */
+      if ( ! outputPtr->PTFsnrVec )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
+      } */
 
       outputPtr->PTFPVec = XLALCreateREAL4VectorSequence( 5, params->numPoints );
       if ( ! outputPtr->PTFPVec )
