@@ -191,7 +191,7 @@ class upper_limit(object):
 
     if self.opts.verbose:
       for ifo in self.segments:
-        print "\t%s was on for %g seconds" % (ifo,abs(self.segments[ifo]))
+        print "\t%s was on for %d seconds" % (ifo,abs(self.segments[ifo]))
 
     if self.opts.verbose: print >>sys.stdout,"\nApplying vetoes to single IFO zero lag segments..."
 
@@ -221,7 +221,7 @@ class upper_limit(object):
 
     if self.opts.verbose:
       for ifo in self.segments:
-        print "\t%s was on for %g seconds (after vetoes)" % (ifo,abs(self.segments[ifo]))
+        print "\t%s was on for %d seconds (after vetoes)" % (ifo,abs(self.segments[ifo]))
 
     return self.segments
 
@@ -234,10 +234,12 @@ class upper_limit(object):
     for inst in self.instruments:
       self.zero_lag_segments[inst] = self.segments.intersection(inst) - self.segments.union(set(self.segments.keys()) - inst)
       if self.opts.verbose:
-        print >>sys.stdout,"\t%s were on for %g seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
+        print >>sys.stdout,"\t%s were on for %d seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
 
       if not self.opts.include_play: #subtract playground segments
         self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
+        if self.opts.verbose:
+          print >>sys.stdout,"\t%s were on for %d seconds (excludes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
 
     return self.zero_lag_segments
 
@@ -345,7 +347,6 @@ class upper_limit(object):
       WHERE experiment_summary.datatype == "%s"
       GROUP BY coinc_event.instruments;
       """ %(datatype,)
-      if self.opts.verbose: print >>sys.stdout,"\t"+far_threshold_query
 
       for inst, far in self.connection.cursor().execute(far_threshold_query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
@@ -353,7 +354,7 @@ class upper_limit(object):
 
     if self.opts.verbose:
       for inst in self.instruments:
-        print >>sys.stdout,"\tloudest event in %s time has FAR = %g" % (','.join(sorted(list(inst))),self.far[inst])
+        print >>sys.stdout,"\tloudest event in %s time has FAR = %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
 
     return self.far
 
