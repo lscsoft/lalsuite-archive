@@ -76,8 +76,11 @@ def get_signal_vetoes( trigger, bankq=0, bankn=0, autoq=0, auton=0, chiq=0,\
            for i in range(int(len(trigger.ifos)/2)) ]
   ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'T1':'t', 'V1':'v' }
   # null SNR = sqrt( coincSNR^2 - cohSNR^2 )
-  null_snr = ( sum([ trigger.__getattribute__('snr_%s' % ifoAtt[ifo])**2\
-                     for ifo in ifos ]) - trigger.snr**2 )**0.5
+  if len(ifos)<3:
+    null_snr=0
+  else:
+    null_snr = ( sum([ trigger.__getattribute__('snr_%s' % ifoAtt[ifo])**2\
+                       for ifo in ifos ]) - trigger.snr**2 )**0.5
 
   if null_snr > 3.5 and trigger.snr < 30:
     sbvs[5] = sbvs[4] * 1/(null_snr - 2.5)
