@@ -163,7 +163,7 @@ upload: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-mt hydra.phys.uwm.edu:PowerFlux/loosely_coherent1-mt.$(VERSION)
 	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
-upload.a: loosely_coherent1-condor loosely_coherent1-mt loosely_coherent1-condor2 loosely_coherent1-mt2
+upload.a: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-mt.$(VERSION)
 	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
@@ -181,7 +181,7 @@ upload.l: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
-upload.c: loosely_coherent1-condor loosely_coherent1-mt loosely_coherent1-condor2 loosely_coherent1-mt2
+upload.c: loosely_coherent1-condor loosely_coherent1-mt 
 	gsiscp -C loosely_coherent1-condor ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-mt.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
