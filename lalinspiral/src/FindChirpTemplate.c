@@ -161,7 +161,7 @@ LALFindChirpTemplateInit (
 
       /* create an fft plan for the time domain waveform */
       LALCreateForwardRealFFTPlan( status->statusPtr, &(outputPtr->fwdPlan),
-          params->numPoints, 0 );
+          params->numPoints, 1 );
       BEGINFAIL( status )
       {
         TRY( LALDestroyVector( status->statusPtr, &(outputPtr->xfacVec) ),
@@ -226,7 +226,7 @@ LALFindChirpTemplateInit (
 
       /* create a forward FFT plan */
       outputPtr->fwdPlan =
-        XLALCreateForwardREAL4FFTPlan( params->numPoints, 0 );
+        XLALCreateForwardREAL4FFTPlan( params->numPoints, 1 );
       if ( ! outputPtr->fwdPlan )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
@@ -245,7 +245,7 @@ LALFindChirpTemplateInit (
 
       /* create a forward FFT plan */
       outputPtr->fwdPlan =
-        XLALCreateForwardREAL4FFTPlan( params->numPoints, 0 );
+        XLALCreateForwardREAL4FFTPlan( params->numPoints, 1 );
       if ( ! outputPtr->fwdPlan )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
