@@ -193,6 +193,15 @@ float V;
 int idx;
 int i;
 
+#if 0
+V=0;
+for(i=0;i<fft1->length;i++) {
+	V+=fft1->data[i].re+fft1->data[i].im+fft2->data[i].re+fft2->data[i].im;
+	}
+stats->ul.value=V;
+return;
+#endif
+
 for(i=0;i<4;i++)M[i]=0.0;
 
 for(i=0;i<fft1->length;i++) {

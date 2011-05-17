@@ -493,6 +493,11 @@ if(nsamples<=filter_size) {
 	exit(-1);
 	}
 
+#if 0
+memcpy(fft_out->data, fft_in->data, nsamples*sizeof(*(fft_out->data)));
+return;
+#endif
+
 if(filter_size==7) {
 	shift_fft7_sse(fft_out, fft_in, filter);
 	return;

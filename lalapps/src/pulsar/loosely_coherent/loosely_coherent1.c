@@ -710,31 +710,6 @@ for(i=0;i<=nscan;i++) {
 
 void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
-COMPLEX8Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;	
-#define N_SCAN_FFT_FILTER 7
-COMPLEX8 filter1[N_SCAN_FFT_FILTER], filter2[N_SCAN_FFT_FILTER];
-int i, j;
-int nscan=ctx->n_sky_scan;
-int nsamples=ctx->nsamples;
-COMPLEX8 *v1=ctx->ra_sc->first9;
-COMPLEX8 *v2=ctx->dec_sc->first9; 
-
-#define SWAP_FFT(a,b)  {\
-	fft_tmp=a; \
-	a=b; \
-	b=fft_tmp; \
-	}
-
-fft2[0]=ctx->scan_tmp[0];
-fft3[0]=ctx->scan_tmp[1];
-fft4[0]=ctx->scan_tmp[2];
-fft5[0]=ctx->scan_tmp[3];
-
-fft2[1]=ctx->scan_tmp[4];
-fft3[1]=ctx->scan_tmp[5];
-fft4[1]=ctx->scan_tmp[6];
-fft5[1]=ctx->scan_tmp[7];
-
 compute_fft_stats(&(ctx->stats), ctx->plus_te_fft, ctx->cross_te_fft, ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
 
 scan_fft_quadrant(ctx, fft_offset, 0, 0);
@@ -747,7 +722,6 @@ void compute_te_ffts(LOOSE_CONTEXT *ctx)
 {
 int i, j, j2, k, i_filter, offset;
 int nsamples=ctx->nsamples;
-#define N_FREQ_ADJ_FILTER 9
 COMPLEX8 *filter;
 double a, b, a2, b2;
 
@@ -990,7 +964,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	compute_te_offset_structure(ctx, ctx->te_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 	compute_spindown_offset_structure(ctx, ctx->spindown_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 
-	compute_sky_basis(ctx->ra, ctx->dec, resolution*0.5, sb_ra, sb_dec);
+	compute_sky_basis(ctx->ra, ctx->dec, resolution/ctx->n_sky_scan, sb_ra, sb_dec);
 	//fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
 	compute_sky_offset_structure(ctx, ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 	compute_sky_offset_structure(ctx, ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
