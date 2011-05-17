@@ -103,19 +103,19 @@ class test_ulutils(unittest.TestCase):
         mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
         v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
         vexpect = 1 - numpy.exp(-1)
-        self.assertTrue(abs(v -vexpect ) < 0.1)
+        self.assertTrue(abs(v -vexpect ) < 0.01)
 
     def test_integrate_efficiency_logd(self):
         '''
         Check that the numerical accuracy of the integration
         methods are sufficient.
         '''
-        xbins = numpy.logspace(0,1,50)
-        centres = 10**((numpy.log10(xbins[1:])+numpy.log10(xbins[:-1]))/2) # log midpoint
-        mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**3)
-        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
+        xbins = numpy.logspace(-2,0,50)
+        centres = numpy.exp((numpy.log(xbins[1:])+numpy.log(xbins[:-1]))/2) # log midpoint
+        mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
+        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=True)
         vexpect = 1 - numpy.exp(-1)
-        self.assertTrue(abs(v -vexpect ) < 0.1)
+        self.assertTrue(abs(v -vexpect ) < 0.01)
 
 
     def test_mean_efficiency(self):
