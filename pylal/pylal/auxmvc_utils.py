@@ -81,7 +81,7 @@ def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables
   w_row = numpy.ones(n_triggers)
   glitch_rank_row = numpy.zeros(n_triggers)
   
-  MVSCTriggers = numpy.empty((n_triggers,), dtype={'names': variables,'formats':formats})
+  MVSCTriggers = numpy.empty((n_triggers,), dtype={'names': MVSCvariables,'formats':formats})
   MVSCTriggers['index'] = index_row
   MVSCTriggers['i'] = i_row
   MVSCTriggers['w'] = w_row
@@ -101,13 +101,12 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
   If Classified = True, triggers as saved in the same format as output of MVSC.   
   """   
   n_triggers = len(MVSCTriggers)
-  
   if not Classified:
     Unclassified_variables = list(MVSCTriggers.dtype.names)
     for var in ['index', 'i', 'w', 'glitch-rank']:
       Unclassified_variables.remove(var)
-    Unclassified_variables = Unclassified_variables.append('i')
-    format = ['g8' for a in range(len(Unclassified_variables) - 1)] + ['i']
+    Unclassified_variables.append('i')
+    formats = ['g8' for a in range(len(Unclassified_variables) - 1)] + ['i']
     Triggers = numpy.empty((n_triggers,), dtype={'names': Unclassified_variables,'formats':formats})
     
     for variable in Unclassified_variables:
@@ -121,7 +120,7 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
   if Classified:
     first_line = " ".join(list(Triggers.dtype.names))
   else:
-    frist_line = " ".join(list(Triggers.dtype.names)[:-1])
+    first_line = " ".join(list(Triggers.dtype.names)[:-1])
   
   file.write(first_line + "\n")
   
