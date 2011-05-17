@@ -73,6 +73,7 @@ typedef struct {
 	
 	/* frequency adjustment */
 	int n_freq_adj_filter;
+	int n_scan_fft_filter;
 	
 	/* Number of sub-bin frequency steps */
 	int n_fsteps;
