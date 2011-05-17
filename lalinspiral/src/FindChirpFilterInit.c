@@ -507,6 +507,7 @@ LALFindChirpFilterInit (
   {
     if ( params->approximant == FindChirpPTF )
     {
+      /* create workspace vector for optimal filter: time domain */
       outputPtr->PTFqVec = 
         XLALCreateCOMPLEX8VectorSequence ( 5, params->numPoints );
       if ( ! outputPtr->PTFqVec )
@@ -514,14 +515,14 @@ LALFindChirpFilterInit (
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
 
-      outputPtr->PTFqtildeVec = 
+      /* outputPtr->PTFqtildeVec = 
         XLALCreateCOMPLEX8VectorSequence ( 5, params->numPoints / 2 + 1 );
       if ( ! outputPtr->PTFqtildeVec )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
 
-      /* outputPtr->PTFsnrVec = XLALCreateREAL4Vector( params->numPoints );
+      outputPtr->PTFsnrVec = XLALCreateREAL4Vector( params->numPoints );
       if ( ! outputPtr->PTFsnrVec )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
@@ -652,15 +653,7 @@ LALFindChirpFilterInit (
       ENDFAIL( status );
     }
   }
-  else if ( params->approximant == FindChirpPTF )
-  {
-    outputPtr->PTFqtildeVec = 
-      XLALCreateCOMPLEX8VectorSequence ( 5, params->numPoints / 2 + 1 );
-    if ( ! outputPtr->PTFqtildeVec )
-    {
-      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-    }
-  }
+
   else
   {
     /* create workspace vector for optimal filter: freq domain */
@@ -699,6 +692,15 @@ LALFindChirpFilterInit (
       *output = NULL;
     }
     ENDFAIL( status );
+    if ( params->approximant == FindChirpPTF )
+    {
+      outputPtr->PTFqtildeVec = 
+        XLALCreateCOMPLEX8VectorSequence ( 5, params->numPoints / 2 + 1 );
+      if ( ! outputPtr->PTFqtildeVec )
+      {
+        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+      }
+    }
   }
 
   /* create workspace vector for optimal filter: freq domain */
