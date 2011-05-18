@@ -2302,10 +2302,10 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		}
 		chisq*=4.0;
  
-        if (sqrt(chisq)<SNRcut) {
+        /*if (sqrt(chisq)<SNRcut) {
             fprintf(stderr,"Injected signal SNR in %s = %f is smaller than %f, aborting...\n",inputMCMC->ifoID[det_i],sqrt(chisq),SNRcut);
             exit(-1);
-        }
+        }*/
         fprintf(stdout,"Injected signal in %s, SNR = %f\n",inputMCMC->ifoID[det_i],sqrt(chisq));
         SNRs[det_i]=sqrt(chisq);
 		SNRinj+=chisq;
