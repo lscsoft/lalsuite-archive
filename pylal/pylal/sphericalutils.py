@@ -150,7 +150,7 @@ def angle_between_points(a, b):
 # Implement the Fisher distribution
 #
 
-def fisher_rvs(mu, sigma, size=1):
+def fisher_rvs(mu, kappa, size=1):
     """
     Return a random (polar, azimuthal) angle drawn from the Fisher
     distribution. Assume that the concentration parameter (kappa) is large
@@ -164,7 +164,7 @@ def fisher_rvs(mu, sigma, size=1):
       * http://arxiv.org/pdf/0902.0737v1 (states the Rayleigh limit)
     """
     rayleigh_rv = \
-        np.array((np.random.rayleigh(scale=sigma, size=size),
+        np.array((np.random.rayleigh(scale=1. / np.sqrt(kappa), size=size),
                   np.random.uniform(low=0, high=2*LAL_PI, size=size)))\
                 .reshape((2, size)).T  # guarantee 2D and transpose
     a, b = new_z_to_euler(mu)
@@ -172,8 +172,11 @@ def fisher_rvs(mu, sigma, size=1):
 
 def fisher_pdf(theta, kappa):
     """
-    Return the PDF of theta, the opening angle of X with mu where X is Fisher-
-    distributed about mu. See fisher_rvs for the definition of mu.
+    Return the PDF of theta, the opening angle of X with respect to mu where
+    X is Fisher-distributed about mu. See fisher_rvs for the definition of mu.
     """
     return kappa / (2 * np.sinh(kappa)) * np.exp(kappa * np.cos(theta))\
         * np.sin(theta)
+
+def fisher_cdf(theta, kappa):
+    return 0.5 * (np.exp(kappa) - np.exp(kappa * np.cos(theta))) / np.sinh(kappa)
