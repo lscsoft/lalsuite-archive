@@ -122,7 +122,6 @@ packages/noisemodels/test/FilterTest
 packages/noisemodels/test/NoisePSDTest
 packages/noisemodels/test/RandomInspiralSignalTest
 packages/slopefilters/test/SlopeDetectorFilterTest
-packages/stats/src/LALMoment.c
 packages/stats/test/LALCorrelationTest
 packages/stats/test/LALMomentTest
 packages/std/test/LALGSLTest
@@ -170,7 +169,6 @@ packages/tools/test/SequenceTest
 packages/tools/test/SkymapTest
 packages/tools/test/TimeSeriesTest
 packages/tools/test/UnitsTest
-packages/utilities/src/MatrixOps.c
 packages/utilities/test/CCoarseGrainFrequencySeriesTest
 packages/utilities/test/DCoarseGrainFrequencySeriesTest
 packages/utilities/test/DetInverseTest

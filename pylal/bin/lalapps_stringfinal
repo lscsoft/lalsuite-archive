@@ -285,12 +285,16 @@ WHERE
 		f = file("string_candidates.txt", "w")
 		print >>f, "Highest-Ranked Zero-Lag Events"
 		print >>f, "=============================="
-		for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
+		if self.open_box:
+			for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
+				print >>f
+				print >>f, "%s in %s:" % (str(coinc_event_id), filename)
+				print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
+				print >>f, "Mean peak time:  %.16g s GPS" % peak_time
+				print >>f, "\\Lambda:  %.16g" % likelihood_ratio
+		else:
 			print >>f
-			print >>f, "%s in %s:" % (str(coinc_event_id), filename)
-			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
-			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
-			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
+			print >>f, "List suppressed:  box is closed"
 
 		#
 		# sort the ranking statistics and convert to arrays.  note
