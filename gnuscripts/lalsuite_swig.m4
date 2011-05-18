@@ -123,11 +123,11 @@ AC_DEFUN([LALSUITE_WITH_SWIG],[
     AC_MSG_CHECKING([value of __WORDSIZE])
     AC_LANG_PUSH([C])
     AC_COMPILE_IFELSE(
-      AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],[__WORDSIZE == 32]),
+      [AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],[__WORDSIZE == 32])],
       [wordsize=32],
       [
         AC_COMPILE_IFELSE(
-          AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],[__WORDSIZE == 64]),
+          [AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],[__WORDSIZE == 64])],
           [wordsize=64],
           [
             AC_MSG_ERROR([could not determine value of __WORDSIZE])
