@@ -194,9 +194,9 @@ class RateVsThreshold(object):
 		self.open_box = open_box
 
 	def __iadd__(self, other):
-		self.zero_lag.extend(other.zero_lag)
-		self.background.extend(other.background)
-		self.candidates.extend(other.candidates)
+		self.zero_lag += other.zero_lag
+		self.background += other.background
+		self.candidates += other.candidates
 		self.zero_lag_time += other.zero_lag_time
 		self.background_time += other.background_time
 		return self
@@ -526,9 +526,9 @@ class Efficiency(object):
 		assert other.detection_threshold == self.detection_threshold
 		self.seglists |= other.seglists
 		self.vetoseglists |= other.vetoseglists
-		self.found.extend(other.found)
-		self.loudest_missed.extend(other.loudest_missed)
-		self.quietest_found.extend(other.quietest_found)
+		self.found += other.found
+		self.loudest_missed += other.loudest_missed
+		self.quietest_found += other.quietest_found
 		self.all.extend(other.all)
 		return self
 
