@@ -394,13 +394,6 @@ void inittools(void)
 	time_slide_id_type = pylal_get_ilwdchar_class("time_slide", "time_slide_id");
 
 	/* cached_detector */
-	/* LALDetector */
-    _pylal_LALDetector_Type = &pylal_laldetector_type;
-	if(PyType_Ready(&pylal_LALDetector_Type) < 0)
-		return;
-	Py_INCREF(&pylal_LALDetector_Type);
-    
-	PyModule_AddObject(module, "LALDetector", (PyObject *) &pylal_LALDetector_Type);
 	PyModule_AddObject(module, "cached_detector", make_cached_detectors());
 
 	/* Coinc */
