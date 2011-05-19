@@ -353,16 +353,16 @@ def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # cache input
-    parser.add_option("--relic-onsource", help="output of pylal_relic "\
+    parser.add_option("--relic-onsource", help="output of pylal_relic "
         "containing the onsource loudest coincs.")
-    parser.add_option("--relic-offsource", help="output of pylal_relic "\
+    parser.add_option("--relic-offsource", help="output of pylal_relic "
         "containing the offsource loudest coincs.")
-    parser.add_option("--relic-injections", help="output of pylal_relic "\
-        "containing the loudest injection coincs. These are the standard 
-         'detection' injections.")
-    parser.add_option("--astro-relic-injections", help="output of pylal_relic "\
-        "containing the loudest injection coincs for the astrophysical
-         injections for upper limits.")
+    parser.add_option("--relic-injections", help="output of pylal_relic "
+        "containing the loudest injection coincs. These are the standard "
+        "'detection' injections.")
+    parser.add_option("--astro-relic-injections", help="output of pylal_relic "
+        "containing the loudest injection coincs for the astrophysical "
+        "injections for upper limits.")
 
     # odds and ends
     parser.add_option("--reweight-D", action="store_true", default=False,
