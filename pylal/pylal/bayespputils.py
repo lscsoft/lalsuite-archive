@@ -462,8 +462,12 @@ class Posterior(object):
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
+        self._loglaliases=['logl','logL','likelihood','posterior']
+
+        common_output_table_header=[i.lower() for i in common_output_table_header]
+        
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
-            param_name=param_name.lower()
+            
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
@@ -476,41 +480,21 @@ class Posterior(object):
             except KeyError:
                 print 'Unable to deduce m1 and m2 from input columns'
 
-        if 'logl' in common_output_table_header:
-            try:
-                self._logL=self._posterior['logl'].samples
-
-            except KeyError:
-                print "No 'logl' column in input table!"
-                raise
-        elif 'likelihood' in common_output_table_header:
-            try:
-                self._logL=self._posterior['likelihood'].samples
-
-            except KeyError:
-                print "No 'logl' column in input table!"
-                raise
-
-        elif 'post' in common_output_table_header:
-            try:
-                self._logL=self._posterior['post'].samples
-
-            except KeyError:
-                print "No 'post' column in input table!"
-                raise
-
-        elif 'posterior' in common_output_table_header:
-            try:
-                self._logL=self._posterior['posterior'].samples
-
-            except KeyError:
-                print "No 'posterior' column in input table!"
-                raise
-
-        else:
-            print "No likelihood/posterior values found!"
-            import sys
-            sys.exit(1)
+        
+        logLFound=False
+        
+        for loglalias in self._loglaliases:
+        
+            if loglalias in common_output_table_header:
+                try:
+                    self._logL=self._posterior[loglalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%loglalias
+                    continue
+                logLFound=True
+                
+        if not logLFound:
+            raise RuntimeError("No likelihood/posterior values found!")
 
         if name is not None:
             self.__name=name
@@ -629,6 +613,7 @@ class Posterior(object):
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
+                        'f_lower': lambda inj: inj.f_lower,
                         'a1':_inj_a1,
                         'a2':_inj_a2,
                         'theta1':_inj_theta1,
@@ -766,6 +751,18 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def append_1D_mapping(self, new_param_name, func, post_name):
+        """
+        Append a 1D-posterior containing func(post_name).
+        """
+        pos = self[post_name]
+        inj = None
+        if pos.injval: inj = func(pos.injval)
+        samps = func(pos.samples)
+        pos = OneDPosterior(new_param_name, samps, injected_value=inj)
+        self.append(pos)
+        return
+
     def _average_posterior(self, samples, post_name):
         ap = 0.0
         for samp in samples:
@@ -783,7 +780,7 @@ class Posterior(object):
         Returns the direct-integration evidence for the posterior
         samples.
         """
-        allowed_coord_names=["a1", "phi1", "theta1", "a2", "phi2", "theta2",
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
                              "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
         samples,header=self.samples()
@@ -1473,8 +1470,7 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
         try:
             greedyHist[par1_binNumber+par2_binNumber*par1pos_Nbins]+=1
         except:
-            print par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin
-            exit(1)
+            raise RuntimeError("Problem binning samples: %i,%i,%i,%i,%i,%f,%f,%f,%f,%f,%f .")%(par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin)
     #Call greedy bins routine
     toppoints,injection_cl,reses,injection_area=\
                                 _greedy_bin(
@@ -1870,8 +1866,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
-        print "Error: Need as many or more line styles to choose from as confidence levels to plot!"
-        exit(0)
+        raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
 
     CSlst=[]
     name_list=[]
@@ -1931,8 +1926,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     plt.ylabel(par1_name)
 
     if len(name_list)!=len(CSlst):
-        print "Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name."
-        exit(0)
+        raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
     full_name_list=[]
     dummy_lines=[]
 
@@ -2303,7 +2297,7 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,newmassconvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
@@ -2318,41 +2312,37 @@ class PEOutputParser(object):
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, newmassconvention)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, oldMassConvention)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, newmassconvention=False):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
         log(L) > logLThreshold are concatenated.
         """
-        allowedCols=["cycle", "logl", "logpost", "logprior",
-                     "a1", "theta1", "phi1",
-                     "a2", "theta2", "phi2",
-                     "mc", "eta", "time",
-                     "phi_orb", "iota", "psi",
-                     "ra", "dec",
-                     "dist"]
         nRead=0
         outputHeader=False
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
                 print "Processing file %s to posterior_samples.dat"%infilename
+                f_lower=self._find_infmcmc_f_lower(infile)
                 header=self._clear_infmcmc_header(infile)
-                # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
-                if not newmassconvention:
-                    header=[self._swaplabel12(label) for label in header if label in allowedCols]
-                else:
-                    header=[label for label in header if label in allowedCols]
+                if oldMassConvention:
+                    # Swap #1 for #2 because our old mass convention
+                    # has m2 > m1, while the common convention has m1
+                    # > m2
+                    header=[self._swaplabel12(label) for label in header]
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
+                    outfile.write("f_lower")
+                    outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
                     outputHeader=header
@@ -2374,6 +2364,8 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write(" ")
+                            outfile.write(f_lower)
+                            outfile.write(" ")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
@@ -2435,6 +2427,23 @@ class PEOutputParser(object):
         else:
             return floor(ntot/nDownsample)
 
+    def _find_infmcmc_f_lower(self, infile):
+        """
+        Searches through header to determine starting frequency of waveform.
+        """
+        for line in infile:
+            headers=line.lstrip().lower().split()
+            if len(headers) is 0:
+                continue
+            if 'detector' in headers[0]:
+                for colNum in range(len(headers)):
+                    if 'f_low' in headers[colNum]:
+                        detectorInfo=infile.next().lstrip().lower().split()
+                        f_lower=detectorInfo[colNum]
+                        break
+                break
+        return f_lower
+
     def _clear_infmcmc_header(self, infile):
         """
         Reads past the header information from the
@@ -2469,11 +2478,11 @@ class PEOutputParser(object):
             from lalapps.combine_evidence import combine_evidence
         except ImportError:
             print "Need lalapps.combine_evidence to convert nested sampling output!"
-            exit(1)
+            raise
 
         if Nlive is None:
-            print "Need to specify number of live points in positional arguments of parse!"
-            exit(1)
+            raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
+            
 
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 

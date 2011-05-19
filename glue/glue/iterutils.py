@@ -353,7 +353,62 @@ class Highest(list):
 		self.n += 1
 		del self[self.max:]
 
+	def __iadd__(self, other):
+		"""
+		In-place addition.  Add the contents of another Highest
+		object to this one.  This method only works correctly with
+		other Highets objects.
+
+		Example:
+
+		>>> x = Highest(max = 10)
+		>>> x.extend(range(50))
+		>>> x
+		[49, 48, 47, 46, 45, 44, 43, 42, 41, 40]
+		>>> y = Highest(max = 5)
+		>>> y.append(100)
+		>>> y.append(49)
+		>>> y
+		[100, 49]
+		>>> x += y
+		>>> x
+		[100, 49, 49, 48, 47]
+		>>> len(x)
+		52
+		"""
+		assert isinstance(other, type(self))
+		self.n += other.n
+		# we can only claim to provide the minimum of the two max's
+		# worth of the highest valued objects
+		self.max = min(self.max, other.max)
+		# FIXME:  since the lists are sorted, a bisection seach
+		# could be used to greatly speed this up
+		i = j = 0
+		while i + j < self.max:
+			if i >= list.__len__(self):
+				j = min(self.max - i, list.__len__(other))
+				break
+			if j >= list.__len__(other):
+				i = min(self.max - j, list.__len__(self))
+				break
+			if self[i] > other[j]:
+				i += 1
+			elif self[i] < other[j]:
+				j += 1
+			else:
+				# self[i] == other[j]
+				i += 1
+				j += 1
+		del self[i:]
+		list.extend(self, other[:j])
+		list.sort(self, reverse = True)
+		del self[self.max:]
+		return self
+
 	def extend(self, sequence):
+		# this method will not work correctly with other Highest
+		# objects
+		assert not isinstance(sequence, type(self))
 		# FIXME:  could be implemented with heapq.merge() when 2.6
 		# is generally available
 		# n is updated in a way that allows sequence to be a

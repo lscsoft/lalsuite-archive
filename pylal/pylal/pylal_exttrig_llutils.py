@@ -5,6 +5,7 @@ import pickle, glob
 import subprocess, commands
 import ConfigParser, optparse
 import itertools
+import urllib
 from datetime import datetime
 
 import numpy as np
@@ -46,8 +47,9 @@ basic_ifolist = ['H1','L1','V1']
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
 
-# specify the runtimes during S6
-runtimes = {'A':[931035296,935798487],'B':[937800015,947260815],\
+# specify the runtimes during S6; the end of S6B is adjusted so to consider
+# GRB 100112 inside S6B
+runtimes = {'A':[931035296,935798487],'B':[937800015,947347215],\
             'C':[949003215,961545615],'D':[961545615, 971654415] }
 
 
@@ -371,12 +373,19 @@ def get_minimum_scienceseg_length(cp):
 
     # the following is just a copy-and-paste from trigger_hipe
     paddata = int(cp.get('data', 'pad-data'))
-    n = int(cp.get('data', 'segment-length'))
-    s = int(cp.get('data', 'number-of-segments'))
-    r = int(cp.get('data', 'sample-rate'))
-    o = int(cp.get('inspiral', 'segment-overlap'))
-    length = ( n * s - ( s - 1 ) * o ) / r
-    overlap = o / r
+    if cp.has_option('data', 'segment-length'):
+      n = int(cp.get('data', 'segment-length'))
+      s = int(cp.get('data', 'number-of-segments'))
+      r = int(cp.get('data', 'sample-rate'))
+      o = int(cp.get('inspiral', 'segment-overlap'))
+      length = ( n * s - ( s - 1 ) * o ) / r
+      overlap = o / r
+    elif cp.has_option('data','block-duration'):
+      length = int(cp.get('data','block-duration'))
+      overlap = int(cp.get('data','segment-duration'))/2
+    else:
+      raise ValueError, "Cannot find segment information in [data] section of ini file."
+      
     minsciseg = length + 2 * paddata
     
     # returns the result
@@ -465,7 +474,7 @@ def update_veto_lists(veto_definer, timerange, path = '.', tag = None):
     # prepare the call to get the veto-lists from the database
     pas = AnalysisSingleton()
     cmd = "ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
-          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s --individual-results"\
           % (veto_definer, timerange[0], timerange[1], path)
     pas.system(cmd, tag[4:])
 
@@ -539,29 +548,28 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
         
         # loop over all the CATs
         vetoed_ifos = set()
+        vetoed_cats = set()
         for cat in list_cat:
 
             # create the filename
             xmlsegfile = "%s/%s-VETOTIME_CAT%d%s.xml" % \
                             (path, ifo, cat, tag)
             vetolist = read_xmlsegfile(xmlsegfile)
-   
+            vetolist.coalesce()
+
             # check for overlaps, and give detailed list of veto details
             list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
             for name, segstart, segend in list_overlaps:
               pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%(ifo, segstart, segend, cat, name), tag[4:])
             if vetolist.intersects_segment(segments.segment(timerange)):
                 vetoed_ifos.add(ifo)
+                vetoed_cats.add(cat)
 
         # Check if the detector is being vetoed
         if len(vetoed_ifos)==0:
               clear_ifos.append(ifo)
         else:
-              # a little bit of nice grammar
-              if len(vetoed_ifos)==1:
-                pas.info("IFO %s has been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
-              else:
-                pas.info("IFOs %s have been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
+            pas.info("IFO(s) %s vetoed by CAT(s): %s" % (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
                 
 
     return clear_ifos
@@ -598,7 +606,7 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
         # check if there are CAT1 segments to take into account
         # i.e. take them out before checking available data
         if segs1:
-          segdict[ifo] -= segs1[ifo]
+          segdict[ifo] -= segs1[ifo].coalesce()
           if abs(segs1[ifo])>0:
             print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
                    (ifo, segs1[ifo])
@@ -611,8 +619,8 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
 
     # convert string in integer
     pas = AnalysisSingleton()
-    padding_time = int(pas.cp.get('analysis','padding_time'))
-    num_trials = int(pas.cp.get('analysis','num_trials'))
+    padding_time = int(pas.cp.get('exttrig','padding_time'))
+    num_trials = int(pas.cp.get('exttrig','num_trials'))
     symmetric = False
     offSourceSegment, grb_ifolist = micos(segdict, onSourceSegment,\
                          padding_time = padding_time, max_trials = num_trials,\
@@ -643,7 +651,7 @@ def plot_segment_info(segdict, onsource, offsource, centertime, output_filename,
 
   # get some basic information
   pas = AnalysisSingleton()
-  num_trials = int(pas.cp.get('analysis','num_trials'))
+  num_trials = int(pas.cp.get('exttrig','num_trials'))
 
   # calculate the times
   length_off_source = num_trials*(abs(onsource))
@@ -685,7 +693,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   # get the science segment specifier from the config file
   seg_names = {}
   for ifo in basic_ifolist:
-    seg_names[ifo] = pas.cp.get('data','science_segment_%s'%ifo)
+    seg_names[ifo] = pas.cp.get('segments','%s-segments'%ifo.lower())
 
   # update the science segments around the trigger time
   timerange = [ trigger - offset, trigger + offset]
@@ -693,7 +701,8 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
   # check if enough data is available
   if onsource is None:
-    onsource = [trigger - int(pas.cp.get('analysis','onsource_left')), trigger + int(pas.cp.get('analysis','onsource_right'))]
+    onsource = [trigger - int(pas.cp.get('exttrig','onsource_left')), \
+                    trigger + int(pas.cp.get('exttrig','onsource_right'))]
   offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, tag = tag, path = path)
   trend_ifos.append(ifolist)
 
@@ -715,8 +724,10 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
     # update the veto list if required or if files are missing
     if not useold or not avail:
-      veto_definer_file = pas.cp.get('data','veto_definer')
-      update_veto_lists(veto_definer_file, [starttime, endtime], tag = tag, path = path)
+      veto_definer_file_url = pas.cp.get('exttrig','cvs_veto_definer')
+      veto_definer_file,headers = urllib.urlretrieve(veto_definer_file_url,os.path.basename(veto_definer_file_url))
+      update_veto_lists(veto_definer_file, [starttime, endtime], \
+                            tag = tag, path = path)
 
 
     # read all CAT1 veto lists into a dictionary
@@ -724,6 +735,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
     for ifo in basic_ifolist:
       xmlsegfile = "%s/%s-VETOTIME_CAT1_%s.xml" % (path, ifo,tag)
       segsdict[ifo] = read_xmlsegfile(xmlsegfile)
+      segsdict[ifo].coalesce()
 
     # do the segment check again, including the CAT1 segs
     outname = 'plot_segments_%s.png' % tag
@@ -742,8 +754,56 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   else:
     return ifolist, onsource, offsource, trend_ifos
 
+
+
 # -----------------------------------------------------
 def read_adjusted_onsource(filename):
+  """
+  Reads the adjusted onsource times for GRBs inspected manually.
+  Uses the simple file format
+  """
+
+  grbs = {}
+  refdict = {}
+  # loop over the lines of the file
+  for linex in file(filename):
+
+    # take out the \n and split up the line
+    line = linex.replace('\n','')
+    w = line.split()
+
+    # reject any inline comments or empty lines
+    if len(linex)<3 or linex[0]=='#':
+
+      # fill the reference dict if this happens to be a reference entry
+      if 'REF' in linex:
+        refdict[int(w[2])] = w[3]
+      continue
+
+    # read the information
+    name = w[0]
+    try:
+      start = int(w[1])
+      end = int(w[2])
+      used = True
+    except:
+      used = False
+
+    comment = " ".join(w[3:])
+
+    if used:
+        grbs[name] = {'onsource':[start, end], 'used':used,\
+                          'comment':comment}
+    else:
+        grbs[name] = {'onsource':None, 'used':used, 'comment':comment}
+
+  # return the list of checks and the reference dict
+  return grbs, refdict
+
+
+
+# -----------------------------------------------------
+def read_adjusted_onsource_long(filename):
   """
   Reads the adjusted onsource times for GRBs inspected manually.
   Uses the Jordi-type of file
@@ -1218,6 +1278,17 @@ def get_code_tag():
                        "lscsource script, called within runmonitor. Please check"
   return tag
 
+# -----------------------------------------------------
+def get_env(name, required = False):
+    
+    # get the content of the variable
+    content = os.getenv(name)
+    
+    # is it required?
+    if required and not content:
+        raise ValueError, "Environment variable '%s' needs to be set!"%name
+    
+    return content
 
 # -----------------------------------------------------
 # -----------------------------------------------------
@@ -1242,40 +1313,15 @@ class AnalysisSingleton(Singleton):
     def read_basic_setup(self):
       self.init = True
 
-      # set a run lock
-      self.set_lock()
-
-      # create the basic configuration filename
-      basic_file = os.getenv('HOME')+'/.exttrig_basic.config'
-      if not os.path.exists(basic_file):
-        text = """
-[cluster]
-; name of the cluster
-name = UWM
-; path to where to put files for html access
-publishing_path = /home/dietz/public_html/
-; the url of the above path;
-publishing_url = https://ldas-jobs.phys.uwm.edu/~dietz
-; path to the CVS
-cvs = /home/dietz/CVS/cbc/
-; condor log-path for this cluster
-condor_log_path = /people/dietz
-        """
-        raise ValueError, "\n\nERROR: The basic configuration file in the HOME directory is missing!\n"\
-                   "  Please create a file named '.exttrig_basic_config' in your home directory\n"\
-                   "  with the following content (adjusted to your individual settings) \n"\
-                   "  which makes it much easier to run the code on different places "\
-                   "with the SAME config files otherwise: \n\n"+text
-
-      self.bc = ConfigParser.ConfigParser()
-      self.bc.read(basic_file)
+      import socket
 
       # set all the basic things
-      self.cluster = self.bc.get('cluster','name')
-      self.publishing_path = self.bc.get('cluster','publishing_path')
-      self.publishing_url = self.bc.get('cluster','publishing_url')
-      self.cvs = self.bc.get('cluster','cvs')
-      self.condor_log_path = self.bc.get('cluster','condor_log_path')
+      self.hostname = socket.gethostname()
+      self.publishing_path = get_env('USER_PUB')
+      self.publishing_url = get_env('USER_URL')
+      self.cvs = get_env('USER_CVS')
+      self.condor_log_path = get_env('USER_LOG')
+      self.email = get_env('USER_EMAIL')
 
 
     # -----------------------------------------------------
@@ -1395,9 +1441,6 @@ condor_log_path = /people/dietz
       self.info('Program exit normally', 'monitor')
 
 
-    def __del__(self):
-
-      print "Destructor???"
 
 
 # -----------------------------------------------------
@@ -1645,9 +1688,10 @@ class GRB(object):
     self.cp = self.pas.get_cp()
 
     # datafind variables
-    self.use_offline_data = False
-    self.type_online = {'H1':self.cp.get('data','channel_online_H1'), 'L1':self.cp.get('data','channel_online_L1'), 'V1':self.cp.get('data','channel_online_V1')}
-    self.type_offline = {'H1':self.cp.get('data','channel_offline_H1'), 'L1':self.cp.get('data','channel_offline_L1'), 'V1':self.cp.get('data','channel_offline_V1')}
+    self.use_offline_data = True
+    #self.type_online = {'H1':self.cp.get('data','channel_online_H1'), 'L1':self.cp.get('data','channel_online_L1'), 'V1':self.cp.get('data','channel_online_V1')}
+    self.type_online = None
+    self.type_offline = {'H1':'H1_'+self.cp.get('input','ligo-type'), 'L1':'L1_'+self.cp.get('input','ligo-type'), 'V1':self.cp.get('input','virgo-type')}
 
 
   # -----------------------------------------------------

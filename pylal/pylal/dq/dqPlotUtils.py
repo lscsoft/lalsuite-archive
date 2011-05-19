@@ -35,6 +35,7 @@ This module provides plotting routines for use in data quality investigations. A
 # =============================================================================
 
 def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
+                       start=None, end=None,
                        flag='unknowns', etg='Unknown',\
                        livetime=None, fill=False, logx=True,
                        cumulative=True, rate=True ):
@@ -75,17 +76,24 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
 
   # calculate livetime
   if not livetime:
-    times = [ get_time( t ) for t in triggers ] 
-    start = min( times )
-    end   = max( times )
+
+    if not start and not end:
+      times = [ get_time( t ) for t in triggers ] 
+    if not start:
+      start = min( times )
+    if not end:
+      end   = max( times )
     livetime = end-start 
+  livetime = float(livetime)
 
   # generate vetoed trigger list: inspiral trigs have dedicated function 
   if not segments:
     segments = segmentlist()
 
   aftertriggers = table.new_from_template( triggers )
-  aftertriggers.extend( [ t for t in triggers if get_time( t ) not in segments ] )
+  aftertriggers.extend([ t for t in triggers if get_time(t) not in segments ])
+
+  afterlivetime = livetime - float(segments.__abs__())
 
   # set up histogram data
   try:
@@ -101,6 +109,11 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     err = 'Column %s not found in %s.' % ( column,triggers.tableName )
     raise KeyError, err
 
+  if segments:
+    color = ['red','green']
+  else:
+    color = ['blue']
+
   # generate histogram
   num_bins = 1000
   if len( triggers )>=1:
@@ -113,16 +126,26 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
                                                      max( start_data ) ),\
                                              histtype='stepfilled',\
                                              cumulative=cumulative,\
-                                             facecolor='red',\
+                                             facecolor=color[0],\
                                              visible=False )
+
+  else:
+    bins = []
+    start_n = []
+    
+  if len( aftertriggers)>=1:
     end_n,end_bins,end_p = pylab.hist( end_data, bins=num_bins,\
                                        range=( min( start_data ),\
                                                max( start_data ) ),\
                                        histtype='stepfilled',\
                                        cumulative=cumulative,\
-                                       facecolor='green',\
+                                       facecolor=color[-1],\
                                        visible=False )
 
+  else:
+    end_n = []
+
+  if len( triggers )>=1:
     # recalculate centre of bins ( in logscal, if required )
     bins = []
     for i in range( len( start_bins )-1 ):
@@ -134,7 +157,6 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
 
     # reset zero values to base ( so logscale doesn't break )
     if rate:
-      livetime = float( livetime )
       base = 0.5/livetime
     else:
       base = 0.5
@@ -149,23 +171,23 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     # convert number to rate
     if rate:
       start_n = [n/livetime for n in start_n]
-      end_n   = [n/livetime for n in end_n]
+      end_n   = [n/afterlivetime for n in end_n]
 
+  # fix names for latex
+  if flag:
+    flag = flag.replace( '_','\_' )
   else:
-    bins = []
-    start_n = []
-    end_n = []
-
-  # fix name for latex
-  flag = flag.replace( '_','\_' )
+    flag = 'unknown'
+  column = ' '.join([ w.title().replace('Snr','SNR')\
+                      for w in column.split('_') ])
 
   # customise plot appearance
   pylab.rcParams.update( {"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 5,
-                         "xtick.labelsize": 16,
-                         "ytick.labelsize": 16,
-                         "axes.titlesize": 20,
+                         "xtick.labelsize": 18,
+                         "ytick.labelsize": 18,
+                         "axes.titlesize": 22,
                          "axes.labelsize": 18,
                          "axes.linewidth": 1,
                          "grid.linewidth": 1,
@@ -177,16 +199,17 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
   ax.loglog()
 
   if not fill:
-    ax.plot( bins,start_n,'r',linewidth=2,label='Before vetoes' )
-    if segments:
-      ax.plot( bins,end_n,'g',linewidth=2,label='After vetoes' )
+    ax.plot( bins,start_n,color[0],linewidth=2,label='Before vetoes' )
+    if len( aftertriggers )>=1:
+      ax.plot( bins,end_n,color[-1],linewidth=2,label='After vetoes' )
   if fill:
-    ax.plot( bins,start_n,'r',linewidth=0,label='Before vetoes' )
-    ax.fill_between( bins,base,start_n,color='r',edgecolor='k',linewidth=0.5 )
-    if segments:
-      ax.plot( bins,end_n,'g',linewidth=0,label='After vetoes' )
-      ax.fill_between( bins,base,end_n,color='g',edgecolor='k',linewidth=0.5,\
-                      alpha=0.9 )
+    ax.plot( bins,start_n,color[0],linewidth=0,label='Before vetoes' )
+    ax.fill_between( bins,base,start_n,color=color[-1],edgecolor='k',\
+                     linewidth=0.5 )
+    if len( aftertriggers )>=1:
+      ax.plot( bins,end_n,color[-1],linewidth=0,label='After vetoes' )
+      ax.fill_between( bins,base,end_n,color=color[-1],edgecolor='k',\
+                       linewidth=0.5, alpha=0.9 )
 
   # figure sundries
   if segments:
@@ -196,11 +219,11 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
   if bins:
     ax.set_xlim( min( bins ),max( bins ) )
     ax.set_ylim( base,max( start_n )*1.01 )
-  ax.set_xlabel( column.replace( '_','\_' ).title() )
+  ax.set_xlabel( column.replace( '_','\_' ) )
   if rate and cumulative:
-    ax.set_ylabel( 'Cumulative rate ( Hz )' )
+    ax.set_ylabel( 'Cumulative rate (Hz)' )
   elif rate:
-    ax.set_ylabel( 'Rate ( Hz )' )
+    ax.set_ylabel( 'Rate (Hz)' )
   elif not rate and cumulative:
     ax.set_ylabel( 'Cumulative number' )
   elif not rate and not cumulative:
@@ -208,11 +231,13 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
   tit = '%s triggers' % ( etg.replace( '_','\_' ) )
   if segments:
     tit += ' and %s segments' % ( flag )
+  if start and end:
+    tit += ': %s-%s' % ( start, end )
   ax.set_title( tit )
   ax.grid( True,which='major' )
   ax.grid( True,which='majorminor' )
   ax.set_axisbelow( True )
-  fig.savefig( outfile )
+  fig.savefig( outfile, bbox_inches='tight' )
 
 # =============================================================================
 # Function to plot SNR vs. time with veto segments
@@ -220,8 +245,9 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
 
 def plot_triggers( triggers, outfile, etg='Unknown',\
                    start=None, end=None, zero=None,\
-                   segments=None, flag='unknown',\
+                   segments=None, flag=None,\
                    xcolumn='time', ycolumn='snr', zcolumn=None,\
+                   xlabel=None, ylabel=None, zlabel=None,\
                    logx=False, logy=True, logz=True, ylim=None ):
 
   """
@@ -284,9 +310,21 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   if not zero:
     zero = start
 
+  columns = [ xcolumn, ycolumn]
+  xcolumn = xcolumn.lower()
+  ycolumn = ycolumn.lower()
+  if zcolumn:
+    columns.append(zcolumn)
+    zcolumn = zcolumn.lower()
+
+  for i,c in enumerate(columns):
+    columns[i] = ' '.join([ w.title().replace('Snr','SNR')\
+                            for w in c.split('_') ])
+
   # sort triggers by z param
   if zcolumn:
-    triggers.sort( key=lambda trig: trig.__getattribute__( zcolumn ),reverse=False )
+    triggers.sort( key=lambda trig: trig.__getattribute__( zcolumn ),\
+                   reverse=False )
 
   # apply veto segments if required
   if segments is not None:
@@ -334,73 +372,99 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
 
   # get z column
   if zcolumn:
-    notvetoed[zcolumn] = list( trigs.getColumnByName( zcolumn ) )
-    vetoed[zcolumn]    = list( vetotrigs.getColumnByName( zcolumn ) )
-
     if logz:
-      notvetoed[zcolumn] = [math.log( t,10 ) for t in notvetoed[zcolumn]]
-      vetoed[zcolumn]    = [math.log( t,10 ) for t in vetoed[zcolumn]]
+      notvetoed[zcolumn] = [ math.log10(t) for t in\
+                             trigs.getColumnByName( zcolumn ) ]
+      vetoed[zcolumn]    = [ math.log10(t) for t in\
+                             vetotrigs.getColumnByName( zcolumn ) ]
+    else:
+      notvetoed[zcolumn] = list( trigs.getColumnByName( zcolumn ) )
+      vetoed[zcolumn]    = list( vetotrigs.getColumnByName( zcolumn ) )
+
   # or make a default replacement 
   else:
     notvetoed[zcolumn] = [1]*len( trigs )
     vetoed[zcolumn] = [1]*len( vetotrigs )
 
+  numtrigs = len( trigs )
+  numveto  = len( vetotrigs )
+
   # =============
   # generate plot
   # =============
   # fix flag for use with latex
-  flag = flag.replace( '''_''','''\_''' )
-  etg      = etg.replace( '''_''','''\_''' )
+  if flag:
+    flag = flag.replace( '_', '\_' )
+  else:
+    flag = 'unknown'
+  if etg:
+    etg  = etg.replace( '_', '\_' )
+  else:
+    etg  = 'Unknown'
 
   # customise plot appearance
   pylab.rcParams.update( {"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 5,
-                         "xtick.labelsize": 20,
-                         "ytick.labelsize": 20,
-                         "axes.titlesize": 16,
-                         "axes.labelsize": 16,
+                         "xtick.labelsize": 18,
+                         "ytick.labelsize": 18,
+                         "axes.titlesize": 22,
+                         "axes.labelsize": 18,
                          "axes.linewidth": 1,
                          "grid.linewidth": 1,
                          "legend.fontsize": 20} )
 
   fig = pylab.figure( figsize=[12,6] )
   ax  = fig.gca()
+  #ax  = pylab.axes([0.1, 0.1, 0.9, 0.8])
   m = 5
   plots = []
 
   # define colour colormap
   cdict = matplotlib.cm.jet._segmentdata
   cmap = matplotlib.colors.LinearSegmentedColormap( 'clrs', cdict )
-  # change start blue and end red to better colours
-  cdict['red']=( [x == cdict['red'][-1] and ( 1,1,1 ) or x for x in cdict['red']] )
-  cdict['blue']=( [x== cdict['blue'][0] and ( 0,1,1 ) or x for x in cdict['blue']] )
 
-  # plot triggers not vetoed
-  if segments is not None:  label = 'Not vetoed'
-  else: label=None
+  # define colour range
+  cmin = None
+  if zcolumn:
+    if numtrigs + numveto >= 1:
+      cmin = min( notvetoed[zcolumn]+vetoed[zcolumn] )
+      cmax = max( notvetoed[zcolumn]+vetoed[zcolumn] )
+      colorticks = arange( cmin, cmax, float(cmax - cmin)/5 )
+    # if colouring by SNR, move to standard DQ range of 5->100
+    if zcolumn.lower()=='snr' or numtrigs + numveto < 1:
+      if logz:
+        cmin = math.log( 3, 10 )
+        cmax = math.log( 110, 10 )
+        colorticks = [ math.log10(3), math.log10(10), math.log10(30),\
+                       math.log10(100) ]
+  if cmin==None:
+    cmin = 3
+    cmax = 100
+    colorticks = [10,50,100]
 
-  if len( notvetoed[xcolumn] )>=1:
-    pylab.scatter( notvetoed[xcolumn], notvetoed[ycolumn],\
-                   c=notvetoed[zcolumn], marker='o', cmap=cmap, label=label )
+  if numtrigs >= 1:
+    p1 = ax.scatter( notvetoed[xcolumn], notvetoed[ycolumn],\
+                     c=notvetoed[zcolumn], marker='o', cmap=cmap,\
+                     vmin=cmin, vmax=cmax )
+
+  # plot vetoed triggers if required
+  if numveto >= 1:
+    if zcolumn:
+      c='k'
+    else:
+      c='r'
+    p2 = ax.scatter( vetoed[xcolumn],vetoed[ycolumn],marker='x',\
+                     label='Vetoed',edgecolor=c, vmin=cmin, vmax=cmax )
+
+  if numtrigs + numveto < 1:
+    p1 = ax.scatter( [0], [0], c=[cmin], cmap=cmap, vmin=cmin, vmax=cmax,\
+                     visible=False )
 
   #  construct colorbar
   if zcolumn:
-    if len( notvetoed[zcolumn]+vetoed[zcolumn] ) >= 1:
-      cmin = int( math.floor( min( notvetoed[zcolumn]+vetoed[zcolumn] ) ) )
-      cmax = int( math.ceil( max( notvetoed[zcolumn]+vetoed[zcolumn] ) ) )
-      colorticks = arange( math.floor( cmin ),math.ceil( cmax ),( cmax-cmin )/5 )
-      # if colouring by SNR, move to standard DQ range of 5->100
-      if zcolumn.lower()=='snr':
-        cmin = math.log( 5,10 )
-        cmax = math.log( 110,10 )
-        colorticks = [1,1.5,2]
-      # draw colorbar
-      cb = pylab.colorbar( format = logz and "$10^{%.1f}$",ticks=colorticks )
-      cb.set_clim( cmin,cmax )
-      cb.draw_all()
-      cb.ax.set_ylabel( zcolumn.replace( '_','\_' ).title() )
 
+    if numtrigs + numveto >= 1:
       # get loudest event and plot as gold star
       maxidx = list( notvetoed[zcolumn]+vetoed[zcolumn] )\
                     .index( max( notvetoed[zcolumn]+vetoed[zcolumn] ) )
@@ -415,19 +479,16 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
       maxy = 0
       maxz = 0
 
-  # plot vetoed triggers if required
-  if segments is not None:
-    # if not vetoed triggers, plot something to ensure the label appears
-    if len( vetoed[xcolumn] )<1:
-      pylab.scatter( [notvetoed[xcolumn][0]],[notvetoed[ycolumn][0]],\
-                    marker='x',label='Vetoed',visible=False )
-    else:
-      if zcolumn:
-        c='k'
-      else:
-        c='r'
-      pylab.scatter( vetoed[xcolumn],vetoed[ycolumn],marker='x',\
-                     label='Vetoed',edgecolor=c )
+
+    # draw colorbar
+    formatter = matplotlib.ticker.FuncFormatter( lambda x,pos:\
+                                                 "%d" % round(math.pow(10,x)) )
+    cb = ax.figure.colorbar( p1, format = logz and formatter,\
+                             ticks=colorticks )
+    cb.draw_all()
+    if not zlabel:
+      zlabel = columns[2]
+    cb.ax.set_ylabel( zlabel )
 
   # set axes
   if logx:
@@ -443,29 +504,40 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   if re.search( 'time',xcolumn+ycolumn ):
     zerostring = datetime( *date.XLALGPSToUTC( LIGOTimeGPS( zero ) )[:6] )\
                      .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
+
   # set x label and lim
   if re.search( 'time', xcolumn ):
-    ax.set_xlabel( 'Time (%s) since %s (%s)'\
-                  % ( t_string[t_unit], zerostring, zero ) )
+    if not xlabel:
+      xlabel = 'Time (%s) since %s (%s)'\
+                % ( t_string[t_unit], zerostring, zero )
     pstart = float( start-zero )/t_unit
     pend   = float( end-zero )/t_unit
     ax.set_xlim( pstart, pend)
+
   else:
-    ax.set_xlabel( '%s' % ( xcolumn.replace( '_',' ' ).title() ) )
+    if not xlabel:
+      xlabel = columns[0]
     if len( triggers )>=1:
       ax.set_xlim( min( vetoed[xcolumn]+notvetoed[xcolumn] )*0.99,\
                    max( vetoed[xcolumn]+notvetoed[xcolumn] )*1.01 )
+
+  ax.set_xlabel( xlabel )
+
   # set y label and lim
   if re.search( 'time',ycolumn ):
-    ax.set_ylabel( 'Time (%s) since %s (%s)'\
-                  % ( t_string[t_unit], zerostring, zero ) )
+    if not ylabel:
+      ylabel = 'Time (%s) since %s (%s)'\
+               % ( t_string[t_unit], zerostring, zero )
     if len( triggers )>=1:
       ax.set_ylim( 0,float( end-start )/t_unit )
   else:
-    ax.set_ylabel( '%s' % ( ycolumn.replace( '_',' ' ).title() ) )
+    if not ylabel:
+      ylabel = columns[1]
     if len( triggers )>=1:
       ax.set_ylim( min( vetoed[ycolumn]+notvetoed[ycolumn] )*0.99,\
                   max( vetoed[ycolumn]+notvetoed[ycolumn] )*1.01 )
+
+  ax.set_ylabel( ylabel )
 
   if ylim:
     ax.set_ylim( tuple(ylim) )
@@ -474,7 +546,6 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   tit = '%s triggers' % ( etg )
   if segments is not None:
     tit += ' \&  %s segments' % ( flag )
-  tit += ': %s-%s' % ( start, end )
   ax.set_title( tit, x=0.5, y=1.03 )
 
   # set subtitle
@@ -483,17 +554,17 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
     if re.search( 'time',ycolumn ):  maxy = maxy*t_unit+start
 
     subtit = 'Loudest event: %s=%s %s=%.2f %s=%.2f'\
-             % ( xcolumn.replace( '_','\_' ),maxx,\
-                ycolumn.replace( '_','\_' ),maxy,\
-                zcolumn.replace( '_','\_' ),maxz )
-    ax.text( 0.5,1.001,subtit,horizontalalignment='center',\
-            transform = ax.transAxes )
+             % ( columns[0], maxx,\
+                 columns[1], maxy,\
+                 columns[2], maxz )
+    ax.text( 0.5, 1.001, subtit, horizontalalignment='center',\
+             transform = ax.transAxes )
 
   # get both major and minor grid lines
-  ax.grid( True,which='major' )
-  ax.grid( True,which='majorminor' )
+  ax.grid( True, which='major' )
+  ax.grid( True, which='majorminor' )
   ax.set_axisbelow( True )
-  fig.savefig( outfile )
+  fig.savefig( outfile, bbox_inches='tight' )
 
 # =============================================================================
 # Plot science segment histogram
@@ -535,18 +606,18 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
   if logx:
     durations = [math.log10( d ) for d in durations]
 
-  # fix flag for use with latex
+  # fix flag and columns for use with latex
   if flag:
-    flag = flag.replace( '''_''','''\_''' )
+    flag = flag.replace( '_','\_' )
 
   # customise plot appearance
   pylab.rcParams.update( {"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 5,
-                         "xtick.labelsize": 16,
-                         "ytick.labelsize": 16,
-                         "axes.titlesize": 20,
-                         "axes.labelsize": 16,
+                         "xtick.labelsize": 18,
+                         "ytick.labelsize": 18,
+                         "axes.titlesize": 22,
+                         "axes.labelsize": 18,
                          "axes.linewidth": 1,
                          "grid.linewidth": 1,
                          "legend.fontsize": 20} )
@@ -618,5 +689,5 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
   ax.grid( True,which='major' )
   ax.grid( True,which='majorminor' )
   ax.set_axisbelow( True )
-  fig.savefig( outfile )
+  fig.savefig( outfile, bbox_inches='tight' )
 
