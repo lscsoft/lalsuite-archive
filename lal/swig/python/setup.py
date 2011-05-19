@@ -35,7 +35,7 @@ noopts = set([
              ])
 opts = sysconfig.get_config_var('OPT').split()
 opts = [opt for opt in opts if not opt in noopts]
-sysconfig.get_config_vars()['OPT'] = ' '.join(opts)
+os.environ['OPT'] = ' '.join(opts)
 
 # module name and details
 modname = os.environ['swig_wrapname']
