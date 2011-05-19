@@ -116,28 +116,37 @@ AC_DEFUN([LALSUITE_WITH_SWIG],[
       SWIG_CXX_DEFINES="${SWIG_CXX_DEFINES} NDEBUG"
     ])
 
-    dnl get correct C99 integer sizes on 32/64-bit systems
+    dnl try to figure out the underlying type of int64_t
     AC_CHECK_HEADERS([stdint.h],[],[
       AC_MSG_ERROR([could not find 'stdint.h'])
     ])
-    AC_MSG_CHECKING([value of __WORDSIZE])
-    AC_LANG_PUSH([C])
+    AC_MSG_CHECKING([underlying type of int64_t])
+    AC_LANG_PUSH([C++])
     AC_COMPILE_IFELSE(
-      [AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],[__WORDSIZE == 32])],
-      [wordsize=32],
       [
+        AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],[
+          int64_t i64 = 0; const long int *pli = &i64;
+        ])
+      ],[
+        AC_MSG_RESULT([long int])
+        swig_wordsize=SWIGWORDSIZE64
+      ],[
         AC_COMPILE_IFELSE(
-          [AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],[__WORDSIZE == 64])],
-          [wordsize=64],
           [
-            AC_MSG_ERROR([could not determine value of __WORDSIZE])
+            AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],[
+              int64_t i64 = 0; const long long int *plli = &i64;
+            ])
+          ],[
+            AC_MSG_RESULT([long long int])
+            swig_wordsize=
+          ],[
+            AC_MSG_ERROR([could not determine underlying type of int64_t])
           ]
         )
       ]
     )
-    AC_LANG_POP([C])
-    AC_MSG_RESULT([${wordsize}])
-    SWIG_SWIG_DEFINES="${SWIG_SWIG_DEFINES} SWIGWORDSIZE${wordsize}"
+    AC_LANG_POP([C++])
+    SWIG_SWIG_DEFINES="${SWIG_SWIG_DEFINES} ${swig_wordsize}"
 
     dnl ensure that all LAL library modules share type information
     SWIG_SWIG_DEFINES="${SWIG_SWIG_DEFINES} SWIG_TYPE_TABLE=swiglaltypetable"
