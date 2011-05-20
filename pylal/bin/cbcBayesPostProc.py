@@ -159,19 +159,20 @@ def cbcBayesPostProc(
         BCI=bfile.read()
         bfile.close()
         print 'BCI: %s'%BCI
-    if not os.path.isfile(snrfactor):
-        print "No snr file provided or wrong path to snr file\n"
-        snrfactor=None
     if snrfactor is not None:
-        snrstring=""
-        snrfile=open(snrfactor,'r')
-        snrs=snrfile.readlines()
-        snrfile.close()
-        for snr in snrs:
-            if snr=="\n":
-                continue
-            snrstring=snrstring +" "+str(snr[0:-1])+" ,"
-        snrstring=snrstring[0:-1]
+        if not os.path.isfile(snrfactor):
+            print "Wrong path to snr file\n"
+            snrfactor=None
+        else:
+            snrstring=""
+            snrfile=open(snrfactor,'r')
+            snrs=snrfile.readlines()
+            snrfile.close()
+            for snr in snrs:
+                if snr=="\n":
+                    continue
+                snrstring=snrstring +" "+str(snr[0:-1])+" ,"
+            snrstring=snrstring[0:-1]
         
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
