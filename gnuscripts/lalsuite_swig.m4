@@ -1,7 +1,7 @@
 # SWIG configuration
 # Author: Karl Wette, 2011
 #
-# serial 4
+# serial 5
 
 # basic version string comparison
 # can only handle numeric versions separated by periods
@@ -333,6 +333,14 @@ AC_DEFUN([LALSUITE_SWIG_LANG_PYTHON],[
 
     # check for python
     AM_PATH_PYTHON([2.4])
+
+    # check for numpy
+    AC_MSG_CHECKING([for numpy])
+    ${PYTHON} -c "import numpy" 2>/dev/null
+    AS_IF([test $? -ne 0],[
+      AC_MSG_ERROR([could not import numpy])
+    ])
+    AC_MSG_RESULT([yes])
 
   ])
 ])
