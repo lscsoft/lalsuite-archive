@@ -289,12 +289,12 @@ swiglal_new_numpy_vecmat(COMPLEX16, NPY_CDOUBLE);
     if (PySequence_Size($input) != 6 && PySequence_Size($input) != 9) {
       %argument_fail(SWIG_ValueError, "$type (must have 6 or 9 elements)", $symname, $argnum);
     }
-    temptm.tm_year = PyLong_AsLong(PySequence_ITEM($input, 0));
-    temptm.tm_mon = PyLong_AsLong(PySequence_ITEM($input, 1));
-    temptm.tm_mday = PyLong_AsLong(PySequence_ITEM($input, 2));
-    temptm.tm_hour = PyLong_AsLong(PySequence_ITEM($input, 3));
-    temptm.tm_min = PyLong_AsLong(PySequence_ITEM($input, 4));
-    temptm.tm_sec = PyLong_AsLong(PySequence_ITEM($input, 5));
+    temptm.tm_year  = PyLong_AsLong(PySequence_ITEM($input, 0));
+    temptm.tm_mon   = PyLong_AsLong(PySequence_ITEM($input, 1));
+    temptm.tm_mday  = PyLong_AsLong(PySequence_ITEM($input, 2));
+    temptm.tm_hour  = PyLong_AsLong(PySequence_ITEM($input, 3));
+    temptm.tm_min   = PyLong_AsLong(PySequence_ITEM($input, 4));
+    temptm.tm_sec   = PyLong_AsLong(PySequence_ITEM($input, 5));
     temptm.tm_isdst = PySequence_Size($input) > 8 ?
       PyLong_AsLong(PySequence_ITEM($input, 8)) : -1;
     if (PyErr_Occurred())   // Catch any errors while converting items to integers

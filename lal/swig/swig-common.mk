@@ -116,10 +116,6 @@ export swig_wrapfile
 makepath = $(if $(firstword $1),$(firstword $1):$(call makepath,$(wordlist 2,$(words $1),$1)))
 
 # set dynamic library path when running check scripts prior to installation
-ifeq "$(build_vendor)" "apple"
-swig_dyldpath = DYLD_LIBRARY_PATH=$(call makepath,$(swig_libpath))
-else
-swig_dyldpath = LD_LIBRARY_PATH=$(call makepath,$(swig_libpath))
-endif
+swig_dyldpath = LD_LIBRARY_PATH="$(call makepath,$(swig_libpath))$${LD_LIBRARY_PATH}"
 
 endif # ifdef swig_language

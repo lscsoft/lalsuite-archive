@@ -40,9 +40,6 @@ modkeywords = {
 # macro definitions
 defines = map(lambda s : (s, None), os.environ['swig_defines'].split())
 
-# undefine the NDEBUG usually in the standard Python compile flags
-undefines = ['NDEBUG']
-
 # turn off optimisation unless SWIGLAL_NDEBUG is defined
 extra_flags = []
 if not 'SWIGLAL_NDEBUG' in defines:
@@ -67,7 +64,7 @@ srcfile = os.environ['swig_wrapfile']
 # create extension class for SWIG module
 swigmodule = Extension('_' + modname,
                        define_macros = defines,
-                       undef_macros = undefines,
+                       undef_macros = ['NDEBUG'],
                        extra_compile_args = extra_flags,
                        include_dirs = incldirs,
                        library_dirs = libdirs,

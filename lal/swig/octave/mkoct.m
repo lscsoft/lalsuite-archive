@@ -16,6 +16,12 @@ endfunction
 ## macro definitions
 defflags = strcat("-D", strsplit(getdefenv("swig_defines"), " ", true));
 
+## turn off optimisation unless SWIGLAL_NDEBUG is defined
+if isempty(strfind([" ", getdefenv("swig_defines"), " "], " SWIGLAL_NDEBUG "))
+  setenv("CFLAGS", [octave_config_info("CFLAGS"), " -O0"]);
+  setenv("CXXFLAGS", [octave_config_info("CXXFLAGS"), " -O0"]);
+endif
+
 ## include directories
 inclflags = strcat("-I", strsplit(getdefenv("swig_inclpath"), " ", true));
 
