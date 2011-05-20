@@ -338,6 +338,9 @@ class Highest(list):
 	def __len__(self):
 		return self.n
 
+	def __reduce__(self):
+		return (type(self), ((), self.max), {"n": self.n}, iter(self))
+
 	def append(self, value):
 		# can't use bisect module because list is sorted in reverse
 		# order
@@ -381,8 +384,8 @@ class Highest(list):
 		# we can only claim to provide the minimum of the two max's
 		# worth of the highest valued objects
 		self.max = min(self.max, other.max)
-		# FIXME:  since the lists are sorted, a bisection seach
-		# could be used to greatly speed this up
+		# FIXME:  since the lists are sorted, lots could be done to
+		# speed this up
 		i = j = 0
 		while i + j < self.max:
 			if i >= list.__len__(self):
