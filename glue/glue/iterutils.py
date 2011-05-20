@@ -289,6 +289,74 @@ def inplace_filter(func, sequence):
 #
 # =============================================================================
 #
+#          Return the Values from Several Ordered Iterables in Order
+#
+# =============================================================================
+#
+
+
+def inorder(*iterables, **kwargs):
+	"""
+	A generator that yields the values from several ordered iterables
+	in order.
+
+	Example:
+
+	>>> x = [0, 1, 2, 3]
+	>>> y = [1.5, 2.5, 3.5, 4.5]
+	>>> list(inorder(x, y))
+	[0, 1, 1.5, 2, 2.5, 3, 3.5, 4.5]
+
+	>>> x = [3, 2, 1, 0]
+	>>> y = [4.5, 3.5, 2.5, 1.5]
+	>>> list(inorder(x, y, reverse = True))
+	[4.5, 3.5, 3, 2.5, 2, 1.5, 1, 0]
+
+	NOTE:  this function will never reverse the order of elements in
+	the input iterables.  If the reverse keyword argument is False (the
+	default) then the input sequences must yield elements in increasing
+	order, likewise if the keyword argument is True then the input
+	sequences must yield elements in decreasing order.  Failure to
+	adhere to this yields undefined results, and for performance
+	reasons no check is performed to validate the element order in the
+	input sequences.
+	"""
+	reverse = False
+	if kwargs:
+		try:
+			reverse = kwargs.pop("reverse")
+		except:
+			pass
+		if kwargs:
+			raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
+	nextvals = {}
+	for iterable in iterables:
+		next = iter(iterable).next
+		try:
+			nextvals[next] = (next(), next)
+		except StopIteration:
+			pass
+	if not nextvals:
+		return
+	if reverse:
+		select = max
+	else:
+		select = min
+	values = nextvals.itervalues
+	while True:
+		val, next = select(values())
+		yield val
+		try:
+			nextvals[next] = (next(), next)
+		except StopIteration:
+			del nextvals[next]
+			if not nextvals:
+				break
+
+
+#
+# =============================================================================
+#
 #           Thing for keeping only the highest values in a sequence
 #
 # =============================================================================
@@ -449,42 +517,3 @@ class Highest(list):
 
 	def sort(*args, **kwargs):
 		raise NotImplementedError
-
-
-#
-# =============================================================================
-#
-#          Return the Values from Several Ordered Iterables in Order
-#
-# =============================================================================
-#
-
-
-def inorder(*iterables):
-	"""
-	A generator that yields the values from several ordered iterables
-	in order.
-
-	Example:
-
-	>>> x = [0, 1, 2, 3]
-	>>> y = [1.5, 2.5, 3.5, 4.5]
-	>>> list(inorder(x, y))
-	[0, 1, 1.5, 2, 2.5, 3, 3.5, 4.5]
-	"""
-	nextvals = []
-	for iterable in iterables:
-		iterable = iter(iterable)
-		try:
-			nextvals.append((iterable.next(), iterable))
-		except StopIteration:
-			pass
-	nextvals.sort(reverse = True)
-	while nextvals:
-		val, iterable = nextvals.pop()
-		yield val
-		try:
-			nextvals.append((iterable.next(), iterable))
-		except StopIteration:
-			continue
-		nextvals.sort(reverse = True)
