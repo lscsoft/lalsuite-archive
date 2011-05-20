@@ -299,13 +299,15 @@ def inorder(*iterables, **kwargs):
 
 	>>> x = [0, 1, 2, 3]
 	>>> y = [1.5, 2.5, 3.5, 4.5]
-	>>> list(inorder(x, y))
-	[0, 1, 1.5, 2, 2.5, 3, 3.5, 4.5]
+	>>> z = [1.75, 2.25, 3.75, 4.25]
+	>>> list(inorder(x, y, z))
+	[0, 1, 1.5, 1.75, 2, 2.25, 2.5, 3, 3.5, 3.75, 4.25, 4.5]
 
 	>>> x = [3, 2, 1, 0]
 	>>> y = [4.5, 3.5, 2.5, 1.5]
-	>>> list(inorder(x, y, reverse = True))
-	[4.5, 3.5, 3, 2.5, 2, 1.5, 1, 0]
+	>>> z = [4.25, 3.75, 2.25, 1.75]
+	>>> list(inorder(x, y, z, reverse = True))
+	[4.5, 4.25, 3.75, 3.5, 3, 2.5, 2.25, 2, 1.75, 1.5, 1, 0]
 
 	NOTE:  this function will never reverse the order of elements in
 	the input iterables.  If the reverse keyword argument is False (the
@@ -332,21 +334,28 @@ def inorder(*iterables, **kwargs):
 		except StopIteration:
 			pass
 	if not nextvals:
+		# all sequences are empty
 		return
 	if reverse:
 		select = max
 	else:
 		select = min
 	values = nextvals.itervalues
+	if len(nextvals) > 1:
+		while True:
+			val, next = select(values())
+			yield val
+			try:
+				nextvals[next] = (next(), next)
+			except StopIteration:
+				del nextvals[next]
+				if len(nextvals) < 2:
+					break
+	# exactly one sequence remains, short circuit and drain it
+	(val, next), = values()
+	yield val
 	while True:
-		val, next = select(values())
-		yield val
-		try:
-			nextvals[next] = (next(), next)
-		except StopIteration:
-			del nextvals[next]
-			if not nextvals:
-				break
+		yield next()
 
 
 #
