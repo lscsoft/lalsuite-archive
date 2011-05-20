@@ -114,8 +114,7 @@ def choices(vals, n):
 	>>> x = choices(["a", "b", "c"], 2)
 	>>> y = choices(["1", "2", "3"], 2)
 	>>> zip(x, y)
-	[(('a', 'b'), ('1', '2')), (('a', 'c'), ('1', '3')), (('b', 'c'),
-	('2', '3'))]
+	[(('a', 'b'), ('1', '2')), (('a', 'c'), ('1', '3')), (('b', 'c'), ('2', '3'))]
 
 	Furthermore, the order of combinations in the output sequence is
 	such that if the input list has n elements, and one constructs the
@@ -130,11 +129,7 @@ def choices(vals, n):
 	>>> Y = list(choices(x, len(x) - 2))
 	>>> Y.reverse()
 	>>> zip(X, Y)
-	[(('a', 'b'), ('c', 'd', 'e')), (('a', 'c'), ('b', 'd', 'e')),
-	(('a', 'd'), ('b', 'c', 'e')), (('a', 'e'), ('b', 'c', 'd')),
-	(('b', 'c'), ('a', 'd', 'e')), (('b', 'd'), ('a', 'c', 'e')),
-	(('b', 'e'), ('a', 'c', 'd')), (('c', 'd'), ('a', 'b', 'e')),
-	(('c', 'e'), ('a', 'b', 'd')), (('d', 'e'), ('a', 'b', 'c'))]
+	[(('a', 'b'), ('c', 'd', 'e')), (('a', 'c'), ('b', 'd', 'e')), (('a', 'd'), ('b', 'c', 'e')), (('a', 'e'), ('b', 'c', 'd')), (('b', 'c'), ('a', 'd', 'e')), (('b', 'd'), ('a', 'c', 'e')), (('b', 'e'), ('a', 'c', 'd')), (('c', 'd'), ('a', 'b', 'e')), (('c', 'e'), ('a', 'b', 'd')), (('d', 'e'), ('a', 'b', 'c'))]
 	"""
 	if n == len(vals):
 		yield tuple(vals)
@@ -384,13 +379,12 @@ class Highest(list):
 
 	Example:
 
-	>>> import random
 	>>> l = Highest(max = 3)
 	>>> for i in range(10000):
-	...	l.append(random.random())
+	...	l.append(i)
 	...
 	>>> l
-	[0.99997649136673972, 0.99997199878829768, 0.99991682393505932]
+	[9999, 9998, 9997]
 	>>> len(l)
 	10000
 	>>> list.__len__(l)
