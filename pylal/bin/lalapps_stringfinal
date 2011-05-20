@@ -36,6 +36,7 @@ from optparse import OptionParser
 import math
 from matplotlib import patches
 import numpy
+import os
 import cPickle as pickle
 from scipy import interpolate
 from scipy import optimize
@@ -56,6 +57,7 @@ from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process as ligolwprocess
 from pylal import git_version
+from pylal import packing
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
@@ -715,6 +717,13 @@ def group_files(filenames, verbose = False):
 	return injection_filenames, noninjection_filenames
 
 
+def pack_files(filenames, n_threads, verbose = False):
+	bins = packing.BiggestIntoEmptiest([packing.Bin() for n in range(n_threads)])
+	for filename in filenames:
+		bins.pack(os.stat(filename).st_size, filename)
+	return [bin.objects for bin in bins.bins]
+
+
 def import_dumps(filenames, verbose = False):
 	rate_vs_threshold = None
 	efficiency = None
@@ -873,15 +882,13 @@ if options.detection_threshold is None:
 	rate_vs_thresholds = []
 	# can't use more threads than there are files
 	n_threads = min(options.threads, len(noninjection_filenames))
-	for i in range(n_threads):
-		# how many files for this thread?
-		n = len(noninjection_filenames) // (n_threads - i)
+	# group files into bins of about the same total number of bytes
+	for filenames in pack_files(noninjection_filenames, n_threads, verbose = options.verbose):
 		# create a new book-keeping object
 		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
 		# launch thread
-		threads.append(threading.Thread(target = process_files, args = (noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
+		threads.append(threading.Thread(target = process_files, args = (filenames, rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
 		threads[-1].start()
-		del noninjection_filenames[:n]
 	# collect all threads, re-raise any exceptions that occured,
 	# combine results
 	for thread in threads:
@@ -938,15 +945,13 @@ threads = []
 efficiencies = []
 # can't use more threads than there are files
 n_threads = min(options.threads, len(injection_filenames))
-for i in range(n_threads):
-	# how many files for this thread?
-	n = len(injection_filenames) // (n_threads - i)
+# group files into bins of about the same total number of bytes
+for filenames in pack_files(injection_filenames, n_threads, verbose = options.verbose):
 	# create new book-keeping object
 	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
 	# launch thread
-	threads.append(threading.Thread(target = process_files, args = (injection_filenames[:n], efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
+	threads.append(threading.Thread(target = process_files, args = (filenames, efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
 	threads[-1].start()
-	del injection_filenames[:n]
 # collect all threads, reraise any exceptions that occured, combine results
 for thread in threads:
 	thread.join()
