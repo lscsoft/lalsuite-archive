@@ -20,19 +20,27 @@
 // common SWIG interface code
 // Author: Karl Wette, 2011
 
+/////////////// Basic definitions and includes ///////////////
+
+// Ensure that NDEBUG is defined iff SWIGLAL_NDEBUG is defined
+%begin %{
+  #undef NDEBUG
+  #ifdef SWIGLAL_NDEBUG
+    #define NDEBUG
+  #endif
+%}
+
 // SWIG version used to generate wrapping code
 %inline %{
   const int swig_version_hex = SWIGVERSION;
 %}
 
 // Was the wrapping code generated in debugging mode?
-#ifdef NDEBUG
+#ifdef SWIGLAL_NDEBUG
 %inline %{const bool swiglal_debug = false;%}
 #else
 %inline %{const bool swiglal_debug = true;%}
 #endif
-
-/////////////// Basic definitions and includes ///////////////
 
 // Ignore GCC warnings about unitialised or unused variables.
 // These warnings may be produced by some SWIG-generated code.
@@ -1141,23 +1149,26 @@ fail: // SWIG doesn't add a fail label to a global variable '_get' function
 // We want to use the C time functions in to fill in values for 'tm_wday' and
 // 'tm_yday', and normalise the ranges of the other members. mktime() does this,
 // but it also assumes local time, so that the 'tm' struct members are adjusted
-// according to the timezone. So instead, we use mktime() to get a local time
-// 't', subtract off the timezone (for this to work, 'tm_isdst' must be set to
-// zero before mktime() is called; its value is restored afterwards), then call
-// gmtime() to recreate the 'tm' struct from 't'. gmtime() assumes UTC time, so
-// it does no timezone modification.
+// according to the timezone. So instead, we ... EXPLAIN
 %header %{
   SWIGINTERNINLINE bool    
   swiglal_fill_struct_tm(struct tm *tm) {
     tzset();
     int isdst = tm->tm_isdst;
     tm->tm_isdst = 0;
-    time_t t = mktime(tm);
-    if (t < 0) {
+    time_t t1 = mktime(tm);
+    if (t1 < 0) {
       return false;
     }
-    t -= timezone;
-    if (gmtime_r(&t, tm) == NULL) {
+    if (gmtime_r(&t1, tm) == NULL) {
+      return false;
+    }
+    time_t t2 = mktime(tm);
+    if (t2 < 0) {
+      return false;
+    }
+    t1 -= t2 - t1;
+    if (gmtime_r(&t1, tm) == NULL) {
       return false;
     }
     tm->tm_isdst = isdst;

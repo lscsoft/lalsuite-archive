@@ -112,4 +112,14 @@ export swig_libdir
 export swig_libs
 export swig_wrapfile
 
+# build colon-separated path by repeated concatenation
+makepath = $(if $(firstword $1),$(firstword $1):$(call makepath,$(wordlist 2,$(words $1),$1)))
+
+# set dynamic library path when running check scripts prior to installation
+ifeq "$(build_vendor)" "apple"
+swig_dyldpath = DYLD_LIBRARY_PATH=$(call makepath,$(swig_libpath))
+else
+swig_dyldpath = LD_LIBRARY_PATH=$(call makepath,$(swig_libpath))
+endif
+
 endif # ifdef swig_language

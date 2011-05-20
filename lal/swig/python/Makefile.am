@@ -7,7 +7,7 @@ swig_language_opts = -modern
 swig_wrapobj = _$(swig_wrapname).so
 
 # start from scratch if build script changes
-$(swig_wrapfile) : $(srcdir)/setup.py
+$(swig_wrapobj) : $(srcdir)/setup.py
 
 # build SWIG wrapping code
 $(swig_wrapobj) :
@@ -17,7 +17,7 @@ $(swig_wrapobj) :
 # test SWIG wrapping module
 check .PHONY : check-swig
 check-swig : $(swig_wrapobj)
-	test -f $(swig_wrapcheck).py && $(PYTHON) $(swig_wrapcheck).py
+	test -f $(swig_wrapcheck).py && $(swig_dyldpath) $(PYTHON) $(swig_wrapcheck).py
 
 # install SWIG wrapping module
 install-exec-local :

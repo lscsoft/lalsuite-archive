@@ -112,8 +112,8 @@ AC_DEFUN([LALSUITE_WITH_SWIG],[
 
     dnl are we (not) in debugging mode?
     AS_IF([${swiglal_ndebug}],[
-      SWIG_SWIG_DEFINES="${SWIG_SWIG_DEFINES} NDEBUG"
-      SWIG_CXX_DEFINES="${SWIG_CXX_DEFINES} NDEBUG"
+      SWIG_SWIG_DEFINES="${SWIG_SWIG_DEFINES} SWIGLAL_NDEBUG"
+      SWIG_CXX_DEFINES="${SWIG_CXX_DEFINES} SWIGLAL_NDEBUG"
     ])
 
     dnl try to figure out the underlying type of int64_t

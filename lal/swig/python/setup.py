@@ -28,15 +28,6 @@ class clean(_clean):
         _clean.initialize_options(self)
         setup_build_dir(self)
 
-# remove these flags from default Python compiler flags:
-noopts = set([
-              '-DNDEBUG',             # handled elsewhere
-              '-Wstrict-prototypes'   # not valid for C++
-             ])
-opts = sysconfig.get_config_var('OPT').split()
-opts = [opt for opt in opts if not opt in noopts]
-os.environ['OPT'] = ' '.join(opts)
-
 # module name and details
 modname = os.environ['swig_wrapname']
 modversion = os.environ['PACKAGE_VERSION']
@@ -48,6 +39,14 @@ modkeywords = {
 
 # macro definitions
 defines = map(lambda s : (s, None), os.environ['swig_defines'].split())
+
+# undefine the NDEBUG usually in the standard Python compile flags
+undefines = ['NDEBUG']
+
+# turn off optimisation unless SWIGLAL_NDEBUG is defined
+extra_flags = []
+if not 'SWIGLAL_NDEBUG' in defines:
+    extra_flags.append('-O0')
 
 # include directories
 incldirs = os.environ['swig_inclpath'].split()
@@ -68,6 +67,8 @@ srcfile = os.environ['swig_wrapfile']
 # create extension class for SWIG module
 swigmodule = Extension('_' + modname,
                        define_macros = defines,
+                       undef_macros = undefines,
+                       extra_compile_args = extra_flags,
                        include_dirs = incldirs,
                        library_dirs = libdirs,
                        runtime_library_dirs = [rtlibdir],

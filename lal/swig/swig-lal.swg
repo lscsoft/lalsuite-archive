@@ -7,7 +7,7 @@
 %include <lal/swiglal-gsl.i>
 
 // tests of SWIG interface code
-#if defined(SWIGLAL_IS_LAL) && !defined(NDEBUG)
+#if defined(SWIGLAL_IS_LAL) && !defined(SWIGLAL_NDEBUG)
 %include "swiglal-test.i"
 #endif
 

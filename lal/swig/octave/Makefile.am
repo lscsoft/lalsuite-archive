@@ -8,7 +8,7 @@ swig_wrapobj = $(swig_wrapname).oct
 octave_instdir = $(prefix)/$(OCTAVE_OCTFILEDIR)
 
 # start from scratch if build script changes
-$(swig_wrapfile) : $(srcdir)/mkoct.m
+$(swig_wrapobj) : $(srcdir)/mkoct.m
 
 # build SWIG wrapping code
 $(swig_wrapobj) :
@@ -17,7 +17,7 @@ $(swig_wrapobj) :
 # test SWIG wrapping module
 check .PHONY : check-swig
 check-swig : $(swig_wrapobj)
-	test -f $(swig_wrapcheck).m && $(OCTAVE) $(swig_wrapcheck).m
+	test -f $(swig_wrapcheck).m && $(swig_dyldpath) $(OCTAVE) $(swig_wrapcheck).m
 
 # install SWIG wrapping module
 install-exec-local :
