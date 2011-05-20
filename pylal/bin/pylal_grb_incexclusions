@@ -1,0 +1,258 @@
+#!/usr/bin/python
+#
+"""
+This code produces exclusion plot for the 051103 paper 
+"""
+from __future__ import division
+import time
+
+__author__ = 'James Clark <james.clark@ligo.org>'
+__prog__ = "pylal_grb_incexclusions"
+__title__ = "Inclination-dependent distance/exclusion confidences"
+
+import cPickle as pickle
+import optparse
+import ConfigParser
+import sys
+import warnings
+
+import numpy
+numpy.seterr(all="raise", under="ignore")
+from scipy import stats
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot
+from matplotlib import rc
+import pylab
+from pylal import rate
+from pylal import git_version
+
+import scipy
+from scipy import optimize
+
+fig_width_pt = 246.0  # Get this from LaTeX using \showthe\columnwidth
+inches_per_pt = 1.0/72.27               # Convert pt to inch
+golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
+fig_width = fig_width_pt*inches_per_pt  # width in inches
+fig_height = fig_width*golden_mean      # height in inches
+fig_size =  [fig_width,fig_height]
+pylab.rcParams.update({
+    "text.usetex": True,
+    "text.verticalalignment": "center",
+    "lines.linewidth": 1,
+    "font.size": 12, 
+    "axes.labelsize": 10, 
+    "xtick.labelsize": 8,
+    "ytick.labelsize": 8,
+    "legend.fontsize": 8, 
+    'figure.figsize': fig_size
+})
+
+def parse_args():
+    # --- Parse Input
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
+
+    parser.add_option("-v", "--verbose", action="store_true", default=True,\
+                      help="print verbose output")
+
+    parser.add_option("--distance", action="store", type="float",\
+                      default="0",metavar="FLOAT",\
+                      help="distance (in Mpc) to M81")
+
+    parser.add_option("--distance-error", action="store", type="float",\
+                      default="0",metavar="FLOAT",\
+                      help="1-sigma error (in Mpc) in distance to M81")
+
+    parser.add_option("--grbUL-pickle",\
+                      help="comma seperated list of names of pickle \
+    files ouput by pylal_grbUL")
+
+    parser.add_option("--systems",\
+                      help="comma seperated list of names of binary \
+    configurations for legends etc.\
+    MUST be the same order as your pickles.")
+
+    parser.add_option("--sigmoids", action="store_true", default=False,\
+                      help="fit sigmoidal curves to distance exclusions")
+
+    parser.add_option("--user-tag",action="store",type="string",\
+                      default="051103_testing",metavar="STRING",\
+                      help="user-specified name to attach to all files (e.g., GRB051103_NSNS)")
+
+    options, arguments = parser.parse_args()
+
+    return options, arguments
+
+################################################################################
+#
+#  MAIN PROGRAM
+#
+################################################################################
+
+################################################################################
+# parse arguments
+opts, args = parse_args()
+
+M81_low = opts.distance-opts.distance_error
+M81_upp = opts.distance+opts.distance_error
+
+################################################################################
+# sigmoid fitting routine
+
+# fit function for sigmoid 
+# (taken ~verbatim from http://www.scipy.org/Cookbook/FittingData) 
+# Q-pipeline sigmoid:
+fitfunc = lambda e, d: 1-(1 \
+                          / (1 + (d / e[0])**(-(1 + e[1] *numpy.tanh(d)) / e[2])))
+# Flare-pipeline sigmoid:
+#fitfunc = lambda e, d: 1-(e[0]+(e[1]-e[0]) / (1 + numpy.exp(-e[3]*(d-e[4]))))
+
+# cost function for fitting.  Minimise this with least squares to get fit params
+errfunc = lambda e, d, f: fitfunc(e,d) - f
+
+# initial guess at parameters (gauged by eye from BNS plot)
+e0 = [8., 10., 0.8]
+
+################################################################################
+# load pylal_grbUL data (loop over list of pickles - see option parser)
+
+grbUL_pickles = opts.grbUL_pickle.split(",")
+systems = opts.systems.split(",")
+
+# check we have the same number of system names as input pickles
+assert(len(grbUL_pickles)==len(systems))
+
+# count number of NS and BH systems
+nBH = sum(numpy.asarray([ system.find('BH') + 1 for system in systems ])>0)
+nNS = len(systems) - nBH
+
+# define some lists of plotting options
+colors = ['b','g','b','g','r','k']
+styles = ['-','-','--','--',':','.-']
+markers = ['+','+','x','x','v','^']
+
+# empty lists for M81 exclusion confidence(s)
+BNS_cos_jet_semi_angle = numpy.zeros(nNS)
+BNS_M81_exclusion = numpy.zeros(nNS)
+NSBH_cos_jet_semi_angle = numpy.zeros(nBH)
+NSBH_M81_exclusion = numpy.zeros(nBH)
+
+BHindx=0
+NSindx=0
+for system, grbUL_pickle in zip(systems, grbUL_pickles):
+    CLs, m2_bins, D1D2_by_CL_m2 = pickle.load(open(grbUL_pickle))
+
+    # dump out a handy text file
+    ascii_name = 'pylal_grbUL-exclusion-'+opts.user_tag+'-'+system+'.txt'
+    ascii_name = ascii_name.replace(' ', '_')
+    ascii_name = ascii_name.replace('(', '')
+    ascii_name = ascii_name.replace(')', '')
+    txt_file_out = open(ascii_name,'w')
+    outline='# cos(inclinations): %1.2f' % m2_bins.lower()[-1], ' ', \
+            '%1.2f' % m2_bins.upper()[-1], '\n'
+    txt_file_out.writelines(outline)
+
+    # Create lists for measured distances and efficiencies for readability.  
+    # with hardcoded 100% efficiency at small distances (makes sigmoids nice).
+    x_measured=[]
+    y_measured=[]
+    for CL, D1D2_by_m2 in zip(CLs, D1D2_by_CL_m2):
+        outline= '%1.2f' %D1D2_by_m2[-1,0], ' ', '%1.2f' %CL, '\n'
+        txt_file_out.writelines(outline)
+        # use last inclination value by default (closest to face-on)
+        x_measured.append(D1D2_by_m2[-1,0])
+        y_measured.append(CL)
+
+    if opts.sigmoids:
+        e1, success = scipy.optimize.leastsq(errfunc, e0[:], args=(x_measured, y_measured))
+        xfit = numpy.linspace(0.5,100.,1000)
+        yfit = fitfunc(e1,xfit)
+    else:
+        xfit = x_measured[::-1]
+        yfit = y_measured[::-1]
+
+    ################################################################################
+    # Get 90% exclusion distance from measured FC values
+    D90 = numpy.asarray(x_measured)[numpy.asarray(y_measured)==0.9]
+    print system +' 90% exclusion @ ' + str(D90[0])
+
+    # store exclusion confidence as function of inclination
+    if system.find('BH')+1:
+        # Get exclusion confidence @ nominal M81 distance by interpolating the sigmoid fit
+        NSBH_cos_jet_semi_angle[BHindx] = m2_bins.lower()[-1]
+        NSBH_M81_exclusion[BHindx] = numpy.interp(opts.distance,xfit,yfit)
+        BHindx+=1
+    else:
+        BNS_cos_jet_semi_angle[NSindx] = m2_bins.lower()[-1]
+        BNS_M81_exclusion[NSindx] = numpy.interp(opts.distance,xfit,yfit)
+        NSindx+=1
+
+    ################################################################################
+    # Plot distance exclusion for this system
+
+    curr_color=colors[systems.index(system)]
+    curr_style=styles[systems.index(system)]
+    curr_marker=markers[systems.index(system)]
+
+    pyplot.figure(0)
+    pyplot.axes([0.15,0.20,0.95-0.13,0.95-0.25])
+
+    # plot /measured/ points.  Only plot the
+    # first types of system (i.e., all inclinations and inclinations <jet angle)
+    if systems.index(system)<4:
+        pyplot.plot(x_measured,y_measured, \
+                    marker=curr_marker, color=curr_color, label=None, linestyle='')
+        pyplot.hold(True)
+
+        # plot sigmoid fit
+        pyplot.plot(xfit, yfit, color=curr_color, label=None, linestyle=curr_style)
+
+        # plot a point out of range for the legend
+        pyplot.plot([-50,-10],[-50,-10], color=curr_color, label=r'\textrm{'+system+'}', \
+                    marker=curr_marker, linestyle=curr_style)
+
+
+################################################################################
+# Plot exclusion confidence as a function of jet opening angle @ M81 
+
+
+pyplot.figure(1)
+pyplot.axes([0.15,0.20,0.95-0.13,0.95-0.25])
+NS_jet_angles = 180/numpy.pi*numpy.arccos(BNS_cos_jet_semi_angle)
+BH_jet_angles = 180/numpy.pi*numpy.arccos(NSBH_cos_jet_semi_angle)
+pyplot.plot(NS_jet_angles,BNS_M81_exclusion,'-v',label=r'\textrm{BNS}')
+pyplot.hold(True)
+pyplot.plot(BH_jet_angles,NSBH_M81_exclusion,'-^',label=r'\textrm{NSBH}')
+pyplot.xlim(0,90)
+pyplot.ylim(0.5,1)
+pyplot.xlabel(r'\textrm{Jet semi-opening angle}')
+pyplot.ylabel(r'\textrm{Exclusion confidence}')
+pyplot.grid(linestyle=':')
+pyplot.legend(loc='lower right')
+pyplot.savefig("jet_exc_" + opts.user_tag + ".png")
+
+
+################################################################################
+# finalise distance exclusion figures
+
+pyplot.figure(0)
+if opts.distance > 0:
+    pyplot.fill([M81_low,M81_upp,M81_upp,M81_low], [0,0,2,2], 'r',\
+                alpha=0.2,label=r'$D_{M81}$')
+    pyplot.xlim(0,30)
+    pyplot.ylim(0.0,1.0)
+
+rc('text', usetex=True)
+pyplot.xlabel(r'\textrm{Distance (Mpc)}')
+pyplot.ylabel(r'\textrm{Exclusion confidence}')
+pyplot.grid(linestyle=':')
+pyplot.legend(loc='upper right')
+
+pyplot.savefig("dist_exc_" + opts.user_tag + ".png")
+#   pyplot.savefig("dist_exc_" + opts.user_tag + ".eps")
+#   pyplot.savefig("dist_exc_" + opts.user_tag + ".pdf")
+
+
+
+
+

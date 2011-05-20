@@ -329,6 +329,7 @@ R_by_L_m2_D = pLD_by_L_m2_D / (pLD_best_by_L_m2[:, :, None] + 1e-10)
 # construct belts
 # NB: assume regions are contiguous; conservatively take outer edges of bins
 CLs = opts.confidence_levels.split(",")
+CLs = [float(CL) for CL in CLs]
 included_by_CL_L_m2_D = numpy.zeros((len(CLs), len(L_bins), len(m2_bins),
                                      len(D_bins)), dtype=bool)
 L1L2_by_CL_m2_D = numpy.zeros((len(CLs), len(m2_bins), len(D_bins), 2),
