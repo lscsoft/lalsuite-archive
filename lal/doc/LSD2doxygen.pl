@@ -469,10 +469,18 @@ sub cleanupLSD {
         $text =~ s!\\begin{thebibliography}{.*}!(MANUAL INTERVENTION begin bibliography)!;
         $text =~ s!\\end{thebibliography}!(MANUAL INTERVENTION end bibliography)!;
 
+        # replace LaTeX's "\_" by "_"
+        $text =~ s!\\_!_!g;
 
         # replace miscellaneous LaTeX commands
         $text =~ s!\\lq!`!g;
         $text =~ s!``|''!"!g;
+
+        # replace \href{} hyperlinks
+        $text =~ s!\\href\s*{(.*)}{(.*)}!<a href="$1">$2</a>!g;
+
+        # replace ".~" by ".\ " which is understood by doxygen
+        $text =~ s!.~!.\\ !g;
 
         # remove any empty LaTeX comments
         $text =~ s!^$n*%$n*$!!mg;

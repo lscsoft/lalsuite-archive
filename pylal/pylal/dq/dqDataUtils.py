@@ -20,10 +20,7 @@ import warnings
 warnings.filterwarnings("ignore")
 from scipy import signal as signal
 
-from matplotlib import use
-use('Agg')
-import pylab
-
+from matplotlib import mlab
 from glue import git_version
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
@@ -321,7 +318,7 @@ def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
 # Function to bandpass a time-series
 # =============================================================================
 
-def bandpass(data, f_low, f_high, sampling, order=4):
+def bandpass( data, f_low, f_high, sampling, order=4 ):
 
   """
     This function will bandpass filter data in the given [f_low,f_high) band
@@ -339,3 +336,36 @@ def bandpass(data, f_low, f_high, sampling, order=4):
   data = data[::-1]
 
   return data
+
+# =============================================================================
+# Calculate spectrum
+# =============================================================================
+
+def spectrum( data, sampling, NFFT=256, overlap=0.5,\
+              window='hanning', detrender=mlab.detrend_linear,\
+              sides='onesided', scale='PSD' ):
+
+  numpoints  = len(data)
+  numoverlap = int( sampling * (1.0 - overlap ))
+
+  if isinstance(window,str):
+    window=window.lower()
+
+  win = signal.get_window(window, NFFT)
+
+  # calculate PSD with given parameters
+  spec,freq = mlab.psd( data, NFFT=NFFT, Fs=sampling, noverlap=numoverlap,\
+                        window=win, sides=sides, detrend=detrender )
+
+  # rescale data to meet user's request
+  scale = scale.lower()
+  if scale == 'asd':
+    spec = numpy.sqrt(spec) * numpy.sqrt(2 / (sampling*sum(win**2)))
+  elif scale == 'psd':
+    spec = spec * 2 / (sampling*sum(win**2))
+  elif scale == 'as':
+    spec = nump.sqrt(spec) * numpy.sqrt(2) / sum(win)
+  elif scale == 'ps':
+    spec = spec * 2 / (sum(win)**2)
+
+  return freq,spec
