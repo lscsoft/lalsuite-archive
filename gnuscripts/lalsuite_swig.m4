@@ -1,7 +1,7 @@
 # SWIG configuration
 # Author: Karl Wette, 2011
 #
-# serial 2
+# serial 3
 
 # SWIG setup and configuration
 AC_DEFUN([LALSUITE_WITH_SWIG],[
@@ -237,6 +237,7 @@ AC_DEFUN([LALSUITE_SWIG_LANG],[
 # SWIG languages
 AC_DEFUN([LALSUITE_SWIG_LANGUAGES],[
   LALSUITE_SWIG_LANG_OCTAVE
+  LALSUITE_SWIG_LANG_PYTHON
 ])
 
 # SWIG octave configuration
@@ -290,6 +291,16 @@ AC_DEFUN([LALSUITE_SWIG_LANG_OCTAVE],[
     ])
     AC_MSG_RESULT([${OCTAVE_OCTFILEDIR}])
     AC_SUBST(OCTAVE_OCTFILEDIR)
+
+  ])
+])
+
+# SWIG python configuration
+AC_DEFUN([LALSUITE_SWIG_LANG_PYTHON],[
+  LALSUITE_SWIG_LANG([python],[
+
+    # check for python
+    AM_PATH_PYTHON([2.4])
 
   ])
 ])
