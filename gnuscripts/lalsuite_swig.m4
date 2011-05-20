@@ -1,7 +1,20 @@
 # SWIG configuration
 # Author: Karl Wette, 2011
 #
-# serial 3
+# serial 4
+
+# basic version string comparison
+# can only handle numeric versions separated by periods
+AC_DEFUN([LALSUITE_VERSION_COMPARE],[
+  vcmp_awkprog='{n = 0; while(++n <= NF) { if($n > 99) printf "ERROR"; printf "%02u", $n; } }'
+  vcmp_v1=[`echo $1 | ${SED} '/[^0-9.]/d' | ${AWK} -F . "${vcmp_awkprog}" | ${SED} '/ERROR/d'`]
+  vcmp_v2=[`echo $2 | ${SED} '/[^0-9.]/d' | ${AWK} -F . "${vcmp_awkprog}" | ${SED} '/ERROR/d'`]
+  AS_IF([test x${vcmp_v1} = x],[AC_MSG_ERROR([could not parse version string '$1'])])
+  AS_IF([test x${vcmp_v2} = x],[AC_MSG_ERROR([could not parse version string '$2'])])
+  AS_IF([test ${vcmp_v1} -lt ${vcmp_v2}],[$3])
+  AS_IF([test ${vcmp_v1} -eq ${vcmp_v2}],[$4])
+  AS_IF([test ${vcmp_v1} -gt ${vcmp_v2}],[$5])
+])
 
 # SWIG setup and configuration
 AC_DEFUN([LALSUITE_WITH_SWIG],[
@@ -17,6 +30,15 @@ AC_DEFUN([LALSUITE_WITH_SWIG],[
 
   # check for sed
   AC_PROG_SED
+
+  # check for awk
+  AC_PROG_AWK
+
+  # check for MKDIR_P
+  m4_ifdef([AC_PROG_MKDIR_P],[],[
+    MKDIR_P='$(INSTALL) -d'
+    AC_SUBST(MKDIR_P)
+  ])
 
   # ./configure command line option
   AC_ARG_WITH(
@@ -65,8 +87,13 @@ AC_DEFUN([LALSUITE_WITH_SWIG],[
   done
 
   # check if any language was found
-  AM_CONDITIONAL(SWIG_BUILD,[test x${swig_any_lang_found} = xyes])
-  AM_COND_IF(SWIG_BUILD,[
+  AS_IF([test x${swig_any_lang_found} = xyes],[
+    swig_build_cond="test 1 == 1"
+  ],[
+    swig_build_cond="test 1 == 0"
+  ])
+  AM_CONDITIONAL(SWIG_BUILD,[${swig_build_cond}])
+  AS_IF([${swig_build_cond}],[
 
     # common SWIG language build makefile
     SWIG_COMMON_MK="${srcdir}/../lal/swig/swig-common.mk"
@@ -184,9 +211,14 @@ AC_DEFUN([LALSUITE_SWIG_USE],[
 AC_DEFUN([LALSUITE_SWIG_LANG],[
 
   # check whether to configure this language
+  AS_IF([test x${swig_lang} = x$1 || test x${swig_lang} = xyes],[
+    swig_build_lang_cond="test 1 == 1"
+  ],[
+    swig_build_lang_cond="test 1 == 0"
+  ])
   m4_pushdef([swigcondname],translit([swig_build_$1],[a-z],[A-Z]))
-  AM_CONDITIONAL(swigcondname,[test x${swig_lang} = x$1 || test x${swig_lang} = xyes])
-  AM_COND_IF(swigcondname,[
+  AM_CONDITIONAL(swigcondname,[${swig_build_lang_cond}])
+  AS_IF([${swig_build_lang_cond}],[
 
     # first-time general configuration
     AS_IF([test "x${swig_any_lang_found}" = x],[
@@ -207,7 +239,7 @@ AC_DEFUN([LALSUITE_SWIG_LANG],[
       AC_MSG_RESULT([${swig_version}])
 
       # check if swig version is newer than required
-      AS_VERSION_COMPARE([${SWIG_MIN_VERSION}],[${swig_version}],[],[],[
+      LALSUITE_VERSION_COMPARE([${SWIG_MIN_VERSION}],[${swig_version}],[],[],[
         AC_MSG_ERROR([require swig version >= ${SWIG_MIN_VERSION}])
       ])
 
@@ -273,7 +305,7 @@ AC_DEFUN([LALSUITE_SWIG_LANG_OCTAVE],[
     AC_MSG_RESULT([${octave_version}])
 
     # check if octave version is newer than required
-    AS_VERSION_COMPARE([${OCTAVE_MIN_VERSION}],[${octave_version}],[],[],[
+    LALSUITE_VERSION_COMPARE([${OCTAVE_MIN_VERSION}],[${octave_version}],[],[],[
       AC_MSG_ERROR([require octave version >= ${OCTAVE_MIN_VERSION}])
     ])
 
