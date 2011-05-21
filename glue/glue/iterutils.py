@@ -330,7 +330,7 @@ def inorder(*iterables, **kwargs):
 	for iterable in iterables:
 		next = iter(iterable).next
 		try:
-			nextvals[next] = (next(), next)
+			nextvals[next] = next(), next
 		except StopIteration:
 			pass
 	if not nextvals:
@@ -346,7 +346,7 @@ def inorder(*iterables, **kwargs):
 			val, next = select(values())
 			yield val
 			try:
-				nextvals[next] = (next(), next)
+				nextvals[next] = next(), next
 			except StopIteration:
 				del nextvals[next]
 				if len(nextvals) < 2:
