@@ -582,7 +582,7 @@ FROM
 					# that it acts as the sort key
 					loudest_missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
 			elif found:
-				# no
+				# no, but it was found anyway
 				print >>sys.stderr, "%s: odd, injection %s was found but not injected ..." % (contents.filename, sim.simulation_id)
 		# this is much faster than appending each element into the
 		# Highest object one-by-one
@@ -880,10 +880,9 @@ if options.detection_threshold is None:
 	exception_queue = queue.Queue()
 	threads = []
 	rate_vs_thresholds = []
-	# can't use more threads than there are files
-	n_threads = min(options.threads, len(noninjection_filenames))
-	# group files into bins of about the same total number of bytes
-	for filenames in pack_files(noninjection_filenames, n_threads, verbose = options.verbose):
+	# group files into bins of about the same total number of bytes.
+	# don't try to create more groups than there are files
+	for filenames in pack_files(noninjection_filenames, min(options.threads, len(noninjection_filenames)), verbose = options.verbose):
 		# create a new book-keeping object
 		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
 		# launch thread
@@ -909,9 +908,19 @@ if options.detection_threshold is None:
 
 	# print summary information, and set detection threshold
 	if options.open_box:
-		print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
+		try:
+			print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
+		except OverflowError:
+			# python < 2.5 can't handle list-like things with more than 2**31 elements
+			# FIXME:  remove when we can rely on python >= 2.5
+			print >>sys.stderr, "Zero-lag events: %d" % rate_vs_threshold.zero_lag.n
 	print >>sys.stderr, "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
-	print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
+	try:
+		print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
+	except OverflowError:
+		# python < 2.5 can't handle list-like things with more than 2**31 elements
+		# FIXME:  remove when we can rely on python >= 2.5
+		print >>sys.stderr, "Time-slide events: %d" % rate_vs_threshold.background.n
 	print >>sys.stderr, "Total time in time-slide segments: %s s" % str(rate_vs_threshold.background_time)
 	if options.open_box:
 		detection_threshold = rate_vs_threshold.zero_lag[-1]
@@ -943,10 +952,9 @@ if options.verbose:
 exception_queue = queue.Queue()
 threads = []
 efficiencies = []
-# can't use more threads than there are files
-n_threads = min(options.threads, len(injection_filenames))
-# group files into bins of about the same total number of bytes
-for filenames in pack_files(injection_filenames, n_threads, verbose = options.verbose):
+# group files into bins of about the same total number of bytes.  don't try
+# to create more groups than there are files
+for filenames in pack_files(injection_filenames, min(options.threads, len(injection_filenames)), verbose = options.verbose):
 	# create new book-keeping object
 	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
 	# launch thread
