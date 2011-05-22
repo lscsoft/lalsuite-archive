@@ -21,11 +21,6 @@
 #ifndef SKYMAP_H
 #define SKYMAP_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -65,7 +60,6 @@ double XLALSkymapInterpolate(double t, double* x);
 
 typedef struct
 {
-    SWIGLAL_STRUCT_LALALLOC();
     int sampleFrequency;
     int n;
     LALDetector site[XLALSKYMAP_N];
@@ -83,7 +77,6 @@ void XLALSkymapPlanConstruct(
 
 typedef struct
 {
-    SWIGLAL_STRUCT_LALALLOC();
     double f[XLALSKYMAP_N][2];
     double delay[XLALSKYMAP_N];
 } XLALSkymapDirectionPropertiesType;
@@ -99,7 +92,6 @@ void XLALSkymapDirectionPropertiesConstruct(
 
 typedef struct
 {
-    SWIGLAL_STRUCT_LALALLOC();
     double k[XLALSKYMAP_N][XLALSKYMAP_N];
     double logNormalization;
 } XLALSkymapKernelType;

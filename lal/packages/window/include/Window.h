@@ -21,11 +21,6 @@
 #ifndef _WINDOW_H
 #define _WINDOW_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
 
 #ifdef  __cplusplus
@@ -37,7 +32,6 @@ NRCSID (WINDOWH, "$Id$");
 
 
 typedef struct tagREAL4Window {
-	SWIGLAL_STRUCT_LALALLOC();
 	REAL4Sequence *data;
 	REAL8          sumofsquares;
 	REAL8          sum;
@@ -45,7 +39,6 @@ typedef struct tagREAL4Window {
 
 
 typedef struct tagREAL8Window {
-	SWIGLAL_STRUCT_LALALLOC();
 	REAL8Sequence *data;
 	REAL8          sumofsquares;
 	REAL8          sum;

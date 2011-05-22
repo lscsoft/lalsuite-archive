@@ -38,11 +38,6 @@ $Id$
 #ifndef _ELLIPSOIDOVERLAPTOOLS_H
 #define _ELLIPSOIDOVERLAPTOOLS_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 
 #include    <math.h>
 #include    <lal/LALStdlib.h>
@@ -65,7 +60,6 @@ NRCSID( ELLIPSOIDOVERLAPTOOLSH, "$Id$" );
 
 typedef struct tagfContactWorkSpace
 {
-    SWIGLAL_STRUCT_LALALLOC();
     /* Dimension of the matrices & vectors */
     UINT4             n;
 

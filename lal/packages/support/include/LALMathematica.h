@@ -148,11 +148,6 @@
 #ifndef _LALMATHEMATICA_H
 #define _LALMATHEMATICA_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 
 #include <math.h>
 #include <stdio.h>
@@ -200,7 +195,6 @@ NRCSID (LALMATHEMATICAH, "$Id$");
 
 /* <lalVerbatim file="LALMathematicaHT"> */
 typedef struct Math3DPointList{
-  SWIGLAL_STRUCT_LALALLOC();
   struct Math3DPointList *next;
   REAL4 x;
   REAL4 y;
@@ -209,7 +203,6 @@ typedef struct Math3DPointList{
   }Math3DPointList;
 
 typedef struct MathNDPointList{
-  SWIGLAL_STRUCT_LALALLOC();
   struct MathNDPointList *next;
   REAL4Vector *coordinates;
   INT4 dimension;

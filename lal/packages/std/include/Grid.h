@@ -39,11 +39,6 @@ space.
 #ifndef _GRID_H
 #define _GRID_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 
 #ifdef __cplusplus
@@ -115,7 +110,6 @@ element at each grid point), arranged in the manner discussed in
 */
 
 typedef struct tagINT2Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -125,7 +119,6 @@ typedef struct tagINT2Grid {
 } INT2Grid;
 
 typedef struct tagINT4Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -135,7 +128,6 @@ typedef struct tagINT4Grid {
 } INT4Grid;
 
 typedef struct tagINT8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -145,7 +137,6 @@ typedef struct tagINT8Grid {
 } INT8Grid;
 
 typedef struct tagUINT2Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -155,7 +146,6 @@ typedef struct tagUINT2Grid {
 } UINT2Grid;
 
 typedef struct tagUINT4Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -165,7 +155,6 @@ typedef struct tagUINT4Grid {
 } UINT4Grid;
 
 typedef struct tagUINT8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -175,7 +164,6 @@ typedef struct tagUINT8Grid {
 } UINT8Grid;
 
 typedef struct tagREAL4Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -185,7 +173,6 @@ typedef struct tagREAL4Grid {
 } REAL4Grid;
 
 typedef struct tagREAL8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -195,7 +182,6 @@ typedef struct tagREAL8Grid {
 } REAL8Grid;
 
 typedef struct tagCOMPLEX8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -205,7 +191,6 @@ typedef struct tagCOMPLEX8Grid {
 } COMPLEX8Grid;
 
 typedef struct tagCOMPLEX16Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;

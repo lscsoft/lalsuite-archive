@@ -27,11 +27,6 @@
 #ifndef _LALXMLVOTABLECOMMON_H
 #define _LALXMLVOTABLECOMMON_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 /* C++ protection */
 #ifdef __cplusplus
 extern "C" {
@@ -138,7 +133,6 @@ typedef enum {
  *
  */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   xmlChar *name;		/**< name attribute [required] */
   VOTABLE_DATATYPE datatype;	/**< datatype attribute [required] */
   xmlChar *unit;		/**< unit attribute [optional] */
@@ -148,7 +142,6 @@ typedef struct {
 /** A standard vector of VOTFields
  */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 length;		/**< number of VOTFields */
   VOTField *data;	/**< array of VOTFields */
 } VOTFieldVector;

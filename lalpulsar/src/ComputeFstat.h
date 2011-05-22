@@ -36,11 +36,6 @@
 #ifndef _COMPUTEFSTAT_H  /* Double-include protection. */
 #define _COMPUTEFSTAT_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 /* C++ protection. */
 #ifdef  __cplusplus
 extern "C" {
@@ -83,7 +78,6 @@ NRCSID( COMPUTEFSTATH, "$Id$" );
  * We also store the SSB reference-time tau0.
  */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   LIGOTimeGPS refTime;
   REAL8Vector *DeltaT;		/**< Time-difference of SFT-alpha - tau0 in SSB-frame */
   REAL8Vector *Tdot;		/**< dT/dt : time-derivative of SSB-time wrt local time for SFT-alpha */
@@ -91,14 +85,12 @@ typedef struct {
 
 /** Multi-IFO container for SSB timings */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 length;		/**< number of IFOs */
   SSBtimes **data;	/**< array of SSBtimes (pointers) */
 } MultiSSBtimes;
 
 /** one F-statistic 'atom', ie the elementary per-SFT quantities required to compute F, for one detector X */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 timestamp;		/**< SFT GPS timestamp t_i in seconds */
   REAL8 a2_alpha;		/**< antenna-pattern factor a^2(X,t_i) */
   REAL8 b2_alpha;		/**< antenna-pattern factor b^2(X,t_i) */
@@ -109,7 +101,6 @@ typedef struct {
 
 /** vector of F-statistic 'atoms', ie all per-SFT quantities required to compute F, for one detector X */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 length;			/**< number of per-SFT 'atoms' */
   FstatAtom *data;		/** FstatAtoms array of given length */
   UINT4 TAtom;			/**< time-baseline of F-stat atoms (typically Tsft) */
@@ -117,7 +108,6 @@ typedef struct {
 
 /** multi-detector version of FstatAtoms type */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 length;			/**< number of detectors */
   FstatAtomVector **data;	/**< array of FstatAtom (pointers), one for each detector X */
 } MultiFstatAtomVector;
@@ -125,7 +115,6 @@ typedef struct {
 
 /** Type containing F-statistic proper plus the two complex amplitudes Fa and Fb (for ML-estimators) */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 F;				/**< F-statistic value */
   COMPLEX16 Fa;				/**< complex amplitude Fa */
   COMPLEX16 Fb;				/**< complex amplitude Fb */
@@ -144,7 +133,6 @@ typedef struct tag_ComputeFBuffer_RS ComputeFBuffer_RS;
 
 /** Extra parameters controlling the actual computation of F */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 Dterms;		/**< how many terms to keep in the Dirichlet kernel (~16 is usually fine) */
   REAL8 upsampling;	/**< frequency-upsampling applied to SFTs ==> dFreq != 1/Tsft ... */
   SSBprecision SSBprec; /**< whether to use full relativist SSB-timing, or just simple Newtonian */
@@ -161,7 +149,6 @@ typedef struct {
  * For the first call of ComputeFStat() the pointer-entries should all be NULL.
  */
 typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
   const MultiDetectorStateSeries *multiDetStates;/**< buffer for each detStates (store pointer) and skypos */
   REAL8 Alpha, Delta;				/**< skyposition of candidate */
   MultiSSBtimes *multiSSB;
@@ -183,7 +170,7 @@ extern const ComputeFBuffer empty_ComputeFBuffer;
 int
 XLALComputeFaFb ( Fcomponents *FaFb,
 		  const SFTVector *sfts,
-		  constPulsarSpins fkdot,
+		  const PulsarSpins fkdot,
 		  const SSBtimes *tSSB,
 		  const AMCoeffs *amcoe,
 		  const ComputeFParams *params);
@@ -191,14 +178,14 @@ XLALComputeFaFb ( Fcomponents *FaFb,
 int
 XLALComputeFaFbXavie ( Fcomponents *FaFb,
 		       const SFTVector *sfts,
-		       constPulsarSpins fkdot,
+		       const PulsarSpins fkdot,
 		       const SSBtimes *tSSB,
 		       const AMCoeffs *amcoe,
 		       const ComputeFParams *params);
 int
 XLALComputeFaFbCmplx ( Fcomponents *FaFb,
 		       const SFTVector *sfts,
-		       constPulsarSpins fkdot,
+		       const PulsarSpins fkdot,
 		       const SSBtimes *tSSB,
 		       const CmplxAMCoeffs *amcoe,
 		       const ComputeFParams *params);
@@ -262,7 +249,7 @@ LALEstimatePulsarAmplitudeParams (LALStatus * status,
 FstatAtomVector * XLALCreateFstatAtomVector ( UINT4 num );
 
 int XLALAmplitudeParams2Vect ( PulsarAmplitudeVect A_Mu, const PulsarAmplitudeParams Amp );
-int XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp, constPulsarAmplitudeVect A_Mu );
+int XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp, const PulsarAmplitudeVect A_Mu );
 
 /* destructors */
 void XLALDestroyMultiSSBtimes ( MultiSSBtimes *multiSSB );
