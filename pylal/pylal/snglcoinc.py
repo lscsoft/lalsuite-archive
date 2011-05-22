@@ -1018,6 +1018,8 @@ class TOATriangulator(object):
 		This creates a TOATriangulator instance configured for the
 		LIGO Hanford, LIGO Livingston and Virgo antennas with 5 ms
 		time-of-arrival uncertainties at each location.
+
+		Note:  rs and sigmas may be iterated over multiple times.
 		"""
 		assert len(rs) == len(sigmas)
 		assert len(rs) >= 3
