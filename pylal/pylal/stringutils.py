@@ -59,7 +59,7 @@ __date__ = git_version.date
 #
 
 
-instrument_to_factor = dict((instrument, 2**n) for n, instrument in enumerate(("G1", "H1", "H2", "H1+H2", "H1-H2", "L1", "V1")))
+instrument_to_factor = dict((instrument, int(2**n)) for n, instrument in enumerate(("G1", "H1", "H2", "H+", "H-", "L1", "V1")))
 
 
 #
