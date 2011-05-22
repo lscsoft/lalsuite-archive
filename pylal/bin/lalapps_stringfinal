@@ -101,7 +101,7 @@ def parse_command_line():
 	)
 	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).  This option is required, use 0 to disable calibration uncertainty.")
 	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves (default = 16.7).")
-	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
+	parser.add_option("-c", "--input-cache", metavar = "filename", action = "append", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.  This option can be given multiple times.")
 	parser.add_option("--import-dump", metavar = "filename", action = "append", help = "Import additional rate vs. threshold or efficiency data from this dump file.  Dump files are one of the data products produced by this program.  Whether the file provides rate vs. threshold data or efficiency data will be determined automatically.  This option can be given multiple times")
 	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions (default = \"png,pdf\").")
 	parser.add_option("-p", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
@@ -121,7 +121,7 @@ def parse_command_line():
 	options.image_formats = options.image_formats.split(",")
 
 	if options.input_cache:
-		filenames += [CacheEntry(line).path() for line in file(options.input_cache)]
+		filenames += [CacheEntry(line).path() for input_cache in options.input_cache for line in file(input_cache)]
 
 	if options.threads < 1:
 		raise ValueError, "--threads must be >= 1"
