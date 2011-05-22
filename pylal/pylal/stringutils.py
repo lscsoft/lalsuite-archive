@@ -195,20 +195,20 @@ class DistributionsStats(object):
 	def __init__(self):
 		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
 
-	def add_noninjections(self, param_func, database, vetoseglists):
+	def add_noninjections(self, param_func, database):
 		# iterate over burst<-->burst coincs
 		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(database):
-			events = [event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]]
+			events = [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]]
 			if is_background:
 				self.distributions.add_background(param_func(events, offsetvector))
 			else:
 				self.distributions.add_zero_lag(param_func(events, offsetvector))
 
-	def add_injections(self, param_func, database, vetoseglists, weight_func = lambda sim: 1.0):
+	def add_injections(self, param_func, database, weight_func = lambda sim: 1.0):
 		# iterate over burst<-->burst coincs matching injections
 		# "exactly"
 		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(database):
-			events = [event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]]
+			events = [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]]
 			self.distributions.add_injection(param_func(events, offsetvector), weight = weight_func(sim))
 
 	def finish(self):
