@@ -36,6 +36,7 @@ from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
 from pylal import rate
+from pylal import snglcoinc
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -50,6 +51,39 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
+
+
+#
+# Make a look-up table of time-of-arrival triangulators
+#
+
+
+def triangulators(timing_uncertainties):
+	"""
+	Return a dictionary of snglcoinc.TOATriangulator objects
+	initialized for a variety of instrument combinations.
+	timing_uncertainties is a dictionary of instrument->\Delta t pairs.
+	The return value is a dictionary of (instrument
+	tuple)->TOATrangulator mappings.  The instrument names in each
+	tuple are sorted in alphabetical order, and the triangulators are
+	constructed with the instruments in that order (the the
+	documentation for snglcoinc.TOATriangulator for more information).
+
+	Example:
+
+	>>> x = triangulators({"H1": 0.005, "L1": 0.005, "V1": 0.005})
+
+	constructs a dictionary of triangulators for every combination of
+	two or more instruments that can be constructed from those three.
+	"""
+	allinstruments = sorted(timing_uncertainties.keys())
+
+	triangulators = {}
+	for n in range(3, len(allinstruments) + 1):
+		for instruments in iterutils.choices(allinstruments, n):
+			triangulators[instruments] = snglcoinc.TOATriangulator([inject.cached_detector[inject.prefix_to_name[instrument]].location for instrument in instruments], [timing_uncertainties[instrument] for instrument in instruments])
+
+	return triangulators
 
 
 #
