@@ -112,7 +112,7 @@ LALInspiralPPE (
 		     = amp0 * pow(-dEnergybyFlux(v), 0.5) * v;
 	      */
 	      amp = amp0 * pow(-func.dEnergy(v,&ak)/func.flux(v,&ak),0.5L) * v;
-          amp *= (1.0+PPEpar->alphaPPE*pow(v*v*v,PPEpar->aPPE));
+          amp *= (1.0+PPEpar->alphaPPE*pow(v,PPEpar->aPPE));
 	      signalvec->data[i] = (REAL4) (amp * cos(psi));
 	      signalvec->data[n-i] = (REAL4) (-amp * sin(psi));
 //          fprintf(model_output,"%e\t %e\t %e\t %e\n",i*df,signalvec->data[i],signalvec->data[n-i],psif);  
@@ -182,7 +182,7 @@ void LALInspiralPPEPhasing(
             case LAL_PNORDER_HALF:
                 psif_loc += phaseParams[1]/(f*x);
             case LAL_PNORDER_NEWTONIAN:
-                psif_loc += phaseParams[0]/(f*x*x)+PPEpar->betaPPE*pow(pimtot,PPEpar->bPPE);
+                psif_loc += phaseParams[0]/(f*x*x)+PPEpar->betaPPE*pow(x,PPEpar->bPPE);
                 break;
             default:
                 printf("INVALID PN ORDER!");
