@@ -284,3 +284,33 @@ def append_process_params( xmldoc, args, version, date ):
   ligolw_process.append_process_params(xmldoc,process,params)
 
   return xmldoc
+
+def identify_bad_injections(log_dir):
+
+  files = glob.glob(os.path.join(log_dir,"*err"))
+
+  badInjs = []
+
+  for file in files:
+    if os.stat(file)[6] != 0:
+      fp = open(file,"r")
+      conts = fp.read()
+      if conts.find('terminated') != -1:
+        conts=conts.split('\n')
+        for line in conts:
+          line = line.split(' ')
+          line = [entry.replace(',','') for entry in line if entry]
+          if 'terminated' in line:
+            injDict = {}
+            injDict['mass1'] = float(line[6])
+            injDict['mass2'] = float(line[8])
+            injDict['spin1x'] = float(line[10])
+            injDict['spin1y'] = float(line[12])
+            injDict['spin1z'] = float(line[14])
+            injDict['spin2x'] = float(line[16])
+            injDict['spin2y'] = float(line[18])
+            injDict['spin2z'] = float(line[20])
+            if not injDict in badInjs:
+              badInjs.append(injDict)
+
+  return badInjs
