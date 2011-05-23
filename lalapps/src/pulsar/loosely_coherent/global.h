@@ -21,7 +21,7 @@
 #define __GLOBAL_H__
 
 /* These affect compilation of entire program. 
-   Their are #define's not variables for efficiency */
+   They are #define's not variables for efficiency */
 
 #define WEIGHTED_SUM
 
