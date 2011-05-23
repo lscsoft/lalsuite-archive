@@ -121,6 +121,8 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 
 REAL8 NestPriorMassiveGraviton(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
+REAL8 NestPriorPPE(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+
 REAL8 NestPriorPhenSpin(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
@@ -155,6 +157,8 @@ void TaylorT_template(LALStatus *status,InspiralTemplate *template, LALMCMCParam
 void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 
 void MassiveGraviton_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
+
+void PPE_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 
 void PhenSpinTaylorRD_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 

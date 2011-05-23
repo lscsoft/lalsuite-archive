@@ -30,6 +30,7 @@ lalinspiralinclude_HEADERS = \
 	LALInspiralRandomBank.h \
 	LALInspiralStationaryPhaseApprox2Test.h\
 	LALInspiralMassiveGraviton.h \
+	LALInspiralPPE.h \
 	LALInspiralVCSInfo.h \
 	LALNoiseModelsInspiral.h \
 	LALSBBH-Metric.h \
@@ -146,6 +147,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralPhasing3.c \
 	LALInspiralPhiofVIntegrand.c \
 	LALInspiralPolarizations.c \
+	LALInspiralPPE.c \
 	LALInspiralRingdownWave.c \
 	LALInspiralSetParams.c \
 	LALInspiralSetSearchLimits.c \
