@@ -476,6 +476,7 @@ typedef enum {
    IMRPhenomB,
    IMRPhenomFA,
    IMRPhenomFB,
+   PPE,
    TaylorEt,
    TaylorT4,
    TaylorN,

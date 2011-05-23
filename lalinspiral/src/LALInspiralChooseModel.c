@@ -507,6 +507,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -553,6 +554,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -597,6 +599,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -644,6 +647,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -695,6 +699,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -747,6 +752,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -799,6 +805,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -856,6 +863,7 @@ LALInspiralChooseModel(
          case TaylorF1:
          case TaylorF2:
          case TaylorF2Test:
+         case PPE:
          case MassiveGraviton:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -888,6 +896,7 @@ LALInspiralChooseModel(
    case PadeF1:
    case TaylorF2:
    case TaylorF2Test:   
+   case PPE:
    case MassiveGraviton:
    case SpinTaylorT3:
    case SpinTaylor:

@@ -57,6 +57,7 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 #include <lal/GeneratePPNAmpCorConsistency.h>
 #include <lal/LALInspiralStationaryPhaseApprox2Test.h>
 #include <lal/LALInspiralMassiveGraviton.h>
+#include <lal/LALInspiralPPE.h>
 
 #include "LALInspiralMCMCUser.h"
 #include <fftw3.h>
@@ -450,6 +451,48 @@ REAL8 NestPriorMassiveGraviton(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
     //parameter->logPrior+=XLALMCMCGetParameter(parameter,"loglambdaG");
+	/*	parameter->logPrior+=logJacobianMcEta(mc,eta);*/
+	ParamInRange(parameter);
+	if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) parameter->logPrior=-DBL_MAX;
+	if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;
+	return parameter->logPrior;
+}
+
+/* prior for the PPE waveform */
+REAL8 NestPriorPPE(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
+{
+	REAL8 m1,m2;
+	parameter->logPrior=0.0;
+	REAL8 mc,eta;
+	REAL8 minCompMass = 1.0;
+	REAL8 maxCompMass = 34.0;
+#define MAX_MTOT 35.0
+	/* copied from alex's function */
+/*	logdl=2.0*XLALMCMCGetParameter(parameter,"distMpc");
+	parameter->logPrior+=2.0*logdl;
+	m1=XLALMCMCGetParameter(parameter,"mass1");
+	m2=XLALMCMCGetParameter(parameter,"mass2");
+	ampli = log(sqrt(m1*m2)/(logdl*pow(m1+m2,1.0/6.0)));
+    parameter->logPrior+= -log( 1.0+exp((ampli-a)/b) );
+*/
+/* Check in range */
+	if(XLALMCMCCheckParameter(parameter,"logM")) mc=exp(XLALMCMCGetParameter(parameter,"logM"));
+	else mc=XLALMCMCGetParameter(parameter,"mchirp");
+	double logmc=log(mc);
+	eta=XLALMCMCGetParameter(parameter,"eta");
+	m1 = mc2mass1(mc,eta);
+	m2 = mc2mass2(mc,eta);
+	/* This term is the sqrt of m-m term in F.I.M, ignoring dependency on f and eta */
+	parameter->logPrior+=-(5.0/6.0)*logmc;
+	if(XLALMCMCCheckParameter(parameter,"logdist"))
+		parameter->logPrior+=3.0*XLALMCMCGetParameter(parameter,"logdist");
+	else
+		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
+	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
+	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
+
 	/*	parameter->logPrior+=logJacobianMcEta(mc,eta);*/
 	ParamInRange(parameter);
 	if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) parameter->logPrior=-DBL_MAX;
@@ -1124,6 +1167,7 @@ in the frequency domain */
 		case TaylorF2 : TaylorF2_template(&status,&template,parameter,inputMCMC); break;
         /* ADD EXTRA CASE FOR TAYLORF2TEST, BUT SINCE LALINSPIRAL ACCOMODATES FOR TAYLORF2TEST, THIS ALSO CALLS THE TAYLORF2_TEMPLATE */
 		case TaylorF2Test : TaylorF2_template(&status,&template,parameter,inputMCMC); break;
+        case PPE: PPE_template(&status,&template,parameter,inputMCMC); break;
 		case TaylorT3 :
 		case TaylorT2 :
         case TaylorT4 : TaylorT_template(&status,&template,parameter,inputMCMC); break;
@@ -2212,6 +2256,41 @@ void MassiveGraviton_template(LALStatus *status,InspiralTemplate *template, LALM
 	LALInspiralRestrictedAmplitude(status,template);
     template->loglambdaG=XLALMCMCGetParameter(parameter,"loglambdaG");
     LALInspiralMassiveGraviton(status, model, template);
+
+/*	
+	FILE* model_output;
+	model_output=fopen("output_TF2.dat","w");
+
+	fprintf(model_output,"Sampling frequency: %lf\n",template->tSampling);
+
+	fprintf(model_output,"Mass 1: %lf\n",template->mass1);
+	fprintf(model_output,"Mass 2: %lf\n",template->mass2);
+
+	for(i=0;i<model->length;i++) {
+		fprintf(model_output,"%g\t %g\n",i*inputMCMC->deltaF,model->data[i]);
+	}
+	fclose(model_output);
+
+	exit(0);*/
+        //REPORTSTATUS(status);
+
+	return;
+
+}
+
+void PPE_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
+
+    //(void)parameter;
+    (void)inputMCMC;
+    PPEparams *PPEPar;
+    memset(PPEPar,0,sizeof(PPEparams));
+	LALInspiralParameterCalc(status,template);
+	LALInspiralRestrictedAmplitude(status,template);
+    PPEPar->aPPE=XLALMCMCGetParameter(parameter,"aPPE");
+    PPEPar->alphaPPE=XLALMCMCGetParameter(parameter,"alphaPPE");
+    PPEPar->bPPE=XLALMCMCGetParameter(parameter,"bPPE");
+    PPEPar->betaPPE=XLALMCMCGetParameter(parameter,"betaPPE");
+    LALInspiralPPE(status, model, template, PPEPar);
 
 /*	
 	FILE* model_output;

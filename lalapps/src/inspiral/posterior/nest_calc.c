@@ -94,7 +94,7 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 		
 	if(XLALMCMCCheckParameter(injected,"logM")) mc=exp(XLALMCMCGetParameter(injected,"logM"));
 	else mc=XLALMCMCGetParameter(injected,"mchirp");
-	double logmc=log(mc);
+	//double logmc=log(mc);
 	eta=XLALMCMCGetParameter(injected,"eta");
 	m1 = mc2mass1(mc,eta);
 	m2 = mc2mass2(mc,eta);	
