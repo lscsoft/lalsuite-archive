@@ -1,4 +1,4 @@
-import os,sys,numpy
+import os,sys,numpy,glob
 
 from pylal import grbsummary,antenna,llwapp
 from glue import segmentsUtils
