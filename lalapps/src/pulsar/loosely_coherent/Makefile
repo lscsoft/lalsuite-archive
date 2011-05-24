@@ -1,5 +1,5 @@
 PACKAGE=\"loosely_coherently_coherent\"
-VERSION=0.0.2-64
+VERSION=0.20.0-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
@@ -12,13 +12,13 @@ OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
 OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
-OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
+OPTFLAGS=-O6 -mtune=core2 -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC
 CC=gcc $(CFLAGS)
 
 COMMON_OBJS=cmdline.o rastermagic.o lines.o polarization.o \
-	png.o intervals.o dataset.o skymarks.o hookup.o statistics.o grid.o
+	png.o intervals.o dataset.o skymarks.o hookup.o statistics.o grid.o bessel.o context.o fft_stats.o
 
 OBJS=$(COMMON_OBJS) loosely_coherent1.o
 
@@ -95,6 +95,25 @@ test3e: loosely_coherent1
 	./loosely_coherent1 --config=config.3e
 	head 1626-406.500000/data.log
 
+test3j: loosely_coherent1
+	./loosely_coherent1 --config=config.3j
+	head 1626-406.500000/data.log
+
+test3jmt: loosely_coherent1-mt
+	./loosely_coherent1-mt --config=config.3j
+	head 1626-406.500000/data.log
+
+test_make_dst: loosely_coherent1
+	./loosely_coherent1 --config=config.make_dst
+	head 1626-406.500000/data.log
+
+test2cl3e: loosely_coherent2cl
+	./loosely_coherent2cl --config=config.3e
+	head 1626-406.500000/data.log
+
+test2cl3j: loosely_coherent2cl
+	./loosely_coherent2cl --config=config.3j
+	head 1626-406.500000/data.log
 
 dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
 	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
@@ -117,6 +136,13 @@ loosely_coherent1-condor: $(OBJS) jobs.o util-condor.o
 	 condor_compile $(CC) $(OBJS) jobs.o util-condor.o -o loosely_coherent1-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l loosely_coherent1-condor
 
+loosely_coherent2cl: $(OBJS) jobs.o util.o ocl1.o loosely_coherent2cl.o
+	$(CC) $(COMMON_OBJS) loosely_coherent2cl.o jobs.o util.o ocl1.o -lOpenCL -o loosely_coherent2cl  $(LDFLAGS) -lgsl -lgslcblas -lm
+	ls -l loosely_coherent2cl
+
+ocl1.o: ocl1.c ocl1.h
+	$(CC) $(CFLAGS) -I/usr/local/cuda/include -c ocl1.c
+
 jobs-mt.o: jobs.c jobs.h
 	$(CC) $(CFLAGS) -DLINUX_THREADS -c jobs.c -o jobs-mt.o
 
@@ -137,11 +163,9 @@ upload: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-mt hydra.phys.uwm.edu:PowerFlux/loosely_coherent1-mt.$(VERSION)
 	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
-upload.a: loosely_coherent1-condor loosely_coherent1-mt loosely_coherent1-condor2 loosely_coherent1-mt2
+upload.a: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-mt.$(VERSION)
-	gsiscp -C loosely_coherent1-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-condor2.$(VERSION)
-	gsiscp -C loosely_coherent1-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-mt2.$(VERSION)
 	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: loosely_coherent1-condor loosely_coherent1-mt
@@ -157,11 +181,9 @@ upload.l: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
-upload.c: loosely_coherent1-condor loosely_coherent1-mt loosely_coherent1-condor2 loosely_coherent1-mt2
+upload.c: loosely_coherent1-condor loosely_coherent1-mt 
 	gsiscp -C loosely_coherent1-condor ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-mt.$(VERSION)
-	gsiscp -C loosely_coherent1-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-condor2.$(VERSION)
-	gsiscp -C loosely_coherent1-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/loosely_coherent1-mt2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.m: loosely_coherent1-condor loosely_coherent1-mt

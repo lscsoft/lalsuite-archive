@@ -5,6 +5,7 @@ import pickle, glob
 import subprocess, commands
 import ConfigParser, optparse
 import itertools
+import urllib
 from datetime import datetime
 
 import numpy as np
@@ -547,29 +548,28 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
         
         # loop over all the CATs
         vetoed_ifos = set()
+        vetoed_cats = set()
         for cat in list_cat:
 
             # create the filename
             xmlsegfile = "%s/%s-VETOTIME_CAT%d%s.xml" % \
                             (path, ifo, cat, tag)
             vetolist = read_xmlsegfile(xmlsegfile)
-   
+            vetolist.coalesce()
+
             # check for overlaps, and give detailed list of veto details
             list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
             for name, segstart, segend in list_overlaps:
               pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%(ifo, segstart, segend, cat, name), tag[4:])
             if vetolist.intersects_segment(segments.segment(timerange)):
                 vetoed_ifos.add(ifo)
+                vetoed_cats.add(cat)
 
         # Check if the detector is being vetoed
         if len(vetoed_ifos)==0:
               clear_ifos.append(ifo)
         else:
-              # a little bit of nice grammar
-              if len(vetoed_ifos)==1:
-                pas.info("IFO %s has been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
-              else:
-                pas.info("IFOs %s have been vetoed by veto CAT: %d" % (list(vetoed_ifos), cat), tag[4:])
+            pas.info("IFO(s) %s vetoed by CAT(s): %s" % (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
                 
 
     return clear_ifos
@@ -606,7 +606,7 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
         # check if there are CAT1 segments to take into account
         # i.e. take them out before checking available data
         if segs1:
-          segdict[ifo] -= segs1[ifo]
+          segdict[ifo] -= segs1[ifo].coalesce()
           if abs(segs1[ifo])>0:
             print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
                    (ifo, segs1[ifo])
@@ -724,8 +724,8 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
     # update the veto list if required or if files are missing
     if not useold or not avail:
-      veto_definer_file = os.path.join(pas.cvs, \
-                        pas.cp.get('exttrig','cvs_veto_definer'))
+      veto_definer_file_url = pas.cp.get('exttrig','cvs_veto_definer')
+      veto_definer_file,headers = urllib.urlretrieve(veto_definer_file_url,os.path.basename(veto_definer_file_url))
       update_veto_lists(veto_definer_file, [starttime, endtime], \
                             tag = tag, path = path)
 
@@ -735,6 +735,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
     for ifo in basic_ifolist:
       xmlsegfile = "%s/%s-VETOTIME_CAT1_%s.xml" % (path, ifo,tag)
       segsdict[ifo] = read_xmlsegfile(xmlsegfile)
+      segsdict[ifo].coalesce()
 
     # do the segment check again, including the CAT1 segs
     outname = 'plot_segments_%s.png' % tag
@@ -753,8 +754,56 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   else:
     return ifolist, onsource, offsource, trend_ifos
 
+
+
 # -----------------------------------------------------
 def read_adjusted_onsource(filename):
+  """
+  Reads the adjusted onsource times for GRBs inspected manually.
+  Uses the simple file format
+  """
+
+  grbs = {}
+  refdict = {}
+  # loop over the lines of the file
+  for linex in file(filename):
+
+    # take out the \n and split up the line
+    line = linex.replace('\n','')
+    w = line.split()
+
+    # reject any inline comments or empty lines
+    if len(linex)<3 or linex[0]=='#':
+
+      # fill the reference dict if this happens to be a reference entry
+      if 'REF' in linex:
+        refdict[int(w[2])] = w[3]
+      continue
+
+    # read the information
+    name = w[0]
+    try:
+      start = int(w[1])
+      end = int(w[2])
+      used = True
+    except:
+      used = False
+
+    comment = " ".join(w[3:])
+
+    if used:
+        grbs[name] = {'onsource':[start, end], 'used':used,\
+                          'comment':comment}
+    else:
+        grbs[name] = {'onsource':None, 'used':used, 'comment':comment}
+
+  # return the list of checks and the reference dict
+  return grbs, refdict
+
+
+
+# -----------------------------------------------------
+def read_adjusted_onsource_long(filename):
   """
   Reads the adjusted onsource times for GRBs inspected manually.
   Uses the Jordi-type of file

@@ -201,9 +201,9 @@ for n, filename in enumerate(filenames):
 	#
 
 	if contents.sim_burst_table is None:
-		stats.add_noninjections(stringutils.coinc_params_func, contents, contents.vetoseglists)
+		stats.add_noninjections(stringutils.coinc_params_func, contents)
 	else:
-		stats.add_injections(stringutils.coinc_params_func, contents, contents.vetoseglists, weight_func = get_injection_weight_func(contents, options.injection_reweight))
+		stats.add_injections(stringutils.coinc_params_func, contents, weight_func = get_injection_weight_func(contents, options.injection_reweight))
 
 	#
 	# Clean up.

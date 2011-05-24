@@ -135,7 +135,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
-		except:
+		except Exception, e:
 			if verbose:
 				print >>sys.stderr, "cannot truncate '%s': %s" % (filename, str(e))
 			return

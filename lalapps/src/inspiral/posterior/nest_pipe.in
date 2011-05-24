@@ -68,7 +68,7 @@ cp.readfp(open(opts.ini_file))
 
 ifos=eval(cp.get('analysis','ifos'))
 
-## This function is used to put the ifos.keys() in the same order than in the ifos section in the parser, while passing them to the inspnest nodes
+## This function is used to put the ifos.keys() in the same order than in the ifos section in the parser, whist passing them to the inspnest nodes
 def sort_ifo(a,b):
     global ifos
     if ifos.index(a)<ifos.index(b):
@@ -78,9 +78,7 @@ def sort_ifo(a,b):
     else: 
         return 0
 
-
 print 'Setting up pipeline with ifos '+' '.join(map(str,ifos))
-
 IFOs=''.join(map(str,ifos))
 
 def checkDir(dir):
@@ -390,8 +388,11 @@ nest_path=os.path.join(opts.run_path,'nest')
 checkDir(nest_path)
 
 combine_dir=os.path.join(opts.run_path,'combine')
+# Make jobs write SNR files to the appropriate place
 snr_dir=os.path.join(opts.run_path,'SNR')
 checkDir(snr_dir)
+inspnest_job.add_opt('snrpath',snr_dir)
+
 time_combine_sub_file=os.path.join(opts.run_path,'combine_each_time.sub')
 combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.log_path)
 combine_each_time_nodes={}
@@ -650,7 +651,6 @@ if opts.enable_pages_alltimes is True:
         results_page_node.add_parent(combine_each_time_nodes[time])
         results_page_node.add_var_opt('bsn',bayesfiles_by_time[time])
         results_page_node.add_var_arg('--snr '+snrs_by_time[time])
-
 	dag.add_node(results_page_node)
 
         if opts.coherence_test and (time in coherence_inspnest_nodes.keys()):
