@@ -1946,10 +1946,10 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 	
 	LALMCMCParam *head;
 	
-	if(checkParamInList(pinned_params,"logM")||checkParamInList(pinned_params,"mchirp"))
-		XLALMCMCAddParam(parameter,"logM",log(injTable->mchirp),lmmin,lmmax,-1);
+	if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+		XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lmmin,lmmax,-1);
 	else
-		XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+		XLALMCMCAddParam(parameter,"logmc",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
 	/*XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
     
 	if(checkParamInList(pinned_params,"eta"))
@@ -2079,10 +2079,10 @@ void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT)
 	
 	LALMCMCParam *head;
 	
-	if(checkParamInList(pinned_params,"logM")||checkParamInList(pinned_params,"mchirp"))
-		XLALMCMCAddParam(parameter,"logM",log(injTable->mchirp),lmmin,lmmax,-1);
+	if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+		XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lmmin,lmmax,-1);
 	else
-		XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+		XLALMCMCAddParam(parameter,"logmc",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
 	/*XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
     
 	if(checkParamInList(pinned_params,"eta"))
@@ -2165,10 +2165,10 @@ void NestInitPPE(LALMCMCParameter *parameter, void *iT) {
 	
 	LALMCMCParam *head;
 	
-	if(checkParamInList(pinned_params,"logM")||checkParamInList(pinned_params,"mchirp"))
-		XLALMCMCAddParam(parameter,"logM",log(injTable->mchirp),lmmin,lmmax,-1);
+	if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+		XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lmmin,lmmax,-1);
 	else
-		XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+		XLALMCMCAddParam(parameter,"logmc",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
 	/*XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
     
 	if(checkParamInList(pinned_params,"eta"))
@@ -2252,7 +2252,7 @@ int checkParamInList(const char *list, const char *param)
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
 {   CHAR pinned_params_temp[100]="";
     int pin_was_null=1;
-    char full_list[]="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG";
+    char full_list[]="logM,mchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG";
     if (pinned_params!=NULL){
         pin_was_null=0;
         strcpy(pinned_params_temp,pinned_params);
