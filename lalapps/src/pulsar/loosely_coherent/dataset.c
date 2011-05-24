@@ -736,8 +736,11 @@ d->earth_state=do_alloc(d->free, sizeof(EarthState));
 
 fprintf(stderr, "Computing Earth state\n");
 for(i=0;i<d->free;i++) {
-	tGPS.gpsSeconds=round(d->gps[i]+d->coherence_time*0.5);
-	tGPS.gpsNanoSeconds=round((d->gps[i]+d->coherence_time*0.5-tGPS.gpsSeconds)*1e9);
+/*	tGPS.gpsSeconds=round(d->gps[i]+d->coherence_time*0.5);
+	tGPS.gpsNanoSeconds=round((d->gps[i]+d->coherence_time*0.5-tGPS.gpsSeconds)*1e9);*/
+	/* It is best to compute Earth state at gps=0 as this is the reference time for the phase of the SFT */
+	tGPS.gpsSeconds=round(d->gps[i]);
+	tGPS.gpsNanoSeconds=round((d->gps[i]-tGPS.gpsSeconds)*1e9);
 	LALBarycenterEarth(&status, &(d->earth_state[i]), &tGPS, &ephemeris);
 	TESTSTATUS(&status);
 	}
@@ -1122,6 +1125,8 @@ for(i=0;i<d_free;i++)output_dataset_info(&(datasets[i]));
 static int gps_exists(DATASET *d, INT64 gps)
 {
 int i;
+if(gps>d->max_gps)return 0;
+
 for(i=0;i<d->free;i++) {
 	if(d->gps[i]==gps)return 1;
 	}
@@ -1232,6 +1237,7 @@ if(fread(&ht, sizeof(ht), 1, fin)<1) {
 	return -1;
 	}
 
+
 /* fprintf(stderr, "%s gps=%d nsamples=%d\n", filename, ht.gps_sec, ht.nsamples); */
 
 *gps=ht.gps_sec;
@@ -1246,7 +1252,6 @@ if(check_intervals(d->veto_segment_list, *gps)>0){
 if(d->no_duplicate_gps && gps_exists(d, *gps)) {
 	return -(48+ht.nsamples*8+ht.comment_length);
 	}
-
 
 /* timebase */
 timebase=ht.tbase;
@@ -1382,6 +1387,8 @@ while(1) {
 		if(!i)d->free++;
 			else if(i< -1)fprintf(stderr, "Skipped file %s (%lld)\n", filename, d->gps[d->free]);
 		free(buffer);
+		if(d->free>0 && d->gps[d->free-1]>d->max_gps)
+			d->max_gps=d->gps[d->free-1];
 		return;
 		} else
 	if(a==2.0) {
@@ -1397,13 +1404,15 @@ while(1) {
 			d->free++;
 			} else 
 			header_offset+=-i;
+		if(d->free>0 && d->gps[d->free-1]>d->max_gps)
+			d->max_gps=d->gps[d->free-1];
 		} else {
 		if(!header_offset)fprintf(stderr,"Cannot read file \"%s\": wrong endianness or invalid data\n", filename);
 		fclose(fin);
 		free(buffer);
 		return;
 		}
-	if(d->free>100000) {
+	if(0 && d->free>500000) {
 		TODO("remove SFT limit when SFT loading code is fast enough")
 		fclose(fin);
 		free(buffer);
@@ -1595,6 +1604,11 @@ for(i=d->free;i<(d->free+count);i++) {
 		}
 	}
 d->free+=count;
+
+if(d->free>0 && d->gps[d->free-1]>d->max_gps)
+	d->max_gps=d->gps[d->free-1];
+
+if(gps_start>d->max_gps)d->max_gps=gps_start;
 
 fill_seed=gsl_rng_get(rng);
 gsl_rng_free(rng);

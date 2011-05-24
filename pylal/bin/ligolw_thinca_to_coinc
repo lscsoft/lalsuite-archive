@@ -1574,12 +1574,13 @@ if options.veto_segments:
 	try:
 		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, verbose = options.verbose), options.veto_segments_name).coalesce()
 	except AttributeError:
-		# will get an AttributeError if using new-format veto segment file because
-		# new format does not include _ns; if so, remove the _ns columns from the
-		# segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-		del lsctables.SegmentTable.validcolumns['start_time_ns']
-		del lsctables.SegmentTable.validcolumns['end_time_ns']
+		# will get an AttributeError if using old-format veto
+		# segment file because old format does not include _ns; if
+		# so, replace the definitions of lsctables.Segment.get and
+		# lsctables.Segment.set and try again
 
+		# FIXME:  don't do this:  use ligolw_segments_compat to fix
+		# the broken veto file instead
 		def get_segment(self):
 			"""
 			Return the segment described by this row.
@@ -1590,6 +1591,8 @@ if options.veto_segments:
 			"""
 			Set the segment described by this row.
 			"""
+			assert segment[0].nanoseconds == 0
+			assert segment[1].nanoseconds == 0
 			self.start_time = segment[0].seconds
 			self.end_time = segment[1].seconds
 

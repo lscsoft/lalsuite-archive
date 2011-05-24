@@ -231,6 +231,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.datatypes.laldetector",
+			["src/xlal/datatypes/laldetector.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.datatypes.lalunit",
 			["src/xlal/datatypes/lalunit.c"],
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
@@ -296,6 +305,15 @@ setup(
 		Extension(
 			"pylal.xlal.datatypes.siminspiraltable",
 			["src/xlal/datatypes/siminspiraltable.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.snglburst",
+			["src/xlal/datatypes/snglburst.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
@@ -586,9 +604,12 @@ setup(
 		os.path.join("bin", "search_upper_limit_by_s1z_s2z"),
 		os.path.join("bin", "search_volume_by_s1z_s2z"),
 		os.path.join("bin", "search_upper_limit_by_m_chi"),
-		os.path.join("bin", "search_volume_by_m_chi"),		
+		os.path.join("bin", "search_volume_by_m_chi"),
+		os.path.join("bin", "search_upper_limit_by_M"),
 		os.path.join("bin", "imr_compare"),		
 		os.path.join("bin", "imr_roc"),				
+	        os.path.join("bin", "ligolw_omega_to_coinc"),
+	        os.path.join("bin", "ligolw_cwb_to_coinc"),
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),

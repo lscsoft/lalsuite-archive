@@ -17,6 +17,8 @@ AM_INIT_AUTOMAKE([foreign])
 
 AC_CANONICAL_HOST
 
+LALSUITE_ARG_VAR
+
 # set library api info
 # 1. start with version information of "0:0:0" for each libtool library
 # 2. update the version information only immediately before a public
@@ -41,6 +43,9 @@ AC_PREFIX_DEFAULT([/opt/lscsoft/lalmetaio])
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
+
+# debug
+LALSUITE_ENABLE_DEBUG
 
 # put version/configure info in config header
 lalmetaio_version_major=`echo "$VERSION" | cut -d. -f1`

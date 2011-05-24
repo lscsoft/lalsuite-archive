@@ -17,29 +17,18 @@
 *  MA  02111-1307  USA
 */
 
-#if 0 /* autodoc block */
+/**
+\file
 
-<lalVerbatim file="FrameDataHV">
-$Id$
-</lalVerbatim>
+\brief Root finding routines.
 
-<lalLaTeX>
-
-\section{Header \texttt{FrameData.h}}
-\label{s:FrameData.h}
-
-Root finding routines.
-
-\subsection*{Synopsis}
-\begin{verbatim}
+\heading{Synopsis}
+\code
 #include <lal/FrameData.h>
-\end{verbatim}
+\endcode
 
-\noindent Gets IFO\_DMRO data from frame files.
-
-</lalLaTeX>
-
-#endif /* autodoc block */
+Gets IFO_DMRO data from frame files.
+*/
 
 #ifndef _FRAMEDATA_H
 #define _FRAMEDATA_H
@@ -53,16 +42,7 @@ extern "C" {
 
 NRCSID (FRAMEDATAH, "$Id$");
 
-#if 0 /* autodoc block */
-
-<lalLaTeX>
-\subsection*{Error conditions}
-\input{FrameDataHErrTab}
-</lalLaTeX>
-
-<lalErrTable file="FrameDataHErrTab">
-
-#endif /* autodoc block */
+/** \name Error Codes */ /*@{*/
 
 #define FRAMEDATAH_ENULL 1
 #define FRAMEDATAH_ENNUL 2
@@ -86,15 +66,10 @@ NRCSID (FRAMEDATAH, "$Id$");
 #define FRAMEDATAH_MSGESIZE "Invalid vector length"
 #define FRAMEDATAH_MSGESSSZ "Bad sweptsine calibration data"
 
-#if 0 /* autodoc block */
+/*@}*/
 
-</lalErrTable>
-
-<lalLaTeX>
-
-\subsection*{Structures}
-
-\begin{verbatim}
+/**
+\code
 typedef struct
 tagFrameData
 {
@@ -102,29 +77,24 @@ tagFrameData
   INT4 endOfData;
   INT4 newLock;
   INT4 newCalibration;
-  /* ... private data ... */
+  /\* ... private data ... *\/
 }
 FrameData;
-\end{verbatim}
+\endcode
 
 This is the frame data parameter structure: think of it as something like a
-file pointer to the frame data.  The ``public'' fields are:
+file pointer to the frame data.  The "public" fields are:
 
-\begin{description}
-\item[\texttt{inLock}] Boolean that user should set to non-zero if data that
-  is not ``in lock'' according to the IFO\_Lock channel is desired.
-\item[\texttt{endOfData}] Boolean that is non-zero if there is no more data.
-\item[\texttt{newLock}] Boolean that is non-zero if starting a new locked
-  section of data.
-\item[\texttt{newCalibration}] Boolean that is non-zero if new calibration data
-  is available.
-\end{description}
-
-</lalLaTeX>
-
-#endif /* autodoc block */
-
-
+<dl>
+<dt>inLock</dt><dd> Boolean that user should set to non-zero if data that
+  is not "in lock" according to the IFO_Lock channel is desired.</dd>
+<dt>endOfData</dt><dd> Boolean that is non-zero if there is no more data.</dd>
+<dt>newLock</dt><dd> Boolean that is non-zero if starting a new locked
+  section of data.</dd>
+<dt>newCalibration</dt><dd> Boolean that is non-zero if new calibration data
+  is available.</dd>
+</dl>
+*/
 typedef struct
 tagFrameData
 {
@@ -143,6 +113,7 @@ tagFrameData
    * private data:
    *
    */
+  /** \cond DONT_DOXYGEN */
   INT4                fileOpen;
   INT4                numFiles;
   INT4                fileNum;
@@ -165,16 +136,17 @@ tagFrameData
   INT2                lockLow;
   INT2                lockHigh;
   INT4                dataBreak;
+  /** \endcond */
 }
 FrameData;
 
-#if 0 /* autodoc block */
 
-<lalLaTeX>
-\newpage\input{FrameDataC}
-</lalLaTeX>
 
-#endif /* autodoc block */
+
+
+
+
+
 
 void
 LALInitializeFrameData (
@@ -203,13 +175,13 @@ LALGetFrameDataResponse (
     FrameData               *frameData
     );
 
-#if 0 /* autodoc block */
 
-<lalLaTeX>
-\newpage\input{FrameDataTestC}
-</lalLaTeX>
 
-#endif /* autodoc block */
+
+
+
+
+
 
 #ifdef  __cplusplus
 }

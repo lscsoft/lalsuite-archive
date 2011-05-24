@@ -1721,6 +1721,14 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 66 )
         {
             thisSim->loglambdaG = r4colData;
+	}
+        else if ( tableDir[j].idx == 67 ) 
+	{
+            thisSim->qmParameter1 = r4colData;
+        }
+        else if ( tableDir[j].idx == 68 ) 
+	{
+            thisSim->qmParameter2 = r4colData;
         }
         else
         {

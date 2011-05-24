@@ -94,6 +94,8 @@ AH_BOTTOM([
 
 AC_CANONICAL_HOST
 
+LALSUITE_ARG_VAR
+
 # set library api info - liblal
 # 1. start with version information of "0:0:0" for each libtool library
 # 2. update the version information only immediately before a public
@@ -145,7 +147,7 @@ LALSUITE_WITH_CUDA
 LALSUITE_ENABLE_BOINC
 LALSUITE_ENABLE_GCC_FLAGS
 
-LAL_ENABLE_DEBUG
+LALSUITE_ENABLE_DEBUG
 LAL_ENABLE_MACROS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY

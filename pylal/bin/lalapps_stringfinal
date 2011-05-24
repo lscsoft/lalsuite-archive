@@ -36,9 +36,11 @@ from optparse import OptionParser
 import math
 from matplotlib import patches
 import numpy
+import os
 import cPickle as pickle
 from scipy import interpolate
 from scipy import optimize
+import Queue as queue
 try:
 	import sqlite3
 except ImportError:
@@ -55,6 +57,7 @@ from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process as ligolwprocess
 from pylal import git_version
+from pylal import packing
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
@@ -98,7 +101,7 @@ def parse_command_line():
 	)
 	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).  This option is required, use 0 to disable calibration uncertainty.")
 	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves (default = 16.7).")
-	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
+	parser.add_option("-c", "--input-cache", metavar = "filename", action = "append", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.  This option can be given multiple times.")
 	parser.add_option("--import-dump", metavar = "filename", action = "append", help = "Import additional rate vs. threshold or efficiency data from this dump file.  Dump files are one of the data products produced by this program.  Whether the file provides rate vs. threshold data or efficiency data will be determined automatically.  This option can be given multiple times")
 	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions (default = \"png,pdf\").")
 	parser.add_option("-p", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
@@ -106,7 +109,7 @@ def parse_command_line():
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--vetoes-name", metavar = "name", help = "Set the name of the segment lists to use as vetoes (default = do not apply vetoes).")
 	parser.add_option("--detection-threshold", metavar = "likelihood", type = "float", help = "Override the detection threshold.  Only injection files will be processed, and the efficiency curve measured.")
-	parser.add_option("--record-background", metavar = "N", type = "int", default = 100000000, help = "Set the number of background likelihood ratios to hold in memory for producing the rate vs. threshold plot (default = 100000000).")
+	parser.add_option("--record-background", metavar = "N", type = "int", default = 10000000, help = "Set the number of background likelihood ratios to hold in memory for producing the rate vs. threshold plot (default = 10000000).")
 	parser.add_option("--record-candidates", metavar = "N", type = "int", default = 100, help = "Set the number of highest-ranked zero-lag candidates to dump to the candidate file (default = 100).")
 	parser.add_option("--threads", metavar = "N", type = "int", default = 1, help = "Set the maximum number of parallel threads to use for processing files (default = 1).  Contention for the global Python interpreter lock will throttle the true number that can run.  The number of threads will be automatically adjusted downwards if the number requested exceeds the number of input files.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -118,7 +121,7 @@ def parse_command_line():
 	options.image_formats = options.image_formats.split(",")
 
 	if options.input_cache:
-		filenames += [CacheEntry(line).url for line in file(options.input_cache)]
+		filenames += [CacheEntry(line).path() for input_cache in options.input_cache for line in file(input_cache)]
 
 	if options.threads < 1:
 		raise ValueError, "--threads must be >= 1"
@@ -193,9 +196,9 @@ class RateVsThreshold(object):
 		self.open_box = open_box
 
 	def __iadd__(self, other):
-		self.zero_lag.extend(other.zero_lag)
-		self.background.extend(other.background)
-		self.candidates.extend(other.candidates)
+		self.zero_lag += other.zero_lag
+		self.background += other.background
+		self.candidates += other.candidates
 		self.zero_lag_time += other.zero_lag_time
 		self.background_time += other.background_time
 		return self
@@ -284,12 +287,16 @@ WHERE
 		f = file("string_candidates.txt", "w")
 		print >>f, "Highest-Ranked Zero-Lag Events"
 		print >>f, "=============================="
-		for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
+		if self.open_box:
+			for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
+				print >>f
+				print >>f, "%s in %s:" % (str(coinc_event_id), filename)
+				print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
+				print >>f, "Mean peak time:  %.16g s GPS" % peak_time
+				print >>f, "\\Lambda:  %.16g" % likelihood_ratio
+		else:
 			print >>f
-			print >>f, "%s in %s:" % (str(coinc_event_id), filename)
-			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
-			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
-			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
+			print >>f, "List suppressed:  box is closed"
 
 		#
 		# sort the ranking statistics and convert to arrays.  note
@@ -521,9 +528,9 @@ class Efficiency(object):
 		assert other.detection_threshold == self.detection_threshold
 		self.seglists |= other.seglists
 		self.vetoseglists |= other.vetoseglists
-		self.found.extend(other.found)
-		self.loudest_missed.extend(other.loudest_missed)
-		self.quietest_found.extend(other.quietest_found)
+		self.found += other.found
+		self.loudest_missed += other.loudest_missed
+		self.quietest_found += other.quietest_found
 		self.all.extend(other.all)
 		return self
 
@@ -575,7 +582,7 @@ FROM
 					# that it acts as the sort key
 					loudest_missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
 			elif found:
-				# no
+				# no, but it was found anyway
 				print >>sys.stderr, "%s: odd, injection %s was found but not injected ..." % (contents.filename, sim.simulation_id)
 		# this is much faster than appending each element into the
 		# Highest object one-by-one
@@ -710,6 +717,13 @@ def group_files(filenames, verbose = False):
 	return injection_filenames, noninjection_filenames
 
 
+def pack_files(filenames, n_threads, verbose = False):
+	bins = packing.BiggestIntoEmptiest([packing.Bin() for n in range(n_threads)])
+	for filename in filenames:
+		bins.pack(os.stat(filename).st_size, filename)
+	return [bin.objects for bin in bins.bins]
+
+
 def import_dumps(filenames, verbose = False):
 	rate_vs_threshold = None
 	efficiency = None
@@ -736,56 +750,66 @@ def import_dumps(filenames, verbose = False):
 	return rate_vs_threshold, efficiency
 
 
-def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
-	for n, filename in enumerate(filenames):
+def process_file(filename, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
+	#
+	# connect to database and summarize contents
+	#
+
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
+	connection = sqlite3.connect(working_filename)
+	dbtables.DBTable_set_connection(connection)
+	contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
+	if verbose:
+		SnglBurstUtils.summarize_coinc_database(contents, filename = working_filename)
+
+	#
+	# augment summary with extra stuff we need.  the filename
+	# is recorded for dumping debuggin information related to
+	# missed injections.  if burca was run with the
+	# --coincidence-segments option then the value is copied
+	# into a segmentlistdict to facilitate the computation of
+	# livetime
+	#
+
+	contents.filename = filename
+
+	contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+	if contents.coincidence_segments:
+		# as a side-effect, this enforces the rule that
+		# burca has been run on the input file exactly once
+		contents.coincidence_segments, = contents.coincidence_segments
+		contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
+	else:
+		contents.coincidence_segments = None
+
+	#
+	# process contents
+	#
+
+	for n, product in enumerate(products):
 		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-		#
-		# connect to database and summarize contents
-		#
+			print >>sys.stderr, "%s: adding to product %d ..." % (working_filename, n)
+		product.add_contents(contents, verbose = verbose)
 
-		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
-		connection = sqlite3.connect(working_filename)
-		dbtables.DBTable_set_connection(connection)
-		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
-		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents, filename = working_filename)
+	#
+	# close
+	#
 
-		#
-		# augment summary with extra stuff we need.  the filename
-		# is recorded for dumping debuggin information related to
-		# missed injections.  if burca was run with the
-		# --coincidence-segments option then the value is copied
-		# into a segmentlistdict to facilitate the computation of
-		# livetime
-		#
+	connection.close()
+	dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
-		contents.filename = filename
 
-		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
-		if contents.coincidence_segments:
-			# as a side-effect, this enforces the rule that
-			# burca has been run on the input file exactly once
-			contents.coincidence_segments, = contents.coincidence_segments
-			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
-		else:
-			contents.coincidence_segments = None
-
-		#
-		# process contents
-		#
-
-		for n, product in enumerate(products):
+def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False, exception_queue = None):
+	try:
+		for n, filename in enumerate(filenames):
 			if verbose:
-				print >>sys.stderr, "%s: adding to product %d ..." % (working_filename, n)
-			product.add_contents(contents, verbose = verbose)
-
-		#
-		# close
-		#
-
-		connection.close()
-		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
+				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+			process_file(filename, products, live_time_program, tmp_path = tmp_path, veto_segments_name = veto_segments_name, verbose = verbose)
+	except Exception:
+		if exception_queue is not None:
+			exception_queue.put(sys.exc_info())
+		else:
+			raise
 
 
 def write_products(products, prefix, image_formats, verbose = False):
@@ -853,23 +877,24 @@ if options.detection_threshold is None:
 	if options.verbose:
 		print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 
+	exception_queue = queue.Queue()
 	threads = []
 	rate_vs_thresholds = []
-	# can't use more threads than there are files
-	n_threads = min(options.threads, len(noninjection_filenames))
-	for i in range(n_threads):
-		# how many files for this thread?
-		n = len(noninjection_filenames) // (n_threads - i)
+	# group files into bins of about the same total number of bytes.
+	# don't try to create more groups than there are files
+	for filenames in pack_files(noninjection_filenames, min(options.threads, len(noninjection_filenames)), verbose = options.verbose):
 		# create a new book-keeping object
 		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
 		# launch thread
-		threads.append(threading.Thread(target = process_files, args = (noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+		threads.append(threading.Thread(target = process_files, args = (filenames, rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
 		threads[-1].start()
-		#process_files(noninjection_filenames[:n], rate_vs_thresholds[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
-		del noninjection_filenames[:n]
-	# collect all threads, combine results
+	# collect all threads, re-raise any exceptions that occured,
+	# combine results
 	for thread in threads:
 		thread.join()
+	while not exception_queue.empty():
+		exc_type, exc_value, exc_traceback = exception_queue.get()
+		raise exc_type, exc_value, exc_traceback
 	while rate_vs_thresholds:
 		if rate_vs_threshold is None:
 			rate_vs_threshold = rate_vs_thresholds.pop()
@@ -883,9 +908,19 @@ if options.detection_threshold is None:
 
 	# print summary information, and set detection threshold
 	if options.open_box:
-		print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
+		try:
+			print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
+		except OverflowError:
+			# python < 2.5 can't handle list-like things with more than 2**31 elements
+			# FIXME:  remove when we can rely on python >= 2.5
+			print >>sys.stderr, "Zero-lag events: %d" % rate_vs_threshold.zero_lag.n
 	print >>sys.stderr, "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
-	print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
+	try:
+		print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
+	except OverflowError:
+		# python < 2.5 can't handle list-like things with more than 2**31 elements
+		# FIXME:  remove when we can rely on python >= 2.5
+		print >>sys.stderr, "Time-slide events: %d" % rate_vs_threshold.background.n
 	print >>sys.stderr, "Total time in time-slide segments: %s s" % str(rate_vs_threshold.background_time)
 	if options.open_box:
 		detection_threshold = rate_vs_threshold.zero_lag[-1]
@@ -914,23 +949,23 @@ else:
 
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
+exception_queue = queue.Queue()
 threads = []
 efficiencies = []
-# can't use more threads than there are files
-n_threads = min(options.threads, len(injection_filenames))
-for i in range(n_threads):
-	# how many files for this thread?
-	n = len(injection_filenames) // (n_threads - i)
+# group files into bins of about the same total number of bytes.  don't try
+# to create more groups than there are files
+for filenames in pack_files(injection_filenames, min(options.threads, len(injection_filenames)), verbose = options.verbose):
 	# create new book-keeping object
 	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
 	# launch thread
-	threads.append(threading.Thread(target = process_files, args = (injection_filenames[:n], efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose}))
+	threads.append(threading.Thread(target = process_files, args = (filenames, efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
 	threads[-1].start()
-	#process_files(injection_filenames[:n], efficiencies[-1:], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
-	del injection_filenames[:n]
-# collect all threads, combine results
+# collect all threads, reraise any exceptions that occured, combine results
 for thread in threads:
 	thread.join()
+while not exception_queue.empty():
+	exc_type, exc_value, exc_traceback = exception_queue.get()
+	raise exc_type, exc_value, exc_traceback
 while efficiencies:
 	if efficiency is None:
 		efficiency = efficiencies.pop()

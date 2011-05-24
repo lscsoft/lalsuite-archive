@@ -6,8 +6,8 @@ AC_CONFIG_FILES([
   Makefile \
   gnuscripts/Makefile \
   doxygen/Makefile \
-  doxygen/doxygen-html.cfg \
-  doxygen/doxygen-pdf.cfg \
+  doxygen/doxy-html-config.cfg \
+  doxygen/doxy-pdf-config.cfg \
   doxygen/src/Makefile
 ])
 AM_INIT_AUTOMAKE([foreign])
@@ -18,6 +18,7 @@ AC_SUBST([abs_lalsuite_srcdir],[`cd ${srcdir} && pwd`])
 AC_PROG_LN_S
 AC_CHECK_PROGS([GIT], [git], [])
 
+LALSUITE_ENABLE_ALL_LAL
 LALSUITE_ENABLE_LALFRAME
 LALSUITE_ENABLE_LALMETAIO
 LALSUITE_ENABLE_LALXML

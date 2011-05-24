@@ -1,4 +1,9 @@
-all : test01 test02 lal_verify segmentsUtils_verify segments_verify
+all : test01 test02 lal_verify segmentsUtils_verify segments_verify iterutils_verify
+
+iterutils_verify :
+	@echo "=== start iterutils_verify ===>"
+	python iterutils_verify.py
+	@echo "<=== end iterutils_verify ==="
 
 lal_verify :
 	@echo "=== start lal_verify ===>"

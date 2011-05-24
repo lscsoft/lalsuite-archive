@@ -163,9 +163,6 @@ def cbcBayesPostProc(
         if not os.path.isfile(snrfactor):
             print "No snr file provided or wrong path to snr file\n"
             snrfactor=None
-            #empty_snr_file=open(snrfactor,'w')
-            #empty_snr_file.write("No snr file(s) provided\n")
-            #empty_snr_file.close()
     if snrfactor is not None:
         snrstring=""
         snrfile=open(snrfactor,'r')
@@ -176,7 +173,6 @@ def cbcBayesPostProc(
                 continue
             snrstring=snrstring +" "+str(snr[0:-1])+" ,"
         snrstring=snrstring[0:-1]
-        print 'SNR: %s'%snrstring
         
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
@@ -533,7 +529,11 @@ def cbcBayesPostProc(
         if 'logl' in pos.names:
             ev=pos.harmonic_mean_evidence()
             html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(ev,log(ev)))
-
+    #Create a section for SNR, if a file is provided
+    if snrfactor is not None:
+        html_snr=html.add_section('Signal to noise ratio(s)')
+        html_snr.p('%s'%snrstring)
+        
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
     html_stats.write(str(pos))
