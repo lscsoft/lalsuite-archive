@@ -1116,7 +1116,6 @@ in the frequency domain */
 	}
 	if(XLALMCMCCheckParameter(parameter,"logmc")) mchirp=exp(XLALMCMCGetParameter(parameter,"logmc"));
         else mchirp=XLALMCMCGetParameter(parameter,"mchirp");
-
 	eta = XLALMCMCGetParameter(parameter,"eta");
 	mtot=mc2mt(mchirp,eta);
 	template.totalMass = mtot;
@@ -2268,15 +2267,15 @@ void PPE_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter
 
     //(void)parameter;
     (void)inputMCMC;
-    PPEparams *PPEPar;
-    memset(PPEPar,0,sizeof(PPEparams));
-	LALInspiralParameterCalc(status,template);
+    PPEparams PPEPar;
+    memset(&PPEPar,0,sizeof(PPEparams));
+        LALInspiralParameterCalc(status,template);
 	LALInspiralRestrictedAmplitude(status,template);
-    PPEPar->aPPE=XLALMCMCGetParameter(parameter,"aPPE");
-    PPEPar->alphaPPE=XLALMCMCGetParameter(parameter,"alphaPPE");
-    PPEPar->bPPE=XLALMCMCGetParameter(parameter,"bPPE");
-    PPEPar->betaPPE=XLALMCMCGetParameter(parameter,"betaPPE");
-    LALInspiralPPE(status, model, template, PPEPar);
+    PPEPar.aPPE=XLALMCMCGetParameter(parameter,"aPPE");
+    PPEPar.alphaPPE=XLALMCMCGetParameter(parameter,"alphaPPE");
+    PPEPar.bPPE=XLALMCMCGetParameter(parameter,"bPPE");
+    PPEPar.betaPPE=XLALMCMCGetParameter(parameter,"betaPPE");
+    LALInspiralPPE(status, model, template, &PPEPar);
 
 /*	
 	FILE* model_output;

@@ -258,7 +258,7 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
 // prototype for the FD injection code
 
 void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table);
-void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
+//void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -2124,7 +2124,7 @@ void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT)
 	else
 		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
     
-    /* add loglambdaG parameter */
+    /* add loglambdaG parameter  */
 
 	if(checkParamInList(pinned_params,"loglambdaG"))
 		XLALMCMCAddParam(parameter,"loglambdaG", injTable->loglambdaG, loglambdaG_min, loglambdaG_max, -1);
@@ -2252,7 +2252,7 @@ int checkParamInList(const char *list, const char *param)
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
 {   CHAR pinned_params_temp[100]="";
     int pin_was_null=1;
-    char full_list[]="logM,mchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG";
+    char full_list[]="logM,mchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG,aPPE,alphaPPE,bPPE,betaPPE";
     if (pinned_params!=NULL){
         pin_was_null=0;
         strcpy(pinned_params_temp,pinned_params);
