@@ -117,7 +117,10 @@ e0 = [8., 10., 0.8]
 # load pylal_grbUL data (loop over list of pickles - see option parser)
 
 grbUL_pickles = opts.grbUL_pickle.split(",")
-systems = opts.systems.split(",")
+if opts.systems:
+    systems = opts.systems.split(",")
+else:
+    systems = grbUL_pickles
 
 # check we have the same number of system names as input pickles
 assert(len(grbUL_pickles)==len(systems))
