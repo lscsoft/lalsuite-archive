@@ -120,6 +120,7 @@ grbUL_pickles = opts.grbUL_pickle.split(",")
 if opts.systems:
     systems = opts.systems.split(",")
 else:
+    pylal_grbUL-exclusion-GRB051103_NSNS_30.pickle
     systems = grbUL_pickles
 
 # check we have the same number of system names as input pickles
@@ -144,6 +145,10 @@ BHindx=0
 NSindx=0
 for system, grbUL_pickle in zip(systems, grbUL_pickles):
     CLs, m2_bins, D1D2_by_CL_m2 = pickle.load(open(grbUL_pickle))
+
+    # strip unnecessary part from system label
+    system=system.replace('pylal_grbUL-exclusion-','')
+    system=system.replace('.pickle','')
 
     # dump out a handy text file
     ascii_name = 'pylal_grbUL-exclusion-'+opts.user_tag+'-'+system+'.txt'
