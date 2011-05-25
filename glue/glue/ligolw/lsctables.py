@@ -1863,6 +1863,13 @@ class SimInspiralTable(table.Table):
 		"dphi6l": "real_4",
 		"dphi7": "real_4",
         "loglambdaG": "real_4",
+        "ScalarCharge1":"real_4",
+        "ScalarCharge2":"real_4",
+        "omegaBD":"real_4",
+        "aPPE":"real_4",
+        "alphaPPE":"real_4",
+        "bPPE":"real_4",
+        "betaPPE":"real_4",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
