@@ -322,7 +322,7 @@ def inorder(*iterables, **kwargs):
 	if kwargs:
 		try:
 			reverse = kwargs.pop("reverse")
-		except:
+		except KeyError:
 			pass
 		if kwargs:
 			raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
@@ -431,7 +431,7 @@ class Highest(list):
 		"""
 		In-place addition.  Add the contents of another Highest
 		object to this one.  This method only works correctly with
-		other Highets objects.
+		other Highest objects.
 
 		Example:
 
@@ -473,8 +473,7 @@ class Highest(list):
 				# self[i] == other[j]
 				i += 1
 				j += 1
-		del self[i:]
-		list.extend(self, other[:j])
+		self[i:] = other[:j]
 		list.sort(self, reverse = True)
 		del self[self.max:]
 		return self
