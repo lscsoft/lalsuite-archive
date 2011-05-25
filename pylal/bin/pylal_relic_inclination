@@ -474,8 +474,8 @@ if opts.write_offsource or opts.write_injections:
 if opts.write_injections:
     # sieve down to just injection coinc files
     if opts.astro_cache_file:
-        injection_cache = opts.astro_cache.sieve(description=opts.injection_pattern).sieve(ifos='HL')
-        inj_coinc_cache = opts.astro_cache.sieve(description=opts.inj_coinc_pattern)
+        injection_cache = astro_cache.sieve(description=opts.injection_pattern).sieve(ifos='HL')
+        inj_coinc_cache = astro_cache.sieve(description=opts.inj_coinc_pattern)
     else:
         injection_cache = cache.sieve(description=opts.injection_pattern).sieve(ifos='HL')
         inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
