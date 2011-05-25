@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # Copyright (C) 2011 Rahul Biswas, Ruslan Vaulin, Kari Hodge
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -22,7 +24,6 @@
 # =============================================================================
 #
 
-#!/bin/python
 import os
 import sys 
 import string
