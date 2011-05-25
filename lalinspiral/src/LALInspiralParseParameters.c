@@ -180,6 +180,8 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	    params->approximant = EOBNR;}
           else if (strcmp(argv[i],"EOBNRv2")==0){
             params->approximant = EOBNRv2;}
+          else if (strcmp(argv[i],"EOBNRv2HM")==0){
+            params->approximant = EOBNRv2HM;}
 	  else if (strcmp(argv[i],"IMRPhenomA")==0){
 	    params->approximant = IMRPhenomA;}
 	  else if (strcmp(argv[i],"SpinTaylor")==0){

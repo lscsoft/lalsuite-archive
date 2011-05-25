@@ -468,6 +468,7 @@ typedef enum {
    Eccentricity,
    EOBNR,
    EOBNRv2,
+   EOBNRv2HM,
    IMRPhenomA,
    IMRPhenomB,
    IMRPhenomFA,
@@ -1800,6 +1801,8 @@ INT4 XLALFinalMassSpin(
 INT4 XLALInspiralHybridAttachRingdownWave (
         REAL4Vector 	 *signalvec1,
         REAL4Vector  	 *signalvec2,
+        INT4             l,
+        INT4             m,
         REAL8Vector      *time,
 	REAL8Vector	 *matchrange,
         InspiralTemplate *params);
