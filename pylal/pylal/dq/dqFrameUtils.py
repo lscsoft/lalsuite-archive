@@ -69,7 +69,7 @@ def grab_data(start,end,ifo,channel,type,\
 
   # find FrCheck
   frcheck,err = make_external_call('which FrCheck')
-  if err:
+  if err or not frcheck:
     raise ValueError, "FrCheck not found."
   frcheck = frcheck.replace('\n','')
 
@@ -80,46 +80,38 @@ def grab_data(start,end,ifo,channel,type,\
     sys.stdout.flush()
 
   if not dmt:
-    cache = generate_cache(start,end,ifo[0:1],type,return_files=True)
+    cache = generate_cache(start,end,ifo[0:1],type)
   else:
     cache = dmt_cache(start,end,ifo[0:1],type)
 
   # loop over frames in cache
   for frame in cache:
 
-    # check frame file exists
-    if not os.path.isfile(frame):  continue
-
     # check for Segmentation fault
-    segtest = subprocess.Popen([frcheck,"-i",frame],stdout=subprocess.PIPE)
+    segtest = subprocess.Popen([frcheck, "-i", frame.path()],\
+                                 stdout=subprocess.PIPE )
     if os.waitpid(segtest.pid,0)[1]==11:  
       print >>sys.stderr, "Warning. Segmentation fault detected with command:"
-      print >>sys.stderr, "FrCheck -i "+frame
+      print >>sys.stderr, "FrCheck -i "+frame.path()
       continue
     segtest.stdout.close()
 
     # try to extract data from frame
-    try:
-      frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,\
-                                                      ':'.join([ifo,channel]))
-      if frame_data==[]:
-        print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
-        continue
-
-      # construct time array
-      frame_length = float(dt)*len(frame_data)
-      frame_time = data_start+dt*numpy.arange(len(frame_data))
-
-      # discard frame data outside of time span
-      for i in range(len(frame_data)):
-        if frame_time[i] < start:  continue
-        if frame_time[i] > end:  continue
-        time.append(frame_time[i])
-        data.append(frame_data[i])
-
-    except:
-      print >>sys.stderr, "Failed to access frame: \n%s" % (frame)
+    frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d( frame.path(),\
+                                                     ':'.join([ ifo, channel ]))
+    if frame_data==[]:
+      print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
       continue
+
+    # construct time array
+    frame_time = data_start+dt*numpy.arange(len(frame_data))
+
+    # discard frame data outside of time span
+    for i in range(len(frame_data)):
+      if frame_time[i] <= start:  continue
+      if frame_time[i] >= end:  continue
+      time.append(frame_time[i])
+      data.append(frame_data[i])
 
   return time,data
 
@@ -130,19 +122,29 @@ def grab_data(start,end,ifo,channel,type,\
 def generate_cache(start,end,ifos,types,framecache=False):
 
   """
-    This function will return a glue.lal.Cache as found by ligo_data_find,
-    given start and end time, and lists of ifos and types. If the framecache 
-    option is given as 'True' the --frame-cache option of ligo_data_find will be
-    used, otherwise the --lal-cache option will be used
+    If framecache==False, this function will return a glue.lal.Cache as
+    found by ligo_data_find, otherwise if will return a
+    pylal.dq.dqFrameUtils.FrameCache, given start and end time, and lists of
+    ifos and types.
   """
 
-  cache = LALCache()
+  # construct span
+  span    = segments.segment(start,end)
+
+  # set options
+  if framecache:
+    cache = FrameCache()
+    entry_class = FrameCacheEntry
+    ldfopt = '--frame-cache'
+  else:
+    cache = LALCache()
+    entry_class = LALCacheEntry
+    ldfopt = '--lal-cache'
 
   # find ldf
   exe,err = make_external_call('which ligo_data_find')
   if err:
     print >>sys.stderr, err
-    return []
   exe = os.path.abspath(exe.replace('\n',''))
 
   # if given strings, make single-element lists
@@ -150,39 +152,36 @@ def generate_cache(start,end,ifos,types,framecache=False):
     ifos=[ifos]
   if isinstance(types,str):
     types=[types]
+
   # loop over each ifo
   for ifo in ifos:
     # loop over each frame type
     for type in types:
-      try:
-        data_find_cmd = ' '.join([exe,'--gps-start-time',str(start),\
-                                      '--gps-end-time',str(end),\
-                                      '--observatory',ifo[0:1],\
-                                      '--type',type,\
-                                      '--url-type file',\
-                                      '--frame-cache',\
-                                      '--gaps'])
-        # run ligo_data_find and append each frame to the cache
-        out,err = make_external_call(data_find_cmd,shell=True)
+      data_find_cmd = ' '.join([exe,'--gps-start-time',str(start),\
+                                    '--gps-end-time',str(end),\
+                                    '--observatory',ifo[0:1],\
+                                    '--type',type,\
+                                    '--url-type file',\
+                                    '--gaps',\
+                                    ldfopt])
 
-        if verbose and err:
-          print >>sys.stderr, err
+      # run ligo_data_find and append each frame to the cache
+      out,err = make_external_call(data_find_cmd,shell=True)
+      if err:
+        print >>sys.stderr, '\n'.join(err.splitlines())
 
-        for line in out.splitlines():
-          # if line is not recognised in standard frame cache format, skip
-          if len(line.split(' '))!=6:
-            continue
-          try:
-            e = LALCacheEntry.from_T050017(line)
-            if span.intersects(e.segment):  cache.append(e)
-          except:
-            print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
-                                % filename
+      for line in out.splitlines():
+        try:
+          e = entry_class(line)
+          if span.intersects(e.segment):
+            cache.append(e)
+        except ValueError:
+          print >>sys.stderr, 'Could not convert %s to %s'\
+                              % (filename,'.'.join([entry_class.__module__,\
+                                                    entry_class.__name__]))
 
-      except:
-        continue
-
-  return sorted(cache,key=lambda e: e.url)
+  cache.sort(key=lambda e: e.url)
+  return cache
 
 # =============================================================================
 # Find types
@@ -383,7 +382,7 @@ def find_channels(channels=None,\
 
   # find FrCheck
   frcheck,err = make_external_call('which FrCheck')
-  if err:
+  if err or not frcheck:
     raise ValueError, "FrCheck not found."
   frcheck = frcheck.replace('\n','')
 
@@ -481,7 +480,7 @@ def find_channels(channels=None,\
           if match and (name in channels):
             pass
           elif channels and\
-              not ['match' for ch in channels if re.search(ch,name)]:
+              not ['match' for ch in channels if re.match('%s\Z' % ch,name)]:
             continue
 
           # generate structure and append to list  
@@ -531,7 +530,7 @@ def parse_unique_channels(channels,type_order=None):
   if type_order == None:
     type_order = ['H1_RDS_R_L1','L1_RDS_R_L1','H2_RDS_R_L1','R','RDS_R_L1']
   # sort channels by name
-  channels = sorted(channels,key=lambda ch: ch.name)
+  channels.sort(key=lambda ch: ch.name)
   # set up loop variables
   uniq_channels = []
   channel_cluster = []
@@ -618,41 +617,49 @@ c.system = 'LSC'
 c.subsystem = 'DARM'
 c.signal = 'ERR'
     """
+
+    attributes = ['ifo','site','name',\
+                  'system','subsystem','signal',\
+                  'type',\
+                  'sampling']
+
+    __slots__ = attributes
+
     # extract name attributes
-    try:
+    if ':' in name:
       self.ifo,self.name         = re.split(':',name,maxsplit=1)
       self.site                  = self.ifo[0]
-    except:
-      self.ifo = ''
-      self.site = ''
+    else:
       self.name = name
-    try:
-      self.system, tmp           = re.split('[-_]',self.name,maxsplit=1)
-      self.subsystem,self.signal = re.split('[-_]',tmp,maxsplit=1)
-    except:
-      self.system=self.subsystem=self.signal = ''    
+
+    tags = re.split('[-_]',self.name,maxsplit=3)
+
+    self.system = tags[0]
+
+    if len(tags)>1:
+      self.subsystem = tags[1]
+
+    if len(tags)>2:
+      self.signal    = tags[2]
 
     if type:
       self.type = str(type)
+
     if sampling:
-      try:
-        if sampling==int(sampling):
-          self.sampling = int(sampling)
-        else:
-          self.sampling = float(sampling)
-      except:
-        self.sampling = float(sampling)
+      self.sampling = float(sampling)
 
   def __getattribute__(self,name):
-    if name=='test':
-      return 0.
-    else:
-      return self.__dict__[name]
+
+    return self.__dict__[name]
+
+  def __str__( self ):
+
+    return '%s:%s' % ( self.ifo, self.name )
 
 # ==============================================================================
 # Function to generate a framecache of /dmt types
 # ==============================================================================
-def dmt_cache(start,end,ifo,type):
+def dmt_cache(start,end,ifo,type,framecache=False):
   """
   This function will return a list of frame files in the given start and stop 
   time interval for the give IFO using the given DMT frame type. This is
@@ -675,7 +682,17 @@ def dmt_cache(start,end,ifo,type):
 
 
   span    = segments.segment(start,end)
-  cache   = LALCache()
+
+  # set options
+  if framecache:
+    cache = FrameCache()
+    entry_class = FrameCacheEntry
+    ldfopt = '--frame-cache'
+  else:
+    cache = LALCache()
+    entry_class = LALCacheEntry
+    ldfopt = '--lal-cache'
+
   basedir = os.path.join(dmt_dir,type)
 
   # frames are 3600 seconds long, so round
@@ -695,11 +712,12 @@ def dmt_cache(start,end,ifo,type):
     filenames = glob.glob(querydir)
     for filename in filenames:
       try:
-        e = LALCacheEntry.from_T050017(filename)
+        e = entry_class.from_T050017(filename)
         if span.intersects(e.segment):  cache.append(e)
-      except:
-        print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
-                            % filename
+      except ValueError:
+        print >>sys.stderr, 'Could not convert %s to %s'\
+                            % (filename,'.'.join([entry_class.__module__,\
+                                                    entry_class.__name__]))
 
   return cache
 
@@ -802,14 +820,13 @@ class FrameCacheEntry(LALCacheEntry):
 
     """
     if self.segment is not None:
-      start,end = [str(t) for t in self.segment[0]]
-      duration = str(abs(self.segment))
+      start,end = [str(t) for t in self.segment]
     else:
       start    = "-"
       end      = "-"
       duration = "-"
 
-    return "%s %s %s %s %s %s" % (self.observatory or "-", self.description or "-", start, end, duration, self.url)
+    return "%s %s %s %s %s %s" % (self.observatory or "-", self.description or "-", start, end, self.duration, self.url)
 
   def __cmp__(self, other):
     """
@@ -825,7 +842,10 @@ class FrameCacheEntry(LALCacheEntry):
     Return Find all files described by this FrameCacheEntry.
     """
 
-    filenames = glob.glob(os.path.join(self.path(),'*'))
+    filenames = glob.glob( os.path.join( self.path(),\
+                                         '%s-%s*-%s.*' % ( self.observatory,\
+                                                           self.description,\
+                                                           self.duration ) ) )
     cache = [e.path() for e in\
                  LALCache([LALCacheEntry.from_T050017(f) for f in filenames])\
              if e.observatory==self.observatory and\
@@ -834,6 +854,34 @@ class FrameCacheEntry(LALCacheEntry):
                 abs(e.segment)==self.duration]
 
     return cache
+    
+  def from_T050017(cls, url, coltype = LIGOTimeGPS):      
+
+    """      
+    Parse a URL in the style of T050017-00 into a FrameCacheEntry.      
+    The T050017-00 file name format is, essentially,  
+  
+    observatory-description-start-dur.ext  
+  
+    """      
+    match = cls._url_regex.search(url)      
+    if not match:      
+            raise ValueError, "could not convert %s to CacheEntry" % repr(url)      
+    observatory = match.group("obs")      
+    description = match.group("dsc")      
+    start = match.group("strt")      
+    duration = match.group("dur")      
+    if start == "-" and duration == "-":      
+            # no segment information      
+            segment = None      
+    else:      
+            segment = segments.segment(coltype(start), coltype(start) + coltype(duration))      
+    return cls(observatory, description, segment, duration,\
+               os.path.split(url)[0])    
+
+
+  from_T050017 = classmethod(from_T050017)
+
 
 # ==============================================================================
 # Class for FrameCacheEntry 
@@ -882,46 +930,67 @@ class FrameCache(LALCache):
 
     return self.__class__(c)
 
-# ==============================================================================
-# Class for FrameCacheEntry  
-# ==============================================================================
+  def get_files(self):
+    c = []
+    for e in self:
+      c.extend(e.get_files())
+    return c
 
-class KWCacheEntry(LALCacheEntry):
+def FrameCachetoLALCache( fcache ):
 
-  _regex = re.compile(r"\A\s*(?P<obs>\S+)\s+(?P<dsc>\S+)\s*\Z")
+  lcache = LALCache()
 
-  def from_KWfilename(cls, url, coltype = LIGOTimeGPS):
-    """
-    Parse a URL in the style of KW filenames into a FrameCacheEntry.
-    The KW file name format is, essentially,
+  files = fcache.get_files()
 
-    /path/to/start_end/observatory_description.txt
+  for f in files:
+    lcache.append(LALCacheEntry.from_T050017(f))
+  
+  return lcache
 
+def LALCachetoFrameCache( lcache ):
 
-    """
+  lcache.sort( key=lambda e: (e.path(),e.segment[0]) )
 
-#    try:
-    head,tail = os.path.split(url)
-    observatory,description = re.split('_',os.path.splitext(tail)[0],\
-                                       maxsplit=1)
-    observatory = observatory[0] 
-    start,end = [coltype(t) for t in os.path.basename(head).split('_')]
-    duration = end-start
+  fcache = FrameCache()
 
-    segment = segments.segment(start,end)
+  for e in lcache:
 
-#    except:
-#      raise ValueError, "could not convert %s to KWCacheEntry" % repr(url)
+    matched = False
 
-    return cls(observatory, description, segment, url)
+    dir = os.path.split(e.path())[0]
 
-  from_KWfilename = classmethod(from_KWfilename)
+    # if path found in FrameCache try to coalesce with other entries
+    dirs = [d.path() for d in fcache]
 
-  def from_T050017(cls,url,coltype = LIGOTimeGPS):
-    """
-    Redirects to from_KWfilename for KWCacheEntry objects due to KW not
-    following T50017-00 conventions.
-    """
-    return KWCacheEntry.from_KWfilename(url,coltype=coltype)
+    if dir in dirs:
 
-  from_T050017 = classmethod(from_T050017)
+      pathentries = [fe for fe in fcache if fe.path()==dir]
+
+      # test current entry against other entries for the same path in the
+      # new cache
+      for i,pe in enumerate( pathentries ):
+
+        notdisjoint = e.segment[0] <= pe.segment[1]
+
+        # if entries match in directory, duration, and are contiguous, append
+        if pe.path()==os.path.split(e.path())[0]\
+             and e.segment.__abs__() == pe.duration\
+             and notdisjoint:
+          seg = segments.segment( min(pe.segment[0], e.segment[0]),\
+                                  max(pe.segment[1], e.segment[1]) )
+          fcache[i].segment = seg
+
+          matched = True
+          break
+
+      # if we haven't matched the entry to anything already in the cache add now
+      if not matched:
+        fe = FrameCacheEntry.from_T050017( e.path() )
+        fcache.append(fe)
+
+    # if from a new directory add
+    else:
+      fe = FrameCacheEntry.from_T050017( e.path() )
+      fcache.append(fe)
+
+  return fcache
