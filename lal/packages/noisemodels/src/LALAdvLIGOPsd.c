@@ -80,8 +80,8 @@ LALAdvLIGOPsd (LALStatus UNUSED *status, REAL8 *psd, REAL8 f)
         x2 = x*x;*/
         // this is the new fit of the latest curve in the ligo DCC 
 
-        *psd = 0.5*((60000.0*pow(f/10.0,-9.0))+5.0*pow(f/50.0,-5.25)+1.6*pow(f/100.0,-3.25)+ 
-                3.2*pow(f/200.0,-1.25)+0.9*pow(f/300.0,-0.08)+0.85*pow(f/1000.0,0.8)+0.35*pow(f/2000.0,0.85));
+        *psd = f*((60000.0*pow(f/10.0,-30.0))+5.0*pow(f/50.0,-6.0)+1.07*pow(f/100.0,-3.25)+ \
+            3.7*pow(f/200.0,-1.25)+0.9*pow(f/300.0,-0.08)+0.85*pow(f/1000.0,0.8)+0.35*pow(f/2000.0,3.0));
     
         //*psd = pow(x,-4.14) - 5./x2 + 111. * (1. - x2 + 0.5 * x2*x2)/(1. + 0.5*x2);
 }
