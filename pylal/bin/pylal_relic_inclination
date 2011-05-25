@@ -397,7 +397,8 @@ coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
 ##############################################################################
 # read in non-injection documents
 cache = lal.Cache.fromfile(open(opts.cache_file), coltype=LIGOTimeGPS)
-astro_cache = lal.Cache.fromfile(open(opts.astro_cache_file), coltype=LIGOTimeGPS)
+if opts.astro_cache_file:
+    astro_cache = lal.Cache.fromfile(open(opts.astro_cache_file), coltype=LIGOTimeGPS)
 
 # XXX: Speed hack; if opts.write_onsource, need all columns to be able to write
 # XXX: For 051103, we want to know compute Jtot, requiring the system orientation
