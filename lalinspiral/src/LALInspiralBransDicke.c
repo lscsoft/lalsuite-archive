@@ -1,5 +1,5 @@
     /*
-*  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer, Walter Del Pozzo
+*  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer, Tjonnie G.F. Li, Walter Del Pozzo
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 *  MA  02111-1307  USA
 */
 #include "LALInspiral.h"
-#include "LALInspiralPPE.h"
+#include "LALInspiralBransDicke.h"
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -27,9 +27,9 @@
 
 // NB: PROTOTYPE RESIDES IN LALINSPIRAL.H
 
-/*  <lalVerbatim file="LALInspiralPPE"> */
+/*  <lalVerbatim file="LALInspiralStationaryPhaseApprox2CP"> */
 void
-LALInspiralPPE (
+LALInspiralBransDicke (
                                        LALStatus        *status,
                                        REAL4Vector      *signalvec,
                                        InspiralTemplate *params)
@@ -40,7 +40,7 @@ LALInspiralPPE (
    expnFunc func;
 
 
-   INITSTATUS (status, "LALInspiralPPE", LALINSPIRALPPE);
+   INITSTATUS (status, "LALInspiralBransDicke", LALINSPIRALBRANSDICKE);
    ATTATCHSTATUSPTR(status);
    ASSERT (signalvec,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
    ASSERT (signalvec->data,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -100,7 +100,7 @@ LALInspiralPPE (
       else
       {
 	      v = pow(pimmc * f, Oneby3);
-	      LALInspiralPPEPhasing(params, f, &psif);
+	      LALInspiralBransDickePhasing(params, f, &psif);
 	      psi = shft * f + phi + psif;
 	      /*
 		 dEnergybyFlux computes 1/(dv/dt) while what we need is 1/(dF/dt):
@@ -111,7 +111,6 @@ LALInspiralPPE (
 		     = amp0 * pow(-dEnergybyFlux(v), 0.5) * v;
 	      */
 	      amp = amp0 * pow(-func.dEnergy(v,&ak)/func.flux(v,&ak),0.5L) * v;
-          amp *= (1.0+params->alphaPPE*pow(v,params->aPPE));
 	      signalvec->data[i] = (REAL4) (amp * cos(psi));
 	      signalvec->data[n-i] = (REAL4) (-amp * sin(psi));
 //          fprintf(model_output,"%e\t %e\t %e\t %e\n",i*df,signalvec->data[i],signalvec->data[n-i],psif);  
@@ -131,7 +130,7 @@ LALInspiralPPE (
    RETURN(status);
 }
 
-void LALInspiralPPEPhasing(
+void LALInspiralBransDickePhasing(
                           InspiralTemplate *params,
                           REAL8 f,
                           REAL8 *psif)
@@ -139,6 +138,8 @@ void LALInspiralPPEPhasing(
 	REAL8 phaseParams[10]={0.0};
 	REAL8 mtot = params->totalMass;
 	REAL8 distance;
+    REAL8 deltaCharge;
+    REAL8 Obd;
     REAL8 eta = params->eta;
     REAL8 pimtot = LAL_PI*mtot*LAL_MTSUN_SI;
     REAL8 comprefac = 3.0/(128.0*eta);
@@ -146,6 +147,8 @@ void LALInspiralPPEPhasing(
     REAL8 x=cbrt(f);
     REAL8 psif_loc=0.0;
     REAL8 pimtot1by3=cbrt(pimtot);
+    deltaCharge = params->ScalarCharge1-params->ScalarCharge2;
+    Obd=params->omegaBD;
     distance=params->distance*LAL_PC_SI*1e6;
     
     // SEE arXiv:1005.0304
@@ -176,11 +179,12 @@ void LALInspiralPPEPhasing(
             case LAL_PNORDER_ONE_POINT_FIVE:
                 psif_loc += phaseParams[3]/(x*x);
             case LAL_PNORDER_ONE:
-                psif_loc += (phaseParams[2])/f;
+                psif_loc += phaseParams[2]/f; 
             case LAL_PNORDER_HALF:
-                psif_loc += phaseParams[1]/(f*x);
+                psif_loc += phaseParams[1]/(f*x)-comprefac*(-5.0/336.0)*(deltaCharge*deltaCharge/Obd)/
+                        (pimtot*pimtot*pimtot1by3); // here goes the Brans-Dicke term
             case LAL_PNORDER_NEWTONIAN:
-                psif_loc += phaseParams[0]/(f*x*x)+params->betaPPE*pow(x,params->bPPE);
+                psif_loc += phaseParams[0]/(f*x*x);
                 break;
             default:
                 printf("INVALID PN ORDER!");

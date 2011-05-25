@@ -509,6 +509,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -558,6 +559,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -605,6 +607,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -655,6 +658,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -709,6 +713,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -764,6 +769,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -819,6 +825,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -879,6 +886,7 @@ LALInspiralChooseModel(
          case TaylorF2Test:
          case PPE:
          case MassiveGraviton:
+         case BransDicke:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
          case SpinTaylor:
@@ -914,6 +922,7 @@ LALInspiralChooseModel(
    case TaylorF2Test:   
    case PPE:
    case MassiveGraviton:
+   case BransDicke:
    case SpinTaylorFrameless:
    case SpinTaylorT3:
    case SpinTaylor:

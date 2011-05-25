@@ -34,6 +34,7 @@ Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li
 #include <lal/GeneratePPNAmpCorConsistency.h>
 #include <lal/LALInspiralStationaryPhaseApprox2Test.h>
 #include <lal/LALInspiralMassiveGraviton.h>
+#include <lal/LALInspiralBransDicke.h>
 #include <lal/LALInspiralPPE.h>
 #include <fftw3.h>
 
@@ -74,7 +75,7 @@ Optional OPTIONS:\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
 [--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior total mass\n \
 [--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
-[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorF2Test|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor|MassiveGraviton|PPE)]\n \
+[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorF2Test|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor|MassiveGraviton|PPE|BransDicke)]\n \
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
 [--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\n\
 [--H1GPSshift FLOAT\t: Specify timeslide in H1]\n \
@@ -209,6 +210,13 @@ double bPPE_min = -3.0;
 double bPPE_max = 3.0;
 double betaPPE_min = -1000.0;
 double betaPPE_max = 1000.0;
+
+void NestInitBransDicke(LALMCMCParameter *parameter, void *iT);
+/* limits for the BransDicke waveform */
+double OmegaBD_min = 1.0;
+double OmegaBD_max = 1E5;
+double ScCh_min = 0.0;
+double ScCh_max = 1.0;
 
 UINT4 fLowFlag=0;
 
@@ -1034,7 +1042,7 @@ int main( int argc, char *argv[])
 		
 		/* Perform injection */
 
-        if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton)) {
+        if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==BransDicke || check_approx==PPE)) {
             /* if the injection approximant is TaylorF2 or TaylorF2Test inject in the frequency domain */
             DetectorResponse det;
 			REAL8 SNR=0.0;
@@ -1162,7 +1170,7 @@ if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==T
 
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 
-    if (check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton) 
+    if (check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==BransDicke || check_approx==PPE) 
     {
                 fprintf(stdout,"Injecting in the frequency domain\n");
                 SimInspiralTable this_injection;
@@ -1205,7 +1213,7 @@ if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==T
 
 	/* Set up the approximant to use in the likelihood function */
 	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR TF2T[]="TaylorF2Test"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest"; CHAR PSTRD[]="PhenSpinTaylorRD";
-    CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low"; CHAR MG[]="MassiveGraviton"; CHAR InspPPE[]="PPE";
+    CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low"; CHAR MG[]="MassiveGraviton"; CHAR InspPPE[]="PPE"; CHAR BD[]="BransDicke";
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
@@ -1224,6 +1232,7 @@ if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==T
     else if(!strcmp(approx,LowMassIMRFB)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,MG)) inputMCMC.approximant=MassiveGraviton;
     else if(!strcmp(approx,InspPPE)) inputMCMC.approximant=PPE;
+    else if(!strcmp(approx,BD)) inputMCMC.approximant=BransDicke;
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
 	if((inputMCMC.approximant!=AmpCorPPN || inputMCMC.approximant!=AmpCorPPNTest) && ampOrder!=0){
@@ -1325,6 +1334,12 @@ doneinit:
         inputMCMC.funcPrior = NestPriorPPE;
         fprintf(stderr,"Switched to the testing likelihood for the PPE waveform\n");
         }
+    if (inputMCMC.approximant==BransDicke) {
+        inputMCMC.funcInit = NestInitBransDicke;
+        inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
+        inputMCMC.funcPrior = NestPriorBransDicke;
+        fprintf(stderr,"Switched to the testing likelihood for the BransDicke\n");
+        }    
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
 		inputMCMC.funcInit = NestInitGRB;
 	}
@@ -2227,6 +2242,91 @@ void NestInitPPE(LALMCMCParameter *parameter, void *iT) {
 	}
 }
 
+void NestInitBransDicke(LALMCMCParameter *parameter, void *iT) {
+	REAL8 trg_time;
+	SimInspiralTable *injTable = (SimInspiralTable *)iT;
+	REAL4 UNUSED mtot, UNUSED eta, UNUSED mwindow, localetawin;
+	REAL8 UNUSED mc, mcmin, mcmax, lmmin, lmmax;
+	parameter->param = NULL;
+	parameter->dimension = 0;
+	trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
+	mtot = injTable->mass1 + injTable->mass2;
+	eta = injTable->eta;
+	mwindow = 0.2;
+	double etamin;
+	/*etamin = etamin<0.01?0.01:etamin;*/
+	etamin=0.01;
+	double etamax = 0.25;
+	mc=m2mc(injTable->mass1,injTable->mass2);
+	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
+    mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
+
+	lmmin=log(mcmin);
+	lmmax=log(mcmax);
+	localetawin=etamax-etamin;
+	
+	LALMCMCParam *head;
+	
+	if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+		XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lmmin,lmmax,-1);
+	else
+		XLALMCMCAddParam(parameter,"logmc",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+	/*XLALMCMCAddParam(parameter,"mchirp",mcmin+(mcmax-mcmin)*gsl_rng_uniform(RNG),mcmin,mcmax,0);*/
+    
+	if(checkParamInList(pinned_params,"eta"))
+		XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
+	else
+		XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*localetawin+etamin , etamin, etamax, 0);
+	
+	if(checkParamInList(pinned_params,"time"))
+		XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
+	else
+		XLALMCMCAddParam(parameter, "time",		(gsl_rng_uniform(RNG)-0.5)*timewindow + trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,0);
+	
+	if(checkParamInList(pinned_params,"phi"))
+		XLALMCMCAddParam(parameter,"phi",injTable->coa_phase,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter, "phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
+	
+	if(checkParamInList(pinned_params,"dist") || checkParamInList(pinned_params,"logdist") || checkParamInList(pinned_params,"distance") || checkParamInList(pinned_params,"logdistance"))
+		XLALMCMCAddParam(parameter,"logdist",log(injTable->distance),log(manual_dist_min),log(manual_dist_max),-1);
+	else
+		XLALMCMCAddParam(parameter,"logdist",(log(manual_dist_max)-log(manual_dist_min))*gsl_rng_uniform(RNG)+log(manual_dist_min) ,log(manual_dist_min),log(manual_dist_max),0);
+    
+	if(checkParamInList(pinned_params,"ra")||checkParamInList(pinned_params,"longitude")||checkParamInList(pinned_params,"RA"))
+		XLALMCMCAddParam(parameter,"ra",injTable->longitude,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter,"ra",gsl_rng_uniform(RNG)*LAL_TWOPI,0,LAL_TWOPI,1);
+	if(checkParamInList(pinned_params,"dec") || checkParamInList(pinned_params,"latitude") || checkParamInList(pinned_params,"dec"))
+		XLALMCMCAddParam(parameter,"dec",injTable->latitude,-LAL_PI/2.0,LAL_PI/2.0,-1);
+	else
+		XLALMCMCAddParam(parameter,"dec", acos(2.0*gsl_rng_uniform(RNG)-1.0)-LAL_PI/2.0,-LAL_PI/2.0,LAL_PI/2.0,0);
+    
+	if(checkParamInList(pinned_params,"psi")||checkParamInList(pinned_params,"polarization"))
+		XLALMCMCAddParam(parameter,"psi",injTable->polarization,0,LAL_PI,-1);
+	else
+		XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI,0,LAL_PI,1);
+	
+	if(checkParamInList(pinned_params,"iota") || checkParamInList(pinned_params,"inclination"))
+		XLALMCMCAddParam(parameter,"iota", injTable->inclination, 0, LAL_PI, -1);
+	else
+		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
+    
+    /* add BransDicke parameters */
+
+    XLALMCMCAddParam(parameter,"logOmegaBD", log(OmegaBD_min)+(log(OmegaBD_max)-log(OmegaBD_min))*gsl_rng_uniform(RNG), log(OmegaBD_min), log(OmegaBD_max),0);    
+
+    XLALMCMCAddParam(parameter,"ScalarCharge1", ScCh_min+(ScCh_max-ScCh_min)*gsl_rng_uniform(RNG), ScCh_min, ScCh_max,0);
+
+    XLALMCMCAddParam(parameter,"ScalarCharge2", ScCh_min+(ScCh_max-ScCh_min)*gsl_rng_uniform(RNG), ScCh_min, ScCh_max,0);
+
+	for (head=parameter->param;head;head=head->next)
+	{
+		if(head->core->wrapping==-1)
+			fprintf(stdout,"Fixed parameter %s to %lf\n",head->core->name,head->value);
+	}
+}
+
 int checkParamInList(const char *list, const char *param)
 {
 	/* Check for param in comma-seperated list */
@@ -2357,7 +2457,28 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		fprintf(stderr,"Injecting logLambdaG = %e\n",inj_table->loglambdaG);
         template.loglambdaG=inj_table->loglambdaG;
 		LALInspiralMassiveGraviton(&status, injWaveFD, &template);
-	} else {
+	} 
+    else if (template.approximant==PPE) {
+		fprintf(stderr,"Injecting aPPE = %e\n",inj_table->aPPE);
+        fprintf(stderr,"Injecting alphaPPE = %e\n",inj_table->alphaPPE);
+        fprintf(stderr,"Injecting bPPE = %e\n",inj_table->bPPE);
+        fprintf(stderr,"Injecting betaPPE = %e\n",inj_table->betaPPE);
+        template.aPPE=inj_table->aPPE;
+        template.alphaPPE=inj_table->alphaPPE;
+        template.bPPE=inj_table->bPPE;
+        template.betaPPE=inj_table->betaPPE;
+		LALInspiralPPE(&status, injWaveFD, &template);    
+    }
+    else if (template.approximant==BransDicke) {
+		fprintf(stderr,"Injecting Scalar Charge 1 = %e\n",inj_table->ScalarCharge1);
+        fprintf(stderr,"Injecting Scalar Charge 2 = %e\n",inj_table->ScalarCharge2);
+        fprintf(stderr,"Injecting OmegaBD = %e\n",inj_table->omegaBD);
+        template.ScalarCharge1=inj_table->ScalarCharge1;
+        template.ScalarCharge2=inj_table->ScalarCharge2;
+        template.omegaBD=inj_table->omegaBD;
+		LALInspiralBransDicke(&status, injWaveFD, &template);    
+    }
+    else {
 		fprintf(stderr,"GR injection");
         LALInspiralWave(&status,injWaveFD,&template);
     }

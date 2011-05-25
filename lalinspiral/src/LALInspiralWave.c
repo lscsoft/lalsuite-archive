@@ -130,6 +130,8 @@ Depending on the user inputs one of the following functions is called:\\
 #include <lal/GeneratePPNInspiral.h>
 #include <lal/LALInspiralStationaryPhaseApprox2Test.h>
 #include <lal/LALInspiralMassiveGraviton.h>
+#include <lal/LALInspiralPPE.h>
+#include <lal/LALInspiralBransDicke.h>
 #include <lal/LALSQTPNWaveformInterface.h>
 
 NRCSID (LALINSPIRALWAVEC, "$Id$");

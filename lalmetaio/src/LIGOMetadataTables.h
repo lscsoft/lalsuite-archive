@@ -568,6 +568,18 @@ tagSimInspiralTable
   REAL4 	     dphi6l;
   REAL4 	     dphi7;
   REAL4 		 loglambdaG;
+
+/* Parameters for the Brans-Dicke waveform */
+  REAL4          ScalarCharge1;
+  REAL4          ScalarCharge2;
+  REAL4          omegaBD;
+
+/* Parameters for the PPE waveform */
+ 
+  REAL4          aPPE;
+  REAL4          alphaPPE;
+  REAL4          bPPE;
+  REAL4          betaPPE;
 }
 SimInspiralTable;
 

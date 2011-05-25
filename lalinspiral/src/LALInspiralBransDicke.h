@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2011 Walter Del Pozzo
+*  Copyright (C) 2007 Walter Del Pozzo
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -18,23 +18,23 @@
 */
 
 /* <lalVerbatim> */
-#ifndef _LALINSPIRALPPE_H  /* Double-include protection. */
-#define _LALINSPIRALPPE_H
+#ifndef _LALINSPIRALBRANSDICKE_H  /* Double-include protection. */
+#define _LALINSPIRALBRANSDICKE_H
 
 #ifdef  __cplusplus   /* C++ protection. */
 extern "C" {
 #endif
 
 
-NRCSID( LALINSPIRALPPE, "$Id$" );
+NRCSID( LALINSPIRALBRANSDICKE, "$Id$" );
 
-void
-LALInspiralPPE (
-                LALStatus        *status,
-                REAL4Vector      *signalvec,
-                InspiralTemplate *params);
+    void
+    LALInspiralBransDicke (
+                                           LALStatus        *status,
+                                           REAL4Vector      *signalvec,
+                                           InspiralTemplate *params);
 
-void LALInspiralPPEPhasing(
+    void LALInspiralBransDickePhasing(
                           InspiralTemplate *params,
                           REAL8 f,
                           REAL8 *psif);

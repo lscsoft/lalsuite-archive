@@ -466,6 +466,14 @@ LALGetApproximantFromString(
   {
 	*approximant = MassiveGraviton;
   }  
+  else if ( strstr(thisEvent, "BransDicke") )
+  {
+	*approximant = BransDicke;
+  } 
+  else if ( strstr(thisEvent, "PPE") )
+  {
+	*approximant = PPE;
+  } 
   else if ( strstr(thisEvent, "EOBNR" ) )
   {
     *approximant = EOBNR;

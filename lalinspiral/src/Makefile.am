@@ -26,6 +26,7 @@ lalinspiralinclude_HEADERS = \
 	GeneratePPNAmpCorConsistency.h \
 	LALInspiralBCVSpinBank.h \
 	LALInspiralBank.h \
+	LALInspiralBransDicke.h \
 	LALInspiralConfig.h \
 	LALInspiralComputeWaveformAccuracies.h \
 	LALInspiralRandomBank.h \
@@ -121,6 +122,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralBCVBank.c \
 	LALInspiralBankList.c \
 	LALInspiralBankUtils.c \
+	LALInspiralBransDicke.c \
 	LALInspiralChooseModel.c \
 	LALInspiralComputeChisq.c \
 	LALInspiralComputeMetric.c \

@@ -1380,6 +1380,13 @@ SimInspiralTableFromLIGOLw (
     {"dphi6l",              -1, 64},
     {"dphi7",               -1, 65},
     {"loglambdaG",          -1, 66},
+    {"ScalarCharge1",       -1, 67},
+    {"ScalarCharge2",       -1, 68},
+    {"omegaBD",             -1, 69},
+    {"aPPE",                -1, 70},
+    {"alphaPPE",            -1, 71},
+    {"bPPE",                -1, 72},
+    {"betaPPE",             -1, 73},
     {NULL,                   0, 0}
   };
 
@@ -1721,14 +1728,34 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 66 )
         {
             thisSim->loglambdaG = r4colData;
-	}
+        }
         else if ( tableDir[j].idx == 67 ) 
-	{
-            thisSim->qmParameter1 = r4colData;
+        {
+            thisSim->ScalarCharge1 = r4colData;
         }
         else if ( tableDir[j].idx == 68 ) 
-	{
-            thisSim->qmParameter2 = r4colData;
+        {
+            thisSim->ScalarCharge2 = r4colData;
+        }
+        else if ( tableDir[j].idx == 69 ) 
+        {
+            thisSim->omegaBD = r4colData;
+        }  
+        else if ( tableDir[j].idx == 70 ) 
+        {
+            thisSim->aPPE = r4colData;
+        } 
+        else if ( tableDir[j].idx == 71 ) 
+        {
+            thisSim->alphaPPE = r4colData;
+        }
+        else if ( tableDir[j].idx == 72 ) 
+        {
+            thisSim->bPPE = r4colData;
+        }
+        else if ( tableDir[j].idx == 73 ) 
+        {
+            thisSim->betaPPE = r4colData;
         }
         else
         {

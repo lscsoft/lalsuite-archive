@@ -105,6 +105,8 @@ REAL8 NestPriorMassiveGraviton(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 
 REAL8 NestPriorPPE(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
+REAL8 NestPriorBransDicke(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+
 REAL8 NestPriorPhenSpin(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
@@ -141,6 +143,8 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 void MassiveGraviton_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 
 void PPE_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
+
+void BransDicke_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 
 void PhenSpinTaylorRD_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 

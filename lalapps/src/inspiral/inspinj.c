@@ -179,6 +179,8 @@ REAL8 redshift;
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
 INT4 MGInjections = 0;
+INT4 BDinjections = 0;
+INT4 PPEinjections = 0;
 
 REAL8 dphi0=0.0;
 REAL8 dphi1=0.0;
@@ -190,7 +192,14 @@ REAL8 dphi5l=0.0;
 REAL8 dphi6=0.0;
 REAL8 dphi6l=0.0;
 REAL8 dphi7=0.0;
-REAL8 loglambdaG=-10000.0;
+REAL8 loglambdaG=28.0;
+REAL8 ScalarCharge1 = 0.0;
+REAL8 ScalarCharge2 = 0.0;
+REAL8 omegaBD = 100000.0;
+REAL8 aPPE = 0.0;
+REAL8 alphaPPE = 0.0;
+REAL8 bPPE = 0.0;
+REAL8 betaPPE = 0.0;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
@@ -631,7 +640,7 @@ static void print_usage(char *program)
       "  [--max-abskappa1] abskappa1max \n"\
       "                           Set the maximum absolute value of cos(S1.L_N) \n"\
       "                           to abskappa1max (1.0)\n\n");
-fprintf(stderr,
+  fprintf(stderr,
       "Test parameter information:\n"\
       " --enable-dphi             enable phiTest injections\n"\
       " --dphi0 value             value of the dphi0 parameter\n"\
@@ -644,10 +653,23 @@ fprintf(stderr,
       " --dphi6 value             value of the dphi6 parameter\n"\
       " --dphi6l value            value of the dphi6l parameter\n"\
       " --dphi7 value             value of the dphi7 parameter\n");
-fprintf(stderr,
+  fprintf(stderr,
 	  "Massive Graviton Information:\n"\
 	  " --enable-mg				  enable Massive Graviton injections\n"\
-	  " --loglambdaG			  log Compton wavelength value\n"); 	
+	  " --loglambdaG value			  log Compton wavelength value\n"); 
+  fprintf(stderr,
+      "Brans-Dicke Information:\n"\
+      " --enable-bd               enable Brans-Dicke injections\n"\
+      " --scalar-charge-1 value   scalar charge for body 1\n"\
+      " --scalar-charge-2 value   scalar charge for body 2\n"\
+      " --omegaBD value           Brans-Dicke parameter Omega\n");
+  fprintf(stderr,
+      "PPE Information:\n"\
+      " --enable-ppe              enable PPE injections\n"\
+      " --aPPE value              amplitude exponent\n"\
+      " --alphaPPE value          amplitude coefficient\n"\
+      " --bPPE value              phase exponent\n"\
+      " --betaPPE value           phase coefficient\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1382,7 +1404,16 @@ int main( int argc, char *argv[] )
     {"dphi6l",                  required_argument, 0,                 1018},
     {"dphi7",                   required_argument, 0,                 1019},
     {"enable-mg",               no_argument,       0,                 1020},   
-    {"loglambdaG",              required_argument, 0,                 1021},           
+    {"loglambdaG",              required_argument, 0,                 1021},
+    {"enable-bd",               no_argument,       0,                 1022},
+    {"scalar-charge-1",         required_argument, 0,                 1023},
+    {"scalar-charge-2",         required_argument, 0,                 1024},
+    {"omegaBD",                 required_argument, 0,                 1025},
+    {"enable-ppe",              no_argument,       0,                 1026},
+    {"aPPE",                    required_argument, 0,                 1027},
+    {"alphaPPE",                required_argument, 0,                 1028},
+    {"bPPE",                    required_argument, 0,                 1029},
+    {"betaPPE",                 required_argument, 0,                 1030},
     {0, 0, 0, 0}
   };
   int c;
@@ -2293,6 +2324,63 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", loglambdaG );
           break;       
+       case 1022:
+             /* enable Brans-Dicke injections */
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "string", "");
+            BDinjections = 1; 
+          break;
+       case 1023:
+            ScalarCharge1 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", ScalarCharge1 );
+          break;
+       case 1024:
+            ScalarCharge2 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", ScalarCharge2 );
+          break;
+       case 1025:
+            omegaBD = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", omegaBD );
+          break;
+       case 1026:
+             /* enable PPE injections */
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "string", "");
+            PPEinjections = 1; 
+          break;
+       case 1027:
+            aPPE = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", aPPE );
+          break;
+       case 1028:
+            alphaPPE = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", alphaPPE );
+          break;
+       case 1029:
+            bPPE = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", bPPE );
+          break;
+       case 1030:
+            betaPPE = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", betaPPE );
+          break;
+
       case 'h':
         print_usage(argv[0]);
         exit( 0 );
@@ -2974,6 +3062,19 @@ int main( int argc, char *argv[] )
     /* populate the massive graviton parameter */
     
     simTable->loglambdaG=loglambdaG;
+    
+    /* populate the Brans-Dicke parameters */
+    
+    simTable->ScalarCharge1 = ScalarCharge1;
+    simTable->ScalarCharge2 = ScalarCharge2;
+    simTable->omegaBD = omegaBD;
+    
+    /* populate the PPE parameters */
+    
+    simTable->aPPE = aPPE;
+    simTable->alphaPPE = alphaPPE;
+    simTable->bPPE = bPPE;
+    simTable->betaPPE = betaPPE;
     
     /* populate the sim_ringdown table */ 
    

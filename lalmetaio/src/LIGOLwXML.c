@@ -856,6 +856,13 @@ LALWriteLIGOLwXMLTable (
           tablePtr.simInspiralTable->dphi6l,
           tablePtr.simInspiralTable->dphi7,
           tablePtr.simInspiralTable->loglambdaG,
+          tablePtr.simInspiralTable->ScalarCharge1,
+          tablePtr.simInspiralTable->ScalarCharge2,
+          tablePtr.simInspiralTable->omegaBD,
+          tablePtr.simInspiralTable->aPPE,
+          tablePtr.simInspiralTable->alphaPPE,
+          tablePtr.simInspiralTable->bPPE,
+          tablePtr.simInspiralTable->betaPPE,
               xml->rowCount
               );
         tablePtr.simInspiralTable = tablePtr.simInspiralTable->next;

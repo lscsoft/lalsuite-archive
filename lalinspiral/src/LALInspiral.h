@@ -474,13 +474,14 @@ typedef enum {
    AmpCorPPNTest, 
    NumRel,
    MassiveGraviton,
+   PPE,
+   BransDicke,
    Eccentricity,
    EOBNR,
    IMRPhenomA,
    IMRPhenomB,
    IMRPhenomFA,
    IMRPhenomFB,
-   PPE,
    TaylorEt,
    TaylorT4,
    TaylorN,
@@ -604,6 +605,19 @@ tagInspiralTemplate
 
 /* Parameters for the massive graviton waveform */
   REAL8 loglambdaG;
+
+/* Parameters for the Brans-Dicke waveform */
+  REAL8 ScalarCharge1;
+  REAL8 ScalarCharge2;
+  REAL8 omegaBD;
+
+/* Parameters for the PPE waveform */
+ 
+  REAL8 aPPE;
+  REAL8 alphaPPE;
+  REAL8 bPPE;
+  REAL8 betaPPE;
+  
 /* Note that tc and fFinal are computed during waveform generation!!! */
 
   REAL4 minMatch;
