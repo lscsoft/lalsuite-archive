@@ -121,10 +121,12 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
   
   if Classified:
     first_line = " ".join(list(Triggers.dtype.names))
+    file.write(first_line + "\n")
   else:
-    first_line = " ".join(list(Triggers.dtype.names)[:-1])
-  
-  file.write(first_line + "\n")
+    first_line = str(len(list(Triggers.dtype.names)[:-1]))
+    second_line = " ".join(list(Triggers.dtype.names)[:-1])
+    file.write(first_line + "\n")
+    file.write(second_line + "\n")
   
   for i in range(n_triggers):
     line = " ".join([str(var) for var in Triggers[:][i]]) 
