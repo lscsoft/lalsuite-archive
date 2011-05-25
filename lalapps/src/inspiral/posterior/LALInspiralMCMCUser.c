@@ -2349,18 +2349,13 @@ void BransDicke_template(LALStatus *status,InspiralTemplate *template, LALMCMCPa
 	LALInspiralRestrictedAmplitude(status,template);
     template->omegaBD=exp(XLALMCMCGetParameter(parameter,"logOmegaBD"));
     if (template->mass1 > 3.0) {
-        template->ScalarCharge1 = 0.0;
+        XLALMCMCSetParameter(parameter,"ScalarCharge1",0.0);
     } 
-    else {
-        template->ScalarCharge1=XLALMCMCGetParameter(parameter,"ScalarCharge1");
-    }
     if (template->mass2 > 3.0) {
-        template->ScalarCharge2 = 0.0;
+        XLALMCMCSetParameter(parameter,"ScalarCharge2",0.0);
     } 
-    else {
-        template->ScalarCharge2=XLALMCMCGetParameter(parameter,"ScalarCharge1");
-    }
-    
+    template->ScalarCharge1=XLALMCMCGetParameter(parameter,"ScalarCharge1");
+    template->ScalarCharge2=XLALMCMCGetParameter(parameter,"ScalarCharge2");
     LALInspiralBransDicke(status, model, template);
 
 /*	

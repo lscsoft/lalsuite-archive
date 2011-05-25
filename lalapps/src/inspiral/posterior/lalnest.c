@@ -214,7 +214,7 @@ double betaPPE_max = 1000.0;
 void NestInitBransDicke(LALMCMCParameter *parameter, void *iT);
 /* limits for the BransDicke waveform */
 double OmegaBD_min = 1.0;
-double OmegaBD_max = 1E5;
+double OmegaBD_max = 1E10;
 double ScCh_min = 0.0;
 double ScCh_max = 1.0;
 
