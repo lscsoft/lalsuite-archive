@@ -553,6 +553,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case EOBNRv2:
+         case EOBNRv2HM:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -599,6 +600,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case EOBNRv2:
+         case EOBNRv2HM:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -645,6 +647,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case EOBNRv2:
+         case EOBNRv2HM:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -686,6 +689,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case EOBNRv2:
+         case EOBNRv2HM:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -736,6 +740,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case EOBNRv2:
+         case EOBNRv2HM:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -787,6 +792,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case EOBNRv2:
+         case EOBNRv2HM:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:
@@ -859,6 +865,7 @@ LALInspiralChooseModel(
             ABORT(status, LALINSPIRALH_EORDERMISSING, LALINSPIRALH_MSGEORDERMISSING);
             break;
          case EOBNRv2:
+         case EOBNRv2HM:
             ak->vn = ak->vlso = vlso = ak->vlsoPP;
             f->dEnergy = dEp6;
             f->flux = Fp8PP;
@@ -958,6 +965,7 @@ LALInspiralChooseModel(
  case IMRPhenomFA:
  case IMRPhenomFB:
  case EOBNRv2:
+ case EOBNRv2HM:
    ak->tn = 5.*ak->totalmass/(256.*ak->eta*pow(ak->v0,8.)) + 1000.*ak->totalmass;
    break;
  case Eccentricity:
