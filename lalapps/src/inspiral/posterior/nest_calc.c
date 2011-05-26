@@ -98,7 +98,6 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 	eta=XLALMCMCGetParameter(injected,"eta");
 	m1 = mc2mass1(mc,eta);
 	m2 = mc2mass2(mc,eta);	
-    
     if(m1<minCompMass || m2<minCompMass) {fprintf(stderr,"m1 or m2 smaller than minCompMass. Aborting..."); exit(-1);}
 	if(m1>maxCompMass || m2>maxCompMass) {fprintf(stderr,"m1 or m2 bigger than maxCompMass. Aborting..."); exit(-1);}
 	if(m1+m2>MAX_MTOT) {fprintf(stderr,"Mtot bigger than MAX_MTOT. Aborting..."); exit(-1);}
