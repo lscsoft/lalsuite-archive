@@ -117,14 +117,15 @@ e0 = [8., 10., 0.8]
 # load pylal_grbUL data (loop over list of pickles - see option parser)
 
 grbUL_pickles = opts.grbUL_pickle.split(",")
+
+# Get system labels for distance exclusion plot
 if opts.systems:
     systems = opts.systems.split(",")
-else:
-    pylal_grbUL-exclusion-GRB051103_NSNS_30.pickle
-    systems = grbUL_pickles
 
-# check we have the same number of system names as input pickles
-assert(len(grbUL_pickles)==len(systems))
+# If this list of system labels doesn't have the same length as the list of
+# input pickles, revert to using pickle user-tags.
+if len(systems)!=len(grbUL_pickles):
+    systems = grbUL_pickles
 
 # count number of NS and BH systems
 nBH = sum(numpy.asarray([ system.find('BH') + 1 for system in systems ])>0)
@@ -146,7 +147,8 @@ NSindx=0
 for system, grbUL_pickle in zip(systems, grbUL_pickles):
     CLs, m2_bins, D1D2_by_CL_m2 = pickle.load(open(grbUL_pickle))
 
-    # strip unnecessary part from system label
+    # strip unnecessary part from system label.  This shouldn't affect
+    # user-specified system labels
     system=system.replace('pylal_grbUL-exclusion-','')
     system=system.replace('.pickle','')
 
