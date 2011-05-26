@@ -181,7 +181,7 @@ void LALInspiralBransDickePhasing(
             case LAL_PNORDER_ONE:
                 psif_loc += phaseParams[2]/f; 
             case LAL_PNORDER_HALF:
-                psif_loc += phaseParams[1]/(f*x)-comprefac*(-5.0/336.0)*(deltaCharge*deltaCharge/Obd)/
+                psif_loc += phaseParams[1]/(f*x)-comprefac*(5.0/336.0)*(deltaCharge*deltaCharge/Obd)/
                         (pimtot*pimtot*pimtot1by3); // here goes the Brans-Dicke term
             case LAL_PNORDER_NEWTONIAN:
                 psif_loc += phaseParams[0]/(f*x*x);
