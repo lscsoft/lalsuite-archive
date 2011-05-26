@@ -133,17 +133,15 @@ if len(systems)!=len(grbUL_pickles):
     systems = [system.replace('_','-') for system in systems]
     systems = [system.replace('GRB051103-','') for system in systems]
 
-	
-print systems
 
 # count number of NS and BH systems
 nBH = sum(numpy.asarray([ system.find('BH') + 1 for system in systems ])>0)
 nNS = len(systems) - nBH
 
 # define some lists of plotting options
-colors = ['b','g','b','g','r','k']
-styles = ['-','-','--','--',':','.-']
-markers = ['+','+','x','x','v','^']
+colors = ['b','g','b','g','r','k','b','g','b','g','r','k']
+styles = ['-','-','--','--',':','.-','.-',':','--','--','-','-']
+markers = ['+','+','x','x','v','^','^','v','x','x','+','+']
 
 # empty lists for M81 exclusion confidence(s)
 BNS_cos_jet_semi_angle = numpy.zeros(nNS)
