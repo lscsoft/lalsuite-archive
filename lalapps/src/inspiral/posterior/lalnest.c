@@ -190,7 +190,7 @@ char *pinned_params=NULL;
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
-void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
+
 // init function for the Phi-parametrized AmpCor && TaylorF2 waveform
 void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
 // init function for the MassiveGraviton waveform
@@ -214,7 +214,7 @@ double betaPPE_max = 1000.0;
 void NestInitBransDicke(LALMCMCParameter *parameter, void *iT);
 /* limits for the BransDicke waveform */
 double OmegaBD_min = 1.0;
-double OmegaBD_max = 1E10;
+double OmegaBD_max = 1E6;
 double ScCh_min = 0.0;
 double ScCh_max = 1.0;
 
@@ -2137,10 +2137,10 @@ void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT)
     
     /* add loglambdaG parameter  */
 
-	if(checkParamInList(pinned_params,"loglambdaG"))
-		XLALMCMCAddParam(parameter,"loglambdaG", injTable->loglambdaG, loglambdaG_min, loglambdaG_max, -1);
+	if(checkParamInList(pinned_params,"lnlambdaG"))
+		XLALMCMCAddParam(parameter,"lnlambdaG", injTable->loglambdaG, loglambdaG_min, loglambdaG_max, -1);
 	else
-		XLALMCMCAddParam(parameter,"loglambdaG", loglambdaG_min+(loglambdaG_max-loglambdaG_min)*gsl_rng_uniform(RNG), loglambdaG_min, loglambdaG_max,0);    
+		XLALMCMCAddParam(parameter,"lnlambdaG", loglambdaG_min+(loglambdaG_max-loglambdaG_min)*gsl_rng_uniform(RNG), loglambdaG_min, loglambdaG_max,0);    
     
 
 	for (head=parameter->param;head;head=head->next)

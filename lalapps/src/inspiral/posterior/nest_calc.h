@@ -14,6 +14,10 @@ extern INT4 seed;
 
 void NestInit2PN(LALMCMCParameter *parameter, void *iT);
 
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
+
+void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput);
+
 REAL8 mean(REAL8 *array,int N);
 
 REAL8 computeZ(LALMCMCInput *MCMCinput);

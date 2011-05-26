@@ -2284,7 +2284,7 @@ void MassiveGraviton_template(LALStatus *status,InspiralTemplate *template, LALM
     (void)inputMCMC;
 	LALInspiralParameterCalc(status,template);
 	LALInspiralRestrictedAmplitude(status,template);
-    template->loglambdaG=XLALMCMCGetParameter(parameter,"loglambdaG");
+    template->loglambdaG=XLALMCMCGetParameter(parameter,"lnlambdaG");
     LALInspiralMassiveGraviton(status, model, template);
 
 /*	
@@ -2347,7 +2347,7 @@ void BransDicke_template(LALStatus *status,InspiralTemplate *template, LALMCMCPa
     (void)inputMCMC;
     LALInspiralParameterCalc(status,template);
 	LALInspiralRestrictedAmplitude(status,template);
-    template->omegaBD=exp(XLALMCMCGetParameter(parameter,"logOmegaBD"));
+    template->omegaBD=exp(XLALMCMCGetParameter(parameter,"lnOmegaBD"));
     if (template->mass1 > 3.0) {
         XLALMCMCSetParameter(parameter,"ScalarCharge1",0.0);
     } 
