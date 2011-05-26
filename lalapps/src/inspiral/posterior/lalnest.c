@@ -2372,7 +2372,7 @@ void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *
     if (pinned_params!=NULL){
         pin_was_null=0;
         pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
-        strcpy(pinned_params_temp,pinned_params);
+        pinned_params_temp=pinned_params;
         pinned_params=full_list;
     }
     else {
@@ -2382,10 +2382,10 @@ void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *
     if (pin_was_null)
         pinned_params=NULL;
     else {
-        strcpy(pinned_params,pinned_params_temp);
+        pinned_params=pinned_params_temp;
     }
-    return ;	
-	}
+     return ;	
+     }
 
 
 ///*-----------------------------------------------------------*/
