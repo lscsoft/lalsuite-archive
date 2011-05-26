@@ -781,7 +781,10 @@ class Posterior(object):
         """
         old_pos = self[post_name]
         old_inj = old_pos.injval
-        new_inj = (func(old_inj) if old_inj else None)
+        if old_inj:
+            new_inj = func(old_inj)
+        else:
+            new_inj=None
         samps   = func(old_pos.samples)
         new_pos = OneDPosterior(new_param_name, samps, injected_value=new_inj)
         self.append(new_pos)
@@ -1700,7 +1703,10 @@ def array_dot(vec1, vec2):
     """
     Calculate dot products between vectors in rows of numpy arrays.
     """
-    return (vec1*vec2).sum() if vec1.ndim==1 else (vec1*vec2).sum(axis=1).reshape(-1,1)
+    if vec1.ndim==1:
+        return (vec1*vec2).sum()
+    else:
+        return(vec1*vec2).sum(axis=1).reshape(-1,1)
 #
 #
 
@@ -1718,7 +1724,10 @@ def array_polar_ang(vec):
     """
     Find polar angles of vectors in rows of a numpy array.
     """
-    z = (vec[2] if vec.ndim==1 else vec[:,2].reshape(-1,1))
+    if vec.ndim==1:
+        z = vec[2]
+    else:
+        z = vec[:,2].reshape(-1,1)
     norm = np.sqrt(array_dot(vec,vec))
     return np.arccos(z/norm)
 #
@@ -1752,10 +1761,16 @@ def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None
     m1, m2 = mc2ms(mc,eta)
     L  = orbital_momentum(f_lower, mc, incl)
     S1 = component_momentum(m1, a1, theta1, phi1)
-    S2 = component_momentum(m2, a2, theta2, phi2) if not singleSpin else 0.0
+    if not singleSpin:
+        S2 = component_momentum(m2, a2, theta2, phi2)
+    else:
+        S2 = 0.0
     J = L + S1 + S2
     tilt1 = array_ang_sep(J,S1)
-    tilt2 = array_ang_sep(J,S2) if not singleSpin else None
+    if not singleSpin:
+        tilt2 = array_ang_sep(J,S2)
+    else:
+        tilt2 = None
     thetas = array_polar_ang(J)
     beta  = array_ang_sep(J,L)
     return tilt1, tilt2, thetas, beta
