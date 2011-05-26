@@ -83,8 +83,8 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 	REAL8 MAX_MTOT=35.0;
 	fprintf(stderr,"Checking injected parameters in range... \n");
 	
-	if(MCMCinput->injectionTable!=NULL) NestInitInjectedParam(injected,(void *)MCMCinput->injectionTable, MCMCinput);
-	else NestInitInjectedParam(injected,(void *)MCMCinput->inspiralTable);
+	if(MCMCinput->injectionTable!=NULL) NestInitInjectedParam(injected,MCMCinput->injectionTable, MCMCinput);
+	else NestInitInjectedParam(injected,MCMCinput->inspiralTable, MCMCinput);
 	
     in_range=ParamInRange(injected);
         if (in_range==0){
@@ -242,6 +242,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	if (MCMCinput->injectionTable!=NULL){		
         LALMCMCParameter *injected=(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));    
         CheckInjectionInRange(injected,MCMCinput);
+        XLALMCMCFreePara(injected);
     }
 
 	if(MCMCinput->injectionTable!=NULL) MCMCinput->funcInit(temp,(void *)MCMCinput->injectionTable);

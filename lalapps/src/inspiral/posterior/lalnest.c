@@ -190,7 +190,7 @@ char *pinned_params=NULL;
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
-void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
+
 // init function for the Phi-parametrized AmpCor && TaylorF2 waveform
 void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT);
 // init function for the MassiveGraviton waveform
