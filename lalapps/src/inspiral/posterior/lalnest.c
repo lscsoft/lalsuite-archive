@@ -214,7 +214,7 @@ double betaPPE_max = 1000.0;
 void NestInitBransDicke(LALMCMCParameter *parameter, void *iT);
 /* limits for the BransDicke waveform */
 double OmegaBD_min = 1.0;
-double OmegaBD_max = 1E10;
+double OmegaBD_max = 1E6;
 double ScCh_min = 0.0;
 double ScCh_max = 1.0;
 
@@ -2141,10 +2141,10 @@ void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT)
     
     /* add loglambdaG parameter  */
 
-	if(checkParamInList(pinned_params,"loglambdaG"))
-		XLALMCMCAddParam(parameter,"loglambdaG", injTable->loglambdaG, loglambdaG_min, loglambdaG_max, -1);
+	if(checkParamInList(pinned_params,"lnlambdaG"))
+		XLALMCMCAddParam(parameter,"lnlambdaG", injTable->loglambdaG, loglambdaG_min, loglambdaG_max, -1);
 	else
-		XLALMCMCAddParam(parameter,"loglambdaG", loglambdaG_min+(loglambdaG_max-loglambdaG_min)*gsl_rng_uniform(RNG), loglambdaG_min, loglambdaG_max,0);    
+		XLALMCMCAddParam(parameter,"lnlambdaG", loglambdaG_min+(loglambdaG_max-loglambdaG_min)*gsl_rng_uniform(RNG), loglambdaG_min, loglambdaG_max,0);    
     
 
 	for (head=parameter->param;head;head=head->next)
@@ -2314,7 +2314,7 @@ void NestInitBransDicke(LALMCMCParameter *parameter, void *iT) {
     
     /* add BransDicke parameters */
 
-    XLALMCMCAddParam(parameter,"logOmegaBD", log(OmegaBD_min)+(log(OmegaBD_max)-log(OmegaBD_min))*gsl_rng_uniform(RNG), log(OmegaBD_min), log(OmegaBD_max),0);    
+    XLALMCMCAddParam(parameter,"lnOmegaBD", log(OmegaBD_min)+(log(OmegaBD_max)-log(OmegaBD_min))*gsl_rng_uniform(RNG), log(OmegaBD_min), log(OmegaBD_max),0);    
 
     XLALMCMCAddParam(parameter,"ScalarCharge1", ScCh_min+(ScCh_max-ScCh_min)*gsl_rng_uniform(RNG), ScCh_min, ScCh_max,0);
 
@@ -2352,7 +2352,7 @@ int checkParamInList(const char *list, const char *param)
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
 {   CHAR pinned_params_temp[100]="";
     int pin_was_null=1;
-    char full_list[]="logM,mchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG,aPPE,alphaPPE,bPPE,betaPPE";
+    char full_list[]="logM,mchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,lnlambdaG,aPPE,alphaPPE,bPPE,betaPPE";
     if (pinned_params!=NULL){
         pin_was_null=0;
         strcpy(pinned_params_temp,pinned_params);
