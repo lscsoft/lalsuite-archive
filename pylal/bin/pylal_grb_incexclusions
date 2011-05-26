@@ -209,19 +209,17 @@ for system, grbUL_pickle in zip(systems, grbUL_pickles):
     pyplot.figure(0)
     pyplot.axes([0.15,0.20,0.95-0.13,0.95-0.25])
 
-    # plot /measured/ points.  Only plot the
-    # first types of system (i.e., all inclinations and inclinations <jet angle)
-    if systems.index(system)<4:
-        pyplot.plot(x_measured,y_measured, \
-                    marker=curr_marker, color=curr_color, label=None, linestyle='')
-        pyplot.hold(True)
+    # plot /measured/ points.
+    pyplot.plot(x_measured,y_measured, \
+                marker=curr_marker, color=curr_color, label=None, linestyle='')
+    pyplot.hold(True)
 
-        # plot sigmoid fit
-        pyplot.plot(xfit, yfit, color=curr_color, label=None, linestyle=curr_style)
+    # plot sigmoid fit
+    pyplot.plot(xfit, yfit, color=curr_color, label=None, linestyle=curr_style)
 
-        # plot a point out of range for the legend
-        pyplot.plot([-50,-10],[-50,-10], color=curr_color, label=r'\textrm{'+system+'}', \
-                    marker=curr_marker, linestyle=curr_style)
+    # plot a point out of range for the legend
+    pyplot.plot([-50,-10],[-50,-10], color=curr_color, label=r'\textrm{'+system+'}', \
+                marker=curr_marker, linestyle=curr_style)
 
 
 ################################################################################
