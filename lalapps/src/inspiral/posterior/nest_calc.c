@@ -88,8 +88,7 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 	
     in_range=ParamInRange(injected);
         if (in_range==0){
-	        fprintf(stderr,"One or more injected parameters are outside their allowed ranges. Aborting... \n");
-	        exit(1);
+	        fprintf(stderr,"WARNING! One or more injected parameters are outside their allowed ranges. \n");
 		}
 		
 	if(XLALMCMCCheckParameter(injected,"logmc")) mc=exp(XLALMCMCGetParameter(injected,"logmc"));
@@ -102,7 +101,7 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 	if(m1>maxCompMass || m2>maxCompMass) {fprintf(stderr,"m1 or m2 bigger than maxCompMass. Aborting..."); exit(-1);}
 	if(m1+m2>MAX_MTOT) {fprintf(stderr,"Mtot bigger than MAX_MTOT. Aborting..."); exit(-1);}
     
-    fprintf(stderr,"The injection parameters are ok. \n");
+    if (in_range) fprintf(stderr,"The injection parameters are ok. \n");
     return;
     }
 	
