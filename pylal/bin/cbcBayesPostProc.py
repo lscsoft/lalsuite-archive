@@ -196,7 +196,10 @@ def cbcBayesPostProc(
                 print "Warning: No 'time' column!"
 
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
-    mchirp_name = ('mc' if 'mc' in pos.names else 'mchirp')
+    if 'mc' in pos.names:
+        mchirp_name = 'mc'
+    else:
+        mchirp_namp = 'mchirp'
 
     if (mchirp_name in pos.names and 'eta' in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
