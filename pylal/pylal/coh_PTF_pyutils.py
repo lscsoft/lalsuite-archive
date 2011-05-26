@@ -312,5 +312,24 @@ def identify_bad_injections(log_dir):
             injDict['spin2z'] = float(line[20])
             if not injDict in badInjs:
               badInjs.append(injDict)
-
   return badInjs
+
+def remove_bad_injections(sims,badInjs):
+
+  new_sims = []
+  for sim in sims:
+    for badInj in badInjs:
+      if (abs(sim.mass1-badInj['mass1'])) < 0.001:
+        if (abs(sim.mass2-badInj['mass2'])) < 0.001:
+          if (abs(sim.spin1x-badInj['spin1x'])) < 0.001:
+            if (abs(sim.spin1y-badInj['spin1y'])) < 0.001:
+              if (abs(sim.spin1z-badInj['spin1z'])) < 0.001:
+                if (abs(sim.spin2x-badInj['spin2x'])) < 0.001:
+                  if (abs(sim.spin2y-badInj['spin2y'])) < 0.001:
+                    if (abs(sim.spin2z-badInj['spin2z'])) < 0.001:
+                      print "Removing injection:",sim.mass1,sim.mass2,sim.spin1x,sim.spin1y,sim.spin1z,sim.spin2x,sim.spin2y,sim.spin2z
+                      break
+    else:
+      new_sims.append(sim)
+
+  return new_sims
