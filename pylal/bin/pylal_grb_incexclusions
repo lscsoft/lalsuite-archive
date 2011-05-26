@@ -126,6 +126,15 @@ if opts.systems:
 # input pickles, revert to using pickle user-tags.
 if len(systems)!=len(grbUL_pickles):
     systems = grbUL_pickles
+    # strip unnecessary part from system label.  This shouldn't affect
+    # user-specified system labels
+    systems = [system.replace('pylal_grbUL-exclusion-','') for system in systems]
+    systems = [system.replace('.pickle','') for system in systems]
+    systems = [system.replace('_','-') for system in systems]
+    systems = [system.replace('GRB051103-','') for system in systems]
+
+	
+print systems
 
 # count number of NS and BH systems
 nBH = sum(numpy.asarray([ system.find('BH') + 1 for system in systems ])>0)
@@ -146,11 +155,6 @@ BHindx=0
 NSindx=0
 for system, grbUL_pickle in zip(systems, grbUL_pickles):
     CLs, m2_bins, D1D2_by_CL_m2 = pickle.load(open(grbUL_pickle))
-
-    # strip unnecessary part from system label.  This shouldn't affect
-    # user-specified system labels
-    system=system.replace('pylal_grbUL-exclusion-','')
-    system=system.replace('.pickle','')
 
     # dump out a handy text file
     ascii_name = 'pylal_grbUL-exclusion-'+opts.user_tag+'-'+system+'.txt'
