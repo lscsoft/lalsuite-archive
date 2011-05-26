@@ -73,8 +73,8 @@ Optional OPTIONS:\n \
 [--srate rate (4096)\t:\tDownsample data to rate Hz]\n \
 [--pad padding (1s)\t:\tPadding for PSD Tukey window\n \
 [--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
-[--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior total mass\n \
-[--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
+[--mmin FLOAT, --mmax FLOAT\t:\tSpecify min and max prior total mass\n \
+[--dmin FLOAT (1), --dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
 [--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorF2Test|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|AmpCorPPNTest|IMRPhenomFA|IMRPhenomFB|IMRPhenomFB_NS|IMRPhenomFB_Chi|EOBNR|SpinTaylor|MassiveGraviton|PPE|BransDicke)]\n \
 [--amporder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
 [--phaseorder INT\t:\tPhase PN order to use, multiply by two, i.e. 3.5PN=7. (Default 4 = 2.0PN)]\n\
