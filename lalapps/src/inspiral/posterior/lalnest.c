@@ -2309,20 +2309,19 @@ void NestInitBransDicke(LALMCMCParameter *parameter, void *iT) {
 		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
     
     /* add BransDicke parameters */
-    if(checkParamInList(pinned_params,"omegaBD"))
-        XLALMCMCAddParam(parameter,"logOmegaBD", log(OmegaBD_min)+(log(OmegaBD_max)-log(OmegaBD_min))*gsl_rng_uniform(RNG), log(OmegaBD_min), log(OmegaBD_max),0);
+    if(checkParamInList(pinned_params,"lnOmegaBD"))
+         XLALMCMCAddParam(parameter,"lnOmegaBD", log(injTable->omegaBD), log(OmegaBD_min), log(OmegaBD_max),-1);
     else
-        XLALMCMCAddParam(parameter,"logOmegaBD", log(injTable->omegaBD), log(OmegaBD_min), log(OmegaBD_max),0);
+        XLALMCMCAddParam(parameter,"lnOmegaBD", log(OmegaBD_min)+(log(OmegaBD_max)-log(OmegaBD_min))*gsl_rng_uniform(RNG), log(OmegaBD_min), log(OmegaBD_max),0);
     if(checkParamInList(pinned_params,"ScalarCharge1"))
-        XLALMCMCAddParam(parameter,"ScalarCharge1", ScCh_min+(ScCh_max-ScCh_min)*gsl_rng_uniform(RNG), ScCh_min, ScCh_max,0);
+        XLALMCMCAddParam(parameter,"ScalarCharge1", injTable->ScalarCharge1, ScCh_min, ScCh_max,-1);
     else
-        XLALMCMCAddParam(parameter,"ScalarCharge1", injTable->ScalarCharge1, ScCh_min, ScCh_max,0);
-
+        XLALMCMCAddParam(parameter,"ScalarCharge1", ScCh_min+(ScCh_max-ScCh_min)*gsl_rng_uniform(RNG), ScCh_min, ScCh_max,0);
     if(checkParamInList(pinned_params,"ScalarCharge2"))
-    XLALMCMCAddParam(parameter,"ScalarCharge2", ScCh_min+(ScCh_max-ScCh_min)*gsl_rng_uniform(RNG), ScCh_min, ScCh_max,0);
- else
-        XLALMCMCAddParam(parameter,"ScalarCharge2", injTable->ScalarCharge2, ScCh_min, ScCh_max,0);
-	for (head=parameter->param;head;head=head->next)
+        XLALMCMCAddParam(parameter,"ScalarCharge2", injTable->ScalarCharge2, ScCh_min, ScCh_max,-1);
+    else
+        XLALMCMCAddParam(parameter,"ScalarCharge2", ScCh_min+(ScCh_max-ScCh_min)*gsl_rng_uniform(RNG), ScCh_min, ScCh_max,0);
+ 	for (head=parameter->param;head;head=head->next)
 	{
 		if(head->core->wrapping==-1)
 			fprintf(stdout,"Fixed parameter %s to %lf\n",head->core->name,head->value);
@@ -2355,7 +2354,7 @@ void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *
 {  
     char *pinned_params_temp=NULL;
     int pin_was_null=1;
-    char full_list[]="logM,mchirp,logmchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG,aPPE,alphaPPE,bPPE,betaPPE,ScalarCharge1,ScalarCharge2,omegaBD";
+    char full_list[]="logM,mchirp,logmchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,loglambdaG,aPPE,alphaPPE,bPPE,betaPPE,ScalarCharge1,ScalarCharge2,lnOmegaBD,omegaBD";
     if (pinned_params!=NULL){
         pin_was_null=0;
         pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
