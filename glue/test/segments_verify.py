@@ -1,6 +1,7 @@
 import random
 import unittest
 import verifyutils
+import doctest
 
 
 #
@@ -345,6 +346,8 @@ if __name__ == "__main__":
 
 	unittest.TextTestRunner(verbosity=2).run(suite)
 
+	doctest.testmod(segments)
+
 	# then with C extension implementation
 
 	from glue import __segments
@@ -360,3 +363,5 @@ if __name__ == "__main__":
 	suite.addTest(unittest.makeSuite(test_segmentlist))
 
 	unittest.TextTestRunner(verbosity=2).run(suite)
+
+	doctest.testmod(segments)

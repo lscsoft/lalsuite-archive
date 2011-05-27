@@ -18,6 +18,7 @@ option "skymap-resolution" - "skymap resolution in radians" double default="1e-6
 option "skymap-resolution-ratio" - "adjust default coarseness of the grid by this factor" double default="1.0" no
 option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no
 option "strain-norm-factor" - "strain normalization factor to prevent overflowing of the exponent" double default="1e-20" no
+option "job-size"	-	"size of job for multi-threaded operation" int default="5" no
 
 option "lock-file"	- "file to lock when reading SFTs in order to globally serialize disk access"	string no
 option "enable-dataset-locking"	- "set to 1 to enable dataset level locking"	int default="1" no

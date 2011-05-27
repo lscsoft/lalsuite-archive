@@ -32,7 +32,7 @@
 #include <lal/Units.h>
 #include <lal/StringInput.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
-
+#include <lal/TimeSeries.h>
 
 LALVariables variables;
 LALVariables variables2;
@@ -75,9 +75,161 @@ void SingleIFOLikelihoodTest(void);
 void BasicMCMCTest(void);
 void TemplateDumpTest(void);
 void PTMCMCTest(void);
+REAL8 FreqDomainNullLogLikelihood(LALIFOData *data);
 
 // gsl_rng * InitializeRandomSeed(void);
 // unsigned long int random_seed();
+
+//REAL8 NullLogLikelihood(LALIFOData *data)
+///*Idential to FreqDomainNullLogLikelihood                        */
+//{
+//	REAL8 loglikeli, totalChiSquared=0.0;
+//	LALIFOData *ifoPtr=data;
+//	
+//	/* loop over data (different interferometers): */
+//	while (ifoPtr != NULL) {
+//		totalChiSquared+=ComputeFrequencyDomainOverlap(ifoPtr, ifoPtr->freqData->data, ifoPtr->freqData->data);
+//		ifoPtr = ifoPtr->next;
+//	}
+//	loglikeli = -0.5 * totalChiSquared; // note (again): the log-likelihood is unnormalised!
+//	return(loglikeli);
+//}
+
+
+LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
+/* calls the "ReadData()" function to gather data & PSD from files, */
+/* and initializes other variables accordingly.                     */
+{
+	LALInferenceRunState *irs=NULL;
+	LALIFOData *ifoPtr, *ifoListStart;
+	//ProcessParamsTable *ppt=NULL;
+	unsigned long int randomseed;
+	struct timeval tv;
+	FILE *devrandom;
+	
+	irs = calloc(1, sizeof(LALInferenceRunState));
+	/* read data from files: */
+	fprintf(stdout, " readData(): started.\n");
+	irs->data = readData(commandLine);
+	/* (this will already initialise each LALIFOData's following elements:  */
+	/*     fLow, fHigh, detector, timeToFreqFFTPlan, freqToTimeFFTPlan,     */
+	/*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
+	fprintf(stdout, " readData(): finished.\n");
+	if (irs->data != NULL) {
+		fprintf(stdout, " initialize(): successfully read data.\n");
+		
+		fprintf(stdout, " injectSignal(): started.\n");
+		injectSignal(irs->data,commandLine);
+		fprintf(stdout, " injectSignal(): finished.\n");
+		
+		ifoPtr = irs->data;
+		ifoListStart = irs->data;
+		while (ifoPtr != NULL) {
+			/*If two IFOs have the same sampling rate, they should have the same timeModelh*,
+			 freqModelh*, and modelParams variables to avoid excess computation 
+			 in model waveform generation in the future*/
+			LALIFOData * ifoPtrCompare=ifoListStart;
+			int foundIFOwithSameSampleRate=0;
+			while(ifoPtrCompare != NULL && ifoPtrCompare!=ifoPtr) {
+				if(ifoPtrCompare->timeData->deltaT == ifoPtr->timeData->deltaT){
+					ifoPtr->timeModelhPlus=ifoPtrCompare->timeModelhPlus;
+					ifoPtr->freqModelhPlus=ifoPtrCompare->freqModelhPlus;
+					ifoPtr->timeModelhCross=ifoPtrCompare->timeModelhCross;				
+					ifoPtr->freqModelhCross=ifoPtrCompare->freqModelhCross;				
+					ifoPtr->modelParams=ifoPtrCompare->modelParams;	
+					foundIFOwithSameSampleRate=1;	
+					break;
+				}
+			}
+			if(!foundIFOwithSameSampleRate){
+				ifoPtr->timeModelhPlus  = XLALCreateREAL8TimeSeries("timeModelhPlus",
+																	&(ifoPtr->timeData->epoch),
+																	0.0,
+																	ifoPtr->timeData->deltaT,
+																	&lalDimensionlessUnit,
+																	ifoPtr->timeData->data->length);
+				ifoPtr->timeModelhCross = XLALCreateREAL8TimeSeries("timeModelhCross",
+																	&(ifoPtr->timeData->epoch),
+																	0.0,
+																	ifoPtr->timeData->deltaT,
+																	&lalDimensionlessUnit,
+																	ifoPtr->timeData->data->length);
+				ifoPtr->freqModelhPlus = XLALCreateCOMPLEX16FrequencySeries("freqModelhPlus",
+																			&(ifoPtr->freqData->epoch),
+																			0.0,
+																			ifoPtr->freqData->deltaF,
+																			&lalDimensionlessUnit,
+																			ifoPtr->freqData->data->length);
+				ifoPtr->freqModelhCross = XLALCreateCOMPLEX16FrequencySeries("freqModelhCross",
+																			 &(ifoPtr->freqData->epoch),
+																			 0.0,
+																			 ifoPtr->freqData->deltaF,
+																			 &lalDimensionlessUnit,
+																			 ifoPtr->freqData->data->length);
+				ifoPtr->modelParams = calloc(1, sizeof(LALVariables));
+			}
+			ifoPtr = ifoPtr->next;
+		}
+		irs->currentLikelihood=NullLogLikelihood(irs->data);
+		printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
+	}
+	else
+		fprintf(stdout, " initialize(): no data read.\n");
+	
+	/* set up GSL random number generator: */
+	gsl_rng_env_setup();
+	irs->GSLrandom = gsl_rng_alloc(gsl_rng_mt19937);
+	/* (try to) get random seed from command line: */
+	ppt = getProcParamVal(commandLine, "--randomseed");
+	if (ppt != NULL)
+		randomseed = atoi(ppt->value);
+	else { /* otherwise generate "random" random seed: */
+		if ((devrandom = fopen("/dev/random","r")) == NULL) {
+			gettimeofday(&tv, 0);
+			randomseed = tv.tv_sec + tv.tv_usec;
+		} 
+		else {
+			fread(&randomseed, sizeof(randomseed), 1, devrandom);
+			fclose(devrandom);
+		}
+	}
+	fprintf(stdout, " initialize(): random seed: %lu\n", randomseed);
+	gsl_rng_set(irs->GSLrandom, randomseed);
+	
+	return(irs);
+}
+
+
+
+
+REAL8 FreqDomainNullLogLikelihood(LALIFOData *data)
+/* calls the `FreqDomainLogLikelihood()' function in conjunction   */
+/* with the `templateNullFreqdomain()' template in order to return */
+/* the "Null likelihood" without having to bother specifying       */
+/* parameters or template while ensuring computations are exactly  */
+/* the same as in usual likelihood calculations.                   */
+{
+	LALVariables dummyParams;
+	double dummyValue;
+	double loglikeli;
+	/* set some (basically arbitrary) dummy values for intrinsic parameters */
+	/* (these shouldn't make a difference, but need to be present):         */
+	dummyParams.head      = NULL;
+	dummyParams.dimension = 0;
+	dummyValue = 0.5;
+	addVariable(&dummyParams, "rightascension", &dummyValue, REAL8_t,PARAM_CIRCULAR);
+	addVariable(&dummyParams, "declination",    &dummyValue, REAL8_t,PARAM_LINEAR);
+	addVariable(&dummyParams, "polarisation",   &dummyValue, REAL8_t,PARAM_LINEAR);
+	addVariable(&dummyParams, "distance",       &dummyValue, REAL8_t,PARAM_LINEAR);
+	dummyValue = XLALGPSGetREAL8(&data->timeData->epoch) 
+	+ (((double) data->timeData->data->length) / 2.0) * data->timeData->deltaT;
+	addVariable(&dummyParams, "time",           &dummyValue, REAL8_t,PARAM_LINEAR);
+	loglikeli = FreqDomainLogLikelihood(&dummyParams, data, &templateNullFreqdomain);
+	destroyVariables(&dummyParams);
+	return(loglikeli);
+}
+
+
 
 
 
@@ -95,7 +247,7 @@ int main(int argc, char *argv[]){
   
   if(runstate->data) {
     /* Test the created data */  
-    DataTest();
+    //DataTest();
     
     /* TemplateStatPhase() test */
 	//TemplateStatPhaseTest();
@@ -113,7 +265,7 @@ int main(int argc, char *argv[]){
 	//TemplateDumpTest();
 	  
 	/* PTMCMC test */
-	//PTMCMCTest();
+	PTMCMCTest();
 	  
 
   }
@@ -141,17 +293,17 @@ void BasicMCMCLALProposal(LALInferenceRunState *runState, LALVariables *proposed
         ra_proposed, dec_proposed, psi_proposed, dist_proposed;
   REAL8 logProposalRatio = 0.0;  // = log(P(backward)/P(forward))
   gsl_rng * GSLrandom=runState->GSLrandom;
-  LALVariables * currentParams = runState->currentParams;	
+  LALVariables * currentParams_local = runState->currentParams;
 
-  mc   = *(REAL8*) getVariable(currentParams, "chirpmass");		/* solar masses*/
-  eta  = *(REAL8*) getVariable(currentParams, "massratio");		/* dim-less    */
-  iota = *(REAL8*) getVariable(currentParams, "inclination");		/* radian      */
-  tc   = *(REAL8*) getVariable(currentParams, "time");				/* GPS seconds */
-  phi  = *(REAL8*) getVariable(currentParams, "phase");			/* radian      */
-  ra   = *(REAL8*) getVariable(currentParams, "rightascension");	/* radian      */
-  dec  = *(REAL8*) getVariable(currentParams, "declination");		/* radian      */
-  psi  = *(REAL8*) getVariable(currentParams, "polarisation");		/* radian      */
-  dist = *(REAL8*) getVariable(currentParams, "distance");			/* Mpc         */
+  mc   = *(REAL8*) getVariable(currentParams_local, "chirpmass");		/* solar masses*/
+  eta  = *(REAL8*) getVariable(currentParams_local, "massratio");		/* dim-less    */
+  iota = *(REAL8*) getVariable(currentParams_local, "inclination");		/* radian      */
+  tc   = *(REAL8*) getVariable(currentParams_local, "time");				/* GPS seconds */
+  phi  = *(REAL8*) getVariable(currentParams_local, "phase");			/* radian      */
+  ra   = *(REAL8*) getVariable(currentParams_local, "rightascension");	/* radian      */
+  dec  = *(REAL8*) getVariable(currentParams_local, "declination");		/* radian      */
+  psi  = *(REAL8*) getVariable(currentParams_local, "polarisation");		/* radian      */
+  dist = *(REAL8*) getVariable(currentParams_local, "distance");			/* Mpc         */
 
   //mc_proposed   = mc*(1.0+gsl_ran_ugaussian(GSLrandom)*0.01);	/*mc changed by 1% */
   // (above proposal is not symmetric!)
@@ -170,7 +322,7 @@ void BasicMCMCLALProposal(LALInferenceRunState *runState, LALVariables *proposed
   dist_proposed = dist * exp(gsl_ran_ugaussian(GSLrandom)*0.1); // ~10% change
   logProposalRatio *= dist_proposed / dist;
 		
-  copyVariables(currentParams, proposedParams);
+  copyVariables(currentParams_local, proposedParams);
   setVariable(proposedParams, "chirpmass",      &mc_proposed);		
   setVariable(proposedParams, "massratio",      &eta_proposed);
   setVariable(proposedParams, "inclination",    &iota_proposed);
@@ -186,7 +338,7 @@ void BasicMCMCLALProposal(LALInferenceRunState *runState, LALVariables *proposed
   if (checkVariable(runstate->proposalArgs, "logProposalRatio"))
     setVariable(runstate->proposalArgs, "logProposalRatio", &logProposalRatio);
   else
-    addVariable(runstate->proposalArgs, "logProposalRatio", &logProposalRatio, REAL8_t);
+    addVariable(runstate->proposalArgs, "logProposalRatio", &logProposalRatio, REAL8_t, PARAM_OUTPUT);
 }
 
 
@@ -205,6 +357,7 @@ REAL8 BasicUniformLALPrior(LALInferenceRunState *runState, LALVariables *params)
 /* Prior is flat if within range	*/
 /****************************************/
 {
+  (void) runState; /* avoid warning about unused parameter */
   REAL8 mc, eta, iota, phi, tc, ra, dec, psi, dist;	
   REAL8 logdensity;
   
@@ -243,10 +396,10 @@ void ASinOmegaTProposal(LALInferenceRunState *runState, LALVariables *proposedPa
   REAL8 A_proposed, Omega_proposed;
   REAL8 logProposalRatio = 0.0;  // = log(P(backward)/P(forward))
   gsl_rng * GSLrandom=runState->GSLrandom;
-  LALVariables * currentParams = runState->currentParams;	
+  LALVariables * currentParams_local = runState->currentParams;	
 
-  A     = *(REAL8*) getVariable(currentParams, "A");				/* dim-less	   */
-  Omega = *(REAL8*) getVariable(currentParams, "Omega");			/* rad/sec     */	
+  A     = *(REAL8*) getVariable(currentParams_local, "A");				/* dim-less	   */
+  Omega = *(REAL8*) getVariable(currentParams_local, "Omega");			/* rad/sec     */	
 
   //A_proposed=A*(1.0+gsl_ran_ugaussian(GSLrandom)*0.1);			/*mc changed by 10% */
   //Omega_proposed=Omega*(1.0+gsl_ran_ugaussian(GSLrandom)*0.01);	/*Omega changed by 0.01*/
@@ -258,7 +411,7 @@ void ASinOmegaTProposal(LALInferenceRunState *runState, LALVariables *proposedPa
   Omega_proposed = Omega * exp(gsl_ran_ugaussian(GSLrandom)*0.01);  // ~ 1% change
   logProposalRatio *= Omega_proposed / Omega;
   
-  copyVariables(currentParams, proposedParams);
+  copyVariables(currentParams_local, proposedParams);
   setVariable(proposedParams, "A",     &A_proposed);		
   setVariable(proposedParams, "Omega", &Omega_proposed);
 
@@ -267,7 +420,7 @@ void ASinOmegaTProposal(LALInferenceRunState *runState, LALVariables *proposedPa
   if (checkVariable(runstate->proposalArgs, "logProposalRatio"))
     setVariable(runstate->proposalArgs, "logProposalRatio", &logProposalRatio);
   else
-    addVariable(runstate->proposalArgs, "logProposalRatio", &logProposalRatio, REAL8_t);
+    addVariable(runstate->proposalArgs, "logProposalRatio", &logProposalRatio, REAL8_t,PARAM_OUTPUT);
 }
 
 
@@ -282,6 +435,7 @@ REAL8 ASinOmegaTPrior(LALInferenceRunState *runState, LALVariables *params)
 /* Prior is flat if within range		*/
 /****************************************/
 {
+  (void) runState; /* avoid warning about unused parameter */
   REAL8 A, Omega;
   REAL8 logdensity;
   
@@ -346,7 +500,7 @@ void BasicMCMCOneStep(LALInferenceRunState *runState)
 //Test LALAlgorithm
 void MCMCAlgorithm(struct tagLALInferenceRunState *runState)
 {
-  int i;
+  //int i;
   REAL8 dummyR8;
   
   printf(" MCMCAlgorithm(); starting parameter values:\n");
@@ -373,7 +527,7 @@ void NelderMeadEval(struct tagLALInferenceRunState *runState,
 // Evaluates Prior & Likelihood for a given (sub-) set of parameters.
 //  /!\  Side effect: alters value of "runState->currentParams" !
 {
-  int i;
+  //int i;
   // copy over (subset of) values from "value" argument
   // (other parameter values, if any, remain as they are):
   for (i=0; i<dim; ++i)
@@ -421,7 +575,7 @@ void NelderMeadAlgorithm(struct tagLALInferenceRunState *runState, LALVariables 
   REAL8 epsilon = 0.001;  // stop criterion 
   int maxiter = 500;      // also stop criterion
 
-  int i, j;
+  //int i, j;
   LALVariables param;
   LALVariables startval;
   char str[VARNAME_MAX];
@@ -454,9 +608,9 @@ void NelderMeadAlgorithm(struct tagLALInferenceRunState *runState, LALVariables 
     if (i==0) 
       die(" ERROR in NelderMeadAlgorithm(): empty \"runstate->currentParams\" vector provided.\n");
     for (j=1; j<=i; ++j) {  // check "currentParams" entries and copy all REAL( values:
-      if (getVariableType(runstate->currentParams, j) == REAL8_t){
+      if (getVariableTypeByIndex(runstate->currentParams, j) == REAL8_t){
 	strcpy(str, getVariableName(runstate->currentParams, j));
-        addVariable(&param, str, getVariable(runstate->currentParams, str), REAL8_t);
+        addVariable(&param, str, getVariable(runstate->currentParams, str), REAL8_t, PARAM_LINEAR);
       }
     }
   }
@@ -623,19 +777,19 @@ void LALVariablesTest(void)
   variables.dimension=0;
 	
   memset(&status,0,sizeof(status));
-  addVariable(&variables, "number", &number, REAL4_t);
+  addVariable(&variables, "number", &number, REAL4_t,PARAM_FIXED);
   numberR8 = 7.0;
-  addVariable(&variables, "seven", &numberR8, REAL8_t);
+  addVariable(&variables, "seven", &numberR8, REAL8_t,PARAM_FIXED);
   numberR8 = LAL_PI;
-  addVariable(&variables, "pi", &numberR8, REAL8_t);
+  addVariable(&variables, "pi", &numberR8, REAL8_t,PARAM_FIXED);
   numberI4 = 123;
-  addVariable(&variables, "small", &numberI4, INT4_t);
+  addVariable(&variables, "small", &numberI4, INT4_t,PARAM_FIXED);
   numberI8 = 256*256*256*64;
-  addVariable(&variables, "large", &numberI8, INT8_t);
+  addVariable(&variables, "large", &numberI8, INT8_t,PARAM_FIXED);
   numberC8.re = 2.0;  numberC8.im = 3.0;
-  addVariable(&variables, "complex1", &numberC8, COMPLEX8_t);
+  addVariable(&variables, "complex1", &numberC8, COMPLEX8_t,PARAM_FIXED);
   numberC16.re = 1.23;  numberC16.im = -3.45;
-  addVariable(&variables, "complex2", &numberC16, COMPLEX16_t);
+  addVariable(&variables, "complex2", &numberC16, COMPLEX16_t,PARAM_FIXED);
 
   number=*(REAL4 *)getVariable(&variables,"number");
   fprintf(stdout,"Got %lf\n",number);
@@ -742,20 +896,20 @@ void DataTest(void)
 	REAL8 distMpc_current = injTable->distance;
 	
 	
-	addVariable(&currentParams, "chirpmass",       &mc,              REAL8_t);
-    addVariable(&currentParams, "massratio",       &eta,             REAL8_t);
-    addVariable(&currentParams, "inclination",     &iota,            REAL8_t);
-    addVariable(&currentParams, "phase",           &phi,             REAL8_t);
-    addVariable(&currentParams, "time",            &tc   ,           REAL8_t); 
-    addVariable(&currentParams, "rightascension",  &ra_current,      REAL8_t);
-    addVariable(&currentParams, "declination",     &dec_current,     REAL8_t);
-    addVariable(&currentParams, "polarisation",    &psi_current,     REAL8_t);
-    addVariable(&currentParams, "distance",        &distMpc_current, REAL8_t);
+	addVariable(&currentParams, "chirpmass",       &mc,              REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "massratio",       &eta,             REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "inclination",     &iota,            REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "phase",           &phi,             REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "time",            &tc   ,           REAL8_t, PARAM_LINEAR); 
+    addVariable(&currentParams, "rightascension",  &ra_current,      REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "declination",     &dec_current,     REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "polarisation",    &psi_current,     REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "distance",        &distMpc_current, REAL8_t, PARAM_LINEAR);
    /* fprintf(stdout, " trying 'templateLAL' likelihood...\n");
     numberI4 = TaylorF2;
-    addVariable(&currentParams, "LAL_APPROXIMANT", &numberI4,        INT4_t);
+    addVariable(&currentParams, "LAL_APPROXIMANT", &numberI4,        INT4_t, PARAM_FIXED);
     numberI4 = LAL_PNORDER_TWO;
-    addVariable(&currentParams, "LAL_PNORDER",     &numberI4,        INT4_t);*/
+    addVariable(&currentParams, "LAL_PNORDER",     &numberI4,        INT4_t, PARAM_FIXED);*/
 	 fprintf(stdout, " trying 'LALTemplateGeneratePPN' likelihood..\n");
     likelihood = FreqDomainLogLikelihood(&currentParams, runstate->data, LALTemplateGeneratePPN);
     nulllikelihood = NullLogLikelihood(runstate->data);
@@ -823,11 +977,11 @@ void TemplateStatPhaseTest(void)
 	REAL8 tc=*((REAL8 *) getVariable(runstate->data->modelParams,"time"));
 	printf("t_c: %f\n", tc);
     destroyVariables(runstate->data->modelParams);
-    addVariable(runstate->data->modelParams, "chirpmass",   &mc,    REAL8_t);
-    addVariable(runstate->data->modelParams, "massratio",   &eta,   REAL8_t);
-    addVariable(runstate->data->modelParams, "inclination", &iota,  REAL8_t);
-    addVariable(runstate->data->modelParams, "phase",       &phi,   REAL8_t);
-    addVariable(runstate->data->modelParams, "time",        &tcoal, REAL8_t);
+    addVariable(runstate->data->modelParams, "chirpmass",   &mc,    REAL8_t, PARAM_LINEAR);
+    addVariable(runstate->data->modelParams, "massratio",   &eta,   REAL8_t, PARAM_LINEAR);
+    addVariable(runstate->data->modelParams, "inclination", &iota,  REAL8_t, PARAM_LINEAR);
+    addVariable(runstate->data->modelParams, "phase",       &phi,   REAL8_t, PARAM_LINEAR);
+    addVariable(runstate->data->modelParams, "time",        &tcoal, REAL8_t, PARAM_LINEAR);
     printVariables(runstate->data->modelParams);
     templateStatPhase(runstate->data);
     fprintf(stdout, " ...done.\n");
@@ -840,20 +994,20 @@ void TemplateStatPhaseTest(void)
 	  REAL8 psi_current       = 0.8;	/* radian      */
 	  REAL8 distMpc_current   = 10.0;	/* Mpc         */
 	  
-    addVariable(&currentParams, "chirpmass",       &mc,              REAL8_t);
-    addVariable(&currentParams, "massratio",       &eta,             REAL8_t);
-    addVariable(&currentParams, "inclination",     &iota,            REAL8_t);
-    addVariable(&currentParams, "phase",           &phi,             REAL8_t);
-    addVariable(&currentParams, "time",            &tc   ,           REAL8_t); 
-    addVariable(&currentParams, "rightascension",  &ra_current,      REAL8_t);
-    addVariable(&currentParams, "declination",     &dec_current,     REAL8_t);
-    addVariable(&currentParams, "polarisation",    &psi_current,     REAL8_t);
-    addVariable(&currentParams, "distance",        &distMpc_current, REAL8_t);
+    addVariable(&currentParams, "chirpmass",       &mc,              REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "massratio",       &eta,             REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "inclination",     &iota,            REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "phase",           &phi,             REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "time",            &tc   ,           REAL8_t, PARAM_LINEAR); 
+    addVariable(&currentParams, "rightascension",  &ra_current,      REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "declination",     &dec_current,     REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "polarisation",    &psi_current,     REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "distance",        &distMpc_current, REAL8_t, PARAM_LINEAR);
     fprintf(stdout, " trying 'templateLAL' likelihood...\n");
     numberI4 = TaylorT1;
-    addVariable(&currentParams, "LAL_APPROXIMANT", &numberI4,        INT4_t);
+    addVariable(&currentParams, "LAL_APPROXIMANT", &numberI4,        INT4_t, PARAM_FIXED);
     numberI4 = LAL_PNORDER_TWO;
-    addVariable(&currentParams, "LAL_PNORDER",     &numberI4,        INT4_t);
+    addVariable(&currentParams, "LAL_PNORDER",     &numberI4,        INT4_t, PARAM_FIXED);
     likelihood = FreqDomainLogLikelihood(&currentParams, runstate->data, templateLAL);
     fprintf(stdout, " ...done.\n");
     fprintf(stdout," templateLAL log-likelihood %f\n", likelihood);  
@@ -874,7 +1028,7 @@ void SingleIFOLikelihoodTest(void)
 	freqModel2=runstate->data->freqData->data;
 	//ComputeFreqDomainResponse(&currentParams, runstate->data, templateLAL, freqModel2);
 	FILE * freqModelFile=fopen("freqModelFile.dat", "w");
-	for(i=0; i<runstate->data->freqData->data->length; i++){
+	for(i=0; i<(int)runstate->data->freqData->data->length; i++){
 		fprintf(freqModelFile, "%g\t %g\t %g\t %g\t %g\t %g\n", 
 		((double)i)*1.0/ (((double)runstate->data->timeData->data->length) * runstate->data->timeData->deltaT),
 		freqModel1->data[i].re, freqModel1->data[i].im, freqModel2->data[i].re, freqModel2->data[i].im,
@@ -933,26 +1087,26 @@ void TemplateDumpTest(void)
 	 
 	 double mass1=10.;
 	 double mass2=1.4;
-    addVariable(&currentParams, "m1",       &mass1,              REAL8_t);
-	addVariable(&currentParams, "m2",       &mass2,              REAL8_t);
+    addVariable(&currentParams, "m1",       &mass1,              REAL8_t, PARAM_LINEAR);
+	addVariable(&currentParams, "m2",       &mass2,              REAL8_t, PARAM_LINEAR);
 	  double spin1x = 0.5;
 	  double spin1y = 0.1;
 	  double spin1z = 0.0;
 	  double spin2x = 0.2;
 	  double spin2y = 0.0;
 	  double spin2z = 0.3;
-	  addVariable(&currentParams, "spin1x",       &spin1x,              REAL8_t);	  
-	  addVariable(&currentParams, "spin1y",       &spin1y,              REAL8_t);
-	  addVariable(&currentParams, "spin1z",       &spin1z,              REAL8_t);
-	  addVariable(&currentParams, "spin2x",       &spin2x,              REAL8_t);	  
-	  addVariable(&currentParams, "spin2y",       &spin2y,              REAL8_t);	  
-	  addVariable(&currentParams, "spin2z",       &spin2z,              REAL8_t);
+	  addVariable(&currentParams, "spin1x",       &spin1x,              REAL8_t, PARAM_LINEAR);
+	  addVariable(&currentParams, "spin1y",       &spin1y,              REAL8_t, PARAM_LINEAR);
+	  addVariable(&currentParams, "spin1z",       &spin1z,              REAL8_t, PARAM_LINEAR);
+	  addVariable(&currentParams, "spin2x",       &spin2x,              REAL8_t, PARAM_LINEAR);
+	  addVariable(&currentParams, "spin2y",       &spin2y,              REAL8_t, PARAM_LINEAR);
+	  addVariable(&currentParams, "spin2z",       &spin2z,              REAL8_t, PARAM_LINEAR);
 	  double shift0 = 0.3;
-	  addVariable(&currentParams, "shift0",       &shift0,              REAL8_t);
+	  addVariable(&currentParams, "shift0",       &shift0,              REAL8_t, PARAM_LINEAR);
 	  double coa_phase = 0.1;
-	  addVariable(&currentParams, "coa_phase",    &coa_phase,           REAL8_t);	  
+	  addVariable(&currentParams, "coa_phase",    &coa_phase,           REAL8_t, PARAM_CIRCULAR);	  
 	  double PNorder = 3.5;
-	  addVariable(&currentParams, "PNorder",      &PNorder,             REAL8_t);	  
+	  addVariable(&currentParams, "PNorder",      &PNorder,             REAL8_t, PARAM_FIXED);	  
 	  dumptemplateTimeDomain(&currentParams, runstate->data, templateLALSTPN, "test_TTemplateLALSTPN.csv");
 
 	  
@@ -1003,17 +1157,17 @@ void TemplateDumpTest(void)
     fprintf(stdout," ----------\n");
 
     numberR8 = 440;
-    addVariable(&currentParams, "frequency", &numberR8, REAL8_t);
+    addVariable(&currentParams, "frequency", &numberR8, REAL8_t, PARAM_LINEAR);
     numberR8 = 1e-19;
-    addVariable(&currentParams, "amplitude", &numberR8, REAL8_t);
+    addVariable(&currentParams, "amplitude", &numberR8, REAL8_t, PARAM_LINEAR);
     dumptemplateTimeDomain(&currentParams, runstate->data, templateSinc, "test_TTemplateSinc.csv");
 
     numberR8 = 0.01;
-    addVariable(&currentParams, "sigma", &numberR8, REAL8_t);
+    addVariable(&currentParams, "sigma", &numberR8, REAL8_t, PARAM_LINEAR);
     dumptemplateTimeDomain(&currentParams, runstate->data, templateSineGaussian, "test_TTemplateSineGauss.csv");
 
     numberR8 = 0.01;
-    addVariable(&currentParams, "tau", &numberR8, REAL8_t);
+    addVariable(&currentParams, "tau", &numberR8, REAL8_t, PARAM_LINEAR);
     dumptemplateTimeDomain(&currentParams, runstate->data, templateDampedSinusoid, "test_TTemplateDampedSinus.csv");
 
     destroyVariables(&currentParams);
@@ -1023,17 +1177,58 @@ void TemplateDumpTest(void)
 void PTMCMCTest(void)
 {
 	fprintf(stdout, "PTMCMC test\n");
-	runstate->algorithm=PTMCMCAlgorithm;
-	runstate->evolve=PTMCMCOneStep;
-	runstate->prior=PTUniformLALPrior;
-	runstate->proposal=PTMCMCLALProposal;
+	//runstate->algorithm=PTMCMCAlgorithm;
+	//runstate->evolve=PTMCMCOneStep;
+	//runstate->prior=PTUniformLALPrior;
+	//runstate->prior=PTUniformGaussianPrior;
+	//runstate->proposal=PTMCMCLALProposal;
+	//runstate->proposal=PTMCMCGaussianProposal;
 	runstate->proposalArgs = malloc(sizeof(LALVariables));
 	runstate->proposalArgs->head=NULL;
 	runstate->proposalArgs->dimension=0;
 	runstate->likelihood=FreqDomainLogLikelihood;
+	//runstate->likelihood=GaussianLikelihood;
 	runstate->template=templateLAL;
+	
+	
+	SimInspiralTable *injTable=NULL;
+	printf("Ninj: %d\n", SimInspiralTableFromLIGOLw(&injTable,getProcParamVal(ppt,"--injXML")->value,0,0));
+	
+	REAL8 mc = injTable->mchirp;
+	REAL8 eta = injTable->eta;
+    REAL8 iota = injTable->inclination;
+    REAL8 phi = injTable->coa_phase;
+	LIGOTimeGPS trigger_time=injTable->geocent_end_time;
+	REAL8 tc = XLALGPSGetREAL8(&trigger_time);
+	REAL8 ra_current = injTable->longitude;
+	REAL8 dec_current = injTable->latitude;
+	REAL8 psi_current = injTable->polarization;
+	REAL8 distMpc_current = injTable->distance;
+	
+    numberI4 = TaylorF2;
+    addVariable(&currentParams, "LAL_APPROXIMANT", &numberI4,        INT4_t, PARAM_LINEAR);
+    numberI4 = LAL_PNORDER_TWO;
+    addVariable(&currentParams, "LAL_PNORDER",     &numberI4,        INT4_t, PARAM_LINEAR);
+	
+	addVariable(&currentParams, "chirpmass",       &mc,              REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "massratio",       &eta,             REAL8_t, PARAM_LINEAR);
+    addVariable(&currentParams, "inclination",     &iota,            REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "phase",           &phi,             REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "time",            &tc   ,           REAL8_t, PARAM_LINEAR); 
+    addVariable(&currentParams, "rightascension",  &ra_current,      REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "declination",     &dec_current,     REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "polarisation",    &psi_current,     REAL8_t, PARAM_CIRCULAR);
+    addVariable(&currentParams, "distance",        &distMpc_current, REAL8_t, PARAM_LINEAR);
+	
+	
+	REAL8 x0 = 0.9;
+	addVariable(&currentParams, "x0", &x0,  REAL8_t, PARAM_LINEAR);
+	
+	
+	
+	
 	runstate->currentParams=&currentParams;
-	PTMCMCAlgorithm(runstate);
+	//PTMCMCAlgorithm(runstate);
 	fprintf(stdout, "End of PTMCMC test\n");
 }
 

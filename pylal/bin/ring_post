@@ -95,7 +95,7 @@ def cafe(cachenames, options, time_slide_file, base="cafe_"):
 	cache = []
 	for filename in cachenames:
 		cache.extend(ligolw_cafe.load_cache(filename, options.verbose))
-	seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(time_slide_file, verbose = options.verbose, gz = time_slide_file.endswith(".gz")).values(), options.verbose, extentlimit=3600)
+	seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(time_slide_file, verbose = options.verbose, gz = time_slide_file.endswith(".gz")).values(), options.verbose, extentlimit=8000)
 	instruments = set(seglists.keys())
 	return outputcaches, ligolw_cafe.write_caches(base, outputcaches, instruments, options.verbose)
 

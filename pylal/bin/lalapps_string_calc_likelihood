@@ -147,10 +147,17 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "\twarning:  no segments found"
 
 	#
+	# Build triangulators
+	#
+
+	# FIXME:  don't hard-code 0.001
+	triangulators = stringutils.triangulators(dict((instrument, 0.001) for instrument in contents.instruments))
+
+	#
 	# Run likelihood ratio calculation.
 	#
 
-	ligolw_burca2.ligolw_burca2(contents, likelihood_ratio, stringutils.coinc_params_func, verbose = options.verbose)
+	ligolw_burca2.ligolw_burca2(contents, likelihood_ratio, stringutils.coinc_params_func, verbose = options.verbose, params_func_extra_args = (triangulators,))
 
 	#
 	# Clean up.

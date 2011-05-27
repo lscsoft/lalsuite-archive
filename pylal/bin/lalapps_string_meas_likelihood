@@ -196,14 +196,21 @@ for n, filename in enumerate(filenames):
 	segs |= contents.seglists
 
 	#
+	# Build triangulators
+	#
+
+	# FIXME:  don't hard-code 0.001
+	triangulators = stringutils.triangulators(dict((instrument, 0.001) for instrument in contents.instruments))
+
+	#
 	# Record statistics.  Assume all files with sim_burst tables are
 	# the outputs of injection runs, and others aren't.
 	#
 
 	if contents.sim_burst_table is None:
-		stats.add_noninjections(stringutils.coinc_params_func, contents, contents.vetoseglists)
+		stats.add_noninjections(stringutils.coinc_params_func, contents, param_func_args = (triangulators,))
 	else:
-		stats.add_injections(stringutils.coinc_params_func, contents, contents.vetoseglists, weight_func = get_injection_weight_func(contents, options.injection_reweight))
+		stats.add_injections(stringutils.coinc_params_func, contents, weight_func = get_injection_weight_func(contents, options.injection_reweight), param_func_args = (triangulators,))
 
 	#
 	# Clean up.

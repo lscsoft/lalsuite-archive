@@ -63,7 +63,7 @@ estimated_fstat_timebase<-function(h0, ra, dec, iota, psi, M.H1, M.L1,  twoFcuto
 
 	A2_LHO<- ifo_A2(ra, dec, iota, psi, gamma_LHO, lambda_LHO)
 	
-	# LHO position
+	# LLO position
 	gamma_LLO<-243.0*pi/180
 	lambda_LLO<- 30.56*pi/180
 
@@ -365,15 +365,15 @@ for(i in 1:dim(ExtraStats)[1]) {
 	#if(ExtraStats[i, "Comment"]!="" && ExtraStats[i, "Primary"]<1)next
 	if(ExtraStats[i, "Primary"]<1)next
 	cat(".")
-	FOINDEX_list<- p((coincidences[i, "F0INDEX"]-MaxF0INDEXTolerance):(coincidences[i, "F0INDEX"]+MaxF0INDEXTolerance), collapse=", ")
+	F0INDEX_list<- p((coincidences[i, "F0INDEX"]-MaxF0INDEXTolerance):(coincidences[i, "F0INDEX"]+MaxF0INDEXTolerance), collapse=", ")
 	ra<-coincidences[i, "ra"]
 	dec<-coincidences[i, "dec"]
 
-	ExtraStats[i, "Max.SNR.H1L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", coincidences[i, 'set'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND F0INDEX IN (", FOINDEX_list, ") AND abs(frequency-", coincidences[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", coincidences[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
+	ExtraStats[i, "Max.SNR.H1L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", coincidences[i, 'set'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", coincidences[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", coincidences[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
 
-	ExtraStats[i, "Max.SNR.H1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", coincidences[i, 'set_H1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND F0INDEX IN (", FOINDEX_list, ") AND abs(frequency-", coincidences[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", coincidences[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
+	ExtraStats[i, "Max.SNR.H1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", coincidences[i, 'set_H1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", coincidences[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", coincidences[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
 
-	ExtraStats[i, "Max.SNR.L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", coincidences[i, 'set_L1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND F0INDEX IN (", coincidences[i, "F0INDEX"], ", ", coincidences[i, "F0INDEX"]+1, ", ", coincidences[i, "F0INDEX"]-1, ") AND abs(frequency-", coincidences[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", coincidences[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
+	ExtraStats[i, "Max.SNR.L1"]<-dbGetQuery(con, p("SELECT MAX(snr) FROM `", CoincTableName, "` WHERE kind='snr' AND `set`='", coincidences[i, 'set_L1'], "' AND (sin(`dec`)*", sin(dec), " + cos(`dec`)*", cos(dec), "*cos(ra-", ra, ")>", cos(MaxLocationTolerance), ") AND F0INDEX IN (", F0INDEX_list, ") AND abs(frequency-", coincidences[i, "frequency"], ")<", MaxFrequencyTolerance, " AND abs(spindown-", coincidences[i, "spindown"], ")<", MaxSpindownTolerance))[1,1]
 
 	ExtraStats[i, "OC.H1L1"]<-dbGetQuery(con, p("SELECT SUM(IF(`index`>=5, `count`, 0)) as OC3  FROM `", OutlierHistogramTableName, "` WHERE `label`='", coincidences[i, 'label'], "' AND `set`='", coincidences[i, 'set'], "'AND `skyband`!=", Lines_skyband))[1,1]
 
