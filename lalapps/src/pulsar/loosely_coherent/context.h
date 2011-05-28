@@ -1,3 +1,5 @@
+#include "fft_stats.h"
+
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
@@ -8,8 +10,6 @@
 #include <lal/ComplexFFT.h>
 #include <lal/DetectorSite.h>
 #include <lal/LALBarycenter.h>
-
-#include "fft_stats.h"
 
 typedef struct {
 	int free;
@@ -36,6 +36,7 @@ typedef struct {
 
 typedef struct {
 	int nsamples; /* total number of samples in adjusted fft */
+	double raw_timebase;
 	double timebase;
 	double first_gps;
 	
@@ -87,6 +88,12 @@ typedef struct {
 	
 	COMPLEX8Vector *plus_te_fft;
 	COMPLEX8Vector *cross_te_fft;	
+	
+	/* compute sky basis */
+	double sb_ra[2];
+	double sb_dec[2];
+	double vp1[3];
+	double vp2[3];
 	
 	/* compute_*_offset */
 	int offset_count;

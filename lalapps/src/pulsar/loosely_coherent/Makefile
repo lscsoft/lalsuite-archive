@@ -1,5 +1,5 @@
 PACKAGE=\"loosely_coherently_coherent\"
-VERSION=0.20.0-64
+VERSION=0.20.3-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
@@ -22,7 +22,8 @@ COMMON_OBJS=cmdline.o rastermagic.o lines.o polarization.o \
 
 OBJS=$(COMMON_OBJS) loosely_coherent1.o
 
-FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
+#FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
+FILES=
 
 # 50 hz
 #BAND=90000

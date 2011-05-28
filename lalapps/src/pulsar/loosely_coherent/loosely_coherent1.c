@@ -275,7 +275,7 @@ for(i=0;i<count;i++) {
 	te_offsets->data[i].re-=slope*i;
 	}
 /* Normalize in units of time */
-//fprintf(stderr, "slope/count=%g slope=%g\n", slope, slope/step);
+/*fprintf(stderr, "slope/count=%g slope=%g\n", slope, slope/step);*/
 slope=slope/step;
 
 // Operator has 6 elements
@@ -323,10 +323,9 @@ for(i=0;i<9;i++) {
 	sc->first9[i].im=fft->data[i+1].im/count;
 	}
 
-// for(i=0;i<3;i++) {
-//  	fprintf(stderr, "%d %g %g %g\n",i, sc->first3[i].re, sc->first3[i].im, sqrt(sc->first3[i].re*sc->first3[i].re+sc->first3[i].im*sc->first3[i].im));
+// for(i=0;i<9;i++) {
+//  	fprintf(stderr, "%d %g %g %g\n",i, sc->first9[i].re, sc->first9[i].im, sqrt(sc->first9[i].re*sc->first9[i].re+sc->first9[i].im*sc->first9[i].im));
 //  	}
-
 }
 
 void compute_spindown_offset_structure(LOOSE_CONTEXT *ctx, SPARSE_CONV *sc, char *detector, double ra, double dec, double dInv, double gps_start, double step, int count)
@@ -416,14 +415,15 @@ for(i=0;i<9;i++) {
 	}
 
 // for(i=0;i<3;i++) {
-//  	fprintf(stderr, "%d %g %g %g\n",i, sc->first3[i].re, sc->first3[i].im, sqrt(sc->first3[i].re*sc->first3[i].re+sc->first3[i].im*sc->first3[i].im));
+//  	fprintf(stderr, "%d %g %g %g\n",i, sc->first9[i].re, sc->first9[i].im, sqrt(sc->first9[i].re*sc->first9[i].re+sc->first9[i].im*sc->first9[i].im));
 //  	}
 }
 
-void compute_sky_basis(double ra, double dec, double step, double *ra_out, double *dec_out)
+void compute_sky_basis(LOOSE_CONTEXT *ctx, double step)
 {
-double v1[3], vp1[3], vp2[3];
+double v1[3], *vp1=ctx->vp1, *vp2=ctx->vp2;
 double a,b;
+double ra=ctx->ra, dec=ctx->dec;
 int i;
 
 v1[0]=cos(ra)*cos(dec);
@@ -449,10 +449,10 @@ for(i=0;i<3;i++) {
 	vp1[i]*=a;
 	vp2[i]*=b;
 	}
-ra_out[0]=atan2(vp1[1], vp1[0]);
-ra_out[1]=atan2(vp2[1], vp2[0]);
-dec_out[0]=asin(vp1[2]);
-dec_out[1]=asin(vp2[2]);
+ctx->sb_ra[0]=atan2(vp1[1], vp1[0]);
+ctx->sb_ra[1]=atan2(vp2[1], vp2[0]);
+ctx->sb_dec[0]=asin(vp1[2]);
+ctx->sb_dec[1]=asin(vp2[2]);
 }
 
 void compute_sky_offset_structure(LOOSE_CONTEXT *ctx, SPARSE_CONV *sc, char *detector, double ra, double dec, double ra2, double dec2, double dInv, double gps_start, double step, int count)
@@ -507,7 +507,7 @@ for(i=0;i<count;i++) {
 	te_offsets->data[i].re-=slope*i;
 	}
 /* Normalize in units of time */
-//fprintf(stderr, "slope/count=%g slope=%g\n", slope, slope/step);
+/*fprintf(stderr, "(%f, %f) slope/count=%g slope=%g\n", ra2-ra, dec2-dec, slope, slope/step);*/
 slope=slope/step;
 
 // Operator has 6 elements
@@ -555,9 +555,9 @@ for(i=0;i<9;i++) {
 	sc->first9[i].im=fft->data[i+1].im/count;
 	}
 
-// for(i=0;i<3;i++) {
-//  	fprintf(stderr, "%d %g %g %g\n",i, sc->first3[i].re, sc->first3[i].im, sqrt(sc->first3[i].re*sc->first3[i].re+sc->first3[i].im*sc->first3[i].im));
-//  	}
+/*for(i=0;i<9;i++) {
+ 	fprintf(stderr, "%d %g %g %g\n",i, sc->first9[i].re, sc->first9[i].im, sqrt(sc->first9[i].re*sc->first9[i].re+sc->first9[i].im*sc->first9[i].im));
+ 	}*/
 }
 
 
@@ -640,8 +640,7 @@ COMPLEX8 *filter1, *filter2;
 int i, j;
 int nscan=ctx->n_sky_scan;
 int nsamples=ctx->nsamples;
-COMPLEX8 *v1=ctx->ra_sc->first9;
-COMPLEX8 *v2=ctx->dec_sc->first9; 
+double ra_shift, dec_shift;
 
 filter1=alloca(ctx->n_scan_fft_filter*sizeof(*filter1));
 filter2=alloca(ctx->n_scan_fft_filter*sizeof(*filter2));
@@ -662,8 +661,13 @@ fft3[1]=ctx->scan_tmp[5];
 fft4[1]=ctx->scan_tmp[6];
 fft5[1]=ctx->scan_tmp[7];
 	
-make_bessel_filter(filter1, ctx->n_scan_fft_filter, v1, 3, (1-2*((sign_mask>>0) & 1))*2*M_PI/(nscan));
-make_bessel_filter(filter2, ctx->n_scan_fft_filter, v2, 3, (1-2*((sign_mask>>1) & 1))*2*M_PI/(nscan));
+make_bessel_filter(filter1, ctx->n_scan_fft_filter, ctx->ra_sc->first9, 9, (1-2*((sign_mask>>0) & 1))*2*M_PI);
+make_bessel_filter(filter2, ctx->n_scan_fft_filter, ctx->dec_sc->first9, 9, (1-2*((sign_mask>>1) & 1))*2*M_PI);
+
+ra_shift=ctx->ra_sc->slope*(1-2*((sign_mask>>0) & 1))/args_info.focus_f0_arg;
+dec_shift=ctx->dec_sc->slope*(1-2*((sign_mask>>1) & 1))/args_info.focus_f0_arg;
+
+//fprintf(stderr, "ra_shift=%g dec_shift=%g\n", ra_shift, dec_shift);
 
 for(i=0;i<=nscan;i++) {
 	if(i==0){
@@ -683,7 +687,7 @@ for(i=0;i<=nscan;i++) {
 		if(j==0) {
 			if((i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
 			
-			compute_fft_stats(&(ctx->stats), fft2[0], fft2[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
+			compute_fft_stats(ctx, &(ctx->stats), fft2[0], fft2[1], fft_offset+ra_shift*i);
 			continue;
 			} else 
 		if(j==1) {
@@ -703,14 +707,14 @@ for(i=0;i<=nscan;i++) {
 
 		if((i==0 || j==0) && (i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
 
-		compute_fft_stats(&(ctx->stats), fft4[0], fft4[1], ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
+		compute_fft_stats(ctx, &(ctx->stats), fft4[0], fft4[1], fft_offset+ra_shift*i+dec_shift*j);
 		}
 	}
 }
 
 void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
-compute_fft_stats(&(ctx->stats), ctx->plus_te_fft, ctx->cross_te_fft, ctx->weight_pp, ctx->weight_pc, ctx->weight_cc, fft_offset);
+compute_fft_stats(ctx, &(ctx->stats), ctx->plus_te_fft, ctx->cross_te_fft, fft_offset);
 
 scan_fft_quadrant(ctx, fft_offset, 0, 0);
 scan_fft_quadrant(ctx, fft_offset, 1, 1);
@@ -737,11 +741,11 @@ filter[offset].im=0.0;
 i_filter=0;	
 
 for(i=0;i<nsamples;i++) {
-	if(i>i_filter+200) {
+	if(i>i_filter+200 || (i==(nsamples>>1)+1)) {
 		if((2*i)<nsamples)
-			make_bessel_filter(filter, ctx->n_freq_adj_filter, ctx->te_sc->first9, 6, -i*2*M_PI/ctx->timebase);
+			make_bessel_filter(filter, ctx->n_freq_adj_filter, ctx->te_sc->first9, 9, -i*2*M_PI/ctx->timebase);
 			else 
-			make_bessel_filter(filter, ctx->n_freq_adj_filter, ctx->te_sc->first9, 6, (nsamples-i)*2*M_PI/ctx->timebase);
+			make_bessel_filter(filter, ctx->n_freq_adj_filter, ctx->te_sc->first9, 9, (nsamples-i)*2*M_PI/ctx->timebase);
 		i_filter=i;
 		}
 	a=0.0;
@@ -804,7 +808,7 @@ if(ctx->total_segments<2*ctx->variance_half_window+1) {
 	exit(-1);
 	}
 
-precompute_am_constants(e, ctx->ra, ctx->dec);
+precompute_am_constants(e, ra, dec);
 
 k=0;
 y2=0.0;
@@ -904,8 +908,8 @@ for(n=0;n<d_free;n++) {
 		ctx->plus_samples->data[i].re=x2*f_plus*a;
 		ctx->plus_samples->data[i].im=y2*f_plus*a;
 
-		ctx->cross_samples->data[i].re=x2*f_plus*a;
-		ctx->cross_samples->data[i].im=y2*f_plus*a;
+		ctx->cross_samples->data[i].re=x2*f_cross*a;
+		ctx->cross_samples->data[i].im=y2*f_cross*a;
 
 		ctx->weight_pp+=f_plus*f_plus*a;
 		ctx->weight_pc+=f_plus*f_cross*a;
@@ -942,8 +946,6 @@ int i;
 int point;
 double f0=args_info.focus_f0_arg;
 double norm;
-double sb_ra[2], sb_dec[2];
-
 
 for(point=bit->start;point<bit->stop;point++)
 for(fstep=0;fstep<nfsteps; fstep++) {
@@ -964,10 +966,10 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	compute_te_offset_structure(ctx, ctx->te_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 	compute_spindown_offset_structure(ctx, ctx->spindown_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 
-	compute_sky_basis(ctx->ra, ctx->dec, resolution/ctx->n_sky_scan, sb_ra, sb_dec);
+	compute_sky_basis(ctx, resolution/ctx->n_sky_scan);
 	//fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
-	compute_sky_offset_structure(ctx, ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
-	compute_sky_offset_structure(ctx, ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, sb_ra[1], sb_dec[1], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
+	compute_sky_offset_structure(ctx, ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, ctx->sb_ra[0], ctx->sb_dec[0], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
+	compute_sky_offset_structure(ctx, ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, ctx->sb_ra[1], ctx->sb_dec[1], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 
 	fprintf(stderr, "point %d step %d\n", point, fstep);
 	if(0) {
@@ -1015,7 +1017,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 
 	compute_te_ffts(ctx);
 
-	scan_fft_stats(ctx, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg));
+	scan_fft_stats(ctx, (fstep*1.0/nfsteps)/ctx->timebase);
 
 	thread_mutex_lock(data_logging_mutex);
 	// -241
@@ -1034,7 +1036,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 // 	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
 // 		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (ctx->power[0]-ps.mean)/ps.sd);
 
-	log_stats(DATA_LOG, "point", &(ctx->stats), args_info.strain_norm_factor_arg);
+	log_stats(ctx, DATA_LOG, "point", &(ctx->stats), args_info.strain_norm_factor_arg);
 	
 	thread_mutex_unlock(data_logging_mutex);
 	}
@@ -1419,6 +1421,8 @@ reset_jobs_done_ratio();
 
 fprintf(stderr, "Main loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 fprintf(LOG, "Main loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
+fprintf(stderr, "%d points to process\n", main_grid->npoints);
 
 for(point=0;point< main_grid->npoints;point+=args_info.job_size_arg) {
 	cbt=do_alloc(1, sizeof(*cbt));

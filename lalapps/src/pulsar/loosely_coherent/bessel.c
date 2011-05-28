@@ -19,6 +19,9 @@ COMPLEX8 *cuniti, *filter_tmp;
 int i, j, k, m;
 int offset;
 COMPLEX8 a, b;
+double ad;
+
+//coeffs_size=3;
 
 if(!(filter_size & 1)) {
 	fprintf(stderr, "*** INTERNAL ERROR: filter size should be odd\n");
@@ -103,7 +106,7 @@ while((j<coeffs_size) && (j<offset)) {
 		}
 
 	a=cuniti[j];
-	for(i=1;i<=offset && i<=3;i++) {
+	for(i=1;i<=offset;i++) {
 
 		for(k=0;k<filter_size;k++) {
 			m=k+i*(j+1);
@@ -127,7 +130,18 @@ while((j<coeffs_size) && (j<offset)) {
 		}
 	j++;
 	}
-
+	
+/* Normalize filter */
+ad=0.0;
+for(i=0;i<filter_size;i++) {
+	ad+=(double)(filter[i].re)*(double)(filter[i].re)+(double)(filter[i].im)*(double)(filter[i].im);
+	}
+ad=1.0/sqrt(ad);
+if(fabs(ad-1.0)>0.05)fprintf(stderr, "ad=%f scale=%g coeff[1]=(%g, %g) filter_size=%d\n", ad, scale, coeffs[1].re, coeffs[1].im, filter_size);
+for(i=0;i<filter_size;i++) {
+	filter[i].re=filter[i].re*ad;
+	filter[i].im=filter[i].im*ad;
+	}
 }
 
 void test_bessel_filter(void)
@@ -472,6 +486,88 @@ for(;i<nsamples;i++) {
 
 }
 
+void shift_fft11(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter)
+{
+int i, j, k;
+double a, b;
+int nsamples=fft_in->length;
+COMPLEX8 *pf, *pd;
+
+if(fft_in->length!=fft_out->length) {
+	fprintf(stderr, "*** INTERNAL ERROR: fft lengths do not match %d vs %d\n", fft_in->length, fft_out->length);
+	exit(-1);
+	}
+	
+if(nsamples<10) {
+	fprintf(stderr, "*** INTERNAL ERROR: cannot filter very small SFTs (%d)\n", nsamples);
+	exit(-1);
+	}
+
+for(i=0;i<7;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<11;j++) {
+		k=i-5+j;
+		if(k<0)k=nsamples+k;
+		a+=filter[10-j].re*fft_in->data[k].re-filter[10-j].im*fft_in->data[k].im;
+		b+=filter[10-j].re*fft_in->data[k].im+filter[10-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+for(;i<nsamples-7;i++) {
+	a=0.0;
+	b=0.0;
+	
+	#define ADD {\
+		a+=pf->re*pd->re-pf->im*pd->im; \
+		b+=pf->re*pd->im+pf->im*pd->re; \
+		pf++; \
+		pd--; \
+		}
+		
+	
+	pf=filter;
+	pd=&(fft_in->data[i+5]);
+/*	for(j=0;j<7;j++) {
+		k=i-3+j;
+		a+=filter[6-j].re*fft_in->data[k].re-filter[6-j].im*fft_in->data[k].im;
+		b+=filter[6-j].re*fft_in->data[k].im+filter[6-j].im*fft_in->data[k].re;
+		}*/
+
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+for(;i<nsamples;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<11;j++) {
+		k=i-5+j;
+		if(k>=nsamples)k=k-nsamples;
+		a+=filter[10-j].re*fft_in->data[k].re-filter[10-j].im*fft_in->data[k].im;
+		b+=filter[10-j].re*fft_in->data[k].im+filter[10-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+}
 
 void shift_fft(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter, int filter_size)
 {
@@ -505,6 +601,11 @@ if(filter_size==7) {
 
 if(filter_size==9) {
 	shift_fft9(fft_out, fft_in, filter);
+	return;
+	}
+
+if(filter_size==11) {
+	shift_fft11(fft_out, fft_in, filter);
 	return;
 	}
 
