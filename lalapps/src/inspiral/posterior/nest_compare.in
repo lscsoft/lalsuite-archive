@@ -79,20 +79,15 @@ def vararg_callback(option, opt_str, value, parser):
         except ValueError:
             return False
     for arg in parser.rargs:
-        print "arg ",arg
         # stop on --foo like options
         if arg[:2] == "--" and len(arg) > 2:
-            print "Im here the first if\n"
             break
         # stop on -a, but not on -3 or -3.0
         if arg[:1] == "-" and len(arg) > 1 and not floatable(arg):
-            print "im in the second if\n"
             break
         value.append(arg)
-    print value,option.dest,parser.values
     del parser.rargs[:len(value)]
     setattr(parser.values, option.dest, value)        
-    print "im exiting"
     
 def nest_pipe(opts=None,num=0):
     
@@ -485,7 +480,6 @@ def nest_pipe(opts=None,num=0):
         combine_each_time_nodes[time].add_var_arg(nest_files[time])
         combine_each_time_nodes[time].add_file_opt('headers',nest_files[time]+'_params.txt')
         glob_combine_nodes_by_time.append(combine_each_time_nodes[time])
-    print  glob_combine_nodes_by_time
     # Set up coherence test jobs if required
     if opts.coherence_test:
         coherence_test_sub_file=os.path.join(opts.run_path,'coherence_test.sub')
@@ -761,7 +755,6 @@ for init in inits:
             has_cal_section[inits.index(init)]=1
         else:
             has_cal_section[inits.index(init)]=0
-print has_cal_section
 ctrl_place=999   
 if has_cal_section.values().count(0)==1:
     ctrl_place=has_cal_section.values().index(0)
@@ -808,7 +801,6 @@ if opts.Compare:
     IFOs=cp.get('analysis','ifos')
     ifo=''
     for i in eval(IFOs):
-        print i
         ifo+=i+' '
 
     submit=os.path.join(common_path,'postpost.sub')
