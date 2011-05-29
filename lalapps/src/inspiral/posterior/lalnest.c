@@ -88,12 +88,15 @@ Optional OPTIONS:\n \
 [--gradual_cal\t:\t Together with enable-calfreq, rescale the calibration errors by this quantity (from 0 to calibration_out_max).]\n\
 [--calibration_max\t:\t If given with enable-calfreq alone, the calibration function get multiplied by this factor. If given with gradual-cal, the calibration errors are 1.0+(R_Am*calibration_max-1.0)*calibration_percent for the amplitude and R_Ph*calibration_max]\n\
 [--enable-calfreq\t:\tEnable frequency dependent calibration error simulations. Both phase and Amplitude can be affected.]\n \
+[--calib-seed FLOAT\t:\tSeed for the calibration errors random sampling (integer)]\n \
+[--calib-errors-path PATH\t:\tOutput calibration errors data to a file in PATH]\n\
 [--pinparams STRING\t:\tList parameters to be fixed to their injected values (, separated) i.e. --pinparams mchirp,longitude\n \
 [--version\t:\tPrint version information and exit]\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
 [--flow NUM\t:\t:Set low frequency cutoff (default 40Hz)]\n\
 [--chimin NUM\t:\tMin value of chi spin parameter]\n\
 [--chimax NUM\t:\tMax value of chi spin parameter]\n\
+[--snrpath PATH\t:\tOutput SNRs to a file in PATH]\n\
 \n\n \
 Optional PhenSpinTaylorRD_template OPTIONS:\n \
 [--onespin_flag INT\t:\tSet S2=(0,0,0) in PhenSpinTaylorRD template waveform]\n \
@@ -118,7 +121,6 @@ Optional PhenSpinTaylorRD_template OPTIONS:\n \
 [--long_max FLOAT\t:\tSet upper limit on source plane RA for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
 [--iota_min FLOAT\t:\tSet lower limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is 0.]\n \
 [--iota_max FLOAT\t:\tSet upper limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is PI.]\n \
-[--calib_seed FLOAT\t:\tSeed for the calibration errors random sampling (integer)]\n \
 [--help\t:\tPrint this message]\n \
 "
 
@@ -137,6 +139,8 @@ CHAR **ChannelNames = NULL;
 CHAR **IFOnames = NULL;
 CHAR UserChannel[512];
 CHAR **UserChannelNames = NULL;
+CHAR *SNRpath = NULL;
+CHAR *CalErrPath = NULL;
 double *CalAmpFacs = NULL;
 int nChannel=0;
 UINT4 nIFO=0;
@@ -204,6 +208,7 @@ REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, 
 int checkParamInList(const char *list, const char *param);
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
+void PrintCalibrationErrorsToFile(COMPLEX16FrequencySeries *injFwithError,COMPLEX16FrequencySeries *injFnoError,UINT4 det_i,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
 
 /* variables for NestInitManualPhenSpinRD_manual */
 double compmassmin=1.;
@@ -354,7 +359,9 @@ void initialise(int argc, char *argv[]){
 		{"chimax",required_argument,0,91},
 		{"m_c_min",required_argument,0,99},
 		{"mc_flag",no_argument,0,100},
-        {"calib_seed",required_argument,0,123},
+        {"calib-seed",required_argument,0,123},
+        {"snrpath",required_argument,0,124},
+        {"calib-errors-path",required_argument,0,125},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -657,7 +664,14 @@ void initialise(int argc, char *argv[]){
        case 123:
             calib_seed=atof(optarg);
             break;
-
+        case 124:
+			SNRpath = calloc(strlen(optarg)+1,sizeof(char));
+			memcpy(SNRpath,optarg,strlen(optarg)+1);
+			break;
+        case 125:
+			CalErrPath = calloc(strlen(optarg)+1,sizeof(char));
+			memcpy(CalErrPath,optarg,strlen(optarg)+1);
+			break;
 		default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
@@ -1163,24 +1177,19 @@ int main( int argc, char *argv[])
 //
                 /* Add calibration errors to the waveform. This is done before the SNR is calculated */
                 if(enable_calamp || enable_calfreq){
-                    REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
-                    FILE *calibout;
-                    char caliboutname[100];
-                    sprintf(caliboutname,"uncalibwave_%s_%9.2f.dat",IFOnames[i],injTime);
-                    calibout=fopen(caliboutname,"w");
-                    for(j=0;j<injF->data->length;j++){
-                        fprintf(calibout,"%g\t%9.15e\t%9.15e\n",j*inputMCMC.deltaF,injF->data->data[j].re,injF->data->data[j].im);
-                    }
-                    fclose(calibout);
+                    COMPLEX16FrequencySeries *injF_noError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                     COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
-                    ApplyCalibrationErrorsToWaveform(injF,CalibInj, IFOnames[i],i,calib_seed );
-                    XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
-                    sprintf(caliboutname,"calibwave_%s_%9.2f.dat",IFOnames[i],injTime);
-                    calibout=fopen(caliboutname,"w");
+
                     for(j=0;j<injF->data->length;j++){
-                        fprintf(calibout,"%g\t%9.15e\t%9.15e\n",j*inputMCMC.deltaF,injF->data->data[j].re,injF->data->data[j].im);
-                    }
-                    fclose(calibout);
+                        injF_noError->data->data[j].re=injF->data->data[j].re;
+                        injF_noError->data->data[j].im=injF->data->data[j].im;                        
+                        }
+
+                    ApplyCalibrationErrorsToWaveform(injF,CalibInj, IFOnames[i],i,calib_seed );
+                    PrintCalibrationErrorsToFile(injF,injF_noError,i,injTable,&inputMCMC);
+                    
+                    XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
+                    XLALDestroyCOMPLEX16FrequencySeries(injF_noError);
                 } 
 
 			if(estimatenoise){
@@ -1980,8 +1989,6 @@ void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *
 	}
 
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
-/* open the SNR file */
-    struct stat st;
     char SnrName[70];
     char ListOfIFOs[10];
     REAL8 NetSNR=0.0;
@@ -1990,24 +1997,29 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
     for (UINT4 det_i=0;det_i<nIFO;det_i++){
          sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);
         }
-    
-    if (stat("./SNR",&st) == 0){
-        sprintf(SnrName,"./SNR/snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
-    }
-    else {
-        sprintf(SnrName,"snr_%s_%10.1f.dat",ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
-    }
-    
+        
+    sprintf(SnrName,"%s/snr_%s_%10.1f.dat",SNRpath,ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+        
     FILE *snrout=fopen(SnrName,"w");
     for (UINT4 det_i=0;det_i<nIFO;det_i++){
         fprintf(snrout,"%s:\t",inputMCMC->ifoID[det_i]);
-        fprintf(snrout,"%e\n",SNRs[det_i]);
+        fprintf(snrout,"%4.2f\n",SNRs[det_i]);
         NetSNR+=(SNRs[det_i]*SNRs[det_i]);
     }		
     if (nIFO>1){  fprintf(snrout,"Network:\t");
     fprintf(snrout,"%e\n",sqrt(NetSNR));}
     fprintf(snrout,"\n");
     fclose(snrout);
-
 }
 
+void PrintCalibrationErrorsToFile(COMPLEX16FrequencySeries *injFwithError,COMPLEX16FrequencySeries *injFnoError,UINT4 det_i,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
+    char FileName[70];
+        
+    sprintf(FileName,"%s/calerr_%s_%10.1f.dat",CalErrPath,inputMCMC->ifoID[det_i],(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+        
+    FILE *errout=fopen(FileName,"w");
+    for(UINT4 j=0;j<injFwithError->data->length;j++) {
+        fprintf(errout,"%6.5e \t %14.8e \t %14.8e \n", j*inputMCMC->deltaF,sqrt(pow(injFwithError->data->data[j].re,2.0)+pow(injFwithError->data->data[j].im,2.0))/sqrt(pow(injFnoError->data->data[j].re,2.0)+pow(injFnoError->data->data[j].im,2.0)),atan2(injFwithError->data->data[j].im,injFwithError->data->data[j].re)-atan2(injFnoError->data->data[j].im,injFnoError->data->data[j].re));
+    }
+    fclose(errout);
+}
