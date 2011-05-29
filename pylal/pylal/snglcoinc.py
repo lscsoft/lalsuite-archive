@@ -805,6 +805,31 @@ def slideless_coinc_generator_mu_tau(eventlists, segmentlists, delta_t):
 	return mu, tau
 
 
+def slideless_coinc_generator_plausible_toas(instruments, tau):
+	"""
+	Construct and return a generator that yields dictionaries of random
+	event time-of-arrivals for the instruments in instruments such that
+	the time-of-arrivals are mutually coincident given the maximum
+	allowed inter-instrument \Delta ts given by tau.
+
+	Example:
+
+	>>> tau = {frozenset(['V1', 'H1']): 0.028287979933844225, frozenset(['H1', 'L1']): 0.011012846152223924, frozenset(['V1', 'L1']): 0.027448341016726496}
+	>>> instruments = ("H1", "L1", "V1")
+	>>> toas = slideless_coinc_generator_plausible_toas(instruments, tau)
+	>>> toas.next()
+	>>> toas.next()
+	"""
+	# this algorithm is documented in slideless_coinc_generator_rates()
+	anchor, instruments = instruments[0], instruments[1:]
+	windows = tuple((-tau[frozenset((anchor, instrument))], +tau[frozenset((anchor, instrument))]) for instrument in instruments)
+	ijseq = tuple((i, j, tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
+	while True:
+		dt = tuple(random.uniform(*window) for window in windows)
+		if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
+			yield dict([(anchor, 0.0)] + zip(instruments, dt))
+
+
 def slideless_coinc_generator_rates(mu, tau, verbose = False, abundance_rel_accuracy = 1e-3):
 	"""
 	From the mean event rates for N instruments and the maximum allowed
@@ -890,7 +915,7 @@ def slideless_coinc_generator_rates(mu, tau, verbose = False, abundance_rel_accu
 				n, d = 0, 0
 				while abundance_rel_accuracy * d < 1.0 or n < d / (1.0 + abundance_rel_accuracy**2 * d):
 					dt = tuple(random.uniform(*window) for window in windows)
-					if all(abs(dt[i] - dt[j]) <= window for i, j, window in ijseq):
+					if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
 						n += 1
 					d += 1
 
