@@ -421,12 +421,12 @@ def nest_pipe(opts=None,num=0):
             inspnest_job.add_opt('calib-errors-path',calerr_dir)
             if cp.has_option('calibration','calib-seed'):
                 inspnest_job.add_opt('calib-seed',cp.get('calibration','calib-seed'))
+            checkDir(calerr_dir)
         else:
             print "The parser %s has a calibration section but it does not contain an enable-calfreq=1 line. Exiting..."%opts.ini_file
             exit(-1)
             
     checkDir(snr_dir)
-    checkDir(calerr_dir)
     inspnest_job.add_opt('snrpath',snr_dir)
     time_combine_sub_file=os.path.join(opts.run_path,'combine_each_time.sub')
     combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.log_path)
@@ -836,7 +836,8 @@ if opts.Compare:
     #postpostnode.add_var_arg('-n ' + str(num_of_inits)) 
     postpostnode.add_var_arg('--result_pages_path ' + glob_result_string)
     postpostnode.add_var_arg('--inj '+ str(opts.inj))
-    postpostnode.add_var_arg('--events '+ "\""+str(cp.get('analysis','events'))+"\"")
+    #postpostnode.add_var_arg('--events '+ "\""+str(cp.get('analysis','events'))+"\"")
+    postpostnode.add_var_arg('--events '+str(cp.get('analysis','events')))    
     postpostnode.add_var_arg('--calerr '+ glob_calerr_string)
     postpostnode.add_var_arg('--IFOS '+ ifo)
 

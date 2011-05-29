@@ -359,9 +359,9 @@ void initialise(int argc, char *argv[]){
 		{"chimax",required_argument,0,91},
 		{"m_c_min",required_argument,0,99},
 		{"mc_flag",no_argument,0,100},
-        {"calib-seed",required_argument,0,123},
-        {"snrpath",required_argument,0,124},
-        {"calib-errors-path",required_argument,0,125},
+        	{"calib-seed",required_argument,0,123},
+        	{"snrpath",required_argument,0,124},
+      		{"calib-errors-path",required_argument,0,125},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
