@@ -211,7 +211,19 @@ class ResultsPageNode(pipeline.CondorDAGNode):
             self.__event=int(event)
             self.add_var_arg('--eventnum '+str(event))
 # Function definitions for setting up groups of nodes
+class PostPostPageJob(pipeline.CondorDAGJob):
+    def __init__(self,cp,submitFile,logdir):
+        exe=cp.get('condor','postpostpage')
+        pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+        self.set_sub_file(submitFile)
+        self.set_stdout_file(os.path.join(logdir,'postpostpage.out'))
+        self.set_stderr_file(os.path.join(logdir,'postpostpage.err'))
+        self.add_condor_cmd('getenv','True')
 
+class PostPostPageNode(pipeline.CondorDAGNode):
+    def __init__(self,pp_page_job):
+        pipeline.CondorDAGNode.__init__(self,pp_page_job)
+  
 def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None):
     """
     Setup nodes for analysing a single time
