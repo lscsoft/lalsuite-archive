@@ -815,12 +815,13 @@ def slideless_coinc_generator_plausible_toas(instruments, tau):
 	Example:
 
 	>>> tau = {frozenset(['V1', 'H1']): 0.028287979933844225, frozenset(['H1', 'L1']): 0.011012846152223924, frozenset(['V1', 'L1']): 0.027448341016726496}
-	>>> instruments = ("H1", "L1", "V1")
+	>>> instruments = set(("H1", "L1", "V1"))
 	>>> toas = slideless_coinc_generator_plausible_toas(instruments, tau)
 	>>> toas.next()
 	>>> toas.next()
 	"""
 	# this algorithm is documented in slideless_coinc_generator_rates()
+	instruments = tuple(instruments)
 	anchor, instruments = instruments[0], instruments[1:]
 	windows = tuple((-tau[frozenset((anchor, instrument))], +tau[frozenset((anchor, instrument))]) for instrument in instruments)
 	ijseq = tuple((i, j, tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
@@ -830,7 +831,7 @@ def slideless_coinc_generator_plausible_toas(instruments, tau):
 			yield dict([(anchor, 0.0)] + zip(instruments, dt))
 
 
-def slideless_coinc_generator_rates(mu, tau, verbose = False, abundance_rel_accuracy = 1e-3):
+def slideless_coinc_generator_rates(mu, tau, verbose = False, abundance_rel_accuracy = 1e-4):
 	"""
 	From the mean event rates for N instruments and the maximum allowed
 	coincidence windows between pairs of those instruments, compute and
@@ -849,6 +850,13 @@ def slideless_coinc_generator_rates(mu, tau, verbose = False, abundance_rel_accu
 	mu_coinc = {}
 	for n in range(len(all_instruments), 1, -1):
 		for instruments in iterutils.choices(all_instruments, n):
+			# choose the instrument whose TOA forms the "epoch"
+			# of the coinc.  to improve the convergence rate
+			# this should be the instrument with the smallest
+			# coincidence windows
+			key = frozenset(instruments)
+			anchor = min((tau[frozenset(ab)], ab[0]) for ab in iterutils.choices(instruments, 2))[1]
+			instruments = tuple(key - set([anchor]))
 			# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 *
 			# \tau_{12} * 2 * \tau_{13} ... 2 * \tau_{1N}.
 			# this is the rate at which events from instrument
@@ -857,8 +865,6 @@ def slideless_coinc_generator_rates(mu, tau, verbose = False, abundance_rel_accu
 			# by the probability that events from instruments
 			# 2...N known to be coincident with an event from
 			# instrument 1 are themselves mutually coincident
-			key = frozenset(instruments)
-			anchor, instruments = instruments[0], instruments[1:]
 			rate = mu[anchor]
 			for instrument in instruments:
 				# the factor of 2 is because to be
