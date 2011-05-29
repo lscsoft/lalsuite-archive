@@ -25,6 +25,7 @@
 
 
 import math
+import scipy.stats
 import sys
 
 
@@ -32,6 +33,7 @@ from glue import iterutils
 from glue import segmentsUtils
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
@@ -75,6 +77,9 @@ def triangulators(timing_uncertainties):
 
 	constructs a dictionary of triangulators for every combination of
 	two or more instruments that can be constructed from those three.
+
+	The program lalapps_string_plot_binj can be used to measure the
+	timing uncertainties for the instruments in a search.
 	"""
 	allinstruments = sorted(timing_uncertainties.keys())
 
@@ -130,7 +135,7 @@ def coinc_params_func(events, offsetvector, triangulators):
 	# zero-instrument parameters
 	#
 
-	ignored, ignored, ignored, rss_timing_residual = triangulators[instruments](tuple(event.get_peak() for event in events))
+	ignored, ignored, ignored, rss_timing_residual = triangulators[instruments](tuple(event.get_peak() + offsetvector[event.ifo] for event in events))
 	params["instrumentgroup,rss_timing_residual"] = (instrument_category(instruments), rss_timing_residual)
 
 	#
@@ -258,8 +263,51 @@ class DistributionsStats(object):
 			else:
 				self.distributions.add_zero_lag(param_func(events, offsetvector, *param_func_args))
 
-	def add_syntheticnoninjections(self, param_func, database, vetoseglists):
-		pass
+	def add_background(self, param_func, database, experiments, param_func_args = ()):
+		# segment lists
+		seglists = database.seglists - database.vetoseglists
+
+		# construct the event list dictionary.  remove vetoed
+		# events from the lists
+		eventlists = {}
+		for event in database.sngl_burst_table:
+			if event.get_peak() in seglists[event.ifo]:
+				try:
+					eventlists[event.ifo].append(event)
+				except KeyError:
+					eventlists[event.ifo] = [event]
+
+		# parse the --thresholds H1,L1=0.008 command-line options from burca
+		delta_t = [float(threshold.split("=")[-1]) for threshold in ligolw_process.get_process_params(database.xmldoc, "ligolw_burca", "--thresholds")]
+		if not all(delta_t[0] == threshold for threshold in delta_t[1:]):
+			raise ValueError, "\Delta t is non-unique in ligolw_burca arguments"
+		delta_t = delta_t.pop()
+
+		# construct the coinc generator
+		mu, tau = snglcoinc.slideless_coinc_generator_mu_tau(eventlists, segmentlists, delta_t)
+		mu_coinc = snglcoinc.slideless_coinc_generator_rates(mu, tau)
+		coincs = snglcoinc.slideless_coinc_generator(eventlists, mu_coinc, tau, lsctables.SnglBurst.get_peak)
+
+		# how many coincs?  the expected number is obtained by
+		# multiplying the total zero-lag time for which at least
+		# two instruments were on by the sum of the rates for all
+		# coincs by the number of experiments the background should
+		# simulate.  the actual number is a Poisson-distributed RV
+		# with that mean.
+		n_coincs = float(abs(segmentsUtils.vote(seglists.values(), 2))) * sum(mu_coinc.values()) * experiments
+		n_coincs, = scipy.stats.poisson.rvs(n_coincs)
+
+		# generate synthetic background coincs
+		for n, events in enumerate(coincs):
+			# FIXME:  teach the paramfunc that "no
+			# offsetvector" means don't compute time related
+			# parameters
+			# FIXME:  add fake time related parameter values to
+			# the return value
+			params = param_func(events, None, *param_func_args)
+			self.distributions.add_background(params)
+			if n > n_coincs:
+				break
 
 	def add_injections(self, param_func, database, weight_func = lambda sim: 1.0, param_func_args = ()):
 		# iterate over burst<-->burst coincs matching injections
