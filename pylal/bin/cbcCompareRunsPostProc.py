@@ -150,23 +150,24 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs):
     checkDir(path_plots)
     data={}
     for IFO in IFOs:
-        path_to_data=os.path.join(in_data_path,'calerr_'+IFO+'_'+str(time)+'.0.dat')
+        path_to_data=os.path.join(in_data_path[int(run)-1],'calerr_'+IFO+'_'+str(time)+'.0.dat')
         data[IFO]=np.loadtxt(path_to_data)
-        
     a=0
     for i in range(len(data[IFOs[0]][:,0])):
         if fabs(data[IFOs[0]][i,0]-f_0)<0.0001:
             a=i
             continue 
     if a==0:
-        print "could not fix f_low\n"
+        print "Could not fix f_low. Exiting...\n"
+        exit(-1)
     b=0
     for i in range(len(data[IFOs[0]][a:,0])+a):
         if fabs(data[IFOs[0]][i,0]-f_up)<0.0001:
             b=i
             continue
     if b==0:
-        print "could not fix f_up\n"
+        print "Could not fix f_up. Exiting\n"
+        exit(-1)
     
     myfig=figure(1,figsize=(10,8),dpi=80)
     for (IFO,color) in zip(IFOs,['r','b','k']):
@@ -205,10 +206,6 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs):
     myfig.clear()
 
 
-'''
-RunsCompare(opts.outpath,opts.indata,opts.inj,opts.raw_events,opts.IFOs,snrs=opts.snr,calerr=opts.calerr,path_to_result_pages=opts.rp)
-'''
-    
 def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_result_pages=None):
     from pylal import SimInspiralUtils
     checkDir(outdir)
@@ -216,7 +213,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     number_of_inits=len(inputs)
     injTable=SimInspiralUtils.ReadSimInspiralFromFiles([inj])
     flow=20.0
-    fup=1000.0
+    fup=500.0
     time_event=None
     if inj and raw_events:
         time_event={}
@@ -437,7 +434,7 @@ def WritePlotPage(outdir,run,parameters,time):
     html_err_st='<table><tr>'
     for plot in ['amp_','pha_']:
         html_err_st+='<td>'
-        if os.path.isfile(os.path.join(error_path_plots,plot +time)+'.png'):
+        if os.path.isfile(os.path.join(abs_page_path,'ErrorPlots',plot +time+'.png')):
             html_err_st+=linkImage(os.path.join(error_path_plots,plot +time+'.png'),1.5*wd,1.5*hg)
         else:
             html_err_st+='<p> No calibration error curves found in ' + error_path_plots +'</p>'
@@ -555,7 +552,7 @@ if __name__=='__main__':
     parser.add_option("-s","--snr", dest="snr",action="callback", callback=vararg_callback,help="The folders containing the snrs of the runs",metavar="pathToSnr1 pathToSnr2 etc")
     parser.add_option("-r","--result_pages_path",default=None,dest="rp",action="callback",callback=vararg_callback,help="Paths to the folder containing the postplots pages (this folder must contain the timebins folders)",metavar="r")
     parser.add_option("-i","--inj",dest="inj",action="store",type="string",default=None,help="Injection xml table",metavar="injection.xml")
-    parser.add_option("-e","--calerr",dest="calerr",action="store",type="string",default=None,help="path to calibration errors path",metavar="/pathToCalerr1 /pathToCalerr2 etc")
+    parser.add_option("-e","--calerr",dest="calerr",action="callback",callback=vararg_callback,default=None,help="path to calibration errors path",metavar="/pathToCalerr1 /pathToCalerr2 etc")
     parser.add_option("-E","--events",dest="raw_events",action="store",type="string",default=None,metavar="\[0:50\]")
     parser.add_option("-I","--IFOS",dest="IFOs",action="callback", callback=vararg_callback,help="The IFOs used in the analysis", metavar="H1 L1 V1")
     (opts,args)=parser.parse_args()
