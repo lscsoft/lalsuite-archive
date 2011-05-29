@@ -44,11 +44,6 @@
 #ifndef _ODE_H
 #define _ODE_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
 
 #if defined(__cplusplus)
@@ -88,7 +83,6 @@ NRCSID( ODEH, "$Id$" );
 typedef struct
 tagREAL4ODEIndep
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4  t;
   void  *aux;
 }
@@ -109,7 +103,6 @@ REAL4ODEIndep;
 typedef struct
 tagREAL4ODEParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   void ( *ode )( LALStatus *, REAL4Vector *, REAL4Vector *, REAL4ODEIndep * );
   REAL4ODEIndep       *indep;
   REAL4                tstep;

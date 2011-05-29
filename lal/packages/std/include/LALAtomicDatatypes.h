@@ -282,7 +282,6 @@ memory.  The fields are:
 </lalLaTeX> */
 
 /** Single-precision floating-point complex number (8 bytes total) */
-#ifndef SWIG /* exclude from SWIG interface */
 typedef struct
 tagCOMPLEX8
 {
@@ -290,10 +289,8 @@ tagCOMPLEX8
   REAL4 im; /**< The imaginary part. */
 }
 COMPLEX8;
-#endif /* SWIG */
 
 /** Double-precision floating-point complex number (16 bytes total) */
-#ifndef SWIG /* exclude from SWIG interface */
 typedef struct
 tagCOMPLEX16
 {
@@ -301,7 +298,6 @@ tagCOMPLEX16
   REAL8 im; /**< The imaginary part. */
 }
 COMPLEX16;
-#endif /* SWIG */
 
 
 /* <lalLaTeX>

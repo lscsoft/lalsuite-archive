@@ -43,11 +43,6 @@
 #include <lal/LALDatatypes.h>
 #include <lal/BandPassTimeSeries.h>
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #ifndef _RESAMPLETIMESERIES_H
 #define _RESAMPLETIMESERIES_H
 
@@ -151,7 +146,6 @@ ResampleTSFilter;
 typedef union
 tagResampleTimeSeriesFilterPars
 {
-  SWIGLAL_STRUCT_LALALLOC();
   PassBandParamStruc    butterworth;
   REAL8IIRFilter        iirfilter;
 }
@@ -160,7 +154,6 @@ ResampleTSFilterParams;
 typedef struct
 tagResampleTimeSeriesParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8                   deltaT;
   ResampleTSFilter        filterType;
   ResampleTSFilterParams  filterParams;

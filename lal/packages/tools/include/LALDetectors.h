@@ -156,11 +156,6 @@ Technical Note
 #ifndef _LALDETECTORS_H
 #define _LALDETECTORS_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
 
 #ifdef __cplusplus
@@ -431,7 +426,6 @@ LALDetectorType;
  */
 typedef struct tagLALFrDetector
 {
-	SWIGLAL_STRUCT_LALALLOC();
 	CHAR	name[LALNameLength];	/**< A unique identifying string. */
 	CHAR	prefix[3];		/**< Two-letter prefix for detector's channel names. */
 	REAL8	vertexLongitudeRadians;	/**< The geodetic longitude \f$\lambda\f$ of the vertex in radians. */
@@ -454,7 +448,6 @@ LALFrDetector;
  */
 typedef struct tagLALDetector
 {
-	SWIGLAL_STRUCT_LALALLOC();
 	REAL8		location[3];	/**< The three components, in an Earth-fixed Cartesian coordinate system, of the position vector from the center of the Earth to the detector in meters. */
 	REAL4		response[3][3];	/**< The Earth-fixed Cartesian components of the detector's response tensor \f$d^{ab}\f$. */
 	LALDetectorType	type;		/**< The type of the detector (e.g., IFO in differential mode, cylindrical bar, etc.). */
@@ -465,9 +458,6 @@ LALDetector;
 
 /** Pre-existing detectors. */
 extern const LALDetector lalCachedDetectors[LAL_NUM_DETECTORS];
-#ifdef SWIG /* SWIG interface directives */
-SWIGLAL_GLOBAL_CONST_FIXED_1DARRAY_ELEM(LALDetector, lalCachedDetectors);
-#endif
 
 
 

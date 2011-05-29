@@ -51,7 +51,6 @@ Provides prototype information for the routines in
 extern "C" {
 #endif
 
-#ifndef SWIG /* exclude from SWIG interface */
 enum { LALSupportUnitTextSize = sizeof("10^-32768 m^-32768/32767 "
 				       "kg^-32768/32767 "
 				       "s^-32768/32767 A^-32768/32767 "
@@ -59,7 +58,6 @@ enum { LALSupportUnitTextSize = sizeof("10^-32768 m^-32768/32767 "
 				       "count^-32768/32767") };
 
 enum { MaxLineLength = LALSupportUnitTextSize + sizeof("Units are ()\n") };
-#endif /* SWIG */
 
 NRCSID( READFTSERIESH, "$Id$" );
 

@@ -44,11 +44,6 @@ Generates random numbers.
 #ifndef _INTERPOLATE_H
 #define _INTERPOLATE_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
 
 #ifdef __cplusplus
@@ -145,7 +140,6 @@ corresponding values \verb+y[0]+\ldots\verb+y[n-1]+.  The fields are:
 typedef struct
 tagSInterpolateOut
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4  y;
   REAL4 dy;
 }
@@ -154,7 +148,6 @@ SInterpolateOut;
 typedef struct
 tagDInterpolateOut
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8  y;
   REAL8 dy;
 }
@@ -163,7 +156,6 @@ DInterpolateOut;
 typedef struct
 tagSInterpolatePar
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4  n;
   REAL4 *x;
   REAL4 *y;
@@ -173,7 +165,6 @@ SInterpolatePar;
 typedef struct
 tagDInterpolatePar
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4  n;
   REAL8 *x;
   REAL8 *y;

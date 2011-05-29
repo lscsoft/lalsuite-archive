@@ -45,11 +45,6 @@
 #ifndef _BINARYPULSARTIMING_H
 #define _BINARYPULSARTIMING_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 
 NRCSID (BINARYPULSARTIMINGH,"$Id$");
@@ -89,7 +84,6 @@ not be in the binary timing routine"
 typedef struct
 tagBinaryPulsarParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR *name;   /**< pulsar name */
 
   CHAR *model;  /**< TEMPO binary model e.g. BT, DD, ELL1 */
@@ -247,7 +241,6 @@ tagBinaryPulsarParams
 typedef struct
 tagBinaryPulsarInput
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 tb;    /**< Time of arrival (TOA) at the SSB */
 }BinaryPulsarInput;
 
@@ -255,7 +248,6 @@ tagBinaryPulsarInput
 typedef struct
 tagBinaryPulsarOutput
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 deltaT;	/**< deltaT to add to TDB in order to account for binary */
 }BinaryPulsarOutput;
 

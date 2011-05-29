@@ -16,9 +16,6 @@ AC_CONFIG_FILES([ \
   include/lal/Makefile \
   lib/Makefile \
   misc/Makefile \
-  swig/Makefile \
-  swig/octave/Makefile \
-  swig/python/Makefile \
   packages/Makefile \
   packages/std/Makefile \
   packages/std/doc/Makefile \
@@ -358,9 +355,6 @@ if test "${boinc}" = "true"; then
   AC_SUBST(BOINC_LIBS)
 fi
 
-# check for SWIG wrapping
-LALSUITE_WITH_SWIG
-
 # record the libraries needed for linking lal
 LAL_LIBADD="$LIBS"
 AC_SUBST(LAL_LIBADD)
@@ -415,7 +409,6 @@ echo "
 
                 CUDA support is $CUDA_ENABLE_VAL
                 BOINC support is $BOINC_ENABLE_VAL
-                SWIG wrappings to build: $SWIG_WRAPPINGS
 
         Now run 'make' to build LAL
         and run 'make install' to install LAL

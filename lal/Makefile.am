@@ -6,8 +6,7 @@ SUBDIRS = \
 	include \
 	packages \
 	doc \
-	lib \
-	swig
+	lib
 
 MAINTAINERCLEANFILES = lal.spec
 DISTCLEANFILES = config.lt

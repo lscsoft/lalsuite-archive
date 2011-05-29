@@ -95,7 +95,6 @@ void  XLALFree( void *p );
 
 /* global variables to assist in memory debugging */
 /* watch the value of these variables to find a particular alloc/free */
-#ifndef SWIG /* exclude from SWIG interface */
 extern char  *lalMemDbgArgPtr;   /* set to ptr arg in free or realloc */
 extern char  *lalMemDbgRetPtr;   /* set to ptr returned in alloc functions */
 extern char  *lalMemDbgPtr;      /* set in both cases */
@@ -104,7 +103,6 @@ extern void **lalMemDbgUsrHndl;  /* avaliable global memory handle for user */
 extern int    lalIsMemDbgArgPtr; /* ( lalMemDbgUsrPtr == lalMemDbgArgPtr ) */
 extern int    lalIsMemDbgRetPtr; /* ( lalMemDbgUsrPtr == lalMemDbgRetPtr ) */
 extern int    lalIsMemDbgPtr;    /* ( lalMemDbgUsrPtr == lalMemDbgPtr ) */
-#endif /* SWIG */
 
 
 void *

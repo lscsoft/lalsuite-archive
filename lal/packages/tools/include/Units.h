@@ -183,11 +183,6 @@ would not be an integer.
 #ifndef _UNITS_H
 #define _UNITS_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 
 #ifdef  __cplusplus
@@ -226,7 +221,6 @@ NRCSID (UNITSH, "$Id$");
 typedef struct
 tagRAT4
 {
-  SWIGLAL_STRUCT_LALALLOC();
   INT2 numerator;
   UINT2 denominatorMinusOne;
 } RAT4;
@@ -276,7 +270,6 @@ void LALUnitNormalize (LALStatus *status, LALUnit *output,
 typedef struct
 tagLALUnitPair
 {
-  SWIGLAL_STRUCT_LALALLOC();
   const LALUnit   *unitOne;
   const LALUnit   *unitTwo;
 }
@@ -318,7 +311,6 @@ LALParseUnitString ( LALStatus *status,
 		     LALUnit *output,
 		     const CHARVector *input );
 
-#ifndef SWIG /* exclude from SWIG interface */
 enum { LALUnitNameSize = sizeof("strain") };
 enum { LALUnitTextSize = sizeof("10^-32768 m^-32768/32767 kg^-32768/32767 "
 				"s^-32768/32767 A^-32768/32767 "
@@ -326,7 +318,6 @@ enum { LALUnitTextSize = sizeof("10^-32768 m^-32768/32767 kg^-32768/32767 "
 				"count^-32768/32767") };
 
 extern const CHAR lalUnitName[LALNumUnits][LALUnitNameSize];
-#endif /* SWIG */
 
 /*********************************************************
  *                                                       *
