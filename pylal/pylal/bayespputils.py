@@ -1221,6 +1221,23 @@ class htmlChunk(object):
         self._html.append(Ea)
         return Ea
 
+    def image(self,imageurl,width,height):
+        #Eima=Element('img')
+        #Eima.attrib['src']=imageurl
+        #Eima.attrib['width']=width
+        #Eima.attrib['height']=height
+        #return Eima
+        return 'img src='+imageurl+ " width="+str(width)+ " height="+str(height)
+        
+    def linkImage(self,imageurl,width,height):
+        #Eli=Element('a')
+        #Eli.attrib['href']=imageurl
+        #Eli.attrib['target']="_blank"
+        #Eli.text='<'+'img src='+imageurl+ " width="+str(width)+ " height="+str(height)+'>'
+        #self.image(imageurl,width,height)
+        #self._html.append(Eli)
+        #return Eli
+        return '<a href='+ imageurl+' target=_blank><img src='+imageurl+' width='+str(width) +' height='+str(height)+'></a>'        
     def append(self,element):
         self._html.append(element)
 
