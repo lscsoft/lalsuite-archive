@@ -75,7 +75,7 @@ def remove_ifo_from_string(name):
     ifos=['H1','L1','V1','Network']
     for ifo in ifos:
         if name.find(ifo)!=-1:
-            return [name[0:len(ifo)],float(name[len(ifo)+1:])]
+            return [name[0:len(ifo)],str(name[len(ifo)+1:])]
 
 def linear_space( start, end, count ):
     delta = (end-start) / float(count)
@@ -113,9 +113,7 @@ def read_snr(snrs,run,time,IFOs):
     net_snr2=0.0
     for IFO in IFOs:
         path_to_file=os.path.join(snrs[run],'snr_'+IFO+'_'+str(time)+'.0.dat')
-        print path_to_file
         path_to_multifile=os.path.join(snrs[run],'snr_'+''.join(IFO for IFO in IFOs)+'_'+str(time)+'.0.dat')
-        print path_to_multifile
         if os.path.isfile(path_to_file):
             snr_file=open(path_to_file,'r')
             line=snr_file.readline()[:-1]
@@ -123,16 +121,15 @@ def read_snr(snrs,run,time,IFOs):
             snr_values+=str(remove_ifo_from_string(line)[1])+' '
             net_snr2+=remove_ifo_from_string(line)[1]**2
             snr_file.close()
-    if snr_header!="":
+    if snr_header!=[]:
         snr_header.append('SNR_Network')
         snr_values+=str(sqrt(net_snr2))
-    if os.path.isfile(path_to_multifile) and snr_headers=="":
+    if os.path.isfile(path_to_multifile) and snr_header==[]:
         snr_file=open(path_to_multifile,'r')
         for line in snr_file.readlines()[:-1]:
-            snr_header.append(remove_ifo_from_string(line)[0])
-            snr_values +=remove_ifo_from_string(line)[1]
+            snr_header.append('SNR_'+remove_ifo_from_string(line)[0])
+            snr_values +=remove_ifo_from_string(line)[1][:-1]
         snr_file.close()
-    print snr_values,snr_header
     return [snr_values,snr_header]
 def histN(mat,N):
     Nd=size(N)
@@ -257,6 +254,15 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     BSN=[path for path in inputs]
     Combine=[path for path in inputs]
     snrs=[path for path in snrs]
+    ## Remove the times for which posterior file is not present
+    
+    for run in range(len(Combine)):
+        for time in times:
+            path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
+            if not os.path.isfile(path_to_file):
+                times.remove(time)
+                continue
+
  
     ## prepare files with means and other useful data ###
     for run in range(len(Combine)):
@@ -269,14 +275,14 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         header_l.append('injTime \t')
         for time in times:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
-            posterior_file=open(path_to_file,'r')
+	    posterior_file=open(path_to_file,'r')
             peparser=bppu.PEOutputParser('common')
             commonResultsObj=peparser.parse(posterior_file)
             pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injTable[times.index(time)])
             posterior_file.close()
             parameters=pos.names
             
-            parameters.remove('likelihood')
+            parameters.remove('logl')
             summary.write(str(time)+'\t')
             for parameter in parameters:
                 summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
@@ -293,7 +299,6 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                     header_l.append('BSN')
             if snrs is not None:
                 val,hea=read_snr(snrs,run,time,IFOs)
-                print "val", val
                 summary.write(str(val)+'\t')
                 if time==times[0]:
                     for he in hea:
@@ -302,7 +307,6 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         header.write('\t'.join(str(n) for n in header_l)+'\n')
         summary.close()
         header.close()
-        
     
     path_uncal=os.path.join(outdir,'summary_ctrl.dat')    
     for run in range(1,len(Combine)):
@@ -316,6 +320,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if calerr is not None:
             MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs)
         WritePlotPage(outdir,run,parameters,times[0])
+        
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs)
 
 
@@ -348,10 +353,10 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters):
         std_delta_omega=std_dev(x_delta,mean_delta_omega)
         skewness_delta_omega= skewness(x_delta, mean_delta_omega, std_delta_omega)
         kurtosis_delta_omega= kurtosis(x_delta, mean_delta_omega, std_delta_omega)
-        print "Mean : %e\n" % mean_delta_omega
-        print "Standard Deviation %e\n" % std_delta_omega
-        print "Skewness %e\n" % skewness_delta_omega
-        print "Kurtosis %e\n" % kurtosis_delta_omega
+        #print "Mean : %e\n" % mean_delta_omega
+        #print "Standard Deviation %e\n" % std_delta_omega
+        #print "Skewness %e\n" % skewness_delta_omega
+        #print "Kurtosis %e\n" % kurtosis_delta_omega
         
         bins=linear_space(x_delta.min(),x_delta.max(),nbins)
         myfig=figure(figsize=(4,3.5),dpi=80)
@@ -367,11 +372,11 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters):
         std_effect_size=std_dev(effect_size,mean_effect_size)
         skewness_effect_size= skewness(effect_size, mean_effect_size, std_effect_size)
         kurtosis_effect_size= kurtosis(effect_size, mean_effect_size, std_effect_size)
-        print "With effect size correction\n"
-        print "Mean : %e\n" % mean_effect_size
-        print "Standard Deviation %e\n" % std_effect_size
-        print "Skewness %e\n" % skewness_effect_size
-        print "Kurtosis %e\n" % kurtosis_effect_size
+        #print "With effect size correction\n"
+        #print "Mean : %e\n" % mean_effect_size
+        #print "Standard Deviation %e\n" % std_effect_size
+        #print "Skewness %e\n" % skewness_effect_size
+        #print "Kurtosis %e\n" % kurtosis_effect_size
         bins=linear_space(effect_size.min(),effect_size.max(),nbins)
         myfig2=figure(figsize=(4,3.5),dpi=80)
         hist(effect_size, bins=bins, normed="true",color='r',fill=False, hatch='//', linewidth='2')
@@ -388,7 +393,6 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs):
     data_uncal=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'SNRPlots')
     checkDir(path_plots)
-    print header_l
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
@@ -421,11 +425,12 @@ def WritePlotPage(outdir,run,parameters,time):
     time=str(time)
     wd=300
     hg=250
-    page_path=os.path.join(outdir,run)
+    abs_page_path=os.path.join(outdir,run)
+    page_path="./"
     path_plots=os.path.join(page_path,'ParametersPlots')
     error_path_plots=os.path.join(page_path,'ErrorPlots')
-    snr_plots=os.path.join(outdir,run,'SNRPlots')
-    bsn_plots=os.path.join(outdir,run,'BSNPlots')
+    snr_plots=os.path.join(page_path,'SNRPlots')
+    bsn_plots=os.path.join(page_path,'BSNPlots')
 
     html=bppu.htmlPage('CalibrationErrors',css=bppu.__default_css_string)
     html_err=html.add_section('Errors fit')
@@ -441,7 +446,7 @@ def WritePlotPage(outdir,run,parameters,time):
     html_err.write(html_err_st)
 
     html_plots=html.add_section('Summary plots')
-    html_plots.write(link(os.path.join(outdir,run,'summary.html'),"Go to the summary table"))
+    html_plots.write(link(os.path.join(page_path,'summary.html'),"Go to the summary table"))
     html_plots_st='<table>'
     for parameter in parameters:
         html_plots_st+='<tr>'
@@ -461,57 +466,65 @@ def WritePlotPage(outdir,run,parameters,time):
     html_plots_st+='</table>'
     html_plots.write(html_plots_st) 
     #Save results page
-    plotpage=open(os.path.join(page_path,'posposplots.html'),'w')
+    plotpage=open(os.path.join(abs_page_path,'posposplots.html'),'w')
     plotpage.write(str(html))
-
-
-    
-
     return
+
+def go_home(path):
+    current=os.getcwd()
+    upo=''
+    os.chdir(path)
+    while os.getcwd()!=os.environ['HOME']:
+        os.chdir(os.path.join(os.getcwd(),'../'))
+        upo+='../'
+    os.chdir(current)
+    return upo
 
 def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,header_l,times,IFOs):
     
     run=str(run)
-    #time=str(time)
-    page_path=os.path.join(outdir,run)
+    abs_page_path=os.path.join(outdir,run)
+    page_path="./"
+    path_to_result_pages_from_LSC=path_to_result_pages[path_to_result_pages.find('LSC'):]
+    path_to_ctrl_result_pages_from_LSC=path_to_ctrl_result_pages[path_to_ctrl_result_pages.find('LSC'):]
     snr_index={}
-    for IFO in IFOs:
-        IFOs[IFOs.index(IFO)]='SNR_'+IFO
-    IFOs.append('SNR_Network')
-    for IFO in IFOs:
-        snr_index[IFO]=header_l.index(IFO)  
+    ifos=['SNR_'+ifo for ifo in IFOs]
+    ifos.append('SNR_Network')
+
+    for ifo in ifos:
+        snr_index[ifo]=header_l.index(ifo)  
+
     bsn_index=header_l.index('BSN')
     ctrl_data=np.loadtxt(os.path.join(outdir,'summary_ctrl.dat'))
     cal_data=np.loadtxt(os.path.join(outdir,'summary_'+run+'.dat'))
 
     html=bppu.htmlPage('SummaryPage',css=bppu.__default_css_string)
     html_table=html.add_section('Links to postprocessing pages')
-    html_table.write(link(os.path.join(outdir,run,'posposplots.html'),"Go back to the plots page"))
+    html_table.write(link(os.path.join(page_path,'posposplots.html'),"Go back to the plots page"))
     html_table_st='<table>'
     html_table_st+='<tr><th align="center" colspan="6"> Control Runs </th><th colspan="6" align="center"> Calibration Runs </th></tr>'
     html_table_st+='<tr>'
-    html_table_st+=2*('<th> TriggerTime</th><th> BSN </th><th>'+IFOs[0]+'</th><th>'+IFOs[1]+'</th><th>'+IFOs[2]+'</th><th>'+IFOs[3]+'</th>')
+    html_table_st+=2*('<th> TriggerTime</th><th> BSN </th><th>'+ifos[0]+'</th><th>'+ifos[1]+'</th><th>'+ifos[2]+'</th><th>'+ifos[3]+'</th>')
     html_table_st+='</tr>'
 
     for time in times:
         time=str(time)
         html_table_st+='<tr>'
-        ctrl_page=os.path.join(path_to_ctrl_result_pages,time,'posplots.html')
-        cal_page=os.path.join(path_to_result_pages,time,'posplots.html')
+        ctrl_page=os.path.join(go_home(outdir),path_to_ctrl_result_pages_from_LSC,time,'posplots.html')
+        cal_page=os.path.join(go_home(outdir),path_to_result_pages_from_LSC,time,'posplots.html')
         html_table_st+='<td>'+link(ctrl_page,time)+'</td>'
         html_table_st+='<td>'+'%4.2f'%(ctrl_data[times.index(time),bsn_index])+'</td>'
-        for IFO in IFOs:
+        for IFO in ifos:
             html_table_st+='<td>'+'%4.2f'%(ctrl_data[times.index(time),snr_index[IFO]])+'</td>'
         html_table_st+='<td>'+link(cal_page,time)+'</td>'
         html_table_st+='<td>'+'%4.2f'%(cal_data[times.index(time),bsn_index])+'</td>'
-        for IFO in IFOs:
+        for IFO in ifos:
             html_table_st+='<td>'+'%4.2f'%(cal_data[times.index(time),snr_index[IFO]])+'</td>'
         html_table_st+='</tr>'
     html_table_st+='</table>'
-    print html_table_st
     html_table.write(html_table_st)
     #Save results page
-    plotpage=open(os.path.join(page_path,'summary.html'),'w')
+    plotpage=open(os.path.join(abs_page_path,'summary.html'),'w')
     plotpage.write(str(html))
 
 def vararg_callback(option, opt_str, value, parser):
@@ -546,7 +559,6 @@ if __name__=='__main__':
     parser.add_option("-E","--events",dest="raw_events",action="store",type="string",default=None,metavar="\[0:50\]")
     parser.add_option("-I","--IFOS",dest="IFOs",action="callback", callback=vararg_callback,help="The IFOs used in the analysis", metavar="H1 L1 V1")
     (opts,args)=parser.parse_args()
-    print opts,"\n"
     #if opts.num_of_init==1 and opts.uncal_path==None:
     #        print "Error, if -n is 1 it means that only jobs with calibration errors are running, then you must provide the path to the posterior of the (already run) corresponding jobs without calibration errors using the option -u /pathToUncalPosteriors \n"
     RunsCompare(opts.outpath,opts.indata,opts.inj,opts.raw_events,opts.IFOs,snrs=opts.snr,calerr=opts.calerr,path_to_result_pages=opts.rp)
