@@ -45,10 +45,6 @@ void SampleCalibrationErrorsAmplitude(REAL8 *logF, INT4 length, INT4 IFO, INT4 s
   	p = gsl_rng_alloc (type);           // Set RNG type
     
     REAL8 stddev[3]={0.0};
-    //int IFO;
-    //if(!strcmp(IFOname,"H1")){IFO =1;}
-    //if(!strcmp(IFOname,"L1")){IFO =2;}
-    //if(!strcmp(IFOname,"V1")){IFO =3;}
     switch (IFO) {
         case 1:
             stddev[0]=0.104;
