@@ -18,7 +18,7 @@ bin_PROGRAMS = $(metaio_progs) $(frame_progs)
 INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
 
 if HAVE_PYTHON
-bin_SCRIPTS = lalapps_combine_evidence lalapps_coherence_test lalapps_merge_nested_sampling_runs lalapps_nest_pipe lalapps_nest_iter_pipe
+bin_SCRIPTS = lalapps_combine_evidence lalapps_coherence_test lalapps_merge_nested_sampling_runs lalapps_nest_pipe lalapps_nest_iter_pipe lalapps_nest_compare
 pkgpython_DATA = nest_utils.py combine_evidence.py
 endif
 
@@ -29,6 +29,7 @@ EXTRA_DIST = \
 	nest_pipe.in \
 	nest_utils.py \
 	nest_iter_pipe.in \
+	nest_compare.in\
 	combine_evidence.py
 
 python_config.sed: Makefile
@@ -55,6 +56,10 @@ lalapps_nest_pipe: $(srcdir)/nest_pipe.in python_config.sed
 lalapps_nest_iter_pipe: $(srcdir)/nest_iter_pipe.in python_config.sed
 	sed -f python_config.sed $(srcdir)/nest_iter_pipe.in >lalapps_nest_iter_pipe
 	chmod a+x lalapps_nest_iter_pipe
+
+lalapps_nest_compare: $(srcdir)/nest_compare.in python_config.sed
+	sed -f python_config.sed $(srcdir)/nest_compare.in >lalapps_nest_compare
+	chmod a+x lalapps_nest_compare
 
 CLEANFILES = $(bin_SCRIPTS) python_config.sed
 
