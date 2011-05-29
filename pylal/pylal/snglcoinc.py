@@ -1082,7 +1082,7 @@ class TOATriangulator(object):
 		Note:  rs and sigmas may be iterated over multiple times.
 		"""
 		assert len(rs) == len(sigmas)
-		assert len(rs) >= 3
+		assert len(rs) >= 2
 
 		self.rs = numpy.vstack(rs)
 		self.sigmas = numpy.array(sigmas)
@@ -1097,12 +1097,15 @@ class TOATriangulator(object):
 		# ith row is \sigma_i^-2 (r_i - \bar{r}) / c
 		M = self.R / (self.v * self.sigmas[:,numpy.newaxis]**2)
 
-		self.U, self.S, self.VT = numpy.linalg.svd(M)
+		if len(rs) >= 3:
+			self.U, self.S, self.VT = numpy.linalg.svd(M)
 
-		# if the smallest singular value is less than 10^-8 * the
-		# largest singular value, assume the network is degenerate
-		self.singular = abs(self.S.min() / self.S.max()) < 1e-8
-
+			# if the smallest singular value is less than 10^-8 * the
+			# largest singular value, assume the network is degenerate
+			self.singular = abs(self.S.min() / self.S.max()) < 1e-8
+		else:
+			# len(rs) == 2
+			self.max_dt = numpy.dot(self.rs[1] - self.rs[0], self.rs[1] - self.rs[0])**.5 / self.v
 
 	def __call__(self, ts):
 		"""
@@ -1151,64 +1154,74 @@ class TOATriangulator(object):
 
 		# sigma^-2 -weighted mean of arrival times
 		tbar = sum(ts / self.sigmas**2) / sum(1 / self.sigmas**2)
+		# the i-th element is ts - tbar for the i-th location
 		tau = ts - tbar
-		tau_prime = numpy.dot(self.U.T, tau)[:3]
 
-		if self.singular:
-			l = 0.0
-			np = tau_prime / self.S
-			try:
-				np[2] = math.sqrt(1.0 - np[0]**2 - np[1]**2)
-			except ValueError:
-				np[2] = 0.0
-				np /= math.sqrt(numpy.dot(np, np))
-		else:
-			def n_prime(l, Stauprime = self.S * tau_prime, S2 = self.S * self.S):
-				return Stauprime / (S2 + l)
-			def secular_equation(l):
+		if len(self.rs) >= 3:
+			tau_prime = numpy.dot(self.U.T, tau)[:3]
+
+			if self.singular:
+				l = 0.0
+				np = tau_prime / self.S
+				try:
+					np[2] = math.sqrt(1.0 - np[0]**2 - np[1]**2)
+				except ValueError:
+					np[2] = 0.0
+					np /= math.sqrt(numpy.dot(np, np))
+			else:
+				def n_prime(l, Stauprime = self.S * tau_prime, S2 = self.S * self.S):
+					return Stauprime / (S2 + l)
+				def secular_equation(l):
+					np = n_prime(l)
+					return numpy.dot(np, np) - 1
+
+				# values of l that make the denominator of n'(l) 0
+				lsing = -self.S * self.S
+				# least negative of them is used as lower bound for
+				# bisection search root finder (elements of S are
+				# ordered from greatest to least, so the last
+				# element of lsing is the least negative)
+				l_lo = lsing[-1]
+
+				# find a suitable upper bound for the root finder
+				# FIXME:  in Jolien's original code l_hi was
+				# hard-coded to 1 but we can't figure out why the
+				# root must be <= 1, so I put this loop to be safe
+				# but at some point it would be good to figure out
+				# if 1.0 can be used because it would allow this
+				# loop to be skipped
+				l_hi = 1.0
+				while secular_equation(l_lo) / secular_equation(l_hi) > 0:
+					l_lo, l_hi = l_hi, l_hi * 2
+
+				# solve for l
+				l = scipy.optimize.brentq(secular_equation, l_lo, l_hi)
+
+				# compute n'
 				np = n_prime(l)
-				return numpy.dot(np, np) - 1
 
-			# values of l that make the denominator of n'(l) 0
-			lsing = -self.S * self.S
-			# least negative of them is used as lower bound for
-			# bisection search root finder (elements of S are
-			# ordered from greatest to least, so the last
-			# element of lsing is the least negative)
-			l_lo = lsing[-1]
+			# compute n from n'
+			n = numpy.dot(self.VT.T, np)
 
-			# find a suitable upper bound for the root finder
-			# FIXME:  in Jolien's original code l_hi was
-			# hard-coded to 1 but we can't figure out why the
-			# root must be <= 1, so I put this loop to be safe
-			# but at some point it would be good to figure out
-			# if 1.0 can be used because it would allow this
-			# loop to be skipped
-			l_hi = 1.0
-			while secular_equation(l_lo) / secular_equation(l_hi) > 0:
-				l_lo, l_hi = l_hi, l_hi * 2
+			# safety check the nomalization of the result
+			assert abs(numpy.dot(n, n) - 1.0) < 1e-8
 
-			# solve for l
-			l = scipy.optimize.brentq(secular_equation, l_lo, l_hi)
+			# arrival time at origin
+			toa = sum((ts - numpy.dot(self.rs, n) / self.v) / self.sigmas**2) / sum(1 / self.sigmas**2)
 
-			# compute n'
-			np = n_prime(l)
+			# chi^{2}
+			chi2 = sum(((numpy.dot(self.R, n) / self.v - tau) / self.sigmas)**2)
 
-		# compute n from n'
-		n = numpy.dot(self.VT.T, np)
-
-		# safety check the nomalization of the result
-		assert abs(numpy.dot(n, n) - 1.0) < 1e-8
-
-		# arrival time at origin
-		toa = sum((ts - numpy.dot(self.rs, n) / self.v) / self.sigmas**2) / sum(1 / self.sigmas**2)
-
-		# chi^{2}
-		chi2 = sum(((numpy.dot(self.R, n) / self.v - tau) / self.sigmas)**2)
-
-		# root-sum-square timing residual
-		dt = ts - toa - numpy.dot(self.rs, n) / self.v
-		dt = math.sqrt(numpy.dot(dt, dt))
+			# root-sum-square timing residual
+			dt = ts - toa - numpy.dot(self.rs, n) / self.v
+			dt = math.sqrt(numpy.dot(dt, dt))
+		else:
+			# len(rs) == 2
+			# FIXME:  fill in n and toa (is chi2 right?)
+			n = numpy.zeros((3,), dtype = "double")
+			toa = 0.0
+			dt = max(abs(ts[1] - ts[0]) - self.max_dt, 0)
+			chi2 = dt**2 / sum(self.sigmas**2)
 
 		# done
 		return n, t0 + toa, chi2 / len(self.sigmas), dt
