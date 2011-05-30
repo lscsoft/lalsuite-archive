@@ -629,7 +629,7 @@ setup(
         os.path.join("bin", "pylal_exttrig_dataquery"),
         os.path.join("bin", "pylal_exttrig_allquery"),
         os.path.join("bin", "auxmvc_mvsc_results_plots.py"),
-        os.path.join("bin", "generate_mvsc_files.py") 
+        os.path.join("bin", "generate_spr_files.py") 
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
