@@ -35,36 +35,36 @@ parser.add_option("-p","--log-path", help = "set dagman log path")
 run_tag = '_n'+str(opts.number_of_trees)+'_l'+str(opts.leaf_size)+'_s'+str(opts.sampled_parameters)+'_c'+str(opts.criterion_for_optimization)
 
 class auxmvc_DAG(pipeline.CondorDAG):
-  def __init__(self, config_file, log_path):
-    self.config_file = str(config_file)
-    self.basename = self.config_file.replace('.ini','')+run_tag
-    tempfile.tempdir = log_path
-    tempfile.template = self.basename + '.dag.log.'
-    logfile = tempfile.mktemp()
-    fh = open( logfile, "w" )
-    fh.close()
-    pipeline.CondorDAG.__init__(self,logfile)
-    self.set_dag_file(self.basename)
-    self.jobsDict = {}
-    self.id = 0
-  def add_node(self, node):
-    self.id+=1
-    pipeline.CondorDAG.add_node(self, node)
-    
+	def __init__(self, config_file, log_path):
+		self.config_file = str(config_file)
+		self.basename = self.config_file.replace('.ini','')+run_tag
+		tempfile.tempdir = log_path
+		tempfile.template = self.basename + '.dag.log.'
+		logfile = tempfile.mktemp()
+		fh = open( logfile, "w" )
+		fh.close()
+		pipeline.CondorDAG.__init__(self,logfile)
+		self.set_dag_file(self.basename)
+		self.jobsDict = {}
+		self.id = 0
+	def add_node(self, node):
+		self.id+=1
+		pipeline.CondorDAG.add_node(self, node)
+		
 class generate_files_job(pipeline.CondorDAGJob):
-  def __init__(self, cp, tag_base='GENERATE_FILES'):
-    """
-    """
-    self.__prog__ = 'generate_spr_files'
-    self.__executable = string.strip(cp.get('condor','generate_spr_files'))
-    self.__universe = "vanilla"
-    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.add_condor_cmd('getenv','True')
-    self.tag_base = tag_base
-    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
-    self.set_sub_file(tag_base+'.sub')
-    self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
-    self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
+	def __init__(self, cp, tag_base='GENERATE_FILES'):
+		"""
+		"""
+		self.__prog__ = 'generate_spr_files'
+		self.__executable = string.strip(cp.get('condor','generate_spr_files'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.tag_base = tag_base
+		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+		self.set_sub_file(tag_base+'.sub')
+		self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
 
 class generate_files_node(pipeline.CondorDAGNode):
 	def __init__(self, job, dag, options, outputfiles, p_node=[]):
@@ -79,72 +79,72 @@ class generate_files_node(pipeline.CondorDAGNode):
 		dag.add_node(self)
 
 class train_forest_job(pipeline.CondorDAGJob):
-  """
-  """
-  def __init__(self, cp, tag_base='TRAIN_FOREST'):
-    """
-    """
-    self.__prog__ = 'SprBaggerDecisionTreeApp'
-    self.__executable = string.strip(cp.get('condor','SprBaggerDecisionTreeApp'))
-    self.__universe = "vanilla"
-    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.add_condor_cmd('getenv','True')
-    self.tag_base = tag_base
-    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
-    self.set_sub_file(tag_base+'.sub')
-    self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
-    self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
+	"""
+	"""
+	def __init__(self, cp, tag_base='TRAIN_FOREST'):
+		"""
+		"""
+		self.__prog__ = 'SprBaggerDecisionTreeApp'
+		self.__executable = string.strip(cp.get('condor','SprBaggerDecisionTreeApp'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.tag_base = tag_base
+		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+		self.set_sub_file(tag_base+'.sub')
+		self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
 
 class train_forest_node(pipeline.CondorDAGNode):
-  """
-  """
-  def __init__(self, job, dag, trainingfile, p_node=[]):
-    pipeline.CondorDAGNode.__init__(self,job)
-    self.add_macro("macroid", dag.id)
-    self.add_input_file(trainingfile)
-    self.trainingfile = self.get_input_files()[0]
-    self.trainedforest = self.trainingfile.replace('.pat',run_tag+'.spr')
-    self.add_file_arg("-a 1 -n %s -l %s -s %s -c %s -g 1 -i -d 1 -f %s %s" % (opts.number_of_trees, opts.leaf_size, opts.sampled_parameters, opts.criterion_for_optimization, self.trainedforest, self.trainingfile))
-    self.add_output_file(self.trainedforest)
-    for p in p_node:
-      self.add_parent(p)
-    dag.add_node(self)
+	"""
+	"""
+	def __init__(self, job, dag, trainingfile, p_node=[]):
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.add_macro("macroid", dag.id)
+		self.add_input_file(trainingfile)
+		self.trainingfile = self.get_input_files()[0]
+		self.trainedforest = self.trainingfile.replace('.pat',run_tag+'.spr')
+		self.add_file_arg("-a 1 -n %s -l %s -s %s -c %s -g 1 -i -d 1 -f %s %s" % (opts.number_of_trees, opts.leaf_size, opts.sampled_parameters, opts.criterion_for_optimization, self.trainedforest, self.trainingfile))
+		self.add_output_file(self.trainedforest)
+		for p in p_node:
+			self.add_parent(p)
+		dag.add_node(self)
 
 class use_forest_job(pipeline.CondorDAGJob):
-  """
-  """
-  def __init__(self, cp, tag_base='USE_FOREST'):
-    """
-    """
-    self.__prog__ = 'SprOutputWriterApp'
-    self.__executable = string.strip(cp.get('condor','SprOutputWriterApp'))
-    self.__universe = "vanilla"
-    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.add_condor_cmd('getenv','True')
-    self.tag_base = tag_base
-    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
-    self.set_sub_file(tag_base+'.sub')
-    self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
-    self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
+	"""
+	"""
+	def __init__(self, cp, tag_base='USE_FOREST'):
+		"""
+		"""
+		self.__prog__ = 'SprOutputWriterApp'
+		self.__executable = string.strip(cp.get('condor','SprOutputWriterApp'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.tag_base = tag_base
+		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+		self.set_sub_file(tag_base+'.sub')
+		self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
 
 class use_forest_node(pipeline.CondorDAGNode):
-  """
-  """
-  def __init__(self, job, dag, trainedforest, file_to_rank,  p_node=[]):
-    pipeline.CondorDAGNode.__init__(self,job)
-    #FIXME add tmp file space
-    self.add_macro("macroid", dag.id)
-    self.add_input_file(trainedforest)
-    self.add_input_file(file_to_rank)
-    self.trainedforest = self.get_input_files()[0]
-    self.file_to_rank = self.get_input_files()[1]
-    self.ranked_file = self.file_to_rank.replace('.pat','_n'+str(opts.number_of_trees)+'_l'+str(opts.leaf_size)+'_s'+str(opts.sampled_parameters)+'_c'+str(opts.criterion_for_optimization)+'.dat')
-    self.add_file_arg("-A -a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
-    self.add_output_file(self.ranked_file)
+	"""
+	"""
+	def __init__(self, job, dag, trainedforest, file_to_rank,	p_node=[]):
+		pipeline.CondorDAGNode.__init__(self,job)
+		#FIXME add tmp file space
+		self.add_macro("macroid", dag.id)
+		self.add_input_file(trainedforest)
+		self.add_input_file(file_to_rank)
+		self.trainedforest = self.get_input_files()[0]
+		self.file_to_rank = self.get_input_files()[1]
+		self.ranked_file = self.file_to_rank.replace('.pat','_n'+str(opts.number_of_trees)+'_l'+str(opts.leaf_size)+'_s'+str(opts.sampled_parameters)+'_c'+str(opts.criterion_for_optimization)+'.dat')
+		self.add_file_arg("-A -a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
+		self.add_output_file(self.ranked_file)
 # I need to figure out how to parse these options
-    for p in p_node:
-      self.add_parent(p)
-    dag.add_node(self)
+		for p in p_node:
+			self.add_parent(p)
+		dag.add_node(self)
 
 
 
@@ -154,7 +154,7 @@ class use_forest_node(pipeline.CondorDAGNode):
 ###############################################################################
 
 
-  
+	
 
 ### SET UP THE DAG
 
