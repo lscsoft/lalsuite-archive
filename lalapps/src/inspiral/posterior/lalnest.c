@@ -921,7 +921,8 @@ int main( int argc, char *argv[])
 			if(!strcmp(CacheFileNames[i],"LALVirgo")) {PSD = &LALVIRGOPsd; scalefactor=1.0;}
 			if(!strcmp(CacheFileNames[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
 			if(!strcmp(CacheFileNames[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
-			if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 1E-49;}
+			//if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 1E-49;} Obsolete
+            if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd;scalefactor = 1.35e-50;} // Walter's fit
             if(!strcmp(CacheFileNames[i],"LALAdVirgo")) {PSD = &LALAdvVIRGOPsd;scalefactor = 1E-47;}
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
@@ -948,23 +949,23 @@ int main( int argc, char *argv[])
 			if(enable_calamp || enable_calfreq){
                 REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
                 fprintf(stderr,"Applying calibration errors to %s noise \n", IFOnames[i]);
-                FILE *calibout;
-                char caliboutname[100];
-                sprintf(caliboutname,"uncalibnoise_%s_%9.2f.dat",IFOnames[i],injTime);
-                calibout=fopen(caliboutname,"w");
-                for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-                     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
-                }
-                fclose(calibout);
+                //FILE *calibout;
+                //char caliboutname[100];
+                //sprintf(caliboutname,"uncalibnoise_%s_%9.2f.dat",IFOnames[i],injTime);
+                //calibout=fopen(caliboutname,"w");
+                //for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
+                //     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
+                //}
+                //fclose(calibout);
                 COMPLEX16FrequencySeries *CalibNoise=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibNoiseFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                 ApplyCalibrationErrorsToData(inputMCMC,CalibNoise, IFOnames[i],i,calib_seed);
                 XLALDestroyCOMPLEX16FrequencySeries(CalibNoise);
-                sprintf(caliboutname,"calibnoise_%s_%9.2f.dat",IFOnames[i],injTime);
-                calibout=fopen(caliboutname,"w");
-                for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-                     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
-                }
-                fclose(calibout);
+                //sprintf(caliboutname,"calibnoise_%s_%9.2f.dat",IFOnames[i],injTime);
+                //calibout=fopen(caliboutname,"w");
+                //for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
+                //     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
+                //}
+                //fclose(calibout);
             }
 		
 			
@@ -1090,23 +1091,23 @@ int main( int argc, char *argv[])
             if((enable_calamp || enable_calfreq) && !FakeFlag){
                 REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
                 fprintf(stderr,"Applying calibration errors to %s real noise \n", IFOnames[i]);
-                FILE *calibout;
-                char caliboutname[100];
-                sprintf(caliboutname,"uncalib_real_noise_%s_%9.2f.dat",IFOnames[i],injTime);
-                calibout=fopen(caliboutname,"w");
-                for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-                     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
-                }
-                fclose(calibout);
+                //FILE *calibout;
+                //char caliboutname[100];
+                //sprintf(caliboutname,"uncalib_real_noise_%s_%9.2f.dat",IFOnames[i],injTime);
+                //calibout=fopen(caliboutname,"w");
+                //for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
+                //     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
+                //}
+                //fclose(calibout);
                 COMPLEX16FrequencySeries *CalibNoise=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibNoiseFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                 ApplyCalibrationErrorsToData(inputMCMC,CalibNoise, IFOnames[i],i,calib_seed);
                 XLALDestroyCOMPLEX16FrequencySeries(CalibNoise);
-                sprintf(caliboutname,"calib_real_noise_%s_%9.2f.dat",IFOnames[i],injTime);
-                calibout=fopen(caliboutname,"w");
-                for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-                     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
-                }
-                fclose(calibout);
+                //sprintf(caliboutname,"calib_real_noise_%s_%9.2f.dat",IFOnames[i],injTime);
+                //calibout=fopen(caliboutname,"w");
+                //for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
+                //     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
+                //}
+                //fclose(calibout);
             }
 		} /* End if(!FakeFlag) */
 
