@@ -28,7 +28,7 @@ SPARSE_CONV *sc;
 sc=do_alloc(1, sizeof(*sc));
 
 sc->free=0;
-sc->size=20;
+sc->size=40;
 
 sc->bin=do_alloc(sc->size, sizeof(*sc->bin));
 sc->data=do_alloc(sc->size, sizeof(*sc->data));
@@ -107,7 +107,7 @@ init_stats(&(ctx->stats));
 /* Parameters */
 
 ctx->n_freq_adj_filter=63;
-ctx->n_scan_fft_filter=7;
+ctx->n_scan_fft_filter=11;
 ctx->n_fsteps=4;
 ctx->n_sky_scan=5;
 ctx->half_window=1;

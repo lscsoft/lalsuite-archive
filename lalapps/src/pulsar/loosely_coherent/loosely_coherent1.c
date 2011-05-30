@@ -814,7 +814,11 @@ k=0;
 y2=0.0;
 for(n=0;n<d_free;n++) {
 	for(j=0;j<datasets[n].free;j++) {
-		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+2.0*ctx->fstep/(ctx->n_fsteps*nsamples*datasets[0].coherence_time);
+		tGPS.gpsSeconds=datasets[n].gps[j]; /* SFTs count phase from 0 */
+		tGPS.gpsNanoSeconds=0;
+		fast_get_emission_time(ctx, &emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
+
+		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+ctx->fstep/(ctx->n_fsteps*ctx->timebase);
 		bin=round(datasets[0].coherence_time*f-first_bin);
 
 		x=datasets[n].re[j*datasets[n].nbins+bin];
@@ -865,7 +869,7 @@ for(n=0;n<d_free;n++) {
 		
 		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
 		
-		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+2.0*ctx->fstep/(ctx->n_fsteps*nsamples*datasets[0].coherence_time);
+		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+ctx->fstep/(ctx->n_fsteps*ctx->timebase);
 		bin=round(datasets[0].coherence_time*f-first_bin);
 				
 		te=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
