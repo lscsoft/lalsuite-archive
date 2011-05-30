@@ -119,10 +119,11 @@ def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data,
 	background_data = numpy.transpose(background_data)
 	injections_data = numpy.transpose(injections_data)
 
-	hi = math.log10(max(background_data.max(), injections_data.max()))
-	contours = numpy.arange(hi - 10, hi, 0.5, dtype = "double")
-	injections_cset = axes.contour(injections_xcoords, injections_ycoords, numpy.log10(injections_data), contours, cmap = cm.Reds)
-	background_cset = axes.contour(background_xcoords, background_ycoords, numpy.log10(background_data), contours, cmap = cm.Greys)
+	if numpy.any(background_data) or numpy.any(injections_data):
+		hi = math.log10(max(background_data.max(), injections_data.max()))
+		contours = numpy.arange(hi - 10, hi, 0.5, dtype = "double")
+		injections_cset = axes.contour(injections_xcoords, injections_ycoords, numpy.log10(injections_data), contours, cmap = cm.Reds)
+		background_cset = axes.contour(background_xcoords, background_ycoords, numpy.log10(background_data), contours, cmap = cm.Greys)
 	axes.set_xlim([min(background_xcoords[0], injections_xcoords[0]), max(background_xcoords[-1], injections_xcoords[-1])])
 	axes.set_ylim([min(background_ycoords[0], injections_ycoords[0]), max(background_ycoords[-1], injections_ycoords[-1])])
 	#cbar = fig.add_axes((.75,.15,.1,.75))
