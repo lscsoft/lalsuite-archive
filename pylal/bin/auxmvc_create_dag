@@ -146,15 +146,40 @@ class use_forest_node(pipeline.CondorDAGNode):
 			self.add_parent(p)
 		dag.add_node(self)
 
+class result_plots_job(pipeline.CondorDAGJob):
+	"""
+	"""
+	def __init__(self, cp, tag_base='RESULT_PLOTS'):
+		"""
+		"""
+		self.__prog__ = 'auxmvc_result_plots'
+		self.__executable = string.strip(cp.get('condor','auxmvc_result_plots'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.tag_base = tag_base
+		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+		self.set_sub_file(tag_base+'.sub')
+		self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
 
-
+class result_plots_node(pipeline.CondorDAGNode):
+	def __init__(self, job, dag, datfiles, tag, options, p_node=[]):
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.add_macro("macroid", dag.id)
+		for file in datfiles:
+			self.add_file_arg(file[0])
+		self.add_var_opt("tag",tag)
+		for opt in options:
+			self.add_var_opt(opt[0],opt[1])
+		for p in p_node:
+			self.add_parent(p)
+		dag.add_node(self)
 
 ###############################################################################
 ## MAIN #######################################################################
 ###############################################################################
 
-
-	
 
 ### SET UP THE DAG
 
@@ -169,13 +194,14 @@ dag = auxmvc_DAG(ininame, opts.log_path)
 
 #generate_files
 generate_job = generate_files_job(cp)
-training_files = []
-evaluation_files = []
-for cat in cp.get("generate_files","DQ-cats").split(','):
-	for i in range(int(cp.get("generate_files","roundrobin-number"))):
-		training_files.append(cat+'_'+cp.get("generate_files","output-tag")+'_set_'+str(i)+'_'+'training.pat')
-		evaluation_files.append(cat+'_'+cp.get("generate_files","output-tag")+'_set_'+str(i)+'_'+'evaluation.pat')
-generate_node = generate_files_node(generate_job, dag, cp.items("generate_files"), training_files+evaluation_files)
+training_files = {} #dictionary keyed on DQ category
+evaluation_files = {} #dictionary keyed on DQ category
+for cat in cp.get("generate_spr_files","DQ-cats").split(','):
+	training_files[cat] = []
+	evaluation_files[cat] = []
+	for i in range(int(cp.get("generate_spr_files","roundrobin-number"))):
+		training_files[cat].append(cat+'_'+cp.get("generate_spr_files","output-tag")+'_set_'+str(i)+'_'+'training.pat')
+		evaluation_files[cat].append(cat+'_'+cp.get("generate_spr_files","output-tag")+'_set_'+str(i)+'_'+'evaluation.pat')
 		
 #SprBaggerDecisionTreeApp
 train_job = train_forest_job(cp)
@@ -187,9 +213,25 @@ rank_node = {}
 zl_rank_job = use_forest_job(cp)
 zl_rank_node = {}
 
-for i,file in enumerate(training_files):
-	train_node[file] = train_forest_node(train_job, dag, file, p_node=[generate_node])
-	rank_node[file] = use_forest_node(rank_job, dag, train_node[file].trainedforest, file.replace('_training','_evaluation'),p_node=[train_node[file]])
+#result_plots
+results_job = result_plots_job(cp)
+results_node = {}
+
+#set up the nodes
+generate_node = generate_files_node(generate_job, dag, cp.items("generate_spr_files"), training_files.values()+evaluation_files.values())
+for cat in cp.get("generate_spr_files","DQ-cats").split(','):
+	catdatfiles=[]
+	train_node[cat]={}
+	rank_node[cat]={}
+	for i,file in enumerate(training_files[cat]):
+		train_node[cat][file] = train_forest_node(train_job, dag, file, p_node=[generate_node])
+		print train_node[cat][file]
+		rank_node[cat][file] = use_forest_node(rank_job, dag, train_node[cat][file].trainedforest, file.replace('_training','_evaluation'),p_node=[train_node[cat][file]])
+		catdatfiles.append(rank_node[cat][file].get_output_files())
+	print rank_node[cat].values()
+	print catdatfiles
+	roctag = cat+'_'+cp.get("generate_spr_files","output-tag")+run_tag
+	results_node[cat] = result_plots_node(results_job, dag, catdatfiles, roctag, cp.items("auxmvc_result_plots"), p_node=rank_node[cat].values())
 
 dag.write_sub_files()
 dag.write_dag()
