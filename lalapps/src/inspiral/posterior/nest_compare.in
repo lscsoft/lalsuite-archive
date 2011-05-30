@@ -26,7 +26,7 @@ usage=""" %prog [options]
 Setup a Condor DAG file to run the nested sampling pipeline over multiple ini files.
 
 One of the ini file serves as a control run (no calibration errors are added here) while the others contain calibration errors (a [calibration] section must exist in those ini files).
-The code do the following:
+The code does the following:
 1) Set up a single dag containing the nodes for the whole analysis of each ini file, as is done in the single ini-file scenario
 2) Add a call to the new cbcCompareRunsPostProc.py that builds pages showing the effect of calibration errors (in the folder given with the option -o, and subfolders there)
 2b) If more than two ini files are given (one control, N with calibration errors), N-1 pages showing the effect of calibration errors are produced, comparing the results of the i-th run with the control run.
@@ -702,7 +702,6 @@ parser.add_option("-F","--disable-inject",action="store_true",default=False,help
 parser.add_option("-t","--single-triggers",action="store",type="string",default=None,help="SnglInspiralTable trigger list",metavar="SNGL_FILE.xml")
 parser.add_option("-T","--coinc-triggers",action="store",type="string",default=None,help="CoincInspiralTable trigger list",metavar="COINC_FILE.xml")
 parser.add_option("-g","--gps-time-file",action="store",type="string",default=None,help="Text file containing list of GPS times to analyse",metavar="TIMES.txt")
-parser.add_option("-P","--PostPostProcessing",action="store_true",default=False,help="If yes, the pipeline will build an page with the difference in PE between the results of the first parser file and all the others")
 parser.add_option("-C","--coherence-test",action="store_true",help="Perform the coherence test",default=False)
 parser.add_option("-c","--compare-runs",dest="Compare",action="store_true",help="Make a comparison page",default=False)
 parser.add_option("--disable-pages",action="store_true",default=False,help="Disable the outpage page and postprocessing")

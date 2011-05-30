@@ -30,7 +30,7 @@
 import sys
 import os
 
-from math import ceil,floor
+from math import ceil,floor,pi as pi_constant
 import cPickle as pickle
 
 from time import strftime
@@ -43,6 +43,8 @@ from scipy import *
 import matplotlib 
 matplotlib.use("Agg")
 from pylab import *
+from  matplotlib import pyplot as plt,cm as mpl_cm
+from mpl_toolkits.basemap import Basemap
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser,XML
 except ImportError:
@@ -131,6 +133,40 @@ def read_snr(snrs,run,time,IFOs):
             snr_values +=remove_ifo_from_string(line)[1][:-1]
         snr_file.close()
     return [snr_values,snr_header]
+
+def Make_injected_sky_map(dec_ra,outdir,run):
+    """
+    Plots a sky map using the Mollweide projection in the Basemap package.
+
+    @dec_ra is a list of the kind [[dec1,ra1],[dec2,ra2],[etc]] where (decN,raN) are the coordinates of the Nth injected point.
+
+    @param outdir: Output directory in which to save skymap.png image.
+    """
+    path_plots=os.path.join(outdir,run,'SkyPlots')
+    checkDir(path_plots)
+    np.seterr(under='ignore')
+
+    myfig=plt.figure(2,figsize=(10,10),dpi=100)
+    plt.clf()
+    m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    ra_reverse = 2*pi_constant - np.asarray(dec_ra)[::-1,1]*57.296
+    plx,ply=m(
+              ra_reverse,
+              np.asarray(dec_ra)[::-1,0]*57.296
+              )
+    plt.scatter(plx,ply,s=35,marker='o',faceted=False)
+    m.drawmapboundary()
+    m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
+    # draw parallels
+    m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
+    # draw meridians
+    plt.title("Injected positions") # add a title
+    myfig.savefig(os.path.join(path_plots,'injected_skymap.png'))
+    plt.clf()
+    return myfig
+
+
+
 def histN(mat,N):
     Nd=size(N)
     histo=zeros(N)
@@ -144,7 +180,7 @@ def histN(mat,N):
         t=tuple(co)
         histo[t[::-1]]=histo[t[::-1]]+1
     return (axes,histo)
-def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs):
+def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size):
     run=str(run)
     path_plots=os.path.join(outdir,run,'ErrorPlots')
     checkDir(path_plots)
@@ -170,10 +206,12 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs):
         exit(-1)
     
     myfig=figure(1,figsize=(10,8),dpi=80)
+    ax=myfig.add_subplot(111)
     for (IFO,color) in zip(IFOs,['r','b','k']):
         plot(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
-    xlabel('f[Hz]')
-    ylabel('Amp_cal/Amp_uncal')
+    ax.set_xlabel('f[Hz]',fontsize=label_size)
+    ax.set_ylabel('Amp_cal/Amp_uncal',fontsize=label_size)
+    set_fontsize_in_ticks(ax,label_size)
     grid()
     legend()
     myfig.savefig(os.path.join(path_plots,'amp_'+str(time)+'.png'))
@@ -196,10 +234,12 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs):
         normalizer(phase[IFO],phase_normalized[IFO])
 
     myfig=figure(1,figsize=(10,8),dpi=80)
+    ax=myfig.add_subplot(111)
     for (IFO,color) in zip(IFOs,['r','b','k']):
         plot(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,label=IFO)
-    xlabel('f[Hz]')
-    ylabel('Pha_cal-Pha_uncal [Rads]')
+    ax.set_xlabel('f[Hz]',fontsize=label_size)
+    ax.set_ylabel('Pha_cal-Pha_uncal [Rads]',fontsize=label_size)
+    set_fontsize_in_ticks(ax,label_size)
     legend()
     grid()
     myfig.savefig(os.path.join(path_plots,'pha_'+str(time)+'.png'))
@@ -215,6 +255,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     injTable=SimInspiralUtils.ReadSimInspiralFromFiles([inj])
     flow=20.0
     fup=500.0
+    label_size=22
     time_event=None
     if inj and raw_events:
         time_event={}
@@ -271,6 +312,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         header=open(os.path.join(outdir,'headers_'+str(run)+'.dat'),'w')
         header_l=[]
         header_l.append('injTime \t')
+        injected_positions=[]
         for time in times:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
 	    posterior_file=open(path_to_file,'r')
@@ -278,10 +320,11 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             commonResultsObj=peparser.parse(posterior_file)
             pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injTable[times.index(time)])
             posterior_file.close()
-            parameters=pos.names
-            
+            parameters=pos.names            
             parameters.remove('logl')
             summary.write(str(time)+'\t')
+            if 'ra' in parameters and 'dec' in parameters:
+                injected_positions.append([pos['dec'].injval,pos['ra'].injval])
             for parameter in parameters:
                 summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
                 if time==times[0]:
@@ -310,20 +353,21 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     for run in range(1,len(Combine)):
         run=str(run)
         path_cal=os.path.join(outdir,'summary_'+run+'.dat')
-        MakePlots(outdir,path_cal,path_uncal,run,parameters)
+        MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size)
         if snrs is not None:
-            MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs)
+            MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size)
         if BSN is not None and snrs is not None:
-            MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l)
+            MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size)
         if calerr is not None:
-            MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs)
+            MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size)
+        if injected_positions!=[]:
+	    Make_injected_sky_map(injected_positions,outdir,run)
         WritePlotPage(outdir,run,parameters,times[0])
-        
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs)
 
 
 
-def MakePlots(outdir,path_cal,path_uncal,run,parameters):
+def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size):
     nbins=20
     data_cal=np.loadtxt(path_cal)
     data_uncal=np.loadtxt(path_uncal)
@@ -336,13 +380,15 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters):
         x_points=(map(lambda t:(min(x_delta) + (t/max(x_delta))*(max(x_delta)-min(x_delta))),x_delta)).sort
         x_points2=linear_space(min(x_delta),max(x_delta),len(x_delta))
         myfig=figure(2,figsize=(10,10),dpi=80)
-        plot(x_delta,data_uncal[:,x+1],'.r',label='stdev')
+        ax=myfig.add_subplot(111)
+        ax.plot(x_delta,data_uncal[:,x+1],'.r',label='stdev')
         axvline(x=0, ymin=0, ymax=1,linewidth=2, color='b')
         plot(x_points2,fabs(x_points2)*2,'-k',label='$0.5 \sigma$')
         plot(x_points2,fabs(x_points2),'-y',label='$\sigma$')
         plot(x_points2,fabs(x_points2)/2,'-c',label='2$\sigma$')
-        xlabel("delta_"+str(parameter))
-        ylabel("sigma_"+str(parameter))
+        set_fontsize_in_ticks(ax,label_size)
+        ax.set_xlabel("delta_"+str(parameter),fontsize=label_size)
+        ax.set_ylabel("sigma_"+str(parameter),fontsize=label_size)
         grid()
         #legend(loc="2")
         myfig.savefig(os.path.join(path_plots,"delta_sigma_"+str(parameter)+'.png'))
@@ -385,33 +431,41 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters):
         myfig2.savefig(os.path.join(path_plots,'effect_'+parameter+'.png'))
         myfig2.clear()
         
-def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs):
+def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size):
     
     data_cal=np.loadtxt(path_cal)
     data_ctrl=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'SNRPlots')
     checkDir(path_plots)
+    #label_size=22
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
         y_delta=(data_cal[:,i]-data_ctrl[:,i])
-        myfig=figure(2,figsize=(10,10),dpi=80)
+        myfig=plt.figure(2,figsize=(5,5),dpi=80)
         ax=myfig.add_subplot(111)
         ax.plot(network_snrs,y_delta,'ro',label='DeltavsSNR')
-        ax.set_xlabel('Network SNR cal')
-        ax.set_ylabel('delta_%s'%parameter)
+        ax.set_xlabel('Network SNR cal',fontsize=label_size)
+        ax.set_ylabel('delta_%s'%parameter,fontsize=label_size)
         locs, labels = (ax.get_xticks(),ax.get_xticklabels)
+        set_fontsize_in_ticks(ax,label_size)
         grid()
         ax2=ax.twiny()
         ax2.set_xticks(locs)
         ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
-        ax2.set_xlabel('Network SNR ctrl')
+        ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
+        set_fontsize_in_ticks(ax2,label_size)
         myfig.savefig(os.path.join(path_plots,'SNR_vs_'+parameter+'.png'))
         myfig.clear()
     return
 
-def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l):
+def set_fontsize_in_ticks(axes,size):
+    [t.set_fontsize(size) for t in axes.xaxis.get_ticklabels()]
+    [t.set_fontsize(size) for t in axes.yaxis.get_ticklabels()]
+
+def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size):
+    labelsize=22
     data_cal=np.loadtxt(path_cal)
     data_ctrl=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'BSNPlots')
@@ -422,14 +476,14 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l):
     myfig=figure(2,figsize=(10,10),dpi=80)
     ax=myfig.add_subplot(111)
     ax.plot(network_snrs,bsns,'ro',label='BSNvsSNR')
-    ax.set_xlabel('Network SNR cal')
-    ax.set_ylabel('"$\mathrm{log\,B}$')
+    ax.set_xlabel('Network SNR cal',fontsize=label_size)
+    ax.set_ylabel('$\mathrm{log\,B}$',fontsize=label_size)
     locs, labels = (ax.get_xticks(),ax.get_xticklabels)
     grid()
     ax2=ax.twiny()
     ax2.set_xticks(locs)
     ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
-    ax2.set_xlabel('Network SNR ctrl')
+    ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
     #title("$\mathrm{log\,B}_{coherent,gaussian}$ vs SNR")
     myfig.savefig(os.path.join(path_plots,'BSN_vs_SNR.png'))
     legend()
@@ -446,7 +500,7 @@ def WritePlotPage(outdir,run,parameters,time):
     error_path_plots=os.path.join(page_path,'ErrorPlots')
     snr_plots=os.path.join(page_path,'SNRPlots')
     bsn_plots=os.path.join(page_path,'BSNPlots')
-
+    sky_plots=os.path.join(page_path,'SkyPlots')
     html=bppu.htmlPage('CalibrationErrors',css=bppu.__default_css_string)
     html_err=html.add_section('Errors fit')
     html_err_st='<table><tr>'
@@ -474,10 +528,11 @@ def WritePlotPage(outdir,run,parameters,time):
             html_plots_st+=linkImage(os.path.join(snr_plots,plot +parameter+'.png'),wd,hg)
             html_plots_st+='</td>'
         html_plots_st+='</tr>'
-    html_plots_st+='<tr><td colspan="4">'
+    html_plots_st+='<tr><td colspan="2">'
     html_plots_st+=linkImage(os.path.join(bsn_plots,'BSN_vs_SNR.png'),2*wd,2*hg)
-    html_plots_st+='</td>'
-    html_plots_st+='</tr>'
+    html_plots_st+='</td><td colspan="2">'
+    html_plots_st+=linkImage(os.path.join(sky_plots,'injected_skymap.png'),2*wd,2*hg)
+    html_plots_st+='</td></tr>'
     html_plots_st+='</table>'
     html_plots.write(html_plots_st) 
     #Save results page
