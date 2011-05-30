@@ -134,7 +134,7 @@ def read_snr(snrs,run,time,IFOs):
         snr_file.close()
     return [snr_values,snr_header]
 
-def Make_injected_sky_map(dec_ra,outdir,run):
+def Make_injected_sky_map(dec_ra,dec_ra_cal,dec_ra_ctrl,outdir,run):
     """
     Plots a sky map using the Mollweide projection in the Basemap package.
 
@@ -142,24 +142,46 @@ def Make_injected_sky_map(dec_ra,outdir,run):
 
     @param outdir: Output directory in which to save skymap.png image.
     """
+    from matplotlib.path import Path
+
     path_plots=os.path.join(outdir,run,'SkyPlots')
     checkDir(path_plots)
     np.seterr(under='ignore')
 
-    myfig=plt.figure(2,figsize=(10,10),dpi=100)
+    myfig=plt.figure(2,figsize=(15,15),dpi=200)
     plt.clf()
-    m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
     ra_reverse = 2*pi_constant - np.asarray(dec_ra)[::-1,1]*57.296
     plx,ply=m(
               ra_reverse,
               np.asarray(dec_ra)[::-1,0]*57.296
               )
-    plt.scatter(plx,ply,s=35,marker='o',faceted=False)
+    ra_reverse_ctrl = 2*pi_constant - np.asarray(dec_ra_ctrl)[::-1,1]*57.296
+    plx_ctrl,ply_ctrl=m(
+              ra_reverse_ctrl,
+              np.asarray(dec_ra_ctrl)[::-1,0]*57.296
+              )
+    ra_reverse_cal = 2*pi_constant - np.asarray(dec_ra_cal)[::-1,1]*57.296
+    plx_cal,ply_cal=m(
+              ra_reverse_cal,
+              np.asarray(dec_ra_cal)[::-1,0]*57.296
+              )
+    vert_x_ctrl=column_stack((plx_ctrl,plx))
+    vert_y_ctrl=column_stack((ply_ctrl,ply))
+    vert_x_cal=column_stack((plx,plx_cal))
+    vert_y_cal=column_stack((ply,ply_cal))
+    for i in range(len(plx)):
+        plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=2)
+        plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=2)
+    plt.scatter(plx,ply,s=45,c='k',marker='d',faceted=False,label='Injected')
+    plt.scatter(plx_cal,ply_cal,s=40,c='r',marker='o',faceted=False,label='Recovered_cal') 
+    plt.scatter(plx_ctrl,ply_ctrl,s=45,c='b',marker='o',faceted=False,label='Recovered_ctrl')
     m.drawmapboundary()
     m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
     # draw parallels
     m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
     # draw meridians
+    plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
     plt.title("Injected positions") # add a title
     myfig.savefig(os.path.join(path_plots,'injected_skymap.png'))
     plt.clf()
@@ -302,7 +324,10 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                 times.remove(time)
                 continue
 
- 
+    recovered_positions_cal={}
+    injected_positions=[]
+    recovered_positions_ctrl=[]
+
     ## prepare files with means and other useful data ###
     for run in range(len(Combine)):
         if int(run)==0:
@@ -312,7 +337,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         header=open(os.path.join(outdir,'headers_'+str(run)+'.dat'),'w')
         header_l=[]
         header_l.append('injTime \t')
-        injected_positions=[]
+        recovered_positions_cal[int(run)]=[]
         for time in times:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
 	    posterior_file=open(path_to_file,'r')
@@ -324,7 +349,11 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             parameters.remove('logl')
             summary.write(str(time)+'\t')
             if 'ra' in parameters and 'dec' in parameters:
-                injected_positions.append([pos['dec'].injval,pos['ra'].injval])
+		if int(run)==0:
+                    recovered_positions_ctrl.append([pos['dec'].mean,pos['ra'].mean])
+                    injected_positions.append([pos['dec'].injval,pos['ra'].injval])
+                else:
+  		    recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean])
             for parameter in parameters:
                 summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
                 if time==times[0]:
@@ -360,8 +389,10 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size)
         if calerr is not None:
             MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size)
+	    print injected_positions
         if injected_positions!=[]:
-	    Make_injected_sky_map(injected_positions,outdir,run)
+	    print "Im here"
+  	    Make_injected_sky_map(injected_positions,recovered_positions_cal[int(run)],recovered_positions_ctrl,outdir,run)
         WritePlotPage(outdir,run,parameters,times[0])
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs)
 
@@ -472,21 +503,23 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size):
     checkDir(path_plots)
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
-    bsns=data_cal[:,header_l.index('BSN')]
+    bsns_cal=data_cal[:,header_l.index('BSN')]
+    bsns_ctrl=data_ctrl[:,header_l.index('BSN')]
     myfig=figure(2,figsize=(10,10),dpi=80)
     ax=myfig.add_subplot(111)
-    ax.plot(network_snrs,bsns,'ro',label='BSNvsSNR')
+    ax.plot(network_snrs,bsns_cal,'ro',label='BSN_cal')
     ax.set_xlabel('Network SNR cal',fontsize=label_size)
     ax.set_ylabel('$\mathrm{log\,B}$',fontsize=label_size)
     locs, labels = (ax.get_xticks(),ax.get_xticklabels)
     grid()
     ax2=ax.twiny()
     ax2.set_xticks(locs)
+    ax2.plot(network_snrs_ctrl,bsns_ctrl,'bo',label='BSN_ctrl')
+    ax2.legend(loc='upper left')
+    ax.legend(loc='lower right')
     ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
     ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
-    #title("$\mathrm{log\,B}_{coherent,gaussian}$ vs SNR")
     myfig.savefig(os.path.join(path_plots,'BSN_vs_SNR.png'))
-    legend()
     myfig.clear()
 
 def WritePlotPage(outdir,run,parameters,time):
