@@ -207,9 +207,10 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs):
 
 
 def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_result_pages=None):
-    from pylal import SimInspiralUtils
-    checkDir(outdir)
     
+    from pylal import SimInspiralUtils
+    
+    checkDir(outdir)
     number_of_inits=len(inputs)
     injTable=SimInspiralUtils.ReadSimInspiralFromFiles([inj])
     flow=20.0
@@ -251,8 +252,8 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     BSN=[path for path in inputs]
     Combine=[path for path in inputs]
     snrs=[path for path in snrs]
-    ## Remove the times for which posterior file is not present
-    
+
+    ## Remove the times for which posterior file is not present in either of the init ## TBD I only need to compare couple of ctrl-cali, not all of them
     for run in range(len(Combine)):
         for time in times:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
@@ -387,18 +388,26 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters):
 def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs):
     
     data_cal=np.loadtxt(path_cal)
-    data_uncal=np.loadtxt(path_uncal)
+    data_ctrl=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'SNRPlots')
     checkDir(path_plots)
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
+    network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
-        y_delta=(data_cal[:,i]-data_uncal[:,i])
+        y_delta=(data_cal[:,i]-data_ctrl[:,i])
         myfig=figure(2,figsize=(10,10),dpi=80)
-        plot(network_snrs,y_delta,'ro',label='DeltavsSNR')
-        myfig.savefig(os.path.join(path_plots,'SNR_vs_'+parameter+'.png'))
+        ax=myfig.add_subplot(111)
+        ax.plot(network_snrs,y_delta,'ro',label='DeltavsSNR')
+        ax.set_xlabel('Network SNR cal')
+        ax.set_ylabel('delta_%s'%parameter)
+        locs, labels = (ax.get_xticks(),ax.get_xticklabels)
+        ax2=ax.twiny()
         grid()
-        legend()
+        ax2.set_xticklabels(np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs)))
+        ax.set_xlabel('Network SNR ctrl')
+        #legend()
+        myfig.savefig(os.path.join(path_plots,'SNR_vs_'+parameter+'.png'))
         myfig.clear()
     return
 

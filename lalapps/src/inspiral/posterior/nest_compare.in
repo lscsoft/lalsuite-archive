@@ -1,7 +1,7 @@
 #!/usr/bin/env @PYTHONPROG@
 
 # DAG generation code for running inspnest pipeline
-# (C) 2010 John Veitch
+# (C) 2010 John Veitch, Salvatore Vitale <salvatore.vitale@ligo.org>
 
 from lalapps import nest_utils as OddsPipeline
 import ConfigParser
@@ -23,19 +23,13 @@ fakeTypes=["LALVirgo","LALLIGO","LALAdLIGO","LALAdVirgo"]
 
 # Read command line options
 usage=""" %prog [options]
-Setup a Condor DAG file to run the nested sampling pipeline
+Setup a Condor DAG file to run the nested sampling pipeline over multiple ini files.
 
-The user must specify either an injection file to analyse, with the --inj option,
-a list of SnglInspiralTable or CoincInspiralTable triggers with the --<x>-triggers options,
-or a length of time between --gps-start-time and --gps-end-time,
-or an ASCII list of GPS times with the --gps-time-file option.
-Specifying start and end times in addition to triggers or injections will  restrict
-the times analysed to those that fall in the indicated time period.
-
-The user must also specify and ini file which will contain the main analysis setup.
-
-The coherence test option will calculate Bayes factors for a coherent and incoherent
-model where possible (>1 IFO available).
+One of the ini file serves as a control run (no calibration errors are added here) while the others contain calibration errors (a [calibration] section must exist in those ini files).
+The code do the following:
+1) Set up a single dag containing the nodes for the whole analysis of each ini file, as is done in the single ini-file scenario
+2) Add a call to the new cbcCompareRunsPostProc.py that builds pages showing the effect of calibration errors (in the folder given with the option -o, and subfolders there)
+2b) If more than two ini files are given (one control, N with calibration errors), N-1 pages showing the effect of calibration errors are produced, comparing the results of the i-th run with the control run.
 
 """
 
@@ -104,7 +98,7 @@ def nest_pipe(opts=None,num=0):
     cp.readfp(open(opts.ini_file))
     if cp==None or opts==None:
         print "cp or opts are none... exiting \n"
-        exit(-1)
+        sys.exit(1)
 
     ifos=eval(cp.get('analysis','ifos'))
     print 'Setting up pipeline with ifos '+' '.join(map(str,ifos))
@@ -118,18 +112,11 @@ def nest_pipe(opts=None,num=0):
     #       parser.error("Must specify the trigger time using --trigger-time")
 
     checkDir(opts.run_path)
-    if opts.log_path is None:
-            opts.log_path=os.path.join(opts.run_path,"log")
-    checkDir(opts.log_path)
+    #if opts.log_path is None:
+    #        opts.log_path=os.path.join(opts.run_path,"log")
+    #checkDir(opts.log_path)
 
-    # Get science segments
-
-    # Read the ini file using ConfigParser
-
-    #cp = ConfigParser.ConfigParser()
-    #cp.optionxform = str
-    #cp.readfp(open(opts.ini_file))
-    
+    # Get science segments    
     dt=float(cp.get('inspnest','dt'))
 
 
@@ -293,7 +280,7 @@ def nest_pipe(opts=None,num=0):
     basename="nest_%.3f-%.3f"%(starttime,endtime)
     
     # Create DAG #################
-    logfile=os.path.join(opts.log_path,basename+'.log')
+    ###logfile=os.path.join(opts.log_path,basename+'.log')
     '''if num==0:
         glob_IFOs=ifos
         glob_times=times
@@ -419,7 +406,7 @@ def nest_pipe(opts=None,num=0):
             checkDir(calerr_dir)
         else:
             print "The parser %s has a calibration section but it does not contain an enable-calfreq=1 line. Exiting..."%opts.ini_file
-            exit(-1)
+            sys.exit(1)
             
     checkDir(snr_dir)
     inspnest_job.add_opt('snrpath',snr_dir)
@@ -430,7 +417,7 @@ def nest_pipe(opts=None,num=0):
     inspnest_nodes={}
     inspnest_nodes_by_time={}
     nest_files={}
-    # Now loop over times and set up cpmbine jobs for getting individual posteriors
+    # Now loop over times and set up combine jobs for getting individual posteriors
     nparallel=int(cp.get('analysis','nparallel'))
     posfiles_by_time={}
     bayesfiles_by_time={}
@@ -731,7 +718,10 @@ parser.add_option("--ctrl-snrs",action="store",type="string",default=None,help="
 
 inits=opts.ini_file
 num_of_inits=len(opts.ini_file)
+
 common_path=opts.run_path
+common_log_path=opts.log_path
+
 glob_combine_nodes_by_time=[]
 glob_snrs_folders_by_num={}
 glob_combine_folders_by_num={}
@@ -739,13 +729,12 @@ glob_timebins_folder_by_num={}
 glob_caler_folders_by_num={}
 has_cal_section={}
 
-logfile=os.path.join(common_path,'dag.log')
-#        glob_IFOs=ifos
- #       glob_times=times
+logfile=os.path.join(common_path,'common_dag.log')
 dagfile=os.path.join(common_path,"common_dag")
 dag = pipeline.CondorDAG(logfile)
 dag.set_dag_file(dagfile)
 
+### Check if one of the ini files is the ctrl
 for init in inits:
     if init is not None:
         cp=ConfigParser.ConfigParser()
@@ -760,12 +749,22 @@ if has_cal_section.values().count(0)==1:
     ctrl_place=has_cal_section.values().index(0)
     opts.ini_file=inits[ctrl_place]
     opts.run_path=os.path.join(str(common_path),"0")
+    if common_log_path is None:
+        opts.log_path=os.path.join(opts.run_path,"log")
+    else:
+        opts.log_path=os.path.join(common_log_path,"0","log")
+    checkDir(opts.log_path)
     nest_pipe(opts,0)
 idx=1
 for init in inits:
     if inits.index(init) != ctrl_place:
         opts.ini_file=init
         opts.run_path=os.path.join(str(common_path),str(idx))
+        if common_log_path is None:
+            opts.log_path=os.path.join(opts.run_path,"log")
+        else:
+            opts.log_path=os.path.join(common_log_path,str(idx),"log")
+        checkDir(opts.log_path)
         nest_pipe(opts,idx)
         idx+=1
 
@@ -773,18 +772,19 @@ for init in inits:
     
 if opts.Compare:
     
-    if has_cal_section.values().count(0)==0 and opts.ctrl_posteriors==None and opts.ctrl_timebins==None:
+    ### Some sanity checks
+    if has_cal_section.values().count(0)==0 and opts.ctrl_posteriors==None and opts.ctrl_timebins==None:   ### TBD This can be done less restrictive, the timebins are not extremely important.
         print "You asked for a comparison page but seem to be passing only parsers with a calibration section. If you mean to run jobs with calibration errors and you want to compare them with a control run already done, you have to pass the paths to the combine folder and the timebins folder of the control run using --ctrl-posteriors and --ctrl-timebins. Exiting..."
-        exit(-1)
+        sys.exit(1)
     if opts.ctrl_posteriors:
         if not os.path.isdir(opts.ctrl_posteriors):
             print "The dir %s is not a path to an existing folder. Exiting..."%opts.ctrl_posteriors
-            exit(-1)
+            sys.exit(1)
     if opts.ctrl_timebins:
         if not os.path.isdir(opts.ctrl_timebins):
             print "The dir %s is not a path to an existing folder. Exiting..."%opts.ctrl_timebins
-            exit(-1)
-
+            sys.exit(1)
+    ### Set the control folders reading them from the ctrl ini or form the option
     if ctrl_place !=999:
             ctrl_timebins_folder=glob_timebins_folder_by_num[0]
             ctrl_posteriors_folder=glob_combine_folders_by_num[0]    
@@ -812,6 +812,7 @@ if opts.Compare:
     for node in glob_combine_nodes_by_time:
         postpostnode.add_parent(node)
 
+    # Create some strings to the used as options in the compare run
     glob_combine_string=str(ctrl_posteriors_folder)
     glob_snr_string=str(ctrl_snrs_folder)
     glob_result_string=str(ctrl_timebins_folder)
@@ -825,10 +826,8 @@ if opts.Compare:
     postpostnode.add_var_arg('--data ' + glob_combine_string)
     postpostnode.add_var_arg('--outpath ' + opts.compare_path)
     postpostnode.add_var_arg('--snr ' + glob_snr_string)
-    #postpostnode.add_var_arg('-n ' + str(num_of_inits)) 
     postpostnode.add_var_arg('--result_pages_path ' + glob_result_string)
     postpostnode.add_var_arg('--inj '+ str(opts.inj))
-    #postpostnode.add_var_arg('--events '+ "\""+str(cp.get('analysis','events'))+"\"")
     postpostnode.add_var_arg('--events '+str(cp.get('analysis','events')))    
     postpostnode.add_var_arg('--calerr '+ glob_calerr_string)
     postpostnode.add_var_arg('--IFOS '+ ifo)
