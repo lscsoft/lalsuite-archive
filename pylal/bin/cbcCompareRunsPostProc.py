@@ -172,11 +172,14 @@ def Make_injected_sky_map(dec_ra_inj,dec_ra_cal,dec_ra_ctrl,outdir,run):
     vert_x_cal=column_stack((plx,plx_cal))
     vert_y_cal=column_stack((ply,ply_cal))
     for i in range(len(plx)):
-        plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=2)
-        plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=2)
-    plt.scatter(plx,ply,s=45,c='k',marker='d',faceted=False,label='Injected')
-    plt.scatter(plx_cal,ply_cal,s=40,c='r',marker='o',faceted=False,label='Recovered_cal') 
-    plt.scatter(plx_ctrl,ply_ctrl,s=45,c='b',marker='o',faceted=False,label='Recovered_ctrl')
+        plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
+        plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
+        plt.annotate(str(range(len(plx)).index(i)), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
+        plt.annotate(str(range(len(plx)).index(i)), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
+        plt.annotate(str(range(len(plx)).index(i)), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+    plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
+    plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
+    plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
     m.drawmapboundary()
     m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
     # draw parallels
@@ -316,14 +319,14 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     BSN=[path for path in inputs]
     Combine=[path for path in inputs]
     snrs=[path for path in snrs]
-
+    temp_times=[time for time in times]
     ## Remove the times for which posterior file is not present in either of the init ## TBD I only need to compare couple of ctrl-cali, not all of them
     for run in range(len(Combine)):
         for time in times:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
             if not os.path.isfile(path_to_file):
-                times.remove(time)
-                continue
+                temp_times.remove(time)
+        times=temp_times
 
     recovered_positions_cal={}
     injected_positions=[]
