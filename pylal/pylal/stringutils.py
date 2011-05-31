@@ -102,13 +102,17 @@ def triangulators(timing_uncertainties):
 instrument_to_factor = dict((instrument, int(2**n)) for n, instrument in enumerate(("G1", "H1", "H2", "H+", "H-", "L1", "V1")))
 
 
+def instruments_to_category(instruments):
+	return sum(instrument_to_factor[instrument] for instrument in instruments)
+
+
+def category_to_instruments(category):
+	return set(instrument for instrument, factor in instrument_to_factor.items() if category & factor)
+
+
 #
 # Coinc params function
 #
-
-
-def instrument_category(instruments):
-	return (sum(instrument_to_factor[instrument] for instrument in instruments),)
 
 
 def coinc_params_func(events, offsetvector, triangulators):
@@ -136,7 +140,7 @@ def coinc_params_func(events, offsetvector, triangulators):
 	#
 
 	ignored, ignored, ignored, rss_timing_residual = triangulators[instruments](tuple(event.get_peak() + offsetvector[event.ifo] for event in events))
-	params["instrumentgroup,rss_timing_residual"] = (instrument_category(instruments), rss_timing_residual)
+	params["instrumentgroup,rss_timing_residual"] = (instruments_to_category(instruments), rss_timing_residual)
 
 	#
 	# one-instrument parameters
