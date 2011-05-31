@@ -407,9 +407,9 @@ int CubeToGRBPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *para
   
   // chirp mass
   double mcMin, mcMax;
-  if(XLALMCMCCheckParameter(parameter,"logM"))
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
   {
-  	param = XLALMCMCGetParam(parameter, "logM");
+  	param = XLALMCMCGetParam(parameter, "logmc");
 	mcMin = exp(param->core->minVal);
 	mcMax = exp(param->core->maxVal);
   }
@@ -420,8 +420,8 @@ int CubeToGRBPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *para
 	mcMax = param->core->maxVal;
   }
   double mc = powerPrior(-5.0/6.0, Cube[i], mcMin, mcMax);
-  if(XLALMCMCCheckParameter(parameter,"logM"))
-  	XLALMCMCSetParameter(parameter, "logM", log(mc));
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
+  	XLALMCMCSetParameter(parameter, "logmc", log(mc));
   else
   	XLALMCMCSetParameter(parameter, "mchirp", mc);
   Cube[i] = mc;
@@ -515,9 +515,9 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   // chirp mass
   if( MNSeg > 0 && ( Cube[i] < (MNSeg - 1) * 0.25 - 0.025 || Cube[i] > MNSeg * 0.25 + 0.025 ) ) return 0;
   double mcMin, mcMax;
-  if(XLALMCMCCheckParameter(parameter,"logM"))
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
   {
-  	param = XLALMCMCGetParam(parameter, "logM");
+  	param = XLALMCMCGetParam(parameter, "logmc");
 	mcMin = exp(param->core->minVal);
 	mcMax = exp(param->core->maxVal);
   }
@@ -528,8 +528,8 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
 	mcMax = param->core->maxVal;
   }
   double mc = powerPrior(-5.0/6.0, Cube[i], mcMin, mcMax);
-  if(XLALMCMCCheckParameter(parameter,"logM"))
-  	XLALMCMCSetParameter(parameter, "logM", log(mc));
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
+  	XLALMCMCSetParameter(parameter, "logmc", log(mc));
   else
   	XLALMCMCSetParameter(parameter, "mchirp", mc);
   Cube[i] = mc;
@@ -645,9 +645,9 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   // chirp mass
   if( MNSeg > 0 && ( Cube[i] < (MNSeg - 1) * 0.25 - 0.025 || Cube[i] > MNSeg * 0.25 + 0.025 ) ) return 0;
   double mcMin, mcMax;
-  if(XLALMCMCCheckParameter(parameter,"logM"))
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
   {
-        param = XLALMCMCGetParam(parameter, "logM");
+        param = XLALMCMCGetParam(parameter, "logmc");
         mcMin = exp(param->core->minVal);
         mcMax = exp(param->core->maxVal);
   }
@@ -658,8 +658,8 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
         mcMax = param->core->maxVal;
   }
   double mc = powerPrior(-5.0/6.0, Cube[i], mcMin, mcMax);
-  if(XLALMCMCCheckParameter(parameter,"logM"))
-        XLALMCMCSetParameter(parameter, "logM", log(mc));
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
+        XLALMCMCSetParameter(parameter, "logmc", log(mc));
   else
         XLALMCMCSetParameter(parameter, "mchirp", mc);
   Cube[i] = mc;
@@ -777,9 +777,9 @@ int CubeToNestPriorPhenSpin(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   // chirp mass
   if( MNSeg > 0 && ( Cube[i] < (MNSeg - 1) * 0.25 - 0.025 || Cube[i] > MNSeg * 0.25 + 0.025 ) ) return 0;
   double mcMin, mcMax;
-  if(XLALMCMCCheckParameter(parameter,"logM"))
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
   {
-        param = XLALMCMCGetParam(parameter, "logM");
+        param = XLALMCMCGetParam(parameter, "logmc");
         mcMin = exp(param->core->minVal);
         mcMax = exp(param->core->maxVal);
   }
@@ -790,8 +790,8 @@ int CubeToNestPriorPhenSpin(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
         mcMax = param->core->maxVal;
   }
   double mc = powerPrior(-5.0/6.0, Cube[i], mcMin, mcMax);
-  if(XLALMCMCCheckParameter(parameter,"logM"))
-        XLALMCMCSetParameter(parameter, "logM", log(mc));
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
+        XLALMCMCSetParameter(parameter, "logmc", log(mc));
   else
         XLALMCMCSetParameter(parameter, "mchirp", mc);
   Cube[i] = mc;
