@@ -117,8 +117,8 @@ def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data,
 	axes = fig.add_axes((.15, .15, .95 - .15, .90 - .15))
 	axes.loglog()
 
-	background_data = numpy.transpose(background_data)
-	injections_data = numpy.transpose(injections_data)
+	background_data = numpy.nan_to_num(numpy.transpose(background_data))
+	injections_data = numpy.nan_to_num(numpy.transpose(injections_data))
 
 	if numpy.any(background_data) or numpy.any(injections_data):
 		hi = math.log10(max(background_data.max(), injections_data.max()))
@@ -143,6 +143,9 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
+
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
@@ -163,6 +166,9 @@ def df_plot(key, background_coords, background_data, injections_coords, injectio
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
 
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
@@ -186,6 +192,9 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
+
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
@@ -208,6 +217,9 @@ def nevents_plot(key, xcoords, background_data, injections_data):
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
+
 	axes.plot(xcoords, background_data, "ko-", label = "Background")
 	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
 	axes.legend(loc = "lower left")
@@ -224,6 +236,9 @@ def instrumentgroup_plot(key, xcoords, background_data, injections_data):
 	fig = figure.Figure(figsize = (4, 4 / golden_ratio))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
 
 	axes.plot(xcoords, background_data, "ko-", label = "Background")
 	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
@@ -242,6 +257,9 @@ def instrumentgroup_timingresidual_plot(key, background_xcoords, background_ycoo
 	fig = figure.Figure(figsize = (4, 4 / golden_ratio))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
 
 	for i in range(len(background_xcoords)):
 		if numpy.any(background_data[i,:]) or numpy.any(injections_data[i,:]):
