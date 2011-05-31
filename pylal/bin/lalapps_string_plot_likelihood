@@ -78,6 +78,7 @@ def parse_command_line():
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
 	parser.add_option("-f", "--format", metavar = "extension", action = "append", default = [], help = "Set the image output format by setting the filename extension (default = \"png\").  Can be given multiple times to generate plots in multiple formats.")
+	parser.add_option("--no-filter", action = "store_true", help = "Do not apply smoothing/normalization filters to data, plot raw bin values.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -247,7 +248,9 @@ def instrumentgroup_timingresidual_plot(key, background_xcoords, background_ycoo
 			axes.semilogy(background_ycoords, background_data[i,:], label = "Background (%s)" % ", ".join(sorted(stringutils.category_to_instruments(i + 1))))
 			axes.semilogy(injections_ycoords, injections_data[i,:], label = "Injections (%s)" % ", ".join(sorted(stringutils.category_to_instruments(i + 1))))
 	ymin, ymax = axes.get_ylim()
-	axes.set_ylim((max(ymin, ymax * 1e-14), ymax))
+	# find the smallest global maximum of all curves
+	ymin = min(max(background_data[i,:].max(), injections_data[i,:].max()) for i in range(len(background_xcoords)))
+	axes.set_ylim((ymin * 1e-6, ymax))
 	axes.legend(loc = "upper right")
 
 	axes.set_title("RSS Timing Residual")
@@ -271,11 +274,12 @@ def instrumentgroup_timingresidual_plot(key, background_xcoords, background_ycoo
 options, filenames = parse_command_line()
 
 
-coincparamsdistributions = stringutils.load_likelihood_data(filenames, verbose = options.verbose)
+coincparamsdistributions, seglists = stringutils.load_likelihood_data(filenames, verbose = options.verbose)
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
-coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
+if not options.no_filter:
+	coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
 
 for (background_name, background_binnedarray), (injections_name, injections_binnedarray), (zero_lag_name, zero_lag_binnedarray) in zip(sorted(coincparamsdistributions.background_rates.items()), sorted(coincparamsdistributions.injection_rates.items()), sorted(coincparamsdistributions.zero_lag_rates.items())):
 	assert injections_name == background_name
