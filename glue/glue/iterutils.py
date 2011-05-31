@@ -114,8 +114,7 @@ def choices(vals, n):
 	>>> x = choices(["a", "b", "c"], 2)
 	>>> y = choices(["1", "2", "3"], 2)
 	>>> zip(x, y)
-	[(('a', 'b'), ('1', '2')), (('a', 'c'), ('1', '3')), (('b', 'c'),
-	('2', '3'))]
+	[(('a', 'b'), ('1', '2')), (('a', 'c'), ('1', '3')), (('b', 'c'), ('2', '3'))]
 
 	Furthermore, the order of combinations in the output sequence is
 	such that if the input list has n elements, and one constructs the
@@ -130,11 +129,7 @@ def choices(vals, n):
 	>>> Y = list(choices(x, len(x) - 2))
 	>>> Y.reverse()
 	>>> zip(X, Y)
-	[(('a', 'b'), ('c', 'd', 'e')), (('a', 'c'), ('b', 'd', 'e')),
-	(('a', 'd'), ('b', 'c', 'e')), (('a', 'e'), ('b', 'c', 'd')),
-	(('b', 'c'), ('a', 'd', 'e')), (('b', 'd'), ('a', 'c', 'e')),
-	(('b', 'e'), ('a', 'c', 'd')), (('c', 'd'), ('a', 'b', 'e')),
-	(('c', 'e'), ('a', 'b', 'd')), (('d', 'e'), ('a', 'b', 'c'))]
+	[(('a', 'b'), ('c', 'd', 'e')), (('a', 'c'), ('b', 'd', 'e')), (('a', 'd'), ('b', 'c', 'e')), (('a', 'e'), ('b', 'c', 'd')), (('b', 'c'), ('a', 'd', 'e')), (('b', 'd'), ('a', 'c', 'e')), (('b', 'e'), ('a', 'c', 'd')), (('c', 'd'), ('a', 'b', 'e')), (('c', 'e'), ('a', 'b', 'd')), (('d', 'e'), ('a', 'b', 'c'))]
 	"""
 	if n == len(vals):
 		yield tuple(vals)
@@ -289,6 +284,83 @@ def inplace_filter(func, sequence):
 #
 # =============================================================================
 #
+#          Return the Values from Several Ordered Iterables in Order
+#
+# =============================================================================
+#
+
+
+def inorder(*iterables, **kwargs):
+	"""
+	A generator that yields the values from several ordered iterables
+	in order.
+
+	Example:
+
+	>>> x = [0, 1, 2, 3]
+	>>> y = [1.5, 2.5, 3.5, 4.5]
+	>>> z = [1.75, 2.25, 3.75, 4.25]
+	>>> list(inorder(x, y, z))
+	[0, 1, 1.5, 1.75, 2, 2.25, 2.5, 3, 3.5, 3.75, 4.25, 4.5]
+
+	>>> x = [3, 2, 1, 0]
+	>>> y = [4.5, 3.5, 2.5, 1.5]
+	>>> z = [4.25, 3.75, 2.25, 1.75]
+	>>> list(inorder(x, y, z, reverse = True))
+	[4.5, 4.25, 3.75, 3.5, 3, 2.5, 2.25, 2, 1.75, 1.5, 1, 0]
+
+	NOTE:  this function will never reverse the order of elements in
+	the input iterables.  If the reverse keyword argument is False (the
+	default) then the input sequences must yield elements in increasing
+	order, likewise if the keyword argument is True then the input
+	sequences must yield elements in decreasing order.  Failure to
+	adhere to this yields undefined results, and for performance
+	reasons no check is performed to validate the element order in the
+	input sequences.
+	"""
+	reverse = False
+	if kwargs:
+		try:
+			reverse = kwargs.pop("reverse")
+		except KeyError:
+			pass
+		if kwargs:
+			raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
+	nextvals = {}
+	for iterable in iterables:
+		next = iter(iterable).next
+		try:
+			nextvals[next] = next(), next
+		except StopIteration:
+			pass
+	if not nextvals:
+		# all sequences are empty
+		return
+	if reverse:
+		select = max
+	else:
+		select = min
+	values = nextvals.itervalues
+	if len(nextvals) > 1:
+		while True:
+			val, next = select(values())
+			yield val
+			try:
+				nextvals[next] = next(), next
+			except StopIteration:
+				del nextvals[next]
+				if len(nextvals) < 2:
+					break
+	# exactly one sequence remains, short circuit and drain it
+	(val, next), = values()
+	yield val
+	while True:
+		yield next()
+
+
+#
+# =============================================================================
+#
 #           Thing for keeping only the highest values in a sequence
 #
 # =============================================================================
@@ -316,13 +388,12 @@ class Highest(list):
 
 	Example:
 
-	>>> import random
 	>>> l = Highest(max = 3)
 	>>> for i in range(10000):
-	...	l.append(random.random())
+	...	l.append(i)
 	...
 	>>> l
-	[0.99997649136673972, 0.99997199878829768, 0.99991682393505932]
+	[9999, 9998, 9997]
 	>>> len(l)
 	10000
 	>>> list.__len__(l)
@@ -337,6 +408,9 @@ class Highest(list):
 
 	def __len__(self):
 		return self.n
+
+	def __reduce__(self):
+		return (type(self), ((), self.max), {"n": self.n}, iter(self))
 
 	def append(self, value):
 		# can't use bisect module because list is sorted in reverse
@@ -353,7 +427,61 @@ class Highest(list):
 		self.n += 1
 		del self[self.max:]
 
+	def __iadd__(self, other):
+		"""
+		In-place addition.  Add the contents of another Highest
+		object to this one.  This method only works correctly with
+		other Highest objects.
+
+		Example:
+
+		>>> x = Highest(max = 10)
+		>>> x.extend(range(50))
+		>>> x
+		[49, 48, 47, 46, 45, 44, 43, 42, 41, 40]
+		>>> y = Highest(max = 5)
+		>>> y.append(100)
+		>>> y.append(49)
+		>>> y
+		[100, 49]
+		>>> x += y
+		>>> x
+		[100, 49, 49, 48, 47]
+		>>> len(x)
+		52
+		"""
+		assert isinstance(other, type(self))
+		self.n += other.n
+		# we can only claim to provide the minimum of the two max's
+		# worth of the highest valued objects
+		self.max = min(self.max, other.max)
+		# FIXME:  since the lists are sorted, lots could be done to
+		# speed this up
+		i = j = 0
+		while i + j < self.max:
+			if i >= list.__len__(self):
+				j = min(self.max - i, list.__len__(other))
+				break
+			if j >= list.__len__(other):
+				i = min(self.max - j, list.__len__(self))
+				break
+			if self[i] > other[j]:
+				i += 1
+			elif self[i] < other[j]:
+				j += 1
+			else:
+				# self[i] == other[j]
+				i += 1
+				j += 1
+		self[i:] = other[:j]
+		list.sort(self, reverse = True)
+		del self[self.max:]
+		return self
+
 	def extend(self, sequence):
+		# this method will not work correctly with other Highest
+		# objects
+		assert not isinstance(sequence, type(self))
 		# FIXME:  could be implemented with heapq.merge() when 2.6
 		# is generally available
 		# n is updated in a way that allows sequence to be a
@@ -391,42 +519,3 @@ class Highest(list):
 
 	def sort(*args, **kwargs):
 		raise NotImplementedError
-
-
-#
-# =============================================================================
-#
-#          Return the Values from Several Ordered Iterables in Order
-#
-# =============================================================================
-#
-
-
-def inorder(*iterables):
-	"""
-	A generator that yields the values from several ordered iterables
-	in order.
-
-	Example:
-
-	>>> x = [0, 1, 2, 3]
-	>>> y = [1.5, 2.5, 3.5, 4.5]
-	>>> list(inorder(x, y))
-	[0, 1, 1.5, 2, 2.5, 3, 3.5, 4.5]
-	"""
-	nextvals = []
-	for iterable in iterables:
-		iterable = iter(iterable)
-		try:
-			nextvals.append((iterable.next(), iterable))
-		except StopIteration:
-			pass
-	nextvals.sort(reverse = True)
-	while nextvals:
-		val, iterable = nextvals.pop()
-		yield val
-		try:
-			nextvals.append((iterable.next(), iterable))
-		except StopIteration:
-			continue
-		nextvals.sort(reverse = True)

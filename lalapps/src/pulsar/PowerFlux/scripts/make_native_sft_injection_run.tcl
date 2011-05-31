@@ -1,5 +1,13 @@
 #!/usr/bin/env tclsh
 
+# Assign defaults
+foreach {var value} {
+	SFT_LENGTH 1800
+	} {
+	global $var
+	set $var $value
+	}
+
 source "sft_injection_params.tcl"
 
 foreach $PARAMS_FORMAT $PARAMS {
@@ -34,7 +42,7 @@ if { $a == $b } { return $a }
 return [expr $a+rand()*($b-$a)]
 }
 
-set first_bin [expr round($FREQ_START*1800)]	
+set first_bin [expr round($FREQ_START*$SFT_LENGTH)]	
 set i 0
 set k 0
 set PARAMS_FILE [open "$ROOT_DIR/params.txt" "w"]
@@ -48,13 +56,13 @@ while { 1 }  {
 	set psi [sample $PSI_RANGE]
 	set phi [sample $PHI_RANGE]
 	set iota [sample $IOTA_RANGE]
-	set freq [sample [list [expr ($first_bin+$FREQ_BIN_START)/1800.0] [expr ($first_bin+$FREQ_BIN_STOP)/1800.0]]]
+	set freq [sample [list [expr ($first_bin+$FREQ_BIN_START)*1.0/$SFT_LENGTH] [expr ($first_bin+$FREQ_BIN_STOP)*1.0/$SFT_LENGTH]]]
 	set h0  [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
         set spindown [expr exp([sample $SPINDOWN_LOG10_RANGE] * log(10.0)) * $SPINDOWN_MAX]
 	set aPlus [expr $h0 * (1.0+cos($iota)*cos($iota))/2.0]
 	set aCross [expr $h0 * cos($iota)]
 	set f0 $freq
-	set band_start [expr $first_bin/1800.0]
+	set band_start [expr $first_bin*1.0/$SFT_LENGTH]
 	set seed [expr round(rand()*1e10)]
 
 	# Additional parameters present since 1.4.41
@@ -92,9 +100,9 @@ while { 1 }  {
 	incr k
 
 	if { $k >= $INJECTIONS_PER_BAND } {
-		puts stderr "Band [expr $first_bin/1800.0] complete"
-		set first_bin [expr round($first_bin+$FREQ_STEP*1800)]
-		if { $first_bin >= $FREQ_STOP*1800 } { break }
+		puts stderr "Band [expr $first_bin*1.0/$SFT_LENGTH] complete"
+		set first_bin [expr round($first_bin+$FREQ_STEP*$SFT_LENGTH)]
+		if { $first_bin >= $FREQ_STOP*$SFT_LENGTH } { break }
 		set k 0
 		}
 	}

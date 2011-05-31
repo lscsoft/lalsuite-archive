@@ -1018,6 +1018,8 @@ class TOATriangulator(object):
 		This creates a TOATriangulator instance configured for the
 		LIGO Hanford, LIGO Livingston and Virgo antennas with 5 ms
 		time-of-arrival uncertainties at each location.
+
+		Note:  rs and sigmas may be iterated over multiple times.
 		"""
 		assert len(rs) == len(sigmas)
 		assert len(rs) >= 3
@@ -1090,30 +1092,44 @@ class TOATriangulator(object):
 		# sigma^-2 -weighted mean of arrival times
 		tbar = sum(ts / self.sigmas**2) / sum(1 / self.sigmas**2)
 		tau = ts - tbar
-		tau_prime = numpy.dot(self.U.T, tau)
+		tau_prime = numpy.dot(self.U.T, tau)[:3]
 
 		if self.singular:
 			l = 0.0
-			np = tau_prime[:3] / self.S
+			np = tau_prime / self.S
 			try:
 				np[2] = math.sqrt(1.0 - np[0]**2 - np[1]**2)
 			except ValueError:
 				np[2] = 0.0
 				np /= math.sqrt(numpy.dot(np, np))
 		else:
-			def n_prime(l, S = self.S, tau_prime = tau_prime[:3]):
-				return S * tau_prime / (S * S + l)
+			def n_prime(l, Stauprime = self.S * tau_prime, S2 = self.S * self.S):
+				return Stauprime / (S2 + l)
 			def secular_equation(l):
 				np = n_prime(l)
 				return numpy.dot(np, np) - 1
 
 			# values of l that make the denominator of n'(l) 0
 			lsing = -self.S * self.S
-			# least negative of them
+			# least negative of them is used as lower bound for
+			# bisection search root finder (elements of S are
+			# ordered from greatest to least, so the last
+			# element of lsing is the least negative)
 			l_lo = lsing[-1]
 
+			# find a suitable upper bound for the root finder
+			# FIXME:  in Jolien's original code l_hi was
+			# hard-coded to 1 but we can't figure out why the
+			# root must be <= 1, so I put this loop to be safe
+			# but at some point it would be good to figure out
+			# if 1.0 can be used because it would allow this
+			# loop to be skipped
+			l_hi = 1.0
+			while secular_equation(l_lo) / secular_equation(l_hi) > 0:
+				l_lo, l_hi = l_hi, l_hi * 2
+
 			# solve for l
-			l = scipy.optimize.brentq(secular_equation, l_lo, 1.0)
+			l = scipy.optimize.brentq(secular_equation, l_lo, l_hi)
 
 			# compute n'
 			np = n_prime(l)

@@ -102,9 +102,9 @@ if(fout==NULL){
 /* important special case */
 if(step==1)fwrite(x, sizeof(*x), count,fout);
 	else
-	for(i=0;i<count;i++)fwrite(x+i, sizeof(*x), 1,fout);
+	for(i=0;i<count;i++)fwrite(x+i*step, sizeof(*x), 1,fout);
 fclose(fout);
-fprintf(FILE_LOG, "shorts: %s\n", name);
+fprintf(FILE_LOG, "shorts: %ld %s\n", count, name);
 }
 
 void dump_ints(char *name, int *x, long count, long step)
@@ -129,9 +129,9 @@ if(fout==NULL){
 /* important special case */
 if(step==1)fwrite(x, sizeof(*x), count,fout);
 	else
-	for(i=0;i<count;i++)fwrite(x+i, sizeof(*x), 1,fout);
+	for(i=0;i<count;i++)fwrite(x+i*step, sizeof(*x), 1,fout);
 fclose(fout);
-fprintf(FILE_LOG, "ints: %s\n", name);
+fprintf(FILE_LOG, "ints: %ld %s\n", count, name);
 }
 
 void dump_floats(char *name, float *x, long count, long step)
@@ -156,9 +156,9 @@ if(fout==NULL){
 /* important special case */
 if(step==1)fwrite(x, sizeof(*x), count,fout);
 	else
-	for(i=0;i<count;i++)fwrite(x+i, sizeof(*x), 1,fout);
+	for(i=0;i<count;i++)fwrite(x+i*step, sizeof(*x), 1,fout);
 fclose(fout);
-fprintf(FILE_LOG, "floats: %s\n", name);
+fprintf(FILE_LOG, "floats: %ld %s\n", count, name);
 }
 
 void dump_doubles(char *name, double *x, long count, long step)
@@ -183,9 +183,9 @@ if(fout==NULL){
 /* important special case */
 if(step==1)fwrite(x, sizeof(*x), count,fout);
 	else
-	for(i=0;i<count;i++)fwrite(x+i, sizeof(*x), 1,fout);
+	for(i=0;i<count;i++)fwrite(x+i*step, sizeof(*x), 1,fout);
 fclose(fout);
-fprintf(FILE_LOG, "doubles: %s\n", name);
+fprintf(FILE_LOG, "doubles: %ld %s\n", count, name);
 }
 
 
@@ -364,7 +364,7 @@ if(status.statusPtr)FREESTATUSPTR(&status);
 /* there are count*GRID_FIT_COUNT coefficients */
 void get_whole_sky_AM_response(INT64 *gps, double coherence_time, char *detector, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size)
 {
-int i, j, k;
+int i, j, k, last_k;
 SKY_GRID *sample_grid=NULL;
 float plus, cross;
 
@@ -392,7 +392,17 @@ c=gsl_vector_alloc(GRID_FIT_COUNT);
 cov=gsl_matrix_alloc(GRID_FIT_COUNT, GRID_FIT_COUNT);
 X=gsl_matrix_alloc(sample_grid->npoints, GRID_FIT_COUNT);
 
+last_k=-1000;
 for(k=0;k<count;k++){
+	TODO("1 minute is good enough, but it would be better to do this with rounding");
+	if(last_k>=0 && (gps[k]<gps[last_k]+60) && (gps[k]+60>gps[last_k])) {
+		for(j=0;j<GRID_FIT_COUNT;j++){
+			(*coeffs_plus)[k*GRID_FIT_COUNT+j]=(*coeffs_plus)[last_k*GRID_FIT_COUNT+j];
+			(*coeffs_cross)[k*GRID_FIT_COUNT+j]=(*coeffs_cross)[last_k*GRID_FIT_COUNT+j];
+			}
+		continue;
+		}
+	
 	for(i=0;i<sample_grid->npoints;i++){
 		get_AM_response_d(gps[k]+coherence_time*0.5, 
 			sample_grid->latitude[i], sample_grid->longitude[i], 
@@ -428,6 +438,7 @@ for(k=0;k<count;k++){
 	for(j=0;j<GRID_FIT_COUNT;j++){
 		(*coeffs_cross)[k*GRID_FIT_COUNT+j]=gsl_vector_get(c, j);
 		}
+	last_k=k;
 	}
 
 gsl_matrix_free(X);

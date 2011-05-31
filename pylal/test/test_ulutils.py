@@ -103,20 +103,39 @@ class test_ulutils(unittest.TestCase):
         mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
         v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
         vexpect = 1 - numpy.exp(-1)
-        self.assertTrue(abs(v -vexpect ) < 0.1)
+        self.assertTrue(abs(v -vexpect ) < 0.01)
 
     def test_integrate_efficiency_logd(self):
         '''
         Check that the numerical accuracy of the integration
         methods are sufficient.
         '''
-        xbins = numpy.logspace(0,1,50)
-        centres = 10**((numpy.log10(xbins[1:])+numpy.log10(xbins[:-1]))/2) # log midpoint
-        mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**3)
-        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
+        xbins = numpy.logspace(-2,0,50)
+        centres = numpy.exp((numpy.log(xbins[1:])+numpy.log(xbins[:-1]))/2) # log midpoint
+        mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
+        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=True)
         vexpect = 1 - numpy.exp(-1)
-        self.assertTrue(abs(v -vexpect ) < 0.1)
+        self.assertTrue(abs(v -vexpect ) < 0.01)
 
+    def test_integrate_realistic_efficiency(self):
+        '''
+        Check that the volume calculation gives the expected results in the
+        ideal case of an analytically known efficiency curve.
+        '''
+        Rmax = 150
+        def mockeff(r):
+            # This efficiency curve has the general features
+            # of a real efficiency curve seen empirically.
+            # It also integrates nicely and so the results of
+            # integrating this efficiency curve numerically can be
+            # compared against an analytic reference.
+            return (1-r/Rmax)**4
+
+        rbins = numpy.linspace(0,Rmax,20)
+        centres = (rbins[1:]+rbins[:-1])/2
+        v, verr = upper_limit_utils.integrate_efficiency(rbins, mockeff(centres))
+        vexpect = (1./35)*(4*numpy.pi/3)*(Rmax**3)
+        self.assertTrue(abs(1-v/vexpect) < 0.01)
 
     def test_mean_efficiency(self):
         '''
