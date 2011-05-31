@@ -281,11 +281,12 @@ def cbcBayesPostProc(
     #Perform necessary mappings
     functions = {'cos':cos,'sin':sin,'exp':exp,'log':log}
     for pos_name in oneDMenu:
-        for func in functions.keys():
-            old_pos_name = pos_name.replace(func,'')
-            if pos_name.find(func)==0 and old_pos_name in pos.names:
-                print "Taking %s of %s ..."% (func,old_pos_name)
-                pos.append_1D_mapping(pos_name,functions[func],old_pos_name)
+        if pos_name not in pos.names:
+            for func in functions.keys():
+                old_pos_name = pos_name.replace(func,'')
+                if pos_name.find(func)==0 and old_pos_name in pos.names:
+                    print "Taking %s of %s ..."% (func,old_pos_name)
+                    pos.append_1D_mapping(pos_name,functions[func],old_pos_name)
 
     #Remove samples with NaNs in requested params
     requested_params = set(pos.names).intersection(set(oneDMenu))
