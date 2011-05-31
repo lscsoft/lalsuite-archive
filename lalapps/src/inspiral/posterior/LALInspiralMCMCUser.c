@@ -429,12 +429,25 @@ int CubeToGRBPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *para
   
   // luminosity distance in Mpc
   param = NULL;
-  double distMpcMax, distMpcMin;
-  param = XLALMCMCGetParam(parameter, "distMpc");
-  distMpcMin = param->core->minVal;
-  distMpcMax = param->core->maxVal;
-  double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
-  XLALMCMCSetParameter(parameter, "distMpc", distMpc);
+  double distMpcMax, distMpcMin, distMpc;
+  if( XLALMCMCCheckParameter(parameter,"distMpc") )
+  {
+  	param = XLALMCMCGetParam(parameter, "distMpc");
+  	distMpcMin = param->core->minVal;
+  	distMpcMax = param->core->maxVal;
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+  	XLALMCMCSetParameter(parameter, "distMpc", distMpc);
+  }
+  else if( XLALMCMCCheckParameter(parameter, "logdist") )
+  {
+  	param = XLALMCMCGetParam(parameter, "logdist");
+  	distMpcMin = exp(param->core->minVal);
+  	distMpcMax = exp(param->core->maxVal);
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
+  }
+  /*double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  XLALMCMCSetParameter(parameter, "distMpc", distMpc);*/
   Cube[i] = distMpc;
   i++;
   
@@ -537,24 +550,26 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   
   // luminosity distance in Mpc
   param = NULL;
-  double distMpcMax, distMpcMin;
-  if(XLALMCMCCheckParameter(parameter,"distMpc"))
+  double distMpcMax, distMpcMin, distMpc;
+  if( XLALMCMCCheckParameter(parameter,"distMpc") )
+  {
   	param = XLALMCMCGetParam(parameter, "distMpc");
-  else
-  	param = XLALMCMCGetParam(parameter, "logdist");
-  distMpcMin = param->core->minVal;
-  distMpcMax = param->core->maxVal;
-  double distMpc = flatPrior(Cube[i], distMpcMin, distMpcMax);
-  if(XLALMCMCCheckParameter(parameter,"distMpc"))
-  {
+  	distMpcMin = param->core->minVal;
+  	distMpcMax = param->core->maxVal;
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
   	XLALMCMCSetParameter(parameter, "distMpc", distMpc);
-  	Cube[i] = distMpc;
   }
-  else
+  else if( XLALMCMCCheckParameter(parameter, "logdist") )
   {
-  	XLALMCMCSetParameter(parameter, "logdist", distMpc);
-  	Cube[i] = exp(distMpc);
+  	param = XLALMCMCGetParam(parameter, "logdist");
+  	distMpcMin = exp(param->core->minVal);
+  	distMpcMax = exp(param->core->maxVal);
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
   }
+  /*double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  XLALMCMCSetParameter(parameter, "distMpc", distMpc);*/
+  Cube[i] = distMpc;
   i++;
   
   
@@ -666,22 +681,24 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   // luminosity distance in Mpc
   param = NULL;
   double distMpcMax, distMpcMin, distMpc;
-  if(XLALMCMCCheckParameter(parameter,"logdist"))
-  {
-  	param = XLALMCMCGetParam(parameter, "logdist");
-	distMpcMin = exp(param->core->minVal);
-	distMpcMax = exp(param->core->maxVal);
-	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
-  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
-  }
-  else
+  if( XLALMCMCCheckParameter(parameter,"distMpc") )
   {
   	param = XLALMCMCGetParam(parameter, "distMpc");
-	distMpcMin = param->core->minVal;
-	distMpcMax = param->core->maxVal;
-	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  	distMpcMin = param->core->minVal;
+  	distMpcMax = param->core->maxVal;
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
   	XLALMCMCSetParameter(parameter, "distMpc", distMpc);
   }
+  else if( XLALMCMCCheckParameter(parameter, "logdist") )
+  {
+  	param = XLALMCMCGetParam(parameter, "logdist");
+  	distMpcMin = exp(param->core->minVal);
+  	distMpcMax = exp(param->core->maxVal);
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
+  }
+  /*double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  XLALMCMCSetParameter(parameter, "distMpc", distMpc);*/
   Cube[i] = distMpc;
   i++;
   
@@ -796,22 +813,24 @@ int CubeToNestPriorPhenSpin(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   // luminosity distance in Mpc
   param = NULL;
   double distMpcMax, distMpcMin, distMpc;
-  if(XLALMCMCCheckParameter(parameter,"logdist"))
-  {
-  	param = XLALMCMCGetParam(parameter, "logdist");
-	distMpcMin = exp(param->core->minVal);
-	distMpcMax = exp(param->core->maxVal);
-	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
-  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
-  }
-  else
+  if( XLALMCMCCheckParameter(parameter,"distMpc") )
   {
   	param = XLALMCMCGetParam(parameter, "distMpc");
-	distMpcMin = param->core->minVal;
-	distMpcMax = param->core->maxVal;
-	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  	distMpcMin = param->core->minVal;
+  	distMpcMax = param->core->maxVal;
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
   	XLALMCMCSetParameter(parameter, "distMpc", distMpc);
   }
+  else if( XLALMCMCCheckParameter(parameter, "logdist") )
+  {
+  	param = XLALMCMCGetParam(parameter, "logdist");
+  	distMpcMin = exp(param->core->minVal);
+  	distMpcMax = exp(param->core->maxVal);
+	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
+  }
+  /*double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  XLALMCMCSetParameter(parameter, "distMpc", distMpc);*/
   Cube[i] = distMpc;
   i++;
   
