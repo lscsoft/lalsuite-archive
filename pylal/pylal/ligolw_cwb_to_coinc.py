@@ -119,14 +119,15 @@ class CWB2Coinc(object):
   Class to convert a set of rootfiles to a ligolw_document.
   """
 
-  def __init__(self, joblist=None, start=None, end=None, #cwbtables=False,
+  def __init__(self, joblist=None, start=None, end=None, instruments=None,
+          #cwbtables=False,
           waveoffset=0, verbose=False):
 	self.job_list = joblist
 	self.start = start
 	self.end = end
 	#self.cwbtable = cwbtables
 	self.verbose = verbose
-
+	self.instruments = lsctables.ifos_from_instrument_set( instruments.split(",") )
 	self.waveoffset = waveoffset
 
   def create_tables(self, xmldoc, rootfiles):
@@ -382,9 +383,13 @@ class CWB2Coinc(object):
   
     # Imstruments involved in the search
     ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
-  
+
     if( ifos == None or len(ifos) == 0 ): 
-        sys.exit("Found a job with no IFOs on.")
+        if( self.instruments ):
+            ifos = self.instruments
+        else: # Not enough information to completely fill out the table
+            sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
     row.ifos = ifos
     row.comment = u"waveburst"
     row.program = u"waveburst"
@@ -460,9 +465,13 @@ class CWB2Coinc(object):
   
       # Imstruments involved in the search
       ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
-  
+
       if( ifos == None or len(ifos) == 0 ): 
-          sys.exit("Found a job with no IFOs on.")
+          if( self.instruments ):
+              ifos = self.instruments
+          else: # Not enough information to completely fill out the table
+              sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+  
       row.ifos = ifos
       row.comment = u"waveburst"
       row.program = u"waveburst"
@@ -511,9 +520,16 @@ class CWB2Coinc(object):
     row = search_summary.RowType()
     row.process_id = process_id_type(run)
     row.nevents = sim_tree.GetEntries()
-  
+
+    ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
     # Imstruments involved in the search
-    row.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+    if( ifos == None or len(ifos) == 0 ): 
+        if( self.instruments ):
+            ifos = self.instruments
+        else: # Not enough information to completely fill out the table
+            sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
+    row.ifos = ifos
     row.comment = "waveburst"
   
     # Begin and end time of the segment
@@ -523,6 +539,7 @@ class CWB2Coinc(object):
     # in -- with waveoffset
     row.set_in(seg)
     # out -- without waveoffset
+    waveoffset = LIGOTimeGPS(waveoffset)
     row.set_out(segments.segment(seg[0]+waveoffset, seg[1]-waveoffset))
     search_summary.append(row)
   
@@ -581,7 +598,15 @@ class CWB2Coinc(object):
   
       # Imstruments involved in the search
       sim_tree.GetEntry(0)
-      row.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      # Imstruments involved in the search
+      if( ifos == None or len(ifos) == 0 ): 
+          if( self.instruments ):
+              ifos = self.instruments
+          else: # Not enough information to completely fill out the table
+              sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
+      row.ifos = ifos
       row.comment = "waveburst"
   
       # Begin and end time of the segment
@@ -648,7 +673,15 @@ class CWB2Coinc(object):
       row.nevents = 0
   
       # Imstruments involved in the search
-      row.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      # Imstruments involved in the search
+      if( ifos == None or len(ifos) == 0 ): 
+          if( self.instruments ):
+              ifos = self.instruments
+          else: # Not enough information to completely fill out the table
+              sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
+      row.ifos = ifos
       row.comment = "waveburst"
   
       # Begin and end time of the segment
