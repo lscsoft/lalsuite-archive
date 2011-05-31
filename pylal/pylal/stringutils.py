@@ -140,6 +140,15 @@ def coinc_params_func(events, offsetvector, triangulators):
 	#
 
 	ignored, ignored, ignored, rss_timing_residual = triangulators[instruments](tuple(event.get_peak() + offsetvector[event.ifo] for event in events))
+	# FIXME:  rss_timing_residual is forced to 0 to disable this
+	# feature.  all the code to compute it properly is still here and
+	# given suitable initializations, the distribution data is still
+	# two-dimensional and has a suitable filter applied to it, but all
+	# events are forced into the RSS_{\Delta t} = 0 bin, in effect
+	# removing that dimension from the data.  We can look at this again
+	# sometime in the future if we're curious why it didn't help.  Just
+	# delete the next line and you're back in business.
+	rss_timing_residual = 0.0
 	params["instrumentgroup,rss_timing_residual"] = (instruments_to_category(instruments), rss_timing_residual)
 
 	#
