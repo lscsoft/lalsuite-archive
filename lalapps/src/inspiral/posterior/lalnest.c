@@ -535,6 +535,7 @@ void initialise(int argc, char *argv[]){
 		case 'O':
 			manual_RA=atof(optarg)*LAL_PI/180.0;
 			SkyPatch=1;
+
 			break;
 		case 'b':
 			GRBflag=1;
@@ -542,6 +543,7 @@ void initialise(int argc, char *argv[]){
 		case 'a':
 			manual_dec=atof(optarg)*LAL_PI/180.0;
 			SkyPatch=1;
+
 			break;
 		case 'A':
 			strncpy(approx,optarg,128);
@@ -922,7 +924,7 @@ int main( int argc, char *argv[])
 			if(!strcmp(CacheFileNames[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
 			if(!strcmp(CacheFileNames[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
 			//if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 1E-49;} Obsolete
-            if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd;scalefactor = 1.35e-50;} // Walter's fit
+            if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd;scalefactor = 1.35E-50;} // Walter's fit
             if(!strcmp(CacheFileNames[i],"LALAdVirgo")) {PSD = &LALAdvVIRGOPsd;scalefactor = 1E-47;}
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
@@ -1161,9 +1163,8 @@ int main( int argc, char *argv[])
 				memcpy(&(injWave->epoch),&realSegStart,sizeof(realSegStart));
 			}
 			REAL8TimeSeries *inj8Wave=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("injection",&segmentStart,0.0,inputMCMC.deltaT,&lalDimensionlessUnit,(size_t)seglen);
-			for (j=0;j<injWave->data->length;j++) inj8Wave->data->data[j]=(REAL8)injWave->data->data[j]; /* Move into a REAL8 vector */
-			
-			
+			for (j=0;j<injWave->data->length;j++){ inj8Wave->data->data[j]=(REAL8)injWave->data->data[j]; /* Move into a REAL8 vector */
+		}	
 			/* Compute the frequency domain wave for SNR calculation */
 			RealFFTPlan *inj_plan = XLALCreateForwardREAL4FFTPlan( seglen, 0 );
 			COMPLEX16FrequencySeries *injF = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injFD",&(segmentStart),0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
@@ -1178,19 +1179,19 @@ int main( int argc, char *argv[])
 //
                 /* Add calibration errors to the waveform. This is done before the SNR is calculated */
                 if(enable_calamp || enable_calfreq){
-                    COMPLEX16FrequencySeries *injF_noError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+                    COMPLEX16FrequencySeries *injFnoError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                     COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
 
                     for(j=0;j<injF->data->length;j++){
-                        injF_noError->data->data[j].re=injF->data->data[j].re;
-                        injF_noError->data->data[j].im=injF->data->data[j].im;                        
-                        }
-
+                        injFnoError->data->data[j].re=injF->data->data[j].re;
+                        injFnoError->data->data[j].im=injF->data->data[j].im;                        
+                        
+		    }
                     ApplyCalibrationErrorsToWaveform(injF,CalibInj, IFOnames[i],i,calib_seed );
-                    PrintCalibrationErrorsToFile(injF,injF_noError,i,injTable,&inputMCMC);
-                    
+                    PrintCalibrationErrorsToFile(injF,injFnoError,i,injTable,&inputMCMC);
+                    XLALDestroyCOMPLEX16FrequencySeries(injFnoError);
                     XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
-                    XLALDestroyCOMPLEX16FrequencySeries(injF_noError);
+
                 } 
 
 			if(estimatenoise){
@@ -1356,7 +1357,7 @@ int main( int argc, char *argv[])
 		default:
 			inputMCMC.phaseOrder=LAL_PNORDER_TWO;
 	}
-
+        fprintf(stderr,"skypatch %i\n",SkyPatch);
 	/* Set the initialisation and likelihood functions */
 	if(SkyPatch) {inputMCMC.funcInit = NestInitSkyPatch; goto doneinit;}
 	if(SkyLocFlag) {inputMCMC.funcInit = NestInitSkyLoc; goto doneinit;}
@@ -1969,28 +1970,30 @@ int checkParamInList(const char *list, const char *param)
 }
 
 void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
-{   CHAR pinned_params_temp[100]="";
+{  
+    char *pinned_params_temp=NULL;
     int pin_was_null=1;
-    char full_list[]="logM,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z";
+    char full_list[]="logM,mchirp,logmchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,lnlambdaG,aPPE,alphaPPE,bPPE,betaPPE,ScalarCharge1,ScalarCharge2,lnOmegaBD";
     if (pinned_params!=NULL){
         pin_was_null=0;
-        strcpy(pinned_params_temp,pinned_params);
-        strcpy(pinned_params,full_list);
+        pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
+        pinned_params_temp=pinned_params;
+        pinned_params=full_list;
     }
     else {
         pinned_params=full_list ;
     } 
-  
     MCMCinput->funcInit(parameter,iT);
     if (pin_was_null)
         pinned_params=NULL;
-    else
-        strcpy(pinned_params,pinned_params_temp);
-    return ;	
-	}
+    else {
+        pinned_params=pinned_params_temp;
+    }
+     return ;	
+     }
 
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
-    char SnrName[70];
+    char SnrName[200];
     char ListOfIFOs[10];
     REAL8 NetSNR=0.0;
     sprintf(ListOfIFOs,"");    
@@ -2014,13 +2017,12 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
 }
 
 void PrintCalibrationErrorsToFile(COMPLEX16FrequencySeries *injFwithError,COMPLEX16FrequencySeries *injFnoError,UINT4 det_i,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
-    char FileName[70];
-        
-    sprintf(FileName,"%s/calerr_%s_%10.1f.dat",CalErrPath,inputMCMC->ifoID[det_i],(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
-        
+    char FileName[300];
+            sprintf(FileName,"%s/calerr_%s_%10.1f.dat",CalErrPath,inputMCMC->ifoID[det_i],(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+
     FILE *errout=fopen(FileName,"w");
     for(UINT4 j=0;j<injFwithError->data->length;j++) {
-        fprintf(errout,"%6.5e \t %14.8e \t %14.8e \n", j*inputMCMC->deltaF,sqrt(pow(injFwithError->data->data[j].re,2.0)+pow(injFwithError->data->data[j].im,2.0))/sqrt(pow(injFnoError->data->data[j].re,2.0)+pow(injFnoError->data->data[j].im,2.0)),atan2(injFwithError->data->data[j].im,injFwithError->data->data[j].re)-atan2(injFnoError->data->data[j].im,injFnoError->data->data[j].re));
-    }
+    fprintf(errout,"%6.5e \t %14.8e \t %14.8e \n", j*inputMCMC->deltaF, sqrt(pow(injFwithError->data->data[j].re,2.0)+pow(injFwithError->data->data[j].im,2.0))/sqrt(pow(injFnoError->data->data[j].re,2.0)+pow(injFnoError->data->data[j].im,2.0)),atan2(injFwithError->data->data[j].im,injFwithError->data->data[j].re)-atan2(injFnoError->data->data[j].im,injFnoError->data->data[j].re));
+}
     fclose(errout);
 }

@@ -696,10 +696,10 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
     }
     FitNoiseRealisation(&stat,FitOrder,length,phaseErr,deltalogf,phaseFit);
     FitNoiseRealisation(&stat,FitOrder,length,ampErr,deltalogf,ampFit);
-    FILE *calibout;
-    char caliboutname[100];
-    sprintf(caliboutname,"phase_errors_%s.dat",IFOname);
-    calibout=fopen(caliboutname,"w");
+    //FILE *calibout;
+    //char caliboutname[100];
+    //sprintf(caliboutname,"phase_errors_%s.dat",IFOname);
+    //calibout=fopen(caliboutname,"w");
 	for(j=0;j<injF->data->length;j++){
         if(!enable_calamp){
             amplitude=ConvertCoefficientsToFunction(ampFit,j*deltaf,cen)*sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0));
@@ -707,7 +707,7 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
         else {
             amplitude=sqrt(pow(injF->data->data[j].re,2.0)+pow(injF->data->data[j].im,2.0));
         }
-        fprintf(calibout,"%g\t%g\n",j*deltaf,ConvertCoefficientsToFunction(phaseFit,j*deltaf,cen));
+        //fprintf(calibout,"%g\t%g\n",j*deltaf,ConvertCoefficientsToFunction(phaseFit,j*deltaf,cen));
         phase=ConvertCoefficientsToFunction(phaseFit,j*deltaf,cen)+atan2(injF->data->data[j].im,injF->data->data[j].re);
         calibInjF->data->data[j].re=amplitude*cos(phase);
         calibInjF->data->data[j].im=amplitude*sin(phase);
@@ -715,7 +715,7 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
         
     }
     
-	fclose(calibout);
+	//fclose(calibout);
 }
 
 /*
