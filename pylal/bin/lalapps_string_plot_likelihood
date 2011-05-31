@@ -240,8 +240,8 @@ def instrumentgroup_plot(key, xcoords, background_data, injections_data):
 	background_data = numpy.nan_to_num(background_data)
 	injections_data = numpy.nan_to_num(injections_data)
 
-	axes.plot(xcoords, background_data, "ko-", label = "Background")
-	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
+	axes.semilogy(xcoords, background_data, "ko-", label = "Background")
+	axes.semilogy(xcoords, injections_data, "ro-", label = "Injections")
 	axes.set_ticklabels([",".join(sorted(stringutils.category_to_instruments(i))) for i in xcoords])
 	axes.legend(loc = "upper right")
 
@@ -365,7 +365,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	elif name == "instrumentgroup":
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
-		fig = nevents_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
+		fig = instrumentgroup_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
 		for extension in options.format:
 			outname = "%s.%s" % (name, extension)
 			if options.verbose:

@@ -560,7 +560,8 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
             # check for overlaps, and give detailed list of veto details
             list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
             for name, segstart, segend in list_overlaps:
-              pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%(ifo, segstart, segend, cat, name), tag[4:])
+              pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%\
+                       (ifo, segstart, segend, cat, name), tag[4:])
             if vetolist.intersects_segment(segments.segment(timerange)):
                 vetoed_ifos.add(ifo)
                 vetoed_cats.add(cat)
@@ -569,13 +570,14 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
         if len(vetoed_ifos)==0:
               clear_ifos.append(ifo)
         else:
-            pas.info("IFO(s) %s vetoed by CAT(s): %s" % (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
+            pas.info("IFO(s) %s vetoed by CAT(s): %s" %\
+                     (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
                 
 
     return clear_ifos
  
 # -----------------------------------------------------
-def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.', tag = None, segs1 = None):
+def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.', tag = None, segs1 = False):
     """
     Function to get the segment info for a timerange
     @param timerange: The range of time the SCIENCE segments should be checked
@@ -585,6 +587,7 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
     @param tag: Tag for the files [optional]
     @param segscat1: CAT1 veto times to be considered when finding the best segment [optional]
     """
+    pas = AnalysisSingleton()
 
     # add an underscore in front of the tag
     if tag is not None:
@@ -603,13 +606,33 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
         segdict[ifo] = segments.segmentlist([s for s in tmplist \
                                              if abs(s) > minsciseg])
 
-        # check if there are CAT1 segments to take into account
-        # i.e. take them out before checking available data
+        # in case a CAT1 veto needs to be applied beforehand
+        # (i.e. before the data availability check), do it here
         if segs1:
-          segdict[ifo] -= segs1[ifo].coalesce()
-          if abs(segs1[ifo])>0:
-            print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
-                   (ifo, segs1[ifo])
+            
+            # create the filename
+            xmlsegfile = "%s/%s-VETOTIME_CAT1%s.xml" % \
+                         (path, ifo, tag)
+            vetoes1 = read_xmlsegfile(xmlsegfile)
+            vetoes1.coalesce()
+
+            # check for overlaps, and give detailed list of veto details
+            list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
+            for name, segstart, segend in list_overlaps:
+              pas.info("   - CAT1 preveto for IFO %s,  vetoed from %d to %d: %s"%\
+                       (ifo, segstart, segend, name), tag[4:])
+
+            # 'subtract' the CAT1 vetoes from the SCIENCE segments
+            segdict[ifo] -= vetoes1
+      
+
+        ## # check if there are CAT1 segments to take into account
+##         # i.e. take them out before checking available data
+##         if segs1:
+##           segdict[ifo] -= segs1[ifo].coalesce()
+##           if abs(segs1[ifo])>0:
+##             print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
+##                    (ifo, segs1[ifo])
 
     ifolist = segdict.keys()
     ifolist.sort()
@@ -740,7 +763,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
     # do the segment check again, including the CAT1 segs
     outname = 'plot_segments_%s.png' % tag
     offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, plot_segments_file=outname, \
-         segs1 = segsdict, tag = tag, path = path)
+         segs1 = True, tag = tag, path = path)
     trend_ifos.append(ifolist)
 
     # check any CAT2/3 interference with the onsource
