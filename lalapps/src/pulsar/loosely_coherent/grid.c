@@ -224,7 +224,9 @@ TARGETED_RECT_SKY_GRID_PRIV *priv;
 long i,j,k;
 double a,b, e1[3], e2[3];
 
-/* set all up */
+num_dec|=1; /* Make sure num_dec is odd */
+
+
 grid=do_alloc(1,sizeof(*grid));
 grid->npoints=num_dec*num_dec;
 grid->max_n_dec=num_dec;
@@ -254,10 +256,10 @@ grid->grid_priv=priv;
 
 /* fill in the coordinates */
 for(i=0;i<num_dec;i++){
-	a=radius*(i*2.0-num_dec)/num_dec;
+	a=radius*(i*2.0-num_dec+1)/(num_dec-1);
 	for(j=0;j<num_dec;j++){
 		k=i*num_dec+j;
-		b=radius*(j*2.0-num_dec)/num_dec;
+		b=radius*(j*2.0-num_dec+1)/(num_dec-1);
 
 		/* transition to standard coordinates around point (RA, DEC) */
 

@@ -1264,7 +1264,7 @@ if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
 	if(!(args_info.focus_ra_given && args_info.focus_dec_given && args_info.focus_radius_given)) {
 		fprintf(stderr, "*** ERROR: focus* options are required for targeted rectangular grid\n"); 
 		}
-	main_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/resolution)+2);
+	main_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/(resolution*args_info.fine_factor_arg))+1);
 	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	main_grid=make_arcsin_grid(ceil(2.0*M_PI/(resolution)), ceil(M_PI/(resolution)));
@@ -1425,6 +1425,10 @@ reset_jobs_done_ratio();
 
 fprintf(stderr, "Main loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 fprintf(LOG, "Main loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
+for(i=0;i<main_grid->npoints;i++) {
+	fprintf(stderr, "%d %g %g\n", i, main_grid->longitude[i]-args_info.focus_ra_arg, main_grid->latitude[i]-args_info.focus_dec_arg);
+	}
 
 fprintf(stderr, "%d points to process\n", main_grid->npoints);
 
