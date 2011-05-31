@@ -1337,7 +1337,8 @@ static int LALInferenceIFOData_setmodelDomain(li_LALInferenceIFOData *self, PyOb
         var=frequencyDomain;
     }
     else{
-        die("modelDomain must be one of the strings 'frequencyDomain' or 'timeDomain'");
+        XLALPrintError("modelDomain must be one of the strings 'frequencyDomain' or 'timeDomain'");
+	XLAL_ERROR_INT("LALInference_IFOData_setmodelDomain",XLAL_EINVAL);
     }
 
     return 0;
@@ -2007,34 +2008,34 @@ LALInferenceVariableType LALInferenceVariables_convert_string_to_litype(char* ty
 }
 
 void* LALInferenceVariables_convert_pyobj_to_livar_value(PyObject* pyvalue,LALInferenceVariableType type){
-    void* value=(void *)malloc(typeSize[type]);
+    void* value=(void *)malloc(LALInferenceTypeSize[type]);
     
     if(type==INT4_t){
         INT4 cast_value=((INT4)PyInt_AsLong(pyvalue));
         INT4* cast_valuep=&cast_value;
-        memcpy(value,(void*)cast_valuep,typeSize[type]);
+        memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
     }
     else if(type==INT8_t){
         INT8 cast_value=((INT8)PyInt_AsLong(pyvalue));
         INT8* cast_valuep=&cast_value;
-        memcpy(value,(void*)cast_valuep,typeSize[type]);
+        memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
     }
     else if(type==UINT4_t){
         UINT4 cast_value=(UINT4)((unsigned long int)PyInt_AsLong(pyvalue));
         UINT4* cast_valuep=&cast_value;
-        memcpy(value,(void*)cast_valuep,typeSize[type]);
+        memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
     }   
     else if(type==REAL4_t){
     
         REAL4 cast_value=((REAL4)PyFloat_AsDouble(pyvalue));
         REAL4* cast_valuep=&cast_value;
-        memcpy(value,(void*)cast_valuep,typeSize[type]);
+        memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
         
     }
     else if(type==REAL8_t){
         REAL8 cast_value=((REAL8)PyFloat_AsDouble(pyvalue));
         REAL8* cast_valuep=&cast_value;
-        memcpy(value,(void*)cast_valuep,typeSize[type]);
+        memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyvalue);
