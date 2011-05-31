@@ -134,12 +134,13 @@ def read_snr(snrs,run,time,IFOs):
         snr_file.close()
     return [snr_values,snr_header]
 
-def Make_injected_sky_map(dec_ra,dec_ra_cal,dec_ra_ctrl,outdir,run):
+def Make_injected_sky_map(dec_ra_inj,dec_ra_cal,dec_ra_ctrl,outdir,run):
     """
     Plots a sky map using the Mollweide projection in the Basemap package.
 
-    @dec_ra is a list of the kind [[dec1,ra1],[dec2,ra2],[etc]] where (decN,raN) are the coordinates of the Nth injected point.
-
+    @dec_ra_inj is a list of the kind [[dec1,ra1],[dec2,ra2],[etc]] where (decN,raN) are the coordinates of the Nth injected point.
+    @dec_ra_cal is a list of the correnspoding coordinates as recovered in the runs affected by calibration errors
+    @dec_ra_ctrl is a list of the corrensponding coordinates as recovered in the control runs
     @param outdir: Output directory in which to save skymap.png image.
     """
     from matplotlib.path import Path
@@ -151,10 +152,10 @@ def Make_injected_sky_map(dec_ra,dec_ra_cal,dec_ra_ctrl,outdir,run):
     myfig=plt.figure(2,figsize=(15,15),dpi=200)
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
-    ra_reverse = 2*pi_constant - np.asarray(dec_ra)[::-1,1]*57.296
+    ra_reverse = 2*pi_constant - np.asarray(dec_ra_inj)[::-1,1]*57.296
     plx,ply=m(
               ra_reverse,
-              np.asarray(dec_ra)[::-1,0]*57.296
+              np.asarray(dec_ra_inj)[::-1,0]*57.296
               )
     ra_reverse_ctrl = 2*pi_constant - np.asarray(dec_ra_ctrl)[::-1,1]*57.296
     plx_ctrl,ply_ctrl=m(
@@ -182,7 +183,7 @@ def Make_injected_sky_map(dec_ra,dec_ra_cal,dec_ra_ctrl,outdir,run):
     m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
     # draw meridians
     plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
-    plt.title("Injected positions") # add a title
+    plt.title("Injected vs recovered positions") # add a title
     myfig.savefig(os.path.join(path_plots,'injected_skymap.png'))
     plt.clf()
     return myfig
