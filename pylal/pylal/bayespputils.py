@@ -2679,7 +2679,7 @@ class PEOutputParser(object):
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            logParams=['logl','logpost','logprior','loglh1','loglh2','logll1','loglv1']
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
