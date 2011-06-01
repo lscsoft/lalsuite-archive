@@ -99,6 +99,7 @@ int CubeToCommonPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
 int CubeToSpinPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
 REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+int CubeToNestPriorORIG(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
 REAL8 NestPriorHighMass(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
