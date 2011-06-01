@@ -1539,10 +1539,10 @@ class CoincRingdownTable(table.Table):
 		"quality": "real_8",
 		"mass": "real_8",
 		"spin": "real_8",
-		"ds2_H1H2": "real_8",
-		"ds2_H1L1": "real_8",
-		"ds2_H2L1": "real_8",
 		"snr": "real_8",
+		"eff_coh_snr": "real_8",
+		"null_stat": "real_8",
+		"kappa": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8"
 	}
