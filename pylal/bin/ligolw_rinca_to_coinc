@@ -1084,10 +1084,10 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		coinc_ringdown.quality = None
 		coinc_ringdown.mass = None
 		coinc_ringdown.spin = None
-		coinc_ringdown.ds2_H1H2 = None
-		coinc_ringdown.ds2_H1L1 = None
-		coinc_ringdown.ds2_H2L1 = None
 		coinc_ringdown.snr = None
+		coinc_ringdown.eff_coh_snr = None
+		coinc_ringdown.null_stat = None
+		coinc_ringdown.kappa = None
 		coinc_ringdown.false_alarm_rate = None
 		coinc_ringdown.combined_far = None
 
