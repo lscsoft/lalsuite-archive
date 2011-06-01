@@ -286,7 +286,8 @@ void TaylorF2fillPhaseParams(
     
     // SEE arXiv:1005.0304
     phaseParams[0] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3)); //phi0
-    phaseParams[1] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3))* 0.0; //phi1
+    /* this is needed otherwise phi1 is identically 0 regardless of the dphi1 */
+    phaseParams[1] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3))* dphis[1]; //phi1
     phaseParams[2] = comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
     phaseParams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI; //phi3
     phaseParams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta); // phi4

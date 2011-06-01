@@ -1065,8 +1065,11 @@ if __name__=='__main__':
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    test_params=['dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7','loglambdag']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + test_params  #+endTimeParams
+    test_params=['dphi0','dphi1','dphi2','dphi3','dphi4','dphi5','dphi5l','dphi6','dphi6l','dphi7','lnlambdag']
+    ppe_params=['appe','alphappe','bppe','betappe']
+    bd_params=['lnomegabd','scalarcharge1','scalarcharge2'] 
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + test_params + \
+        ppe_params + bd_params#+endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     #for ifo1 in ifos_menu:
@@ -1114,10 +1117,17 @@ if __name__=='__main__':
     for dphiA in test_params:
         for dphiB in test_params[0:test_params.index(dphiA)]:
             twoDGreedyMenu.append([dphiA,dphiB])
+    for pppe1 in ppe_params:
+        for pppe2 in ppe_params[0:ppe_params.index(pppe1)]:
+            twoDGreedyMenu.append([pppe1,pppe2])
+    for bdp1 in bd_params:
+        for bdp2 in bd_params[0:bd_params.index(bdp1)]:
+            twoDGreedyMenu.append([bdp1,bdp2])
+            
    
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':5.0,'dist':5.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'dphi0':0.002,'dphi1':0.002,'dphi2':0.002,'dphi3':0.002,'dphi4':0.002,'dphi5':0.002,'dphi5l':0.002,'dphi6':0.002,'dphi6l':0.002,'dphi7':0.002,'loglambdag':0.25,'m':0.025}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':5.0,'dist':5.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'dphi0':0.002,'dphi1':0.002,'dphi2':0.002,'dphi3':0.002,'dphi4':0.002,'dphi5':0.002,'dphi5l':0.002,'dphi6':0.002,'dphi6l':0.002,'dphi7':0.002,'lnlambdag':0.25,'m':0.025,'appe':0.002,'alphappe':10.0,'bppe':0.002,'betappe':10.0,'lnomegabd':0.25,'scalarcharge1':0.002,'scalarcharge2':0.002}
     '''for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     '''
