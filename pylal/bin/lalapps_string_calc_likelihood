@@ -83,7 +83,7 @@ def parse_command_line():
 	if options.input_cache:
 		filenames += [CacheEntry(line).path() for line in file(options.input_cache)]
 
-	return options, (filenames or [None])
+	return options, filenames
 
 
 #
