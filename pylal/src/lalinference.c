@@ -7,6 +7,7 @@
 #include <lal/Sequence.h>
 #include <lal/LALBarycenter.h>
 #include <lal/LALDetectors.h>
+#include <lal/XLALError.h>
 
 #include <complex16frequencyseries.h>
 #include <complex16timeseries.h>
@@ -1303,10 +1304,10 @@ static int LALInferenceIFOData_setdataParams(li_LALInferenceIFOData *self, PyObj
 static PyObject* LALInferenceIFOData_getmodelDomain(li_LALInferenceIFOData *self, void *closure)
 {
 
-    if(self->data->modelDomain==timeDomain){
+    if(self->data->modelDomain==LALINFERENCE_DOMAIN_TIME){
         return PyString_FromString("timeDomain");
     }
-    else if(self->data->modelDomain==frequencyDomain){
+    else if(self->data->modelDomain==LALINFERENCE_DOMAIN_FREQUENCY){
         return PyString_FromString("freqDomain");
     }
     else return NULL;
@@ -1331,14 +1332,14 @@ static int LALInferenceIFOData_setmodelDomain(li_LALInferenceIFOData *self, PyOb
     LALInferenceDomain var;
 
     if(!strcmp(name,"timeDomain")){
-        var=timeDomain;
+        var=LALINFERENCE_DOMAIN_TIME;
     }
     else if(!strcmp(name,"frequencyDomain")){
-        var=frequencyDomain;
+        var=LALINFERENCE_DOMAIN_FREQUENCY;
     }
     else{
         XLALPrintError("modelDomain must be one of the strings 'frequencyDomain' or 'timeDomain'");
-	XLAL_ERROR_INT("LALInference_IFOData_setmodelDomain",XLAL_EINVAL);
+	XLAL_ERROR("LALInference_IFOData_setmodelDomain",XLAL_EINVAL);
     }
 
     return 0;
@@ -1969,10 +1970,10 @@ LALInferenceVariableType LALInferenceVariables_infer_litype_from_pyvalue(PyObjec
     LALInferenceVariableType type;
     
     if(PyInt_Check(pyvalue)){
-        type=INT8_t;
+        type=LALINFERENCE_INT8_t;
     }   
     else if(PyFloat_Check(pyvalue)){
-        type=REAL8_t;
+        type=LALINFERENCE_REAL8_t;
     }
     else{
         PyErr_SetObject(PyExc_TypeError, pyvalue);
@@ -1986,19 +1987,19 @@ LALInferenceVariableType LALInferenceVariables_convert_string_to_litype(char* ty
 
     LALInferenceVariableType type;
     if(!strcmp(typestring,"INT4")){
-        type=INT4_t;
+        type=LALINFERENCE_INT4_t;
     }
     else if(!strcmp(typestring,"INT8")){
-        type=INT8_t;
+        type=LALINFERENCE_INT8_t;
     }
     else if(!strcmp(typestring,"UINT4")){
-        type=UINT4_t;
+        type=LALINFERENCE_INT4_t;
     }
     else if(!strcmp(typestring,"REAL4")){
-        type=REAL4_t;
+        type=LALINFERENCE_REAL4_t;
     }
     else if(!strcmp(typestring,"REAL8")){
-        type=REAL8_t;
+        type=LALINFERENCE_REAL8_t;
     }
     else{
         PyErr_SetString(PyExc_TypeError,"LALInferenceInference type not found!!");
@@ -2010,29 +2011,29 @@ LALInferenceVariableType LALInferenceVariables_convert_string_to_litype(char* ty
 void* LALInferenceVariables_convert_pyobj_to_livar_value(PyObject* pyvalue,LALInferenceVariableType type){
     void* value=(void *)malloc(LALInferenceTypeSize[type]);
     
-    if(type==INT4_t){
+    if(type==LALINFERENCE_INT4_t){
         INT4 cast_value=((INT4)PyInt_AsLong(pyvalue));
         INT4* cast_valuep=&cast_value;
         memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
     }
-    else if(type==INT8_t){
+    else if(type==LALINFERENCE_INT8_t){
         INT8 cast_value=((INT8)PyInt_AsLong(pyvalue));
         INT8* cast_valuep=&cast_value;
         memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
     }
-    else if(type==UINT4_t){
+    else if(type==LALINFERENCE_INT4_t){
         UINT4 cast_value=(UINT4)((unsigned long int)PyInt_AsLong(pyvalue));
         UINT4* cast_valuep=&cast_value;
         memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
     }   
-    else if(type==REAL4_t){
+    else if(type==LALINFERENCE_REAL4_t){
     
         REAL4 cast_value=((REAL4)PyFloat_AsDouble(pyvalue));
         REAL4* cast_valuep=&cast_value;
         memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
         
     }
-    else if(type==REAL8_t){
+    else if(type==LALINFERENCE_REAL8_t){
         REAL8 cast_value=((REAL8)PyFloat_AsDouble(pyvalue));
         REAL8* cast_valuep=&cast_value;
         memcpy(value,(void*)cast_valuep,LALInferenceTypeSize[type]);
@@ -2082,16 +2083,16 @@ static PyObject* LALInferenceVariables_add_variable(li_LALInferenceVariables *se
         Py_INCREF(pyvarytype);
 
         if(!strcmp(temp,"linear")){
-            varytype=PARAM_LINEAR;
+            varytype=LALINFERENCE_PARAM_LINEAR;
         }
         else if(!strcmp(temp,"circular")){
-            varytype=PARAM_CIRCULAR;
+            varytype=LALINFERENCE_PARAM_CIRCULAR;
         }
         else if(!strcmp(temp,"fixed")){
-            varytype=PARAM_FIXED;
+            varytype=LALINFERENCE_PARAM_FIXED;
         }
         else if(!strcmp(temp,"output")){
-            varytype=PARAM_OUTPUT;
+            varytype=LALINFERENCE_PARAM_OUTPUT;
         }
         else {
             
@@ -2138,23 +2139,23 @@ PyObject* LALInferenceVariables_convert_livar_value_to_pyobj(li_LALInferenceVari
     
     type=LALInferenceGetVariableType(pyvars->vars,name);
     void* uncastval=LALInferenceGetVariable(pyvars->vars,name);
-    if(type==INT4_t){
+    if(type==LALINFERENCE_INT4_t){
         
         long int cast_val=(long int)(*(INT4*)uncastval);
         returnObj=PyInt_FromLong(cast_val);
     }
-    else if(type==INT8_t){
+    else if(type==LALINFERENCE_INT8_t){
         long long cast_val=(long long)(*(INT8*)uncastval);
         returnObj=PyInt_FromLong(cast_val);
     }
-    else if(type==UINT4_t){
+    else if(type==LALINFERENCE_INT4_t){
         returnObj=PyInt_FromLong(*(UINT4*)uncastval);
     }
-    else if(type==REAL4_t){
+    else if(type==LALINFERENCE_REAL4_t){
         float cast_val=(float)(*(REAL4*)uncastval);
         returnObj=PyFloat_FromDouble(cast_val);
     }
-    else if(type==REAL8_t){
+    else if(type==LALINFERENCE_REAL8_t){
         returnObj=PyFloat_FromDouble(*(REAL8*)uncastval);
         
     }
@@ -2222,19 +2223,19 @@ static int LALInferenceVariables_set_variable(li_LALInferenceVariables *self,PyO
 char* LALInferenceVariables_get_type_string(LALInferenceVariableType type){
     char* type_name=NULL;
     
-    if(type==INT4_t){
+    if(type==LALINFERENCE_INT4_t){
         type_name="INT4";
     }
-    else if(type==UINT4_t){
+    else if(type==LALINFERENCE_UINT4_t){
         type_name="UINT4";
     }
-    else if(type==INT8_t){
+    else if(type==LALINFERENCE_INT8_t){
         type_name="INT8";
     }
-    else if(type==REAL4_t){
+    else if(type==LALINFERENCE_REAL4_t){
         type_name="REAL4";
     }
-    else if(type==REAL8_t){
+    else if(type==LALINFERENCE_REAL8_t){
         type_name="REAL8";
     }
     
@@ -2278,16 +2279,16 @@ static PyObject* LALInferenceVariables_get_variable_type_by_index(li_LALInferenc
 char* LALInferenceVariables_get_varytype_string(LALInferenceParamVaryType varytype){
     
     char* varytype_name=NULL;
-    if(varytype==PARAM_LINEAR){
+    if(varytype==LALINFERENCE_PARAM_LINEAR){
         varytype_name="linear";
     }
-    else if(varytype==PARAM_CIRCULAR){
+    else if(varytype==LALINFERENCE_PARAM_CIRCULAR){
         varytype_name="circular";
     }
-    else if(varytype==PARAM_FIXED){
+    else if(varytype==LALINFERENCE_PARAM_FIXED){
         varytype_name="fixed";
     }
-    else if(varytype==PARAM_OUTPUT){
+    else if(varytype==LALINFERENCE_PARAM_OUTPUT){
         varytype_name="output";
     }
     
