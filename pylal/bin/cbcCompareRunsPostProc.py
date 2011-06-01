@@ -74,6 +74,7 @@ def oneD_dict_to_file(dict,fname):
         filed.write("%s %s\n"%(str(key),str(value)) )
         
 def remove_ifo_from_string(name):
+    ### Take a string like "H1: 10.0", and return a list whose first element is the IFO name and the second a string containing the remaining of "name", excluding the period 
     ifos=['H1','L1','V1','Network']
     for ifo in ifos:
         if name.find(ifo)!=-1:
@@ -110,6 +111,7 @@ def skewness(array,mean,std_dev):
 def kurtosis(array,mean,std_dev):
     return (sum((x-mean) ** 4 for x in array) / (len(array)*std_dev **4) )
 def read_snr(snrs,run,time,IFOs):
+    ### Check if files containing SNRs for sigle IFO are present in the folder snrs[run]. If not, check whether a file containing all the SNRs is present in that folder. In case of success return a list whose first element is a string containing the SNRs values and the second element a list of strings each containing the IFO names with the prefix "SNR_"
     snr_values=""
     snr_header=[]
     net_snr2=0.0
@@ -134,9 +136,10 @@ def read_snr(snrs,run,time,IFOs):
         snr_file.close()
     return [snr_values,snr_header]
 
-def Make_injected_sky_map(dec_ra_inj,dec_ra_cal,dec_ra_ctrl,outdir,run):
+def Make_injected_sky_map(dec_ra_inj,dec_ra_cal=None,dec_ra_ctrl=None,outdir,run):
     """
-    Plots a sky map using the Mollweide projection in the Basemap package.
+    Plots a sky map using the Mollweide projection in the Basemap package. 
+    The map contains the injected points, the recovered points with the control run (if given) annd the recovered points with the cal run (if given)
 
     @dec_ra_inj is a list of the kind [[dec1,ra1],[dec2,ra2],[etc]] where (decN,raN) are the coordinates of the Nth injected point.
     @dec_ra_cal is a list of the correnspoding coordinates as recovered in the runs affected by calibration errors
@@ -152,46 +155,54 @@ def Make_injected_sky_map(dec_ra_inj,dec_ra_cal,dec_ra_ctrl,outdir,run):
     myfig=plt.figure(2,figsize=(15,15),dpi=200)
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
-    ra_reverse = 2*pi_constant - np.asarray(dec_ra_inj)[::-1,1]*57.296
-    plx,ply=m(
-              ra_reverse,
-              np.asarray(dec_ra_inj)[::-1,0]*57.296
-              )
-    ra_reverse_ctrl = 2*pi_constant - np.asarray(dec_ra_ctrl)[::-1,1]*57.296
-    plx_ctrl,ply_ctrl=m(
-              ra_reverse_ctrl,
-              np.asarray(dec_ra_ctrl)[::-1,0]*57.296
-              )
-    ra_reverse_cal = 2*pi_constant - np.asarray(dec_ra_cal)[::-1,1]*57.296
-    plx_cal,ply_cal=m(
-              ra_reverse_cal,
-              np.asarray(dec_ra_cal)[::-1,0]*57.296
-              )
-    vert_x_ctrl=column_stack((plx_ctrl,plx))
-    vert_y_ctrl=column_stack((ply_ctrl,ply))
-    vert_x_cal=column_stack((plx,plx_cal))
-    vert_y_cal=column_stack((ply,ply_cal))
-    for i in range(len(plx)):
+    if dec_ra_inj is not None:
+        ra_reverse = 2*pi_constant - np.asarray(dec_ra_inj)[::-1,1]*57.296
+        plx,ply=m(
+                  ra_reverse,
+                  np.asarray(dec_ra_inj)[::-1,0]*57.296
+                  )
+    if dec_ra_ctrl is not None:
+        ra_reverse_ctrl = 2*pi_constant - np.asarray(dec_ra_ctrl)[::-1,1]*57.296
+        plx_ctrl,ply_ctrl=m(
+                ra_reverse_ctrl,
+                np.asarray(dec_ra_ctrl)[::-1,0]*57.296
+                )
+        if dec_ra_inj is not None:
+            vert_x_ctrl=column_stack((plx_ctrl,plx))
+            vert_y_ctrl=column_stack((ply_ctrl,ply))            
+    if dec_ra_cal is not None:
+        ra_reverse_cal = 2*pi_constant - np.asarray(dec_ra_cal)[::-1,1]*57.296
+        plx_cal,ply_cal=m(
+                  ra_reverse_cal,
+                  np.asarray(dec_ra_cal)[::-1,0]*57.296
+                  )
+        if dec_ra_inj is not None:
+            vert_x_cal=column_stack((plx,plx_cal))
+            vert_y_cal=column_stack((ply,ply_cal))
+    num_points=len(plx)
+    for i in range(num_points):
+        ### Draw lines between points
         plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
         plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
-        plt.annotate(str(range(len(plx)).index(i)), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
-        plt.annotate(str(range(len(plx)).index(i)), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
-        plt.annotate(str(range(len(plx)).index(i)), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+        ### Put numbers to label the points
+        plt.annotate(str(range(num_points).index(i)), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
+        plt.annotate(str(range(num_points).index(i)), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
+        plt.annotate(str(range(num_points).index(i)), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+    ### Now put points on the injections, and label them
     plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
     plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
     plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
+    
     m.drawmapboundary()
     m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
     # draw parallels
     m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
     # draw meridians
     plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
-    plt.title("Injected vs recovered positions") # add a title
+    plt.title("Injected vs recovered positions")
     myfig.savefig(os.path.join(path_plots,'injected_skymap.png'))
     plt.clf()
     return myfig
-
-
 
 def histN(mat,N):
     Nd=size(N)
@@ -207,6 +218,17 @@ def histN(mat,N):
         histo[t[::-1]]=histo[t[::-1]]+1
     return (axes,histo)
 def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size):
+    """
+    @time: the injection time
+    @outir: will save plots in outdir/run/ErrorPlots
+    @in_data_path a list of dirs. The Ith element points to the folder containing the calibration errors data of the Ith parser (I may change this behaviour, passing directly the right path)
+    @run the number of the current init 
+    @f_0 f_up the xlims of the plot, for the moment they are hardcoded
+    @IFOs: IFOs to add in the plots
+    @label_size: the size of the ticks' labels, labels, etc
+    
+    Produces two plots: one with ratio of the amplitude with calibration over the amplitude of the control run and another with the difference of phases
+    """
     run=str(run)
     path_plots=os.path.join(outdir,run,'ErrorPlots')
     checkDir(path_plots)
@@ -236,7 +258,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size):
     for (IFO,color) in zip(IFOs,['r','b','k']):
         plot(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
     ax.set_xlabel('f[Hz]',fontsize=label_size)
-    ax.set_ylabel('Amp_cal/Amp_uncal',fontsize=label_size)
+    ax.set_ylabel('Amp_cal/Amp_ctrl',fontsize=label_size)
     set_fontsize_in_ticks(ax,label_size)
     grid()
     legend()
@@ -264,7 +286,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size):
     for (IFO,color) in zip(IFOs,['r','b','k']):
         plot(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,label=IFO)
     ax.set_xlabel('f[Hz]',fontsize=label_size)
-    ax.set_ylabel('Pha_cal-Pha_uncal [Rads]',fontsize=label_size)
+    ax.set_ylabel('Pha_cal-Pha_ctrl [Rads]',fontsize=label_size)
     set_fontsize_in_ticks(ax,label_size)
     legend()
     grid()
@@ -283,6 +305,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     fup=500.0
     label_size=22
     time_event=None
+    ### Read the trigger times from the injfile using the raw_event option
     if inj and raw_events:
         time_event={}
         events=[]
@@ -316,10 +339,12 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     else:
         print "Error, you must give --events and --inj option \n"
 
+    ### Combine path contains both the weighted posteriors and the BSN files
     BSN=[path for path in inputs]
     Combine=[path for path in inputs]
     snrs=[path for path in snrs]
     temp_times=[time for time in times]
+    
     ## Remove the times for which posterior file is not present in either of the init ## TBD I only need to compare couple of ctrl-cali, not all of them
     for run in range(len(Combine)):
         for time in times:
@@ -332,7 +357,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     injected_positions=[]
     recovered_positions_ctrl=[]
 
-    ## prepare files with means and other useful data ###
+    ## prepare files with means and other useful data. It also fills the list with the sky positions ###
     for run in range(len(Combine)):
         if int(run)==0:
             summary=open(os.path.join(outdir,'summary_ctrl.dat'),'w')
@@ -340,11 +365,11 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             summary=open(os.path.join(outdir,'summary_'+str(run)+'.dat'),'w')
         header=open(os.path.join(outdir,'headers_'+str(run)+'.dat'),'w')
         header_l=[]
-        header_l.append('injTime \t')
+        header_l.append('injTime ')
         recovered_positions_cal[int(run)]=[]
         for time in times:
-            path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
-	    posterior_file=open(path_to_file,'r')
+                path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
+            posterior_file=open(path_to_file,'r')
             peparser=bppu.PEOutputParser('common')
             commonResultsObj=peparser.parse(posterior_file)
             pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injTable[times.index(time)])
@@ -353,11 +378,11 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             parameters.remove('logl')
             summary.write(str(time)+'\t')
             if 'ra' in parameters and 'dec' in parameters:
-		if int(run)==0:
+                if int(run)==0:
                     recovered_positions_ctrl.append([pos['dec'].mean,pos['ra'].mean])
                     injected_positions.append([pos['dec'].injval,pos['ra'].injval])
                 else:
-  		    recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean])
+                    recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean])
             for parameter in parameters:
                 summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
                 if time==times[0]:
@@ -381,7 +406,10 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         header.write('\t'.join(str(n) for n in header_l)+'\n')
         summary.close()
         header.close()
+    ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act smartly
     
+    
+    ### Now read the ctrl data, these stay the same all along while the cal_run data are read at each interation in the for below
     path_uncal=os.path.join(outdir,'summary_ctrl.dat')    
     for run in range(1,len(Combine)):
         run=str(run)
@@ -393,10 +421,9 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size)
         if calerr is not None:
             MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size)
-	    print injected_positions
-        if injected_positions!=[]:
-	    print "Im here"
+        if injected_positions!=[] and recovered_positions_cal!={}:
   	    Make_injected_sky_map(injected_positions,recovered_positions_cal[int(run)],recovered_positions_ctrl,outdir,run)
+
         WritePlotPage(outdir,run,parameters,times[0])
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs)
 
@@ -526,9 +553,9 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size):
     myfig.savefig(os.path.join(path_plots,'BSN_vs_SNR.png'))
     myfig.clear()
 
-def WritePlotPage(outdir,run,parameters,time):
+def WritePlotPage(outdir,run,parameters,first_time):
     run=str(run)
-    time=str(time)
+    first_time=str(first_time)
     wd=300
     hg=250
     abs_page_path=os.path.join(outdir,run)
@@ -543,8 +570,8 @@ def WritePlotPage(outdir,run,parameters,time):
     html_err_st='<table><tr>'
     for plot in ['amp_','pha_']:
         html_err_st+='<td>'
-        if os.path.isfile(os.path.join(abs_page_path,'ErrorPlots',plot +time+'.png')):
-            html_err_st+=linkImage(os.path.join(error_path_plots,plot +time+'.png'),1.5*wd,1.5*hg)
+        if os.path.isfile(os.path.join(abs_page_path,'ErrorPlots',plot +first_time+'.png')):
+            html_err_st+=linkImage(os.path.join(error_path_plots,plot +first_time+'.png'),1.5*wd,1.5*hg)
         else:
             html_err_st+='<p> No calibration error curves found in ' + error_path_plots +'</p>'
         html_err_st+='</td>'
