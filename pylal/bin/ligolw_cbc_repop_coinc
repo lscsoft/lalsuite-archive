@@ -85,7 +85,9 @@ def parse_command_line():
         default=None, metavar="STATTYPE",
         help =
             "type of single-ifo statistic to be computed: " +
-            "allowed values are mean, snr_mean, snr, choppedl, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, highstat"
+            "allowed values are mean, snr_mean, snr, choppedl, " +
+            "snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, " +
+            "highstat, eff_dist_ratio"
         )
     parser.add_option("", "--nlow", action = "store", type = "float", default = 4.,
         help =
@@ -198,7 +200,8 @@ class CombiningFunctions:
     when computing the results in the UPDATE SET command.
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
-      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., param = None, chopla = None, choplb = None ):
+      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., param = None, \
+      chopla = None, choplb = None ):
         """
         Sets outside variables.
         """
@@ -212,8 +215,8 @@ class CombiningFunctions:
         self.lfac = lfac
         self.vfac = vfac
         self.param = param
-	self.chopla = chopla
-	self.choplb = choplb
+        self.chopla = chopla
+        self.choplb = choplb
 
     def compute_mean( self, coinc_sngls ):
         """
@@ -346,6 +349,24 @@ class CombiningFunctions:
         else:
             return (sum ( snglfac[i] * snglstat[i]**self.power for i in numpy.arange(n) ))**(1./self.power)
 
+    def compute_eff_dist_ratio( self, coinc_sngls ):
+        """
+        Computes effective distance ratio (H2/H1) for coincidences that contain both a H1 trigger and
+        a H2 trigger.
+        Otherwise, set the value to 1.0.
+        """
+        h1_eff_dist = None
+        h2_eff_dist = None
+        for sngl in coinc_sngls:
+            if sngl.ifo == 'H1':
+                h1_eff_dist = sngl.eff_dist
+            if sngl.ifo == 'H2':
+                h2_eff_dist = sngl.eff_dist
+        if h1_eff_dist and h2_eff_dist:
+            return (h2_eff_dist / h1_eff_dist)
+        else:
+            return 1.0
+
 # =============================================================================
 #
 #                                     Main
@@ -390,7 +411,8 @@ create_column( connection, coinc_table, output_column )
 function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
     durthresh = opts.duration_threshold, power = opts.snr_power, 
     hfac = opts.hanford_factor, lfac = opts.livingston_factor,
-    vfac = opts.virgo_factor, param = opts.param, chopla = opts.chopla, choplb = opts.choplb )
+    vfac = opts.virgo_factor, param = opts.param,
+    chopla = opts.chopla, choplb = opts.choplb )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'mean':
     function = 'compute_mean'
@@ -412,6 +434,8 @@ elif opts.statistic_type == 'newsnr':
     function = 'compute_combined_newsnr'
 elif opts.statistic_type == 'highstat':
     function = 'compute_highstat'
+elif opts.statistic_type == 'eff_dist_ratio':
+    function = 'compute_eff_dist_ratio'
 
 # 2. initialize the apply_function class in sqlite
 
