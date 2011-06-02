@@ -50,6 +50,19 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                      default=os.getcwd(), help="output directory, "+\
                                                "default: %default" )
 
+  parser.add_option( "-Q", "--chisq-index", action="store", type="float",\
+                     default=4.0, help="chisq_index for newSNR calculation, "+\
+                                       "default: %default" )
+
+  parser.add_option( "-N", "--chisq-nhigh", action="store", type="float",\
+                     default=3.0, help="nhigh for newSNR calculation, "+\
+                                       "default: %default" )
+
+  parser.add_option( "-A", "--null-snr-threshold", action="store",\
+                     type="string", default="3.5,5.25",\
+                     help="comma separated lower,higher null SNR thresholds, "+\
+                          " for null SNR cut, default: \"%default\"" )
+
   (opts,args) = parser.parse_args()
 
   if not opts.trig_file:
@@ -64,7 +77,8 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 # Main function
 # =============================================================================
 
-def main( trigFile, injFile, tag, outdir, verbose=False ):
+def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
+          null_thresh=[3.5,5.25], verbose=False ):
   
   # set output directory
   if not os.path.isdir(outdir):
@@ -105,6 +119,7 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
   # initiate trigger lists
   trigTime      = []
   trigSNR       = []
+  trigBestNR    = []
   trigNullstat  = []
   trigTraceSNR  = []
   trigChiSquare = []
@@ -115,17 +130,18 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
   trigSecondSNR = []
   trigThirdSNR  = []
   # initiate injection lists
-  injTime = []
-  injSNR = []
-  injNullstat = []
-  injTraceSNR = []
-  injChiSquare = []
-  injBankVeto = []
-  injAutoVeto = []
-  injCoincSNR = []
-  injFirstSNR = []
-  injSecondSNR = []
-  injThirdSNR = []
+  injTime       = []
+  injSNR        = []
+  injBestNR     = []
+  injNullstat   = []
+  injTraceSNR   = []
+  injChiSquare  = []
+  injBankVeto   = []
+  injAutoVeto   = []
+  injCoincSNR   = []
+  injFirstSNR   = []
+  injSecondSNR  = []
+  injThirdSNR   = []
   # initiate amplitude lists for 4 amplitudes
   numAmp  = 4
   amplitudes = xrange(1,numAmp+1)
@@ -134,15 +150,8 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
   for amp in amplitudes:
     trigAmp[amp] = []
     injAmp[amp]  = []
-  # initiate BestNR lists for 8 SNRs
-  bestNRs = xrange(1,9)
-  rankBestNR = bestNRs[-1]
-  trigBestNR = {}
-  injBestNR = {}
-  for i in bestNRs:
-    trigBestNR[i] = []
-    injBestNR[i] = []
-  # initiate signle IFO lists
+
+  # initiate single IFO lists
   trigIfoSNR = {}
   trigSigma  = {}
   injIfoSNR  = {}
@@ -154,18 +163,8 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
     injSigma[ifo] = []
   trigSigmaTot = []
 
-  q = 4.
-  nhigh = 3.
-  
-  q2 = 4.
-  nhigh2 = 3.
-  
-  chiq = 4.
-  chin = 3.
-  
-  nullt = 5.25
-  nullo = 30.
-  
+  null_grad_snr = 30
+ 
   aPat  = {}
   fResp = {}
   for ifo in ifos:
@@ -197,10 +196,10 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
     sigmaTot = 0
     compsList = []
     for ifo in ifos:
-      ifoSNR = trig.__getattribute__('snr_%s' % ifoAtt[ifo])
+      ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
       trigIfoSNR[ifo].append( ifoSNR )
       compsList.append( ifoSNR )
-      sig = trig.__getattribute__('sigmasq_%s' % ifoAtt[ifo])
+      sig = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
       trigSigma[ifo].append( sig )
       sigmaTot += sig * aPat[trigPos][ifo]
     trigSigmaTot.append(sigmaTot)
@@ -223,17 +222,14 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
     trigAutoVeto.append( trig.cont_chisq )
 
     for amp in amplitudes:
-      a = trig.__getattribute__('amp_term_%d' % i)
+      a = getattr(trig,'amp_term_%d' % amp)
       if a == 0:
         a = 0.0001
       trigAmp[amp].append(a)
 
-    sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2,\
-                              auton=nhigh2, chiq=chiq, chin=chin,\
-                              fResp=aPat[trigPos])
-
-    for i in bestNRs:
-      trigBestNR[i].append( sbvs[i] )
+    bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                         null_thresh=null_thresh, fResp=aPat[trigPos])
+    trigBestNR.append( bestNR )
 
   # get injection parameters 
   if injFile:
@@ -258,7 +254,7 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
       # extract single IFO SNRs
       compsList = []
       for ifo in ifos:
-        ifoSNR = trig.__getattribute__('snr_%s' % ifoAtt[ifo])
+        ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
         injIfoSNR[ifo].append( ifoSNR )
         compsList.append( ifoSNR )
 
@@ -277,25 +273,24 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
       injBankVeto.append( trig.bank_chisq )
       injAutoVeto.append( trig.cont_chisq )
       for amp in amplitudes:
-        a = trig.__getattribute__('amp_term_%d' % i)
+        a = getattr(trig,'amp_term_%d' % i)
         if a == 0:
           a = 0.0001
         injAmp[amp].append(a)
 
-      sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2,\
-                                auton=nhigh2, chiq=chiq, chin=chin,\
-                                fResp=aPat[trigPos] )
+      bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                           null_thresh=null_thresh, fResp=aPat[trigPos])
 
-      for i in bestNRs:
-        injBestNR[i].append( sbvs[i] )
+      injBestNR.append( bestNR )
 
   # set arrays
   trigSNR       = pylab.asarray( trigSNR )
+  trigBestNR = pylab.asarray( trigBestNR )
   trigChiSquare = pylab.asarray( trigChiSquare )
   trigNullstat  = pylab.asarray( trigNullstat )
   trigTraceSNR  = pylab.asarray( trigTraceSNR )
   trigCoincSNR  = pylab.asarray( trigCoincSNR )
-  trigNullstat2 = ( trigCoincSNR**2 - trigSNR**2)**0.5
+  trigNullSNR = ( trigCoincSNR**2 - trigSNR**2)**0.5
   for amp in amplitudes:
     trigAmp[amp]   = pylab.asarray( trigAmp[amp] )
   trigRelAmp1    = pylab.sqrt( ( trigAmp[1]**2 + trigAmp[2]**2)/\
@@ -323,11 +318,12 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
 
   if injFile:
     injSNR         = pylab.asarray( injSNR )
+    injBestNR      = pylab.asarray( injBestNR )
     injChiSquare   = pylab.asarray( injChiSquare )
     injNullstat    = pylab.asarray( injNullstat )
     injTraceSNR    = pylab.asarray( injTraceSNR )
     injCoincSNR    = pylab.asarray( injCoincSNR )
-    injNullstat2   = ( injCoincSNR**2 - injSNR**2)**0.5
+    injNullSNR   = ( injCoincSNR**2 - injSNR**2)**0.5
     for amp in amplitudes:
       injAmp[amp]  = pylab.asarray( injAmp[amp] )
     injRelAmp1     = pylab.sqrt( ( injAmp[1]**2 + injAmp[2]**2)/\
@@ -343,10 +339,6 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
     injAmpCross    = (( injNorm1)**0.5 - (injNorm2)**0.5).__abs__()
     injRelAmp2     = injAmpPlus/injAmpCross
     injInclination = injAmpCross/injNorm3
-  
-  for i in bestNRs:
-    trigBestNR[i] = pylab.asarray( trigBestNR[i] )
-    injBestNR[i]  = pylab.asarray( injBestNR[i])
   
   trigSigmaMean = {}
   trigSigmaMax  = {}
@@ -364,13 +356,12 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
   if verbose:
     print >>sys.stdout
     print >>sys.stdout, "Loudest trigger by SNR: %f" % trigSNR.max()
-    for i in bestNRs:
-      print >>sys.stdout, "Loudest trigger by BestNRmk%d: %f"\
-                          % ( i, trigBestNR[i].max() )
+    print >>sys.stdout, "Loudest trigger by BestNR: %f" % trigBestNR.max()
   
   bank_conts, auto_conts,chi_conts,null_cont,snr_vals, colors =\
-      calculate_contours( bankq=q, bankn=nhigh, autoq=q2, auton=nhigh2,\
-                          chiq=chiq, chin=chin, nullt=nullt, nullo=nullo )
+      calculate_contours( q=chisq_index, n=chisq_nhigh,\
+                          null_thresh=null_thresh[-1],\
+                          null_grad_snr=null_grad_snr )
   
   if verbose:
     print >>sys.stdout
@@ -403,20 +394,20 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
     fig.savefig( '%s/%s_triggers_vs_time.png' % ( outdir, tag ),\
                bbox_inches='tight' )
 
-  # plot BestNR8 versus time
+  # plot BestNR versus time
   fig = pylab.figure()
   ax  = fig.gca()
-  ax.plot( trigTime, trigBestNR[rankBestNR], 'bx' )
+  ax.plot( trigTime, trigBestNR, 'bx' )
   ax.set_xlabel( "Time since %s" % start )
   ax.set_xlim([ 0, end ])
-  ax.set_ylabel( "BestNR %d" % rankBestNR )
+  ax.set_ylabel( "BestNR" )
   #ax.set_ylim( [6,18])
-  fig.savefig( '%s/%s_bestnrmk%d_vs_time_noinj.png'\
-               % ( outdir, tag, rankBestNR ), bbox_inches='tight' )
+  fig.savefig( '%s/%s_bestnr_vs_time_noinj.png' % ( outdir, tag ),\
+               bbox_inches='tight' )
   if injFile:
-    ax.plot( injTime, injBestNR[rankBestNR], 'rx' )
+    ax.plot( injTime, injBestNR, 'rx' )
     ax.set_xlim([ 0, end ])
-    fig.savefig( '%s/%s_bestnrmk%d_vs_time.png' % ( outdir, tag, rankBestNR ),\
+    fig.savefig( '%s/%s_bestnr_vs_time.png' % ( outdir, tag ),\
                  bbox_inches='tight' )
  
  
@@ -458,9 +449,9 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
   # plot coherent SNR versus overwhitened null stat
   fig = pylab.figure()
   ax  = fig.gca()
-  ax.plot( trigSNR, trigNullstat2, 'bx' )
+  ax.plot( trigSNR, trigNullSNR, 'bx' )
   if injFile:
-    ax.plot( injSNR, injNullstat2, 'rx' )
+    ax.plot( injSNR, injNullSNR, 'rx' )
   ax.set_xlabel( "Coherent SNR" )
   ax.set_ylabel( "Overwhitened null statistic" )
   ax.plot( snr_vals,null_cont, 'k-' )
@@ -473,20 +464,6 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
   fig.savefig( "%s/%s_null_stat2_vs_snr_zoom.png" % ( outdir, tag ),\
                bbox_inches='tight' )
  
-  # plot SNR verus BestNR
-  for i in bestNRs:
-    fig = pylab.figure()
-    ax  = fig.gca()
-    ax.plot( trigSNR, trigBestNR[i], 'bx' )
-    if injFile:
-      ax.plot( injSNR, injBestNR[i], 'rx' )
-    ax.set_xlabel( "Coherent SNR" )
-    ax.set_ylabel( "BestNRmk%d" % i )
-    fig.savefig( "%s/%s_bestnrmk%d_vs_snr.png" % ( outdir, tag, i ) )
-    ax.set_xlim( [6,30] )
-    ax.set_ylim( [0,25])
-    fig.savefig( "%s/%s_bestnrmk%d_vs_snr_zoom.png" % ( outdir, tag, i ) )
-  
   # plot coherent SNR versus coinc SNR
   fig = pylab.figure()
   ax  = fig.gca()
@@ -526,21 +503,6 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
   ax.set_xlim( [6,30] )
   ax.set_ylim( [4,30] )
   fig.savefig( "%s/%s_trace_snr_vs_snr_zoom.png" % ( outdir, tag ),\
-               bbox_inches='tight' )
-  
-  # plot bestNR 4 versus trace SNR
-  fig = pylab.figure()
-  ax  = fig.gca()
-  ax.plot( trigBestNR[4], trigTraceSNR, 'bx' )
-  if injFile:
-    ax.plot( injBestNR[4], injTraceSNR, 'rx' )
-  ax.set_xlabel( "BestNRmk4" )
-  ax.set_ylabel( "Trace SNR" )
-  fig.savefig( "%s/%s_trace_snr_vs_bestnr4.png" % ( outdir, tag ),\
-               bbox_inches='tight' )
-  ax.set_xlim( [6,30] )
-  ax.set_ylim( [4,30] )
-  fig.savefig( "%s/%s_trace_snr_vs_bestnr4_zoom.png" % ( outdir, tag ),\
                bbox_inches='tight' )
   
   # plot coinc SNR versus trace SNR
@@ -593,23 +555,21 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
                bbox_inches='tight' )
   
   # plot SNR versus chisq
-  for i in bestNRs:
-    if i<6:  continue
-    fig = pylab.figure()
-    ax  = fig.gca()
-    ax.loglog( trigSNR[trigBestNR[i] != 0], trigChiSquare[trigBestNR[i] != 0],\
-               'bx' )
-    if injFile:
-      ax.loglog( injSNR[injBestNR[i] != 0], injChiSquare[injBestNR[i] != 0],\
-                 'rx' )
-    plot_contours( ax, snr_vals,chi_conts, colors )
-    ax.set_xlabel( "SNR" )
-    ax.set_ylabel( "Chi Square" )
-    ax.set_xlim( [6,1000] )
-    fig.savefig( "%s/%s_chi_square_%d_vs_snr.png" % ( outdir, tag, i ) )
-    ax.set_xlim( [0,50] )
-    ax.set_ylim( [1,2000] )
-    fig.savefig( "%s/%s_chi_square_%d_vs_snr_zoom.png" % ( outdir, tag, i ) )
+  fig = pylab.figure()
+  ax  = fig.gca()
+  ax.loglog( trigSNR[trigBestNR != 0], trigChiSquare[trigBestNR != 0],\
+             'bx' )
+  if injFile:
+    ax.loglog( injSNR[injBestNR != 0], injChiSquare[injBestNR != 0],\
+               'rx' )
+  plot_contours( ax, snr_vals,chi_conts, colors )
+  ax.set_xlabel( "SNR" )
+  ax.set_ylabel( "Chi Square" )
+  ax.set_xlim( [6,1000] )
+  fig.savefig( "%s/%s_chi_square_vs_snr.png" % ( outdir, tag ) )
+  ax.set_xlim( [0,50] )
+  ax.set_ylim( [1,2000] )
+  fig.savefig( "%s/%s_chi_square_vs_snr_zoom.png" % ( outdir, tag ) )
   
   # plot SNR versus loudest SNR
   fig = pylab.figure()
@@ -642,22 +602,6 @@ def main( trigFile, injFile, tag, outdir, verbose=False ):
     ax.set_xlim( [6,50] )
     ax.set_ylim( [0,20] )
     fig.savefig( "%s/%s_second_snr_vs_snr_zoom.png" % ( outdir, tag ),\
-                 bbox_inches='tight' )
-  
-  # plot bestNR 5 versus second SNR
-  if len(ifos)>1:
-    fig = pylab.figure()
-    ax  = fig.gca()
-    ax.plot( trigBestNR[5], trigSecondSNR, 'bx' )
-    if injFile:
-      ax.plot( injBestNR[5], injSecondSNR, 'rx' )
-    ax.set_xlabel( "BestNRmk5" )
-    ax.set_ylabel( "Second loudest sngl SNR" )
-    fig.savefig( "%s/%s_second_snr_vs_bestnr5.png" % ( outdir, tag ),\
-                 bbox_inches='tight' )
-    ax.set_xlim( [0,50] )
-    ax.set_ylim( [0,20] )
-    fig.savefig( "%s/%s_second_snr_vs_bestnr5_zoom.png" % ( outdir, tag ),\
                  bbox_inches='tight' )
   
   # plot SNR versus third loudest SNR
@@ -834,7 +778,10 @@ if __name__=='__main__':
   injFile   = None
   if opts.inj_file:
     injFile = os.path.abspath( opts.inj_file )
-  GRBnum     = 'GRB%s' % opts.grb_name
-
-  main( trigFile, injFile, GRBnum, outdir, verbose=verbose )
+  GRBnum    = 'GRB%s' % opts.grb_name
+  q         = opts.chisq_index
+  n         = opts.chisq_nhigh
+  nullt     = map( float, opts.null_snr_threshold.split(',') )
+  main( trigFile, injFile, GRBnum, outdir, chisq_index=q, chisq_nhigh=n,\
+        null_thresh = nullt, verbose=verbose )
  

@@ -5,163 +5,127 @@ from glue import segmentsUtils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 
-# define newsnr
-def new_snr( snr, chisq, W, Q, N ):
+# define new_snr
+def new_snr( snr, chisq, chisq_dof, q=4.0, n=3.0 ):
 
-  return snr / ( ( 1 + (chisq/W)**(Q/N))/2 ) ** (1/Q)
+  if chisq_dof==0:
+    chisq_dof = 40
 
-def get_signal_vetoes( trigger, bankq=0, bankn=0, autoq=0, auton=0, chiq=0,\
-                       chin=0, fResp = None ):
+  if chisq <= chisq_dof:
+    return snr
+  return snr / ((1 + (chisq / chisq_dof)**(q/n)) / 2)**(1/q)
+
+# reverse engineer new_snr for contours
+def new_snr_chisq( snr, new_snr, chisq_dof, q=4.0, n=3.0 ):
+
+  chisqnorm = (snr/new_snr)**q
+ 
+  if chisqnorm <= 1:
+    return chisqnorm
+  return chisq_dof * (2*chisqnorm - 1)**(n/q)
+
+def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
 
   """
-    Calculate and apply all signal based vetoes for the given trigger. This
-    will generate eight different SNRs for the different stages of this
-    process and return them as a dictionary.
-    
-    The signal based vetoes are applied in the following order:
-    1) Chi-squared
-    2) Coherent SNR < 6
-    3) Bank chi-squared
-    4) Auto veto (continuous chi-squared)
-    5) Null SNR ( ( CoincSNR^2 - CohSNR^2 )^(1/2) )
-    6) Single-detector SNR (from two most sensitive IFOs)
-    7) None
-    8) None
+    Calculate BestNR (coh_PTF detection statistic) through signal based vetoes:
+
+    The signal based vetoes are as follows:
+      * Coherent SNR < 6
+      * Bank chi-squared reduced (new) SNR < 6
+      * Auto veto reduced (new) SNR < 6
+      * Single-detector SNR (from two most sensitive IFOs) < 4
+      * Null SNR (CoincSNR^2 - CohSNR^2)^(1/2) < nullthresh
+    Returns BestNR as float
   """
 
-  # set variables
-  sbvs = {}
-  q = bankq
-  nhigh = bankn
-  q2 = autoq
-  nhigh2 = auton
+  # coherent SNR and null SNR cut
+  if (trig.snr < 6):
+    return 0
 
-  # get new SNR (from chisq)
-  if trigger.chisq == 0:
-    sbvs[1] = 0
-  else:
-    if trigger.chisq < 60:
-      sbvs[1] = trigger.snr
-    else:
-      sbvs[1] = new_snr( trigger.snr, trigger.chisq, 60, chiq, chin )
+  # bank veto cut
+  bank_new_snr = new_snr( trig.snr, trig.bank_chisq, trig.bank_chisq_dof, q, n )
+  if bank_new_snr < 6:
+    return 0
 
-  # get SNR2
-  if trigger.snr < 6.:
-    sbvs[2] = 0
-  else:
-    sbvs[2] = sbvs[1]
+  # auto veto cut
+  auto_new_snr = new_snr( trig.snr, trig.cont_chisq, trig.cont_chisq_dof, q, n )
+  if auto_new_snr < 6:
+    return 0
 
-  # get new bank SNR
-  if trigger.bank_chisq < 40:
-    sbvs[3] = sbvs[2]
-  else:
-    bank_new_snr = new_snr( trigger.snr, trigger.bank_chisq, 40, q, nhigh )
-    if bank_new_snr < 6.:
-      sbvs[3] = 0
-    else:
-      sbvs[3] = sbvs[2]
-
-  # get new auto SNR
-  if trigger.cont_chisq < 40:
-    sbvs[4] = sbvs[3]
-  else:
-    auto_new_snr = new_snr( trigger.snr, trigger.cont_chisq, 160, q2, nhigh2 )
-    if auto_new_snr < 6.:
-      sbvs[4] = 0
-    else:
-      sbvs[4] = sbvs[3]
-
-  # get null affected SNR
-  ifos = [ trigger.ifos[i*2:(i*2)+2]\
-           for i in range(int(len(trigger.ifos)/2)) ]
+  # define IFOs for sngl cut
+  ifos   = [ trig.ifos[i*2:(i*2)+2] for i in range(int(len(trig.ifos)/2)) ]
   ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'T1':'t', 'V1':'v' }
-  # null SNR = sqrt( coincSNR^2 - cohSNR^2 )
-  if len(ifos)<3:
-    null_snr=0
-  else:
-    null_snr = ( sum([ trigger.__getattribute__('snr_%s' % ifoAtt[ifo])**2\
-                       for ifo in ifos ]) - trigger.snr**2 )**0.5
 
-  if null_snr > 3.5 and trigger.snr < 30:
-    sbvs[5] = sbvs[4] * 1/(null_snr - 2.5)
-  elif trigger.snr > 30:
-    null_threshold = 3.5 + (trigger.snr -30)*50./700.
-    if null_snr > null_threshold:
-      sbvs[5]=sbvs[4]*1/(null_snr-(null_threshold-1))
-    else:
-      sbvs[5] = sbvs[4]
-  else:
-    sbvs[5] = sbvs[4]
-
-  # apply IFO sensitivity cut
+  # single detector SNR cut
   ifoSens = []
-  # get ifo sensitivity measure
   for ifo in ifos:
-    ifoSens.append( (ifo, trigger.__getattribute__('sigmasq_%s' %ifoAtt[ifo])\
-                              * fResp[ifo] ) )
-  # rank and test two most sensitive IFOs
+    ifoSens.append(( ifo,
+                     getattr(trig,'sigmasq_%s' %ifoAtt[ifo]) * fResp[ifo] ))
   ifoSens.sort( key=lambda (ifo,sens): sens, reverse=True )
-  sbvs[8] = sbvs[5]
-  for i in range(2):
-    ifo = ifoSens[i][0]
-    if trigger.__getattribute__('snr_%s' % ifoAtt[ifo]) < 4:
-      sbvs[8] = 0
-    
-  # set old BestNRs
-  sbvs[6] = sbvs[8]
-  sbvs[7] = sbvs[6]
+  for i in [0,1]:
+    if getattr( trig, 'snr_%s' % ifoAtt[ifo] ) <4:
+      return 0 
 
-  return sbvs
+  # get chisq reduced (new) SNR
+  bestNR = new_snr( trig.snr, trig.chisq, trig.chisq_dof, q, n )
 
-def calculate_contours( bankq=0, bankn=0, autoq=0, auton=0, chiq=0, chin=0,\
-                        nullt=0, nullo=0 ):
+  # get null 
 
+  # get null reduced SNR
+  if len(ifos)<3:
+    return bestNR
+
+  null_snr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+                     for ifo in ifos ]) - trig.snr**2 )**0.5
+  if trig.snr > 30:
+    null_thresh = numpy.array(null_thresh)
+    null_thresh = ( null_thresh - 30 )*5/70
+  if null_snr > null_thresh[-1]:
+    return 0
+  elif null_snr > null_thresh[0]:
+    bestNR *= 1 / (null_snr - null_thresh[0] + 1)
+
+  return bestNR
+
+def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
+                        null_grad_snr=30 ):
+
+  """
+    Generate the plot contours for chisq variable plots
+  """
+  # initialise chisq contour values and colours
   cont_vals = [5.5,6,6.5,7,8,9,10,11]
   num_vals  = len(cont_vals)
   colors    = ['y-','k-','y-','y-','y-','y-','y-','y-']
 
-  snr_vals      = numpy.arange(6,30,0.1)
+  # get SNR values for contours
+  snr_low_vals  = numpy.arange(6,30,0.1)
   snr_high_vals = numpy.arange(30,500,1)
-  snr_all       = []
-  for snr in snr_vals:
-    snr_all.append(snr)
-  for snr in snr_high_vals:
-    snr_all.append(snr)
+  snr_vals      = numpy.asarray(list(snr_low_vals) + list(snr_high_vals))
 
-  snr_vals = numpy.asarray(snr_all)
-
-  bank_conts = [[],[],[],[],[],[],[],[]]
-  auto_conts = [[],[],[],[],[],[],[],[]]
-  chi_conts  = [[],[],[],[],[],[],[],[]]
+  # initialise contours
+  bank_conts = [[]]*num_vals
+  auto_conts = [[]]*num_vals
+  chi_conts  = [[]]*num_vals
   null_cont  = []
 
+  # set chisq dof
+  # FIXME should be done with variables
+  chisq_dof = 60
+  bank_chisq_dof = 40
+  cont_chisq_dof = 160
+
+  # loop over each and calculate chisq variable needed for SNR contour
   for snr in snr_vals:
-    for i in range(num_vals):
-      bank_val = (snr/cont_vals[i])**bankq
-      if (bank_val > 1):
-        bank_val = (bank_val*2 - 1)**(bankn/bankq)
-      else:
-        bank_val = 1E-20
-      bank_conts[i].append(bank_val*40)      
+    for i,new_snr in enumerate(cont_vals):
+      bank_conts[i].append(new_snr_chisq( snr, new_snr, bank_chisq_dof, q, n ))
+      auto_conts[i].append(new_snr_chisq( snr, new_snr, cont_chisq_dof, q, n ))
+      chi_conts[i].append(new_snr_chisq( snr, new_snr, chisq_dof, q, n ))
 
-      auto_val = (snr/cont_vals[i])**autoq
-      if (auto_val > 1):
-        auto_val = (auto_val*2 - 1)**(auton/autoq)
-      else:
-        auto_val = 1E-20
-      auto_conts[i].append(auto_val*160)
-
-      chi_val = (snr/cont_vals[i])**chiq
-      if (chi_val > 1):
-        chi_val = (chi_val*2 - 1)**(chin/chiq)
-      else:
-        chi_val = 1E-20
-      chi_conts[i].append(chi_val*60)
-
-    if snr > nullo:
-      null_cont.append(nullt+(snr-nullo)*50./700.)
+    if snr > null_grad_snr:
+      null_cont.append(null_thresh + (snr-null_grad_snr)*5/70)
     else:
-      null_cont.append(nullt)
+      null_cont.append(null_thresh)
 
   return bank_conts,auto_conts,chi_conts,null_cont,snr_vals,colors
 
@@ -216,7 +180,7 @@ def get_ra_dec(grbFile):
     DEPRECATED
   """
 
-  ext_trigs = grbsummary.load_external_triggers(grbFile)
+  ext_trigs = grbsummary.load_external_trigs(grbFile)
   ra = ext_trigs[0].event_ra
   dec = ext_trigs[0].event_dec
   return ra,dec
@@ -238,7 +202,7 @@ def read_sigma_vals( sigmaFile ):
 
   return sigmaVals
     
-def get_det_response( ra, dec, triggerTime ):
+def get_det_response( ra, dec, trigTime ):
 
   """
     Return detector response for complete set of IFOs for given sky location
@@ -250,7 +214,7 @@ def get_det_response( ra, dec, triggerTime ):
   inclination   = 0
   polarization  = 0
   for ifo in ['G1','H1','H2','L1','T1','V1']:
-    f_plus[ifo],f_cross[ifo],_,_ = antenna.response( triggerTime, ra, dec,\
+    f_plus[ifo],f_cross[ifo],_,_ = antenna.response( trigTime, ra, dec,\
                                                      inclination, polarization,\
                                                      'degree', ifo )
   return f_plus,f_cross

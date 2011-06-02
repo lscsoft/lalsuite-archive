@@ -100,6 +100,19 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
 
   parser.add_option( "-o", "--output-path", action="store", type="string",\
                      default=os.getcwd(), help="Output path for plots"  )
+
+  parser.add_option( "-Q", "--chisq-index", action="store", type="float",\
+                     default=4.0, help="chisq_index for newSNR calculation, "+\
+                                       "default: %default" )
+
+  parser.add_option( "-N", "--chisq-nhigh", action="store", type="float",\
+                     default=3.0, help="nhigh for newSNR calculation, "+\
+                                       "default: %default" )
+
+  parser.add_option( "-A", "--null-snr-threshold", action="store",\
+                     type="string", default="3.5,5.25",\
+                     help="comma separated lower,higher null SNR thresholds, "+\
+                          " for null SNR cut, default: \"%default\"" )
   
   parser.add_option( "-v", "--verbose", action="store_true", default=False,\
                      help="verbose output, default: %default" )
@@ -127,7 +140,8 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
 # =============================================================================
 
 def main( segdir, outdir, trigFile, foundFile, missedFile,\
-          onsourceFile, verbose=False, doinj=False ):
+          onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
+          chisq_nhigh=3.0, null_thresh = (3.5,5.25) ):
 
   # set output directory
   if not os.path.isdir(outdir):
@@ -167,33 +181,20 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' }
 
   # Parameters for auto and bank veto  
-  q = 4.
-  nhigh = 3.
-  q2 = 4.
-  nhigh2 = 3.
-  chiq = 4.
-  chin = 3.
   massBins = [[0,3.48],[3.48,6.],[6.,20]]
 
-  bestNRs = xrange(1,9)
-  rankBestNR = bestNRs[-1]
 
   trigTime = {}
   trigSNR = {}
   trigBestNR = {}
-  for i in xrange(1,9):
-    trigBestNR[i] = {}
   
   for bin in massBins:
     trigTime[bin[0]] = []
     trigSNR[bin[0]] = []
-    for i in bestNRs:
-      trigBestNR[i][bin[0]] = []
+    trigBestNR[bin[0]] = []
   
-  timeBinMaxSNR = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
-  timeBinMaxBestNR = {}
-  for i in bestNRs:
-    timeBinMaxBestNR[i] = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
+  timeBinMaxSNR    = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
+  timeBinMaxBestNR = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
 
   # store response function for each sky locations
   fResp = {}
@@ -228,12 +229,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
 
     # calculate signal based statistics
-    sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2,\
-                              auton=nhigh2, chiq=chiq, chin=chin,\
-                              fResp=fResp[trigPos] )
+    bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                         null_thresh=null_thresh, fResp=fResp[trigPos])
 
-    for i in bestNRs:
-      trigBestNR[i][trigBin[0]].append( sbvs[i] )
+    trigBestNR[trigBin[0]].append( bestNR )
 
     # Determine chunk number
     chunkNum = numSegs
@@ -259,28 +258,23 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     if timeBinMaxSNR[len(massBins),chunkNum] < trigSNR[trigBin[0]][-1]:
       timeBinMaxSNR[len(massBins),chunkNum] = trigSNR[trigBin[0]][-1]
 
-    for i in bestNRs:
-      if timeBinMaxBestNR[i][trigBinNum,chunkNum]\
-             < trigBestNR[i][trigBin[0]][-1]:
-        timeBinMaxBestNR[i][trigBinNum,chunkNum] = trigBestNR[i][trigBin[0]][-1]
-      if timeBinMaxBestNR[i][len(massBins),chunkNum]\
-             < trigBestNR[i][trigBin[0]][-1]:
-        timeBinMaxBestNR[i][len(massBins),chunkNum]\
-            = trigBestNR[i][trigBin[0]][-1]
+    if timeBinMaxBestNR[trigBinNum,chunkNum] < trigBestNR[trigBin[0]][-1]:
+        timeBinMaxBestNR[trigBinNum,chunkNum]    = trigBestNR[trigBin[0]][-1]
+    if timeBinMaxBestNR[len(massBins),chunkNum] < trigBestNR[trigBin[0]][-1]:
+      timeBinMaxBestNR[len(massBins),chunkNum] = trigBestNR[trigBin[0]][-1]
  
   # ==========================
   # print loudest SNRs to file
   # ==========================
  
-  maxSNR = {}
-  maxBestNR = {}
-  medianSNR = {}
+  maxSNR       = {}
+  maxBestNR    = {}
+  medianSNR    = {}
   medianBestNR = {}
-  for i in bestNRs:
-    maxBestNR[i]    = {}
-    medianBestNR[i] = {}
+  maxBestNR    = {}
+  medianBestNR = {}
   
-  th = ['','SNR']+['BestNRmk%d' % d for d in bestNRs]
+  th = ['','SNR','BestNR']
   td = []
 
   binNum = 0
@@ -290,57 +284,44 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     maxSNR[bin[0]] = trigSNR[bin[0]].max()
     timeBinMaxSNR[binNum].sort()
  
-    for i in bestNRs:
-      trigBestNR[i][bin[0]] = numpy.asarray(trigBestNR[i][bin[0]])
-      maxBestNR[i][bin[0]]  = trigBestNR[i][bin[0]].max()
-      timeBinMaxBestNR[i][binNum].sort()
+    trigBestNR[bin[0]] = numpy.asarray(trigBestNR[bin[0]])
+    maxBestNR[bin[0]]  = trigBestNR[bin[0]].max()
+    timeBinMaxBestNR[binNum].sort()
     if (numSegs % 2):
       medianSNR[bin[0]] = (timeBinMaxSNR[binNum])[(numSegs - 1) /2]
-      for i in bestNRs:
-        medianBestNR[i][bin[0]]\
-            = (timeBinMaxBestNR[i][binNum])[(numSegs - 1) /2]
+      medianBestNR[bin[0]] = (timeBinMaxBestNR[binNum])[(numSegs - 1) /2]
     else:
       medianSNR[bin[0]] = (timeBinMaxSNR[binNum])\
                               [numSegs/2 - 1:numSegs/2 + 1].mean()
-      for i in bestNRs:
-        medianBestNR[i][bin[0]]\
-            = (timeBinMaxBestNR[i][binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+      medianBestNR[bin[0]]\
+          = (timeBinMaxBestNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
   
     binNum += 1
   
-    d = [ 'Loudest in Mchirp bin %s - %s' % tuple(bin), maxSNR[bin[0]] ]
-    for i in bestNRs:
-      d.append( maxBestNR[i][bin[0]] )
+    d = [ 'Loudest in Mchirp bin %s - %s' % tuple(bin), maxSNR[bin[0]],\
+          maxBestNR[bin[0]] ]
     td.append(d)
-    d = [ 'Median in Mchirp bin %s - %s' % tuple(bin), medianSNR[bin[0]] ]
-    for i in bestNRs:
-      d.append( medianBestNR[i][bin[0]] )
+    d = [ 'Median in Mchirp bin %s - %s' % tuple(bin), medianSNR[bin[0]],\
+           medianBestNR[bin[0]] ]
     td.append(d)
     td.append([]) 
  
   # work out all mass bins
   maxSNR['all'] = numpy.array(maxSNR.values()).max()
-  for i in bestNRs:
-    maxBestNR[i]['all'] = numpy.array(maxBestNR[i].values()).max()
+  maxBestNR['all'] = numpy.array(maxBestNR.values()).max()
   if (numSegs % 2):
     medianSNR['all'] = (timeBinMaxSNR[binNum])[(numSegs - 1) /2]
-    for i in bestNRs:
-      medianBestNR[i]['all'] = (timeBinMaxBestNR[i][binNum])[(numSegs - 1) /2]
+    medianBestNR['all'] = (timeBinMaxBestNR[binNum])[(numSegs - 1) /2]
   else:
     medianSNR['all']\
         = (timeBinMaxSNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
-    for i in bestNRs:
-      medianBestNR[i]['all']\
-          = (timeBinMaxBestNR[i][binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+    medianBestNR['all']\
+        = (timeBinMaxBestNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
   
   # print to html table
-  d = [ "Loudest in all bins", maxSNR['all'] ]
-  for i in bestNRs:
-    d.append( maxBestNR[i]['all'] )
+  d = [ "Loudest in all bins", maxSNR['all'], maxBestNR['all'] ]
   td.append(d)
-  d = [ "Median in all bins", medianSNR['all'] ]
-  for i in bestNRs:
-    d.append( medianBestNR[i]['all'] )
+  d = [ "Median in all bins", medianSNR['all'], medianBestNR['all'] ]
   td.append(d)
 
   # write html table with results
@@ -415,17 +396,16 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     foundmedSNRinj = numpy.zeros([len(massBins)+1,len(distBins)+1],dtype=float)
     foundmaxBestNR = {}
     foundmedBestNR = {}
-    for i in bestNRs:
-      foundmaxBestNR[i] = numpy.zeros( [len(massBins)+1, len(distBins)+1 ],\
-                                       dtype=float )
-      foundmedBestNR[i] = numpy.zeros( [len(massBins)+1, len(distBins)+1 ],\
-                                       dtype=float)
+    foundmaxBestNR = numpy.zeros( [len(massBins)+1, len(distBins)+1 ],\
+                                  dtype=float )
+    foundmedBestNR = numpy.zeros( [len(massBins)+1, len(distBins)+1 ],\
+                                  dtype=float)
    
     # process found injections
     for inj,trig in zip(foundInjs,foundTrigs):
 
       try:
-        effDist = sum([ 1/trig.__getattribute__('eff_dist_%s' % ifoAtt[ifo] )\
+        effDist = sum([ 1/getattr(trig,'eff_dist_%s' % ifoAtt[ifo] )\
                         for ifo in ifos ])**-1
       except ZeroDivisionError:
         effDist = 0
@@ -477,15 +457,14 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for ifo in ifos:
           fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
  
-      sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2,\
-                                auton=nhigh2, chiq=chiq, chin=chin,\
-                                fResp=fResp[trigPos] )
+      bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                  null_thresh=null_thresh, fResp=aPat[trigPos])
 
-      statList = [trig.snr]+[ sbvs[i] for i in bestNRs ]
-      foundMaxList = [foundmaxSNRinj]+[foundmaxBestNR[i] for i in bestNRs]
-      foundMedList = [foundmedSNRinj]+[foundmedBestNR[i] for i in bestNRs]
-      maxStatList  = [maxSNR]+[maxBestNR[i] for i in bestNRs]
-      medStatList  = [medianSNR]+[medianBestNR[i] for i in bestNRs]
+      statList     = [ trig.snr, bestNR ]
+      foundMaxList = [ foundmaxSNRinj, foundmaxBestNR ]
+      foundMedList = [ foundmedSNRinj, foundmedBestNR ]
+      maxStatList  = [ maxSNR, maxBestNR ]
+      medStatList  = [ medianSNR, medianBestNR ]
 
       # get sky angle between injected and recovered positions
       centralAngle = numpy.arccos( numpy.cos(injPos[1]-trigPos[1]) -\
@@ -494,30 +473,30 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
       # Note that hero we are using BestNRmk8 as the detection stat
       # if louder than all background:
-      if sbvs[rankBestNR] > maxBestNR[rankBestNR][trigBin[0]]:
+      if bestNR > maxBestNR[trigBin[0]]:
         gFoundEffDist.append(effDist)
         for site in sites:
-          gFoundEffSiteDist[site].append( inj.__getattribute__('eff_dist_%s'\
+          gFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                                % site.lower()) )
         gFoundDist.append( inj.distance )
         gFoundMchirp.append( inj.mchirp )
         gFoundMtot.append( inj.mass1 + inj.mass2 )
-        gFoundDetStat.append( sbvs[rankBestNR] )
+        gFoundDetStat.append( bestNR )
         gFoundTime.append( float(inj.get_time_geocent()) )
         gFoundSkyAngle.append( float(centralAngle) )
       #elif found at all:
-      elif sbvs[rankBestNR] > 0:
+      elif bestNR > 0:
         gIFARMchirp.append( inj.mchirp )
         gIFARMtot.append( inj.mass1 + inj.mass2 )
         gIFAREffDist.append( effDist )
         for site in sites:
-          gIFAREffSiteDist[site].append( inj.__getattribute__('eff_dist_%s'\
-                                                              % site.lower()) )
+          gIFAREffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
+                                                     % site.lower()) )
         gIFARDist.append( inj.distance )
         gIFARTime.append( float(inj.get_time_geocent()) )
         numTrialsLouder = 0
-        for val in timeBinMaxBestNR[rankBestNR][trigBinNum]:
-          if val > sbvs[rankBestNR]:
+        for val in timeBinMaxBestNR[trigBinNum]:
+          if val > bestNR:
             numTrialsLouder+=1
         gIFARStat.append(numTrialsLouder/numSegs)
         gIFARTrig.append(trig)
@@ -527,8 +506,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       else:
         gMissed2Effdist.append(effDist)
         for site in sites:
-          gMissed2EffSitedist[site].append( inj.__getattribute__('eff_dist_%s'\
-                                                               % site.lower()) )
+          gMissed2EffSitedist[site].append( getattr(inj,'eff_dist_%s'\
+                                                        % site.lower()) )
         gMissed2Trig.append( trig )
         gMissed2Inj.append( inj )
         gMissed2Mchirp.append( inj.mchirp )
@@ -551,24 +530,23 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                 'SNR', 'Chi^2', 'Bank veto', 'Auto veto',\
                 'Null SNR'])
     for ifo in ifos:  th.append( 'SNR %s' % ifo )
-    th.extend([ 'BestNR%d' % i for i in bestNRs ])
+    th.append('BestNR')
     td = []
  
     for i in range(10):
       inj = gQuietFound[i][2]
       trig = gQuietFound[i][1]
-      sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2, \
-                                auton=nhigh2, chiq=chiq, chin=chin,\
-                                fResp=fResp[trigPos] )
+      bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                  null_thresh=null_thresh, fResp=aPat[trigPos])
       if len(ifos)>2:
-        nullsnr = ( sum([ trig.__getattribute__('snr_%s' % ifoAtt[ifo])**2\
+        nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                           for ifo in ifos ])\
                     - trig.snr**2 )**0.5
       else:
         nullsnr = 0
       d = [ i, inj.distance ]
       for site in sites:
-        d.append( inj.__getattribute__( 'eff_dist_%s' % site.lower() ) )
+        d.append( getattr(inj, 'eff_dist_%s' % site.lower() ) )
       d.extend([ inj.mass1, inj.mass2, inj.mchirp,\
                  trig.mass1, trig.mass2, trig.mchirp,\
                  inj.inclination, inj.longitude*fRadDeg, inj.latitude*fRadDeg,\
@@ -576,8 +554,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                  trig.snr, trig.chisq, trig.bank_chisq,\
                  trig.cont_chisq, nullsnr ])
       for ifo in ifos:
-        d.append( trig.__getattribute__('snr_%s' % ifoAtt[ifo]) )
-      d.extend([ sbvs[i] for i in bestNRs ])
+        d.append( getattr(trig,'snr_%s' % ifoAtt[ifo]) )
+      d.append(bestNR)
       # append trigger to list
       td.append(d) 
     page = markup.page()
@@ -588,7 +566,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     # process missed injections
     for inj in missedInjs:
-      effDist = sum([ 1/inj.__getattribute__('eff_dist_%s' % ifo[0].lower() )\
+      effDist = sum([ 1/getattr(inj,'eff_dist_%s' % ifo[0].lower() )\
                       for ifo in ifos ])**-1
   
       trigBin = None
@@ -622,8 +600,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       gMissedTime.append(    float(inj.get_time_geocent()) )
 
       for site in sites:
-        gMissedEffDist[site].append( inj.__getattribute__('eff_dist_%s'\
-                                                          % site.lower()) )
+        gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
+                                                 % site.lower()) )
 
     start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
                      min(gMissed2Time)])) 
@@ -682,9 +660,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for ifo in ifos:
           fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
  
-      sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2,\
-                                auton=nhigh2, chiq=chiq, chin=chin,\
-                                fResp=fResp[trigPos] )
+      bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                  null_thresh=null_thresh, fResp=fResp[trigPos])
 
       if loudSNRTrigs.has_key(trigBin[0]):
         if loudSNR[trigBin[0]] < trig.snr:
@@ -694,35 +671,34 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         loudSNR[trigBin[0]]      = trig.snr
         loudSNRTrigs[trigBin[0]] = trig
       if loudBestNRTrigs.has_key(trigBin[0]):
-        if loudBestNR[trigBin[0]] < sbvs[rankBestNR]:
-          loudBestNR[trigBin[0]] = sbvs[rankBestNR]
+        if loudBestNR[trigBin[0]] < bestNR:
+          loudBestNR[trigBin[0]] = bestNR
           loudBestNRTrigs[trigBin[0]] = trig
-      elif sbvs[rankBestNR] != 0:
-        loudBestNR[trigBin[0]] = sbvs[rankBestNR]
+      elif bestNR != 0:
+        loudBestNR[trigBin[0]] = bestNR
         loudBestNRTrigs[trigBin[0]] = trig
   
     file2 = open( '%s/loud_numbers.txt' % outdir, 'w' )
     th = [ 'Bin', 'FAP', 'GPS', 'Rec. m1', 'Rec. m2', 'Rec. Mc', 'Rec. RA',\
            'Rec. Dec', 'SNR', 'Chi^2', 'Bank veto', 'Auto veto', 'Null SNR' ]
     th.extend([ '%s SNR' % ifo for ifo in ifos ])
-    th.extend([ 'BestNR%d' % i for i in bestNRs ])
+    th.append('BestNR')
     td = [] 
  
     binNum = 0
     for bin in massBins:
       numTrialsLouder = 0
       if loudBestNR.has_key(bin[0]):
-        for val in timeBinMaxBestNR[rankBestNR][binNum]:
+        for val in timeBinMaxBestNR[binNum]:
           if val > loudBestNR[bin[0]]:
             numTrialsLouder += 1
         FAP = numTrialsLouder/numSegs
         trig = loudBestNRTrigs[bin[0]]
         trigPos = (trig.ra,trig.dec)
-        sbvs = get_signal_vetoes( trig, bankq=q, bankn=nhigh, autoq=q2,\
-                                  auton=nhigh2, chiq=chiq, chin=chin,\
-                                  fResp=fResp[trigPos] )
+        bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh, fResp=fResp[trigPos])
         if len(ifos)>2:
-          nullsnr = ( sum([ trig.__getattribute__('snr_%s' % ifoAtt[ifo])**2\
+          nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                             for ifo in ifos ])\
                       - trig.snr**2 )**0.5
         else:
@@ -733,9 +709,9 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
               trig.ra*fRadDeg, trig.dec*fRadDeg,\
               trig.snr, trig.chisq, trig.bank_chisq,\
               trig.cont_chisq, nullsnr ]
-        d.extend([ trig.__getattribute__('snr_%s' % ifoAtt[ifo])\
+        d.extend([ getattr(trig,'snr_%s' % ifoAtt[ifo])\
                    for ifo in ifos ])
-        d.extend([ sbvs[i] for i in bestNRs ])
+        d.append(bestNR)
         print >>file2, str(FAP)
         td.append(d)  
 
@@ -766,7 +742,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     fig = pylab.figure()
     ax = fig.gca()
     temp = []
-    for item in timeBinMaxBestNR[rankBestNR][binNum]:
+    for item in timeBinMaxBestNR[binNum]:
       temp.append([item])
     cumplot = plotutils.CumulativeHistogramPlot( "BestNR",
                                                  "False alarm probability",
@@ -802,9 +778,9 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     lineColours = ['r-','b-','g-','m-','c-']
     lineColors = ['r','b','g','m','c']
   
-    statList = ['SNR']+['BestNRmk%d' % i for i in bestNRs]
-    maxList = [foundmaxSNRinj]+[foundmaxBestNR[i] for i in bestNRs]
-    medList = [foundmedSNRinj]+[foundmedBestNR[i] for i in bestNRs]
+    statList = [ 'SNR', 'BestNR' ]
+    maxList = [foundmaxSNRinj, foundmaxBestNR ]
+    medList = [foundmedSNRinj, foundmedBestNR ]
   
     file = open( "%s/injection_recovery.html" % outdir, "w" )
   
@@ -871,7 +847,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       fig = pylab.figure()
       ax = fig.gca()
       temp = []
-      for item in timeBinMaxBestNR[rankBestNR][binNum]:
+      for item in timeBinMaxBestNR[binNum]:
         temp.append([item])
       cumplot = plotutils.CumulativeHistogramPlot( "BestNR",
                                                    "False alarm probability",
@@ -1056,7 +1032,11 @@ if __name__=='__main__':
   onsourceFile = opts.onsource_file
   verbose      = opts.verbose
   doinj        = opts.do_injections
+  q            = opts.chisq_index
+  n            = opts.chisq_nhigh
+  nullt        = map( float, opts.null_snr_threshold.split(',') )
  
   main( segdir, outdir, trigFile, foundFile, missedFile,\
-        onsourceFile, verbose=verbose, doinj=doinj )
+        onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
+        chisq_nhigh=n, null_thresh = nullt )
 

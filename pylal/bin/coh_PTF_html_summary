@@ -155,7 +155,7 @@ def write_offsource( page, ifos, grbtag, onsource=False ):
     dir = 'OFFSOURCE'
 
   plot = markup.page()
-  p = "%s/plots_clustered/GRB%s_bestnrmk8_vs_time_noinj.png" % ( dir, grbtag )
+  p = "%s/plots_clustered/GRB%s_bestnr_vs_time_noinj.png" % ( dir, grbtag )
   plot.a( href=p, title="Coherent SNR versus time" )
   plot.img( src=p )
   plot.a.close()
@@ -411,7 +411,7 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
 
   # initialise page
   title   = 'Coherent PTF Inspiral search of GRB%s' % GRBnum
-  banner  = write_banner( title, 'Test page' )
+  banner  = write_banner( title )
   js = 'coh_PTF_html_summary.js'
   script = {js:'javascript'}
   css = 'coh_PTF_html_summary.css'
@@ -458,8 +458,9 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   else:
     print >>sys.stderr, 'WARNING: Cannot find segments availability plot.'
   ## inifile is simply copied
-  if not os.path.samefile( inifile, '%s/%s'\
-                           % ( outdir, os.path.basename(inifile) ) ):
+  if not os.path.isfile( '%s/%s' % (outdir, os.path.basename(inifile)) ) or\
+     not os.path.samefile( inifile, '%s/%s'\
+                                    % ( outdir, os.path.basename(inifile) ) ):
     shutil.copy( inifile, outdir )
   
 
