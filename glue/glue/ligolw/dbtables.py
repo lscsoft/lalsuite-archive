@@ -180,19 +180,19 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 					except IOError, e:
 						import errno
 						import time
-						if e.errno != errno.ENOSPC:
+						if e.errno not in (errno.EPERM, errno.ENOSPC):
 							# anything other
 							# than out-of-space
 							# is a real error
-							raise e
+							raise
 						if i < 5:
 							if verbose:
-								print >>sys.stderr, "warning: attempt %d: no space left on device, sleeping and trying again ..." % i
+								print >>sys.stderr, "warning: attempt %d: %s, sleeping and trying again ..." % (i, errno.errorcode[e.errno])
 							time.sleep(10)
 							i += 1
 							continue
 						if verbose:
-							print >>sys.stderr, "warning: attempt %d: no space left on device: working with original file '%s'" % (i, filename)
+							print >>sys.stderr, "warning: attempt %d: %s: working with original file '%s'" % (i, errno.errorcode[e.errno], filename)
 						os.remove(target)
 						target = filename
 					break

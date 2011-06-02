@@ -196,11 +196,12 @@ for n, filename in enumerate(filenames):
 	segs |= contents.seglists
 
 	#
-	# Build triangulators
+	# Build triangulators.  The timing uncertainty of +/- 8e-5 s was
+	# measured with lalapps_string_plot_binj and is essentially
+	# identical for H1, H2, L1, and V1.
 	#
 
-	# FIXME:  don't hard-code 0.001
-	triangulators = stringutils.triangulators(dict((instrument, 0.001) for instrument in contents.instruments))
+	triangulators = stringutils.triangulators(dict((instrument, 8e-5) for instrument in contents.instruments))
 
 	#
 	# Record statistics.  Assume all files with sim_burst tables are
@@ -235,4 +236,4 @@ if options.T010150:
 else:
 	filename = options.output
 
-utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(stats.distributions, segs, name = u"string_cusp_likelihood"), filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+stringutils.write_likelihood_data(filename, stats.distributions, segs, verbose = options.verbose)
