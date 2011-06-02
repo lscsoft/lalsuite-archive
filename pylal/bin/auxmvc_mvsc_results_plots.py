@@ -8,10 +8,11 @@ import pylab
 import pdb
 import numpy
 from pylal import auxmvc_utils 
+import bisect
 
 parser=OptionParser(usage="Generates summary plots for KW aux-triggers processed by StatPatternRecognition", version = "Kari Hodge")
 parser.add_option("","--histograms", action="store_true", default=False, help="use if you want to produce histograms for each dimension")
-parser.add_option("","--tag", help="filename will be ROC_tag.png")
+parser.add_option("","--tag", help="filenames will be ROC_tag.png and efficiency_deadtime_tag.txt")
 (opts,files)=parser.parse_args()
 
 print files
@@ -59,12 +60,22 @@ pylab.ylim([0,1])
 pylab.savefig('ROC_'+opts.tag+'.png')	
 pylab.close()
 
-	
-#print clean_data
+print FAP 
+#FAP is a list that is naturally sorted in reverse order (highest to lowest),
+#we need to turn it into a regularly sorted list so that we can find the DP for
+#fiducial FAPs
+print len(FAP)
+print FAP[len(FAP)-36-1]
+print DP[len(FAP)-36-1]
+FAP.sort()
+edfile = open('efficiency_deadtime_'+opts.tag+'.txt','w')
+for threshold in [.01,.05,.1]:
+	tmpindex=bisect.bisect_left(FAP,threshold)
+	edfile.write("deadtime: "+str(FAP[tmpindex])+" efficiency: "+str(DP[len(FAP)-tmpindex-1])+"\n")
+
 if opts.histograms:
 	for i,var in enumerate(variables):
 		pylab.figure(i)
-		#print clean_data[var]
 		print var
 		pylab.hist(clean_data[var],100)
 		pylab.savefig("hist_twosided"+var+"_cleantimes") 
