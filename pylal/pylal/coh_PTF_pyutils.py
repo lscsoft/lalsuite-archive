@@ -63,7 +63,7 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
                      getattr(trig,'sigmasq_%s' %ifoAtt[ifo]) * fResp[ifo] ))
   ifoSens.sort( key=lambda (ifo,sens): sens, reverse=True )
   for i in [0,1]:
-    if getattr( trig, 'snr_%s' % ifoAtt[ifo] ) <4:
+    if getattr( trig, 'snr_%s' % ifoAtt[ifoSens[i][0].upper()] ) <4:
       return 0 
 
   # get chisq reduced (new) SNR
