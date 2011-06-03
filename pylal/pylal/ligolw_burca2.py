@@ -29,6 +29,7 @@ import math
 import numpy
 from scipy import interpolate
 import sys
+import traceback
 
 
 from pylal import git_version
@@ -314,7 +315,8 @@ def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, para
 	#
 
 	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = database.connection.cursor(), vetoseglists = database.vetoseglists, offset_vectors = offset_vectors, params_func = params_func, params_func_extra_args = params_func_extra_args):
-		events = map(row_from_cols, cursor.execute("""
+		try:
+			events = map(row_from_cols, cursor.execute("""
 SELECT
 	sngl_burst.*
 FROM
@@ -325,8 +327,11 @@ FROM
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
-		""", (coinc_event_id,)))
-		return likelihood_ratio(params_func([event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args))
+			""", (coinc_event_id,)))
+			return likelihood_ratio(params_func([event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args))
+		except:
+			traceback.print_exc()
+			raise
 
 	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
 
