@@ -51,6 +51,14 @@ class offsetvector(dict):
 	>>> x = offsetvector({"H1": 0, "L1": 10, "V1": 20})
 	>>> x["H1"]
 	0
+
+	The motivation for introducing this class, instead of using
+	dictionaries, is that it provides a number of tools for comparing
+	offset vectors besides strict value-for-value equality.  For
+	example the Python cmp() operation compares two offset vectors by
+	the relative offsets between instruments rather than their absolute
+	offsets.  There is also the ability to check if one offset vector
+	is a subset of another one.
 	"""
 
 	@property
@@ -101,7 +109,8 @@ class offsetvector(dict):
 
 	def __str__(self, compact = False):
 		"""
-		Dispaly an offset vector in human-readable form.
+		Return a human-readable string representation of an offset
+		vector.
 
 		Example:
 
@@ -117,6 +126,8 @@ class offsetvector(dict):
 
 	def __repr__(self):
 		"""
+		Return a string representation of the offset vector.
+
 		Example:
 
 		>>> a = offsetvector({"H1": -10.1234567, "L1": 0.1})
@@ -169,7 +180,12 @@ class offsetvector(dict):
 		>>> a.contains(b)
 		True
 
-		See also .__contains__()
+		Note the distinction between this and the "in" operator:
+
+		>>> b in a
+		False
+		>>> "H1" in a
+		True
 		"""
 		return offsetvector((key, offset) for key, offset in self.items() if key in other).deltas == other.deltas
 
@@ -199,7 +215,7 @@ class offsetvector(dict):
 		{'H2': 5, 'H1': 5}
 		"""
 		# FIXME:  should it be performed in place?  if it should
-		# be, should there be no return value?
+		# be, the should there be no return value?
 		for key, offset in sorted(kwargs.items()):
 			if key in self:
 				delta = offset - self[key]
