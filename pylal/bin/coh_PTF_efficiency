@@ -113,6 +113,25 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
                      type="string", default="3.5,5.25",\
                      help="comma separated lower,higher null SNR thresholds, "+\
                           " for null SNR cut, default: \"%default\"" )
+
+  parser.add_option( "-g", "--glitch-check-factor", action="store",\
+                     type="float",default=1.0,\
+                     help="When deciding exclusion efficiencies this value is"+\
+                          " multiplied to the offsource around the injection "+\
+                          "trigger to determine if it is just a loud glitch. "+\
+                          "default: %default" )
+  parser.add_option( "-C", "--cluster-window", action="store",\
+                     type="float",default=0.1,help="The cluster window used "+\
+                          "to cluster triggers in time. default: %default")
+  parser.add_option( "-U", "--upper-inj-dist", action="store",\
+                      type="float",default=100,help="The upper distance of "+\
+                          "the injections, if used. default: %default")
+  parser.add_option( "-L", "--lower-inj-dist", action="store",\
+                      type="float",default=0,help="The lower distance of "+\
+                          "the injections, if used. default: %default")
+  parser.add_option( "-n", "--num-bins", action="store",\
+                      type="int",default=0,help="The number of bins used to"+\
+                          "calculate injection efficiency. default: %default")
   
   parser.add_option( "-v", "--verbose", action="store_true", default=False,\
                      help="verbose output, default: %default" )
@@ -141,7 +160,8 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
 
 def main( segdir, outdir, trigFile, foundFile, missedFile,\
           onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
-          chisq_nhigh=3.0, null_thresh = (3.5,5.25) ):
+          chisq_nhigh=3.0, null_thresh = (3.5,5.25), glitchCheckFac = 1.0,\
+          clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20 ):
 
   # set output directory
   if not os.path.isdir(outdir):
@@ -456,9 +476,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   # Now we can start dealing with the injections
   # ============================================ 
 
-  glitchCheckFac = 1.05
-  clusterWindow = 0.1
-
   if doinj:
 
     if verbose:
@@ -529,9 +546,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     gMissedDist = []
     gMissedTime = []
    
-    # Need to unhardcode distBins
-    distBins = [ [0.5,5], [5,10], [10,15], [15,20], [20,25], [25,30], [30,35],\
-                 [35,40], [40,45], [45,50],[50,60],[60,70],[70,80],[80,90],[90,100] ]
+    distBins = zip(numpy.arange(lowerDist,upperDist,(upperDist-lowerDist)/numBins),numpy.arange(lowerDist,upperDist,(upperDist-lowerDist)/numBins) + (upperDist-lowerDist)/numBins)
   
     numInjections = numpy.zeros([len(massBins),len(distBins)+1],dtype=float)
     foundmaxBestNR = numpy.zeros( [len(massBins), len(distBins)+1 ],\
@@ -656,7 +671,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         # Firstly is the trigger louder than the loudest onsource
         if bestNR > loudOnBestNR[trigBin[0]]:
           # If so, also check that no louder triggers are within
-          # 2*cluster window of the injection trigger with no injection present
+          # cluster window of the injection trigger with no injection present
           # Note that a correction factor close to 1 is used to increase the
           # signifcance of the offsource triggers. This stops you getting a
           # SNR 7.5 glitch showing up as a 7.50001 trigger with an injection
@@ -671,11 +686,11 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
             missedExcl = True
           else:
             # Otherwise check against nearby triggers. We are looking for louder
-            # triggers within 2 * cluster_window
+            # triggers within cluster_window
             missedExcl = False
             for trig2 in trigs:
-              if abs(trig.get_end() - trig2.get_end()) < 2*clusterWindow:
-                trigPos2 = (trig.ra,trig.dec)
+              if abs(inj.get_end() - trig2.get_end()) < clusterWindow:
+                trigPos2 = (trig2.ra,trig2.dec)
                 if trigPos2 not in fResp.keys():
                   ra            = trig2.ra*fRadDeg
                   dec           = trig2.dec*fRadDeg
@@ -1124,8 +1139,15 @@ if __name__=='__main__':
   q            = opts.chisq_index
   n            = opts.chisq_nhigh
   nullt        = map( float, opts.null_snr_threshold.split(',') )
+  glitchCheckFac = opts.glitch_check_factor
+  clusterWindow = opts.cluster_window
+  upperDist = opts.upper_inj_dist
+  lowerDist = opts.lower_inj_dist
+  numBins = opts.num_bins
  
   main( segdir, outdir, trigFile, foundFile, missedFile,\
         onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
-        chisq_nhigh=n, null_thresh = nullt )
+        chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
+        clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
+        numBins=numBins )
 
