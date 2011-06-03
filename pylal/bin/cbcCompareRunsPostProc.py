@@ -148,10 +148,11 @@ def Make_injected_sky_map(dec_ra_inj,dec_ra_cal,dec_ra_ctrl,outdir,run):
     path_plots=os.path.join(outdir,run,'SkyPlots')
     checkDir(path_plots)
     np.seterr(under='ignore')
-
-    myfig=plt.figure(2,figsize=(15,15),dpi=200)
-    plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
+
+    #myfig=plt.figure(2,figsize=(15,15),dpi=200)
+    #plt.clf()
+    #m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
     ra_reverse = 2*pi_constant - np.asarray(dec_ra_inj)[::-1,1]*57.296
     plx,ply=m(
               ra_reverse,
@@ -171,24 +172,55 @@ def Make_injected_sky_map(dec_ra_inj,dec_ra_cal,dec_ra_ctrl,outdir,run):
     vert_y_ctrl=column_stack((ply_ctrl,ply))
     vert_x_cal=column_stack((plx,plx_cal))
     vert_y_cal=column_stack((ply,ply_cal))
-    for i in range(len(plx)):
-        plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
-        plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
-        plt.annotate(str(range(len(plx)).index(i)), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
-        plt.annotate(str(range(len(plx)).index(i)), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
-        plt.annotate(str(range(len(plx)).index(i)), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
-    plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
-    plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
-    plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
-    m.drawmapboundary()
-    m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
-    # draw parallels
-    m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
-    # draw meridians
-    plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
-    plt.title("Injected vs recovered positions") # add a title
-    myfig.savefig(os.path.join(path_plots,'injected_skymap.png'))
-    plt.clf()
+
+    ### Put a maximum of max_n injection in each plot to improve readability
+    max_n=20
+    d,r=divmod(len(plx),max_n)
+    for j in range(d):
+        myfig=plt.figure(2,figsize=(15,20),dpi=200)
+        plt.clf()
+        for i in range(j*max_n,(j+1)*max_n):
+            new_label=len(plx)-range(len(plx)).index(i)-1
+            plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
+            plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
+            plt.annotate(str(new_label), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
+            plt.annotate(str(new_label), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
+            plt.annotate(str(new_label), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+        plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
+        plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
+        plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
+        m.drawmapboundary()
+        m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
+	    # draw parallels
+        m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
+	    # draw meridians
+        plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
+        plt.title("Injected vs recovered positions") # add a title
+        myfig.savefig(os.path.join(path_plots,'injected_skymap_%i_%i.png'%(j*(max_n),(j+1)*(max_n-1))))
+        plt.clf()
+    if r!=0:
+        myfig=plt.figure(2,figsize=(15,20),dpi=200)
+        plt.clf()
+        for i in range(max_n*d,r+max_n*d):
+            new_label=len(plx)-range(len(plx)).index(i)-1
+            plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
+            plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
+            plt.annotate(str(new_label), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
+            plt.annotate(str(new_label), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
+            plt.annotate(str(new_label), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+        plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
+        plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal')
+        plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
+        m.drawmapboundary()
+        m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
+        # draw parallels
+        m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
+        # draw meridians
+        plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
+        plt.title("Injected vs recovered positions") # add a title
+        myfig.savefig(os.path.join(path_plots,'injected_skymap_%i_%i.png'%(max_n*d,r+max_n*d-1)))
+        plt.clf()
+
     return myfig
 
 
@@ -331,7 +363,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     recovered_positions_cal={}
     injected_positions=[]
     recovered_positions_ctrl=[]
-
+    print times
     ## prepare files with means and other useful data ###
     for run in range(len(Combine)):
         if int(run)==0:
@@ -475,12 +507,13 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
     #label_size=22
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
+    bsn_cal=data_cal[:,header_l.index('BSN')]
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
         y_delta=(data_cal[:,i]-data_ctrl[:,i])
         myfig=plt.figure(2,figsize=(5,5),dpi=80)
         ax=myfig.add_subplot(111)
-        ax.plot(network_snrs,y_delta,'ro',label='DeltavsSNR')
+        ax.plot(network_snrs,y_delta,'bo',label='DeltavsSNR')
         ax.set_xlabel('Network SNR cal',fontsize=label_size)
         ax.set_ylabel('delta_%s'%parameter,fontsize=label_size)
         locs, labels = (ax.get_xticks(),ax.get_xticklabels)
@@ -488,9 +521,12 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         grid()
         ax2=ax.twiny()
         ax2.set_xticks(locs)
-        ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
-        ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
+        ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(bsn_cal),max(bsn_cal),len(locs))])
+        ax2.set_xlabel('BSN cal',fontsize=label_size)
         set_fontsize_in_ticks(ax2,label_size)
+        ax3=ax.twinx()
+        y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
+        ax3.plot(network_snrs,y_effect,'ro')
         myfig.savefig(os.path.join(path_plots,'SNR_vs_'+parameter+'.png'))
         myfig.clear()
     return
