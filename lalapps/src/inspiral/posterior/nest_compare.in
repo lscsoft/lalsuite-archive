@@ -703,7 +703,7 @@ parser.add_option("-t","--single-triggers",action="store",type="string",default=
 parser.add_option("-T","--coinc-triggers",action="store",type="string",default=None,help="CoincInspiralTable trigger list",metavar="COINC_FILE.xml")
 parser.add_option("-g","--gps-time-file",action="store",type="string",default=None,help="Text file containing list of GPS times to analyse",metavar="TIMES.txt")
 parser.add_option("-C","--coherence-test",action="store_true",help="Perform the coherence test",default=False)
-parser.add_option("-c","--compare-runs",dest="Compare",action="store_true",help="Make a comparison page",default=False)
+parser.add_option("-c","--compare-runs",dest="Compare",action="store",type="string",help="Make comparison pages between the control run and each of the other runs. The control run is the one that does NOT have the section [KeySection] in its parser file",default=None,metavar="KeySection")
 parser.add_option("--disable-pages",action="store_true",default=False,help="Disable the outpage page and postprocessing")
 parser.add_option("--enable-pages-alltimes",action="store_true",default=False,help="Enable a results page for every time bin. May create a lot of dirs.")
 parser.add_option("--condor-submit",action="store_true",default=False,help="Automatically submit the condor dag")
@@ -726,12 +726,18 @@ glob_snrs_folders_by_num={}
 glob_combine_folders_by_num={}
 glob_timebins_folder_by_num={}
 glob_caler_folders_by_num={}
-has_cal_section={}
+has_key_section={}
 
 logfile=os.path.join(common_path,'common_dag.log')
 dagfile=os.path.join(common_path,"common_dag")
 dag = pipeline.CondorDAG(logfile)
 dag.set_dag_file(dagfile)
+
+if opts.Compare is not None:
+    keyword=opts.Compare
+else:
+    print "You have to give the -c/--compare-runs option with a valid keyword to distinguish the runs. Exiting..."
+    sys.exit(1)
 
 ### Check if one of the ini files is the ctrl
 for init in inits:
@@ -739,13 +745,13 @@ for init in inits:
         cp=ConfigParser.ConfigParser()
         cp.optionxform = str
         cp.readfp(open(init))
-        if cp.has_section('calibration'):
-            has_cal_section[inits.index(init)]=1
+        if cp.has_section(keyword):
+            has_key_section[inits.index(init)]=1
         else:
-            has_cal_section[inits.index(init)]=0
-ctrl_place=999   
-if has_cal_section.values().count(0)==1:
-    ctrl_place=has_cal_section.values().index(0)
+            has_key_section[inits.index(init)]=0
+ctrl_place=9999   
+if has_key_section.values().count(0)==1:
+    ctrl_place=has_key_section.values().index(0)
     opts.ini_file=inits[ctrl_place]
     opts.run_path=os.path.join(str(common_path),"0")
     if common_log_path is None:
@@ -754,6 +760,10 @@ if has_cal_section.values().count(0)==1:
         opts.log_path=os.path.join(common_log_path,"0","log")
     checkDir(opts.log_path)
     nest_pipe(opts,0)
+elif has_key_section.values().count(0)>1:
+    print "You seem to be passing two or more parsing files without the section %s. You can only have one control parser! Exiting..."%keyword
+    sys.exit(1)
+    
 idx=1
 for init in inits:
     if inits.index(init) != ctrl_place:
@@ -767,13 +777,12 @@ for init in inits:
         nest_pipe(opts,idx)
         idx+=1
 
-
-    
-if opts.Compare:
+### This if is superfluous right now. But I may change something later
+if opts.Compare is not None:
     
     ### Some sanity checks
-    if has_cal_section.values().count(0)==0 and opts.ctrl_posteriors==None and opts.ctrl_timebins==None:   ### TBD This can be done less restrictive, the timebins are not extremely important.
-        print "You asked for a comparison page but seem to be passing only parsers with a calibration section. If you mean to run jobs with calibration errors and you want to compare them with a control run already done, you have to pass the paths to the combine folder and the timebins folder of the control run using --ctrl-posteriors and --ctrl-timebins. Exiting..."
+    if has_key_section.values().count(0)==0 and opts.ctrl_posteriors==None and opts.ctrl_timebins==None:   ### TBD This can be done less restrictive, the timebins are not extremely important if one does not want all the possible plots.
+        print "You asked for a comparison page but seem to be passing only parsers with the key section. If you mean to run jobs with the key section and you want to compare them with a control run already done, you have to pass the paths to the combine folder and the timebins folder of the control run using --ctrl-posteriors and --ctrl-timebins. Exiting..."
         sys.exit(1)
     if opts.ctrl_posteriors:
         if not os.path.isdir(opts.ctrl_posteriors):
@@ -783,7 +792,7 @@ if opts.Compare:
         if not os.path.isdir(opts.ctrl_timebins):
             print "The dir %s is not a path to an existing folder. Exiting..."%opts.ctrl_timebins
             sys.exit(1)
-    ### Set the control folders reading them from the ctrl ini or form the option
+    ### Set the control folders reading them from the ctrl ini or form the options
     if ctrl_place !=999:
             ctrl_timebins_folder=glob_timebins_folder_by_num[0]
             ctrl_posteriors_folder=glob_combine_folders_by_num[0]    
@@ -830,7 +839,7 @@ if opts.Compare:
     postpostnode.add_var_arg('--events '+str(cp.get('analysis','events')))    
     postpostnode.add_var_arg('--calerr '+ glob_calerr_string)
     postpostnode.add_var_arg('--IFOS '+ ifo)
-
+    postpostnode.add_var_arg('--keyword '+ opts.Compare) 
     dag.add_node(postpostnode)
 
 # Write the DAG file

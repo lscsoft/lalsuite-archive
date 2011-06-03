@@ -136,7 +136,7 @@ def read_snr(snrs,run,time,IFOs):
         snr_file.close()
     return [snr_values,snr_header]
 
-def Make_injected_sky_map(dec_ra_inj,dec_ra_cal=None,dec_ra_ctrl=None,outdir,run):
+def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None):
     """
     Plots a sky map using the Mollweide projection in the Basemap package. 
     The map contains the injected points, the recovered points with the control run (if given) annd the recovered points with the cal run (if given)
@@ -217,84 +217,8 @@ def histN(mat,N):
         t=tuple(co)
         histo[t[::-1]]=histo[t[::-1]]+1
     return (axes,histo)
-def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size):
-    """
-    @time: the injection time
-    @outir: will save plots in outdir/run/ErrorPlots
-    @in_data_path a list of dirs. The Ith element points to the folder containing the calibration errors data of the Ith parser (I may change this behaviour, passing directly the right path)
-    @run the number of the current init 
-    @f_0 f_up the xlims of the plot, for the moment they are hardcoded
-    @IFOs: IFOs to add in the plots
-    @label_size: the size of the ticks' labels, labels, etc
-    
-    Produces two plots: one with ratio of the amplitude with calibration over the amplitude of the control run and another with the difference of phases
-    """
-    run=str(run)
-    path_plots=os.path.join(outdir,run,'ErrorPlots')
-    checkDir(path_plots)
-    data={}
-    for IFO in IFOs:
-        path_to_data=os.path.join(in_data_path[int(run)-1],'calerr_'+IFO+'_'+str(time)+'.0.dat')
-        data[IFO]=np.loadtxt(path_to_data)
-    a=0
-    for i in range(len(data[IFOs[0]][:,0])):
-        if fabs(data[IFOs[0]][i,0]-f_0)<0.0001:
-            a=i
-            continue 
-    if a==0:
-        print "Could not fix f_low. Exiting...\n"
-        exit(-1)
-    b=0
-    for i in range(len(data[IFOs[0]][a:,0])+a):
-        if fabs(data[IFOs[0]][i,0]-f_up)<0.0001:
-            b=i
-            continue
-    if b==0:
-        print "Could not fix f_up. Exiting\n"
-        exit(-1)
-    
-    myfig=figure(1,figsize=(10,8),dpi=80)
-    ax=myfig.add_subplot(111)
-    for (IFO,color) in zip(IFOs,['r','b','k']):
-        plot(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
-    ax.set_xlabel('f[Hz]',fontsize=label_size)
-    ax.set_ylabel('Amp_cal/Amp_ctrl',fontsize=label_size)
-    set_fontsize_in_ticks(ax,label_size)
-    grid()
-    legend()
-    myfig.savefig(os.path.join(path_plots,'amp_'+str(time)+'.png'))
-    myfig.clear()
-    phase={}
-    phase_normalized={}
 
-    def normalizer(phase,phase_normalized):
-        for pha in phase:
-            if pha<-1.5*pi:
-                phase_normalized.append(pha+2*pi)
-            elif pha>pi:
-                phase_normalized.append(pha-2*pi)
-            else:
-                phase_normalized.append(pha)
-
-    for IFO in IFOs:
-        phase[IFO]=data[IFO][:,2]
-        phase_normalized[IFO]=[]
-        normalizer(phase[IFO],phase_normalized[IFO])
-
-    myfig=figure(1,figsize=(10,8),dpi=80)
-    ax=myfig.add_subplot(111)
-    for (IFO,color) in zip(IFOs,['r','b','k']):
-        plot(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,label=IFO)
-    ax.set_xlabel('f[Hz]',fontsize=label_size)
-    ax.set_ylabel('Pha_cal-Pha_ctrl [Rads]',fontsize=label_size)
-    set_fontsize_in_ticks(ax,label_size)
-    legend()
-    grid()
-    myfig.savefig(os.path.join(path_plots,'pha_'+str(time)+'.png'))
-    myfig.clear()
-
-
-def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_result_pages=None):
+def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_result_pages=None,keyword=None):
     
     from pylal import SimInspiralUtils
     
@@ -418,15 +342,91 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if snrs is not None:
             MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size)
         if BSN is not None and snrs is not None:
-            MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size)
+            MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,keyword)
         if calerr is not None:
-            MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size)
+            MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
         if injected_positions!=[] and recovered_positions_cal!={}:
-  	    Make_injected_sky_map(injected_positions,recovered_positions_cal[int(run)],recovered_positions_ctrl,outdir,run)
+  	    Make_injected_sky_map(injected_positions,outdir,run,dec_ra_cal=recovered_positions_cal[int(run)],dec_ra_ctrl=recovered_positions_ctrl)
 
         WritePlotPage(outdir,run,parameters,times[0])
-        WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs)
+        WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs,keyword)
 
+def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
+    """
+    @time: the injection time for which to plot the errors. Right now any time is good as the calibration errors are the same for all the injections in the xml
+    @outir: will save plots in outdir/run/ErrorPlots
+    @in_data_path a list of dirs. The Ith element points to the folder containing the calibration errors data of the Ith parser (I may change this behaviour, passing directly the right path)
+    @run the number of the current init 
+    @f_0 f_up the xlims of the plot, for the moment they are hardcoded
+    @IFOs: IFOs to add in the plots
+    @label_size: the size of the ticks' labels, labels, etc
+    @key label to identify the non-control run
+    Produces two plots: one with ratio of the amplitude with calibration over the amplitude of the control run and another with the difference of phases
+    """
+    run=str(run)
+    path_plots=os.path.join(outdir,run,'ErrorPlots')
+    checkDir(path_plots)
+    data={}
+    for IFO in IFOs:
+        path_to_data=os.path.join(in_data_path[int(run)-1],'calerr_'+IFO+'_'+str(time)+'.0.dat')
+        data[IFO]=np.loadtxt(path_to_data)
+    a=0
+    for i in range(len(data[IFOs[0]][:,0])):
+        if fabs(data[IFOs[0]][i,0]-f_0)<0.0001:
+            a=i
+            continue 
+    if a==0:
+        print "Could not fix f_low to %5.2f. Exiting...\n"%f_0
+        sys.exit(1)
+    b=0
+    for i in range(len(data[IFOs[0]][a:,0])+a):
+        if fabs(data[IFOs[0]][i,0]-f_up)<0.0001:
+            b=i
+            continue
+    if b==0:
+        print "Could not fix f_up to %5.2f. Exiting...\n"%f_up
+        sys.exit(1)
+    
+    myfig=figure(1,figsize=(10,8),dpi=80)
+    ax=myfig.add_subplot(111)
+    for (IFO,color) in zip(IFOs,['r','b','k']):
+        plot(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
+    ax.set_xlabel('f[Hz]',fontsize=label_size)
+    ax.set_ylabel('Amp_'+key+'/Amp_ctrl',fontsize=label_size)
+    set_fontsize_in_ticks(ax,label_size)
+    grid()
+    legend()
+    myfig.savefig(os.path.join(path_plots,'amp_'+str(time)+'.png'))
+    myfig.clear()
+    phase={}
+    phase_normalized={}
+    
+    ### This function normalize the phase difference in the range [-Pi,Pi]
+    def normalizer(phase,phase_normalized):
+        for pha in phase:
+            if pha<-1.5*pi:
+                phase_normalized.append(pha+2*pi)
+            elif pha>pi:
+                phase_normalized.append(pha-2*pi)
+            else:
+                phase_normalized.append(pha)
+
+    for IFO in IFOs:
+        phase[IFO]=data[IFO][:,2]
+        phase_normalized[IFO]=[]
+        normalizer(phase[IFO],phase_normalized[IFO])
+
+    myfig=figure(1,figsize=(10,8),dpi=80)
+    ax=myfig.add_subplot(111)
+    for (IFO,color) in zip(IFOs,['r','b','k']):
+        plot(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,label=IFO)
+    ax.set_xlabel('f[Hz]',fontsize=label_size)
+    ax.set_ylabel('Pha_'+key+' -Pha_ctrl [Rads]',fontsize=label_size)
+    set_fontsize_in_ticks(ax,label_size)
+    legend()
+    grid()
+    myfig.savefig(os.path.join(path_plots,'pha_'+str(time)+'.png'))
+    myfig.clear()
 
 
 def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size):
@@ -499,7 +499,6 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
     data_ctrl=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'SNRPlots')
     checkDir(path_plots)
-    #label_size=22
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
     for parameter in parameters:
@@ -526,7 +525,7 @@ def set_fontsize_in_ticks(axes,size):
     [t.set_fontsize(size) for t in axes.xaxis.get_ticklabels()]
     [t.set_fontsize(size) for t in axes.yaxis.get_ticklabels()]
 
-def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size):
+def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     labelsize=22
     data_cal=np.loadtxt(path_cal)
     data_ctrl=np.loadtxt(path_uncal)
@@ -538,8 +537,8 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size):
     bsns_ctrl=data_ctrl[:,header_l.index('BSN')]
     myfig=figure(2,figsize=(10,10),dpi=80)
     ax=myfig.add_subplot(111)
-    ax.plot(network_snrs,bsns_cal,'ro',label='BSN_cal')
-    ax.set_xlabel('Network SNR cal',fontsize=label_size)
+    ax.plot(network_snrs,bsns_cal,'ro',label='BSN_'+key)
+    ax.set_xlabel('Network SNR '+key,fontsize=label_size)
     ax.set_ylabel('$\mathrm{log\,B}$',fontsize=label_size)
     locs, labels = (ax.get_xticks(),ax.get_xticklabels)
     grid()
@@ -614,7 +613,7 @@ def go_home(path):
     os.chdir(current)
     return upo
 
-def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,header_l,times,IFOs):
+def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,header_l,times,IFOs,key):
     
     run=str(run)
     abs_page_path=os.path.join(outdir,run)
@@ -636,7 +635,7 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     html_table=html.add_section('Links to postprocessing pages')
     html_table.write(link(os.path.join(page_path,'posposplots.html'),"Go back to the plots page"))
     html_table_st='<table>'
-    html_table_st+='<tr><th align="center" colspan="6"> Control Runs </th><th colspan="6" align="center"> Calibration Runs </th></tr>'
+    html_table_st+='<tr><th align="center" colspan="6"> Control Runs </th><th colspan="6" align="center"> '+key.title()+' Runs </th></tr>'
     html_table_st+='<tr>'
     html_table_st+=2*('<th> TriggerTime</th><th> BSN </th><th>'+ifos[0]+'</th><th>'+ifos[1]+'</th><th>'+ifos[2]+'</th><th>'+ifos[3]+'</th>')
     html_table_st+='</tr>'
@@ -690,9 +689,10 @@ if __name__=='__main__':
     parser.add_option("-r","--result_pages_path",default=None,dest="rp",action="callback",callback=vararg_callback,help="Paths to the folder containing the postplots pages (this folder must contain the timebins folders)",metavar="r")
     parser.add_option("-i","--inj",dest="inj",action="store",type="string",default=None,help="Injection xml table",metavar="injection.xml")
     parser.add_option("-e","--calerr",dest="calerr",action="callback",callback=vararg_callback,default=None,help="path to calibration errors path",metavar="/pathToCalerr1 /pathToCalerr2 etc")
-    parser.add_option("-E","--events",dest="raw_events",action="store",type="string",default=None,metavar="\[0:50\]")
+    parser.add_option("-E","--events",dest="raw_events",action="store",type="string",default=None,metavar="[0:50]")
     parser.add_option("-I","--IFOS",dest="IFOs",action="callback", callback=vararg_callback,help="The IFOs used in the analysis", metavar="H1 L1 V1")
+    parser.add_option("-k","--keyword",dest="key",action="store",type="string",default=None,help="This is the work that characterize the non-control runs (eg. calibration). It will be used to label various things (plots' labels, filenames, etc)", metavar="non-control-word")
     (opts,args)=parser.parse_args()
     #if opts.num_of_init==1 and opts.uncal_path==None:
     #        print "Error, if -n is 1 it means that only jobs with calibration errors are running, then you must provide the path to the posterior of the (already run) corresponding jobs without calibration errors using the option -u /pathToUncalPosteriors \n"
-    RunsCompare(opts.outpath,opts.indata,opts.inj,opts.raw_events,opts.IFOs,snrs=opts.snr,calerr=opts.calerr,path_to_result_pages=opts.rp)
+    RunsCompare(opts.outpath,opts.indata,opts.inj,opts.raw_events,opts.IFOs,snrs=opts.snr,calerr=opts.calerr,path_to_result_pages=opts.rp,keyword=opts.key)
