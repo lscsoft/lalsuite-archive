@@ -181,12 +181,13 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
     ### Put a maximum of max_n injection in each plot to improve readability
     max_n=20
     d,r=divmod(len(plx),max_n)
-    inverted_seqs=[(plx[::-1])[k*max_n:(k+1)*max_n] for k in range(d+1)]
+    inverted_seqs=[(range(len(plx))[::-1])[k*max_n:(k+1)*max_n] for k in range(d+1)]
     for seq in inverted_seqs:
         if seq!=[]:
-            myfig=plt.figure(2,figsize=(15,20),dpi=200)
+            myfig=plt.figure(2,figsize=(20,28),dpi=200)
             plt.clf()
             for i in seq:
+                print i, range(len(plx))
                 new_label=len(plx)-range(len(plx)).index(i)-1
                 plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
                 plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
@@ -206,7 +207,7 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             myfig.savefig(os.path.join(path_plots,'injected_skymap_%i.png'%inverted_seqs.index(seq)))
             plt.clf()
             
-    return [d,r]
+    return d,r
 
 def histN(mat,N):
     Nd=size(N)
@@ -295,7 +296,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         header_l.append('injTime ')
         recovered_positions_cal[int(run)]=[]
         for time in times:
-                path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
+            path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
             posterior_file=open(path_to_file,'r')
             peparser=bppu.PEOutputParser('common')
             commonResultsObj=peparser.parse(posterior_file)
@@ -349,10 +350,10 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if calerr is not None:
             MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
         if injected_positions!=[] and recovered_positions_cal!={}:
-            Make_injected_sky_map(injected_positions,outdir,run,dec_ra_cal=recovered_positions_cal[int(run)],dec_ra_ctrl=recovered_positions_ctrl)
+            d,r=Make_injected_sky_map(injected_positions,outdir,run,dec_ra_cal=recovered_positions_cal[int(run)],dec_ra_ctrl=recovered_positions_ctrl)
 
         WritePlotPage(outdir,run,parameters,times[0])
-        WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs,keyword)
+        WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs,keyword,d)
 
 def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     """
@@ -510,22 +511,26 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
         y_delta=(data_cal[:,i]-data_ctrl[:,i])
         myfig=plt.figure(2,figsize=(10,10),dpi=80)
-        ax=myfig.add_subplot(111)
+        ax=myfig.add_subplot(211)
         ax.plot(network_snrs,y_effect,'bo',label='EffectVsSNR')
         ax.set_xlabel('Network SNR cal',fontsize=label_size)
         ax.set_ylabel('effect_%s'%parameter,fontsize=label_size)
         locs, labels = (ax.get_xticks(),ax.get_xticklabels)
         set_fontsize_in_ticks(ax,label_size)
+        ax.legend()
         grid()
-        #ax2=ax.twiny()
+        ax2=myfig.add_subplot(212)
         #ax2.set_xticks(locs)
         #ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(bsn_cal),max(bsn_cal),len(locs))])
-        #ax2.set_xlabel('BSN cal',fontsize=label_size)
+        ax2.set_xlabel('BSN cal',fontsize=label_size)
         #set_fontsize_in_ticks(ax2,label_size)
         #ax3=ax.twinx()
         #y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
-        ax.plot(bsn_cal,y_effect,'ro',label='EffectVsBSN')
-        legend()
+        ax2.plot(bsn_cal,y_effect,'ro',label='EffectVsBSN')
+        ax2.set_ylabel('effect_%s'%parameter,fontsize=label_size)
+        set_fontsize_in_ticks(ax2,label_size)        
+        ax2.legend()
+        ax2.grid()
         myfig.savefig(os.path.join(path_plots,'SNR_vs_'+parameter+'.png'))
         myfig.clear()
     return
@@ -622,11 +627,14 @@ def go_home(path):
     os.chdir(current)
     return upo
 
-def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,header_l,times,IFOs,key):
+def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,header_l,times,IFOs,key,d):
     
+    wd=500
+    hg=400
     run=str(run)
     abs_page_path=os.path.join(outdir,run)
     page_path="./"
+    path_to_sky=os.path.join(page_path,'SkyPlots')
     path_to_result_pages_from_LSC=path_to_result_pages[path_to_result_pages.find('LSC'):]
     path_to_ctrl_result_pages_from_LSC=path_to_ctrl_result_pages[path_to_ctrl_result_pages.find('LSC'):]
     snr_index={}
@@ -640,7 +648,21 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     ctrl_data=np.loadtxt(os.path.join(outdir,'summary_ctrl.dat'))
     cal_data=np.loadtxt(os.path.join(outdir,'summary_'+run+'.dat'))
 
+    col_num=3
     html=bppu.htmlPage('SummaryPage',css=bppu.__default_css_string)
+    html_sky=html.add_section('Skymaps')
+    html_sky_str="<table><tr>"
+    for i in range(d+1):
+        if os.path.isfile(os.path.join(abs_page_path,'SkyPlots','injected_skymap_'+str(i)+'.png')):
+            html_sky_str+='<td>'+linkImage(os.path.join(path_to_sky,'injected_skymap_'+str(i)+'.png'),wd,hg)+'</td>'
+        else:
+            html_sky_str+='<td> </td>'
+        if (range(d+1).index(i)+1)%col_num==0 and i!=d:
+            html_sky_str+='</tr><tr>'
+    html_sky_str+='</tr></table>'
+    print html_sky_str,range(d+1),range(d+1).index(i)
+    html_sky.write(html_sky_str)
+
     html_table=html.add_section('Links to postprocessing pages')
     html_table.write(link(os.path.join(page_path,'posposplots.html'),"Go back to the plots page"))
     html_table_st='<table>'
