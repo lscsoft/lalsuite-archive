@@ -30,9 +30,6 @@ lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
 lalmetaio_pkg_config = PkgConfig("lalmetaio")
 lalinspiral_pkg_config = PkgConfig("lalinspiral")
-lalinference_pkg_config = PkgConfig("lalinference")
-lalpulsar_pkg_config = PkgConfig("lalpulsar")
-
 
 def remove_root(path, root):
 	if root:
@@ -181,8 +178,7 @@ setup(
 		"pylal",
 		"pylal.xlal",
 		"pylal.xlal.datatypes",
-        "pylal.dq"
-        
+                "pylal.dq"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -190,15 +186,6 @@ setup(
 		"sdist": pylal_sdist
 	},
 	ext_modules = [
-		Extension(
-			"pylal._lalinference",
-			["src/lalinference.c"],
-			include_dirs = lalinference_pkg_config.incdirs + lalpulsar_pkg_config.incdirs + [numpy_get_include(),"src/xlal", "src/xlal/datatypes"] ,
-			library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
-			libraries = lalinference_pkg_config.libs + lalpulsar_pkg_config.libs,
-			runtime_library_dirs = lalinference_pkg_config.libdirs + lalpulsar_pkg_config.libdirs,
-			extra_compile_args = lalinference_pkg_config.extra_cflags + lalpulsar_pkg_config.extra_cflags
-		),
 		Extension(
 			"pylal.Fr",
 			["src/Fr.c"],
