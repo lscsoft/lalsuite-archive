@@ -151,10 +151,8 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
     path_plots=os.path.join(outdir,run,'SkyPlots')
     checkDir(path_plots)
     np.seterr(under='ignore')
-
-    myfig=plt.figure(2,figsize=(15,15),dpi=200)
-    plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
+    
     if dec_ra_inj is not None:
         ra_reverse = 2*pi_constant - np.asarray(dec_ra_inj)[::-1,1]*57.296
         plx,ply=m(
@@ -179,30 +177,36 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
         if dec_ra_inj is not None:
             vert_x_cal=column_stack((plx,plx_cal))
             vert_y_cal=column_stack((ply,ply_cal))
-    num_points=len(plx)
-    for i in range(num_points):
-        ### Draw lines between points
-        plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
-        plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
-        ### Put numbers to label the points
-        plt.annotate(str(range(num_points).index(i)), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
-        plt.annotate(str(range(num_points).index(i)), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
-        plt.annotate(str(range(num_points).index(i)), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
-    ### Now put points on the injections, and label them
-    plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
-    plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
-    plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
-    
-    m.drawmapboundary()
-    m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
-    # draw parallels
-    m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
-    # draw meridians
-    plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
-    plt.title("Injected vs recovered positions")
-    myfig.savefig(os.path.join(path_plots,'injected_skymap.png'))
-    plt.clf()
-    return myfig
+
+    ### Put a maximum of max_n injection in each plot to improve readability
+    max_n=20
+    d,r=divmod(len(plx),max_n)
+    inverted_seqs=[(plx[::-1])[k*max_n:(k+1)*max_n] for k in range(d+1)]
+    for seq in inverted_seqs:
+        if seq!=[]:
+            myfig=plt.figure(2,figsize=(15,20),dpi=200)
+            plt.clf()
+            for i in seq:
+                new_label=len(plx)-range(len(plx)).index(i)-1
+                plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
+                plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
+                plt.annotate(str(new_label), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
+                plt.annotate(str(new_label), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
+                plt.annotate(str(new_label), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+            plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
+            plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
+            plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
+            m.drawmapboundary()
+            m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
+            # draw parallels
+            m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
+            # draw meridians
+            plt.legend(loc=(0,-0.1), ncol=3,mode="expand",scatterpoints=2)
+            plt.title("Injected vs recovered positions")
+            myfig.savefig(os.path.join(path_plots,'injected_skymap_%i.png'%inverted_seqs.index(seq)))
+            plt.clf()
+            
+    return [d,r]
 
 def histN(mat,N):
     Nd=size(N)
@@ -280,7 +284,6 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     recovered_positions_cal={}
     injected_positions=[]
     recovered_positions_ctrl=[]
-
     ## prepare files with means and other useful data. It also fills the list with the sky positions ###
     for run in range(len(Combine)):
         if int(run)==0:
@@ -346,7 +349,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if calerr is not None:
             MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
         if injected_positions!=[] and recovered_positions_cal!={}:
-  	    Make_injected_sky_map(injected_positions,outdir,run,dec_ra_cal=recovered_positions_cal[int(run)],dec_ra_ctrl=recovered_positions_ctrl)
+            Make_injected_sky_map(injected_positions,outdir,run,dec_ra_cal=recovered_positions_cal[int(run)],dec_ra_ctrl=recovered_positions_ctrl)
 
         WritePlotPage(outdir,run,parameters,times[0])
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs,keyword)
@@ -501,22 +504,28 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
     checkDir(path_plots)
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
+    bsn_cal=data_cal[:,header_l.index('BSN')]
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
+        y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
         y_delta=(data_cal[:,i]-data_ctrl[:,i])
-        myfig=plt.figure(2,figsize=(5,5),dpi=80)
+        myfig=plt.figure(2,figsize=(10,10),dpi=80)
         ax=myfig.add_subplot(111)
-        ax.plot(network_snrs,y_delta,'ro',label='DeltavsSNR')
+        ax.plot(network_snrs,y_effect,'bo',label='EffectVsSNR')
         ax.set_xlabel('Network SNR cal',fontsize=label_size)
-        ax.set_ylabel('delta_%s'%parameter,fontsize=label_size)
+        ax.set_ylabel('effect_%s'%parameter,fontsize=label_size)
         locs, labels = (ax.get_xticks(),ax.get_xticklabels)
         set_fontsize_in_ticks(ax,label_size)
         grid()
-        ax2=ax.twiny()
-        ax2.set_xticks(locs)
-        ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
-        ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
-        set_fontsize_in_ticks(ax2,label_size)
+        #ax2=ax.twiny()
+        #ax2.set_xticks(locs)
+        #ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(bsn_cal),max(bsn_cal),len(locs))])
+        #ax2.set_xlabel('BSN cal',fontsize=label_size)
+        #set_fontsize_in_ticks(ax2,label_size)
+        #ax3=ax.twinx()
+        #y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
+        ax.plot(bsn_cal,y_effect,'ro',label='EffectVsBSN')
+        legend()
         myfig.savefig(os.path.join(path_plots,'SNR_vs_'+parameter+'.png'))
         myfig.clear()
     return
@@ -542,13 +551,13 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     ax.set_ylabel('$\mathrm{log\,B}$',fontsize=label_size)
     locs, labels = (ax.get_xticks(),ax.get_xticklabels)
     grid()
-    ax2=ax.twiny()
-    ax2.set_xticks(locs)
-    ax2.plot(network_snrs_ctrl,bsns_ctrl,'bo',label='BSN_ctrl')
-    ax2.legend(loc='upper left')
-    ax.legend(loc='lower right')
-    ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
-    ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
+    #ax2=ax.twiny()
+    #ax2.set_xticks(locs)
+    ax.plot(network_snrs_ctrl,bsns_ctrl,'bo',label='BSN_ctrl')
+    #ax2.legend(loc='upper left')
+    ax.legend(loc='upper right')
+    #ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
+    #ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
     myfig.savefig(os.path.join(path_plots,'BSN_vs_SNR.png'))
     myfig.clear()
 
