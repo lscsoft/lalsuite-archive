@@ -289,6 +289,16 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 
 	>>> import sys
 	>>> xmldoc, digest = utils.load_fileobj(sys.stdin)
+
+	The optional contenthandler argument allows the SAX content handler
+	to be customized.  Previously, customization of the content handler
+	was accomplished by replacing the ContentHandler symbol in this
+	module with the custom handler, and although that technique is
+	still supported a warning will be emitted if modification of that
+	symbol is detected.  See glue.ligolw.PartialLIGOLWContentHandler
+	and glue.ligolw.FilteringLIGOLWContentHandler for examples of
+	custom content handlers used to load subsets of documents into
+	memory.
 	"""
 	fileobj = MD5File(fileobj)
 	md5obj = fileobj.md5obj
@@ -302,7 +312,7 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 		xmldoc = ligolw.Document()
 	if contenthandler is None:
 		if ContentHandler is not __orig_ContentHandler:
-			warnings.warn("modification of glue.ligolw.utils.ContentHandler global variable for input customization is deprecated.  Use contenthandler parameter of glue.ligolw.utils.load_*() functions instead", DeprecationWarning)
+			warnings.warn("modification of glue.ligolw.utils.ContentHandler global variable for input customization is deprecated.  Use contenthandler keyword argument of glue.ligolw.utils.load_*() functions instead", DeprecationWarning)
 		contenthandler = ContentHandler
 	ligolw.make_parser(contenthandler(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
