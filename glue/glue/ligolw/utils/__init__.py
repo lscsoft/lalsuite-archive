@@ -144,7 +144,8 @@ class RewindableInputFile(object):
 	# How GzipFile checks for EOF == call .tell() to get current
 	# position, seek to end of file with .seek(0, 2), call .tell()
 	# again and check if the number has changed from before, if it has
-	# then we weren't at EOF so call .seek() with original position.
+	# then we weren't at EOF so call .seek() with original position and
+	# keep going.  ?!
 
 	def __init__(self, fileobj, buffer_size = 16384):
 		# the real source of data
@@ -303,7 +304,7 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 		if ContentHandler is not __orig_ContentHandler:
 			warnings.warn("modification of glue.ligolw.utils.ContentHandler global variable for input customization is deprecated.  Use contenthandler parameter of glue.ligolw.utils.load_*() functions instead", DeprecationWarning)
 		contenthandler = ContentHandler
-	ligolw.make_parser((contenthandler or ContentHandler)(xmldoc)).parse(fileobj)
+	ligolw.make_parser(contenthandler(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
 
 
@@ -349,7 +350,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 	if url is not None:
 		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
-			fileobj = file(path)
+			fileobj = open(path)
 		else:
 			fileobj = urllib2.urlopen(url)
 	else:
@@ -442,7 +443,9 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (filename and ("'%s'" % filename) or "stdout")
 	if filename is not None:
-		fileobj = file(filename, "w")
+		if not gz and filename.endswith(".gz"):
+			warnings.warn("filename '%s' ends in '.gz' but file is not being gzip-compressed" % filename, UserWarning)
+		fileobj = open(filename, "w")
 	else:
 		fileobj = sys.stdout
 	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file)
