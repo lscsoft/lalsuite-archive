@@ -273,14 +273,16 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     Combine=[path for path in inputs]
     snrs=[path for path in snrs]
     temp_times=[time for time in times]
-    
     ## Remove the times for which posterior file is not present in either of the init ## TBD I only need to compare couple of ctrl-cali, not all of them
     for run in range(len(Combine)):
         for time in times:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
             if not os.path.isfile(path_to_file):
                 temp_times.remove(time)
-        times=temp_times
+        times=[time for time in temp_times]
+    if times==[]:
+        print "No posteriors found for the events requested. Exiting...\n"
+        sys.exit(1)
 
     recovered_positions_cal={}
     injected_positions=[]
