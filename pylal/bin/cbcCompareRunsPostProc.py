@@ -147,19 +147,22 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
     @param outdir: Output directory in which to save skymap.png image.
     """
     from matplotlib.path import Path
-
+        
     path_plots=os.path.join(outdir,run,'SkyPlots')
     checkDir(path_plots)
     np.seterr(under='ignore')
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
     
     if dec_ra_inj is not None:
+        dec_ra_inj=(np.asarray(dec_ra_inj))[:,0:-1]
         ra_reverse = 2*pi_constant - np.asarray(dec_ra_inj)[::-1,1]*57.296
         plx,ply=m(
                   ra_reverse,
                   np.asarray(dec_ra_inj)[::-1,0]*57.296
                   )
     if dec_ra_ctrl is not None:
+        bsn_ctrl=np.asarray(dec_ra_ctrl)[:,-1][::-1]
+        dec_ra_ctrl=np.asarray(dec_ra_ctrl)[:,0:-1]
         ra_reverse_ctrl = 2*pi_constant - np.asarray(dec_ra_ctrl)[::-1,1]*57.296
         plx_ctrl,ply_ctrl=m(
                 ra_reverse_ctrl,
@@ -169,6 +172,8 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             vert_x_ctrl=column_stack((plx_ctrl,plx))
             vert_y_ctrl=column_stack((ply_ctrl,ply))            
     if dec_ra_cal is not None:
+        bsn_cal=np.asarray(dec_ra_cal)[:,-1][::-1]
+        dec_ra_cal=np.asarray(dec_ra_cal)[:,0:-1]
         ra_reverse_cal = 2*pi_constant - np.asarray(dec_ra_cal)[::-1,1]*57.296
         plx_cal,ply_cal=m(
                   ra_reverse_cal,
@@ -187,13 +192,18 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             myfig=plt.figure(2,figsize=(20,28),dpi=200)
             plt.clf()
             for i in seq:
-                print i, range(len(plx))
-                new_label=len(plx)-range(len(plx)).index(i)-1
-                plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
-                plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
-                plt.annotate(str(new_label), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
-                plt.annotate(str(new_label), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
-                plt.annotate(str(new_label), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+                #print i, range(len(plx)),bsn_cal[i]
+                if bsn_cal[i]>4.0:
+                    new_label=len(plx)-range(len(plx)).index(i)-1
+                    #print bsn_cal[new_label],new_label
+                    plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
+                    plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
+                    plt.annotate(str(new_label), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
+                    plt.annotate(str(new_label), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
+                    plt.annotate(str(new_label), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+                else:
+                    continue
+
             plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
             plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
             plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
@@ -307,12 +317,12 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             parameters=pos.names            
             parameters.remove('logl')
             summary.write(str(time)+'\t')
-            if 'ra' in parameters and 'dec' in parameters:
-                if int(run)==0:
-                    recovered_positions_ctrl.append([pos['dec'].mean,pos['ra'].mean])
-                    injected_positions.append([pos['dec'].injval,pos['ra'].injval])
-                else:
-                    recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean])
+            #if 'ra' in parameters and 'dec' in parameters:
+            #    if int(run)==0:
+            #        recovered_positions_ctrl.append([pos['dec'].mean,pos['ra'].mean])
+            #        injected_positions.append([pos['dec'].injval,pos['ra'].injval])
+            #    else:
+            #        recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean])
             for parameter in parameters:
                 summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
                 if time==times[0]:
@@ -326,6 +336,13 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                 summary.write(str(bsn)+'\t')
                 if time==times[0]:
                     header_l.append('BSN')
+            if 'ra' in parameters and 'dec' in parameters:
+                if int(run)==0:
+                    recovered_positions_ctrl.append([pos['dec'].mean,pos['ra'].mean,float(bsn)])
+                    injected_positions.append([pos['dec'].injval,pos['ra'].injval,999])
+                else:
+                    recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean,float(bsn)])
+            #print recovered_positions_cal
             if snrs is not None:
                 val,hea=read_snr(snrs,run,time,IFOs)
                 summary.write(str(val)+'\t')
@@ -484,9 +501,9 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size):
         std_effect_size=std_dev(effect_size,mean_effect_size)
         skewness_effect_size= skewness(effect_size, mean_effect_size, std_effect_size)
         kurtosis_effect_size= kurtosis(effect_size, mean_effect_size, std_effect_size)
-        #print "With effect size correction\n"
-        #print "Mean : %e\n" % mean_effect_size
-        #print "Standard Deviation %e\n" % std_effect_size
+        print "With effect size correction\n"
+        print "Mean %s in run %i: %e\n" %(parameter,int(run),mean_effect_size)
+        print "Standard Deviation  %s in run %i: %e\n" %(parameter,int(run),std_effect_size)
         #print "Skewness %e\n" % skewness_effect_size
         #print "Kurtosis %e\n" % kurtosis_effect_size
         bins=linear_space(effect_size.min(),effect_size.max(),nbins)
