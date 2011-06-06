@@ -297,7 +297,7 @@ void TaylorF2fillPhaseParams(
     phaseParams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
     phaseParams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
     
-    for(i=0;i<10;i++) {phaseParams[i]*=(1.0+dphis[i]);}
+    for(i=0;i<10;i++) {if (i!=1) {phaseParams[i]*=(1.0+dphis[i])};}
         
     return;
 }
