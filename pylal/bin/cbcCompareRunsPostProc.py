@@ -184,7 +184,7 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             vert_y_cal=column_stack((ply,ply_cal))
 
     ### Put a maximum of max_n injection in each plot to improve readability
-    max_n=20
+    max_n=25
     d,r=divmod(len(plx),max_n)
     inverted_seqs=[(range(len(plx))[::-1])[k*max_n:(k+1)*max_n] for k in range(d+1)]
     for seq in inverted_seqs:
@@ -361,7 +361,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     for run in range(1,len(Combine)):
         run=str(run)
         path_cal=os.path.join(outdir,'summary_'+run+'.dat')
-        MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size)
+        MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l)
         if snrs is not None:
             MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size)
         if BSN is not None and snrs is not None:
@@ -452,21 +452,28 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     myfig.clear()
 
 
-def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size):
+def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
     nbins=20
     data_cal=np.loadtxt(path_cal)
     data_uncal=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'ParametersPlots')
     checkDir(path_plots)
+    #bsn_cal=[bsn for bsn in data_cal[:,header_l.index('BSN')]]
+    network_snrs_key=[snr for snr in data_cal[:,header_l.index('SNR_Network')]]
+    theres_snr_ind=[]
+    for snr in network_snrs_key:
+        if snr>8.0:
+            theres_snr_ind.append(network_snrs_key.index(snr))
+    print theres_snr_ind
     
     for parameter in parameters:
         x=parameters.index(parameter)*2+1
-        x_delta=(data_cal[:,x]-data_uncal[:,x])
+        x_delta=(data_cal[theres_snr_ind,x]-data_uncal[theres_snr_ind,x])
         x_points=(map(lambda t:(min(x_delta) + (t/max(x_delta))*(max(x_delta)-min(x_delta))),x_delta)).sort
         x_points2=linear_space(min(x_delta),max(x_delta),len(x_delta))
         myfig=figure(2,figsize=(10,10),dpi=80)
         ax=myfig.add_subplot(111)
-        ax.plot(x_delta,data_uncal[:,x+1],'.r',label='stdev')
+        ax.plot(x_delta,data_uncal[theres_snr_ind,x+1],'.r',label='stdev')
         axvline(x=0, ymin=0, ymax=1,linewidth=2, color='b')
         plot(x_points2,fabs(x_points2)*2,'-k',label='$0.5 \sigma$')
         plot(x_points2,fabs(x_points2),'-y',label='$\sigma$')
@@ -496,12 +503,14 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size):
         myfig.savefig(os.path.join(path_plots,'delta_'+parameter+'.png'))
         myfig.clear()
         ##### This part calculates effect size
-        effect_size =(data_cal[:,x]-data_uncal[:,x])/data_uncal[:,x+1]  
+        effect_size =(data_cal[theres_snr_ind,x]-data_uncal[theres_snr_ind,x])/data_uncal[theres_snr_ind,x+1]  
         mean_effect_size=mean(effect_size)
         std_effect_size=std_dev(effect_size,mean_effect_size)
+        for i in range(len(data_cal[:,0])):
+            if (data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>3.0:
+                print "parameter ",parameter, i,data_cal[i,x],data_uncal[i,x],data_uncal[i,x+1],(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]
         skewness_effect_size= skewness(effect_size, mean_effect_size, std_effect_size)
         kurtosis_effect_size= kurtosis(effect_size, mean_effect_size, std_effect_size)
-        print "With effect size correction\n"
         print "Mean %s in run %i: %e\n" %(parameter,int(run),mean_effect_size)
         print "Standard Deviation  %s in run %i: %e\n" %(parameter,int(run),std_effect_size)
         #print "Skewness %e\n" % skewness_effect_size
@@ -525,13 +534,21 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
     bsn_cal=data_cal[:,header_l.index('BSN')]
+    #bsn_cal=[bsn for bsn in data_cal[:,header_l.index('BSN')]]
+    network_snrs_key=[snr for snr in data_cal[:,header_l.index('SNR_Network')]]
+    theres_snr_ind=[]
+    for snr in network_snrs_key:
+        if snr>8.0:
+            theres_snr_ind.append(network_snrs_key.index(snr))
+    print theres_snr_ind
+    #bsn_cal=np.asarray(bsn_cal)
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
-        y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
-        y_delta=(data_cal[:,i]-data_ctrl[:,i])
+        y_effect=(data_cal[theres_snr_ind,i]-data_ctrl[theres_snr_ind,i])/data_ctrl[theres_snr_ind,i+1]        
+        y_delta=(data_cal[theres_snr_ind,i]-data_ctrl[theres_snr_ind,i])
         myfig=plt.figure(2,figsize=(10,10),dpi=80)
         ax=myfig.add_subplot(211)
-        ax.plot(network_snrs,y_effect,'bo',label='EffectVsSNR')
+        ax.plot(network_snrs[theres_snr_ind],y_effect,'bo',label='EffectVsSNR')
         ax.set_xlabel('Network SNR cal',fontsize=label_size)
         ax.set_ylabel('effect_%s'%parameter,fontsize=label_size)
         locs, labels = (ax.get_xticks(),ax.get_xticklabels)
@@ -545,7 +562,7 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         #set_fontsize_in_ticks(ax2,label_size)
         #ax3=ax.twinx()
         #y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
-        ax2.plot(bsn_cal,y_effect,'ro',label='EffectVsBSN')
+        ax2.plot(bsn_cal[theres_snr_ind],y_effect,'ro',label='EffectVsBSN')
         ax2.set_ylabel('effect_%s'%parameter,fontsize=label_size)
         set_fontsize_in_ticks(ax2,label_size)        
         ax2.legend()
