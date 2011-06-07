@@ -40,6 +40,7 @@ from time import strftime
 import numpy as np
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power
 from scipy import *
+from scipy import stats as stat
 import matplotlib 
 matplotlib.use("Agg")
 from pylab import *
@@ -513,7 +514,11 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
         kurtosis_effect_size= kurtosis(effect_size, mean_effect_size, std_effect_size)
         print "Mean %s in run %i: %e\n" %(parameter,int(run),mean_effect_size)
         print "Standard Deviation  %s in run %i: %e\n" %(parameter,int(run),std_effect_size)
-        #print "Skewness %e\n" % skewness_effect_size
+        print "Median %s in run %i: %e\n" %(parameter,int(run),np.median(effect_size))
+        print "50perc %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,50))
+        print "5perc %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,5))
+        print "95 perc  %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,95))
+
         #print "Kurtosis %e\n" % kurtosis_effect_size
         bins=linear_space(effect_size.min(),effect_size.max(),nbins)
         myfig2=figure(figsize=(4,3.5),dpi=80)
