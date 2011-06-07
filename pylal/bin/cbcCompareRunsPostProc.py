@@ -660,11 +660,11 @@ def WritePlotPage(outdir,run,parameters,first_time):
 
 def locate_public():
     if os.path.isdir(os.path.join(os.environ['HOME'],'WWW','LSC')):
-        return os.path.join(os.environ['HOME'],'WWW','LSC')
+        return os.path.realpath(os.path.join(os.environ['HOME'],'WWW','LSC'))
     elif os.path.isdir(os.path.join(os.environ['HOME'],'public_html')):
-        return os.path.join(os.environ['HOME'],'WWW','public_html')
+        return os.path.realpath(os.path.join(os.environ['HOME'],'public_html'))
     elif os.path.isdir(os.path.join(os.environ['HOME'],'WWW')):
-        return os.path.join(os.environ['HOME'],'WWW')
+        return os.path.realpath(os.path.join(os.environ['HOME'],'WWW'))
     else:
         print "Cannot localize the public folder"
 
@@ -672,6 +672,7 @@ def relativize_paths(pathA,pathB):
     """
     It takes two paths inside the public WWW folder of the user, and gives back the address of pathA as relative to the pathB
     """
+    pathB=os.path.realpath(pathB)
     print go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
     return go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
 
@@ -684,6 +685,7 @@ def go_to_path(pathA,pathB):
        print "%s is not a path to an existing folder. Exiting..."%pathA
        sys.exit(1)
     i=0
+    print os.path.realpath(pathA),os.path.realpath(pathB),"link\n"
     while os.getcwd()!=pathB:
         os.chdir(os.path.join(os.getcwd(),'../'))
         i+=1
