@@ -658,15 +658,41 @@ def WritePlotPage(outdir,run,parameters,first_time):
     plotpage.write(str(html))
     return
 
-def go_home(path):
+def locate_public():
+    if os.path.isdir(os.path.join(os.environ['HOME'],'WWW','LSC')):
+        return os.path.join(os.environ['HOME'],'WWW','LSC')
+    elif os.path.isdir(os.path.join(os.environ['HOME'],'public_html')):
+        return os.path.join(os.environ['HOME'],'WWW','public_html')
+    elif os.path.isdir(os.path.join(os.environ['HOME'],'WWW')):
+        return os.path.join(os.environ['HOME'],'WWW')
+    else:
+        print "Cannot localize the public folder"
+
+def relativize_paths(pathA,pathB):
+    """
+    It takes two paths inside the public WWW folder of the user, and gives back the address of pathA as relative to the pathB
+    """
+    print go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
+    return go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
+
+def go_to_path(pathA,pathB):
     current=os.getcwd()
     upo=''
-    os.chdir(path)
-    while os.getcwd()!=os.environ['HOME']:
+    if os.path.isdir(pathA):
+        os.chdir(pathA)
+    else:
+       print "%s is not a path to an existing folder. Exiting..."%pathA
+       sys.exit(1)
+    i=0
+    while os.getcwd()!=pathB:
         os.chdir(os.path.join(os.getcwd(),'../'))
+        i+=1
         upo+='../'
+        if i==100:
+            print "Could not go from folder %s to folder %s with less than 100 chdir. Exiting..."%(pathA,pathB)
+            sys.exit(1)
     os.chdir(current)
-    return upo
+    return upo[:-1]
 
 def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,header_l,times,IFOs,key,d):
     
@@ -715,8 +741,8 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     for time in times:
         time=str(time)
         html_table_st+='<tr>'
-        ctrl_page=os.path.join(go_home(outdir),path_to_ctrl_result_pages_from_LSC,time,'posplots.html')
-        cal_page=os.path.join(go_home(outdir),path_to_result_pages_from_LSC,time,'posplots.html')
+        ctrl_page=os.path.join(relativize_paths(path_to_ctrl_result_pages,abs_page_path),time,'posplots.html')
+        cal_page=os.path.join(relativize_paths(path_to_result_pages,abs_page_path),time,'posplots.html')
         html_table_st+='<td>'+link(ctrl_page,time)+'</td>'
         html_table_st+='<td>'+'%4.2f'%(ctrl_data[times.index(time),bsn_index])+'</td>'
         for IFO in ifos:
