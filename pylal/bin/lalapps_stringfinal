@@ -513,7 +513,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 
 
 class Efficiency(object):
-	def __init__(self, detection_threshold, cal_uncertainty, filter_width):
+	def __init__(self, detection_threshold, cal_uncertainty, filter_width, open_box):
 		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
 		self.filter_width = filter_width
@@ -523,9 +523,11 @@ class Efficiency(object):
 		self.loudest_missed = iterutils.Highest(max = 100)	# keep 100 loudest missed injections
 		self.quietest_found = iterutils.Highest(max = 100)	# keep 100 quietest found injections
 		self.all = []
+		self.open_box = open_box
 
 	def __iadd__(self, other):
 		assert other.detection_threshold == self.detection_threshold
+		assert other.open_box == self.open_box
 		self.seglists |= other.seglists
 		self.vetoseglists |= other.vetoseglists
 		self.found += other.found
@@ -868,6 +870,11 @@ if options.import_dump:
 	if options.verbose:
 		print >>sys.stderr, "Loading dump files ..."
 	rate_vs_threshold, efficiency = import_dumps(options.import_dump, verbose = options.verbose)
+	# override box openness in rate-vs-threshold data
+	if rate_vs_threshold is not None:
+		rate_vs_threshold.open_box = options.open_box
+	if efficiency is not None and options.open_box and not efficiency.open_box:
+		raise ValueError, "Box is open but one or more imjported efficiency dump file was generated in closed-box mode.  Efficiency must be re-measured in open-box mode to use correct detection threshold."
 else:
 	rate_vs_threshold, efficiency = None, None
 
@@ -960,7 +967,7 @@ efficiencies = []
 # to create more groups than there are files
 for filenames in pack_files(injection_filenames, min(options.threads, len(injection_filenames)), verbose = options.verbose):
 	# create new book-keeping object
-	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size))
+	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size, options.open_box))
 	# launch thread
 	threads.append(threading.Thread(target = process_files, args = (filenames, efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
 	threads[-1].start()
