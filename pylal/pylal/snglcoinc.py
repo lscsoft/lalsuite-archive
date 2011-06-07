@@ -51,6 +51,11 @@ from pylal import git_version
 from pylal import inject
 from pylal import llwapp
 from pylal import ligolw_tisi
+try:
+	all, any
+except NameError:
+	# python < 2.5 compatibility
+	from glue.iterutils import all, any
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -777,66 +782,95 @@ def coincident_process_ids(xmldoc, offset_vectors, max_segment_gap, program):
 #
 
 
-def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow_zero_lag = False, verbose = False, abundance_rel_accuracy = 1e-6):
+def slideless_coinc_generator_mu_tau(eventlists, segmentlists, delta_t):
 	"""
-	Generator function to return time shifted coincident event tuples
-	without the use of explicit time shift vectors.
+	Compute the mean event rates in Hz and the maximum allowed \Delta t
+	windows between pairs of instruments.
 
-	eventlists is a dictionary of lists of "events" (arbitrary python
-	objects), the dictionary's keys are instrument names.  segmentlists
-	is a glue.segments.segmentlistdict object describing the
-	observation segments for each of instruments.  timefunc is a
-	function for computing the "time" of an event, its signature should
-	be
+	eventlists is a dictionary mapping instrument name to a list of
+	"events" (arbitrary objects).  segmentlists is a
+	glue.segments.segmentlistdict object describing the observation
+	segments for each of instruments.  delta_t is a time window in
+	seconds, the light travel time between instrument pairs is added to
+	this internally.
 
-		t = timefunc(event)
+	The return value is a tuple of dictionaries.  The first, "mu", maps
+	instrument name to mean event rate in Hz.  The second, "tau", maps
+	pairs of instrument names (stored as frozensets) to the maximum
+	allowed time difference between events from those instruments in
+	order for them to be coincident.
+	"""
+	mu = dict((instrument, len(eventlist) / float(abs(segmentlists[instrument]))) for (instrument, eventlist) in eventlists.items())
+	tau = dict((frozenset([a, b]), delta_t + inject.light_travel_time(a, b)) for (a, b) in iterutils.choices(tuple(eventlists), 2))
+	return mu, tau
 
-	delta_t is a time window in seconds, the light travel time between
-	instrument pairs is added to this internally.
 
-	Using the mean event rates and the coincidence window, the function
-	first computes the relative frequency of each of the combinations
-	of instruments that can form a coincidence.  The function then
-	generates a sequence of event tuples, choosing events at random
-	from the event lists in combinations selected according to the
-	relative frequencies of the instrument combinations
+def slideless_coinc_generator_plausible_toas(instruments, tau):
+	"""
+	Construct and return a generator that yields dictionaries of random
+	event time-of-arrivals for the instruments in instruments such that
+	the time-of-arrivals are mutually coincident given the maximum
+	allowed inter-instrument \Delta ts given by tau.
 
-	If allow_zero_lag is False (the default), then only event tuples
-	with no genuine zero-lag coincidences are returned, that is only
-	tuples in which no event pairs would be considered to be coincident
-	without time shifts applied.
+	Example:
+
+	>>> tau = {frozenset(['V1', 'H1']): 0.028287979933844225, frozenset(['H1', 'L1']): 0.011012846152223924, frozenset(['V1', 'L1']): 0.027448341016726496}
+	>>> instruments = set(("H1", "L1", "V1"))
+	>>> toas = slideless_coinc_generator_plausible_toas(instruments, tau)
+	>>> toas.next()
+	>>> toas.next()
+	"""
+	# this algorithm is documented in slideless_coinc_generator_rates()
+	instruments = tuple(instruments)
+	anchor, instruments = instruments[0], instruments[1:]
+	windows = tuple((-tau[frozenset((anchor, instrument))], +tau[frozenset((anchor, instrument))]) for instrument in instruments)
+	ijseq = tuple((i, j, tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
+	while True:
+		dt = tuple(random.uniform(*window) for window in windows)
+		if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
+			yield dict([(anchor, 0.0)] + zip(instruments, dt))
+
+
+def slideless_coinc_generator_rates(mu, tau, verbose = False, abundance_rel_accuracy = 1e-4):
+	"""
+	From the mean event rates for N instruments and the maximum allowed
+	coincidence windows between pairs of those instruments, compute and
+	return the mean event rates for coincidences for all combinations of
+	instruments from 2 to N inclusively.
+
+	The mu and tau input parameters are the return values of
+	slideless_coinc_generator_mu_tau().  If verbose is True then
+	diagnostic information is printed to stderr.
 
 	abundance_rel_accuracy sets the fractional error tolerated in the
 	Monte Carlo integrator used to estimate the relative abundances of
-	the different kinds of coincs.  NOTE:  This parameter should not be
-	taken literally, the fractional errors are substantially higher
-	than this parameter would suggest.
+	the different kinds of coincs.
 	"""
-	#
-	# compute the mean event rates in Hz and the coincidence windows in
-	# seconds
-	#
-
-	mu = dict((instrument, len(eventlist) / float(abs(segmentlists[instrument]))) for (instrument, eventlist) in eventlists.items())
-	tau = dict((frozenset([a, b]), delta_t + inject.light_travel_time(a, b)) for (a, b) in iterutils.choices(tuple(eventlists), 2))
-	if verbose:
-		for keyvalue in mu.items():
-			print >>sys.stderr, "%s mean event rate = %g Hz" % keyvalue
-		for (a, b), window in tau.items():
-			print >>sys.stderr, "tau_{%s,%s} = %g s" % (a, b, window)
-
-	#
-	# compute the rate of all different coincidence types
-	#
-
-	for n in range(len(eventlists), 1, -1):
-		for instruments in iterutils.choices(tuple(eventlists), n):
-			# compute \mu_{1} * \mu_{2} ... \mu_{N} * \tau_{12}
-			# * \tau_{13} ... \tau_{1N}
+	all_instruments = tuple(mu)
+	mu_coinc = {}
+	for n in range(len(all_instruments), 1, -1):
+		for instruments in iterutils.choices(all_instruments, n):
+			# choose the instrument whose TOA forms the "epoch"
+			# of the coinc.  to improve the convergence rate
+			# this should be the instrument with the smallest
+			# coincidence windows
 			key = frozenset(instruments)
-			anchor, instruments = instruments[0], instruments[1:]
+			anchor = min((tau[frozenset(ab)], ab[0]) for ab in iterutils.choices(instruments, 2))[1]
+			instruments = tuple(key - set([anchor]))
+			# compute \mu_{1} * \mu_{2} ... \mu_{N} * 2 *
+			# \tau_{12} * 2 * \tau_{13} ... 2 * \tau_{1N}.
+			# this is the rate at which events from instrument
+			# 1 are coincident with events from all of
+			# instruments 2...N.  later, we will multiply this
+			# by the probability that events from instruments
+			# 2...N known to be coincident with an event from
+			# instrument 1 are themselves mutually coincident
 			rate = mu[anchor]
 			for instrument in instruments:
+				# the factor of 2 is because to be
+				# coincident the time difference can be
+				# anywhere in [-tau, +tau], so the size of
+				# the coincidence window is 2 tau
 				rate *= mu[instrument] * 2 * tau[frozenset((anchor, instrument))]
 			if verbose:
 				print >>sys.stderr, "%s uncorrected mean event rate = %g Hz" % (",".join(sorted(key)), rate)
@@ -849,7 +883,15 @@ def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow
 			# computational geometry library and convex hull
 			# volume calculator.
 			if len(instruments) > 1:
+				# for each instrument 2...N, the interval
+				# within which an event is coincident with
+				# instrument 1
 				windows = tuple((-tau[frozenset((anchor, instrument))], +tau[frozenset((anchor, instrument))]) for instrument in instruments)
+				# pre-assemble a sequence of instrument
+				# index pairs and the maximum allowed
+				# \Delta t between them to avoid doing the
+				# work associated with assembling the
+				# sequence inside a loop
 				ijseq = tuple((i, j, tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
 				# compute the numerator and denominator of
 				# the fraction of events coincident with
@@ -857,15 +899,29 @@ def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow
 				# mutually coincident.  this is done by
 				# picking a vector of allowed \Delta ts and
 				# testing them against the coincidence
-				# windows.  for speed, we pre-compute many
-				# things and store them in tuples
+				# windows.  the loop's exit criterion is
+				# arrived at as follows.  the binomial
+				# distribution's variance is d p (1 - p)
+				# where d is the number of trials and p is
+				# the probability of a successful outcome,
+				# which we replace here with p=n/d.  we
+				# quit when \sqrt{d p (1 - p)} / n <= rel
+				# accuracy.  by connecting the bailout
+				# condition to the results of the loop we
+				# bias the final answer (e.g., we get lucky
+				# and increment n on the first trial).  to
+				# minimize the effect of this we require at
+				# least 1 / rel accuracy iterations before
+				# considering the binomial criterion.  note
+				# that if the true probability is 0 or 1,
+				# so that n=0 or n=d identically then the
+				# loop will never terminate;  from the
+				# nature of the problem we know 0<p<1 so
+				# the loop will, eventually, terminate
 				n, d = 0, 0
-				while n < len(key) / abundance_rel_accuracy:
+				while abundance_rel_accuracy * d < 1.0 or n < d / (1.0 + abundance_rel_accuracy**2 * d):
 					dt = tuple(random.uniform(*window) for window in windows)
-					for i, j, window in ijseq:
-						if abs(dt[i] - dt[j]) > window:
-							break
-					else:
+					if all(abs(dt[i] - dt[j]) <= maxdt for i, j, maxdt in ijseq):
 						n += 1
 					d += 1
 
@@ -877,28 +933,66 @@ def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow
 			# subtract from the rate the rate at which this
 			# combination of instruments is found in
 			# higher-order coincs
-			for m in range(1, len(eventlists) - len(key) + 1):
-				for otherinstruments in iterutils.choices(tuple(set(eventlists) - key), m):
-					rate -= mu[key | set(otherinstruments)]
+			all_other_instruments = tuple(set(all_instruments) - key)
+			for m in range(1, len(all_other_instruments) + 1):
+				for otherinstruments in iterutils.choices(all_other_instruments, m):
+					rate -= mu_coinc[key | set(otherinstruments)]
 
 			# done
 			assert rate >= 0
-			mu[key] = rate
+			mu_coinc[key] = rate
 			if verbose:
 				print >>sys.stderr, "%s mean event rate = %g Hz" % (",".join(sorted(key)), rate)
 
-	#
-	# remove single instrument rates
-	#
+	# done
+	return mu_coinc
 
-	for instrument in eventlists:
-		del mu[instrument]
 
+def slideless_coinc_generator(eventlists, mu_coinc, tau, timefunc, allow_zero_lag = False, verbose = False):
+	"""
+	Generator function to return time shifted coincident event tuples
+	without the use of explicit time shift vectors.
+
+	eventlists is a dictionary mapping instrument name to a list of
+	"events" (arbitrary objects).  mu_coinc is a dictionary mapping
+	frozensets of instrument names to mean event rates in Hz;  this
+	diciontary can be generated using
+	slideless_coinc_generator_rates().  tau is a dictionary mappin
+	pairs of instrument names (stored as frozensets) to the maximum
+	allowed time difference between events from those instruments in
+	order for them to be coincident;  this dictionary can be generated
+	with slideless_coinc_generator_mu_tau().  timefunc is a function
+	for computing the "time" of an event, its signature should be
+
+		t = timefunc(event)
+
+	If allow_zero_lag is False (the default), then only event tuples
+	with no genuine zero-lag coincidences are returned, that is only
+	tuples in which no event pairs would be considered to be coincident
+	without time shifts applied.
+
+
+	Example:
+
+	>>> eventlists = {"H1": [0, 1, 2, 3], "L1": [10, 11, 12, 13], "V1": [20, 21, 22, 23]}
+	>>> segmentlists = {"H1": 30, "L1": 40, "V1": 50}
+	>>> mu, tau = slideless_coinc_generator_mu_tau(eventlists, segmentlists, 0.001)
+	>>> mu
+	{'V1': 0.080000000000000002, 'H1': 0.13333333333333333, 'L1': 0.10000000000000001}
+	>>> tau
+	{frozenset(['V1', 'H1']): 0.028287979933844225, frozenset(['H1', 'L1']): 0.011012846152223924, frozenset(['V1', 'L1']): 0.027448341016726496}
+	>>> mu_coinc = slideless_coinc_generator_rates(mu, tau)
+	>>> mu_coinc
+	{frozenset(['V1', 'H1']): 0.00060229803796414379, frozenset(['V1', 'H1', 'L1']): 1.1788672911996494e-06, frozenset(['H1', 'L1']): 0.00029249703010143834, frozenset(['V1', 'L1']): 0.00043799458897642431}
+	>>> coincs = slideless_coinc_generator(eventlists, mu_coinc, tau, (lambda x: 0), allow_zero_lag = True)
+	>>> coincs.next()	# returns a tuple of events
+	"""
 	#
 	# from the rates compute the relative abundances
 	#
 
-	P = dict((key, value / sum(mu.values())) for key, value in mu.items())
+	assert all(len(key) > 1 for key in mu_coinc.keys())	# check for single-instrument rates
+	P = dict((key, value / sum(mu_coinc.values())) for key, value in mu_coinc.items())
 	if verbose:
 		for key, value in P.items():
 			print >>sys.stderr, "%s relative abundance = %g" % (",".join(sorted(key)), value)
@@ -942,19 +1036,16 @@ def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow
 		instruments = P[bisect.bisect_left(P, [random.uniform(0.0, 1.0)])][1]
 
 		# randomly selected events from those instruments
-		events = [(instrument, random.choice(eventlists[instrument])) for instrument in instruments]
+		events = tuple(random.choice(eventlists[instrument]) for instrument in instruments)
 
 		# test for a genuine zero-lag coincidence among them
 		keep = True
-		if not allow_zero_lag:
-			for (instrumenta, eventa), (instrumentb, eventb) in iterutils.choices(events, 2):
-				if abs(timefunc(eventa) - timefunc(eventb)) < tau[frozenset((instrumenta, instrumentb))]:
-					keep = False
-					break
+		if not allow_zero_lag and any(abs(ta - tb) < tau[frozenset((instrumenta, instrumentb))] for (instrumenta, ta), (instrumentb, tb) in iterutils.choices(zip(instruments, [timefunc(event) for event in events]), 2)):
+			keep = False
 
 		# return acceptable event tuples
 		if keep:
-			yield tuple(event for instrument, event in events)
+			yield events
 
 
 #
@@ -1022,7 +1113,7 @@ class TOATriangulator(object):
 		Note:  rs and sigmas may be iterated over multiple times.
 		"""
 		assert len(rs) == len(sigmas)
-		assert len(rs) >= 3
+		assert len(rs) >= 2
 
 		self.rs = numpy.vstack(rs)
 		self.sigmas = numpy.array(sigmas)
@@ -1037,12 +1128,15 @@ class TOATriangulator(object):
 		# ith row is \sigma_i^-2 (r_i - \bar{r}) / c
 		M = self.R / (self.v * self.sigmas[:,numpy.newaxis]**2)
 
-		self.U, self.S, self.VT = numpy.linalg.svd(M)
+		if len(rs) >= 3:
+			self.U, self.S, self.VT = numpy.linalg.svd(M)
 
-		# if the smallest singular value is less than 10^-8 * the
-		# largest singular value, assume the network is degenerate
-		self.singular = abs(self.S.min() / self.S.max()) < 1e-8
-
+			# if the smallest singular value is less than 10^-8 * the
+			# largest singular value, assume the network is degenerate
+			self.singular = abs(self.S.min() / self.S.max()) < 1e-8
+		else:
+			# len(rs) == 2
+			self.max_dt = numpy.dot(self.rs[1] - self.rs[0], self.rs[1] - self.rs[0])**.5 / self.v
 
 	def __call__(self, ts):
 		"""
@@ -1091,64 +1185,74 @@ class TOATriangulator(object):
 
 		# sigma^-2 -weighted mean of arrival times
 		tbar = sum(ts / self.sigmas**2) / sum(1 / self.sigmas**2)
+		# the i-th element is ts - tbar for the i-th location
 		tau = ts - tbar
-		tau_prime = numpy.dot(self.U.T, tau)[:3]
 
-		if self.singular:
-			l = 0.0
-			np = tau_prime / self.S
-			try:
-				np[2] = math.sqrt(1.0 - np[0]**2 - np[1]**2)
-			except ValueError:
-				np[2] = 0.0
-				np /= math.sqrt(numpy.dot(np, np))
-		else:
-			def n_prime(l, Stauprime = self.S * tau_prime, S2 = self.S * self.S):
-				return Stauprime / (S2 + l)
-			def secular_equation(l):
+		if len(self.rs) >= 3:
+			tau_prime = numpy.dot(self.U.T, tau)[:3]
+
+			if self.singular:
+				l = 0.0
+				np = tau_prime / self.S
+				try:
+					np[2] = math.sqrt(1.0 - np[0]**2 - np[1]**2)
+				except ValueError:
+					np[2] = 0.0
+					np /= math.sqrt(numpy.dot(np, np))
+			else:
+				def n_prime(l, Stauprime = self.S * tau_prime, S2 = self.S * self.S):
+					return Stauprime / (S2 + l)
+				def secular_equation(l):
+					np = n_prime(l)
+					return numpy.dot(np, np) - 1
+
+				# values of l that make the denominator of n'(l) 0
+				lsing = -self.S * self.S
+				# least negative of them is used as lower bound for
+				# bisection search root finder (elements of S are
+				# ordered from greatest to least, so the last
+				# element of lsing is the least negative)
+				l_lo = lsing[-1]
+
+				# find a suitable upper bound for the root finder
+				# FIXME:  in Jolien's original code l_hi was
+				# hard-coded to 1 but we can't figure out why the
+				# root must be <= 1, so I put this loop to be safe
+				# but at some point it would be good to figure out
+				# if 1.0 can be used because it would allow this
+				# loop to be skipped
+				l_hi = 1.0
+				while secular_equation(l_lo) / secular_equation(l_hi) > 0:
+					l_lo, l_hi = l_hi, l_hi * 2
+
+				# solve for l
+				l = scipy.optimize.brentq(secular_equation, l_lo, l_hi)
+
+				# compute n'
 				np = n_prime(l)
-				return numpy.dot(np, np) - 1
 
-			# values of l that make the denominator of n'(l) 0
-			lsing = -self.S * self.S
-			# least negative of them is used as lower bound for
-			# bisection search root finder (elements of S are
-			# ordered from greatest to least, so the last
-			# element of lsing is the least negative)
-			l_lo = lsing[-1]
+			# compute n from n'
+			n = numpy.dot(self.VT.T, np)
 
-			# find a suitable upper bound for the root finder
-			# FIXME:  in Jolien's original code l_hi was
-			# hard-coded to 1 but we can't figure out why the
-			# root must be <= 1, so I put this loop to be safe
-			# but at some point it would be good to figure out
-			# if 1.0 can be used because it would allow this
-			# loop to be skipped
-			l_hi = 1.0
-			while secular_equation(l_lo) / secular_equation(l_hi) > 0:
-				l_lo, l_hi = l_hi, l_hi * 2
+			# safety check the nomalization of the result
+			assert abs(numpy.dot(n, n) - 1.0) < 1e-8
 
-			# solve for l
-			l = scipy.optimize.brentq(secular_equation, l_lo, l_hi)
+			# arrival time at origin
+			toa = sum((ts - numpy.dot(self.rs, n) / self.v) / self.sigmas**2) / sum(1 / self.sigmas**2)
 
-			# compute n'
-			np = n_prime(l)
+			# chi^{2}
+			chi2 = sum(((numpy.dot(self.R, n) / self.v - tau) / self.sigmas)**2)
 
-		# compute n from n'
-		n = numpy.dot(self.VT.T, np)
-
-		# safety check the nomalization of the result
-		assert abs(numpy.dot(n, n) - 1.0) < 1e-8
-
-		# arrival time at origin
-		toa = sum((ts - numpy.dot(self.rs, n) / self.v) / self.sigmas**2) / sum(1 / self.sigmas**2)
-
-		# chi^{2}
-		chi2 = sum(((numpy.dot(self.R, n) / self.v - tau) / self.sigmas)**2)
-
-		# root-sum-square timing residual
-		dt = ts - toa - numpy.dot(self.rs, n) / self.v
-		dt = math.sqrt(numpy.dot(dt, dt))
+			# root-sum-square timing residual
+			dt = ts - toa - numpy.dot(self.rs, n) / self.v
+			dt = math.sqrt(numpy.dot(dt, dt))
+		else:
+			# len(rs) == 2
+			# FIXME:  fill in n and toa (is chi2 right?)
+			n = numpy.zeros((3,), dtype = "double")
+			toa = 0.0
+			dt = max(abs(ts[1] - ts[0]) - self.max_dt, 0)
+			chi2 = dt**2 / sum(self.sigmas**2)
 
 		# done
 		return n, t0 + toa, chi2 / len(self.sigmas), dt

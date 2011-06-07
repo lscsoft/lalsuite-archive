@@ -51,15 +51,27 @@ class offsetvector(dict):
 	>>> x = offsetvector({"H1": 0, "L1": 10, "V1": 20})
 	>>> x["H1"]
 	0
-	"""
 
+	The motivation for introducing this class, instead of using
+	dictionaries, is that it provides a number of tools for comparing
+	offset vectors besides strict value-for-value equality.  For
+	example the Python cmp() operation compares two offset vectors by
+	the relative offsets between instruments rather than their absolute
+	offsets, whereas the == operation compares two offset vectors by
+	demanding string equality.  There is also the ability to check if
+	one offset vector is a subset of another one.
+	"""
 	@property
 	def refkey(self):
 		"""
-		min(self.keys())
+		= min(self)
 
 		Raises ValueError if the offsetvector is empty.
 		"""
+		# min() emits ValueError when the list is empty, but it
+		# might also emit a ValueError if the comparison operations
+		# inside it fail, so we can't simply wrap it in a
+		# try/except pair or we might mask genuine failures
 		if not self:
 			raise ValueError, "offsetvector is empty"
 		return min(self)
@@ -70,12 +82,14 @@ class offsetvector(dict):
 		Dictionary of relative offsets.  The keys in the result are
 		pairs of keys from the offset vector, (a, b), and the
 		values are the relative offsets, (offset[b] - offset[a]).
+		Raises ValueError if the offsetvector is empty (WARNING:
+		this behaviour might change in the future).
 
 		Example:
 
 		>>> x = offsetvector({"H1": 0, "L1": 10, "V1": 20})
 		>>> x.deltas
-		{('H1', 'H1'): 0, ('H1', 'L1'): 10, ('H1', 'V1'): 20}
+		{('H1', 'L1'): 10, ('H1', 'V1'): 20, ('H1', 'H1'): 0}
 		>>> y = offsetvector({'H1': 100, 'L1': 110, 'V1': 120})
 		>>> y.deltas == x.deltas
 		True
@@ -90,6 +104,10 @@ class offsetvector(dict):
 		I can't remember why I put them in the way they are.
 		Expect them to change in the future.
 		"""
+		# FIXME:  instead of raising ValueError when the
+		# offsetvector is empty this should return an empty
+		# dictionary.  the inverse, .fromdeltas() accepts
+		# empty dictionaries
 		# NOTE:  the arithmetic used to construct the offsets
 		# *must* match the arithmetic used by
 		# time_slide_component_vectors() so that the results of the
@@ -101,7 +119,8 @@ class offsetvector(dict):
 
 	def __str__(self, compact = False):
 		"""
-		Dispaly an offset vector in human-readable form.
+		Return a human-readable string representation of an offset
+		vector.
 
 		Example:
 
@@ -117,6 +136,8 @@ class offsetvector(dict):
 
 	def __repr__(self):
 		"""
+		Return a string representation of the offset vector.
+
 		Example:
 
 		>>> a = offsetvector({"H1": -10.1234567, "L1": 0.1})
@@ -169,7 +190,10 @@ class offsetvector(dict):
 		>>> a.contains(b)
 		True
 
-		See also .__contains__()
+		Note the distinction between this and the "in" operator:
+
+		>>> "H1" in a
+		True
 		"""
 		return offsetvector((key, offset) for key, offset in self.items() if key in other).deltas == other.deltas
 
@@ -193,13 +217,13 @@ class offsetvector(dict):
 
 		>>> a = offsetvector({"H1": -10, "H2": -10, "L1": -10})
 		>>> a.normalize(L1 = 0)
-		{'H2': 0, 'H1': 0, 'L1': 0}
+		offsetvector({'H2': 0, 'H1': 0, 'L1': 0})
 		>>> a = offsetvector({"H1": -10, "H2": -10})
 		>>> a.normalize(L1 = 0, H2 = 5)
-		{'H2': 5, 'H1': 5}
+		offsetvector({'H2': 5, 'H1': 5})
 		"""
 		# FIXME:  should it be performed in place?  if it should
-		# be, should there be no return value?
+		# be, the should there be no return value?
 		for key, offset in sorted(kwargs.items()):
 			if key in self:
 				delta = offset - self[key]
