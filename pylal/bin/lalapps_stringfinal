@@ -821,12 +821,14 @@ def write_products(products, prefix, image_formats, verbose = False):
 		if verbose:
 			print >>sys.stderr, "finishing product %d ..." % (n - 1)
 		product = products.pop(0)
+		# write dump of raw data
 		filename = "%sdump_%d.pickle" % (prefix, n)
 		if verbose:
 			print >>sys.stderr, "\twriting %s ..." % filename,
 		pickle.dump(product, open(filename, "w"))
 		if verbose:
 			print >>sys.stderr, "done"
+		# write plots
 		for m, fig in enumerate(product.finish()):
 			for ext in image_formats:
 				filename = format % (prefix, n, chr(m + 97), ext)
