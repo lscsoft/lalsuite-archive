@@ -190,6 +190,7 @@ class RateVsThreshold(object):
 	def __init__(self, open_box, record_background, record_candidates):
 		self.zero_lag = []
 		self.background = iterutils.Highest(max = record_background)
+		self.most_significant_background = iterutils.Highest(max = record_candidates)
 		self.candidates = iterutils.Highest(max = record_candidates)
 		self.zero_lag_time = 0.0
 		self.background_time = 0.0
@@ -198,6 +199,7 @@ class RateVsThreshold(object):
 	def __iadd__(self, other):
 		self.zero_lag += other.zero_lag
 		self.background += other.background
+		self.most_significant_background += other.most_significant_background
 		self.candidates += other.candidates
 		self.zero_lag_time += other.zero_lag_time
 		self.background_time += other.background_time
@@ -230,6 +232,7 @@ class RateVsThreshold(object):
 		#
 
 		background = []
+		most_significant_background = []
 		candidates = []
 		for likelihood_ratio, instruments, coinc_event_id, peak_time, is_background in contents.connection.cursor().execute("""
 SELECT
@@ -268,6 +271,9 @@ WHERE
 			elif is_background:
 				# non-vetoed background
 				background.append(likelihood_ratio)
+				# likelihood ratio must be listed first to
+				# act as the sort key
+				most_significant_background.append((likelihood_ratio, contents.filename, coinc_event_id, dbtables.lsctables.instrument_set_from_ifos(instruments), peak_time))
 			else:
 				# non-vetoed zero lag
 				self.zero_lag.append(likelihood_ratio)
@@ -277,12 +283,24 @@ WHERE
 		# this is much faster than appending each element into the
 		# Highest object one-by-one
 		self.background.extend(background)
+		self.most_significant_background.extend(most_significant_background)
 		self.candidates.extend(candidates)
 
 	def finish(self):
 		#
-		# dump info about highest-ranked zero-lag events
+		# dump info about highest-ranked zero-lag and background
+		# events
 		#
+
+		f = file("string_most_significant_background.txt", "w")
+		print >>f, "Highest-Ranked Background Events"
+		print >>f, "================================"
+		for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.most_significant_background:
+			print >>f
+			print >>f, "%s in %s:" % (str(coinc_event_id), filename)
+			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
+			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
+			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
 
 		f = file("string_candidates.txt", "w")
 		print >>f, "Highest-Ranked Zero-Lag Events"
