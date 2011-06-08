@@ -3,6 +3,31 @@ import sys
 import numpy
 
 
+def ROC(clean_ranks, glitch_ranks):
+  """
+  Calculates ROC curves based on the ranks assigned by a classifier to clean and glitch aux triggers.
+  """
+  clean_ranks_sorted = numpy.sort(clean_ranks)
+  glitch_ranks_sorted = numpy.sort(glitch_ranks)
+  number_of_false_alarms=[]
+  number_of_true_alarms=[]
+  FAP = []
+  DP = []
+  for i,rank in enumerate(clean_ranks_sorted):
+    # get the number of clean triggers with rank greater than or equal to a given rank
+    number_of_false_alarms = len(clean_ranks_sorted) -	numpy.searchsorted(clean_ranks_sorted,rank)
+    # get the number of glitches with rank greater than or equal to a given rank
+    number_of_true_alarms = len(glitch_ranks_sorted) -	numpy.searchsorted(glitch_ranks_sorted,rank)
+    # calculate the total deadime if this given rank is used as the threshold
+    FAP.append( number_of_false_alarms / float(len(clean_ranks_sorted)))
+    # calculate the fraction of correctly flagged glitches
+    DP.append(number_of_true_alarms / float(len(glitch_ranks_sorted)))
+
+  return numpy.asarray(FAP), numpy.asarray(DP)
+
+
+
+
 def split_array(array, Nparts = 2):
   """ 
   Splits 2-d record array in N equal parts. 
@@ -27,16 +52,20 @@ def getKWAuxTriggerFromDQCAT(Triggers, DQ_category):
     if DQ_category == 'DQ2':
       return Triggers[numpy.nonzero(Triggers['DQ2'] == 1.0)[0],:]
     elif DQ_category == 'DQ3':
-      return Triggers[numpy.nonzero(Triggers['DQ3'] == 1.0)[0],:]  
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) * (Triggers['DQ3'] == 1.0))[0],:]  
     elif DQ_category == 'DQ4':
-      return Triggers[numpy.nonzero(Triggers['DQ4'] == 1.0)[0],:]
-    elif DQ_category == 'DQ5':
-       return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) *(Triggers['DQ3'] == 0.0) *(Triggers['DQ4'] == 0.0))[0],:]
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) * (Triggers['DQ3'] == 0.0) * (Triggers['DQ4'] == 1.0))[0],:]
     elif DQ_category == 'DQ23':
-      return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0)  + (Triggers['DQ3'] == 1.0))[0],:] 
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0) + (Triggers['DQ3'] == 1.0))[0],:] 
     elif DQ_category == 'DQ234':
-      return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0)  + (Triggers['DQ3'] == 1.0) +(Triggers['DQ4'] == 1.0))[0],:]
-    elif DQ_category == 'None':
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0) + (Triggers['DQ3'] == 1.0) + (Triggers['DQ4'] == 1.0))[0],:]
+    elif DQ_category == '-DQ2':
+      return Triggers[numpy.nonzero(Triggers['DQ2'] == 0.0)[0],:]
+    elif DQ_category == '-DQ23':
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) * (Triggers['DQ3'] == 0.0))[0],:]
+    elif DQ_category == '-DQ234':
+      return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) * (Triggers['DQ3'] == 0.0) * (Triggers['DQ4'] == 0.0))[0],:]
+    elif DQ_category == 'ALL':
       return Triggers
     else:
       raise ValueError("Unknown DQ category") 
