@@ -1951,6 +1951,7 @@ class SimBurstTable(table.Table):
 		"hrss": "real_8",
 		"egw_over_rsquared": "real_8",
 		"waveform_number": "int_8u",
+		"time_slide_id": "ilwd:char",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
