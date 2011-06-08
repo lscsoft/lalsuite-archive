@@ -179,8 +179,10 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             vert_y_cal=column_stack((ply,ply_cal))
 
     ### Put a maximum of max_n injection in each plot to improve readability
+    ### TBD add filtering on BNS here or in the caller
     max_n=20
     d,r=divmod(len(plx),max_n)
+    ### This put the events back in increasing order
     inverted_seqs=[(range(len(plx))[::-1])[k*max_n:(k+1)*max_n] for k in range(d+1)]
     for seq in inverted_seqs:
         if seq!=[]:
@@ -230,6 +232,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     checkDir(outdir)
     number_of_inits=len(inputs)
     injTable=SimInspiralUtils.ReadSimInspiralFromFiles([inj])
+    ### flow and fup only control the extrema of the error plots.
     flow=20.0
     fup=500.0
     label_size=22
@@ -272,69 +275,86 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     BSN=[path for path in inputs]
     Combine=[path for path in inputs]
     snrs=[path for path in snrs]
-    temp_times=[time for time in times]
     
-    ## Remove the times for which posterior file is not present in either of the init ## TBD I only need to compare couple of ctrl-cali, not all of them
-    for run in range(len(Combine)):
-        for time in times:
+    temp_times_run={}
+    times_run={}
+    ctrl_times={}
+    for run in range(1,len(Combine)):
+        times_run[run]=[time for time in times]
+        temp_times_run[run]=[time for time in times]
+        
+    ## Remove the times for which the posterior file is not present in the control run
+    for time in times:
+        path_to_file=os.path.join(Combine[0],'posterior_samples_'+str(time)+'.000')
+        if not os.path.isfile(path_to_file):
+            for run in range(1,len(Combine)):
+                temp_times[run].remove(time)
+    for run in range(1,len(Combine)):
+        times_run[run]=temp_times[run]
+    ## Now for each key run remove the times for which posteriors are non present (even if they were present in the ctrl run)
+    for run in range(1,len(Combine)):
+        for time in times_run[run]:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
             if not os.path.isfile(path_to_file):
-                temp_times.remove(time)
-        times=temp_times
+                temp_times_run[run].remove(time)
+        times_run[run]=temp_times_run[run]
 
-    recovered_positions_cal={}
-    injected_positions=[]
-    recovered_positions_ctrl=[]
+    recovered_positions_key={}
+    injected_positions={}
+    recovered_positions_ctrl={}    
+
     ## prepare files with means and other useful data. It also fills the list with the sky positions ###
-    for run in range(len(Combine)):
-        if int(run)==0:
-            summary=open(os.path.join(outdir,'summary_ctrl.dat'),'w')
-        else:
-            summary=open(os.path.join(outdir,'summary_'+str(run)+'.dat'),'w')
-        header=open(os.path.join(outdir,'headers_'+str(run)+'.dat'),'w')
+    for out_run in range(1+len(Combine)):
+        summary_ctrl=open(os.path.join(outdir,'summary_ctrl_'+str(out_run)+'.dat'),'w')
+        summary_key=open(os.path.join(outdir,'summary_'+key+'_'+str(out_run)+'.dat'),'w')
+        header=open(os.path.join(outdir,'headers_'+str(out_run)+'.dat'),'w')
         header_l=[]
         header_l.append('injTime ')
-        recovered_positions_cal[int(run)]=[]
-        for time in times:
-            path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
-            posterior_file=open(path_to_file,'r')
-            peparser=bppu.PEOutputParser('common')
-            commonResultsObj=peparser.parse(posterior_file)
-            pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injTable[times.index(time)])
-            posterior_file.close()
-            parameters=pos.names            
-            parameters.remove('logl')
-            summary.write(str(time)+'\t')
-            if 'ra' in parameters and 'dec' in parameters:
-                if int(run)==0:
-                    recovered_positions_ctrl.append([pos['dec'].mean,pos['ra'].mean])
-                    injected_positions.append([pos['dec'].injval,pos['ra'].injval])
-                else:
-                    recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean])
-            for parameter in parameters:
-                summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
-                if time==times[0]:
-                    header_l.append('mean_'+parameter)
-                    header_l.append('stdev_'+parameter)
-            if BSN is not None:
-                path_to_file=os.path.join(BSN[run],'bayesfactor_'+str(time)+'.000.txt')
-                bfile=open(path_to_file,'r')
-                bsn=bfile.readline()[:-1] ## remove the newline tag
-                bfile.close()
-                summary.write(str(bsn)+'\t')
-                if time==times[0]:
-                    header_l.append('BSN')
-            if snrs is not None:
-                val,hea=read_snr(snrs,run,time,IFOs)
-                summary.write(str(val)+'\t')
-                if time==times[0]:
-                    for he in hea:
-                        header_l.append(he)
-            summary.write('\n')
-        header.write('\t'.join(str(n) for n in header_l)+'\n')
-        summary.close()
-        header.close()
-    ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act smartly
+        recovered_positions_ctrl[out_run]=[]
+        recovered_positions_key[out_run]=[]
+        injected_positions[out_run]=[]
+        for run in [0,out_run]:
+
+            for time in times_run[out_run]:
+                path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
+                posterior_file=open(path_to_file,'r')
+                peparser=bppu.PEOutputParser('common')
+                commonResultsObj=peparser.parse(posterior_file)
+                pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injTable[times.index(time)])
+                posterior_file.close()
+                parameters=pos.names            
+                parameters.remove('logl')
+                summary.write(str(time)+'\t')
+                if 'ra' in parameters and 'dec' in parameters:
+                    if int(run)==0:
+                        recovered_positions_ctrl[out_run].append([pos['dec'].mean,pos['ra'].mean])
+                        injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval])
+                    else:
+                        recovered_positions_key[int(out_run)].append([pos['dec'].mean,pos['ra'].mean])
+                for parameter in parameters:
+                    summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
+                    if time==times[0]:
+                        header_l.append('mean_'+parameter)
+                        header_l.append('stdev_'+parameter)
+                if BSN is not None:
+                    path_to_file=os.path.join(BSN[run],'bayesfactor_'+str(time)+'.000.txt')
+                    bfile=open(path_to_file,'r')
+                    bsn=bfile.readline()[:-1] ## remove the newline tag
+                    bfile.close()
+                    summary.write(str(bsn)+'\t')
+                    if time==times[0]:
+                        header_l.append('BSN')
+                if snrs is not None:
+                    val,hea=read_snr(snrs,run,time,IFOs)
+                    summary.write(str(val)+'\t')
+                    if time==times[0]:
+                        for he in hea:
+                            header_l.append(he)
+                summary.write('\n')
+            header.write('\t'.join(str(n) for n in header_l)+'\n')
+            summary.close()
+            header.close()
+    ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act consequently.
     
     
     ### Now read the ctrl data, these stay the same all along while the cal_run data are read at each interation in the for below
@@ -350,7 +370,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if calerr is not None:
             MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
         if injected_positions!=[] and recovered_positions_cal!={}:
-            d,r=Make_injected_sky_map(injected_positions,outdir,run,dec_ra_cal=recovered_positions_cal[int(run)],dec_ra_ctrl=recovered_positions_ctrl)
+            d,r=Make_injected_sky_map(injected_positions[int(run)],outdir,run,dec_ra_cal=recovered_positions_key[int(run)],dec_ra_ctrl=recovered_positions_ctrl[int(run)])
 
         WritePlotPage(outdir,run,parameters,times[0])
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs,keyword,d)
@@ -597,30 +617,48 @@ def WritePlotPage(outdir,run,parameters,first_time):
     for parameter in parameters:
         html_plots_st+='<tr>'
         for plot in ['delta_','effect_','delta_sigma_']:
-            html_plots_st+='<td>'
-            html_plots_st+=linkImage(os.path.join(path_plots,plot +parameter+'.png'),wd,hg)
-            html_plots_st+='</td>'
+            if os.path.isfile(os.path.join(path_plots,plot +parameter+'.png')):
+                html_plots_st+='<td>'
+                html_plots_st+=linkImage(os.path.join(path_plots,plot +parameter+'.png'),wd,hg)
+                html_plots_st+='</td>'
         for plot in ['SNR_vs_']:
-            html_plots_st+='<td>'
-            html_plots_st+=linkImage(os.path.join(snr_plots,plot +parameter+'.png'),wd,hg)
-            html_plots_st+='</td>'
+            if os.path.isfile(os.path.join(snr_plots,plot +parameter+'.png')):
+                html_plots_st+='<td>'
+                html_plots_st+=linkImage(os.path.join(snr_plots,plot +parameter+'.png'),wd,hg)
+                html_plots_st+='</td>'
         html_plots_st+='</tr>'
-    html_plots_st+='<tr><td colspan="2">'
-    html_plots_st+=linkImage(os.path.join(bsn_plots,'BSN_vs_SNR.png'),2*wd,2*hg)
-    html_plots_st+='</td><td colspan="2">'
-    html_plots_st+=linkImage(os.path.join(sky_plots,'injected_skymap.png'),2*wd,2*hg)
-    html_plots_st+='</td></tr>'
-    html_plots_st+='</table>'
+    html_plots_st+='<tr>'
+    if os.path.isfile(os.path.join(bsn_plots,'BSN_vs_SNR.png')):
+        html_plots_st+='<td colspan="2">'
+        html_plots_st+=linkImage(os.path.join(bsn_plots,'BSN_vs_SNR.png'),2*wd,2*hg)
+        html_plots_st+='</td>'
+    if os.path.isfile(os.path.join(sky_plots,'injected_skymap.png')):
+        html_plots_st+='<td colspan="2">'
+        html_plots_st+=linkImage(os.path.join(sky_plots,'injected_skymap.png'),2*wd,2*hg)
+        html_plots_st+='</td>'
+    html_plots_st+='</tr></table>'
     html_plots.write(html_plots_st) 
     #Save results page
     plotpage=open(os.path.join(abs_page_path,'posposplots.html'),'w')
     plotpage.write(str(html))
     return
 
+def locate_public():
+    if path.isdir(path.join(environ['HOME'],'WWW','LSC')):
+        return path.join(environ['HOME'],'WWW','LSC')
+    elif path.isdir(path.join(environ['HOME'],'public_html')):
+        return path.join(environ['HOME'],'WWW','public_html')
+    elif path.isdir(path.join(environ['HOME'],'WWW')):
+        return path.join(environ['HOME'],'WWW')
+    else:
+        print "Cannot localize the public folder"
+
+
 def go_home(path):
     current=os.getcwd()
     upo=''
     os.chdir(path)
+    
     while os.getcwd()!=os.environ['HOME']:
         os.chdir(os.path.join(os.getcwd(),'../'))
         upo+='../'
@@ -635,7 +673,7 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     abs_page_path=os.path.join(outdir,run)
     page_path="./"
     path_to_sky=os.path.join(page_path,'SkyPlots')
-    path_to_result_pages_from_LSC=path_to_result_pages[path_to_result_pages.find('LSC'):]
+    path_to_result_pages_from_LSC=path_ to_result_pages[path_to_result_pages.find('LSC'):]
     path_to_ctrl_result_pages_from_LSC=path_to_ctrl_result_pages[path_to_ctrl_result_pages.find('LSC'):]
     snr_index={}
     ifos=['SNR_'+ifo for ifo in IFOs]
