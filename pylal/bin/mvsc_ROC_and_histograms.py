@@ -18,12 +18,21 @@ instructions:
 mvsc_ROC_and_histograms.py --tag test [--histograms] *.dat
 """, version = "Kari Hodge")
 parser.add_option("","--histograms", action="store_true", default=False, help="use if you want to produce histograms for each dimension")
-parser.add_option("","--tag", help="filenames will be ROC_tag.png and efficiency_deadtime_tag.txt")
+parser.add_option("","--tag", help="filenames will be ROC_tag.png and efficiency_tag.txt")
 (opts,files)=parser.parse_args()
 
+tmp=None
 print files
-data = auxmvc_utils.ReadMVSCTriggers(files)        
-print data.shape
+for f in files:
+	flines = open(f).readlines()
+	variables = flines[0].split()
+	formats = ['i','i']+['g8' for a in range(len(variables)-2)]
+	if tmp != None:
+		data = numpy.concatenate((data,numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})),axis=0)
+	else:
+		tmp = numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})
+		data = tmp
+print variables
 background_data = data[numpy.nonzero(data['i']==0)[0],:]
 signal_data = data[numpy.nonzero(data['i']==1)[0],:]
 
@@ -66,12 +75,11 @@ pylab.ylim([0,1])
 pylab.savefig('ROC_'+opts.tag+'.png')	
 pylab.close()
 
-print FAP 
 #FAP is a list that is naturally sorted in reverse order (highest to lowest),
 #we need to turn it into a regularly sorted list so that we can find the DP for
 #fiducial FAPs
 FAP.sort()
-edfile = open('efficiency_deadtime_'+opts.tag+'.txt','w')
+edfile = open('efficiency_'+opts.tag+'.txt','w')
 for threshold in [.01,.05,.1]:
 	tmpindex=bisect.bisect_left(FAP,threshold)
 	edfile.write("deadtime: "+str(FAP[tmpindex])+" efficiency: "+str(DP[len(FAP)-tmpindex-1])+"\n")
@@ -81,7 +89,7 @@ if opts.histograms:
 		pylab.figure(i)
 		print var
 		pylab.hist(background_data[var],100)
-		pylab.savefig("hist_twosided"+var+"_background") 
+		pylab.savefig("hist_twosided"+var+"_background"+opts.tag) 
 		pylab.figure(100+i)
 		pylab.hist(signal_data[var],bins=100)
-		pylab.savefig("hist_twosided"+var+"_signals") 
+		pylab.savefig("hist_twosided"+var+"_signals"+opts.tag) 
