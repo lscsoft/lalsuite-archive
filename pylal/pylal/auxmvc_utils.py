@@ -59,11 +59,11 @@ def getKWAuxTriggerFromDQCAT(Triggers, DQ_category):
       return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0) + (Triggers['DQ3'] == 1.0))[0],:] 
     elif DQ_category == 'DQ234':
       return Triggers[numpy.nonzero((Triggers['DQ2'] == 1.0) + (Triggers['DQ3'] == 1.0) + (Triggers['DQ4'] == 1.0))[0],:]
-    elif DQ_category == '-DQ2':
+    elif DQ_category == 'aDQ2':
       return Triggers[numpy.nonzero(Triggers['DQ2'] == 0.0)[0],:]
-    elif DQ_category == '-DQ23':
+    elif DQ_category == 'aDQ23':
       return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) * (Triggers['DQ3'] == 0.0))[0],:]
-    elif DQ_category == '-DQ234':
+    elif DQ_category == 'aDQ234':
       return Triggers[numpy.nonzero((Triggers['DQ2'] == 0.0) * (Triggers['DQ3'] == 0.0) * (Triggers['DQ4'] == 0.0))[0],:]
     elif DQ_category == 'ALL':
       return Triggers
