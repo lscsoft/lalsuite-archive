@@ -112,7 +112,11 @@ def skewness(array,mean,std_dev):
 def kurtosis(array,mean,std_dev):
     return (sum((x-mean) ** 4 for x in array) / (len(array)*std_dev **4) )
 def read_snr(snrs,run,time,IFOs):
-    ### Check if files containing SNRs for sigle IFO are present in the folder snrs[run]. If not, check whether a file containing all the SNRs is present in that folder. In case of success return a list whose first element is a string containing the SNRs values and the second element a list of strings each containing the IFO names with the prefix "SNR_"
+    """
+    Check if files containing SNRs for sigle IFO are present in the folder snrs[run].
+    If not, check whether a file containing all the SNRs is present in that folder.
+    In case of success return a list whose first element is a string containing the SNRs values and the second element a list of strings each containing the IFO names with the prefix "SNR_"
+    """
     snr_values=""
     snr_header=[]
     net_snr2=0.0
@@ -318,12 +322,6 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             parameters=pos.names            
             parameters.remove('logl')
             summary.write(str(time)+'\t')
-            #if 'ra' in parameters and 'dec' in parameters:
-            #    if int(run)==0:
-            #        recovered_positions_ctrl.append([pos['dec'].mean,pos['ra'].mean])
-            #        injected_positions.append([pos['dec'].injval,pos['ra'].injval])
-            #    else:
-            #        recovered_positions_cal[int(run)].append([pos['dec'].mean,pos['ra'].mean])
             for parameter in parameters:
                 summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
                 if time==times[0]:
@@ -515,7 +513,6 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
         print "Mean %s in run %i: %e\n" %(parameter,int(run),mean_effect_size)
         print "Standard Deviation  %s in run %i: %e\n" %(parameter,int(run),std_effect_size)
         print "Median %s in run %i: %e\n" %(parameter,int(run),np.median(effect_size))
-        print "50perc %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,50))
         print "5perc %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,5))
         print "95 perc  %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,95))
 
@@ -597,13 +594,8 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     ax.set_ylabel('$\mathrm{log\,B}$',fontsize=label_size)
     locs, labels = (ax.get_xticks(),ax.get_xticklabels)
     grid()
-    #ax2=ax.twiny()
-    #ax2.set_xticks(locs)
     ax.plot(network_snrs_ctrl,bsns_ctrl,'bo',label='BSN_ctrl')
-    #ax2.legend(loc='upper left')
     ax.legend(loc='upper right')
-    #ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
-    #ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
     myfig.savefig(os.path.join(path_plots,'BSN_vs_SNR.png'))
     myfig.clear()
 
@@ -659,6 +651,9 @@ def WritePlotPage(outdir,run,parameters,first_time):
     return
 
 def locate_public():
+    """
+    Try to find the public folder of the user's home.
+    """
     if os.path.isdir(os.path.join(os.environ['HOME'],'WWW','LSC')):
         return os.path.realpath(os.path.join(os.environ['HOME'],'WWW','LSC'))
     elif os.path.isdir(os.path.join(os.environ['HOME'],'public_html')):
@@ -670,13 +665,17 @@ def locate_public():
 
 def relativize_paths(pathA,pathB):
     """
-    It takes two paths inside the public WWW folder of the user, and gives back the address of pathA as relative to the pathB
+    Take two paths inside the public WWW folder of the user, and gives back the address of pathA as relative to the pathB
+    I need it because os.path.relpath is not available on python<2.6
     """
+    pathA=os.path.realpath(pathA)
     pathB=os.path.realpath(pathB)
-    print go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
     return go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
 
 def go_to_path(pathA,pathB):
+    """
+    Write down the address of pathA relative to pathB
+    """
     current=os.getcwd()
     upo=''
     if os.path.isdir(pathA):
@@ -793,6 +792,4 @@ if __name__=='__main__':
     parser.add_option("-I","--IFOS",dest="IFOs",action="callback", callback=vararg_callback,help="The IFOs used in the analysis", metavar="H1 L1 V1")
     parser.add_option("-k","--keyword",dest="key",action="store",type="string",default=None,help="This is the work that characterize the non-control runs (eg. calibration). It will be used to label various things (plots' labels, filenames, etc)", metavar="non-control-word")
     (opts,args)=parser.parse_args()
-    #if opts.num_of_init==1 and opts.uncal_path==None:
-    #        print "Error, if -n is 1 it means that only jobs with calibration errors are running, then you must provide the path to the posterior of the (already run) corresponding jobs without calibration errors using the option -u /pathToUncalPosteriors \n"
     RunsCompare(opts.outpath,opts.indata,opts.inj,opts.raw_events,opts.IFOs,snrs=opts.snr,calerr=opts.calerr,path_to_result_pages=opts.rp,keyword=opts.key)
