@@ -535,6 +535,30 @@ class Posterior(object):
         """
         for name,pos in self:
             pos.delete_samples_by_idx(samples)
+        return
+
+    def delete_NaN_entries(self,param_list):
+        """
+        Remove samples containing NaN in request params.
+
+        @param param_list: The parameters to be checked for NaNs.
+        """
+        nan_idxs = np.array(())
+        nan_dict = {}
+        for param in param_list:
+            nan_bool_array = np.isnan(self[param].samples).any(1)
+            idxs = np.where(nan_bool_array == True)[0]
+            if len(idxs) > 0:
+                nan_dict[param]=len(idxs)
+                nan_idxs = np.append(nan_idxs, idxs)
+        total_samps = len(self)
+        nan_samps   = len(nan_idxs)
+        if nan_samps is not 0:
+            print "WARNING: removing %i of %i total samples due to NaNs:"% (nan_samps,total_samps)
+            for param in nan_dict.keys():
+                print "\t%i NaNs in %s."%(nan_dict[param],param)
+            self.delete_samples_by_idx(nan_idxs)
+        return
 
     @property
     def injection(self):
@@ -753,14 +777,36 @@ class Posterior(object):
 
     def append_1D_mapping(self, new_param_name, func, post_name):
         """
-        Append a 1D-posterior containing func(post_name).
+        Append mapping of parameter new_param = func(post_name).
         """
-        pos = self[post_name]
-        inj = None
-        if pos.injval: inj = func(pos.injval)
-        samps = func(pos.samples)
-        pos = OneDPosterior(new_param_name, samps, injected_value=inj)
-        self.append(pos)
+        old_pos = self[post_name]
+        old_inj = old_pos.injval
+        if old_inj:
+            new_inj = func(old_inj)
+        else:
+            new_inj=None
+        samps   = func(old_pos.samples)
+        new_pos = OneDPosterior(new_param_name, samps, injected_value=new_inj)
+        self.append(new_pos)
+        return
+
+    def append_multiD_mapping(self, new_param_names, func, post_names):
+        """
+        Append posteriors pos1,pos2,...=func(post_names)
+        """
+        old_posts = [self[post_name] for post_name in post_names]
+        old_injs = [post.injval for post in old_posts]
+        if None not in old_injs:
+            injs = func(*old_injs)
+        else:
+            injs = [None for name in new_param_names]
+        samps = func(*[post.samples for post in old_posts])
+        new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
+        for post in new_posts: 
+            if post.samples.ndim is 0: 
+                print "WARNING: No posterior calculated for %s ..." % post.name
+            else:
+                self.append(post)
         return
 
     def _average_posterior(self, samples, post_name):
@@ -1635,6 +1681,7 @@ def mc2ms(mc,eta):
     return (m1,m2)
 #
 #
+
 def ang_dist(long1,lat1,long2,lat2):
     """
     Find the angular separation of (long1,lat1) and (long2,lat2), which are
@@ -1649,7 +1696,85 @@ def ang_dist(long1,lat1,long2,lat2):
     z2=np.sin(lat2)
     sep=math.acos(x1*x2+y1*y2+z1*z2)
     return(sep)
+#
+#
 
+def array_dot(vec1, vec2):
+    """
+    Calculate dot products between vectors in rows of numpy arrays.
+    """
+    if vec1.ndim==1:
+        return (vec1*vec2).sum()
+    else:
+        return(vec1*vec2).sum(axis=1).reshape(-1,1)
+#
+#
+
+def array_ang_sep(vec1, vec2):
+    """
+    Find angles between vectors in rows of numpy arrays.
+    """
+    vec1_mag = np.sqrt(array_dot(vec1, vec1))
+    vec2_mag = np.sqrt(array_dot(vec2, vec2))
+    return np.arccos(array_dot(vec1, vec2)/(vec1_mag*vec2_mag))
+#
+#
+
+def array_polar_ang(vec):
+    """
+    Find polar angles of vectors in rows of a numpy array.
+    """
+    if vec.ndim==1:
+        z = vec[2]
+    else:
+        z = vec[:,2].reshape(-1,1)
+    norm = np.sqrt(array_dot(vec,vec))
+    return np.arccos(z/norm)
+#
+#
+
+def orbital_momentum(f_lower, mc, inclination):
+    """
+    Calculate orbital angular momentum vector.
+    """
+    mtsun = 4.92549095e-06          #Msol in seconds
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * mtsun * f_lower, 1.0/3.0)
+    Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
+    return np.hstack((Lx,Ly,Lz))
+#
+#
+
+def component_momentum(m, a, theta, phi):
+    """
+    Calculate BH angular momentum vector.
+    """
+    Sx, Sy, Sz = sph2cart(m**2 * a, theta, phi)
+    return np.hstack((Sx,Sy,Sz))
+#
+#
+
+def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
+    """
+    Calculate physical spin angles.
+    """
+    singleSpin = None in (a2,theta2,phi2)
+    m1, m2 = mc2ms(mc,eta)
+    L  = orbital_momentum(f_lower, mc, incl)
+    S1 = component_momentum(m1, a1, theta1, phi1)
+    if not singleSpin:
+        S2 = component_momentum(m2, a2, theta2, phi2)
+    else:
+        S2 = 0.0
+    J = L + S1 + S2
+    tilt1 = array_ang_sep(J,S1)
+    if not singleSpin:
+        tilt2 = array_ang_sep(J,S2)
+    else:
+        tilt2 = None
+    thetas = array_polar_ang(J)
+    beta  = array_ang_sep(J,L)
+    return tilt1, tilt2, thetas, beta
+#
 #
 
 def plot_one_param_pdf_kde(fig,onedpos):
@@ -2554,7 +2679,8 @@ class PEOutputParser(object):
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])

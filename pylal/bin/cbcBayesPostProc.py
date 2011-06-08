@@ -159,20 +159,25 @@ def cbcBayesPostProc(
         BCI=bfile.read()
         bfile.close()
         print 'BCI: %s'%BCI
+
     if snrfactor is not None:
         if not os.path.isfile(snrfactor):
             print "No snr file provided or wrong path to snr file\n"
             snrfactor=None
     if snrfactor is not None:
-        snrstring=""
-        snrfile=open(snrfactor,'r')
-        snrs=snrfile.readlines()
-        snrfile.close()
-        for snr in snrs:
-            if snr=="\n":
-                continue
-            snrstring=snrstring +" "+str(snr[0:-1])+" ,"
-        snrstring=snrstring[0:-1]
+        if not os.path.isfile(snrfactor):
+            print "Wrong path to snr file\n"
+            snrfactor=None
+        else:
+            snrstring=""
+            snrfile=open(snrfactor,'r')
+            snrs=snrfile.readlines()
+            snrfile.close()
+            for snr in snrs:
+                if snr=="\n":
+                    continue
+                snrstring=snrstring +" "+str(snr[0:-1])+" ,"
+            snrstring=snrstring[0:-1]
         
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
@@ -196,27 +201,16 @@ def cbcBayesPostProc(
                 print "Warning: No 'time' column!"
 
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
-    if ('mc' in pos.names or 'mchirp' in pos.names) and \
-    'eta' in pos.names and \
-    ('mass1' not in pos.names or 'm1' not in pos.names) and\
-    ('m2' not in pos.names or 'm2' not in pos.names):
+    if 'mc' in pos.names:
+        mchirp_name = 'mc'
+    else:
+        mchirp_namp = 'mchirp'
 
-        if 'mc' in pos.names:
-            mchirp_name='mc'
-        else:
-            mchirp_name='mchirp'
+    if (mchirp_name in pos.names and 'eta' in pos.names) and \
+    ('mass1' not in pos.names or 'm1' not in pos.names) and \
+    ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        inj_mass1=None
-        inj_mass2=None
-        if injection:
-            inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
-
-        mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
-        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
-        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
-
-        pos.append(mass1_pos)
-        pos.append(mass2_pos)
+        pos.append_multiD_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
 
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
@@ -258,163 +252,15 @@ def cbcBayesPostProc(
                 time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
 
-    if 'iota' in pos.names and 'cosiota' not in pos.names:
-        inj_cosiota=None
-        if injection:
-            if pos['iota'].injval: inj_cosiota=cos(pos['iota'].injval)
-        cosiota_samps = cos(pos['iota'].samples)
-        cosiota_pos = bppu.OneDPosterior('cosiota',cosiota_samps,injected_value=inj_cosiota)
-        pos.append(cosiota_pos)
-
-    #Calculate tilts from spin angles
-    if 'tilt1' not in pos.names:
+    #Calculate new spin angles
+    new_spin_params = ['tilt1','tilt2','thetas','beta']
+    if not set(new_spin_params).issubset(set(pos.names)):
+        old_params = ['f_lower',mchirp_name,'eta','iota','a1','theta1','phi1']
+        if 'a2' in pos.names: old_params += ['a2','theta2','phi2']
         try:
-            inj_tilt1 = None
-            if injection:
-                inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
-
-                if pos['a1'].injval != 0.0:
-                    inj_S1x,inj_S1y,inj_S1z   = bppu.sph2cart(1.0,pos['theta1'].injval,pos['phi1'].injval)
-                    inj_tilt1 = arccos(inj_S1x*inj_Lnx + inj_S1y*inj_Lny + inj_S1z*inj_Lnz)
-
-            S1nx,S1ny,S1nz = bppu.sph2cart(1.0,pos['theta1'].samples,pos['phi1'].samples)
-            Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
-
-            tilt1_samps = arccos(S1nx*Lnx + S1ny*Lny + S1nz*Lnz)
-
-            tilt1_pos = bppu.OneDPosterior('tilt1',tilt1_samps,injected_value=inj_tilt1)
-
-            pos.append(tilt1_pos)
+            pos.append_multiD_mapping(new_spin_params, bppu.spin_angles, old_params)
         except KeyError:
-            print "Warning: Couldn't compute tilt1 values."
-
-    if 'tilt2' not in pos.names:
-        try:
-            inj_tilt2 = None
-            if injection:
-                inj_Lnx,inj_Lny,inj_Lnz   = bppu.sph2cart(1.0,injection.inclination,0.0)
-
-                if pos['a2'].injval != 0.0:
-                    inj_S2x,inj_S2y,inj_S2z   = bppu.sph2cart(1.0,pos['theta2'].injval,pos['phi2'].injval)
-                    inj_tilt2 = arccos(inj_S2x*inj_Lnx + inj_S2y*inj_Lny + inj_S2z*inj_Lnz)
-
-            S2nx,S2ny,S2nz = bppu.sph2cart(1.0,pos['theta2'].samples,pos['phi2'].samples)
-            Lnx,Lny,Lnz    = bppu.sph2cart(1.0,pos['iota'].samples,0.0)
-
-            tilt2_samps = arccos(S2nx*Lnx + S2ny*Lny + S2nz*Lnz)
-
-            tilt2_pos = bppu.OneDPosterior('tilt2',tilt2_samps,injected_value=inj_tilt2)
-
-            pos.append(tilt2_pos)
-        except KeyError:
-            print "Warning: Could not compute tilt2 values."
-
-    if 'tilt1' in pos.names:
-        inj_costilt1 = None
-
-        if injection:
-            if pos['tilt1'].injval: inj_costilt1 = cos(pos['tilt1'].injval)
-
-        costilt1_samps = cos(pos['tilt1'].samples)
-
-        costilt1_pos = bppu.OneDPosterior('costilt1',costilt1_samps,injected_value=inj_costilt1)
-
-        pos.append(costilt1_pos)
-
-    if 'tilt2' in pos.names:
-        inj_costilt2 = None
-        if injection:
-            if pos['tilt2'].injval: inj_costilt2 = cos(pos['tilt2'].injval)
-
-        costilt2_samps = cos(pos['tilt2'].samples)
-    
-        costilt2_pos = bppu.OneDPosterior('costilt2',costilt2_samps,injected_value=inj_costilt2)
-
-        pos.append(costilt2_pos)
-
-    try:
-        if 'mc' in pos.names:
-            mchirp_name='mc'
-        else:
-            mchirp_name='mchirp'
-        
-        mtsun = 4.92549095e-06          #Msol in seconds
-        from math import pi as pi_constant
-        
-        if 'thetas' not in pos.names or 'beta' not in pos.names:
-            inj_thetas=None
-            inj_beta=None
-            if injection:
-                inj_Lmag = power(pos[mchirp_name].injval,5.0/3.0) / power(pi_constant * mtsun * injection.f_lower,1.0/3.0)
-                
-                inj_Lx, inj_Ly, inj_Lz = bppu.sph2cart(1.0,pos['iota'].injval,0.0)
-                inj_Lx *= inj_Lmag
-                inj_Ly *= inj_Lmag
-                inj_Lz *= inj_Lmag
-
-                m1inj = pos['m1'].injval
-                m2inj = pos['m2'].injval
-
-                inj_S1x, inj_S1y, inj_S1z = injection.spin1x, injection.spin1y, injection.spin1z
-                inj_S2x, inj_S2y, inj_S2z = injection.spin2x, injection.spin2y, injection.spin2z
-
-                inj_S1x *= m1inj*m1inj
-                inj_S1y *= m1inj*m1inj
-                inj_S1z *= m1inj*m1inj
-                
-                inj_S2x *= m2inj*m2inj
-                inj_S2y *= m2inj*m2inj
-                inj_S2z *= m2inj*m2inj
-
-                inj_Jx = inj_Lx + inj_S1x + inj_S2x
-                inj_Jy = inj_Ly + inj_S1y + inj_S2y
-                inj_Jz = inj_Lz + inj_S1z + inj_S2z
-                inj_Jmag = sqrt(inj_Jx*inj_Jx + inj_Jy*inj_Jy + inj_Jz*inj_Jz)
-
-                inj_thetas=arccos(inj_Jz/inj_Jmag)
-                inj_beta=arccos((inj_Jx*inj_Lx + inj_Jy*inj_Ly + inj_Jz*inj_Lz)/(inj_Jmag*inj_Lmag))
-            
-
-            Lmag = power(pos[mchirp_name].samples,5.0/3.0) / power(pi_constant * mtsun * pos['f_lower'].samples,1.0/3.0)
-            Lx,Ly,Lz = Lmag*bppu.sph2cart(1.0,pos['iota'].samples,0.0)
-
-            S1x,S1y,S1z = pos['m1'].samples*pos['m1'].samples*bppu.sph2cart(pos['a1'].samples,pos['theta1'].samples,pos['phi1'].samples)
-            S2x,S2y,S2z = pos['m2'].samples*pos['m2'].samples*bppu.sph2cart(pos['a2'].samples,pos['theta2'].samples,pos['phi2'].samples)
-
-            Jx = Lx + S1x + S2x
-            Jy = Ly + S1y + S2y
-            Jz = Lz + S1z + S2z
-            Jmag = sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-            if 'thetas' not in pos.names:
-                thetas_samps = arccos(Jz/Jmag)
-                thetas_pos = bppu.OneDPosterior('thetas',thetas_samps,injected_value=inj_thetas)
-                pos.append(thetas_pos)
-
-            if 'beta' not in pos.names:
-                beta_samps = arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
-                beta_pos = bppu.OneDPosterior('beta',beta_samps,injected_value=inj_beta)
-                pos.append(beta_pos)
- 
-        inj_costhetas = None
-        inj_cosbeta = None
-        
-        if injection:
-            if pos['thetas'].injval: inj_costhetas = cos(pos['thetas'].injval)
-            if pos['beta'].injval: inj_cosbeta = cos(pos['beta'].injval)
-
-        if 'costhetas' not in pos.names:
-            costhetas_samps = cos(pos['thetas'].samples)
-            costhetas_pos = bppu.OneDPosterior('costhetas',costhetas_samps,injected_value=inj_costhetas)
-            pos.append(costhetas_pos)
-
-        if 'cosbeta' not in pos.names:
-            cosbeta_samps = cos(pos['beta'].samples)
-            cosbeta_pos = bppu.OneDPosterior('cosbeta',cosbeta_samps,injected_value=inj_cosbeta)
-            pos.append(cosbeta_pos)
-
-    except KeyError:
-        print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+            print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
 
     #Calculate spin magnitudes for aligned runs
     if 'spin1' in pos.names:
@@ -437,10 +283,21 @@ def cbcBayesPostProc(
         except KeyError:
             print "Warning: no spin2 values found."
 
+    #Perform necessary mappings
+    functions = {'cos':cos,'sin':sin,'exp':exp,'log':log}
+    for pos_name in oneDMenu:
+        if pos_name not in pos.names:
+            for func in functions.keys():
+                old_pos_name = pos_name.replace(func,'')
+                if pos_name.find(func)==0 and old_pos_name in pos.names:
+                    print "Taking %s of %s ..."% (func,old_pos_name)
+                    pos.append_1D_mapping(pos_name,functions[func],old_pos_name)
+
+    #Remove samples with NaNs in requested params
+    requested_params = set(pos.names).intersection(set(oneDMenu))
+    pos.delete_NaN_entries(requested_params)
 
 
-
-        
     ##Print some summary stats for the user...##
     #Number of samples
     print "Number of posterior samples: %i"%len(pos)
@@ -998,6 +855,7 @@ if __name__=='__main__':
     parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
     parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
     parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
+    parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
     parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
@@ -1030,7 +888,8 @@ if __name__=='__main__':
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams
+    ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     for ifo1 in ifos_menu:
@@ -1039,43 +898,44 @@ if __name__=='__main__':
             oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
-    for mp1 in massParams:
-        for mp2 in massParams:
-            if not (mp1 == mp2):
-                twoDGreedyMenu.append([mp1, mp2])
-    for mp in massParams:
-        for d in distParams:
-            twoDGreedyMenu.append([mp,d])
-    for mp in massParams:
-        for sp in spinParams:
-            twoDGreedyMenu.append([mp,sp])
-    for dp in distParams:
+    if not opts.no2D:
+        for mp1 in massParams:
+            for mp2 in massParams:
+                if not (mp1 == mp2):
+                    twoDGreedyMenu.append([mp1, mp2])
+        for mp in massParams:
+            for d in distParams:
+                twoDGreedyMenu.append([mp,d])
+        for mp in massParams:
+            for sp in spinParams:
+                twoDGreedyMenu.append([mp,sp])
+        for dp in distParams:
+            for ip in incParams:
+                twoDGreedyMenu.append([dp,ip])
+        for dp in distParams:
+            for sp in skyParams:
+                twoDGreedyMenu.append([dp,sp])
+        for dp in distParams:
+            for sp in spinParams:
+                twoDGreedyMenu.append([dp,sp])
         for ip in incParams:
-            twoDGreedyMenu.append([dp,ip])
-    for dp in distParams:
-        for sp in skyParams:
-            twoDGreedyMenu.append([dp,sp])
-    for dp in distParams:
-        for sp in spinParams:
-            twoDGreedyMenu.append([dp,sp])
-    for ip in incParams:
-        for sp in skyParams:
-            twoDGreedyMenu.append([ip,sp])
-    for ip in incParams:
-        for sp in spinParams:
-            twoDGreedyMenu.append([ip,sp])
-    for sp1 in skyParams:
-        for sp2 in skyParams:
-            if not (sp1 == sp2):
-                twoDGreedyMenu.append([sp1, sp2])
-    for sp1 in spinParams:
-        for sp2 in spinParams:
-            if not (sp1 == sp2):
-                twoDGreedyMenu.append([sp1, sp2])
+            for sp in skyParams:
+                twoDGreedyMenu.append([ip,sp])
+        for ip in incParams:
+            for sp in spinParams:
+                twoDGreedyMenu.append([ip,sp])
+        for sp1 in skyParams:
+            for sp2 in skyParams:
+                if not (sp1 == sp2):
+                    twoDGreedyMenu.append([sp1, sp2])
+        for sp1 in spinParams:
+            for sp2 in spinParams:
+                if not (sp1 == sp2):
+                    twoDGreedyMenu.append([sp1, sp2])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
