@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 2007 Chad Hanna, Alexander Dietz, Duncan Brown, Gareth Jones, Jolien Creighton, Nickolas Fotopoulos, Patrick Brady, Stephen Fairhurst, Tania Regimbau
+ *          Walter Del Pozzo, Tjonnie Li
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -690,7 +691,7 @@ static void print_usage(char *program)
   void
 read_mass_data( char* filename )
 {
-  char line[256];
+  char line[1000];
   FILE   *fp;
   int n = 0;
 
@@ -2537,13 +2538,6 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-
-  /* read the masses from the mass file here */
-  if ( massFileName && mDistr==massFromSourceFile )
-  {
-    read_mass_data( massFileName );
-  }
-
   if ( nrFileName && mDistr==massFromNRFile )
   {
     read_nr_data ( nrFileName );
@@ -2604,59 +2598,65 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
+  /* read the masses from the mass file here */
+  if ( massFileName && mDistr==massFromSourceFile )
+  {
+    read_mass_data( massFileName );
+  }
 
   /* check for gaussian mass distribution parameters */
-  if ( mDistr==gaussianMassDist && (meanMass1 <= 0.0 || massStdev1 <= 0.0 ||
+  else {
+    if ( mDistr==gaussianMassDist && (meanMass1 <= 0.0 || massStdev1 <= 0.0 ||
         meanMass2 <= 0.0 || massStdev2 <= 0.0))
-  {
-    fprintf( stderr,
-        "Must specify --mean-mass1/2 and --stdev-mass1/2 if choosing"
-        " --m-distr=gaussian\n" );
-    exit( 1 );
-  }
+    {
+        fprintf( stderr,
+            "Must specify --mean-mass1/2 and --stdev-mass1/2 if choosing"
+            " --m-distr=gaussian\n" );
+        exit( 1 );
+    }
 
-  /* check if the mass area is properly specified */
-  if ( mDistr!=gaussianMassDist && (minMass1 <=0.0 || minMass2 <=0.0 ||
-         maxMass1 <=0.0 || maxMass2 <=0.0) )
-  {
-    fprintf( stderr,
-        "Must specify --min-mass1/2 and --max-mass1/2 if choosing"
-        " --m-distr not gaussian\n" );
-    exit( 1 );
-  }
+    /* check if the mass area is properly specified */
+    if ( mDistr!=gaussianMassDist && (minMass1 <=0.0 || minMass2 <=0.0 ||
+            maxMass1 <=0.0 || maxMass2 <=0.0) )
+    {
+        fprintf( stderr,
+            "Must specify --min-mass1/2 and --max-mass1/2 if choosing"
+            " --m-distr not gaussian\n" );
+        exit( 1 );
+    }
 
-  /* check if the maximum total mass is properly specified */
-  if ( mDistr!=gaussianMassDist && maxMtotal<(minMass1 + minMass2 ))
-  {
-    fprintf( stderr,
-        "Maximum total mass must be larger than minMass1+minMass2\n");
-    exit( 1 );
-  }
+    /* check if the maximum total mass is properly specified */
+    if ( mDistr!=gaussianMassDist && maxMtotal<(minMass1 + minMass2 ))
+    {
+        fprintf( stderr,
+            "Maximum total mass must be larger than minMass1+minMass2\n");
+        exit( 1 );
+    }
 
-  /* check if total mass is specified */
-  if ( maxMtotal<0.0)
-  {
-    fprintf( stderr,
-        "Must specify --max-mtotal.\n" );
-    exit( 1 );
-  }
-  if ( minMtotal<0.0)
-  {
-    fprintf( stderr,
-        "Must specify --min-mtotal.\n" );
-    exit( 1 );
-  }
+    /* check if total mass is specified */
+    if ( maxMtotal<0.0)
+    {
+        fprintf( stderr,
+            "Must specify --max-mtotal.\n" );
+        exit( 1 );
+    }
+    if ( minMtotal<0.0)
+    {
+        fprintf( stderr,
+            "Must specify --min-mtotal.\n" );
+        exit( 1 );
+    }
 
-  /* check if mass ratios are specified */
-  if ( (mDistr==uniformTotalMassRatio || mDistr==logMassUniformTotalMassRatio)
-      && (minMassRatio < 0.0 || maxMassRatio < 0.0) )
-  {
-    fprintf( stderr,
-        "Must specify --min-mass-ratio and --max-mass-ratio if choosing"
-        " --m-distr=totalMassRatio or --m-distr=logTotalMassUniformMassRatio\n");
-    exit( 1 );
-  }
-
+    /* check if mass ratios are specified */
+    if ( (mDistr==uniformTotalMassRatio || mDistr==logMassUniformTotalMassRatio)
+        && (minMassRatio < 0.0 || maxMassRatio < 0.0) )
+    {
+        fprintf( stderr,
+            "Must specify --min-mass-ratio and --max-mass-ratio if choosing"
+            " --m-distr=totalMassRatio or --m-distr=logTotalMassUniformMassRatio\n");
+        exit( 1 );
+    }
+    }
   if ( dDistr!=distFromSourceFile && (dmin<0.0 || dmax<0.0) )
   {
     fprintf( stderr,
@@ -3201,7 +3201,8 @@ if ( writeSimRing )
 
   if (source_data)
     LALFree(source_data);
-
+  if (mass_data)
+    LALFree(mass_data);
 
   LALCheckMemoryLeaks();
   return 0;
