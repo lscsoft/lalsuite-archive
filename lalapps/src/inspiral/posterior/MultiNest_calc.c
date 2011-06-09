@@ -8,15 +8,16 @@ LALMCMCInput *MultiNestInput;
 LALMCMCParameter *MultiNestParam;
 double nullZ;
 
-void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes, int updInt, double Ztol, 
-char root[], int rseed, int *pWrap, int fb, int resume, void (*LogLike)(double *Cube, int *n_dim, int *n_par, double *lnew), 
-void (*dumper)(int *, int *, int *, double **, double **, double *, double *, double *), int context)
+void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes,
+int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, int initMPI, double logZero, 
+void (*LogLike)(double *, int *, int *, double *), void (*dumper)(int *, int *, int *, double **, double **, double *, 
+double *, double *, double *), int context)
 {
 	int i;
 	for (i = strlen(root); i < 100; i++) root[i] = ' ';
-	
-	__nested__nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
-	root, &rseed, pWrap, &fb, &resume, LogLike, dumper, &context);
+
+        NESTRUN(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
+        root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, LogLike, dumper, &context);
 }
 
 void LogLike(double *Cube, int *ndim, int *npars, double *lnew)
@@ -41,7 +42,7 @@ void LogLike(double *Cube, int *ndim, int *npars, double *lnew)
 	}
 }
 
-void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double *paramConstr, double *maxLogLike, double *logZ)
+void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double *paramConstr, double *maxLogLike, double *logZ, double *logZerr)
 {
 }
 
@@ -125,10 +126,13 @@ void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 	int rseed = -1;
 	int fb = 1;
 	int resume = 1;
+	int outfile = 1;		// write output files?
+	int initMPI = 1;		// initialize MPI routines?, relevant only if compiling with MPI
+	double logZero = -1E10;		// points with loglike < logZero will be ignored by MultiNest
 	int context = 0;
 
 
-	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
-	resume, LogLike, dumper, context);
+	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, resume, outfile, initMPI, logZero,
+	LogLike, dumper, context);
 	
 }
