@@ -488,6 +488,7 @@ setup(
 		os.path.join("bin", "pylal_mvsc_player.py"),
 		os.path.join("bin", "pylal_cbc_dq_page"),
 		os.path.join("bin", "mvsc_plots.py"),
+		os.path.join("bin", "mvsc_ROC_and_histograms.py"),
 		os.path.join("bin", "mvsc_plot_cuts.py"),
 		os.path.join("bin", "mvsc_htmlwriter.py"),
 		os.path.join("bin", "pylal_combine_posteriors"),

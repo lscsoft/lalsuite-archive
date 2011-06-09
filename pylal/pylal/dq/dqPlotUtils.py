@@ -31,7 +31,7 @@ This module provides plotting routines for use in data quality investigations. A
 """
 
 # =============================================================================
-# Set plot parameters
+# Set plot parameters aux helper functions
 # =============================================================================
 
 def set_rcParams():
@@ -42,7 +42,7 @@ def set_rcParams():
                           "lines.linewidth": 5,
                           "xtick.labelsize": 18,
                           "ytick.labelsize": 18,
-                          "axes.titlesize": 24,
+                          "axes.titlesize": 18,
                           "axes.labelsize": 20,
                           "axes.linewidth": 1,
                           "grid.linewidth": 1,
@@ -53,13 +53,50 @@ def set_rcParams():
                           "axes.grid": True,
                           "axes.axisbelow": True } )
 
+def set_ticks(ax):
+  if len(ax.get_xticks())<=2:
+    ax.xaxis.set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+  if len(ax.get_yticks())<=2:
+    ax.yaxis.set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+
+  # set xticks for 4 hours rather than 5
+  xticks = ax.get_xticks()
+  if len(xticks)>1 and xticks[1]-xticks[0]==5:
+    ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(base=4))
+
+# =============================================================================
+# Translate column name into display format
+# =============================================================================
+
+def display_name(columnName):
+  acro  = ['snr', 'ra','dof']
+  greek = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta',\
+           'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi', 'omicron',\
+           'pi', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi', 'omega']
+
+  words = columnName.split('_')
+  for i,w in enumerate(words):
+    if w in acro:
+      words[i] = w.upper()
+    elif w in greek:
+      words[i] = '$\%s$' % w
+    elif re.match('(%s)' % '|'.join(greek), w):
+      if w[-1].isdigit():
+        words[i] = '$\%s_{%s}$''' % tuple(re.findall(r"[a-zA-Z]+|\d+",w))
+      elif w.endswith('sq'):
+        words[i] = '$\%s^2$' % w.rstrip('sq')
+    else:
+      words[i] = w.title()
+
+  return ' '.join(words) 
+
 # =============================================================================
 # Plot before/after cumulative SNR histograms
 # =============================================================================
 
 def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
                        start=None, end=None, bins=1000,\
-                       flag='unknowns', etg='Unknown',\
+                       flag='unknown', etg='Unknown',\
                        livetime=None, fill=False, logx=True, logy=True,
                        cumulative=True, rate=True, xlim=None, greyscale=False ):
 
@@ -110,8 +147,11 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
   livetime = float(livetime)
 
   # generate vetoed trigger list: inspiral trigs have dedicated function 
-  if not segments:
+  if segments==None:
     segments = segmentlist()
+    veto = False
+  else:
+    veto = True
 
   aftertriggers = table.new_from_template( triggers )
   aftertriggers.extend([ t for t in triggers if get_time(t) not in segments ])
@@ -132,7 +172,7 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     err = 'Column %s not found in %s.' % ( column,triggers.tableName )
     raise KeyError, err
 
-  if segments:
+  if veto:
     color = ['r','g']
   else:
     color = ['b']
@@ -209,8 +249,7 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     flag = flag.replace( '_','\_' )
   else:
     flag = 'unknown'
-  column = ' '.join([ w.title().replace('Snr','SNR')\
-                      for w in column.split('_') ])
+  column = display_name(column)
 
   # customise plot appearance
   set_rcParams()
@@ -237,7 +276,7 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
                        linewidth=0.5, alpha=0.9 )
 
   # figure sundries
-  if segments:
+  if veto:
     leg = ax.legend( loc='best' )
     for l in leg.get_lines():
       l.set_linewidth( 4 )
@@ -246,7 +285,7 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     ax.set_ylim( base,max( start_n )*1.01 )
   if xlim:
     ax.set_xlim( tuple(xlim) )
-  ax.set_xlabel( column.replace( '_','\_' ) )
+
   if rate and cumulative:
     ax.set_ylabel( 'Cumulative rate (Hz)' )
   elif rate:
@@ -256,8 +295,10 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
   elif not rate and not cumulative:
     ax.set_ylabel( 'Number' )
 
+  set_ticks(ax)
+
   tit = '%s triggers' % ( etg.replace( '_','\_' ) )
-  if segments:
+  if veto:
     tit += ' and %s segments' % ( flag )
   ax.set_title( tit, x=0.5, y=1.035 )
 
@@ -351,10 +392,9 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
     columns.append(zcolumn)
     zcolumn = zcolumn.lower()
 
-  for i,c in enumerate(columns):
-    columns[i] = ' '.join([ w.title().replace('Snr','SNR')\
-                            for w in c.split('_') ])
-
+  # format columns for display
+  columns = [display_name(c) for c in columns]
+   
   # sort triggers by z param
   if zcolumn:
     triggers.sort( key=lambda trig: trig.__getattribute__( zcolumn ),\
@@ -363,7 +403,7 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   # apply veto segments if required
   if segments is not None:
     segments = segmentlist( segments )
-    segments & [start,end]
+    segments & segmentlist([segment(start,end)])
   
     # set up vetoed/nonvetoed trigger lists, inspiral triggers have dicated func
     trigs =  table.new_from_template( triggers )
@@ -474,12 +514,15 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   # define colour range
   cmin = None
   if zcolumn:
-    if numtrigs + numveto >= 1:
+    if numtrigs + numveto >= 1 and zcolumn.lower()!='snr':
       cmin = min( notvetoed[zcolumn]+vetoed[zcolumn] )
       cmax = max( notvetoed[zcolumn]+vetoed[zcolumn] )
-      colorticks = arange( cmin, cmax, float(cmax - cmin)/5 )
+      if cmin==cmax:
+        colorticks = [cmin]
+      else:
+        colorticks = arange( cmin, cmax, float(cmax - cmin)/5 )
     # if colouring by SNR, move to standard DQ range of 5->100
-    if zcolumn.lower()=='snr' or numtrigs + numveto < 1:
+    else:
       if logz:
         cmin = math.log( 3, 10 )
         cmax = math.log( 110, 10 )
@@ -498,12 +541,8 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
 
   # plot vetoed triggers if required
   if numveto >= 1:
-    if zcolumn:
-      c='k'
-    else:
-      c='r'
     p2 = ax.scatter( vetoed[xcolumn],vetoed[ycolumn], marker='x',\
-                     label='Vetoed',edgecolor=c, vmin=cmin, vmax=cmax )
+                     label='Vetoed',edgecolor='r', vmin=cmin, vmax=cmax )
 
   if numtrigs < 1:
     p1 = ax.scatter( [0], [0], c=[cmin], cmap=cmap, vmin=cmin, vmax=cmax,\
@@ -581,16 +620,18 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   else:
     if not ylabel:
       ylabel = columns[1]
-    if len( triggers )>=1:
-      ax.set_ylim( min( vetoed[ycolumn]+notvetoed[ycolumn] )*0.99,\
-                  max( vetoed[ycolumn]+notvetoed[ycolumn] )*1.01 )
+    if len(triggers)>=1 and not ylim:
+      ax.set_ylim(min(vetoed[ycolumn]+notvetoed[ycolumn])*0.99,\
+                  max(vetoed[ycolumn]+notvetoed[ycolumn])*1.01)
 
-  ax.set_ylabel( ylabel )
+  ax.set_ylabel(ylabel)
 
   if xlim:
     ax.set_xlim( tuple(xlim) )
   if ylim:
-    ax.set_ylim( tuple(ylim) )
+    ax.set_ylim(tuple(ylim))
+
+  set_ticks(ax)
 
   # set title
   tit = '%s triggers' % ( etg )
@@ -626,8 +667,8 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
                       logx=False,logy=False ):
 
   """
-    Plots a histogram of segment duration for the glue.segments.segmentlist
     segments.
+    Plots a histogram of segment duration for the glue.segments.segmentlist
 
     Arguments:
 
@@ -721,6 +762,9 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
                   ( math.pow( 10,max( durations ) )*1.01 ) )
 
     ax.set_ylim( base,math.pow( 10,math.log10( ( max( n )+base )*1.01 ) ) )
+
+  set_ticks(ax)
+
   ax.set_xlabel( 'Length of segment ( seconds )' )
   ax.set_ylabel( 'Number of segments' )
   tit = 'Segment Duration Histogram'
@@ -837,9 +881,9 @@ def plot_trigger_rate( triggers, outfile, average=600, start=None, end=None,\
   if ylim:
     ax.set_ylim( tuple(ylim) )
   etg = etg.replace('_','\_')
-  bincolumn = ' '.join([ w.title().replace('Snr','SNR')\
-                         for w in bincolumn.split('_') ])
+  bincolumn = display_name(bincolumn)
 
+  set_ticks(ax)
 
   tit = '%s triggers' % (etg)
   if label[0]:
@@ -974,6 +1018,8 @@ def plot_time_series( data, outfile, start=None, end=None, zero=None, \
   if logy:
     ax.set_yscale('log')
 
+  set_ticks(ax)
+
   # set title
   ax.set_title( 'Time series', x=0.5, y=1.035 )
   if subtitle:
@@ -1063,6 +1109,8 @@ def plot_spectrum( data, outfile, logx=False, logy=False, xlim=None, ylim=None,\
     ax.set_ylabel(ylabel)
   else:
     ax.set_ylabel( 'Spectrum' )
+
+  set_ticks(ax)
 
   # set title
   ax.set_title( 'Frequency Spectrum', x=0.5, y=1.035 )
