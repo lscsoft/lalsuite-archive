@@ -823,6 +823,10 @@ for(n=0;n<d_free;n++) {
 
 		x=datasets[n].re[j*datasets[n].nbins+bin];
 		y=datasets[n].im[j*datasets[n].nbins+bin];
+		
+		/* magic weighting scheme this produces flatter response, but at the cost of increased noise */
+//  		x=(datasets[n].re[j*datasets[n].nbins+bin]-(datasets[n].re[j*datasets[n].nbins+bin-1]+datasets[n].re[j*datasets[n].nbins+bin+1])*8.1)/9.1;
+//  		y=(datasets[n].im[j*datasets[n].nbins+bin]-(datasets[n].im[j*datasets[n].nbins+bin-1]+datasets[n].im[j*datasets[n].nbins+bin+1])*8.1)/9.1;
 
 		x2=x*x+y*y;
 		ctx->power[k]=x2;
@@ -890,6 +894,9 @@ for(n=0;n<d_free;n++) {
 		x=datasets[n].re[j*datasets[n].nbins+bin];
 		y=datasets[n].im[j*datasets[n].nbins+bin];
 
+		/* magic weighting scheme this produces flatter response, but at the cost of increased noise */
+//  		x=(datasets[n].re[j*datasets[n].nbins+bin]-(datasets[n].re[j*datasets[n].nbins+bin-1]+datasets[n].re[j*datasets[n].nbins+bin+1])*8.1)/9.1;
+//  		y=(datasets[n].im[j*datasets[n].nbins+bin]-(datasets[n].im[j*datasets[n].nbins+bin-1]+datasets[n].im[j*datasets[n].nbins+bin+1])*8.1)/9.1;
 
 		c=cos(total_phase);
 		s=sin(total_phase);

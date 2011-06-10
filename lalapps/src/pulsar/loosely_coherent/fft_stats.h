@@ -45,6 +45,8 @@ typedef struct {
 	STAT_INFO snr;
 	STAT_INFO ul;
 	STAT_INFO circ_ul;
+	STAT_INFO B_stat;
+	STAT_INFO F_stat;
 	
 	double template_count;
 	double stat_hit_count;
