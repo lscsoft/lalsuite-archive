@@ -49,6 +49,11 @@ def parse_args():
   parser.add_option("--number", help="Optional argument to specify the number of GRBs "\
                    "with data to be checked.", default = None)
 
+  # process parameters, e.g. total length
+  parser.add_option("--offset", help="Length of time to check in both directions [s].",\
+                    default = 2500)
+
+
 
   parser.add_option("--useold", action="store_true", default=False,
                     help="If this option is specified, the old old segment files will be used. "\
@@ -139,7 +144,7 @@ for index in range(n):
   ## perform the main check for this GRB
   mainpath = '.'
   ifos, onsource, offsource, _  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, \
-                                   tag = grbtag, useold = opts.useold, onsource = test_onsource)
+                                   tag = grbtag, useold = opts.useold, onsource = test_onsource, offset = opts.offset)
 
   if len(ifos)>1:
     grb = peu.GRB(grb_name=grb_name, grb_ra=grb_ra, grb_de=grb_dec,  grb_time=grb_time,\
