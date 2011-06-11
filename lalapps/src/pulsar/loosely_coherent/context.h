@@ -20,6 +20,7 @@ typedef struct {
 	COMPLEX8 first9[9];
 	
 	double slope;
+	double phase;
 	} SPARSE_CONV;
 
 typedef struct {

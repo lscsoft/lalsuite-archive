@@ -323,6 +323,8 @@ for(i=0;i<9;i++) {
 	sc->first9[i].im=fft->data[i+1].im/count;
 	}
 
+sc->phase=fft->data[0].re;
+
 // for(i=0;i<9;i++) {
 //  	fprintf(stderr, "%d %g %g %g\n",i, sc->first9[i].re, sc->first9[i].im, sqrt(sc->first9[i].re*sc->first9[i].re+sc->first9[i].im*sc->first9[i].im));
 //  	}
@@ -414,6 +416,7 @@ for(i=0;i<9;i++) {
 	sc->first9[i].im=fft->data[i+1].im/count;
 	}
 
+sc->phase=fft->data[0].re;
 // for(i=0;i<3;i++) {
 //  	fprintf(stderr, "%d %g %g %g\n",i, sc->first9[i].re, sc->first9[i].im, sqrt(sc->first9[i].re*sc->first9[i].re+sc->first9[i].im*sc->first9[i].im));
 //  	}
@@ -554,6 +557,7 @@ for(i=0;i<9;i++) {
 	sc->first9[i].re=fft->data[i+1].re/count;
 	sc->first9[i].im=fft->data[i+1].im/count;
 	}
+sc->phase=fft->data[0].re;
 
 /*for(i=0;i<9;i++) {
  	fprintf(stderr, "%d %g %g %g\n",i, sc->first9[i].re, sc->first9[i].im, sqrt(sc->first9[i].re*sc->first9[i].re+sc->first9[i].im*sc->first9[i].im));
@@ -773,7 +777,7 @@ for(i=0;i<nsamples;i++) {
 
 void demodulate(LOOSE_CONTEXT *ctx)
 {
-int i, j, k, n;
+int i, j, k, m, n;
 int nsamples=ctx->nsamples;
 double te, f, phase_spindown, phase_barycenter, phase_heterodyne, phase_bin, total_phase, x, y, c, s, x2, y2, dt, a;
 float e[GRID_E_COUNT];
@@ -783,6 +787,7 @@ int bin;
 LIGOTimeGPS tGPS;
 EmissionTime emission_time;
 EmissionTime emission_time2;
+float hann_filter[8];
 
 ra=ctx->ra;
 dec=ctx->dec;
@@ -793,6 +798,8 @@ dInv=ctx->dInv;
 ctx->weight_pp=0.0;
 ctx->weight_pc=0.0;
 ctx->weight_cc=0.0;
+
+hann_filter[7]=0;
 
 for(i=0;i<nsamples;i++) {
 	ctx->plus_samples->data[i].re=0.0;
@@ -821,8 +828,23 @@ for(n=0;n<d_free;n++) {
 		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+ctx->fstep/(ctx->n_fsteps*ctx->timebase);
 		bin=round(datasets[0].coherence_time*f-first_bin);
 
-		x=datasets[n].re[j*datasets[n].nbins+bin];
-		y=datasets[n].im[j*datasets[n].nbins+bin];
+		tabulated_fill_hann_filter7(hann_filter, datasets[0].coherence_time*f-bin-first_bin);
+		hann_filter[7]=0.0;
+
+		if((bin-3<0) || (bin+3>=datasets[n].nbins)) {
+			fprintf(stderr, "*** INTERNAL ERROR: insufficient number of loaded bins bin=%d nbins=%d\n", bin, datasets[n].nbins);
+			exit(-1);
+			}
+		
+// 		x=datasets[n].re[j*datasets[n].nbins+bin];
+// 		y=datasets[n].im[j*datasets[n].nbins+bin];
+
+		x=0;
+		y=0;
+		for(i=0;i<7;i++) {
+			x+=datasets[n].re[j*datasets[n].nbins+bin-3+i]*hann_filter[i];
+			y+=datasets[n].im[j*datasets[n].nbins+bin-3+i]*hann_filter[i];
+			}
 		
 		/* magic weighting scheme this produces flatter response, but at the cost of increased noise */
 //  		x=(datasets[n].re[j*datasets[n].nbins+bin]-(datasets[n].re[j*datasets[n].nbins+bin-1]+datasets[n].re[j*datasets[n].nbins+bin+1])*8.1)/9.1;
@@ -891,8 +913,18 @@ for(n=0;n<d_free;n++) {
 		f_plus=F_plus_coeff(j, e, datasets[n].AM_coeffs_plus);
 		f_cross=F_plus_coeff(j, e, datasets[n].AM_coeffs_cross);
 		
-		x=datasets[n].re[j*datasets[n].nbins+bin];
-		y=datasets[n].im[j*datasets[n].nbins+bin];
+		tabulated_fill_hann_filter7(hann_filter, datasets[0].coherence_time*f-bin-first_bin);
+		hann_filter[7]=0.0;
+		
+// 		x=datasets[n].re[j*datasets[n].nbins+bin];
+// 		y=datasets[n].im[j*datasets[n].nbins+bin];
+
+		x=0;
+		y=0;
+		for(m=0;m<7;m++) {
+			x+=datasets[n].re[j*datasets[n].nbins+bin-3+m]*hann_filter[m];
+			y+=datasets[n].im[j*datasets[n].nbins+bin-3+m]*hann_filter[m];
+			}
 
 		/* magic weighting scheme this produces flatter response, but at the cost of increased noise */
 //  		x=(datasets[n].re[j*datasets[n].nbins+bin]-(datasets[n].re[j*datasets[n].nbins+bin-1]+datasets[n].re[j*datasets[n].nbins+bin+1])*8.1)/9.1;
@@ -1216,7 +1248,7 @@ if(args_info.fake_freq_given) {
    	fprintf(LOG,"fake signal injection: none\n");
 	}
 
-side_cut=2;
+side_cut=4;
 first_bin=args_info.first_bin_arg-side_cut;
 useful_bins=args_info.nbins_arg;
 nbins=args_info.nbins_arg+2*side_cut;
