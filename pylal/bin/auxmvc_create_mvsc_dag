@@ -29,6 +29,7 @@ parser.add_option("-c", "--criterion-for-optimization", default=5, type="int")
 parser.add_option("-l", "--leaf-size", default=4, type="int")
 parser.add_option("-s", "--sampled-parameters",default=6, type="int")
 parser.add_option("-i", "--ini-file")
+parser.add_option("-k", "--skip-file-generation", action = "store_true", help = "provide this option if you already have your .pat files and don't need to generate them again")
 parser.add_option("-p","--log-path", help = "set dagman log path")
 (opts, trainingfiles) = parser.parse_args()
 
@@ -218,13 +219,17 @@ results_job = result_plots_job(cp)
 results_node = {}
 
 #set up the nodes
-generate_node = generate_files_node(generate_job, dag, cp.items("generate_spr_files"), training_files.values()+evaluation_files.values())
+if opts.skip_file_generation:
+	generate_node = None
+else:
+	generate_node = generate_files_node(generate_job, dag, cp.items("generate_spr_files"), training_files.values()+evaluation_files.values())
 for cat in cp.get("generate_spr_files","DQ-cats").split(','):
 	catdatfiles=[]
 	train_node[cat]={}
 	rank_node[cat]={}
 	for i,file in enumerate(training_files[cat]):
-		train_node[cat][file] = train_forest_node(train_job, dag, file, p_node=[generate_node])
+		if opts.skip_file_generation: train_node[cat][file] = train_forest_node(train_job, dag, file, p_node=[])
+		else: train_node[cat][file] = train_forest_node(train_job, dag, file, p_node=[generate_node])
 		print train_node[cat][file]
 		rank_node[cat][file] = use_forest_node(rank_job, dag, train_node[cat][file].trainedforest, file.replace('_training','_evaluation'),p_node=[train_node[cat][file]])
 		catdatfiles.append(rank_node[cat][file].get_output_files())
