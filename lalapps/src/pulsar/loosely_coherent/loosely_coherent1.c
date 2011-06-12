@@ -831,7 +831,7 @@ for(n=0;n<d_free;n++) {
 		tabulated_fill_hann_filter7(hann_filter, datasets[0].coherence_time*f-bin-first_bin);
 		hann_filter[7]=0.0;
 
-		if((bin-3<0) || (bin+3>=datasets[n].nbins)) {
+		if((bin-4<0) || (bin+4>=datasets[n].nbins)) {
 			fprintf(stderr, "*** INTERNAL ERROR: insufficient number of loaded bins bin=%d nbins=%d\n", bin, datasets[n].nbins);
 			exit(-1);
 			}
@@ -841,14 +841,18 @@ for(n=0;n<d_free;n++) {
 
 		x=0;
 		y=0;
-		for(i=0;i<7;i++) {
-			x+=datasets[n].re[j*datasets[n].nbins+bin-3+i]*hann_filter[i];
-			y+=datasets[n].im[j*datasets[n].nbins+bin-3+i]*hann_filter[i];
+		for(m=0;m<7;m++) {
+			x+=(datasets[n].re[j*datasets[n].nbins+bin-3+m]+datasets[n].re[j*datasets[n].nbins+bin-4+m]+datasets[n].re[j*datasets[n].nbins+bin-2+m])*hann_filter[m];
+			y+=(datasets[n].im[j*datasets[n].nbins+bin-3+m]+datasets[n].im[j*datasets[n].nbins+bin-4+m]+datasets[n].im[j*datasets[n].nbins+bin-2+m])*hann_filter[m];
 			}
-		
-		/* magic weighting scheme this produces flatter response, but at the cost of increased noise */
-//  		x=(datasets[n].re[j*datasets[n].nbins+bin]-(datasets[n].re[j*datasets[n].nbins+bin-1]+datasets[n].re[j*datasets[n].nbins+bin+1])*8.1)/9.1;
-//  		y=(datasets[n].im[j*datasets[n].nbins+bin]-(datasets[n].im[j*datasets[n].nbins+bin-1]+datasets[n].im[j*datasets[n].nbins+bin+1])*8.1)/9.1;
+
+		/* contribution from previous segment */
+		if(j>=0 && datasets[n].gps[j]==datasets[n].gps[j-1]+datasets[0].coherence_time*0.5) {
+			for(m=0;m<7;m++) {
+				x+=(datasets[n].re[(j-1)*datasets[n].nbins+bin-3+m]-datasets[n].re[(j-1)*datasets[n].nbins+bin-4+m]-datasets[n].re[(j-1)*datasets[n].nbins+bin-2+m])*hann_filter[m];
+				y+=(datasets[n].im[(j-1)*datasets[n].nbins+bin-3+m]-datasets[n].im[(j-1)*datasets[n].nbins+bin-4+m]-datasets[n].im[(j-1)*datasets[n].nbins+bin-2+m])*hann_filter[m];
+				}
+			}
 
 		x2=x*x+y*y;
 		ctx->power[k]=x2;
@@ -922,8 +926,16 @@ for(n=0;n<d_free;n++) {
 		x=0;
 		y=0;
 		for(m=0;m<7;m++) {
-			x+=datasets[n].re[j*datasets[n].nbins+bin-3+m]*hann_filter[m];
-			y+=datasets[n].im[j*datasets[n].nbins+bin-3+m]*hann_filter[m];
+			x+=(datasets[n].re[j*datasets[n].nbins+bin-3+m]+datasets[n].re[j*datasets[n].nbins+bin-4+m]+datasets[n].re[j*datasets[n].nbins+bin-2+m])*hann_filter[m];
+			y+=(datasets[n].im[j*datasets[n].nbins+bin-3+m]+datasets[n].im[j*datasets[n].nbins+bin-4+m]+datasets[n].im[j*datasets[n].nbins+bin-2+m])*hann_filter[m];
+			}
+
+		/* contribution from previous segment */
+		if(j>=0 && datasets[n].gps[j]==datasets[n].gps[j-1]+datasets[0].coherence_time*0.5) {
+			for(m=0;m<7;m++) {
+				x+=(datasets[n].re[(j-1)*datasets[n].nbins+bin-3+m]-datasets[n].re[(j-1)*datasets[n].nbins+bin-4+m]-datasets[n].re[(j-1)*datasets[n].nbins+bin-2+m])*hann_filter[m];
+				y+=(datasets[n].im[(j-1)*datasets[n].nbins+bin-3+m]-datasets[n].im[(j-1)*datasets[n].nbins+bin-4+m]-datasets[n].im[(j-1)*datasets[n].nbins+bin-2+m])*hann_filter[m];
+				}
 			}
 
 		/* magic weighting scheme this produces flatter response, but at the cost of increased noise */
