@@ -273,7 +273,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
       injBankVeto.append( trig.bank_chisq )
       injAutoVeto.append( trig.cont_chisq )
       for amp in amplitudes:
-        a = getattr(trig,'amp_term_%d' % i)
+        a = getattr(trig,'amp_term_%d' % amp)
         if a == 0:
           a = 0.0001
         injAmp[amp].append(a)

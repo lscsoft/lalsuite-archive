@@ -207,6 +207,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   trigTime = {}
   trigSNR = {}
   trigBestNR = {}
+  trigAllBestNR = []
   
   for bin in massBins:
     trigTime[bin[0]] = []
@@ -253,6 +254,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                          null_thresh=null_thresh, fResp=fResp[trigPos])
 
     trigBestNR[trigBin[0]].append( bestNR )
+    trigAllBestNR.append( bestNR )
 
     # Determine chunk number
     chunkNum = numSegs
@@ -282,9 +284,76 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         timeBinMaxBestNR[trigBinNum,chunkNum]    = trigBestNR[trigBin[0]][-1]
     if timeBinMaxBestNR[len(massBins),chunkNum] < trigBestNR[trigBin[0]][-1]:
       timeBinMaxBestNR[len(massBins),chunkNum] = trigBestNR[trigBin[0]][-1]
+
+  # ==========================
+  # print details of loudest 10 offsouce triggers
+  # ==========================
+
+  offSourceTrigs = zip(trigAllBestNR,trigs)
+  offSourceTrigs.sort(key = lambda element:element[0])
+  offSourceTrigs.reverse()
+
+  th = [ 'Bin', 'FAP', 'GPS', 'Rec. m1', 'Rec. m2', 'Rec. Mc', 'Rec. RA',\
+         'Rec. Dec', 'SNR', 'Chi^2', 'Bank veto', 'Auto veto', 'Null SNR' ]
+  th.extend([ '%s SNR' % ifo for ifo in ifos ])
+  th.append('BestNR')
+  td = []
+  
+  for i in range(20):
+    bestNR = offSourceTrigs[i][0]
+    trig = offSourceTrigs[i][1]
+
+    # Get mass bin of trigger
+    trigBin = None
+    binNum = 0
+    for bin in massBins:
+      if bin[0] <= trig.mchirp < bin[1]:
+        if not trigBin:
+          trigBin = bin
+          trigBinNum = binNum
+        else:
+          print >>sys.stderr, "ERROR: Mass bins appear to overlap"
+      binNum += 1
+    if not trigBin:
+      print >>sys.stderr, "ERROR: No mass bins match trigger with mchirp %s"\
+                          % chirpMass
+
+    # Get FAP of trigger
+    numTrialsLouder = 0
+    for val in timeBinMaxBestNR[trigBinNum]:
+      if val > bestNR:
+        numTrialsLouder += 1
+    FAP = numTrialsLouder/numSegs
+
+    # Get null SNR of trigger
+    if len(ifos)>2:
+      nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+                        for ifo in ifos ])\
+                    - trig.snr**2 )**0.5
+    else:
+      nullsnr = 0
+
+    d = [ '%s-%s' % tuple(bin), FAP, trig.get_end(),\
+          trig.mass1, trig.mass2, trig.mchirp,\
+          trig.ra*fRadDeg, trig.dec*fRadDeg,\
+          trig.snr, trig.chisq, trig.bank_chisq,\
+          trig.cont_chisq, nullsnr ]
+    d.extend([ getattr(trig,'snr_%s' % ifoAtt[ifo])\
+               for ifo in ifos ])
+    d.append(bestNR)
+    td.append(d)
+
+  file = open( "%s/loudest_offsource_trigs.html" % outdir, "w" )
+  page = markup.page()
+  page = write_table( page, th, td )
+  file.write( page() )
+  file.close()
+
+
  
   # ==========================
   # print loudest SNRs to file
+  # THIS OUTPUT FILE IS CURRENTLY UNUSED - MAYBE DELETE?
   # ==========================
  
   maxSNR       = {}
@@ -558,7 +627,9 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     for inj,trig in zip(foundInjs,foundTrigs):
 
       try:
-        effDist = sum([ 1/getattr(trig,'eff_dist_%s' % ifoAtt[ifo] )\
+        # Here the 0:10 rubbish means that eff_dist_h1 (or 2) is converted
+        # to eff_dist_h. eff_dist_v (or l) is unchanged
+        effDist = sum([ 1/getattr(inj,('eff_dist_%s' % ifoAtt[ifo])[0:10] )\
                         for ifo in ifos ])**-1
       except ZeroDivisionError:
         effDist = 0
@@ -731,59 +802,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           bFoundTime.append( float(inj.get_time_geocent()) )
           bFoundSkyAngle.append( float(centralAngle) )
            
-          
-
-    print foundmaxBestNR
-    print foundOnBestNR
-    # write quiet triggers to file      
-    gQuietFound  = zip(gIFAREffDist,gIFARTrig,gIFARInj,gIFARStat)
-    gQuietFound2 = zip(gMissed2Effdist,gMissed2Trig,gMissed2Inj,\
-                       numpy.zeros([len(gMissed2Inj)]))
-    gQuietFound.extend(gQuietFound2)
-    gQuietFound.sort(key = lambda element:element[0])
- 
-    th = [ 'Num', 'Dist' ]
-    for site in sites:  th.append( 'Eff. Dist %s' % site )
-    th.extend([ 'Inj. m1', 'Inj. m2', 'Inj. Mc',\
-                'Rec. m1', 'Rec. m2', 'Rec. Mc',\
-                'Inj. inc', 'Inj. RA', 'Inj. Dec', 'Rec. RA', 'Rec. Dec',\
-                'SNR', 'Chi^2', 'Bank veto', 'Auto veto',\
-                'Null SNR'])
-    for ifo in ifos:  th.append( 'SNR %s' % ifo )
-    th.append('BestNR')
-    td = []
- 
-    for i in range(10):
-      inj = gQuietFound[i][2]
-      trig = gQuietFound[i][1]
-      bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                  null_thresh=null_thresh, fResp=fResp[trigPos])
-      if len(ifos)>2:
-        nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
-                          for ifo in ifos ])\
-                    - trig.snr**2 )**0.5
-      else:
-        nullsnr = 0
-      d = [ i, inj.distance ]
-      for site in sites:
-        d.append( getattr(inj, 'eff_dist_%s' % site.lower() ) )
-      d.extend([ inj.mass1, inj.mass2, inj.mchirp,\
-                 trig.mass1, trig.mass2, trig.mchirp,\
-                 inj.inclination, inj.longitude*fRadDeg, inj.latitude*fRadDeg,\
-                 trig.ra*fRadDeg, trig.dec*fRadDeg,\
-                 trig.snr, trig.chisq, trig.bank_chisq,\
-                 trig.cont_chisq, nullsnr ])
-      for ifo in ifos:
-        d.append( getattr(trig,'snr_%s' % ifoAtt[ifo]) )
-      d.append(bestNR)
-      # append trigger to list
-      td.append(d) 
-    page = markup.page()
-    page = write_table( page, th, td )
-    file = open( "%s/quiet_found_triggers.html" % outdir, "w" ) 
-    file.write( page() )
-    file.close()
-  
     # process missed injections
     for inj in missedInjs:
       effDist = sum([ 1/getattr(inj,'eff_dist_%s' % ifo[0].lower() )\
@@ -834,6 +852,67 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     gMissed2Time = [ t-start for t in gMissed2Time ]
     gFoundTime   = [ t-start for t in gFoundTime ]
     gIFARTime    = [ t-start for t in gIFARTime ]
+
+
+    # write quiet triggers to file      
+    gQuietFound  = zip(gIFARDist,gIFARTrig,gIFARInj,gIFARStat)
+    gQuietFound2 = zip(gMissed2Dist,gMissed2Trig,gMissed2Inj,\
+                       numpy.zeros([len(gMissed2Inj)]))
+    gQuietFound.extend(gQuietFound2)
+    gQuietFound.extend(zip(gMissedDist,numpy.zeros([len(gMissed2Inj)]),gMissed2Inj,numpy.zeros([len(gMissed2Inj)])))
+    gQuietFound.sort(key = lambda element:element[0])
+ 
+    th = [ 'Num', 'Dist' ]
+    for site in sites:  th.append( 'Eff. Dist %s' % site )
+    th.extend([ 'Inj. m1', 'Inj. m2', 'Inj. Mc',\
+                'Rec. m1', 'Rec. m2', 'Rec. Mc',\
+                'Inj. inc', 'Inj. RA', 'Inj. Dec', 'Rec. RA', 'Rec. Dec',\
+                'SNR', 'Chi^2', 'Bank veto', 'Auto veto',\
+                'Null SNR'])
+    for ifo in ifos:  th.append( 'SNR %s' % ifo )
+    th.append('BestNR')
+    td = []
+ 
+    for i in range(len(gQuietFound)):
+      inj = gQuietFound[i][2]
+      trig = gQuietFound[i][1]
+      if trig:
+        bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                  null_thresh=null_thresh, fResp=fResp[trigPos])
+        if len(ifos)>2:
+          nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+                            for ifo in ifos ])\
+                      - trig.snr**2 )**0.5
+        else:
+          nullsnr = 0
+      d = [ i, inj.distance ]
+      for site in sites:
+        d.append( getattr(inj, 'eff_dist_%s' % site.lower() ) )
+      d.extend([ inj.mass1, inj.mass2, inj.mchirp])
+      if trig:
+        d.extend([trig.mass1, trig.mass2, trig.mchirp])
+      else:
+        d.extend(['No trigger','N/A','N/A'])
+      d.extend([inj.inclination, inj.longitude*fRadDeg, inj.latitude*fRadDeg])
+      if trig:
+        d.extend([trig.ra*fRadDeg, trig.dec*fRadDeg,\
+                 trig.snr, trig.chisq, trig.bank_chisq,\
+                 trig.cont_chisq, nullsnr ])
+        for ifo in ifos:
+          d.append( getattr(trig,'snr_%s' % ifoAtt[ifo]) )
+        d.append(bestNR)
+      else:
+        d.extend(['N/A','N/A','N/A','N/A','N/A','N/A','N/A'])
+        for ifo in ifos:
+          d.append('N/A')
+        d.append('N/A')
+      # append trigger to list
+      td.append(d) 
+    page = markup.page()
+    page = write_table( page, th, td )
+    file = open( "%s/quiet_found_triggers.html" % outdir, "w" ) 
+    file.write( page() )
+    file.close()
  
   # ==========
   # make plots
@@ -892,21 +971,32 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax = fig.gca()
     legendText = []
     iter = 0
+    finjs = None
     for bin in massBins:
-      ax.plot( distPlotVals, (foundmaxBestNR/numInjections)[iter,0:-1],\
-               lineColours[iter] )
-      legendText.append( "mchirp %s to %s" % tuple(bin) )
+      if finjs is None:
+        finjs = foundmaxBestNR[iter,0:-1]
+        totalinjs = numInjections[iter,0:-1]
+      else:
+        finjs += foundmaxBestNR[iter,0:-1]
+        totalinjs += numInjections[iter,0:-1]
+#      ax.plot( distPlotVals, (foundmaxBestNR/numInjections)[iter,0:-1],\
+#               lineColours[iter] )
+#      legendText.append( "mchirp %s to %s" % tuple(bin) )
       print >>file, "Total injections found in bin mchirp %s to %s louder than all background in that bin using %s is: %s"\
                       % ( bin[0], bin[1], 'BestNR', foundmaxBestNR[iter,-1] )
       print >>file
       iter += 1
+    ax.plot( distPlotVals, (finjs/totalinjs),\
+             'r' )
 
     iter = 0
-    for bin in massBins:
-      ax.errorbar( distPlotVals, (foundmaxBestNR/numInjections)[iter,0:-1],\
-                   yerr=((1/numInjections)**0.5)[iter,0:-1],\
-                   c=lineColors[iter] )
-      iter += 1
+
+    # Fix the error bar!
+#    for bin in massBins:
+#      ax.errorbar( distPlotVals, (foundmaxBestNR/numInjections)[iter,0:-1],\
+#                   yerr=((1/numInjections)**0.5)[iter,0:-1],\
+#                   c=lineColors[iter] )
+#      iter += 1
     ax.set_ylim( [0,1] )
     ax.set_title( "Efficiency of injection finding using "+\
                   "BestNR as detection statistic" )
@@ -914,28 +1004,37 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_ylabel( "Fraction of injections found louder than "+\
                    "loudest background" )
     ax.set_xlabel( "Distance" )
-    ax.legend(legendText)
+#    ax.legend(legendText)
     fig.savefig( '%s/BestNR_max_efficiency.png' % ( outdir ) )
 
     fig = pylab.figure()
     ax = fig.gca()
     legendText = []
     iter = 0
+    finjs = None
     for bin in massBins:
-      ax.plot( distPlotVals, (foundOnBestNR/numInjections)[iter,0:-1],\
-               lineColours[iter] )
-      legendText.append( "mchirp %s to %s" % tuple(bin) )
+      if finjs is None:
+        finjs = foundOnBestNR[iter,0:-1]
+        totalinjs = numInjections[iter,0:-1]
+      else:
+        finjs += foundOnBestNR[iter,0:-1]
+        totalinjs += numInjections[iter,0:-1]
+#      ax.plot( distPlotVals, (foundOnBestNR/numInjections)[iter,0:-1],\
+#               lineColours[iter] )
+#      legendText.append( "mchirp %s to %s" % tuple(bin) )
       print >>file, "Total injections found in bin mchirp %s to %s louder than onsource in that bin (and nearby triggers in the offsource) using %s is: %s"\
                       % ( bin[0], bin[1], 'BestNR', foundOnBestNR[iter,-1] )
       print >>file
       iter += 1
 
+    ax.plot( distPlotVals, (finjs/totalinjs), 'r' )
     iter = 0
-    for bin in massBins:
-      ax.errorbar( distPlotVals, (foundOnBestNR/numInjections)[iter,0:-1],\
-                   yerr=((1/numInjections)**0.5)[iter,0:-1],\
-                   c=lineColors[iter] )
-      iter += 1
+#    FIX ERROR BARS
+#    for bin in massBins:
+#      ax.errorbar( distPlotVals, (foundOnBestNR/numInjections)[iter,0:-1],\
+#                   yerr=((1/numInjections)**0.5)[iter,0:-1],\
+#                   c=lineColors[iter] )
+#      iter += 1
     ax.set_ylim( [0,1] )
     ax.set_title( "Efficiency of injection finding using "+\
                   "BestNR as detection statistic" )
@@ -943,7 +1042,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_ylabel( "Fraction of injections found louder than "+\
                    "loudest foreground" )
     ax.set_xlabel( "Distance" )
-    ax.legend(legendText)
+#    ax.legend(legendText)
     fig.savefig( '%s/BestNR_on_efficiency.png' % ( outdir ) )
   
     binNum = 0
