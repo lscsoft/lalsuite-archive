@@ -21,7 +21,7 @@ def new_snr_chisq( snr, new_snr, chisq_dof, q=4.0, n=3.0 ):
   chisqnorm = (snr/new_snr)**q
  
   if chisqnorm <= 1:
-    return chisqnorm
+    return 1E-20
   return chisq_dof * (2*chisqnorm - 1)**(n/q)
 
 def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
@@ -79,7 +79,7 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
                      for ifo in ifos ]) - trig.snr**2 )**0.5
   if trig.snr > 30:
     null_thresh = numpy.array(null_thresh)
-    null_thresh = ( null_thresh - 30 )*5/70
+    null_thresh += (trig.snr - 30)*5/70
   if null_snr > null_thresh[-1]:
     return 0
   elif null_snr > null_thresh[0]:
@@ -104,9 +104,9 @@ def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
   snr_vals      = numpy.asarray(list(snr_low_vals) + list(snr_high_vals))
 
   # initialise contours
-  bank_conts = [[]]*num_vals
-  auto_conts = [[]]*num_vals
-  chi_conts  = [[]]*num_vals
+  bank_conts = numpy.zeros([len(cont_vals),len(snr_vals)], dtype=numpy.float64)
+  auto_conts = numpy.zeros([len(cont_vals),len(snr_vals)], dtype=numpy.float64)
+  chi_conts  = numpy.zeros([len(cont_vals),len(snr_vals)], dtype=numpy.float64)
   null_cont  = []
 
   # set chisq dof
@@ -115,17 +115,28 @@ def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
   bank_chisq_dof = 40
   cont_chisq_dof = 160
 
+  print snr_vals[0:10]
+  for i in range(len(cont_vals)):
+    print new_snr_chisq(snr_vals[0], cont_vals[i], 40, q, n)
+
   # loop over each and calculate chisq variable needed for SNR contour
-  for snr in snr_vals:
+  for j,snr in enumerate(snr_vals):
     for i,new_snr in enumerate(cont_vals):
-      bank_conts[i].append(new_snr_chisq( snr, new_snr, bank_chisq_dof, q, n ))
-      auto_conts[i].append(new_snr_chisq( snr, new_snr, cont_chisq_dof, q, n ))
-      chi_conts[i].append(new_snr_chisq( snr, new_snr, chisq_dof, q, n ))
+      if i==0 and snr in snr_vals[0:10]:
+        print i,new_snr,snr,new_snr_chisq(snr, new_snr, 40, q, n)
+
+      bank_conts[i][j] = new_snr_chisq(snr, new_snr, bank_chisq_dof, q, n)
+      auto_conts[i][j] = new_snr_chisq(snr, new_snr, cont_chisq_dof, q, n)
+      chi_conts[i][j]  = new_snr_chisq(snr, new_snr, chisq_dof, q, n)
 
     if snr > null_grad_snr:
       null_cont.append(null_thresh + (snr-null_grad_snr)*5/70)
     else:
       null_cont.append(null_thresh)
+
+  print len(bank_conts)
+  print bank_conts[0][0:10]
+  print
 
   return bank_conts,auto_conts,chi_conts,null_cont,snr_vals,colors
 
