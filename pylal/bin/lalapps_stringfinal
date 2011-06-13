@@ -571,6 +571,7 @@ class Efficiency(object):
 		# of the burst coincs that were found to match the
 		# injection or null if no burst coincs matched the
 		# injection
+		offsetvectors = contents.time_slide_table.as_dict()
 		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
 		loudest_missed = []
 		quietest_found = []
@@ -589,7 +590,7 @@ FROM
 			found = likelihood_ratio is not None
 			# were at least 2 instruments on when the injection
 			# was made?
-			if len(SimBurstUtils.on_instruments(sim, seglists)) >= 2:
+			if len(SimBurstUtils.on_instruments(sim, seglists, offsetvectors[sim.time_slide_id])) >= 2:
 				# yes
 				self.all.append(sim)
 				if found and likelihood_ratio > self.detection_threshold:

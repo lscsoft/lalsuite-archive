@@ -62,12 +62,16 @@ def time_at_instrument(sim, instrument):
 	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
 
 
-def on_instruments(sim, seglists):
+def on_instruments(sim, seglists, offsetvector):
 	"""
 	Return a set of the names of the instruments that were on at the
 	time of the injection.
 	"""
-	return set(instrument for instrument, seglist in seglists.items() if time_at_instrument(sim, instrument) in seglist)
+	# note that the offset vector is subtracted from the injection
+	# time.  an offset vector is applied to injection times this way so
+	# that if the offset vector is added to trigger times the result
+	# will be triggers that are coincident across instruments
+	return set(instrument for instrument, seglist in seglists.items() if time_at_instrument(sim, instrument) - offsetvector[instrument] in seglist)
 
 
 def injection_was_made(sim, seglists, instruments):
