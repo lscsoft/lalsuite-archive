@@ -23,7 +23,7 @@
 #       MA 02110-1301, USA.
 
 #===============================================================================
-# Preamb le
+# Preamble
 #===============================================================================
 
 #standard library imports
@@ -696,7 +696,7 @@ def locate_public():
     elif os.path.isdir(os.path.join(os.environ['HOME'],'WWW')):
         return os.path.join(os.environ['HOME'],'WWW')
     else:
-        print "Cannot localize the public folder"
+        print "Cannot localize the public folder. Using ../ \n Some links may not work."
         return "../"
 
 def relativize_paths(pathA,pathB):
@@ -720,7 +720,6 @@ def go_to_path(pathA,pathB):
        print "%s is not a path to an existing folder. Exiting..."%pathA
        sys.exit(1)
     i=0
-    print os.path.realpath(pathA),os.path.realpath(pathB),"link\n"
     while os.getcwd()!=pathB:
         os.chdir(os.path.join(os.getcwd(),'../'))
         i+=1
