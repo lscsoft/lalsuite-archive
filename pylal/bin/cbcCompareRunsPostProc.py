@@ -770,9 +770,11 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     html_table=html.add_section('Links to postprocessing pages')
     html_table.write(link(os.path.join(page_path,'posposplots.html'),"Go back to the plots page"))
     html_table_st='<table>'
-    html_table_st+='<tr><th align="center" colspan="6"> Control Runs </th><th colspan="6" align="center"> '+key.title()+' Runs </th></tr>'
+    html_table_st+='<tr><th align="center" colspan="6"> Control Runs </th><th>#</th><th colspan="6" align="center"> '+key.title()+' Runs </th></tr>'
     html_table_st+='<tr>'
-    html_table_st+=2*('<th> TriggerTime</th><th> BSN </th><th>'+ifos[0]+'</th><th>'+ifos[1]+'</th><th>'+ifos[2]+'</th><th>'+ifos[3]+'</th>')
+    html_table_st+='<th> TriggerTime</th><th> BSN </th><th>'+ifos[0]+'</th><th>'+ifos[1]+'</th><th>'+ifos[2]+'</th><th>'+ifos[3]+'</th>'
+    html_table_st+='<th></th>'
+    html_table_st+='<th> TriggerTime</th><th> BSN </th><th>'+ifos[0]+'</th><th>'+ifos[1]+'</th><th>'+ifos[2]+'</th><th>'+ifos[3]+'</th>'
     html_table_st+='</tr>'
 
     for time in times:
@@ -784,6 +786,7 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
         html_table_st+='<td>'+'%4.2f'%(ctrl_data[times.index(time),bsn_index])+'</td>'
         for IFO in ifos:
             html_table_st+='<td>'+'%4.2f'%(ctrl_data[times.index(time),snr_index[IFO]])+'</td>'
+        html_table_st+='<td>'+str(times.index(time))+'</td>'
         html_table_st+='<td>'+link(cal_page,time)+'</td>'
         html_table_st+='<td>'+'%4.2f'%(cal_data[times.index(time),bsn_index])+'</td>'
         for IFO in ifos:
