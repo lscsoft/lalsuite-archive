@@ -23,7 +23,7 @@
 #       MA 02110-1301, USA.
 
 #===============================================================================
-# Preamble
+# Preamb le
 #===============================================================================
 
 #standard library imports
@@ -40,6 +40,7 @@ from time import strftime
 import numpy as np
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power
 from scipy import *
+from scipy import stats as stat
 import matplotlib 
 matplotlib.use("Agg")
 from pylab import *
@@ -111,7 +112,11 @@ def skewness(array,mean,std_dev):
 def kurtosis(array,mean,std_dev):
     return (sum((x-mean) ** 4 for x in array) / (len(array)*std_dev **4) )
 def read_snr(snrs,run,time,IFOs):
-    ### Check if files containing SNRs for sigle IFO are present in the folder snrs[run]. If not, check whether a file containing all the SNRs is present in that folder. In case of success return a list whose first element is a string containing the SNRs values and the second element a list of strings each containing the IFO names with the prefix "SNR_"
+    """
+    Check if files containing SNRs for sigle IFO are present in the folder snrs[run].
+    If not, check whether a file containing all the SNRs is present in that folder.
+    In case of success return a list whose first element is a string containing the SNRs values and the second element a list of strings each containing the IFO names with the prefix "SNR_"
+    """
     snr_values=""
     snr_header=[]
     net_snr2=0.0
@@ -123,7 +128,7 @@ def read_snr(snrs,run,time,IFOs):
             line=snr_file.readline()[:-1]
             snr_header.append('SNR_'+remove_ifo_from_string(line)[0])
             snr_values+=str(remove_ifo_from_string(line)[1])+' '
-            net_snr2+=remove_ifo_from_string(line)[1]**2
+            net_snr2+=float(remove_ifo_from_string(line)[1])**2
             snr_file.close()
     if snr_header!=[]:
         snr_header.append('SNR_Network')
@@ -147,19 +152,22 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
     @param outdir: Output directory in which to save skymap.png image.
     """
     from matplotlib.path import Path
-
+        
     path_plots=os.path.join(outdir,run,'SkyPlots')
     checkDir(path_plots)
     np.seterr(under='ignore')
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0,anchor='W')
     
     if dec_ra_inj is not None:
+        dec_ra_inj=(np.asarray(dec_ra_inj))[:,0:-1]
         ra_reverse = 2*pi_constant - np.asarray(dec_ra_inj)[::-1,1]*57.296
         plx,ply=m(
                   ra_reverse,
                   np.asarray(dec_ra_inj)[::-1,0]*57.296
                   )
     if dec_ra_ctrl is not None:
+        bsn_ctrl=np.asarray(dec_ra_ctrl)[:,-1][::-1]
+        dec_ra_ctrl=np.asarray(dec_ra_ctrl)[:,0:-1]
         ra_reverse_ctrl = 2*pi_constant - np.asarray(dec_ra_ctrl)[::-1,1]*57.296
         plx_ctrl,ply_ctrl=m(
                 ra_reverse_ctrl,
@@ -169,6 +177,8 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             vert_x_ctrl=column_stack((plx_ctrl,plx))
             vert_y_ctrl=column_stack((ply_ctrl,ply))            
     if dec_ra_cal is not None:
+        bsn_cal=np.asarray(dec_ra_cal)[:,-1][::-1]
+        dec_ra_cal=np.asarray(dec_ra_cal)[:,0:-1]
         ra_reverse_cal = 2*pi_constant - np.asarray(dec_ra_cal)[::-1,1]*57.296
         plx_cal,ply_cal=m(
                   ra_reverse_cal,
@@ -179,8 +189,7 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             vert_y_cal=column_stack((ply,ply_cal))
 
     ### Put a maximum of max_n injection in each plot to improve readability
-    ### TBD add filtering on BNS here or in the caller
-    max_n=20
+    max_n=25
     d,r=divmod(len(plx),max_n)
     ### This put the events back in increasing order
     inverted_seqs=[(range(len(plx))[::-1])[k*max_n:(k+1)*max_n] for k in range(d+1)]
@@ -189,13 +198,18 @@ def Make_injected_sky_map(dec_ra_inj,outdir,run,dec_ra_cal=None,dec_ra_ctrl=None
             myfig=plt.figure(2,figsize=(20,28),dpi=200)
             plt.clf()
             for i in seq:
-                print i, range(len(plx))
-                new_label=len(plx)-range(len(plx)).index(i)-1
-                plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
-                plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
-                plt.annotate(str(new_label), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
-                plt.annotate(str(new_label), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
-                plt.annotate(str(new_label), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+                #print i, range(len(plx)),bsn_cal[i]
+                if bsn_cal[i]>4.0:
+                    new_label=len(plx)-range(len(plx)).index(i)-1
+                    #print bsn_cal[new_label],new_label
+                    plt.plot(vert_x_cal[i,:],vert_y_cal[i,:],'g:',linewidth=1)
+                    plt.plot(vert_x_ctrl[i,:],vert_y_ctrl[i,:],'y:',linewidth=1)
+                    plt.annotate(str(new_label), color='k',xy=(vert_x_cal[i,0], vert_y_cal[i,0]), xytext=(vert_x_cal[i,0]*(1+1/100), vert_y_cal[i,0]*(1+1/150)),size=13,alpha=0.8)
+                    plt.annotate(str(new_label), color='r',xy=(vert_x_cal[i,1], vert_y_cal[i,1]), xytext=(vert_x_cal[i,1]*(1+1/100), vert_y_cal[i,1]*(1+1/150)),size=13,alpha=0.8)
+                    plt.annotate(str(new_label), color='b',xy=(vert_x_ctrl[i,0], vert_y_ctrl[i,0]), xytext=(vert_x_ctrl[i,0]*(1+1/100), vert_y_ctrl[i,0]*(1+1/150)),size=13,alpha=0.8)
+                else:
+                    continue
+
             plt.scatter(plx,ply,s=7,c='k',marker='d',faceted=False,label='Injected')
             plt.scatter(plx_cal,ply_cal,s=7,c='r',marker='o',faceted=False,label='Recovered_cal') 
             plt.scatter(plx_ctrl,ply_ctrl,s=7,c='b',marker='o',faceted=False,label='Recovered_ctrl')
@@ -228,7 +242,6 @@ def histN(mat,N):
 def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_result_pages=None,keyword=None):
     
     from pylal import SimInspiralUtils
-    
     checkDir(outdir)
     number_of_inits=len(inputs)
     injTable=SimInspiralUtils.ReadSimInspiralFromFiles([inj])
@@ -274,12 +287,13 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     ### Combine path contains both the weighted posteriors and the BSN files
     BSN=[path for path in inputs]
     Combine=[path for path in inputs]
+    key_runs=range(1,len(Combine)) ### key runs   
     snrs=[path for path in snrs]
-    
+
     temp_times_run={}
     times_run={}
     ctrl_times={}
-    for run in range(1,len(Combine)):
+    for run in key_runs:
         times_run[run]=[time for time in times]
         temp_times_run[run]=[time for time in times]
         
@@ -289,32 +303,44 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if not os.path.isfile(path_to_file):
             for run in range(1,len(Combine)):
                 temp_times[run].remove(time)
-    for run in range(1,len(Combine)):
-        times_run[run]=temp_times[run]
+    for run in key_runs:
+        times_run[run]=temp_times_run[run]
     ## Now for each key run remove the times for which posteriors are non present (even if they were present in the ctrl run)
-    for run in range(1,len(Combine)):
+    for run in key_runs:
         for time in times_run[run]:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
             if not os.path.isfile(path_to_file):
                 temp_times_run[run].remove(time)
         times_run[run]=temp_times_run[run]
-
+    if times_run[run]==[]:
+        print "No posteriors found for the events given in run %i. Excluding run %i from the post processing.\n"%(run,run)
+        ### TBD create a list instead of range(1,len(combine)) and remove from it
+    for run in key_runs:
+        ctrl_times[run]=[time for time in times_run[run]]
+        
     recovered_positions_key={}
     injected_positions={}
     recovered_positions_ctrl={}    
 
     ## prepare files with means and other useful data. It also fills the list with the sky positions ###
-    for out_run in range(1+len(Combine)):
+    for out_run in key_runs:
         summary_ctrl=open(os.path.join(outdir,'summary_ctrl_'+str(out_run)+'.dat'),'w')
-        summary_key=open(os.path.join(outdir,'summary_'+key+'_'+str(out_run)+'.dat'),'w')
-        header=open(os.path.join(outdir,'headers_'+str(out_run)+'.dat'),'w')
+        summary_key=open(os.path.join(outdir,'summary_'+str(keyword)+'_'+str(out_run)+'.dat'),'w')
+        header_key=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'w')
+        header_ctrl=open(os.path.join(outdir,'headers_ctrl_'+str(out_run)+'.dat'),'w')
         header_l=[]
         header_l.append('injTime ')
         recovered_positions_ctrl[out_run]=[]
         recovered_positions_key[out_run]=[]
         injected_positions[out_run]=[]
         for run in [0,out_run]:
-
+            if run==0:
+                summary=summary_ctrl
+                header=header_ctrl
+            else:
+                summary=summary_key
+                header=header_key
+                
             for time in times_run[out_run]:
                 path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
                 posterior_file=open(path_to_file,'r')
@@ -322,15 +348,12 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                 commonResultsObj=peparser.parse(posterior_file)
                 pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injTable[times.index(time)])
                 posterior_file.close()
-                parameters=pos.names            
-                parameters.remove('logl')
+                parameters=pos.names
+                try:            
+                    parameters.remove('logl')
+                except ValueError:
+                    parameters.remove('likelihood')
                 summary.write(str(time)+'\t')
-                if 'ra' in parameters and 'dec' in parameters:
-                    if int(run)==0:
-                        recovered_positions_ctrl[out_run].append([pos['dec'].mean,pos['ra'].mean])
-                        injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval])
-                    else:
-                        recovered_positions_key[int(out_run)].append([pos['dec'].mean,pos['ra'].mean])
                 for parameter in parameters:
                     summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
                     if time==times[0]:
@@ -344,6 +367,12 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                     summary.write(str(bsn)+'\t')
                     if time==times[0]:
                         header_l.append('BSN')
+                if 'ra' in parameters and 'dec' in parameters:
+                    if int(run)==0:
+                        recovered_positions_ctrl[out_run].append([pos['dec'].mean,pos['ra'].mean,float(bsn)])
+                        injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval,999])
+                    else:
+                        recovered_positions_key[out_run].append([pos['dec'].mean,pos['ra'].mean,float(bsn)])
                 if snrs is not None:
                     val,hea=read_snr(snrs,run,time,IFOs)
                     summary.write(str(val)+'\t')
@@ -355,21 +384,20 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             summary.close()
             header.close()
     ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act consequently.
-    
-    
+        
     ### Now read the ctrl data, these stay the same all along while the cal_run data are read at each interation in the for below
-    path_uncal=os.path.join(outdir,'summary_ctrl.dat')    
-    for run in range(1,len(Combine)):
+    for run in key_runs:
         run=str(run)
-        path_cal=os.path.join(outdir,'summary_'+run+'.dat')
-        MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size)
+        path_uncal=os.path.join(outdir,'summary_ctrl_'+run+'.dat')    
+        path_cal=os.path.join(outdir,'summary_'+keyword+'_'+run+'.dat')
+        MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l)
         if snrs is not None:
             MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size)
         if BSN is not None and snrs is not None:
             MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,keyword)
         if calerr is not None:
             MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
-        if injected_positions!=[] and recovered_positions_cal!={}:
+        if injected_positions!=[] and recovered_positions_key!={}:
             d,r=Make_injected_sky_map(injected_positions[int(run)],outdir,run,dec_ra_cal=recovered_positions_key[int(run)],dec_ra_ctrl=recovered_positions_ctrl[int(run)])
 
         WritePlotPage(outdir,run,parameters,times[0])
@@ -453,21 +481,28 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     myfig.clear()
 
 
-def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size):
+def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
     nbins=20
     data_cal=np.loadtxt(path_cal)
     data_uncal=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'ParametersPlots')
     checkDir(path_plots)
+    #bsn_cal=[bsn for bsn in data_cal[:,header_l.index('BSN')]]
+    network_snrs_key=[snr for snr in data_cal[:,header_l.index('SNR_Network')]]
+    theres_snr_ind=[]
+    for snr in network_snrs_key:
+        if snr>8.0:
+            theres_snr_ind.append(network_snrs_key.index(snr))
+    print theres_snr_ind
     
     for parameter in parameters:
         x=parameters.index(parameter)*2+1
-        x_delta=(data_cal[:,x]-data_uncal[:,x])
+        x_delta=(data_cal[theres_snr_ind,x]-data_uncal[theres_snr_ind,x])
         x_points=(map(lambda t:(min(x_delta) + (t/max(x_delta))*(max(x_delta)-min(x_delta))),x_delta)).sort
         x_points2=linear_space(min(x_delta),max(x_delta),len(x_delta))
         myfig=figure(2,figsize=(10,10),dpi=80)
         ax=myfig.add_subplot(111)
-        ax.plot(x_delta,data_uncal[:,x+1],'.r',label='stdev')
+        ax.plot(x_delta,data_uncal[theres_snr_ind,x+1],'.r',label='stdev')
         axvline(x=0, ymin=0, ymax=1,linewidth=2, color='b')
         plot(x_points2,fabs(x_points2)*2,'-k',label='$0.5 \sigma$')
         plot(x_points2,fabs(x_points2),'-y',label='$\sigma$')
@@ -497,15 +532,20 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size):
         myfig.savefig(os.path.join(path_plots,'delta_'+parameter+'.png'))
         myfig.clear()
         ##### This part calculates effect size
-        effect_size =(data_cal[:,x]-data_uncal[:,x])/data_uncal[:,x+1]  
+        effect_size =(data_cal[theres_snr_ind,x]-data_uncal[theres_snr_ind,x])/data_uncal[theres_snr_ind,x+1]  
         mean_effect_size=mean(effect_size)
         std_effect_size=std_dev(effect_size,mean_effect_size)
+        for i in range(len(data_cal[:,0])):
+            if (data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>3.0:
+                print "parameter ",parameter, i,data_cal[i,x],data_uncal[i,x],data_uncal[i,x+1],(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]
         skewness_effect_size= skewness(effect_size, mean_effect_size, std_effect_size)
         kurtosis_effect_size= kurtosis(effect_size, mean_effect_size, std_effect_size)
-        #print "With effect size correction\n"
-        #print "Mean : %e\n" % mean_effect_size
-        #print "Standard Deviation %e\n" % std_effect_size
-        #print "Skewness %e\n" % skewness_effect_size
+        print "Mean %s in run %i: %e\n" %(parameter,int(run),mean_effect_size)
+        print "Standard Deviation  %s in run %i: %e\n" %(parameter,int(run),std_effect_size)
+        print "Median %s in run %i: %e\n" %(parameter,int(run),np.median(effect_size))
+        print "5perc %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,5))
+        print "95 perc  %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,95))
+
         #print "Kurtosis %e\n" % kurtosis_effect_size
         bins=linear_space(effect_size.min(),effect_size.max(),nbins)
         myfig2=figure(figsize=(4,3.5),dpi=80)
@@ -526,13 +566,21 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
     bsn_cal=data_cal[:,header_l.index('BSN')]
+    #bsn_cal=[bsn for bsn in data_cal[:,header_l.index('BSN')]]
+    network_snrs_key=[snr for snr in data_cal[:,header_l.index('SNR_Network')]]
+    theres_snr_ind=[]
+    for snr in network_snrs_key:
+        if snr>8.0:
+            theres_snr_ind.append(network_snrs_key.index(snr))
+    print theres_snr_ind
+    #bsn_cal=np.asarray(bsn_cal)
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
-        y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
-        y_delta=(data_cal[:,i]-data_ctrl[:,i])
+        y_effect=(data_cal[theres_snr_ind,i]-data_ctrl[theres_snr_ind,i])/data_ctrl[theres_snr_ind,i+1]        
+        y_delta=(data_cal[theres_snr_ind,i]-data_ctrl[theres_snr_ind,i])
         myfig=plt.figure(2,figsize=(10,10),dpi=80)
         ax=myfig.add_subplot(211)
-        ax.plot(network_snrs,y_effect,'bo',label='EffectVsSNR')
+        ax.plot(network_snrs[theres_snr_ind],y_effect,'bo',label='EffectVsSNR')
         ax.set_xlabel('Network SNR cal',fontsize=label_size)
         ax.set_ylabel('effect_%s'%parameter,fontsize=label_size)
         locs, labels = (ax.get_xticks(),ax.get_xticklabels)
@@ -546,7 +594,7 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         #set_fontsize_in_ticks(ax2,label_size)
         #ax3=ax.twinx()
         #y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
-        ax2.plot(bsn_cal,y_effect,'ro',label='EffectVsBSN')
+        ax2.plot(bsn_cal[theres_snr_ind],y_effect,'ro',label='EffectVsBSN')
         ax2.set_ylabel('effect_%s'%parameter,fontsize=label_size)
         set_fontsize_in_ticks(ax2,label_size)        
         ax2.legend()
@@ -576,13 +624,8 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     ax.set_ylabel('$\mathrm{log\,B}$',fontsize=label_size)
     locs, labels = (ax.get_xticks(),ax.get_xticklabels)
     grid()
-    #ax2=ax.twiny()
-    #ax2.set_xticks(locs)
     ax.plot(network_snrs_ctrl,bsns_ctrl,'bo',label='BSN_ctrl')
-    #ax2.legend(loc='upper left')
     ax.legend(loc='upper right')
-    #ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(network_snrs_ctrl),max(network_snrs_ctrl),len(locs))])
-    #ax2.set_xlabel('Network SNR ctrl',fontsize=label_size)
     myfig.savefig(os.path.join(path_plots,'BSN_vs_SNR.png'))
     myfig.clear()
 
@@ -592,6 +635,7 @@ def WritePlotPage(outdir,run,parameters,first_time):
     wd=300
     hg=250
     abs_page_path=os.path.join(outdir,run)
+    os.chdir(abs_page_path)
     page_path="./"
     path_plots=os.path.join(page_path,'ParametersPlots')
     error_path_plots=os.path.join(page_path,'ErrorPlots')
@@ -617,6 +661,7 @@ def WritePlotPage(outdir,run,parameters,first_time):
     for parameter in parameters:
         html_plots_st+='<tr>'
         for plot in ['delta_','effect_','delta_sigma_']:
+            print os.getcwd(),os.path.join(path_plots,plot +parameter+'.png')
             if os.path.isfile(os.path.join(path_plots,plot +parameter+'.png')):
                 html_plots_st+='<td>'
                 html_plots_st+=linkImage(os.path.join(path_plots,plot +parameter+'.png'),wd,hg)
@@ -644,26 +689,47 @@ def WritePlotPage(outdir,run,parameters,first_time):
     return
 
 def locate_public():
-    if path.isdir(path.join(environ['HOME'],'WWW','LSC')):
-        return path.join(environ['HOME'],'WWW','LSC')
-    elif path.isdir(path.join(environ['HOME'],'public_html')):
-        return path.join(environ['HOME'],'WWW','public_html')
-    elif path.isdir(path.join(environ['HOME'],'WWW')):
-        return path.join(environ['HOME'],'WWW')
+    if os.path.isdir(os.path.join(os.environ['HOME'],'WWW','LSC')):
+        return os.path.join(os.environ['HOME'],'WWW','LSC')
+    elif os.path.isdir(os.path.join(os.environ['HOME'],'public_html')):
+        return os.path.join(os.environ['HOME'],'public_html')
+    elif os.path.isdir(os.path.join(os.environ['HOME'],'WWW')):
+        return os.path.join(os.environ['HOME'],'WWW')
     else:
         print "Cannot localize the public folder"
+        return "../"
 
+def relativize_paths(pathA,pathB):
+    """
+    Take two paths inside the public WWW folder of the user, and gives back the address of pathA as relative to the pathB
+    I need it because os.path.relpath is not available on python<2.6
+    """
+    pathA=os.path.realpath(pathA)
+    pathB=os.path.realpath(pathB)
+    return go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
 
-def go_home(path):
+def go_to_path(pathA,pathB):
+    """
+    Write down the address of pathA relative to pathB
+    """
     current=os.getcwd()
     upo=''
-    os.chdir(path)
-    
-    while os.getcwd()!=os.environ['HOME']:
+    if os.path.isdir(pathA):
+        os.chdir(pathA)
+    else:
+       print "%s is not a path to an existing folder. Exiting..."%pathA
+       sys.exit(1)
+    i=0
+    print os.path.realpath(pathA),os.path.realpath(pathB),"link\n"
+    while os.getcwd()!=pathB:
         os.chdir(os.path.join(os.getcwd(),'../'))
+        i+=1
         upo+='../'
+        if i==100:
+            print "Could not go from folder %s to folder %s with less than 100 chdir. Using ../"%(pathA,pathB)
+            return "../"
     os.chdir(current)
-    return upo
+    return upo[:-1]
 
 def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,header_l,times,IFOs,key,d):
     
@@ -673,8 +739,8 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     abs_page_path=os.path.join(outdir,run)
     page_path="./"
     path_to_sky=os.path.join(page_path,'SkyPlots')
-    path_to_result_pages_from_LSC=path_ to_result_pages[path_to_result_pages.find('LSC'):]
-    path_to_ctrl_result_pages_from_LSC=path_to_ctrl_result_pages[path_to_ctrl_result_pages.find('LSC'):]
+    #path_to_result_pages_from_LSC=path_ to_result_pages[path_to_result_pages.find('LSC'):]
+    #path_to_ctrl_result_pages_from_LSC=path_to_ctrl_result_pages[path_to_ctrl_result_pages.find('LSC'):]
     snr_index={}
     ifos=['SNR_'+ifo for ifo in IFOs]
     ifos.append('SNR_Network')
@@ -683,8 +749,8 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
         snr_index[ifo]=header_l.index(ifo)  
 
     bsn_index=header_l.index('BSN')
-    ctrl_data=np.loadtxt(os.path.join(outdir,'summary_ctrl.dat'))
-    cal_data=np.loadtxt(os.path.join(outdir,'summary_'+run+'.dat'))
+    ctrl_data=np.loadtxt(os.path.join(outdir,'summary_ctrl_'+run+'.dat'))
+    cal_data=np.loadtxt(os.path.join(outdir,'summary_'+key+'_'+run+'.dat'))
 
     col_num=3
     html=bppu.htmlPage('SummaryPage',css=bppu.__default_css_string)
@@ -712,8 +778,8 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     for time in times:
         time=str(time)
         html_table_st+='<tr>'
-        ctrl_page=os.path.join(go_home(outdir),path_to_ctrl_result_pages_from_LSC,time,'posplots.html')
-        cal_page=os.path.join(go_home(outdir),path_to_result_pages_from_LSC,time,'posplots.html')
+        ctrl_page=os.path.join(relativize_paths(path_to_ctrl_result_pages,abs_page_path),time,'posplots.html')
+        cal_page=os.path.join(relativize_paths(path_to_result_pages,abs_page_path),time,'posplots.html')
         html_table_st+='<td>'+link(ctrl_page,time)+'</td>'
         html_table_st+='<td>'+'%4.2f'%(ctrl_data[times.index(time),bsn_index])+'</td>'
         for IFO in ifos:
@@ -762,6 +828,4 @@ if __name__=='__main__':
     parser.add_option("-I","--IFOS",dest="IFOs",action="callback", callback=vararg_callback,help="The IFOs used in the analysis", metavar="H1 L1 V1")
     parser.add_option("-k","--keyword",dest="key",action="store",type="string",default=None,help="This is the work that characterize the non-control runs (eg. calibration). It will be used to label various things (plots' labels, filenames, etc)", metavar="non-control-word")
     (opts,args)=parser.parse_args()
-    #if opts.num_of_init==1 and opts.uncal_path==None:
-    #        print "Error, if -n is 1 it means that only jobs with calibration errors are running, then you must provide the path to the posterior of the (already run) corresponding jobs without calibration errors using the option -u /pathToUncalPosteriors \n"
     RunsCompare(opts.outpath,opts.indata,opts.inj,opts.raw_events,opts.IFOs,snrs=opts.snr,calerr=opts.calerr,path_to_result_pages=opts.rp,keyword=opts.key)
