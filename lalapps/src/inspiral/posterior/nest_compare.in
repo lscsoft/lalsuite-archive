@@ -793,11 +793,11 @@ if opts.Compare is not None:
             print "The dir %s is not a path to an existing folder. Exiting..."%opts.ctrl_timebins
             sys.exit(1)
     ### Set the control folders reading them from the ctrl ini or form the options
-    if ctrl_place !=999:
+    if ctrl_place !=9999:
             ctrl_timebins_folder=glob_timebins_folder_by_num[0]
             ctrl_posteriors_folder=glob_combine_folders_by_num[0]    
             ctrl_snrs_folder=glob_snrs_folders_by_num[0]
-    elif has_cal_section.values().count(0)==0 and opts.ctrl_posteriors is not None and opts.ctrl_timebins is not None:
+    elif has_key_section.values().count(0)==0 and opts.ctrl_posteriors is not None and opts.ctrl_timebins is not None:
             ctrl_timebins_folder=opts.ctrl_timebins
             ctrl_posteriors_folder=opts.ctrl_posteriors    
             ctrl_snrs_folder=opts.ctrl_snrs    
