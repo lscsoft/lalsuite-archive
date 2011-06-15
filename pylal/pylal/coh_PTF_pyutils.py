@@ -1,9 +1,14 @@
-import os,sys,numpy,glob
+import os,sys,numpy,glob,math
 
 from pylal import grbsummary,antenna,llwapp
 from glue import segmentsUtils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+
+from glue.ligolw import lsctables
+from pylal import SimInspiralUtils, InspiralUtils
+from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
+import numpy as np
 
 # define new_snr
 def new_snr( snr, chisq, chisq_dof, q=4.0, n=3.0 ):
@@ -308,3 +313,38 @@ def remove_bad_injections(sims,badInjs):
       new_sims.append(sim)
 
   return new_sims
+
+def sim_inspiral_get_theta(self):
+
+  # conversion factor for the angular momentum
+  angmomfac = self.mass1 * self.mass2 * \
+              numpy.power(LAL_PI * LAL_MTSUN_SI * (self.mass1 + self.mass2) * \
+                       self.f_lower, -1.0/3.0)
+  m1sq = self.mass1 * self.mass1
+  m2sq = self.mass2 * self.mass2
+
+  # compute the orbital angular momentum
+  L = numpy.zeros(3)
+  L[0] = angmomfac * numpy.sin(self.inclination)
+  L[1] = 0
+  L[2] = angmomfac * numpy.cos(self.inclination)
+
+  # compute the spins
+  S = np.zeros(3)
+  S[0] =  m1sq * self.spin1x + m2sq * self.spin2x
+  S[1] =  m1sq * self.spin1y + m2sq * self.spin2y
+  S[2] =  m1sq * self.spin1z + m2sq * self.spin2z
+
+  # and finally the total angular momentum
+  J = L + S
+
+  theta = math.atan2(math.sqrt(J[0]*J[0] + J[1]*J[1]),J[2])
+  if theta > math.pi/2.:
+    theta = math.pi - theta
+
+  if theta < 0 or theta > math.pi/2.:
+    raise Error, "Theta is too big or too small"
+
+  return theta
+
+

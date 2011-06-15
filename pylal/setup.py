@@ -615,6 +615,7 @@ setup(
 		os.path.join("bin", "coh_PTF_efficiency"),
 		os.path.join("bin", "coh_PTF_html_summary"),
 		os.path.join("bin", "coh_PTF_injfinder"),
+                os.path.join("bin", "coh_PTF_injcombiner"),
 		os.path.join("bin", "coh_PTF_sbv_plotter"),
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
