@@ -392,7 +392,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         path_cal=os.path.join(outdir,'summary_'+keyword+'_'+run+'.dat')
         MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l)
         if snrs is not None:
-            MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size)
+            MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,keyword)
         if BSN is not None and snrs is not None:
             MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,keyword)
         if calerr is not None:
@@ -557,7 +557,7 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
         myfig2.savefig(os.path.join(path_plots,'effect_'+parameter+'.png'))
         myfig2.clear()
         
-def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size):
+def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,key):
     
     data_cal=np.loadtxt(path_cal)
     data_ctrl=np.loadtxt(path_uncal)
@@ -581,7 +581,7 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         myfig=plt.figure(2,figsize=(10,10),dpi=80)
         ax=myfig.add_subplot(211)
         ax.plot(network_snrs[theres_snr_ind],y_effect,'bo',label='EffectVsSNR')
-        ax.set_xlabel('Network SNR cal',fontsize=label_size)
+        ax.set_xlabel('Network SNR_'+key,fontsize=label_size)
         ax.set_ylabel('effect_%s'%parameter,fontsize=label_size)
         locs, labels = (ax.get_xticks(),ax.get_xticklabels)
         set_fontsize_in_ticks(ax,label_size)
@@ -590,7 +590,7 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         ax2=myfig.add_subplot(212)
         #ax2.set_xticks(locs)
         #ax2.set_xticklabels(['%4.1f'%a for a in np.linspace(min(bsn_cal),max(bsn_cal),len(locs))])
-        ax2.set_xlabel('BSN cal',fontsize=label_size)
+        ax2.set_xlabel('BSN_'+key,fontsize=label_size)
         #set_fontsize_in_ticks(ax2,label_size)
         #ax3=ax.twinx()
         #y_effect=(data_cal[:,i]-data_ctrl[:,i])/data_ctrl[:,i+1]        
@@ -756,7 +756,7 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
     html=bppu.htmlPage('SummaryPage',css=bppu.__default_css_string)
     html_sky=html.add_section('Skymaps')
     html_sky_str="<table><tr>"
-    for i in range(d+1):
+    for i in range(d):
         if os.path.isfile(os.path.join(abs_page_path,'SkyPlots','injected_skymap_'+str(i)+'.png')):
             html_sky_str+='<td>'+linkImage(os.path.join(path_to_sky,'injected_skymap_'+str(i)+'.png'),wd,hg)+'</td>'
         else:
