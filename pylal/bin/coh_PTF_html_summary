@@ -257,7 +257,7 @@ def write_found_missed( page, ifos, injList ):
     d = [pTag]
     for inj in injList:
       plot = markup.page()
-      p = "%s/efficiency/found_missed_injections_%s.png" % ( inj, row )
+      p = "%s/efficiency_OFFTRIAL_1/found_missed_injections_%s.png" % ( inj, row )
       plot.a( href=p, title=pTag )
       plot.img( src=p )
       plot.a.close()
@@ -265,7 +265,7 @@ def write_found_missed( page, ifos, injList ):
     td.append(d)
 
   td.append(['Close injections without FAP = 0']+\
-            ['<a href="%s/efficiency/quiet_found_triggers.html">here</a>' % inj\
+            ['<a href="%s/efficiency_OFFTRIAL_1/quiet_found_triggers.html">here</a>' % inj\
             for inj in injList])
 
   page = write_table( page, th, td )
@@ -292,7 +292,7 @@ def write_recovery( page, injList ):
     for inj in injList:
       plot = markup.page()
       plot = markup.page()
-      p = "%s/efficiency/found_%s.png" % ( inj, row )
+      p = "%s/efficiency_OFFTRIAL_1/found_%s.png" % ( inj, row )
       plot.a( href=p, title=pTag )
       plot.img( src=p )
       plot.a.close()
@@ -334,7 +334,76 @@ def write_loudest_events( page, bins, onsource=False ):
 
   page = write_table( page, th, td )
 
+  page.add( 'For more details on the loudest offsource events see')
+  page.a( href='%s/efficiency/loudest_offsource_trigs.html' % (trial))
+  page.add('here.')
+  page.a.close()
+
+
   return page
+
+def write_exclusion_distances(page , trial, injList, massbins, onsource=False):
+  file = open( '%s/efficiency/loud_numbers.txt' % (trial), 'r' )
+  FAPS = []
+  for line in file:
+    line = line.replace('\n','')
+    if float(line) == -2:
+      FAPS.append('No event')
+    else:
+      FAPS.append(float(line))
+
+  th = ['']+['Mchirp %s - %s' % tuple(bin) for bin in massbins]
+  td = ['FAP']+FAPS
+  page = write_table( page, th, td )
+  page.add( 'For more details on the loudest onsource events see')
+  page.a( href='%s/efficiency/loudest_events.html' % (trial) )
+  page.add('here.')
+  page.a.close()
+
+  page.h3()
+  page.add('Detection efficiency plots')
+  page.h3.close()
+
+  th = injList
+  td = []
+  d = []
+  for inj in injList:
+    plot = markup.page()
+    p = "%s/efficiency_%s/BestNR_max_efficiency.png" % ( inj,trial )
+    plot.a( href=p, title="Detection efficiency" )
+    plot.img( src=p )
+    plot.a.close()
+    d.append( plot() )
+  td.append(d)
+
+  page = write_table( page, th, td )
+
+  page.h3()
+  page.add('Exclusion distance plots')
+  page.h3.close()
+
+  th = injList
+  td = []
+  d = []
+  for inj in injList:
+    plot = markup.page()
+    p = "%s/efficiency_%s/BestNR_on_efficiency.png" % ( inj,trial )
+    plot.a( href=p, title="Exclusion efficiency" )
+    plot.img( src=p )
+    plot.a.close()
+    d.append( plot() )
+  td.append(d)
+
+  page = write_table( page, th, td )
+
+  page.h3()
+  page.add('Exclusion distances')
+  page.h3.close()
+
+  return page
+  
+
+
 
 # =============================================================================
 # Parse command line
@@ -546,29 +615,12 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
 
   # write trial results
   for trial in trials:
-    secname = 'Events in %s' % trial.replace('_',' ').title()
+    secname = 'Results for %s' % trial.replace('_',' ').title()
     i += 1
     webpage.input( id="input_%s" % i, type="button", class_="h2",\
                    onclick="toggleVisible('%s');" % i, value=secname )
     webpage.div( id="div_%s" % i, style="display: none;" )
-
-    file = open( '%s/efficiency/loud_numbers.txt' % trial, 'r' )
-    FAPS = []
-    for line in file:
-      line = line.replace('\n','')
-      if float(line) == -2:
-        FAPS.append('No event')
-      else:
-        FAPS.append(float(line))
-
-    th = ['']+['Mchirp %s - %s' % tuple(bin) for bin in massbins]
-    td = ['FAP']+FAPS
-    webpage = write_table( webpage, th, td )
-    webpage.add( 'For more details on the loudest events see')
-    webpage.a( href='%s/efficiency/loudest_events.html' % trial )
-    webpage.add('here.')
-    webpage.a.close()
-  
+    webpage = write_exclusion_distances(webpage,trial,injList,massbins,onsource=False)
     webpage.div.close()
 
   if open_box:
