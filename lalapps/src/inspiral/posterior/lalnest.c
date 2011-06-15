@@ -402,19 +402,19 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 44:
 			s1_mag_min=atof(optarg);
-			if (s1_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplituade is 0, please set --s1_mag_min 0 or more.\n");exit(1);}
+			if (s1_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplitude is 0, please set --s1_mag_min 0 or more.\n");exit(1);}
 			break;
 		case 45:
 			s1_mag_max=atof(optarg);
-            if (s1_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplituade is 1, please set --s1_mag_max 1 or less.\n");exit(1);}
+            if (s1_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplitude is 1, please set --s1_mag_max 1 or less.\n");exit(1);}
 			break;
 		case 46:
 			s2_mag_min=atof(optarg);
-			if (s2_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplituade is 0, please set --s2_mag_min 0 or more.\n");exit(1);}
+			if (s2_mag_min<0.) {fprintf(stderr,"ERROR: The minimum spin amplitude is 0, please set --s2_mag_min 0 or more.\n");exit(1);}
 			break;
 		case 47:
 			s2_mag_max=atof(optarg);
-            if (s2_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplituade is 1, please set --s2_mag_max 1 or less.\n");exit(1);}			
+            if (s2_mag_max>1.) {fprintf(stderr,"ERROR: The maxmimum spin amplitude is 1, please set --s2_mag_max 1 or less.\n");exit(1);}			
 			break;
 		case 48:
 			s1_theta_min=atof(optarg);
