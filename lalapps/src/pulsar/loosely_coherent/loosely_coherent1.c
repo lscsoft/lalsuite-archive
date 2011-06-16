@@ -836,25 +836,29 @@ for(n=0;n<d_free;n++) {
 			exit(-1);
 			}
 		
-// 		x=datasets[n].re[j*datasets[n].nbins+bin];
-// 		y=datasets[n].im[j*datasets[n].nbins+bin];
+		x=datasets[n].re[j*datasets[n].nbins+bin];
+		y=datasets[n].im[j*datasets[n].nbins+bin];
 
-		x=0;
-		y=0;
-		for(m=0;m<7;m++) {
-			x+=(datasets[n].re[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
-			y+=(datasets[n].im[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
-			}
+// 		x=0;
+// 		y=0;
+// 		for(m=0;m<7;m++) {
+// 			x+=(datasets[n].re[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
+// 			y+=(datasets[n].im[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
+// 			}
 
 		/* contribution from other segments */
 		if(j>0 && datasets[n].gps[j]==datasets[n].gps[j-1]+datasets[0].coherence_time*0.5 &&
 		   j<datasets[n].free-1 && datasets[n].gps[j]==datasets[n].gps[j+1]-datasets[0].coherence_time*0.5) {
-			for(m=0;m<7;m++) {
+/*			for(m=0;m<7;m++) {
 				x-=0.075*(datasets[n].re[(j-1)*datasets[n].nbins+bin-3+m]+datasets[n].re[(j+1)*datasets[n].nbins+bin-3+m])*hann_filter[m];
 				y-=0.075*(datasets[n].im[(j-1)*datasets[n].nbins+bin-3+m]+datasets[n].im[(j+1)*datasets[n].nbins+bin-3+m])*hann_filter[m];
 				}
 			x=x/0.85;
-			y=y/0.85;
+			y=y/0.85;*/
+/*			x-=0.2825*(datasets[n].re[(j-1)*datasets[n].nbins+bin]+datasets[n].re[(j+1)*datasets[n].nbins+bin]);
+			y-=0.2825*(datasets[n].im[(j-1)*datasets[n].nbins+bin]+datasets[n].im[(j+1)*datasets[n].nbins+bin]);*/
+			x-=0.02*(datasets[n].re[(j-1)*datasets[n].nbins+bin]+datasets[n].re[(j+1)*datasets[n].nbins+bin]);
+			y-=0.02*(datasets[n].im[(j-1)*datasets[n].nbins+bin]+datasets[n].im[(j+1)*datasets[n].nbins+bin]);
 			}
 
 		x2=x*x+y*y;
@@ -923,30 +927,28 @@ for(n=0;n<d_free;n++) {
 		tabulated_fill_hann_filter7(hann_filter, datasets[0].coherence_time*f-bin-first_bin);
 		hann_filter[7]=0.0;
 		
-// 		x=datasets[n].re[j*datasets[n].nbins+bin];
-// 		y=datasets[n].im[j*datasets[n].nbins+bin];
+		x=datasets[n].re[j*datasets[n].nbins+bin];
+		y=datasets[n].im[j*datasets[n].nbins+bin];
 
-		x=0;
-		y=0;
-		for(m=0;m<7;m++) {
-			x+=(datasets[n].re[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
-			y+=(datasets[n].im[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
-			}
+// 		x=0;
+// 		y=0;
+// 		for(m=0;m<7;m++) {
+// 			x+=(datasets[n].re[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
+// 			y+=(datasets[n].im[j*datasets[n].nbins+bin-3+m])*hann_filter[m];
+// 			}
 
 		/* contribution from other segments */
 		if(j>0 && datasets[n].gps[j]==datasets[n].gps[j-1]+datasets[0].coherence_time*0.5 &&
 		   j<datasets[n].free-1 && datasets[n].gps[j]==datasets[n].gps[j+1]-datasets[0].coherence_time*0.5) {
-			for(m=0;m<7;m++) {
+/*			for(m=0;m<7;m++) {
 				x-=0.075*(datasets[n].re[(j-1)*datasets[n].nbins+bin-3+m]+datasets[n].re[(j+1)*datasets[n].nbins+bin-3+m])*hann_filter[m];
 				y-=0.075*(datasets[n].im[(j-1)*datasets[n].nbins+bin-3+m]+datasets[n].im[(j+1)*datasets[n].nbins+bin-3+m])*hann_filter[m];
 				}
 			x=x/0.85;
-			y=y/0.85;
+			y=y/0.85;*/
+			x-=0.02*(datasets[n].re[(j-1)*datasets[n].nbins+bin]+datasets[n].re[(j+1)*datasets[n].nbins+bin]);
+			y-=0.02*(datasets[n].im[(j-1)*datasets[n].nbins+bin]+datasets[n].im[(j+1)*datasets[n].nbins+bin]);
 			}
-
-		/* magic weighting scheme this produces flatter response, but at the cost of increased noise */
-//  		x=(datasets[n].re[j*datasets[n].nbins+bin]-(datasets[n].re[j*datasets[n].nbins+bin-1]+datasets[n].re[j*datasets[n].nbins+bin+1])*8.1)/9.1;
-//  		y=(datasets[n].im[j*datasets[n].nbins+bin]-(datasets[n].im[j*datasets[n].nbins+bin-1]+datasets[n].im[j*datasets[n].nbins+bin+1])*8.1)/9.1;
 
 		c=cos(total_phase);
 		s=sin(total_phase);
