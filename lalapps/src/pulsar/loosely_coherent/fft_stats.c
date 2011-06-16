@@ -355,6 +355,9 @@ return;
 for(i=0;i<4;i++)M[i]=0.0;
 
 for(i=0;i<nsamples;i++) {
+	/* crudely skip indices outside Nyquist */
+	if(abs(i-(nsamples>>1))<(nsamples>>2))continue;
+	
 	V=fft1->data[i].re*fft1->data[i].re+fft1->data[i].im*fft1->data[i].im+fft2->data[i].re*fft2->data[i].re+fft2->data[i].im*fft2->data[i].im;
 	idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
 	
@@ -362,6 +365,9 @@ for(i=0;i<nsamples;i++) {
 	}
 
 for(i=0;i<nsamples;i++) {
+	/* crudely skip indices outside Nyquist */
+	if(abs(i-(nsamples>>1))<(nsamples>>2))continue;
+
 	V=fft1->data[i].re*fft1->data[i].re+fft1->data[i].im*fft1->data[i].im+fft2->data[i].re*fft2->data[i].re+fft2->data[i].im*fft2->data[i].im;
 	idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
 	
