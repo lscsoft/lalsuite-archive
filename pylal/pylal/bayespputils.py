@@ -640,7 +640,14 @@ class Posterior(object):
                         'dphi6l':lambda inj:inj.dphi6l,
                         'dphi7':lambda inj:inj.dphi7,
                         'lambdag':lambda inj:inj.loglambdaG,
-                        'loglambdag':lambda inj:inj.loglambdaG
+                        'lnlambdag':lambda inj:inj.loglambdaG,
+                        'appe':lambda inj:inj.aPPE,
+                        'bppe':lambda inj:inj.bPPE,
+                        'alphappe':lambda inj:inj.alphaPPE,
+                        'betappe':lambda inj:inj.betaPPE,
+                        'scalarcharge1': lambda inj:inj.ScalarCharge1,
+                        'scalarcharge2': lambda inj:inj.ScalarCharge2,
+                        'lnomegabd': lambda inj:inj.omegaBD
                        }
 
     def _getinjpar(self,paramname):
