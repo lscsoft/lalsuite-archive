@@ -373,6 +373,9 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   # reset times
   start = int(min(trigTime))
   end   = int(max(trigTime)+1)-start
+  duration = end-start
+  start -= duration*0.05
+  end += duration*0.05
   trigTime = [ t-start for t in trigTime ]
   injTime  = [ t-start for t in injTime ]
   startString = datetime( *date.XLALGPSToUTC( LIGOTimeGPS( start ) )[:6] )\
