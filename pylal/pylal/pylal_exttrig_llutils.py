@@ -448,6 +448,7 @@ def update_segment_lists(segdict, timerange, tag = None, outputdir = '.'):
         cmd = "ligolw_segment_query --database --query-segments --include-segments '%s'"\
             " --gps-start-time %d --gps-end-time %d > %s" %\
             (seg, timerange[0], timerange[1], segxmlfile)
+
         pas = AnalysisSingleton()
         pas.system(cmd, item = tag[4:], divert_output_to_log = False)
 
@@ -625,15 +626,6 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
             # 'subtract' the CAT1 vetoes from the SCIENCE segments
             segdict[ifo] -= vetoes1
       
-
-        ## # check if there are CAT1 segments to take into account
-##         # i.e. take them out before checking available data
-##         if segs1:
-##           segdict[ifo] -= segs1[ifo].coalesce()
-##           if abs(segs1[ifo])>0:
-##             print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
-##                    (ifo, segs1[ifo])
-
     ifolist = segdict.keys()
     ifolist.sort()
 
@@ -712,6 +704,17 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
   # get the Pylal Analysis Singleton
   pas = AnalysisSingleton()
+
+  # make a cross check
+  trial_length =  int(pas.cp.get('exttrig','onsource_left')) + int(pas.cp.get('exttrig','onsource_right')) 
+  padding_time = int(pas.cp.get('exttrig','padding_time'))
+  num_trials = int(pas.cp.get('exttrig','num_trials'))
+  check_scilength = (num_trials+1)*trial_length + 2*padding_time
+
+  if minscilength != check_scilength:
+    raise AssertionError, "Inconsistent science length requirement! "\
+        "Actual requirement is %d seconds, while num_trials=%d suggest %d seconds."%\
+        (minscilength, num_trials, check_scilength)
 
   # get the science segment specifier from the config file
   seg_names = {}
