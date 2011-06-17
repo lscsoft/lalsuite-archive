@@ -287,8 +287,22 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 
 	Example:
 
-	>>> import sys
-	>>> xmldoc, digest = utils.load_fileobj(sys.stdin)
+	>>> import StringIO
+	>>> f = StringIO.StringIO("""<?xml version='1.0' encoding='utf-8' ?>
+	... <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
+	... <LIGO_LW>
+	... 	<Table Name="demo:table">
+	...		<Column Name="name" Type="lstring"/>
+	...		<Column Name="value" Type="real8"/>
+	...		<Stream Name="demo:table" Type="Local" Delimiter=",">
+	...			"mass",0.5,
+	...			"velocity",34
+	...		</Stream>
+	...	</Table>
+	... </LIGO_LW>""")
+	>>> xmldoc, digest = utils.load_fileobj(f)
+	>>> digest
+	'03d1f513120051f4dbf3e3bc58ddfaa6'
 
 	The optional contenthandler argument allows the SAX content handler
 	to be customized.  Previously, customization of the content handler
