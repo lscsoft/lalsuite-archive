@@ -302,7 +302,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         path_to_file=os.path.join(Combine[0],'posterior_samples_'+str(time)+'.000')
         if not os.path.isfile(path_to_file):
             for run in range(1,len(Combine)):
-                temp_times[run].remove(time)
+                temp_times_run[run].remove(time)
     for run in key_runs:
         times_run[run]=temp_times_run[run]
     ## Now for each key run remove the times for which posteriors are non present (even if they were present in the ctrl run)
@@ -324,23 +324,25 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
 
     ## prepare files with means and other useful data. It also fills the list with the sky positions ###
     for out_run in key_runs:
-        summary_ctrl=open(os.path.join(outdir,'summary_ctrl_'+str(out_run)+'.dat'),'w')
-        summary_key=open(os.path.join(outdir,'summary_'+str(keyword)+'_'+str(out_run)+'.dat'),'w')
-        header_key=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'w')
-        header_ctrl=open(os.path.join(outdir,'headers_ctrl_'+str(out_run)+'.dat'),'w')
-        header_l=[]
-        header_l.append('injTime ')
+        #summary_ctrl=open(os.path.join(outdir,'summary_ctrl_'+str(out_run)+'.dat'),'w')
+        #summary_key=open(os.path.join(outdir,'summary_'+str(keyword)+'_'+str(out_run)+'.dat'),'w')
+        #header_key=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'w')
+        #header_ctrl=open(os.path.join(outdir,'headers_ctrl_'+str(out_run)+'.dat'),'w')
+        #header_l=[]
+        #header_l.append('injTime ')
         recovered_positions_ctrl[out_run]=[]
         recovered_positions_key[out_run]=[]
         injected_positions[out_run]=[]
         for run in [0,out_run]:
             if run==0:
-                summary=summary_ctrl
-                header=header_ctrl
+                summary=open(os.path.join(outdir,'summary_ctrl_'+str(out_run)+'.dat'),'w')
+                header=open(os.path.join(outdir,'headers_ctrl_'+str(out_run)+'.dat'),'w')
             else:
-                summary=summary_key
-                header=header_key
-                
+                summary=open(os.path.join(outdir,'summary_'+str(keyword)+'_'+str(out_run)+'.dat'),'w')
+                header=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'w')
+            #header_l=[]
+            #header_l.append('injTime ')
+	    header.write('['+ '\'injTime\', ')
             for time in times_run[out_run]:
                 path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
                 posterior_file=open(path_to_file,'r')
@@ -356,17 +358,19 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                 summary.write(str(time)+'\t')
                 for parameter in parameters:
                     summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
-                    if time==times[0]:
-                        header_l.append('mean_'+parameter)
-                        header_l.append('stdev_'+parameter)
+                    if time==times_run[out_run][0]:
+                        #header_l.append('mean_'+parameter)
+                        #header_l.append('stdev_'+parameter)
+			header.write(' \'mean_'+parameter + '\', \'stdev_'+parameter+'\',')
                 if BSN is not None:
                     path_to_file=os.path.join(BSN[run],'bayesfactor_'+str(time)+'.000.txt')
                     bfile=open(path_to_file,'r')
                     bsn=bfile.readline()[:-1] ## remove the newline tag
                     bfile.close()
                     summary.write(str(bsn)+'\t')
-                    if time==times[0]:
-                        header_l.append('BSN')
+                    if time==times_run[out_run][0]:
+                        #header_l.append('BSN')
+ 			header.write(' \'BSN\',')
                 if 'ra' in parameters and 'dec' in parameters:
                     if int(run)==0:
                         recovered_positions_ctrl[out_run].append([pos['dec'].mean,pos['ra'].mean,float(bsn)])
@@ -376,13 +380,16 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                 if snrs is not None:
                     val,hea=read_snr(snrs,run,time,IFOs)
                     summary.write(str(val)+'\t')
-                    if time==times[0]:
+                    if time==times_run[out_run][0]:
                         for he in hea:
-                            header_l.append(he)
+                            #header_l.append(he)
+			    header.write(' \''+ he+'\',')
+
                 summary.write('\n')
-            header.write('\t'.join(str(n) for n in header_l)+'\n')
+            #header.write(' '.join(str(n) for n in header_l))
+            header.write(']') 
             summary.close()
-            header.close()
+	    header.close()
     ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act consequently.
         
     ### Now read the ctrl data, these stay the same all along while the cal_run data are read at each interation in the for below
@@ -390,18 +397,21 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         run=str(run)
         path_uncal=os.path.join(outdir,'summary_ctrl_'+run+'.dat')    
         path_cal=os.path.join(outdir,'summary_'+keyword+'_'+run+'.dat')
+        header=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'r')
+        header_l=eval(header.readline())
+	print header_l,type(header_l),header_l.index('SNR_Network')
         MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l)
         if snrs is not None:
             MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,keyword)
         if BSN is not None and snrs is not None:
             MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,keyword)
         if calerr is not None:
-            MakeErrorPlots(times[0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
+            MakeErrorPlots(times_run[int(run)][0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
         if injected_positions!=[] and recovered_positions_key!={}:
             d,r=Make_injected_sky_map(injected_positions[int(run)],outdir,run,dec_ra_cal=recovered_positions_key[int(run)],dec_ra_ctrl=recovered_positions_ctrl[int(run)])
 
-        WritePlotPage(outdir,run,parameters,times[0])
-        WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times,IFOs,keyword,d)
+        WritePlotPage(outdir,run,parameters,times_run[int(run)][0])
+        WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times_run[int(run)],IFOs,keyword,d)
 
 def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     """
@@ -763,7 +773,7 @@ def WriteSummaryPage(outdir,run,path_to_result_pages,path_to_ctrl_result_pages,h
         if (range(d+1).index(i)+1)%col_num==0 and i!=d:
             html_sky_str+='</tr><tr>'
     html_sky_str+='</tr></table>'
-    print html_sky_str,range(d+1),range(d+1).index(i)
+    #print html_sky_str,range(d+1),range(d+1).index(i)
     html_sky.write(html_sky_str)
 
     html_table=html.add_section('Links to postprocessing pages')
