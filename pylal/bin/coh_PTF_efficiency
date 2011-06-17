@@ -163,6 +163,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           chisq_nhigh=3.0, null_thresh = (3.5,5.25), glitchCheckFac = 1.0,\
           clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20 ):
 
+  lsctables.SimInspiral.get_theta = sim_inspiral_get_theta
+
   # set output directory
   if not os.path.isdir(outdir):
     os.makedirs(outdir)
@@ -293,8 +295,9 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   offSourceTrigs.sort(key = lambda element:element[0])
   offSourceTrigs.reverse()
 
-  th = [ 'Bin', 'FAP', 'GPS', 'Rec. m1', 'Rec. m2', 'Rec. Mc', 'Rec. RA',\
-         'Rec. Dec', 'SNR', 'Chi^2', 'Bank veto', 'Auto veto', 'Null SNR' ]
+  th = [ 'Mass Bin', 'Trial', 'FAP', 'GPS', 'Rec. m1', 'Rec. m2', 'Rec. Mc',\
+         'Rec. RA','Rec. Dec', 'SNR', 'Chi^2', 'Bank veto', 'Auto veto',\
+         'Null SNR' ]
   th.extend([ '%s SNR' % ifo for ifo in ifos ])
   th.append('BestNR')
   td = []
@@ -318,6 +321,25 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       print >>sys.stderr, "ERROR: No mass bins match trigger with mchirp %s"\
                           % chirpMass
 
+    # Get trial of trigger, some triggers fall outside of trials!
+    chunkNum = numSegs
+    if trig.get_end() < segs['buffer'][0]:
+      if trig.get_end() < ( segs['off'][0]+paddingTime ):
+        raise ValueError, "ERROR: trig time is outside given analysis "+\
+                          "window! %s" % trig.get_end()
+      if trig.get_end() < endTimeBefore:
+        chunkNum = float(trig.get_end() - (segs['off'][0]+paddingTime))\
+                   // trialTime
+    elif trig.get_end() > segs['buffer'][1]:
+      if trig.get_end() > ( segs['off'][1] - paddingTime ):
+        raise ValueError, "ERROR: trig time is outside given analysis "+\
+                          "window! %s" % trig.get_end()
+      if trig.get_end() < endTimeAfter:
+        chunkNum = float(trig.get_end() - segs['buffer'][1])\
+                   // trialTime + numSegsBeforeBuffer
+    if chunkNum == numSegs:
+      chunkNum = 'No trial'
+
     # Get FAP of trigger
     numTrialsLouder = 0
     for val in timeBinMaxBestNR[trigBinNum]:
@@ -333,14 +355,15 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     else:
       nullsnr = 0
 
-    d = [ '%s-%s' % tuple(trigBin), FAP, trig.get_end(),\
-          trig.mass1, trig.mass2, trig.mchirp,\
-          trig.ra*fRadDeg, trig.dec*fRadDeg,\
-          trig.snr, trig.chisq, trig.bank_chisq,\
-          trig.cont_chisq, nullsnr ]
-    d.extend([ getattr(trig,'snr_%s' % ifoAtt[ifo])\
+    d = [ '%s-%s' % tuple(trigBin), chunkNum, '%.2f' % FAP,\
+          '%.4f' % trig.get_end(),\
+          '%.2f' % trig.mass1, '%.2f' % trig.mass2, '%.2f' % trig.mchirp,\
+          '%.2f' % trig.ra*fRadDeg, '%.2f' % trig.dec*fRadDeg,\
+          '%.2f' % trig.snr, '%.2f' % trig.chisq, '%.2f' % trig.bank_chisq,\
+          '%.2f' % trig.cont_chisq, '%.2f' % nullsnr ]
+    d.extend([ '%.2f' % getattr(trig,'snr_%s' % ifoAtt[ifo])\
                for ifo in ifos ])
-    d.append(bestNR)
+    d.append('%.2f' % bestNR)
     td.append(d)
 
   file = open( "%s/loudest_offsource_trigs.html" % outdir, "w" )
@@ -839,14 +862,18 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
                                                  % site.lower()) )
 
-    start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
-                     min(gMissed2Time)])) 
-    end   = int(max([max(gMissedTime),max(gFoundTime),max(gIFARTime),\
-                     max(gMissed2Time)])+1)
+    grbTime = segs['on'][1] - 1
+    print grbTime
+    start = grbTime
 
-    duration = end-start
-    start -= duration*0.05
-    end += duration*0.05-start
+#    start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
+#                     min(gMissed2Time)])) 
+#    end   = int(max([max(gMissedTime),max(gFoundTime),max(gIFARTime),\
+#                     max(gMissed2Time)])+1)
+
+#    duration = end-start
+#    start -= duration*0.05
+#    end += duration*0.05-start
 
     gMissedTime  = [ t-start for t in gMissedTime ]
     gMissed2Time = [ t-start for t in gMissed2Time ]
@@ -871,6 +898,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                 'Null SNR'])
     for ifo in ifos:  th.append( 'SNR %s' % ifo )
     th.append('BestNR')
+    th.extend(['Inj S1x','Inj S1y', 'Inj S1z', 'Inj S2x',\
+               'Inj S2y','Inj S2z'])
     td = []
  
     for i in range(len(gQuietFound)):
@@ -893,7 +922,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         d.extend([trig.mass1, trig.mass2, trig.mchirp])
       else:
         d.extend(['No trigger','N/A','N/A'])
-      d.extend([inj.inclination, inj.longitude*fRadDeg, inj.latitude*fRadDeg])
+      d.extend([inj.get_theta(), inj.longitude*fRadDeg, inj.latitude*fRadDeg])
       if trig:
         d.extend([trig.ra*fRadDeg, trig.dec*fRadDeg,\
                  trig.snr, trig.chisq, trig.bank_chisq,\
@@ -906,6 +935,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for ifo in ifos:
           d.append('N/A')
         d.append('N/A')
+      d.extend([inj.spin1x,inj.spin1y,inj.spin1z,\
+                inj.spin2x,inj.spin2y,inj.spin2z])
       # append trigger to list
       td.append(d) 
     page = markup.page()
@@ -984,6 +1015,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       print >>file
       iter += 1
     ax.plot( distPlotVals, (finjs/totalinjs),'r' )
+    ax.grid()
 
     iter = 0
 
@@ -1018,6 +1050,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       iter += 1
 
     ax.plot( distPlotVals, (finjs/totalinjs), 'r' )
+    ax.grid()
     iter = 0
     ax.errorbar( distPlotVals, (finjs/totalinjs),\
                  yerr=totalinjs**(-0.5) * ( (finjs/totalinjs) * \
@@ -1069,6 +1102,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.scatter( gMissed2Mchirp, gMissed2Effdist, c="r", marker='x',\
                 edgecolors='r' )
     ax.scatter( gFoundMchirp, gFoundEffDist, c="b", marker='x', edgecolors='g' )
+    ax.grid()
     p = ax.scatter( gIFARMchirp, gIFAREffDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False), marker='o',\
                     edgecolors='none' )
@@ -1087,6 +1121,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.scatter( gMissed2Time, gMissed2Effdist, c="r", marker='x',\
                 edgecolors='r' )
     ax.scatter( gFoundTime, gFoundEffDist, c="b", marker='x', edgecolors='g' )
+    ax.grid()
     p = ax.scatter( gIFARTime, gIFAREffDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False), marker='o',\
                     edgecolors='none' )
@@ -1112,6 +1147,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                   c="r", marker='x', edgecolors='r' )
       ax.scatter( gFoundMchirp, gFoundEffSiteDist[site],\
                   c="b", marker='x', edgecolors='g' )
+      ax.grid()
       p = ax.scatter( gIFARMchirp, gIFAREffSiteDist[site],\
                       c=gIFARStat, norm=pylab.Normalize(0,1,clip=False),\
                       marker='o', edgecolors='none' )
@@ -1133,6 +1169,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                   c="r", marker='x', edgecolors='r' )
       ax.scatter( gFoundTime, gFoundEffSiteDist[site],\
                   c="b", marker='x', edgecolors='g' )
+      ax.grid()
       p = ax.scatter( gIFARTime ,gIFAREffSiteDist[site],\
                       c=gIFARStat, norm=pylab.Normalize(0,1,clip=False),\
                       marker='o', edgecolors='none' )
@@ -1152,6 +1189,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.scatter( gMissedMchirp, gMissedDist,c="k", marker='x', edgecolors='k' )
     ax.scatter( gMissed2Mchirp, gMissed2Dist,c="r", marker='x', edgecolors='r' )
     ax.scatter( gFoundMchirp, gFoundDist, c="b", marker='x', edgecolors='g' )
+    ax.grid()
     p = ax.scatter( gIFARMchirp, gIFARDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False),\
                     marker='o', edgecolors='none' )
@@ -1169,6 +1207,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.scatter( gMissedTime, gMissedDist, c="k", marker='x', edgecolors='k' )
     ax.scatter( gMissed2Time, gMissed2Dist, c="r", marker='x', edgecolors='r' )
     ax.scatter( gFoundTime, gFoundDist, c="b", marker='x', edgecolors='g' )
+    ax.grid()
     p = ax.scatter( gIFARTime, gIFARDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False),\
                     marker='o', edgecolors='none' )
@@ -1187,6 +1226,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax = fig.gca()
     ax.plot( gFoundTime, gFoundSkyAngle, 'b.' )
     ax.plot( gIFARTime, gIFARSkyAngle, 'b.' )
+    ax.grid()
     ax.set_xlabel( "Time since %d" % start )
     ax.set_ylabel( "Rec. sky error (radians)" )
     ax.set_xlim([ 0, end ])
@@ -1196,6 +1236,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax = fig.gca()
     ax.plot( gFoundMchirp, gFoundSkyAngle, 'b.' )
     ax.plot( gIFARMchirp, gIFARSkyAngle, 'b.' )
+    ax.grid()
     ax.set_xlabel( "Mchirp" )
     ax.set_ylabel( "Rec. sky error (radians)" )
     fig.savefig( '%s/found_sky_error_mchirp.png' % outdir )
@@ -1204,6 +1245,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax = fig.gca()
     ax.plot( gFoundDist, gFoundSkyAngle, 'b.' )
     ax.plot( gIFARDist, gIFARSkyAngle, 'b.' )
+    ax.grid()
     ax.set_xlabel( "Distance" )
     ax.set_ylabel( "Rec. sky error (radians)" )
     ax.semilogx()

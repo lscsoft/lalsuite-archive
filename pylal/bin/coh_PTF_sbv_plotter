@@ -58,6 +58,10 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                      default=3.0, help="nhigh for newSNR calculation, "+\
                                        "default: %default" )
 
+  parser.add_option( "-a", "--segment-dir", action="store", type="string",\
+                     help="directory holding buffer, on and off source "+\
+                          "segment files." )
+
   parser.add_option( "-A", "--null-snr-threshold", action="store",\
                      type="string", default="3.5,5.25",\
                      help="comma separated lower,higher null SNR thresholds, "+\
@@ -71,14 +75,17 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
   if not opts.grb_name:
     parser.error( "must provide --grb-name" )
 
+  if not opts.segment_dir:
+    parser.error( "must provide --segment-dir" )
+
   return opts, args
 
 # =============================================================================
 # Main function
 # =============================================================================
 
-def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
-          null_thresh=[3.5,5.25], verbose=False ):
+def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
+          chisq_nhigh=3.0, null_thresh=[3.5,5.25], verbose=False ):
   
   # set output directory
   if not os.path.isdir(outdir):
@@ -371,14 +378,17 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   ptfcolormap.set_over('g' )
        
   # reset times
-  start = int(min(trigTime))
-  end   = int(max(trigTime)+1)-start
-  duration = end-start
-  start -= duration*0.05
-  end += duration*0.05
-  trigTime = [ t-start for t in trigTime ]
-  injTime  = [ t-start for t in injTime ]
-  startString = datetime( *date.XLALGPSToUTC( LIGOTimeGPS( start ) )[:6] )\
+  segs = readSegFiles(segdir)
+  grbTime = segs['on'][1] - 1
+  print grbTime
+  start = grbTime
+#  end   = int(max(trigTime)+1)-start
+#  duration = end-start
+#  start -= duration*0.05
+#  end += duration*0.05
+  trigTime = [ t-grbTime for t in trigTime ]
+  injTime  = [ t-grbTime for t in injTime ]
+#  startString = datetime( *date.XLALGPSToUTC( LIGOTimeGPS( start ) )[:6] )\
                     .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
  
   # plot time versus SNR
@@ -389,6 +399,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   ax.set_xlim([ 0, end ])
   ax.set_ylabel( "Coherent SNR" )
   #ax.set_ylim( [6,18])
+  ax.grid()
   fig.savefig( '%s/%s_triggers_vs_time_noinj.png' % ( outdir, tag ),\
                bbox_inches='tight' )
   if injFile:
@@ -405,6 +416,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   ax.set_xlim([ 0, end ])
   ax.set_ylabel( "BestNR" )
   #ax.set_ylim( [6,18])
+  ax.grid()
   fig.savefig( '%s/%s_bestnr_vs_time_noinj.png' % ( outdir, tag ),\
                bbox_inches='tight' )
   if injFile:
@@ -422,6 +434,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
     ax.set_xlabel( "Time since %s" % start )
     ax.set_xlim([ 0, end ])
     ax.set_ylabel( "%s SNR" % ifo )
+    ax.grid()
 
     fig.savefig( '%s/%s_%s_triggers_vs_time_noinj.png'\
                  % ( outdir, tag, ifo ))
@@ -435,6 +448,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigSNR, trigNullstat, 'bx' )
+  ax.grid()
   if injFile:
     ax.plot( injSNR, injNullstat, 'rx' )
   ax.set_xlabel( "Coherent SNR" )
@@ -453,6 +467,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigSNR, trigNullSNR, 'bx' )
+  ax.grid()
   if injFile:
     ax.plot( injSNR, injNullSNR, 'rx' )
   ax.set_xlabel( "Coherent SNR" )
@@ -471,6 +486,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigSNR, trigCoincSNR, 'bx' )
+  ax.grid()
   if injFile:
     ax.plot( injSNR, injCoincSNR, 'rx' )
   ax.plot( [4,30], [4,30], 'g-' )
@@ -496,6 +512,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigSNR, trigTraceSNR, 'bx' )
+  ax.grid()
   if injFile:
     ax.plot( injSNR, injTraceSNR, 'rx' )
   ax.plot( aT, bT, 'g-' )
@@ -512,6 +529,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigCoincSNR, trigTraceSNR, 'bx' )
+  ax.grid()
   if injFile:
     ax.plot( injCoincSNR, injTraceSNR, 'rx' )
   ax.set_xlabel( "Coincidence SNR" )
@@ -527,6 +545,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.loglog( trigSNR, trigBankVeto, 'bx' )
+  ax.grid()
   if injFile:
     ax.loglog( injSNR, injBankVeto, 'rx' )
   plot_contours( ax, snr_vals,bank_conts, colors )
@@ -544,6 +563,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.loglog( trigSNR, trigChiSquare, 'bx' )
+  ax.grid()
   if injFile:
     ax.loglog( injSNR, injChiSquare, 'rx' )
   plot_contours( ax, snr_vals,chi_conts, colors )
@@ -562,6 +582,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   ax  = fig.gca()
   ax.loglog( trigSNR[trigBestNR != 0], trigChiSquare[trigBestNR != 0],\
              'bx' )
+  ax.grid()
   if injFile:
     ax.loglog( injSNR[injBestNR != 0], injChiSquare[injBestNR != 0],\
                'rx' )
@@ -578,6 +599,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigSNR, trigFirstSNR, 'bx' )
+  ax.grid()
   if injFile:
     ax.plot( injSNR, injFirstSNR, 'rx' )
   ax.plot( [0,50], [4,4], 'g-' )
@@ -595,6 +617,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
     fig = pylab.figure()
     ax  = fig.gca()
     ax.plot( trigSNR, trigSecondSNR, 'bx' )
+    ax.grid()
     if injFile:
       ax.plot( injSNR, injSecondSNR, 'rx' )
     ax.plot( [6,10,50], [2.5,3.5,13.5], 'g-' )
@@ -612,6 +635,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
     fig = pylab.figure()
     ax  = fig.gca()
     ax.plot( trigSNR, trigThirdSNR, 'bx' )
+    ax.grid()
     if injFile:
       ax.plot( injSNR, injThirdSNR, 'rx' )
     ax.plot( [0,50], [4,4], 'g-' )
@@ -630,6 +654,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
     fig = pylab.figure()
     ax  = fig.gca()
     ax.plot( trigSNR, trigIfoSNR[ifo], 'bx' )
+    ax.grid()
     if injFile:
       ax.plot( injSNR, injIfoSNR[ifo], 'rx' )
     ax.plot( zoomSNR, ( (fResp[ifo]*trigSigmaMean[ifo])**0.5 ) * zoomSNR, 'g-' )
@@ -661,6 +686,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.loglog( trigSNR, trigAutoVeto, 'bx' )
+  ax.grid()
   if injFile:
     ax.loglog( injSNR, injAutoVeto, 'rx' )
   plot_contours( ax, snr_vals, auto_conts, colors )
@@ -677,6 +703,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigSNR, trigSNR - trigTraceSNR, 'bx' )
+  ax.grid()
   ax.set_xlabel( "Coherent SNR" )
   ax.set_ylabel( "SNR - Trace SNR" )
   fig.savefig( "%s/%s_tracediff_noinj.png" % ( outdir, tag ),\
@@ -694,6 +721,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.plot( trigTime, trigNullstat, 'bx' )
+  ax.grid()
   if injFile:
     ax.plot( injTime, injNullstat, 'rx' )
   ax.set_xlabel( "Time since %s" % start )
@@ -706,6 +734,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
   fig = pylab.figure()
   ax  = fig.gca()
   ax.loglog( trigSNR, trigRelAmp1, 'bx' )
+  ax.grid()
   if injFile:
     ax.loglog( injSNR, injRelAmp1, 'rx' )
   ax.set_xlabel( "Coherent SNR" )
@@ -721,6 +750,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
     fig = pylab.figure()
     ax  = fig.gca()
     ax.loglog( trigSNR, trigRelAmp2, 'bx' )
+    ax.grid()
     if injFile:
       ax.loglog( injSNR, injRelAmp2, 'rx' )
     ax.set_xlabel( "Coherent SNR" )
@@ -739,6 +769,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
     fig = pylab.figure()
     ax  = fig.gca()
     ax.loglog( trigSNR, trigNorm3, 'bx' )
+    ax.grid()
     if injFile:
       ax.loglog( injSNR, injNorm3, 'rx' )
     ax.set_xlabel( "Coherent SNR" )
@@ -757,6 +788,7 @@ def main( trigFile, injFile, tag, outdir, chisq_index=4.0, chisq_nhigh=3.0,\
     fig = pylab.figure()
     ax  = fig.gca()
     ax.loglog( trigSNR, trigInclination, 'bx' )
+    ax.grid()
     if injFile:
       ax.loglog( injSNR, injInclination, 'rx' )
     ax.set_xlabel( "Coherent SNR" )
@@ -784,7 +816,8 @@ if __name__=='__main__':
   GRBnum    = 'GRB%s' % opts.grb_name
   q         = opts.chisq_index
   n         = opts.chisq_nhigh
+  segdir    = opts.segment_dir
   nullt     = map( float, opts.null_snr_threshold.split(',') )
-  main( trigFile, injFile, GRBnum, outdir, chisq_index=q, chisq_nhigh=n,\
+  main( trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q, chisq_nhigh=n,\
         null_thresh = nullt, verbose=verbose )
  
