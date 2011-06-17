@@ -2606,7 +2606,6 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
     }		
     if (nIFO>1){  fprintf(snrout,"Network:\t");
     fprintf(snrout,"%4.2f\n",sqrt(NetSNR));}
-    fprintf(snrout,"\n");
     fclose(snrout);
 
 }
