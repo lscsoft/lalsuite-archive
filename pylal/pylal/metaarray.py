@@ -195,9 +195,9 @@ class MetaArray(numpy.ndarray):
                 return new
             else:
                 # copy, update metadata, then return
-                new = data.astype(dtype)
-                new.metadata = metadata
-                new._baseclass = _baseclass
+                new = data.astype(dtype)  # always copies
+                new.metadata = data.metadata
+                new._baseclass = data._baseclass
                 return new
         
         # All other cases, create a new array and attach metadata
