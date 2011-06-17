@@ -740,8 +740,7 @@ def group_files(filenames, verbose = False):
 
 def pack_files(filenames, n_threads, verbose = False):
 	bins = packing.BiggestIntoEmptiest([packing.Bin() for n in range(n_threads)])
-	for filename in filenames:
-		bins.pack(os.stat(filename).st_size, filename)
+	bins.packlist((os.stat(filename).st_size, filename) for filename in filenames)
 	return [bin.objects for bin in bins.bins]
 
 
