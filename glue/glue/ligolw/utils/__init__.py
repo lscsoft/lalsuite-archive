@@ -288,19 +288,8 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	Example:
 
 	>>> import StringIO
-	>>> f = StringIO.StringIO('<?xml version="1.0" encoding="utf-8" ?>' \
-	... '<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">' \
-	... '<LIGO_LW>' \
-	... '	<Table Name="demo:table">' \
-	... '		<Column Name="name" Type="lstring"/>' \
-	... '		<Column Name="value" Type="real8"/>' \
-	... '		<Stream Name="demo:table" Type="Local" Delimiter=",">' \
-	... '			"mass",0.5,' \
-	... '			"velocity",34' \
-	... '		</Stream>' \
-	... '	</Table>' \
-	... '</LIGO_LW>')
-	>>> xmldoc, digest = utils.load_fileobj(f)
+	>>> f = StringIO.StringIO('<?xml version="1.0" encoding="utf-8" ?><!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"><LIGO_LW><Table Name="demo:table"><Column Name="name" Type="lstring"/><Column Name="value" Type="real8"/><Stream Name="demo:table" Type="Local" Delimiter=",">"mass",0.5,"velocity",34</Stream></Table></LIGO_LW>')
+	>>> xmldoc, digest = load_fileobj(f)
 	>>> digest
 	'03d1f513120051f4dbf3e3bc58ddfaa6'
 
@@ -309,8 +298,9 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	was accomplished by replacing the ContentHandler symbol in this
 	module with the custom handler, and although that technique is
 	still supported a warning will be emitted if modification of that
-	symbol is detected.  See glue.ligolw.PartialLIGOLWContentHandler
-	and glue.ligolw.FilteringLIGOLWContentHandler for examples of
+	symbol is detected.  See
+	glue.ligolw.ligolw.PartialLIGOLWContentHandler and
+	glue.ligolw.ligolw.FilteringLIGOLWContentHandler for examples of
 	custom content handlers used to load subsets of documents into
 	memory.
 	"""
@@ -342,8 +332,7 @@ def load_filename(filename, verbose = False, gz = None, xmldoc = None, contentha
 
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> xmldoc = utils.load_filename(name, verbose = True)
+	>>> xmldoc = load_filename(name, verbose = True)
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename and ("'%s'" % filename) or "stdin")
@@ -366,8 +355,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> xmldoc = utils.load_url("file://localhost/tmp/data.xml")
+	>>> xmldoc = load_url("file://localhost/tmp/data.xml")
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
@@ -407,7 +395,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	Example:
 
 	>>> import sys
-	>>> utils.write_fileobj(xmldoc, sys.stdout)
+	>>> write_fileobj(xmldoc, sys.stdout)
 	"""
 	# initialize SIGTERM and SIGTSTP trap
 	global __llwapp_write_filename_got_sig
@@ -461,8 +449,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> utils.write_filename(xmldoc, "data.xml")
+	>>> write_filename(xmldoc, "data.xml")
 	"""
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (filename and ("'%s'" % filename) or "stdout")
@@ -492,8 +479,7 @@ def write_url(xmldoc, url, verbose = False, gz = False):
 	
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> utils.write_url(xmldoc, "file:///data.xml")
+	>>> write_url(xmldoc, "file:///data.xml")
 	"""
 	if url is None:
 		scheme, host, path = "", "", None
