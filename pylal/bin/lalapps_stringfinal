@@ -861,6 +861,10 @@ def write_products(products, prefix, image_formats, verbose = False):
 options, filenames = parse_command_line()
 
 
+print >>sys.stderr, """Command line:
+
+$ %s
+""" % " ".join(sys.argv)
 if options.open_box:
 	print >>sys.stderr, """
 
