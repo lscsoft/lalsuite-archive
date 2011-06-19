@@ -499,6 +499,8 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
     checkDir(path_plots)
     #bsn_cal=[bsn for bsn in data_cal[:,header_l.index('BSN')]]
     network_snrs_key=[snr for snr in data_cal[:,header_l.index('SNR_Network')]]
+    effect_size_moments=open(os.path.join(path_plots,'moments.txt'),'w')
+    effect_size_moments.write('Param Mean StdDev Median 5thPer.tle 95thPer.tle \n')
     theres_snr_ind=[]
     for snr in network_snrs_key:
         if snr>8.0:
@@ -555,7 +557,7 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
         print "Median %s in run %i: %e\n" %(parameter,int(run),np.median(effect_size))
         print "5perc %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,5))
         print "95 perc  %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,95))
-
+        effect_size_moments.write(parameter+'\t'+str(mean_effect_size)+'\t'+str(std_effect_size)+'\t'+str(np.median(effect_size))+'\t'+str(stat.scoreatpercentile(effect_size,5))+'\t'+str(stat.scoreatpercentile(effect_size,95))+'\n')
         #print "Kurtosis %e\n" % kurtosis_effect_size
         bins=linear_space(effect_size.min(),effect_size.max(),nbins)
         myfig2=figure(figsize=(4,3.5),dpi=80)
@@ -566,6 +568,7 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
         legend()
         myfig2.savefig(os.path.join(path_plots,'effect_'+parameter+'.png'))
         myfig2.clear()
+    effect_size_moments.close()
         
 def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,key):
     
@@ -687,10 +690,21 @@ def WritePlotPage(outdir,run,parameters,first_time):
         html_plots_st+='<td colspan="2">'
         html_plots_st+=linkImage(os.path.join(bsn_plots,'BSN_vs_SNR.png'),2*wd,2*hg)
         html_plots_st+='</td>'
-    if os.path.isfile(os.path.join(sky_plots,'injected_skymap.png')):
-        html_plots_st+='<td colspan="2">'
-        html_plots_st+=linkImage(os.path.join(sky_plots,'injected_skymap.png'),2*wd,2*hg)
-        html_plots_st+='</td>'
+    #if os.path.isfile(os.path.join(sky_plots,'injected_skymap.png')):
+    #    html_plots_st+='<td colspan="2">'
+    #    html_plots_st+=linkImage(os.path.join(sky_plots,'injected_skymap.png'),2*wd,2*hg)
+    #    html_plots_st+='</td>'
+    #effect_size_moments=np.loadtxt(os.path.join(path_plots,'moments.txt'),skiprows=1,usecols=(1,2,3,4,5),dtype=str)
+    effect_size_moments=np.loadtxt(os.path.join(path_plots,'moments.txt'),dtype='str')
+    html_plots_st+='<td colspan="2"><table>'
+    for i in range(len(effect_size_moments[:,1])):
+        html_plots_st+='<tr>'
+	for j in range(len(effect_size_moments[1,:])):
+	    html_plots_st+='<td>'+str(effect_size_moments[i,j])+'</td>'
+        html_plots_st+='</tr>'
+    html_plots_st+='</table></td>'
+
+
     html_plots_st+='</tr></table>'
     html_plots.write(html_plots_st) 
     #Save results page
