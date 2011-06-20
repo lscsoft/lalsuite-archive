@@ -13,7 +13,9 @@ from datetime import datetime
 from math import pi,sqrt
 import scipy.stats
 from optparse import OptionParser
+from glue import segments
 from pylal import date
+from pylal.dq import dqSegmentUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table,lsctables,utils
 from pylal.coh_PTF_pyutils import *
@@ -67,6 +69,11 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                      help="comma separated lower,higher null SNR thresholds, "+\
                           " for null SNR cut, default: \"%default\"" )
 
+  parser.add_option( "-l", "--veto-directory",action="store",type="string",\
+                     default=None,\
+                     help="The location of the CAT2/3 veto files" )
+
+
   (opts,args) = parser.parse_args()
 
   if not opts.trig_file:
@@ -85,7 +92,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 # =============================================================================
 
 def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
-          chisq_nhigh=3.0, null_thresh=[3.5,5.25], verbose=False ):
+          chisq_nhigh=3.0, null_thresh=[3.5,5.25],verbose=False,vetoFiles=[] ):
   
   # set output directory
   if not os.path.isdir(outdir):
@@ -97,6 +104,15 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   if verbose:
     print >>sys.stdout
     print >>sys.stdout, 'Loading triggers...'
+
+  # Construct veto list
+  vetoes = segments.segmentlist()
+  if vetoFiles:
+    for file in vetoFiles:
+      # This returns a coalesced list of the vetoes
+      tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
+      for entry in tmpVetoSegs:
+        vetoes.append(entry)
  
   # load triggers
   xmldoc = utils.load_filename( trigFile, gz=trigFile.endswith("gz" ) )
@@ -180,6 +196,11 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # get trigger parameters
   for trig in trigs:
 
+    # Remove vetoed triggers
+    if trig.get_end() in vetoes:
+      print trig.get_end()
+      continue
+
     # calculate fResp for each IFO is we haven't done so already
     trigPos = (trig.ra,trig.dec)
     if trigPos not in aPat.keys():
@@ -241,6 +262,9 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # get injection parameters 
   if injFile:
     for trig in injs:
+      if trig.get_end() in vetoes:
+        print trig.get_end()
+        continue
 
       # calculate fResp for each IFO is we haven't done so already
       trigPos = (trig.ra,trig.dec)
@@ -818,6 +842,11 @@ if __name__=='__main__':
   n         = opts.chisq_nhigh
   segdir    = opts.segment_dir
   nullt     = map( float, opts.null_snr_threshold.split(',') )
-  main( trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q, chisq_nhigh=n,\
-        null_thresh = nullt, verbose=verbose )
+  vetoFiles = []
+  if opts.veto_directory:
+    vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
+
+
+  main( trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
+        chisq_nhigh=n,null_thresh = nullt, verbose=verbose,vetoFiles=vetoFiles )
  

@@ -12,7 +12,8 @@ import pylab
 from optparse import OptionParser
 from pylal import SimInspiralUtils,MultiInspiralUtils
 from pylal import plotutils
-from glue import markup
+from glue import segments,markup
+from pylal.dq import dqSegmentUtils
 from glue.ligolw import table,lsctables,utils
 from pylal.coh_PTF_pyutils import *
 
@@ -132,7 +133,9 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
   parser.add_option( "-n", "--num-bins", action="store",\
                       type="int",default=0,help="The number of bins used to"+\
                           "calculate injection efficiency. default: %default")
-  
+  parser.add_option( "-l", "--veto-directory",action="store",type="string",\
+                     default=None,\
+                     help="The location of the CAT2/3 veto files" )
   parser.add_option( "-v", "--verbose", action="store_true", default=False,\
                      help="verbose output, default: %default" )
 
@@ -161,7 +164,8 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
 def main( segdir, outdir, trigFile, foundFile, missedFile,\
           onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
           chisq_nhigh=3.0, null_thresh = (3.5,5.25), glitchCheckFac = 1.0,\
-          clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20 ):
+          clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20,\
+          vetoFiles = [] ):
 
   lsctables.SimInspiral.get_theta = sim_inspiral_get_theta
 
@@ -180,14 +184,70 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   # Padding time = 7s for padding + 64s lost time
   paddingTime         = 71 
   trialTime           = abs(segs['on'])
-  numSegsBeforeBuffer = ( segs['buffer'][0] - (segs['off'][0] + paddingTime) )\
+  startTimeBefore     = (segs['off'][0]+paddingTime)
+  numSegsBeforeBuffer = ( segs['buffer'][0] - startTimeBefore )\
                         //trialTime
   endTimeBefore       = ( segs['off'][0]+paddingTime ) +\
                         numSegsBeforeBuffer*trialTime
   numSegsAfterBuffer  = (( segs['off'][1]-paddingTime ) - segs['buffer'][1] )\
                         //trialTime
-  endTimeAfter        = segs['buffer'][1] + numSegsAfterBuffer*trialTime
+  startTimeAfter      = segs['buffer'][1]
+  endTimeAfter        = startTimeAfter + numSegsAfterBuffer*trialTime
   numSegs             = numSegsBeforeBuffer + numSegsAfterBuffer
+
+  # Construct trials
+  trials = segments.segmentlist()
+  breakLoop = False
+  iterInt = 0
+  while not breakLoop:
+    # Append trial
+    trials.append( segments.segment(startTimeBefore + trialTime*iterInt,\
+                                    startTimeBefore + trialTime*(iterInt+1)))
+    iterInt += 1
+    # Check if next trial will overlap buffer
+    if (iterInt + 1)*trialTime + startTimeBefore > segs['buffer'][0]:
+      breakLoop = True
+
+  breakLoop = False
+  iterInt = 0
+  while not breakLoop:
+    # Append trial
+    trials.append( segments.segment(startTimeAfter + trialTime*iterInt,\
+                                    startTimeAfter + trialTime*(iterInt+1)))
+    iterInt += 1
+    # Check if next trial will overlap end time
+    if (iterInt + 1)*trialTime + startTimeAfter > endTimeAfter:
+      breakLoop = True
+
+#  print trials
+#  print startTimeBefore,endTimeBefore,startTimeAfter,endTimeAfter
+#  print len(trials),numSegs
+
+  assert (len(trials) == numSegs)
+
+  # Construct veto list
+  vetoes = segments.segmentlist()
+  if vetoFiles:
+    for file in vetoFiles:
+      # This returns a coalesced list of the vetoes
+      tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
+      for entry in tmpVetoSegs:
+        vetoes.append(entry)
+
+#  print vetoes
+
+  # Determine which trials are vetoed
+  numVetoedTrials = 0
+  vetoMask = numpy.zeros([numSegs],dtype=int)
+  for itera,trial in zip(range(numSegs),trials):
+    if abs(vetoes & segments.segmentlist([trial])):
+      vetoMask[itera] = 1
+      numVetoedTrials += 1
+#      print trial
+
+  numTrials = numSegs - numVetoedTrials
+
+  print numTrials
   
   if verbose:
     print >>sys.stdout
@@ -197,6 +257,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
   trigs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
   searchSumm = table.get_table( xmldoc, lsctables.SearchSummaryTable.tableName )
+  filtered_trigs = lsctables.New(lsctables.MultiInspiralTable) 
 
   # extract variables
   ifos = sorted(map(str,searchSumm[0].get_ifos()))
@@ -218,11 +279,39 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
   timeBinMaxSNR    = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
   timeBinMaxBestNR = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
+  timeBinVetoMaxSNR    = numpy.zeros([len(massBins)+1,numTrials],dtype = float)
+  timeBinVetoMaxBestNR = numpy.zeros([len(massBins)+1,numTrials],dtype = float)
 
   # store response function for each sky locations
   fResp = {}
   
   for trig in trigs:
+
+    # Determine trial of trigger
+    chunkNum = numSegs
+    if trig.get_end() < segs['buffer'][0]:
+      if trig.get_end() < ( segs['off'][0]+paddingTime ):
+        raise ValueError, "ERROR: trig time is outside given analysis "+\
+                          "window! %s" % trig.get_end()
+      if trig.get_end() < endTimeBefore:
+        chunkNum = float(trig.get_end() - (segs['off'][0]+paddingTime))\
+                   // trialTime
+    elif trig.get_end() > segs['buffer'][1]:
+      if trig.get_end() > ( segs['off'][1] - paddingTime ):
+        raise ValueError, "ERROR: trig time is outside given analysis "+\
+                          "window! %s" % trig.get_end()
+      if trig.get_end() < endTimeAfter:
+        chunkNum = float(trig.get_end() - segs['buffer'][1])\
+                   // trialTime + numSegsBeforeBuffer
+    if chunkNum == numSegs:
+      continue
+    if vetoMask[chunkNum]:
+      print trig.get_end()
+      continue
+   
+    filtered_trigs.append(trig)
+
+    # Determine mass bin of trigger
     trigBin = None
     binNum = 0
     for bin in massBins:
@@ -258,25 +347,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     trigBestNR[trigBin[0]].append( bestNR )
     trigAllBestNR.append( bestNR )
 
-    # Determine chunk number
-    chunkNum = numSegs
-    if trig.get_end() < segs['buffer'][0]:
-      if trig.get_end() < ( segs['off'][0]+paddingTime ):
-        raise ValueError, "ERROR: trig time is outside given analysis "+\
-                          "window! %s" % trig.get_end()
-      if trig.get_end() < endTimeBefore:
-        chunkNum = float(trig.get_end() - (segs['off'][0]+paddingTime))\
-                   // trialTime
-    elif trig.get_end() > segs['buffer'][1]:
-      if trig.get_end() > ( segs['off'][1] - paddingTime ):
-        raise ValueError, "ERROR: trig time is outside given analysis "+\
-                          "window! %s" % trig.get_end()
-      if trig.get_end() < endTimeAfter:
-        chunkNum = float(trig.get_end() - segs['buffer'][1])\
-                   // trialTime + numSegsBeforeBuffer
-    if chunkNum == numSegs:
-      continue
-
     if timeBinMaxSNR[trigBinNum,chunkNum] < trigSNR[trigBin[0]][-1]:
       timeBinMaxSNR[trigBinNum,chunkNum] = trigSNR[trigBin[0]][-1]
     if timeBinMaxSNR[len(massBins),chunkNum] < trigSNR[trigBin[0]][-1]:
@@ -286,6 +356,19 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         timeBinMaxBestNR[trigBinNum,chunkNum]    = trigBestNR[trigBin[0]][-1]
     if timeBinMaxBestNR[len(massBins),chunkNum] < trigBestNR[trigBin[0]][-1]:
       timeBinMaxBestNR[len(massBins),chunkNum] = trigBestNR[trigBin[0]][-1]
+
+
+  # Remove vetoed triggers, and triggers outside of trials
+  trigs = filtered_trigs
+
+  # Construct the list of loudest events after vetoes
+
+  jj = 0
+  for ii in range(numSegs):
+    if not vetoMask[ii]:
+      timeBinVetoMaxSNR[:,jj] = timeBinMaxSNR[:,ii]
+      timeBinVetoMaxBestNR[:,jj] = timeBinMaxBestNR[:,ii]
+      jj += 1
 
   # ==========================
   # print details of loudest 10 offsouce triggers
@@ -321,7 +404,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       print >>sys.stderr, "ERROR: No mass bins match trigger with mchirp %s"\
                           % chirpMass
 
-    # Get trial of trigger, some triggers fall outside of trials!
+    # Get trial of trigger, triggers with 'No trial' should have been removed!
     chunkNum = numSegs
     if trig.get_end() < segs['buffer'][0]:
       if trig.get_end() < ( segs['off'][0]+paddingTime ):
@@ -342,10 +425,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     # Get FAP of trigger
     numTrialsLouder = 0
-    for val in timeBinMaxBestNR[trigBinNum]:
+    for val in timeBinVetoMaxBestNR[trigBinNum]:
       if val > bestNR:
         numTrialsLouder += 1
-    FAP = numTrialsLouder/numSegs
+    FAP = numTrialsLouder/numTrials
 
     # Get null SNR of trigger
     if len(ifos)>2:
@@ -394,19 +477,20 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     trigSNR[bin[0]] = numpy.asarray(trigSNR[bin[0]])
     trigTime[bin[0]] = numpy.asarray(trigTime[bin[0]])
     maxSNR[bin[0]] = trigSNR[bin[0]].max()
-    timeBinMaxSNR[binNum].sort()
+    timeBinVetoMaxSNR[binNum].sort()
  
     trigBestNR[bin[0]] = numpy.asarray(trigBestNR[bin[0]])
     maxBestNR[bin[0]]  = trigBestNR[bin[0]].max()
-    timeBinMaxBestNR[binNum].sort()
-    if (numSegs % 2):
-      medianSNR[bin[0]] = (timeBinMaxSNR[binNum])[(numSegs - 1) /2]
-      medianBestNR[bin[0]] = (timeBinMaxBestNR[binNum])[(numSegs - 1) /2]
+    timeBinVetoMaxBestNR[binNum].sort()
+    if (numTrials % 2):
+      medianSNR[bin[0]] = (timeBinVetoMaxSNR[binNum])[(numTrials - 1) /2]
+      medianBestNR[bin[0]] = (timeBinVetoMaxBestNR[binNum])[(numTrials - 1) /2]
     else:
-      medianSNR[bin[0]] = (timeBinMaxSNR[binNum])\
-                              [numSegs/2 - 1:numSegs/2 + 1].mean()
+      medianSNR[bin[0]] = (timeBinVetoMaxSNR[binNum])\
+                              [numTrials/2 - 1:numTrials/2 + 1].mean()
       medianBestNR[bin[0]]\
-          = (timeBinMaxBestNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+          = (timeBinVetoMaxBestNR[binNum])[numTrials/2 - 1\
+                                           : numTrials/2 + 1].mean()
   
     binNum += 1
   
@@ -421,14 +505,14 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   # work out all mass bins
   maxSNR['all'] = numpy.array(maxSNR.values()).max()
   maxBestNR['all'] = numpy.array(maxBestNR.values()).max()
-  if (numSegs % 2):
-    medianSNR['all'] = (timeBinMaxSNR[binNum])[(numSegs - 1) /2]
-    medianBestNR['all'] = (timeBinMaxBestNR[binNum])[(numSegs - 1) /2]
+  if (numTrials % 2):
+    medianSNR['all'] = (timeBinVetoMaxSNR[binNum])[(numTrials - 1) /2]
+    medianBestNR['all'] = (timeBinVetoMaxBestNR[binNum])[(numTrials - 1) /2]
   else:
     medianSNR['all']\
-        = (timeBinMaxSNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+        = (timeBinVetoMaxSNR[binNum])[numTrials/2 - 1:numTrials/2 + 1].mean()
     medianBestNR['all']\
-        = (timeBinMaxBestNR[binNum])[numSegs/2 - 1:numSegs/2 + 1].mean()
+        = (timeBinVetoMaxBestNR[binNum])[numTrials/2 - 1:numTrials/2 + 1].mean()
   
   # print to html table
   d = [ "Loudest in all bins", maxSNR['all'], maxBestNR['all'] ]
@@ -526,10 +610,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     for bin in massBins:
       numTrialsLouder = 0
       if loudOnBestNRTrigs[bin[0]]:
-        for val in timeBinMaxBestNR[binNum]:
+        for val in timeBinVetoMaxBestNR[binNum]:
           if val > loudOnBestNR[bin[0]]:
             numTrialsLouder += 1
-        FAP = numTrialsLouder/numSegs
+        FAP = numTrialsLouder/numTrials
         trig = loudOnBestNRTrigs[bin[0]]
         trigPos = (trig.ra,trig.dec)
         bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
@@ -579,7 +663,11 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     foundInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])
     missedInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missedFile])
     foundTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([foundFile])
+    filtered_foundTrigs = lsctables.New(lsctables.MultiInspiralTable)
+    filtered_missedInjs = lsctables.New(lsctables.SimInspiralTable)
+    filtered_foundInjs = lsctables.New(lsctables.SimInspiralTable)
   
+
     gFoundMchirp = []
     bFoundMchirp = []
     gFoundMtot = []
@@ -648,6 +736,14 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
    
     # process found injections
     for inj,trig in zip(foundInjs,foundTrigs):
+      # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
+      # trials can be retained, if the injection time is not vetoed
+      if inj.get_end() in vetoes:
+        print inj.get_end()
+        continue
+
+      filtered_foundInjs.append(inj)
+      filtered_foundTrigs.append(trig)
 
       try:
         # Here the 0:10 rubbish means that eff_dist_h1 (or 2) is converted
@@ -738,10 +834,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gIFARDist.append( inj.distance )
         gIFARTime.append( float(inj.get_time_geocent()) )
         numTrialsLouder = 0
-        for val in timeBinMaxBestNR[trigBinNum]:
+        for val in timeBinVetoMaxBestNR[trigBinNum]:
           if val > bestNR:
             numTrialsLouder+=1
-        gIFARStat.append(numTrialsLouder/numSegs)
+        gIFARStat.append(numTrialsLouder/numTrials)
         gIFARTrig.append(trig)
         gIFARInj.append(inj)
         gIFARSkyAngle.append( float(centralAngle) )
@@ -825,10 +921,29 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           bFoundTime.append( float(inj.get_time_geocent()) )
           bFoundSkyAngle.append( float(centralAngle) )
            
+    # Remove vetoed injections from the lists
+    foundInjs = filtered_foundInjs
+    foundTrigs = filtered_foundTrigs
+
+
     # process missed injections
     for inj in missedInjs:
-      effDist = sum([ 1/getattr(inj,'eff_dist_%s' % ifo[0].lower() )\
-                      for ifo in ifos ])**-1
+      # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
+      # trials can be retained, if the injection time is not vetoed
+      if inj.get_end() in vetoes:
+        print inj.get_end()
+        continue
+
+      filtered_missedInjs.append(inj)
+
+      try:
+        # Here the 0:10 rubbish means that eff_dist_h1 (or 2) is converted
+        # to eff_dist_h. eff_dist_v (or l) is unchanged
+        effDist = sum([ 1/getattr(inj,('eff_dist_%s' % ifoAtt[ifo])[0:10] )\
+                        for ifo in ifos ])**-1
+      except ZeroDivisionError: 
+        effDist = 0
+
   
       trigBin = None
       binNum = 0
@@ -862,8 +977,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
                                                  % site.lower()) )
 
+    # Remove vetoed missed injections from the list
+    missedInjs = filtered_missedInjs
+
     grbTime = segs['on'][1] - 1
-    print grbTime
 
     start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
                      min(gMissed2Time)])) 
@@ -959,7 +1076,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     fig = pylab.figure()
     ax = fig.gca()
     temp = []
-    for item in timeBinMaxBestNR[binNum]:
+    for item in timeBinVetoMaxBestNR[binNum]:
       temp.append([item])
     cumplot = plotutils.CumulativeHistogramPlot( "BestNR",
                                                  "False alarm probability",
@@ -972,7 +1089,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     fig = pylab.figure()
     ax = fig.gca()
     temp = []
-    for item in timeBinMaxSNR[binNum]:
+    for item in timeBinVetoMaxSNR[binNum]:
       temp.append([item])
     cumplot = plotutils.CumulativeHistogramPlot( "SNR",
                                                  "False alarm probability",
@@ -1069,7 +1186,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       fig = pylab.figure()
       ax = fig.gca()
       temp = []
-      for item in timeBinMaxBestNR[binNum]:
+      for item in timeBinVetoMaxBestNR[binNum]:
         temp.append([item])
       cumplot = plotutils.CumulativeHistogramPlot( "BestNR",
                                                    "False alarm probability",
@@ -1083,7 +1200,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       fig = pylab.figure()
       ax = fig.gca()
       temp = []
-      for item in timeBinMaxSNR[binNum]:
+      for item in timeBinVetoMaxSNR[binNum]:
         temp.append([item])
       cumplot = plotutils.CumulativeHistogramPlot( "SNR",
                                                    "False alarm probability",
@@ -1271,10 +1388,13 @@ if __name__=='__main__':
   upperDist = opts.upper_inj_dist
   lowerDist = opts.lower_inj_dist
   numBins = opts.num_bins
+  vetoFiles = []
+  if opts.veto_directory:
+    vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
  
   main( segdir, outdir, trigFile, foundFile, missedFile,\
         onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
         chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
         clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
-        numBins=numBins )
+        numBins=numBins, vetoFiles=vetoFiles )
 
