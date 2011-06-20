@@ -244,12 +244,11 @@ def get_table(xmldoc, name):
 	"""
 	Scan xmldoc for a Table element named name.  The comparison is done
 	using CompareTableNames().  Raises ValueError if not exactly 1 such
-	table is found.  The name comparison is done using
-	CompareTableNames().  See the glue.ligolw.lsctables module for
-	classes whose .tableName class attributes provide the names of
-	standard LSC table definitions.  It is recommended to always use
-	these to retrieve standard tables instead of hard-coding table
-	names as inline strings.
+	table is found.  See the glue.ligolw.lsctables module for classes
+	whose .tableName class attributes provide the names of standard LSC
+	table definitions.  It is recommended to always use these to
+	retrieve standard tables instead of hard-coding table names as
+	inline strings.
 
 	Example:
 
@@ -272,12 +271,12 @@ def reassign_ids(elem):
 	modified IDs.
 
 	This function is used by ligolw_add to assign new IDs to rows when
-	merging documents in order to make sure there are no collisions
-	when documents are merged.  Using this function in this way
-	requires the .get_next_id() methods of all Table elements to yield
-	unused IDs, otherwise collisions will result anyway.  See the
-	.sync_next_id() method of the Table class for a way to initialize
-	the .next_id attributes so that collisions will not occur.
+	merging documents in order to make sure there are no ID collisions.
+	Using this function in this way requires the .get_next_id() methods
+	of all Table elements to yield unused IDs, otherwise collisions
+	will result anyway.  See the .sync_next_id() method of the Table
+	class for a way to initialize the .next_id attributes so that
+	collisions will not occur.
 
 	Example:
 
@@ -603,6 +602,10 @@ class Table(ligolw.Table, list):
 		Retrieve and return the Column child element named name.
 		The comparison is done using CompareColumnNames().  Raises
 		KeyError if this table has no column by that name.
+
+		Example:
+
+		>>> col = tbl.getColumnByName("mass1")
 		"""
 		try:
 			col, = getColumnsByName(self, name)
@@ -619,6 +622,20 @@ class Table(ligolw.Table, list):
 		a column by that name, and KeyError if the validcolumns
 		attribute of this table does not contain an entry for a
 		column by that name.
+
+		Note that the name string is assumed to be "pre-stripped",
+		that is it is the significant portion of the elements Name
+		attribute.  The Column element's Name attribute will be
+		constructed by pre-pending the stripped Table element's
+		name and a colon.
+
+		Example:
+
+		>>> import lsctables
+		>>> process_table = get_table(xmldoc, lsctabes.Process.tableName)
+		>>> col = process_table.appendColumn("program")
+		>>> col.getAttribute("Name")
+		'process:program'
 		"""
 		try:
 			self.getColumnByName(name)
@@ -681,14 +698,18 @@ class Table(ligolw.Table, list):
 	def _end_of_columns(self):
 		"""
 		Called during parsing to indicate that the last Column
-		child element has been added.
+		child element has been added.  Subclasses can override this
+		to perform any special action that should occur following
+		the addition of the last Column element.
 		"""
 		pass
 
 	def _end_of_rows(self):
 		"""
 		Called during parsing to indicate that the last row has
-		been added.
+		been added.  Subclasses can override this to perform any
+		special action that should occur following the addition of
+		the last row.
 		"""
 		pass
 
@@ -718,7 +739,9 @@ class Table(ligolw.Table, list):
 	def get_next_id(cls):
 		"""
 		Returns the current value of the next_id class attribute,
-		and increments the next_id class attribute by 1.
+		and increments the next_id class attribute by 1.  Raises
+		ValueError if the table does not have an ID generator
+		associated with it.
 		"""
 		id = cls.next_id
 		cls.next_id += 1
@@ -753,6 +776,12 @@ class Table(ligolw.Table, list):
 		document that are of the same type will have the effect of
 		setting the ID to the next ID higher than any ID in any of
 		those tables.
+
+		Example:
+
+		>>> for tbl in xmldoc.getElementsByTagName(Table.tagName):
+		...	tbl.sync_next_id()
+		...
 		"""
 		if self.next_id is not None:
 			if len(self):
