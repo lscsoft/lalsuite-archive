@@ -107,9 +107,7 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
   foundTrigs = lsctables.New(lsctables.MultiInspiralTable)
  
   for angle,[found,missed] in cache_dict.items():
-    print angle,maxIncl,maxInclRad
     if angle >= maxIncl:
-      print "Accepted"
       currFInjs = SimInspiralUtils.ReadSimInspiralFromFiles([found.path()])
       currMInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missed.path()])
       currFTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([found.path()])
@@ -117,15 +115,11 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
       for inj in currMInjs:
         if inj.get_theta() < maxInclRad:
           missedInjs.append(inj)
-        else:
-          print "Injection rejected",inj.get_theta()
 
       for inj,trig in zip(currFInjs,currFTrigs):
         if inj.get_theta() < maxInclRad:
           foundInjs.append(inj)
           foundTrigs.append(trig)
-        else:
-          print "Injection rejected",inj.get_theta()
 
 
   # prepare xmldocument 

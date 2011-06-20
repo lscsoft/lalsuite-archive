@@ -219,10 +219,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     if (iterInt + 1)*trialTime + startTimeAfter > endTimeAfter:
       breakLoop = True
 
-#  print trials
-#  print startTimeBefore,endTimeBefore,startTimeAfter,endTimeAfter
-#  print len(trials),numSegs
-
   assert (len(trials) == numSegs)
 
   # Construct veto list
@@ -234,8 +230,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       for entry in tmpVetoSegs:
         vetoes.append(entry)
 
-#  print vetoes
-
   # Determine which trials are vetoed
   numVetoedTrials = 0
   vetoMask = numpy.zeros([numSegs],dtype=int)
@@ -243,11 +237,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     if abs(vetoes & segments.segmentlist([trial])):
       vetoMask[itera] = 1
       numVetoedTrials += 1
-#      print trial
 
   numTrials = numSegs - numVetoedTrials
-
-  print numTrials
   
   if verbose:
     print >>sys.stdout
@@ -306,7 +297,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     if chunkNum == numSegs:
       continue
     if vetoMask[chunkNum]:
-      print trig.get_end()
       continue
    
     filtered_trigs.append(trig)
@@ -739,7 +729,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
       # trials can be retained, if the injection time is not vetoed
       if inj.get_end() in vetoes:
-        print inj.get_end()
         continue
 
       filtered_foundInjs.append(inj)
@@ -931,7 +920,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
       # trials can be retained, if the injection time is not vetoed
       if inj.get_end() in vetoes:
-        print inj.get_end()
         continue
 
       filtered_missedInjs.append(inj)

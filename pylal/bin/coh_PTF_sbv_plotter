@@ -198,7 +198,6 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
 
     # Remove vetoed triggers
     if trig.get_end() in vetoes:
-      print trig.get_end()
       continue
 
     # calculate fResp for each IFO is we haven't done so already
@@ -263,7 +262,6 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   if injFile:
     for trig in injs:
       if trig.get_end() in vetoes:
-        print trig.get_end()
         continue
 
       # calculate fResp for each IFO is we haven't done so already
@@ -404,7 +402,6 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # reset times
   segs = readSegFiles(segdir)
   grbTime = segs['on'][1] - 1
-  print grbTime
   start = int(min(trigTime)) - grbTime
   end   = int(max(trigTime)) - grbTime
   duration = end-start
