@@ -213,7 +213,7 @@ class DocContents(object):
 		#
 
 		if self.siminspiraltable is not None:
-			time_slide_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.siminspiraltable.getColumnByName("ifo"), 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
+			time_slide_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.seglists, 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
 			for sim in self.siminspiraltable:
 				sim.time_slide_id = time_slide_id
 
@@ -306,7 +306,7 @@ class DocContents(object):
 		# tuples and create a coinc_event_id to offset vector
 		# look-up table
 		self.coincs = self.coincs.items()
-		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable)
+		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable if row.coinc_def_id == b_b_coinc_def_id)
 
 		#
 		# represent the sngl_burst table as a dictionary indexed by
@@ -318,7 +318,7 @@ class DocContents(object):
 		#
 
 		self.snglbursttable = dict((instrument, sorted((event for event in self.snglbursttable if event.ifo == instrument), lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))) for instrument in set(self.snglbursttable.getColumnByName("ifo")))
-		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].peak_time, b[0].peak_time) or cmp(a[0].peak_time_ns, b[0].peak_time_ns))
+		self.coincs.sort(lambda (id_a, events_a), (id_b, events_b): cmp(events_a[0].peak_time, events_b[0].peak_time) or cmp(events_a[0].peak_time_ns, events_b[0].peak_time_ns))
 
 	def bursts_near_peaktime(self, t, window, offsetvector):
 		"""
@@ -414,7 +414,7 @@ def StringCuspSnglCompare(sim, burst, offsetvector):
 	"""
 	# the offset vector is subtracted from the time of the injection
 	# instead of being added to the time of the burst
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo]
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
 
@@ -426,7 +426,7 @@ def ExcessPowerSnglCompare(sim, burst, offsetvector):
 	"""
 	# the offset vector is subtracted from the time of the injection
 	# instead of being added to the time of the burst
-	return (SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo] not in burst.get_period()) or (sim.frequency not in burst.get_band())
+	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.get_period()) or (sim.frequency not in burst.get_band())
 
 
 def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
@@ -437,7 +437,7 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
 	# the offset vector is subtracted from the time of the injection
 	# instead of being added to the time of the burst
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo] - burst.get_peak())) > delta_t
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
 
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
@@ -447,7 +447,7 @@ def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	"""
 	# the offset vector is subtracted from the time of the injection
 	# instead of being added to the time of the burst
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo]
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2 + SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
 
@@ -459,7 +459,7 @@ def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
 	"""
 	# the offset vector is subtracted from the time of the injection
 	# instead of being added to the time of the burst
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo]
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
 

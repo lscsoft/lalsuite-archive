@@ -597,11 +597,11 @@ FROM
 					self.found.append(sim)
 					# 1/amplitude needs to be first so
 					# that it acts as the sort key
-					quietest_found.append((1.0 / sim.amplitude, sim, contents.filename, likelihood_ratio))
+					quietest_found.append((1.0 / sim.amplitude, sim, offsetvectors[sim.time_slide_id], contents.filename, likelihood_ratio))
 				else:
 					# amplitude needs to be first so
 					# that it acts as the sort key
-					loudest_missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
+					loudest_missed.append((sim.amplitude, sim, offsetvectors[sim.time_slide_id], contents.filename, likelihood_ratio))
 			elif found:
 				# no, but it was found anyway
 				print >>sys.stderr, "%s: odd, injection %s was found but not injected ..." % (contents.filename, sim.simulation_id)
@@ -665,7 +665,7 @@ FROM
 		f = file("string_loud_missed_injections.txt", "w")
 		print >>f, "Highest Amplitude Missed Injections"
 		print >>f, "==================================="
-		for amplitude, sim, filename, likelihood_ratio in self.loudest_missed:
+		for amplitude, sim, offsetvector, filename, likelihood_ratio in self.loudest_missed:
 			print >>f
 			print >>f, "%s in %s:" % (str(sim.simulation_id), filename)
 			if likelihood_ratio is None:
@@ -674,18 +674,18 @@ FROM
 				print >>f, "Recovered with \\Lambda = %.16g, detection threshold was %.16g" % (likelihood_ratio, self.detection_threshold)
 			for instrument in self.seglists:
 				print >>f, "In %s:" % instrument
-				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
-				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument)
+				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument, offsetvector)
+				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument, offsetvector)
 			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
-			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.seglists))
-			print >>f, "Vetoes within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.vetoseglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.vetoseglists))
+			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-offsetvector[instrument]-60, t-offsetvector[instrument]+60)])) for instrument in self.seglists))
+			print >>f, "Vetoes within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.vetoseglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-offsetvector[instrument]-60, t-offsetvector[instrument]+60)])) for instrument in self.vetoseglists))
 
 		f = file("string_quiet_found_injections.txt", "w")
 		print >>f, "Lowest Amplitude Found Injections"
 		print >>f, "================================="
-		for inv_amplitude, sim, filename, likelihood_ratio in self.quietest_found:
+		for inv_amplitude, sim, offsetvector, filename, likelihood_ratio in self.quietest_found:
 			print >>f
 			print >>f, "%s in %s:" % (str(sim.simulation_id), filename)
 			if likelihood_ratio is None:
@@ -694,13 +694,13 @@ FROM
 				print >>f, "Recovered with \\Lambda = %.16g, detection threshold was %.16g" % (likelihood_ratio, self.detection_threshold)
 			for instrument in self.seglists:
 				print >>f, "In %s:" % instrument
-				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
-				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument)
+				print >>f, "\tInjected amplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument, offsetvector)
+				print >>f, "\tTime of injection:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument, offsetvector)
 			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
-			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.seglists))
-			print >>f, "Vetoes within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.vetoseglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.vetoseglists))
+			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-offsetvector[instrument]-60, t-offsetvector[instrument]+60)])) for instrument in self.seglists))
+			print >>f, "Vetoes within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.vetoseglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-offsetvector[instrument]-60, t-offsetvector[instrument]+60)])) for instrument in self.vetoseglists))
 
 		#
 		# done
