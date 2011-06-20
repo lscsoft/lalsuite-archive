@@ -245,32 +245,32 @@ try:
       # erase temporal database
       if globals().has_key('working_filename'):
         db = globals()['working_filename']
-        if opts.verbose:
-          print >> sys.stderr, "removing temporary workspace '%s'..." % db
-        if os.path.isfile(db):
-          os.remove(db)
+#         if opts.verbose:
+#           print >> sys.stderr, "removing temporary workspace '%s'..." % db
+#         if os.path.isfile(db):
+#           os.remove(db)
       # erase tmp segment
       if globals().has_key('tmpSegFile'):
         ts = globals()['tmpSegFile']
-        if opts.verbose:
-          print >> sys.stderr, "tmpSegFile '%s'..." % ts
-        if os.path.isfile(ts):
-          os.remove(ts)
+#         if opts.verbose:
+#           print >> sys.stderr, "tmpSegFile '%s'..." % ts
+#         if os.path.isfile(ts):
+#           os.remove(ts)
       # erase veto segment
       if globals().has_key('seg_file'):
         vs = globals()['seg_file']
-        if opts.verbose:
-          print >> sys.stderr, "removing temporary workspace '%s'..." % vs
-        if os.path.isfile(vs):
-          os.remove(vs)
+#         if opts.verbose:
+#           print >> sys.stderr, "removing temporary workspace '%s'..." % vs
+#         if os.path.isfile(vs):
+#           os.remove(vs)
       
 finally:  
   # erase summary segment
   if globals().has_key("summary_seg"):
     summmary_seg = globals()["summary_seg"]
-    if opts.verbose:
-      print >> sys.stderr, "removing tmp summary file %s..."%summary_seg
-    os.remove(summary_seg)
+#     if opts.verbose:
+#       print >> sys.stderr, "removing tmp summary file %s..."%summary_seg
+#     os.remove(summary_seg)
 
 # create a veto definer file
 
