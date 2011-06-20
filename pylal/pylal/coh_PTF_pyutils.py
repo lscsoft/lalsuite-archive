@@ -120,15 +120,9 @@ def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
   bank_chisq_dof = 40
   cont_chisq_dof = 160
 
-  print snr_vals[0:10]
-  for i in range(len(cont_vals)):
-    print new_snr_chisq(snr_vals[0], cont_vals[i], 40, q, n)
-
   # loop over each and calculate chisq variable needed for SNR contour
   for j,snr in enumerate(snr_vals):
     for i,new_snr in enumerate(cont_vals):
-      if i==0 and snr in snr_vals[0:10]:
-        print i,new_snr,snr,new_snr_chisq(snr, new_snr, 40, q, n)
 
       bank_conts[i][j] = new_snr_chisq(snr, new_snr, bank_chisq_dof, q, n)
       auto_conts[i][j] = new_snr_chisq(snr, new_snr, cont_chisq_dof, q, n)
@@ -138,10 +132,6 @@ def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
       null_cont.append(null_thresh + (snr-null_grad_snr)*5/70)
     else:
       null_cont.append(null_thresh)
-
-  print len(bank_conts)
-  print bank_conts[0][0:10]
-  print
 
   return bank_conts,auto_conts,chi_conts,null_cont,snr_vals,colors
 

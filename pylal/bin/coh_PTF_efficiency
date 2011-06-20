@@ -358,7 +358,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     d = [ '%s-%s' % tuple(trigBin), chunkNum, '%.2f' % FAP,\
           '%.4f' % trig.get_end(),\
           '%.2f' % trig.mass1, '%.2f' % trig.mass2, '%.2f' % trig.mchirp,\
-          '%.2f' % trig.ra*fRadDeg, '%.2f' % trig.dec*fRadDeg,\
+          '%.2f' % (trig.ra*fRadDeg), '%.2f' % (trig.dec*fRadDeg),\
           '%.2f' % trig.snr, '%.2f' % trig.chisq, '%.2f' % trig.bank_chisq,\
           '%.2f' % trig.cont_chisq, '%.2f' % nullsnr ]
     d.extend([ '%.2f' % getattr(trig,'snr_%s' % ifoAtt[ifo])\
@@ -864,21 +864,20 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     grbTime = segs['on'][1] - 1
     print grbTime
-    start = grbTime
 
-#    start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
-#                     min(gMissed2Time)])) 
-#    end   = int(max([max(gMissedTime),max(gFoundTime),max(gIFARTime),\
-#                     max(gMissed2Time)])+1)
+    start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
+                     min(gMissed2Time)])) 
+    end   = int(max([max(gMissedTime),max(gFoundTime),max(gIFARTime),\
+                     max(gMissed2Time)])+1)
 
-#    duration = end-start
-#    start -= duration*0.05
-#    end += duration*0.05-start
+    duration = end-start
+    start = start - duration*0.05 - grbTime
+    end = end + duration*0.05 - grbTime
 
-    gMissedTime  = [ t-start for t in gMissedTime ]
-    gMissed2Time = [ t-start for t in gMissed2Time ]
-    gFoundTime   = [ t-start for t in gFoundTime ]
-    gIFARTime    = [ t-start for t in gIFARTime ]
+    gMissedTime  = [ t-grbTime for t in gMissedTime ]
+    gMissed2Time = [ t-grbTime for t in gMissed2Time ]
+    gFoundTime   = [ t-grbTime for t in gFoundTime ]
+    gIFARTime    = [ t-grbTime for t in gIFARTime ]
 
 
     # write quiet triggers to file      
@@ -1131,7 +1130,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_xlabel( "Time since %d" % start )
     ax.set_ylabel( "Inverse sum of effective distances" )
     ax.set_title( "Injections found louder than loudest background event" )
-    ax.set_xlim([ 0, end ])
+    ax.set_xlim([ start, end ])
     ax.set_ylim([ 0.5, 1000 ])
     fig.savefig( "%s/found_missed_injections_effdist_time.png" % outdir )
   
@@ -1179,7 +1178,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       ax.set_xlabel( "Time since %d" % start )
       ax.set_ylabel( "%s effective distance" % sitename[site] )
       ax.set_title( "Injections found louder than loudest background event" )
-      ax.set_xlim([ 0, end ])
+      ax.set_xlim([ start, end ])
       ax.set_ylim([ 0.5, 1000 ])
       fig.savefig( "%s/found_missed_injections_effdist_time_%s.png"\
                    % ( outdir, site.lower() ) )
@@ -1217,7 +1216,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_xlabel( "Time since %d" % start )
     ax.set_ylabel( "Distance" )
     ax.set_title( "Injections found louder than loudest background event" )
-    ax.set_xlim([ 0, end ])
+    ax.set_xlim([ start, end ])
     ax.set_ylim([ 0.5, 100 ])
     fig.savefig( "%s/found_missed_injections_dist_time.png" % outdir )
 
@@ -1229,7 +1228,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.grid()
     ax.set_xlabel( "Time since %d" % start )
     ax.set_ylabel( "Rec. sky error (radians)" )
-    ax.set_xlim([ 0, end ])
+    ax.set_xlim([ start, end ])
     fig.savefig( '%s/found_sky_error_time.png' % outdir )
   
     fig = pylab.figure()
