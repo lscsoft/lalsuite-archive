@@ -399,10 +399,10 @@ options, filenames = parse_command_line()
 
 
 plots = [
-	TriggerCountHistogram(),
-	RecoveredVsInjectedAmplitude(options.amplitude_func, options.amplitude_lbl),
-	RecoveredTimeOffset(segments.segment(-0.01, +0.01), 0.00005),
-	RecoveredFreq(options.amplitude_func)
+	(0, TriggerCountHistogram()),
+	(1, RecoveredVsInjectedAmplitude(options.amplitude_func, options.amplitude_lbl)),
+	(2, RecoveredTimeOffset(segments.segment(-0.01, +0.01), 0.00005)),
+	(3, RecoveredFreq(options.amplitude_func))
 ]
 
 if options.plot is not None:
@@ -444,7 +444,7 @@ AS
 		a.table_name == 'sim_burst'
 		AND coinc_event.coinc_def_id == ?
 	""", (database.sb_definer_id,))
-	for n, plot in enumerate(plots):
+	for n, plot in plots:
 		if options.verbose:
 			print >>sys.stderr, "adding to plot group %d ..." % n
 		plot.add_contents(database)
@@ -457,16 +457,15 @@ AS
 #
 
 
-n = 0
 format = "%%s%%0%dd%%s.%%s" % (int(math.log10(len(plots) or 1)) + 1)
 while len(plots):
-	plot = plots.pop(0)
+	n, plot = plots.pop(0)
 	if options.verbose:
-		print >>sys.stderr, "finishing plot %d ..." % n
+		print >>sys.stderr, "finishing plot group %d ..." % n
 	try:
 		figs = plot.finish()
 	except ValueError, e:
-		print >>sys.stderr, "can't finish plot %d: %s" % (n, str(e))
+		print >>sys.stderr, "can't finish plot group %d: %s" % (n, str(e))
 	else:
 		for f, fig in enumerate(figs):
 			for extension in options.format:
@@ -474,4 +473,3 @@ while len(plots):
 				if options.verbose:
 					print >>sys.stderr, "writing %s ..." % filename
 				fig.savefig(filename)
-	n += 1
