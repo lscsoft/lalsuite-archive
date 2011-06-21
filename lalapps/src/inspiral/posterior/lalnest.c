@@ -941,36 +941,32 @@ int main( int argc, char *argv[])
 			
 			/* Create the fake data */
 			for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-                                inputMCMC.invspec[i]->data->data[j]=1.0/(scalefactor*inputMCMC.invspec[i]->data->data[j]);
-		                       	inputMCMC.stilde[i]->data->data[j].re=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
-								inputMCMC.stilde[i]->data->data[j].im=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
+                inputMCMC.invspec[i]->data->data[j]=1.0/(scalefactor*inputMCMC.invspec[i]->data->data[j]);
+		        inputMCMC.stilde[i]->data->data[j].re=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
+				inputMCMC.stilde[i]->data->data[j].im=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 			}					
 			/* Add calibration error to the noise PSD and the noise data in the frequency domain */
             
             
 			if(enable_calamp || enable_calfreq){
-                REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+             //   FILE *noiseout;
+   // char uncaliboutname[100];
+    //sprintf(uncaliboutname,"uncal_invertPSD_%s.dat",IFOnames[i]);
+    //noiseout=fopen(uncaliboutname,"w");
+      //          for(j=0;j<inputMCMC.invspec[i]->data->length;j++){fprintf(noiseout,"%5.3lf %10.10lf \n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j]);}
+    //fclose(noiseout);
+               // REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
                 fprintf(stderr,"Applying calibration errors to %s noise \n", IFOnames[i]);
-                //FILE *calibout;
-                //char caliboutname[100];
-                //sprintf(caliboutname,"uncalibnoise_%s_%9.2f.dat",IFOnames[i],injTime);
-                //calibout=fopen(caliboutname,"w");
-                //for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-                //     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
-                //}
-                //fclose(calibout);
                 COMPLEX16FrequencySeries *CalibNoise=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibNoiseFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                 ApplyCalibrationErrorsToData(inputMCMC,CalibNoise, IFOnames[i],i,calib_seed);
                 XLALDestroyCOMPLEX16FrequencySeries(CalibNoise);
-                //sprintf(caliboutname,"calibnoise_%s_%9.2f.dat",IFOnames[i],injTime);
-                //calibout=fopen(caliboutname,"w");
-                //for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
-                //     fprintf(calibout,"%g\t%g\t%g\t%g\n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j],inputMCMC.stilde[i]->data->data[j].re,inputMCMC.stilde[i]->data->data[j].im);
-                //}
-                //fclose(calibout);
+      //            char caliboutname[100];
+    //sprintf(caliboutname,"cal_invertPSD_%s.dat",IFOnames[i]);
+  //  noiseout=fopen(caliboutname,"w");
+    //            for(j=0;j<inputMCMC.invspec[i]->data->length;j++){fprintf(noiseout,"%5.3lf %10.10lf \n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j]);}
+      //          fclose(noiseout);
             }
 		
-			
 		} //end if fake data
 		else FakeFlag=0;
 
@@ -1091,7 +1087,7 @@ int main( int argc, char *argv[])
 			
 			/* Apply calibration errors to the real noise PSD and datastream */
             if((enable_calamp || enable_calfreq) && !FakeFlag){
-                REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+                //REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
                 fprintf(stderr,"Applying calibration errors to %s real noise \n", IFOnames[i]);
                 //FILE *calibout;
                 //char caliboutname[100];
@@ -1174,25 +1170,22 @@ int main( int argc, char *argv[])
 			XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
 			
 			REPORTSTATUS(&status);
+            /* Add calibration errors to the waveform. This is done before the SNR is calculated */
+            if(enable_calamp || enable_calfreq){
+                COMPLEX16FrequencySeries *injFnoError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+                COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
 
-      //          REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
-//
-                /* Add calibration errors to the waveform. This is done before the SNR is calculated */
-                if(enable_calamp || enable_calfreq){
-                    COMPLEX16FrequencySeries *injFnoError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
-                    COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+                for(j=0;j<injF->data->length;j++){
+                    injFnoError->data->data[j].re=injF->data->data[j].re;
+                    injFnoError->data->data[j].im=injF->data->data[j].im;                        
+                    
+                }
+                ApplyCalibrationErrorsToWaveform(injF,CalibInj, IFOnames[i],i,calib_seed );
+                PrintCalibrationErrorsToFile(injF,injFnoError,i,injTable,&inputMCMC);
+                XLALDestroyCOMPLEX16FrequencySeries(injFnoError);
+                XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
 
-                    for(j=0;j<injF->data->length;j++){
-                        injFnoError->data->data[j].re=injF->data->data[j].re;
-                        injFnoError->data->data[j].im=injF->data->data[j].im;                        
-                        
-		    }
-                    ApplyCalibrationErrorsToWaveform(injF,CalibInj, IFOnames[i],i,calib_seed );
-                    PrintCalibrationErrorsToFile(injF,injFnoError,i,injTable,&inputMCMC);
-                    XLALDestroyCOMPLEX16FrequencySeries(injFnoError);
-                    XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
-
-                } 
+            } 
 
 			if(estimatenoise){
 				for(j=(UINT4) (inputMCMC.fLow/inputMCMC.invspec[i]->deltaF),SNR=0.0;j<inputMCMC.invspec[i]->data->length;j++){
