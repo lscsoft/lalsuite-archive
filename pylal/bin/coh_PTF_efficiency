@@ -1167,7 +1167,32 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.set_ylabel( "Fraction of injections found louder than "+\
                    "loudest foreground" )
     ax.set_xlabel( "Distance" )
+
+    # Print 90% exclusion distance to file
+    for ii,dist, eff in zip(range(len(distPlotVals)),distPlotVals,\
+                        finjs/totalinjs):
+      if eff < 0.9:
+        if ii == 0:
+          raise ValueError, "Efficiency below 90% in first bin!"
+        dist_low = distPlotVals[ii-1]
+        eff_low = (finjs/totalinjs)[ii-1]
+        delta_dist = dist - dist_low
+        delta_eff = eff_low - eff
+        gradient = delta_eff/delta_dist
+        const =  eff + gradient * dist
+        excl_dist = (const - 0.9)/gradient
+        print excl_dist
+        break
+
+    file = open( "%s/exclusion_distance.txt" % outdir, "w" )
+    print >>file, excl_dist
+    file.close()
+
+    ax.plot([excl_dist],[0.9],'gx')
     fig.savefig( '%s/BestNR_on_efficiency.png' % ( outdir ) )
+
+         
+      
   
     binNum = 0
     for bin in massBins:
@@ -1232,7 +1257,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.semilogy()
     cb = ax.figure.colorbar( p )
     cb.ax.set_ylabel( "FAP" )
-    ax.set_xlabel( "Time since %d" % start )
+    ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Inverse sum of effective distances" )
     ax.set_title( "Injections found louder than loudest background event" )
     ax.set_xlim([ start, end ])
@@ -1280,7 +1305,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       ax.semilogy()
       cb = ax.figure.colorbar( p )
       cb.ax.set_ylabel( "FAP" )
-      ax.set_xlabel( "Time since %d" % start )
+      ax.set_xlabel( "Time since %d" % grbTime )
       ax.set_ylabel( "%s effective distance" % sitename[site] )
       ax.set_title( "Injections found louder than loudest background event" )
       ax.set_xlim([ start, end ])
@@ -1318,7 +1343,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.semilogy()
     cb = ax.figure.colorbar( p )
     cb.ax.set_ylabel("FAP" )
-    ax.set_xlabel( "Time since %d" % start )
+    ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Distance" )
     ax.set_title( "Injections found louder than loudest background event" )
     ax.set_xlim([ start, end ])
@@ -1331,7 +1356,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.plot( gFoundTime, gFoundSkyAngle, 'b.' )
     ax.plot( gIFARTime, gIFARSkyAngle, 'b.' )
     ax.grid()
-    ax.set_xlabel( "Time since %d" % start )
+    ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Rec. sky error (radians)" )
     ax.set_xlim([ start, end ])
     fig.savefig( '%s/found_sky_error_time.png' % outdir )

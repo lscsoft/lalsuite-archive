@@ -246,11 +246,11 @@ def write_found_missed( page, ifos, injList ):
 
   plots = []
   text  = {}
-  for ifo in ifos:
-    plots.extend(['effdist_%s' % ifo[0].lower(),\
-                  'effdist_time_%s' % ifo[0].lower()])
-    text['effdist_%s' % ifo[0].lower()]      = 'Eff. dist. %s vs Mchirp' % ifo
-    text['effdist_time_%s' % ifo[0].lower()] = 'Eff. dist %s vs Time' % ifo
+  ifo=ifos[0]
+  plots.extend(['effdist_%s' % ifo[0].lower(),\
+                'effdist_time_%s' % ifo[0].lower()])
+  text['effdist_%s' % ifo[0].lower()]      = 'Eff. dist. %s vs Mchirp' % ifo
+  text['effdist_time_%s' % ifo[0].lower()] = 'Eff. dist %s vs Time' % ifo
 
   for row in plots:
     pTag = text[row]
@@ -342,7 +342,7 @@ def write_loudest_events( page, bins, onsource=False ):
 
   return page
 
-def write_exclusion_distances(page , trial, injList, massbins, onsource=False):
+def write_exclusion_distances(page , trial, injList, massbins, reduced=False, onsource=False):
   file = open( '%s/efficiency/loud_numbers.txt' % (trial), 'r' )
   FAPS = []
   for line in file:
@@ -352,6 +352,8 @@ def write_exclusion_distances(page , trial, injList, massbins, onsource=False):
     else:
       FAPS.append(float(line))
 
+  file.close()
+
   th = ['']+['Mchirp %s - %s' % tuple(bin) for bin in massbins]
   td = ['FAP']+FAPS
   page = write_table( page, th, td )
@@ -359,6 +361,9 @@ def write_exclusion_distances(page , trial, injList, massbins, onsource=False):
   page.a( href='%s/efficiency/loudest_events.html' % (trial) )
   page.add('here.')
   page.a.close()
+
+  if reduced:
+    return page  
 
   page.h3()
   page.add('Detection efficiency plots')
@@ -398,6 +403,20 @@ def write_exclusion_distances(page , trial, injList, massbins, onsource=False):
 
   page.h3()
   page.add('Exclusion distances')
+  th = injList
+  td = []
+  d = []
+  for inj in injList:
+    file = open( '%s/efficiency_%s/exclusion_distance.txt' % (inj,trial), 'r' )
+    for line in file:
+      line = line.replace('\n','')
+      excl_dist = float(line)
+    d.append(excl_dist)
+    file.close()
+  td.append(d)
+
+  page = write_table( page, th, td )
+
   page.h3.close()
 
   return page
@@ -474,8 +493,9 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   os.chdir( outdir )
 
   # get sections
-  injList = glob.glob('injections*')
-  do_off  = bool(os.path.isdir('OFFSOURCE'))
+#  injList = glob.glob('injections*')
+  tuningInjList = ['injectionsDetectionFull']
+  detectionInjList = ['injectionsAstroNSBH_FILTERED_10','injectionsAstroNSBH_FILTERED_30','injectionsAstroNSBH_FILTERED_45', 'injectionsAstroNSBH_FILTERED_90','injectionsAstroNSNS_FILTERED_10','injectionsAstroNSNS_FILTERED_30','injectionsAstroNSNS_FILTERED_45','injectionsAstroNSNS_FILTERED_90']
   trials  = sorted(glob.glob('OFFTRIAL_*'))
 
   # initialise page
@@ -502,14 +522,12 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
 
   # add links
   grbsumlink = 'http://grblog.org/grblog.php?view=burst&GRB=%s' % GRBnum
-  googlelink = '%s.kml' % GRBnum
   seglink    = 'plot_segments_grb%s.png' % GRBnum
   inilink    = os.path.basename(inifile)
   linktext = { grbsumlink:'Summary of this GRB',\
-               googlelink:'Google sky kml file',\
                seglink:   'Segments availability',\
                inilink:   'ini-file used'}
-  for link in [ grbsumlink, googlelink, seglink, inilink ]:
+  for link in [ grbsumlink, seglink, inilink ]:
     webpage.add( linktext[link] )
     webpage.a( href=link )
     webpage.add( 'here' )
@@ -554,11 +572,11 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   webpage.h3()
   webpage.add('Chi squared tests')
   webpage.h3.close()
-  webpage = write_chisq( webpage, injList, GRBnum )
+  webpage = write_chisq( webpage, tuningInjList, GRBnum )
   webpage.h3()
   webpage.add('Individual detector and null SNRs')
   webpage.h3.close()
-  webpage = write_inj_snrs( webpage, ifos, injList, GRBnum )
+  webpage = write_inj_snrs( webpage, ifos, tuningInjList, GRBnum )
 
   webpage.div.close()
 
@@ -586,20 +604,20 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
               'with the injection but it was not louder than all offsource '+\
               'events. The colour bar gives the FAP of the trigger.')
 
-  webpage = write_found_missed( webpage, ifos, injList )
+  webpage = write_found_missed( webpage, ifos, detectionInjList )
 
   webpage.div.close()
 
   # add injection recovery plots
-  secname = 'Injection recovery'
-  i += 1
-  webpage.input( id="input_%s" % i, type="button", class_="h2",\
-                 onclick="toggleVisible('%d');" % i, value=secname )
-  webpage.div( id="div_%s" % i, style="display: none;" )
+#  secname = 'Injection recovery'
+#  i += 1
+#  webpage.input( id="input_%s" % i, type="button", class_="h2",\
+#                 onclick="toggleVisible('%d');" % i, value=secname )
+#  webpage.div( id="div_%s" % i, style="display: none;" )
 
-  webpage = write_recovery( webpage, injList )
+#  webpage = write_recovery( webpage, tuningInjList )
 
-  webpage.div.close()
+#  webpage.div.close()
 
   # add loudest off source events
   secname = 'Loudest offsource events'
@@ -614,13 +632,16 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   webpage.div.close()
 
   # write trial results
-  for trial in trials:
+  for ii,trial in zip(range(len(trials)),trials):
+    reduced = False
+    if ii > 1:
+      reduced = True
     secname = 'Results for %s' % trial.replace('_',' ').title()
     i += 1
     webpage.input( id="input_%s" % i, type="button", class_="h2",\
                    onclick="toggleVisible('%s');" % i, value=secname )
     webpage.div( id="div_%s" % i, style="display: none;" )
-    webpage = write_exclusion_distances(webpage,trial,injList,massbins,onsource=False)
+    webpage = write_exclusion_distances(webpage,trial,detectionInjList,massbins,reduced=reduced,onsource=False)
     webpage.div.close()
 
   if open_box:
@@ -641,29 +662,13 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
   
     # write on source events
     trial = 'ONSOURCE'
-    secname = 'Events in %s' % trial.replace('_',' ').title()
+    secname = 'Results for %s' % trial.replace('_',' ').title()
     i += 1
     webpage.input( id="input_%s" % i, type="button", class_="h2",\
                    onclick="toggleVisible('%s');" % i, value=secname )
     webpage.div( id="div_%s" % i, style="display: none;" )
-
-    file = open( '%s/efficiency/loud_numbers.txt' % trial, 'r' )
-    FAPS = []
-    for line in file:
-      line = line.replace('\n','')
-      if float(line) == -2:
-        FAPS.append('No event')
-      else:
-        FAPS.append(float(line))
-
-    th = ['']+['Mchirp %s - %s' % tuple(bin) for bin in massbins]
-    td = ['FAP']+FAPS
-    webpage = write_table( webpage, th, td )
-    webpage.add( 'For more details on the loudest events see')
-    webpage.a( href='%s/efficiency/loudest_events.html' % trial )
-    webpage.add('here.')
-    webpage.a.close()
-
+    webpage = write_exclusion_distances(webpage,trial,detectionInjList,\
+              massbins,reduced=False,onsource=False)
     webpage.div.close()
 
   webpage.div.close()
