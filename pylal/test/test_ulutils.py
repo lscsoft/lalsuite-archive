@@ -168,6 +168,23 @@ class test_ulutils(unittest.TestCase):
         # model to at least ~5% (though this can fluctuate)
         self.assertTrue( (eff - eff_model(centres)).sum()/len(eff) < 0.05 )
 
+    def test_compute_many_posterior(self):
+        # for 0 lambda's, volumes add
+        mu1, post1 = upper_limit_utils.compute_many_posterior([5,10,4,6],[0,0,0,0],[0,0,0,0])
+        mu2, post2 = upper_limit_utils.compute_many_posterior([15,10],[0,0],[0,0])
+        mu3, post3 = upper_limit_utils.compute_many_posterior([25],[0],[0])
+
+        mu_90_1 = upper_limit_utils.compute_upper_limit(mu1,post1,0.90)
+        mu_90_2 = upper_limit_utils.compute_upper_limit(mu2,post2,0.90)
+        mu_90_3 = upper_limit_utils.compute_upper_limit(mu3,post3,0.90)
+
+        self.assertTrue( (mu_90_2-mu_90_1) < 0.05 )
+        self.assertTrue( (mu_90_3-mu_90_1) < 0.05 )
+        self.assertTrue( (mu_90_3-mu_90_2) < 0.05 )
+
+
+
+
 # construct and run the test suite.
 suite = unittest.TestSuite()
 suite.addTest(unittest.makeSuite(test_ulutils))
