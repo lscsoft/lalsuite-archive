@@ -357,7 +357,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                     parameters.remove('likelihood')
                 summary.write(str(time)+'\t')
                 for parameter in parameters:
-                    summary.write(repr(pos[parameter].mean) + '\t'+ repr(pos[parameter].stdev) +'\t')
+                    summary.write(repr(float(pos[parameter].median)) + '\t'+ repr(pos[parameter].stdev) +'\t')
                     if time==times_run[out_run][0]:
                         #header_l.append('mean_'+parameter)
                         #header_l.append('stdev_'+parameter)
@@ -391,7 +391,6 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             summary.close()
 	    header.close()
     ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act consequently.
-        
     ### Now read the ctrl data, these stay the same all along while the cal_run data are read at each interation in the for below
     for run in key_runs:
         run=str(run)
@@ -400,7 +399,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         header=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'r')
         header_l=eval(header.readline())
 	print header_l,type(header_l),header_l.index('SNR_Network')
-        MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l)
+        MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,keyword)
         if snrs is not None:
             MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,keyword)
         if BSN is not None and snrs is not None:
@@ -491,7 +490,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     myfig.clear()
 
 
-def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
+def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,key):
     nbins=20
     data_cal=np.loadtxt(path_cal)
     data_uncal=np.loadtxt(path_uncal)
@@ -505,8 +504,8 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
     for snr in network_snrs_key:
         if snr>8.0:
             theres_snr_ind.append(network_snrs_key.index(snr))
-    print theres_snr_ind
-    
+    #print theres_snr_ind
+    outliers=open(os.path.join(path_plots,'outliers.txt'),'w')
     for parameter in parameters:
         x=parameters.index(parameter)*2+1
         x_delta=(data_cal[theres_snr_ind,x]-data_uncal[theres_snr_ind,x])
@@ -548,8 +547,10 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
         mean_effect_size=mean(effect_size)
         std_effect_size=std_dev(effect_size,mean_effect_size)
         for i in range(len(data_cal[:,0])):
-            if (data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>3.0:
+            if fabs(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>3.0:
                 print "parameter ",parameter, i,data_cal[i,x],data_uncal[i,x],data_uncal[i,x+1],(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]
+                outliers.write('parameter ' + parameter + ' event ' + str(i) + ' mean_ctrl ' +str(data_uncal[i,x]) + ' mean_'+key + str(data_cal[i,x]) + ' effect_size ' +str((data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1])+'\n')
+
         skewness_effect_size= skewness(effect_size, mean_effect_size, std_effect_size)
         kurtosis_effect_size= kurtosis(effect_size, mean_effect_size, std_effect_size)
         print "Mean %s in run %i: %e\n" %(parameter,int(run),mean_effect_size)
@@ -569,7 +570,8 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l):
         myfig2.savefig(os.path.join(path_plots,'effect_'+parameter+'.png'))
         myfig2.clear()
     effect_size_moments.close()
-        
+    outliers.close()
+
 def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,key):
     
     data_cal=np.loadtxt(path_cal)
@@ -697,13 +699,14 @@ def WritePlotPage(outdir,run,parameters,first_time):
     #effect_size_moments=np.loadtxt(os.path.join(path_plots,'moments.txt'),skiprows=1,usecols=(1,2,3,4,5),dtype=str)
     effect_size_moments=np.loadtxt(os.path.join(path_plots,'moments.txt'),dtype='str')
     html_plots_st+='<td colspan="2"><table>'
+    html_plots_st+='<tr> <b>Effect size summary statistics</b> </tr>'
     for i in range(len(effect_size_moments[:,1])):
         html_plots_st+='<tr>'
 	for j in range(len(effect_size_moments[1,:])):
 	    html_plots_st+='<td>'+str(effect_size_moments[i,j])+'</td>'
         html_plots_st+='</tr>'
-    html_plots_st+='</table></td>'
-
+    html_plots_st+='</table>'
+    html_plots_st+=str(link(os.path.join(path_plots,"outliers.txt"),"Outliers"))+'</td>'
 
     html_plots_st+='</tr></table>'
     html_plots.write(html_plots_st) 
