@@ -345,7 +345,7 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: cannot fit to log-volume."
         return 0
 
-    fit = interpolate.splrep(x,numpy.log10(vols),k=3)
+    fit = interpolate.splrep(x,numpy.log(vols),k=3)
     val = interpolate.splev(xhat,fit,der=1)
     if val < 0:
         val = 0 #prevents negative derivitives arising from bad fits
