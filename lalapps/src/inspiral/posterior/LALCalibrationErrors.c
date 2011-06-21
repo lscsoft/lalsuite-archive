@@ -575,15 +575,15 @@ void ApplyCalibrationErrorsToData(LALMCMCInput inputMCMC, COMPLEX16FrequencySeri
     switch(IFOnum) {
 		case 1:
             SampleCalibrationErrorsPhase(logfcur, length, 1, seed, phaseErr);
-            SampleCalibrationErrorsAmplitude(logfcur, length, 1, seed, ampErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 1, seed+4101, ampErr);
 			break;
         case 2:
             SampleCalibrationErrorsPhase(logfcur, length, 2, seed, phaseErr);
-            SampleCalibrationErrorsAmplitude(logfcur, length, 2, seed, ampErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 2, seed+4101, ampErr);
 			break;
 		case 3:
             SampleCalibrationErrorsPhase(logfcur, length, 3, seed, phaseErr);
-            SampleCalibrationErrorsAmplitude(logfcur, length, 3, seed, ampErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 3, seed+4101, ampErr);
             break;
         default:
 			fprintf(stderr,"Unknown interferometer %s. Valid codes: H1 L1 V1\n",IFOname); exit(-1);
@@ -593,7 +593,7 @@ void ApplyCalibrationErrorsToData(LALMCMCInput inputMCMC, COMPLEX16FrequencySeri
     /* Modify the fake noise PSD */
     for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
         if(enable_calamp){  inputMCMC.invspec[i]->data->data[j]/=((REAL8)CalAmpFacs[i]*(REAL8)CalAmpFacs[i]);}
-        else if(enable_calfreq){ inputMCMC.invspec[i]->data->data[j]/=(ConvertCoefficientsToFunction(ampFit,j*inputMCMC.deltaF,cen)*ConvertCoefficientsToFunction(ampFit,j*inputMCMC.deltaF,cen));}
+        else if(enable_calfreq){ inputMCMC.invspec[i]->data->data[j]/=((ConvertCoefficientsToFunction(ampFit,j*inputMCMC.deltaF,cen)*ConvertCoefficientsToFunction(ampFit,j*inputMCMC.deltaF,cen)));}
     }
 
     /* Modifiy the noise stream in the frequency domain */
@@ -681,15 +681,15 @@ void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibI
 	switch(IFO) {
         case 1:
             SampleCalibrationErrorsPhase(logfcur, length, 1, seed, phaseErr);
-            SampleCalibrationErrorsAmplitude(logfcur, length, 1, seed+41, ampErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 1, seed+4101, ampErr);
 			break;
 		case 2:
             SampleCalibrationErrorsPhase(logfcur, length, 2, seed, phaseErr);
-            SampleCalibrationErrorsAmplitude(logfcur, length, 2, seed+41, ampErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 2, seed+4101, ampErr);
             break;
         case 3:
             SampleCalibrationErrorsPhase(logfcur, length, 3, seed, phaseErr);
-            SampleCalibrationErrorsAmplitude(logfcur, length, 3, seed+41, ampErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 3, seed+4101, ampErr);
 			break;
         default:
             fprintf(stderr,"Unknown interferometer %s. Valid codes: H1 L1 V1\n",IFOname); exit(-1);
