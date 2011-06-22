@@ -1123,10 +1123,14 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     iter = 0
 
-    # Fix the error bar!
+    yerr_common = totalinjs * (2 * finjs + 1)
+    yerr_denom = 2*totalinjs*(totalinjs + 1)
+    yerr_vary = 4 * totalinjs * finjs * (totalinjs - finjs) + totalinjs**2
+    yerr_vary = yerr_vary**0.5
+    yerr_low = (yerr_common - yerr_vary)/yerr_denom
+    yerr_high = (yerr_common + yerr_vary)/yerr_denom
     ax.errorbar( distPlotVals, (finjs/totalinjs),\
-                 yerr=totalinjs**(-0.5) * ( (finjs/totalinjs) * \
-                 (1 - (finjs/totalinjs)))**(0.5), c = 'r' )
+                 yerr=[yerr_low,yerr_high], c = 'r' )
     ax.set_ylim( [0,1] )
     ax.set_title( "Efficiency of injection finding using "+\
                   "BestNR as detection statistic" )
@@ -1156,9 +1160,15 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.plot( distPlotVals, (finjs/totalinjs), 'r' )
     ax.grid()
     iter = 0
+    yerr_common = totalinjs * (2 * finjs + 1)
+    yerr_denom = 2*totalinjs*(totalinjs + 1)
+    yerr_vary = 4 * totalinjs * finjs * (totalinjs - finjs) + totalinjs**2
+    yerr_vary = yerr_vary**0.5
+    yerr_low = (yerr_common - yerr_vary)/yerr_denom
+    yerr_high = (yerr_common + yerr_vary)/yerr_denom
     ax.errorbar( distPlotVals, (finjs/totalinjs),\
-                 yerr=totalinjs**(-0.5) * ( (finjs/totalinjs) * \
-                 (1 - (finjs/totalinjs)))**(0.5), c = 'r' )
+                 yerr=[yerr_low,yerr_high], c = 'r' )
+
 
     ax.set_ylim( [0,1] )
     ax.set_title( "Efficiency of injection finding using "+\
