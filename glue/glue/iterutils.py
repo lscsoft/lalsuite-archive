@@ -465,17 +465,13 @@ class Highest(list):
 			if j >= list.__len__(other):
 				i = min(self.max - j, list.__len__(self))
 				break
-			if self[i] > other[j]:
+			if self[i] >= other[j]:
 				i += 1
-			elif self[i] < other[j]:
-				j += 1
 			else:
-				# self[i] == other[j]
-				i += 1
 				j += 1
 		self[i:] = other[:j]
 		list.sort(self, reverse = True)
-		del self[self.max:]
+		del self[self.max:]	# should be a no-op
 		return self
 
 	def extend(self, sequence):
@@ -484,13 +480,25 @@ class Highest(list):
 		assert not isinstance(sequence, type(self))
 		# FIXME:  could be implemented with heapq.merge() when 2.6
 		# is generally available
-		# n is updated in a way that allows sequence to be a
-		# generator or other object without a __len__() method
-		before = list.__len__(self)
-		list.extend(self, sequence)
-		self.n += list.__len__(self) - before
+		sequence = sorted(sequence, reverse = True)
+		self.n += len(sequence)
+		# FIXME:  since the lists are sorted, lots could be done to
+		# speed this up
+		i = j = 0
+		while i + j < self.max:
+			if i >= list.__len__(self):
+				j = min(self.max - i, len(sequence))
+				break
+			if j >= len(sequence):
+				i = min(self.max - j, list.__len__(self))
+				break
+			if self[i] >= sequence[j]:
+				i += 1
+			else:
+				j += 1
+		self[i:] = sequence[:j]
 		list.sort(self, reverse = True)
-		del self[self.max:]
+		del self[self.max:]	# should be a no-op
 
 	#
 	# Stubs to prevent bugs
