@@ -229,6 +229,17 @@ class segment(tuple):
 	objects.  The methods for this class exist mostly for purpose of
 	simplifying the implementation of the segmentlist class.
 
+	The segment class is a subclass of the tuple built-in class
+	provided by Python.  This means segments are immutable --- you
+	cannot modify a segment object after creating it, to change the
+	boundaries of a segment you must create a new segment object with
+	the desired boundaries.  Like tuples, segments can be used as
+	dictionary keys, and like tuples the comparison used to find a
+	segment in the dictionary is done by value not by ID.  And, like
+	tuples, a segment can be created from any sequence-like object by
+	passing it to the constructor (the sequence must have exactly two
+	elements in it).
+
 	Example:
 
 	>>> segment(0, 10) & segment(5, 15)
@@ -248,6 +259,16 @@ class segment(tuple):
 	>>> x = [0, 1]
 	>>> segment(x)
 	segment(0, 1)
+	>>> y = segment(0, 1)
+	>>> y == x
+	True
+	>>> y is x
+	False
+	>>> z = {x: ["/path/to/file1", "/path/to/file2"]}
+	>>> y in z
+	True
+	>>> z[y]
+	['/path/to/file1', '/path/to/file2']
 	"""
 
 	# basic class methods
@@ -282,7 +303,8 @@ class segment(tuple):
 
 	def __nonzero__(self):
 		"""
-		Test for segment having non-zero duration.
+		Return True if the segment's boudaries are not equal, False
+		if they are equal.
 		"""
 		return self[0] != self[1]
 
