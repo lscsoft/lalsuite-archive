@@ -158,9 +158,9 @@ def confidence_interval( mu, post, alpha = 0.9 ):
 def integrate_efficiency(dbins, eff, err=0, logbins=False):
 
     if logbins:
-        logd = numpy.log10(dbins)
+        logd = numpy.log(dbins)
         dlogd = logd[1:]-logd[:-1]
-        dreps = 10**((numpy.log10(dbins[1:])+numpy.log10(dbins[:-1]))/2) # log midpoint
+        dreps = numpy.exp( (numpy.log(dbins[1:])+numpy.log(dbins[:-1]))/2) # log midpoint
         vol = numpy.sum( 4*numpy.pi *dreps**3 *eff *dlogd )
         verr = numpy.sum( (4*numpy.pi *dreps**3 *err *dlogd)**2 ) #propagate errors in eff to errors in v
     else:
