@@ -274,6 +274,9 @@ WHERE
 				# likelihood ratio must be listed first to
 				# act as the sort key
 				most_significant_background.append((likelihood_ratio, contents.filename, coinc_event_id, dbtables.lsctables.instrument_set_from_ifos(instruments), peak_time))
+				if len(most_significant_background) > 100 * self.most_significant_background.max:
+					self.most_significant_background.extend(most_significant_background)
+					del most_significant_background[:]
 			else:
 				# non-vetoed zero lag
 				self.zero_lag.append(likelihood_ratio)
