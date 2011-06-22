@@ -101,7 +101,7 @@ class test_ulutils(unittest.TestCase):
         xbins = numpy.linspace(0,1,50)
         centres = (xbins[:-1]+xbins[1:])/2
         mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
-        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
+        v = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
         vexpect = 1 - numpy.exp(-1)
         self.assertTrue(abs(v -vexpect ) < 0.01)
 
@@ -113,7 +113,7 @@ class test_ulutils(unittest.TestCase):
         xbins = numpy.logspace(-2,0,50)
         centres = numpy.exp((numpy.log(xbins[1:])+numpy.log(xbins[:-1]))/2) # log midpoint
         mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
-        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=True)
+        v = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=True)
         vexpect = 1 - numpy.exp(-1)
         self.assertTrue(abs(v -vexpect ) < 0.01)
 
@@ -133,7 +133,7 @@ class test_ulutils(unittest.TestCase):
 
         rbins = numpy.linspace(0,Rmax,20)
         centres = (rbins[1:]+rbins[:-1])/2
-        v, verr = upper_limit_utils.integrate_efficiency(rbins, mockeff(centres))
+        v = upper_limit_utils.integrate_efficiency(rbins, mockeff(centres))
         vexpect = (1./35)*(4*numpy.pi/3)*(Rmax**3)
         self.assertTrue(abs(1-v/vexpect) < 0.01)
 
@@ -163,10 +163,27 @@ class test_ulutils(unittest.TestCase):
             else:
                 missed.append( MiniInj(inj) )
 
-        eff, err = upper_limit_utils.mean_efficiency(found, missed, bins, bootnum=10)
+        eff, err, meanvol, volerr = upper_limit_utils.mean_efficiency_volume(found, missed, bins, bootnum=10)
         # the computed mean efficiency should agree with the efficiency
         # model to at least ~5% (though this can fluctuate)
         self.assertTrue( (eff - eff_model(centres)).sum()/len(eff) < 0.05 )
+
+    def test_compute_many_posterior(self):
+        # for 0 lambda's, volumes add
+        mu1, post1 = upper_limit_utils.compute_many_posterior([5,10,4,6],[0,0,0,0],[0,0,0,0])
+        mu2, post2 = upper_limit_utils.compute_many_posterior([15,10],[0,0],[0,0])
+        mu3, post3 = upper_limit_utils.compute_many_posterior([25],[0],[0])
+
+        mu_90_1 = upper_limit_utils.compute_upper_limit(mu1,post1,0.90)
+        mu_90_2 = upper_limit_utils.compute_upper_limit(mu2,post2,0.90)
+        mu_90_3 = upper_limit_utils.compute_upper_limit(mu3,post3,0.90)
+
+        self.assertTrue( (mu_90_2-mu_90_1) < 0.05 )
+        self.assertTrue( (mu_90_3-mu_90_1) < 0.05 )
+        self.assertTrue( (mu_90_3-mu_90_2) < 0.05 )
+
+
+
 
 # construct and run the test suite.
 suite = unittest.TestSuite()
