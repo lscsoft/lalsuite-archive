@@ -1,0 +1,277 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2009 Cristina Valeria Torres
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+__author__ = "Cristina Valeria Torres <cristina.torres@ligo.org>"
+__prog__   = "ccl_background_wscan"
+__title__  = "Generate a background scans for Critical Coupling Likelihood modeler."
+
+import os, sys, subprocess, string, socket, shutil, tarfile
+from optparse import *
+import ConfigParser
+import time
+
+from glue import pipeline
+from glue import gpstime
+from glue.ligolw import dbtables
+from numpy.random import randint
+from numpy import unique,arange
+
+
+from fu_utils import getSciSegs
+
+class gpsTimeList:
+    def read(filename):
+        """
+        Read in a column of number convert to int and return list
+        """
+        result=list()
+        for myValue in file(filename,'r'):
+            if not myValue.startswith("#"):
+                result.append(int(float(myValue)))
+        return result
+
+    def write(filename,data):
+        """
+        Write out a 1C list for file.
+        """
+        myFP=file(filename,'w')
+        for myValue in data:
+            myFP.write("%i\n"%(myValue))
+        myFP.close()
+        
+class segmentlist:
+    def read(filename):
+        """
+        Given a filename it read the file and returns an
+        pipeline.ScienceData()object the file is assumed to formatted
+        correctly.
+        """
+        segmentData=pipeline.ScienceData()
+        for myLine in file(filename,'r').readlines():
+            if not myLine.startswith('#'):
+                (id,start,stop,duration)=myLine.split()
+                segmentData.append_from_tuple((id,start,stop,duration))
+        return segmentData
+    
+    def write(segmentData,filename):
+        """
+        Given a file it writes a pipeline.ScienceData()
+        objec to disk.
+        """
+        myFP=file(filename,'w')
+        for segNumber,segment in enumerate(segmentData):
+            myFP.write("%i %f %f %f\n"%(segNumber,segment.start(),segment.stop(),segment.dur()))
+        myFP.close()
+
+            
+class create_skeleton_configuration(object):
+    """
+    A class to create a default configuration ini file, if not
+    supplied with one upon execution of this script.
+    """
+    def __init__(self):
+        """
+        Create a skeleton ini file that needs tweaking!
+        """
+        cp = ConfigParser.ConfigParser()
+        cp.add_section("condor")
+        cp.set("condor","datafind",self.which("ligo_data_find"))
+        cp.set("condor","cacheconverter",self.which("convertlalcache.pl"))
+        cp.set("condor","scanner","/archive/home/omega/opt/omega/bin/wpipeline")
+        cp.add_section("cacheconverter")
+        cp.add_section("scanner")
+        cp.set("scanner","config","s6_background_L0L1-RDS_R_L1-cbc.txt")
+        cp.set("scanner","output_path",os.path.normpath(os.getenv('PWD')+"/ccl_background_scan"))
+        cp.add_section("datafind")
+        cp.set("datafind","ifo","L1")
+        cp.set("datafind","segment_pad",64)
+        cp.set("datafind","min_segment_length",256)
+        cp.set("datafind","scan_block",64)
+        cp.set("datafind","interval_start",931046415)
+        cp.set("datafind","interval_stop",971740815)
+        cp.set("datafind","sample_number",1000)
+        
+    def writeCP(self,filename):
+        """
+        Write object to disk.
+        """
+        self.cp.write(filename)
+        
+
+class cclScannerJob(pipeline.CondorDAGJob,pipelineAnalysisJob):
+    """
+    This is what we need to setup a basic scanning job.
+    """
+    def __init__(self,cp,subDir):
+        self.__executable = cp.get('condor','scanner')
+        self.universe = 'vanilla'
+        pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+        pipeline.AnalysisJob.__init__(self,cp)
+        self.add_condor_cmd('getenv','True')
+        self.set_sub_file(os.path.normpath(subDir))
+
+class cclScannerNode(pipeline.CondorDAGNode,pipeline.AnalysisNode):
+    """
+    This is the basic scanner node definition.
+    """
+    def __init__(self,job):
+        pipeline.CondorDAGNode.__init__(self,job)
+        pipeline.AnalysisNode.__init__(self)
+        pipeline.CondorDAGNode.set_retry(self,1)
+        pipeline.CondorDAGNode.set_category(self,'scanner')
+
+########################################
+usage = """ usage: %prog [options] """
+
+parser = OptionParser(usage, version=git_version.verbose_msg)
+
+parser.add_option("-f","--config-file",
+                  action="store",
+                  type="string",
+                  default=None,
+                  help="Specify pipeline configuration file.")
+parser.add_option("-s","--skeleton",
+                  action="store_true",
+                  default=False,
+                  help="Invoke this option to generate a skeleton \
+pipeline configuration file.")
+
+parser.add_options("-g","--gps-list",
+                   action="store",
+                   type="string",
+                   default=None,
+                   help="Invoke a list of gps to specify the times to \
+query rather than randomly looking for scan times.")
+
+parser.add_options("-s","--segment-file",
+                   action="store",
+                   type="string",
+                   default=None,
+                   help="Use this to specify a valid segment file. \
+This avoids queries to the segment database which can be slow.")
+
+(opts,args) = parser.parse_args()
+
+if opts.skeleton:
+    skeletonFileMask="skeleton_%i.ini"
+    counter=0
+    skeletonFile=skeletonFileMask%(counter)
+    while os.path.exists(skeletonFile):
+        counter=counter+1
+        skeletonFile=skeletonFileMask%(counter)
+    skeletonConfig=create_skeleton_configuration()
+    skeletonConfig.writeCP(skeletonFile)
+    os.exit(0)
+
+cp=None
+if opts.config_file:
+    cp = ConfigParser.ConfigParser()
+    cp.read(opts.config_file)
+    
+# Look for data to analyze or read it from file if applicable
+if opts.segment_file:
+    scienceSegments=segmentlist.read(opts.segment_file)
+else:
+    segmentListFile="scienceSegments_%s.txt"%(cp.get("scanner","ifo"))
+    scienceSegments=getSciSegs(cp.get("scanner","ifo"),
+                               cp.get("datafind","interval_start"),
+                               cp.get("datafind","interval_stop"),
+                               cut=True,
+                               seglenmin=cp.get("datafind","min_segment_length"),
+                               segpading=cp.get("datafind","segment_pad"))
+    segmentlist.write(segmentListFile,scienceSegments)
+
+#Create a random list of science times to sample or read the list in
+#if specified
+gpsTimeList=None
+if opts.gps_list:
+    gpsTimeList=gpsSampleList.read(opts.gpsTimeList)
+else:
+    gpsIntTimes=[]
+    msl=int(float(cp.get("datafind","min_segment_length")))
+    for seg in scienceSegments:
+        if seg.dur > msl+1:
+            gpsIntTimes.append(arange(seg.start+int(msl/2),seg.stop-(msl/2),1))
+    #Select from the list of timestamps a random subset
+    ns=int(float(cp.get("datafind","sample_number")))
+    notUniqList=True
+    while notUniqList:
+        randUniqIndex=unique(randint(1,len(gpsIntTime),ns))
+        if len(randUniqIndex) == sn:
+            notUniqList=False
+    gpsTimeList=gpsIntTimes[randUniqIndex]
+    #Save this list
+    gpsListFilename="sampledTimesGPS.txt"
+    gpsSampleList.write(gpsListFilename,gpsTimeList)
+#
+# Setup the associated condor infrastructure to run the jobs
+#
+
+
+#Create directory for submit files
+installDagTo=os.path.abspath(os.path.normpath("./"))
+installSubTo=os.path.abspath(os.path.normpath("./submit_files"))
+installLogTo=os.path.abspath(os.path.normpath("./log_files"))
+productsDirDatafind=os.path.abspath(os.path.normpath("./datafind_output"))
+productsDirScan=os.path.abspath(os.path.normpath("./scan_output")
+os.mkdirs(installDagTo)
+os.mkdirs(installLogTo)
+os.mkdirs(installSubTo)
+#Initialize the dag
+dag = pipeline.CondorDAG(os.path.normpath(installDagTo))
+dag.set_dag_file(os.path.normpath('./ccl_background_scan.dag'))
+#Setup basic datafind and scanner job
+dataFindJob=pipeline.LSCDataFindJob(productsDirDatafind,installLogTo,cp)
+scannerJob=cclScannerJob(installSubTo)
+#
+timeOffset=int(float(cp.get("datafind","scan_block"))/2.0)
+for sampleTime in gpsTimeList:
+    #Setup Datafind Node
+    dfNode=pipeline.LSCDataFindNode(dataFindJob)
+    dfNode.set_start(sampleTime-timeOffset)
+    dfNode.set_end(sampleTime+timeOffset)
+    dfNode.set_observatory(cp.get("datafind","ifo"))
+    dfNode.set_post_script(cp.get("condor","cacheconverter"))
+    dfCacheFile=dfNode.get_output_cache()
+    scanCacheFile="%s.scanecache"%(dfCacheFiles)
+    dfNode.set_post_args("%s > %s "%(dfCacheFile,scanCacheFile))
+    self.dag.add_node(dfNode)
+    #Setup scanner Node
+    scanNode=cclScannerNode(scannerJob)
+    scanNode.add_input_file(scanCacheFile)
+    scanNode.add_input_file(cp.get("scanner","config"))
+    scanNode.add_var_arg("scan")
+    scanNode.add_var_opt("c",cp.get("scanner","config"))
+    scanNode.add_var_opt("f",os.path.basename(scanCacheFile))
+    outputDir=os.path.normpath(os.path.abspath(cp.get("scanner","output_path"))+"/"+"%s/"%(sampleTime))
+    scanNode.add_var_opt("o",outputDir)
+    scanNode.add_var_arg("%s"%sampleTime)
+    scanNode.add_parent(dfNode)
+    self.dag.add_node(scanNode)
+#
+# Write dag to disk
+#
+self.dag.write_sub_files()
+self.dag.write_dag()
+try:
+    self.dag.write_script()
+except:
+    sys.stderr.write("Bash shell script equivalent of pipe not written.\n")
+
+
+
