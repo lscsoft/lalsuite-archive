@@ -187,7 +187,11 @@ def write_chisq( page, injList, grbtag ):
     Write injection chisq plots to markup.page object page
   """
 
-  th = ['']+injList
+  if injList:
+    th = ['']+injList
+  else:
+    th= ['','OFFSOURCE']
+    injList = ['OFFSOURCE']
   td = []
 
   plots = ['bank_veto','auto_veto','chi_square']
@@ -214,7 +218,11 @@ def write_inj_snrs( page, ifos, injList, grbtag ):
     Write injection chisq plots to markup.page object page
   """
 
-  th = ['']+injList
+  if injList:
+    th = ['']+injList
+  else:
+    th= ['','OFFSOURCE']
+    injList = ['OFFSOURCE']
   td = []
 
   plots = ['null_stat2']+['%s_snr' % ifo for ifo in ifos]
@@ -362,7 +370,7 @@ def write_exclusion_distances(page , trial, injList, massbins, reduced=False, on
   page.add('here.')
   page.a.close()
 
-  if reduced:
+  if reduced or not injList:
     return page  
 
   page.h3()
@@ -590,43 +598,46 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
   webpage.div.close()
 
   # add found/missed plots
-  secname = 'Found/missed injections'
-  i += 1
-  webpage.input( id="input_%s" % i, type="button", class_="h2",\
-                 onclick="toggleVisible('%d');" % i, value=secname )
-  webpage.div( id="div_%s" % i, style="display: none;" )
+  if detectionInjList:
+    secname = 'Found/missed injections'
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%d');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
 
-  webpage.h3()
-  webpage.add('A key for these plots')
-  webpage.h3.close()
-  webpage.add('Black cross indicates no trigger was found coincident with '+\
+    webpage.h3()
+    webpage.add('A key for these plots')
+    webpage.h3.close()
+    webpage.add('Black cross indicates no trigger was found coincident with '+\
               'the injection')
-  webpage.br()
-  webpage.add('Red cross indicates a trigger was found coincident with the '+\
+    webpage.br()
+    webpage.add('Red cross indicates a trigger was found coincident with the '+\
               'injection but it was vetoed')
-  webpage.br()
-  webpage.add('Green cross indicates that a trigger was found coincident '+\
+    webpage.br()
+    webpage.add('Green cross indicates that a trigger was found coincident '+\
               'with the injection and it was louder than all events in the '+\
               'offsource')
-  webpage.br()
-  webpage.add('Coloured circle indicates that a trigger was found coincident '+\
+    webpage.br()
+    webpage.add('Coloured circle indicates that a '+\
+              'trigger was found coincident '+\
               'with the injection but it was not louder than all offsource '+\
               'events. The colour bar gives the FAP of the trigger.')
 
-  webpage = write_found_missed( webpage, ifos, detectionInjList )
+    webpage = write_found_missed( webpage, ifos, detectionInjList )
 
-  webpage.div.close()
+    webpage.div.close()
 
-  # add injection recovery plots
-#  secname = 'Injection recovery'
-#  i += 1
-#  webpage.input( id="input_%s" % i, type="button", class_="h2",\
-#                 onclick="toggleVisible('%d');" % i, value=secname )
-#  webpage.div( id="div_%s" % i, style="display: none;" )
+#  if tuningInjList:
+    # add injection recovery plots
+#    secname = 'Injection recovery'
+#    i += 1
+#    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+#                   onclick="toggleVisible('%d');" % i, value=secname )
+#    webpage.div( id="div_%s" % i, style="display: none;" )
 
-#  webpage = write_recovery( webpage, tuningInjList )
+#    webpage = write_recovery( webpage, tuningInjList )
 
-#  webpage.div.close()
+#    webpage.div.close()
 
   # add loudest off source events
   secname = 'Loudest offsource events'
@@ -698,8 +709,8 @@ if __name__=='__main__':
   inifile    = os.path.abspath( opts.config_file )
   outdir     = os.path.abspath( opts.output_path )
   ifoTag     = opts.ifo_tag
-  detInjsList = None
-  tunInjsList = None
+  detInjsList = []
+  tunInjsList = []
   if opts.exclusion_injections:
     detInjsList = opts.exclusion_injections.split(",")
   if opts.tuning_injections:
