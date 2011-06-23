@@ -234,6 +234,7 @@ class RecoveredTimeOffset(object):
 		self.data = {}
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -253,7 +254,7 @@ FROM
 			instrument = values[-4]
 			burst_snr = values[-3]
 			burst_peak = LIGOTimeGPS(*values[-2:])
-			sim_peak = SimBurstUtils.time_at_instrument(sim, instrument)
+			sim_peak = SimBurstUtils.time_at_instrument(sim, instrument, offsetvectors[sim.time_slide_id])
 
 			try:
 				data = self.data[instrument]
