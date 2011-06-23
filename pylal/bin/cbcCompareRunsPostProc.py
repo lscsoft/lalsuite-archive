@@ -305,31 +305,31 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                 temp_times_run[run].remove(time)
     for run in key_runs:
         times_run[run]=temp_times_run[run]
-    ## Now for each key run remove the times for which posteriors are non present (even if they were present in the ctrl run)
-    for run in key_runs:
+    ## Now for each key run remove the times for which posteriors are non present (even if they were present in the ctrl run). If there are no times left, for all the runs, exit.
+    for run in key_runs[:]:
         for time in times_run[run]:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
             if not os.path.isfile(path_to_file):
                 temp_times_run[run].remove(time)
         times_run[run]=temp_times_run[run]
-    if times_run[run]==[]:
-        print "No posteriors found for the events given in run %i. Excluding run %i from the post processing.\n"%(run,run)
-        ### TBD create a list instead of range(1,len(combine)) and remove from it
+        if times_run[run]==[]:
+            print "No posteriors found for the events given in run %i. Excluding run %i from the post processing.\n"%(run,run)
+            key_runs.remove(run)
+        if len(times_run[run])==1:
+	    print "A single time found for the run %i. You need at least two times for the analysis to be doable. Excluding run %i from the post processing.\n"%(run,run)
+            key_runs.remove(run)
     for run in key_runs:
         ctrl_times[run]=[time for time in times_run[run]]
-        
+    if len(key_runs)==0:
+        print "None of the runs seems to have posteriors associated. Exiting...\n"
+        sys.exit(1)
+
     recovered_positions_key={}
     injected_positions={}
     recovered_positions_ctrl={}    
 
     ## prepare files with means and other useful data. It also fills the list with the sky positions ###
     for out_run in key_runs:
-        #summary_ctrl=open(os.path.join(outdir,'summary_ctrl_'+str(out_run)+'.dat'),'w')
-        #summary_key=open(os.path.join(outdir,'summary_'+str(keyword)+'_'+str(out_run)+'.dat'),'w')
-        #header_key=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'w')
-        #header_ctrl=open(os.path.join(outdir,'headers_ctrl_'+str(out_run)+'.dat'),'w')
-        #header_l=[]
-        #header_l.append('injTime ')
         recovered_positions_ctrl[out_run]=[]
         recovered_positions_key[out_run]=[]
         injected_positions[out_run]=[]
