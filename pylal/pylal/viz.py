@@ -1260,7 +1260,9 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
                 total_num**2
     yerr_vary = yerr_vary**0.5
     yerr_low = (yerr_common - yerr_vary)/yerr_denom
+    yerr_low = (finjs/totalinjs) - yerr_low
     yerr_high = (yerr_common + yerr_vary)/yerr_denom
+    yerr_high = yerr_high - (finjs/totalinjs)
    
     error = [yerr_low,yerr_high]
 
