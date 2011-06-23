@@ -1191,7 +1191,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         excl_dist = (const - 0.9)/gradient
-        print excl_dist
         break
 
     file = open( "%s/exclusion_distance.txt" % outdir, "w" )
