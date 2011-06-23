@@ -1167,7 +1167,9 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     yerr_vary = 4 * totalinjs * finjs * (totalinjs - finjs) + totalinjs**2
     yerr_vary = yerr_vary**0.5
     yerr_low = (yerr_common - yerr_vary)/yerr_denom
+    yerr_low = (finjs/totalinjs) - yerr_low
     yerr_high = (yerr_common + yerr_vary)/yerr_denom
+    yerr_high = yerr_high - (finjs/totalinjs)
     ax.errorbar( distPlotVals, (finjs/totalinjs),\
                  yerr=[yerr_low,yerr_high], c = 'r' )
 

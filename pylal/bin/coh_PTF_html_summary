@@ -456,7 +456,7 @@ coh_PTF_injfinder will find and record found and missed injections for the given
   parser.add_option( "-o", "--output-path", action="store", type="string",\
                      default=os.getcwd(), help="output directory, "+\
                                                "default: %default" )
-  parser.add_option( "-D", "--detection-injections", action="store",\
+  parser.add_option( "-D", "--exclusion-injections", action="store",\
                      type="string", default=None,\
                      help="A comma seperated list of the detection injection"+\
                           "run names." )
@@ -700,8 +700,8 @@ if __name__=='__main__':
   ifoTag     = opts.ifo_tag
   detInjsList = None
   tunInjsList = None
-  if opts.detection_injections:
-    detInjsList = opts.detection_injections.split(",")
+  if opts.exclusion_injections:
+    detInjsList = opts.exclusion_injections.split(",")
   if opts.tuning_injections:
     tunInjsList = opts.tuning_injections.split(",")
   
