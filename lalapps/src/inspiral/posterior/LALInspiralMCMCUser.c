@@ -569,7 +569,7 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-    REAL8 std_dev=0.0011; 
+    REAL8 std_dev=0.0025; 
     if(XLALMCMCCheckParameter(parameter,"dphi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi0")*XLALMCMCGetParameter(parameter,"dphi0")/std_dev);
     if(XLALMCMCCheckParameter(parameter,"dphi1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi1")*XLALMCMCGetParameter(parameter,"dphi1")/std_dev);
     if(XLALMCMCCheckParameter(parameter,"dphi2")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi2")*XLALMCMCGetParameter(parameter,"dphi2")/std_dev);
