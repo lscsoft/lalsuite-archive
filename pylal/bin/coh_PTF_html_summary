@@ -456,6 +456,15 @@ coh_PTF_injfinder will find and record found and missed injections for the given
   parser.add_option( "-o", "--output-path", action="store", type="string",\
                      default=os.getcwd(), help="output directory, "+\
                                                "default: %default" )
+  parser.add_option( "-D", "--detection-injections", action="store",\
+                     type="string", default=None,\
+                     help="A comma seperated list of the detection injection"+\
+                          "run names." )
+
+  parser.add_option( "-T", "--tuning-injections", action="store",\
+                     type="string",default=None,\
+                     help="A comma seperated list of the tuning injection"+\
+                          "run names.")
 
   parser.add_option( "-O", "--open-box", action="store_true", default=False,
                      dest="open_box", help ="Use to show onsource results" )
@@ -479,7 +488,8 @@ coh_PTF_injfinder will find and record found and missed injections for the given
 # Main function
 # =============================================================================
 
-def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
+def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
+        tuningInjList=[], open_box=False ):
 
   # get entry information  
   ifos     = [ ifoTag[i*2:(i*2)+2] for i in range(int(len(ifoTag)/2)) ]
@@ -494,8 +504,7 @@ def main( grbxml, inifile, outdir, ifoTag, open_box=False ):
 
   # get sections
 #  injList = glob.glob('injections*')
-  tuningInjList = ['injectionsDetectionFull']
-  detectionInjList = ['injectionsAstroNSBH_FILTERED_10','injectionsAstroNSBH_FILTERED_30','injectionsAstroNSBH_FILTERED_45', 'injectionsAstroNSBH_FILTERED_90','injectionsAstroNSNS_FILTERED_10','injectionsAstroNSNS_FILTERED_30','injectionsAstroNSNS_FILTERED_45','injectionsAstroNSNS_FILTERED_90']
+  
   trials  = sorted(glob.glob('OFFTRIAL_*'))
 
   # initialise page
@@ -689,6 +698,14 @@ if __name__=='__main__':
   inifile    = os.path.abspath( opts.config_file )
   outdir     = os.path.abspath( opts.output_path )
   ifoTag     = opts.ifo_tag
+  detInjsList = None
+  tunInjsList = None
+  if opts.detection_injections:
+    detInjsList = opts.detection_injections.split(",")
+  if opts.tuning_injections:
+    tunInjsList = opts.tuning_injections.split(",")
   
-  main( grbxml, inifile, outdir, ifoTag, open_box=opts.open_box )
+  
+  main( grbxml, inifile, outdir, ifoTag, detectionInjList=detInjsList,\
+        tuningInjList=tunInjsList, open_box=opts.open_box )
 
