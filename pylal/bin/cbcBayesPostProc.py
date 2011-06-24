@@ -580,16 +580,21 @@ def cbcBayesPostProc(
     #If sky resolution parameter has been specified try and create sky map...
     skyreses=None
     sky_injection_cl=None
+    inj_position=None
     if skyres is not None and \
        (('ra' in pos.names and 'dec' in pos.names) or \
         ('rightascension' in pos.names and 'declination' in pos.names)):
         #Greedy bin sky samples (ra,dec) into a grid on the sky which preserves
         #?
+        if ('ra' in pos.names and 'dec' in pos.names):
+            inj_position=[pos['dec'].injval,pos['ra'].injval]
+	elif ('rightascension' in pos.names and 'declination' in pos.names):
+            inj_position=[pos['declination'].injval,pos['rightascension'].injval]
         top_ranked_sky_pixels,sky_injection_cl,skyreses,injection_area=bppu.greedy_bin_sky(pos,skyres,confidence_levels)
         print "BCI for sky area:"
         print skyreses
         #Create sky map in outdir
-        bppu.plot_sky_map(top_ranked_sky_pixels,outdir)
+        bppu.plot_sky_map(inj_position,top_ranked_sky_pixels,outdir)
 
         #Create a web page section for sky localization results/plots (if defined)
 
@@ -599,7 +604,8 @@ def cbcBayesPostProc(
                 html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
             else:
                 html_sky.p('Injection not found in posterior bins in sky location!')
-        html_sky.write('<img width="35%" src="skymap.png"/>')
+        #html_sky.write('<img width="35%" src="skymap.png"/>')
+        html_sky.write('<a href="skymap.png" target="_blank"><img width="35%" src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 
@@ -1121,7 +1127,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':5.0,'dist':5.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02}
     #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
     #    greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
