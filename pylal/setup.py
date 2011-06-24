@@ -458,6 +458,7 @@ setup(
 		os.path.join("bin", "followupGenerateDQBackground.py"),
 		os.path.join("bin", "followupCustomFOM.py"),
 		os.path.join("bin", "followupPDSurface.py"),		
+		os.path.join("bin", "ccl_background_scan"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotcohsnr"),
