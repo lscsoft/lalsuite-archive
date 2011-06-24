@@ -1115,7 +1115,7 @@ def getSciSegs(ifo=None,
     segListTemp.coalesce()
   if not seglenmin: return segListTemp
   else:
-    if segpading and 2*segpading >= seglenmin:
+    if 2*segpading >= seglenmin:
       sys.stderr.write("segpading must be smaller than seglenmin/2\n")
       sys.exit(1)
     segList = pipeline.ScienceData()
