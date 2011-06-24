@@ -1096,7 +1096,7 @@ def getSciSegs(ifo=None,
     sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
     sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
     sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
-    return
+    return None
   engine.close()
   queryResult.sort()
   #Take segment information and turn into
@@ -1116,8 +1116,7 @@ def getSciSegs(ifo=None,
   if not seglenmin: return segListTemp
   else:
     if 2*segpading < seglenmin:
-      sys.stderr.write("segpading must be smaller than seglenmin/2\n")
-      sys.exit(1)
+      raise Exception, "segpading must be smaller than seglenmin/2\n"
     segList = pipeline.ScienceData()
     for indice in range(0,segListTemp.__len__()):
       segTemp = segListTemp.__getitem__(indice)
