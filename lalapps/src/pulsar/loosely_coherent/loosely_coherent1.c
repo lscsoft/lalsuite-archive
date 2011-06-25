@@ -442,7 +442,7 @@ vp2[1]=sin(ra)*sin(dec);
 vp2[2]=-cos(dec);
 
 for(i=0;i<3;i++) {
-	vp1[i]=-vp1[i]*step-vp2[i]*step+v1[i];
+	vp1[i]=-vp1[i]*step+v1[i];
 	vp2[i]=-vp2[i]*step+v1[i];
 	}
 
@@ -456,6 +456,8 @@ ctx->sb_ra[0]=atan2(vp1[1], vp1[0]);
 ctx->sb_ra[1]=atan2(vp2[1], vp2[0]);
 ctx->sb_dec[0]=asin(vp1[2]);
 ctx->sb_dec[1]=asin(vp2[2]);
+
+//fprintf(stderr, "(%.12f %.12f)\n(%.12f %.12f)\n", ctx->sb_ra[0], ctx->sb_ra[1], ctx->sb_dec[0], ctx->sb_dec[1]);
 }
 
 void compute_sky_offset_structure(LOOSE_CONTEXT *ctx, SPARSE_CONV *sc, char *detector, double ra, double dec, double ra2, double dec2, double dInv, double gps_start, double step, int count)
@@ -485,7 +487,7 @@ for(i=0;i<count;i++) {
 	a=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
 	
 	/* Count offset in units of 1/f */
-	te_offsets->data[i].re=a*args_info.focus_f0_arg;
+	te_offsets->data[i].re=a*ctx->frequency;
 	te_offsets->data[i].im=0;
 	}
 
@@ -499,7 +501,7 @@ for(i=0;i<count;i++) {
 	a=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
 	
 	/* Count offset in units of 1/f */
-	te_offsets->data[i].re-=a*args_info.focus_f0_arg;
+	te_offsets->data[i].re-=a*ctx->frequency;
 	}
 
 //dump_doubles("te_offsets.dat", (double *)te_offsets->data, count, 2);
@@ -668,14 +670,14 @@ fft5[1]=ctx->scan_tmp[7];
 make_bessel_filter(filter1, ctx->n_scan_fft_filter, ctx->ra_sc->first9, 9, (1-2*((sign_mask>>0) & 1))*2*M_PI);
 make_bessel_filter(filter2, ctx->n_scan_fft_filter, ctx->dec_sc->first9, 9, (1-2*((sign_mask>>1) & 1))*2*M_PI);
 
-ra_shift=ctx->ra_sc->slope*(1-2*((sign_mask>>0) & 1))/args_info.focus_f0_arg;
-dec_shift=ctx->dec_sc->slope*(1-2*((sign_mask>>1) & 1))/args_info.focus_f0_arg;
+ra_shift=ctx->ra_sc->slope*(1-2*((sign_mask>>0) & 1))/ctx->frequency;
+dec_shift=ctx->dec_sc->slope*(1-2*((sign_mask>>1) & 1))/ctx->frequency;
 
 //fprintf(stderr, "ra_shift=%g dec_shift=%g\n", ra_shift, dec_shift);
 
 for(i=0;i<=nscan;i++) {
 	if(i==0){
-		if((i==0 || (zero_mask & 1)))continue;
+		if((i==0 && (zero_mask & 1)))continue;
 		} else
 	if(i==1) {
 		shift_fft(fft2[0], ctx->plus_te_fft, filter1, ctx->n_scan_fft_filter);
@@ -689,8 +691,9 @@ for(i=0;i<=nscan;i++) {
 	for(j=0;j<=nscan;j++) {
 
 		if(j==0) {
-			if((i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
+			if((i==0) || (zero_mask & 2))continue;
 			
+			//fprintf(stderr, "i=%d j=%d mask=%d\n", i, j, zero_mask);
 			compute_fft_stats(ctx, &(ctx->stats), fft2[0], fft2[1], fft_offset+ra_shift*i);
 			continue;
 			} else 
@@ -709,8 +712,9 @@ for(i=0;i<=nscan;i++) {
 			SWAP_FFT(fft4[1], fft5[1]);
 			}
 
-		if((i==0 || j==0) && (i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
+		//if((i==0 || j==0) && (i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
 
+		//fprintf(stderr, "i=%d j=%d mask=%d\n", i, j, zero_mask);
 		compute_fft_stats(ctx, &(ctx->stats), fft4[0], fft4[1], fft_offset+ra_shift*i+dec_shift*j);
 		}
 	}
@@ -718,6 +722,7 @@ for(i=0;i<=nscan;i++) {
 
 void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
+//fprintf(stderr, "i=0 j=0 mask=-1\n");
 compute_fft_stats(ctx, &(ctx->stats), ctx->plus_te_fft, ctx->cross_te_fft, fft_offset);
 
 scan_fft_quadrant(ctx, fft_offset, 0, 0);
@@ -967,6 +972,7 @@ for(n=0;n<d_free;n++) {
 		/* Hann window */
 		//c=0.5*(1.0-cos(2*M_PI*i/nsamples));
 		a=1.0/ctx->variance[k];
+		//fprintf(stderr, "x2=%g y2=%g power=%g a=%g norm_p=%g\n", x2, y2, x2*x2+y2*y2, a, (x2*x2+y2*y2)*a);
 		
 		ctx->plus_samples->data[i].re=x2*f_plus*a;
 		ctx->plus_samples->data[i].im=y2*f_plus*a;
@@ -1034,7 +1040,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	compute_sky_offset_structure(ctx, ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, ctx->sb_ra[0], ctx->sb_dec[0], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 	compute_sky_offset_structure(ctx, ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, ctx->sb_ra[1], ctx->sb_dec[1], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 
-	fprintf(stderr, "point %d step %d\n", point, fstep);
+	fprintf(stderr, "point %d step %d ra=%.12f dec=%.12f (%g, %g)\n", point, fstep, ctx->ra, ctx->dec, ctx->ra-args_info.focus_ra_arg, ctx->dec-args_info.focus_dec_arg);
 	if(0) {
 		fprintf(stderr, "point %d step %d slope %g\n", point, fstep, ctx->te_sc->slope);
 		for(i=0;i<9;i++)
@@ -1059,7 +1065,8 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 // 	norm*=args_info.strain_norm_factor_arg;
 
 	norm=1.0;
-	norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
+	norm=1.0/2.253; /* not sure where this comes from either */
+	//norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
 	norm*=args_info.coherence_length_arg*16384.0;
 	//norm/=args_info.strain_norm_factor_arg;
 
@@ -1070,9 +1077,10 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 		ctx->cross_fft->data[i].im*=norm;
 		}
 	
-	norm=1.0;
+	//norm=1.0;
 	//norm=1.0/args_info.strain_norm_factor_arg;
-	norm*=args_info.coherence_length_arg*16384.0;
+	//norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
+	//norm*=args_info.coherence_length_arg*16384.0;
 	norm*=norm;
 	ctx->weight_pp*=norm;
 	ctx->weight_pc*=norm;
@@ -1081,6 +1089,10 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	compute_te_ffts(ctx);
 
 	scan_fft_stats(ctx, (fstep*1.0/nfsteps)/ctx->timebase);
+	
+	//fprintf(stderr, "point %d step %d ra=%.12f dec=%.12f (%g, %g)\n", point, fstep, ctx->ra, ctx->dec, ctx->ra-args_info.focus_ra_arg, ctx->dec-args_info.focus_dec_arg);
+// 	fprintf(stderr, "point %d step %d ra=%.12f dec=%.12f (%g, %g)\n", point, fstep, ctx->ra, ctx->dec, ctx->ra-(2.52739548668), ctx->dec-(-0.257409370052));
+// 	fprintf(stderr, "\t%f %g\n", ctx->stats.snr.value, ctx->stats.ul.value*args_info.strain_norm_factor_arg);
 
 	thread_mutex_lock(data_logging_mutex);
 	// -241

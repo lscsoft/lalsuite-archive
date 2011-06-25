@@ -80,6 +80,7 @@ void init_stats(FFT_STATS *st)
 memset(st, 0, sizeof(*st));
 st->B_stat.value=-1e25;
 st->F_stat.value=-1e25;
+st->min_noise_ratio=1e24;
 }
 
 void update_stats(FFT_STATS *st_accum, FFT_STATS *st)
@@ -105,7 +106,7 @@ LOG(ul, ul_adjust)
 LOG(circ_ul, ul_adjust)
 LOG(B_stat, 1)
 LOG(F_stat, 1)
-fprintf(f, "ratio: \"%s\" %g %g %f\n", tag, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count);
+fprintf(f, "ratio: \"%s\" \"%s\" %g %g %f %f %f\n", args_info.label_arg, tag, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count, st->min_noise_ratio, st->max_noise_ratio);
 }
 
 void update_SNR_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
@@ -142,25 +143,29 @@ for(i=0;i<acd->free;i++) {
 	}
 }
 
-#define UL_CONFIDENCE_LEVEL 1.65
+//#define UL_CONFIDENCE_LEVEL 1.65
+/* Use 3.0 which is good for both Gaussian and exponential statistic, and all chi2 */
+#define UL_CONFIDENCE_LEVEL 3.0
 
 void update_UL_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
 {
 int i;
-double a, b, x, y, p;
+double a, b, x, y, p, stv;
 double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
 ALIGNMENT_COEFFS *ac;
 
+stv=st->value*st->value;
 for(i=0;i<acd->free;i++) {
 	ac=&(acd->coeffs[i]);
 	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	p=x*x+y*y;
-	a=fpp*ac->w11+fpc*ac->w12+fcc*ac->w22;
-	b=sqrt(p/(a*a)+UL_CONFIDENCE_LEVEL/a);
+	a=1.0/(fpp*ac->w11+fpc*ac->w12+fcc*ac->w22);
+	b=p*(a*a)+2*sqrt(p*(a*a*a))+(UL_CONFIDENCE_LEVEL-1)*a;
 	
-	if(b>st->value) {
-		st->value=b;
+	if(b>stv) {
+		stv=b;
+		st->value=sqrt(b);
 		st->z.re=x;
 		st->z.im=y;
 		st->fft_bin=bin;
@@ -230,6 +235,8 @@ for(i=0;i<acd->free;i++) {
 	if(w>0) {
 		w_total+=w;
 		b=a-log(w);
+		if(v>b+2) v+=0;
+			else
 		if(v>b) v+=log1p(exp(b-v));
 			else
 			v=b+log1p(exp(v-b));
@@ -342,6 +349,8 @@ float V;
 int idx;
 int i;
 int nsamples=fft1->length;
+int template_count=0;
+double sum;
 
 #if 0
 V=0;
@@ -354,6 +363,8 @@ return;
 
 for(i=0;i<4;i++)M[i]=0.0;
 
+sum=0;
+template_count=0;
 for(i=0;i<nsamples;i++) {
 	/* crudely skip indices outside Nyquist */
 	if(abs(i-(nsamples>>1))<(nsamples>>2))continue;
@@ -362,6 +373,9 @@ for(i=0;i<nsamples;i++) {
 	idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
 	
 	if(V>M[idx])M[idx]=V;
+	sum+=V;
+	template_count++;
+	//fprintf(stderr, "V=%g V_norm=%g\n", V, V/(ctx->weight_pp+ctx->weight_cc));
 	}
 
 for(i=0;i<nsamples;i++) {
@@ -381,7 +395,11 @@ for(i=0;i<nsamples;i++) {
 	
 	stats->stat_hit_count++;
 	}
-stats->template_count+=fft1->length;
+stats->template_count+=template_count;
+sum/=template_count*(ctx->weight_pp+ctx->weight_cc);
+if(sum>stats->max_noise_ratio)stats->max_noise_ratio=sum;
+if(sum<stats->min_noise_ratio)stats->min_noise_ratio=sum;
+//fprintf(stderr, "sum=%g template_count=%d\n", sum, template_count);
 }
 
 void init_fft_stats(void)

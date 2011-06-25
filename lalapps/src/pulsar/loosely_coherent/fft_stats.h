@@ -47,9 +47,12 @@ typedef struct {
 	STAT_INFO circ_ul;
 	STAT_INFO B_stat;
 	STAT_INFO F_stat;
+	STAT_INFO power_stat;
 	
 	double template_count;
 	double stat_hit_count;
+	double min_noise_ratio;
+	double max_noise_ratio;
 	} FFT_STATS;
 
 	
