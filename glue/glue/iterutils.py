@@ -450,8 +450,12 @@ class Highest(list):
 		>>> len(x)
 		52
 		"""
+		# only works with other Highest objects
 		assert isinstance(other, type(self))
 		self.n += other.n
+		# check for no-op
+		if not list.__len__(other):
+			return self
 		# we can only claim to provide the minimum of the two max's
 		# worth of the highest valued objects
 		self.max = min(self.max, other.max)
@@ -482,6 +486,9 @@ class Highest(list):
 		# is generally available
 		sequence = sorted(sequence, reverse = True)
 		self.n += len(sequence)
+		# check for no-op
+		if not sequence:
+			return
 		# FIXME:  since the lists are sorted, lots could be done to
 		# speed this up
 		i = j = 0
