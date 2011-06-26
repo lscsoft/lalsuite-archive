@@ -414,7 +414,8 @@ def StringCuspSnglCompare(sim, burst, offsetvector):
 	"""
 	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
-	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
+	# uncomment last part of expression to impose an amplitude cut
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period()) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
 
 
 def ExcessPowerSnglCompare(sim, burst, offsetvector):
