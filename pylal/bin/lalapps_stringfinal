@@ -38,6 +38,7 @@ from matplotlib import patches
 import numpy
 import os
 import cPickle as pickle
+import random
 from scipy import interpolate
 from scipy import optimize
 import Queue as queue
@@ -274,7 +275,7 @@ WHERE
 				# likelihood ratio must be listed first to
 				# act as the sort key
 				most_significant_background.append((likelihood_ratio, contents.filename, coinc_event_id, dbtables.lsctables.instrument_set_from_ifos(instruments), peak_time))
-				if len(most_significant_background) > 100 * self.most_significant_background.max:
+				if len(most_significant_background) > 10 * self.most_significant_background.max:
 					self.most_significant_background.extend(most_significant_background)
 					del most_significant_background[:]
 			else:
@@ -921,6 +922,9 @@ if options.detection_threshold is None:
 	# group files into bins of about the same total number of bytes.
 	# don't try to create more groups than there are files
 	for filenames in pack_files(noninjection_filenames, min(options.threads, len(noninjection_filenames)), verbose = options.verbose):
+		# shuffle file names to avoid copying all the big files
+		# into the scratch space at the same time
+		random.shuffle(filenames)
 		# create a new book-keeping object
 		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
 		# launch thread
