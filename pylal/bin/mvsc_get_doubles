@@ -13,6 +13,7 @@ from pylal.xlal.datatypes import snglinspiraltable
 from pylal import SnglInspiralUtils
 from pylal import db_thinca_rings
 from pylal import git_version
+from pylal import mvsc_queries
 from time import clock,time
 from optparse import *
 import glob
@@ -44,8 +45,6 @@ ifos.sort()
 
 time1=time()
 
-# this is the list of parameters that describe each event in the training and testing sets:
-parameters = "ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr"
 
 class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	"""
@@ -62,14 +61,9 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 
 dbtables.lsctables.SnglInspiralTable.RowType = SnglInspiral
 
-def calc_effective_snr(snr, chisq, chisq_dof, fac=opts.factor):
-	return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
-
-def calc_ethinca(rowA,rowB):
-	rowA = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols(rowA)
-	rowB = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols(rowB)
-	return xlaltools.XLALCalculateEThincaParameter(rowA,rowB)
-
+parameters = mvsc_queries.CandidateEventQuery.parameters
+print "your MVSC analysis will use the following dimensions: "+parameters
+ 
 injections = {}
 injections_info = {}
 normalization = {}
@@ -86,96 +80,13 @@ for database in databases:
 	xmldoc = dbtables.get_xml(connection)
 	cursor = connection.cursor()
 	num_sngl_cols = len(table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).dbcolumnnames)
-# in S6, the timeslides, zerolag, and injections are all stored in the same sqlite database, thus this database must include a sim inspiral table
-# if you provide a database that does not include injections, the code will still run as long as one of the databases you provide includes injections 
-	try:
-		sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
-		is_injections = True
-	except ValueError:
-		is_injections = False
-
-	if is_injections:
-		def calc_delta_t_inj(trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
-			try:
-				return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time_ns)*1e-9)
-			except: print "calc_delta_t_inj() failed"
-		connection.create_function("calc_delta_t_inj", 4, calc_delta_t_inj)
-		connection.create_function("calc_effective_snr", 3, calc_effective_snr)
-		
-# get the names of each injection run, so that we can normalize the weights given to the triggers
-		for injset in connection.cursor().execute("""
-			SELECT
-				value
-			FROM
-				process_params
-			WHERE
-				program = 'inspinj'
-				AND param == '--userTag'
-			"""): 
-				injset = str(injset[0])
-				normalization[injset]=0
-				injections[injset]=[]
-				injections_info[injset]=[]
-				for values in connection.cursor().execute("""
-				SELECT
-					coinc_inspiral.coinc_event_id,
-					snglA.*,
-					snglB.*,
-					calc_delta_t_inj(snglA.end_time, snglA.end_time_ns, snglB.end_time, snglB.end_time_ns),
-					abs(2*(snglA.mchirp - snglB.mchirp)/(snglA.mchirp+snglB.mchirp)),
-					abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
-					snglA.snr,
-					snglB.snr,
-					snglA.chisq/(2*snglA.chisq_dof-2),
-					snglB.chisq/(2*snglB.chisq_dof-2),
-					calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
-					calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
-					snglA.rsqveto_duration,
-					snglB.rsqveto_duration,
-					CASE snglA.cont_chisq_dof
-						WHEN 0.0 THEN 1.0
-						ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
-					CASE snglB.cont_chisq_dof
-						WHEN 0.0 THEN 1.0
-						ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
-					coinc_inspiral.snr,
-					CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
-						WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
-						WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
-						ELSE 1.0 END
-				FROM
-					coinc_inspiral 
-					JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
-					JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == coinc_inspiral.coinc_event_id)
-					JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
-					JOIN sngl_inspiral AS snglB ON (snglB.event_id == mapB.event_id)
-					JOIN coinc_event_map AS mapC ON (mapC.event_id == coinc_inspiral.coinc_event_id)
-					JOIN coinc_event_map AS mapD ON (mapD.coinc_event_id == mapC.coinc_event_id)
-					JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapD.event_id)
-					JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
-					JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == mapA.coinc_event_id)
-					JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
-					JOIN process_params ON (process_params.process_id == sim_inspiral.process_id)
-				WHERE
-					coinc_definer.search == 'inspiral'
-					AND coinc_definer.search_coinc_type == 2
-					AND mapA.table_name == 'sngl_inspiral'
-					AND mapB.table_name == 'sngl_inspiral'
-					AND mapC.table_name == 'coinc_event'
-					AND mapD.table_name == 'sim_inspiral'
-					AND snglA.ifo == ?
-					AND snglB.ifo == ?
-					AND process_params.program == 'inspinj' AND process_params.param == '--userTag' AND process_params.value == ?
-					""", (ifos[0],ifos[1],injset,) ):
-						normalization[injset]=normalization[injset]+values[-1]
-						injections[injset].append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (1,))
-						injections_info[injset].append([values[0], database])
-		dbtables.put_connection_filename(database, working_filename, verbose = True)
-
 	rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
 	offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
 	sngl_inspiral_row_from_cols = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols
-	def calc_ethinca_ts(rowA,rowB,time_slide_id,rings=rings,offset_vectors=offset_vectors):
+	def calc_effective_snr(snr, chisq, chisq_dof, fac=opts.factor):
+		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+	
+	def calc_ethinca(rowA,rowB,time_slide_id,rings=rings,offset_vectors=offset_vectors):
 		flatrings = segments.segmentlist()
 		for value in rings.values():
 			flatrings.extend(value)
@@ -184,7 +95,7 @@ for database in databases:
 		rowB = sngl_inspiral_row_from_cols(rowB)
 		SnglInspiralUtils.slideTriggersOnRings([rowB],flatrings,offset_vectors[time_slide_id])
 		return xlaltools.XLALCalculateEThincaParameter(rowA,rowB)
-
+	
 	def calc_delta_t(trigger1_ifo, trigger1_end_time, trigger1_end_time_ns, trigger2_ifo, trigger2_end_time, trigger2_end_time_ns, time_slide_id, rings = rings, offset_vectors = offset_vectors):
 		time_slide_id = ilwd.get_ilwdchar(time_slide_id)
 		trigger1_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger1_end_time, trigger1_end_time_ns)
@@ -212,104 +123,44 @@ for database in databases:
 				out = 1.0 - out
 			print >> sys.stderr, "SO...delta t has been set to: ", out, "in accordance with the mod 1 hack"
 			return out
-
-
 	connection.create_function("calc_delta_t", 7, calc_delta_t)
 	connection.create_function("calc_effective_snr", 3, calc_effective_snr)
+# in S6, the timeslides, zerolag, and injections are all stored in the same sqlite database, thus this database must include a sim inspiral table
+# if you provide a database that does not include injections, the code will still run as long as one of the databases you provide includes injections 
+	try:
+		sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+		is_injections = True
+	except ValueError:
+		is_injections = False
 
+	if is_injections:
+# get the names of each injection run, so that we can normalize the weights given to the triggers
+		for injset in connection.cursor().execute("""
+			SELECT
+				value
+			FROM
+				process_params
+			WHERE
+				program = 'inspinj'
+				AND param == '--userTag'
+			"""): 
+				injset = str(injset[0])
+				normalization[injset]=0
+				injections[injset]=[]
+				injections_info[injset]=[]
+				for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],injset,) ):
+						normalization[injset]=normalization[injset]+values[-1]
+						injections[injset].append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
+						injections_info[injset].append([values[0], database])
 
 	#FIXME: look up coinc_definer_id from cefinition in pylal
-# get the timeslide triggers
-	for values in connection.cursor().execute("""
-	SELECT
-		coinc_inspiral.coinc_event_id,
-		snglA.*,
-		snglB.*,
-		coinc_event.time_slide_id,
-		calc_delta_t(snglA.ifo, snglA.end_time, snglA.end_time_ns, snglB.ifo, snglB.end_time, snglB.end_time_ns, coinc_event.time_slide_id),
-		abs(2*(snglA.mchirp - snglB.mchirp)/(snglA.mchirp+snglB.mchirp)),
-		abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
-		snglA.snr,
-		snglB.snr,
-		snglA.chisq/(2*snglA.chisq_dof-2),
-		snglB.chisq/(2*snglB.chisq_dof-2),
-		calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
-		calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
-		snglA.rsqveto_duration,
-		snglB.rsqveto_duration,
-		CASE snglA.cont_chisq_dof
-			WHEN 0.0 THEN 1.0
-			ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
-		CASE snglB.cont_chisq_dof
-			WHEN 0.0 THEN 1.0
-			ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
-		coinc_inspiral.snr
-	FROM
-		coinc_inspiral 
-		JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
-		JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == coinc_inspiral.coinc_event_id)
-		JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
-		JOIN sngl_inspiral AS snglB ON (snglB.event_id == mapB.event_id)
-		JOIN coinc_event ON (mapA.coinc_event_id == coinc_event.coinc_event_id)
-		JOIN coinc_definer ON (coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
-		JOIN experiment_map ON (experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
-		JOIN experiment_summary ON (experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
-	WHERE
-		coinc_definer.search == 'inspiral'
-		AND coinc_definer.search_coinc_type == 0
-		AND mapA.table_name == 'sngl_inspiral'
-		AND mapB.table_name == 'sngl_inspiral'
-		AND experiment_summary.datatype == 'slide'
-		AND snglA.ifo == ?
-		AND snglB.ifo == ?
-		""", tuple(ifos) ):
-			timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (1,) + (0,))
+# get the timeslide/full_data triggers
+	for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_join_fulldata]), tuple(ifos) ):
+		if values[-1] == 'slide':	
+			timeslides.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			timeslides_info.append([values[0], database])
-# get the zerolag triggers
-	for values in connection.cursor().execute("""
-	SELECT
-		coinc_inspiral.coinc_event_id,
-		snglA.*,
-		snglB.*,
-		coinc_event.time_slide_id,
-		calc_delta_t(snglA.ifo, snglA.end_time, snglA.end_time_ns, snglB.ifo, snglB.end_time, snglB.end_time_ns, coinc_event.time_slide_id),
-		abs(2*(snglA.mchirp - snglB.mchirp)/(snglA.mchirp+snglB.mchirp)),
-		abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
-		snglA.snr,
-		snglB.snr,
-		snglA.chisq/(2*snglA.chisq_dof-2),
-		snglB.chisq/(2*snglB.chisq_dof-2),
-		calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
-		calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
-		snglA.rsqveto_duration,
-		snglB.rsqveto_duration,
-		CASE snglA.cont_chisq_dof
-			WHEN 0.0 THEN 1.0
-			ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
-		CASE snglB.cont_chisq_dof
-			WHEN 0.0 THEN 1.0
-			ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
-		coinc_inspiral.snr
-	FROM
-		coinc_inspiral 
-		JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
-		JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == coinc_inspiral.coinc_event_id)
-		JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
-		JOIN sngl_inspiral AS snglB ON (snglB.event_id == mapB.event_id)
-		JOIN coinc_event ON (mapA.coinc_event_id == coinc_event.coinc_event_id)
-		JOIN coinc_definer ON (coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
-		JOIN experiment_map ON (experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
-		JOIN experiment_summary ON (experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
-	WHERE
-		coinc_definer.search == 'inspiral'
-		AND coinc_definer.search_coinc_type == 0
-		AND mapA.table_name == 'sngl_inspiral'
-		AND mapB.table_name == 'sngl_inspiral'
-		AND experiment_summary.datatype == 'all_data'
-		AND snglA.ifo == ?
-		AND snglB.ifo == ?
-		""", tuple(ifos) ):
-			zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+2:] + (1,) + (0,))
+		if values[-1] == 'all_data':
+			zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			zerolag_info.append([values[0], database])
 	dbtables.put_connection_filename(database, working_filename, verbose = True)
 
