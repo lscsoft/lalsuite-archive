@@ -113,6 +113,7 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
       for entry in tmpVetoSegs:
         vetoes.append(entry)
+  vetoes.coalesce()
  
   # load triggers
   xmldoc = utils.load_filename( trigFile, gz=trigFile.endswith("gz" ) )

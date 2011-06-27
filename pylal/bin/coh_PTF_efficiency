@@ -229,6 +229,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
       for entry in tmpVetoSegs:
         vetoes.append(entry)
+  vetoes.coalesce()
 
   # Determine which trials are vetoed
   numVetoedTrials = 0
