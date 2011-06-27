@@ -204,7 +204,7 @@ def cbcBayesPostProc(
     if 'mc' in pos.names:
         mchirp_name = 'mc'
     else:
-        mchirp_namp = 'mchirp'
+        mchirp_name = 'mchirp'
 
     if (mchirp_name in pos.names and 'eta' in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -390,17 +390,23 @@ def cbcBayesPostProc(
     #If sky resolution parameter has been specified try and create sky map...
     skyreses=None
     sky_injection_cl=None
+    inj_position=None
+
     if skyres is not None and \
        (('ra' in pos.names and 'dec' in pos.names) or \
         ('rightascension' in pos.names and 'declination' in pos.names)):
         #Greedy bin sky samples (ra,dec) into a grid on the sky which preserves
         #?
+        if ('ra' in pos.names and 'dec' in pos.names):
+            inj_position=[pos['dec'].injval,pos['ra'].injval]
+        elif ('rightascension' in pos.names and 'declination' in pos.names):
+            inj_position=[pos['declination'].injval,pos['rightascension'].injval]
         top_ranked_sky_pixels,sky_injection_cl,skyreses,injection_area=bppu.greedy_bin_sky(pos,skyres,confidence_levels)
         print "BCI for sky area:"
         print skyreses
         #Create sky map in outdir
-        bppu.plot_sky_map(top_ranked_sky_pixels,outdir)
-
+        bppu.plot_sky_map(inj_position,top_ranked_sky_pixels,outdir)
+        
         #Create a web page section for sky localization results/plots (if defined)
 
         html_sky=html.add_section('Sky Localization')
@@ -409,7 +415,7 @@ def cbcBayesPostProc(
                 html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
             else:
                 html_sky.p('Injection not found in posterior bins in sky location!')
-        html_sky.write('<img width="35%" src="skymap.png"/>')
+        html_sky.write('<a href="skymap.png" target="_blank"><img width="35%" src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
 

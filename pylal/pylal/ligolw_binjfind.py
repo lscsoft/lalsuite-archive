@@ -412,11 +412,10 @@ def StringCuspSnglCompare(sim, burst, offsetvector):
 	window centred on the injection is continuous with the time
 	interval of the burst.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
 	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
-	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
+	# uncomment last part of expression to impose an amplitude cut
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period()) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
 
 
 def ExcessPowerSnglCompare(sim, burst, offsetvector):
@@ -424,8 +423,6 @@ def ExcessPowerSnglCompare(sim, burst, offsetvector):
 	Return False (injection matches event) if the peak time and centre
 	frequency of sim lie within the time-frequency tile of burst.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
 	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.get_period()) or (sim.frequency not in burst.get_band())
 
 
@@ -435,8 +432,6 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
 	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
 
 
@@ -445,8 +440,6 @@ def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
 	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2 + SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
@@ -457,8 +450,6 @@ def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
 	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
@@ -532,15 +523,16 @@ def add_sim_burst_coinc(contents, sim, events, coinc_def_id):
 
 def find_exact_coinc_matches(coincs, sim, comparefunc, seglists, offsetvector):
 	"""
-	Return a list of the coinc_event_ids of the burst<-->burst coincs
-	in which all burst events match sim and to which all instruments on
-	at the time of the sim contributed events.
+	Return a set of the coinc_event_ids of the burst<-->burst coincs in
+	which all burst events match sim and to which all instruments on at
+	the time of the sim contributed events.
 	"""
 	# note:  this doesn't check that the coinc and the sim share
 	# compatible offset vectors, it is assumed this condition was
 	# applied in the .coincs_near_peaktime() method that was used to
 	# assemble the list of candidate coincs
 
+	# comparefunc() returns False --> event matches sim
 	# any() --> at least one compare returns True == not all events match
 	# not any() --> all events match sim
 	on_instruments = SimBurstUtils.on_instruments(sim, seglists, offsetvector)
@@ -549,14 +541,15 @@ def find_exact_coinc_matches(coincs, sim, comparefunc, seglists, offsetvector):
 
 def find_near_coinc_matches(coincs, sim, comparefunc, offsetvector):
 	"""
-	Return a list of the coinc_event_ids of the burst<-->burst coincs
-	in which at least one burst event matches sim.
+	Return a set of the coinc_event_ids of the burst<-->burst coincs in
+	which at least one burst event matches sim.
 	"""
 	# note:  this doesn't check that the coinc and the sim share
 	# compatible offset vectors, it is assumed this condition was
 	# applied in the .coincs_near_peaktime() method that was used to
 	# assemble the list of candidate coincs
 
+	# comparefunc() returns False --> event matches sim
 	# all() --> all compares return True == no events match
 	# not all() --> at least one event matches sim
 	return set(coinc_event_id for coinc_event_id, events in coincs if not all(comparefunc(sim, event, offsetvector) for event in events))
