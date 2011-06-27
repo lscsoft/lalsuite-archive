@@ -1617,9 +1617,11 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
     return _greedy_bin(shist,skypoints,injbin,float(skyres),len(skypos),confidence_levels)
 
 
-def plot_sky_map(top_ranked_pixels,outdir):
+def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     """
     Plots a sky map using the Mollweide projection in the Basemap package.
+
+    @inj_pos: injected position in the sky in the form [dec,ra]
 
     @param top_ranked_pixels: the top-ranked sky pixels as determined by greedy_bin_sky.
 
@@ -1632,6 +1634,13 @@ def plot_sky_map(top_ranked_pixels,outdir):
     myfig=plt.figure()
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    
+    # Plot an X on the injected position
+    if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
+        ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
+        inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
+        plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
+    
     ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
 
     plx,ply=m(

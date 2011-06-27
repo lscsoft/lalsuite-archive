@@ -459,7 +459,9 @@ def vote(seglists, n):
 
 	The sequence of segmentlists is only iterated over once, and the
 	segmentlists within it are only iterated over once;  they can all
-	be generators.
+	be generators.  If there are a total of N segments in M segment
+	lists and the final result has L segments the algorithm is O(N M) +
+	O(L).
 	"""
 	# check for no-op
 
@@ -471,6 +473,14 @@ def vote(seglists, n):
 	# FIXME:  this generator is declared locally for now, is it useful
 	# as a stand-alone generator?
 
+	def pop_min(l):
+		# remove and return the smallest value from a list
+		val = min(l)
+		for i in xrange(len(l) - 1, -1, -1):
+			if l[i] is val:
+				return l.pop(i)
+		assert False	# cannot get here
+
 	def vote_generator(seglists):
 		queue = []
 		for seglist in seglists:
@@ -479,15 +489,17 @@ def vote(seglists, n):
 				seg = segiter.next()
 			except StopIteration:
 				continue
-			queue.append((seg[0], +1, None))
+			# put them in so that the smallest boundary is
+			# closest to the end of the list
 			queue.append((seg[1], -1, segiter))
+			queue.append((seg[0], +1, None))
 		if not queue:
 			return
 		queue.sort(reverse = True)
 		bound = queue[-1][0]
 		votes = 0
 		while queue:
-			this_bound, delta, segiter = queue.pop()
+			this_bound, delta, segiter = pop_min(queue)
 			if this_bound == bound:
 				votes += delta
 			else:
@@ -499,9 +511,8 @@ def vote(seglists, n):
 					seg = segiter.next()
 				except StopIteration:
 					continue
-				queue.append((seg[0], +1, None))
 				queue.append((seg[1], -1, segiter))
-				queue.sort(reverse = True)
+				queue.append((seg[0], +1, None))
 		yield bound, votes
 
 	# compute the cumulative sum of votes, and assemble a segmentlist

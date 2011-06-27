@@ -155,23 +155,19 @@ def confidence_interval( mu, post, alpha = 0.9 ):
     return mu_low, mu_high
 
 
-def integrate_efficiency(dbins, eff, err=0, logbins=False):
+def integrate_efficiency(dbins, eff, logbins=False):
 
     if logbins:
         logd = numpy.log(dbins)
         dlogd = logd[1:]-logd[:-1]
         dreps = numpy.exp( (numpy.log(dbins[1:])+numpy.log(dbins[:-1]))/2) # log midpoint
         vol = numpy.sum( 4*numpy.pi *dreps**3 *eff *dlogd )
-        verr = numpy.sum( (4*numpy.pi *dreps**3 *err *dlogd)**2 ) #propagate errors in eff to errors in v
     else:
         dd = dbins[1:]-dbins[:-1]
         dreps = (dbins[1:]+dbins[:-1])/2 #midpoint
         vol = numpy.sum( 4*numpy.pi *dreps**2 *eff *dd )
-        verr = numpy.sum( (4*numpy.pi *dreps**2 *err *dd)**2 ) #propagate errors in eff to errors in v
 
-    verr = numpy.sqrt(verr)
-
-    return vol, verr
+    return vol
 
 
 def compute_efficiency(f_dist,m_dist,dbins):
@@ -191,10 +187,10 @@ def compute_efficiency(f_dist,m_dist,dbins):
     return efficiency
 
 
-def mean_efficiency(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
+def mean_efficiency_volume(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
 
     if len(found) == 0: # no efficiency here
-        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1)
+        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1), 0, 0
 
     # only need distances
     found_dist = numpy.array([l.distance for l in found])
@@ -203,6 +199,10 @@ def mean_efficiency(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
     # initialize the efficiency array
     eff = numpy.zeros(len(dbins)-1)
     eff2 = numpy.zeros(len(dbins)-1)
+
+    # initialize the volume integral
+    meanvol = 0
+    volerr = 0
 
     # bootstrap to account for statistical and amplitude calibration errors
     for trial in range(bootnum):
@@ -225,11 +225,19 @@ def mean_efficiency(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
       eff += tmpeff
       eff2 += tmpeff**2
 
+      # compute volume and its variance
+      tmpvol = integrate_efficiency(dbins, tmpeff)
+      meanvol += tmpvol
+      volerr += tmpvol**2
+
+    meanvol /= bootnum
+    volerr /= bootnum
+    volerr = numpy.sqrt(volerr - meanvol**2)
     eff /= bootnum #normalize
     eff2 /= bootnum
     err = numpy.sqrt(eff2-eff**2)
 
-    return eff, err
+    return eff, err, meanvol, volerr
 
 
 def find_host_luminosity(inj, catalog):
@@ -319,12 +327,10 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalo
         missedArray[(mc,)] = len(newmissed)
 
         # compute the volume using this injection set
-        eff, err = mean_efficiency(newfound, newmissed, dbins, bootnum=bootnum, randerr=relerr, syserr=syserr)
-        effvmass.append(eff)
-        errvmass.append(err)
-        vol, volerr = integrate_efficiency(dbins, eff, err, logd)
-
-        volArray[(mc,)] = vol
+        meaneff, efferr, meanvol, volerr = mean_efficiency_volume(newfound, newmissed, dbins, bootnum=bootnum, randerr=relerr, syserr=syserr)
+        effvmass.append(meaneff)
+        errvmass.append(efferr)
+        volArray[(mc,)] = meanvol
         vol2Array[(mc,)] = volerr
 
     return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
@@ -339,12 +345,10 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: cannot fit to log-volume."
         return 0
 
-    fit = interpolate.splrep(x,numpy.log10(vols),k=3)
+    fit = interpolate.splrep(x,numpy.log(vols),k=3)
     val = interpolate.splev(xhat,fit,der=1)
     if val < 0:
         val = 0 #prevents negative derivitives arising from bad fits
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
 
     return val
-
-
