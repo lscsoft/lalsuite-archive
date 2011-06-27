@@ -1666,7 +1666,8 @@ class MultiInspiralTable(table.Table):
 		"autoCorrNullSq": "real_4",
 		"crossCorrNullSq": "real_4",
 		"ampMetricEigenVal1": "real_8",
-		"ampMetricEigenVal2": "real_8"
+		"ampMetricEigenVal2": "real_8",
+                "time_slide_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
