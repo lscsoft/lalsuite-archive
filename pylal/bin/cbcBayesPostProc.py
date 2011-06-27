@@ -1,4 +1,4 @@
-#!/opt/local/Library/Frameworks/Python.framework/Versions/2.6/Resources/Python.app/Contents/MacOS/Python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #       cbcBayesPostProc.py
