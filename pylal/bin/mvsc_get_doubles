@@ -44,6 +44,9 @@ ifos.sort()
 
 time1=time()
 
+# this is the list of parameters that describe each event in the training and testing sets:
+parameters = "ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr"
+
 class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	"""
 	You need to make this subclass of xlaltools.SnglInspiralTable because the C version doesn't have the methods 
@@ -83,7 +86,8 @@ for database in databases:
 	xmldoc = dbtables.get_xml(connection)
 	cursor = connection.cursor()
 	num_sngl_cols = len(table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).dbcolumnnames)
-	# to determine whether or not the database is full of timeslides/zerolag or injections, check if there exists a sim_inspiral table 
+# in S6, the timeslides, zerolag, and injections are all stored in the same sqlite database, thus this database must include a sim inspiral table
+# if you provide a database that does not include injections, the code will still run as long as one of the databases you provide includes injections 
 	try:
 		sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
 		is_injections = True
@@ -320,12 +324,14 @@ random.shuffle(timeslides_info)
 Nrounds = opts.number
 Ninj = len(allinjections)
 Nslide = len(timeslides)
-print Ninj
 
 trstr = opts.trainingstr
 testr = opts.testingstr
 zlstr = opts.zerolagstr
 
+print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " and H1,L1,V1 coincidences"
+print "there are ", len(allinjections), " injection doubles in ", ''.join(ifos), " and H1,L1,V1 coincidences"
+print "there are ", len(zerolag), " zerolag doubles in ", ''.join(ifos), " and H1,L1,V1 coincidences"
 
 if len(allinjections) != 0:	
 	Nparams = len(allinjections[0]) - 2
@@ -333,7 +339,7 @@ if len(allinjections) != 0:
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
-		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
+		f.write(parameters + "\n")
 		return f
 	
 	for i in range(Nrounds):
@@ -342,8 +348,6 @@ if len(allinjections) != 0:
 		f_testing_info=open(''.join(ifos) + '_set' + str(i) + '_' + str(testr) + '_info.pat', 'w')
 		set_inj = list(allinjections)
 		set_inj_info = list(allinjections_info)
-		print len(set_inj)
-		print len(set_inj_info)
 		set_slide = list(timeslides)
 		set_slide_info = list(timeslides_info)
 		# get 10% of the timeslides and injections, which you will run through the forest that you've trained on the other 90%
@@ -351,8 +355,6 @@ if len(allinjections) != 0:
 		set_i_inj_info= set_inj_info[i*Ninj/Nrounds : (i+1)*Ninj/Nrounds]
 		set_i_slide = set_slide[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
 		set_i_slide_info = set_slide_info[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
-		print len(set_i_inj)
-		print len(set_i_inj_info)
 		for row in set_i_inj:
 			f_testing.write("%s\n" % " ".join(map(str,row)))
 		for row in set_i_inj_info:
@@ -370,7 +372,7 @@ if len(allinjections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
-	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
+	f_zerolag.write(parameters + "\n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')
