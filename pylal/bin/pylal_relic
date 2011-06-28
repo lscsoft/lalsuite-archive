@@ -382,6 +382,7 @@ slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, ar
 veto_segs = segmentlistdict()
 for ifo in ifo_list:
   veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")), coltype=int)
+  veto_segs[ifo].coalesce()
   veto_segs[ifo] |= buffer_segs
   veto_segs[ifo] &= segmentlist([off_seg])
 
