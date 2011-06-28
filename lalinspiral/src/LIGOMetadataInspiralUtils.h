@@ -559,6 +559,11 @@ XLALInspiralDistanceCutBCVC(
     );
 
 void
+XLALInspiralExactSpin1Coinc(
+    CoincInspiralTable        **coincInspiral
+    );
+void
+
 XLALInspiralDistanceCut(
     CoincInspiralTable        **coincInspiral,
     InspiralAccuracyList       *accuracyParams
