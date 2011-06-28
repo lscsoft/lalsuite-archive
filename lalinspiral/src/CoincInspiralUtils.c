@@ -1508,7 +1508,75 @@ InspiralAccuracyList       *accuracyParams
   *coincInspiral = coincHead;
 }
 
+void
+XLALInspiralExactSpin1Coinc(
+    CoincInspiralTable        **coincInspiral
+    )
 
+{
+  InterferometerNumber  ifoA = LAL_UNKNOWN_IFO;
+  InterferometerNumber  ifoB = LAL_UNKNOWN_IFO;
+  CoincInspiralTable   *thisCoinc = NULL;
+  CoincInspiralTable   *prevCoinc = NULL;
+  CoincInspiralTable   *coincHead = NULL;
+
+  INT4  discardTrigger = 0;
+
+  thisCoinc = *coincInspiral;
+  coincHead = NULL;
+
+  /* loop over the coincindent triggers */
+  while( thisCoinc )
+  {
+    CoincInspiralTable *tmpCoinc = thisCoinc;
+    discardTrigger=0;
+
+    thisCoinc = thisCoinc->next;
+
+
+    /* loop over all IFO combinations */
+    for ( ifoA = 0; ifoA < LAL_NUM_IFO; ifoA++ )
+    {
+      for ( ifoB = ifoA + 1; ifoB < LAL_NUM_IFO; ifoB++ )
+      {
+        if( tmpCoinc->snglInspiral[ifoA]
+            && tmpCoinc->snglInspiral[ifoB]  )
+        {
+          /* perform the spin1 coincidence test */
+          if (( tmpCoinc->snglInspiral[ifoB]->chi != tmpCoinc->snglInspiral[ifoA]->chi ) || 
+              ( tmpCoinc->snglInspiral[ifoB]->kappa != tmpCoinc->snglInspiral[ifoA]->kappa ))
+          {
+            discardTrigger = 1;
+          }
+        }
+      }
+
+      if ( discardTrigger )
+      {
+        break;
+      }
+    }
+
+    if( discardTrigger )
+    {
+      XLALFreeCoincInspiral( &tmpCoinc );
+    }
+    else
+    {
+      if ( ! coincHead )
+      {
+        coincHead = tmpCoinc;
+      }
+      else
+      {
+        prevCoinc->next = tmpCoinc;
+      }
+      tmpCoinc->next = NULL;
+      prevCoinc = tmpCoinc;
+    }
+  }
+  *coincInspiral = coincHead;
+}
 
 void
 LALInspiralDistanceCutCleaning(

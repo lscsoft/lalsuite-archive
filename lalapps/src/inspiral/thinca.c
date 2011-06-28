@@ -93,6 +93,7 @@ int doBCVC = 0;
 int h1h2Consistency = 0;
 int doVeto = 0;
 int completeCoincs = 0;
+int doExactSpin1Coinc = 0;
 
 INT4 numExtTriggers = 0;
 ExtTriggerTable   *exttrigHead = NULL;
@@ -148,7 +149,7 @@ fprintf( a, "  [--t1-veto-file]               veto file for T1\n");\
 fprintf( a, "  [--v1-veto-file]               veto file for V1\n");\
 fprintf( a, "\n");\
 fprintf( a, "   --parameter-test     test    set parameters with which to test coincidence:\n");\
-fprintf( a, "                                (m1_and_m2|mchirp_and_eta|mchirp_and_eta_ext|ptf_mchirp_eta|psi0_and_psi3|ellipsoid)\n");\
+fprintf( a, "                                (m1_and_m2|mchirp_and_eta|mchirp_and_eta_ext|psi0_and_psi3|ellipsoid)\n");\
 fprintf( a, "  [--g1-time-accuracy]  g1_dt   specify the timing accuracy of G1 in ms\n");\
 fprintf( a, "  [--h1-time-accuracy]  h1_dt   specify the timing accuracy of H1 in ms\n");\
 fprintf( a, "  [--h2-time-accuracy]  h2_dt   specify the timing accuracy of H2 in ms\n");\
@@ -357,6 +358,7 @@ int main( int argc, char *argv[] )
     {"bcvc",                no_argument,   &doBCVC,                   1 },
     {"do-veto",             no_argument,   &doVeto,                   1 },
     {"complete-coincs",     no_argument,   &completeCoincs,           1 },
+    {"exact-spin1-coinc",   no_argument,   &doExactSpin1Coinc,        1 },
     {"g1-slide",            required_argument, 0,                    'b'},
     {"h1-slide",            required_argument, 0,                    'c'},
     {"h2-slide",            required_argument, 0,                    'd'},
@@ -547,10 +549,6 @@ int main( int argc, char *argv[] )
         {
           accuracyParams.test = mchirp_and_eta;
         }
-        else if ( ! strcmp( "ptf_mchirp_eta", optarg ) )
-        {
-          accuracyParams.test = ptf_mchirp_eta;
-        }
         else if ( ! strcmp( "ellipsoid", optarg ) )
         {
           accuracyParams.test = ellipsoid;
@@ -559,7 +557,7 @@ int main( int argc, char *argv[] )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown test specified: "
-              "%s (must be m1_and_m2, psi0_and_psi3, mchirp_and_eta, ptf_mchirp_eta or mchirp_and_eta_ext)\n",
+              "%s (must be m1_and_m2, psi0_and_psi3, mchirp_and_eta or mchirp_and_eta_ext)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -1522,6 +1520,18 @@ int main( int argc, char *argv[] )
     snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );    
   }
 
+ /* store coinc params for exact spin1 coincidence test */
+  if (doExactSpin1Coinc)
+  {
+    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+      calloc( 1, sizeof(ProcessParamsTable) );
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s", 
+        PROGRAM_NAME );
+    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
+        "--do-exact-spin1-coinc");
+    snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+    snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );    
+  }
 
   /* delete the first, empty process_params entry */
   this_proc_param = processParamsTable.processParamsTable;
@@ -1915,6 +1925,14 @@ int main( int argc, char *argv[] )
     {
       LAL_CALL( LALCreateTwoIFOCoincList(&status, &coincInspiralList,
               inspiralEventList, &accuracyParams ), &status);
+    }
+    
+    /* Exact Spin1 Coincidence Test */
+    if (doExactSpin1Coinc)
+    {
+      if (vrbflg) fprintf (stdout,
+          "Discarding triggers with non-coincidence spin1 parameters \n" );
+      XLALInspiralSpin1Coinc( &coincInspiralList);
     }
 
 
