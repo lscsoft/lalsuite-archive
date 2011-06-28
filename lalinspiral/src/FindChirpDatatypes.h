@@ -351,50 +351,6 @@ to the <tt>FindChirpFilter()</tt> routine. This may either be a template
 generated in the frequency domain or the Fourier transform of template
 generated in the time domain.
 
-<<<<<<< HEAD:lalinspiral/src/FindChirpDatatypes.h
-</lalLaTeX>
-#endif
-/* <lalVerbatim> */
-typedef struct
-tagFindChirpTemplate
-{
-  InspiralTemplate              tmplt;
-  COMPLEX8Vector               *data;
-  COMPLEX8VectorSequence       *ACTDtilde;
-  REAL4VectorSequence          *PTFQ;
-  COMPLEX8VectorSequence       *PTFQtilde;
-  REAL4Array                   *PTFBinverse;
-  REAL4Array                   *PTFB;
-  REAL4                         tmpltNorm;
-  REAL4				norm;
-  REAL8                         momentI;
-  REAL8                         momentJ;
-  REAL8                         momentK;
-  REAL8                         rootMomentI;
-  REAL8                         numFactor;
-  REAL8                         numFactor1;
-  REAL8                         numFactor2;
-  REAL8                         numFactor3;
-  REAL8Vector                  *A1BCVSpin;
-  REAL8Vector                  *A2BCVSpin;
-  REAL8Vector                  *A3BCVSpin;
-}
-FindChirpTemplate;
-/* </lalVerbatim> */
-#if 0
-<lalLaTeX>
-\begin{description}
-\item[\texttt{InspiralTemplate tmplt}] The template parameters of this
-\texttt{FindChirpTemplate}. In addition to the mass parameters the following
-fields of \texttt{tmplt} should populated by the template generation functions
-as the are used by \texttt{FindChirpFilterSegment()}:
-\begin{enumerate}
-\item[\texttt{approximant}] Used to check that the findchirp data segment
-and the template have been created for the same type of waveform.
-\item[\texttt{tC}] The length of the chirp in seconds. Used by the max over
-chirp event finding algorithm.
-\item[\texttt{fFinal}] The highest frequency component of the chirp. Used to
-=======
 <dl>
 <dt><tt>InspiralTemplate tmplt</tt></dt><dd> The template parameters of this
 \c FindChirpTemplate. In addition to the mass parameters the following
@@ -406,7 +362,6 @@ and the template have been created for the same type of waveform.</dd>
 <dt>tC</dt><dd> The length of the chirp in seconds. Used by the max over
 chirp event finding algorithm.</dd>
 <dt>fFinal</dt><dd> The highest frequency component of the chirp. Used to
->>>>>>> 28a3b84b72def66be426543a66a1545dfe372f18:lalinspiral/src/FindChirpDatatypes.h
 pick the appropriate value of the segment normalization constant
 \f$\mathcal{S}_k\f$ for this template.</dd>
 </dl>
@@ -481,6 +436,7 @@ tagFindChirpTemplate
   InspiralTemplate              tmplt;
   COMPLEX8Vector               *data;
   COMPLEX8VectorSequence       *ACTDtilde;
+  REAL4VectorSequence          *PTFQ;
   COMPLEX8VectorSequence       *PTFQtilde;
   REAL4Array                   *PTFBinverse;
   REAL4Array                   *PTFB;
