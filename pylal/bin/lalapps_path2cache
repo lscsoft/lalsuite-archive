@@ -87,12 +87,12 @@ options = parse_command_line()
 
 
 if options.input is not None:
-	input = file(options.input)
+	input = open(options.input)
 else:
 	input = sys.stdin
 
 if options.output is not None:
-	output = file(options.output)
+	output = open(options.output, "w")
 else:
 	output = sys.stdout
 

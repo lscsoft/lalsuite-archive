@@ -65,13 +65,13 @@ def parse_command_line():
 	)
 	parser.add_option("-f", "--force", action = "store_true", help = "Process even if file has already been processed.")
 	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be written to the process table (default = None).")
-	parser.add_option("-c", "--match-algorithm", metavar = "[stringcusp|excesspower|omega]", default = None, help = "Set the algorithm used to match burst candidates with injections (required).")
+	parser.add_option("-c", "--match-algorithm", metavar = "[stringcusp|excesspower|omega|waveburst]", default = None, help = "Set the algorithm used to match burst candidates with injections (required).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	if options.match_algorithm is None:
 		raise ValueError, "missing required --match-algorithm option"
-	if options.match_algorithm not in ("stringcusp", "excesspower", "omega"):
+	if options.match_algorithm not in ("stringcusp", "excesspower", "omega", "waveburst"):
 		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
 
 	return options, (filenames or [None])
@@ -114,19 +114,22 @@ options, filenames = parse_command_line()
 search = {
 	"stringcusp": "StringCusp",
 	"excesspower": "excesspower",
-	"omega": "omega"
+	"omega": "omega",
+	"waveburst": "waveburst"
 }[options.match_algorithm]
 
 snglcomparefunc = {
 	"stringcusp": ligolw_binjfind.StringCuspSnglCompare,
 	"excesspower": ligolw_binjfind.ExcessPowerSnglCompare,
-	"omega": ligolw_binjfind.OmegaSnglCompare
+	"omega": ligolw_binjfind.OmegaSnglCompare,
+	"waveburst": ligolw_binjfind.OmegaSnglCompare
 }[options.match_algorithm]
 
 nearcoinccomparefunc = {
 	"stringcusp": ligolw_binjfind.StringCuspNearCoincCompare,
 	"excesspower": ligolw_binjfind.ExcessPowerNearCoincCompare,
-	"omega": ligolw_binjfind.OmegaNearCoincCompare
+	"omega": ligolw_binjfind.OmegaNearCoincCompare,
+	"waveburst": ligolw_binjfind.OmegaNearCoincCompare
 }[options.match_algorithm]
 
 

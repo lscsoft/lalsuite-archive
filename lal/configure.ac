@@ -1,4 +1,4 @@
-AC_INIT([lal],[6.5.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lal],[6.5.0.3],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([include/config.h include/lal/LALConfig.h])
 AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
 AC_CONFIG_AUX_DIR([misc])
@@ -16,6 +16,9 @@ AC_CONFIG_FILES([ \
   include/lal/Makefile \
   lib/Makefile \
   misc/Makefile \
+  swig/Makefile \
+  swig/octave/Makefile \
+  swig/python/Makefile \
   packages/Makefile \
   packages/std/Makefile \
   packages/std/doc/Makefile \
@@ -94,6 +97,8 @@ AH_BOTTOM([
 
 AC_CANONICAL_HOST
 
+LALSUITE_ARG_VAR
+
 # set library api info - liblal
 # 1. start with version information of "0:0:0" for each libtool library
 # 2. update the version information only immediately before a public
@@ -145,7 +150,7 @@ LALSUITE_WITH_CUDA
 LALSUITE_ENABLE_BOINC
 LALSUITE_ENABLE_GCC_FLAGS
 
-LAL_ENABLE_DEBUG
+LALSUITE_ENABLE_DEBUG
 LAL_ENABLE_MACROS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY
@@ -353,6 +358,9 @@ if test "${boinc}" = "true"; then
   AC_SUBST(BOINC_LIBS)
 fi
 
+# check for SWIG wrapping
+LALSUITE_ENABLE_SWIG
+
 # record the libraries needed for linking lal
 LAL_LIBADD="$LIBS"
 AC_SUBST(LAL_LIBADD)
@@ -407,6 +415,8 @@ echo "
 
                 CUDA support is $CUDA_ENABLE_VAL
                 BOINC support is $BOINC_ENABLE_VAL
+                SWIG wrappings for Octave are $SWIG_OCTAVE_ENABLE_VAL
+                SWIG wrappings for Python are $SWIG_PYTHON_ENABLE_VAL
 
         Now run 'make' to build LAL
         and run 'make install' to install LAL

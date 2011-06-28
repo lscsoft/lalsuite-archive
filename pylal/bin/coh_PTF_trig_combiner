@@ -51,7 +51,7 @@ if opts.num_files < 1:
   print "num_files must be given and greater than 0"
   sys.exit(1)
 
-runDir = os.path.join(opts.run_directory, "offsource")
+runDir = os.path.join(opts.run_directory, "onoff")
 GRBnum = opts.grb_name
 numFiles = opts.num_files
 ifoTag = opts.ifo_tag

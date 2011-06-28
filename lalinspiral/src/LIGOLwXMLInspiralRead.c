@@ -30,11 +30,11 @@
   thisEvent = NULL; \
 }
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 MultiInspiralTable    * XLALMultiInspiralTableFromLIGOLw (
     CHAR               *fileName
     )
-/* </lalVerbatim> */
+
 {
   static const char   *func = "XLALMultiInspiralTableFromLIGOLw";
   int                                   i, j, nrows;
@@ -469,7 +469,7 @@ MultiInspiralTable    * XLALMultiInspiralTableFromLIGOLw (
 }
 
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 LALSnglInspiralTableFromLIGOLw (
     SnglInspiralTable **eventHead,
@@ -477,7 +477,7 @@ LALSnglInspiralTableFromLIGOLw (
     INT4                startEvent,
     INT4                stopEvent
     )
-/* </lalVerbatim> */
+
 {
   int                                   i, j, nrows;
   int                                   mioStatus;
@@ -934,7 +934,7 @@ LALSnglInspiralTableFromLIGOLw (
   thisTmplt = NULL; \
 }
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 InspiralTmpltBankFromLIGOLw (
     InspiralTemplate  **bankHead,
@@ -942,7 +942,7 @@ InspiralTmpltBankFromLIGOLw (
     INT4                startTmplt,
     INT4                stopTmplt
     )
-/* </lalVerbatim> */
+
 {
   int                                   i, j, nrows;
   int                                   mioStatus;
@@ -1296,7 +1296,7 @@ InspiralTmpltBankFromLIGOLw (
   thisSim = NULL; \
 }
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 SimInspiralTableFromLIGOLw (
     SimInspiralTable   **simHead,
@@ -1304,7 +1304,7 @@ SimInspiralTableFromLIGOLw (
     INT4                 startTime,
     INT4                 endTime
     )
-/* </lalVerbatim> */
+
 {
   int                                   i, j, nrows;
   int                                   mioStatus;
@@ -1706,13 +1706,13 @@ SimInspiralTableFromLIGOLw (
 }
 
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 SummValueTableFromLIGOLw (
     SummValueTable **sumHead,
     CHAR           *fileName
     )
-/* </lalVerbatim> */
+
 {
   int                                   i, j, nrows;
   int                                   mioStatus;
@@ -1878,7 +1878,7 @@ SummValueTableFromLIGOLw (
 
 
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 LALExtTriggerTableFromLIGOLw (
     ExtTriggerTable   **eventHead,
@@ -1886,7 +1886,7 @@ LALExtTriggerTableFromLIGOLw (
     INT4                startEvent,
     INT4                stopEvent
     )
-/* </lalVerbatim> */
+
 {
   int                                   i, j, nrows;
   int                                   mioStatus;
@@ -2225,7 +2225,7 @@ XLALReadSummValueFile (
     SummValueTable **summValueList,
     CHAR                  *fileName
     )
-/* </lalVerbatim> */
+
 {
 #if 0
   const char *func = "XLALReadSummValueFile";
@@ -2268,7 +2268,7 @@ XLALReadSummValueFile (
  return 1;
 }
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 XLALReadInspiralTriggerFile (
     SnglInspiralTable    **inspiralEventList,
@@ -2277,7 +2277,7 @@ XLALReadInspiralTriggerFile (
     SearchSummvarsTable  **inputFileList,
     CHAR                  *fileName
     )
-/* </lalVerbatim> */
+
 {
   const char *func = "XLALReadInspiralTriggerFile";
   INT4 numFileTriggers = 0;
@@ -2483,13 +2483,13 @@ void XLALCleanSummValueTable(SummValueTable **inputSummValue)
   thisEvent = NULL; \
 }
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 LALMultiInspiralTableFromLIGOLw (
     MultiInspiralTable **eventHead,
     CHAR                *fileName
     )
-/* </lalVerbatim> */
+
 {
   int                                   i, j, nrows;
   int                                   mioStatus;
@@ -3111,7 +3111,7 @@ LALMultiInspiralTableFromLIGOLw (
 
 #undef CLOBBER_EVENTS
 
-/* <lalVerbatim file="LIGOLwXMLReadCP"> */
+
 int
 XLALReadMultiInspiralTriggerFile (
     MultiInspiralTable    **inspiralEventList,
@@ -3120,7 +3120,7 @@ XLALReadMultiInspiralTriggerFile (
     SearchSummvarsTable   **inputFileList,
     CHAR                   *fileName
     )
-/* </lalVerbatim> */
+
 {
   const char *func = "XLALReadMultiInspiralTriggerFile";
   INT4 numFileTriggers = 0;

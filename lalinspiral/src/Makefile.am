@@ -29,8 +29,12 @@ lalinspiralinclude_HEADERS = \
 	LALInspiralRandomBank.h \
 	LALInspiralVCSInfo.h \
 	LALNoiseModelsInspiral.h \
+        LALPSpinInspiralRD.h \
 	LALSBBH-Metric.h \
 	LALSimInspiral.h \
+	LALTrigScanCluster.h \
+	LALSTPNWaveform2.h \
+	LALSTPNWaveformFrameless.h \
 	LALSQTPNIntegrator.h \
 	LALSQTPNWaveform.h \
 	LALSQTPNWaveformInterface.h \
@@ -181,6 +185,8 @@ liblalinspiral_la_SOURCES = \
 	LALRectangleVertices.c \
 	LALRungeKutta4.c \
 	LALSTPNWaveform.c \
+	LALSTPNWaveform2.c \
+	LALSTPNWaveformFrameless.c \
 	LALSQTPNIntegrator.c \
 	LALSQTPNWaveform.c \
 	LALSQTPNWaveformAdaptive.c \

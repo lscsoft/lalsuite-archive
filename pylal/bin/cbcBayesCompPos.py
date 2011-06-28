@@ -62,7 +62,7 @@ TwoDconfidenceLevels=OneDconfidenceLevels
 
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
-twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)']]
+twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0']]
 allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)']
 
 def open_url(url,username,password):
@@ -551,10 +551,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
-            cmap_size=1000
+            my_cm=mpl_cm.jet
+            cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)
-            cmap_array=mpl_cm.jet(np.array(range(cmap_size)))
+            cmap_array=my_cm(np.array(range(cmap_size)))
             for name,infolder in names_and_pos_folders:
 
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
@@ -623,7 +624,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 cl_table_min_max_str+='<td>%s</td><td>%s</td>'%(min_low,max_high)
             cl_table_str=cl_table_header
             for name,row_contents in cl_table.items():
-                cl_table_str+='<tr><td>%s<font color="%s"></font></td>'%(name,str(mpl_colors.rgb2hex(color_by_name[name])))#,'&#183;'.encode('utf-8'))
+                cl_table_str+='<tr><td>%s<font color="%s"></font></td>'%(name,str(mpl_colors.rgb2hex(color_by_name[name][0:3])))#,'&#183;'.encode('utf-8'))
 
                 cl_table_str+=row_contents+'</tr>'
             cl_table_str+=cl_table_min_max_str+'</tr>'

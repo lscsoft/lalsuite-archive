@@ -1,14 +1,6 @@
-# hidden files
 *.swp
 *~
-.cproject
-.project
-
-# folders
-configDir
-build_*
-
-# old
+.DS_Store
 Makefile
 Makefile.in
 aclocal.m4
@@ -19,24 +11,13 @@ configure
 lalsuite-*.tar.gz
 lalsuite.spec
 libtool
-
-# other, may be added in the future
-lal/.settings/
-lalapps/src/calibration/lalapps_makecalframe
-lalapps/src/inspiral/lalapps_inspiral_ssipe
-lalapps/src/inspiral/posterior/lalapps_coherence_test
-lalapps/src/inspiral/posterior/lalapps_combine_evidence
-lalapps/src/inspiral/posterior/lalapps_merge_nested_sampling_runs
-lalapps/src/inspiral/posterior/lalapps_nest_pipe
-lalapps/src/inspiral/posterior/python_config.sed
-lalapps/src/pulsar/FDS_binary/lalapps_CombineBayesianResults
-lalapps/src/pulsar/FDS_binary/lalapps_HJDtoGPSSSB
-lalapps/src/pulsar/FDS_binary/lalapps_SemiCoherentBinary
-lalapps/src/string/lalapps_StringAddFrame
-lalinspiral/.settings/
-lalinspiral/main.c
-lalinspiral/src/integrator.patch
-lalmetaio/.settings/
-lalmetaio/main.c
 TAGS
 auto/
+
+# own
+.cproject
+.project
+configDir
+build_*
+lal/doc/doxygen
+main.c

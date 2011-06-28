@@ -55,15 +55,17 @@ class Summary(object):
 		self.livetime = {}
 		self.multi_burst_table = None
 		self.coinc_inspiral_table = None
-                self.coinc_ringdown_table = None
+		self.coinc_ringdown_table = None
 
 		for f in flist:
-			if opts.verbose: print >> sys.stderr, "Gathering stats from: %s...." % (f,)
+			if opts.verbose:
+				print >> sys.stderr, "Gathering stats from: %s...." % (f,)
 			working_filename = dbtables.get_connection_filename(f, tmp_path=opts.tmp_space, verbose = opts.verbose)
 			connection = sqlite3.connect(working_filename)
 			dbtables.DBTable_set_connection(connection)
 			xmldoc = dbtables.get_xml(connection)
 
+			sim = False
 			# look for a sim table
 			try:
 				sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
@@ -71,7 +73,6 @@ class Summary(object):
 				sim = True
 			except ValueError:
 				self.non_inj_fnames.append(f)
-				sim = False
 
 			# FIGURE OUT IF IT IS A BURST OR INSPIRAL RUN OR RINGDOWN RUN
 			try:
@@ -88,17 +89,17 @@ class Summary(object):
 			except ValueError:
 				self.coinc_ringdown_table = None
 
-			if self.multi_burst_table and self.coinc_inspiral_table:
+			if self.multi_burst_table is not None and self.coinc_inspiral_table is not None:
 				print >>sys.stderr, "both burst and inspiral tables found.  Aborting"
 				raise ValueError
 
-			if self.coinc_inspiral_table and self.coinc_ringdown_table:
-                                print >>sys.stderr, "both ringdown and inspiral tables found.  Aborting"
-                                raise ValueError
-                 
-                        if self.multi_burst_table and self.coinc_ringdown_table:
-                                print >>sys.stderr, "both burst and inspiral tables found.  Aborting"
-                                raise ValueError
+			if self.coinc_inspiral_table is not None and self.coinc_ringdown_table is not None:
+				print >>sys.stderr, "both ringdown and inspiral tables found.  Aborting"
+				raise ValueError
+
+			if self.multi_burst_table is not None and self.coinc_ringdown_table is not None:
+				print >>sys.stderr, "both burst and ringdown tables found.  Aborting"
+				raise ValueError
 
 			if not sim:
 				self.get_instruments(connection)
@@ -117,28 +118,31 @@ class Summary(object):
 
 	def get_segments(self, connection,xmldoc):
 		segs = segments.segmentlistdict()
-		if self.coinc_inspiral_table:
+		if self.coinc_inspiral_table is not None:
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
-		
-		if self.coinc_ringdown_table:
-			if opts.live_time_program == "lalapps_ring":segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
-		if self.multi_burst_table:
+
+		if self.coinc_ringdown_table is not None:
+			if opts.live_time_program == "lalapps_ring":
+				segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+		if self.multi_burst_table is not None:
 			#FIXME CWB case of rings not handled
-			if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
-			if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
+			if opts.live_time_program == "omega_to_coinc":
+				segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+			if opts.live_time_program == "waveburst":
+				segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
 		segs -= self.get_veto_segments(connection, xmldoc)
 		return segs
 
 	def get_veto_segments(self, connection, xmldoc=None):
-		if self.coinc_inspiral_table:
+		if self.coinc_inspiral_table is not None:
 			if self.opts.veto_segments_name is not None: return db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
-		if self.coinc_ringdown_table:
+		if self.coinc_ringdown_table is not None:
 			if self.opts.veto_segments_name is not None: return ligolw_segments.segmenttable_get_by_name(xmldoc, self.opts.veto_segments_name).coalesce()
 		# FIXME BURST CASE VETOS NOT HANDLED
 		else: return segments.segmentlistdict()
 
 	def get_instruments(self, connection):
-		for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
+		for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""'):
 			if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
 
 	def get_injections(self, instruments, FAR=float("inf")):
@@ -150,14 +154,14 @@ class Summary(object):
 		sims = []
 		print >>sys.stderr, ""
 		for cnt, f in enumerate(injfnames):
-			print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
+			print >>sys.stderr, f +  " getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
 			working_filename = dbtables.get_connection_filename(f, tmp_path = opts.tmp_space, verbose = verbose)
 			connection = sqlite3.connect(working_filename)
 			dbtables.DBTable_set_connection(connection)
 			xmldoc = dbtables.get_xml(connection)
 			# DON'T BOTHER CONTINUING IF THE INSTRUMENTS OF INTEREST ARE NOT HERE
 			instruments_in_this_file = []
-			for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
+			for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""'):
 				if i[0]: instruments_in_this_file.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
 			if instruments not in instruments_in_this_file:
 				connection.close()
@@ -166,14 +170,13 @@ class Summary(object):
 				continue
 
 			# WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
-			segments = self.get_segments(connection, xmldoc)
-			
-			#segments -= self.veto_segments
-			#print thincasegments
-			zero_lag_segments  = segments.intersection(instruments) - segments.union(set(segments.keys()) - instruments)
+			segs = self.get_segments(connection, xmldoc)
+
+			zero_lag_segments  = segs.intersection(instruments) - segs.union(set(segs.keys()) - instruments)
+
 			###############
 
-			if self.coinc_ringdown_table:
+			if self.coinc_ringdown_table is not None:
 				# check to see if a maxextent option was used in cafe/rinca land
 				coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
 				if len(coinc_end_time_seg_param) == 1:
@@ -183,7 +186,6 @@ class Summary(object):
 				# FIXME what would that mean if it is greater than one???
 				pass
 
-			
 			# DEFINE THE INJECTION WAS MADE FUNCTION
 			def injection_was_made(geocent_end_time, geocent_end_time_ns, zero_lag_segments = zero_lag_segments):
 				"""
@@ -193,9 +195,10 @@ class Summary(object):
 
 			connection.create_function("injection_was_made", 2, injection_was_made)
 			make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
-			if not self.coinc_ringdown_table: sims.extend(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName))
+			if not self.coinc_ringdown_table:
+				sims.extend(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName))
 			# INSPIRAL
-			if self.coinc_inspiral_table:
+			if self.coinc_inspiral_table is not None:
 				for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,
@@ -230,7 +233,7 @@ WHERE
 						missed.append(sim)
 
 # RINGDOWN
-                        if self.coinc_ringdown_table:
+                        if self.coinc_ringdown_table is not None:
                                 for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,
@@ -266,7 +269,7 @@ WHERE
 
 
 			# BURSTS
-			if self.multi_burst_table:
+			if self.multi_burst_table is not None:
 				for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,
@@ -307,12 +310,12 @@ WHERE
 		return found, missed, sims
 
 	def set_instruments_to_calculate(self):
-		if not self.opts.instruments: return self.instruments
+		if self.opts.instruments is None: return self.instruments
 		if self.opts.instruments in self.instruments:
 			#return frozenset(lsctables.instrument_set_from_ifos(i[0]))
 			return [self.opts.instruments]
 		else:
-			print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
+			print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (self.instruments,)
 		return []
 
 
@@ -344,7 +347,7 @@ def inbin(x, y, xbottom, xtop, ybottom, ytop):
 	ymasked = numpy.ma.masked_array(y, mask = xmasked.mask)
 	total = numpy.ma.masked_outside(ymasked, ybottom, ytop)
 	return numpy.ma.count(total)
-	
+
 #final spin
 def finalspin(m1, m2, s1z, s2z):
     G = 6.67259e-11     	#Gravitational constant
@@ -387,8 +390,8 @@ def get_log_bin_vec(start,stop,bins):
     # compute bin centers 
     cv.append(bv[n-1]+10**( ( math.log(bv[n],10)-math.log(bv[n-1],10) ) / 2.0) )
   return bv, numpy.array(cv)
-  
-  
+
+
 
 def bin(Sims, bv):
   out = {}
@@ -407,7 +410,7 @@ errfunc = lambda p, y, x: fitfunc(p,x) - y
 #Missed-Found plots
 fignum = 0
 for instruments in summ.set_instruments_to_calculate():
-    found, missed, sims = summ.get_injections(instruments,opts.far)    	
+    found, missed, sims = summ.get_injections(instruments,opts.far)
     fignum = fignum + 1
 
     if len(sims) > 0:
@@ -454,80 +457,120 @@ for instruments in summ.set_instruments_to_calculate():
       cb = pylab.colorbar()
       cb.set_label('log10(N)')
       pylab.savefig(opts.outnametag + '_' + 'spin1_spin2_hist.png')
-	
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([f.mchirp for f in found], [f.eff_dist_l for f in found],'.')
-    pylab.semilogy([m.mchirp for m in missed], [m.eff_dist_l for m in missed],'k.')
-    pylab.xlabel('Chirp Mass ($M_\odot$)')
-    pylab.ylabel('Effective Distance (Mpc): L1')
-    pylab.title('Missed-Found:L1 Effective Distance vs Chirp Mass')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_chirpmass.png')
+
+    if 'L1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([f.mchirp for f in found], [f.eff_dist_l for f in found],'.')
+	    pylab.semilogy([m.mchirp for m in missed], [m.eff_dist_l for m in missed],'k.')
+	    pylab.xlabel('Chirp Mass ($M_\odot$)')
+	    pylab.ylabel('Effective Distance (Mpc): L1')
+	    pylab.title('Missed-Found:L1 Effective Distance vs Chirp Mass')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_chirpmass.png')
 
     
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([f.mass1+f.mass2 for f in found], [f.eff_dist_l for f in found],'.')
-    pylab.semilogy([m.mass1+m.mass2 for m in missed], [m.eff_dist_l for m in missed],'k.')
-    pylab.xlabel('Total Mass ($M_\odot$)')
-    pylab.ylabel('Effective Distance (Mpc): L1')
-    pylab.title('Missed-Found:L1 Effective Distance vs Total Mass')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_mass.png')
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([f.mass1+f.mass2 for f in found], [f.eff_dist_l for f in found],'.')
+	    pylab.semilogy([m.mass1+m.mass2 for m in missed], [m.eff_dist_l for m in missed],'k.')
+	    pylab.xlabel('Total Mass ($M_\odot$)')
+	    pylab.ylabel('Effective Distance (Mpc): L1')
+	    pylab.title('Missed-Found:L1 Effective Distance vs Total Mass')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_mass.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([spawaveform.computechi(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_l for f in found],'.')
-    pylab.semilogy([spawaveform.computechi(m.mass1, m.mass2, m.spin1z, f.spin2z) for m in missed], [m.eff_dist_l for m in missed],'k.')
-    pylab.xlabel('Mass Weighted Spin')
-    pylab.ylabel('Effective Distance (Mpc): L1')
-    pylab.title('Missed-Found:L1 Effective Distance vs Mass Weighted Spin')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_massweightedspin.png')
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([spawaveform.computechi(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_l for f in found],'.')
+	    pylab.semilogy([spawaveform.computechi(m.mass1, m.mass2, m.spin1z, f.spin2z) for m in missed], [m.eff_dist_l for m in missed],'k.')
+	    pylab.xlabel('Mass Weighted Spin')
+	    pylab.ylabel('Effective Distance (Mpc): L1')
+	    pylab.title('Missed-Found:L1 Effective Distance vs Mass Weighted Spin')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_massweightedspin.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([finalspin(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_l for f in found],'.')
-    pylab.semilogy([finalspin(m.mass1, m.mass2, m.spin1z, m.spin2z) for m in missed], [m.eff_dist_l for m in missed],'k.')
-    pylab.xlabel('Final Spin')
-    pylab.ylabel('Effective Distance (Mpc): L1')
-    pylab.title('Missed-Found:L1 Effective Distance vs Final Spin')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_finalspin.png')
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([finalspin(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_l for f in found],'.')
+	    pylab.semilogy([finalspin(m.mass1, m.mass2, m.spin1z, m.spin2z) for m in missed], [m.eff_dist_l for m in missed],'k.')
+	    pylab.xlabel('Final Spin')
+	    pylab.ylabel('Effective Distance (Mpc): L1')
+	    pylab.title('Missed-Found:L1 Effective Distance vs Final Spin')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_finalspin.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([f.mchirp for f in found], [f.eff_dist_h for f in found],'.')
-    pylab.semilogy([m.mchirp for m in missed], [m.eff_dist_h for m in missed],'k.')
-    pylab.xlabel('ChirpMass ($M_\odot$)')
-    pylab.ylabel('Effective Distance (Mpc): H1')
-    pylab.title('Missed-Found:H1 Effective Distance vs Chirp Mass')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_chirpmass.png')
+    if 'H1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([f.mchirp for f in found], [f.eff_dist_h for f in found],'.')
+	    pylab.semilogy([m.mchirp for m in missed], [m.eff_dist_h for m in missed],'k.')
+	    pylab.xlabel('ChirpMass ($M_\odot$)')
+	    pylab.ylabel('Effective Distance (Mpc): H1')
+	    pylab.title('Missed-Found:H1 Effective Distance vs Chirp Mass')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_chirpmass.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([f.mass1+f.mass2 for f in found], [f.eff_dist_h for f in found],'.')
-    pylab.semilogy([m.mass1+m.mass2 for m in missed], [m.eff_dist_h for m in missed],'k.')
-    pylab.xlabel('Total Mass ($M_\odot$)')
-    pylab.ylabel('Effective Distance (Mpc): H1')
-    pylab.title('Missed-Found:H1 Effective Distance vs Total Mass')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_mass.png')
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([f.mass1+f.mass2 for f in found], [f.eff_dist_h for f in found],'.')
+	    pylab.semilogy([m.mass1+m.mass2 for m in missed], [m.eff_dist_h for m in missed],'k.')
+	    pylab.xlabel('Total Mass ($M_\odot$)')
+	    pylab.ylabel('Effective Distance (Mpc): H1')
+	    pylab.title('Missed-Found:H1 Effective Distance vs Total Mass')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_mass.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([spawaveform.computechi(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_h for f in found],'.')
-    pylab.semilogy([spawaveform.computechi(m.mass1, m.mass2, m.spin1z, f.spin2z) for m in missed], [m.eff_dist_h for m in missed],'k.')
-    pylab.xlabel('Mass Weighted Spin')
-    pylab.ylabel('Effective Distance (Mpc): H1')
-    pylab.title('Missed-Found:H1 Effective Distance vs Mass Weighted Spin')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_massweightedspin.png')
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([spawaveform.computechi(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_h for f in found],'.')
+	    pylab.semilogy([spawaveform.computechi(m.mass1, m.mass2, m.spin1z, f.spin2z) for m in missed], [m.eff_dist_h for m in missed],'k.')
+	    pylab.xlabel('Mass Weighted Spin')
+	    pylab.ylabel('Effective Distance (Mpc): H1')
+	    pylab.title('Missed-Found:H1 Effective Distance vs Mass Weighted Spin')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_massweightedspin.png')
 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogy([finalspin(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_h for f in found],'.')
-    pylab.semilogy([finalspin(m.mass1, m.mass2, m.spin1z, m.spin2z) for m in missed], [m.eff_dist_h for m in missed],'k.')
-    pylab.xlabel('Final Spin')
-    pylab.ylabel('Effective Distance (Mpc): H1')
-    pylab.title('Missed-Found:H1 Effective Distance vs Final Spin')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_finalspin.png')
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([finalspin(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_h for f in found],'.')
+	    pylab.semilogy([finalspin(m.mass1, m.mass2, m.spin1z, m.spin2z) for m in missed], [m.eff_dist_h for m in missed],'k.')
+	    pylab.xlabel('Final Spin')
+	    pylab.ylabel('Effective Distance (Mpc): H1')
+	    pylab.title('Missed-Found:H1 Effective Distance vs Final Spin')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_finalspin.png')
+
+
+    if 'V1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([f.mchirp for f in found], [f.eff_dist_v for f in found],'.')
+	    pylab.semilogy([m.mchirp for m in missed], [m.eff_dist_v for m in missed],'k.')
+	    pylab.xlabel('ChirpMass ($M_\odot$)')
+	    pylab.ylabel('Effective Distance (Mpc): V1')
+	    pylab.title('Missed-Found:V1 Effective Distance vs Chirp Mass')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_chirpmass.png')
+
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([f.mass1+f.mass2 for f in found], [f.eff_dist_v for f in found],'.')
+	    pylab.semilogy([m.mass1+m.mass2 for m in missed], [m.eff_dist_v for m in missed],'k.')
+	    pylab.xlabel('Total Mass ($M_\odot$)')
+	    pylab.ylabel('Effective Distance (Mpc): V1')
+	    pylab.title('Missed-Found:V1 Effective Distance vs Total Mass')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_mass.png')
+
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([spawaveform.computechi(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_v for f in found],'.')
+	    pylab.semilogy([spawaveform.computechi(m.mass1, m.mass2, m.spin1z, f.spin2z) for m in missed], [m.eff_dist_v for m in missed],'k.')
+	    pylab.xlabel('Mass Weighted Spin')
+	    pylab.ylabel('Effective Distance (Mpc): V1')
+	    pylab.title('Missed-Found:H1 Effective Distance vs Mass Weighted Spin')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_massweightedspin.png')
+
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogy([finalspin(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found], [f.eff_dist_v for f in found],'.')
+	    pylab.semilogy([finalspin(m.mass1, m.mass2, m.spin1z, m.spin2z) for m in missed], [m.eff_dist_v for m in missed],'k.')
+	    pylab.xlabel('Final Spin')
+	    pylab.ylabel('Effective Distance (Mpc): V1')
+	    pylab.title('Missed-Found:V1 Effective Distance vs Final Spin')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_finalspin.png')
 
     fignum = fignum + 1
     pylab.figure(fignum)
@@ -576,18 +619,25 @@ for instruments in summ.set_instruments_to_calculate():
     spin_found = numpy.array([finalspin(f.mass1, f.mass2, f.spin1z, f.spin2z) for f in found])
     spin_missed = numpy.array([finalspin(m.mass1, m.mass2, m.spin1z, m.spin2z) for m in missed])
     spin_total = numpy.append(spin_found,spin_missed)
-    L1distance_found = numpy.array([f.eff_dist_l for f in found])
-    L1distance_missed = numpy.array([m.eff_dist_l for m in missed])
+    if 'L1' in opts.instruments:
+	    L1distance_found = numpy.array([f.eff_dist_l for f in found])
+	    L1distance_missed = numpy.array([m.eff_dist_l for m in missed])
+	    L1distance_total = numpy.append(L1distance_found,L1distance_missed)
     mass_missed = numpy.array([m.mass1+m.mass2 for m in missed])
     mass_found = numpy.array([f.mass1+f.mass2 for f in found])
     chirpmass_missed = numpy.array([m.mchirp for m in missed])
     chirpmass_found = numpy.array([f.mchirp for f in found])
-    L1distance_total = numpy.append(L1distance_found,L1distance_missed)
     mass_total = numpy.append(mass_found,mass_missed)
     chirpmass_total = numpy.append(chirpmass_found,chirpmass_missed)
-    H1distance_found = numpy.array([f.eff_dist_h for f in found])
-    H1distance_missed = numpy.array([m.eff_dist_h for m in missed])
-    H1distance_total = numpy.append(H1distance_found,H1distance_missed)
+    if 'H1' in opts.instruments:
+	    H1distance_found = numpy.array([f.eff_dist_h for f in found])
+	    H1distance_missed = numpy.array([m.eff_dist_h for m in missed])
+	    H1distance_total = numpy.append(H1distance_found,H1distance_missed)
+    if 'V1' in opts.instruments:
+	    V1distance_found = numpy.array([f.eff_dist_v for f in found])
+	    V1distance_missed = numpy.array([m.eff_dist_v for m in missed])
+	    V1distance_total = numpy.append(V1distance_found,V1distance_missed)
+
     distance_found = numpy.array([f.distance for f in found])
     distance_missed = numpy.array([m.distance for m in missed])
     distance_total = numpy.append(distance_found,distance_missed)
@@ -611,55 +661,84 @@ for instruments in summ.set_instruments_to_calculate():
 
 
     #L1distance-chirp mass
-    fignum = fignum + 1
-    pylab.figure(fignum)
+    if 'L1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
 
-    E = pylab.empty((nbinsM, nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    for i in range(nbinsM):
-        for j in range(nbinsD):
-      	    total = inbin(chirpmass_total, L1distance_total, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(chirpmass_found, L1distance_found, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Mchirparray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Chirp Mass and L1:Effective Distance')
-    pylab.xlabel(r'ChirpMass ($M_\odot$)')
-    pylab.ylabel('L1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_chirpmass_Efficiency.png')
+	    E = pylab.empty((nbinsM, nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsM):
+		    for j in range(nbinsD):
+			    total = inbin(chirpmass_total, L1distance_total, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(chirpmass_found, L1distance_found, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Mchirparray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Chirp Mass and L1:Effective Distance')
+	    pylab.xlabel(r'ChirpMass ($M_\odot$)')
+	    pylab.ylabel('L1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_chirpmass_Efficiency.png')
 
     #H1distance-chirp mass    
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    E = pylab.empty((nbinsM, nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    for i in range(nbinsM):
-        for j in range(nbinsD):
-      	    total = inbin(chirpmass_total, H1distance_total, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(chirpmass_found, H1distance_found, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Mchirparray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Total Mass and H1:Effective Distance')
-    pylab.xlabel(r'ChirpMass ($M_\odot$)')
-    pylab.ylabel('H1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_chirpmass_Efficiency.png')
+    if 'H1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinsM, nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsM):
+		    for j in range(nbinsD):
+			    total = inbin(chirpmass_total, H1distance_total, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(chirpmass_found, H1distance_found, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Mchirparray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Total Mass and H1:Effective Distance')
+	    pylab.xlabel(r'ChirpMass ($M_\odot$)')
+	    pylab.ylabel('H1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_chirpmass_Efficiency.png')
+
+    #V1distance-chirp mass    
+    if 'V1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinsM, nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(V1distance_total)), math.log(numpy.max(V1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsM):
+		    for j in range(nbinsD):
+			    total = inbin(chirpmass_total, V1distance_total, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(chirpmass_found, V1distance_found, Mchirparray[i], Mchirparray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Mchirparray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Total Mass and V1:Effective Distance')
+	    pylab.xlabel(r'ChirpMass ($M_\odot$)')
+	    pylab.ylabel('V1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_chirpmass_Efficiency.png')
+
 
     #distance-chirp mass    
     fignum = fignum + 1
@@ -688,56 +767,84 @@ for instruments in summ.set_instruments_to_calculate():
 
 	
     #L1distance-total mass
-    fignum = fignum + 1
-    pylab.figure(fignum)
+    if 'L1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
 
-    E = pylab.empty((nbinsM, nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    Marray = pylab.linspace(numpy.min(mass_total), numpy.max(mass_total), nbinsM+1)
-    for i in range(nbinsM):
-        for j in range(nbinsD):
-      	    total = inbin(mass_total, L1distance_total, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(mass_found, L1distance_found, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Marray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Total Mass and L1:Effective Distance')
-    pylab.xlabel(r'Total Mass ($M_\odot$)')
-    pylab.ylabel('L1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_mass_Efficiency.png')
+	    E = pylab.empty((nbinsM, nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    Marray = pylab.linspace(numpy.min(mass_total), numpy.max(mass_total), nbinsM+1)
+	    for i in range(nbinsM):
+		    for j in range(nbinsD):
+			    total = inbin(mass_total, L1distance_total, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(mass_found, L1distance_found, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Marray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Total Mass and L1:Effective Distance')
+	    pylab.xlabel(r'Total Mass ($M_\odot$)')
+	    pylab.ylabel('L1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_mass_Efficiency.png')
 
     #H1distance-total mass    
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    E = pylab.empty((nbinsM, nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    for i in range(nbinsM):
-        for j in range(nbinsD):
-      	    total = inbin(mass_total, H1distance_total, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(mass_found, H1distance_found, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Marray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Total Mass and H1:Effective Distance')
-    pylab.xlabel(r'Total Mass ($M_\odot$)')
-    pylab.ylabel('H1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_mass_Efficiency.png')
+    if 'H1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinsM, nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsM):
+		    for j in range(nbinsD):
+			    total = inbin(mass_total, H1distance_total, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(mass_found, H1distance_found, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Marray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Total Mass and H1:Effective Distance')
+	    pylab.xlabel(r'Total Mass ($M_\odot$)')
+	    pylab.ylabel('H1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_mass_Efficiency.png')
+
+    #V1distance-total mass    
+    if 'V1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinsM, nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(V1distance_total)), math.log(numpy.max(V1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsM):
+		    for j in range(nbinsD):
+			    total = inbin(mass_total, V1distance_total, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(mass_found, V1distance_found, Marray[i], Marray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Marray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Total Mass and V1:Effective Distance')
+	    pylab.xlabel(r'Total Mass ($M_\odot$)')
+	    pylab.ylabel('V1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_mass_Efficiency.png')
 
     #distance-total mass    
     fignum = fignum + 1
@@ -767,54 +874,82 @@ for instruments in summ.set_instruments_to_calculate():
 
 
     #H1distance-chi
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    E = pylab.empty((nbinschi,nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    for i in range(nbinschi):
-        for j in range(nbinsD):
-      	    total = inbin(chi_total, H1distance_total, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(chi_found, H1distance_found, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Chiarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Chi and H1:Effective Distance')
-    pylab.xlabel(r'Mass Weighted spin ($\chi$)')
-    pylab.ylabel('H1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_chi_Efficiency.png')
+    if 'H1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinschi,nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinschi):
+		    for j in range(nbinsD):
+			    total = inbin(chi_total, H1distance_total, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(chi_found, H1distance_found, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
+                 	    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Chiarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Chi and H1:Effective Distance')
+	    pylab.xlabel(r'Mass Weighted spin ($\chi$)')
+	    pylab.ylabel('H1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_chi_Efficiency.png')
 
     #L1distance-chi    
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    E = pylab.empty((nbinschi,nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    for i in range(nbinschi):
-        for j in range(nbinsD):
-      	    total = inbin(chi_total, L1distance_total, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(chi_found, L1distance_found, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Chiarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Chi and L1:Effective Distance')
-    pylab.xlabel(r'Mass Weighted spin ($\chi$)')
-    pylab.ylabel('L1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_chi_Efficiency.png')
+    if 'L1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinschi,nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinschi):
+		    for j in range(nbinsD):
+			    total = inbin(chi_total, L1distance_total, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(chi_found, L1distance_found, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Chiarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Chi and L1:Effective Distance')
+	    pylab.xlabel(r'Mass Weighted spin ($\chi$)')
+	    pylab.ylabel('L1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_chi_Efficiency.png')
+
+    #V1distance-chi    
+    if 'V1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinschi,nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(V1distance_total)), math.log(numpy.max(V1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinschi):
+		    for j in range(nbinsD):
+			    total = inbin(chi_total, V1distance_total, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(chi_found, V1distance_found, Chiarray[i], Chiarray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Chiarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Chi and V1:Effective Distance')
+	    pylab.xlabel(r'Mass Weighted spin ($\chi$)')
+	    pylab.ylabel('V1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_chi_Efficiency.png')
 
     #distance-chi  efficiency
     fignum = fignum + 1
@@ -843,54 +978,84 @@ for instruments in summ.set_instruments_to_calculate():
     pylab.savefig(opts.outnametag + '_' + 'dist_chi_Efficiency.png')
 
     #H1distance-FinalSpin efficiency 
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    E = pylab.empty((nbinsSpin,nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    for i in range(nbinsSpin):
-        for j in range(nbinsD):
-      	    total = inbin(spin_total, H1distance_total, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(spin_found, H1distance_found, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Spinarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Final spin and H1:Effective Distance')
-    pylab.xlabel(r'Final spin ')
-    pylab.ylabel('H1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_finalspin_Efficiency.png')
+    if 'H1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinsSpin,nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(H1distance_total)), math.log(numpy.max(H1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsSpin):
+		    for j in range(nbinsD):
+			    total = inbin(spin_total, H1distance_total, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(spin_found, H1distance_found, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Spinarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Final spin and H1:Effective Distance')
+	    pylab.xlabel(r'Final spin ')
+	    pylab.ylabel('H1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_finalspin_Efficiency.png')
 
     #L1distance-Finalspin  efficiency  
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    E = pylab.empty((nbinsSpin,nbinsD))
-    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
-    Darray = pylab.exp(Darray)
-    for i in range(nbinsSpin):
-        for j in range(nbinsD):
-      	    total = inbin(spin_total, L1distance_total, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
-	    found = inbin(spin_found, L1distance_found, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
-	    #Set the efficiency
-	    try: E[i,j] = float(found)/float(total)
-	    except ZeroDivisionError: E[i,j] = 2  
-    E = numpy.ma.masked_object(E, 2)
-    pylab.pcolor(Spinarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
-    pylab.title('Detection Efficiency vs. Final spin and L1:Effective Distance')
-    pylab.xlabel(r'Final spin')
-    pylab.ylabel('L1:Effective Distance (Mpc)')
-    pylab.yscale('log')
-    pylab.ylim(2,10000)
-    #pylab.grid(color='k')
-    cb = pylab.colorbar()
-    cb.set_label('Efficiency')
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_finalspin_Efficiency.png')
+    if 'L1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinsSpin,nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(L1distance_total)), math.log(numpy.max(L1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsSpin):
+		    for j in range(nbinsD):
+			    total = inbin(spin_total, L1distance_total, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(spin_found, L1distance_found, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Spinarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Final spin and L1:Effective Distance')
+	    pylab.xlabel(r'Final spin')
+	    pylab.ylabel('L1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_finalspin_Efficiency.png')
+
+    #V1distance-Finalspin  efficiency  
+    if 'V1' in opts.instruments:
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    E = pylab.empty((nbinsSpin,nbinsD))
+	    Darray = pylab.linspace(math.log(numpy.min(V1distance_total)), math.log(numpy.max(V1distance_total)), nbinsD+1)
+	    Darray = pylab.exp(Darray)
+	    for i in range(nbinsSpin):
+		    for j in range(nbinsD):
+			    total = inbin(spin_total, V1distance_total, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
+			    found = inbin(spin_found, V1distance_found, Spinarray[i], Spinarray[i+1], Darray[j], Darray[j+1])
+	                    #Set the efficiency
+			    try: E[i,j] = float(found)/float(total)
+			    except ZeroDivisionError: E[i,j] = 2  
+	    E = numpy.ma.masked_object(E, 2)
+	    pylab.pcolor(Spinarray, Darray, E.T, cmap=matplotlib.cm.jet, alpha=0.9)
+	    pylab.title('Detection Efficiency vs. Final spin and V1:Effective Distance')
+	    pylab.xlabel(r'Final spin')
+	    pylab.ylabel('V1:Effective Distance (Mpc)')
+	    pylab.yscale('log')
+	    pylab.ylim(2,10000)
+            #pylab.grid(color='k')
+	    cb = pylab.colorbar()
+	    cb.set_label('Efficiency')
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_finalspin_Efficiency.png')
+
+
 
     #distance-Final spin  efficiency
     fignum = fignum + 1
@@ -985,24 +1150,64 @@ for instruments in summ.set_instruments_to_calculate():
     cb.set_label('Efficiency')
     pylab.savefig('source_param' + '_'+ opts.outnametag + '_' + 'Spin1z_Spin2z_Efficiency.png')
 
+    # efficiency curve plots
+    if 'H1' in opts.instruments and 'L1' in opts.instruments:
+	    EffdistanceMin = min(H1distance_found + L1distance_found)
+	    EffdistanceMax = max(H1distance_found + L1distance_found)
+    if 'H1' in opts.instruments and 'V1' in opts.instruments:
+	    EffdistanceMin = min(H1distance_found + V1distance_found)
+	    EffdistanceMax = max(H1distance_found + V1distance_found)
+    if 'L1' in opts.instruments and 'V1' in opts.instruments:
+	    EffdistanceMin = min(L1distance_found + V1distance_found)
+	    EffdistanceMax = max(L1distance_found + V1distance_found)
+    if 'H1' in opts.instruments and 'L1' in opts.instruments and 'V1' in opts.instruments:
+	    EffdistanceMin = min(H1distance_found + L1distance_found + V1distance_found)
+	    EffdistanceMax = max(H1distance_found + L1distance_found + V1distance_found)
 
-    # efficiency plots
-    binVec,centerVec = get_log_bin_vec(10,10000,20)
-    binVec1,centerVec1 = get_log_bin_vec(10,1000,20)
-    FoundBinH1effect = bin(H1distance_found, binVec)
-    TotalBinH1effect = bin(H1distance_total, binVec)
-    FoundBinL1effect = bin(L1distance_found, binVec)
-    TotalBinL1effect = bin(L1distance_total, binVec)
+
+    distanceMin = min(distance_found)
+    distanceMax = max(distance_found)
+    #binVec,centerVec = get_log_bin_vec(10,10000,20)
+    #binVec1,centerVec1 = get_log_bin_vec(10,1000,20)
+    binVec,centerVec = get_log_bin_vec(EffdistanceMin,EffdistanceMax,20)
+    binVec1,centerVec1 = get_log_bin_vec(distanceMin,distanceMax,20)
+
+    if 'H1' in opts.instruments:
+	    FoundBinH1effect = bin(H1distance_found, binVec)
+	    TotalBinH1effect = bin(H1distance_total, binVec)
+    if 'L1' in opts.instruments:
+	    FoundBinL1effect = bin(L1distance_found, binVec)
+	    TotalBinL1effect = bin(L1distance_total, binVec)
+    if 'V1' in opts.instruments:
+	    FoundBinV1effect = bin(V1distance_found, binVec)
+	    TotalBinV1effect = bin(V1distance_total, binVec)
+
     FoundBindist = bin(distance_found, binVec1)
     TotalBindist = bin(distance_total, binVec1)
-    efficiencyH1effdist = numpy.empty(len(centerVec))
-    efficiencyL1effdist = numpy.empty(len(centerVec))
+    if 'H1' in opts.instruments:
+	    efficiencyH1effdist = numpy.empty(len(centerVec))
+    if 'L1' in opts.instruments:
+	    efficiencyL1effdist = numpy.empty(len(centerVec))
+    if 'V1' in opts.instruments:
+	    efficiencyV1effdist = numpy.empty(len(centerVec))
+
     efficiencydist = numpy.empty(len(centerVec1))
     amp = numpy.empty(len(centerVec))
     for b in range(len(centerVec)):
-     efficiencyH1effdist[b]  = float(len(FoundBinH1effect[b]))/float(len(TotalBinH1effect[b]))
-     efficiencyL1effdist[b]  = float(len(FoundBinL1effect[b]))/float(len(TotalBinL1effect[b]))
-     amp[b] = float(centerVec[b])
+	    if 'H1' in opts.instruments:
+		    try: efficiencyH1effdist[b]  = float(len(FoundBinH1effect[b]))/float(len(TotalBinH1effect[b]))
+		    except ZeroDivisionError: efficiencyH1effdist[b] = numpy.nan
+
+	    if 'L1' in opts.instruments:
+		    try: efficiencyL1effdist[b]  = float(len(FoundBinL1effect[b]))/float(len(TotalBinL1effect[b]))
+		    except ZeroDivisionError: efficiencyL1effdist[b] = numpy.nan
+
+	    if 'V1' in opts.instruments:
+		    try: efficiencyV1effdist[b]  = float(len(FoundBinV1effect[b]))/float(len(TotalBinV1effect[b]))
+		    except ZeroDivisionError: efficiencyV1effdist[b] = numpy.nan
+
+
+	    amp[b] = float(centerVec[b])
 	
     def func50(x):
      return fitfunc(p1,x)-0.5
@@ -1010,49 +1215,72 @@ for instruments in summ.set_instruments_to_calculate():
      return fitfunc(p1,x)-0.9
 	
     p0 = [100.,50.,0.9999,0.55]
+
     wiki = open(opts.outnametag+'_'+'Efficiency.txt',"w")
     wiki.write("||'''distance'''||'''50 % distance(Mpc)'''||'''90 % distance(Mpc)'''||\n")
 
 
-    p1, success = optimize.leastsq(errfunc, p0, args=(efficiencyH1effdist,amp))
-    smooth = numpy.arange(1,10000,1)
-    fitted_array = numpy.empty(len(smooth))
-    for i in range(len(smooth)): fitted_array[i] = fitfunc(p1,smooth[i])
-    x50 = optimize.fsolve(func50,50,warning=False)
-    x90 = optimize.fsolve(func90,100,warning=False)
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogx(amp,efficiencyH1effdist,"ro",smooth,fitted_array,"b-")
-    pylab.axhline(y=0.5,xmin=0,xmax=math.log(x50,10)/math.log(10000,10)-0.14,linewidth=1, color='red')   
-    pylab.axhline(y=0.9,xmin=0,xmax=math.log(x90,10)/math.log(10000,10)-0.2,linewidth=1, color='green')
-    pylab.axvline(x=x50, ymin=0, ymax=0.5,linewidth=1, color='red')
-    pylab.axvline(x=x90,ymin=0, ymax=0.9,linewidth=1, color='green')
-    pylab.xlim(10,10000)
-    pylab.ylim(0,1.05)
-    pylab.title('H1 effective distance')
-    pylab.xlabel('H1 effective distance (Mpc)')
-    pylab.ylabel('Efficiency')	
-    pylab.savefig(opts.outnametag + '_' + 'H1effdist_sigmoid.png')
-    wiki.write("||'''H1 effecive distance'''||%.2f|| %.2f ||\n" % (x50,x90) )	
+    if 'H1' in opts.instruments:
+	    p1, success = optimize.leastsq(errfunc, p0, args=(efficiencyH1effdist,amp))
+	    smooth = numpy.arange(1,10000,1)
+	    fitted_array = numpy.empty(len(smooth))
+	    for i in range(len(smooth)): fitted_array[i] = fitfunc(p1,smooth[i])
+	    x50 = optimize.fsolve(func50,50,warning=False)
+	    x90 = optimize.fsolve(func90,100,warning=False)
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogx(amp,efficiencyH1effdist,"ro",smooth,fitted_array,"b-")
+	    pylab.axhline(y=0.5,xmin=0,xmax=math.log(x50,10)/math.log(10000,10)-0.14,linewidth=1, color='red')   
+	    pylab.axhline(y=0.9,xmin=0,xmax=math.log(x90,10)/math.log(10000,10)-0.2,linewidth=1, color='green')
+	    pylab.axvline(x=x50, ymin=0, ymax=0.5,linewidth=1, color='red')
+	    pylab.axvline(x=x90,ymin=0, ymax=0.9,linewidth=1, color='green')
+	    pylab.xlim(10,10000)
+	    pylab.ylim(0,1.05)
+	    pylab.title('H1 effective distance')
+	    pylab.xlabel('H1 effective distance (Mpc)')
+	    pylab.ylabel('Efficiency')	
+	    pylab.savefig(opts.outnametag + '_' + 'H1effdist_sigmoid.png')
+	    wiki.write("||'''H1 effecive distance'''||%.2f|| %.2f ||\n" % (x50,x90) )	
+    if 'L1' in opts.instruments:
+	    p1, success = optimize.leastsq(errfunc, p0, args=(efficiencyL1effdist,amp))
+	    smooth = numpy.arange(1,10000,1)
+	    fitted_array = numpy.empty(len(smooth))
+	    for i in range(len(smooth)): fitted_array[i] = fitfunc(p1,smooth[i])
+	    x50 = optimize.fsolve(func50,50,warning=False)
+	    x90 = optimize.fsolve(func90,100,warning=False)
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogx(amp,efficiencyL1effdist,"ro",smooth,fitted_array,"b-")
+	    pylab.axhline(y=0.5,xmin=0,xmax=math.log(x50,10)/math.log(10000,10)-0.14,linewidth=1, color='red')   
+	    pylab.axhline(y=0.9,xmin=0,xmax=math.log(x90,10)/math.log(10000,10)-0.2,linewidth=1, color='green')
+	    pylab.axvline(x=x50, ymin=0, ymax=0.5,linewidth=1, color='red')
+	    pylab.axvline(x=x90,ymin=0, ymax=0.9,linewidth=1, color='green')
+	    pylab.xlim(10,10000)
+	    pylab.ylim(0,1.05)
+	    pylab.title('L1 effective distance')
+	    pylab.xlabel('L1 effective distance (Mpc)')
+	    pylab.ylabel('Efficiency')	
+	    pylab.savefig(opts.outnametag + '_' + 'L1effdist_sigmoid.png')
+	    wiki.write("||'''L1 effecive distance'''||%.2f|| %.2f ||\n" % (x50,x90) )	
+    if 'V1' in opts.instruments:
+	    p1, success = optimize.leastsq(errfunc, p0, args=(efficiencyV1effdist,amp))
+	    smooth = numpy.arange(1,10000,1)
+	    fitted_array = numpy.empty(len(smooth))
+	    for i in range(len(smooth)): fitted_array[i] = fitfunc(p1,smooth[i])
+	    x50 = optimize.fsolve(func50,50,warning=False)
+	    x90 = optimize.fsolve(func90,100,warning=False)
+	    fignum = fignum + 1
+	    pylab.figure(fignum)
+	    pylab.semilogx(amp,efficiencyV1effdist,"ro",smooth,fitted_array,"b-")
+	    pylab.axhline(y=0.5,xmin=0,xmax=math.log(x50,10)/math.log(10000,10)-0.14,linewidth=1, color='red')   
+	    pylab.axhline(y=0.9,xmin=0,xmax=math.log(x90,10)/math.log(10000,10)-0.2,linewidth=1, color='green')
+	    pylab.axvline(x=x50, ymin=0, ymax=0.5,linewidth=1, color='red')
+	    pylab.axvline(x=x90,ymin=0, ymax=0.9,linewidth=1, color='green')
+	    pylab.xlim(10,10000)
+	    pylab.ylim(0,1.05)
+	    pylab.title('V1 effective distance')
+	    pylab.xlabel('V1 effective distance (Mpc)')
+	    pylab.ylabel('Efficiency')	
+	    pylab.savefig(opts.outnametag + '_' + 'V1effdist_sigmoid.png')
+	    wiki.write("||'''V1 effecive distance'''||%.2f|| %.2f ||\n" % (x50,x90) )	
 
-
-    p1, success = optimize.leastsq(errfunc, p0, args=(efficiencyL1effdist,amp))
-    smooth = numpy.arange(1,10000,1)
-    fitted_array = numpy.empty(len(smooth))
-    for i in range(len(smooth)): fitted_array[i] = fitfunc(p1,smooth[i])
-    x50 = optimize.fsolve(func50,50,warning=False)
-    x90 = optimize.fsolve(func90,100,warning=False)
-    fignum = fignum + 1
-    pylab.figure(fignum)
-    pylab.semilogx(amp,efficiencyL1effdist,"ro",smooth,fitted_array,"b-")
-    pylab.axhline(y=0.5,xmin=0,xmax=math.log(x50,10)/math.log(10000,10)-0.14,linewidth=1, color='red')   
-    pylab.axhline(y=0.9,xmin=0,xmax=math.log(x90,10)/math.log(10000,10)-0.2,linewidth=1, color='green')
-    pylab.axvline(x=x50, ymin=0, ymax=0.5,linewidth=1, color='red')
-    pylab.axvline(x=x90,ymin=0, ymax=0.9,linewidth=1, color='green')
-    pylab.xlim(10,10000)
-    pylab.ylim(0,1.05)
-    pylab.title('L1 effective distance')
-    pylab.xlabel('L1 effective distance (Mpc)')
-    pylab.ylabel('Efficiency')	
-    pylab.savefig(opts.outnametag + '_' + 'L1effdist_sigmoid.png')
-    wiki.write("||'''L1 effecive distance'''||%.2f|| %.2f ||\n" % (x50,x90) )	

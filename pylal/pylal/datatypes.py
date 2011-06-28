@@ -54,6 +54,7 @@ __date__ = git_version.date
 from xlal.datatypes.complex16fftplan import *
 from xlal.datatypes.complex16frequencyseries import *
 from xlal.datatypes.complex16timeseries import *
+from xlal.datatypes.laldetector import *
 from xlal.datatypes.lalunit import *
 from xlal.datatypes.ligotimegps import *
 from xlal.datatypes.real8fftplan import *
@@ -62,5 +63,6 @@ from xlal.datatypes.real8timeseries import *
 from xlal.datatypes.real8window import *
 from xlal.datatypes.simburst import SimBurst # don't import from_buffer() (yet?)
 from xlal.datatypes.siminspiraltable import SimInspiralTable # don't import from_buffer() (yet?)
+from xlal.datatypes.snglburst import SnglBurst # don't import from_buffer() (yet?)
 from xlal.datatypes.snglinspiraltable import SnglInspiralTable # don't import from_buffer() (yet?)
 from xlal.datatypes.snglringdowntable import *

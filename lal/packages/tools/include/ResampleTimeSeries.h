@@ -43,12 +43,18 @@
 #include <lal/LALDatatypes.h>
 #include <lal/BandPassTimeSeries.h>
 
+/* remove SWIG interface directives */
+#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
+#define SWIGLAL_STRUCT_LALALLOC(...)
+#endif
+
 #ifndef _RESAMPLETIMESERIES_H
 #define _RESAMPLETIMESERIES_H
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 extern "C" {
-#pragma }
+#elif 0
+} /* so that editors will match preceding brace */
 #endif
 
 NRCSID( RESAMPLETIMESERIESH, "$Id$" );
@@ -145,6 +151,7 @@ ResampleTSFilter;
 typedef union
 tagResampleTimeSeriesFilterPars
 {
+  SWIGLAL_STRUCT_LALALLOC();
   PassBandParamStruc    butterworth;
   REAL8IIRFilter        iirfilter;
 }
@@ -153,6 +160,7 @@ ResampleTSFilterParams;
 typedef struct
 tagResampleTimeSeriesParams
 {
+  SWIGLAL_STRUCT_LALALLOC();
   REAL8                   deltaT;
   ResampleTSFilter        filterType;
   ResampleTSFilterParams  filterParams;
@@ -177,8 +185,9 @@ LALResampleREAL4TimeSeries(
     ResampleTSParams   *params
     );
 
-#ifdef __cplusplus
-#pragma {
+#if 0
+{ /* so that editors will match succeeding brace */
+#elif defined(__cplusplus)
 }
 #endif
 

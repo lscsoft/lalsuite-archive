@@ -31,6 +31,7 @@ from optparse import OptionParser
 
 from glue import lal
 from glue import segments
+from glue import segmentsUtils
 from glue import gpstime
 
 import glue.pipeline
@@ -73,6 +74,79 @@ __author__  = "Peter Couvares <pfcouvar@syr.edu>"
 PROGRAM_NAME = os.path.abspath(sys.argv[0])
 
 
+class diskcacheEntry(object):
+    """
+    An object representing one line in a diskcache file.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Intialize a diskcacheEntry object.  Takes a single string
+        argument, which is interpreted and parsed as a line from a
+        diskcache file.
+        """
+
+        if len(args) != 1:
+            raise TypeError, "invalid arguments: %s" % args
+
+        line = args[0]
+        self.__frame_segments__ = None
+        self.__frame_files__ = None
+        # parse line of text as an entry in a cache file
+        try:
+            # split on spaces and then comma to get the parts
+            header, self.modTime, self.fileCount, times = line.strip().split(' ', 3)
+            self.dir, self.site, self.frameType, self.frameCount, self.duration = header.split(',')
+            self.fileCount = int(self.fileCount)
+            self.modTime = int(self.modTime)
+            self.frameCount = int(self.frameCount)
+            self.duration = int(self.duration)
+
+            # times string has form { t1 t2 t3 t4 t5 t6 ... tN t(N+1) }
+            # where the (ti, t(i+1)) represent segments
+            #
+            # first turn the times string into a list of integers
+            times = [ int(s) for s in times[1:-1].strip().split(' ') ]
+
+            # group the integers by two and turn those tuples into segments
+            assert len(times) % 2 is 0
+            self.segments = glue.segments.segmentlist([ glue.segments.segment(t) for t in zip(times[::2],times[1::2]) ])
+
+        except Exception, e:
+            msg = "Error parsing frame cache file with line %s: %s" % (line, e)
+            raise ValueError, msg
+            return
+
+
+    @property
+    def frame_segments(self):
+        """
+        Return an "uncoalesced" segmentlist containing one segment for
+        each frame file.
+        """
+        if self.__frame_segments__:
+            return self.__frame_segments__
+        self.__frame_segments__ = glue.segments.segmentlist([])
+        for seg in self.segments:
+            self.__frame_segments__.extend(glue.segmentsUtils.segmentlist_range(seg[0], seg[1], self.duration))
+        return self.__frame_segments__
+
+
+    @property
+    def frame_files(self):
+        """
+        Return a list containing the physical file name of each frame.
+        """
+        if self.__frame_files__:
+            return self.__frame_files__
+        self.__frame_files__ = []
+        for seg in self.frame_segments:
+            frame_filename = "%s-%s-%s-%s.gwf" % (self.site, self.frameType, seg[0], self.duration)
+            pfn = os.path.join(self.dir, frame_filename)
+            self.__frame_files__.append(pfn)
+        return self.__frame_files__
+
+
 """
 Given a state file and GPS time range, returns all segments within
 that range for which GEO frame files have *not* been processed into DQ
@@ -108,8 +182,9 @@ def get_pending_segments(state_file, gps_start, gps_end, verbose=False):
 Given a state file and segmentlist, add the segments to the table of
 processed segments.
 """
-def append_processed_segments(state_file, segmentlist, verbose=False):
+def append_processed_segments(state_file, segmentlist, exclude_segmentlist, verbose=False):
     if verbose: print "appending segmentlist %s to state file %s" % (segmentlist, state_file)
+    if verbose: print "appending exclude_segmentlist %s to state file %s" % (segmentlist, state_file)
     # load existing state file and extract processed/excluded segment lists
     indoc = ligolw_utils.load_url(state_file)
     processed_segments = segmentdb_utils.find_segments(indoc,"P1:PROCESSED:0")
@@ -123,9 +198,12 @@ def append_processed_segments(state_file, segmentlist, verbose=False):
     if verbose: print "previously processed segments = %s" % processed_segments
     # append new segments
     processed_segments += segmentlist
+    exclude_segments += exclude_segmentlist
     # Do I need to explicity coalesce here?  Let's do so, just to be safe.
     processed_segments.coalesce()
+    exclude_segments.coalesce()
     if verbose: print "new processed segments = %s" % processed_segments
+    if verbose: print "new excluded segments = %s" % exclude_segments
     segmentdb_utils.add_to_segment(outdoc,proc_id,excl_def_id,exclude_segments)
     segmentdb_utils.add_to_segment(outdoc,proc_id,pub_def_id,processed_segments)
     ligolw_utils.write_filename(outdoc, state_file)
@@ -213,7 +291,7 @@ def frame_to_dq_xml(frame_file, xml_root, ifo, type, version, comment, verbose=F
     segments.
     """
     # extract the frame's DQ info
-    (gps_start, duration, summary_segs, segs) = get_dq_flags(frame_file, ifo, verbose=verbose, bitmask=0)
+    (gps_start, duration, summary_segs, segs) = get_dq_flags(frame_file, ifo, verbose=verbose)
 
     # create a blank xml document and add the process id
     outdoc = ligolw.Document()
@@ -251,13 +329,11 @@ parser = OptionParser(
 # defaults are set for use on segdb.ligo.caltech.edu (circa July 2010)
 parser.add_option('-s', '--state-file', metavar='FILE', help='state file')
 parser.add_option('-c', '--cache-file', metavar='FILE', help='diskCache file')
-parser.add_option('-d', '--frame-dir', metavar='DIR', help='GEO frame directory',
-                  default='/archive/frames/GEOHF/L3/GEO')
 parser.add_option('-x', '--xml-root', metavar='DIR', help='XML output directory',
                   default='/archive/frames/online/DQ')
 parser.add_option('-l', '--lock_dir', metavar='DIR', help='lock file directory (use with caution)')
 parser.add_option("-t", '--frame-type', metavar='RDS_TYPE', help='RDS frame type',
-                  default='RDS_C01_L3' )
+                  default='G1_RDS_C01_L3' )
 parser.add_option('-v', '--segment-version', metavar="VERSION",
                   help="create segments as version number VERSION", type="int",
                   default=1)
@@ -326,30 +402,58 @@ if options.verbose: print "pending_segments =", pending_segments
 
 pending_files = []
 if options.cache_file:
-    cache = lal.Cache.fromfile(open(options.cache_file), coltype=int)
-    foo = [entry.path() for entry in cache]
-#    if options.verbose: print "cache =", foo
-    sieved_cache = cache.sieve(description=options.frame_type,
-                               ifos=options.ifo[0],
-                               segmentlist=pending_segments)
-    foo = [entry.path() for entry in sieved_cache]
-    if options.verbose: print "sieved_cache =", foo
-    pending_files = [e.path() for e in sieved_cache.checkfilesexist()[0]]
+    # find all frame files for our ifo, type, and pending_segments
+    cache_f = open(options.cache_file, 'r')
+    for line in cache_f:
+        entry = diskcacheEntry(line)
+        if (entry.frameType != options.frame_type or
+            entry.site != options.ifo[0] or
+            pending_segments.intersects(entry.segments) is False):
+            continue
+        # each cache entry corresponds to a dir containing one or more
+        # frame files; at this point we know at least one of the files
+        # matches, but we need to figure out exactly which ones based
+        # on their segments
+        for (segment, framefile) in zip(entry.frame_segments, entry.frame_files):
+            if not pending_segments.intersects_segment(segment):
+                continue
+            if not os.path.isfile(framefile):
+                if options.verbose: print "warning: %s not found" % framefile
+                True
+            else:
+                pending_files.append(framefile)
 else:
     pending_files = argv_frame_files
 
 if options.verbose: print "pending files =", pending_files
 
 newly_processed_segments = segments.segmentlist([])
+corrupt_frame_segments = segments.segmentlist([])
 for file in pending_files:
-    segment = frame_to_dq_xml(file, options.xml_root, options.ifo,
-                              options.frame_type, options.segment_version,
-                              options.comment, verbose=options.verbose)
-    newly_processed_segments += [segment]
+    try:
+        segment = frame_to_dq_xml(file, options.xml_root, options.ifo,
+                                  options.frame_type, options.segment_version,
+                                  options.comment, verbose=options.verbose)
+        newly_processed_segments += [segment]
+#        assert [segment] == segmentsUtils.fromfilenames([file])
+    except Exception, e:
+        if (str(e).startswith(" *** FrError: in FrFileIOpen unknown format") or
+            "vector not found" in str(e)):
+            # add the current corrupt frame's segment to the exclude list
+            corrupt_frame_segments += segmentsUtils.fromfilenames([file])
+            if options.state_file:
+                # update state file with newly-processed frame segments
+                append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments, verbose=options.verbose)
+        else:
+            # update the state file in case we're about to die
+            if options.state_file:
+                append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments, verbose=options.verbose)
+            raise Exception, e
+
 
 if options.state_file:
     # update state file with newly-processed frame segments
-    append_processed_segments(options.state_file, newly_processed_segments,
+    append_processed_segments(options.state_file, newly_processed_segments, corrupt_frame_segments,
                               verbose=options.verbose)
 
 os.remove(lockfile)

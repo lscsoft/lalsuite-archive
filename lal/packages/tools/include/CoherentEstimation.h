@@ -25,14 +25,20 @@ $Id$
 #ifndef _COHERENTESTIMATION_H
 #define _COHERENTESTIMATION_H
 
+/* remove SWIG interface directives */
+#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
+#define SWIGLAL_STRUCT_LALALLOC(...)
+#endif
+
 #include <lal/LALStdlib.h>
 #include <lal/DetectorSite.h>
 #include <lal/SkyCoordinates.h>
 #include <lal/IIRFilter.h>
 
-#ifdef  __cplusplus
+#if defined(__cplusplus)
 extern "C" {
-#pragma }
+#elif 0
+} /* so that editors will match preceding brace */
 #endif
 
 NRCSID( COHERENTESTIMATION, "$Id$" );
@@ -55,6 +61,7 @@ NRCSID( COHERENTESTIMATION, "$Id$" );
 #define COHERENTESTIMATIONH_MSGEUIMP "Implemented only for 3 detectors"
 
 typedef struct tagDetectorsData {
+  SWIGLAL_STRUCT_LALALLOC();
 
   UINT4 Ndetectors;      /* number of detectors */
   REAL4TimeSeries *data; /* data time series from all detectors */
@@ -63,6 +70,7 @@ typedef struct tagDetectorsData {
 
 
 typedef struct tagCoherentEstimation {
+  SWIGLAL_STRUCT_LALALLOC();
 
   UINT4 Ndetectors;        /* number of detectors */
   LALDetector *detectors;  /* vector of detectors info */
@@ -104,8 +112,9 @@ LALClearCoherentInfo (
 		      CoherentEstimation *dat
 		      );
 
-#ifdef __cplusplus
-#pragma {
+#if 0
+{ /* so that editors will match succeeding brace */
+#elif defined(__cplusplus)
 }
 #endif
 

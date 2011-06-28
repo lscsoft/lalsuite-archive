@@ -1,36 +1,35 @@
 /*
- *  Copyright (C) 2007 Drew Keppel, Duncan Brown, Gareth Jones, Peter Shawhan, Thomas Cokelaer, Laszlo Vereb
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with with program; see the file COPYING. If not, write to the
- *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- *  MA  02111-1307  USA
+*  Copyright (C) 2007 Drew Keppel, Duncan Brown, Gareth Jones, Peter Shawhan, Thomas Cokelaer, Laszlo Vereb
+*
+*  This program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with with program; see the file COPYING. If not, write to the
+*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+*  MA  02111-1307  USA
+*/
+
+/**
+ * \defgroup GenerateInspiral_h GenerateInspiral_h
+ * \ingroup inject
  */
 
-#if 0
-<lalVerbatim file="GenerateInspiralHV">
-Author: Cokelaer, T.
-$Id$
-</lalVerbatim>
-#endif
+/**
+\author Cokelaer, T.
+\file
+\ingroup GenerateInspiral_h
 
-#if 0
-<lalLaTeX>
-\section {Header \texttt {GenerateInspiral.h}}
-\label {s:GenerateInspiral.h}
+\brief %Header file for the inspiral injection interface code.
 
-Header file for the inspiral injection interface code. The
-code contained in GenerateInspiral.c is an interface between the
+The code contained in GenerateInspiral.c is an interface between the
 injection package and the inspiral package. More precisely, the
 function GenerateInspiral.c is used within the FindChirpSimulation.c
 file of the FindChirp package in order to inject waveforms into real
@@ -39,16 +38,16 @@ take into account the interferometer position, binary orientation ...
 
 GenerateInspiral has the capability of injecting both waveform designed
 within the inspiral package (TaylorT1, T2, T3, PadeT1, EOB, and spinning
-		waveform) and the inject package (so-called PPN waveform).
+waveform) and the inject package (so-called PPN waveform).
 also a test code as well which allows to check the output of
 code. It is called InjectionInterfaceTest.c
 
-\subsection* {Synopsis}
-\begin {verbatim}
+\heading{Synopsis}
+\code
 #include <lal/GenerateInspiral.h>
-\end {verbatim}
-</lalLaTeX>
-#endif
+\endcode
+
+*/
 
 #ifndef _GENERATEINSPIRAL_H
 #define _GENERATEINSPIRAL_H
@@ -62,21 +61,16 @@ code. It is called InjectionInterfaceTest.c
 
 #include <lal/Units.h>
 
-#ifdef  __cplusplus
+#if defined(__cplusplus)
 extern "C" {
-#pragma }
+#elif 0
+} /* so that editors will match preceding brace */
 #endif
 
 NRCSID( GENERATEINSPIRALH,
-		"$Id$" );
+    "$Id$" );
 
-#if 0
-<lalLaTeX>
-\subsection* {Error codes}
-</lalLaTeX>
-#endif
-
-/* <lalErrTable> */
+/**\name Error Codes */ /*@{*/
 #define GENERATEINSPIRALH_ENORM 0
 #define GENERATEINSPIRALH_ENULL 1
 #define GENERATEINSPIRALH_EDFDT 2
@@ -85,7 +79,8 @@ NRCSID( GENERATEINSPIRALH,
 #define GENERATEINSPIRALH_MSGENULL "Null pointer"
 #define GENERATEINSPIRALH_MSGEDFDT "Waveform sampling interval is too large"
 #define GENERATEINSPIRALH_MSGEZERO "inclination zero for SpinTaylor waveform"
-/* </lalErrTable> */
+/*@}*/
+
 
 /* parameter for the EOB at 3PN. In principle, the three */
 /* following parameter should be set to zero.            */
@@ -101,21 +96,30 @@ NRCSID( GENERATEINSPIRALH,
 /* Default low freqnecy cutoff for injections */
 #define GENERATEINSPIRAL_DEFAULT_FLOWER 40
 
-#if 0
-<lalLaTeX>
-\newpage\input {GenerateInspiralC}
-</lalLaTeX>
-#endif
+
 void
-LALGenerateInspiral(LALStatus *status, CoherentGW *waveform, SimInspiralTable *params,
-		PPNParamStruc *ppnParamsInputOutput);
+LALGenerateInspiral(
+    LALStatus        *status,
+    CoherentGW       *waveform,
+    SimInspiralTable *params,
+    PPNParamStruc    *ppnParamsInputOutput
+    );
+
 
 /* three function to read the order and approximant from a string */
 void
-LALGetOrderFromString(LALStatus *status, CHAR *message, LALPNOrder *result);
+LALGetOrderFromString(
+    LALStatus   *status,
+    CHAR        *message,
+    LALPNOrder  *result
+    );
 
 void
-LALGetApproximantFromString(LALStatus *status, CHAR *message, Approximant *result);
+LALGetApproximantFromString(
+    LALStatus   *status,
+    CHAR        *message,
+    Approximant *result
+    );
 
 int XLALGetAmplitudeContributionFromString(LALPNOrder *ampOrder, CHAR *thisEvent);
 
@@ -127,17 +131,32 @@ int XLALGetAmplitudeContributionFromString(LALPNOrder *ampOrder, CHAR *thisEvent
  */
 int XLALGetSpinInteractionFromString(LALSpinInteraction *inter, CHAR *thisEvent);
 
+int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent);
+
+int XLALGetAdaptiveIntFromString(UINT4 *fixedStep, CHAR *thisEvent);
+
+int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent);
+
 /*  three function to populate the needed structures */
 void
-LALGenerateInspiralPopulatePPN(LALStatus *status, PPNParamStruc *ppnParams,
-		SimInspiralTable *thisEvent);
+LALGenerateInspiralPopulatePPN(
+    LALStatus           *status,
+    PPNParamStruc       *ppnParams,
+    SimInspiralTable    *thisEvent
+    );
 
 void
-LALGenerateInspiralPopulateInspiral(LALStatus *status, InspiralTemplate *inspiralParams,
-		SimInspiralTable *thisEvent, PPNParamStruc *ppnParams);
+LALGenerateInspiralPopulateInspiral(
+    LALStatus           *status,
+    InspiralTemplate    *inspiralParams,
+    SimInspiralTable    *thisEvent,
+    PPNParamStruc       *ppnParams
+    );
 
-#ifdef  __cplusplus
-#pragma {
+
+#if 0
+{ /* so that editors will match succeeding brace */
+#elif defined(__cplusplus)
 }
 #endif
 

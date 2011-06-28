@@ -152,6 +152,10 @@ def parse_args():
   parser.add_option("--dec", help="Declination of the GRB (degree).")
   parser.add_option("--name", help="Name of the GRB (e.g. 100122A).")
   
+  # process parameters, e.g. total length
+  parser.add_option("--offset", help="Length of time to check in both directions [s].",\
+                    default = 2500)
+
   parser.add_option("--useold", action="store_true", default=False,
                     help="If this option is specified, the old old segment files will be used. "\
                     "Otherwise they will be queries freshly.")
@@ -240,7 +244,8 @@ print "Minimum required science segment: %d s"%minscilength
 
 ## single check of data availability
 mainpath = '.'
-ifos, onsource, offsource,_  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, tag = grbtag, useold = opts.useold)
+ifos, onsource, offsource,_  = peu.get_available_ifos(grb_time,  minscilength, path = mainpath, \
+                                                      tag = grbtag, useold = opts.useold, offset = opts.offset)
 
 if len(ifos)>1:
     pas.info("GRB accepted with IFOs %s from GPS %d to %d"%(ifos, offsource[0], offsource[1]), grb_name)
@@ -254,13 +259,13 @@ if opts.make_plots:
   # calculate some time ranges for the veto plots
   if len(ifos)>1:
     # define some time ranges
-    deltat = 2000
+    deltat = opts.offset
     starttime = offsource[0]-deltat
     endtime   = offsource[1]+deltat
   else:
     # define some time ranges    
     offsource = [grb_time, grb_time]
-    deltat = 2000
+    deltat = opts.offset
     starttime = grb_time - deltat
     endtime = grb_time + deltat
 

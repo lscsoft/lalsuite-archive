@@ -179,7 +179,14 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     if (vect == NULL) {
         /* Try to open it as StaticData */
         FrStatData *sd;
-        sd = FrStatDataReadT(iFile, channel, start);  /* no "span" used */
+        /* Here I'd like to do
+         *   sd = FrStatDataReadT(iFile, channel, start);
+         * but FrStatDataReadT does *not* return samples after
+         * "start". Doh. Instead, I have to do this:
+         */
+        double frstart = FrFileITStart(iFile);
+        sd = FrStatDataReadT(iFile, channel, frstart);
+        /* and more below */
         if (verbose > 0) FrStatDataDump(sd, stdout, verbose);
         if (sd == NULL) {
             sprintf(msg, "In file %s, vector not found: %s", filename, channel);
@@ -210,9 +217,27 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
             return NULL;
         }
 
+        /* Recompute limits and pointers, so "vect" contains only the
+         * subset of data we requested */
         if (vect->nData > span / vect->dx[0]) {
             vect->nx[0] = span / vect->dx[0];
             vect->nData = vect->nx[0];
+        }
+        if (frstart < start) {  /* thank you FrStatDataReadT() */
+            int shift = (start - frstart) / vect->dx[0];
+            if      (vect->type == FR_VECT_2S)   vect->dataS  += shift;
+            else if (vect->type == FR_VECT_4S)   vect->dataI  += shift;
+            else if (vect->type == FR_VECT_8S)   vect->dataL  += shift;
+            else if (vect->type == FR_VECT_1U)   vect->dataU  += shift;
+            else if (vect->type == FR_VECT_2U)   vect->dataUS += shift;
+            else if (vect->type == FR_VECT_4U)   vect->dataUI += shift;
+            else if (vect->type == FR_VECT_8U)   vect->dataUL += shift;
+            else if (vect->type == FR_VECT_4R)   vect->dataF  += shift;
+            else if (vect->type == FR_VECT_8R)   vect->dataD  += shift;
+            // Note the 2* shift for complex types
+            else if (vect->type == FR_VECT_8C)   vect->dataF  += 2 * shift;
+            else if (vect->type == FR_VECT_16C)  vect->dataD  += 2 * shift;
+            // If none of these types, it will fail later
         }
     }
 

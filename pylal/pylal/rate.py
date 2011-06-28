@@ -456,8 +456,8 @@ class Categories(Bins):
 	category index.  A value belongs to a category if it is contained
 	in the category's defining collection.  If a value is contained in
 	more than one category's defining collection, it belongs to the
-	category with the smallest index.  KeyError is raised f a value is
-	not contained in any category's defining collection.
+	category with the smallest index.  IndexError is raised if a value
+	is not contained in any category's defining collection.
 
 	Example with discrete values:
 
@@ -484,10 +484,10 @@ class Categories(Bins):
 	>>> print categories[4]
 	1
 	>>> print categories[-1]
-	KeyError: -1
+	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
-	of the categorys is not null.
+	of the categorys is not the empty set.
 	"""
 	def __init__(self, categories):
 		"""

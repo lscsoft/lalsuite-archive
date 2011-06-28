@@ -31,7 +31,7 @@ extern "C" {
 
 #ifndef CMDLINE_PARSER_VERSION
 /** @brief the program version */
-#define CMDLINE_PARSER_VERSION "1.0.4"
+#define CMDLINE_PARSER_VERSION "1.1.0"
 #endif
 
 /** @brief Where the command line options are stored */
@@ -123,11 +123,15 @@ struct gengetopt_args_info
   const char *sftType_help; /**< @brief Expected SFT from either 'MFD' (Makefakedata_v4) or 'vladimir' (Vladimir's SFT windowed version) which uses a factor of 2 rather than sqrt(8/3) for the window normalization help description.  */
   int markBadSFTs_flag;	/**< @brief Mark bad SFTs (default=off).  */
   const char *markBadSFTs_help; /**< @brief Mark bad SFTs help description.  */
+  int keepOneCandidate_flag;	/**< @brief Keep a single IHS candidate and let process through the pipeline (default=off).  */
+  const char *keepOneCandidate_help; /**< @brief Keep a single IHS candidate and let process through the pipeline help description.  */
   int FFTplanFlag_arg;	/**< @brief 0=Estimate, 1=Measure, 2=Patient, 3=Exhaustive (default='3').  */
   char * FFTplanFlag_orig;	/**< @brief 0=Estimate, 1=Measure, 2=Patient, 3=Exhaustive original value given at command line.  */
   const char *FFTplanFlag_help; /**< @brief 0=Estimate, 1=Measure, 2=Patient, 3=Exhaustive help description.  */
   int IHSonly_flag;	/**< @brief IHS stage only is run. Output statistic is the IHS statistic. (default=off).  */
   const char *IHSonly_help; /**< @brief IHS stage only is run. Output statistic is the IHS statistic. help description.  */
+  int calcRthreshold_flag;	/**< @brief Calculate the threshold value for R given the template false alarm rate (default=off).  */
+  const char *calcRthreshold_help; /**< @brief Calculate the threshold value for R given the template false alarm rate help description.  */
   int BrentsMethod_flag;	/**< @brief Use Brent's method in the root finding algorithm. (default=off).  */
   const char *BrentsMethod_help; /**< @brief Use Brent's method in the root finding algorithm. help description.  */
   int antennaOff_flag;	/**< @brief Antenna pattern weights are /NOT/ used if this flag is used (default=off).  */
@@ -168,8 +172,10 @@ struct gengetopt_args_info
   unsigned int SFToverlap_given ;	/**< @brief Whether SFToverlap was given.  */
   unsigned int sftType_given ;	/**< @brief Whether sftType was given.  */
   unsigned int markBadSFTs_given ;	/**< @brief Whether markBadSFTs was given.  */
+  unsigned int keepOneCandidate_given ;	/**< @brief Whether keepOneCandidate was given.  */
   unsigned int FFTplanFlag_given ;	/**< @brief Whether FFTplanFlag was given.  */
   unsigned int IHSonly_given ;	/**< @brief Whether IHSonly was given.  */
+  unsigned int calcRthreshold_given ;	/**< @brief Whether calcRthreshold was given.  */
   unsigned int BrentsMethod_given ;	/**< @brief Whether BrentsMethod was given.  */
   unsigned int antennaOff_given ;	/**< @brief Whether antennaOff was given.  */
   unsigned int noiseWeightOff_given ;	/**< @brief Whether noiseWeightOff was given.  */

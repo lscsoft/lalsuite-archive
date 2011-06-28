@@ -23,40 +23,31 @@
  *
  * Author: Santamaria L, Krishnan B, Whelan JT, Dias M, Parameswaran A
  *
- * Revision: $Id$
- *
  *-----------------------------------------------------------------------
  */
 
-/*
-<lalVerbatim file="FindChirpPhenomCoeffsHV">
-Author: Santamaria L, Krishnan B, Whelan JT, Dias M, Parameswaran A.
-$Id$
-</lalVerbatim>
+/**
 
-<lalLaTeX>
-\section{Header \texttt{FindChirpPhenomCoeffs.h}}
-\label{s:FindChirpPhenomCoeffs.h}
+\author Santamaria L, Krishnan B, Whelan JT, Dias M, Parameswaran A.
+\file
 
-Provides co\"{e}fficients for the phenomenological waveforms
+\brief Provides coëfficients for the phenomenological waveforms
 introduced by Ajith et al. in arXiv:0710.2335 [gr-qc]
 
-\subsection*{Synopsis}
-
-\begin{verbatim}
+\heading{Synopsis}
+\code
 #include <lal/FindChirpPhenomCoeffs.h>
-\end{verbatim}
+\endcode
 
-\input{FindChirpPhenomCoeffsDoc}
-</lalLaTeX>
 */
 
 #ifndef _BBHPHENOMCOEFFSH_H
 #define _BBHPHENOMCOEFFSH_H
 
-#ifdef  __cplusplus
+#if defined(__cplusplus)
 extern "C" {
-#pragma }
+#elif 0
+} /* so that editors will match preceding brace */
 #endif
 
 NRCSID (BBHPHENOMCOEFFSH, "$Id$");
@@ -106,13 +97,8 @@ NRCSID (BBHPHENOMCOEFFSH, "$Id$");
 #define BBHPHENOMCOEFFSH_PSI7_Z   0.0000e+00
 
 #if 0
-<lalLaTeX>
-\vfill{\footnotesize\input{FindChirpPhenomCoeffsHV}}
-</lalLaTeX>
-#endif
-
-#ifdef  __cplusplus
-#pragma {
+{ /* so that editors will match succeeding brace */
+#elif defined(__cplusplus)
 }
 #endif
 

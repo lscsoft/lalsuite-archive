@@ -10,7 +10,6 @@ pkginclude_HEADERS = \
 	LALBarycenter.h \
 	LALCalibration.h \
 	LALDetectors.h \
-	LALTrigScanCluster.h \
 	ResampleTimeSeries.h \
 	Segments.h \
 	Sequence.h \
@@ -18,6 +17,7 @@ pkginclude_HEADERS = \
 	TimeSeries.h \
 	Units.h
 
+CLEANFILES =
 MOSTLYCLEANFILES = .dvi-dep
 DISTCLEANFILES = *.tex
 MAINTAINERCLEANFILES = \
@@ -47,3 +47,7 @@ TimeSeries.h : TimeSeries.m4 TimeSeriesH.m4
 
 @INCLUDEMKFILE@
 @DVIMKFILE@
+
+swig_headers = $(pkginclude_HEADERS)
+CLEANFILES += $(swig_clean)
+@SWIG_HEADER_MK@

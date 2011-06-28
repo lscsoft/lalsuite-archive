@@ -110,7 +110,8 @@ def parse_command_line():
     parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
     parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
     parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
-    
+    parser.add_option("-i", "--individual-results",      action = "store_true", help = "If set include information on each veto individually.")
+
     # Time options
     parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
     parser.add_option("-e", "--gps-end-time",   metavar = "gps_end_time", help = "End of GPS time range")
@@ -333,7 +334,8 @@ if __name__ == '__main__':
 
             # We could write out everything we found.  This might help tracking down why a time
             # or trigger was vetoed.
-            # segmentdb_utils.add_segment_info(doc, proc_id, segdefs, vetoed_segments, segment_summaries)
+            if options.individual_results:
+              segmentdb_utils.add_segment_info(doc, proc_id, segdefs, vetoed_segments, segment_summaries)
 
             # Form the result
             vetoed_segments = reduce(operator.or_, vetoed_segments).coalesce()

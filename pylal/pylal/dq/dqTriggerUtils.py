@@ -20,6 +20,8 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from glue import git_version
 
+from scipy import special
+
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
 __date__    = git_version.date
@@ -56,7 +58,7 @@ def def_get_time( tableName, ifo=None ):
 
 
   # if given a sngl trigger table
-  elif re.match( 'sngl', tableName ):
+  elif re.match( '(sngl|multi|coinc)', tableName ):
 
     if re.search('inspiral',tableName):
       get_time = lambda row: row.get_end()
@@ -147,18 +149,18 @@ def trigger(data,etg,ifo=None,channel=None):
     # central_freq,energy,amplitude,n_pix,significance,N
 
     # peak time
-    peak  = LIGOTimeGPS(data[0])
+    peak  = LIGOTimeGPS(data[2])
     trig.peak_time             = peak.seconds
     trig.peak_time_ns          = peak.nanoseconds
     # start time
-    start = LIGOTimeGPS(data[1])
+    start = LIGOTimeGPS(data[0])
     ms_start = start
     trig.start_time            = start.seconds
     trig.start_time_ns         = start.nanoseconds
     trig.ms_start_time         = ms_start.seconds
     trig.ms_start_time_ns      = ms_start.nanoseconds
     # end time
-    stop = LIGOTimeGPS(data[2])
+    stop = LIGOTimeGPS(data[1])
     ms_stop = stop
     trig.stop_time             = stop.seconds
     trig.stop_time_ns          = stop.nanoseconds
@@ -272,14 +274,15 @@ def trigger(data,etg,ifo=None,channel=None):
   # HACR
   # ====
 
-  # based on output of chosen columns: Macleod 2011
+  # based on output of hacr web interface
   if etg=='hacr':
     # peak time
-    peak = LIGOTimeGPS(data[0])
-    trig.peak_time               = peak.seconds
-    trig.peak_time_ns            = peak.nanoseconds
+    trig.peak_time               = int(data[0])
+    trig.peak_time_ns            = int(float(data[1])*math.pow(10,9))
+    trig.param_one_name          = 'peak_time_offset'
+    trig.param_one_value         = float(data[1])
     # duration
-    trig.duration                = LIGOTimeGPS(data[1])
+    trig.duration                = float(data[4])
     # start time
     start = trig.get_peak()-trig.duration
     trig.start_time              = start.seconds
@@ -295,8 +298,8 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.flow                    = trig.central_freq - 0.5*trig.bandwidth
     trig.fhigh                   = trig.central_freq + 0.5*trig.bandwidth
     #snr
-    trig.snr                     = float(data[4])
-    trig.ms_snr                  = float(data[5])
+    trig.snr                     = float(data[6])
+    trig.ms_snr                  = float(data[6])
 
     # ms extras
     ms_start = start
@@ -310,7 +313,13 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.ms_flow                 = trig.flow
     trig.ms_bandwidth            = trig.ms_fhigh-trig.ms_flow
 
-    trig.process_id              = int(float(data[9]))
+    # others
+    trig.param_two_name = 'numPixels'
+    trig.param_two_value = int(data[5])
+    trig.param_three_name = 'totPower'
+    trig.param_three_value = float(data[7])
+
+    #trig.process_id              = int(float(data[10]))
 
   # sundries
   if ifo:
@@ -324,7 +333,7 @@ def trigger(data,etg,ifo=None,channel=None):
 # Write triggers to file in etg standard form
 # =============================================================================
 
-def totrigxml(file,table,program=None,params=[]):
+def totrigxml( file, table, program=None, params=[] ):
 
   """
     Write the given lsctables compatible table object to the file object file
@@ -353,21 +362,23 @@ def totrigxml(file,table,program=None,params=[]):
   xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
   xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
 
-  #== append process to table
+  # append process to table
   if not program:
-    program='pylal.dq.dqDataUtils.toxml'
+    program='pylal.dq.dqDataUtils.totrigxml'
 
-  process = llwapp.append_process(xmldoc,program=program,\
-                                         version=__version__,\
-                                         cvs_repository = 'lscsoft',\
-                                         cvs_entry_time = __date__)
+  process = llwapp.append_process( xmldoc, program=program,\
+                                           version=__version__,\
+                                           cvs_repository = 'lscsoft',\
+                                           cvs_entry_time = __date__ )
 
-  ligolw_process.append_process_params(xmldoc,process,params)
+  ligolw_process.append_process_params( xmldoc, process, params )
 
+  # append trig table to file
   xmldoc.childNodes[-1].appendChild(table)
 
+  # write triggers to file object file
   llwapp.set_process_end_time(process)
-  utils.write_fileobj(xmldoc,file)
+  utils.write_fileobj( xmldoc, file, gz=file.name.endswith('gz') )
 
 # =============================================================================
 # Write triggers to text file in etg standard form
@@ -409,8 +420,8 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'energy','amplitude','num_pixels','significance','N']
 
     elif re.match('hacr',etg.lower()):
-      columns =['peak_time','duration','central_freq','bandwidth','snr',\
-                'ms_snr','num_pixels','maxPower']
+      columns = ['peak_time','param_one_value','central_freq','bandwidth',\
+                'duration','param_two_value','snr','param_three_value']
 
   # set delimiter
   if etg=='ihope':
@@ -420,19 +431,36 @@ def totrigfile(file,table,etg,header=True,columns=None):
 
   # print header
   if header:
-    print >>file, d.join(['#']+columns)
+    cols = []
+    for c in columns:
+      if c.startswith('param') and c.endswith('value'):
+        try:
+          cols.append(table[0].__getattribute__(c.replace('value','name')))
+        except IndexError:
+          cols.append(c)
+      else:
+        cols.append(c)
+    print >>file, d.join(['#']+cols)
 
+  columnnames = table.columnnames
+  if not columnnames:
+    t = table[0]
+    columnnames = table[0].__slots__
   # print triggers
   for row in table:
     line = []
     for col in columns:
-       if col not in table.columnnames:
+       if col not in columnnames:
          line.append('-1')
          continue
        entry = ''
        # if ihope, print column
-       if re.match('ihope',etg.lower()):
-         entry = str(row.__getattribute__(col))
+       if re.match('(ihope|hacr)',etg.lower()):
+         # HACR default is to have peak_time_ns in seconds, not ns
+         if re.match('hacr',etg.lower()) and col=='peak_time_ns':
+           entry = str(row.__getattribute__(col)/math.pow(10,9))
+         else:
+           entry = str(row.__getattribute__(col))
        # if not ihope, check for time and print full GPS
        else:
          if col=='peak_time':
@@ -671,37 +699,42 @@ def omega_online_cache(start,end,ifo):
 
   # verify host
   host = getfqdn()
-  ifo_host = {'H1':'ligo-wa','H2':'ligo-wa','L1':'ligo-la'}
+  ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
   if not re.search(ifo_host[ifo],host):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
-                        "IFO="+ifo+" on this host."
+                        "IFO=%s on this host." % ifo
     return []
 
   span = segments.segment(start,end)
   cache = LALCache()
-  basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
-                               % (str(ifo)))
+  if ifo == 'G1':
+    basedir = os.path.expanduser( '~omega/online/%s/segments' % ifo )
+    basetime = LIGOTimeGPS(983669456)
+  else:
+    basedir = os.path.expanduser( '~omega/online/%s/archive/S6/segments'\
+                                  % (str(ifo)))
+    basetime = LIGOTimeGPS(931211808)
 
-  # triggers are numbered from a given start time, which for S6 is:
-  basetime = LIGOTimeGPS(931211808)
-  triglength = 64
+  dt = 10000 
+  t = int(start)
 
-  start_time = int(start-math.fmod(start-basetime,triglength))
-  t = start_time
+  while t<=end:
 
-  # loop over time segments constructing files and appending to the list
-  while t < end:
-    dirstart = "%.10d" % t
-    dirend   = "%.10d" % (t+triglength)
-    dirpath  = os.path.join(basedir,dirstart+'-'+dirend)
-    trigfile = os.path.join(dirpath,'-'.join([ifo,\
-                                              'OMEGA_TRIGGERS_CLUSTER',\
-                                              dirstart,str(triglength)])+'.txt')
-    if os.path.isfile(trigfile):
-      e = LALCacheEntry.from_T050017(trigfile)
-      if span.intersects(e.segment):  cache.append(e)
+    tstr = '%.6s' % ('%.10d' % t)
 
-    t+=triglength
+    dirstr = '%s/%s*' % ( basedir, tstr )
+    dirs = glob.glob( dirstr )
+
+    for dir in dirs:
+      files = glob.glob( '%s/%s-OMEGA_TRIGGERS_CLUSTER*.txt' % ( dir, ifo ) )
+
+      for f in files:
+        e = LALCacheEntry.from_T050017(f)
+
+        if span.intersects(e.segment):
+          cache.append(e)
+
+    t+=dt
 
   cache.sort(key=lambda e: e.path())
 
@@ -981,38 +1014,55 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 # Calculate poisson significance of coincidences
 # ==============================================================================
 
-def coinc_significance(gwtriggers,auxtriggers,window=1,snrthresh=8,\
-                       livetime=None):
+def coinc_significance( gwtriggers, auxtriggers, window=1, livetime=None,\
+                        coltype=LIGOTimeGPS, returnsegs=False ):
 
   get_time = def_get_time(gwtriggers.tableName)
+  aux_get_time = def_get_time(auxtriggers.tableName)
 
   # get livetime
   if not livetime:
-    start = min([get_time(t) for t in gwtriggers])
-    end   = max([get_time(t) for t in gwtriggers])
+    start    = min([ get_time(t) for t in gwtriggers ])
+    end      = max([ get_time(t) for t in gwtriggers ])
+    livetime = end-start
 
   # calculate probability of a GW trigger falling within the window
-  gwprob = len(gwtriggers)*window/livetime
-
-  # grab auxiliary triggers above threshold
-  auxtriggers = lsctables.New(type(tableName))
-  auxtriggers.extend([t for t in auxtriggers if t.snr>snrthresh])
+  gwprob = len(gwtriggers) * float(window) / float(livetime)
 
   # calculate mean of Poisson distribution
   mu = gwprob * len(auxtriggers)
 
   # generate segments around auxiliary triggers
-  coincsegs = segments.segmentlist([segment(get_time(t)-window/2,\
-                                            get_time(t)+window/2)\
-                                    for t in triggers])
+  if coltype == int:
+    trigseg = lambda t: segments.segment( int(math.floor(aux_get_time(t)\
+                                                         - window/2)),\
+                                          int(math.ceil(aux_get_time(t)\
+                                                         + window/2)) )
+  else:
+    trigseg = lambda t: segments.segment( aux_get_time(t) - window/2,\
+                                          aux_get_time(t) + window/2 )
 
-  coinctriggers = lsctables.New(type(gwtriggers))
-  coinctriggers.extend([g for g in gwtriggers if get_time(g) in coincsegs])
+  coincsegs = segments.segmentlist([ trigseg(t) for t in auxtriggers ])
+  coincsegs = coincsegs.coalesce()
+  coinctriggers = table.new_from_template( gwtriggers )
+  coinctriggers.extend([ g for g in gwtriggers if get_time(g) in coincsegs ])
 
+  g = special.gammainc( len(coinctriggers), mu )
+
+  # if no coincidences, set significance to zero
   if len(coinctriggers)<1:
     significance = 0
+  # if significance would blow up, use other formula (ref. hveto_significance.m)
+  elif g == 0:
+    significance = -len(coinctriggers) * math.log10(mu) + \
+                   mu * math.log10(math.exp(1)) +\
+                   special.gammaln( len(coinctriggers) + 1 ) / math.log(10)
+  # otherwise use the standard formula
   else:
-    significance = -math.log(gammainc(len(coinctriggers),mu),10)
+    significance = -math.log( g, 10 )
 
-  return significance
+  if returnsegs:
+    return significance,coincsegs
+  else:
+    return significance
 
