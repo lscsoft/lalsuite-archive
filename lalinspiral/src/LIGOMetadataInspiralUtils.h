@@ -559,7 +559,7 @@ XLALInspiralDistanceCutBCVC(
     );
 
 void
-XLALInspiralExactSpin1Coinc(
+XLALInspiralSpin1Coinc(
     CoincInspiralTable        **coincInspiral
     );
 void
