@@ -142,18 +142,32 @@ def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # input
-    parser.add_option("--relic-onsource", help="output of pylal_relic "\
-        "containing the onsource loudest coincs")
-    parser.add_option("--relic-offsource", help="output of pylal_relic "\
-        "containing the offsource loudest coincs")
     parser.add_option("--relic-injections", help="output of pylal_relic "\
         "containing the loudest injection coincs")
     parser.add_option("--grblikelihood-onsource",
         help="On-source output pickle from pylal_grblikelihood")
-    parser.add_option("--grblikelihood-offsource",
-        help="Off-source output pickle from pylal_grblikelihood")
     parser.add_option("--grblikelihood-injections",
         help="Injection output pickle from pylal_grblikelihood")
+
+    # binning
+    # This part taken from relic.  It is easier to define binning here rather
+    # than re-run relic every time we want to change the bins!
+    parser.add_option("--m2-min", type="float", help="minimum of the range in "
+        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "of total angular momentum, Jtot.")
+    parser.add_option("--m2-max", type="float", help="maximum of the range in "
+        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "of total angular momentum, Jtot.")
+    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected companion mass. "
+        "For 051103 companion mass = cos(inclination) of total angular momentum, Jtot.")
+    parser.add_option("--D-min", type="float", help="minimum of the range in "
+        "injected distance")
+    parser.add_option("--D-max", type="float", help="maximum of the range in "
+        "injected distance")
+    parser.add_option("--D-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected distance")
+
 
     # InspiralUtils compatibility
     parser.add_option("--gps-start-time", type="int",
@@ -196,6 +210,12 @@ def parse_args():
 
     options, arguments = parser.parse_args()
 
+    # check that mandatory switches are present
+    for opt in ("relic_injections", "m2_min",\
+			"m2_max", "m2_nbins", "D_min", "D_max", "D_nbins"):
+        if getattr(options, opt) is None:
+            raise ValueError, "--%s is required" % opt.replace("_", "-")
+
     if (options.likelihood_threshold is not None) \
         and (options.likelihood_threshold <= 0):
         raise ValueError, "--likelihood-threshold THRESH must be positive."
@@ -215,14 +235,18 @@ page = InspiralUtils.InspiralPage(opts)
 
 if opts.verbose:
     print "Reading in bin definitions..."
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
+statistic, mc_bins, _, _, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
+	
+# Setup the bins we're actually interested in.  This way, we only have to run relic ONCE!
+m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+D_bins  = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
+
 if statistic != "effective_snr":
     raise NotImplemented
 
 _, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
-# Note that we're reading in m2/D bins as defined in the call to grblikelihood
-m2_bins, D_bins, inj_log_L_by_trial_m2, _ = \
+_, _, inj_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_injections))
 
 # Set everything less than THRESH to THRESH, including missed injections

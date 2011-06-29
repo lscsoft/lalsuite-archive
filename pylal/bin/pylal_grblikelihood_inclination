@@ -364,25 +364,6 @@ def parse_args():
         "containing the loudest injection coincs for the verification "
         "injections for upper limits.")
 
-    # binning
-    # This part taken from relic.  It is easier to define binning here rather
-    # than re-run relic every time we want to change the bins!
-    parser.add_option("--m2-min", type="float", help="minimum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
-        "of total angular momentum, Jtot.")
-    parser.add_option("--m2-max", type="float", help="maximum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
-        "of total angular momentum, Jtot.")
-    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
-        "bins in injected companion mass. "
-        "For 051103 companion mass = cos(inclination) of total angular momentum, Jtot.")
-    parser.add_option("--D-min", type="float", help="minimum of the range in "
-        "injected distance")
-    parser.add_option("--D-max", type="float", help="maximum of the range in "
-        "injected distance")
-    parser.add_option("--D-nbins", type="int", help="number of evenly-spaced "
-        "bins in injected distance")
-
     # odds and ends
     parser.add_option("--reweight-D", action="store_true", default=False,
         help="enable a reweighting of injections from a uniform distribution "\
@@ -394,8 +375,7 @@ def parse_args():
     options, arguments = parser.parse_args()
 
     # check that mandatory switches are present
-    for opt in ("relic_onsource", "relic_offsource", "relic_injections", "m2_min",\
-			"m2_max", "m2_nbins", "D_min", "D_max", "D_nbins"):
+    for opt in ("relic_onsource", "relic_offsource", "relic_injections"):
         if getattr(options, opt) is None:
             raise ValueError, "--%s is required" % opt.replace("_", "-")
 
@@ -415,19 +395,13 @@ statistic, mc_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.relic_onsource))
 statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
-# Do not load in m2 or D bins as these are to be defined by the user in the
-#  call to THIS function
-statistic, mc_bins, _, _, m2_D_by_inj, inj_loudest_by_inj_mc \
+statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
     = pickle.load(open(opts.relic_injections))
 
 if opts.relic_verification_injections:
     statistic, astro_mc_bins, _, _, astro_m2_D_by_inj, \
             astro_inj_loudest_by_inj_mc = \
 	    pickle.load(open(opts.relic_verification_injections))
-
-# Setup the bins we're actually interested in.  This way, we only have to run relic ONCE!
-m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
-D_bins  = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 if statistic != "effective_snr":
     raise NotImplemented

@@ -261,6 +261,10 @@ for system, grbUL_pickle in zip(systems, grbUL_pickles):
        # plot sigmoid fit / linearly interpolated fit
        pyplot.plot(xfit, yfit, color=curr_color, label=None, linestyle=curr_style)
 
+       # plot a point out of range for the legend
+       pyplot.plot([-50,-10],[-50,-10], color=curr_color, label=r'\textrm{'+system+'}', \
+       	        marker=curr_marker, linestyle=curr_style)
+
     ################################################################################
 	# Exclusion confidences
 
@@ -366,10 +370,6 @@ if opts.verbose:
 
 if len(systems)<=4:
 
-    # plot a point out of range for the legend
-    pyplot.plot([-50,-10],[-50,-10], color=curr_color, label=r'\textrm{'+system+'}', \
-    	        marker=curr_marker, linestyle=curr_style)
-
     # edges of box showing location of M81
     M81_low = opts.distance-opts.distance_error
     M81_upp = opts.distance+opts.distance_error
@@ -419,7 +419,7 @@ pyplot.plot(NS_jet_angles,BNS_D90,'-v',label=r'\textrm{BNS}')
 pyplot.hold(True)
 pyplot.plot(BH_jet_angles,NSBH_D90,'-^',label=r'\textrm{NSBH}')
 pyplot.xlim(0,90)
-pyplot.ylim(0,25)
+#pyplot.ylim(0,25)
 pyplot.xlabel(r'\textrm{Jet semi-opening angle (deg)}')
 pyplot.ylabel(r'\textrm{90$\%$ Exclusion (Mpc)}')
 pyplot.grid(linestyle=':')
