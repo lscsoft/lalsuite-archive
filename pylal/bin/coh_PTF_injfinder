@@ -143,6 +143,13 @@ def main( trigCacheFile, injCacheFile, timeWindow, outdir,\
 
       currInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([injFile])
       currTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+      for trig in currTrigs:
+        # Temporary hack to allow the code to work with tables that dont have
+        # the new time slide ID column.
+        try:
+          tmp = trig.time_slide_id
+        except AttributeError:
+          trig.time_slide_id = 1
 
       currInjs = [ i for i in currInjs if i.get_time_geocent() not in excludes ]
       if opts.log_dir:
