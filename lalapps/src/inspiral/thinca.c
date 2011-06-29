@@ -358,7 +358,7 @@ int main( int argc, char *argv[] )
     {"bcvc",                no_argument,   &doBCVC,                   1 },
     {"do-veto",             no_argument,   &doVeto,                   1 },
     {"complete-coincs",     no_argument,   &completeCoincs,           1 },
-    {"exact-spin1-coinc",   no_argument,   &doExactSpin1Coinc,        1 },
+    {"do-exact-spin1-coinc",no_argument,   &doExactSpin1Coinc,        1 },
     {"g1-slide",            required_argument, 0,                    'b'},
     {"h1-slide",            required_argument, 0,                    'c'},
     {"h2-slide",            required_argument, 0,                    'd'},
