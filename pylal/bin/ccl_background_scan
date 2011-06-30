@@ -30,53 +30,52 @@ from glue import gpstime
 from glue.ligolw import dbtables
 from numpy.random import randint
 from numpy import unique,arange
+from pylal.fu_utils import getSciSegs
+from pylal import git_version
 
 
-from fu_utils import getSciSegs
+def readGPSList(filename):
+    """
+    Read in a column of number convert to int and return list
+    """
+    result=list()
+    for myValue in file(filename,'r'):
+        if not myValue.startswith("#"):
+            result.append(int(float(myValue)))
+    return result
 
-class gpsTimeList:
-    def read(filename):
-        """
-        Read in a column of number convert to int and return list
-        """
-        result=list()
-        for myValue in file(filename,'r'):
-            if not myValue.startswith("#"):
-                result.append(int(float(myValue)))
-        return result
-
-    def write(filename,data):
-        """
-        Write out a 1C list for file.
-        """
-        myFP=file(filename,'w')
-        for myValue in data:
-            myFP.write("%i\n"%(myValue))
-        myFP.close()
+def writeGPSList(filename,data):
+    """
+    Write out a 1C list for file.
+    """
+    myFP=file(filename,'w')
+    for myValue in data:
+        myFP.write("%i\n"%(myValue))
+    myFP.close()
         
-class segmentlist:
-    def read(filename):
-        """
-        Given a filename it read the file and returns an
-        pipeline.ScienceData()object the file is assumed to formatted
-        correctly.
-        """
-        segmentData=pipeline.ScienceData()
-        for myLine in file(filename,'r').readlines():
-            if not myLine.startswith('#'):
-                (id,start,stop,duration)=myLine.split()
-                segmentData.append_from_tuple((id,start,stop,duration))
-        return segmentData
-    
-    def write(segmentData,filename):
-        """
-        Given a file it writes a pipeline.ScienceData()
-        objec to disk.
-        """
-        myFP=file(filename,'w')
-        for segNumber,segment in enumerate(segmentData):
-            myFP.write("%i %f %f %f\n"%(segNumber,segment.start(),segment.stop(),segment.dur()))
-        myFP.close()
+
+def readSegmentList(filename):
+    """
+    Given a filename it read the file and returns an
+    pipeline.ScienceData()object the file is assumed to formatted
+    correctly.
+    """
+    segmentData=pipeline.ScienceData()
+    for myLine in file(filename,'r').readlines():
+        if not myLine.startswith('#'):
+            (id,start,end,duration)=myLine.split()
+            segmentData.append_from_tuple((id,start,end,duration))
+    return segmentData
+
+def writeSegmentList(filename,segmentData):
+    """
+    Given a file it writes a pipeline.ScienceData()
+    object to disk.
+    """
+    myFP=file(filename,'w')
+    for segNumber,segment in enumerate(segmentData):
+        myFP.write("%i %f %f %f\n"%(segNumber,segment.start(),segment.end(),segment.dur()))
+    myFP.close()
 
             
 class create_skeleton_configuration(object):
@@ -88,43 +87,59 @@ class create_skeleton_configuration(object):
         """
         Create a skeleton ini file that needs tweaking!
         """
-        cp = ConfigParser.ConfigParser()
-        cp.add_section("condor")
-        cp.set("condor","datafind",self.which("ligo_data_find"))
-        cp.set("condor","cacheconverter",self.which("convertlalcache.pl"))
-        cp.set("condor","scanner","/archive/home/omega/opt/omega/bin/wpipeline")
-        cp.add_section("cacheconverter")
-        cp.add_section("scanner")
-        cp.set("scanner","config","s6_background_L0L1-RDS_R_L1-cbc.txt")
-        cp.set("scanner","output_path",os.path.normpath(os.getenv('PWD')+"/ccl_background_scan"))
-        cp.add_section("datafind")
-        cp.set("datafind","ifo","L1")
-        cp.set("datafind","segment_pad",64)
-        cp.set("datafind","min_segment_length",256)
-        cp.set("datafind","scan_block",64)
-        cp.set("datafind","interval_start",931046415)
-        cp.set("datafind","interval_stop",971740815)
-        cp.set("datafind","sample_number",1000)
+        self.cp = ConfigParser.ConfigParser()
+        self.cp.add_section("condor")
+        self.cp.set("condor","datafind",self.which("ligo_data_find"))
+        self.cp.set("condor","cacheconverter",self.which("convertlalcache.pl"))
+        self.cp.set("condor","scanner","/archive/home/omega/opt/omega/bin/wpipeline")
+        self.cp.set("condor","condor_path",os.path.abspath("."))
+        self.cp.set("condor","log_path","/usr1/ctorres")
+        self.cp.add_section("ccl_setup")
+        self.cp.set("ccl_setup","interval_start",931046415)
+        self.cp.set("ccl_setup","interval_end",971740815)
+        self.cp.set("ccl_setup","sample_number",1000)
+        self.cp.set("ccl_setup","minimum_segment_length",256)
+        self.cp.set("ccl_setup","segment_padding",64)
+        self.cp.add_section("cacheconverter")
+        self.cp.add_section("scanner")
+        self.cp.set("scanner","config","s6_background_L0L1-RDS_R_L1-cbc.txt")
+        self.cp.set("scanner","output_path",os.path.normpath(os.getenv('PWD')+"/ccl_background_scan"))
+        self.cp.add_section("datafind")
+        self.cp.set("datafind","ifo","L1")
+        self.cp.set("datafind","type","RDS_R_L1")
+        self.cp.set("datafind","match","localhost/data")
+        self.cp.set("datafind","lal-cache","")
         
+    def which(self,prog):
+        which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
+        out = which.stdout.read().strip()
+        if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
+        return out
+
     def writeCP(self,filename):
         """
         Write object to disk.
         """
-        self.cp.write(filename)
-        
+        myFP=open(filename,'w')
+        self.cp.write(myFP)
+        myFP.close()
 
-class cclScannerJob(pipeline.CondorDAGJob,pipelineAnalysisJob):
+class cclScannerJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     """
     This is what we need to setup a basic scanning job.
     """
-    def __init__(self,cp,subDir):
+    def __init__(self,cp):
         self.__executable = cp.get('condor','scanner')
-        self.universe = 'vanilla'
+        self.__universe = 'vanilla'
         pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
         pipeline.AnalysisJob.__init__(self,cp)
         self.add_condor_cmd('getenv','True')
-        self.set_sub_file(os.path.normpath(subDir))
-
+        self.set_sub_file(os.path.abspath(os.path.normpath(cp.get("condor","condor_path")+"/cclScanner.sub")))
+        self.set_stdout_file(os.path.abspath(os.path.normpath(cp.get("condor","condor_path")+"/scanLog_$(cluster)_$(process.out).log")))
+        self.set_stderr_file(os.path.abspath(os.path.normpath(cp.get("condor","condor_path")+"/scanErr_$(cluster)_$(process.err).err")))
+        self.set_log_file(os.path.abspath(os.path.normpath(cp.get("condor","log_path")+"/scanLogCondor_$(cluster)_$(process).log")))
+        self.add_condor_cmd('initialdir','$(macroInitialDir)')
+            
 class cclScannerNode(pipeline.CondorDAGNode,pipeline.AnalysisNode):
     """
     This is the basic scanner node definition.
@@ -145,25 +160,31 @@ parser.add_option("-f","--config-file",
                   type="string",
                   default=None,
                   help="Specify pipeline configuration file.")
-parser.add_option("-s","--skeleton",
+
+parser.add_option("-k","--skeleton",
                   action="store_true",
                   default=False,
                   help="Invoke this option to generate a skeleton \
 pipeline configuration file.")
 
-parser.add_options("-g","--gps-list",
+parser.add_option("-g","--gps-list",
                    action="store",
                    type="string",
                    default=None,
                    help="Invoke a list of gps to specify the times to \
 query rather than randomly looking for scan times.")
 
-parser.add_options("-s","--segment-file",
+parser.add_option("-s","--segment-file",
                    action="store",
                    type="string",
                    default=None,
                    help="Use this to specify a valid segment file. \
 This avoids queries to the segment database which can be slow.")
+
+parser.add_option("-v","--verbose",
+                  action="store_true",
+                  default=False,
+                  help="Turn on verbose messages.")
 
 (opts,args) = parser.parse_args()
 
@@ -176,7 +197,7 @@ if opts.skeleton:
         skeletonFile=skeletonFileMask%(counter)
     skeletonConfig=create_skeleton_configuration()
     skeletonConfig.writeCP(skeletonFile)
-    os.exit(0)
+    sys.exit(0)
 
 cp=None
 if opts.config_file:
@@ -185,39 +206,60 @@ if opts.config_file:
     
 # Look for data to analyze or read it from file if applicable
 if opts.segment_file:
-    scienceSegments=segmentlist.read(opts.segment_file)
+    if opts.verbose:
+        sys.stdout.write("Reading in segment file.\n")
+        sys.stdout.write("Segment padding assumed removed already!\n")
+        sys.stdout.flush()
+    scienceSegments=readSegmentList(opts.segment_file)
 else:
-    segmentListFile="scienceSegments_%s.txt"%(cp.get("scanner","ifo"))
-    scienceSegments=getSciSegs(cp.get("scanner","ifo"),
-                               cp.get("datafind","interval_start"),
-                               cp.get("datafind","interval_stop"),
+    if opts.verbose:
+        sys.stdout.write("Fetching science segment information.\n")
+        sys.stdout.flush()
+    segmentListFile="scienceSegments_%s.txt"%(cp.get("datafind","ifo"))
+    scienceSegments=getSciSegs(cp.get("datafind","ifo"),
+                               cp.get("ccl_setup","interval_start"),
+                               cp.get("ccl_setup","interval_end"),
                                cut=True,
-                               seglenmin=cp.get("datafind","min_segment_length"),
-                               segpading=cp.get("datafind","segment_pad"))
-    segmentlist.write(segmentListFile,scienceSegments)
+                               seglenmin=cp.get("ccl_setup","minimum_segment_length"),
+                               segpading=cp.get("ccl_setup","segment_padding"))
+    writeSegmentList(segmentListFile,scienceSegments)
 
 #Create a random list of science times to sample or read the list in
 #if specified
 gpsTimeList=None
 if opts.gps_list:
-    gpsTimeList=gpsSampleList.read(opts.gpsTimeList)
+    if opts.verbose:
+        sys.stdout.write("Reading GPS sample time list.\n")
+        sys.stdout.flush()
+    gpsTimeList=readGPSList(opts.gps_list)
 else:
+    if opts.verbose:
+        sys.stdout.write("Randomly selecting GPS sample times.\n")
+        sys.stdout.flush()
     gpsIntTimes=[]
-    msl=int(float(cp.get("datafind","min_segment_length")))
+    msl=int(float(cp.get("ccl_setup","minimum_segment_length")))
+    hmsl=int(msl/2.0)
+    gpsIntTimes=list()
     for seg in scienceSegments:
         if seg.dur > msl+1:
-            gpsIntTimes.append(arange(seg.start+int(msl/2),seg.stop-(msl/2),1))
+            myGpsIntList=arange(
+                int(float(seg.start()))+hmsl,
+                int(float(seg.end()))-hmsl,
+                1)
+            gpsIntTimes.extend(myGpsIntList)
     #Select from the list of timestamps a random subset
-    ns=int(float(cp.get("datafind","sample_number")))
+    sn=int(float(cp.get("ccl_setup","sample_number")))
     notUniqList=True
     while notUniqList:
-        randUniqIndex=unique(randint(1,len(gpsIntTime),ns))
+        randUniqIndex=unique(randint(1,len(gpsIntTimes),sn))
+        randUniqIndex=[int(x) for x in randUniqIndex]
         if len(randUniqIndex) == sn:
             notUniqList=False
-    gpsTimeList=gpsIntTimes[randUniqIndex]
+    gpsTimeList=[gpsIntTimes[x] for x in randUniqIndex]
     #Save this list
     gpsListFilename="sampledTimesGPS.txt"
-    gpsSampleList.write(gpsListFilename,gpsTimeList)
+    writeGPSList(gpsListFilename,gpsTimeList)
+
 #
 # Setup the associated condor infrastructure to run the jobs
 #
@@ -225,51 +267,60 @@ else:
 
 #Create directory for submit files
 installDagTo=os.path.abspath(os.path.normpath("./"))
-installSubTo=os.path.abspath(os.path.normpath("./submit_files"))
-installLogTo=os.path.abspath(os.path.normpath("./log_files"))
+installSubTo=os.path.abspath(os.path.normpath("./condor_files"))
 productsDirDatafind=os.path.abspath(os.path.normpath("./datafind_output"))
-productsDirScan=os.path.abspath(os.path.normpath("./scan_output")
-os.mkdirs(installDagTo)
-os.mkdirs(installLogTo)
-os.mkdirs(installSubTo)
+productsDirScan=os.path.abspath(os.path.normpath("./scan_output"))
+try:
+    os.makedirs(installDagTo)
+except: OSError
+try:
+    os.makedirs(installSubTo)
+except: OSError
 #Initialize the dag
 dag = pipeline.CondorDAG(os.path.normpath(installDagTo))
-dag.set_dag_file(os.path.normpath('./ccl_background_scan.dag'))
+dag.set_dag_file(os.path.normpath('./ccl_background_scan'))
 #Setup basic datafind and scanner job
-dataFindJob=pipeline.LSCDataFindJob(productsDirDatafind,installLogTo,cp)
-scannerJob=cclScannerJob(installSubTo)
+dataFindJob=pipeline.LSCDataFindJob(productsDirDatafind,installSubTo,cp)
+dataFindJob.set_sub_file(os.path.abspath(os.path.normpath(installSubTo+"/"+os.path.basename(dataFindJob.get_sub_file()))))
+scannerJob=cclScannerJob(installSubTo,cp)
 #
-timeOffset=int(float(cp.get("datafind","scan_block"))/2.0)
+timeOffset=int(float(cp.get("ccl_setup","minimum_segment_length"))/2.0)
 for sampleTime in gpsTimeList:
     #Setup Datafind Node
     dfNode=pipeline.LSCDataFindNode(dataFindJob)
     dfNode.set_start(sampleTime-timeOffset)
     dfNode.set_end(sampleTime+timeOffset)
     dfNode.set_observatory(cp.get("datafind","ifo"))
-    dfNode.set_post_script(cp.get("condor","cacheconverter"))
-    dfCacheFile=dfNode.get_output_cache()
-    scanCacheFile="%s.scanecache"%(dfCacheFiles)
-    dfNode.set_post_args("%s > %s "%(dfCacheFile,scanCacheFile))
-    self.dag.add_node(dfNode)
+    dag.add_node(dfNode)
     #Setup scanner Node
     scanNode=cclScannerNode(scannerJob)
+    myInitialDir=os.path.normpath(productsDirScan+"/%s_cclSample/"%(sampleTime))
+    try:
+        os.makedirs(myInitialDir)
+    except: OSError
+    scanNode.add_macro('macroInitialDir',myInitialDir)
+    dfCacheFile=dfNode.get_output_cache()
+    scanCacheFile="%s.scancache"%(dfCacheFile)
+
+    scanNode.set_pre_script(cp.get("condor","cacheconverter"))
+    scanNode.add_pre_script_arg("%s > %s "%(dfCacheFile,scanCacheFile))
     scanNode.add_input_file(scanCacheFile)
     scanNode.add_input_file(cp.get("scanner","config"))
     scanNode.add_var_arg("scan")
     scanNode.add_var_opt("c",cp.get("scanner","config"))
-    scanNode.add_var_opt("f",os.path.basename(scanCacheFile))
+    scanNode.add_var_opt("f",scanCacheFile)
     outputDir=os.path.normpath(os.path.abspath(cp.get("scanner","output_path"))+"/"+"%s/"%(sampleTime))
     scanNode.add_var_opt("o",outputDir)
     scanNode.add_var_arg("%s"%sampleTime)
     scanNode.add_parent(dfNode)
-    self.dag.add_node(scanNode)
+    dag.add_node(scanNode)
 #
 # Write dag to disk
 #
-self.dag.write_sub_files()
-self.dag.write_dag()
+dag.write_sub_files()
+dag.write_dag()
 try:
-    self.dag.write_script()
+    dag.write_script()
 except:
     sys.stderr.write("Bash shell script equivalent of pipe not written.\n")
 
