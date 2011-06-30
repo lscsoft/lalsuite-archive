@@ -149,7 +149,7 @@ def main( trigCacheFile, injCacheFile, timeWindow, outdir,\
         try:
           tmp = trig.time_slide_id
         except AttributeError:
-          trig.time_slide_id = 1
+          trig.time_slide_id=ilwd.get_ilwdchar("multi_inspiral:time_slide_id:0")
 
       currInjs = [ i for i in currInjs if i.get_time_geocent() not in excludes ]
       if opts.log_dir:
