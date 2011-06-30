@@ -324,10 +324,10 @@ def parse_args():
 
     # binning
     parser.add_option("--m2-min", type="float", help="minimum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "injected companion mass.  For 051103 companion mass = inclination (deg)"
         "of total angular momentum, Jtot.")
     parser.add_option("--m2-max", type="float", help="maximum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "injected companion mass.  For 051103 companion mass = inclination (deg) "
         "of total angular momentum, Jtot.")
     parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
         "bins in injected companion mass. "
@@ -424,7 +424,8 @@ trial_bins, trial_veto_mask, _ = \
 mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
 
 if opts.write_injections:
-    m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+    m2_bins = rate.LinearBins(numpy.cos(opts.m2_max*numpy.pi/180), 
+			numpy.cos(opts.m2_min*numpy.pi/180), opts.m2_nbins)
     D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 ################################################################################

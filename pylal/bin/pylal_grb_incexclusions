@@ -78,8 +78,8 @@ def parse_args():
     		      "Note that this argument is only currently used in "
 		      "distance exclusion figures. [default=0.14]")
 
-    parser.add_option("--typical-cos-jet", action="store", type="float",\
-			default="0.5", metavar="FLOAT",\
+    parser.add_option("--typical-jet", action="store", type="float",\
+			default="60", metavar="FLOAT",\
 			help="jet semi-angle corresponding to realistic astrophysical "
 			"expectation. [default=60 deg]")
 
@@ -295,10 +295,10 @@ for system, grbUL_pickle in zip(systems, grbUL_pickles):
         NSBH_D90[BHindx] = D90
 
         # Record face-on and isotropic exclusion confidences for input to tex results file
-        if NSBH_cos_jet_semi_angle[BHindx]==opts.typical_cos_jet:
+        if NSBH_cos_jet_semi_angle[BHindx]==numpy.cos(opts.typical_jet*numpy.pi/180):
             NSBH_FaceOn_Exclusion = NSBH_M81_exclusion[BHindx]
             NSBH_FaceOn_D90 = NSBH_D90[BHindx]
-        if NSBH_cos_jet_semi_angle[BHindx]==0.:
+        if NSBH_cos_jet_semi_angle[BHindx]==numpy.cos(90*numpy.pi/180):
             NSBH_Iso_Exclusion = NSBH_M81_exclusion[BHindx]
             NSBH_Iso_D90 = NSBH_D90[BHindx]
 
@@ -311,10 +311,10 @@ for system, grbUL_pickle in zip(systems, grbUL_pickles):
         BNS_M81_exclusion[NSindx] = numpy.interp(opts.distance,xfit,yfit)
         print system,'Epsilon=', BNS_M81_exclusion[NSindx], ', D90=', D90[0], ' Mpc'
         BNS_D90[NSindx] = D90
-        if BNS_cos_jet_semi_angle[NSindx]==opts.typical_cos_jet:
+        if BNS_cos_jet_semi_angle[NSindx]==numpy.cos(opts.typical_jet*numpy.pi/180):
 			BNS_FaceOn_Exclusion = BNS_M81_exclusion[NSindx]
 			BNS_FaceOn_D90 = BNS_D90[NSindx]
-        if BNS_cos_jet_semi_angle[NSindx]==0.:
+        if BNS_cos_jet_semi_angle[NSindx]==numpy.cos(90*numpy.pi/180):
 			BNS_Iso_Exclusion = BNS_M81_exclusion[NSindx]
 			BNS_Iso_D90 = BNS_D90[NSindx]
         NSindx+=1
@@ -322,9 +322,8 @@ for system, grbUL_pickle in zip(systems, grbUL_pickles):
 txt_file_out.close()
 ################################################################################
 # Construct tex results file
-
 # check we have results for jet=90 deg
-if not 0. in BNS_cos_jet_semi_angle or not 0. in NSBH_cos_jet_semi_angle:
+if not numpy.cos(90*numpy.pi/180) in BNS_cos_jet_semi_angle or not numpy.cos(90*numpy.pi/180) in NSBH_cos_jet_semi_angle:
 	print "WARNING: no results supplied for unbeamed emission (no jet angle=90 deg)"
 	print " Not writing results file."
 
@@ -349,7 +348,7 @@ else:
         print "**********************"
         print "---SUMMARY---"
         print "'face-on'=%.2f deg" \
-				%(180./numpy.pi*numpy.arccos(opts.typical_cos_jet))
+				%(opts.typical_jet)
         print "BNS_Iso_D90=%.5f" %(BNS_Iso_D90)
         print "BNS_FaceOn_D90=%.5f" %(BNS_FaceOn_D90)
         print "BNS_Iso_Exclusion=%.5f" %(BNS_Iso_Exclusion)

@@ -153,10 +153,10 @@ def parse_args():
     # This part taken from relic.  It is easier to define binning here rather
     # than re-run relic every time we want to change the bins!
     parser.add_option("--m2-min", type="float", help="minimum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "injected companion mass.  For 051103 companion mass = inclination (deg)"
         "of total angular momentum, Jtot.")
     parser.add_option("--m2-max", type="float", help="maximum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "injected companion mass.  For 051103 companion mass = inclination (deg) "
         "of total angular momentum, Jtot.")
     parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
         "bins in injected companion mass. "
@@ -239,7 +239,8 @@ statistic, mc_bins, _, _, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
 	
 # Setup the bins we're actually interested in.  This way, we only have to run relic ONCE!
-m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+m2_bins = rate.LinearBins(numpy.cos(opts.m2_max*numpy.pi/180), 
+		numpy.cos(opts.m2_min*numpy.pi/180), opts.m2_nbins)
 D_bins  = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 if statistic != "effective_snr":
