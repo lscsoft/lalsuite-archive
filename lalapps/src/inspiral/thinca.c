@@ -230,6 +230,7 @@ fprintf( a, "   --data-type          data_type  specify the data type, must be o
 fprintf( a, "                                   (playground_only|exclude_play|all_data)\n");\
 fprintf( a, "   --complete-coincs               write out triggers from all non-vetoed ifos\n");\
 fprintf( a, "                                   if not seen, snr is equal to zero\n");\
+fprintf( a, "  [--do-exact-spin1-coinc]            perform exact coincidence test on spin1\n");\
 fprintf( a, "  [--exttrig]           source     enables the External-Trigger mode \n");\
 fprintf( a, "                                         (using actual time delays) for a source\n");\
 fprintf( a, "                                   specified in the source file\n");\
@@ -358,7 +359,7 @@ int main( int argc, char *argv[] )
     {"bcvc",                no_argument,   &doBCVC,                   1 },
     {"do-veto",             no_argument,   &doVeto,                   1 },
     {"complete-coincs",     no_argument,   &completeCoincs,           1 },
-    {"exact-spin1-coinc",   no_argument,   &doExactSpin1Coinc,        1 },
+    {"do-exact-spin1-coinc",no_argument,   &doExactSpin1Coinc,        1 },
     {"g1-slide",            required_argument, 0,                    'b'},
     {"h1-slide",            required_argument, 0,                    'c'},
     {"h2-slide",            required_argument, 0,                    'd'},
