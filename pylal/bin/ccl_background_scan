@@ -267,7 +267,7 @@ else:
 
 #Create directory for submit files
 installDagTo=os.path.abspath(os.path.normpath("./"))
-installSubTo=os.path.abspath(os.path.normpath(cp.get("condor","condor_path"))
+installSubTo=os.path.abspath(os.path.normpath(cp.get("condor","condor_path")))
 productsDirDatafind=os.path.abspath(os.path.normpath("./datafind_output"))
 productsDirScan=os.path.abspath(os.path.normpath("./scan_output"))
 try:
