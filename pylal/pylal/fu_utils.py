@@ -1053,6 +1053,16 @@ def getSciSegs(ifo=None,
   over the segment interval requested not all know segments!
   Returns a data structure of type glue.pipeine.ScienceData()
   """
+  #Typecast if needed
+  if isinstance(gpsStart,str):
+    gpsStart=float(gpsStart)
+  if isinstance(gpsStop,str):
+    gpsStop=float(gpsStop)
+  if isinstance(seglenmin,str):
+    seglenmin=float(seglenmin)
+  if isinstance(segpading,str):
+    segpading=float(segpading)
+    
   if sum([x==None for x in (ifo,gpsStart,gpsStop)])>0:
     sys.stderr.write("Invalid arguments given to getSciSegs.\n")
     return None
@@ -1115,13 +1125,16 @@ def getSciSegs(ifo=None,
     segListTemp.coalesce()
   if not seglenmin: return segListTemp
   else:
-    if 2*segpading < seglenmin:
+    if 2*segpading > seglenmin:
       raise Exception, "segpading must be smaller than seglenmin/2\n"
     segList = pipeline.ScienceData()
     for indice in range(0,segListTemp.__len__()):
       segTemp = segListTemp.__getitem__(indice)
-      if segTemp.dur() >= seglenmin:
-        segList.append_from_tuple((segTemp.id(),segTemp.start()+segpading,segTemp.end()-segpading,segTemp.dur()-2*segpading))
+      if segTemp.dur()+(2*segpading) >= seglenmin:
+        segList.append_from_tuple((segTemp.id(),
+                                   segTemp.start()+segpading,
+                                   segTemp.end()-segpading,
+                                   segTemp.dur()-2*segpading))
     return segList
 #End getSciSegs()
 #
