@@ -542,7 +542,7 @@ LALCompareSnglInspiral (
       dmchirp = fabs( aPtr->mchirp - bPtr->mchirp );
       deta = fabs( aPtr->eta - bPtr->eta );
 
-      /* compare mchirp parameters (eta always passes coincidence) */
+      /* compare mchirp and eta parameters */
       if ( aPtr->mchirp < 3.0) aDmchirp = params->dmchirp / 2.0; 
       else aDmchirp = params->dmchirp; 
       if ( bPtr->mchirp < 3.0) bDmchirp = params->dmchirp / 2.0; 
@@ -550,14 +550,14 @@ LALCompareSnglInspiral (
 
       dmchirpTest = aDmchirp + bDmchirp; 
 
-      if ( dmchirp <= dmchirpTest )
+      if ( dmchirp <= dmchirpTest && deta <= params->deta)
       {
-        LALInfo( status, "Triggers are coincident in mchirp\n" );
+        LALInfo( status, "Triggers are coincident in mchirp and eta\n" );
         params->match = 1;
       }
       else
       {
-        LALInfo( status, "Triggers fail mchirp coincidence test\n" );
+        LALInfo( status, "Triggers fail mchirp, eta coincidence test\n" );
         params->match = 0;
       }
     }

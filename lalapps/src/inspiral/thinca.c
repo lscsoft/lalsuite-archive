@@ -149,7 +149,7 @@ fprintf( a, "  [--t1-veto-file]               veto file for T1\n");\
 fprintf( a, "  [--v1-veto-file]               veto file for V1\n");\
 fprintf( a, "\n");\
 fprintf( a, "   --parameter-test     test    set parameters with which to test coincidence:\n");\
-fprintf( a, "                                (m1_and_m2|mchirp_and_eta|mchirp_and_eta_ext|psi0_and_psi3|ellipsoid)\n");\
+fprintf( a, "                                (m1_and_m2|mchirp_and_eta|mchirp_and_eta_ext|ptf_mchirp_eta|psi0_and_psi3|ellipsoid)\n");\
 fprintf( a, "  [--g1-time-accuracy]  g1_dt   specify the timing accuracy of G1 in ms\n");\
 fprintf( a, "  [--h1-time-accuracy]  h1_dt   specify the timing accuracy of H1 in ms\n");\
 fprintf( a, "  [--h2-time-accuracy]  h2_dt   specify the timing accuracy of H2 in ms\n");\
@@ -550,6 +550,10 @@ int main( int argc, char *argv[] )
         {
           accuracyParams.test = mchirp_and_eta;
         }
+	else if ( ! strcmp( "ptf_mchirp_eta", optarg ) )
+	{
+		accuracyParams.test = ptf_mchirp_eta;
+	}
         else if ( ! strcmp( "ellipsoid", optarg ) )
         {
           accuracyParams.test = ellipsoid;
@@ -558,7 +562,8 @@ int main( int argc, char *argv[] )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown test specified: "
-              "%s (must be m1_and_m2, psi0_and_psi3, mchirp_and_eta or mchirp_and_eta_ext)\n",
+            "%s (must be m1_and_m2, psi0_and_psi3, mchirp_and_eta," 
+                     " ptf_mchirp_eta or mchirp_and_eta_ext)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
