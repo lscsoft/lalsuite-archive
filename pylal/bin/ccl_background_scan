@@ -267,7 +267,7 @@ else:
 
 #Create directory for submit files
 installDagTo=os.path.abspath(os.path.normpath("./"))
-installSubTo=os.path.abspath(os.path.normpath("./condor_files"))
+installSubTo=os.path.abspath(os.path.normpath(cp.get("condor","condor_path"))
 productsDirDatafind=os.path.abspath(os.path.normpath("./datafind_output"))
 productsDirScan=os.path.abspath(os.path.normpath("./scan_output"))
 try:
@@ -282,7 +282,7 @@ dag.set_dag_file(os.path.normpath('./ccl_background_scan'))
 #Setup basic datafind and scanner job
 dataFindJob=pipeline.LSCDataFindJob(productsDirDatafind,installSubTo,cp)
 dataFindJob.set_sub_file(os.path.abspath(os.path.normpath(installSubTo+"/"+os.path.basename(dataFindJob.get_sub_file()))))
-scannerJob=cclScannerJob(installSubTo,cp)
+scannerJob=cclScannerJob(cp)
 #
 timeOffset=int(float(cp.get("ccl_setup","minimum_segment_length"))/2.0)
 for sampleTime in gpsTimeList:
