@@ -136,6 +136,7 @@ LALFindChirpChisqVetoInit (
     case PadeT1:
     case EOB:
     case EOBNR:
+    case EOBNRv2:
     case BCV:
     case BCVSpin:
     case AmpCorPPN:
@@ -326,6 +327,7 @@ LALFindChirpChisqVetoFinalize (
     case PadeT1:
     case EOB:
     case EOBNR:
+    case EOBNRv2:
     case BCV:
     case BCVSpin:
     case AmpCorPPN:
