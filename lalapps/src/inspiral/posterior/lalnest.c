@@ -1951,8 +1951,8 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
     mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
     /* limits between +- 10 % */
-    double phiMin=-0.20;
-    double phiMax=0.20;
+    double phiMin=-0.10;
+    double phiMax=0.10;
     
 	lmmin=log(mcmin);
 	lmmax=log(mcmax);
