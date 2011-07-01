@@ -840,6 +840,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case EOBNRv2:
+         case EOBNRv2HM:
          case IMRPhenomA:
          case IMRPhenomB:
          case IMRPhenomFA:

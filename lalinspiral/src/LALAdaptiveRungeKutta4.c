@@ -200,8 +200,8 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 				integrator->returncode = status;
 				break;
 			}
-    }
-		
+		}
+
 		/* ready to try stepping! */
     try_step:                         
 		

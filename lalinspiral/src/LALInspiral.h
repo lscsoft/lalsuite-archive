@@ -726,25 +726,6 @@ tagexpnCoeffs {
    REAL8 vpolePP;
 }  expnCoeffs;
 
-/* </lalVerbatim>  */
-
-/* <lalLaTeX>
-\idx[Type]{expnCoeffs}
-</lalLaTeX>  */
-
-/* Coefficients for the EOB non-quasi-circular correction */
-typedef struct
-tagEOBNonQCCoeffs
-{
-  REAL8 a1;
-  REAL8 a2;
-  REAL8 a3;
-  REAL8 a4;
-  REAL8 b1;
-  REAL8 b2;
-} EOBNonQCCoeffs;
-
-/* <lalVerbatim file="LALEnergyAndFluxFunctionsH"> */
 
 typedef REAL8 EnergyFunction(
    REAL8 v,
@@ -835,6 +816,18 @@ tagTofVIntegrandIn
 /* <lalLaTeX>
 \idx[Type]{TofVIntegrandIn}
 </lalLaTeX>  */
+
+/** UNDOCUMENTED */
+typedef struct
+tagEOBNonQCCoeffs
+{
+  REAL8 a1;
+  REAL8 a2;
+  REAL8 a3;
+  REAL8 a4;
+  REAL8 b1;
+  REAL8 b2;
+} EOBNonQCCoeffs;
 
 /* <lalVerbatim file="LALInspiralDerivativesH">  */
 typedef struct
