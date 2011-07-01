@@ -512,7 +512,7 @@ for(i=0;i<count;i++) {
 	te_offsets->data[i].re-=slope*i;
 	}
 /* Normalize in units of time */
-/*fprintf(stderr, "(%f, %f) slope/count=%g slope=%g\n", ra2-ra, dec2-dec, slope, slope/step);*/
+/*fprintf(stderr, "(%f, %f) slope/count=%g slope=%g count=%d step=%g\n", ra2-ra, dec2-dec, slope, slope/step, count, step);*/
 slope=slope/step;
 
 // Operator has 6 elements
@@ -646,10 +646,11 @@ COMPLEX8 *filter1, *filter2;
 int i, j;
 int nscan=ctx->n_sky_scan;
 int nsamples=ctx->nsamples;
+int dir_ra, dir_dec;
 double ra_shift, dec_shift;
 
-filter1=alloca(ctx->n_scan_fft_filter*sizeof(*filter1));
-filter2=alloca(ctx->n_scan_fft_filter*sizeof(*filter2));
+filter1=aligned_alloca(ctx->n_scan_fft_filter*sizeof(*filter1));
+filter2=aligned_alloca(ctx->n_scan_fft_filter*sizeof(*filter2));
 
 #define SWAP_FFT(a,b)  {\
 	fft_tmp=a; \
@@ -666,14 +667,17 @@ fft2[1]=ctx->scan_tmp[4];
 fft3[1]=ctx->scan_tmp[5];
 fft4[1]=ctx->scan_tmp[6];
 fft5[1]=ctx->scan_tmp[7];
+
+dir_ra=(1-2*((sign_mask>>0) & 1));
+dir_dec=(1-2*((sign_mask>>1) & 1));
 	
-make_bessel_filter(filter1, ctx->n_scan_fft_filter, ctx->ra_sc->first9, 9, (1-2*((sign_mask>>0) & 1))*2*M_PI);
-make_bessel_filter(filter2, ctx->n_scan_fft_filter, ctx->dec_sc->first9, 9, (1-2*((sign_mask>>1) & 1))*2*M_PI);
+make_bessel_filter(filter1, ctx->n_scan_fft_filter, ctx->ra_sc->first9, 9, dir_ra*2*M_PI);
+make_bessel_filter(filter2, ctx->n_scan_fft_filter, ctx->dec_sc->first9, 9, dir_dec*2*M_PI);
 
-ra_shift=ctx->ra_sc->slope*(1-2*((sign_mask>>0) & 1))/ctx->frequency;
-dec_shift=ctx->dec_sc->slope*(1-2*((sign_mask>>1) & 1))/ctx->frequency;
+ra_shift=ctx->ra_sc->slope*dir_ra;
+dec_shift=ctx->dec_sc->slope*dir_dec;
 
-//fprintf(stderr, "ra_shift=%g dec_shift=%g\n", ra_shift, dec_shift);
+fprintf(stderr, "fft_offset=%g ra_shift=%g dec_shift=%g te_slope=%g\n", fft_offset, ra_shift, dec_shift, ctx->te_sc->slope);
 
 for(i=0;i<=nscan;i++) {
 	if(i==0){
@@ -692,6 +696,9 @@ for(i=0;i<=nscan;i++) {
 
 		if(j==0) {
 			if((i==0) || (zero_mask & 2))continue;
+			
+			ctx->var_offset[0]=i*dir_ra;
+			ctx->var_offset[1]=0;
 			
 			//fprintf(stderr, "i=%d j=%d mask=%d\n", i, j, zero_mask);
 			compute_fft_stats(ctx, &(ctx->stats), fft2[0], fft2[1], fft_offset+ra_shift*i);
@@ -715,6 +722,8 @@ for(i=0;i<=nscan;i++) {
 		//if((i==0 || j==0) && (i==0 || (zero_mask & 1)) && (j==0 || (zero_mask & 2)))continue;
 
 		//fprintf(stderr, "i=%d j=%d mask=%d\n", i, j, zero_mask);
+		ctx->var_offset[0]=i*dir_ra;
+		ctx->var_offset[1]=j*dir_dec;
 		compute_fft_stats(ctx, &(ctx->stats), fft4[0], fft4[1], fft_offset+ra_shift*i+dec_shift*j);
 		}
 	}
@@ -723,6 +732,8 @@ for(i=0;i<=nscan;i++) {
 void scan_fft_stats(LOOSE_CONTEXT *ctx, double fft_offset)
 {
 //fprintf(stderr, "i=0 j=0 mask=-1\n");
+ctx->var_offset[0]=0;
+ctx->var_offset[1]=0;
 compute_fft_stats(ctx, &(ctx->stats), ctx->plus_te_fft, ctx->cross_te_fft, fft_offset);
 
 scan_fft_quadrant(ctx, fft_offset, 0, 0);
@@ -1018,11 +1029,11 @@ double norm;
 
 for(point=bit->start;point<bit->stop;point++)
 for(fstep=0;fstep<nfsteps; fstep++) {
-	ctx->frequency=f0;
+	ctx->frequency=f0+fstep/(ctx->n_fsteps*ctx->timebase);
 	ctx->spindown=args_info.spindown_start_arg;
 	ctx->ra=main_grid->longitude[point];
 	ctx->dec=main_grid->latitude[point];
-	ctx->fstep=fstep;
+	ctx->fstep=0;
 	
 	init_stats(&(ctx->stats));
 
@@ -1036,11 +1047,21 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	compute_spindown_offset_structure(ctx, ctx->spindown_sc, datasets[0].detector, ctx->ra, ctx->dec, args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 
 	compute_sky_basis(ctx, resolution/ctx->n_sky_scan);
-	//fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f)\n", ctx->ra, ctx->dec, sb_ra[0], sb_dec[0], sb_ra[1], sb_dec[1]);
 	compute_sky_offset_structure(ctx, ctx->ra_sc, datasets[0].detector, ctx->ra, ctx->dec, ctx->sb_ra[0], ctx->sb_dec[0], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 	compute_sky_offset_structure(ctx, ctx->dec_sc, datasets[0].detector, ctx->ra, ctx->dec, ctx->sb_ra[1], ctx->sb_dec[1], args_info.focus_dInv_arg, ctx->first_gps, ctx->timebase/(ctx->offset_count-1), ctx->offset_count);
 
 	fprintf(stderr, "point %d step %d ra=%.12f dec=%.12f (%g, %g)\n", point, fstep, ctx->ra, ctx->dec, ctx->ra-args_info.focus_ra_arg, ctx->dec-args_info.focus_dec_arg);
+	if(fstep==0) {
+		fprintf(stderr, "Sky basis: in=(%f, %f) out=(%f, %f) (%f, %f) delta=(%f, %f) (%f, %f)\n", 
+			ctx->ra, ctx->dec, 
+			ctx->sb_ra[0], ctx->sb_dec[0], ctx->sb_ra[1], ctx->sb_dec[1], 
+			ctx->sb_ra[0]-ctx->ra, ctx->sb_dec[0]-ctx->dec, ctx->sb_ra[1]-ctx->ra, ctx->sb_dec[1]-ctx->dec);
+		fprintf(stderr, "te_sc  slope %g\n", point, fstep, ctx->te_sc->slope);
+		fprintf(stderr, "sp_sc  slope %g\n", point, ctx->spindown_sc->slope);
+		fprintf(stderr, "ra_sc  slope %g\n", point, ctx->ra_sc->slope);
+		fprintf(stderr, "dec_sc slope %g\n", point, ctx->dec_sc->slope);
+		}
+
 	if(0) {
 		fprintf(stderr, "point %d step %d slope %g\n", point, fstep, ctx->te_sc->slope);
 		for(i=0;i<9;i++)
@@ -1088,7 +1109,8 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 
 	compute_te_ffts(ctx);
 
-	scan_fft_stats(ctx, (fstep*1.0/nfsteps)/ctx->timebase);
+	//scan_fft_stats(ctx, (fstep*1.0/nfsteps)/ctx->timebase);
+	scan_fft_stats(ctx, 0);
 	
 	//fprintf(stderr, "point %d step %d ra=%.12f dec=%.12f (%g, %g)\n", point, fstep, ctx->ra, ctx->dec, ctx->ra-args_info.focus_ra_arg, ctx->dec-args_info.focus_dec_arg);
 // 	fprintf(stderr, "point %d step %d ra=%.12f dec=%.12f (%g, %g)\n", point, fstep, ctx->ra, ctx->dec, ctx->ra-(2.52739548668), ctx->dec-(-0.257409370052));

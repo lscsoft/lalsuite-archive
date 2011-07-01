@@ -126,15 +126,15 @@ for(i=0;i<acd->free;i++) {
 	
 	if(b>st->value) {
 		st->value=b;
-		st->z.re=x;
-		st->z.im=y;
+		st->z.re=ctx->var_offset[0];
+		st->z.im=ctx->var_offset[1];
 		st->fft_bin=bin;
 		st->fft_offset=fft_offset;
 		st->alignment_bin=i;
-		st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
+		st->frequency=(1.0+st->fft_offset/ctx->frequency)*(ctx->frequency+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase);
 		st->spindown=ctx->spindown;
-		st->ra=ctx->ra;
-		st->dec=ctx->dec;
+		st->ra=ctx->ra+ctx->sb_ra[0]*ctx->var_offset[0]+ctx->sb_ra[1]*ctx->var_offset[1];
+		st->dec=ctx->dec+ctx->sb_dec[0]*ctx->var_offset[0]+ctx->sb_dec[1]*ctx->var_offset[1];
 		st->iota=ac->iota;
 		st->psi=ac->psi;
 		st->phi=atan2(x, y);
@@ -252,7 +252,7 @@ if(v>st->value) {
 	st->fft_bin=bin;
 	st->fft_offset=fft_offset;
 	st->alignment_bin=i;
-	st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
+	st->frequency=(1.0+st->fft_offset/ctx->frequency)*(ctx->frequency+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase);
 	st->spindown=ctx->spindown;
 	st->ra=ctx->ra;
 	st->dec=ctx->dec;

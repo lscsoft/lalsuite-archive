@@ -109,6 +109,8 @@ typedef struct {
 	
 	FFT_STATS stats;
 	
+	double var_offset[8];
+	
 	} LOOSE_CONTEXT;
 
 LOOSE_CONTEXT * create_context(void);
