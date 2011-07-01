@@ -103,6 +103,7 @@ LALFindChirpDataInit (
     case PadeT1:
     case EOB:
     case EOBNR:
+    case EOBNRv2:
     case FindChirpSP:
     case FindChirpPTF:
     case BCV:
