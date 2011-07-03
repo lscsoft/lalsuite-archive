@@ -456,7 +456,7 @@ INT4 XLALGenerateHybridWaveDerivatives (
 	REAL4Vector				*rwave,
 	REAL4Vector				*dwave,
 	REAL4Vector				*ddwave,
-        REAL8Vector				*time,
+        REAL8Vector				*timeVec,
 	REAL4Vector				*wave,
 	REAL8Vector				*matchrange,
 	InspiralTemplate			*params
@@ -523,7 +523,7 @@ INT4 XLALGenerateHybridWaveDerivatives (
   }
 
   /* Gall gsl spline interpolation */
-  gslStatus = gsl_spline_init(spline, time->data, y, vecLength);
+  gslStatus = gsl_spline_init(spline, timeVec->data, y, vecLength);
   if ( gslStatus != GSL_SUCCESS )
   { 
     gsl_spline_free(spline);
@@ -1049,7 +1049,7 @@ INT4 XLALInspiralHybridAttachRingdownWave (
       REAL4Vector 	*signal2,
       INT4              l,
       INT4              m,
-      REAL8Vector       *time,
+      REAL8Vector       *timeVec,
       REAL8Vector	*matchrange,
       InspiralTemplate 	*params)
 {
@@ -1139,7 +1139,7 @@ INT4 XLALInspiralHybridAttachRingdownWave (
 
       /* Generate derivatives of the last part of inspiral waves */
       /* Get derivatives of signal1 */
-      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, time, signal1, 
+      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, timeVec, signal1, 
 									matchrange, params );
       if ( errcode != XLAL_SUCCESS )
       {
@@ -1161,7 +1161,7 @@ INT4 XLALInspiralHybridAttachRingdownWave (
       }
 
       /* Get derivatives of signal2 */
-      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, time, signal2, 
+      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, timeVec, signal2, 
 									matchrange, params );
       if ( errcode != XLAL_SUCCESS )
       {
