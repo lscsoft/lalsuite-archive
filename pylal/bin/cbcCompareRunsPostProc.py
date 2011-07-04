@@ -104,7 +104,8 @@ def checkDir(dir):
         return True
         
 def std_dev(array,mean):
-    return sqrt(sum((x-mean) ** 2 for x in array) / len(array))
+    return np.std(array)
+    #sqrt(sum((x-mean) ** 2 for x in array) / len(array))
 def mean(array):
     return np.mean(array)
 def skewness(array,mean,std_dev):
@@ -247,7 +248,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     injTable=SimInspiralUtils.ReadSimInspiralFromFiles([inj])
     ### flow and fup only control the extrema of the error plots.
     flow=20.0
-    fup=500.0
+    fup=800.0
     label_size=22
     time_event=None
     ### Read the trigger times from the injfile using the raw_event option
@@ -304,14 +305,14 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             for run in range(1,len(Combine)):
                 temp_times_run[run].remove(time)
     for run in key_runs:
-        times_run[run]=temp_times_run[run]
+        times_run[run]=[time for time in temp_times_run[run]]
     ## Now for each key run remove the times for which posteriors are non present (even if they were present in the ctrl run). If there are no times left, for all the runs, exit.
     for run in key_runs[:]:
         for time in times_run[run]:
             path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
             if not os.path.isfile(path_to_file):
                 temp_times_run[run].remove(time)
-        times_run[run]=temp_times_run[run]
+        times_run[run]=[time for time in temp_times_run[run]]
         if times_run[run]==[]:
             print "No posteriors found for the events given in run %i. Excluding run %i from the post processing.\n"%(run,run)
             key_runs.remove(run)
@@ -327,7 +328,12 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     recovered_positions_key={}
     injected_positions={}
     recovered_positions_ctrl={}    
-
+    
+    tot_post=0.0
+    actual=0.0
+    for run in key_runs:
+        tot_post+=2*len(times_run[run])
+    print tot_post,"\n"
     ## prepare files with means and other useful data. It also fills the list with the sky positions ###
     for out_run in key_runs:
         recovered_positions_ctrl[out_run]=[]
@@ -349,6 +355,8 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                 peparser=bppu.PEOutputParser('common')
                 commonResultsObj=peparser.parse(posterior_file)
                 pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injTable[times.index(time)])
+                print "%2.2f %% done. Be Patient..."%(actual/tot_post*100)
+                actual+=1.0
                 posterior_file.close()
                 parameters=pos.names
                 try:            
@@ -361,7 +369,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                     if time==times_run[out_run][0]:
                         #header_l.append('mean_'+parameter)
                         #header_l.append('stdev_'+parameter)
-			header.write(' \'mean_'+parameter + '\', \'stdev_'+parameter+'\',')
+			header.write(' \'median_'+parameter + '\', \'stdev_'+parameter+'\',')
                 if BSN is not None:
                     path_to_file=os.path.join(BSN[run],'bayesfactor_'+str(time)+'.000.txt')
                     bfile=open(path_to_file,'r')
@@ -373,10 +381,10 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
  			header.write(' \'BSN\',')
                 if 'ra' in parameters and 'dec' in parameters:
                     if int(run)==0:
-                        recovered_positions_ctrl[out_run].append([pos['dec'].mean,pos['ra'].mean,float(bsn)])
+                        recovered_positions_ctrl[out_run].append([pos['dec'].median,pos['ra'].median,float(bsn)])
                         injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval,999])
                     else:
-                        recovered_positions_key[out_run].append([pos['dec'].mean,pos['ra'].mean,float(bsn)])
+                        recovered_positions_key[out_run].append([pos['dec'].median,pos['ra'].median,float(bsn)])
                 if snrs is not None:
                     val,hea=read_snr(snrs,run,time,IFOs)
                     summary.write(str(val)+'\t')
@@ -392,6 +400,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
 	    header.close()
     ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act consequently.
     ### Now read the ctrl data, these stay the same all along while the cal_run data are read at each interation in the for below
+
     for run in key_runs:
         run=str(run)
         path_uncal=os.path.join(outdir,'summary_ctrl_'+run+'.dat')    
@@ -408,9 +417,10 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             MakeErrorPlots(times_run[int(run)][0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
         if injected_positions!=[] and recovered_positions_key!={}:
             d,r=Make_injected_sky_map(injected_positions[int(run)],outdir,run,dec_ra_cal=recovered_positions_key[int(run)],dec_ra_ctrl=recovered_positions_ctrl[int(run)])
-
         WritePlotPage(outdir,run,parameters,times_run[int(run)][0])
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times_run[int(run)],IFOs,keyword,d)
+    MakeRunsComparePlots(outdir,len(key_runs),label_size)
+    return 
 
 def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     """
@@ -433,7 +443,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
         data[IFO]=np.loadtxt(path_to_data)
     a=0
     for i in range(len(data[IFOs[0]][:,0])):
-        if fabs(data[IFOs[0]][i,0]-f_0)<0.0001:
+        if fabs(data[IFOs[0]][i,0]-f_0)<0.001:
             a=i
             continue 
     if a==0:
@@ -441,7 +451,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
         sys.exit(1)
     b=0
     for i in range(len(data[IFOs[0]][a:,0])+a):
-        if fabs(data[IFOs[0]][i,0]-f_up)<0.0001:
+        if fabs(data[IFOs[0]][i,0]-f_up)<0.001:
             b=i
             continue
     if b==0:
@@ -451,7 +461,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     myfig=figure(1,figsize=(10,8),dpi=80)
     ax=myfig.add_subplot(111)
     for (IFO,color) in zip(IFOs,['r','b','k']):
-        plot(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
+        semilogx(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
     ax.set_xlabel('f[Hz]',fontsize=label_size)
     ax.set_ylabel('Amp_'+key+'/Amp_ctrl',fontsize=label_size)
     set_fontsize_in_ticks(ax,label_size)
@@ -544,8 +554,8 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,key)
         myfig.clear()
         ##### This part calculates effect size
         effect_size =(data_cal[theres_snr_ind,x]-data_uncal[theres_snr_ind,x])/data_uncal[theres_snr_ind,x+1]  
-        mean_effect_size=mean(effect_size)
-        std_effect_size=std_dev(effect_size,mean_effect_size)
+        mean_effect_size=np.mean(effect_size)
+        std_effect_size=np.std(effect_size,mean_effect_size)
         for i in range(len(data_cal[:,0])):
             if fabs(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>3.0:
                 print "parameter ",parameter, i,data_cal[i,x],data_uncal[i,x],data_uncal[i,x+1],(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]
@@ -587,7 +597,6 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
     for snr in network_snrs_key:
         if snr>8.0:
             theres_snr_ind.append(network_snrs_key.index(snr))
-    print theres_snr_ind
     #bsn_cal=np.asarray(bsn_cal)
     for parameter in parameters:
         i=parameters.index(parameter)*2+1
@@ -617,6 +626,44 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         myfig.savefig(os.path.join(path_plots,'SNR_vs_'+parameter+'.png'))
         myfig.clear()
     return
+
+def MakeRunsComparePlots(outdir,runs,label_size):
+    path_out=os.path.join(outdir,'CompareRunsPlots')
+    checkDir(path_out)
+    labelsize=22
+    if os.path.isfile(os.path.join(outdir,'1/ParametersPlots/moments.txt')):
+        par=np.loadtxt(os.path.join(outdir,'1/ParametersPlots/moments.txt'),skiprows=1,dtype='str')
+    else:
+	print "Cannot find moments file for run 1. Skipping..."
+        return -1
+
+    parameters=par[:,0]
+    for param in parameters:
+        myfig=figure(2,figsize=(10,14),dpi=80)
+        ax=myfig.add_subplot(111)
+        for i in range(1,runs+1):
+            Mean=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments.txt'),skiprows=1,usecols=(1,2,3))
+            print i,Mean, list(parameters).index(param)
+            Mean=Mean[list(parameters).index(param),0]
+            Stdev=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments.txt'),skiprows=1,usecols=(1,2,3))
+            Stdev=Stdev[list(parameters).index(param),1]
+            Median=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments.txt'),skiprows=1,usecols=(1,2,3))
+            Median=Median[list(parameters).index(param),2]
+            if i==1:
+                #ax.errorbar(i,Mean,yerr=Stdev,fmt='--o',color='r',mfc='r',label='means')
+                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b',label='median')
+            else:
+                #ax.errorbar(i,Mean,yerr=Stdev,fmt='--o',color='r',mfc='r')
+                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b')
+
+            xlim((0,runs+1))
+        ax.set_xlabel("CalError Realization #",fontsize=labelsize)
+        ax.set_ylabel("median effect_"+param,fontsize=labelsize)
+        ax.grid()
+	ax.legend()
+        set_fontsize_in_ticks(ax,label_size)
+        myfig.savefig(os.path.join(path_out,'compare_'+param+'.png'))
+        myfig.clear()
 
 def set_fontsize_in_ticks(axes,size):
     [t.set_fontsize(size) for t in axes.xaxis.get_ticklabels()]
@@ -676,7 +723,6 @@ def WritePlotPage(outdir,run,parameters,first_time):
     for parameter in parameters:
         html_plots_st+='<tr>'
         for plot in ['delta_','effect_','delta_sigma_']:
-            print os.getcwd(),os.path.join(path_plots,plot +parameter+'.png')
             if os.path.isfile(os.path.join(path_plots,plot +parameter+'.png')):
                 html_plots_st+='<td>'
                 html_plots_st+=linkImage(os.path.join(path_plots,plot +parameter+'.png'),wd,hg)
@@ -723,7 +769,7 @@ def locate_public():
     elif os.path.isdir(os.path.join(os.environ['HOME'],'WWW')):
         return os.path.join(os.environ['HOME'],'WWW')
     else:
-        print "Cannot localize the public folder. Using ../ \n Some links may not work."
+        print "Cannot localize the public folder. Using ../ \n Some links might be broken."
         return "../"
 
 def relativize_paths(pathA,pathB):
@@ -733,7 +779,7 @@ def relativize_paths(pathA,pathB):
     """
     pathA=os.path.realpath(pathA)
     pathB=os.path.realpath(pathB)
-    return go_to_path(pathB,locate_public())+pathA[len(locate_public()):]
+    return go_to_path(pathB,os.path.realpath(locate_public()))+pathA[len(os.path.realpath(locate_public())):]
 
 def go_to_path(pathA,pathB):
     """
@@ -744,7 +790,7 @@ def go_to_path(pathA,pathB):
     if os.path.isdir(pathA):
         os.chdir(pathA)
     else:
-       print "%s is not a path to an existing folder. Exiting..."%pathA
+       print "%s is not the path of an existing folder. Exiting..."%pathA
        sys.exit(1)
     i=0
     while os.getcwd()!=pathB:
@@ -752,7 +798,7 @@ def go_to_path(pathA,pathB):
         i+=1
         upo+='../'
         if i==100:
-            print "Could not go from folder %s to folder %s with less than 100 chdir. Using ../"%(pathA,pathB)
+            print "Could not go from folder %s to folder %s with less than 100 chdir. Using ../ \n Some links might be broken."%(pathA,pathB)
             return "../"
     os.chdir(current)
     return upo[:-1]
