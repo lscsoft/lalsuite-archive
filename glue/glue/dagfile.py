@@ -16,10 +16,22 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-This module provides machinery for reading and writing Condor DAG files.
-It's original purpose was to provide a way to edit DAGs, for example to
-load a DAG, mark all jobs done except some selected jobs and their
-children, and write the result back to disk.
+Machinery for reading, editing, and writing Condor DAG files.
+
+When running DAGs on Condor compute clusters, very often one will wish to
+re-run a portion of a DAG.  This can be done by marking all jobs except the
+ones to be re-run as "DONE".  Unfortunately the Condor software suite lacks
+an I/O library for reading and writing Condor DAG files, so there is no
+easy way to edit DAG files except by playing games sed, awk, or once-off
+Python or Perl scripts.  That's where this module comes in.  This module
+will read a DAG file into an in-ram representation that is easily edited,
+and allow the file to be written to disk again.
+
+Example:
+
+>>> from glue import dagfile
+>>> dag = dagfile.DAG.parse(open("pipeline.dag"))
+>>> dag.write(open("pipeline.dag", "w"))
 
 Although it is possible to machine-generate an original DAG file using this
 module and write it to disk, this module does not provide the tools
@@ -34,20 +46,19 @@ Developers should also consider doing any new pipeline development using
 DAX files as the fundamental workflow description, instead of DAGs.  See
 http://pegasus.isi.edu for more information.
 
-Typically this module will be used to edit existing DAGs.  This can be
-started with the .parse() class method of the DAG class.  This parses the
-file-like object passed to it and returns an instance of the DAG class
-representing the file's contents.  Once loaded, the nodes in the DAG can
-all be found in the .nodes dictionary, whose keys are the node names and
-whose values are the corresponding node objects.  Among each node object's
-attributes are sets .children and .parents containing the child and parent
-nodes for each node.  Note that every node must appear listed as a parent
-of each of its children, and vice versa.  All of the metadata associated
-with each node in the DAG, for example the node's VARS value, its initial
-working directory, and so on, can be found in the attributes of the node.
-The DAG object contains metadata about the DAG, for example the value of
-the CONFIG keyword and so on.  A DAG is written to a file using the
-.write() method of the DAG object.
+A DAG file is loaded using the .parse() class method of the DAG class.
+This parses the file-like object passed to it and returns an instance of
+the DAG class representing the file's contents.  Once loaded, the nodes in
+the DAG can all be found in the .nodes dictionary, whose keys are the node
+names and whose values are the corresponding node objects.  Among each node
+object's attributes are sets .children and .parents containing the child
+and parent nodes for each node.  Note that every node must appear listed as
+a parent of each of its children, and vice versa.  The other attributes of
+a DAG instance contain information about the DAG, for example the CONFIG
+file or the DOT file, and so on.  All of the data for each node in the DAG,
+for example the node's VARS value, its initial working directory, and so
+on, can be found in the attributes of the nodes themselves.  A DAG is
+written to a file using the .write() method of the DAG object.
 """
 
 
@@ -149,8 +160,9 @@ class JOB(object):
 		# VARS ...
 		if self.vars:
 			f.write("VARS %s" % self.name)
-			for namevalue in sorted(self.vars.items()):
-				f.write(" %s=\"%s\"" % namevalue)
+			for name, value in sorted(self.vars.items()):
+				# apply escape rules to the value
+				f.write(" %s=\"%s\"" % (name, value.replace("\\", "\\\\").replace("\"", "\\\"")))
 			f.write("\n")
 
 		# SCRIPT PRE ...
@@ -233,7 +245,7 @@ class DAG(object):
 	categorypat = re.compile(r'^CATEGORY\s+(?P<name>\S+)\s+(?P<category>\S+)', re.IGNORECASE)
 	retrypat = re.compile(r'^RETRY\s+(?P<name>\S+)\s+(?P<retries>\S+)(\s+UNLESS-EXIT\s+(?P<retry_unless_exit_value>\S+))?', re.IGNORECASE)
 	varspat = re.compile(r'^VARS\s+(?P<name>\S+)\s+(?P<vars>.+)', re.IGNORECASE)
-	varsvaluepat = re.compile(r'(?P<name>\S+)="(?P<value>.+)"', re.IGNORECASE)
+	varsvaluepat = re.compile(r'(?P<name>\S+)="(?P<value>.+)"', re.IGNORECASE)	# FIXME:  doesn't understand escaped " characters
 	scriptpat = re.compile(r'^SCRIPT\s+(?P<type>(PRE)|(POST))\s(?P<name>\S+)\s+(?P<executable>\S+)(\s+(?P<arguments>.+))?', re.IGNORECASE)
 	abortdagonpat = re.compile(r'^ABORT-DAG-ON\s+(?P<name>\S+)\s+(?P<exitvalue>\S+)(\s+RETURN\s+(?P<returnvalue>\S+))?', re.IGNORECASE)
 	arcpat = re.compile(r'^PARENT\s+(?P<parents>.+?)\s+CHILD\s+(?P<children>.+)', re.IGNORECASE)
@@ -337,7 +349,8 @@ class DAG(object):
 				for name, value in self.varsvaluepat.findall(m.group("vars")):
 					if name in node.vars:
 						raise ValueError, "line %d: multiple variable %s for %s %s" % (n, name, node.keyword, node.name)
-					node.vars[name] = value
+					# apply unescape rules to the value
+					node.vars[name] = value.replace("\\\\", "\\").replace("\\\"", "\"")
 				continue
 			# PARENT ... CHILD ...
 			m = self.arcpat.search(line)
