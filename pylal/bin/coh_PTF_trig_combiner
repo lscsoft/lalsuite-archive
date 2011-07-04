@@ -135,9 +135,11 @@ def main( cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
   # load triggers
   trigs['ALL_TIMES'] =\
       MultiInspiralUtils.ReadMultiInspiralFromFiles([ e.path() for e in cache ])
+  # Temporary hack to allow the code to work with tables that dont have
+  # the new time slide ID column.
+  if 'time_slide_id' not in trigs['ALL_TIMES'].columnnames:
+    trigs['ALL_TIMES'].appendColumn('time_slide_id')
   for trig in trigs['ALL_TIMES']:
-    # Temporary hack to allow the code to work with tables that dont have
-    # the new time slide ID column.
     try:
       tmp = trig.time_slide_id
     except AttributeError:
