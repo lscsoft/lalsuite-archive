@@ -381,10 +381,10 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
  			header.write(' \'BSN\',')
                 if 'ra' in parameters and 'dec' in parameters:
                     if int(run)==0:
-                        recovered_positions_ctrl[out_run].append([pos['dec'].median,pos['ra'].median,float(bsn)])
+                        recovered_positions_ctrl[out_run].append([(pos['dec'].median)[-1],(pos['ra'].median)[-1],float(bsn)])
                         injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval,999])
                     else:
-                        recovered_positions_key[out_run].append([pos['dec'].median,pos['ra'].median,float(bsn)])
+                        recovered_positions_key[out_run].append([(pos['dec'].median)[-1],(pos['ra'].median)[-1],float(bsn)])
                 if snrs is not None:
                     val,hea=read_snr(snrs,run,time,IFOs)
                     summary.write(str(val)+'\t')
@@ -461,7 +461,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     myfig=figure(1,figsize=(10,8),dpi=80)
     ax=myfig.add_subplot(111)
     for (IFO,color) in zip(IFOs,['r','b','k']):
-        semilogx(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
+        plot(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
     ax.set_xlabel('f[Hz]',fontsize=label_size)
     ax.set_ylabel('Amp_'+key+'/Amp_ctrl',fontsize=label_size)
     set_fontsize_in_ticks(ax,label_size)
