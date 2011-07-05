@@ -349,7 +349,34 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             #header_l=[]
             #header_l.append('injTime ')
 	    header.write('['+ '\'injTime\', ')
-            for time in times_run[out_run]:
+            for time in times_run[out_run][:]:
+                ## Here I need to remove the times that give SNR<8 OR BSN<3. They are not taken into account in the analysis
+                print time
+                if BSN is not None and run==0:
+                    path_to_file=os.path.join(BSN[run],'bayesfactor_'+str(time)+'.000.txt')
+                    print 'checking bsn'
+                    bfile=open(path_to_file,'r')
+                    bsn=bfile.readline()[:-1] ## remove the newline tag
+                    bfile.close()
+                    print "bsn ", bsn
+                    if float(bsn)<=3.0:
+                        times_run[out_run].remove(time)
+                        print "removing time %s from run %s because the BSN was %s <3.0"%(time,out_run,bsn)
+                        actual+=2
+                        continue
+                if snrs is not None and run==0:
+                    print 'checking snr'
+                    val,hea=read_snr(snrs,run,time,IFOs)
+                    val='['+val.replace('\t',',')+']'
+                    val='['+val[2:]
+                    val=eval(val)
+                    print "snr ",val[-1]
+                    if val[-1]<=8.0:
+                        print "removing time %s from run %s because the SNR was %f <8.0"%(time,out_run,val[-1])
+                        times_run[out_run].remove(time)
+                        actual+=2
+                        continue
+
                 path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
                 posterior_file=open(path_to_file,'r')
                 peparser=bppu.PEOutputParser('common')
@@ -363,6 +390,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                     parameters.remove('logl')
                 except ValueError:
                     parameters.remove('likelihood')
+
                 summary.write(str(time)+'\t')
                 for parameter in parameters:
                     summary.write(repr(float(pos[parameter].median)) + '\t'+ repr(pos[parameter].stdev) +'\t')
@@ -557,9 +585,9 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,key)
         mean_effect_size=np.mean(effect_size)
         std_effect_size=np.std(effect_size,mean_effect_size)
         for i in range(len(data_cal[:,0])):
-            if fabs(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>3.0:
-                print "parameter ",parameter, i,data_cal[i,x],data_uncal[i,x],data_uncal[i,x+1],(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]
-                outliers.write('parameter ' + parameter + ' event ' + str(i) + ' mean_ctrl ' +str(data_uncal[i,x]) + ' mean_'+key + str(data_cal[i,x]) + ' effect_size ' +str((data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1])+'\n')
+            if fabs(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>1.0:
+                print "run ",run,"parameter ",parameter, "event", i,"median cal ",data_cal[i,x],"median ctrl ",data_uncal[i,x],"std dev ctrl ",data_uncal[i,x+1],"ESize ",(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]
+                outliers.write('run '+run +  ' parameter ' + parameter + ' event ' + str(i) + ' median_ctrl ' +str(data_uncal[i,x]) + ' median_'+key + str(data_cal[i,x]) + ' effect_size ' +str((data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1])+'\n')
 
         skewness_effect_size= skewness(effect_size, mean_effect_size, std_effect_size)
         kurtosis_effect_size= kurtosis(effect_size, mean_effect_size, std_effect_size)
