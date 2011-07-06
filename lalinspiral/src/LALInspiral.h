@@ -726,6 +726,25 @@ tagexpnCoeffs {
    REAL8 vpolePP;
 }  expnCoeffs;
 
+/* </lalVerbatim>  */
+
+/* <lalLaTeX>
+\idx[Type]{expnCoeffs}
+</lalLaTeX>  */
+
+/* Coefficients for the EOB non-quasi-circular correction */
+typedef struct
+tagEOBNonQCCoeffs
+{
+  REAL8 a1;
+  REAL8 a2;
+  REAL8 a3;
+  REAL8 a4;
+  REAL8 b1;
+  REAL8 b2;
+} EOBNonQCCoeffs;
+
+/* <lalVerbatim file="LALEnergyAndFluxFunctionsH"> */
 
 typedef REAL8 EnergyFunction(
    REAL8 v,
@@ -813,17 +832,9 @@ tagTofVIntegrandIn
 } TofVIntegrandIn;
 /* </lalVerbatim>  */
 
-/** UNDOCUMENTED */
-typedef struct
-tagEOBNonQCCoeffs
-{
-  REAL8 a1;
-  REAL8 a2;
-  REAL8 a3;
-  REAL8 a4;
-  REAL8 b1;
-  REAL8 b2;
-} EOBNonQCCoeffs;
+/* <lalLaTeX>
+\idx[Type]{TofVIntegrandIn}
+</lalLaTeX>  */
 
 /* <lalVerbatim file="LALInspiralDerivativesH">  */
 typedef struct
@@ -835,8 +846,13 @@ tagInspiralDerivativesIn
    expnCoeffs *coeffs;
    EOBNonQCCoeffs *nqcCoeffs;
 } InspiralDerivativesIn;
+/* </lalVerbatim>  */
 
+/* <lalLaTeX>
+\idx[Type]{InspiralDerivativesIn}
+</lalLaTeX>  */
 
+/* <lalVerbatim file="LALInspiralRungeKuttaH">  */
 typedef struct
 tagrk4In
 {
@@ -915,8 +931,13 @@ tagInspiralInit
   expnFunc   func;
 
 }  InspiralInit;
+/* </lalVerbatim>  */
 
-/** UNDOCUMENTED */
+/* <lalLaTeX>
+\idx[Type]{InspiralInit}
+</lalLaTeX>  */
+
+/* <lalVerbatim file="LALInspiralApplyTaperH">  */
 typedef enum
 {
   INSPIRAL_TAPER_NONE,

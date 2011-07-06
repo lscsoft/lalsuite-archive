@@ -479,7 +479,6 @@ LALSTPNWaveformForInjection (
 
 
   /* Call the engine function */
-       if(newswitch==0) {
     LALSTPNWaveformEngine(status->statusPtr, NULL, NULL, a, ff, phi, shift,&count, params, &paramsInit);
 
   BEGINFAIL( status )
