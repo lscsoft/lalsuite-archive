@@ -249,7 +249,6 @@ int main (int argc , char **argv) {
     case EOB:
     case EOBNR:
     case EOBNRv2:
-    case EOBNRv2HM:
     case PadeT1:
     case AmpCorPPN:
     case SpinTaylor:
@@ -302,8 +301,8 @@ int main (int argc , char **argv) {
 	sSq = hSq / (psd->data[i]) ;
 	if (f>params.fLower)
 	{
-          if (params.approximant != EOBNR && params.approximant != EOBNRv2
-               && params.approximant != EOBNRv2HM && params.fFinal > f)
+          if (params.approximant != EOBNR && params.approximant != EOBNRv2 
+               && params.fFinal > f)
             rhosq += sSq;
 	  else
 	    rhosq += sSq;

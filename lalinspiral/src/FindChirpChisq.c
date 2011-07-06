@@ -279,7 +279,6 @@ LALFindChirpChisqVeto (
     case PadeT1:
     case EOB:
     case EOBNR:
-    case EOBNRv2:
     case FindChirpSP:
     case IMRPhenomB:
       break;

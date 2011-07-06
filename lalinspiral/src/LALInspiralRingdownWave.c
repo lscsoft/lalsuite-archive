@@ -107,6 +107,7 @@ LALFree
 #define UNUSED
 #endif
 
+/* <lalVerbatim file="XLALInspiralHybridRingdownWaveCP">  */
 INT4 XLALInspiralHybridRingdownWave (
 	REAL4Vector			*rdwave1,
 	REAL4Vector			*rdwave2,
@@ -116,6 +117,7 @@ INT4 XLALInspiralHybridRingdownWave (
 	COMPLEX8Vector			*modefreqs,
 	REAL8Vector			*matchrange
 	)
+/* </lalVerbatim> */
 {
 
   static const char *func = "XLALInspiralHybridRingdownWave";
@@ -307,6 +309,7 @@ INT4 XLALInspiralHybridRingdownWave (
   return errcode;
 }
 
+/* <lalVerbatim file="XLALInspiralRingdownWaveCP">  */
 INT4 XLALInspiralRingdownWave (
 	REAL4Vector			*rdwave1,
 	REAL4Vector			*rdwave2,
@@ -452,6 +455,7 @@ INT4 XLALInspiralRingdownWave (
   return errcode;
 }
 
+/* <lalVerbatim file="XLALGenerateHybridWaveDerivatives">  */
 INT4 XLALGenerateHybridWaveDerivatives (
 	REAL4Vector				*rwave,
 	REAL4Vector				*dwave,
@@ -461,6 +465,7 @@ INT4 XLALGenerateHybridWaveDerivatives (
 	REAL8Vector				*matchrange,
 	InspiralTemplate			*params
 	)
+/* </lalVerbatim> */
 {
   static const char *func = "XLALGenerateHybridWaveDerivatives";
 
@@ -562,6 +567,7 @@ INT4 XLALGenerateHybridWaveDerivatives (
   return errcode;
 }
 
+/* <lalVerbatim file="XLALGenerateWaveDerivatives">  */
 INT4 XLALGenerateWaveDerivatives (
 	REAL4Vector			*dwave,
 	REAL4Vector			*ddwave,
@@ -702,7 +708,7 @@ INT4 XLALGenerateQNMFreq(
 
 
 /**
- * As with the above function, this generates the quasinormal mode frequencies for a black
+ * As with the above function, this generates the quasinormal mode freuqencies for a black
  * hole ringdown. However, this function is more general than the other function, which
  * only works for the (2,2) mode, and only the first three overtones. 
  */
@@ -1011,6 +1017,7 @@ INT4 XLALGenerateQNMFreqV2(
   return XLAL_SUCCESS;
 }
 
+/* <lalVerbatim file="XLALFinalMassSpinCP">  */
 INT4 XLALFinalMassSpin(
 	REAL8		 *finalMass,
 	REAL8		 *finalSpin,
@@ -1023,14 +1030,14 @@ INT4 XLALFinalMassSpin(
 
   REAL8 eta, eta2, eta3;
 
-  /* get a local copy of the intrinsic parameters */
+  /* get a local copy of the intrinstic parameters */
   eta = params->eta;
   eta2 = eta * eta;
 
-  if ( params->approximant == EOBNRv2 || params->approximant == EOBNRv2HM )
+  if ( params->approximant == EOBNRv2 )
   {
     eta3 = eta2 * eta;
-    /* Final mass and spin given by a fitting in Pan et al, arXiv:1106.1021v1 [gr-qc] */
+    /* Final mass and spin given by a fitting in Pan et al, in preparation */
     *finalMass = 1. + root9ovr8minus1 * eta - 0.4333 * eta2 - 0.4392 * eta3;
     *finalSpin = root12 * eta - 3.871 * eta2 + 4.028 * eta3;
   }
@@ -1044,6 +1051,7 @@ INT4 XLALFinalMassSpin(
   return XLAL_SUCCESS;
 }
 
+/* <lalVerbatim file="XLALInspiralHybridAttachRingdownWaveCP">  */
 INT4 XLALInspiralHybridAttachRingdownWave (
       REAL4Vector 	*signal1,
       REAL4Vector 	*signal2,

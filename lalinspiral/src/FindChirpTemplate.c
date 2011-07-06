@@ -146,7 +146,6 @@ LALFindChirpTemplateInit (
     case PadeT1:
     case EOB:
     case EOBNR:
-    case EOBNRv2:
     case IMRPhenomB:
       /* time domain waveforms use xfac to store the time domain waveform */
       LALCreateVector( status->statusPtr, &(outputPtr->xfacVec),
