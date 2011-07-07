@@ -821,8 +821,12 @@ class Posterior(object):
             ap += np.exp(samp[logl_name]-log_bias)*samp[prior_name]
         return ap / len(samples)
 
-    def _bias_factor(self, logl_name):
-        return self[logl_name].mean
+    def _bias_factor(self):
+        """
+        Returns a sensible bias factor for the evidence so that
+        integrals are representable as doubles.
+        """
+        return np.mean(self._logL)
 
     def di_evidence(self, boxing=64):
         """
@@ -839,10 +843,10 @@ class Posterior(object):
         tree=KDTree(coordinatized_samples)
 
         if "prior" in header and "logl" in header:
-            bf = self._bias_factor("logl")
+            bf = self._bias_factor()
             return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior", bf), boxing))
         elif "prior" in header and "likelihood" in header:
-            bf = self._bias_factor("likelihood")
+            bf = self._bias_factor()
             return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior", bf), boxing))
         elif "post" in header:
             return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing))
@@ -855,10 +859,11 @@ class Posterior(object):
 
     def harmonic_mean_evidence(self):
         """
-        Returns the harmonic mean evidence for the set of posterior
-        samples.
+        Returns the log of the harmonic mean evidence for the set of
+        posterior samples.
         """
-        return 1/np.mean(1/np.exp(self._logL))
+        bf = self._bias_factor()
+        return bf + np.log(1/np.mean(1/np.exp(self._logL-bf)))
 
     def _posMode(self):
         """

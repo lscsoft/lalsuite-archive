@@ -349,8 +349,8 @@ def cbcBayesPostProc(
         print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, log_ev)
         html_model.p('Direct integration evidence is %g, or log(Evidence) = %g.  (Boxing parameter = %d.)'%(ev,log_ev,boxing))
         if 'logl' in pos.names:
-            ev=pos.harmonic_mean_evidence()
-            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(ev,log(ev)))
+            log_ev=pos.harmonic_mean_evidence()
+            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(exp(log_ev,log_ev))
     #Create a section for SNR, if a file is provided
     if snrfactor is not None:
         html_snr=html.add_section('Signal to noise ratio(s)')
