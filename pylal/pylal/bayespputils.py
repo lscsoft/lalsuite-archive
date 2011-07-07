@@ -821,11 +821,8 @@ class Posterior(object):
             ap += np.exp(samp[logl_name]-log_bias)*samp[prior_name]
         return ap / len(samples)
 
-    def _bias_factor(self, samples, logl_name):
-        avg_logl = 0.0
-        for samp in samples:
-            avg_logl += samp[logl_name]
-        return avg_logl / len(samples)
+    def _bias_factor(self, logl_name):
+        return self[logl_name].mean()
 
     def di_evidence(self, boxing=64):
         """
@@ -842,10 +839,10 @@ class Posterior(object):
         tree=KDTree(coordinatized_samples)
 
         if "prior" in header and "logl" in header:
-            bf = self._bias_factor(samples, "logl")
+            bf = self._bias_factor("logl")
             return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior", bf), boxing))
         elif "prior" in header and "likelihood" in header:
-            bf = self._bias_factor(samples, "likelihood")
+            bf = self._bias_factor("likelihood")
             return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior", bf), boxing))
         elif "post" in header:
             return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing))
