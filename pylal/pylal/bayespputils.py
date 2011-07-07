@@ -822,7 +822,7 @@ class Posterior(object):
         return ap / len(samples)
 
     def _bias_factor(self, logl_name):
-        return self[logl_name].mean()
+        return self[logl_name].mean
 
     def di_evidence(self, boxing=64):
         """
