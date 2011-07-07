@@ -338,15 +338,16 @@ def cbcBayesPostProc(
 
     if dievidence:
         html_model=html.add_section('Direct Integration Evidence')
-        ev=difactor*pos.di_evidence(boxing=boxing)
+        log_ev = log(difactor) + pos.di_evidence(boxing=boxing)
+        ev=exp(log_ev)
         evfilename=os.path.join(outdir,"evidence.dat")
         evout=open(evfilename,"w")
         evout.write(str(ev))
         evout.write(" ")
-        evout.write(str(log(ev)))
+        evout.write(str(log_ev))
         evout.close()
-        print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, log(ev))
-        html_model.p('Direct integration evidence is %g, or log(Evidence) = %g.  (Boxing parameter = %d.)'%(ev,log(ev),boxing))
+        print "Computing direct integration evidence = %g (log(Evidence) = %g)"%(ev, log_ev)
+        html_model.p('Direct integration evidence is %g, or log(Evidence) = %g.  (Boxing parameter = %d.)'%(ev,log_ev,boxing))
         if 'logl' in pos.names:
             ev=pos.harmonic_mean_evidence()
             html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(ev,log(ev)))
