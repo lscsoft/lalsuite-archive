@@ -810,12 +810,21 @@ class Posterior(object):
         return
 
     def _average_posterior(self, samples, post_name):
+        """
+        Returns the average value of the 'post_name' column of the
+        given samples.
+        """
         ap = 0.0
         for samp in samples:
             ap = ap + samp[post_name]
         return ap / len(samples)
 
     def _average_posterior_like_prior(self, samples, logl_name, prior_name, log_bias = 0):
+        """
+        Returns the average value of the posterior assuming that the
+        'logl_name' column contains log(L) and the 'prior_name' column
+        contains the prior (un-logged).
+        """
         ap = 0.0
         for samp in samples:
             ap += np.exp(samp[logl_name]-log_bias)*samp[prior_name]
