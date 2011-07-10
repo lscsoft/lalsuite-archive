@@ -380,9 +380,11 @@ def get_analyze_segment():
     in param file
   - subtract category specified 
   """
-  if opts.verbose: print "making segment list..."
+  if opts.verbose:
+      print "making segment list..."
 
-  if not os.path.exists("segfiles"): os.makedirs("segfiles")
+  if not os.path.exists("segfiles"):
+      os.makedirs("segfiles")
   
   ################# take a union of analyzed_seg_files ###################
   
@@ -638,9 +640,10 @@ if opts.verbose:
 # if not exist, download
 ############################################################################
 inputfiles = {}
-if not os.path.isdir("inputfiles"): os.mkdir("inputfiles")
+if not os.path.isdir("inputfiles"):
+    os.mkdir("inputfiles")
 
-for f in ("vstyle.css","S6_channel_list.txt", "S5_LIGO_channel_list.txt", "E14_channel_list.txt", "VSR3_missing_list.txt"):
+for f in ("vstyle.css","S6_channel_list.txt", "S5_LIGO_channel_list.txt", "E14_channel_list.txt", "VSR4_channel_list.txt"):
   if not os.path.isfile("inputfiles/%s"%f):
     inputfile = "https://virgo.physics.carleton.edu/public/UPV_inputfiles/%s"%f
     outfile = os.path.join("inputfiles",f)
