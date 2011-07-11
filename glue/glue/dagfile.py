@@ -622,6 +622,8 @@ class DAG(object):
 			f.write("JOBSTATE_LOG %s\n" % self.jobstate_log)
 
 		# MAXJOBS ...
+		if set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs):
+			raise ValueError, "no MAXJOBS statement(s) for node category(ies) %s" % ", ".join(sorted(set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs)))
 		for name, value in sorted(self.maxjobs.items()):
 			if value is not None:
 				f.write("MAXJOBS %s %d\n" % (name, value))
@@ -632,10 +634,10 @@ class DAG(object):
 
 		# PARENT ... CHILD ...
 		names = set(self.nodes)
-		parents = {}
-		for name, node in sorted(self.nodes.items()):
-			parents.setdefault(frozenset(child.name for child in node.children) & names, set()).add(node.name)
-		for children, parents in parents.items():
+		parents_of = {}
+		for name, node in self.nodes.items():
+			parents_of.setdefault(frozenset(child.name for child in node.children) & names, set()).add(node.name)
+		for children, parents in parents_of.items():
 			if children:
 				f.write("PARENT %s CHILD %s\n" % (" ".join(sorted(parents)), " ".join(sorted(children))))
 
