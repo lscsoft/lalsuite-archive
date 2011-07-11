@@ -245,7 +245,7 @@ class DAG(object):
 	categorypat = re.compile(r'^CATEGORY\s+(?P<name>\S+)\s+(?P<category>\S+)', re.IGNORECASE)
 	retrypat = re.compile(r'^RETRY\s+(?P<name>\S+)\s+(?P<retries>\S+)(\s+UNLESS-EXIT\s+(?P<retry_unless_exit_value>\S+))?', re.IGNORECASE)
 	varspat = re.compile(r'^VARS\s+(?P<name>\S+)\s+(?P<vars>.+)', re.IGNORECASE)
-	varsvaluepat = re.compile(r'(?P<name>\S+)="(?P<value>.+)"', re.IGNORECASE)	# FIXME:  doesn't understand escaped " characters
+	varsvaluepat = re.compile(r'(?P<name>\S+)\s*=\s*"(?P<value>[^(?<!\\)"]+)(?<!\\)"', re.IGNORECASE)
 	scriptpat = re.compile(r'^SCRIPT\s+(?P<type>(PRE)|(POST))\s(?P<name>\S+)\s+(?P<executable>\S+)(\s+(?P<arguments>.+))?', re.IGNORECASE)
 	abortdagonpat = re.compile(r'^ABORT-DAG-ON\s+(?P<name>\S+)\s+(?P<exitvalue>\S+)(\s+RETURN\s+(?P<returnvalue>\S+))?', re.IGNORECASE)
 	arcpat = re.compile(r'^PARENT\s+(?P<parents>.+?)\s+CHILD\s+(?P<children>.+)', re.IGNORECASE)
