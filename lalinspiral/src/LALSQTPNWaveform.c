@@ -2,7 +2,7 @@
  * @file LALSQTPNWaveform.c
  *		Contains the function definition to create GWforms.
  * @author László Veréb
- * @date 2010.05.21.
+ * @date 2011.07.11.
  */
 
 #include <lal/LALSQTPNWaveform.h>

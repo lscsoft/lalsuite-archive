@@ -4,7 +4,7 @@
  *	If you want to run the program use the \ref LALSQTPNWaveformTest.c file int the
  *	test directory.
  * @author László Veréb
- * @date 2010.06.27.
+ * @date 2011.07.11.
  */
 
 #include <lal/LALSQTPNWaveformInterface.h>
@@ -291,15 +291,14 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 }
 
 int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length) {
-	static const char *func = "LALSQTPNAllocateCoherentGW";
 	if (!wave) {
-		XLAL_ERROR(func, XLAL_EFAULT);
+		XLAL_ERROR(__func__, XLAL_EFAULT);
 	}
 	if (length <= 0) {
-		XLAL_ERROR(func, XLAL_EBADLEN);
+		XLAL_ERROR(__func__, XLAL_EBADLEN);
 	}
 	if (wave->a || wave->f || wave->phi || wave->shift) {
-		XLAL_ERROR(func, XLAL_EFAULT);
+		XLAL_ERROR(__func__, XLAL_EFAULT);
 	}
 	wave->a = (REAL4TimeVectorSeries *)LALMalloc(sizeof(REAL4TimeVectorSeries));
 	wave->f = (REAL4TimeSeries *)LALMalloc(sizeof(REAL4TimeSeries));
@@ -307,7 +306,7 @@ int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length) {
 	wave->shift = (REAL4TimeSeries *)LALMalloc(sizeof(REAL4TimeSeries));
 	if (!(wave->a && wave->f && wave->phi && wave->shift)) {
 		XLALSQTPNDestroyCoherentGW(wave);
-		XLAL_ERROR(func, XLAL_ENOMEM);
+		XLAL_ERROR(__func__, XLAL_ENOMEM);
 	}
 	xlalErrno = 0;
 	wave->a->data = XLALCreateREAL4VectorSequence(length, 2);
@@ -316,13 +315,12 @@ int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length) {
 	wave->shift->data = XLALCreateREAL4Vector(length);
 	if (!(wave->a->data && wave->f->data && wave->phi->data && wave->shift->data)) {
 		XLALSQTPNDestroyCoherentGW(wave);
-		XLAL_ERROR(func, XLAL_ENOMEM);
+		XLAL_ERROR(__func__, XLAL_ENOMEM);
 	}
 	return XLAL_SUCCESS;
 }
 
 void XLALSQTPNDestroyCoherentGW(CoherentGW *wave) {
-	//static const char *func = "LALSQTPNDestroyCoherentGW";
 	if (wave->h) {
 		if (wave->h->data) {
 			XLALDestroyREAL4VectorSequence(wave->h->data);

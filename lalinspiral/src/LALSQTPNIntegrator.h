@@ -3,7 +3,7 @@
  *		Contains the function declarations and structures needed by the
  *	integration method.
  * @author László Veréb
- * @date 2010.05.21.
+ * @date 2011.07.11.
  */
 
 #ifndef LALSQTPNINTEGRATOR_H

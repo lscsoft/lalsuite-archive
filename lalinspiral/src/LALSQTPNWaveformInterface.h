@@ -2,7 +2,7 @@
  * @file LALSQTPNWaveformInterface.h
  *		Contains function declarations to integrate the SpinQuadTaylor code into the other parts of the LALSuit.
  * @author László Veréb
- * @date 2010.06.27.
+ * @date 2011.07.11.
  */
 
 #ifndef LALSQTPNWAVEFORMINTERFACE_H

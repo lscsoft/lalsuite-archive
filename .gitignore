@@ -21,3 +21,4 @@ configDir
 build_*
 lal/doc/doxygen
 main.c
+Debug

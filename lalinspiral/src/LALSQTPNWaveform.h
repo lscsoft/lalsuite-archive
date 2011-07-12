@@ -13,7 +13,7 @@
  *	[2] Alessandra Buonanno, Yanbei Chen, and Michele Vallisneri, Phys.Rev. D67 (2003) 104025; Erratum-ibid. D74 (2006) 029904<br />
  *	[3] Balázs Mikóczi, Mátyás Vasúth, László Á. Gergely, Phys.Rev. D71 (2005) 124043
  * @author László Veréb
- * @date 2010.05.21.
+ * @date 2011.07.11.
  */
 
 #ifndef LALSQTPNWAVEFORM_H
