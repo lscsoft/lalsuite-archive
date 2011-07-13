@@ -1928,7 +1928,8 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	
 	if(checkParamInList(pinned_params,"iota") || checkParamInList(pinned_params,"inclination"))
 		XLALMCMCAddParam(parameter,"iota", injTable->inclination, 0, LAL_PI, -1);
-		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
+	else
+	XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
 
 	for (head=parameter->param;head;head=head->next)
 	{
