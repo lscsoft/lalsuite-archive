@@ -408,12 +408,12 @@ snrs_by_time={}
 for time in times:
     posfile=os.path.join(combine_dir,'posterior_samples_%.3f'%(time))
     posfiles_by_time[time]=posfile
-    combine_node=OddsPipeline.CombineZNode(combine_each_time_job)
-    combine_node.add_file_opt('outpos',posfile,file_is_output_file=True)
+    #combine_node=OddsPipeline.CombineZNode(combine_each_time_job)
+    #combine_node.add_file_opt('outpos',posfile,file_is_output_file=True)
     bayesfiles_by_time[time]=os.path.join(combine_dir,'bayesfactor_%.3f.txt'%(time))
     snrs_by_time[time]=os.path.join(snr_dir,'snr_%s_%9.1f.dat'%(IFOs,time))
-    combine_node.add_file_opt('bayesfactor',bayesfiles_by_time[time])
-    combine_each_time_nodes[time]=combine_node
+    #combine_node.add_file_opt('bayesfactor',bayesfiles_by_time[time])
+    #combine_each_time_nodes[time]=combine_node
 # Set up inspnest jobs, using parallel if needed
 
 
@@ -428,7 +428,7 @@ if nparallel==1:
         factor=factor+1
         inspnest_nodes_by_time[time]=inspnest_node
         dag.add_node(inspnest_node)
-        combine_each_time_nodes[time].add_parent(inspnest_node)
+        #combine_each_time_nodes[time].add_parent(inspnest_node)
         nest_files[time]=inspnest_node.get_output_files()[0]
 else:
     merge_sub_file=os.path.join(opts.run_path,'merge.sub')
@@ -443,7 +443,7 @@ else:
         dag.add_node(merge_node)
         map(dag.add_node,inspnest_nodes)
         nest_files[time]=merge_node.get_output_files()[0]
-        combine_each_time_nodes[time].add_parent(merge_node)
+        #combine_each_time_nodes[time].add_parent(merge_node)
         inspnest_nodes_by_time[time]=merge_node
 
 #for time in times:
@@ -497,24 +497,24 @@ if opts.coherence_test:
                 (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent,factor=factor)
                 dag.add_node(merge_node)
                 coherence_test_files[time][ifo]=merge_node.get_output_files()[0]
-                combine_node.add_parent(merge_node)
-                coherence_test_node.add_parent(merge_node)
+                #combine_node.add_parent(merge_node)
+                #coherence_test_node.add_parent(merge_node)
                 coherence_inspnest_nodes[time][ifo]=merge_node
             else:
                 inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent,factor=factor)
                 inspnest_nodes=[inspnest_node]
                 coherence_test_files[time][ifo]=inspnest_node.get_output_files()[0]
-                combine_node.add_parent(inspnest_node)
+                #combine_node.add_parent(inspnest_node)
                 coherence_inspnest_nodes[time][ifo]=inspnest_node
             combine_node.add_var_arg(coherence_test_files[time][ifo])
             combine_node.add_file_opt('headers',coherence_test_files[time][ifo]+'_params.txt')
             coherence_test_node.add_var_arg(coherence_test_files[time][ifo])
-            map(coherence_test_node.add_parent, inspnest_nodes)
+            #map(coherence_test_node.add_parent, inspnest_nodes)
             map(dag.add_node,inspnest_nodes)
             #dag.add_node(combine_node)
         coherence_test_outfiles[time]=os.path.join(coherence_test_dir,'coherence_test_%.3f.txt'%(time))
         coherence_test_node.add_file_opt('outfile',coherence_test_outfiles[time],file_is_output_file=True)
-        coherence_test_node.add_parent(inspnest_nodes_by_time[time])
+        #coherence_test_node.add_parent(inspnest_nodes_by_time[time])
         coherence_test_nodes[time]=coherence_test_node
         dag.add_node(coherence_test_node)
         factor=factor+1
@@ -572,18 +572,18 @@ if opts.disable_pages is False:
 # Analyse each segment
 
 for seg in times_by_seg.keys():
-    combine_node=OddsPipeline.CombineZNode(combine_job)
+    #combine_node=OddsPipeline.CombineZNode(combine_job)
     posfile=os.path.join(combine_dir,'posterior_samples_%.3f-%.3f.dat'%(seg[0],seg[1]))
     bffile=os.path.join(combine_dir,'bayesfactor_%.3f-%.3f.txt'%(seg[0],seg[1]))
-    combine_node.add_file_opt('outpos',posfile)
-    combine_node.add_file_opt('bayesfactor',bffile)
+    #combine_node.add_file_opt('outpos',posfile)
+    #combine_node.add_file_opt('bayesfactor',bffile)
     outsamp=os.path.join(combine_dir,'nested_samples_%.3f-%.3f.dat'%(seg[0],seg[1]))
-    combine_node.add_file_opt('outsamp',outsamp)
-    map(combine_node.add_var_arg,nestfiles_by_seg[seg])
-    map(lambda a: combine_node.add_file_opt('headers',a+'_params.txt'),nestfiles_by_seg[seg])
-    map(combine_node.add_parent,inspnest_by_seg[seg])
+    #combine_node.add_file_opt('outsamp',outsamp)
+    #map(combine_node.add_var_arg,nestfiles_by_seg[seg])
+    #map(lambda a: combine_node.add_file_opt('headers',a+'_params.txt'),nestfiles_by_seg[seg])
+    #map(combine_node.add_parent,inspnest_by_seg[seg])
     #dag.add_node(combine_node)
-    combine_nodes[seg]=combine_node
+    #combine_nodes[seg]=combine_node
     
     if opts.coherence_test and len(co_nests_by_seg[seg].keys())>1:
         co_combine_node={}
@@ -624,16 +624,16 @@ for seg in times_by_seg.keys():
 
     if opts.disable_pages is False:
         # Produce web page output for each segment
-        results_node=OddsPipeline.ResultsPageNode(results_page_job)
-        results_node.add_file_opt('data',posfile)
+        #results_node=OddsPipeline.ResultsPageNode(results_page_job)
+        #results_node.add_file_opt('data',posfile)
         seg_results_path=os.path.join(results_path,'%.3f-%.3f'%(seg[0],seg[1]))
         checkDir(seg_results_path)
-        results_node.add_var_opt('outpath',seg_results_path)
-        results_node.add_var_opt('bsn',bffile)
+        #results_node.add_var_opt('outpath',seg_results_path)
+        #results_node.add_var_opt('bsn',bffile)
         if opts.coherence_test and len(co_nests_by_seg[seg].keys())>1:
             results_node.add_parent(coherence_test_node)
             results_node.add_var_arg('--bci '+cotest_outfile_seg)
-        results_node.add_parent(combine_node)
+        #results_node.add_parent(combine_node)
         #dag.add_node(results_node)
 
 if opts.enable_pages_alltimes is True:
