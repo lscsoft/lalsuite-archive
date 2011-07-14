@@ -639,7 +639,8 @@ FROM
 					legend.append("Missed")
 					axes.semilogy([x_func(sim) for sim in missed], [y_func(sim, self.on_instruments) for sim in missed], "k.")
 				f.close()
-				axes.legend(legend)
+				if legend:
+					axes.legend(legend)
 				axes.set_title(title)
 				yield fig, filename_fragment, False
 
