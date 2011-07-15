@@ -96,9 +96,10 @@ def parse_command_line():
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
 	parser.add_option("","--input-cache", help="input cache containing only the databases you want to run on (you can also list them as arguments, but you should use a cache if you are afraid that the command line will be too long.)")
-	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
-	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
-	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
+	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\").")
+	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\").")
+	parser.add_option("--segments-name", metavar = "name", default = "data_segments", help = "Set the name of the segments that were analyzed (default = \"data_segments\").")
+	parser.add_option("--vetoes-name", metavar = "name", default = "vetoes", help = "Set the name of the veto segments (default = \"vetoes\").")
 	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = """
 Generate the given plot group.  Can be given multiple times (default = make all plot groups)
  0. Summary Table (top 10 loudest events globally across all zero lag triggers read in)
@@ -136,7 +137,7 @@ Generate the given plot group.  Can be given multiple times (default = make all 
 
 
 class CoincDatabase(object):
-	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False, wiki=None, base=None):
+	def __init__(self, connection, data_segments_name, veto_segments_name = None, verbose = False, wiki=None, base=None):
 		"""
 		Compute and record some summary information about the
 		database.
@@ -195,7 +196,7 @@ class CoincDatabase(object):
 		self.participating_instruments_combos = [frozenset(dbtables.lsctables.instrument_set_from_ifos(x)) for x, in cursor.execute("SELECT DISTINCT(ifos) FROM coinc_inspiral")]
 
 		# get the segment lists
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		self.seglists = ligolw_segments.segmenttable_get_by_name(xmldoc, data_segments_name).coalesce()
 		self.instruments = set(self.seglists)
 		if veto_segments_name is not None:
 			self.veto_segments = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
@@ -1222,7 +1223,7 @@ for n, filename in enumerate(filenames):
 	wiki.write("=== %d/%d: %s ===\n\n" % (n + 1, len(filenames), filename))
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose, wiki=wiki, base=options.base)
+	contents = CoincDatabase(connection, options.segments_name, veto_segments_name = options.vetoes_name, verbose = options.verbose, wiki=wiki, base=options.base)
 	if contents.sim_inspiral_table is not None:
 		create_sim_coinc_view(connection)
 	for n, plot in zip(options.plot_group, plots):
