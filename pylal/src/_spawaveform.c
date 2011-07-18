@@ -307,7 +307,7 @@ static PyObject *PyIIR(PyObject *self, PyObject *args)
 {
 	PyObject *amp, *phase;
 	PyObject *amp_array, *phase_array;
-	double eps, alpha, beta;
+	double eps, alpha, beta, padding;
 	REAL8Vector amp_real8, phase_real8;
 	COMPLEX16Vector *a1 =NULL;
 	COMPLEX16Vector *b0 = NULL;
@@ -320,7 +320,7 @@ static PyObject *PyIIR(PyObject *self, PyObject *args)
 	npy_intp delay_length[] = {0};
 	PyObject *out;
 
-	if (!PyArg_ParseTuple(args, "OOddd", &amp, &phase, &eps, &alpha, &beta)) return NULL;
+	if (!PyArg_ParseTuple(args, "OOdddd", &amp, &phase, &eps, &alpha, &beta, &padding)) return NULL;
 	amp_array = PyArray_FROM_OTF(amp, NPY_DOUBLE, NPY_IN_ARRAY);
 	phase_array = PyArray_FROM_OTF(phase, NPY_DOUBLE, NPY_IN_ARRAY);
 
@@ -330,7 +330,7 @@ static PyObject *PyIIR(PyObject *self, PyObject *args)
 	phase_arraydims = PyArray_DIMS(phase_array);
 	phase_real8.length = phase_arraydims[0];
 	phase_real8.data = PyArray_DATA(phase_array);
-	XLALInspiralGenerateIIRSet(&amp_real8, &phase_real8, eps, alpha, beta, &a1, &b0, &delay);
+	XLALInspiralGenerateIIRSet(&amp_real8, &phase_real8, eps, alpha, beta, padding, &a1, &b0, &delay);
 	a1_length[0] = a1->length;
 	b0_length[0] = b0->length;
 	delay_length[0] = delay->length;
