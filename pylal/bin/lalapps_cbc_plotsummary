@@ -98,7 +98,7 @@ def parse_command_line():
 	parser.add_option("","--input-cache", help="input cache containing only the databases you want to run on (you can also list them as arguments, but you should use a cache if you are afraid that the command line will be too long.)")
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\").")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\").")
-	parser.add_option("--segments-name", metavar = "name", default = "data_segments", help = "Set the name of the segments that were analyzed (default = \"data_segments\").")
+	parser.add_option("--segments-name", metavar = "name", default = "datasegments", help = "Set the name of the segments that were analyzed (default = \"data_segments\").")
 	parser.add_option("--vetoes-name", metavar = "name", default = "vetoes", help = "Set the name of the veto segments (default = \"vetoes\").")
 	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = """
 Generate the given plot group.  Can be given multiple times (default = make all plot groups)
