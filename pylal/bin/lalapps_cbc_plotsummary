@@ -591,7 +591,7 @@ class MissedFoundPlots(object):
 
 		def add_contents(self, contents):
 			self.base = contents.base
-			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			zerolag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
 			for values in contents.connection.cursor().execute("""
 SELECT
 	sim_inspiral.*,
@@ -611,7 +611,7 @@ FROM
 			"""):
 				sim = contents.sim_inspiral_table.row_from_cols(values)
 				del sim.process_id, sim.source, sim.simulation_id
-				if sim.get_end() in zero_lag_segments:
+				if sim.get_end() in zerolag_segments:
 					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
 					if participating_instruments is not None:
 						participating_instruments = frozenset(participating_instruments)
@@ -663,8 +663,8 @@ FROM
 		f.write("||<b>ON INSTRUMENTS</b>||<b> PARTICIPATING INSTRUMENTS</b>||<b>MISSED/FOUND</b||\n")
 		f.close()
 		for on_instruments, plot in self.plots.items():
-			for fig, filename_fragment, open_box in plot.finish():
-				yield fig, "%s_%s" % (filename_fragment, "".join(sorted(on_instruments))), open_box
+			for fig, filename_fragment, is_open_box in plot.finish():
+				yield fig, "%s_%s" % (filename_fragment, "".join(sorted(on_instruments))), is_open_box
 
 
 #
@@ -841,21 +841,26 @@ FROM
 			self.zerolag.setdefault(instrument, BackgroundVsInjectionPlots.Points())
 		for instrument in self.background:
 			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
+			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s (Closed Box)" % instrument)
+			axes.loglog(self.injections[instrument].snr, self.injections[instrument].chi2, "rx")
+			axes.loglog(self.background[instrument].snr, self.background[instrument].chi2, "kx")
+			axes.legend(("Injections", "Background"), loc = "upper left")
+			yield fig, "chi2_vs_rho_%s" % instrument, False
+
+			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
 			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
 			axes.loglog(self.injections[instrument].snr, self.injections[instrument].chi2, "rx")
 			axes.loglog(self.background[instrument].snr, self.background[instrument].chi2, "kx")
 			axes.loglog(self.zerolag[instrument].snr, self.zerolag[instrument].chi2, "bx")
 			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper left")
 			yield fig, "chi2_vs_rho_%s" % instrument, True
-			continue
 
-			fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
-			axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
-			axes.loglog(self.injections[instrument].snr, self.injections[instrument].r2, "rx")
-			axes.loglog(self.background[instrument].snr, self.background[instrument].r2, "kx")
-			axes.loglog(self.zerolag[instrument].snr, self.zerolag[instrument].r2, "bx")
-			axes.legend(("Injections", "Background", "Zero-lag"), loc = "lower right")
-			yield fig, "r2_vs_rho_%s" % instrument, True
+			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
+			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s (Closed Box)" % instrument)
+			axes.loglog(self.injections[instrument].snr, self.injections[instrument].bankveto, "rx")
+			axes.loglog(self.background[instrument].snr, self.background[instrument].bankveto, "kx")
+			axes.legend(("Injections", "Background"), loc = "upper left")
+			yield fig, "bankchi2_vs_rho_%s" % instrument, False
 
 			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
 			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s" % instrument)
@@ -976,12 +981,27 @@ WHERE
 	def finish(self):
 		for (x_instrument, y_instrument), points in self.points.items():
 			fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % x_instrument, r"$\rho_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g) (Closed Box)" % (y_instrument, x_instrument, self.snrfactor))
+			axes.loglog([x for x, y in points.injections_snreff], [y for x, y in points.injections_snreff], "rx")
+			axes.loglog([x for x, y in points.background_snreff], [y for x, y in points.background_snreff], "kx")
+			axes.legend(("Injections", "Background"), loc = "lower right")
+			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument), False
+
+			fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % x_instrument, r"$\rho_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
 			axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g)" % (y_instrument, x_instrument, self.snrfactor))
 			axes.loglog([x for x, y in points.injections_snreff], [y for x, y in points.injections_snreff], "rx")
 			axes.loglog([x for x, y in points.background_snreff], [y for x, y in points.background_snreff], "kx")
 			axes.loglog([x for x, y in points.zerolag_snreff], [y for x, y in points.zerolag_snreff], "bx")
 			axes.legend(("Injections", "Background", "Zero-lag"), loc = "lower right")
-			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument), False
+			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument), True
+
+			fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % x_instrument, r"$D_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective Distance in %s vs.\ %s (Closed Box)" % (y_instrument, x_instrument))
+			axes.loglog([x for x, y in points.injections_deff], [y for x, y in points.injections_deff], "rx")
+			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
+			axes.loglog([x for x, y in points.zerolag_deff], [y for x, y in points.zerolag_deff], "bx")
+			axes.legend(("Injections", "Background"), loc = "upper right")
+			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), False
 
 			fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % x_instrument, r"$D_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
 			axes.set_title(r"Effective Distance in %s vs.\ %s" % (y_instrument, x_instrument))
@@ -989,7 +1009,7 @@ WHERE
 			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
 			axes.loglog([x for x, y in points.zerolag_deff], [y for x, y in points.zerolag_deff], "bx")
 			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper right")
-			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), False
+			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), True
 
 
 #
@@ -1240,12 +1260,12 @@ for n, filename in enumerate(filenames):
 
 
 n = 0
-filename_template = "%%s%%0%dd_%%s.%%s" % (int(math.log10(max(options.plot_group) or 1)) + 1)
+filename_template = "%%s%%0%dd_%%s%%s.%%s" % (int(math.log10(max(options.plot_group) or 1)) + 1)
 while len(plots):
 	for fig, filename_fragment, is_open_box in plots.pop(0).finish():
 		for format in options.format:
 			if filename_fragment and fig:
-				filename = filename_template % (options.base, options.plot_group[n], filename_fragment, format)
+				filename = filename_template % (options.base, options.plot_group[n], filename_fragment, (is_open_box and "_openbox" or ""), format)
 				if options.verbose:
 					print >>sys.stderr, "writing %s ..." % filename
 				fig.savefig(filename)
