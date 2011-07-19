@@ -232,13 +232,10 @@ for cat in cp.get("generate_spr_files","DQ-cats").split(','):
 		train_job.set_stderr_file('logs/'+train_job.tag_base+'_'+cat+run_tag+'-$(macroid)-$(process).err')
 		if opts.skip_file_generation: train_node[cat][file] = train_forest_node(train_job, dag, file, p_node=[])
 		else: train_node[cat][file] = train_forest_node(train_job, dag, file, p_node=[generate_node])
-		print train_node[cat][file]
 		rank_job.set_stdout_file('logs/'+rank_job.tag_base+'_'+cat+run_tag+'-$(macroid)-$(process).out')
 		rank_job.set_stderr_file('logs/'+rank_job.tag_base+'_'+cat+run_tag+'-$(macroid)-$(process).err')
 		rank_node[cat][file] = use_forest_node(rank_job, dag, train_node[cat][file].trainedforest, file.replace('_training','_evaluation'), p_node=[train_node[cat][file]])
 		catdatfiles.append(rank_node[cat][file].get_output_files())
-	print rank_node[cat].values()
-	print catdatfiles
 	roctag = cat+'_'+cp.get("generate_spr_files","output-tag")+run_tag
 	results_node[cat] = result_plots_node(results_job, dag, catdatfiles, roctag, cp.items("auxmvc_result_plots"), p_node=rank_node[cat].values())
 
