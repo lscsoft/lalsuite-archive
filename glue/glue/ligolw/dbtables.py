@@ -39,6 +39,7 @@ import shutil
 import signal
 import sys
 import tempfile
+import threading
 from xml.sax.xmlreader import AttributesImpl
 import warnings
 
@@ -99,6 +100,8 @@ def DBTable_set_connection(connection):
 
 
 temporary_files = {}
+temporary_files_lock = threading.Lock()
+
 
 #
 # Module-level variable to hold the signal handlers that have been
@@ -143,24 +146,30 @@ def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
 	Note:  this function is called by get_connection_filename()
 	whenever it creates a scratch file.
 	"""
-	# ignore signums we've already replaced
-	signums = set(signums) - set(origactions)
+	temporary_files_lock.acquire()
+	try:
+		# ignore signums we've already replaced
+		signums = set(signums) - set(origactions)
 
-	def temporary_file_cleanup_on_signal(signum, frame):
-		temporary_files.clear()
-		if callable(origactions[signum]):
-			# original action is callable, chain to it
-			return origactions[signum](signum, frame)
-		# original action was not callable or the callable
-		# returned.  invoke sys.exit() with retval as exit code
-		sys.exit(retval)
+		def temporary_file_cleanup_on_signal(signum, frame):
+			temporary_files_lock.acquire()
+			temporary_files.clear()
+			temporary_files_lock.release()
+			if callable(origactions[signum]):
+				# original action is callable, chain to it
+				return origactions[signum](signum, frame)
+			# original action was not callable or the callable
+			# returned.  invoke sys.exit() with retval as exit code
+			sys.exit(retval)
 
-	for signum in signums:
-		origactions[signum] = signal.getsignal(signum)
-		if origactions[signum] != signal.SIG_IGN:
-			# signal is not being ignored, so install our
-			# handler
-			signal.signal(signum, temporary_file_cleanup_on_signal)
+		for signum in signums:
+			origactions[signum] = signal.getsignal(signum)
+			if origactions[signum] != signal.SIG_IGN:
+				# signal is not being ignored, so install our
+				# handler
+				signal.signal(signum, temporary_file_cleanup_on_signal)
+	finally:
+		temporary_files_lock.release()
 
 
 def uninstall_signal_trap(signums = None):
@@ -176,10 +185,14 @@ def uninstall_signal_trap(signums = None):
 	discard_connection_filename() whenever they remove a scratch file
 	and there are then no more scrach files in use.
 	"""
-	if signums is None:
-		signums = origactions.keys()
-	for signum in signums:
-		signal.signal(signum, origactions.pop(signum))
+	temporary_files_lock.acquire()
+	try:
+		if signums is None:
+			signums = origactions.keys()
+		for signum in signums:
+			signal.signal(signum, origactions.pop(signum))
+	finally:
+		temporary_files_lock.release()
 
 
 #
@@ -208,7 +221,11 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			orig_unlink(self)
 		temporary_file.unlink = new_unlink
 		filename = temporary_file.name
-		temporary_files[filename] = temporary_file
+		temporary_files_lock.acquire()
+		try:
+			temporary_files[filename] = temporary_file
+		finally:
+			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
 		# mkstemp() ignores umask, creates all files accessible
@@ -287,8 +304,12 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 						target = filename
 					break
 	else:
-		if filename in temporary_files:
-			raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
+		temporary_files_lock.acquire()
+		try:
+			if filename in temporary_files:
+				raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
+		finally:
+			temporary_files_lock.relesae()
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
@@ -360,7 +381,11 @@ def put_connection_filename(filename, working_filename, verbose = False):
 			file(working_filename, "w").close()
 		except:
 			pass
-		del temporary_files[working_filename]
+		temporary_files_lock.acquire()
+		try:
+			del temporary_files[working_filename]
+		finally:
+			temporary_files_lock.release()
 
 		# restore original handlers, and send outselves any trapped signals
 		# in order
@@ -371,7 +396,10 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		if not temporary_files:
+		temporary_files_lock.acquire()
+		no_more_files = not temporary_files
+		temporary_files_lock.release()
+		if no_more_files:
 			uninstall_signal_trap()
 
 
@@ -392,13 +420,20 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename,
 		# remove reference to tempfile.TemporaryFile object
-		del temporary_files[working_filename]
+		temporary_files_lock.acquire()
+		try:
+			del temporary_files[working_filename]
+		finally:
+			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "done."
 
 		# if there are no more temporary files in place, remove the
 		# temporary-file signal traps
-		if not temporary_files:
+		temporary_files_lock.acquire()
+		no_more_files = not temporary_files
+		temporary_files_lock.release()
+		if no_more_files:
 			uninstall_signal_trap()
 
 
