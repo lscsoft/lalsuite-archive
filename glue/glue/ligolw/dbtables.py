@@ -309,7 +309,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			if filename in temporary_files:
 				raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
 		finally:
-			temporary_files_lock.relesae()
+			temporary_files_lock.release()
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
