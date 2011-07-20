@@ -855,21 +855,6 @@ FROM
 			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper left")
 			yield fig, "chi2_vs_rho_%s" % instrument, True
 
-			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
-			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s (Closed Box)" % instrument)
-			axes.loglog(self.injections[instrument].snr, self.injections[instrument].bankveto, "rx")
-			axes.loglog(self.background[instrument].snr, self.background[instrument].bankveto, "kx")
-			axes.legend(("Injections", "Background"), loc = "upper left")
-			yield fig, "bankchi2_vs_rho_%s" % instrument, False
-
-			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
-			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s" % instrument)
-			axes.loglog(self.injections[instrument].snr, self.injections[instrument].bankveto, "rx")
-			axes.loglog(self.background[instrument].snr, self.background[instrument].bankveto, "kx")
-			axes.loglog(self.zerolag[instrument].snr, self.zerolag[instrument].bankveto, "bx")
-			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper left")
-			yield fig, "bankchi2_vs_rho_%s" % instrument, True
-
 
 #
 # =============================================================================
@@ -999,7 +984,6 @@ WHERE
 			axes.set_title(r"Effective Distance in %s vs.\ %s (Closed Box)" % (y_instrument, x_instrument))
 			axes.loglog([x for x, y in points.injections_deff], [y for x, y in points.injections_deff], "rx")
 			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
-			axes.loglog([x for x, y in points.zerolag_deff], [y for x, y in points.zerolag_deff], "bx")
 			axes.legend(("Injections", "Background"), loc = "upper right")
 			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), False
 
@@ -1217,7 +1201,7 @@ options, filenames = parse_command_line()
 
 def new_plots(plots = None):
 	l = (
-		SummaryTable(),
+		#SummaryTable(),
 		MissedFoundPlots(),
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
