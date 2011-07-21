@@ -142,6 +142,14 @@ for(i=0;i<filter_size;i++) {
 	filter[i].re=filter[i].re*ad;
 	filter[i].im=filter[i].im*ad;
 	}
+/* check offset normalization */
+#if 0
+ad=0.0;
+for(i=1;i<filter_size;i++) {
+	ad+=(double)(filter[i].re)*(double)(filter[i-1].re)+(double)(filter[i].im)*(double)(filter[i-1].im);
+	}
+if(fabs(ad)>0.001)fprintf(stderr, "2 ad=%f scale=%g coeff[1]=(%g, %g) filter_size=%d\n", ad, scale, coeffs[1].re, coeffs[1].im, filter_size);
+#endif
 }
 
 void test_bessel_filter(void)

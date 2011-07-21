@@ -645,7 +645,6 @@ COMPLEX8Vector *fft2[2], *fft3[2], *fft4[2], *fft5[2], *fft_tmp;
 COMPLEX8 *filter1, *filter2;
 int i, j;
 int nscan=ctx->n_sky_scan;
-int nsamples=ctx->nsamples;
 int dir_ra, dir_dec;
 double ra_shift, dec_shift;
 
@@ -1034,6 +1033,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 	ctx->ra=main_grid->longitude[point];
 	ctx->dec=main_grid->latitude[point];
 	ctx->fstep=0;
+	ctx->patch_id=point*nfsteps+fstep;
 	
 	init_stats(&(ctx->stats));
 
@@ -1109,6 +1109,7 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 
 	compute_te_ffts(ctx);
 
+	compute_stats_variance(ctx);
 	//scan_fft_stats(ctx, (fstep*1.0/nfsteps)/ctx->timebase);
 	scan_fft_stats(ctx, 0);
 	

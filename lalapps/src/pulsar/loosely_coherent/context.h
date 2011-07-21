@@ -48,6 +48,7 @@ typedef struct {
 	double dec;
 	double dInv;
 	int fstep;
+	int patch_id;
 	
 	float *power;
 	float *cum_power;
@@ -101,6 +102,14 @@ typedef struct {
 	COMPLEX16Vector *offset_in;
 	COMPLEX16Vector *offset_fft;	
 	COMPLEX16FFTPlan *offset_fft_plan;
+	
+	/* variance of statistics versus euclidian norm */
+	double ratio_SNR;
+	double ratio_UL;
+	double ratio_UL_circ;
+	double ratio_B_stat;
+	double ratio_F_stat;
+	double max_ratio;
 	
 	/* fast_get_emission_time */
 	ETC etc;

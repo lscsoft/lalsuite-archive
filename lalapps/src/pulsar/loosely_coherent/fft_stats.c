@@ -97,8 +97,8 @@ UPDATE_STAT(circ_ul);
 void log_stats(LOOSE_CONTEXT *ctx, FILE *f, char *tag, FFT_STATS *st, double ul_adjust)
 {
 #define LOG(a, adj) \
-	fprintf(f, "stats: \"%s\" \"%s\" %s %lg %d %lg %.12f %lg %.12f %.12f %lg %lg %lg %lg %lg\n", \
-		args_info.label_arg, tag, #a, st->a.value*adj, st->a.fft_bin, st->a.fft_offset, \
+	fprintf(f, "stats: \"%s\" \"%s\" %s %d %lg %d %lg %.12f %lg %.12f %.12f %lg %lg %lg %lg %lg\n", \
+		args_info.label_arg, tag, #a, ctx->patch_id, st->a.value*adj, st->a.fft_bin, st->a.fft_offset, \
 		st->a.frequency, st->a.spindown, st->a.ra, st->a.dec, st->a.iota, st->a.psi, st->a.phi, st->a.z.re, st->a.z.im);
 	
 LOG(snr, 1)
@@ -106,7 +106,64 @@ LOG(ul, ul_adjust)
 LOG(circ_ul, ul_adjust)
 LOG(B_stat, 1)
 LOG(F_stat, 1)
-fprintf(f, "ratio: \"%s\" \"%s\" %g %g %f %f %f\n", args_info.label_arg, tag, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count, st->min_noise_ratio, st->max_noise_ratio);
+fprintf(f, "ratio: \"%s\" \"%s\" %d %g %g %f %f %f %f %f %f %f %f %f\n", args_info.label_arg, tag, ctx->patch_id, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count, st->min_noise_ratio, st->max_noise_ratio, 
+	ctx->ratio_SNR, ctx->ratio_UL, ctx->ratio_UL_circ, ctx->ratio_B_stat, ctx->ratio_F_stat, ctx->max_ratio);
+fprintf(f, "weight: \"%s\" \"%s\" %d %g %g %g\n", args_info.label_arg, tag, ctx->patch_id, ctx->weight_pp, ctx->weight_pc, ctx->weight_cc);
+}
+
+void compute_SNR_variance1(LOOSE_CONTEXT *ctx)
+{
+int i,j,k;
+double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+ALIGNMENT_COEFFS *ac;
+double x1_re, x1_im, x2_re, x2_im;
+double min_norm, max_norm;
+double a, b, c, d, s, aa, bb, cc;
+int i_max=100, j_max=100;
+
+double x_min[4], x_max[4];
+
+max_norm=0;
+min_norm=1e20;
+
+for(i=0;i<=i_max;i++) {
+	a=(1.0*i)/i_max;
+	b=sqrt(1.0-a*a);
+	for(j=0;j<j_max;j++) {
+		c=cos(0.25*2*M_PI*j/j_max);
+		s=sin(0.25*2*M_PI*j/j_max);
+		
+		x1_re=a*c;
+		x1_im=-a*s;
+		x2_re=b*c;
+		x2_im=b*s;
+		
+		d=0;
+		for(k=0;k<acd->free;k++) {
+			ac=&(acd->coeffs[k]);
+			aa=x1_re*ac->w1_re+x1_im*ac->w1_im+x2_re*ac->w2_re-x2_im*ac->w2_im;
+			bb=x1_re*ac->w1_im-x1_im*ac->w1_re+x2_re*ac->w2_im+x2_im*ac->w1_re;
+			cc=(aa*aa+bb*bb)/(fpp*ac->w11+fpc*ac->w12+fcc*ac->w22);
+			if(cc>d)d=cc;
+			}
+		fprintf(stderr, "x1=(%f, %f) x2=(%f, %f) d=%g\n", x1_re, x1_im, x2_re, x2_im, d);
+		if(d>max_norm) {
+			max_norm=d;
+			x_max[0]=x1_re;
+			x_max[1]=x1_im;
+			x_max[2]=x2_re;
+			x_max[3]=x2_im;
+			}
+		if(d<min_norm){
+			min_norm=d;
+			x_min[0]=x1_re;
+			x_min[1]=x1_im;
+			x_min[2]=x2_re;
+			x_min[3]=x2_im;
+			}
+		}
+	}
+fprintf(stderr, "min=%g (%f,%f), (%f, %f)  max=%g (%f,%f), (%f, %f)  ratio=%f\n", min_norm, x_min[0], x_min[1], x_min[2], x_min[3], max_norm, x_max[0], x_max[1], x_max[2], x_max[3],  max_norm/min_norm);
 }
 
 void update_SNR_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
@@ -142,6 +199,7 @@ for(i=0;i<acd->free;i++) {
 		
 	}
 }
+
 
 //#define UL_CONFIDENCE_LEVEL 1.65
 /* Use 3.0 which is good for both Gaussian and exponential statistic, and all chi2 */
@@ -342,6 +400,79 @@ for(i=0;i<acd->free;i++) {
 	}
 }
 
+double compute_stats_func_ratio(LOOSE_CONTEXT *ctx, void (*stats_func)(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset))
+{
+int i,j,k;
+double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+ALIGNMENT_COEFFS *ac;
+double min_norm, max_norm;
+double a, b, c, d, s, aa, bb, cc;
+int i_max=100, j_max=100;
+STAT_INFO st;
+COMPLEX8 z1, z2;
+double norm;
+
+double x_min[4], x_max[4];
+
+max_norm=-1e25;
+min_norm=1e25;
+
+norm=sqrt(fpp+fcc);
+
+for(i=0;i<=i_max;i++) {
+	a=(1.0*i)/i_max;
+	b=sqrt(1.0-a*a);
+	for(j=0;j<j_max;j++) {
+		c=cos(0.25*2*M_PI*j/j_max);
+		s=sin(0.25*2*M_PI*j/j_max);
+		
+		z1.re=norm*a*c;
+		z1.im=-norm*a*s;
+		z2.re=norm*b*c;
+		z2.im=norm*b*s;
+		
+		d=0;
+		st.value=0;
+		stats_func(ctx, &st, z1, z2, 0, 0);
+
+		//fprintf(stderr, "x1=(%f, %f) x2=(%f, %f) d=%g\n", z1.re, z1.im, z2.re, z2.im, st.value);
+		if(st.value>max_norm) {
+			max_norm=st.value;
+			x_max[0]=z1.re;
+			x_max[1]=z1.im;
+			x_max[2]=z2.re;
+			x_max[3]=z2.im;
+			}
+		if(st.value<min_norm){
+			min_norm=st.value;
+			x_min[0]=z1.re;
+			x_min[1]=z1.im;
+			x_min[2]=z2.re;
+			x_min[3]=z2.im;
+			}
+		}
+	}
+fprintf(stderr, "min=%g (%f,%f), (%f, %f)  max=%g (%f,%f), (%f, %f)  ratio=%f\n", min_norm, x_min[0], x_min[1], x_min[2], x_min[3], max_norm, x_max[0], x_max[1], x_max[2], x_max[3],  max_norm/min_norm);
+return (max_norm/min_norm);
+}
+
+void compute_stats_variance(LOOSE_CONTEXT *ctx)
+{
+ctx->ratio_SNR=compute_stats_func_ratio(ctx, update_SNR_stats);
+ctx->ratio_UL=compute_stats_func_ratio(ctx, update_UL_stats);
+ctx->ratio_UL=ctx->ratio_UL*ctx->ratio_UL;
+ctx->ratio_UL_circ=compute_stats_func_ratio(ctx, update_circ_UL_stats);
+ctx->ratio_UL_circ=ctx->ratio_UL_circ*ctx->ratio_UL_circ;
+ctx->ratio_B_stat=compute_stats_func_ratio(ctx, update_B_stats);
+ctx->ratio_F_stat=compute_stats_func_ratio(ctx, update_F_stats);
+
+ctx->max_ratio=ctx->ratio_SNR;
+if(ctx->ratio_UL>ctx->max_ratio)ctx->max_ratio=ctx->ratio_UL;
+if(ctx->ratio_UL_circ>ctx->max_ratio)ctx->max_ratio=ctx->ratio_UL_circ;
+//if(ctx->ratio_B_stat>ctx->max_ratio)ctx->max_ratio=ctx->ratio_B_stat;
+if(ctx->ratio_F_stat>ctx->max_ratio)ctx->max_ratio=ctx->ratio_F_stat;
+}
+
 void compute_fft_stats(LOOSE_CONTEXT *ctx, FFT_STATS *stats, COMPLEX8Vector *fft1, COMPLEX8Vector *fft2, double fft_offset)
 {
 float M[4];
@@ -370,7 +501,8 @@ for(i=0;i<nsamples;i++) {
 	if(abs(i-(nsamples>>1))<(nsamples>>2))continue;
 	
 	V=fft1->data[i].re*fft1->data[i].re+fft1->data[i].im*fft1->data[i].im+fft2->data[i].re*fft2->data[i].re+fft2->data[i].im*fft2->data[i].im;
-	idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
+	idx=0;
+	//idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
 	
 	if(V>M[idx])M[idx]=V;
 	sum+=V;
@@ -383,9 +515,10 @@ for(i=0;i<nsamples;i++) {
 	if(abs(i-(nsamples>>1))<(nsamples>>2))continue;
 
 	V=fft1->data[i].re*fft1->data[i].re+fft1->data[i].im*fft1->data[i].im+fft2->data[i].re*fft2->data[i].re+fft2->data[i].im*fft2->data[i].im;
-	idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
+	idx=0;
+	//idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
 	
-	if(V<0.5*M[idx])continue;
+	if(V*ctx->max_ratio<M[idx])continue;
 	
 	update_SNR_stats(ctx, &(stats->snr), fft1->data[i], fft2->data[i], (i*2>nsamples ? i-nsamples : i), fft_offset);
 	update_UL_stats(ctx, &(stats->ul), fft1->data[i], fft2->data[i], (i*2>nsamples ? i-nsamples : i), fft_offset);
