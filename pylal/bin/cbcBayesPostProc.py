@@ -173,6 +173,7 @@ def cbcBayesPostProc(
         for snr in snrs:
             if snr=="\n":
                 continue
+            snr_net=snr
             snrstring=snrstring +" "+str(snr[0:-1])+" ,"
         snrstring=snrstring[0:-1]
         print 'SNR: %s'%snrstring
@@ -200,6 +201,10 @@ def cbcBayesPostProc(
 
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
     print pos.names
+
+    if 'snr' in pos.names and snr_net is not None:
+        pos['snr'].set_injval(float(snr_net[9:]))
+
     if ('mc' in pos.names or 'mchirp' in pos.names) and \
     'eta' in pos.names and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and\
@@ -1084,7 +1089,8 @@ if __name__=='__main__':
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams #+ endTimeParams
+    rec_snr=['snr']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams +rec_snr #+ endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     '''for ifo1 in ifos_menu:
@@ -1127,7 +1133,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':10.0,'dist':10.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':10.0,'dist':10.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'snr':1.0}
     #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
     #    greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels

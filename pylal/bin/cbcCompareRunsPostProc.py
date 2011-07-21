@@ -249,7 +249,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     ### flow and fup only control the extrema of the error plots.
     flow=20.0
     fup=800.0
-    label_size=22
+    label_size=26
     time_event=None
     ### Read the trigger times from the injfile using the raw_event option
     if inj and raw_events:
@@ -328,7 +328,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     recovered_positions_key={}
     injected_positions={}
     recovered_positions_ctrl={}    
-    
+
     tot_post=0.0
     actual=0.0
     for run in key_runs:
@@ -428,7 +428,6 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
 	    header.close()
     ### For the moment I'm only using a single header file. TBD: reading headers for all the runs and checking whether the parameters are consistent. Act consequently.
     ### Now read the ctrl data, these stay the same all along while the cal_run data are read at each interation in the for below
-
     for run in key_runs:
         run=str(run)
         path_uncal=os.path.join(outdir,'summary_ctrl_'+run+'.dat')    
@@ -486,15 +485,19 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
         print "Could not fix f_up to %5.2f. Exiting...\n"%f_up
         sys.exit(1)
     
-    myfig=figure(1,figsize=(10,8),dpi=80)
+    myfig=figure(1,figsize=(12,8),dpi=200)
     ax=myfig.add_subplot(111)
     for (IFO,color) in zip(IFOs,['r','b','k']):
-        plot(data[IFO][a:b,0],data[IFO][a:b,1],color,label=IFO)
+        plot(data[IFO][a:b,0],data[IFO][a:b,1],color,linewidth=3,label=IFO)
+    axhline(y=1.0,linewidth=2, linestyle='--',color='m') 
     ax.set_xlabel('f[Hz]',fontsize=label_size)
     ax.set_ylabel('Amp_'+key+'/Amp_ctrl',fontsize=label_size)
+    ax.set_ylim((0.7,1.3))
     set_fontsize_in_ticks(ax,label_size)
     grid()
-    legend()
+    leg=ax.legend()
+    for i in leg.get_texts():
+        i.set_fontsize(label_size)
     myfig.savefig(os.path.join(path_plots,'amp_'+str(time)+'.png'))
     myfig.clear()
     phase={}
@@ -515,14 +518,19 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
         phase_normalized[IFO]=[]
         normalizer(phase[IFO],phase_normalized[IFO])
 
-    myfig=figure(1,figsize=(10,8),dpi=80)
+    myfig=figure(1,figsize=(12,8),dpi=200)
     ax=myfig.add_subplot(111)
     for (IFO,color) in zip(IFOs,['r','b','k']):
-        plot(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,label=IFO)
+        plot(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,linewidth=3,label=IFO)
     ax.set_xlabel('f[Hz]',fontsize=label_size)
     ax.set_ylabel('Pha_'+key+' -Pha_ctrl [Rads]',fontsize=label_size)
+    axhline(y=0.0,linewidth=2, linestyle='--',color='m')
+    ax.set_ylim((-0.2,0.2))
     set_fontsize_in_ticks(ax,label_size)
-    legend()
+    leg=ax.legend()
+    for i in leg.get_texts():
+        i.set_fontsize(label_size)
+
     grid()
     myfig.savefig(os.path.join(path_plots,'pha_'+str(time)+'.png'))
     myfig.clear()
@@ -658,7 +666,7 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
 def MakeRunsComparePlots(outdir,runs,label_size):
     path_out=os.path.join(outdir,'CompareRunsPlots')
     checkDir(path_out)
-    labelsize=22
+    labelsize=26
     if os.path.isfile(os.path.join(outdir,'1/ParametersPlots/moments.txt')):
         par=np.loadtxt(os.path.join(outdir,'1/ParametersPlots/moments.txt'),skiprows=1,dtype='str')
     else:
@@ -667,11 +675,10 @@ def MakeRunsComparePlots(outdir,runs,label_size):
 
     parameters=par[:,0]
     for param in parameters:
-        myfig=figure(2,figsize=(10,14),dpi=80)
+        myfig=figure(2,figsize=(14,10),dpi=300)
         ax=myfig.add_subplot(111)
         for i in range(1,runs+1):
             Mean=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments.txt'),skiprows=1,usecols=(1,2,3))
-            print i,Mean, list(parameters).index(param)
             Mean=Mean[list(parameters).index(param),0]
             Stdev=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments.txt'),skiprows=1,usecols=(1,2,3))
             Stdev=Stdev[list(parameters).index(param),1]
@@ -679,23 +686,28 @@ def MakeRunsComparePlots(outdir,runs,label_size):
             Median=Median[list(parameters).index(param),2]
             if i==1:
                 #ax.errorbar(i,Mean,yerr=Stdev,fmt='--o',color='r',mfc='r',label='means')
-                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b',label='median')
+                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b',ms=10,lw=2,label='median')
             else:
                 #ax.errorbar(i,Mean,yerr=Stdev,fmt='--o',color='r',mfc='r')
-                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b')
+                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b',ms=10,lw=2)
 
             xlim((0,runs+1))
         ax.set_xlabel("CalError Realization #",fontsize=labelsize)
         ax.set_ylabel("median effect_"+param,fontsize=labelsize)
+        ax.set_ylim((-0.8,0.8))
         ax.grid()
-	ax.legend()
-        set_fontsize_in_ticks(ax,label_size)
+	leg=ax.legend()
+        set_fontsize_in_ticks(ax,label_size+4)
+        set_fontsize_in_legend(leg,label_size+4)
         myfig.savefig(os.path.join(path_out,'compare_'+param+'.png'))
         myfig.clear()
 
 def set_fontsize_in_ticks(axes,size):
     [t.set_fontsize(size) for t in axes.xaxis.get_ticklabels()]
     [t.set_fontsize(size) for t in axes.yaxis.get_ticklabels()]
+def set_fontsize_in_legend(legend,size):
+    for i in legend.get_texts():
+        i.set_fontsize(size)
 
 def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     labelsize=22
@@ -707,17 +719,34 @@ def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
     bsns_cal=data_cal[:,header_l.index('BSN')]
     bsns_ctrl=data_ctrl[:,header_l.index('BSN')]
-    myfig=figure(2,figsize=(10,10),dpi=80)
+    myfig=figure(2,figsize=(12,10),dpi=200)
     ax=myfig.add_subplot(111)
     ax.plot(network_snrs,bsns_cal,'ro',label='BSN_'+key)
-    ax.set_xlabel('Network SNR '+key,fontsize=label_size)
+    ax.set_xlabel('Network SNR',fontsize=label_size)
     ax.set_ylabel('$\mathrm{log\,B}$',fontsize=label_size)
     locs, labels = (ax.get_xticks(),ax.get_xticklabels)
+    set_fontsize_in_ticks(ax,label_size)
     grid()
     ax.plot(network_snrs_ctrl,bsns_ctrl,'bo',label='BSN_ctrl')
-    ax.legend(loc='upper right')
+    leg=ax.legend(loc='upper right')
+    set_fontsize_in_legend(leg,label_size)
     myfig.savefig(os.path.join(path_plots,'BSN_vs_SNR.png'))
     myfig.clear()
+
+    myfig=figure(2,figsize=(12,10),dpi=200)
+    ax=myfig.add_subplot(111)
+    ax.plot(network_snrs,bsns_ctrl-bsns_cal,'ro',label='logBSN_ctrl - logBSN_'+key,linewidth=3)
+    ax.set_xlabel('Network SNR',fontsize=label_size)
+    ax.set_ylabel(r'$\mathrm{log\,B}_{ctrl} - \mathrm{log\,B}_{'+key+'}$',fontsize=label_size)
+    locs, labels = (ax.get_xticks(),ax.get_xticklabels)
+    set_fontsize_in_ticks(ax,label_size)
+    grid()
+    leg=ax.legend(loc='upper right')
+    set_fontsize_in_legend(leg,label_size)
+    myfig.savefig(os.path.join(path_plots,'BSN_diff_vs_SNR.png'))
+    myfig.clear()
+
+
 
 def WritePlotPage(outdir,run,parameters,first_time):
     run=str(run)
@@ -738,7 +767,7 @@ def WritePlotPage(outdir,run,parameters,first_time):
     for plot in ['amp_','pha_']:
         html_err_st+='<td>'
         if os.path.isfile(os.path.join(abs_page_path,'ErrorPlots',plot +first_time+'.png')):
-            html_err_st+=linkImage(os.path.join(error_path_plots,plot +first_time+'.png'),1.5*wd,1.5*hg)
+            html_err_st+=linkImage(os.path.join(error_path_plots,plot +first_time+'.png'),1*wd,1*hg)
         else:
             html_err_st+='<p> No calibration error curves found in ' + error_path_plots +'</p>'
         html_err_st+='</td>'
@@ -762,10 +791,14 @@ def WritePlotPage(outdir,run,parameters,first_time):
                 html_plots_st+='</td>'
         html_plots_st+='</tr>'
     html_plots_st+='<tr>'
+
     if os.path.isfile(os.path.join(bsn_plots,'BSN_vs_SNR.png')):
         html_plots_st+='<td colspan="2">'
-        html_plots_st+=linkImage(os.path.join(bsn_plots,'BSN_vs_SNR.png'),2*wd,2*hg)
-        html_plots_st+='</td>'
+        html_plots_st+='<table><tr><td>'
+        html_plots_st+=linkImage(os.path.join(bsn_plots,'BSN_vs_SNR.png'),wd,hg)
+        html_plots_st+='</td><td>'
+        html_plots_st+=linkImage(os.path.join(bsn_plots,'BSN_diff_vs_SNR.png'),wd,hg)
+        html_plots_st+='</td></tr></table></td>'
     #if os.path.isfile(os.path.join(sky_plots,'injected_skymap.png')):
     #    html_plots_st+='<td colspan="2">'
     #    html_plots_st+=linkImage(os.path.join(sky_plots,'injected_skymap.png'),2*wd,2*hg)

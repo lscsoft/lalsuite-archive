@@ -455,6 +455,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	/* Calculate the likelihood for an amplitude-corrected waveform */
 	/* This template is generated in the time domain */
 	REAL8 logL=0.0,chisq=0.0;
+        REAL8 rec_snr=0.0;
 	REAL8 mc,eta,end_time,resp_r,resp_i,real,imag;
 	UINT4 det_i=0,idx=0;
 	UINT4 i=0;
@@ -663,6 +664,8 @@ REAL8 MCMCLikelihoodMultiCoherentF(LALMCMCInput *inputMCMC,LALMCMCParameter *par
 in the frequency domain */
 {
 	REAL8 logL=0.0;
+	REAL8 rec_snr=0.0;
+	parameter->SNR=0.0;
 	UINT4 det_i;
 	REAL8 TimeFromGC; /* Time delay from geocentre */
 	static LALStatus status;
@@ -819,6 +822,7 @@ in the frequency domain */
 			real=inputMCMC->stilde[det_i]->data->data[idx].re - resp_r/deltaF;
 			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i/deltaF;
 			chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
+			rec_snr+=2.0*((resp_r/deltaF)*(resp_r/deltaF)+(resp_i/deltaF)*(resp_i/deltaF))*inputMCMC->invspec[det_i]->data->data[idx];
 
 		} /* End loop over frequency */
 
@@ -847,6 +851,8 @@ in the frequency domain */
 		if(highBin<inputMCMC->stilde[det_i]->data->length-2 && highBin>lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
 		else if(highBin<=lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
 		chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
+                rec_snr*=2.0*deltaF;
+		parameter->SNR+=rec_snr;
 		/* add the normalisation constant */
 
 		/*		chisq+=normalisations[det_i]; */ /*Gaussian version*/
@@ -858,6 +864,7 @@ in the frequency domain */
 
 	/* Add log likelihoods to find global likelihood */
 	parameter->logLikelihood=logL; 
+	parameter->SNR=sqrt(parameter->SNR);
 	return(logL);
 }
 
