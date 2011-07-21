@@ -236,6 +236,7 @@ tagLALMCMCParameter
   UINT4                   dimension;      
   REAL8                   logLikelihood; 
   REAL8                   logPrior;
+  REAL8			  SNR;
 }  LALMCMCParameter;
 /* </lalVerbatim>  */
 
@@ -271,8 +272,8 @@ tagLALMCMCInput
   REAL8TimeSeries*          segment[MAXDET];
   REAL8FrequencySeries*     invspec[MAXDET];
   COMPLEX16FrequencySeries* stilde[MAXDET];
+  COMPLEX16FrequencySeries* noff[MAXDET];
   LALDetector*				detector[MAXDET];
-
   SnglInspiralTable         *inspiralTable;
   SimInspiralTable			*injectionTable;
   REAL8FFTPlan *fwdplan;

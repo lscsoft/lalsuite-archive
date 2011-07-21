@@ -146,8 +146,8 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 	
     in_range=ParamInRange(injected);
         if (in_range==0){
-	        fprintf(stderr,"One or more injected parameters are outside their allowed ranges. Aborting... \n");
-	        exit(1);
+	     fprintf(stderr,"One or more injected parameters are outside their allowed ranges. WARNING!!! \n");
+	        //exit(1);
 		}
 		
 	if(XLALMCMCCheckParameter(injected,"logM")) mc=exp(XLALMCMCGetParameter(injected,"logM"));
@@ -240,6 +240,8 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	if (MCMCinput->injectionTable!=NULL){		
         LALMCMCParameter *injected=(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));    
         CheckInjectionInRange(injected,MCMCinput);
+        fprintf(stdout,"logL of the injected point %lf \n", MCMCinput->funcLikelihood(MCMCinput,injected));
+        fprintf(stdout,"SNR of the injected point %lf (that should be equal to the optimal one) \n", injected->SNR);
     }
     
 	if(MCMCinput->injectionTable!=NULL) MCMCinput->funcInit(temp,(void *)MCMCinput->injectionTable);
@@ -298,6 +300,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
     {
         fprintf(fpout,"%s\t",param_ptr->core->name);
     }
+    fprintf(fpout,"SNR\t");
     fprintf(fpout,"logl");
     fclose(fpout);
 
@@ -350,8 +353,8 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		if(Live[minpos]->logLikelihood > logLmax) logLmax = Live[minpos]->logLikelihood;
 		for(j=0;j<Nruns;j++) logwarray[j]+=sample_logt(Nlive);
 		logw=mean(logwarray,Nruns);
-		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db\n",
-									   i,100.0*((REAL8)i)/(((REAL8) Nlive)*H),accept/MCMCfail,H,H/log(2.0),logLmin,Live[minpos]->logLikelihood,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ,logZ,10.0*log10(exp(1.0))*(logZ-logZnoise));
+		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db SNR %4.2f \n",
+									   i,100.0*((REAL8)i)/(((REAL8) Nlive)*H),accept/MCMCfail,H,H/log(2.0),logLmin,Live[minpos]->logLikelihood,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ,logZ,10.0*log10(exp(1.0))*(logZ-logZnoise),Live[minpos]->SNR);
 		if(fpout && !(i%50)) fflush(fpout);
 		i++;
 	}
@@ -597,6 +600,7 @@ void fprintSample(FILE *fp,LALMCMCParameter *sample){
 	LALMCMCParam *p=sample->param;
 	if(fp==NULL) return;
 	while(p!=NULL) {fprintf(fp,"%15.15lf\t",p->value); p=p->next;}
+        fprintf(fp,"%lf\t",sample->SNR);
 	fprintf(fp,"%lf\n",sample->logLikelihood);
 	return;
 }

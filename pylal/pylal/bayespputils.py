@@ -1630,7 +1630,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
 
-    if inj_pos is not None:
+    if inj_pos is not None and inj_pos[0] is not None and inj_pos[1] is not None:
         ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
         inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
         plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
