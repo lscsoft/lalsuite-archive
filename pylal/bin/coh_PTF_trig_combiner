@@ -1,187 +1,216 @@
 #!/usr/bin/python
 
+# =============================================================================
+# Preamble
+# =============================================================================
+
 from __future__ import division
 
-import os,sys
-import glob
-import matplotlib
-matplotlib.use('Agg')
-import pylab
+import os,sys,glob,numpy
 from optparse import OptionParser
-from pylal import SimInspiralUtils
 from pylal import MultiInspiralUtils
-from glue.ligolw import ilwd
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import table,lsctables,utils,ligolw,ilwd
+from glue import segments,lal
 from pylal.coh_PTF_pyutils import *
+from math import pi
+from glue import git_version
 
-usage = ""
+__author__  = "Ian Harry <ian.harry@astro.cf.ac.uk>"
+__version__ = "git id %s" % git_version.id
+__date__    = git_version.date
 
-parser = OptionParser( usage )
+# =============================================================================
+# Parse command line
+# =============================================================================
 
-parser.add_option("-r", "--run-directory",action="store",type="string",\
-    default=None,\
-    help="The location of the run directory")
-parser.add_option("-n", "--grb-name",action="store",type="string",\
-    default=None,\
-    help="Name of the GRB such as 090802")
-parser.add_option("-i","--ifo-tag",action="store",type="string",\
-    default=None,\
-    help="The ifo tag, H1L1 or H1L1V1 for instance")
-parser.add_option("-N","--num-files",action="store",type="int",\
-    default=0,help="The number of files used in splitbank")
+def parse_command_line():
 
-(opts,args) = parser.parse_args()
+  usage = """usage: %prog [options] 
 
-if not opts.run_directory:
-  print "must provide run directory"
-  sys.exit(1)
+coh_PTF_trig_combiner is designed to coalesce the triggers made from each element of the split template bank used by the search. The required arguments are
 
-if not opts.grb_name:
-  print "must provide GRB name"
-  sys.exit(1)
+--ifo-tag
+--user-tag
+--cache
+"""
 
-if not opts.ifo_tag:
-  print "must provide ifo tag"
-  sys.exit(1)
+  parser = OptionParser( usage )
 
-if opts.num_files < 1:
-  print "num_files must be given and greater than 0"
-  sys.exit(1)
+  parser.add_option( "-i", "--ifo-tag", action="store", type="string",\
+                     default=None,\
+                     help="The ifo tag, H1L1 or H1L1V1 for instance" )
 
-runDir = os.path.join(opts.run_directory, "onoff")
-GRBnum = opts.grb_name
-numFiles = opts.num_files
-ifoTag = opts.ifo_tag
-lostTime = 71
-segTimes = readSegFiles(opts.run_directory)
-bufferStart = int(segTimes["buffer_start"])
-bufferEnd = int(segTimes["buffer_end"])
-onSourceStart = int(segTimes["on_start"])
-onSourceEnd = int(segTimes["on_end"])
-offSourceStart = int(segTimes["off_start"])
-offSourceEnd = int(segTimes["off_end"])
-trialTime = onSourceEnd - onSourceStart
+  parser.add_option( "-u", "--user-tag", action="store", type="string",\
+                     default='COH_PTF_INSPIRAL_FIRST',\
+                     help="The user tag, COH_PTF_INSPIRAL_FIRST for instance" )
 
-offSource1Start = offSourceStart + lostTime
-offSource1End = offSource1Start + trialTime
-offSource2End = offSource1End + trialTime
-offSource3End = offSource2End + trialTime
-offSource4End = offSource3End + trialTime
-offSource5End = offSource4End + trialTime
-offSource6End = offSource5End + trialTime
+  parser.add_option( "-n", "--grb-name", action="store", type="string",\
+                     default=None, help="GRB name, such as 090802 "+\
+                                        "(will be appended to output user tag" )
 
+  parser.add_option( "-T", "--num-trials", action="store", type="int",\
+                     default=6,\
+                     help="The number of off source trials, default: %default" )
 
-fileHead = ifoTag + "-COH_PTF_INSPIRAL_FIRST"
-fileTail = "GRB" + GRBnum + "_ZERO_LAG_CATEGORY_1-*-2176.xml.gz"
+  parser.add_option( "-a", "--segment-dir", action="store", type="string",\
+                     help="directory holding buffer, on and off source "+\
+                          "segment files." )
 
-# Begin by reading in injections and determining if injection is found
-fileNames = []
-for num in xrange(0,numFiles):
-  fNam = glob.glob(runDir + '/' + fileHead + "_" + str(num) + "_" + fileTail)
-  if len(fNam) == 1:
-    fileNames.append(fNam[0]) 
-  elif len(fNam) == 0:
-    print "No files found with name " + runDir + '/' + fileHead + "_" + str(num) + "_" + fileTail 
-  else:
-    print "ERROR: Multiple file found fitting string " + runDir + '/' + fileHead + "_" + str(num) + "_" + fileTail
-    print fNam
-    raise ValueError, ""
+  parser.add_option( "-o", "--output-dir", action="store", type="string",\
+                     default=os.getcwd(), help="output directory, "+\
+                                               "default: %default" )
 
-trigSigmaH1 = []
-trigSigmaH2 = []
-trigSigmaL1 = []
-trigSigmaV1 = []
+  parser.add_option( "-v", "--verbose", action="store_true", default=False,\
+                     help="verbose output, default: %default" )
 
-if len(fileNames):
-  currTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles(fileNames)
+  parser.add_option( "-c", "--cache", action="store", type="string",\
+                     default=None, help="read trigger files from this cache." )
 
-  offSourceTrigs = lsctables.New(lsctables.MultiInspiralTable)
-  onSourceTrigs = lsctables.New(lsctables.MultiInspiralTable)
-  offSource1Trigs = lsctables.New(lsctables.MultiInspiralTable)
-  offSource2Trigs = lsctables.New(lsctables.MultiInspiralTable)
-  offSource3Trigs = lsctables.New(lsctables.MultiInspiralTable)
-  offSource4Trigs = lsctables.New(lsctables.MultiInspiralTable)
-  offSource5Trigs = lsctables.New(lsctables.MultiInspiralTable)
-  offSource6Trigs = lsctables.New(lsctables.MultiInspiralTable)
+  (opts,args) = parser.parse_args()
 
-  for trig in currTrigs:
-    if (trig.get_end() < bufferStart) or (trig.get_end() > bufferEnd):
-      offSourceTrigs.append(trig)
-    elif (trig.get_end() > onSourceStart) and (trig.get_end() < onSourceEnd):
-      onSourceTrigs.append(trig)
-    if (trig.get_end() < offSource1End):
-      offSource1Trigs.append(trig)
-    elif (trig.get_end() < offSource2End):
-      offSource2Trigs.append(trig)
-    elif (trig.get_end() < offSource3End):
-      offSource3Trigs.append(trig)
-    elif (trig.get_end() < offSource4End):
-      offSource4Trigs.append(trig)
-    elif (trig.get_end() < offSource5End):
-      offSource5Trigs.append(trig)
-    elif (trig.get_end() < offSource6End):
-      offSource6Trigs.append(trig)
-    trigSigmaH1.append(trig.sigmasq_h1)
-    trigSigmaH2.append(trig.sigmasq_h2)
-    trigSigmaL1.append(trig.sigmasq_l)
-    trigSigmaV1.append(trig.sigmasq_v)
+  if not opts.ifo_tag:
+    parser.error( "must provide --ifo-tag" )
 
-  ra,dec = get_ra_dec(opts.run_directory + '/triggerGRB'+opts.grb_name+'.xml')
-  fPlus,fCross = get_det_response(ra,dec,onSourceEnd-1)
-  trigSigmaH1 = pylab.asarray(trigSigmaH1)
-  trigSigmaH2 = pylab.asarray(trigSigmaH2)
-  trigSigmaL1 = pylab.asarray(trigSigmaL1)
-  trigSigmaV1 = pylab.asarray(trigSigmaV1)
-  trigSigmaTot=trigSigmaH1*(fPlus['H1']*fPlus['H1'] + fCross['H1']*fCross['H1'])
-  trigSigmaTot+=trigSigmaH2*(fPlus['H2']*fPlus['H2']+ fCross['H2']*fCross['H2'])
-  trigSigmaTot+=trigSigmaL1*(fPlus['L1']*fPlus['L1']+ fCross['L1']*fCross['L1'])
-  trigSigmaTot+=trigSigmaV1*(fPlus['V1']*fPlus['V1']+ fCross['V1']*fCross['V1'])
-  trigSigmaH1 = trigSigmaH1/trigSigmaTot
-  trigSigmaH2 = trigSigmaH2/trigSigmaTot
-  trigSigmaL1 = trigSigmaL1/trigSigmaTot
-  trigSigmaV1 = trigSigmaV1/trigSigmaTot
+  if not opts.user_tag:
+    parser.error( "must provide --user-tag" )
 
-  file = open("sngl_snr_cut.dat","w")
-  print >>file, trigSigmaH1.min(),trigSigmaH1.max()
-  print >>file, trigSigmaH2.min(),trigSigmaH2.max()
-  print >>file, trigSigmaL1.min(),trigSigmaL1.max()
-  print >>file, trigSigmaV1.min(),trigSigmaV1.max()
-  file.close()
+  if not opts.cache:
+    parser.error( "must provide --cache" )
 
-  xmlFile = utils.load_filename(fileNames[0],\
-                   gz = fileNames[0].endswith("gz"))
-  oldMultiTable = table.get_table(xmlFile,"multi_inspiral")
-  xmlFile.childNodes[0].removeChild(oldMultiTable)
-  xmlFile.childNodes[0].appendChild(offSourceTrigs)
+  if not opts.segment_dir:
+    parser.error( "must provide --segment-dir" )
 
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_OFFSOURCE.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(offSourceTrigs)
-  xmlFile.childNodes[0].appendChild(onSourceTrigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_ONSOURCE.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(onSourceTrigs)
-  xmlFile.childNodes[0].appendChild(currTrigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_ALL_TIMES.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(currTrigs)
-  xmlFile.childNodes[0].appendChild(offSource1Trigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_OFFTRIAL_1.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(offSource1Trigs)
-  xmlFile.childNodes[0].appendChild(offSource2Trigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_OFFTRIAL_2.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(offSource2Trigs)
-  xmlFile.childNodes[0].appendChild(offSource3Trigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_OFFTRIAL_3.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(offSource3Trigs)
-  xmlFile.childNodes[0].appendChild(offSource4Trigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_OFFTRIAL_4.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(offSource4Trigs)
-  xmlFile.childNodes[0].appendChild(offSource5Trigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_OFFTRIAL_5.xml.gz",gz=True)
-  xmlFile.childNodes[0].removeChild(offSource5Trigs)
-  xmlFile.childNodes[0].appendChild(offSource6Trigs)
-  utils.write_filename(xmlFile,fileHead+"_GRB" + GRBnum + "_OFFTRIAL_6.xml.gz",gz=True)
+  return opts,args
 
+# =============================================================================
+# Main function
+# =============================================================================
 
+def main( cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
+          verbose=False ):
 
+  if verbose:
+    print >>sys.stdout, 'Getting segments...'
+
+  # get segments
+  lostTime       = 71
+  segs           = readSegFiles(segdir)
+  trialTime      = abs( segs['on'] )
+  
+  # construct off source trials
+  offSourceSegs  = segments.segmentlist()
+  offSourceSegs.append( segs['off'] )
+  offSourceSegs.append( segments.segment( segs['off'][0]+lostTime,\
+                                          segs['off'][0]+lostTime+trialTime ) )
+  for i in xrange(numTrials-1):
+    t = i+2
+    offSourceSegs.append(segments.segment(tuple( map( trialTime.__add__,\
+                                                      offSourceSegs[t-1]) )))
+ 
+  if verbose:
+    print >>sys.stdout, 'Constructed %d off source trials with segments:'\
+                        % numTrials
+    for i in xrange(numTrials):
+      print >>sys.stdout, offSourceSegs[i+1]
+
+  # get trigger files 
+  if verbose:
+    print >>sys.stdout
+    print >>sys.stdout, 'Finding files...'
+
+  cache = lal.Cache.fromfile(open( cacheFile, 'r' ))
+  cache = cache.sieve( ifos=ifoTag, description=userTag )
+
+  if len(cache)<1:
+    print >>sys.stderr, 'No files found.'
+    sys.exit(1)
+ 
+  # prepare triggers
+  trigs = {}
+ 
+  if verbose:
+    print >>sys.stdout
+    print >>sys.stdout, 'Loading all triggers...'
+
+  # load triggers
+  trigs['ALL_TIMES'] =\
+      MultiInspiralUtils.ReadMultiInspiralFromFiles([ e.path() for e in cache ])
+  # Temporary hack to allow the code to work with tables that dont have
+  # the new time slide ID column.
+  if 'time_slide_id' not in trigs['ALL_TIMES'].columnnames:
+    trigs['ALL_TIMES'].appendColumn('time_slide_id')
+  for trig in trigs['ALL_TIMES']:
+    try:
+      tmp = trig.time_slide_id
+    except AttributeError:
+      trig.time_slide_id = ilwd.get_ilwdchar("multi_inspiral:time_slide_id:0")
+  trigs['ONSOURCE'] = lsctables.New(lsctables.MultiInspiralTable)
+  trigs['OFFSOURCE'] = lsctables.New(lsctables.MultiInspiralTable)
+  for i in range(numTrials):
+    trigs['OFFTRIAL_%d' % (i+1)] = lsctables.New(lsctables.MultiInspiralTable)
+
+  if verbose:
+    print >>sys.stdout
+    print >>sys.stdout, 'Separating triggers by end time...'
+
+  # separate into correct bins
+  for trig in trigs['ALL_TIMES']:
+    if trig.get_end() not in segs['buffer']:
+      trigs['OFFSOURCE'].append(trig)
+    elif trig.get_end() in segs['on']:
+      trigs['ONSOURCE'].append(trig)
+    for i in xrange(numTrials):
+      if trig.get_end() in offSourceSegs[i+1]:
+        trigs['OFFTRIAL_%d' % (i+1)].append(trig)
+        break
+
+  if verbose:
+    print >>sys.stdout
+    print >>sys.stdout, 'Writing new xml files...'
+
+  # prepare xmldocument 
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+
+  # append process params table
+  xmldoc = append_process_params( xmldoc, sys.argv, __version__, __date__ )
+ 
+  # get search summary table from old file
+  oldxml   = utils.load_filename( cache[0].path(),\
+                                  gz = cache[0].path().endswith("gz") )
+  oldSearchSummTable = table.get_table( oldxml, "search_summary" )
+  xmldoc.childNodes[-1].appendChild( oldSearchSummTable )
+
+  # construct new xml file names
+  allsegs = cache.to_segmentlistdict()[ifoTag].coalesce()
+  allsegs.sort(key=lambda seg: (seg[0],seg[1]) )
+  start   = allsegs[0][0]
+  end     = allsegs[-1][-1]
+  if grbTag:
+    userTag = '%s_GRB%s' % ( userTag, grbTag )
+
+  # write new xml files
+  for trigTime in trigs.keys():
+    xmlName = '%s/%s-%s_%s-%d-%d.xml.gz'\
+              % ( outdir, ifoTag, userTag, trigTime, start, end-start )
+    xmldoc.childNodes[-1].appendChild( trigs[trigTime] )
+    utils.write_filename( xmldoc, xmlName, gz = xmlName.endswith('gz') )
+    xmldoc.childNodes[-1].removeChild( trigs[trigTime] ) 
+    if verbose: 
+      print >>sys.stdout, xmlName
+
+if __name__=='__main__':
+
+  opts, args = parse_command_line()
+
+  outdir    = os.path.abspath( opts.output_dir )
+  segdir    = os.path.abspath( opts.segment_dir )
+  ifoTag    = opts.ifo_tag
+  userTag   = opts.user_tag
+  cacheFile = opts.cache
+  GRBname   = opts.grb_name
+  numTrials = opts.num_trials
+  verbose   = opts.verbose
+
+  main( cacheFile, ifoTag, userTag, segdir, outdir,\
+        grbTag=GRBname, numTrials=numTrials, verbose=verbose )
