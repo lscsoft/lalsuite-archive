@@ -41,7 +41,6 @@ from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolwprocess
-from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
 from pylal import git_version
 from pylal import stringutils

@@ -77,6 +77,35 @@ import re
 #
 # =============================================================================
 #
+#                               Progress Wrapper
+#
+# =============================================================================
+#
+
+
+class progress_wrapper(object):
+	"""
+	Progress report wrapper.  For internal use only.
+	"""
+	def __init__(self, f, callback):
+		self.n = 0
+		self.f = f
+		self.callback = callback
+
+	def __iadd__(self, dn):
+		self.n += dn
+		if self.callback is not None and not self.n % 7411:
+			self.callback(self.f, self.n, False)
+		return self
+
+	def __del__(self):
+		if self.callback is not None:
+			self.callback(self.f, self.n, True)
+
+
+#
+# =============================================================================
+#
 #                      The Contents of a Condor DAG File
 #
 # =============================================================================
@@ -127,10 +156,13 @@ class JOB(object):
 		self.abort_dag_on_abortexitvalue = None
 		self.abort_dag_on_dagreturnvalue = None
 
-	def write(self, f):
+	def write(self, f, progress = None):
 		"""
 		Write the lines describing this node to the file-like
 		object f.  The object must provide a .write() method.
+
+		If progress is not None, it will be incremented by 1 for
+		every line written.
 		"""
 		# JOB ...
 		f.write("%s %s %s" % (self.keyword, self.name, self.filename))
@@ -141,14 +173,20 @@ class JOB(object):
 		if self.done:
 			f.write(" DONE")
 		f.write("\n")
+		if progress is not None:
+			progress += 1
 
 		# PRIORITY ...
 		if self.priority:
 			f.write("PRIORITY %s %d\n" % (self.name, self.priority))
+			if progress is not None:
+				progress += 1
 
 		# CATEGORY ...
 		if self.category is not None:
 			f.write("CATEGORY %s %s\n" % (self.name, self.category))
+			if progress is not None:
+				progress += 1
 
 		# RETRY ...
 		if self.retry:
@@ -156,6 +194,8 @@ class JOB(object):
 			if self.retry_unless_exit_value is not None:
 				f.write(" UNLESS-EXIT %d" % self.retry_unless_exit_value)
 			f.write("\n")
+			if progress is not None:
+				progress += 1
 
 		# VARS ...
 		if self.vars:
@@ -164,6 +204,8 @@ class JOB(object):
 				# apply escape rules to the value
 				f.write(" %s=\"%s\"" % (name, value.replace("\\", "\\\\").replace("\"", "\\\"")))
 			f.write("\n")
+			if progress is not None:
+				progress += 1
 
 		# SCRIPT PRE ...
 		if self.prescript is not None:
@@ -171,6 +213,8 @@ class JOB(object):
 			if self.prescriptargs:
 				f.write(" %s" % " ".join(self.prescriptargs))
 			f.write("\n")
+			if progress is not None:
+				progress += 1
 
 		# SCRIPT POST ...
 		if self.postscript is not None:
@@ -178,6 +222,8 @@ class JOB(object):
 			if self.postscriptargs:
 				f.write(" %s" % " ".join(self.postscriptargs))
 			f.write("\n")
+			if progress is not None:
+				progress += 1
 
 		# ABORT-DAG-ON ...
 		if self.abort_dag_on_abortexitvalue is not None:
@@ -185,6 +231,8 @@ class JOB(object):
 			if self.abort_dag_on_dagreturnvalue is not None:
 				f.write(" RETURN %d" % self.abort_dag_on_dagreturnvalue)
 			f.write("\n")
+			if progress is not None:
+				progress += 1
 
 	# state
 	@property
@@ -245,7 +293,7 @@ class DAG(object):
 	categorypat = re.compile(r'^CATEGORY\s+(?P<name>\S+)\s+(?P<category>\S+)', re.IGNORECASE)
 	retrypat = re.compile(r'^RETRY\s+(?P<name>\S+)\s+(?P<retries>\S+)(\s+UNLESS-EXIT\s+(?P<retry_unless_exit_value>\S+))?', re.IGNORECASE)
 	varspat = re.compile(r'^VARS\s+(?P<name>\S+)\s+(?P<vars>.+)', re.IGNORECASE)
-	varsvaluepat = re.compile(r'(?P<name>\S+)="(?P<value>.+)"', re.IGNORECASE)	# FIXME:  doesn't understand escaped " characters
+	varsvaluepat = re.compile(r'(?P<name>\S+)\s*=\s*"(?P<value>.*?)(?<!\\)"', re.IGNORECASE)
 	scriptpat = re.compile(r'^SCRIPT\s+(?P<type>(PRE)|(POST))\s(?P<name>\S+)\s+(?P<executable>\S+)(\s+(?P<arguments>.+))?', re.IGNORECASE)
 	abortdagonpat = re.compile(r'^ABORT-DAG-ON\s+(?P<name>\S+)\s+(?P<exitvalue>\S+)(\s+RETURN\s+(?P<returnvalue>\S+))?', re.IGNORECASE)
 	arcpat = re.compile(r'^PARENT\s+(?P<parents>.+?)\s+CHILD\s+(?P<children>.+)', re.IGNORECASE)
@@ -285,7 +333,7 @@ class DAG(object):
 		Parse the file-like object f as a Condor DAG file.  Return
 		a DAG object.  The file object must be iterable, yieling
 		one line of text of the DAG file in each iteration.
-		
+
 		If the progress argument is not None, it should be a
 		callable object.  This object will be called periodically
 		and passed the f argument, the current line number, and a
@@ -303,13 +351,12 @@ class DAG(object):
 		...
 		>>> dag = DAG.parse(open("pipeline.dag"), progress = progress)
 		"""
+		progress = progress_wrapper(f, progress)
 		self = cls()
 		arcs = []
-		for n, line in enumerate(f):
-			n += 1	# first line is 1, not 0
+		for line in f:
 			# progress
-			if progress is not None and not n % 7411:
-				progress(f, n, False)
+			progress += 1
 			# skip comments and blank lines
 			line = line.strip()
 			if not line or line.startswith("#"):
@@ -346,6 +393,7 @@ class DAG(object):
 			m = self.varspat.search(line)
 			if m is not None:
 				node = self.nodes[m.group("name")]
+				# FIXME:  find a way to detect malformed name=value pairs
 				for name, value in self.varsvaluepat.findall(m.group("vars")):
 					if name in node.vars:
 						raise ValueError, "line %d: multiple variable %s for %s %s" % (n, name, node.keyword, node.name)
@@ -465,8 +513,7 @@ class DAG(object):
 			# error
 			raise ValueError, "line %d: invalid line in dag file: %s" % (n, line)
 		# progress
-		if progress is not None:
-			progress(f, n, True)
+		del progress
 		# populate parent and child sets
 		for parent, child in arcs:
 			self.nodes[parent].children.add(self.nodes[child])
@@ -578,15 +625,27 @@ class DAG(object):
 				if parent not in nodes:
 					raise ValueError, "node %s has parent %s that is not in DAG" % (node.name, parent.name)
 
-	def write(self, f):
+	def write(self, f, progress = None):
 		"""
 		Write the DAG to the file-like object f.  The object must
 		provide a .write() method.
 
+		If the progress argument is not None, it should be a
+		callable object.  This object will be called periodically
+		and passed the f argument, the current line number, and a
+		boolean indicating if writing is complete.  The boolean is
+		always False until writing is complete, then the callable
+		will be invoked one last time with the final line count and
+		the boolean set to True.
+
 		Example:
 
-		>>> import sys
-		>>> dag.write(sys.stdout)
+		>>> def progress(f, n, done):
+		...	print "writing %s: %d lines\r" % (f.name, n),
+		...	if done:
+		...		print
+		...
+		>>> dag.write(open("pipeline.dag", "w"), progress = progress)
 
 		NOTE:  when writing PARENT/CHILD graph edges, this method
 		will silently skip any node names that are not in this
@@ -595,6 +654,7 @@ class DAG(object):
 		method.  If one wishes to check for broken parent/child
 		links before writing the DAG use the .check_edges() method.
 		"""
+		progress = progress_wrapper(f, progress)
 		# DOT ...
 		if self.dot is not None:
 			f.write("DOT %s" % self.dot)
@@ -605,10 +665,12 @@ class DAG(object):
 			if self.dotinclude is not None:
 				f.write(" INCLUDE %s" % self.dotinclude)
 			f.write("\n")
+			progress += 1
 
 		# CONFIG ...
 		if self.config is not None:
 			f.write("CONFIG %s\n" % self.config)
+			progress += 1
 
 		# NODE_STATUS_FILE ...
 		if self.node_status_file is not None:
@@ -616,28 +678,37 @@ class DAG(object):
 			if self.node_status_file_updatetime is not None:
 				f.write(" %d" % self.node_status_file_updatetime)
 			f.write("\n")
+			progress += 1
 
 		# JOBSTATE_LOG ...
 		if self.jobstate_log is not None:
 			f.write("JOBSTATE_LOG %s\n" % self.jobstate_log)
+			progress += 1
 
 		# MAXJOBS ...
+		if set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs):
+			raise ValueError, "no MAXJOBS statement(s) for node category(ies) %s" % ", ".join(sorted(set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs)))
 		for name, value in sorted(self.maxjobs.items()):
 			if value is not None:
 				f.write("MAXJOBS %s %d\n" % (name, value))
+				progress += 1
 
 		# JOB/DATA/SUBDAG ... (and things that go with them)
 		for name, node in sorted(self.nodes.items()):
-			node.write(f)
+			node.write(f, progress = progress)
 
 		# PARENT ... CHILD ...
 		names = set(self.nodes)
-		parents = {}
-		for name, node in sorted(self.nodes.items()):
-			parents.setdefault(frozenset(child.name for child in node.children) & names, set()).add(node.name)
-		for children, parents in parents.items():
+		parents_of = {}
+		for name, node in self.nodes.items():
+			parents_of.setdefault(frozenset(child.name for child in node.children) & names, set()).add(node.name)
+		for children, parents in parents_of.items():
 			if children:
 				f.write("PARENT %s CHILD %s\n" % (" ".join(sorted(parents)), " ".join(sorted(children))))
+				progress += 1
+
+		# progress
+		del progress
 
 	def dot_source(self, title = "DAG", rename = False, colour = "black", bgcolour = "#a3a3a3", statecolours = {'wait': 'yellow', 'idle': 'yellow', 'run': 'lightblue', 'abort': 'red', 'stop': 'red', 'success': 'green', 'fail': 'red'}):
 		"""

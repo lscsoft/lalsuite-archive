@@ -1794,9 +1794,9 @@ def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None
     else:
         S2 = 0.0
     J = L + S1 + S2
-    tilt1 = array_ang_sep(J,S1)
+    tilt1 = array_ang_sep(L,S1)
     if not singleSpin:
-        tilt2 = array_ang_sep(J,S2)
+        tilt2 = array_ang_sep(L,S2)
     else:
         tilt2 = None
     thetas = array_polar_ang(J)
