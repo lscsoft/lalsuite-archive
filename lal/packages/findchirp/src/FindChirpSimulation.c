@@ -360,15 +360,11 @@ LALFindChirpInjectSignals (
 
       /* set the start times for injection */
       LALINT8toGPS( status->statusPtr, &(waveform.a->epoch), &waveformStartTime );
-      /* put a rug on a polished floor? */
-      waveform.f->epoch = waveform.a->epoch;
-      waveform.phi->epoch = waveform.a->epoch;
-      /* you might as well set a man trap */
-      if ( waveform.shift )
-      {
-        waveform.shift->epoch = waveform.a->epoch;
-      }
-      /* and to think he'd just come from the hospital */
+      CHECKSTATUSPTR( status );
+      memcpy( &(waveform.f->epoch), &(waveform.a->epoch), 
+          sizeof(LIGOTimeGPS) );
+      memcpy( &(waveform.phi->epoch), &(waveform.a->epoch), 
+          sizeof(LIGOTimeGPS) );
 
       /* simulate the detectors response to the inspiral */
       LALSCreateVector( status->statusPtr, &(signal.data), chan->data->length );
