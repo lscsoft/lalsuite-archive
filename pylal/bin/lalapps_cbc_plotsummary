@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2009  Kipp Cannon, Chad Hanna
+# Copyright (C) 2009-2011  Kipp Cannon, Chad Hanna
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -58,8 +58,8 @@ except ImportError:
 import sys
 
 
+from glue import iterutils
 from glue import segments
-from glue import segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import dbtables
 from glue.ligolw.utils import segments as ligolw_segments
@@ -67,7 +67,6 @@ from glue import lal
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal import llwapp
 from pylal import rate
 
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
@@ -98,7 +97,7 @@ def parse_command_line():
 	parser.add_option("","--input-cache", help="input cache containing only the databases you want to run on (you can also list them as arguments, but you should use a cache if you are afraid that the command line will be too long.)")
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\").")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\").")
-	parser.add_option("--segments-name", metavar = "name", default = "data_segments", help = "Set the name of the segments that were analyzed (default = \"data_segments\").")
+	parser.add_option("--segments-name", metavar = "name", default = "datasegments", help = "Set the name of the segments that were analyzed (default = \"datasegments\").")
 	parser.add_option("--vetoes-name", metavar = "name", default = "vetoes", help = "Set the name of the veto segments (default = \"vetoes\").")
 	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = """
 Generate the given plot group.  Can be given multiple times (default = make all plot groups)
@@ -117,7 +116,7 @@ Generate the given plot group.  Can be given multiple times (default = make all 
 	options, filenames = parser.parse_args()
 
 	if options.plot_group is not None:
-		options.plot_group = map(int, options.plot_group)
+		options.plot_group = sorted(map(int, options.plot_group))
 	if not options.format:
 		options.format = ["png"]
 
@@ -591,7 +590,7 @@ class MissedFoundPlots(object):
 
 		def add_contents(self, contents):
 			self.base = contents.base
-			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			zerolag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
 			for values in contents.connection.cursor().execute("""
 SELECT
 	sim_inspiral.*,
@@ -611,7 +610,7 @@ FROM
 			"""):
 				sim = contents.sim_inspiral_table.row_from_cols(values)
 				del sim.process_id, sim.source, sim.simulation_id
-				if sim.get_end() in zero_lag_segments:
+				if sim.get_end() in zerolag_segments:
 					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
 					if participating_instruments is not None:
 						participating_instruments = frozenset(participating_instruments)
@@ -663,8 +662,8 @@ FROM
 		f.write("||<b>ON INSTRUMENTS</b>||<b> PARTICIPATING INSTRUMENTS</b>||<b>MISSED/FOUND</b||\n")
 		f.close()
 		for on_instruments, plot in self.plots.items():
-			for fig, filename_fragment, open_box in plot.finish():
-				yield fig, "%s_%s" % (filename_fragment, "".join(sorted(on_instruments))), open_box
+			for fig, filename_fragment, is_open_box in plot.finish():
+				yield fig, "%s_%s" % (filename_fragment, "".join(sorted(on_instruments))), is_open_box
 
 
 #
@@ -841,29 +840,19 @@ FROM
 			self.zerolag.setdefault(instrument, BackgroundVsInjectionPlots.Points())
 		for instrument in self.background:
 			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
+			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s (Closed Box)" % instrument)
+			axes.loglog(self.injections[instrument].snr, self.injections[instrument].chi2, "rx")
+			axes.loglog(self.background[instrument].snr, self.background[instrument].chi2, "kx")
+			axes.legend(("Injections", "Background"), loc = "upper left")
+			yield fig, "chi2_vs_rho_%s" % instrument, False
+
+			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
 			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
 			axes.loglog(self.injections[instrument].snr, self.injections[instrument].chi2, "rx")
 			axes.loglog(self.background[instrument].snr, self.background[instrument].chi2, "kx")
 			axes.loglog(self.zerolag[instrument].snr, self.zerolag[instrument].chi2, "bx")
 			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper left")
 			yield fig, "chi2_vs_rho_%s" % instrument, True
-			continue
-
-			fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
-			axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
-			axes.loglog(self.injections[instrument].snr, self.injections[instrument].r2, "rx")
-			axes.loglog(self.background[instrument].snr, self.background[instrument].r2, "kx")
-			axes.loglog(self.zerolag[instrument].snr, self.zerolag[instrument].r2, "bx")
-			axes.legend(("Injections", "Background", "Zero-lag"), loc = "lower right")
-			yield fig, "r2_vs_rho_%s" % instrument, True
-
-			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
-			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s" % instrument)
-			axes.loglog(self.injections[instrument].snr, self.injections[instrument].bankveto, "rx")
-			axes.loglog(self.background[instrument].snr, self.background[instrument].bankveto, "kx")
-			axes.loglog(self.zerolag[instrument].snr, self.zerolag[instrument].bankveto, "bx")
-			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper left")
-			yield fig, "bankchi2_vs_rho_%s" % instrument, True
 
 
 #
@@ -976,20 +965,34 @@ WHERE
 	def finish(self):
 		for (x_instrument, y_instrument), points in self.points.items():
 			fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % x_instrument, r"$\rho_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g) (Closed Box)" % (y_instrument, x_instrument, self.snrfactor))
+			axes.loglog([x for x, y in points.injections_snreff], [y for x, y in points.injections_snreff], "rx")
+			axes.loglog([x for x, y in points.background_snreff], [y for x, y in points.background_snreff], "kx")
+			axes.legend(("Injections", "Background"), loc = "lower right")
+			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument), False
+
+			fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % x_instrument, r"$\rho_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
 			axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g)" % (y_instrument, x_instrument, self.snrfactor))
 			axes.loglog([x for x, y in points.injections_snreff], [y for x, y in points.injections_snreff], "rx")
 			axes.loglog([x for x, y in points.background_snreff], [y for x, y in points.background_snreff], "kx")
 			axes.loglog([x for x, y in points.zerolag_snreff], [y for x, y in points.zerolag_snreff], "bx")
 			axes.legend(("Injections", "Background", "Zero-lag"), loc = "lower right")
-			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument), False
+			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument), True
+
+			fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % x_instrument, r"$D_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective Distance in %s vs.\ %s (Closed Box)" % (y_instrument, x_instrument))
+			axes.loglog([x for x, y in points.injections_deff], [y for x, y in points.injections_deff], "rx")
+			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
+			axes.legend(("Injections", "Background"), loc = "lower right")
+			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), False
 
 			fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % x_instrument, r"$D_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
 			axes.set_title(r"Effective Distance in %s vs.\ %s" % (y_instrument, x_instrument))
 			axes.loglog([x for x, y in points.injections_deff], [y for x, y in points.injections_deff], "rx")
 			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
 			axes.loglog([x for x, y in points.zerolag_deff], [y for x, y in points.zerolag_deff], "bx")
-			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper right")
-			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), False
+			axes.legend(("Injections", "Background", "Zero-lag"), loc = "lower right")
+			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), True
 
 
 #
@@ -1005,7 +1008,7 @@ def sigma_region(mean, nsigma):
 	return numpy.concatenate((mean - nsigma * numpy.sqrt(mean), (mean + nsigma * numpy.sqrt(mean))[::-1]))
 
 
-def create_farplot(zerolag_stats, background_stats, zerolag_to_background_livetime_ratio):
+def create_farplot(zerolag_stats, background_stats, zerolag_to_background_livetime_ratio, is_open_box):
 	if not zerolag_stats and not background_stats:
 		# no data
 		return None, None
@@ -1073,15 +1076,19 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	# zero-lag
 	#
 
-	N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
-	x = numpy.array(zerolag_stats, dtype = "double")
-	line5, = axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
+	if is_open_box:
+		N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
+		x = numpy.array(zerolag_stats, dtype = "double")
+		line5, = axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
 
 	#
 	# done
 	#
 
-	axes.legend((line5, line1, line4, line3, line2), ("Zero-lag", "Expected Background, $N$", r"$\pm\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm 3\sqrt{N}$"), loc="lower left")
+	if is_open_box:
+		axes.legend((line5, line1, line4, line3, line2), ("Zero-lag", "Expected Background, $N$", r"$\pm\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm 3\sqrt{N}$"), loc="lower left")
+	else:
+		axes.legend((line1, line4, line3, line2), ("Expected Background, $N$", r"$\pm\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm 3\sqrt{N}$"), loc="lower left")
 	if n_unrankable_zerolags:
 		if n_unrankable_zerolags > 1:
 			msg = r"%d Events" % n_unrankable_zerolags
@@ -1147,6 +1154,8 @@ FROM
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
+WHERE
+	coinc_inspiral.combined_far is not NULL
 		"""):
 			on_instruments = frozenset(dbtables.lsctables.instrument_set_from_ifos(on_instruments))
 			# to convert the string "inf" to float infinity
@@ -1159,18 +1168,18 @@ FROM
 				self.zerolag_snr[on_instruments].append(snr)
 
 	def finish(self):
-		for on_instruments in self.background_ifar:
-			fig, axes = create_farplot(self.zerolag_ifar[on_instruments], self.background_ifar[on_instruments], self.zerolag_livetime[on_instruments] / self.background_livetime[on_instruments])
+		for on_instruments, is_open_box in iterutils.MultiIter(self.background_ifar, [True, False]):
+			fig, axes = create_farplot(self.zerolag_ifar[on_instruments], self.background_ifar[on_instruments], self.zerolag_livetime[on_instruments] / self.background_livetime[on_instruments], is_open_box)
 			if fig is not None:
-				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating%s)" % (", ".join(sorted(on_instruments)), (not is_open_box and ", Closed Box" or "")))
 				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
-				yield fig, "count_vs_ifar_%s" % "".join(sorted(on_instruments)), True
+				yield fig, "count_vs_ifar_%s" % "".join(sorted(on_instruments)), is_open_box
 
-			fig, axes = create_farplot(self.zerolag_snr[on_instruments], self.background_snr[on_instruments], self.zerolag_livetime[on_instruments] / self.background_livetime[on_instruments])
+			fig, axes = create_farplot(self.zerolag_snr[on_instruments], self.background_snr[on_instruments], self.zerolag_livetime[on_instruments] / self.background_livetime[on_instruments], is_open_box)
 			if fig is not None:
-				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating%s)" % (", ".join(sorted(on_instruments)), (not is_open_box and ", Closed Box" or "")))
 				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
-				yield fig, "count_vs_snr_%s" % "".join(sorted(on_instruments)), True
+				yield fig, "count_vs_snr_%s" % "".join(sorted(on_instruments)), is_open_box
 
 
 #
@@ -1191,9 +1200,12 @@ options, filenames = parse_command_line()
 
 
 #
-# Process files
+# Initialize plots
 #
 
+
+# how many there could be, so we know how many digits for the filenames
+max_plot_groups = None
 
 def new_plots(plots = None):
 	l = (
@@ -1202,10 +1214,11 @@ def new_plots(plots = None):
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
 		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
-		#RateVsThreshold(),
+		RateVsThreshold(),
 		InjectionParameterDistributionPlots(),
 		#MVSCPlots()
 	)
+	max_plot_groups = len(l)
 	if plots is None:
 		plots = range(len(l))
 	return [l[i] for i in plots]
@@ -1213,6 +1226,11 @@ def new_plots(plots = None):
 plots = new_plots(options.plot_group)
 if options.plot_group is None:
 	options.plot_group = range(len(plots))
+
+
+#
+# Process files
+#
 
 
 wiki = open(options.base+"plotsummary.txt","w")
@@ -1240,12 +1258,12 @@ for n, filename in enumerate(filenames):
 
 
 n = 0
-filename_template = "%%s%%0%dd_%%s.%%s" % (int(math.log10(max(options.plot_group) or 1)) + 1)
+filename_template = "%%s%%0%dd_%%s%%s.%%s" % (int(math.log10(max_plot_groups or 1)) + 1)
 while len(plots):
 	for fig, filename_fragment, is_open_box in plots.pop(0).finish():
 		for format in options.format:
 			if filename_fragment and fig:
-				filename = filename_template % (options.base, options.plot_group[n], filename_fragment, format)
+				filename = filename_template % (options.base, options.plot_group[n], filename_fragment, (is_open_box and "_openbox" or ""), format)
 				if options.verbose:
 					print >>sys.stderr, "writing %s ..." % filename
 				fig.savefig(filename)

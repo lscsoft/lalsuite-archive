@@ -94,12 +94,13 @@ class progress_wrapper(object):
 
 	def __iadd__(self, dn):
 		self.n += dn
-		if not self.n % 7411:
+		if self.callback is not None and not self.n % 7411:
 			self.callback(self.f, self.n, False)
 		return self
 
 	def __del__(self):
-		self.callback(self.f, self.n, True)
+		if self.callback is not None:
+			self.callback(self.f, self.n, True)
 
 
 #
@@ -350,14 +351,12 @@ class DAG(object):
 		...
 		>>> dag = DAG.parse(open("pipeline.dag"), progress = progress)
 		"""
-		if progress is not None:
-			progress = progress_wrapper(f, progress)
+		progress = progress_wrapper(f, progress)
 		self = cls()
 		arcs = []
 		for line in f:
 			# progress
-			if progress is not None:
-				progress += 1
+			progress += 1
 			# skip comments and blank lines
 			line = line.strip()
 			if not line or line.startswith("#"):
@@ -514,8 +513,7 @@ class DAG(object):
 			# error
 			raise ValueError, "line %d: invalid line in dag file: %s" % (n, line)
 		# progress
-		if progress is not None:
-			del progress
+		del progress
 		# populate parent and child sets
 		for parent, child in arcs:
 			self.nodes[parent].children.add(self.nodes[child])
@@ -656,8 +654,7 @@ class DAG(object):
 		method.  If one wishes to check for broken parent/child
 		links before writing the DAG use the .check_edges() method.
 		"""
-		if progress is not None:
-			progress = progress_wrapper(f, progress)
+		progress = progress_wrapper(f, progress)
 		# DOT ...
 		if self.dot is not None:
 			f.write("DOT %s" % self.dot)
@@ -668,14 +665,12 @@ class DAG(object):
 			if self.dotinclude is not None:
 				f.write(" INCLUDE %s" % self.dotinclude)
 			f.write("\n")
-			if progress is not None:
-				progress += 1
+			progress += 1
 
 		# CONFIG ...
 		if self.config is not None:
 			f.write("CONFIG %s\n" % self.config)
-			if progress is not None:
-				progress += 1
+			progress += 1
 
 		# NODE_STATUS_FILE ...
 		if self.node_status_file is not None:
@@ -683,14 +678,12 @@ class DAG(object):
 			if self.node_status_file_updatetime is not None:
 				f.write(" %d" % self.node_status_file_updatetime)
 			f.write("\n")
-			if progress is not None:
-				progress += 1
+			progress += 1
 
 		# JOBSTATE_LOG ...
 		if self.jobstate_log is not None:
 			f.write("JOBSTATE_LOG %s\n" % self.jobstate_log)
-			if progress is not None:
-				progress += 1
+			progress += 1
 
 		# MAXJOBS ...
 		if set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs):
@@ -698,8 +691,7 @@ class DAG(object):
 		for name, value in sorted(self.maxjobs.items()):
 			if value is not None:
 				f.write("MAXJOBS %s %d\n" % (name, value))
-				if progress is not None:
-					progress += 1
+				progress += 1
 
 		# JOB/DATA/SUBDAG ... (and things that go with them)
 		for name, node in sorted(self.nodes.items()):
@@ -713,11 +705,10 @@ class DAG(object):
 		for children, parents in parents_of.items():
 			if children:
 				f.write("PARENT %s CHILD %s\n" % (" ".join(sorted(parents)), " ".join(sorted(children))))
-				if progress is not None:
-					progress += 1
+				progress += 1
 
-		if progress is not None:
-			del progress
+		# progress
+		del progress
 
 	def dot_source(self, title = "DAG", rename = False, colour = "black", bgcolour = "#a3a3a3", statecolours = {'wait': 'yellow', 'idle': 'yellow', 'run': 'lightblue', 'abort': 'red', 'stop': 'red', 'success': 'green', 'fail': 'red'}):
 		"""
