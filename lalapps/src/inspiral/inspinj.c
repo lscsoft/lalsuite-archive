@@ -121,6 +121,7 @@ REAL4 minMassRatio=-1.0;
 REAL4 maxMassRatio=-1.0;
 REAL4 inclStd=-1.0;
 REAL4 fixed_inc=-1.0;
+REAL4 max_inc=LAL_PI/2.0;
 REAL4 psi=-1.0;
 REAL4 longitude=181.0;
 REAL4 latitude=91.0;
@@ -251,8 +252,9 @@ static void print_usage(char *program)
       "                           fixed: no distribution, fixed valued of (i)\n"\
       " --polarization psi        set the polarization angle for all \n"
       "                           injections (degrees)\n"\
-      " [--inclStd]  incStd       std dev for gaussian inclination dist\n"\
-      " [--fixed-inc]  fixed_inc  read inclination dist if fixed value (degrees)\n"\
+      " [--incl-std]  inclStd     std dev for gaussian inclination dist\n"\
+      " [--fixed-inc]  fixed_inc  value for the fixed inclination angle (in degrees) if '--i-distr fixed' is chosen.\n"\
+      " [--max-inc]  max_inc      value for the maximum inclination angle (in degrees) if '--i-distr uniform' is chosen. \n"\
       " [--source-file] sources   read source parameters from sources\n"\
       "                           requires enable/disable milkyway\n"\
       " [--enable-milkyway] lum   enables MW injections, set MW luminosity\n"\
@@ -629,8 +631,9 @@ int main( int argc, char *argv[] )
   REAL8 meanTimeStep = 2630 / LAL_PI; /* seconds between injections     */
   REAL8 timeInterval = 0;
   REAL4 fLower = -1;
-  REAL4 eps=0.01;  /* needed for some awkward spinning injections */
-
+  UINT4 useChirpDist = 0;
+  REAL4 minMass10, maxMass10, minMass20, maxMass20, minMtotal0, maxMtotal0, meanMass10, meanMass20, massStdev10, massStdev20; /* masses at z=0 */
+  REAL8 pzmax=0; /* maximal value of the probability distribution of the redshift */ 
   size_t ninj;
   int rand_seed = 1;
 
@@ -658,7 +661,6 @@ int main( int argc, char *argv[] )
   gpsEndTime.gpsSeconds=-1;
 
   /* getopt arguments */
-  /* available letters: H */
   struct option long_options[] =
   {
     {"help",                          no_argument, 0,                'h'},
@@ -696,8 +698,9 @@ int main( int argc, char *argv[] )
     {"longitude",               required_argument, 0,                'v'},
     {"latitude",                required_argument, 0,                'z'},
     {"i-distr",                 required_argument, 0,                'I'},
-    {"inclStd",                 required_argument, 0,                'B'},
-    {"fixed-inc",               required_argument, 0,                'C'},
+    {"incl-std",                required_argument, 0,                'B'},
+    {"fixed-inc",               required_argument, 0,                'C'},   
+    {"max-inc",                 required_argument, 0,               1001},   
     {"polarization",            required_argument, 0,                'S'},
     {"enable-milkyway",         required_argument, 0,                'M'},
     {"disable-milkyway",        no_argument,       0,                'D'},
@@ -1298,6 +1301,21 @@ int main( int argc, char *argv[] )
         this_proc_param = this_proc_param->next = 
           next_process_param( long_options[option_index].name, 
               "float", "%e", fixed_inc );
+        break;
+
+     case 1001:
+        /* maximum  angle of inclination */
+        max_inc = (REAL4) atof( optarg )/180.*LAL_PI;
+        if ( (atof(optarg) < 0.) || (atof(optarg) >= 180.) ) {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "maximum inclination angle must be between 0 and 180 degrees:"
+              "(%s specified)\n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        this_proc_param = this_proc_param->next = 
+          next_process_param( long_options[option_index].name, 
+              "float", "%e", max_inc );
         break;
 
       case 'S':
@@ -1905,10 +1923,7 @@ int main( int argc, char *argv[] )
     {
       simTable=XLALRandomInspiralOrientation(simTable, randParams,
                                              iDistr, inclStd);
-    } while ( ! strcmp(waveform, "SpinTaylorthreePointFivePN") &&
-              ( iDistr != fixedInclDist ) &&
-              ( simTable->inclination < eps ||
-                simTable->inclination > LAL_PI-eps) );
+    } while ( (fabs(cos(simTable->inclination))<cos(max_inc)) );
 
     /* override inclination */
     if ( iDistr == fixedInclDist )
