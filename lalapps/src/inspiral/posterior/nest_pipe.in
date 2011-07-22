@@ -410,6 +410,7 @@ combine_dir=os.path.join(opts.run_path,'combine')
 
 snr_dir=os.path.join(opts.run_path,'SNR')
 checkDir(snr_dir)
+inspnest_job.add_opt('snrpath',snr_dir)
 
 time_combine_sub_file=os.path.join(opts.run_path,'combine_each_time.sub')
 combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.log_path)

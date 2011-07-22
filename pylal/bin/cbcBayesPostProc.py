@@ -148,7 +148,7 @@ def cbcBayesPostProc(
             else:
                 injection=injections[eventnum]
 
-
+    snr_net=None
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
     if bayesfactornoise is not None:
