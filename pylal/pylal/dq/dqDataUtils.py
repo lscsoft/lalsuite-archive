@@ -120,7 +120,7 @@ def frominjectionfile( file, type, ifo=None, start=None, end=None):
         for line in file.readlines():
           inj = lsctables.SimBurst()
           # split data
-          sep = re.compile('[\s,]+')
+          sep = re.compile('[\s,=]+')
           data = sep.split(line)
           # set attributes
 
