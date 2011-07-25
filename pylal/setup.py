@@ -138,7 +138,6 @@ setup(
 			libraries = ["lal"],  # this really, truly has no other deps
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.date",
