@@ -556,7 +556,7 @@ class Efficiency(object):
 		self.found += other.found
 		self.loudest_missed += other.loudest_missed
 		self.quietest_found += other.quietest_found
-		self.all.extend(other.all)
+		self.all += other.all
 		return self
 
 	def add_contents(self, contents, verbose = False):
@@ -930,11 +930,11 @@ if options.detection_threshold is None:
 				# create a new book-keeping object
 				rate_vs_threshold = RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates)
 				process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+				pickle.dump(rate_vs_threshold, w)
 			except:
-				w.write(traceback.format_exc())
+				pickle.dump(traceback.format_exc(), w)
 				w.close()
 				sys.exit(1)
-			w.write(pickle.dumps(rate_vs_threshold))
 			w.close()
 			sys.exit(0)
 		# we're not the child process
@@ -943,8 +943,8 @@ if options.detection_threshold is None:
 	# collect all children, report any exceptions that occured, combine
 	# results
 	while children:
-		for ready in select.select(children.values(), [], [])[0]:
-			process_output = pickle.loads(ready.read())
+		for r in select.select(children.values(), [], [])[0]:
+			process_output = pickle.load(r)
 			if isinstance(process_output, RateVsThreshold):
 				if rate_vs_threshold is None:
 					rate_vs_threshold = process_output
@@ -1011,6 +1011,9 @@ children = {}
 # group files into bins of about the same total number of bytes.  don't try
 # to create more groups than there are files
 for filenames in pack_files(injection_filenames, min(options.threads, len(injection_filenames)), verbose = options.verbose):
+	# shuffle file names to avoid copying all the big files
+	# into the scratch space at the same time
+	random.shuffle(filenames)
 	# launch thread
 	r, w = os.pipe()
 	r, w = os.fdopen(r, "r", 0), os.fdopen(w, "w", 0)
@@ -1022,11 +1025,11 @@ for filenames in pack_files(injection_filenames, min(options.threads, len(inject
 			# create a new book-keeping object
 			efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size, options.open_box)
 			process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+			pickle.dump(efficiency, w)
 		except:
-			w.write(traceback.format_exc())
+			pickle.dump(traceback.format_exc(), w)
 			w.close()
 			sys.exit(1)
-		w.write(pickle.dumps(efficiency))
 		w.close()
 		sys.exit(0)
 	# we're not the child process
@@ -1035,8 +1038,8 @@ for filenames in pack_files(injection_filenames, min(options.threads, len(inject
 # collect all children, report any exceptions that occured, combine
 # results
 while children:
-	for ready in select.select(children.values(), [], [])[0]:
-		process_output = pickle.loads(ready.read())
+	for r in select.select(children.values(), [], [])[0]:
+		process_output = pickle.load(r)
 		if isinstance(process_output, Efficiency):
 			if efficiency is None:
 				efficiency = process_output
