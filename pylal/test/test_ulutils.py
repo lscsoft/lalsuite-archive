@@ -24,6 +24,16 @@ class test_ulutils(unittest.TestCase):
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.95)
         self.assertTrue( 2.9957 < muhi < 2.9958 ) # get upper limit to 4 sig figs
 
+    def test_uniform_upper_limit(self):
+        # Uniform posterior
+        mumax = 15
+        mu = numpy.linspace(0,mumax,1e6)
+        post = numpy.ones(len(mu))
+        alphas = numpy.arange(0.1,1,0.1)
+        for a in alphas:
+            muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = a)
+            self.assertTrue( a*mumax - 0.0001 < muhi < a*mumax + 0.0001) # get upper limit to 4 sig figs
+
     def test_volume_lambda(self):
         '''
         Check the dependence of upper limits on volume and lambda.
@@ -117,6 +127,7 @@ class test_ulutils(unittest.TestCase):
         vexpect = 1 - numpy.exp(-1)
         self.assertTrue(abs(v -vexpect ) < 0.01)
 
+
     def test_integrate_realistic_efficiency(self):
         '''
         Check that the volume calculation gives the expected results in the
@@ -182,7 +193,32 @@ class test_ulutils(unittest.TestCase):
         self.assertTrue( (mu_90_3-mu_90_1) < 0.05 )
         self.assertTrue( (mu_90_3-mu_90_2) < 0.05 )
 
+    def test_zero_padded_uniform(self):
+        # Uniform posterior
+        mumax = 15
+        mu = numpy.linspace(0,2*mumax,2*1e6)
+        post = numpy.concatenate((numpy.ones(len(mu)/2),numpy.zeros(len(mu)/2)))
+        a = 1
+        muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 1)
+        self.assertTrue( a*mumax - 0.0001 < muhi < a*mumax + 0.0001) # get upper limit to 4 sig figs
 
+
+    def test_confidence_interval(self):
+        '''
+        The confidence interval function computes a minimal width interval.
+        For a symmetric distribution, this interval is the same as computing
+        upper and lower limits at half-confidences. For a monotonically
+        decreasing distribution, this interval is the same as the upper limit
+        at the same confidence level.
+        '''
+        exes = numpy.arange(-10,10,0.01)
+        post = numpy.exp(-exes**2/2)
+        lo, hi = upper_limit_utils.confidence_interval(exes, post, 0.9)
+        lo2 = upper_limit_utils.compute_lower_limit(exes, post, 0.95)
+        hi2 = upper_limit_utils.compute_upper_limit(exes, post, 0.95)
+
+        self.assertTrue( abs(lo - lo2) < 0.001 )
+        self.assertTrue( abs(hi - hi2) < 0.001 )
 
 
 # construct and run the test suite.

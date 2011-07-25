@@ -95,7 +95,7 @@ def frominjectionfile( file, type, ifo=None, start=None, end=None):
         # set up siminspiral object
         inj = lsctables.SimInspiral()
         # split data
-        sep = re.compile('[\s,]+')
+        sep = re.compile('[\s,=]+')
         data = sep.split(line)
         # set attributes
         inj.geocent_end_time    = int(data[0].split('.')[0])
@@ -120,7 +120,7 @@ def frominjectionfile( file, type, ifo=None, start=None, end=None):
         for line in file.readlines():
           inj = lsctables.SimBurst()
           # split data
-          sep = re.compile('[\s,]+')
+          sep = re.compile('[\s,=]+')
           data = sep.split(line)
           # set attributes
 

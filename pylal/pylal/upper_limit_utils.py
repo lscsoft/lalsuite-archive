@@ -107,23 +107,35 @@ def compute_upper_limit(mu, post, alpha = 0.9):
     Returns the upper limit mu_high of confidence level alpha for a
     posterior distribution post on the given parameter mu.
     """
-    high_idx = bisect.bisect_right( post.cumsum()/post.sum(), alpha )
-
-    if high_idx < len(mu):
+    if 0 < alpha < 1:
+        high_idx = bisect.bisect_left( post.cumsum()/post.sum(), alpha )
+        # if alpha is in (0,1] and post is non-negative, bisect_left
+        # will always return an index in the range of mu since
+        # post.cumsum()/post.sum() will always begin at 0 and end at 1
         mu_high = mu[high_idx]
+    elif alpha == 1:
+        mu_high = numpy.max(mu[post>0])
     else:
-        mu_high = mu[high_idx-1]
+        raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_high
 
 
-def compute_lower_limit(mu, cumpost, alpha = 0.9):
+def compute_lower_limit(mu, post, alpha = 0.9):
     """
     Returns the lower limit mu_low of confidence level alpha for a
-    cumulative ditribution cumpost on the given parameter mu.
+    posterior distribution post on the given parameter mu.
     """
-    low_idx = bisect.bisect_left( cumpost, 1 - alpha )
-    mu_low = mu[low_idx]
+    if 0 < alpha < 1:
+        low_idx = bisect.bisect_right( post.cumsum()/post.sum(), 1-alpha )
+        # if alpha is in [0,1) and post is non-negative, bisect_right
+        # will always return an index in the range of mu since
+        # post.cumsum()/post.sum() will always begin at 0 and end at 1
+        mu_low = mu[low_idx]
+    elif alpha == 1:
+        mu_low = numpy.min(mu[post>0])
+    else:
+        raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_low
 
@@ -133,12 +145,11 @@ def confidence_interval( mu, post, alpha = 0.9 ):
     Returns the minimal-width confidence interval [mu_low,mu_high] of
     confidence level alpha for a distribution post on the parameter mu.
     '''
-    cumpost = post.cumsum()/post.sum()
+    if not 0 < alpha < 1:
+        raise ValueError, "Confidence level must be in (0,1)."
 
     # choose a step size for the sliding confidence window
-    trust_factor = 0.9 #how much do you trust Steve to get this right? -- must be 0 < tf < 1
-    whatithinkthestepsizeshouldbe = numpy.min(cumpost[cumpost[1:]-cumpost[:-1]>0])
-    alpha_step = trust_factor*whatithinkthestepsizeshouldbe
+    alpha_step = 0.01
 
     # initialize the lower and upper limits
     mu_low = numpy.min(mu)
@@ -146,8 +157,8 @@ def confidence_interval( mu, post, alpha = 0.9 ):
 
     # find the smallest window (by delta-mu) stepping by dalpha
     for ai in numpy.arange( 0, 1-alpha, alpha_step ):
-        ml = compute_lower_limit( mu, cumpost, 1 - ai )
-        mh = compute_upper_limit( mu, cumpost, alpha + ai)
+        ml = compute_lower_limit( mu, post, 1 - ai )
+        mh = compute_upper_limit( mu, post, alpha + ai)
         if mh - ml < mu_high - mu_low:
             mu_low = ml
             mu_high = mh
