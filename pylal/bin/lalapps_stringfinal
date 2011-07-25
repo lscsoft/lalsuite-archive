@@ -943,7 +943,7 @@ if options.detection_threshold is None:
 	# collect all children, report any exceptions that occured, combine
 	# results
 	while children:
-		for r in select.select(children.values(), [], [])[0]:
+		for r in select.select(children.keys(), [], [])[0]:
 			process_output = pickle.load(r)
 			r.close()
 			pid, exit_status = os.waitpid(children.pop(r), 0)
