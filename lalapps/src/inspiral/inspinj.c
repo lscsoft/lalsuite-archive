@@ -638,6 +638,7 @@ int main( int argc, char *argv[] )
   int rand_seed = 1;
 
   /* waveform */
+  REAL4 eps=0.01;  /* needed for some awkward spinning injections */
   CHAR waveform[LIGOMETA_WAVEFORM_MAX];
   CHAR dummy[256];
   INT4 amp_order = -1;
