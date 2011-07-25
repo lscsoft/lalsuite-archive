@@ -132,6 +132,15 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.constants",
+			["src/xlal/constants.c"],
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = ["lal"],  # this really, truly has no other deps
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
