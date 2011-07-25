@@ -939,12 +939,14 @@ if options.detection_threshold is None:
 			sys.exit(0)
 		# we're not the child process
 		w.close()
-		children[pid] = r
+		children[r] = pid
 	# collect all children, report any exceptions that occured, combine
 	# results
 	while children:
 		for r in select.select(children.values(), [], [])[0]:
 			process_output = pickle.load(r)
+			r.close()
+			pid, exit_status = os.waitpid(children.pop(r), 0)
 			if isinstance(process_output, RateVsThreshold):
 				if rate_vs_threshold is None:
 					rate_vs_threshold = process_output
@@ -953,11 +955,8 @@ if options.detection_threshold is None:
 			else:
 				print >>sys.stderr, process_output
 			del process_output
-		pid, exit_status = os.wait()
-		children[pid].close()
-		del children[pid]
-		if exit_status:
-			sys.exit(exit_status)
+			if exit_status:
+				sys.exit(exit_status)
 	if rate_vs_threshold is None:
 		raise ValueError, "no non-injection data available:  cannot determine detection threshold.  provide non-injection data or set an explicit detection treshold.  Consult --help for more information."
 
@@ -1034,12 +1033,14 @@ for filenames in pack_files(injection_filenames, min(options.threads, len(inject
 		sys.exit(0)
 	# we're not the child process
 	w.close()
-	children[pid] = r
+	children[r] = pid
 # collect all children, report any exceptions that occured, combine
 # results
 while children:
-	for r in select.select(children.values(), [], [])[0]:
+	for r in select.select(children.keys(), [], [])[0]:
 		process_output = pickle.load(r)
+		r.close()
+		pid, exit_status = os.waitpid(children.pop(r), 0)
 		if isinstance(process_output, Efficiency):
 			if efficiency is None:
 				efficiency = process_output
@@ -1048,11 +1049,8 @@ while children:
 		else:
 			print >>sys.stderr, process_output
 		del process_output
-	pid, exit_status = os.wait()
-	children[pid].close()
-	del children[pid]
-	if exit_status:
-		sys.exit(exit_status)
+		if exit_status:
+			sys.exit(exit_status)
 # write data products
 if efficiency is not None:
 	write_products([efficiency], "string_efficiency_", options.image_formats, verbose = options.verbose)
