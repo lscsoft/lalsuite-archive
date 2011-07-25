@@ -242,6 +242,7 @@ setup(
 		os.path.join("bin", "ligolw_burca"),
 		os.path.join("bin", "ligolw_burca_tailor"),
 		os.path.join("bin", "ligolw_cafe"),
+		os.path.join("bin", "ligolw_cbc_align_total_spin"),
 		os.path.join("bin", "ligolw_conv_inspid"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
