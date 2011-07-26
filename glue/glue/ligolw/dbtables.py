@@ -697,7 +697,7 @@ class DBTable(table.Table):
 				# with this class, however there is no
 				# guarantee that all parent class methods
 				# will be appropriate for use with the
-				# DB-backed object.
+				# DB-backend object.
 				lsccls = lsctables.TableByName[name]
 				class CustomDBTable(cls, lsccls):
 					tableName = lsccls.tableName
@@ -794,6 +794,13 @@ class DBTable(table.Table):
 		cursor.execute("SELECT * FROM %s" % self.dbtablename)
 		for values in cursor:
 			yield self.row_from_cols(values)
+
+	# FIXME:  is adding this a good idea?
+	#def __delslice__(self, i, j):
+	#	# sqlite numbers rows starting from 1:  [0:10] becomes
+	#	# "rowid between 1 and 10" which means 1 <= rowid <= 10,
+	#	# which is the intended range
+	#	self.cursor.execute("DELETE FROM %s WHERE ROWID BETWEEN %d AND %d" % (self.dbtablename, i + 1, j))
 
 	def _append(self, row):
 		"""
