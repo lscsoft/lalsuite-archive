@@ -300,7 +300,9 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 							continue
 						if verbose:
 							print >>sys.stderr, "warning: attempt %d: %s: working with original file '%s'" % (i, errno.errorcode[e.errno], filename)
-						os.remove(target)
+						temporary_files_lock.acquire()
+						del temporary_files[target]
+						temporary_files_lock.release()
 						target = filename
 					break
 	else:
