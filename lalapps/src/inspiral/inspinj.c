@@ -162,6 +162,7 @@ REAL4 longitude=181.0;
 REAL4 latitude=91.0;
 REAL4 epsAngle=1e-7;
 int spinInjections=-1;
+int spinAligned=-1;
 REAL4 minSpin1=-1.0;
 REAL4 maxSpin1=-1.0;
 REAL4 minSpin2=-1.0;
@@ -173,6 +174,7 @@ REAL4 maxabsKappa1=1.0;
 INT4 bandPassInj = 0;
 INT4 writeSimRing = 0;
 InspiralApplyTaper taperInj = INSPIRAL_TAPER_NONE;
+AlignmentType alignInj = notAligned;
 REAL8 redshift;
 
 static LALStatus status;
@@ -578,10 +580,13 @@ static void print_usage(char *program)
       "                           totalMass: uniform distribution in total mass\n"\
       "                           componentMass: uniform in m1 and m2\n"\
       "                           gaussian: gaussian mass distribution\n"\
-      "                           log: log distribution in comonent mass\n"\
-      "                           totalMassRatio: uniform distribution in total mass ratio\n"\
+      "                           log: log distribution in component mass\n"\
+      "                           totalMassRatio: uniform distribution in total mass and\n"\
+      "                           mass ratio m1 / m2\n"\
       "                           logTotalMassUniformMassRatio: log distribution in total mass\n"\
-      "                           and uniform in total mass ratio\n"\
+      "                           and uniform in mass ratio\n"\
+      "                           totalMassFraction: uniform distribution in total mass and\n"\
+      "                           in `mass fraction' m1 / (m1+m2)\n"\
       " [--ninja2-mass]           use the NINJA 2 mass-selection algorithm\n"\
       " [--mass-file] mFile       read population mass parameters from mFile\n"\
       " [--nr-file] nrFile        read mass/spin parameters from xml nrFile\n"\
@@ -596,12 +601,14 @@ static void print_usage(char *program)
       " [--mean-mass2] m2mean     set the mean value for mass2\n"\
       " [--stdev-mass2] m2std     set the standard deviation for mass2\n"\
       " [--min-mratio] minr       set the minimum mass ratio\n"\
-      " [--max-mratio] maxr       set the maximum mass ratio\\n");
+      " [--max-mratio] maxr       set the maximum mass ratio\n");
   fprintf(stderr,
       "Spin distribution information:\n"\
       "  --disable-spin           disables spinning injections\n"\
       "  --enable-spin            enables spinning injections\n"\
       "                           One of these is required.\n"\
+      "  --aligned                enforces the spins to be along the direction\n"\
+      "                           of orbital angular momentum.\n"\
       "  [--min-spin1] spin1min   Set the minimum spin1 to spin1min (0.0)\n"\
       "  [--max-spin1] spin1max   Set the maximum spin1 to spin1max (0.0)\n"\
       "  [--min-spin2] spin2min   Set the minimum spin2 to spin2min (0.0)\n"\
@@ -1260,8 +1267,6 @@ int main( int argc, char *argv[] )
 
   REAL8 targetSNR;
 
-  int aligned  = 0;
-
 
   status=blank_status;
 
@@ -1332,6 +1337,7 @@ int main( int argc, char *argv[] )
     {"version",                 no_argument,       0,                'V'},
     {"enable-spin",             no_argument,       0,                'T'},
     {"disable-spin",            no_argument,       0,                'W'},
+    {"aligned",                 no_argument,       0,                '@'},
     {"write-compress",          no_argument,       &outCompress,       1},
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
@@ -1640,13 +1646,19 @@ int main( int argc, char *argv[] )
           mDistr=uniformTotalMassRatio;
         }
         else if (!strcmp(dummy, "logTotalMassUniformMassRatio"))
+        {  
           mDistr=logMassUniformTotalMassRatio;
+        }
+        else if (!strcmp(dummy, "totalMassFraction"))
+        {
+          mDistr=uniformTotalMassFraction;
+        }
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown mass distribution: %s must be one of\n"
               "(source, nrwaves, totalMass, componentMass, gaussian, log,\n"
-              "totalMassRatio, logTotalMassUniformMassRatio)\n",
+              "totalMassRatio, totalMassFraction , logTotalMassUniformMassRatio)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -2084,6 +2096,15 @@ int main( int argc, char *argv[] )
               "" );
         spinInjections = 0;
         break;
+      case '@':
+        /* enforce aligned spins */
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "" );
+        spinAligned = 1;
+        break;
+
+
 
       case '}':
         /* enable band-passing */
@@ -2434,12 +2455,14 @@ int main( int argc, char *argv[] )
   }
 
   /* check if mass ratios are specified */
-  if ( (mDistr==uniformTotalMassRatio || mDistr==logMassUniformTotalMassRatio)
+  if ( (mDistr==uniformTotalMassRatio || mDistr==logMassUniformTotalMassRatio
+        || mDistr==uniformTotalMassFraction)
       && (minMassRatio < 0.0 || maxMassRatio < 0.0) )
   {
     fprintf( stderr,
         "Must specify --min-mass-ratio and --max-mass-ratio if choosing"
-        " --m-distr=totalMassRatio or --m-distr=logTotalMassUniformMassRatio\n");
+        " --m-distr=totalMassRatio or --m-distr=logTotalMassUniformMassRatio"
+        " or --m-distr=totalMassFraction\n");
     exit( 1 );
   }
 
@@ -2468,10 +2491,35 @@ int main( int argc, char *argv[] )
   if ( spinInjections==-1 && mDistr != massFromNRFile )
   {
     fprintf( stderr,
-        "Must specify --disable-spin or --enable-spin\n"\
-        "Unless doing NR injections\n" );
+        "Must specify --disable-spin or --enable-spin\n"
+        "unless doing NR injections\n" );
     exit( 1 );
   }
+
+  if ( spinInjections==0 && spinAligned==1 )
+  {
+    fprintf( stderr,
+        "Must enable spin to obtain aligned spin injections.\n" );
+
+    exit( 1 );
+  }
+  if ( spinInjections==1 && strncmp(waveform, "IMRPhenomB", 10)==0 && spinAligned==-1 )
+  {
+    fprintf( stderr,
+        "Spinning IMRPhenomB injections must have the --aligned option.\n" );
+    exit( 1 );
+  }
+
+  if ( spinInjections==1 && spinAligned==1 && strncmp(waveform, "IMRPhenomB", 10)
+    && strncmp(waveform, "SpinTaylor", 10) )
+  {
+    fprintf( stderr,
+        "Sorry, I only know to make spin aligned injections for \n"
+        "IMRPhenomB, SpinTaylor and SpinTaylorFrameless waveforms.\n" );
+    exit( 1 );
+  }
+
+
 
   if ( spinInjections==1 )
   {
@@ -2681,7 +2729,12 @@ int main( int argc, char *argv[] )
       simTable=XLALRandomInspiralTotalMassRatio(simTable, randParams,
           mDistr, minMtotal, maxMtotal, minMassRatio, maxMassRatio );
     }
-
+    else if ( mDistr==uniformTotalMassFraction )
+    {
+      simTable=XLALRandomInspiralTotalMassFraction(simTable, randParams, 
+          mDistr, minMtotal, maxMtotal, minMassRatio, maxMassRatio );
+    }
+    
     else {
       simTable=XLALRandomInspiralMasses( simTable, randParams, mDistr,
           minMass1, maxMass1,
@@ -2775,16 +2828,27 @@ int main( int argc, char *argv[] )
     /* populate spins, if required */
     if (spinInjections)
     {
-      /* FIXME Temporary measure until we figure out how to better handle
-         spin distributions for waveforms under development */
-      if ( ! strcmp(waveform, "IMRPhenomBpseudoFourPN"))
-        aligned = 1;
+      if (spinAligned==1)
+      {
+        if (strncmp(waveform, "IMRPhenomB", 10)==0)
+          alignInj = alongzAxis;
+        else if (strncmp(waveform, "SpinTaylor", 10)==0)
+          alignInj = inxzPlane;
+        else
+        {
+          fprintf( stderr, "Unknown waveform type for aligned spin injections.\n" );
+          exit( 1 );
+        }
+      }
+      else
+        alignInj = notAligned;
+
       simTable = XLALRandomInspiralSpins( simTable, randParams,
           minSpin1, maxSpin1,
           minSpin2, maxSpin2,
           minKappa1, maxKappa1,
           minabsKappa1, maxabsKappa1,
-          aligned);
+          alignInj );
     }
 
     if ( ifos != NULL )

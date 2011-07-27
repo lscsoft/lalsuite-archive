@@ -64,6 +64,7 @@ typedef enum
   gaussianMassDist,
   uniformTotalMassRatio,
   logMassUniformTotalMassRatio,
+  uniformTotalMassFraction
 }
 MassDistribution;
 
@@ -77,6 +78,15 @@ typedef enum
   fixedInclDist
 }
 InclDistribution;
+/** enum for two distinct ways a spin-aligned injection is realized
+    depending on the waveform family */
+typedef enum
+{
+  alongzAxis,
+  inxzPlane,
+  notAligned
+}
+AlignmentType;
 
 /* includes */
 #include <stdlib.h>
@@ -153,6 +163,14 @@ SimInspiralTable* XLALRandomInspiralTotalMassRatio( SimInspiralTable *inj,
     REAL4  minMassRatio,
     REAL4  maxMassRatio);
 
+SimInspiralTable* XLALRandomInspiralTotalMassFraction( SimInspiralTable *inj,
+    RandomParams *randParams,
+    MassDistribution mDist,
+    REAL4  minTotalMass,
+    REAL4  maxTotalMass,
+    REAL4  minMassRatio,
+    REAL4  maxMassRatio);
+
 SimInspiralTable* XLALRandomInspiralSpins( SimInspiralTable *inj,
     RandomParams *randParams,
     REAL4  spin1Min,
@@ -163,7 +181,7 @@ SimInspiralTable* XLALRandomInspiralSpins( SimInspiralTable *inj,
     REAL4  kappa1Max,
     REAL4  abskappa1Min,
     REAL4  abskappa1Max,
-    int aligned);
+    AlignmentType alignInj);
 
 SimInspiralTable* XLALRandomNRInjectTotalMass(
     SimInspiralTable *inj,
