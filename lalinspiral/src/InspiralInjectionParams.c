@@ -326,6 +326,42 @@ SimInspiralTable* XLALRandomInspiralTotalMassRatio(
   return ( inj );
 }
 
+/* generate masses for an inspiral injection. Total mass and mass fraction
+ * m1 / M are uniformly distributed */
+SimInspiralTable* XLALRandomInspiralTotalMassFraction(
+    SimInspiralTable *inj,   /**< injection for which masses will be set */
+    RandomParams *randParams,/**< random parameter details */
+    MassDistribution mDist,  /**< the mass distribution to use */
+    REAL4  minTotalMass,     /**< minimum total mass of binary */
+    REAL4  maxTotalMass,     /**< maximum total mass of binary */
+    REAL4  minMassRatio,     /**< minimum mass ratio */
+    REAL4  maxMassRatio      /**< maximum mass ratio */
+    )
+{
+  REAL4 mtotal = -1.0;
+  REAL4 fraction = -1.0;
+  REAL4 minfraction = -1.0;
+  REAL4 maxfraction = -1.0;
+
+  if ( mDist==uniformTotalMassFraction)
+  {
+    mtotal = minTotalMass + (XLALUniformDeviate(randParams) * (maxTotalMass - minTotalMass));
+    minfraction = 1 / (1 + 1 / minMassRatio); 
+    maxfraction = 1 / (1 + 1 / maxMassRatio);
+    fraction = minfraction + (XLALUniformDeviate(randParams) * (maxfraction - minfraction));
+  }
+  else
+  {
+    /* unsupported distribution type */
+    XLAL_ERROR_NULL("XLALRandomInspiralTotalMassFraction", XLAL_EINVAL);
+  }
+  inj->mass1 = fraction * mtotal;
+  inj->mass2 = mtotal - inj->mass1;
+  inj->eta = inj->mass1 * inj->mass2 / ( mtotal * mtotal );
+  inj->mchirp = mtotal * pow(inj->eta, 0.6);
+
+  return ( inj );
+}
 
 /** Generates spins for an inspiral injection.  Spin magnitudes lie between the
  * specified max and min values.  Orientation for spin1 can be constrained by
@@ -343,7 +379,7 @@ SimInspiralTable* XLALRandomInspiralSpins(
     REAL4  kappa1Max,		/**< FIXME: !TO BE DOCUMENTED! */
     REAL4  abskappa1Min,	/**< FIXME: !TO BE DOCUMENTED! */
     REAL4  abskappa1Max,	/**< FIXME: !TO BE DOCUMENTED! */
-    int aligned			/**< FIXME: !TO BE DOCUMENTED! */
+    AlignmentType alignInj	/** type of spin alignment */
     )
 {
   REAL4 spin1Mag;
@@ -384,63 +420,102 @@ SimInspiralTable* XLALRandomInspiralSpins(
     sgn = (sgn > 0.0) ? 1.0 : -1.0;
     kappa = kappa * sgn;
   }
+
+  /* spin1z */
   if (kappa > -2.0)
   {
-    sintheta = sqrt( 1 - kappa * kappa );
-    zmin = spin1Mag * ( cosinc * kappa - sininc * sintheta );
-    zmax = spin1Mag * ( cosinc * kappa + sininc * sintheta );
-
-    /* spin1z */
-    inj->spin1z = zmin + XLALUniformDeviate( randParams ) * (zmax - zmin);
-
-    /* spin1x and spin1y */
-    if (!aligned) {
-      inj->spin1x = (kappa * spin1Mag - inj->spin1z * cosinc) / sininc ;
-      inj->spin1y = pow( ((spin1Mag * spin1Mag) - (inj->spin1z * inj->spin1z) -
-          (inj->spin1x * inj->spin1x)) , 0.5);
-    }
-    else { /* aligned */
-      inj->spin1x = 0;
-      inj->spin1y = 0;
-    }
+	  sintheta = sqrt( 1 - kappa * kappa );
+	  zmin = spin1Mag * ( cosinc * kappa - sininc * sintheta );
+	  zmax = spin1Mag * ( cosinc * kappa + sininc * sintheta );
+	  inj->spin1z = zmin + XLALUniformDeviate( randParams ) * (zmax - zmin);
   }
+  else if (alignInj==inxzPlane)
+  {
+	  inj->spin1z = spin1Mag * cosinc;
+  }
+
+  else if (alignInj==alongzAxis)
+  {
+  /* z-component of aligned spin equal to the spin magnitude and
+     random in sign */
+	  sgn = XLALUniformDeviate( randParams ) - 0.5;
+	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
+	  inj->spin1z = spin1Mag * sgn;
+  }
+
+  else 
+  { 
+	  inj->spin1z = (XLALUniformDeviate( randParams ) - 0.5) * 2 * (spin1Mag);
+  }
+
+  /* spin1x and spin1y */
+  if (kappa > -2.0 && inc!=0) {
+	  inj->spin1x = (kappa * spin1Mag - inj->spin1z * cosinc) / sininc ;
+	  inj->spin1y = pow( ((spin1Mag * spin1Mag) - (inj->spin1z * inj->spin1z) -
+				  (inj->spin1x * inj->spin1x)) , 0.5);
+  }
+  else if (alignInj==inxzPlane)
+  {
+	  inj->spin1x = spin1Mag * sininc;
+  /* randomize sign of S_1.L_N while keeping spin along L_N */
+         sgn = XLALUniformDeviate( randParams ) - 0.5;
+         sgn = (sgn > 0.0) ? 1.0 : -1.0;
+         inj->spin1x = inj->spin1x * sgn;
+         inj->spin1z = inj->spin1z * sgn;
+         inj->spin1y = 0.0;
+  }
+  else if (alignInj==alongzAxis)
+  {
+	  inj->spin1x = 0.0;
+	  inj->spin1y = 0.0;
+  }
+
   else
   {
-    /* spin1z */
-    inj->spin1z = (XLALUniformDeviate( randParams ) - 0.5) * 2 * (spin1Mag);
     /* phi1 */
     r1 = pow( ((spin1Mag * spin1Mag) - (inj->spin1z * inj->spin1z)) , 0.5);
     phi1 = XLALUniformDeviate( randParams ) * LAL_TWOPI;
-    if (! aligned) {
-      inj->spin1x = r1 * cos(phi1);
-      inj->spin1y = r1 * sin(phi1);
-    }
-    else { /* aligned */
-      inj->spin1x = 0;
-      inj->spin1y = 0;
-    }
+    /* spin1x and spin1y */
+    inj->spin1x = r1 * cos(phi1);
+    inj->spin1y = r1 * sin(phi1);
   }
 
   /* spin2Mag */
   spin2Mag =  spin2Min + XLALUniformDeviate( randParams ) *
     (spin2Max - spin2Min);
 
-  /* spin2z */
-  inj->spin2z = (XLALUniformDeviate( randParams ) - 0.5) * 2 * (spin2Mag);
-  r2 = pow( ((spin2Mag * spin2Mag) - (inj->spin2z * inj->spin2z)) ,
-      0.5);
+  /* aligned case */
 
-  /* phi2 */
-  phi2 = XLALUniformDeviate( randParams ) * LAL_TWOPI;
-
-  /* spin2x and spin2y */
-  if (! aligned) {
-    inj->spin2x = r2 * cos(phi2);
-    inj->spin2y = r2 * sin(phi2);
+  if (alignInj==inxzPlane)
+  {
+         sgn = XLALUniformDeviate( randParams ) - 0.5;
+         sgn = (sgn > 0.0) ? 1.0 : -1.0;
+         inj->spin2z = spin2Mag * cosinc * sgn;
+         inj->spin2x = spin2Mag * sininc * sgn;
+	 inj->spin2y = 0.0;
   }
-  else { /* aligned */
-    inj->spin1x = 0;
-    inj->spin1y = 0;
+
+  else if (alignInj==alongzAxis)
+  {
+	  inj->spin2x = 0.0;
+	  inj->spin2y = 0.0;
+          sgn = XLALUniformDeviate( randParams ) - 0.5;
+          sgn = (sgn > 0.0) ? 1.0 : -1.0;
+          inj->spin2z = spin2Mag * sgn;
+  }
+  else
+  {
+          /* spin2z */
+          inj->spin2z = (XLALUniformDeviate( randParams ) - 0.5) * 2 * (spin2Mag);
+          r2 = pow( ((spin2Mag * spin2Mag) - (inj->spin2z * inj->spin2z)) ,
+                      0.5);
+
+          /* phi2 */
+          phi2 = XLALUniformDeviate( randParams ) * LAL_TWOPI;
+
+          /* spin2x and spin2y */
+          inj->spin2x = r2 * cos(phi2);
+          inj->spin2y = r2 * sin(phi2);
   }
 
   return ( inj );
