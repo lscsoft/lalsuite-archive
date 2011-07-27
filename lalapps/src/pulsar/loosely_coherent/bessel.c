@@ -11,6 +11,80 @@
 #include "global.h"
 #include "bessel.h"
 
+extern FILE * LOG;
+
+/* gsl functions are not precize for small arguments */
+void my_bessel_Jn_array(int count, double rho, double *bessel_values)
+{
+int order;
+int i;
+double x, a;
+
+x=rho*100;
+order=floor(x*x);
+if(order>42)order=42;
+
+//fprintf(stderr, "order=%d rho=%g\n", order, rho);
+
+if(order>count)order=count;
+
+if(order>0)
+	gsl_sf_bessel_Jn_array(0, order, rho, bessel_values);
+
+if(order==count)return;
+
+if(order==0)bessel_values[0]=1.0;
+
+a=1.0;
+for(i=1;i<order;i++)a=a*(0.5*rho)/i;
+
+for(;i<=count;i++) {
+	a=a*(0.5*rho)/i;
+	bessel_values[i]=a;
+	if(fabs(a)<1e-6) {
+		memset(&(bessel_values[i]), 0, (count-i+1)*sizeof(*bessel_values));
+		return;
+		}
+	}
+}
+
+void check_my_bessel_Jn(void)
+{
+int i, j, N;
+double a, x, rho;
+double val[256];
+double err=0;
+	
+for(j=0;j<4000;j++) {
+	rho=(j*1.0)/256.0;
+	
+	N=127;
+	my_bessel_Jn_array(N, rho, val);
+	for(i=0;i<=N;i++) {
+		//fprintf(stderr, "%d %f\n", i, rho);
+		if(fabs(rho)<=0) {
+			if(i==0)a=1.0;
+				else a=0;
+			} else
+		if(rho*100<sqrt(i+1) || (i>42)) {
+			a=exp(i*log(0.5*rho))/gsl_sf_fact(i);
+			} else
+			a=gsl_sf_bessel_Jn(i, rho);
+		x=fabs(a-val[i]);
+		if(x>err)err=x;
+		if(x>1e-5) {
+			fprintf(stderr, "Bessel approximation error: i=%d rho=%.12g %g for %.12g vs %.12g\n", i, rho, x, a, val[i]);
+			}
+		}
+	}
+fprintf(stderr, "Maximum Bessel approximation error: %g\n", err);
+fprintf(LOG, "Maximum Bessel approximation error: %g\n", err);
+if(err>1e-5) {
+	fprintf(stderr, "*** Bessel approximation error too large, exiting\n");
+	exit(-1);
+	}
+}
+
 void make_bessel_filter(COMPLEX8 *filter, int filter_size, COMPLEX8 *coeffs, int coeffs_size, double scale)
 {
 double *bessel_values;
@@ -20,6 +94,7 @@ int i, j, k, m;
 int offset;
 COMPLEX8 a, b;
 double ad;
+double rho;
 
 //coeffs_size=3;
 
@@ -60,7 +135,8 @@ if(scale<0) {
 // 	}
 // fprintf(stderr, "\n");
 
-gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[0], bessel_values);
+//gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[0], bessel_values);
+my_bessel_Jn_array(offset, scale*2*cnorm[0], bessel_values);
 
 filter[offset].re=bessel_values[0];
 filter[offset].im=0;
@@ -90,11 +166,20 @@ while((j<coeffs_size) && (j<offset)) {
 		fprintf(stderr, "%d %d %f %f\n", j+1, i, filter[i].re, filter[i].im);
 		}
 	fprintf(stderr, "\n");*/
+	rho=scale*2*cnorm[j];
+	
+	if(fabs(rho)<1e-3){
+		j++;
+		continue;
+		}
+
 	
 	memcpy(filter_tmp, filter, filter_size*sizeof(*filter));
 	
-	gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[j], bessel_values);
-
+	//gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[j], bessel_values);
+	memset(bessel_values, 0, (offset+1)*sizeof(*bessel_values));
+	my_bessel_Jn_array(ceil(offset*1.0/(j+1)), rho, bessel_values);
+	
 // 	for(i=0;i<=offset;i++) {
 // 		fprintf(stderr, " %f", bessel_values[i]);
 // 		}
@@ -108,19 +193,21 @@ while((j<coeffs_size) && (j<offset)) {
 	a=cuniti[j];
 	for(i=1;i<=offset;i++) {
 
-		for(k=0;k<filter_size;k++) {
-			m=k+i*(j+1);
-			if(m<filter_size) {
-				b=filter_tmp[m];
-				filter[k].re+=bessel_values[i]*(b.re*a.re+b.im*a.im)*(1-(i & 1)*2);
-				filter[k].im+=bessel_values[i]*(-b.re*a.im+b.im*a.re)*(1-(i & 1)*2);
-				}
+		if(fabs(bessel_values[i])>0.0) {
+			for(k=0;k<filter_size;k++) {
+				m=k+i*(j+1);
+				if(m<filter_size) {
+					b=filter_tmp[m];
+					filter[k].re+=bessel_values[i]*(b.re*a.re+b.im*a.im)*(1-(i & 1)*2);
+					filter[k].im+=bessel_values[i]*(-b.re*a.im+b.im*a.re)*(1-(i & 1)*2);
+					}
 
-			m=k-i*(j+1);
-			if(m>=0) {
-				b=filter_tmp[m];
-				filter[k].re+=bessel_values[i]*(b.re*a.re-b.im*a.im);
-				filter[k].im+=bessel_values[i]*(b.re*a.im+b.im*a.re);
+				m=k-i*(j+1);
+				if(m>=0) {
+					b=filter_tmp[m];
+					filter[k].re+=bessel_values[i]*(b.re*a.re-b.im*a.im);
+					filter[k].im+=bessel_values[i]*(b.re*a.im+b.im*a.re);
+					}
 				}
 			}
 		
@@ -137,7 +224,24 @@ for(i=0;i<filter_size;i++) {
 	ad+=(double)(filter[i].re)*(double)(filter[i].re)+(double)(filter[i].im)*(double)(filter[i].im);
 	}
 ad=1.0/sqrt(ad);
-if(fabs(ad-1.0)>0.01)fprintf(stderr, "ad=%f scale=%g coeff[1]=(%g, %g) filter_size=%d\n", ad, scale, coeffs[1].re, coeffs[1].im, filter_size);
+if(fabs(ad-1.0)>0.01) {
+	for(i=0;i<=offset && i<coeffs_size;i++) {
+		fprintf(stderr, " %f", cnorm[i]);
+		}
+	fprintf(stderr, "\nbessel values\n");
+
+	for(i=0;i<=offset;i++) {
+		fprintf(stderr, " %f", bessel_values[i]);
+		}
+	fprintf(stderr, "\n\n");
+
+	for(i=0;i<filter_size;i++) {
+		fprintf(stderr, " (%f,%f)", filter[i].re, filter[i].im);
+		}
+	fprintf(stderr, "\n\n");
+
+	fprintf(stderr, "ad=%f scale=%g coeff[1]=(%g, %g) filter_size=%d\n", ad, scale, coeffs[1].re, coeffs[1].im, filter_size);
+	}
 for(i=0;i<filter_size;i++) {
 	filter[i].re=filter[i].re*ad;
 	filter[i].im=filter[i].im*ad;
@@ -818,5 +922,6 @@ for(k=-offset;k<=offset;k++) {
 
 void test_bessel(void)
 {
+check_my_bessel_Jn();
 test_bessel_filter();
 }

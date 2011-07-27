@@ -106,8 +106,8 @@ LOG(ul, ul_adjust)
 LOG(circ_ul, ul_adjust)
 LOG(B_stat, 1)
 LOG(F_stat, 1)
-fprintf(f, "ratio: \"%s\" \"%s\" %d %g %g %f %f %f %f %f %f %f %f %f\n", args_info.label_arg, tag, ctx->patch_id, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count, st->min_noise_ratio, st->max_noise_ratio, 
-	ctx->ratio_SNR, ctx->ratio_UL, ctx->ratio_UL_circ, ctx->ratio_B_stat, ctx->ratio_F_stat, ctx->max_ratio);
+fprintf(f, "ratio: \"%s\" \"%s\" %d %g %g %f %f %f %f %f %f %f %f %f %f %g\n", args_info.label_arg, tag, ctx->patch_id, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count, st->min_noise_ratio, st->max_noise_ratio, 
+	ctx->ratio_SNR, ctx->ratio_UL, ctx->ratio_UL_circ, ctx->ratio_B_stat, ctx->ratio_F_stat, ctx->max_ratio, ctx->noise_adj[0], ctx->noise_adj[1]);
 fprintf(f, "weight: \"%s\" \"%s\" %d %g %g %g\n", args_info.label_arg, tag, ctx->patch_id, ctx->weight_pp, ctx->weight_pc, ctx->weight_cc);
 }
 
@@ -170,8 +170,15 @@ void update_SNR_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z
 {
 int i;
 double a, b, x, y, p;
-double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+double fpp, fpc, fcc;
 ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
 
 for(i=0;i<acd->free;i++) {
 	ac=&(acd->coeffs[i]);
@@ -209,8 +216,15 @@ void update_UL_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2
 {
 int i;
 double a, b, x, y, p, stv;
-double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+double fpp, fpc, fcc;
 ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
 
 stv=st->value*st->value;
 for(i=0;i<acd->free;i++) {
@@ -244,8 +258,15 @@ void update_circ_UL_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLE
 {
 int i;
 double a, b, x, y, p;
-double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+double fpp, fpc, fcc;
 ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
 
 for(i=0;i<2;i++) {
 	ac=&(acd->coeffs[i]);
@@ -277,8 +298,15 @@ void update_B_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2,
 {
 int i;
 double a, b, x, y, p, v, w, w_total;
-double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+double fpp, fpc, fcc;
 ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
 
 v=-1e25;
 w_total=0;
@@ -324,8 +352,15 @@ void update_F_stats_int(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8
 {
 int i;
 double a, b, x, y, p, v, w, w_total;
-double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+double fpp, fpc, fcc;
 ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
 
 v=-1e25;
 w_total=0;
@@ -368,18 +403,64 @@ if(v>st->value) {
 	}
 }
 
-void update_F_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+void update_F_stats1(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
-double fpp=ctx->weight_pp, fpc=ctx->weight_pc, fcc=ctx->weight_cc;
+double fpp, fpc, fcc;
 ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
 
 for(i=0;i<acd->free;i++) {
 	ac=&(acd->coeffs[i]);
 	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	b=(fcc*ac->w11*x*x-fpc*ac->w12*x*y+fpp*ac->w22*y*y)/(fpp*fcc-0.25*fpc*fpc);
+	
+	if(b>st->value) {
+		st->value=b;
+		st->z.re=x;
+		st->z.im=y;
+		st->fft_bin=bin;
+		st->fft_offset=fft_offset;
+		st->alignment_bin=i;
+		st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
+		st->spindown=ctx->spindown;
+		st->ra=ctx->ra;
+		st->dec=ctx->dec;
+		st->iota=ac->iota;
+		st->psi=ac->psi;
+		st->phi=atan2(x, y);
+		}
+		
+	}
+}
+
+void update_F_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+{
+int i;
+double a, b, x, y, p;
+double fpp, fpc, fcc;
+ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
+
+for(i=0;i<acd->free;i++) {
+	ac=&(acd->coeffs[i]);
+	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
+	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
+	b=(2*(fpp+fcc)*(x*x+y*y)+2*(fpp-fcc)*(x*x-y*y)+4*fpc*x*y)/(4*fpp*fcc-fpc*fpc);
 	
 	if(b>st->value) {
 		st->value=b;
@@ -452,12 +533,14 @@ for(i=0;i<=i_max;i++) {
 			}
 		}
 	}
-fprintf(stderr, "min=%g (%f,%f), (%f, %f)  max=%g (%f,%f), (%f, %f)  ratio=%f\n", min_norm, x_min[0], x_min[1], x_min[2], x_min[3], max_norm, x_max[0], x_max[1], x_max[2], x_max[3],  max_norm/min_norm);
+/*fprintf(stderr, "min=%g (%f,%f), (%f, %f)  max=%g (%f,%f), (%f, %f)  ratio=%f\n", min_norm, x_min[0], x_min[1], x_min[2], x_min[3], max_norm, x_max[0], x_max[1], x_max[2], x_max[3],  max_norm/min_norm);*/
 return (max_norm/min_norm);
 }
 
 void compute_stats_variance(LOOSE_CONTEXT *ctx)
 {
+ctx->noise_adj[0]=1.0;
+ctx->noise_adj[1]=0.0;
 ctx->ratio_SNR=compute_stats_func_ratio(ctx, update_SNR_stats);
 ctx->ratio_UL=compute_stats_func_ratio(ctx, update_UL_stats);
 ctx->ratio_UL=ctx->ratio_UL*ctx->ratio_UL;
@@ -480,8 +563,9 @@ float V;
 int idx;
 int i;
 int nsamples=fft1->length;
-int template_count=0;
-double sum;
+int template_count=0, noise_count;
+double sum, sum2, noise_level;
+FILE *f;
 
 #if 0
 V=0;
@@ -495,7 +579,11 @@ return;
 for(i=0;i<4;i++)M[i]=0.0;
 
 sum=0;
+sum2=0;
 template_count=0;
+noise_level=(ctx->weight_pp+ctx->weight_cc)*20;
+noise_count=0;
+/*f=fopen("sum.txt", "w");*/
 for(i=0;i<nsamples;i++) {
 	/* crudely skip indices outside Nyquist */
 	if(abs(i-(nsamples>>1))<(nsamples>>2))continue;
@@ -505,10 +593,21 @@ for(i=0;i<nsamples;i++) {
 	//idx=(fft1->data[i].re*fft2->data[i].re+fft1->data[i].im*fft2->data[i].im>=0)*2+(fft1->data[i].im*fft2->data[i].re-fft1->data[i].re*fft2->data[i].im>=0);
 	
 	if(V>M[idx])M[idx]=V;
-	sum+=V;
 	template_count++;
-	//fprintf(stderr, "V=%g V_norm=%g\n", V, V/(ctx->weight_pp+ctx->weight_cc));
+
+	if(V<noise_level) {
+		noise_count++;
+		sum+=V;
+		sum2+=(V*((i>(nsamples>>1) ? nsamples-i : i)-(nsamples>>3)))/(nsamples>>4);
+/*		fprintf(f, "%d %g %g %g %g %g %g %g\n", i, V/(ctx->weight_pp+ctx->weight_cc), (sum/noise_count)/(ctx->weight_pp+ctx->weight_cc), (sum2/noise_count)/(ctx->weight_pp+ctx->weight_cc), fft1->data[i].re, fft1->data[i].im, fft2->data[i].re, fft2->data[i].im);*/
+		}
+	//fprintf(stderr, "V=%g V_norm=%g sum=%g sum_norm=%g\n", V, V/(ctx->weight_pp+ctx->weight_cc), sum/template_count, (sum/template_count)/(ctx->weight_pp+ctx->weight_cc));
 	}
+	
+ctx->noise_adj[0]=(sum/noise_count)/(ctx->weight_pp+ctx->weight_cc);
+ctx->noise_adj[1]=(sum2/noise_count)/(ctx->weight_pp+ctx->weight_cc);
+// fclose(f);
+// exit(-1);
 
 for(i=0;i<nsamples;i++) {
 	/* crudely skip indices outside Nyquist */
@@ -529,9 +628,10 @@ for(i=0;i<nsamples;i++) {
 	stats->stat_hit_count++;
 	}
 stats->template_count+=template_count;
-sum/=template_count*(ctx->weight_pp+ctx->weight_cc);
+sum/=noise_count*(ctx->weight_pp+ctx->weight_cc);
 if(sum>stats->max_noise_ratio)stats->max_noise_ratio=sum;
 if(sum<stats->min_noise_ratio)stats->min_noise_ratio=sum;
+//fprintf(stderr, "%g %g\n", stats->stat_hit_count*100.0/stats->template_count, ctx->max_ratio);
 //fprintf(stderr, "sum=%g template_count=%d\n", sum, template_count);
 }
 

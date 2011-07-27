@@ -1,5 +1,5 @@
 PACKAGE=\"loosely_coherently_coherent\"
-VERSION=0.25.6-64
+VERSION=0.25.8-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
@@ -120,12 +120,23 @@ test3mmt: loosely_coherent1-mt
 	./loosely_coherent1-mt --config=config.3m
 	head 1626-406.500000/data.log
 
+test3n: loosely_coherent1
+	./loosely_coherent1 --config=config.3n
+	head 1626-406.500000/data.log
+
+test3nmt: loosely_coherent1-mt
+	./loosely_coherent1-mt --config=config.3n
+	head 1626-406.500000/data.log
+
 test_make_dst: loosely_coherent1
 	./loosely_coherent1 --config=config.make_dst
 	head 1626-406.500000/data.log
 
 test_make_dst2: loosely_coherent1
 	./loosely_coherent1 --config=config.make_dst2
+
+test_make_dst3: loosely_coherent1
+	./loosely_coherent1 --config=config.make_dst3
 
 test2cl3e: loosely_coherent2cl
 	./loosely_coherent2cl --config=config.3e

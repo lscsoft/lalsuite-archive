@@ -1056,10 +1056,10 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 			ctx->ra, ctx->dec, 
 			ctx->sb_ra[0], ctx->sb_dec[0], ctx->sb_ra[1], ctx->sb_dec[1], 
 			ctx->sb_ra[0]-ctx->ra, ctx->sb_dec[0]-ctx->dec, ctx->sb_ra[1]-ctx->ra, ctx->sb_dec[1]-ctx->dec);
-		fprintf(stderr, "te_sc  slope %g\n", point, fstep, ctx->te_sc->slope);
-		fprintf(stderr, "sp_sc  slope %g\n", point, ctx->spindown_sc->slope);
-		fprintf(stderr, "ra_sc  slope %g\n", point, ctx->ra_sc->slope);
-		fprintf(stderr, "dec_sc slope %g\n", point, ctx->dec_sc->slope);
+		fprintf(stderr, "te_sc  slope %g\n", ctx->te_sc->slope);
+		fprintf(stderr, "sp_sc  slope %g\n", ctx->spindown_sc->slope);
+		fprintf(stderr, "ra_sc  slope %g\n", ctx->ra_sc->slope);
+		fprintf(stderr, "dec_sc slope %g\n", ctx->dec_sc->slope);
 		}
 
 	if(0) {
@@ -1152,8 +1152,6 @@ int n_contexts;
 
 time(&start_time);
 
-test_bessel();
-
 fedisableexcept(FE_ALL_EXCEPT);
 fprintf(stderr, "Initial memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 if(getrlimit(RLIMIT_AS, &rl)<0) {
@@ -1202,7 +1200,7 @@ if(args_info.output_given){
 mkdir(output_dir, 0777);
 
 
-snprintf(s,20000,"%s/powerflux.log", output_dir);
+snprintf(s,20000,"%s/loosely_coherent1.log", output_dir);
 LOG=fopen(s,"w");
 
 while(LOG==NULL) {
@@ -1237,6 +1235,7 @@ for(i=0;i<args_info.config_given;i++) {
 	}
 
 init_threads(args_info.num_threads_arg);
+test_bessel();
 init_jobs();
 init_hookup();
 init_statistics();

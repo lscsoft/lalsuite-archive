@@ -106,7 +106,7 @@ init_stats(&(ctx->stats));
 
 /* Parameters */
 
-ctx->n_freq_adj_filter=63;
+ctx->n_freq_adj_filter=127;
 ctx->n_scan_fft_filter=11;
 ctx->n_fsteps=4;
 ctx->n_sky_scan=5;

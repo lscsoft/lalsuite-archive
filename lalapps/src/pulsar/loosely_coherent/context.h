@@ -111,6 +111,9 @@ typedef struct {
 	double ratio_F_stat;
 	double max_ratio;
 	
+	/* noise spectrum modelling */
+	double noise_adj[2];
+	
 	/* fast_get_emission_time */
 	ETC etc;
 	
