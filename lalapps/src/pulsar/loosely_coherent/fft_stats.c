@@ -254,6 +254,49 @@ for(i=0;i<acd->free;i++) {
 	}
 }
 
+/* this function is for ratio estimation using worst case limit of abs(z1)+abs(z2)->inf */
+void update_UL_stats_raw(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+{
+int i;
+double a, b, x, y, p, stv;
+double fpp, fpc, fcc;
+ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
+
+stv=st->value*st->value;
+for(i=0;i<acd->free;i++) {
+	ac=&(acd->coeffs[i]);
+	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
+	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
+	p=x*x+y*y;
+	a=1.0/(fpp*ac->w11+fpc*ac->w12+fcc*ac->w22);
+	b=p*(a*a);
+	
+	if(b>stv) {
+		stv=b;
+		st->value=sqrt(b);
+		st->z.re=x;
+		st->z.im=y;
+		st->fft_bin=bin;
+		st->fft_offset=fft_offset;
+		st->alignment_bin=i;
+		st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
+		st->spindown=ctx->spindown;
+		st->ra=ctx->ra;
+		st->dec=ctx->dec;
+		st->iota=ac->iota;
+		st->psi=ac->psi;
+		st->phi=atan2(x, y);
+		}
+	}
+}
+
 void update_circ_UL_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
 {
 int i;
@@ -274,7 +317,49 @@ for(i=0;i<2;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	p=x*x+y*y;
 	a=fpp*ac->w11+fpc*ac->w12+fcc*ac->w22;
-	b=sqrt(p/(a*a)+UL_CONFIDENCE_LEVEL/a);
+	b=sqrt(p*(a*a)+2*sqrt(p*(a*a*a))+(UL_CONFIDENCE_LEVEL-1)*a);
+	//b=sqrt(p/(a*a)+UL_CONFIDENCE_LEVEL/a);
+	
+	if(b>st->value) {
+		st->value=b;
+		st->z.re=x;
+		st->z.im=y;
+		st->fft_bin=bin;
+		st->fft_offset=fft_offset;
+		st->alignment_bin=i;
+		st->frequency=(ctx->frequency+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase)*(1+st->fft_offset);
+		st->spindown=ctx->spindown;
+		st->ra=ctx->ra;
+		st->dec=ctx->dec;
+		st->iota=ac->iota;
+		st->psi=ac->psi;
+		st->phi=atan2(x, y);
+		}
+	}
+}
+
+/* this function is for ratio estimation using worst case limit of abs(z1)+abs(z2)->inf */
+void update_circ_UL_stats_raw(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+{
+int i;
+double a, b, x, y, p;
+double fpp, fpc, fcc;
+ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
+
+for(i=0;i<2;i++) {
+	ac=&(acd->coeffs[i]);
+	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
+	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
+	p=x*x+y*y;
+	a=fpp*ac->w11+fpc*ac->w12+fcc*ac->w22;
+	b=sqrt(p/(a*a));
 	
 	if(b>st->value) {
 		st->value=b;
@@ -442,7 +527,7 @@ for(i=0;i<acd->free;i++) {
 	}
 }
 
-void update_F_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+void update_F_stats2(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p;
@@ -481,6 +566,80 @@ for(i=0;i<acd->free;i++) {
 	}
 }
 
+void update_F_stats3(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+{
+int i;
+double a, b, x, y, p;
+double fpp, fpc, fcc;
+ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
+
+for(i=0;i<acd->free;i++) {
+	ac=&(acd->coeffs[i]);
+	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
+	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
+	p=x*x+y*y;
+	a=fpp*ac->w11+fpc*ac->w12+fcc*ac->w22;
+	b=p/a;
+
+	if(b>st->value) {
+		st->value=b;
+		st->z.re=x;
+		st->z.im=y;
+		st->fft_bin=bin;
+		st->fft_offset=fft_offset;
+		st->alignment_bin=i;
+		st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
+		st->spindown=ctx->spindown;
+		st->ra=ctx->ra;
+		st->dec=ctx->dec;
+		st->iota=ac->iota;
+		st->psi=ac->psi;
+		st->phi=atan2(x, y);
+		}
+		
+	}
+}
+
+void update_F_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+{
+int i;
+double a, b, x, y, p;
+double fpp, fpc, fcc;
+ALIGNMENT_COEFFS *ac;
+int nsamples=ctx->nsamples;
+
+/* compute noise adjustment */
+a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
+fpp=a*ctx->weight_pp;
+fpc=a*ctx->weight_pc;
+fcc=a*ctx->weight_cc;
+
+b=(fcc*(z1.re*z1.re+z1.im*z1.im)-2*fpc*(z1.re*z2.re+z1.im*z2.im)+fpp*(z2.re*z2.re+z2.im*z2.im))/(fpp*fcc-fpc*fpc);
+
+if(b>st->value) {
+	st->value=b;
+	st->z.re=-1;
+	st->z.im=-1;
+	st->fft_bin=bin;
+	st->fft_offset=fft_offset;
+	st->alignment_bin=i;
+	st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
+	st->spindown=ctx->spindown;
+	st->ra=ctx->ra;
+	st->dec=ctx->dec;
+	st->iota=-1;
+	st->psi=-1;
+	st->phi=-1;
+	}
+}
+
 double compute_stats_func_ratio(LOOSE_CONTEXT *ctx, void (*stats_func)(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset))
 {
 int i,j,k;
@@ -516,7 +675,7 @@ for(i=0;i<=i_max;i++) {
 		st.value=0;
 		stats_func(ctx, &st, z1, z2, 0, 0);
 
-		//fprintf(stderr, "x1=(%f, %f) x2=(%f, %f) d=%g\n", z1.re, z1.im, z2.re, z2.im, st.value);
+/*		fprintf(stderr, "x1=(%f, %f) x2=(%f, %f) d=%g\n", z1.re, z1.im, z2.re, z2.im, st.value);*/
 		if(st.value>max_norm) {
 			max_norm=st.value;
 			x_max[0]=z1.re;
@@ -542,9 +701,9 @@ void compute_stats_variance(LOOSE_CONTEXT *ctx)
 ctx->noise_adj[0]=1.0;
 ctx->noise_adj[1]=0.0;
 ctx->ratio_SNR=compute_stats_func_ratio(ctx, update_SNR_stats);
-ctx->ratio_UL=compute_stats_func_ratio(ctx, update_UL_stats);
+ctx->ratio_UL=compute_stats_func_ratio(ctx, update_UL_stats_raw);
 ctx->ratio_UL=ctx->ratio_UL*ctx->ratio_UL;
-ctx->ratio_UL_circ=compute_stats_func_ratio(ctx, update_circ_UL_stats);
+ctx->ratio_UL_circ=compute_stats_func_ratio(ctx, update_circ_UL_stats_raw);
 ctx->ratio_UL_circ=ctx->ratio_UL_circ*ctx->ratio_UL_circ;
 ctx->ratio_B_stat=compute_stats_func_ratio(ctx, update_B_stats);
 ctx->ratio_F_stat=compute_stats_func_ratio(ctx, update_F_stats);

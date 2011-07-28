@@ -1,5 +1,5 @@
 PACKAGE=\"loosely_coherently_coherent\"
-VERSION=0.25.8-64
+VERSION=0.25.10-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
