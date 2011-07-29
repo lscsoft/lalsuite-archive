@@ -96,16 +96,16 @@ UPDATE_STAT(circ_ul);
 
 void log_stats(LOOSE_CONTEXT *ctx, FILE *f, char *tag, FFT_STATS *st, double ul_adjust)
 {
-#define LOG(a, adj) \
+#define LOG(a, adj, shift) \
 	fprintf(f, "stats: \"%s\" \"%s\" %s %d %lg %d %lg %.12f %lg %.12f %.12f %lg %lg %lg %lg %lg\n", \
-		args_info.label_arg, tag, #a, ctx->patch_id, st->a.value*adj, st->a.fft_bin, st->a.fft_offset, \
+		args_info.label_arg, tag, #a, ctx->patch_id, st->a.value*adj+shift, st->a.fft_bin, st->a.fft_offset, \
 		st->a.frequency, st->a.spindown, st->a.ra, st->a.dec, st->a.iota, st->a.psi, st->a.phi, st->a.z.re, st->a.z.im);
 	
-LOG(snr, 1)
-LOG(ul, ul_adjust)
-LOG(circ_ul, ul_adjust)
-LOG(B_stat, 1)
-LOG(F_stat, 1)
+LOG(snr, 1, 0)
+LOG(ul, ul_adjust, 0)
+LOG(circ_ul, ul_adjust, 0)
+LOG(B_stat, 1/log(10.0), log10(ul_adjust))
+LOG(F_stat, 1, 0)
 fprintf(f, "ratio: \"%s\" \"%s\" %d %g %g %f %f %f %f %f %f %f %f %f %f %g\n", args_info.label_arg, tag, ctx->patch_id, st->template_count, st->stat_hit_count, st->stat_hit_count/st->template_count, st->min_noise_ratio, st->max_noise_ratio, 
 	ctx->ratio_SNR, ctx->ratio_UL, ctx->ratio_UL_circ, ctx->ratio_B_stat, ctx->ratio_F_stat, ctx->max_ratio, ctx->noise_adj[0], ctx->noise_adj[1]);
 fprintf(f, "weight: \"%s\" \"%s\" %d %g %g %g\n", args_info.label_arg, tag, ctx->patch_id, ctx->weight_pp, ctx->weight_pc, ctx->weight_cc);
@@ -379,7 +379,7 @@ for(i=0;i<2;i++) {
 	}
 }
 
-void update_B_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+void update_B_stats1(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p, v, w, w_total;
@@ -401,7 +401,7 @@ for(i=0;i<acd->free;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	//p=x*x+y*y;
 	//a=fpp*ac->w11+fpc*ac->w12+fcc*ac->w22;
-	a=(fcc*ac->w11*x*x-fpc*ac->w12*x*y+fpp*ac->w22*y*y)/(fpp*fcc-0.25*fpc*fpc);
+	a=(fcc*ac->w11*x*x-2*fpc*ac->w12*x*y+fpp*ac->w22*y*y)/(fpp*fcc-fpc*fpc);
 	w=1.0;
 	if(w>0) {
 		w_total+=w;
@@ -433,7 +433,7 @@ if(v>st->value) {
 	}
 }
 
-void update_F_stats_int(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
+void update_B_stats(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
 {
 int i;
 double a, b, x, y, p, v, w, w_total;
@@ -447,7 +447,7 @@ fpp=a*ctx->weight_pp;
 fpc=a*ctx->weight_pc;
 fcc=a*ctx->weight_cc;
 
-v=-1e25;
+v=-1e55;
 w_total=0;
 for(i=0;i<acd->free;i++) {
 	ac=&(acd->coeffs[i]);
@@ -455,21 +455,22 @@ for(i=0;i<acd->free;i++) {
 	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
 	//p=x*x+y*y;
 	//a=fpp*ac->w11+fpc*ac->w12+fcc*ac->w22;
-	a=(fcc*ac->w11*x*x-fpc*ac->w12*x*y+fpp*ac->w22*y*y)/(fpp*fcc-0.25*fpc*fpc);
-	b=(1.0-ac->Ax*ac->Ax);
-	w=b*b*b;
+	b=fpp*fcc-fpc*fpc;
+	a=0.5*(fcc*ac->w11*x*x-2*fpc*ac->w12*x*y+fpp*ac->w22*y*y)/(b);
+	a=a-0.5*log(b)-log1p(exp(-a*(1.6+0.07*a*a-0.0005*a*a*a*a)))-0.5*log(2*M_PI);
+	w=1.0;
 	if(w>0) {
 		w_total+=w;
 		b=a-log(w);
-		if(v>b) v+=log1p(exp(b-v));
+		if(v>b+2) v+=0;
+			else
+		if(v>b) v=v+log1p(exp(b-v));
 			else
 			v=b+log1p(exp(v-b));
 		}
-	//fprintf(stderr, "%g %g %g\n", v, b, w);
-	//fprintf(stderr, "%g %g %g\n", adj, sqrt(p)*adj, a*adj);
 	}
 
-v-=log(w_total);
+//v-=log(w_total);
 
 if(v>st->value) {
 	st->value=v;
@@ -478,132 +479,13 @@ if(v>st->value) {
 	st->fft_bin=bin;
 	st->fft_offset=fft_offset;
 	st->alignment_bin=i;
-	st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
+	st->frequency=(1.0+st->fft_offset/ctx->frequency)*(ctx->frequency+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase);
 	st->spindown=ctx->spindown;
 	st->ra=ctx->ra;
 	st->dec=ctx->dec;
 	st->iota=-1;
 	st->psi=-1;
 	st->phi=-1;
-	}
-}
-
-void update_F_stats1(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
-{
-int i;
-double a, b, x, y, p;
-double fpp, fpc, fcc;
-ALIGNMENT_COEFFS *ac;
-int nsamples=ctx->nsamples;
-
-/* compute noise adjustment */
-a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
-fpp=a*ctx->weight_pp;
-fpc=a*ctx->weight_pc;
-fcc=a*ctx->weight_cc;
-
-for(i=0;i<acd->free;i++) {
-	ac=&(acd->coeffs[i]);
-	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
-	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
-	b=(fcc*ac->w11*x*x-fpc*ac->w12*x*y+fpp*ac->w22*y*y)/(fpp*fcc-0.25*fpc*fpc);
-	
-	if(b>st->value) {
-		st->value=b;
-		st->z.re=x;
-		st->z.im=y;
-		st->fft_bin=bin;
-		st->fft_offset=fft_offset;
-		st->alignment_bin=i;
-		st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
-		st->spindown=ctx->spindown;
-		st->ra=ctx->ra;
-		st->dec=ctx->dec;
-		st->iota=ac->iota;
-		st->psi=ac->psi;
-		st->phi=atan2(x, y);
-		}
-		
-	}
-}
-
-void update_F_stats2(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
-{
-int i;
-double a, b, x, y, p;
-double fpp, fpc, fcc;
-ALIGNMENT_COEFFS *ac;
-int nsamples=ctx->nsamples;
-
-/* compute noise adjustment */
-a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
-fpp=a*ctx->weight_pp;
-fpc=a*ctx->weight_pc;
-fcc=a*ctx->weight_cc;
-
-for(i=0;i<acd->free;i++) {
-	ac=&(acd->coeffs[i]);
-	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
-	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
-	b=(2*(fpp+fcc)*(x*x+y*y)+2*(fpp-fcc)*(x*x-y*y)+4*fpc*x*y)/(4*fpp*fcc-fpc*fpc);
-	
-	if(b>st->value) {
-		st->value=b;
-		st->z.re=x;
-		st->z.im=y;
-		st->fft_bin=bin;
-		st->fft_offset=fft_offset;
-		st->alignment_bin=i;
-		st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
-		st->spindown=ctx->spindown;
-		st->ra=ctx->ra;
-		st->dec=ctx->dec;
-		st->iota=ac->iota;
-		st->psi=ac->psi;
-		st->phi=atan2(x, y);
-		}
-		
-	}
-}
-
-void update_F_stats3(LOOSE_CONTEXT *ctx, STAT_INFO *st, COMPLEX8 z1, COMPLEX8 z2, int bin, double fft_offset)
-{
-int i;
-double a, b, x, y, p;
-double fpp, fpc, fcc;
-ALIGNMENT_COEFFS *ac;
-int nsamples=ctx->nsamples;
-
-/* compute noise adjustment */
-a=ctx->noise_adj[0]+(ctx->noise_adj[1]*(fabs(bin)-(nsamples>>3)))/(nsamples>>4);
-fpp=a*ctx->weight_pp;
-fpc=a*ctx->weight_pc;
-fcc=a*ctx->weight_cc;
-
-for(i=0;i<acd->free;i++) {
-	ac=&(acd->coeffs[i]);
-	x=z1.re*ac->w1_re-z1.im*ac->w1_im+z2.re*ac->w2_re-z2.im*ac->w2_im;
-	y=z1.re*ac->w1_im+z1.im*ac->w1_re+z2.re*ac->w2_im+z2.im*ac->w2_re;
-	p=x*x+y*y;
-	a=fpp*ac->w11+fpc*ac->w12+fcc*ac->w22;
-	b=p/a;
-
-	if(b>st->value) {
-		st->value=b;
-		st->z.re=x;
-		st->z.im=y;
-		st->fft_bin=bin;
-		st->fft_offset=fft_offset;
-		st->alignment_bin=i;
-		st->frequency=ctx->frequency+st->fft_offset+(1.0-ctx->te_sc->slope)*(2*st->fft_bin>ctx->nsamples ? st->fft_bin-ctx->nsamples : st->fft_bin)/ctx->timebase;
-		st->spindown=ctx->spindown;
-		st->ra=ctx->ra;
-		st->dec=ctx->dec;
-		st->iota=ac->iota;
-		st->psi=ac->psi;
-		st->phi=atan2(x, y);
-		}
-		
 	}
 }
 
