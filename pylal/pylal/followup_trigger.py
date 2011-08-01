@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+from __future__ import division
 
 __prog__ = "followup_trigger.py"
 
@@ -496,7 +497,7 @@ class FollowupTrigger:
  
 
   # -----------------------------------------------------  
-  def get_time_trigger( self, trig ):
+  def get_time_trigger(self, trig):
     """
     This is a helper function to return a GPS time as one float number
     @param trig: a sngl_inspiral table entry
@@ -507,7 +508,7 @@ class FollowupTrigger:
   # -----------------------------------------------------
   def get_effective_snr(self, trig):
     if trig.chisq>0:
-      return trig.get_effective_snr()
+      return trig.get_effective_snr(fac=50)
     else:
       return 0.0
 
@@ -632,7 +633,12 @@ class FollowupTrigger:
           loudest_details[ifo]["mchirp"] = loudest.mchirp
           loudest_details[ifo]["eta"] = loudest.eta
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
-          loudest_details[ifo]["chisq"] = loudest.chisq
+          if loudest.chisq_dof:
+            loudest_details[ifo]["rchisq"] = loudest.chisq/(2*loudest.chisq_dof-2)
+          if loudest.bank_chisq_dof:
+            loudest_details[ifo]["bank_rchisq"] = loudest.bank_chisq/loudest.bank_chisq_dof
+          if loudest.cont_chisq_dof:
+            loudest_details[ifo]["auto_rchisq"] = loudest.cont_chisq/loudest.cont_chisq_dof
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
           loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
           loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
@@ -791,8 +797,13 @@ class FollowupTrigger:
     self.fill_table(page, ['end_time', '%010d' % trig.end_time] )
     self.fill_table(page, ['end_time_ns', '%09d' % trig.end_time_ns] )    
     self.fill_table(page, ['snr', trig.snr])
-    self.fill_table(page, ['chisq', trig.chisq])
-    self.fill_table(page, ['eff_snr', self.get_effective_snr(trig)])
+    if trig.chisq_dof:
+      self.fill_table(page, ['rchisq', trig.chisq/(2*trig.chisq_dof-2)])
+    if trig.bank_chisq_dof: 
+      self.fill_table(page, ['bank_rchisq', trig.bank_chisq/trig.bank_chisq_dof])
+    if trig.cont_chisq_dof:
+      self.fill_table(page, ['auto_rchisq', trig.cont_chisq/trig.cont_chisq_dof])
+    self.fill_table(page, ['eff_snr (fac=50)', self.get_effective_snr(trig)])
     self.fill_table(page, ['new_snr', self.get_new_snr(trig)])
     self.fill_table(page, ['eff_distance', '%.1f' % trig.eff_distance] )
     page.add('</table></td><br>')
@@ -858,11 +869,16 @@ class FollowupTrigger:
         self.fill_table( page, ['parameter', ifo], header=True )
         self.fill_table( page, ['Number', self.number] )
         self.fill_table( page, ['inj ID', self.injection_id] )
-        self.fill_table( page, ['Effective SNR', '%.3f' % self.get_effective_snr(trig)] )
+        self.fill_table( page, ['Effective SNR (fac=50)', '%.3f' % self.get_effective_snr(trig)] )
         self.fill_table( page, ['New SNR', '%.3f' % self.get_new_snr(trig)] )
         self.fill_table( page, ['SNR', '%.3f' % trig.snr] )
-        self.fill_table( page, ['Chisq', '%.2f' % trig.chisq] )
-        self.fill_table( page, ['Rsq duration (s)', '%.4f' % trig.rsqveto_duration] )            
+        self.fill_table( page, ['Chisq', '%.3f' % (trig.chisq)] )
+        self.fill_table( page, ['Chisq/dof', '%.3f' % (trig.chisq/(2*trig.chisq_dof-2))] )
+        self.fill_table( page, ['Bank chisq', '%.3f' % (trig.bank_chisq)] )
+        self.fill_table( page, ['Bank chisq/dof', '%.3f' % (trig.bank_chisq/trig.bank_chisq_dof)] )
+        self.fill_table( page, ['Auto chisq', '%.3f' % (trig.cont_chisq)] )
+        self.fill_table( page, ['Auto chisq/dof', '%.3f' % (trig.cont_chisq/trig.cont_chisq_dof)] )
+        self.fill_table( page, ['Rsq duration (s)', '%.4f' % trig.rsqveto_duration] )
         self.fill_table( page, ['''Mass1 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass1] )
         self.fill_table( page, ['''Mass2 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass2] )
         self.fill_table( page, ['''Mtotal (M<sub>&#x2A00;</sub>)''', '%.2f' % (trig.mass1+trig.mass2)] )
@@ -916,10 +932,10 @@ class FollowupTrigger:
     ## print out the result for this particular injection
     page.add('<table border="2" >')
     page.add('<caption><b> Parameters of the loudest (by SNR) recovered single ifo triggers at each stage of the pipeline </b> </caption>')
-    self.fill_table( page, ['step','F/M', 'SNR', \
-                            'Mchirp', 'eta','eff_dist', \
-                            'chisq', 'eff_snr',\
-                            'new_snr','end_time','ethinca', 'Veto ON/OFF'],header=True )
+    self.fill_table( page, ['step', 'F/M', 'SNR', \
+                            'Mchirp', 'eta', 'eff_dist', \
+                            'rchisq', 'bank_rchisq', 'auto_rchisq', 'eff_snr',\
+                            'new_snr', 'end_time', 'ethinca', 'Veto ON/OFF'], header=True )
 
     # loop over the stages and create the table with
     # the various data in it (when available)
@@ -933,7 +949,9 @@ class FollowupTrigger:
         loudest_mchirp = ''
         loudest_eta = ''
         loudest_eff_dist = ''
-        loudest_chisq = ''
+        loudest_rchisq = ''
+        loudest_bank_rchisq = ''
+        loudest_auto_rchisq = ''
 	loudest_effsnr = ''
         loudest_newsnr = ''
         loudest_ethinca = ' '
@@ -956,8 +974,12 @@ class FollowupTrigger:
                          (ifo, result['loudest_details'][ifo]['eta'])
 	  loudest_eff_dist += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['eff_dist'])
-	  loudest_chisq += "%s : %.3f <br>" % \
-                         (ifo, result['loudest_details'][ifo]['chisq'])
+	  loudest_rchisq += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['rchisq'])
+          loudest_bank_rchisq += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['bank_rchisq'])
+          loudest_auto_rchisq += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['auto_rchisq'])
 	  loudest_effsnr += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['eff_snr'])
 	  loudest_newsnr += "%s : %.3f <br>" % \
@@ -994,8 +1016,10 @@ class FollowupTrigger:
                                    loudest_mchirp, \
                                    loudest_eta, \
                                    loudest_eff_dist,\
-                                   loudest_chisq, \
-                                   loudest_effsnr, 
+                                   loudest_rchisq, \
+                                   loudest_bank_rchisq, \
+                                   loudest_auto_rchisq, \
+                                   loudest_effsnr, \
                                    loudest_newsnr, \
                                    loudest_time, \
                                    loudest_ethinca, \

@@ -142,6 +142,8 @@ def run_omega_scan(opts,omegaTimes):
     omegaCommand[5] = '--outdir ' + outDir
     omegaCommand[6] = str(omegaTimes[ifo])
     if not os.path.isdir(outDir):
+      if opts.verbose:
+        print 'Making an omega scan for ' + ifo + ' at time ' + str(omegaTimes[ifo].seconds) 
       make_external_call(' '.join(omegaCommand))
     omegaDirs[ifo] = outDir
     omegaLinks+= '<a href="pipedown/'+omegaDirs[ifo]+'" rel="external">'
