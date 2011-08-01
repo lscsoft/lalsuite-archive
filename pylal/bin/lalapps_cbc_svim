@@ -311,11 +311,8 @@ class upper_limit(object):
 
 
   def set_bns_bbh_bins(self):
-    # BNS == 0
-    # NSBH == 1
-    # BBH == 2
-    # think of bin number as the number of black holes
-    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins([-0.5,0.5,1.5,2.5]),))
+    binEdges = [self.opts.min_nsmass,self.opts.max_nsmass,self.opts.min_bhmass,self.opts.max_bhmass]
+    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins(binEdges),))
     return self.bns_bbh_bins
 
 
@@ -430,7 +427,6 @@ class upper_limit(object):
       nss = numpy.sum([self.opts.min_nsmass < sim.mass1 < self.opts.max_nsmass,
                        self.opts.min_nsmass < sim.mass2 < self.opts.max_nsmass])
       if bhs + nss < 2: return True # components not in the right range, throw out injection
-      else: sim.mass1 = bhs # the injection will be identified by how many BHs it has
 
     return False
 
