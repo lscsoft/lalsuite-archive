@@ -9,7 +9,7 @@
 #include <lal/LALAdaptiveRungeKutta4.h>
 #include <lal/LALSQTPNWaveformInterface.h>
 
-NRCSID (LALSQTPNWAVEFORMC, "$Id LALSQTPN_Waveform.c$");
+NRCSID(LALSQTPNWAVEFORMC, "$Id LALSQTPN_Waveform.c$");
 
 /**		The macro function calculates the scalar product of two vectors.
  * @param[in]  a1	: the left vector
@@ -52,28 +52,28 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 
 	// calculating the coefficients
 	params->coeff.domegaGlobal = params->eta * 96. / 5.;
-	for (i = LAL_PNORDER_NEWTONIAN; i <= (UINT2)params->order; i += 2) {
-		params->coeff.meco[i] = -params->eta * (REAL8)(i + 2) / 6.0;
+	for (i = LAL_PNORDER_NEWTONIAN; i <= (UINT2) params->order; i += 2) {
+		params->coeff.meco[i] = -params->eta * (REAL8) (i + 2) / 6.0;
 	}
 	switch (params->order) {
 	case LAL_PNORDER_THREE_POINT_FIVE:
-		params->coeff.domega[LAL_PNORDER_THREE_POINT_FIVE] = (-4415.0 / 4032.0 + params->eta
-				* 358675.0 / 6048.0 + etaPow2 * 91495.0 / 1512.) * LAL_PI;
+		params->coeff.domega[LAL_PNORDER_THREE_POINT_FIVE] = (-4415.0 / 4032.0
+				+ params->eta * 358675.0 / 6048.0 + etaPow2 * 91495.0 / 1512.) * LAL_PI;
 	case LAL_PNORDER_THREE:
-		params->coeff.domega[LAL_PNORDER_THREE] = (16447322263.0 / 139708800.0 - LAL_GAMMA * 1712.0
-				/ 105.0 + piPow2 * 16.0 / 3.0) + (-273811877.0 / 1088640.0 + piPow2 * 451.0 / 48.0
-				- thetahat * 88.0 / 3.0) * params->eta + etaPow2 * 541.0 / 896.0 - etaPow3 * 5605.0
-				/ 2592.0;
+		params->coeff.domega[LAL_PNORDER_THREE] = (16447322263.0 / 139708800.0
+				- LAL_GAMMA * 1712.0 / 105.0 + piPow2 * 16.0 / 3.0)
+				+ (-273811877.0 / 1088640.0 + piPow2 * 451.0 / 48.0 - thetahat * 88.0 / 3.0)
+						* params->eta + etaPow2 * 541.0 / 896.0 - etaPow3 * 5605.0 / 2592.0;
 		params->coeff.domegaLN = -856.0 / 105.0;
-		params->coeff.meco[LAL_PNORDER_THREE] *= -675.0 / 64.0 + (209323.0 / 4032.0 - 205.0
-				* piPow2 / 96.0 + (110.0 / 9.0) * (1987.0 / 3080.0)) * params->eta - 155.0
-				* etaPow2 / 96.0 - 35.0 * etaPow3 / 5184.0;
+		params->coeff.meco[LAL_PNORDER_THREE] *= -675.0 / 64.0
+				+ (209323.0 / 4032.0 - 205.0 * piPow2 / 96.0 + (110.0 / 9.0) * (1987.0 / 3080.0))
+						* params->eta - 155.0 * etaPow2 / 96.0 - 35.0 * etaPow3 / 5184.0;
 	case LAL_PNORDER_TWO_POINT_FIVE:
-		params->coeff.domega[LAL_PNORDER_TWO_POINT_FIVE] = -LAL_PI * (4159.0 + 15876.0
-				* params->eta) / 672.0;
+		params->coeff.domega[LAL_PNORDER_TWO_POINT_FIVE] = -LAL_PI
+				* (4159.0 + 15876.0 * params->eta) / 672.0;
 	case LAL_PNORDER_TWO:
-		params->coeff.domega[LAL_PNORDER_TWO] = (34103.0 + 122949.0 * params->eta + 59472.0
-				* etaPow2) / 18144.0;
+		params->coeff.domega[LAL_PNORDER_TWO] = (34103.0 + 122949.0 * params->eta
+				+ 59472.0 * etaPow2) / 18144.0;
 		params->coeff.domegaSSselfConst = 0.0;
 		params->coeff.domegaQMConst = 0.0;
 		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
@@ -95,8 +95,8 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 				params->coeff.domegaQM[i] = spin_MPow2[i] * params->chiAmp[i]
 						* params->qmParameter[i] * 7.5;
 				params->coeff.domegaQMConst -= params->coeff.domegaQM[i] / 3.0;
-				params->coeff.dchihQM[i] = -params->qmParameter[i] * params->eta
-						* params->chiAmp[i] * 1.5;
+				params->coeff.dchihQM[i] = -params->qmParameter[i] * params->eta * params->chiAmp[i]
+						* 1.5;
 			}
 			params->coeff.mecoQM = 2.0 * params->eta;
 		}
@@ -132,14 +132,15 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 static void XLALCalculateCoefficientsForOrder0_0(REAL8 values[], REAL8 cosine[], REAL8 sine[]) {
 	REAL8 E2[3];
 	VECTOR_PRODUCT3(values+LALSQTPN_LNH_1, values+LALSQTPN_E1_1, E2);
-	cosine[LALSQTPN_PLUS] = 0.5 * (SQT_SQR(values[LALSQTPN_E1_1]) - SQT_SQR(values[LALSQTPN_E1_2])
-			-SQT_SQR(E2[0]) + SQT_SQR(E2[1]));
+	cosine[LALSQTPN_PLUS] = 0.5
+			* (SQT_SQR(values[LALSQTPN_E1_1]) - SQT_SQR(values[LALSQTPN_E1_2]) - SQT_SQR(E2[0])
+					+ SQT_SQR(E2[1]));
 	cosine[LALSQTPN_CROSS] = values[LALSQTPN_E1_1] * values[LALSQTPN_E1_2] - E2[0] * E2[1];
 	sine[LALSQTPN_PLUS] = values[LALSQTPN_E1_1] * E2[0] - values[LALSQTPN_E1_2] * E2[1];
 	sine[LALSQTPN_CROSS] = values[LALSQTPN_E1_2] * E2[0] + values[LALSQTPN_E1_1] * E2[1];
 }
 
-static void XLALCalculateAmplitudeContributionForOrder0_0(REAL8 values[], REAL4 contribution[]) {
+static void XLALCalculateAmplitudeContributionForOrder0_0(REAL8 values[], REAL8 contribution[]) {
 	REAL8 cosine_Part[2];
 	REAL8 sine_Part[2];
 	REAL8 sin_2Phi = sin(2.0 * values[LALSQTPN_PHASE]);
@@ -150,10 +151,111 @@ static void XLALCalculateAmplitudeContributionForOrder0_0(REAL8 values[], REAL4 
 	}
 }
 
+static void XLALCalculateCoefficientsForOrder0_5(REAL8 values[], REAL8 twoAlpha, REAL8 cosine[]) {
+	REAL8 sin_Iota = sin(acos(values[LALSQTPN_ADAPT_LNH_3]));
+	REAL8 sinPow2_Iota = SQT_SQR(sin_Iota);
+	cosine[LALSQTPN_PLUS] = -0.5 * cos(twoAlpha) * sinPow2_Iota;
+	cosine[LALSQTPN_CROSS] = -0.5 * sin(twoAlpha) * sinPow2_Iota;
+}
+
+static void XLALCalculateAmplitudeContributionForOrder0_5(LALSQTPNWaveformParams *params,
+		REAL8 values[], REAL8 twoAlpha, REAL8 contribution[]) {
+	REAL8 K[2];
+	REAL8 cosine_Part[2];
+	REAL8 sine_Part[2];
+	REAL8 cos_Iota = values[LALSQTPN_ADAPT_LNH_3];
+	REAL8 sin_Iota = sin(acos(cos_Iota));
+	REAL8 sin_Phi = sin(values[LALSQTPN_ADAPT_PHASE]);
+	REAL8 cos_Phi = cos(values[LALSQTPN_ADAPT_PHASE]);
+	REAL8 sin_3Phi = sin(3.0 * values[LALSQTPN_ADAPT_PHASE]);
+	REAL8 cos_3Phi = cos(3.0 * values[LALSQTPN_ADAPT_PHASE]);
+	XLALCalculateCoefficientsForOrder0_0(values, cosine_Part, sine_Part);
+	XLALCalculateCoefficientsForOrder0_5(values, twoAlpha, K);
+	for (UINT2 i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+		contribution[i] = 0.25 * params->deltam_M
+				* (3.0 * cosine_Part[i] * sin_Iota * (3.0 * cos_3Phi - cos_Phi)
+						+ 3.0 * sine_Part[i] * sin_Iota * (3.0 * sin_3Phi - sin_Phi)
+						- 2.0 * K[i] * sin_Iota * cos_Phi);
+	}
+}
+
+static void XLALCalculateCoefficientsForOrder1_0(LALSQTPNWaveformParams *params, REAL8 values[],
+		REAL8 twoALpha, REAL8 cosine[], REAL8 sine[]) {
+	REAL8 alpha = twoALpha / 2.0;
+	REAL8 DELTAX = params->totalMass
+			* (params->chi[1][0] * params->mass[1] - params->chi[0][0] * params->mass[0]);
+	REAL8 DELTAY = params->totalMass
+			* (params->chi[1][1] * params->mass[1] - params->chi[0][1] * params->mass[0]);
+	cosine[LALSQTPN_PLUS] = -(DELTAY * sin(alpha) - DELTAX * cos(alpha))
+			/ SQT_SQR(params->totalMass);
+	cosine[LALSQTPN_CROSS] = (DELTAY * cos(alpha) + DELTAX * sin(alpha))
+			/ SQT_SQR(params->totalMass);
+	REAL8 cosineX = values[LALSQTPN_ADAPT_LNH_3] * cos(alpha);
+	REAL8 sineX = values[LALSQTPN_ADAPT_LNH_3] * sin(alpha);
+	sine[LALSQTPN_PLUS] = -(DELTAY * cosineX + DELTAX * sineX) / SQT_SQR(params->totalMass);
+	sine[LALSQTPN_CROSS] = (DELTAY * sineX + DELTAX * cosineX) / SQT_SQR(params->totalMass);
+}
+
+static void XLALCalculateAmplitudeContributionForOrder1_0(LALSQTPNWaveformParams *params,
+		REAL8 values[], REAL8 twoAlpha, REAL8 contribution[]) {
+	INT2 i;
+	REAL8 cos_Iota = values[LALSQTPN_ADAPT_LNH_3];
+	REAL8 sin_Iota = sin(acos(cos_Iota));
+	REAL8 sinPow2_Iota = SQT_SQR(sin_Iota);
+	REAL8 contribution0[2];
+	REAL8 cosine_Part[3][2];
+	REAL8 sine_Part[3][2];
+	REAL8 sin_Phi = sin(values[LALSQTPN_ADAPT_PHASE]);
+	REAL8 cos_Phi = cos(values[LALSQTPN_ADAPT_PHASE]);
+	REAL8 cos_2Phi = cos(2.0 * values[LALSQTPN_ADAPT_PHASE]);
+	REAL8 sin_4Phi = sin(4.0 * values[LALSQTPN_ADAPT_PHASE]);
+	REAL8 cos_4Phi = cos(4.0 * values[LALSQTPN_ADAPT_PHASE]);
+	XLALCalculateCoefficientsForOrder0_0(values, cosine_Part[LAL_PNORDER_NEWTONIAN],
+			sine_Part[LAL_PNORDER_NEWTONIAN]);
+	XLALCalculateCoefficientsForOrder0_5(values, twoAlpha, cosine_Part[LAL_PNORDER_HALF]);
+	XLALCalculateCoefficientsForOrder1_0(params, values, twoAlpha, cosine_Part[LAL_PNORDER_ONE],
+			sine_Part[LAL_PNORDER_ONE]);
+	XLALCalculateAmplitudeContributionForOrder0_0(values, contribution0);
+	for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+		contribution[i] = -8.0 / 3.0 * (1.0 - 3.0 * params->eta) * sinPow2_Iota
+				* (cosine_Part[LAL_PNORDER_NEWTONIAN][i] * cos_4Phi
+						+ sine_Part[LAL_PNORDER_NEWTONIAN][i] * sin_4Phi)
+				+ cosine_Part[LAL_PNORDER_ONE][i] * cos_Phi
+				+ sine_Part[LAL_PNORDER_ONE][i] * sin_Phi
+				+ 1.0 / 6.0
+						* (4.0 * (1.0 - 3.0 * params->eta) * sinPow2_Iota * cos_2Phi
+								* cosine_Part[LAL_PNORDER_HALF][i]
+								- (4.0 * (1.0 - 3.0 * params->eta) * sinPow2_Iota
+										+ (19.0 - 3.0 * params->eta)) * contribution0[i]);
+	}
+}
+
 static void XLALCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], REAL4 *h) {
+	REAL8 contribution[3][2];
+	REAL8 twoAlpha = 2.0 * atan2(values[LALSQTPN_ADAPT_LNH_2], values[LALSQTPN_ADAPT_LNH_1]);
 	REAL8 amp = -2.0 * pow(values[LALSQTPN_OMEGA], 2.0 / 3.0) * params->totalMass * params->eta
 			* LAL_MRSUN_SI / params->distance;
-	XLALCalculateAmplitudeContributionForOrder0_0(values, h);
+	if ((params->amplitudeContribution & LALSQTPN_1_0) == LALSQTPN_1_0) {
+		XLALCalculateAmplitudeContributionForOrder1_0(params, values, twoAlpha,
+				contribution[LAL_PNORDER_ONE]);
+		for (UINT2 i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+			h[i] += contribution[LAL_PNORDER_ONE][i] * pow(values[LALSQTPN_ADAPT_OMEGA], 2.0 / 3.0);
+		}
+	}
+	if ((params->amplitudeContribution & LALSQTPN_0_5) == LALSQTPN_0_5) {
+		XLALCalculateAmplitudeContributionForOrder0_5(params, values, twoAlpha,
+				contribution[LAL_PNORDER_HALF]);
+		for (UINT2 i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+			h[i] += contribution[LAL_PNORDER_HALF][i]
+					* pow(values[LALSQTPN_ADAPT_OMEGA], 1.0 / 3.0);
+		}
+	}
+	if ((params->amplitudeContribution & LALSQTPN_0_0) == LALSQTPN_0_0) {
+		XLALCalculateAmplitudeContributionForOrder0_0(values, contribution[LAL_PNORDER_NEWTONIAN]);
+		for (UINT2 i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
+			h[i] += contribution[LAL_PNORDER_NEWTONIAN][i];
+		}
+	}
 	for (UINT2 i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
 		h[i] *= amp;
 	}
@@ -166,8 +268,9 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	const REAL8 geometrized_m_total = params->totalMass * LAL_MTSUN_SI;
 	const REAL8 freq_Step = geometrized_m_total * LAL_PI;
-	const REAL8 lengths = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0) * pow(params->chirpMass
-			* LAL_MTSUN_SI * params->lowerFreq, -5.0 / 3.0) / params->lowerFreq;
+	const REAL8 lengths = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
+			* pow(params->chirpMass * LAL_MTSUN_SI * params->lowerFreq, -5.0 / 3.0)
+			/ params->lowerFreq;
 	xlalErrno = 0;
 	XLALFillCoefficients(params);
 	if (xlalErrno) {
@@ -198,8 +301,8 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	}
 	integrator->stopontestonly = 1;
 	REAL8Array *values;
-	UINT4 size = XLALAdaptiveRungeKutta4(integrator, (void *)params, valuesInitial, 0.0, lengths
-			/ geometrized_m_total, params->samplingTime / geometrized_m_total, &values);
+	UINT4 size = XLALAdaptiveRungeKutta4(integrator, (void *) params, valuesInitial, 0.0,
+			lengths / geometrized_m_total, params->samplingTime / geometrized_m_total, &values);
 	INT4 intreturn = integrator->returncode;
 	XLALAdaptiveRungeKutta4Free(integrator);
 	if (!size) {
@@ -220,8 +323,8 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 				params->chi[0][2], params->chi[1][0], params->chi[1][1], params->chi[1][2],
 				params->inclination);
 	}
-	if ((waveform->hp && size >= waveform->hp->length) || (waveform->waveform->f && size
-			>= waveform->waveform->f->data->length)) {
+	if ((waveform->hp && size >= waveform->hp->length)
+			|| (waveform->waveform->f && size >= waveform->waveform->f->data->length)) {
 		if (waveform->hp) {
 			fprintf(stderr, "LALSQTPNWaveform: no space to write in signalvec1: %d vs. %d\n", size,
 					waveform->hp->length);
@@ -274,8 +377,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 
 	if (values) {
 		XLALDestroyREAL8Array(values);
-	}
-	DETATCHSTATUSPTR(status);
+	}DETATCHSTATUSPTR(status);
 	RETURN(status);
 }
 
@@ -288,15 +390,17 @@ static void XLALAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 v
 		k = (i + 1) % 2;
 		VECTOR_PRODUCT3(chi_p[k], chi_p[i], chih1xchih2[i]);
 		for (j = 0; j < 3; j++) {
-			dvalues[LALSQTPN_CHIH1_1 + 3 * i + j] += params->coeff.dchihSS[i] * (chih1xchih2[i][j]
-					- 3.0 * params->coeff.variables.LNhchih[k]
-							* params->coeff.variables.LNhxchih[i][j])
+			dvalues[LALSQTPN_CHIH1_1 + 3 * i + j] += params->coeff.dchihSS[i]
+					* (chih1xchih2[i][j]
+							- 3.0 * params->coeff.variables.LNhchih[k]
+									* params->coeff.variables.LNhxchih[i][j])
 					* SQT_SQR(values[LALSQTPN_OMEGA]);
 		}
 	}
 	dvalues[LALSQTPN_OMEGA] += (params->coeff.domegaSS[0] * params->coeff.variables.LNhchih[0]
-			* params->coeff.variables.LNhchih[1] + params->coeff.domegaSS[1]
-			* params->coeff.variables.chih1chih2) * params->coeff.variables.omegaPowi_3[4];
+			* params->coeff.variables.LNhchih[1]
+			+ params->coeff.domegaSS[1] * params->coeff.variables.chih1chih2)
+			* params->coeff.variables.omegaPowi_3[4];
 }
 
 static void XLALAddSelfContributions(LALSQTPNWaveformParams *params, REAL8 dvalues[]) {
@@ -352,8 +456,8 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	}
 	params->coeff.variables.chih1chih2 = SCALAR_PRODUCT3(chi_p[0], chi_p[1]);
 	for (i = 0; i < 2; i++) {
-		params->coeff.variables.LNhchih[i] = SCALAR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i]);
-		VECTOR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i], params->coeff.variables.LNhxchih[i]);
+		params->coeff.variables.LNhchih[i] = SCALAR_PRODUCT3(values + LALSQTPN_LNH_1, chi_p[i]);VECTOR_PRODUCT3(
+				values + LALSQTPN_LNH_1, chi_p[i], params->coeff.variables.LNhxchih[i]);
 	}
 	for (i = LAL_PNORDER_NEWTONIAN; i <= params->order; i++) {
 		dvalues[LALSQTPN_OMEGA] += params->coeff.domega[i] * params->coeff.variables.omegaPowi_3[i];
@@ -361,8 +465,8 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	switch (params->order) {
 	case LAL_PNORDER_THREE_POINT_FIVE:
 	case LAL_PNORDER_THREE:
-		dvalues[LALSQTPN_OMEGA] += params->coeff.domegaLN * log(16.0
-				* params->coeff.variables.omegaPowi_3[2])
+		dvalues[LALSQTPN_OMEGA] += params->coeff.domegaLN
+				* log(16.0 * params->coeff.variables.omegaPowi_3[2])
 				* params->coeff.variables.omegaPowi_3[LAL_PNORDER_THREE];
 	case LAL_PNORDER_TWO_POINT_FIVE:
 	case LAL_PNORDER_TWO:
@@ -381,16 +485,15 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 		}
 		if (params->spinInteraction) {
 			for (i = 0; i < 3; i++) {
-				dvalues[LALSQTPN_LNH_1 + i] += (params->coeff.dLNh[0] * dvalues[LALSQTPN_CHIH1_1
-						+ i] + params->coeff.dLNh[1] * dvalues[LALSQTPN_CHIH2_1 + i])
+				dvalues[LALSQTPN_LNH_1 + i] += (params->coeff.dLNh[0]
+						* dvalues[LALSQTPN_CHIH1_1 + i]
+						+ params->coeff.dLNh[1] * dvalues[LALSQTPN_CHIH2_1 + i])
 						* params->coeff.variables.omegaPowi_3[1];
-			}
-			VECTOR_PRODUCT3(values+LALSQTPN_LNH_1, dvalues+LALSQTPN_LNH_1, omegaLNhat);
+			}VECTOR_PRODUCT3(values+LALSQTPN_LNH_1, dvalues+LALSQTPN_LNH_1, omegaLNhat);
 			omegaLNhatLNhat = SCALAR_PRODUCT3(omegaLNhat, values+LALSQTPN_LNH_1);
 			for (i = 0; i < 3; i++) {
 				omegaE[i] = omegaLNhat[i] - omegaLNhatLNhat * values[LALSQTPN_LNH_1];
-			}
-			VECTOR_PRODUCT3(omegaE, values+LALSQTPN_E1_1, dvalues+LALSQTPN_E1_1);
+			}VECTOR_PRODUCT3(omegaE, values+LALSQTPN_E1_1, dvalues+LALSQTPN_E1_1);
 		}
 	case LAL_PNORDER_ONE:
 	case LAL_PNORDER_HALF:
@@ -439,9 +542,10 @@ int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param) {
 	case LAL_PNORDER_TWO_POINT_FIVE:
 	case LAL_PNORDER_TWO:
 		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
-			meco += params->coeff.mecoSS * (params->coeff.variables.chih1chih2 - 3.0
-					* params->coeff.variables.LNhchih[0] * params->coeff.variables.LNhchih[1])
-					* values[LALSQTPN_OMEGA];
+			meco += params->coeff.mecoSS
+					* (params->coeff.variables.chih1chih2
+							- 3.0 * params->coeff.variables.LNhchih[0]
+									* params->coeff.variables.LNhchih[1]) * values[LALSQTPN_OMEGA];
 		}
 		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
 			REAL8 temp = params->coeff.domegaQMConst;
