@@ -292,11 +292,14 @@ def compute_luminosity_from_catalog(found, missed, catalog):
 
     return lum
 
-def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
+def filter_injections_by_mass(injs, mbins, bin_num , bin_type):
     '''
     For a given set of injections (sim_inspiral rows), return the subset
     of injections that fall within the given mass range.
     '''
+    mbins = numpy.concatenate((mbins.lower()[0],numpy.array([mbins.upper()[0][-1]])))
+    mlow = mbins[bin_num]
+    mhigh = mbins[bin_num+1]
     if bin_type == "Chirp_Mass":
         newinjs = [l for l in injs if (mlow <= l.mchirp < mhigh)]
     elif bin_type == "Total_Mass":
@@ -304,7 +307,11 @@ def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
     elif bin_type == "Component_Mass": #it is assumed that m2 is fixed
         newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
     elif bin_type == "BNS_BBH":
-        newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
+        if bin_num == 0 or bin_num == 2: #BNS/BBH case
+            newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh and mlow <= l.mass2 < mhigh)]
+        else:
+            newinjs = [l for l in injs if (mbins[0] <= l.mass1 < mbins[1] and mbins[2] <= l.mass2 < mbins[3])] #NSBH
+            newinjs += [l for l in injs if (mbins[0] <= l.mass2 < mbins[1] and mbins[2] <= l.mass1 < mbins[3])] #BHNS
 
     return newinjs
 
@@ -328,11 +335,11 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalo
     #
     effvmass = []
     errvmass = []
-    for ml,mc,mh in zip(mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
+    for j,mc in enumerate(mass_bins.centres()[0]):
 
         # filter out injections not in this mass bin
-        newfound = filter_injections_by_mass( found, ml, mh, bin_type)
-        newmissed = filter_injections_by_mass( missed, ml, mh, bin_type)
+        newfound = filter_injections_by_mass( found, mass_bins, j, bin_type)
+        newmissed = filter_injections_by_mass( missed, mass_bins, j, bin_type)
 
         foundArray[(mc,)] = len(newfound)
         missedArray[(mc,)] = len(newmissed)
