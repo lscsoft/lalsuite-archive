@@ -386,13 +386,13 @@ class upper_limit(object):
     nbins = 5
     fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
     if self.opts.verbose:
-      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f"%(FAR,)
+      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f BINNING BY %s"%(FAR,bin_type)
       print >>sys.stdout, "FARs =",fars
 
     # compute the volume in each mass bin for a few fars
     vA = []
     for far in fars:
-      found, missed = self.get_injections(instruments,far)
+      found, missed = self.get_injections(instruments,far,bin_type=bin_type)
       vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
 
