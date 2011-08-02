@@ -93,9 +93,10 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
         """
         Add information from some cache entries.
         """
-        newfiles = [entry.path() for entry in cache_entries \
+        newentries = [entry for entry in cache_entries \
                     if entry.path() not in self._remotefiles]
-        newsegs = segmentlist([entry.segment for entry in cache_entries])
+        newfiles = [entry.path() for entry in newentries]
+        newsegs = segmentlist([entry.segment for entry in newentries])
         self._remotefiles.extend(newfiles)
         self._remotesegs.extend(newsegs)
         self._remotecoverage |= segmentlist(newsegs)
