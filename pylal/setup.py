@@ -9,9 +9,18 @@ from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
 import subprocess
-from sys import version_info
+import sys
 import time
 from numpy.lib.utils import get_include as numpy_get_include
+
+
+#
+# check python version
+#
+
+if sys.version_info[0] != 2 or sys.version_info[1] < 4:
+	log.error("Python version is %s.  pylal requires a Python version such that 2.4 <= version < 3" % sys.version)
+	sys.exit(1)
 
 
 class PkgConfig(object):
