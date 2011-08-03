@@ -37,14 +37,15 @@ all_ranks = numpy.concatenate((clean_data[rank_name],glitch_data[rank_name]))
 all_ranks_sorted = numpy.sort(all_ranks)
 
 
-FAP, DP = auxmvc_utils.ROC(clean_data[rank_name], glitch_data[rank_name])
-
+FAP, TAP = auxmvc_utils.ROC(clean_data[rank_name], glitch_data[rank_name])
+#FAP = false alarm percentage = number of random/clean times flagged as glitches
+#TAP = true alarm percentage = number of glitches flagged as glitches
 
 # Plot ROC curve
 pylab.figure(1)
-pylab.loglog(FAP,DP, linewidth = 2.0)
+pylab.loglog(FAP,TAP, linewidth = 2.0)
 pylab.hold(True)
-x = numpy.arange(min(DP), max(DP) + (max(DP) - min(DP))/1000.0, (max(DP) - min(DP))/1000.0)
+x = numpy.arange(min(TAP), max(TAP) + (max(TAP) - min(TAP))/1000.0, (max(TAP) - min(TAP))/1000.0)
 pylab.loglog(x,x, linestyle="dashed", linewidth = 2.0)
 pylab.xlabel('False Alarm Probability')
 pylab.ylabel('Efficiency')
@@ -56,19 +57,17 @@ pylab.close()
 # save ROC curve in a file
 roc_file = open(opts.output_dir + "/"+"ROC_" + opts.tag + ".pickle", "w")
 pickle.dump(FAP, roc_file)
-pickle.dump(DP, roc_file)
+pickle.dump(TAP, roc_file)
 roc_file.close()
 
-#print FAP 
 #FAP is a list that is naturally sorted in reverse order (highest to lowest),
-#we need to turn it into a regularly sorted list so that we can find the DP for
+#we need to turn it into a regularly sorted list so that we can find the TAP for
 #fiducial FAPs
-#print len(FAP)
 FAP.sort()
 edfile = open(opts.output_dir + "/"+'efficiency_deadtime_'+opts.tag+'.txt','w')
 for threshold in [.01,.05,.1]:
 	tmpindex=bisect.bisect_left(FAP,threshold)
-	edfile.write("deadtime: "+str(FAP[tmpindex])+" efficiency: "+str(DP[len(FAP)-tmpindex-1])+"\n")
+	edfile.write("deadtime: "+str(FAP[tmpindex])+" efficiency: "+str(TAP[len(FAP)-tmpindex-1])+"\n")
 
 
 # plot rank vs significance
