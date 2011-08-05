@@ -104,40 +104,29 @@ options, filenames = parse_command_line()
 
 #read cs_gamma file output
 #the columns should be p,n,epsilon,Gmu,gammaAverage,gammaMin,gammaMax
-tbl = [[] for i in range(7)]
+p, n, eps, gmu, avg, min, max = [], [], [], [], [], [], []
 for line in open(filenames[0], 'r'):
     line = line.strip()
     if line[0] in "%#":
-    	continue
-    for i, val in enumerate(line.split()):
-    	tbl[i].append(float(val))
+        continue
+    for arr, val in zip((p, n, eps, gmu, avg, min, max), line.split()):
+        arr.append(float(val))
 
 numberofeventsUL=-numpy.log(1-0.90);
 numberofeventsS=1.0000001
 
-#eps = array.array('f',tbl[2])
-eps = tbl[2]
 eps2 = sorted(set(eps))
 leneps2 = len(eps2)
-#gmu = array.array('f',tbl[3])
-gmu = tbl[3]
+
 gmu2 = sorted(set(gmu))
 lengmu2 = len(gmu2)
-#print lengmu2
-avg = tbl[4]
-min = tbl[5]
-max = tbl[6]
 
 
-#for kk in range(length(gmu2)):
-#    for jj in range(length(eps2)):
-#        cut = (tbl[3] == gmu2[kk]) & (tbl[2] == eps2[jj])
-#        if sum(cut) == 1:
-gmuarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-epsarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-avgarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-minarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-maxarr = numpy.zeros([lengmu2,leneps2],dtype=float)
+gmuarr = numpy.zeros([lengmu2,leneps2],dtype="double")
+epsarr = numpy.zeros([lengmu2,leneps2],dtype="double")
+avgarr = numpy.zeros([lengmu2,leneps2],dtype="double")
+minarr = numpy.zeros([lengmu2,leneps2],dtype="double")
+maxarr = numpy.zeros([lengmu2,leneps2],dtype="double")
 
 
 for i in range(lengmu2):
@@ -161,53 +150,3 @@ cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.010, numberofeventsUL,
              "gmu-eps-p1e-2")
 cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.001, numberofeventsUL,
              "gmu-eps-p1e-3")
-
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t, [numberofeventsUL], 
-#             linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t, [numberofeventsUL], 
-#             linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t, [numberofeventsUL], 
-#             linestyles='dashed',colors='r')
-#fig.savefig('tmplot1')
-#
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t/1e-1, 
-#             [numberofeventsUL], linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t/1e-1, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t/1e-1, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#fig.savefig('tmplot2')
-#
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t/1e-2, 
-#             [numberofeventsUL], linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t/1e-2, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t/1e-2, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#fig.savefig('tmplot3')
-#
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t/1e-3, 
-#             [numberofeventsUL], linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t/1e-3, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t/1e-3, 
-#             [numberofeventsUL], linestyles='dashed',colors='r')
-#fig.savefig('tmplot4')
-#
-#    
