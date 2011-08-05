@@ -80,29 +80,6 @@ def parse_command_line():
     return options, filenames
 
 
-#------------------------------------------------------------------------------
-#       A 'uniquify' function to quickly and efficiently remove duplicate
-#     members of a sequence http://www.peterbe.com/plog/uniqifiers-benchmark
-#------------------------------------------------------------------------------
-
-def unique(seq, idfun=None):
-    # order preserving
-    if idfun is None:
-        def idfun(x): return x
-    seen = {}
-    result = []
-    for item in seq:
-        marker = idfun(item)
-        # in old Python versions:
-        # if seen.has_key(marker)
-        # but in new ones:
-        if marker in seen: continue
-        seen[marker] = 1
-        result.append(item)
-    return result
-
-
-
 def cosmo_contour(x, y, avg, min, max, p, neventsUL, filename):
     fig = Figure()
     FigureCanvas(fig)
@@ -126,32 +103,25 @@ def cosmo_contour(x, y, avg, min, max, p, neventsUL, filename):
 options, filenames = parse_command_line()
 
 #read cs_gamma file output
-f = open(filenames[0], 'r')
-
-#at the moment the titles should be %,p,n,epsilon,Gmu,gammaAverage,gammaMin,
-# gammaMax
-titles = f.readline().split()
-tbl=[]
-#for i in range(7): tbl.append([])
+#the columns should be p,n,epsilon,Gmu,gammaAverage,gammaMin,gammaMax
 tbl = [[] for i in range(7)]
+for line in open(filenames[0], 'r'):
+    line = line.strip()
+    if line[0] in "%#":
+    	continue
+    for i, val in enumerate(line.split()):
+    	tbl[i].append(float(val))
+
 numberofeventsUL=-numpy.log(1-0.90);
 numberofeventsS=1.0000001
 
-#Read in the values from the gamma file produced by cs_gamma
-while True:
-    line = f.readline()
-    if line == '': break #Exit the loop at the end of the file
-    tmplst = line.split()
-    for i in range(len(tmplst)):
-        tbl[i].append(float(tmplst[i]))
-
 #eps = array.array('f',tbl[2])
 eps = tbl[2]
-eps2 = unique(eps)
+eps2 = sorted(set(eps))
 leneps2 = len(eps2)
 #gmu = array.array('f',tbl[3])
 gmu = tbl[3]
-gmu2 = unique(gmu)
+gmu2 = sorted(set(gmu))
 lengmu2 = len(gmu2)
 #print lengmu2
 avg = tbl[4]
