@@ -56,8 +56,7 @@ pylab.close()
 
 # save ROC curve in a file
 roc_file = open(opts.output_dir + "/"+"ROC_" + opts.tag + ".pickle", "w")
-pickle.dump(FAP, roc_file)
-pickle.dump(TAP, roc_file)
+pickle.dump([FAP,TAP], roc_file)
 roc_file.close()
 
 #FAP is a list that is naturally sorted in reverse order (highest to lowest),
