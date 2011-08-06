@@ -57,9 +57,9 @@ void SampleCalibrationErrorsAmplitude(REAL8 *logF, INT4 length, INT4 IFO, INT4 s
             stddev[2]=0.138;
             break;
         case 3:
-            stddev[0]=0.144;
-            stddev[1]=0.139;
-            stddev[2]=0.138;
+            stddev[0]=0.10;
+            stddev[1]=0.10;
+            stddev[2]=0.20;
             break;
         default:
             fprintf(stderr,"Unknown IFO! Valid codes are H1, L1, V1. Aborting\n");
@@ -99,22 +99,31 @@ void SampleCalibrationErrorsPhase(REAL8 *logF, INT4 length, INT4 IFO, INT4 seed,
   	p = gsl_rng_alloc (type);           // Set RNG type
     
 
-    REAL8 stddev[3]={0.0};
+    REAL8 stddev[6]={0.0};
     switch (IFO) {
-        case 1:
-            stddev[0]=4.5;
-            stddev[1]=4.9;
-            stddev[2]=5.8;
+        case 1:  //H1
+            stddev[0]=4.5;  // 1-500
+            stddev[1]=4.5;  // 500-1000
+            stddev[2]=4.5;   // 1k-2k
+            stddev[3]=4.9;   // 2k -2.8k
+            stddev[4]=4.9;   //2.8k-4k
+            stddev[5]=5.8;   // >4k 
             break;
-        case 2:
-            stddev[0]=4.2;
-            stddev[1]=3.6;
-            stddev[2]=3.3;
+        case 2: //L1
+            stddev[0]=4.2;  // 1-500
+            stddev[1]=4.2;  // 500-1000
+            stddev[2]=4.2;   // 1k-2k
+            stddev[3]=3.6;   // 2k -2.8k
+            stddev[4]=3.6;   //2.8k-4k
+            stddev[5]=3.3;   // >4k 
             break;
-        case 3:
-            stddev[0]=4.2;
-            stddev[1]=3.6;
-            stddev[2]=3.3;
+        case 3: //V1
+            stddev[0]=2.2918;  // 1-500
+            stddev[1]=0.5729;  // 500-1000
+            stddev[2]=6.87;   // 1k-2k
+            stddev[3]=6.87;   // 2k -2.8k
+            stddev[4]=360.0*7e-06;   //2.8k-4k
+            stddev[5]=360.0*7e-06;   // >4k 
             break;
         default:
             fprintf(stderr,"Unknown IFO! Valid codes are H1, L1, V1. Aborting\n");
@@ -123,14 +132,35 @@ void SampleCalibrationErrorsPhase(REAL8 *logF, INT4 length, INT4 IFO, INT4 seed,
     }
     
     for (i=0; i<length; i++) {
-        if (logF[i]>=log10(1.0) && logF[i]<log10(2000.0)) {
+        if (logF[i]>=log10(1.0) && logF[i]<log10(500.0) && IFO==3) {
+            errors[i]=gsl_ran_gaussian(p, (stddev[0]+0.00286479*pow(10.0,logF[i])));
+        }
+        else if (logF[i]>=log10(1.0) && logF[i]<log10(500.0)) {
             errors[i]=gsl_ran_gaussian(p, stddev[0]);
+        }
+        else if (logF[i]>=log10(500.0) && logF[i]<log10(1000.0) && IFO==3) {
+            errors[i]=gsl_ran_gaussian(p, (stddev[1]+0.0063*pow(10.0,logF[i])));
         } 
-        else if (logF[i]>=log10(2000.0) && logF[i]<log10(4000.0)){
+        else if (logF[i]>=log10(500.0) && logF[i]<log10(1000.0)) {
             errors[i]=gsl_ran_gaussian(p, stddev[1]);
-        } 
-        else if (logF[i]>=log10(4000.0) && logF[i]<=log10(6000.0)){
+        }
+        else if (logF[i]>=log10(1000.0) && logF[i]<log10(2000.0)) {
             errors[i]=gsl_ran_gaussian(p, stddev[2]);
+        } 
+        else if (logF[i]>=log10(2000.0) && logF[i]<log10(2800.0)) {
+            errors[i]=gsl_ran_gaussian(p, stddev[3]);
+        }
+        else if (logF[i]>=log10(2800.0) && logF[i]<log10(4000.0) && IFO==3){
+            errors[i]=gsl_ran_gaussian(p, (stddev[4]*pow(10.0,logF[i])));
+        } 
+        else if (logF[i]>=log10(2800.0) && logF[i]<log10(4000.0)){
+            errors[i]=gsl_ran_gaussian(p, stddev[4]);
+        } 
+        else if (logF[i]>=log10(4000.0) && logF[i]<=log10(6000.0) && IFO==3){
+            errors[i]=gsl_ran_gaussian(p, (stddev[5]*pow(10.0,logF[i])));
+				}
+         else if (logF[i]>=log10(4000.0) && logF[i]<=log10(6000.0)){
+            errors[i]=gsl_ran_gaussian(p, stddev[5]);
 				}
         errors[i]*=LAL_PI/180.0;			
         //printf("error[%i] | logf = %e | error = %e\n", i, logF[i], errors[i]);
