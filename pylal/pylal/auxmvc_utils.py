@@ -45,8 +45,14 @@ def split_array(array, Nparts = 2):
       subarrays.append(array[:][i*n:(i+1)*n])
   
   return subarrays
+ 
+def get_clean_samples(Triggers):
+  """
+  Returns only clean samples from the set of random samples. By definition, a sample in unclean if there is a KW trigger with 0.1 seconds time window. 
+  """) 
   
-  
+  return Triggers[numpy.nonzero(Triggers['unclean'] == 0.0)[0],:]
+
 def getKWAuxTriggerFromDQCAT(Triggers, DQ_category):
 
     if DQ_category == 'DQ2':
