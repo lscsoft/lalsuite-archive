@@ -76,7 +76,8 @@ def GenerateKWAuxCleanTriggers(files):
 
    """Reads in the kw1-35_signal_training sets and stores them in the memory 
    """
-   KWAuxCleanTriggers=auxmvc_utils.ReadKWAuxTriggers(files)
+   KWAuxRandomTriggers = auxmvc_utils.ReadKWAuxTriggers(files)
+   KWAuxCleanTriggers = auxmvc_utils.get_clean_samples(KWAuxRandomTriggers)
    return KWAuxCleanTriggers
 
 
