@@ -42,11 +42,7 @@ matplotlib.rcParams.update({
 	"savefig.dpi": 300,
 	"text.usetex": True
 })
-#import matplotlib.pyplot as plt
 from matplotlib import figure, cm
-#from matplotlib import patches
-#from matplotlib import cm
-#from matplotlib import colorbar
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -60,7 +56,6 @@ __author__ = "Andrew Mergl <>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
-#import array
 
 def parse_command_line():
     parser = OptionParser(
@@ -113,14 +108,11 @@ for line in open(filenames[0], 'r'):
     for arr, val in zip((p, n, eps, gmu, avg, min, max), line.split()):
         arr.append(float(val))
 
-numberofeventsUL=-numpy.log(1-0.90);
-numberofeventsS=1.0000001
 
-
-eps2 = sorted(set(eps))
+eps2 = numpy.array(sorted(set(eps)))
 leneps2 = len(eps2)
 
-gmu2 = sorted(set(gmu))
+gmu2 = numpy.array(sorted(set(gmu)))
 lengmu2 = len(gmu2)
 
 # check for rounding errors producing a wrong count of x and y values
@@ -128,26 +120,23 @@ assert leneps2 * lengmu2 == len(gmu)
 # program only  works if all values in the data file are for the same p and that p is 1
 assert set(p) == set([1])
 
-gmuarr = numpy.zeros([lengmu2,leneps2],dtype="double")
-epsarr = numpy.zeros([lengmu2,leneps2],dtype="double")
 avgarr = numpy.zeros([lengmu2,leneps2],dtype="double")
 minarr = numpy.zeros([lengmu2,leneps2],dtype="double")
 maxarr = numpy.zeros([lengmu2,leneps2],dtype="double")
 
 for i in range(lengmu2):
     for j in range(lengmu2):
-        gmuarr[i,j]=gmu[j+(i*lengmu2)]
-        epsarr[i,j]=eps[j+(i*lengmu2)]
         avgarr[i,j]=avg[j+(i*lengmu2)]
         minarr[i,j]=min[j+(i*lengmu2)]
         maxarr[i,j]=max[j+(i*lengmu2)]
 
-t = options.livetime
-avgarr = avgarr*t
-minarr = minarr*t
-maxarr = maxarr*t
+avgarr = avgarr*options.livetime
+minarr = minarr*options.livetime
+maxarr = maxarr*options.livetime
 
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 1.000, numberofeventsUL, "gmu-eps-p1e+0")
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.100, numberofeventsUL, "gmu-eps-p1e-1")
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.010, numberofeventsUL, "gmu-eps-p1e-2")
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.001, numberofeventsUL, "gmu-eps-p1e-3")
+numberofeventsUL=-numpy.log(1-0.90)
+
+cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 1.000, numberofeventsUL, "gmu-eps-p1e+0")
+cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 0.100, numberofeventsUL, "gmu-eps-p1e-1")
+cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 0.010, numberofeventsUL, "gmu-eps-p1e-2")
+cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 0.001, numberofeventsUL, "gmu-eps-p1e-3")
