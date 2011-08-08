@@ -108,35 +108,35 @@ for line in open(filenames[0], 'r'):
     for arr, val in zip((p, n, eps, gmu, avg, min, max), line.split()):
         arr.append(float(val))
 
-
-eps2 = numpy.array(sorted(set(eps)))
-leneps2 = len(eps2)
-
-gmu2 = numpy.array(sorted(set(gmu)))
-lengmu2 = len(gmu2)
+epsindex = dict((b, a) for a, b in enumerate(sorted(set(eps))))
+gmuindex = dict((b, a) for a, b in enumerate(sorted(set(gmu))))
 
 # check for rounding errors producing a wrong count of x and y values
-assert leneps2 * lengmu2 == len(gmu)
+assert len(epsindex) * len(gmuindex) == len(gmu)
 # program only  works if all values in the data file are for the same p and that p is 1
 assert set(p) == set([1])
 
-avgarr = numpy.zeros([lengmu2,leneps2],dtype="double")
-minarr = numpy.zeros([lengmu2,leneps2],dtype="double")
-maxarr = numpy.zeros([lengmu2,leneps2],dtype="double")
+avgarr = numpy.zeros([len(epsindex), len(gmuindex)], dtype="double")
+minarr = numpy.zeros([len(epsindex), len(gmuindex)], dtype="double")
+maxarr = numpy.zeros([len(epsindex), len(gmuindex)], dtype="double")
 
-for i in range(lengmu2):
-    for j in range(lengmu2):
-        avgarr[i,j]=avg[j+(i*lengmu2)]
-        minarr[i,j]=min[j+(i*lengmu2)]
-        maxarr[i,j]=max[j+(i*lengmu2)]
+for e, g, val in zip(eps, gmu, avg):
+	avgarr[epsindex[e], gmuindex[g]] = val
+for e, g, val in zip(eps, gmu, min):
+	minarr[epsindex[e], gmuindex[g]] = val
+for e, g, val in zip(eps, gmu, max):
+	maxarr[epsindex[e], gmuindex[g]] = val
 
-avgarr = avgarr*options.livetime
-minarr = minarr*options.livetime
-maxarr = maxarr*options.livetime
+avgarr *= options.livetime
+minarr *= options.livetime
+maxarr *= options.livetime
 
 numberofeventsUL=-numpy.log(1-0.90)
 
-cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 1.000, numberofeventsUL, "gmu-eps-p1e+0")
-cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 0.100, numberofeventsUL, "gmu-eps-p1e-1")
-cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 0.010, numberofeventsUL, "gmu-eps-p1e-2")
-cosmo_contour(gmu2, eps2, avgarr, minarr, maxarr, 0.001, numberofeventsUL, "gmu-eps-p1e-3")
+x = numpy.array(sorted(gmuindex.keys()))
+y = numpy.array(sorted(epsindex.keys()))
+
+cosmo_contour(x, y, avgarr, minarr, maxarr, 1.000, numberofeventsUL, "gmu-eps-p1e+0")
+cosmo_contour(x, y, avgarr, minarr, maxarr, 0.100, numberofeventsUL, "gmu-eps-p1e-1")
+cosmo_contour(x, y, avgarr, minarr, maxarr, 0.010, numberofeventsUL, "gmu-eps-p1e-2")
+cosmo_contour(x, y, avgarr, minarr, maxarr, 0.001, numberofeventsUL, "gmu-eps-p1e-3")
