@@ -59,22 +59,25 @@
 /*****************************************************************************/
 static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
 {
-  //Declare incoming variables
-  PyArrayObject *Numpy_zofA, *Numpy_dRdz;
+  PyArrayObject *Numpy_zofA;
+  PyObject *Numpy_dRdz;
   double Gmu, alpha, f, Gamma, *zofA, *dRdz;
   int Namp;
-  //Extract the variables from *args
-  if (!PyArg_ParseTuple(args, "ddddO!O!", &Gmu, &alpha, &f, &Gamma, &PyArray_Type, &Numpy_zofA, &PyArray_Type, &Numpy_dRdz))
-    return NULL;
-  //Get the pointers to the actual data
-  Numpy_zofA = PyArray_GETCONTIGUOUS(Numpy_zofA);
-  Numpy_dRdz = PyArray_GETCONTIGUOUS(Numpy_dRdz);
-  Namp = PyArray_DIM(Numpy_zofA, 0);
-  zofA = PyArray_DATA(Numpy_zofA);
-  dRdz = PyArray_DATA(Numpy_dRdz);
-
   cs_cosmo_functions_t cosmofns;
   int j;
+
+  if (!PyArg_ParseTuple(args, "ddddO!", &Gmu, &alpha, &f, &Gamma, &PyArray_Type, &Numpy_zofA))
+    return NULL;
+
+  Numpy_zofA = PyArray_GETCONTIGUOUS(Numpy_zofA);
+  Namp = PyArray_DIM(Numpy_zofA, 0);
+  zofA = PyArray_DATA(Numpy_zofA);
+
+  {
+  npy_intp dims[1] = {Namp};
+  Numpy_dRdz = PyArray_SimpleNew(1, dims, NPY_DOUBLE);
+  }
+  dRdz = PyArray_DATA(Numpy_dRdz);
 
   cosmofns = XLALCSCosmoFunctions( zofA, (size_t) Namp);
 
@@ -91,10 +94,8 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
 
   XLALCSCosmoFunctionsFree( cosmofns );
   Py_DECREF(Numpy_zofA);
-  Py_DECREF(Numpy_dRdz);
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Numpy_dRdz;
 }
 /*****************************************************************************/
 /*int findzofA(double Gmu, double alpha, int Namp, double *zofA, double *amp)
@@ -112,8 +113,8 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
 /*****************************************************************************/
 static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
 {
-  //Declare incoming variables
-  PyArrayObject *Numpy_zofA, *Numpy_amp;
+  PyArrayObject *Numpy_amp;
+  PyObject *Numpy_zofA;
   double Gmu, alpha, *zofA, *amp;
   int Namp;
 
@@ -127,16 +128,18 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   gsl_interp *zofa_interp; 
   gsl_interp_accel *acc_zofa = gsl_interp_accel_alloc(); 
 
-  //Extract variables from *args
-  if (!PyArg_ParseTuple(args, "ddO!O!", &Gmu, &alpha, &PyArray_Type, &Numpy_zofA, &PyArray_Type, &Numpy_amp))
+  if (!PyArg_ParseTuple(args, "ddO!", &Gmu, &alpha, &PyArray_Type, &Numpy_amp))
     return NULL;
 
-  //Get the pointers to the actual data
   Numpy_amp = PyArray_GETCONTIGUOUS(Numpy_amp);
-  Numpy_zofA = PyArray_GETCONTIGUOUS(Numpy_zofA);
   Namp = PyArray_DIM(Numpy_amp, 0);
   amp = PyArray_DATA(Numpy_amp);
-  zofA = PyArray_DATA(Numpy_zofA); 
+
+  {
+  npy_intp dims[1] = {Namp};
+  Numpy_zofA = PyArray_SimpleNew(1, dims, NPY_DOUBLE);
+  }
+  zofA = PyArray_DATA(Numpy_zofA);
 
   cosmofns = XLALCSCosmoFunctionsAlloc( exp( lnz_min ), dlnz, numz );
 
@@ -165,14 +168,12 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
 
   XLALCSCosmoFunctionsFree( cosmofns );
   Py_DECREF(Numpy_amp);
-  Py_DECREF(Numpy_zofA);
   free(fz);
   free(z);
   gsl_interp_free (zofa_interp);
   gsl_interp_accel_free(acc_zofa);
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Numpy_zofA;
 }
 
 /*******************************************************************************/
