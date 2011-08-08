@@ -31,7 +31,8 @@
 #include <numpy/arrayobject.h>
 #include <math.h>
 #include <stdlib.h>
-#include "gsl/gsl_interp.h"
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_interp.h>
 #include <gsl/gsl_errno.h>
 #include <lal/cs_cosmo.h>
 #include <lal/cs_lambda_cosmo.h>
@@ -70,6 +71,8 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
     return NULL;
 
   Numpy_zofA = PyArray_GETCONTIGUOUS(Numpy_zofA);
+  if(!Numpy_zofA)
+    return NULL;
   Namp = PyArray_DIM(Numpy_zofA, 0);
   zofA = PyArray_DATA(Numpy_zofA);
 
@@ -79,18 +82,22 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
   }
   dRdz = PyArray_DATA(Numpy_dRdz);
 
-  cosmofns = XLALCSCosmoFunctions( zofA, (size_t) Namp);
+  cosmofns = XLALCSCosmoFunctions( zofA, Namp);
 
   for ( j = 0; j < Namp; j++ )
     {
-      double theta = pow((1+cosmofns.z[j]) * f * alpha * cosmofns.phit[j] / H0, -1.0/3.0);
+      /*double theta = pow((1+cosmofns.z[j]) * f * alpha * cosmofns.phit[j] / H0, -1.0/3.0);
 
       if (theta > 1.0)
 	  dRdz[j] = 0.0;
-      else
+      else*/
 	  dRdz[j] = 0.5 * H0 * pow(f/H0,-2.0/3.0) * pow(alpha, -5.0/3.0) / (Gamma*Gmu) * pow(cosmofns.phit[j],-14.0/3.0) * cosmofns.phiV[j] * pow(1+cosmofns.z[j],-5.0/3.0);
+      if(gsl_isnan(dRdz[j])) {
+        Py_DECREF(Numpy_dRdz);
+        Numpy_dRdz = NULL;
+        break;
+      }
     }
-
 
   XLALCSCosmoFunctionsFree( cosmofns );
   Py_DECREF(Numpy_zofA);
@@ -118,9 +125,9 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   double Gmu, alpha, *zofA, *amp;
   int Namp;
 
-  double lnz_min = log(1e-20), lnz_max = log(1e10);
+  double z_min = 1e-20, z_max = 1e10;
   double dlnz = 0.05;
-  size_t numz = floor( (lnz_max - lnz_min)/dlnz );
+  unsigned numz = floor( (log(z_max) - log(z_min)) / dlnz );
   int i;
   cs_cosmo_functions_t cosmofns;
   double *fz,*z;
@@ -132,6 +139,8 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
     return NULL;
 
   Numpy_amp = PyArray_GETCONTIGUOUS(Numpy_amp);
+  if(!Numpy_amp)
+    return NULL;
   Namp = PyArray_DIM(Numpy_amp, 0);
   amp = PyArray_DATA(Numpy_amp);
 
@@ -141,7 +150,7 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   }
   zofA = PyArray_DATA(Numpy_zofA);
 
-  cosmofns = XLALCSCosmoFunctionsAlloc( exp( lnz_min ), dlnz, numz );
+  cosmofns = XLALCSCosmoFunctionsAlloc( z_min, dlnz, numz );
 
   zofa_interp = gsl_interp_alloc (gsl_interp_linear, cosmofns.n);
 
@@ -163,7 +172,13 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   for ( i = 0; i < Namp; i++ )
     {
       a = amp[i] * pow(H0,-1.0/3.0) * pow(alpha,-2.0/3.0) / Gmu;
+      /* evaluate z(fz) at fz=a */
       zofA[i] = gsl_interp_eval (zofa_interp, fz, z, a, acc_zofa );
+      if(gsl_isnan(zofA[i])) {
+        Py_DECREF(Numpy_zofA);
+        Numpy_zofA = NULL;
+        break;
+      }
     }
 
   XLALCSCosmoFunctionsFree( cosmofns );
