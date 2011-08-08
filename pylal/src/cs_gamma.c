@@ -60,16 +60,18 @@
 static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
 {
   //Declare incoming variables
-  double Gmu=0.0, alpha=0.0, f=0.0, Gamma=0.0, *zofA=NULL, *dRdz=NULL;
-  int Namp=0;
-  PyObject *Numpy_zofA=NULL, *Numpy_dRdz=NULL; 
+  PyArrayObject *Numpy_zofA, *Numpy_dRdz;
+  double Gmu, alpha, f, Gamma, *zofA, *dRdz;
+  int Namp;
   //Extract the variables from *args
-  if (!PyArg_ParseTuple(args, "ddddiOO", &Gmu, &alpha, &f, &Gamma, &Namp, &Numpy_zofA, &Numpy_dRdz))
+  if (!PyArg_ParseTuple(args, "ddddO!O!", &Gmu, &alpha, &f, &Gamma, &PyArray_Type, &Numpy_zofA, &PyArray_Type, &Numpy_dRdz))
     return NULL;
-  //Get the pointers to the actual and ensure the data is in a format that 
-  // plays nicely with C: NPY_INOUT_ARRAY flag
-  zofA = PyArray_DATA(PyArray_FROM_OTF(Numpy_zofA, NPY_DOUBLE, NPY_INOUT_ARRAY));
-  dRdz = PyArray_DATA(PyArray_FROM_OTF(Numpy_dRdz, NPY_DOUBLE, NPY_INOUT_ARRAY));
+  //Get the pointers to the actual data
+  Numpy_zofA = PyArray_GETCONTIGUOUS(Numpy_zofA);
+  Numpy_dRdz = PyArray_GETCONTIGUOUS(Numpy_dRdz);
+  Namp = PyArray_DIM(Numpy_zofA, 0);
+  zofA = PyArray_DATA(Numpy_zofA);
+  dRdz = PyArray_DATA(Numpy_dRdz);
 
   cs_cosmo_functions_t cosmofns;
   int j;
@@ -88,6 +90,8 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
 
 
   XLALCSCosmoFunctionsFree( cosmofns );
+  Py_DECREF(Numpy_zofA);
+  Py_DECREF(Numpy_dRdz);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -109,54 +113,59 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
 static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
 {
   //Declare incoming variables
-  double Gmu=0, alpha=0, *zofA=NULL, *amp=NULL;
-  int Namp=0;
-  PyObject *Numpy_zofA=NULL, *Numpy_amp=NULL;
+  PyArrayObject *Numpy_zofA, *Numpy_amp;
+  double Gmu, alpha, *zofA, *amp;
+  int Namp;
 
-  //Extract variables from *args
-  if (!PyArg_ParseTuple(args, "ddiOO", &Gmu, &alpha, &Namp, &Numpy_zofA, &Numpy_amp))
-    return NULL;
- 
-  //Get the pointers to the actual and ensure the data is in a format that 
-  // plays nicely with C: NPY_INOUT_ARRAY flag
-  amp = PyArray_DATA(PyArray_FROM_OTF(Numpy_amp, NPY_DOUBLE, NPY_IN_ARRAY));
-  zofA  = PyArray_DATA(PyArray_FROM_OTF(Numpy_zofA,  NPY_DOUBLE, NPY_INOUT_ARRAY)); 
-  double lnz_min = log(1e-20), lnz_max = log(1e10), dlnz =0.05;
-  size_t numz       = floor( (lnz_max - lnz_min)/dlnz );
-  int i,j;
+  double lnz_min = log(1e-20), lnz_max = log(1e10);
+  double dlnz = 0.05;
+  size_t numz = floor( (lnz_max - lnz_min)/dlnz );
+  int i;
   cs_cosmo_functions_t cosmofns;
   double *fz,*z;
   double a;
   gsl_interp *zofa_interp; 
   gsl_interp_accel *acc_zofa = gsl_interp_accel_alloc(); 
 
+  //Extract variables from *args
+  if (!PyArg_ParseTuple(args, "ddO!O!", &Gmu, &alpha, &PyArray_Type, &Numpy_zofA, &PyArray_Type, &Numpy_amp))
+    return NULL;
+
+  //Get the pointers to the actual data
+  Numpy_amp = PyArray_GETCONTIGUOUS(Numpy_amp);
+  Numpy_zofA = PyArray_GETCONTIGUOUS(Numpy_zofA);
+  Namp = PyArray_DIM(Numpy_amp, 0);
+  amp = PyArray_DATA(Numpy_amp);
+  zofA = PyArray_DATA(Numpy_zofA); 
+
   cosmofns = XLALCSCosmoFunctionsAlloc( exp( lnz_min ), dlnz, numz );
 
   zofa_interp = gsl_interp_alloc (gsl_interp_linear, cosmofns.n);
 
-  fz   = calloc( cosmofns.n, sizeof( *fz ) ); 
-  z   = calloc( cosmofns.n, sizeof( *z ) ); 
+  fz = calloc( cosmofns.n, sizeof( *fz ) ); 
+  z = calloc( cosmofns.n, sizeof( *z ) ); 
   
   /* first compute the function that relates A and z */
   /* invert order; b/c fz is a monotonically decreasing func of z */
-  j=0;
-  for ( i = cosmofns.n-1 ; i >=  0; i-- )
+  for ( i = cosmofns.n-1 ; i >= 0; i-- )
     {
-      z[j]=cosmofns.z[i];
-      fz[j] = pow(cosmofns.phit[i],2.0/3.0) * pow(1+z[j],-1.0/3.0) / cosmofns.phiA[i];
-      j=j+1;
+      int j = cosmofns.n-1 - i;
+      z[j] = cosmofns.z[i];
+      fz[j] = pow(cosmofns.phit[i], 2.0/3.0) * pow(1+z[j], -1.0/3.0) / cosmofns.phiA[i];
     }
 
   gsl_interp_init (zofa_interp, fz, z, cosmofns.n);
 
   /* now compute the amplitudes (suitably multiplied) that are equal to fz for some z*/
-  for ( j = 0; j < Namp; j++ )
+  for ( i = 0; i < Namp; i++ )
     {
-      a = amp[j] * pow(H0,-1.0/3.0) * pow(alpha,-2.0/3.0) / Gmu;
-      zofA[j] = gsl_interp_eval (zofa_interp, fz, z, a, acc_zofa );
+      a = amp[i] * pow(H0,-1.0/3.0) * pow(alpha,-2.0/3.0) / Gmu;
+      zofA[i] = gsl_interp_eval (zofa_interp, fz, z, a, acc_zofa );
     }
 
   XLALCSCosmoFunctionsFree( cosmofns );
+  Py_DECREF(Numpy_amp);
+  Py_DECREF(Numpy_zofA);
   free(fz);
   free(z);
   gsl_interp_free (zofa_interp);

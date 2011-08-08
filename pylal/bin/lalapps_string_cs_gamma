@@ -84,7 +84,6 @@ ops, files = parse_command_line()
 #Open the efficiency file and read the three columns into three arrays
 amp, eff, Deff = numpy.loadtxt(ops.efficiency_file, dtype="double", unpack=True)
 #The length of the arrays
-Namp = len(amp)
 #Make empty arrays the same shape and size as the loaded data arrays
 zofA = numpy.empty_like(amp)
 dRdz = numpy.empty_like(amp)
@@ -101,8 +100,8 @@ for i in range(ops.nepsilon):
         alpha = epsilon * (LOOPS_RAD_POWER * Gmu)**ops.index
 
         #Call the C functions
-        cs_gamma.findzofA(Gmu, alpha, Namp, zofA, amp) 
-        cs_gamma.finddRdz(Gmu, alpha, ops.frequency, LOOPS_RAD_POWER, Namp, zofA, dRdz)
+        cs_gamma.findzofA(Gmu, alpha, zofA, amp) 
+        cs_gamma.finddRdz(Gmu, alpha, ops.frequency, LOOPS_RAD_POWER, zofA, dRdz)
 
         Dlnz = numpy.log(zofA[1:]) - numpy.log(zofA[:-1])
 
