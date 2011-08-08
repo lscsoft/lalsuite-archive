@@ -39,10 +39,8 @@
 #define CUSPS_PER_LOOP 1.0		/* c */
 #define LOOP_RAD_POWER 50.0		/* Gamma */
 
-double H0 = LAMBDA_H_0;
+#define H0 LAMBDA_H_0
 
-static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args);
-static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args);
 
 /*****************************************************************************/
 /*int finddRdz(double Gmu, double alpha, double f, double Gamma, int Namp, double *zofA, double *dRdz)
@@ -66,44 +64,33 @@ static PyObject *cs_gamma_finddRdz(PyObject *self, PyObject *args)
   int Namp=0;
   PyObject *Numpy_zofA=NULL, *Numpy_dRdz=NULL; 
   //Extract the variables from *args
-  if (!PyArg_ParseTuple(args, "ddddiOO", &Gmu, &alpha, &f,
-			  &Gamma, &Namp, &Numpy_zofA, &Numpy_dRdz))
+  if (!PyArg_ParseTuple(args, "ddddiOO", &Gmu, &alpha, &f, &Gamma, &Namp, &Numpy_zofA, &Numpy_dRdz))
     return NULL;
   //Get the pointers to the actual and ensure the data is in a format that 
   // plays nicely with C: NPY_INOUT_ARRAY flag
-  zofA = PyArray_DATA(
-	       PyArray_FROM_OTF(Numpy_zofA, NPY_DOUBLE, NPY_INOUT_ARRAY));
-  dRdz = PyArray_DATA(
-	       PyArray_FROM_OTF(Numpy_dRdz, NPY_DOUBLE, NPY_INOUT_ARRAY));
+  zofA = PyArray_DATA(PyArray_FROM_OTF(Numpy_zofA, NPY_DOUBLE, NPY_INOUT_ARRAY));
+  dRdz = PyArray_DATA(PyArray_FROM_OTF(Numpy_dRdz, NPY_DOUBLE, NPY_INOUT_ARRAY));
 
   cs_cosmo_functions_t cosmofns;
   int j;
 
   cosmofns = XLALCSCosmoFunctions( zofA, (size_t) Namp);
-  
+
   for ( j = 0; j < Namp; j++ )
     {
-
-
       double theta = pow((1+cosmofns.z[j]) * f * alpha * cosmofns.phit[j] / H0, -1.0/3.0);
-      
-      if (theta > 1.0)
-	{
-	  dRdz[j] = 0.0;
-	}
-      else
-	{
-	
-	  dRdz[j] = 0.5 * H0 * pow(f/H0,-2.0/3.0) * pow(alpha, -5.0/3.0) / (Gamma*Gmu) *
-	    pow(cosmofns.phit[j],-14.0/3.0) * cosmofns.phiV[j] * pow(1+cosmofns.z[j],-5.0/3.0);
-	}
 
+      if (theta > 1.0)
+	  dRdz[j] = 0.0;
+      else
+	  dRdz[j] = 0.5 * H0 * pow(f/H0,-2.0/3.0) * pow(alpha, -5.0/3.0) / (Gamma*Gmu) * pow(cosmofns.phit[j],-14.0/3.0) * cosmofns.phiV[j] * pow(1+cosmofns.z[j],-5.0/3.0);
     }
 
 
   XLALCSCosmoFunctionsFree( cosmofns );
 
-      return Py_BuildValue("i",0);
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 /*****************************************************************************/
 /*int findzofA(double Gmu, double alpha, int Namp, double *zofA, double *amp)
@@ -127,16 +114,13 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   PyObject *Numpy_zofA=NULL, *Numpy_amp=NULL;
 
   //Extract variables from *args
-  if (!PyArg_ParseTuple(args, "ddiOO", &Gmu, &alpha, &Namp, 
-			&Numpy_zofA, &Numpy_amp))
+  if (!PyArg_ParseTuple(args, "ddiOO", &Gmu, &alpha, &Namp, &Numpy_zofA, &Numpy_amp))
     return NULL;
  
   //Get the pointers to the actual and ensure the data is in a format that 
   // plays nicely with C: NPY_INOUT_ARRAY flag
-  amp = PyArray_DATA(
-	    PyArray_FROM_OTF(Numpy_amp, NPY_DOUBLE, NPY_IN_ARRAY));
-  zofA  = PyArray_DATA(
-            PyArray_FROM_OTF(Numpy_zofA,  NPY_DOUBLE, NPY_INOUT_ARRAY)); 
+  amp = PyArray_DATA(PyArray_FROM_OTF(Numpy_amp, NPY_DOUBLE, NPY_IN_ARRAY));
+  zofA  = PyArray_DATA(PyArray_FROM_OTF(Numpy_zofA,  NPY_DOUBLE, NPY_INOUT_ARRAY)); 
   double lnz_min = log(1e-20), lnz_max = log(1e10), dlnz =0.05;
   size_t numz       = floor( (lnz_max - lnz_min)/dlnz );
   int i,j;
@@ -178,8 +162,8 @@ static PyObject *cs_gamma_findzofA(PyObject *self, PyObject *args)
   gsl_interp_free (zofa_interp);
   gsl_interp_accel_free(acc_zofa);
 
-  return Py_BuildValue("i",0);
-  
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 
 /*******************************************************************************/
@@ -197,6 +181,6 @@ static PyMethodDef cs_gammaMethods[] = {
 PyMODINIT_FUNC
 initcs_gamma(void)
 {
-  (void) Py_InitModule("cs_gamma", cs_gammaMethods);
+  Py_InitModule("cs_gamma", cs_gammaMethods);
   import_array();
 }

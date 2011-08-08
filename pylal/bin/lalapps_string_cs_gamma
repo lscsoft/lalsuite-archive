@@ -101,10 +101,8 @@ for i in range(ops.nepsilon):
         alpha = epsilon * (LOOPS_RAD_POWER * Gmu)**ops.index
 
         #Call the C functions
-        err=cs_gamma.findzofA(Gmu, alpha, Namp, zofA, amp) 
-        if err: raise Exception(err)
-        err=cs_gamma.finddRdz(Gmu, alpha, ops.frequency, LOOPS_RAD_POWER, Namp, zofA, dRdz)
-        if err: raise Exception(err)
+        cs_gamma.findzofA(Gmu, alpha, Namp, zofA, amp) 
+        cs_gamma.finddRdz(Gmu, alpha, ops.frequency, LOOPS_RAD_POWER, Namp, zofA, dRdz)
 
         Dlnz = numpy.log(zofA[1:]) - numpy.log(zofA[:-1])
 
