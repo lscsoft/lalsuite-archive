@@ -95,7 +95,6 @@ for i in range(ops.nepsilon):
 
         alpha = epsilon * (LOOPS_RAD_POWER * Gmu)**ops.index
 
-        #Call the C functions
         zofA = cs_gamma.findzofA(Gmu, alpha, amp) 
         dRdz = cs_gamma.finddRdz(Gmu, alpha, ops.frequency, LOOPS_RAD_POWER, zofA)
 
