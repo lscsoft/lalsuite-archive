@@ -2443,6 +2443,8 @@ class PEOutputParser(object):
             self._parser=self._followupmcmc_to_pos
         elif inputtype is "inf_mcmc":
             self._parser=self._infmcmc_to_pos
+        elif inputtype is "xml":
+            self._parser=self._xml_to_pos
 
     def parse(self,files,**kwargs):
         """
@@ -2666,6 +2668,64 @@ class PEOutputParser(object):
         Parser for MultiNest output.
         """
         return self._common_to_pos(open(files[0],'r'))
+
+    def _xml_to_pos(self,infile):
+        """
+        Parser for VOTable XML Using
+        """
+        from xml.etree import ElementTree as ET
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        try:
+                register_namespace=ET.register_namespace
+        except AttributeError:
+                def register_namespace(prefix,uri):
+                    ET._namespace_map[uri]=prefix
+        register_namespace('vot',xmlns)
+        tree = ET.ElementTree()
+        tree.parse(infile)
+        # Find the posterior table
+        tables = tree.findall('.//{%s}TABLE'%(xmlns))
+        for table in tables:
+            if table.get('name')=='Posterior Samples':
+                return(self._VOTTABLE2pos(table))
+        raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
+        
+    def _VOTTABLE2pos(self,table):
+        """
+        Parser for a VOT TABLE element with FIELDs and TABLEDATA elements
+        """
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        header=[]
+        for field in table.findall('./{%s}FIELD'%(xmlns)):
+            header.append(field.attrib['name'])
+        if(len(header)==0):
+            raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
+        tabledata=table.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+        llines=[]
+        for row in tabledata:
+            llines.append(np.array(map(lambda a:float(a.text),row)))
+        flines=np.array(llines)
+        for i in range(0,len(header)):
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+                print 'exponentiating %s'%(header[i])
+
+                flines[:,i]=np.exp(flines[:,i])
+
+                header[i]=header[i].replace('log','')
+            if header[i].lower().find('sin')!=-1:
+                print 'asining %s'%(header[i])
+                flines[:,i]=np.arcsin(flines[:,i])
+                header[i]=header[i].replace('sin','')
+            if header[i].lower().find('cos')!=-1:
+                print 'acosing %s'%(header[i])
+                flines[:,i]=np.arccos(flines[:,i])
+                header[i]=header[i].replace('cos','')
+            header[i]=header[i].replace('(','')
+            header[i]=header[i].replace(')','')
+        print 'Read columns %s'%(str(header))
+        return header,flines
+
 
     def _common_to_pos(self,infile,delimiter=None):
         """

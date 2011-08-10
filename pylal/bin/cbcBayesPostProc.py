@@ -131,6 +131,10 @@ def cbcBayesPostProc(
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")
 
+    elif '.xml' in data[0]:
+        peparser=bppu.PEOutputParser('xml')
+        commonResultsObj=peparser.parse(data[0])
+
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'))
