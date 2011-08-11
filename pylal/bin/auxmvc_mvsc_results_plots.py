@@ -74,8 +74,8 @@ for threshold in [.01,.05,.1]:
 if opts.plot_rank_vs_significance:
 
   variables = data.dtype.names
-  sig_variables = [s for s in variables if s.endswith("_sig")]
-
+  #sig_variables = [s for s in variables if s.endswith("_sig")]
+  sig_variables = [s for s in variables if s.endswith("_signif")]
   #form arrays with significances for clean data sets
   clean_sig_rss = []
   clean_sig_max = []
