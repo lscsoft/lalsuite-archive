@@ -137,7 +137,9 @@ def timeindays(col_data ):
   s2times = [729273613, 734367613]
   s3times = [751658413, 757699213]
   s4times = [793130413, 795679213]
-  s5times = [815119213, 875232014]
+  #s5times = [815119213, 875232014]
+  # GRB 051103 @ 815045155, set s5 start to 3000 s before GRB
+  s5times = [815042155, 875232014]
 
   if len(col_data) == 0: return col_data
 
@@ -155,7 +157,6 @@ def timeindays(col_data ):
     start = v1times[0]
   else:
     print >> sys.stderr, "events not from a known science run"
-    sys.exit(1)
 
   col_data = (col_data - start)/(60 * 60 * 24.0)
 
