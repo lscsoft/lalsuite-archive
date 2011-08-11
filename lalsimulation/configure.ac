@@ -1,11 +1,11 @@
-AC_INIT([lalinspiral],[1.1.0.4],[lal-discuss@gravity.phys.uwm.edu])
-AM_CONFIG_HEADER([include/config.h src/LALInspiralConfig.h])
-AC_CONFIG_SRCDIR([src/LALInspiral.h])
+AC_INIT([lalsimulation],[0.0.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AM_CONFIG_HEADER([include/config.h src/LALSimulationConfig.h])
+AC_CONFIG_SRCDIR([src/LALSimulation.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalinspiral.spec \
-  lalinspiral.pc \
+  lalsimulation.spec \
+  lalsimulation.pc \
   Makefile \
   gnuscripts/Makefile \
   debian/Makefile \
@@ -34,13 +34,13 @@ LALSUITE_ARG_VAR
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[1])
+AC_SUBST([LIBCURRENT],[0])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
 # default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalinspiral])
+AC_PREFIX_DEFAULT([/opt/lscsoft/lalsimulation])
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -49,32 +49,29 @@ LALSUITE_ENABLE_NIGHTLY
 LALSUITE_ENABLE_DEBUG
 
 # put version/configure info in config header
-lalinspiral_version_major=`echo "$VERSION" | cut -d. -f1`
-lalinspiral_version_minor=`echo "$VERSION" | cut -d. -f2`
-lalinspiral_version_micro=`echo "$VERSION" | cut -d. -f3`
-lalinspiral_version_devel=`echo "$VERSION" | cut -d. -f4-`
-test -z "$lalinspiral_version_micro" && lalinspiral_version_micro=0
-test -z "$lalinspiral_version_devel" && lalinspiral_version_devel=0
-lalinspiral_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
-AC_DEFINE_UNQUOTED([LALINSPIRAL_VERSION],["$VERSION"],[LALInspiral Version])
-AC_DEFINE_UNQUOTED([LALINSPIRAL_VERSION_MAJOR],[$lalinspiral_version_major],
-                   [LALInspiral Version Major Number])
-AC_DEFINE_UNQUOTED([LALINSPIRAL_VERSION_MINOR],[$lalinspiral_version_minor],
-                   [LALInspiral Version Minor Number])
-AC_DEFINE_UNQUOTED([LALINSPIRAL_VERSION_MICRO],[$lalinspiral_version_micro],
-                   [LALInspiral Version Micro Number])
-AC_DEFINE_UNQUOTED([LALINSPIRAL_VERSION_DEVEL],[$lalinspiral_version_devel],
-                   [LALInspiral Version Devel Number])
-AC_DEFINE_UNQUOTED([LALINSPIRAL_CONFIGURE_ARGS],["$ac_configure_args"],
-                   [LALInspiral Configure Arguments])
-AC_DEFINE_UNQUOTED([LALINSPIRAL_CONFIGURE_DATE],["$lalinspiral_configure_date"],
-                   [LALInspiral Configure Date])
+lalsimulation_version_major=`echo "$VERSION" | cut -d. -f1`
+lalsimulation_version_minor=`echo "$VERSION" | cut -d. -f2`
+lalsimulation_version_micro=`echo "$VERSION" | cut -d. -f3`
+lalsimulation_version_devel=`echo "$VERSION" | cut -d. -f4-`
+test -z "$lalsimulation_version_micro" && lalsimulation_version_micro=0
+test -z "$lalsimulation_version_devel" && lalsimulation_version_devel=0
+lalsimulation_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION],["$VERSION"],[LALSimulation Version])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MAJOR],[$lalsimulation_version_major],
+                   [LALSimulation Version Major Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MINOR],[$lalsimulation_version_minor],
+                   [LALSimulation Version Minor Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MICRO],[$lalsimulation_version_micro],
+                   [LALSimulation Version Micro Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_DEVEL],[$lalsimulation_version_devel],
+                   [LALSimulation Version Devel Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_CONFIGURE_ARGS],["$ac_configure_args"],
+                   [LALSimulation Configure Arguments])
+AC_DEFINE_UNQUOTED([LALSIMULATION_CONFIGURE_DATE],["$lalsimulation_configure_date"],
+                   [LALSimulation Configure Date])
 
 # enable strict gcc flags
 LALSUITE_ENABLE_GCC_FLAGS
-
-# optional lal libraries
-LALSUITE_ENABLE_LALFRAME
 
 # check for c compiler
 m4_pattern_allow([AC_PROG_CC_C99])
@@ -83,12 +80,16 @@ m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
 # use silent build rules if available
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
 
+# SWIG wrapping requires a c++ compiler
+AC_PROG_CXX
+
 # checks for programs
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 LT_INIT
 AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
+AC_CHECK_PROGS([M4],[gm4 m4],[m4])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -98,6 +99,13 @@ LALSUITE_USE_LIBTOOL
 
 # check for header files
 AC_HEADER_STDC
+
+# check for gethostname in unistd.h
+AC_MSG_CHECKING([for gethostname prototype in unistd.h])
+AC_EGREP_HEADER([gethostname],[unistd.h],[AC_MSG_RESULT([yes])]
+AC_DEFINE([HAVE_GETHOSTNAME_PROTOTYPE],[1],
+          [Define if gethostname prototype is in unistd.h]),
+          [AC_MSG_RESULT]([no]))
 
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
@@ -112,21 +120,9 @@ AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
 
-# metaio
-PKG_CHECK_MODULES([METAIO],[libmetaio],[true],[false])
-CPPFLAGS="$CPPFLAGS $METAIO_CFLAGS"
-LIBS="$LIBS $METAIO_LIBS"
-AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio library])])
-
-# check for libmetaio headers
-AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
-
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.4.0.4],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.4.0],[LALOpenDataFile],[lal/FileIO.h])
-LALSUITE_CHECK_LIB([LALMetaIO],[1.0.1],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_LIB([LALSimulation],[0.0.0.1],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.1],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
@@ -146,12 +142,12 @@ AC_OUTPUT
 echo "
 ================================================================
 
-        LALInspiral has now been successfully configured
+        LALSimulation has now been successfully configured
         and will be installed under the directory:
 
           ${prefix}
 
-        Now run 'make' to build LALInspiral
-        and run 'make install' to install LALInspiral
+        Now run 'make' to build LALSimulation
+        and run 'make install' to install LALSimulation
 
 ================================================================="
