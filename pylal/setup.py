@@ -4,12 +4,15 @@
 
 
 import os
+from misc import generate_vcs_info as gvcsi
 from distutils.core import setup, Extension
 from distutils.command import install
 from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
+import subprocess
 from sys import version_info
+import time
 from numpy.lib.utils import get_include as numpy_get_include
 
 
@@ -149,6 +152,15 @@ class pylal_sdist(sdist.sdist):
 			except:
 				pass
 
+		# create the git_version module
+		log.info("generating pylal/git_version.py")
+		try:
+			write_build_info()
+		except gvcsi.GitInvocationError:
+			log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
+			sys.exit(1)
+
+
 		# now run sdist
 		sdist.sdist.run(self)
 
@@ -166,6 +178,7 @@ setup(
 		"pylal.xlal"
 	],
  	cmdclass = {
+		"build_py": pylal_build_py,
 		"install": pylal_install,
 		"sdist": pylal_sdist
 	},
