@@ -375,6 +375,9 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             if (ifos, param_group) not in slide_stats[esid]:
                 slide_stats[esid][(ifos, param_group)] = []
             slide_stats[esid][(ifos, param_group)].append(stat)
+    if len(zero_lag_stats)==0:
+        # create a closed box plot with an empty playground to show the bkg distribution
+        zero_lag_stats[u'playground'] = dict( [category, []] for category in categories )
 
     #
     #   Plotting
@@ -430,7 +433,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         if warn_msg != '':
             text( 0,0, warn_msg, 
                 va = 'bottom', ha = 'left',
-                transform = figure(fig_num).gca().transAxes() )
+                transform = figure(fig_num).gca().transAxes )
 
         if opts.enable_output:
             name = InspiralUtils.set_figure_tag( '_'.join([ "cumhist_combined",
@@ -471,7 +474,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                 if warn_msg != '':
                     text( 0,0, warn_msg, 
                         va = 'bottom', ha = 'left',
-                        transform = figure(fig_num).gca().transAxes() )
+                        transform = figure(fig_num).gca().transAxes )
         
                 if opts.enable_output:
                     param_tag = param_name
