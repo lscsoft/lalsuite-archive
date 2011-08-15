@@ -2870,6 +2870,58 @@ def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_
     
 #
 
+def vo_nest2pos(nsresource,Nlive=None):
+    """
+    Parse a VO Table RESOURCE containing nested sampling output and
+    return a VOTable TABLE element with posterior samples in it.
+    This can be added to an existing tree by the user.
+    Nlive will be read from the nsresource, unless specified
+    """
+    from xml.etree import ElementTree as ET
+    import copy
+    from math import log, exp
+    postable=ET.Element("vot:TABLE",attrib={'name':'Posterior Samples'})
+    i=0
+    xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+    nstable=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("name")=="Nested Samples"][0]
+    if Nlive is None:
+        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("name")=="Run State Configuration"][0]
+        print runstateResource
+        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("name")=="Algorithm Params"][0]
+        print algTable
+        Nlive = int ([param for param in algTable.findall("./{%s}PARAM"%(xmlns)) if param.get("name")=='Nlive'][0].get('value'))
+        print 'Found Nlive %i'%(Nlive)
+    if Nlive is None:
+        raise RuntimeError("Cannot find number of live points in XML table, please specify")
+    logLcol = None
+    for fieldnode in nstable.findall('./{%s}FIELD'%xmlns):
+        if fieldnode.get('name') == 'logL':
+            logLcol=i
+        i=i+1
+        postable.append(copy.deepcopy(fieldnode))
+    for paramnode in nstable.findall('./{%s}PARAM'%(xmlns)):
+        postable.append(copy.deepcopy(paramnode))
+    if logLcol is None:
+        RuntimeError("Unable to find logL column")
+    posdataNode=ET.Element("vot:DATA")
+    postabledataNode=ET.Element("vot:TABLEDATA")
+    postable.append(posdataNode)
+    posdataNode.append(postabledataNode)
+    nstabledata=nstable.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+    logw=log(1.0 - exp(-1.0/float(Nlive)))
+    weights=[]
+    for row in nstabledata:
+        logL=float(row[logLcol].text)
+        weights.append(logL-logw)
+        logw=logw-1.0/float(Nlive)
+    mw=max(weights)
+    weights = [w - mw for w in weights]
+    for (row,weight) in zip(nstabledata,weights):
+        if weight > log(random.random()):
+            postabledataNode.append(copy.deepcopy(row))
+    return postable
+
+
 #R convergenceTest script
 convergenceTests_R="""
 convergenceTests <- function(data,
