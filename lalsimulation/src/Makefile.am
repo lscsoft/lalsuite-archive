@@ -7,7 +7,6 @@ lalsimulationinclude_HEADERS = \
 	LALSimInspiralFrequency3.h \
 	LALSimInspiralPhasing3.h \
 	LALSimInspiralTaylorT3.h \
-	LALSimInspiralTaylorT4.h \
 	LALSimInspiraldEnergyFlux.h \
 	LALSimulation.h \
 	LALSimulationConfig.h \
