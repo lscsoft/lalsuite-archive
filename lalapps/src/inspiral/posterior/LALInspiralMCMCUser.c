@@ -589,13 +589,13 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   /* Spin prior for theta angles */
   if(XLALMCMCCheckParameter(parameter,"theta1")){
 	double theta1 = acos(1.0 - 2.0 * Cube[i]);
-  	XLALMCMCSetParameter(parameter, "theta1", iota);
+  	XLALMCMCSetParameter(parameter, "theta1", theta1);
   	Cube[i] = theta1;
   	i++;
   }
   if(XLALMCMCCheckParameter(parameter,"theta2")){
 	double theta2 = acos(1.0 - 2.0 * Cube[i]);
-  	XLALMCMCSetParameter(parameter, "theta2", iota);
+  	XLALMCMCSetParameter(parameter, "theta2", theta2);
   	Cube[i] = theta2;
   	i++;
   }
@@ -855,13 +855,13 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   /* Spin prior for theta angles */
   if(XLALMCMCCheckParameter(parameter,"theta1")){
 	double theta1 = acos(1.0 - 2.0 * Cube[i]);
-  	XLALMCMCSetParameter(parameter, "theta1", iota);
+  	XLALMCMCSetParameter(parameter, "theta1", theta1);
   	Cube[i] = theta1;
   	i++;
   }
   if(XLALMCMCCheckParameter(parameter,"theta2")){
 	double theta2 = acos(1.0 - 2.0 * Cube[i]);
-  	XLALMCMCSetParameter(parameter, "theta2", iota);
+  	XLALMCMCSetParameter(parameter, "theta2", theta2);
   	Cube[i] = theta2;
   	i++;
   }
