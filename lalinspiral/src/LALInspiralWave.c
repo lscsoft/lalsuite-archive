@@ -170,17 +170,22 @@ LALInspiralWave(
       case EOBNR:
            LALEOBWaveform(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
+           break;
+      case EOBNRv2:
+      case EOBNRv2HM:
+           LALEOBPPWaveform(status->statusPtr, signalvec, params);
+           CHECKSTATUSPTR(status);
 	   break;
       case IMRPhenomA:
       case IMRPhenomB:
            LALBBHPhenWaveTimeDom(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
-       break;
+           break;
       case IMRPhenomFA:
       case IMRPhenomFB:
            LALBBHPhenWaveFreqDom(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
-       break;
+           break;
       case BCV:
            LALBCVWaveform(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
@@ -213,6 +218,10 @@ LALInspiralWave(
            LALSTPNWaveform(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
 	   break;
+      case SpinTaylorFrameless:
+           LALSTPNFramelessWaveform(status->statusPtr, signalvec, params);
+           CHECKSTATUSPTR(status);
+           break;
       case PhenSpinTaylorRD:
            LALPSpinInspiralRD(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
@@ -221,9 +230,9 @@ LALInspiralWave(
            LALPSpinInspiralRDFreqDom(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
            break;
-	  case SpinQuadTaylor:
-	   		TRY(LALSQTPNWaveform(status->statusPtr, signalvec, params), status);
-			break;
+      case SpinQuadTaylor:
+           TRY(LALSQTPNWaveform(status->statusPtr, signalvec, params), status);
+           break;
       case AmpCorPPN:
    	   LALInspiralAmplitudeCorrectedWave(status->statusPtr, signalvec, params);
 	   CHECKSTATUSPTR(status);
@@ -292,7 +301,7 @@ LALInspiralWaveTemplates(
       case TaylorT2:
            LALInspiralWave2Templates(status->statusPtr, signalvec1, signalvec2, params);
            CHECKSTATUSPTR(status);
-      break;
+           break;
       case TaylorT3:
            LALInspiralWave3Templates(status->statusPtr, signalvec1, signalvec2, params);
            CHECKSTATUSPTR(status);
@@ -300,6 +309,11 @@ LALInspiralWaveTemplates(
       case EOB:
       case EOBNR:
            LALEOBWaveformTemplates(status->statusPtr, signalvec1, signalvec2, params);
+           CHECKSTATUSPTR(status);
+           break;
+      case EOBNRv2:
+      case EOBNRv2HM:
+           LALEOBPPWaveformTemplates(status->statusPtr, signalvec1, signalvec2, params);
            CHECKSTATUSPTR(status);
            break;
       case IMRPhenomA:
@@ -318,8 +332,14 @@ LALInspiralWaveTemplates(
       case PadeF1:
       case BCV:
       case BCVSpin:
+           ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
+	   break;
       case SpinTaylor:
            LALSTPNWaveformTemplates(status->statusPtr, signalvec1, signalvec2, params);
+           CHECKSTATUSPTR(status);
+           break;
+      case SpinTaylorFrameless:
+           LALSTPNFramelessWaveformTemplates(status->statusPtr, signalvec1, signalvec2, params);
            CHECKSTATUSPTR(status);
            break;
       case PhenSpinTaylorRD:
@@ -386,6 +406,11 @@ LALInspiralWaveForInjection(
        LALEOBWaveformForInjection(status->statusPtr, waveform, inspiralParams, ppnParams);
        CHECKSTATUSPTR(status);
 	   break;
+     case EOBNRv2:
+     case EOBNRv2HM:
+       LALEOBPPWaveformForInjection(status->statusPtr, waveform, inspiralParams, ppnParams);
+       CHECKSTATUSPTR(status);
+       break;
      case IMRPhenomA:
      case IMRPhenomB:
        LALBBHPhenWaveTimeDomForInjection (status->statusPtr, waveform, inspiralParams, ppnParams);
@@ -401,7 +426,7 @@ LALInspiralWaveForInjection(
            ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
 	   break;
       case SpinTaylorFrameless:
-           LALSTPNWaveformFramelessForInjection(status->statusPtr, waveform, inspiralParams, ppnParams);
+           LALSTPNFramelessWaveformForInjection(status->statusPtr, waveform, inspiralParams, ppnParams);
            CHECKSTATUSPTR(status);
      break;
       case SpinTaylor:

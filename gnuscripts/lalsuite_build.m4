@@ -1,6 +1,6 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 17
+# serial 19
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],
 [## $0: Generate a libtool script for use in configure tests
@@ -251,6 +251,30 @@ if test "$lalmetaio" = "false"; then
 fi
 ])
 
+AC_DEFUN([LALSUITE_ENABLE_LALINFERENCE],
+[AC_ARG_ENABLE(
+  [lalinference],
+  AC_HELP_STRING([--enable-lalinference],[compile code that requires lalinference library [default=yes]]),
+  [ case "${enableval}" in
+      yes) lalinference=true;;
+      no) lalinference=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalinference) ;;
+    esac
+  ], [ lalinference=true ] )
+if test "$lalmetaio" = "false"; then
+  lalinference=false
+fi
+if test "$lalframe" = "false"; then
+  lalinference=false
+fi
+if test "$lalinspiral" = "false"; then
+  lalinference=false
+fi
+if test "$lalpulsar" = "false"; then
+  lalinference=false
+fi
+])
+
 AC_DEFUN([LALSUITE_ENABLE_BOINC],
 [AC_ARG_ENABLE(
   [boinc],
@@ -356,7 +380,7 @@ if test "x${osx_version_check}" = "xtrue"; then
       10.0*|10.1*|10.2*|10.3*)
         AC_MSG_ERROR([This version of Mac OS X is not supported])
         ;;
-      10.4*|10.5*|10.6*)
+      10.4*|10.5*|10.6*|10.7*)
         # supported version
         ;;
       *)

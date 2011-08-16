@@ -105,11 +105,10 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
 REAL8 NestPriorHighMass(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
-REAL8 NestPriorPhenSpin(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
-int CubeToNestPriorPhenSpin(double *Cube, LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
-
 REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 int CubeToGRBPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
+
+REAL8 NestPriorSkyLoc(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
 void NestInitInjNINJA(LALMCMCParameter *parameter, void *iT);
 

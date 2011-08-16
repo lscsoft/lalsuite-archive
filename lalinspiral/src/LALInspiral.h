@@ -62,6 +62,7 @@ This header file covers routines that are used in template generation.
 extern "C" {
 #endif
 
+/** \cond DONT_DOXYGEN */
 NRCSID( LALINSPIRALH, "$Id$" );
 
 # define oneby3    0.333333333333333333333333333
@@ -76,31 +77,36 @@ NRCSID( LALINSPIRALH, "$Id$" );
 # define fiveby8   0.625
 # define threeby4  0.75
 # define sevenby8  0.875
-#define  ninty4by3etc  18.687902694437592603 /* (94/3 -41/31*pi*pi) */
+# define ninty4by3etc 18.687902694437592603 /* (94/3 -41/31*pi*pi) */
+# define LALINSPIRAL_PNTHETA -11831.L/9240.L
+# define LALINRPIAL_PNLAMBDA -1987.L/3080.L
+/** \endcond */
 
-/**\name Error Codes */ /*@{*/
-#define LALINSPIRALH_ENULL           1
-#define LALINSPIRALH_EMEM            2
-#define LALINSPIRALH_EDIV0           3
-#define LALINSPIRALH_ESIZE           4
-#define LALINSPIRALH_ECHOICE         5
-#define LALINSPIRALH_EORDER          6
-#define LALINSPIRALH_EAPPROXIMANT    7
-#define LALINSPIRALH_EPSI0           8
-#define LALINSPIRALH_EPSI3           9
-#define LALINSPIRALH_EALPHA         10
-#define LALINSPIRALH_EFCUTOFF       11
-#define LALINSPIRALH_ENOWAVEFORM    12
-#define LALINSPIRALH_ESTOPPED       13
-#define LALINSPIRALH_EROOTINIT      14
-#define LALINSPIRALH_EFLOWER        15
-#define LALINSPIRALH_EVECTOR        16
-#define LALINSPIRALH_EFLOWERINJ     17
-#define LALINSPIRALH_EORDERMISSING  18
-#define LALINSPIRALH_EBPERR         19
-#define LALINSPIRALH_ESWITCH        20
-#define LALINSPIRALH_EMASSCHOICE    21
+/**\name Error Codes */ /**@{*/
+#define LALINSPIRALH_ENULL           1	/**< Arguments contained an unexpected null pointer */
+#define LALINSPIRALH_EMEM            2	/**< Memory allocation error */
+#define LALINSPIRALH_EDIV0           3	/**< Division by zero */
+#define LALINSPIRALH_ESIZE           4	/**< Invalid input range */
+#define LALINSPIRALH_ECHOICE         5	/**< Invalid choice for an input parameter */
+#define LALINSPIRALH_EORDER          6	/**< unknown order specified */
+#define LALINSPIRALH_EAPPROXIMANT    7	/**< Invalid model */
+#define LALINSPIRALH_EPSI0           8	/**< psi0 must be > 0 */
+#define LALINSPIRALH_EPSI3           9	/**< psi3 must be < 0 */
+#define LALINSPIRALH_EALPHA         10	/**< alpha must be defined positive */
+#define LALINSPIRALH_EFCUTOFF       11	/**< fcutoff must be defined and > 0 */
+#define LALINSPIRALH_ENOWAVEFORM    12	/**< No Waveform generated */
+#define LALINSPIRALH_ESTOPPED       13	/**< Waveform generation stopped */
+#define LALINSPIRALH_EROOTINIT      14	/**< Can't find good bracket for BisectionFindRoot */
+#define LALINSPIRALH_EFLOWER        15	/**< fLower too low in comparison to flso */
+#define LALINSPIRALH_EVECTOR        16	/**< Attempting to write beyond the end of vector */
+#define LALINSPIRALH_EFLOWERINJ     17	/**< flower for the injection must be greater than zero */
+#define LALINSPIRALH_EORDERMISSING  18	/**< The PN order requested is not implemented for this approximant */
+#define LALINSPIRALH_EBPERR         19	/**< Error in band passing signal */
+#define LALINSPIRALH_ESWITCH        20	/**< Unknown case in switch */
+#define LALINSPIRALH_EMASSCHOICE    21	/**< Improper choice for massChoice */
+/**@}*/
 
+/** \cond DONT_DOXYGEN */
 #define LALINSPIRALH_MSGENULL         "Arguments contained an unexpected null pointer"
 #define LALINSPIRALH_MSGEMEM          "Memory allocation error"
 #define LALINSPIRALH_MSGEDIV0         "Division by zero"
@@ -122,25 +128,24 @@ NRCSID( LALINSPIRALH, "$Id$" );
 #define LALINSPIRALH_MSGEBPERR        "Error in band passing signal"
 #define LALINSPIRALH_MSGESWITCH       "Unknown case in switch"
 #define LALINSPIRALH_MSGEMASSCHOICE   "Improper choice for massChoice"
-/*@}*/
+/** \endcond */
 
 
 /** These are the input structures needed to solve for the mass
     ratio \f$\eta\f$ given the chirptimes \f$(\tau_0,\, \tau_2)\f$ or
     \f$(\tau_0, \, \tau_4).\f$
 
-Here, \c t2\ \f$ = \tau_2,\f$ \c A2\ \f$ = A_2 ({\tau_0}/{A_0})^{3/5},\f$  and
-\c B2\ \f$=B_2\f$,
+Here, \c t2\f$ = \tau_2,\f$ \c A2 \f$ = A_2 ({\tau_0}/{A_0})^{3/5},\f$  and \c B2 \f$=B_2\f$,
 where \f$A_0 = 5/[256 (\pi f_{s} )^{8/3}],\f$ \f$A_2 = 3715 / [64512 (\pi f_s)^2],\f$
 \f$B_2 = 4620/3715.\f$
 
-Similarly, \c t4\ \f$ = \tau_4,\f$ \c A4\ \f$ = A_4 ({\tau_0}/{A_0})^{1/5},\f$
-\c B4\ \f$=B_4\f$ and \c C4\ \f$=C_4,\f$ where
+Similarly, \c t4 \f$ = \tau_4,\f$ \c A4 \f$ = A_4 ({\tau_0}/{A_0})^{1/5},\f$
+\c B4 \f$=B_4\f$ and \c C4 \f$=C_4,\f$ where
 where \f$A_0 = 5/[256 (\pi f_{s} )^{8/3}],\f$
 \f$A_4 = 5 \times 3058673/ [128 \times 1016064  (\pi f_s)^{4/3}],\f$
 \f$B_4 = 5429 \times 1016064 /(1008 \times 3058673),\f$ and \f$C_4 = 617 \times
 1016064/(144 \times 3058673).\f$
-*//* @{ */
+*//** @{ */
 typedef struct
 tagEtaTau02In
 {
@@ -157,157 +162,111 @@ tagEtaTau04In
    REAL8 B4;
    REAL8 C4;
 } EtaTau04In;
-/* @} */
+/** @} */
 
 
 /** Enum that tells which post-Newtonian order is being used.
-<ul>
-<li> \c LAL_PNORDER_NEWTONIAN: Newtonain order, flux and enrgy both to the lowest order.</li>
-<li> \c LAL_PNORDER_HALF: same as before</li>
-<li> \c LAL_PNORDER_ONE: Both energy and flux to order \f$O(v^2)\f$ beyond the Newtonian order.</li>
-<li> \c LAL_PNORDER_ONE_POINT_FIVE: Energy to order \f$O(v^2)\f$ and flux to order \f$O(v^3)\f$</li>
-<li> \c LAL_PNORDER_TWO: Both energy and flux to order \f$O(v^4)\f$</li>
-<li> \c LAL_PNORDER_TWO_POINT_FIVE: Energy to order \f$O(v^4)\f$ and flux to order \f$O(v^5)\f$</li>
-<li> \c LAL_PNORDER_THREE: Both energy and flux to order \f$O(v^6)\f$</li>
-<li> \c LAL_PNORDER_THREE_POINT_FIVE: Energy to order \f$O(v^6)\f$ and flux to order \f$O(v^7)\f$</li>
-<li> \c LAL_PNORDER_PSEUDIO_FOUR: Need to describe</li>
-</ul>
-In all cases, the gravitational wave phase (also frequency and time)
-as an expansion of the gauge invariant parameter \f$v\f$ is given up to
-the order specified by flux.  Note that there are certain undetermined
-parameters at \c LAL_PNORDER_THREE and
-\c LAL_PNORDER_THREE_POINT_FIVE. The waveform generation codes use
-a specific value of those parameters while generating the wave.
-*/
+ * In all cases, the gravitational wave phase (also frequency and time)
+ * as an expansion of the gauge invariant parameter \f$v\f$ is given up to
+ * the order specified by flux.  Note that there are certain undetermined
+ * parameters at \c LAL_PNORDER_THREE and
+ * \c LAL_PNORDER_THREE_POINT_FIVE. The waveform generation codes use
+ * a specific value of those parameters while generating the wave.
+ */
 typedef enum {
-  LAL_PNORDER_NEWTONIAN,
-  LAL_PNORDER_HALF,
-  LAL_PNORDER_ONE,
-  LAL_PNORDER_ONE_POINT_FIVE,
-  LAL_PNORDER_TWO,
-  LAL_PNORDER_TWO_POINT_FIVE,
-  LAL_PNORDER_THREE,
-  LAL_PNORDER_THREE_POINT_FIVE,
-  LAL_PNORDER_PSEUDO_FOUR,
-  LAL_PNORDER_NUM_ORDER
+  LAL_PNORDER_NEWTONIAN,	/**< Newtonain order, flux and enrgy both to the lowest order */
+  LAL_PNORDER_HALF,		/**< same as befor */
+  LAL_PNORDER_ONE,		/**< Both energy and flux to order \f$O(v^2)\f$ beyond the Newtonian order */
+  LAL_PNORDER_ONE_POINT_FIVE,	/**< Energy to order \f$O(v^2)\f$ and flux to order \f$O(v^3)\f$ */
+  LAL_PNORDER_TWO,		/**< Both energy and flux to order \f$O(v^4)\f$ */
+  LAL_PNORDER_TWO_POINT_FIVE,	/**< Energy to order \f$O(v^4)\f$ and flux to order \f$O(v^5)\f$ */
+  LAL_PNORDER_THREE,		/**< Both energy and flux to order \f$O(v^6)\f$ */
+  LAL_PNORDER_THREE_POINT_FIVE,	/**< Energy to order \f$O(v^6)\f$ and flux to order \f$O(v^7)\f$ */
+  LAL_PNORDER_PSEUDO_FOUR,	/**< Need to describe */
+  LAL_PNORDER_NUM_ORDER		/**< MISSING DOCUMENTATION */
  } LALPNOrder;
 
 
 
-
-
 /** Enum that specifies the PN approximant to be used in computing the waveform.
-<ul>
-<li> \c TaylorT1: Time domain Taylor approximant in which
-	the energy and flux are both kept as Taylor expansions
-	and a first order ordinary differential equation is solved
-	for the GW phase as a function of \f$t.\f$ Outputs a time-domain wave.</li>
-<li> \c TaylorT2: Time domain Taylor approximant in which
-	the phase evolution \f$\varphi(t)\f$ is obtained by iteratively
-	solving post-Newtonian expansions \f$\varphi(v)\f$ and \f$t(v).\f$ Outputs a time-domain wave.</li>
-<li> \c TaylorT3: Time domain Taylor approximant in which
-phase is explicitly given as a function of time. Outputs a time-domain wave.</li>
-<li> \c TaylorF1: The stationary phase approximation that
-correctly represents, in the Fourier domain, the waveform given
-by \c TaylorT1 approximant (see Ref. [\ref dis2000] for details). Outputs a frequency-domain wave.</li>
-<li> \c TaylorF2: The standard stationary phase approximation. Outputs a frequency-domain wave.</li>
-<li> \c PadeT1: Time-domain P-approximant. Outputs a time-domain wave.</li>
-<li> \c PadeF1: Frequency-domain P-approximant (not yet implemented).</li>
-<li> \c EOB: Effective one-body waveform  Outputs a time-domain wave.</li>
-<li> \c BCV: Detection template family of Buonanno, Chen and
-                    Vallisneri [\ref BCV03]. Outputs a frequency-domain wave.</li>
-<li> \c BCVSpin: Detection template family of Buonanno, Chen and
-                    Vallisneri including  spin effects[\ref BCV03b]. Outputs a frequency-domain wave.</li>
-<li> \c SpinTaylorT3 Spinning case T3 models</li>
-<li> \c SpinTaylor Spinning case PN models (should replace SpinTaylorT3 in the future)</li>
-<li> \c SpinTaylorFrameless Spinning case PN models (replace SpinTaylor by removing the coordinate singularity)</li>
-<li> \c PhenSpinTaylorRD Phenomenological waveforms, interpolating between a T4 spin-inspiral and the ringdown.</li>
-<li> \c SpinQuadTaylor Spinning case PN models with quadrupole-monopole and self-spin interaction.</li>
-<li> \c FindChirpSP The stationary phase templates implemented by FindChirpSPTemplate in the findchirp package (equivalent to TaylorF2 at twoPN order).</li>
-<li> \c GeneratePPN The time domain templates generated by LALGeneratePPNInspiral() in the inject package (equivalent to TaylorT3 at twoPN order).</li>
-<li> \c FrameFile The waveform contains arbitrary data read from a frame file.</li>
-</ul>
 */
 typedef enum {
-   TaylorT1,
-   TaylorT2,
-   TaylorT3,
-   TaylorF1,
-   TaylorF2,
-   PadeT1,
-   PadeF1,
-   EOB,
-   BCV,
-   BCVSpin,
-   SpinTaylorT3,
-   SpinTaylorFrameless,
-   SpinTaylor,
-   PhenSpinTaylorRD,
-   PhenSpinTaylorRDF,
-   SpinQuadTaylor,
-   FindChirpSP,
-   FindChirpPTF,
-   GeneratePPN,
-   BCVC,
-   FrameFile,
-   AmpCorPPN,
-   NumRel,
-   Eccentricity,
-   EOBNR,
-   IMRPhenomA,
-   IMRPhenomB,
-   IMRPhenomFA,
-   IMRPhenomFB,
-   TaylorEt,
-   TaylorT4,
-   TaylorN,
-   NumApproximants
+   TaylorT1, 		/**< Time domain Taylor approximant in which the energy and flux are both kept
+                         * as Taylor expansions and a first order ordinary differential equation is solved
+                         * or the GW phase as a function of \f$t\f$; Outputs a time-domain wave.
+                         */
+   TaylorT2,		/**< Time domain Taylor approximant in which the phase evolution \f$\varphi(t)\f$ is
+                         * obtained by iteratively solving post-Newtonian expansions \f$\varphi(v)\f$ and \f$t(v)\f$;
+                         * Outputs a time-domain wave.
+                         */
+   TaylorT3,		/**< Time domain Taylor approximant in which phase is explicitly given as a function
+                         * of time; outputs a time-domain wave.
+                         */
+   TaylorF1,		/**< The stationary phase approximation that correctly represents, in the Fourier domain,
+                         * the waveform given by \c TaylorT1 approximant (see [\ref dis2000] for details);
+                         * Outputs a frequency-domain wave. */
+   TaylorF2,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave. */
+   PadeT1,		/**< Time-domain P-approximant; Outputs a time-domain wave. */
+   PadeF1,		/**< Frequency-domain P-approximant (not yet implemented). */
+   EOB,			/**< Effective one-body waveform; Outputs a time-domain wave. */
+   BCV,			/**< Detection template family of Buonanno, Chen and Vallisneri [\ref BCV03]; Outputs a frequency-domain wave. */
+   BCVSpin,		/**< Detection template family of Buonanno, Chen and Vallisneri including  spin effects [\ref BCV03b]; Outputs a frequency-domain wave. */
+   SpinTaylorT3,	/**< Spinning case T3 models */
+   SpinTaylorFrameless,	/**< Spinning case PN models (replace SpinTaylor by removing the coordinate singularity) */
+   SpinTaylor,		/**< Spinning case PN models (should replace SpinTaylorT3 in the future) */
+   PhenSpinTaylorRD,	/**< Phenomenological waveforms, interpolating between a T4 spin-inspiral and the ringdown. */
+   PhenSpinTaylorRDF,	/**< UNDOCUMENTED */
+   SpinQuadTaylor,	/**< Spinning case PN models with quadrupole-monopole and self-spin interaction. */
+   FindChirpSP,		/**< The stationary phase templates implemented by FindChirpSPTemplate in the findchirp package (equivalent to TaylorF2 at twoPN order). */
+   FindChirpPTF,	/**< UNDOCUMENTED */
+   GeneratePPN,		/**< The time domain templates generated by LALGeneratePPNInspiral() in the inject package (equivalent to TaylorT3 at twoPN order). */
+   BCVC,		/**< UNDOCUMENTED */
+   FrameFile,		/**< The waveform contains arbitrary data read from a frame file. */
+   AmpCorPPN,		/**< UNDOCUMENTED */
+   NumRel,		/**< UNDOCUMENTED */
+   Eccentricity,	/**< UNDOCUMENTED */
+   EOBNR,		/**< UNDOCUMENTED */
+   EOBNRv2,
+   EOBNRv2HM,
+   IMRPhenomA,		/**< UNDOCUMENTED */
+   IMRPhenomB,		/**< UNDOCUMENTED */
+   IMRPhenomFA,		/**< UNDOCUMENTED */
+   IMRPhenomFB,		/**< UNDOCUMENTED */
+   TaylorEt,		/**< UNDOCUMENTED */
+   TaylorT4,		/**< UNDOCUMENTED */
+   TaylorN,		/**< UNDOCUMENTED */
+   NumApproximants	/**< UNDOCUMENTED */
  } Approximant;
 
 
 /** This structure is one of the members of the \c InspiralTemplate structure.
-
-A user can specify the parameters of a binary using any of the
-following combination of \e masses:
-<ul>
-<li> \c m1Andm2: component masses</li>
-<li> \c totalMassAndEta: total mass and symmetric mass ratio</li>
-<li> \c totalMassUAndEta: total mass and eta but uniform distribution in totalMass</li>
-<li> \c totalMassAndMu: total mass and reduced mass</li>
-<li> \c t01: unused; shouldn't be used.</li>
-<li> \c t02: chirptimes \f$\tau_0\f$ and \f$\tau_2\f$</li>
-<li> \c t03: chirptimes \f$\tau_0\f$ and \f$\tau_3\f$, and</li>
-<li> \c t04: chirptimes \f$\tau_0\f$ and \f$\tau_4\f$</li>
-<li> \c psi0Andpsi3: BCV parameters \f$\psi_0\f$ and \f$\psi_3\f$</li>
-</ul>
-The LALRandomInspiralSignal uses that structure as an input. Since the injected
-waveform are not necessarely wanted to be random, we also provide the following
-options
-<ul>
-<li> \c bhns: One of the mass is a Neutron star and the other a black
-hole. (m1 \f$\in\f$ [minMass-3] and m2 \f$\in\f$ [3-maxMass]).</li>
-<li> \c fixedMasses: The two masses are given by the input parameter structure.</li>
-<li> \c fixedPsi: The two psi values are given by the input parameter structure.</li>
-<li> \c fixedTau: The two tau values are given by the input parameter structure.</li>
-</ul>
-*/
+ * A user can specify the parameters of a binary using any of the following combination of \e masses:
+ * m1Andm2, totalMassAndEta, totalMassUAndEta, totalMassAndMu, t01, t02, t03, t04, psi0Andpsi3
+ *
+ * The LALRandomInspiralSignal uses that structure as an input. Since the injected
+ * waveform are not necessarely wanted to be random, we also provide the following
+ * options
+ * bhns, fixedMasses, fixedPsi, fixedTau
+ *
+ */
 typedef enum {
-   m1Andm2,
-   totalMassAndEta,
-   totalMassUAndEta,
-   totalMassAndMu,
-   t01,
-   t02,
-   t03,
-   t04,
-   psi0Andpsi3,
-   bhns,
-   fixedMasses,
-   fixedPsi,
-   fixedTau,
-   massesAndSpin,
-   minmaxTotalMass,
-   spinOnly
+  m1Andm2,		/**< component masses */
+  totalMassAndEta,	/**< total mass and symmetric mass ratio */
+  totalMassUAndEta,	/**< total mass and eta but uniform distribution in totalMass */
+  totalMassAndMu,	/**< total mass and reduced mass */
+  t01,			/**< unused; shouldn't be used. */
+  t02,			/**< chirptimes \f$\tau_0\f$ and \f$\tau_2\f$ */
+  t03,			/**< chirptimes \f$\tau_0\f$ and \f$\tau_3\f$, and */
+  t04,			/**< chirptimes \f$\tau_0\f$ and \f$\tau_4\f$ */
+  psi0Andpsi3,		/**< BCV parameters \f$\psi_0\f$ and \f$\psi_3\f$ */
+
+  bhns,			/**< One of the mass is a Neutron star and the other a black hole. (m1 \f$\in\f$ [minMass-3] and m2 \f$\in\f$ [3-maxMass]). */
+  fixedMasses,		/**< The two masses are given by the input parameter structure. */
+  fixedPsi,		/**< The two psi values are given by the input parameter structure. */
+  fixedTau,		/**< The two tau values are given by the input parameter structure. */
+  massesAndSpin,	/**< UNDOCUMENTED */
+  minmaxTotalMass,	/**< UNDOCUMENTED */
+  spinOnly		/**< UNDOCUMENTED */
  } InputMasses;
 
 
@@ -316,16 +275,15 @@ typedef enum {
  * generation. Their combination also can be used by the bitwise or.
  **/
 typedef enum {
-	LAL_NOInter = 0,
-	LAL_SOInter = 1, ///< Spin-orbit interaction
-	LAL_SSInter = LAL_SOInter << 1, ///< Spin-spin interaction
-	LAL_SSselfInter = LAL_SSInter << 1, ///< Spin-spin-self interaction
-	LAL_QMInter = LAL_SSselfInter << 1, ///< quadrupole-monopole interaction
-	LAL_AllInter = LAL_SOInter | LAL_SSInter | LAL_SSselfInter | LAL_QMInter	///< all interactions
+	LAL_NOInter = 0,			/**< UNDOCUMENTED */
+	LAL_SOInter = 1, 			/**< Spin-orbit interaction */
+	LAL_SSInter = LAL_SOInter << 1, 	/**< Spin-spin interaction */
+	LAL_SSselfInter = LAL_SSInter << 1,     /**<  Spin-spin-self interaction */
+	LAL_QMInter = LAL_SSselfInter << 1, 	/**< quadrupole-monopole interaction */
+	LAL_AllInter = LAL_SOInter | LAL_SSInter | LAL_SSselfInter | LAL_QMInter /**< all interactions */
 } LALSpinInteraction;
 
 /** The inspiral waveform parameter structure containing information about the waveform to be generated.
-
 <ul>
 <li> <tt> ieta:</tt> parameter that tells whether the symmetric mass ratio \f$\eta\f$
 	  should be set to zero in the PN expansions of GW flux and binding energy.
@@ -508,6 +466,8 @@ tagInspiralTemplate
   LALSpinInteraction	spinInteraction;
 
   InputAxis axisChoice;
+  UINT4 fixedStep;
+  UINT4 inspiralOnly;
 
   struct tagInspiralTemplate *next;
   struct tagInspiralTemplate *fine;
@@ -661,8 +621,11 @@ tagexpnCoeffs {
    /* last stable orbit and pole defined by various Taylor and P-approximants*/
    REAL8 vlsoT0, vlsoT2, vlsoT4, vlsoT6;
    REAL8 vlsoP0, vlsoP2, vlsoP4, vlsoP6;
+   REAL8 vlsoPP;
    REAL8 vpoleP4, vpoleP6;
+   REAL8 vpolePP;
 }  expnCoeffs;
+
 
 typedef REAL8 EnergyFunction(
    REAL8 v,
@@ -677,27 +640,19 @@ typedef void (TestFunction)(
    REAL8Vector *vector2,
    void *params);
 
-typedef void (InspiralPhasing2)(
-   LALStatus *status,
-   REAL8 *phase,
+typedef REAL8 (InspiralPhasing2)(
    REAL8 v,
    expnCoeffs *ak);
 
-typedef void (InspiralPhasing3)(
-   LALStatus *status,
-   REAL8 *f,
+typedef REAL8 (InspiralPhasing3)(
    REAL8 td,
    expnCoeffs *ak);
 
-typedef void (InspiralFrequency3)(
-   LALStatus *status,
-   REAL8 *f,
+typedef REAL8 (InspiralFrequency3)(
    REAL8 td,
    expnCoeffs *ak);
 
-typedef void (InspiralTiming2) (
-   LALStatus *status,
-   REAL8 *toff,
+typedef REAL8 (InspiralTiming2) (
    REAL8 f,
    void *params);
 
@@ -734,6 +689,17 @@ tagTofVIntegrandIn
    expnCoeffs *coeffs;
 } TofVIntegrandIn;
 
+/** UNDOCUMENTED */
+typedef struct
+tagEOBNonQCCoeffs
+{
+  REAL8 a1;
+  REAL8 a2;
+  REAL8 a3;
+  REAL8 a4;
+  REAL8 b1;
+  REAL8 b2;
+} EOBNonQCCoeffs;
 
 typedef struct
 tagInspiralDerivativesIn
@@ -742,12 +708,8 @@ tagInspiralDerivativesIn
    EnergyFunction *dEnergy;
    FluxFunction *flux;
    expnCoeffs *coeffs;
+   EOBNonQCCoeffs *nqcCoeffs;
 } InspiralDerivativesIn;
-
-
-
-
-
 
 
 typedef struct
@@ -802,13 +764,14 @@ tagInspiralInit
 
 }  InspiralInit;
 
+/** UNDOCUMENTED */
 typedef enum
 {
-  INSPIRAL_TAPER_NONE,
-  INSPIRAL_TAPER_START,
-  INSPIRAL_TAPER_END,
-  INSPIRAL_TAPER_STARTEND,
-  INSPIRAL_TAPER_NUM_OPTS
+  INSPIRAL_TAPER_NONE,		/**< UNDOCUMENTED */
+  INSPIRAL_TAPER_START,		/**< UNDOCUMENTED */
+  INSPIRAL_TAPER_END,		/**< UNDOCUMENTED */
+  INSPIRAL_TAPER_STARTEND,	/**< UNDOCUMENTED */
+  INSPIRAL_TAPER_NUM_OPTS	/**< UNDOCUMENTED */
 }  InspiralApplyTaper;
 
 /* Function prototypes */
@@ -842,6 +805,12 @@ void LALInspiralChooseModel(
      expnFunc *func,
      expnCoeffs *ak,
      InspiralTemplate *params);
+
+int  XLALInspiralChooseModel(
+     expnFunc *func,
+     expnCoeffs *ak,
+     InspiralTemplate *params);
+
 
 
 
@@ -1041,9 +1010,22 @@ void LALEOBWaveformForInjection(
      InspiralTemplate *params,
      PPNParamStruc  *ppnParams);
 
+void LALEOBPPWaveform(
+     LALStatus *status,
+     REAL4Vector *signalvec,
+     InspiralTemplate *params);
 
+void LALEOBPPWaveformTemplates(
+     LALStatus *status,
+     REAL4Vector *signalvec1,
+     REAL4Vector *signalvec2,
+     InspiralTemplate *params);
 
-
+void LALEOBPPWaveformForInjection(
+     LALStatus *status,
+     CoherentGW *waveform,
+     InspiralTemplate *params,
+     PPNParamStruc  *ppnParams);
 
 void LALBCVWaveform(
      LALStatus *status,
@@ -1059,6 +1041,13 @@ void LALTaylorT4Waveform(
      LALStatus *status,
      REAL4Vector *signalvec,
      InspiralTemplate *params);
+
+void LALTaylorT4WaveformTemplates(
+     LALStatus        *status,
+     REAL4Vector      *signalvec1,
+     REAL4Vector      *signalvec2,
+     InspiralTemplate *params
+     );
 
 void LALTaylorT4WaveformForInjection(
      LALStatus        *status,
@@ -1109,12 +1098,17 @@ LALSTPNWaveformForInjection (
 			    PPNParamStruc  *ppnParams);
 
 void
-LALSTPNWaveformFramelessForInjection (
-                             LALStatus        *status,
-                             CoherentGW       *waveform,
-                             InspiralTemplate *params,
-                             PPNParamStruc    *ppnParams
-                            );
+LALSTPNWaveformTemplates (
+   LALStatus        *status,
+   REAL4Vector      *signalvec1,
+   REAL4Vector      *signalvec2,
+   InspiralTemplate *params
+   ) ;
+
+void LALSTPNWaveform(
+     LALStatus *status,
+     REAL4Vector *signalvec,
+     InspiralTemplate *params);
 
 void
 LALSTPNWaveformEngine (
@@ -1129,50 +1123,43 @@ LALSTPNWaveformEngine (
                 InspiralTemplate *params,
                 InspiralInit     *paramsInit
                 );
+
 void
-LALSTPNWaveformTemplates (
-   LALStatus        *status,
-   REAL4Vector      *signalvec1,
-   REAL4Vector      *signalvec2,
-   InspiralTemplate *params
-   ) ;
+LALSTPNFramelessWaveform (
+    		LALStatus        *status,
+    		REAL4Vector      *signalvec,
+    		InspiralTemplate *params);
 
-void LALSTPNWaveform(
-     LALStatus *status,
-     REAL4Vector *signalvec,
-     InspiralTemplate *params);
+void
+LALSTPNFramelessWaveformTemplates (
+    		LALStatus        *status,
+    		REAL4Vector      *signalvec1,
+    		REAL4Vector      *signalvec2,
+    		InspiralTemplate *params);
 
-/* Phenomenological Spin Taylor with RingDown*/
+void
+LALSTPNFramelessWaveformForInjection (
+                             LALStatus        *status,
+                             CoherentGW       *waveform,
+                             InspiralTemplate *params,
+                             PPNParamStruc    *ppnParams
+                            );
+
+/* Phen-Spin waveform functions*/
 
 
 
 
 
-void LALPSpinInspiralRDderivatives(
+void LALSpinInspiralDerivatives(
                          REAL8Vector *values,
                          REAL8Vector *dvalues,
                          void *mparams );
 
-
-
-void LALPSpinInspiralRDForInjection(
-                           LALStatus        *status,
-                           CoherentGW       *waveform,
-                           InspiralTemplate *params,
-                           PPNParamStruc  *ppnParams);
-
-void LALPSpinInspiralRDEngine (
-                LALStatus        *status,
-                REAL4Vector      *signalvec1,
-                REAL4Vector      *signalvec2,
-                REAL4Vector      *a,
-                REAL4Vector      *ff,
-                REAL8Vector      *phi,
-                REAL4Vector      *shift,
-                UINT4            *countback,
-                InspiralTemplate *params,
-                InspiralInit     *paramsInit
-                );
+void LALPSpinInspiralRD(
+     LALStatus *status,
+     REAL4Vector *signalvec,
+     InspiralTemplate *params);
 
 void LALPSpinInspiralRDTemplates (
     LALStatus        *status,
@@ -1181,16 +1168,28 @@ void LALPSpinInspiralRDTemplates (
     InspiralTemplate *params
    );
 
-void LALPSpinInspiralRD(
-     LALStatus *status,
-     REAL4Vector *signalvec,
-     InspiralTemplate *params);
-
 void LALPSpinInspiralRDFreqDom (
 				LALStatus        *status,
 				REAL4Vector      *signalvec,
 				InspiralTemplate *params);
 
+void LALPSpinInspiralRDForInjection(
+                           LALStatus        *status,
+                           CoherentGW       *waveform,
+                           InspiralTemplate *params,
+                           PPNParamStruc  *ppnParams);
+
+void LALPSpinInspiralRDEngine (
+				LALStatus        *status,
+				REAL8Vector      *signalvec1,
+				REAL8Vector      *signalvec2,
+				REAL8Vector      *h,
+				REAL8Vector      *f,
+				REAL8Vector      *phi,
+				UINT4            *countback,
+				InspiralTemplate *params,
+				InspiralInit     *paramsInit
+				);
 
 /* Phenomenological waveform generation functions */
 
@@ -1299,11 +1298,21 @@ void LALInspiralPhasing2_0PN (
      REAL8 v,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing2_0PN (
+      REAL8 v,
+      expnCoeffs *ak);
+
+#if 0 /* DO NOT EXIST */
 void LALInspiralPhasing2_1PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 v,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing2_1PN (
+      REAL8 v,
+      expnCoeffs *ak);
+#endif
 
 void LALInspiralPhasing2_2PN (
      LALStatus *status,
@@ -1311,11 +1320,19 @@ void LALInspiralPhasing2_2PN (
      REAL8 v,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing2_2PN (
+      REAL8 v,
+      expnCoeffs *ak);
+
 void LALInspiralPhasing2_3PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 v,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing2_3PN (
+      REAL8 v,
+      expnCoeffs *ak);
 
 void LALInspiralPhasing2_4PN (
      LALStatus *status,
@@ -1323,11 +1340,19 @@ void LALInspiralPhasing2_4PN (
      REAL8 v,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing2_4PN (
+      REAL8 v,
+      expnCoeffs *ak);
+
 void LALInspiralPhasing2_5PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 v,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing2_5PN (
+      REAL8 v,
+      expnCoeffs *ak);
 
 void LALInspiralPhasing2_6PN (
      LALStatus *status,
@@ -1335,11 +1360,19 @@ void LALInspiralPhasing2_6PN (
      REAL8 v,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing2_6PN (
+      REAL8 v,
+      expnCoeffs *ak);
+
 void LALInspiralPhasing2_7PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 v,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing2_7PN (
+      REAL8 v,
+      expnCoeffs *ak);
 
 
 
@@ -1352,11 +1385,21 @@ void LALInspiralPhasing3_0PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing3_0PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
+#if 0 /* DO NOT EXIST */
 void LALInspiralPhasing3_1PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing3_1PN (
+      REAL8 td,
+      expnCoeffs *ak);
+#endif
 
 void LALInspiralPhasing3_2PN (
      LALStatus *status,
@@ -1364,11 +1407,19 @@ void LALInspiralPhasing3_2PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing3_2PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
 void LALInspiralPhasing3_3PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing3_3PN (
+      REAL8 td,
+      expnCoeffs *ak);
 
 void LALInspiralPhasing3_4PN (
      LALStatus *status,
@@ -1376,11 +1427,19 @@ void LALInspiralPhasing3_4PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing3_4PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
 void LALInspiralPhasing3_5PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing3_5PN (
+      REAL8 td,
+      expnCoeffs *ak);
 
 void LALInspiralPhasing3_6PN (
      LALStatus *,
@@ -1388,11 +1447,20 @@ void LALInspiralPhasing3_6PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralPhasing3_6PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
 void LALInspiralPhasing3_7PN (
      LALStatus *status,
      REAL8 *phase,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralPhasing3_7PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
 
 
 
@@ -1404,6 +1472,9 @@ void LALInspiralTofV (
      REAL8,
      void *);
 
+REAL8 XLALInspiralTofV (
+      REAL8,
+      void *);
 
 
 
@@ -1415,9 +1486,10 @@ void LALInspiralTofVIntegrand (
      REAL8,
      void *);
 
-
-
-
+REAL8 XLALInspiralTofVIntegrand (
+   REAL8      v,
+   void      *params
+   );
 
 void LALInspiralTiming2_0PN (
      LALStatus *,
@@ -1425,11 +1497,21 @@ void LALInspiralTiming2_0PN (
      REAL8 f,
      void *params);
 
+REAL8 XLALInspiralTiming2_0PN (
+      REAL8 f,
+      void *params);
+
+#if 0 /* DO NOT EXIST */
 void LALInspiralTiming2_1PN (
      LALStatus *,
      REAL8 *toff,
      REAL8 f,
      void *params);
+
+REAL8 XLALInspiralTiming2_1PN (
+      REAL8 f,
+      void *params);
+#endif
 
 void LALInspiralTiming2_2PN (
      LALStatus *,
@@ -1437,11 +1519,19 @@ void LALInspiralTiming2_2PN (
      REAL8 f,
      void *params);
 
+REAL8 XLALInspiralTiming2_2PN (
+      REAL8 f,
+      void *params);
+
 void LALInspiralTiming2_3PN (
      LALStatus *,
      REAL8 *toff,
      REAL8 f,
      void *params);
+
+REAL8 XLALInspiralTiming2_3PN (
+      REAL8 f,
+      void *params);
 
 void LALInspiralTiming2_4PN (
      LALStatus *,
@@ -1449,6 +1539,9 @@ void LALInspiralTiming2_4PN (
      REAL8 f,
      void *params);
 
+REAL8 XLALInspiralTiming2_4PN (
+      REAL8 f,
+      void *params);
 
 void LALInspiralTiming2_5PN (
      LALStatus *,
@@ -1456,11 +1549,19 @@ void LALInspiralTiming2_5PN (
      REAL8 f,
      void *params);
 
+REAL8 XLALInspiralTiming2_5PN (
+      REAL8 f,
+      void *params);
+
 void LALInspiralTiming2_6PN (
      LALStatus *,
      REAL8 *toff,
      REAL8 f,
      void *params);
+
+REAL8 XLALInspiralTiming2_6PN (
+      REAL8 f,
+      void *params);
 
 void LALInspiralTiming2_7PN (
      LALStatus *,
@@ -1468,6 +1569,9 @@ void LALInspiralTiming2_7PN (
      REAL8 f,
      void *params);
 
+REAL8 XLALInspiralTiming2_7PN (
+      REAL8 f,
+      void *params);
 
 
 
@@ -1478,11 +1582,21 @@ void LALInspiralFrequency3_0PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralFrequency3_0PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
+#if 0 /* DO NOT EXIST */
 void LALInspiralFrequency3_1PN (
      LALStatus *status,
      REAL8 *frequency,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralFrequency3_1PN (
+      REAL8 td,
+      expnCoeffs *ak);
+#endif
 
 void LALInspiralFrequency3_2PN (
      LALStatus *status,
@@ -1490,11 +1604,19 @@ void LALInspiralFrequency3_2PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralFrequency3_2PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
 void LALInspiralFrequency3_3PN (
      LALStatus *status,
      REAL8 *frequency,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralFrequency3_3PN (
+      REAL8 td,
+      expnCoeffs *ak);
 
 void LALInspiralFrequency3_4PN (
      LALStatus *status,
@@ -1502,11 +1624,19 @@ void LALInspiralFrequency3_4PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralFrequency3_4PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
 void LALInspiralFrequency3_5PN (
      LALStatus *status,
      REAL8 *frequency,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralFrequency3_5PN (
+      REAL8 td,
+      expnCoeffs *ak);
 
 void LALInspiralFrequency3_6PN (
      LALStatus *status,
@@ -1514,11 +1644,19 @@ void LALInspiralFrequency3_6PN (
      REAL8 td,
      expnCoeffs *ak);
 
+REAL8 XLALInspiralFrequency3_6PN (
+      REAL8 td,
+      expnCoeffs *ak);
+
 void LALInspiralFrequency3_7PN (
      LALStatus *status,
      REAL8 *frequency,
      REAL8 td,
      expnCoeffs *ak);
+
+REAL8 XLALInspiralFrequency3_7PN (
+      REAL8 td,
+      expnCoeffs *ak);
 
 REAL4 LALInspiralHPlusPolarization(
      REAL8 phase,
@@ -1543,6 +1681,13 @@ void LALRungeKutta4(
      REAL8Vector *,
      rk4GSLIntegrator *,
      void *);
+
+int
+XLALRungeKutta4(
+   REAL8Vector      *yout,
+   rk4GSLIntegrator *integrator,
+   void             *params
+   );
 
 void XLALRungeKutta4Free(
      rk4GSLIntegrator *integrator);
@@ -1574,6 +1719,16 @@ LALInspiralITStructureHelp(void);
 
 /* --- TEST PROTOTYPES --- */
 
+INT4 XLALInspiralHybridRingdownWave (
+	REAL4Vector			*rdwave1,
+	REAL4Vector			*rdwave2,
+	InspiralTemplate		*params,
+	REAL4VectorSequence		*inspwave1,
+	REAL4VectorSequence		*inspwave2,
+	COMPLEX8Vector			*modefreqs,
+	REAL8Vector			*matchrange
+	);
+
 INT4 XLALInspiralRingdownWave (
 	REAL4Vector			*rdwave1,
 	REAL4Vector			*rdwave2,
@@ -1582,6 +1737,15 @@ INT4 XLALInspiralRingdownWave (
 	REAL4VectorSequence		*inspwave2,
 	COMPLEX8Vector			*modefreqs,
 	UINT4				nmodes
+	);
+INT4 XLALGenerateHybridWaveDerivatives (
+	REAL4Vector		*rwave,
+	REAL4Vector		*dwave,
+	REAL4Vector		*ddwave,
+        REAL8Vector             *timeVec,
+	REAL4Vector		*wave,
+	REAL8Vector		*matchrange,
+	InspiralTemplate	*params
 	);
 
 INT4 XLALGenerateWaveDerivatives (
@@ -1599,11 +1763,28 @@ INT4 XLALGenerateQNMFreq(
 	UINT4			nmodes
 	);
 
+INT4 XLALGenerateQNMFreqV2(
+        COMPLEX8Vector          *modefreqs,
+        InspiralTemplate        *params,
+        UINT4                   l,
+        UINT4                   m,
+        UINT4                   nmodes
+        );
+
 INT4 XLALFinalMassSpin(
 	REAL8			*finalMass,
 	REAL8			*finalSpin,
 	InspiralTemplate	*params
 	);
+
+INT4 XLALInspiralHybridAttachRingdownWave (
+        REAL4Vector 	 *signalvec1,
+        REAL4Vector  	 *signalvec2,
+        INT4             l,
+        INT4             m,
+        REAL8Vector      *timeVec,
+	REAL8Vector	 *matchrange,
+        InspiralTemplate *params);
 
 INT4 XLALInspiralAttachRingdownWave (
         REAL4Vector 	 *Omega,
@@ -1613,17 +1794,17 @@ INT4 XLALInspiralAttachRingdownWave (
 
 
 INT4 XLALPSpinInspiralRingdownWave (
-       REAL4Vector             *rdwave,
+       REAL8Vector             *rdwave,
        InspiralTemplate        *params,
-       REAL4Vector             *inspwave,
+       REAL8Vector             *inspwave,
        COMPLEX8Vector          *modefreqs,
        UINT4                   nmodes
        );
 
-INT4 XLALPSpinGenerateWaveDerivative (
-       REAL4Vector             *dwave,
-       REAL4Vector             *wave,
-       InspiralTemplate        *params
+INT4 XLALGenerateWaveDerivative (
+	REAL8Vector		*dwave,
+	REAL8Vector	        *wave,
+	REAL8                    dt
        );
 
 INT4 XLALPSpinGenerateQNMFreq (
@@ -1645,7 +1826,7 @@ INT4 XLALPSpinFinalMassSpin(
        );
 
 INT4 XLALPSpinInspiralAttachRingdownWave (
-       REAL4Vector       *signalvec,
+       REAL8Vector       *signalvec,
        InspiralTemplate  *params,
        UINT4             *attpos,
        UINT4             nmodes,
@@ -1674,6 +1855,7 @@ int XLALInspiralGenerateIIRSet(
 	double                  epsilon,
 	double                  alpha,
 	double                  beta,
+	double                  padding,
 	COMPLEX16Vector     **a1,
 	COMPLEX16Vector     **b0,
 	INT4Vector          **delay
@@ -1703,6 +1885,8 @@ int XLALInspiralCalculateIIRSetInnerProduct(
 	REAL8Vector        *psd,
 	double             *ip
 	);
+
+/*---------------------------------------------------------------- */
 
 #ifdef  __cplusplus
 }

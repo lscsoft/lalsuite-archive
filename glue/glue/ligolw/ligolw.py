@@ -193,6 +193,9 @@ class Element(object):
 		case that oldchild is a child of this node; if not,
 		ValueError is raised. newchild is returned.
 		"""
+		# .index() would use compare-by-value, we want
+		# compare-by-id because we want to find the exact object,
+		# not something equivalent to it.
 		for i, childNode in enumerate(self.childNodes):
 			if childNode is oldchild:
 				break
@@ -578,12 +581,17 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 
 	Example:
 
-	>>> import ligolw
-	>>> doc = ligolw.Document()
-	>>> handler = ligolw.LIGOLWContentHandler(doc)
-	>>> parser = ligolw.make_parser(handler)
-	>>> parser.parse(file("H2-POWER_S5-816526720-34.xml"))
-	>>> doc.write()
+	>>> xmldoc = Document()
+	>>> handler = LIGOLWContentHandler(xmldoc)
+	>>> make_parser(handler).parse(open("H2-POWER_S5-816526720-34.xml"))
+	>>> xmldoc.write()
+
+	NOTE:  this example is for illustration only.  Most users will wish
+	to use the .load_*() functions in the glue.ligolw.utils subpackage
+	to load documents, and the .write_*() functions to write documents.
+	Those functions provide additional features such as support for
+	gzip'ed documents, MD5 hash computation, and Condor eviction
+	trapping to avoid writing broken documents to disk.
 	"""
 	def __init__(self, document):
 		"""
@@ -746,6 +754,17 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 	LIGO LW content handler object that loads only those parts of the
 	document matching some criteria.  Useful, for example, when one
 	wishes to read only a single table from a file.
+
+	Example:
+
+	>>> from glue.ligolw import utils
+	>>> def contenthandler(document):
+	...	return PartialLIGOLWContentHandler(document, lambda name, attrs: name == ligolw.Table.tagName)
+	...
+	>>> xmldoc = utils.load_filename("test.xml", contenthandler = contenthandler)
+
+	This parses "test.xml" and returns an XML tree containing only the
+	Table elements and their children.
 	"""
 	def __init__(self, document, element_filter):
 		"""
@@ -773,6 +792,17 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 	LIGO LW content handler that loads everything but those parts of a
 	document that match some criteria.  Useful, for example, when one
 	wishes to read everything except a single table from a file.
+
+	Example:
+
+	>>> from glue.ligolw import utils
+	>>> def contenthandler(document):
+	...	return FilteringLIGOLWContentHandler(document, lambda name, attrs: name != ligolw.Table.tagName)
+	...
+	>>> xmldoc = utils.load_filename("test.xml", contenthandler = contenthandler)
+
+	This parses "test.xml" and returns an XML tree with all the Table
+	elements and their children removed.
 	"""
 	def __init__(self, document, element_filter):
 		"""

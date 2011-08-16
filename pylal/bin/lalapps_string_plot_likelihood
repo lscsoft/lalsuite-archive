@@ -78,6 +78,7 @@ def parse_command_line():
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
 	parser.add_option("-f", "--format", metavar = "extension", action = "append", default = [], help = "Set the image output format by setting the filename extension (default = \"png\").  Can be given multiple times to generate plots in multiple formats.")
+	parser.add_option("--no-filter", action = "store_true", help = "Do not apply smoothing/normalization filters to data, plot raw bin values.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -116,10 +117,14 @@ def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data,
 	axes = fig.add_axes((.15, .15, .95 - .15, .90 - .15))
 	axes.loglog()
 
-	hi = math.log10(max(background_data.max(), injections_data.max()))
-	contours = numpy.arange(hi - 10, hi, 0.5, dtype = "double")
-	injections_cset = axes.contour(injections_xcoords, injections_ycoords, numpy.log10(injections_data), contours, cmap = cm.Reds)
-	background_cset = axes.contour(background_xcoords, background_ycoords, numpy.log10(background_data), contours, cmap = cm.Greys)
+	background_data = numpy.nan_to_num(numpy.transpose(background_data))
+	injections_data = numpy.nan_to_num(numpy.transpose(injections_data))
+
+	if numpy.any(background_data) or numpy.any(injections_data):
+		hi = math.log10(max(background_data.max(), injections_data.max()))
+		contours = numpy.arange(hi - 10, hi, 0.5, dtype = "double")
+		injections_cset = axes.contour(injections_xcoords, injections_ycoords, numpy.log10(injections_data), contours, cmap = cm.Reds)
+		background_cset = axes.contour(background_xcoords, background_ycoords, numpy.log10(background_data), contours, cmap = cm.Greys)
 	axes.set_xlim([min(background_xcoords[0], injections_xcoords[0]), max(background_xcoords[-1], injections_xcoords[-1])])
 	axes.set_ylim([min(background_ycoords[0], injections_ycoords[0]), max(background_ycoords[-1], injections_ycoords[-1])])
 	#cbar = fig.add_axes((.75,.15,.1,.75))
@@ -137,6 +142,9 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
 
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
@@ -158,6 +166,9 @@ def df_plot(key, background_coords, background_data, injections_coords, injectio
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
 
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
@@ -181,6 +192,9 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
+
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
@@ -203,6 +217,9 @@ def nevents_plot(key, xcoords, background_data, injections_data):
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
+
 	axes.plot(xcoords, background_data, "ko-", label = "Background")
 	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
 	axes.legend(loc = "lower left")
@@ -220,13 +237,43 @@ def instrumentgroup_plot(key, xcoords, background_data, injections_data):
 	FigureCanvas(fig)
 	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
-	axes.plot(xcoords, background_data, "ko-", label = "Background")
-	axes.plot(xcoords, injections_data, "ro-", label = "Injections")
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
+
+	axes.semilogy(xcoords, background_data, "ko-", label = "Background")
+	axes.semilogy(xcoords, injections_data, "ro-", label = "Injections")
+	axes.set_ticklabels([",".join(sorted(stringutils.category_to_instruments(i))) for i in xcoords])
 	axes.legend(loc = "upper right")
 
-	axes.set_title("Detector Coincidence")
-	axes.set_xlabel("Detector Combination")
-	axes.set_ylabel("$P(N)$")
+	axes.set_title("Instrument Combinations")
+	axes.set_xlabel("Instrument Combination")
+	axes.set_ylabel(r"$P(\mathrm{Instruments})$")
+	axes.xaxis.grid(True, which = "major,minor")
+	axes.yaxis.grid(True, which = "major,minor")
+
+	return fig
+
+def instrumentgroup_timingresidual_plot(key, background_xcoords, background_ycoords, background_data, injections_xcoords, injections_ycoords, injections_data):
+	fig = figure.Figure(figsize = (4, 4 / golden_ratio))
+	FigureCanvas(fig)
+	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
+
+	background_data = numpy.nan_to_num(background_data)
+	injections_data = numpy.nan_to_num(injections_data)
+
+	for i in range(len(background_xcoords)):
+		if numpy.any(background_data[i,:]) or numpy.any(injections_data[i,:]):
+			axes.semilogy(background_ycoords, background_data[i,:], label = "Background (%s)" % ", ".join(sorted(stringutils.category_to_instruments(i + 1))))
+			axes.semilogy(injections_ycoords, injections_data[i,:], label = "Injections (%s)" % ", ".join(sorted(stringutils.category_to_instruments(i + 1))))
+	ymin, ymax = axes.get_ylim()
+	# find the smallest global maximum of all curves
+	ymin = min(max(background_data[i,:].max(), injections_data[i,:].max()) for i in range(len(background_xcoords)))
+	axes.set_ylim((ymin * 1e-6, ymax))
+	axes.legend(loc = "upper right")
+
+	axes.set_title("RSS Timing Residual")
+	axes.set_xlabel("RSS Timing Residual (s)")
+	axes.set_ylabel("Probability Density")
 	axes.xaxis.grid(True, which = "major,minor")
 	axes.yaxis.grid(True, which = "major,minor")
 
@@ -245,25 +292,25 @@ def instrumentgroup_plot(key, xcoords, background_data, injections_data):
 options, filenames = parse_command_line()
 
 
-coincparamsdistributions = stringutils.load_likelihood_data(filenames, verbose = options.verbose)
+coincparamsdistributions, seglists = stringutils.load_likelihood_data(filenames, verbose = options.verbose)
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
-coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
+if not options.no_filter:
+	coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
 
 for (background_name, background_binnedarray), (injections_name, injections_binnedarray), (zero_lag_name, zero_lag_binnedarray) in zip(sorted(coincparamsdistributions.background_rates.items()), sorted(coincparamsdistributions.injection_rates.items()), sorted(coincparamsdistributions.zero_lag_rates.items())):
 	assert injections_name == background_name
 	assert zero_lag_name == background_name
 	name = background_name
-	# FIXME:  hard-coded list of allowed instruments = BAD BAD BAD
-	instruments = set(name.split("_")) & set(("G1", "H1", "H2", "L1", "T1", "V1"))
+	instruments = set(name.split("_")) & set(stringutils.instrument_to_factor.keys())
 	if name.endswith("_snr2_chi2"):
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
 		background_xcoords, background_ycoords, background_data = clip_binned_array_2d(background_binnedarray, [10, 1e6], [.01, 1e4])
 		injections_xcoords, injections_ycoords, injections_data = clip_binned_array_2d(injections_binnedarray, [10, 1e6], [.01, 1e4])
 		zero_lag_xcoords, zero_lag_ycoords, zero_lag_data = clip_binned_array_2d(zero_lag_binnedarray, [10, 1e6], [.01, 1e4])
-		fig = snr2_chi2_plot("%s" % name.replace("_", "-"), background_xcoords, background_ycoords, numpy.transpose(background_data), injections_xcoords, injections_ycoords, numpy.transpose(injections_data))
+		fig = snr2_chi2_plot("%s" % name.replace("_", "-"), background_xcoords, background_ycoords, background_data, injections_xcoords, injections_ycoords, injections_data)
 		for extension in options.format:
 			outname = "%s.%s" % (name, extension)
 			if options.verbose:
@@ -318,9 +365,20 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	elif name == "instrumentgroup":
 		if options.verbose:
 			print >>sys.stderr, "generating plots for %s ..." % name
-		fig = nevents_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
+		fig = instrumentgroup_plot("%s" % name.replace("_", "-"), background_binnedarray.centres()[0], background_binnedarray.array, injections_binnedarray.array)
 		for extension in options.format:
 			outname = "%s.%s" % (name, extension)
+			if options.verbose:
+				print >>sys.stderr, "\twriting %s ..." % outname
+			fig.savefig(outname)
+	elif name == "instrumentgroup,rss_timing_residual":
+		if options.verbose:
+			print >>sys.stderr, "generating plots for %s ..." % name
+		background_xcoords, background_ycoords, background_data = clip_binned_array_2d(background_binnedarray, [1, background_binnedarray.array.shape[0] + 0.5], [0, .02])
+		injections_xcoords, injections_ycoords, injections_data = clip_binned_array_2d(injections_binnedarray, [1, background_binnedarray.array.shape[0] + 0.5], [0, .02])
+		fig = instrumentgroup_timingresidual_plot("%s" % name.replace("_", "-").replace(",", "--"), background_xcoords, background_ycoords, background_data, injections_xcoords, injections_ycoords, injections_data)
+		for extension in options.format:
+			outname = "%s.%s" % (name.replace(",", "_"), extension)
 			if options.verbose:
 				print >>sys.stderr, "\twriting %s ..." % outname
 			fig.savefig(outname)

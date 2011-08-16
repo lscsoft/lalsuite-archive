@@ -80,7 +80,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.amplitude_func == "wave":
-		options.amplitude_func = lambda sim, instrument: sim.amplitude
+		options.amplitude_func = lambda sim, instrument, offsetvector: sim.amplitude
 		options.amplitude_lbl = r"$A^{\mathrm{wave}}$"
 	elif options.amplitude_func == "det":
 		options.amplitude_func = SimBurstUtils.string_amplitude_in_instrument
@@ -167,6 +167,7 @@ class RecoveredVsInjectedAmplitude(object):
 		self.data = {}
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -188,7 +189,7 @@ FROM
 			except KeyError:
 				data = self.data[instrument] = self.Data()
 			data.found += 1
-			data.x.append(abs(self.amplitude_func(sim, instrument)))
+			data.x.append(abs(self.amplitude_func(sim, instrument, offsetvectors[sim.time_slide_id])))
 			data.y.append(abs(amplitude_rec))
 			data.c.append(math.log(sim.frequency))
 
@@ -233,6 +234,7 @@ class RecoveredTimeOffset(object):
 		self.data = {}
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -252,7 +254,7 @@ FROM
 			instrument = values[-4]
 			burst_snr = values[-3]
 			burst_peak = LIGOTimeGPS(*values[-2:])
-			sim_peak = SimBurstUtils.time_at_instrument(sim, instrument)
+			sim_peak = SimBurstUtils.time_at_instrument(sim, instrument, offsetvectors[sim.time_slide_id])
 
 			try:
 				data = self.data[instrument]
@@ -302,8 +304,7 @@ class RecoveredFreq(object):
 			self.y = []
 			self.c = []
 
-	def __init__(self, amplitude_func):
-		self.amplitude_func = amplitude_func
+	def __init__(self):
 		self.dataA = {}
 		self.dataB = {}
 
@@ -399,10 +400,10 @@ options, filenames = parse_command_line()
 
 
 plots = [
-	TriggerCountHistogram(),
-	RecoveredVsInjectedAmplitude(options.amplitude_func, options.amplitude_lbl),
-	RecoveredTimeOffset(segments.segment(-0.01, +0.01), 0.00005),
-	RecoveredFreq(options.amplitude_func)
+	(0, TriggerCountHistogram()),
+	(1, RecoveredVsInjectedAmplitude(options.amplitude_func, options.amplitude_lbl)),
+	(2, RecoveredTimeOffset(segments.segment(-0.01, +0.01), 0.00005)),
+	(3, RecoveredFreq())
 ]
 
 if options.plot is not None:
@@ -444,7 +445,7 @@ AS
 		a.table_name == 'sim_burst'
 		AND coinc_event.coinc_def_id == ?
 	""", (database.sb_definer_id,))
-	for n, plot in enumerate(plots):
+	for n, plot in plots:
 		if options.verbose:
 			print >>sys.stderr, "adding to plot group %d ..." % n
 		plot.add_contents(database)
@@ -457,16 +458,15 @@ AS
 #
 
 
-n = 0
 format = "%%s%%0%dd%%s.%%s" % (int(math.log10(len(plots) or 1)) + 1)
 while len(plots):
-	plot = plots.pop(0)
+	n, plot = plots.pop(0)
 	if options.verbose:
-		print >>sys.stderr, "finishing plot %d ..." % n
+		print >>sys.stderr, "finishing plot group %d ..." % n
 	try:
 		figs = plot.finish()
 	except ValueError, e:
-		print >>sys.stderr, "can't finish plot %d: %s" % (n, str(e))
+		print >>sys.stderr, "can't finish plot group %d: %s" % (n, str(e))
 	else:
 		for f, fig in enumerate(figs):
 			for extension in options.format:
@@ -474,4 +474,3 @@ while len(plots):
 				if options.verbose:
 					print >>sys.stderr, "writing %s ..." % filename
 				fig.savefig(filename)
-	n += 1

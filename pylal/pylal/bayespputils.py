@@ -535,6 +535,30 @@ class Posterior(object):
         """
         for name,pos in self:
             pos.delete_samples_by_idx(samples)
+        return
+
+    def delete_NaN_entries(self,param_list):
+        """
+        Remove samples containing NaN in request params.
+
+        @param param_list: The parameters to be checked for NaNs.
+        """
+        nan_idxs = np.array(())
+        nan_dict = {}
+        for param in param_list:
+            nan_bool_array = np.isnan(self[param].samples).any(1)
+            idxs = np.where(nan_bool_array == True)[0]
+            if len(idxs) > 0:
+                nan_dict[param]=len(idxs)
+                nan_idxs = np.append(nan_idxs, idxs)
+        total_samps = len(self)
+        nan_samps   = len(nan_idxs)
+        if nan_samps is not 0:
+            print "WARNING: removing %i of %i total samples due to NaNs:"% (nan_samps,total_samps)
+            for param in nan_dict.keys():
+                print "\t%i NaNs in %s."%(nan_dict[param],param)
+            self.delete_samples_by_idx(nan_idxs)
+        return
 
     @property
     def injection(self):
@@ -753,32 +777,70 @@ class Posterior(object):
 
     def append_1D_mapping(self, new_param_name, func, post_name):
         """
-        Append a 1D-posterior containing func(post_name).
+        Append mapping of parameter new_param = func(post_name).
         """
-        pos = self[post_name]
-        inj = None
-        if pos.injval: inj = func(pos.injval)
-        samps = func(pos.samples)
-        pos = OneDPosterior(new_param_name, samps, injected_value=inj)
-        self.append(pos)
+        old_pos = self[post_name]
+        old_inj = old_pos.injval
+        if old_inj:
+            new_inj = func(old_inj)
+        else:
+            new_inj=None
+        samps   = func(old_pos.samples)
+        new_pos = OneDPosterior(new_param_name, samps, injected_value=new_inj)
+        self.append(new_pos)
+        return
+
+    def append_multiD_mapping(self, new_param_names, func, post_names):
+        """
+        Append posteriors pos1,pos2,...=func(post_names)
+        """
+        old_posts = [self[post_name] for post_name in post_names]
+        old_injs = [post.injval for post in old_posts]
+        if None not in old_injs:
+            injs = func(*old_injs)
+        else:
+            injs = [None for name in new_param_names]
+        samps = func(*[post.samples for post in old_posts])
+        new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
+        for post in new_posts: 
+            if post.samples.ndim is 0: 
+                print "WARNING: No posterior calculated for %s ..." % post.name
+            else:
+                self.append(post)
         return
 
     def _average_posterior(self, samples, post_name):
+        """
+        Returns the average value of the 'post_name' column of the
+        given samples.
+        """
         ap = 0.0
         for samp in samples:
             ap = ap + samp[post_name]
         return ap / len(samples)
 
-    def _average_posterior_like_prior(self, samples, logl_name, prior_name):
+    def _average_posterior_like_prior(self, samples, logl_name, prior_name, log_bias = 0):
+        """
+        Returns the average value of the posterior assuming that the
+        'logl_name' column contains log(L) and the 'prior_name' column
+        contains the prior (un-logged).
+        """
         ap = 0.0
         for samp in samples:
-            ap += np.exp(samp[logl_name])*samp[prior_name]
+            ap += np.exp(samp[logl_name]-log_bias)*samp[prior_name]
         return ap / len(samples)
+
+    def _bias_factor(self):
+        """
+        Returns a sensible bias factor for the evidence so that
+        integrals are representable as doubles.
+        """
+        return np.mean(self._logL)
 
     def di_evidence(self, boxing=64):
         """
-        Returns the direct-integration evidence for the posterior
-        samples.
+        Returns the log of the direct-integration evidence for the
+        posterior samples.
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
@@ -789,14 +851,16 @@ class Posterior(object):
         coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
         tree=KDTree(coordinatized_samples)
 
-        if "post" in header:
-            return tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing)
-        elif "posterior" in header:
-            return tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing)
-        elif "prior" in header and "logl" in header:
-            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior"), boxing)
+        if "prior" in header and "logl" in header:
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior", bf), boxing))
         elif "prior" in header and "likelihood" in header:
-            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior"), boxing)
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior", bf), boxing))
+        elif "post" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing))
+        elif "posterior" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing))
         else:
             raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
@@ -804,10 +868,11 @@ class Posterior(object):
 
     def harmonic_mean_evidence(self):
         """
-        Returns the harmonic mean evidence for the set of posterior
-        samples.
+        Returns the log of the harmonic mean evidence for the set of
+        posterior samples.
         """
-        return 1/np.mean(1/np.exp(self._logL))
+        bf = self._bias_factor()
+        return bf + np.log(1/np.mean(1/np.exp(self._logL-bf)))
 
     def _posMode(self):
         """
@@ -1571,9 +1636,11 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
     return _greedy_bin(shist,skypoints,injbin,float(skyres),len(skypos),confidence_levels)
 
 
-def plot_sky_map(top_ranked_pixels,outdir):
+def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     """
     Plots a sky map using the Mollweide projection in the Basemap package.
+
+    @inj_pos: injected position in the sky in the form [dec,ra]
 
     @param top_ranked_pixels: the top-ranked sky pixels as determined by greedy_bin_sky.
 
@@ -1586,6 +1653,13 @@ def plot_sky_map(top_ranked_pixels,outdir):
     myfig=plt.figure()
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+    
+    # Plot an X on the injected position
+    if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
+        ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
+        inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
+        plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
+    
     ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
 
     plx,ply=m(
@@ -1635,6 +1709,7 @@ def mc2ms(mc,eta):
     return (m1,m2)
 #
 #
+
 def ang_dist(long1,lat1,long2,lat2):
     """
     Find the angular separation of (long1,lat1) and (long2,lat2), which are
@@ -1649,7 +1724,85 @@ def ang_dist(long1,lat1,long2,lat2):
     z2=np.sin(lat2)
     sep=math.acos(x1*x2+y1*y2+z1*z2)
     return(sep)
+#
+#
 
+def array_dot(vec1, vec2):
+    """
+    Calculate dot products between vectors in rows of numpy arrays.
+    """
+    if vec1.ndim==1:
+        return (vec1*vec2).sum()
+    else:
+        return(vec1*vec2).sum(axis=1).reshape(-1,1)
+#
+#
+
+def array_ang_sep(vec1, vec2):
+    """
+    Find angles between vectors in rows of numpy arrays.
+    """
+    vec1_mag = np.sqrt(array_dot(vec1, vec1))
+    vec2_mag = np.sqrt(array_dot(vec2, vec2))
+    return np.arccos(array_dot(vec1, vec2)/(vec1_mag*vec2_mag))
+#
+#
+
+def array_polar_ang(vec):
+    """
+    Find polar angles of vectors in rows of a numpy array.
+    """
+    if vec.ndim==1:
+        z = vec[2]
+    else:
+        z = vec[:,2].reshape(-1,1)
+    norm = np.sqrt(array_dot(vec,vec))
+    return np.arccos(z/norm)
+#
+#
+
+def orbital_momentum(f_lower, mc, inclination):
+    """
+    Calculate orbital angular momentum vector.
+    """
+    mtsun = 4.92549095e-06          #Msol in seconds
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * mtsun * f_lower, 1.0/3.0)
+    Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
+    return np.hstack((Lx,Ly,Lz))
+#
+#
+
+def component_momentum(m, a, theta, phi):
+    """
+    Calculate BH angular momentum vector.
+    """
+    Sx, Sy, Sz = sph2cart(m**2 * a, theta, phi)
+    return np.hstack((Sx,Sy,Sz))
+#
+#
+
+def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
+    """
+    Calculate physical spin angles.
+    """
+    singleSpin = None in (a2,theta2,phi2)
+    m1, m2 = mc2ms(mc,eta)
+    L  = orbital_momentum(f_lower, mc, incl)
+    S1 = component_momentum(m1, a1, theta1, phi1)
+    if not singleSpin:
+        S2 = component_momentum(m2, a2, theta2, phi2)
+    else:
+        S2 = 0.0
+    J = L + S1 + S2
+    tilt1 = array_ang_sep(L,S1)
+    if not singleSpin:
+        tilt2 = array_ang_sep(L,S2)
+    else:
+        tilt2 = None
+    thetas = array_polar_ang(J)
+    beta  = array_ang_sep(J,L)
+    return tilt1, tilt2, thetas, beta
+#
 #
 
 def plot_one_param_pdf_kde(fig,onedpos):
@@ -2290,6 +2443,8 @@ class PEOutputParser(object):
             self._parser=self._followupmcmc_to_pos
         elif inputtype is "inf_mcmc":
             self._parser=self._infmcmc_to_pos
+        elif inputtype is "xml":
+            self._parser=self._xml_to_pos
 
     def parse(self,files,**kwargs):
         """
@@ -2514,6 +2669,64 @@ class PEOutputParser(object):
         """
         return self._common_to_pos(open(files[0],'r'))
 
+    def _xml_to_pos(self,infile):
+        """
+        Parser for VOTable XML Using
+        """
+        from xml.etree import ElementTree as ET
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        try:
+                register_namespace=ET.register_namespace
+        except AttributeError:
+                def register_namespace(prefix,uri):
+                    ET._namespace_map[uri]=prefix
+        register_namespace('vot',xmlns)
+        tree = ET.ElementTree()
+        tree.parse(infile)
+        # Find the posterior table
+        tables = tree.findall('.//{%s}TABLE'%(xmlns))
+        for table in tables:
+            if table.get('name')=='Posterior Samples':
+                return(self._VOTTABLE2pos(table))
+        raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
+        
+    def _VOTTABLE2pos(self,table):
+        """
+        Parser for a VOT TABLE element with FIELDs and TABLEDATA elements
+        """
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        header=[]
+        for field in table.findall('./{%s}FIELD'%(xmlns)):
+            header.append(field.attrib['name'])
+        if(len(header)==0):
+            raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
+        tabledata=table.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+        llines=[]
+        for row in tabledata:
+            llines.append(np.array(map(lambda a:float(a.text),row)))
+        flines=np.array(llines)
+        for i in range(0,len(header)):
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+                print 'exponentiating %s'%(header[i])
+
+                flines[:,i]=np.exp(flines[:,i])
+
+                header[i]=header[i].replace('log','')
+            if header[i].lower().find('sin')!=-1:
+                print 'asining %s'%(header[i])
+                flines[:,i]=np.arcsin(flines[:,i])
+                header[i]=header[i].replace('sin','')
+            if header[i].lower().find('cos')!=-1:
+                print 'acosing %s'%(header[i])
+                flines[:,i]=np.arccos(flines[:,i])
+                header[i]=header[i].replace('cos','')
+            header[i]=header[i].replace('(','')
+            header[i]=header[i].replace(')','')
+        print 'Read columns %s'%(str(header))
+        return header,flines
+
+
     def _common_to_pos(self,infile,delimiter=None):
         """
         Parse a file in the 'common format' and return an array of posterior
@@ -2554,7 +2767,8 @@ class PEOutputParser(object):
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
@@ -2655,6 +2869,58 @@ def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_
             return None
     
 #
+
+def vo_nest2pos(nsresource,Nlive=None):
+    """
+    Parse a VO Table RESOURCE containing nested sampling output and
+    return a VOTable TABLE element with posterior samples in it.
+    This can be added to an existing tree by the user.
+    Nlive will be read from the nsresource, unless specified
+    """
+    from xml.etree import ElementTree as ET
+    import copy
+    from math import log, exp
+    postable=ET.Element("vot:TABLE",attrib={'name':'Posterior Samples'})
+    i=0
+    xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+    nstable=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("name")=="Nested Samples"][0]
+    if Nlive is None:
+        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("name")=="Run State Configuration"][0]
+        print runstateResource
+        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("name")=="Algorithm Params"][0]
+        print algTable
+        Nlive = int ([param for param in algTable.findall("./{%s}PARAM"%(xmlns)) if param.get("name")=='Nlive'][0].get('value'))
+        print 'Found Nlive %i'%(Nlive)
+    if Nlive is None:
+        raise RuntimeError("Cannot find number of live points in XML table, please specify")
+    logLcol = None
+    for fieldnode in nstable.findall('./{%s}FIELD'%xmlns):
+        if fieldnode.get('name') == 'logL':
+            logLcol=i
+        i=i+1
+        postable.append(copy.deepcopy(fieldnode))
+    for paramnode in nstable.findall('./{%s}PARAM'%(xmlns)):
+        postable.append(copy.deepcopy(paramnode))
+    if logLcol is None:
+        RuntimeError("Unable to find logL column")
+    posdataNode=ET.Element("vot:DATA")
+    postabledataNode=ET.Element("vot:TABLEDATA")
+    postable.append(posdataNode)
+    posdataNode.append(postabledataNode)
+    nstabledata=nstable.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+    logw=log(1.0 - exp(-1.0/float(Nlive)))
+    weights=[]
+    for row in nstabledata:
+        logL=float(row[logLcol].text)
+        weights.append(logL-logw)
+        logw=logw-1.0/float(Nlive)
+    mw=max(weights)
+    weights = [w - mw for w in weights]
+    for (row,weight) in zip(nstabledata,weights):
+        if weight > log(random.random()):
+            postabledataNode.append(copy.deepcopy(row))
+    return postable
+
 
 #R convergenceTest script
 convergenceTests_R="""

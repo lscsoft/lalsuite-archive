@@ -51,6 +51,7 @@
 
 
 static PyObject *sim_burst_simulation_id_type = NULL;
+static PyObject *time_slide_id_type = NULL;
 static PyObject *process_id_type = NULL;
 
 
@@ -83,6 +84,7 @@ static struct PyMemberDef members[] = {
 static struct PyGetSetDef getset[] = {
 	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimBurst, sim_burst.process_id), &process_id_type}},
 	{"waveform", pylal_inline_string_get, pylal_inline_string_set, "waveform", &(struct pylal_inline_string_description) {offsetof(pylal_SimBurst, sim_burst.waveform), LIGOMETA_WAVEFORM_MAX}},
+	{"time_slide_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "time_slide_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimBurst, sim_burst.time_slide_id), &time_slide_id_type}},
 	{"simulation_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "simulation_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimBurst, sim_burst.simulation_id), &sim_burst_simulation_id_type}},
 	{NULL,}
 };
@@ -134,7 +136,6 @@ PyTypeObject pylal_simburst_type = {
 
 static PyObject *from_buffer(PyObject *self, PyObject *args)
 {
-	PyObject *buffer;
 	const SimBurst *data;
 #if PY_VERSION_HEX < 0x02050000
 	int length;
@@ -144,10 +145,7 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
 	unsigned i;
 	PyObject *result;
 
-	if(!PyArg_ParseTuple(args, "O", &buffer))
-		return NULL;
-
-	if(PyObject_AsReadBuffer(buffer, (const void **) &data, &length))
+	if(!PyArg_ParseTuple(args, "s#", (const char **) &data, &length))
 		return NULL;
 
 	if(length % sizeof(SimBurst)) {
@@ -193,6 +191,7 @@ void initsimburst(void)
 
 	/* Cached ID types */
 	sim_burst_simulation_id_type = pylal_get_ilwdchar_class("sim_burst", "simulation_id");
+	time_slide_id_type = pylal_get_ilwdchar_class("time_slide", "time_slide_id");
 	process_id_type = pylal_get_ilwdchar_class("process", "process_id");
 
 	/* SimBurst */
