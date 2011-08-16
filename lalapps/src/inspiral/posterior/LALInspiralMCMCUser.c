@@ -2124,9 +2124,10 @@ void IMRPhenomB_template(LALStatus *status, InspiralTemplate *template, LALMCMCP
 }
 
 
-void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
+void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC)
+{
 
-    (void)parameter;
+    	(void)parameter;
 
 	double qnm223freq;
 
