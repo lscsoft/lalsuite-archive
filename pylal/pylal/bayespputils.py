@@ -1680,16 +1680,24 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     plt.clf()
 
     #Save skypoints
+    
+    fid = open( os.path.join(outdir,'ranked_sky_pixels.dat'), 'w' ) 
+    fid.write( 'dec(deg.)\tra(h.)\tprob.\tcumul.\n' ) 
     np.savetxt(
-               os.path.join(outdir,'ranked_sky_pixels.dat'),
+               fid,
+               #os.path.join(outdir,'ranked_sky_pixels.dat'),
                np.column_stack(
                                [
-                                np.asarray(top_ranked_pixels)[:,0:1],
-                                np.asarray(top_ranked_pixels)[:,1],
+                                np.asarray(top_ranked_pixels)[:,0]*57.296,
+                                np.asarray(top_ranked_pixels)[:,1]*3.820,
+                                np.append(np.asarray(top_ranked_pixels)[0,3],np.asarray(top_ranked_pixels)[1:,3]-np.asarray(top_ranked_pixels)[:-1,3]),
                                 np.asarray(top_ranked_pixels)[:,3]
                                 ]
-                               )
+                               ),
+               fmt='%.4f',
+               delimiter='\t'
                )
+    fid.close() 
 
     return myfig
 #
