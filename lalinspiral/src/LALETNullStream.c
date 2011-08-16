@@ -31,26 +31,18 @@ REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration )
     
     /***************************************************************************
      *
-     *  INITIALISE STATUSPOINTER
-     *
-     **************************************************************************/
-    
-    //INITSTATUS( status, "LALETNullStream", LALETNULLSTREAMC);
-	//ATTATCHSTATUSPTR( status );
-    
-    /***************************************************************************
-     *
      *  DECLARE VARIABLES
      *
      **************************************************************************/    
     
     UINT4 i=0;
-    REAL8TimeSeries *RawData[3];
-    REAL8TimeSeries *NullStream;
+    UINT4 j=0;
+    REAL8TimeSeries *RawData[3]; // INDIVIDUAL DETECTOR STRAINS
+    REAL8TimeSeries *NullStream; // NULLSTREAM STRAIN
     
     /***************************************************************************
      *
-     *  INPUT DATA - SET BY HAND CURRENTLY, MIGHT WANT TO ADD TO ARGUMENT
+     *  INPUT DATA SPECIFICS - SET BY HAND CURRENTLY, MIGHT WANT TO ADD TO ARGUMENT
      *      PARSING
      *
      **************************************************************************/  
@@ -72,17 +64,21 @@ REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration )
     
     /***************************************************************************
      *
-     *  COMPUTE NULLSTREAM
+     *  COMPUTE NULL STREAM
+     *		- DEFINED AS THE SUM OF THE STRAIN TIME SERIES OF THE THREE DETECTORS
+     *		- SEE EQN 32 OF THE MDC PAPER
      *
      **************************************************************************/  
     
     /* Initialise the NullStream */
     NullStream = XLALCreateREAL8TimeSeries("ETNullStream", GPSStart, 0.0, RawData[1]->deltaT, &lalStrainUnit, RawData[1]->data->length);
     
-    for (i=0; i<3; i++) {
-        /* Sum the strain to the null stream */
-        PopulateNullStream(NullStream,RawData[i]);
-    }
+    // SUM ALL DETECTOR RESPONSES
+    for (i=0; i<3; i++) { 
+			for (j=0; j<NullStream->data->length; j++) {
+					NullStream->data->data[j] += RawData[i]->data->data[j];
+			}
+		}
     
     /***************************************************************************
      *
@@ -152,45 +148,97 @@ void PopulateNullStream(REAL8TimeSeries *NullStream, REAL8TimeSeries *RawData)
     NullStream->f0=RawData->f0;
 }
 
-void PopulateHplus(REAL8TimeSeries *hplus, REAL8TimeSeries *RawData)
+REAL8FrequencySeries * ComputeSingleDetectorInvPSDfromNullStream(LIGOTimeGPS *GPSStart, REAL8 duration, UINT4 SampleRate, UINT4 nSegs)
 {
     /***************************************************************************
      *
-     *  FUNCTION TO POPULATE THE HPLUS USING THE 3 DETECTOR RAW INPUT
-     *      NB: NOT CODED YET
+     *  FUNCTION TO COMPUTE THE ET INVPSD FROM THE NULLSTREAM
+     *		- PSD OF THE NULL STREAM ACCORDING TO EQN 34 OF THE MDC PAPER
      *
      **************************************************************************/
-    hplus=NULL;
-    RawData = NULL;
-
-    return;
-}
-
-void PopulateHcross(REAL8TimeSeries *hcross, REAL8TimeSeries *RawData)
-{
+    
     /***************************************************************************
      *
-     *  FUNCTION TO POPULATE THE HCROSS USING THE 3 DETECTOR RAW INPUT
-     *      NB: NOT CODED YET
-     *
+     *  DECLARE VARIABLES
+     * 
      **************************************************************************/
     
-    hcross = NULL;
-    RawData = NULL;
+    int check = 0;
+    UINT4 j=0;
     
-    return;
-}
-
-void ComputePSDfromNullStream(REAL8FrequencySeries *psd, REAL8TimeSeries *RawData)
-{
+    REAL8 segDur = duration/(REAL8)nSegs;
+    UINT4 seglen = (UINT4)(segDur*SampleRate); // GET THE LENGTH OF A SEGMENT
+    segDur = seglen/SampleRate; // UPDATE WITH THE TRUNCATED SEGLEN
+  	nSegs = (INT4)floor(duration/segDur); // UPDATE NSEGS TO ACCOMODATE SAMPLERATE
+    UINT4 stride = seglen; /* Overlap the padding */
+    //REAL8 strideDur = stride / SampleRate;
+    REAL8 deltaF=(REAL8)SampleRate/seglen;
+    REAL8 end_freq=10.0; /* cutoff frequency */ 
+    
+    REAL8Window  *windowplan = XLALCreateTukeyREAL8Window(seglen,0.1*(REAL8)8.0*SampleRate/(REAL8)seglen);;
+    REAL8FFTPlan *fwdplan = XLALCreateForwardREAL8FFTPlan( seglen, 1 );
+    REAL8FFTPlan *revplan = XLALCreateReverseREAL8FFTPlan( seglen, 1 );
+    REAL8FrequencySeries *inverse_spectrum = XLALCreateREAL8FrequencySeries("inverse spectrum",GPSStart,0.0,deltaF,&lalDimensionlessUnit,seglen/2+1);
+    
     /***************************************************************************
      *
-     *  FUNCTION TO COMPUTE THE ET PSD FROM THE NULLSTREAM
+     *  COMPUTING THE NULLSTREAM
+     * 
+     **************************************************************************/
+     
+     REAL8TimeSeries * NullStream = LALETNullStream(GPSStart,duration);
+     
+    // RESAMPLE TIMESERIES - OPTIONAL
+    if (SampleRate!=8192) {
+			fprintf(stdout,"... Sample rate %d, resampling...\r",SampleRate);
+			XLALResampleREAL8TimeSeries(NullStream,1.0/SampleRate);
+		}
+     
+    /***************************************************************************
      *
+     *  COMPUTING THE INVERSE PSD FROM THE NULLSTREAM
+     * 
      **************************************************************************/
     
-    psd = NULL;
-    RawData = NULL;
+    // SHRINKING NULLSTREAM INTO INTEGER SEGMENTS
+    fprintf(stdout,"... Shrinking - (lost %d samples from end)\n",NullStream->data->length-(seglen*nSegs));
+    NullStream=(REAL8TimeSeries *)XLALShrinkREAL8TimeSeries(NullStream,(size_t) 0, (size_t) seglen*nSegs);
+    fprintf(stdout,"... Computing power spectrum, seglen %i stride %i\n",seglen,stride);
     
-    return;
+    // CALCULATE THE INVERSE SPECTRUM 
+		check = XLALREAL8AverageSpectrumMedian(inverse_spectrum,NullStream,(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
+    if (check) {fprintf(stderr,"Failed computing the XLALREAL8AverageSpectrumMedian \n");exit(-1);}
+    
+    // TRUNCATE INVERSE SPECTRUM
+    check = XLALREAL8SpectrumInvertTruncate(inverse_spectrum, end_freq, seglen, (seglen-stride)/4, fwdplan, revplan ); 
+    if (check) {fprintf(stderr,"Failed computing XLALREAL8SpectrumInvertTruncate \n");exit(-1);}
+    
+    /* Normalize, ACCORDING TO EQN 35 FROM ET MDC PAPER - NB: EQN35 IS FOR THE SPECTRAL DENSITY, BUT THE INVERSE SPECTRAL DENSITY IS CALCULATED HERE */
+    for (j=0;j<inverse_spectrum->data->length;j++) {
+    	inverse_spectrum->data->data[j]*=3.0L;
+    }    
+    
+    /***************************************************************************
+     *
+     *  PRINT INVPSD TO FILE - OPTIONAL
+     * 
+     **************************************************************************/
+    /*
+    FILE *psdout;
+		//char psdname[100];
+		//sprintf(psdname,"nullstream_%i.dat",SampleRate_global);
+		psdout=fopen(outfile,"w");
+    
+    // PRINT FILE
+		for(j=0;j<inverse_spectrum->data->length;j++) {
+       fprintf(psdout,"%10.10lf %10.10e\n",j*deltaF,inverse_spectrum->data->data[j]); 
+    }
+    fclose(psdout);
+    */
+    
+    /* write the inverse spectrum from a frequency serie to a frame file */     
+    //printf("writing the inverse spectrum to a frame file\n");
+    //LALFrWriteREAL8FrequencySeries(&status,inverse_spectrum,&frSerie_freq,1);
+    
+    return inverse_spectrum;
 }

@@ -56,12 +56,7 @@ NRCSID (LALETNULLSTREAMH,"$Id$");
     
     void PopulateNullStream(REAL8TimeSeries *NullStream, REAL8TimeSeries *RawData);
     
-    void PopulateHplus(REAL8TimeSeries *hplus, REAL8TimeSeries *RawData);
-    
-    void PopulateHcross(REAL8TimeSeries *hcross, REAL8TimeSeries *RawData);
-    
-    void ComputePSDfromNullStream(REAL8FrequencySeries *psd, REAL8TimeSeries *RawData);
-    
+   REAL8FrequencySeries * ComputeSingleDetectorInvPSDfromNullStream(LIGOTimeGPS *GPSStart, REAL8 duration, UINT4 SampleRate, UINT4 nSegs); 
 
 #ifdef  __cplusplus
 }
