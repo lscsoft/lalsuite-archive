@@ -794,7 +794,7 @@ void LALInspiralRestrictedAmplitude(
      LALStatus *status,
      InspiralTemplate  *params);
 
-void XLALInspiralRestrictedAmplitude(
+int XLALInspiralRestrictedAmplitude(
      InspiralTemplate  *params);
 
 
