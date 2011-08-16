@@ -616,6 +616,7 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   if(inputMCMC->approximant==EOBNR && m1+m2>Mtot_max) return 0;
   
   return 1;
+}
 
 REAL8 NestPriorSkyLoc(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
 {
@@ -2124,10 +2125,9 @@ void IMRPhenomB_template(LALStatus *status, InspiralTemplate *template, LALMCMCP
 }
 
 
-void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC)
-{
+void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC){
 
-    	(void)parameter;
+    (void)parameter;
 
 	double qnm223freq;
 
