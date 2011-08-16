@@ -1542,7 +1542,7 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
                                                 greedyHist,
                                                 greedyPoints,
                                                 injbin,
-                                                float(sqrt(par1_bin*par2_bin)),
+                                                float(par1_bin*par2_bin),
                                                 int(len(par1pos)),
                                                 confidence_levels
                                             )
@@ -1633,7 +1633,7 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
                                                                      skypoints[injbin,1]
                                                                      )
 
-    return _greedy_bin(shist,skypoints,injbin,float(skyres),len(skypos),confidence_levels)
+    return _greedy_bin(shist,skypoints,injbin,float(skyres)*float(skyres),len(skypos),confidence_levels)
 
 
 def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
@@ -2293,7 +2293,7 @@ def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
         par_binNumber=floor((par_injvalue-parpos_min)/par_bin)
         injbin=par_binNumber
 
-    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(sqrt(par_bin*par_bin)),int(len(par_samps)),confidence_levels)
+    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin*par_bin),int(len(par_samps)),confidence_levels)
     cl_intervals=[]
     confidence_levels.sort()
     for cl in confidence_levels:
