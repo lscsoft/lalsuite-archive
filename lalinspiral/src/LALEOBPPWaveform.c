@@ -1569,9 +1569,10 @@ LALEOBPPWaveformEngine (
    eobParams.eta = eta;
    eobParams.m1  = params->mass1;
    eobParams.m2  = params->mass2;
-   eobParams.aCoeffs  = &aCoeffs;
-   eobParams.hCoeffs  = &hCoeffs;
-   eobParams.prefixes = &prefixes;
+   eobParams.aCoeffs   = &aCoeffs;
+   eobParams.hCoeffs   = &hCoeffs;
+   eobParams.nqcCoeffs = &nqcCoeffs;
+   eobParams.prefixes  = &prefixes;
 
    if ( XLALCalculateEOBACoefficients( &aCoeffs, eta ) == XLAL_FAILURE )
    {
@@ -1585,6 +1586,13 @@ LALEOBPPWaveformEngine (
 
   if ( XLALComputeNewtonMultipolePrefixes( &prefixes, eobParams.m1, eobParams.m2 )
          == XLAL_FAILURE )
+  {
+    ABORTXLAL( status );
+  }
+
+  /* For the dynamics, we need to use preliminary calculated versions   */
+  /*of the NQC coefficients for the (2,2) mode. We calculate them here. */
+  if ( XLALGetCalibratedNQCCoeffs( &nqcCoeffs, 2, 2, eta ) == XLAL_FAILURE )
   {
     ABORTXLAL( status );
   }
