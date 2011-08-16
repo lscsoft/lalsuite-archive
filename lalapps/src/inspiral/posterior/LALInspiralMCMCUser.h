@@ -109,6 +109,7 @@ REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 int CubeToGRBPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
 REAL8 NestPriorSkyLoc(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
+int CubeToNestPriorSkyLoc(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 
 void NestInitInjNINJA(LALMCMCParameter *parameter, void *iT);
 

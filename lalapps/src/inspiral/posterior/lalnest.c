@@ -1254,7 +1254,10 @@ doneinit:
 		inputMCMC.funcPrior = NestPriorHighMass;
 		inputMCMC.funcMultiNestPrior = CubeToNestPriorHighMass;
 	}
-	if(skylocprior) inputMCMC.funcPrior = NestPriorSkyLoc;
+	if(skylocprior) {
+		inputMCMC.funcPrior = NestPriorSkyLoc;
+		inputMCMC.funcMultiNestPrior = CubeToNestPriorSkyLoc;
+	}
 
     if(!strcmp(approx,BBHSpin1)) {
         inputMCMC.funcPrior = NestPriorHighMass;

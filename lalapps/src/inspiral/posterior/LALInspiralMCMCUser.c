@@ -516,8 +516,8 @@ REAL8 NestPriorHighMass(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
 // return value 0 if parameters out of prior else 1
 int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
 {
-  REAL8 minCompMass = 1.0;
-  REAL8 maxCompMass = 100.0;
+  /* Maximum total mass for ISCO to be at fLow +1 */
+  REAL8 Mtot_max=1.0/((inputMCMC->fLow+1.0) * pow(6.0,3./2.) *LAL_PI * LAL_MTSUN_SI);
   
   CubeToCommonPriorParams(Cube, inputMCMC, parameter);
 
@@ -568,7 +568,8 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   	param = XLALMCMCGetParam(parameter, "distMpc");
   	distMpcMin = param->core->minVal;
   	distMpcMax = param->core->maxVal;
-	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+	//distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
   	XLALMCMCSetParameter(parameter, "distMpc", distMpc);
   }
   else if( XLALMCMCCheckParameter(parameter, "logdist") )
@@ -576,7 +577,8 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   	param = XLALMCMCGetParam(parameter, "logdist");
   	distMpcMin = exp(param->core->minVal);
   	distMpcMax = exp(param->core->maxVal);
-	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+	//distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
   	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
   }
   /*double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
@@ -584,11 +586,26 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   Cube[i] = distMpc;
   i++;
   
+  /* Spin prior for theta angles */
+  if(XLALMCMCCheckParameter(parameter,"theta1")){
+	double theta1 = acos(1.0 - 2.0 * Cube[i]);
+  	XLALMCMCSetParameter(parameter, "theta1", iota);
+  	Cube[i] = theta1;
+  	i++;
+  }
+  if(XLALMCMCCheckParameter(parameter,"theta2")){
+	double theta2 = acos(1.0 - 2.0 * Cube[i]);
+  	XLALMCMCSetParameter(parameter, "theta2", iota);
+  	Cube[i] = theta2;
+  	i++;
+  }
+  
   
   // check if parameters are inside the prior ranges
   parameter->logPrior = 0;
   ParamInRange(parameter);
   if( parameter->logPrior == -DBL_MAX ) return 0;
+  
   
   REAL8 m1 = mc2mass1(mc,eta);
   REAL8 m2 = mc2mass2(mc,eta);
@@ -596,8 +613,8 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   Cube[i] = m2; i++;
 
   if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) return 0;
-  if(m1<minCompMass || m2<minCompMass) return 0;
-  if(m1>maxCompMass || m2>maxCompMass) return 0;
+  if(inputMCMC->approximant==EOBNR && m1+m2>Mtot_max) return 0;
+  
   return 1;
 
 REAL8 NestPriorSkyLoc(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
@@ -637,148 +654,8 @@ REAL8 NestPriorSkyLoc(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
 	return parameter->logPrior;
 }
 
-REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
-{
-	REAL8 m1,m2;
-	parameter->logPrior=0.0;
-	REAL8 mc,eta;
-	REAL8 minCompMass = 1.0;
-	REAL8 maxCompMass = 34.0;
-#define MAX_MTOT 35.0
-	/* copied from alex's function */
-/*	logdl=2.0*XLALMCMCGetParameter(parameter,"distMpc");
-	parameter->logPrior+=2.0*logdl;
-	m1=XLALMCMCGetParameter(parameter,"mass1");
-	m2=XLALMCMCGetParameter(parameter,"mass2");
-	ampli = log(sqrt(m1*m2)/(logdl*pow(m1+m2,1.0/6.0)));
-    parameter->logPrior+= -log( 1.0+exp((ampli-a)/b) );
-*/
-/* Check in range */
-	if(XLALMCMCCheckParameter(parameter,"logmc")) mc=exp(XLALMCMCGetParameter(parameter,"logmc"));
-	else mc=XLALMCMCGetParameter(parameter,"mchirp");
-	double logmc=log(mc);
-	eta=XLALMCMCGetParameter(parameter,"eta");
-	m1 = mc2mass1(mc,eta);
-	m2 = mc2mass2(mc,eta);
-	/* This term is the sqrt of m-m term in F.I.M, ignoring dependency on f and eta */
-	parameter->logPrior+=-(5.0/6.0)*logmc;
-	if(XLALMCMCCheckParameter(parameter,"logdist"))
-		parameter->logPrior+=3.0*XLALMCMCGetParameter(parameter,"logdist");
-	else
-		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
-	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
-	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
-	/*	parameter->logPrior+=logJacobianMcEta(mc,eta);*/
-	
-	/* Spin prior for theta angles */
-	if(XLALMCMCCheckParameter(parameter,"theta1")){
-		parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"theta1"))));
-	}
-	if(XLALMCMCCheckParameter(parameter,"theta2")){
-		parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"theta2"))));
-	}	
-	
-	ParamInRange(parameter);
-	if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) parameter->logPrior=-DBL_MAX;
-	if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;
-	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;
-	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;
-	return parameter->logPrior;
-}
-
 // return value 0 if parameters out of prior else 1
-int CubeToNestPriorORIG(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
-{
-  REAL8 minCompMass = 1.0;
-  REAL8 maxCompMass = 34.0;
-#define MAX_MTOT 35.0
-
-  CubeToCommonPriorParams(Cube, inputMCMC, parameter);
-
-  int i = 6;
-  LALMCMCParam* param = NULL;
-
-  // chirp mass
-  if( MNSeg > 0 && ( Cube[i] < (MNSeg - 1) * 0.25 - 0.025 || Cube[i] > MNSeg * 0.25 + 0.025 ) ) return 0;
-  double mcMin, mcMax;
-  if(XLALMCMCCheckParameter(parameter,"logmc"))
-  {
-        param = XLALMCMCGetParam(parameter, "logmc");
-        mcMin = exp(param->core->minVal);
-        mcMax = exp(param->core->maxVal);
-  }
-  else
-  {
-        param = XLALMCMCGetParam(parameter, "mchirp");
-        mcMin = param->core->minVal;
-        mcMax = param->core->maxVal;
-  }
-  double mc = powerPrior(-5.0/6.0, Cube[i], mcMin, mcMax);
-  if(XLALMCMCCheckParameter(parameter,"logmc"))
-        XLALMCMCSetParameter(parameter, "logmc", log(mc));
-  else
-        XLALMCMCSetParameter(parameter, "mchirp", mc);
-  Cube[i] = mc;
-  i++;
-
-
-  // eta
-  param = NULL;
-  double etaMax, etaMin;
-  param = XLALMCMCGetParam(parameter, "eta");
-  etaMin = param->core->minVal;
-  etaMax = param->core->maxVal;
-  double eta = flatPrior(Cube[i], etaMin, etaMax);
-  XLALMCMCSetParameter(parameter, "eta", eta);
-  Cube[i] = eta;
-  i++;
-
-  
-  // luminosity distance in Mpc
-  param = NULL;
-  double distMpcMax, distMpcMin, distMpc;
-  if( XLALMCMCCheckParameter(parameter,"distMpc") )
-  {
-  	param = XLALMCMCGetParam(parameter, "distMpc");
-  	distMpcMin = param->core->minVal;
-  	distMpcMax = param->core->maxVal;
-	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
-  	XLALMCMCSetParameter(parameter, "distMpc", distMpc);
-  }
-  else if( XLALMCMCCheckParameter(parameter, "logdist") )
-  {
-  	param = XLALMCMCGetParam(parameter, "logdist");
-  	distMpcMin = exp(param->core->minVal);
-  	distMpcMax = exp(param->core->maxVal);
-	distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
-  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
-  }
-  /*double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
-  XLALMCMCSetParameter(parameter, "distMpc", distMpc);*/
-  Cube[i] = distMpc;
-  i++;
-  
-    
-  // check if parameters are inside the prior ranges
-  parameter->logPrior = 0;
-  ParamInRange(parameter);
-  if( parameter->logPrior == -DBL_MAX ) return 0;
-  
-  REAL8 m1 = mc2mass1(mc,eta);
-  REAL8 m2 = mc2mass2(mc,eta);
-  Cube[i] = m1; i++;
-  Cube[i] = m2; i++;
-
-  if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) return 0;
-  if(m1<minCompMass || m2<minCompMass) return 0;
-  if(m1>maxCompMass || m2>maxCompMass) return 0;
-  if(m1+m2>MAX_MTOT) return 0;
-  return 1;
-
-}
-
-// return value 0 if parameters out of prior else 1
-int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
+int CubeToNestPriorSkyLoc(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
 {
   REAL8 minCompMass = 1.0;
   REAL8 maxCompMass = 15.0;
@@ -848,6 +725,162 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   Cube[i] = m2; i++;
 
   if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) return 0;
+  return 1;
+
+}
+
+REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
+{
+	REAL8 m1,m2;
+	parameter->logPrior=0.0;
+	REAL8 mc,eta;
+	REAL8 minCompMass = 1.0;
+	REAL8 maxCompMass = 34.0;
+#define MAX_MTOT 35.0
+	/* copied from alex's function */
+/*	logdl=2.0*XLALMCMCGetParameter(parameter,"distMpc");
+	parameter->logPrior+=2.0*logdl;
+	m1=XLALMCMCGetParameter(parameter,"mass1");
+	m2=XLALMCMCGetParameter(parameter,"mass2");
+	ampli = log(sqrt(m1*m2)/(logdl*pow(m1+m2,1.0/6.0)));
+    parameter->logPrior+= -log( 1.0+exp((ampli-a)/b) );
+*/
+/* Check in range */
+	if(XLALMCMCCheckParameter(parameter,"logmc")) mc=exp(XLALMCMCGetParameter(parameter,"logmc"));
+	else mc=XLALMCMCGetParameter(parameter,"mchirp");
+	double logmc=log(mc);
+	eta=XLALMCMCGetParameter(parameter,"eta");
+	m1 = mc2mass1(mc,eta);
+	m2 = mc2mass2(mc,eta);
+	/* This term is the sqrt of m-m term in F.I.M, ignoring dependency on f and eta */
+	parameter->logPrior+=-(5.0/6.0)*logmc;
+	if(XLALMCMCCheckParameter(parameter,"logdist"))
+		parameter->logPrior+=3.0*XLALMCMCGetParameter(parameter,"logdist");
+	else
+		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
+	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
+	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
+	/*	parameter->logPrior+=logJacobianMcEta(mc,eta);*/
+	
+	/* Spin prior for theta angles */
+	if(XLALMCMCCheckParameter(parameter,"theta1")){
+		parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"theta1"))));
+	}
+	if(XLALMCMCCheckParameter(parameter,"theta2")){
+		parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"theta2"))));
+	}	
+	
+	ParamInRange(parameter);
+	if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) parameter->logPrior=-DBL_MAX;
+	if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;
+	return parameter->logPrior;
+}
+
+// return value 0 if parameters out of prior else 1
+int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *parameter)
+{
+  REAL8 minCompMass = 1.0;
+  REAL8 maxCompMass = 34.0;
+#define MAX_MTOT 35.0
+
+  CubeToCommonPriorParams(Cube, inputMCMC, parameter);
+
+  int i = 6;
+  LALMCMCParam* param = NULL;
+
+  // chirp mass
+  if( MNSeg > 0 && ( Cube[i] < (MNSeg - 1) * 0.25 - 0.025 || Cube[i] > MNSeg * 0.25 + 0.025 ) ) return 0;
+  double mcMin, mcMax;
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
+  {
+        param = XLALMCMCGetParam(parameter, "logmc");
+        mcMin = exp(param->core->minVal);
+        mcMax = exp(param->core->maxVal);
+  }
+  else
+  {
+        param = XLALMCMCGetParam(parameter, "mchirp");
+        mcMin = param->core->minVal;
+        mcMax = param->core->maxVal;
+  }
+  double mc = powerPrior(-5.0/6.0, Cube[i], mcMin, mcMax);
+  if(XLALMCMCCheckParameter(parameter,"logmc"))
+        XLALMCMCSetParameter(parameter, "logmc", log(mc));
+  else
+        XLALMCMCSetParameter(parameter, "mchirp", mc);
+  Cube[i] = mc;
+  i++;
+
+
+  // eta
+  param = NULL;
+  double etaMax, etaMin;
+  param = XLALMCMCGetParam(parameter, "eta");
+  etaMin = param->core->minVal;
+  etaMax = param->core->maxVal;
+  double eta = flatPrior(Cube[i], etaMin, etaMax);
+  XLALMCMCSetParameter(parameter, "eta", eta);
+  Cube[i] = eta;
+  i++;
+
+  
+  // luminosity distance in Mpc
+  param = NULL;
+  double distMpcMax, distMpcMin, distMpc;
+  if( XLALMCMCCheckParameter(parameter,"distMpc") )
+  {
+  	param = XLALMCMCGetParam(parameter, "distMpc");
+  	distMpcMin = param->core->minVal;
+  	distMpcMax = param->core->maxVal;
+	//distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  	XLALMCMCSetParameter(parameter, "distMpc", distMpc);
+  }
+  else if( XLALMCMCCheckParameter(parameter, "logdist") )
+  {
+  	param = XLALMCMCGetParam(parameter, "logdist");
+  	distMpcMin = exp(param->core->minVal);
+  	distMpcMax = exp(param->core->maxVal);
+	//distMpc = logPrior(Cube[i], distMpcMin, distMpcMax);
+	distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  	XLALMCMCSetParameter(parameter, "logdist", log(distMpc));
+  }
+  /*double distMpc = powerPrior(2.0, Cube[i], distMpcMin, distMpcMax);
+  XLALMCMCSetParameter(parameter, "distMpc", distMpc);*/
+  Cube[i] = distMpc;
+  i++;
+  
+  /* Spin prior for theta angles */
+  if(XLALMCMCCheckParameter(parameter,"theta1")){
+	double theta1 = acos(1.0 - 2.0 * Cube[i]);
+  	XLALMCMCSetParameter(parameter, "theta1", iota);
+  	Cube[i] = theta1;
+  	i++;
+  }
+  if(XLALMCMCCheckParameter(parameter,"theta2")){
+	double theta2 = acos(1.0 - 2.0 * Cube[i]);
+  	XLALMCMCSetParameter(parameter, "theta2", iota);
+  	Cube[i] = theta2;
+  	i++;
+  }
+  
+    
+  // check if parameters are inside the prior ranges
+  parameter->logPrior = 0;
+  ParamInRange(parameter);
+  if( parameter->logPrior == -DBL_MAX ) return 0;
+  
+  REAL8 m1 = mc2mass1(mc,eta);
+  REAL8 m2 = mc2mass2(mc,eta);
+  Cube[i] = m1; i++;
+  Cube[i] = m2; i++;
+
+  if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) return 0;
+  if(m1<minCompMass || m2<minCompMass) return 0;
+  if(m1>maxCompMass || m2>maxCompMass) return 0;
+  if(m1+m2>MAX_MTOT) return 0;
   return 1;
 
 }
