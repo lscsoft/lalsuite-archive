@@ -1168,16 +1168,18 @@ LALSTPNFramelessWaveformForInjection (
 
 /* Phen-Spin waveform functions*/
 
-
-
-
+INT4 XLALSpinInspiralDerivatives(
+																			 double t,
+																			 const double values[],
+																			 double dvalues[],
+																			 void *mparams);
 
 void LALSpinInspiralDerivatives(
                          REAL8Vector *values,
                          REAL8Vector *dvalues,
                          void *mparams );
 
-void XLALPSpinInspiralRD(
+INT4 XLALPSpinInspiralRD(
      REAL4Vector *signalvec,
      InspiralTemplate *params);
 
@@ -1186,7 +1188,7 @@ void LALPSpinInspiralRD(
      REAL4Vector *signalvec,
      InspiralTemplate *params);
 
-void XLALPSpinInspiralRDTemplates(REAL4Vector * signalvec1,
+INT4 XLALPSpinInspiralRDTemplates(REAL4Vector * signalvec1,
          REAL4Vector * signalvec2,
          InspiralTemplate * params);
 
@@ -1197,7 +1199,7 @@ void LALPSpinInspiralRDTemplates (
     InspiralTemplate *params
    );
 
-void XLALPSpinInspiralRDFreqDom(REAL4Vector * signalvec,
+INT4 XLALPSpinInspiralRDFreqDom(REAL4Vector * signalvec,
 			       InspiralTemplate * params);
 
 void LALPSpinInspiralRDFreqDom (
@@ -1205,7 +1207,7 @@ void LALPSpinInspiralRDFreqDom (
 				REAL4Vector      *signalvec,
 				InspiralTemplate *params);
 
-void XLALPSpinInspiralRDForInjection(CoherentGW       * waveform,
+INT4 XLALPSpinInspiralRDForInjection(CoherentGW       * waveform,
             InspiralTemplate * params,
             PPNParamStruc    * ppnParams);
 
@@ -1215,7 +1217,8 @@ void LALPSpinInspiralRDForInjection(
                            InspiralTemplate *params,
                            PPNParamStruc  *ppnParams);
 
-void XLALPSpinInspiralRDEngine(REAL8Vector * signalvec1,
+	/* Returns *countback, should be >0 */
+INT4 XLALPSpinInspiralRDEngine(REAL8Vector * signalvec1,
 			REAL8Vector * signalvec2,
 			REAL8Vector * hh,
 			REAL8Vector * ff,
