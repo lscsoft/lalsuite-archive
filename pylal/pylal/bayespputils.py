@@ -775,38 +775,49 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
-    def append_1D_mapping(self, new_param_name, func, post_name):
-        """
-        Append mapping of parameter new_param = func(post_name).
-        """
-        old_pos = self[post_name]
-        old_inj = old_pos.injval
-        if old_inj:
-            new_inj = func(old_inj)
-        else:
-            new_inj=None
-        samps   = func(old_pos.samples)
-        new_pos = OneDPosterior(new_param_name, samps, injected_value=new_inj)
-        self.append(new_pos)
-        return
-
-    def append_multiD_mapping(self, new_param_names, func, post_names):
+    def append_mapping(self, new_param_names, func, post_names):
         """
         Append posteriors pos1,pos2,...=func(post_names)
         """
-        old_posts = [self[post_name] for post_name in post_names]
-        old_injs = [post.injval for post in old_posts]
-        if None not in old_injs:
-            injs = func(*old_injs)
-        else:
-            injs = [None for name in new_param_names]
-        samps = func(*[post.samples for post in old_posts])
-        new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
-        for post in new_posts: 
-            if post.samples.ndim is 0: 
+        #1D input
+        if isinstance(post_names, str):
+            old_post = self[post_names]
+            old_inj  = old_post.injval
+            if old_inj:
+                new_inj = func(old_inj)
+            else:
+                new_inj = None
+            samps = func(old_post.samples)
+            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj)
+            if new_post.samples.ndim is 0:
                 print "WARNING: No posterior calculated for %s ..." % post.name
             else:
-                self.append(post)
+                self.append(new_post)
+        #MultiD input
+        else:
+            old_posts = [self[post_name] for post_name in post_names]
+            old_injs = [post.injval for post in old_posts]
+            samps = func(*[post.samples for post in old_posts])
+            #1D output
+            if isinstance(new_param_names, str):
+                if None not in old_injs:
+                    inj = func(*old_injs)
+                else:
+                    inj = None
+                new_post = OneDPosterior(new_param_names, samps, injected_value=inj)
+                self.append(new_post)
+            #MultiD output
+            else:
+                if None not in old_injs:
+                    injs = func(*old_injs)
+                else:
+                    injs = [None for name in new_param_names]
+                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
+                for post in new_posts: 
+                    if post.samples.ndim is 0: 
+                        print "WARNING: No posterior calculated for %s ..." % post.name
+                    else:
+                        self.append(post)
         return
 
     def _average_posterior(self, samples, post_name):
