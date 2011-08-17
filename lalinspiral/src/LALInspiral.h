@@ -1208,6 +1208,11 @@ LALSTPNFramelessWaveform (
     		REAL4Vector      *signalvec,
     		InspiralTemplate *params);
 
+int
+XLALSTPNFramelessWaveform (
+    		REAL4Vector      *signalvec,
+    		InspiralTemplate *params);
+
 void
 LALSTPNFramelessWaveformTemplates (
     		LALStatus        *status,
@@ -1215,9 +1220,22 @@ LALSTPNFramelessWaveformTemplates (
     		REAL4Vector      *signalvec2,
     		InspiralTemplate *params);
 
+int
+XLALSTPNFramelessWaveformTemplates (
+    		REAL4Vector      *signalvec1,
+    		REAL4Vector      *signalvec2,
+    		InspiralTemplate *params);
+
 void
 LALSTPNFramelessWaveformForInjection (
                              LALStatus        *status,
+                             CoherentGW       *waveform,
+                             InspiralTemplate *params,
+                             PPNParamStruc    *ppnParams
+                            );
+
+int
+XLALSTPNFramelessWaveformForInjection (
                              CoherentGW       *waveform,
                              InspiralTemplate *params,
                              PPNParamStruc    *ppnParams
