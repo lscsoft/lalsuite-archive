@@ -368,10 +368,7 @@ def poisson_safety(segs, injTable, livetime):
 
   prob = 1 - poisson.cdf(injvetoed-1, injexp)
 
-  if returnall:
-    return injvetoed, injexp, prob
-  else:
-    return prob
+  return injvetoed, injexp, prob
 
 # =============================================================================
 # Convert a data quality bit mask into segments
