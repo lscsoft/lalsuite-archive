@@ -22,6 +22,7 @@ matplotlib.rcParams.update({
 })
 
 for file in picklefiles:
+	data = pickle.load(open(file))
 	fig = pylab.figure(1)
 	ax = pylab.axes()
 	print type(ax)
