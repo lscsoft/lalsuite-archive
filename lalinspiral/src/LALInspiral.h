@@ -1330,11 +1330,20 @@ void LALPSpinInspiralRDEngine (
 
 /* Phenomenological waveform generation functions */
 
-int XLALBBHPhenWaveFreqDom (
+int XLALBBHPhenWaveAFreqDom (
     REAL4Vector      *signalvec,
     InspiralTemplate *params);
 
-int XLALBBHPhenWaveFreqDomTemplates(
+int XLALBBHPhenWaveBFreqDom (
+    REAL4Vector      *signalvec,
+    InspiralTemplate *params);
+
+int XLALBBHPhenWaveAFreqDomTemplates(
+    REAL4Vector      *signalvec1,
+    REAL4Vector      *signalvec2,
+    InspiralTemplate *params);
+
+int XLALBBHPhenWaveBFreqDomTemplates(
     REAL4Vector      *signalvec1,
     REAL4Vector      *signalvec2,
     InspiralTemplate *params);
@@ -1362,6 +1371,7 @@ int XLALBBHPhenWaveTimeDomForInjection (
     CoherentGW       *waveform,
     InspiralTemplate *params,
     PPNParamStruc    *ppnParams);
+
 
 /* DEPRECATED: Compatibility layer for phenomenological waveforms */
 
