@@ -56,7 +56,7 @@ except ImportError:
 import pylal
 from pylal import git_version
 #C extensions
-from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
+from _bayespputils import _skyhist_cart,_burnin
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
@@ -1364,50 +1364,43 @@ def _sky_hist(skypoints,samples):
     return (skypoints,bins)
 #
 
-def _calculate_sky_confidence_slow(
-                                shist,
-                                skypoints,
-                                injbin,
-                                skyres_,
-                                confidence_levels,
-                                lenpos):
+def _calculate_confidence_levels(hist, points, injBin, NSamples):
     """
-    @deprecated: This is a pure python version of the C extension function
-        pylal._bayespputils._calculate_confidence_levels.
+    Returns (injectionconf, toppoints), where injectionconf is the
+    confidence level of the injection, contained in the injBin and
+    toppoints is a list of (pointx, pointy, ptindex, frac), with
+    pointx and pointy the (x,y) coordinates of the corresponding
+    element of the points array, ptindex the index of the point in the
+    array, and frac the cumulative fraction of points with larger
+    posterior probability.
+
+    The hist argument should be a one-dimensional array that contains
+    counts of sample points in each bin.
+
+    The points argument should be a 2-D array storing the sky location
+    associated with each bin; the first index runs from 0 to NBins -
+    1, while the second index runs from 0 to 1.
+
+    The injBin argument gives the bin index in which the injection is
+    found.
+
+    The NSamples argument is used to normalize the histogram counts
+    into fractional probability.
     """
-    frac=0
-    Nbins=0
-    injectionconfidence=None
-    #print "lenpos : %i"%lenpos
-    #toppoints=[(None,None,None)]*lenpos
+
+    histIndices=np.argsort(hist)[::-1]  # In decreasing order
+
     toppoints=[]
+    frac=0.0
+    injConf=None
+    for i in histIndices:
+        frac+=float(hist[i])/float(NSamples)
+        toppoints.append((points[i,0], points[i,1], i, frac))
+        if i == injBin:
+            injConf=frac
+            print 'Injection found at confidence level %g'%injConf
 
-    skyreses=[]
-    lenbins=len(shist)
-    range_lenbins=range(0,lenbins)
-    for confidence_level in confidence_levels:
-        while(frac<confidence_level):
-            maxbin=0
-            for i in range_lenbins:
-                if shist[i]>maxbin:
-                    maxbin=shist[i]
-                    maxpos=i
-
-            shist[maxpos]=0
-            frac=frac+(float(maxbin)/(lenpos))
-
-            Nbins=Nbins+1
-            toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxpos,frac))
-            if injbin is not None:
-                if (injbin==maxpos):
-                    injectionconfidence=frac
-                    print 'Injection sky point found at confidence %f'%(frac)
-
-        print '%f confidence region: %f square degrees'%(frac,Nbins*float(skyres_)*float(skyres_))
-
-        skyreses.append((frac,Nbins*float(skyres_)*float(skyres_)))
-        toppoints=toppoints[:Nbins]
-    return injectionconfidence,toppoints,skyreses
+    return (injConf, toppoints)
 
 def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,confidence_levels):
     """
@@ -1416,13 +1409,7 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     """
 
     #Now call confidence level C extension function to determine top-ranked pixels
-    (injectionconfidence,toppoints)=_calculate_confidence_levels(
-                                                                    greedyHist,
-                                                                    greedyPoints,
-                                                                    injection_bin_index,
-                                                                    bin_size,
-                                                                    Nsamples
-                                                                    )
+    (injectionconfidence,toppoints)=_calculate_confidence_levels(greedyHist, greedyPoints, injection_bin_index, Nsamples)
 
     #Determine interval/area contained within given confidence intervals
     nBins=0
@@ -1430,15 +1417,12 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     reses={}
     toppoints=np.array(toppoints)
     for printcl in confidence_levels:
-        nBins=1
-        #Start at top of list of ranked pixels...
-        accl=toppoints[0,3]
+        nBins=np.searchsorted(toppoints[:,3], printcl) + 1
 
-        #Loop over next significant pixels and their confidence levels
+        if nBins >= len(toppoints):
+            nBins=len(toppoints)-1
 
-        while accl<printcl and nBins<=len(toppoints):
-            nBins=nBins+1
-            accl=toppoints[nBins-1,3]
+        accl=toppoints[nBins-1,3]
 
         reses[printcl]=nBins*bin_size
 
