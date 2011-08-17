@@ -528,27 +528,20 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
     # construct colorbar tick formatter, using logic not supported before python
     # 2.5
     if log and numpy.power(base,cmax)-numpy.power(base,cmin) > 4:
-      try:
-        formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                        "$%d$" % round(numpy.power(base, x))\
-                            if numpy.power(base,x)>=1\
-                        else "$%.2f$" % numpy.power(base,x)\
-                            if numpy.power(base,x)>=0.01\
-                        else "$%s$" % (numpy.power(base,x)))
-      except SyntaxError:
-        formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                        "$%s$" % round(numpy.power(base, x),2))
-    elif cmax-cmin > 4:
-      try:
-        formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                        "$%d$" % round(x)\
-                            if x>=1\
-                        else "$%.2f$" % x\
-                            if x>=0.01\
-                        else "$%s$" % x)
-      except SyntaxError:
-        formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                        "$%s$" % round(x,2))
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                      numpy.power(base,x)>=1 and\
+                          "$%d$" % round(numpy.power(base, x)) or\
+                      numpy.power(base,x)>=0.01 and\
+                          "$%.2f$" % numpy.power(base, x) or\
+                      numpy.power(base,x)<0.01 and "$%f$")
+    elif log:
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%f$"\
+                                                        % numpy.power(base, x))
+    elif not log and cmax-cmin > 4:
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                      x>=1 and "$%d$" % round(x) or\
+                      x>=0.01 and "$%.2f$" % x or\
+                      x and "$%s$")
     else:
       formatter = None
 
