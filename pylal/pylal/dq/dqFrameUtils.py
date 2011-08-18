@@ -296,7 +296,32 @@ def get_latest_frame(ifo, ftype):
   url = '/LDR/services/data/v1/gwf/%s/%s/latest/file.json' % (ifo[0], ftype)
   frame = query_datafind_server(url)
 
-  return frame
+  if isinstance(frame, list) and len(frame)==1:
+    return frame[0]
+  else:
+    return None
+
+# =============================================================================
+# Find ifos
+# =============================================================================
+
+def find_ifos():
+
+  """
+    Query the LSC datafind server and return a list of sites for which data
+    is available. Does not differentiate between H1 and H2.
+
+    Example:
+   
+    >>> find_ifos()
+    ['G', 'H', 'L', 'V']
+  """
+  query_url = "/LDR/services/data/v1/gwf.json"
+  reply = query_datafind_server(query_url)
+  if reply:
+    return [i for i in reply if len(i)==1]
+  else:
+    return []
 
 # =============================================================================
 # Find types
@@ -352,6 +377,9 @@ def find_types(ifo=[], ftype=[], search='standard'):
   else:
     ifos = ifo
 
+  if not types:
+    types = None
+
   # treat 'R','M' and 'T' as special cases,
   special_types = ['M','R','T']
   foundtypes = []
@@ -383,12 +411,6 @@ def find_types(ifo=[], ftype=[], search='standard'):
     response = h.getresponse()
     _verify_response(response)
     ifos = [i for i in cjson.decode(response.read()) if len(i)==1]
-  else:
-    uifos = copy.deepcopy(ifos)
-    ifos  = []
-    for ifo in uifos:
-      if ifo[0] not in ifos:
-        ifos.append(ifo[0])
 
   # query for types for each ifo in turn
   datafind_types = []
@@ -403,22 +425,28 @@ def find_types(ifo=[], ftype=[], search='standard'):
   # close connection
   h.close()
 
-  for t in datafind_types:
-
-    if re.search(ignore, t):
+  # find special types first, otherwise they'll corrupt the general output
+  r = 0
+  for i,t in enumerate(datafind_types):
+    if (types==None and t in special_types) or\
+       (types!=None and t in types and t in special_types):
+      foundtypes.append(t)
+      datafind_types.pop(i-r)
+      if types is not None:
+        types.pop(types.index(t))
+      r+=1;
       continue
 
-    if not types:
-      # if no types have been specified, we find all types
+  # find everything else
+  for t in datafind_types:
+    if re.search(ignore, t):
+      continue
+    # if no types have been specified, return all
+    if types==None:
       foundtypes.append(t)
+    # else check for a match
     else:
-      # else look for special types
-      if t in types and t in special_types:
-        foundtypes.append(t)
-        types.pop(types.index(t))
-        continue
-      # look for everything else
-      if re.search('(%s)' % '|'.join(types), t):
+      if len(types)>=1 and re.search('(%s)' % '|'.join(types), t):
         foundtypes.append(t)
 
   foundtypes.sort()
@@ -496,22 +524,14 @@ def find_channels(name=[], ftype=[], ifo=[], not_name=[], not_ftype=[],\
   if isinstance(not_name, str): not_names = [not_name]
   else:                          not_names = not_name
 
-  # query for individual sites in datafind server
+  # find ifos
   if not ifos:
-    query_url = "/LDR/services/data/v1/gwf.json"
-    h.request("GET", query_url)
-    response = h.getresponse()
-    _verify_response(response)
-    ifos = [i for i in cjson.decode(response.read()) if len(i)==1]
-  else:
-    uifos = copy.deepcopy(ifos)
-    ifos  = []
-    for ifo in uifos:
-      if ifo[0] not in ifos:
-        ifos.append(ifo[0])
+    ifos = find_ifos()
 
   # find types
-  types = find_types(ifo=ifos, ftype=types)
+  if not types:
+    types = find_types(ifo=ifos, ftype=types)
+
   # remove types we don't want
   if not_types:
     if exact_match:
@@ -1101,7 +1121,6 @@ def query_datafind_server(url, server=None):
     server = _find_datafind_server()
 
   cert, key = _get_grid_proxy()
-
   # if we have a credential then use it when setting up the connection
   if cert and key:
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
@@ -1112,10 +1131,10 @@ def query_datafind_server(url, server=None):
   h.request("GET", url)
   response = h.getresponse()
   _verify_response(response)
-  h.close()
 
   # since status is 200 OK read the types
   body = response.read()
+  h.close()
   if body == "":
     return None
   if url.endswith('json'):
