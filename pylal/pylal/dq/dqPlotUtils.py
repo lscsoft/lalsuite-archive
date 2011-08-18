@@ -28,6 +28,7 @@ from os import getenv
 _display = getenv('DISPLAY','')
 _backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
 """
+
 if not _display and matplotlib.get_backend() is not 'Agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
@@ -343,7 +344,8 @@ class LineHistogram(plotutils.BasicPlot):
 
       # make histogram
       y, x = numpy.histogram(data_set, bins=bins)
-      #x = x[:-1]
+      if len(x)>len(y):
+        x = x[:len(y)]
 
       # get cumulative sum
       if cumulative:
@@ -1115,7 +1117,6 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
                      linestyle=linestyle[1], label=label[1], **kwargs)
 
   # finalize plot with histograms
-  if not num_bins: num_bins=100
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy, cumulative=cumulative,\
                 rate=rate, fill=fill)
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -1480,8 +1481,9 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
    
     Keyword arguments:
 
-      flag : string
-        display name for segments, normally the name of the DQ flag
+      flag : [ string | list ]
+        display name for segments (or ordered list of keys for segmentlistdict),
+        normally the name(s) of the DQ flag
       logx : [ True | False ]
         boolean option to display x-axis in log scale.
       logy : [ True | False ]
@@ -1501,17 +1503,26 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   logy = kwargs.pop('logy', False)
 
   # format mutltiple segments
+  flag = kwargs.pop('flag', None)
   if isinstance(segs,list):
-    segs = segments.segmentlistdict({'_':segs})
+    if not flag:
+      flag = '_'
+    else:
+      flag = str(flag).replace('_','\_')
+    segs = segments.segmentlistdict({flag:segs})
+    flags = [flag]
   else:
-    flags = segs.keys()
-    for flag in flags:
-      flag2 = flag.replace('_','\_')
-      if flag2!=flag:
-        segs[flag.replace('_','\_')] = segs[flag]
+    if not flag:
+      flags = sorted(segs.keys())
+    elif isinstance(flag, list):
+      flags = flag
+    else:
+      flags = [str(flag)]
+    for i,flag in enumerate(flags):
+      flags[i] = flag.replace('_','\_')
+      if flags[i]!=flag:
+        segs[flags[i]] = segs[flag]
         del segs[flag]
-
-  flags = sorted(segs.keys())
 
   # generate plot object
   plot = VerticalBarHistogram(xlabel, ylabel, title)
