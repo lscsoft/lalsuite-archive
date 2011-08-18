@@ -166,7 +166,8 @@ def write_summary( page, ExtTrigger, ifos ):
 def write_antenna( page, ExtTrigger, ifos ):
 
   """
-    Write antenna factors to merkup.page object page
+    Write antenna factors to merkup.page object page and generate John's
+    detector response plot.
   """
 
   page.h3()
@@ -183,7 +184,26 @@ def write_antenna( page, ExtTrigger, ifos ):
                                      0.0, 0.0, 'degree',ifo )
     td.append( round( f_q, 3 ) )
 
+  cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
+      % (ExtTrigger.start_time,ExtTrigger.event_ra, ExtTrigger.event_dec)
+  for ifo in ifos:
+    if ifo == 'H1':
+      cmmnd += ' --display-lho'
+    elif ifo == 'L1':
+      cmmnd += ' --display-llo'
+    elif ifo == 'V1':
+      cmmnd += ' --display-virgo'
+  output,status = make_external_call(cmmnd)
+  plot = markup.page()
+  p = "projtens.png"
+  plot.a( href=p, title="Detector response and polarization" )
+  plot.img( src=p )
+  plot.a.close()
+  th2 = ['Diagram']
+  td2 = [plot() ]
+
   page = write_table( page, th, td )
+  page = write_table( page, th2, td2 )
 
   return page
 
