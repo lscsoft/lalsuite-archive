@@ -135,9 +135,9 @@ class cclScannerJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
         pipeline.AnalysisJob.__init__(self,cp)
         self.add_condor_cmd('getenv','True')
         self.set_sub_file(os.path.abspath(os.path.normpath(cp.get("condor","condor_path")+"/cclScanner.sub")))
-        self.set_stdout_file(os.path.abspath(os.path.normpath(cp.get("condor","condor_path")+"/scanLog_$(cluster)_$(process.out).log")))
+        self.set_log_file(os.path.abspath(os.path.normpath(cp.get("condor","log_path")+"/scanLog_$(cluster)_$(process.out).log")))
+        self.set_stdout_file(os.path.abspath(os.path.normpath(cp.get("condor","condor_path")+"/scanOut_$(cluster)_$(process.out).out")))
         self.set_stderr_file(os.path.abspath(os.path.normpath(cp.get("condor","condor_path")+"/scanErr_$(cluster)_$(process.err).err")))
-        self.set_log_file(os.path.abspath(os.path.normpath(cp.get("condor","log_path")+"/scanLogCondor_$(cluster)_$(process).log")))
         self.add_condor_cmd('initialdir','$(macroInitialDir)')
             
 class cclScannerNode(pipeline.CondorDAGNode,pipeline.AnalysisNode):
@@ -150,6 +150,7 @@ class cclScannerNode(pipeline.CondorDAGNode,pipeline.AnalysisNode):
         pipeline.CondorDAGNode.set_retry(self,1)
         pipeline.CondorDAGNode.set_category(self,'scanner')
 
+        
 ########################################
 usage = """ usage: %prog [options] """
 
@@ -268,8 +269,12 @@ else:
 #Create directory for submit files
 installDagTo=os.path.abspath(os.path.normpath("./"))
 installSubTo=os.path.abspath(os.path.normpath(cp.get("condor","condor_path")))
+installLogTo=os.path.abspath(os.path.normpath(cp.get("condor","log_path")))
 productsDirDatafind=os.path.abspath(os.path.normpath("./datafind_output"))
 productsDirScan=os.path.abspath(os.path.normpath("./scan_output"))
+try:
+    os.makedirs(installLogTo)
+except: OSError
 try:
     os.makedirs(installDagTo)
 except: OSError
@@ -277,11 +282,13 @@ try:
     os.makedirs(installSubTo)
 except: OSError
 #Initialize the dag
-dag = pipeline.CondorDAG(os.path.normpath(installDagTo))
+dag = pipeline.CondorDAG(os.path.normpath(installLogTo))
 dag.set_dag_file(os.path.normpath('./ccl_background_scan'))
 #Setup basic datafind and scanner job
 dataFindJob=pipeline.LSCDataFindJob(productsDirDatafind,installSubTo,cp)
 dataFindJob.set_sub_file(os.path.abspath(os.path.normpath(installSubTo+"/"+os.path.basename(dataFindJob.get_sub_file()))))
+dataFindJob.set_log_file(os.path.abspath(os.path.normpath(installLogTo+"/datafind_condor_$(cluster)_$(process).log")))
+
 scannerJob=cclScannerJob(cp)
 #
 timeOffset=int(float(cp.get("ccl_setup","minimum_segment_length"))/2.0)
@@ -291,6 +298,7 @@ for sampleTime in gpsTimeList:
     dfNode.set_start(sampleTime-timeOffset)
     dfNode.set_end(sampleTime+timeOffset)
     dfNode.set_observatory(cp.get("datafind","ifo"))
+    dfNode.finalize()
     dag.add_node(dfNode)
     #Setup scanner Node
     scanNode=cclScannerNode(scannerJob)
@@ -301,7 +309,6 @@ for sampleTime in gpsTimeList:
     scanNode.add_macro('macroInitialDir',myInitialDir)
     dfCacheFile=dfNode.get_output_cache()
     scanCacheFile="%s.scancache"%(dfCacheFile)
-
     scanNode.set_pre_script(cp.get("condor","cacheconverter"))
     scanNode.add_pre_script_arg("%s > %s "%(dfCacheFile,scanCacheFile))
     scanNode.add_input_file(scanCacheFile)
@@ -313,6 +320,7 @@ for sampleTime in gpsTimeList:
     scanNode.add_var_opt("o",outputDir)
     scanNode.add_var_arg("%s"%sampleTime)
     scanNode.add_parent(dfNode)
+    scanNode.finalize()
     dag.add_node(scanNode)
 #
 # Write dag to disk
