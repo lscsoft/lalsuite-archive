@@ -238,7 +238,8 @@ if opts.link_generated_files:
 	dir=opts.link_generated_files
 	for file in os.listdir(dir):
 		if os.path.splitext(file)[1] == '.pat':
-			os.symlink(os.path.abspath(os.path.join(dir,file)),os.path.join(os.getcwd(),file))
+                        if not os.path.isfile(os.path.join(os.getcwd(),file)):
+				os.symlink(os.path.abspath(os.path.join(dir,file)),os.path.join(os.getcwd(),file))
 	
 #SprBaggerDecisionTreeApp
 train_job = train_forest_job(cp)
