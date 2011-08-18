@@ -454,7 +454,7 @@ def parse_command_line():
     parser.print_usage()
     sys.exit(2)
 
-  return options, args
+  return options, sys.argv[1:]
 
 # ============================================================================
 # -- get command line arguments
@@ -463,10 +463,10 @@ opts, args = parse_command_line()
 # Initialise
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 figure_number = 0  # used for the figure label (showplot)
-fnameList = []   # use for the cache file
-tagList= []   # use for the cache file
+fnameList = []  # used for the cache file
+tagList = []  # used for the cache file
 
-# to avoid  display problem when show plot is not used
+# to avoid display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
