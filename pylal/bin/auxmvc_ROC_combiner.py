@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 from optparse import *
 import matplotlib
@@ -14,23 +14,16 @@ parser.add_option("","--output-dir", help="directory where output files will be 
 
 labels=[]
 
-matplotlib.rcParams.update({
-       'axes.color_cycle':['b','g','y','r','m','c',[(0.7,0.5,0)],[(0.7,0.,0.5)],'k'],
-       #'figure.subplot.right': 0.6,
-       #'figure.subplot.top': 0.6,
-       'legend.fontsize': 8
-})
+fig = pylab.figure(1)
+ax = pylab.axes()
+matplotlib.rcParams.update({'legend.fontsize': 8})
+ax.set_color_cycle(['b','c','g','y',(0.9,0.5,0.2),'r','m',(0.5,0.,0.8),'k'])
 
 for file in picklefiles:
 	data = pickle.load(open(file))
-	fig = pylab.figure(1)
-	ax = pylab.axes()
-	print type(ax)
 	thislabel=file.split('.')[0].split('/')[1]
-	print thislabel
 	dqlabel=thislabel.split('_S4')[0]
 	typelabel='S4'+thislabel.split('_S4')[1]
-	print dqlabel, typelabel
 	labels.append(dqlabel)
 	pylab.loglog(data[0],data[1])
 	pylab.xlabel('False Alarm Probability')
