@@ -1,4 +1,4 @@
-tINCLUDES = -I$(top_builddir)/include
+INCLUDES = -I$(top_builddir)/include
 
 lalinspiralincludedir = $(includedir)/lal
 lalinspiralinclude_HEADERS = \
