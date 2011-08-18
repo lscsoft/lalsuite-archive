@@ -22,8 +22,8 @@ ax.set_color_cycle(['b','c','g','y',(0.9,0.5,0.2),'r','m',(0.5,0.,0.8),'k'])
 for file in picklefiles:
 	data = pickle.load(open(file))
 	thislabel=file.split('.')[0].split('/')[1]
-	dqlabel=thislabel.split('_S4')[0]
-	typelabel='S4'+thislabel.split('_S4')[1]
+	dqlabel=thislabel.split('_')[1]
+	typelabel=opts.tag
 	labels.append(dqlabel)
 	pylab.loglog(data[0],data[1])
 	pylab.xlabel('False Alarm Probability')
