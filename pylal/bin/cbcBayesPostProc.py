@@ -131,6 +131,10 @@ def cbcBayesPostProc(
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")
 
+    elif '.xml' in data[0]:
+        peparser=bppu.PEOutputParser('xml')
+        commonResultsObj=peparser.parse(data[0])
+
     else:
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'))
@@ -210,7 +214,7 @@ def cbcBayesPostProc(
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_multiD_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
+        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
 
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
@@ -258,7 +262,7 @@ def cbcBayesPostProc(
         old_params = ['f_lower',mchirp_name,'eta','iota','a1','theta1','phi1']
         if 'a2' in pos.names: old_params += ['a2','theta2','phi2']
         try:
-            pos.append_multiD_mapping(new_spin_params, bppu.spin_angles, old_params)
+            pos.append_mapping(new_spin_params, bppu.spin_angles, old_params)
         except KeyError:
             print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
 
@@ -291,7 +295,7 @@ def cbcBayesPostProc(
                 old_pos_name = pos_name.replace(func,'')
                 if pos_name.find(func)==0 and old_pos_name in pos.names:
                     print "Taking %s of %s ..."% (func,old_pos_name)
-                    pos.append_1D_mapping(pos_name,functions[func],old_pos_name)
+                    pos.append_mapping(pos_name,functions[func],old_pos_name)
 
     #Remove samples with NaNs in requested params
     requested_params = set(pos.names).intersection(set(oneDMenu))
