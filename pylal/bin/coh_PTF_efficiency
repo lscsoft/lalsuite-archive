@@ -111,7 +111,7 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
                                        "default: %default" )
 
   parser.add_option( "-A", "--null-snr-threshold", action="store",\
-                     type="string", default="3.5,5.25",\
+                     type="string", default="4.25,6",\
                      help="comma separated lower,higher null SNR thresholds, "+\
                           " for null SNR cut, default: \"%default\"" )
 
@@ -163,7 +163,7 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
 
 def main( segdir, outdir, trigFile, foundFile, missedFile,\
           onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
-          chisq_nhigh=3.0, null_thresh = (3.5,5.25), glitchCheckFac = 1.0,\
+          chisq_nhigh=3.0, null_thresh = (4.25,6), glitchCheckFac = 1.0,\
           clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20,\
           vetoFiles = [] ):
 
@@ -270,9 +270,11 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     trigBestNR[bin[0]] = []
   
   timeBinMaxSNR    = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
+  timeBinMaxSNRUncut = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
   timeBinMaxBestNR = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
   timeBinVetoMaxSNR    = numpy.zeros([len(massBins)+1,numTrials],dtype = float)
   timeBinVetoMaxBestNR = numpy.zeros([len(massBins)+1,numTrials],dtype = float)
+  timeBinVetoMaxSNRUncut = numpy.zeros([len(massBins)+1,numTrials],dtype=float)
 
   # store response function for each sky locations
   fResp = {}
@@ -347,6 +349,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         timeBinMaxBestNR[trigBinNum,chunkNum]    = trigBestNR[trigBin[0]][-1]
     if timeBinMaxBestNR[len(massBins),chunkNum] < trigBestNR[trigBin[0]][-1]:
       timeBinMaxBestNR[len(massBins),chunkNum] = trigBestNR[trigBin[0]][-1]
+ 
+    if bestNR:
+      if timeBinMaxSNRUncut[trigBinNum,chunkNum] < trigSNR[trigBin[0]][-1]:
+        timeBinMaxSNRUncut[trigBinNum,chunkNum] = trigSNR[trigBin[0]][-1]
+      if timeBinMaxSNRUncut[len(massBins),chunkNum] < trigSNR[trigBin[0]][-1]:
+        timeBinMaxSNRUncut[len(massBins),chunkNum] = trigSNR[trigBin[0]][-1]
+
 
 
   # Remove vetoed triggers, and triggers outside of trials
@@ -358,6 +367,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   for ii in range(numSegs):
     if not vetoMask[ii]:
       timeBinVetoMaxSNR[:,jj] = timeBinMaxSNR[:,ii]
+      timeBinVetoMaxSNRUncut[:,jj] = timeBinMaxSNRUncut[:,ii]
       timeBinVetoMaxBestNR[:,jj] = timeBinMaxBestNR[:,ii]
       jj += 1
 
@@ -469,6 +479,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     trigTime[bin[0]] = numpy.asarray(trigTime[bin[0]])
     maxSNR[bin[0]] = trigSNR[bin[0]].max()
     timeBinVetoMaxSNR[binNum].sort()
+    timeBinVetoMaxSNRUncut[binNum].sort()
  
     trigBestNR[bin[0]] = numpy.asarray(trigBestNR[bin[0]])
     maxBestNR[bin[0]]  = trigBestNR[bin[0]].max()
@@ -1087,6 +1098,21 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     cumplot.finalize(num_bins=50)
     cumplot.ax.set_ylim(ymax=1.2)
     cumplot.savefig( '%s/snr_vs_fap_%s_%s.png' % ( outdir, bin[0], bin[1] ) )
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    temp = []
+    for item in timeBinVetoMaxSNRUncut[binNum]:
+      temp.append([item])
+    cumplot = plotutils.CumulativeHistogramPlot("SNR after signal based vetoes",
+                                                 "False alarm probability",
+                                                 "" )
+    cumplot.add_background(temp)
+    cumplot.finalize(num_bins=50)
+    cumplot.ax.set_ylim(ymax=1.2)
+    cumplot.savefig( '%s/snruncut_vs_fap_%s_%s.png' % (outdir, bin[0], bin[1]) )
+
+
     binNum+=1
   
   if doinj:
@@ -1140,7 +1166,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     ax.set_ylabel( "Fraction of injections found louder than "+\
                    "loudest background" )
-    ax.set_xlabel( "Distance" )
+    ax.set_xlabel( "Distance (Mpc)" )
     fig.savefig( '%s/BestNR_max_efficiency.png' % ( outdir ) )
 
     fig = pylab.figure()
@@ -1181,7 +1207,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     ax.set_ylabel( "Fraction of injections found louder than "+\
                    "loudest foreground" )
-    ax.set_xlabel( "Distance" )
+    ax.set_xlabel( "Distance (Mpc)" )
 
     # Print 90% exclusion distance to file
     for ii,dist, eff in zip(range(len(distPlotVals)),distPlotVals,\
@@ -1340,7 +1366,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     cb = ax.figure.colorbar( p )
     cb.ax.set_ylabel( "FAP" )
     ax.set_xlabel( "Mchirp" )
-    ax.set_ylabel( "Distance" )
+    ax.set_ylabel( "Distance (Mpc)" )
     ax.set_title( "Injections found louder than loudest background event" )
     ax.set_ylim([ 0.5, 100 ])
     fig.savefig( "%s/found_missed_injections_dist.png" % outdir )
@@ -1358,7 +1384,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     cb = ax.figure.colorbar( p )
     cb.ax.set_ylabel("FAP" )
     ax.set_xlabel( "Time since %d" % grbTime )
-    ax.set_ylabel( "Distance" )
+    ax.set_ylabel( "Distance (Mpc)" )
     ax.set_title( "Injections found louder than loudest background event" )
     ax.set_xlim([ start, end ])
     ax.set_ylim([ 0.5, 100 ])
@@ -1389,7 +1415,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.plot( gFoundDist, gFoundSkyAngle, 'b.' )
     ax.plot( gIFARDist, gIFARSkyAngle, 'b.' )
     ax.grid()
-    ax.set_xlabel( "Distance" )
+    ax.set_xlabel( "Distance (Mpc)" )
     ax.set_ylabel( "Rec. sky error (radians)" )
     ax.semilogx()
     ax.set_xlim([ 0.5,100 ])

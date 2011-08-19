@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
    struct cmdline_parser_params *configparams;
    configparams = cmdline_parser_params_create();
    configparams->initialize = 0;
+   configparams->override = 1;
    if ( cmdline_parser(argc, argv, &args_info) ) {
       fprintf(stderr, "%s: cmdline_parser() failed.\n", fn);
       XLAL_ERROR(fn, XLAL_FAILURE);
@@ -126,24 +127,6 @@ int main(int argc, char *argv[])
       XLAL_ERROR(fn, XLAL_EFUNC);
    }
    
-   
-   //Parameters for the sky-grid
-   CHAR *sky = XLALCalloc(strlen(args_info.skyRegion_arg)+1, sizeof(*sky));
-   if (sky==NULL) {
-      fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", fn, sizeof(*sky));
-      XLAL_ERROR(fn, XLAL_ENOMEM);
-   }
-   sprintf(sky, "%s", args_info.skyRegion_arg);
-   fprintf(LOG, "Sky region = %s\n", sky);
-   fprintf(stderr, "Sky region = %s\n", sky);
-   DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit;
-   DopplerSkyScanState scan = empty_DopplerSkyScanState;
-   PulsarDopplerParams dopplerpos;
-   scanInit.gridType = 1;     //Default value for an approximate-isotropic grid
-   scanInit.skyRegionString = sky;      //"allsky" = Default value for all-sky search
-   scanInit.numSkyPartitions = 1;   //Default value so sky is not broken into chunks
-   scanInit.Freq = args_info.fmin_arg+0.5*args_info.fspan_arg;  //Mid-point of the frequency band
-   
    //Initialize ephemeris data structure
    EphemerisData *edat = XLALInitBarycenter(earth_ephemeris, sun_ephemeris);
    if (edat==NULL) {
@@ -158,9 +141,49 @@ int main(int argc, char *argv[])
       XLAL_ERROR(fn, XLAL_EFUNC);
    }
    
+   //Parameters for the sky-grid from a point/polygon or a sky-grid file
+   if ((args_info.skyRegion_given && args_info.skyRegionFile_given) || (!args_info.skyRegion_given && !args_info.skyRegionFile_given)) {
+      fprintf(stderr, "%s: You must choose either the the sky region (point or polygon) *or* a file.\n", fn);
+      XLAL_ERROR(fn, XLAL_EINVAL);
+   }
+   CHAR *sky = NULL;
+   if (args_info.skyRegion_given) {
+      sky = XLALCalloc(strlen(args_info.skyRegion_arg)+1, sizeof(*sky));
+      if (sky==NULL) {
+         fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", fn, sizeof(*sky));
+         XLAL_ERROR(fn, XLAL_ENOMEM);
+      }
+      sprintf(sky, "%s", args_info.skyRegion_arg);
+      fprintf(LOG, "Sky region = %s\n", sky);
+      fprintf(stderr, "Sky region = %s\n", sky);
+   } else {
+      sky = XLALCalloc(strlen(args_info.skyRegionFile_arg)+1, sizeof(*sky));
+      if (sky==NULL) {
+         fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", fn, sizeof(*sky));
+         XLAL_ERROR(fn, XLAL_ENOMEM);
+      }
+      sprintf(sky, "%s", args_info.skyRegionFile_arg);
+      fprintf(LOG, "Sky file = %s\n", sky);
+      fprintf(stderr, "Sky file = %s\n", sky);
+   }
+   DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit;
+   DopplerSkyScanState scan = empty_DopplerSkyScanState;
+   PulsarDopplerParams dopplerpos;
+   if (args_info.skyRegion_given) {
+      scanInit.gridType = 1;     //Default value for an approximate-isotropic grid
+      scanInit.skyRegionString = sky;      //"allsky" = Default value for all-sky search
+      scanInit.numSkyPartitions = 1;   //Default value so sky is not broken into chunks
+      scanInit.Freq = args_info.fmin_arg+0.5*args_info.fspan_arg;  //Mid-point of the frequency band
+      scanInit.dAlpha = 0.5/((inputParams->fmin+0.5*inputParams->fspan) * inputParams->Tcoh * detectorVmax);
+      scanInit.dDelta = scanInit.dAlpha;
+   } else {
+      scanInit.gridType = 3;
+      scanInit.skyGridFile = sky;
+      scanInit.numSkyPartitions = 1;   //Default value so sky is not broken into chunks
+      scanInit.Freq = args_info.fmin_arg+0.5*args_info.fspan_arg;  //Mid-point of the frequency band
+   }
+   
    //Initialize the sky-grid
-   scanInit.dAlpha = 0.5/((inputParams->fmin+0.5*inputParams->fspan) * inputParams->Tcoh * detectorVmax);
-   scanInit.dDelta = scanInit.dAlpha;
    InitDopplerSkyScan(&status, &scan, &scanInit);
    if (status.statusCode!=0) {
       fprintf(stderr, "%s: InitDopplerSkyScan() failed.\n", fn);
@@ -276,11 +299,15 @@ int main(int argc, char *argv[])
       fprintf(stderr, "\n%s: XLALCreateINT4Vector(%d) failed.\n", fn, ffdata->numffts);
       XLAL_ERROR(fn, XLAL_EFUNC);
    }
+   //FILE *timestamps = fopen("./output/timestamps.dat","w");
    for (ii=0; ii<ffdata->numffts; ii++) {
-      if (tfdata->data[ii*ffdata->numfbins+2*inputParams->maxbinshift+inputParams->blksize-1] == 0.0) sftexist->data[ii] = 0;
-      else sftexist->data[ii] = 1;
-
+      if (tfdata->data[ii*(ffdata->numfbins+2*inputParams->maxbinshift+inputParams->blksize-1)] == 0.0) sftexist->data[ii] = 0;
+      else {
+         sftexist->data[ii] = 1;
+         //fprintf(timestamps, "%d %d\n", (INT4)round(inputParams->searchstarttime+ii*(inputParams->Tcoh-inputParams->SFToverlap)), (INT4)round(inputParams->searchstarttime+ii*(inputParams->Tcoh-inputParams->SFToverlap)+inputParams->Tcoh));
+      }
    }
+   //fclose(timestamps);
    
    //Calculate the running mean values of the SFTs (output here is smaller than initialTFdata). Here,
    //numfbins needs to be the bins you expect to come out of the running means -- the band you are going
@@ -968,7 +995,7 @@ REAL4Vector * readInSFTs(inputParamsStruct *input, REAL8 *normalization)
    for (ii=0; ii<numffts; ii++) {
       
       SFTDescriptor *sftdescription = &(catalog->data[ii - nonexistantsft]);
-      if (sftdescription->header.epoch.gpsSeconds == (INT4)(ii*(input->Tcoh-input->SFToverlap)+input->searchstarttime)) {
+      if (sftdescription->header.epoch.gpsSeconds == (INT4)round(ii*(input->Tcoh-input->SFToverlap)+input->searchstarttime)) {
          SFTtype *sft = &(sfts->data[ii - nonexistantsft]);
          for (jj=0; jj<sftlength; jj++) {
             COMPLEX8 sftcoeff = sft->data->data[jj];

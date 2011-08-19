@@ -13,6 +13,52 @@ from pylal import grbsummary,date,rate,antenna
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 #from pylal.coh_PTF_pyutils import *
 
+def make_external_call(\
+  command, show_stdout=False, \
+  show_command=False, show_error=True):
+  """
+  Run a command line argument and print informative messages on failure.
+  It returns two outputs: the stdout of the command, and its status.  
+
+    >>> make_external_call('cp * /tmp', False, False, True)
+
+  @param command: the command to try
+  @type command: string
+  @param show_stdout: show the stdout 
+  @type show_stdout: boolean
+  @param show_command: show the command
+  @type show_command: boolean
+  @param show_error: show the error if any
+  @type show_error: boolean
+  @return: the stdout and a status  
+
+
+  """
+  if show_command and opts.verbose is True:
+    print "--- Trying this command :" + command
+
+  stdin, out, err = os.popen3(command)
+  pid, status = os.wait()
+  this_output = out.read()
+  if show_error & status != 0:
+    print >>sys.stderr, "External call failed."
+    print >>sys.stderr, "  status: %d" % status
+    print >>sys.stderr, "  stdout: %s" % this_output
+    print >>sys.stderr, "  stderr: %s" % err.read()
+    print >>sys.stderr, "  command: %s" % command
+    sys.exit(status)
+  if show_stdout:
+    if this_output[0:1]=='\n':
+      print  this_output[1:]  #first character is \n
+    else:
+      print this_output
+
+  stdin.close()
+  out.close()
+  err.close()
+  return this_output, status
+
+
 def initialize_page( title, style, script, header=None ):
 
   """
@@ -120,7 +166,8 @@ def write_summary( page, ExtTrigger, ifos ):
 def write_antenna( page, ExtTrigger, ifos ):
 
   """
-    Write antenna factors to merkup.page object page
+    Write antenna factors to merkup.page object page and generate John's
+    detector response plot.
   """
 
   page.h3()
@@ -137,7 +184,26 @@ def write_antenna( page, ExtTrigger, ifos ):
                                      0.0, 0.0, 'degree',ifo )
     td.append( round( f_q, 3 ) )
 
+  cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
+      % (ExtTrigger.start_time,ExtTrigger.event_ra, ExtTrigger.event_dec)
+  for ifo in ifos:
+    if ifo == 'H1':
+      cmmnd += ' --display-lho'
+    elif ifo == 'L1':
+      cmmnd += ' --display-llo'
+    elif ifo == 'V1':
+      cmmnd += ' --display-virgo'
+  output,status = make_external_call(cmmnd)
+  plot = markup.page()
+  p = "projtens.png"
+  plot.a( href=p, title="Detector response and polarization" )
+  plot.img( src=p )
+  plot.a.close()
+  th2 = ['Diagram']
+  td2 = [plot() ]
+
   page = write_table( page, th, td )
+  page = write_table( page, th2, td2 )
 
   return page
 
@@ -252,13 +318,24 @@ def write_found_missed( page, ifos, injList ):
   th = ['']+injList
   td = []
 
+  d = ['Number of injections']
+  for inj in injList:
+    cmmnd = 'lwtprint ../*' + inj + '*MISSED*xml -t sim_inspiral | wc -l'
+    output,status = make_external_call(cmmnd)
+    numInjs = int(output)
+    cmmnd = 'lwtprint ../*' + inj + '*FOUND*xml -t sim_inspiral | wc -l'
+    output,status = make_external_call(cmmnd)
+    numInjs += int(output)
+    d.append(str(numInjs))
+  td.append(d)
+
   plots = []
   text  = {}
-  ifo=ifos[0]
-  plots.extend(['effdist_%s' % ifo[0].lower(),\
-                'effdist_time_%s' % ifo[0].lower()])
-  text['effdist_%s' % ifo[0].lower()]      = 'Eff. dist. %s vs Mchirp' % ifo
-  text['effdist_time_%s' % ifo[0].lower()] = 'Eff. dist %s vs Time' % ifo
+  for ifo in ifos:
+    plots.extend(['effdist_%s' % ifo[0].lower(),\
+                  'effdist_time_%s' % ifo[0].lower()])
+    text['effdist_%s' % ifo[0].lower()]      = 'Eff. dist. %s vs Mchirp' % ifo
+    text['effdist_time_%s' % ifo[0].lower()] = 'Eff. dist %s vs Time' % ifo
 
   for row in plots:
     pTag = text[row]
@@ -340,6 +417,18 @@ def write_loudest_events( page, bins, onsource=False ):
       d.append( plot() )
     td.append(d)
 
+  row = 'snruncut'
+  d = ['SNR after cuts <br> have been applied']
+  for bin in bins:
+    b = '%s_%s' % tuple(bin)
+    plot = markup.page()
+    p = "%s/efficiency/%s_vs_fap_%s.png" % ( trial, row, b )
+    plot.a( href=p, title="FAP versus %s" % pTag )
+    plot.img( src=p )
+    plot.a.close()
+    d.append( plot() )
+  td.append(d)
+
   page = write_table( page, th, td )
 
   page.add( 'For more details on the loudest offsource events see')
@@ -374,7 +463,7 @@ def write_exclusion_distances(page , trial, injList, massbins, reduced=False, on
     return page  
 
   page.h3()
-  page.add('Detection efficiency plots')
+  page.add('Detection efficiency plots - injections louder than loudest background trigger')
   page.h3.close()
 
   th = injList
@@ -392,7 +481,7 @@ def write_exclusion_distances(page , trial, injList, massbins, reduced=False, on
   page = write_table( page, th, td )
 
   page.h3()
-  page.add('Exclusion distance plots')
+  page.add('Exclusion distance plots - injections louder than loudest foreground trigger')
   page.h3.close()
 
   th = injList
@@ -410,7 +499,7 @@ def write_exclusion_distances(page , trial, injList, massbins, reduced=False, on
   page = write_table( page, th, td )
 
   page.h3()
-  page.add('Exclusion distances')
+  page.add('90% confidence exclusion distances (Mpc)')
   th = injList
   td = []
   d = []
@@ -517,11 +606,19 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
 
   # initialise page
   title   = 'Coherent PTF Inspiral search of GRB%s' % GRBnum
+  if open_box:
+    title += '- OPEN BOX PAGE'
+  else:
+    title += '- CLOSED BOX PAGE'
   banner  = write_banner( title )
   js = 'coh_PTF_html_summary.js'
   script = {js:'javascript'}
   css = 'coh_PTF_html_summary.css'
   webpage = initialize_page( title, css, script, header=banner() )
+#  if open_box:
+#    webpage.add('<img src="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/public/segments/S5/OpenBox.jpg">')
+#  else:
+#    webpage.add('<img src="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/public/segments/S5/thomasLegacy.jpg">')
   
   # set divs
   webpage.div( id="maintab" )
@@ -589,10 +686,42 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
   webpage.h3()
   webpage.add('Chi squared tests')
   webpage.h3.close()
+  webpage.h4()
+  webpage.add('Plot key')
+  webpage.h4.close()
+  webpage.add('Blue crosses: Background triggers')
+  webpage.br()
+  webpage.add('Red crosses: Injections triggers')
+  webpage.br()
+  webpage.add('Black line: Veto line, shaded region indicates vetoed area')
+  webpage.br()
+  webpage.add('Yellow lines: Contours of new SNR')
   webpage = write_chisq( webpage, tuningInjList, GRBnum )
   webpage.h3()
   webpage.add('Individual detector and null SNRs')
   webpage.h3.close()
+  webpage.h4()
+  webpage.add('Plot key')
+  webpage.h4.close()
+  webpage.add('Blue crosses: Background triggers')
+  webpage.br()
+  webpage.add('Red crosses: Injections triggers')
+  webpage.br()
+  webpage.add('Black line: Veto line, shaded region indicates vetoed area')
+  webpage.h5()
+  webpage.add('For the null stat plot')
+  webpage.h5.close()
+  webpage.add('Green line: Above this triggers have reduced detection statistic')
+  webpage.br()
+  webpage.add('Magenta line: On this line the statistic is reduced by a factor of two')
+  webpage.h5()
+  webpage.add('For the single detector plots')
+  webpage.h5.close()
+  webpage.add('The cut is only applied to the two most sensitive detectors, this can vary with mass and sky location, which is shown on the plots')
+  webpage.br()
+  webpage.add('Green line: This indicates the expected SNR for optimally oriented injections')
+  webpage.br()
+  webpage.add('Magenta and cyan lines: Show 1 and 2 sigma errors on the green line')
   webpage = write_inj_snrs( webpage, ifos, tuningInjList, GRBnum )
 
   webpage.div.close()
