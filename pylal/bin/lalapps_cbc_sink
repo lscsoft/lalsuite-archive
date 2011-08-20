@@ -215,10 +215,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
        prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu_in, prior, 0.90)
 
      if combined_upper_limit[mbin] == 0: continue
-     if bin_type == "BNS_BBH":
-       label = {0:"BNS",1:"NSBH",2:"BBH"}[mbin[0]]
-     else:
-       label = ','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$"
+     label = ','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$"
      pylab.figure(1)
      pylab.semilogx(mu,combined_post/combined_post.sum(),label=label)
      pylab.figure(2)
@@ -263,7 +260,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
    tick_locs = edges(bins)[0]
    if bin_type == "BNS_BBH":
-     tick_locs += 0.5 #center the labels
+     tick_locs = [0.5,1.5,2.5] #center the labels
      tick_strings = ["BNS","NSBH","BBH"]
    else:
      tick_strings = ["%.1f"% m for m in tick_locs]

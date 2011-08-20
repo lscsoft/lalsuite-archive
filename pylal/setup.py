@@ -9,9 +9,18 @@ from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
 import subprocess
-from sys import version_info
+import sys
 import time
 from numpy.lib.utils import get_include as numpy_get_include
+
+
+#
+# check python version
+#
+
+if sys.version_info[0] != 2 or sys.version_info[1] < 4:
+	log.error("Python version is %s.  pylal requires a Python version such that 2.4 <= version < 3" % sys.version)
+	sys.exit(1)
 
 
 class PkgConfig(object):
@@ -630,6 +639,7 @@ setup(
 		os.path.join("bin", "coh_PTF_efficiency"),
 		os.path.join("bin", "coh_PTF_html_summary"),
 		os.path.join("bin", "coh_PTF_injfinder"),
+		os.path.join("bin", "coh_PTF_injcombiner"),
 		os.path.join("bin", "coh_PTF_sbv_plotter"),
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
@@ -637,10 +647,11 @@ setup(
 		os.path.join("bin", "cbcBayesPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
                 os.path.join("bin", "cbcBayesDIEvidence.py"),
-        os.path.join("bin", "cbcBayesInjProc.py"),
+		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "ligo_channel_query"),
-        os.path.join("bin", "pylal_exttrig_dataquery"),
-        os.path.join("bin", "pylal_exttrig_allquery")
+		os.path.join("bin", "projectedDetectorTensor"),
+		os.path.join("bin", "pylal_exttrig_dataquery"),
+		os.path.join("bin", "pylal_exttrig_allquery")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

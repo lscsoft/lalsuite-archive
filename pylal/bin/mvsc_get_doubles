@@ -36,9 +36,7 @@ parser=OptionParser(usage=usage,version=git_version.verbose_msg)
 parser.add_option("", "--number", default=10, type="int", help="number for round robin")
 parser.add_option("", "--instruments", help="pair that you want to get like H1,L1")
 parser.add_option("", "--factor", default=50.0, type="float", help="the value of the magic number factor in the effective snr formula, should be 50 for highmass and 250 for lowmass")
-parser.add_option("", "--trainingstr", default="training", help="the string in the output .pat files that indicates it will be used as the training set in SprBaggerDecisionTreeApp") 
-parser.add_option("", "--testingstr", default="testing", help="the string in the output .pat files that indicates it will be used as the testing set in SprOutputWriterApp") 
-parser.add_option("", "--zerolagstr", default="zerolag", help="the string in the output .pat files that indicates it contains zerlag data, which will be run through SprOutputWriterApp") 
+parser.add_option("", "--output-tag", default="", help="a string added to all filenames to help you keep track of things") 
 (opts,databases)=parser.parse_args()
 ifos=opts.instruments.strip().split(',')
 ifos.sort()
@@ -196,19 +194,19 @@ Nrounds = opts.number
 Ninj = len(allinjections)
 Nslide = len(timeslides)
 
-trstr = opts.trainingstr
-testr = opts.testingstr
-zlstr = opts.zerolagstr
+trstr = 'training' 
+testr = 'evaluation'
+zlstr = 'zerolag'
 
-print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " and H1,L1,V1 coincidences"
-print "there are ", len(allinjections), " injection doubles in ", ''.join(ifos), " and H1,L1,V1 coincidences"
-print "there are ", len(zerolag), " zerolag doubles in ", ''.join(ifos), " and H1,L1,V1 coincidences"
+print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " and triple coincidences"
+print "there are ", len(allinjections), " injection doubles in ", ''.join(ifos), " and triple coincidences"
+print "there are ", len(zerolag), " zerolag doubles in ", ''.join(ifos), " and triple coincidences"
 
 if len(allinjections) != 0:	
 	Nparams = len(allinjections[0]) - 2
 
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
-		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
+		f = open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
 		f.write(parameters + "\n")
 		return f
@@ -216,7 +214,7 @@ if len(allinjections) != 0:
 	for i in range(Nrounds):
 		f_training = open_file_write_headers(trstr, i, ifos)
 		f_testing = open_file_write_headers(testr, i, ifos)
-		f_testing_info=open(''.join(ifos) + '_set' + str(i) + '_' + str(testr) + '_info.pat', 'w')
+		f_testing_info=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_' + str(testr) + '_info.pat', 'w')
 		set_inj = list(allinjections)
 		set_inj_info = list(allinjections_info)
 		set_slide = list(timeslides)
@@ -241,7 +239,7 @@ if len(allinjections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 		for row in set_slide:
 			f_training.write("%s\n" % " ".join(map(str,row)))
-	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
+	f_zerolag=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
 	f_zerolag.write(parameters + "\n")
 	for row in zerolag:

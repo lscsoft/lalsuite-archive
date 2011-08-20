@@ -380,6 +380,77 @@ FROM
 #
 # =============================================================================
 #
+#                        \chi^{2} vs. \rho Scatter Plot
+#
+# =============================================================================
+#
+
+
+class Chi2VsRho(object):
+	class Data(object):
+		def __init__(self):
+			self.injections_x = []
+			self.injections_y = []
+			self.noninjections_x = []
+			self.noninjections_y = []
+
+	def __init__(self):
+		self.data = {}
+
+	def add_contents(self, contents):
+		for instrument, chi2, chi2dof, snr, is_injection in contents.connection.cursor().execute("""
+SELECT
+	sngl_burst.ifo,
+	sngl_burst.chisq,
+	sngl_burst.chisq_dof,
+	sngl_burst.snr,
+	sngl_burst.event_id IN (
+		SELECT
+			coinc_event_map.event_id
+		FROM
+			coinc_event_map
+			JOIN coinc_event ON (
+				coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+			)
+		WHERE
+			coinc_event_map.table_name == 'sngl_burst'
+			AND coinc_event.coinc_def_id == ?
+	)
+FROM
+	sngl_burst
+		""", (contents.sb_definer_id,)):
+			if is_injection:
+				try:
+					self.data[instrument].injections_x.append(snr)
+					self.data[instrument].injections_y.append(chi2 / chi2dof)
+				except KeyError:
+					self.data[instrument] = self.Data()
+					self.data[instrument].injections_x.append(snr)
+					self.data[instrument].injections_y.append(chi2 / chi2dof)
+			else:
+				try:
+					self.data[instrument].noninjections_x.append(snr)
+					self.data[instrument].noninjections_y.append(chi2 / chi2dof)
+				except KeyError:
+					self.data[instrument] = self.Data()
+					self.data[instrument].noninjections_x.append(snr)
+					self.data[instrument].noninjections_y.append(chi2 / chi2dof)
+
+	def finish(self):
+		for instrument, data in sorted(self.data.items()):
+			fig, axes = SnglBurstUtils.make_burst_plot(r"SNR", r"$\chi^{2} / \mathrm{DOF}$")
+
+			axes.set_title("$\chi^{2} / \mathrm{DOF}$ vs.\ SNR in %s" % instrument)
+			axes.loglog()
+			axes.plot(data.injections_x, data.injections_y, "r+")
+			axes.plot(data.noninjections_x, data.noninjections_y, "k+")
+
+			yield fig
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -400,10 +471,11 @@ options, filenames = parse_command_line()
 
 
 plots = [
-	(0, TriggerCountHistogram()),
-	(1, RecoveredVsInjectedAmplitude(options.amplitude_func, options.amplitude_lbl)),
-	(2, RecoveredTimeOffset(segments.segment(-0.01, +0.01), 0.00005)),
-	(3, RecoveredFreq())
+	(0, True, TriggerCountHistogram()),
+	(1, True, RecoveredVsInjectedAmplitude(options.amplitude_func, options.amplitude_lbl)),
+	(2, True, RecoveredTimeOffset(segments.segment(-0.01, +0.01), 0.00005)),
+	(3, True, RecoveredFreq()),
+	(4, False, Chi2VsRho())
 ]
 
 if options.plot is not None:
@@ -424,7 +496,9 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp")
 	if options.verbose:
 		SnglBurstUtils.summarize_coinc_database(database)
-	database.connection.cursor().execute("""
+	is_injection_db = "sim_burst" in dbtables.get_table_names(connection)
+	if is_injection_db:
+		database.connection.cursor().execute("""
 CREATE TEMPORARY TABLE
 	sim_burst_map
 AS
@@ -444,8 +518,10 @@ AS
 	WHERE
 		a.table_name == 'sim_burst'
 		AND coinc_event.coinc_def_id == ?
-	""", (database.sb_definer_id,))
-	for n, plot in plots:
+		""", (database.sb_definer_id,))
+	for n, requires_injection_db, plot in plots:
+		if requires_injection_db and not is_injection_db:
+			continue
 		if options.verbose:
 			print >>sys.stderr, "adding to plot group %d ..." % n
 		plot.add_contents(database)
@@ -460,7 +536,7 @@ AS
 
 format = "%%s%%0%dd%%s.%%s" % (int(math.log10(len(plots) or 1)) + 1)
 while len(plots):
-	n, plot = plots.pop(0)
+	n, requires_injection_db, plot = plots.pop(0)
 	if options.verbose:
 		print >>sys.stderr, "finishing plot group %d ..." % n
 	try:
