@@ -237,7 +237,7 @@ static int set_data(PyObject *self, PyObject *value, void *unused)
 
 
 #define GETSETDEF(attr) {#attr, get_ ## attr, set_ ## attr, NULL, NULL}
-static struct PyGetSetDef getsetdefs[] = {
+static struct PyGetSetDef getset[] = {
 	GETSETDEF(name),
 	GETSETDEF(epoch),
 	GETSETDEF(f0),
@@ -255,7 +255,7 @@ PyTypeObject pylal_complex16timeseries_type = {
 	.tp_dealloc = __del__,
 	.tp_doc = "COMPLEX16TimeSeries structure",
 	.tp_flags = Py_TPFLAGS_DEFAULT,
-	.tp_getset = getsetdefs,
+	.tp_getset = getset,
 	.tp_name = MODULE_NAME ".COMPLEX16TimeSeries",
 	.tp_new = __new__,
 	.tp_init = __init__
