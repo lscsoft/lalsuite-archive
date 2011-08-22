@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 J. Creighton, S. Fairhurst, B. Krishnan, L. Santamaria
+ * Copyright (C) 2008 J. Creighton, S. Fairhurst, B. Krishnan, L. Santamaria, E. Ochsner
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -116,27 +116,6 @@ COMPLEX16 XLALSimInspiralPNMode31(
 		int O         /**< twice post-Newtonian order */
 		);
 
-/**
- * Computes the (s)Y(l,m) spin-weighted spherical harmonic.
- *
- * From somewhere ....
- *
- * See also:
- * Implements Equations (II.9)-(II.13) of
- * D. A. Brown, S. Fairhurst, B. Krishnan, R. A. Mercer, R. K. Kopparapu,
- * L. Santamaria, and J. T. Whelan,
- * "Data formats for numerical relativity waves",
- * arXiv:0709.0093v1 (2007).
- *
- * Currently only supports s=-2, l=2,3,4,5 modes.
- */
-COMPLEX16 XLALSpinWeightedSphericalHarmonic(
-		REAL8 theta,  /**< polar angle (rad) */
-	       	REAL8 phi,    /**< azimuthal angle (rad) */
-	       	int s,        /**< spin weight */
-	       	int l,        /**< mode number l */
-	       	int m         /**< mode number m */
-		);
 
 /**
  * Multiplies a mode h(l,m) by a spin-2 weighted spherical harmonic
@@ -183,14 +162,19 @@ COMPLEX16TimeSeries *XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(
 		);
 
 /**
- * Given an orbit evolution phasing, construct the waveform h+ and hx.
+ * Given time series for a binary's orbital dynamical variables, 
+ * construct the waveform polarizations h+ and hx as a sum of 
+ * -2 spin-weighted spherical harmonic modes, h_lm.
+ * NB: Valid only for non-precessing systems!
  *
  * Implements Equation (11) of:
  * Lawrence E. Kidder, "Using Full Information When Computing Modes of
  * Post-Newtonian Waveforms From Inspiralling Compact Binaries in Circular
  * Orbit", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
+ *
+ * FIXME: change the PN variable from x to v = \sqrt{x}
  */
-int XLALSimInspiralPNPolarizationWaveforms(
+int XLALSimInspiralPNPolarizationWaveformsFromModes(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
 	       	REAL8TimeSeries *x,       /**< post-Newtonian parameter */
@@ -203,79 +187,76 @@ int XLALSimInspiralPNPolarizationWaveforms(
 	       	int O                     /**< twice post-Newtonian order */
 		);
 
+/**
+ * Given time series for a binary's orbital dynamical variables, 
+ * construct the waveform polarizations h+ and hx directly.
+ * NB: Valid only for non-precessing binaries!
+ *
+ * Implements Equations (5.7) - (5.10) of:
+ * K. G. Arun, Bala R Iyer, Moh'd S S Qusailah, "The 2.5PN gravitational wave 
+ * polarisations from inspiralling compact binaries in circular orbits"
+ * Class. Quant. Grav. 21 (2004) 3771-3802; Erratum-ibid. 22 (2005) 3115
+ * arXiv: gr-qc/0404085
+ * 
+ * Note however, that we do not include the constant "memory" terms
+ */
+int XLALSimInspiralPNPolarizationWaveforms(
+        REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
+        REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
+        REAL8TimeSeries *V,       /**< post-Newtonian (PN) parameter */
+        REAL8TimeSeries *Phi,     /**< orbital phase */
+        REAL8 x0,                 /**< tail-term gauge choice (default = 0) */
+        REAL8 m1,                 /**< mass of companion 1 (kg) */
+        REAL8 m2,                 /**< mass of companion 2 (kg) */
+        REAL8 r,                  /**< distance of source (m) */
+        REAL8 i,                  /**< inclination of source (rad) */
+        int ampO                  /**< twice PN order of the amplitude */
+        );
+
+/**
+ * Computes polarizations h+ and hx for a spinning, precessing binary
+ * when provided time series of all the dynamical quantities.
+ * Amplitude can be chosen between 1.5PN and Newtonian orders (inclusive).
+ * 
+ * Based on K.G. Arun, Alesssandra Buonanno, Guillaume Faye and Evan Ochsner
+ * "Higher-order spin effects in the amplitude and phase of gravitational 
+ * waveforms emitted by inspiraling compact binaries: Ready-to-use 
+ * gravitational waveforms", Phys Rev. D 79, 104023 (2009), arXiv:0810.5336
+ * 
+ * HOWEVER, the formulae have been adapted to use the output of the so-called
+ * "Frameless" convention for evolving precessing binary dynamics, 
+ * which is not susceptible to hitting coordinate singularities.
+ *
+ * FIXME: Clean up and commit Mathematica NB Showing correctness. Cite here.
+ * 
+ * NOTE: The vectors MUST be given in the so-called radiation frame where
+ * Z is the direction of propagation, X is the principal '+' axis and Y = Z x X
+ */
+int XLALSimInspiralPrecessingPolarizationWaveforms(
+	REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
+	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
+	REAL8TimeSeries *V,       /**< post-Newtonian parameter */
+	REAL8TimeSeries *Phi,     /**< orbital phase */
+	REAL8TimeSeries *S1x,	  /**< Spin1 vector x component */
+	REAL8TimeSeries *S1y,	  /**< Spin1 vector y component */
+	REAL8TimeSeries *S1z,	  /**< Spin1 vector z component */
+	REAL8TimeSeries *S2x,	  /**< Spin2 vector x component */
+	REAL8TimeSeries *S2y,	  /**< Spin2 vector y component */
+	REAL8TimeSeries *S2z,	  /**< Spin2 vector z component */
+	REAL8TimeSeries *LNhatx,  /**< unit orbital ang. mom. x comp. */
+	REAL8TimeSeries *LNhaty,  /**< unit orbital ang. mom. y comp. */
+	REAL8TimeSeries *LNhatz,  /**< unit orbital ang. mom. z comp. */
+	REAL8TimeSeries *E1x,	  /**< orbital plane basis vector x comp. */
+	REAL8TimeSeries *E1y,	  /**< orbital plane basis vector y comp. */
+	REAL8TimeSeries *E1z,	  /**< orbital plane basis vector z comp. */
+	REAL8 m1,                 /**< mass of companion 1 (Msun) */
+	REAL8 m2,                 /**< mass of companion 2 (Msun) */
+	REAL8 r,                  /**< distance of source (Mpc) */
+	REAL8 v0,                 /**< tail-term gauge choice (default = 0) */
+	INT4 ampO	 	  /**< twice amp. post-Newtonian order */
+	);
 
 /* TaylorT4 functions */
-
-/**
- * Computes the rate of increase of the orbital frequency for a post-Newtonian
- * inspiral.  This function returns dx/dt rather than the true angular
- * acceleration.
- *
- * Implements Equation (6) of
- * Yi Pan, Alessandra Buonanno, Yanbei Chen, and Michele Vallisneri,
- * "A physical template family for gravitational waves from precessing
- * binaries of spinning compact objects: Application to single-spin binaries"
- * arXiv:gr-qc/0310034v3 (2007).
- *
- * Note: this equation is actually dx/dt rather than (domega/dt)/(omega)^2
- * so the leading coefficient is different.  Also, this function applies
- * for non-spinning objects.
- *
- * Compare the overall coefficient, with nu=1/4, to Equation (45) of
- * Michael Boyle, Duncan A. Brown, Lawrence E. Kidder, Abdul H. Mroue,
- * Harald P. Pfeiﬀer, Mark A. Scheel, Gregory B. Cook, and Saul A. Teukolsky
- * "High-accuracy comparison of numerical relativity simulations with
- * post-Newtonian expansions"
- * arXiv:0710.0158v1 (2007).
- */
-REAL8 XLALSimInspiralTaylorT4PNAngularAcceleration(
-		REAL8 x,  /**< post-Newtonian parameter */
-	       	REAL8 m1, /**< mass of companion 1 */
-	       	REAL8 m2, /**< mass of companion 2 */
-	       	int O     /**< twice post-Newtonian order */
-		);
-
-/**
- * Computes the orbital angular velocity from the quantity x.
- * This is from the definition of x.
- *
- * Implements Equation (46) of
- * Michael Boyle, Duncan A. Brown, Lawrence E. Kidder, Abdul H. Mroue,
- * Harald P. Pfeiﬀer, Mark A. Scheel, Gregory B. Cook, and Saul A. Teukolsky
- * "High-accuracy comparison of numerical relativity simulations with
- * post-Newtonian expansions"
- * arXiv:0710.0158v1 (2007).
- */
-REAL8 XLALSimInspiralTaylorT4PNAngularVelocity(
-		REAL8 x,  /**< post-Newtonian parameter */
-	       	REAL8 m1, /**< mass of companion 1 */
-	       	REAL8 m2  /**< mass of companion 2 */
-		);
-
-/**
- * Computes the orbital energy at a fixed frequency and pN order.
- *
- * Implements Equation (152) of
- * Luc Blanchet,
- * "Gravitational Radiation from Post-Newtonian Sources and Inspiralling
- * Compact Binaries",
- * http://www.livingreviews.org/lrr-2006-4/index.html
- *
- * This is the same as Equation (10) (where the spin of the objects
- * is zero) of:
- * Yi Pan, Alessandra Buonanno, Yanbei Chen, and Michele Vallisneri,
- * "A physical template family for gravitational waves from precessing
- * binaries of spinning compact objects: Application to single-spin binaries"
- * arXiv:gr-qc/0310034v3 (2007).
- * Note: this equation is actually dx/dt rather than (domega/dt)/(omega)^2
- * so the leading coefficient is different.
- */
-REAL8 XLALSimInspiralTaylorT4PNEnergy(
-		REAL8 x,  /**< post-Newtonian parameter */
-	       	REAL8 m1, /**< mass of companion 1 */
-	       	REAL8 m2, /**< mass of companion 2 */
-	       	int O     /**< twice post-Newtonian order */
-		);
 
 /**
  * Evolves a post-Newtonian orbit using the Taylor T4 method.
@@ -285,7 +266,7 @@ REAL8 XLALSimInspiralTaylorT4PNEnergy(
  * Harald P. Pfeiﬀer, Mark A. Scheel, Gregory B. Cook, and Saul A. Teukolsky
  * "High-accuracy comparison of numerical relativity simulations with
  * post-Newtonian expansions"
- * arXiv:0710.0158v1 (2007).
+ * <a href="http://arxiv.org/abs/0710.0158v2">arXiv:0710.0158v2</a>.
  */
 int XLALSimInspiralTaylorT4PNEvolveOrbit(
 		REAL8TimeSeries **x,   /**< post-Newtonian parameter [returned] */

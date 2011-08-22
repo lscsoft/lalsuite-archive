@@ -187,10 +187,6 @@ INT4 XLALGetFactorizedWaveform( COMPLEX16             * restrict hlm,
         /* Non-Keplerian velocity */
         REAL8 vPhi;
 
-        /* Non-quasicircular correction in dynamics */
-        REAL8 a1, a2, a3;
-        REAL8 hNQC = 1.0;
-
         /* Pre-computed coefficients */
         FacWaveformCoeffs *hCoeffs = params->hCoeffs;
 
@@ -278,15 +274,6 @@ INT4 XLALGetFactorizedWaveform( COMPLEX16             * restrict hlm,
 	    switch( abs(m) )
 	    {
 	      case 2:
-
-                /* For 2,2 mode, calculate the NQC correction */
-                a1 = -4.55919 + 18.761 * eta - 24.226 * eta*eta;
-                a2 = 37.683 - 201.468 * eta + 324.591 * eta*eta;
-                a3 = - 39.6024 + 228.899 * eta - 387.222 * eta * eta;
-
-                hNQC = 1. + (pr*pr / (r*r*Omega*Omega)) * ( a1
-                       + a2 / r + a3 / (r*sqrt(r)) );
-
 	        deltalm = vh3*(hCoeffs->delta22vh3 + vh3*(hCoeffs->delta22vh6
 			+ vh*vh*(hCoeffs->delta22vh8 + hCoeffs->delta22vh9*vh)))
 			+ hCoeffs->delta22v5 *v*v2*v2;
@@ -544,7 +531,7 @@ INT4 XLALGetFactorizedWaveform( COMPLEX16             * restrict hlm,
         }
 
 	*hlm = XLALCOMPLEX16MulReal( XLALCOMPLEX16Mul( Tlm, XLALCOMPLEX16Polar( 1.0, deltalm) ),
-				     Slm*rholmPwrl*hNQC );
+				     Slm*rholmPwrl );
         *hlm = XLALCOMPLEX16Mul( *hlm, hNewton );
 
 	return XLAL_SUCCESS;
@@ -1693,9 +1680,10 @@ XLALEOBPPWaveformEngine (
    eobParams.eta = eta;
    eobParams.m1  = params->mass1;
    eobParams.m2  = params->mass2;
-   eobParams.aCoeffs  = &aCoeffs;
-   eobParams.hCoeffs  = &hCoeffs;
-   eobParams.prefixes = &prefixes;
+   eobParams.aCoeffs   = &aCoeffs;
+   eobParams.hCoeffs   = &hCoeffs;
+   eobParams.nqcCoeffs = &nqcCoeffs;
+   eobParams.prefixes  = &prefixes;
 
    if ( XLALCalculateEOBACoefficients( &aCoeffs, eta ) == XLAL_FAILURE )
    {
@@ -1709,6 +1697,13 @@ XLALEOBPPWaveformEngine (
 
   if ( XLALComputeNewtonMultipolePrefixes( &prefixes, eobParams.m1, eobParams.m2 )
          == XLAL_FAILURE )
+  {
+    XLAL_ERROR( __func__, XLAL_EFUNC );
+  }
+
+  /* For the dynamics, we need to use preliminary calculated versions   */
+  /*of the NQC coefficients for the (2,2) mode. We calculate them here. */
+  if ( XLALGetCalibratedNQCCoeffs( &nqcCoeffs, 2, 2, eta ) == XLAL_FAILURE )
   {
     XLAL_ERROR( __func__, XLAL_EFUNC );
   }

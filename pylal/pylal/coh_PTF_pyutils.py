@@ -29,7 +29,7 @@ def new_snr_chisq( snr, new_snr, chisq_dof, q=4.0, n=3.0 ):
     return 1E-20
   return chisq_dof * (2*chisqnorm - 1)**(n/q)
 
-def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
+def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), fResp = None ):
 
   """
     Calculate BestNR (coh_PTF detection statistic) through signal based vetoes:
@@ -82,9 +82,9 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
 
   null_snr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                      for ifo in ifos ]) - trig.snr**2 )**0.5
-  if trig.snr > 30:
+  if trig.snr > 20:
     null_thresh = numpy.array(null_thresh)
-    null_thresh += (trig.snr - 30)*5/70
+    null_thresh += (trig.snr - 20)*1./5.
   if null_snr > null_thresh[-1]:
     return 0
   elif null_snr > null_thresh[0]:
@@ -92,8 +92,8 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
 
   return bestNR
 
-def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
-                        null_grad_snr=30 ):
+def calculate_contours( q=4.0, n=3.0, null_thresh=6.,\
+                        null_grad_snr=20 ):
 
   """
     Generate the plot contours for chisq variable plots
@@ -129,7 +129,7 @@ def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
       chi_conts[i][j]  = new_snr_chisq(snr, new_snr, chisq_dof, q, n)
 
     if snr > null_grad_snr:
-      null_cont.append(null_thresh + (snr-null_grad_snr)*5/70)
+      null_cont.append(null_thresh + (snr-null_grad_snr)*1./5.)
     else:
       null_cont.append(null_thresh)
 

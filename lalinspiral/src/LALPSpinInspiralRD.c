@@ -1699,7 +1699,7 @@ static UINT4 XLALSpinInspiralEngine(UINT4 neqs,
   XLALRungeKutta4Free(integrator);
   LALFree(dummy.data);
 
-  if (count<Npoints) 
+  if (count<Npoints)
     XLALPrintWarning("*** LALPSpinInspiralRD WARNING: inspiral integration vey short: %12.f sec\n",tm);
 
   errcode = XLALGenerateWaveDerivative(ddomega,domega,dt);
@@ -1837,10 +1837,11 @@ static int XLALSpinInspiralAdaptiveEngine(
 
   /* Start of the integration checks*/
   if (!intlen) {
+    phenPars->intreturn=intreturn;
     if (XLALClearErrno() == XLAL_ENOMEM) {
       XLAL_ERROR( func,  XLAL_ENOMEM);
     } else {
-      fprintf(stderr,"**** LALPSpinInspiralRD ERROR ****: integration failed with errorcode %d\n",intreturn);
+      fprintf(stderr,"**** LALPSpinInspiralRD ERROR ****: integration failed with errorcode %d, integration length %d\n",intreturn,intlen);
       XLAL_ERROR( func, XLAL_EFAILED);
     }
   }
@@ -2234,8 +2235,6 @@ INT4 XLALPSpinInspiralRDEngine(REAL8Vector * signalvec1,
 
   if(!params) XLAL_ERROR(__func__, XLAL_EFAULT);
 
-  params->spinInteraction = LAL_AllInter;
-
   if ((params->fCutoff<=0.)&&(params->inspiralOnly==1)) {
     XLALPrintError("*** LALPSIRD ERROR ***: fCutoff %12.6e, with inspiral flag on it is mandatory to specify a positive cutoff frequency\n",params->fCutoff);
     XLAL_ERROR(__func__,XLAL_EDOM);
@@ -2255,7 +2254,7 @@ INT4 XLALPSpinInspiralRDEngine(REAL8Vector * signalvec1,
 		XLAL_ERROR(__func__,XLAL_EFUNC);
 
   /* Check that initial frequency is smaller than omegamatch ~ xxyy for m=100 Msun */
-  initphi   = params->startPhase;
+  initphi   = params->startPhase/2.;
   initomega = params->fLower*unitHz;
 
   /* Check that initial frequency is smaller than omegamatch ~ xxyy for m=100 Msun */
@@ -2324,16 +2323,7 @@ INT4 XLALPSpinInspiralRDEngine(REAL8Vector * signalvec1,
     inc = params->inclination;
     break;
 
-  case View:
-    //printf("*** View ***\n");
-    initLNh[0] = sin(params->inclination);
-    initLNh[1] = 0.;
-    initLNh[2] = cos(params->inclination);
-    inc = 0.;
-    break;
-
-  default:
-    //case TotalJ:
+  case TotalJ:
     //printf("*** TotalJ ***\n");
     for (j=0;j<3;j++) {
       iS1[j] = initS1[j];
@@ -2378,6 +2368,16 @@ INT4 XLALPSpinInspiralRDEngine(REAL8Vector * signalvec1,
     }
     inc = params->inclination;
     break;
+
+  default:
+    //case View:
+    //printf("*** View ***\n");
+    initLNh[0] = sin(params->inclination);
+    initLNh[1] = 0.;
+    initLNh[2] = cos(params->inclination);
+    inc = 0.;
+    break;
+
   }
 
   if (initS1[0]*initS1[0]+initS1[1]*initS1[1]+initS2[0]*initS2[0]+initS2[1]*initS2[1]) LNhxy=sqrt(initLNh[0]*initLNh[0]+initLNh[1]*initLNh[1]);

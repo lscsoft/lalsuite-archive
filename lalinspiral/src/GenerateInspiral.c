@@ -380,13 +380,13 @@ int XLALGetSpinInteractionFromString(LALSpinInteraction *inter, CHAR *thisEvent)
 
 int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent) {
   //static const char *func = "XLALGetAxisChoiceFromString";
-  if (strstr(thisEvent, "View")) {
-    *axisChoice = View;
+  if (strstr(thisEvent, "TotalJ")) {
+    *axisChoice = TotalJ;
   } else if  (strstr(thisEvent, "OrbitalL")) {
     *axisChoice = OrbitalL;
   }
   else  
-    *axisChoice = TotalJ;
+    *axisChoice = View;
   return XLAL_SUCCESS;
 }
 
@@ -662,7 +662,7 @@ XLALGenerateInspiralPopulateInspiral(
   inspiralParams->psi3	 = -1.;      /* bcv useless for the time being */
   inspiralParams->alpha1 = -1.;      /* bcv useless for the time being */
   inspiralParams->alpha2 = -1.;      /* bcv useless for the time being */
-  inspiralParams->beta	 = -1.;      /* bcv useless for the time being */
+  inspiralParams->beta   = -1.;      /* bcv useless for the time being */
 
   /* inclination of the binary */
   /* inclination cannot be equal to zero for SpinTaylor injections */

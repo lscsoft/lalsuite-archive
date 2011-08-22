@@ -6,8 +6,8 @@ lalsimulationincludedir = $(includedir)/lal
 lalsimulationinclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
 	LALSimBurst.h \
+	LALSimIMR.h \
 	LALSimInspiral.h \
-	LALSimInspiralPNCoefficients.h \
 	LALSimInspiraldEnergyFlux.h \
 	LALSimulation.h \
 	LALSimulationConfig.h \
@@ -17,9 +17,9 @@ lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
 	LALSimBlackHoleRingdown.c \
 	LALSimBurst.c \
+	LALSimIMRPhenom.c \
 	LALSimInspiral.c \
 	LALSimInspiralPNMode.c \
-	LALSimInspiralPNCoefficients.c \
 	LALSimInspiralTaylorT2.c \
 	LALSimInspiralTaylorT3.c \
 	LALSimInspiralTaylorT4.c \
