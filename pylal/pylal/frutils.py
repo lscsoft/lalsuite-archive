@@ -23,6 +23,7 @@ import os
 import os.path
 import shutil
 import sys
+import operator
 
 from glue.lal import Cache
 from glue.segments import segment, segmentlist
@@ -468,7 +469,8 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
             return True
         urls = query_LDR(self.host, self.port, channel[0], self.frametype, start, end, urlType="file")
         if urls:
-            urls.sort()
-            self.add_cache(Cache.from_urls(urls, coltype=int))
+            new = Cache.from_urls(urls, coltype=int)
+            new.sort(key=operator.attrgetter("segment"))
+            self.add_cache(new)
             return True
         return False
