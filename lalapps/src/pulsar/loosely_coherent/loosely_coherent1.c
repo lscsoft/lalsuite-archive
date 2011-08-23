@@ -1134,7 +1134,8 @@ for(fstep=0;fstep<nfsteps; fstep++) {
 // 	fprintf(DATA_LOG, "max: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12f %d %.12f\n",
 // 		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ctx->ra, ctx->dec, ps.mean, ps.sd, ps.max_snr, ps.max_snr_index, (ctx->power[0]-ps.mean)/ps.sd);
 
-	log_stats(ctx, DATA_LOG, "point", &(ctx->stats), args_info.strain_norm_factor_arg);
+	/* 0.85 compensates for reduced amplitude due to Hann windowing, but we gained from using overlapped SFTs */
+	log_stats(ctx, DATA_LOG, "point", &(ctx->stats), args_info.strain_norm_factor_arg/0.85);
 	
 	thread_mutex_unlock(data_logging_mutex);
 	}
@@ -1481,8 +1482,8 @@ fprintf(LOG, "actual band axis norm: %g\n", band_axis_norm);
 
 
 time(&input_done_time);
-fprintf(LOG, "input complete: %d\n", (int)(input_done_time-start_time));
-fprintf(stderr, "input complete: %d\n", (int)(input_done_time-start_time));
+fprintf(LOG, "input complete: \"%s\" %d\n", args_info.label_arg, (int)(input_done_time-start_time));
+fprintf(stderr, "input complete: \"%s\" %d\n", args_info.label_arg, (int)(input_done_time-start_time));
 
 /* For testing - dump out emission time grid for SFT 0 */
 if(0) {
@@ -1551,9 +1552,9 @@ fprintf(stderr, "% 3.1f\n", jobs_done_ratio()*100);
 
 
 time(&end_time);
-fprintf(stderr, "exit memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
-fprintf(LOG,"seconds elapsed: %ld\n",end_time-start_time);
-fprintf(stderr,"seconds elapsed: %ld\n",end_time-start_time);
+fprintf(stderr, "exit memory: \"%s\" %g MB\n", args_info.label_arg, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG,"seconds elapsed: \"%s\" %ld\n", args_info.label_arg, end_time-start_time);
+fprintf(stderr,"seconds elapsed: \"%s\" %ld\n", args_info.label_arg, end_time-start_time);
 fclose(LOG);
 fclose(FILE_LOG);
 fclose(DATA_LOG);

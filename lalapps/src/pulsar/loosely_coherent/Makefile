@@ -1,5 +1,5 @@
 PACKAGE=\"loosely_coherently_coherent\"
-VERSION=0.25.10-64
+VERSION=0.25.16-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
@@ -171,6 +171,14 @@ loosely_coherent2cl: $(OBJS) jobs.o util.o ocl1.o loosely_coherent2cl.o
 	$(CC) $(COMMON_OBJS) loosely_coherent2cl.o jobs.o util.o ocl1.o -lOpenCL -o loosely_coherent2cl  $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l loosely_coherent2cl
 
+make_cbc_test_stream: make_cbc_test_stream.c IMRPhenomA.c IMRPhenomA.h
+	$(CC) make_cbc_test_stream.c IMRPhenomA.c -o make_cbc_test_stream -static $(LDFLAGS) -lgsl -lgslcblas -lm
+	ls -l make_cbc_test_stream
+
+find_cbc: find_cbc.c IMRPhenomA.c IMRPhenomA.h bessel.c bessel.h
+	$(CC) find_cbc.c IMRPhenomA.c bessel.c -o find_cbc -static $(LDFLAGS) -lgsl -lgslcblas -lm
+	ls -l find_cbc
+
 ocl1.o: ocl1.c ocl1.h
 	$(CC) $(CFLAGS) -I/usr/local/cuda/include -c ocl1.c
 
@@ -192,21 +200,21 @@ clean:
 upload: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor hydra.phys.uwm.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt hydra.phys.uwm.edu:PowerFlux/loosely_coherent1-mt.$(VERSION)
-	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
+	#gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
 upload.a: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	gsiscp -C loosely_coherent1-mt h2.atlas.aei.uni-hannover.de:PowerFlux/loosely_coherent1-mt.$(VERSION)
-	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	#gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: loosely_coherent1-condor loosely_coherent1-mt
 	scp -C loosely_coherent1-condor gallatin.physics.lsa.umich.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
 	scp -C loosely_coherent1-mt gallatin.physics.lsa.umich.edu:PowerFlux/loosely_coherent1-mt.$(VERSION)
-	scp -C $(FILES) gallatin.physics.lsa.umich.edu:PowerFlux/
+	#scp -C $(FILES) gallatin.physics.lsa.umich.edu:PowerFlux/
 	
 upload.h: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
-	gsiscp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
+	#gsiscp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
 upload.l: loosely_coherent1-condor loosely_coherent1-mt
 	gsiscp -C loosely_coherent1-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/loosely_coherent1-condor.$(VERSION)
