@@ -1,4 +1,14 @@
-all : test01 test02 lal_verify segmentsUtils_verify segments_verify
+all : test01 test02 lal_verify segmentsUtils_verify segments_verify iterutils_verify offsetvector_verify
+
+offsetvector_verify :
+	@echo "=== start offsetvector_verify ===>"
+	python offsetvector_verify.py
+	@echo "<=== end offsetvector_verify ==="
+
+iterutils_verify :
+	@echo "=== start iterutils_verify ===>"
+	python iterutils_verify.py
+	@echo "<=== end iterutils_verify ==="
 
 lal_verify :
 	@echo "=== start lal_verify ===>"

@@ -1,53 +1,956 @@
 #!/usr/bin/env python
 
+# Copyright (C) 2011 Duncan Macleod
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 # =============================================================================
 # Preamble
 # =============================================================================
 
 from __future__ import division
-import math,re
-from numpy import arange
+import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 
-from glue.ligolw import table
-from glue.segments import segment, segmentlist
+# test matplotlib backend and reset if needed
+from os import getenv
+_display = getenv('DISPLAY','')
+_backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
+"""
 
-from datetime import datetime
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal import date
-from pylal.dq.dqTriggerUtils import def_get_time
-
-import matplotlib
-matplotlib.use( 'Agg' )
+if not _display and matplotlib.get_backend() is not 'Agg':
+  warnings.warn(_backend_warn)
+  matplotlib.use('Agg', warn=False)
 import pylab
 
-from glue import git_version
+from datetime import datetime
+from glue import segments,git_version
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal import date,plotutils
+from pylal.dq.dqTriggerUtils import def_get_time
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
 __date__    = git_version.date
 
 """
-This module provides plotting routines for use in data quality investigations. All routines are written to work in as general a way as possible with ligolw tables and lsctables compatible columns. 
+This module provides plotting routines for use in data quality investigations. All routines are written to work in as general a way as possible with ligolw tables and lsctables compatible columns, and to plot in a similar pythonic way to pylal.plotutils. 
 """
 
 # =============================================================================
-# Function to plot before/after cumulative SNR histograms
+# Set plot parameters aux helper functions
 # =============================================================================
 
-def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
-                       start=None, end=None,
-                       flag='unknowns', etg='Unknown',\
-                       livetime=None, fill=False, logx=True,
-                       cumulative=True, rate=True ):
+def set_rcParams():
 
   """
-    Plot a histogram of the value in any column of the ligolw table triggers.
-    If a glue.segments.segmentlist segments is given, the histogram is presented
-    before and after removal of triggers falling inside any segment in the list.
+    Customise the figure parameters.
+  """
+
+  # customise plot appearance
+  pylab.rcParams.update({"text.usetex": True,
+                         "text.verticalalignment": "center",
+                         "lines.linewidth": 2,
+                         "xtick.labelsize": 18,
+                         "ytick.labelsize": 18,
+                         "axes.titlesize": 22,
+                         "axes.labelsize": 18,
+                         "axes.linewidth": 1,
+                         "grid.linewidth": 1,
+                         "legend.fontsize": 18,
+                         "legend.loc": "best",
+                         "figure.figsize": [12,6],
+                         "figure.dpi": 80,
+                         "axes.grid": True,
+                         "axes.axisbelow": True })
+
+def set_ticks(ax):
+
+  """
+    Format the x- and y-axis ticks to ensure minor ticks appear when needed
+    and the x-axis is set for spaces of 4 rather than 5.
 
     Arguments:
 
-      triggers : [ SnglBurstTable | SnglInspiralTable | SnglRingdownTable ] 
+      ax : matplotlib.axes.AxesSubplot
+        Axes object to format
+  """
+
+  # make sure we get minor ticks if there are no major ticks in the range
+  if len(ax.get_xticks())<=2:
+    ax.xaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
+  if len(ax.get_yticks())<=2:
+    ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
+
+  # set xticks for 4 hours rather than 5
+  xticks = ax.get_xticks()
+  if len(xticks)>1 and xticks[1]-xticks[0]==5:
+    ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=4))
+
+def display_name(columnName):
+
+  """
+    Format the string columnName (e.g. xml table column) into latex format for 
+    an axis label.
+
+    Examples:
+
+    >>> display_name('snr')
+    'SNR'
+
+    >>> display_name('bank_chisq_dof')
+    'Bank $\\chi^2$ DOF'
+
+    Arguments:
+
+      columnName : string
+        string to format
+  """
+
+  acro  = ['snr', 'ra','dof', 'id', 'ms', 'far']
+  greek = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta',\
+           'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi', 'omicron',\
+           'pi', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi', 'omega']
+  unit  = ['ns']
+  sub   = ['flow', 'fhigh', 'hrss', 'mtotal', 'mchirp']
+
+  words = columnName.split('_')
+  for i,w in enumerate(words):
+    if w in acro:
+      words[i] = w.upper()
+    elif w in unit:
+      words[i] = '$(%s)$' % w
+    elif w in sub:
+      words[i] = '%s$_{\mbox{\\small %s}}$' % (w[0], w[1:])
+    elif w in greek:
+      words[i] = '$\%s$' % w
+    elif re.match('(%s)' % '|'.join(greek), w):
+      if w[-1].isdigit():
+        words[i] = '$\%s_{%s}$''' % tuple(re.findall(r"[a-zA-Z]+|\d+",w))
+      elif w.endswith('sq'):
+        words[i] = '$\%s^2$' % w.rstrip('sq')
+    else:
+      words[i] = w.title()
+
+  return ' '.join(words) 
+
+def time_unit(duration):
+
+  """
+    Work out renormalisation for the time axis, makes the label more
+    appropriate. Returns unit (in seconds) and string descriptor
+
+    Example:
+
+    >>> time_unit(100)
+    (1, 'seconds')
+
+    >>> time_unit(604800)
+    (86400, 'days')
+
+    Arguments:
+
+      duration : float
+        plot duration to normalise
+  """
+
+  # set plot time unit whether it's used or not
+  if (duration) < 1000:
+    unit = 1
+  elif (duration) < 20000:
+    unit = 60
+  elif (duration) >= 20000 and (duration) < 604800:
+    unit = 3600
+  else:
+    unit = 86400
+  timestring = {1:'seconds', 60:'minutes',3600:'hours',86400:'days'}
+
+  return unit, timestring[unit] 
+
+def getTrigAttribute(trig, col):
+
+  """
+    Returns the value of trig.col or trig.get_col() for the given string col,
+    and the object trig. If col='time' is given, trig.get_peak() is returned for
+    *Burst* objects, trig.get_end() for *Inspiral* objects and trig.get_start()
+    for *Ringdown* objects. Raises KeyError if cannot execute.
+
+    Arguments:
+
+      trig : [ lsctables.SnglBurst | lscatbles.SnglInspiral |
+               lsctables.SnglRingdown ]
+        xml table entry from which to extract parameter
+      col : string
+        glue.ligolw.table column name to extract
+  """
+
+  # return time
+  if col=='time':
+    if re.search('Burst', str(trig)):
+      return trig.get_peak()
+    elif re.search('Inspiral', str(trig)):
+      return trig.get_end()
+    elif re.search('Ringdown', str(trig)):
+      return trig.get_start()
+    else:
+      return trig.time
+
+  # return simple column 
+  if col in trig.__slots__:
+    return getattr(trig, col)
+
+  # return get_XXX() parameter
+  try:
+    return eval('trig.get_%s()', col)
+
+  # if we get here, panic
+  except:
+    raise KeyError, "Column '%s' not found in %s." % (col, type(trig))
+
+
+# =============================================================================
+# Abstract classes for plots
+# =============================================================================
+
+# =============================================================================
+# Class for segment plot 
+
+class PlotSegmentsPlot(plotutils.BasicPlot):
+
+  """
+    Horizontal bar segment plot. Based originally on PlotSegmentsPlot class in
+    pylal/bin/plotsegments.py
+  """
+
+  color_code = {'H1':'r', 'H2':'b', 'L1':'g', 'V1':'m', 'G1':'k'}
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle="", t0=0, unit=1):
+    """
+    Create a fresh plot.  Provide t0 to provide a reference time to use as
+    zero.
+    """
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.segdict = segments.segmentlistdict()
+    self.keys = []
+    self._time_transform = lambda seg: segments.segment(float(seg[0]-t0)/unit,\
+                                             float(seg[1]-t0)/unit)
+
+  def add_content(self, segdict, keys=None, t0=0, unit=1):
+    if not keys:
+      keys = sorted(segdict.keys())
+    for key in keys:
+      self.segdict[key] = segdict[key]
+    self.keys.extend(keys)
+
+  def highlight_segment(self, seg, **plot_args):
+    """
+    Highlight a particular segment with dashed lines.
+    """
+    a,b = self._time_transform(seg)
+    plot_args.setdefault('linestyle', '--')
+    plot_args.setdefault('color','r')
+    self.ax.axvline(a, **plot_args)
+    self.ax.axvline(b, **plot_args)
+
+  @plotutils.method_callable_once
+  def finalize(self):
+
+    for row,key in enumerate(self.keys):
+      if self.color_code.has_key(key):
+        col = self.color_code[key]
+      else:
+        col = 'b'
+      for seg in self.segdict[key]:
+        a,b = self._time_transform(seg)
+        self.ax.fill([a, b, b, a, a],\
+                     [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
+
+    ticks = pylab.arange(len(self.keys))
+    self.ax.set_yticks(ticks)
+    self.ax.set_yticklabels([k.replace('_','\_').replace('\\\_','\_')\
+                             for k in self.keys], size='small')
+    self.ax.set_ylim(-1, len(self.keys))
+
+# =============================================================================
+# Class for line histogram
+
+class LineHistogram(plotutils.BasicPlot):
+
+  """
+    A simple line histogram plot. The values of each histogram bin are plotted
+    using pylab.plot(), with points centred on the x values and height equal
+    to the y values.
+
+    Cumulative, and rate options can be passeed to the finalize() method to
+    format each trace individually.
+
+  """
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets = []
+    self.livetimes = []
+    self.kwarg_sets = []
+
+  def add_content(self, data, livetime=1, **kwargs):
+    self.data_sets.append(data)
+    self.livetimes.append(livetime)
+    self.kwarg_sets.append(kwargs)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
+               logx=False, logy=False, fill=False, base=10):
+
+    # determine binning
+    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    if min_stat!=max_stat:
+      if logx:
+        bins = numpy.logspace(numpy.math.log(min_stat, base),\
+                              numpy.math.log(max_stat, base),\
+                              num_bins+1, endpoint=True)
+      else:
+        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
+    else:
+      bins = []
+
+    if logy:
+      ymin = 5/base
+    else:
+      ymin = 0
+
+    legends = []
+    plot_list = []
+
+    for i, (data_set, livetime, plot_kwargs) in\
+        enumerate(itertools.izip(self.data_sets, self.livetimes,\
+                  self.kwarg_sets)):
+
+      # make histogram
+      y, x = numpy.histogram(data_set, bins=bins)
+      if len(x)>len(y):
+        x = x[:len(y)]
+
+      # get cumulative sum
+      if cumulative:
+        y = y[::-1].cumsum()[::-1]
+
+      # convert to rate
+      if rate:
+        y = y/livetime
+        ymin /= livetime
+
+      # reset zeros on logscale, tried with numpy, unreliable
+      if logy:
+        y = list(y)
+        for j in xrange(0,len(y)):
+          if y[j]==0:
+            y[j] = ymin
+        y = numpy.array(y)
+
+      # plot
+      if fill:
+        plot_kwargs.setdefault('linewidth', 1)
+        plot_kwargs.setdefault('alpha', 0.8)
+        self.ax.plot(x, y, **plot_kwargs)
+        self.ax.fill_between(x, ymin, y, **plot_kwargs)
+      else:
+        self.ax.plot(x, y, **plot_kwargs)
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+    # set logy minimum
+    self.ax.set_ybound(lower=ymin/livetime)
+
+    # add legend if there are any non-trivial labels
+    self.add_legend_if_labels_exist(loc=loc)
+
+    # fix legend
+    leg = self.ax.legend()
+    if leg:
+      for l in leg.get_lines():
+        l.set_linewidth(4)
+
+
+# =============================================================================
+# Class for standard scatter plot
+
+class ScatterPlot(plotutils.BasicPlot):
+
+  """
+    A simple scatter plot, taking x- and y-axis data.
+  """
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.x_data_sets = []
+    self.y_data_sets = []
+    self.kwarg_sets = []
+
+  def add_content(self, x_data, y_data, **kwargs):
+    self.x_data_sets.append(x_data)
+    self.y_data_sets.append(y_data)
+    self.kwarg_sets.append(kwargs)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', logx=False, logy=False):
+    # make plot
+    for x_vals, y_vals, plot_kwargs, c in \
+        itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
+                       plotutils.default_colors()):
+      plot_kwargs.setdefault("marker", "o")
+      plot_kwargs.setdefault("s", 20)
+      plot_kwargs.setdefault("linewidth", 1)
+
+      self.ax.scatter(x_vals, y_vals, c=c, **plot_kwargs)
+
+    # add legend if there are any non-trivial labels
+    self.add_legend_if_labels_exist(loc=loc)
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+# =============================================================================
+# Class for scatter plot with colorbar
+
+class ColorbarScatterPlot(plotutils.BasicPlot):
+
+  """
+    A scatter plot of x- versus y-data, coloured by z-data. A single colorbar
+    is used, from the union of the ranges of z-data for each content set,
+    unless strict limits are passed as clim=(cmin, cmax) to finalize().
+  """
+
+  def __init__(self, xlabel="", ylabel="", zlabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+
+    self.x_data_sets = []
+    self.y_data_sets = []
+    self.z_data_sets = []
+    self.kwarg_sets = []
+    self.color_label = zlabel
+
+  def add_content(self, x_data, y_data, z_data, **kwargs):
+    self.x_data_sets.append(x_data)
+    self.y_data_sets.append(y_data)
+    self.z_data_sets.append(z_data)
+    self.kwarg_sets.append(kwargs)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', logx=False, logy=False, logz=False, clim=None,\
+               base=10):
+  
+    # set up things we'll need later
+    p = []
+
+    # set colorbar limits
+    if clim:
+      cmin,cmax = clim
+    else:
+      try:
+        cmin = min([min(z_vals) for z_vals in self.z_data_sets])*0.99
+        cmax = max([max(z_vals) for z_vals in self.z_data_sets])*1.01
+      # catch no triggers
+      except ValueError:
+        cmin = 1
+        cmax = 10
+
+    # reset logs
+    if logz:
+      cmin = numpy.math.log(cmin, base)
+      cmax = numpy.math.log(cmax, base)
+
+    # make plot
+    for x_vals, y_vals, z_vals, plot_kwargs in\
+        itertools.izip(self.x_data_sets, self.y_data_sets, self.z_data_sets,\
+                       self.kwarg_sets):
+
+      if logz:  z_vals = [numpy.math.log(z, base) for z in z_vals]
+
+      plot_kwargs.setdefault("marker", "o")
+      plot_kwargs.setdefault("vmin", cmin)
+      plot_kwargs.setdefault("vmax", cmax)
+
+      # sort data by z-value
+      zipped = zip(x_vals, y_vals, z_vals)
+      zipped.sort(key=lambda (x,y,z): z)
+      x_vals, y_vals, z_vals = map(list, zip(*zipped))
+
+      p.append(self.ax.scatter(x_vals, y_vals, c=z_vals, **plot_kwargs))
+
+    if len(p)<1:
+      p.append(self.ax.scatter([1], [1], c=[cmin], vmin=cmin,\
+                               vmax=cmax, visible=False))
+
+
+    # write colorbar
+    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+    self.add_legend_if_labels_exist(loc=loc)
+
+  def set_colorbar(self, mappable, clim=None, log=True, base=10): 
+
+    cmin, cmax = clim
+
+    # construct colorbar tick formatter, using logic not supported before python
+    # 2.5
+    if log and numpy.power(base,cmax)-numpy.power(base,cmin) > 4:
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                      numpy.power(base,x)>=1 and\
+                          "$%d$" % round(numpy.power(base, x)) or\
+                      numpy.power(base,x)>=0.01 and\
+                          "$%.2f$" % numpy.power(base, x) or\
+                      numpy.power(base,x)<0.01 and "$%f$")
+    elif log:
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%f$"\
+                                                        % numpy.power(base, x))
+    elif not log and cmax-cmin > 4:
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                      x>=1 and "$%d$" % round(x) or\
+                      x>=0.01 and "$%.2f$" % x or\
+                      x and "$%s$")
+    else:
+      formatter = None
+
+    if clim:
+      colorticks = numpy.linspace(cmin, cmax, 4)
+      self.colorbar = self.ax.figure.colorbar(mappable, format=formatter,\
+                                   ticks=colorticks)
+    else:
+      self.colorbar = self.ax.figure.colorbar(mappable, format=formatter)
+
+    self.colorbar.set_label(self.color_label)
+    self.colorbar.draw_all()
+
+# =============================================================================
+# Extension of ColorbarScatterPlot to plot DetChar-style scatter plot
+
+class DetCharScatterPlot(ColorbarScatterPlot):
+
+  """
+    A 'DetChar' style scatter plot, whereby those triggers under a threshold
+    on the colour column are plotted much smaller than others, allowing line
+    features to be shown easily. 
+  """
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', logx=False, logy=False, logz=True, base=10,\
+               clim=None, zthreshold=None):
+
+    p = []
+    # set colorbar limits
+    if clim:
+      cmin,cmax = clim
+    else:
+      try:
+        cmin = min([min(z_vals) for z_vals in self.z_data_sets])*0.99
+        cmax = max([max(z_vals) for z_vals in self.z_data_sets])*1.01
+      # catch no triggers
+      except ValueError:
+        cmin = 1
+        cmax = 10 
+    if not zthreshold:
+      zthreshold = cmin + 0.1*(cmax-cmin)
+
+    # reset logs
+    if logz:
+      cmin = numpy.math.log(cmin, base)
+      cmax = numpy.math.log(cmax, base)
+      zthreshold = numpy.math.log(zthreshold, base)
+
+    # make plot
+    for x_vals, y_vals, z_vals, plot_kwargs in\
+        itertools.izip(self.x_data_sets, self.y_data_sets, self.z_data_sets,\
+                       self.kwarg_sets):
+      plot_kwargs.setdefault("vmin", cmin)
+      plot_kwargs.setdefault("vmax", cmax)
+      plot_kwargs.setdefault("s", 20)
+      plot_kwargs.setdefault("marker", "o")
+      plot_kwargs.setdefault("edgecolor", "k")
+
+      if logz:
+        z_vals = [numpy.math.log(z, base) for z in z_vals]
+
+      # sort data by z-value
+      zipped = zip(x_vals, y_vals, z_vals)
+      zipped.sort(key=lambda (x,y,z): z)
+      x_vals, y_vals, z_vals = map(list, zip(*zipped))
+
+      bins = ['low', 'high']
+      x_bins = {}
+      y_bins = {}
+      z_bins = {}
+      for bin in bins:
+        x_bins[str(bin)] = []
+        y_bins[str(bin)] = []
+        z_bins[str(bin)] = []
+      for i in xrange(len(x_vals)):
+        if z_vals[i] < zthreshold:
+          x_bins[bins[0]].append(float(x_vals[i]))
+          y_bins[bins[0]].append(float(y_vals[i]))
+          z_bins[bins[0]].append(float(z_vals[i]))
+        else:
+          x_bins[bins[1]].append(float(x_vals[i]))
+          y_bins[bins[1]].append(float(y_vals[i]))
+          z_bins[bins[1]].append(float(z_vals[i]))
+
+      # plot bins
+      for i,bin in enumerate(bins):
+        if bin == bins[0]:
+          args = copy.deepcopy(plot_kwargs)
+          args['s']/=4
+          args['edgecolor'] = 'none'
+          if len(x_bins[bin])>=1:
+            p.append(self.ax.scatter(x_bins[bin], y_bins[bin], c=z_bins[bin],\
+                                     **args))
+        else:
+          if len(x_bins[bin])>=1:
+            p.append(self.ax.scatter(x_bins[bin], y_bins[bin], c=z_bins[bin],\
+                                     **plot_kwargs))
+      args = plot_kwargs
+
+    if len(p)<1:
+      p.append(self.ax.scatter([1], [1], c=[cmin], vmin=cmin,\
+                               vmax=cmax, visible=False))
+
+    # write colorbar
+    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+    self.add_legend_if_labels_exist(loc=loc)
+
+# =============================================================================
+# Extension of VerticalBarHistogram to include log axes
+
+class VerticalBarHistogram(plotutils.VerticalBarHistogram):
+
+  @plotutils.method_callable_once
+  def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
+               base=10):
+
+    # determine binning
+    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    if logx:
+      bins = numpy.logspace(numpy.math.log(min_stat, base),\
+                            numpy.math.log(max_stat, base),\
+                            num_bins+1, endpoint=True)
+    else:
+      bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
+
+    # determine bar width; gets silly for more than a few data sets
+    if logx:
+      width = [bins[i+1]-bins[i] for i in xrange(len(bins)-1)]
+    else:
+      width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
+
+    # set base of plot in log scale
+    if logy:
+      ymin = (base**-1)*5
+    else:
+      ymin = 0
+
+    # make plot
+    legends = []
+    plot_list = []
+    for i, (data_set, plot_kwargs) in \
+        enumerate(itertools.izip(self.data_sets, self.kwarg_sets)):
+      # set default values
+      plot_kwargs.setdefault("alpha", 0.6)
+      plot_kwargs.setdefault("align", "center")
+      plot_kwargs.setdefault("width", width)
+      if logy:
+        plot_kwargs.setdefault("bottom", ymin)
+      else:
+        plot_kwargs.setdefault("bottom", ymin)
+
+      # make histogram
+      y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      x = x[:-1]
+
+      if logy:
+        y = y-ymin
+
+      # stagger bins for pure aesthetics
+      #x += 0.1 * i * max_stat / num_bins
+
+      # plot
+      plot_item = self.ax.bar(x, y, **plot_kwargs)
+
+      # add legend and the right plot instance
+      # for creating the correct labels!
+      if "label" in plot_kwargs and \
+           not plot_kwargs["label"].startswith("_"):
+
+        legends.append(plot_kwargs["label"])
+        plot_list.append(plot_item[0])
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+    # set logy minimum
+    self.ax.set_ybound(lower=ymin)
+
+    # add legend if there are any non-trivial labels
+    self.ax.legend(plot_list, legends)
+
+# =============================================================================
+# Class for time series plot
+
+class DataPlot(plotutils.BasicPlot):
+
+  """
+    Time-series data plot. Just a nice looking line plot.
+  """
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.x_data_sets = []
+    self.y_data_sets = []
+    self.kwarg_sets = []
+
+  def add_content(self, x_data, y_data, **kwargs):
+    self.x_data_sets.append(x_data)
+    self.y_data_sets.append(y_data)
+    self.kwarg_sets.append(kwargs)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', logx=False, logy=False):
+    # make plot
+    plots = []
+    markersizes = []
+    markerscale = 4
+
+    for x_vals, y_vals, plot_kwargs, c in \
+        itertools.izip(self.x_data_sets, self.y_data_sets,\
+                       self.kwarg_sets, plotutils.default_colors()):
+
+      # magnify the markers on the legend
+      plot_kwargs.setdefault('markersize', 5)
+      markersizes.append(plot_kwargs['markersize'])
+      plot_kwargs['markersize'] = min(20, plot_kwargs['markersize']*markerscale)
+      # plot
+      plots.append(self.ax.plot(x_vals, y_vals, **plot_kwargs))
+
+    # add legend if there are any non-trivial labels
+    self.add_legend_if_labels_exist(loc=loc)
+    leg = self.ax.legend()
+    # magnify the lines on the legend 
+    for l in leg.get_lines():
+      if l.get_linewidth():
+        l.set_linewidth(4)
+
+    # reset markersizes on plot
+    for i,plot in enumerate(plots):
+      l = plot[0] 
+      l.set_markersize(markersizes[i])
+
+    # set axes
+    if logx:  self.ax.set_xscale('log')
+    if logy:  self.ax.set_yscale('log')
+
+# =============================================================================
+# Wrappers to translate ligolw table into plot
+# =============================================================================
+
+# =============================================================================
+# Plot time series of data set
+
+def plot_data_series(data, outfile, x_format='time', zero=None, \
+                     zeroindicator=False, **kwargs):
+
+  """
+    Plot the time series / spectrum of a given set (or given sets) of data.
+
+    Arguments:
+
+      data : list
+        list of (ChannelName,x_data,y_data) tuples with channel name (or data 
+        source) and time/freq, amplitude arrays for each channel. Channels are
+        plotted in the order given.
+      outfile : str
+        output plot path
+
+    Keyword Arguments:
+
+      x_format : [ 'time' | 'frequency' ]
+        type of data for x_axis, allows formatting of axes
+      zero : [ float | int | LIGOTimeGPS ]
+        time around which to centre time series plot
+      zeroindicator : [ False | True ]
+        indicate zero time with veritcal dashed line, default: False
+
+    Unnamed keyword arguments:
+
+      logx : [ True | False ]
+        boolean option to display x-axis in log scale.
+      logy : [ True | False ]
+        boolean option to display y-axis in log scale.
+      xlim : tuple
+        (xmin, xmax) limits for x-axis
+      ylim : tuple
+        (ymin, ymax) limits for y-axis
+      xlabel : string
+        label for x-axis
+      ylabel : string
+        label for y-axis
+      title : string
+        title for plot
+      subtitle : string
+        subtitle for plot
+
+    All other given arguments will be passed to matplotlib.axes.Axes.plot.
+  """
+
+  # format times
+  if not kwargs.has_key('xlim') or not kwargs['xlim']:
+    start = min([min(d[1]) for d in data])
+    end   = max([max(d[1]) for d in data])
+    kwargs['xlim'] = [start,end]
+
+  if not zero:
+    zero = kwargs['xlim'][0]
+
+  # set plot time unit whether it's used or not
+  if x_format=='time':
+    unit, timestr = time_unit(kwargs['xlim'][1]-kwargs['xlim'][0])
+
+  # set labels
+  if x_format=='time':
+    zero = LIGOTimeGPS('%.3f' % zero)
+    if zero.nanoseconds==0:
+      tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                   .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+    else:
+      tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                    .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+      tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+    xlabel   = kwargs.pop('xlabel',\
+                          'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+    title    = kwargs.pop('title', 'Time series')
+  else:
+    xlabel = kwargs.pop('xlabel', 'Frequency (Hz)')
+    title  = kwargs.pop('title', 'Frequency spectrum')
+
+  ylabel   = kwargs.pop('ylabel', 'Amplitude')
+  subtitle = kwargs.pop('subtitle', '')
+
+  # customise plot appearance
+  set_rcParams()
+
+  # get limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
+
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+
+  # generate plot object
+  plot = DataPlot(xlabel, ylabel, title, subtitle)
+
+  # set plot params
+  style = kwargs.pop('style', '-')
+  if style in ['-', '--', '-.', ':']:
+    kwargs.setdefault('linestyle', style)
+    kwargs.setdefault('linewidth', 2)
+    kwargs.pop('marker', None)
+  else:
+    kwargs.setdefault('marker', style)
+    kwargs.setdefault('markersize', 5)
+    kwargs.setdefault('linewidth', 0)
+    kwargs.pop('linestyle', ' ')
+
+  # add data
+  for channel,x_data,y_data in data:
+    if x_format=='time':
+      x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+    plot.add_content(x_data, y_data, label=str(channel).replace('_', '\_'),\
+                     **kwargs)
+
+  # finalize plot
+  plot.finalize(logx=logx, logy=logy)
+
+  # set axes
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  if ylim:
+    plot.ax.set_ylim(tuple(ylim))
+
+  # FIXME add zero indicator
+  if x_format=='time':
+    axis_lims = plot.ax.get_ylim()
+    if zeroindicator:
+      plot.ax.plot([0, 0], [axis_lims[0], axis_lims[1]], 'r--', linewidth=2)
+      plot.ax.set_ylim([ axis_lims[0], axis_lims[1] ])
+
+    # set x axis
+    plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+
+  set_ticks(plot.ax)
+
+  plot.savefig(outfile, bbox_inches='tight')
+
+# =============================================================================
+# Plot a histogram of any column
+
+def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
+                      seglist=None, flag='unknown', start=None, end=None,\
+                      livetime=None, etg=None, **kwargs):
+
+  """
+    Wrapper for dqPlotUtils.LineHistogram to plot a histogram of the value in
+    any column of the ligolw table triggers. If a glue.segments.segmentlist
+    seglist is given, the histogram is presented before and after removal of
+    triggers falling inside any segment in the list.
+
+    Arguments:
+
+      triggers : glue.ligolw.table.Table
         ligolw table containing triggers
       outfile : string
         string path for output plot
@@ -56,199 +959,192 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
 
       column : string
         valid column of triggers table to plot as histrogram
-      segments : glue.segments.segmentlist
+      num_bins : int
+        number of histogram bins to use
+      seglist : glue.segments.segmentlist
         list of segments with which to veto triggers
       flag : string
         display name of segmentlist, normally the name of the DQ flag
-      etg : string
-        display name of trigger generator, defaults based on triggers tableName
+      start : [ float | int | LIGOTimeGPS]
+        GPS start time (exclude triggers and segments before this time)
+      end : [ float | int | LIGOTimeGPS]
+        GPS end time (exclude triggers and segments after this time)
       livetime : [ float | int | LIGOTimeGPS ]
         span of time from which triggers and segments are valid, used to
         display histogram counts in terms of rate (Hz) for easy comparisons
+      etg : string
+        display name of trigger generator, defaults based on triggers tableName
+
+    Unnamed keyword arguments:
+
+      cumulative : [ True | False ]
+        plot cumulative histogram
+      rate : [ True | False ]
+        plot rate histogram (normalises with given or calculated livetime)
       fill : [ True | False ]
-        boolean option to fill below the histogram curves, default colors:
-        red (vetoed), green (not vetoed).
+        fill below the histogram curves, default colors:
+            red (vetoed), green (not vetoed).
       logx : [ True | False ]
-        boolean option to display column (x) axis in log scale.
+        boolean option to display x-axis in log scale.
+      logy : [ True | False ]
+        boolean option to display y-axis in log scale.
+      xlim : tuple
+        (xmin, xmax) limits for x-axis
+      ylim : tuple
+        (ymin, ymax) limits for y-axis
+      xlabel : string
+        label for x-axis
+      ylabel : string
+        label for y-axis
+      title : string
+        title for plot
+      subtitle : string
+        subtitle for plot
+      greyscale : [ True | False ]
+        use (non-greyscale) colour scheme suitable for greyscale plots
+
+    All other given arguments will be passed to matplotlib.axes.Axes.plot and
+    matplotlib.axes.Axes.fill_between. 
   """
 
-  get_time = def_get_time( triggers.tableName )
+  get_time = def_get_time(triggers.tableName)
 
   # calculate livetime
+  if not start or not end:
+    times = [get_time(t) for t in triggers]
+  if not start:
+    start = min(times)
+  if not end:
+    end   = max(times)
   if not livetime:
-
-    if not start and not end:
-      times = [ get_time( t ) for t in triggers ] 
-    if not start:
-      start = min( times )
-    if not end:
-      end   = max( times )
-    livetime = end-start 
+    livetime = end-start
   livetime = float(livetime)
 
-  # generate vetoed trigger list: inspiral trigs have dedicated function 
-  if not segments:
-    segments = segmentlist()
-
-  aftertriggers = table.new_from_template( triggers )
-  aftertriggers.extend([ t for t in triggers if get_time(t) not in segments ])
-
-  afterlivetime = livetime - float(segments.__abs__())
-
-  # set up histogram data
-  try:
-    if logx:
-      start_data = [math.log10( trig.__getattribute__( column ) )\
-                    for trig in triggers]
-      end_data   = [math.log10( trig.__getattribute__( column ) )\
-                    for trig in aftertriggers]
-    else:
-      start_data = [trig.__getattribute__( column ) for trig in triggers]
-      end_data   = [trig.__getattribute__( column ) for trig in aftertriggers]
-  except KeyError:
-    err = 'Column %s not found in %s.' % ( column,triggers.tableName )
-    raise KeyError, err
-
-  if segments:
-    color = ['red','green']
+  # format seglist and work out vetoed triggers
+  if seglist==None:
+    seglist = segments.segmentlist()
   else:
-    color = ['blue']
+    seglist = segments.segmentlist(seglist)
 
-  # generate histogram
-  num_bins = 1000
-  if len( triggers )>=1:
+  preData  = []
+  postData = []
+  for trig in triggers:
+    datum = float(getTrigAttribute(trig, column))
+    preData.append(datum)
+    if get_time(trig) not in seglist:
+      postData.append(datum)
 
-    if cumulative:
-      cumulative = -1
+  vetoLivetime = livetime-float(abs(seglist))
 
-    start_n,start_bins,start_p = pylab.hist( start_data, bins=num_bins,\
-                                             range=( min( start_data ),\
-                                                     max( start_data ) ),\
-                                             histtype='stepfilled',\
-                                             cumulative=cumulative,\
-                                             facecolor=color[0],\
-                                             visible=False )
-
+  # set some random plot parameters
+  greyscale = kwargs.pop('greyscale', False)
+  if seglist:
+    color = ['r','g']
+    label = ['Before vetoes', 'After vetoes']
   else:
-    bins = []
-    start_n = []
-    
-  if len( aftertriggers)>=1:
-    end_n,end_bins,end_p = pylab.hist( end_data, bins=num_bins,\
-                                       range=( min( start_data ),\
-                                               max( start_data ) ),\
-                                       histtype='stepfilled',\
-                                       cumulative=cumulative,\
-                                       facecolor=color[-1],\
-                                       visible=False )
-
+    color = ['b']
+    label = ['_']
+  if greyscale:
+    color = ['k','k']
+    linestyle = ['-','--']
   else:
-    end_n = []
-
-  if len( triggers )>=1:
-    # recalculate centre of bins ( in logscal, if required )
-    bins = []
-    for i in range( len( start_bins )-1 ):
-      if logx:
-        bins.append( 0.5 * ( math.pow( 10, start_bins[i] )+\
-                             math.pow( 10, start_bins[i+1] ) ) )
-      else:
-        bins.append( 0.5 * ( start_bins[i]+start_bins[i+1] ) )
-
-    # reset zero values to base ( so logscale doesn't break )
-    if rate:
-      base = 0.5/livetime
-    else:
-      base = 0.5
-    def zero_replace( num, base ):
-      if num==0:
-        return base
-      else:
-        return num
-    start_n = map( lambda n: zero_replace( n, base ), start_n )
-    end_n   = map( lambda n: zero_replace( n, base ), end_n )
-
-    # convert number to rate
-    if rate:
-      start_n = [n/livetime for n in start_n]
-      end_n   = [n/afterlivetime for n in end_n]
+    linestyle = ['-','-']
 
   # fix names for latex
   if flag:
-    flag = flag.replace( '_','\_' )
+    flag = flag.replace('_','\_')
   else:
-    flag = 'unknown'
-  column = ' '.join([ w.title().replace('Snr','SNR')\
-                      for w in column.split('_') ])
+    flag = 'Unknown'
 
   # customise plot appearance
-  pylab.rcParams.update( {"text.usetex": True,
-                         "text.verticalalignment": "center",
-                         "lines.linewidth": 5,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
-                         "axes.titlesize": 22,
-                         "axes.labelsize": 18,
-                         "axes.linewidth": 1,
-                         "grid.linewidth": 1,
-                         "legend.fontsize": 20} )
+  set_rcParams()
 
-  # plot data
-  fig = pylab.figure( figsize=[12,6] )
-  ax  = fig.gca()
-  ax.loglog()
+  # get limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
 
-  if not fill:
-    ax.plot( bins,start_n,color[0],linewidth=2,label='Before vetoes' )
-    if len( aftertriggers )>=1:
-      ax.plot( bins,end_n,color[-1],linewidth=2,label='After vetoes' )
-  if fill:
-    ax.plot( bins,start_n,color[0],linewidth=0,label='Before vetoes' )
-    ax.fill_between( bins,base,start_n,color=color[-1],edgecolor='k',\
-                     linewidth=0.5 )
-    if len( aftertriggers )>=1:
-      ax.plot( bins,end_n,color[-1],linewidth=0,label='After vetoes' )
-      ax.fill_between( bins,base,end_n,color=color[-1],edgecolor='k',\
-                       linewidth=0.5, alpha=0.9 )
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
 
-  # figure sundries
-  if segments:
-    leg = ax.legend( loc='best' )
-    for l in leg.get_lines():
-      l.set_linewidth( 4 )
-  if bins:
-    ax.set_xlim( min( bins ),max( bins ) )
-    ax.set_ylim( base,max( start_n )*1.01 )
-  ax.set_xlabel( column.replace( '_','\_' ) )
+  # get fill
+  fill = kwargs.pop('fill', False)
+
+  # get extras
+  cumulative = kwargs.pop('cumulative', False)
+  rate       = kwargs.pop('rate', False)
+
+  # set labels
+  xlabel = kwargs.pop('xlabel', display_name(column))
   if rate and cumulative:
-    ax.set_ylabel( 'Cumulative rate (Hz)' )
+    ylabel = kwargs.pop('ylabel', 'Cumulative rate (Hz)')
   elif rate:
-    ax.set_ylabel( 'Rate (Hz)' )
+    ylabel = kwargs.pop('ylabel', 'Rate (Hz)')
   elif not rate and cumulative:
-    ax.set_ylabel( 'Cumulative number' )
+    ylabel = kwargs.pop('ylabel', 'Cumulative number')
   elif not rate and not cumulative:
-    ax.set_ylabel( 'Number' )
-  tit = '%s triggers' % ( etg.replace( '_','\_' ) )
-  if segments:
-    tit += ' and %s segments' % ( flag )
+    ylabel = kwargs.pop('ylabel', 'Number')
+
+  # get ETG
+  if not etg:
+    if re.search('burst', trigs.tableName.lower()):
+      etg = 'Burst'
+    elif re.search('inspiral', trigs.tableName.lower()):
+      etg = 'Inspiral'
+    elif re.search('ringdown', trigs.tableName.lower()):
+      etg = 'Ringdown'
+    else:
+      etg = 'Unknown'
+
+  title = '%s triggers' % (etg.replace('_','\_'))
+  if seglist:
+    title += ' and %s segments' % (flag)
+  title = kwargs.pop('title', title)
   if start and end:
-    tit += ': %s-%s' % ( start, end )
-  ax.set_title( tit )
-  ax.grid( True,which='major' )
-  ax.grid( True,which='majorminor' )
-  ax.set_axisbelow( True )
-  fig.savefig( outfile, bbox_inches='tight' )
+    subtitle = '%s-%s' % (start, end)
+  else:
+    subtitle = ""
+  subtitle = kwargs.pop('subtitle', subtitle)
+
+  # generate plot object
+  plot = LineHistogram(xlabel, ylabel, title, subtitle)
+
+  # add each data set
+  plot.add_content(preData, livetime=livetime, color=color[0],\
+                   linestyle=linestyle[0], label=label[0], **kwargs)
+  if seglist:
+    plot.add_content(postData, livetime=vetoLivetime, color=color[1],\
+                     linestyle=linestyle[1], label=label[1], **kwargs)
+
+  # finalize plot with histograms
+  plot.finalize(num_bins=num_bins, logx=logx, logy=logy, cumulative=cumulative,\
+                rate=rate, fill=fill)
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+
+  # set lower y axis limit
+  if rate:
+    ymin = 1/livetime
+  elif logy:
+    ymin = 0.5
+  else:
+    ymin = plot.ax.get_ylim()[0]
+  plot.ax.set_ybound(lower=ymin)
+
+  # set global axis limits
+  if xlim:
+    plot.ax.set_xlim(xlim)
+  if ylim:
+    ploy.ax.set_ylim(ylim)
+
+  # save figure
+  plot.savefig(outfile, bbox_inches='tight')
 
 # =============================================================================
-# Function to plot SNR vs. time with veto segments
-# =============================================================================
+# Plot one column against another column coloured by any third column
 
-def plot_triggers( triggers, outfile, etg='Unknown',\
-                   start=None, end=None, zero=None,\
-                   segments=None, flag=None,\
-                   xcolumn='time', ycolumn='snr', zcolumn=None,\
-                   xlabel=None, ylabel=None, zlabel=None,\
-                   logx=False, logy=True, logz=True, ylim=None ):
+def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
+                  zcolumn=None, etg=None, start=None, end=None, zero=None,\
+                  seglist=None, flag=None, **kwargs):
 
   """
     Plots ycolumn against xcolumn for columns in given
@@ -260,434 +1156,698 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
     stored separately in the SnglTable structures. In this case the
     trigger.get_xxxx() function is called.
 
-    Arguments arguments:
-    
-      start : [ float | int | LIGOTimeGPS]
-        GPS start time
-      end : [ float | int | LIGOTimeGPS]
-        GPS end time
-      triggers : [ SnglBurstTable | SnglInspiralTable | SnglRingdownTable ] 
+    Arguments:
+
+      triggers : glue.ligolw.table.Table
         ligolw table containing triggers
       outfile : string
         string path for output plot
 
     Keyword arguments:
 
-      etg : string
-        display name of trigger generator, defaults based on triggers tableName
-      start : [ float | int | LIGOTimeGPS]
-        GPS start time
-      end : [ float | int | LIGOTimeGPS]
-        GPS end time
-        list of segments with which to veto triggers
-      flag : string
-        display name of segmentlist, normally the name of the DQ flag
       xcolumn : string
         valid column of triggers table to plot on x-axis
       ycolumn : string
         valid column of triggers table to plot on y-axis
       zcolumn : string
-        valid column of triggers table to use for colorbar. If not given, no
-        colorbar will be used and all triggers will be blue.
+        valid column of triggers table to use for colorbar (optional).
+      etg : string
+        display name of trigger generator, defaults based on triggers tableName 
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of plot
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of plot
+      zero : [ float | int | LIGOTimeGPS ]
+        time around which to centre plot
+      seglist : glue.segments.segmentlist
+        list of segments with which to veto triggers
+      flag : string
+        display name of segmentlist, normally the name of the DQ flag
+
+    Unnamed keyword arguments:
+
+      detchar : [ True | False ]
+        use 'DetChar' style for scatter plot with colorbar, triggers below given
+        dcthreshold are small with no edges, whilst other triggers are normal
+      dcthreshold : float
+        threshold below which scatter points are small with no edges when using
+        DetChar plotting style
       logx : [ True | False ]
         boolean option to display x-axis in log scale.
       logy : [ True | False ]
         boolean option to display y-axis in log scale.
       logz : [ True | False ]
-        boolean option to display z-axis (colorbar) in log scale.
+        boolean option to display z-axis in log scale.
+      xlim : tuple
+        (xmin, xmax) limits for x-axis. Triggers outside range are removed.
+      ylim : tuple
+        (ymin, ymax) limits for y-axis. Triggers outside range are removed.
+      zlim : tuple
+        (zmin, zmax) limits for z-axis. Triggers outside range are removed.
+      clim : tuple
+        (cmin, cmax) limits for color scale. Triggers outside range are moved
+        onto boundary.
+      xlabel : string
+        label for x-axis
+      ylabel : string
+        label for y-axis
+      zlabel : string
+        label for z-axis
+      title : string
+        title for plot
+      subtitle : string
+        subtitle for plot
+      greyscale : [ True | False ]
+        use (non-greyscale) colour scheme suitable for greyscale plots
+
+    All other given arguments will be passed to matplotlib.axes.Axes.scatter. 
   """
 
-  get_time = def_get_time( triggers.tableName )
+  # get time column
+  get_time = def_get_time(triggers.tableName)
 
-  # calculate livetime
-  if not start or end:
-    times = [ get_time( t ) for t in triggers ]
-  if not start:
-    start = int( math.floor( min( times ) ) )
-  if not end:
-    end   = int( math.ceil( max( times ) ) )
+  # set start and end time if needed
+  if not start or not end:
+    times = [ get_time(t) for t in triggers ]
+  if not start and len(triggers)>=1:
+    start = int(math.floor(min(times)))
+  elif not start:
+    start = 0 
+  if not end and len(triggers)>=1:
+    end   = int(math.ceil(max(times)))
+  elif not end:
+    end   = 1
 
+  # set zero time
   if not zero:
     zero = start
 
-  columns = [ xcolumn, ycolumn]
-  xcolumn = xcolumn.lower()
-  ycolumn = ycolumn.lower()
-  if zcolumn:
-    columns.append(zcolumn)
-    zcolumn = zcolumn.lower()
+  # get time params
+  unit,timestr = time_unit(end-start)
 
-  for i,c in enumerate(columns):
-    columns[i] = ' '.join([ w.title().replace('Snr','SNR')\
-                            for w in c.split('_') ])
+  # set up segmentlist
+  if seglist:
+    segs = segments.segmentlist(seglist)
+  if not seglist:
+    segs = segments.segmentlist()
 
-  # sort triggers by z param
-  if zcolumn:
-    triggers.sort( key=lambda trig: trig.__getattribute__( zcolumn ),\
-                   reverse=False )
+  # get axis limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
+  zlim = kwargs.pop('zlim', None)
+  clim = kwargs.pop('clim', zlim)
 
-  # apply veto segments if required
-  if segments is not None:
-    segments = segmentlist( segments )
-  
-    # set up vetoed/nonvetoed trigger lists, inspiral triggers have dicated func
-    trigs =  table.new_from_template( triggers )
-    vetotrigs = table.new_from_template( triggers )
+  # set up columns and lists
+  columns = map(str.lower, [xcolumn, ycolumn])
+  if zcolumn: columns.append(zcolumn.lower())
+  vetoData  = {}
+  nvetoData = {}
+  label     = {}
+  limits    = [xlim, ylim, zlim]
+  for i,col in enumerate(columns):
+    if re.search('time\Z', col) and not limits[i]:
+      limits[i] = [start,end]
+    vetoData[col]  = []
+    nvetoData[col] = []
 
-    trigs.extend( t for t in triggers if get_time( t ) not in segments )
-    vetotrigs.extend( t for t in triggers if get_time( t ) in segments )
+  # separate triggers
+  for trig in triggers:
+    use=True
+    for i,col in enumerate(columns):
+      val = float(getTrigAttribute(trig, col))
+      if limits[i] and not limits[i][0] <= val <= limits[i][1]:
+        use=False
+    if use:
+      for i,col in enumerate(columns):
+        val = float(getTrigAttribute(trig, col))
+        if get_time(trig) in segs:
+          vetoData[col].append(val)
+        else:
+          nvetoData[col].append(val)
 
-  # or copy lists with empty vetoed triggers list
-  else:
-    trigs     = triggers
-    vetotrigs = table.new_from_template( triggers )
+  data = {}
+  for i,col in enumerate(columns):
+    vetoData[col]  = numpy.array(vetoData[col])
+    nvetoData[col] = numpy.array(nvetoData[col])
+    data[col] = numpy.concatenate((nvetoData[col], vetoData[col]))
+    if not limits[i] and len(data[col])>=1:
+      limits[i] = [0,0]
+      limits[i][0] = data[col].min()*0.99
+      limits[i][1] = data[col].max()*1.01
 
-  # set plot time unit whether it's used or not
-  if ( end-start ) < 20000:
-    t_unit = 60
-  elif ( end-start ) >= 20000 and ( end-start ) < 604800:
-    t_unit = 3600
-  else:
-    t_unit = 86400
-  t_string = {60:'minutes',3600:'hours',86400:'days'}
+    # renormalise time and set time axis label unless given
+    if re.search('time\Z', col):
+      renormalise = True
+      if kwargs.has_key('xlabel'):  renormalise = False
+      if renormalise:
+        vetoData[col] = (vetoData[col]-float(zero))/unit
+        nvetoData[col] = (nvetoData[col]-float(zero))/unit
+        limits[i] = [float(limits[i][0]-zero)/unit,\
+                     float(limits[i][1]-zero)/unit]
 
-  # set up plot lists
-  notvetoed = {}
-  vetoed = {}
-
-  for col in [xcolumn,ycolumn]:
-    try:
-      # treat 'time as special case'
-      if col=='time':
-        notvetoed[col] = [ float( get_time(t) - zero ) / t_unit\
-                           for t in trigs ]
-        vetoed[col] = [ float( get_time(t) - zero ) / t_unit\
-                        for t in vetotrigs ]
-      else:
-        notvetoed[col]   = list( trigs.getColumnByName( col ) )
-        vetoed[col]      = list( vetotrigs.getColumnByName( col ) )
-    except KeyError:
-      err = 'Column %s not found in %s.' % ( col,triggers.tableName )
-      raise KeyError, err
-
-  # get z column
-  if zcolumn:
-    if logz:
-      notvetoed[zcolumn] = [ math.log10(t) for t in\
-                             trigs.getColumnByName( zcolumn ) ]
-      vetoed[zcolumn]    = [ math.log10(t) for t in\
-                             vetotrigs.getColumnByName( zcolumn ) ]
+  # set labels
+  for i,col in enumerate(['xcolumn', 'ycolumn', 'zcolumn']):
+    if i >= len(columns):  continue
+    if re.search('time\Z', columns[i]):
+      zerostr = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                         .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+      lab = 'Time (%s) since %s (%s)' % (timestr, zerostr, zero)
+      label[columns[i]] = kwargs.pop('%slabel' % col[0], lab)
     else:
-      notvetoed[zcolumn] = list( trigs.getColumnByName( zcolumn ) )
-      vetoed[zcolumn]    = list( vetotrigs.getColumnByName( zcolumn ) )
+      label[columns[i]] = kwargs.pop('%slabel' % col[0],\
+                                     display_name(columns[i]))
 
-  # or make a default replacement 
-  else:
-    notvetoed[zcolumn] = [1]*len( trigs )
-    vetoed[zcolumn] = [1]*len( vetotrigs )
+  # find loudest event
+  loudest = {}
+  if len(columns)==3 and\
+     len(nvetoData[columns[0]])+len(vetoData[columns[0]])>=1:
+    # find loudest vetoed event
+    vetomax = 0
+    if len(vetoData[columns[2]])>=1:
+      vetomax = vetoData[columns[2]].max()
+    nvetomax = 0
+    # find loudest unvetoed event
+    if len(nvetoData[columns[2]])>=1:
+      nvetomax = nvetoData[columns[2]].max()
+    if vetomax == nvetomax == 0:
+      pass
+    # depending on which one is loudest, find loudest overall event
+    elif vetomax > nvetomax:
+      index = vetoData[columns[2]].argmax()
+      for col in columns:
+        loudest[col] = vetoData[col][index] 
+    else:
+      index = nvetoData[columns[2]].argmax()
+      for col in columns:
+        loudest[col] = nvetoData[col][index]
 
-  numtrigs = len( trigs )
-  numveto  = len( vetotrigs )
-
-  # =============
-  # generate plot
-  # =============
   # fix flag for use with latex
   if flag:
-    flag = flag.replace( '_', '\_' )
+    flag = flag.replace('_', '\_')
   else:
-    flag = 'unknown'
-  if etg:
-    etg  = etg.replace( '_', '\_' )
+    flag = 'Unknown'
+
+  # get ETG
+  if not etg:
+    if re.search('burst', triggers.tableName.lower()):
+      etg = 'Burst'
+    elif re.search('inspiral', triggers.tableName.lower()):
+      etg = 'Inspiral'
+    elif re.search('ringdown', triggers.tableName.lower()):
+      etg = 'Ringdown'
+    else:
+      etg = 'Unknown'
   else:
-    etg  = 'Unknown'
+    etg = etg.replace('_', '\_')
 
   # customise plot appearance
-  pylab.rcParams.update( {"text.usetex": True,
-                         "text.verticalalignment": "center",
-                         "lines.linewidth": 5,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
-                         "axes.titlesize": 22,
-                         "axes.labelsize": 18,
-                         "axes.linewidth": 1,
-                         "grid.linewidth": 1,
-                         "legend.fontsize": 20} )
-
-  fig = pylab.figure( figsize=[12,6] )
-  ax  = fig.gca()
-  #ax  = pylab.axes([0.1, 0.1, 0.9, 0.8])
-  m = 5
-  plots = []
-
-  # define colour colormap
-  cdict = matplotlib.cm.jet._segmentdata
-  cmap = matplotlib.colors.LinearSegmentedColormap( 'clrs', cdict )
-
-  # define colour range
-  cmin = None
-  if zcolumn:
-    if numtrigs + numveto >= 1:
-      cmin = min( notvetoed[zcolumn]+vetoed[zcolumn] )
-      cmax = max( notvetoed[zcolumn]+vetoed[zcolumn] )
-      colorticks = arange( cmin, cmax, float(cmax - cmin)/5 )
-    # if colouring by SNR, move to standard DQ range of 5->100
-    if zcolumn.lower()=='snr' or numtrigs + numveto < 1:
-      if logz:
-        cmin = math.log( 3, 10 )
-        cmax = math.log( 110, 10 )
-        colorticks = [ math.log10(3), math.log10(10), math.log10(30),\
-                       math.log10(100) ]
-  if cmin==None:
-    cmin = 3
-    cmax = 100
-    colorticks = [10,50,100]
-
-  if numtrigs >= 1:
-    p1 = ax.scatter( notvetoed[xcolumn], notvetoed[ycolumn],\
-                     c=notvetoed[zcolumn], marker='o', cmap=cmap,\
-                     vmin=cmin, vmax=cmax )
-
-  # plot vetoed triggers if required
-  if numveto >= 1:
-    if zcolumn:
-      c='k'
-    else:
-      c='r'
-    p2 = ax.scatter( vetoed[xcolumn],vetoed[ycolumn],marker='x',\
-                     label='Vetoed',edgecolor=c, vmin=cmin, vmax=cmax )
-
-  if numtrigs + numveto < 1:
-    p1 = ax.scatter( [0], [0], c=[cmin], cmap=cmap, vmin=cmin, vmax=cmax,\
-                     visible=False )
-
-  #  construct colorbar
-  if zcolumn:
-
-    if numtrigs + numveto >= 1:
-      # get loudest event and plot as gold star
-      maxidx = list( notvetoed[zcolumn]+vetoed[zcolumn] )\
-                    .index( max( notvetoed[zcolumn]+vetoed[zcolumn] ) )
-      maxx   = list( notvetoed[xcolumn]+vetoed[xcolumn] )[maxidx]
-      maxy   = list( notvetoed[ycolumn]+vetoed[ycolumn] )[maxidx]
-      maxz   = math.pow( 10,list( notvetoed[zcolumn]+vetoed[zcolumn] )[maxidx] )
-
-      pylab.plot( [maxx],[maxy],color='gold',marker='*',markersize=15 )
-
-    else:
-      maxx = 0
-      maxy = 0
-      maxz = 0
-
-
-    # draw colorbar
-    formatter = matplotlib.ticker.FuncFormatter( lambda x,pos:\
-                                                 "%d" % round(math.pow(10,x)) )
-    cb = ax.figure.colorbar( p1, format = logz and formatter,\
-                             ticks=colorticks )
-    cb.draw_all()
-    if not zlabel:
-      zlabel = columns[2]
-    cb.ax.set_ylabel( zlabel )
-
-  # set axes
-  if logx:
-    ax.set_xscale( 'log' )
-  if logy:
-    ax.set_yscale( 'log' )
-
-  # print legend
-  #if segments is not None:
-  #  ax.legend()
-
-  # get start time in UTC for axis
-  if re.search( 'time',xcolumn+ycolumn ):
-    zerostring = datetime( *date.XLALGPSToUTC( LIGOTimeGPS( zero ) )[:6] )\
-                     .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
-
-  # set x label and lim
-  if re.search( 'time', xcolumn ):
-    if not xlabel:
-      xlabel = 'Time (%s) since %s (%s)'\
-                % ( t_string[t_unit], zerostring, zero )
-    pstart = float( start-zero )/t_unit
-    pend   = float( end-zero )/t_unit
-    ax.set_xlim( pstart, pend)
-
-  else:
-    if not xlabel:
-      xlabel = columns[0]
-    if len( triggers )>=1:
-      ax.set_xlim( min( vetoed[xcolumn]+notvetoed[xcolumn] )*0.99,\
-                   max( vetoed[xcolumn]+notvetoed[xcolumn] )*1.01 )
-
-  ax.set_xlabel( xlabel )
-
-  # set y label and lim
-  if re.search( 'time',ycolumn ):
-    if not ylabel:
-      ylabel = 'Time (%s) since %s (%s)'\
-               % ( t_string[t_unit], zerostring, zero )
-    if len( triggers )>=1:
-      ax.set_ylim( 0,float( end-start )/t_unit )
-  else:
-    if not ylabel:
-      ylabel = columns[1]
-    if len( triggers )>=1:
-      ax.set_ylim( min( vetoed[ycolumn]+notvetoed[ycolumn] )*0.99,\
-                  max( vetoed[ycolumn]+notvetoed[ycolumn] )*1.01 )
-
-  ax.set_ylabel( ylabel )
-
-  if ylim:
-    ax.set_ylim( tuple(ylim) )
+  set_rcParams()
 
   # set title
-  tit = '%s triggers' % ( etg )
-  if segments is not None:
-    tit += ' \&  %s segments' % ( flag )
-  ax.set_title( tit, x=0.5, y=1.03 )
+  title = '%s triggers' % etg
+  if seglist:
+    title += ' and %s segments' % (flag)
+  title = kwargs.pop('title', title)
 
-  # set subtitle
-  if zcolumn:
-    if re.search( 'time',xcolumn ):  maxx = maxx*t_unit+start
-    if re.search( 'time',ycolumn ):  maxy = maxy*t_unit+start
+  if len(columns)==3 and loudest:
+    subtitle = "Loudest event by %s:" % display_name(columns[-1])
+    for col in columns:
+      maxcol = loudest[col]
+      if re.search('time\Z', col) and renormalise:
+        maxcol = maxcol*unit+zero
+      loudstr = "%s=%.2f" % (display_name(col), maxcol)
+      if not re.search(loudstr, subtitle):
+        subtitle += ' %s' % loudstr
+  elif start and end:
+    subtitle = '%s-%s' % (start, end)
+  else:
+    subtitle = ''
+  subtitle = kwargs.pop('subtitle', subtitle)
 
-    subtit = 'Loudest event: %s=%s %s=%.2f %s=%.2f'\
-             % ( columns[0], maxx,\
-                 columns[1], maxy,\
-                 columns[2], maxz )
-    ax.text( 0.5, 1.001, subtit, horizontalalignment='center',\
-             transform = ax.transAxes )
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+  logz = kwargs.pop('logz', False)
 
+  # get detchar plot params
+  detchar = kwargs.pop('detchar', False)
+  dcthresh = float(kwargs.pop('dcthreshold', 10))
+
+  # get greyscale param
+  greyscale = kwargs.pop('greyscale', False)
+  if greyscale and not kwargs.has_key('cmap'):
+    kwargs['cmap'] = pylab.matplotlib.colors.LinearSegmentedColormap('clrs',\
+                                           pylab.matplotlib.cm.hot._segmentdata)
+
+  # initialise standard scatter plot
+  if len(columns)==2:
+    plot = ScatterPlot(label[columns[0]], label[columns[1]], title, subtitle)
+    # add non veto triggers
+    if len(nvetoData[columns[0]])>=1:
+      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]], **kwargs)
+    # add veto triggers
+    if len(vetoData[columns[0]])>=1:
+      plot.add_content(vetoData[columns[0]], vetoData[columns[1]], marker='x',\
+                       color='r')
+    # finalise
+    plot.finalize(logx=logx, logy=logy)
+  # initialise scatter plot with colorbar
+  elif len(columns)==3:
+    # initialize color bar plot
+    if detchar:
+      plot = DetCharScatterPlot(label[columns[0]], label[columns[1]],\
+                                label[columns[2]], title, subtitle)
+    else:
+      plot = ColorbarScatterPlot(label[columns[0]], label[columns[1]],\
+                                 label[columns[2]], title, subtitle)
+
+    # add non veto triggers
+    if len(nvetoData[columns[0]])>=1:
+      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]],\
+                       nvetoData[columns[2]], **kwargs)
+    # add veto triggers
+    if len(vetoData[columns[0]])>=1:
+      plot.add_content(vetoData[columns[0]], vetoData[columns[1]],\
+                       vetoData[columns[2]], marker='x', edgecolor='r',\
+                       **kwargs)
+    # finalise
+    if detchar:
+      plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim,\
+                    zthreshold=dcthresh)
+    else:
+      plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim)
+    # add loudest event to plot
+    if loudest:
+      plot.ax.plot([loudest[columns[0]]], [loudest[columns[1]]],\
+                   marker='*', color='gold', markersize=15)
+
+  # set axes
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+
+  if limits[0]:
+    if logx and limits[0][0]==0:
+      limits[0][0] = min(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
+    if logx and limits[0][1]==0:
+      limits[0][1] = max(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
+    plot.ax.set_xlim(limits[0])
+  if limits[1]:
+    if logy and limits[1][0]==0:
+      limits[1][0] = min(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
+    if logy and limits[1][1]==0:
+      limits[1][1] = max(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
+    plot.ax.set_ylim(limits[1])
+
+  # reset ticks
+  set_ticks(plot.ax)
   # get both major and minor grid lines
-  ax.grid( True, which='major' )
-  ax.grid( True, which='majorminor' )
-  ax.set_axisbelow( True )
-  fig.savefig( outfile, bbox_inches='tight' )
+  plot.savefig(outfile, bbox_inches='tight')
 
 # =============================================================================
-# Plot science segment histogram
-# =============================================================================
+# Plot a histogram of segment duration
 
-def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
-                      logx=False,logy=False ):
+def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
 
   """
-    Plots a histogram of segment duration for the glue.segments.segmentlist
     segments.
+    Plots a histogram of segment duration for the glue.segments.segmentlist
 
     Arguments:
 
-      segments : glue.segments.segmentlist
-        list of segments with which to veto triggers
+      segs : [ glue.segments.segmentlist | glue.segments.segmentlistdict ]
+        list of segments with which to veto triggers, use dict for multiple
+        datasets
       outfile : string 
         string path for output plot
    
     Keyword arguments:
 
-      flag : string
-        display name for segments, normally the name of the DQ flag
+      flag : [ string | list ]
+        display name for segments (or ordered list of keys for segmentlistdict),
+        normally the name(s) of the DQ flag
       logx : [ True | False ]
         boolean option to display x-axis in log scale.
       logy : [ True | False ]
         boolean option to display y-axis in log scale.
   """
 
-  durations = [seg.__abs__() for seg in segments]
+  # customise plot appearance
+  set_rcParams()
 
-  # set numbins
-  if not len( segments )<1:
-    if coltype==int and not logx:
-      numbins = min( max( durations )-min( durations ),200 )
+  # get labels
+  xlabel = kwargs.pop('xlabel', 'Length of segment (seconds)')
+  ylabel = kwargs.pop('ylabel', 'Number of segments')
+  title  = kwargs.pop('title',  'Segment Duration Histogram')
+
+  # get axis scale
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+
+  # format mutltiple segments
+  flag = kwargs.pop('flag', None)
+  if isinstance(segs,list):
+    if not flag:
+      flag = '_'
     else:
-      numbins = min( len( segments ),200 )
+      flag = str(flag).replace('_','\_')
+    segs = segments.segmentlistdict({flag:segs})
+    flags = [flag]
+  else:
+    if not flag:
+      flags = sorted(segs.keys())
+    elif isinstance(flag, list):
+      flags = flag
+    else:
+      flags = [str(flag)]
+    for i,flag in enumerate(flags):
+      flags[i] = flag.replace('_','\_')
+      if flags[i]!=flag:
+        segs[flags[i]] = segs[flag]
+        del segs[flag]
 
-  if logx:
-    durations = [math.log10( d ) for d in durations]
+  # generate plot object
+  plot = VerticalBarHistogram(xlabel, ylabel, title)
 
-  # fix flag and columns for use with latex
-  if flag:
-    flag = flag.replace( '_','\_' )
+  # add each segmentlist
+  for flag,c in zip(flags, plotutils.default_colors()):
+    plot.add_content([abs(seg) for seg in segs[flag]], label=flag, color=c,\
+                     **kwargs)
+
+  # finalize plot with histograms
+  plot.finalize(num_bins=num_bins, logx=logx, logy=logy)
+
+  # save figure
+  plot.savefig(outfile, bbox_inches='tight')
+
+# =============================================================================
+# Plot rate versus time in bins
+
+def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
+                      zero=None, bincolumn='peak_frequency', bins=[],\
+                      etg='Unknown', **kwargs):
+
+  """
+    Plot rate versus time for the given ligolw table triggers, binned by the
+    given bincolumn using the bins list.
+
+    Arguments:
+
+      triggers : glue.ligolw.table
+        LIGOLW table containing a list of triggers
+      outfile : string
+        string path for output plot
+
+    Keyword arguments:
+
+      average : float
+        Length (seconds) of rate segment
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time
+      zero : [ float | int | LIGOTimeGPS ]
+        GPS time to use for 0 on time axis
+      bincolumn : string
+        valid column of the trigger table to use for binning
+      bins : list
+        list of tuples defining the rate bins
+      etg : string
+        display name of trigger generator
+      logy : [ True | False ]
+        boolean option to display y-axis in log scale
+      ylim : tuple
+        (ymin, ymax) limits for rate axis
+  """
+
+  tableName = triggers.tableName.lower()
+  get_time = def_get_time(tableName)
+
+  # set start and end times
+  if not start and not end:
+    times = [get_time(t) for t in triggers]
+  if not start:
+    start = min(times)
+  if not end:
+    end   = max(times)
+
+  if not zero:
+    zero = start
+
+  # set plot time unit whether it's used or not
+  unit, timestr = time_unit(end-start)
+
+  # set ETG
+  if not etg:
+    if re.search('burst', tableName):
+      etg = 'Burst'
+    elif re.search('inspiral', tableName):
+      etg = 'Inspiral'
+    elif re.search('ringdown', tableName):
+      etg = 'Ringdown'
+    else:
+      etg = 'Unknown'
+
+  # get limits
+  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  ylim = kwargs.pop('ylim', None)
+
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+
+  # format ybins
+  if not bins:
+    bins  = [[0,float('inf')]]
+  ybins   = [map(float, bin) for bin in bins]
+
+  # bin data
+  tbins   = {}
+  rate = {}
+  for bin in ybins:
+    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
+
+  for trig in triggers:
+    x = int(float(getTrigAttribute(trig, 'time')-start)//average)
+    y = getTrigAttribute(trig, bincolumn)
+    for bin in ybins:
+      if bin[0] <= y < bin[1]:
+        rate[bin[0]][x] += 1/average
+        break
+
+  # if logscale includes zeros, pylab.scatter will break, so remove zeros
+  if logy:
+    for bin in ybins:
+      removes = 0
+      numtbins = len(tbins[bin[0]])
+      for rbin in xrange(0,numtbins):
+        if rate[bin[0]][rbin-removes]==0:
+          rate[bin[0]].pop(rbin-removes)
+          tbins[bin[0]].pop(rbin-removes)
+          removes+=1
+
+  # set labels
+  etg   = etg.replace('_', '\_')
+  zero = LIGOTimeGPS('%.3f' % zero)
+  if zero.nanoseconds==0:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                 .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+  else:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                  .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+    tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+  xlabel = kwargs.pop('xlabel',\
+                      'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  ylabel = kwargs.pop('ylabel', 'Rate (Hz)')
+  title = kwargs.pop('title', '%s triggers binned by %s'\
+                              % (etg, display_name(bincolumn)))
+  if start and end:
+    subtitle = '%s-%s' % (start, end)
+  else:
+    subtitle = " "
+  subtitle = kwargs.pop('subtitle', subtitle)
 
   # customise plot appearance
-  pylab.rcParams.update( {"text.usetex": True,
-                         "text.verticalalignment": "center",
-                         "lines.linewidth": 5,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
-                         "axes.titlesize": 22,
-                         "axes.labelsize": 18,
-                         "axes.linewidth": 1,
-                         "grid.linewidth": 1,
-                         "legend.fontsize": 20} )
+  set_rcParams()
 
-  # generate plot
-  fig = pylab.figure( figsize=[12,6] )
-  ax  = fig.gca()
+  # generate plot object
+  plot = ScatterPlot(xlabel, ylabel, title, subtitle)
 
-  # calculate histogram
-  if not len( segments )<1:
-
-    hrange=( min( durations ),max( durations ) )
-
-    n,b,p = pylab.hist( durations,bins=numbins,range=hrange,\
-                       histtype='bar',visible=False )
-
-    bins=[]
-    barwidth=[]
-
-    if logx:
-      for i in range( len( b )-1 ):
-        bins.append( math.pow( 10,b[i] ) )
-        barwidth.append( math.pow( 10,b[i+1] )-math.pow( 10,b[i] ) )
+  # plot rates
+  for bin in ybins:
+    if logy:
+      if len(rate[bin[0]])>0:
+        plot.add_content(tbins[bin[0]], rate[bin[0]],\
+                         label='-'.join(map(str, bin)), **kwargs)
+      else:
+        plot.add_content([1],[0.1], label='-'.join(map(str, bin)),\
+                         visible=False)
     else:
-      bins = b[0:-1]
-      try:
-        barwidth = [bins[1]-bins[0]]*len( bins )
-      except IndexError:
-        barwidth = [1] 
- 
+      plot.add_content(tbins[bin[0]], rate[bin[0]], label='-'.join(map(str, bin)),\
+                       **kwargs)
+
+  # finalise plot
+  plot.finalize(logx=logx, logy=logy)
+
+  # set limits
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  plot.ax.set_xlim(xlim)
+  if ylim:
+    plot.ax.set_ylim(ylim)
+
+  # normalize ticks
+  set_ticks(plot.ax)
+
+  # save
+  plot.savefig(outfile, bbox_inches='tight')
+
+# =============================================================================
+# Plot segments
+
+def plot_segments(segdict, outfile, start=None, end=None, zero=None, 
+                  keys=None, highlight_segments=None, **kwargs):
+
+  """
+    Plot the segments contained within the glue.segments.segmentlistdict
+    segdict to the given path string outfile. The list keys can be given to
+    guarantee the order of the segments on the y-axis. x-axis limits can be
+    controlled using start, end and zero. The glue.segments.segmentlist object
+    highlight_segments can be given to highlight a number of segments.
+
+    Arguments:
+
+      segdict : glue.segments.segmentlistdict
+
+  """
+
+  if not start:
+    minstart = lambda seglist: min(segdict[key][0][0] for key in segdict.keys()\
+                                   if segdict[key])
+    start = min(minstart(segdict[key]) for key in segdict.keys())
+  if not end:
+    maxend = lambda seglist: max(segdict[key][0][1] for key in segdict.keys()\
+                                 if segdict[key])
+    end    = max(maxend(segdict[key]) for key in segdict.keys())
+  if not zero:
+    zero = start
+
+  # set plot time unit whether it's used or not
+  unit, timestr = time_unit(end-start)
+
+  # set labels
+  zero = LIGOTimeGPS('%.3f' % zero)
+  if zero.nanoseconds==0:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                 .strftime("%B %d %Y, %H:%M:%S %ZUTC")
   else:
-    bins = []
-    n = []
-    barwidth = []
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                  .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+    tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+  xlabel   = kwargs.pop('xlabel',\
+                        'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  title    = kwargs.pop('title', '')
+  subtitle = kwargs.pop('subtitle', '')
 
-  # fix base for logy
-  if logy:
-    base = 0.9
+  # get axis limits
+  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+
+  if keys:
+    # escape underscore, but don't do it twice
+    keys = [key.replace('_','\_').replace('\\_','\_') for key in keys]
+  segkeys = segdict.keys()
+  for key in segkeys:
+    newkey = key.replace('_','\_').replace('\\\_','\_')
+    if key!=newkey:
+      segdict[newkey] = segdict[key]
+      del segdict[key]
+
+  # set params
+  set_rcParams()
+
+  plot = PlotSegmentsPlot(xlabel, "", title, subtitle, t0=zero, unit=unit)
+  plot.add_content(segdict, keys, **kwargs)
+  plot.finalize()
+
+  # indicate last frame
+  if highlight_segments:
+    for seg in highlight_segments:
+      plot.highlight_segment(seg)
+
+  # set x axis
+  plot.ax.set_xlim(xlim)
+
+  plot.ax.grid(True,which='major')
+  plot.ax.grid(True,which='majorminor')
+
+  set_ticks(plot.ax)
+
+  plot.savefig(outfile, bbox_inches='tight')
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+
+def parse_plot_config(cp, section):
+
+  """
+    Parse ConfigParser.ConfigParser section for plot parameters. Sections should
+    be name '[plot xcolumn-ycolumn-zcolumn]' e.g.
+    '[plot time-peak_frequency-snr]'. Returns a pair of dicts with the
+    following keys:
+
+    columns:
+
+      xcolumn : [ string | None ]
+        column string to plot on x-axis
+      ycolumn : [ string | None ]
+        column string to plot on y-axis
+      zcolumn : [ string | None ]
+        column string to plot on z-axis
+
+    params:
+
+      xlim : list
+        [xmin, xmax] pair for x-axis limits
+      ylim : list
+        [ymin, ymax] pair for y-axis limits
+      zlim : list
+        [zmin, zmax] pair for z-axis limits
+      clim : list
+        [cmin, cmax] pair for colorbar limits
+      logx : bool
+        True / False to plot log scale on x-axis
+      logy : bool
+        True / False to plot log scale on y-axis
+      logz : bool
+        True / False to plot log scale on z-axis
+  """
+
+  columns = {}
+  params  = {}
+
+  plot = re.split('[\s-]', section)[1:]
+  columns['xcolumn'] = plot[0]
+  columns['ycolumn'] = plot[1]
+  if len(plot)>2:
+    columns['zcolumn'] = plot[2]
   else:
-    base = 0
-  
-  n = [c-base for c in n]
-  
-  # plot histogram
-  ax.bar( bins,n,width=barwidth,bottom=base,\
-         color='blue',edgecolor='black',log=logy )
+    columns['zcolumn'] = None
 
-  # set axes
-  if logx:
-    ax.set_xscale( 'log' )
-  if logy:
-    ax.set_yscale( 'log' )
+  limits   = ['xlim', 'ylim', 'zlim', 'clim']
+  booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
+              'greyscale', 'zeroindicator']
+  values   = ['dcthresh']
 
-  if len( segments )>=1:
-    if logx:
-      # reset limits to logscale
-      ax.set_xlim( ( math.pow( 10,min( durations ) )*0.99 ),\
-                  ( math.pow( 10,max( durations ) )*1.01 ) )
+  # extract plot params as a dict
+  params = {}
+  for key,val in cp.items(section):
+    if key in limits:
+      params[key] = map(float, val.split(','))
+    elif key in booleans:
+      params[key] = cp.getboolean(section, key)
+    elif key in values:
+      params[key] = float(val)
+    else:
+      params[key] = val
 
-    ax.set_ylim( base,math.pow( 10,math.log10( ( max( n )+base )*1.01 ) ) )
-  ax.set_xlabel( 'Length of segment ( seconds )' )
-  ax.set_ylabel( 'Number of segments' )
-  tit = 'Segment Duration Histogram'
-  if flag:
-    tit = '%s %s' % ( flag,tit )
-  ax.set_title( tit )
-
-  # get both major and minor grid lines
-  ax.grid( True,which='major' )
-  ax.grid( True,which='majorminor' )
-  ax.set_axisbelow( True )
-  fig.savefig( outfile, bbox_inches='tight' )
+  return columns, params
 

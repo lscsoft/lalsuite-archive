@@ -153,10 +153,10 @@ for sim in table.get_table(siminsp_doc, lsctables.SimInspiralTable.tableName):
     else:
       jitter_sig = jitter_sigma
 
-
+    kappa = 1 / (0.66 * jitter_sig)**2  # approximation from Briggs99
     sim.longitude, sim.latitude = \
         polaz2lonlat(*su.fisher_rvs(np.array(\
-            lonlat2polaz(sim.longitude, sim.latitude)), jitter_sig).squeeze())
+            lonlat2polaz(sim.longitude, sim.latitude)), kappa).squeeze())
 
     # update arrival times and effective distances at the sites
     sim_geocent_end = sim.get_end()

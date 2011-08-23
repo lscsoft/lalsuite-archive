@@ -311,11 +311,8 @@ class upper_limit(object):
 
 
   def set_bns_bbh_bins(self):
-    # BNS == 0
-    # NSBH == 1
-    # BBH == 2
-    # think of bin number as the number of black holes
-    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins([-0.5,0.5,1.5,2.5]),))
+    binEdges = [self.opts.min_nsmass,self.opts.max_nsmass,self.opts.min_bhmass,self.opts.max_bhmass]
+    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins(binEdges),))
     return self.bns_bbh_bins
 
 
@@ -386,13 +383,13 @@ class upper_limit(object):
     nbins = 5
     fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
     if self.opts.verbose:
-      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f"%(FAR,)
+      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f BINNING BY %s"%(FAR,bin_type)
       print >>sys.stdout, "FARs =",fars
 
     # compute the volume in each mass bin for a few fars
     vA = []
     for far in fars:
-      found, missed = self.get_injections(instruments,far)
+      found, missed = self.get_injections(instruments,far,bin_type=bin_type)
       vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
 
@@ -430,7 +427,6 @@ class upper_limit(object):
       nss = numpy.sum([self.opts.min_nsmass < sim.mass1 < self.opts.max_nsmass,
                        self.opts.min_nsmass < sim.mass2 < self.opts.max_nsmass])
       if bhs + nss < 2: return True # components not in the right range, throw out injection
-      else: sim.mass1 = bhs # the injection will be identified by how many BHs it has
 
     return False
 
@@ -587,8 +583,8 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   parser.add_option("--max-bhmass", metavar = "m", type = 'float', default = 6.0, help = "Specify the maximum mass for a black hole (default is 6Msun)")
 
   # Specify which instrument set to look for
-  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the minimum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
-  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
+  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 2.0, help = "Specify the minimum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
+  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 100.0, help = "Specify the maximum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency

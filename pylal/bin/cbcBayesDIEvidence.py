@@ -57,12 +57,12 @@ if __name__=='__main__':
     try:
         for i in range(opts.bootstrap):
             if i == 0:
-                ev=pos.di_evidence(boxing=opts.Nboxing)
+                log_ev=pos.di_evidence(boxing=opts.Nboxing)
             else:
-                ev=pos.bootstrap().di_evidence(boxing=opts.Nboxing)
-            print 'log(evidence) with Nboxing = %d is %.1f (evidence is %g)'%(opts.Nboxing,np.log(ev),ev)
+                log_ev=pos.bootstrap().di_evidence(boxing=opts.Nboxing)
+            print 'log(evidence) with Nboxing = %d is %.1f (evidence is %g)'%(opts.Nboxing,log_ev,np.exp(ev))
             if outfile:
-                outfile.write('%g\n'%np.log(ev))
+                outfile.write('%g\n'%log_ev)
     finally:
         if outfile:
             outfile.close()

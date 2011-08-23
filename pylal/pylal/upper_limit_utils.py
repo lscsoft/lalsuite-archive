@@ -107,23 +107,35 @@ def compute_upper_limit(mu, post, alpha = 0.9):
     Returns the upper limit mu_high of confidence level alpha for a
     posterior distribution post on the given parameter mu.
     """
-    high_idx = bisect.bisect_right( post.cumsum()/post.sum(), alpha )
-
-    if high_idx < len(mu):
+    if 0 < alpha < 1:
+        high_idx = bisect.bisect_left( post.cumsum()/post.sum(), alpha )
+        # if alpha is in (0,1] and post is non-negative, bisect_left
+        # will always return an index in the range of mu since
+        # post.cumsum()/post.sum() will always begin at 0 and end at 1
         mu_high = mu[high_idx]
+    elif alpha == 1:
+        mu_high = numpy.max(mu[post>0])
     else:
-        mu_high = mu[high_idx-1]
+        raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_high
 
 
-def compute_lower_limit(mu, cumpost, alpha = 0.9):
+def compute_lower_limit(mu, post, alpha = 0.9):
     """
     Returns the lower limit mu_low of confidence level alpha for a
-    cumulative ditribution cumpost on the given parameter mu.
+    posterior distribution post on the given parameter mu.
     """
-    low_idx = bisect.bisect_left( cumpost, 1 - alpha )
-    mu_low = mu[low_idx]
+    if 0 < alpha < 1:
+        low_idx = bisect.bisect_right( post.cumsum()/post.sum(), 1-alpha )
+        # if alpha is in [0,1) and post is non-negative, bisect_right
+        # will always return an index in the range of mu since
+        # post.cumsum()/post.sum() will always begin at 0 and end at 1
+        mu_low = mu[low_idx]
+    elif alpha == 1:
+        mu_low = numpy.min(mu[post>0])
+    else:
+        raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_low
 
@@ -133,12 +145,11 @@ def confidence_interval( mu, post, alpha = 0.9 ):
     Returns the minimal-width confidence interval [mu_low,mu_high] of
     confidence level alpha for a distribution post on the parameter mu.
     '''
-    cumpost = post.cumsum()/post.sum()
+    if not 0 < alpha < 1:
+        raise ValueError, "Confidence level must be in (0,1)."
 
     # choose a step size for the sliding confidence window
-    trust_factor = 0.9 #how much do you trust Steve to get this right? -- must be 0 < tf < 1
-    whatithinkthestepsizeshouldbe = numpy.min(cumpost[cumpost[1:]-cumpost[:-1]>0])
-    alpha_step = trust_factor*whatithinkthestepsizeshouldbe
+    alpha_step = 0.01
 
     # initialize the lower and upper limits
     mu_low = numpy.min(mu)
@@ -146,8 +157,8 @@ def confidence_interval( mu, post, alpha = 0.9 ):
 
     # find the smallest window (by delta-mu) stepping by dalpha
     for ai in numpy.arange( 0, 1-alpha, alpha_step ):
-        ml = compute_lower_limit( mu, cumpost, 1 - ai )
-        mh = compute_upper_limit( mu, cumpost, alpha + ai)
+        ml = compute_lower_limit( mu, post, 1 - ai )
+        mh = compute_upper_limit( mu, post, alpha + ai)
         if mh - ml < mu_high - mu_low:
             mu_low = ml
             mu_high = mh
@@ -155,23 +166,19 @@ def confidence_interval( mu, post, alpha = 0.9 ):
     return mu_low, mu_high
 
 
-def integrate_efficiency(dbins, eff, err=0, logbins=False):
+def integrate_efficiency(dbins, eff, logbins=False):
 
     if logbins:
         logd = numpy.log(dbins)
         dlogd = logd[1:]-logd[:-1]
         dreps = numpy.exp( (numpy.log(dbins[1:])+numpy.log(dbins[:-1]))/2) # log midpoint
         vol = numpy.sum( 4*numpy.pi *dreps**3 *eff *dlogd )
-        verr = numpy.sum( (4*numpy.pi *dreps**3 *err *dlogd)**2 ) #propagate errors in eff to errors in v
     else:
         dd = dbins[1:]-dbins[:-1]
         dreps = (dbins[1:]+dbins[:-1])/2 #midpoint
         vol = numpy.sum( 4*numpy.pi *dreps**2 *eff *dd )
-        verr = numpy.sum( (4*numpy.pi *dreps**2 *err *dd)**2 ) #propagate errors in eff to errors in v
 
-    verr = numpy.sqrt(verr)
-
-    return vol, verr
+    return vol
 
 
 def compute_efficiency(f_dist,m_dist,dbins):
@@ -191,10 +198,10 @@ def compute_efficiency(f_dist,m_dist,dbins):
     return efficiency
 
 
-def mean_efficiency(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
+def mean_efficiency_volume(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
 
     if len(found) == 0: # no efficiency here
-        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1)
+        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1), 0, 0
 
     # only need distances
     found_dist = numpy.array([l.distance for l in found])
@@ -203,6 +210,10 @@ def mean_efficiency(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
     # initialize the efficiency array
     eff = numpy.zeros(len(dbins)-1)
     eff2 = numpy.zeros(len(dbins)-1)
+
+    # initialize the volume integral
+    meanvol = 0
+    volerr = 0
 
     # bootstrap to account for statistical and amplitude calibration errors
     for trial in range(bootnum):
@@ -225,11 +236,19 @@ def mean_efficiency(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
       eff += tmpeff
       eff2 += tmpeff**2
 
+      # compute volume and its variance
+      tmpvol = integrate_efficiency(dbins, tmpeff)
+      meanvol += tmpvol
+      volerr += tmpvol**2
+
+    meanvol /= bootnum
+    volerr /= bootnum
+    volerr = numpy.sqrt(volerr - meanvol**2)
     eff /= bootnum #normalize
     eff2 /= bootnum
     err = numpy.sqrt(eff2-eff**2)
 
-    return eff, err
+    return eff, err, meanvol, volerr
 
 
 def find_host_luminosity(inj, catalog):
@@ -273,11 +292,14 @@ def compute_luminosity_from_catalog(found, missed, catalog):
 
     return lum
 
-def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
+def filter_injections_by_mass(injs, mbins, bin_num , bin_type):
     '''
     For a given set of injections (sim_inspiral rows), return the subset
     of injections that fall within the given mass range.
     '''
+    mbins = numpy.concatenate((mbins.lower()[0],numpy.array([mbins.upper()[0][-1]])))
+    mlow = mbins[bin_num]
+    mhigh = mbins[bin_num+1]
     if bin_type == "Chirp_Mass":
         newinjs = [l for l in injs if (mlow <= l.mchirp < mhigh)]
     elif bin_type == "Total_Mass":
@@ -285,7 +307,11 @@ def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
     elif bin_type == "Component_Mass": #it is assumed that m2 is fixed
         newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
     elif bin_type == "BNS_BBH":
-        newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
+        if bin_num == 0 or bin_num == 2: #BNS/BBH case
+            newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh and mlow <= l.mass2 < mhigh)]
+        else:
+            newinjs = [l for l in injs if (mbins[0] <= l.mass1 < mbins[1] and mbins[2] <= l.mass2 < mbins[3])] #NSBH
+            newinjs += [l for l in injs if (mbins[0] <= l.mass2 < mbins[1] and mbins[2] <= l.mass1 < mbins[3])] #BHNS
 
     return newinjs
 
@@ -309,22 +335,20 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalo
     #
     effvmass = []
     errvmass = []
-    for ml,mc,mh in zip(mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
+    for j,mc in enumerate(mass_bins.centres()[0]):
 
         # filter out injections not in this mass bin
-        newfound = filter_injections_by_mass( found, ml, mh, bin_type)
-        newmissed = filter_injections_by_mass( missed, ml, mh, bin_type)
+        newfound = filter_injections_by_mass( found, mass_bins, j, bin_type)
+        newmissed = filter_injections_by_mass( missed, mass_bins, j, bin_type)
 
         foundArray[(mc,)] = len(newfound)
         missedArray[(mc,)] = len(newmissed)
 
         # compute the volume using this injection set
-        eff, err = mean_efficiency(newfound, newmissed, dbins, bootnum=bootnum, randerr=relerr, syserr=syserr)
-        effvmass.append(eff)
-        errvmass.append(err)
-        vol, volerr = integrate_efficiency(dbins, eff, err, logd)
-
-        volArray[(mc,)] = vol
+        meaneff, efferr, meanvol, volerr = mean_efficiency_volume(newfound, newmissed, dbins, bootnum=bootnum, randerr=relerr, syserr=syserr)
+        effvmass.append(meaneff)
+        errvmass.append(efferr)
+        volArray[(mc,)] = meanvol
         vol2Array[(mc,)] = volerr
 
     return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
@@ -339,12 +363,10 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: cannot fit to log-volume."
         return 0
 
-    fit = interpolate.splrep(x,numpy.log10(vols),k=3)
+    fit = interpolate.splrep(x,numpy.log(vols),k=3)
     val = interpolate.splev(xhat,fit,der=1)
     if val < 0:
         val = 0 #prevents negative derivitives arising from bad fits
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
 
     return val
-
-
