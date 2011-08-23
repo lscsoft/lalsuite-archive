@@ -13,6 +13,8 @@ import glob
 import itertools
 from types import *
 from optparse import *
+import warnings
+warnings.filterwarnings('ignore', '^NumpyTest')
 
 from glue import iterutils
 from glue import segmentsUtils
@@ -31,7 +33,7 @@ def plot_injected_vs_recovered_parameter(opts, plot_num, injections, \
   opts = the command line options
   plot_num = plot number
   injections = set of recovered injections with sim and sngl inspiral entries
-  column = colum to plot
+  column = column to plot
   units = units of column
   plot_type = log or linear
   """
@@ -320,7 +322,16 @@ def parse_command_line():
       default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
   parser.add_option("","--mchirp-mchirp",action="store_true",default=False,\
      help="plot of injected vs recovered mchirp" )
- 
+
+  parser.add_option("","--plot-mtotal",action="store_true",default=False,\
+      help="plot the chirp mass accuracy" )
+  parser.add_option("","--hist-mtotal",action="store_true",default=False,\
+      help="histogram of the chirp mass accuracy" )
+  parser.add_option("","--mtotal-snr",action="store_true",default=False,\
+      help="plot of total mass accuracy vs snr" )
+  parser.add_option("","--mtotal-mtotal",action="store_true",default=False,\
+     help="plot of injected vs recovered mtotal" )
+
   parser.add_option("-e","--plot-eta",action="store_true",default=False,\
       help="plot the eta accuracy" )
   parser.add_option("-E","--hist-eta",action="store_true",default=False,\
@@ -443,7 +454,7 @@ def parse_command_line():
     parser.print_usage()
     sys.exit(2)
 
-  return options, sys.argv[1:]
+  return options, args
 
 # ============================================================================
 # -- get command line arguments
@@ -452,10 +463,10 @@ opts, args = parse_command_line()
 # Initialise
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 figure_number = 0  # used for the figure label (showplot)
-fnameList = []  # used for the cache file
-tagList = []  # used for the cache file
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
 
-# to avoid display problem when show plot is not used
+# to avoid  display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
@@ -477,25 +488,21 @@ if opts.cache_file:
 else:
   injFiles = args
 
-# get veto segment list
-if opts.veto_file:
-  seglist = segmentsUtils.fromsegwizard(file(opts.veto_file, 'r'))
-
-lsctables.SnglInspiralTable.loadcolumns = ['mchirp', 'eta', 'end_time', 'end_time_ns', 'ifo',  'snr', 'eff_distance', 'process_id', 'event_id']
+lsctables.SnglInspiralTable.loadcolumns = ['mchirp', 'eta', 'mtotal', 'end_time', 'end_time_ns', 'ifo',  'snr', 'eff_distance', 'process_id', 'event_id']
 trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose,\
           mangle_event_id = True, old_document=opts.old_document)
 
 sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
 
 if (trigs is None) :
-  raise ValueError, "the number of triggers   is zero"   
+  raise ValueError, "the number of triggers is zero"   
 if (sims is None):
   raise ValueError, "the number of sims is zero"   
-  
-# veto if supplied
-if opts.veto_file:
-  trigs = trigs.veto(seglist)
-  sims = sims.veto(seglist)
+
+# Check that veto-file is only used if coire-split present
+if opts.veto_file is not None and not opts.coire_split:
+  raise ValueError, "Can only use --veto-file when --coire-split is used"
+# because triggers and sims have different end times, and vetoing is not well defined
   
 # provide a matching sim_inspiral for each sngl_inspiral if requested
 if opts.coire_split:
@@ -509,8 +516,26 @@ if opts.coire_split:
     new_sim_table.extend([inj] * num_coincs)
   sims = new_sim_table
 
+  # veto if supplied
+  if opts.veto_file is not None:
+    if len(trigs) != len(sims):
+      raise ValueError, "len(trigs) must be equal to len(sims)"
+
+    for veto_file in opts.veto_file.split(','):
+      seglist = segmentsUtils.fromsegwizard(open(veto_file))
+      # We would do just "trigs.veto(seglist); sims.veto(seglist)", but
+      # their times may differ, with one inside the veto and not the other
+      trigs_keep = tab.new_from_template(trigs)
+      sims_keep = tab.new_from_template(sims)
+      for trig, sim in itertools.izip(trigs, sims):
+        if trig.get_end() not in seglist and sim.get_end() not in seglist:
+          trigs_keep.append(trig)
+          sims_keep.append(sim)
+      trigs = trigs_keep
+      sims = sims_keep
+
 if len(trigs) != len(sims):
-  print ' Found '+ str(len(trigs)) +' triggers and ', str(len(sims)) +'simulations'
+  print "Found %d triggers and %d simulations" % (len(trigs), len(sims))
   raise ValueError, "number of triggers and found injections must be equal"
 
 # sort into bins by IFO
@@ -534,30 +559,49 @@ plot_colors = ['r', 'b', 'k', 'g', 'y']
 plot_num = itertools.count(1)
 
 #####################################
-# plot of injected vs detected mchirp
+# plot of injected vs detected mchirp/mtotal
 if opts.mchirp_mchirp:
   fname, text, plot_num = plot_injected_vs_recovered_parameter(opts, plot_num,\
       injSets, 'mchirp', '$M_{\odot}$', plot_type = 'linear' )
   fnameList.append(fname)
   tagList.append(text)
 
+if opts.mtotal_mtotal:
+  fname, text, plot_num = plot_injected_vs_recovered_parameter(opts, plot_num,\
+      injSets, 'mtotal', '$M_{\odot}$', plot_type = 'linear' )
+  fnameList.append(fname)
+  tagList.append(text)
+
 ################################
-# plot of mchirp error vs mchirp
+# plot of mchirp/tot error vs mchirp/mtotal
 if opts.plot_mchirp:
   fname, text, plot_num = plot_parameter_accuracy(opts, plot_num, injSets, \
     'mchirp', '$M_{\odot}$', opts.chirp_axis, plot_type = 'linear' )
   fnameList.append(fname)
   tagList.append(text)
-  
+
+if opts.plot_mtotal:
+  fname, text, plot_num = plot_parameter_accuracy(opts, plot_num, injSets, \
+    'mtotal', '$M_{\odot}$', opts.chirp_axis, plot_type = 'linear' )
+  fnameList.append(fname)
+  tagList.append(text)
+
 ###############################  
-# histogram of chirp mass error
+# histogram of chirp/total mass error
 if opts.hist_mchirp:
   fname, text, plot_num = fname, text, plot_num = \
       hist_parameter_accuracy(opts, plot_num,\
       injSets, 'mchirp', '$M_{\odot}$', opts.chirp_axis, plot_type = 'linear' )
   fnameList.append(fname)
   tagList.append(text)
- 
+
+if opts.hist_mtotal:
+  fname, text, plot_num = fname, text, plot_num = \
+      hist_parameter_accuracy(opts, plot_num,\
+      injSets, 'mtotal', '$M_{\odot}$', opts.chirp_axis, plot_type = 'linear' )
+  fnameList.append(fname)
+  tagList.append(text)
+
 ################################
 # plot of eta error vs eta
 if opts.plot_eta:
@@ -578,7 +622,7 @@ if opts.hist_eta:
 # plot of timing error vs time
 if opts.plot_time:
   fname, text, plot_num = plot_parameter_accuracy(opts, plot_num, injSets, \
-    'end_time', 'days', opts.time_axis, plot_type = 'linear' )
+    'end_time', 'seconds', opts.time_axis, plot_type = 'linear' )
   fnameList.append(fname)
   tagList.append(text)
 
@@ -636,10 +680,17 @@ if opts.time_dist:
   tagList.append(text)
 
 ################################
-# plot of mchirp error vs snr
+# plot of mchirp/mtotal error vs snr
 if opts.chirp_snr:
   fname, text, plot_num = plot_parameter_accuracy_vs_second_parameter(opts, \
       plot_num, injSets, 'mchirp', '$M_{\odot}$', opts.chirp_axis, 'snr',\
+      None, plot_type = 'log', error_type = 'actual' )
+  fnameList.append(fname)
+  tagList.append(text)
+
+if opts.mtotal_snr:
+  fname, text, plot_num = plot_parameter_accuracy_vs_second_parameter(opts, \
+      plot_num, injSets, 'mtotal', '$M_{\odot}$', opts.chirp_axis, 'snr',\
       None, plot_type = 'log', error_type = 'actual' )
   fnameList.append(fname)
   tagList.append(text)
