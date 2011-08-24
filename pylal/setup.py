@@ -583,6 +583,7 @@ setup(
 		os.path.join("bin", "make_inspiral_summary_page"),
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
+		os.path.join("bin", "mvsc_get_doubles_ringdown"),
 		os.path.join("bin", "mvsc_dag"),
 		os.path.join("bin", "post_process_pipe"),
 		os.path.join("bin", "prepare_sendback.py"),
