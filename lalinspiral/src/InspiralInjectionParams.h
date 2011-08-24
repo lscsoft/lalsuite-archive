@@ -67,16 +67,6 @@ typedef enum
 }
 InclDistribution;
 
-/** enum for two distinct ways a spin-aligned injection is realized
-    depending on the waveform family */
-typedef enum
-{
-  alongzAxis,
-  inxzPlane,
-  notAligned
-}
-AlignmentType;
-
 /* includes */
 #include <stdlib.h>
 #include <math.h>
@@ -170,7 +160,7 @@ SimInspiralTable* XLALRandomInspiralSpins( SimInspiralTable *inj,
     REAL4  kappa1Max,
     REAL4  abskappa1Min,
     REAL4  abskappa1Max,
-    AlignmentType alignInj);
+    int aligned);
 
 SimInspiralTable* XLALRandomNRInjectTotalMass(
     SimInspiralTable *inj,

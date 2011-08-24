@@ -379,7 +379,7 @@ SimInspiralTable* XLALRandomInspiralSpins(
     REAL4  kappa1Max,		/**< FIXME: !TO BE DOCUMENTED! */
     REAL4  abskappa1Min,	/**< FIXME: !TO BE DOCUMENTED! */
     REAL4  abskappa1Max,	/**< FIXME: !TO BE DOCUMENTED! */
-    AlignmentType alignInj	/** type of spin alignment */
+    int aligned			/**< FIXME: !TO BE DOCUMENTED! */
     )
 {
   REAL4 spin1Mag;
@@ -429,17 +429,9 @@ SimInspiralTable* XLALRandomInspiralSpins(
 	  zmax = spin1Mag * ( cosinc * kappa + sininc * sintheta );
 	  inj->spin1z = zmin + XLALUniformDeviate( randParams ) * (zmax - zmin);
   }
-  else if (alignInj==inxzPlane)
+  else if (aligned)
   {
 	  inj->spin1z = spin1Mag * cosinc;
-  }
-  else if (alignInj==alongzAxis)
-  {
-  /* z-component of aligned spin equal to the spin magnitude and
-     random in sign */
-	  sgn = XLALUniformDeviate( randParams ) - 0.5;
-	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
-	  inj->spin1z = spin1Mag * sgn;
   }
   else
   {
@@ -452,19 +444,9 @@ SimInspiralTable* XLALRandomInspiralSpins(
 	  inj->spin1y = pow( ((spin1Mag * spin1Mag) - (inj->spin1z * inj->spin1z) -
 				  (inj->spin1x * inj->spin1x)) , 0.5);
   }
-  else if (alignInj==inxzPlane)
+  else if (aligned)
   {
 	  inj->spin1x = spin1Mag * sininc;
-  /* randomize sign of S_1.L_N while keeping spin along L_N */
-	  sgn = XLALUniformDeviate( randParams ) - 0.5;
-	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
-	  inj->spin1x = inj->spin1x * sgn;
-	  inj->spin1z = inj->spin1z * sgn;
-	  inj->spin1y = 0.0;
-  }
-  else if (alignInj==alongzAxis)
-  {
-	  inj->spin1x = 0.0;
 	  inj->spin1y = 0.0;
   }
   else
@@ -482,21 +464,12 @@ SimInspiralTable* XLALRandomInspiralSpins(
 	  (spin2Max - spin2Min);
 
   /* aligned case */
-  if (alignInj==inxzPlane)
+
+  if (aligned)
   {
-	  sgn = XLALUniformDeviate( randParams ) - 0.5;
-	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
-	  inj->spin2z = spin2Mag * cosinc * sgn;
-	  inj->spin2x = spin2Mag * sininc * sgn;
+	  inj->spin2z = spin2Mag * cosinc;
+	  inj->spin2x = spin2Mag * sininc;
 	  inj->spin2y = 0.0;
-  }
-  else if (alignInj==alongzAxis)
-  {
-	  inj->spin2x = 0.0;
-	  inj->spin2y = 0.0;
-	  sgn = XLALUniformDeviate( randParams ) - 0.5;
-	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
-	  inj->spin2z = spin2Mag * sgn;
   }
   else
   {
