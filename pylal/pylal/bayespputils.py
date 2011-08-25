@@ -321,6 +321,18 @@ class OneDPosterior(object):
 
         return
 
+    def __len__(self):
+        """
+        Container method. Defined as number of samples.
+        """
+        return len(self.__posterior_samples)
+
+    def __getitem__(self,idx):
+        """
+        Container method . Returns posterior containing sample idx (allows slicing).
+        """
+        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval)
+        
     @property
     def name(self):
         """

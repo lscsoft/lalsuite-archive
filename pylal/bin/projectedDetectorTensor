@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Try this: projectedDetectorTensor.py --gps-sec 968654558 --ra-hr 7.26666667 --dec-deg -26.5 --display-llo --display-lho --display-virgo
+# Try this: projectedDetectorTensor --gps-sec 968654558 --ra-hr 7.26666667 --dec-deg -26.5 --display-llo --display-lho --display-virgo
 #
 # Copyright (C) 2010, 2011 John T. Whelan
 #
@@ -52,13 +52,9 @@ def drawTensor(basex, basey,a, b, color, drawcircle=True):
     myArrow(basex,basey,-r,-0.5*np.pi-psi,color)
     return (r,psi*180/np.pi)
 
-def fillTableCell(s):
-    det = s + '1'
-    if opts.use_lal:
-        (a,b) = antenna.response(opts.gps_sec,15*raHr,decDeg,
-                                 0,0,'degree',det)[:2]
-    else:
-        (a,b) = mySkyPos.amCoefficients(detgeom.site[s](),gstHr)
+def fillTableCell(det):
+    (a,b) = antenna.response(opts.gps_sec,15*raHr,decDeg,
+                             0,0,'degree',det)[:2]
     (r,psiDeg) = drawTensor(raDeg,decDeg,L**2*a,L**2*b,detcolor[det])
 
     print '%s:' % det
@@ -77,10 +73,8 @@ detcolor = {'H1' : 'r', 'H2' : 'b', 'L1' : 'g', 'V1': 'm'}
 
 parser = OptionParser()
 
-parser.add_option("--sid-time-hr",action="store",type="float",
-                  help="sidereal time in hours (specify either --sid-time-hr or --gps-sec)")
 parser.add_option("--gps-sec",action="store",type="float",
-                  help="GPS time in seconds (specify either --sid-time-hr or --gps-sec)")
+                  help="GPS time in seconds")
 parser.add_option("--ra-hr",action="store",type="float",
                   help="right ascension in hours (specify either --ra-hr or --ra-deg or --ra-rad)")
 parser.add_option("--ra-deg",action="store",type="float",
@@ -91,23 +85,22 @@ parser.add_option("--dec-deg",action="store",type="float",
                   help="declination in degrees (specify either --dec-deg or --dec-rad)")
 parser.add_option("--dec-rad",action="store",type="float",
                   help="declination in radians (specify either --dec-deg or --dec-rad)")
-parser.add_option("--display-llo",action="store_true",default=False)
-parser.add_option("--display-lho",action="store_true",default=False)
-parser.add_option("--display-virgo",action="store_true",default=False)
+parser.add_option("--display-detector",action="append",type="string",
+                  help="two-character abbreviation of detectors to show",
+                  default=[])
+parser.add_option("--display-llo",action="store_true",default=False,
+                  help="equivalent to --display-detector L1")
+parser.add_option("--display-lho",action="store_true",default=False,
+                  help="equivalent to --display-detector H1")
+parser.add_option("--display-virgo",action="store_true",default=False,
+                  help="equivalent to --display-detector V1")
+parser.add_option("--grb-name",action="store",type="string")
 parser.add_option("--image-name",action="store",type="string",
                   default="projtens.png")
 (opts,args) = parser.parse_args()
 
-# Previously this code could run with a standalone library detgeom.py. 
-# For this lal implentation I am forcing the code to use the lal libraries.
-
-opts.use_lal = True
-
-if opts.use_lal:
-    import pylal
-    from pylal import antenna
-else:
-    import detgeom
+import pylal
+from pylal import antenna
 
 if opts.dec_deg == None:
     if opts.dec_rad == None:
@@ -150,21 +143,8 @@ else:
         else:
             raise RuntimeError, "Can't specify right ascension in hours and degrees and radians"
 
-if opts.sid_time_hr == None:
-    if opts.gps_sec == None:
-        raise RuntimeError, "Must specify either GPS time or sidereal time"
-    elif not opts.use_lal:
-        gstHr = detgeom.getGmstHrFromGps(opts.gps_sec)
-else:
-    if opts.gps_sec != None:
-        raise RuntimeError, "Can't specify both GPS time and sidereal time"
-    if opts.use_lal:
-        raise RuntimeError, "Need to specify GPS time if using --use-lal"
-    gstHr = opts.sid_time_hr % 24
-
-
-if not opts.use_lal:
-    mySkyPos = detgeom.SkyPosition(decDeg,raHr)
+if opts.gps_sec == None:
+    raise RuntimeError, "Must specify GPS time"
 
 fig = plt.figure()
 fig.set_size_inches(5,5)
@@ -172,14 +152,17 @@ ax = fig.add_subplot(111)
 
 L = 10
 
-if opts.display_lho:
-    fillTableCell('H')
+if opts.display_lho and 'H1' not in opts.display_detector:
+    opts.display_detector.append('H1')
             
-if opts.display_llo:
-    fillTableCell('L')
+if opts.display_llo and 'L1' not in opts.display_detector:
+    opts.display_detector.append('L1')
 
-if opts.display_virgo:
-    fillTableCell('V')
+if opts.display_virgo and 'V1' not in opts.display_detector:
+    opts.display_detector.append('V1')
+
+for det in opts.display_detector:
+    fillTableCell(det)
 
 xmin = raDeg+1.1*L
 xmax = raDeg-1.1*L
@@ -187,7 +170,7 @@ ymin = decDeg-1.1*L
 ymax = decDeg+1.1*L
 tickvals = np.array([xmin,raDeg,xmax])
 ticklabs = ['E',
-            r'$%d^{\textrm{h}}%d^{\textrm{m}}%.0f^{\textrm{s}}$' %
+            r'$%02d^{\textrm{h}}%02d^{\textrm{m}}%02.0f^{\textrm{s}}$' %
             getDmsFromDecimal(raHr),
             'W']
 ax.set_xticks(tickvals)
@@ -195,18 +178,17 @@ ax.set_xticklabels(ticklabs)
 tickvals = np.array([ymin,decDeg,ymax])
 if decDeg >= 0:
   dmsFromDec = getDmsFromDecimal(decDeg)
-  weirdString = r'$+%d^{\circ}%d^{\prime}%.0f^{\prime\prime}$'
+  decString = r'$+%02d^{\circ}%02d^{\prime}%02.0f^{\prime\prime}$'
 else:
   dmsFromDec = getDmsFromDecimal(-decDeg)
-  weirdString = r'$-%d^{\circ}%d^{\prime}%.0f^{\prime\prime}$'
-ticklabs = ['S', weirdString % (dmsFromDec), 'N']
+  decString = r'$-%02d^{\circ}%02d^{\prime}%02.0f^{\prime\prime}$'
+ticklabs = ['S', decString % (dmsFromDec), 'N']
 ax.set_yticks(tickvals)
 ax.set_yticklabels(ticklabs)
-if opts.gps_sec == None:
-    ax.set_title('Detector Responses at GST %0.2d:%0.2d:%0.2d'
-                 % getDmsFromDecimal(gstHr))
-else:
+if opts.grb_name == None:
     ax.set_title('Detector Responses at GPS %d' % opts.gps_sec)
+else:
+    ax.set_title('Detector Responses for GRB %s' % opts.grb_name)
 ax.set_xlabel('Right Ascension')
 ax.set_ylabel('Declination')
 ax.grid(True)

@@ -19,7 +19,7 @@
 
 #define SIDEREAL_DAY (23.93447*3600)
 
-struct gengetopt_args_info args_info;
+extern struct gengetopt_args_info args_info;
 
 SPARSE_CONV *new_sparse_conv(void)
 {
@@ -28,7 +28,7 @@ SPARSE_CONV *sc;
 sc=do_alloc(1, sizeof(*sc));
 
 sc->free=0;
-sc->size=20;
+sc->size=40;
 
 sc->bin=do_alloc(sc->size, sizeof(*sc->bin));
 sc->data=do_alloc(sc->size, sizeof(*sc->data));
@@ -55,14 +55,16 @@ int day_samples=round(2.0*SIDEREAL_DAY/args_info.coherence_length_arg);
 
 ctx=do_alloc(1, sizeof(*ctx));
 
-ctx->timebase=max_gps()-min_gps();
+ctx->raw_timebase=max_gps()-min_gps();
 ctx->first_gps=min_gps();
 ctx->total_segments=total_segments();
 	
-ctx->nsamples=1+ceil(2.0*ctx->timebase/args_info.coherence_length_arg);
+ctx->nsamples=1+ceil(2.0*ctx->raw_timebase/args_info.coherence_length_arg);
 wing_step=round(ctx->nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
 ctx->nsamples=day_samples*floor(ctx->nsamples/day_samples);
 ctx->nsamples=round235up_int(ctx->nsamples);
+
+ctx->timebase=ctx->nsamples*args_info.coherence_length_arg/2;
 
 ctx->power=do_alloc(ctx->total_segments, sizeof(*ctx->power));
 ctx->cum_power=do_alloc(ctx->total_segments, sizeof(*ctx->cum_power));
@@ -104,10 +106,10 @@ init_stats(&(ctx->stats));
 
 /* Parameters */
 
-ctx->n_freq_adj_filter=7;
-ctx->n_scan_fft_filter=7;
+ctx->n_freq_adj_filter=127;
+ctx->n_scan_fft_filter=11;
 ctx->n_fsteps=4;
-ctx->n_sky_scan=3;
+ctx->n_sky_scan=5;
 ctx->half_window=1;
 ctx->variance_half_window=200;
 
