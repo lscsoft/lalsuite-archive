@@ -71,6 +71,7 @@ LALInspiralPPE (
    shft = 2.L*LAL_PI * (ak.tn + params->nStartPad/params->tSampling + params->startTime);
    phi =  params->startPhase + LAL_PI/4.L;
    amp0 = params->signalAmplitude * ak.totalmass * sqrt(LAL_PI/12.L) * df;
+   amp0 *= (1.0+params->alphaPPE*pow(v,params->aPPE));
 /*
    Compute the standard stationary phase approximation.
 */
@@ -111,7 +112,7 @@ LALInspiralPPE (
 		     = amp0 * pow(-dEnergybyFlux(v), 0.5) * v;
 	      */
 	      amp = amp0 * pow(-func.dEnergy(v,&ak)/func.flux(v,&ak),0.5L) * v;
-          amp *= (1.0+params->alphaPPE*pow(v,params->aPPE));
+
 	      signalvec->data[i] = (REAL4) (amp * cos(psi));
 	      signalvec->data[n-i] = (REAL4) (-amp * sin(psi));
 //          fprintf(model_output,"%e\t %e\t %e\t %e\n",i*df,signalvec->data[i],signalvec->data[n-i],psif);  
@@ -180,12 +181,13 @@ void LALInspiralPPEPhasing(
             case LAL_PNORDER_HALF:
                 psif_loc += phaseParams[1]/(f*x);
             case LAL_PNORDER_NEWTONIAN:
-                psif_loc += phaseParams[0]/(f*x*x)+params->betaPPE*pow(x,params->bPPE);
+                psif_loc += phaseParams[0]/(f*x*x);
                 break;
             default:
                 printf("INVALID PN ORDER!");
                 exit(-1);
     }
+    psif_loc += comprefac*params->betaPPE*pow(pimtot*f,params->bPPE);
     *psif=psif_loc;    
     return;
 }
