@@ -2467,28 +2467,34 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
+        if not (fixedBurnin is None):
+            if not (deltaLogL is None):
+                print "Warning: using deltaLogL criteria in addition to fixed burnin"
+            print "Eliminating the first ",fixedBurnin,"samples as burnin."
+        else:
+            fixedBurnin = 0
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
         nskip=1
         if not (nDownsample is None):
-            nskip=self._find_ndownsample(files, logLThreshold, nDownsample)
+            nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
             print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
         postName="posterior_samples.dat"
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
         finally:
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
@@ -2516,13 +2522,15 @@ class PEOutputParser(object):
                     outfile.write("chain")
                     outfile.write("\n")
                     outputHeader=header
+                iterindex=header.index("cycle")
                 loglindex=header.index("logpost")
                 output=False
                 for line in infile:
                     line=line.lstrip()
                     lineParams=line.split()
+                    iter=int(lineParams[iterindex])
                     logL=float(lineParams[loglindex])
-                    if logL >= logLThreshold:
+                    if (iter > fixedBurnin) and (logL >= logLThreshold):
                         output=True
                     if output:
                         if nRead % nskip == 0:
@@ -2570,7 +2578,7 @@ class PEOutputParser(object):
         print "Found max log(Post) = ", maxLogL
         return maxLogL
 
-    def _find_ndownsample(self, files, logLthreshold, nDownsample):
+    def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
         """
         Given a list of files, and threshold value, and a desired
         number of outputs posterior samples, return the skip number to
@@ -2578,18 +2586,23 @@ class PEOutputParser(object):
         """
         ntot=0
         for inpname in files:
-            infile=open(inpname, 'r')
+            infile = open(inpname, 'r')
             try:
-                header=self._clear_infmcmc_header(infile)
-                loglindex=header.index("logpost")
-                burnedIn=False
+                header = self._clear_infmcmc_header(infile)
+                loglindex = header.index("logpost")
+                iterindex = header.index("cycle")
+                deltaLburnedIn = False
+                fixedBurnedIn  = False
                 for line in infile:
-                    line=line.lstrip().split()
-                    logL=float(line[loglindex])
+                    line = line.lstrip().split()
+                    iter = int(line[iterindex])
+                    logL = float(line[loglindex])
+                    if iter > fixedBurnin:
+                        fixedBurnedIn = True
                     if logL > logLthreshold:
-                        burnedIn=True
-                    if burnedIn:
-                        ntot=ntot+1
+                        deltaLburnedIn = True
+                    if fixedBurnedIn and deltaLburnedIn:
+                        ntot = ntot+1
             finally:
                 infile.close()
         if ntot < nDownsample:

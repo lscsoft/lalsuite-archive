@@ -81,9 +81,9 @@ def cbcBayesPostProc(
                         #nested sampling options
                         ns_flag=False,ns_xflag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
-                        ss_flag=False,ss_deltaLogL=None,ss_spin_flag=False,
+                        ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,nDownsample=1,oldMassConvention=False,
+                        li_flag=False,deltaLogL=None,fixedBurnin=None,nDownsample=1,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
                         # on ACF?
@@ -122,11 +122,11 @@ def cbcBayesPostProc(
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
-        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=ss_deltaLogL)
+        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=deltaLogL)
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
+        commonResultsObj=peparser.parse(data,deltaLogL=deltaLogL,fixedBurnin=fixedBurnin,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
 
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")
@@ -874,10 +874,11 @@ if __name__=='__main__':
     #SS
     parser.add_option("--ss",action="store_true",default=False,help="(SPINspiral) Parse input as if it was output from SPINspiral.")
     parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
-    parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral and LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
+    parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
+    parser.add_option("--fixedBurnin",action="store",default=None,help="(LALInferenceMCMC) Fixed number of iteration for burnin.",type="int")
     parser.add_option("--oldMassConvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m2 > m1; otherwise m1 > m2 in PTMCMC.output.*.00")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
@@ -968,9 +969,9 @@ if __name__=='__main__':
                         #nested sampling options
                         ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
-                        ss_flag=opts.ss,ss_deltaLogL=opts.deltaLogL,ss_spin_flag=opts.spin,
+                        ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
+                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnin=opts.fixedBurnin,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?
