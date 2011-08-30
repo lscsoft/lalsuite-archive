@@ -133,8 +133,8 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	int order;
 	npy_intp *dims = NULL;
 	complex double *data = NULL;
-	double spin1 = 0.0;
-	double spin2 = 0.0;
+	double spin1 = -100.0;
+	double spin2 = -100.0;
 	double chi = 0.0;
 
 	/* FIXME properly handle references */
@@ -146,11 +146,16 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
 	dims = PyArray_DIMS(py_spa_array);
 	data = PyArray_DATA(py_spa_array);
-	chi = compute_chi(mass1, mass2, spin1, spin2); 
-	if (spin1 == 0.0 && spin2 == 0.0)
+	if (spin1 == -100.0 && spin2 == -100.0)
 		SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
-	else
+	if (spin1 != -100.0 && spin2 == -100.0) {
+		chi = spin1; // only one spin argument is interpreted as chi
 		SPAWaveformReduceSpin(mass1, mass2, chi, order, 0.0, 0.0, deltaF, fLower, fFinal, dims[0], data);
+		}
+	if (spin1 != -100.0 && spin2 != -100.0)	{
+		chi = compute_chi(mass1, mass2, spin1, spin2);
+		SPAWaveformReduceSpin(mass1, mass2, chi, order, 0.0, 0.0, deltaF, fLower, fFinal, dims[0], data);
+		}
 	Py_DECREF(py_spa_array);
         Py_INCREF(Py_None);
         return Py_None;
@@ -443,6 +448,8 @@ static struct PyMethodDef methods[] = {
 	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
 	 "You can produce a spin aligned waveform by doing\n\n"
 	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray, spin1, spin2)"
+	 "Or you can produce a spin aligned waveform by doing\n\n"
+	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray, chi)"
 	},
 	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain IMR waveform at a "
