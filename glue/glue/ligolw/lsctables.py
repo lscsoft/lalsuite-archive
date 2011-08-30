@@ -1347,10 +1347,6 @@ class SnglInspiralTable(table.Table):
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
 			return self.get_reduced_cont_chisq()
-		if column == 'new_snr':
-			return self.get_new_snr()
-		if column == 'effective_snr':
-			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
 		if column == 'lvS5stat':
@@ -1509,11 +1505,42 @@ class SnglInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_reduced_chisq(self):
+		return float(self.chisq)/ (2*self.chisq_dof - 2)
+
+	def get_reduced_bank_chisq(self):
+		return float(self.bank_chisq)/ self.bank_chisq_dof
+
+	def get_reduced_cont_chisq(self):
+		return float(self.cont_chisq)/ self.cont_chisq_dof
+
 	def get_effective_snr(self,fac=250.0):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_chisq()**0.25
 	
+	def get_bank_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25 
+
+	def get_cont_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_cont_chisq()**0.25
+
 	def get_new_snr(self,index=6.0):
-		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		rchisq = self.get_reduced_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_bank_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_bank_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_cont_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_cont_chisq()
 		nhigh = 2.
 		if rchisq > 1.:
 			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
