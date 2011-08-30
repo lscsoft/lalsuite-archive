@@ -1725,6 +1725,16 @@ def mc2ms(mc,eta):
 #
 #
 
+def mc2q(mc,eta):
+    """
+    Utility function for converting mchirp,eta to new mass ratio q (m2/m1).
+    """
+    m1,m2 = mc2ms(mc,eta)
+    q = m2/m1
+    return q
+#
+#
+
 def ang_dist(long1,lat1,long2,lat2):
     """
     Find the angular separation of (long1,lat1) and (long2,lat2), which are
@@ -1747,9 +1757,10 @@ def array_dot(vec1, vec2):
     Calculate dot products between vectors in rows of numpy arrays.
     """
     if vec1.ndim==1:
-        return (vec1*vec2).sum()
+        product = (vec1*vec2).sum()
     else:
-        return(vec1*vec2).sum(axis=1).reshape(-1,1)
+        product = (vec1*vec2).sum(axis=1).reshape(-1,1)
+    return product
 #
 #
 
@@ -1773,6 +1784,44 @@ def array_polar_ang(vec):
         z = vec[:,2].reshape(-1,1)
     norm = np.sqrt(array_dot(vec,vec))
     return np.arccos(z/norm)
+#
+#
+
+def rotation_matrix(angle, direction):
+    """
+    Compute general rotation matrices for a given angles and direction vectors.
+    """
+    cosa = np.cos(angle)
+    sina = np.sin(angle)
+    direction /= np.sqrt(array_dot(direction,direction))
+    #Assume calculating array of rotation matrices.
+    try:
+        nSamps = len(angle)
+        R = np.array( [np.diag([i,i,i]) for i in cosa.flat] )
+        R += np.array( [np.outer(direction[i],direction[i])*(1.0-cosa[i]) for i in range(nSamps)] )
+        R += np.array( [np.array(   [[ 0.0,            -direction[i,2],    direction[i,1]],
+                                     [ direction[i,2],  0.0,              -direction[i,0]],
+                                     [-direction[i,1],  direction[i,0],    0.0          ]] ) * sina[i] for i in range(nSamps)] )
+    #Only computing one rotation matrix.
+    except TypeError:
+        R = np.diag([cosa,cosa,cosa])
+        R += np.outer(direction,direction) * (1.0 - cosa)
+        R += np.array(   [[ 0.0,            -direction[2],    direction[1]],
+                          [ direction[2],  0.0,              -direction[0]],
+                          [-direction[1],  direction[0],    0.0          ]] ) * sina
+    return R
+#
+#
+
+def rotate_vector(R, vec):
+    """
+    Rotate vectors using the given rotation matrices.
+    """
+    if vec.ndim == 1:
+        newVec = np.dot(R[i],vec[i])
+    else:
+        newVec = np.array( [np.dot(R[i],vec[i]) for i in range(len(vec))] )
+    return newVec
 #
 #
 
