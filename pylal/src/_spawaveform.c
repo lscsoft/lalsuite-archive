@@ -33,6 +33,7 @@ static double schwarz_isco(double m1, double m2);
 static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
 static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
+static int SPAWaveformReduceSpin (double mass1, double mass2, double chi, int order, double startTime, double phi0, double deltaF, double fLower, double fFinal, int numPoints, complex double *hOfF);
 static int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF);
 static double imr_merger(double m1, double m2, double chi);
 static double imr_ring(double m1, double m2, double chi);
@@ -65,22 +66,22 @@ const char SPADocstring[] =
 "\n"
 "pylab.figure(1)\n"
 "for j, endfreq in enumerate(['schwarz_isco','bkl_isco','light_ring']):\n"
-"        fFinal = spawaveform.ffinal(m1,m2,endfreq)\n"
-"        print endfreq, fFinal\n"
-"        # time stamp vector\n"
-"        timestamp = numpy.arange(dur * sr) / sr\n"
-"        # initialise data for the template\n"
-"        z = numpy.empty(sr * dur, 'complex128')\n"
-"        # make a spawaveform\n"
-"        spawaveform.waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, z)\n"
-"        z = scipy.ifft(z)\n"
-"        # plot it\n"
-"        pylab.subplot(3,1,j+1)\n"
-"        pylab.plot(timestamp, numpy.real(z))\n"
-"        pylab.hold(1)\n"
-"        pylab.plot(timestamp, numpy.imag(z),'r')\n"
-"        pylab.legend([endfreq + ' hc(t)', endfreq + ' hs(t)'],loc='lower left')\n"
-"        pylab.xlim([dur - spawaveform.chirptime(m1,m2,order,40.0,fFinal), dur])\n"
+"\tfFinal = spawaveform.ffinal(m1,m2,endfreq)\n"
+"\tprint endfreq, fFinal\n"
+"\t# time stamp vector\n"
+"\ttimestamp = numpy.arange(dur * sr) / sr\n"
+"\t# initialise data for the template\n"
+"\tz = numpy.empty(sr * dur, 'complex128')\n"
+"\t# make a spawaveform\n"
+"\tspawaveform.waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, z)\n"
+"\tz = scipy.ifft(z)\n"
+"\t# plot it\n"
+"\tpylab.subplot(3,1,j+1)\n"
+"\tpylab.plot(timestamp, numpy.real(z))\n"
+"\tpylab.hold(1)\n"
+"\tpylab.plot(timestamp, numpy.imag(z),'r')\n"
+"\tpylab.legend([endfreq + ' hc(t)', endfreq + ' hs(t)'],loc='lower left')\n"
+"\tpylab.xlim([dur - spawaveform.chirptime(m1,m2,order,40.0,fFinal), dur])\n"
 "pylab.hold(0)\n"
 "pylab.show()\n";
 
@@ -441,7 +442,7 @@ static struct PyMethodDef methods[] = {
 	 "specified mass1, mass2 and PN order.\n\n"
 	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
 	 "You can produce a spin aligned waveform by doing\n\n"
-	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray, spin1, spin2)
+	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray, spin1, spin2)"
 	},
 	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain IMR waveform at a "
@@ -536,7 +537,7 @@ void init_spawaveform(void)
 /* and double precision)                                                     */
 /*****************************************************************************/
 
-int SPAWaveformReduceSpin (double mass1, double mass2, double chi, 
+static int SPAWaveformReduceSpin (double mass1, double mass2, double chi, 
         int order, double startTime, double phi0, double deltaF,
         double fLower, double fFinal, int numPoints, complex double *hOfF) {
 
