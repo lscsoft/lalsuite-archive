@@ -1181,10 +1181,6 @@ class SnglInspiralTable(table.Table):
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
 			return self.get_reduced_cont_chisq()
-		if column == 'new_snr':
-			return self.get_new_snr()
-		if column == 'effective_snr':
-			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
 		if column == 'lvS5stat':
@@ -1205,7 +1201,7 @@ class SnglInspiralTable(table.Table):
 
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
-            
+	    
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
@@ -1343,11 +1339,42 @@ class SnglInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_reduced_chisq(self):
+		return float(self.chisq)/ (2*self.chisq_dof - 2)
+
+	def get_reduced_bank_chisq(self):
+		return float(self.bank_chisq)/ self.bank_chisq_dof
+
+	def get_reduced_cont_chisq(self):
+		return float(self.cont_chisq)/ self.cont_chisq_dof
+
 	def get_effective_snr(self,fac=250.0):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_chisq()**0.25
 	
+	def get_bank_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25 
+
+	def get_cont_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_cont_chisq()**0.25
+
 	def get_new_snr(self,index=6.0):
-		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		rchisq = self.get_reduced_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_bank_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_bank_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_cont_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_cont_chisq()
 		nhigh = 2.
 		if rchisq > 1.:
 			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
@@ -1601,13 +1628,30 @@ class MultiInspiralTable(table.Table):
 		"tau5": "real_4",
 		"ttotal": "real_4",
 		"snr": "real_4",
-                "snr_dof": "int_4s",
+		"snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
+		"trace_snr": "real_4",
+		"snr_h1": "real_4",
+		"snr_h2": "real_4",
+		"snr_l": "real_4",
+		"snr_g": "real_4",
+		"snr_t": "real_4",
+		"snr_v": "real_4",
+		"amp_term_1": "real_4",
+		"amp_term_2": "real_4",
+		"amp_term_3": "real_4",
+		"amp_term_4": "real_4",
+		"amp_term_5": "real_4",
+		"amp_term_6": "real_4",
+		"amp_term_7": "real_4",
+		"amp_term_8": "real_4",
+		"amp_term_9": "real_4",
+		"amp_term_10": "real_4",
 		"sigmasq_h1": "real_8",
 		"sigmasq_h2": "real_8",
 		"sigmasq_l": "real_8",
@@ -1642,7 +1686,7 @@ class MultiInspiralTable(table.Table):
 		"t1quad_im": "real_4",
 		"v1quad_re": "real_4",
 		"v1quad_im": "real_4",
-                "coh_snr_h1h2": "real_4",
+		"coh_snr_h1h2": "real_4",
 		"cohSnrSqLocal": "real_4",
 		"autoCorrCohSq": "real_4",
 		"crossCorrCohSq": "real_4",
@@ -1699,8 +1743,8 @@ class MultiInspiralTable(table.Table):
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
-        def get_end(self):
-                return LIGOTimeGPS(self.end_time, self.end_time_ns)
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
