@@ -27,8 +27,8 @@
 
 /* static functions used by the python wrappers */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints, complex double *expPsi);
-static double chirp_time (double m1, double m2, double fLower, int order);
-static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order);
+static double chirp_time (double m1, double m2, double fLower, int order,double chi);
+static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order, double chi);
 static double schwarz_isco(double m1, double m2);
 static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
@@ -306,15 +306,16 @@ static PyObject *PySVD(PyObject *self, PyObject *args, PyObject *keywds)
 static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
-	double mass1, mass2, fLower, fFinal, time;
+	double mass1, mass2, fLower, fFinal, time, chi;
 	int order;
 	fFinal = 0;
+	chi = 0.;
 	/* FIXME properly handle references */
-	if (!PyArg_ParseTuple(args, "ddid|d", &mass1, &mass2, &order, &fLower, &fFinal)) return NULL;
+	if (!PyArg_ParseTuple(args, "ddid|dd", &mass1, &mass2, &order, &fLower, &fFinal, &chi)) return NULL;
 	if (fFinal)
-		time = chirp_time_between_f1_and_f2(mass1, mass2, fLower, fFinal, order);
+		time = chirp_time_between_f1_and_f2(mass1, mass2, fLower, fFinal, order, chi);
 	else
-		time = chirp_time(mass1, mass2, fLower, order);
+		time = chirp_time(mass1, mass2, fLower, order, chi);
 	return Py_BuildValue("d", time);
 	}
 
@@ -465,8 +466,9 @@ static struct PyMethodDef methods[] = {
 	{"chirptime", PyChirpTime, METH_VARARGS,
 	 "This function calculates the SPA chirptime at a specified mass1, mass2 "
 	 "and PN order between two frequencies.  If the second frequency is omitted "
-	 "it is assumed to be infinite.\n\n"
-	 "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
+	 "it is assumed to be infinite. To include spin (chi) you can place it as " 
+	 "the last argument, but you must give an fFinal.\n\n"
+	 "chirptime(m1, m2, order, fLower, [fFinal, chi])\n\n"
 	},
 	{"ffinal", PyFFinal, METH_VARARGS,
 	 "This function calculates the ending frequency specified by "
@@ -792,7 +794,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
  * frequency and going to infinity
  */
 
-static double chirp_time (double m1, double m2, double fLower, int order)
+static double chirp_time (double m1, double m2, double fLower, int order, double chi)
 	{
 
 	/* variables used to compute chirp time */
@@ -813,10 +815,10 @@ static double chirp_time (double m1, double m2, double fLower, int order)
 			c6T = LAL_GAMMA * 6848.0 / 105.0 - 10052469856691.0 / 23471078400.0 + LAL_PI * LAL_PI * 128.0 / 3.0 + eta * (3147553127.0 / 3048192.0 - LAL_PI * LAL_PI * 451.0 / 12.0) - eta * eta * 15211.0 / 1728.0 + eta * eta * eta * 25565.0 / 1296.0 + log (4.0) * 6848.0 / 105.0;
      			c6LogT = 6848.0 / 105.0;
 		case 5:
-			c5T = 13.0 * LAL_PI * eta / 3.0 - 7729.0 / 252.0;
+			c5T = 13.0 * LAL_PI * eta / 3.0 - 7729.0 / 252.0 - (0.4*565.*(-146597. + 135856.*eta + 17136.*eta*eta)*chi/(2268.*(-113. + 76.*eta))); // last term is 0 if chi is 0;
 		case 4:
-			c4T = 3058673.0 / 508032.0 + eta * (5429.0 / 504.0 + eta * 617.0 / 72.0);
-			c3T = -32.0 * LAL_PI / 5.0;
+			c4T = 3058673.0 / 508032.0 + eta * (5429.0 / 504.0 + eta * 617.0 / 72.0) + (0.4*63845.*(-81. + 4.*eta)*chi*chi/(8.*pow(-113. + 76.*eta, 2.))); // last term is 0 if chi is 0;
+			c3T = -32.0 * LAL_PI / 5.0 + (0.4*113.*chi/3.); // last term is 0 if chi is 0;
 			c2T = 743.0 / 252.0 + eta * 11.0 / 3.0;
 			c0T = 5.0 * m * LAL_MTSUN_SI / (256.0 * eta);	
 			break;
@@ -846,9 +848,9 @@ static double chirp_time (double m1, double m2, double fLower, int order)
 }
 
 /* A convenience function to compute the time between two frequencies */
-static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order)
+static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order, double chi)
 	{
-	return chirp_time(m1,m2,fLower,order) - chirp_time(m1,m2,fUpper,order);
+	return chirp_time(m1,m2,fLower,order,chi) - chirp_time(m1,m2,fUpper,order,chi);
 	}
 
 
