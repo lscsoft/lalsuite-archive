@@ -219,7 +219,6 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
     
   #coinc_event_id = coinc_event_id_base + str(UID)
 
-  #someone put something stupid in the coincinspiral table definition
   #this next line is to guard against future violence to the table definitions
   cintcols = ['coinc_event_id','ifos','end_time','end_time_ns','mass','mchirp','snr','false_alarm_rate','combined_far']
   cin_table = lsctables.New(lsctables.CoincInspiralTable,columns=cintcols)
