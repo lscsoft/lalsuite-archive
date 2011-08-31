@@ -126,7 +126,7 @@ def cbcBayesPostProc(
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,deltaLogL=deltaLogL,fixedBurnin=fixedBurnin,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
+        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogL=deltaLogL,fixedBurnin=fixedBurnin,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
 
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")

@@ -2516,7 +2516,7 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
@@ -2534,29 +2534,38 @@ class PEOutputParser(object):
         if not (nDownsample is None):
             nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
             print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        if outdir is None:
+            outdir=''
+        runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
         postName="posterior_samples.dat"
+        runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
         finally:
+            runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
-        log(L) > logLThreshold are concatenated.
+        log(L) > logLThreshold are concatenated after eliminating
+        fixedBurnin.
         """
         nRead=0
         outputHeader=False
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
-                print "Processing file %s to posterior_samples.dat"%infilename
-                f_lower=self._find_infmcmc_f_lower(infile)
-                header=self._clear_infmcmc_header(infile)
+                print "Writing header of %s to %s"%(infilename,runfile.name)
+                runInfo,header=self._clear_infmcmc_header(infile)
+                runfile.write('Chain '+str(i)+':\n')
+                runfile.writelines(runInfo)
+                print "Processing file %s to %s"%(infilename,outfile.name)
+                f_lower=self._find_infmcmc_f_lower(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -2615,7 +2624,7 @@ class PEOutputParser(object):
         for inpname in files:
             infile=open(inpname, 'r')
             try:
-                header=self._clear_infmcmc_header(infile)
+                runInfo,header=self._clear_infmcmc_header(infile)
                 loglindex=header.index("logpost")
                 for line in infile:
                     line=line.lstrip().split()
@@ -2629,7 +2638,7 @@ class PEOutputParser(object):
 
     def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
         """
-        Given a list of files, and threshold value, and a desired
+        Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
         achieve the desired number of posterior samples.
         """
@@ -2637,7 +2646,7 @@ class PEOutputParser(object):
         for inpname in files:
             infile = open(inpname, 'r')
             try:
-                header = self._clear_infmcmc_header(infile)
+                runInfo,header = self._clear_infmcmc_header(infile)
                 loglindex = header.index("logpost")
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
@@ -2659,38 +2668,40 @@ class PEOutputParser(object):
         else:
             return floor(ntot/nDownsample)
 
-    def _find_infmcmc_f_lower(self, infile):
+    def _find_infmcmc_f_lower(self, runInfo):
         """
-        Searches through header to determine starting frequency of waveform.
+        Searches through header to determine starting frequency of waveforms.
+        Assumes same for all IFOs.
         """
-        for line in infile:
+        runInfo = iter(runInfo)
+        for line in runInfo:
             headers=line.lstrip().lower().split()
-            if len(headers) is 0:
-                continue
-            if 'detector' in headers[0]:
-                for colNum in range(len(headers)):
-                    if 'f_low' in headers[colNum]:
-                        detectorInfo=infile.next().lstrip().lower().split()
-                        f_lower=detectorInfo[colNum]
-                        break
+            try:
+                flowColNum = headers.index('f_low')
+                IFOinfo = runInfo.next().lstrip().lower().split()
+                f_lower = IFOinfo[flowColNum]
                 break
+            except ValueError:
+                continue
         return f_lower
 
     def _clear_infmcmc_header(self, infile):
         """
-        Reads past the header information from the
-        lalinference_mcmcmpi file given, returning the common output
-        header information.
+        Reads lalinference_mcmcmpi file given, returning the run info and 
+        common output header information.
         """
+        runInfo = []
         for line in infile:
+            runInfo.append(line)
             headers=line.lstrip().lower().split()
-            if len(headers) is 0:
-                continue
-            if "cycle" in headers[0]:
+            try:
+                headers.index('cycle')
                 break
+            except ValueError:
+                continue
         else:
-            raise RuntimeError("couldn't find line beginning with 'cycle' in LALInferenceMCMC input")
-        return headers
+            raise RuntimeError("couldn't find line with 'cycle' in LALInferenceMCMC input")
+        return runInfo[:-1],headers
 
 
     def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
