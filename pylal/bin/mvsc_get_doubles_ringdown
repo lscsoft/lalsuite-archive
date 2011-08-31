@@ -40,6 +40,7 @@ parser.add_option("", "--number", default=10, type="int", help="number for round
 parser.add_option("", "--instruments", help="pair that you want to get like H1,L1")
 parser.add_option("", "--factor", default=50.0, type="float", help="the value of the magic number factor in the effective snr formula, should be 50 for highmass and 250 for lowmass")
 parser.add_option("", "--output-tag", default="", help="a string added to all filenames to help you keep track of things")
+parser.add_option("", "--apply-weights", default=False, help="calculates weight for all found injections, saves in .pat file (all bkg events get weight=1), if this option is not supplied, all events get a weight of 1, so still use -a 4 in the Spr* executables")
 (opts,databases)=parser.parse_args()
 ifos=opts.instruments.strip().split(',')
 ifos.sort()
@@ -178,6 +179,7 @@ for database in databases:
 	dbtables.put_connection_filename(database, working_filename, verbose = True)
 
 # now we will normalize the weighting column by multiplying it by the number of found injections in the injection set, and dividing by the sum of the efficiency factors for all found injections in the injection set, then we can put all injections into the same list
+#FIXME: there are better ways to implement the weighting, please think about it before applying
 allinjections=[]
 allinjections_info=[]
 
@@ -187,9 +189,13 @@ for key in injections.keys():
 	print "number of triggers in injection set", len(injections[key])
 	for row in range(len(injections[key])):
 		injtmp = list(injections[key][row])
-		injtmp[-2] = injtmp[-2]*float(len(injections[key]))/normalization[key]
+		if opts.apply_weights:
+			injtmp[-2] = injtmp[-2]*float(len(injections[key]))/normalization[key]
+		else:
+			injtmp[-2] = 1
 		allinjections.append(injtmp)
 		allinjections_info.append(list(injections_info[key][row]))
+
 
 random.seed(1)
 random.shuffle(allinjections)
