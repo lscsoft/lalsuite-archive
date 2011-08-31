@@ -13,7 +13,7 @@ matplotlib.use('Agg')
 import pylab
 import numpy
 import bisect
-from pylal import db_thinca_rings
+from pylal import db_rinca_rings
 from glue import segments
 
 parser=OptionParser(usage="""
@@ -84,9 +84,9 @@ for filename in files:
   """):
     injection_likelihood.append(likelihood)
     injection_snr.append(snr)
-  #livetimes = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection,'thinca'), db_thinca_rings.get_veto_segments(connection, 'vetoes'), db_thinca_rings.get_background_offset_vectors(connection), verbose=True)
+  #livetimes = db_rinca_rings.get_rinca_livetimes(db_rinca_rings.get_rinca_rings_by_available_instruments(connection,'rinca'), db_rinca_rings.get_veto_segments(connection, 'vetoes'), db_rinca_rings.get_background_offset_vectors(connection), verbose=True)
   # above is the correct calculation of livetimes, but it takes a while. You can comment it out and uncomment the line below for an approximate calculation of livetime.
-  livetimes = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection,'thinca'), segments.segmentlistdict(), db_thinca_rings.get_background_offset_vectors(connection), verbose=True)
+  livetimes = db_rinca_rings.get_rinca_livetimes(db_rinca_rings.get_rinca_rings_by_available_instruments(connection,'rinca'), segments.segmentlistdict(), db_rinca_rings.get_background_offset_vectors(connection), verbose=True)
   dbtables.put_connection_filename(filename, working_filename, verbose = True)
 print "number of timeslides:", len(timeslide_likelihood)
 print "number of zerolags:", len(zerolag_likelihood)
