@@ -1228,7 +1228,7 @@ class SnglInspiralTable(table.Table):
 				row.event_id = mapping[row.event_id]
 		return mapping
 
-	def get_column(self,column):
+	def get_column(self,column,fac=250.,index=6.):
 		if column == 'reduced_chisq':
 			return self.get_reduced_chisq()
 		if column == 'reduced_bank_chisq':
@@ -1237,6 +1237,10 @@ class SnglInspiralTable(table.Table):
 			return self.get_reduced_cont_chisq()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
+		if column == 'effective_snr':
+			return self.get_effective_snr(fac=fac)
+		if column == 'new_snr':
+			return self.get_new_snr(index=index)
 		if column == 'lvS5stat':
 			return self.get_lvS5stat()
 		elif column == 'chirp_distance':
