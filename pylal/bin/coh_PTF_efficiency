@@ -735,6 +735,12 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                                   dtype=float )
     foundOnBestNR = numpy.zeros( [len(massBins), len(distBins)+1 ],\
                                   dtype=float)
+
+    # Set the structures for calculating sigma
+    injSigma = {}
+    for ifo in ifos:
+      injSigma[ifo] = []
+    injSigmaTot = []
    
     # process found injections
     for inj,trig in zip(foundInjs,foundTrigs):
@@ -742,6 +748,26 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       # trials can be retained, if the injection time is not vetoed
       if inj.get_end() in vetoes:
         continue
+
+      # get sky location and response
+      # Change this to injPos
+      trigPos = (trig.ra,trig.dec)
+      injPos  = (inj.longitude,inj.latitude)
+      ra            = inj.longitude*fRadDeg
+      dec           = inj.latitude*fRadDeg
+      fPlus,fCross  = get_det_response( ra, dec, inj.get_end() )
+      fResp[trigPos] = {}
+      for ifo in ifos:
+        fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+
+      # Set the sigma values
+      sigmaTot = 0
+      for ifo in ifos:
+        sig = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
+        injSigma[ifo].append( sig * fResp[trigPos][ifo] )
+        sigmaTot += sig * fResp[trigPos][ifo]
+      injSigmaTot.append(sigmaTot)
+        
 
       filtered_foundInjs.append(inj)
       filtered_foundTrigs.append(trig)
@@ -1209,7 +1235,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                    "loudest foreground" )
     ax.set_xlabel( "Distance (Mpc)" )
 
-    # Print 90% exclusion distance to file
+    # Print 90% exclusion distance to file and calculate MC error
     for ii,dist, eff in zip(range(len(distPlotVals)),distPlotVals,\
                         finjs/totalinjs):
       if eff < 0.9:
@@ -1222,7 +1248,49 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         excl_dist = (const - 0.9)/gradient
+        lastLowErr = yerr_low[ii-1]
+        nextLowErr = yerr_low[ii]
+        # How far between the points is the 90% mark?
+        fracBetween = (excl_dist-dist_low)/delta_dist
+        effError = fracBetween * nextLowErr + (1-fracBetween)*lastLowErr
+        print lastLowErr,nextLowErr,fracBetween,effError
+        mcDistErr = effError / gradient
+        print mcDistErr,gradient 
+        mcDistErr = mcDistErr/excl_dist
+        print mcDistErr
         break
+
+    # Calculate the amplitude error
+    # Begin by calculating the components from each detector
+    ampErr = {}
+    ampErr['H1'] = 0.05
+    ampErr['L1'] = 0.09
+    ampErr['V1'] = 0.06
+
+    injSigmaMean = {}
+    for ifo in ifos: 
+      injSigma[ifo] = pylab.asarray( injSigma[ifo] )
+    injSigmaTot = numpy.array(injSigmaTot)
+    for ifo in ifos:
+      injSigma[ifo] /= injSigmaTot
+      injSigmaMean[ifo] = injSigma[ifo].mean()
+      print injSigmaMean[ifo]
+
+    calError = 0
+    for ifo in ifos:
+      calError += ampErr[ifo]**2 * injSigmaMean[ifo]**2
+    calError = calError**0.5
+    print calError
+    
+    # Calibration phase uncertainties is neglected
+
+    # Waveform error
+
+    wavError = 0.1
+
+    # Statistical error is calculated above
+
+    print "ALL errors", calError,wavError,mcDistErr
 
     file = open( "%s/exclusion_distance.txt" % outdir, "w" )
     print >>file, excl_dist
