@@ -3,6 +3,8 @@ from scipy import random
 from scipy import interpolate
 import bisect
 import sys
+from glue.ligolw import lsctables
+from pylal.xlal import constants
 
 import matplotlib
 matplotlib.use("agg")
@@ -370,3 +372,34 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
 
     return val
+
+
+def get_background_livetime(connection, verbose=False):
+    '''
+    Query the database for the background livetime for the input instruments set.
+    This is equal to the sum of the livetime of the time slide experiments.
+    '''
+    query = """
+    SELECT instruments, duration
+    FROM experiment_summary
+    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
+    WHERE experiment_summary.datatype == "slide";
+    """
+
+    bglivetime = {}
+    for inst,lt in connection.cursor().execute(query):
+        inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
+        try:
+            bglivetime[inst] += lt
+        except KeyError:
+            bglivetime[inst] = lt
+
+    if verbose:
+        for inst in bglivetime.keys():
+            print >>sys.stdout,"The background livetime for time slide experiments on %s data: %d seconds (%.2f years)" % (','.join(sorted(list(inst))),bglivetime[inst],bglivetime[inst]/float(constants.LAL_YRJUL_SI))
+
+    return bglivetime
+
+
+
+
