@@ -72,6 +72,7 @@ REAL4Vector *Tmodel;
 REAL8Sequence **topdown_sum;
 REAL8 *normalisations;
 const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
+long int factorial(long int x);
 
 /*NRCSID (LALINSPIRALMCMCUSERC, "$Id: LALInspiralPhase.c,v 1.9 2003/04/14 00:27:22 sathya Exp $"); */
 
@@ -777,7 +778,10 @@ in the frequency domain */
 	/* This also holds the source and the detector, LAL has two different structs for this! */
 	LALDetAndSource det_source;
 	det_source.pSource=&source;
-
+    REAL8 deltaF_x=0.0;
+    REAL8 deltaG_x=0.0;
+    REAL8 Deltaplus=0.0, Deltamin=0.0,Reeven=0.0,Reodd=0.0;
+    INT4 CalOrder=1;
 	for(det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){ /* For each detector */
 
 		chisq=0.0;
@@ -823,6 +827,22 @@ in the frequency domain */
 			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i/deltaF;
 			chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
 			rec_snr+=2.0*((resp_r/deltaF)*(resp_r/deltaF)+(resp_i/deltaF)*(resp_i/deltaF))*inputMCMC->invspec[det_i]->data->data[idx];
+            Deltaplus=2*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_r/deltaF + inputMCMC->stilde[det_i]->data->data[idx].im*resp_i/deltaF);
+            Deltamin=2*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_i/deltaF- inputMCMC->stilde[det_i]->data->data[idx].im*resp_r/deltaF); // to be mlt by i 
+            for(INT4 kappa=1;kappa<=CalOrder;kappa++){
+                deltaF_x=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) - 2*(resp_r/deltaF*inputMCMC->stilde[det_i]->data->data[idx].re)- 2*(resp_i/deltaF*inputMCMC->stilde[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
+                chisq+=deltaF_x;// For ampli errors
+                Reeven=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*(1+kappa))*pow(-1.0,kappa+1)/factorial(2*(kappa+1));
+                Reodd=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*kappa+1)*pow(-1.0,kappa)/factorial(2*kappa+1); // to be mlt by minUs i
+                deltaG_x=-(Reeven*Deltaplus + Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+                chisq+=deltaG_x;
+                //F_x_tot+=deltaF_x;
+                //repls+= -(Reeven*deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+                //remns+= -(Reodd*deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+                //hh+=( pow((-H1calamp),kappa)*(kappa+1)* (resp_r/deltaF*resp_r/deltaF+resp_i/deltaF*resp_i/deltaF) )*inputMCMC->invspec[det_i]->data->data[idx];
+                //hn+=(-2*pow((-H1calamp),kappa)*(inputMCMC->noff[det_i]->data->data[idx].re * resp_r/deltaF + inputMCMC->noff[det_i]->data->data[idx].im * resp_i/deltaF ))*inputMCMC->invspec[det_i]->data->data[idx];
+              //hw+=(-2*pow((-H1calamp),kappa)*(resp_r/deltaF*(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re)+  resp_i/deltaF*(inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im) ))*inputMCMC->invspec[det_i]->data->data[idx];
+            }
 
 		} /* End loop over frequency */
 
@@ -1750,6 +1770,16 @@ void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParamet
 
 	return;
 
+}
+
+long int factorial(long int x)
+{
+if(x==0 || x==1)
+return(1);
+long int prod = 1,i;
+for(i=2;i<=x;i++)
+prod = prod*i;
+return(prod);
 }
 
 

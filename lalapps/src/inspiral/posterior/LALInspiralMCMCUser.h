@@ -159,3 +159,4 @@ void IMRPhenomB_template(LALStatus *status,InspiralTemplate *template, LALMCMCPa
 
 void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 #endif /* _LALINSPIRALMCMCUSER_H */
+long int factorial(long int x);

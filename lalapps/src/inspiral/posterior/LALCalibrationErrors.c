@@ -575,6 +575,58 @@ REAL8 GenerateFrequencySamples(REAL8 f_min, REAL8 f_max, UINT4 Length){
 }
 /* function to return the random amplitude calibration errors in the logfrequency array */
 
+
+void CreateErrorStreams(LALMCMCInput *inputMCMC,CHAR *IFOname, int i,int seed){
+/* Modify the noise datastream  */
+//injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+    int IFOnum=0;
+    UINT4 j;
+    REAL8 fstart = 1.0;
+    REAL8 fend = 4000.0;
+    INT4 length= 13;
+    REAL8 logfstart = log10(fstart);
+    REAL8 logfend = log10(fend);
+    REAL8 deltalogf = (logfend-logfstart)/(length-1);
+    REAL8 logfcur[length];
+    INT4 I;
+    for(I = 0; I<length; I++){
+        logfcur[I] = logfstart + deltalogf*I;
+    }
+
+    REAL8 phaseErr[length];
+    REAL8 ampErr[length];
+    INT4 FitOrder = 7;
+    REAL8 phaseFit[FitOrder];
+    REAL8 ampFit[FitOrder];
+    REAL8 cen = logfcur[(length-1)/2]; 
+    static LALStatus stat;
+    if(!strcmp(IFOname,"H1")){IFOnum =1;}
+    if(!strcmp(IFOname,"L1")){IFOnum =2;}
+    if(!strcmp(IFOname,"V1")){IFOnum =3;}
+    switch(IFOnum) {
+		case 1:
+            SampleCalibrationErrorsPhase(logfcur, length, 1, seed, phaseErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 1, seed+4101, ampErr);
+			break;
+        case 2:
+            SampleCalibrationErrorsPhase(logfcur, length, 2, seed, phaseErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 2, seed+4101, ampErr);
+			break;
+		case 3:
+            SampleCalibrationErrorsPhase(logfcur, length, 3, seed, phaseErr);
+            SampleCalibrationErrorsAmplitude(logfcur, length, 3, seed+4101, ampErr);
+            break;
+        default:
+			fprintf(stderr,"Unknown interferometer %s. Valid codes: H1 L1 V1\n",IFOname); exit(-1);
+    }
+    FitNoiseRealisation(&stat,FitOrder,length,phaseErr,deltalogf,phaseFit);
+    FitNoiseRealisation(&stat,FitOrder,length,ampErr,deltalogf,ampFit);
+    for(j=0;j<inputMCMC->invspec[i]->data->length;j++){
+    inputMCMC->calibAmplitude[i]->data->data[j]= ConvertCoefficientsToFunction(ampFit,j*inputMCMC->deltaF,cen);
+    inputMCMC->calibPhase[i]->data->data[j]=ConvertCoefficientsToFunction(phaseFit,j*inputMCMC->deltaF,cen);
+    }
+}
+
 void ApplyCalibrationErrorsToData(LALMCMCInput inputMCMC, COMPLEX16FrequencySeries *CalibNoise,CHAR *IFOname, int i,int seed){
 /* Modify the noise datastream  */
 //injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;

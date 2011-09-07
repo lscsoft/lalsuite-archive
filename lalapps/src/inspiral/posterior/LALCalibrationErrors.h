@@ -70,6 +70,7 @@ REAL8 Ph_H1(REAL8 f);
 REAL8 Ph_L1(REAL8 f);
 REAL8 Ph_V1(REAL8 f);
 */
+void CreateErrorStreams(LALMCMCInput *inputMCMC,CHAR *IFOname, int i,int seed);
 void ApplyCalibrationErrorsToData(LALMCMCInput inputMCMC,COMPLEX16FrequencySeries *CalibNoise,CHAR *IFOname,int i, int seed);
 void ApplyCalibrationErrorsToWaveform(COMPLEX16FrequencySeries *injF,COMPLEX16FrequencySeries *CalibInj,CHAR *IFOname, int i, int seed);
 void CalibPolar(COMPLEX16FrequencySeries *injF, COMPLEX16FrequencySeries *calibInjF, CHAR *IFOname,int seed);

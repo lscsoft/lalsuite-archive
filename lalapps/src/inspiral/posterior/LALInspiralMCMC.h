@@ -273,6 +273,8 @@ tagLALMCMCInput
   REAL8FrequencySeries*     invspec[MAXDET];
   COMPLEX16FrequencySeries* stilde[MAXDET];
   COMPLEX16FrequencySeries* noff[MAXDET];
+  REAL8FrequencySeries*     calibAmplitude[MAXDET];
+  REAL8FrequencySeries*     calibPhase[MAXDET];
   LALDetector*				detector[MAXDET];
   SnglInspiralTable         *inspiralTable;
   SimInspiralTable			*injectionTable;

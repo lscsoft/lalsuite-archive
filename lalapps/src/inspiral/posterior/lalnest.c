@@ -1,6 +1,6 @@
 /* Nested Sampler Using LAL bayesian framework
  (C) John Veitch 2009
-Authors: J. Veith, S. Vitale, W. del Pozzo, T. Li
+Authors: J. Veith, S. Vitale, W. Del Pozzo, T. Li
  */
 
 #include <stdlib.h>
@@ -198,7 +198,7 @@ REAL8 calibration_out_max=1.0;
 //REAL8 injTime=0.0;
 int isWavesDir=0;
 int calib_seed=1;
-
+int no_theory=0;
 
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
@@ -948,26 +948,22 @@ int main( int argc, char *argv[])
 			/* Add calibration error to the noise PSD and the noise data in the frequency domain */
             
             
-			if(enable_calamp || enable_calfreq){
-             //   FILE *noiseout;
-   // char uncaliboutname[100];
-    //sprintf(uncaliboutname,"uncal_invertPSD_%s.dat",IFOnames[i]);
-    //noiseout=fopen(uncaliboutname,"w");
-      //          for(j=0;j<inputMCMC.invspec[i]->data->length;j++){fprintf(noiseout,"%5.3lf %10.10lf \n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j]);}
-    //fclose(noiseout);
-               // REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
+			if((enable_calamp || enable_calfreq ) && no_theory){
                 fprintf(stderr,"Applying calibration errors to %s noise \n", IFOnames[i]);
                 COMPLEX16FrequencySeries *CalibNoise=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibNoiseFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                 ApplyCalibrationErrorsToData(inputMCMC,CalibNoise, IFOnames[i],i,calib_seed);
                 XLALDestroyCOMPLEX16FrequencySeries(CalibNoise);
-      //            char caliboutname[100];
-    //sprintf(caliboutname,"cal_invertPSD_%s.dat",IFOnames[i]);
-  //  noiseout=fopen(caliboutname,"w");
-    //            for(j=0;j<inputMCMC.invspec[i]->data->length;j++){fprintf(noiseout,"%5.3lf %10.10lf \n",j*inputMCMC.deltaF,inputMCMC.invspec[i]->data->data[j]);}
-      //          fclose(noiseout);
             }
-		
-		} //end if fake data
+            
+            
+            if((enable_calamp || enable_calfreq) && !(no_theory) ){
+                // Create calibration errors streams for phase and amplitude for the i-th and  add them to the MCMCinput structure
+                inputMCMC.calibAmplitude[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("Amplitude Errors",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+                inputMCMC.calibPhase[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("Phase Errors",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+                CreateErrorStreams(&inputMCMC,IFOnames[i],i,calib_seed);
+            } //end if fake data
+           
+        }
 		else FakeFlag=0;
 
 		if(timeslides&&!FakeFlag){ /* Set up time slides by randomly offsetting the data */
@@ -1086,7 +1082,7 @@ int main( int argc, char *argv[])
 			}
 			
 			/* Apply calibration errors to the real noise PSD and datastream */
-            if((enable_calamp || enable_calfreq) && !FakeFlag){
+            if((enable_calamp || enable_calfreq) && !FakeFlag && no_theory){
                 //REAL8 injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
                 fprintf(stderr,"Applying calibration errors to %s real noise \n", IFOnames[i]);
                 //FILE *calibout;
@@ -1171,7 +1167,7 @@ int main( int argc, char *argv[])
 			
 			REPORTSTATUS(&status);
             /* Add calibration errors to the waveform. This is done before the SNR is calculated */
-            if(enable_calamp || enable_calfreq){
+            if((enable_calamp || enable_calfreq) && no_theory){
                 COMPLEX16FrequencySeries *injFnoError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
                 COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
 
