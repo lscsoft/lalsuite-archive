@@ -16,6 +16,8 @@ from glue import segments,markup
 from pylal.dq import dqSegmentUtils
 from glue.ligolw import table,lsctables,utils
 from pylal.coh_PTF_pyutils import *
+import scipy
+from scipy import stats
 
 def write_table( page, headers, data, cl='' ):
 
@@ -742,7 +744,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       injSigma[ifo] = []
     injSigmaTot = []
    
-    # process found injections
+    # Now process found injections
     for inj,trig in zip(foundInjs,foundTrigs):
       # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
       # trials can be retained, if the injection time is not vetoed
@@ -750,24 +752,22 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         continue
 
       # get sky location and response
-      # Change this to injPos
-      trigPos = (trig.ra,trig.dec)
       injPos  = (inj.longitude,inj.latitude)
       ra            = inj.longitude*fRadDeg
       dec           = inj.latitude*fRadDeg
       fPlus,fCross  = get_det_response( ra, dec, inj.get_end() )
-      fResp[trigPos] = {}
+      injFResp = {}
       for ifo in ifos:
-        fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
-
+        injFResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+    
       # Set the sigma values
-      sigmaTot = 0
-      for ifo in ifos:
+      sigmaTot = 0 
+      for ifo in ifos: 
         sig = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
-        injSigma[ifo].append( sig * fResp[trigPos][ifo] )
-        sigmaTot += sig * fResp[trigPos][ifo]
+        injSigma[ifo].append( sig * injFResp[ifo] )
+        sigmaTot += sig * injFResp[ifo]
       injSigmaTot.append(sigmaTot)
-        
+
 
       filtered_foundInjs.append(inj)
       filtered_foundTrigs.append(trig)
@@ -810,10 +810,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
             print "ERROR: Distance bins appear to overlap"
         distNum += 1
   
-      if injDistBin:
-        numInjections[injBinNum,injDistNum] += 1
-      numInjections[injBinNum,len(distBins)] += 1
- 
       # get sky location and response
       trigPos = (trig.ra,trig.dec)
       injPos  = (inj.longitude,inj.latitude)
@@ -836,10 +832,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       # Note that hero we are using BestNRmk8 as the detection stat
       # if louder than all background:
       if bestNR > maxBestNR[trigBin[0]]:
-        # Add 1 to the list of found injections
-        if injDistBin:
-          foundmaxBestNR[injBinNum,injDistNum] += 1
-        foundmaxBestNR[injBinNum,len(distBins)] += 1
         gFoundEffDist.append(effDist)
         for site in sites:
           gFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
@@ -881,73 +873,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gMissed2Dist.append( inj.distance )
         gMissed2Time.append( float(inj.get_time_geocent()) )
 
-      # For burst-style exclusion distances, we compare to offsource and
-      # triggers around the injection
-      if onsourceFile:
-        missedExcl = True
-        # Firstly is the trigger louder than the loudest onsource
-        if bestNR > loudOnBestNR[trigBin[0]]:
-          # If so, also check that no louder triggers are within
-          # cluster window of the injection trigger with no injection present
-          # Note that a correction factor close to 1 is used to increase the
-          # signifcance of the offsource triggers. This stops you getting a
-          # SNR 7.5 glitch showing up as a 7.50001 trigger with an injection
-          # present.
-          
-          # If the injection is louder than the loudest offsource event we need
-          # go no further, it will be "found"
-          if bestNR > maxBestNR[trigBin[0]]*glitchCheckFac:
-            missedExcl = False
-          elif bestNR == 0:
-            # Next, if the bestNR is 0, the injection will be "missed"
-            missedExcl = True
-          else:
-            # Otherwise check against nearby triggers. We are looking for louder
-            # triggers within cluster_window
-            missedExcl = False
-            for trig2 in trigs:
-              if abs(inj.get_end() - trig2.get_end()) < clusterWindow:
-                trigPos2 = (trig2.ra,trig2.dec)
-                if trigPos2 not in fResp.keys():
-                  ra            = trig2.ra*fRadDeg
-                  dec           = trig2.dec*fRadDeg
-                  fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
-                  fResp[trigPos2] = {}
-                  for ifo in ifos:
-                    fResp[trigPos2][ifo] = fPlus[ifo]*fPlus[ifo] \
-                                           + fCross[ifo]*fCross[ifo]
-                bestNR2 = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                  null_thresh=null_thresh, fResp=fResp[trigPos2])                
-                if bestNR2*glitchCheckFac > bestNR:
-                  missedExcl = True
-                  break
-
-        if missedExcl:
-          # Trigger is "missed" for exclusion distance efficiency curve
-          bMissedEffdist.append(effDist)
-          for site in sites:
-            bMissedEffSitedist[site].append( getattr(inj,'eff_dist_%s'\
-                                                        % site.lower()) )
-          bMissedMchirp.append( inj.mchirp )
-          bMissedMtot.append( inj.mass1 + inj.mass2 )
-          bMissedDist.append( inj.distance )
-          bMissedTime.append( float(inj.get_time_geocent()) )
-        else:
-          # Trigger is "found" for exclusion distance efficiency curve
-          if injDistBin:
-            foundOnBestNR[injBinNum,injDistNum] += 1
-          foundOnBestNR[injBinNum,len(distBins)] += 1
-          bFoundEffDist.append(effDist)
-          for site in sites:
-            bFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
-                                                             % site.lower()) )
-          bFoundDist.append( inj.distance )
-          bFoundMchirp.append( inj.mchirp )
-          bFoundMtot.append( inj.mass1 + inj.mass2 )
-          bFoundDetStat.append( bestNR )
-          bFoundTime.append( float(inj.get_time_geocent()) )
-          bFoundSkyAngle.append( float(centralAngle) )
-           
     # Remove vetoed injections from the lists
     foundInjs = filtered_foundInjs
     foundTrigs = filtered_foundTrigs
@@ -990,10 +915,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           trigDistBin = bin
         distNum += 1
   
-      if trigDistBin:
-        numInjections[trigBinNum,trigDistNum] += 1
-      numInjections[trigBinNum,len(distBins)] += 1
-  
       gMissedEffdist.append( effDist )
       gMissedMchirp.append(  inj.mchirp )
       gMissedDist.append(    inj.distance )
@@ -1003,8 +924,185 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
                                                  % site.lower()) )
 
+    # Calculate the amplitude error
+    # Begin by calculating the components from each detector
+    ampErr = {}
+    ampErr['H1'] = 0.05
+    ampErr['L1'] = 0.09
+    ampErr['V1'] = 0.06
+    
+    injSigmaMean = {}
+    for ifo in ifos:
+      injSigma[ifo] = pylab.asarray( injSigma[ifo] )
+    injSigmaTot = numpy.array(injSigmaTot)
+    for ifo in ifos:
+      injSigma[ifo] /= injSigmaTot
+      injSigmaMean[ifo] = injSigma[ifo].mean()
+      print injSigmaMean[ifo]     
+    
+    calError = 0
+    for ifo in ifos:
+      calError += ampErr[ifo]**2 * injSigmaMean[ifo]**2
+    calError = calError**0.5
+    print calError
+
+    # Calibration phase uncertainties is neglected
+
+    # Waveform error
+
+    wavError = 0.1
+
+
     # Remove vetoed missed injections from the list
     missedInjs = filtered_missedInjs
+
+    # Now create the numbers for the efficiency plots, these include calibration
+    # and waveform errors. These are incorporated by running over each injection
+    # 1000 times, where each time we draw a random value of distance
+    numMCInjs = 1000
+    for inj,trig in zip(foundInjs,foundTrigs):
+      # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
+      # trials can be retained, if the injection time is not vetoed
+      if inj.get_end() in vetoes:
+        continue
+      for ii in range(numMCInjs):
+        # Convert inj.distance to a physical distance by applying calibration
+        # and waveform errors
+        distance = inj.distance
+        calDistRed = calError * stats.norm.rvs()
+        while (1):
+          wavDistRed = wavError * stats.norm.rvs()
+          if (wavDistRed > 0):
+            break
+        distance = inj.distance / ((1 + calDistRed)*(1 + wavDistRed))
+
+        for i,bin in enumerate(massBins):
+          if bin[0] <= inj.mchirp < bin[1]:
+            injBinNum = i
+            injBin = bin
+          if bin[0] <= trig.mchirp < bin[1]:
+            trigBinNum = i
+            trigBin = bin
+          if trigBin and injBin:  break
+
+        if not injBin:
+          print "ERROR: No mass bins match found injection trigger with mchirp "+\
+                "%s" % inj.mchirp
+        if not trigBin:
+          print "ERROR: No mass bins match found injection trigger with mchirp "+\
+                "%s" % trig.mchirp
+
+        injDistBin = None
+        distNum = 0
+        for bin in distBins:
+          if bin[0] <= distance < bin[1]:
+            if not injDistBin:
+              injDistNum = distNum
+              injDistBin = bin
+            else:
+              print "ERROR: Distance bins appear to overlap"
+          distNum += 1
+
+        if injDistBin:
+          numInjections[injBinNum,injDistNum] += 1
+        numInjections[injBinNum,len(distBins)] += 1
+
+        bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                null_thresh=null_thresh, fResp=fResp[trigPos])
+
+        # Note that hero we are using BestNRmk8 as the detection stat
+        # if louder than all background:
+        if bestNR > maxBestNR[trigBin[0]]:
+          # Add 1 to the list of found injections
+          if injDistBin:
+            foundmaxBestNR[injBinNum,injDistNum] += 1
+          foundmaxBestNR[injBinNum,len(distBins)] += 1
+
+        if onsourceFile:
+          missedExcl = True
+          # Firstly is the trigger louder than the loudest onsource
+          if bestNR > loudOnBestNR[trigBin[0]]:
+            # If so, also check that no louder triggers are within
+            # cluster window of the injection trigger with no injection present
+            # Note that a correction factor close to 1 is used to increase the
+            # signifcance of the offsource triggers. This stops you getting a
+            # SNR 7.5 glitch showing up as a 7.50001 trigger with an injection
+            # present.
+
+            # If the injection is louder than the loudest offsource event we need
+            # go no further, it will be "found"
+            if bestNR > maxBestNR[trigBin[0]]*glitchCheckFac:
+              missedExcl = False
+            elif bestNR == 0:            # Next, if the bestNR is 0, the injection will be "missed"
+              missedExcl = True
+            else:
+              # Otherwise check against nearby triggers. We are looking for louder
+              # triggers within cluster_window
+              missedExcl = False
+              for trig2 in trigs:
+                if abs(inj.get_end() - trig2.get_end()) < clusterWindow:
+                  trigPos2 = (trig2.ra,trig2.dec)
+                  if trigPos2 not in fResp.keys():
+                    ra            = trig2.ra*fRadDeg
+                    dec           = trig2.dec*fRadDeg
+                    fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+                    fResp[trigPos2] = {}
+                    for ifo in ifos:
+                      fResp[trigPos2][ifo] = fPlus[ifo]*fPlus[ifo] \
+                                             + fCross[ifo]*fCross[ifo]
+                  bestNR2 = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                  null_thresh=null_thresh, fResp=fResp[trigPos2])
+ 
+                  if bestNR2*glitchCheckFac > bestNR:
+                    missedExcl = True
+                    break
+
+        if not missedExcl:
+          # Trigger is "found" for exclusion distance efficiency curve
+          if injDistBin:
+            foundOnBestNR[injBinNum,injDistNum] += 1
+          foundOnBestNR[injBinNum,len(distBins)] += 1
+
+    # Also need to do the same to the missed injections
+    for inj in missedInjs:
+      # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
+      # trials can be retained, if the injection time is not vetoed
+      if inj.get_end() in vetoes:
+        continue
+
+      for ii in range(numMCInjs):
+        # Convert inj.distance to a physical distance by applying calibration
+        # and waveform errors
+        distance = inj.distance
+        calDistRed = calError * stats.norm.rvs()
+        while (1):
+          wavDistRed = wavError * stats.norm.rvs()
+          if (wavDistRed > 0):
+            break
+        distance = inj.distance / ((1 + calDistRed)*(1 + wavDistRed))
+
+        trigBin = None
+        binNum = 0
+        for i,bin in enumerate(massBins):
+          if bin[0]<= inj.mchirp < bin[1]:
+            trigBinNum = i
+            trigBin = bin
+            break
+          binNum += 1
+        if not trigBin:
+          print "ERROR: No mass bins match missed injection with mchirp "+\
+                "%s" % inj.mchirp
+        trigDistBin = None
+        distNum = 0
+        for i,bin in enumerate(distBins):
+          if bin[0] <= distance < bin[1]:
+            trigDistNum = i
+            trigDistBin = bin
+          distNum += 1
+
+        if trigDistBin:
+          numInjections[trigBinNum,trigDistNum] += 1
+        numInjections[trigBinNum,len(distBins)] += 1
 
     grbTime = segs['on'][1] - 1
 
@@ -1176,6 +1274,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     iter = 0
 
+    # Here I need to reduce totalinjs and finjs by the number of MC simulations
+    # because that gives the true number of injections
+    totalinjs = totalinjs/numMCInjs
+    finjs = finjs/numMCInjs
     yerr_common = totalinjs * (2 * finjs + 1)
     yerr_denom = 2*totalinjs*(totalinjs + 1)
     yerr_vary = 4 * totalinjs * finjs * (totalinjs - finjs) + totalinjs**2
@@ -1215,6 +1317,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.plot( distPlotVals, (finjs/totalinjs), 'r' )
     ax.grid()
     iter = 0
+    totalinjs = totalinjs/numMCInjs
+    finjs = finjs/numMCInjs
     yerr_common = totalinjs * (2 * finjs + 1)
     yerr_denom = 2*totalinjs*(totalinjs + 1)
     yerr_vary = 4 * totalinjs * finjs * (totalinjs - finjs) + totalinjs**2
@@ -1258,37 +1362,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         print mcDistErr,gradient 
         mcDistErr = mcDistErr/excl_dist
         print mcDistErr
+        excl_dist = excl_dist / (1 + scipy.stats.norm.isf(0.1)*mcDistErr)
         break
-
-    # Calculate the amplitude error
-    # Begin by calculating the components from each detector
-    ampErr = {}
-    ampErr['H1'] = 0.05
-    ampErr['L1'] = 0.09
-    ampErr['V1'] = 0.06
-
-    injSigmaMean = {}
-    for ifo in ifos: 
-      injSigma[ifo] = pylab.asarray( injSigma[ifo] )
-    injSigmaTot = numpy.array(injSigmaTot)
-    for ifo in ifos:
-      injSigma[ifo] /= injSigmaTot
-      injSigmaMean[ifo] = injSigma[ifo].mean()
-      print injSigmaMean[ifo]
-
-    calError = 0
-    for ifo in ifos:
-      calError += ampErr[ifo]**2 * injSigmaMean[ifo]**2
-    calError = calError**0.5
-    print calError
-    
-    # Calibration phase uncertainties is neglected
-
-    # Waveform error
-
-    wavError = 0.1
-
-    # Statistical error is calculated above
 
     print "ALL errors", calError,wavError,mcDistErr
 
@@ -1298,8 +1373,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     ax.plot([excl_dist],[0.9],'gx')
     fig.savefig( '%s/BestNR_on_efficiency.png' % ( outdir ) )
-
-         
       
   
     binNum = 0
