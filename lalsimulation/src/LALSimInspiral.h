@@ -718,5 +718,4 @@ int XLALSimInspiralRestrictedSpinTaylorT4(
 		int phaseO                          /**< twice PN phase order */
 		);
 
-
 #endif /* _LALSIMINSPIRAL_H */
