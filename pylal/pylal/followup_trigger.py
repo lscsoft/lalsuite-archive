@@ -506,15 +506,15 @@ class FollowupTrigger:
 
 
   # -----------------------------------------------------
-  def get_effective_snr(self, trig):
+  def get_effective_snr(self, trig, fac=50):
     if trig.chisq>0:
-      return trig.get_effective_snr(fac=50)
+      return trig.get_effective_snr(fac=fac)
     else:
       return 0.0
 
   # -----------------------------------------------------
-  def get_new_snr(self, trig):
-    return trig.get_new_snr(index=6.0)
+  def get_new_snr(self, trig, index=6.):
+    return trig.get_new_snr(index=index)
 
   # -----------------------------------------------------
   def get_sim_time(self, sim, ifo = None):
@@ -756,13 +756,15 @@ class FollowupTrigger:
     self.fill_table( page, ['<b>parameter','<b>value'] )
     self.fill_table( page, ['Number', self.number] )
     self.fill_table( page, ['inj ID', self.injection_id] )
-    self.fill_table( page, ['mass1', '%.2f'% inj.mass1] )
-    self.fill_table( page, ['mass2', '%.2f'% inj.mass2] )
+    self.fill_table( page, ['mass1', '%.2f' % inj.mass1] )
+    self.fill_table( page, ['mass2', '%.2f' % inj.mass2] )
     self.fill_table( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
     self.fill_table( page, ['mchirp', '%.2f' % (inj.mchirp)] )
     self.fill_table( page, ['eta', '%.2f' % (inj.eta)] )
+    self.fill_table( page, ['spin1z', '%2f' % (inj.spin1z) ] )
+    self.fill_table( page, ['spin2z', '%2f' % (inj.spin2z) ] )
     self.fill_table( page, ['end_time', '%010d' % inj.geocent_end_time] )
-    self.fill_table( page, ['end_time_ns', '%09d' %inj.geocent_end_time_ns] )
+    self.fill_table( page, ['end_time_ns', '%09d' % inj.geocent_end_time_ns] )
     self.fill_table( page, ['distance', '%.1f' % inj.distance] )
     for ifo_id in ['h','l','v','g']:
       if self.sned:
@@ -869,14 +871,14 @@ class FollowupTrigger:
         self.fill_table( page, ['parameter', ifo], header=True )
         self.fill_table( page, ['Number', self.number] )
         self.fill_table( page, ['inj ID', self.injection_id] )
-        self.fill_table( page, ['Effective SNR (fac=50)', '%.3f' % self.get_effective_snr(trig)] )
-        self.fill_table( page, ['New SNR', '%.3f' % self.get_new_snr(trig)] )
         self.fill_table( page, ['SNR', '%.3f' % trig.snr] )
-        self.fill_table( page, ['Chisq', '%.3f' % (trig.chisq)] )
+        self.fill_table( page, ['Effective SNR (fac=50)', '%.3f' % self.get_effective_snr(trig,fac=50.)] )
+        self.fill_table( page, ['New SNR', '%.3f' % self.get_new_snr(trig,index=6.)] )
+        self.fill_table( page, ['Chisq', '%.2f' % (trig.chisq)] )
         self.fill_table( page, ['Chisq/dof', '%.3f' % (trig.chisq/(2*trig.chisq_dof-2))] )
-        self.fill_table( page, ['Bank chisq', '%.3f' % (trig.bank_chisq)] )
+        self.fill_table( page, ['Bank chisq', '%.2f' % (trig.bank_chisq)] )
         self.fill_table( page, ['Bank chisq/dof', '%.3f' % (trig.bank_chisq/trig.bank_chisq_dof)] )
-        self.fill_table( page, ['Auto chisq', '%.3f' % (trig.cont_chisq)] )
+        self.fill_table( page, ['Auto chisq', '%.2f' % (trig.cont_chisq)] )
         self.fill_table( page, ['Auto chisq/dof', '%.3f' % (trig.cont_chisq/trig.cont_chisq_dof)] )
         self.fill_table( page, ['Rsq duration (s)', '%.4f' % trig.rsqveto_duration] )
         self.fill_table( page, ['''Mass1 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass1] )
@@ -891,7 +893,7 @@ class FollowupTrigger:
           self.fill_table( page, ['Unslid end time', '%.4f' % slidEndTime] )
         else:
           endTime = trig.end_time + 1E-9*trig.end_time_ns
-          self.fill_table( page, ['GPS end time', '%.4f' % endTime] )
+          self.fill_table( page, ['GPS end time', '%.3f' % endTime] )
         self.fill_table( page, ['Effective distance (Mpc)', '%.1f' % trig.eff_distance] )
         page.add('</table></td>')
 
