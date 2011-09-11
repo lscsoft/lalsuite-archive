@@ -454,29 +454,23 @@ class upper_limit(object):
     make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(self.connection), lsctables.SimInspiralTable.tableName).row_from_cols
 
     injection_finding_query = """
-       SELECT sim_inspiral.*,
-       -- true if injection matched a coinc below the false alarm rate threshold
-       EXISTS (
-	     SELECT *
-	     FROM coinc_event_map AS mapa
-	     JOIN coinc_event_map AS mapb ON ( mapa.coinc_event_id == mapb.coinc_event_id )
-	     JOIN coinc_inspiral ON ( mapb.table_name == "coinc_event" AND mapb.event_id == coinc_inspiral.coinc_event_id )
-	     WHERE mapa.table_name == "sim_inspiral"
-	     AND mapa.event_id == sim_inspiral.simulation_id
-	     AND coinc_inspiral.combined_far < ?
-	     )
-       FROM sim_inspiral
-       WHERE
-       -- only interested in injections that were injected
-       injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
-	 """
+    SELECT sim_inspiral.*,
+    CASE EXISTS(SELECT * FROM coinc_event_map AS mapa JOIN coinc_event_map AS mapb ON  ( mapa.coinc_event_id == mapb.coinc_event_id ) JOIN coinc_inspiral ON ( mapb.table_name == "coinc_event" AND mapb.event_id == coinc_inspiral.coinc_event_id ) WHERE mapa.table_name == "sim_inspiral"  AND mapa.event_id == sim_inspiral.simulation_id)
+    WHEN 0 THEN -1
+    ELSE (SELECT MIN(combined_far) FROM coinc_event_map AS mapa JOIN coinc_event_map AS mapb ON  ( mapa.coinc_event_id == mapb.coinc_event_id ) JOIN coinc_inspiral ON ( mapb.table_name == "coinc_event" AND mapb.event_id == coinc_inspiral.coinc_event_id ) WHERE mapa.table_name == "sim_inspiral"  AND mapa.event_id == sim_inspiral.simulation_id)
+    END
+    FROM sim_inspiral
+    WHERE
+    -- only interested in injections that were injected
+    injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
+    """
 
-    for values in self.connection.cursor().execute(injection_finding_query,(FAR,)):
+    for values in self.connection.cursor().execute(injection_finding_query):
       sim = make_sim_inspiral(values)
 
       if self.filter_injection(sim, bin_type): continue
 
-      if values[-1]:
+      if -1 < values[-1] < FAR:
         found.append(sim)
       else:
         missed.append(sim)
