@@ -102,6 +102,15 @@ class pylal_build_py(build_py.build_py):
 
 class pylal_install(install.install):
 	def run(self):
+		# Detect whether we are building from a tarball; we have decided
+		# that releases should not contain scripts nor env setup files.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if os.path.exists("PKG-INFO"):
+			self.distribution.scripts = []
+			self.distribution.data_files = []
+			install.install.run(self)
+			return
+
 		# create the user env scripts
 		if self.install_purelib == self.install_platlib:
 			pylal_pythonpath = self.install_purelib
@@ -155,13 +164,9 @@ class pylal_install(install.install):
 
 class pylal_sdist(sdist.sdist):
 	def run(self):
-		# remove the automatically generated user env scripts
-		for script in ["pylal-user-env.sh", "pylal-user-env.csh"]:
-			log.info("removing " + script )
-			try:
-				os.unlink(os.path.join("etc", script))
-			except:
-				pass
+		# remove undesirable elements from tarball
+		self.distribution.data_files = []
+		self.distribution.scripts = []
 
 		# create the git_version module
 		log.info("generating pylal/git_version.py")
