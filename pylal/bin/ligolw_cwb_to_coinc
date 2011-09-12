@@ -76,15 +76,25 @@ parser.add_option("-e", "--gps-end-time", action="store", dest="end",
   help="Allow events only after the gps-end-time.")
 parser.add_option("-v", "--verbose", action="store_true", dest="verbose", 
   default=False, help="Turn on verbosity.")
+parser.add_option("-u", "--unique-time-slides", action="store_true", 
+        dest="uniquify", default=False, help="Clean up the time slide table to have only unique time slide offsets. Specify the XML document to clean up with the -o option.")
 parser.add_option("-w", "--set-offset", action="store", dest="waveoffset", 
   default=0, help="Set job processing offset time. Defualt is 0.")
-parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get input files from the LAL cache named filename.")
+parser.add_option("-i", "--instruments", metavar = "instruments", action =
+        "store", default = "", help = "Specify a set of instruments (IFOs) in a comma separated list, e.g. \"H1,H2,L1\". Recommended in case of conversion of file with no events.")
+parser.add_option("-I", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get input files from the LAL cache named filename.")
 
 opts, rootfiles = parser.parse_args()
+
+if opts.uniquify:
+  if opts.verbose: print "Cleaning up time slide table for %s" % opts.outputname
+  ligolw_cwb_to_coinc.uniquify_lag_list(opts.outputname, opts.verbose)
+  exit()
 
 if opts.input_cache:
   if rootfiles == None: rootfiles = []
   rootfiles += [CacheEntry(line).path() for cache in opts.input_cache for line in file(cache)]
+
 
 if rootfiles == None:
   sys.exit("Must specify input Coherent WaveBurst ROOT files")
@@ -99,7 +109,7 @@ xmldoc.appendChild(ligolw.LIGO_LW());
 
 tbl_factory = ligolw_cwb_to_coinc.CWB2Coinc(opts.job_list, opts.start, opts.end,
         #opts.cwbtable, 
-        opts.waveoffset, opts.verbose)
+        opts.instruments, opts.waveoffset, opts.verbose)
 tbl_factory.create_tables(xmldoc, rootfiles)
 
 if opts.outputname == None :
@@ -107,7 +117,7 @@ if opts.outputname == None :
   output = "cwb_to_coinc"
 
   if opts.start and opts.end :
-    output = "%s_%d_%d" % (output, opts.start, opts.end)
+    output = "%s_%d_%d" % ( output, int(opts.start), int(opts.end) )
 
   output += ".xml.gz"
 else :
