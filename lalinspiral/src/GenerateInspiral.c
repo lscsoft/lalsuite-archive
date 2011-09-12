@@ -477,6 +477,10 @@ LALGetApproximantFromString(
   {
     *approximant = NumRel;
   }
+  else if ( strstr(thisEvent, "NumRelNinja2" ) )
+  {
+    *approximant = NumRelNinja2;
+  }
   else if ( strstr(thisEvent, "IMRPhenomA" ) )
   {
     *approximant = IMRPhenomA;
