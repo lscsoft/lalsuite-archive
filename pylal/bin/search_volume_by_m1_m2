@@ -110,7 +110,22 @@ class upper_limit(object):
           self.segments += self.get_segments(connection, xmldoc)
           self.get_far_thresholds(connection)
       else:
-        self.get_mass_ranges(connection)
+        if opts.mass_limits:
+          self.minmass = float(opts.mass_limits.split(",")[0])
+          self.maxmass = float(opts.mass_limits.split(",")[1])
+          if opts.verbose:
+            print "Mass bins selected from command line %s" % str((self.minmass, self.maxmass))
+        else:
+          self.get_mass_ranges(connection)
+          if opts.m_low: 
+              self.minmass = opts.m_low
+              if opts.verbose:
+                print "Lower mass bin cutoff selected from command line: %f" % self.minmass
+          if opts.m_high: 
+              self.maxmass = opts.m_high
+              if opts.verbose:
+                print "Upper mass bin cutoff selected from command line: %f" % self.maxmass
+
 
       connection.commit()
       #connection.close()
@@ -186,7 +201,6 @@ class upper_limit(object):
       return []
 
   def get_mass_ranges(self, connection):
-    #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
     minmass1 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
     minmass2 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
     maxmass1 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
@@ -203,6 +217,7 @@ class upper_limit(object):
     else: self.mintotal = v[4]
     if self.maxtotal: self.maxtotal = max([v[5], self.maxtotal])
     else: self.maxtotal = v[5]
+    return (self.minmass, self.maxmass)
 
   def get_instruments(self, connection):
     instruments = []
@@ -674,6 +689,9 @@ def parse_command_line():
   parser.add_option("--d-err", default = 0.197, metavar = "float", type = "float", help = "random calibration error on distance")
   parser.add_option("--d-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
   parser.add_option("--mass-bins", default = 11, metavar = "integer", type = "int", help = "Number of mass bins along 1 dimension (Note the total number of mass bins will generally be less than --mass-bins * --mass-bins once the actual parameter space is carved out)")
+  parser.add_option("--mass-limits", help = "Comma separated lower and upper limits on total mass. Setting this will override --m-low and/or --m-high.")
+  parser.add_option("--m-low", metavar = "float", type = "float", help = "Lower edge of the total mass range.")
+  parser.add_option("--m-high", metavar = "float", type = "float", help = "Upper edge of the total mass range.")
   parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event")
   parser.add_option("--veto-segments-name", default = "vetoes", help = "Set the name of the veto segments to use from the XML document.")
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
