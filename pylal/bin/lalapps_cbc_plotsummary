@@ -466,11 +466,11 @@ FROM
 	def finish(self):
 		for waveform, sims in self.injections.items():
 			for col1,col2,ax1,ax2,name,aspect in [
-							([sim.mass1 for sim in sims], [sim.mass2 for sim in sims], r"Injected $M_{1}$ ($\mathrm{M}_{\odot}$)", r"Injected $M_{2}$ ($\mathrm{M}_{\odot}$)", "sim_dist_m1_m2_%s", 1),
-							([sim.geocent_end_time for sim in sims], [math.log10(sim.distance) for sim in sims], r"Injected time (s)", r"$\log_{10}$ Injected distance / 1 Mpc", "sim_dist_time_distance_%s",None),
-							([sim.longitude for sim in sims], [math.sin(sim.latitude) for sim in sims], r"Injected RA (rad)", r"Injected Cos(DEC)", "sim_dist_ra_dec_%s",None),
-							([sim.inclination for sim in sims], [sim.polarization for sim in sims], r"Injected inclination (rad)", r"Injected polarization (rad)", "sim_dist_inc_pol_%s",None),
-							([sim.spin1z for sim in sims], [sim.spin2z for sim in sims], r"Injected spin 1 z", r"Injected spin 2 z", "sim_dist_spin1z_spin2z_%s",None)]:
+							([sim.mass1 for sim in sims], [sim.mass2 for sim in sims], r"$M_{1}$ ($\mathrm{M}_{\odot}$)", r"$M_{2}$ ($\mathrm{M}_{\odot}$)", "sim_dist_m1_m2_%s", 1),
+							([sim.geocent_end_time for sim in sims], [math.log10(sim.distance) for sim in sims], r"Time (s)", r"$\log_{10} (\mathrm{distance} / 1\,\mathrm{Mpc})$", "sim_dist_time_distance_%s",None),
+							([sim.longitude * 12 / math.pi for sim in sims], [math.sin(sim.latitude) for sim in sims], r"RA (h)", r"$\sin \mathrm{dec}$", "sim_dist_ra_dec_%s",None),
+							([sim.inclination for sim in sims], [sim.polarization for sim in sims], r"Inclination (rad)", r"Polarization (rad)", "sim_dist_inc_pol_%s",None),
+							([sim.spin1z for sim in sims], [sim.spin2z for sim in sims], r"Spin 1 z", r"Spin 2 z", "sim_dist_spin1z_spin2z_%s",None)]:
 				fig, axes = create_plot(ax1,ax2, aspect = aspect)
 				axes.set_title(r"Injection Parameter Distribution (%s Injections)" % waveform)
 				axes.plot(col1,col2, "kx")
