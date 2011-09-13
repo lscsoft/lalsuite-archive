@@ -145,7 +145,7 @@ try:
     exclude_segments = segmentdb_utils.find_segments(indoc,"P1:EXCLUDE:0")
     logger.debug("published segments = %s" % str(published_segments))
     logger.debug("excluded segments = %s" % str(exclude_segments))
-    # FIXME this will break Jul 19 2027 02:39:45 UTC 
+    # FIXME this will break Jul 19 2027 02:39:45 UTC
     all_time = segments.segmentlist([segments.segment(0,1500000000)])
     # make a list of the segments that need to be inserted
     pending_segments = (all_time - published_segments) - exclude_segments
