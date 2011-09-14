@@ -225,8 +225,9 @@ def mean_efficiency_volume(found, missed, dbins, bootnum=1, randerr=0.0, syserr=
           m_dist = numpy.array([missed_dist[-(i+1)] for i in ix if i < 0])
 
           # apply log-normal random amplitude (distance) error
-          f_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(f_dist)) )
-          m_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(m_dist)) )
+          dist_offset = random.randn() # ONLY ONCE!
+          f_dist *= (1-syserr)*numpy.exp( randerr*dist_offset )
+          m_dist *= (1-syserr)*numpy.exp( randerr*dist_offset )
       else:
           # use what we got first time through
           f_dist, m_dist = found_dist, missed_dist
