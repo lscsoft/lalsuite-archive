@@ -447,9 +447,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     # Get null SNR of trigger
     if len(ifos)>2:
-      nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+      nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                         for ifo in ifos ])\
-                    - trig.snr**2 )**0.5
+                    - trig.snr**2
+      if nullsnr < 0:
+        nullsnr = 0
+      else:
+        nullsnr = nullsnr**0.5
     else:
       nullsnr = 0
 
@@ -637,9 +641,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
                              null_thresh=null_thresh, fResp=fResp[trigPos])
         if len(ifos)>2:
-          nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+          nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                             for ifo in ifos ])\
-                      - trig.snr**2 )**0.5
+                        - trig.snr**2
+          if nullsnr < 0:
+            nullsnr = 0
+          else:
+            nullsnr = nullsnr**0.5
         else:
           nullsnr = 0
 
@@ -1197,9 +1205,14 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
                                   null_thresh=null_thresh, fResp=fResp[trigPos])
         if len(ifos)>2:
-          nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+          nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                             for ifo in ifos ])\
-                      - trig.snr**2 )**0.5
+                        - trig.snr**2
+          if nullsnr < 0:
+            nullsnr = 0
+          else:
+            nullsnr = nullsnr**0.5
+
         else:
           nullsnr = 0
       d = [ i, inj.distance ]
