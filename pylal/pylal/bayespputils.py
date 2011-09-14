@@ -359,7 +359,14 @@ class OneDPosterior(object):
         """
         Return the standard deviation of the 1D samples.
         """
-        return sqrt(np.var(self.__posterior_samples))
+        try:
+            stdev = sqrt(np.var(self.__posterior_samples))
+            if not np.isfinite(stdev): 
+                raise OverflowError
+        except OverflowError:
+            mean = np.mean(self.__posterior_samples)
+            stdev = mean * sqrt(np.var(self.__posterior_samples/mean))
+        return stdev
 
     @property
     def stacc(self):
