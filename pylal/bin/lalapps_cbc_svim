@@ -501,12 +501,9 @@ def parse_command_line():
   description = '''
    description:
 
-The program lalapps_cbc_svim computes the average volume to which a given CBC search was sensitive to its sources. For CBC searches whose characteristic range extends significantly beyond the local blue-light density fluctuations (about 20Mpc), the number of potential sources to which a search is exposed is proportional to (i) the volume of space from which the search could have detected a signal and (ii) the livetime of the search. In the case of a non-detection, the search volume can be used to consrtain the source event rate in the local universe.
+The program lalapps_cbc_svim computes the average volume to which a given CBC search was sensitive to its sources. For CBC searches whose characteristic range extends significantly beyond the local blue-light density fluctuations (about 20Mpc), the number of potential sources to which a search is exposed is proportional to (i) the volume of space from which the search could have detected a signal and (ii) the livetime of the search.
 
 The search volume calculation implemented in lalapps_cbc_svim uses the loudest event statistic method (Biswas, Creighton, Fairhurst, 2007). The efficiency of the search is estimated by analysis of data with fake signals injected. The cFAR of the loudest zero-lag event sets a threshold which divides injections into found and missed categories. The efficiency of detecting an event depends on the source parameters, such as its component masses, distance, spin, inclination, sky position, etc. However, lalapps_cbc_svim only considers the dependency of the efficiency on distance and mass, marginalizing over the other parameters. Injections are binned in distance and mass and the estimated efficiency is integrated over distance to convert the efficiency into a physical volume.
-
-The input to lalapps_cbc_svim is a pipedown sqlite results database after combined false alarm rates (cFAR) for all triggers have been computed. In the naming scheme used by pipedown at the time of this writing, these databases have names of the form, e.g, H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite. By default, lalapps_cbc_svim computes the search volume for each instrument set found in the database as a function of total mass. However, other mass binnings and command-line tweaks are available. See below.
-
 
 implementation and workflow:
 
@@ -556,8 +553,8 @@ In the IHOPE workflow, the typical svim usage is much more complicated. In case 
 lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 0.20 --exclude-sim-type SpinTaylorthreePointFivePN --bin-by-chirp-mass --output-name-tag SEARCH_VOLUME --bin-by-bns-bbh  --bootstrap  --component-mass1-bins \'1,3,8,13,18,23\' --dist-sys-err 0.1 --max-mtotal 25 --total-mass-bins \'2,5,8,11,14,17,20,25\' --output-cache H1L1V1-FULL_DATA_CAT_4_VETO_SEARCH_VOLUME_CBC_RESULTS-968803143-1209744.cache --seed 1 --iterations 10000 --tmp-space /usr1/sprivite H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
 '''
 
-  print description
-  parser = OptionParser(version = git_version.verbose_msg, usage = usage)
+
+  parser = OptionParser(version = git_version.verbose_msg, usage = usage + description)
 
   #
   # The code supports three mass binning modes.
