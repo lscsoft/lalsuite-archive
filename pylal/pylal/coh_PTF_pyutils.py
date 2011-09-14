@@ -80,8 +80,17 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), fResp = None ):
   if len(ifos)<3:
     return bestNR
 
-  null_snr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
-                     for ifo in ifos ]) - trig.snr**2 )**0.5
+  null_snr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+                     for ifo in ifos ]) - trig.snr**2
+  if null_snr < 0:
+    print "WARNING: Null SNR is less than 0!"
+    print "Sum of single detector SNRs squared", sum([ getattr(trig,'snr_%s' \
+                     % ifoAtt[ifo])**2  for ifo in ifos ])
+    print "Coherent SNR squared", trig.snr**2
+    null_snr = 0
+  else:
+    null_snr = null_snr**0.5
+
   if trig.snr > 20:
     null_thresh = numpy.array(null_thresh)
     null_thresh += (trig.snr - 20)*1./5.

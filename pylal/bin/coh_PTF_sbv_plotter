@@ -320,7 +320,15 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   trigNullstat  = pylab.asarray( trigNullstat )
   trigTraceSNR  = pylab.asarray( trigTraceSNR )
   trigCoincSNR  = pylab.asarray( trigCoincSNR )
-  trigNullSNR = ( trigCoincSNR**2 - trigSNR**2)**0.5
+  trigNullSNR = []
+  for coincSNR,SNR in zip(trigCoincSNR,trigSNR):
+    nullSNR = coincSNR**2 - SNR**2
+    if nullSNR < 0:
+      nullSNR = 0
+    else:
+      nullSNR = nullSNR**0.5
+    trigNullSNR.append(nullSNR)
+  trigNullSNR = pylab.asarray( trigNullSNR )
   for amp in amplitudes:
     trigAmp[amp]   = pylab.asarray( trigAmp[amp] )
   trigRelAmp1    = pylab.sqrt( ( trigAmp[1]**2 + trigAmp[2]**2)/\
@@ -354,6 +362,16 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     injTraceSNR    = pylab.asarray( injTraceSNR )
     injCoincSNR    = pylab.asarray( injCoincSNR )
     injNullSNR   = ( injCoincSNR**2 - injSNR**2)**0.5
+    injNullSNR = []
+    for coincSNR,SNR in zip(injCoincSNR,injSNR):
+      nullSNR = coincSNR**2 - SNR**2
+      if nullSNR < 0:
+        nullSNR = 0
+      else:
+        nullSNR = nullSNR**0.5
+      injNullSNR.append(nullSNR)
+    injNullSNR = pylab.asarray( injNullSNR )
+
     for amp in amplitudes:
       injAmp[amp]  = pylab.asarray( injAmp[amp] )
     injRelAmp1     = pylab.sqrt( ( injAmp[1]**2 + injAmp[2]**2)/\
