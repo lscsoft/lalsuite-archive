@@ -1369,6 +1369,7 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
+    {"time_slide_id",       -1, 56},
     {NULL,                   0, 0}
   };
 
