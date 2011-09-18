@@ -126,9 +126,13 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
   glitch_paramsFile=[opts.glitch_paramsfile]
 
   KWAuxCleanTriggers=GenerateKWAuxCleanTriggers(clean_paramsFile)
+  print "Read in clean samples"
+  KWAuxCleanTriggers = auxmvc_utils.ShuffleKWAuxTriggers(KWAuxCleanTriggers)
+  print "Clean triggers has been shuffled"
   KWAuxGlitchTriggers=GenerateKWAuxGlitchTriggers(glitch_paramsFile)
-
-
+  print "Read in glitch samples"
+  KWAuxGlitchTriggers = auxmvc_utils.ShuffleKWAuxTriggers(KWAuxGlitchTriggers)
+  print "Glitch triggers has been shuffled"
 
      
   dq_cats=opts.dq_cats.split(",")
@@ -139,29 +143,33 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
 
   if opts.roundrobin_number:
     List_of_Clean_KW_Sets_cats = auxmvc_utils.split_array(KWAuxCleanTriggers, Nparts =int(opts.roundrobin_number))
-
+    print "Splited clean samples into " + str(opts.roundrobin_number) + " parts."
   for cat in dq_cats:
  
     KW_Glitch_Triggers_cats=auxmvc_utils.getKWAuxTriggerFromDQCAT(KWAuxGlitchTriggers, cat)  
-      
+    print "Got glitches from " + cat + " CBC DQ category"  
     if opts.roundrobin_number:
 
       List_of_Glitch_KW_Sets_cats = auxmvc_utils.split_array(KW_Glitch_Triggers_cats, Nparts = int(opts.roundrobin_number))
+      print "Splited glitch samples into " + str(opts.roundrobin_number) + " parts."
        
       for i in range(len(List_of_Glitch_KW_Sets_cats)):
     
         Primary_Clean_set_cats, Primary_Glitch_set_cats, Secondary_Clean_set_cats, Secondary_Glitch_set_cats=RoundRobin(List_of_Glitch_KW_Sets_cats, List_of_Clean_KW_Sets_cats,i)
+        print "Constructed " + str(i) +" round robin set"
         MVSC_evaluation_set_cats=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = Primary_Glitch_set_cats, KWAuxCleanTriggers = Primary_Clean_set_cats, ExcludeVariables = exclude_variables_list)
+        print "Converted evaluation KW to MVSC triggers"
         MVSC_training_set_cats=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = Secondary_Glitch_set_cats, KWAuxCleanTriggers = Secondary_Clean_set_cats, ExcludeVariables = exclude_variables_list)
-           
+        print "Converted training KW to MVSC triggers"
+   
         output_evaluation=cat + "_" + opts.output_tag + "_set_" + str(i) + "_" + "evaluation.pat"
         auxmvc_utils.WriteMVSCTriggers(MVSC_evaluation_set_cats, output_filename = output_evaluation, Classified = False) 
                 
-        print output_evaluation
+        print "Wrote " + output_evaluation + " file to disk"
 
         output_training=cat + "_" + opts.output_tag + "_set_" + str(i) + "_" + "training.pat"
         auxmvc_utils.WriteMVSCTriggers(MVSC_training_set_cats, output_filename = output_training, Classified = False)
-
+        print "Wrote " + output_training + " file to disk"
 
 
 
