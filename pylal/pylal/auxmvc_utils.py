@@ -89,12 +89,39 @@ def ReadKWAuxTriggers(files):
     variables = flines[0].split()
     formats = ['g8' for a in range(len(variables))]
     if i > 0:
-      KWAuxTriggers  = numpy.concatenate((KWAuxriggers ,numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})),axis=0)
+      KWAuxTriggers  = numpy.concatenate((KWAuxTriggers ,numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})),axis=0)
     else:
       KWAuxTriggers  = numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})
         
   return KWAuxTriggers  
  
+def ShuffleKWAuxTriggers(KWAuxTriggers, dT=60.0):
+  """
+  Shuffle segmented trigger packets. The trigger packets are segmented with each dT seconds usig G
+PS time.
+  """
+  gps = KWAuxTriggers['GPS']
+  gps_start_time = int(numpy.min(gps))
+  gps_end_time = int(numpy.max(gps))+1
+  duration = (gps_end_time - gps_start_time)
+  n_minutes = int(duration / dT) + 1
+  start_times = gps_start_time + dT * numpy.arange(n_minutes)
+  numpy.random.shuffle(start_times)
+  end_times = start_times + dT
+
+  start_indexes = numpy.searchsorted(gps, start_times)
+  end_indexes = numpy.searchsorted(gps, end_times)
+  n_triggers = len(KWAuxTriggers)
+  ShuffledKWAuxTriggers = numpy.empty((n_triggers,), dtype=KWAuxTriggers.dtype)
+  current_start_index = 0
+  current_end_index = 0
+  for (start_index, end_index) in zip(start_indexes, end_indexes):
+    if start_index < end_index:
+      current_end_index = current_start_index + end_index - start_index
+      ShuffledKWAuxTriggers[:][current_start_index:current_end_index] = KWAuxTriggers[:][start_index:end_index]
+      current_start_index = current_end_index 
+
+  return ShuffledKWAuxTriggers
   
 
 def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables = None):
@@ -151,7 +178,8 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
 
   else:
     Triggers = MVSCTriggers
-    
+   
+  
   file = open(output_filename, "w")
   
   if Classified:
@@ -164,9 +192,10 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
     file.write(second_line + "\n")
   
   for i in range(n_triggers):
-    line = " ".join([str(var) for var in Triggers[:][i]]) 
+    line = " ".join([str(var) for var in Triggers[:][i]])
     file.write(line + "\n")
-    
+
+  file.close()    
   
   
 def ReadMVSCTriggers(files):
