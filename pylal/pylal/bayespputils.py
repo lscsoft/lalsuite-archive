@@ -359,7 +359,14 @@ class OneDPosterior(object):
         """
         Return the standard deviation of the 1D samples.
         """
-        return sqrt(np.var(self.__posterior_samples))
+        try:
+            stdev = sqrt(np.var(self.__posterior_samples))
+            if not np.isfinite(stdev): 
+                raise OverflowError
+        except OverflowError:
+            mean = np.mean(self.__posterior_samples)
+            stdev = mean * sqrt(np.var(self.__posterior_samples/mean))
+        return stdev
 
     @property
     def stacc(self):
@@ -2831,7 +2838,7 @@ class PEOutputParser(object):
 
         llines=[]
         import re
-        dec=re.compile(r'[^Ee+\d.-]+')
+        dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
         line_count=0
         for line in infile:
             sline=line.split(delimiter)
@@ -2844,7 +2851,7 @@ class PEOutputParser(object):
 
             for st in sline:
                 s=st.replace('\n','')
-                if dec.search(s) is not None:
+                if dec.search(s) is None:
                     print 'Warning! Ignoring non-numeric data after the header: %s'%s
                     proceed=False
                 if s is '\n':
