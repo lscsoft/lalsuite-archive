@@ -201,10 +201,16 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   startTimeBefore     = (segs['off'][0]+paddingTime)
   numSegsBeforeBuffer = ( segs['buffer'][0] - startTimeBefore )\
                         //trialTime
+  if (segs['buffer'][0] - startTimeBefore) < 0:
+    print "Buffer zone at start is not fully analysed"
+    numSegsBeforeBuffer = 0
   endTimeBefore       = ( segs['off'][0]+paddingTime ) +\
                         numSegsBeforeBuffer*trialTime
   numSegsAfterBuffer  = (( segs['off'][1]-paddingTime ) - segs['buffer'][1] )\
                         //trialTime
+  if (( segs['off'][1]-paddingTime ) - segs['buffer'][1] ) < 0:
+    print "Buffer zone at end is not fully analysed"
+    numSegsAfterBuffer = 0
   startTimeAfter      = segs['buffer'][1]
   endTimeAfter        = startTimeAfter + numSegsAfterBuffer*trialTime
   numSegs             = numSegsBeforeBuffer + numSegsAfterBuffer
@@ -213,25 +219,26 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   trials = segments.segmentlist()
   breakLoop = False
   iterInt = 0
-  while not breakLoop:
+  while 1:
+    # Check if this trial will overlap buffer
+    if (iterInt + 1)*trialTime + startTimeBefore > segs['buffer'][0]:
+      break
     # Append trial
     trials.append( segments.segment(startTimeBefore + trialTime*iterInt,\
                                     startTimeBefore + trialTime*(iterInt+1)))
     iterInt += 1
-    # Check if next trial will overlap buffer
-    if (iterInt + 1)*trialTime + startTimeBefore > segs['buffer'][0]:
-      breakLoop = True
 
   breakLoop = False
   iterInt = 0
-  while not breakLoop:
+  while 1:
+    # Check if this trial will overlap end time
+    if (iterInt + 1)*trialTime + startTimeAfter > endTimeAfter:
+      break
     # Append trial
     trials.append( segments.segment(startTimeAfter + trialTime*iterInt,\
                                     startTimeAfter + trialTime*(iterInt+1)))
     iterInt += 1
-    # Check if next trial will overlap end time
-    if (iterInt + 1)*trialTime + startTimeAfter > endTimeAfter:
-      breakLoop = True
+
 
   assert (len(trials) == numSegs)
 
