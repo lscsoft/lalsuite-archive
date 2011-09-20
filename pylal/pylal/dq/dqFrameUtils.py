@@ -71,6 +71,8 @@ def fromframefile(filename, channel, start=None, end=None):
   x = fstart+dt*numpy.arange(len(y))+offset
 
   # apply constraint on x-axis
+  if not start: start=-numpy.infty
+  if not end:   end=numpy.infty
   condition = (x>=start) & (x<end)
   y = y[condition]
   x = x[condition]
