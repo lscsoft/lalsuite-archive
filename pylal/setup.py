@@ -9,9 +9,18 @@ from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
 import subprocess
-from sys import version_info
+import sys
 import time
 from numpy.lib.utils import get_include as numpy_get_include
+
+
+#
+# check python version
+#
+
+if sys.version_info[0] != 2 or sys.version_info[1] < 4:
+	log.error("Python version is %s.  pylal requires a Python version such that 2.4 <= version < 3" % sys.version)
+	sys.exit(1)
 
 
 class PkgConfig(object):
@@ -29,6 +38,7 @@ lalburst_pkg_config = PkgConfig("lalburst")
 lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
 lalmetaio_pkg_config = PkgConfig("lalmetaio")
+lalsimulation_pkg_config = PkgConfig("lalsimulation")
 lalinspiral_pkg_config = PkgConfig("lalinspiral")
 
 def remove_root(path, root):
@@ -93,6 +103,15 @@ class pylal_build_py(build_py.build_py):
 
 class pylal_install(install.install):
 	def run(self):
+		# Detect whether we are building from a tarball; we have decided
+		# that releases should not contain scripts nor env setup files.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if os.path.exists("PKG-INFO"):
+			self.distribution.scripts = []
+			self.distribution.data_files = []
+			install.install.run(self)
+			return
+
 		# create the user env scripts
 		if self.install_purelib == self.install_platlib:
 			pylal_pythonpath = self.install_purelib
@@ -146,13 +165,9 @@ class pylal_install(install.install):
 
 class pylal_sdist(sdist.sdist):
 	def run(self):
-		# remove the automatically generated user env scripts
-		for script in ["pylal-user-env.sh", "pylal-user-env.csh"]:
-			log.info("removing " + script )
-			try:
-				os.unlink(os.path.join("etc", script))
-			except:
-				pass
+		# remove undesirable elements from tarball
+		self.distribution.data_files = []
+		self.distribution.scripts = []
 
 		# create the git_version module
 		log.info("generating pylal/git_version.py")
@@ -377,10 +392,10 @@ setup(
 		Extension(
 			"pylal.xlal.lalburst",
 			["src/xlal/lalburst.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalburst_pkg_config.incdirs + ["src/xlal"],
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalburst_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lalburst_pkg_config.incdirs + ["src/xlal"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsimulation_pkg_config.libs + lalburst_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -630,6 +645,7 @@ setup(
 		os.path.join("bin", "coh_PTF_efficiency"),
 		os.path.join("bin", "coh_PTF_html_summary"),
 		os.path.join("bin", "coh_PTF_injfinder"),
+		os.path.join("bin", "coh_PTF_injcombiner"),
 		os.path.join("bin", "coh_PTF_sbv_plotter"),
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
@@ -637,10 +653,11 @@ setup(
 		os.path.join("bin", "cbcBayesPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
                 os.path.join("bin", "cbcBayesDIEvidence.py"),
-        os.path.join("bin", "cbcBayesInjProc.py"),
+		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "ligo_channel_query"),
-        os.path.join("bin", "pylal_exttrig_dataquery"),
-        os.path.join("bin", "pylal_exttrig_allquery")
+		os.path.join("bin", "projectedDetectorTensor"),
+		os.path.join("bin", "pylal_exttrig_dataquery"),
+		os.path.join("bin", "pylal_exttrig_allquery")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

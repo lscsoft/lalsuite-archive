@@ -56,7 +56,7 @@ except ImportError:
 import pylal
 from pylal import git_version
 #C extensions
-from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
+from _bayespputils import _skyhist_cart,_burnin
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
@@ -321,6 +321,18 @@ class OneDPosterior(object):
 
         return
 
+    def __len__(self):
+        """
+        Container method. Defined as number of samples.
+        """
+        return len(self.__posterior_samples)
+
+    def __getitem__(self,idx):
+        """
+        Container method . Returns posterior containing sample idx (allows slicing).
+        """
+        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval)
+        
     @property
     def name(self):
         """
@@ -347,7 +359,14 @@ class OneDPosterior(object):
         """
         Return the standard deviation of the 1D samples.
         """
-        return sqrt(np.var(self.__posterior_samples))
+        try:
+            stdev = sqrt(np.var(self.__posterior_samples))
+            if not np.isfinite(stdev): 
+                raise OverflowError
+        except OverflowError:
+            mean = np.mean(self.__posterior_samples)
+            stdev = mean * sqrt(np.var(self.__posterior_samples/mean))
+        return stdev
 
     @property
     def stacc(self):
@@ -775,56 +794,83 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
-    def append_1D_mapping(self, new_param_name, func, post_name):
-        """
-        Append mapping of parameter new_param = func(post_name).
-        """
-        old_pos = self[post_name]
-        old_inj = old_pos.injval
-        if old_inj:
-            new_inj = func(old_inj)
-        else:
-            new_inj=None
-        samps   = func(old_pos.samples)
-        new_pos = OneDPosterior(new_param_name, samps, injected_value=new_inj)
-        self.append(new_pos)
-        return
-
-    def append_multiD_mapping(self, new_param_names, func, post_names):
+    def append_mapping(self, new_param_names, func, post_names):
         """
         Append posteriors pos1,pos2,...=func(post_names)
         """
-        old_posts = [self[post_name] for post_name in post_names]
-        old_injs = [post.injval for post in old_posts]
-        if None not in old_injs:
-            injs = func(*old_injs)
-        else:
-            injs = [None for name in new_param_names]
-        samps = func(*[post.samples for post in old_posts])
-        new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
-        for post in new_posts: 
-            if post.samples.ndim is 0: 
+        #1D input
+        if isinstance(post_names, str):
+            old_post = self[post_names]
+            old_inj  = old_post.injval
+            if old_inj:
+                new_inj = func(old_inj)
+            else:
+                new_inj = None
+            samps = func(old_post.samples)
+            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj)
+            if new_post.samples.ndim is 0:
                 print "WARNING: No posterior calculated for %s ..." % post.name
             else:
-                self.append(post)
+                self.append(new_post)
+        #MultiD input
+        else:
+            old_posts = [self[post_name] for post_name in post_names]
+            old_injs = [post.injval for post in old_posts]
+            samps = func(*[post.samples for post in old_posts])
+            #1D output
+            if isinstance(new_param_names, str):
+                if None not in old_injs:
+                    inj = func(*old_injs)
+                else:
+                    inj = None
+                new_post = OneDPosterior(new_param_names, samps, injected_value=inj)
+                self.append(new_post)
+            #MultiD output
+            else:
+                if None not in old_injs:
+                    injs = func(*old_injs)
+                else:
+                    injs = [None for name in new_param_names]
+                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
+                for post in new_posts: 
+                    if post.samples.ndim is 0: 
+                        print "WARNING: No posterior calculated for %s ..." % post.name
+                    else:
+                        self.append(post)
         return
 
     def _average_posterior(self, samples, post_name):
+        """
+        Returns the average value of the 'post_name' column of the
+        given samples.
+        """
         ap = 0.0
         for samp in samples:
             ap = ap + samp[post_name]
         return ap / len(samples)
 
-    def _average_posterior_like_prior(self, samples, logl_name, prior_name):
+    def _average_posterior_like_prior(self, samples, logl_name, prior_name, log_bias = 0):
+        """
+        Returns the average value of the posterior assuming that the
+        'logl_name' column contains log(L) and the 'prior_name' column
+        contains the prior (un-logged).
+        """
         ap = 0.0
         for samp in samples:
-            ap += np.exp(samp[logl_name])*samp[prior_name]
+            ap += np.exp(samp[logl_name]-log_bias)*samp[prior_name]
         return ap / len(samples)
+
+    def _bias_factor(self):
+        """
+        Returns a sensible bias factor for the evidence so that
+        integrals are representable as doubles.
+        """
+        return np.mean(self._logL)
 
     def di_evidence(self, boxing=64):
         """
-        Returns the direct-integration evidence for the posterior
-        samples.
+        Returns the log of the direct-integration evidence for the
+        posterior samples.
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
@@ -835,14 +881,16 @@ class Posterior(object):
         coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
         tree=KDTree(coordinatized_samples)
 
-        if "post" in header:
-            return tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing)
-        elif "posterior" in header:
-            return tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing)
-        elif "prior" in header and "logl" in header:
-            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior"), boxing)
+        if "prior" in header and "logl" in header:
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior", bf), boxing))
         elif "prior" in header and "likelihood" in header:
-            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior"), boxing)
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior", bf), boxing))
+        elif "post" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing))
+        elif "posterior" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing))
         else:
             raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
@@ -850,10 +898,11 @@ class Posterior(object):
 
     def harmonic_mean_evidence(self):
         """
-        Returns the harmonic mean evidence for the set of posterior
-        samples.
+        Returns the log of the harmonic mean evidence for the set of
+        posterior samples.
         """
-        return 1/np.mean(1/np.exp(self._logL))
+        bf = self._bias_factor()
+        return bf + np.log(1/np.mean(1/np.exp(self._logL-bf)))
 
     def _posMode(self):
         """
@@ -1345,50 +1394,43 @@ def _sky_hist(skypoints,samples):
     return (skypoints,bins)
 #
 
-def _calculate_sky_confidence_slow(
-                                shist,
-                                skypoints,
-                                injbin,
-                                skyres_,
-                                confidence_levels,
-                                lenpos):
+def _calculate_confidence_levels(hist, points, injBin, NSamples):
     """
-    @deprecated: This is a pure python version of the C extension function
-        pylal._bayespputils._calculate_confidence_levels.
+    Returns (injectionconf, toppoints), where injectionconf is the
+    confidence level of the injection, contained in the injBin and
+    toppoints is a list of (pointx, pointy, ptindex, frac), with
+    pointx and pointy the (x,y) coordinates of the corresponding
+    element of the points array, ptindex the index of the point in the
+    array, and frac the cumulative fraction of points with larger
+    posterior probability.
+
+    The hist argument should be a one-dimensional array that contains
+    counts of sample points in each bin.
+
+    The points argument should be a 2-D array storing the sky location
+    associated with each bin; the first index runs from 0 to NBins -
+    1, while the second index runs from 0 to 1.
+
+    The injBin argument gives the bin index in which the injection is
+    found.
+
+    The NSamples argument is used to normalize the histogram counts
+    into fractional probability.
     """
-    frac=0
-    Nbins=0
-    injectionconfidence=None
-    #print "lenpos : %i"%lenpos
-    #toppoints=[(None,None,None)]*lenpos
+
+    histIndices=np.argsort(hist)[::-1]  # In decreasing order
+
     toppoints=[]
+    frac=0.0
+    injConf=None
+    for i in histIndices:
+        frac+=float(hist[i])/float(NSamples)
+        toppoints.append((points[i,0], points[i,1], i, frac))
+        if i == injBin:
+            injConf=frac
+            print 'Injection found at confidence level %g'%injConf
 
-    skyreses=[]
-    lenbins=len(shist)
-    range_lenbins=range(0,lenbins)
-    for confidence_level in confidence_levels:
-        while(frac<confidence_level):
-            maxbin=0
-            for i in range_lenbins:
-                if shist[i]>maxbin:
-                    maxbin=shist[i]
-                    maxpos=i
-
-            shist[maxpos]=0
-            frac=frac+(float(maxbin)/(lenpos))
-
-            Nbins=Nbins+1
-            toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxpos,frac))
-            if injbin is not None:
-                if (injbin==maxpos):
-                    injectionconfidence=frac
-                    print 'Injection sky point found at confidence %f'%(frac)
-
-        print '%f confidence region: %f square degrees'%(frac,Nbins*float(skyres_)*float(skyres_))
-
-        skyreses.append((frac,Nbins*float(skyres_)*float(skyres_)))
-        toppoints=toppoints[:Nbins]
-    return injectionconfidence,toppoints,skyreses
+    return (injConf, toppoints)
 
 def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,confidence_levels):
     """
@@ -1397,13 +1439,7 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     """
 
     #Now call confidence level C extension function to determine top-ranked pixels
-    (injectionconfidence,toppoints)=_calculate_confidence_levels(
-                                                                    greedyHist,
-                                                                    greedyPoints,
-                                                                    injection_bin_index,
-                                                                    bin_size,
-                                                                    Nsamples
-                                                                    )
+    (injectionconfidence,toppoints)=_calculate_confidence_levels(greedyHist, greedyPoints, injection_bin_index, Nsamples)
 
     #Determine interval/area contained within given confidence intervals
     nBins=0
@@ -1411,15 +1447,12 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     reses={}
     toppoints=np.array(toppoints)
     for printcl in confidence_levels:
-        nBins=1
-        #Start at top of list of ranked pixels...
-        accl=toppoints[0,3]
+        nBins=np.searchsorted(toppoints[:,3], printcl) + 1
 
-        #Loop over next significant pixels and their confidence levels
+        if nBins >= len(toppoints):
+            nBins=len(toppoints)-1
 
-        while accl<printcl and nBins<=len(toppoints):
-            nBins=nBins+1
-            accl=toppoints[nBins-1,3]
+        accl=toppoints[nBins-1,3]
 
         reses[printcl]=nBins*bin_size
 
@@ -1523,7 +1556,7 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
                                                 greedyHist,
                                                 greedyPoints,
                                                 injbin,
-                                                float(sqrt(par1_bin*par2_bin)),
+                                                float(par1_bin*par2_bin),
                                                 int(len(par1pos)),
                                                 confidence_levels
                                             )
@@ -1614,7 +1647,7 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
                                                                      skypoints[injbin,1]
                                                                      )
 
-    return _greedy_bin(shist,skypoints,injbin,float(skyres),len(skypos),confidence_levels)
+    return _greedy_bin(shist,skypoints,injbin,float(skyres)*float(skyres),len(skypos),confidence_levels)
 
 
 def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
@@ -1661,16 +1694,24 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     plt.clf()
 
     #Save skypoints
+    
+    fid = open( os.path.join(outdir,'ranked_sky_pixels.dat'), 'w' ) 
+    fid.write( 'dec(deg.)\tra(h.)\tprob.\tcumul.\n' ) 
     np.savetxt(
-               os.path.join(outdir,'ranked_sky_pixels.dat'),
+               fid,
+               #os.path.join(outdir,'ranked_sky_pixels.dat'),
                np.column_stack(
                                [
-                                np.asarray(top_ranked_pixels)[:,0:1],
-                                np.asarray(top_ranked_pixels)[:,1],
+                                np.asarray(top_ranked_pixels)[:,0]*57.296,
+                                np.asarray(top_ranked_pixels)[:,1]*3.820,
+                                np.append(np.asarray(top_ranked_pixels)[0,3],np.asarray(top_ranked_pixels)[1:,3]-np.asarray(top_ranked_pixels)[:-1,3]),
                                 np.asarray(top_ranked_pixels)[:,3]
                                 ]
-                               )
+                               ),
+               fmt='%.4f',
+               delimiter='\t'
                )
+    fid.close() 
 
     return myfig
 #
@@ -1688,6 +1729,16 @@ def mc2ms(mc,eta):
 
     m1= mc* np.power(1+invfraction,0.2) / np.power(invfraction,0.6)
     return (m1,m2)
+#
+#
+
+def mc2q(mc,eta):
+    """
+    Utility function for converting mchirp,eta to new mass ratio q (m2/m1).
+    """
+    m1,m2 = mc2ms(mc,eta)
+    q = m2/m1
+    return q
 #
 #
 
@@ -1713,9 +1764,10 @@ def array_dot(vec1, vec2):
     Calculate dot products between vectors in rows of numpy arrays.
     """
     if vec1.ndim==1:
-        return (vec1*vec2).sum()
+        product = (vec1*vec2).sum()
     else:
-        return(vec1*vec2).sum(axis=1).reshape(-1,1)
+        product = (vec1*vec2).sum(axis=1).reshape(-1,1)
+    return product
 #
 #
 
@@ -1739,6 +1791,44 @@ def array_polar_ang(vec):
         z = vec[:,2].reshape(-1,1)
     norm = np.sqrt(array_dot(vec,vec))
     return np.arccos(z/norm)
+#
+#
+
+def rotation_matrix(angle, direction):
+    """
+    Compute general rotation matrices for a given angles and direction vectors.
+    """
+    cosa = np.cos(angle)
+    sina = np.sin(angle)
+    direction /= np.sqrt(array_dot(direction,direction))
+    #Assume calculating array of rotation matrices.
+    try:
+        nSamps = len(angle)
+        R = np.array( [np.diag([i,i,i]) for i in cosa.flat] )
+        R += np.array( [np.outer(direction[i],direction[i])*(1.0-cosa[i]) for i in range(nSamps)] )
+        R += np.array( [np.array(   [[ 0.0,            -direction[i,2],    direction[i,1]],
+                                     [ direction[i,2],  0.0,              -direction[i,0]],
+                                     [-direction[i,1],  direction[i,0],    0.0          ]] ) * sina[i] for i in range(nSamps)] )
+    #Only computing one rotation matrix.
+    except TypeError:
+        R = np.diag([cosa,cosa,cosa])
+        R += np.outer(direction,direction) * (1.0 - cosa)
+        R += np.array(   [[ 0.0,            -direction[2],    direction[1]],
+                          [ direction[2],  0.0,              -direction[0]],
+                          [-direction[1],  direction[0],    0.0          ]] ) * sina
+    return R
+#
+#
+
+def rotate_vector(R, vec):
+    """
+    Rotate vectors using the given rotation matrices.
+    """
+    if vec.ndim == 1:
+        newVec = np.dot(R[i],vec[i])
+    else:
+        newVec = np.array( [np.dot(R[i],vec[i]) for i in range(len(vec))] )
+    return newVec
 #
 #
 
@@ -1775,9 +1865,9 @@ def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None
     else:
         S2 = 0.0
     J = L + S1 + S2
-    tilt1 = array_ang_sep(J,S1)
+    tilt1 = array_ang_sep(L,S1)
     if not singleSpin:
-        tilt2 = array_ang_sep(J,S2)
+        tilt2 = array_ang_sep(L,S2)
     else:
         tilt2 = None
     thetas = array_polar_ang(J)
@@ -2266,7 +2356,7 @@ def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
         par_binNumber=floor((par_injvalue-parpos_min)/par_bin)
         injbin=par_binNumber
 
-    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(sqrt(par_bin*par_bin)),int(len(par_samps)),confidence_levels)
+    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin*par_bin),int(len(par_samps)),confidence_levels)
     cl_intervals=[]
     confidence_levels.sort()
     for cl in confidence_levels:
@@ -2424,6 +2514,8 @@ class PEOutputParser(object):
             self._parser=self._followupmcmc_to_pos
         elif inputtype is "inf_mcmc":
             self._parser=self._infmcmc_to_pos
+        elif inputtype is "xml":
+            self._parser=self._xml_to_pos
 
     def parse(self,files,**kwargs):
         """
@@ -2431,41 +2523,56 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
+        if not (fixedBurnin is None):
+            if not (deltaLogL is None):
+                print "Warning: using deltaLogL criteria in addition to fixed burnin"
+            print "Eliminating the first ",fixedBurnin,"samples as burnin."
+        else:
+            fixedBurnin = 0
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
         nskip=1
         if not (nDownsample is None):
-            nskip=self._find_ndownsample(files, logLThreshold, nDownsample)
+            nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
             print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        if outdir is None:
+            outdir=''
+        runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
         postName="posterior_samples.dat"
+        runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
         finally:
+            runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
-        log(L) > logLThreshold are concatenated.
+        log(L) > logLThreshold are concatenated after eliminating
+        fixedBurnin.
         """
         nRead=0
         outputHeader=False
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
-                print "Processing file %s to posterior_samples.dat"%infilename
-                f_lower=self._find_infmcmc_f_lower(infile)
-                header=self._clear_infmcmc_header(infile)
+                print "Writing header of %s to %s"%(infilename,runfile.name)
+                runInfo,header=self._clear_infmcmc_header(infile)
+                runfile.write('Chain '+str(i)+':\n')
+                runfile.writelines(runInfo)
+                print "Processing file %s to %s"%(infilename,outfile.name)
+                f_lower=self._find_infmcmc_f_lower(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -2480,13 +2587,15 @@ class PEOutputParser(object):
                     outfile.write("chain")
                     outfile.write("\n")
                     outputHeader=header
+                iterindex=header.index("cycle")
                 loglindex=header.index("logpost")
                 output=False
                 for line in infile:
                     line=line.lstrip()
                     lineParams=line.split()
+                    iter=int(lineParams[iterindex])
                     logL=float(lineParams[loglindex])
-                    if logL >= logLThreshold:
+                    if (iter > fixedBurnin) and (logL >= logLThreshold):
                         output=True
                     if output:
                         if nRead % nskip == 0:
@@ -2522,7 +2631,7 @@ class PEOutputParser(object):
         for inpname in files:
             infile=open(inpname, 'r')
             try:
-                header=self._clear_infmcmc_header(infile)
+                runInfo,header=self._clear_infmcmc_header(infile)
                 loglindex=header.index("logpost")
                 for line in infile:
                     line=line.lstrip().split()
@@ -2534,26 +2643,31 @@ class PEOutputParser(object):
         print "Found max log(Post) = ", maxLogL
         return maxLogL
 
-    def _find_ndownsample(self, files, logLthreshold, nDownsample):
+    def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
         """
-        Given a list of files, and threshold value, and a desired
+        Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
         achieve the desired number of posterior samples.
         """
         ntot=0
         for inpname in files:
-            infile=open(inpname, 'r')
+            infile = open(inpname, 'r')
             try:
-                header=self._clear_infmcmc_header(infile)
-                loglindex=header.index("logpost")
-                burnedIn=False
+                runInfo,header = self._clear_infmcmc_header(infile)
+                loglindex = header.index("logpost")
+                iterindex = header.index("cycle")
+                deltaLburnedIn = False
+                fixedBurnedIn  = False
                 for line in infile:
-                    line=line.lstrip().split()
-                    logL=float(line[loglindex])
+                    line = line.lstrip().split()
+                    iter = int(line[iterindex])
+                    logL = float(line[loglindex])
+                    if iter > fixedBurnin:
+                        fixedBurnedIn = True
                     if logL > logLthreshold:
-                        burnedIn=True
-                    if burnedIn:
-                        ntot=ntot+1
+                        deltaLburnedIn = True
+                    if fixedBurnedIn and deltaLburnedIn:
+                        ntot = ntot+1
             finally:
                 infile.close()
         if ntot < nDownsample:
@@ -2561,38 +2675,40 @@ class PEOutputParser(object):
         else:
             return floor(ntot/nDownsample)
 
-    def _find_infmcmc_f_lower(self, infile):
+    def _find_infmcmc_f_lower(self, runInfo):
         """
-        Searches through header to determine starting frequency of waveform.
+        Searches through header to determine starting frequency of waveforms.
+        Assumes same for all IFOs.
         """
-        for line in infile:
+        runInfo = iter(runInfo)
+        for line in runInfo:
             headers=line.lstrip().lower().split()
-            if len(headers) is 0:
-                continue
-            if 'detector' in headers[0]:
-                for colNum in range(len(headers)):
-                    if 'f_low' in headers[colNum]:
-                        detectorInfo=infile.next().lstrip().lower().split()
-                        f_lower=detectorInfo[colNum]
-                        break
+            try:
+                flowColNum = headers.index('f_low')
+                IFOinfo = runInfo.next().lstrip().lower().split()
+                f_lower = IFOinfo[flowColNum]
                 break
+            except ValueError:
+                continue
         return f_lower
 
     def _clear_infmcmc_header(self, infile):
         """
-        Reads past the header information from the
-        lalinference_mcmcmpi file given, returning the common output
-        header information.
+        Reads lalinference_mcmcmpi file given, returning the run info and 
+        common output header information.
         """
+        runInfo = []
         for line in infile:
+            runInfo.append(line)
             headers=line.lstrip().lower().split()
-            if len(headers) is 0:
-                continue
-            if "cycle" in headers[0]:
+            try:
+                headers.index('cycle')
                 break
+            except ValueError:
+                continue
         else:
-            raise RuntimeError("couldn't find line beginning with 'cycle' in LALInferenceMCMC input")
-        return headers
+            raise RuntimeError("couldn't find line with 'cycle' in LALInferenceMCMC input")
+        return runInfo[:-1],headers
 
 
     def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
@@ -2648,6 +2764,64 @@ class PEOutputParser(object):
         """
         return self._common_to_pos(open(files[0],'r'))
 
+    def _xml_to_pos(self,infile):
+        """
+        Parser for VOTable XML Using
+        """
+        from xml.etree import ElementTree as ET
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        try:
+                register_namespace=ET.register_namespace
+        except AttributeError:
+                def register_namespace(prefix,uri):
+                    ET._namespace_map[uri]=prefix
+        register_namespace('vot',xmlns)
+        tree = ET.ElementTree()
+        tree.parse(infile)
+        # Find the posterior table
+        tables = tree.findall('.//{%s}TABLE'%(xmlns))
+        for table in tables:
+            if table.get('name')=='Posterior Samples':
+                return(self._VOTTABLE2pos(table))
+        raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
+        
+    def _VOTTABLE2pos(self,table):
+        """
+        Parser for a VOT TABLE element with FIELDs and TABLEDATA elements
+        """
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        header=[]
+        for field in table.findall('./{%s}FIELD'%(xmlns)):
+            header.append(field.attrib['name'])
+        if(len(header)==0):
+            raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
+        tabledata=table.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+        llines=[]
+        for row in tabledata:
+            llines.append(np.array(map(lambda a:float(a.text),row)))
+        flines=np.array(llines)
+        for i in range(0,len(header)):
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+                print 'exponentiating %s'%(header[i])
+
+                flines[:,i]=np.exp(flines[:,i])
+
+                header[i]=header[i].replace('log','')
+            if header[i].lower().find('sin')!=-1:
+                print 'asining %s'%(header[i])
+                flines[:,i]=np.arcsin(flines[:,i])
+                header[i]=header[i].replace('sin','')
+            if header[i].lower().find('cos')!=-1:
+                print 'acosing %s'%(header[i])
+                flines[:,i]=np.arccos(flines[:,i])
+                header[i]=header[i].replace('cos','')
+            header[i]=header[i].replace('(','')
+            header[i]=header[i].replace(')','')
+        print 'Read columns %s'%(str(header))
+        return header,flines
+
+
     def _common_to_pos(self,infile,delimiter=None):
         """
         Parse a file in the 'common format' and return an array of posterior
@@ -2664,7 +2838,7 @@ class PEOutputParser(object):
 
         llines=[]
         import re
-        dec=re.compile(r'[^Ee+\d.-]+')
+        dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
         line_count=0
         for line in infile:
             sline=line.split(delimiter)
@@ -2677,7 +2851,7 @@ class PEOutputParser(object):
 
             for st in sline:
                 s=st.replace('\n','')
-                if dec.search(s) is not None:
+                if dec.search(s) is None:
                     print 'Warning! Ignoring non-numeric data after the header: %s'%s
                     proceed=False
                 if s is '\n':
@@ -2790,6 +2964,58 @@ def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_
             return None
     
 #
+
+def vo_nest2pos(nsresource,Nlive=None):
+    """
+    Parse a VO Table RESOURCE containing nested sampling output and
+    return a VOTable TABLE element with posterior samples in it.
+    This can be added to an existing tree by the user.
+    Nlive will be read from the nsresource, unless specified
+    """
+    from xml.etree import ElementTree as ET
+    import copy
+    from math import log, exp
+    postable=ET.Element("vot:TABLE",attrib={'name':'Posterior Samples'})
+    i=0
+    xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+    nstable=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("name")=="Nested Samples"][0]
+    if Nlive is None:
+        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("name")=="Run State Configuration"][0]
+        print runstateResource
+        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("name")=="Algorithm Params"][0]
+        print algTable
+        Nlive = int ([param for param in algTable.findall("./{%s}PARAM"%(xmlns)) if param.get("name")=='Nlive'][0].get('value'))
+        print 'Found Nlive %i'%(Nlive)
+    if Nlive is None:
+        raise RuntimeError("Cannot find number of live points in XML table, please specify")
+    logLcol = None
+    for fieldnode in nstable.findall('./{%s}FIELD'%xmlns):
+        if fieldnode.get('name') == 'logL':
+            logLcol=i
+        i=i+1
+        postable.append(copy.deepcopy(fieldnode))
+    for paramnode in nstable.findall('./{%s}PARAM'%(xmlns)):
+        postable.append(copy.deepcopy(paramnode))
+    if logLcol is None:
+        RuntimeError("Unable to find logL column")
+    posdataNode=ET.Element("vot:DATA")
+    postabledataNode=ET.Element("vot:TABLEDATA")
+    postable.append(posdataNode)
+    posdataNode.append(postabledataNode)
+    nstabledata=nstable.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+    logw=log(1.0 - exp(-1.0/float(Nlive)))
+    weights=[]
+    for row in nstabledata:
+        logL=float(row[logLcol].text)
+        weights.append(logL-logw)
+        logw=logw-1.0/float(Nlive)
+    mw=max(weights)
+    weights = [w - mw for w in weights]
+    for (row,weight) in zip(nstabledata,weights):
+        if weight > log(random.random()):
+            postabledataNode.append(copy.deepcopy(row))
+    return postable
+
 
 #R convergenceTest script
 convergenceTests_R="""

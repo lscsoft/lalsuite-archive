@@ -92,9 +92,9 @@ const char *gengetopt_args_info_help[] = {
   "      --focus-ra=DOUBLE         focus computation on a circular area with \n                                  center at this RA",
   "      --focus-dec=DOUBLE        focus computation on a circular area with \n                                  center at this DEC",
   "      --focus-radius=DOUBLE     focus computation on a circular area with this \n                                  radius",
-  "      --focus-f0=DOUBLE         focus computation on this frequency",
+  "      --focus-f0=DOUBLE         focus computation on this frequency (Hz)",
   "      --focus-dInv=DOUBLE       focus computation on objects of this inverse \n                                  distance (in seconds)  (default=`0.0')",
-  "      --focus-f0-delta=DOUBLE   frequency tolerance",
+  "      --focus-f0-useful-fraction=DOUBLE\n                                fraction of full frequency band to search  \n                                  (default=`0.68')",
   "      --only-large-cos=DOUBLE   restrict computation to points on the sky with \n                                  cos of angle to band axis larger than a given \n                                  number",
   "\n Group: injection",
   "      --fake-linear             Inject linearly polarized fake signal",
@@ -234,7 +234,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->focus_radius_given = 0 ;
   args_info->focus_f0_given = 0 ;
   args_info->focus_dInv_given = 0 ;
-  args_info->focus_f0_delta_given = 0 ;
+  args_info->focus_f0_useful_fraction_given = 0 ;
   args_info->only_large_cos_given = 0 ;
   args_info->fake_linear_given = 0 ;
   args_info->fake_circular_given = 0 ;
@@ -378,7 +378,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->focus_f0_orig = NULL;
   args_info->focus_dInv_arg = 0.0;
   args_info->focus_dInv_orig = NULL;
-  args_info->focus_f0_delta_orig = NULL;
+  args_info->focus_f0_useful_fraction_arg = 0.68;
+  args_info->focus_f0_useful_fraction_orig = NULL;
   args_info->only_large_cos_orig = NULL;
   args_info->fake_ref_time_arg = 0;
   args_info->fake_ref_time_orig = NULL;
@@ -495,7 +496,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->focus_radius_help = gengetopt_args_info_help[59] ;
   args_info->focus_f0_help = gengetopt_args_info_help[60] ;
   args_info->focus_dInv_help = gengetopt_args_info_help[61] ;
-  args_info->focus_f0_delta_help = gengetopt_args_info_help[62] ;
+  args_info->focus_f0_useful_fraction_help = gengetopt_args_info_help[62] ;
   args_info->only_large_cos_help = gengetopt_args_info_help[63] ;
   args_info->fake_linear_help = gengetopt_args_info_help[65] ;
   args_info->fake_circular_help = gengetopt_args_info_help[66] ;
@@ -728,7 +729,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->focus_radius_orig));
   free_string_field (&(args_info->focus_f0_orig));
   free_string_field (&(args_info->focus_dInv_orig));
-  free_string_field (&(args_info->focus_f0_delta_orig));
+  free_string_field (&(args_info->focus_f0_useful_fraction_orig));
   free_string_field (&(args_info->only_large_cos_orig));
   free_string_field (&(args_info->fake_ref_time_orig));
   free_string_field (&(args_info->fake_ra_orig));
@@ -913,8 +914,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "focus-f0", args_info->focus_f0_orig, 0);
   if (args_info->focus_dInv_given)
     write_into_file(outfile, "focus-dInv", args_info->focus_dInv_orig, 0);
-  if (args_info->focus_f0_delta_given)
-    write_into_file(outfile, "focus-f0-delta", args_info->focus_f0_delta_orig, 0);
+  if (args_info->focus_f0_useful_fraction_given)
+    write_into_file(outfile, "focus-f0-useful-fraction", args_info->focus_f0_useful_fraction_orig, 0);
   if (args_info->only_large_cos_given)
     write_into_file(outfile, "only-large-cos", args_info->only_large_cos_orig, 0);
   if (args_info->fake_linear_given)
@@ -1595,7 +1596,7 @@ cmdline_parser_internal (
         { "focus-radius",	1, NULL, 0 },
         { "focus-f0",	1, NULL, 0 },
         { "focus-dInv",	1, NULL, 0 },
-        { "focus-f0-delta",	1, NULL, 0 },
+        { "focus-f0-useful-fraction",	1, NULL, 0 },
         { "only-large-cos",	1, NULL, 0 },
         { "fake-linear",	0, NULL, 0 },
         { "fake-circular",	0, NULL, 0 },
@@ -2437,7 +2438,7 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* focus computation on this frequency.  */
+          /* focus computation on this frequency (Hz).  */
           else if (strcmp (long_options[option_index].name, "focus-f0") == 0)
           {
           
@@ -2465,16 +2466,16 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* frequency tolerance.  */
-          else if (strcmp (long_options[option_index].name, "focus-f0-delta") == 0)
+          /* fraction of full frequency band to search.  */
+          else if (strcmp (long_options[option_index].name, "focus-f0-useful-fraction") == 0)
           {
           
           
-            if (update_arg( (void *)&(args_info->focus_f0_delta_arg), 
-                 &(args_info->focus_f0_delta_orig), &(args_info->focus_f0_delta_given),
-                &(local_args_info.focus_f0_delta_given), optarg, 0, 0, ARG_DOUBLE,
+            if (update_arg( (void *)&(args_info->focus_f0_useful_fraction_arg), 
+                 &(args_info->focus_f0_useful_fraction_orig), &(args_info->focus_f0_useful_fraction_given),
+                &(local_args_info.focus_f0_useful_fraction_given), optarg, 0, "0.68", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
-                "focus-f0-delta", '-',
+                "focus-f0-useful-fraction", '-',
                 additional_error))
               goto failure;
           

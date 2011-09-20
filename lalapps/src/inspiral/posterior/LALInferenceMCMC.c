@@ -20,10 +20,6 @@
  *  MA  02111-1307  USA
  */
 
-/* example command line: */
-/* 
-./InferenceTest --IFO [H1] --cache [/Users/john/data/triple/H1/frames.cache] --PSDstart 864162143.0 --PSDlength 1000 --srate 1024 --seglen 10 --trigtime 864162943.0
-*/
 
 #include <stdio.h>
 #include <lal/Date.h>
@@ -37,11 +33,11 @@
 #include "LALInferenceMCMCSampler.h"
 #include <lal/LALInferencePrior.h>
 #include <lal/LALInferenceTemplate.h>
+#include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceReadData.h>
 
 #include <mpi.h>
-//#include "mpi.h"
 
 
 int MPIrank, MPIsize;
@@ -59,27 +55,24 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 {
 	LALInferenceRunState *irs=NULL;
 	LALInferenceIFOData *ifoPtr, *ifoListStart;
-	//ProcessParamsTable *ppt=NULL;
-
-	//int MPIrank;
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 	
 	irs = calloc(1, sizeof(LALInferenceRunState));
 	/* read data from files: */
-	fprintf(stdout, " LALInferenceReadData(): started.\n");
+	fprintf(stdout, " ==== LALInferenceReadData(): started. ====\n");
 	irs->commandLine=commandLine;
 	irs->data = LALInferenceReadData(commandLine);
 	/* (this will already initialise each LALInferenceIFOData's following elements:  */
 	/*     fLow, fHigh, detector, timeToFreqFFTPlan, freqToTimeFFTPlan,     */
 	/*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
-	fprintf(stdout, " LALInferenceReadData(): finished.\n");
+	fprintf(stdout, " ==== LALInferenceReadData(): finished. ====\n");
 	if (irs->data != NULL) {
-		fprintf(stdout, " initialize(): successfully read data.\n");
+		fprintf(stdout, " ==== initialize(): successfully read data. ====\n");
 		
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
+		fprintf(stdout, " ==== LALInferenceInjectInspiralSignal(): started. ====\n");
 		LALInferenceInjectInspiralSignal(irs->data,commandLine);
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
+		fprintf(stdout, " ==== LALInferenceInjectInspiralSignal(): finished. ====\n");
 		
 		ifoPtr = irs->data;
 		ifoListStart = irs->data;
@@ -133,9 +126,11 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 		irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
 		printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
 	}
-	else
+	else{
 		fprintf(stdout, " initialize(): no data read.\n");
-	
+    irs = NULL;
+    return(irs);
+	}
 	
 	return(irs);
 }
@@ -149,15 +144,23 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 void initializeMCMC(LALInferenceRunState *runState)
 {
 	char help[]="\
-	[--Niter] N\tNumber of iterations(2*10^6)\n\
-	[--Nskip] n\tNumber of iterations between disk save(100)\n\
-	[--tempMax T]\tHighest temperature for parallel tempering(40.0)\n\
-	[--randomseed seed]\tRandom seed of sampling distribution\n\
-        [--tdlike]\tCompute likelihood in the time domain\n";
+(--Niter N)                     Number of iterations(2*10^6)\n\
+(--Nskip n)                     Number of iterations between disk save(100)\n\
+(--tempMax T)                   Highest temperature for parallel tempering(40.0)\n\
+(--randomseed seed)             Random seed of sampling distribution(random)\n\
+(--tdlike)                      Compute likelihood in the time domain\n";
 	
+  /* Print command line arguments if runState was not allocated */
+	if(runState==NULL)
+	{
+		fprintf(stdout,"%s",help);
+		return;
+	}
+  
+  
 	INT4 verbose=0,tmpi=0;
 	unsigned int randomseed=0;
-	REAL8 tempMax = 40.0;
+	REAL8 tempMax = 10.0;
 	//REAL8 tmp=0;
 	ProcessParamsTable *commandLine=runState->commandLine;
 	ProcessParamsTable *ppt=NULL;
@@ -165,10 +168,10 @@ void initializeMCMC(LALInferenceRunState *runState)
 	struct timeval tv;
 	
 	/* Print command line arguments if help requested */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-	if(ppt)
+	if(LALInferenceGetProcParamVal(runState->commandLine,"--help"))
 	{
 		fprintf(stdout,"%s",help);
+    	runState->algorithm=&PTMCMCAlgorithm;
 		return;
 	}
 	
@@ -189,7 +192,7 @@ void initializeMCMC(LALInferenceRunState *runState)
 	
 	/* This is the LAL template generator for inspiral signals */
 	
-	ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
 	if(ppt){
 		/*if(strstr(ppt->value,"SpinTaylor")) {
 			runState->template=&templateLALSTPN;
@@ -207,10 +210,10 @@ void initializeMCMC(LALInferenceRunState *runState)
       runState->template=&LALInferenceTemplate3525TD;
 			fprintf(stdout,"Template function called is \"template3525TD\"\n");
     }
-    else if(strstr(ppt->value,"PhenSpinTaylorRD")) {
-        runState->template=&LALInferenceTemplatePSTRD;
-            fprintf(stdout,"Template function called is \"templatePSTRD\"\n");
-    }
+    //else if(strstr(ppt->value,"PhenSpinTaylorRD")) {
+    //    runState->template=&LALInferenceTemplatePSTRD;
+    //        fprintf(stdout,"Template function called is \"templatePSTRD\"\n");
+    //}
 		else {
 			runState->template=&LALInferenceTemplateLALGenerateInspiral;
 			fprintf(stdout,"Template function called is \"templateLALGenerateInspiral\"\n");
@@ -363,6 +366,71 @@ static INT4 readSquareMatrix(gsl_matrix *m, UINT4 N, FILE *inp) {
 
 void initVariables(LALInferenceRunState *state)
 {
+  
+  char help[]="\
+(--injXML injections.xml)       Injection XML file to use\n\
+(--mc-min mchirp)               Minimum chirp mass\n\
+(--mc-max mchirp)               Maximum chirp mass\n\
+(--eta-min etaMin)              Minimum eta\n\
+(--eta-max etaMax)              Maximum eta\n\
+(--dt time)                     Width of time prior, centred around trigger (0.1s)\n\
+(--trigtime time)               Trigger time to use\n\
+(--mc mchirp)                   Trigger chirpmass to use\n\
+(--fixMc)                       Do not allow chirpmass to vary\n\
+(--eta eta)                     Trigger eta to use\n\
+(--fixEta)                      Do not allow mass ratio to vary\n\
+(--phi phase)                   Trigger phase to use\n\
+(--fixPhi)                      Do not allow phase to vary\n\
+(--iota inclination)            Trigger inclination to use\n\
+(--fixIota)                     Do not allow inclination to vary\n\
+(--dist dist)                   Trigger distance\n\
+(--fixDist)                     Do not allow distance to vary\n\
+(--ra ra)                       Trigger RA\n\
+(--fixRa)                       Do not allow RA to vary\n\
+(--dec dec)                     Trigger declination\n\
+(--fixDec)                      Do not allow declination to vary\n\
+(--psi psi)                     Trigger psi\n\
+(--fixPsi)                      Do not allow polarization to vary\n\
+(--a1 a1)                       Trigger a1\n\
+(--fixA1)                       Do not allow spin to vary\n\
+(--theta1 theta1)               Trigger theta1\n\
+(--fixTheta1)                   Do not allow spin 1 colatitude to vary\n\
+(--phi1 phi1)                   Trigger phi1\n\
+(--fixPhi1)                     Do not allow spin 1 longitude to vary\n\
+(--a2 a2)                       Trigger a2\n\
+(--fixA2)                       Do not allow spin 2 to vary\n\
+(--theta2 theta2)               Trigger theta2\n\
+(--fixTheta2)                   Do not allow spin 2 colatitude to vary\n\
+(--phi2 phi2)                   Trigger phi2\n\
+(--fixPhi2)                     Do not allow spin 2 longitude to vary\n\
+(--time time)                   Waveform time (overrides random about trigtime)\n\
+(--fixTime)                     Do not allow coalescence time to vary\n\
+(--Dmin dist)                   Minimum distance in Mpc (1)\n\
+(--Dmax dist)                   Maximum distance in Mpc (100)\n\
+(--approximant Approximant)     Specify a template approximant to use, (default TaylorF2)\n\
+(--order PNorder)               Specify a PN order to use, (default threePointFivePN)\n\
+(--comp-min min)                Minimum component mass (1.0)\n\
+(--comp-max max)                Maximum component mass (30.0)\n\
+(--MTotMax max)                 Maximum total mass (35.0)\n\
+(--covarianceMatrix file)       Find the Cholesky decomposition of the covariance matrix for jumps in file\n\
+(--appendOutput fname)          Basename of the file to append outputs to\n";
+
+
+  /* Print command line arguments if state was not allocated */
+  if(state==NULL)
+  {
+    fprintf(stdout,"%s",help);
+		return;
+	}
+  
+  /* Print command line arguments if help requested */
+  if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+  {
+	  fprintf(stdout,"%s",help);
+		return;
+	}
+  
+  
 	LALStatus status;
 	memset(&status,0,sizeof(status));
 	SimInspiralTable *injTable=NULL;
@@ -372,7 +440,7 @@ void initVariables(LALInferenceRunState *state)
 	ProcessParamsTable *commandLine=state->commandLine;
 	ProcessParamsTable *ppt=NULL;
 	INT4 AmpOrder=0;
-	LALPNOrder PhaseOrder=LAL_PNORDER_TWO;
+	LALPNOrder PhaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
 	Approximant approx=TaylorF2;
 	//INT4 numberI4 = TaylorF2;
 	//INT4 numberI4 = TaylorT3;
@@ -412,43 +480,6 @@ void initVariables(LALInferenceRunState *state)
 	
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	
-	char help[]="\
-	[--injXML injections.xml]\tInjection XML file to use\
-	[--Mmin mchirp]\tMinimum chirp mass\
-	[--Mmax mchirp]\tMaximum chirp mass\
-	[--dt time]\tWidth of time prior, centred around trigger (0.1s)\
-	[--trigtime time]\tTrigger time to use\
-	[--mc mchirp]\tTrigger chirpmass to use\
-	[--eta eta]\tTrigger eta to use\
-	[--phi phase]\tTrigger phase to use\
-	[--iota inclination]\tTrigger inclination to use\
-        [--dist dist]\tTrigger distance\
-        [--ra ra]\tTrigger RA\
-        [--dec dec]\tTrigger declination\
-        [--psi psi]\tTrigger psi\
-        [--a1 a1]\tTrigger a1\
-        [--theta1 theta1]\tTrigger theta1\
-        [--phi1 phi1]\tTrigger phi1\
-        [--a2 a2]\tTrigger a2\
-        [--theta2 theta2]\tTrigger theta2\
-        [--phi2 phi2]\tTrigger phi2\
-        [--time time]\tWaveform time (overrides random about trigtime)\
-	[--Dmin dist]\tMinimum distance in Mpc (1)\
-	[--Dmax dist]\tMaximum distance in Mpc (100)\
-	[--approx ApproximantorderPN]\tSpecify a waveform to use, (default TaylorF2twoPN)\
-	[--mincomp min]\tMinimum component mass (1.0)\
-	[--maxcomp max]\tMaximum component mass (30.0)\
-	[--MTotMax] \t Maximum total mass (35.0)\
-        [--covarianceMatrix file]\tFind the Cholesky decomposition of the covariance matrix for jumps in file";
-	
-	/* Print command line arguments if help requested */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-	if(ppt)
-	{
-		fprintf(stdout,"%s",help);
-		return;
-	}
-	
   if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
     MTotMax=20.0;
     mMin=1.0;
@@ -483,16 +514,146 @@ void initVariables(LALInferenceRunState *state)
 	}	
 	
 	/* Over-ride approximant if user specifies */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
 	if(ppt){
-		LALGetOrderFromString(&status,ppt->value,&PhaseOrder);
-		LALGetApproximantFromString(&status,ppt->value,&approx);
-		//printf("%d\n",approx);
-		if(strstr(ppt->value,"TaylorF2")) {approx=TaylorF2;}//numberI4 = TaylorF2;}		LALGetApproximantFromString DOES NOT HAVE TaylorF2 !!!!!!
-		//if(strstr(ppt->value,"TaylorT3")) {approx=TaylorT3;}//numberI4 = TaylorT3;}
-		//if(strstr(ppt->value,"SpinTaylor")) {approx=SpinTaylor;}//numberI4 = SpinTaylor;}
-		fprintf(stdout,"Templates will run using Approximant %i, phase order %i\n",approx,PhaseOrder);
-		//fprintf(stdout,"Templates will run using Approximant %i, phase order %i\n",numberI4,PhaseOrder);
+		if ( ! strcmp( "GeneratePPN", ppt->value ) )
+		{
+			approx = GeneratePPN;
+		}
+		else if ( ! strcmp( "TaylorT1", ppt->value ) )
+		{
+			approx = TaylorT1;
+		}
+		else if ( ! strcmp( "TaylorT2", ppt->value ) )
+		{
+			approx = TaylorT2;
+		}
+		else if ( ! strcmp( "TaylorT3", ppt->value ) )
+		{
+			approx = TaylorT3;
+		}
+		else if ( ! strcmp( "TaylorT4", ppt->value ) )
+		{
+			approx = TaylorT4;
+		}
+		else if ( ! strcmp( "TaylorF1", ppt->value ) )
+		{
+			approx = TaylorF1;
+		}
+		else if ( ! strcmp( "TaylorF2", ppt->value ) )
+		{
+			approx = TaylorF2;
+		}
+		else if ( ! strcmp( "EOB", ppt->value ) )
+		{
+			approx = EOB;
+		}
+		else if ( ! strcmp( "EOBNR", ppt->value ) )
+		{
+			approx = EOBNR;
+		}
+		else if ( ! strcmp( "EOBNRv2", ppt->value ) )
+		{
+			approx = EOBNRv2;
+		}
+		else if ( ! strcmp( "EOBNRv2HM", ppt->value ) )
+		{
+			approx = EOBNRv2HM;
+		}
+		else if ( ! strcmp( "SpinTaylor", ppt->value ) )
+		{
+			approx = SpinTaylor;
+		}
+		else if ( ! strcmp( "SpinTaylorT3", ppt->value ) )
+		{
+			approx = SpinTaylorT3;
+		}
+		else if ( ! strcmp( "SpinQuadTaylor", ppt->value ) )
+		{
+			approx = SpinQuadTaylor;
+		}
+		else if ( ! strcmp( "SpinTaylorFrameless", ppt->value ) )
+		{
+			approx = SpinTaylorFrameless;
+		}    
+		else if ( ! strcmp( "PhenSpinTaylorRD", ppt->value ) )
+		{
+			approx = PhenSpinTaylorRD;
+		}
+		else if ( ! strcmp( "NumRel", ppt->value ) )
+		{
+			approx = NumRel;
+		}
+		else if ( ! strcmp( "IMRPhenomA", ppt->value ) )
+		{
+			approx = IMRPhenomA;
+		}
+		else if ( ! strcmp( "IMRPhenomB", ppt->value ) )
+		{
+			approx = IMRPhenomB;
+		}
+		else
+		{
+			fprintf( stderr, "invalid argument to --approximant\n"
+					"unknown approximant %s specified: "
+					"Approximant must be one of: GeneratePPN, TaylorT1, TaylorT2,\n"
+					"TaylorT3, TaylorT4, TaylorF1, TaylorF2,  EOB, EOBNR, EOBNRv2, \n"
+					"EOBNRv2HM, SpinTaylor, SpinTaylorT3, SpinQuadTaylor, SpinTaylorFrameless,\n"
+					"PhenSpinTaylorRD, NumRel, IMRPhenomA, IMRPhenomB \n", ppt->value);
+			exit( 1 );
+		}
+		fprintf(stdout,"Templates will run using Approximant %s (%u)\n",ppt->value,approx);
+	}
+	
+        /* Over-ride PN order if user specifies */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--order");
+	if(ppt){
+        if ( ! strcmp( "newtonian", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_NEWTONIAN;
+        }
+        else if ( ! strcmp( "oneHalfPN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_HALF;
+        }
+        else if ( ! strcmp( "onePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_ONE;
+        }
+        else if ( ! strcmp( "onePointFivePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_ONE_POINT_FIVE;
+        }
+        else if ( ! strcmp( "twoPN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_TWO;
+        }
+        else if ( ! strcmp( "twoPointFive", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_TWO_POINT_FIVE;
+        }
+        else if ( ! strcmp( "threePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_THREE;
+        }
+        else if ( ! strcmp( "threePointFivePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_THREE_POINT_FIVE;
+        }
+        else if ( ! strcmp( "pseudoFourPN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_PSEUDO_FOUR;
+        }
+        else
+        {
+          fprintf( stderr, "invalid argument to --order:\n"
+              "unknown order specified: "
+              "PN order must be one of: newtonian, oneHalfPN, onePN,\n"
+              "onePointFivePN, twoPN, twoPointFivePN, threePN or\n"
+              "threePointFivePN\n");
+          exit( 1 );
+        }
+	fprintf(stdout,"Templates will be generated at %.1f PN order\n",((float)(PhaseOrder))/2.0);
 	}
 
         /* This flag was added to account for the broken Big Dog
@@ -617,21 +778,60 @@ void initVariables(LALInferenceRunState *state)
 		Dmax=atof(ppt->value);
 	}
 	
-	/* Over-ride Mass prior if specified */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--Mmin");
-	if(ppt){
+	/* Over-ride Mass priors if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--mc-min");
+	if(ppt) 
+        {
 		mcMin=atof(ppt->value);
+		if (mcMin < 0) 
+		{
+			fprintf(stderr,"ERROR: Minimum value of mchirp must be > 0");
+			exit(1);
+		}
 	}
-	ppt=LALInferenceGetProcParamVal(commandLine,"--Mmax");
-	if(ppt)	mcMax=atof(ppt->value);
+
+	ppt=LALInferenceGetProcParamVal(commandLine,"--mc-max");
+	if(ppt)	
+        {
+                mcMax=atof(ppt->value);
+		if (mcMax <= 0) 
+		{
+			fprintf(stderr,"ERROR: Maximum value of mchirp must be > 0");
+			exit(1);
+		}
+	}
+
+	ppt=LALInferenceGetProcParamVal(commandLine,"--eta-min");
+	if(ppt)	
+        {
+		etaMin=atof(ppt->value);
+                if (etaMin < 0.0) 
+		{
+			fprintf(stderr,"ERROR: Minimum value of eta must be > 0");
+			exit(1);
+		}
+	}
+
+	ppt=LALInferenceGetProcParamVal(commandLine,"--eta-max");
+	if(ppt)	
+        {
+		etaMax=atof(ppt->value);
+                if (etaMax > 0.25 || etaMax <= 0.0) 
+		{
+			fprintf(stderr,"ERROR: Maximum value of eta must be between 0 and 0.25\n");
+			exit(1);
+		}
+	}
 	
 	/* Over-ride component masses */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--compmin");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--comp-min");
 	if(ppt)	mMin=atof(ppt->value);
 	LALInferenceAddVariable(priorArgs,"component_min",&mMin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-	ppt=LALInferenceGetProcParamVal(commandLine,"--compmax");
+
+	ppt=LALInferenceGetProcParamVal(commandLine,"--comp-max");
 	if(ppt)	mMax=atof(ppt->value);
 	LALInferenceAddVariable(priorArgs,"component_max",&mMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+
 	ppt=LALInferenceGetProcParamVal(commandLine,"--MTotMax");
 	if(ppt)	MTotMax=atof(ppt->value);
 	LALInferenceAddVariable(priorArgs,"MTotMax",&MTotMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
@@ -681,7 +881,7 @@ void initVariables(LALInferenceRunState *state)
 	    LALInferenceAddVariable(currentParams, "massratio",       &start_eta,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 	}
     LALInferenceAddMinMaxPrior(priorArgs,	"massratio",	&etaMin,	&etaMax,	LALINFERENCE_REAL8_t);
-	
+
 	tmpMin=endtime-dt; tmpMax=endtime+dt;
 
         /* Set up start time. */
@@ -990,11 +1190,12 @@ void initVariables(LALInferenceRunState *state)
 		}
     LALInferenceAddMinMaxPrior(priorArgs, "ppelowerb",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
     
-  }  
-  
+  }
+
   /* If the currentParams are not in the prior, overwrite and pick paramaters from the priors. OVERWRITE EVEN USER CHOICES. 
   (necessary for complicated prior shapes where LALInferenceCyclicReflectiveBound() is not enought */
   if(state->prior(state, currentParams)<=-DBL_MAX){
+    fprintf(stderr, "Warning initial parameter randlomy drawn from prior. (in %s, line %d)\n",__FILE__, __LINE__);
     LALInferenceVariables *temp; //
     temp=XLALCalloc(1,sizeof(LALInferenceVariables));
     memset(temp,0,sizeof(LALInferenceVariables));
@@ -1171,7 +1372,7 @@ int main(int argc, char *argv[]){
   MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-  if (MPIrank == 0) fprintf(stdout," ========== LALInference_MCMCMPI ==========\n");
+  if (MPIrank == 0) fprintf(stdout," ========== LALInference_MCMC ==========\n");
 
 	LALInferenceRunState *runState;
 	ProcessParamsTable *procParams=NULL;
@@ -1341,14 +1542,19 @@ int main(int argc, char *argv[]){
 	/* And performing any injections specified */
 	/* And allocating memory */
 	runState = initialize(procParams);
-  
+
 	/* Set up structures for MCMC */
 	initializeMCMC(runState);
 
 	/* Set up currentParams with variables to be used */
 	initVariables(runState);
 	}//NOT analyticLogLike
-	printf(" ==== This is thread %d of %d ====\n ", MPIrank, MPIsize);
+  if(runState==NULL) {
+    fprintf(stderr, "runState not allocated (%s, line %d).\n",
+            __FILE__, __LINE__);
+    exit(1);
+  }
+	printf(" ==== This is thread %d of %d ====\n", MPIrank, MPIsize);
 	MPI_Barrier(MPI_COMM_WORLD);
 	/* Call MCMC algorithm */
 	runState->algorithm(runState);
@@ -1361,68 +1567,3 @@ int main(int argc, char *argv[]){
 
 
 
-//void PTMCMCTest(void)
-//{
-//	MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
-//	MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
-//
-//	fprintf(stdout, "PTMCMC test\n");
-//
-//	runstate->algorithm=PTMCMCAlgorithm;
-//	runstate->evolve=PTMCMCOneStep;
-//	runstate->prior=PTUniformLALPrior;
-//	//runstate->prior=PTUniformGaussianPrior;
-//	runstate->proposal=PTMCMCLALProposal;
-//	//runstate->proposal=PTMCMCLALAdaptationProposal;
-//	//runstate->proposal=PTMCMCGaussianProposal;
-//	runstate->proposalArgs = malloc(sizeof(LALInferenceVariables));
-//	runstate->proposalArgs->head=NULL;
-//	runstate->proposalArgs->dimension=0;
-//	runstate->likelihood=FreqDomainLogLikelihood;
-//	//runstate->likelihood=GaussianLikelihood;
-//	runstate->template=templateLAL;
-//	
-//	
-//	SimInspiralTable *injTable=NULL;
-//	printf("Ninj: %d\n", SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(ppt,"--injXML")->value,0,0));
-//	
-//	REAL8 mc = injTable->mchirp;
-//	REAL8 eta = injTable->eta;
-//    REAL8 iota = injTable->inclination;
-//    REAL8 phi = injTable->coa_phase;
-//	LIGOTimeGPS trigger_time=injTable->geocent_end_time;
-//	REAL8 tc = XLALGPSGetREAL8(&trigger_time);
-//	REAL8 ra_current = injTable->longitude;
-//	REAL8 dec_current = injTable->latitude;
-//	REAL8 psi_current = injTable->polarization;
-//	REAL8 distMpc_current = injTable->distance;
-//	
-//    numberI4 = TaylorF2;
-//    LALInferenceAddVariable(&currentParams, "LAL_APPROXIMANT", &numberI4,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-//    numberI4 = LAL_PNORDER_TWO;
-//    LALInferenceAddVariable(&currentParams, "LAL_PNORDER",     &numberI4,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-//	
-//	LALInferenceAddVariable(&currentParams, "chirpmass",       &mc,              LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-//    LALInferenceAddVariable(&currentParams, "massratio",       &eta,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-//    LALInferenceAddVariable(&currentParams, "inclination",     &iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-//    LALInferenceAddVariable(&currentParams, "phase",           &phi,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-//    LALInferenceAddVariable(&currentParams, "time",            &tc   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
-//    LALInferenceAddVariable(&currentParams, "rightascension",  &ra_current,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-//    LALInferenceAddVariable(&currentParams, "declination",     &dec_current,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-//    LALInferenceAddVariable(&currentParams, "polarisation",    &psi_current,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-//    LALInferenceAddVariable(&currentParams, "distance",        &distMpc_current, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-//	
-//	
-////	REAL8 x0 = 0.9;
-////	LALInferenceAddVariable(&currentParams, "x0", &x0,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-//	
-//	
-//	
-//	
-//	runstate->currentParams=&currentParams;
-//	MPI_Barrier(MPI_COMM_WORLD);
-//
-//	PTMCMCAlgorithm(runstate);
-//	if (MPIrank == 0) fprintf(stdout, "End of PTMCMC test\n");
-//}
-//

@@ -54,7 +54,7 @@ size_t LALInferenceTypeSize[] = {sizeof(INT4),
 static char *colNameToParamName(const char *colName);
 
 
-LALInferenceVariableItem *LALInferenceGetItem(LALInferenceVariables *vars,const char *name)
+LALInferenceVariableItem *LALInferenceGetItem(const LALInferenceVariables *vars,const char *name)
 /* (this function is only to be used internally) */
 /* Returns pointer to item for given item name.  */
 {
@@ -94,7 +94,7 @@ LALInferenceParamVaryType LALInferenceGetVariableVaryType(LALInferenceVariables 
 }
 
 
-void *LALInferenceGetVariable(LALInferenceVariables * vars,const char * name)
+void *LALInferenceGetVariable(const LALInferenceVariables * vars,const char * name)
 /* Return the value of variable name from the vars structure by walking the list */
 {
   LALInferenceVariableItem *item;
@@ -130,7 +130,7 @@ INT4 LALInferenceGetVariableDimensionNonFixed(LALInferenceVariables *vars)
 }
 
 
-LALInferenceVariableType LALInferenceGetVariableType(LALInferenceVariables *vars, const char *name)
+LALInferenceVariableType LALInferenceGetVariableType(const LALInferenceVariables *vars, const char *name)
 {
 	return LALInferenceGetItem(vars,name)->type;
 }
@@ -299,9 +299,53 @@ void LALInferenceCopyVariables(LALInferenceVariables *origin, LALInferenceVariab
   return;
 }
 
+/** Prints a variable item to a string (must be pre-allocated!) */
+void LALInferencePrintVariableItem(char *out, LALInferenceVariableItem *ptr)
+{
+  if(ptr==NULL) {
+    XLALPrintError("Null LALInferenceVariableItem *");
+    XLAL_ERROR_VOID("LALInferencePrintVariableItem",XLAL_EFAULT);
+  }
+  if(out==NULL) {
+    XLALPrintError("Null output string *");
+    XLAL_ERROR_VOID("LALInferencePrintVariableItem",XLAL_EFAULT);
+  }
+  switch (ptr->type) {
+        case LALINFERENCE_INT4_t:
+          sprintf(out, "%d", *(INT4 *) ptr->value);
+          break;
+        case LALINFERENCE_INT8_t:
+          sprintf(out, "%" LAL_INT8_FORMAT, *(INT8 *) ptr->value);
+          break;
+	case LALINFERENCE_UINT4_t:
+	  sprintf(out, "%ud", *(UINT4 *) ptr->value);
+	  break;			  
+        case LALINFERENCE_REAL4_t:
+          sprintf(out, "%.15lf", *(REAL4 *) ptr->value);
+          break;
+        case LALINFERENCE_REAL8_t:
+          sprintf(out, "%.15lf", *(REAL8 *) ptr->value);
+          break;
+        case LALINFERENCE_COMPLEX8_t:
+          sprintf(out, "%e + i*%e", 
+                 (REAL4) ((COMPLEX8 *) ptr->value)->re, (REAL4) ((COMPLEX8 *) ptr->value)->im);
+          break;
+        case LALINFERENCE_COMPLEX16_t:
+          sprintf(out, "%e + i*%e", 
+                 (REAL8) ((COMPLEX16 *) ptr->value)->re, (REAL8) ((COMPLEX16 *) ptr->value)->im);
+          break;
+        case LALINFERENCE_gslMatrix_t:
+          sprintf(out, "<can't print matrix>");          
+          break;
+        default:
+          sprintf(out, "<can't print>");          
+      }
+  return;
+}
+
 void LALInferencePrintVariables(LALInferenceVariables *var)
-/* output contents of a 'LALInferenceVariables' structure       */
-/* (by now only prints names and types, but no values) */
+/** output contents of a 'LALInferenceVariables' structure * /
+/ * (by now only prints names and types, but no values) */
 {
   LALInferenceVariableItem *ptr = var->head;
   fprintf(stdout, "LALInferenceVariables:\n");
@@ -396,10 +440,10 @@ void LALInferencePrintSample(FILE *fp,LALInferenceVariables *sample){
 				fprintf(fp, "%ud", *(UINT4 *) ptr->value);
 				break;
 			case LALINFERENCE_REAL4_t:
-				fprintf(fp, "%9.5e", *(REAL4 *) ptr->value);
+				fprintf(fp, "%9.12e", *(REAL4 *) ptr->value);
 				break;
 			case LALINFERENCE_REAL8_t:
-				fprintf(fp, "%9.5le", *(REAL8 *) ptr->value);
+				fprintf(fp, "%9.12le", *(REAL8 *) ptr->value);
 				break;
 			case LALINFERENCE_COMPLEX8_t:
 				fprintf(fp, "%e + i*%e",
@@ -656,7 +700,7 @@ ProcessParamsTable *LALInferenceParseCommandLine(int argc, char *argv[])
   ProcessParamsTable *head, *ptr=NULL;
   /* always (even for argc==1, i.e. no arguments) put one element in list: */
   head = (ProcessParamsTable*) calloc(1, sizeof(ProcessParamsTable));
-  strcpy(head->program, argv[0]);
+  XLALStringCopy(head->program, argv[0], sizeof(CHAR)*LIGOMETA_PROGRAM_MAX);
   ptr = head;
   i=1;
   while ((i<argc) & (state<=3)) {
@@ -665,8 +709,8 @@ ProcessParamsTable *LALInferenceParseCommandLine(int argc, char *argv[])
     /* react depending on current state: */
     if (state==1){ /* ('state 1' means handling very 1st argument) */
       if (dbldash) {
-        strcpy(head->param, argv[i]);
-        strcpy(ptr->type, "string");
+        XLALStringCopy(head->param, argv[i], sizeof(CHAR)*LIGOMETA_PARAM_MAX);
+        XLALStringCopy(ptr->type, "string", sizeof(CHAR)*LIGOMETA_TYPE_MAX);
         state = 2;
       }
       else { /* (very 1st argument needs to start with "--...") */
@@ -678,22 +722,24 @@ ProcessParamsTable *LALInferenceParseCommandLine(int argc, char *argv[])
       if (dbldash) {
         ptr->next = (ProcessParamsTable*) calloc(1, sizeof(ProcessParamsTable));
         ptr = ptr->next;
-        strcpy(ptr->program, argv[0]);
-        strcpy(ptr->param, argv[i]);
-        strcpy(ptr->type, "string");
+        XLALStringCopy(ptr->program, argv[0],
+sizeof(CHAR)*LIGOMETA_PROGRAM_MAX);
+        XLALStringCopy(ptr->param, argv[i], sizeof(CHAR)*LIGOMETA_PARAM_MAX);
+        XLALStringCopy(ptr->type, "string", sizeof(CHAR)*LIGOMETA_TYPE_MAX);
       }
       else {
         state = 3;
-        strcpy(ptr->value, argv[i]);          
+        XLALStringCopy(ptr->value, argv[i], sizeof(CHAR)*LIGOMETA_VALUE_MAX);
       }
     }
     else if (state==3) { /* ('state 3' means last entry was a value) */
       if (dbldash) {
         ptr->next = (ProcessParamsTable*) calloc(1, sizeof(ProcessParamsTable));
         ptr = ptr->next;
-        strcpy(ptr->program, argv[0]);
-        strcpy(ptr->param, argv[i]);
-        strcpy(ptr->type, "string");
+        XLALStringCopy(ptr->program, argv[0],
+                       sizeof(CHAR)*LIGOMETA_PROGRAM_MAX);
+        XLALStringCopy(ptr->param, argv[i], sizeof(CHAR)*LIGOMETA_PARAM_MAX);
+        XLALStringCopy(ptr->type, "string", sizeof(CHAR)*LIGOMETA_TYPE_MAX);
         state = 2;
       }
       else {

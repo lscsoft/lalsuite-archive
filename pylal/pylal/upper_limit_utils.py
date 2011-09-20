@@ -3,6 +3,8 @@ from scipy import random
 from scipy import interpolate
 import bisect
 import sys
+from glue.ligolw import lsctables
+from pylal.xlal import constants
 
 import matplotlib
 matplotlib.use("agg")
@@ -107,23 +109,35 @@ def compute_upper_limit(mu, post, alpha = 0.9):
     Returns the upper limit mu_high of confidence level alpha for a
     posterior distribution post on the given parameter mu.
     """
-    high_idx = bisect.bisect_right( post.cumsum()/post.sum(), alpha )
-
-    if high_idx < len(mu):
+    if 0 < alpha < 1:
+        high_idx = bisect.bisect_left( post.cumsum()/post.sum(), alpha )
+        # if alpha is in (0,1] and post is non-negative, bisect_left
+        # will always return an index in the range of mu since
+        # post.cumsum()/post.sum() will always begin at 0 and end at 1
         mu_high = mu[high_idx]
+    elif alpha == 1:
+        mu_high = numpy.max(mu[post>0])
     else:
-        mu_high = mu[high_idx-1]
+        raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_high
 
 
-def compute_lower_limit(mu, cumpost, alpha = 0.9):
+def compute_lower_limit(mu, post, alpha = 0.9):
     """
     Returns the lower limit mu_low of confidence level alpha for a
-    cumulative ditribution cumpost on the given parameter mu.
+    posterior distribution post on the given parameter mu.
     """
-    low_idx = bisect.bisect_left( cumpost, 1 - alpha )
-    mu_low = mu[low_idx]
+    if 0 < alpha < 1:
+        low_idx = bisect.bisect_right( post.cumsum()/post.sum(), 1-alpha )
+        # if alpha is in [0,1) and post is non-negative, bisect_right
+        # will always return an index in the range of mu since
+        # post.cumsum()/post.sum() will always begin at 0 and end at 1
+        mu_low = mu[low_idx]
+    elif alpha == 1:
+        mu_low = numpy.min(mu[post>0])
+    else:
+        raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_low
 
@@ -133,12 +147,11 @@ def confidence_interval( mu, post, alpha = 0.9 ):
     Returns the minimal-width confidence interval [mu_low,mu_high] of
     confidence level alpha for a distribution post on the parameter mu.
     '''
-    cumpost = post.cumsum()/post.sum()
+    if not 0 < alpha < 1:
+        raise ValueError, "Confidence level must be in (0,1)."
 
     # choose a step size for the sliding confidence window
-    trust_factor = 0.9 #how much do you trust Steve to get this right? -- must be 0 < tf < 1
-    whatithinkthestepsizeshouldbe = numpy.min(cumpost[cumpost[1:]-cumpost[:-1]>0])
-    alpha_step = trust_factor*whatithinkthestepsizeshouldbe
+    alpha_step = 0.01
 
     # initialize the lower and upper limits
     mu_low = numpy.min(mu)
@@ -146,8 +159,8 @@ def confidence_interval( mu, post, alpha = 0.9 ):
 
     # find the smallest window (by delta-mu) stepping by dalpha
     for ai in numpy.arange( 0, 1-alpha, alpha_step ):
-        ml = compute_lower_limit( mu, cumpost, 1 - ai )
-        mh = compute_upper_limit( mu, cumpost, alpha + ai)
+        ml = compute_lower_limit( mu, post, 1 - ai )
+        mh = compute_upper_limit( mu, post, alpha + ai)
         if mh - ml < mu_high - mu_low:
             mu_low = ml
             mu_high = mh
@@ -214,8 +227,9 @@ def mean_efficiency_volume(found, missed, dbins, bootnum=1, randerr=0.0, syserr=
           m_dist = numpy.array([missed_dist[-(i+1)] for i in ix if i < 0])
 
           # apply log-normal random amplitude (distance) error
-          f_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(f_dist)) )
-          m_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(m_dist)) )
+          dist_offset = random.randn() # ONLY ONCE!
+          f_dist *= (1-syserr)*numpy.exp( randerr*dist_offset )
+          m_dist *= (1-syserr)*numpy.exp( randerr*dist_offset )
       else:
           # use what we got first time through
           f_dist, m_dist = found_dist, missed_dist
@@ -281,11 +295,14 @@ def compute_luminosity_from_catalog(found, missed, catalog):
 
     return lum
 
-def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
+def filter_injections_by_mass(injs, mbins, bin_num , bin_type):
     '''
     For a given set of injections (sim_inspiral rows), return the subset
     of injections that fall within the given mass range.
     '''
+    mbins = numpy.concatenate((mbins.lower()[0],numpy.array([mbins.upper()[0][-1]])))
+    mlow = mbins[bin_num]
+    mhigh = mbins[bin_num+1]
     if bin_type == "Chirp_Mass":
         newinjs = [l for l in injs if (mlow <= l.mchirp < mhigh)]
     elif bin_type == "Total_Mass":
@@ -293,7 +310,11 @@ def filter_injections_by_mass(injs, mlow, mhigh, bin_type):
     elif bin_type == "Component_Mass": #it is assumed that m2 is fixed
         newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
     elif bin_type == "BNS_BBH":
-        newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh)]
+        if bin_num == 0 or bin_num == 2: #BNS/BBH case
+            newinjs = [l for l in injs if (mlow <= l.mass1 < mhigh and mlow <= l.mass2 < mhigh)]
+        else:
+            newinjs = [l for l in injs if (mbins[0] <= l.mass1 < mbins[1] and mbins[2] <= l.mass2 < mbins[3])] #NSBH
+            newinjs += [l for l in injs if (mbins[0] <= l.mass2 < mbins[1] and mbins[2] <= l.mass1 < mbins[3])] #BHNS
 
     return newinjs
 
@@ -317,11 +338,11 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalo
     #
     effvmass = []
     errvmass = []
-    for ml,mc,mh in zip(mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
+    for j,mc in enumerate(mass_bins.centres()[0]):
 
         # filter out injections not in this mass bin
-        newfound = filter_injections_by_mass( found, ml, mh, bin_type)
-        newmissed = filter_injections_by_mass( missed, ml, mh, bin_type)
+        newfound = filter_injections_by_mass( found, mass_bins, j, bin_type)
+        newmissed = filter_injections_by_mass( missed, mass_bins, j, bin_type)
 
         foundArray[(mc,)] = len(newfound)
         missedArray[(mc,)] = len(newmissed)
@@ -352,3 +373,34 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
 
     return val
+
+
+def get_background_livetime(connection, verbose=False):
+    '''
+    Query the database for the background livetime for the input instruments set.
+    This is equal to the sum of the livetime of the time slide experiments.
+    '''
+    query = """
+    SELECT instruments, duration
+    FROM experiment_summary
+    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
+    WHERE experiment_summary.datatype == "slide";
+    """
+
+    bglivetime = {}
+    for inst,lt in connection.cursor().execute(query):
+        inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
+        try:
+            bglivetime[inst] += lt
+        except KeyError:
+            bglivetime[inst] = lt
+
+    if verbose:
+        for inst in bglivetime.keys():
+            print >>sys.stdout,"The background livetime for time slide experiments on %s data: %d seconds (%.2f years)" % (','.join(sorted(list(inst))),bglivetime[inst],bglivetime[inst]/float(constants.LAL_YRJUL_SI))
+
+    return bglivetime
+
+
+
+

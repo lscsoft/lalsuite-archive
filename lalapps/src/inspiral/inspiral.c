@@ -1430,6 +1430,49 @@ int main( int argc, char *argv[] )
 
           } /* loop over injectionsj */
       }
+      else if (injApproximant == NumRelNinja2)
+      {
+        /* New REAL8, NINJA-2 code */
+        REAL8TimeSeries *tempStrain = NULL;
+        REAL8TimeSeries *tempChan   = NULL;
+
+        /* Make a REAL8 version of the channel data    */
+        /* so we can call Jolien's new inject function */
+        tempChan = XLALCreateREAL8TimeSeries(
+                                chan.name,
+                                &(chan.epoch),
+                                chan.f0,
+                                chan.deltaT,
+                                &(chan.sampleUnits),
+                                chan.data->length);
+
+        for ( j = 0 ; j < tempChan->data->length ; ++j )
+          {
+            tempChan->data->data[j] = (REAL8) ( chan.data->data[j] );
+          }
+       
+        /* loop over injections */
+        for ( thisInj = injections; thisInj; thisInj = thisInj->next )
+          {
+            tempStrain = XLALNRInjectionStrain(ifo, thisInj);
+            
+            for ( j = 0 ; j < tempStrain->data->length ; ++j )
+              {
+                tempStrain->data->data[j] *= dynRange;
+              }
+            
+            XLALSimAddInjectionREAL8TimeSeries( tempChan, tempStrain, NULL);
+            XLALDestroyREAL8TimeSeries(tempStrain);
+          } /* loop over injections */
+
+        /* Back to REAL4 */
+        for ( j = 0 ; j < tempChan->data->length ; ++j )
+          {
+            chan.data->data[j] = (REAL4) ( tempChan->data->data[j] );
+          }
+
+        XLALDestroyREAL8TimeSeries(tempChan);
+      }
       else
       {
         LAL_CALL( LALFindChirpInjectSignals( &status, &chan, injections,
@@ -3957,15 +4000,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
                 long_options[option_index].name, gstartt );
             exit( 1 );
           }
-          if ( gstartt > 999999999 )
-          {
-            fprintf( stderr, "invalid argument to --%s:\n"
-                "GPS start time is after "
-                "Sep 14, 2011  01:46:26 UTC:\n"
-                "(%ld specified)\n",
-                long_options[option_index].name, gstartt );
-            exit( 1 );
-          }
           gpsStartTimeNS += (INT8) gstartt * 1000000000LL;
           ADD_PROCESS_PARAM( "int", "%ld", gstartt );
         }
@@ -3997,16 +4031,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
       case 'b':
         {
           long int gendt = atol( optarg );
-          if ( gendt > 999999999 )
-          {
-            fprintf( stderr, "invalid argument to --%s:\n"
-                "GPS end time is after "
-                "Sep 14, 2011  01:46:26 UTC:\n"
-                "(%ld specified)\n",
-                long_options[option_index].name, gendt );
-            exit( 1 );
-          }
-          else if ( gendt < 441417609 )
+          if ( gendt < 441417609 )
           {
             fprintf( stderr, "invalid argument to --%s:\n"
                 "GPS end time is prior to "
@@ -4100,15 +4125,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
                   long_options[option_index].name, gstartt );
               exit( 1 );
             }
-            if ( gstartt > 999999999 )
-            {
-              fprintf( stderr, "invalid argument to --%s:\n"
-                  "GPS start time is after "
-                  "Sep 14, 2011  01:46:26 UTC:\n"
-                  "(%ld specified)\n",
-                  long_options[option_index].name, gstartt );
-              exit( 1 );
-            }
             trigStartTimeNS = (INT8) gstartt * 1000000000LL;
           }
           ADD_PROCESS_PARAM( "int", "%ld", gstartt );
@@ -4121,16 +4137,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           /* ignore a value of zero */
           if ( gendt )
           {
-            if ( gendt > 999999999 )
-            {
-              fprintf( stderr, "invalid argument to --%s:\n"
-                  "GPS end time is after "
-                  "Sep 14, 2011  01:46:26 UTC:\n"
-                  "(%ld specified)\n",
-                  long_options[option_index].name, gendt );
-              exit( 1 );
-            }
-            else if ( gendt < 441417609 )
+            if ( gendt < 441417609 )
             {
               fprintf( stderr, "invalid argument to --%s:\n"
                   "GPS end time is prior to "

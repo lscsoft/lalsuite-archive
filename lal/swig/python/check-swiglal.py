@@ -61,11 +61,25 @@ for i in range(0,4):
 XLALDestroyStringVector(sv)
 msg("passed string conversions")
 
+# check vector/matrix struct type accessors
+if not cvar.swiglal_debug:
+    msg("skipping vector/matrix struct type accessors")
+else:
+    swiglal_test_struct_vector_setel(0, cvar.swiglal_test_struct_const)
+    assert(swiglal_test_struct_vector_getel(0).a == cvar.swiglal_test_struct_const.a)
+    assert(swiglal_test_struct_vector_getel(0).b == cvar.swiglal_test_struct_const.b)
+    assert(swiglal_test_struct_vector_getel(0).c == cvar.swiglal_test_struct_const.c)
+    swiglal_test_struct_matrix_setel(0, 0, cvar.swiglal_test_struct_const)
+    assert(swiglal_test_struct_matrix_getel(0, 0).a == cvar.swiglal_test_struct_const.a)
+    assert(swiglal_test_struct_matrix_getel(0, 0).b == cvar.swiglal_test_struct_const.b)
+    assert(swiglal_test_struct_matrix_getel(0, 0).c == cvar.swiglal_test_struct_const.c)
+    msg("passed vector/matrix struct type accessors")
+
 # check static vector/matrix conversions
 if not cvar.swiglal_debug:
     msg("skipping static vector/matrix conversions")
 else:
-    sts = swiglal_static_test_struct()
+    sts = swiglal_test_static_struct()
     assert(len(sts.vector) == 3)
     assert(len(sts.enum_vector) == 3)
     assert(sts.matrix.shape == (2, 3))
@@ -83,15 +97,22 @@ else:
         sts.enum_vector_setel(i, 2*i + 3)
         assert(sts.enum_vector_getel(i) == (2*i + 3))
     del sts
-    assert(not cvar.swiglal_static_test_vector.any())
-    assert(not cvar.swiglal_static_test_matrix.any())
-    assert(not cvar.swiglal_static_test_enum_vector.any())
-    assert(not cvar.swiglal_static_test_enum_matrix.any())
-    cvar.swiglal_static_test_vector = cvar.swiglal_static_test_const_vector
-    assert((cvar.swiglal_static_test_vector == [1, 2, 4]).all())
-    assert(swiglal_static_test_const_vector_getel(2) == 4)
+    assert(not cvar.swiglal_test_static_vector.any())
+    assert(not cvar.swiglal_test_static_matrix.any())
+    assert(not cvar.swiglal_test_static_enum_vector.any())
+    assert(not cvar.swiglal_test_static_enum_matrix.any())
+    swiglal_test_static_vector_setel(0, 10)
+    assert(swiglal_test_static_vector_getel(0) == 10)
+    swiglal_test_static_matrix_setel(0, 0, 11)
+    assert(swiglal_test_static_matrix_getel(0, 0) == 11)
+    cvar.swiglal_test_static_vector = cvar.swiglal_test_static_const_vector
+    assert((cvar.swiglal_test_static_vector == [1, 2, 4]).all())
+    assert(swiglal_test_static_const_vector_getel(2) == 4)
+    cvar.swiglal_test_static_matrix = cvar.swiglal_test_static_const_matrix
+    assert((cvar.swiglal_test_static_matrix == [[1, 2, 4], [2, 4, 8]]).all())
+    assert(swiglal_test_static_const_matrix_getel(1, 2) == 8)
     try:
-        swiglal_static_test_const_vector_getel(20)
+        swiglal_test_static_const_vector_getel(20)
         raise error("expected exception")
     except:
         pass

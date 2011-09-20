@@ -1,5 +1,21 @@
 #!/usr/bin/env python
 
+# Copyright (C) 2011 Duncan Macleod
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 # =============================================================================
 # Preamble
 # =============================================================================
@@ -52,7 +68,7 @@ def make_external_call(command):
 # Read injection files
 # =============================================================================
 
-def frominjectionfile( file, type, ifo=None, start=None, end=None):
+def frominjectionfile(file, type, ifo=None, start=None, end=None):
   
   """
     Read generic injection file object file containing injections of the given
@@ -95,7 +111,7 @@ def frominjectionfile( file, type, ifo=None, start=None, end=None):
         # set up siminspiral object
         inj = lsctables.SimInspiral()
         # split data
-        sep = re.compile('[\s,]+')
+        sep = re.compile('[\s,=]+')
         data = sep.split(line)
         # set attributes
         inj.geocent_end_time    = int(data[0].split('.')[0])
@@ -120,13 +136,13 @@ def frominjectionfile( file, type, ifo=None, start=None, end=None):
         for line in file.readlines():
           inj = lsctables.SimBurst()
           # split data
-          sep = re.compile('[\s,]+')
+          sep = re.compile('[\s,=]+')
           data = sep.split(line)
           # set attributes
 
           # gps time
           if 'burstgps' in data:
-            idx = data.index( 'burstgps' )+1
+            idx = data.index('burstgps')+1
             geocent = LIGOTimeGPS(data[idx])
 
             inj.time_geocent_gps    = geocent.seconds
@@ -140,35 +156,35 @@ def frominjectionfile( file, type, ifo=None, start=None, end=None):
 
           # frequency
           if 'freq' in data:
-            idx = data.index( 'freq' )+1
-            inj.frequency = float( data[idx] )
+            idx = data.index('freq')+1
+            inj.frequency = float(data[idx])
           else:
             continue
 
           # SNR a.k.a. amplitude
           if ifo and 'snr%s' % ifo in data:
-            idx = data.index( 'snr%s' % ifo )+1
-            inj.amplitude = float( data[idx] )
+            idx = data.index('snr%s' % ifo)+1
+            inj.amplitude = float(data[idx])
           elif 'rmsSNR' in data:
-            idx = data.index( 'rmsSNR' )+1
-            inj.amplitude = float( data[idx] )
+            idx = data.index('rmsSNR')+1
+            inj.amplitude = float(data[idx])
           else:
             continue
 
           if 'phi' in data:
-            idx = data.index( 'phi'  )+1
+            idx = data.index('phi' )+1
             inj.ra = float(data[idx])*24/(2*math.pi)       
 
           if 'theta' in data:
-            idx = data.index( 'theta'  )+1 
+            idx = data.index('theta' )+1 
             inj.ra = 90-(float(data[idx])*180/math.pi)
 
           if ifo and 'hrss%s' % ifo in data:
-            idx = data.index( 'hrss%s' % ifo )+1
-            inj.hrss = float( data[idx] )
+            idx = data.index('hrss%s' % ifo)+1
+            inj.hrss = float(data[idx])
           elif 'hrss' in data:
-            idx = data.index( 'hrss' )+1
-            inj.hrss = float( data[idx] )
+            idx = data.index('hrss')+1
+            inj.hrss = float(data[idx])
 
           # extra columns to be added when I know how
           #inj.q = 0
@@ -200,12 +216,12 @@ def frominjectionfile( file, type, ifo=None, start=None, end=None):
 
           injtable.append(inj)
 
-  injections = table.new_from_template( injtable )
+  injections = table.new_from_template(injtable)
   if not start:  start = 0
   if not end:    end   = 9999999999
   span = segments.segmentlist([ segments.segment(start, end) ])
-  get_time = dqTriggerUtils.def_get_time( injections.tableName )
-  injections.extend( inj for inj in injtable if get_time(inj) in span )
+  get_time = dqTriggerUtils.def_get_time(injections.tableName)
+  injections.extend(inj for inj in injtable if get_time(inj) in span)
 
   return injections
 
@@ -318,7 +334,7 @@ def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
 # Function to bandpass a time-series
 # =============================================================================
 
-def bandpass( data, f_low, f_high, sampling, order=4 ):
+def bandpass(data, f_low, f_high, sampling, order=4):
 
   """
     This function will bandpass filter data in the given [f_low,f_high) band
@@ -341,12 +357,12 @@ def bandpass( data, f_low, f_high, sampling, order=4 ):
 # Calculate spectrum
 # =============================================================================
 
-def spectrum( data, sampling, NFFT=256, overlap=0.5,\
-              window='hanning', detrender=mlab.detrend_linear,\
-              sides='onesided', scale='PSD' ):
+def spectrum(data, sampling, NFFT=256, overlap=0.5,\
+             window='hanning', detrender=mlab.detrend_linear,\
+             sides='onesided', scale='PSD'):
 
   numpoints  = len(data)
-  numoverlap = int( sampling * (1.0 - overlap ))
+  numoverlap = int(sampling * (1.0 - overlap))
 
   if isinstance(window,str):
     window=window.lower()
@@ -354,8 +370,8 @@ def spectrum( data, sampling, NFFT=256, overlap=0.5,\
   win = signal.get_window(window, NFFT)
 
   # calculate PSD with given parameters
-  spec,freq = mlab.psd( data, NFFT=NFFT, Fs=sampling, noverlap=numoverlap,\
-                        window=win, sides=sides, detrend=detrender )
+  spec,freq = mlab.psd(data, NFFT=NFFT, Fs=sampling, noverlap=numoverlap,\
+                        window=win, sides=sides, detrend=detrender)
 
   # rescale data to meet user's request
   scale = scale.lower()

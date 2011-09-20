@@ -1,4 +1,4 @@
-AC_INIT([lalburst],[1.0.1.2],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalburst],[1.0.1.3],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALBurstConfig.h])
 AC_CONFIG_SRCDIR([src/EPSearch.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -105,6 +105,7 @@ CPPFLAGS="$CPPFLAGS $GSL_CFLAGS"
 LIBS="$LIBS $GSL_LIBS"
 AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
 AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library])])
+LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
@@ -119,9 +120,10 @@ AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio lib
 AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LAL],[6.5.0.4],[LALVersion],[lal/LALStdio.h])
 LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
 LALSUITE_CHECK_LIB([LALMetaIO],[1.0.1],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALSimulation],[0.0.0.1],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 
 # add gcc specific flags
 if test "$GCC" = yes; then

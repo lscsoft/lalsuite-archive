@@ -141,6 +141,7 @@ LALFindChirpTDTemplate (
     case EOB:
     case EOBNR:
     case FindChirpPTF:
+    case EOBNRv2:
     case IMRPhenomB:
       break;
 
@@ -350,7 +351,8 @@ LALFindChirpTDTemplate (
       ABORTXLAL( status );
     }
 
-    if ( params->approximant == EOBNR || params->approximant == IMRPhenomB)
+    if ( params->approximant == EOBNR 
+         || params->approximant == EOBNRv2 || params->approximant == IMRPhenomB)
     {
       /* We need to do something slightly different for EOBNR */
       UINT4 endIndx = (UINT4) (tmplt->tC * sampleRate);
@@ -375,7 +377,8 @@ LALFindChirpTDTemplate (
     XLALDestroyREAL4Vector( tmpxfac );
     tmpxfac = NULL;
   }
-  else if ( params->approximant == EOBNR || params->approximant == IMRPhenomB)
+  else if ( params->approximant == EOBNR 
+            || params->approximant == EOBNRv2|| params->approximant == IMRPhenomB)
   {
     /* For EOBNR we shift so that tC is at the end of the vector */
     if ( ( tmpxfac = XLALCreateREAL4Vector( numPoints ) ) == NULL )
@@ -470,6 +473,7 @@ LALFindChirpTDNormalize(
     case EOB:
     case EOBNR:
     case FindChirpPTF:
+    case EOBNRv2:
     case IMRPhenomB:
       break;
     default:

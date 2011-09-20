@@ -42,11 +42,7 @@ matplotlib.rcParams.update({
 	"savefig.dpi": 300,
 	"text.usetex": True
 })
-#import matplotlib.pyplot as plt
-from matplotlib import figure
-#from matplotlib import patches
-#from matplotlib import cm
-#from matplotlib import colorbar
+from matplotlib import figure, cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -60,7 +56,6 @@ __author__ = "Andrew Mergl <>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
-#import array
 
 def parse_command_line():
     parser = OptionParser(
@@ -80,34 +75,12 @@ def parse_command_line():
     return options, filenames
 
 
-#------------------------------------------------------------------------------
-#       A 'uniquify' function to quickly and efficiently remove duplicate
-#     members of a sequence http://www.peterbe.com/plog/uniqifiers-benchmark
-#------------------------------------------------------------------------------
-
-def unique(seq, idfun=None):
-    # order preserving
-    if idfun is None:
-        def idfun(x): return x
-    seen = {}
-    result = []
-    for item in seq:
-        marker = idfun(item)
-        # in old Python versions:
-        # if seen.has_key(marker)
-        # but in new ones:
-        if marker in seen: continue
-        seen[marker] = 1
-        result.append(item)
-    return result
-
-
-
 def cosmo_contour(x, y, avg, min, max, p, neventsUL, filename):
     fig = Figure()
     FigureCanvas(fig)
     axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
     axes.loglog()
+    #axes.contourf(x, y, numpy.log(avg/p), 100, cmap = cm.bone)
     axes.contour(x, y, avg/p, [neventsUL], linestyles='solid', colors='r')
     axes.contour(x, y, min/p, [neventsUL], linestyles='dashed', colors='r')
     axes.contour(x, y, max/p, [neventsUL], linestyles='dashed', colors='r')
@@ -126,118 +99,44 @@ def cosmo_contour(x, y, avg, min, max, p, neventsUL, filename):
 options, filenames = parse_command_line()
 
 #read cs_gamma file output
-f = open(filenames[0], 'r')
+#the columns should be p,n,epsilon,Gmu,gammaAverage,gammaMin,gammaMax
+p, n, eps, gmu, avg, min, max = [], [], [], [], [], [], []
+for line in open(filenames[0], 'r'):
+    line = line.strip()
+    if line[0] in "%#":
+        continue
+    for arr, val in zip((p, n, eps, gmu, avg, min, max), line.split()):
+        arr.append(float(val))
 
-#at the moment the titles should be %,p,n,epsilon,Gmu,gammaAverage,gammaMin,
-# gammaMax
-titles = f.readline().split()
-tbl=[]
-#for i in range(7): tbl.append([])
-tbl = [[] for i in range(7)]
-numberofeventsUL=-numpy.log(1-0.90);
-numberofeventsS=1.0000001
+epsindex = dict((b, a) for a, b in enumerate(sorted(set(eps))))
+gmuindex = dict((b, a) for a, b in enumerate(sorted(set(gmu))))
 
-#Read in the values from the gamma file produced by cs_gamma
-while True:
-    line = f.readline()
-    if line == '': break #Exit the loop at the end of the file
-    tmplst = line.split()
-    for i in range(len(tmplst)):
-        tbl[i].append(float(tmplst[i]))
+# check for rounding errors producing a wrong count of x and y values
+assert len(epsindex) * len(gmuindex) == len(gmu)
+# program only  works if all values in the data file are for the same p and that p is 1
+assert set(p) == set([1])
 
-#eps = array.array('f',tbl[2])
-eps = tbl[2]
-eps2 = unique(eps)
-leneps2 = len(eps2)
-#gmu = array.array('f',tbl[3])
-gmu = tbl[3]
-gmu2 = unique(gmu)
-lengmu2 = len(gmu2)
-#print lengmu2
-avg = tbl[4]
-min = tbl[5]
-max = tbl[6]
+avgarr = numpy.zeros([len(epsindex), len(gmuindex)], dtype="double")
+minarr = numpy.zeros([len(epsindex), len(gmuindex)], dtype="double")
+maxarr = numpy.zeros([len(epsindex), len(gmuindex)], dtype="double")
 
+for e, g, val in zip(eps, gmu, avg):
+	avgarr[epsindex[e], gmuindex[g]] = val
+for e, g, val in zip(eps, gmu, min):
+	minarr[epsindex[e], gmuindex[g]] = val
+for e, g, val in zip(eps, gmu, max):
+	maxarr[epsindex[e], gmuindex[g]] = val
 
-#for kk in range(length(gmu2)):
-#    for jj in range(length(eps2)):
-#        cut = (tbl[3] == gmu2[kk]) & (tbl[2] == eps2[jj])
-#        if sum(cut) == 1:
-gmuarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-epsarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-avgarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-minarr = numpy.zeros([lengmu2,leneps2],dtype=float)
-maxarr = numpy.zeros([lengmu2,leneps2],dtype=float)
+avgarr *= options.livetime
+minarr *= options.livetime
+maxarr *= options.livetime
 
+numberofeventsUL=-numpy.log(1-0.90)
 
-for i in range(lengmu2):
-    for j in range(lengmu2):
-        gmuarr[i,j]=gmu[j+(i*lengmu2)]
-        epsarr[i,j]=eps[j+(i*lengmu2)]
-        avgarr[i,j]=avg[j+(i*lengmu2)]
-        minarr[i,j]=min[j+(i*lengmu2)]
-        maxarr[i,j]=max[j+(i*lengmu2)]
+x = numpy.array(sorted(gmuindex.keys()))
+y = numpy.array(sorted(epsindex.keys()))
 
-t = options.livetime
-avgarr = avgarr*t
-minarr = minarr*t
-maxarr = maxarr*t
-
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 1.000, numberofeventsUL,
-             "gmu-eps-p1e+0")
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.100, numberofeventsUL,
-             "gmu-eps-p1e-1")
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.010, numberofeventsUL,
-             "gmu-eps-p1e-2")
-cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.001, numberofeventsUL,
-             "gmu-eps-p1e-3")
-
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t, [numberofeventsUL], 
-#             linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t, [numberofeventsUL], 
-#             linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t, [numberofeventsUL], 
-#             linestyles='dashed',colors='r')
-#fig.savefig('tmplot1')
-#
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t/1e-1, 
-#             [numberofeventsUL], linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t/1e-1, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t/1e-1, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#fig.savefig('tmplot2')
-#
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t/1e-2, 
-#             [numberofeventsUL], linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t/1e-2, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t/1e-2, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#fig.savefig('tmplot3')
-#
-#fig = Figure()
-#FigureCanvas(fig)
-#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
-#axes.loglog()
-#axes.contour(gmuarr, epsarr, avgarr*t/1e-3, 
-#             [numberofeventsUL], linestyles='solid', colors='r')
-#axes.contour(gmuarr, epsarr, minarr*t/1e-3, 
-#             [numberofeventsUL], linestyles='dashed', colors='r')
-#axes.contour(gmuarr, epsarr, maxarr*t/1e-3, 
-#             [numberofeventsUL], linestyles='dashed',colors='r')
-#fig.savefig('tmplot4')
-#
-#    
+cosmo_contour(x, y, avgarr, minarr, maxarr, 1.000, numberofeventsUL, "gmu-eps-p1e+0")
+cosmo_contour(x, y, avgarr, minarr, maxarr, 0.100, numberofeventsUL, "gmu-eps-p1e-1")
+cosmo_contour(x, y, avgarr, minarr, maxarr, 0.010, numberofeventsUL, "gmu-eps-p1e-2")
+cosmo_contour(x, y, avgarr, minarr, maxarr, 0.001, numberofeventsUL, "gmu-eps-p1e-3")
