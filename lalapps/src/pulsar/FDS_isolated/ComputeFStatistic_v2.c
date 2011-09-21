@@ -67,6 +67,8 @@ int finite(double);
 
 #include <lal/TransientCW_utils.h>
 
+#include <lal/Random.h>
+
 #include <lalapps.h>
 
 /* local includes */
@@ -286,6 +288,10 @@ typedef struct {
   INT4  transient_dtau;		/**< Step-size for search/marginalization over transient-window timescale, in seconds */
   BOOLEAN transient_useFReg;  	/**< FALSE: use 'standard' e^F for marginalization, TRUE: use e^FReg = (1/D)*e^F */
 
+  INT4 randomizeSFTs;           /**< Fill SFTs with random Gaussian noise 0=never, 1=once at start, 2=for each template */
+  REAL8 noiseSigma;             /**< Sigma of Gaussian noise */
+  INT4 noiseSeed;               /**< Seed for Gaussian random noise generator */
+
   CHAR *outputTiming;		/**< output timing measurements and parameters into this file [append!]*/
 
 } UserInput_t;
@@ -325,6 +331,14 @@ scanlineWindow_t *XLALCreateScanlineWindow ( UINT4 windowWings );
 void XLALDestroyScanlineWindow ( scanlineWindow_t *scanlineWindow );
 int XLALAdvanceScanlineWindow ( const FstatCandidate *nextCand, scanlineWindow_t *scanWindow );
 BOOLEAN XLALCenterIsLocalMax ( const scanlineWindow_t *scanWindow );
+
+/* Fill SFTs with random Gaussian noise */
+void FillSFTsWithNoise(LALStatus *status,
+                       MultiSFTVector *sfts,
+                       RandomParams *randParams,
+                       REAL4Vector **randNumbers,
+                       MultiPSDVector **runningMedian,
+                       INT4 runningMedianWindow);
 
 /*---------- empty initializers ---------- */
 static const ConfigVariables empty_ConfigVariables;
@@ -368,6 +382,10 @@ int main(int argc,char *argv[])
 
   UserInput_t uvar = empty_UserInput;
   ConfigVariables GV = empty_ConfigVariables;		/**< global container for various derived configuration settings */
+
+  RandomParams* randParams = NULL;
+  REAL4Vector* randNumbers = NULL; 
+  MultiPSDVector *runningMedian = NULL;
 
   lalDebugLevel = LALERROR;	/* only output error-messages by default */
   vrbflg = 1;	/* verbose error-messages */
@@ -500,6 +518,12 @@ int main(int argc,char *argv[])
   if (uvar.countTemplates)
     printf("%%%% Number of templates: %0.0f\n", numTemplates);
 
+  /* allocate random number generator */
+  if ((randParams = XLALCreateRandomParams(uvar.noiseSeed)) == NULL) {
+    XLALPrintError ("%s: failed to allocate RandomParams\n", fn );
+    return COMPUTEFSTATISTIC_EXLAL;
+  }
+
   /*----------------------------------------------------------------------
    * main loop: demodulate data for each point in the sky-position grid
    * and for each value of the frequency-spindown
@@ -511,11 +535,21 @@ int main(int argc,char *argv[])
   REAL8 tic, toc;	// high-precision timing counters
   timingInfo_t timing = empty_timingInfo;	// timings of Fstatistic computation, transient Fstat-map, transient Bayes factor
 
+  /* Fill SFTs with random Gaussian noise */
+  if (uvar.randomizeSFTs > 0 /* 1 or 2 */) {
+    LAL_CALL ( FillSFTsWithNoise(&status, GV.multiSFTs, randParams, &randNumbers, &runningMedian, uvar.RngMedWindow), &status);
+  }
+
   /* skip search if user supplied --countTemplates */
   while ( !uvar.countTemplates && (XLALNextDopplerPos( &dopplerpos, GV.scanState ) == 0) )
     {
       dopplerpos.orbit = orbitalParams;		/* temporary solution until binary-gridding exists */
 
+      /* Fill SFTs with random Gaussian noise */
+      if (uvar.randomizeSFTs > 1 /* 2 */) {
+        LAL_CALL ( FillSFTsWithNoise(&status, GV.multiSFTs, randParams, &randNumbers, &runningMedian, uvar.RngMedWindow), &status);
+      }
+      
       tic = GETTIME();
       /* main function call: compute F-statistic for this template */
       if ( ! uvar.GPUready )
@@ -916,6 +950,9 @@ int main(int argc,char *argv[])
   XLALEmptyComputeFBuffer ( &cfBuffer );
   XLALEmptyComputeFBufferREAL4 ( &cfBuffer4 );
 
+  XLALDestroyRandomParams(randParams);
+  XLALDestroyREAL4Vector(randNumbers);
+
   /* free memory allocated for binary parameters */
   if (orbitalParams) LALFree(orbitalParams);
 
@@ -1037,6 +1074,10 @@ initUserVars (LALStatus *status, UserInput_t *uvar)
   strcpy ( uvar->transient_WindowType, DEFAULT_TRANSIENT );
   uvar->transient_useFReg = 0;
 
+  uvar->randomizeSFTs = 0;
+  uvar->noiseSigma = 1.0;
+  uvar->noiseSeed = 0;
+
   /* ---------- register all user-variables ---------- */
   LALregBOOLUserStruct(status, 	help, 		'h', UVAR_HELP,     "Print this message");
 
@@ -1143,6 +1184,10 @@ initUserVars (LALStatus *status, UserInput_t *uvar)
   LALregREALUserStruct(status,  maxBraking,      0,  UVAR_DEVELOPER, "Maximum braking index for --gridType=9");
 
   XLALregBOOLUserStruct ( transient_useFReg,   	 0,  UVAR_DEVELOPER, "FALSE: use 'standard' e^F for marginalization, if TRUE: use e^FReg = (1/D)*e^F (BAD)");
+
+  XLALregINTUserStruct ( randomizeSFTs,   	 0,  UVAR_OPTIONAL, "Fill SFTs with random Gaussian noise 0=never, 1=once at start, 2=for each template");
+  XLALregREALUserStruct ( noiseSigma,            0,  UVAR_OPTIONAL, "Sigma of Gaussian noise");
+  XLALregINTUserStruct ( noiseSeed,		 0,  UVAR_OPTIONAL, "Seed for Gaussian random noise generator");
 
   XLALregSTRINGUserStruct( outputTiming,         0,  UVAR_DEVELOPER, "Append timing measurements and parameters into this file");
 
@@ -1966,6 +2011,15 @@ checkUserInputConsistency (LALStatus *status, const UserInput_t *uvar)
     ABORT (status, COMPUTEFSTATISTIC_EINPUT, COMPUTEFSTATISTIC_MSGEINPUT);
   }
 
+  if (uvar->randomizeSFTs > 0 && !(LALUserVarWasSet(&uvar->noiseSigma) && LALUserVarWasSet(&uvar->noiseSeed))) {
+    XLALPrintError ("\nERROR: Must use noiseSigma and noiseSeed with randomizeSFTs\n\n");
+    ABORT (status, COMPUTEFSTATISTIC_EINPUT, COMPUTEFSTATISTIC_MSGEINPUT);
+  }
+  if (uvar->randomizeSFTs > 0 && uvar->UseNoiseWeights) {
+    XLALPrintError ("\nERROR: Cannot use UseNoiseWeights with randomizeSFTs\n\n");
+    ABORT (status, COMPUTEFSTATISTIC_EINPUT, COMPUTEFSTATISTIC_MSGEINPUT);
+  }
+
   RETURN (status);
 } /* checkUserInputConsistency() */
 
@@ -2283,3 +2337,52 @@ XLALGetUserCPUTime ( void )
 
 } /* XLALGetUserCPUTime() */
 #endif
+
+/* Fill SFTs with random Gaussian noise */
+void FillSFTsWithNoise(LALStatus *status,
+                       MultiSFTVector *sfts,
+                       RandomParams *randParams,
+                       REAL4Vector **randNumbers,
+                       MultiPSDVector **runningMedian,
+                       INT4 runningMedianWindow)
+{
+  INITSTATUS (status, __func__, rcsid);
+  ATTATCHSTATUSPTR (status);
+
+  const UINT4 numIFOs = sfts->length;
+  const UINT4 numSFTs = sfts->data[0]->length;
+  const UINT4 numBins = sfts->data[0]->data[0].data->length;
+
+  /* allocate vector for random numbers */
+  if (*randNumbers == NULL) {
+    if ((*randNumbers = XLALCreateREAL4Vector(2*numBins)) == NULL) {
+      ABORT(status, COMPUTEFSTATISTIC_EXLAL, COMPUTEFSTATISTIC_MSGEXLAL);
+    }
+  }
+
+  /* loop over IFOs and SFTs */
+  for (UINT4 X = 0; X < numIFOs; ++X) {
+    for (UINT4 alpha = 0; alpha < numSFTs; ++alpha) {
+
+      /* generate random Gaussian numbers */
+      if (XLALNormalDeviates(*randNumbers, randParams) != XLAL_SUCCESS) {
+        ABORT(status, COMPUTEFSTATISTIC_EXLAL, COMPUTEFSTATISTIC_MSGEXLAL);
+      }
+
+      /* set SFT real and imaginary bins to random numbers */
+      for (UINT4 k = 0; k < numBins; ++k) {
+        sfts->data[X]->data[alpha].data->data[k].re = (*randNumbers)->data[k];
+        sfts->data[X]->data[alpha].data->data[k].im = (*randNumbers)->data[k+numBins];
+      }
+
+    }
+  }
+
+  /* re-normalise SFTs */
+  TRY ( LALNormalizeMultiSFTVect (status->statusPtr, runningMedian, sfts, runningMedianWindow ), status );
+  TRY ( LALDestroyMultiPSDVector(status->statusPtr, runningMedian), status );
+
+  DETATCHSTATUSPTR (status);
+  RETURN (status);
+
+}
