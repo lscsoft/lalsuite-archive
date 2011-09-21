@@ -378,10 +378,10 @@ class upper_limit(object):
     Compute the derivative of the search volume at the FAR of the loudest event
     """
     # choose a range of fars at which to evaluate the volume
-    FARh = FAR*1000
-    FARl = FAR*0.0001
-    nbins = 5
-    fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
+    FARh = 2.0*FAR
+    FARl = FAR/4.0
+    nbins = 10
+    fars = numpy.linspace( FARl, FARh, nbins)
     if self.opts.verbose:
       print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f BINNING BY %s"%(FAR,bin_type)
       print >>sys.stdout, "FARs =",fars
