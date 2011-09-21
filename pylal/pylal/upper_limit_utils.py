@@ -357,7 +357,7 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalo
     return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
 
 
-def log_volume_derivative_fit(x, vols, xhat):
+def log_volume_derivative_fit(x, vols, xhat,mkplot=True,tag=""):
     '''
     Relies on scipy spline fits for each mass bin to find the (logarithmic)
     derivitave of the search volume vs x at the given xhat.
@@ -372,6 +372,17 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
     else:
         val = coeffs[0]
+
+    if mkplot:
+        fars = numpy.linspace(min(x),max(x),100)
+        pyplot.plot(x,numpy.log(vols),'rx',label="data")
+        pyplot.plot(fars,coeffs[0]*fars+coeffs[1],label="fit")
+        pyplot.legend(loc="lower right")
+        pyplot.xlabel("FAN (per expt)")
+        pyplot.ylabel("log volume")
+        pyplot.title("lambda = %.2g at fan = %.2f"%(val,xhat))
+        pyplot.savefig(tag+"volume_derivative_fit")
+        pyplot.close()
 
     return val
 
