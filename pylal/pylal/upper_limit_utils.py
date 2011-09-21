@@ -363,10 +363,11 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: cannot fit to log-volume."
         return 0
 
-    fit = interpolate.splrep(x,numpy.log(vols),k=3)
-    val = interpolate.splev(xhat,fit,der=1)
-    if val < 0:
+    coeffs, resids, rank, svs, rcond = numpy.polyfit(x,numpy.log(vols),1,full=True)
+    if coeffs[0] < 0:
         val = 0 #prevents negative derivitives arising from bad fits
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
+    else:
+        val = coeffs[0]
 
     return val
