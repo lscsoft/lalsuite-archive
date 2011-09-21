@@ -349,7 +349,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     if trigPos not in fResp.keys():
       ra            = trig.ra*fRadDeg
       dec           = trig.dec*fRadDeg
-      fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+      fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
       fResp[trigPos] = {}
       for ifo in ifos:
         fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
@@ -594,7 +594,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       if trigPos not in fResp.keys():
         ra            = trig.ra*fRadDeg
         dec           = trig.dec*fRadDeg
-        fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+        fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
         fResp[trigPos] = {}
         for ifo in ifos:
           fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
@@ -852,7 +852,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       if trigPos not in fResp.keys():
         ra            = trig.ra*fRadDeg
         dec           = trig.dec*fRadDeg
-        fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+        fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
         fResp[trigPos] = {}
         for ifo in ifos:
           fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
@@ -1095,7 +1095,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                     if trigPos2 not in fResp.keys():
                       ra            = trig2.ra*fRadDeg
                       dec           = trig2.dec*fRadDeg
-                      fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+                      fPlus,fCross  = get_det_response( ra, dec, trig2.get_end() )
                       fResp[trigPos2] = {}
                       for ifo in ifos:
                         fResp[trigPos2][ifo] = fPlus[ifo]*fPlus[ifo] \
