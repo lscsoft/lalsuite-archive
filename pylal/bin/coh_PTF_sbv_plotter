@@ -270,7 +270,7 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       if trigPos not in aPat.keys():
         ra  = trig.ra*180/pi
         dec = trig.dec*180/pi
-        fPlus,fCross   = get_det_response( ra, dec, segs['on'][-1]-1 )
+        fPlus,fCross   = get_det_response( ra, dec, trig.get_end() )
         aPat[trigPos] = {}
         for ifo in ifos:
           aPat[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
