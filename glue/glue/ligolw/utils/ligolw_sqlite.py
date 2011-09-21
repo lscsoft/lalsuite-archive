@@ -1,4 +1,5 @@
-# Copyright (C) 2006  Kipp Cannon
+#
+# Copyright (C) 2006-2011  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -13,6 +14,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
 
 
 #
@@ -114,7 +116,7 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False):
 		update_ids(connection, verbose)
 
 
-def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False):
+def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose = False):
 	"""
 	Insert the tables from an in-ram XML document into the database at
 	the given connection.
@@ -124,16 +126,17 @@ def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False
 	# the database
 	#
 
-	for tbl in xmldoc.getElementsByTagName(ligolw.Table.tagName):
+	for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):
 		#
 		# instantiate the correct table class
 		#
 
 		name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
-		if name in dbtables.TableByName:
-			dbtab = dbtables.TableByName[name](tbl.attributes, connection = connection)
-		else:
-			dbtab = dbtables.DBTable(tbl.attributes, connection = connection)
+		try:
+			cls = dbtables.TableByName[name]
+		except KeyError:
+			cls = dbtables.DBTable
+		dbtab = cls(tbl.attributes, connection = connection)
 
 		#
 		# copy table element child nodes from source XML tree
