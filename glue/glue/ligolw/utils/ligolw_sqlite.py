@@ -76,12 +76,11 @@ def setup(target, check_same_thread=True):
 #
 
 
-def update_ids(connection, xmldoc=None, verbose = False):
+def update_ids(connection, verbose = False):
 	"""
 	For internal use only.
 	"""
-	if xmldoc: table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
-	else: table_elems = dbtables.get_xml(connection).getElementsByTagName(ligolw.Table.tagName)
+	table_elems = dbtables.get_xml(connection).getElementsByTagName(ligolw.Table.tagName)
 	for i, tbl in enumerate(table_elems):
 		if verbose:
 			print >>sys.stderr, "updating IDs: %d%%\r" % (100.0 * i / len(table_elems)),
@@ -105,16 +104,14 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False):
 	# objects it retains
 	#
 
-	xmldoc = utils.load_url(url, verbose = verbose)
+	utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz")).unlink()
 
 	#
 	# update references to row IDs
 	#
 
 	if not preserve_ids:
-		update_ids(connection, xmldoc, verbose)
-
-	xmldoc.unlink()
+		update_ids(connection, verbose)
 
 
 def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False):
@@ -164,9 +161,9 @@ def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False
 	#
 	# update references to row IDs
 	#
-	connection.commit()
+
 	if not preserve_ids:
-		update_ids(connection, None, verbose)
+		update_ids(connection, verbose)
 
 
 def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
