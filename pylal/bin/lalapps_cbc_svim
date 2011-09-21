@@ -395,9 +395,10 @@ class upper_limit(object):
 
     # compute the volume derivative in each mass bin
     volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
-    for m in self.mass_bins[bin_type].centres()[0]:
+    for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
       vtmp = numpy.array([v[(m,)] for v in vA])
-      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR) /self.livetime[instruments]
+      tag = "%s-%s-BINNED_BY_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))), self.opts.output_name_tag,bin_type.upper(),j,self.start_time,self.end_time-self.start_time)
+      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
       if self.opts.verbose:
         print >> sys.stdout, "mass bin = %f" %(m,)
         print >> sys.stdout, "vols = ", vtmp
