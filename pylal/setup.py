@@ -204,13 +204,21 @@ setup(
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
+        Extension(
+            "pylal.xlal.burstsearch",
+            ["src/xlal/burstsearch.c"],
+            include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+            libraries = lal_pkg_config.libs,
+            library_dirs = lal_pkg_config.libdirs,
+            runtime_library_dirs = lal_pkg_config.libdirs
+        ),
 		Extension(
-			"pylal.xlal.burstsearch",
-			["src/xlal/burstsearch.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lal_pkg_config.libs,
+			"pylal.xlal.constants",
+			["src/xlal/constants.c"],
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = ["lal"],  # this really, truly has no other deps
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
 		)
 	],
 	scripts = [
