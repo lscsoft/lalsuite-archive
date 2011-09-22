@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
@@ -142,18 +142,32 @@ def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # input
-    parser.add_option("--relic-onsource", help="output of pylal_relic "\
-        "containing the onsource loudest coincs")
-    parser.add_option("--relic-offsource", help="output of pylal_relic "\
-        "containing the offsource loudest coincs")
     parser.add_option("--relic-injections", help="output of pylal_relic "\
         "containing the loudest injection coincs")
     parser.add_option("--grblikelihood-onsource",
         help="On-source output pickle from pylal_grblikelihood")
-    parser.add_option("--grblikelihood-offsource",
-        help="Off-source output pickle from pylal_grblikelihood")
     parser.add_option("--grblikelihood-injections",
         help="Injection output pickle from pylal_grblikelihood")
+
+    # binning
+    # This part taken from relic.  It is easier to define binning here rather
+    # than re-run relic every time we want to change the bins!
+    parser.add_option("--m2-min", type="float", help="minimum of the range in "
+        "injected companion mass.  For 051103 companion mass = inclination (deg)"
+        "of total angular momentum, Jtot.")
+    parser.add_option("--m2-max", type="float", help="maximum of the range in "
+        "injected companion mass.  For 051103 companion mass = inclination (deg) "
+        "of total angular momentum, Jtot.")
+    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected companion mass. "
+        "For 051103 companion mass = cos(inclination) of total angular momentum, Jtot.")
+    parser.add_option("--D-min", type="float", help="minimum of the range in "
+        "injected distance")
+    parser.add_option("--D-max", type="float", help="maximum of the range in "
+        "injected distance")
+    parser.add_option("--D-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected distance")
+
 
     # InspiralUtils compatibility
     parser.add_option("--gps-start-time", type="int",
@@ -196,6 +210,12 @@ def parse_args():
 
     options, arguments = parser.parse_args()
 
+    # check that mandatory switches are present
+    for opt in ("relic_injections", "m2_min",\
+			"m2_max", "m2_nbins", "D_min", "D_max", "D_nbins"):
+        if getattr(options, opt) is None:
+            raise ValueError, "--%s is required" % opt.replace("_", "-")
+
     if (options.likelihood_threshold is not None) \
         and (options.likelihood_threshold <= 0):
         raise ValueError, "--likelihood-threshold THRESH must be positive."
@@ -215,8 +235,14 @@ page = InspiralUtils.InspiralPage(opts)
 
 if opts.verbose:
     print "Reading in bin definitions..."
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
+statistic, mc_bins, _, _, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
+	
+# Setup the bins we're actually interested in.  This way, we only have to run relic ONCE!
+m2_bins = rate.LinearBins(numpy.cos(opts.m2_max*numpy.pi/180), 
+		numpy.cos(opts.m2_min*numpy.pi/180), opts.m2_nbins)
+D_bins  = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
+
 if statistic != "effective_snr":
     raise NotImplemented
 
@@ -250,19 +276,30 @@ nd_bins = rate.NDBins((L_bins, m2_bins, D_bins))
 count_by_L_m2_D = numpy.zeros(nd_bins.shape, dtype=float)
 for inj_L_by_m2, m2_D in \
     itertools.izip(inj_log_L_by_trial_m2, m2_D_by_inj):
+
     if len(m2_bins)>1:
-        # use advanced indexing
+		# use advanced indexing and hope that our bins span the full space of
+		# injections...
         m2_ind = m2_bins[m2_D[0]]
     else:
         # hardcode to first bin
         m2_ind = 0
+
     D_ind = D_bins[m2_D[1]]
-    inj_L = inj_L_by_m2[m2_ind]  # use only the L of the m2 of the inj
 
-    # all L values should fall within a bin at this point
-    L_ind = L_bins[inj_L]
+	# only count injections inside our bin. This condition wasn't required in
+	# the original implementation where the bins covered the full space of
+	# injections.  There, we could use logical indexing to identify the bin of
+	# interest.  Here, we have to test each injection in case it lies outside
+	# the bin.  Note that I'm not taking the same care with distances!
+    if m2_bins.lower()[0]<m2_D[0]<=m2_bins.upper()[0]:
 
-    count_by_L_m2_D[L_ind, m2_ind, D_ind] += 1
+        inj_L = inj_L_by_m2[m2_ind]  # use only the L of the m2 of the inj
+
+        # all L values should fall within a bin at this point
+        L_ind = L_bins[inj_L]
+
+        count_by_L_m2_D[L_ind, m2_ind, D_ind] += 1
 
 ##############################################################################
 # Take calibration systematics into account by rescaling D bins

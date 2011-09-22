@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
@@ -26,10 +26,10 @@ for each mean measured mchirp, injected m2, and injected D bin.
 This version modified for the 051103 analysis (but should be back-compatible).
 Changes include:
         * setting companion mass (m2) = cos(Jtot inclination)
-        * support for processing both detection and astrophysical injections
+        * support for processing both training and astrophysical injections
         using seperate cache files
 
-This version should be run on EITHER astrophysical OR detection injections.
+This version should be run on EITHER astrophysical OR training injections.
 Furthermore, it is inadvisable to mix different astrophysical populations
 (i.e., BNS & NSBH) since results for each should be considered seperately.
 """
@@ -287,11 +287,8 @@ def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # cache input
-    parser.add_option("--astro-cache-file", help="LAL-formatted cache file "
-        "containing entries for all XML files of interest for astrophysical "
-        "injections (optional)")
     parser.add_option("--cache-file", help="LAL-formatted cache file "
-        "containing entries for all XML files of interest for detection"
+        "containing entries for all XML files of interest for "
         "injections (required)")
     parser.add_option("--onsource-glob", metavar="GLOB", help="glob the "
         "on-source files with GLOB")
@@ -327,10 +324,10 @@ def parse_args():
 
     # binning
     parser.add_option("--m2-min", type="float", help="minimum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "injected companion mass.  For 051103 companion mass = inclination (deg)"
         "of total angular momentum, Jtot.")
     parser.add_option("--m2-max", type="float", help="maximum of the range in "
-        "injected companion mass.  For 051103 companion mass = cos(inclination) "
+        "injected companion mass.  For 051103 companion mass = inclination (deg) "
         "of total angular momentum, Jtot.")
     parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
         "bins in injected companion mass. "
@@ -397,8 +394,6 @@ coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
 ##############################################################################
 # read in non-injection documents
 cache = lal.Cache.fromfile(open(opts.cache_file), coltype=LIGOTimeGPS)
-if opts.astro_cache_file:
-        astro_cache = lal.Cache.fromfile(open(opts.astro_cache_file), coltype=LIGOTimeGPS)
 
 # XXX: Speed hack; if opts.write_onsource, need all columns to be able to write
 # XXX: For 051103, we want to know compute Jtot, requiring the system orientation
@@ -429,7 +424,8 @@ trial_bins, trial_veto_mask, _ = \
 mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
 
 if opts.write_injections:
-    m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+    m2_bins = rate.LinearBins(numpy.cos(opts.m2_max*numpy.pi/180), 
+			numpy.cos(opts.m2_min*numpy.pi/180), opts.m2_nbins)
     D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 ################################################################################
@@ -472,13 +468,8 @@ if opts.write_offsource or opts.write_injections:
 ################################################################################
 # get loudest injection coincs
 if opts.write_injections:
-    # sieve down to just injection coinc files
-    if opts.astro_cache_file:
-        injection_cache = astro_cache.sieve(description=opts.injection_pattern).sieve(ifos='HL')
-        inj_coinc_cache = astro_cache.sieve(description=opts.inj_coinc_pattern)
-    else:
-        injection_cache = cache.sieve(description=opts.injection_pattern).sieve(ifos='HL')
-        inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
+    injection_cache = cache.sieve(description=opts.injection_pattern).sieve(ifos='HL')
+    inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
 
     # speed hack: only iterate over IFOs of interest for mchirp calculation
     unique_ifostrings = set(c.observatory for c in inj_coinc_cache)
@@ -561,15 +552,6 @@ if opts.write_offsource:
 if opts.write_injections:
     fname = fname_prefix + "_injections" + fname_suffix
     pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
-                 m2_D_by_inj, inj_loudest_by_inj_mc),
-                open(fname, "wb"), -1)
-    sys.stdout.write("Loudest injection coincs written.\n")
-if opts.write_injections:
-    if opts.astro_cache_file:
-        fname = fname_prefix + "_astrophysicalinjections" + fname_suffix
-    else:
-        fname = fname_prefix + "_detectioninjections" + fname_suffix
-    pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
-                 m2_D_by_inj, inj_loudest_by_inj_mc),
-                open(fname, "wb"), -1)
+        m2_D_by_inj, inj_loudest_by_inj_mc),
+        open(fname, "wb"), -1)
     sys.stdout.write("Loudest injection coincs written.\n")

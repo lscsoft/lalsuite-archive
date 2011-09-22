@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2007  Patrick Brady, Nickolas Fotopoulos
 #
@@ -23,7 +23,7 @@ for the CBC external trigger search.
 There is a lot of advanced indexing technique here.  Reference:
 http://scipy.org/Cookbook/Indexing
 
-This version modified to handle astrophysical & detection injections as per 
+This version modified to handle verification & training injections as per 
 the GRB051103 analysis.
 """
 
@@ -360,8 +360,8 @@ def parse_args():
     parser.add_option("--relic-injections", help="output of pylal_relic "
         "containing the loudest injection coincs. These are the standard "
         "'detection' injections.")
-    parser.add_option("--astro-relic-injections", help="output of pylal_relic "
-        "containing the loudest injection coincs for the astrophysical "
+    parser.add_option("--relic-verification-injections", help="output of pylal_relic "
+        "containing the loudest injection coincs for the verification "
         "injections for upper limits.")
 
     # odds and ends
@@ -397,9 +397,12 @@ statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
 statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
     = pickle.load(open(opts.relic_injections))
-if opts.astro_relic_injections:
-    statistic, astro_mc_bins, astro_m2_bins, astro_D_bins, astro_m2_D_by_inj, \
-            astro_inj_loudest_by_inj_mc = pickle.load(open(opts.astro_relic_injections))
+
+if opts.relic_verification_injections:
+    statistic, astro_mc_bins, _, _, astro_m2_D_by_inj, \
+            astro_inj_loudest_by_inj_mc = \
+	    pickle.load(open(opts.relic_verification_injections))
+
 if statistic != "effective_snr":
     raise NotImplemented
 
@@ -407,25 +410,21 @@ if statistic != "effective_snr":
 num_inj = len(inj_loudest_by_inj_mc)
 num_sims_by_m2 = numpy.zeros(len(m2_bins), dtype=int)
 if len(m2_bins)>1:
-    # proceed as normal
+    # Find which bins training injections lie in (untested attempt at
+    #  back-compatibility)
     for m2_D in m2_D_by_inj:
         num_sims_by_m2[m2_bins[m2_D[0]]] += 1
-    m2_bin_by_inj = [m2_bins[m2_D[0]] for m2_D in m2_D_by_inj]
+        m2_bin_by_inj = [m2_bins[m2_D[0]] for m2_D in m2_D_by_inj]
 else:
-    # indexing technique prone to failure if injections lie outside of the
-    # desired bin.  This part just counts the number of injections inside
-    # the SINGLE user-specified bin.
-    for m2_D in m2_D_by_inj:
-        num_sims_by_m2[0] += (m2_bins.lower()[0]<m2_D[0]<=m2_bins.upper()[0])
-    m2_bin_by_inj = [0 for m2_D in m2_D_by_inj]
+    # Count *all* training injections
+    num_sims_by_m2[0] = num_inj
+    m2_bin_by_inj = numpy.zeros(num_inj, dtype=int)
 
 ##############################################################################
 # Initialize background and foreground estimation functions
 # NB: start extrapolating 10% from the end of the tail for robustness.
 num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
 compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 0.3)
-
-
 
 # Example of how to switch to constant extrapolator
 # compute_log_pc0_by_mc = ConstantBackgroundEstimator(\
@@ -445,65 +444,67 @@ compute_log_pch_by_mc_m2 = ConstantForegroundEstimator(\
 
 ################################################################################
 # compute the likelihoods of the loudest on-source coincidences
-if opts.verbose:
-    print "Computing on-source likelihoods..."
-log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
-log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
-
-# NB: Here are examples of how to swap pure effective SNR or log IFAR.
-# Just remember to do it for off-source and injection cases as well.
-
-# log_L_by_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
-# log_L_by_mc_m2 = -log_pc0_by_mc[:, None].repeat(len(m2_bins), axis=1)
-log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
-
-# mark non-candidates
-actual_candidate_mask = onsource_loudest_by_mc > 0
-log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
-
-# for upper limit, get the max L in each m2 bin; only from actual candidates
-log_L_by_m2 = max_L(log_L_by_mc_m2)
-
-# for detection, find the log(sum L) of the loudest candidate; sum over m2
-log_sum_L = apply_along_axis(log_sum, 1, log_L_by_mc_m2).max()
-
-# write the on-source likelihoods to disk
 onsource_outname = __prog__ + "_onsource"
 if opts.user_tag is not None:
-    onsource_outname += "_" + opts.user_tag
+	onsource_outname += "_" + opts.user_tag
 onsource_outname += ".pickle"
-pickle.dump((log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask,
-    log_L_by_m2, log_sum_L), open(onsource_outname, "wb"), -1)
+if not opts.relic_verification_injections:
+	if opts.verbose:
+		print "Computing on-source likelihoods..."
+	log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
+	log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
+
+	# NB: Here are examples of how to swap pure effective SNR or log IFAR.
+	# Just remember to do it for off-source and injection cases as well.
+
+	# log_L_by_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
+	# log_L_by_mc_m2 = -log_pc0_by_mc[:, None].repeat(len(m2_bins), axis=1)
+	log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
+
+	# mark non-candidates
+	actual_candidate_mask = onsource_loudest_by_mc > 0
+	log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
+
+	# for upper limit, get the max L in each m2 bin; only from actual candidates
+	log_L_by_m2 = max_L(log_L_by_mc_m2)
+
+	# for detection, find the log(sum L) of the loudest candidate; sum over m2
+	log_sum_L = apply_along_axis(log_sum, 1, log_L_by_mc_m2).max()
+
+	# write the on-source likelihoods to disk
+	pickle.dump((log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask,
+		log_L_by_m2, log_sum_L), open(onsource_outname, "wb"), -1)
 
 ################################################################################
 # Compute off-source likelihoods
-if opts.verbose:
-    print "Computing off-source likelihoods..."
+if not opts.relic_verification_injections:
+    if opts.verbose:
+        print "Computing off-source likelihoods..."
 
-offsource_pc0_by_trial_mc = amap(\
-    compute_log_pc0_by_mc, offsource_loudest_by_trial_mc)
-offsource_pch_by_trial_mc_m2 = amap(\
-    compute_log_pch_by_mc_m2, offsource_loudest_by_trial_mc)
-offsource_log_L_by_trial_mc_m2 = offsource_pch_by_trial_mc_m2 \
-    - offsource_pc0_by_trial_mc[:, :, None]
+    offsource_pc0_by_trial_mc = amap(\
+        compute_log_pc0_by_mc, offsource_loudest_by_trial_mc)
+    offsource_pch_by_trial_mc_m2 = amap(\
+        compute_log_pch_by_mc_m2, offsource_loudest_by_trial_mc)
+    offsource_log_L_by_trial_mc_m2 = offsource_pch_by_trial_mc_m2 \
+        - offsource_pc0_by_trial_mc[:, :, None]
 
-# mark non-candidates
-offsource_log_L_by_trial_mc_m2[offsource_loudest_by_trial_mc == 0., :] = \
-    GRBL_EMPTY_TRIAL
+    # mark non-candidates
+    offsource_log_L_by_trial_mc_m2[offsource_loudest_by_trial_mc == 0., :] = \
+        GRBL_EMPTY_TRIAL
 
-# for upper limit, get the max L in each m2 bin; only from actual candidates
-offsource_log_L_by_trial_m2 = amap(max_L, offsource_log_L_by_trial_mc_m2)
+	# for upper limit, get the max L in each m2 bin; only from actual candidates
+    offsource_log_L_by_trial_m2 = amap(max_L, offsource_log_L_by_trial_mc_m2)
 
-# for detection, find the log(sum L) of the loudest candidate; sum over m2
-offsource_log_sum_L_by_trial = \
-    apply_along_axis(log_sum, 2, offsource_log_L_by_trial_mc_m2)\
-    .max(axis=1)
+    # for detection, find the log(sum L) of the loudest candidate; sum over m2
+    offsource_log_sum_L_by_trial = \
+        apply_along_axis(log_sum, 2, offsource_log_L_by_trial_mc_m2)\
+        .max(axis=1)
 
-# write the off-source likelihoods to disk
-offsource_outname = onsource_outname.replace("_onsource", "_offsource", 1)
-pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
-    offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial),
-    open(offsource_outname, "wb"), -1)
+	# write the off-source likelihoods to disk
+    offsource_outname = onsource_outname.replace("_onsource", "_offsource", 1)
+    pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
+        offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial),
+	    open(offsource_outname, "wb"), -1)
 
 ################################################################################
 # Compute injection likelihoods
@@ -513,9 +514,9 @@ pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
 if opts.verbose:
     print "Computing injection likelihoods..."
 
-if opts.astro_relic_injections:
-    # process injections identically to off-source trials
-    inj_outname = onsource_outname.replace("_onsource", "_astrophysicalinjections", 1)
+inj_outname = onsource_outname.replace("_onsource", "_injections", 1)
+if opts.relic_verification_injections:
+    # process verification injection trials identically to off-source trials.
 
     inj_log_pc0_by_trial_mc = \
             amap(compute_log_pc0_by_mc, astro_inj_loudest_by_inj_mc)
@@ -529,7 +530,6 @@ if opts.astro_relic_injections:
 
 
 else:
-    inj_outname = onsource_outname.replace("_onsource", "_detectioninjections", 1)
 
     inj_log_pc0_by_trial_mc = \
             amap(compute_log_pc0_by_mc, inj_loudest_by_inj_mc)
@@ -549,8 +549,9 @@ inj_log_sum_L_by_trial = \
     apply_along_axis(log_sum, 2, inj_log_L_by_trial_mc_m2)\
     .max(axis=1)
 
-# write the injection likelihoods to disk
-pickle.dump((inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2,
+# Write the injection likelihoods to disk
+# XXX: Put the m2/D_bins defined by the user in the place of the FAP and efficiency
+#  (which are unused hereafter).
+pickle.dump((m2_bins, D_bins,
              inj_log_L_by_trial_m2, inj_log_sum_L_by_trial),
             open(inj_outname, "wb"), -1)
-
