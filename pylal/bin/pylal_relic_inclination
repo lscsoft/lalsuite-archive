@@ -56,6 +56,7 @@ from pylal import grbsummary
 from pylal import llwapp
 from pylal import rate
 from pylal.date import LIGOTimeGPS
+from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
@@ -64,11 +65,10 @@ def compJinc(m1,m2,f_low,OrbInclination,spin1,spin2):
     Compute inclination of total angular momentum. This comes from
     Andy Lundgren's email to cbc on 30 Nov 2010."
     """
-    mtsun = 4.92549095e-06
     mtot  = m1 + m2
 
     # compute initial orbital angular momentum
-    OrbAngFac = m1 * m2 * ((numpy.pi * mtsun * mtot * f_low)**(-1.0/3.0))
+    OrbAngFac = m1 * m2 * ((LAL_PI * LAL_MTSUN_SI * mtot * f_low)**(-1.0/3.0))
     Lhat      = numpy.array([numpy.sin(OrbInclination), \
                        0.0, \
                        numpy.cos(OrbInclination)])
@@ -424,8 +424,8 @@ trial_bins, trial_veto_mask, _ = \
 mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
 
 if opts.write_injections:
-    m2_bins = rate.LinearBins(numpy.cos(opts.m2_max*numpy.pi/180), 
-			numpy.cos(opts.m2_min*numpy.pi/180), opts.m2_nbins)
+    m2_bins = rate.LinearBins(numpy.cos(opts.m2_max*LAL_PI/180), 
+			numpy.cos(opts.m2_min*LAL_PI/180), opts.m2_nbins)
     D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 ################################################################################
