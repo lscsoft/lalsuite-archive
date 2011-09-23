@@ -106,7 +106,7 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False):
 	# objects it retains
 	#
 
-	utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz")).unlink()
+	utils.load_url(url, verbose = verbose).unlink()
 
 	#
 	# update references to row IDs
@@ -136,30 +136,30 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 			cls = dbtables.TableByName[name]
 		except KeyError:
 			cls = dbtables.DBTable
-		dbtab = cls(tbl.attributes, connection = connection)
+		dbtbl = cls(tbl.attributes, connection = connection)
 
 		#
 		# copy table element child nodes from source XML tree
 		#
 
 		for elem in tbl.childNodes:
-			if elem.tagName == dbtables.table.TableStream.tagName:
-				dbtab._end_of_columns()
-			dbtab.appendChild(type(elem)(elem.attributes))
+			if elem.tagName == ligolw.Stream.tagName:
+				dbtbl._end_of_columns()
+			dbtbl.appendChild(type(elem)(elem.attributes))
 
 		#
 		# copy table rows from source XML tree
 		#
 
 		for row in tbl:
-			dbtab.append(row)
-		dbtab._end_of_rows()
+			dbtbl.append(row)
+		dbtbl._end_of_rows()
 
 		#
 		# unlink to delete cursor objects
 		#
 
-		dbtab.unlink()
+		dbtbl.unlink()
 
 	#
 	# update references to row IDs
