@@ -1668,12 +1668,34 @@ SimInspiralTableFromLIGOLw (
         {
             thisSim->bandpass = i4colData;
         }
-        else if ( tableDir[j].idx == 56 ) {
+        else if ( tableDir[j].idx == 56 ) 
+        {
+          if ( tableDir[j].pos > 0 )
+          {
+            INT8 i8colData;
+            if ( column_type == METAIO_TYPE_INT_8S )
+              i8colData = env->ligo_lw.table.elt[tableDir[j].pos].data.int_8s;
+            else
+            {
+              i8colData = XLALLIGOLwParseIlwdChar(env, tableDir[j].pos, "multi_inspiral", "time_slide_id");
+              if ( i8colData < 0 )
+                return -1;
+            }
+            if ( i8colData >= 0)
+            {
+              thisEvent->time_slide_id = LALCalloc( 1,\
+                                          sizeof(*thisEvent->time_slide_id) );
+              thisEvent->time_slide_id->id = i8colData;
+              thisEvent->time_slide_id->multiInspiralTable = thisEvent;
+            }
+          }
+        }
+/*        {
         	thisSim->qmParameter1 = r4colData;
         }
         else if ( tableDir[j].idx == 57 ) {
         	thisSim->qmParameter2 = r4colData;
-        }
+        } */
         else
         {
             CLOBBER_SIM;
