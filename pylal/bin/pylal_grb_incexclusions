@@ -344,16 +344,16 @@ else:
 	# If exclusion=100%, we want to just say >99% in the paper, so set up
 	# some new variables.  Also, change to percentage.
     paperBNS_Iso_Exclusion = "%d" %(100*BNS_Iso_Exclusion)
-    if BNS_Iso_Exclusion > 99: paperBNS_Iso_Exclusion = ">99"
+    if BNS_Iso_Exclusion > 0.99: paperBNS_Iso_Exclusion = ">99"
 
     paperBNS_FaceOn_Exclusion = "%d" %(100*BNS_FaceOn_Exclusion)
-    if BNS_FaceOn_Exclusion > 99: paperBNS_FaceOn_Exclusion = ">99"
+    if BNS_FaceOn_Exclusion > 0.99: paperBNS_FaceOn_Exclusion = ">99"
 
     paperNSBH_Iso_Exclusion = "%d" %(100*NSBH_Iso_Exclusion)
-    if NSBH_Iso_Exclusion > 99: paperNSBH_Iso_Exclusion = ">99"
+    if NSBH_Iso_Exclusion > 0.99: paperNSBH_Iso_Exclusion = ">99"
 
     paperNSBH_FaceOn_Exclusion = "%d" %(100*NSBH_FaceOn_Exclusion)
-    if NSBH_FaceOn_Exclusion > 99: paperNSBH_FaceOn_Exclusion = ">99"
+    if NSBH_FaceOn_Exclusion > 0.99: paperNSBH_FaceOn_Exclusion = ">99"
     
     # BNS results
     tex_file.write('\\newcommand\\BNSDninety{%.1f}\n' %BNS_Iso_D90)
