@@ -33,6 +33,8 @@ try:
   import glue
 
   from glue import segments
+  from glue import iterutils
+
   from glue.ligolw import ligolw
   from glue.ligolw import lsctables
   from glue.ligolw import table
@@ -44,8 +46,9 @@ try:
   from glue.lal import CacheEntry
   from pylal import llwapp
   from pylal import git_version
+  from pylal import ligolw_tisi
 except:
-  sys.exit("ERROR: Unable to import modules from GLUE.")
+  sys.exit("ERROR: Unable to import modules from GLUE or pylal.")
 
 # TODO: Reimplement this when the cwb_table module is included
 #try:
@@ -73,16 +76,58 @@ __date__ = git_version.date
 # =============================================================================
 #
 
+def uniquify_lag_list(filename, verbose=False):
+  """
+  Take a pre-existing converted XML file and make the time slide table unique.
+  This will be requireed when multiple converted waveburst jobs have been
+  ligolw_add 'ed together, since the time_slide tables should be identical for
+  each converted job. Thanks to Kipp Cannon for the useful code example.
+  """
+
+  xmldoc = utils.load_filename(filename, verbose)
+  
+  coinc_definer_table = lsctables.table.get_table(xmldoc,
+          lsctables.CoincDefTable.tableName)
+
+  index = dict(((row.search, row.search_coinc_type), row) for row in
+          coinc_definer_table)
+
+  idmapping = dict((row.coinc_def_id, index[(row.search, row.search_coinc_type)].coinc_def_id) for row in coinc_definer_table)
+
+  coinc_definer_table[:] = index.values()
+
+  for tbl in xmldoc.getElementsByTagName(ligolw.Table.tagName):
+        tbl.applyKeyMapping(idmapping)
+
+  # find time_slide table
+  time_slide_table = lsctables.table.get_table(xmldoc,
+          lsctables.TimeSlideTable.tableName)
+
+  # construct an old-->new mapping for time_slide_ids for uniquification
+  mapping = ligolw_tisi.time_slides_vacuum(time_slide_table.as_dict(), verbose)
+
+  # delete redundant time slide vectors from time_slide table
+  iterutils.inplace_filter(lambda row: row.time_slide_id not in mapping,
+          time_slide_table)
+
+  # update all other tables to point to the remaining offset vectors
+  for table in xmldoc.getElementsByTagName(lsctables.table.Table.tagName):
+    table.applyKeyMapping(mapping)
+
+  # done
+  utils.write_filename(xmldoc, filename, verbose, gz = (filename or "stdout").endswith(".gz"))
+
+
 def branch_array_to_list(branch, len):
   """
   Turn a ROOT TBranch into a python list
   """
 
-  list = []
-  for i in range(0, len):
-    list.append( branch[i] )
+  #list = []
+  #for i in range(0, len):
+    #list.append( branch[i] )
 
-  return list
+  return list(branch)
 
 def get_ifos_from_index(indx):
   """
@@ -119,14 +164,16 @@ class CWB2Coinc(object):
   Class to convert a set of rootfiles to a ligolw_document.
   """
 
-  def __init__(self, joblist=None, start=None, end=None, #cwbtables=False,
+  def __init__(self, joblist=None, start=None, end=None, instruments=None,
+          #cwbtables=False,
           waveoffset=0, verbose=False):
 	self.job_list = joblist
 	self.start = start
 	self.end = end
 	#self.cwbtable = cwbtables
 	self.verbose = verbose
-
+	if( instruments != None ):
+	  self.instruments = lsctables.ifos_from_instrument_set( instruments.split(",") )
 	self.waveoffset = waveoffset
 
   def create_tables(self, xmldoc, rootfiles):
@@ -135,8 +182,10 @@ class CWB2Coinc(object):
     """
 
     sim_tree = TChain("waveburst")
+    live_tree = TChain("liveTime")
     for rootfile in rootfiles :
 	  sim_tree.Add(rootfile)
+	  live_tree.Add(rootfile)
 
     # Define tables
     sngl_burst_table = lsctables.New(lsctables.SnglBurstTable,
@@ -182,10 +231,48 @@ class CWB2Coinc(object):
     if self.job_list:
       self.do_process_table(xmldoc, sim_tree)
     else :
-      self.do_process_table_from_segment(xmldoc, sim_tree, jobsegment)
+      self.do_process_table_from_segment(xmldoc, live_tree, jobsegment)
   
     process_index = dict((int(row.process_id), row) for row in table.get_table(xmldoc, lsctables.ProcessTable.tableName))
   
+    if self.verbose:
+      print " done."
+
+    if self.verbose:
+      print "Retrieving livetime and time slide information...",
+    #time_slide_index = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)).as_dict()
+
+    # Get the information from the live tree
+    lag_table = {}
+    for entry in range(0, live_tree.GetEntries()):
+      live_tree.GetEntry(entry)
+      try:
+        lag_table[live_tree.run] 
+      except KeyError: 
+        lag_table[live_tree.run] = []
+
+      offset_vector = dict((get_ifos_from_index(instrument_index), offset) for
+              instrument_index, offset in zip(live_tree.ifo, live_tree.lag))
+      # Too many detectors were allocated in the analysis, but not used
+      del offset_vector[None]
+      lag_table[live_tree.run].append(offset_vector)
+
+    time_slide_table = lsctables.New(lsctables.TimeSlideTable,
+	  ["process_id", "time_slide_id", "instrument", "offset"])
+    xmldoc.childNodes[0].appendChild(time_slide_table)
+    time_slide_table.sync_next_id()
+
+    for run, lags in lag_table.iteritems():
+      for lag in lags:
+        tsid = time_slide_table.get_next_id()
+        for inst, offset in lag.iteritems():
+          time_slide = time_slide_table.RowType()
+          time_slide.process_id = process_index[run].process_id
+          time_slide.time_slide_id = tsid
+          time_slide.instrument = inst
+          time_slide.offset = offset
+          time_slide_table.append( time_slide )
+
     if self.verbose:
       print " done."
   
@@ -195,6 +282,8 @@ class CWB2Coinc(object):
     if self.job_list :
       self.do_summary_table_from_joblist(xmldoc, sim_tree)
     elif self.job_list == None and self.start and self.end :
+      if( len( lag_table.keys() ) != 1 ):
+        sys.exit( "Multiple (or no) runs present in ROOT files, but no joblist specified. Either specifiy joblist, or confine ROOT list to be converted to one run.")
       self.do_summary_table_from_segment(xmldoc, jobsegment, sim_tree)
     else :
       self.do_summary_table(xmldoc, sim_tree)
@@ -354,7 +443,7 @@ class CWB2Coinc(object):
     row.set_peak(LIGOTimeGPS(sim_tree.time[0]))
     return row
   
-  def do_process_table_from_segment(self, xmldoc, sim_tree, segment, jobid=-1):
+  def do_process_table_from_segment(self, xmldoc, live_tree, segment, jobid=-1):
     """
     Create the process_table for the cWB job(s) from a job segment.
     """
@@ -370,10 +459,10 @@ class CWB2Coinc(object):
       "username", "unix_procid", "domain"])
       xmldoc.childNodes[0].appendChild(process_table)
   
-    sim_tree.GetEntry(0)
+    live_tree.GetEntry(0)
   
     if(jobid < 0):
-      run = sim_tree.run
+      run = live_tree.run
     else: run = jobid
     seg = segment
   
@@ -381,10 +470,15 @@ class CWB2Coinc(object):
     row.process_id = type(process_table.next_id)(run)
   
     # Imstruments involved in the search
-    ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
-  
+    ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index(
+        branch_array_to_list( live_tree.ifo, 5 ) ) )
+
     if( ifos == None or len(ifos) == 0 ): 
-        sys.exit("Found a job with no IFOs on.")
+        if( self.instruments ):
+            ifos = self.instruments
+        else: # Not enough information to completely fill out the table
+            sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
     row.ifos = ifos
     row.comment = u"waveburst"
     row.program = u"waveburst"
@@ -460,9 +554,13 @@ class CWB2Coinc(object):
   
       # Imstruments involved in the search
       ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
-  
+
       if( ifos == None or len(ifos) == 0 ): 
-          sys.exit("Found a job with no IFOs on.")
+          if( self.instruments ):
+              ifos = self.instruments
+          else: # Not enough information to completely fill out the table
+              sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+  
       row.ifos = ifos
       row.comment = u"waveburst"
       row.program = u"waveburst"
@@ -511,9 +609,16 @@ class CWB2Coinc(object):
     row = search_summary.RowType()
     row.process_id = process_id_type(run)
     row.nevents = sim_tree.GetEntries()
-  
+
+    ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
     # Imstruments involved in the search
-    row.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+    if( ifos == None or len(ifos) == 0 ): 
+        if( self.instruments ):
+            ifos = self.instruments
+        else: # Not enough information to completely fill out the table
+            sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
+    row.ifos = ifos
     row.comment = "waveburst"
   
     # Begin and end time of the segment
@@ -523,6 +628,7 @@ class CWB2Coinc(object):
     # in -- with waveoffset
     row.set_in(seg)
     # out -- without waveoffset
+    waveoffset = LIGOTimeGPS(waveoffset)
     row.set_out(segments.segment(seg[0]+waveoffset, seg[1]-waveoffset))
     search_summary.append(row)
   
@@ -581,7 +687,15 @@ class CWB2Coinc(object):
   
       # Imstruments involved in the search
       sim_tree.GetEntry(0)
-      row.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      # Imstruments involved in the search
+      if( ifos == None or len(ifos) == 0 ): 
+          if( self.instruments ):
+              ifos = self.instruments
+          else: # Not enough information to completely fill out the table
+              sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
+      row.ifos = ifos
       row.comment = "waveburst"
   
       # Begin and end time of the segment
@@ -648,7 +762,15 @@ class CWB2Coinc(object):
       row.nevents = 0
   
       # Imstruments involved in the search
-      row.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
+      # Imstruments involved in the search
+      if( ifos == None or len(ifos) == 0 ): 
+          if( self.instruments ):
+              ifos = self.instruments
+          else: # Not enough information to completely fill out the table
+              sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
+
+      row.ifos = ifos
       row.comment = "waveburst"
   
       # Begin and end time of the segment
