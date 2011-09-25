@@ -46,6 +46,8 @@ typedef struct {
 
 	INT64 gps_start;
 	INT64 gps_stop;
+	
+	INT64 max_gps; /* maximum GPS loaded, used for existing gps checks during dataset loading */
 
 	INT64 *gps;
 

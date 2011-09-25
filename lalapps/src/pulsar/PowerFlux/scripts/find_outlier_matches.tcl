@@ -110,3 +110,6 @@ foreach tag [array names DATA -regexp "_all_"] {
 if { [llength $DET_FOUND] > 0 } {
 	puts [join [lsort -unique $DET_FOUND] "\n"]
 	}
+
+exit 0
+

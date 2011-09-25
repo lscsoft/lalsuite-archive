@@ -21,6 +21,9 @@ extern int nbins, first_bin, side_cut, useful_bins;
 
 extern INT64 spindown_start;
 
+extern double band_axis_norm;
+extern double band_axis[3];
+
 int find_closest(SKY_GRID *sky_grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec)
 {
 SKY_GRID_TYPE ds, ds_min;
@@ -89,7 +92,29 @@ if(!strncasecmp(line, "disk", 4)) {
 	fprintf(stderr, "Compiled disk (%d <- %d) around (%g, %g) with radius %g\n", sm->band_to, sm->band_from, sm->p.disk.ra, sm->p.disk.dec, sm->p.disk.radius);
 	fprintf(LOG, "Compiled disk (%d <- %d) around (%g, %g) with radius %g\n", sm->band_to, sm->band_from, sm->p.disk.ra, sm->p.disk.dec, sm->p.disk.radius);
 
-	// TODO: find closest sky position explicitly
+	} else
+if(!strncasecmp(line, "ecliptic_disk", 4)) {
+	sm->type=SKYMARK_ECLIPTIC_DISK;
+	
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &sm->p.disk.ra);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &sm->p.disk.dec);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &sm->p.disk.radius);
+
+	sm->p.disk.closest_point=find_closest(sky_grid, sm->p.disk.ra, sm->p.disk.dec);
+	if(sm->p.disk.radius<0)sm->p.disk.cos_radius=100;
+		else
+	if(sm->p.disk.radius>M_PI)sm->p.disk.cos_radius=-100.0;
+		else
+		sm->p.disk.cos_radius=cos(sm->p.disk.radius);
+
+	fprintf(stderr, "Compiled ecliptic disk (%d <- %d) around (%g, %g) with radius %g\n", sm->band_to, sm->band_from, sm->p.disk.ra, sm->p.disk.dec, sm->p.disk.radius);
+	fprintf(LOG, "Compiled ecliptic disk (%d <- %d) around (%g, %g) with radius %g\n", sm->band_to, sm->band_from, sm->p.disk.ra, sm->p.disk.dec, sm->p.disk.radius);
+
 	} else
 if(!strncasecmp(line, "band", 4)) {
 	sm->type=SKYMARK_BAND;
@@ -188,6 +213,48 @@ if(!strncasecmp(line, "line_response", 13)) {
 
 	fprintf(stderr, "Compiled points (%d <- %d) swept by lines weight_ratio=%g bin_width=%g\n", sm->band_to, sm->band_from, sm->p.line_response.weight_ratio_level, sm->p.line_response.bin_tolerance);
 	fprintf(LOG, "Compiled points (%d <- %d) swept by lines weight_ratio=%g bin_width=%g\n", sm->band_to, sm->band_from, sm->p.line_response.weight_ratio_level, sm->p.line_response.bin_tolerance);
+	} else
+if(!strncasecmp(line, "auto_band_axis", 14)) {
+	sm->type=SKYMARK_BAND_AXIS;
+	
+	memcpy(sm->p.band_axis.band_axis, band_axis, 3*sizeof(*band_axis));
+	sm->p.band_axis.band_axis_norm=band_axis_norm;
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.S_lower);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.S_upper);
+
+	fprintf(stderr, "Compiled auto_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", sm->band_to, sm->band_from, sm->p.band_axis.band_axis_norm, sm->p.band_axis.band_axis[0], sm->p.band_axis.band_axis[1], sm->p.band_axis.band_axis[2], sm->p.band_axis.S_lower, sm->p.band_axis.S_upper);
+	fprintf(LOG, "Compiled auto_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", sm->band_to, sm->band_from, sm->p.band_axis.band_axis_norm, sm->p.band_axis.band_axis[0], sm->p.band_axis.band_axis[1], sm->p.band_axis.band_axis[2], sm->p.band_axis.S_lower, sm->p.band_axis.S_upper);
+	} else
+if(!strncasecmp(line, "explicit_band_axis", 18)) {
+	sm->type=SKYMARK_BAND_AXIS;
+	
+	memcpy(sm->p.band_axis.band_axis, band_axis, 3*sizeof(*band_axis));
+	sm->p.band_axis.band_axis_norm=band_axis_norm;
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.S_lower);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.S_upper);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.band_axis_norm);
+	
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.band_axis[0]);
+	
+	locate_arg(line, length, 7, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.band_axis[1]);
+	
+	locate_arg(line, length, 8, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sm->p.band_axis.band_axis[2]);
+	
+	fprintf(stderr, "Compiled explicit_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", sm->band_to, sm->band_from, sm->p.band_axis.band_axis_norm, sm->p.band_axis.band_axis[0], sm->p.band_axis.band_axis[1], sm->p.band_axis.band_axis[2], sm->p.band_axis.S_lower, sm->p.band_axis.S_upper);
+	fprintf(LOG, "Compiled explicit_band_axis (%d <- %d) given by norm=%g vector=(%f, %f, %f) within bounds [%g, %g]\n", sm->band_to, sm->band_from, sm->p.band_axis.band_axis_norm, sm->p.band_axis.band_axis[0], sm->p.band_axis.band_axis[1], sm->p.band_axis.band_axis[2], sm->p.band_axis.S_lower, sm->p.band_axis.S_upper);
 	} else
 	{
 	fprintf(stderr, "*** UNKNOWN masking command \"%s\"\n", line);
@@ -291,6 +358,7 @@ int mark_sky_point(SKYMARK *sm, int point, float ra, float dec, float *e, float 
 {
 int skyband=-1;
 float ds;
+double S;
 
 if(args_info.focus_radius_given) {
 	if(args_info.focus_dec_given && 
@@ -311,7 +379,10 @@ if(args_info.only_large_cos_given) {
 */
 
 while(sm->type!=SKYMARK_END) {
-	if((sm->band_from>=0) && skyband!=sm->band_from)continue;
+	if((sm->band_from>=0) && skyband!=sm->band_from) {
+		sm++;
+		continue;
+		}
 
 	switch(sm->type) {
 		case SKYMARK_CLOSEST:
@@ -325,6 +396,15 @@ while(sm->type!=SKYMARK_END) {
 			if((sin(dec)*sin(sm->p.disk.dec)+
 				cos(dec)*cos(sm->p.disk.dec)*
 				cos(ra-sm->p.disk.ra))>sm->p.disk.cos_radius) {
+				skyband=sm->band_to;
+				}
+			break;
+		case SKYMARK_ECLIPTIC_DISK:
+			if(point==sm->p.disk.closest_point) {
+				skyband=sm->band_to;
+				break;
+				}
+			if(ecliptic_distance(ra, dec, sm->p.disk.ra, sm->p.disk.dec)<sm->p.disk.radius) {
 				skyband=sm->band_to;
 				}
 			break;
@@ -351,6 +431,20 @@ while(sm->type!=SKYMARK_END) {
 			break;
 		case SKYMARK_LINE_RESPONSE:
 			if(fast_stationary_effective_weight_ratio(e, spindown1, sm->p.line_response.bin_tolerance)>sm->p.line_response.weight_ratio_level) {
+				skyband=sm->band_to;
+				}
+			break;
+		case SKYMARK_BAND_AXIS:
+			S=spindown1+
+				sm->p.band_axis.band_axis_norm*(args_info.first_bin_arg+0.5*args_info.nbins_arg)*(
+					e[0]*sm->p.band_axis.band_axis[0]+
+					e[1]*sm->p.band_axis.band_axis[1]+
+					e[2]*sm->p.band_axis.band_axis[2]
+					)/1800.0;
+
+			S=fabs(S);
+						
+			if((S>sm->p.band_axis.S_lower) && (S<=sm->p.band_axis.S_upper)) {
 				skyband=sm->band_to;
 				}
 			break;

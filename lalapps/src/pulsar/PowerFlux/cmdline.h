@@ -246,6 +246,9 @@ struct gengetopt_args_info
   double only_large_cos_arg;	/**< @brief restrict computation to points on the sky with cos of angle to band axis larger than a given number.  */
   char * only_large_cos_orig;	/**< @brief restrict computation to points on the sky with cos of angle to band axis larger than a given number original value given at command line.  */
   const char *only_large_cos_help; /**< @brief restrict computation to points on the sky with cos of angle to band axis larger than a given number help description.  */
+  char * focus_type_arg;	/**< @brief focus type (equatorial, ecliptic) (default='equatorial').  */
+  char * focus_type_orig;	/**< @brief focus type (equatorial, ecliptic) original value given at command line.  */
+  const char *focus_type_help; /**< @brief focus type (equatorial, ecliptic) help description.  */
   const char *fake_linear_help; /**< @brief Inject linearly polarized fake signal help description.  */
   const char *fake_circular_help; /**< @brief Inject circularly polarized fake signal help description.  */
   double fake_ref_time_arg;	/**< @brief time of signal start (default='0').  */
@@ -479,6 +482,7 @@ struct gengetopt_args_info
   unsigned int focus_dec_given ;	/**< @brief Whether focus-dec was given.  */
   unsigned int focus_radius_given ;	/**< @brief Whether focus-radius was given.  */
   unsigned int only_large_cos_given ;	/**< @brief Whether only-large-cos was given.  */
+  unsigned int focus_type_given ;	/**< @brief Whether focus-type was given.  */
   unsigned int fake_linear_given ;	/**< @brief Whether fake-linear was given.  */
   unsigned int fake_circular_given ;	/**< @brief Whether fake-circular was given.  */
   unsigned int fake_ref_time_given ;	/**< @brief Whether fake-ref-time was given.  */

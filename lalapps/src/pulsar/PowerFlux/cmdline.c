@@ -101,6 +101,7 @@ const char *gengetopt_args_info_help[] = {
   "      --focus-dec=DOUBLE        focus computation on a circular area with \n                                  center at this DEC",
   "      --focus-radius=DOUBLE     focus computation on a circular area with this \n                                  radius",
   "      --only-large-cos=DOUBLE   restrict computation to points on the sky with \n                                  cos of angle to band axis larger than a given \n                                  number",
+  "      --focus-type=STRING       focus type (equatorial, ecliptic)  \n                                  (default=`equatorial')",
   "\n Group: injection",
   "      --fake-linear             Inject linearly polarized fake signal",
   "      --fake-circular           Inject circularly polarized fake signal",
@@ -277,6 +278,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->focus_dec_given = 0 ;
   args_info->focus_radius_given = 0 ;
   args_info->only_large_cos_given = 0 ;
+  args_info->focus_type_given = 0 ;
   args_info->fake_linear_given = 0 ;
   args_info->fake_circular_given = 0 ;
   args_info->fake_ref_time_given = 0 ;
@@ -463,6 +465,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->focus_dec_orig = NULL;
   args_info->focus_radius_orig = NULL;
   args_info->only_large_cos_orig = NULL;
+  args_info->focus_type_arg = gengetopt_strdup ("equatorial");
+  args_info->focus_type_orig = NULL;
   args_info->fake_ref_time_arg = 0;
   args_info->fake_ref_time_orig = NULL;
   args_info->fake_ra_arg = 0.0;
@@ -644,61 +648,62 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->focus_dec_help = gengetopt_args_info_help[66] ;
   args_info->focus_radius_help = gengetopt_args_info_help[67] ;
   args_info->only_large_cos_help = gengetopt_args_info_help[68] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[70] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[71] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[72] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[73] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[74] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[75] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[76] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[77] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[78] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[79] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[80] ;
-  args_info->fake_dInv_help = gengetopt_args_info_help[81] ;
-  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[82] ;
-  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[83] ;
-  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[84] ;
-  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[85] ;
-  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[86] ;
-  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[87] ;
-  args_info->fake_injection_window_help = gengetopt_args_info_help[88] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[89] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[90] ;
-  args_info->min_candidate_snr_help = gengetopt_args_info_help[91] ;
-  args_info->output_initial_help = gengetopt_args_info_help[92] ;
-  args_info->output_optimized_help = gengetopt_args_info_help[93] ;
-  args_info->output_cache_help = gengetopt_args_info_help[94] ;
-  args_info->extended_test_help = gengetopt_args_info_help[95] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[96] ;
-  args_info->num_threads_help = gengetopt_args_info_help[97] ;
-  args_info->niota_help = gengetopt_args_info_help[98] ;
-  args_info->npsi_help = gengetopt_args_info_help[99] ;
-  args_info->nfshift_help = gengetopt_args_info_help[100] ;
-  args_info->nchunks_help = gengetopt_args_info_help[101] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[102] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[103] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[104] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[105] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[106] ;
-  args_info->summing_step_help = gengetopt_args_info_help[107] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[108] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[109] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[110] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[111] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[112] ;
-  args_info->half_window_help = gengetopt_args_info_help[113] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[114] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[115] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[116] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[117] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[118] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[119] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[120] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[121] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[122] ;
-  args_info->sse_help = gengetopt_args_info_help[123] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[124] ;
+  args_info->focus_type_help = gengetopt_args_info_help[69] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[71] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[72] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[73] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[74] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[75] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[76] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[77] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[78] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[79] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[80] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[81] ;
+  args_info->fake_dInv_help = gengetopt_args_info_help[82] ;
+  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[83] ;
+  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[84] ;
+  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[85] ;
+  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[86] ;
+  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[87] ;
+  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[88] ;
+  args_info->fake_injection_window_help = gengetopt_args_info_help[89] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[90] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[91] ;
+  args_info->min_candidate_snr_help = gengetopt_args_info_help[92] ;
+  args_info->output_initial_help = gengetopt_args_info_help[93] ;
+  args_info->output_optimized_help = gengetopt_args_info_help[94] ;
+  args_info->output_cache_help = gengetopt_args_info_help[95] ;
+  args_info->extended_test_help = gengetopt_args_info_help[96] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[97] ;
+  args_info->num_threads_help = gengetopt_args_info_help[98] ;
+  args_info->niota_help = gengetopt_args_info_help[99] ;
+  args_info->npsi_help = gengetopt_args_info_help[100] ;
+  args_info->nfshift_help = gengetopt_args_info_help[101] ;
+  args_info->nchunks_help = gengetopt_args_info_help[102] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[103] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[104] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[105] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[106] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[107] ;
+  args_info->summing_step_help = gengetopt_args_info_help[108] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[109] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[110] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[111] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[112] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[113] ;
+  args_info->half_window_help = gengetopt_args_info_help[114] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[115] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[116] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[117] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[118] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[119] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[120] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[121] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[122] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[123] ;
+  args_info->sse_help = gengetopt_args_info_help[124] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[125] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -916,6 +921,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->focus_dec_orig));
   free_string_field (&(args_info->focus_radius_orig));
   free_string_field (&(args_info->only_large_cos_orig));
+  free_string_field (&(args_info->focus_type_arg));
+  free_string_field (&(args_info->focus_type_orig));
   free_string_field (&(args_info->fake_ref_time_orig));
   free_string_field (&(args_info->fake_ra_orig));
   free_string_field (&(args_info->fake_dec_orig));
@@ -1145,6 +1152,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "focus-radius", args_info->focus_radius_orig, 0);
   if (args_info->only_large_cos_given)
     write_into_file(outfile, "only-large-cos", args_info->only_large_cos_orig, 0);
+  if (args_info->focus_type_given)
+    write_into_file(outfile, "focus-type", args_info->focus_type_orig, 0);
   if (args_info->fake_linear_given)
     write_into_file(outfile, "fake-linear", 0, 0 );
   if (args_info->fake_circular_given)
@@ -1895,6 +1904,7 @@ cmdline_parser_internal (
         { "focus-dec",	1, NULL, 0 },
         { "focus-radius",	1, NULL, 0 },
         { "only-large-cos",	1, NULL, 0 },
+        { "focus-type",	1, NULL, 0 },
         { "fake-linear",	0, NULL, 0 },
         { "fake-circular",	0, NULL, 0 },
         { "fake-ref-time",	1, NULL, 0 },
@@ -2888,6 +2898,20 @@ cmdline_parser_internal (
                 &(local_args_info.only_large_cos_given), optarg, 0, 0, ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "only-large-cos", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* focus type (equatorial, ecliptic).  */
+          else if (strcmp (long_options[option_index].name, "focus-type") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->focus_type_arg), 
+                 &(args_info->focus_type_orig), &(args_info->focus_type_given),
+                &(local_args_info.focus_type_given), optarg, 0, "equatorial", ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "focus-type", '-',
                 additional_error))
               goto failure;
           

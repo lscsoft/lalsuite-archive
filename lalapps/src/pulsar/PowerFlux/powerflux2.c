@@ -856,6 +856,7 @@ if(args_info.focus_ra_given &&
 	fprintf(LOG, "focus ra    : %f\n", args_info.focus_ra_arg);
 	fprintf(LOG, "focus dec   : %f\n", args_info.focus_dec_arg);
 	fprintf(LOG, "focus radius: %f\n", args_info.focus_radius_arg);
+	fprintf(LOG, "focus type: %s\n", args_info.focus_type_arg);
 	mask_far_points(fine_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
 	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 	}

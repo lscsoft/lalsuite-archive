@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.48-64
+VERSION=1.4.49-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -29,7 +29,7 @@ OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
 OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o  single_bin_loosely_coherent_sum.o matched_loosely_coherent_sum.o
 
-FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
+FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt S_veto_marks*.txt
 
 # 50 hz
 #BAND=90000
@@ -363,8 +363,8 @@ S3.H1.silver: powerflux
 
 WL=-Wl,--rpath -Wl,/home/volodya/LIGO/LAL/support-lib/.libs -Wl,--rpath -Wl,/home/volodya/LIGO/LAL/lib/.libs -Wl,--rpath -Wl,/usr/local/lib -Wl,--rpath -Wl,/usr/local/lib
 
-dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
-	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
+dat2skymap: grid.o rastermagic.o dat2skymap.o png.o util.o jobs.o
+	$(CC) grid.o rastermagic.o dat2skymap.o png.o util.o jobs.o -o dat2skymap -static $(LDFLAGS) -lz -lgsl -lm
 
 python.o: python.c *.h
 	$(CC) -c `python-config --includes` python.c

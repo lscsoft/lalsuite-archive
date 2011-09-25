@@ -35,12 +35,18 @@ float resolution;
 SKY_GRID *grid=NULL;
 RGBPic *pic=NULL;
 float *data=NULL;
+double spindown=0;
+
+double band_axis_norm=1;
 
 /* bunch of variables that we don't need, but rastermagic and grid want */
 FILE *LOG=NULL;
 double band_axis[3]={1.0, 0.0, 0.0};
 char *output_dir="";
 char args_info[1024*65]; /* dummy */
+
+void *stationary_effective_weight_ratio=NULL;
+void *effective_weight_ratio=NULL;
 
 void *do_alloc(long a, long b)
 {
