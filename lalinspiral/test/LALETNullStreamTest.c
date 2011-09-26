@@ -25,7 +25,7 @@
 NRCSID( LALETNULLSTREAMTESTC, "$Id$" );
 
 #define USAGE "Usage: LALETNullStreamTest [--duration REAL8] [--GPSstart INT] [--Nsegs INT] [--o output] \n \
-	 [OPTIONAL] [--Srate REAL8 [DEFAULT:8192]]\n"
+	 [OPTIONAL] [--Srate REAL8 [DEFAULT:4096]]\n"
 
 extern int lalDebugLevel;
 
@@ -45,7 +45,7 @@ CHAR channel_freq[LALNameLength]="NS:INV_SPEC";
 CHAR outfile[FILENAME_MAX];
 REAL8 duration_global=100.0;
 LIGOTimeGPS GPSStart_global; // NB: NO INFRASTRUCTURE FOR NANOSECOND INPUT!
-UINT4 SampleRate_global=8192; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
+UINT4 SampleRate_global=4096; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
 UINT4 Nsegs_global=10; 
 /*******************************************************************************
  *
@@ -114,9 +114,10 @@ int main( int argc, char *argv[] )
      **************************************************************************/ 
     
     fprintf(stdout, "Fetching strain streams for individual detectors\n");
-    
-    const CHAR *ChannelNames[3] = {"E1:STRAIN", "E2:STRAIN", "E3:STRAIN"};
-    const CHAR *CacheFileNames[3] = {"/atlas/user/scr01/tania/data/cache/E1.cache","/atlas/user/scr01/tania/data/cache/E2.cache","/atlas/user/scr01/tania/data/cache/E3.cache"}; 
+   fprintf(stdout, "%e | %d | %d | %e \n", segDur, seglen, nSegs, deltaF); 
+    const CHAR *ChannelNames[3] = {"E1-E1:STRAIN", "E2-E2:STRAIN", "E3-E3:STRAIN"};
+    const CHAR *CacheFileNames[3] = {"/home/tania/cache/E1new.cache","/home/tania/cache/E2new.cache","/home/tania/cache/E3new.cache"}; 
+    //const CHAR *CacheFileNames[3] = {"/home/tania/cache/E1_GWOnlyNewton.cache","/home/tania/cache/E2_GWOnlyNewton.cache","/home/tania/cache/E3_GWOnlyNewton.cache"}; 
     
     REAL8TimeSeries *RawData[3]; // INDIVIDUAL DETECTOR STRAINS
     
@@ -128,13 +129,15 @@ int main( int argc, char *argv[] )
     }    
     
     // RESAMPLE DATA STREAMS - OPTIONAL
-    fprintf(stdout, "Fetching strain streams for individual detectors - Resampling time series to %d Hz \n", SampleRate_global);
+    if (((REAL8)SampleRate_global)!=1.0/(RawData[0]->deltaT)) fprintf(stdout, "Fetching strain streams for individual detectors - Resampling time series to from %d to %d Hz \n", (UINT4)(1.0/(RawData[0]->deltaT)), SampleRate_global);
     for(i=0;i<3;i++){
-			if (SampleRate_global!=8192) {
+			if (((REAL8)SampleRate_global)!=1.0/(RawData[i]->deltaT)) {
 				XLALResampleREAL8TimeSeries(RawData[i],1.0/SampleRate_global);
 			}
+
 		}    
-    
+   
+ 
     fprintf(stdout, "Fetching strain streams for individual detectors - done \n");
     
     /***************************************************************************
@@ -145,7 +148,6 @@ int main( int argc, char *argv[] )
      **************************************************************************/    
     
     fprintf(stdout, "Calculating invPSD for individual detectors \n");
-    
     REAL8FrequencySeries *invPSD_individual[3];
     
     for(i=0; i<3; i++){
@@ -163,7 +165,7 @@ int main( int argc, char *argv[] )
 			// CALCULATE THE INVERSE SPECTRUM
 			invPSD_individual[i] = XLALCreateREAL8FrequencySeries("inverse spectrum",&GPSStart_global,0.0,deltaF,&lalDimensionlessUnit,seglen/2+1); 
 			check = XLALREAL8AverageSpectrumMedian(invPSD_individual[i],RawData[i],(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
-			if (check) {fprintf(stderr,"Failed computing the XLALREAL8AverageSpectrumMedian \n");exit(-1);}
+			if (check) {fprintf(stderr,"Failed computing the XLALREAL8AverageSpectrumMedian with error %d \n", check);exit(-1);}
 			
 			// TRUNCATE INVERSE SPECTRUM
 			check = XLALREAL8SpectrumInvertTruncate(invPSD_individual[i], end_freq, seglen, (seglen-stride)/4, fwdplan, revplan ); 
@@ -180,7 +182,7 @@ int main( int argc, char *argv[] )
     char InvPSDIndividual_name[124];
 		
 		for(i=0;i<3;i++){
-			sprintf(InvPSDIndividual_name,"%s%d%s","invpsd_E",i+1,".dat");
+			sprintf(InvPSDIndividual_name,"%s%d%s%d%s","invpsd_E",i+1,"_",GPSStart_global.gpsSeconds,".dat");
 			invpsd_individual_stream = fopen(InvPSDIndividual_name, "w");
 			fprintf(stdout, "Calculating invPSD for individual detectors - print to %s \n", InvPSDIndividual_name);
 			for(j=0;j<invPSD_individual[i]->data->length;j++) {
@@ -190,7 +192,7 @@ int main( int argc, char *argv[] )
 		
 		fclose(invpsd_individual_stream);
 		
-		
+	//	exit(0);
     
     /***************************************************************************
      *

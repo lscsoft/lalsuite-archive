@@ -47,8 +47,9 @@ REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration )
      *
      **************************************************************************/  
     
-    const CHAR *ChannelNames[3] = {"E1:STRAIN", "E2:STRAIN", "E3:STRAIN"};
-    const CHAR *CacheFileNames[3] = {"/atlas/user/scr01/tania/data/cache/E1.cache","/atlas/user/scr01/tania/data/cache/E2.cache","/atlas/user/scr01/tania/data/cache/E3.cache"};
+    const CHAR *ChannelNames[3] = {"E1-E1:STRAIN", "E2-E2:STRAIN", "E3-E3:STRAIN"};
+    const CHAR *CacheFileNames[3] = {"/home/tania/cache/E1new.cache","/home/tania/cache/E2new.cache","/home/tania/cache/E3new.cache"};
+    //const CHAR *CacheFileNames[3] = {"/home/tania/cache/E1_GWOnlyNewton.cache","/home/tania/cache/E2_GWOnlyNewton.cache","/home/tania/cache/E3_GWOnlyNewton.cache"};
     
     /************************************************************************** 
      *
@@ -79,7 +80,19 @@ REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration )
 					NullStream->data->data[j] += RawData[i]->data->data[j];
 			}
 		}
-    
+   
+   // PRINT NULL STREAM TO FILE (TESTING PURPOSES)
+	FILE *ns_file;
+	char NS_name[124];
+sprintf(NS_name,"%s%d%s","ns_",GPSStart->gpsSeconds,".dat");
+                        ns_file = fopen(NS_name, "w");
+
+for (j=0; j<NullStream->data->length/512; j++) {
+fprintf(ns_file,"%10.10lf %10.10e %10.10e %10.10e %10.10e\n",j*512*NullStream->deltaT,NullStream->data->data[j*512], RawData[0]->data->data[j*512], RawData[1]->data->data[j*512], RawData[2]->data->data[j*512]);
+                        }
+
+fclose(ns_file);
+ 
     /***************************************************************************
      *
      *  CLEANING UP
@@ -189,7 +202,7 @@ REAL8FrequencySeries * ComputeSingleDetectorInvPSDfromNullStream(LIGOTimeGPS *GP
      REAL8TimeSeries * NullStream = LALETNullStream(GPSStart,duration);
      
     // RESAMPLE TIMESERIES - OPTIONAL
-    if (SampleRate!=8192) {
+    if (SampleRate!=((UINT4)(1.0/NullStream->deltaT))) {
 			fprintf(stdout,"... Sample rate %d, resampling...\r",SampleRate);
 			XLALResampleREAL8TimeSeries(NullStream,1.0/SampleRate);
 		}
