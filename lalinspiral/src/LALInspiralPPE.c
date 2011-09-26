@@ -187,7 +187,9 @@ void LALInspiralPPEPhasing(
                 printf("INVALID PN ORDER!");
                 exit(-1);
     }
-    psif_loc += comprefac*params->betaPPE*pow(pimtot*f,params->bPPE);
+    //3/(128 eta) (-0.3) (1 + Mtot/(10 Msun)) (pi Mtot f)^(-5/6 (1 + Mtot/(10 Msun))).
+    // betaPPE should be -0.3, bPPE should be -5./6. in injection
+    psif_loc += (1.0+0.1*params->totalMass)*comprefac*params->betaPPE*pow(pimtot*f,params->bPPE*(1.0+0.1*params->totalMass));
     *psif=psif_loc;    
     return;
 }
