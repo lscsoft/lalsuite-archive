@@ -1853,7 +1853,7 @@ class SimInspiralTable(table.Table):
 		"amp_order": "int_4s",
 		"taper": "lstring",
 		"bandpass": "int_4s",
-		"simulation_id": "ilwd:char"
+		"simulation_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
