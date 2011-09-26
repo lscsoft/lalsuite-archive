@@ -1677,16 +1677,16 @@ SimInspiralTableFromLIGOLw (
               i8colData = env->ligo_lw.table.elt[tableDir[j].pos].data.int_8s;
             else
             {
-              i8colData = XLALLIGOLwParseIlwdChar(env, tableDir[j].pos, "multi_inspiral", "time_slide_id");
+              i8colData = XLALLIGOLwParseIlwdChar(env, tableDir[j].pos, "sim_inspiral", "time_slide_id");
               if ( i8colData < 0 )
                 return -1;
             }
             if ( i8colData >= 0)
             {
-              thisEvent->time_slide_id = LALCalloc( 1,\
-                                          sizeof(*thisEvent->time_slide_id) );
-              thisEvent->time_slide_id->id = i8colData;
-              thisEvent->time_slide_id->multiInspiralTable = thisEvent;
+              thisSim->time_slide_id = LALCalloc( 1,\
+                                          sizeof(*thisSim->time_slide_id) );
+              thisSim->time_slide_id->id = i8colData;
+              thisSim->time_slide_id->SimInspiralTable = thisSim;
             }
           }
         }
