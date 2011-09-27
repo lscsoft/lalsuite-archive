@@ -221,7 +221,7 @@ def get_det_response( ra, dec, trigTime ):
 
   """
     Return detector response for complete set of IFOs for given sky location
-    and time. Assumed inclination = 0, and polarization = 0. 
+    and time. Inclination and polarization are unused so are arbitrarily set to 0 
   """
 
   f_plus  = {}

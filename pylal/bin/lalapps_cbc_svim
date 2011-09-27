@@ -56,10 +56,11 @@ def chirp_mass(m1,m2):
 
 def plot_efficiency(eff,err,dbins,mass_bins,tag):
   for j,ml,mc,mh in zip(range(len(mass_bins.centres()[0])),mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
-    pyplot.errorbar(dbins[:-1], eff[j], yerr=err[j],label="%.1f-%.1f"%(ml,mh))
+    pyplot.errorbar((dbins[:-1]+dbins[1:])/2, eff[j], yerr=err[j],label="%.1f-%.1f"%(ml,mh))
 
   pyplot.legend(loc='upper right')
   pyplot.ylim([0,1])
+  pyplot.xlim([0,max(dbins)])
   pyplot.xlabel("Distance (Mpc)")
   pyplot.ylabel("Efficiency")
   pyplot.savefig(tag +".png")
@@ -248,16 +249,16 @@ class upper_limit(object):
     '''Determine distance bins to use for the calculation.'''
     self.dbins = {}
     for instr in self.instruments:
-      f,m = self.get_injections(instr,FAR=-1)
-      # only need missed distances (no found injections here ;)
-      missed_dist = numpy.array([l.distance for l in m])
-      dmin = numpy.min(missed_dist) #if the code breaks here, just give up
-      dmax = numpy.max(missed_dist)
+      f,m = self.get_injections(instr)
+      found_dist = numpy.array([l.distance for l in f])
+      dmin = numpy.min(found_dist)
+      dmax = numpy.max(found_dist)
       #calibration errors can kick injections outside dmin,dmax
       if self.opts.log_dist_bins:
         self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
       else:
-        self.dbins[instr] = numpy.linspace(0.5*dmin, 1.5*dmax,self.opts.dist_bins)
+        scalefac = max(numpy.exp(self.opts.dist_err*scipy.random.randn(10*self.opts.iterations)))
+        self.dbins[instr] = numpy.linspace(0, scalefac*dmax,self.opts.dist_bins)
 
     return self.dbins
 
@@ -378,10 +379,10 @@ class upper_limit(object):
     Compute the derivative of the search volume at the FAR of the loudest event
     """
     # choose a range of fars at which to evaluate the volume
-    FARh = FAR*1000
-    FARl = FAR*0.0001
-    nbins = 5
-    fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
+    FARh = 2.0*FAR
+    FARl = FAR/4.0
+    nbins = 10
+    fars = numpy.linspace( FARl, FARh, nbins)
     if self.opts.verbose:
       print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f BINNING BY %s"%(FAR,bin_type)
       print >>sys.stdout, "FARs =",fars
@@ -395,9 +396,10 @@ class upper_limit(object):
 
     # compute the volume derivative in each mass bin
     volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
-    for m in self.mass_bins[bin_type].centres()[0]:
+    for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
       vtmp = numpy.array([v[(m,)] for v in vA])
-      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR) /self.livetime[instruments]
+      tag = "%s-%s-BINNED_BY_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))), self.opts.output_name_tag,bin_type.upper(),j,self.start_time,self.end_time-self.start_time)
+      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
       if self.opts.verbose:
         print >> sys.stdout, "mass bin = %f" %(m,)
         print >> sys.stdout, "vols = ", vtmp

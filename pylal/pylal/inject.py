@@ -38,6 +38,7 @@ import math
 from pylal import git_version
 from pylal.xlal.tools import *
 from pylal.xlal.inject import *
+from pylal.xlal.constants import LAL_C_SI
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -78,8 +79,6 @@ def light_travel_time(instrument1, instrument2):
 	XLALLightTravelTime() function, which takes two detector objects as
 	input, and returns the time truncated to integer nanoseconds.
 	"""
-	# c in free space = 299792458 m / s
-	# FIXME: from where can I import that constant?
 	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]].location
-	return math.sqrt((dx * dx).sum()) / 299792458
+	return math.sqrt((dx * dx).sum()) / LAL_C_SI
 

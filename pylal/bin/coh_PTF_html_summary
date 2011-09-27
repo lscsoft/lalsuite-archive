@@ -163,7 +163,7 @@ def write_summary( page, ExtTrigger, ifos ):
 
   return page
 
-def write_antenna( page, ExtTrigger, ifos ):
+def write_antenna( page, ExtTrigger, ifos, grid=False ):
 
   """
     Write antenna factors to merkup.page object page and generate John's
@@ -172,6 +172,8 @@ def write_antenna( page, ExtTrigger, ifos ):
 
   page.h3()
   page.add( 'Antenna factors' )
+  if grid:
+    page.add(' and Sky Grid')
   page.h3.close()
 
   th = []
@@ -199,8 +201,17 @@ def write_antenna( page, ExtTrigger, ifos ):
   plot.a( href=p, title="Detector response and polarization" )
   plot.img( src=p )
   plot.a.close()
-  th2 = ['Diagram']
+  th2 = ['Reponse Diagram']
   td2 = [plot() ]
+  if grid:
+    plot = markup.page()
+    p = "ALL_TIMES/plots_clustered/GRB%s_sky_grid.png"\
+        % ExtTrigger.event_number_grb
+    plot.a(href=p, title="Sky Grid")
+    plot.img(src=p)
+    plot.a.close()
+    th2.append('Sky Grid')
+    td2.append(plot())
 
   page = write_table( page, th, td )
   page = write_table( page, th2, td2 )
@@ -566,6 +577,9 @@ coh_PTF_injfinder will find and record found and missed injections for the given
   parser.add_option( "-O", "--open-box", action="store_true", default=False,
                      dest="open_box", help ="Use to show onsource results" )
 
+  parser.add_option( "-G", "--sky-grid", action="store_true", default=False,\
+                     help="Include sky grid information, default: %default" )
+
   (opts,args) = parser.parse_args()
 
   if not opts.grb_xml:
@@ -586,7 +600,7 @@ coh_PTF_injfinder will find and record found and missed injections for the given
 # =============================================================================
 
 def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
-        tuningInjList=[], open_box=False ):
+        tuningInjList=[], open_box=False, grid=False ):
 
   # get entry information  
   ifos     = [ ifoTag[i*2:(i*2)+2] for i in range(int(len(ifoTag)/2)) ]
@@ -632,7 +646,7 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
   webpage.div( id="div_%s" % i, style="display: none;" )
 
   webpage = write_summary( webpage, grb, ifoTag )
-  webpage = write_antenna( webpage, grb, ifos )
+  webpage = write_antenna( webpage, grb, ifos, grid )
 
   # add links
   grbsumlink = 'http://grblog.org/grblog.php?view=burst&GRB=%s' % GRBnum
@@ -756,17 +770,15 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
 
     webpage.div.close()
 
-#  if tuningInjList:
+  if tuningInjList and grid:
     # add injection recovery plots
-#    secname = 'Injection recovery'
-#    i += 1
-#    webpage.input( id="input_%s" % i, type="button", class_="h2",\
-#                   onclick="toggleVisible('%d');" % i, value=secname )
-#    webpage.div( id="div_%s" % i, style="display: none;" )
-
-#    webpage = write_recovery( webpage, tuningInjList )
-
-#    webpage.div.close()
+    secname = 'Injection recovery'
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%d');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
+    webpage = write_recovery( webpage, detectionInjList )
+    webpage.div.close()
 
   # add loudest off source events
   secname = 'Loudest offsource events'
@@ -838,6 +850,7 @@ if __name__=='__main__':
   inifile    = os.path.abspath( opts.config_file )
   outdir     = os.path.abspath( opts.output_path )
   ifoTag     = opts.ifo_tag
+  grid       = opts.sky_grid
   detInjsList = []
   tunInjsList = []
   if opts.exclusion_injections:
@@ -847,5 +860,5 @@ if __name__=='__main__':
   
   
   main( grbxml, inifile, outdir, ifoTag, detectionInjList=detInjsList,\
-        tuningInjList=tunInjsList, open_box=opts.open_box )
+        tuningInjList=tunInjsList, open_box=opts.open_box, grid=grid )
 

@@ -10,12 +10,12 @@ import os,matplotlib,copy
 matplotlib.use('Agg' )
 import pylab
 from datetime import datetime
-from math import pi,sqrt
+from math import sqrt
 import scipy.stats
 from optparse import OptionParser
 from glue import segments
 from pylal import date
-from pylal.dq import dqSegmentUtils
+from pylal.dq import dqSegmentUtils,dqPlotUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table,lsctables,utils
 from pylal.coh_PTF_pyutils import *
@@ -153,6 +153,8 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   trigFirstSNR  = []
   trigSecondSNR = []
   trigThirdSNR  = []
+  trigLongitude = []
+  trigLatitude  = []
   # initiate injection lists
   injTime       = []
   injSNR        = []
@@ -166,6 +168,8 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   injFirstSNR   = []
   injSecondSNR  = []
   injThirdSNR   = []
+  injLongitude  = []
+  injLatitude   = []
   # initiate amplitude lists for 4 amplitudes
   numAmp  = 4
   amplitudes = xrange(1,numAmp+1)
@@ -204,8 +208,10 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     # calculate fResp for each IFO is we haven't done so already
     trigPos = (trig.ra,trig.dec)
     if trigPos not in aPat.keys():
-      ra  = trig.ra*180/pi
-      dec = trig.dec*180/pi
+      ra  = numpy.degrees(trig.ra)
+      dec = numpy.degrees(trig.dec)
+      trigLongitude.append(ra)
+      trigLatitude.append(dec)
       fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
       aPat[trigPos] = {}
       for ifo in ifos:
@@ -268,8 +274,10 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       # calculate fResp for each IFO is we haven't done so already
       trigPos = (trig.ra,trig.dec)
       if trigPos not in aPat.keys():
-        ra  = trig.ra*180/pi
-        dec = trig.dec*180/pi
+        ra  = numpy.degrees(trig.ra)
+        dec = numpy.degrees(trig.dec)
+        injLongitude.append(ra)
+        injLatitude.append(dec)
         fPlus,fCross   = get_det_response( ra, dec, segs['on'][-1]-1 )
         aPat[trigPos] = {}
         for ifo in ifos:
@@ -320,15 +328,7 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   trigNullstat  = pylab.asarray( trigNullstat )
   trigTraceSNR  = pylab.asarray( trigTraceSNR )
   trigCoincSNR  = pylab.asarray( trigCoincSNR )
-  trigNullSNR = []
-  for coincSNR,SNR in zip(trigCoincSNR,trigSNR):
-    nullSNR = coincSNR**2 - SNR**2
-    if nullSNR < 0:
-      nullSNR = 0
-    else:
-      nullSNR = nullSNR**0.5
-    trigNullSNR.append(nullSNR)
-  trigNullSNR = pylab.asarray( trigNullSNR )
+  trigNullSNR = ( trigCoincSNR**2 - trigSNR**2)**0.5
   for amp in amplitudes:
     trigAmp[amp]   = pylab.asarray( trigAmp[amp] )
   trigRelAmp1    = pylab.sqrt( ( trigAmp[1]**2 + trigAmp[2]**2)/\
@@ -362,16 +362,6 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     injTraceSNR    = pylab.asarray( injTraceSNR )
     injCoincSNR    = pylab.asarray( injCoincSNR )
     injNullSNR   = ( injCoincSNR**2 - injSNR**2)**0.5
-    injNullSNR = []
-    for coincSNR,SNR in zip(injCoincSNR,injSNR):
-      nullSNR = coincSNR**2 - SNR**2
-      if nullSNR < 0:
-        nullSNR = 0
-      else:
-        nullSNR = nullSNR**0.5
-      injNullSNR.append(nullSNR)
-    injNullSNR = pylab.asarray( injNullSNR )
-
     for amp in amplitudes:
       injAmp[amp]  = pylab.asarray( injAmp[amp] )
     injRelAmp1     = pylab.sqrt( ( injAmp[1]**2 + injAmp[2]**2)/\
@@ -884,6 +874,16 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   except OverflowError:
     print >>sys.stderr, 'WARNING: cos(inclination) versus coherent SNR '+\
                         'failed with zeros in a loglog plot'
+
+  # plot sky grid
+  pylab.rcParams.update({"font.size": 12})
+  plot = dqPlotUtils.SkyPositionsPlot("", "", "coh\_PTF %s Sky Grid" % tag)
+  plot.add_content(trigLongitude, trigLatitude, label="_")
+  centre = (trigLongitude[0], trigLatitude[0])
+  range  = [(0.2,0.2), (0.8,0.8)]
+  plot.finalize(projection='ortho', centre=centre, range=range)
+  plot.savefig("%s/%s_sky_grid.png" % (outdir, tag), bbox_inches='tight',\
+               bbox_extra_artists=plot.ax.texts)
  
   # DONE
 if __name__=='__main__':
