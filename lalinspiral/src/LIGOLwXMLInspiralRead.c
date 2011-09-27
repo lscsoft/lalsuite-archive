@@ -1292,7 +1292,9 @@ InspiralTmpltBankFromLIGOLw (
 { \
   thisSim = *simHead; \
   *simHead = (*simHead)->next; \
-  LALFree( thisSim ); \
+	XLALFree( thisSim->time_slide_id ); \
+	XLALFree( thisSim->event_id ); \
+  XLALFree( thisSim ); \
   thisSim = NULL; \
 }
 
@@ -1370,6 +1372,7 @@ SimInspiralTableFromLIGOLw (
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
     {"time_slide_id",       -1, 56},
+    {"simulation_id",       -1, 57},
     {NULL,                   0, 0}
   };
 
@@ -1670,7 +1673,15 @@ SimInspiralTableFromLIGOLw (
         }
         else if ( tableDir[j].idx == 56 ) 
         {
-            thisSim->time_slide_id = XLALLIGOLwParseIlwdChar(env, tableDir[j].pos, "time_slide", "time_slide_id");
+						thisSim->time_slide_id = XLALCalloc(1,sizeof(*thisSim->time_slide_id));
+            thisSim->time_slide_id->id = XLALLIGOLwParseIlwdChar(env, tableDir[j].pos, "time_slide", "time_slide_id");
+            thisSim->time_slide_id->simInspiralTable = thisSim;
+        }
+        else if ( tableDir[j].idx == 57 ) 
+        {
+						thisSim->event_id = XLALCalloc(1,sizeof(*thisSim->event_id));
+            thisSim->event_id->id = XLALLIGOLwParseIlwdChar(env, tableDir[j].pos, "sim_inspiral", "simulation_id");
+            thisSim->event_id->simInspiralTable = thisSim;
         }
         else
         {

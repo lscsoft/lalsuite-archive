@@ -558,6 +558,7 @@ tagSimInspiralTable
   INT4           amp_order;
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];
   INT4           bandpass;
+  EventIDColumn  *time_slide_id;
 }
 SimInspiralTable;
 

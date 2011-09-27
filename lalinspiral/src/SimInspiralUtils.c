@@ -786,9 +786,16 @@ XLALFreeSimInspiral (
     /* free any associated event_id's */
     eventId = (*eventHead)->event_id;
     (*eventHead)->event_id = (*eventHead)->event_id->next;
-    LALFree( eventId );
+    XLALFree( eventId );
   }
-  LALFree( *eventHead );
+  while ( (*eventHead)->time_slide_id )
+  {
+    /* free any associated event_id's */
+    eventId = (*eventHead)->time_slide_id;
+    (*eventHead)->time_slide_id = (*eventHead)->time_slide_id->next;
+    XLALFree( eventId );
+  }
+  XLALFree( *eventHead );
 
   return (0);
 }

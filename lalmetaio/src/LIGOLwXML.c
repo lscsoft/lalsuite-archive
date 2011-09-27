@@ -846,7 +846,8 @@ LALWriteLIGOLwXMLTable (
 	      tablePtr.simInspiralTable->amp_order,
 	      tablePtr.simInspiralTable->taper,
 	      tablePtr.simInspiralTable->bandpass,
-              xml->rowCount
+              tablePtr.simInspiralTable->time_slide_id->id,
+              tablePtr.simInspiralTable->event_id->id
               );
         tablePtr.simInspiralTable = tablePtr.simInspiralTable->next;
         ++(xml->rowCount);
