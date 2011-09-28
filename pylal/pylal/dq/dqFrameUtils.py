@@ -243,11 +243,15 @@ def get_cache(start, end, ifo, ftype, framecache=False, server=None):
   # try querying the ligo_data_find server
   if not server:
     server = _find_datafind_server()
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
 
   cert, key = _get_grid_proxy()
 
   # if we have a credential then use it when setting up the connection
-  if cert and key:
+  if cert and key and port!=80:
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
   else:
     h = httplib.HTTPConnection(server)
@@ -401,7 +405,12 @@ def find_types(ifo=[], ftype=[], search='standard'):
   # set up server connection
   server    = _find_datafind_server()
   cert, key = _get_grid_proxy()
-  if cert and key:
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
+
+  if cert and key and port!=80:
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
   else:
     h = httplib.HTTPConnection(server)
@@ -1121,10 +1130,14 @@ def query_datafind_server(url, server=None):
   # try querying the ligo_data_find server
   if not server:
     server = _find_datafind_server()
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
 
   cert, key = _get_grid_proxy()
   # if we have a credential then use it when setting up the connection
-  if cert and key:
+  if cert and key and port!=80:
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
   else:
     h = httplib.HTTPConnection(server)
