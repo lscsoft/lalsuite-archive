@@ -324,9 +324,9 @@ def parse_command_line():
      help="plot of injected vs recovered mchirp" )
 
   parser.add_option("","--plot-mtotal",action="store_true",default=False,\
-      help="plot the chirp mass accuracy" )
+      help="plot the total mass accuracy" )
   parser.add_option("","--hist-mtotal",action="store_true",default=False,\
-      help="histogram of the chirp mass accuracy" )
+      help="histogram of the total mass accuracy" )
   parser.add_option("","--mtotal-snr",action="store_true",default=False,\
       help="plot of total mass accuracy vs snr" )
   parser.add_option("","--mtotal-mtotal",action="store_true",default=False,\
