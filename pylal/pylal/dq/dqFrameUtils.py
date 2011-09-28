@@ -1188,11 +1188,11 @@ def _verify_response(HTTPresponse):
 def _find_datafind_server():
 
   """
-    Find the LSC datafind server from the LSC_DATAFIND_SERVER environment
+    Find the LSC datafind server from the LIGO_DATAFIND_SERVER environment
     variable and raise exception if not found
   """
 
-  var = 'LSC_DATAFIND_SERVER'
+  var = 'LIGO_DATAFIND_SERVER'
   try:
     server = os.environ[var]
   except KeyError:
