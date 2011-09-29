@@ -102,7 +102,7 @@ def update_ids(connection, xmldoc, verbose = False):
 	dbtables.idmap_reset(connection)
 
 
-def insert_from_url(connection, url, preserve_ids = False, verbose = False):
+def insert_from_url(connection, url, preserve_ids = False, verbose = False, contenthandler = None):
 	"""
 	Parse and insert the LIGO Light Weight document at the URL into the
 	database the at the given connection.
@@ -120,7 +120,7 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False):
 	# objects it retains
 	#
 
-	utils.load_url(url, verbose = verbose).unlink()
+	utils.load_url(url, verbose = verbose, contenthandler = contenthandler).unlink()
 
 	#
 	# update references to row IDs
