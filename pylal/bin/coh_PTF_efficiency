@@ -1380,6 +1380,25 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                    "loudest background" )
     ax.set_xlabel( "Distance (Mpc)" )
     fig.savefig( '%s/BestNR_max_efficiency.png' % ( outdir ) )
+    # Print 50% sensitive distance to file
+    for ii,dist, eff in zip(range(len(distPlotVals)),distPlotVals,\
+                        (finjsNoMC/totalinjsNoMC)):
+      if eff < 0.5:
+        if ii == 0:
+          print >> sys.stderr, "Efficiency below 50% in first bin!"
+          sens_dist = 0
+          break
+        dist_low = distPlotVals[ii-1]
+        eff_low = (finjsNoMC/totalinjsNoMC)[ii-1]
+        delta_dist = dist - dist_low
+        delta_eff = eff_low - eff
+        gradient = delta_eff/delta_dist
+        const =  eff + gradient * dist
+        sens_dist = (const - 0.5)/gradient
+        break
+      if ii == len(distPlotVals) - 1:
+        print "Efficiency does not drop below 50%!"
+        sens_dist = -1
 
     fig = pylab.figure()
     ax = fig.gca()
@@ -1469,6 +1488,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     file = open( "%s/exclusion_distance.txt" % outdir, "w" )
     print >>file, excl_dist
+    file.close()
+
+    file = open( "%s/sensitive_distance.txt" % outdir, "w" )
+    print >>file, sens_dist
     file.close()
 
     ax.plot([excl_dist],[0.9],'gx')
