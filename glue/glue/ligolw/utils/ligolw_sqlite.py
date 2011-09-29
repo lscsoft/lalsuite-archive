@@ -95,7 +95,6 @@ def update_ids(connection, xmldoc, verbose = False):
 		if verbose:
 			print >>sys.stderr, "updating IDs: %d%%\r" % (100.0 * i / len(table_elems)),
 		tbl.applyKeyMapping()
-		tbl.unlink()
 	if verbose:
 		print >>sys.stderr, "updating IDs: 100%"
 
@@ -121,14 +120,20 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False):
 	# objects it retains
 	#
 
-	utils.load_url(url, xmldoc = xmldoc, verbose = verbose).unlink()
+	utils.load_url(url, verbose = verbose).unlink()
 
 	#
 	# update references to row IDs
 	#
 
 	if not preserve_ids:
-		update_ids(connection, xmldoc, verbose)
+		update_ids(connection, xmldoc, verbose = verbose)
+
+	#
+	# unlink the document to delete database cursor objects it retains
+	#
+
+	xmldoc.unlink()
 
 
 def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose = False):
@@ -189,7 +194,13 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	#
 
 	if not preserve_ids:
-		update_ids(connection, xmldoc, verbose)
+		update_ids(connection, xmldoc, verbose = verbose)
+
+	#
+	# unlink the document to delete database cursor objects it retains
+	#
+
+	xmldoc.unlink()
 
 
 def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
