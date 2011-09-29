@@ -1524,18 +1524,24 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedMchirp, gMissedEffdist, c="k", marker='x',\
+    if gMissedMchirp:
+      ax.scatter( gMissedMchirp, gMissedEffdist, c="k", marker='x',\
                 edgecolors='k' )
-    ax.scatter( gMissed2Mchirp, gMissed2Effdist, c="r", marker='x',\
+    if gMissed2Mchirp:
+      ax.scatter( gMissed2Mchirp, gMissed2Effdist, c="r", marker='x',\
                 edgecolors='r' )
-    ax.scatter( gFoundMchirp, gFoundEffDist, c="b", marker='x', edgecolors='g' )
+    if gFoundMchirp:
+      ax.scatter( gFoundMchirp, gFoundEffDist, c="b", marker='x',\
+                edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARMchirp, gIFAREffDist, c=gIFARStat,\
-                    norm=pylab.Normalize(0,1,clip=False), marker='o',\
-                    edgecolors='none' )
+    if gIFARMchirp:
+      p = ax.scatter( gIFARMchirp, gIFAREffDist, c=gIFARStat,\
+                      norm=pylab.Normalize(0,1,clip=False), marker='o',\
+                      edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel( "FAP" )
+    if gIFARMchirp:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel( "FAP" )
     ax.set_xlabel( "Mchirp" )
     ax.set_ylabel( "Inverse sum of effective distances" )
     ax.set_title( "Injections found louder than loudest background event" )
@@ -1544,17 +1550,23 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedTime, gMissedEffdist, c="k", marker='x', edgecolors='k' )
-    ax.scatter( gMissed2Time, gMissed2Effdist, c="r", marker='x',\
+    if gMissedTime:
+      ax.scatter( gMissedTime, gMissedEffdist, c="k", marker='x',\
+                edgecolors='k' )
+    if gMissed2Time:
+      ax.scatter( gMissed2Time, gMissed2Effdist, c="r", marker='x',\
                 edgecolors='r' )
-    ax.scatter( gFoundTime, gFoundEffDist, c="b", marker='x', edgecolors='g' )
+    if gFoundTime:
+      ax.scatter( gFoundTime, gFoundEffDist, c="b", marker='x', edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARTime, gIFAREffDist, c=gIFARStat,\
+    if gIFARTime:
+      p = ax.scatter( gIFARTime, gIFAREffDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False), marker='o',\
                     edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel( "FAP" )
+    if gIFARTime:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel( "FAP" )
     ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Inverse sum of effective distances" )
     ax.set_title( "Injections found louder than loudest background event" )
@@ -1568,19 +1580,24 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     for site in sites:
       fig = pylab.figure()
       ax = fig.gca()
-      ax.scatter( gMissedMchirp, gMissedEffDist[site],\
+      if gMissedMchirp:
+        ax.scatter( gMissedMchirp, gMissedEffDist[site],\
                   c="k", marker='x', edgecolors='k' )
-      ax.scatter( gMissed2Mchirp, gMissed2EffSitedist[site],\
+      if gMissed2Mchirp:
+        ax.scatter( gMissed2Mchirp, gMissed2EffSitedist[site],\
                   c="r", marker='x', edgecolors='r' )
-      ax.scatter( gFoundMchirp, gFoundEffSiteDist[site],\
+      if gFoundMchirp:
+        ax.scatter( gFoundMchirp, gFoundEffSiteDist[site],\
                   c="b", marker='x', edgecolors='g' )
       ax.grid()
-      p = ax.scatter( gIFARMchirp, gIFAREffSiteDist[site],\
+      if gIFARMchirp:
+        p = ax.scatter( gIFARMchirp, gIFAREffSiteDist[site],\
                       c=gIFARStat, norm=pylab.Normalize(0,1,clip=False),\
                       marker='o', edgecolors='none' )
       ax.semilogy()
-      cb = ax.figure.colorbar( p )
-      cb.ax.set_ylabel( "FAP" )
+      if gIFARMchirp:
+        cb = ax.figure.colorbar( p )
+        cb.ax.set_ylabel( "FAP" )
       ax.set_xlabel( "Mchirp" )
       ax.set_ylabel( "%s effective distance" % sitename[site] )
       ax.set_title( "Injections found louder than loudest background event" )
@@ -1590,19 +1607,24 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
       fig = pylab.figure()
       ax  = fig.gca()
-      ax.scatter( gMissedTime, gMissedEffDist[site],\
+      if gMissedTime:
+        ax.scatter( gMissedTime, gMissedEffDist[site],\
                   c="k", marker='x', edgecolors='k' )
-      ax.scatter( gMissed2Time, gMissed2EffSitedist[site],\
+      if gMissed2Time:
+        ax.scatter( gMissed2Time, gMissed2EffSitedist[site],\
                   c="r", marker='x', edgecolors='r' )
-      ax.scatter( gFoundTime, gFoundEffSiteDist[site],\
+      if gFoundTime:
+        ax.scatter( gFoundTime, gFoundEffSiteDist[site],\
                   c="b", marker='x', edgecolors='g' )
       ax.grid()
-      p = ax.scatter( gIFARTime ,gIFAREffSiteDist[site],\
+      if gIFARTime:
+        p = ax.scatter( gIFARTime ,gIFAREffSiteDist[site],\
                       c=gIFARStat, norm=pylab.Normalize(0,1,clip=False),\
                       marker='o', edgecolors='none' )
       ax.semilogy()
-      cb = ax.figure.colorbar( p )
-      cb.ax.set_ylabel( "FAP" )
+      if gIFARTime:
+        cb = ax.figure.colorbar( p )
+        cb.ax.set_ylabel( "FAP" )
       ax.set_xlabel( "Time since %d" % grbTime )
       ax.set_ylabel( "%s effective distance" % sitename[site] )
       ax.set_title( "Injections found louder than loudest background event" )
@@ -1613,16 +1635,22 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedMchirp, gMissedDist,c="k", marker='x', edgecolors='k' )
-    ax.scatter( gMissed2Mchirp, gMissed2Dist,c="r", marker='x', edgecolors='r' )
-    ax.scatter( gFoundMchirp, gFoundDist, c="b", marker='x', edgecolors='g' )
+    if gMissedMchirp:
+      ax.scatter( gMissedMchirp, gMissedDist,c="k", marker='x', edgecolors='k' )
+    if gMissed2Mchirp:
+      ax.scatter( gMissed2Mchirp, gMissed2Dist,c="r", marker='x',\
+                  edgecolors='r' )
+    if gFoundMchirp:
+      ax.scatter( gFoundMchirp, gFoundDist, c="b", marker='x', edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARMchirp, gIFARDist, c=gIFARStat,\
+    if gIFARMchirp:
+      p = ax.scatter( gIFARMchirp, gIFARDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False),\
                     marker='o', edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel( "FAP" )
+    if gIFARMchirp:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel( "FAP" )
     ax.set_xlabel( "Mchirp" )
     ax.set_ylabel( "Distance (Mpc)" )
     ax.set_title( "Injections found louder than loudest background event" )
@@ -1631,16 +1659,22 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedTime, gMissedDist, c="k", marker='x', edgecolors='k' )
-    ax.scatter( gMissed2Time, gMissed2Dist, c="r", marker='x', edgecolors='r' )
-    ax.scatter( gFoundTime, gFoundDist, c="b", marker='x', edgecolors='g' )
+    if gMissedTime:
+      ax.scatter( gMissedTime, gMissedDist, c="k", marker='x', edgecolors='k' )
+    if gMissed2Time:
+      ax.scatter( gMissed2Time, gMissed2Dist, c="r", marker='x',\
+                  edgecolors='r' )
+    if gFoundTime:
+      ax.scatter( gFoundTime, gFoundDist, c="b", marker='x', edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARTime, gIFARDist, c=gIFARStat,\
+    if gIFARTime:
+      p = ax.scatter( gIFARTime, gIFARDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False),\
                     marker='o', edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel("FAP" )
+    if gIFARTime:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel("FAP" )
     ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Distance (Mpc)" )
     ax.set_title( "Injections found louder than loudest background event" )
@@ -1651,8 +1685,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     # plot sky recovery
     fig = pylab.figure()
     ax = fig.gca()
-    ax.plot( gFoundTime, gFoundSkyAngle, 'b.' )
-    ax.plot( gIFARTime, gIFARSkyAngle, 'b.' )
+    if gFoundTime:
+      ax.plot( gFoundTime, gFoundSkyAngle, 'b.' )
+#    if gIFARTime:
+#      ax.plot( gIFARTime, gIFARSkyAngle, 'b.' )
     ax.grid()
     ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Rec. sky error (radians)" )
@@ -1661,8 +1697,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.plot( gFoundMchirp, gFoundSkyAngle, 'b.' )
-    ax.plot( gIFARMchirp, gIFARSkyAngle, 'b.' )
+    if gFoundMchirp:
+      ax.plot( gFoundMchirp, gFoundSkyAngle, 'b.' )
+#    if gIFARMchirp:
+#      ax.plot( gIFARMchirp, gIFARSkyAngle, 'b.' )
     ax.grid()
     ax.set_xlabel( "Mchirp" )
     ax.set_ylabel( "Rec. sky error (radians)" )
@@ -1670,8 +1708,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     fig = pylab.figure()
     ax = fig.gca()
-    ax.plot( gFoundDist, gFoundSkyAngle, 'b.' )
-    ax.plot( gIFARDist, gIFARSkyAngle, 'b.' )
+    if gFoundDist:
+      ax.plot( gFoundDist, gFoundSkyAngle, 'b.' )
+#    if gIFARDist:
+#      ax.plot( gIFARDist, gIFARSkyAngle, 'b.' )
     ax.grid()
     ax.set_xlabel( "Distance (Mpc)" )
     ax.set_ylabel( "Rec. sky error (radians)" )
