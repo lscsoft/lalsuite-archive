@@ -1162,10 +1162,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     grbTime = segs['on'][1] - 1
 
-    start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
-                     min(gMissed2Time)])) 
-    end   = int(max([max(gMissedTime),max(gFoundTime),max(gIFARTime),\
-                     max(gMissed2Time)])+1)
+    start = int(min([minimum(gMissedTime),minimum(gFoundTime),\
+                     minimum(gIFARTime),minimum(gMissed2Time)])) 
+    end   = int(max([maximum(gMissedTime),maximum(gFoundTime),\
+                     maximum(gIFARTime), maximum(gMissed2Time)])+1)
 
     duration = end-start
     start = start - duration*0.05 - grbTime
