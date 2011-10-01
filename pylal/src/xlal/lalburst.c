@@ -26,19 +26,26 @@
  */
 
 
-#include <Python.h>
 #include <math.h>
 
 
+#include <Python.h>
+#include <numpy/arrayobject.h>
+
+
+#include <lal/Date.h>
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALDatatypes.h>
+#include <lal/Sequence.h>
 #include <lal/TFTransform.h>
-#include <lal/Date.h>
+#include <lal/Window.h>
 
 
 #include <misc.h>
+#include <datatypes/real8fftplan.h>
 #include <datatypes/real8timeseries.h>
+#include <datatypes/real8window.h>
 #include <datatypes/simburst.h>
 
 
@@ -143,6 +150,36 @@ static PyObject *pylal_XLALEPGetTimingParameters(PyObject *self, PyObject *args)
 
 
 /*
+ * pylal_XLALREAL8WindowTwoPointSpectralCorrelation()
+ */
+
+
+static PyObject *pylal_XLALREAL8WindowTwoPointSpectralCorrelation(PyObject *self, PyObject *args)
+{
+	pylal_REAL8Window *window;
+	pylal_REAL8FFTPlan *plan;
+	REAL8Sequence *sequence;
+	PyObject *result;
+
+	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8Window_Type, &window, &pylal_REAL8FFTPlan_Type, &plan))
+		return NULL;
+
+	sequence = XLALREAL8WindowTwoPointSpectralCorrelation(window->window, plan->plan);
+	if(!sequence) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	{
+	npy_intp dims[] = {sequence->length};
+	result = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, sequence->data);
+	}
+
+	return result;
+}
+
+
+/*
  * ============================================================================
  *
  *                            Module Registration
@@ -156,6 +193,7 @@ static struct PyMethodDef methods[] = {
 	{"XLALMeasureHrss", pylal_XLALMeasureHrss, METH_VARARGS, "Measure h_{rss}"},
 	{"XLALMeasureEoverRsquared", pylal_XLALMeasureEoverRsquared, METH_VARARGS, "Measure E_{GW}/r^{2}"},
 	{"XLALEPGetTimingParameters", pylal_XLALEPGetTimingParameters, METH_VARARGS, NULL},
+	{"XLALREAL8WindowTwoPointSpectralCorrelation", pylal_XLALREAL8WindowTwoPointSpectralCorrelation, METH_VARARGS, NULL},
 	{NULL,}
 };
 
@@ -164,6 +202,10 @@ void initlalburst(void)
 {
 	Py_InitModule3(MODULE_NAME, methods, "Wrapper for LALBurst package.");
 
+	import_array()
+
+	pylal_real8fftplan_import();
 	pylal_real8timeseries_import();
+	pylal_real8window_import();
 	pylal_simburst_import();
 }
