@@ -27,8 +27,16 @@
 
 
 #include <Python.h>
+#include <math.h>
+
+
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
+#include <lal/LALDatatypes.h>
+#include <lal/TFTransform.h>
+#include <lal/Date.h>
+
+
 #include <misc.h>
 #include <datatypes/real8timeseries.h>
 #include <datatypes/simburst.h>
@@ -110,6 +118,30 @@ static PyObject *pylal_XLALMeasureEoverRsquared(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *pylal_XLALEPGetTimingParameters(PyObject *self, PyObject *args)
+{
+	int window_length;
+	int max_tile_length;
+	double fractional_tile_stride;
+	int psd_length;
+	int psd_shift;
+	int window_shift;
+	int window_pad;
+	int tiling_length;
+
+	psd_length = -1;
+	if(!PyArg_ParseTuple(args, "iid|i", &window_length, &max_tile_length, &fractional_tile_stride, &psd_length))
+		return NULL;
+
+	if(XLALEPGetTimingParameters(window_length, max_tile_length, fractional_tile_stride, psd_length < 0 ? NULL : &psd_length, psd_length < 0 ? NULL : &psd_shift, &window_shift, &window_pad, &tiling_length) < 0) {
+	}
+
+	if(psd_length < 0)
+		return Py_BuildValue("{s:i,s:i,s:i}", "window_shift", window_shift, "window_pad", window_pad, "tiling_length", tiling_length);
+	return Py_BuildValue("{s:i,s:is:i,s:i,s:i}", "psd_length", psd_length, "psd_shift", psd_shift, "window_shift", window_shift, "window_pad", window_pad, "tiling_length", tiling_length);
+}
+
+
 /*
  * ============================================================================
  *
@@ -123,6 +155,7 @@ static struct PyMethodDef methods[] = {
 	{"XLALGenerateSimBurst", pylal_XLALGenerateSimBurst, METH_VARARGS, "Compute the h+ and hx time series for a row in a LIGO Light Weight XML sim_burst table."},
 	{"XLALMeasureHrss", pylal_XLALMeasureHrss, METH_VARARGS, "Measure h_{rss}"},
 	{"XLALMeasureEoverRsquared", pylal_XLALMeasureEoverRsquared, METH_VARARGS, "Measure E_{GW}/r^{2}"},
+	{"XLALEPGetTimingParameters", pylal_XLALEPGetTimingParameters, METH_VARARGS, NULL},
 	{NULL,}
 };
 
