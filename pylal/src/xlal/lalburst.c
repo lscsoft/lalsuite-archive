@@ -218,6 +218,37 @@ static PyObject *pylal_XLALExcessPowerFilterInnerProduct(PyObject *self, PyObjec
 
 
 /*
+ * pylal_XLALCreateExcessPowerFilter()
+ */
+
+
+static PyObject *pylal_XLALCreateExcessPowerFilter(PyObject *self, PyObject *args)
+{
+	double flow;
+	double width;
+	pylal_REAL8FrequencySeries *psd = NULL;
+	PyArrayObject *correlation;
+	COMPLEX16FrequencySeries *filter;
+
+	if(!PyArg_ParseTuple(args, "ddO!O!", &flow, &width, &pylal_REAL8FrequencySeries_Type, &psd, &PyArray_Type, &correlation))
+		return NULL;
+	correlation = PyArray_GETCONTIGUOUS(correlation);
+	if(!correlation)
+		return NULL;
+
+	filter = XLALCreateExcessPowerFilter(flow, width, psd->series, PyArray_DATA(correlation));
+	if(!filter) {
+		Py_DECREF(correlation);
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	Py_DECREF(correlation);
+	return pylal_COMPLEX16FrequencySeries_new(filter, NULL);
+}
+
+
+/*
  * ============================================================================
  *
  *                            Module Registration
@@ -233,6 +264,7 @@ static struct PyMethodDef methods[] = {
 	{"XLALEPGetTimingParameters", pylal_XLALEPGetTimingParameters, METH_VARARGS, NULL},
 	{"XLALREAL8WindowTwoPointSpectralCorrelation", pylal_XLALREAL8WindowTwoPointSpectralCorrelation, METH_VARARGS, NULL},
 	{"XLALExcessPowerFilterInnerProduct", pylal_XLALExcessPowerFilterInnerProduct, METH_VARARGS, NULL},
+	{"XLALCreateExcessPowerFilter", pylal_XLALCreateExcessPowerFilter, METH_VARARGS, NULL},
 	{NULL,}
 };
 
