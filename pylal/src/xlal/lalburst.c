@@ -43,7 +43,9 @@
 
 
 #include <misc.h>
+#include <datatypes/complex16frequencyseries.h>
 #include <datatypes/real8fftplan.h>
+#include <datatypes/real8frequencyseries.h>
 #include <datatypes/real8timeseries.h>
 #include <datatypes/real8window.h>
 #include <datatypes/simburst.h>
@@ -105,7 +107,7 @@ static PyObject *pylal_XLALMeasureHrss(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8TimeSeries_Type, &hplus, &pylal_REAL8TimeSeries_Type, &hcross))
 		return NULL;
 
-	return Py_BuildValue("d", XLALMeasureHrss(hplus->series, hcross->series));
+	return PyFloat_FromDouble(XLALMeasureHrss(hplus->series, hcross->series));
 }
 
 
@@ -121,7 +123,7 @@ static PyObject *pylal_XLALMeasureEoverRsquared(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "O!O!", &pylal_REAL8TimeSeries_Type, &hplus, &pylal_REAL8TimeSeries_Type, &hcross))
 		return NULL;
 
-	return Py_BuildValue("d", XLALMeasureEoverRsquared(hplus->series, hcross->series));
+	return PyFloat_FromDouble(XLALMeasureEoverRsquared(hplus->series, hcross->series));
 }
 
 
@@ -185,6 +187,37 @@ static PyObject *pylal_XLALREAL8WindowTwoPointSpectralCorrelation(PyObject *self
 
 
 /*
+ * pylal_XLALExcessPowerFilterInnerProduct()
+ */
+
+
+static PyObject *pylal_XLALExcessPowerFilterInnerProduct(PyObject *self, PyObject *args)
+{
+	pylal_COMPLEX16FrequencySeries *filter1;
+	pylal_COMPLEX16FrequencySeries *filter2;
+	PyArrayObject *correlation;
+	pylal_REAL8FrequencySeries *psd = NULL;
+	double result;
+
+	if(!PyArg_ParseTuple(args, "O!O!O!|O!", &pylal_COMPLEX16FrequencySeries_Type, &filter1, &pylal_COMPLEX16FrequencySeries_Type, &filter2, &PyArray_Type, &correlation, &pylal_REAL8FrequencySeries_Type, &psd))
+		return NULL;
+	correlation = PyArray_GETCONTIGUOUS(correlation);
+	if(!correlation)
+		return NULL;
+
+	result = XLALExcessPowerFilterInnerProduct(filter1->series, filter2->series, PyArray_DATA(correlation), psd ? psd->series : NULL);
+	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
+		Py_DECREF(correlation);
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	Py_DECREF(correlation);
+	return PyFloat_FromDouble(result);
+}
+
+
+/*
  * ============================================================================
  *
  *                            Module Registration
@@ -199,6 +232,7 @@ static struct PyMethodDef methods[] = {
 	{"XLALMeasureEoverRsquared", pylal_XLALMeasureEoverRsquared, METH_VARARGS, "Measure E_{GW}/r^{2}"},
 	{"XLALEPGetTimingParameters", pylal_XLALEPGetTimingParameters, METH_VARARGS, NULL},
 	{"XLALREAL8WindowTwoPointSpectralCorrelation", pylal_XLALREAL8WindowTwoPointSpectralCorrelation, METH_VARARGS, NULL},
+	{"XLALExcessPowerFilterInnerProduct", pylal_XLALExcessPowerFilterInnerProduct, METH_VARARGS, NULL},
 	{NULL,}
 };
 
@@ -209,7 +243,9 @@ void initlalburst(void)
 
 	import_array()
 
+	pylal_complex16frequencyseries_import();
 	pylal_real8fftplan_import();
+	pylal_real8frequencyseries_import();
 	pylal_real8timeseries_import();
 	pylal_real8window_import();
 	pylal_simburst_import();
