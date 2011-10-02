@@ -175,6 +175,11 @@ static PyObject *pylal_XLALREAL8WindowTwoPointSpectralCorrelation(PyObject *self
 	result = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, sequence->data);
 	}
 
+	/* free sequence without freeing array data */
+	if(result)
+		sequence->data = NULL;
+	XLALDestroyREAL8Sequence(sequence);
+
 	return result;
 }
 
