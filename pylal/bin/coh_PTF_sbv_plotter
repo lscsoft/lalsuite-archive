@@ -181,13 +181,25 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
 
   # initiate single IFO lists
   trigIfoSNR = {}
+  trigIfobankCS = {}
+  trigIfoautoCS = {}
+  trigIfostanCS = {}
   trigSigma  = {}
   injIfoSNR  = {}
+  injIfobankCS = {}
+  injIfoautoCS = {}
+  injIfostanCS = {}
   injSigma   = {}
   for ifo in ifos:
     trigIfoSNR[ifo] = []
+    trigIfobankCS[ifo] = []
+    trigIfoautoCS[ifo] = []
+    trigIfostanCS[ifo] = []
     trigSigma[ifo] = []
     injIfoSNR[ifo] = []
+    injIfobankCS[ifo] = []
+    injIfoautoCS[ifo] = []
+    injIfostanCS[ifo] = []
     injSigma[ifo] = []
   trigSigmaTot = []
 
@@ -231,6 +243,12 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     compsList = []
     for ifo in ifos:
       ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
+      ifoBankCS = getattr(trig, 'bank_chisq_%s' % ifoAtt[ifo])
+      ifoAutoCS = getattr(trig, 'cont_chisq_%s' % ifoAtt[ifo])
+      ifoStanCS = getattr(trig, 'chisq_%s' % ifoAtt[ifo])
+      trigIfobankCS[ifo].append( ifoBankCS )
+      trigIfoautoCS[ifo].append( ifoAutoCS )
+      trigIfostanCS[ifo].append( ifoStanCS )
       trigIfoSNR[ifo].append( ifoSNR )
       compsList.append( ifoSNR )
       sig = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
@@ -293,7 +311,13 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       compsList = []
       for ifo in ifos:
         ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
+        ifoBankCS = getattr(trig, 'bank_chisq_%s' % ifoAtt[ifo])
+        ifoAutoCS = getattr(trig, 'cont_chisq_%s' % ifoAtt[ifo])
+        ifoStanCS = getattr(trig, 'chisq_%s' % ifoAtt[ifo])
         injIfoSNR[ifo].append( ifoSNR )
+        injIfobankCS[ifo].append( ifoBankCS )
+        injIfoautoCS[ifo].append( ifoAutoCS )
+        injIfostanCS[ifo].append( ifoStanCS )
         compsList.append( ifoSNR )
 
       compsList.sort(reverse=True)
@@ -628,6 +652,7 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.set_xlabel( "SNR" )
   ax.set_ylabel( "Chi Square" )
   ax.set_xlim( [6,1000] )
+  ax.set_ylim( [1,10000] )
   fig.savefig( "%s/%s_chi_square_vs_snr.png" % ( outdir, tag ) )
   ax.set_xlim( [0,50] )
   ax.set_ylim( [1,2000] )
@@ -747,6 +772,105 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.set_ylim( [0,20] )
     fig.savefig( "%s/%s_%s_snr_vs_snr_zoom.png" % ( outdir, tag, ifo ),\
                  bbox_inches='tight' )
+
+  # Plot single detector chi square plots
+  for ifo in ifos:
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigSNR,trigIfobankCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injSNR,injIfobankCS[ifo], 'rx' )
+    ax.set_xlabel( "Coherent SNR")
+    ax.set_ylabel( "%s sngl bank veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_snr_vs_%s_bankchisq.png" % (outdir, tag,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_snr_vs_%s_bankchisq_zoom.png" % (outdir,tag, ifo),\
+                 bbox_inches="tight")
+   
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigIfoSNR[ifo],trigIfobankCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injIfoSNR[ifo],injIfobankCS[ifo], 'rx' )
+    ax.set_xlabel( "%s sngl SNR" % ifo )
+    ax.set_ylabel( "%s sngl bank veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_bankchisq.png" % (outdir, tag, ifo,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_bankchisq_zoom.png" % (outdir,tag,ifo,ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigSNR,trigIfoautoCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injSNR,injIfoautoCS[ifo], 'rx' )
+    ax.set_xlabel( "Coherent SNR" )
+    ax.set_ylabel( "%s sngl auto veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_snr_vs_%s_autochisq.png" % (outdir, tag,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,20000] )
+    fig.savefig( "%s/%s_snr_vs_%s_autochisq_zoom.png" % (outdir,tag, ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigIfoSNR[ifo],trigIfoautoCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injIfoSNR[ifo],injIfoautoCS[ifo], 'rx' )
+    ax.set_xlabel( "%s sngl SNR" % ifo )
+    ax.set_ylabel( "%s sngl auto veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_autochisq.png" % (outdir, tag, ifo,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,20000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_autochisq_zoom.png" % (outdir,tag,ifo,ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigSNR,trigIfostanCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injSNR,injIfostanCS[ifo], 'rx' )
+    ax.set_xlabel( "Coherent SNR" )
+    ax.set_ylabel( "%s sngl chi squared" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_snr_vs_%s_chisq.png" % (outdir, tag,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_snr_vs_%s_chisq_zoom.png" % (outdir,tag, ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigIfoSNR[ifo],trigIfostanCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injIfoSNR[ifo],injIfostanCS[ifo], 'rx' )
+    ax.set_xlabel( "%s sngl SNR" % ifo )
+    ax.set_ylabel( "%s sngl chi squared" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_chisq.png" % (outdir, tag, ifo,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_chisq_zoom.png" % (outdir,tag,ifo,ifo),\
+                 bbox_inches="tight")
+
   
   # plot SNR versus auto veto 
   fig = pylab.figure()
