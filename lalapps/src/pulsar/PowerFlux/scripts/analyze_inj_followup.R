@@ -41,8 +41,10 @@ B<-read.table("band_info.txt", header=TRUE, stringsAsFactors=FALSE)
 colnames(B)<-gsub(":", "", unlist(col_names[1,]))
 
 data<-merge(A, B[B$kind=="snr" & B[,"set"]==p(Segment, "_all"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("_orig", ""))
-data<-merge(data, B[B$kind=="snr" & B[,"set"]==p(Segment, "_LHO"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("", "_H1"))
-data<-merge(data, B[B$kind=="snr" & B[,"set"]==p(Segment, "_LLO"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("", "_L1"))
+if(MinSNRfactor>0) {
+	data<-merge(data, B[B$kind=="snr" & B[,"set"]==p(Segment, "_LHO"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("", "_H1"))
+	data<-merge(data, B[B$kind=="snr" & B[,"set"]==p(Segment, "_LLO"),,drop=FALSE], by.x="line_id_orig", by.y="label", all.x=TRUE, suffixes=c("", "_L1"))
+	}
 cat("Merged data has", dim(data)[1], "rows\n")
 
 data[,"dist"]<-ecliptic_dist(data[,"ra_orig"], data[,"dec_orig"], data[,"ra"], data[,"dec"])
@@ -85,12 +87,17 @@ F[is.na(F)]<-FALSE
 data.combined[,"SNR_increase"]<-F
 cat(sum(data.combined[,"SNR_increase"]), "outliers have passed SNR_increase cut\n")
 
-F<-(MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_H1"]) & (MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_L1"])
-F[is.na(F)]<-FALSE
-data.combined[,"SNR_min"]<-F
-cat(sum(data.combined[,"SNR_min"]), "outliers have passed SNR_min cut\n")
+if(MinSNRfactor<0) {
+	data.combined[,"SNR_min"]<-TRUE
+	cat("SNR_min cut disabled\n")
+	} else {
+	F<-(MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_H1"]) & (MinSNRfactor*data.combined[,"snr"]<data.combined[,"snr_L1"])
+	F[is.na(F)]<-FALSE
+	data.combined[,"SNR_min"]<-F
+	cat(sum(data.combined[,"SNR_min"]), "outliers have passed SNR_min cut\n")
+	}
 
-keep.columns<-c(names(data.combined)[regexpr("(^dist|_orig|tag.)$", names(data.combined))<0], "line.f0_orig", "line.comment_orig", "min_gps_orig", "max_gps_orig", "nchunks_orig", "snr_orig", "i_orig", "line_id_orig")
+keep.columns<-c(names(data.combined)[regexpr("(^dist|_orig|tag.)$", names(data.combined))<0], "line.f0_orig", "line.comment_orig", "min_gps_orig", "max_gps_orig", "nchunks_orig", "snr_orig", "i_orig", "line_id_orig", "tag")
 
 # Drop columns we might not have
 F<- ! keep.columns %in% names(data.combined)
@@ -109,7 +116,6 @@ names(new_outliers)<-gsub("_inj", "_orig", names(new_outliers))
 names(new_outliers)<-gsub("h0_orig", "h0", names(new_outliers))
 new_outliers[,"line_id_orig"]<-new_outliers[,"line_id"]
 new_outliers[,"line_id"]<-p(gsub(" ", "0", formatC(new_outliers[,"frequency"], digits=4, width=9, format="f")), "_", new_outliers[,"set"], "_", 1:(dim(new_outliers)[1]))
-
 
 #
 # Cluster outliers by 0.1 Hz groups which would all be using the same background plot

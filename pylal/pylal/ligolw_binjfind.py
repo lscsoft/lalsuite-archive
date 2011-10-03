@@ -105,6 +105,21 @@ lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 
 
 #
+# place-holder class for sim_inspiral table's row class so that
+# time_slide_id attributes can be assigned to it (this would normally be
+# prevented by the __slots__ mechanism).  FIXME:  delete when the
+# sim_inspiral table has a time_slide_id column
+#
+
+
+class SimInspiral(lsctables.SimInspiral):
+	pass
+
+
+lsctables.SimInspiralTable.RowType = lsctables.SimInspiral = SimInspiral
+
+
+#
 # =============================================================================
 #
 #                              Document Interface
@@ -137,6 +152,14 @@ OmegaSBCNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type =
 OmegaSICCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
 OmegaSICNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 
+CWBBBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+CWBSBBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+CWBSIBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 4, description = u"sim_inspiral<-->sngl_burst coincidences")
+CWBSBCCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+CWBSBCNearCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+CWBSICCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
+CWBSICNearCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
+
 
 class DocContents(object):
 	"""
@@ -150,7 +173,7 @@ class DocContents(object):
 		self.process = process
 
 		#
-		# locate the sngl_burst and sim_burst tables
+		# locate the sngl_burst, time_slide and injection tables
 		#
 
 		self.snglbursttable = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
@@ -162,6 +185,23 @@ class DocContents(object):
 			self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
 		except ValueError:
 			self.siminspiraltable = None
+		try:
+			timeslidetable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		except ValueError:
+			timeslidetable = None
+		if timeslidetable is not None:
+			self.offsetvectors = timeslidetable.as_dict()
+		else:
+			self.offsetvectors = {}
+
+		#
+		# store the longest duration of a burst event
+		#
+
+		if self.snglbursttable:
+			self.longestduration = max(self.snglbursttable.getColumnByName("duration"))
+		else:
+			self.longestduration = 0.0
 
 		#
 		# get a segmentlistdict indicating the times when the jobs
@@ -171,15 +211,19 @@ class DocContents(object):
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, livetime_program).coalesce()
 
 		#
-		# construct the zero-lag time slide needed to cover the
-		# instruments listed in all the triggers, then determine
-		# its ID (or create it if needed)
-		#
-		# FIXME:  in the future, the sim_* tables should indicate
-		# time slide at which the injection was done
+		# FIXME:  in the future, the sim_inspiral table should
+		# indicate time slide at which the injection was done, like
+		# the sim_burst table does.  for now, fake it by giving
+		# each one a time_slide_id attribute.  this is the only
+		# reason why a place-holder class is required for the
+		# SimInspiral row type;  that class can be deleted when
+		# this is no longer needed
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglbursttable.getColumnByName("ifo"), 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
+		if self.siminspiraltable is not None:
+			time_slide_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.seglists, 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
+			for sim in self.siminspiraltable:
+				sim.time_slide_id = time_slide_id
 
 		#
 		# get coinc_definer rows for sim_* <--> sngl_burst coincs
@@ -249,10 +293,6 @@ class DocContents(object):
 		#
 		# index the document
 		#
-		# FIXME:  burst<-->burst coincs should be organized by time
-		# slide ID, but since injections are only done at zero lag
-		# for now this is ignored.
-		#
 
 		# index sngl_burst table
 		index = dict((row.event_id, row) for row in self.snglbursttable)
@@ -265,38 +305,43 @@ class DocContents(object):
 			except KeyError:
 				continue
 		del index
-		# sort each event list by peak time and convert to tuples
-		# for speed
+		# sort the event list for each coin by peak time and
+		# convert to tuples for speed
 		for coinc_event_id, events in self.coincs.items():
 			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 			self.coincs[coinc_event_id] = tuple(events)
-		# convert dictionary to a list
+		# convert dictionary to a list of (coinc_event_id, events)
+		# tuples and create a coinc_event_id to offset vector
+		# look-up table
 		self.coincs = self.coincs.items()
+		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable if row.coinc_def_id == b_b_coinc_def_id)
 
 		#
-		# sort sngl_burst table by peak time, and sort the coincs
-		# list by the peak time of the first (earliest) event in
-		# each coinc (recall that the event tuple for each coinc
-		# has been time-ordered)
+		# represent the sngl_burst table as a dictionary indexed by
+		# instrument whose values are the event lists for those
+		# instruments sorted by peak time.  sort the coincs list by
+		# the peak time of the first (earliest) event in each coinc
+		# (recall that the event tuple for each coinc has been
+		# time-ordered)
 		#
 
-		self.snglbursttable.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].peak_time, b[0].peak_time) or cmp(a[0].peak_time_ns, b[0].peak_time_ns))
+		self.snglbursttable = dict((instrument, sorted((event for event in self.snglbursttable if event.ifo == instrument), lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))) for instrument in set(self.snglbursttable.getColumnByName("ifo")))
+		self.coincs.sort(lambda (id_a, events_a), (id_b, events_b): cmp(events_a[0].peak_time, events_b[0].peak_time) or cmp(events_a[0].peak_time_ns, events_b[0].peak_time_ns))
 
-	def bursts_near_peaktime(self, t, window):
+	def bursts_near_peaktime(self, t, window, offsetvector):
 		"""
-		Return a list of the burst events whose peak times are
-		within window seconds of t.  This is not used to define any
-		coincidences, only to provide a short list of burst events
-		for use in more costly comparison tests.
+		Return a list of the burst events whose peak times (with
+		offsetvector added) are within window seconds of t.  This
+		is not used to define any coincidences, only to provide a
+		short list of burst events for use in more costly
+		comparison tests.
 		"""
-		# FIXME:  this test does not consider the time slide
-		# offsets that should be applied to the instruments, but
-		# for now injections are done at zero lag so this isn't a
-		# problem yet
-		return self.snglbursttable[bisect.bisect_left(self.snglbursttable, t - window):bisect.bisect_right(self.snglbursttable, t + window)]
+		# instead of adding the offsets to each burst trigger, the
+		# offsets are subtracted from the times against which the
+		# bursts are compared
+		return sum((events[bisect.bisect_left(events, t - offsetvector[instrument] - window):bisect.bisect_right(events, t - offsetvector[instrument] + window)] for instrument, events in self.snglbursttable.items()), [])
 
-	def coincs_near_peaktime(self, t, window):
+	def coincs_near_peaktime(self, t, window, offsetvector):
 		"""
 		Return a list of the (coinc_event_id, event list) tuples in
 		which at least one burst event's peak time is within window
@@ -308,22 +353,17 @@ class DocContents(object):
 		# burst events within window of t
 		#
 
-		near_events = set(self.bursts_near_peaktime(t, window))
+		near_events = set(self.bursts_near_peaktime(t, window, offsetvector))
 
 		#
 		# coincs that involve at least one of those burst events
+		# and were found following the application of an offset
+		# vector consistent with the injection offset vector
 		#
 
-		return [(coinc_event_id, events) for coinc_event_id, events in self.coincs if set(events) & near_events]
+		return [(coinc_event_id, events) for coinc_event_id, events in self.coincs if set(events) & near_events and offsetvector.contains(self.coincoffsets[coinc_event_id])]
 
-	def sort_triggers_by_id(self):
-		"""
-		Sort the sngl_burst table's rows by ID (tidy-up document
-		for output).
-		"""
-		self.snglbursttable.sort(lambda a, b: cmp(a.event_id, b.event_id))
-
-	def new_coinc(self, coinc_def_id):
+	def new_coinc(self, coinc_def_id, time_slide_id):
 		"""
 		Construct a new coinc_event row attached to the given
 		process, and belonging to the set of coincidences defined
@@ -333,7 +373,7 @@ class DocContents(object):
 		coinc.process_id = self.process.process_id
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.get_next_id()
-		coinc.time_slide_id = self.tisi_id
+		coinc.time_slide_id = time_slide_id
 		coinc.set_instruments(None)
 		coinc.nevents = 0
 		coinc.likelihood = None
@@ -374,26 +414,35 @@ def append_process(xmldoc, match_algorithm, comment):
 #
 
 
-def StringCuspSnglCompare(sim, burst):
+def StringCuspSnglCompare(sim, burst, offsetvector):
 	"""
 	Return False (injection matches event) if an autocorrelation-width
 	window centred on the injection is continuous with the time
 	interval of the burst.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo)
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
-	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
+	# uncomment last part of expression to impose an amplitude cut
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period()) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
 
 
-def ExcessPowerSnglCompare(sim, burst):
+def ExcessPowerSnglCompare(sim, burst, offsetvector):
 	"""
 	Return False (injection matches event) if the peak time and centre
 	frequency of sim lie within the time-frequency tile of burst.
 	"""
-	return (SimBurstUtils.time_at_instrument(sim, burst.ifo) not in burst.get_period()) or (sim.frequency not in burst.get_band())
+	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.get_period()) or (sim.frequency not in burst.get_band())
 
 
-def OmegaSnglCompare(sim, burst, delta_t = 10.0):
+def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
+	"""
+	Return False (injection matches event) if the time of the sim and
+	the peak time of the burst event differ by less than or equal to
+	delta_t seconds.
+	"""
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
+
+def CWBSnglCompare(sim, burst, delta_t = 10.0):
 	"""
 	Return False (injection matches event) if the time of the sim and
 	the peak time of the burst event differ by less than or equal to
@@ -402,25 +451,34 @@ def OmegaSnglCompare(sim, burst, delta_t = 10.0):
 	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - burst.get_peak())) > delta_t
 
 
-def StringCuspNearCoincCompare(sim, burst):
+def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	"""
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo)
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2 + SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
 
 
-def ExcessPowerNearCoincCompare(sim, burst):
+def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
 	"""
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	return not SimBurstUtils.burst_is_near_injection(sim, burst.start_time, burst.start_time_ns, burst.duration, burst.ifo)
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
+	window = SimBurstUtils.burst_is_near_injection_window
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
 
 
-def OmegaNearCoincCompare(sim, burst):
+def OmegaNearCoincCompare(sim, burst, offsetvector):
+	"""
+	Return False (injection matches coinc) if the peak time of the sim
+	is "near" the burst event.
+	"""
+	return OmegaSnglCompare(sim, burst, offsetvector, delta_t = 20.0 + burst.duration / 2)
+
+def CWBNearCoincCompare(sim, burst):
 	"""
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
@@ -446,7 +504,8 @@ def find_sngl_burst_matches(contents, sim, comparefunc, sieve_window):
 	separate a burst event's peak time from an injection's peak time at
 	the geocentre and the two still be considered a match.
 	"""
-	return [burst for burst in contents.bursts_near_peaktime(sim.get_time_geocent(), sieve_window) if not comparefunc(sim, burst)]
+	offsetvector = contents.offsetvectors[sim.time_slide_id]
+	return [burst for burst in contents.bursts_near_peaktime(sim.get_time_geocent(), sieve_window, offsetvector) if not comparefunc(sim, burst, offsetvector)]
 
 
 def add_sim_burst_coinc(contents, sim, events, coinc_def_id):
@@ -455,7 +514,8 @@ def add_sim_burst_coinc(contents, sim, events, coinc_def_id):
 	coinc_event_map table linking the sim_burst row and the list of
 	sngl_burst rows to the new coinc_event row.
 	"""
-	coinc = contents.new_coinc(coinc_def_id)
+	# the coinc always carries the same time_slide_id as the injection
+	coinc = contents.new_coinc(coinc_def_id, sim.time_slide_id)
 	coinc.set_instruments(set(event.ifo for event in events))
 	coinc.nevents = len(events)
 
@@ -484,34 +544,38 @@ def add_sim_burst_coinc(contents, sim, events, coinc_def_id):
 #
 
 
-def find_exact_coinc_matches(coincs, sim, comparefunc, seglists):
+def find_exact_coinc_matches(coincs, sim, comparefunc, seglists, offsetvector):
 	"""
-	Return a list of the coinc_event_ids of the burst<-->burst coincs
-	in which all burst events match sim and to which all instruments on
-	at the time of the sim contributed events.
+	Return a set of the coinc_event_ids of the burst<-->burst coincs in
+	which all burst events match sim and to which all instruments on at
+	the time of the sim contributed events.
 	"""
-	# FIXME:  this test does not consider the time slide offsets that
-	# should be applied to the coinc, but for now injections are done
-	# at zero lag so this isn't a problem yet
+	# note:  this doesn't check that the coinc and the sim share
+	# compatible offset vectors, it is assumed this condition was
+	# applied in the .coincs_near_peaktime() method that was used to
+	# assemble the list of candidate coincs
 
+	# comparefunc() returns False --> event matches sim
 	# any() --> at least one compare returns True == not all events match
 	# not any() --> all events match sim
-	on_instruments = SimBurstUtils.on_instruments(sim, seglists)
-	return set(coinc_event_id for coinc_event_id, events in coincs if on_instruments.issubset(set(event.ifo for event in events)) and not any(comparefunc(sim, event) for event in events))
+	on_instruments = SimBurstUtils.on_instruments(sim, seglists, offsetvector)
+	return set(coinc_event_id for coinc_event_id, events in coincs if on_instruments.issubset(set(event.ifo for event in events)) and not any(comparefunc(sim, event, offsetvector) for event in events))
 
 
-def find_near_coinc_matches(coincs, sim, comparefunc):
+def find_near_coinc_matches(coincs, sim, comparefunc, offsetvector):
 	"""
-	Return a list of the coinc_event_ids of the burst<-->burst coincs
-	in which at least one burst event matches sim.
+	Return a set of the coinc_event_ids of the burst<-->burst coincs in
+	which at least one burst event matches sim.
 	"""
-	# FIXME:  this test does not consider the time slide offsets that
-	# should be applied to the coinc, but for now injections are done
-	# at zero lag so this isn't a problem yet
+	# note:  this doesn't check that the coinc and the sim share
+	# compatible offset vectors, it is assumed this condition was
+	# applied in the .coincs_near_peaktime() method that was used to
+	# assemble the list of candidate coincs
 
+	# comparefunc() returns False --> event matches sim
 	# all() --> all compares return True == no events match
 	# not all() --> at least one event matches sim
-	return set(coinc_event_id for coinc_event_id, events in coincs if not all(comparefunc(sim, event) for event in events))
+	return set(coinc_event_id for coinc_event_id, events in coincs if not all(comparefunc(sim, event, offsetvector) for event in events))
 
 
 def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
@@ -520,7 +584,8 @@ def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
 	coinc_event_map table linking the sim_burst row and the list of
 	coinc_event rows to the new coinc_event row.
 	"""
-	coinc = contents.new_coinc(coinc_def_id)
+	# the coinc always carries the same time_slide_id as the injection
+	coinc = contents.new_coinc(coinc_def_id, sim.time_slide_id)
 	coinc.nevents = len(coinc_event_ids)
 
 	coincmap = contents.coincmaptable.RowType()
@@ -559,36 +624,43 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	b_b_def = {
 		"StringCusp": ligolw_burca.StringCuspBBCoincDef,
 		"excesspower": ligolw_burca.ExcessPowerBBCoincDef,
+		"waveburst": CWBBBCoincDef,
 		"omega": OmegaBBCoincDef
 	}[search]
 	sb_b_def = {
 		"StringCusp": StringCuspSBBCoincDef,
 		"excesspower": ExcessPowerSBBCoincDef,
+		"waveburst": CWBSBBCoincDef,
 		"omega": OmegaSBBCoincDef
 	}[search]
 	si_b_def = {
 		"StringCusp": StringCuspSIBCoincDef,
 		"excesspower": ExcessPowerSIBCoincDef,
+		"waveburst": CWBSIBCoincDef,
 		"omega": OmegaSIBCoincDef
 	}[search]
 	sb_c_e_def = {
 		"StringCusp": StringCuspSBCCoincDef,
 		"excesspower": ExcessPowerSBCCoincDef,
+		"waveburst": CWBSBCCoincDef,
 		"omega": OmegaSBCCoincDef
 	}[search]
 	sb_c_n_def = {
 		"StringCusp": StringCuspSBCNearCoincDef,
 		"excesspower": ExcessPowerSBCNearCoincDef,
+		"waveburst": CWBSBCNearCoincDef,
 		"omega": OmegaSBCNearCoincDef
 	}[search]
 	si_c_e_def = {
 		"StringCusp": StringCuspSICCoincDef,
 		"excesspower": ExcessPowerSICCoincDef,
+		"waveburst": CWBSICCoincDef,
 		"omega": OmegaSICCoincDef
 	}[search]
 	si_c_n_def = {
 		"StringCusp": StringCuspSICNearCoincDef,
 		"excesspower": ExcessPowerSICNearCoincDef,
+		"waveburst": CWBSICNearCoincDef,
 		"omega": OmegaSICNearCoincDef
 	}[search]
 
@@ -605,7 +677,8 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		livetime_program = {
 			"StringCusp": "StringSearch",
 			"excesspower": "lalapps_power",
-			"omega": None	# FIXME:  this causes all segments in the search_summary table to be retrieved
+			"omega": None,	# FIXME:  this causes all segments in the search_summary table to be retrieved
+			"waveburst": None	# FIXME:  this causes all segments in the search_summary table to be retrieved
 		}[search]
 	)
 
@@ -626,8 +699,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	# add the duration of the longest burst event (the most a burst
 	# event's peak time could differ from either the start or stop time
 	# of the event)
-	if len(contents.snglbursttable):
-		burst_peak_time_window += max(contents.snglbursttable.getColumnByName("duration"))
+	burst_peak_time_window += contents.longestduration
 
 	# add a search-specific padding
 	#
@@ -641,7 +713,8 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	burst_peak_time_window += {
 		"StringCusp": SimBurstUtils.stringcusp_autocorrelation_width / 2,
 		"excesspower": 0.0,
-		"omega": 30.0
+		"omega": 30.0,
+		"waveburst": 30.0
 	}[search]
 
 	#
@@ -682,9 +755,10 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		for n, sim in enumerate(contents.simbursttable):
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			coincs = contents.coincs_near_peaktime(sim.get_time_geocent(), coinc_peak_time_window)
-			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc, contents.seglists)
-			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
+			offsetvector = contents.offsetvectors[sim.time_slide_id]
+			coincs = contents.coincs_near_peaktime(sim.get_time_geocent(), coinc_peak_time_window, offsetvector)
+			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc, contents.seglists, offsetvector)
+			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc, offsetvector)
 			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)
 			if exact_coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, exact_coinc_event_ids, contents.sb_c_e_coinc_def_id)
@@ -726,9 +800,10 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		for n, sim in enumerate(contents.siminspiraltable):
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			coincs = contents.coincs_near_peaktime(sim.get_time_geocent(), coinc_peak_time_window)
-			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc, contents.seglists)
-			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
+			offsetvector = contents.offsetvectors[sim.time_slide_id]
+			coincs = contents.coincs_near_peaktime(sim.get_time_geocent(), coinc_peak_time_window, offsetvector)
+			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc, contents.seglists, offsetvector)
+			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc, offsetvector)
 			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)
 			if exact_coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, exact_coinc_event_ids, contents.si_c_e_coinc_def_id)
@@ -738,14 +813,6 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 			print >>sys.stderr, "\t100.0%"
 	elif verbose:
 		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimInspiralTable.tableName)
-
-	#
-	# Restore the original event order.
-	#
-
-	if verbose:
-		print >>sys.stderr, "finishing ..."
-	contents.sort_triggers_by_id()
 
 	#
 	# Done.

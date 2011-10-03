@@ -23,8 +23,8 @@ typedef struct S_POWER_SUM {
 	PARTIAL_POWER_SUM_F *pps;
 	} POWER_SUM;
 
-void generate_patch_templates(int pi, POWER_SUM **ps, int *count);
-void clone_templates(POWER_SUM *ps, int count, POWER_SUM **ps_out);
+void generate_patch_templates(SUMMING_CONTEXT *ctx, int pi, POWER_SUM **ps, int *count);
+void clone_templates(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, POWER_SUM **ps_out);
 void free_templates(POWER_SUM *ps, int count);
 
 void accumulate_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);

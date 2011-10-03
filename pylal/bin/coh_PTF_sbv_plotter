@@ -871,7 +871,6 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig( "%s/%s_%s_snr_vs_%s_chisq_zoom.png" % (outdir,tag,ifo,ifo),\
                  bbox_inches="tight")
 
-  
   # plot SNR versus auto veto 
   fig = pylab.figure()
   ax  = fig.gca()

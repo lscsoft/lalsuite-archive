@@ -285,3 +285,25 @@ memcpy(& ((((char *)(v->data))[v->free*v->item_size])), item, v->item_size);
 v->free++;
 return(v->free-1);
 }
+
+int is_round235(int n)
+{
+while(n>1 && (n % 2==0))n=n/2;
+while(n>1 && (n % 3==0))n=n/3;
+while(n>1 && (n % 5==0))n=n/5;
+if(n==1)return 1;
+return 0;
+}
+
+/* make an integer round by being a product of 2 3 and 5 */
+int round235up_int(int n)
+{
+while(!is_round235(n))n++;
+return(n);
+}
+
+int round235down_int(int n)
+{
+while(!is_round235(n))n--;
+return(n);
+}

@@ -272,7 +272,16 @@ def scatterAcc(x,y,xname,yname):
 
 if __name__=='__main__':
     from optparse import OptionParser
-    parser=OptionParser()
+    usage ="""%prog -i injections.xml -o outdir -p param1 [-p param2 ... ] posterior_1.dat [posterior_2.dat ... ]
+    Parse a list of hardware injections and compile summary statistics
+    page for all parameter specified with the -p option. Output is stored in outdir.
+    
+    If you specify the same number of posterior.dat files as there are injections,
+    the code will assume the same ordering as in the injection.dat file and associate each
+    posterior with that injection. Otherwise, it will attempt to match posteriors to injections
+    by the end time of the injection.
+    """
+    parser=OptionParser(usage)
     parser.add_option("-i","--inj",help="Injection XML",metavar="INJ.XML",default=None,type="string")
     parser.add_option("-p","--parameter",help="Name of parameter to analyse, can be specified multiple times",metavar="mchirp",action="append",default=[],type="string")
     parser.add_option("-o","--outdir",help="output directory",metavar="PATH",type="string",default="./")

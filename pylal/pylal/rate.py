@@ -241,6 +241,76 @@ class LogarithmicBins(Bins):
 	def upper(self):
 		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 1))
 
+class LogarithmicPlusOverflowBins(Bins):
+	"""
+	Logarithmically-spaced bins plus one bin at each end that goes to zero
+	and positive infinity respectively.  There are n bins, The [n+1,n-1]
+	bins have each of their upper and lower bounds differ by the same
+	factor.  The second bin starts on the lower bound, and the n-1 bin ends
+	on the upper bound inclusively.  The first bin goes to zero and the
+	last bin goes to infinity.  Must have n >= 3.
+
+	Example:
+
+	>>> x = rate.LogarithmicPlusOverflowBins(1.0, 25.0, 5)
+	>>> x[0] 
+	0
+	>>> x[1]
+	1
+	>>> x[5]
+	2
+	>>> x[25]
+	3
+	>>> x[100]
+	4
+	>>> x.lower()
+	array([  0.        ,   1.        ,   2.92401774,   8.54987973,  25.        ])
+	>>> x.upper()
+	array([  1.        ,   2.92401774,   8.54987973,  25.        ,          Inf])
+	>>> x.centres()
+	array([  0.        ,   1.70997595,   5.        ,  14.62008869,          Inf])
+	"""
+	def __init__(self, min, max, n):
+		if n < 3:
+			raise ValueError, "n must be >= 3"
+		Bins.__init__(self, min, max, n)
+		self.delta = math.log(float(max / min)) / (n-2)
+
+	def __getitem__(self, x):
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError, x
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
+		if self.min <= x < self.max:
+			return 1 + int(math.floor(math.log(x / self.min) / self.delta))
+		if x == self.max:
+			# special "measure zero" corner case
+			return len(self) - 2
+		if x > self.max:
+			# infinity overflow bin
+			return len(self) - 1
+		if x < self.min:
+			# zero overflow bin
+			return 0
+		raise IndexError, x
+
+	def lower(self):
+		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1))))
+
+	def centres(self):
+		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * (numpy.arange(len(self) - 2) + 0.5)), numpy.array([float('inf')])))
+
+	def upper(self):
+		return numpy.concatenate((self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1)), numpy.array([float('inf')])))
+
 
 class ATanBins(Bins):
 	"""
@@ -456,8 +526,8 @@ class Categories(Bins):
 	category index.  A value belongs to a category if it is contained
 	in the category's defining collection.  If a value is contained in
 	more than one category's defining collection, it belongs to the
-	category with the smallest index.  KeyError is raised f a value is
-	not contained in any category's defining collection.
+	category with the smallest index.  IndexError is raised if a value
+	is not contained in any category's defining collection.
 
 	Example with discrete values:
 
@@ -484,10 +554,10 @@ class Categories(Bins):
 	>>> print categories[4]
 	1
 	>>> print categories[-1]
-	KeyError: -1
+	IndexError: -1
 
 	This last example demonstrates the behaviour when the intersection
-	of the categorys is not null.
+	of the categorys is not the empty set.
 	"""
 	def __init__(self, categories):
 		"""
@@ -886,7 +956,7 @@ def gaussian_window(bins, sigma = 10):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	l = sigma * int(math.floor(bins / 2.0))
+	l = int(math.floor(sigma * bins / 2.0)) * 2
 	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
 	return w.data / w.sum
 
@@ -1177,7 +1247,8 @@ def bins_to_xml(bins):
 			LinearBins: "lin",
 			LogarithmicBins: "log",
 			ATanBins: "atan",
-			ATanLogarithmicBins: "atanlog"
+			ATanLogarithmicBins: "atanlog",
+			LogarithmicPlusOverflowBins: "logplusoverflow"
 		}[bin.__class__]
 		row.min = bin.min
 		row.max = bin.max
@@ -1201,7 +1272,8 @@ def bins_from_xml(xml):
 			"lin": LinearBins,
 			"log": LogarithmicBins,
 			"atan": ATanBins,
-			"atanlog": ATanLogarithmicBins
+			"atanlog": ATanLogarithmicBins,
+			"logplusoverflow": LogarithmicPlusOverflowBins
 		}[row.type](row.min, row.max, row.n)
 	if None in binnings:
 		raise ValueError, "no binning for dimension %d" % binnings.find(None)

@@ -714,9 +714,9 @@ def create_subpage_inj(subpage, cp, grb, statistic):
 
   ethinca_singleifo_plots = []
   for ifo in grb.ifolist:
-    ethinca_singleifo_plots += [
-      'ethinca_vs_%s_snr_andtotMass' % ifo,
-      'ethinca_slide_only_vs_%s_snr_andtotMass' % ifo]
+    ethinca_singleifo_plots += []
+#      'ethinca_vs_%s_snr_andtotMass' % ifo,
+#      'ethinca_slide_only_vs_%s_snr_andtotMass' % ifo,
 #      'ethinca_vs_%s_snr' % ifo]
   page_sections['plotethinca'] = {
     'page': 'MACIFOS-plotethinca_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
@@ -1118,7 +1118,7 @@ copysafe(source, opts.output_www)
 
 
 # copy the ini-file and the configuration file
-inifile = grb.analysis_dir + '/' + cp.get('data','ini_file')
+inifile = grb.analysis_dir + '/' + cp.get('analysis','ini_file')
 copysafe(inifile, opts.output_www)
 copysafe(opts.config_file, opts.output_www)
 

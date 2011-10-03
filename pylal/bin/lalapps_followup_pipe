@@ -88,15 +88,16 @@ def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
 		stfu_pipe.mkdir(headingDir)
 		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+ filename)
 	fp=open(filename,'w')
-	fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\n")
-	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, 0, 0, ifos, instruments, float(time), 0) )
-	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
-	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+	fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\tMCHIRP\t\n")
+	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\t%.2f\n" % (dir, cnt, 0, 0, ifos, instruments, float(time), 0, 0) )
+	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\tMCHIRP\n")
+	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n"
 	content=list()
 	for ifo in tevent.ifos_list:
 		content.append(rowString%(dir, 
 					  ifo,
 					  float(time),  
+					  float(0),
 					  float(0),
 					  float(0),
 					  float(0),

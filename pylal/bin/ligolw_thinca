@@ -279,7 +279,6 @@ for n, filename in enumerate(filenames):
 		effective_snr_factor = options.effective_snr_factor,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,
-		coinc_end_time_segment = options.coinc_end_time_segment,
 		verbose = options.verbose
 	)
 
