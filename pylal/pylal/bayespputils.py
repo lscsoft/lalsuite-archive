@@ -2783,6 +2783,11 @@ class PEOutputParser(object):
         for table in tables:
             if table.get('name')=='Posterior Samples':
                 return(self._VOTTABLE2pos(table))
+        print 'Unable to find posterior table, attempting to auto-generate from nested samples'
+        for node in tree.findall('{%s}RESOURCE'%(xmlns)):
+            if node.get('name')=='Nested sampling run':
+                postable = vo_nest2pos(node)
+                return self._VOTTABLE2pos(postable)
         raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
         
     def _VOTTABLE2pos(self,table):
