@@ -336,6 +336,31 @@ def set_temp_store_directory(connection, temp_store_directory, verbose = False):
 		print >>sys.stderr, "done"
 
 
+#
+# FIXME:  this is only here temporarily while the file corruption issue on
+# the clusters is diagnosed.  remove when no longer needed
+#
+
+try:
+	# >= 2.5.0
+	from hashlib import md5 as __md5
+except ImportError:
+	# < 2.5.0
+	from md5 import new as __md5
+def __md5digest(filename):
+	"""
+	For internal use only.
+	"""
+	m = __md5()
+	f = open(filename)
+	while True:
+		d = f.read(4096)
+		if not d:
+			break
+		m.update(d)
+	return m.hexdigest()
+
+
 def put_connection_filename(filename, working_filename, verbose = False):
 	"""
 	This function reverses the effect of a previous call to
@@ -368,9 +393,14 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# replace document
 		if verbose:
 			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename),
+		digest_before = __md5digest(working_filename)
 		shutil.move(working_filename, filename)
+		digest_after = __md5digest(filename)
 		if verbose:
 			print >>sys.stderr, "done."
+		if digest_before != digest_after:
+			print >>sys.stderr, "md5 checksum failure!  checksum on scratch disk was %s, checksum in final location is %s" % (digest_before, digest_after)
+			sys.exit(1)
 
 		# remove reference to tempfile.TemporaryFile object.
 		# because we've just deleted the file above, this would
