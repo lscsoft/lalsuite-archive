@@ -73,6 +73,7 @@ def parse_command_line():
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	parser.add_option("-s", "--smooth-bins", action="store_true", help="Perform smoothing.")
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [None])
@@ -112,7 +113,7 @@ def binned_ratios_plot(title, xcoords, ycoords, data, ncontours = 9, xlims = Non
 	axes.set_ylim(ylims)
 	axes.set_title(title)
 	# FIXME: should extract the name of the dimensions some other way
-	axes.set_ylabel(title.split('-vs-')[0].split('-')[-1])
+	axes.set_ylabel(title.split('-vs-')[0].split('1-')[-1])
 	axes.set_xlabel(title.split('-vs-')[1].split(' ')[0])
 	return fig
 
@@ -142,8 +143,16 @@ for n, filename in enumerate(filenames):
 
 for name, ratios in saved_ratios.items():
 	# FIXME: currently only plots 2D binned ratios
-	if '_vs_' not in name:
+	if '-vs-' not in name:
 		continue
+
+	if options.smooth_bins:
+		if options.verbose:
+			print >>sys.stderr, "smoothing %s ..." % name
+		window_length = 30
+		rate.filter_binned_ratios(ratios, rate.gaussian_window2d(ratios.numerator.bins.shape[0]/window_length, ratios.numerator.bins.shape[1]/window_length, sigma=2*window_length))
+
+	ratios.to_pdf()
 
 	xcoords, ycoords = ratios.numerator.bins.centres()
 
