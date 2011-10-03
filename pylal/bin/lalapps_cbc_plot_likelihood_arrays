@@ -150,13 +150,13 @@ for name, ratios in saved_ratios.items():
 	outname = "%s_num.png" % name
 	if options.verbose:
 		print >>sys.stderr, "writing %s ..." % outname
-	fig = binned_ratios_plot("%s Numerator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.numerator.array)), ncontours=49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-10)
+	fig = binned_ratios_plot("%s Numerator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.numerator.array)), ncontours=49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-20, datamax=0)
 	fig.savefig(outname)
 
 	outname = "%s_den.png" % name
 	if options.verbose:
 		print >>sys.stderr, "writing %s ..." % outname
-	fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.denominator.array)), ncontours=49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-10)
+	fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.denominator.array)), ncontours=49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-20, datamax=0)
 	fig.savefig(outname)
 
 	ratios.logregularize()
@@ -165,5 +165,5 @@ for name, ratios in saved_ratios.items():
 	if options.verbose:
 		print >>sys.stderr, "writing %s ..." % outname
 	ratios.logregularize()
-	fig = binned_ratios_plot("%s Likelihood Ratio" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.ratio())), ncontours = 49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-10, datamax=20)
+	fig = binned_ratios_plot("%s Likelihood Ratio" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.ratio())), ncontours = 49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-20, datamax=20)
 	fig.savefig(outname)
