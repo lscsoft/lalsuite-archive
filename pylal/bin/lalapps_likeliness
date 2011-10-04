@@ -79,6 +79,7 @@ def parse_command_line():
 	parser.add_option("--input-bins", metavar="file", action="append", help="Input the binned-arrays to be used for likelihood ratio computation from a file.")
 	parser.add_option( "--max-distance", metavar = "Mpc", type="float", help = "The maximum injected distance to use for training likeliness.")
 	parser.add_option("--compute-likelihoods", action="store_true", help="Compute the likelihood ratios for coincident triggers and update the database files.")
+	parser.add_option("--smooth-bins", action="store_true", help="Smooth the binned-array objects before output or before use.")
 	parser.add_option("-v", "--verbose", action="store_true", help="Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -344,13 +345,13 @@ class Summaries(object):
 		#
 		# compute the likelihood for the single detector triggers
 		#
-		likelihood_2D = 1.
-		likelihood_1D = 1.
+		log_likelihood_2D = 0.
+		log_likelihood_1D = 0.
 		for key in self.sngl_slices:
-			likelihood_2D *= self.sngl_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])]
+			log_likelihood_2D += scipy.log(self.sngl_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])])
 		for key in self.sngl_1D_bins[values[self.idx_sngls['ifo']]].keys():
-			likelihood_1D *= (self.sngl_1D_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key]],)])**self.sngl_1D_count[values[self.idx_sngls['ifo']]][key]
-		self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= likelihood_2D / likelihood_1D
+			log_likelihood_1D += self.sngl_1D_count[values[self.idx_sngls['ifo']]][key] * scipy.log(self.sngl_1D_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key]],)])
+		self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= scipy.exp(log_likelihood_2D - log_likelihood_1D)
 
 	def likelihood_map(self, filename, coinc_event_id):
 		#
@@ -581,6 +582,44 @@ WHERE
 	AND snglB.ifo == ?
 """
 
+
+def single_all(values):
+	#
+	# the SQL query for all single detector triggers
+	#
+	query = """
+SELECT"""
+	keys = values.items()
+	keys.sort(cmp=lambda x,y: cmp(x[1],y[1]))
+	for value in keys:
+		if value[0] in ['coinc_event_id', 'filename']:
+			continue
+		if not value == keys[0]:
+			query += ""","""
+		if value[0] == 'weight':
+			query += """
+	1.0"""
+			continue
+
+		query += """
+	snglA.""" + value[0]
+
+	query += """,
+	coinc_inspiral.coinc_event_id
+FROM
+	coinc_inspiral
+	JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
+	JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
+	JOIN coinc_event ON (mapA.coinc_event_id == coinc_event.coinc_event_id)
+	JOIN coinc_definer ON (coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
+WHERE
+	coinc_definer.search == 'inspiral'
+	AND coinc_definer.search_coinc_type == 0
+	AND mapA.table_name == 'sngl_inspiral'
+"""
+
+	return query
+
 #
 # =============================================================================
 #
@@ -781,6 +820,11 @@ else:
 	# end loop over input database files
 	#
 
+	if options.smooth_bins:
+		if options.verbose:
+			print >>sys.stderr, "smoothing binned ratios ..."
+		likelihood_bins.filter_binned_ratios()
+
 	if options.output_bins:
 		if options.verbose:
 			print >>sys.stderr, "writing binned ratios objects to file ..."
@@ -789,9 +833,10 @@ else:
 if not options.compute_likelihoods:
 	sys.exit(0)
 
-if options.verbose:
-	print >>sys.stderr, "smoothing binned ratios ..."
-likelihood_bins.filter_binned_ratios()
+if options.smooth_bins:
+	if options.verbose:
+		print >>sys.stderr, "smoothing binned ratios ..."
+	likelihood_bins.filter_binned_ratios()
 if options.verbose:
 	print >>sys.stderr, "normalizing binned ratios ..."
 likelihood_bins.pdfify_binned_ratios()
@@ -816,57 +861,33 @@ for n, filename in enumerate(filenames):
 	# by the existence of a sim_inspiral table in the database
 	#
 
-	if "sim_inspiral" in dbtables.get_table_names(connection):
-		#
-		# loop over all sngls and add to appropriate list
-		#
+	# 
+	# loop over all sngls and compute likelihoods
+	#
 
-		if options.verbose:
-			print >>sys.stderr, "\textracting all sngls for likelihood computation..."
-		for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls)):
-			likelihood_bins.compute_sngl_likelihood(tuple(list(values) + [filename]))
+	if options.verbose:
+		print >>sys.stderr, "\textracting all sngls for likelihood computation ..."
+	for values in connection.cursor().execute(single_all(likelihood_bins.idx_sngls)):
+		likelihood_bins.compute_sngl_likelihood(tuple(list(values) + [filename]))
 
-		#
-		# loop over all double combinations of ifos and add dbls to
-		# appropriate list
-		#
+	# 
+	# loop over all double combinations of ifos and add dbls to
+	# appropriate list 
+	#
 
+#	if options.verbose:
+#		print >>sys.stderr, "\textracting all dbls ..."
+#	likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
+#	likelihood_bins.offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
+#	connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
+#	for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
 #		if options.verbose:
-#			print >>sys.stderr, "\textracting all dbls ..."
-#		connection.create_function("calc_delta_t_inj", 4, likelihood_bins.calc_delta_t_inj)
-#		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
-#			if options.verbose:
-#				print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
-#			for values in connection.cursor().execute(double_inj, ifos):
-#				likelihood_bins.add_inj_dbl(filename, ifos, values)
-	else:
-		# 
-		# loop over all sngls and add to appropriate list 
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "\textracting all sngls for likelihood computation ..."
-		for values in connection.cursor().execute(single_bkg(likelihood_bins.idx_sngls)):
-			likelihood_bins.compute_sngl_likelihood(tuple(list(values[0:-1]) + [filename]))
- 
-		# 
-		# loop over all double combinations of ifos and add dbls to
-		# appropriate list 
-		#
-
-#		if options.verbose:
-#			print >>sys.stderr, "\textracting all dbls ..."
-#		likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-#		likelihood_bins.offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
-#		connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
-#		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
-#			if options.verbose:
-#				print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
-#			for values in connection.cursor().execute(double_bkg, ifos):
-#				if values[-1]:
-#					background.add_bkg_dbl(filename, ifos, values[0:-1])
-#				else:
-#					background.add_zero_lag_dbl(filename, ifos, values[0:-1])
+#			print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
+#		for values in connection.cursor().execute(double_bkg, ifos):
+#			if values[-1]:
+#				background.add_bkg_dbl(filename, ifos, values[0:-1])
+#			else:
+#				background.add_zero_lag_dbl(filename, ifos, values[0:-1])
 
 	#
 	# done extracting info so close database
