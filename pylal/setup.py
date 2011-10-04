@@ -392,7 +392,7 @@ setup(
 		Extension(
 			"pylal.xlal.lalburst",
 			["src/xlal/lalburst.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lalburst_pkg_config.incdirs + ["src/xlal"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lalburst_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsimulation_pkg_config.libs + lalburst_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs,
