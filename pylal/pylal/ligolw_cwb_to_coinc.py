@@ -191,7 +191,7 @@ class CWB2Coinc(object):
     sngl_burst_table = lsctables.New(lsctables.SnglBurstTable,
 	  ["peak_time_ns", "start_time_ns", "stop_time_ns",
 	  "process_id", "ifo", "peak_time", "start_time", "stop_time", 
-	  "duration", "time_lag", "peak_frequency", "search",
+	  "duration", "time_lag", "peak_frequency", "search", "snr"
 	  "flow", "fhigh", "bandwidth", "tfvolume", "hrss", "event_id"])
     xmldoc.childNodes[0].appendChild(sngl_burst_table)
     sngl_burst_table.sync_next_id()
