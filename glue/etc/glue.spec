@@ -6,7 +6,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.34
+Version:	1.35
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -46,6 +46,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/var/
 
 %changelog
+* Fri Oct 7 2011 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue with Kipp's fixes to ligolw_sqlite bugs, Kipp's checksums added, and Peter and my change to the coalescing script for segment databases.
+
 * Thu Sep 29 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with speedup to string to xml conversion and 10 digit gps fixes.
 
