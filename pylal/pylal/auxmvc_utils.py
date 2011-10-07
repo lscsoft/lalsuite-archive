@@ -1,7 +1,7 @@
 import os
 import sys
 import numpy
-
+import copy
 
 def ROC(clean_ranks, glitch_ranks):
   """
@@ -123,6 +123,51 @@ PS time.
 
   return ShuffledKWAuxTriggers
   
+def FilterKWAuxTriggers(KWAuxTriggers,excludeparameters,excludechannels):
+
+  """
+  Irrelevant channels and trigger parameters are excluded.
+  excludechannels is a filename with irrelevant channel names to be excluded.
+  excludeparameters is a list of comma separated parameters. i.e. dur,freq,npts
+  """
+
+  KWAuxvariables = list(KWAuxTriggers.dtype.names)
+  filteredvariables = copy.copy(KWAuxvariables)
+
+  # both lists are empty, return original triggers
+  if not excludeparameters and  excludechannels:
+    return KWAuxTriggers
+ 
+  if excludeparameters:
+    ExParams = excludeparameters.split(",")
+    for exp in ExParams:
+      for pvar in KWAuxvariables:
+        if exp.strip() in pvar.strip():
+          if pvar in filteredvariables:
+            filteredvariables.remove(pvar)
+
+  if excludechannels:
+    for exc in excludechannels:
+      for cvar in KWAuxvariables:
+        if cvar in filteredvariables:
+          if exc.strip() in cvar.strip():
+            filteredvariables.remove(cvar)
+
+  #print "the list of included variable after filtering"
+  #for (i,f) in enumerate(filteredvariables):
+    #print "%i-th variable to be included : %s" % (i+1,f)
+
+  n_triggers = len(KWAuxTriggers)
+  formats = ['g8' for a in range(len(filteredvariables))]
+  FilteredKWAuxTriggers = numpy.empty((n_triggers,),dtype={'names':filteredvariables,'formats':formats})
+
+  for fvariable in filteredvariables:
+    FilteredKWAuxTriggers[fvariable] = KWAuxTriggers[fvariable]
+
+  return FilteredKWAuxTriggers
+
+
+
 
 def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables = None):
 
@@ -192,7 +237,7 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
     file.write(second_line + "\n")
   
   for i in range(n_triggers):
-    line = " ".join([str(var) for var in Triggers[:][i]])
+    line = " ".join([str(var) for var in Triggers[i]])
     file.write(line + "\n")
 
   file.close()    
