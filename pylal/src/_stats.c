@@ -21,12 +21,11 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
-#include <lal/Sort.h>
-
 static int rankdata(
-    const double * restrict const array,  /* input array */
-    const size_t len,            /* length of input and output arrays */
-    double * restrict const out_array     /* output array */
+    const double * restrict const array,     /* input array */
+    const size_t * restrict const ind_array, /* indices from argsort of input */
+    double * restrict const out_array,       /* output array */
+    const size_t len                         /* length of arrays */
     );
 static PyObject *pylal_stats_rankdata(PyObject *self, PyObject *args);
 
@@ -46,32 +45,18 @@ const char rankdata_docstring[] = "C implementation of scipy.stats.rankdata\n\n"
 "----------\n"
 "a : array\n";
 
-/* comparison function for argsort */
-static int cmp(void *p, const void *a, const void *b) {
-    const double c = *((const double *)a);
-    const double d = *((const double *)b);
-    return (c < d) ? -1 : (c > d);
-}
 
+/* assign rankings, averaging ties */
 static int rankdata(
-    const double * restrict const array, /* input array */
-    const size_t len,                    /* length of input and output arrays */
-    double * restrict const out_array    /* output array */
+    const double * restrict const array,     /* input array */
+    const size_t * restrict const ind_array, /* indices from argsort of input */
+    double * restrict const out_array,       /* output array */
+    const size_t len                         /* length of arrays */
     ) {
     size_t i, j;
-    INT4 *ind_array;
     double sumranks = 0.0;
     size_t dupcount = 0;
 
-    /* allocate temporary ind_array */
-    ind_array = (INT4 *)malloc(len * sizeof(INT4));
-    if (!ind_array) return 1;
-    memset(ind_array, (INT4) 0, len);
-
-    /* argsort */
-    XLALHeapIndex(ind_array, array, len, sizeof(double), NULL, cmp);
-
-    /* assign rankings, averaging ties */
     for (i = 0; i < len; i++) {
         sumranks += i;
         dupcount += 1;
@@ -83,16 +68,13 @@ static int rankdata(
         }
     }
 
-    /* clean up */
-    free(ind_array);
-
     return 0;
 }
 
 static PyObject *pylal_stats_rankdata(PyObject *self, PyObject *args) {
-    PyObject *in_arr, *out_arr;
-    int must_clean_up = 0;
-    npy_intp dims[1] = {0};
+    PyObject *in_arr, *ind_arr, *out_arr;
+    int must_clean_up = 0, status;
+    npy_intp dims[1];
 
     if (!PyArg_ParseTuple(args, "O", &in_arr)) return NULL;
     if (!PyArray_Check(in_arr) || (PyArray_TYPE(in_arr) != NPY_DOUBLE)
@@ -100,14 +82,35 @@ static PyObject *pylal_stats_rankdata(PyObject *self, PyObject *args) {
         in_arr = PyArray_FROMANY(in_arr, NPY_DOUBLE, 1, 1, NPY_CARRAY_RO);
         must_clean_up = 1;
     }
+
+    /* argsort */
+    ind_arr = PyArray_ArgSort((PyArrayObject *)in_arr, 0, NPY_QUICKSORT);
+    if (!ind_arr) {
+        PyErr_SetString(PyExc_ValueError, "rankdata argsort failed");
+        if (must_clean_up) { Py_DECREF(in_arr); }
+        return NULL;
+    }
+
+    /* allocate output */
     dims[0] = PyArray_SIZE(in_arr);
     out_arr = PyArray_SimpleNew(1, dims, NPY_DOUBLE);
-
-    if (rankdata((double *) PyArray_DATA(in_arr), dims[0], (double *) PyArray_DATA(out_arr))) {
-        PyErr_SetString(PyExc_ValueError, "rankdata failed");
+    if (!out_arr) {
+        PyErr_SetString(PyExc_MemoryError, "rankdata output memory allocation failed");
         if (must_clean_up) { Py_DECREF(in_arr); }
-        Py_DECREF(out_arr);
+        Py_DECREF(ind_arr);
         return NULL;
+    }
+
+    /* compute ranks */
+    status = rankdata((double *) PyArray_DATA(in_arr),
+                      (size_t *) PyArray_DATA(ind_arr),
+                      (double *) PyArray_DATA(out_arr),
+                      dims[0]);
+    Py_DECREF(ind_arr);
+    if (status) {
+        PyErr_SetString(PyExc_ValueError, "rankdata failed");
+        Py_DECREF(out_arr);
+        out_arr = NULL;
     }
 
     if (must_clean_up) { Py_DECREF(in_arr); }

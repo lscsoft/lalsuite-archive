@@ -450,11 +450,8 @@ setup(
 		Extension(
 			"pylal._stats",
 			["src/_stats.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			include_dirs = [numpy_get_include()],
+			extra_compile_args = ["-std=c99"]
 		),
 	],
 	scripts = [
