@@ -91,6 +91,7 @@ def parse_command_line():
   parser = OptionParser(version=git_version.verbose_msg) 
   parser.add_option("-c","--clean-paramsfile", help="file with events of class zero")
   parser.add_option("-g","--glitch-paramsfile", help="file with events of class one")
+  parser.add_option("","--channels", help="file with the list of channels to be used in the analysis. If to specified all channels in the input data are used.")
   parser.add_option("-n","--roundrobin-number",default=10,type="int",help="number of round-robin training/testing sets to make")
   parser.add_option("","--dq-cats",action="store", type="string",default="ALL", help="Generate DQ veto categories" )
   parser.add_option("","--exclude-variables",action="store", type="string", default=None, help="Comma separated lits of variables that should be excluded from MVSC parameter list" )
@@ -121,25 +122,52 @@ if not opts.glitch_paramsfile:
 
 
 if opts.clean_paramsfile or opts.glitch_paramsfile is True:
-  
+ 
   clean_paramsFile=[opts.clean_paramsfile]
   glitch_paramsFile=[opts.glitch_paramsfile]
 
+    
+
+
   KWAuxCleanTriggers=GenerateKWAuxCleanTriggers(clean_paramsFile)
   print "Read in clean samples"
+ 
+  if opts.channels:
+    #construct list of channels to be excluded
+    exclude_channels = []
+    all_channels = []
+    for var in KWAuxCleanTriggers.dtype.names:
+      if "_sig" in var:
+        all_channels.append(var.split("_sig")[0])
+    include_channels = open(opts.channels).readlines()
+    include_channels = [ch.strip() for ch in include_channels]
+ 
+    for channel in all_channels:
+      if not channel in include_channels:
+        exclude_channels.append(channel)
+
+  else:
+    exclude_channels = []
+      
+ 
+  KWAuxCleanTriggers= auxmvc_utils.FilterKWAuxTriggers(KWAuxCleanTriggers, opts.exclude_variables, exclude_channels)
+
   KWAuxCleanTriggers = auxmvc_utils.ShuffleKWAuxTriggers(KWAuxCleanTriggers)
   print "Clean triggers has been shuffled"
-  KWAuxGlitchTriggers=GenerateKWAuxGlitchTriggers(glitch_paramsFile)
+
+  KWAuxGlitchTriggers = GenerateKWAuxGlitchTriggers(glitch_paramsFile)
+
+  KWAuxGlitchTriggers = auxmvc_utils.FilterKWAuxTriggers(KWAuxGlitchTriggers, opts.exclude_variables, exclude_channels) 
   print "Read in glitch samples"
   KWAuxGlitchTriggers = auxmvc_utils.ShuffleKWAuxTriggers(KWAuxGlitchTriggers)
   print "Glitch triggers has been shuffled"
 
      
   dq_cats=opts.dq_cats.split(",")
-  if opts.exclude_variables :
-    exclude_variables_list = opts.exclude_variables.split(",")
-  else:
-    exclude_variables_list = None
+  #if opts.exclude_variables :
+  #  exclude_variables_list = opts.exclude_variables.split(",")
+  #else:
+  #  exclude_variables_list = None
 
   if opts.roundrobin_number:
     List_of_Clean_KW_Sets_cats = auxmvc_utils.split_array(KWAuxCleanTriggers, Nparts =int(opts.roundrobin_number))
@@ -157,9 +185,9 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
     
         Primary_Clean_set_cats, Primary_Glitch_set_cats, Secondary_Clean_set_cats, Secondary_Glitch_set_cats=RoundRobin(List_of_Glitch_KW_Sets_cats, List_of_Clean_KW_Sets_cats,i)
         print "Constructed " + str(i) +" round robin set"
-        MVSC_evaluation_set_cats=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = Primary_Glitch_set_cats, KWAuxCleanTriggers = Primary_Clean_set_cats, ExcludeVariables = exclude_variables_list)
+        MVSC_evaluation_set_cats=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = Primary_Glitch_set_cats, KWAuxCleanTriggers = Primary_Clean_set_cats, ExcludeVariables = ["DQ2","DQ3","DQ4"])
         print "Converted evaluation KW to MVSC triggers"
-        MVSC_training_set_cats=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = Secondary_Glitch_set_cats, KWAuxCleanTriggers = Secondary_Clean_set_cats, ExcludeVariables = exclude_variables_list)
+        MVSC_training_set_cats=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = Secondary_Glitch_set_cats, KWAuxCleanTriggers = Secondary_Clean_set_cats, ExcludeVariables = ["DQ2","DQ3", "DQ4"])
         print "Converted training KW to MVSC triggers"
    
         output_evaluation=cat + "_" + opts.output_tag + "_set_" + str(i) + "_" + "evaluation.pat"
