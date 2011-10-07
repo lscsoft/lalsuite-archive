@@ -741,7 +741,7 @@ def grbbinomialtest(localProb, Ndraws, Nmc, discreteness=None):
                  probability Pmin_raw occurs.
     """
     Ntail = len(localProb)
-    Pmin_raw, Nmin = grbbinomial_Pmin_raw(localProb, Ndraws, discreteness)
+    Pmin_raw, Nmin = grbbinomial_Pmin_raw(localProb, Ndraws)
 
     # Do a Monte-Carlo to determine significance
     if discreteness is None:
@@ -749,7 +749,7 @@ def grbbinomialtest(localProb, Ndraws, Nmc, discreteness=None):
     else:
         localProbMC = stats.randint.rvs(0, discreteness + 1, size=(Nmc, Ndraws)) / discreteness
 
-    # keep Ntail most significant values
+    # keep the Ntail most significant values
     localProbMC.sort(axis=1)
     localProbMC = localProbMC[:, :Ntail]
 
@@ -759,7 +759,7 @@ def grbbinomialtest(localProb, Ndraws, Nmc, discreteness=None):
 
     return Pmin_raw, Pmin, Nmin
 
-def grbbinomialtest_threshold(Ndraws, Ntail, percentile, Nmc, discreteness=None):
+def grbbinomialtest_threshold(Ndraws, Ntail, percentile, Nmc, discreteness=None, blocksize=10000):
     """
     Adapted from https://trac.ligo.caltech.edu/xpipeline/browser/trunk/utilities/grbbinomialtest_threshold.m
 
@@ -776,20 +776,29 @@ def grbbinomialtest_threshold(Ndraws, Ntail, percentile, Nmc, discreteness=None)
         FAPs corresponding to that threshold for each k=1..Ntail at which
         we evaluate the binomial probability.
     """
+    assert Ntail <= Ndraws
     if discreteness is None:
-        localProbMC = stats.uniform.rvs(size=(Nmc, Ndraws))
+        draw = lambda n: stats.uniform.rvs(size=(n, Ndraws))
     else:
-        localProbMC = stats.randint.rvs(0, discreteness + 1, size=(Nmc, Ndraws)) / discreteness
+        draw = lambda n: stats.randint.rvs(0, discreteness + 1, size=(n, Ndraws)) / discreteness
 
-    # keep Ntail most significant values
-    localProbMC.sort(axis=1)
-    localProbMC = localProbMC[:, :Ntail]
+    PminMC = []
+    num_drawn = 0
+    while num_drawn < Nmc:  # draw random numbers in blocks to reduce memory
+        num_to_draw = min(Nmc - num_drawn, blocksize)
+        localProbMC = draw(num_to_draw)
 
-    # NB: stats.binom.sf maps to the lower level special.bdtrc
-    PMC = special.bdtrc(np.arange(Ntail)[None, :], Ndraws, localProbMC)
-    PMC.sort(axis=1)
-    PminMC = PMC[:, 0]
+        # keep Ntail most significant values of this block
+        localProbMC.sort(axis=1)
+        localProbMC = localProbMC[:, :Ntail]
 
+        # NB: stats.binom.sf maps to the lower level special.bdtrc
+        PMC = special.bdtrc(np.arange(Ntail)[None, :], Ndraws, localProbMC)
+        PminMC.append(PMC.min(axis=1))
+        num_drawn += num_to_draw
+
+    # determine threshold on Pmin
+    PminMC = np.asarray(PminMC)
     Pmin_thresh = stats.scoreatpercentile(PminMC, percentile)
-    localProb_thresh = np.array([stats.scoreatpercentile(localProbMC[:, k], 100*Pmin_thresh) for k in xrange(Ntail)])
-    return Pmin_thresh, localProb_thresh
+    return Pmin_thresh
+

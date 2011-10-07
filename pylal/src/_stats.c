@@ -50,7 +50,7 @@ const char rankdata_docstring[] = "C implementation of scipy.stats.rankdata\n\n"
 static int cmp(void *p, const void *a, const void *b) {
     const double c = *((const double *)a);
     const double d = *((const double *)b);
-    return (c < d) ? -1 : ((c > d) ? 1 : 0);
+    return (c < d) ? -1 : (c > d);
 }
 
 static int rankdata(
@@ -95,7 +95,8 @@ static PyObject *pylal_stats_rankdata(PyObject *self, PyObject *args) {
     npy_intp dims[1] = {0};
 
     if (!PyArg_ParseTuple(args, "O", &in_arr)) return NULL;
-    if (!PyArray_Check(in_arr) || (PyArray_TYPE(in_arr) != NPY_DOUBLE)) {
+    if (!PyArray_Check(in_arr) || (PyArray_TYPE(in_arr) != NPY_DOUBLE)
+        || !PyArray_ISCARRAY_RO(in_arr)) {
         in_arr = PyArray_FROMANY(in_arr, NPY_DOUBLE, 1, 1, NPY_CARRAY_RO);
         must_clean_up = 1;
     }
