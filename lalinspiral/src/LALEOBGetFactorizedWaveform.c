@@ -59,7 +59,7 @@ int XLALCalcFacWaveformCoefficients(
   /* Check that deltaM has a reasonable value */
   if ( dM2 < 0 )
   {
-    XLALPrintError( "eta seems to be < 0.25 - this isn't allowed!\n" );
+    XLALPrintError( "eta seems to be > 0.25 - this isn't allowed!\n" );
     XLAL_ERROR( __func__, XLAL_EINVAL );
   }
 
