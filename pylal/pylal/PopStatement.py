@@ -794,7 +794,7 @@ def grbbinomialtest_threshold(Ndraws, Ntail, percentile, Nmc, discreteness=None,
 
         # NB: stats.binom.sf maps to the lower level special.bdtrc
         PMC = special.bdtrc(np.arange(Ntail)[None, :], Ndraws, localProbMC)
-        PminMC.append(PMC.min(axis=1))
+        PminMC.extend(PMC.min(axis=1))
         num_drawn += num_to_draw
 
     # determine threshold on Pmin
