@@ -6,7 +6,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.35
+Version:	1.36
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -44,8 +44,12 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/bin/
 %{_prefix}/etc/
 %{_prefix}/var/
+%{_prefix}/share/nmi/lalsuite-build*
 
 %changelog
+* Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue to fix build issues called 1.36. 
+
 * Fri Oct 7 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with Kipp's fixes to ligolw_sqlite bugs, Kipp's checksums added, and Peter and my change to the coalescing script for segment databases.
 
@@ -54,9 +58,6 @@ rm -rf $RPM_BUILD_ROOT
 
 * Wed Sep 15 2010 Peter Couvares <pfcouvar@syr.edu>
 - New release of glue with GEO publishing
-
-* Thu Apr 22 2009 Duncan Brown <dabrown@physics.syr.edu>
-- Third S6 release of glue
 
 * Wed Nov 11 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Second S6 release of glue
@@ -78,6 +79,9 @@ rm -rf $RPM_BUILD_ROOT
 
 * Tue Jun 09 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Build for glue 1.19-1
+
+* Thu Apr 22 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Third S6 release of glue
 
 * Tue Jun 24 2008 Ping Wei <piwei@syr.edu>
 - Build for glue 1.18-1
