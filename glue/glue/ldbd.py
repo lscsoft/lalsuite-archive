@@ -184,7 +184,7 @@ class LIGOLwParser:
       'ilwd:char' : self.__ilwdchar,
       'ilwd:char_u' : self.__ilwdchar
     }
-    self.xmltostr = Xlator({ r'&amp;' : r'&', r'&gt;' : r'>', r'&lt;' : r'<' })
+    self.xmltostr = Xlator({ r'&amp;' : r'&', r'&gt;' : r'>', r'&lt;' : r'<','\\\\' : '\\'}) # Note: see https://www.gravity.phy.syr.edu/dokuwiki/doku.php?id=rpfisher:gluebughunt if this is confusing, the parser just cleanly handles the conversion of everything
 
   def __del__(self):
     if self.unique:
@@ -345,7 +345,7 @@ class LIGOMetadata:
     if lwtparser:
       self.lwtparser.unique = None
     self.table = {}
-    self.strtoxml = Xlator({ r'&' : r'&amp;', r'>' : r'&gt;', r'<' : r'&lt;' })
+    self.strtoxml = Xlator({ r'&' : r'&amp;', r'>' : r'&gt;', r'<' : r'&lt;', '\\' : '\\\\', '\"' : '\\\"' }) # Note: see https://www.gravity.phy.syr.edu/dokuwiki/doku.php?id=rpfisher:gluebughunt if this is confusing, the parser just cleanly handles the conversion of everything
 
   def __del__(self):
     if self.curs:
@@ -560,14 +560,14 @@ class LIGOMetadata:
               else:
                 ligolw += '"' + str(tupi) + '"'
             elif re.match(r'\Alstring\Z',coltype):
-              # this santizes the contents of tupi in two ways: first,
-              # string_format_func() escapes any double-quote and
+              # this santizes the contents of tupi in several ways: 
+              # strtoxml.xlat escapes any double-quote and
               # backslash chars (with a preceding blackslash); and
-              # then strtoxml.xlat replaces <>& chars with their html
+              # then replaces <>& chars with their html
               # code equivalents
-              # NOTE: string_format_func inserts the enclosing ""
-              # chars, so we don't need to do it ourselves
-              ligolw += self.strtoxml.xlat(string_format_func(tupi))
+              # NOTE: string_format_func was removed so the enclosing ""
+              # chars need to be added ourselves
+              ligolw += '"'+self.strtoxml.xlat(tupi)+'"' 
             elif re.match(r'\Areal_4\Z',coltype):
               ligolw += '%13.7e' % tupi
             elif re.match(r'\Areal_8\Z',coltype):

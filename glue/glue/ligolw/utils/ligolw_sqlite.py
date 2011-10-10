@@ -78,16 +78,23 @@ def setup(target, check_same_thread=True):
 #
 
 
-def update_ids(connection, verbose = False):
+def update_ids(connection, xmldoc, verbose = False):
 	"""
 	For internal use only.
 	"""
-	table_elems = dbtables.get_xml(connection).getElementsByTagName(ligolw.Table.tagName)
+	# NOTE:  it's critical that the xmldoc object be retrieved *before*
+	# the rows whose IDs need to be updated are inserted.  The xml
+	# retrieval resets the "last max row ID" values inside the table
+	# objects, so if retrieval of the xmldoc is deferred until after
+	# the rows are inserted, nothing will get updated.  therefore, the
+	# connection and xmldoc need to be passed separately to this
+	# function, even though it seems this function could reconstruct
+	# the xmldoc itself from the connection.
+	table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
 	for i, tbl in enumerate(table_elems):
 		if verbose:
 			print >>sys.stderr, "updating IDs: %d%%\r" % (100.0 * i / len(table_elems)),
 		tbl.applyKeyMapping()
-		tbl.unlink()
 	if verbose:
 		print >>sys.stderr, "updating IDs: 100%"
 
@@ -95,25 +102,38 @@ def update_ids(connection, verbose = False):
 	dbtables.idmap_reset(connection)
 
 
-def insert_from_url(connection, url, preserve_ids = False, verbose = False):
+def insert_from_url(connection, url, preserve_ids = False, verbose = False, contenthandler = None):
 	"""
 	Parse and insert the LIGO Light Weight document at the URL into the
 	database the at the given connection.
 	"""
+	#
+	# retrieve an XML-ish representation of the database.  see the note
+	# in update_ids() about the order in which this must be done
+	#
+
+	xmldoc = dbtables.get_xml(connection)
+
 	#
 	# load document.  this process inserts the document's contents into
 	# the database.  the document is unlinked to delete database cursor
 	# objects it retains
 	#
 
-	utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz")).unlink()
+	utils.load_url(url, verbose = verbose, contenthandler = contenthandler).unlink()
 
 	#
 	# update references to row IDs
 	#
 
 	if not preserve_ids:
-		update_ids(connection, verbose)
+		update_ids(connection, xmldoc, verbose = verbose)
+
+	#
+	# unlink the document to delete database cursor objects it retains
+	#
+
+	xmldoc.unlink()
 
 
 def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose = False):
@@ -122,13 +142,21 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	the given connection.
 	"""
 	#
+	# retrieve an XML-ish representation of the database.  see the note
+	# in update_ids() about the order in which this must be done
+	#
+
+	xmldoc = dbtables.get_xml(connection)
+
+	#
 	# iterate over tables in the XML tree, reconstructing each inside
 	# the database
 	#
 
 	for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):
 		#
-		# instantiate the correct table class
+		# instantiate the correct table class, connected to the
+		# target database
 		#
 
 		name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
@@ -136,37 +164,43 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 			cls = dbtables.TableByName[name]
 		except KeyError:
 			cls = dbtables.DBTable
-		dbtab = cls(tbl.attributes, connection = connection)
+		dbtbl = cls(tbl.attributes, connection = connection)
 
 		#
 		# copy table element child nodes from source XML tree
 		#
 
 		for elem in tbl.childNodes:
-			if elem.tagName == dbtables.table.TableStream.tagName:
-				dbtab._end_of_columns()
-			dbtab.appendChild(type(elem)(elem.attributes))
+			if elem.tagName == ligolw.Stream.tagName:
+				dbtbl._end_of_columns()
+			dbtbl.appendChild(type(elem)(elem.attributes))
 
 		#
 		# copy table rows from source XML tree
 		#
 
 		for row in tbl:
-			dbtab.append(row)
-		dbtab._end_of_rows()
+			dbtbl.append(row)
+		dbtbl._end_of_rows()
 
 		#
 		# unlink to delete cursor objects
 		#
 
-		dbtab.unlink()
+		dbtbl.unlink()
 
 	#
 	# update references to row IDs
 	#
 
 	if not preserve_ids:
-		update_ids(connection, verbose)
+		update_ids(connection, xmldoc, verbose = verbose)
+
+	#
+	# unlink the document to delete database cursor objects it retains
+	#
+
+	xmldoc.unlink()
 
 
 def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
