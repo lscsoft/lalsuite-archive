@@ -59,6 +59,9 @@ rm -rf $RPM_BUILD_ROOT
 * Wed Sep 15 2010 Peter Couvares <pfcouvar@syr.edu>
 - New release of glue with GEO publishing
 
+* Thu Apr 22 2010 Duncan Brown <dabrown@physics.syr.edu>
+- Third S6 release of glue
+
 * Wed Nov 11 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Second S6 release of glue
 
@@ -79,9 +82,6 @@ rm -rf $RPM_BUILD_ROOT
 
 * Tue Jun 09 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Build for glue 1.19-1
-
-* Thu Apr 22 2009 Duncan Brown <dabrown@physics.syr.edu>
-- Third S6 release of glue
 
 * Tue Jun 24 2008 Ping Wei <piwei@syr.edu>
 - Build for glue 1.18-1
