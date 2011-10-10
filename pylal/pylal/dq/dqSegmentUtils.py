@@ -384,7 +384,7 @@ def _bits(i, n=8):
     >>> _bits(295, n=8)
     [1, 1, 1, 0, 0, 1, 0, 0]
   """
-  return [(0, 1)[i>>j & 1] for j in xrange(n)]
+  return [(0, 1)[int(i)>>j & 1] for j in xrange(n)]
 
 def DQSegments(time, data, dq_key):
 

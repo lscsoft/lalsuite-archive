@@ -171,7 +171,7 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                     cum_dist_zero = zero_dist.cumsum()
                 else:
                     cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
-                semilogy(xvals, cum_dist_zero+0.0001,
+                semilogy(xvals, cum_dist_zero+0.00001,
                         marker = frg_marker,
                         markerfacecolor = frg_color,
                         markeredgecolor = 'k',
@@ -192,8 +192,8 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                 slide_std = cum_dist_slide.std(axis=0) * sqrt(bkg_correction)
                 slide_min = []
                 for i in range( len(slide_mean) ):
-                    slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
-                    slide_mean[i] = max(slide_mean[i], 0.0001)
+                    slide_min.append( max(slide_mean[i] - slide_std[i], 0.00001) )
+                    slide_mean[i] = max(slide_mean[i], 0.00001)
                 semilogy(xvals, asarray(slide_mean),
                     marker = '+',
                     markerfacecolor = 'k',
@@ -204,10 +204,10 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                 fill( (tmpx-ds), tmpy,
                     facecolor = 'y',
                     alpha = 0.3 )
-                y_min=1.0/(3 * len(slide_dict.keys()))
+                y_min = min(slide_mean)
 
             # set limits, labels, and titles
-            ylim( ymin = y_min, ymax = max(gca().get_ylim()[1], 1.2) )
+            ylim( ymin = 0.5*y_min, ymax = max(gca().get_ylim()[1], 1.2) )
             # flip limits for rank-by MIN
             if rank_by == 'MIN':
                 xlim( gca().get_xlim()[::-1] )
@@ -375,6 +375,9 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             if (ifos, param_group) not in slide_stats[esid]:
                 slide_stats[esid][(ifos, param_group)] = []
             slide_stats[esid][(ifos, param_group)].append(stat)
+    if len(zero_lag_stats)==0:
+        # create a closed box plot with an empty playground to show the bkg distribution
+        zero_lag_stats[u'playground'] = dict( [category, []] for category in categories )
 
     #
     #   Plotting
@@ -430,7 +433,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         if warn_msg != '':
             text( 0,0, warn_msg, 
                 va = 'bottom', ha = 'left',
-                transform = figure(fig_num).gca().transAxes() )
+                transform = figure(fig_num).gca().transAxes )
 
         if opts.enable_output:
             name = InspiralUtils.set_figure_tag( '_'.join([ "cumhist_combined",
@@ -471,7 +474,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                 if warn_msg != '':
                     text( 0,0, warn_msg, 
                         va = 'bottom', ha = 'left',
-                        transform = figure(fig_num).gca().transAxes() )
+                        transform = figure(fig_num).gca().transAxes )
         
                 if opts.enable_output:
                     param_tag = param_name
