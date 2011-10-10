@@ -80,7 +80,7 @@ def set_rcParams():
                          "figure.figsize": [12,6],
                          "figure.dpi": 80,
                          "axes.grid": True,
-                         "axes.axisbelow": True })
+                         "axes.axisbelow": False })
 
 def set_ticks(ax):
 
@@ -100,10 +100,15 @@ def set_ticks(ax):
   if len(ax.get_yticks())<=2:
     ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
 
-  # set xticks for 4 hours rather than 5
+  # set xticks for 2 hours rather than 5
   xticks = ax.get_xticks()
   if len(xticks)>1 and xticks[1]-xticks[0]==5:
-    ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=4))
+    ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=2))
+
+  # set tick linewidth
+  for line in ax.get_xticklines() + ax.get_yticklines() :
+    line.set_markersize(10)
+    line.set_markeredgewidth(1)
 
 def display_name(columnName):
 
@@ -609,7 +614,7 @@ class DetCharScatterPlot(ColorbarScatterPlot):
                        self.kwarg_sets):
       plot_kwargs.setdefault("vmin", cmin)
       plot_kwargs.setdefault("vmax", cmax)
-      plot_kwargs.setdefault("s", 20)
+      plot_kwargs.setdefault("s", 15)
       plot_kwargs.setdefault("marker", "o")
       plot_kwargs.setdefault("edgecolor", "k")
 
@@ -1573,7 +1578,7 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
       if limits[i] and not limits[i][0] <= val <= limits[i][1]:
         use=False
     if use:
-      for i,col in enumerate(columns):
+      for i,col in enumerate(set(columns)):
         val = float(getTrigAttribute(trig, col))
         if get_time(trig) in segs:
           vetoData[col].append(val)
@@ -1754,6 +1759,7 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # reset ticks
   set_ticks(plot.ax)
+
   # get both major and minor grid lines
   plot.savefig(outfile, bbox_inches='tight')
 
