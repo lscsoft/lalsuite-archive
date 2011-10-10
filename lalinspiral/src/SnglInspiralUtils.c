@@ -847,7 +847,6 @@ XLALClusterSnglInspiralTable (
     )
 
 {
-  static const char *func = "XLALClusterSnglInspiralTable";
   SnglInspiralTable     *thisEvent=NULL;
   SnglInspiralTable     *prevEvent=NULL;
   SnglInspiralTable     *nextEvent=NULL;
@@ -855,7 +854,7 @@ XLALClusterSnglInspiralTable (
 
   if ( !inspiralList )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
 
   if ( ! *inspiralList )
@@ -1333,7 +1332,6 @@ XLALIfoCutSingleInspiral(
     )
 
 {
-  static const char *func = "IfoCutSingleInspiral";
   SnglInspiralTable    *prevEvent   = NULL;
   SnglInspiralTable    *thisEvent   = NULL;
   SnglInspiralTable    *ifoHead     = NULL;
@@ -1342,7 +1340,7 @@ XLALIfoCutSingleInspiral(
   /* check that eventHead is non-null */
   if ( ! eventHead )
   {
-    XLAL_ERROR_NULL(func,XLAL_EIO);
+    XLAL_ERROR_NULL(XLAL_EIO);
   }
 
   /* Scan through a linked list of sngl_inspiral tables and return a
@@ -1458,7 +1456,6 @@ XLALTimeSlideSegList(
        const LIGOTimeGPS *slideTime
 )
 {
-  static const char func[] = "XLALTimeSlideSegList";
   INT8 ringStartNS = 0;	/* initialized to silence warning */
   INT8 ringEndNS = 0;	/* initialized to silence warning */
   INT8 slideNS;
@@ -1468,8 +1465,8 @@ XLALTimeSlideSegList(
 
   /* make sure the segment list has been properly initialized */
   if ( seglist->initMagic != SEGMENTSH_INITMAGICVAL ) {
-    XLALPrintError("%s(): segment list not initialized\n", func);
-    XLAL_ERROR(func, XLAL_EINVAL);
+    XLALPrintError("%s(): segment list not initialized\n", __func__);
+    XLAL_ERROR(XLAL_EINVAL);
   }
 
   /* calculate the slide time in nanoseconds */
@@ -1496,8 +1493,8 @@ XLALTimeSlideSegList(
 
     /* verify segment lies in ring */
     if( ringStartTime && ringEndTime && ( segStartNS < ringStartNS || segEndNS > ringEndNS ) ) {
-      XLALPrintError("%s(): detected segment outside of ring\n", func);
-      XLAL_ERROR(func, XLAL_EINVAL);
+      XLALPrintError("%s(): detected segment outside of ring\n", __func__);
+      XLAL_ERROR(XLAL_EINVAL);
     }
 
     /* slide the segment */

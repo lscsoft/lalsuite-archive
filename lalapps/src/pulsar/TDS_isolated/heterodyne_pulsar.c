@@ -80,7 +80,7 @@ int main(int argc, char *argv[]){
   INT4 count=0, frcount=0;
 
   CHAR outputfile[256]="";
-  CHAR channel[20]="";
+  CHAR channel[128]="";
 
   INT4Vector *starts=NULL, *stops=NULL; /* science segment start and stop times */
   INT4 numSegs=0;
@@ -286,8 +286,7 @@ heterodyne.\n");  }
   }
 
   remove(outputfile); /* if output file already exists remove it */
-  snprintf(channel, sizeof(channel), "%s:%s", inputParams.ifo,
-    inputParams.channel);
+  snprintf(channel, sizeof(channel), "%s", inputParams.channel);
 
   #if TRACKMEMUSE
     fprintf(stderr, "Memory use before entering main loop:\n"); printmemuse();
@@ -1307,7 +1306,8 @@ REAL8TimeSeries *get_frame_data(CHAR *framefile, CHAR *channel, REAL8 ttime,
   }
   else if(strstr(channel, "STRAIN") != NULL || strstr(channel, "DER_DATA") !=
     NULL || strstr(channel, "h_16384Hz") != NULL || strstr(channel, 
-    "h_20000Hz") != NULL){ /* data is calibrated h(t) */
+    "h_20000Hz") != NULL || strstr(channel, "LDAS_C02") != NULL){ 
+    /* data is calibrated h(t) */
     /* calibrated Virgo data has the channel h_16384/20000Hz and is single
        precision */
     if( strstr(channel, "h_16384Hz") == NULL && strstr(channel, "h_20000Hz")
@@ -1322,6 +1322,7 @@ REAL8TimeSeries *get_frame_data(CHAR *framefile, CHAR *channel, REAL8 ttime,
 
       for(i=0;i<(INT4)length;i++)
         dblseries->data->data[i] = scalefac*frvect->dataD[i];
+
     }
     else{ /* Virgo data */
       /* check that data doesn't contain NaNs */
@@ -1651,13 +1652,15 @@ INT4 heterodyneflag){
                 nothing */
 
     if(strstr(jnkstr, "#")){
-      rc = fscanf(fp, "%*[^\n]");   /* if == # then skip to the end of the line */
+       /* if == # then skip to the end of the line */
+      if ( fscanf(fp, "%*[^\n]") == EOF ) break;
       continue;
     }
     else{
       fseek(fp, offset, SEEK_SET); /* if line doesn't start with a # then it is
                                       data */
-      rc = fscanf(fp, "%d%d%d%d", &num, &starts->data[i], &stops->data[i], &dur);
+      if( fscanf(fp, "%d%d%d%d", &num, &starts->data[i], 
+                 &stops->data[i], &dur) == EOF ) break;
       /*format is segwizard type: num starts stops dur */
       
       /* if performing a fine heterodyne remove the first 60 secs at the start

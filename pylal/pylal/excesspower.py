@@ -25,16 +25,17 @@
 
 
 """
-This module is a wrapper of the xlal.burstsearch module, supplementing the
+This module is a wrapper of the xlal.lalburst module, supplementing the
 C code in that module with additional features that are more easily
-implemented in Python.  It is recommended that you import this module
-rather than importing xlal.burstsearch directly.
+implemented in Python.  This module provides code specific to the excess
+power pipeline in lalsuite.  If doing excess power related work, it is
+recommended that you import this module rather than importing xlal.lalburst
+directly.
 """
 
 
 from pylal import git_version
-from pylal.xlal.burstsearch import *
-from pylal.xlal.burstsearch import XLALEPGetTimingParameters as __XLALEPGetTimingParameters
+from pylal.xlal.lalburst import XLALEPGetTimingParameters as __XLALEPGetTimingParameters
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

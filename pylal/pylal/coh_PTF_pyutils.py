@@ -221,7 +221,7 @@ def get_det_response( ra, dec, trigTime ):
 
   """
     Return detector response for complete set of IFOs for given sky location
-    and time. Assumed inclination = 0, and polarization = 0. 
+    and time. Inclination and polarization are unused so are arbitrarily set to 0 
   """
 
   f_plus  = {}
@@ -346,4 +346,16 @@ def sim_inspiral_get_theta(self):
 
   return theta
 
+def minimum(itera):
+  # An extension of the builtin min which will return very large number if list is empty
+  try:
+    return min(itera)
+  except ValueError:
+    return 10000000000000000
 
+def maximum(itera):
+  # An extension of the builtin max which will return 0 if list is empty
+  try:
+    return max(itera)
+  except ValueError:
+    return 0

@@ -106,6 +106,34 @@ static void PTMCMCCombinedProposal(LALInferenceRunState *runState, LALInferenceV
   return;
 }
 
+void NSFillMCMCVariables(LALInferenceVariables *proposedParams)
+{
+  REAL8 distance=0.0,mc=0.0;
+  if(LALInferenceCheckVariable(proposedParams,"logdistance"))
+  {
+    distance=exp(*(REAL8*)LALInferenceGetVariable(proposedParams,"logdistance"));
+    LALInferenceAddVariable(proposedParams,"distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
+  }
+  if(LALInferenceCheckVariable(proposedParams,"logmc")){
+    mc=exp(*(REAL8 *)LALInferenceGetVariable(proposedParams,"logmc"));
+    LALInferenceAddVariable(proposedParams,"chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
+  }
+  return;
+}
+
+void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
+{ /* PTMCMCLALProposal needs a few params converted */
+ 
+  /* PTMCMC likes to read this directly so we have to plug our mangled values in*/
+  LALInferenceVariables *currentParamsBackup=runState->currentParams;
+  NSFillMCMCVariables(proposedParams);
+
+  runState->currentParams=proposedParams; 
+  PTMCMCLALProposal(runState,proposedParams);
+  /* Restore currentParams */
+  runState->currentParams=currentParamsBackup;
+}
+
 void PTMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
 {
 	UINT4 nIFO=0;
@@ -609,225 +637,6 @@ void PTMCMCLALInferenceOrbitalPhaseJump(LALInferenceRunState *runState, LALInfer
 //}
 
 
-
-void PTMCMCLALAdaptationProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
-/****************************************/
-/* Assumes the following parameters		*/
-/* exist (e.g., for TaylorT1):			*/
-/* chirpmass, massratio, inclination,	*/
-/* phase, time, rightascension,			*/
-/* desclination, polarisation, distance.*/
-/* Simply picks a new value based on	*/
-/* fixed Gaussian;						*/
-/* need smarter wall bounces in future.	*/
-/****************************************/
-{
-	REAL8 mc, eta, iota, phi, tc, ra, dec, psi, dist;
-	REAL8 mc_proposed, eta_proposed, iota_proposed, phi_proposed, tc_proposed, 
-	ra_proposed, dec_proposed, psi_proposed, dist_proposed;
-	REAL8 logProposalRatio = 1.0;  // = log(P(backward)/P(forward))
-	gsl_rng * GSLrandom=runState->GSLrandom;
-	LALInferenceVariables * currentParams = runState->currentParams;
-	//REAL8 sigmat = 0.1;
-	//INT4 nPar = LALInferenceGetVariableDimensionNonFixed(runState->currentParams);
-	//INT4 i,j;
-	
-	//INT4 nPar  = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "nPar");
-	//INT4 nChain  = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "nChain");
-	//INT4 tempIndex  = *(INT4*) LALInferenceGetVariable(runState->proposalArgs, "tempIndex");
-	REAL8 big_sigma = 1.0;
-	
-	if(gsl_ran_ugaussian(GSLrandom) < 1.0e-3) big_sigma = 1.0e1;    //Every 1e3 iterations, take a 10x larger jump in all parameters
-	if(gsl_ran_ugaussian(GSLrandom) < 1.0e-4) big_sigma = 1.0e2;    //Every 1e4 iterations, take a 100x larger jump in all parameters
-
-
-	REAL8 *sigma=NULL;
-	sigma=(REAL8 *)(*(REAL8Vector **)LALInferenceGetVariable(runState->proposalArgs,"sigma"))->data;
-	
-	//gsl_matrix *sigma = *(gsl_matrix **)LALInferenceGetVariable(runState->proposalArgs, "sigma");
-	
-	//printf ("m(%d,%d) = %g\n", 1, 1, gsl_matrix_get (sigma, 1, 1));
-	
-//	for (i = 0; i < nChain; i++){
-//		for (j = 0; j < nPar; j++){
-//			printf ("m(%d,%d) = %g\n", i, j, gsl_matrix_get (sigma, i, j));
-//		}
-//	}
-//	printf("%f\n",sigma[0][0]);
-//	int t,p;
-//	for (t=0; t<5; ++t){
-//		for (p=0; p<9; ++p){
-		//	printf("sigma[%d][%d]=%f\n",t,p,sigma[t][p]);
-//		}
-//	}
-	
-	mc   = *(REAL8*) LALInferenceGetVariable(currentParams, "chirpmass");		/* solar masses*/
-	eta  = *(REAL8*) LALInferenceGetVariable(currentParams, "massratio");		/* dim-less    */
-	iota = *(REAL8*) LALInferenceGetVariable(currentParams, "inclination");		/* radian      */
-	tc   = *(REAL8*) LALInferenceGetVariable(currentParams, "time");				/* GPS seconds */
-	phi  = *(REAL8*) LALInferenceGetVariable(currentParams, "phase");			/* radian      */
-	ra   = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension");	/* radian      */
-	dec  = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");		/* radian      */
-	psi  = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");		/* radian      */
-	dist = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");			/* Mpc         */
-	
-	//mc_proposed   = mc*(1.0+gsl_ran_ugaussian(GSLrandom)*0.01);	/*mc changed by 1% */
-	// (above proposal is not symmetric!)
-	//mc_proposed   = mc   + gsl_ran_ugaussian(GSLrandom)*0.0001;	/*mc changed by 0.0001 */
-	mc_proposed   = mc * exp(gsl_ran_gaussian(GSLrandom,sigma[8])*big_sigma*0.001);          /* mc changed by ~0.1% */
-	logProposalRatio *= mc_proposed / mc;   // (proposal ratio for above "scaled log-normal" proposal)
-	eta_proposed  = eta  + gsl_ran_gaussian(GSLrandom,sigma[7])*big_sigma*0.01; /*eta changed by 0.01*/
-	//TODO: if(eta_proposed>0.25) eta_proposed=0.25-(eta_proposed-0.25); etc.
-	iota_proposed = iota + gsl_ran_gaussian(GSLrandom,sigma[6])*big_sigma*0.1;
-	tc_proposed   = tc   + gsl_ran_gaussian(GSLrandom,sigma[5])*big_sigma*0.005; /*time changed by 5 ms*/
-	phi_proposed  = phi  + gsl_ran_gaussian(GSLrandom,sigma[4])*big_sigma*0.5;
-	ra_proposed   = ra   + gsl_ran_gaussian(GSLrandom,sigma[3])*big_sigma*0.05;
-	dec_proposed  = dec  + gsl_ran_gaussian(GSLrandom,sigma[2])*big_sigma*0.05;
-	psi_proposed  = psi  + gsl_ran_gaussian(GSLrandom,sigma[1])*big_sigma*0.1;
-	//dist_proposed = dist + gsl_ran_ugaussian(GSLrandom)*0.5;
-	dist_proposed = dist * exp(gsl_ran_gaussian(GSLrandom,sigma[0])*big_sigma*0.1); // ~10% change
-	logProposalRatio *= dist_proposed / dist;
-	
-	LALInferenceCopyVariables(currentParams, proposedParams);
-	LALInferenceSetVariable(proposedParams, "chirpmass",      &mc_proposed);		
-	LALInferenceSetVariable(proposedParams, "massratio",      &eta_proposed);
-	LALInferenceSetVariable(proposedParams, "inclination",    &iota_proposed);
-	LALInferenceSetVariable(proposedParams, "phase",          &phi_proposed);
-	LALInferenceSetVariable(proposedParams, "time",           &tc_proposed); 
-	LALInferenceSetVariable(proposedParams, "rightascension", &ra_proposed);
-	LALInferenceSetVariable(proposedParams, "declination",    &dec_proposed);
-	LALInferenceSetVariable(proposedParams, "polarisation",   &psi_proposed);
-	LALInferenceSetVariable(proposedParams, "distance",       &dist_proposed);
-	
-	// return ratio of proposal densities (for back & forth jumps) 
-	// in "runState->proposalArgs" vector:
-	if (LALInferenceCheckVariable(runState->proposalArgs, "logProposalRatio"))
-		LALInferenceSetVariable(runState->proposalArgs, "logProposalRatio", &logProposalRatio);
-	else
-		LALInferenceAddVariable(runState->proposalArgs, "logProposalRatio", &logProposalRatio, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
-}
-
-
-void PTMCMCLALAdaptationSingleProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
-/****************************************/
-/* Assumes the following parameters		*/
-/* exist (e.g., for TaylorT1):			*/
-/* chirpmass, massratio, inclination,	*/
-/* phase, time, rightascension,			*/
-/* desclination, polarisation, distance.*/
-/* Simply picks a new value based on	*/
-/* fixed Gaussian;						*/
-/* need smarter wall bounces in future.	*/
-/****************************************/
-{
-	REAL8 mc, eta, iota, phi, tc, ra, dec, psi, dist;
-	REAL8 mc_proposed, eta_proposed, iota_proposed, phi_proposed, tc_proposed, 
-	ra_proposed, dec_proposed, psi_proposed, dist_proposed;
-	REAL8 logProposalRatio = 1.0;  // = log(P(backward)/P(forward))
-	gsl_rng * GSLrandom=runState->GSLrandom;
-	LALInferenceVariables * currentParams = runState->currentParams;
-	//REAL8 sigmat = 0.1;
-	//INT4 nPar = LALInferenceGetVariableDimensionNonFixed(runState->currentParams);
-	//INT4 i,j;
-	
-	INT4 p = *(INT4*) LALInferenceGetVariable(runState->proposalArgs, "parameter");
-	//INT4 nPar  = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "nPar");
-	//INT4 nChain  = *(INT4*) LALInferenceGetVariable(runState->algorithmParams, "nChain");
-	//INT4 tempIndex  = *(INT4*) LALInferenceGetVariable(runState->proposalArgs, "tempIndex");
-	REAL8 big_sigma = 1.0;
-	
-	if(gsl_ran_ugaussian(GSLrandom) < 1.0e-3) big_sigma = 1.0e1;    //Every 1e3 iterations, take a 10x larger jump in all parameters
-	if(gsl_ran_ugaussian(GSLrandom) < 1.0e-4) big_sigma = 1.0e2;    //Every 1e4 iterations, take a 100x larger jump in all parameters
-	
-	
-	REAL8 *sigma=NULL;
-	sigma=(REAL8 *)(*(REAL8Vector **)LALInferenceGetVariable(runState->proposalArgs,"sigma"))->data;
-	
-	//gsl_matrix *sigma = *(gsl_matrix **)LALInferenceGetVariable(runState->proposalArgs, "sigma");
-	
-	//printf ("m(%d,%d) = %g\n", 1, 1, gsl_matrix_get (sigma, 1, 1));
-	
-	//	for (i = 0; i < nChain; i++){
-	//		for (j = 0; j < nPar; j++){
-	//			printf ("m(%d,%d) = %g\n", i, j, gsl_matrix_get (sigma, i, j));
-	//		}
-	//	}
-	//	printf("%f\n",sigma[0][0]);
-	//	int t,p;
-	//	for (t=0; t<5; ++t){
-	//		for (p=0; p<9; ++p){
-	//	printf("sigma[%d][%d]=%f\n",t,p,sigma[t][p]);
-	//		}
-	//	}
-	
-	//mc_proposed   = mc*(1.0+gsl_ran_ugaussian(GSLrandom)*0.01);	/*mc changed by 1% */
-	// (above proposal is not symmetric!)
-	//mc_proposed   = mc   + gsl_ran_ugaussian(GSLrandom)*0.0001;	/*mc changed by 0.0001 */
-		LALInferenceCopyVariables(currentParams, proposedParams);
-	
-	switch ( p ) {
-		case 8:
-			mc   = *(REAL8*) LALInferenceGetVariable(currentParams, "chirpmass");		/* solar masses*/
-			mc_proposed   = mc * exp(gsl_ran_gaussian(GSLrandom,sigma[8])*big_sigma*0.001);          /* mc changed by ~0.1% */
-			logProposalRatio *= mc_proposed / mc;   // (proposal ratio for above "scaled log-normal" proposal)
-			LALInferenceSetVariable(proposedParams, "chirpmass",      &mc_proposed);
-			break;
-		case 7:
-			eta  = *(REAL8*) LALInferenceGetVariable(currentParams, "massratio");		/* dim-less    */
-			eta_proposed  = eta  + gsl_ran_gaussian(GSLrandom,sigma[7])*big_sigma*0.01; /*eta changed by 0.01*/
-			//TODO: if(eta_proposed>0.25) eta_proposed=0.25-(eta_proposed-0.25); etc.
-			LALInferenceSetVariable(proposedParams, "massratio",      &eta_proposed);
-			break;
-		case 6:
-			iota = *(REAL8*) LALInferenceGetVariable(currentParams, "inclination");		/* radian      */
-			iota_proposed = iota + gsl_ran_gaussian(GSLrandom,sigma[6])*big_sigma*0.1;
-			LALInferenceSetVariable(proposedParams, "inclination",    &iota_proposed);
-			break;
-		case 5:
-			tc   = *(REAL8*) LALInferenceGetVariable(currentParams, "time");				/* GPS seconds */
-			tc_proposed   = tc   + gsl_ran_gaussian(GSLrandom,sigma[5])*big_sigma*0.005; /*time changed by 5 ms*/
-			LALInferenceSetVariable(proposedParams, "time",           &tc_proposed);
-			break;
-		case 4:
-			phi  = *(REAL8*) LALInferenceGetVariable(currentParams, "phase");			/* radian      */
-			phi_proposed  = phi  + gsl_ran_gaussian(GSLrandom,sigma[4])*big_sigma*0.5;
-			LALInferenceSetVariable(proposedParams, "phase",          &phi_proposed);
-			break;
-		case 3:
-			ra   = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension");	/* radian      */
-			ra_proposed   = ra   + gsl_ran_gaussian(GSLrandom,sigma[3])*big_sigma*0.05;
-			LALInferenceSetVariable(proposedParams, "rightascension", &ra_proposed);
-			break;
-		case 2:
-			dec  = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");		/* radian      */
-			dec_proposed  = dec  + gsl_ran_gaussian(GSLrandom,sigma[2])*big_sigma*0.05;
-			LALInferenceSetVariable(proposedParams, "declination",    &dec_proposed);
-			break;
-		case 1:
-			psi  = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");		/* radian      */
-			psi_proposed  = psi  + gsl_ran_gaussian(GSLrandom,sigma[1])*big_sigma*0.1;
-			LALInferenceSetVariable(proposedParams, "polarisation",   &psi_proposed);
-			break;
-		case 0:
-			dist = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");			/* Mpc         */
-			//dist_proposed = dist + gsl_ran_ugaussian(GSLrandom)*0.5;
-			dist_proposed = dist * exp(gsl_ran_gaussian(GSLrandom,sigma[0])*big_sigma*0.1); // ~10% change
-			logProposalRatio *= dist_proposed / dist;
-			LALInferenceSetVariable(proposedParams, "distance",       &dist_proposed);
-			break;
-	}
-	
-	// return ratio of proposal densities (for back & forth jumps) 
-	// in "runState->proposalArgs" vector:
-	if (LALInferenceCheckVariable(runState->proposalArgs, "logProposalRatio"))
-		LALInferenceSetVariable(runState->proposalArgs, "logProposalRatio", &logProposalRatio);
-	else
-		LALInferenceAddVariable(runState->proposalArgs, "logProposalRatio", &logProposalRatio, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
-}
-
-
-
-
 /*REAL8 GaussianLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data, LALTemplateFunction *template)
 {
 	
@@ -1295,43 +1104,43 @@ void PTMCMCLALInferenceInclinationFlip(LALInferenceRunState *runState, LALInfere
 
   iota = *((REAL8 *) LALInferenceGetVariable(proposedParams, "inclination"));
   
-  if (runState->template==&LALInferenceTemplateLALSTPN) {
-    /* Handle spins. */
-    REAL8 dummyNorm, newIota, newPhi;
-    REAL8 theta1, theta2, phi1, phi2;
-    REAL8 L[3], a1[3], a2[3], xhat[3] = {1,0,0};
-
-    theta1 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "theta_spin1"));
-    theta2 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "theta_spin2"));
-
-    phi1 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "phi_spin1"));
-    phi2 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "phi_spin2"));
-
-    thetaPhiToVector(1.0, iota, 0.0, L);
-    thetaPhiToVector(1.0, theta1, phi1, a1);
-    thetaPhiToVector(1.0, theta2, phi2, a2);
-
-    rotateVectorAboutVector(L, xhat, M_PI-2.0*iota);
-    rotateVectorAboutVector(a1, xhat, M_PI-2.0*iota);
-    rotateVectorAboutVector(a2, xhat, M_PI-2.0*iota);
-
-    vectorToThetaPhi(&dummyNorm, &newIota, &newPhi, L);
-    vectorToThetaPhi(&dummyNorm, &theta1, &phi1, a1);
-    vectorToThetaPhi(&dummyNorm, &theta2, &phi2, a2);
-
-    if (fabs(newIota + iota - M_PI) > 1e-8 || fabs(newPhi) > 1e-8) {
-      fprintf(stderr, "ERROR: inclination swap not implemented properly.\n");
-      fprintf(stderr, "ERROR: should have new iota = Pi - iota, phi = 0 instead have\n");
-      fprintf(stderr, "ERROR: new iota = %g, old iota = %g, phi = %g\n", newIota, iota, newPhi);
-      exit(1);
-    }
-
-    LALInferenceSetVariable(proposedParams, "phi_spin1", &phi1);
-    LALInferenceSetVariable(proposedParams, "phi_spin2", &phi2);
-    LALInferenceSetVariable(proposedParams, "theta_spin1", &theta1);
-    LALInferenceSetVariable(proposedParams, "theta_spin2", &theta2);
-    /* Don't need to set iota because it will happen outside the if statement. */
-  }
+//   if (runState->template==&LALInferenceTemplateLALSTPN) {
+//     /* Handle spins. */
+//     REAL8 dummyNorm, newIota, newPhi;
+//     REAL8 theta1, theta2, phi1, phi2;
+//     REAL8 L[3], a1[3], a2[3], xhat[3] = {1,0,0};
+// 
+//     theta1 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "theta_spin1"));
+//     theta2 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "theta_spin2"));
+// 
+//     phi1 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "phi_spin1"));
+//     phi2 = *((REAL8 *) LALInferenceGetVariable(proposedParams, "phi_spin2"));
+// 
+//     thetaPhiToVector(1.0, iota, 0.0, L);
+//     thetaPhiToVector(1.0, theta1, phi1, a1);
+//     thetaPhiToVector(1.0, theta2, phi2, a2);
+// 
+//     rotateVectorAboutVector(L, xhat, M_PI-2.0*iota);
+//     rotateVectorAboutVector(a1, xhat, M_PI-2.0*iota);
+//     rotateVectorAboutVector(a2, xhat, M_PI-2.0*iota);
+// 
+//     vectorToThetaPhi(&dummyNorm, &newIota, &newPhi, L);
+//     vectorToThetaPhi(&dummyNorm, &theta1, &phi1, a1);
+//     vectorToThetaPhi(&dummyNorm, &theta2, &phi2, a2);
+// 
+//     if (fabs(newIota + iota - M_PI) > 1e-8 || fabs(newPhi) > 1e-8) {
+//       fprintf(stderr, "ERROR: inclination swap not implemented properly.\n");
+//       fprintf(stderr, "ERROR: should have new iota = Pi - iota, phi = 0 instead have\n");
+//       fprintf(stderr, "ERROR: new iota = %g, old iota = %g, phi = %g\n", newIota, iota, newPhi);
+//       exit(1);
+//     }
+// 
+//     LALInferenceSetVariable(proposedParams, "phi_spin1", &phi1);
+//     LALInferenceSetVariable(proposedParams, "phi_spin2", &phi2);
+//     LALInferenceSetVariable(proposedParams, "theta_spin1", &theta1);
+//     LALInferenceSetVariable(proposedParams, "theta_spin2", &theta2);
+//     /* Don't need to set iota because it will happen outside the if statement. */
+//   }
 
   iota = M_PI - iota;
 
@@ -1456,6 +1265,10 @@ void PTMCMCLALInferenceInclinationDistanceConstAmplitudeJump(LALInferenceRunStat
   dNew = fabs((fPlus*(0.5*(1.0 + cosIotaNew*cosIotaNew)) + fCross*cosIotaNew) / norm);
 
   LALInferenceSetVariable(proposedParams, "distance", &dNew);
+  if(LALInferenceCheckVariable(proposedParams,"logdistance")){
+    REAL8 logdist=log(dNew);
+    LALInferenceSetVariable(proposedParams,"logdistance",&logdist);
+  }
   LALInferenceSetVariable(proposedParams, "inclination", &iotaNew);
 
   LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);

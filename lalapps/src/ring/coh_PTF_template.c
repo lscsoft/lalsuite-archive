@@ -95,13 +95,15 @@ coh_PTF_template_PTF (
   sanity_check( fcTmplt->PTFQtilde );
   sanity_check( fcTmplt->PTFQtilde->length == 5 );
   sanity_check( fcTmplt->PTFQtilde->data );
+  sanity_check( fcTmplt->PTFQ );
+  sanity_check( fcTmplt->PTFQ->length == 5 );
+  sanity_check( fcTmplt->PTFQ->data );
 
   /* check that the parameter structure exists */
   sanity_check( params );
   sanity_check( fcTmplt->PTFQ );
   sanity_check( fcTmplt->PTFQ->length == 5 );
   sanity_check( fcTmplt->PTFQ->data );
-
   sanity_check( params->fwdPlan );
 
   /* check that the timestep is positive */
