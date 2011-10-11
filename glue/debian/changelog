@@ -1,3 +1,9 @@
+python-glue (1.36) unstable; urgency=low
+
+  * Initial release of 1.36
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Mon, 10 Oct 2011 14:03:00 -0500
+
 python-glue (1.35) unstable; urgency=low
 
   * Initial release of 1.35
