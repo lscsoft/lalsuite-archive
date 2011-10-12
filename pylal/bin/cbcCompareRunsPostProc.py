@@ -248,7 +248,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     injTable=SimInspiralUtils.ReadSimInspiralFromFiles([inj])
     ### flow and fup only control the extrema of the error plots.
     flow=20.0
-    fup=800.0
+    fup=1000.0
     label_size=26
     time_event=None
     ### Read the trigger times from the injfile using the raw_event option
@@ -319,6 +319,8 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if len(times_run[run])==1:
 	    print "A single time found for the run %i. You need at least two times for the analysis to be doable. Excluding run %i from the post processing.\n"%(run,run)
             key_runs.remove(run)
+    failed_runs=[]
+    #[939937470,939938014,939938870] ### Times of the runs which failed or that we do not want to consider for some reasons.
     for run in key_runs:
         ctrl_times[run]=[time for time in times_run[run]]
     if len(key_runs)==0:
@@ -333,7 +335,6 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
     actual=0.0
     for run in key_runs:
         tot_post+=2*len(times_run[run])
-    print tot_post,"\n"
     ## prepare files with means and other useful data. It also fills the list with the sky positions ###
     for out_run in key_runs:
         recovered_positions_ctrl[out_run]=[]
@@ -376,6 +377,11 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                         times_run[out_run].remove(time)
                         actual+=2
                         continue
+                if time in  failed_runs:
+                    print "removing time %s from run %s because in the failed list "%(time,out_run)
+                    times_run[out_run].remove(time)
+                    actual+=2
+                    continue
 
                 path_to_file=os.path.join(Combine[run],'posterior_samples_'+str(time)+'.000')
                 posterior_file=open(path_to_file,'r')
@@ -420,7 +426,12 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
                         for he in hea:
                             #header_l.append(he)
 			    header.write(' \''+ he+'\',')
-
+                if path_to_result_pages is not None:
+                    if os.path.isfile(os.path.join(path_to_result_pages[run],str(time),'sky_res.dat')):
+                        sky_res=np.loadtxt(os.path.join(path_to_result_pages[run],str(time),'sky_res.dat'),skiprows=1)
+                        summary.write(str(sky_res[0,1]) +' '+str(sky_res[1,1])+' '+str(sky_res[2,1])+' '+str(sky_res[3,1]) +'\n')
+                        if time==times_run[out_run][0]:
+                            header.write(' \''+str(sky_res[0,0]) +'CL\',' + ' \''+str(sky_res[1,0])+'CL\','+' \''+str(sky_res[2,0])+'CL\','+' \''+str(sky_res[3,0]) +'CL\'')
                 summary.write('\n')
             #header.write(' '.join(str(n) for n in header_l))
             header.write(']') 
@@ -434,7 +445,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         path_cal=os.path.join(outdir,'summary_'+keyword+'_'+run+'.dat')
         header=open(os.path.join(outdir,'headers_'+str(keyword)+"_"+str(out_run)+'.dat'),'r')
         header_l=eval(header.readline())
-	print header_l,type(header_l),header_l.index('SNR_Network')
+	#print header_l,type(header_l),header_l.index('SNR_Network'),path_cal
         MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,keyword)
         if snrs is not None:
             MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,keyword)
@@ -444,6 +455,8 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
             MakeErrorPlots(times_run[int(run)][0],outdir,calerr,run,flow,fup,IFOs,label_size,keyword)
         if injected_positions!=[] and recovered_positions_key!={}:
             d,r=Make_injected_sky_map(injected_positions[int(run)],outdir,run,dec_ra_cal=recovered_positions_key[int(run)],dec_ra_ctrl=recovered_positions_ctrl[int(run)])
+        if path_to_result_pages is not None:
+            MakeSkyResPlots(outdir,path_cal,path_uncal,run,header_l,label_size,keyword)
         WritePlotPage(outdir,run,parameters,times_run[int(run)][0])
         WriteSummaryPage(outdir,run,path_to_result_pages[int(run)],path_to_result_pages[0],header_l,times_run[int(run)],IFOs,keyword,d)
     MakeRunsComparePlots(outdir,len(key_runs),label_size)
@@ -464,6 +477,7 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     run=str(run)
     path_plots=os.path.join(outdir,run,'ErrorPlots')
     checkDir(path_plots)
+
     data={}
     for IFO in IFOs:
         path_to_data=os.path.join(in_data_path[int(run)-1],'calerr_'+IFO+'_'+str(time)+'.0.dat')
@@ -484,17 +498,30 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
     if b==0:
         print "Could not fix f_up to %5.2f. Exiting...\n"%f_up
         sys.exit(1)
-    
-    myfig=figure(1,figsize=(12,8),dpi=200)
+    fig_width_pt = 3*246.0  # Get this from LaTeX using \showthe\columnwidth
+    inches_per_pt = 1.0/72.27               # Convert pt to inch
+    golden_mean = (np.sqrt(5)-1.0)/2.0         # Aesthetic ratio
+    fig_width = fig_width_pt*inches_per_pt  # width in inches
+    fig_height = fig_width*golden_mean      # height in inches
+    fig_size =  [fig_width,fig_height]
+
+    myfig=figure(1,figsize=fig_size,dpi=600)
     ax=myfig.add_subplot(111)
-    for (IFO,color) in zip(IFOs,['r','b','k']):
-        plot(data[IFO][a:b,0],data[IFO][a:b,1],color,linewidth=3,label=IFO)
-    axhline(y=1.0,linewidth=2, linestyle='--',color='m') 
+    myfig.subplots_adjust(left=0.15,right=0.95,bottom=0.15,top=0.95)
+    for (IFO,color) in zip(IFOs,['r:','b-','k--']):
+        semilogx(data[IFO][a:b,0],data[IFO][a:b,1],color,linewidth=3,label=IFO)
+        dump_file=os.path.join(path_plots,'amplitude_'+IFO+'.txt')
+        np.savetxt(dump_file,array([data[IFO][a:b,0],data[IFO][a:b,1]]).transpose())
+    axhline(y=1.0,linewidth=2, linestyle='-.',color='m') 
     ax.set_xlabel('f[Hz]',fontsize=label_size)
-    ax.set_ylabel('Amp_'+key+'/Amp_ctrl',fontsize=label_size)
+    #ax.set_ylabel('Amp_'+key+'/Amp_ctrl',fontsize=label_size)
+    ax.set_ylabel('$\\frac{A_m}{A_e}$',fontsize=label_size+6,rotation=0)
+    ax.set_xlim((f_0,f_up))
     ax.set_ylim((0.7,1.3))
     set_fontsize_in_ticks(ax,label_size)
-    grid()
+    ax.grid(b='on',which='major')
+    ax.grid(b='on',which='minor')
+
     leg=ax.legend()
     for i in leg.get_texts():
         i.set_fontsize(label_size)
@@ -517,27 +544,41 @@ def MakeErrorPlots(time,outdir,in_data_path,run,f_0,f_up,IFOs,label_size,key):
         phase[IFO]=data[IFO][:,2]
         phase_normalized[IFO]=[]
         normalizer(phase[IFO],phase_normalized[IFO])
+    fig_width_pt = 3*246.0  # Get this from LaTeX using \showthe\columnwidth
+    inches_per_pt = 1.0/72.27               # Convert pt to inch
+    golden_mean = (np.sqrt(5)-1.0)/2.0         # Aesthetic ratio
+    fig_width = fig_width_pt*inches_per_pt  # width in inches
+    fig_height = fig_width*golden_mean      # height in inches
+    fig_size =  [fig_width,fig_height]
 
-    myfig=figure(1,figsize=(12,8),dpi=200)
+    myfig=figure(1,figsize=fig_size,dpi=600)
     ax=myfig.add_subplot(111)
-    for (IFO,color) in zip(IFOs,['r','b','k']):
-        plot(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,linewidth=3,label=IFO)
-    ax.set_xlabel('f[Hz]',fontsize=label_size)
-    ax.set_ylabel('Pha_'+key+' -Pha_ctrl [Rads]',fontsize=label_size)
-    axhline(y=0.0,linewidth=2, linestyle='--',color='m')
+    myfig.subplots_adjust(left=0.16,right=0.95,bottom=0.15,top=0.95)
+    for (IFO,color) in zip(IFOs,['r:','b-','k--']):
+        semilogx(data[IFO][a:b,0],phase_normalized[IFO][a:b],color,linewidth=3,label=IFO)
+        dump_file=os.path.join(path_plots,'phase_'+IFO+'.txt')
+        np.savetxt(dump_file,array([data[IFO][a:b,0],phase_normalized[IFO][a:b]]).transpose())
+    ax.set_xlabel('f [Hz]',fontsize=label_size)
+    #ax.set_ylabel('$\phi_'+key+' -Pha_ctrl [Rads]',fontsize=label_size)
+    ax.set_ylabel('$\phi_m -\phi_e$ [Rads]',fontsize=label_size+6)
+    axhline(y=0.0,linewidth=2, linestyle='-.',color='m')
+    ax.set_xlim((f_0,f_up))
     ax.set_ylim((-0.2,0.2))
     set_fontsize_in_ticks(ax,label_size)
     leg=ax.legend()
     for i in leg.get_texts():
         i.set_fontsize(label_size)
 
-    grid()
+    ax.grid(b='on',which='major')
+    ax.grid(b='on',which='minor')
+
     myfig.savefig(os.path.join(path_plots,'pha_'+str(time)+'.png'))
     myfig.clear()
 
 
 def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,key):
     nbins=20
+    print path_cal
     data_cal=np.loadtxt(path_cal)
     data_uncal=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'ParametersPlots')
@@ -546,7 +587,32 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,key)
     network_snrs_key=[snr for snr in data_cal[:,header_l.index('SNR_Network')]]
     effect_size_moments=open(os.path.join(path_plots,'moments.txt'),'w')
     effect_size_moments.write('Param Mean StdDev Median 5thPer.tle 95thPer.tle \n')
+    effect_size_moments_noOutliers=open(os.path.join(path_plots,'moments_no_outliers.txt'),'w')
+    effect_size_moments_noOutliers.write('Param Mean StdDev Median 5thPer.tle 95thPer.tle \n')
     theres_snr_ind=[]
+    latex_params=[]
+    label_size=26
+    for parameter in parameters:
+        if parameter=='eta':
+            latex_params.append('$\Sigma^\eta$')
+        elif parameter=='m':
+            latex_params.append('$\Sigma^{\mathcal{M}}$')
+        elif parameter=='psi':
+            latex_params.append('$\Sigma^\psi$')
+        elif parameter=='phi':
+            latex_params.append('$\Sigma^{\phi_0}$')
+        elif parameter=='dist':
+            latex_params.append('$\Sigma^D$')
+        elif parameter=='iota':
+            latex_params.append('$\Sigma^\iota$')
+        elif parameter=='ra':
+            latex_params.append('$\Sigma^{RA}$')
+        elif parameter=='dec':
+            latex_params.append('$\Sigma^{dec}$')
+        elif parameter=='time':
+            latex_params.append('$\Sigma^{t_0}$')
+        else:
+            latex_params.append(parameter)
     for snr in network_snrs_key:
         if snr>8.0:
             theres_snr_ind.append(network_snrs_key.index(snr))
@@ -590,11 +656,19 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,key)
         myfig.clear()
         ##### This part calculates effect size
         effect_size =(data_cal[theres_snr_ind,x]-data_uncal[theres_snr_ind,x])/data_uncal[theres_snr_ind,x+1]  
+        if parameter=='ra' or parameter=='RA' or parameter=='RightAscension' or parameter=='rightascension':
+            for idx in theres_snr_ind:
+                if (data_cal[idx,x]-data_uncal[idx,x])>pi:
+                    print "changed the effect size of RA from  ", (data_cal[idx,x]-data_uncal[idx,x])/data_uncal[idx,x+1], "to ",(data_cal[idx,x]-data_uncal[idx,x]-2.0*pi)/data_uncal[idx,x+1]
+                    effect_size[theres_snr_ind.index(idx)]=(data_cal[idx,x]-data_uncal[idx,x]-2.0*pi)/data_uncal[idx,x+1]
+                if (data_cal[idx,x]-data_uncal[idx,x])<-pi:
+                    print "changed the effect size of RA from  ", (data_cal[idx,x]-data_uncal[idx,x])/data_uncal[idx,x+1], "to ",(data_cal[idx,x]-data_uncal[idx,x]+2.0*pi)/data_uncal[idx,x+1]
+                    effect_size[theres_snr_ind.index(idx)]=(data_cal[idx,x]-data_uncal[idx,x]+2.0*pi)/data_uncal[idx,x+1]
         mean_effect_size=np.mean(effect_size)
-        std_effect_size=np.std(effect_size,mean_effect_size)
+        std_effect_size=np.std(effect_size)
         for i in range(len(data_cal[:,0])):
-            if fabs(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]>1.0:
-                print "run ",run,"parameter ",parameter, "event", i,"median cal ",data_cal[i,x],"median ctrl ",data_uncal[i,x],"std dev ctrl ",data_uncal[i,x+1],"ESize ",(data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1]
+            if fabs(effect_size[i])>1.0:
+                print "run ",run,"parameter ",parameter, "event", i,"median cal ",data_cal[i,x],"median ctrl ",data_uncal[i,x],"std dev ctrl ",data_uncal[i,x+1],"ESize ",effect_size[i]
                 outliers.write('run '+run +  ' parameter ' + parameter + ' event ' + str(i) + ' median_ctrl ' +str(data_uncal[i,x]) + ' median_'+key + str(data_cal[i,x]) + ' effect_size ' +str((data_cal[i,x]-data_uncal[i,x])/data_uncal[i,x+1])+'\n')
 
         skewness_effect_size= skewness(effect_size, mean_effect_size, std_effect_size)
@@ -605,17 +679,33 @@ def MakePlots(outdir,path_cal,path_uncal,run,parameters,label_size,header_l,key)
         print "5perc %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,5))
         print "95 perc  %s in run %i: %e\n" %(parameter,int(run),stat.scoreatpercentile(effect_size,95))
         effect_size_moments.write(parameter+'\t'+str(mean_effect_size)+'\t'+str(std_effect_size)+'\t'+str(np.median(effect_size))+'\t'+str(stat.scoreatpercentile(effect_size,5))+'\t'+str(stat.scoreatpercentile(effect_size,95))+'\n')
+        effect_no_out=[i for i in effect_size if fabs(i)<5.0]
+        effect_size_moments_noOutliers.write(parameter+'\t'+str(np.mean(effect_no_out))+'\t'+str(np.std(effect_no_out))+'\t'+str(np.median(effect_no_out))+'\t'+str(stat.scoreatpercentile(effect_no_out,5))+'\t'+str(stat.scoreatpercentile(effect_no_out,95))+'\n')
         #print "Kurtosis %e\n" % kurtosis_effect_size
         bins=linear_space(effect_size.min(),effect_size.max(),nbins)
-        myfig2=figure(figsize=(4,3.5),dpi=80)
+
+        fig_width_pt = 3*246.0  # Get this from LaTeX using \showthe\columnwidth
+        inches_per_pt = 1.0/72.27               # Convert pt to inch
+        golden_mean = (np.sqrt(5)-1.0)/2.0         # Aesthetic ratio
+        fig_width = fig_width_pt*inches_per_pt  # width in inches
+        fig_height = fig_width*golden_mean      # height in inches
+        fig_size =  [fig_width,fig_height]
+
+        myfig=figure(1,figsize=fig_size,dpi=600)
+        ax=myfig.add_subplot(111)
+        myfig.subplots_adjust(left=0.16,right=0.95,bottom=0.15,top=0.95)
         hist(effect_size, bins=bins, normed="true",color='r',fill=False, hatch='//', linewidth='2')
-        xlabel('effect_'+parameter)
+        xlabel(latex_params[parameters.index(parameter)],fontsize=label_size)
+        ylabel('p('+latex_params[parameters.index(parameter)]+')',fontsize=label_size)
         axvline(x=0, ymin=0, ymax=1,linewidth=2, color='b')
+
+        set_fontsize_in_ticks(ax,label_size)
         grid()
         legend()
-        myfig2.savefig(os.path.join(path_plots,'effect_'+parameter+'.png'))
-        myfig2.clear()
+        myfig.savefig(os.path.join(path_plots,'effect_'+parameter+'.png'))
+        myfig.clear()
     effect_size_moments.close()
+    effect_size_moments_noOutliers.close()
     outliers.close()
 
 def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,label_size,key):
@@ -638,7 +728,7 @@ def MakeSNRPlots(outdir,snrs,path_cal,path_uncal,run,parameters,header_l,IFOs,la
         i=parameters.index(parameter)*2+1
         y_effect=(data_cal[theres_snr_ind,i]-data_ctrl[theres_snr_ind,i])/data_ctrl[theres_snr_ind,i+1]        
         y_delta=(data_cal[theres_snr_ind,i]-data_ctrl[theres_snr_ind,i])
-        myfig=plt.figure(2,figsize=(10,10),dpi=80)
+        myfig=plt.figure(2,figsize=(10,10),dpi=600)
         ax=myfig.add_subplot(211)
         ax.plot(network_snrs[theres_snr_ind],y_effect,'bo',label='EffectVsSNR')
         ax.set_xlabel('Network SNR_'+key,fontsize=label_size)
@@ -675,8 +765,39 @@ def MakeRunsComparePlots(outdir,runs,label_size):
 
     parameters=par[:,0]
     for param in parameters:
-        myfig=figure(2,figsize=(14,10),dpi=300)
+        myfig=figure(2,figsize=(14,10),dpi=600)
         ax=myfig.add_subplot(111)
+        dump_file=open(os.path.join(path_out,'compare_runs_no_out_'+param+'.txt'),'w')
+        for i in range(1,runs+1):
+            Mean=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments_no_outliers.txt'),skiprows=1,usecols=(1,2,3))
+            Mean=Mean[list(parameters).index(param),0]
+            Stdev=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments_no_outliers.txt'),skiprows=1,usecols=(1,2,3))
+            Stdev=Stdev[list(parameters).index(param),1]
+            Median=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments_no_outliers.txt'),skiprows=1,usecols=(1,2,3))
+            Median=Median[list(parameters).index(param),2]
+            if i==1:
+                #ax.errorbar(i,Mean,yerr=Stdev,fmt='--o',color='r',mfc='r',label='means')
+                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b',ms=10,lw=2,label='median')
+            else:
+                #ax.errorbar(i,Mean,yerr=Stdev,fmt='--o',color='r',mfc='r')
+                ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b',ms=10,lw=2)
+
+            xlim((0,runs+1))
+            dump_file.write(str(Median) +' '+ str(Stdev)+'\n')
+        ax.set_xlabel("CalError Realization #",fontsize=labelsize)
+        ax.set_ylabel("median effect_"+param,fontsize=labelsize)
+        ax.set_ylim((-0.8,0.8))
+        ax.grid()
+	leg=ax.legend()
+        set_fontsize_in_ticks(ax,label_size+4)
+        set_fontsize_in_legend(leg,label_size+4)
+        myfig.savefig(os.path.join(path_out,'compare_no_outliers_'+param+'.png'))
+        myfig.clear()
+        dump_file.close()
+
+        myfig=figure(2,figsize=(14,10),dpi=600)
+        ax=myfig.add_subplot(111)
+        dump_file=open(os.path.join(path_out,'compare_'+param+'.txt'),'w')
         for i in range(1,runs+1):
             Mean=np.loadtxt(os.path.join(outdir,str(i),'ParametersPlots','moments.txt'),skiprows=1,usecols=(1,2,3))
             Mean=Mean[list(parameters).index(param),0]
@@ -692,15 +813,19 @@ def MakeRunsComparePlots(outdir,runs,label_size):
                 ax.errorbar(i,Median,yerr=Stdev,fmt='--o',color='b',mfc='b',ms=10,lw=2)
 
             xlim((0,runs+1))
+            dump_file.write(str(Median) +' '+ str(Stdev)+'\n')
         ax.set_xlabel("CalError Realization #",fontsize=labelsize)
         ax.set_ylabel("median effect_"+param,fontsize=labelsize)
-        ax.set_ylim((-0.8,0.8))
+        #ax.set_ylim((-0.8,0.8))
         ax.grid()
-	leg=ax.legend()
+        leg=ax.legend()
         set_fontsize_in_ticks(ax,label_size+4)
         set_fontsize_in_legend(leg,label_size+4)
         myfig.savefig(os.path.join(path_out,'compare_'+param+'.png'))
         myfig.clear()
+        dump_file.close()
+
+
 
 def set_fontsize_in_ticks(axes,size):
     [t.set_fontsize(size) for t in axes.xaxis.get_ticklabels()]
@@ -709,16 +834,53 @@ def set_fontsize_in_legend(legend,size):
     for i in legend.get_texts():
         i.set_fontsize(size)
 
+def MakeSkyResPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
+    label_size=26
+    data_cal=np.loadtxt(path_cal)
+    data_ctrl=np.loadtxt(path_uncal)
+    CL=[0.67,0.9,0.95,0.99]
+    nbins=20
+    for cl in CL:
+        print header_l, str(cl)+'CL',header_l.index(str(cl)+'CL')
+        sky_cal=data_cal[:,header_l.index(str(cl)+'CL')]
+        sky_ctrl=data_ctrl[:,header_l.index(str(cl)+'CL')]
+        myfig=figure(2,figsize=(12,10),dpi=200)
+        ax=myfig.add_subplot(111)
+        bins=linear_space(min(sky_cal.min(),sky_ctrl.min()),max(sky_cal.max(),sky_ctrl.max()),nbins)
+        hist(sky_cal, bins=bins, normed="true",color='r',fill=False, hatch='//', linewidth='2',label="Measured")
+        hist(sky_ctrl, bins=bins, normed="true",color='g',fill=False, hatch='+', linewidth='2',label='Exact')
+        leg=ax.legend()
+        grid()
+        set_fontsize_in_ticks(ax,label_size)
+        set_fontsize_in_legend(leg,label_size)
+        xlabel(str(int(float(cl)*100.0))+"% confidence region size (deg2)",fontsize=label_size)
+        myfig.savefig(os.path.join(outdir,str(run),'SkyPlots','sky_res_'+str(cl)+'.png'))
+        myfig.clear()
+        myfig=figure(2,figsize=(12,10),dpi=200)
+        ax=myfig.add_subplot(111)
+        bins=linear_space(min(sky_cal/sky_ctrl),max(sky_cal/sky_ctrl),nbins)
+        hist(sky_cal/sky_ctrl, bins=bins, normed="true",color='r',fill=False, hatch='//', linewidth='2')
+        grid()
+        set_fontsize_in_ticks(ax,label_size)
+        xlabel(str(int(float(cl)*100.0))+"% confidence region size (measured/exact)",fontsize=label_size)
+        myfig.savefig(os.path.join(outdir,str(run),'SkyPlots','sky_res_ratio_'+str(cl)+'.png'))
+        myfig.clear()
+
+
 def MakeBSNPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     labelsize=22
     data_cal=np.loadtxt(path_cal)
     data_ctrl=np.loadtxt(path_uncal)
     path_plots=os.path.join(outdir,run,'BSNPlots')
+    dump_file=open(os.path.join(path_plots,'BSN_'+str(run)+'.txt'),'w')
     checkDir(path_plots)
     network_snrs=data_cal[:,header_l.index('SNR_Network')]
     network_snrs_ctrl=data_ctrl[:,header_l.index('SNR_Network')]
     bsns_cal=data_cal[:,header_l.index('BSN')]
     bsns_ctrl=data_ctrl[:,header_l.index('BSN')]
+    for (bsn_ctrl,bsn) in zip(bsns_ctrl,bsns_cal):
+        dump_file.write(str(bsn_ctrl) +' '+str(bsn) +'\n')
+    dump_file.close()
     myfig=figure(2,figsize=(12,10),dpi=200)
     ax=myfig.add_subplot(111)
     ax.plot(network_snrs,bsns_cal,'ro',label='BSN_'+key)
