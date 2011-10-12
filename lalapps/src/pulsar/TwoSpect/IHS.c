@@ -20,6 +20,10 @@
 #include <math.h>
 #include <time.h>
 
+#ifdef __SSE__
+#include <xmmintrin.h>
+#endif
+
 #include <lal/LALMalloc.h>
 #include <lal/SeqFactories.h>
 
@@ -30,6 +34,7 @@
 #include "statistics.h"
 #include "candidates.h"
 #include "fastchisqinv.h"
+
 
 //////////////////////////////////////////////////////////////
 // Create vectors for IHS maxima struct
@@ -889,14 +894,23 @@ void ihsSums2_withFAR_withnoise(ihsMaximaStruct *output, ihsfarStruct *outputfar
          
          
          //FILE *TWOROWSUM = fopen("./tworowsum.dat","w");
+         if (params->useSSE) {
+            sseSSVectorSequenceSum(tworows, ihsvectorsequence, ihsvectorsequence, 0, 1, 0, (INT4)ihsvectorsequence->length-(ii-1));
+            if (xlalErrno!=0) {
+               fprintf(stderr, "%s: sseSSVectorSequenceSum() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
+         }
          for (jj=0; jj<(INT4)ihsvectorsequence->length-(ii-1); jj++) {
             //Sum IHS values across SFT frequency bins
+            if (!params->useSSE) fastSSVectorSequenceSum(tworows, ihsvectorsequence, ihsvectorsequence, jj, jj+1, jj);
             for (kk=0; kk<(INT4)ihsvectorsequence->vectorLength; kk++) {
-               tworows->data[jj*ihsvectorsequence->vectorLength + kk] = ihsvectorsequence->data[jj*ihsvectorsequence->vectorLength + kk] + ihsvectorsequence->data[(jj+1)*ihsvectorsequence->vectorLength + kk];
-               tworows2->data[jj*ihsvalsfromaveNoise->length + kk] = ihsvalsfromaveNoise->data[kk]*(randvals->data[jj] + randvals->data[jj+1])*FbinMean->data[jj];
-               excessabovenoise->data[kk] = tworows->data[jj*ihsvectorsequence->vectorLength + kk] - tworows2->data[jj*ihsvalsfromaveNoise->length + kk];
+               //tworows->data[jj*ihsvectorsequence->vectorLength + kk] = ihsvectorsequence->data[jj*ihsvectorsequence->vectorLength + kk] + ihsvectorsequence->data[(jj+1)*ihsvectorsequence->vectorLength + kk];
+               tworows2->data[jj*ihsvalsfromaveNoise->length + kk] = ihsvalsfromaveNoise->data[kk]*(randvals->data[jj]*FbinMean->data[jj] + randvals->data[jj+1]*FbinMean->data[jj+1]);
+               //excessabovenoise->data[kk] = tworows->data[jj*ihsvectorsequence->vectorLength + kk] - tworows2->data[jj*ihsvalsfromaveNoise->length + kk];
                //fprintf(TWOROWSUM, "%.6f\n", tworows->data[jj*ihsvectorsequence->vectorLength + kk]);
             }
+            fastSSVectorSequenceSubtract(excessabovenoise, tworows, tworows2, jj, jj);
             
             //Compute the maximum IHS value in the second FFT frequency direction
             //output->locations->data[jj] = max_index_from_vector_in_REAL4VectorSequence(tworows, jj) + 5;
@@ -999,12 +1013,22 @@ void ihsSums2_withFAR_withnoise(ihsMaximaStruct *output, ihsfarStruct *outputfar
          }
          
          INT4 endloc = ((ii-1)*(ii-1)-(ii-1))/2;
-         for (jj=0; jj<(INT4)ihsvectorsequence->length-(ii-1); jj++) {
-            for (kk=0; kk<(INT4)ihsvectorsequence->vectorLength; kk++) {
-               tworows->data[jj*ihsvectorsequence->vectorLength + kk] += ihsvectorsequence->data[(ii-1+jj)*ihsvectorsequence->vectorLength + kk];
-               tworows2->data[jj*ihsvalsfromaveNoise->length + kk] += ihsvalsfromaveNoise->data[kk]*randvals->data[ii-1+jj]*FbinMean->data[ii-1+jj];
-               excessabovenoise->data[kk] = tworows->data[jj*ihsvectorsequence->vectorLength + kk] - tworows2->data[jj*ihsvalsfromaveNoise->length + kk];
+         if (params->useSSE) {
+            sseSSVectorSequenceSum(tworows, tworows, ihsvectorsequence, 0, ii-1, 0, (INT4)ihsvectorsequence->length-(ii-1));
+            if (xlalErrno!=0) {
+               fprintf(stderr, "%s: sseSSVectorSequenceSum() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
             }
+         }
+         for (jj=0; jj<(INT4)ihsvectorsequence->length-(ii-1); jj++) {
+            if (!params->useSSE) fastSSVectorSequenceSum(tworows, tworows, ihsvectorsequence, jj, ii-1+jj, jj);
+            for (kk=0; kk<(INT4)ihsvectorsequence->vectorLength; kk++) {
+               //tworows->data[jj*ihsvectorsequence->vectorLength + kk] += ihsvectorsequence->data[(ii-1+jj)*ihsvectorsequence->vectorLength + kk];
+               tworows2->data[jj*ihsvalsfromaveNoise->length + kk] += ihsvalsfromaveNoise->data[kk]*randvals->data[ii-1+jj]*FbinMean->data[ii-1+jj];
+               //excessabovenoise->data[kk] = tworows->data[jj*ihsvectorsequence->vectorLength + kk] - tworows2->data[jj*ihsvalsfromaveNoise->length + kk];
+            }
+            fastSSVectorSequenceSubtract(excessabovenoise, tworows, tworows2, jj, jj);
+            
             //output->locations->data[(ii-2)*ihss->length-endloc+jj] = max_index_from_vector_in_REAL4VectorSequence(tworows, jj) + 5;
             output->locations->data[(ii-2)*ihss->length-endloc+jj] = max_index(excessabovenoise) + 5;
             output->maxima->data[(ii-2)*ihss->length-endloc+jj] = tworows->data[jj*ihsvectorsequence->vectorLength+(output->locations->data[(ii-2)*ihss->length-endloc+jj]-5)];
@@ -1092,6 +1116,152 @@ void ihsSums2_withFAR_withnoise(ihsMaximaStruct *output, ihsfarStruct *outputfar
    gsl_rng_free(rng);
    
 } /*ihsSums2_withFAR_withnoise() */
+void SSVectorSequenceSum(REAL4VectorSequence *output, REAL4VectorSequence *input1, REAL4VectorSequence *input2, INT4 vectorpos1, INT4 vectorpos2, INT4 outputvectorpos)
+{
+   
+   INT4 ii, vec1 = vectorpos1*input1->vectorLength, vec2 = vectorpos2*input2->vectorLength, outvec = outputvectorpos*output->vectorLength;
+   for (ii=0; ii<(INT4)input1->vectorLength; ii++) output->data[outvec + ii] = input1->data[vec1 + ii] + input2->data[vec2 + ii];
+   
+}
+void fastSSVectorSequenceSum(REAL4VectorSequence *output, REAL4VectorSequence *input1, REAL4VectorSequence *input2, INT4 vectorpos1, INT4 vectorpos2, INT4 outputvectorpos)
+{
+   
+   REAL4 *a, *b, *c;
+   INT4 n;
+   
+   a = &(input1->data[vectorpos1*input1->vectorLength]);
+   b = &(input2->data[vectorpos2*input2->vectorLength]);
+   c = &(output->data[outputvectorpos*output->vectorLength]);
+   n = output->vectorLength;
+   
+   while (n-- > 0) {
+      *c = (*a)+(*b);
+      a++;
+      b++;
+      c++;
+   }
+   
+}
+void fastSSVectorSequenceSubtract(REAL4Vector *output, REAL4VectorSequence *input1, REAL4VectorSequence *input2, INT4 vectorpos1, INT4 vectorpos2)
+{
+   
+   REAL4 *a, *b, *c;
+   INT4 n;
+   
+   a = &(input1->data[vectorpos1*input1->vectorLength]);
+   b = &(input2->data[vectorpos2*input2->vectorLength]);
+   c = output->data;
+   n = output->length;
+   
+   while (n-- > 0) {
+      *c = (*a)-(*b);
+      a++;
+      b++;
+      c++;
+   }
+   
+}
+void sseSSVectorSequenceSum(REAL4VectorSequence *output, REAL4VectorSequence *input1, REAL4VectorSequence *input2, INT4 vectorpos1, INT4 vectorpos2, INT4 outputvectorpos, INT4 numvectors)
+{
+   
+#ifdef __SSE__
+   INT4 roundedvectorlength = (INT4)input1->vectorLength / 4;
+   
+   REAL4* allocinput1 = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
+   REAL4* allocinput2 = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
+   REAL4* allocoutput = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
+   if (allocinput1==NULL) {
+      fprintf(stderr, "%s: XLALMalloc(%zu) failed.\n", __func__, 4*roundedvectorlength*sizeof(REAL4) + 15);
+      XLAL_ERROR_VOID(XLAL_ENOMEM);
+   } else if (allocinput2==NULL) {
+      fprintf(stderr, "%s: XLALMalloc(%zu) failed.\n", __func__, 4*roundedvectorlength*sizeof(REAL4) + 15);
+      XLAL_ERROR_VOID(XLAL_ENOMEM);
+   } else if (allocoutput==NULL) {
+      fprintf(stderr, "%s: XLALMalloc(%zu) failed.\n", __func__, 4*roundedvectorlength*sizeof(REAL4) + 15);
+      XLAL_ERROR_VOID(XLAL_ENOMEM);
+   }
+   REAL4* alignedinput1 = (void*)(((UINT8)allocinput1+15) & ~15);
+   REAL4* alignedinput2 = (void*)(((UINT8)allocinput2+15) & ~15);
+   REAL4* alignedoutput = (void*)(((UINT8)allocoutput+15) & ~15);
+   
+   INT4 ii, jj;
+   for (ii=0; ii<numvectors; ii++) {
+      INT4 vec1 = (vectorpos1+ii)*input1->vectorLength, vec2 = (vectorpos2+ii)*input2->vectorLength, outvec = (outputvectorpos+ii)*output->vectorLength;
+      /* memcpy(alignedinput1, &(input1->data[vec1]), sizeof(REAL4)*4*roundedvectorlength);
+      memcpy(alignedinput2, &(input2->data[vec2]), sizeof(REAL4)*4*roundedvectorlength);
+      __m128* arr1 = (__m128*)alignedinput1;
+      __m128* arr2 = (__m128*)alignedinput2;
+      __m128* result = (__m128*)alignedoutput;
+      for (jj=0; jj<roundedvectorlength; jj++) {
+         *result = _mm_add_ps(*arr1, *arr2);
+         arr1++;
+         arr2++;
+         result++;
+      }
+      memcpy(&(output->data[outvec]), alignedoutput, sizeof(REAL4)*4*roundedvectorlength);
+      //for (jj=4*roundedvectorlength; jj<(INT4)input1->vectorLength; jj++) output->data[outvec + jj] = input1->data[vec1 + jj] + input2->data[vec2 + jj];
+      REAL4 *a = &(input1->data[vec1+4*roundedvectorlength]);
+      REAL4 *b = &(input2->data[vec1+4*roundedvectorlength]);
+      REAL4 *c = &(output->data[outvec+4*roundedvectorlength]);
+      INT4 n = output->vectorLength-4*roundedvectorlength;
+      while (n-- > 0) {
+         *c = (*a)+(*b);
+         a++;
+         b++;
+         c++;
+      } */
+      
+      INT4 input1vecaligned = 0, input2vecaligned = 0, outputvecaligned = 0;
+      __m128 *arr1, *arr2, *result;
+      if ( &(input1->data[vec1])==(void*)(((UINT8)&(input1->data[vec1])+15) & ~15) ) {
+         input1vecaligned = 1;
+         arr1 = (__m128*)&(input1->data[vec1]);
+      } else {
+         memcpy(alignedinput1, &(input1->data[vec1]), sizeof(REAL4)*4*roundedvectorlength);
+         arr1 = (__m128*)alignedinput1;
+      }
+      if ( &(input2->data[vec2])==(void*)(((UINT8)&(input2->data[vec2])+15) & ~15) ) {
+         input2vecaligned = 1;
+         arr2 = (__m128*)&(input2->data[vec2]);
+      } else {
+         memcpy(alignedinput2, &(input2->data[vec2]), sizeof(REAL4)*4*roundedvectorlength);
+         arr2 = (__m128*)alignedinput2;
+      }
+      if ( &(output->data[outvec])==(void*)(((UINT8)&(output->data[outvec])+15) & ~15) ) {
+         outputvecaligned = 1;
+         result = (__m128*)&(output->data[outvec]);
+      } else result = (__m128*)alignedoutput;
+      
+      for (jj=0; jj<roundedvectorlength; jj++) {
+         *result = _mm_add_ps(*arr1, *arr2);
+         arr1++;
+         arr2++;
+         result++;
+      }
+      
+      if (!outputvecaligned) memcpy(&(output->data[outvec]), alignedoutput, sizeof(REAL4)*4*roundedvectorlength);
+      
+      REAL4 *a = &(input1->data[vec1+4*roundedvectorlength]);
+      REAL4 *b = &(input2->data[vec1+4*roundedvectorlength]);
+      REAL4 *c = &(output->data[outvec+4*roundedvectorlength]);
+      INT4 n = output->vectorLength-4*roundedvectorlength;
+      while (n-- > 0) {
+         *c = (*a)+(*b);
+         a++;
+         b++;
+         c++;
+      }
+   }
+      
+   XLALFree(allocinput1);
+   XLALFree(allocinput2);
+   XLALFree(allocoutput);
+#else
+   fprintf(stderr, "%s: Failed because SSE is not supported, possibly because -msse flag wasn't used for compiling.\n", __func__);
+   XLAL_ERROR_VOID(XLAL_EFAILED);
+#endif
+   
+}
 
 
 REAL4VectorSequence * ihsVectorSums(REAL4VectorSequence *input, INT4 rows)
