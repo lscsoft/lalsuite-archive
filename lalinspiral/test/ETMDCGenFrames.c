@@ -33,6 +33,7 @@
 #include <lal/AVFactories.h>
 #include <lal/TimeSeries.h>
 #include <lal/PrintFTSeries.h>
+#include <lal/RealFFT.h>
 #include <lal/ReadFTSeries.h>
 #include <lal/StreamInput.h>
 #include <lal/PrintVector.h>
@@ -143,7 +144,7 @@ int main (INT4 argc, CHAR *argv[])
   UINT4 length;
   LIGOTimeGPS gpsStartTime, gpsT0;
   REAL8 tm, dt, t0;
-  REAL8Vector *tc;
+  REAL8Vector *tc = NULL;
   REAL4Vector *hp, *hc, *h;
   InspiralTemplate params;
   REAL4 apFac, acFac;
@@ -401,6 +402,7 @@ int main (INT4 argc, CHAR *argv[])
     /* calculate duration of the waveform and check if it is in our observation window */
     LALInspiralParameterCalc(&status, &params);
     duration = params.tC;
+    //printf("%e | %e | %e | %d \n", tc->data[i], (REAL8)stopTimeSeg,params.tC, tc->data[i]<=stopTimeSeg+params.tC );
     if(tc->data[i]<=stopTimeSeg+params.tC)
     {
       Ntot++;
@@ -445,6 +447,8 @@ int main (INT4 argc, CHAR *argv[])
       
       /* Estimate the length of signal vector */
       LALInspiralWaveLength( &status, &length, params);
+      
+      length = (UINT4) duration*rate;
       
       hp = XLALCreateREAL4Vector(length);
       hc = XLALCreateREAL4Vector(length);
@@ -491,6 +495,7 @@ int main (INT4 argc, CHAR *argv[])
       for (k=0;k<length;k++)
       {
         h->data[k] = hp->data[k]*(Fp)->data->data[k]+hc->data[k]*(Fc)->data->data[k];
+        //printf("%e \n", h->data[k]);
       }
       
       if(t0>=startTimeSeg)
@@ -597,7 +602,28 @@ int main (INT4 argc, CHAR *argv[])
     }
     XLALDestroyRandomParams( randParams2 );
 	
+	
   }
+  
+  	REAL8Vector * in1 = NULL;
+	in1 = XLALCreateREAL8Vector(serie1.data->length);
+	
+	FILE *ht_out = fopen("ht.dat", "w");
+ 			for(k=0;k<serie1.data->length;k++){
+ 				in1->data[k] = serie1.data->data[k];
+ 				fprintf(ht_out, "%e\t%e\n", k/((REAL8)rate), serie1.data->data[k]);
+ 			}
+ 
+ 			REAL8FFTPlan * fftforwardplan = XLALCreateForwardREAL8FFTPlan(serie1.data->length, 0);
+ 			COMPLEX16Vector * fftsinglewaveform = XLALCreateCOMPLEX16Vector(serie1.data->length/2+1);
+ 			XLALREAL8ForwardFFT(fftsinglewaveform, in1, fftforwardplan);
+
+ 			FILE *hf_out = fopen("hf.dat", "w");
+ 			for(k=0;k<fftsinglewaveform->length;k++){
+ 				fprintf(hf_out, "%e\t%e\t%e\n", k*((REAL8)rate)/((REAL8)serie1.data->length), fftsinglewaveform->data[k].re, fftsinglewaveform->data[k].im);
+ 			}
+ 			XLALDestroyREAL8FFTPlan(fftforwardplan);
+ 			exit(0);
   
   if (noise_flag)
   {
