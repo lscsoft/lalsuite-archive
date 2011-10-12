@@ -1880,7 +1880,7 @@ class GRB(object):
     for ifo in basic_ifolist:
 
       # create common cache-file names
-      output_location = '%s/%s-DATA-%9d-%9d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
+      output_location = '%s/%s-DATA-%10d-%10d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
 
       # decide: should I use online data (deleted after a month or so)
       # or do I require offline data? That changes everything...
