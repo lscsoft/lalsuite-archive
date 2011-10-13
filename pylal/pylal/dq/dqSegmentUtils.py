@@ -112,6 +112,8 @@ def fromsegmentxml(file, dict=False, id=None):
 
   xmldoc.unlink()
 
+  xmldoc.unlink()
+
   return segs
 
 # ==============================================================================
