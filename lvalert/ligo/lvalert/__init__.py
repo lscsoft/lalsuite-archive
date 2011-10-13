@@ -26,12 +26,6 @@
 FIXME:  ask somebody to document this.
 """
 
-
-from glue import git_version
-
-
 __author__ = "LIGO Scientific Collaboration"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
 
 __all__ = ["pubsub", "lvstanzaprocessor", "utils"]
