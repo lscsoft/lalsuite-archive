@@ -31,6 +31,10 @@ from pylal import llwapp
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.dq import dqTriggerUtils
 
+from matplotlib import use
+use('Agg')
+from pylab import hanning
+
 # Hey, scipy, shut up about your nose already.
 import warnings
 warnings.filterwarnings("ignore")
@@ -250,7 +254,7 @@ def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
     mean = sum(data)/len(data)
     data = data-mean
   # generate window
-  window = pylab.hanning(len(data))
+  window = hanning(len(data))
   data = numpy.multiply(data,window)
   # Fourier transform
   fft_data = numpy.fft.rfft(data)
