@@ -349,9 +349,20 @@ class LineHistogram(plotutils.BasicPlot):
         enumerate(itertools.izip(self.data_sets, self.livetimes,\
                   self.kwarg_sets)):
 
+      #
       # make histogram
-      y, x = numpy.histogram(data_set, bins=bins)
-      #x = x[:-1]
+      #
+
+      # get version
+      v = [int(i) for i in numpy.version.version.split('.')]
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins, new=True)
+        x = x[:-1]
 
       # get cumulative sum
       if cumulative:
@@ -997,9 +1008,20 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
       else:
         plot_kwargs.setdefault("bottom", ymin)
 
+      #
       # make histogram
-      y, x = numpy.histogram(data_set, bins=bins, normed=normed)
-      x = x[:-1]
+      #
+
+      # get version
+      v = [int(i) for i in numpy.version.version.split('.')]
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins, new=True)
+        x = x[:-1]
 
       if logy:
         y = y-ymin
