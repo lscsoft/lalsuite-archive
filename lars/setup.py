@@ -15,7 +15,7 @@ setup(
   url = "http://www.lsc-group.phys.uwm.edu/daswg/lars.html",
   license = 'GPL',
   provides = ['ligo.lars'],
-  packages = [ 'ligo.lars'],
+  packages = [ 'ligo.lars', 'ligo.lars.cli'],
 
   requires = ['ligo', 'glue', 'M2Crypto'],
 
