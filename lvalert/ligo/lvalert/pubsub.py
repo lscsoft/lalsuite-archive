@@ -29,7 +29,7 @@ import libxml2
 ## Needed because openfire has a minor bug associated with results
 ## being ignored in the handshake stage. There is a one line fix
 ## in this overloaded class.
-from glue.lvalert.lvstanzaprocessor import LVAlertStanzaProcessor
+from ligo.lvalert.lvstanzaprocessor import LVAlertStanzaProcessor
 
 
 from pyxmpp.stanza import Stanza

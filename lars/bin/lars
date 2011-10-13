@@ -2,9 +2,9 @@
 
 from optparse import OptionParser
 
-import glue.lars
+import ligo.lars
 
-from glue.lars.cli import commands
+from ligo.lars.cli import commands
 
 import sys, os
 
