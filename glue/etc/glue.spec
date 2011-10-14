@@ -1,7 +1,9 @@
-%define _prefix /opt/lscsoft/glue
-%define _sysconfdir %{_prefix}/etc
+%define _glue_prefix /usr
+%define _sysconfdir %{_glue_prefix}/etc
 %define _docdir %{_datadir}/doc
-%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1,prefix='%{_prefix}')")}
+%{!?glue_python_sitearch: %define glue_python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1,prefix='%{_glue_prefix}')")}
+%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
+
 
 
 Name: 		glue
@@ -13,13 +15,26 @@ Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python python-cjson m2crypto pyxmpp
+Requires:	python python-cjson m2crypto pyxmpp glue-common glue-segments
 BuildRequires:  python-devel
-Prefix:         %{_prefix}
-
+Prefix:         %{_glue_prefix}
 %description
 Glue (Grid LSC User Environment) is a suite of python modules and programs to
 allow users to run LSC codes on the grid.
+
+%package common
+Summary:	The common files needed for all sub-packages
+Group: 		Development/Libraries
+Requires: 	python python-cjson m2crypto pyxmpp
+%description common
+This is for the files that are common across the glue subpackages, namely git_version, iterutils and __init__.py
+
+%package segments
+Summary:        The segments subpackage
+Group:          Development/Libraries
+Requires:       python python-cjson m2crypto pyxmpp glue-common
+%description segments
+This is for the segments subpackage, written by Kipp.
 
 %prep
 %setup 
@@ -32,19 +47,39 @@ rm -rf %{buildroot}
 %{__python} setup.py install -O1 \
         --skip-build \
         --root=%{buildroot} \
-        --prefix=%{_prefix}
-
+        --prefix=%{_glue_prefix}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{python_sitearch}/glue/
-%{_prefix}/bin/
-%{_prefix}/etc/
-%{_prefix}/var/
-%{_prefix}/share/nmi/lalsuite-build*
+%{glue_python_sitearch}/glue/
+%{_glue_prefix}/bin/
+%{_glue_prefix}/etc/
+%{_glue_prefix}/var/
+%{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{glue_python_sitearch}/glue/__init__.py
+%exclude %{glue_python_sitearch}/glue/segments.py
+%exclude %{glue_python_sitearch}/glue/iterutils.py
+%exclude %{glue_python_sitearch}/glue/git_version.py
+#%exclude %{_glue_prefix}/src/segments/
+#%exclude %{_glue_prefix}/test/segment_verify.py
+#%exclude %{_glue_prefix}/test/segmentsUtils_verify.py
+#%exclude %{_glue_prefix}/test/verifyutils.py
+
+%files segments
+%{glue_python_sitearch}/glue/segments.py
+#%{glue_python_sitearch}/src/segments/
+#%{glue_python_sitearch}/test/segment_verify.py
+#%{glue_python_sitearch}/test/segmentsUtils_verify.py
+#%{glue_python_sitearch}/test/verifyutils.py
+
+%files common
+%{glue_python_sitearch}/glue/__init__.py
+%{glue_python_sitearch}/glue/iterutils.py
+%{glue_python_sitearch}/glue/git_version.py
+
 
 %changelog
 * Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
