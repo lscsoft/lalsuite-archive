@@ -39,7 +39,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze
 
 import matplotlib
 matplotlib.use("Agg")
@@ -363,6 +363,36 @@ def cbcBayesPostProc(
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
     html_stats.write(str(pos))
+    statfilename=os.path.join(outdir,"summary_statistics.dat")
+    statout=open(statfilename,"w")
+    statout.write("\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
+    
+    for statname,statoned_pos in pos:
+
+      statmax_pos,max_i=pos._posMode()
+      statmaxL=statoned_pos.samples[max_i][0]
+      statmean=str(statoned_pos.mean)
+      statstdev=str(statoned_pos.stdev)
+      statmedian=str(squeeze(statoned_pos.median))
+      statstacc=str(statoned_pos.stacc)
+      statinjval=str(statoned_pos.injval)
+
+      statout.write(statname)
+      statout.write("\t")
+      statout.write(str(statmaxL))
+      statout.write("\t")
+      statout.write(str(statstdev))
+      statout.write("\t")
+      statout.write(str(statmean))
+      statout.write("\t")
+      statout.write(str(statmedian))
+      statout.write("\t")
+      statout.write(str(statstacc))
+      statout.write("\t")
+      statout.write(str(statinjval))
+      statout.write("\n")
+      
+    statout.close()
 
     #Create a section for the covariance matrix
     html_stats_cov=html.add_section('Covariance matrix')
