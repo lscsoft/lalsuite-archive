@@ -376,20 +376,9 @@ def cbcBayesPostProc(
       statmedian=str(squeeze(statoned_pos.median))
       statstacc=str(statoned_pos.stacc)
       statinjval=str(statoned_pos.injval)
-
-      statout.write(statname)
-      statout.write("\t")
-      statout.write(str(statmaxL))
-      statout.write("\t")
-      statout.write(str(statstdev))
-      statout.write("\t")
-      statout.write(str(statmean))
-      statout.write("\t")
-      statout.write(str(statmedian))
-      statout.write("\t")
-      statout.write(str(statstacc))
-      statout.write("\t")
-      statout.write(str(statinjval))
+      
+      statarray=[str(i) for i in [statname,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
+      statout.write("\t".join(statarray))
       statout.write("\n")
       
     statout.close()
