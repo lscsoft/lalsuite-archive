@@ -233,7 +233,7 @@ INT4 XLALGetFactorizedWaveform( COMPLEX16             * restrict hlm,
         vPhi *= Omega;
 
         /* Calculate the newtonian multipole */
-        status = XLALCalculateNewtonianMultipole( &hNewton, vPhi * vPhi, r,
+        status = XLALCalculateNewtonianMultipole( &hNewton, vPhi * vPhi, vPhi/Omega,
                          values->data[1], (UINT4)l, m, params );
         if ( status == XLAL_FAILURE )
         {
@@ -2114,6 +2114,12 @@ LALEOBPPWaveformEngine (
        XLALDestroyREAL4Vector( sig2 );
        XLALDestroyREAL4Vector( freq );
        ABORTXLAL( status );
+     }
+
+     if ( modeL % 2 )
+     {
+       MultSphHarmM.re = - MultSphHarmM.re;
+       MultSphHarmM.im = - MultSphHarmM.im;
      }
 
      y_1 =   MultSphHarmP.re + MultSphHarmM.re;
