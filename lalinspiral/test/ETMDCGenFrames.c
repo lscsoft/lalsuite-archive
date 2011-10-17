@@ -40,6 +40,8 @@
 #include <lal/VectorOps.h>
 #include <lal/FileIO.h>
 #include <lal/FrameStream.h>
+#include <lal/FrequencySeries.h>
+#include <lal/TimeFreqFFT.h>
 #include <lal/Random.h>
 #include <lal/Interpolate.h>
 #include <lal/Random.h>
@@ -63,6 +65,8 @@
 #define Ts LAL_MTSUN_SI
 #define c_l LAL_C_SI*10.
 #define day LAL_DAYSID_SI
+/* to enable the printing of FFTs, inv PSDs and waveforms set DEBUG to 1 */
+#define DEBUG 0
 
 NRCSID (ET_MdcC, "$Id: ET_Mdc.c,v 1.2 2010/06/18 11:07:52 tania Exp $");
 RCSID ("$Id: ET_Mdcs.c,v 1.1 2009/06/18 11:07:52 tania Exp $");
@@ -119,13 +123,15 @@ REAL8 mSigma = 0.53;
 
 /* output directory */
 CHAR outputDir[500] = "output";
-
+CHAR waveout[100];
 INT4 lalDebugLevel=33;
 
 void parseOptions(INT4 argc, CHAR *argv[]);
 void displayUsage(INT4 exitcode);
 int ET_noise(gsl_rng *r, double TIME, long int N, double F_START, double SAMPLE_FREQ, double *noise_data);
 int LIGOI_noise(gsl_rng *r, double TIME, long int N, double F_START, double SAMPLE_FREQ, double *noise_data);
+void InvPSD(REAL8TimeSeries Data, LIGOTimeGPS *GPSStart, REAL8 duration, UINT4 SampleRate, UINT4 nSegs);
+void PrintHT(REAL4Vector *s, FILE **f, REAL8 t0);
 
 int main (INT4 argc, CHAR *argv[])
 {
@@ -353,10 +359,10 @@ int main (INT4 argc, CHAR *argv[])
     }
   }
   N=i+1;
-  
   if (verbose_flag)
   printf("generate %d sources\n", (UINT4)N);
   Ntot=0;
+
   /* generate sources */
   for (i=0;i<N;i++)
   {
@@ -533,10 +539,12 @@ int main (INT4 argc, CHAR *argv[])
           }
         }
       }
-	
-      XLALDestroyREAL4TimeSeries( Fp );
-      XLALDestroyREAL4TimeSeries( Fc );     
- 
+      if (DEBUG) {
+        sprintf(waveout,"%s%d%s","gw_",i,".txt");
+        FILE *hout=fopen(waveout,"w");
+        PrintHT(h, &hout, t0);
+        fclose(hout);
+      }
       if (Ndet>1)
       {
         /* second detector */
@@ -604,27 +612,27 @@ int main (INT4 argc, CHAR *argv[])
 	
 	
   }
-  
+
   	REAL8Vector * in1 = NULL;
 	in1 = XLALCreateREAL8Vector(serie1.data->length);
 	
 	FILE *ht_out = fopen("ht.dat", "w");
- 			for(k=0;k<serie1.data->length;k++){
- 				in1->data[k] = serie1.data->data[k];
- 				fprintf(ht_out, "%e\t%e\n", k/((REAL8)rate), serie1.data->data[k]);
- 			}
- 
- 			REAL8FFTPlan * fftforwardplan = XLALCreateForwardREAL8FFTPlan(serie1.data->length, 0);
- 			COMPLEX16Vector * fftsinglewaveform = XLALCreateCOMPLEX16Vector(serie1.data->length/2+1);
- 			XLALREAL8ForwardFFT(fftsinglewaveform, in1, fftforwardplan);
+    for(k=0;k<serie1.data->length;k++){
+ 		in1->data[k] = serie1.data->data[k];
+ 		fprintf(ht_out, "%e\t%e\n", k/((REAL8)rate), serie1.data->data[k]);
+ 		}
+    if (DEBUG){
+        REAL8FFTPlan * fftforwardplan = XLALCreateForwardREAL8FFTPlan(serie1.data->length, 0);
+        COMPLEX16Vector * fftsinglewaveform = XLALCreateCOMPLEX16Vector(serie1.data->length/2+1);
+        XLALREAL8ForwardFFT(fftsinglewaveform, in1, fftforwardplan);
 
- 			FILE *hf_out = fopen("hf.dat", "w");
- 			for(k=0;k<fftsinglewaveform->length;k++){
- 				fprintf(hf_out, "%e\t%e\t%e\n", k*((REAL8)rate)/((REAL8)serie1.data->length), fftsinglewaveform->data[k].re, fftsinglewaveform->data[k].im);
- 			}
- 			XLALDestroyREAL8FFTPlan(fftforwardplan);
- 			exit(0);
-  
+        FILE *hf_out = fopen("hf.dat", "w");    
+        for(k=0;k<fftsinglewaveform->length;k++){
+            fprintf(hf_out, "%e\t%e\t%e\n", k*((REAL8)rate)/((REAL8)serie1.data->length), fftsinglewaveform->data[k].re, fftsinglewaveform->data[k].im);
+            }
+        XLALDestroyREAL8FFTPlan(fftforwardplan);
+    }
+
   if (noise_flag)
   {
     gsl_rng *r;
@@ -642,17 +650,17 @@ int main (INT4 argc, CHAR *argv[])
     {
       serie1.data->data[k] += (REAL4) noise->data[k];
     }    
-
+    
     if (Ndet>1)
     {
-      ET_noise(r, Tseg, Nseg, fMin, rate, noise->data);
+    ET_noise(r, Tseg, Nseg, fMin, rate, noise->data);
       for(k=0;k<Nseg;k++)
         serie2.data->data[k] += (REAL4) noise->data[k];
     }
     
     if (Ndet>2)
     {
-      ET_noise(r, Tseg, Nseg, fMin, rate, noise->data);
+    ET_noise(r, Tseg, Nseg, fMin, rate, noise->data);
       for(k=0;k<Nseg;k++)
         serie3.data->data[k] += (REAL4) noise->data[k];
     }
@@ -665,7 +673,31 @@ int main (INT4 argc, CHAR *argv[])
 	for(k=0;k<Nseg;k++)
 	 serieNS.data->data[k] = serie1.data->data[k]+serie2.data->data[k]+serie3.data->data[k];
   }	
+    if (DEBUG){
+        REAL8Vector * in2 = NULL;
+        in2 = XLALCreateREAL8Vector(serie1.data->length);
 	
+        FILE *serieT_out = fopen("serieT.dat", "w");
+        for(k=0;k<serie1.data->length;k++){
+            in2->data[k] = serieNS.data->data[k];
+            fprintf(serieT_out, "%e\t%e\n", k/((REAL8)rate), serieNS.data->data[k]);
+            }
+        fclose(serieT_out);
+        REAL8FFTPlan * fftforwardplan = XLALCreateForwardREAL8FFTPlan(serie1.data->length, 0);
+        COMPLEX16Vector * fftsinglewaveform = XLALCreateCOMPLEX16Vector(serie1.data->length/2+1);
+        XLALREAL8ForwardFFT(fftsinglewaveform, in2, fftforwardplan);
+
+        FILE *serieF_out = fopen("serieF.dat", "w");
+        for(k=0;k<fftsinglewaveform->length;k++){
+            fprintf(serieF_out, "%e\t%e\t%e\n", k*((REAL8)rate)/((REAL8)serie1.data->length), fftsinglewaveform->data[k].re, fftsinglewaveform->data[k].im);
+            }
+        XLALDestroyREAL8FFTPlan(fftforwardplan);
+        fprintf(stderr,"Computing Inverse PSD\n");
+        InvPSD(serieNS, &serie1.epoch, Tobs, rate, 1);
+        fprintf(stderr,"done\n");
+        fclose(serieF_out);     
+    }
+
   if (verbose_flag)
   printf("%d sources... write time serie to file\n",(UINT4)Ntot);
   /* write to file */
@@ -690,7 +722,7 @@ int main (INT4 argc, CHAR *argv[])
 	}}
   else
   {
-    LALFrWriteREAL8TimeSeries(&status,&serie1,&frSerie1);
+      LALFrWriteREAL8TimeSeries(&status,&serie1,&frSerie1);
     if (Ndet>1)
       LALFrWriteREAL8TimeSeries(&status,&serie2,&frSerie2);
     if (Ndet>2)
@@ -1165,3 +1197,53 @@ int LIGOI_noise(gsl_rng *r, double TIME, long int N, double F_START, double SAMP
   return 0;
 }
 
+void InvPSD(REAL8TimeSeries Data, LIGOTimeGPS *GPSStart, REAL8 duration, UINT4 SampleRate, UINT4 nSegs)
+{
+
+    int check = 0;
+    UINT4 j=0;
+    
+    REAL8 segDur = duration/(REAL8)nSegs;
+    UINT4 seglen = (UINT4)(segDur*SampleRate); // GET THE LENGTH OF A SEGMENT
+    segDur = seglen/SampleRate; // UPDATE WITH THE TRUNCATED SEGLEN
+  	nSegs = (INT4)floor(duration/segDur); // UPDATE NSEGS TO ACCOMODATE SAMPLERATE
+    UINT4 stride = seglen; /* Overlap the padding */
+    //REAL8 strideDur = stride / SampleRate;
+    REAL8 deltaF=(REAL8)SampleRate/seglen;
+    REAL8 end_freq=10.0; /* cutoff frequency */ 
+    
+    REAL8Window  *windowplan = XLALCreateTukeyREAL8Window(seglen,0.1*(REAL8)8.0*SampleRate/(REAL8)seglen);;
+    REAL8FFTPlan *fwdplan = XLALCreateForwardREAL8FFTPlan( seglen, 1 );
+    REAL8FFTPlan *revplan = XLALCreateReverseREAL8FFTPlan( seglen, 1 );
+    REAL8FrequencySeries *inverse_spectrum = XLALCreateREAL8FrequencySeries("inverse spectrum",GPSStart,0.0,deltaF,&lalDimensionlessUnit,seglen/2+1);
+    
+    fprintf(stdout,"... Computing power spectrum, seglen %i stride %i\n",seglen,stride);
+    
+    // CALCULATE THE INVERSE SPECTRUM 
+		check = XLALREAL8AverageSpectrumMedian(inverse_spectrum,&Data,(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
+    if (check) {fprintf(stderr,"Failed computing the XLALREAL8AverageSpectrumMedian \n");exit(-1);}
+    
+    // TRUNCATE INVERSE SPECTRUM
+    check = XLALREAL8SpectrumInvertTruncate(inverse_spectrum, end_freq, seglen, (seglen-stride)/4, fwdplan, revplan ); 
+    if (check) {fprintf(stderr,"Failed computing XLALREAL8SpectrumInvertTruncate \n");exit(-1);}
+
+    FILE *psdout;
+    psdout=fopen("inv_spec.dat","w");
+    
+    // PRINT FILE
+    for(j=0;j<inverse_spectrum->data->length;j++) {
+       fprintf(psdout,"%10.10lf %10.10e\n",j*deltaF,inverse_spectrum->data->data[j]); 
+    }
+    fclose(psdout);
+
+    return;
+}
+
+void PrintHT(REAL4Vector *s, FILE **f, REAL8 t0){
+    UINT4 k=0;
+	t0-=800000000.;
+    for(k=0;k<s->length;k++){
+ 		fprintf(*f, "%e\t%e\n", t0+k/((REAL8)rate), s->data[k]);
+    }
+    return;
+}
