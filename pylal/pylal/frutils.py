@@ -444,8 +444,8 @@ gateway:
  * Just the first time you do this procedure: "sudo mkdir /data && sudo chown
    albert.einstein /data" (replace albert.einstein with your local username;
    /data may be different for different clusters)
- * Set the LIGO_DATAFIND_SERVER environment variable to ldr.caltech.edu (or the
-   LDR server of the LDG cluster nearest you)
+ * Set the LIGO_DATAFIND_SERVER environment variable to ldr.ligo.caltech.edu
+   (or the LDR server of the LDG cluster nearest you)
  * Use "sshfs -o ssh_command=gsissh
    albert.einstein@ldas-pcdev1.ligo.caltech.edu:/data /data" (replace
    albert.einstein with your cluster username)
