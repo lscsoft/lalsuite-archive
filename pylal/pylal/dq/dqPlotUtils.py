@@ -94,10 +94,24 @@ def set_ticks(ax):
         Axes object to format
   """
 
+  #
   # make sure we get minor ticks if there are no major ticks in the range
-  if len(ax.get_xticks())<=2:
+  #
+
+  # xticks
+  ticks = list(ax.get_xticks())
+  xlim  = ax.get_xlim()
+  for i,tick in enumerate(ticks[::-1]):
+    if not xlim[0] <= tick <= xlim[1]: ticks.pop(-1)
+  if len(ticks)<=2:
     ax.xaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
-  if len(ax.get_yticks())<=2:
+
+  # yticks
+  ticks = list(ax.get_xticks())
+  ylim  = ax.get_ylim()
+  for i,tick in enumerate(ticks[::-1]):
+    if not ylim[0] <= tick <= ylim[1]: ticks.pop(-1)
+  if len(ticks)<=2:
     ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
 
   # set xticks for 4 hours rather than 5
