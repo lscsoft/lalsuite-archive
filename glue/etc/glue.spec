@@ -25,14 +25,14 @@ allow users to run LSC codes on the grid.
 %package common
 Summary:	The common files needed for all sub-packages
 Group: 		Development/Libraries
-Requires: 	python python-cjson m2crypto pyxmpp
+Requires: 	python 
 %description common
 This is for the files that are common across the glue subpackages, namely git_version, iterutils and __init__.py
 
 %package segments
 Summary:        The segments subpackage
 Group:          Development/Libraries
-Requires:       python python-cjson m2crypto pyxmpp glue-common
+Requires:       python glue-common
 %description segments
 This is for the segments subpackage, written by Kipp.
 
