@@ -409,10 +409,17 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
  			header.write(' \'BSN\',')
                 if 'ra' in parameters and 'dec' in parameters:
                     if int(run)==0:
-                        recovered_positions_ctrl[out_run].append([(pos['dec'].median)[-1],(pos['ra'].median)[-1],float(bsn)])
-                        injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval,999])
+                        if type(pos['dec'].median)==list:
+                            recovered_positions_ctrl[out_run].append([(pos['dec'].median)[-1],(pos['ra'].median)[-1],float(bsn)])
+                            injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval,999])
+                        else:
+                            recovered_positions_ctrl[out_run].append([(pos['dec'].median),(pos['ra'].median),float(bsn)])
+                            injected_positions[out_run].append([pos['dec'].injval,pos['ra'].injval,999])
                     else:
-                        recovered_positions_key[out_run].append([(pos['dec'].median)[-1],(pos['ra'].median)[-1],float(bsn)])
+                        if type(pos['dec'].median)==list:
+                            recovered_positions_key[out_run].append([(pos['dec'].median)[-1],(pos['ra'].median)[-1],float(bsn)])
+                        else:
+                            recovered_positions_key[out_run].append([(pos['dec'].median),(pos['ra'].median),float(bsn)])
                 if snrs is not None:
                     val,hea=read_snr(snrs,run,time,IFOs)
                     summary.write(str(val)+'\t')
