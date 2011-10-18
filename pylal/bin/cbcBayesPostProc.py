@@ -292,7 +292,7 @@ def cbcBayesPostProc(
         else: dec_name='declination'
         ifo_times={}
         my_ifos=['H1','L1','V1']
-        '''for ifo in my_ifos:
+        for ifo in my_ifos:
             inj_time=None
             if injection:
                 inj_time=float(injection.get_end(ifo[0]))
@@ -310,7 +310,7 @@ def cbcBayesPostProc(
                     inj_delay=None
                 time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
-        '''
+        
     if 'iota' in pos.names and 'cosiota' not in pos.names:
         inj_cosiota=None
         if injection:
@@ -602,24 +602,29 @@ def cbcBayesPostProc(
         bppu.plot_sky_map(inj_position,top_ranked_sky_pixels,outdir)
 
         #Create a web page section for sky localization results/plots (if defined)
-
+        dumps_sky_res=file(os.path.join(str(outdir),'sky_res.dat'),'w')
         html_sky=html.add_section('Sky Localization')
         if injection:
             if sky_injection_cl:
                 html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
+                dumps_sky_res.write(str(sky_injection_cl)+'\n')
             else:
                 html_sky.p('Injection not found in posterior bins in sky location!')
+                dumps_sky_res.write(str(100000)+'\n')
+
         #html_sky.write('<img width="35%" src="skymap.png"/>')
         html_sky.write('<a href="skymap.png" target="_blank"><img width="35%" src="skymap.png"/></a>')
 
         html_sky_write='<table border="1" id="statstable"><tr><th>Confidence region</th><th>size (sq. deg)</th></tr>'
-
+      
         fracs=skyreses.keys()
         fracs.sort()
 
         skysizes=[skyreses[frac] for frac in fracs]
         for frac,skysize in zip(fracs,skysizes):
             html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
+            dumps_sky_res.write(str(frac)+' '+str(skysize)+'\n')
+        dumps_sky_res.close()
         html_sky_write+=('</table>')
 
         html_sky.write(html_sky_write)
@@ -1090,14 +1095,15 @@ if __name__=='__main__':
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     rec_snr=['snr']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams +rec_snr #+ endTimeParams
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams +rec_snr + endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
-    '''for ifo1 in ifos_menu:
+    for ifo1 in ifos_menu:
         for ifo2 in ifos_menu:
-            if ifo1==ifo2: continue
+            if ifo1==ifo2:
+                 continue
             oneDMenu.append(ifo1+ifo2+'_delay')
-    '''
+    
     #oneDMenu=[]
     twoDGreedyMenu=[]
     for mp1 in massParams:
@@ -1134,8 +1140,8 @@ if __name__=='__main__':
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
     greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':10.0,'dist':10.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'snr':1.0}
-    #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
-    #    greedyBinSizes[derived_time]=greedyBinSizes['time']
+    for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
+        greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list

@@ -1647,9 +1647,12 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
     # draw parallels
     m.drawmeridians(np.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
+    myfig.subplots_adjust(left=0.05,bottom=0.0,top=1.05,right=1.05,wspace=0,hspace=0)
     # draw meridians
     plt.title("Skymap") # add a title
-    plt.colorbar()
+    cb=plt.colorbar(shrink=0.7,pad=0.01)
+    for t in cb.ax.get_yticklabels():
+        t.set_fontsize(25)
     myfig.savefig(os.path.join(outdir,'skymap.png'))
     plt.clf()
 
