@@ -79,9 +79,14 @@ class InspNestNode(pipeline.CondorDAGNode):
         length=self.__GPSend-self.__GPSstart
         if(length>maxLength):
             length=maxLength
-
-        self.add_var_opt('length',str(int(length)))
-        self.add_var_opt('Nsegs',str(int(length/float(self.job().get_cp().get('analysis','psd-chunk-length')))))
+        if cp.has_option('analysis','Nsegs'):
+            self.add_var_opt('Nsegs',str(cp.get('analysis','Nsegs')))
+        else:
+            self.add_var_opt('Nsegs',str(int(length/float(self.job().get_cp().get('analysis','psd-chunk-length')))))
+        if cp.has_option('analysis','length'):
+            self.add_var_opt('length',str(cp.get('analysis','length')))
+        else:
+            self.add_var_opt('length',str(int(length)))
 
     def get_ifos(self):
         return ''.join(map(str,self.__ifos))

@@ -319,7 +319,7 @@ def RunsCompare(outdir,inputs,inj,raw_events,IFOs,snrs=None,calerr=None,path_to_
         if len(times_run[run])==1:
 	    print "A single time found for the run %i. You need at least two times for the analysis to be doable. Excluding run %i from the post processing.\n"%(run,run)
             key_runs.remove(run)
-    failed_runs=[]
+    failed_runs=[939937158,939938726]
     #[939937470,939938014,939938870] ### Times of the runs which failed or that we do not want to consider for some reasons.
     for run in key_runs:
         ctrl_times[run]=[time for time in times_run[run]]
@@ -840,11 +840,18 @@ def MakeSkyResPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
     data_ctrl=np.loadtxt(path_uncal)
     CL=[0.67,0.9,0.95,0.99]
     nbins=20
+    fig_width_pt = 3*246.0  # Get this from LaTeX using \showthe\columnwidth
+    inches_per_pt = 1.0/72.27               # Convert pt to inch
+    golden_mean = (np.sqrt(5)-1.0)/2.0         # Aesthetic ratio
+    fig_width = fig_width_pt*inches_per_pt  # width in inches
+    fig_height = fig_width*golden_mean      # height in inches
+    fig_size =  [fig_width,fig_height]
+
     for cl in CL:
         print header_l, str(cl)+'CL',header_l.index(str(cl)+'CL')
         sky_cal=data_cal[:,header_l.index(str(cl)+'CL')]
         sky_ctrl=data_ctrl[:,header_l.index(str(cl)+'CL')]
-        myfig=figure(2,figsize=(12,10),dpi=200)
+        myfig=figure(2,figsize=fig_size,dpi=800)
         ax=myfig.add_subplot(111)
         bins=linear_space(min(sky_cal.min(),sky_ctrl.min()),max(sky_cal.max(),sky_ctrl.max()),nbins)
         hist(sky_cal, bins=bins, normed="true",color='r',fill=False, hatch='//', linewidth='2',label="Measured")
@@ -856,7 +863,7 @@ def MakeSkyResPlots(outdir,path_cal,path_uncal,run,header_l,label_size,key):
         xlabel(str(int(float(cl)*100.0))+"% confidence region size (deg2)",fontsize=label_size)
         myfig.savefig(os.path.join(outdir,str(run),'SkyPlots','sky_res_'+str(cl)+'.png'))
         myfig.clear()
-        myfig=figure(2,figsize=(12,10),dpi=200)
+        myfig=figure(2,figsize=fig_size,dpi=800)
         ax=myfig.add_subplot(111)
         bins=linear_space(min(sky_cal/sky_ctrl),max(sky_cal/sky_ctrl),nbins)
         hist(sky_cal/sky_ctrl, bins=bins, normed="true",color='r',fill=False, hatch='//', linewidth='2')
