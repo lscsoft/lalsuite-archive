@@ -101,10 +101,8 @@ def set_ticks(ax):
   # yticks
   ticks = list(ax.get_yticks())
   ylim  = ax.get_ylim()
-  print ticks,ylim,
   for i,tick in enumerate(ticks[::-1]): 
     if not ylim[0] <= tick <= ylim[1]: ticks.pop(-1)
-  print ticks
   if len(ticks)<=1:
     ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
 
