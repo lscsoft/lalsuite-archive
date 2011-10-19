@@ -127,7 +127,7 @@ def FilterKWAuxTriggers(KWAuxTriggers,excludeparameters,excludechannels):
 
   """
   Irrelevant channels and trigger parameters are excluded.
-  excludechannels is a filename with irrelevant channel names to be excluded.
+  excludechannels is a list of irrelevant channel names to be excluded.
   excludeparameters is a list of comma separated parameters. i.e. dur,freq,npts
   """
 
@@ -180,8 +180,12 @@ def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables
     KWvariables = list(KWAuxGlitchTriggers.dtype.names)
     for variable in ExcludeVariables:
       KWvariables.remove(variable)
+
+  # remove  GPS time and add GPS seconds and miliseconds
+  if 'GPS' in KWvariables: 
+    KWvariables.remove('GPS')
   
-  MVSCvariables = ['index', 'i', 'w']+ KWvariables + ['glitch-rank']
+  MVSCvariables = ['index', 'i', 'w', 'GPS_s', 'GPS_ms']+ KWvariables + ['glitch-rank']
   formats = ['i','i'] + ['g8' for a in range(len(MVSCvariables) - 2)]
   n_triggers = len(KWAuxGlitchTriggers) + len(KWAuxCleanTriggers)
   
@@ -195,8 +199,11 @@ def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables
   MVSCTriggers['i'] = i_row
   MVSCTriggers['w'] = w_row
   MVSCTriggers['glitch-rank'] = glitch_rank_row
+  #set seconds and nanoseconds columns
+  MVSCTriggers['GPS_s'] = (numpy.concatenate((KWAuxGlitchTriggers['GPS'], KWAuxCleanTriggers['GPS'])) // 1.0).astype('int')
+  MVSCTriggers['GPS_ms'] = ((numpy.around((numpy.concatenate((KWAuxGlitchTriggers['GPS'], KWAuxCleanTriggers['GPS'])) % 1.0), decimals=3) * 10**3) // 1.0).astype('int')
   for variable in MVSCvariables:
-    if not variable in ['index', 'i', 'w', 'glitch-rank']:
+    if not variable in ['index', 'i', 'w', 'glitch-rank', 'GPS_s', 'GPS_ms']:
       MVSCTriggers[variable] = numpy.concatenate((KWAuxGlitchTriggers[variable], KWAuxCleanTriggers[variable]))
     
 
