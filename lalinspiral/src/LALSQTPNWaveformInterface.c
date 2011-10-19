@@ -57,11 +57,10 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 	wave->totalMass = wave->mass[0] + wave->mass[1];
 	wave->mu = wave->mass[0] * wave->mass[1] / wave->totalMass;
 	wave->eta = wave->mu / wave->totalMass;
-	wave->chirpMass = wave->totalMass * pow(wave->eta, 3. / 5.);
+	wave->chirpMass = wave->totalMass * pow(wave->eta, 3.0 / 5.0);
 	wave->deltam_M = sqrt(1.0 - 4.0 * wave->eta);
 	wave->chiAmp[0] = wave->chiAmp[1] = 0.;
-	INT2 i;
-	for (i = 0; i < 3; i++) {
+	for (UINT2 i = 0; i < 3; i++) {
 		wave->chi[0][i] = params->spin1[i];
 		wave->chi[1][i] = params->spin2[i];
 		wave->chiAmp[0] += SQT_SQR(wave->chi[0][i]);
@@ -69,7 +68,7 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 	}
 	wave->chiAmp[0] = sqrt(wave->chiAmp[0]);
 	wave->chiAmp[1] = sqrt(wave->chiAmp[1]);
-	for (i = 0; i < 3; i++) {
+	for (UINT2 i = 0; i < 3; i++) {
 		if (wave->chiAmp[0] != 0.) {
 			wave->chih[0][i] = wave->chi[0][i] / wave->chiAmp[0];
 		} else {
@@ -89,9 +88,9 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 	wave->finalFreq = (params->fFinal < params->fLower ? params->fCutoff : (params->fCutoff
 			< params->fFinal ? params->fCutoff : params->fFinal));
 	wave->samplingFreq = params->tSampling;
-	wave->samplingTime = 1. / wave->samplingFreq;
+	wave->samplingTime = 1.0 / wave->samplingFreq;
 	wave->phi = 0.;
-	wave->signalAmp = 4. * wave->totalMass * wave->eta * LAL_MRSUN_SI / wave->distance;
+	wave->signalAmp = 4.0 * wave->totalMass * wave->eta * LAL_MRSUN_SI / wave->distance;
 	wave->order = params->order;
 	wave->spinInteraction = params->spinInteraction;
 	if (wave->spinInteraction) {
@@ -229,11 +228,9 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 	// calling the engine function
 	switch (switchMode) {
 		case LALSQTPN_ADAPTIVE:
-			puts("Adaptive.");
 			LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
 			break;
 		case LALSQTPN_PRECESSING:
-			puts("Precessing.");
 			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
 			break;
 		default:

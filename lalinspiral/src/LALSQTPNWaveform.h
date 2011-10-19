@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-NRCSID (LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
+NRCSID(LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
@@ -87,9 +87,9 @@ typedef enum {
 	LALSQTPN_CHIH2_1, ///< index of the \f$\hat{\chi}_2\f$'s x component
 	LALSQTPN_CHIH2_2, ///< index of the \f$\hat{\chi}_2\f$'s y component
 	LALSQTPN_CHIH2_3, ///< index of the \f$\hat{\chi}_2\f$'s z component
-	LALSQTPN_E1_1,///< index of the \f$\hat{E}_1\f$'s x component
-	LALSQTPN_E1_2,///< index of the \f$\hat{E}_1\f$'s y component
-	LALSQTPN_E1_3,///< index of the \f$\hat{E}_1\f$'s z component
+	LALSQTPN_E1_1, ///< index of the \f$\hat{E}_1\f$'s x component
+	LALSQTPN_E1_2, ///< index of the \f$\hat{E}_1\f$'s y component
+	LALSQTPN_E1_3, ///< index of the \f$\hat{E}_1\f$'s z component
 	LALSQTPN_NUM_OF_VAR
 ///< number of the dynamic variables
 } LALSQTPNGeneratorVariables;
@@ -181,7 +181,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
 	LALPNOrder amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
-	//@}
+//@}
 } LALSQTPNWaveformParams;
 
 /**		The function generates the parameters of the waveform.
@@ -205,10 +205,9 @@ typedef struct tagLALSQTPNWaveformParams {
  * @param[out]		waveform	: the generated waveform
  * @param[in]		params		: the input parameters
  */
+void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
 void LALSQTPNGeneratorAdaptive(LALStatus *status, LALSQTPNWave *waveform,
-		LALSQTPNWaveformParams *params);
-void
-LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
+	LALSQTPNWaveformParams *params);
 
 /**		The function calculates the derived values.
  * The formulae are:
@@ -265,8 +264,8 @@ LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformPar
  * @param[out]	dvalues	: the derived values and the last element is the MECO
  * @param[in]	params	: the LALSQTPN_Generator's parameters
  */
-int LALSQTPNDerivatorAdaptive(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
+int LALSQTPNDerivatorAdaptive(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 
 int XLALSQTPNTestAdaptive(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
 int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
