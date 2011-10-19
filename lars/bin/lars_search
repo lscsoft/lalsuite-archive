@@ -109,9 +109,9 @@ parser.add_option("-q", "--quiet",
 # AND we've passed the point where the lars package is optional.
 
 import logging
-from glue import lars
-from glue.lars import Cache, copyFile, copyDir, util
-from glue.lars.util import mountSearch
+from ligo import lars
+from ligo.lars import Cache, copyFile, copyDir, util
+from ligo.lars.util import mountSearch
 
 
 # We must first initialize logging
@@ -252,7 +252,7 @@ if options.copy:
 #from urlparse import urlsplit, urlunsplit
 #from subprocess import Popen, PIPE
 #
-#from glue.lars import Cache, copyFile
+#from ligo.lars import Cache, copyFile
 #
 #
 #def mountSearch(searchUrl, targetDir):
