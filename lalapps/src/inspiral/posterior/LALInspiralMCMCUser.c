@@ -456,7 +456,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	/* Calculate the likelihood for an amplitude-corrected waveform */
 	/* This template is generated in the time domain */
 	REAL8 logL=0.0,chisq=0.0;
-        REAL8 rec_snr=0.0;
+    //REAL8 rec_snr=0.0;
 	REAL8 mc,eta,end_time,resp_r,resp_i,real,imag;
 	UINT4 det_i=0,idx=0;
 	UINT4 i=0;
@@ -778,10 +778,11 @@ in the frequency domain */
 	/* This also holds the source and the detector, LAL has two different structs for this! */
 	LALDetAndSource det_source;
 	det_source.pSource=&source;
-    REAL8 deltaF_x=0.0;
-    REAL8 deltaG_x=0.0;
+    REAL8 deltaF_x=0.0, F_x=0.0;
+    REAL8 deltaG_x=0.0, G_x=0.0;
+    REAL8 deltaK_x=0.0, K_x=0.0;
     REAL8 Deltaplus=0.0, Deltamin=0.0,Reeven=0.0,Reodd=0.0;
-    INT4 CalOrder=1;
+    INT4 CalOrder=3;
 	for(det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){ /* For each detector */
 
 		chisq=0.0;
@@ -827,15 +828,21 @@ in the frequency domain */
 			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i/deltaF;
 			chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
 			rec_snr+=2.0*((resp_r/deltaF)*(resp_r/deltaF)+(resp_i/deltaF)*(resp_i/deltaF))*inputMCMC->invspec[det_i]->data->data[idx];
-            Deltaplus=2*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_r/deltaF + inputMCMC->stilde[det_i]->data->data[idx].im*resp_i/deltaF);
-            Deltamin=2*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_i/deltaF- inputMCMC->stilde[det_i]->data->data[idx].im*resp_r/deltaF); // to be mlt by i 
+            Deltaplus=2.0*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_r/deltaF + inputMCMC->stilde[det_i]->data->data[idx].im*resp_i/deltaF);
+            Deltamin=2.0*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_i/deltaF - inputMCMC->stilde[det_i]->data->data[idx].im*resp_r/deltaF); // to be mlt by i 
             for(INT4 kappa=1;kappa<=CalOrder;kappa++){
-                deltaF_x=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) - 2*(resp_r/deltaF*inputMCMC->stilde[det_i]->data->data[idx].re)- 2*(resp_i/deltaF*inputMCMC->stilde[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
-                chisq+=deltaF_x;// For ampli errors
-                Reeven=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*(1+kappa))*pow(-1.0,kappa+1)/factorial(2*(kappa+1));
-                Reodd=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*kappa+1)*pow(-1.0,kappa)/factorial(2*kappa+1); // to be mlt by minUs i
+                deltaF_x=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) - 2.0*(resp_r/deltaF*inputMCMC->stilde[det_i]->data->data[idx].re)- 2.0*(resp_i/deltaF*inputMCMC->stilde[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
+                chisq+=deltaF_x;// Ampli errors contribution
+                F_x+=deltaF_x;
+                Reeven=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*(kappa))*pow(-1.0,kappa)/factorial(2*(kappa));
+                Reodd=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*(kappa-1.0)+1.0)*pow(-1.0,(kappa-1.0))/factorial(2*(kappa-1.0)+1); // to be mlt by minUs i
                 deltaG_x=-(Reeven*Deltaplus + Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
-                chisq+=deltaG_x;
+                chisq+=deltaG_x; // Phase errors contribution
+                G_x+=deltaG_x;
+                deltaK_x=-pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*(Reeven*Deltaplus + Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+                /*Check the signs of deltaF,G,K*/
+                chisq+=deltaK_x;
+                K_x+=deltaK_x;
                 //F_x_tot+=deltaF_x;
                 //repls+= -(Reeven*deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
                 //remns+= -(Reodd*deltamin)*inputMCMC->invspec[det_i]->data->data[idx];

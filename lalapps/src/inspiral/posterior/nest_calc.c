@@ -142,7 +142,7 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 	fprintf(stderr,"Checking injected parameters in range... \n");
 	
 	if(MCMCinput->injectionTable!=NULL) NestInitInjectedParam(injected,(void *)MCMCinput->injectionTable, MCMCinput);
-	else NestInitInjectedParam(injected,(void *)MCMCinput->inspiralTable);
+	else NestInitInjectedParam(injected,(void *)MCMCinput->inspiralTable,MCMCinput);
 	
     in_range=ParamInRange(injected);
         if (in_range==0){

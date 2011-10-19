@@ -33,3 +33,5 @@ void fprintSample(FILE *fp,LALMCMCParameter *sample);
 REAL8 sample_logt(int Nlive);
 
 void Inject2PN(LALMCMCParameter *parameter, LALMCMCInput *MCMCinput, double SNR);
+
+void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput);

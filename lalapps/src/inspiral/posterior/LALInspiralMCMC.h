@@ -236,8 +236,11 @@ tagLALMCMCParameter
   UINT4                   dimension;      
   REAL8                   logLikelihood; 
   REAL8                   logPrior;
-  REAL8			  SNR;
-}  LALMCMCParameter;
+  REAL8			          SNR;
+  REAL8                   logL_CalAmpCorr;
+  REAL8                   logL_CalPhaCorr;
+  REAL8                   logL_CalAmpPhaCorr;
+  }  LALMCMCParameter;
 /* </lalVerbatim>  */
 
 /* <lalVerbatim file="MCMCInitFunctionH">  */
