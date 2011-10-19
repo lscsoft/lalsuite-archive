@@ -961,6 +961,13 @@ int main( int argc, char *argv[])
                 inputMCMC.calibAmplitude[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("Amplitude Errors",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
                 inputMCMC.calibPhase[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("Phase Errors",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
                 CreateErrorStreams(&inputMCMC,IFOnames[i],i,calib_seed);
+                char FileName[300];
+                sprintf(FileName,"%s/calerr_%s.dat",CalErrPath,inputMCMC.ifoID[i]);
+                FILE *errout21=fopen(FileName,"w");
+                for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
+                    fprintf(errout21,"%6.5e \t %14.8e \t %14.8e \n", j*inputMCMC.deltaF,inputMCMC.calibAmplitude[i]->data->data[j], inputMCMC.calibPhase[i]->data->data[j]);
+                }
+                fclose(errout21);
             } //end if fake data
            
         }

@@ -163,7 +163,7 @@ void SampleCalibrationErrorsPhase(REAL8 *logF, INT4 length, INT4 IFO, INT4 seed,
             errors[i]=gsl_ran_gaussian(p, stddev[5]);
 				}
         errors[i]*=LAL_PI/180.0;			
-         //errors[i]=0.0;
+         
         //printf("error[%i] | logf = %e | error = %e\n", i, logF[i], errors[i]);
     }
     return; /* this is in radians ! */   
@@ -578,7 +578,7 @@ REAL8 GenerateFrequencySamples(REAL8 f_min, REAL8 f_max, UINT4 Length){
 
 
 void CreateErrorStreams(LALMCMCInput *inputMCMC,CHAR *IFOname, int i,int seed){
-/* Modify the noise datastream  */
+/* This only fills the MCMC structures that hold the amplitude and phase errors. This function DOES NOT modify the actual noise and WF */
 //injTime = injTable->geocent_end_time.gpsSeconds + 1.0E-9 * injTable->geocent_end_time.gpsNanoSeconds;
     int IFOnum=0;
     UINT4 j;

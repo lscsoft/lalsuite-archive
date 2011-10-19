@@ -825,25 +825,30 @@ in the frequency domain */
 			resp_r = det_resp.plus*model_re_prime - det_resp.cross*model_im_prime;
 			resp_i = det_resp.plus*model_im_prime + det_resp.cross*model_re_prime;
 
-			real=inputMCMC->stilde[det_i]->data->data[idx].re - resp_r/deltaF;
-			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i/deltaF;
+			real=inputMCMC->stilde[det_i]->data->data[idx].re - resp_r/deltaF;  // Re[d-h]
+			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i/deltaF;  // Im[d-h]
+            
 			chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
-			rec_snr+=2.0*((resp_r/deltaF)*(resp_r/deltaF)+(resp_i/deltaF)*(resp_i/deltaF))*inputMCMC->invspec[det_i]->data->data[idx];
+            rec_snr+=2.0*((resp_r/deltaF)*(resp_r/deltaF)+(resp_i/deltaF)*(resp_i/deltaF))*inputMCMC->invspec[det_i]->data->data[idx];
+            
             Deltaplus=2.0*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_r/deltaF + inputMCMC->stilde[det_i]->data->data[idx].im*resp_i/deltaF);
-            Deltamin=2.0*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_i/deltaF - inputMCMC->stilde[det_i]->data->data[idx].im*resp_r/deltaF); // to be mlt by i 
+            Deltamin= 2.0*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_i/deltaF - inputMCMC->stilde[det_i]->data->data[idx].im*resp_r/deltaF); // This is DeltaMin/i
+            
             for(INT4 kappa=1;kappa<=CalOrder;kappa++){
-                deltaF_x=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) - 2.0*(resp_r/deltaF*inputMCMC->stilde[det_i]->data->data[idx].re)- 2.0*(resp_i/deltaF*inputMCMC->stilde[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
+                Reeven+=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2.0*kappa)*pow(-1.0,kappa)/factorial(2.0*(kappa));
+                Reodd+= pow(inputMCMC->calibPhase[det_i]->data->data[idx],2.0*kappa-1.0)*pow(-1.0,kappa)/factorial(2.0*kappa-1.0); // This is R_o (-i)
+            }
+            deltaG_x=(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+            G_x +=deltaG_x;
+            
+            for(INT4 kappa=1;kappa<=CalOrder;kappa++){
+                deltaF_x=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
                 //chisq+=deltaF_x;// Ampli errors contribution
-                F_x+=deltaF_x;
-                Reeven=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*(kappa))*pow(-1.0,kappa)/factorial(2*(kappa));
-                Reodd=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2*(kappa-1.0)+1.0)*pow(-1.0,(kappa-1.0))/factorial(2*(kappa-1.0)+1); // to be mlt by minUs i
-                deltaG_x=-(Reeven*Deltaplus + Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
-                //chisq+=deltaG_x; // Phase errors contribution
-                G_x+=deltaG_x;
-                deltaK_x=-pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*(Reeven*Deltaplus + Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+                F_x +=deltaF_x;
+                deltaK_x=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
                 /*Check the signs of deltaF,G,K*/
                 //chisq+=deltaK_x;
-                K_x+=deltaK_x;
+                K_x +=deltaK_x;
                
             }
 
@@ -873,12 +878,13 @@ in the frequency domain */
 		
 		if(highBin<inputMCMC->stilde[det_i]->data->length-2 && highBin>lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
 		else if(highBin<=lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
-		chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
+		
+        chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
         rec_snr*=2.0*deltaF;
 		parameter->SNR+=rec_snr;
-        F_x+=deltaF_x;
-        G_x+=deltaG_x;
-        K_x+=deltaK_x;
+        F_x+=-2.0*deltaF*F_x;
+        G_x+=2.0*deltaF*G_x;
+        K_x+=2.0*deltaF*K_x;
 		/* add the normalisation constant */
 
 		/*		chisq+=normalisations[det_i]; */ /*Gaussian version*/
