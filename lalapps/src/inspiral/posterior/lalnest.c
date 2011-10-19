@@ -35,7 +35,7 @@ Authors: J. Veith, S. Vitale, W. Del Pozzo, T. Li
 #include "nest_calc.h"
 
 RCSID(LALAPPS_VCS_IDENT_ID);
-
+/* TEST COMMENT */
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
 #define DEBUG 0 
