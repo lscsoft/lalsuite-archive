@@ -79,7 +79,7 @@ void SampleCalibrationErrorsAmplitude(REAL8 *logF, INT4 length, INT4 IFO, INT4 s
         else if (logF[i]>=log10(4000.0) && logF[i]<=log10(6000.0)){
             errors[i]=gsl_ran_gaussian(p, stddev[2]);
 				}
-        errors[i]+=1.0; // The errors represent a ratio between amplitudes, and then must be centered around 1.0 
+        errors[i]=1.1; // The errors represent a ratio between amplitudes, and then must be centered around 1.0 
         }		
     return;    
 }
@@ -162,8 +162,8 @@ void SampleCalibrationErrorsPhase(REAL8 *logF, INT4 length, INT4 IFO, INT4 seed,
          else if (logF[i]>=log10(4000.0) && logF[i]<=log10(6000.0)){
             errors[i]=gsl_ran_gaussian(p, stddev[5]);
 				}
-        //errors[i]*=LAL_PI/180.0;			
-         errors[i]=0.0;
+        errors[i]*=LAL_PI/180.0;			
+         //errors[i]=0.0;
         //printf("error[%i] | logf = %e | error = %e\n", i, logF[i], errors[i]);
     }
     return; /* this is in radians ! */   
@@ -214,7 +214,7 @@ void FitNoiseRealisation(LALStatus *status,INT4	R,	INT4 N,	REAL8    *y,REAL8 dlo
   int i,j,k;
   
   /* factorial of D (used for derivatives) */
-  INT4 factorial = 1;
+  INT4 Factorial = 1;
   
   /* MATRICES AND VECTORS */
 	gsl_matrix *m     	= gsl_matrix_calloc (R+1, 2*M+1);   /* m_ij = j^i */
@@ -379,7 +379,7 @@ void FitNoiseRealisation(LALStatus *status,INT4	R,	INT4 N,	REAL8    *y,REAL8 dlo
 	
 	for(k=0; k<R; k++)
 	{
-		D[k] = factorial*gsl_vector_get(a, k);
+		D[k] = Factorial*gsl_vector_get(a, k);
 	}
 	
 	gsl_vector_set_zero (ym);

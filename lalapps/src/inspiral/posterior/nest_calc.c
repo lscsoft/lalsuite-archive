@@ -353,8 +353,8 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		if(Live[minpos]->logLikelihood > logLmax) logLmax = Live[minpos]->logLikelihood;
 		for(j=0;j<Nruns;j++) logwarray[j]+=sample_logt(Nlive);
 		logw=mean(logwarray,Nruns);
-		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db SNR %4.2f \n",
-									   i,100.0*((REAL8)i)/(((REAL8) Nlive)*H),accept/MCMCfail,H,H/log(2.0),logLmin,Live[minpos]->logLikelihood,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ,logZ,10.0*log10(exp(1.0))*(logZ-logZnoise),Live[minpos]->SNR);
+		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db SNR %4.2f \t F_x %lf \t G_X %lf \t K_x %lf \n",
+									   i,100.0*((REAL8)i)/(((REAL8) Nlive)*H),accept/MCMCfail,H,H/log(2.0),logLmin,Live[minpos]->logLikelihood,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ,logZ,10.0*log10(exp(1.0))*(logZ-logZnoise),Live[minpos]->SNR,Live[minpos]->logL_CalAmpCorr,Live[minpos]->logL_CalPhaCorr,Live[minpos]->logL_CalAmpPhaCorr);
 		if(fpout && !(i%50)) fflush(fpout);
 		i++;
 	}
