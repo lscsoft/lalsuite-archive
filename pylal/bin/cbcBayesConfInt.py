@@ -93,7 +93,7 @@ def makeInjObjs(injfile,event,posfiles):
         i=i+1
     return resObjs
 
-def makeSummaryFile(obj, params, outpath, confidencelevels):
+def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     """
     Make a summary page with table of results and plots for each param in params
     """
@@ -117,7 +117,7 @@ def makeSummaryFile(obj, params, outpath, confidencelevels):
             continue
         binParams={par: GreedyRes[par]}
 
-        toppoints,injectionconfidence,reses,injection_area=bppu.greedy_bin_one_param(obj,binParams, confidencelevels)
+        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(obj,binParams, confidencelevels)
         statfile=open(os.path.join(outpath,par+'_int.txt'),'w')
         for level in confidencelevels:
             print >>statfile,'%lf %lf'%(level, reses[level])
@@ -127,6 +127,18 @@ def makeSummaryFile(obj, params, outpath, confidencelevels):
             print >>statfile,'0 0\n'
         statfile.close()
     
+    top_ranked_pixels,sky_inj_cl,skyreses,injection_area=bppu.greedy_bin_sky(obj,skyres,confidencelevels)
+    print "BCI for sky area:"
+    print skyreses
+    statfile=open(os.path.join(outpath,'sky_int.txt'),'w')
+    fracs=skyreses.keys()
+    skysizes=[skyreses[frac] for frac in fracs]
+    for frac in fracs:
+        print >>statfile,'%lf %lf'%(frac,skyreses[frac])
+    if sky_inj_cl is not None and injection_area is not None:
+        print >>statfile,'%lf %lf'%(sky_inj_cl,injection_area)
+    statfile.close()
+
 if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()
