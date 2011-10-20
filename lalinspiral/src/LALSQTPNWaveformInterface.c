@@ -10,7 +10,7 @@
 #include <lal/LALSQTPNWaveformInterface.h>
 #include <lal/LALSQTPNWaveform.h>
 
-NRCSID (LALSQTPNWAVEFORMINTERFACEC, "$Id LALSQTPNWaveformInterface.c$");
+NRCSID(LALSQTPNWAVEFORMINTERFACEC, "$Id LALSQTPNWaveformInterface.c$");
 
 extern int switchMode;
 
@@ -80,13 +80,14 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 			wave->chih[1][i] = 0.;
 		}
 	}
-	wave->qmParameter[0] = 1.;//params->qmParameter[0];
-	wave->qmParameter[1] = 1.;//params->qmParameter[1];
+	wave->qmParameter[0] = 1.; //params->qmParameter[0];
+	wave->qmParameter[1] = 1.; //params->qmParameter[1];
 	wave->distance = params->distance;
 	wave->inclination = params->inclination;
 	wave->lowerFreq = params->fLower;
-	wave->finalFreq = (params->fFinal < params->fLower ? params->fCutoff : (params->fCutoff
-			< params->fFinal ? params->fCutoff : params->fFinal));
+	wave->finalFreq = (
+		params->fFinal < params->fLower ? params->fCutoff :
+			(params->fCutoff < params->fFinal ? params->fCutoff : params->fFinal));
 	wave->samplingFreq = params->tSampling;
 	wave->samplingTime = 1.0 / wave->samplingFreq;
 	wave->phi = 0.;
@@ -100,7 +101,7 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 }
 
 void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4Vector *signalvec2,
-		InspiralTemplate *params) {
+	InspiralTemplate *params) {
 
 	InspiralInit paramsInit;
 
@@ -132,16 +133,15 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 
 	/* Call the engine function */
 	switch (switchMode) {
-		case LALSQTPN_ADAPTIVE:
-			LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
-			break;
-		case LALSQTPN_PRECESSING:
-			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
-			break;
-		default:
-			break;
-	}
-	CHECKSTATUSPTR(status);
+	case LALSQTPN_ADAPTIVE:
+		LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+		break;
+	case LALSQTPN_PRECESSING:
+		LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+		break;
+	default:
+		break;
+	}CHECKSTATUSPTR(status);
 
 	DETATCHSTATUSPTR(status);
 	RETURN(status);
@@ -176,14 +176,14 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 
 	/* Call the engine function */
 	switch (switchMode) {
-		case LALSQTPN_ADAPTIVE:
-			LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
-			break;
-		case LALSQTPN_PRECESSING:
-			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
-			break;
-		default:
-			break;
+	case LALSQTPN_ADAPTIVE:
+		LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+		break;
+	case LALSQTPN_PRECESSING:
+		LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+		break;
+	default:
+		break;
 	}
 	//params->tC = wave_Params.coalescenceTime;
 	CHECKSTATUSPTR(status);
@@ -191,12 +191,11 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 	RETURN(status);
 }
 
-void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
-		InspiralTemplate *params, PPNParamStruc *ppnParams) {
+void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform, InspiralTemplate *params,
+	PPNParamStruc *ppnParams) {
 	INITSTATUS(status, "LALSQTPNWaveformInterface", LALSQTPNWAVEFORMINTERFACEC);
 	ATTATCHSTATUSPTR(status);
 	// variable declaration and initialization
-	UINT4 i;
 	InspiralInit paramsInit;
 
 	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -215,7 +214,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 
 	// Allocate the waveform structures.
 	xlalErrno = 0;
-	XLALSQTPNAllocateCoherentGW(waveform, paramsInit.nbins);
+	XLALSQTPNAllocateHplusAndHcrossInCoherentGW(waveform, paramsInit.nbins);
 
 	LALSQTPNWave wave;
 	wave.waveform = waveform;
@@ -227,67 +226,59 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform,
 
 	// calling the engine function
 	switch (switchMode) {
-		case LALSQTPN_ADAPTIVE:
-			LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
-			break;
-		case LALSQTPN_PRECESSING:
-			LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
-			break;
-		default:
-			break;
+	case LALSQTPN_ADAPTIVE:
+		LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+		break;
+	case LALSQTPN_PRECESSING:
+		LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
+		break;
+	default:
+		break;
 	}
-	BEGINFAIL(status) {
-		XLALSQTPNDestroyCoherentGW(waveform);
-	}ENDFAIL(status);
+	BEGINFAIL(status)
+				{
+					XLALSQTPNDestroyCoherentGW(waveform);
+				}ENDFAIL(status);
 	params->fFinal = wave_Params.finalFreq;
-	for (i = 0; i < wave.length; i++) {
-		if (waveform->phi->data->data[i] != 0.) {
-			break;
-		}
-		if (i == wave.length - 1) {
-			XLALSQTPNDestroyCoherentGW(waveform);
-			DETATCHSTATUSPTR(status);
-			RETURN(status);
-		}
-	}
-
 	{
-		if (waveform->a != NULL) {
-			waveform->f->data->length = waveform->phi->data->length = waveform->shift->data->length
-					= wave.length;
-			waveform->a->data->length = 2 * wave.length;
-			waveform->a->deltaT = waveform->f->deltaT = waveform->phi->deltaT
-					= waveform->shift->deltaT = 1. / params->tSampling;
-
-			waveform->a->sampleUnits = lalStrainUnit;
-			waveform->f->sampleUnits = lalHertzUnit;
-			waveform->phi->sampleUnits = lalDimensionlessUnit;
-			waveform->shift->sampleUnits = lalDimensionlessUnit;
-
-			waveform->position = ppnParams->position;
-			waveform->psi = ppnParams->psi;
-
-			snprintf(waveform->a->name, LALNameLength, "STPN inspiral amplitudes");
-			snprintf(waveform->f->name, LALNameLength, "STPN inspiral frequency");
-			snprintf(waveform->phi->name, LALNameLength, "STPN inspiral phase");
-			snprintf(waveform->shift->name, LALNameLength, "STPN inspiral polshift");
-		}
 		// --- fill some output ---
-		ppnParams->tc = (REAL8)(wave.length - 1) / params->tSampling;
+		ppnParams->tc = (REAL8) (wave.length - 1) / params->tSampling;
 		ppnParams->length = wave.length;
-		ppnParams->dfdt = ((REAL4)(waveform->f->data->data[wave.length - 1]
-				- waveform->f->data->data[wave.length - 2])) * ppnParams->deltaT;
 		ppnParams->fStop = params->fFinal;
 		ppnParams->termCode = GENERATEPPNINSPIRALH_EFSTOP;
 		ppnParams->termDescription = GENERATEPPNINSPIRALH_MSGEFSTOP;
-
 		ppnParams->fStart = ppnParams->fStartIn;
 	} // end phase condition
 	DETATCHSTATUSPTR(status);
 	RETURN(status);
 }
 
-int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length) {
+int XLALSQTPNAllocateHplusAndHcrossInCoherentGW(CoherentGW *wave, UINT4 length) {
+	if (!wave) {
+		XLAL_ERROR(__func__, XLAL_EFAULT);
+	}
+	if (length <= 0) {
+		XLAL_ERROR(__func__, XLAL_EBADLEN);
+	}
+	if (wave->h) {
+		XLAL_ERROR(__func__, XLAL_EFAULT);
+	}
+	wave->h = (REAL4TimeVectorSeries *) LALMalloc(sizeof(REAL4TimeVectorSeries));
+	if (!wave->h) {
+		XLALSQTPNDestroyCoherentGW(wave);
+		XLAL_ERROR(__func__, XLAL_ENOMEM);
+	}
+	xlalErrno = 0;
+	wave->h->data = XLALCreateREAL4VectorSequence(length, 2);
+	memset(wave->h->data->data, 0, 2 * length * sizeof(REAL4));
+	if (!wave->h->data) {
+		XLALSQTPNDestroyCoherentGW(wave);
+		XLAL_ERROR(__func__, XLAL_ENOMEM);
+	}
+	return XLAL_SUCCESS;
+}
+
+int XLALSQTPNAllocateAmplitudeInCoherentGW(CoherentGW *wave, UINT4 length) {
 	if (!wave) {
 		XLAL_ERROR(__func__, XLAL_EFAULT);
 	}
@@ -297,10 +288,10 @@ int XLALSQTPNAllocateCoherentGW(CoherentGW *wave, UINT4 length) {
 	if (wave->a || wave->f || wave->phi || wave->shift) {
 		XLAL_ERROR(__func__, XLAL_EFAULT);
 	}
-	wave->a = (REAL4TimeVectorSeries *)LALMalloc(sizeof(REAL4TimeVectorSeries));
-	wave->f = (REAL4TimeSeries *)LALMalloc(sizeof(REAL4TimeSeries));
-	wave->phi = (REAL8TimeSeries *)LALMalloc(sizeof(REAL8TimeSeries));
-	wave->shift = (REAL4TimeSeries *)LALMalloc(sizeof(REAL4TimeSeries));
+	wave->a = (REAL4TimeVectorSeries *) LALMalloc(sizeof(REAL4TimeVectorSeries));
+	wave->f = (REAL4TimeSeries *) LALMalloc(sizeof(REAL4TimeSeries));
+	wave->phi = (REAL8TimeSeries *) LALMalloc(sizeof(REAL8TimeSeries));
+	wave->shift = (REAL4TimeSeries *) LALMalloc(sizeof(REAL4TimeSeries));
 	if (!(wave->a && wave->f && wave->phi && wave->shift)) {
 		XLALSQTPNDestroyCoherentGW(wave);
 		XLAL_ERROR(__func__, XLAL_ENOMEM);

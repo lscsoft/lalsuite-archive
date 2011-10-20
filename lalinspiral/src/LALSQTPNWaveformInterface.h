@@ -51,12 +51,19 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *wave_out,
 		InspiralTemplate *params, PPNParamStruc *ppnParams);
 
+/**		The function allocates memory for the waveform's \f$h_+\f$, \f$h_\times\f$.
+ * @param[out] wave	  : pointer to the allocated waveform
+ * @param[in]  length : the length of the waveform
+ * @return
+ */
+int XLALSQTPNAllocateHplusAndHcrossInCoherentGW(CoherentGW *wave, UINT4 length);
+
 /**		The function allocates memory for the waveform's \f$a_1\f$, \f$a_2\f$,
  * \f$\Phi\f$ and \f$\alpha\f$.
  * @param[out]		waveform	: pointer to the allocated waveform
  * @param[in]		length		: the length of the waveform
  */
-int XLALSQTPNAllocateCoherentGW(CoherentGW *waveform, UINT4 length);
+int XLALSQTPNAllocateAmplitudeInCoherentGW(CoherentGW *waveform, UINT4 length);
 
 /**		The function deallocates memory of the waveform.
  * @param[out]		waveform	: pointer to the allocated waveform
