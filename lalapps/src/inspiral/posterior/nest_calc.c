@@ -301,6 +301,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
         fprintf(fpout,"%s\t",param_ptr->core->name);
     }
     fprintf(fpout,"SNR\t");
+    fprintf(fpout,"logL_calamp \t logL_calpha \t logL_calamppha \t");
     fprintf(fpout,"logl");
     fclose(fpout);
 
@@ -353,7 +354,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		if(Live[minpos]->logLikelihood > logLmax) logLmax = Live[minpos]->logLikelihood;
 		for(j=0;j<Nruns;j++) logwarray[j]+=sample_logt(Nlive);
 		logw=mean(logwarray,Nruns);
-		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db SNR %4.2f \t F_x %lf \t G_X %lf \t K_x %lf \n",
+		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db SNR %4.2f \t F_x %4.2f \t G_x %4.2f \t K_x %4.2f    \n",
 									   i,100.0*((REAL8)i)/(((REAL8) Nlive)*H),accept/MCMCfail,H,H/log(2.0),logLmin,Live[minpos]->logLikelihood,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ,logZ,10.0*log10(exp(1.0))*(logZ-logZnoise),Live[minpos]->SNR,Live[minpos]->logL_CalAmpCorr,Live[minpos]->logL_CalPhaCorr,Live[minpos]->logL_CalAmpPhaCorr);
 		if(fpout && !(i%50)) fflush(fpout);
 		i++;
@@ -600,9 +601,10 @@ void fprintSample(FILE *fp,LALMCMCParameter *sample){
 	LALMCMCParam *p=sample->param;
 	if(fp==NULL) return;
 	while(p!=NULL) {fprintf(fp,"%15.15lf\t",p->value); p=p->next;}
-        fprintf(fp,"%lf\t",sample->SNR);
+    fprintf(fp,"%lf\t",sample->SNR);
+    fprintf(fp,"%lf \t %lf \t %lf \t",sample->logL_CalAmpCorr,sample->logL_CalPhaCorr,sample->logL_CalAmpPhaCorr);
 	fprintf(fp,"%lf\n",sample->logLikelihood);
-	return;
+    return;
 }
 
 REAL8 sample_logt(int Nlive){

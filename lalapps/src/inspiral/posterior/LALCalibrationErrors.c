@@ -162,8 +162,8 @@ void SampleCalibrationErrorsPhase(REAL8 *logF, INT4 length, INT4 IFO, INT4 seed,
          else if (logF[i]>=log10(4000.0) && logF[i]<=log10(6000.0)){
             errors[i]=gsl_ran_gaussian(p, stddev[5]);
 				}
-        errors[i]*=LAL_PI/180.0;			
-         
+        //errors[i]*=LAL_PI/180.0;			
+         errors[i]=0.05;
         //printf("error[%i] | logf = %e | error = %e\n", i, logF[i], errors[i]);
     }
     return; /* this is in radians ! */   
