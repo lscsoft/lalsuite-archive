@@ -685,7 +685,9 @@ in the frequency domain */
 	REAL8 eta,mtot,mchirp;
 	expnFunc expnFunction;
 	expnCoeffs ak;
-
+    LALMCMCParam *p=parameter->param;
+	while(p!=NULL) {fprintf(stdout ,"In LikCal %s\t%15.15lf\n",p->core->name,p->value); p=p->next;}
+    
 	if(inputMCMC->numberDataStreams==0){
 		parameter->logLikelihood=0.0;
 		return 0.0;
@@ -778,10 +780,11 @@ in the frequency domain */
 	/* This also holds the source and the detector, LAL has two different structs for this! */
 	LALDetAndSource det_source;
 	det_source.pSource=&source;
-    REAL8 deltaF_x=0.0, F_x=0.0;
+    REAL8 deltaF_x_1st=0.0, deltaF_x_2nd=0.0, F_x=0.0;
     REAL8 deltaG_x=0.0, G_x=0.0;
     REAL8 deltaK_x=0.0, K_x=0.0;
     REAL8 Deltaplus=0.0, Deltamin=0.0,Reeven=0.0,Reodd=0.0;
+    REAL8 calamp=0.0,calpha=0.0;
     INT4 CalOrder=2;
     
 	for(det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){ /* For each detector */
@@ -804,7 +807,13 @@ in the frequency domain */
 		UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
 		if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
 		if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==EOBNR) highBin=inputMCMC->stilde[det_i]->data->length-1;
-		for(idx=lowBin;idx<=highBin;idx++){
+        
+        deltaF_x_1st=0.0;
+        deltaF_x_2nd=0.0;
+        deltaG_x=0.0;
+        deltaK_x=0.0;
+        
+		for(idx=lowBin;idx<=highBin;idx++){ //For in the frequencies
 			time_sin = sin(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
 			time_cos = cos(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
 
@@ -835,17 +844,27 @@ in the frequency domain */
             Deltamin= 2.0*(inputMCMC->stilde[det_i]->data->data[idx].re*resp_i/deltaF - inputMCMC->stilde[det_i]->data->data[idx].im*resp_r/deltaF); // This is DeltaMin/i
             Reeven=0.0;
             Reodd =0.0; 
-            for(INT4 kappa=1;kappa<=CalOrder;kappa++){
-                Reeven+=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2.0*kappa)*pow(-1.0,kappa)/factorial(2.0*(kappa));
-                Reodd+= pow(inputMCMC->calibPhase[det_i]->data->data[idx],2.0*kappa-1.0)*pow(-1.0,kappa)/factorial(2.0*kappa-1.0); // This is R_o (-i)
-            }
+            //for(INT4 kappa=1;kappa<=CalOrder;kappa++){ //Time consuming use of pow
+                //Reeven+=pow(inputMCMC->calibPhase[det_i]->data->data[idx],2.0*kappa)*pow(-1.0,kappa)/factorial(2.0*(kappa));
+                //Reodd+= pow(inputMCMC->calibPhase[det_i]->data->data[idx],2.0*kappa-1.0)*pow(-1.0,kappa)/factorial(2.0*kappa-1.0); // This is R_o (-i)
+            //}
+            Reeven+= -inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*(0.5);
+            Reeven+=inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]/(24.0);
+            Reodd+= -inputMCMC->calibPhase[det_i]->data->data[idx];
+            Reodd+= -inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]/(6.0);  
+
             deltaG_x+=(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
             
-            for(INT4 kappa=1;kappa<=CalOrder;kappa++){
-                deltaF_x+=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
-                deltaK_x+=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
-            }
-
+            //for(INT4 kappa=1;kappa<=CalOrder;kappa++){
+               // deltaF_x+=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+                //deltaK_x+=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+            //}
+            deltaF_x_1st+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(2.0*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+            deltaF_x_2nd+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(3.0*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+            
+            deltaK_x+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+            deltaK_x+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
+                
 		} /* End loop over frequency */
 
 		/* Dump the template and data if required */
@@ -876,22 +895,23 @@ in the frequency domain */
         chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
         rec_snr*=2.0*deltaF;
 		parameter->SNR+=rec_snr;
-        deltaF_x*=-2.0*deltaF; // These already have the right sign. They have to be *added* to logL
+        deltaF_x_1st*=-2.0*deltaF; // These already have the right sign. They have to be *added* to logL
+        deltaF_x_2nd*=-2.0*deltaF;
         deltaG_x*=2.0*deltaF;  //
         deltaK_x*=2.0*deltaF;  //
-
+        fprintf(stdout,"dF1 %lf \t dF2 %lf for IFO %i \n",deltaF_x_1st,deltaF_x_2nd,det_i);
 		/* add the normalisation constant */
 		/*		chisq+=normalisations[det_i]; */ /*Gaussian version*/
 		/*chisq+=(Nmodel-lowBin)*log(2);*/ /* student-t version */
 
 		/*chisq+=(REAL8)( 0.5 * (inputMCMC->invspec[det_i]->data->length-lowBin) * log(2.0*LAL_PI));*/
 		logL-=chisq;
-        F_x+=deltaF_x;
+        F_x+=(deltaF_x_1st+deltaF_x_2nd);
         G_x+=deltaG_x;
         K_x+=deltaK_x;
         //logL+=(F_x+G_x+K_x);
         
-	}
+	} // End loop over IFOs
 
 	/* Add log likelihoods to find global likelihood */
 	parameter->logLikelihood=logL; 

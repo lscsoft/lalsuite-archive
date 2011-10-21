@@ -242,6 +242,10 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
         CheckInjectionInRange(injected,MCMCinput);
         fprintf(stdout,"logL of the injected point %lf \n", MCMCinput->funcLikelihood(MCMCinput,injected));
         fprintf(stdout,"SNR of the injected point %lf (that should be equal to the optimal one) \n", injected->SNR);
+        fprintf(stdout,"AmpShift of the injected point %lf \n", injected->logL_CalAmpCorr);
+        fprintf(stdout,"PhaShift of the injected point %lf \n", injected->logL_CalPhaCorr);
+        fprintf(stdout,"MixShift of the injected point %lf \n", injected->logL_CalAmpPhaCorr);
+        
     }
     
 	if(MCMCinput->injectionTable!=NULL) MCMCinput->funcInit(temp,(void *)MCMCinput->injectionTable);
