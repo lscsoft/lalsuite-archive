@@ -43,7 +43,8 @@ model where possible (>1 IFO available).
 parser=OptionParser(usage)
 parser.add_option("-i","--ini-file",default=None,action="store",type="string",help="ini-file for nestGRB pipeline",metavar="CONFIG.ini")
 parser.add_option("-r","--run-path",default="./",action="store",type="string",help="Directory to run pipeline in (default: %default)",metavar="RUNDIR")
-parser.add_option("-l","--log-path",default=None,action="store",type="string",help="Directory to store log files, defaults to RUNDIR/log/",metavar="LOGDIR")
+parser.add_option("-p","--dag-log-path",default=None,action="store",type="string",help="Directory to store dag log files, defaults to RUNDIR/log/",metavar="LOGDIR")
+parser.add_option("-l","--jobs-log-path",default=None,action="store",type="string",help="Directory to store jobs  log files, defaults to RUNDIR/log/",metavar="LOGDIR")
 parser.add_option("-s","--gps-start-time",action="store",type="string",default=None,help="Start time of analysis")
 parser.add_option("-e","--gps-end-time",action="store",type="string",default=None,help="End time of analysis")
 parser.add_option("-I","--inj",action="store",type="string",default=None,help="List of injections to perform and analyse",metavar="INJFILE.xml")
@@ -97,11 +98,19 @@ if opts.ini_file is None:
         parser.error("Must specify an ini file using --ini-file")
 #if opts.trigger_time is None:
 #       parser.error("Must specify the trigger time using --trigger-time")
-
 checkDir(opts.run_path)
-if opts.log_path is None:
-        opts.log_path=os.path.join(opts.run_path,"log")
-checkDir(opts.log_path)
+
+if opts.dag_log_path is not None:
+    dag_log_path=opts.dag_log_path
+else:
+    dag_log_path=os.path.join(opts.run_path,'logs')
+checkDir(dag_log_path)
+
+if opts.jobs_log_path is not None:
+    jobs_log_path=opts.jobs_log_path
+else:
+    jobs_log_path=os.path.join(opts.run_path,'logs')
+checkDir(jobs_log_path)
 
 # Get science segments
 
@@ -284,13 +293,13 @@ segs={}
 
 basename="nest_%.3f-%.3f"%(starttime,endtime)
 # Create DAG #################
-logfile=os.path.join(opts.log_path,basename+'.log')
+logfile=os.path.join(opts.dag_log_path,basename+'.log')
 dagfile=os.path.join(opts.run_path,basename)
 
 dag = pipeline.CondorDAG(logfile)
 dag.set_dag_file(dagfile)
 
-datafind_job = pipeline.LSCDataFindJob(cache_dir,opts.log_path,cp)
+datafind_job = pipeline.LSCDataFindJob(cache_dir,opts.jobs_log_path,cp)
 datafind_job.add_opt('url-type','file')
 datafind_job.set_sub_file(os.path.join(opts.run_path,'datafind.sub'))
 
@@ -363,7 +372,7 @@ if len(times)==0:
     sys.exit(1)
 
 inspnest_subfile=os.path.join(opts.run_path,'inspnest.sub')
-inspnest_job=OddsPipeline.InspNestJob(cp,inspnest_subfile,opts.log_path)
+inspnest_job=OddsPipeline.InspNestJob(cp,inspnest_subfile,opts.jobs_log_path)
 inspnest_job.add_opt('Nlive',cp.get('analysis','nlive'))
 inspnest_job.add_opt('Nmcmc',cp.get('analysis','nmcmc'))
 
@@ -425,7 +434,7 @@ checkDir(snr_dir)
 inspnest_job.add_opt('snrpath',snr_dir)
 
 time_combine_sub_file=os.path.join(opts.run_path,'combine_each_time.sub')
-combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.log_path)
+combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.jobs_log_path)
 combine_each_time_nodes={}
 
 inspnest_nodes={}
@@ -464,7 +473,7 @@ if nparallel==1:
         cal_counter=cal_counter+1.0
 else:
     merge_sub_file=os.path.join(opts.run_path,'merge.sub')
-    merge_job=OddsPipeline.MergeJob(cp,merge_sub_file,opts.log_path)
+    merge_job=OddsPipeline.MergeJob(cp,merge_sub_file,opts.jobs_log_path)
     for time in times:
         if time_event is not None and not opts.disable_inject:
                 thisevent=time_event[time]
@@ -489,7 +498,7 @@ for time in times:
 # Set up coherence test jobs if required
 if opts.coherence_test:
     coherence_test_sub_file=os.path.join(opts.run_path,'coherence_test.sub')
-    coherence_test_job=OddsPipeline.CoherenceTestJob(cp,coherence_test_sub_file,opts.log_path)
+    coherence_test_job=OddsPipeline.CoherenceTestJob(cp,coherence_test_sub_file,opts.jobs_log_path)
     coherence_inspnest_nodes={}
     coherence_test_posfiles={}
     coherence_test_nodes={}
@@ -600,7 +609,7 @@ for time in times:
 print 'Broke into %i chunks for recombination'%(len(times_by_seg))
 
 combine_sub_file=os.path.join(opts.run_path,'combine.sub')
-combine_job=OddsPipeline.CombineZJob(cp,combine_sub_file,opts.log_path)
+combine_job=OddsPipeline.CombineZJob(cp,combine_sub_file,opts.jobs_log_path)
 combine_nodes={}
 combine_dir=os.path.join(opts.run_path,'combine')
 checkDir(combine_dir)
@@ -608,7 +617,7 @@ checkDir(combine_dir)
 if opts.disable_pages is False:
     # Set up web page producing nodes
     results_page_sub_file=os.path.join(opts.run_path,'results_page.sub')
-    results_page_job=OddsPipeline.ResultsPageJob(cp,results_page_sub_file,opts.log_path)
+    results_page_job=OddsPipeline.ResultsPageJob(cp,results_page_sub_file,opts.jobs_log_path)
     if(len(times)==1):
         results_path=os.path.join(cp.get('results','basedir'),str(time))
     else:
