@@ -25,14 +25,14 @@ allow users to run LSC codes on the grid.
 %package common
 Summary:	The common files needed for all sub-packages
 Group: 		Development/Libraries
-Requires: 	python python-cjson m2crypto pyxmpp
+Requires: 	python 
 %description common
 This is for the files that are common across the glue subpackages, namely git_version, iterutils and __init__.py
 
 %package segments
 Summary:        The segments subpackage
 Group:          Development/Libraries
-Requires:       python python-cjson m2crypto pyxmpp glue-common
+Requires:       python glue-common
 %description segments
 This is for the segments subpackage, written by Kipp.
 
@@ -48,6 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.36-py2.6.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -60,9 +61,13 @@ rm -rf $RPM_BUILD_ROOT
 %{_glue_prefix}/var/
 %{_glue_prefix}/share/nmi/lalsuite-build*
 %exclude %{glue_python_sitearch}/glue/__init__.py
+%exclude %{glue_python_sitearch}/glue/__init__.pyc
 %exclude %{glue_python_sitearch}/glue/segments.py
 %exclude %{glue_python_sitearch}/glue/iterutils.py
 %exclude %{glue_python_sitearch}/glue/git_version.py
+%exclude %{glue_python_sitearch}/glue/segments.pyc
+%exclude %{glue_python_sitearch}/glue/iterutils.pyc
+%exclude %{glue_python_sitearch}/glue/git_version.pyc
 #%exclude %{_glue_prefix}/src/segments/
 #%exclude %{_glue_prefix}/test/segment_verify.py
 #%exclude %{_glue_prefix}/test/segmentsUtils_verify.py
@@ -70,6 +75,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files segments
 %{glue_python_sitearch}/glue/segments.py
+%{glue_python_sitearch}/glue/segments.pyc
 #%{glue_python_sitearch}/src/segments/
 #%{glue_python_sitearch}/test/segment_verify.py
 #%{glue_python_sitearch}/test/segmentsUtils_verify.py
@@ -77,8 +83,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %files common
 %{glue_python_sitearch}/glue/__init__.py
+%{glue_python_sitearch}/glue/__init__.pyc
+%{glue_python_sitearch}/glue/iterutils.pyc
 %{glue_python_sitearch}/glue/iterutils.py
 %{glue_python_sitearch}/glue/git_version.py
+%{glue_python_sitearch}/glue/git_version.pyc
 
 
 %changelog

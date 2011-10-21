@@ -93,7 +93,7 @@ def makeInjObjs(injfile,event,posfiles):
         i=i+1
     return resObjs
 
-def makeSummaryFile(obj, params, outpath, confidencelevels):
+def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     """
     Make a summary page with table of results and plots for each param in params
     """
@@ -117,7 +117,8 @@ def makeSummaryFile(obj, params, outpath, confidencelevels):
             continue
         binParams={par: GreedyRes[par]}
 
-        toppoints,injectionconfidence,reses,injection_area=bppu.greedy_bin_one_param(obj,binParams, confidencelevels)
+        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(obj,binParams, confidencelevels)
+        
         statfile=open(os.path.join(outpath,par+'_int.txt'),'w')
         for level in confidencelevels:
             print >>statfile,'%lf %lf'%(level, reses[level])
@@ -125,8 +126,37 @@ def makeSummaryFile(obj, params, outpath, confidencelevels):
             print >>statfile,'%lf %lf'%(injectionconfidence,injection_area)
         else:
             print >>statfile,'0 0\n'
+        print >>statfile,'12345 %lf'%(obj[par].stdev)
+        print >>statfile,'67890 %lf'%(obj[par].stdacc) 
         statfile.close()
     
+    # Sky position
+    top_ranked_pixels,sky_inj_cl,skyreses,injection_area=bppu.greedy_bin_sky(obj,skyres,confidencelevels)
+    print "BCI for sky area:"
+    print skyreses
+    statfile=open(os.path.join(outpath,'sky_int.txt'),'w')
+    fracs=skyreses.keys().sort()
+    skysizes=[skyreses[frac] for frac in fracs]
+    for frac in fracs:
+        print >>statfile,'%lf %lf'%(frac,skyreses[frac])
+    if sky_inj_cl is not None and injection_area is not None:
+        print >>statfile,'%lf %lf'%(sky_inj_cl,injection_area)
+    else:
+        print >>statfile,'0 0'
+    statfile.close()
+
+    # distance-iota
+    greedy2params={'dist':GreedyRes['dist'], 'iota':GreedyRes['iota']}
+    statfile=open(os.path.join(outpath,'dist_iota_int.txt'),'w')
+    toppoints,injection_cl,reses,injection_area=bppu.greedy_bin_two_param(obj,greedy2params,confidencelevels)
+    for frac in reses.keys().sort():
+        print >>statfile,'%lf %lf'%(frac,reses[frac])
+    if injection_cl is not None and injection_area is not None:
+        print >>statfile,'%lf %lf'%(injection_cl,injection_area)
+    else:
+        print >>statfile,'0 0'
+
+
 if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()

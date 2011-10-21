@@ -196,15 +196,16 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.peak_frequency      = trig.central_freq
     # duration
     trig.duration            = LIGOTimeGPS(float(data[2]))
+    halfduration             = LIGOTimeGPS(float(data[2])/2)
     # start time
-    start = peak-trig.duration
+    start = peak-halfduration
     ms_start = start
     trig.start_time          = start.seconds
     trig.start_time_ns       = start.nanoseconds
     trig.ms_start_time       = ms_start.seconds
     trig.ms_start_time_ns    = ms_start.nanoseconds
     # end time
-    stop = peak+trig.duration
+    stop = peak+halfduration
     ms_stop = stop
     trig.stop_time           = stop.seconds
     trig.stop_time_ns        = stop.nanoseconds
@@ -967,18 +968,24 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 
         # get value of param
         if col=='time':
-          value = get_time(trig)
+          valueStop = trig.stop_time + trig.stop_time_ns*1e-9
+          valueStart = trig.start_time + trig.start_time_ns*1e-9
+        elif col=='peak_frequency':
+          valueStop = trig.fhigh
+          valueStart = trig.flow
         else:
-          value = trig.__getattribute__(col)
+          valueStop = trig.__getattribute__(col)
+          valueStart = valueStop
 
         # if subcluster is empty, simply add the first trigger
         if not subsubcluster:
           subsubcluster = [trig]
-          prev = value
+          prevStop = valueStop
+          prevStart = valueStart
           continue
 
         # if current trig is inside width, append to cluster
-        if math.fabs(value-prev)<width:
+        if (valueStart-prevStop)<width:
           subsubcluster.append(trig)
 
         # if not the subcluster is complete, append it to list and start again
@@ -986,7 +993,8 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
           newclusters.append(subsubcluster)
           subsubcluster=[trig]
 
-        prev = value
+        prevStart = valueStart
+        prevStop = valueStop
 
       # append final subsubcluster
       newclusters.append(subsubcluster)

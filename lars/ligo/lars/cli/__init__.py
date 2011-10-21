@@ -12,7 +12,7 @@ import socket
 import os
 
 from glue.lal import Cache
-from glue.lars import serviceProxy
+from ligo.lars import serviceProxy
 
 DEFAULT_SERVER = "https://archie.phys.uwm.edu/lars/xmlrpc/"
 

@@ -166,7 +166,7 @@ def fromsegmentcsv(csvfile):
   """
 
   def CSVLineToSeg(line):
-    tstart, tend = map(LIGOTimeGPS, line.split(', '))
+    tstart, tend = map(LIGOTimeGPS, line.split(','))
     return segments.segment(tstart, tend)
 
   segs = segments.segmentlist([CSVLineToSeg(line) for line in csvfile])
