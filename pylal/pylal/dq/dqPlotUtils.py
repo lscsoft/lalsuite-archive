@@ -1731,6 +1731,180 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   plot.savefig(outfile, bbox_inches='tight')
 
 # =============================================================================
+# Plot RMS versus time in bins
+
+def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
+                      zero=None, rmscolumn='snr', bincolumn='peak_frequency', bins=[],\
+                      etg='Unknown', **kwargs):
+
+  """
+    Plot RMS versus time for the given ligolw table triggers, binned by the
+    given bincolumn using the bins list.
+
+    Arguments:
+
+      triggers : glue.ligolw.table
+        LIGOLW table containing a list of triggers
+      outfile : string
+        string path for output plot
+
+    Keyword arguments:
+
+      average : float
+        Length (seconds) of RMS segment
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time
+      zero : [ float | int | LIGOTimeGPS ]
+        GPS time to use for 0 on time axis
+      rmscolumn : string
+        valid column of the trigger table to RMS over
+      bincolumn : string
+        valid column of the trigger table to use for binning
+      bins : list
+        list of tuples defining the rate bins
+      etg : string
+        display name of trigger generator
+      logy : [ True | False ]
+        boolean option to display y-axis in log scale
+      ylim : tuple
+        (ymin, ymax) limits for rate axis
+  """
+
+  tableName = triggers.tableName.lower()
+  get_time = def_get_time(tableName)
+
+  # set start and end times
+  if not start and not end:
+    times = [get_time(t) for t in triggers]
+  if not start:
+    start = min(times)
+  if not end:
+    end   = max(times)
+
+  if not zero:
+    zero = start
+
+  # set plot time unit whether it's used or not
+  unit, timestr = time_unit(end-start)
+
+  # set ETG
+  if not etg:
+    if re.search('burst', tableName):
+      etg = 'Burst'
+    elif re.search('inspiral', tableName):
+      etg = 'Inspiral'
+    elif re.search('ringdown', tableName):
+      etg = 'Ringdown'
+    else:
+      etg = 'Unknown'
+
+  # get limits
+  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  ylim = kwargs.pop('ylim', None)
+
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+
+  # format ybins
+  if not bins:
+    bins  = [[0,float('inf')]]
+  ybins   = [map(float, bin) for bin in bins]
+
+  # bin data
+  tbins   = {}
+  rate = {}
+  rms = {}
+  for bin in ybins:
+    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
+    rms[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
+
+  for trig in triggers:
+    x = int(float(getTrigAttribute(trig, 'time')-start)//average)
+    y = getTrigAttribute(trig, bincolumn)
+    z = getTrigAttribute(trig, rmscolumn)
+    for bin in ybins:
+      if bin[0] <= y < bin[1]:
+        rms[bin[0]][x] += z*z
+        rate[bin[0]][x] += 1
+        break
+
+  # Normalize the RMS to get the mean not the sum
+  for bin in ybins:
+    for x in range(len(tbins[bin[0]])):
+      if rate[bin[0]][x] :
+        rms[bin[0]][x] = math.sqrt(rms[bin[0]][x]/rate[bin[0]][x])
+
+  # if logscale includes zeros, pylab.scatter will break, so remove zeros
+  if logy:
+    for bin in ybins:
+      removes = 0
+      numtbins = len(tbins[bin[0]])
+      for rbin in xrange(0,numtbins):
+        if rms[bin[0]][rbin-removes]==0:
+          rms[bin[0]].pop(rbin-removes)
+          tbins[bin[0]].pop(rbin-removes)
+          removes+=1
+
+  # set labels
+  etg   = etg.replace('_', '\_')
+  zero = LIGOTimeGPS('%.3f' % zero)
+  if zero.nanoseconds==0:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                 .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+  else:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                  .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+    tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+  xlabel = kwargs.pop('xlabel',\
+                      'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  ylabel = kwargs.pop('ylabel', 'RMS')
+  title = kwargs.pop('title', '%s triggers binned by %s'\
+                              % (etg, display_name(bincolumn)))
+  if start and end:
+    subtitle = '%s-%s' % (start, end)
+  else:
+    subtitle = " "
+  subtitle = kwargs.pop('subtitle', subtitle)
+
+  # customise plot appearance
+  set_rcParams()
+
+  # generms plot object
+  plot = ScatterPlot(xlabel, ylabel, title, subtitle)
+
+  # plot rmss
+  for bin in ybins:
+    if logy:
+      if len(rms[bin[0]])>0:
+        plot.add_content(tbins[bin[0]], rms[bin[0]],\
+                         label='-'.join(map(str, bin)), **kwargs)
+      else:
+        plot.add_content([1],[0.1], label='-'.join(map(str, bin)),\
+                         visible=False)
+    else:
+      plot.add_content(tbins[bin[0]], rms[bin[0]], label='-'.join(map(str, bin)),\
+                       **kwargs)
+
+  # finalise plot
+  plot.finalize(logx=logx, logy=logy)
+
+  # set limits
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  plot.ax.set_xlim(xlim)
+  if ylim:
+    plot.ax.set_ylim(ylim)
+
+  # normalize ticks
+  set_ticks(plot.ax)
+
+  # save
+  plot.savefig(outfile, bbox_inches='tight')
+
+# =============================================================================
 # Plot segments
 
 def plot_segments(segdict, outfile, start=None, end=None, zero=None, 
