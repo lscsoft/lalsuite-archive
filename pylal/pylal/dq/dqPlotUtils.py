@@ -1324,10 +1324,24 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         else:
           nvetoData[col].append(val)
 
+
   data = {}
   for i,col in enumerate(columns):
     vetoData[col]  = numpy.array(vetoData[col])
     nvetoData[col] = numpy.array(nvetoData[col])
+    
+  # normalize zcolumn by time-averaged value
+  whitenedFlag = kwargs.pop('whitened', False)
+  if zcolumn and whitenedFlag:
+    uniqYvalues = numpy.unique1d(nvetoData[ycolumn])
+    # building look back table by hand, is included in unique1d for numpy >= v1.3
+    for yVal in uniqYvalues:
+      backTable = numpy.where(yVal == nvetoData[ycolumn])
+      zMedian =  numpy.median(nvetoData[zcolumn][yVal == nvetoData[ycolumn]])
+      for  iTrig in backTable[0]:
+        nvetoData[zcolumn][iTrig] /= zMedian
+  
+  for i,col in enumerate(columns):
     data[col] = numpy.concatenate((nvetoData[col], vetoData[col]))
     if not limits[i] and len(data[col])>=1:
       limits[i] = [0,0]
