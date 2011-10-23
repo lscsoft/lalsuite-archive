@@ -965,6 +965,13 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
     # set x axis
     plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+  else:
+      # set global axis limits
+    if xlim:
+      plot.ax.set_xlim(xlim)
+    if ylim:
+      plot.ax.set_ylim(ylim)
+
 
   set_ticks(plot.ax)
 
@@ -1341,6 +1348,20 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
       for  iTrig in backTable[0]:
         nvetoData[zcolumn][iTrig] /= zMedian
   
+  # median/min/max of ycolumn binned by exact xcolumn values
+  minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
+  if minmaxmedianFlag:
+    uniqXvalues = numpy.unique1d(nvetoData[xcolumn])
+    # building look back table by hand, is included in unique1d for numpy >= v1.3
+    for xVal in uniqXvalues:
+      backTable = numpy.where(xVal == nvetoData[xcolumn])
+      if len(backTable[0]) > 3:
+        nvetoData[ycolumn][backTable[0][0]] = numpy.median(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        nvetoData[ycolumn][backTable[0][1]] = numpy.min(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        nvetoData[ycolumn][backTable[0][2]] = numpy.max(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        for iTrig in backTable[0][3:]:
+          nvetoData[ycolumn][iTrig] = numpy.nan
+
   for i,col in enumerate(columns):
     data[col] = numpy.concatenate((nvetoData[col], vetoData[col]))
     if not limits[i] and len(data[col])>=1:
