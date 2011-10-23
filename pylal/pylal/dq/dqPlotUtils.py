@@ -945,7 +945,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     if x_format=='time':
       x_data = (numpy.array(map(float, x_data))-float(zero))/unit
     lab = str(channel)
-    if lab != '_': lab = labe.replace('_', '\_')
+    if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
