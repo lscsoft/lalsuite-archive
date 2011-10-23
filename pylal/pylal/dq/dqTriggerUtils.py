@@ -94,7 +94,7 @@ def trigger(data,etg,ifo=None,channel=None):
   """
 
   etgcategories = {lsctables.SnglInspiral(): ['ihope'],\
-                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr'],\
+                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr','omegaspectrum'],\
                    lsctables.SnglRingdown(): []}
 
   # set up trig object
@@ -227,6 +227,28 @@ def trigger(data,etg,ifo=None,channel=None):
 
     # SNR
     trig.snr                 = math.sqrt(2*trig.amplitude)
+
+  # =====
+  # omega
+  # =====
+  if etg=='omegaspectrum':
+    # space separated values are:
+    # peak_time.peak_time_ns peak_frequency duration bandwidth amplitude
+    # cluster_size cluster_norm_energy cluster_number
+
+    # peak time
+    peak = LIGOTimeGPS(data[0])
+    trig.peak_time           = peak.seconds
+    trig.peak_time_ns        = peak.nanoseconds
+    # central frequency
+    trig.central_freq        = float(data[1])
+    trig.peak_frequency      = trig.central_freq
+
+    trig.amplitude           = float(data[2])
+
+
+    # SNR
+    trig.snr                 = math.sqrt(trig.amplitude)
 
   # ==============
   # omegadq
@@ -411,6 +433,8 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'cluster_length','ms_start_time','ms_stop_time','ms_flow',\
                  'ms_fhigh','cluster_size','amplitude','amplitude']
 
+    elif re.match('omegaspectrum',etg):
+      columns = ['peak_time','peak_frequency','amplitude']
     elif re.match('omega',etg) or re.match('wpipe',etg):
       columns = ['peak_time','peak_frequency','duration',\
                  'bandwidth','amplitude',\
@@ -579,7 +603,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
 
   if not tabletype:
     etgs = {'inspiral': ['ihope'],\
-            'burst':    ['omega','omegadq','kw','hacr'],\
+            'burst':    ['omega','omegadq','kw','hacr','omegaspectrum'],\
             'ringdown': []}
     # set up triggers table
     for search,etglist in etgs.items():
