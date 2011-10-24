@@ -14,7 +14,7 @@ from pylal.xlal.datatypes import snglringdowntable
 from pylal import SnglInspiralUtils
 from pylal import db_rinca_rings
 from pylal import git_version
-from pylal import mvsc_queries
+from pylal import mvsc_queries_ringdown
 from time import clock,time
 from optparse import *
 import glob
