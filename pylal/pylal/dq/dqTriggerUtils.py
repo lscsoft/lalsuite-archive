@@ -222,9 +222,12 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.amplitude           = float(data[4])
 
     # cluster parameters
-    #trig.cluster_size        = float(data[5])
-    #trig.cluster_norm_energy = float(data[6])
-    #trig.cluster_number      = float(data[7])
+    trig.param_one_name      = 'cluster_size'
+    trig.param_one_value     = float(data[5])
+    trig.param_two_name      = 'cluster_norm_energy'
+    trig.param_two_value     = float(data[6])
+    trig.param_three_name    = 'cluster_number'
+    trig.param_three_value   = float(data[7])
 
     # SNR
     trig.snr                 = math.sqrt(2*trig.amplitude)
@@ -439,7 +442,7 @@ def totrigfile(file,table,etg,header=True,columns=None):
     elif re.match('omega',etg) or re.match('wpipe',etg):
       columns = ['peak_time','peak_frequency','duration',\
                  'bandwidth','amplitude',\
-                 'cluster_size','cluster_norm_energy','cluster_number']
+                 'param_one_value','param_two_value','param_three_value']
 
     elif re.match('kw',etg.lower()):
       columns = ['peak_time','start_time','stop_time','peak_frequency',\
