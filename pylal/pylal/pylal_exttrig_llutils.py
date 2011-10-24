@@ -42,7 +42,7 @@ template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --overwrite-dir"
 
 # list of used IFOs
-basic_ifolist = ['H1','L1','V1']
+basic_ifolist = ['H1','H2','L1','V1']
 
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
