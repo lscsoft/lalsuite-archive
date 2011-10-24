@@ -127,7 +127,7 @@ def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
         else:
             print >>statfile,'0 0\n'
         print >>statfile,'12345 %lf'%(obj[par].stdev)
-        print >>statfile,'67890 %lf'%(obj[par].stdacc) 
+        print >>statfile,'67890 %lf'%(obj[par].stacc) 
         statfile.close()
     
     # Sky position
