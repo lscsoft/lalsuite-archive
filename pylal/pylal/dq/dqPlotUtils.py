@@ -1347,6 +1347,20 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
       zMedian =  numpy.median(nvetoData[zcolumn][yVal == nvetoData[ycolumn]])
       for  iTrig in backTable[0]:
         nvetoData[zcolumn][iTrig] /= zMedian
+
+  # filter zcolumn by  provided poles/zeros filter as a function of ycolumn
+  flatenedFlag = kwargs.pop('filter', False)
+  if zcolumn and flatenedFlag:
+    # get filter params
+    polesList = kwargs.pop('poles', None)
+    zerosList = kwargs.pop('zeros', None)
+    amplitude = kwargs.pop('amplitude', 1)
+    nvetoData[zcolumn] *= amplitude
+    for filtPole in polesList:
+      nvetoData[zcolumn] /= abs(nvetoData[ycolumn] - filtPole)
+    for filtZero in zerosList:
+      nvetoData[zcolumn] *= abs(nvetoData[ycolumn] - filtZero)
+    nvetoData[zcolumn].astype(float)
   
   # median/min/max of ycolumn binned by exact xcolumn values
   minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
@@ -2073,15 +2087,18 @@ def parse_plot_config(cp, section):
     columns['zcolumn'] = None
 
   limits   = ['xlim', 'ylim', 'zlim', 'clim']
+  filters  = ['poles', 'zeros']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator']
-  values   = ['dcthresh']
+  values   = ['dcthresh','amplitude']
 
   # extract plot params as a dict
   params = {}
   for key,val in cp.items(section):
     if key in limits:
       params[key] = map(float, val.split(','))
+    elif key in filters:
+      params[key] = map(complex, val.split(','))
     elif key in booleans:
       params[key] = cp.getboolean(section, key)
     elif key in values:
