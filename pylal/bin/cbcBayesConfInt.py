@@ -135,7 +135,7 @@ def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     print "BCI for sky area:"
     print skyreses
     statfile=open(os.path.join(outpath,'sky_int.txt'),'w')
-    fracs=skyreses.keys().sort()
+    fracs=sorted(skyreses.keys())
     skysizes=[skyreses[frac] for frac in fracs]
     for frac in fracs:
         print >>statfile,'%lf %lf'%(frac,skyreses[frac])
@@ -146,10 +146,10 @@ def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     statfile.close()
 
     # distance-iota
-    greedy2params={'dist':GreedyRes['dist'], 'iota':GreedyRes['iota']}
+    greedy2params={'distance':GreedyRes['distance'], 'iota':GreedyRes['iota']}
     statfile=open(os.path.join(outpath,'dist_iota_int.txt'),'w')
     toppoints,injection_cl,reses,injection_area=bppu.greedy_bin_two_param(obj,greedy2params,confidencelevels)
-    for frac in reses.keys().sort():
+    for frac in sorted(reses.keys()):
         print >>statfile,'%lf %lf'%(frac,reses[frac])
     if injection_cl is not None and injection_area is not None:
         print >>statfile,'%lf %lf'%(injection_cl,injection_area)
