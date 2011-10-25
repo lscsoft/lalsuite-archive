@@ -98,7 +98,7 @@ def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     Make a summary page with table of results and plots for each param in params
     """
     #Bin size/resolution for binning. Need to match (converted) column names.
-    GreedyRes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':5e-4,'distance':1.0,'dist':1.0,'mchirp':0.0001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.01,'dec':0.01}
+    GreedyRes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':5e-4,'distance':1.0,'dist':1.0,'mchirp':0.0001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.01,'dec':0.01,'psi':0.01,'polarization':0.01}
 
 
     for par in params:
