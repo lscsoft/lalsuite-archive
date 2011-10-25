@@ -236,7 +236,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		for(j=topdown_sum[i]->length-2;j>0;j--) topdown_sum[i]->data[j]=topdown_sum[i]->data[j+1]+(pow(MCMCinput->stilde[i]->data->data[j].re,2.0)+pow(MCMCinput->stilde[i]->data->data[j].im,2.0))*MCMCinput->invspec[i]->data->data[j];
 	}
 	
-    	/* Check if the parameters of the injected wave are within their ranges, otherwise exit */
+    	/* Check if the parameters of the injected wave are within their ranges, otherwise warning */
 	if (MCMCinput->injectionTable!=NULL){		
         LALMCMCParameter *injected=(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));    
         CheckInjectionInRange(injected,MCMCinput);

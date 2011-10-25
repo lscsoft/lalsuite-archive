@@ -685,8 +685,8 @@ in the frequency domain */
 	REAL8 eta,mtot,mchirp;
 	expnFunc expnFunction;
 	expnCoeffs ak;
-    LALMCMCParam *p=parameter->param;
-	while(p!=NULL) {fprintf(stdout ,"In LikCal %s\t%15.15lf\n",p->core->name,p->value); p=p->next;}
+    //LALMCMCParam *p=parameter->param;
+	//while(p!=NULL) {fprintf(stdout ,"In LikCal %s\t%15.15lf\n",p->core->name,p->value); p=p->next;}
     
 	if(inputMCMC->numberDataStreams==0){
 		parameter->logLikelihood=0.0;
@@ -849,18 +849,18 @@ in the frequency domain */
                 //Reodd+= pow(inputMCMC->calibPhase[det_i]->data->data[idx],2.0*kappa-1.0)*pow(-1.0,kappa)/factorial(2.0*kappa-1.0); // This is R_o (-i)
             //}
             Reeven+= -inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*(0.5);
-            Reeven+=inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]/(24.0);
+            Reeven+= (inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx])/(24.0);
             Reodd+= -inputMCMC->calibPhase[det_i]->data->data[idx];
-            Reodd+= -inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]/(6.0);  
-
+            Reodd+= inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]/(6.0);  
+            // This is R_odd \times (-i)
             deltaG_x+=(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
             
             //for(INT4 kappa=1;kappa<=CalOrder;kappa++){
                // deltaF_x+=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*((kappa+1)*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
                 //deltaK_x+=pow(1-inputMCMC->calibAmplitude[det_i]->data->data[idx],kappa)*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
             //}
-            deltaF_x_1st+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(2.0*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
-            deltaF_x_2nd+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(3.0*(resp_r/deltaF*resp_r/deltaF + resp_i/deltaF*resp_i/deltaF) -Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+            deltaF_x_1st+= (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(2.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) - 1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+            deltaF_x_2nd+= (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(3.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) -1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
             
             deltaK_x+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
             deltaK_x+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
@@ -895,10 +895,10 @@ in the frequency domain */
         chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
         rec_snr*=2.0*deltaF;
 		parameter->SNR+=rec_snr;
-        deltaF_x_1st*=-2.0*deltaF; // These already have the right sign. They have to be *added* to logL
-        deltaF_x_2nd*=-2.0*deltaF;
-        deltaG_x*=2.0*deltaF;  //
-        deltaK_x*=2.0*deltaF;  //
+        deltaF_x_1st*=2.0*deltaF; // These already have the right sign. They have to be *added* to logL
+        deltaF_x_2nd*=2.0*deltaF;
+        deltaG_x*=-2.0*deltaF;  //
+        deltaK_x*=-2.0*deltaF;  //
         fprintf(stdout,"dF1 %lf \t dF2 %lf for IFO %i \n",deltaF_x_1st,deltaF_x_2nd,det_i);
 		/* add the normalisation constant */
 		/*		chisq+=normalisations[det_i]; */ /*Gaussian version*/
@@ -906,9 +906,9 @@ in the frequency domain */
 
 		/*chisq+=(REAL8)( 0.5 * (inputMCMC->invspec[det_i]->data->length-lowBin) * log(2.0*LAL_PI));*/
 		logL-=chisq;
-        F_x+=(deltaF_x_1st+deltaF_x_2nd);
-        G_x+=deltaG_x;
-        K_x+=deltaK_x;
+        F_x-=(deltaF_x_1st+deltaF_x_2nd);
+        G_x-=deltaG_x;
+        K_x-=deltaK_x;
         //logL+=(F_x+G_x+K_x);
         
 	} // End loop over IFOs
