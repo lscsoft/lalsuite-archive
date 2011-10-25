@@ -21,6 +21,7 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue import git_version
 
 from scipy import special
+import numpy
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
@@ -94,7 +95,7 @@ def trigger(data,etg,ifo=None,channel=None):
   """
 
   etgcategories = {lsctables.SnglInspiral(): ['ihope'],\
-                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr'],\
+                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr','omegaspectrum'],\
                    lsctables.SnglRingdown(): []}
 
   # set up trig object
@@ -221,12 +222,37 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.amplitude           = float(data[4])
 
     # cluster parameters
-    #trig.cluster_size        = float(data[5])
-    #trig.cluster_norm_energy = float(data[6])
-    #trig.cluster_number      = float(data[7])
+    trig.param_one_name      = 'cluster_size'
+    trig.param_one_value     = float(data[5])
+    trig.param_two_name      = 'cluster_norm_energy'
+    trig.param_two_value     = float(data[6])
+    trig.param_three_name    = 'cluster_number'
+    trig.param_three_value   = float(data[7])
 
     # SNR
     trig.snr                 = math.sqrt(2*trig.amplitude)
+
+  # =====
+  # omega
+  # =====
+  if etg=='omegaspectrum':
+    # space separated values are:
+    # peak_time.peak_time_ns peak_frequency duration bandwidth amplitude
+    # cluster_size cluster_norm_energy cluster_number
+
+    # peak time
+    peak = LIGOTimeGPS(data[0])
+    trig.peak_time           = peak.seconds
+    trig.peak_time_ns        = peak.nanoseconds
+    # central frequency
+    trig.central_freq        = float(data[1])
+    trig.peak_frequency      = trig.central_freq
+
+    trig.amplitude           = float(data[2])
+
+
+    # SNR
+    trig.snr                 = math.sqrt(trig.amplitude)
 
   # ==============
   # omegadq
@@ -411,10 +437,12 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'cluster_length','ms_start_time','ms_stop_time','ms_flow',\
                  'ms_fhigh','cluster_size','amplitude','amplitude']
 
+    elif re.match('omegaspectrum',etg):
+      columns = ['peak_time','peak_frequency','amplitude']
     elif re.match('omega',etg) or re.match('wpipe',etg):
       columns = ['peak_time','peak_frequency','duration',\
                  'bandwidth','amplitude',\
-                 'cluster_size','cluster_norm_energy','cluster_number']
+                 'param_one_value','param_two_value','param_three_value']
 
     elif re.match('kw',etg.lower()):
       columns = ['peak_time','start_time','stop_time','peak_frequency',\
@@ -579,7 +607,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
 
   if not tabletype:
     etgs = {'inspiral': ['ihope'],\
-            'burst':    ['omega','omegadq','kw','hacr'],\
+            'burst':    ['omega','omegadq','kw','hacr','omegaspectrum'],\
             'ringdown': []}
     # set up triggers table
     for search,etglist in etgs.items():
@@ -1017,6 +1045,56 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 
 
   return outtrigs
+
+# =============================================================================
+# Compute trigger auto-correlation
+# =============================================================================
+
+def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
+
+  """
+    Compute autocorrelation of lsctable triggers in the each of the pairs (column,width),
+    using the rank column.
+
+    Arguments:
+
+      triggers: glue.ligowl.Table
+        Table containing trigger columns for clustering
+
+      column:
+        On which trigger column to auto-correlate, almost always time
+
+      timeStep:
+        Step (bin width) for the autocorrelation
+
+      timeRange:
+        Longest time to consider for autocorrelation
+        
+  """
+
+  # time sort triggers before proceeding
+  get_time = def_get_time(triggers.tableName)
+  triggers.sort(key=lambda trig: get_time(trig))
+
+
+  previousTimes = []
+  histEdges = numpy.arange(timeStep,timeRange,timeStep);
+  delayHist = numpy.zeros(int(math.ceil(timeRange/timeStep)))
+  for trig in triggers:
+    curTime = trig.peak_time + 1e-9*trig.peak_time_ns
+    # remove previous times which are beyond the considered timeRange
+    while len(previousTimes) > 0 and curTime - previousTimes[0] > timeRange:
+      previousTimes.pop()
+    for t in previousTimes:
+      pos = int(math.floor((curTime - t)/timeStep))
+      if pos < len(delayHist):
+        delayHist[pos] += 1
+    previousTimes.append(curTime)
+  
+  delayHistFFT = numpy.abs(numpy.fft.fft(delayHist))
+  freqBins = numpy.fft.fftfreq(len(delayHist), d=timeStep)
+
+  return delayHistFFT, freqBins, delayHist, histEdges
 
 # ==============================================================================
 # Calculate poisson significance of coincidences

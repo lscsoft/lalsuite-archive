@@ -810,7 +810,7 @@ class DataPlot(plotutils.BasicPlot):
 
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
-    leg = self.ax.legend()
+    leg = self.ax.legend(loc=loc)
     # magnify the lines on the legend 
     try:
       for l in leg.get_lines():
@@ -945,7 +945,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     if x_format=='time':
       x_data = (numpy.array(map(float, x_data))-float(zero))/unit
     lab = str(channel)
-    if lab != '_': lab = labe.replace('_', '\_')
+    if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
@@ -965,6 +965,13 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
     # set x axis
     plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+  else:
+      # set global axis limits
+    if xlim:
+      plot.ax.set_xlim(xlim)
+    if ylim:
+      plot.ax.set_ylim(ylim)
+
 
   set_ticks(plot.ax)
 
@@ -1324,10 +1331,52 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         else:
           nvetoData[col].append(val)
 
+
   data = {}
   for i,col in enumerate(columns):
     vetoData[col]  = numpy.array(vetoData[col])
     nvetoData[col] = numpy.array(nvetoData[col])
+    
+  # normalize zcolumn by time-averaged value
+  whitenedFlag = kwargs.pop('whitened', False)
+  if zcolumn and whitenedFlag:
+    uniqYvalues = numpy.unique1d(nvetoData[ycolumn])
+    # building look back table by hand, is included in unique1d for numpy >= v1.3
+    for yVal in uniqYvalues:
+      backTable = numpy.where(yVal == nvetoData[ycolumn])
+      zMedian =  numpy.median(nvetoData[zcolumn][yVal == nvetoData[ycolumn]])
+      for  iTrig in backTable[0]:
+        nvetoData[zcolumn][iTrig] /= zMedian
+
+  # filter zcolumn by  provided poles/zeros filter as a function of ycolumn
+  flatenedFlag = kwargs.pop('filter', False)
+  if zcolumn and flatenedFlag:
+    # get filter params
+    polesList = kwargs.pop('poles', None)
+    zerosList = kwargs.pop('zeros', None)
+    amplitude = kwargs.pop('amplitude', 1)
+    nvetoData[zcolumn] *= amplitude
+    for filtPole in polesList:
+      nvetoData[zcolumn] /= abs(nvetoData[ycolumn] - filtPole)
+    for filtZero in zerosList:
+      nvetoData[zcolumn] *= abs(nvetoData[ycolumn] - filtZero)
+    nvetoData[zcolumn].astype(float)
+  
+  # median/min/max of ycolumn binned by exact xcolumn values
+  minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
+  if minmaxmedianFlag:
+    uniqXvalues = numpy.unique1d(nvetoData[xcolumn])
+    # building look back table by hand, is included in unique1d for numpy >= v1.3
+    for xVal in uniqXvalues:
+      backTable = numpy.where(xVal == nvetoData[xcolumn])
+      if len(backTable[0]) > 3:
+        nvetoData[ycolumn][backTable[0][0]] = numpy.median(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        nvetoData[ycolumn][backTable[0][1]] = numpy.min(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        nvetoData[ycolumn][backTable[0][2]] = numpy.max(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        for iTrig in backTable[0][3:]:
+          nvetoData[ycolumn][iTrig] = numpy.nan
+
+  for i,col in enumerate(columns):
     data[col] = numpy.concatenate((nvetoData[col], vetoData[col]))
     if not limits[i] and len(data[col])>=1:
       limits[i] = [0,0]
@@ -1731,6 +1780,180 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   plot.savefig(outfile, bbox_inches='tight')
 
 # =============================================================================
+# Plot RMS versus time in bins
+
+def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
+                      zero=None, rmscolumn='snr', bincolumn='peak_frequency', bins=[],\
+                      etg='Unknown', **kwargs):
+
+  """
+    Plot RMS versus time for the given ligolw table triggers, binned by the
+    given bincolumn using the bins list.
+
+    Arguments:
+
+      triggers : glue.ligolw.table
+        LIGOLW table containing a list of triggers
+      outfile : string
+        string path for output plot
+
+    Keyword arguments:
+
+      average : float
+        Length (seconds) of RMS segment
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time
+      zero : [ float | int | LIGOTimeGPS ]
+        GPS time to use for 0 on time axis
+      rmscolumn : string
+        valid column of the trigger table to RMS over
+      bincolumn : string
+        valid column of the trigger table to use for binning
+      bins : list
+        list of tuples defining the rate bins
+      etg : string
+        display name of trigger generator
+      logy : [ True | False ]
+        boolean option to display y-axis in log scale
+      ylim : tuple
+        (ymin, ymax) limits for rate axis
+  """
+
+  tableName = triggers.tableName.lower()
+  get_time = def_get_time(tableName)
+
+  # set start and end times
+  if not start and not end:
+    times = [get_time(t) for t in triggers]
+  if not start:
+    start = min(times)
+  if not end:
+    end   = max(times)
+
+  if not zero:
+    zero = start
+
+  # set plot time unit whether it's used or not
+  unit, timestr = time_unit(end-start)
+
+  # set ETG
+  if not etg:
+    if re.search('burst', tableName):
+      etg = 'Burst'
+    elif re.search('inspiral', tableName):
+      etg = 'Inspiral'
+    elif re.search('ringdown', tableName):
+      etg = 'Ringdown'
+    else:
+      etg = 'Unknown'
+
+  # get limits
+  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  ylim = kwargs.pop('ylim', None)
+
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+
+  # format ybins
+  if not bins:
+    bins  = [[0,float('inf')]]
+  ybins   = [map(float, bin) for bin in bins]
+
+  # bin data
+  tbins   = {}
+  rate = {}
+  rms = {}
+  for bin in ybins:
+    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
+    rms[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
+
+  for trig in triggers:
+    x = int(float(getTrigAttribute(trig, 'time')-start)//average)
+    y = getTrigAttribute(trig, bincolumn)
+    z = getTrigAttribute(trig, rmscolumn)
+    for bin in ybins:
+      if bin[0] <= y < bin[1]:
+        rms[bin[0]][x] += z*z
+        rate[bin[0]][x] += 1
+        break
+
+  # Normalize the RMS to get the mean not the sum
+  for bin in ybins:
+    for x in range(len(tbins[bin[0]])):
+      if rate[bin[0]][x] :
+        rms[bin[0]][x] = math.sqrt(rms[bin[0]][x]/rate[bin[0]][x])
+
+  # if logscale includes zeros, pylab.scatter will break, so remove zeros
+  if logy:
+    for bin in ybins:
+      removes = 0
+      numtbins = len(tbins[bin[0]])
+      for rbin in xrange(0,numtbins):
+        if rms[bin[0]][rbin-removes]==0:
+          rms[bin[0]].pop(rbin-removes)
+          tbins[bin[0]].pop(rbin-removes)
+          removes+=1
+
+  # set labels
+  etg   = etg.replace('_', '\_')
+  zero = LIGOTimeGPS('%.3f' % zero)
+  if zero.nanoseconds==0:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                 .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+  else:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                  .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+    tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+  xlabel = kwargs.pop('xlabel',\
+                      'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  ylabel = kwargs.pop('ylabel', 'RMS')
+  title = kwargs.pop('title', '%s triggers binned by %s'\
+                              % (etg, display_name(bincolumn)))
+  if start and end:
+    subtitle = '%s-%s' % (start, end)
+  else:
+    subtitle = " "
+  subtitle = kwargs.pop('subtitle', subtitle)
+
+  # customise plot appearance
+  set_rcParams()
+
+  # generms plot object
+  plot = ScatterPlot(xlabel, ylabel, title, subtitle)
+
+  # plot rmss
+  for bin in ybins:
+    if logy:
+      if len(rms[bin[0]])>0:
+        plot.add_content(tbins[bin[0]], rms[bin[0]],\
+                         label='-'.join(map(str, bin)), **kwargs)
+      else:
+        plot.add_content([1],[0.1], label='-'.join(map(str, bin)),\
+                         visible=False)
+    else:
+      plot.add_content(tbins[bin[0]], rms[bin[0]], label='-'.join(map(str, bin)),\
+                       **kwargs)
+
+  # finalise plot
+  plot.finalize(logx=logx, logy=logy)
+
+  # set limits
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  plot.ax.set_xlim(xlim)
+  if ylim:
+    plot.ax.set_ylim(ylim)
+
+  # normalize ticks
+  set_ticks(plot.ax)
+
+  # save
+  plot.savefig(outfile, bbox_inches='tight')
+
+# =============================================================================
 # Plot segments
 
 def plot_segments(segdict, outfile, start=None, end=None, zero=None, 
@@ -1864,15 +2087,18 @@ def parse_plot_config(cp, section):
     columns['zcolumn'] = None
 
   limits   = ['xlim', 'ylim', 'zlim', 'clim']
+  filters  = ['poles', 'zeros']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator']
-  values   = ['dcthresh']
+  values   = ['dcthresh','amplitude']
 
   # extract plot params as a dict
   params = {}
   for key,val in cp.items(section):
     if key in limits:
       params[key] = map(float, val.split(','))
+    elif key in filters:
+      params[key] = map(complex, val.split(','))
     elif key in booleans:
       params[key] = cp.getboolean(section, key)
     elif key in values:
