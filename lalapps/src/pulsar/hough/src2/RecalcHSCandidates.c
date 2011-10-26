@@ -233,6 +233,13 @@ void GetXiInSingleStack (LALStatus         *status,
 
 void GetHoughPatchTopCandidate (LALStatus *status, SemiCohCandidate *topCand, HOUGHMapTotal *ht, HOUGHPatchGrid *patch, HOUGHDemodPar *parDem );
 
+void RCComputeFstatHoughMap (LALStatus *status,
+			     SemiCohCandidateList *out,
+			     HOUGHPeakGramVector *pgV,
+			     SemiCoherentParams *params,
+                             INT8 fBin0
+                             );
+
 
 /* default values for input variables */
 #define EARTHEPHEMERIS 		"earth05-09.dat"
@@ -294,8 +301,6 @@ const SemiCohCandidate empty_SemiCohCandidate;
 /* ==================== ==================== */
 
 int MAIN( int argc, char *argv[]) {
-  const char *fn = __func__;
-
   LALStatus status = blank_status;
 
   /* temp loop variables: generally k loops over stacks and j over SFTs in a stack*/
@@ -304,9 +309,6 @@ int MAIN( int argc, char *argv[]) {
 
   /* in general any variable ending with 1 is for the
      first stage, 2 for the second and so on */
-
-  /* ephemeris */
-  EphemerisData *edat = NULL;
 
   /* timestamp vectors */
   LIGOTimeGPSVector *midTstack=NULL;
@@ -385,6 +387,7 @@ int MAIN( int argc, char *argv[]) {
   BOOLEAN uvar_printFstat1 = FALSE;
   BOOLEAN uvar_useWeights  = FALSE;
   BOOLEAN uvar_outputFX    = TRUE; /* Do additional analysis for all toplist candidates, output F and FXvector for postprocessing */
+  BOOLEAN uvar_useFstatWeights = TRUE; /* Use noise weights in final toplist Fstat computation? */
 
   REAL8 uvar_peakThrF = FSTATTHRESHOLD; /* threshold of Fstat to select peaks */
 
@@ -410,10 +413,14 @@ int MAIN( int argc, char *argv[]) {
   CHAR *uvar_fnameout = NULL;
   CHAR *uvar_DataFiles1 = NULL;
   BOOLEAN uvar_version = 0;
+  CHAR *uvar_outputSingleSegStats = NULL; /* Additionally output single-segment Fstats for each final toplist candidate */
 
   CHAR *uvar_followupList = NULL;	/* Hough candidate list to be 'followed up': compute Hough top-cand, F1, F2, multi-F */
   REAL8 uvar_WU_Freq = 0;	/* if given, use to compute frequency-correction of input-candidates coming from HS-code */
   REAL8 uvar_WU_dFreq;		/* Frequency-spacing of original HS search that produced the input candidates */
+  REAL8 uvar_WU_FreqBand;	/* if given, used to load original SFT band, in order to obtain identical noise-weights */
+  REAL8 uvar_WU_f1dot;		/* if given, used to load original SFT band, in order to obtain identical noise-weights */
+  REAL8 uvar_WU_f1dotBand;	/* if given, used to load original SFT band, in order to obtain identical noise-weights */
 
 #ifndef GPUREADY_DEFAULT
 #define GPUREADY_DEFAULT 0
@@ -421,6 +428,7 @@ int MAIN( int argc, char *argv[]) {
   BOOLEAN uvar_GPUready = GPUREADY_DEFAULT;
   global_status = &status;
 
+  BOOLEAN uvar_correctFreqs = TRUE;
 
   /* LALDebugLevel must be called before any LALMallocs have been used */
   lalDebugLevel = 0;
@@ -450,6 +458,7 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "log",          0,  UVAR_OPTIONAL, "Write log file", &uvar_log), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "useWeights",   0,  UVAR_OPTIONAL, "Weight each stack using noise and AM?", &uvar_useWeights ), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "outputFX",     0,  UVAR_OPTIONAL, "Additional analysis for toplist candidates, output 2FX?", &uvar_outputFX ), &status);
+  LAL_CALL( LALRegisterBOOLUserVar(   &status, "useFstatWeights", 0,  UVAR_DEVELOPER, "Use noise weights in toplist Fstat computation?", &uvar_useFstatWeights ), &status);
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "DataFiles1",   0,  UVAR_REQUIRED, "1st SFT file pattern", &uvar_DataFiles1), &status);
 
   LAL_CALL( LALRegisterINTUserVar(    &status, "nStacksMax",   0,  UVAR_OPTIONAL, "Maximum No. of 1st stage stacks", &uvar_nStacksMax ),&status);
@@ -457,8 +466,11 @@ int MAIN( int argc, char *argv[]) {
 
   /* ---------- */
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "followupList", 0,  UVAR_REQUIRED, "Hough candidate list to target (Freq Alpha Delta f1dot sig)", &uvar_followupList),  &status);
-  LAL_CALL( LALRegisterREALUserVar(   &status, "WU_Freq",       0,  UVAR_OPTIONAL, "WU start-frequency: use to correct HS frequency-offset bug", &uvar_WU_Freq ),&status);
-  LAL_CALL( LALRegisterREALUserVar(   &status, "WU_dFreq",    0,  UVAR_REQUIRED, "Frequency-spacing of original HS search that produced the input candidates", &uvar_WU_dFreq ),&status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "WU_Freq",      0,  UVAR_OPTIONAL, "WU start-frequency: use to correct HS frequency-offset bug", &uvar_WU_Freq ),&status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "WU_dFreq",     0,  UVAR_REQUIRED, "Frequency-spacing of original HS search that produced the input candidates", &uvar_WU_dFreq ),&status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "WU_FreqBand",  0,  UVAR_OPTIONAL, "Used to load original SFT band, in order to obtain identical noise-weights", &uvar_WU_FreqBand ),&status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "WU_f1dot",     0,  UVAR_OPTIONAL, "Used to load original SFT band, in order to obtain identical noise-weights", &uvar_WU_f1dot ),&status);
+  LAL_CALL( LALRegisterREALUserVar(   &status, "WU_f1dotBand", 0,  UVAR_OPTIONAL, "Used to load original SFT band, in order to obtain identical noise-weights", &uvar_WU_f1dotBand ),&status);
 
   /* ---------- */
 
@@ -488,6 +500,8 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterINTUserVar(    &status, "sftUpsampling",0, UVAR_DEVELOPER, "Upsampling factor for fast LALDemod",  &uvar_sftUpsampling), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "GPUready",     0, UVAR_DEVELOPER, "Use single-precision 'GPU-ready' core routines", &uvar_GPUready), &status);
   LAL_CALL ( LALRegisterBOOLUserVar(  &status, "version",     'V', UVAR_SPECIAL,  "Output version information", &uvar_version), &status);
+  LAL_CALL( LALRegisterSTRINGUserVar( &status, "outputSingleSegStats", 0,  UVAR_OPTIONAL, "Base filename for single-segment Fstat output (1 file per final toplist candidate!)", &uvar_outputSingleSegStats),  &status);
+  LAL_CALL( LALRegisterBOOLUserVar(   &status, "correctFreqs", 0, UVAR_DEVELOPER, "Correct candidate output frequencies (ie fix bug #147). Allows reproducing 'historical results'", &uvar_correctFreqs), &status);
 
   /* read all command line variables */
   LAL_CALL( LALUserVarReadAllInput(&status, argc, argv), &status);
@@ -591,19 +605,12 @@ int MAIN( int argc, char *argv[]) {
 
   /*--------- Some initializations ----------*/
 
-  /* initialize ephemeris info */
-
-  edat = (EphemerisData *)LALCalloc(1, sizeof(EphemerisData));
-  if ( edat == NULL) {
-    fprintf(stderr, "error allocating memory [HierarchicalSearch.c %d]\n" , __LINE__);
-    return(HIERARCHICALSEARCH_EMEM);
-  }
-
-  (*edat).ephiles.earthEphemeris = uvar_ephemE;
-  (*edat).ephiles.sunEphemeris = uvar_ephemS;
-
   /* read in ephemeris data */
-  LAL_CALL( LALInitBarycenter( &status, edat), &status);
+  EphemerisData * edat;
+  if ( (edat = XLALInitBarycenter ( uvar_ephemE, uvar_ephemS )) == NULL ) {
+    XLALPrintError ("%s: XLALInitBarycenter() failed to load ephemeris files '%s' or '%s'\n", __func__, uvar_ephemE, uvar_ephemS );
+    return XLAL_EFUNC;
+  }
 
   XLALGPSSetREAL8(&minStartTimeGPS, uvar_minStartTime1);
   XLALGPSSetREAL8(&maxEndTimeGPS, uvar_maxEndTime1);
@@ -644,12 +651,33 @@ int MAIN( int argc, char *argv[]) {
   INIT_MEM ( usefulParams.spinRange_refTime );
   INIT_MEM ( usefulParams.spinRange_midTime );
 
-  /* copy user specified spin variables at reftime  */
-  /* the reference time value in spinRange_refTime will be set in SetUpSFTs() */
-  usefulParams.spinRange_refTime.fkdot[0] = InputCandList->FreqMin; 	/* frequency */
-  usefulParams.spinRange_refTime.fkdotBand[0] = InputCandList->FreqBand; /* frequency range */
-  usefulParams.spinRange_refTime.fkdot[1] = InputCandList->f1dotMin;  	/* 1st spindown */
-  usefulParams.spinRange_refTime.fkdotBand[1] = InputCandList->f1dotBand; /* spindown range */
+  /* either use WU-original band parameters if given, otherwise adapt to candidate-list range */
+  REAL8 Freq, FreqBand, f1dot, f1dotBand;
+  /* frequency */
+  if ( XLALUserVarWasSet(&uvar_WU_Freq) )
+    Freq = uvar_WU_Freq;
+  else
+    Freq = InputCandList->FreqMin;
+  /* frequency range */
+  if ( XLALUserVarWasSet(&uvar_WU_FreqBand) )
+    FreqBand = uvar_WU_FreqBand;
+  else
+    FreqBand = InputCandList->FreqBand;
+  /* 1st spindown */
+  if ( XLALUserVarWasSet(&uvar_WU_f1dot) )
+    f1dot = uvar_WU_f1dot;
+  else
+    f1dot = InputCandList->f1dotMin;
+  /* spindown range */
+  if ( XLALUserVarWasSet(&uvar_WU_f1dotBand) )
+    f1dotBand = uvar_WU_f1dotBand;
+  else
+    f1dotBand = InputCandList->f1dotBand;
+
+  usefulParams.spinRange_refTime.fkdot[0] = Freq;
+  usefulParams.spinRange_refTime.fkdotBand[0] = FreqBand;
+  usefulParams.spinRange_refTime.fkdot[1] = f1dot;
+  usefulParams.spinRange_refTime.fkdotBand[1] = f1dotBand;
 
   usefulParams.edat = edat;
   usefulParams.minStartTimeGPS = minStartTimeGPS;
@@ -819,6 +847,9 @@ int MAIN( int argc, char *argv[]) {
     return(HIERARCHICALSEARCH_EMEM);
   }
 
+  INT8 fBin0 = floor(usefulParams.spinRange_midTime.fkdot[0]/uvar_WU_dFreq + 0.5);
+  //printf ("Freq0 = %.16g, fBin0 = %d\n", usefulParams.spinRange_midTime.fkdot[0], (INT4)fBin0 );
+
   /* ==================== loop over candidates ==================== */
   LogPrintf(LOG_DEBUG, "Total candidates = %d. Progress: ", InputCandList->length);
 
@@ -855,6 +886,11 @@ int MAIN( int argc, char *argv[]) {
       semiCohPar.alpha = thisPoint.Alpha;
       semiCohPar.delta = thisPoint.Delta;
 
+      LogPrintf(LOG_DETAIL, "Stack weights for alpha = %f, delta = %f are:\n", skypos.longitude, skypos.latitude);
+      for (k = 0; k < nStacks; k++) {
+	LogPrintf(LOG_DETAIL, "%f\n", weightsV->data[k]);
+      }
+
       { /********Allocate fstat vector memory *****************/
 
 	/* extra bins for fstat due to skypatch and spindowns */
@@ -871,6 +907,7 @@ int MAIN( int argc, char *argv[]) {
 
 	/* allocate fstat memory */
 	binsFstatSearch = 1;
+	//binsFstatSearch = (UINT4)(usefulParams.spinRange_midTime.fkdotBand[0]/uvar_WU_dFreq + 1e-6) + 1;
 	binsFstat1 = binsFstatSearch + 2*semiCohPar.extraBinsFstat;
 
 	for (k = 0; k < nStacks; k++) {
@@ -959,18 +996,21 @@ int MAIN( int argc, char *argv[]) {
       /* convert fstat vector to peakgrams using the Fstat threshold */
       LAL_CALL( FstatVectToPeakGram( &status, &pgV, &fstatVector, (REAL4)uvar_peakThrF), &status);
 
-      /* get candidates */
+     /* get candidates */
       /* this is the second most costly function. We here allow for using architecture-specific
-         optimized functions from a local file instead of the standard ComputeFstatHoughMap()
+         optimized functions from a local file instead of the standard RCComputeFstatHoughMap()
          below that refers to the LALHOUGH functions in LAL */
-      LAL_CALL ( ComputeFstatHoughMap ( &status, &semiCohCandList, &pgV, &semiCohPar ), &status);
+      LAL_CALL ( RCComputeFstatHoughMap ( &status, &semiCohCandList, &pgV, &semiCohPar, fBin0 ), &status);
 
       /* now correct the candidate frequency, which has suffered from a frequency-bin 'quantization' error in
        * the peak-gram step (which only stores fBinIni = round[f0/dFreq]). See bug #147.
        */
-      LogPrintf (LOG_DETAIL, "Correcting output candidate frequency: Hough f0 = %.9f, but actually f0 = %.9f (offset = %.9g)\n",
-                 semiCohCandList.list[0].freq, thisPoint.fkdot[0], semiCohCandList.list[0].freq - thisPoint.fkdot[0] );
-      semiCohCandList.list[0].freq = thisPoint.fkdot[0];
+      if ( uvar_correctFreqs )
+        {
+          LogPrintf (LOG_DETAIL, "Correcting output candidate frequency: Hough f0 = %.9f, but actually f0 = %.9f (offset = %.9g)\n",
+                     semiCohCandList.list[0].freq, thisPoint.fkdot[0], semiCohCandList.list[0].freq - thisPoint.fkdot[0] );
+          semiCohCandList.list[0].freq = thisPoint.fkdot[0];
+        }
 
       /* free peakgrams -- we don't need them now because we have the Hough maps */
       for (k=0; k<nStacks; k++)
@@ -989,10 +1029,17 @@ int MAIN( int argc, char *argv[]) {
   /* Also compute F, FX (for line veto statistics) for all candidates in final toplist */
   if ( uvar_outputFX ) {
     LogPrintfVerbatim ( LOG_DEBUG, "Computing FX ...");
+
+    MultiNoiseWeightsSequence *multiNoiseWeightsPointer;
+    if ( uvar_useFstatWeights )
+      multiNoiseWeightsPointer = &stackMultiNoiseWeights;
+    else
+      multiNoiseWeightsPointer = NULL;
+
     xlalErrno = 0;
-    XLALComputeExtraStatsForToplist ( semiCohToplist, "HoughFStat", &stackMultiSFT, &stackMultiNoiseWeights, &stackMultiDetStates, &CFparams, refTimeGPS, tMidGPS, FALSE );
+    XLALComputeExtraStatsForToplist ( semiCohToplist, "HoughFStat", &stackMultiSFT, multiNoiseWeightsPointer, &stackMultiDetStates, &CFparams, refTimeGPS, FALSE, uvar_outputSingleSegStats );
     if ( xlalErrno != 0 ) {
-      XLALPrintError ("%s line %d : XLALComputeLineVetoForToplist() failed with xlalErrno = %d.\n\n", fn, __LINE__, xlalErrno );
+      XLALPrintError ("%s line %d : XLALComputeLineVetoForToplist() failed with xlalErrno = %d.\n\n", __func__, __LINE__, xlalErrno );
       return(HIERARCHICALSEARCH_EBAD);
     }
     LogPrintfVerbatim ( LOG_DEBUG, " done.\n");
@@ -1008,6 +1055,8 @@ int MAIN( int argc, char *argv[]) {
       LogPrintf ( LOG_CRITICAL, "Unable to open output-file '%s' for writing.\n", fnameSemiCohCand);
       return HIERARCHICALSEARCH_EFILE;
     }
+  /* write header-line comment explaining columns */
+  fprintf ( fpSemiCoh, "%%%% Freq       Alpha      Delta     f1dot  HoughFStat AlphaBest DeltaBest MeanSig VarSig <multiF> <F1> <F2> ...\n" );
 
   sort_houghFStat_toplist(semiCohToplist);
   if ( write_houghFStat_toplist_to_fp( semiCohToplist, fpSemiCoh, NULL) < 0)
@@ -1324,10 +1373,11 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
     on demodulated data instead of SFTs.
 */
 void
-ComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure */
-                     SemiCohCandidateList  *out,   /**< Candidates from thresholding Hough number counts */
-                     HOUGHPeakGramVector *pgV, 	/**< HOUGHPeakGramVector obtained after thresholding Fstatistic vectors */
-                     SemiCoherentParams *params	/**< pointer to HoughParams -- parameters for calculating Hough maps */
+RCComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure */
+                       SemiCohCandidateList  *out,   /**< Candidates from thresholding Hough number counts */
+                       HOUGHPeakGramVector *pgV, 	/**< HOUGHPeakGramVector obtained after thresholding Fstatistic vectors */
+                       SemiCoherentParams *params,	/**< pointer to HoughParams -- parameters for calculating Hough maps */
+                       INT8 fBin0
                      )
 {
 
@@ -1359,7 +1409,7 @@ ComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure */
   CHAR *fileStats = NULL;
   FILE *fpStats = NULL;
 
-  INITSTATUS( status, "ComputeFstatHoughMap", rcsid );
+  INITSTATUS( status, "RCComputeFstatHoughMap", rcsid );
   ATTATCHSTATUSPTR (status);
 
   /* check input is not null */
@@ -1591,7 +1641,7 @@ ComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure */
     UINT4 i,j;
     REAL8UnitPolarCoor sourceLocation;
 
-    parRes.f0Bin =  fBin;
+    parRes.f0Bin =  fBin0;	// *fix* this value to first bin if at WU start search-frequency
     TRY( LALHOUGHComputeSizePar( status->statusPtr, &parSize, &parRes ),  status );
     xSide = parSize.xSide;
     ySide = parSize.ySide;
@@ -1857,7 +1907,7 @@ ComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure */
   DETATCHSTATUSPTR (status);
   RETURN(status);
 
-} /* ComputeFstatHoughMap() */
+} /* RCComputeFstatHoughMap() */
 
 
 /** Function for selecting frequency bins from a set of Fstatistic vectors.
@@ -3354,20 +3404,18 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
                              REAL8 FreqShift	/**< apply this shift to input frequencies to correct HS offset-bug */
                              )
 {
-  const char *fn = __func__;
-
   if ( ! fname )
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
 
   LALParsedDataFile *data = NULL;
   if ( XLALParseDataFile (&data, fname) != XLAL_SUCCESS )
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
 
   UINT4 nCands = data->lines->nTokens;
 
   HoughCandidateList *out;
   if ( ( out = XLALCreateHoughCandidateList ( nCands )) == NULL )
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
 
   HoughCandidate candMax = { 0,   -1, -2, -1, 0 };	/* initialize with impossibly small values */
   HoughCandidate candMin = { 1e9, 10, 10,  1, 0 }; /* initialize with impossibly large values */
@@ -3379,10 +3427,10 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
       HoughCandidate *cand = &out->data[i];
       if ( 5 != sscanf( data->lines->tokens[i], "%lg %lg %lg %lg %lg", &cand->Freq, &cand->Alpha, &cand->Delta, &cand->f1dot, &cand->sig ))
 	{
-	  XLALPrintError ( "%s: could not parse 5 numbers from line %d in candidate-file '%s':\n", fn, i, fname);
+	  XLALPrintError ( "%s: could not parse 5 numbers from line %d in candidate-file '%s':\n", __func__, i, fname);
           XLALPrintError ("'%s'\n", data->lines->tokens[i] );
           XLALDestroyHoughCandidateList ( out );
-          XLAL_ERROR_NULL ( fn,   XLAL_EDATA );
+          XLAL_ERROR_NULL (   XLAL_EDATA );
 	}
       /* apply frequency correction */
       cand->Freq += FreqShift;
@@ -3423,14 +3471,12 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
 HoughCandidateList *
 XLALCreateHoughCandidateList ( UINT4 length )
 {
-  const char *fn = __func__;
-
   HoughCandidateList *out;
   if ( (out = XLALCalloc ( 1, sizeof(HoughCandidateList) )) == NULL )
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
 
   if ( (out->data = XLALCalloc ( length, sizeof(*out->data) )) == NULL )
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
 
   out->length = length;
 

@@ -60,23 +60,22 @@ where \f$ L(X) \f$ is the likelihood, and \f$ X \f$ is the prior mass. The
 algorithm will draw a number (\f$ N \f$) of samples (live points) from the
 parameter priors, calculate the likelihood for each point and find the lowest
 likelihood value. The lowest likelihood value will be added to the summation in
-the above equation, with \f$ \log{\Delta{}X_i} \approx \f$
-\log{\Delta{}X_i} - 1/N \f$ coming from the fact that the prior would be
-normalised to unity and therefore each point should occupy an equal fraction
-and at each iteration the prior volume will decrease geometrically (for \f$
-\log{\Delta{}X_0} = 0). A new point is then drawn from the prior with the
-criterion that it has a higher likelihood than the previous lowest point and
-substitutes that point. To draw the new point a Markov Chain Monte Carlo (MCMC)
-procedure is used - there are two methods used to sample points within this:
-i) drawing from a proposal distributions based on the covariance matrix if the
-current live points (although to keep things computationally efficient this no
-updated at every iteration), ii) picking a point via differential evolution
-(two random live points are selected and a new point half way between the two
-is created). The probability of using either method is currently set at 80\%
-and 20\% respectively. The procedure is continued until a stopping criterion is
-reached, which in this case is that the remaining prior volume is less than the
-\c tolerance value set (see below). The implementation of this can be seen in
-[\ref VeitchVecchio2010].
+the above equation, with \f$ \log{\Delta{}X_i} \approx 1/N \f$ coming from the
+fact that the prior would be normalised to unity and therefore each point should
+occupy an equal fraction and at each iteration the prior volume will decrease
+geometrically (for \f$ \log{\Delta{}X_0} = 0 \f$). A new point is then drawn
+from the prior with the criterion that it has a higher likelihood than the
+previous lowest point and substitutes that point. To draw the new point a Markov
+Chain Monte Carlo (MCMC) procedure is used - there are two methods used to
+sample points within this: i) drawing from a proposal distributions based on the
+covariance matrix if the current live points (although to keep things
+computationally efficient this no updated at every iteration), ii) picking a
+point via differential evolution (two random live points are selected and a new
+point half way between the two is created). The probability of using either
+method is currently set at 80\% and 20\% respectively. The procedure is
+continued until a stopping criterion is reached, which in this case is that the
+remaining prior volume is less than the \c tolerance value set (see below). The
+implementation of this can be seen in [\ref VeitchVecchio2010].
 
 \heading{Usage}
 The usage format is given below and can also be found by running the code with
@@ -278,8 +277,8 @@ INT4 main( INT4 argc, CHAR *argv[] ){
   REAL8Vector *logLikelihoods = NULL;
   
   /* set error handler to abort in main function */
-  /* XLALErrorHandler = XLALAbortErrorHandler;
-  const char *fn = __func__; */
+  lalDebugLevel = 7;
+  XLALSetErrorHandler(XLALAbortErrorHandler);
   
   /* Get ProcParamsTable from input arguments */
   param_table = LALInferenceParseCommandLine( argc, argv );
@@ -328,7 +327,7 @@ INT4 main( INT4 argc, CHAR *argv[] ){
                            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
                
   /* Create live points array and fill initial parameters */
-  setupLivePointsArray( &runState );
+  LALInferenceSetupLivePointsArray( &runState );
   
   logLikelihoods = *(REAL8Vector **)
     LALInferenceGetVariable( runState.algorithmParams, "logLikelihoods" );
@@ -487,7 +486,7 @@ void initialiseAlgorithm( LALInferenceRunState *runState )
  * <ol>
  * <li>the triaxial model - this assumes that for each specified detector there
  * is <b>one</b> input file containing data heterodyned at twice the rotation
- * frequency of the pulsar (see e.g. that defined in [\ref DupiusWoan2005].</li>
+ * frequency of the pulsar (see e.g. that defined in [\ref DupuisWoan2005].</li>
  * <li>the pinned superfluid model - this assumes for each specified detector
  * there are two input files containing data heterodyned and the rotation 
  * frequency <i>and</i> twice the rotation frequency (see 
@@ -533,11 +532,11 @@ void readPulsarData( LALInferenceRunState *runState ){
   
   CHAR *filestr = NULL;
   
-  CHAR *efile = NULL;
-  CHAR *sfile = NULL;
+  CHAR efile[1024];
+  CHAR sfile[1024];
   
-  CHAR *tempdets=NULL;
-  CHAR *tempdet=NULL;
+  CHAR *tempdets = NULL;
+  CHAR *tempdet = NULL;
  
   REAL8 *fpsds = NULL;
   CHAR *fakestarts = NULL, *fakelengths = NULL, *fakedt = NULL;
@@ -593,11 +592,14 @@ void readPulsarData( LALInferenceRunState *runState ){
     exit(0);
   }
   
+  /* allocate memory for data sample intervals (in seconds) */
+  
+  
   /* get the detectors - must */
   ppt = LALInferenceGetProcParamVal( commandLine, "--detectors" );
   ppt2 = LALInferenceGetProcParamVal( commandLine, "--fake-data" );
   if( ppt && !ppt2 ){
-    detectors = XLALStringDuplicate( ppt->value );
+   detectors = XLALStringDuplicate( ppt->value );
       
     /* count the number of detectors from command line argument of comma
        separated vales and set their names */
@@ -613,6 +615,7 @@ void readPulsarData( LALInferenceRunState *runState ){
       tempdet = strsep( &tempdets, "," );
       XLALStringCopy( dets[i], tempdet, strlen(tempdet)+1 );
     }
+    
   }
   /*Get psd values for generating fake data.*/
   /*=========================================================================*/
@@ -780,7 +783,9 @@ void readPulsarData( LALInferenceRunState *runState ){
       }
     }
     else{ /* set default GPS 900000000 - 13th July 2008 at 15:59:46 */
-      for(i = 0; i < ml*numDets; i++ ) fstarts[i] = 900000000.;
+      for(i = 0; i < ml*numDets; i++ ){ 
+        fstarts[i] = 900000000.;
+      }
     }
       
     flengths = XLALCalloc( MAXDETS*ml, sizeof(REAL8) );
@@ -806,14 +811,14 @@ void readPulsarData( LALInferenceRunState *runState ){
     else{ /* set default (86400 seconds or 1 day) */
       for(i = 0; i < ml*numDets; i++ ) flengths[i] = 86400.;
     }
-      
+    
     fdt = XLALCalloc( MAXDETS*ml, sizeof(REAL8) );
     ppt = LALInferenceGetProcParamVal(commandLine,"--fake-dt");
     if( ppt ){
       CHAR *tmpdts = NULL, *tmpdt = NULL, dtval[256];
       fakedt = XLALStringDuplicate( ppt->value );
       
-      if( (numDt = count_csv( fakedt )) != numDets ){
+      if( (numDt = count_csv( fakedt )) != ml*numDets ){
         fprintf(stderr, "Error... for model type \"%s\" number of sample time\
  steps for fake data must be %d times the number of detectors specified (no.\
  dets =\%d)\n", modeltype, ml, numDets);
@@ -858,21 +863,7 @@ void readPulsarData( LALInferenceRunState *runState ){
     fprintf(stderr, USAGE, commandLine->program);
     exit(0);
   }
-  
-  /* get ephemeris files */
-  ppt = LALInferenceGetProcParamVal( commandLine, "--ephem-earth" );
-  if( ppt ) efile = XLALStringDuplicate( ppt->value );
-  
-  ppt = LALInferenceGetProcParamVal( commandLine, "--ephem-sun" );
-  if( ppt ) sfile = XLALStringDuplicate( ppt->value );
-
-  /* check ephemeris files exist and if not output an error message */
-  if( access(sfile, F_OK) != 0 || access(efile, F_OK) != 0 ){
-    fprintf(stderr, "Error... ephemeris files not, or incorrectly, \
-defined!\n");
-    exit(3);
-  }
-  
+ 
   /* count the number of input files (by counting commas) and check it's equal
      to twice the number of detectors */
   if ( !ppt2 ){ /* if using real data */
@@ -901,7 +892,8 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
     LIGOTimeGPS gpstime;
     COMPLEX16 dataVals;
     REAL8Vector *temptimes = NULL;
-    INT4 j = 0, k = 0;
+    INT4 j = 0, k = 0, datalength = 0;
+    ProcessParamsTable *ppte = NULL, *ppts = NULL;
     
     FILE *fp = NULL;
     
@@ -921,6 +913,10 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
     /* add the pulsar model */
     LALInferenceAddVariable( ifodata->dataParams, "modeltype", &modeltype,
                              LALINFERENCE_string_t, LALINFERENCE_PARAM_FIXED );
+    
+    /* add data sample interval */
+    /*LALInferenceAddVariable( ifodata->dataParams, "dt", &fdt[i],
+                             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );*/
     
     /* add frequency factors variable */
     LALInferenceAddVariable( ifodata->dataParams, "freqfactors",
@@ -984,9 +980,11 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
     
       fclose(fp);
     
+      datalength = j;
+      
       /* allocate data time stamps */
       ifodata->dataTimes = NULL;
-      ifodata->dataTimes = XLALCreateTimestampVector( j );
+      ifodata->dataTimes = XLALCreateTimestampVector( datalength );
     
       /* fill in time stamps as LIGO Time GPS Vector */
       for ( k = 0; k<j; k++ )
@@ -998,7 +996,7 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
       XLALDestroyREAL8Vector( temptimes );
     }
     else{ /* set up fake data */
-      INT4 datalength = flengths[i] / fdt[i];
+      datalength = flengths[i] / fdt[i];
       
       /* temporary real and imaginary data vectors */
       REAL4Vector *realdata = NULL;
@@ -1050,6 +1048,31 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
       
     /* set ephemeris data */
     ifodata->ephem = XLALMalloc( sizeof(EphemerisData) );
+    
+    /* get ephemeris files */
+    ppte = LALInferenceGetProcParamVal( commandLine, "--ephem-earth" );
+    ppts = LALInferenceGetProcParamVal( commandLine, "--ephem-sun" );
+    if( ppte && ppts ){
+      XLALStringCopy( efile, ppte->value, sizeof(efile) );
+      XLALStringCopy( sfile, ppts->value, sizeof(sfile) );
+    }
+    else{ /* try getting files automatically */
+      if( XLALAutoSetEphemerisFiles( efile, sfile,
+        ifodata->dataTimes->data[0].gpsSeconds,
+        ifodata->dataTimes->data[datalength-1].gpsSeconds ) ){
+        fprintf(stderr, "Error... not been able to set ephemeris files!\n");
+        exit(3);
+      }
+    }
+
+    fprintf(stderr, "%s %s\n", efile, sfile);
+
+    /* check ephemeris files exist and if not output an error message */
+    if( access(sfile, F_OK) != 0 || access(efile, F_OK) != 0 ){
+      fprintf(stderr, "Error... ephemeris files not, or incorrectly, \
+defined!\n");
+      exit(3);
+    }
     
     /* set up ephemeris information */
     ifodata->ephem = XLALInitBarycenter( efile, sfile );
@@ -1214,7 +1237,7 @@ void setupFromParFile( LALInferenceRunState *runState )
 }
 
 
-/** \brief Sets the time vs. polarisation angle antenna reponse lookup table
+/** \brief Sets the time vs polarisation angle antenna reponse lookup table
  * 
  * This function sets up a lookup table in time vs. polarisation angle
  * \f$\psi\f$ for each detector from which data exists (either real or fake). 
@@ -1578,11 +1601,11 @@ void add_variable_scale_prior( LALInferenceVariables *var,
  * LALINFERENCE_PARAM_LINEAR, (except \f$\phi_0\f$, which if it is defined
  * to have a prior covering \f$2\pi\f$ wraps around at the edges of its range
  * and has a \c LALINFERENCE_PARAM_CIRCULAR type). Parameters, and their priors,
- * which linear variable type are scaled such that parameter \c x with priors
- * in the range [\c a, \c b] will become \code (x - a) / (b - a) \endcode. As
- * such the new prior ranges will cover from 0 to 1. The parameter scale factor 
- * is set the to value of \code (b - a) \endcode and the minimum scale range is
- * set to \c a - this allows the true parameter value to be reconstructed.
+ * which linear variable type are scaled such that parameter x with priors
+ * in the range [a, b] will become (x - a) / (b - a). As such the new prior
+ * ranges will cover from 0 to 1. The parameter scale factor 
+ * is set the to value of (b - a) and the minimum scale range is
+ * set to a - this allows the true parameter value to be reconstructed.
  * 
  * For parameters with Gaussian priors set from the .par file the scale factor
  * is applied differently, so as to give a Gaussian with zero mean and unit
@@ -1807,142 +1830,6 @@ set.\n", propfile, tempPar);
 }
 
 
-/** \brief Set up the array of initial live points#
- * 
- * This function draws the parameters for the initial set of live points from 
- * their prior ranges. For parameters with linear priors the value is drawn from
- * a uniform distribution in that range using \c gsl_rng_uniform and for 
- * parameters with Gaussian priors they are drawn from a Gaussian distribution 
- * using \c gsl_ran_gaussian.
- * 
- * The likelihood for each live point is calculated.
- * 
- * \param runState [in] A pointer to the LALInferenceRunState
- */
-void setupLivePointsArray( LALInferenceRunState *runState ){
-/* Set up initial basket of live points, drawn from prior,
-   by copying runState->currentParams to all entries in the array*/
-  UINT4 Nlive = (UINT4)*(INT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nlive");
-  UINT4 i;
-  REAL8Vector *logLs;
-        
-  LALInferenceVariableItem *current;
-  
-  /* Allocate the array */
-  runState->livePoints = XLALCalloc( Nlive, sizeof(LALInferenceVariables *) );
-  
-  if( runState->livePoints == NULL ){
-    fprintf(stderr,"Unable to allocate memory for %i live points\n",Nlive);
-    exit(1);
-  }
-
-  logLs = XLALCreateREAL8Vector( Nlive );
-     
-  LALInferenceAddVariable( runState->algorithmParams, "logLikelihoods",
-               &logLs, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
-               
-  fprintf(stdout, "Sprinkling %i live points, may take some time\n", Nlive);
-  
-  for( i=0; i<Nlive; i++){
-    runState->livePoints[i] = XLALCalloc( 1, sizeof(LALInferenceVariables) );
-                
-    /* Copy the param structure */
-    LALInferenceCopyVariables( runState->currentParams, runState->livePoints[i] );
-    
-    /* Sprinkle the varying points among prior */
-    do{
-      for( current=runState->livePoints[i]->head; current!=NULL;
-           current=current->next){
-        CHAR tempParPrior[VARNAME_MAX] = "";
-        UINT4 gp = 0;
-      
-        sprintf(tempParPrior,"%s_gaussian_mean",current->name);
-      
-        if( LALInferenceCheckVariable( runState->priorArgs, tempParPrior ) ) gp = 1;
-        
-        if( current->vary==LALINFERENCE_PARAM_CIRCULAR || current->vary==LALINFERENCE_PARAM_LINEAR )
-        {
-          switch (current->type){
-            case LALINFERENCE_REAL4_t:
-            {
-              REAL4 tmp;
-              REAL4 min, max, mu, sigma;
-                                                       
-              if( gp ){
-                LALInferenceGetGaussianPrior( runState->priorArgs, current->name, 
-                                  (void *)&mu, (void *)&sigma );
-                tmp = mu + gsl_ran_gaussian(runState->GSLrandom, (double)sigma);
-              }
-              else{
-                LALInferenceGetMinMaxPrior( runState->priorArgs, current->name, 
-                                (void *)&min, (void *)&max );
-                tmp = min + (max-min)*gsl_rng_uniform( runState->GSLrandom );
-              }
-                                                       
-              LALInferenceSetVariable( runState->livePoints[i], current->name, &tmp );
-              break;
-            }
-            case LALINFERENCE_REAL8_t:
-            {
-              REAL8 tmp;
-              REAL8 min, max, mu, sigma;
-                                                       
-              if( gp ){
-                LALInferenceGetGaussianPrior( runState->priorArgs, current->name, 
-                                  (void *)&mu, (void *)&sigma );
-                tmp = mu + gsl_ran_gaussian(runState->GSLrandom, (double)sigma);
-              }
-              else{
-                LALInferenceGetMinMaxPrior( runState->priorArgs, current->name, 
-                                (void *)&min, (void *)&max );
-                tmp = min + (max-min)*gsl_rng_uniform( runState->GSLrandom );
-              }
-                                                       
-              LALInferenceSetVariable( runState->livePoints[i], current->name, &tmp );
-              break;
-            }
-            case LALINFERENCE_INT4_t:
-            {
-              INT4 tmp;
-              INT4 min,max;
-                                                       
-              LALInferenceGetMinMaxPrior( runState->priorArgs, current->name, (void *)&min,
-                              (void *)&max );
-                                                       
-              tmp = min + (max-min)*gsl_rng_uniform(runState->GSLrandom);
-                                                       
-              LALInferenceSetVariable( runState->livePoints[i], current->name, &tmp );
-              break;
-            }
-            case LALINFERENCE_INT8_t:
-            {
-              INT8 tmp;
-              INT8 min, max;
-                                                       
-              LALInferenceGetMinMaxPrior( runState->priorArgs, current->name, (void *)&min,
-                              (void *)&max );
-                                                       
-              tmp = min + (max-min)*gsl_rng_uniform(runState->GSLrandom);
-                                                       
-              LALInferenceSetVariable( runState->livePoints[i], current->name, &tmp);
-              break;
-            }
-            default:
-              fprintf(stderr,"Trying to randomise a non-numeric parameter!");
-          }
-        }
-      }
-               
-    }while( runState->prior( runState,runState->livePoints[i] ) == -DBL_MAX );
-    
-    /* Populate log likelihood */           
-    logLs->data[i] = runState->likelihood( runState->livePoints[i],
-                                           runState->data, runState->template );
-    LALInferenceAddVariable(runState->livePoints[i],"logL",&(logLs->data[i]),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
-  }
-        
-}
-
 /*------------------- END INITIALISATION FUNCTIONS ---------------------------*/
 
 
@@ -1993,6 +1880,9 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars,
                              LALInferenceTemplateFunction *get_model ){
   REAL8 loglike = 0.; /* the log likelihood */
   UINT4 i = 0;
+  CHAR *modeltype = NULL;/*need to check model type in this function*/
+  
+  modeltype = *(CHAR**)LALInferenceGetVariable( data->dataParams, "modeltype" );
   
   LALInferenceIFOData *datatemp1 = data, *datatemp2 = data;
   
@@ -2004,8 +1894,12 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars,
   
   /* get pulsar model */
   while( datatemp2 ){
+    /*fprintf(bugtest,"getting model in log like func\n");*/
     get_model( datatemp2 );
     datatemp2 = datatemp2->next;
+    /* If modeltype is pinsf need to advance data on to next, so this loop only
+     runs once if there is only 1 det*/
+    if ( !strcmp( modeltype, "pinsf" ) ) datatemp2 = datatemp2->next;
   }
   
   while ( data ){
@@ -2020,6 +1914,8 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars,
   
     REAL8Vector *sumDat = NULL;
     UINT4Vector *chunkLengths = NULL;
+    
+    /*fprintf(bugtest,"calc log like for one set of data\n");*/
     
     sumDat = *(REAL8Vector **)LALInferenceGetVariable( data->dataParams, 
                                                        "sumData" );
@@ -2057,6 +1953,7 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars,
         
         /* sum over that data and model */
         sumDataModel += B.re*M.re + B.im*M.im;
+        /*fprintf(bugtest,"B.re= %e, B.im= %e, M.re: %e, M.im: %e\n",B.re, B.im, M.re, M.im);*/
       }
  
       chiSquare = sumDat->data[count];
@@ -2067,12 +1964,9 @@ REAL8 pulsar_log_likelihood( LALInferenceVariables *vars,
       
       count++;
     }
-  
     loglike += logliketmp;
-    
     data = data->next;
   }
-  
   return loglike;
 }
 
@@ -2272,7 +2166,7 @@ REAL8 rescale_parameter( LALInferenceIFOData *data, const CHAR *parname ){
 }
 
 
-/** \brief Generate a model of a triaxial neutron star
+/** \brief Generate the model of the neutron star signal
  *
  * The function requires that the pulsar model is set using the \c model-type
  * command line argument (this is set in \c main, and if not specified defaults
@@ -2290,7 +2184,7 @@ REAL8 rescale_parameter( LALInferenceIFOData *data, const CHAR *parname ){
  * will be calculated and the complex signal model, \f$M\f$, modified
  * accordingly:
  * \f[
- * \M'(t) = M(t)\exp{i(-(\phi(t)_n - \phi(t)_h))}. 
+ * M'(t) = M(t)\exp{i(-(\phi(t)_n - \phi(t)_h))}. 
  * \f]
  * 
  * \param params [in] A \c BinaryPulsarParams structure containing the model
@@ -2331,6 +2225,12 @@ void pulsar_model( BinaryPulsarParams params,
   for( j = 0; j < freqFactors->length; j++ ){
     REAL8Vector *dphi = NULL;
     
+    /* move data pointer along one as one iteration of the model is held over
+    j data structures, moved this from bottom of loop so actioned for 2nd run through the loop.*/
+    if ( j > 0 ){ 
+      data = data->next;
+    }
+    
     length = data->compModelData->data->length;
     /* the timeData vector within the LALIFOData structure contains the
      phase calculated using the initial (heterodyne) values of the phase
@@ -2356,12 +2256,7 @@ void pulsar_model( BinaryPulsarParams params,
         }
       }
     }
-    
     XLALDestroyREAL8Vector( dphi );
-    
-    /* move data pointer along one as one iteration of the model is held over
-      j data structures */
-    if ( j > 0 ) data = data->next;
   }
 }
 
@@ -2372,7 +2267,7 @@ void pulsar_model( BinaryPulsarParams params,
  * sky location as observed at Earth. The phase evolution is described by a 
  * Taylor expansion:
  * \f[
- * \phi(T) = \sum_1^n \frac{f^(n-1)}{n!} T^n,
+ * \phi(T) = \sum_{k=1}^n \frac{f^{(k-1)}{k!} T^k,
  * \f]
  * where \f$f^x\f$ is the xth time derivative of the gravitational wave
  * frequency, and \f$T\f$ is the pulsar proper time. Frequency time derivatives
@@ -2412,6 +2307,8 @@ REAL8Vector *get_phase_model( BinaryPulsarParams params,
   REAL8 interptime = 1800.; /* calulate every 30 mins (1800 secs) */
   
   REAL8Vector *phis = NULL, *dts = NULL, *bdts = NULL;
+  
+  
 
   /* if edat is NULL then return a NULL poniter */
   if( data->ephem == NULL )
@@ -2457,7 +2354,6 @@ REAL8Vector *get_phase_model( BinaryPulsarParams params,
       inv_fact[5]*params.f4*deltat2*deltat2 +
       inv_fact[6]*params.f5*deltat2*deltat2*deltat);
   }
-
   return phis;
 }
 
@@ -2634,7 +2530,7 @@ REAL8Vector *get_bsb_delay( BinaryPulsarParams pars,
  * y(t) & = & \frac{h_0}{2} \left( \frac{1}{2}F_+(t,\psi)
  * (1+\cos^2\iota)\cos{\phi_0} + F_{\times}(t,\psi)\cos{\iota}\sin{\phi_0}
  * \right) + \\
- *  & & i\frac{h_0}{2}\left( \frac{h_0}{2} \left( \frac{1}{2}F_+(t,\psi)
+ *  & & i\frac{h_0}{2}\left( \frac{1}{2}F_+(t,\psi)
  * (1+\cos^2\iota)\sin{\phi_0} - F_{\times}(t,\psi)\cos{\iota}\cos{\phi_0}
  * \right),
  * \f}
@@ -2774,6 +2670,7 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *da
   
   gsl_matrix *LU_Fplus, *LU_Fcross;
   
+  
   /* set lookup table parameters */
   psteps = *(INT4*)LALInferenceGetVariable( data->dataParams, "psiSteps" );
   tsteps = *(INT4*)LALInferenceGetVariable( data->dataParams, "timeSteps" );
@@ -2781,8 +2678,8 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *da
   LU_Fplus = *(gsl_matrix**)LALInferenceGetVariable( data->dataParams, "LU_Fplus");
   LU_Fcross = *(gsl_matrix**)LALInferenceGetVariable( data->dataParams, "LU_Fcross");
   
-  sin_cos_LUT( &sinphi, &cosphi, pars.phi0 );
-  sin_cos_LUT( &sin2phi, &cos2phi, 2*pars.phi0 );
+  sin_cos_LUT( &sinphi, &cosphi, 0.5*pars.phi0 );
+  sin_cos_LUT( &sin2phi, &cos2phi, pars.phi0 );
   
   /************************* CREATE MODEL *************************************/
   /* This model is a complex heterodyned time series for a pinned superfluid neutron
@@ -2800,7 +2697,7 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *da
   B1=( (cos(pars.lambda)*cos(pars.lambda))*(cos(pars.theta)*cos(pars.theta)) ) - (sin(pars.lambda)*sin(pars.lambda)) 
     + ( pars.h1*(sin(pars.theta)*sin(pars.theta)) );
   B2=sin(2*pars.lambda)*cos(pars.theta);
- 
+
   tstart = XLALGPSGetREAL8( &data->dataTimes->data[0] );
   
   /* set the psi bin for the lookup table */
@@ -2852,13 +2749,12 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData *da
     
     /* create the complex signal amplitude model */
     /*at f*/
-    data->compModelData->data->data[i].re = plus*Xplusf*((A1*cosphi)-(A2*sinphi)) + ( cross*Xcrossf*((A2*cosphi)-(A1*sinphi)) );
+    data->compModelData->data->data[i].re = plus*Xplusf*((A1*cosphi)-(A2*sinphi)) + 
+    ( cross*Xcrossf*((A2*cosphi)-(A1*sinphi)) );
     
-    data->compModelData->data->data[i].im = plus*Xplusf*((A2*cosphi)+(A1*sinphi)) + ( cross*Xcrossf*((A2*sinphi)-(A1*cosphi)) );
-       
-    data->next->compModelData->data->data[i].im =
-      plus*Xplus2f*((B2*cos2phi)+(B1*sin2phi)) -
-      cross*Xcross2f*((B1*cos2phi)-(B2*sin2phi));
+    data->compModelData->data->data[i].im = plus*Xplusf*((A2*cosphi)+(A1*sinphi)) + 
+    ( cross*Xcrossf*((A2*sinphi)-(A1*cosphi)) );
+
   }
   
   /* set model for 2f component */
@@ -2991,10 +2887,16 @@ void injectSignal( LALInferenceRunState *runState ){
   ProcessParamsTable *commandLine = runState->commandLine;
   
   BinaryPulsarParams injpars;
-  
-  REAL8 snrmulti = 0., snrscale = 0.;
+ 
   FILE *fpsnr = NULL; /* output file for SNRs */
-  INT4 ndets = 0;
+  INT4 ndets = 0, j = 1, k = 0, numSNRs = 1;
+  
+  REAL8Vector *freqFactors = NULL;
+  REAL8 *snrmulti = NULL, *snrscale = NULL;
+  
+  CHAR *modeltype = NULL;/*need to check model type in this function*/
+  
+  modeltype = *(CHAR**)LALInferenceGetVariable( data->dataParams, "modeltype" );
   
   ppt = LALInferenceGetProcParamVal( commandLine, "--inject-file" );
   if( ppt ){
@@ -3015,10 +2917,43 @@ parameter file %s is wrong.\n", injectfile);
     return;
   }
  
+  freqFactors = *(REAL8Vector **)LALInferenceGetVariable( data->dataParams, 
+                                                          "freqfactors" );
+ 
+  snrscale = XLALCalloc(sizeof(REAL8), numSNRs);
+  
   ppt = LALInferenceGetProcParamVal( commandLine, "--scale-snr" );
   if ( ppt ){
-    snrscale = atof( ppt->value );
+    /* if there are more than one data streams the SNRs for the individual
+       (multi-detector) streams can be set, rather than having a combined SNR.
+       The SNR vales are set as comma separated values to --snr-scale. If only
+       one value is given, but the data has multiple streams then the combined
+       multi-stream SNR will still be used. */
+    CHAR *snrscales = NULL, *tmpsnrs = NULL, *tmpsnr = NULL, snrval[256];
+    
+    snrscales = XLALStringDuplicate( ppt->value );
+      
+    tmpsnrs = XLALStringDuplicate( snrscales );
+      
+    /* count the number of SNRs (comma seperated values) */
+    numSNRs = count_csv( snrscales );
+    
+    if( numSNRs != 1 || numSNRs != (INT4)freqFactors->length ){
+      fprintf(stderr, "Error... number of SNR values must either be 1, or equal\
+ to the number of data streams required for your model!\n");
+      exit(0);
+    }
+    
+    snrscale = XLALRealloc(snrscale, sizeof(REAL8)*numSNRs);
+    
+    for( k = 0; k < numSNRs; k++ ){
+      tmpsnr = strsep( &tmpsnrs, "," );
+      XLALStringCopy( snrval, tmpsnr, strlen(tmpsnr)+1 );
+      snrscale[k] = atof(snrval);
+    }
   }
+ 
+  snrmulti = XLALCalloc(sizeof(REAL8), numSNRs);
  
   ppt = LALInferenceGetProcParamVal( commandLine, "--outfile" );
   if( !ppt ){
@@ -3047,6 +2982,10 @@ parameter file %s is wrong.\n", injectfile);
     varyphase = varyphasetmp;
     
     data = data->next;
+    
+    /* If modeltype uses more than one data stream need to advance data on to
+       next, so this loop only runs once if there is only 1 det*/
+    for ( k = 1; k < (INT4)freqFactors->length; k++ ) data = data->next;
   }
   
   /* reset data to head */
@@ -3054,48 +2993,96 @@ parameter file %s is wrong.\n", injectfile);
   
   /* calculate SNRs */
   while ( data ){
-    REAL8 snrval = calculate_time_domain_snr( data );
+    for ( k = 0; k < numSNRs; k++ ){
+      REAL8 snrval = calculate_time_domain_snr( data );
+   
+      snrmulti[k] += SQUARE(snrval);
+    
+      if ( snrscale[k] == 0 ) fprintf(fpsnr, "%le\t", snrval);
+                             
+      data = data->next;
+    }
     
     ndets++;
-    
-    snrmulti += SQUARE(snrval);
-    
-    fprintf(fpsnr, "%le\t", snrval);
-                             
-    data = data->next; 
   }
   
   /* get overall multi-detector SNR */
-  snrmulti = sqrt( snrmulti );
+  for ( k = 0; k < numSNRs; k++ ) snrmulti[k] = sqrt( snrmulti[k] );
   
   /* only need to print out multi-detector snr if the were multiple detectors */
-  if ( ndets > 1 ) fprintf(fpsnr, "%le\n", snrmulti);
-  else fprintf(fpsnr, "\n");
-  
-  fclose( fpsnr );
-  
-  /* SNR scale factor to rescale the signal to the required SNR */
-  if ( snrscale != 0. ){
-    if ( injpars.h0 == 0. ){
-      fprintf(stderr, "Error... cannot rescale signal to an SNR of %lf as the \
-injected signal amplitude is zero!\n", snrscale);
-      exit(0);
+  if( numSNRs == 1 && snrscale[0] == 0 ){
+    if ( ndets > 1 ) fprintf(fpsnr, "%le\n", snrmulti[0]);
+    else fprintf(fpsnr, "\n");
+  }
+  else{
+    /* rescale the signal and calculate the SNRs */
+    data = runState->data;
+   
+    for ( k = 0; k < numSNRs; k++ ) snrscale[k] /= snrmulti[k];
+    
+    /* rescale the h0 (and other amplitude factors for other models) */
+    if ( !strcmp(modeltype, "triaxial") || !strcmp(modeltype, "pinsf") ){
+      for ( k = 0; k < numSNRs; k++ ){
+        if ( freqFactors->data[k] == 2. ) injpars.h0 *= snrscale[k];
+        if ( freqFactors->data[k] == 1. ) injpars.h1 *= snrscale[k];
+      }
     }
     
-    snrscale /= snrmulti;
-    snrscale = sqrt(snrscale);
+    /* recreate the signal with scale amplitude */
+    while( data ){
+      UINT4 varyphasetmp = varyphase;
+      varyphase = 1;
+      
+      pulsar_model( injpars, data );
+      
+      /* reset varyphase to its original value */
+      varyphase = varyphasetmp;
+      
+      for ( k = 1; k < (INT4)freqFactors->length; k++ ) data = data->next;
+    }
+    
+    data = runState->data;
+    
+    /* get new snrs */
+    for ( k = 0; k < numSNRs; k++ ) snrmulti[k] = 0;
+    
+    while( data ){
+      for ( k = 0; k < numSNRs; k++ ){
+        REAL8 snrval = 0.;
+
+        /* recalculate the SNR */
+        snrval = calculate_time_domain_snr( data );
+      
+        snrmulti[k] += SQUARE(snrval);
+      
+        fprintf(fpsnr, "%le\t", snrval);
+      
+        data = data->next;
+      }
+    }
+    
+    for ( k = 0; k < numSNRs; k++ ) snrmulti[k] = sqrt( snrmulti[k] );
+    
+    if( ndets > 1 ){ 
+      for ( k = 0; k < numSNRs; k++ ) fprintf(fpsnr, "%le\t", snrmulti[k]);
+      fprintf(fpsnr, "\n");
+      /*fprintf(stderr,"snr multi: %f\n",snrmulti); */
+    }
+    else fprintf(fpsnr, "\n");
+
   }
-  else snrscale = 1.; /* do not apply any scaling */
   
+  fclose( fpsnr );
+   
   /* reset data to head */
   data = runState->data;
   
-  /* add signal to data and scale SNR if necessary */
+  /* add signal to data */
   while( data ){
     FILE *fp = NULL, *fpso = NULL;
     ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal( commandLine,
                                                             "--inject-output" );
-    INT4 i = 0, length = data->dataTimes->length;                              
+    INT4 i = 0, length = data->dataTimes->length;
                         
     /* check whether to output the data */
     if ( ppt2 ){
@@ -3107,6 +3094,13 @@ injected signal amplitude is zero!\n", snrscale);
       
       outfile = XLALStringAppend( outfile, ppt2->value );
       
+      if ( ( !strcmp( modeltype, "pinsf" ) ) && (fmod(j,2)==0) ){
+        outfile = XLALStringAppend( outfile, "_2f");
+      }
+      else if ( !strcmp( modeltype, "pinsf" )){
+        outfile = XLALStringAppend( outfile, "_1f");
+      }
+
       if ( (fp = fopen(outfile, "w")) == NULL ){
         fprintf(stderr, "Non-fatal error... unable to open file %s to output \
 injection\n", outfile);
@@ -3123,10 +3117,6 @@ injection\n", signalonly);
     
     /* add the signal to the data */
     for ( i = 0; i < length; i++ ){
-      /* rescale signal data to required SNR */
-      data->compModelData->data->data[i].re *= snrscale;
-      data->compModelData->data->data[i].im *= snrscale;
-      
       data->compTimeData->data->data[i].re +=
         data->compModelData->data->data[i].re;
       data->compTimeData->data->data[i].im +=
@@ -3153,9 +3143,12 @@ injection\n", signalonly);
     if ( fp != NULL ) fclose( fp );
     if ( fpso != NULL ) fclose( fpso );
     
-    data = data->next; 
+    data = data->next;
+    j++;
   }
   
+  XLALFree(snrmulti);
+  XLALFree(snrscale);
 }
 
 /*-------------------- END OF SOFTWARE INJECTION FUNCTIONS -------------------*/
@@ -3167,7 +3160,7 @@ injection\n", signalonly);
 
 /** \brief Split the data into segments
  * 
- * This function is deprecated to \c chop_n_merger, but gives the functionality 
+ * This function is deprecated to \c chop_n_merge, but gives the functionality 
  * of the old code.
  * 
  * It cuts the data into as many contiguous segments of data as possible of 
@@ -3236,9 +3229,11 @@ UINT4Vector *get_chunk_lengths( LALInferenceIFOData *data, INT4 chunkMax ){
  * The function first attempts to chop up the data into as many stationary 
  * segments as possible. The splitting may not be optimal, so it then tries 
  * remerging consecutive segments to see if the merged segments show more
- * evidence of stationarity. It then, if necessary, chops the segments again to
- * make sure there are none greater than the required \c chunkMax. The default
- * \c chunkMax is 0, so this rechopping will not normally happen.
+ * evidence of stationarity. <b>[NOTE: Remerging is currently turned off and
+ * will make very little difference to the algorithm]</b>. It then, if
+ * necessary, chops the segments again to make sure there are none greater
+ * than the required \c chunkMax. The default \c chunkMax is 0, so this
+ * rechopping will not normally happen.
  * 
  * This is all performed on data that has had a running median subtracted, to 
  * try and removed any underlying trends in the data (e.g. those caused by a 
@@ -3275,7 +3270,8 @@ UINT4Vector *chop_n_merge( LALInferenceIFOData *data, INT4 chunkMin,
   
   chunkIndex = chop_data( meddata, chunkMin );
   
-  merge_data( meddata, chunkIndex );
+  /* DON'T BOTHER WITH THE MERGING AS IT WILL MAKE VERY LITTLE DIFFERENCE */
+  /* merge_data( meddata, chunkIndex ); */
   
   /* if a maximum chunk length is defined then rechop up the data, to segment
      any chunks longer than this value */
@@ -3397,7 +3393,7 @@ COMPLEX16Vector *subtract_running_median( COMPLEX16Vector *data ){
  * The threshold is for the natural logarithm of the odds ratio is empirically
  * set to be:
  * \f[
- * T = 1.305\log{}_{10} N + 0.245 + 2.531
+ * T = 0.57\ln{N} + 2.71,
  * \f]
  * where \f$N\f$ is the length of the data set. This comes from a fit to the 
  * threshold value required to give a 1% chance of splitting actual Gaussian
@@ -3429,11 +3425,11 @@ UINT4Vector *chop_data( COMPLEX16Vector *data, INT4 chunkMin ){
   
   /* set threshold based on empirical tests that only give a 1% chance of
      splitting Gaussian data of various lengths. The relation is approximately:
-     T = 1.305*log10(length) + 0.254 + 2.531
-     where the first two terms come from a fit to odds ratios for a Monte Carlo
+     T = 0.57*ln(length) + 2.71
+     where this comes from a fit to odds ratios for a Monte Carlo
      of Gaussian noise (with real and imaginary components) of various lengths,
-     and the final term comes from an offset to give the 1% false alarm rate. */
-  threshold = 1.305*log10(length) + 0.254 + 2.531;
+     with an offset to give the 1% false alarm rate. */
+  threshold = 0.57*log(length) + 2.71;
   
   if ( logodds > threshold ){
     UINT4Vector *cp1 = NULL;
@@ -3828,6 +3824,9 @@ void sumData( LALInferenceRunState *runState ){
  * the antenna pattern changes) and goes between \f$\pm\pi/4\f$ radians in
  * \f$\psi\f$.
  * 
+ * Note: the may want to be converted into an XLAL function and moved into LAL 
+ * at some point.
+ * 
  * \param t0 [in] initial GPS time of the data
  * \param detNSource [in] structure containing the detector and source
  * orientations and locations
@@ -3878,7 +3877,9 @@ void response_lookup_table( REAL8 t0, LALDetAndSource detNSource,
  * 
  * This function reads in the file of samples output from the Nested Sampling
  * algorithm (in the file specified by \c outfile) and scales them back to 
- * their true values.
+ * their true values. It removes the string variable "model" from the output
+ * and shifts the logPrior and logLikelihood values to the end of the parameter
+ * list.
  * 
  * Note: The output may soon be in an XML format, so this function will need to
  * be amended. 
@@ -3891,7 +3892,7 @@ void rescaleOutput( LALInferenceRunState *runState ){
   CHAR outfilepars[256] = "", outfileparstmp[256] = "";
   FILE *fp = NULL, *fptemp = NULL, *fppars = NULL, *fpparstmp = NULL;
   
-  LALInferenceVariables *current=XLALCalloc(1,sizeof(LALInferenceVariables));
+  LALStringVector *paramsStr = NULL;
   
   ProcessParamsTable *ppt = LALInferenceGetProcParamVal( runState->commandLine,
                                                          "--outfile" );
@@ -3935,10 +3936,16 @@ void rescaleOutput( LALInferenceRunState *runState ){
   
   CHAR v[128] = "";
   while( fscanf(fppars, "%s", v) != EOF ){
-    /* reoutput everything but the "model" value to a temporary file */
-    if( strcmp(v, "model") != 0 || strcmp(v,"logL")!=0 )
+      paramsStr = XLALAppendString2Vector( paramsStr, v );
+    
+    /* re-output everything but the "model" value to a temporary file */
+    if( strcmp(v, "model") != 0 || strcmp(v, "logL")!=0 
+      || strcmp(v, "logPrior") )
       fprintf(fpparstmp, "%s\t", v);
   }
+  
+  /* we will put the logPrior and logLikelihood at the end of the lines */
+  fprintf(fpparstmp, "logPrior\tlogL\n");
   
   fclose(fppars);
   fclose(fpparstmp);
@@ -3946,78 +3953,49 @@ void rescaleOutput( LALInferenceRunState *runState ){
   /* move the temporary file name to the standard outfile_param name */
   rename( outfileparstmp, outfilepars );
   
-  /* copy variables from runState to current (this seems to switch the order,
-     which is required! */
-  LALInferenceCopyVariables(runState->currentParams, current);
-  
-  do{
-    LALInferenceVariableItem *item = current->head;
-    
-    CHAR line[2000];
-    CHAR value[128] = "";
+  while ( 1 ){
     UINT4 i = 0;
     
-    /* read in one line of the file */
-    if( fgets(line, 2000*sizeof(CHAR), fp) == NULL && !feof(fp) ){
-      fprintf(stderr, "Error... cannot read line from file %s.\n", outfile);
-      exit(3);
-    }
-    
-    if( feof(fp) ) break;
+    REAL8 logPrior = 0., logL = 0.;
     
     /* scan through line, get value and reprint out scaled value to temporary
        file */
-    while (item != NULL){
+    for( i = 0; i < paramsStr->length; i++ ){
       CHAR scalename[VARNAME_MAX] = "";
       CHAR scaleminname[VARNAME_MAX] = "";
       REAL8 scalefac = 1., scalemin = 0.;
+      CHAR value[128];
       
-      if( i == 0 ){
-        sprintf(value, "%s", strtok(line, "'\t'"));
-        i++;
-      }
-      else
-        sprintf(value, "%s", strtok(NULL, "'\t'"));
+      if( fscanf(fp, "%s", value) == EOF ) break;
       
-      sprintf(scalename, "%s_scale", item->name);
-      sprintf(scaleminname, "%s_scale_min", item->name);
+      sprintf(scalename, "%s_scale", paramsStr->data[i]);
+      sprintf(scaleminname, "%s_scale_min", paramsStr->data[i]);
       
-      if( strcmp(item->name, "model") && strcmp(item->name, "logL")){
+      if ( LALInferenceCheckVariable( runState->data->dataParams, scalename ) &&
+        LALInferenceCheckVariable( runState->data->dataParams, scaleminname ) ){
+      
         scalefac = 
           *(REAL8 *)LALInferenceGetVariable( runState->data->dataParams, 
                                              scalename );
         scalemin = 
-           *(REAL8 *)LALInferenceGetVariable( runState->data->dataParams, 
-                                              scaleminname );             
-      }
+          *(REAL8 *)LALInferenceGetVariable( runState->data->dataParams, 
+                                              scaleminname );
       
-      switch (item->type) {
-        case LALINFERENCE_INT4_t:
-          fprintf(fptemp, "%d", (INT4)(atoi(value)*scalefac + scalemin));
-          break;
-        case LALINFERENCE_REAL4_t:
-          fprintf(fptemp, "%.12e", atof(value)*scalefac + scalemin);
-          break;
-        case LALINFERENCE_REAL8_t:
-          fprintf(fptemp, "%.12le", atof(value)*scalefac + scalemin);
-          break;
-        case LALINFERENCE_string_t:
-          /* don't reprint out any string values */
-          break;
-        default:
-          fprintf(stderr, "No type specified for %s.\n", item->name);
+        fprintf(fptemp, "%.12le", atof(value)*scalefac + scalemin);
       }
-      
+      else if( !strcmp(paramsStr->data[i], "logL") )
+        logL = atof(value);
+      else if( !strcmp(paramsStr->data[i], "logPrior") )
+        logPrior = atof(value);
+        
       fprintf(fptemp, "\t");
-      
-      item = item->next;
     }
     
-    /* last item in the line should be the logLikelihood (which is not in the
-       currentParams structure) */
-    sprintf(value, "%s", strtok(NULL, "'\t'"));
-    fprintf(fptemp, "%lf\n", atof(value));
-  }while( !feof(fp) );
+    if( feof(fp) ) break;
+    
+    /* print out the last two items to be the logPrior and logLikelihood */
+    fprintf(fptemp, "%lf\t%lf\n", logPrior, logL);
+  }
   
   fclose(fp);
   fclose(fptemp);
@@ -4152,7 +4130,7 @@ REAL8 calculate_time_domain_snr( LALInferenceIFOData *data ){
     }
     
     vari.re /= (chunkLength - 1.);
-    vari.re /= (chunkLength - 1.);
+    vari.im /= (chunkLength - 1.);
     
     /* add SNRs for each chunk in quadrature */
     snrval += (snrc.re/vari.re) + (snrc.im/vari.im);
@@ -4204,8 +4182,8 @@ void get_loudest_snr( LALInferenceRunState *runState ){
   
   lMax = runState->likelihood( loudestParams, runState->data,
                                runState->template );
-  
-  LALFree( loudestParams );
+ 
+  LALInferenceDestroyVariables( loudestParams );
   
   /* setup output file */
   ppt = LALInferenceGetProcParamVal( commandLine, "--outfile" );
@@ -4234,7 +4212,7 @@ void get_loudest_snr( LALInferenceRunState *runState ){
     snrmulti += SQUARE( snrval );
     
     /* print out SNR value */
-    fprintf(fpsnr, "%le\t", sqrt(snrval));
+    fprintf(fpsnr, "%le\t", snrval);
     
     data = data->next;
   }
@@ -4245,6 +4223,154 @@ void get_loudest_snr( LALInferenceRunState *runState ){
   
   fclose( fpsnr );
 }
+
+
+/** \brief Automatically set the solar system ephemeris file based on
+ * environment variables and data time span
+ * 
+ * This function will attempt to find Earth and Sun ephemeris files based on
+ * LAL environment variables (as set up by <code> lalpulsar-user-env.(c)sh
+ * </code>) and a given start and end GPS time (presumably taken from the data
+ * that is to be analysed). It requires \c LALPULSAR is installed and the \c
+ * LALPULSAR_PREFIX variable is set, which should mean that ephemeris files are
+ * installed in the directory \c ${LALPULSAR_PREFIX}/share/lalpulsar/.
+ *
+ * Within this directory the should be ephemeris files of the format 
+ * earthXX-YY.dat, or earthXX.dat, where XX are two digit years e.g.
+ * earth11.dat and represent the year or years for which the ephemeris is
+ * valid. The function will find the appropriate ephemeris files that cover the 
+ * time range (in GPS seconds) required. If no files exist errors will be
+ * returned.
+ * 
+ * The function uses requires <code>dirent,h</code> and <code>time.h</code>. 
+ * 
+ * NOTE: This may want to be moved into LAL at some point.
+ * 
+ * \param efile [in] a string that will return the Earth ephemeris file
+ * \param sfile [in] a string that will return the Sun ephemeris file 
+ * \param gpsstart [in] the GPS time of the start of the data
+ * \param gpsend [in] the GPS time of the end of the data
+ * 
+ * \return Zero will be return on successful completion
+ */
+INT4 XLALAutoSetEphemerisFiles( CHAR *efile, CHAR *sfile, 
+                                INT4 gpsstart, INT4 gpsend ){
+  struct tm utcstart,  utcend;
+  CHAR *eftmp = NULL, *sftmp = NULL;
+  INT4 buf = 3;
+  CHAR yearstart[buf], yearend[buf]; /* the two digit year i.e. 11 for 2011*/
+  INT4 ys = 0, ye = 0;
+  CHAR *lalpath = NULL, *lalpulsarpath = NULL;
+  
+  INT4 yr1 = 0, yr2 = 0, i = 0;
+    
+  CHAR tmpyr[6];
+    
+  struct dirent *entry;
+  DIR *dp;
+  
+  /* first check that the path to the Ephemeris files is available in the
+     environment variables */
+  if((lalpath = getenv("LALPULSAR_PREFIX")) == NULL){
+    XLALPrintError("LALPULSAR_PREFIX environment variable not set. Cannot \
+automatically generate ephemeris files!\n");
+    XLAL_ERROR(XLAL_EFUNC);
+  }
+  
+  /* get the utc times of the start and end GPS times */
+  if( !XLALGPSToUTC( &utcstart, gpsstart ) )
+    XLAL_ERROR(XLAL_EFUNC);
+  if( !XLALGPSToUTC( &utcend, gpsend ) )
+    XLAL_ERROR(XLAL_EFUNC);
+  
+  /* get years */
+  if( strftime(yearstart, buf, "%y", &utcstart) != 2 )
+    XLAL_ERROR(XLAL_EFUNC);
+  
+  if( strftime(yearend, buf, "%y", &utcend) != 2 )
+    XLAL_ERROR(XLAL_EFUNC);
+  
+  ys = atoi(yearstart);
+  ye = atoi(yearend);
+  
+  lalpulsarpath = XLALStringDuplicate( lalpath );
+  
+  if ( (lalpulsarpath = XLALStringAppend(lalpulsarpath, "/share/lalpulsar/")) ==
+NULL )
+    XLAL_ERROR(XLAL_EFUNC);
+  
+  eftmp = XLALStringDuplicate(lalpulsarpath);
+  sftmp = XLALStringDuplicate(lalpulsarpath);
+  
+  eftmp = XLALStringAppend(eftmp, "earth");
+  sftmp = XLALStringAppend(sftmp, "sun");
+ 
+  /* find the ephemeris file that bounds the required range */
+  if ( ( dp = opendir(lalpulsarpath) ) == NULL ){
+    XLALPrintError("Error... cannot open directory path %s!\n", lalpulsarpath);
+    XLAL_ERROR(XLAL_EFUNC);
+  }
+    
+  while( (entry = readdir(dp) ) ){
+    /* just use "earth" files rather than doubling up */
+    if ( strstr(entry->d_name, "earth") != NULL ){
+      /* get current set of ranges - filenames are of the format
+         earthXX-YY.dat, so find the '-' and extract two characters either
+         side */
+      if ( strchr(entry->d_name, '-') ){
+        sscanf(entry->d_name, "earth%d-%d.dat", &yr1, &yr2);
+        
+        if ( ys >= yr1 && ye <= yr2 ) {
+          snprintf(tmpyr, 6, "%02d-%02d", yr1, yr2);
+          
+          eftmp = XLALStringAppend(eftmp, tmpyr);
+          sftmp = XLALStringAppend(sftmp, tmpyr);
+          i++;
+          break;
+        }
+      }
+      /* get the single year value ephemeris file e.g. earthXX.dat */
+      else{
+        sscanf(entry->d_name, "earth%d.dat", &yr1);
+        
+        if ( ys == yr1 && ye == yr1 ){
+          snprintf(tmpyr, 3, "%02d", yr1);
+          eftmp = XLALStringAppend(eftmp, tmpyr);
+          sftmp = XLALStringAppend(sftmp, tmpyr);
+          i++;
+          break;
+        }
+      }
+    }
+  }
+    
+  closedir(dp);
+    
+  if( i == 0 ){
+    XLALPrintError("No ephemeris files in the time range %02d-%02d found!\n",
+                   ys, ye);
+    XLAL_ERROR(XLAL_EFUNC);
+  }
+
+  /* add .dat extension */
+  eftmp = XLALStringAppend(eftmp, ".dat");
+  sftmp = XLALStringAppend(sftmp, ".dat");
+  
+  if ( eftmp == NULL || sftmp == NULL )
+    XLAL_ERROR(XLAL_EFUNC);
+
+  XLALStringCopy( efile, eftmp, 1024 );
+  XLALStringCopy( sfile, sftmp, 1024 );
+  
+  /* double check that the files exist */
+  if( access(sfile, F_OK) != 0 || access(efile, F_OK) != 0 ){
+    XLALPrintError("Error... ephemeris files not, or incorrectly, defined!\n");
+    XLAL_ERROR(XLAL_EFUNC);
+  }
+  
+  return 0;
+}
+
 
 /*----------------------- END OF HELPER FUNCTIONS ----------------------------*/
 

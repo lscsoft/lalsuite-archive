@@ -29,7 +29,7 @@ def new_snr_chisq( snr, new_snr, chisq_dof, q=4.0, n=3.0 ):
     return 1E-20
   return chisq_dof * (2*chisqnorm - 1)**(n/q)
 
-def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
+def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), fResp = None ):
 
   """
     Calculate BestNR (coh_PTF detection statistic) through signal based vetoes:
@@ -80,11 +80,20 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
   if len(ifos)<3:
     return bestNR
 
-  null_snr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
-                     for ifo in ifos ]) - trig.snr**2 )**0.5
-  if trig.snr > 30:
+  null_snr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+                     for ifo in ifos ]) - trig.snr**2
+  if null_snr < 0:
+    print "WARNING: Null SNR is less than 0!"
+    print "Sum of single detector SNRs squared", sum([ getattr(trig,'snr_%s' \
+                     % ifoAtt[ifo])**2  for ifo in ifos ])
+    print "Coherent SNR squared", trig.snr**2
+    null_snr = 0
+  else:
+    null_snr = null_snr**0.5
+
+  if trig.snr > 20:
     null_thresh = numpy.array(null_thresh)
-    null_thresh += (trig.snr - 30)*5/70
+    null_thresh += (trig.snr - 20)*1./5.
   if null_snr > null_thresh[-1]:
     return 0
   elif null_snr > null_thresh[0]:
@@ -92,8 +101,8 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(3.5,5.25), fResp = None ):
 
   return bestNR
 
-def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
-                        null_grad_snr=30 ):
+def calculate_contours( q=4.0, n=3.0, null_thresh=6.,\
+                        null_grad_snr=20 ):
 
   """
     Generate the plot contours for chisq variable plots
@@ -129,7 +138,7 @@ def calculate_contours( q=4.0, n=3.0, null_thresh=5.25,\
       chi_conts[i][j]  = new_snr_chisq(snr, new_snr, chisq_dof, q, n)
 
     if snr > null_grad_snr:
-      null_cont.append(null_thresh + (snr-null_grad_snr)*5/70)
+      null_cont.append(null_thresh + (snr-null_grad_snr)*1./5.)
     else:
       null_cont.append(null_thresh)
 
@@ -212,7 +221,7 @@ def get_det_response( ra, dec, trigTime ):
 
   """
     Return detector response for complete set of IFOs for given sky location
-    and time. Assumed inclination = 0, and polarization = 0. 
+    and time. Inclination and polarization are unused so are arbitrarily set to 0 
   """
 
   f_plus  = {}
@@ -337,4 +346,16 @@ def sim_inspiral_get_theta(self):
 
   return theta
 
+def minimum(itera):
+  # An extension of the builtin min which will return very large number if list is empty
+  try:
+    return min(itera)
+  except ValueError:
+    return 10000000000000000
 
+def maximum(itera):
+  # An extension of the builtin max which will return 0 if list is empty
+  try:
+    return max(itera)
+  except ValueError:
+    return 0

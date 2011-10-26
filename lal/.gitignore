@@ -48,7 +48,9 @@ lib/git_info.sed
 lib/git_version
 lib/lal-version
 libtool
-misc/lal-user-env.*sh
+misc/lal-user-env.shell
+misc/lal-user-env.csh
+misc/lal-user-env.sh
 misc/uninstall-lal.sh
 packages/*/doc/main.pdf
 packages/*/include/*.tex
@@ -145,9 +147,6 @@ packages/tdfilter/test/LPCTest
 packages/tools/include/FrequencySeries.h
 packages/tools/include/Sequence.h
 packages/tools/include/TimeSeries.h
-packages/tools/src/FrequencySeries.c
-packages/tools/src/Sequence.c
-packages/tools/src/TimeSeries.c
 packages/tools/test/CoherentEstimationTest
 packages/tools/test/ComputeTransferTest
 packages/tools/test/DetectorSiteTest

@@ -54,6 +54,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 	REAL8 min, max;
 	REAL8 logmc=0.0;
 	REAL8 m1=0.0,m2=0.0,eta=0.0;
+	REAL8 tmp=0.;
 	/* Check boundaries */
 	for(;item;item=item->next)
 	{
@@ -79,7 +80,14 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 		logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin1"))));
 	if(LALInferenceCheckVariable(params,"theta_spin2"))
 		logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin2"))));
-	
+	if(LALInferenceCheckVariable(params,"a_spin1") && LALInferenceCheckVariable(params,"a_spin2")){
+		
+		if(*(REAL8 *)LALInferenceGetVariable(params,"a_spin2") > *(REAL8 *)LALInferenceGetVariable(params,"a_spin1")){
+		 	tmp = *(REAL8 *)LALInferenceGetVariable(params,"a_spin1") ;
+			*(REAL8 *)LALInferenceGetVariable(params,"a_spin1") = *(REAL8 *)LALInferenceGetVariable(params,"a_spin2");
+			*(REAL8 *)LALInferenceGetVariable(params,"a_spin2") = tmp;
+		}
+	}
 	if(LALInferenceCheckVariable(params,"logmc")) {
           logmc=*(REAL8 *)LALInferenceGetVariable(params,"logmc");
           /* Assume jumping in log(Mc), so use prior that works out to p(Mc) ~ Mc^-11/6 */
@@ -111,44 +119,55 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 }
 
 void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
-LALInferenceVariables *priorArgs){
-/* Apply cyclic and reflective boundaries to parameter to bring it back
-   within the prior */
+                                       LALInferenceVariables *priorArgs){
+  /* Apply cyclic and reflective boundaries to parameter to bring it back
+     within the prior */
   LALInferenceVariableItem *paraHead=NULL;
-  REAL8 delta;
   REAL8 min,max;
   /* REAL8 mu, sigma; */
-  for (paraHead=parameter->head;paraHead;paraHead=paraHead->next)
-  {
-    if( paraHead->vary==LALINFERENCE_PARAM_FIXED || 
-        paraHead->vary==LALINFERENCE_PARAM_OUTPUT || 
+  for (paraHead=parameter->head;paraHead;paraHead=paraHead->next) {
+    if( paraHead->vary==LALINFERENCE_PARAM_FIXED ||
+        paraHead->vary==LALINFERENCE_PARAM_OUTPUT ||
         !LALInferenceCheckMinMaxPrior(priorArgs, paraHead->name) ) continue;
-
-    LALInferenceGetMinMaxPrior(priorArgs,paraHead->name, (void *)&min, (void *)&max);
-   
-    if(paraHead->vary==LALINFERENCE_PARAM_CIRCULAR) /* For cyclic boundaries */
-    {
-       delta = max-min;
-       while ( *(REAL8 *)paraHead->value > max) 
-         *(REAL8 *)paraHead->value -= delta;
     
-       while ( *(REAL8 *)paraHead->value < min) 
-         *(REAL8 *)paraHead->value += delta;
-     }
-     /* Disable reflective boundary which violates detailled balance */
-/*
-     else if(paraHead->vary==LALINFERENCE_PARAM_LINEAR)
-     {
-       while(max<*(REAL8 *)paraHead->value || min>*(REAL8 *)paraHead->value){
-         if(max < *(REAL8 *)paraHead->value)
-           *(REAL8 *)paraHead->value -= 2.0*(*(REAL8 *)paraHead->value - max);
-         if(min > *(REAL8 *)paraHead->value) 
-           *(REAL8 *)paraHead->value+=2.0*(min - *(REAL8 *)paraHead->value);
-       }
-     }
-*/
-   }
-   return;
+    LALInferenceGetMinMaxPrior(priorArgs,paraHead->name, (void *)&min, (void *)&max);
+    
+    if(paraHead->vary==LALINFERENCE_PARAM_CIRCULAR) {
+      /* For cyclic boundaries, mod out by range. */
+
+      REAL8 val = *(REAL8 *)paraHead->value;
+      
+      if (val > max) {
+        REAL8 offset = val - min;
+        REAL8 delta = max-min;
+        
+        *(REAL8 *)paraHead->value = min + fmod(offset, delta);
+      } else { 
+        REAL8 offset = max - val;
+        REAL8 delta = max - min;
+        
+        *(REAL8 *)paraHead->value = max - fmod(offset, delta);
+      }
+    } else if (paraHead->vary==LALINFERENCE_PARAM_LINEAR) {
+      /* For linear boundaries, reflect about endpoints of range until
+         withoun range. */
+      while(1) {
+        /* Loop until broken. */
+        REAL8 val = *(REAL8 *)paraHead->value;
+        if (val > max) {
+          /* val <-- max - (val - max) */
+          *(REAL8 *)paraHead->value = 2.0*max - val;
+        } else if (val < min) {
+          /* val <-- min + (min - val) */
+          *(REAL8 *)paraHead->value = 2.0*min - val;
+        } else {
+          /* In range, so break. */
+          break;
+        }
+      }
+    }
+  }
+  return;
 }
 
 
@@ -677,4 +696,73 @@ void LALInferenceGetGaussianPrior(LALInferenceVariables *priorArgs, const char *
   *(REAL8 *)sigma=*(REAL8 *)LALInferenceGetVariable(priorArgs,sigmaName);
   return;
                 
+}
+
+void LALInferenceDrawFromPrior( LALInferenceVariables *output, 
+                                LALInferenceVariables *priorArgs, 
+                                gsl_rng *rdm) {  
+  LALInferenceVariableItem *item = output->head;
+  
+  for(;item;item=item->next){
+    if(item->vary==LALINFERENCE_PARAM_CIRCULAR || item->vary==LALINFERENCE_PARAM_LINEAR)
+      LALInferenceDrawNameFromPrior( output, priorArgs, item->name, item->type, rdm );
+  }
+}
+
+void LALInferenceDrawNameFromPrior( LALInferenceVariables *output, 
+                                    LALInferenceVariables *priorArgs, 
+                                    char *name, LALInferenceVariableType type, 
+                                    gsl_rng *rdm) {  
+  REAL8 tmp = 0.;
+      
+  /* test for a Gaussian prior */
+  if( LALInferenceCheckGaussianPrior( priorArgs, name ) ){
+    REAL8 mu = 0., sigma = 0.;
+    
+    LALInferenceGetGaussianPrior( priorArgs, name, (void *)&mu, (void *)&sigma );
+    tmp = mu + gsl_ran_gaussian(rdm, (double)sigma);
+  }
+  /* test for uniform prior */
+  else if( LALInferenceCheckMinMaxPrior( priorArgs, name ) ){
+    REAL8 min = 0., max = 0.;
+    
+    LALInferenceGetMinMaxPrior(priorArgs, name, (void *)&min, (void *)&max);
+    tmp = min + (max-min)*gsl_rng_uniform( rdm );
+  }
+  /* not a recognised prior type */
+  else{
+    return;
+  }
+  
+  switch ( type ){
+    case LALINFERENCE_REAL4_t:
+    { 
+      REAL4 val = (REAL4)tmp;
+      LALInferenceSetVariable(output, name, &val);
+      break;
+    }
+    case LALINFERENCE_REAL8_t:
+    {
+      REAL8 val = tmp;
+      LALInferenceSetVariable(output, name, &val);
+      break;
+    }
+    case LALINFERENCE_INT4_t:
+    {
+      INT4 val = (INT4)tmp;
+      LALInferenceSetVariable(output, name, &val);
+      break;
+    }
+    case LALINFERENCE_INT8_t:
+    {
+      INT8 val = (INT8)tmp;
+      LALInferenceSetVariable(output, name, &val);
+      break;
+    }
+    default:
+      XLALPrintError ("%s: Trying to randomise a non-numeric \
+parameter!\n", __func__ );
+      XLAL_ERROR_VOID ( XLAL_EFUNC );
+      break;
+  }
 }

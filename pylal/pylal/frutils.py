@@ -23,6 +23,7 @@ import os
 import os.path
 import shutil
 import sys
+import operator
 
 from glue.lal import Cache
 from glue.segments import segment, segmentlist
@@ -411,9 +412,9 @@ def query_LDR(server, port, site, frameType, gpsStart, gpsEnd, urlType=None, nop
 
 class AutoqueryingFrameCache(FrameCache):
     """
-    This subclass of FrameCache will query ligo_data_find automatically,
-    so no LAL-cache files are required. Limitation: you'll need one instance
-    per frame type.
+This subclass of FrameCache will query ligo_data_find automatically,
+so no LAL-cache files are required. Limitation: you'll need one instance
+per frame type.
 
 Constructor:
     AutoqueryingFrameCache(frametype, hostPortString=None, scratchdir=None,
@@ -438,7 +439,18 @@ Copying /Users/nvf/temp/H-H1_RDS_C03_L2-861417967-128.gwf -->
 >>> exit()
 Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
 
-
+Using AutoqueryingFrameCache outside of LDG clusters, using Caltech as a
+gateway:
+ * Just the first time you do this procedure: "sudo mkdir /data && sudo chown
+   albert.einstein /data" (replace albert.einstein with your local username;
+   /data may be different for different clusters)
+ * Set the LIGO_DATAFIND_SERVER environment variable to ldr.ligo.caltech.edu
+   (or the LDR server of the LDG cluster nearest you)
+ * Use "sshfs -o ssh_command=gsissh
+   albert.einstein@ldas-pcdev1.ligo.caltech.edu:/data /data" (replace
+   albert.einstein with your cluster username)
+ * Use "umount /data" when you're done. Unmounting cleanly will help prevent
+   headaches the next time you want to set this up.
     """
     def __init__(self, frametype, hostPortString=None, scratchdir=None,
         verbose=False):
@@ -468,7 +480,8 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
             return True
         urls = query_LDR(self.host, self.port, channel[0], self.frametype, start, end, urlType="file")
         if urls:
-            urls.sort()
-            self.add_cache(Cache.from_urls(urls, coltype=int))
+            new = Cache.from_urls(urls, coltype=int)
+            new.sort(key=operator.attrgetter("segment"))
+            self.add_cache(new)
             return True
         return False

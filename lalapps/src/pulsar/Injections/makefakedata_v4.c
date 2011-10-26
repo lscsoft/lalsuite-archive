@@ -1081,15 +1081,21 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
     uvar_generationMode = GENERATE_PER_SFT;
 
   /*--------------------- Prepare windowing of time series ---------------------*/
-  {
-    BOOLEAN have_window = LALUserVarWasSet( &uvar_window );
-    if ( have_window ) {
-      REAL4Window *win = XLALCreateHannREAL4Window( (UINT4)(uvar_Tsft * 2 * uvar_Band) );
-      cfg->window = ( win );
-    } else {
-      cfg->window = NULL;
-    }
-  }
+  cfg->window = NULL;
+  if ( uvar_window )
+    {
+      XLALLowerCaseString ( uvar_window );	// get rid of case
+      if ( !strcmp ( uvar_window, "hann") || !strcmp ( uvar_window, "hanning") )
+        {
+          REAL4Window *win = XLALCreateHannREAL4Window( (UINT4)(uvar_Tsft * 2 * uvar_Band) );
+          cfg->window = win;
+        }
+      else
+        {
+          XLALPrintError ("%s: Window function '%s' was entered, currently only Hann windowing is supported.\n\n", fn, uvar_window );
+          ABORT (status,  MAKEFAKEDATAC_EBAD,  MAKEFAKEDATAC_MSGEBAD);
+        }
+    } /* if uvar_window */
 
   /* -------------------- Prepare quantities for barycentering -------------------- */
   {
@@ -1321,21 +1327,27 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
 
   /* ----- handle transient-signal window if given ----- */
   if ( !LALUserVarWasSet ( &uvar_transientWindowType ) || !strcmp ( uvar_transientWindowType, "none") )
-    cfg->transientWindow.type = TRANSIENT_NONE;		/* default: no transient signal window */
+    cfg->transientWindow.type = TRANSIENT_NONE;                /* default: no transient signal window */
   else
     {
       if ( !strcmp ( uvar_transientWindowType, "rect" ) )
-	{
-	  cfg->transientWindow.type = TRANSIENT_RECTANGULAR;		/* rectangular window [t0, t0+tau] */
-	  XLALPrintError ("Illegal transient window '%s' specified: valid are 'none', 'rect' or 'exp'\n", uvar_transientWindowType);
-	  ABORT (status,  MAKEFAKEDATAC_EBAD,  MAKEFAKEDATAC_MSGEBAD);
-	}
+       {
+         cfg->transientWindow.type = TRANSIENT_RECTANGULAR;              /* rectangular window [t0, t0+tau] */
+       }
+      else if ( !strcmp ( uvar_transientWindowType, "exp" ) )
+        {
+          cfg->transientWindow.type = TRANSIENT_EXPONENTIAL;            /* exponential decay window e^[-(t-t0)/tau for t>t0, 0 otherwise */
+        }
+      else
+        {
+          XLALPrintError ("Illegal transient window '%s' specified: valid are 'none', 'rect' or 'exp'\n", uvar_transientWindowType);
+          ABORT (status,  MAKEFAKEDATAC_EBAD,  MAKEFAKEDATAC_MSGEBAD);
+        }
 
       cfg->transientWindow.t0   = uvar_transientStartTime;
       cfg->transientWindow.tau  = uvar_transientTauDays * LAL_DAYSID_SI;
 
     } /* if transient window != none */
-
 
   DETATCHSTATUSPTR (status);
   RETURN (status);
@@ -1936,7 +1948,7 @@ LALGenerateLineFeature ( LALStatus *status, REAL4TimeSeries **Tseries, const Pul
     ABORT ( status, MAKEFAKEDATAC_EMEM, MAKEFAKEDATAC_MSGEMEM );
   }
 
-  h0 = params->pulsar.aPlus + sqrt ( SQ(params->pulsar.aPlus) - SQ(params->pulsar.aCross) );
+  h0 = params->pulsar.aPlus + sqrt ( pow(params->pulsar.aPlus,2) - pow(params->pulsar.aCross,2) );
   omH = LAL_TWOPI * ( params->pulsar.f0 - params->fHeterodyne );
 
   for ( i=0; i < length; i++ )

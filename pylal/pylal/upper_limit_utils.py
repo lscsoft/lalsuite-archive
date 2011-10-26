@@ -3,6 +3,8 @@ from scipy import random
 from scipy import interpolate
 import bisect
 import sys
+from glue.ligolw import lsctables
+from pylal.xlal import constants
 
 import matplotlib
 matplotlib.use("agg")
@@ -225,8 +227,9 @@ def mean_efficiency_volume(found, missed, dbins, bootnum=1, randerr=0.0, syserr=
           m_dist = numpy.array([missed_dist[-(i+1)] for i in ix if i < 0])
 
           # apply log-normal random amplitude (distance) error
-          f_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(f_dist)) )
-          m_dist *= (1-syserr)*numpy.exp( randerr*random.randn(len(m_dist)) )
+          dist_offset = random.randn() # ONLY ONCE!
+          f_dist *= (1-syserr)*numpy.exp( randerr*dist_offset )
+          m_dist *= (1-syserr)*numpy.exp( randerr*dist_offset )
       else:
           # use what we got first time through
           f_dist, m_dist = found_dist, missed_dist
@@ -354,7 +357,7 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalo
     return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
 
 
-def log_volume_derivative_fit(x, vols, xhat):
+def log_volume_derivative_fit(x, vols, xhat,mkplot=True,tag=""):
     '''
     Relies on scipy spline fits for each mass bin to find the (logarithmic)
     derivitave of the search volume vs x at the given xhat.
@@ -363,10 +366,53 @@ def log_volume_derivative_fit(x, vols, xhat):
         print >> sys.stderr, "Warning: cannot fit to log-volume."
         return 0
 
-    fit = interpolate.splrep(x,numpy.log(vols),k=3)
-    val = interpolate.splev(xhat,fit,der=1)
-    if val < 0:
+    coeffs, resids, rank, svs, rcond = numpy.polyfit(x,numpy.log(vols),1,full=True)
+    if coeffs[0] < 0:
         val = 0 #prevents negative derivitives arising from bad fits
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
+    else:
+        val = coeffs[0]
+
+    if mkplot:
+        fars = numpy.linspace(min(x),max(x),100)
+        pyplot.plot(x,numpy.log(vols),'rx',label="data")
+        pyplot.plot(fars,coeffs[0]*fars+coeffs[1],label="fit")
+        pyplot.legend(loc="lower right")
+        pyplot.xlabel("FAN (per expt)")
+        pyplot.ylabel("log volume")
+        pyplot.title("lambda = %.2g at fan = %.2f"%(val,xhat))
+        pyplot.savefig(tag+"volume_derivative_fit")
+        pyplot.close()
 
     return val
+
+
+def get_background_livetime(connection, verbose=False):
+    '''
+    Query the database for the background livetime for the input instruments set.
+    This is equal to the sum of the livetime of the time slide experiments.
+    '''
+    query = """
+    SELECT instruments, duration
+    FROM experiment_summary
+    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
+    WHERE experiment_summary.datatype == "slide";
+    """
+
+    bglivetime = {}
+    for inst,lt in connection.cursor().execute(query):
+        inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
+        try:
+            bglivetime[inst] += lt
+        except KeyError:
+            bglivetime[inst] = lt
+
+    if verbose:
+        for inst in bglivetime.keys():
+            print >>sys.stdout,"The background livetime for time slide experiments on %s data: %d seconds (%.2f years)" % (','.join(sorted(list(inst))),bglivetime[inst],bglivetime[inst]/float(constants.LAL_YRJUL_SI))
+
+    return bglivetime
+
+
+
+

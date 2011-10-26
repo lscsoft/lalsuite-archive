@@ -39,7 +39,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze
 
 import matplotlib
 matplotlib.use("Agg")
@@ -81,9 +81,9 @@ def cbcBayesPostProc(
                         #nested sampling options
                         ns_flag=False,ns_xflag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
-                        ss_flag=False,ss_deltaLogL=None,ss_spin_flag=False,
+                        ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,nDownsample=1,oldMassConvention=False,
+                        li_flag=False,deltaLogL=None,fixedBurnin=None,nDownsample=1,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
                         # on ACF?
@@ -122,11 +122,11 @@ def cbcBayesPostProc(
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
-        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=ss_deltaLogL)
+        commonResultsObj=peparser.parse(data,spin=ss_spin_flag,deltaLogL=deltaLogL)
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,deltaLogL=ss_deltaLogL,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
+        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogL=deltaLogL,fixedBurnin=fixedBurnin,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
 
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")
@@ -214,7 +214,7 @@ def cbcBayesPostProc(
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_multiD_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
+        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
 
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
@@ -262,7 +262,7 @@ def cbcBayesPostProc(
         old_params = ['f_lower',mchirp_name,'eta','iota','a1','theta1','phi1']
         if 'a2' in pos.names: old_params += ['a2','theta2','phi2']
         try:
-            pos.append_multiD_mapping(new_spin_params, bppu.spin_angles, old_params)
+            pos.append_mapping(new_spin_params, bppu.spin_angles, old_params)
         except KeyError:
             print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
 
@@ -295,7 +295,7 @@ def cbcBayesPostProc(
                 old_pos_name = pos_name.replace(func,'')
                 if pos_name.find(func)==0 and old_pos_name in pos.names:
                     print "Taking %s of %s ..."% (func,old_pos_name)
-                    pos.append_1D_mapping(pos_name,functions[func],old_pos_name)
+                    pos.append_mapping(pos_name,functions[func],old_pos_name)
 
     #Remove samples with NaNs in requested params
     requested_params = set(pos.names).intersection(set(oneDMenu))
@@ -363,6 +363,25 @@ def cbcBayesPostProc(
     #Create a section for summary statistics
     html_stats=html.add_section('Summary statistics')
     html_stats.write(str(pos))
+    statfilename=os.path.join(outdir,"summary_statistics.dat")
+    statout=open(statfilename,"w")
+    statout.write("\tmaxL\tstdev\tmean\tmedian\tstacc\tinjection\tvalue\n")
+    
+    for statname,statoned_pos in pos:
+
+      statmax_pos,max_i=pos._posMode()
+      statmaxL=statoned_pos.samples[max_i][0]
+      statmean=str(statoned_pos.mean)
+      statstdev=str(statoned_pos.stdev)
+      statmedian=str(squeeze(statoned_pos.median))
+      statstacc=str(statoned_pos.stacc)
+      statinjval=str(statoned_pos.injval)
+      
+      statarray=[str(i) for i in [statname,statmaxL,statstdev,statmean,statmedian,statstacc,statinjval]]
+      statout.write("\t".join(statarray))
+      statout.write("\n")
+      
+    statout.close()
 
     #Create a section for the covariance matrix
     html_stats_cov=html.add_section('Covariance matrix')
@@ -874,10 +893,11 @@ if __name__=='__main__':
     #SS
     parser.add_option("--ss",action="store_true",default=False,help="(SPINspiral) Parse input as if it was output from SPINspiral.")
     parser.add_option("--spin",action="store_true",default=False,help="(SPINspiral) Specify spin run (15 parameters). ")
-    parser.add_option("--deltaLogL",action="store",default=None,help="(SPINspiral and LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
     #LALInf
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
+    parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
+    parser.add_option("--fixedBurnin",action="store",default=None,help="(LALInferenceMCMC) Fixed number of iteration for burnin.",type="int")
     parser.add_option("--oldMassConvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m2 > m1; otherwise m1 > m2 in PTMCMC.output.*.00")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
@@ -946,7 +966,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
@@ -968,9 +988,9 @@ if __name__=='__main__':
                         #nested sampling options
                         ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
-                        ss_flag=opts.ss,ss_deltaLogL=opts.deltaLogL,ss_spin_flag=opts.spin,
+                        ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
+                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnin=opts.fixedBurnin,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?

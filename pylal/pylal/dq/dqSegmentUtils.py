@@ -166,7 +166,7 @@ def fromsegmentcsv(csvfile):
   """
 
   def CSVLineToSeg(line):
-    tstart, tend = map(LIGOTimeGPS, line.split(', '))
+    tstart, tend = map(LIGOTimeGPS, line.split(','))
     return segments.segment(tstart, tend)
 
   segs = segments.segmentlist([CSVLineToSeg(line) for line in csvfile])
@@ -368,10 +368,7 @@ def poisson_safety(segs, injTable, livetime):
 
   prob = 1 - poisson.cdf(injvetoed-1, injexp)
 
-  if returnall:
-    return injvetoed, injexp, prob
-  else:
-    return prob
+  return injvetoed, injexp, prob
 
 # =============================================================================
 # Convert a data quality bit mask into segments
@@ -387,7 +384,7 @@ def _bits(i, n=8):
     >>> _bits(295, n=8)
     [1, 1, 1, 0, 0, 1, 0, 0]
   """
-  return [(0, 1)[i>>j & 1] for j in xrange(n)]
+  return [(0, 1)[int(i)>>j & 1] for j in xrange(n)]
 
 def DQSegments(time, data, dq_key):
 

@@ -34,7 +34,6 @@
 #include <lal/LALComplex.h>
 
 #include <gsl/gsl_sf_gamma.h>
-#include <gsl/gsl_sf_legendre.h>
 
 
 static REAL8
@@ -102,7 +101,7 @@ XLALCalculateNewtonianMultipole(
   xlalStatus = XLALScalarSphHarmThetaPiBy2( &y, l - epsilon, - m, phi );
   if (xlalStatus != XLAL_SUCCESS )
   {
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
 
@@ -115,51 +114,6 @@ XLALCalculateNewtonianMultipole(
     *multipole = XLALCOMPLEX16MulReal( params->prefixes->values[l][m], pow( x, (REAL8)(l+epsilon)/2.0) );
   }
   *multipole = XLALCOMPLEX16Mul( *multipole, y );
-
-  *multipole = XLALCOMPLEX16Mul( *multipole, XLALCOMPLEX16MulReal( 
-                     XLALCOMPLEX16Exp( XLALCOMPLEX16Rect( 0., - m * LAL_PI_2 ) ), -1. ) );
-
-  return XLAL_SUCCESS;
-}
-
-int
-XLALScalarSphericalHarmonic(
-                         COMPLEX16 *y,
-                         UINT4 l,
-                         INT4  m,
-                         REAL8 theta,
-                         REAL8 phi)
-{
-
-  int   gslStatus;
-  gsl_sf_result pLm;
-
-  INT4 absM = abs( m );
-
-  if ( absM > (INT4) l )
-  {
-    XLAL_ERROR( __func__, XLAL_EINVAL );
-  }
-
-  /* For some reason GSL will not take negative m */
-  /* We will have to use the relation between sph harmonics of +ve and -ve m */
-  XLAL_CALLGSL( gslStatus = gsl_sf_legendre_sphPlm_e((INT4)l, absM, cos(theta), &pLm ) );
-  if (gslStatus != GSL_SUCCESS)
-  {
-    XLALPrintError("Error in GSL function\n" );
-    XLAL_ERROR( __func__, XLAL_EFUNC );
-  }
-
-  /* Compute the values for the spherical harmonic */
-  y->re = pLm.val * cos(m * phi);
-  y->im = pLm.val * sin(m * phi);
-
-  /* If m is negative, perform some jiggery-pokery */
-  if ( m < 0 && absM % 2  == 1 )
-  {
-    y->re = - y->re;
-    y->im = - y->im;
-  }
 
   return XLAL_SUCCESS;
 }
@@ -183,7 +137,7 @@ XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
 
   if ( l < 0 || absM > (INT4) l )
   {
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   /* For some reason GSL will not take negative m */
@@ -191,7 +145,7 @@ XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
   legendre = XLALAssociatedLegendreXIsZero( l, absM );
   if ( XLAL_IS_REAL8_FAIL_NAN( legendre ))
   {
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* Compute the values for the spherical harmonic */
@@ -220,13 +174,13 @@ XLALAssociatedLegendreXIsZero( const int l,
   if ( l < 0 )
   {
     XLALPrintError( "l cannot be < 0\n" );
-    XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+    XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
   
   if ( m < 0 || m > l )
   {
     XLALPrintError( "Invalid value of m!\n" );
-    XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+    XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
 
   /* we will switch on the values of m and n */
@@ -239,7 +193,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = - 1.;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 2:
@@ -252,7 +206,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0.;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 3:
@@ -268,7 +222,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 1.5;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 4:
@@ -287,7 +241,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 5:
@@ -306,10 +260,10 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0;
           break;
         case 1:
-          legendre = - 28.125;
+          legendre = - 1.875;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 6:
@@ -334,7 +288,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 7:
@@ -362,7 +316,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 2.1875;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 8:
@@ -393,12 +347,12 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0.;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     default:
       XLALPrintError( "Unsupported (l, m): %d, %d\n", l, m );
-      XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+      XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
 
   legendre *= sqrt( (REAL8)(2*l+1)*gsl_sf_fact( l-m ) / (4.*LAL_PI*gsl_sf_fact(l+m)));
@@ -470,8 +424,10 @@ CalculateThisMultipolePrefix(
   else if ( epsilon == 1 )
   {
   
-     n.im = - m;
+     n.im = m;
      n = XLALCOMPLEX16PowReal( n, (REAL8)l );
+     n.re = -n.re;
+     n.im = -n.im;
 
      mult1 = 16.*LAL_PI / gsl_sf_doublefact( 2u*l + 1u );
 
@@ -485,7 +441,7 @@ CalculateThisMultipolePrefix(
   else
   {
     XLALPrintError( "Epsilon must be 0 or 1.\n");
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   *prefix = XLALCOMPLEX16MulReal( n, eta * c );

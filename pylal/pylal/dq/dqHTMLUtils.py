@@ -93,10 +93,26 @@ def write_table(page, headers, data, cl=''):
 # Write <head>
 # =============================================================================
 
-def write_head(title, css, js, base=None):
+def write_head(title, css, js, base=None, refresh=None):
 
   """
-    Returns glue.markup.page object with <head> tag filled
+    Returns glue.markup.page object with <head> tag filled.
+
+    Arguments:
+
+      title : string
+        text for <title> tag
+      css : string
+        relative path to style sheet
+      js : string
+        relative path to javascript
+
+    Keyword arguments:
+
+      base : string
+        absolute http(s) path of url base
+      refresh : int
+        number of seconds after which to refresh page automatically
   """
 
   page = markup.page(mode="strict_html")
@@ -108,6 +124,8 @@ def write_head(title, css, js, base=None):
   page.head()
   if base:
     page.base(href=base)
+  if refresh:
+    page.add('<meta http-equiv="refresh" content="%s">' % refresh)
   page.link(media="all", href=css, type="text/css", rel="stylesheet")
   page.title()
   page.add(title)
@@ -123,7 +141,7 @@ def write_head(title, css, js, base=None):
 # Write <div id="header">
 # =============================================================================
 
-def write_banner(ifo, title, text='&nbsp;'):
+def write_banner(title, text='&nbsp;'):
 
   """
     Returns glue.markup.page object for <div id="header">

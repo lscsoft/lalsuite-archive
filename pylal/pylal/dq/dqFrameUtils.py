@@ -71,6 +71,8 @@ def fromframefile(filename, channel, start=None, end=None):
   x = fstart+dt*numpy.arange(len(y))+offset
 
   # apply constraint on x-axis
+  if not start: start=-numpy.infty
+  if not end:   end=numpy.infty
   condition = (x>=start) & (x<end)
   y = y[condition]
   x = x[condition]
@@ -107,7 +109,7 @@ def toframefile(filename, channel, data, start, dx, **frargs):
 
   Fr.frputvect(filename, [datadict], verbose=False)
 
-def fromLALCache(cache, channel, start=None, end=None):
+def fromLALCache(cache, channel, start=None, end=None, verbose=False):
 
   """
     Extract data for given channel from glue.lal.Cache object cache. Returns 
@@ -132,20 +134,34 @@ def fromLALCache(cache, channel, start=None, end=None):
   time = numpy.array([])
   data = numpy.array([])
 
+  # set up counter
+  if verbose:
+    sys.stdout.write("Extracting data from %d frames...     " % len(cache))
+    sys.stdout.flush()
+  delete = '\b\b\b'
+
+
   # loop over frames in cache
-  for frame in cache:
+  for i,frame in enumerate(cache):
     # check for read access
     if os.access(frame.path(), os.R_OK):
       frtime, frdata = fromframefile(frame.path(), channel, start=start,\
                                      end=end)
       time = numpy.append(time, frtime)
       data = numpy.append(data, frdata)
+      if verbose and len(cache)>1:
+        progress = int((i+1)/len(cache)*100)
+        sys.stdout.write('%s%.2d%%' % (delete, progress))
+        sys.stdout.flush()
+
     else:
       raise RuntimeError("Cannot read frame\n%s" % frame.path())
 
+  if verbose: sys.stdout.write("\n")
+
   return time, data
 
-def grab_data(start, end, channel, type, nds=False, dmt=False):
+def grab_data(start, end, channel, type, nds=False, dmt=False, verbose=False):
 
   """
     This function will return the frame data for the given channel of the given
@@ -187,11 +203,12 @@ def grab_data(start, end, channel, type, nds=False, dmt=False):
   # generate framecache
   ifo = channel[0]
   if not dmt:
-    cache = get_cache(start, end, ifo, type)
+    cache = get_cache(start, end, ifo, type, verbose=verbose)
   else:
     cache = dmt_cache(start, end, ifo, type)
 
-  time, data = fromLALCache(cache, channel, start=start, end=end)
+  time, data = fromLALCache(cache, channel, start=start, end=end,\
+                            verbose=verbose)
 
   return time,data
 
@@ -199,7 +216,8 @@ def grab_data(start, end, channel, type, nds=False, dmt=False):
 # Generate data cache
 # ==============================================================================
 
-def get_cache(start, end, ifo, ftype, framecache=False, server=None):
+def get_cache(start, end, ifo, ftype, framecache=False, server=None,\
+              verbose=False):
 
   """
     Queries the LSC datafind server and returns a glue.lal.Cache object
@@ -242,13 +260,22 @@ def get_cache(start, end, ifo, ftype, framecache=False, server=None):
   if not server:
     server = _find_datafind_server()
 
+  if verbose: sys.stdout.write("Opening connection to %s...\n" % server)
+
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
+
   cert, key = _get_grid_proxy()
 
   # if we have a credential then use it when setting up the connection
-  if cert and key:
+  if cert and key and port!=80:
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
   else:
     h = httplib.HTTPConnection(server)
+
+  if verbose: sys.stdout.write("Querying server for frames...\n")
 
   # loop over ifos and types
   for ifo in ifos:
@@ -268,6 +295,7 @@ def get_cache(start, end, ifo, ftype, framecache=False, server=None):
 
   # close the server connection
   h.close()
+  if verbose: sys.stdout.write("Connection to %s closed.\n" % server)
 
   # convert to FrameCache if needed
   if framecache:
@@ -296,7 +324,32 @@ def get_latest_frame(ifo, ftype):
   url = '/LDR/services/data/v1/gwf/%s/%s/latest/file.json' % (ifo[0], ftype)
   frame = query_datafind_server(url)
 
-  return frame
+  if isinstance(frame, list) and len(frame)==1:
+    return frame[0]
+  else:
+    return None
+
+# =============================================================================
+# Find ifos
+# =============================================================================
+
+def find_ifos():
+
+  """
+    Query the LSC datafind server and return a list of sites for which data
+    is available. Does not differentiate between H1 and H2.
+
+    Example:
+   
+    >>> find_ifos()
+    ['G', 'H', 'L', 'V']
+  """
+  query_url = "/LDR/services/data/v1/gwf.json"
+  reply = query_datafind_server(query_url)
+  if reply:
+    return [i for i in reply if len(i)==1]
+  else:
+    return []
 
 # =============================================================================
 # Find types
@@ -352,6 +405,9 @@ def find_types(ifo=[], ftype=[], search='standard'):
   else:
     ifos = ifo
 
+  if not types:
+    types = None
+
   # treat 'R','M' and 'T' as special cases,
   special_types = ['M','R','T']
   foundtypes = []
@@ -371,7 +427,12 @@ def find_types(ifo=[], ftype=[], search='standard'):
   # set up server connection
   server    = _find_datafind_server()
   cert, key = _get_grid_proxy()
-  if cert and key:
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
+
+  if cert and key and port!=80:
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
   else:
     h = httplib.HTTPConnection(server)
@@ -383,12 +444,6 @@ def find_types(ifo=[], ftype=[], search='standard'):
     response = h.getresponse()
     _verify_response(response)
     ifos = [i for i in cjson.decode(response.read()) if len(i)==1]
-  else:
-    uifos = copy.deepcopy(ifos)
-    ifos  = []
-    for ifo in uifos:
-      if ifo[0] not in ifos:
-        ifos.append(ifo[0])
 
   # query for types for each ifo in turn
   datafind_types = []
@@ -403,22 +458,28 @@ def find_types(ifo=[], ftype=[], search='standard'):
   # close connection
   h.close()
 
-  for t in datafind_types:
-
-    if re.search(ignore, t):
+  # find special types first, otherwise they'll corrupt the general output
+  r = 0
+  for i,t in enumerate(datafind_types):
+    if (types==None and t in special_types) or\
+       (types!=None and t in types and t in special_types):
+      foundtypes.append(t)
+      datafind_types.pop(i-r)
+      if types is not None:
+        types.pop(types.index(t))
+      r+=1;
       continue
 
-    if not types:
-      # if no types have been specified, we find all types
+  # find everything else
+  for t in datafind_types:
+    if re.search(ignore, t):
+      continue
+    # if no types have been specified, return all
+    if types==None:
       foundtypes.append(t)
+    # else check for a match
     else:
-      # else look for special types
-      if t in types and t in special_types:
-        foundtypes.append(t)
-        types.pop(types.index(t))
-        continue
-      # look for everything else
-      if re.search('(%s)' % '|'.join(types), t):
+      if len(types)>=1 and re.search('(%s)' % '|'.join(types), t):
         foundtypes.append(t)
 
   foundtypes.sort()
@@ -496,22 +557,14 @@ def find_channels(name=[], ftype=[], ifo=[], not_name=[], not_ftype=[],\
   if isinstance(not_name, str): not_names = [not_name]
   else:                          not_names = not_name
 
-  # query for individual sites in datafind server
+  # find ifos
   if not ifos:
-    query_url = "/LDR/services/data/v1/gwf.json"
-    h.request("GET", query_url)
-    response = h.getresponse()
-    _verify_response(response)
-    ifos = [i for i in cjson.decode(response.read()) if len(i)==1]
-  else:
-    uifos = copy.deepcopy(ifos)
-    ifos  = []
-    for ifo in uifos:
-      if ifo[0] not in ifos:
-        ifos.append(ifo[0])
+    ifos = find_ifos()
 
   # find types
-  types = find_types(ifo=ifos, ftype=types)
+  if not types:
+    types = find_types(ifo=ifos, ftype=types)
+
   # remove types we don't want
   if not_types:
     if exact_match:
@@ -1099,11 +1152,14 @@ def query_datafind_server(url, server=None):
   # try querying the ligo_data_find server
   if not server:
     server = _find_datafind_server()
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
 
   cert, key = _get_grid_proxy()
-
   # if we have a credential then use it when setting up the connection
-  if cert and key:
+  if cert and key and port!=80:
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
   else:
     h = httplib.HTTPConnection(server)
@@ -1112,10 +1168,10 @@ def query_datafind_server(url, server=None):
   h.request("GET", url)
   response = h.getresponse()
   _verify_response(response)
-  h.close()
 
   # since status is 200 OK read the types
   body = response.read()
+  h.close()
   if body == "":
     return None
   if url.endswith('json'):
@@ -1167,11 +1223,11 @@ def _verify_response(HTTPresponse):
 def _find_datafind_server():
 
   """
-    Find the LSC datafind server from the LSC_DATAFIND_SERVER environment
+    Find the LSC datafind server from the LIGO_DATAFIND_SERVER environment
     variable and raise exception if not found
   """
 
-  var = 'LSC_DATAFIND_SERVER'
+  var = 'LIGO_DATAFIND_SERVER'
   try:
     server = os.environ[var]
   except KeyError:

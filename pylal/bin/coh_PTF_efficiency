@@ -16,6 +16,8 @@ from glue import segments,markup
 from pylal.dq import dqSegmentUtils
 from glue.ligolw import table,lsctables,utils
 from pylal.coh_PTF_pyutils import *
+import scipy
+from scipy import stats
 
 def write_table( page, headers, data, cl='' ):
 
@@ -111,7 +113,7 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
                                        "default: %default" )
 
   parser.add_option( "-A", "--null-snr-threshold", action="store",\
-                     type="string", default="3.5,5.25",\
+                     type="string", default="4.25,6",\
                      help="comma separated lower,higher null SNR thresholds, "+\
                           " for null SNR cut, default: \"%default\"" )
 
@@ -136,6 +138,21 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
   parser.add_option( "-l", "--veto-directory",action="store",type="string",\
                      default=None,\
                      help="The location of the CAT2/3 veto files" )
+  parser.add_option( "-z", "--waveform-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the waveform error.")
+  parser.add_option( "-Z", "--h1-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the h1 calibration amplitude error.")
+  parser.add_option( "", "--h2-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the h2 calibration amplitude error.")
+  parser.add_option( "-y", "--l1-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the l1 calibration amplitude error.")
+  parser.add_option( "-Y", "--v1-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the v1 calibration amplitde error.")
   parser.add_option( "-v", "--verbose", action="store_true", default=False,\
                      help="verbose output, default: %default" )
 
@@ -163,9 +180,9 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
 
 def main( segdir, outdir, trigFile, foundFile, missedFile,\
           onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
-          chisq_nhigh=3.0, null_thresh = (3.5,5.25), glitchCheckFac = 1.0,\
+          chisq_nhigh=3.0, null_thresh = (4.25,6), glitchCheckFac = 1.0,\
           clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20,\
-          vetoFiles = [] ):
+          vetoFiles = [], wavErr = 0, calErrs = None ):
 
   lsctables.SimInspiral.get_theta = sim_inspiral_get_theta
 
@@ -270,9 +287,11 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     trigBestNR[bin[0]] = []
   
   timeBinMaxSNR    = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
+  timeBinMaxSNRUncut = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
   timeBinMaxBestNR = numpy.zeros([len(massBins)+1,numSegs],dtype = float)
   timeBinVetoMaxSNR    = numpy.zeros([len(massBins)+1,numTrials],dtype = float)
   timeBinVetoMaxBestNR = numpy.zeros([len(massBins)+1,numTrials],dtype = float)
+  timeBinVetoMaxSNRUncut = numpy.zeros([len(massBins)+1,numTrials],dtype=float)
 
   # store response function for each sky locations
   fResp = {}
@@ -326,7 +345,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     if trigPos not in fResp.keys():
       ra            = trig.ra*fRadDeg
       dec           = trig.dec*fRadDeg
-      fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+      fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
       fResp[trigPos] = {}
       for ifo in ifos:
         fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
@@ -347,6 +366,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         timeBinMaxBestNR[trigBinNum,chunkNum]    = trigBestNR[trigBin[0]][-1]
     if timeBinMaxBestNR[len(massBins),chunkNum] < trigBestNR[trigBin[0]][-1]:
       timeBinMaxBestNR[len(massBins),chunkNum] = trigBestNR[trigBin[0]][-1]
+ 
+    if bestNR:
+      if timeBinMaxSNRUncut[trigBinNum,chunkNum] < trigSNR[trigBin[0]][-1]:
+        timeBinMaxSNRUncut[trigBinNum,chunkNum] = trigSNR[trigBin[0]][-1]
+      if timeBinMaxSNRUncut[len(massBins),chunkNum] < trigSNR[trigBin[0]][-1]:
+        timeBinMaxSNRUncut[len(massBins),chunkNum] = trigSNR[trigBin[0]][-1]
+
 
 
   # Remove vetoed triggers, and triggers outside of trials
@@ -358,6 +384,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   for ii in range(numSegs):
     if not vetoMask[ii]:
       timeBinVetoMaxSNR[:,jj] = timeBinMaxSNR[:,ii]
+      timeBinVetoMaxSNRUncut[:,jj] = timeBinMaxSNRUncut[:,ii]
       timeBinVetoMaxBestNR[:,jj] = timeBinMaxBestNR[:,ii]
       jj += 1
 
@@ -423,9 +450,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     # Get null SNR of trigger
     if len(ifos)>2:
-      nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+      nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                         for ifo in ifos ])\
-                    - trig.snr**2 )**0.5
+                    - trig.snr**2
+      if nullsnr < 0:
+        nullsnr = 0
+      else:
+        nullsnr = nullsnr**0.5
     else:
       nullsnr = 0
 
@@ -469,6 +500,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     trigTime[bin[0]] = numpy.asarray(trigTime[bin[0]])
     maxSNR[bin[0]] = trigSNR[bin[0]].max()
     timeBinVetoMaxSNR[binNum].sort()
+    timeBinVetoMaxSNRUncut[binNum].sort()
  
     trigBestNR[bin[0]] = numpy.asarray(trigBestNR[bin[0]])
     maxBestNR[bin[0]]  = trigBestNR[bin[0]].max()
@@ -538,6 +570,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     loudOnBestNRTrigs = {}
     loudOnSNRTrigs = {}
     loudOnBestNR = {}
+    loudOnFAP = {}
     loudOnSNR = {}
 
     # bin triggers in mass 
@@ -557,7 +590,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       if trigPos not in fResp.keys():
         ra            = trig.ra*fRadDeg
         dec           = trig.dec*fRadDeg
-        fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+        fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
         fResp[trigPos] = {}
         for ifo in ifos:
           fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
@@ -605,14 +638,19 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           if val > loudOnBestNR[bin[0]]:
             numTrialsLouder += 1
         FAP = numTrialsLouder/numTrials
+        loudOnFAP[bin[0]] = FAP
         trig = loudOnBestNRTrigs[bin[0]]
         trigPos = (trig.ra,trig.dec)
         bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
                              null_thresh=null_thresh, fResp=fResp[trigPos])
         if len(ifos)>2:
-          nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+          nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                             for ifo in ifos ])\
-                      - trig.snr**2 )**0.5
+                        - trig.snr**2
+          if nullsnr < 0:
+            nullsnr = 0
+          else:
+            nullsnr = nullsnr**0.5
         else:
           nullsnr = 0
 
@@ -629,6 +667,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
       else:
         td.append(["In mass bin %s to %s there are no events" % tuple(bin)])
+        loudOnFAP[bin[0]] = 1.
         print >>file2, '-2'
       binNum += 1
 
@@ -724,13 +763,43 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                                   dtype=float )
     foundOnBestNR = numpy.zeros( [len(massBins), len(distBins)+1 ],\
                                   dtype=float)
+    numInjectionsNoMC = numpy.zeros([len(massBins),len(distBins)+1],dtype=float)
+    foundmaxBestNRNoMC = numpy.zeros( [len(massBins), len(distBins)+1 ],\
+                                  dtype=float )
+    foundOnBestNRNoMC = numpy.zeros( [len(massBins), len(distBins)+1 ],\
+                                  dtype=float)
+    
+
+    # Set the structures for calculating sigma
+    injSigma = {}
+    for ifo in ifos:
+      injSigma[ifo] = []
+    injSigmaTot = []
    
-    # process found injections
+    # Now process found injections
     for inj,trig in zip(foundInjs,foundTrigs):
       # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
       # trials can be retained, if the injection time is not vetoed
       if inj.get_end() in vetoes:
         continue
+
+      # get sky location and response
+      injPos  = (inj.longitude,inj.latitude)
+      ra            = inj.longitude*fRadDeg
+      dec           = inj.latitude*fRadDeg
+      fPlus,fCross  = get_det_response( ra, dec, inj.get_end() )
+      injFResp = {}
+      for ifo in ifos:
+        injFResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+    
+      # Set the sigma values
+      sigmaTot = 0 
+      for ifo in ifos: 
+        sig = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
+        injSigma[ifo].append( sig * injFResp[ifo] )
+        sigmaTot += sig * injFResp[ifo]
+      injSigmaTot.append(sigmaTot)
+
 
       filtered_foundInjs.append(inj)
       filtered_foundTrigs.append(trig)
@@ -773,17 +842,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
             print "ERROR: Distance bins appear to overlap"
         distNum += 1
   
-      if injDistBin:
-        numInjections[injBinNum,injDistNum] += 1
-      numInjections[injBinNum,len(distBins)] += 1
- 
       # get sky location and response
       trigPos = (trig.ra,trig.dec)
       injPos  = (inj.longitude,inj.latitude)
       if trigPos not in fResp.keys():
         ra            = trig.ra*fRadDeg
         dec           = trig.dec*fRadDeg
-        fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
+        fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
         fResp[trigPos] = {}
         for ifo in ifos:
           fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
@@ -799,14 +864,11 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       # Note that hero we are using BestNRmk8 as the detection stat
       # if louder than all background:
       if bestNR > maxBestNR[trigBin[0]]:
-        # Add 1 to the list of found injections
-        if injDistBin:
-          foundmaxBestNR[injBinNum,injDistNum] += 1
-        foundmaxBestNR[injBinNum,len(distBins)] += 1
         gFoundEffDist.append(effDist)
         for site in sites:
           gFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                                % site.lower()) )
+          gFoundEffSiteDist[site] = list(set(gFoundEffSiteDist[site]))
         gFoundDist.append( inj.distance )
         gFoundMchirp.append( inj.mchirp )
         gFoundMtot.append( inj.mass1 + inj.mass2 )
@@ -821,6 +883,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gIFAREffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                      % site.lower()) )
+          gIFAREffSiteDist[site] = list(set(gIFAREffSiteDist[site]))
         gIFARDist.append( inj.distance )
         gIFARTime.append( float(inj.get_time_geocent()) )
         numTrialsLouder = 0
@@ -837,6 +900,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gMissed2EffSitedist[site].append( getattr(inj,'eff_dist_%s'\
                                                         % site.lower()) )
+          gMissed2EffSitedist[site] = list(set(gMissed2EffSitedist[site]))
         gMissed2Trig.append( trig )
         gMissed2Inj.append( inj )
         gMissed2Mchirp.append( inj.mchirp )
@@ -844,73 +908,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gMissed2Dist.append( inj.distance )
         gMissed2Time.append( float(inj.get_time_geocent()) )
 
-      # For burst-style exclusion distances, we compare to offsource and
-      # triggers around the injection
-      if onsourceFile:
-        missedExcl = True
-        # Firstly is the trigger louder than the loudest onsource
-        if bestNR > loudOnBestNR[trigBin[0]]:
-          # If so, also check that no louder triggers are within
-          # cluster window of the injection trigger with no injection present
-          # Note that a correction factor close to 1 is used to increase the
-          # signifcance of the offsource triggers. This stops you getting a
-          # SNR 7.5 glitch showing up as a 7.50001 trigger with an injection
-          # present.
-          
-          # If the injection is louder than the loudest offsource event we need
-          # go no further, it will be "found"
-          if bestNR > maxBestNR[trigBin[0]]*glitchCheckFac:
-            missedExcl = False
-          elif bestNR == 0:
-            # Next, if the bestNR is 0, the injection will be "missed"
-            missedExcl = True
-          else:
-            # Otherwise check against nearby triggers. We are looking for louder
-            # triggers within cluster_window
-            missedExcl = False
-            for trig2 in trigs:
-              if abs(inj.get_end() - trig2.get_end()) < clusterWindow:
-                trigPos2 = (trig2.ra,trig2.dec)
-                if trigPos2 not in fResp.keys():
-                  ra            = trig2.ra*fRadDeg
-                  dec           = trig2.dec*fRadDeg
-                  fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1]-1 )
-                  fResp[trigPos2] = {}
-                  for ifo in ifos:
-                    fResp[trigPos2][ifo] = fPlus[ifo]*fPlus[ifo] \
-                                           + fCross[ifo]*fCross[ifo]
-                bestNR2 = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                  null_thresh=null_thresh, fResp=fResp[trigPos2])                
-                if bestNR2*glitchCheckFac > bestNR:
-                  missedExcl = True
-                  break
-
-        if missedExcl:
-          # Trigger is "missed" for exclusion distance efficiency curve
-          bMissedEffdist.append(effDist)
-          for site in sites:
-            bMissedEffSitedist[site].append( getattr(inj,'eff_dist_%s'\
-                                                        % site.lower()) )
-          bMissedMchirp.append( inj.mchirp )
-          bMissedMtot.append( inj.mass1 + inj.mass2 )
-          bMissedDist.append( inj.distance )
-          bMissedTime.append( float(inj.get_time_geocent()) )
-        else:
-          # Trigger is "found" for exclusion distance efficiency curve
-          if injDistBin:
-            foundOnBestNR[injBinNum,injDistNum] += 1
-          foundOnBestNR[injBinNum,len(distBins)] += 1
-          bFoundEffDist.append(effDist)
-          for site in sites:
-            bFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
-                                                             % site.lower()) )
-          bFoundDist.append( inj.distance )
-          bFoundMchirp.append( inj.mchirp )
-          bFoundMtot.append( inj.mass1 + inj.mass2 )
-          bFoundDetStat.append( bestNR )
-          bFoundTime.append( float(inj.get_time_geocent()) )
-          bFoundSkyAngle.append( float(centralAngle) )
-           
     # Remove vetoed injections from the lists
     foundInjs = filtered_foundInjs
     foundTrigs = filtered_foundTrigs
@@ -953,10 +950,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           trigDistBin = bin
         distNum += 1
   
-      if trigDistBin:
-        numInjections[trigBinNum,trigDistNum] += 1
-      numInjections[trigBinNum,len(distBins)] += 1
-  
       gMissedEffdist.append( effDist )
       gMissedMchirp.append(  inj.mchirp )
       gMissedDist.append(    inj.distance )
@@ -965,16 +958,220 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       for site in sites:
         gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
                                                  % site.lower()) )
+        gMissedEffDist[site] = list(set(gMissedEffDist[site]))
+    # Calculate the amplitude error
+    # Begin by calculating the components from each detector
+    
+    injSigmaMean = {}
+    for ifo in ifos:
+      injSigma[ifo] = pylab.asarray( injSigma[ifo] )
+    injSigmaTot = numpy.array(injSigmaTot)
+    for ifo in ifos:
+      injSigma[ifo] /= injSigmaTot
+      injSigmaMean[ifo] = injSigma[ifo].mean()
+    
+    calError = 0
+    for ifo in ifos:
+      calError += calErrs[ifo]**2 * injSigmaMean[ifo]**2
+    calError = calError**0.5
+
+    # Calibration phase uncertainties is neglected
 
     # Remove vetoed missed injections from the list
     missedInjs = filtered_missedInjs
 
+    # Now create the numbers for the efficiency plots, these include calibration
+    # and waveform errors. These are incorporated by running over each injection
+    # 1000 times, where each time we draw a random value of distance
+    numMCInjs = 100
+    for inj,trig in zip(foundInjs,foundTrigs):
+      # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
+      # trials can be retained, if the injection time is not vetoed
+      if inj.get_end() in vetoes:
+        continue
+      for ii in range(numMCInjs+1):
+        # Convert inj.distance to a physical distance by applying calibration
+        # and waveform errors
+        distance = inj.distance
+        if (ii != 0):
+          calDistRed = calError * stats.norm.rvs()
+          while (1):
+            wavDistRed = wavErr * stats.norm.rvs()
+            if (wavDistRed > 0):
+              break
+          distance = inj.distance / ((1 + calDistRed)*(1 + wavDistRed))
+
+        for i,bin in enumerate(massBins):
+          if bin[0] <= inj.mchirp < bin[1]:
+            injBinNum = i
+            injBin = bin
+          if bin[0] <= trig.mchirp < bin[1]:
+            trigBinNum = i
+            trigBin = bin
+          if trigBin and injBin:  break
+
+        if not injBin:
+          print "ERROR: No mass bins match found injection trigger with mchirp "+\
+                "%s" % inj.mchirp
+        if not trigBin:
+          print "ERROR: No mass bins match found injection trigger with mchirp "+\
+                "%s" % trig.mchirp
+
+        injDistBin = None
+        distNum = 0
+        for bin in distBins:
+          if bin[0] <= distance < bin[1]:
+            if not injDistBin:
+              injDistNum = distNum
+              injDistBin = bin
+            else:
+              print "ERROR: Distance bins appear to overlap"
+          distNum += 1
+
+        if (ii == 0):
+          if injDistBin:
+            numInjectionsNoMC[injBinNum,injDistNum] += 1
+          numInjectionsNoMC[injBinNum,len(distBins)] += 1
+        else:
+          if injDistBin:
+            numInjections[injBinNum,injDistNum] += 1
+          numInjections[injBinNum,len(distBins)] += 1
+
+
+        bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                null_thresh=null_thresh, fResp=fResp[trigPos])
+
+        # Note that hero we are using BestNRmk8 as the detection stat
+        # if louder than all background:
+        if bestNR > maxBestNR[trigBin[0]]:
+          # Add 1 to the list of found injections
+          if (ii == 0):
+            if injDistBin:
+              foundmaxBestNRNoMC[injBinNum,injDistNum] += 1
+            foundmaxBestNRNoMC[injBinNum,len(distBins)] += 1
+          else:
+            if injDistBin:
+              foundmaxBestNR[injBinNum,injDistNum] += 1
+            foundmaxBestNR[injBinNum,len(distBins)] += 1
+
+
+        if onsourceFile:
+          missedExcl = True
+          # Firstly is the trigger louder than the loudest onsource
+          if bestNR > loudOnBestNR[trigBin[0]]:
+            # If so, also check that no louder triggers are within
+            # cluster window of the injection trigger with no injection present
+            # Note that a correction factor close to 1 is used to increase the
+            # signifcance of the offsource triggers. This stops you getting a
+            # SNR 7.5 glitch showing up as a 7.50001 trigger with an injection
+            # present.
+
+            # If the injection is louder than the loudest offsource event we need
+            # go no further, it will be "found"
+            if bestNR > maxBestNR[trigBin[0]]*glitchCheckFac:
+              missedExcl = False
+            elif bestNR == 0:            # Next, if the bestNR is 0, the injection will be "missed"
+              missedExcl = True
+            else:
+              missedExcl = False
+              # Now we have injections with non-zero FAR and not FAR != 1
+              # Do these injections have louder FAP than all onsource events
+              # INcluding those in other mass bins
+              numTrialsLouder = 0
+              if val > bestNR:
+                numTrialsLouder += 1
+              FAP = numTrialsLouder/numTrials
+              for bin in massBins:
+                if FAP > loudOnBestNR[bin[0]]:
+                  missedExcl = True
+
+              if not missedExcl:
+                # Otherwise check against nearby triggers. We are looking for louder
+                # triggers within cluster_window
+                for trig2 in trigs:
+                  if abs(inj.get_end() - trig2.get_end()) < clusterWindow:
+                    trigPos2 = (trig2.ra,trig2.dec)
+                    if trigPos2 not in fResp.keys():
+                      ra            = trig2.ra*fRadDeg
+                      dec           = trig2.dec*fRadDeg
+                      fPlus,fCross  = get_det_response( ra, dec, trig2.get_end() )
+                      fResp[trigPos2] = {}
+                      for ifo in ifos:
+                        fResp[trigPos2][ifo] = fPlus[ifo]*fPlus[ifo] \
+                                               + fCross[ifo]*fCross[ifo]
+                    bestNR2 = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                                null_thresh=null_thresh, fResp=fResp[trigPos2])
+ 
+                    if bestNR2*glitchCheckFac > bestNR:
+                      missedExcl = True
+                      break
+
+        if not missedExcl:
+          # Trigger is "found" for exclusion distance efficiency curve
+          if (ii == 0):
+            if injDistBin:
+              foundOnBestNRNoMC[injBinNum,injDistNum] += 1
+            foundOnBestNRNoMC[injBinNum,len(distBins)] += 1
+          else:
+            if injDistBin:
+              foundOnBestNR[injBinNum,injDistNum] += 1
+            foundOnBestNR[injBinNum,len(distBins)] += 1
+
+
+    # Also need to do the same to the missed injections
+    for inj in missedInjs:
+      # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
+      # trials can be retained, if the injection time is not vetoed
+      if inj.get_end() in vetoes:
+        continue
+
+      for ii in range(numMCInjs+1):
+        # Convert inj.distance to a physical distance by applying calibration
+        # and waveform errors
+        distance = inj.distance
+        if (ii != 0):
+          calDistRed = calError * stats.norm.rvs()
+          while (1):
+            wavDistRed = wavErr * stats.norm.rvs()
+            if (wavDistRed > 0):
+              break
+          distance = inj.distance / ((1 + calDistRed)*(1 + wavDistRed))
+
+        trigBin = None
+        binNum = 0
+        for i,bin in enumerate(massBins):
+          if bin[0]<= inj.mchirp < bin[1]:
+            trigBinNum = i
+            trigBin = bin
+            break
+          binNum += 1
+        if not trigBin:
+          print "ERROR: No mass bins match missed injection with mchirp "+\
+                "%s" % inj.mchirp
+        trigDistBin = None
+        distNum = 0
+        for i,bin in enumerate(distBins):
+          if bin[0] <= distance < bin[1]:
+            trigDistNum = i
+            trigDistBin = bin
+          distNum += 1
+
+        if (ii == 0):
+          if trigDistBin:
+            numInjectionsNoMC[trigBinNum,trigDistNum] += 1
+          numInjectionsNoMC[trigBinNum,len(distBins)] += 1
+        else:
+          if trigDistBin:
+            numInjections[trigBinNum,trigDistNum] += 1
+          numInjections[trigBinNum,len(distBins)] += 1
+
+
     grbTime = segs['on'][1] - 1
 
-    start = int(min([min(gMissedTime),min(gFoundTime),min(gIFARTime),\
-                     min(gMissed2Time)])) 
-    end   = int(max([max(gMissedTime),max(gFoundTime),max(gIFARTime),\
-                     max(gMissed2Time)])+1)
+    start = int(min([minimum(gMissedTime),minimum(gFoundTime),\
+                     minimum(gIFARTime),minimum(gMissed2Time)])) 
+    end   = int(max([maximum(gMissedTime),maximum(gFoundTime),\
+                     maximum(gIFARTime), maximum(gMissed2Time)])+1)
 
     duration = end-start
     start = start - duration*0.05 - grbTime
@@ -1014,14 +1211,20 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
                                   null_thresh=null_thresh, fResp=fResp[trigPos])
         if len(ifos)>2:
-          nullsnr = ( sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
+          nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                             for ifo in ifos ])\
-                      - trig.snr**2 )**0.5
+                        - trig.snr**2
+          if nullsnr < 0:
+            nullsnr = 0
+          else:
+            nullsnr = nullsnr**0.5
+
         else:
           nullsnr = 0
       d = [ i, inj.distance ]
       for site in sites:
         d.append( getattr(inj, 'eff_dist_%s' % site.lower() ) )
+      d = list(set(d))
       d.extend([ inj.mass1, inj.mass2, inj.mchirp])
       if trig:
         d.extend([trig.mass1, trig.mass2, trig.mchirp])
@@ -1087,6 +1290,21 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     cumplot.finalize(num_bins=50)
     cumplot.ax.set_ylim(ymax=1.2)
     cumplot.savefig( '%s/snr_vs_fap_%s_%s.png' % ( outdir, bin[0], bin[1] ) )
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    temp = []
+    for item in timeBinVetoMaxSNRUncut[binNum]:
+      temp.append([item])
+    cumplot = plotutils.CumulativeHistogramPlot("SNR after signal based vetoes",
+                                                 "False alarm probability",
+                                                 "" )
+    cumplot.add_background(temp)
+    cumplot.finalize(num_bins=50)
+    cumplot.ax.set_ylim(ymax=1.2)
+    cumplot.savefig( '%s/snruncut_vs_fap_%s_%s.png' % (outdir, bin[0], bin[1]) )
+
+
     binNum+=1
   
   if doinj:
@@ -1112,36 +1330,75 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       if finjs is None:
         finjs = copy.deepcopy(foundmaxBestNR[iter,0:-1])
         totalinjs = copy.deepcopy(numInjections[iter,0:-1])
+        finjsNoMC = copy.deepcopy(foundmaxBestNRNoMC[iter,0:-1])
+        totalinjsNoMC = copy.deepcopy(numInjectionsNoMC[iter,0:-1])
       else:
         finjs += foundmaxBestNR[iter,0:-1]
         totalinjs += numInjections[iter,0:-1]
+        finjsNoMC += foundmaxBestNRNoMC[iter,0:-1]
+        totalinjsNoMC += numInjectionsNoMC[iter,0:-1]
       print >>file, "Total injections found in bin mchirp %s to %s louder than all background in that bin using %s is: %s"\
                       % ( bin[0], bin[1], 'BestNR', foundmaxBestNR[iter,-1] )
       print >>file
       iter += 1
-    ax.plot( distPlotVals, (finjs/totalinjs),'r' )
     ax.grid()
 
     iter = 0
 
+    # Here I need to reduce totalinjs and finjs by the number of MC simulations
+    # because that gives the true number of injections
+    totalinjs = totalinjs/numMCInjs
+    finjs = finjs/numMCInjs
     yerr_common = totalinjs * (2 * finjs + 1)
     yerr_denom = 2*totalinjs*(totalinjs + 1)
     yerr_vary = 4 * totalinjs * finjs * (totalinjs - finjs) + totalinjs**2
     yerr_vary = yerr_vary**0.5
     yerr_low = (yerr_common - yerr_vary)/yerr_denom
-    yerr_low = (finjs/totalinjs) - yerr_low
+    yerr_lowMC = (finjs/totalinjs) - yerr_low
     yerr_high = (yerr_common + yerr_vary)/yerr_denom
-    yerr_high = yerr_high - (finjs/totalinjs)
+    yerr_highMC = yerr_high - (finjs/totalinjs)
+    yerr_common = totalinjsNoMC * (2 * finjsNoMC + 1)
+    yerr_denom = 2*totalinjsNoMC*(totalinjsNoMC + 1)
+    yerr_vary = 4 * totalinjsNoMC * finjsNoMC * (totalinjsNoMC - finjsNoMC) + totalinjsNoMC**2
+    yerr_vary = yerr_vary**0.5
+    yerr_low = (yerr_common - yerr_vary)/yerr_denom
+    yerr_lowNoMC = (finjsNoMC/totalinjsNoMC) - yerr_low
+    yerr_high = (yerr_common + yerr_vary)/yerr_denom
+    yerr_highNoMC = yerr_high - (finjsNoMC/totalinjsNoMC)
+    ax.plot(distPlotVals, (finjsNoMC/totalinjsNoMC), 'g-')
+    ax.plot(distPlotVals, (finjs/totalinjs), 'r-')
+    ax.errorbar( distPlotVals, (finjsNoMC/totalinjsNoMC),\
+                 yerr=[yerr_lowNoMC,yerr_highNoMC], c = 'g' )
     ax.errorbar( distPlotVals, (finjs/totalinjs),\
-                 yerr=[yerr_low,yerr_high], c = 'r' )
+                 yerr=[yerr_lowMC,yerr_highMC], c = 'r' )
+    ax.legend(['No marginalisation','Marginalised'])
     ax.set_ylim( [0,1] )
     ax.set_title( "Efficiency of injection finding using "+\
                   "BestNR as detection statistic" )
 
     ax.set_ylabel( "Fraction of injections found louder than "+\
                    "loudest background" )
-    ax.set_xlabel( "Distance" )
+    ax.set_xlabel( "Distance (Mpc)" )
     fig.savefig( '%s/BestNR_max_efficiency.png' % ( outdir ) )
+    # Print 50% sensitive distance to file
+    for ii,dist, eff in zip(range(len(distPlotVals)),distPlotVals,\
+                        (finjsNoMC/totalinjsNoMC)):
+      if eff < 0.5:
+        if ii == 0:
+          print >> sys.stderr, "Efficiency below 50% in first bin!"
+          sens_dist = 0
+          break
+        dist_low = distPlotVals[ii-1]
+        eff_low = (finjsNoMC/totalinjsNoMC)[ii-1]
+        delta_dist = dist - dist_low
+        delta_eff = eff_low - eff
+        gradient = delta_eff/delta_dist
+        const =  eff + gradient * dist
+        sens_dist = (const - 0.5)/gradient
+        break
+      if ii == len(distPlotVals) - 1:
+        print "Efficiency does not drop below 50%!"
+        sens_dist = -1
 
     fig = pylab.figure()
     ax = fig.gca()
@@ -1152,17 +1409,30 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       if finjs is None:
         finjs = copy.deepcopy(foundOnBestNR[iter,0:-1])
         totalinjs = copy.deepcopy(numInjections[iter,0:-1])
+        finjsNoMC = copy.deepcopy(foundOnBestNRNoMC[iter,0:-1])
+        totalinjsNoMC = copy.deepcopy(numInjectionsNoMC[iter,0:-1])
       else:
         finjs += foundOnBestNR[iter,0:-1]
         totalinjs += numInjections[iter,0:-1]
+        finjsNoMC += foundOnBestNRNoMC[iter,0:-1]
+        totalinjsNoMC += numInjectionsNoMC[iter,0:-1]
       print >>file, "Total injections found in bin mchirp %s to %s louder than onsource in that bin (and nearby triggers in the offsource) using %s is: %s"\
                       % ( bin[0], bin[1], 'BestNR', foundOnBestNR[iter,-1] )
       print >>file
       iter += 1
 
-    ax.plot( distPlotVals, (finjs/totalinjs), 'r' )
     ax.grid()
     iter = 0
+    yerr_common = totalinjsNoMC * (2 * finjsNoMC + 1)
+    yerr_denom = 2*totalinjsNoMC*(totalinjsNoMC + 1)
+    yerr_vary = 4 * totalinjsNoMC * finjsNoMC * (totalinjsNoMC - finjsNoMC) + totalinjsNoMC**2
+    yerr_vary = yerr_vary**0.5
+    yerr_low = (yerr_common - yerr_vary)/yerr_denom
+    yerr_lowNoMC = (finjsNoMC/totalinjsNoMC) - yerr_low
+    yerr_high = (yerr_common + yerr_vary)/yerr_denom
+    yerr_highNoMC = yerr_high - (finjsNoMC/totalinjsNoMC)
+    totalinjs = totalinjs/numMCInjs
+    finjs = finjs/numMCInjs
     yerr_common = totalinjs * (2 * finjs + 1)
     yerr_denom = 2*totalinjs*(totalinjs + 1)
     yerr_vary = 4 * totalinjs * finjs * (totalinjs - finjs) + totalinjs**2
@@ -1171,8 +1441,23 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     yerr_low = (finjs/totalinjs) - yerr_low
     yerr_high = (yerr_common + yerr_vary)/yerr_denom
     yerr_high = yerr_high - (finjs/totalinjs)
+
+    redEfficiency = (finjs/totalinjs) - (yerr_low) * scipy.stats.norm.isf(0.1)
+
+    ax.plot(distPlotVals, (finjsNoMC/totalinjsNoMC),'g-')
+    ax.plot(distPlotVals, (finjs/totalinjs),'r-')
+    ax.plot(distPlotVals,redEfficiency, 'm-' )
+
+    ax.errorbar( distPlotVals, (finjsNoMC/totalinjsNoMC),\
+                 yerr=[yerr_lowNoMC,yerr_highNoMC], c = 'g' )
     ax.errorbar( distPlotVals, (finjs/totalinjs),\
                  yerr=[yerr_low,yerr_high], c = 'r' )
+
+    ax.set_ylim( [0,1] )
+    
+    ax.grid()
+
+    ax.legend(['No marginalisation','Marginalised','Inc. counting errors'])
 
 
     ax.set_ylim( [0,1] )
@@ -1181,16 +1466,18 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     ax.set_ylabel( "Fraction of injections found louder than "+\
                    "loudest foreground" )
-    ax.set_xlabel( "Distance" )
+    ax.set_xlabel( "Distance (Mpc)" )
 
-    # Print 90% exclusion distance to file
+    # Print 90% exclusion distance to file and calculate MC error
     for ii,dist, eff in zip(range(len(distPlotVals)),distPlotVals,\
-                        finjs/totalinjs):
+                        redEfficiency):
       if eff < 0.9:
         if ii == 0:
-          raise ValueError, "Efficiency below 90% in first bin!"
+          print >> sys.stderr, "Efficiency below 90% in first bin!"
+          excl_dist = 0
+          break
         dist_low = distPlotVals[ii-1]
-        eff_low = (finjs/totalinjs)[ii-1]
+        eff_low = (redEfficiency)[ii-1]
         delta_dist = dist - dist_low
         delta_eff = eff_low - eff
         gradient = delta_eff/delta_dist
@@ -1198,14 +1485,18 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         excl_dist = (const - 0.9)/gradient
         break
 
+
     file = open( "%s/exclusion_distance.txt" % outdir, "w" )
     print >>file, excl_dist
     file.close()
 
-    ax.plot([excl_dist],[0.9],'gx')
-    fig.savefig( '%s/BestNR_on_efficiency.png' % ( outdir ) )
+    file = open( "%s/sensitive_distance.txt" % outdir, "w" )
+    print >>file, sens_dist
+    file.close()
 
-         
+    ax.plot([excl_dist],[0.9],'gx')
+    ax.set_ylim( [0,1] )
+    fig.savefig( '%s/BestNR_on_efficiency.png' % ( outdir ) )
       
   
     binNum = 0
@@ -1240,18 +1531,24 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedMchirp, gMissedEffdist, c="k", marker='x',\
+    if gMissedMchirp:
+      ax.scatter( gMissedMchirp, gMissedEffdist, c="k", marker='x',\
                 edgecolors='k' )
-    ax.scatter( gMissed2Mchirp, gMissed2Effdist, c="r", marker='x',\
+    if gMissed2Mchirp:
+      ax.scatter( gMissed2Mchirp, gMissed2Effdist, c="r", marker='x',\
                 edgecolors='r' )
-    ax.scatter( gFoundMchirp, gFoundEffDist, c="b", marker='x', edgecolors='g' )
+    if gFoundMchirp:
+      ax.scatter( gFoundMchirp, gFoundEffDist, c="b", marker='x',\
+                edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARMchirp, gIFAREffDist, c=gIFARStat,\
-                    norm=pylab.Normalize(0,1,clip=False), marker='o',\
-                    edgecolors='none' )
+    if gIFARMchirp:
+      p = ax.scatter( gIFARMchirp, gIFAREffDist, c=gIFARStat,\
+                      norm=pylab.Normalize(0,1,clip=False), marker='o',\
+                      edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel( "FAP" )
+    if gIFARMchirp:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel( "FAP" )
     ax.set_xlabel( "Mchirp" )
     ax.set_ylabel( "Inverse sum of effective distances" )
     ax.set_title( "Injections found louder than loudest background event" )
@@ -1260,17 +1557,23 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedTime, gMissedEffdist, c="k", marker='x', edgecolors='k' )
-    ax.scatter( gMissed2Time, gMissed2Effdist, c="r", marker='x',\
+    if gMissedTime:
+      ax.scatter( gMissedTime, gMissedEffdist, c="k", marker='x',\
+                edgecolors='k' )
+    if gMissed2Time:
+      ax.scatter( gMissed2Time, gMissed2Effdist, c="r", marker='x',\
                 edgecolors='r' )
-    ax.scatter( gFoundTime, gFoundEffDist, c="b", marker='x', edgecolors='g' )
+    if gFoundTime:
+      ax.scatter( gFoundTime, gFoundEffDist, c="b", marker='x', edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARTime, gIFAREffDist, c=gIFARStat,\
+    if gIFARTime:
+      p = ax.scatter( gIFARTime, gIFAREffDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False), marker='o',\
                     edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel( "FAP" )
+    if gIFARTime:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel( "FAP" )
     ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Inverse sum of effective distances" )
     ax.set_title( "Injections found louder than loudest background event" )
@@ -1284,19 +1587,24 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     for site in sites:
       fig = pylab.figure()
       ax = fig.gca()
-      ax.scatter( gMissedMchirp, gMissedEffDist[site],\
+      if gMissedMchirp:
+        ax.scatter( gMissedMchirp, gMissedEffDist[site],\
                   c="k", marker='x', edgecolors='k' )
-      ax.scatter( gMissed2Mchirp, gMissed2EffSitedist[site],\
+      if gMissed2Mchirp:
+        ax.scatter( gMissed2Mchirp, gMissed2EffSitedist[site],\
                   c="r", marker='x', edgecolors='r' )
-      ax.scatter( gFoundMchirp, gFoundEffSiteDist[site],\
+      if gFoundMchirp:
+        ax.scatter( gFoundMchirp, gFoundEffSiteDist[site],\
                   c="b", marker='x', edgecolors='g' )
       ax.grid()
-      p = ax.scatter( gIFARMchirp, gIFAREffSiteDist[site],\
+      if gIFARMchirp:
+        p = ax.scatter( gIFARMchirp, gIFAREffSiteDist[site],\
                       c=gIFARStat, norm=pylab.Normalize(0,1,clip=False),\
                       marker='o', edgecolors='none' )
       ax.semilogy()
-      cb = ax.figure.colorbar( p )
-      cb.ax.set_ylabel( "FAP" )
+      if gIFARMchirp:
+        cb = ax.figure.colorbar( p )
+        cb.ax.set_ylabel( "FAP" )
       ax.set_xlabel( "Mchirp" )
       ax.set_ylabel( "%s effective distance" % sitename[site] )
       ax.set_title( "Injections found louder than loudest background event" )
@@ -1306,19 +1614,24 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
       fig = pylab.figure()
       ax  = fig.gca()
-      ax.scatter( gMissedTime, gMissedEffDist[site],\
+      if gMissedTime:
+        ax.scatter( gMissedTime, gMissedEffDist[site],\
                   c="k", marker='x', edgecolors='k' )
-      ax.scatter( gMissed2Time, gMissed2EffSitedist[site],\
+      if gMissed2Time:
+        ax.scatter( gMissed2Time, gMissed2EffSitedist[site],\
                   c="r", marker='x', edgecolors='r' )
-      ax.scatter( gFoundTime, gFoundEffSiteDist[site],\
+      if gFoundTime:
+        ax.scatter( gFoundTime, gFoundEffSiteDist[site],\
                   c="b", marker='x', edgecolors='g' )
       ax.grid()
-      p = ax.scatter( gIFARTime ,gIFAREffSiteDist[site],\
+      if gIFARTime:
+        p = ax.scatter( gIFARTime ,gIFAREffSiteDist[site],\
                       c=gIFARStat, norm=pylab.Normalize(0,1,clip=False),\
                       marker='o', edgecolors='none' )
       ax.semilogy()
-      cb = ax.figure.colorbar( p )
-      cb.ax.set_ylabel( "FAP" )
+      if gIFARTime:
+        cb = ax.figure.colorbar( p )
+        cb.ax.set_ylabel( "FAP" )
       ax.set_xlabel( "Time since %d" % grbTime )
       ax.set_ylabel( "%s effective distance" % sitename[site] )
       ax.set_title( "Injections found louder than loudest background event" )
@@ -1329,36 +1642,48 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedMchirp, gMissedDist,c="k", marker='x', edgecolors='k' )
-    ax.scatter( gMissed2Mchirp, gMissed2Dist,c="r", marker='x', edgecolors='r' )
-    ax.scatter( gFoundMchirp, gFoundDist, c="b", marker='x', edgecolors='g' )
+    if gMissedMchirp:
+      ax.scatter( gMissedMchirp, gMissedDist,c="k", marker='x', edgecolors='k' )
+    if gMissed2Mchirp:
+      ax.scatter( gMissed2Mchirp, gMissed2Dist,c="r", marker='x',\
+                  edgecolors='r' )
+    if gFoundMchirp:
+      ax.scatter( gFoundMchirp, gFoundDist, c="b", marker='x', edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARMchirp, gIFARDist, c=gIFARStat,\
+    if gIFARMchirp:
+      p = ax.scatter( gIFARMchirp, gIFARDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False),\
                     marker='o', edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel( "FAP" )
+    if gIFARMchirp:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel( "FAP" )
     ax.set_xlabel( "Mchirp" )
-    ax.set_ylabel( "Distance" )
+    ax.set_ylabel( "Distance (Mpc)" )
     ax.set_title( "Injections found louder than loudest background event" )
     ax.set_ylim([ 0.5, 100 ])
     fig.savefig( "%s/found_missed_injections_dist.png" % outdir )
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.scatter( gMissedTime, gMissedDist, c="k", marker='x', edgecolors='k' )
-    ax.scatter( gMissed2Time, gMissed2Dist, c="r", marker='x', edgecolors='r' )
-    ax.scatter( gFoundTime, gFoundDist, c="b", marker='x', edgecolors='g' )
+    if gMissedTime:
+      ax.scatter( gMissedTime, gMissedDist, c="k", marker='x', edgecolors='k' )
+    if gMissed2Time:
+      ax.scatter( gMissed2Time, gMissed2Dist, c="r", marker='x',\
+                  edgecolors='r' )
+    if gFoundTime:
+      ax.scatter( gFoundTime, gFoundDist, c="b", marker='x', edgecolors='g' )
     ax.grid()
-    p = ax.scatter( gIFARTime, gIFARDist, c=gIFARStat,\
+    if gIFARTime:
+      p = ax.scatter( gIFARTime, gIFARDist, c=gIFARStat,\
                     norm=pylab.Normalize(0,1,clip=False),\
                     marker='o', edgecolors='none' )
     ax.semilogy()
-    cb = ax.figure.colorbar( p )
-    cb.ax.set_ylabel("FAP" )
+    if gIFARTime:
+      cb = ax.figure.colorbar( p )
+      cb.ax.set_ylabel("FAP" )
     ax.set_xlabel( "Time since %d" % grbTime )
-    ax.set_ylabel( "Distance" )
+    ax.set_ylabel( "Distance (Mpc)" )
     ax.set_title( "Injections found louder than loudest background event" )
     ax.set_xlim([ start, end ])
     ax.set_ylim([ 0.5, 100 ])
@@ -1367,8 +1692,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     # plot sky recovery
     fig = pylab.figure()
     ax = fig.gca()
-    ax.plot( gFoundTime, gFoundSkyAngle, 'b.' )
-    ax.plot( gIFARTime, gIFARSkyAngle, 'b.' )
+    if gFoundTime:
+      ax.plot( gFoundTime, gFoundSkyAngle, 'b.' )
+#    if gIFARTime:
+#      ax.plot( gIFARTime, gIFARSkyAngle, 'b.' )
     ax.grid()
     ax.set_xlabel( "Time since %d" % grbTime )
     ax.set_ylabel( "Rec. sky error (radians)" )
@@ -1377,8 +1704,10 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   
     fig = pylab.figure()
     ax = fig.gca()
-    ax.plot( gFoundMchirp, gFoundSkyAngle, 'b.' )
-    ax.plot( gIFARMchirp, gIFARSkyAngle, 'b.' )
+    if gFoundMchirp:
+      ax.plot( gFoundMchirp, gFoundSkyAngle, 'b.' )
+#    if gIFARMchirp:
+#      ax.plot( gIFARMchirp, gIFARSkyAngle, 'b.' )
     ax.grid()
     ax.set_xlabel( "Mchirp" )
     ax.set_ylabel( "Rec. sky error (radians)" )
@@ -1386,10 +1715,12 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     fig = pylab.figure()
     ax = fig.gca()
-    ax.plot( gFoundDist, gFoundSkyAngle, 'b.' )
-    ax.plot( gIFARDist, gIFARSkyAngle, 'b.' )
+    if gFoundDist:
+      ax.plot( gFoundDist, gFoundSkyAngle, 'b.' )
+#    if gIFARDist:
+#      ax.plot( gIFARDist, gIFARSkyAngle, 'b.' )
     ax.grid()
-    ax.set_xlabel( "Distance" )
+    ax.set_xlabel( "Distance (Mpc)" )
     ax.set_ylabel( "Rec. sky error (radians)" )
     ax.semilogx()
     ax.set_xlim([ 0.5,100 ])
@@ -1409,6 +1740,12 @@ if __name__=='__main__':
   doinj        = opts.do_injections
   q            = opts.chisq_index
   n            = opts.chisq_nhigh
+  wavErr       = opts.waveform_error
+  calErrs      = {}
+  calErrs['H1']= opts.h1_cal_error
+  calErrs['L1']= opts.l1_cal_error
+  calErrs['V1']= opts.v1_cal_error
+  
   nullt        = map( float, opts.null_snr_threshold.split(',') )
   glitchCheckFac = opts.glitch_check_factor
   clusterWindow = opts.cluster_window
@@ -1423,5 +1760,5 @@ if __name__=='__main__':
         onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
         chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
         clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
-        numBins=numBins, vetoFiles=vetoFiles )
+        numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs )
 

@@ -115,7 +115,7 @@ class train_forest_node(pipeline.CondorDAGNode):
     self.add_input_file(trainingfile)
     self.trainingfile = self.get_input_files()[0]
     self.trainedforest = self.trainingfile.replace('_training.pat',run_tag+'.spr')
-    self.add_file_arg("-a 1 -n %s -l %s -s %s -c %s -g 1 -i -d 1 -f %s %s" % (opts.number_of_trees, opts.leaf_size, opts.sampled_parameters, opts.criterion_for_optimization, self.trainedforest, self.trainingfile))
+    self.add_file_arg("-a 4 -n %s -l %s -s %s -c %s -g 1 -i -d 1 -f %s %s" % (opts.number_of_trees, opts.leaf_size, opts.sampled_parameters, opts.criterion_for_optimization, self.trainedforest, self.trainingfile))
     self.add_output_file(self.trainedforest)
     for p in p_node:
       self.add_parent(p)

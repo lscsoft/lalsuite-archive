@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <complex.h>
+#include <string.h>
 
 /* LAL Includes */
 
@@ -26,12 +27,13 @@
 
 /* static functions used by the python wrappers */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints, complex double *expPsi);
-static double chirp_time (double m1, double m2, double fLower, int order);
-static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order);
+static double chirp_time (double m1, double m2, double fLower, int order,double chi);
+static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order, double chi);
 static double schwarz_isco(double m1, double m2);
 static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
 static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
+static int SPAWaveformReduceSpin (double mass1, double mass2, double chi, int order, double startTime, double phi0, double deltaF, double fLower, double fFinal, int numPoints, complex double *hOfF);
 static int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF);
 static double imr_merger(double m1, double m2, double chi);
 static double imr_ring(double m1, double m2, double chi);
@@ -64,22 +66,22 @@ const char SPADocstring[] =
 "\n"
 "pylab.figure(1)\n"
 "for j, endfreq in enumerate(['schwarz_isco','bkl_isco','light_ring']):\n"
-"        fFinal = spawaveform.ffinal(m1,m2,endfreq)\n"
-"        print endfreq, fFinal\n"
-"        # time stamp vector\n"
-"        timestamp = numpy.arange(dur * sr) / sr\n"
-"        # initialise data for the template\n"
-"        z = numpy.empty(sr * dur, 'complex128')\n"
-"        # make a spawaveform\n"
-"        spawaveform.waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, z)\n"
-"        z = scipy.ifft(z)\n"
-"        # plot it\n"
-"        pylab.subplot(3,1,j+1)\n"
-"        pylab.plot(timestamp, numpy.real(z))\n"
-"        pylab.hold(1)\n"
-"        pylab.plot(timestamp, numpy.imag(z),'r')\n"
-"        pylab.legend([endfreq + ' hc(t)', endfreq + ' hs(t)'],loc='lower left')\n"
-"        pylab.xlim([dur - spawaveform.chirptime(m1,m2,order,40.0,fFinal), dur])\n"
+"\tfFinal = spawaveform.ffinal(m1,m2,endfreq)\n"
+"\tprint endfreq, fFinal\n"
+"\t# time stamp vector\n"
+"\ttimestamp = numpy.arange(dur * sr) / sr\n"
+"\t# initialise data for the template\n"
+"\tz = numpy.empty(sr * dur, 'complex128')\n"
+"\t# make a spawaveform\n"
+"\tspawaveform.waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, z)\n"
+"\tz = scipy.ifft(z)\n"
+"\t# plot it\n"
+"\tpylab.subplot(3,1,j+1)\n"
+"\tpylab.plot(timestamp, numpy.real(z))\n"
+"\tpylab.hold(1)\n"
+"\tpylab.plot(timestamp, numpy.imag(z),'r')\n"
+"\tpylab.legend([endfreq + ' hc(t)', endfreq + ' hs(t)'],loc='lower left')\n"
+"\tpylab.xlim([dur - spawaveform.chirptime(m1,m2,order,40.0,fFinal), dur])\n"
 "pylab.hold(0)\n"
 "pylab.show()\n";
 
@@ -131,8 +133,12 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	int order;
 	npy_intp *dims = NULL;
 	complex double *data = NULL;
+	double spin1 = -100.0;
+	double spin2 = -100.0;
+	double chi = 0.0;
+
 	/* FIXME properly handle references */
-	if(!PyArg_ParseTuple(args, "ddiddddO", &mass1, &mass2, &order, &deltaF, &deltaT, &fLower, &fFinal, &arg9)) return NULL;
+	if(!PyArg_ParseTuple(args, "ddiddddO|dd", &mass1, &mass2, &order, &deltaF, &deltaT, &fLower, &fFinal, &arg9, &spin1, &spin2)) return NULL;
 	/* this gets a contiguous memory numpy array */
         py_spa_array = PyArray_FROM_OTF(arg9, NPY_CDOUBLE, NPY_IN_ARRAY);
 	if (py_spa_array == NULL) return NULL;
@@ -140,7 +146,16 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
 	dims = PyArray_DIMS(py_spa_array);
 	data = PyArray_DATA(py_spa_array);
-	SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
+	if (spin1 == -100.0 && spin2 == -100.0)
+		SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
+	if (spin1 != -100.0 && spin2 == -100.0) {
+		chi = spin1; // only one spin argument is interpreted as chi
+		SPAWaveformReduceSpin(mass1, mass2, chi, order, 0.0, 0.0, deltaF, fLower, fFinal, dims[0], data);
+		}
+	if (spin1 != -100.0 && spin2 != -100.0)	{
+		chi = compute_chi(mass1, mass2, spin1, spin2);
+		SPAWaveformReduceSpin(mass1, mass2, chi, order, 0.0, 0.0, deltaF, fLower, fFinal, dims[0], data);
+		}
 	Py_DECREF(py_spa_array);
         Py_INCREF(Py_None);
         return Py_None;
@@ -291,15 +306,16 @@ static PyObject *PySVD(PyObject *self, PyObject *args, PyObject *keywds)
 static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
-	double mass1, mass2, fLower, fFinal, time;
+	double mass1, mass2, fLower, fFinal, time, chi;
 	int order;
 	fFinal = 0;
+	chi = 0.;
 	/* FIXME properly handle references */
-	if (!PyArg_ParseTuple(args, "ddid|d", &mass1, &mass2, &order, &fLower, &fFinal)) return NULL;
+	if (!PyArg_ParseTuple(args, "ddid|dd", &mass1, &mass2, &order, &fLower, &fFinal, &chi)) return NULL;
 	if (fFinal)
-		time = chirp_time_between_f1_and_f2(mass1, mass2, fLower, fFinal, order);
+		time = chirp_time_between_f1_and_f2(mass1, mass2, fLower, fFinal, order, chi);
 	else
-		time = chirp_time(mass1, mass2, fLower, order);
+		time = chirp_time(mass1, mass2, fLower, order, chi);
 	return Py_BuildValue("d", time);
 	}
 
@@ -431,6 +447,10 @@ static struct PyMethodDef methods[] = {
 	 "This function produces a frequency domain waveform at a "
 	 "specified mass1, mass2 and PN order.\n\n"
 	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
+	 "You can produce a spin aligned waveform by doing\n\n"
+	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray, spin1, spin2)"
+	 "Or you can produce a spin aligned waveform by doing\n\n"
+	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray, chi)"
 	},
 	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain IMR waveform at a "
@@ -446,8 +466,9 @@ static struct PyMethodDef methods[] = {
 	{"chirptime", PyChirpTime, METH_VARARGS,
 	 "This function calculates the SPA chirptime at a specified mass1, mass2 "
 	 "and PN order between two frequencies.  If the second frequency is omitted "
-	 "it is assumed to be infinite.\n\n"
-	 "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
+	 "it is assumed to be infinite. To include spin (chi) you can place it as " 
+	 "the last argument, but you must give an fFinal.\n\n"
+	 "chirptime(m1, m2, order, fLower, [fFinal, chi])\n\n"
 	},
 	{"ffinal", PyFFinal, METH_VARARGS,
 	 "This function calculates the ending frequency specified by "
@@ -524,6 +545,123 @@ void init_spawaveform(void)
 /* the functin prototypes have been vastly simplified (use of native c types */
 /* and double precision)                                                     */
 /*****************************************************************************/
+
+static int SPAWaveformReduceSpin (double mass1, double mass2, double chi, 
+        int order, double startTime, double phi0, double deltaF,
+        double fLower, double fFinal, int numPoints, complex double *hOfF) {
+
+	double m = mass1 + mass2;
+	double eta = mass1 * mass2 / m / m;
+    
+    double psi2 = 0., psi3 = 0., psi4 = 0., psi5 = 0., psi6 = 0., psi6L = 0., psi7 = 0.; 
+    double psi3S = 0., psi4S = 0., psi5S = 0., psi0; 
+    double alpha2 = 0., alpha3 = 0., alpha4 = 0., alpha5 = 0., alpha6 = 0., alpha6L = 0.;
+    double alpha7 = 0., alpha3S = 0., alpha4S = 0., alpha5S = 0.; 
+    double f, v, v2, v3, v4, v5, v6, v7, Psi, amp, shft, amp0, d_eff; 
+    int k, kmin, kmax; 
+
+    double mSevenBySix = -7./6.;
+    double piM = LAL_PI*m*LAL_MTSUN_SI;
+    double oneByThree = 1./3.;
+    double piBy4 = LAL_PI/4.;
+
+    /************************************************************************/
+    /* spin terms in the ampl & phase in terms of the 'reduced-spin' param. */
+    /************************************************************************/
+    psi3S = 113.*chi/3.;
+    psi4S = 63845.*(-81. + 4.*eta)*chi*chi/(8.*pow(-113. + 76.*eta, 2.));  
+    psi5S = -565.*(-146597. + 135856.*eta + 17136.*eta*eta)*chi/(2268.*(-113. + 76.*eta)); 
+
+    alpha3S = (113*chi)/24.; 
+    alpha4S = (12769*pow(chi,2)*(-81 + 4*eta))/(32.*pow(-113 + 76*eta,2)); 
+    alpha5S = (-113*chi*(502429 - 591368*eta + 1680*pow(eta,2)))/(16128.*(-113 + 76*eta)); 
+
+    /* coefficients of the phase at PN orders from 0 to 3.5PN */
+    psi0 = 3./(128.*eta);
+
+    /************************************************************************/
+    /* set the amplitude and phase coefficients according to the PN order   */
+    /************************************************************************/
+    switch (order) {
+        case 7: 
+            psi7 = (77096675.*LAL_PI)/254016. + (378515.*LAL_PI*eta)/1512.  
+                     - (74045.*LAL_PI*eta*eta)/756.;
+            alpha7 = (-5111593*LAL_PI)/2.709504e6 - (72221*eta*LAL_PI)/24192. - 
+                        (1349*pow(eta,2)*LAL_PI)/24192.; 
+        case 6:
+            psi6 = 11583231236531./4694215680. - (640.*LAL_PI*LAL_PI)/3. - (6848.*LAL_GAMMA)/21. 
+                     + (-5162.983708047263 + 2255.*LAL_PI*LAL_PI/12.)*eta 
+                     + (76055.*eta*eta)/1728. - (127825.*eta*eta*eta)/1296.;
+            psi6L = -6848./21.;
+            alpha6 = -58.601030974347324 + (3526813753*eta)/2.7869184e7 - 
+                        (1041557*pow(eta,2))/258048. + (67999*pow(eta,3))/82944. + 
+                        (10*pow(LAL_PI,2))/3. - (451*eta*pow(LAL_PI,2))/96.; 
+            alpha6L = 856/105.; 
+        case 5:
+            psi5 = (38645.*LAL_PI/756. - 65.*LAL_PI*eta/9. + psi5S);
+            alpha5 = (-4757*LAL_PI)/1344. + (57*eta*LAL_PI)/16. + alpha5S; 
+        case 4:
+            psi4 = 15293365./508032. + 27145.*eta/504. + 3085.*eta*eta/72. + psi4S;
+            alpha4 = 0.8939214212884228 + (18913*eta)/16128. + (1379*pow(eta,2))/1152. + alpha4S; 
+        case 3:
+            psi3 = psi3S - 16.*LAL_PI;
+            alpha3 = -2*LAL_PI + alpha3S; 
+        case 2:
+            psi2 = 3715./756. + 55.*eta/9.;
+            alpha2 = 1.1056547619047619 + (11*eta)/8.; 
+        default:
+            break;
+    }
+
+    /* compute the amplitude assuming effective dist. of 1 Mpc */
+    d_eff = 1e6*LAL_PC_SI/LAL_C_SI;  /*1 Mpc in seconds */
+    amp0 = sqrt(5.*eta/24.)*pow(m*LAL_MTSUN_SI, 5./6.)/(d_eff*pow(LAL_PI, 2./3.));
+
+    shft = 2.*LAL_PI *startTime;
+
+    /* zero outout */    
+    memset (hOfF, 0, numPoints * sizeof (complex double));
+
+	kmin = fLower / deltaF > 1 ? fLower / deltaF : 1;
+	kmax = fFinal / deltaF < numPoints  ? fFinal / deltaF : numPoints ;
+
+    /************************************************************************/
+    /*          now generate the waveform at all frequency bins             */
+    /************************************************************************/
+    for (k = kmin; k < kmax; k++) {
+
+        /* fourier frequency corresponding to this bin */
+      	f = k * deltaF;
+        v = pow(piM*f, oneByThree);
+
+        v2 = v*v;   v3 = v2*v;  v4 = v3*v;  v5 = v4*v;  v6 = v5*v;  v7 = v6*v;
+
+        /* compute the phase and amplitude */
+        if ((f < fLower) || (f > fFinal)) {
+            amp = 0.;
+            Psi = 0.;
+        }
+        else {
+
+            Psi = psi0*pow(v, -5.)*(1. 
+                    + psi2*v2 + psi3*v3 + psi4*v4 
+                    + psi5*v5*(1.+3.*log(v)) 
+                    + (psi6 + psi6L*log(4.*v))*v6 + psi7*v7); 
+
+            amp = amp0*pow(f, mSevenBySix)*(1. 
+                    + alpha2*v2 + alpha3*v3 + alpha4*v4 
+                    + alpha5*v5 + (alpha6 + alpha6L*(LAL_GAMMA+log(4.*v)) )*v6 
+                    + alpha7*v7); 
+
+        }
+
+        /* generate the waveform */
+       	hOfF[k] = amp * (cos(Psi+shft*f+phi0+piBy4) - I*sin(Psi+shft*f+phi0+piBy4)); 
+
+    }    
+
+	return 0;
+}
 
 /* FIXME make this function exist in LAL and have the LAL SPA waveform generator call it? */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints,  complex double *expPsi)
@@ -656,7 +794,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
  * frequency and going to infinity
  */
 
-static double chirp_time (double m1, double m2, double fLower, int order)
+static double chirp_time (double m1, double m2, double fLower, int order, double chi)
 	{
 
 	/* variables used to compute chirp time */
@@ -677,10 +815,10 @@ static double chirp_time (double m1, double m2, double fLower, int order)
 			c6T = LAL_GAMMA * 6848.0 / 105.0 - 10052469856691.0 / 23471078400.0 + LAL_PI * LAL_PI * 128.0 / 3.0 + eta * (3147553127.0 / 3048192.0 - LAL_PI * LAL_PI * 451.0 / 12.0) - eta * eta * 15211.0 / 1728.0 + eta * eta * eta * 25565.0 / 1296.0 + log (4.0) * 6848.0 / 105.0;
      			c6LogT = 6848.0 / 105.0;
 		case 5:
-			c5T = 13.0 * LAL_PI * eta / 3.0 - 7729.0 / 252.0;
+			c5T = 13.0 * LAL_PI * eta / 3.0 - 7729.0 / 252.0 - (0.4*565.*(-146597. + 135856.*eta + 17136.*eta*eta)*chi/(2268.*(-113. + 76.*eta))); // last term is 0 if chi is 0;
 		case 4:
-			c4T = 3058673.0 / 508032.0 + eta * (5429.0 / 504.0 + eta * 617.0 / 72.0);
-			c3T = -32.0 * LAL_PI / 5.0;
+			c4T = 3058673.0 / 508032.0 + eta * (5429.0 / 504.0 + eta * 617.0 / 72.0) + (0.4*63845.*(-81. + 4.*eta)*chi*chi/(8.*pow(-113. + 76.*eta, 2.))); // last term is 0 if chi is 0;
+			c3T = -32.0 * LAL_PI / 5.0 + (0.4*113.*chi/3.); // last term is 0 if chi is 0;
 			c2T = 743.0 / 252.0 + eta * 11.0 / 3.0;
 			c0T = 5.0 * m * LAL_MTSUN_SI / (256.0 * eta);	
 			break;
@@ -710,9 +848,9 @@ static double chirp_time (double m1, double m2, double fLower, int order)
 }
 
 /* A convenience function to compute the time between two frequencies */
-static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order)
+static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order, double chi)
 	{
-	return chirp_time(m1,m2,fLower,order) - chirp_time(m1,m2,fUpper,order);
+	return chirp_time(m1,m2,fLower,order,chi) - chirp_time(m1,m2,fUpper,order,chi);
 	}
 
 

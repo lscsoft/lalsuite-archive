@@ -43,10 +43,14 @@ RC_OUT1="./RC_out1.dat"
 RC_OUT2="./RC_out2.dat"
 
 Freq0=100.5
-dFreq0=1.3e-5
+dFreq0=0.5e-2
+FreqBand=1e-2
 tStack=3600
 nStacks=10
 Tspan=36000	## should be >= nStacks * tStack
+f1dot=0
+f1dotBand=0
+df1dot=1
 
 echo "----- STEP 1: produce some fake data:"
 cmdline="$code_MFD -I H1 --outSingleSFT --outSFTbname=$SFTsH1 -y 05-09 -G 820108814 --duration=$Tspan --noiseSqrtSh=3e-23 --fmin=100 --Band=1 --randSeed=1 -v1"
@@ -66,8 +70,11 @@ if ! eval $cmdline; then
 fi
 
 
+patch=0.8
+pixel=2
+
 echo "----- STEP 2: '$HS_OUT' -- run original HierarchicalSearch code on this data, producing some candidates:"
-cmdline="$code_HS --method=0 --DataFiles=\"$SFTsH1;$SFTsL1\" --skyRegion='(1,1)' --Freq=$Freq0 --FreqBand=1e-5 --dFreq=$dFreq0 --tStack=$tStack --nStacksMax=$nStacks --printCand1 --nf1dotRes=1 --semiCohToplist -o $HS_OUT -d1"
+cmdline="$code_HS --method=0 --DataFiles=\"$SFTsH1;$SFTsL1\" --skyRegion='(1,1)' --Freq=$Freq0 --FreqBand=$FreqBand --dFreq=$dFreq0 --f1dot=$f1dot --f1dotBand=$f1dotBand --df1dot=$df1dot --tStack=$tStack --nStacksMax=$nStacks --printCand1 --nf1dotRes=1 --semiCohPatchX=$patch --semiCohPatchY=$patch --pixelFactor=$pixel --semiCohToplist -o $HS_OUT -d1"
 
 echo $cmdline;
 if ! eval $cmdline; then
@@ -76,7 +83,7 @@ if ! eval $cmdline; then
 fi
 
 echo "## ----- STEP 3a: '$RC_OUT1' -- run 'RecalcHSCandidates' on this output candidate file"
-cmdline="$code_RC --DataFiles1=\"$SFTsH1;$SFTsL1\" --tStack=$tStack --nStacksMax=$nStacks --followupList=$HS_OUT --WU_Freq=$Freq0 --WU_dFreq=$dFreq0 --fnameout=$RC_OUT1 --outputFX=true -d1"
+cmdline="$code_RC --DataFiles1=\"$SFTsH1;$SFTsL1\" --tStack=$tStack --nStacksMax=$nStacks --followupList=$HS_OUT --WU_Freq=$Freq0 --WU_dFreq=$dFreq0 --semiCohPatchX=$patch --semiCohPatchY=$patch --pixelFactor=$pixel --fnameout=$RC_OUT1 --outputFX=true -d1"
 
 echo $cmdline;
 if ! eval $cmdline; then
@@ -86,7 +93,7 @@ fi
 
 echo "## ----- STEP 3b: '$RC_OUT2' -- re-run RecalcHSCandidates on its own output to test stability"
 ## NOTE: this time we don't use any HS-frequency bug corrections (--WU_Freq), as RC outputs frequencies correctly!
-cmdline="$code_RC --DataFiles1=\"$SFTsH1;$SFTsL1\" --tStack=$tStack --nStacksMax=$nStacks --followupList=$RC_OUT1 --WU_dFreq=$dFreq0 --fnameout=$RC_OUT2 --outputFX=true -d1"
+cmdline="$code_RC --DataFiles1=\"$SFTsH1;$SFTsL1\" --tStack=$tStack --nStacksMax=$nStacks --followupList=$RC_OUT1 --WU_dFreq=$dFreq0 --semiCohPatchX=$patch --semiCohPatchY=$patch --pixelFactor=$pixel --fnameout=$RC_OUT2 --outputFX=true -d1"
 
 echo $cmdline;
 if ! eval $cmdline; then
@@ -96,12 +103,13 @@ fi
 
 ## currently not really testing these results against HS, just output them for user to look at:
 echo "$HS_OUT: --------------------"
-cat $HS_OUT
+sort $HS_OUT
 echo "$RC_OUT1: --------------------"
-cat $RC_OUT1
+sort $RC_OUT1
 
-
-if ! diff -q RC_out1.dat RC_out2.dat ; then
+sort $RC_OUT1 > s1.dat
+sort $RC_OUT2 > s2.dat
+if ! diff -q s1.dat s2.dat; then
     echo "$RC_OUT1 and RC_OUT2 differ ... something is wrong!"
     exit 1;
 else
@@ -109,5 +117,5 @@ else
 fi
 
 if [ -z "$NOCLEANUP" ]; then
-    rm $HS_OUT $RC_OUT1 $RC_OUT2 $SFTsH1 $SFTsL1
+    rm $HS_OUT $RC_OUT1 $RC_OUT2 $SFTsH1 $SFTsL1 s1.dat s2.dat
 fi

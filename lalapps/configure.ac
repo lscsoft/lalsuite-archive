@@ -1,4 +1,4 @@
-AC_INIT([lalapps],[6.5.0.4],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalapps],[6.5.0.5],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([misc])
@@ -59,6 +59,7 @@ AH_BOTTOM([
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 LALAPPS_WITH_CC
 LALAPPS_WITH_LAL_PREFIX
@@ -86,6 +87,7 @@ LALAPPS_ENABLE_GDS
 LALSUITE_ENABLE_LALFRAME
 LALSUITE_ENABLE_LALMETAIO
 LALSUITE_ENABLE_LALXML
+LALSUITE_ENABLE_LALSIMULATION
 LALSUITE_ENABLE_LALBURST
 LALSUITE_ENABLE_LALINSPIRAL
 LALSUITE_ENABLE_LALPULSAR
@@ -145,6 +147,7 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
+AC_PROG_AWK
 
 # check for condor_compile
 AC_ENABLE_SHARED
@@ -223,6 +226,7 @@ CPPFLAGS="$CPPFLAGS $GSL_CFLAGS"
 LIBS="$GSL_LIBS $LIBS"
 AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
 AC_CHECK_LIB([gsl],[gsl_version],,[AC_MSG_ERROR([could not find the gsl library])])
+LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
@@ -363,13 +367,14 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LAL],[6.5.0.4],[LALVersion],[lal/LALStdio.h])
 LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
 LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.2],[LALFrOpen],[lal/LALFrameL.h])
 LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.0.1],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.0.1],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALBurst],[1.0.1],[XLALEPSearch],[lal/EPSearch.h])
-LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.1.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_OPT_LIB([LALSimulation],[0.0.0.1],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_OPT_LIB([LALBurst],[1.0.1.3],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.1.0.4],[LALInspiralParameterCalc],[lal/LALInspiral.h])
 LALSUITE_CHECK_OPT_LIB([LALInference],[0.0.0.1],[LALInferenceAddVariable],[lal/LALInference.h])
 LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.1.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
 LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.1],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
@@ -438,6 +443,7 @@ echo "
                 LAL Frame library support is $LALFRAME_ENABLE_VAL
                 LAL MetaIO library support is $LALMETAIO_ENABLE_VAL
                 LAL XML library support is $LALXML_ENABLE_VAL
+                LAL Simulation library support is $LALSIMULATION_ENABLE_VAL
                 LAL Burst library support is $LALBURST_ENABLE_VAL
                 LAL Inspiral library support is $LALINSPIRAL_ENABLE_VAL
                 LAL Stochastic library support is $LALSTOCHASTIC_ENABLE_VAL

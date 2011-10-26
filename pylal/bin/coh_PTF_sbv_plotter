@@ -6,16 +6,16 @@
 
 from __future__ import division
 
-import os,matplotlib
+import os,matplotlib,copy
 matplotlib.use('Agg' )
 import pylab
 from datetime import datetime
-from math import pi,sqrt
+from math import sqrt
 import scipy.stats
 from optparse import OptionParser
 from glue import segments
 from pylal import date
-from pylal.dq import dqSegmentUtils
+from pylal.dq import dqSegmentUtils,dqPlotUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table,lsctables,utils
 from pylal.coh_PTF_pyutils import *
@@ -65,7 +65,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                           "segment files." )
 
   parser.add_option( "-A", "--null-snr-threshold", action="store",\
-                     type="string", default="3.5,5.25",\
+                     type="string", default="4.25,6",\
                      help="comma separated lower,higher null SNR thresholds, "+\
                           " for null SNR cut, default: \"%default\"" )
 
@@ -92,7 +92,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 # =============================================================================
 
 def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
-          chisq_nhigh=3.0, null_thresh=[3.5,5.25],verbose=False,vetoFiles=[] ):
+          chisq_nhigh=3.0, null_thresh=[4.25,6],verbose=False,vetoFiles=[] ):
   
   # set output directory
   if not os.path.isdir(outdir):
@@ -153,6 +153,8 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   trigFirstSNR  = []
   trigSecondSNR = []
   trigThirdSNR  = []
+  trigLongitude = []
+  trigLatitude  = []
   # initiate injection lists
   injTime       = []
   injSNR        = []
@@ -166,6 +168,8 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   injFirstSNR   = []
   injSecondSNR  = []
   injThirdSNR   = []
+  injLongitude  = []
+  injLatitude   = []
   # initiate amplitude lists for 4 amplitudes
   numAmp  = 4
   amplitudes = xrange(1,numAmp+1)
@@ -177,17 +181,29 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
 
   # initiate single IFO lists
   trigIfoSNR = {}
+  trigIfobankCS = {}
+  trigIfoautoCS = {}
+  trigIfostanCS = {}
   trigSigma  = {}
   injIfoSNR  = {}
+  injIfobankCS = {}
+  injIfoautoCS = {}
+  injIfostanCS = {}
   injSigma   = {}
   for ifo in ifos:
     trigIfoSNR[ifo] = []
+    trigIfobankCS[ifo] = []
+    trigIfoautoCS[ifo] = []
+    trigIfostanCS[ifo] = []
     trigSigma[ifo] = []
     injIfoSNR[ifo] = []
+    injIfobankCS[ifo] = []
+    injIfoautoCS[ifo] = []
+    injIfostanCS[ifo] = []
     injSigma[ifo] = []
   trigSigmaTot = []
 
-  null_grad_snr = 30
+  null_grad_snr = 20
  
   aPat  = {}
   fResp = {}
@@ -204,8 +220,10 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     # calculate fResp for each IFO is we haven't done so already
     trigPos = (trig.ra,trig.dec)
     if trigPos not in aPat.keys():
-      ra  = trig.ra*180/pi
-      dec = trig.dec*180/pi
+      ra  = numpy.degrees(trig.ra)
+      dec = numpy.degrees(trig.dec)
+      trigLongitude.append(ra)
+      trigLatitude.append(dec)
       fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
       aPat[trigPos] = {}
       for ifo in ifos:
@@ -225,6 +243,12 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     compsList = []
     for ifo in ifos:
       ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
+      ifoBankCS = getattr(trig, 'bank_chisq_%s' % ifoAtt[ifo])
+      ifoAutoCS = getattr(trig, 'cont_chisq_%s' % ifoAtt[ifo])
+      ifoStanCS = getattr(trig, 'chisq_%s' % ifoAtt[ifo])
+      trigIfobankCS[ifo].append( ifoBankCS )
+      trigIfoautoCS[ifo].append( ifoAutoCS )
+      trigIfostanCS[ifo].append( ifoStanCS )
       trigIfoSNR[ifo].append( ifoSNR )
       compsList.append( ifoSNR )
       sig = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
@@ -268,9 +292,11 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       # calculate fResp for each IFO is we haven't done so already
       trigPos = (trig.ra,trig.dec)
       if trigPos not in aPat.keys():
-        ra  = trig.ra*180/pi
-        dec = trig.dec*180/pi
-        fPlus,fCross   = get_det_response( ra, dec, segs['on'][-1]-1 )
+        ra  = numpy.degrees(trig.ra)
+        dec = numpy.degrees(trig.dec)
+        injLongitude.append(ra)
+        injLatitude.append(dec)
+        fPlus,fCross   = get_det_response( ra, dec, trig.get_end() )
         aPat[trigPos] = {}
         for ifo in ifos:
           aPat[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
@@ -285,7 +311,13 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       compsList = []
       for ifo in ifos:
         ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
+        ifoBankCS = getattr(trig, 'bank_chisq_%s' % ifoAtt[ifo])
+        ifoAutoCS = getattr(trig, 'cont_chisq_%s' % ifoAtt[ifo])
+        ifoStanCS = getattr(trig, 'chisq_%s' % ifoAtt[ifo])
         injIfoSNR[ifo].append( ifoSNR )
+        injIfobankCS[ifo].append( ifoBankCS )
+        injIfoautoCS[ifo].append( ifoAutoCS )
+        injIfostanCS[ifo].append( ifoStanCS )
         compsList.append( ifoSNR )
 
       compsList.sort(reverse=True)
@@ -478,8 +510,10 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot( snr_vals,null_cont, 'k-' )
   fig.savefig( "%s/%s_null_stat_vs_snr.png" % ( outdir, tag ),\
                bbox_inches='tight' )
-  ax.plot( [0,30], [3.5,3.5], 'g-' )
-  ax.plot( [0,30], [4.5,4.5], 'm-' )
+  ax.plot( snr_vals, pylab.asarray(null_cont) - \
+      (null_thresh[1] - null_thresh[0]), 'g-' )
+  ax.plot( snr_vals, pylab.asarray(null_cont) - \
+      (null_thresh[1] - null_thresh[0])+1,'m-' )
   ax.set_xlim( [6,30] )
   ax.set_ylim( [0,30] )
   fig.savefig( "%s/%s_null_stat_vs_snr_zoom.png" % ( outdir, tag ),\
@@ -495,10 +529,20 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.set_xlabel( "Coherent SNR" )
   ax.set_ylabel( "Overwhitened null statistic" )
   ax.plot( snr_vals,null_cont, 'k-' )
+  # Add shading to vetoed area
+  limy = ax.get_ylim()[1]
+  polyx = copy.deepcopy(snr_vals)
+  polyy = copy.deepcopy(null_cont)
+  polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
+  polyy = pylab.append(polyy,[limy, limy])
+  ax.fill(polyx, polyy, color = '#dddddd')
+
   fig.savefig( "%s/%s_null_stat2_vs_snr.png" % ( outdir, tag ),\
                bbox_inches='tight' )
-  ax.plot( [0,30], [3.5,3.5], 'g-' )
-  ax.plot( [0,30], [4.5,4.5], 'm-' )
+  ax.plot( snr_vals, pylab.asarray(null_cont) - \
+      (null_thresh[1] - null_thresh[0]), 'g-' )
+  ax.plot( snr_vals, pylab.asarray(null_cont) - \
+      (null_thresh[1] - null_thresh[0])+1,'m-' )
   ax.set_xlim( [6,30] )
   ax.set_ylim( [0,30] )
   fig.savefig( "%s/%s_null_stat2_vs_snr_zoom.png" % ( outdir, tag ),\
@@ -571,6 +615,13 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   if injFile:
     ax.loglog( injSNR, injBankVeto, 'rx' )
   plot_contours( ax, snr_vals,bank_conts, colors )
+  # Add shading to vetoed area
+  limy = ax.get_ylim()[1]
+  polyx = copy.deepcopy(snr_vals)
+  polyy = copy.deepcopy(bank_conts[1])
+  polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
+  polyy = pylab.append(polyy,[limy, limy])
+  ax.fill(polyx, polyy, color = '#dddddd')
   ax.set_xlabel( "Coherent SNR" )
   ax.set_ylabel( "Bank Veto" )
   ax.set_xlim( [6,1000] )
@@ -579,24 +630,6 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.set_xlim( [6,50] )
   ax.set_ylim( [1,2000] )
   fig.savefig( "%s/%s_bank_veto_vs_snr_zoom.png" % ( outdir, tag ),\
-               bbox_inches='tight' )
-  
-  # plot SNR versus \chi^2
-  fig = pylab.figure()
-  ax  = fig.gca()
-  ax.loglog( trigSNR, trigChiSquare, 'bx' )
-  ax.grid()
-  if injFile:
-    ax.loglog( injSNR, injChiSquare, 'rx' )
-  plot_contours( ax, snr_vals,chi_conts, colors )
-  ax.set_xlabel( "Coherent SNR" )
-  ax.set_ylabel( "Chi Square" )
-  ax.set_xlim( [6,1000] )
-  fig.savefig( "%s/%s_chi_square_vs_snr.png" % ( outdir, tag ),\
-               bbox_inches='tight' )
-  ax.set_xlim( [6,50] )
-  ax.set_ylim( [1,2000] )
-  fig.savefig( "%s/%s_chi_square_vs_snr_zoom.png" % ( outdir, tag ),\
                bbox_inches='tight' )
   
   # plot SNR versus chisq
@@ -609,9 +642,17 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.loglog( injSNR[injBestNR != 0], injChiSquare[injBestNR != 0],\
                'rx' )
   plot_contours( ax, snr_vals,chi_conts, colors )
+  # Add shading to vetoed area
+  limy = ax.get_ylim()[1]
+  polyx = copy.deepcopy(snr_vals)
+  polyy = copy.deepcopy(chi_conts[1])
+  polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
+  polyy = pylab.append(polyy,[limy, limy])
+  ax.fill(polyx, polyy, color = '#dddddd')
   ax.set_xlabel( "SNR" )
   ax.set_ylabel( "Chi Square" )
   ax.set_xlim( [6,1000] )
+  ax.set_ylim( [1,10000] )
   fig.savefig( "%s/%s_chi_square_vs_snr.png" % ( outdir, tag ) )
   ax.set_xlim( [0,50] )
   ax.set_ylim( [1,2000] )
@@ -671,6 +712,25 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
                  bbox_inches='tight' )
   
   # plot SNR versus IFO SNR
+  sens1 = None
+  sens2 = None
+  for ifo in ifos:
+    if not sens1:
+      sens1 = ifo
+    elif not sens2:
+      senstvty = fResp[ifo]*trigSigmaMean[ifo]
+      if (fResp[ifo]*trigSigmaMean[ifo] > fResp[sens1]*trigSigmaMean[sens1]):
+        sens2 = sens1
+        sens1 = ifo
+      else:
+        sens2 = ifo
+    else:
+      if (fResp[ifo]*trigSigmaMean[ifo] > fResp[sens1]*trigSigmaMean[sens1]):
+        sens2 = sens1
+        sens1 = ifo
+      elif (fResp[ifo]*trigSigmaMean[ifo] > fResp[sens2]*trigSigmaMean[sens2]):
+        sens2 = ifo
+  
   for ifo in ifos:
 
     fig = pylab.figure()
@@ -695,6 +755,15 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
                                             (fResp[ifo]*trigSigmaMax[ifo])*\
                                              zoomSNR**2)**0.5, 'c-' )
     ax.plot( [0,50], [4,4], 'k-' )
+    if (ifo == sens1) or (ifo == sens2):
+      # Shade vetoed area
+      limy = ax.get_ylim()[0]
+      polyx = [0,50]
+      polyy = [4,4]
+      polyx.extend([50,0])
+      polyy.extend([limy, limy])
+      ax.fill(polyx, polyy, color = '#dddddd')
+
     ax.set_xlabel( "Coherent SNR" )
     ax.set_ylabel( "%s sngl SNR" % ifo )
     fig.savefig( "%s/%s_%s_snr_vs_snr.png" % ( outdir, tag, ifo ),\
@@ -703,7 +772,105 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.set_ylim( [0,20] )
     fig.savefig( "%s/%s_%s_snr_vs_snr_zoom.png" % ( outdir, tag, ifo ),\
                  bbox_inches='tight' )
-  
+
+  # Plot single detector chi square plots
+  for ifo in ifos:
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigSNR,trigIfobankCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injSNR,injIfobankCS[ifo], 'rx' )
+    ax.set_xlabel( "Coherent SNR")
+    ax.set_ylabel( "%s sngl bank veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_snr_vs_%s_bankchisq.png" % (outdir, tag,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_snr_vs_%s_bankchisq_zoom.png" % (outdir,tag, ifo),\
+                 bbox_inches="tight")
+   
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigIfoSNR[ifo],trigIfobankCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injIfoSNR[ifo],injIfobankCS[ifo], 'rx' )
+    ax.set_xlabel( "%s sngl SNR" % ifo )
+    ax.set_ylabel( "%s sngl bank veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_bankchisq.png" % (outdir, tag, ifo,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_bankchisq_zoom.png" % (outdir,tag,ifo,ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigSNR,trigIfoautoCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injSNR,injIfoautoCS[ifo], 'rx' )
+    ax.set_xlabel( "Coherent SNR" )
+    ax.set_ylabel( "%s sngl auto veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_snr_vs_%s_autochisq.png" % (outdir, tag,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,20000] )
+    fig.savefig( "%s/%s_snr_vs_%s_autochisq_zoom.png" % (outdir,tag, ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigIfoSNR[ifo],trigIfoautoCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injIfoSNR[ifo],injIfoautoCS[ifo], 'rx' )
+    ax.set_xlabel( "%s sngl SNR" % ifo )
+    ax.set_ylabel( "%s sngl auto veto" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_autochisq.png" % (outdir, tag, ifo,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,20000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_autochisq_zoom.png" % (outdir,tag,ifo,ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigSNR,trigIfostanCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injSNR,injIfostanCS[ifo], 'rx' )
+    ax.set_xlabel( "Coherent SNR" )
+    ax.set_ylabel( "%s sngl chi squared" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_snr_vs_%s_chisq.png" % (outdir, tag,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_snr_vs_%s_chisq_zoom.png" % (outdir,tag, ifo),\
+                 bbox_inches="tight")
+
+    fig = pylab.figure()
+    ax = fig.gca()
+    ax.loglog( trigIfoSNR[ifo],trigIfostanCS[ifo], 'bx' )
+    ax.grid()
+    if injFile:
+      ax.loglog( injIfoSNR[ifo],injIfostanCS[ifo], 'rx' )
+    ax.set_xlabel( "%s sngl SNR" % ifo )
+    ax.set_ylabel( "%s sngl chi squared" % ifo )
+    ax.set_xlim( [4,1000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_chisq.png" % (outdir, tag, ifo,ifo),\
+                 bbox_inches='tight' )
+    ax.set_xlim( [4,50] )
+    ax.set_ylim( [1,2000] )
+    fig.savefig( "%s/%s_%s_snr_vs_%s_chisq_zoom.png" % (outdir,tag,ifo,ifo),\
+                 bbox_inches="tight")
+
   # plot SNR versus auto veto 
   fig = pylab.figure()
   ax  = fig.gca()
@@ -712,6 +879,13 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   if injFile:
     ax.loglog( injSNR, injAutoVeto, 'rx' )
   plot_contours( ax, snr_vals, auto_conts, colors )
+  # Add shading to vetoed area
+  limy = ax.get_ylim()[1]
+  polyx = copy.deepcopy(snr_vals)
+  polyy = copy.deepcopy(auto_conts[1])
+  polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
+  polyy = pylab.append(polyy,[limy, limy])
+  ax.fill(polyx, polyy, color = '#dddddd')
   ax.set_xlabel( "Coherent SNR" )
   ax.set_ylabel( "Auto Veto" )
   fig.savefig( "%s/%s_auto_veto_vs_snr.png" % ( outdir, tag ),\
@@ -823,6 +997,16 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   except OverflowError:
     print >>sys.stderr, 'WARNING: cos(inclination) versus coherent SNR '+\
                         'failed with zeros in a loglog plot'
+
+  # plot sky grid
+  pylab.rcParams.update({"font.size": 12})
+  plot = dqPlotUtils.SkyPositionsPlot("", "", "coh\_PTF %s Sky Grid" % tag)
+  plot.add_content(trigLongitude, trigLatitude, label="_")
+  centre = (trigLongitude[0], trigLatitude[0])
+  range  = [(0.2,0.2), (0.8,0.8)]
+  plot.finalize(projection='ortho', centre=centre, range=range)
+  plot.savefig("%s/%s_sky_grid.png" % (outdir, tag), bbox_inches='tight',\
+               bbox_extra_artists=plot.ax.texts)
  
   # DONE
 if __name__=='__main__':

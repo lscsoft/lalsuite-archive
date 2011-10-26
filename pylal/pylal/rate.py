@@ -956,7 +956,7 @@ def gaussian_window(bins, sigma = 10):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	l = sigma * int(math.floor(bins / 2.0))
+	l = int(math.floor(sigma * bins / 2.0)) * 2
 	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
 	return w.data / w.sum
 

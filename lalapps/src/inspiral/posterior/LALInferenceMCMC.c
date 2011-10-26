@@ -33,6 +33,7 @@
 #include "LALInferenceMCMCSampler.h"
 #include <lal/LALInferencePrior.h>
 #include <lal/LALInferenceTemplate.h>
+#include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceReadData.h>
 
@@ -125,9 +126,11 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 		irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
 		printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
 	}
-	else
+	else{
 		fprintf(stdout, " initialize(): no data read.\n");
-	
+    irs = NULL;
+    return(irs);
+	}
 	
 	return(irs);
 }
@@ -147,9 +150,17 @@ void initializeMCMC(LALInferenceRunState *runState)
 (--randomseed seed)             Random seed of sampling distribution(random)\n\
 (--tdlike)                      Compute likelihood in the time domain\n";
 	
+  /* Print command line arguments if runState was not allocated */
+	if(runState==NULL)
+	{
+		fprintf(stdout,"%s",help);
+		return;
+	}
+  
+  
 	INT4 verbose=0,tmpi=0;
 	unsigned int randomseed=0;
-	REAL8 tempMax = 40.0;
+	REAL8 tempMax = 10.0;
 	//REAL8 tmp=0;
 	ProcessParamsTable *commandLine=runState->commandLine;
 	ProcessParamsTable *ppt=NULL;
@@ -172,16 +183,12 @@ void initializeMCMC(LALInferenceRunState *runState)
 	/* Set up the appropriate functions for the MCMC algorithm */
 	runState->algorithm=&PTMCMCAlgorithm;
 	runState->evolve=PTMCMCOneStep;
-  //runState->evolve=&VNRPriorOneStep;
-	//runState->evolve=&PTMCMCAdaptationOneStep;
-	runState->proposal=&PTMCMCLALProposal;
-	//runState->proposal=&PTMCMCLALSingleProposal;
-	//runState->proposal=&PTMCMCLALAdaptationProposal;
-	//runState->proposal=PTMCMCGaussianProposal;
+
+	runState->proposal=&LALInferenceDefaultProposal;
 	
 	/* This is the LAL template generator for inspiral signals */
 	
-	ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
 	if(ppt){
 		/*if(strstr(ppt->value,"SpinTaylor")) {
 			runState->template=&templateLALSTPN;
@@ -205,6 +212,7 @@ void initializeMCMC(LALInferenceRunState *runState)
     //}
 		else {
 			runState->template=&LALInferenceTemplateLALGenerateInspiral;
+      //runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
 			fprintf(stdout,"Template function called is \"templateLALGenerateInspiral\"\n");
 		}
 		
@@ -396,16 +404,26 @@ void initVariables(LALInferenceRunState *state)
 (--fixTime)                     Do not allow coalescence time to vary\n\
 (--Dmin dist)                   Minimum distance in Mpc (1)\n\
 (--Dmax dist)                   Maximum distance in Mpc (100)\n\
-(--approx ApproximantorderPN)   Specify a waveform to use, (default TaylorF2twoPN)\n\
+(--approximant Approximant)     Specify a template approximant to use, (default TaylorF2)\n\
+(--order PNorder)               Specify a PN order to use, (default threePointFivePN)\n\
 (--comp-min min)                Minimum component mass (1.0)\n\
 (--comp-max max)                Maximum component mass (30.0)\n\
 (--MTotMax max)                 Maximum total mass (35.0)\n\
-(--covarianceMatrix file)       Find the Cholesky decomposition of the covariance matrix for jumps in file\n";
+(--covarianceMatrix file)       Find the Cholesky decomposition of the covariance matrix for jumps in file\n\
+(--appendOutput fname)          Basename of the file to append outputs to\n";
 
-/* Print command line arguments if help requested */
-if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
-{
-	fprintf(stdout,"%s",help);
+
+  /* Print command line arguments if state was not allocated */
+  if(state==NULL)
+  {
+    fprintf(stdout,"%s",help);
+		return;
+	}
+  
+  /* Print command line arguments if help requested */
+  if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
+  {
+	  fprintf(stdout,"%s",help);
 		return;
 	}
   
@@ -419,7 +437,7 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
 	ProcessParamsTable *commandLine=state->commandLine;
 	ProcessParamsTable *ppt=NULL;
 	INT4 AmpOrder=0;
-	LALPNOrder PhaseOrder=LAL_PNORDER_TWO;
+	LALPNOrder PhaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
 	Approximant approx=TaylorF2;
 	//INT4 numberI4 = TaylorF2;
 	//INT4 numberI4 = TaylorT3;
@@ -493,17 +511,146 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
 	}	
 	
 	/* Over-ride approximant if user specifies */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
 	if(ppt){
-		LALGetOrderFromString(&status,ppt->value,&PhaseOrder);
-		
-		//printf("%d\n",approx);
-		if(strstr(ppt->value,"TaylorF2")) {approx=TaylorF2;}//numberI4 = TaylorF2;}		LALGetApproximantFromString DOES NOT HAVE TaylorF2 !!!!!!
-		else{LALGetApproximantFromString(&status,ppt->value,&approx);}
-    //if(strstr(ppt->value,"TaylorT3")) {approx=TaylorT3;}//numberI4 = TaylorT3;}
-		//if(strstr(ppt->value,"SpinTaylor")) {approx=SpinTaylor;}//numberI4 = SpinTaylor;}
-		fprintf(stdout,"Templates will run using Approximant %i, phase order %i\n",approx,PhaseOrder);
-		//fprintf(stdout,"Templates will run using Approximant %i, phase order %i\n",numberI4,PhaseOrder);
+		if ( ! strcmp( "GeneratePPN", ppt->value ) )
+		{
+			approx = GeneratePPN;
+		}
+		else if ( ! strcmp( "TaylorT1", ppt->value ) )
+		{
+			approx = TaylorT1;
+		}
+		else if ( ! strcmp( "TaylorT2", ppt->value ) )
+		{
+			approx = TaylorT2;
+		}
+		else if ( ! strcmp( "TaylorT3", ppt->value ) )
+		{
+			approx = TaylorT3;
+		}
+		else if ( ! strcmp( "TaylorT4", ppt->value ) )
+		{
+			approx = TaylorT4;
+		}
+		else if ( ! strcmp( "TaylorF1", ppt->value ) )
+		{
+			approx = TaylorF1;
+		}
+		else if ( ! strcmp( "TaylorF2", ppt->value ) )
+		{
+			approx = TaylorF2;
+		}
+		else if ( ! strcmp( "EOB", ppt->value ) )
+		{
+			approx = EOB;
+		}
+		else if ( ! strcmp( "EOBNR", ppt->value ) )
+		{
+			approx = EOBNR;
+		}
+		else if ( ! strcmp( "EOBNRv2", ppt->value ) )
+		{
+			approx = EOBNRv2;
+		}
+		else if ( ! strcmp( "EOBNRv2HM", ppt->value ) )
+		{
+			approx = EOBNRv2HM;
+		}
+		else if ( ! strcmp( "SpinTaylor", ppt->value ) )
+		{
+			approx = SpinTaylor;
+		}
+		else if ( ! strcmp( "SpinTaylorT3", ppt->value ) )
+		{
+			approx = SpinTaylorT3;
+		}
+		else if ( ! strcmp( "SpinQuadTaylor", ppt->value ) )
+		{
+			approx = SpinQuadTaylor;
+		}
+		else if ( ! strcmp( "SpinTaylorFrameless", ppt->value ) )
+		{
+			approx = SpinTaylorFrameless;
+		}    
+		else if ( ! strcmp( "PhenSpinTaylorRD", ppt->value ) )
+		{
+			approx = PhenSpinTaylorRD;
+		}
+		else if ( ! strcmp( "NumRel", ppt->value ) )
+		{
+			approx = NumRel;
+		}
+		else if ( ! strcmp( "IMRPhenomA", ppt->value ) )
+		{
+			approx = IMRPhenomA;
+		}
+		else if ( ! strcmp( "IMRPhenomB", ppt->value ) )
+		{
+			approx = IMRPhenomB;
+		}
+		else
+		{
+			fprintf( stderr, "invalid argument to --approximant\n"
+					"unknown approximant %s specified: "
+					"Approximant must be one of: GeneratePPN, TaylorT1, TaylorT2,\n"
+					"TaylorT3, TaylorT4, TaylorF1, TaylorF2,  EOB, EOBNR, EOBNRv2, \n"
+					"EOBNRv2HM, SpinTaylor, SpinTaylorT3, SpinQuadTaylor, SpinTaylorFrameless,\n"
+					"PhenSpinTaylorRD, NumRel, IMRPhenomA, IMRPhenomB \n", ppt->value);
+			exit( 1 );
+		}
+		fprintf(stdout,"Templates will run using Approximant %s (%u)\n",ppt->value,approx);
+	}
+	
+        /* Over-ride PN order if user specifies */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--order");
+	if(ppt){
+        if ( ! strcmp( "newtonian", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_NEWTONIAN;
+        }
+        else if ( ! strcmp( "oneHalfPN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_HALF;
+        }
+        else if ( ! strcmp( "onePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_ONE;
+        }
+        else if ( ! strcmp( "onePointFivePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_ONE_POINT_FIVE;
+        }
+        else if ( ! strcmp( "twoPN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_TWO;
+        }
+        else if ( ! strcmp( "twoPointFive", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_TWO_POINT_FIVE;
+        }
+        else if ( ! strcmp( "threePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_THREE;
+        }
+        else if ( ! strcmp( "threePointFivePN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_THREE_POINT_FIVE;
+        }
+        else if ( ! strcmp( "pseudoFourPN", ppt->value ) )
+        {
+          PhaseOrder = LAL_PNORDER_PSEUDO_FOUR;
+        }
+        else
+        {
+          fprintf( stderr, "invalid argument to --order:\n"
+              "unknown order specified: "
+              "PN order must be one of: newtonian, oneHalfPN, onePN,\n"
+              "onePointFivePN, twoPN, twoPointFivePN, threePN or\n"
+              "threePointFivePN\n");
+          exit( 1 );
+        }
+	fprintf(stdout,"Templates will be generated at %.1f PN order\n",((float)(PhaseOrder))/2.0);
 	}
 
         /* This flag was added to account for the broken Big Dog
@@ -801,11 +948,11 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
 		LALInferenceAddVariable(currentParams, "declination",     &start_dec,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 		if(MPIrank==0) fprintf(stdout,"declination fixed and set to %f\n",start_dec);
 	}else{
-	    LALInferenceAddVariable(currentParams, "declination",     &start_dec,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+	    LALInferenceAddVariable(currentParams, "declination",     &start_dec,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 	}
 	LALInferenceAddMinMaxPrior(priorArgs, "declination",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
     
-	tmpMin=0.0; tmpMax=LAL_TWOPI;
+	tmpMin=0.0; tmpMax=LAL_PI;
 	//tmpVal=0.2000;
 	//tmpVal=tmpMin+gsl_rng_uniform(GSLrandom)*(tmpMax-tmpMin);
 	//tmpVal=0.64546;
@@ -833,7 +980,7 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
 		LALInferenceAddVariable(currentParams, "inclination",     &start_iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 		if(MPIrank==0) fprintf(stdout,"iota fixed and set to %f\n",start_iota);
 	}else{
- 	    LALInferenceAddVariable(currentParams, "inclination",     &start_iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+ 	    LALInferenceAddVariable(currentParams, "inclination",     &start_iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 	}
 	LALInferenceAddMinMaxPrior(priorArgs, "inclination",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 	
@@ -863,7 +1010,7 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
 				    LALInferenceAddVariable(currentParams, "theta_spin1",     &start_theta_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 					if(MPIrank==0) fprintf(stdout,"theta 1 fixed and set to %f\n",start_theta_spin1);
 				}else{
-				    LALInferenceAddVariable(currentParams, "theta_spin1",     &start_theta_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+				    LALInferenceAddVariable(currentParams, "theta_spin1",     &start_theta_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 				}
 				LALInferenceAddMinMaxPrior(priorArgs, "theta_spin1",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 		
@@ -902,7 +1049,7 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
 				LALInferenceAddVariable(currentParams, "theta_spin2",     &start_theta_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 				if(MPIrank==0) fprintf(stdout,"theta spin 2 fixed and set to %f\n",start_theta_spin2);
 			}else{
-				LALInferenceAddVariable(currentParams, "theta_spin2",     &start_theta_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+				LALInferenceAddVariable(currentParams, "theta_spin2",     &start_theta_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 			}
 			LALInferenceAddMinMaxPrior(priorArgs, "theta_spin2",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 		
@@ -1044,12 +1191,12 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
 
   /* If the currentParams are not in the prior, overwrite and pick paramaters from the priors. OVERWRITE EVEN USER CHOICES. 
   (necessary for complicated prior shapes where LALInferenceCyclicReflectiveBound() is not enought */
-  if(state->prior(state, currentParams)<=-DBL_MAX){
+  while(state->prior(state, currentParams)<=-DBL_MAX){
     fprintf(stderr, "Warning initial parameter randlomy drawn from prior. (in %s, line %d)\n",__FILE__, __LINE__);
     LALInferenceVariables *temp; //
     temp=XLALCalloc(1,sizeof(LALInferenceVariables));
     memset(temp,0,sizeof(LALInferenceVariables));
-    PTMCMCLALInferenceDrawFromPrior(state, temp);
+    LALInferenceDrawApproxPrior(state, temp);
     LALInferenceCopyVariables(temp, currentParams);
   }
         /* Make sure that our initial value is within the
@@ -1080,7 +1227,7 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
             sigmaVec->data[i] = sqrt(gsl_matrix_get(covM, i, i)); /* Single-parameter sigma. */
           }
 
-          LALInferenceAddVariable(state->proposalArgs, SIGMAVECTORNAME, &sigmaVec, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+          LALInferenceAddVariable(state->proposalArgs, LALInferenceSigmaJumpName, &sigmaVec, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
 
           /* Set up eigenvectors and eigenvalues. */
           gsl_matrix *eVectors = gsl_matrix_alloc(N,N);
@@ -1114,49 +1261,15 @@ if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
         /* Differential Evolution? */
         ppt=LALInferenceGetProcParamVal(commandLine, "--differential-evolution");
         if (ppt) {
-          FILE *dePtsFile = fopen(ppt->value, "r");
-          
-          if (!dePtsFile) {
-            fprintf(stderr, "Could not open differential evolution file (%s, line %d).\n",
-                    __FILE__, __LINE__);
-            exit(1);
-          } else {
-            printf("Using differential evolution jumps from file %s\n", ppt->value);
-          }
-          
-          char **headers = LALInferenceGetHeaderLine(dePtsFile);
-          size_t maxDePtsLen = 1;
-          size_t dePtsLen = 1;
-          LALInferenceVariables **dePts = malloc(sizeof(LALInferenceVariables *));
-          
-          while (!feof(dePtsFile)) {
-            dePts[dePtsLen-1] = malloc(sizeof(LALInferenceVariables));
-            dePts[dePtsLen-1]->head = NULL;
-            dePts[dePtsLen-1]->dimension = 0;
-            
-            LALInferenceProcessParamLine(dePtsFile, headers, dePts[dePtsLen-1]);
-            
-            dePtsLen++;
-            if (dePtsLen > maxDePtsLen) {
-              /* Extend. */
-              maxDePtsLen *= 2;
-              dePts = realloc(dePts, maxDePtsLen*sizeof(LALInferenceVariables *));
-            }
-          }
-          
-          dePts = realloc(dePts, dePtsLen*sizeof(LALInferenceVariables *));
-          
-          state->differentialPoints = dePts;
-          state->differentialPointsLength = dePtsLen;
-          
-          fclose(dePtsFile);
-          free(headers); /* Reclaim some (but not all) the memory from
-                            header.  (The individual names must stick
-                            around to be keys in the LALInferenceVariables
-                            structure.) */
+          fprintf(stderr, "Using differential evolution.\nEvery Nskip parameters will be stored for use in the d.e. jump proposal.\n");
+
+          state->differentialPoints = XLALCalloc(1, sizeof(LALInferenceVariables *));
+          state->differentialPointsLength = 0;
+          state->differentialPointsSize = 1;
         } else {
           state->differentialPoints = NULL;
           state->differentialPointsLength = 0;
+          state->differentialPointsSize = 0;
         }
 
         UINT4 N = LALInferenceGetVariableDimensionNonFixed(currentParams);
@@ -1222,7 +1335,7 @@ int main(int argc, char *argv[]){
   MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
   MPI_Comm_size(MPI_COMM_WORLD, &MPIsize);
 
-  if (MPIrank == 0) fprintf(stdout," ========== LALInference_MCMCMPI ==========\n");
+  if (MPIrank == 0) fprintf(stdout," ========== LALInference_MCMC ==========\n");
 
 	LALInferenceRunState *runState;
 	ProcessParamsTable *procParams=NULL;
@@ -1392,13 +1505,18 @@ int main(int argc, char *argv[]){
 	/* And performing any injections specified */
 	/* And allocating memory */
 	runState = initialize(procParams);
-  
+
 	/* Set up structures for MCMC */
 	initializeMCMC(runState);
 
 	/* Set up currentParams with variables to be used */
 	initVariables(runState);
 	}//NOT analyticLogLike
+  if(runState==NULL) {
+    fprintf(stderr, "runState not allocated (%s, line %d).\n",
+            __FILE__, __LINE__);
+    exit(1);
+  }
 	printf(" ==== This is thread %d of %d ====\n", MPIrank, MPIsize);
 	MPI_Barrier(MPI_COMM_WORLD);
 	/* Call MCMC algorithm */
@@ -1408,6 +1526,7 @@ int main(int argc, char *argv[]){
   MPI_Finalize();
   return 0;
 }
+
 
 
 

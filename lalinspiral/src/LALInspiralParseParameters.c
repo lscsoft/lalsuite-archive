@@ -151,6 +151,8 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	    params->approximant = TaylorF1;}
 	  else if (strcmp(argv[i],"TaylorF2")==0){
 	    params->approximant = TaylorF2;}
+	  else if (strcmp(argv[i],"TaylorF2RedSpin")==0){
+	    params->approximant = TaylorF2RedSpin;}
 	  else if (strcmp(argv[i],"PadeT1")==0){
 	    params->approximant = PadeT1;}
 	  else if (strcmp(argv[i],"PadeF1")==0){
@@ -317,11 +319,11 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
       else if (strcmp(argv[i],"--axisChoice")==0)
       {
         if (strcmp(argv[++i],"TotalJ")==0){
-          params->spinInteraction = TotalJ; }
+          params->axisChoice = TotalJ; }
         else if (strcmp(argv[i],"View")==0){
-          params->spinInteraction = View; }
+          params->axisChoice = View; }
         else if (strcmp(argv[i],"OrbitalL")==0){
-          params->spinInteraction = OrbitalL; }
+          params->axisChoice = OrbitalL; }
         else
           fprintf(stderr,"Invalid choice of --axisChoice\n");
       }
@@ -484,7 +486,7 @@ void LALInspiralITStructureHelp()
 
   fprintf(stderr,"InspiralTemplate Structure; parsing arguments\n");
   fprintf(stderr,"--approximant (TaylorT1, TaylorT2, TaylorT3, TaylorT4,\n");
-  fprintf(stderr,"\t\tTaylorF1, TaylorF2, PadeT1, PadeF1, BCV, BCVSpin\n");
+  fprintf(stderr,"\t\tTaylorF1, TaylorF2, TaylorF2RedSpin, PadeT1, PadeF1, BCV, BCVSpin\n");
   fprintf(stderr,"\t\tBCVC, SpinTaylorT3, SpinTaylorFrameless, SpinTaylor,\n");
   fprintf(stderr,"\t\tSpinQuadTaylor, PhenSpinTaylorRD, PhenSpinTaylorRDF,\n");
   fprintf(stderr,"\t\tFindChirpSP, FindChirpPTF, GeneratePPN, AmpCorPPN,\n");
