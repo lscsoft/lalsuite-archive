@@ -144,6 +144,9 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
   parser.add_option( "-Z", "--h1-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
                           " use when calculating the h1 calibration amplitude error.")
+  parser.add_option( "", "--h2-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the h2 calibration amplitude error.")
   parser.add_option( "-y", "--l1-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
                           " use when calculating the l1 calibration amplitude error.")
@@ -865,6 +868,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                                % site.lower()) )
+          gFoundEffSiteDist[site] = list(set(gFoundEffSiteDist[site]))
         gFoundDist.append( inj.distance )
         gFoundMchirp.append( inj.mchirp )
         gFoundMtot.append( inj.mass1 + inj.mass2 )
@@ -879,6 +883,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gIFAREffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                      % site.lower()) )
+          gIFAREffSiteDist[site] = list(set(gIFAREffSiteDist[site]))
         gIFARDist.append( inj.distance )
         gIFARTime.append( float(inj.get_time_geocent()) )
         numTrialsLouder = 0
@@ -895,6 +900,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gMissed2EffSitedist[site].append( getattr(inj,'eff_dist_%s'\
                                                         % site.lower()) )
+          gMissed2EffSitedist[site] = list(set(gMissed2EffSitedist[site]))
         gMissed2Trig.append( trig )
         gMissed2Inj.append( inj )
         gMissed2Mchirp.append( inj.mchirp )
@@ -952,7 +958,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       for site in sites:
         gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
                                                  % site.lower()) )
-
+        gMissedEffDist[site] = list(set(gMissedEffDist[site]))
     # Calculate the amplitude error
     # Begin by calculating the components from each detector
     
@@ -1218,6 +1224,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       d = [ i, inj.distance ]
       for site in sites:
         d.append( getattr(inj, 'eff_dist_%s' % site.lower() ) )
+      d = list(set(d))
       d.extend([ inj.mass1, inj.mass2, inj.mchirp])
       if trig:
         d.extend([trig.mass1, trig.mass2, trig.mchirp])

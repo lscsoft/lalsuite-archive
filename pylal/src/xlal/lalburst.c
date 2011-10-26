@@ -196,6 +196,7 @@ static PyObject *pylal_XLALExcessPowerFilterInnerProduct(PyObject *self, PyObjec
 	pylal_COMPLEX16FrequencySeries *filter1;
 	pylal_COMPLEX16FrequencySeries *filter2;
 	PyArrayObject *correlation;
+	REAL8Sequence corr;
 	pylal_REAL8FrequencySeries *psd = NULL;
 	double result;
 
@@ -204,8 +205,10 @@ static PyObject *pylal_XLALExcessPowerFilterInnerProduct(PyObject *self, PyObjec
 	correlation = PyArray_GETCONTIGUOUS(correlation);
 	if(!correlation)
 		return NULL;
+	corr.length = PyArray_DIM(correlation, 0);
+	corr.data = PyArray_DATA(correlation);
 
-	result = XLALExcessPowerFilterInnerProduct(filter1->series, filter2->series, PyArray_DATA(correlation), psd ? psd->series : NULL);
+	result = XLALExcessPowerFilterInnerProduct(filter1->series, filter2->series, &corr, psd ? psd->series : NULL);
 	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
 		Py_DECREF(correlation);
 		pylal_set_exception_from_xlalerrno();
@@ -227,7 +230,8 @@ static PyObject *pylal_XLALCreateExcessPowerFilter(PyObject *self, PyObject *arg
 	double flow;
 	double width;
 	pylal_REAL8FrequencySeries *psd = NULL;
-	PyArrayObject *correlation;
+	PyArrayObject *correlation = NULL;
+	REAL8Sequence corr;
 	COMPLEX16FrequencySeries *filter;
 
 	if(!PyArg_ParseTuple(args, "ddO!O!", &flow, &width, &pylal_REAL8FrequencySeries_Type, &psd, &PyArray_Type, &correlation))
@@ -235,15 +239,16 @@ static PyObject *pylal_XLALCreateExcessPowerFilter(PyObject *self, PyObject *arg
 	correlation = PyArray_GETCONTIGUOUS(correlation);
 	if(!correlation)
 		return NULL;
+	corr.length = PyArray_DIM(correlation, 0);
+	corr.data = PyArray_DATA(correlation);
 
-	filter = XLALCreateExcessPowerFilter(flow, width, psd->series, PyArray_DATA(correlation));
+	filter = XLALCreateExcessPowerFilter(flow, width, psd->series, &corr);
+	Py_DECREF(correlation);
 	if(!filter) {
-		Py_DECREF(correlation);
 		pylal_set_exception_from_xlalerrno();
 		return NULL;
 	}
 
-	Py_DECREF(correlation);
 	return pylal_COMPLEX16FrequencySeries_new(filter, NULL);
 }
 

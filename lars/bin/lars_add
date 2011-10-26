@@ -122,7 +122,7 @@ def concat(xss):
     return rv
 
 
-from glue.lars import Cache, CacheEntry
+from ligo.lars import Cache, CacheEntry
 
 if not searchIfos or not searchSegment:
     searchCache = Cache.getSearch(searchUrl)
