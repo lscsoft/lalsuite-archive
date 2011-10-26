@@ -668,7 +668,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 	{
 	double m = mass1 + mass2;
 	double eta = mass1 * mass2 / m / m;
-	double mu = mass1 * mass2 / m;
+	double mchirp = m * pow(eta, 3.0 / 5.0);
 
 	double x1 = pow (LAL_PI * m * LAL_MTSUN_SI * deltaF, -1.0 / 3.0);
 	double psi = 0.0;
@@ -678,9 +678,9 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 	int kmax = fFinal / deltaF < numPoints / 2 ? fFinal / deltaF : numPoints / 2;
 
 	const double cannonDist = 1.0; /* Mpc */
-	double distNorm = 2.0 * LAL_MRSUN_SI / (cannonDist * 1.0e6 * LAL_PC_SI);
-	/* from FINDCHIRP paper */
-	double tNorm = sqrt(5.0 * LAL_PI / 24.0) * pow(LAL_PI, -1./6.) * sqrt(mu) * pow(m, 1.0 / 3.0);
+	double distNorm = LAL_MRSUN_SI / (cannonDist * 1.0e6 * LAL_PC_SI);
+	/* from FINDCHIRP paper arXiv:gr-qc/0509116v2 */
+	double tNorm = sqrt(5.0 / 24.0 / LAL_PI) * pow(LAL_PI * LAL_MTSUN_SI, -1.0 / 6.0) * pow(mchirp, 5.0 / 6.0);
 
 	/* pn constants */
 	double c0, c10, c15, c20, c25, c25Log, c30, c30Log, c35, c40P;
