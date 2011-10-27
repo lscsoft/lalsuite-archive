@@ -16,6 +16,7 @@ lalinferenceinclude_HEADERS = \
 	LALInferenceTemplate.h \
 	LALInferenceProposal.h \
 	LALInferenceVCSInfo.h \
+	priors.h \
 	$(XMLHDR)
 
 lib_LTLIBRARIES = liblalinference.la
@@ -28,6 +29,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
 	LALInferenceVCSInfo.c \
+	priors.c \
 	$(XMLSRC)
 
 liblalinference_la_LDFLAGS = -version-info $(LIBVERSION)

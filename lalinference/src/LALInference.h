@@ -275,6 +275,8 @@ typedef void (LALInferenceProposalFunction) (struct tagLALInferenceRunState *run
 typedef REAL8 (LALInferencePriorFunction) (struct tagLALInferenceRunState *runState,
 	LALInferenceVariables *params);
 
+typedef int (LALCubeToPriorFunction) (struct tagLALInferenceRunState *runState, LALVariables *params, double *cube);
+
 //Likelihood calculator 
 //Should take care to perform expensive evaluation of h+ and hx 
 //only once if possible, unless necessary because different IFOs 
@@ -308,6 +310,7 @@ tagLALInferenceRunState
   LALInferenceAlgorithm              *algorithm; /** The algorithm function */
   LALInferenceEvolveOneStepFunction  *evolve; /** The algorithm's single iteration function */
   LALInferencePriorFunction          *prior; /** The prior for the parameters */
+  LALCubeToPriorFunction    	     *CubeToPrior; /** MultiNest prior for the parameters */
   LALInferenceLikelihoodFunction     *likelihood; /** The likelihood function */
   LALInferenceProposalFunction       *proposal; /** The proposal function */
   LALInferenceTemplateFunction       *template; /** The template generation function */

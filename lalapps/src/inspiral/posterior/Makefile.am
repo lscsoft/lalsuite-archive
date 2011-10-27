@@ -26,7 +26,8 @@ if LALPULSAR
 if LALINFERENCE
 pulsar_progs = lalinference_nest ChiSquare_test #lalinference_mcmcmpi
 ChiSquare_test_SOURCES = ChiSquare_test.c
-lalinference_nest_SOURCES = LALInferenceNest.c
+#lalinference_nest_SOURCES = LALInferenceNest.c
+lalinference_nest_SOURCES = LALInferenceMultiNest.c
 
 endif
 
