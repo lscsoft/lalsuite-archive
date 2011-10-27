@@ -16,7 +16,8 @@ double *, double *, double *), int context)
 	int i;
 	for (i = strlen(root); i < 100; i++) root[i] = ' ';
 
-        __nested__nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
+        __nested_MOD_nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, 
+&nPar, &nClsPar, &maxModes, &updInt, &Ztol,
         root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, LogLike, dumper, &context);
 }
 

@@ -275,7 +275,8 @@ typedef void (LALInferenceProposalFunction) (struct tagLALInferenceRunState *run
 typedef REAL8 (LALInferencePriorFunction) (struct tagLALInferenceRunState *runState,
 	LALInferenceVariables *params);
 
-typedef int (LALCubeToPriorFunction) (struct tagLALInferenceRunState *runState, LALVariables *params, double *cube);
+typedef int (LALCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
+	LALInferenceVariables *params, double *cube);
 
 //Likelihood calculator 
 //Should take care to perform expensive evaluation of h+ and hx 

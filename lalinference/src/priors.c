@@ -5,7 +5,7 @@ double skillingScalePrior(double r)
 	return ( ( 1.0 - r ) / r );
 }
 
-double logPrior(double r, double x1, double x2)
+double logFlatPrior(double r, double x1, double x2)
 {
 	double lx1, lx2;
 	lx1 = log( x1 );
@@ -54,10 +54,10 @@ double sinPrior(double r, double x1, double x2)
 
 
 /* Uniform[0:1]  ->  Cauchy[mean=x0,FWHM=2*gamma] */
-double cauchyPrior(double r, double x0, double gamma)
+double cauchyPrior(double r, double x0, double gama)
 {
 	double Pi = 4.0 * atan( 1.0 );
-	return x0 + gamma * tan( Pi * ( r - 0.5 ) );
+	return x0 + gama * tan( Pi * ( r - 0.5 ) );
 }
 		
 

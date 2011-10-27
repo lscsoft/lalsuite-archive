@@ -99,7 +99,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	UINT4 verbose=0;
 	
 	logZnoise=LALInferenceNullLogLikelihood(runState->data);
-	LALInferenceAddVariable(runState->algorithmParams,"logZnoise",&logZnoise,REAL8_t,PARAM_FIXED);
+	LALInferenceAddVariable(runState->algorithmParams,"logZnoise",&logZnoise,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	//logLikelihoods=(REAL8 *)(*(REAL8Vector **)LALInferenceGetVariable(runState->algorithmParams,"logLikelihoods"))->data;
 
 	verbose=LALInferenceCheckVariable(runState->algorithmParams,"verbose");
@@ -110,16 +110,16 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 		fprintf(stderr,"Must specify --outfile <filename.dat>\n");
 		exit(1);
 	}
-	char *outfile=ppt->value;
+	char *outfilestr=ppt->value;
 	
 	runStateGlobal = runState;
 	
 	// find out the dimensionality of the problem
 	int ND = 0;
-	LALVariableItem *item=runState->currentParams->head;
+	LALInferenceVariableItem *item=runState->currentParams->head;
 	for(;item;item=item->next)
 	{
-		if(item->vary==PARAM_LINEAR || item->vary==PARAM_CIRCULAR) ND++;
+		if(item->vary==LALINFERENCE_PARAM_LINEAR || item->vary==LALINFERENCE_PARAM_CIRCULAR) ND++;
 	}
 	
 	
@@ -139,17 +139,17 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	int k = -1;
 	for(;item;item=item->next)
 	{
-		if(item->vary==PARAM_LINEAR || item->vary==PARAM_CIRCULAR)
+		if(item->vary==LALINFERENCE_PARAM_LINEAR || item->vary==LALINFERENCE_PARAM_CIRCULAR)
 		{
 			k++;
-			if(item->vary==PARAM_CIRCULAR)
+			if(item->vary==LALINFERENCE_PARAM_CIRCULAR)
 				pWrap[k] = 1;
 			else
 				pWrap[k] = 0;
 		}
 	}
 	char root[100];
-	for( int k = 0; k < 100; k++ ) root[k] = outfile[k];
+	for( int j = 0; j < 100; j++ ) root[k] = outfilestr[k];
 	int rseed = -1;
 	int fb = verbose;
 	int resume = 1;
@@ -350,7 +350,7 @@ void initializeMN(LALInferenceRunState *runState)
 	char help[]="\
 MultiNest arguments:\n\
  --Nlive N\tNumber of live points to use\n\
-(--verbose)\tProduce progress information\n\";
+(--verbose)\tProduce progress information\n";
 
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
@@ -363,7 +363,6 @@ MultiNest arguments:\n\
 	}
 
 	INT4 verbose=0,tmpi=0;
-	REAL8 tmp=0;
 	
 	/* Initialise parameters structure */
 	runState->algorithmParams=XLALCalloc(1,sizeof(LALInferenceVariables));

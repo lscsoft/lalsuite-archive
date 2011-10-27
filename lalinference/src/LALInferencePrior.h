@@ -41,7 +41,7 @@
 REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVariables *variables);
 
 /* Convert the hypercube parameter to physical parameters, for the non-spinning inspiral signal case */
-int LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALVariables *params, double *Cube);
+int LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
 
 /** Apply cyclic and reflective boundaries to \c parameter to bring it
  *  back within the allowed prior ranges that are specified in \c
@@ -75,7 +75,7 @@ void LALInferenceRotateInitialPhase( LALInferenceVariables *parameter );
 REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /* Convert the hypercube parameter to physical parameters, for the non-spinning inspiral signal case */
-int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALVariables *params, double *Cube);
+int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
 
 /** Return the logarithmic prior density of the variables specified, 
  *  for the non-spinning/spinning inspiral signal case.
