@@ -203,7 +203,7 @@ class DocContents(object):
 		del index
 		# sort each event list by end/start time and convert to tuples
 		# for speed
-		
+
 		for coinc_event_id, events in self.coincs.iteritems():
 			events.sort(key=get_sngl_time)
 			self.coincs[coinc_event_id]=tuple(events)
@@ -229,10 +229,10 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
- 		# FIXME I'll just make the windows one second
+ 		# FIXME I'll just make the windows 15 ms
 
-                self.search_time_window = 1.0
-                self.coinc_time_window = 1.0
+                self.search_time_window = .015
+                self.coinc_time_window = .015
 
 
 	def type_near_time(self, t):
