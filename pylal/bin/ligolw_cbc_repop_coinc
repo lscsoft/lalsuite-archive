@@ -245,16 +245,18 @@ class CombiningFunctions:
 
     def compute_chopped_l_snr( self, coinc_sngls ):
         """
-        Computes a combined snr for triple coincs and uses chopped-L test to compute snr for double coincs.
+        Computes a combined snr for triple/quadruple coincs and uses chopped-L test to compute snr for double coincs.
         
         @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
-        if len( coinc_sngls ) == 3:
+        if len( coinc_sngls ) == 4:
+            return self.compute_combined_snr( coinc_sngls )
+        elif len( coinc_sngls ) == 3:
             return self.compute_combined_snr( coinc_sngls )
         elif len( coinc_sngls ) == 2:
             return min( sum( sngl.snr for sngl in coinc_sngls ), min(self.chopla * sngl.snr + self.choplb for sngl in coinc_sngls) )
         else:
-            raise ValueError, "The compute_chopped_l_snr statistic can only be computed for doubles and triples."
+            raise ValueError, "The compute_chopped_l_snr statistic can only be computed for doubles, triples, and quadruples."
 
     def compute_combined_snrchi( self, coinc_sngls ):
         """
@@ -351,9 +353,9 @@ class CombiningFunctions:
 
     def compute_eff_dist_ratio( self, coinc_sngls ):
         """
-        Computes effective distance ratio (H2/H1) for coincidences that contain both a H1 trigger and
+        Computes effective distance ratio (H1/H2) for coincidences that contain both a H1 trigger and
         a H2 trigger.
-        Otherwise, set the value to 1.0.
+        Otherwise, set the value to 2.0.
         """
         h1_eff_dist = None
         h2_eff_dist = None
@@ -363,9 +365,9 @@ class CombiningFunctions:
             if sngl.ifo == 'H2':
                 h2_eff_dist = sngl.eff_dist
         if h1_eff_dist and h2_eff_dist:
-            return (h2_eff_dist / h1_eff_dist)
+            return (h1_eff_dist / h2_eff_dist)
         else:
-            return 1.0
+            return 2.0
 
 # =============================================================================
 #
