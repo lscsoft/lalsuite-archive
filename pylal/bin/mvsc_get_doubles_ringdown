@@ -38,9 +38,8 @@ sqlite3.enable_callback_tracebacks(True)
 parser=OptionParser(usage=usage,version=git_version.verbose_msg)
 parser.add_option("", "--number", default=10, type="int", help="number for round robin")
 parser.add_option("", "--instruments", help="pair that you want to get like H1,L1")
-parser.add_option("", "--factor", default=50.0, type="float", help="the value of the magic number factor in the effective snr formula, should be 50 for highmass and 250 for lowmass")
-parser.add_option("", "--output-tag", default="", help="a string added to all filenames to help you keep track of things")
 parser.add_option("", "--apply-weights", default=False, help="calculates weight for all found injections, saves in .pat file (all bkg events get weight=1), if this option is not supplied, all events get a weight of 1, so still use -a 4 in the Spr* executables")
+parser.add_option("", "--output-tag", default="", help="a string added to all filenames to help you keep track of things")
 (opts,databases)=parser.parse_args()
 ifos=opts.instruments.strip().split(',')
 ifos.sort()
@@ -51,7 +50,7 @@ time1=time()
 class SnglRingdown(snglringdowntable.SnglRingdownTable):
 	"""
 	You need to make this subclass of xlaltools.SnglRingdownTable because the C version doesn't have the methods
-	you need to slide the triggers on the ring, which you need to do for a correct calculation of ethinca
+	you need to slide the triggers on the ring, which you need to do for a correct calculation of ds_sq
 	"""
 	__slots__ = ()
 
@@ -63,7 +62,7 @@ class SnglRingdown(snglringdowntable.SnglRingdownTable):
 
 dbtables.lsctables.SnglRingdownTable.RowType = SnglRingdown
 
-parameters = mvsc_queries.CandidateEventQuery.parameters
+parameters = mvsc_queries_ringdown.CandidateEventQuery.parameters
 print "your MVSC analysis will use the following dimensions: "+parameters
 
 injections = {}
@@ -85,18 +84,6 @@ for database in databases:
 	rings = db_rinca_rings.get_rinca_rings_by_available_instruments(connection)
 	offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
 	sngl_ringdown_row_from_cols = table.get_table(xmldoc, dbtables.lsctables.SnglRingdownTable.tableName).row_from_cols
-	def calc_effective_snr(snr, chisq, chisq_dof, fac=opts.factor):
-		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
-
-	def calc_ethinca(rowA,rowB,time_slide_id,rings=rings,offset_vectors=offset_vectors):
-		flatrings = segments.segmentlist()
-		for value in rings.values():
-			flatrings.extend(value)
-		rowA = sngl_inspiral_row_from_cols(rowA)
-		SnglInspiralUtils.slideTriggersOnRings([rowA],flatrings,offset_vectors[time_slide_id])
-		rowB = sngl_inspiral_row_from_cols(rowB)
-		SnglInspiralUtils.slideTriggersOnRings([rowB],flatrings,offset_vectors[time_slide_id])
-		return xlaltools.XLALCalculateEThincaParameter(rowA,rowB)
 
 	def calc_ds_sq(rowA,rowB,time_slide_id,rings=rings,offset_vectors=offset_vectors):
 		flatrings = segments.segmentlist()
@@ -136,9 +123,7 @@ for database in databases:
 			print >> sys.stderr, "SO...delta t has been set to: ", out, "in accordance with the mod 1 hack"
 			return out
 	connection.create_function("calc_delta_t", 7, calc_delta_t)
-	connection.create_function("calc_ethinca", 5, calc_ethinca)
 	connection.create_function("calc_ds_dq", 5, calc_ds_sq)
-	connection.create_function("calc_effective_snr", 3, calc_effective_snr)
 # in S6, the timeslides, zerolag, and injections are all stored in the same sqlite database, thus this database must include a sim inspiral table
 # if you provide a database that does not include injections, the code will still run as long as one of the databases you provide includes injections
 	try:
@@ -162,14 +147,14 @@ for database in databases:
 				normalization[injset]=0
 				injections[injset]=[]
 				injections_info[injset]=[]
-				for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],injset,) ):
+				for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],injset,) ):
 						normalization[injset]=normalization[injset]+values[-1]
 						injections[injset].append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
 						injections_info[injset].append([values[0], database])
 
 	#FIXME: look up coinc_definer_id from definition in pylal
 # get the timeslide/full_data triggers
-	for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_join_fulldata]), tuple(ifos) ):
+	for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_fulldata]), tuple(ifos) ):
 		if values[-1] == 'slide':
 			timeslides.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			timeslides_info.append([values[0], database])
@@ -207,7 +192,7 @@ random.seed(2)
 random.shuffle(timeslides_info)
 
 # this part of the code writes the triggers' information into .pat files, in the format needed for SprBaggerDecisionTreeApp
-# to get the MVSC rank for each timeslide and injection, we do a round-robin of training and testing, with the number of rounds determined by opts.number
+# to get the MVSC rank for each timeslide and injection, we do a round-robin of training and evaluation, with the number of rounds determined by opts.number
 # for example,  if opts.number is 10, each round will train a random forest of bagged decision trees on 90% of the timeslides and injections
 # then we'd run the remaining 10% through the trained forest to get their MVSC rank
 # in this case, we'd do this 10 times, ensuring that every timeslide and injection gets ranked
@@ -216,7 +201,7 @@ Ninj = len(allinjections)
 Nslide = len(timeslides)
 
 trstr = 'training'
-testr = 'evaluation'
+evstr = 'evaluation'
 zlstr = 'zerolag'
 
 print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " and triple coincidences"
@@ -234,8 +219,8 @@ if len(allinjections) != 0:
 
 	for i in range(Nrounds):
 		f_training = open_file_write_headers(trstr, i, ifos)
-		f_testing = open_file_write_headers(testr, i, ifos)
-		f_testing_info=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_' + str(testr) + '_info.pat', 'w')
+		f_eval = open_file_write_headers(evstr, i, ifos)
+		f_eval_info=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_' + str(evstr) + '_info.pat', 'w')
 		set_inj = list(allinjections)
 		set_inj_info = list(allinjections_info)
 		set_slide = list(timeslides)
@@ -246,13 +231,13 @@ if len(allinjections) != 0:
 		set_i_slide = set_slide[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
 		set_i_slide_info = set_slide_info[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
 		for row in set_i_inj:
-			f_testing.write("%s\n" % " ".join(map(str,row)))
+			f_eval.write("%s\n" % " ".join(map(str,row)))
 		for row in set_i_inj_info:
-			f_testing_info.write("%s\n" % " ".join(map(str,row)))
+			f_eval_info.write("%s\n" % " ".join(map(str,row)))
 		for row in set_i_slide:
-			f_testing.write("%s\n" % " ".join(map(str,row)))
+			f_eval.write("%s\n" % " ".join(map(str,row)))
 		for row in set_i_slide_info:
-			f_testing_info.write("%s\n" % " ".join(map(str,row)))
+			f_eval_info.write("%s\n" % " ".join(map(str,row)))
 		# delete the 10%, and save the remaining 90% into the training file
 		del(set_inj[i*Ninj/Nrounds : (i+1)*Ninj/Nrounds])
 		del(set_slide[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds])
@@ -265,7 +250,7 @@ if len(allinjections) != 0:
 	f_zerolag.write(parameters + "\n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
-	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')
+	f_zerolag_info=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(zlstr) + '_info.pat', 'w')
 	for row in zerolag_info:
 		f_zerolag_info.write("%s\n" % " ".join(map(str,row)))
 else: print "There were no injections found for the specified ifo combination %s" % ifos
