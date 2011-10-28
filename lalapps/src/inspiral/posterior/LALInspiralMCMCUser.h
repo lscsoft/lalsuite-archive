@@ -145,7 +145,7 @@ REAL8  MCMCLikelihoodMultiCoherentF_test(LALMCMCInput *inputMCMC,LALMCMCParamete
 
 void TaylorT_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 
-void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
+void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC,REAL4Vector *model) ;
 
 void PhenSpinTaylorRD_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 
@@ -158,5 +158,16 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
 void IMRPhenomB_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
 
 void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) ;
-#endif /* _LALINSPIRALMCMCUSER_H */
+
+REAL8 NestPriorF2(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+
+
 long int factorial(long int x);
+
+REAL8 AmplitudeComplexNumber(REAL8 real_part,REAL8 imag_part);
+REAL8 PhaseComplexNumber(REAL8 real_part,REAL8 imag_part);
+
+#endif /* _LALINSPIRALMCMCUSER_H */
+
+
+     
