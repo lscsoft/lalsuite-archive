@@ -196,6 +196,9 @@ LALInspiralWave(
            CHECKSTATUSPTR(status);
 	   break;
       case TaylorF2:
+      LALInspiralStationaryPhaseApprox2(status->statusPtr, signalvec, params);
+           CHECKSTATUSPTR(status);
+	   break;
       case FindChirpSP:
            LALInspiralStationaryPhaseApprox2(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
