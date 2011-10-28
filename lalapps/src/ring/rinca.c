@@ -904,7 +904,7 @@ if ( vrbflg)
     else
     {
        fprintf( stdout, 
-           "Finding all double/triple coincidences in %d IFO time.\n",
+           "Finding all double/triple/quadruple coincidences in %d IFO time.\n",
            numIFO);
     }
   }
@@ -918,6 +918,11 @@ if ( vrbflg)
   {
     snprintf( ifos, LIGOMETA_IFOS_MAX, "%s%s%s", ifoName[0], ifoName[1], 
         ifoName[2] );
+  }
+  else if ( numIFO == 4 )
+  {
+    snprintf( ifos, LIGOMETA_IFOS_MAX, "%s%s%s%s", ifoName[0], ifoName[1], 
+        ifoName[2],ifoName[3] );
   }
 
   /* if numSlides is set, check that the slide times are different for
