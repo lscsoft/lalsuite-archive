@@ -1483,7 +1483,10 @@ class SnglRingdownTable(table.Table):
 		"num_clust_trigs": "int_4s",
 		"ds2_H1H2": "real_4",
 		"ds2_H1L1": "real_4",
+		"ds2_H1V1": "real_4",
 		"ds2_H2L1": "real_4",
+		"ds2_H2V1": "real_4",
+		"ds2_L1V1": "real_4",
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"eff_dist": "real_4",
@@ -1544,6 +1547,7 @@ class CoincRingdownTable(table.Table):
 		"null_stat": "real_8",
 		"kappa": "real_8",
 		"false_alarm_rate": "real_8",
+		"combined_far": "real_8",
 		"combined_far": "real_8"
 	}
 	# constraints = "PRIMARY KEY (coinc_event_id)"
