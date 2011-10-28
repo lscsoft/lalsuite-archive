@@ -135,6 +135,8 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'injected_mchirp',
             'injected_mass1',
             'injected_mass2']
+	if with_sngl:
+	    row_span_columns.extend( [col for col in summTable.columnnames if col.startswith('recovered_')] )
     elif tableName == "close_missed_injections:table":
         columnList = [
             'rank',
@@ -971,3 +973,93 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     connection.cursor().execute("DROP TABLE sim_rec_map")
    
     return cmtable
+
+def get_sngl_info(connection, summary_table, sngl_table, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
+
+    from pylal import ligolw_sqlutils as sqlutils
+
+    if verbose:
+        print >> sys.stderr, "Getting Sngl table info..."
+
+    # index the summary table
+    lcindex = dict([ [row.coinc_event_id, row] for row in summary_table ])
+
+    # get sngl table columns
+    sngl_table_cols = sqlutils.get_column_names_from_table( connection, sngl_table )
+
+    # create an object to store the info
+    import copy
+    class MergedTable(table.Table):
+        tableName = summary_table.tableName
+        validcolumns = copy.deepcopy(summary_table.validcolumns)
+        for sngl_col in sngl_table_cols:
+            validcolumns['sngl_'+sngl_col] = sqlutils.get_col_type(sngl_table, sngl_col)
+        validcolumns['sngl_event_time_utc__Px_click_for_daily_ihope_xP_'] = 'lstring'
+        validcolumns['sngl_ifo__Px_click_for_elog_xP_'] = 'lstring'
+
+    class Merged(object):
+        __slots__ = MergedTable.validcolumns.keys()
+
+        def get_sngl_gps_time(self):
+            if 'sngl_start_time' in self.__slots__:
+                return self.sngl_start_time
+            elif 'sngl_end_time' in self.__slots__:
+                return self.sngl_end_time
+            else:
+                raise AttributeError, "could not find a sngl_start_time or sngl_end_time"
+
+        def get_pyvalue(self):
+            return printutils.generic_get_pyvalue()
+
+    # connect the row to the table
+    MergedTable.RowType = Merged
+
+    #
+    # create a document
+    #
+    mtable = lsctables.New(MergedTable)
+
+    sqlquery = "CREATE TEMP TABLE select_ceids (coinc_event_id)"
+    connection.cursor().execute(sqlquery)
+    sqlquery = "INSERT INTO select_ceids (coinc_event_id) VALUES (?)"
+    connection.cursor().executemany(sqlquery, [(row.coinc_event_id,) for row in summary_table])
+
+    sqlquery = ''.join(["""
+        SELECT
+            select_ceids.coinc_event_id,
+            """, sngl_table, """.*
+        FROM
+            """, sngl_table, '''
+        JOIN
+            select_ceids, coinc_event_map
+        ON
+            select_ceids.coinc_event_id == coinc_event_map.coinc_event_id AND
+            coinc_event_map.table_name == "''', sngl_table, """" AND
+            coinc_event_map.event_id == """, sngl_table, """.event_id
+        """])
+    if verbose:
+        print >> sys.stderr, "SQLite Query Used is:"
+        print >> sys.stderr, sqlquery
+    for data in connection.cursor().execute(sqlquery).fetchall():
+        mrow = Merged()
+        data = list(data)
+        mrow.coinc_event_id = data.pop(0)
+        # set sngl info
+        for sngl_col, value in zip(sngl_table_cols, data):
+            setattr(mrow, 'sngl_'+sngl_col, value)
+        # set coinc info
+        [setattr(mrow, col, getattr(lcindex[mrow.coinc_event_id], col))
+            for col in lcindex[mrow.coinc_event_id].__slots__ if col != 'coinc_event_id']
+        # set sngl end time utc
+        gps_time_utc = format_end_time_in_utc( mrow.get_sngl_gps_time() )
+        daily_ihope_address = get_daily_ihope_page(mrow.get_sngl_gps_time(), pages_location = daily_ihope_pages_location)
+        mrow.sngl_event_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, gps_time_utc )
+        # set elog page
+        mrow.sngl_ifo__Px_click_for_elog_xP_ = create_hyperlink( get_elog_page(mrow.sngl_ifo, mrow.get_sngl_gps_time()), mrow.sngl_ifo )
+        # add the row
+        mtable.append(mrow)
+
+    # delete the select_ceids table
+    connection.cursor().execute('DROP TABLE select_ceids')
+
+    return mtable
