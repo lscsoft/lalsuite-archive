@@ -163,6 +163,11 @@ def parse_command_line():
             "Required. Table to look in for injection parameters. " +
             "Can be any lsctable with a simulation_id."
             )
+    parser.add_option( "", "--sngl-table", action = "store", type = "string", default = None,
+        help =
+            "Required. Set to table containing single event information." +
+            "Ex. sngl_inspiral, sngl_ringdown."
+            )
     parser.add_option( "-r", "--recovery-table", action = "store", type = "string", default = None,
         help =
             "Required. Table to look in for recovered injections. " +
@@ -230,6 +235,11 @@ def parse_command_line():
             "Web address of the daily ihope pages. " +
             "Default is https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"
             )
+    parser.add_option("", "--get-sngl-info", action = "store_true", default = False,
+        help =
+            "Retrieve single event information along with coincident info. All sngl columns " +
+            "will be prefixed with 'sngl_'. A single gps_time_utc column will also be included. "
+            )
 
     (options, args) = parser.parse_args()
 
@@ -286,6 +296,7 @@ if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
+sngl_table = sqlutils.validate_option( opts.sngl_table )
 if opts.time_table is None:
     time_table = sqlutils.validate_option( opts.recovery_table )
 else:
@@ -300,6 +311,9 @@ sftable = printutils.printsims(connection, opts.simulation_table, opts.recovery_
     exclude_coincs = opts.exclude_coincs, include_only_coincs = opts.include_only_coincs,
     sim_tag = opts.sim_tag, rank_range = opts.rank_range, convert_durations = opts.convert_durations,
     daily_ihope_pages_location = opts.daily_ihope_pages_location, verbose = opts.verbose)
+
+if opts.get_sngl_info:
+    sftable = printutils.get_sngl_info(connection, sftable, opts.sngl_table, opts.daily_ihope_pages_location, verbose = opts.verbose)
 
 #
 # create a document
@@ -323,7 +337,7 @@ if opts.verbose and not opts.output:
 if opts.output_format != "xml":
     # set table list
     tableList = ['selected_found_injections']
-    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0])
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0], with_sngl = opts.get_sngl_info)
     if opts.columns is not None:
         # if rank or duration desired, get the right name before overwriting columnList
         if 'rank' in opts.columns or 'duration' in opts.columns:
