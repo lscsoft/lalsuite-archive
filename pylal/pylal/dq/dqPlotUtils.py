@@ -20,8 +20,6 @@ import matplotlib
 matplotlib.use('Agg')
 import pylab
 
-from pylal.dq import dqDataUtils,dqSegmentUtils
-
 from glue import git_version
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
@@ -32,35 +30,12 @@ __date__    = git_version.date
 This module provides plotting routines for use in data quality investigations. All routines are written to work in as general a way as possible with ligolw tables and lsctables compatible columns. 
 """
 
-# compile xml.gz search
-xml = re.compile('(xml$|xml.gz$)')
-
-# =============================================================================
-# Execute shell command and get output
-# =============================================================================
-
-def make_external_call(cmd,shell=False):
-
-  """
-    Execute shell command and capture standard output and errors. Does not
-    support complex commands with pipes, e.g. `echo ${VAR} | grep insp` will
-    fail. Returns tuple "(stdout,stderr)".
-  """
-
-  args = shlex.split(str(cmd))
-  p = subprocess.Popen(args,shell=shell,\
-                       stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  p_out, p_err = p.communicate()
-  if p.returncode != 0:
-    raise ValueError, "Command %s failed. Stderr Output: \n%s" %( cmd, p_err)
-
-  return p_out, p_err
-
 # =============================================================================
 # Function to plot before/after cumulative SNR histograms
 # =============================================================================
+
 def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
-                      flag='unknown segments',etg=None,\
+                      flag='unknowns',etg='Unknown',\
                       livetime=None,fill=False,logx=True):
 
   """
@@ -94,12 +69,6 @@ def plot_trigger_hist(triggers,outfile,column='snr',segments=None,\
       logx : [ True | False ]
         boolean option to display column (x) axis in log scale.
   """
-
-  # set up outfile
-  outfile = os.path.abspath(outfile)
-  outdir = os.path.split(outfile)[0]
-  if not os.path.isdir(outdir):
-    os.makedirs(outdir)
 
   # calculate livetime
   if not livetime:
@@ -237,7 +206,6 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
                   start=None,end=None,\
                   segments=None,flag='unknown',\
                   xcolumn='time',ycolumn='snr',zcolumn=None,\
-                  xthreshold=None,ythreshold=None,\
                   logx=False,logy=True,logz=True):
 
   """
@@ -280,12 +248,6 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
       zcolumn : string
         valid column of triggers table to use for colorbar. If not given, no
         colorbar will be used and all triggers will be blue.
-      xthreshold : float
-        lower threshold on values in xcolumn
-      xythreshold : float
-        lower threshold on values in zcolumn
-      ythreshold : float
-        lower threshold on values in zcolumn
       logx : [ True | False ]
         boolean option to display x-axis in log scale.
       logy : [ True | False ]
@@ -293,12 +255,6 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
       logz : [ True | False ]
         boolean option to display z-axis (colorbar) in log scale.
   """
-
-  # set up outfile
-  outfile = os.path.abspath(outfile)
-  outdir = os.path.split(outfile)[0]
-  if not os.path.isdir(outdir):
-    os.makedirs(outdir)
 
   # calculate livetime
   if not start or end:
@@ -381,14 +337,6 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
       err = 'Column %s not found in %s.' % (col,triggers.tableName)
       raise KeyError, err
 
-  # apply thresholds
-  if xthreshold and xcolumn!='time':
-    notvetoed[xcolumn] = [x for x in notvetoed[ycolumn] if x>xthreshold]
-    vetoed[xcolumn]    = [x for x in notvetoed[ycolumn] if x>xthreshold]
-  if ythreshold and ycolumn!='time':
-    notvetoed[ycolumn] = [y for y in notvetoed[ycolumn] if y>ythreshold]
-    vetoed[ycolumn]    = [y for y in notvetoed[ycolumn] if y>ythreshold]
-
   # get z column
   if zcolumn:
     notvetoed[zcolumn] = list(triggers_not.getColumnByName(zcolumn))
@@ -457,7 +405,8 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
     cb.ax.set_ylabel(zcolumn.replace('_','\_').title())
 
     # get loudest event and plot as gold star
-    maxidx = list(notvetoed[zcolumn]+vetoed[zcolumn]).index(max(notvetoed[zcolumn]+vetoed[zcolumn]))
+    maxidx = list(notvetoed[zcolumn]+vetoed[zcolumn])\
+                  .index(max(notvetoed[zcolumn]+vetoed[zcolumn]))
     maxx   = list(notvetoed[xcolumn]+vetoed[xcolumn])[maxidx]
     maxy   = list(notvetoed[ycolumn]+vetoed[ycolumn])[maxidx]
     maxz   = math.pow(10,list(notvetoed[zcolumn]+vetoed[zcolumn])[maxidx])
@@ -471,8 +420,12 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
       pylab.scatter([notvetoed[xcolumn][0]],[notvetoed[ycolumn][0]],\
                     marker='x',label='Vetoed',visible=False)
     else:
+      if zcolumn:
+        c='k'
+      else:
+        c='r'
       pylab.scatter(vetoed[xcolumn],vetoed[ycolumn],marker='x',\
-                    label='Vetoed',edgecolor='r')
+                    label='Vetoed',edgecolor=c)
 
   # set axes
   if logx:
@@ -512,8 +465,8 @@ def plot_triggers(triggers,outfile,etg='Unknown',\
 
   # set title
   tit = '%s triggers' % (etg)
-  if segments: tit += ' \&  %s segments' % (flag)
-  
+  if segments is not None:
+    tit += ' \&  %s segments' % (flag)
   tit += ': %s-%s' % (start,end)
   ax.set_title(tit,x=0.5,y=1.03)
 
@@ -562,12 +515,6 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
         boolean option to display y-axis in log scale.
   """
 
-  # set up outfile
-  outfile = os.path.abspath(outfile)
-  outdir = os.path.split(outfile)[0]
-  if not os.path.isdir(outdir):
-    os.makedirs(outdir)
-
   durations = [seg.__abs__() for seg in segments]
   # set times
   t_unit = 1
@@ -598,22 +545,29 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
   ax  = fig.gca()
 
   # calculate histogram
-  if not len(segments)<1: 
+  if not len(segments)<1:
+
     numbins = min(len(segments),200)
+
+    hrange=(min(durations),max(durations))
+
     n,b,p = pylab.hist(durations,bins=numbins,\
-                       range=(min(durations),max(durations)),\
+                       range=hrange,\
                        histtype='bar',visible=False)
-  
+
     bins=[]
     barwidth=[]
+
     if logx:
       for i in range(len(b)-1):
         bins.append(math.pow(10,b[i]))
         barwidth.append(math.pow(10,b[i+1])-math.pow(10,b[i]))
     else:
       bins = b[0:-1]
-      barwidth = [bins[1]-bins[0]]*len(bins)
-      
+      try:
+        barwidth = [bins[1]-bins[0]]*len(bins)
+      except IndexError:
+        barwidth = [1] 
  
   else:
     bins = []
@@ -635,9 +589,10 @@ def plot_segment_hist(segments,outfile,flag=None,logx=False,logy=False):
   if len(segments)>=1:
     if logx:
       ax.semilogx()
-      ax.set_xlim(min(bins)*0.99,(max(bins)+max(barwidth))*1.01)
-    else:
-      ax.set_xlim(0,(max(bins)+max(barwidth))*1.01)
+      ax.set_xlim((min(durations)-barwidth[0])*0.99,\
+                  (max(durations)+barwidth[0])*1.01)
+    #else:
+    #  ax.set_xlim(0,(max(bins)+max(barwidth))*1.01)
     ax.set_ylim(base,math.pow(10,math.log10((max(n)+base)*1.01)))
   ax.set_xlabel('Length of segment (%s)' %(t_string[t_unit]))
   ax.set_ylabel('Number of segments')

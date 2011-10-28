@@ -1,3 +1,9 @@
+/**
+ * \file
+ * \ingroup pulsarApps
+ * \author Vladimir Dergachev
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

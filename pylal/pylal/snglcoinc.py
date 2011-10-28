@@ -32,6 +32,7 @@ Light Weight XML documents.
 
 import bisect
 import itertools
+import random
 import sys
 
 
@@ -757,3 +758,188 @@ def coincident_process_ids(xmldoc, offset_vectors, max_segment_gap, program):
 		if row.process_id in proc_ids and row.process_id not in coinc_proc_ids and seglistdict.intersection(row.get_ifos()).intersects_segment(row.get_out()):
 			coinc_proc_ids.add(row.process_id)
 	return coinc_proc_ids
+
+
+#
+# =============================================================================
+#
+#                       Time-slideless Coinc Synthesizer
+#
+# =============================================================================
+#
+
+
+def slideless_coinc_generator(eventlists, segmentlists, timefunc, delta_t, allow_zero_lag = False, verbose = False, abundance_rel_accuracy = 1e-6):
+	"""
+	Generator function to return time shifted coincident event tuples
+	without the use of explicit time shift vectors.
+
+	eventlists is a dictionary of lists of "events" (arbitrary python
+	objects), the dictionary's keys are instrument names.  segmentlists
+	is a glue.segments.segmentlistdict object describing the
+	observation segments for each of instruments.  timefunc is a
+	function for computing the "time" of an event, its signature should
+	be timefunc(event).  delta_t is a time window in seconds, the light
+	travel time between instrument pairs is added to this internally.
+
+	Using the mean event rates and the coincidence window, the function
+	first computes the relative frequency of each of the combinations
+	of instruments that can form a coincidence.  The function then
+	generates a sequence of event tuples, choosing events at random
+	from the event lists in combinations selected according to the
+	relative frequencies of the instrument combinations
+
+	If allow_zero_lag is False (the default), then only event tuples
+	with no genuine zero-lag coincidences are returned, that is only
+	tuples in which no event pairs would be considered to be coincident
+	without time shifts applied.
+
+	abundance_rel_accuracy sets the fractional error tolerated in the
+	Monte Carlo integrator used to estimate the relative abundances of
+	the different kinds of coincs.  NOTE:  This parameter should not be
+	taken literally, the fractional errors are substantially higher
+	than this parameter would suggest.
+	"""
+	#
+	# compute the mean event rates in Hz and the coincidence windows in
+	# seconds
+	#
+
+	mu = dict((instrument, len(eventlist) / float(abs(segmentlists[instrument]))) for (instrument, eventlist) in eventlists.items())
+	tau = dict((frozenset([a, b]), delta_t + inject.light_travel_time(a, b)) for (a, b) in iterutils.choices(tuple(eventlists), 2))
+	if verbose:
+		for keyvalue in mu.items():
+			print >>sys.stderr, "%s mean event rate = %g Hz" % keyvalue
+		for (a, b), window in tau.items():
+			print >>sys.stderr, "tau_{%s,%s} = %g s" % (a, b, window)
+
+	#
+	# compute the rate of all different coincidence types
+	#
+
+	for n in range(len(eventlists), 1, -1):
+		for instruments in iterutils.choices(tuple(eventlists), n):
+			# compute \mu_{1} * \mu_{2} ... \mu_{N} * \tau_{12}
+			# * \tau_{13} ... \tau_{1N}
+			key = frozenset(instruments)
+			anchor, instruments = instruments[0], instruments[1:]
+			rate = mu[anchor]
+			for instrument in instruments:
+				rate *= mu[instrument] * 2 * tau[frozenset((anchor, instrument))]
+			if verbose:
+				print >>sys.stderr, "%s uncorrected mean event rate = %g Hz" % (",".join(sorted(key)), rate)
+
+			# if there are more than two instruments, correct
+			# for the probability of full N-way coincidence by
+			# computing the volume of the allowed parameter
+			# space by stone throwing.  FIXME:  it might be
+			# practical to solve this with some sort of
+			# computational geometry library and convex hull
+			# volume calculator.
+			if len(instruments) > 1:
+				windows = tuple((-tau[frozenset((anchor, instrument))], +tau[frozenset((anchor, instrument))]) for instrument in instruments)
+				ijseq = tuple((i, j, tau[frozenset((instruments[i], instruments[j]))]) for (i, j) in iterutils.choices(range(len(instruments)), 2))
+				# compute the numerator and denominator of
+				# the fraction of events coincident with
+				# the anchor instrument that are also
+				# mutually coincident.  this is done by
+				# picking a vector of allowed \Delta ts and
+				# testing them against the coincidence
+				# windows.  for speed, we pre-compute many
+				# things and store them in tuples
+				n, d = 0, 0
+				while n < len(key) / abundance_rel_accuracy:
+					dt = tuple(random.uniform(*window) for window in windows)
+					for i, j, window in ijseq:
+						if abs(dt[i] - dt[j]) > window:
+							break
+					else:
+						n += 1
+					d += 1
+
+				rate *= float(n) / float(d)
+				if verbose:
+					print >>sys.stderr, "	multi-instrument correction factor = %g" % (float(n)/float(d))
+					print >>sys.stderr, "	%s mean event rate = %g Hz" % (",".join(sorted(key)), rate)
+
+			# subtract from the rate the rate at which this
+			# combination of instruments is found in
+			# higher-order coincs
+			for m in range(1, len(eventlists) - len(key) + 1):
+				for otherinstruments in iterutils.choices(tuple(set(eventlists) - key), m):
+					rate -= mu[key | set(otherinstruments)]
+
+			# done
+			assert rate >= 0
+			mu[key] = rate
+			if verbose:
+				print >>sys.stderr, "%s mean event rate = %g Hz" % (",".join(sorted(key)), rate)
+
+	#
+	# remove single instrument rates
+	#
+
+	for instrument in eventlists:
+		del mu[instrument]
+
+	#
+	# from the rates compute the relative abundances
+	#
+
+	P = dict((key, value / sum(mu.values())) for key, value in mu.items())
+	if verbose:
+		for key, value in P.items():
+			print >>sys.stderr, "%s relative abundance = %g" % (",".join(sorted(key)), value)
+
+	#
+	# convert to a sorted tuple of (probability mass, instrument combo)
+	# pairs.  while at it, convert the instrument sets to tuples to
+	# avoid doing this in a loop later, and remove instrument combos
+	# whose probability mass is 0.  if no combos remain then we can't
+	# form coincidences
+	#
+
+	P = tuple(sorted([mass, tuple(instruments)] for instruments, mass in P.items() if mass != 0))
+	if not P:
+		return
+
+	#
+	# replace the probability masses with cummulative probabilities
+	#
+
+	for i in range(1, len(P)):
+		P[i][0] += P[i - 1][0]
+
+	#
+	# normalize (should be already, just be certain)
+	#
+
+	for i in range(len(P)):
+		P[i][0] /= P[-1][0]
+	assert P[-1][0] == 1.0
+	if verbose:
+		for lo, (hi, instruments) in zip([0] + [p[0] for p in P], P):
+			print "[%g, %g) --> %s" % (lo, hi, "+".join(instruments))
+
+	#
+	# generate random coincidences
+	#
+
+	while True:
+		# select an instrument combination
+		instruments = P[bisect.bisect_left(P, [random.uniform(0.0, 1.0)])][1]
+
+		# randomly selected events from those instruments
+		events = [(instrument, random.choice(eventlists[instrument])) for instrument in instruments]
+
+		# test for a genuine zero-lag coincidence among them
+		keep = True
+		if not allow_zero_lag:
+			for (instrumenta, eventa), (instrumentb, eventb) in iterutils.choices(events, 2):
+				if abs(timefunc(eventa) - timefunc(eventb)) < tau[frozenset((instrumenta, instrumentb))]:
+					keep = False
+					break
+
+		# return acceptable event tuples
+		if keep:
+			yield tuple(event for instrument, event in events)

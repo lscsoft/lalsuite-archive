@@ -473,6 +473,7 @@ setup(
 		os.path.join("bin", "pylal_mvsc_player.py"),
 		os.path.join("bin", "pylal_cbc_dq_page"),
 		os.path.join("bin", "mvsc_plots.py"),
+        os.path.join("bin", "mvsc_ROC_and_histograms.py"),
 		os.path.join("bin", "mvsc_plot_cuts.py"),
 		os.path.join("bin", "mvsc_htmlwriter.py"),
 		os.path.join("bin", "pylal_combine_posteriors"),
@@ -504,6 +505,7 @@ setup(
 		os.path.join("bin", "lalapps_binj_pic"),
 		os.path.join("bin", "lalapps_burca_tailor"),
 		os.path.join("bin", "lalapps_cbc_plotroc"),
+		os.path.join("bin", "lalapps_cbc_plotroc_ring"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_cbc_plot_likelihood_arrays"),
 		os.path.join("bin", "lalapps_cbc_coinc"),
@@ -572,6 +574,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_cfar"),
 		os.path.join("bin", "ligolw_cbc_jitter_skyloc"),
 		os.path.join("bin", "ligolw_cbc_plotslides"),
+		os.path.join("bin", "ligolw_cbc_plotsngl"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
 		os.path.join("bin", "ligolw_cbc_plotfm"),
         os.path.join("bin", "lalapps_cbc_plotrates"),
@@ -582,6 +585,7 @@ setup(
 		os.path.join("bin", "make_inspiral_summary_page"),
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
+		os.path.join("bin", "mvsc_get_doubles_ringdown"),
 		os.path.join("bin", "mvsc_dag"),
 		os.path.join("bin", "post_process_pipe"),
 		os.path.join("bin", "prepare_sendback.py"),
@@ -618,7 +622,10 @@ setup(
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "ring_post"),
-		os.path.join("bin","cbcBayesPostProc.py")
+		os.path.join("bin", "cbcBayesPostProc.py"),
+		os.path.join("bin", "cbcBayesCompPos.py"),
+		os.path.join("bin", "ligo_channel_query"),
+		os.path.join("bin", "ligolw_rinca_to_coinc")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

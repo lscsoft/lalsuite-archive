@@ -227,7 +227,6 @@ setup(
     os.path.join('bin','gracedb'),
     os.path.join('bin','LSCdataFind'),
     os.path.join('bin','ligo_data_find'),
-    os.path.join('bin','ligo_channel_query'),
     os.path.join('bin','lars'),
     os.path.join('bin','lars_add'),
     os.path.join('bin','lars_search'),
