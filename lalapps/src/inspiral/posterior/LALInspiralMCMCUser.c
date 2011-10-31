@@ -720,14 +720,14 @@ in the frequency domain */
 
 	Nmodel = (inputMCMC->stilde[0]->data->length-1)*2; /* *2 for real/imag packing format */
 
-	if(model==NULL)	LALCreateVector(&status,&model,Nmodel); /* Allocate storage for the waveform */
+	if(model==NULL)LALCreateVector(&status,&model,Nmodel); /* Allocate storage for the waveform */
 
 	switch(template.approximant)
 	{
 		case IMRPhenomFA : IMRPhenomFA_template(&status,&template,parameter,inputMCMC); break;
 		case IMRPhenomFB : IMRPhenomFB_template(&status,&template,parameter,inputMCMC); break;
 		case EOBNR : EOBNR_template(&status,&template,parameter,inputMCMC); break;
-		case TaylorF2 : TaylorF2_template(&status,&template,parameter,inputMCMC); break;
+		case TaylorF2 : TaylorF2_template(&status,&template,parameter,inputMCMC,model); break;
 		case TaylorT3 :
 		case TaylorT2 :
         case TaylorT4 : TaylorT_template(&status,&template,parameter,inputMCMC); break;
@@ -766,6 +766,7 @@ in the frequency domain */
 	TimeShiftToGC-=ChirpISCOLength;
 /*	template.nStartPad = (INT4)(TimeShiftToGC/inputMCMC->deltaT);*/
 /*	fprintf(stderr,"ChirpLengthISCO = %lf\n",ChirpISCOLength);*/
+//    fprintf(stdout,"endtime in injFD %lf\n",ChirpISCOLength);
 
 	/* Initialise structures for detector response calcs */
 	LALSource source; /* The position and polarisation of the binary */
@@ -786,6 +787,9 @@ in the frequency domain */
     REAL8 Deltaplus=0.0, Deltamin=0.0,Reeven=0.0,Reodd=0.0;
     REAL8 calamp=0.0,calpha=0.0;
     INT4 CalOrder=2;
+    REAL8 deltaNoiseIntegral=0.0;
+    REAL8 deltaHD=0.0;
+    REAL8 deltaHH=0.0;
     
 	for(det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){ /* For each detector */
 
@@ -812,7 +816,17 @@ in the frequency domain */
         deltaF_x_2nd=0.0;
         deltaG_x=0.0;
         deltaK_x=0.0;
-        
+        deltaNoiseIntegral=0.0;
+        deltaHD=0.0;
+        deltaHH=0.0;
+        //fprintf(stdout,"BBB %lf \n",TimeFromGC+TimeShiftToGC);
+
+	FILE *outInjB=fopen("injection_logL.dat","w");
+    for (idx=lowBin;idx<=highBin;idx++) {
+            fprintf(outInjB,"%lf %e %e\n",idx*deltaF,(REAL8)model->data[idx],model->data[Nmodel-idx+1]);
+    }
+    fclose(outInjB);
+    
 		for(idx=lowBin;idx<=highBin;idx++){ //For in the frequencies
 			time_sin = sin(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
 			time_cos = cos(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
@@ -862,11 +876,16 @@ in the frequency domain */
             deltaF_x_1st+= (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(2.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) - 1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
             deltaF_x_2nd+= (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(3.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) -1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
             
+            deltaNoiseIntegral-=2.0*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*AmplitudeComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*cos(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
+            
+            deltaHD-=2.0*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*AmplitudeComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im)*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*inputMCMC->invspec[det_i]->data->data[idx]*cos(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im));
+            
+            deltaHH+=2.0*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*inputMCMC->invspec[det_i]->data->data[idx];
+            
             deltaK_x+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
             deltaK_x+=(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(Reeven*Deltaplus - Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
                 
 		} /* End loop over frequency */
-
 		/* Dump the template and data if required */
 		if(inputMCMC->dumpfile){
 			sprintf(dumpfile,"%s.%s",inputMCMC->dumpfile,inputMCMC->ifoID[det_i]);
@@ -890,7 +909,7 @@ in the frequency domain */
 		}
 		
 		if(highBin<inputMCMC->stilde[det_i]->data->length-2 && highBin>lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
-		else if(highBin<=lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
+        else if(highBin<=lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
 		
         chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
         rec_snr*=2.0*deltaF;
@@ -899,7 +918,10 @@ in the frequency domain */
         deltaF_x_2nd*=2.0*deltaF;
         deltaG_x*=-2.0*deltaF;  //
         deltaK_x*=-2.0*deltaF;  //
-        fprintf(stdout,"dF1 %lf \t dF2 %lf for IFO %i \n",deltaF_x_1st,deltaF_x_2nd,det_i);
+        deltaNoiseIntegral*=2.0*deltaF;
+        deltaHD*=2.0*deltaF;
+        deltaHH*=2.0*deltaF;
+        fprintf(stdout,"dF1 %lf \t dF2 %lf \t noiseInt %lf \t HD %lf \t HH %lf \t G_x %lf K_x %lf for IFO %i \n",deltaF_x_1st,deltaF_x_2nd,deltaNoiseIntegral,deltaHD,deltaHH,deltaG_x,deltaK_x,det_i);
 		/* add the normalisation constant */
 		/*		chisq+=normalisations[det_i]; */ /*Gaussian version*/
 		/*chisq+=(Nmodel-lowBin)*log(2);*/ /* student-t version */
@@ -910,7 +932,7 @@ in the frequency domain */
         G_x-=deltaG_x;
         K_x-=deltaK_x;
         //logL+=(F_x+G_x+K_x);
-        
+        //exit(1);
 	} // End loop over IFOs
 
 	/* Add log likelihoods to find global likelihood */
@@ -919,7 +941,7 @@ in the frequency domain */
     parameter->logL_CalAmpCorr=F_x;
     parameter->logL_CalPhaCorr=G_x;
     parameter->logL_CalAmpPhaCorr=K_x;
-    
+
 	return(logL);
 }
 
@@ -1559,7 +1581,7 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
     template->distance = distanceMPC;
 }
 
-void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
+void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC,REAL4Vector *waveform) {
 
     (void)parameter;
     (void)inputMCMC;
@@ -1567,9 +1589,7 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 
 	LALInspiralParameterCalc(status,template);
 	LALInspiralRestrictedAmplitude(status,template);
-
-	LALInspiralWave(status,model,template);
-
+	LALInspiralWave(status,waveform,template);
 	return;
 
 }
@@ -1807,6 +1827,8 @@ void EOBNR_template(LALStatus *status,InspiralTemplate *template, LALMCMCParamet
 
 }
 
+
+
 long int factorial(long int x)
 {
 if(x==0 || x==1)
@@ -1817,6 +1839,53 @@ prod = prod*i;
 return(prod);
 }
 
+REAL8 AmplitudeComplexNumber(REAL8 real_part,REAL8 imag_part){
+     
+     return sqrt(real_part*real_part+imag_part*imag_part);
+ }
+ 
+ REAL8 PhaseComplexNumber(REAL8 real_part,REAL8 imag_part){
+     
+     return atan2(imag_part,real_part);
+ }
 
+
+
+
+// Prior for the TaylorF2 waveforms
+
+REAL8 NestPriorF2(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter)
+{
+    (void)inputMCMC;
+	REAL8 m1,m2;
+	parameter->logPrior=0.0;
+	REAL8 mc,eta;
+	REAL8 minCompMass = 1.0;
+	REAL8 maxCompMass = 34.0;
+#define MAX_MTOT 35.0
+	
+/* Check in range */
+	if(XLALMCMCCheckParameter(parameter,"logM")) mc=exp(XLALMCMCGetParameter(parameter,"logM"));
+	else mc=XLALMCMCGetParameter(parameter,"mchirp");
+	double logmc=log(mc);
+	eta=XLALMCMCGetParameter(parameter,"eta");
+	m1 = mc2mass1(mc,eta);
+	m2 = mc2mass2(mc,eta);
+	/* This term is the sqrt of m-m term in F.I.M, ignoring dependency on f and eta */
+	parameter->logPrior+=-(5.0/6.0)*logmc;
+	if(XLALMCMCCheckParameter(parameter,"logdist"))
+		parameter->logPrior+=3.0*XLALMCMCGetParameter(parameter,"logdist");
+	else
+		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
+
+	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
+	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
+    
+    if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;
+	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;
+    ParamInRange(parameter);
+	return parameter->logPrior;
+}
 
 
