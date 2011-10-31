@@ -1448,6 +1448,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.plot(distPlotVals, (finjs/totalinjs),'r-')
     ax.plot(distPlotVals,redEfficiency, 'm-' )
 
+    # Print efficiency curve to file
+    file = open( "%s/efficiency_curve.txt" % outdir, "w" )
+    for i in len(distPlotVals):
+      print >>file, distPlotVals[i],redEfficiency[i]
+    file.close()
+
+
     ax.errorbar( distPlotVals, (finjsNoMC/totalinjsNoMC),\
                  yerr=[yerr_lowNoMC,yerr_highNoMC], c = 'g' )
     ax.errorbar( distPlotVals, (finjs/totalinjs),\
