@@ -35,7 +35,7 @@ from pylal import auxmvc_utils
 from pylal import git_version
 import copy
 import numpy
-
+import random
 usage = """
         This code generates training/evaluation files for MVSC classifier.
         """
@@ -96,6 +96,7 @@ def parse_command_line():
   parser.add_option("-n","--roundrobin-number",default=10,type="int",help="number of round-robin training/testing sets to make")
   parser.add_option("","--dq-cats",action="store", type="string",default="ALL", help="Generate DQ veto categories" )
   parser.add_option("","--exclude-variables",action="store", type="string", default=None, help="Comma separated lits of variables that should be excluded from MVSC parameter list" )
+  parser.add_option("","--max-clean-samples",default=None,type="int",help="Maximum number of clean samples that wil be used in training")
   parser.add_option("","--output-tag",action="store",type="string", default=None, metavar=" OUTPUTTAG",\
       help="The output files will be named according to OUTPUTTAG" )
 
@@ -193,6 +194,10 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
       for i in range(len(List_of_Glitch_KW_Sets_cats)):
     
         Primary_Clean_set_cats, Primary_Glitch_set_cats, Secondary_Clean_set_cats, Secondary_Glitch_set_cats=RoundRobin(List_of_Glitch_KW_Sets_cats, List_of_Clean_KW_Sets_cats,i)
+        # set the limit on the size of clean training set if necessary
+        if opts.max_clean_samples:
+          if len(Secondary_Clean_set_cats) > opts.max_clean_samples:
+            Secondary_Clean_set_cats = Secondary_Clean_set_cats[random.sample(numpy.arange(len(Secondary_Clean_set_cats)), opts.max_clean_samples)]
         print "Constructed " + str(i) +" round robin set"
         MVSC_evaluation_set_cats=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = Primary_Glitch_set_cats, KWAuxCleanTriggers = Primary_Clean_set_cats, ExcludeVariables = ["DQ2","DQ3","DQ4"])
         print "Converted evaluation KW to MVSC triggers"
