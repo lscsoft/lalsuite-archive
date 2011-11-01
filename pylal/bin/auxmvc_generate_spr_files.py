@@ -37,7 +37,7 @@ import copy
 import numpy
 
 usage = """
-        Tries to find the ratio
+        This code generates training/evaluation files for MVSC classifier.
         """
 
 def RoundRobin(glitch_list, clean_list, number):
@@ -92,6 +92,7 @@ def parse_command_line():
   parser.add_option("-c","--clean-paramsfile", help="file with events of class zero")
   parser.add_option("-g","--glitch-paramsfile", help="file with events of class one")
   parser.add_option("","--channels", help="file with the list of channels to be used in the analysis. If to specified all channels in the input data are used.")
+  parser.add_option("","--unsafe-channels", help="file with the list of unsafe channels.")
   parser.add_option("-n","--roundrobin-number",default=10,type="int",help="number of round-robin training/testing sets to make")
   parser.add_option("","--dq-cats",action="store", type="string",default="ALL", help="Generate DQ veto categories" )
   parser.add_option("","--exclude-variables",action="store", type="string", default=None, help="Comma separated lits of variables that should be excluded from MVSC parameter list" )
@@ -148,7 +149,15 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
 
   else:
     exclude_channels = []
-      
+   
+  if opts.unsafe_channels:
+    # read list of unsafe channels from file
+    unsafe_file = open(opts.unsafe_channels,"r")
+    for line in unsafe_file:
+      exclude_channels.append(line.split("\n")[0])
+    unsafe_file.close()
+
+   
  
   KWAuxCleanTriggers= auxmvc_utils.FilterKWAuxTriggers(KWAuxCleanTriggers, opts.exclude_variables, exclude_channels)
 
