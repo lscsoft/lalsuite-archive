@@ -1443,7 +1443,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     # Print efficiency curve to file
     file = open( "%s/efficiency_curve.txt" % outdir, "w" )
-    for i in len(distPlotVals):
+    for i in range(len(distPlotVals)):
       print >>file, distPlotVals[i],redEfficiency[i]
     file.close()
 
