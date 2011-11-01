@@ -675,9 +675,6 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = xlabel 
             pylab.xlabel(lbl)
 
-            if opts.logx and not no_data and not x_is_string:
-                pylab.gca().semilogx()
-                
             # set y-axis parameters
             if is_time_y is not None:
                 lbl = '%s ($%i + %s$)' % (ystat.replace('_', ' ').title(), gps_start_time-1, is_time_y.group(1))
@@ -685,8 +682,15 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = ylabel
             pylab.ylabel(lbl)
 
+            # set log properties
+            if opts.logx and not no_data and not x_is_string:
+                pylab.gca().semilogx()
+                
             if opts.logy and not no_data and not y_is_string:
                 pylab.gca().semilogy()
+            
+            if opts.logy and opts.logx and not no_data and not x_is_string and not y_is_string:
+                pylab.gca().loglog()
 
             # set x/y limits
             if opts.logx and not no_data and not x_is_string:
