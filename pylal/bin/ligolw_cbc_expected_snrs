@@ -88,7 +88,7 @@ for row in siminspiral:
 	t0 = lal.LIGOTimeGPS(row.geocent_end_time, row.geocent_end_time_ns)
 
 	# Generate waveform in time domain
-	hplus, hcross = lalsimulation.XLALSimInspiralRestrictedSpinTaylorT4(
+	hplus, hcross = lalsimulation.XLALSimInspiralSpinTaylorT4(
 		t0,                         # initial time (s)
 		row.coa_phase * 0.5,        # initial GW phase (rad)
 		0,                          # tail gauge term (default = 0)
@@ -110,7 +110,8 @@ for row in siminspiral:
 		0,                          # initial value of E1y
 		-np.sin(row.inclination),   # initial value of E1z
 		lalsimulation.LAL_AllInter, # flags to control spin effects
-		7                           # twice PN phase order
+		7,                          # twice PN phase order
+		3                           # twice PN amplitude order
 	)
 
 	# Project hplus and hcross onto detector's antenna pattern
