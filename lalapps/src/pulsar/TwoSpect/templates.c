@@ -141,7 +141,7 @@ void estimateFAR(farStruct *output, templateStruct *templatestruct, INT4 trials,
 
 //////////////////////////////////////////////////////////////
 // Numerically solve for the FAR of the R statistic from the weights
-void numericFAR(farStruct *output, templateStruct *templatestruct, REAL8 thresh, REAL4Vector *ffplanenoise, REAL4Vector *fbinaveratios, INT4 method)
+void numericFAR(farStruct *output, templateStruct *templatestruct, REAL8 thresh, REAL4Vector *ffplanenoise, REAL4Vector *fbinaveratios, inputParamsStruct *inputParams, INT4 method)
 {
    
    INT4 ii;
@@ -167,7 +167,7 @@ void numericFAR(farStruct *output, templateStruct *templatestruct, REAL8 thresh,
    
    
    //Include the various parameters in the struct required by GSL
-   struct gsl_probR_pars params = {templatestruct, ffplanenoise, fbinaveratios, thresh, errcode};
+   struct gsl_probR_pars params = {templatestruct, ffplanenoise, fbinaveratios, thresh, inputParams, errcode};
    
    //Assign GSL function the necessary parts
    if (method != 0) {
@@ -310,7 +310,7 @@ REAL8 gsl_probR(REAL8 R, void *param)
    REAL8 R2 = (1.0-dR)*R;
    INT4 errcode1 = 0, errcode2 = 0, errcode3 = 0;
    
-   REAL8 prob = (probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, R, &errcode1) + probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, R1, &errcode2) + probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, R2, &errcode3))/3.0;
+   REAL8 prob = (probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, R, pars->inputParams, &errcode1) + probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, R1, pars->inputParams, &errcode2) + probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, R2, pars->inputParams, &errcode3))/3.0;
    
    if (errcode1!=0) {
       pars->errcode = errcode1;
@@ -385,7 +385,7 @@ void gsl_probRandDprobRdR(REAL8 R, void *param, REAL8 *probabilityR, REAL8 *dpro
 
 //////////////////////////////////////////////////////////////
 // Analytically calculate the probability of a true signal output is log10(prob)
-REAL8 probR(templateStruct *templatestruct, REAL4Vector *ffplanenoise, REAL4Vector *fbinaveratios, REAL8 R, INT4 *errcode)
+REAL8 probR(templateStruct *templatestruct, REAL4Vector *ffplanenoise, REAL4Vector *fbinaveratios, REAL8 R, inputParamsStruct *params, INT4 *errcode)
 {
    
    INT4 ii = 0;
@@ -424,6 +424,7 @@ REAL8 probR(templateStruct *templatestruct, REAL4Vector *ffplanenoise, REAL4Vect
    vars.ndtsrt = 0;           //Set because we do the sorting outside of Davies' algorithm with qsort
    vars.lim = 1000000;
    vars.c = Rpr;
+   vars.useSSE = params->useSSE;
    REAL8 sigma = 0.0;
    REAL8 accuracy = 1.0e-13;   //(1e-5) old value
    
@@ -854,7 +855,13 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
             //dataval = scale->data[ii+fnumstart] * prefact1 * exp(-s*s*omegapr_squared->data[jj]) * (cos2pix+1.0);
             
             twospect_sin_cos_2PI_LUT(&sin2pix, &cos2pix, phi_actual->data[ii+fnumstart]*fpr->data[jj]);
-            dataval = exp( log(scale->data[ii+fnumstart]) + prefact1 + (-s*s*omegapr_squared->data[jj]) + log(cos2pix+1.0) );
+            dataval = ( log(scale->data[ii+fnumstart]) + prefact1 + (-s*s*omegapr_squared->data[jj]) + log(cos2pix+1.0) );
+            if (dataval<-700.0) {
+               dataval = 0.0;
+            } else {
+               dataval = exp( dataval );
+            }
+
          } else {
             //twospect_sin_cos_2PI_LUT(&sin2pix, &cos2pix, N*input.period*fpr->data[jj]);
             //dataval = scale->data[ii+fnumstart] * scale1 * 2.0 * LAL_TWOPI * s * s * exp(-s * s * omegapr->data[jj] * omegapr->data[jj]) * (cos2pix - 1.0);
@@ -867,7 +874,12 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
             //dataval = scale->data[ii+fnumstart] * prefact2 * exp(-s*s*omegapr_squared->data[jj]) * (cos_N_times_omegapr_times_period->data[jj] - 1.0) * (cos2pix + 1.0)/(cos_omegapr_times_period->data[jj] - 1.0);
             
             twospect_sin_cos_2PI_LUT(&sin2pix, &cos2pix, phi_actual->data[ii+fnumstart]*fpr->data[jj]);
-            dataval = exp( log(scale->data[ii+fnumstart]) + prefact2 + (-s*s*omegapr_squared->data[jj]) + log((cos2pix + 1.0) * (cos_N_times_omegapr_times_period->data[jj] - 1.0) * one_over_cos_omegapr_times_period_minus_one->data[jj]) );
+            dataval = ( log(scale->data[ii+fnumstart]) + prefact2 + (-s*s*omegapr_squared->data[jj]) + log((cos2pix + 1.0) * (cos_N_times_omegapr_times_period->data[jj] - 1.0) * one_over_cos_omegapr_times_period_minus_one->data[jj]) );
+            if (dataval<-700.0) {
+               dataval = 0.0;
+            } else {
+               dataval = exp( dataval );
+            }
          }
          
          //Sum up the weights in total
@@ -883,7 +895,16 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    } /* for ii < sigmas->length */
    
    //Normalize
-   for (ii=0; ii<(INT4)output->templatedata->length; ii++) if (output->templatedata->data[ii]!=0.0) output->templatedata->data[ii] /= (REAL4)sum;
+   REAL4 invsum = (REAL4)(1.0/sum);
+   if (!params->useSSE) {
+      for (ii=0; ii<(INT4)output->templatedata->length; ii++) if (output->templatedata->data[ii]!=0.0) output->templatedata->data[ii] *= invsum;
+   } else {
+      output->templatedata = sseScaleREAL4Vector(output->templatedata, output->templatedata, invsum);
+      if (xlalErrno!=0) {
+         fprintf(stderr,"%s, sseScaleREAL4Vector() failed.\n", __func__);
+         XLAL_ERROR_VOID(XLAL_EFUNC);
+      }
+   }
    
    //Truncate weights
    sum = 0.0;
@@ -1087,6 +1108,7 @@ void bruteForceTemplateSearch(candidate *output, candidate input, REAL8 fminimum
    REAL8Vector *trialf, *trialb, *trialp;
    REAL8 fstepsize, dfstepsize;
    REAL4 tcohfactor = 1.49e-3*params->Tcoh + 1.76;
+   REAL8 log10templatefar = params->log10templatefar;
    
    //Set up parameters of modulation depth search
    if (dfmin<(0.5/params->Tcoh-1.0e-9)) dfmin = 0.5/params->Tcoh;
@@ -1181,7 +1203,7 @@ void bruteForceTemplateSearch(candidate *output, candidate input, REAL8 fminimum
                }
                
                if (params->calcRthreshold && bestProb==0.0) {
-                  numericFAR(farval, template, params->templatefar, aveNoise, aveTFnoisePerFbinRatio, params->rootFindingMethod);
+                  numericFAR(farval, template, params->templatefar, aveNoise, aveTFnoisePerFbinRatio, params, params->rootFindingMethod);
                   if (xlalErrno!=0) {
                      fprintf(stderr,"%s: numericFAR() failed.\n", __func__);
                      XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -1193,7 +1215,7 @@ void bruteForceTemplateSearch(candidate *output, candidate input, REAL8 fminimum
                   fprintf(stderr,"%s: calculateR() failed.\n", __func__);
                   XLAL_ERROR_VOID(XLAL_EFUNC);
                }
-               REAL8 prob = probR(template, aveNoise, aveTFnoisePerFbinRatio, R, &proberrcode);
+               REAL8 prob = probR(template, aveNoise, aveTFnoisePerFbinRatio, R, params, &proberrcode);
                if (XLAL_IS_REAL8_FAIL_NAN(prob)) {
                   fprintf(stderr,"%s: probR() failed.\n", __func__);
                   XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -1201,7 +1223,7 @@ void bruteForceTemplateSearch(candidate *output, candidate input, REAL8 fminimum
                
                REAL8 h0 = 2.7426*pow(R/(params->Tcoh*params->Tobs),0.25);
                
-               if ( (bestProb!=0.0 && prob < bestProb) || (bestProb==0.0 && !params->calcRthreshold && prob<log10(params->templatefar)) || (bestProb==0.0 && params->calcRthreshold && R > farval->far) ) {
+               if ( (bestProb!=0.0 && prob < bestProb) || (bestProb==0.0 && !params->calcRthreshold && prob<log10templatefar) || (bestProb==0.0 && params->calcRthreshold && R > farval->far) ) {
                   bestf = trialf->data[ii];
                   bestp = trialp->data[kk];
                   bestdf = trialb->data[jj];
@@ -1296,7 +1318,7 @@ void efficientTemplateSearch(candidate *output, candidate input, REAL8 fminimum,
          }
       }
       if (params->calcRthreshold && bestProb==0.0) {
-         numericFAR(farval, template, params->templatefar, aveNoise, aveTFnoisePerFbinRatio, params->rootFindingMethod);
+         numericFAR(farval, template, params->templatefar, aveNoise, aveTFnoisePerFbinRatio, params, params->rootFindingMethod);
          if (xlalErrno!=0) {
             fprintf(stderr,"%s: numericFAR() failed.\n", __func__);
             XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -1307,7 +1329,7 @@ void efficientTemplateSearch(candidate *output, candidate input, REAL8 fminimum,
          fprintf(stderr,"%s: calculateR() failed.\n", __func__);
          XLAL_ERROR_VOID(XLAL_EFUNC);
       }
-      bestProb = probR(template, aveNoise, aveTFnoisePerFbinRatio, bestR, &bestproberrcode);
+      bestProb = probR(template, aveNoise, aveTFnoisePerFbinRatio, bestR, params, &bestproberrcode);
       if (XLAL_IS_REAL8_FAIL_NAN(bestProb)) {
          fprintf(stderr,"%s: probR() failed.\n", __func__);
          XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -1367,7 +1389,7 @@ void efficientTemplateSearch(candidate *output, candidate input, REAL8 fminimum,
                   }
                   
                   if (params->calcRthreshold && bestProb==0.0) {
-                     numericFAR(farval, template, params->templatefar, aveNoise, aveTFnoisePerFbinRatio, params->rootFindingMethod);
+                     numericFAR(farval, template, params->templatefar, aveNoise, aveTFnoisePerFbinRatio, params, params->rootFindingMethod);
                      if (xlalErrno!=0) {
                         fprintf(stderr,"%s: numericFAR() failed.\n", __func__);
                         XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -1379,7 +1401,7 @@ void efficientTemplateSearch(candidate *output, candidate input, REAL8 fminimum,
                      fprintf(stderr,"%s: calculateR() failed.\n", __func__);
                      XLAL_ERROR_VOID(XLAL_EFUNC);
                   }
-                  REAL8 prob = probR(template, aveNoise, aveTFnoisePerFbinRatio, R, &proberrcode);
+                  REAL8 prob = probR(template, aveNoise, aveTFnoisePerFbinRatio, R, params, &proberrcode);
                   if (XLAL_IS_REAL8_FAIL_NAN(prob)) {
                      fprintf(stderr,"%s: probR() failed.\n", __func__);
                      XLAL_ERROR_VOID(XLAL_EFUNC);
