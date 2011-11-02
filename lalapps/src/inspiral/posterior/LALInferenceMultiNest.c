@@ -149,7 +149,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 		}
 	}
 	char root[100];
-	for( int j = 0; j < 100; j++ ) root[k] = outfilestr[k];
+	for( int j = 0; j < 100; j++ ) root[j] = outfilestr[j];
 	int rseed = -1;
 	int fb = verbose;
 	int resume = 1;
