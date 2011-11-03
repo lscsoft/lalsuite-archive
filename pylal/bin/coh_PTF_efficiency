@@ -388,6 +388,23 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       timeBinVetoMaxBestNR[:,jj] = timeBinMaxBestNR[:,ii]
       jj += 1
 
+  # =========================
+  # Calculate and print how many bins have "No event"
+  # ========================
+
+  quietestFap = []
+  for binNum in range(len(massBins)):
+    numEvents = 0
+    for trial in range(numTrials):
+      if timeBinVetoMaxBestNR[binNum,trial] > 0:
+        numEvents += 1
+    quietestFap.append(numEvents/numTrials)
+
+  quietestFile=open('quiet_fap_vals.txt','w')
+  for val in quietestFap:
+    print >> quietestFile, val
+  quietestFile.close()
+
   # ==========================
   # print details of loudest 10 offsouce triggers
   # ==========================
