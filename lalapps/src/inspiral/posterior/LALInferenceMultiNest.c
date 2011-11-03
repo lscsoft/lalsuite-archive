@@ -95,6 +95,7 @@ void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **po
 void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 {
 	UINT4 Nlive=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nlive");
+	REAL8 eff=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"eff");
 	REAL8 logZnoise;
 	UINT4 verbose=0;
 	
@@ -126,7 +127,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	int mmodal = 0;
 	int ceff = 0;
 	int nlive = Nlive;
-	double efr = 0.8;
+	double efr = eff;
 	double tol = 0.5;
 	int ndims = ND;
 	int nPar = ndims + 2;
@@ -350,6 +351,7 @@ void initializeMN(LALInferenceRunState *runState)
 	char help[]="\
 MultiNest arguments:\n\
  --Nlive N\tNumber of live points to use\n\
+ --eff e\ttarget efficiency\n\
 (--verbose)\tProduce progress information\n";
 
 	ProcessParamsTable *ppt=NULL;
@@ -363,6 +365,7 @@ MultiNest arguments:\n\
 	}
 
 	INT4 verbose=0,tmpi=0;
+	REAL8 tmpd=0;
 	
 	/* Initialise parameters structure */
 	runState->algorithmParams=XLALCalloc(1,sizeof(LALInferenceVariables));
@@ -394,6 +397,15 @@ MultiNest arguments:\n\
 		exit(1);
 	}
 	LALInferenceAddVariable(runState->algorithmParams,"Nlive",&tmpi, LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+	
+	/* Target efficiency */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--eff");
+	if(ppt)
+		tmpd=atof(ppt->value);
+	else {
+		tmpd=0.5;
+	}
+	LALInferenceAddVariable(runState->algorithmParams,"eff",&tmpd, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	
 	return;
 	
