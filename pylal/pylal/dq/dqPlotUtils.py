@@ -810,7 +810,7 @@ class DataPlot(plotutils.BasicPlot):
 
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
-    leg = self.ax.legend()
+    leg = self.ax.legend(loc=loc)
     # magnify the lines on the legend 
     try:
       for l in leg.get_lines():
