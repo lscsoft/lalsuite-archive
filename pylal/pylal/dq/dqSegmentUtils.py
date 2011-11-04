@@ -190,18 +190,21 @@ def CBCAnalyzableSegs(seglist):
 # Function to pad a list of segments given start and end paddings
 # ==============================================================================
 
-def pad_segmentlist(seglist, start_pad, end_pad):
+def pad_segmentlist(seglist, start_pad, end_pad=None):
 
   """
     Given a veto segmentlist, start pad, and end pad, pads and coalesces the
-    segments. Signs of start and end pad are disregarded - the segment is always
-    expanded outward.
+    segments. Convention is to expand segments with positive padding, contract
+    with negative. Any segments that are not big enough to be contracted
+    appropriately are removed.
   """
 
-  padded = lambda seg: segments.segment(seg[0]-abs(start_pad),\
-                                        seg[1]+abs(end_pad))
+  if not end_pad: end_pad = start_pad
 
-  seglist = segments.segmentlist([padded(seg) for seg in seglist])
+  padded = lambda seg: segments.segment(seg[0]-start_pad, seg[1]+end_pad)
+
+  seglist = segments.segmentlist([padded(seg) for seg in seglist if \
+                                  abs(seg) > start_pad+end_pad])
 
   return seglist.coalesce()
 
