@@ -86,17 +86,20 @@ def write_build_info():
 
 class pylal_build_py(build_py.build_py):
 	def run(self):
-		# create the git_version module
-		log.info("Generating pylal/git_version.py")
-		try:
-			write_build_info()
-		except gvcsi.GitInvocationError:
-			if os.path.exists("pylal/git_version.py"):
-				# We're probably being built from a release tarball; don't overwrite
-				log.info("Not in git checkout or cannot find git executable; using existing pylal/git_version.py")
-			else:
-				log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
-				sys.exit(1)
+		# Detect whether we are building from a tarball; we have decided
+		# that releases should not contain scripts nor env setup files.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if os.path.exists("PKG-INFO"):
+			self.distribution.scripts = []
+			self.distribution.data_files = []
+		else:
+			# create the git_version module
+			log.info("Generating pylal/git_version.py")
+			try:
+				write_build_info()
+			except gvcsi.GitInvocationError:
+					log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py.")
+					sys.exit(1)
 
 		# resume normal build procedure
 		build_py.build_py.run(self)
