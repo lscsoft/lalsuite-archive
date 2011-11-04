@@ -166,7 +166,7 @@ class pylal_install(install.install):
 class pylal_sdist(sdist.sdist):
 	def run(self):
 		# remove undesirable elements from tarball
-		self.distribution.data_files = []
+		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")]
 		self.distribution.scripts = []
 
 		# create the git_version module
