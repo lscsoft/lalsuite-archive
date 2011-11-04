@@ -975,7 +975,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
   set_ticks(plot.ax)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of any column
@@ -1183,7 +1183,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   set_ticks(plot.ax)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot one column against another column coloured by any third column
@@ -1549,7 +1549,7 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   set_ticks(plot.ax)
 
   # get both major and minor grid lines
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of segment duration
@@ -1615,7 +1615,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot rate versus time in bins
@@ -1777,7 +1777,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot RMS versus time in bins
@@ -1951,7 +1951,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot segments
@@ -2033,7 +2033,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
 
   set_ticks(plot.ax)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Helper functions
