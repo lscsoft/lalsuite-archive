@@ -765,7 +765,8 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     self.ax.set_ybound(lower=ymin)
 
     # add legend if there are any non-trivial labels
-    self.ax.legend(plot_list, legends)
+    if plot_list:
+      self.ax.legend(plot_list, legends)
 
 # =============================================================================
 # Class for time series plot
