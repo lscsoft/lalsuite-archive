@@ -179,7 +179,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	REAL8 coalescenceTime; ///< the time at the coalescence
 	LALPNOrder order; ///< the Post_Newtonian order of the GW generation
 	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
-	LALPNOrder amplitudeContribution;
+	LALSQTPNConstants amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
 //@}
 } LALSQTPNWaveformParams;
