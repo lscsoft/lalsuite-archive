@@ -260,8 +260,18 @@ GROUP BY
 			self.stats[label].sort()
 		fig, axes = create_plot(r"False Alarm Rate", r"Relative $V \times T$", title = title, aspect = 1.0, width=100)
 		axes.hold(1)
-		for label in sorted(self.stats.keys()):
-			axes.semilogx([x[0] for x in self.stats[label]], numpy.cumsum([x[1] for x in self.stats[label]]), label=label, alpha = .9)
+		minfars = []
+		maxfars = []
+		plotcolors = ['r',(1.0,0.6,0),'g','c','b','m','k']
+		for i, label in enumerate(sorted(self.stats.keys())):
+			plotpoints = zip([x[0] for x in self.stats[label]],numpy.cumsum([x[1] for x in self.stats[label]]))
+			# we only plot points if the FAR is nonzero 
+			plotpoints = [point for point in plotpoints if point[0] > 0]
+			axes.semilogx([point[0] for point in plotpoints], [point[1] for point in plotpoints], color=plotcolors[i], label=label, alpha=.8)
+			axes.plot(plotpoints[0][0], plotpoints[0][1], 'x', color=plotcolors[i])
+			minfars.append(plotpoints[0][0])
+			maxfars.append(plotpoints[-1][0])
+		axes.set_xlim(0.5*min(minfars),max(maxfars))
 		axes.set_ylim(0,1)
 		axes.legend(loc='lower right')
 		axes.hold(0)

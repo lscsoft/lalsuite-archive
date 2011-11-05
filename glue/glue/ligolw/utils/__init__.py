@@ -73,18 +73,6 @@ __all__ = []
 #
 
 
-class IOTrappedSignal(Exception):
-	"""
-	Raised by I/O functions upon completion if they trapped a signal
-	during the operation
-	"""
-	def __init__(self, signum):
-		self.signum = signum
-
-	def __str__(self):
-		return "trapped signal %d" % self.signum
-
-
 # FIXME:  remove, use parameter passed to load_*() functions instead
 ContentHandler = ligolw.LIGOLWContentHandler
 __orig_ContentHandler = ContentHandler	# to detect when ContentHandler symbol has been modified
@@ -384,13 +372,11 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	This function traps SIGTERM and SIGTSTP during the write process,
 	and it does this by temporarily installing its own signal handlers
 	in place of the current handlers.  This is done to prevent Condor
-	eviction during the write process.  If a signal is trapped, then
-	when the write process has successfully concluded, the last thing
-	this function does is raise IOTrappedSignal, with the most-recently
-	trapped signal number as the argument.  This is the only condition
-	in which this function will raise that exception, so calling code
-	that wishes its own handler to be executed can arrange for that to
-	happen by trapping the IOTrappedSignal exception.
+	eviction during the write process.  When the file write is
+	concluded the original signal handlers are restored.  Then, if
+	signals were trapped during the write process, the signals are then
+	resent to the current process in the order in which they were
+	received.
 
 	Example:
 
@@ -398,11 +384,9 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	>>> write_fileobj(xmldoc, sys.stdout)
 	"""
 	# initialize SIGTERM and SIGTSTP trap
-	global __llwapp_write_filename_got_sig
-	__llwapp_write_filename_got_sig = []
+	deferred_signals = []
 	def newsigterm(signum, frame):
-		global __llwapp_write_filename_got_sig
-		__llwapp_write_filename_got_sig.append(signum)
+		deferred_signals.append(signum)
 	oldhandlers = {}
 	for sig in (signal.SIGTERM, signal.SIGTSTP):
 		oldhandlers[sig] = signal.getsignal(sig)
@@ -418,12 +402,12 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	fileobj.flush()
 	del fileobj
 
-	# restore original handlers, and report the most recently trapped
-	# signal if any were
+	# restore original handlers, and send outselves any trapped signals
+	# in order
 	for sig, oldhandler in oldhandlers.iteritems():
 		signal.signal(sig, oldhandler)
-	if __llwapp_write_filename_got_sig:
-		raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+	while deferred_signals:
+		os.kill(os.getpid(), deferred_signals.pop(0))
 
 	# return the hex digest of the bytestream that was written
 	return md5obj.hexdigest()
@@ -435,17 +419,9 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 	file name filename.  Friendly verbosity messages are printed while
 	doing so if verbose is True.  The output data is gzip compressed on
 	the fly if gz is True.
-	
-	This function traps SIGTERM and SIGTSTP during the write process,
-	and it does this by temporarily installing its own signal handlers
-	in place of the current handlers.  This is done to prevent Condor
-	eviction during the write process.  If a signal is trapped, then
-	when the write process has successfully concluded, the last thing
-	this function does is raise IOTrappedSignal, with the most-recently
-	trapped signal number as the argument.  This is the only condition
-	in which this function will raise that exception, so calling code
-	that wishes its own handler to be executed can arrange for that to
-	happen by trapping the IOTrappedSignal exception.
+
+	See write_fileobj() for information about signal trapping during
+	the write process.
 
 	Example:
 
@@ -465,14 +441,15 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 
 
-def write_url(xmldoc, url, verbose = False, gz = False):
+def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	URL name url.  Friendly verbosity messages are printed while doing
 	so if verbose is True.  The output data is gzip compressed on the
 	fly if gz is True.
 
-	See write_filename() for more information about signal trapping.
+	See write_fileobj() for information about signal trapping during
+	the write process.
 
 	NOTE:  only URLs that point to local files can be written to at
 	this time.
@@ -485,7 +462,6 @@ def write_url(xmldoc, url, verbose = False, gz = False):
 		scheme, host, path = "", "", None
 	else:
 		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
-	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
-		return write_filename(xmldoc, path, verbose = verbose, gz = gz)
-	else:
+	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
 		raise ValueError, "%s is not a local file" % repr(url)
+	return write_filename(xmldoc, path, verbose = verbose, gz = gz, xsl_file = xsl_file)

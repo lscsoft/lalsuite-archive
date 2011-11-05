@@ -1,3 +1,10 @@
+python-pylal (0.1-4) unstable; urgency=low
+
+  * New Debian packaging
+  * New maintainer
+
+ -- Jameson Rollins <jameson.rollins@ligo.org>  Sat, 10 Sep 2011 11:06:38 -0700
+
 python-pylal (0.1-3lscsoft2.4) unstable; urgency=low
 
   * python2.5 support requires numpy 1.1.x (Lenny and up)

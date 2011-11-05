@@ -120,18 +120,18 @@ LALFindChirpPTFTemplate (
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
   ASSERT( fcTmplt->PTFQtilde->data, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( params, status,
+      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( fcTmplt->PTFQ, status,
+      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( fcTmplt->PTFQ->length == 5, status,
+      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( fcTmplt->PTFQ->data, status,
+      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the parameter structure exists */
-  ASSERT( params, status, 
-      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( fcTmplt->PTFQ, status, 
-      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( fcTmplt->PTFQ->length == 5, status, 
-      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( fcTmplt->PTFQ->data, status, 
-      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
-  ASSERT( params->fwdPlan, status, 
+  ASSERT( params->fwdPlan, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the timestep is positive */

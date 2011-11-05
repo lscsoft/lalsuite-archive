@@ -1,4 +1,4 @@
-AC_INIT([lal],[6.5.0.3],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lal],[6.5.0.4],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([include/config.h include/lal/LALConfig.h])
 AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
 AC_CONFIG_AUX_DIR([misc])
@@ -98,6 +98,7 @@ AH_BOTTOM([
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info - liblal
 # 1. start with version information of "0:0:0" for each libtool library
@@ -202,6 +203,7 @@ AC_PROG_CXX
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
+AC_PROG_AWK
 LT_INIT
 AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
 AC_CHECK_PROGS([M4],[gm4 m4], m4)
@@ -282,6 +284,7 @@ LIBS="$LIBS $GSL_LIBS"
 AC_CHECK_LIB([gslcblas],[main])
 AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library])])
 LAL_CHECK_GSL_VERSION([1.9])
+LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])

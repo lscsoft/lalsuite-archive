@@ -152,6 +152,14 @@ OmegaSBCNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type =
 OmegaSICCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
 OmegaSICNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 
+CWBBBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+CWBSBBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+CWBSIBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 4, description = u"sim_inspiral<-->sngl_burst coincidences")
+CWBSBCCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+CWBSBCNearCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+CWBSICCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
+CWBSICNearCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
+
 
 class DocContents(object):
 	"""
@@ -434,6 +442,14 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
 	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
 
+def CWBSnglCompare(sim, burst, delta_t = 10.0):
+	"""
+	Return False (injection matches event) if the time of the sim and
+	the peak time of the burst event differ by less than or equal to
+	delta_t seconds.
+	"""
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - burst.get_peak())) > delta_t
+
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	"""
@@ -461,6 +477,13 @@ def OmegaNearCoincCompare(sim, burst, offsetvector):
 	is "near" the burst event.
 	"""
 	return OmegaSnglCompare(sim, burst, offsetvector, delta_t = 20.0 + burst.duration / 2)
+
+def CWBNearCoincCompare(sim, burst):
+	"""
+	Return False (injection matches coinc) if the peak time of the sim
+	is "near" the burst event.
+	"""
+	return OmegaSnglCompare(sim, burst, delta_t = 20.0 + burst.duration / 2)
 
 
 #
@@ -601,43 +624,43 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	b_b_def = {
 		"StringCusp": ligolw_burca.StringCuspBBCoincDef,
 		"excesspower": ligolw_burca.ExcessPowerBBCoincDef,
-		"waveburst": OmegaBBCoincDef,
+		"waveburst": CWBBBCoincDef,
 		"omega": OmegaBBCoincDef
 	}[search]
 	sb_b_def = {
 		"StringCusp": StringCuspSBBCoincDef,
 		"excesspower": ExcessPowerSBBCoincDef,
-		"waveburst": OmegaSBBCoincDef,
+		"waveburst": CWBSBBCoincDef,
 		"omega": OmegaSBBCoincDef
 	}[search]
 	si_b_def = {
 		"StringCusp": StringCuspSIBCoincDef,
 		"excesspower": ExcessPowerSIBCoincDef,
-		"waveburst": OmegaSIBCoincDef,
+		"waveburst": CWBSIBCoincDef,
 		"omega": OmegaSIBCoincDef
 	}[search]
 	sb_c_e_def = {
 		"StringCusp": StringCuspSBCCoincDef,
 		"excesspower": ExcessPowerSBCCoincDef,
-		"waveburst": OmegaSBCCoincDef,
+		"waveburst": CWBSBCCoincDef,
 		"omega": OmegaSBCCoincDef
 	}[search]
 	sb_c_n_def = {
 		"StringCusp": StringCuspSBCNearCoincDef,
 		"excesspower": ExcessPowerSBCNearCoincDef,
-		"waveburst": OmegaSBCNearCoincDef,
+		"waveburst": CWBSBCNearCoincDef,
 		"omega": OmegaSBCNearCoincDef
 	}[search]
 	si_c_e_def = {
 		"StringCusp": StringCuspSICCoincDef,
 		"excesspower": ExcessPowerSICCoincDef,
-		"waveburst": OmegaSICCoincDef,
+		"waveburst": CWBSICCoincDef,
 		"omega": OmegaSICCoincDef
 	}[search]
 	si_c_n_def = {
 		"StringCusp": StringCuspSICNearCoincDef,
 		"excesspower": ExcessPowerSICNearCoincDef,
-		"waveburst": OmegaSICNearCoincDef,
+		"waveburst": CWBSICNearCoincDef,
 		"omega": OmegaSICNearCoincDef
 	}[search]
 

@@ -992,7 +992,7 @@ def slideless_coinc_generator(eventlists, mu_coinc, tau, timefunc, allow_zero_la
 	#
 
 	assert all(len(key) > 1 for key in mu_coinc.keys())	# check for single-instrument rates
-	P = dict((key, value / sum(mu_coinc.values())) for key, value in mu_coinc.items())
+	P = dict((key, value / sum(sorted(mu_coinc.values()))) for key, value in mu_coinc.items())
 	if verbose:
 		for key, value in P.items():
 			print >>sys.stderr, "%s relative abundance = %g" % (",".join(sorted(key)), value)

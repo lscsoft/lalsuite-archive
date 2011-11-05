@@ -1,3 +1,5 @@
+#include "fft_stats.h"
+
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
@@ -9,8 +11,6 @@
 #include <lal/DetectorSite.h>
 #include <lal/LALBarycenter.h>
 
-#include "fft_stats.h"
-
 typedef struct {
 	int free;
 	int size;
@@ -20,6 +20,7 @@ typedef struct {
 	COMPLEX8 first9[9];
 	
 	double slope;
+	double phase;
 	} SPARSE_CONV;
 
 typedef struct {
@@ -36,6 +37,7 @@ typedef struct {
 
 typedef struct {
 	int nsamples; /* total number of samples in adjusted fft */
+	double raw_timebase;
 	double timebase;
 	double first_gps;
 	
@@ -46,6 +48,7 @@ typedef struct {
 	double dec;
 	double dInv;
 	int fstep;
+	int patch_id;
 	
 	float *power;
 	float *cum_power;
@@ -88,11 +91,28 @@ typedef struct {
 	COMPLEX8Vector *plus_te_fft;
 	COMPLEX8Vector *cross_te_fft;	
 	
+	/* compute sky basis */
+	double sb_ra[2];
+	double sb_dec[2];
+	double vp1[3];
+	double vp2[3];
+	
 	/* compute_*_offset */
 	int offset_count;
 	COMPLEX16Vector *offset_in;
 	COMPLEX16Vector *offset_fft;	
 	COMPLEX16FFTPlan *offset_fft_plan;
+	
+	/* variance of statistics versus euclidian norm */
+	double ratio_SNR;
+	double ratio_UL;
+	double ratio_UL_circ;
+	double ratio_B_stat;
+	double ratio_F_stat;
+	double max_ratio;
+	
+	/* noise spectrum modelling */
+	double noise_adj[2];
 	
 	/* fast_get_emission_time */
 	ETC etc;
@@ -100,6 +120,8 @@ typedef struct {
 	COMPLEX8Vector *scan_tmp[8];
 	
 	FFT_STATS stats;
+	
+	double var_offset[8];
 	
 	} LOOSE_CONTEXT;
 

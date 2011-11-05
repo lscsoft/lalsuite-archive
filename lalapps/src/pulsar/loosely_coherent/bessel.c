@@ -11,6 +11,80 @@
 #include "global.h"
 #include "bessel.h"
 
+extern FILE * LOG;
+
+/* gsl functions are not precize for small arguments */
+void my_bessel_Jn_array(int count, double rho, double *bessel_values)
+{
+int order;
+int i;
+double x, a;
+
+x=rho*100;
+order=floor(x*x);
+if(order>42)order=42;
+
+//fprintf(stderr, "order=%d rho=%g\n", order, rho);
+
+if(order>count)order=count;
+
+if(order>0)
+	gsl_sf_bessel_Jn_array(0, order, rho, bessel_values);
+
+if(order==count)return;
+
+if(order==0)bessel_values[0]=1.0;
+
+a=1.0;
+for(i=1;i<order;i++)a=a*(0.5*rho)/i;
+
+for(;i<=count;i++) {
+	a=a*(0.5*rho)/i;
+	bessel_values[i]=a;
+	if(fabs(a)<1e-6) {
+		memset(&(bessel_values[i]), 0, (count-i+1)*sizeof(*bessel_values));
+		return;
+		}
+	}
+}
+
+void check_my_bessel_Jn(void)
+{
+int i, j, N;
+double a, x, rho;
+double val[256];
+double err=0;
+	
+for(j=0;j<4000;j++) {
+	rho=(j*1.0)/256.0;
+	
+	N=127;
+	my_bessel_Jn_array(N, rho, val);
+	for(i=0;i<=N;i++) {
+		//fprintf(stderr, "%d %f\n", i, rho);
+		if(fabs(rho)<=0) {
+			if(i==0)a=1.0;
+				else a=0;
+			} else
+		if(rho*100<sqrt(i+1) || (i>42)) {
+			a=exp(i*log(0.5*rho))/gsl_sf_fact(i);
+			} else
+			a=gsl_sf_bessel_Jn(i, rho);
+		x=fabs(a-val[i]);
+		if(x>err)err=x;
+		if(x>1e-5) {
+			fprintf(stderr, "Bessel approximation error: i=%d rho=%.12g %g for %.12g vs %.12g\n", i, rho, x, a, val[i]);
+			}
+		}
+	}
+fprintf(stderr, "Maximum Bessel approximation error: %g\n", err);
+fprintf(LOG, "Maximum Bessel approximation error: %g\n", err);
+if(err>1e-5) {
+	fprintf(stderr, "*** Bessel approximation error too large, exiting\n");
+	exit(-1);
+	}
+}
+
 void make_bessel_filter(COMPLEX8 *filter, int filter_size, COMPLEX8 *coeffs, int coeffs_size, double scale)
 {
 double *bessel_values;
@@ -19,6 +93,10 @@ COMPLEX8 *cuniti, *filter_tmp;
 int i, j, k, m;
 int offset;
 COMPLEX8 a, b;
+double ad;
+double rho;
+
+//coeffs_size=3;
 
 if(!(filter_size & 1)) {
 	fprintf(stderr, "*** INTERNAL ERROR: filter size should be odd\n");
@@ -57,7 +135,8 @@ if(scale<0) {
 // 	}
 // fprintf(stderr, "\n");
 
-gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[0], bessel_values);
+//gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[0], bessel_values);
+my_bessel_Jn_array(offset, scale*2*cnorm[0], bessel_values);
 
 filter[offset].re=bessel_values[0];
 filter[offset].im=0;
@@ -87,11 +166,20 @@ while((j<coeffs_size) && (j<offset)) {
 		fprintf(stderr, "%d %d %f %f\n", j+1, i, filter[i].re, filter[i].im);
 		}
 	fprintf(stderr, "\n");*/
+	rho=scale*2*cnorm[j];
+	
+	if(fabs(rho)<1e-3){
+		j++;
+		continue;
+		}
+
 	
 	memcpy(filter_tmp, filter, filter_size*sizeof(*filter));
 	
-	gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[j], bessel_values);
-
+	//gsl_sf_bessel_Jn_array(0, offset, scale*2*cnorm[j], bessel_values);
+	memset(bessel_values, 0, (offset+1)*sizeof(*bessel_values));
+	my_bessel_Jn_array(ceil(offset*1.0/(j+1)), rho, bessel_values);
+	
 // 	for(i=0;i<=offset;i++) {
 // 		fprintf(stderr, " %f", bessel_values[i]);
 // 		}
@@ -103,21 +191,23 @@ while((j<coeffs_size) && (j<offset)) {
 		}
 
 	a=cuniti[j];
-	for(i=1;i<=offset && i<=3;i++) {
+	for(i=1;i<=offset;i++) {
 
-		for(k=0;k<filter_size;k++) {
-			m=k+i*(j+1);
-			if(m<filter_size) {
-				b=filter_tmp[m];
-				filter[k].re+=bessel_values[i]*(b.re*a.re+b.im*a.im)*(1-(i & 1)*2);
-				filter[k].im+=bessel_values[i]*(-b.re*a.im+b.im*a.re)*(1-(i & 1)*2);
-				}
+		if(fabs(bessel_values[i])>0.0) {
+			for(k=0;k<filter_size;k++) {
+				m=k+i*(j+1);
+				if(m<filter_size) {
+					b=filter_tmp[m];
+					filter[k].re+=bessel_values[i]*(b.re*a.re+b.im*a.im)*(1-(i & 1)*2);
+					filter[k].im+=bessel_values[i]*(-b.re*a.im+b.im*a.re)*(1-(i & 1)*2);
+					}
 
-			m=k-i*(j+1);
-			if(m>=0) {
-				b=filter_tmp[m];
-				filter[k].re+=bessel_values[i]*(b.re*a.re-b.im*a.im);
-				filter[k].im+=bessel_values[i]*(b.re*a.im+b.im*a.re);
+				m=k-i*(j+1);
+				if(m>=0) {
+					b=filter_tmp[m];
+					filter[k].re+=bessel_values[i]*(b.re*a.re-b.im*a.im);
+					filter[k].im+=bessel_values[i]*(b.re*a.im+b.im*a.re);
+					}
 				}
 			}
 		
@@ -127,7 +217,43 @@ while((j<coeffs_size) && (j<offset)) {
 		}
 	j++;
 	}
+	
+/* Normalize filter */
+ad=0.0;
+for(i=0;i<filter_size;i++) {
+	ad+=(double)(filter[i].re)*(double)(filter[i].re)+(double)(filter[i].im)*(double)(filter[i].im);
+	}
+ad=1.0/sqrt(ad);
+if(fabs(ad-1.0)>0.01) {
+	for(i=0;i<=offset && i<coeffs_size;i++) {
+		fprintf(stderr, " %f", cnorm[i]);
+		}
+	fprintf(stderr, "\nbessel values\n");
 
+	for(i=0;i<=offset;i++) {
+		fprintf(stderr, " %f", bessel_values[i]);
+		}
+	fprintf(stderr, "\n\n");
+
+	for(i=0;i<filter_size;i++) {
+		fprintf(stderr, " (%f,%f)", filter[i].re, filter[i].im);
+		}
+	fprintf(stderr, "\n\n");
+
+	fprintf(stderr, "ad=%f scale=%g coeff[1]=(%g, %g) filter_size=%d\n", ad, scale, coeffs[1].re, coeffs[1].im, filter_size);
+	}
+for(i=0;i<filter_size;i++) {
+	filter[i].re=filter[i].re*ad;
+	filter[i].im=filter[i].im*ad;
+	}
+/* check offset normalization */
+#if 0
+ad=0.0;
+for(i=1;i<filter_size;i++) {
+	ad+=(double)(filter[i].re)*(double)(filter[i-1].re)+(double)(filter[i].im)*(double)(filter[i-1].im);
+	}
+if(fabs(ad)>0.001)fprintf(stderr, "2 ad=%f scale=%g coeff[1]=(%g, %g) filter_size=%d\n", ad, scale, coeffs[1].re, coeffs[1].im, filter_size);
+#endif
 }
 
 void test_bessel_filter(void)
@@ -472,6 +598,243 @@ for(;i<nsamples;i++) {
 
 }
 
+void shift_fft11(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter)
+{
+int i, j, k;
+double a, b;
+int nsamples=fft_in->length;
+COMPLEX8 *pf, *pd;
+
+if(fft_in->length!=fft_out->length) {
+	fprintf(stderr, "*** INTERNAL ERROR: fft lengths do not match %d vs %d\n", fft_in->length, fft_out->length);
+	exit(-1);
+	}
+	
+if(nsamples<10) {
+	fprintf(stderr, "*** INTERNAL ERROR: cannot filter very small SFTs (%d)\n", nsamples);
+	exit(-1);
+	}
+
+for(i=0;i<7;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<11;j++) {
+		k=i-5+j;
+		if(k<0)k=nsamples+k;
+		a+=filter[10-j].re*fft_in->data[k].re-filter[10-j].im*fft_in->data[k].im;
+		b+=filter[10-j].re*fft_in->data[k].im+filter[10-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+for(;i<nsamples-7;i++) {
+	a=0.0;
+	b=0.0;
+	
+	#define ADD {\
+		a+=pf->re*pd->re-pf->im*pd->im; \
+		b+=pf->re*pd->im+pf->im*pd->re; \
+		pf++; \
+		pd--; \
+		}
+		
+	
+	pf=filter;
+	pd=&(fft_in->data[i+5]);
+/*	for(j=0;j<7;j++) {
+		k=i-3+j;
+		a+=filter[6-j].re*fft_in->data[k].re-filter[6-j].im*fft_in->data[k].im;
+		b+=filter[6-j].re*fft_in->data[k].im+filter[6-j].im*fft_in->data[k].re;
+		}*/
+
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+for(;i<nsamples;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<11;j++) {
+		k=i-5+j;
+		if(k>=nsamples)k=k-nsamples;
+		a+=filter[10-j].re*fft_in->data[k].re-filter[10-j].im*fft_in->data[k].im;
+		b+=filter[10-j].re*fft_in->data[k].im+filter[10-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+}
+
+void shift_fft11_sse(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter)
+{
+int i, j, k;
+float a, b;
+int nsamples=fft_in->length;
+COMPLEX8 *pf, *pd;
+float *filter_re, *filter_im, *tmp_re, *tmp_im;
+__m128 filter128_re[3], filter128_im[3], tmp128_re[3], tmp128_im[3], a1, a2, b1, b2, a3, b3;
+
+filter_re=aligned_alloca(12*sizeof(*filter_re));
+filter_im=aligned_alloca(12*sizeof(*filter_im));
+tmp_re=aligned_alloca(12*sizeof(*tmp_re));
+tmp_im=aligned_alloca(12*sizeof(*tmp_im));
+// tmp_ret=aligned_alloca(8*sizeof(*tmp_re));
+// tmp_imt=aligned_alloca(8*sizeof(*tmp_im));
+
+if(fft_in->length!=fft_out->length) {
+	fprintf(stderr, "*** INTERNAL ERROR: fft lengths do not match %d vs %d\n", fft_in->length, fft_out->length);
+	exit(-1);
+	}
+	
+if(nsamples<16) {
+	fprintf(stderr, "*** INTERNAL ERROR: cannot filter very small SFTs (%d)\n", nsamples);
+	exit(-1);
+	}
+
+for(i=0;i<11;i++) {
+	filter_re[i]=filter[i].re;
+	filter_im[i]=filter[i].im;
+	}
+filter_re[11]=0.0;
+filter_im[11]=0.0;
+tmp_re[11]=0.0;
+tmp_im[11]=0.0;
+
+for(j=0;j<3;j++) {
+	filter128_re[j]=_mm_load_ps(&(filter_re[4*j]));
+	filter128_im[j]=_mm_load_ps(&(filter_im[4*j]));
+	}
+
+for(i=0;i<7;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<11;j++) {
+		k=i-5+j;
+		if(k<0)k=nsamples+k;
+		a+=filter[10-j].re*fft_in->data[k].re-filter[10-j].im*fft_in->data[k].im;
+		b+=filter[10-j].re*fft_in->data[k].im+filter[10-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+	
+for(j=0;j<11;j++) {
+	tmp_re[j]=fft_in->data[i+5-j].re;
+	tmp_im[j]=fft_in->data[i+5-j].im;
+	}
+
+for(j=0;j<3;j++) {
+	tmp128_re[j]=_mm_load_ps(&(tmp_re[4*j]));
+	tmp128_im[j]=_mm_load_ps(&(tmp_im[4*j]));
+	}
+
+for(;i<nsamples-7;i++) {
+	#if 0
+	a=0.0;
+	b=0.0;
+	
+	#define ADD {\
+		a+=(float)pf->re*(float)pd->re-(float)pf->im*(float)pd->im; \
+		b+=(float)pf->re*(float)pd->im+(float)pf->im*(float)pd->re; \
+		pf++; \
+		pd--; \
+		}
+		
+	
+	pf=filter;
+	pd=&(fft_in->data[i+5]);
+
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	ADD
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	#endif
+	
+	a1=_mm_sub_ps(_mm_mul_ps(tmp128_re[0], filter128_re[0]), _mm_mul_ps(tmp128_im[0], filter128_im[0]));
+	b1=_mm_add_ps(_mm_mul_ps(tmp128_re[0], filter128_im[0]), _mm_mul_ps(tmp128_im[0], filter128_re[0]));
+
+	a2=_mm_sub_ps(_mm_mul_ps(tmp128_re[1], filter128_re[1]), _mm_mul_ps(tmp128_im[1], filter128_im[1]));
+	b2=_mm_add_ps(_mm_mul_ps(tmp128_re[1], filter128_im[1]), _mm_mul_ps(tmp128_im[1], filter128_re[1]));
+
+	a3=_mm_sub_ps(_mm_mul_ps(tmp128_re[2], filter128_re[2]), _mm_mul_ps(tmp128_im[2], filter128_im[2]));
+	b3=_mm_add_ps(_mm_mul_ps(tmp128_re[2], filter128_im[2]), _mm_mul_ps(tmp128_im[2], filter128_re[2]));
+
+	/* shuffle data and load next elements */
+	
+	a1=_mm_add_ps(a1, _mm_add_ps(a2, a3));
+	b1=_mm_add_ps(b1, _mm_add_ps(b2, b3));
+
+	tmp128_re[0]=_mm_shuffle_ps(tmp128_re[0], tmp128_re[0], _MM_SHUFFLE(2,1,0,3));
+	tmp128_re[1]=_mm_shuffle_ps(tmp128_re[1], tmp128_re[1], _MM_SHUFFLE(2,1,0,3));
+	tmp128_re[2]=_mm_shuffle_ps(tmp128_re[2], tmp128_re[2], _MM_SHUFFLE(2,1,0,3));
+	
+	tmp128_re[2]=_mm_move_ss(tmp128_re[2], tmp128_re[1]);
+	tmp128_re[1]=_mm_move_ss(tmp128_re[1], tmp128_re[0]);
+	tmp128_re[0]=_mm_move_ss(tmp128_re[0], _mm_set_ss(fft_in->data[i+6].re));
+	
+	a1=_mm_hadd_ps(a1, b1);
+	a1=_mm_hadd_ps(a1, a1);
+	_mm_store_ss(&fft_out->data[i].re, a1);
+	_mm_store_ss(&fft_out->data[i].im, _mm_shuffle_ps(a1, a1, _MM_SHUFFLE(3,2,0,1)));
+
+	tmp128_im[0]=_mm_shuffle_ps(tmp128_im[0], tmp128_im[0], _MM_SHUFFLE(2,1,0,3));
+	tmp128_im[1]=_mm_shuffle_ps(tmp128_im[1], tmp128_im[1], _MM_SHUFFLE(2,1,0,3));
+	tmp128_im[2]=_mm_shuffle_ps(tmp128_im[2], tmp128_im[2], _MM_SHUFFLE(2,1,0,3));
+	
+	tmp128_im[2]=_mm_move_ss(tmp128_im[2], tmp128_im[1]);
+	tmp128_im[1]=_mm_move_ss(tmp128_im[1], tmp128_im[0]);
+	tmp128_im[0]=_mm_move_ss(tmp128_im[0], _mm_set_ss(fft_in->data[i+6].im));
+
+	#if 0
+	if(fabs(a-fft_out->data[i].re)>1e-4*fabs(a) || fabs(b-fft_out->data[i].im)>1e-4*fabs(b)) {
+		fprintf(stderr, "(%g, %g) vs (%g, %g)\n", fft_out->data[i].re, fft_out->data[i].im, a, b);
+		}
+	#endif
+
+	}
+
+for(;i<nsamples;i++) {
+	a=0.0;
+	b=0.0;
+	for(j=0;j<11;j++) {
+		k=i-5+j;
+		if(k>=nsamples)k=k-nsamples;
+		a+=filter[10-j].re*fft_in->data[k].re-filter[10-j].im*fft_in->data[k].im;
+		b+=filter[10-j].re*fft_in->data[k].im+filter[10-j].im*fft_in->data[k].re;
+		}
+	
+	fft_out->data[i].re=a;
+	fft_out->data[i].im=b;
+	}
+
+}
 
 void shift_fft(COMPLEX8Vector *fft_out, COMPLEX8Vector *fft_in, COMPLEX8 *filter, int filter_size)
 {
@@ -505,6 +868,11 @@ if(filter_size==7) {
 
 if(filter_size==9) {
 	shift_fft9(fft_out, fft_in, filter);
+	return;
+	}
+
+if(filter_size==11) {
+	shift_fft11_sse(fft_out, fft_in, filter);
 	return;
 	}
 
@@ -554,5 +922,6 @@ for(k=-offset;k<=offset;k++) {
 
 void test_bessel(void)
 {
+check_my_bessel_Jn();
 test_bessel_filter();
 }

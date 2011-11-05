@@ -31,6 +31,10 @@ typedef struct {
 	int fft_bin;
 	int alignment_bin;
 	double fft_offset;
+	double frequency;
+	double spindown;
+	double ra;
+	double dec;
 	double iota;
 	double psi;
 	double phi;
@@ -41,16 +45,25 @@ typedef struct {
 	STAT_INFO snr;
 	STAT_INFO ul;
 	STAT_INFO circ_ul;
+	STAT_INFO B_stat;
+	STAT_INFO F_stat;
+	STAT_INFO power_stat;
 	
 	double template_count;
 	double stat_hit_count;
+	double min_noise_ratio;
+	double max_noise_ratio;
 	} FFT_STATS;
 
+	
+#include "context.h"	
+	
 void init_fft_stats(void);
 void init_stats(FFT_STATS *st);
-void log_stats(FILE *f, char *tag, FFT_STATS *st, double ul_adjust);
+void log_stats(LOOSE_CONTEXT *ctx, FILE *f, char *tag, FFT_STATS *st, double ul_adjust);
 void update_stats(FFT_STATS *st_accum, FFT_STATS *st);
-void compute_fft_stats(FFT_STATS *stats, COMPLEX8Vector *fft1, COMPLEX8Vector *fft2, double fpp, double fpc, double fcc, double fft_offset);
+void compute_stats_variance(LOOSE_CONTEXT *ctx);
+ void compute_fft_stats(LOOSE_CONTEXT *ctx, FFT_STATS *stats, COMPLEX8Vector *fft1, COMPLEX8Vector *fft2, double fft_offset);
 
 
 #endif

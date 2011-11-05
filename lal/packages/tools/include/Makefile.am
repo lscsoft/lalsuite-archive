@@ -18,8 +18,7 @@ pkginclude_HEADERS = \
 	Units.h
 
 CLEANFILES =
-MOSTLYCLEANFILES = .dvi-dep
-DISTCLEANFILES = *.tex
+
 MAINTAINERCLEANFILES = \
 	FrequencySeries.h \
 	Sequence.h \
@@ -34,7 +33,6 @@ EXTRA_DIST = \
 	TimeSeriesH.m4
 
 all-local: include-link
-dvi-local: .dvi-dep
 
 FrequencySeries.h : FrequencySeries.m4 FrequencySeriesH.m4
 	cd $(srcdir) && @M4@ FrequencySeries.m4 > FrequencySeries.h
@@ -46,8 +44,6 @@ TimeSeries.h : TimeSeries.m4 TimeSeriesH.m4
 	cd $(srcdir) && @M4@ TimeSeries.m4 > TimeSeries.h
 
 @INCLUDEMKFILE@
-@DVIMKFILE@
 
 swig_headers = $(pkginclude_HEADERS)
-CLEANFILES += $(swig_clean)
-@SWIG_HEADER_MK@
+include $(top_srcdir)/swig/swig-header.am

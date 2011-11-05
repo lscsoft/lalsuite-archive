@@ -97,8 +97,10 @@ static void padWrappedREAL8Sequence(REAL8Sequence *padded, const REAL8Sequence *
 
 
 
-/** ============ Likelihood computations: ========== */
+/* ============ Likelihood computations: ========== */
 
+/** For testing purposes (for instance sampling the prior), likelihood that returns 0.0 = log(1) every
+ time.  Activated with the --zeroLogLike command flag. */
 REAL8 LALInferenceZeroLogLikelihood(LALInferenceVariables UNUSED *currentParams, LALInferenceIFOData UNUSED *data, LALInferenceTemplateFunction UNUSED *template) {
   return 0.0;
 }
@@ -135,17 +137,28 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double timeshift;  /* time shift (not necessarily same as above)                   */
   double deltaT, TwoDeltaToverN, deltaF, twopit, f, re, im;
   double timeTmp;
+	double mc;
   int different;
+	UINT4 logDistFlag=0;
   LALStatus status;
   memset(&status,0,sizeof(status));
   LALInferenceVariables intrinsicParams;
+
+  logDistFlag=LALInferenceCheckVariable(currentParams, "logdistance");
+  if(LALInferenceCheckVariable(currentParams,"logmc")){
+    mc=exp(*(REAL8 *)LALInferenceGetVariable(currentParams,"logmc"));
+    LALInferenceAddVariable(currentParams,"chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
+  }
 
   /* determine source's sky location & orientation parameters: */
   ra        = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension"); /* radian      */
   dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    /* radian      */
   psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
   GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
-  distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");       /* Mpc         */
+	if(logDistFlag)
+		 distMpc = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"logdistance"));
+	else
+		 distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");       /* Mpc         */
 
   /* figure out GMST: */
   //XLALINT8NSToGPS(&GPSlal, floor(1e9 * GPSdouble + 0.5));
@@ -161,7 +174,10 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   LALInferenceRemoveVariable(&intrinsicParams, "declination");
   LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
   LALInferenceRemoveVariable(&intrinsicParams, "time");
-  LALInferenceRemoveVariable(&intrinsicParams, "distance");
+	if(logDistFlag)
+			LALInferenceRemoveVariable(&intrinsicParams, "logdistance");
+	else
+			LALInferenceRemoveVariable(&intrinsicParams, "distance");
   // TODO: add pointer to template function here.
   // (otherwise same parameters but different template will lead to no re-computation!!)
 
@@ -466,7 +482,7 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
     }
     if (!(degreesOfFreedom>0)) {
       XLALPrintError(" ERROR in StudentTLogLikelihood(): degrees-of-freedom parameter must be positive.\n");
-      XLAL_ERROR_REAL8("LALInferenceFreqDomainStudentTLogLikelihood",XLAL_EDOM);
+      XLAL_ERROR_REAL8(XLAL_EDOM);
     }
 
     /* determine frequency range & loop over frequency bins: */
@@ -580,7 +596,7 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
   REAL8 ChiSquared=0.0, dxp, xp, x, norm, binPower, nextBin;
   REAL8 lowerF, upperF, deltaT, deltaF;
   REAL8 *segnorm;
-  INT4  i, chisqPt, imax, kmin, kmax, numBins=0;
+  INT4  i, chisqPt, imax,  kmax, numBins=0;//kmin - set but not used
   INT4  *chisqBin;
   LALInferenceIFOData *ifoPtr=data;
   COMPLEX16Vector *freqModelResponse=NULL;
@@ -608,7 +624,7 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
    
     /* Generate bin boundaries */
     numBins = *(INT4*) LALInferenceGetVariable(currentParams, "numbins");
-    kmin = ceil(ifoPtr->fLow / deltaF);
+    //kmin = ceil(ifoPtr->fLow / deltaF); - set but not used
     kmax = floor(ifoPtr->fHigh / deltaF);
     imax = kmax > (INT4) ifoPtr->freqData->data->length-1 ? (INT4) ifoPtr->freqData->data->length-1 : kmax;
     
@@ -686,10 +702,10 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
 REAL8 LALInferenceTimeDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
                               LALInferenceTemplateFunction *template)
 /***************************************************************/
-/* (log-) likelihood function.                                 */
+/* Time domain (log-) likelihood function.                     */
 /* Returns the non-normalised logarithmic likelihood.          */
-/* Slightly slower but cleaner than							   */
-/* UndecomposedFreqDomainLogLikelihood().          `		   */
+/* Mathematically equivalent to Frequency domain likelihood.   */
+/* Time domain version of LALInferenceFreqDomainLogLikelihood()*/
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Required (`currentParams') parameters are:                  */
 /*   - "rightascension"  (REAL8, radian, 0 <= RA <= 2pi)       */
@@ -774,13 +790,12 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
 	LALInferenceVariables intrinsicParams;
 	LALStatus status;
 	memset(&status,0,sizeof(status));
-
+	
 	double Fplus, Fcross;
 	double FplusScaled, FcrossScaled;
 	REAL8 plainTemplateReal, plainTemplateImag;
 	UINT4 i;
 	REAL8 mc;
-	
 	/* Fill in derived parameters if necessary */
 	if(LALInferenceCheckVariable(currentParams,"logdistance")){
 		distMpc=exp(*(REAL8 *) LALInferenceGetVariable(currentParams,"logdistance"));
@@ -799,6 +814,7 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
 	psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
 	GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
 	distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");       /* Mpc         */
+
 		
 	/* figure out GMST: */
 	//XLALINT8NSToGPS(&GPSlal, floor(1e9 * GPSdouble + 0.5));
@@ -815,6 +831,8 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
 	LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
 	LALInferenceRemoveVariable(&intrinsicParams, "time");
 	LALInferenceRemoveVariable(&intrinsicParams, "distance");
+
+
 	// TODO: add pointer to template function here.
 	// (otherwise same parameters but different template will lead to no re-computation!!)
       
@@ -1117,7 +1135,7 @@ REAL8 LALInferenceComputeFrequencyDomainOverlap(LALInferenceIFOData * dataPtr,
 }
 
 REAL8 LALInferenceNullLogLikelihood(LALInferenceIFOData *data)
-/*Idential to FreqDomainNullLogLikelihood                        */
+/*Identical to FreqDomainNullLogLikelihood                        */
 {
 	REAL8 loglikeli, totalChiSquared=0.0;
 	LALInferenceIFOData *ifoPtr=data;
