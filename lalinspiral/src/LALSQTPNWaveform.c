@@ -292,42 +292,63 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 	} else {
 		REAL4 h[2];
 		if (waveform->waveform->h) {
-			for (UINT8 i = 0; i < size; i++) {
+			for (waveform->length = 0; waveform->length < size; waveform->length++) {
 				for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
-					valuesHelp[j] = values->data[(j + 1) * size + i];
+					valuesHelp[j] = values->data[(j + 1) * size + waveform->length];
 				}
-				XLALCalculateHPHC(params, valuesHelp, &(waveform->waveform->h->data->data[2 * i]));
+				XLALCalculateHPHC(params, valuesHelp,
+					&(waveform->waveform->h->data->data[2 * waveform->length]));
+				if (isnan(waveform->waveform->h->data->data[2*waveform->length])
+					|| isnan(waveform->waveform->h->data->data[2*waveform->length+1])) {
+					waveform->length--;
+					waveform->waveform->h->data->length = waveform->length;
+					break;
+				}
 			}
 		}
 		if (waveform->waveform->a) {
-			for (UINT8 i = 0; i < size; i++) {
+			for (waveform->length = 0; waveform->length < size; waveform->length++) {
 				for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
-					valuesHelp[j] = values->data[(j + 1) * size + i];
+					valuesHelp[j] = values->data[(j + 1) * size + waveform->length];
 				}
-				XLALCalculateHPHC(params, valuesHelp, &(waveform->waveform->a->data->data[2 * i]));
-				waveform->waveform->a->data->data[2 * i] *= 2.0 * LAL_SQRT1_2;
-				waveform->waveform->a->data->data[2 * i + 1] *= 2.0 * LAL_SQRT1_2;
-				waveform->waveform->f->data->data[i] = valuesHelp[LALSQTPN_OMEGA] / freq_Step;
-				waveform->waveform->phi->data->data[i] = LAL_PI_4;
-				waveform->waveform->shift->data->data[i] = 0.0;
+				XLALCalculateHPHC(params, valuesHelp,
+					&(waveform->waveform->a->data->data[2 * waveform->length]));
+				waveform->waveform->a->data->data[2 * waveform->length] *= 2.0 * LAL_SQRT1_2;
+				waveform->waveform->a->data->data[2 * waveform->length + 1] *= 2.0 * LAL_SQRT1_2;
+				waveform->waveform->f->data->data[waveform->length] = valuesHelp[LALSQTPN_OMEGA]
+					/ freq_Step;
+				waveform->waveform->phi->data->data[waveform->length] = LAL_PI_4;
+				waveform->waveform->shift->data->data[waveform->length] = 0.0;
+				if (isnan(waveform->waveform->a->data->data[2*waveform->length])
+					|| isnan(waveform->waveform->a->data->data[2*
+						waveform->length+1])) {
+					waveform->length--;
+					waveform->waveform->h->data->length = waveform->length;
+					break;
+				}
 			}
+			waveform->length = size;
 		}
 		if (waveform->hp) {
-			for (UINT8 i = 0; i < size; i++) {
+			for (waveform->length = 0; waveform->length < size; waveform->length++) {
 				for (UINT2 j = 0; j < LALSQTPN_NUM_OF_VAR; j++) {
-					valuesHelp[j] = values->data[(j + 1) * size + i];
+					valuesHelp[j] = values->data[(j + 1) * size + waveform->length];
 				}
 				XLALCalculateHPHC(params, valuesHelp, h);
-				waveform->hp->data[i] = h[0];
+				if (isnan(h[0]) || isnan(h[0])) {
+					waveform->length--;
+					waveform->waveform->h->data->length = waveform->length;
+					break;
+				}
+				waveform->hp->data[waveform->length] = h[0];
 				if (waveform->hc) {
-					waveform->hc->data[i] = h[1];
+					waveform->hc->data[waveform->length] = h[1];
 				}
 			}
 		}
 	}
 	params->finalFreq = valuesHelp[LALSQTPN_OMEGA] / freq_Step;
 	params->coalescenceTime = values->data[size - 1];
-	waveform->length = size;
 
 	if (values) {
 		XLALDestroyREAL8Array(values);
