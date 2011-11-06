@@ -1420,9 +1420,15 @@ class CondorDAG:
         node_file_dict = {}
         for f in node.get_input_files():
           node_file_dict[f] = 1
+        
+        for f in node_file_dict.keys():
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.INPUT,register=False,transfer=True)
+
+        node_file_dict = {}
         for f in node.get_output_files():
           node_file_dict[f] = 1
+
+        for f in node_file_dict.keys():
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.OUTPUT,register=False,transfer=True)
 
         for job_arg in cmd_line:
@@ -1439,10 +1445,6 @@ class CondorDAG:
           os="linux", arch="x86_64")
 
         executable_path = os.path.join(os.getcwd(),executable)
-        if self.is_dax():
-          executable_path = '/'.join(
-            ['gsiftp:/', socket.gethostbyaddr(socket.gethostname())[0], 
-            executable_path.lstrip('/')])
         job_executable.addPFN(Pegasus.DAX3.PFN(executable_path,"local"))
 
         workflow_executable_dict[executable_base] = job_executable
@@ -1491,7 +1493,7 @@ class CondorDAG:
               pass
             else:
               parent_job_object = node_job_object_dict[str(parent)]
-              workflow.addDependency(parent=parent_job_object, child=child_job_object)
+              workflow.addDependency(Pegasus.DAX3.Dependency(parent=parent_job_object, child=child_job_object))
 
     # FIXME put all the executables in the workflow
     for exec_key in workflow_executable_dict.keys():
