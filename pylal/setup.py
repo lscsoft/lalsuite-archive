@@ -631,7 +631,8 @@ setup(
 		os.path.join("bin", "auxmvc_mvsc_results_plots.py"),
 		os.path.join("bin", "auxmvc_generate_spr_files.py"),
 		os.path.join("bin", "auxmvc_create_mvsc_dag"),
-		os.path.join("bin", "auxmvc_ROC_combiner.py") 
+		os.path.join("bin", "auxmvc_ROC_combiner.py"),
+                os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py") 
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
