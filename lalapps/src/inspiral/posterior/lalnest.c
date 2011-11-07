@@ -2236,26 +2236,15 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 	if(injWaveFD==NULL)	LALCreateVector(&status,&injWaveFD,Nmodel); /* Allocate storage for the waveform */
         
-	/* Create the wave */
-	/*
-     LALInspiralParameterCalc(&status,&template);
-	LALInspiralRestrictedAmplitude(&status,&template);
-	if (template.approximant==TaylorF2){
-        LALInspiralStationaryPhaseApprox2(&status, injWaveFD, &template);
-    }
-    else {
-		fprintf(stderr,"GR injection");
-        LALInspiralWave(&status,injWaveFD,&template);
-    }
-    * */
     LALMCMCParameter *UnusedParameter=NULL;
-    TaylorF2_template(&status,&template,UnusedParameter,inputMCMC,injWaveFD);
-        
     memset(&ak,0,sizeof(expnCoeffs));
 	memset(&TofVparams,0,sizeof(TofVparams));
-
+    LALInspiralParameterCalc(&status,&template);
+	LALInspiralRestrictedAmplitude(&status,&template);
+    TaylorF2_template(&status,&template,UnusedParameter,inputMCMC,injWaveFD);
     LALInspiralSetup(&status,&ak,&template);
 	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
+    
 	TofVparams.coeffs=&ak;
 	TofVparams.dEnergy=expnFunction.dEnergy;
 	TofVparams.flux=expnFunction.flux;
@@ -2266,21 +2255,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 /*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
 	ChirpISCOLength=ak.tn;
     printf("Injection Approx: %i\n",template.approximant);
-    /*if (template.approximant==TaylorF2Test){
-        dphis[0]=inj_table->dphi0;
-        dphis[1]=inj_table->dphi1;
-        dphis[2]=inj_table->dphi2;
-        dphis[3]=inj_table->dphi3;
-        dphis[4]=inj_table->dphi4;
-        dphis[5]=inj_table->dphi5;
-        dphis[6]=inj_table->dphi5l;
-        dphis[7]=inj_table->dphi6;
-        dphis[8]=inj_table->dphi6l;
-        dphis[9]=inj_table->dphi7;
-        for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
-        LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis);
-    }*/
-    
     
 	FILE *outInjB=fopen("injection_preInj.dat","w");
     for (UINT4 i=0; i<injWaveFD->length; i++) {
@@ -2291,7 +2265,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
     end_time-=(REAL8) inputMCMC->epoch.gpsSeconds + 1.0e-9*inputMCMC->epoch.gpsNanoSeconds;
     end_time-=ChirpISCOLength;
-    fprintf(stdout,"endtime in injFD %lf\n",end_time);
 	/* Calculate response of the detectors */
 	LALSource source;
 	memset(&source,0,sizeof(LALSource));
@@ -2329,7 +2302,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		det_resp.plus*=0.5*(1.0+ci*ci);
 		det_resp.cross*=-ci;
 		REAL8 chisq=0;
-        fprintf(stdout,"AAA %lf \n",end_time+TimeFromGC);
 		for(idx=lowBin;idx<=highBin;idx++){
 			time_sin = sin(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
 			time_cos = cos(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
@@ -2341,11 +2313,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 			inputMCMC->stilde[det_i]->data->data[idx].re+=resp_r;
 			inputMCMC->stilde[det_i]->data->data[idx].im+=resp_i;
 
-//			fprintf(outInj,"%lf %e\n",idx*deltaF ,atan2(injWaveFD->data[Nmodel-idx],injWaveFD->data[idx]));
 			fprintf(outInj,"%lf %e %e %e %e %e\n",idx*deltaF ,inputMCMC->stilde[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im,resp_r,resp_i,inputMCMC->invspec[det_i]->data->data[idx]);
 			chisq+=inputMCMC->invspec[det_i]->data->data[idx]*(resp_r*resp_r+resp_i*resp_i)*deltaF;
-             if(idx==3000){
-fprintf(stdout,"%lf \t %e\t %e\t %e\t %e\t %e\t %e\t%e \t %d \n",idx*deltaF,time_sin,time_cos,hc,hs,resp_r,resp_i,(REAL8)injWaveFD->data[idx],Nmodel);        }
 //            printf("chisq = %e \t\n",chisq);
 
 		}
