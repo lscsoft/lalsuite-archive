@@ -13,95 +13,53 @@ from matplotlib import pyplot
 from pylal import rate
 
 
-def compute_posterior(vA, err, dvA, mu_in=None, prior=None):
+def margLikelihoodMonteCarlo(VTs, lambs, mu, mcerrs=None):
     '''
-    This function computes the posterior distribution on the rate parameter
-    mu resulting from an experiment which was sensitive to a volume vA. This
-    function implements the analytic marginalization over uncertainty in the
-    efficiency at the loudest event if the input vA2 is nonzero (see Biswas,
-    Creighton, Brady, Fairhurst, eqn 24). Where the sensitive volume is zero,
-    the posterior is equal to the prior, which is taken to be a constant.
+    This function marginalizes the loudest event likelihood over unknown
+    Monte Carlo errors, assumed to be independent between each experiment.
     '''
-    if vA == 0: return mu_in, prior
+    if mcerrs is None:
+        mcerrs = [0]*len(VTs)
 
-    if mu_in is not None and prior is not None: #give me a rate w/o a prior, shame on you
-       #choose new values for mu, as necessary to avoid having the posterior having
-       #significant support outside the chosen values of mu
-       mu_10 = compute_upper_limit(mu_in, prior,0.10)
-       mu_90 = compute_upper_limit(mu_in, prior,0.90)
+    # combine experiments, propagating statistical uncertainties
+    # in the measured efficiency
+    likely = 1
+    for vA,dvA,mc in zip(VTs,lambs,mcerrs):
+        if mc == 0:
+            # we have perfectly measured our efficiency in this mass bin
+            # so the posterior is given by eqn (11) in BCB
+            likely *= (1+mu*vA*dvA)*numpy.exp(-mu*vA)
+        else:
+            # we have uncertainty in our efficiency in this mass bin and
+            # want to marginalize it out using eqn (24) of BCB
+            k = (vA/mc)**2 # k is 1./fractional_error**2
+            likely *= (1+mu*vA*(1/k+dvA))*(1+mu*vA/k)**(-(k+1))
 
-       if mu_10 == 0: mu_10 = numpy.min(mu_in[mu_in>0])
-       mu_min = 0.01*mu_10 #that should cover it, right?
-       mu_max = 50*mu_90
-       mu = numpy.arange(0,mu_max,mu_min)
-
-       #create a linear spline representation of the prior, with no smoothing
-       prior = interpolate.splrep(mu_in, prior, s=0, k=1)
-       prior = interpolate.splev(mu, prior)
-       prior[prior < 0] = 0 #prevent interpolation from giving negative probs
-    else:
-       mu_max = 50.0/vA
-       mu_min = 0.001/vA
-       mu = numpy.arange(0,mu_max,mu_min)
-       prior = numpy.ones(len(mu))
-
-    if err == 0:
-        # we have perfectly measured our efficiency in this mass bin
-	# so the posterior is given by eqn (11) in BCB
-	post = prior*(1+mu*vA*dvA)*numpy.exp(-mu*vA)
-    else:
-        # we have uncertainty in our efficiency in this mass bin and
-	# want to marginalize it out using eqn (24) of BCB
-	k = 1./err # k is 1./fractional_error
-	# FIXME it remains to check whether using a Gamma distribution for
-	# the volume error model is sensible
-	post = prior*( (1.0 + mu*vA/k)**(-k-1) + (mu*vA*dvA)*(1.0 + 1.0/k)/(1.0 + mu*vA/k)**(k+2) )
-
-    # NB: mu here is actually the rate R = mu/T as in eqn 9 of BCB and the
-    # 4-volume vA is eps*T. In eqns 14,24 of BCB, only the product
-    # mu*eps = R*vA matters, except in the overall normalization, which we
-    # explicitly deal with here
-    post /= post.sum()
-
-    return mu, post
+    return likely
 
 
-def compute_many_posterior(vAs, vA2s, dvAs, mu_in=None, prior=None, mkplot=False, plottag='posterior'):
+def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     '''
-    Compute the posterior from multiple independent experiments for the given prior.
+    This function marginalizes the loudest event likelihood over unknown
+    Monte Carlo and calibration errors. The vector VTs is the sensitive
+    volumes for independent searches and lambs is the vector of loudest
+    event likelihood. The statistical errors are assumed to be independent
+    between each experiment while the calibration errors are applied
+    the same in each experiment.
     '''
-    mu = mu_in
-    post = prior
+    if calerr == 0:
+        return margLikelihoodMonteCarlo(VTs,lambs,mu,mcerrs)
 
-    for vol,vol2,lam in zip(vAs,vA2s,dvAs):
-        mu, post = compute_posterior(vol,vol2,lam,mu,post)
-        if post is not None:
-            post /= post.sum()
+    std = numpy.sqrt( numpy.log( calerr**2 + 1 ) ) #var( log-normal ) = e^(std**2)-1
+    mean = -std**2/2 #mean log-normal=1
 
-    if mkplot:
-        pyplot.figure()
-        if mu_in is not None:
-            #create a linear spline representation of the prior, with no smoothing
-            prior = interpolate.splrep(mu_in, prior, s=0, k=1)
-            prior = interpolate.splev(mu, prior)
-            prior[prior < 0] = 0 #prevent interpolation from giving negative probs
-            pyplot.semilogx(mu[mu>0],prior[mu>0]/prior[mu>0].sum(), '-b', linewidth = 2)
-            pyplot.axvline(x=compute_upper_limit(mu,prior), color = 'b', label = "prior %d%s conf"%(90,'%'))
+    fracerrs = numpy.linspace(0.33,3,5e2) # assume we got the volume to a factor of three or better
+    errdist = numpy.exp(-(numpy.log(fracerrs)-mean)**2/(2*std**2))/(fracerrs*std) # log-normal pdf
+    errdist /= errdist.sum() #normalize
 
-        pyplot.semilogx(mu[mu>0],post[mu>0]/post[mu>0].sum(),'-r', linewidth = 2)
-        pyplot.axvline(x=compute_upper_limit(mu,post), color = 'r', label = "post %d%s conf"%(90,'%'))
-        pyplot.grid()
-        pyplot.xlabel("mergers $\mathrm{(Mpc^{-3} yr^{-1})}$")
-        pyplot.ylabel("Probability Density")
-        pyplot.ylim(ymin=0)
-        pyplot.legend()
-        pyplot.savefig(plottag + ".png")
-        pyplot.legend()
-        pyplot.savefig(plottag + ".png")
-        pyplot.close()
+    likely = sum([ pd*margLikelihoodMonteCarlo(delta*VTs,lambs,mu,mcerrs) for delta, pd in zip(fracerrs,errdist)]) #marginalize over errors
 
-    return mu, post
-
+    return likely
 
 
 def compute_upper_limit(mu, post, alpha = 0.9):
