@@ -210,47 +210,6 @@ def mean_efficiency_volume(found, missed, dbins, bootnum=1, randerr=0.0, syserr=
     return eff, err, meanvol, volerr
 
 
-def find_host_luminosity(inj, catalog):
-    '''
-    Find the luminosity of the host galaxy of the given injection.
-    '''
-    host_galaxy = [gal for gal in catalog if inj.source == gal.name]
-    if len(host_galaxy) != 1:
-        raise ValueError("Injection does not have a unique host galaxy.")
-
-    return host_galaxy[0].luminosity_mwe
-
-
-def find_injections_from_host(host, injset):
-    '''
-    Find the set of injections that came from a given host galaxy.
-    '''
-    injections = [inj for inj in injset if inj.source == host.name]
-
-    return injections
-
-def compute_luminosity_from_catalog(found, missed, catalog):
-    """
-    Compute the average luminosity an experiment was sensitive to given the sets
-    of found and missed injections and assuming that all luminosity comes from
-    the given catalog.
-    """
-    # compute the efficiency to each galaxy in the catalog
-    lum = 0
-    for gal in catalog:
-
-        # get the set of injections that came from this galaxy
-        gal_found = find_injections_from_host(gal, found)
-        gal_missed = find_injections_from_host(gal, missed)
-
-        if len(gal_found) == 0: continue #no sensitivity here
-
-        efficiency = len(gal_found)/(len(gal_found)+len(gal_missed))
-
-        lum += gal.luminosity_mwe*efficiency
-
-    return lum
-
 def filter_injections_by_mass(injs, mbins, bin_num , bin_type):
     '''
     For a given set of injections (sim_inspiral rows), return the subset
