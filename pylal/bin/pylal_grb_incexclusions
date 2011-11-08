@@ -459,7 +459,7 @@ pyplot.plot(NS_jet_angles,BNS_D90,'--v',label=r'\textrm{NS-NS}')
 pyplot.hold(True)
 pyplot.plot(BH_jet_angles,NSBH_D90,'-^',label=r'\textrm{NS-BH}')
 pyplot.fill([0,0,90,90],[M81_low,M81_upp,M81_upp,M81_low], 'r',\
-		alpha=0.2,label=r'$D_{M81}$')
+		alpha=0.2,label=r'$D_{\mathrm{M81}}$')
 pyplot.xlim(opts.min_jet_angle_D90,90)
 pyplot.ylim(opts.D90_lower,opts.D90_upper)
 pyplot.xlabel(r'\textrm{Jet semi-opening angle (deg)}')
