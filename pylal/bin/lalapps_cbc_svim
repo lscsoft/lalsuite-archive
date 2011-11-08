@@ -597,7 +597,6 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   parser.add_option("--iterations", default = 1000, metavar = "integer", type = "int", help = "Number of trials to use for computing the mean and variance of the search volume. A good number is 10000.")
   parser.add_option("--bootstrap", default = False, action = "store_true", help = "Turn on bootstrapping (injection population resampling). Override default nubmer of trials with --iterations.")
   parser.add_option("--dist-err", default = 0.0, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
-  parser.add_option("--dist-sys-err", default = 0.0, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst).")
   parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
