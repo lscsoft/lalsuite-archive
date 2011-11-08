@@ -50,8 +50,8 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     if calerr == 0:
         return margLikelihoodMonteCarlo(VTs,lambs,mu,mcerrs)
 
-    std = numpy.sqrt( numpy.log( calerr**2 + 1 ) ) #var( log-normal ) = e^(std**2)-1
-    mean = -std**2/2 #mean log-normal=1
+    std = calerr
+    mean = 0 # median volume = 1
 
     fracerrs = numpy.linspace(0.33,3,5e2) # assume we got the volume to a factor of three or better
     errdist = numpy.exp(-(numpy.log(fracerrs)-mean)**2/(2*std**2))/(fracerrs*std) # log-normal pdf
