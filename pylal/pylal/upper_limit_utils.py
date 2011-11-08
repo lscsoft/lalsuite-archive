@@ -124,19 +124,21 @@ def confidence_interval( mu, post, alpha = 0.9 ):
     return mu_low, mu_high
 
 
-def integrate_efficiency(dbins, eff, logbins=False):
+def integrate_efficiency(dbins, eff, err=0, logbins=False):
 
     if logbins:
         logd = numpy.log(dbins)
         dlogd = logd[1:]-logd[:-1]
         dreps = numpy.exp( (numpy.log(dbins[1:])+numpy.log(dbins[:-1]))/2) # log midpoint
         vol = numpy.sum( 4*numpy.pi *dreps**3 *eff *dlogd )
+        verr = numpy.sqrt(numpy.sum( (4*numpy.pi *dreps**3 *err *dlogd)**2 )) #propagate errors in eff to errors in v
     else:
         dd = dbins[1:]-dbins[:-1]
         dreps = (dbins[1:]+dbins[:-1])/2 #midpoint
         vol = numpy.sum( 4*numpy.pi *dreps**2 *eff *dd )
+        verr = numpy.sqrt(numpy.sum( (4*numpy.pi *dreps**2 *err *dd)**2 )) #propagate errors in eff to errors in v
 
-    return vol
+    return vol, verr
 
 
 def compute_efficiency(f_dist,m_dist,dbins):
@@ -146,68 +148,32 @@ def compute_efficiency(f_dist,m_dist,dbins):
     Note that injections that do not fit into any dbin get lost :(.
     '''
     efficiency = numpy.zeros( len(dbins)-1 )
+    error = numpy.zeros( len(dbins)-1 )
     for j, dlow in enumerate(dbins[:-1]):
         dhigh = dbins[j+1]
         found = numpy.sum( f_dist[(dlow <= f_dist)*(f_dist < dhigh)] )
         missed = numpy.sum( m_dist[(dlow <= m_dist)*(m_dist < dhigh)] )
         if found+missed == 0: missed = 1.0 #avoid divide by 0 in empty bins
         efficiency[j] = 1.0*found /(found + missed)
+        error[j] = numpy.sqrt(efficiency[j]*(1-efficiency[j])/(found+missed))
 
-    return efficiency
+    return efficiency, error
 
 
-def mean_efficiency_volume(found, missed, dbins, bootnum=1, randerr=0.0, syserr=0.0):
+def mean_efficiency_volume(found, missed, dbins):
 
     if len(found) == 0: # no efficiency here
-        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1), 0, 0
+        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1)
 
     # only need distances
-    found_dist = (1-syserr)*numpy.array([l.distance for l in found])
-    missed_dist = (1-syserr)*numpy.array([l.distance for l in missed])
+    f_dist = numpy.array([l.distance for l in found])
+    m_dist = numpy.array([l.distance for l in missed])
 
-    # initialize the efficiency array
-    eff = numpy.zeros(len(dbins)-1)
-    eff2 = numpy.zeros(len(dbins)-1)
+    # compute the efficiency and its variance
+    eff, err = compute_efficiency(f_dist,m_dist,dbins)
+    vol, verr = integrate_efficiency(dbins, eff, err)
 
-    # initialize the volume integral
-    meanvol = 0
-    volerr = 0
-
-    # bootstrap to account for statistical and amplitude calibration errors
-    for trial in range(bootnum):
-
-      if trial > 0:
-          # resample with replacement from injection population
-          ix = random.randint(-len(missed_dist), len(found_dist), (len(found_dist)+len(missed_dist),))
-          f_dist = numpy.array([found_dist[i] for i in ix if i >= 0])
-          m_dist = numpy.array([missed_dist[-(i+1)] for i in ix if i < 0])
-
-          # apply log-normal random amplitude (distance) error
-          dist_offset = random.randn() # ONLY ONCE!
-          f_dist *= numpy.exp( randerr*dist_offset )
-          m_dist *= numpy.exp( randerr*dist_offset )
-      else:
-          # use what we got first time through
-          f_dist, m_dist = found_dist, missed_dist
-
-      # compute the efficiency and its variance
-      tmpeff = compute_efficiency(f_dist,m_dist,dbins)
-      eff += tmpeff
-      eff2 += tmpeff**2
-
-      # compute volume and its variance
-      tmpvol = integrate_efficiency(dbins, tmpeff)
-      meanvol += tmpvol
-      volerr += tmpvol**2
-
-    meanvol /= bootnum
-    volerr /= bootnum
-    volerr = numpy.sqrt(volerr - meanvol**2)
-    eff /= bootnum #normalize
-    eff2 /= bootnum
-    err = numpy.sqrt(eff2-eff**2)
-
-    return eff, err, meanvol, volerr
+    return eff, err, vol, verr
 
 
 def filter_injections_by_mass(injs, mbins, bin_num , bin_type):
@@ -234,7 +200,7 @@ def filter_injections_by_mass(injs, mbins, bin_num , bin_type):
     return newinjs
 
 
-def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalog=None, dbins=None, relerr=0.0, syserr=0.0, ploteff=False,logd=False):
+def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbins=None, ploteff=False,logd=False):
     """
     Compute the average luminosity an experiment was sensitive to given the sets
     of found and missed injections and assuming luminosity is unformly distributed
@@ -263,7 +229,7 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, bootnum=1, catalo
         missedArray[(mc,)] = len(newmissed)
 
         # compute the volume using this injection set
-        meaneff, efferr, meanvol, volerr = mean_efficiency_volume(newfound, newmissed, dbins, bootnum=bootnum, randerr=relerr, syserr=syserr)
+        meaneff, efferr, meanvol, volerr = mean_efficiency_volume(newfound, newmissed, dbins)
         effvmass.append(meaneff)
         errvmass.append(efferr)
         volArray[(mc,)] = meanvol

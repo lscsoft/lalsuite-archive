@@ -261,8 +261,7 @@ class upper_limit(object):
         if self.opts.log_dist_bins:
           self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
         else:
-          scalefac = max(numpy.exp(self.opts.dist_err*scipy.random.randn(10*self.opts.iterations)))
-          self.dbins[instr] = numpy.linspace(0, scalefac*dmax,self.opts.dist_bins)
+          self.dbins[instr] = numpy.linspace(0, dmax,self.opts.dist_bins)
 
     return self.dbins
 
@@ -395,7 +394,7 @@ class upper_limit(object):
     vA = []
     for far in fars:
       found, missed = self.get_injections(instruments,far,bin_type=bin_type)
-      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
+      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
 
     # compute the volume derivative in each mass bin
@@ -594,9 +593,6 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
 
   # These options control the volume uncertainty estimation.
-  parser.add_option("--iterations", default = 1000, metavar = "integer", type = "int", help = "Number of trials to use for computing the mean and variance of the search volume. A good number is 10000.")
-  parser.add_option("--bootstrap", default = False, action = "store_true", help = "Turn on bootstrapping (injection population resampling). Override default nubmer of trials with --iterations.")
-  parser.add_option("--dist-err", default = 0.0, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
   parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
@@ -680,7 +676,7 @@ for instruments in UL.instruments:
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
-    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type, bootnum=opts.iterations,relerr=opts.dist_err,syserr=opts.dist_sys_err,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
 
     vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
     vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
