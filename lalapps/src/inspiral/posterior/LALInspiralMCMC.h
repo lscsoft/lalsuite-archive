@@ -238,6 +238,12 @@ tagLALMCMCParameter
   REAL8                   logPrior;
   REAL8			          SNR;
   REAL8                   logL_CalAmpCorr;
+  REAL8                   logL_HD_1;
+  REAL8                   logL_HD_2;
+  REAL8                   logL_HH_1;
+  REAL8                   logL_HH_2;
+  REAL8                   logL_NI_1;
+  REAL8                   logL_NI_2;
   REAL8                   logL_CalPhaCorr;
   REAL8                   logL_CalAmpPhaCorr;
   }  LALMCMCParameter;

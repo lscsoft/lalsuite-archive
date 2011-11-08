@@ -1,6 +1,6 @@
 /* Nested sampling algorithm */
 /* And support functions */
-/* (C) John Veitch 2009 */
+/* (C) John Veitch 2009 Salvatore Vitale <salvatore.vitale@ligo.org> */
 
 #include <lal/Units.h>
 #include <lal/LALStdlib.h>
@@ -306,6 +306,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
     }
     fprintf(fpout,"SNR\t");
     fprintf(fpout,"logL_calamp \t logL_calpha \t logL_calamppha \t");
+    fprintf(fpout,"logL_HH1 \t logL_HH2 \t logL_HD1 \tlogL_HD2 \t logL_NI1 \t logL_NI2 \t");
     fprintf(fpout,"logl");
     fclose(fpout);
 
@@ -607,7 +608,8 @@ void fprintSample(FILE *fp,LALMCMCParameter *sample){
 	while(p!=NULL) {fprintf(fp,"%15.15lf\t",p->value); p=p->next;}
     fprintf(fp,"%lf\t",sample->SNR);
     fprintf(fp,"%lf \t %lf \t %lf \t",sample->logL_CalAmpCorr,sample->logL_CalPhaCorr,sample->logL_CalAmpPhaCorr);
-	fprintf(fp,"%lf\n",sample->logLikelihood);
+    fprintf(fp,"%lf \t %lf \t %lf \t %lf \t %lf \t %lf \t",sample->logL_HH_1,sample->logL_HH_2,sample->logL_HD_1,sample->logL_HD_2,sample->logL_NI_1,sample->logL_NI_2);
+    fprintf(fp,"%lf\n",sample->logLikelihood);
     return;
 }
 

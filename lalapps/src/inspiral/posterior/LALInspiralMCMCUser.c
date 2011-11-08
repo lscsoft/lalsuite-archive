@@ -1,5 +1,5 @@
 /*  <lalVerbatim file="LALInspiralMCMCUSERCV">
-Author: A. Dietz, J. Veitch, C. Roever
+Author: A. Dietz, J. Veitch, C. Roever, Salvatore Vitale <salvatore.vitale@ligo.org>
 $Id: LALInspiralPhase.c,v 1.9 2003/04/14 00:27:22 sathya Exp $
 </lalVerbatim>  */
 
@@ -952,6 +952,7 @@ in the frequency domain */
         chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
         rec_snr*=2.0*deltaF;
 		parameter->SNR+=rec_snr;
+
         deltaF_x_1st*=0.5*deltaF; // These already have the right sign. They have to be *added* to logL
         deltaF_x_2nd*=0.5*deltaF;
         deltaG_x*=0.5*deltaF;  //
@@ -969,7 +970,6 @@ in the frequency domain */
         Gcos_noise*=-deltaF;
         Gsin_templ*=deltaF;
         Gcos_templ*=-deltaF;
-
         fprintf(stdout,"dF1 %lf \t dF2 %lf \t NI_1st %lf \t HD_1st %lf \t HH_1st %lf \t NI_2 %lf \t HD_2 %lf \t HH_2 %lf \t G_x %lf K_x %lf for IFO %i \n",deltaF_x_1st,deltaF_x_2nd,deltaNoiseIntegral_1st,deltaHD_1st,deltaHH_1st,deltaNoiseIntegral_2nd,deltaHD_2nd,deltaHH_2nd,deltaG_x,deltaK_x,det_i);
         fprintf(stdout,"dG1 %lf \t dG2 %lf \t G %lf \t Gsin_noise %lf \t Gcos_noise  %lf \t  Gsin_temp  %lf \t Gcos_temp %lf \n",deltaG_x_1st,deltaG_x_2nd,deltaG_x,Gsin_noise,Gcos_noise,Gsin_templ,Gcos_templ);
 		/* add the normalisation constant */
@@ -989,6 +989,12 @@ in the frequency domain */
 	parameter->logLikelihood=logL; 
 	parameter->SNR=sqrt(parameter->SNR);
     parameter->logL_CalAmpCorr=F_x;
+    parameter->logL_HH_1=deltaHH_1st;
+    parameter->logL_HH_2=deltaHH_2nd;
+    parameter->logL_HD_1=deltaHD_1st;
+    parameter->logL_HD_2=deltaHD_2nd;
+    parameter->logL_NI_1= deltaNoiseIntegral_1st;
+    parameter->logL_NI_2= deltaNoiseIntegral_2nd;
     parameter->logL_CalPhaCorr=G_x;
     parameter->logL_CalAmpPhaCorr=K_x;
 
