@@ -109,6 +109,8 @@ def parse_command_line():
 			  help = "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. Default is html.")
 	parser.add_option("--cal-err", default = "0", action = "store",type="float",
 			  help="Fractional uncertainty in the measured volume. Will marginalize over this uncertainty with a log-normal volume distribution with the specified width.")
+	parser.add_option("--wave-err", default = "0", action = "store",type="float", metavar="delta",
+			  help="Fractional uncertainty in the waveform amplitude. Applies a one-sided offset (1-delta) to the distance, reducing the volume by (1-delta)**3.")
 	parser.add_option("--disable-mc-marg", default = False, action = "store_true",
 			  help="Turn off Monte Carlo marginalization.")
 	parser.add_option("--output-path", default = "./", action = "store",
@@ -157,7 +159,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
    # read in the data produced by lalapps_cbc_svim
    bins = get_bins(files[0].path(),bin_type) # better use same binning in all files!!
-   vols = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeFirstMoment")) for entry in files]
+   vols = [rate.BinnedArray(bins,array=(1-opts.wave_err)**3 *get_data(entry.path(),"SearchVolumeFirstMoment")) for entry in files]
    volErrs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeSecondMoment")) for entry in files]
    volDerivs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeDerivative")) for entry in files]
    foundInjs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeFoundInjections")) for entry in files]
