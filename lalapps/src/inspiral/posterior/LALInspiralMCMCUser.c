@@ -1,5 +1,5 @@
 /*  <lalVerbatim file="LALInspiralMCMCUSERCV">
-Author: A. Dietz, J. Veitch, C. Roever
+Author: A. Dietz, J. Veitch, C. Roever, Salvatore Vitale <salvatore.vitale@ligo.org>
 $Id: LALInspiralPhase.c,v 1.9 2003/04/14 00:27:22 sathya Exp $
 </lalVerbatim>  */
 
@@ -933,7 +933,7 @@ in the frequency domain */
         rec_snr*=2.0*deltaF;
 		parameter->SNR+=rec_snr;
         deltaF_x_1st*=2.0*deltaF; // These already have the right sign. They have to be *added* to logL
-        deltaF_x_2nd*=2.0*deltaF;
+        deltaF_x_2nd*=2.0*deltaF;//
         deltaG_x*=-2.0*deltaF;  //
         deltaK_x*=-2.0*deltaF;  //
         deltaNoiseIntegral_1st*=2.0*deltaF;
@@ -960,6 +960,12 @@ in the frequency domain */
 	parameter->logLikelihood=logL; 
 	parameter->SNR=sqrt(parameter->SNR);
     parameter->logL_CalAmpCorr=F_x;
+    parameter->logL_HH_1=deltaHH_1st;
+    parameter->logL_HH_2=deltaHH_2nd;
+    parameter->logL_HD_1=deltaHD_1st;
+    parameter->logL_HD_2=deltaHD_2nd;
+    parameter->logL_NI_1= deltaNoiseIntegral_1st;
+    parameter->logL_NI_2= deltaNoiseIntegral_2nd;
     parameter->logL_CalPhaCorr=G_x;
     parameter->logL_CalAmpPhaCorr=K_x;
 
