@@ -30,23 +30,26 @@ from pylal import git_version
 import scipy
 from scipy import optimize
 
-fig_width_pt = 246.0  # Get this from LaTeX using \showthe\columnwidth
+# Useful reference:
+# http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
+fig_width_pt = 245.26653  # Get this from LaTeX using \showthe\columnwidth
 inches_per_pt = 1.0/72.27               # Convert pt to inch
 golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
 fig_width = fig_width_pt*inches_per_pt  # width in inches
 fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
-pylab.rcParams.update({
-    "text.usetex": True,
-    "text.verticalalignment": "center",
-    "lines.linewidth": 1,
-    "font.size": 12, 
-    "axes.labelsize": 10, 
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
-    "legend.fontsize": 8, 
-    'figure.figsize': fig_size
-})
+pylab.rcParams.update(
+		{'axes.labelsize': 8,
+			'text.fontsize': 8,
+			'legend.fontsize': 8,
+			'xtick.labelsize': 8,
+			'ytick.labelsize': 8,
+			'text.usetex': True,
+			'figure.figsize': fig_size,
+			'font.family': "serif",
+			'font.serif': ["Times"],
+			'savefig.dpi': 200 
+			})  
 
 def parse_args():
     # --- Parse Input
@@ -69,8 +72,8 @@ def parse_args():
 		      "to get (hopefully) sensible identifiers from user-tags]")
 
     parser.add_option("--distance", action="store", type="float",\
-                      default="3.61",metavar="FLOAT",\
-                      help="distance (in Mpc) to M81. [default=3.61]")
+                      default="3.63",metavar="FLOAT",\
+                      help="distance (in Mpc) to M81. [default=3.63]")
 
     parser.add_option("--distance-error", action="store", type="float",\
                       default="0.14",metavar="FLOAT",\
@@ -392,11 +395,11 @@ else:
 if opts.verbose:
 	print "...finalising and saving figures..."
 
-if len(systems)<=4:
+# edges of box showing location of M81
+M81_low = opts.distance-opts.distance_error
+M81_upp = opts.distance+opts.distance_error
 
-    # edges of box showing location of M81
-    M81_low = opts.distance-opts.distance_error
-    M81_upp = opts.distance+opts.distance_error
+if len(systems)<=4:
 
     pyplot.fill([M81_low,M81_upp,M81_upp,M81_low], [0,0,2,2], 'r',\
         	alpha=0.2,label=r'$D_{M81}$')
@@ -421,37 +424,61 @@ pyplot.figure(1)
 pyplot.axes([0.15,0.20,0.95-0.13,0.95-0.25])
 NS_jet_angles = 180/numpy.pi*numpy.arccos(BNS_cos_jet_semi_angle)
 BH_jet_angles = 180/numpy.pi*numpy.arccos(NSBH_cos_jet_semi_angle)
-pyplot.plot(NS_jet_angles,BNS_M81_exclusion,'-v',label=r'\textrm{BNS}')
+pyplot.plot(NS_jet_angles,BNS_M81_exclusion,'--v',label=r'\textrm{NS-NS}')
 pyplot.hold(True)
-pyplot.plot(BH_jet_angles,NSBH_M81_exclusion,'-^',label=r'\textrm{NSBH}')
+pyplot.plot(BH_jet_angles,NSBH_M81_exclusion,'-^',label=r'\textrm{NS-BH}')
 pyplot.xlim(opts.min_jet_angle,90)
 pyplot.ylim(opts.min_jet_conf,1.0)
 pyplot.xlabel(r'\textrm{Jet semi-opening angle (deg)}')
 pyplot.ylabel(r'\textrm{Exclusion confidence}')
 pyplot.grid(linestyle=':')
+pyplot.minorticks_on()
 pyplot.legend(loc='lower left')
 pyplot.savefig("jet_exc_" + opts.user_tag + ".png")
 pyplot.savefig("jet_exc_" + opts.user_tag + ".eps")
 pyplot.savefig("jet_exc_" + opts.user_tag + ".pdf")
+
+# --- Creat an output file with this data as per NSF requirements
+jetexc_outname = "051103_jetexclusions_%s.txt" %opts.user_tag
+jet_file = open(jetexc_outname,'w')
+jet_file.write("# GRB051103 exclusion confidence assuming \
+source lies in M81 (taken as 3.63+0.14 Mpc)\n")
+jet_file.write("# Jet Angle (deg) | NS-NS exc confidence | NS-BH exc confidence\n")
+for angle,bns_exc,nsbh_exc in zip(NS_jet_angles,\
+		BNS_M81_exclusion, NSBH_M81_exclusion):
+		jet_file.write("%s %s %s\n" % (angle,bns_exc,nsbh_exc))
+jet_file.close()
+
 
 ################################################################################
 # Plot 90% exclusion distance as a function of jet opening angle 
 
 pyplot.figure(2)
 pyplot.axes([0.15,0.20,0.95-0.13,0.95-0.25])
-pyplot.plot(NS_jet_angles,BNS_D90,'-v',label=r'\textrm{BNS}')
+pyplot.plot(NS_jet_angles,BNS_D90,'--v',label=r'\textrm{NS-NS}')
 pyplot.hold(True)
-pyplot.plot(BH_jet_angles,NSBH_D90,'-^',label=r'\textrm{NSBH}')
+pyplot.plot(BH_jet_angles,NSBH_D90,'-^',label=r'\textrm{NS-BH}')
+pyplot.fill([0,0,90,90],[M81_low,M81_upp,M81_upp,M81_low], 'r',\
+		alpha=0.2,label=r'$D_{M81}$')
 pyplot.xlim(opts.min_jet_angle_D90,90)
 pyplot.ylim(opts.D90_lower,opts.D90_upper)
 pyplot.xlabel(r'\textrm{Jet semi-opening angle (deg)}')
 pyplot.ylabel(r'\textrm{90$\%$ Exclusion (Mpc)}')
 pyplot.grid(linestyle=':')
+pyplot.minorticks_on()
 pyplot.legend(loc='best')
 pyplot.savefig("D90_exc_" + opts.user_tag + ".png")
 pyplot.savefig("D90_exc_" + opts.user_tag + ".eps")
 pyplot.savefig("D90_exc_" + opts.user_tag + ".pdf")
 
+# --- Creat an output file with this data as per NSF requirements
+distexc_outname = "051103_distexclusions_%s.txt" %opts.user_tag
+dist_file = open(distexc_outname,'w')
+dist_file.write("# GRB051103 90%-confidence exclusion distances\n")
+dist_file.write("# Jet Angle (deg) | NS-NS 90% exc distance | NS-BH 90% exc distance\n")
+for angle,bns_exc,nsbh_exc in zip(NS_jet_angles,BNS_D90,NSBH_D90):
+		dist_file.write("%s %s %s\n" % (angle,bns_exc,nsbh_exc))
+dist_file.close()
 
 
 
