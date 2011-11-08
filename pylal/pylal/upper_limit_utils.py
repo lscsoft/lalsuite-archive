@@ -163,7 +163,7 @@ def compute_efficiency(f_dist,m_dist,dbins):
 def mean_efficiency_volume(found, missed, dbins):
 
     if len(found) == 0: # no efficiency here
-        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1)
+        return numpy.zeros(len(dbins)-1),numpy.zeros(len(dbins)-1), 0, 0
 
     # only need distances
     f_dist = numpy.array([l.distance for l in found])
