@@ -307,6 +307,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
     fprintf(fpout,"SNR\t");
     fprintf(fpout,"logL_calamp \t logL_calpha \t logL_calamppha \t");
     fprintf(fpout,"logL_HH1 \t logL_HH2 \t logL_HD1 \tlogL_HD2 \t logL_NI1 \t logL_NI2 \t");
+    fprintf(fpout,"dG1 \t dG2 \t GsinNoise \t GcosNoise \t GsinTemp \t GcosTemp\t");
     fprintf(fpout,"logl");
     fclose(fpout);
 
@@ -609,6 +610,7 @@ void fprintSample(FILE *fp,LALMCMCParameter *sample){
     fprintf(fp,"%lf\t",sample->SNR);
     fprintf(fp,"%lf \t %lf \t %lf \t",sample->logL_CalAmpCorr,sample->logL_CalPhaCorr,sample->logL_CalAmpPhaCorr);
     fprintf(fp,"%lf \t %lf \t %lf \t %lf \t %lf \t %lf \t",sample->logL_HH_1,sample->logL_HH_2,sample->logL_HD_1,sample->logL_HD_2,sample->logL_NI_1,sample->logL_NI_2);
+    fprintf(fp,"%lf \t %lf \t %lf \t %lf \t %lf \t %lf \t",sample->deltaG_x_1st,sample->deltaG_x_2nd,sample->Gsin_noise,sample->Gcos_noise,sample->Gsin_templ,sample->Gcos_templ);
     fprintf(fp,"%lf\n",sample->logLikelihood);
     return;
 }

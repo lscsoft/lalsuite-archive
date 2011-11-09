@@ -246,6 +246,12 @@ tagLALMCMCParameter
   REAL8                   logL_NI_2;
   REAL8                   logL_CalPhaCorr;
   REAL8                   logL_CalAmpPhaCorr;
+  REAL8                     deltaG_x_1st;
+  REAL8 deltaG_x_2nd;
+   REAL8 Gsin_noise;
+  REAL8 Gcos_noise;
+   REAL8 Gsin_templ;
+   REAL8 Gcos_templ;
   }  LALMCMCParameter;
 /* </lalVerbatim>  */
 
