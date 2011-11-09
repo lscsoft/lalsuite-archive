@@ -153,8 +153,8 @@ def compute_efficiency(f_dist,m_dist,dbins):
     error = numpy.zeros( len(dbins)-1 )
     for j, dlow in enumerate(dbins[:-1]):
         dhigh = dbins[j+1]
-        found = numpy.sum( f_dist[(dlow <= f_dist)*(f_dist < dhigh)] )
-        missed = numpy.sum( m_dist[(dlow <= m_dist)*(m_dist < dhigh)] )
+        found = numpy.sum( (dlow <= f_dist)*(f_dist < dhigh) )
+        missed = numpy.sum( (dlow <= m_dist)*(m_dist < dhigh) )
         if found+missed == 0: missed = 1.0 #avoid divide by 0 in empty bins
         efficiency[j] = 1.0*found /(found + missed)
         error[j] = numpy.sqrt(efficiency[j]*(1-efficiency[j])/(found+missed))
