@@ -241,7 +241,7 @@ class DocContents(object):
 
 	def sort_triggers_by_id(self):
 		"""
-		Sort the sngl_burst table's rows by ID (tidy-up document
+		Sort the sngl_inspiral table's rows by ID (tidy-up document
 		for output).
 		"""
 		self.snglinspiraltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
@@ -326,7 +326,7 @@ class CompareFunctions:
 #
 # =============================================================================
 #
-#                 Build sim_burst <--> sngl_burst Coincidences
+#                 Build sim_inspiral <--> sngl_inspiral Coincidences
 #
 # =============================================================================
 #
@@ -366,7 +366,7 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 #
 # =============================================================================
 #
-#                   Build sim_burst <--> coinc Coincidences
+#                   Build sim_inspiral <--> coinc Coincidences
 #
 # =============================================================================
 #
