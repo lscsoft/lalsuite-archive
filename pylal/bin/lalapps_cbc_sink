@@ -90,7 +90,9 @@ class UpperLimitTable(table.Table):
                         "sensitivity_in_Mpc3_yr":"lstring",
                         "avg_reach_in_Mpc":"lstring",
                         "lambda_ratio":"lstring",
-                        "fractional_error":"lstring",
+                        "MC_error":"lstring",
+                        "calib_error":"lstring",
+                        "wave_error":"lstring",
                         "upper_limit_in_mergers_per_Mpc3_per_yr":"lstring",
                         "effective_numerator":"lstring",
                         "livetime_in_days":"lstring",
@@ -219,6 +221,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
      # compute posterior/upper limits marginalizing over uncertainties
      if opts.disable_mc_marg:
        for v in volErrs: v.array *= 0
+       total_err.array *= 0
 
      combined_post = prior*upper_limit_utils.margLikelihood(numpy.array([v[mbin] for v in vols]),
                                                       numpy.array([v[mbin] for v in volDerivs]),
@@ -347,13 +350,15 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
       row.avg_reach_in_Mpc = "%.1f" % ((total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
       row.upper_limit_in_mergers_per_Mpc3_per_yr = "%.3g" % (combined_upper_limit[mbin],)
       row.effective_numerator = "%.2f" % (combined_upper_limit[mbin]*total_vol[mbin],)
-      row.fractional_error = "%.2f" % (total_err[mbin] / total_vol[mbin],)
+      row.MC_error = "%.3f" % (total_err[mbin] / total_vol[mbin],)
+      row.calib_error = "%.2f" % (opts.cal_err,)
+      row.wave_error = "%.2f" % (opts.wave_err,)
       row.injs_found = total_found[mbin]
       row.injs_missed = total_missed[mbin]
 
       ul_table.append(row)
 
-   columnList = ['mass_bin','sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
+   columnList = ['mass_bin','sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','MC_error','calib_error','wave_error','injs_found','injs_missed']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
