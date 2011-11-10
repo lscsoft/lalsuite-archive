@@ -57,9 +57,11 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
 %{_glue_prefix}/bin/
-%{_glue_prefix}/etc/
-%{_glue_prefix}/var/
-%{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{_glue_prefix}/etc/
+%exclude %{_glue_prefix}/var/
+%exclude %{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{glue_python_sitearch}/glue/cbcwebpage.pyc
+%exclude %{glue_python_sitearch}/glue/cbcwebpage.py
 %exclude %{glue_python_sitearch}/glue/__init__.py
 %exclude %{glue_python_sitearch}/glue/__init__.pyc
 %exclude %{glue_python_sitearch}/glue/segments.py
@@ -68,6 +70,7 @@ rm -rf $RPM_BUILD_ROOT
 %exclude %{glue_python_sitearch}/glue/segments.pyc
 %exclude %{glue_python_sitearch}/glue/iterutils.pyc
 %exclude %{glue_python_sitearch}/glue/git_version.pyc
+%exclude %{glue_python_sitearch}/glue/__segments.so
 #%exclude %{_glue_prefix}/src/segments/
 #%exclude %{_glue_prefix}/test/segment_verify.py
 #%exclude %{_glue_prefix}/test/segmentsUtils_verify.py
@@ -76,6 +79,7 @@ rm -rf $RPM_BUILD_ROOT
 %files segments
 %{glue_python_sitearch}/glue/segments.py
 %{glue_python_sitearch}/glue/segments.pyc
+%{glue_python_sitearch}/glue/__segments.so
 #%{glue_python_sitearch}/src/segments/
 #%{glue_python_sitearch}/test/segment_verify.py
 #%{glue_python_sitearch}/test/segmentsUtils_verify.py
@@ -88,7 +92,6 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/iterutils.py
 %{glue_python_sitearch}/glue/git_version.py
 %{glue_python_sitearch}/glue/git_version.pyc
-
 
 %changelog
 * Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
