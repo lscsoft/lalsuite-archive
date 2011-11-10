@@ -132,13 +132,11 @@ def print_output(dtest_FOM,dtest,n,thr,name, output_path):
 
 parser=OptionParser(usage="Plot histograms of significance rank of auxiliary channels assigned to them by MVSC", version = git_version.verbose_msg)
 parser.add_option("-i","--input", default="0" ,help="Provide the path for the input files and globbing pattern.")
-parser.add_option("","--histograms", action="store_true", default=False, help="Make Cumulative H
-istograms, Histograms and  relative distribution of the channels")
-parser.add_option("-n", "--N-most-singificant-channels",type="int", default=None, help="It outputs the n channels with largest significance. As default, all channels will be in the output")
+parser.add_option("","--histograms", action="store_true", default=False, help="Make Cumulative Histograms, Histograms and  relative distribution of the channels")
+parser.add_option("-n", "--N-most-significant-channels",type="int", default=None, help="It outputs the n channels with largest significance. As default, all channels will be in the output")
 parser.add_option("","--threshold", default ="0.0",type="float", help="The output contains all channels with bigger significance than this specified threshold. Generally used if the user knows the threshold value for significance")
 parser.add_option("","--threshold-maximum-minimum", default ="0.0",type="float", help="Threshold used in determining the max and min distribution in the variables")
-parser.add_option("","--plotdeviation", action="store_true", default=False, help="Make plots to
-test the distance of each variable to the average of the five, as a function of significance")
+parser.add_option("","--plotdeviation", action="store_true", default=False, help="Make plots to test the distance of each variable to the average of the five, as a function of significance")
 parser.add_option("-u","--usertag",action="store",type="string", default='',metavar=" USERTAG",help="a user tag for the output file names. Try to specify the name of a particular run")
 parser.add_option("-O","--enable-output",action="store_true",default="True",  metavar="OUTPUT",help="enable the generation of the html and cache documents")	 
 parser.add_option("", "--figure-resolution",action="store",type="int",default=50, help="dpi of t:he thumbnails (50 by default)")
@@ -156,6 +154,15 @@ parser.add_option("-P","--output-path",action="store",\
 #      type="string",default="",  metavar="PATH",\
 #      help="path where the results will be stored. Generally prefer to set the same as the previous option, for the plots and html file")
 (opts,args)=parser.parse_args()
+
+# Initializing the html output
+InspiralUtils.message(opts, "Initialisation...")
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
+fnameList = []
+tagList = []
+fig_num = 0
+comments = ""
+
 
 dic={}
 dkeys=[]
@@ -223,13 +230,6 @@ print(Y)
 
 
 
-# Initializing the html output
-InspiralUtils.message(opts, "Initialisation...")
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
-fnameList = []
-tagList = []
-fig_num = 0
-comments = ""
 
 # Initialize the plotting options
 if opts.plotdeviation == True:
