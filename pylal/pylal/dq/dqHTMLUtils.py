@@ -68,10 +68,15 @@ def write_table(page, headers, data, cl=''):
   # rows
   else:
     page.tr()
-    for n in headers:
-      page.th()
-      page.add(str(n))
+    if len(headers)==1:
+      page.th(colspan="100%")
+      page.add(str(headers[0]))
       page.th.close()
+    else:
+      for n in headers:
+        page.th()
+        page.add(str(n))
+        page.th.close()
     page.tr.close()
 
     if data and not re.search('list',str(type(data[0]))):
@@ -93,7 +98,7 @@ def write_table(page, headers, data, cl=''):
 # Write <head>
 # =============================================================================
 
-def write_head(title, css, js, base=None, refresh=None):
+def write_head(title, css, js, base=None, refresh=None, jquery=True):
 
   """
     Returns glue.markup.page object with <head> tag filled.
@@ -113,6 +118,8 @@ def write_head(title, css, js, base=None, refresh=None):
         absolute http(s) path of url base
       refresh : int
         number of seconds after which to refresh page automatically
+      jquery : [ True | False ]
+        import jquery AJAX script in header, default: True
   """
 
   page = markup.page(mode="strict_html")
@@ -131,6 +138,10 @@ def write_head(title, css, js, base=None, refresh=None):
   page.add(title)
   page.title.close()
 
+  if jquery:
+    page.script(src="http://ajax.googleapis.com/ajax/libs/jquery/1.2.6"\
+                    "/jquery.min.js", type="text/javascript")
+    page.script.close()
   page.script(src=js, type="text/javascript")
   page.script.close()
   page.head.close()
@@ -169,7 +180,7 @@ def write_banner(title, text='&nbsp;'):
 # Write <div id="menubar">
 # =============================================================================
 
-def write_menu(sections, pages):
+def write_menu(sections, pages, current=None):
 
   """
     Returns glue.markup.page object for <div id="menubar">, constructing menu
@@ -190,12 +201,15 @@ def write_menu(sections, pages):
   page.div(id="menubar")
 
   for i,sec in enumerate(sections):
-    page.a(id="link_%s" % i, class_="menulink", href="%s" % pages[sec])
+    if sec==current:
+      cl = "menulink selected"
+    else:
+      cl = "menulink"
+    page.a(id="link_%s" % i, class_=cl, href="%s" % pages[sec])
     page.add(sec)
     page.a.close()
 
   page.script(type="text/javascript")
-  page.add("setPage()")
   page.script.close()
 
   page.div.close()
@@ -220,14 +234,19 @@ def init_page(head, banner, menu):
   page.html(lang="en")
   page.add(head())
 
+  # open body
   page.body()
-  page.div(id="container")
-  page.add(banner())
-  page.add(menu())
 
+  # open container for page (needed to position footer)
+  page.div(id="container")
+  # add banner
+  page.add(banner())
+  # open content (tab below banner and above footer)
+  page.div(id="content")
+  # print menu
+  page.add(menu())
   # initialise maintab
   page.div(id="maintab")
-  page.div(id="content")
 
   return page
 
@@ -242,10 +261,17 @@ def close_page(page, footer=False):
     <body> and <html> tags.
   """
 
+  # close maintab
   page.div.close()
+  # close content tab
+  page.div.close()
+  # close container
+  page.div.close()
+  # add footer
   if footer:
     page.add(foot())
-  page.div.close()
+
+  # close page
   page.body.close()
   page.html.close()
 
@@ -307,10 +333,8 @@ def write_h(page, title, idx, cl=3):
 
   idx = map(str, idx)
 
-  page.input(id="input_%s" % '.'.join(idx), type="button",\
-              class_="h%s" % cl,\
-              value="%s %s" % ('.'.join(idx), title),\
-              onclick="toggleVisible(\'%s\')" % '.'.join(idx))
+  page.input(id="input_%s" % '.'.join(idx), type="button", class_="h%s" % cl,\
+             value=title, onclick="toggleVisible('%s')" % '.'.join(idx))
 
   return page
 

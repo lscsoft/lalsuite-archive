@@ -49,7 +49,7 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','q','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta']
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)']]
 #Bin size/resolution for binning. Need to match (converted) column names.
