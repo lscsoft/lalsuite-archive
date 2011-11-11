@@ -222,6 +222,7 @@ def cbcBayesPostProc(
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
         pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,'q'))
+        pos.append_mapping('eta',bppu.q2eta,(mchirp_name,'q'))
 
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
