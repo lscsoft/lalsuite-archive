@@ -47,7 +47,7 @@ LALInspiralBankGeneration(
   INT4  kappacnt  = 0;
   INT4  numTmplts = 0;
   INT4  i, kappa_max;
-  REAL8 *chi, *kappa, dKappa, chi_sum, delta_chi;
+  REAL8 *chi, *kappa, dKappa, chi_sum, dChi;
 
   INITSTATUS(status, "LALInspiralBankGeneration", INSPIRALBANKGENERATIONC);
   ATTATCHSTATUSPTR(status);
@@ -305,77 +305,150 @@ LALInspiralBankGeneration(
 
     chi = malloc (input->nPointsChi * sizeof(REAL8));
     kappa = malloc (input->nPointsKappa * sizeof(REAL8));
-
-    chi_sum = 0.0;
-    for (i=1; i < input->nPointsChi; i++)
+    
+    if(input->squareGrid)
     {
-      chi_sum=chi_sum + i;
-    }
-    delta_chi = 0.9 * (input->chiMax - input->chiMin);
-    chi[0] = 0.95 * input->chiMin + 0.05 * input->chiMax;
-    for (i=1; i < input->nPointsChi; i++)
-    {
-      chi[i]=chi[i-1] + delta_chi * (input->nPointsChi - i) / chi_sum;
-    }
+      dChi = ( input->chiMax - input->chiMin) / (REAL8) input->nPointsChi;
+      dKappa = ( input->kappaMax - input->kappaMin ) / (REAL8) input->nPointsKappa;
 
-    /* Use LALInspiralCreateCoarseBank(). */
-    TRY( LALInspiralCreateCoarseBank( status->statusPtr, &coarseList, ntiles,
-         *input ), status );
-
-    /* Convert output data structure. */
-    bank = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
-    if (bank == NULL){
-      ABORT( status, LALINSPIRALBANKH_EMEM, LALINSPIRALBANKH_MSGEMEM );
-    }
-    *first = bank;
-
-    for ( chicnt = 0; chicnt < input->nPointsChi ; chicnt++ )
-    {
-      if ( chicnt < input->nPointsKappa ) kappa_max = chicnt + 1;
-      else kappa_max = (INT4) input->nPointsKappa ;
-
-      dKappa = ( input->kappaMax - input->kappaMin ) / (REAL8) (kappa_max);
-      kappa[0]= input->kappaMin + dKappa / 2.0;
-      for (i=1; i < kappa_max; i++)
+      for (i=0; i < input->nPointsChi; i++)
       {
-        kappa[i] = kappa[0] + i * dKappa ;
+        if (!i) chi[i] = input->chiMin + dChi / 2.0;
+        else chi[i] = chi[0] + i * dChi ;
+      }
+      for (i=0; i < input->nPointsKappa; i++)
+      {
+        if (!i) kappa[i] = input->kappaMin + dKappa / 2.0;
+        else kappa[i] = kappa[0] + i * dKappa ;
       }
 
-      for( kappacnt = 0; kappacnt < kappa_max; kappacnt++ )
+      /* Use LALInspiralCreateCoarseBank(). */
+      TRY( LALInspiralCreateCoarseBank( status->statusPtr, &coarseList, ntiles,
+            *input ), status );
+
+      /* Convert output data structure. */
+      bank = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
+      if (bank == NULL){
+        ABORT( status, LALINSPIRALBANKH_EMEM, LALINSPIRALBANKH_MSGEMEM );
+      }
+      *first = bank;
+
+      for ( chicnt = 0; chicnt < input->nPointsChi; chicnt++ )
       {
-        for( cnt = 0; cnt < *ntiles; cnt++ )
+        for( kappacnt = 0; kappacnt < input->nPointsKappa; kappacnt++ )
         {
-          /* restrict the bank boundaries to the region of validity of PTF */
-          if ( coarseList[cnt].params.mass1 < 6.0 ) continue;
-          bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
-                SnglInspiralTable ) );
-          if (bank == NULL)
+          for( cnt = 0; cnt < *ntiles; cnt++ )
           {
-            ABORT( status, LALINSPIRALBANKH_EMEM, LALINSPIRALBANKH_MSGEMEM );
+            /* restrict the bank boundaries to the region of validity of PTF */
+            if ( coarseList[cnt].params.mass1 < 6.0 ||
+                coarseList[cnt].params.mass2 > 3.0 ) continue;
+            bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
+                  SnglInspiralTable ) );
+            if (bank == NULL)
+            {
+              ABORT( status, LALINSPIRALBANKH_EMEM, LALINSPIRALBANKH_MSGEMEM );
+            }
+            numTmplts     = numTmplts + 1 ;
+            bank->mass1   = coarseList[cnt].params.mass1;
+            bank->mass2   = coarseList[cnt].params.mass2;
+            bank->mchirp  = coarseList[cnt].params.chirpMass;
+            bank->mtotal  = coarseList[cnt].params.totalMass;
+            bank->eta     = coarseList[cnt].params.eta;
+            bank->kappa   = (REAL4) kappa[kappacnt];
+            bank->chi     = (REAL4) chi[chicnt];
+            bank->tau0    = coarseList[cnt].params.t0;
+            bank->tau2    = coarseList[cnt].params.t2;
+            bank->tau3    = coarseList[cnt].params.t3;
+            bank->tau4    = coarseList[cnt].params.t4;
+            bank->tau5    = coarseList[cnt].params.t5;
+            bank->ttotal  = coarseList[cnt].params.tC;
+            bank->psi0    = coarseList[cnt].params.psi0;
+            bank->psi3    = coarseList[cnt].params.psi3;
+            bank->f_final = coarseList[cnt].params.fFinal;
+            bank->eta     = coarseList[cnt].params.eta;
+            bank->beta    = coarseList[cnt].params.beta;
+
+
+            /* Copy the 10 metric co-efficients...*/
+            memcpy (bank->Gamma, coarseList[cnt].metric.Gamma, 10*sizeof(REAL4));
+
           }
-          numTmplts     = numTmplts + 1 ;
-          bank->mass1   = coarseList[cnt].params.mass1;
-          bank->mass2   = coarseList[cnt].params.mass2;
-          bank->mchirp  = coarseList[cnt].params.chirpMass;
-          bank->mtotal  = coarseList[cnt].params.totalMass;
-          bank->eta     = coarseList[cnt].params.eta;
-          bank->kappa   = (REAL4) kappa[kappacnt];
-          bank->chi     = (REAL4) chi[chicnt];
-          bank->tau0    = coarseList[cnt].params.t0;
-          bank->tau2    = coarseList[cnt].params.t2;
-          bank->tau3    = coarseList[cnt].params.t3;
-          bank->tau4    = coarseList[cnt].params.t4;
-          bank->tau5    = coarseList[cnt].params.t5;
-          bank->ttotal  = coarseList[cnt].params.tC;
-          bank->psi0    = coarseList[cnt].params.psi0;
-          bank->psi3    = coarseList[cnt].params.psi3;
-          bank->f_final = coarseList[cnt].params.fFinal;
-          bank->eta     = coarseList[cnt].params.eta;
-          bank->beta    = coarseList[cnt].params.beta;
+        }
+      }
+    }
+    else
+    {  
+      chi_sum = 0.0;
+      for (i=1; i < input->nPointsChi; i++)
+      {
+        chi_sum=chi_sum + i;
+      }
+      dChi = 0.9 * (input->chiMax - input->chiMin);
+      chi[0] = 0.95 * input->chiMin + 0.05 * input->chiMax;
+      for (i=1; i < input->nPointsChi; i++)
+      {
+        chi[i]=chi[i-1] + dChi * (input->nPointsChi - i) / chi_sum;
+      }
 
-          /* Copy the 10 metric co-efficients ... */
-          memcpy (bank->Gamma, coarseList[cnt].metric.Gamma, 10*sizeof(REAL4));
+      /* Use LALInspiralCreateCoarseBank(). */
+      TRY( LALInspiralCreateCoarseBank( status->statusPtr, &coarseList, ntiles,
+            *input ), status );
 
+      /* Convert output data structure. */
+      bank = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
+      if (bank == NULL){
+        ABORT( status, LALINSPIRALBANKH_EMEM, LALINSPIRALBANKH_MSGEMEM );
+      }
+      *first = bank;
+
+      for ( chicnt = 0; chicnt < input->nPointsChi ; chicnt++ )
+      {
+        if ( chicnt < input->nPointsKappa ) kappa_max = chicnt + 1;
+        else kappa_max = (INT4) input->nPointsKappa ;
+
+        dKappa = ( input->kappaMax - input->kappaMin ) / (REAL8) (kappa_max);
+        kappa[0]= input->kappaMin + dKappa / 2.0;
+        for (i=1; i < kappa_max; i++)
+        {
+          kappa[i] = kappa[0] + i * dKappa ;
+        }
+
+        for( kappacnt = 0; kappacnt < kappa_max; kappacnt++ )
+        {
+          for( cnt = 0; cnt < *ntiles; cnt++ )
+          {
+            /* restrict the bank boundaries to the region of validity of PTF */
+            if ( coarseList[cnt].params.mass1 < 6.0 ) continue;
+            bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
+                  SnglInspiralTable ) );
+            if (bank == NULL)
+            {
+              ABORT( status, LALINSPIRALBANKH_EMEM, LALINSPIRALBANKH_MSGEMEM );
+            }
+            numTmplts     = numTmplts + 1 ;
+            bank->mass1   = coarseList[cnt].params.mass1;
+            bank->mass2   = coarseList[cnt].params.mass2;
+            bank->mchirp  = coarseList[cnt].params.chirpMass;
+            bank->mtotal  = coarseList[cnt].params.totalMass;
+            bank->eta     = coarseList[cnt].params.eta;
+            bank->kappa   = (REAL4) kappa[kappacnt];
+            bank->chi     = (REAL4) chi[chicnt];
+            bank->tau0    = coarseList[cnt].params.t0;
+            bank->tau2    = coarseList[cnt].params.t2;
+            bank->tau3    = coarseList[cnt].params.t3;
+            bank->tau4    = coarseList[cnt].params.t4;
+            bank->tau5    = coarseList[cnt].params.t5;
+            bank->ttotal  = coarseList[cnt].params.tC;
+            bank->psi0    = coarseList[cnt].params.psi0;
+            bank->psi3    = coarseList[cnt].params.psi3;
+            bank->f_final = coarseList[cnt].params.fFinal;
+            bank->eta     = coarseList[cnt].params.eta;
+            bank->beta    = coarseList[cnt].params.beta;
+
+            /* Copy the 10 metric co-efficients ... */
+            memcpy (bank->Gamma, coarseList[cnt].metric.Gamma, 10*sizeof(REAL4));
+
+          }
         }
       }
     }

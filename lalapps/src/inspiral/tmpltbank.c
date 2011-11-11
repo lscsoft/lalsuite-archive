@@ -165,6 +165,7 @@ REAL4   kappaMin        = -1.0;         /* minimum value of kappa for PTF */
 REAL4   kappaMax        = 1.0;          /* maximum value of kappa for PTF */
 INT4    nPointsChi      = 5;            /* PTF template bank density    */
 INT4    nPointsKappa    = 4;            /* PTF templated bank density   */
+INT4    squareGrid      = 0;            /* PTf mass space grid          */
 LALPNOrder order;                       /* post-Newtonian order         */
 Approximant approximant;                /* approximation method         */
 CoordinateSpace space;                  /* coordinate space used        */
@@ -1016,6 +1017,7 @@ int main ( int argc, char *argv[] )
   bankIn.kappaMax         = (REAL8) kappaMax;
   bankIn.nPointsChi       = nPointsChi;
   bankIn.nPointsKappa     = nPointsKappa;
+  bankIn.squareGrid       = squareGrid;
   bankIn.mmCoarse         = (REAL8) minMatch;
   bankIn.mmFine           = 0.99; /* doesn't matter since no fine bank yet */
   bankIn.fLower           = (REAL8) fLow;
@@ -1359,6 +1361,7 @@ fprintf(a, "  --minimum-kappa1 KAPPA1_MIN  set minimum value of kappa for PTF to
 fprintf(a, "  --maximum-kappa1 KAPPA1_MAX  set maximum value of kappa for PTF to KAPPA1_MAX (1.0)\n");\
 fprintf(a, "  --npoints-chi N-CHI          set number of points in the Chi direction for PTF template bank to N-CHI (3)\n");\
 fprintf(a, "  --npoints-kappa N-KAPPA      set number of points in the Kappa direction for PTF template bank to N-KAPPA (5)\n");\
+fprintf(a, "  --ptf-square-grid            points in chi-kappa plane are placed on a uniform square grid\n");\
 fprintf(a, "\n");\
 fprintf(a, "  --minimal-match M            generate bank with minimal match M\n");\
 fprintf(a, "\n");\
@@ -1442,6 +1445,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"maximum-kappa1",          required_argument, 0,                '7'},
     {"npoints-chi",             required_argument, 0,                '8'},
     {"npoints-kappa",           required_argument, 0,                '9'},
+    {"ptf-square-grid",         no_argument,       &squareGrid,       1 },
     {"minimal-match",           required_argument, 0,                'C'},
     {"high-frequency-cutoff",   required_argument, 0,                'D'},
     {"order",                   required_argument, 0,                'E'},
@@ -2595,6 +2599,17 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
     snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
   }
+  if (squareGrid==1)
+  {
+    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+      calloc( 1, sizeof(ProcessParamsTable) );
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX,
+        "%s", PROGRAM_NAME );
+    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX,
+        "--ptf-square-grid" );
+    snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+    snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
+  }
   /*
    *
    * check validity of arguments
@@ -3037,12 +3052,19 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     }
 
     /* check nPointsKappa is not greater than nPointsChi */
-    if (nPointsKappa > nPointsChi )
+    if (!squareGrid && (nPointsKappa > nPointsChi) )
     {
       fprintf( stderr,
-          "Error: argument to --npoints-kappa must be less than --npoints-chi .\n" );
+          "Error: argument to --npoints-kappa must be less than --npoints-chi when --ptf-square-grid is not specified.\n" );
       exit( 1 );
     }
+  }
+
+  if ( squareGrid & approximant!=FindChirpPTF)
+  {
+    fprintf( stderr,
+                  "Error: Option --ptf-square-grid available only when approximant FindChirpPTF is specified.\n" );
+          exit( 1 );
   }
 
   if( etaMaxCutoff > 0 || etaMinCutoff >= 0 )
