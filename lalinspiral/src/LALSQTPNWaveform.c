@@ -71,7 +71,6 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 		params->coeff.domega[LAL_PNORDER_TWO] = (34103.0 + 122949.0 * params->eta
 			+ 59472.0 * etaPow2) / 18144.0;
 		params->coeff.domegaSSselfConst = 0.0;
-		params->coeff.domegaQMConst = 0.0;
 		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
 			params->coeff.dchihSS[0] = spin_MPow2[1] / 2.0;
 			params->coeff.dchihSS[1] = spin_MPow2[0] / 2.0;
@@ -89,12 +88,11 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
 			for (UINT2 i = 0; i < 2; i++) {
 				params->coeff.domegaQM[i] = spin_MPow2[i] * params->chiAmp[i]
-					* params->qmParameter[i] * 7.5;
-				params->coeff.domegaQMConst -= params->coeff.domegaQM[i] / 3.0;
+					* params->qmParameter[i] * 2.5;
 				params->coeff.dchihQM[i] = -params->qmParameter[i] * params->eta * params->chiAmp[i]
 					* 1.5;
 			}
-			params->coeff.mecoQM = 2.0 * params->eta;
+			params->coeff.mecoQM = params->eta / 5.0;
 		}
 		params->coeff.meco[LAL_PNORDER_TWO] *= (1.0 / 24.0)
 			* (-81.0 + 57.0 * params->eta - etaPow2);
@@ -401,13 +399,14 @@ static void XLALAddSelfContributions(LALSQTPNWaveformParams *params, REAL8 dvalu
  */
 static void XLALAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
 	REAL8 dvalues[]) {
-	REAL8 temp = params->coeff.domegaQMConst;
+	REAL8 temp = 0.0;
 	for (UINT2 i = 0; i < 2; i++) {
-		temp += params->coeff.domegaQM[i] * SQT_SQR(params->coeff.variables.LNhchih[i]);
+		temp += params->coeff.domegaQM[i]
+			* (3.0 * SQT_SQR(params->coeff.variables.LNhchih[i]) - 1.0);
 		for (UINT2 j = 0; j < 3; j++) {
 			dvalues[LALSQTPN_CHIH1_1 + 3 * i + j] += params->coeff.dchihQM[i]
-				* params->coeff.variables.LNhchih[i] * params->coeff.variables.LNhxchih[i][j]
-				* SQT_SQR(values[LALSQTPN_OMEGA]);
+				* params->coeff.variables.LNhchih[i]
+				* params->coeff.variables.LNhxchih[i][j] * SQT_SQR(values[LALSQTPN_OMEGA]);
 		}
 	}
 	dvalues[LALSQTPN_OMEGA] += temp * params->coeff.variables.omegaPowi_3[4];
@@ -539,9 +538,10 @@ int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param) {
 				* values[LALSQTPN_OMEGA];
 		}
 		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
-			REAL8 temp = params->coeff.domegaQMConst;
+			REAL8 temp = 0.0;
 			for (INT2 i = 0; i < 2; i++) {
-				temp += params->coeff.domegaQM[i] * SQT_SQR(params->coeff.variables.LNhchih[i]);
+				temp += params->coeff.domegaQM[i]
+					* (3.0 * SQT_SQR(params->coeff.variables.LNhchih[i]) - 1.0);
 			}
 			meco += params->coeff.mecoQM * temp * values[LALSQTPN_OMEGA];
 		}
