@@ -1968,7 +1968,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     rbins=None
 
-    if injpar:
+    if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
             plt.axvline(injpar, color='r', linestyle='-.')
 
