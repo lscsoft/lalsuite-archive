@@ -82,3 +82,18 @@ def light_travel_time(instrument1, instrument2):
 	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]].location
 	return math.sqrt((dx * dx).sum()) / LAL_C_SI
 
+
+def effective_distance_factor(inclination, fp, fc):
+	"""
+	Returns the ratio of effective distance to physical distance for
+	compact binary mergers.  Inclination is the orbital inclination of
+	the system in radians, fp and fc are the F+ and Fx antenna factors.
+	See XLALComputeDetAMResponse() for a function to compute antenna
+	factors.  The effective distance is given by
+
+	Deff = effective_distance_factor * D
+
+	See Equation (4.3) of arXiv:0705.1514.
+	"""
+	cos2i = math.cos(inclination)**2
+	return 1.0 / math.sqrt(fp**2 * (1+cos2i)**2 / 4 + fc**2 * cos2i)
