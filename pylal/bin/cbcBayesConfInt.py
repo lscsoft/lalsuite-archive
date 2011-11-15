@@ -100,6 +100,10 @@ def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     #Bin size/resolution for binning. Need to match (converted) column names.
     GreedyRes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.05,'time':5e-4,'distance':3.0,'dist':3.0,'mchirp':0.0001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.01,'dec':0.01,'psi':0.01,'polarization':0.01}
 
+    if 'distance' in obj.names:
+        dist_name = 'distance'
+    elif 'dist' in obj.names:
+        dist_name = 'dist'
 
     for par in params:
         par=par.lower()
@@ -146,7 +150,7 @@ def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     statfile.close()
 
     # distance-iota
-    greedy2params={'distance':GreedyRes['distance'], 'iota':GreedyRes['iota']}
+    greedy2params={dist_name:GreedyRes[dist_name], 'iota':GreedyRes['iota']}
     statfile=open(os.path.join(outpath,'dist_iota_int.txt'),'w')
     toppoints,injection_cl,reses,injection_area=bppu.greedy_bin_two_param(obj,greedy2params,confidencelevels)
     for frac in sorted(reses.keys()):
