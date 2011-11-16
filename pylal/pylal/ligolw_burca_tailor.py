@@ -544,6 +544,11 @@ class DistributionsStats(object):
 #
 
 
+#
+# XML construction and parsing
+#
+
+
 def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
 	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
@@ -568,41 +573,22 @@ def coinc_params_distributions_from_xml(xml, name):
 	return c, process_id
 
 
+def get_coincparamsdistributions(xmldoc, name):
+	coincparamsdistributions, process_id = coinc_params_distributions_from_xml(xmldoc, name)
+	seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+	return coincparamsdistributions, seglists
+
+
 def coinc_params_distributions_from_filename(filename, name, verbose = False):
+	# FIXME:  what uses this?
 	xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
-	result, process_id = coinc_params_distributions_from_xml(xmldoc, name)
-	seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id]).coalesce()
+	result, seglists = get_coincparamsdistributions(xmldoc, name)
 	xmldoc.unlink()
 	return result, seglists
 
 
 #
-# =============================================================================
-#
-#                             Process Information
-#
-# =============================================================================
-#
-
-
-process_program_name = "ligolw_burca_tailor"
-
-
-def append_process(xmldoc, **kwargs):
-	return llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-
-#
-# =============================================================================
-#
-#                           Likelihood Control File
-#
-# =============================================================================
-#
-
-
-#
-# Construct LIGO Light Weight likelihood distributions document.
+# Construct LIGO Light Weight likelihood distributions document
 #
 
 
@@ -621,6 +607,48 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 	llwapp.set_process_end_time(process)
 
 	return xmldoc
+
+
+#
+# I/O
+#
+
+
+def load_likelihood_data(filenames, name, verbose = False):
+	coincparamsdistributions = None
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, verbose = verbose)
+		if coincparamsdistributions is None:
+			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, name)
+		else:
+			a, b = get_coincparamsdistributions(xmldoc, name)
+			coincparamsdistributions += a
+			seglists |= b
+			del a, b
+		xmldoc.unlink()
+	return coincparamsdistributions, seglists
+
+
+def write_likelihood_data(filename, coincparamsdistributions, seglists, name, verbose = False):
+	utils.write_filename(gen_likelihood_control(coincparamsdistributions, seglists, name = name), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
+
+
+#
+# =============================================================================
+#
+#                             Process Information
+#
+# =============================================================================
+#
+
+
+process_program_name = "ligolw_burca_tailor"
+
+
+def append_process(xmldoc, **kwargs):
+	return llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 
 #
