@@ -1,3 +1,16 @@
+python-glue (1.36-2.2+squeeze3) unstable; urgency=low
+
+  * 1.36 multi-package build for Squeeze
+  * more clean-ups
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Tue, 15 Nov 2011 16:45:00 +0100
+
+python-glue (1.36-1.1+squeeze2) unstable; urgency=low
+
+  * 1.36 build for Squeeze
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 27 Oct 2011 09:30:00 +0200
+
 python-glue (1.36) unstable; urgency=low
 
   * Initial release of 1.36
