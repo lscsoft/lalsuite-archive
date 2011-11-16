@@ -1,3 +1,9 @@
+python-glue (1.37) unstable; urgency=low
+
+  * Initial release of 1.37
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Wed, 16 Nov 2011 13:43:00 -0500
+
 python-glue (1.36-2.2+squeeze3) unstable; urgency=low
 
   * 1.36 multi-package build for Squeeze

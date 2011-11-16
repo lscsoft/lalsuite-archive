@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.36
+Version:	1.37
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.36-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.37-py2.6.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -94,6 +94,9 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Wed Nov 16 2011 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue with glue-segments and glue-common split from glue, lvalerts, lars and gracedb removed.
+
 * Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue to fix build issues called 1.36. 
 
