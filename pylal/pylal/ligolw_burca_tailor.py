@@ -254,6 +254,12 @@ class CoincParamsDistributions(object):
 				self.injection_rates[param] = rate
 		return self
 
+	@classmethod
+	def copy(cls, other):
+		new = cls(**dict((param, other.zero_lag_rates[param].bins) for param in other.zero_lag_rates))
+		new += other
+		return new
+
 	def add_zero_lag(self, param_dict, weight = 1.0):
 		for param, value in (param_dict or {}).items():
 			rate = self.zero_lag_rates[param]
