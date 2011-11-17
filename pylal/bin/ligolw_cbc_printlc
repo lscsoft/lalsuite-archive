@@ -490,6 +490,17 @@ if opts.get_sngl_info:
     lctable = printutils.get_sngl_info(connection, lctable, opts.sngl_table, opts.daily_ihope_pages_location, verbose = opts.verbose)
 
 #
+# create a document
+#
+lcdoc = ligolw.Document()
+# setup the LIGOLW tag
+lcdoc.appendChild(ligolw.LIGO_LW())
+# add this program's metadata
+lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__, version = git_version.id)
+# connect the table to the document
+lcdoc.childNodes[0].appendChild(lctable)
+
+#
 #   Print the summary data
 #
 
