@@ -770,6 +770,70 @@ def omega_online_cache(start,end,ifo):
   return cache
 
 # =============================================================================
+# Function to generate an omega spectrum online cache
+# =============================================================================
+
+def omega_spectrum_online_cache(start,end,ifo):
+
+  """
+    Returns a glue.lal.Cache contatining CacheEntires for all omega online
+    trigger files between the given start and end time for the given ifo.
+    For S6 triggers are only available for each IFO on it's own site cluster.
+
+    Arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      ifo : [ "H1" | "L1" | "V1" ]
+        IFO
+  """
+
+  # verify host
+  host = getfqdn()
+  ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
+  if not re.search(ifo_host[ifo],host):
+    print >>sys.stderr, "Error: Omega online files are not available for "+\
+                        "IFO=%s on this host." % ifo
+    return []
+
+  span = segments.segment(start,end)
+  cache = LALCache()
+  if ifo == 'G1':
+    basedir = os.path.expanduser( '~omega/online/%s/segments' % ifo )
+    basetime = LIGOTimeGPS(983669456)
+  else:
+    basedir = os.path.expanduser( '~omega/online/%s/archive/S6/segments'\
+                                  % (str(ifo)))
+    basetime = LIGOTimeGPS(931211808)
+
+  dt = 10000 
+  t = int(start)
+
+  while t<=end:
+
+    tstr = '%.6s' % ('%.10d' % t)
+
+    dirstr = '%s/%s*' % ( basedir, tstr )
+    dirs = glob.glob( dirstr )
+
+    for dir in dirs:
+      files = glob.glob( '%s/%s-OMEGA_TRIGGERS_SPECTRUM*.txt' % ( dir, ifo ) )
+
+      for f in files:
+        e = LALCacheEntry.from_T050017(f)
+
+        if span.intersects(e.segment):
+          cache.append(e)
+
+    t+=dt
+
+  cache.sort(key=lambda e: e.path())
+
+  return cache
+
+# =============================================================================
 # DetChar 'omegadq' cache
 # =============================================================================
 
