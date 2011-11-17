@@ -781,8 +781,8 @@ in the frequency domain */
 	/* This also holds the source and the detector, LAL has two different structs for this! */
 	LALDetAndSource det_source;
 	det_source.pSource=&source;
-    REAL8 deltaF_x_1st=0.0, deltaF_x_2nd=0.0, F_x=0.0;
-    REAL8 deltaG_x=0.0, deltaG_x_1st=0.0, deltaG_x_2nd=0.0, G_x=0.0;
+    REAL8 deltaF_x_1st=0.0, deltaF_x_2nd=0.0, deltaF_x_3rd=0.0, deltaF_x_4th=0.0 ,F_x=0.0;
+    REAL8 deltaG_x=0.0, G_x=0.0;
     REAL8 deltaK_x=0.0, K_x=0.0;
     REAL8 Deltaplus=0.0, Deltamin=0.0,Reeven=0.0,Reodd=0.0;
     REAL8 deltaNoiseIntegral_1st=0.0;
@@ -797,7 +797,7 @@ in the frequency domain */
     REAL8 Gcos_noise=0.0;
     REAL8 Gsin_templ=0.0;
     REAL8 Gcos_templ=0.0;
-    
+    REAL8 sin_noise=0.0,cos_noise=0.0,sin_templ=0.0,cos_templ=0.0,AhatA=0.0,AN=0.0;
     
     
 	for(det_i=0;det_i<inputMCMC->numberDataStreams;det_i++){ /* For each detector */
@@ -823,6 +823,8 @@ in the frequency domain */
         
         deltaF_x_1st=0.0;
         deltaF_x_2nd=0.0;
+        deltaF_x_3rd=0.0;
+        deltaF_x_4th=0.0;
         deltaG_x=0.0;
         deltaK_x=0.0;
         deltaNoiseIntegral_1st=0.0;
@@ -833,8 +835,7 @@ in the frequency domain */
         deltaHH_2nd=0.0;
         ReDeltaP=0.0;
         RoDeltaM=0.0;
-        deltaG_x_1st=0.0;
-        deltaG_x_2nd=0.0;
+       
         //fprintf(stdout,"BBB %lf \n",TimeFromGC+TimeShiftToGC);
 
 	/*FILE *outInjB=fopen("injection_logL.dat","w");
@@ -885,25 +886,35 @@ in the frequency domain */
             ReDeltaP=(Reeven*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
             RoDeltaM=(-Reodd*Deltamin)*inputMCMC->invspec[det_i]->data->data[idx];
             
+/*    These expressions are verified, i don't need them anymore as they can be obatined adding up the sin and cos expressions.        
             deltaG_x_1st += 2.0*inputMCMC->calibPhase[det_i]->data->data[idx]*(AmplitudeComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*sin(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im))+AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im)*sin(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im)))*inputMCMC->invspec[det_i]->data->data[idx];
   
             deltaG_x_2nd -= inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*(AmplitudeComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*cos(PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)-PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF))+AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im)*cos(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im)))*inputMCMC->invspec[det_i]->data->data[idx];
-
+*/
 
             deltaG_x+=ReDeltaP+RoDeltaM;
  
-            Gsin_noise+= inputMCMC->calibPhase[det_i]->data->data[idx]*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)*sin(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
+            sin_noise=sin(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im));
+            cos_noise=cos(-PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)+PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF));
+            sin_templ=sin(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im));
+            cos_templ=cos(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im));
+            AhatA=AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im);
+            AN=AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im);
+            
+            Gsin_noise+= inputMCMC->calibPhase[det_i]->data->data[idx]*AN*sin_noise*inputMCMC->invspec[det_i]->data->data[idx];
        
-            Gcos_noise-=0.5*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)*cos(-PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)+PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF))*inputMCMC->invspec[det_i]->data->data[idx];   
+            Gcos_noise-=0.5*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*AN*cos_noise*inputMCMC->invspec[det_i]->data->data[idx];   
             
-            Gsin_templ+=inputMCMC->calibPhase[det_i]->data->data[idx]*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im)*sin(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
+            Gsin_templ+=inputMCMC->calibPhase[det_i]->data->data[idx]*AhatA*sin_templ*inputMCMC->invspec[det_i]->data->data[idx];
             
-            Gcos_templ-=0.5*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*AmplitudeComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im)*cos(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->stilde[det_i]->data->data[idx].re-inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im-inputMCMC->noff[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
+            Gcos_templ-=0.5*inputMCMC->calibPhase[det_i]->data->data[idx]*inputMCMC->calibPhase[det_i]->data->data[idx]*AhatA*cos_templ*inputMCMC->invspec[det_i]->data->data[idx];
             
             //note that (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx]) is (-a) of the article with the minus already taken into account!
 
             deltaF_x_1st += (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(2.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) - 1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
             deltaF_x_2nd += (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(3.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) -1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+            deltaF_x_3rd += (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(4.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) -1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
+            deltaF_x_4th += (1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*(5.0*((resp_r/deltaF)*(resp_r/deltaF) + (resp_i/deltaF)*(resp_i/deltaF)) -1.0*Deltaplus)*inputMCMC->invspec[det_i]->data->data[idx];
             
             deltaNoiseIntegral_1st-=2.0*(1.0-inputMCMC->calibAmplitude[det_i]->data->data[idx])*AmplitudeComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im)*AmplitudeComplexNumber(resp_r/deltaF,resp_i/deltaF)*cos(PhaseComplexNumber(resp_r/deltaF,resp_i/deltaF)-PhaseComplexNumber(inputMCMC->noff[det_i]->data->data[idx].re,inputMCMC->noff[det_i]->data->data[idx].im))*inputMCMC->invspec[det_i]->data->data[idx];
             
@@ -954,6 +965,8 @@ in the frequency domain */
 
         deltaF_x_1st*= -0.5*deltaF; // These already have the right sign. They have to be *added* to logL
         deltaF_x_2nd*= -0.5*deltaF;
+        deltaF_x_3rd*= -0.5*deltaF; 
+        deltaF_x_4th*= -0.5*deltaF;
         deltaG_x*=0.5*deltaF;  //
         deltaK_x*=0.5*deltaF;  //
         deltaNoiseIntegral_1st*= -0.5*deltaF;
@@ -962,21 +975,21 @@ in the frequency domain */
         deltaNoiseIntegral_2nd*= -0.5*deltaF;
         deltaHD_2nd*= -0.5*deltaF;
         deltaHH_2nd*= -0.5*deltaF;
-        deltaG_x_1st*=0.5*deltaF;
-        deltaG_x_2nd*=0.5*deltaF;
+        //deltaG_x_1st*=0.5*deltaF;
+        //deltaG_x_2nd*=0.5*deltaF;
         Gsin_noise*=deltaF;
         Gcos_noise*=deltaF;
         Gsin_templ*=deltaF;
         Gcos_templ*=deltaF;
         fprintf(stdout,"dF1 %.10f \t dF2 %.10f \t NI_1st %.10f \t HD_1st %.10f \t HH_1st %.10f \t NI_2 %.10f \t HD_2 %.10f \t HH_2 %.10f \t G_x %lf K_x %lf for IFO %i \n",deltaF_x_1st,deltaF_x_2nd,deltaNoiseIntegral_1st,deltaHD_1st,deltaHH_1st,deltaNoiseIntegral_2nd,deltaHD_2nd,deltaHH_2nd,deltaG_x,deltaK_x,det_i);
-        fprintf(stdout,"dG1 %.10f \t dG2 %.10f \t G %.10f \t Gsin_noise %.10f \t Gcos_noise  %.10f \t  Gsin_temp  %.10f \t Gcos_temp %.10f \n",deltaG_x_1st,deltaG_x_2nd,deltaG_x,Gsin_noise,Gcos_noise,Gsin_templ,Gcos_templ);
+        fprintf(stdout,"G %.10f \t Gsin_noise %.10f \t Gcos_noise  %.10f \t  Gsin_temp  %.10f \t Gcos_temp %.10f \n",deltaG_x,Gsin_noise,Gcos_noise,Gsin_templ,Gcos_templ);
 		/* add the normalisation constant */
 		/*		chisq+=normalisations[det_i]; */ /*Gaussian version*/
 		/*chisq+=(Nmodel-lowBin)*log(2);*/ /* student-t version */
 
 		/*chisq+=(REAL8)( 0.5 * (inputMCMC->invspec[det_i]->data->length-lowBin) * log(2.0*LAL_PI));*/
 		logL-=chisq;
-        F_x+=(deltaF_x_1st+deltaF_x_2nd);
+        F_x+=(deltaF_x_1st+deltaF_x_2nd+deltaF_x_3rd+deltaF_x_4th);
         G_x+=deltaG_x;
         K_x+=deltaK_x;
         //logL+=(F_x+G_x+K_x);
@@ -995,8 +1008,8 @@ in the frequency domain */
     parameter->logL_NI_2= deltaNoiseIntegral_2nd;
     parameter->logL_CalPhaCorr=G_x;
     parameter->logL_CalAmpPhaCorr=K_x;
-    parameter->deltaG_x_1st=deltaG_x_1st;
-    parameter->deltaG_x_2nd=deltaG_x_2nd;
+    //parameter->deltaG_x_1st=deltaG_x_1st;
+    //parameter->deltaG_x_2nd=deltaG_x_2nd;
     parameter->Gsin_noise=Gsin_noise;
     parameter->Gcos_noise=Gcos_noise;
     parameter->Gsin_templ=Gsin_templ;
