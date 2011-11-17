@@ -417,31 +417,12 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 #
 
 
-def get_coincparamsdistributions(xmldoc):
-	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
-	seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
-	return coincparamsdistributions, seglists
-
-
 def load_likelihood_data(filenames, verbose = False):
-	coincparamsdistributions = None
-	for n, filename in enumerate(filenames):
-		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		xmldoc = utils.load_filename(filename, verbose = verbose)
-		if coincparamsdistributions is None:
-			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc)
-		else:
-			a, b = get_coincparamsdistributions(xmldoc)
-			coincparamsdistributions += a
-			seglists |= b
-			del a, b
-		xmldoc.unlink()
-	return coincparamsdistributions, seglists
+	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
 
 
 def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
-	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
+	return ligolw_burca_tailor.write_likelihood_data(filename, coincparamsdistributions, seglists, name = u"string_cusp_likelihood", verbose = verbose)
 
 
 #
