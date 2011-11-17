@@ -1765,6 +1765,17 @@ def q2ms(mc,q):
 #
 #
 
+def q2eta(mc,q):
+    """
+    Utility function for converting mchirp,q to eta. The
+    rvalue is eta.
+    """
+    m1,m2 = q2ms(mc,q)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    return eta
+#
+#
+
 def mc2q(mc,eta):
     """
     Utility function for converting mchirp,eta to new mass ratio q (m2/m1).
@@ -1957,7 +1968,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     rbins=None
 
-    if injpar:
+    if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
             plt.axvline(injpar, color='r', linestyle='-.')
 

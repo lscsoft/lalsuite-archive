@@ -1,0 +1,16 @@
+Source: ligo-lars
+Section: python
+Priority: extra
+Maintainer: Brian Moe <brian.moe@ligo.org>
+Build-Depends: debhelper (>= 7), python-support, python (>=2.4)
+Standards-Version: 3.8.4
+Homepage: http://www.lsc-group.phys.uwm.edu/daswg/projects/lars/
+
+Package: python-ligo-lars
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}, python-m2crypto, glue-segments
+Description: LARS - LIGO Archive Service
+  LARS will be a collection of tools and services that provides archival storage for LIGO.
+  Currently in the prototype stages, it also helps scientists keep track of the locacations
+  of their and others analyses.
+
