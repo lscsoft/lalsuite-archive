@@ -217,6 +217,13 @@ def cbcBayesPostProc(
 
         pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
 
+    if (mchirp_name in pos.names and 'q' in pos.names) and \
+    ('mass1' not in pos.names or 'm1' not in pos.names) and \
+    ('mass2' not in pos.names or 'm2' not in pos.names):
+
+        pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,'q'))
+        pos.append_mapping('eta',bppu.q2eta,(mchirp_name,'q'))
+
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
     and ('declination' in pos.names or 'dec' in pos.names) \
@@ -918,7 +925,7 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','massratio']
+    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
     polParams=['psi']

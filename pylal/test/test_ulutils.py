@@ -39,39 +39,29 @@ class test_ulutils(unittest.TestCase):
         Check the dependence of upper limits on volume and lambda.
         '''
         # volumes to test
-        volumes = numpy.linspace(1e-3,1,100)
+        volumes = numpy.linspace(1e-3,100,1e2)
 
         for vol in volumes:
+            mu = numpy.linspace(0,100/vol,1e4)
+
             # lambda = 0
-            mu, post = upper_limit_utils.compute_posterior(vol, 0, 0)
+            likely = upper_limit_utils.margLikelihood([vol], [0], mu)
+            post = likely/likely.sum() #uniform prior
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
             self.assertTrue( 2.30/vol < muhi < 2.31/vol )
 
             # lambda = 1
-            mu, post = upper_limit_utils.compute_posterior(vol, 0, 1)
+            likely = upper_limit_utils.margLikelihood([vol], [1], mu)
+            post = likely/likely.sum() #uniform prior
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
             self.assertTrue( 3.27/vol < muhi < 3.28/vol )
 
             # lambda = infinity
-            mu, post = upper_limit_utils.compute_posterior(vol, 0, 1e6)
+            likely = upper_limit_utils.margLikelihood([vol], [1e6], mu)
+            post = likely/likely.sum() #uniform prior
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
             self.assertTrue( 3.88/vol < muhi < 3.90/vol )
 
-    def test_uniform_prior(self):
-        '''
-        Check that the code handles priors correctly.
-        '''
-        mu_in = numpy.linspace(0,10,1e6)
-        prior = numpy.ones(mu_in.shape)
-
-        # with a flat prior explicitly given
-        mu, post = upper_limit_utils.compute_posterior(1, 0, 0, mu_in, prior)
-        muhi_p = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
-
-        # no prior specified
-        mu, post = upper_limit_utils.compute_posterior(1, 0, 0)
-        muhi_np = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
-        self.assertTrue( abs(muhi_p-muhi_np) < 0.01 )
 
     def test_zero_volume_search(self):
         '''
@@ -79,11 +69,15 @@ class test_ulutils(unittest.TestCase):
         no effect on upper limits.
         '''
         # no prior specified, unit volume
-        mu, post = upper_limit_utils.compute_posterior(1, 0, 0)
+        mu = numpy.linspace(0,100,1e4)
+        likely = upper_limit_utils.margLikelihood([1], [0], mu)
+        post = likely/likely.sum() #uniform prior
         muhi_np = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
 
         # posterior for prior, zero volume
-        mu, post = upper_limit_utils.compute_posterior(0, 0, 0, mu, post)
+        likely = upper_limit_utils.margLikelihood([0],[0], mu)
+        post *= likely  #uniform post for prior
+        post /= post.sum()
         muhi_zv = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
         self.assertTrue( abs(muhi_zv - muhi_np) < 0.01 )
 
@@ -95,11 +89,15 @@ class test_ulutils(unittest.TestCase):
         iteratively applying the individual searches.
         '''
         # volume additivity check
-        mu, post = upper_limit_utils.compute_posterior(1, 0, 0)
-        mu, post = upper_limit_utils.compute_posterior(9, 0, 0, mu, post)
+        mu = numpy.linspace(0,100,1e4)
+        likely = upper_limit_utils.margLikelihood([1], [0], mu)
+        post = likely/likely.sum() #uniform prior
+        post *= upper_limit_utils.margLikelihood([9], [0], mu) # use post for prior
+        post /= post.sum()
         muhi_1p9 = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
 
-        mu, post = upper_limit_utils.compute_posterior(10, 0, 0)
+        likely = upper_limit_utils.margLikelihood([10], [0], mu)
+        post = likely/likely.sum() #uniform prior
         muhi_10 = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
         self.assertTrue( abs( muhi_1p9 - muhi_10 ) < 0.01 )
 
@@ -181,13 +179,14 @@ class test_ulutils(unittest.TestCase):
 
     def test_compute_many_posterior(self):
         # for 0 lambda's, volumes add
-        mu1, post1 = upper_limit_utils.compute_many_posterior([5,10,4,6],[0,0,0,0],[0,0,0,0])
-        mu2, post2 = upper_limit_utils.compute_many_posterior([15,10],[0,0],[0,0])
-        mu3, post3 = upper_limit_utils.compute_many_posterior([25],[0],[0])
+        mu = numpy.linspace(0,100,1e4)
+        post1 = upper_limit_utils.margLikelihood([5,10,4,6],[0,0,0,0],mu)
+        post2 = upper_limit_utils.margLikelihood([15,10],[0,0],mu)
+        post3 = upper_limit_utils.margLikelihood([25],[0],mu)
 
-        mu_90_1 = upper_limit_utils.compute_upper_limit(mu1,post1,0.90)
-        mu_90_2 = upper_limit_utils.compute_upper_limit(mu2,post2,0.90)
-        mu_90_3 = upper_limit_utils.compute_upper_limit(mu3,post3,0.90)
+        mu_90_1 = upper_limit_utils.compute_upper_limit(mu,post1/post1.sum(),0.90)
+        mu_90_2 = upper_limit_utils.compute_upper_limit(mu,post2/post2.sum(),0.90)
+        mu_90_3 = upper_limit_utils.compute_upper_limit(mu,post3/post3.sum(),0.90)
 
         self.assertTrue( (mu_90_2-mu_90_1) < 0.05 )
         self.assertTrue( (mu_90_3-mu_90_1) < 0.05 )
