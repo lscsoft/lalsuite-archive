@@ -14,9 +14,11 @@ import os
 from glue.lal import Cache
 from ligo.lars import serviceProxy
 
-DEFAULT_SERVER = "https://archie.phys.uwm.edu/lars/xmlrpc/"
+DEFAULT_SERVER = "https://lars.ligo.org/lars/xmlrpc/"
 
 INI_NAME = 'lars.ini'
+
+GIT_TAG = 'lars-v1.1'
 
 commands = {}
 
