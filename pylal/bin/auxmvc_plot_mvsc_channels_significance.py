@@ -38,12 +38,13 @@ def characterize_channel(channels, significance, n):
     mean_rms=[]
     n_channels=len(channels)/n
     for i in range(n_channels):
-        list_channels.append([channels[n*i][:-7],(significance[n*i] +significance[n*i+1] + significance[n*i+2] + significance[n*i+3] + significance[n*i+4])])
-        list_channels[i][1]=list_channels[i][1]/(n)
+        var_name = "_" + channels[n*i].split("_")[-1]
+        channel_name = channels[n*i].split(var_name)[0] 
+        list_channels.append([channel_name,(significance[n*i:(n*i+n)].sum()) / float(n)])
         values.append(list_channels[i][1])
-        mean_rms.append(((significance[n*i]**2 +significance[n*i+1]**2 + significance[n*i+2]**2 + significance[n*i+3]**2 + significance[n*i+4]**2)/(n))**0.5)
-        max_variable.append(max(significance[n*i],significance[n*i+1],significance[n*i+2],significance[n*i+3],significance[n*i+4]))
-        min_variable.append(min(significance[n*i],significance[n*i+1],significance[n*i+2],significance[n*i+3],significance[n*i+4]))
+        mean_rms.append(((significance[n*i:(n*i+n)]**2).sum()/float(n))**0.5)
+        max_variable.append(significance[n*i:(n*i+n)].max())
+        min_variable.append(significance[n*i:(n*i+n)].min())
         if list_channels[i][1] ==0:
             max_dif.append(max_variable[i])
             min_dif.append(min_variable[i])
@@ -52,61 +53,48 @@ def characterize_channel(channels, significance, n):
             min_dif.append((min_variable[i]-mean_rms[i])/mean_rms[i])
     return list_channels, max_variable, min_variable, max_dif, min_dif, values, mean_rms
 
-# Function that returns a list of which parameter in the channel corresponds to a maximum value (number between 0-4)
-def characterize_max(significance, threshold):
+# Function that returns a list of which parameter in the channel corresponds to a maximum value (number between 0-n)
+def characterize_max(significance, threshold, n):
     characterize_max=[]
     maxi=[]
     k=0
-    print(significance)
-    n_channels=len(significance)/5
+    #print(significance)
+    n_channels=int(len(significance)/float(n))
     for i in range(n_channels):
-        print(i, k)
-        average=(significance[5*i] + significance[5*i+1] +significance[5*i+2] +significance[5*i+3] +significance[5*i+4])/5
-        print (average, threshold)
+        #print(i, k)
+        average=(significance[n*i:(n*i+n)].sum())/float(n)
+        #print (average, threshold)
         if average > threshold:
-            characterize_max.append(0)
-            maxi.append(significance[5*i])
-            dummy=significance[5*i]
-            for j in range(4):
-                if significance[5*i+j+1] > dummy:
-                    characterize_max[k]=j+1
-                    maxi[k] = significance[5*i+j+1]
-                    dummy = significance[5*i+j+1]
-            k=k+1
+          ch_char_sigs = significance[n*i:(n*i+n)]
+          characterize_max.append(ch_char_sigs.argmax())
     return characterize_max
 
-# Function that returns a list of which parameter in the channel corresponds to a minimum value (number between 0-4)
-def characterize_min(significance, threshold):
+# Function that returns a list of which parameter in the channel corresponds to a minimum value (number between 0-n)
+def characterize_min(significance, threshold, n):
     characterize_min=[]
-    mini=[]
+    maxi=[]
     k=0
-    print(significance)
-    n_channels=len(significance)/5
+    #print(significance)
+    n_channels=int(len(significance)/float(n))
     for i in range(n_channels):
-        print(i, k)
-        average=(significance[5*i] + significance[5*i+1] +significance[5*i+2] +significance[5*i+3] +significance[5*i+4])/5
-        print (average, threshold)
+        #print(i, k)        
+        average=(significance[n*i:(n*i+n)].sum())/float(n)
+        #print (average, threshold)
         if average > threshold:
-            characterize_min.append(0)
-            mini.append(significance[5*i])
-            dummy=significance[5*i]
-            for j in range(4):
-                if significance[5*i+j+1] < dummy:
-                    characterize_min[k]=j+1
-                    mini[k] = significance[5*i+j+1]
-                    dummy = significance[5*i+j+1]
-            k=k+1
+          ch_char_sigs = significance[n*i:(n*i+n)]
+          characterize_min.append(ch_char_sigs.argmin())
     return characterize_min
+
 
 #Tries to calculate correlation and covariance for two different parameters i and j (between 0-4)
 #Not sure of the relevance, just trying to calculate different things.
-def cov_matrix(dvals, i, j):
+def cov_matrix(dvals, i,j,n):
     tempi=[]
     tempj=[]
-    p=len(dvals)/5
+    p=len(dvals)/float(n)
     for k in range(p):
-        tempi.append(dvals[5*k+i])
-        tempj.append(dvals[5*k+j])
+        tempi.append(dvals[n*k+i])
+        tempj.append(dvals[n*k+j])
     X = numpy.vstack((tempi,tempj))
     return numpy.cov(X), numpy.corrcoef(X)
     
@@ -125,6 +113,34 @@ def print_output(dtest_FOM,dtest,n,thr,name, output_path):
     f.close()
     return
     
+def order_variables(var):
+  """
+  Oders input variables: channel_name_x1, channel_name_x2 .... Determines number of charactristics per cha
+nnel. 
+  """
+  # get all names of variables and sort them in alphabetical order
+  var_names = var.keys()
+  var_names.sort()
+
+  # determine the number of variables per channel
+  # get the nam of the first variable 
+  first_char_name = var_names[0].split("_")[-1]  
+  first_channel = var_names[0].split(first_char_name)[0]
+  channel_chars = []  
+  for var_name in var_names:
+    if first_channel in var_name:
+      channel_chars.append(var_name.split("_")[-1])
+
+  # form list of keys, FOMs and splits in the correct order
+  keys = []
+  FOMs = []
+  splits = []
+  for key in var_names:
+    keys.append(key)
+    FOMs.append(var[key][0])
+    splits.append(var[key][1])
+
+  return keys, numpy.asarray(FOMs), numpy.asarray(splits), channel_chars
 
 
 
@@ -180,29 +196,29 @@ list_of_inputs=glob.glob(opts.input)
 
 # First part of the code: Read all files from round-robin and store the significance, average by the number of files read.
 
+var = {}
 for inp in list_of_inputs:
     f=open(inp,'r')
     for line in f:
         words = re.findall(r'\w+', line)
         if words[0] == 'Variable':
-            if index == 0:
-                k=(words[1]+'-'+words[2])
-                v_FOM = float(words[7]+'.'+words[8])/len(list_of_inputs)
-                v_splits = float(words[4])/len(list_of_inputs)
-                dval_FOM.append(v_FOM)
-                dval_splits.append(v_splits)
-                dkeys.append(k)
-                dsort.append([k,v_FOM])
-                i=i+1
-            else:
-                dval_FOM[i] = dval_FOM[i] + float(words[7]+'.'+words[8])/len(list_of_inputs)
-                dval_splits[i] = dval_splits[i] + float(words[4])/len(list_of_inputs)
-                dsort[i][1] = dsort[i][1]+float(words[7]+'.'+words[8])/len(list_of_inputs)
-                i=i+1
-    index=index+1
-    i=0
-list_channels_FOM, max_variable, min_variable, max_dif, min_dif, values_FOM, mean_rms = characterize_channel(dkeys,dval_FOM,5)
-list_channels, max_variable_s, min_variable_s, max_dif_s, min_dif_s, values_splits, mean_rms_s = characterize_channel(dkeys,dval_splits,5)
+          k=(words[1]+'-'+words[2])
+          v_FOM = float(words[7]+'.'+words[8])/len(list_of_inputs)
+          v_splits = float(words[4])/len(list_of_inputs)
+          if k in var.keys():
+            var[k] = (var[k][0] + float(words[7]+'.'+words[8])/len(list_of_inputs), var[k][1] + float(words[4])/len(list_of_inputs))
+          else:
+            var[k]=(v_FOM, v_splits)
+                #dval_FOM.append(v_FOM)
+                #dval_splits.append(v_splits)
+                #dkeys.append(k)
+                #dsort.append([k,v_FOM])
+
+
+dkeys, dval_FOM, dval_splits, channel_chars = order_variables(var)
+
+list_channels_FOM, max_variable, min_variable, max_dif, min_dif, values_FOM, mean_rms = characterize_channel(dkeys,dval_FOM, len(channel_chars))
+list_channels, max_variable_s, min_variable_s, max_dif_s, min_dif_s, values_splits, mean_rms_s = characterize_channel(dkeys,dval_splits,len(channel_chars))
 list_channels_FOM.sort(key=lambda a: a[1])
 list_channels.sort(key=lambda a: a[1])
 if opts.N_most_significant_channels == None:
@@ -212,20 +228,20 @@ else:
 print(n)
 print_output(list_channels_FOM, list_channels, n, opts.threshold, opts.usertag, opts.output_path)
 
-max_channel=characterize_max(dval_FOM,opts.threshold_maximum_minimum)
-min_channel=characterize_min(dval_FOM, opts.threshold_maximum_minimum)
-max_channel_s=characterize_max(dval_splits,opts.threshold_maximum_minimum)
-min_channel_s=characterize_min(dval_splits, opts.threshold_maximum_minimum)
+max_channel=characterize_max(dval_FOM,opts.threshold_maximum_minimum, len(channel_chars))
+min_channel=characterize_min(dval_FOM, opts.threshold_maximum_minimum, len(channel_chars))
+max_channel_s=characterize_max(dval_splits,opts.threshold_maximum_minimum, len(channel_chars))
+min_channel_s=characterize_min(dval_splits, opts.threshold_maximum_minimum, len(channel_chars))
 
 
-X,Y=cov_matrix(dval_FOM, 1, 4)
-print(X)
-print(Y)
+#X,Y=cov_matrix(dval_FOM, 1, 4)
+#print(X)
+#print(Y)
 
-print('next')
-X,Y=cov_matrix(dval_FOM, 0, 1)
-print(X)
-print(Y)
+#print('next')
+#X,Y=cov_matrix(dval_FOM, 0, 1)
+#print(X)
+#print(Y)
 
 
 
@@ -242,7 +258,6 @@ if opts.plotdeviation == True:
     pylab.title('Deviation from average for max value using Delta FOM')
     pylab.xlabel('Delta FOM')
     pylab.ylabel('Deviation from average for max value for each channel')
-    pylab.savefig(opts.usertag + '_max_dif_FOM.png')
 
     name = "max_dif_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -261,7 +276,6 @@ if opts.plotdeviation == True:
     pylab.title('Deviation from average for max value using number of splittings')
     pylab.xlabel('Number of splittings')
     pylab.ylabel('Deviation from average for max value for each channel')
-    pylab.savefig(opts.usertag + '_max_dif.png')
 
     name = "max_dif" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -278,7 +292,6 @@ if opts.plotdeviation == True:
     pylab.title('Deviation from average for min value using delta FOM')
     pylab.xlabel('Delta FOM')
     pylab.ylabel('Deviation from average for min value for each channel')
-    pylab.savefig(opts.usertag + '_min_dif_FOM.png')
 
     name = "min_dif_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -295,7 +308,6 @@ if opts.plotdeviation == True:
     pylab.title('Deviation from average for min value using number of splittings')
     pylab.xlabel('Number of splittings')
     pylab.ylabel('Deviation from average for min value for each channel')
-    pylab.savefig(opts.usertag + '_min_dif.png')
 
     name = "min_dif" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -314,8 +326,7 @@ if opts.histograms == True:
     pylab.hist(values_FOM,150, histtype='stepfilled',cumulative = -1)
     pylab.title('Cumulative histogram for delta FOM')
     pylab.xlabel('Delta FOM')
-    pylab.ylabel('Cumulative histogram')
-    pylab.savefig(opts.usertag + '_hist_cumulative_FOM.png')
+    pylab.ylabel('Number of channels')
 
     name = "hist_cumulative_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -330,9 +341,8 @@ if opts.histograms == True:
     pylab.figure(1)
     pylab.hist(values_splits,150, histtype='stepfilled',cumulative = -1)
     pylab.title('Cumulative histogram for number of splittings')
-    pylab.xlabel('Delta FOM')
-    pylab.ylabel('Cumulative histogram')
-    pylab.savefig(opts.usertag + '_hist_cumulative.png')
+    pylab.xlabel('Number of splittings')
+    pylab.ylabel('Number of channels')
 
     name = "hist_cumulative" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -349,8 +359,7 @@ if opts.histograms == True:
     pylab.hist(values_FOM,30, histtype='stepfilled')
     pylab.title('Histogram for delta FOM')
     pylab.xlabel('Delta FOM')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_hist_FOM.png')
+    pylab.ylabel('Number of channels')
 
     name = "hist_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -367,8 +376,7 @@ if opts.histograms == True:
     pylab.hist(values_splits,30, histtype='stepfilled')
     pylab.title('Histogram for number of splittings')
     pylab.xlabel('Number of splittings')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_hist.png')
+    pylab.ylabel('Number of channels')
 
     name = "hist" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -382,10 +390,9 @@ if opts.histograms == True:
     fig_num += 1
     pylab.figure(1)
     pylab.hist(max_dif,50, histtype='stepfilled')
-    pylab.title('Deviation from the maximum rms average for delta FOM')
-    pylab.xlabel('deviation for max-rms_avg for delta FOM')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_hist_max_FOM.png')
+    pylab.title('Histogram of deviation of max from rms average for delta FOM')
+    pylab.xlabel('max-rms_avg/ rms_avg')
+    pylab.ylabel('Number of channels')
 
     name = "hist_max_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -399,10 +406,9 @@ if opts.histograms == True:
     fig_num += 1
     pylab.figure(1)
     pylab.hist(max_dif_s,50, histtype='stepfilled')
-    pylab.title('Deviation from the maximum rms average for number of splittings')
-    pylab.xlabel('deviation for max-rms_avg')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_hist_max.png')
+    pylab.title('Histogram of deviation of max from rms average for number of splittings')
+    pylab.xlabel('max-rms_avg/ rms_avg')
+    pylab.ylabel('Number of channels')
 
     name = "hist_max" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -416,10 +422,9 @@ if opts.histograms == True:
     fig_num += 1
     pylab.figure(1)
     pylab.hist(min_dif, 50, histtype='stepfilled')
-    pylab.title('Deviation from the minimum rms average for delta FOM')
-    pylab.xlabel('deviation for min-rms_avg')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_hist_min_FOM.png')
+    pylab.title('Histogram of deviation of min from rms average for delta FOM')
+    pylab.xlabel('min-rms_avg/rms_avg')
+    pylab.ylabel('Number of channels')
 
     name = "hist_min_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -432,10 +437,9 @@ if opts.histograms == True:
     fig_num += 1
     pylab.figure(1)
     pylab.hist(min_dif_s, 50, histtype='stepfilled')
-    pylab.title('Deviation from the minimum rms average for number of splittings')
-    pylab.xlabel('deviation for min-rms_avg')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_hist_min.png')
+    pylab.title('Histogram of deviation of min from rms average for number of splittings')
+    pylab.xlabel('min-rms_avg/rms_avg')
+    pylab.ylabel('Number of channels')
 
     name = "hist_min" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -448,11 +452,11 @@ if opts.histograms == True:
     # 13
     fig_num += 1
     pylab.figure(1)
-    pylab.hist(max_channel, bins=(0,1,2,3,4,5), histtype='stepfilled')
-    pylab.title('Maximum channel histogram. Each number represents each variable, in the order of the input, for delta FOM')
-    pylab.xlabel('Channel for max')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_max_channel_FOM.png')
+    pylab.hist(max_channel, bins=(numpy.arange(len(channel_chars)+1) - 0.5), histtype='stepfilled')
+    pylab.title('Histogram of most significant channel parameters for delta FOM')
+    pylab.xlabel('Channel parameters')
+    pylab.ylabel('Number of channels')
+    pylab.xticks(numpy.arange(len(channel_chars)), channel_chars)
 
     name = "max_channel_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -465,12 +469,12 @@ if opts.histograms == True:
     # 14
     fig_num += 1
     pylab.figure(1)
-    pylab.hist(max_channel_s, bins=(0,1,2,3,4,5), histtype='stepfilled')
-    pylab.title('Maximum channel histogram. Each number represents each variable, in the order of the input, for number of splittings')
-    pylab.xlabel('Channel for max')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_max_channel.png')
-
+    pylab.hist(max_channel_s, bins=(numpy.arange(len(channel_chars)+1) - 0.5), histtype='stepfilled')
+    pylab.title('Histogram of most significant channel parameters for number of splittings')
+    pylab.xlabel('Channel parameters')
+    pylab.ylabel('Number of channels')
+    pylab.xticks(numpy.arange(len(channel_chars)), channel_chars)
+   
     name = "max_channel" 
     fname = InspiralUtils.set_figure_name(opts, name)
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -482,11 +486,11 @@ if opts.histograms == True:
     # 15
     fig_num += 1
     pylab.figure(1)
-    pylab.hist(min_channel, bins = (0,1,2,3,4,5), histtype='stepfilled')
-    pylab.title('Minimum channel histogram. Each number represents each variable, in the order of the input, for delta FOM')
-    pylab.xlabel('Channel for min')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_min_channel_FOM.png')
+    pylab.hist(min_channel, bins = (numpy.arange(len(channel_chars)+1) - 0.5), histtype='stepfilled')
+    pylab.title('Histogram of least significant channel parameters for delta FOM')
+    pylab.xlabel('Channel parameters')
+    pylab.ylabel('Number of channels')
+    pylab.xticks(numpy.arange(len(channel_chars)), channel_chars)
 
     name = "min_channel_FOM" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -499,11 +503,11 @@ if opts.histograms == True:
     # 16
     fig_num += 1
     pylab.figure(1)
-    pylab.hist(min_channel_s, bins = (0,1,2,3,4,5), histtype='stepfilled')
-    pylab.title('Minimum channel histogram. Each number represents each variable, in the order of the input, for number of splittings')
-    pylab.xlabel('Channel for min')
-    pylab.ylabel('Histogram')
-    pylab.savefig(opts.usertag + '_min_channel.png')
+    pylab.hist(min_channel_s, bins = (numpy.arange(len(channel_chars)+1) - 0.5), histtype='stepfilled')
+    pylab.title('Histogram of least significant channel parameters for number of splittings')
+    pylab.xlabel('Channel parameters')
+    pylab.ylabel('Number of channels')
+    pylab.xticks(numpy.arange(len(channel_chars)), channel_chars)
 
     name = "min_channel" 
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -522,7 +526,6 @@ if opts.histograms == True:
     pylab.title('Correlation between delta FOM and number of splittings')
     pylab.xlabel('Values for delta FOM')
     pylab.ylabel('Number of splits')
-    pylab.savefig(opts.usertag + '_FOM_splits.png')
 
     name = "FOM_splits" 
     fname = InspiralUtils.set_figure_name(opts, name)
