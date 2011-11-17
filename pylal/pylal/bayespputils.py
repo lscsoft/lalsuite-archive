@@ -1746,11 +1746,9 @@ def plot_one_param_pdf(posterior,plot1DParams):
     plot_one_param_pdf_kde(myfig,posterior[param])
 
     rbins=None
-
-    if injpar:
+    if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
             plt.axvline(injpar, color='r', linestyle='-.')
-
             #rkde=gkde.integrate_box_1d(min(pos[:,i]),getinjpar(injection,i))
             #print "r of injected value of %s (kde) = %f"%(param,rkde)
 
@@ -2602,13 +2600,13 @@ class PEOutputParser(object):
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
+            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl' and (header[i].lower()=='logm' or header[i].lower()=='logdist') :
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
 
                 header[i]=header[i].replace('log','')
-            if header[i].lower().find('sin')!=-1:
+            '''if header[i].lower().find('sin')!=-1:
                 print 'asining %s'%(header[i])
                 flines[:,i]=np.arcsin(flines[:,i])
                 header[i]=header[i].replace('sin','')
@@ -2616,6 +2614,7 @@ class PEOutputParser(object):
                 print 'acosing %s'%(header[i])
                 flines[:,i]=np.arccos(flines[:,i])
                 header[i]=header[i].replace('cos','')
+            '''
             header[i]=header[i].replace('(','')
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))

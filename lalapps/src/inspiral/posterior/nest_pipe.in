@@ -383,9 +383,6 @@ for option in cp.items('inspnest_all'):
 if cp.has_option('data','decohere'):
     inspnest_job.add_opt('decohere',cp.get('data','decohere'))
 
-if cp.has_option('data','enable_calfreq'):
-    inspnest_job.add_opt("enable-calfreq",'')
- 
 if cp.has_option('data','calamp-facs'):
      inspnest_job.add_opt("enable-calamp",'')
 
@@ -411,9 +408,17 @@ combine_dir=os.path.join(opts.run_path,'combine')
 snr_dir=os.path.join(opts.run_path,'SNR')
 checkDir(snr_dir)
 inspnest_job.add_opt('snrpath',snr_dir)
-calerr_dir=os.path.join(opts.run_path,'CalErrors')
-checkDir(calerr_dir)
-inspnest_job.add_opt('calib-errors-path',calerr_dir)
+
+if cp.has_section('calibration'):
+    if cp.has_option('calibration','enable-calfreq'):
+        inspnest_job.add_opt('enable-calfreq','')
+        calerr_dir=os.path.join(opts.run_path,'CalErrors')
+        checkDir(calerr_dir)
+        inspnest_job.add_opt('calib-errors-path',calerr_dir)
+        if cp.has_option('calibration','calib-seed'):
+            inspnest_job.add_opt('calib-seed',cp.get('calibration','calib-seed'))
+
+
 time_combine_sub_file=os.path.join(opts.run_path,'combine_each_time.sub')
 combine_each_time_job=OddsPipeline.CombineZJob(cp,time_combine_sub_file,opts.log_path)
 combine_each_time_nodes={}

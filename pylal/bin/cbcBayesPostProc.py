@@ -203,7 +203,16 @@ def cbcBayesPostProc(
     print pos.names
 
     if 'snr' in pos.names and snr_net is not None:
-        pos['snr'].set_injval(float(snr_net[9:]))
+        if snr_net[0]=='N':
+            pos['snr'].set_injval(float(snr_net[9:]))
+        else:
+            pos['snr'].set_injval(float(snr_net[4:]))
+        snr_relative_shifts_samps=[(pos['snr'].injval-i)/i for i in pos['snr'].samples]
+        snr_rs=bppu.OneDPosterior('snr_relative_shift',snr_relative_shifts_samps,injected_value=float(0))
+        pos.append(snr_rs)
+        snr_rs_file=open('snr_rs.dat','a')
+        snr_rs_file.write(str(pos['snr_relative_shift'].mean)+'\t'+str(pos['snr'].injval)+'\n')
+        snr_rs_file.close()
 
     if ('mc' in pos.names or 'mchirp' in pos.names) and \
     'eta' in pos.names and \
@@ -1079,8 +1088,8 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','massratio']
-    distParams=['distance','distMPC','dist']
+    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','massratio','logm']
+    distParams=['distance','distMPC','dist','logd']
 
     incParams=['iota','inclination','cosiota']
     polParams=['psi']
@@ -1089,8 +1098,9 @@ if __name__=='__main__':
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    rec_snr=['snr']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams +rec_snr #+ endTimeParams
+    rec_snr=['snr','snr_relative_shift']
+    cali_params=['logL_calamp','logL_calpha','logL_calamppha','logL_HH1','logL_HH2','logL_HD1','logL_HD2','logL_NI1','logL_NI2','dG1','dG2','GsinNoise','GcosNoise','GsinTemp','GcosTemp']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams +rec_snr+cali_params #+ endTimeParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     '''for ifo1 in ifos_menu:
@@ -1133,7 +1143,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':10.0,'dist':10.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'snr':1.0}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':10.0,'dist':10.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'cosbeta':0.02,'snr':1.0,'logl_calamp':0.01,'logl_calpha':0.01,'logl_calamppha':0.01,'logl_hh1':0.01,'logl_hh2':0.01,'logl_hd1':0.01,'logl_hd2':0.01,'logl_ni1':0.01,'logl_ni2':0.01,'dg1':0.01,'dg2':0.01,'gsinnoise':0.01,'gcosnoise':0.01,'gsintemp':0.01,'gcostemp':0.01,'snr_relative_shift':0.001}
     #for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
     #    greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
