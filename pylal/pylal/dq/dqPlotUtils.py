@@ -836,6 +836,11 @@ class DataPlot(plotutils.BasicPlot):
       l = plot[0] 
       l.set_markersize(markersizes[i])
 
+    # set transparent legend
+    if leg:
+      legfr = leg.get_frame()
+      legfr.set_alpha(0.5)
+
     # set axes
     if logx:  self.ax.set_xscale('log')
     if logy:  self.ax.set_yscale('log')
