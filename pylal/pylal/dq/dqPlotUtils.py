@@ -285,7 +285,7 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
     self.ax.axvline(b, **plot_args)
 
   @plotutils.method_callable_once
-  def finalize(self):
+  def finalize(self, labels_inset=False):
 
     for row,key in enumerate(self.keys):
       if self.color_code.has_key(key):
@@ -296,11 +296,19 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
         a,b = self._time_transform(seg)
         self.ax.fill([a, b, b, a, a],\
                      [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
+      if labels_inset:
+        self.ax.text(0.01,(row+1)/(len(self.keys)+1), re.sub('\\+_+','\_',key),\
+                     horizontalalignment='left', verticalalignment='center',\
+                     transform=self.ax.transAxes, backgroundcolor='white',\
+                     bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
 
     ticks = pylab.arange(len(self.keys))
     self.ax.set_yticks(ticks)
-    self.ax.set_yticklabels([k.replace('_','\_').replace('\\\_','\_')\
-                             for k in self.keys], size='small')
+    if labels_inset:
+      self.ax.set_yticklabels(ticks, color='white')
+    else:
+      self.ax.set_yticklabels([re.sub(r'\\+_+', '\_', k)\
+                               for k in self.keys], size='small')
     self.ax.set_ylim(-1, len(self.keys))
 
 # =============================================================================
@@ -2010,11 +2018,15 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
     tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
   xlabel   = kwargs.pop('xlabel',\
                         'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  ylabel   = kwargs.pop('ylabel', "")
   title    = kwargs.pop('title', '')
   subtitle = kwargs.pop('subtitle', '')
 
   # get axis limits
   xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+
+  # get label param
+  labels_inset = kwargs.pop('labels_inset', False)
 
   if keys:
     # escape underscore, but don't do it twice
@@ -2029,9 +2041,9 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   # set params
   set_rcParams()
 
-  plot = PlotSegmentsPlot(xlabel, "", title, subtitle, t0=zero, unit=unit)
+  plot = PlotSegmentsPlot(xlabel, ylabel, title, subtitle, t0=zero, unit=unit)
   plot.add_content(segdict, keys, **kwargs)
-  plot.finalize()
+  plot.finalize(labels_inset=labels_inset)
 
   # indicate last frame
   if highlight_segments:
