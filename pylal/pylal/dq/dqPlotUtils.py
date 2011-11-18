@@ -765,7 +765,8 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     self.ax.set_ybound(lower=ymin)
 
     # add legend if there are any non-trivial labels
-    self.ax.legend(plot_list, legends)
+    if plot_list:
+      self.ax.legend(plot_list, legends)
 
 # =============================================================================
 # Class for time series plot
@@ -975,7 +976,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
   set_ticks(plot.ax)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of any column
@@ -1183,7 +1184,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   set_ticks(plot.ax)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot one column against another column coloured by any third column
@@ -1349,8 +1350,8 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         nvetoData[zcolumn][iTrig] /= zMedian
 
   # filter zcolumn by  provided poles/zeros filter as a function of ycolumn
-  flatenedFlag = kwargs.pop('filter', False)
-  if zcolumn and flatenedFlag:
+  filterFlag = kwargs.pop('filter', False)
+  if zcolumn and filterFlag:
     # get filter params
     polesList = kwargs.pop('poles', None)
     zerosList = kwargs.pop('zeros', None)
@@ -1361,6 +1362,18 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     for filtZero in zerosList:
       nvetoData[zcolumn] *= abs(nvetoData[ycolumn] - filtZero)
     nvetoData[zcolumn].astype(float)
+
+  # flaten zcolumn by 1/sqrt of sum given rational fraction mononomes as a function of ycolumn
+  flatenedFlag = kwargs.pop('flaten', False)
+  if zcolumn and flatenedFlag:
+    # get filter params
+    expList = kwargs.pop('exponents', None)
+    constList = kwargs.pop('constants', None)
+    filter = numpy.zeros(len(nvetoData[zcolumn]))
+    for iTerm, exponent in enumerate(expList):
+      filter += pow(constList[iTerm]*numpy.power(nvetoData[ycolumn],expList[iTerm]),2)
+    filter = numpy.sqrt(filter)
+    nvetoData[zcolumn] /= filter
   
   # median/min/max of ycolumn binned by exact xcolumn values
   minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
@@ -1549,7 +1562,7 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   set_ticks(plot.ax)
 
   # get both major and minor grid lines
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of segment duration
@@ -1615,7 +1628,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot rate versus time in bins
@@ -1777,7 +1790,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot RMS versus time in bins
@@ -1951,7 +1964,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot segments
@@ -2033,7 +2046,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
 
   set_ticks(plot.ax)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Helper functions
@@ -2086,7 +2099,7 @@ def parse_plot_config(cp, section):
   else:
     columns['zcolumn'] = None
 
-  limits   = ['xlim', 'ylim', 'zlim', 'clim']
+  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
   filters  = ['poles', 'zeros']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator']
