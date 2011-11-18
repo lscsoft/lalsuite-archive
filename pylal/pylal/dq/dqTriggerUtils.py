@@ -98,7 +98,7 @@ def trigger(data,etg,ifo=None,channel=None):
                                               'omegaspectrum'],\
                    lsctables.SnglRingdown(): []}
 
-  %# set up trig object
+  # set up trig object
   for obj,etgs in etgcategories.items():
     if etg in etgs:
       trig = obj
@@ -1181,7 +1181,7 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 def get_coincs(table1, table2, dt=1):
 
   """
-    Returns the table of those entries in table1 whose time is within Âdt of
+    Returns the table of those entries in table1 whose time is within +-dt of
     and entry in table2.
   """
 
