@@ -720,8 +720,11 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     # determine bar width; gets silly for more than a few data sets
     if logx:
       width = [bins[i+1]-bins[i] for i in xrange(len(bins)-1)]
+      width.append(width[-1])
     else:
       width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
+
+    width = numpy.asarray(width)/2
 
     # set base of plot in log scale
     if logy:
