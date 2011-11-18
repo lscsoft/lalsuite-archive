@@ -736,13 +736,17 @@ def omega_online_cache(start,end,ifo):
 
   span = segments.segment(start,end)
   cache = LALCache()
+
+  # add basedirs as list (GEO omega_online has been moved for some period so
+  # we need more than one)
   if ifo == 'G1':
-    basedir = os.path.expanduser( '~omega/online/%s/segments' % ifo )
-    basetime = LIGOTimeGPS(983669456)
+    basedirs = [os.path.expanduser( '~omega/online/%s/segments' % ifo ),\
+                os.path.expanduser( '~omega/online/G1/archive/A6pre/segments' )]
+    basetimes = [LIGOTimeGPS(1004305400), LIGOTimeGPS(983669456)]
   else:
-    basedir = os.path.expanduser( '~omega/online/%s/archive/S6/segments'\
-                                  % (str(ifo)))
-    basetime = LIGOTimeGPS(931211808)
+    basedirs = [os.path.expanduser( '~omega/online/%s/archive/S6/segments'\
+                                  % (str(ifo)))]
+    basetimes = [LIGOTimeGPS(931211808)]
 
   dt = 10000 
   t = int(start)
@@ -750,6 +754,16 @@ def omega_online_cache(start,end,ifo):
   while t<=end:
 
     tstr = '%.6s' % ('%.10d' % t)
+
+    # find basedir for this time
+    basedir = None
+    for i,d in enumerate(basedirs):
+      if t > basetimes[i]:
+        basedir = d
+        break
+    if not basedir:
+      raise Exeption, "Cannot find base directory for %s omega online at %s"\
+                      % (ifo, t)
 
     dirstr = '%s/%s*' % ( basedir, tstr )
     dirs = glob.glob( dirstr )
