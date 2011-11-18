@@ -32,8 +32,7 @@ This module provides a bank of useful functions for manipulating triggers and tr
 """
 
 trigsep = re.compile('[\t\s,]+')
-cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\]')
-
+cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
 
 # =============================================================================
 # Define get_time choice
@@ -99,7 +98,7 @@ def trigger(data,etg,ifo=None,channel=None):
                                               'omegaspectrum'],\
                    lsctables.SnglRingdown(): []}
 
-  # set up trig object
+  %# set up trig object
   for obj,etgs in etgcategories.items():
     if etg in etgs:
       trig = obj
