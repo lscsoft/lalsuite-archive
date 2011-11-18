@@ -1174,6 +1174,30 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 
   return delayHistFFT, freqBins, delayHist, histEdges
 
+# =============================================================================
+# Get coincidences between two tables
+# =============================================================================
+
+def get_coincs(table1, table2, dt=1):
+
+  """
+    Returns the table of those entries in table1 whose time is within Âdt of
+    and entry in table2.
+  """
+
+  get_time_1 = def_get_time(table1.tableName)
+  get_time_2 = def_get_time(table2.tableName)
+
+  trigseg = lambda t: segments.segment(get_time_2(t) - dt,\
+                                       get_time_2(t) + dt)
+
+  coincsegs = segments.segmentlist([trigseg(t) for t in table2])
+  coincsegs = coincsegs.coalesce()
+  coinctrigs = table.new_from_template(table1)
+  coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
+
+  return coinctrigs
+
 # ==============================================================================
 # Calculate poisson significance of coincidences
 # ==============================================================================
@@ -1196,20 +1220,8 @@ def coinc_significance( gwtriggers, auxtriggers, window=1, livetime=None,\
   # calculate mean of Poisson distribution
   mu = gwprob * len(auxtriggers)
 
-  # generate segments around auxiliary triggers
-  if coltype == int:
-    trigseg = lambda t: segments.segment( int(math.floor(aux_get_time(t)\
-                                                         - window/2)),\
-                                          int(math.ceil(aux_get_time(t)\
-                                                         + window/2)) )
-  else:
-    trigseg = lambda t: segments.segment( aux_get_time(t) - window/2,\
-                                          aux_get_time(t) + window/2 )
-
-  coincsegs = segments.segmentlist([ trigseg(t) for t in auxtriggers ])
-  coincsegs = coincsegs.coalesce()
-  coinctriggers = table.new_from_template( gwtriggers )
-  coinctriggers.extend([ g for g in gwtriggers if get_time(g) in coincsegs ])
+  # get coincidences
+  coinctriggers = get_coincs(gwtriggers, auxtriggers, dt=window)
 
   g = special.gammainc( len(coinctriggers), mu )
 
