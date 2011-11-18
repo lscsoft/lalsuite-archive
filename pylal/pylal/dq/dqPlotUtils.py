@@ -1289,17 +1289,33 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     All other given arguments will be passed to matplotlib.axes.Axes.scatter. 
   """
 
+  # test multiple tables
+  if not len(triggers)==0 and \
+     (isinstance(triggers[0], tuple) or isinstance(triggers[0], list)):
+    assert not zcolumn,\
+           "Can only plot single table when using colorbar plot"
+    tables = [t[1] for t in triggers]
+    tablelabel = [t[0] for t in triggers]
+    for i,t in enumerate(tablelabel):
+      if t!='_':
+        tablelabel[i] = t.replace('_','\_')
+  else:
+    tables = [triggers]
+    tablelabel = '_'
+
   # get time column
-  get_time = def_get_time(triggers.tableName)
+  get_time = []
+  for t in tables:
+    get_time.append(def_get_time(t.tableName))
 
   # set start and end time if needed
   if not start or not end:
-    times = [ get_time(t) for t in triggers ]
-  if not start and len(triggers)>=1:
+    times = [get_time[i](t)  for i in xrange(len(tables)) for t in tables[i]]
+  if not start and len(times)>=1:
     start = int(math.floor(min(times)))
   elif not start:
-    start = 0 
-  if not end and len(triggers)>=1:
+    start = 0
+  if not end and len(times)>=1:
     end   = int(math.ceil(max(times)))
   elif not end:
     end   = 1
@@ -1326,102 +1342,116 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   # set up columns and lists
   columns = map(str.lower, [xcolumn, ycolumn])
   if zcolumn: columns.append(zcolumn.lower())
-  vetoData  = {}
-  nvetoData = {}
+  vetoData  = []
+  nvetoData = []
   label     = {}
   limits    = [xlim, ylim, zlim]
+  for j in xrange(len(tables)):
+    vetoData.append({})
+    nvetoData.append({})
   for i,col in enumerate(columns):
     if re.search('time\Z', col) and not limits[i]:
       limits[i] = [start,end]
-    vetoData[col]  = []
-    nvetoData[col] = []
+    for j in xrange(len(tables)):
+      vetoData[j][col]  = []
+      nvetoData[j][col] = []
 
   # separate triggers
-  for trig in triggers:
-    use=True
-    for i,col in enumerate(columns):
-      val = float(getTrigAttribute(trig, col))
-      if limits[i] and not limits[i][0] <= val <= limits[i][1]:
-        use=False
-    if use:
-      for i,col in enumerate(set(columns)):
+  for x,tab in enumerate(tables):
+    for trig in tab:
+      use=True
+      for i,col in enumerate(columns):
         val = float(getTrigAttribute(trig, col))
-        if get_time(trig) in segs:
-          vetoData[col].append(val)
-        else:
-          nvetoData[col].append(val)
+        if limits[i] and not limits[i][0] <= val <= limits[i][1]:
+          use=False
+      if use:
+        for i,col in enumerate(set(columns)):
+          val = float(getTrigAttribute(trig, col))
+          if get_time[x](trig) in segs:
+            vetoData[x][col].append(val)
+          else:
+            nvetoData[x][col].append(val)
 
-
+  for x in xrange(len(tables)):
+    for i,col in enumerate(columns):
+      vetoData[x][col]  = numpy.array(vetoData[x][col])
+      nvetoData[x][col] = numpy.array(nvetoData[x][col])
   data = {}
-  for i,col in enumerate(columns):
-    vetoData[col]  = numpy.array(vetoData[col])
-    nvetoData[col] = numpy.array(nvetoData[col])
     
   # normalize zcolumn by time-averaged value
   whitenedFlag = kwargs.pop('whitened', False)
   if zcolumn and whitenedFlag:
-    uniqYvalues = numpy.unique1d(nvetoData[ycolumn])
+    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
     # building look back table by hand, is included in unique1d for numpy >= v1.3
     for yVal in uniqYvalues:
-      backTable = numpy.where(yVal == nvetoData[ycolumn])
-      zMedian =  numpy.median(nvetoData[zcolumn][yVal == nvetoData[ycolumn]])
+      backTable = numpy.where(yVal == nvetoData[0][ycolumn])
+      zMedian =  numpy.median(nvetoData[0][zcolumn][yVal ==\
+                                                    nvetoData[0][ycolumn]])
       for  iTrig in backTable[0]:
-        nvetoData[zcolumn][iTrig] /= zMedian
+        nvetoData[0][zcolumn][iTrig] /= zMedian
 
   # filter zcolumn by  provided poles/zeros filter as a function of ycolumn
-  filterFlag = kwargs.pop('filter', False)
-  if zcolumn and filterFlag:
+  flatenedFlag = kwargs.pop('filter', False)
+  if zcolumn and flatenedFlag:
     # get filter params
     polesList = kwargs.pop('poles', None)
     zerosList = kwargs.pop('zeros', None)
     amplitude = kwargs.pop('amplitude', 1)
-    nvetoData[zcolumn] *= amplitude
+    nvetoData[0][zcolumn] *= amplitude
     for filtPole in polesList:
-      nvetoData[zcolumn] /= abs(nvetoData[ycolumn] - filtPole)
+      nvetoData[0][zcolumn] /= abs(nvetoData[0][ycolumn] - filtPole)
     for filtZero in zerosList:
-      nvetoData[zcolumn] *= abs(nvetoData[ycolumn] - filtZero)
-    nvetoData[zcolumn].astype(float)
+      nvetoData[0][zcolumn] *= abs(nvetoData[0][ycolumn] - filtZero)
+    nvetoData[0][zcolumn].astype(float)
 
-  # flaten zcolumn by 1/sqrt of sum given rational fraction mononomes as a function of ycolumn
+  # flaten zcolumn by 1/sqrt of sum given rational fraction mononomes as a 
+  # function of ycolumn
   flatenedFlag = kwargs.pop('flaten', False)
   if zcolumn and flatenedFlag:
     # get filter params
     expList = kwargs.pop('exponents', None)
     constList = kwargs.pop('constants', None)
-    filter = numpy.zeros(len(nvetoData[zcolumn]))
+    filter = numpy.zeros(len(nvetoData[0][zcolumn]))
     for iTerm, exponent in enumerate(expList):
-      filter += pow(constList[iTerm]*numpy.power(nvetoData[ycolumn],expList[iTerm]),2)
+      filter += pow(constList[iTerm]*numpy.power(nvetoData[0][ycolumn],expList[iTerm]),2)
     filter = numpy.sqrt(filter)
-    nvetoData[zcolumn] /= filter
+    nvetoData[0][zcolumn] /= filter
   
   # median/min/max of ycolumn binned by exact xcolumn values
   minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
   if minmaxmedianFlag:
-    uniqXvalues = numpy.unique1d(nvetoData[xcolumn])
+    uniqXvalues = numpy.unique1d(nvetoData[j][xcolumn])
     # building look back table by hand, is included in unique1d for numpy >= v1.3
     for xVal in uniqXvalues:
-      backTable = numpy.where(xVal == nvetoData[xcolumn])
+      backTable = numpy.where(xVal == nvetoData[j][xcolumn])
       if len(backTable[0]) > 3:
-        nvetoData[ycolumn][backTable[0][0]] = numpy.median(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
-        nvetoData[ycolumn][backTable[0][1]] = numpy.min(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
-        nvetoData[ycolumn][backTable[0][2]] = numpy.max(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        nvetoData[j][ycolumn][backTable[0][0]] =\
+            numpy.median(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
+        nvetoData[j][ycolumn][backTable[0][1]] =\
+            numpy.min(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
+        nvetoData[j][ycolumn][0][backTable[0][2]] =\
+            numpy.max(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
         for iTrig in backTable[0][3:]:
-          nvetoData[ycolumn][iTrig] = numpy.nan
+          nvetoData[j][ycolumn][iTrig] = numpy.nan
 
+  # get limits
   for i,col in enumerate(columns):
-    data[col] = numpy.concatenate((nvetoData[col], vetoData[col]))
-    if not limits[i] and len(data[col])>=1:
+    if not limits[i]:
       limits[i] = [0,0]
-      limits[i][0] = data[col].min()*0.99
-      limits[i][1] = data[col].max()*1.01
+      for j in xrange(len(tables)):
+        data[col] = numpy.concatenate((nvetoData[j][col], vetoData[j][col]))
+        if len(data[col])>=1:
+          limits[i][0] = min(data[col].min()*0.99, limits[i][0])
+          limits[i][1] = max(data[col].max()*1.01, limits[i][1])
 
     # renormalise time and set time axis label unless given
     if re.search('time\Z', col):
       renormalise = True
       if kwargs.has_key('xlabel'):  renormalise = False
       if renormalise:
-        vetoData[col] = (vetoData[col]-float(zero))/unit
-        nvetoData[col] = (nvetoData[col]-float(zero))/unit
+        for j in xrange(len(tables)):
+          vetoData[j][col] = (vetoData[j][col]-float(zero))/unit
+          nvetoData[j][col] = (nvetoData[j][col]-float(zero))/unit
         limits[i] = [float(limits[i][0]-zero)/unit,\
                      float(limits[i][1]-zero)/unit]
 
@@ -1440,26 +1470,26 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   # find loudest event
   loudest = {}
   if len(columns)==3 and\
-     len(nvetoData[columns[0]])+len(vetoData[columns[0]])>=1:
+     len(nvetoData[0][columns[0]])+len(vetoData[0][columns[0]])>=1:
     # find loudest vetoed event
     vetomax = 0
-    if len(vetoData[columns[2]])>=1:
-      vetomax = vetoData[columns[2]].max()
+    if len(vetoData[0][columns[2]])>=1:
+      vetomax = vetoData[0][columns[2]].max()
     nvetomax = 0
     # find loudest unvetoed event
-    if len(nvetoData[columns[2]])>=1:
-      nvetomax = nvetoData[columns[2]].max()
+    if len(nvetoData[0][columns[2]])>=1:
+      nvetomax = nvetoData[0][columns[2]].max()
     if vetomax == nvetomax == 0:
       pass
     # depending on which one is loudest, find loudest overall event
     elif vetomax > nvetomax:
-      index = vetoData[columns[2]].argmax()
+      index = vetoData[0][columns[2]].argmax()
       for col in columns:
-        loudest[col] = vetoData[col][index] 
+        loudest[col] = vetoData[0][col][index]
     else:
-      index = nvetoData[columns[2]].argmax()
+      index = nvetoData[0][columns[2]].argmax()
       for col in columns:
-        loudest[col] = nvetoData[col][index]
+        loudest[col] = nvetoData[0][col][index]
 
   # fix flag for use with latex
   if flag:
@@ -1469,11 +1499,11 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # get ETG
   if not etg:
-    if re.search('burst', triggers.tableName.lower()):
+    if re.search('burst', tables[0].tableName.lower()):
       etg = 'Burst'
-    elif re.search('inspiral', triggers.tableName.lower()):
+    elif re.search('inspiral', tables[0].tableName.lower()):
       etg = 'Inspiral'
-    elif re.search('ringdown', triggers.tableName.lower()):
+    elif re.search('ringdown', tables[0].tableName.lower()):
       etg = 'Ringdown'
     else:
       etg = 'Unknown'
@@ -1521,16 +1551,19 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # initialise standard scatter plot
   if len(columns)==2:
+    plotutils.default_colors = lambda: itertools.cycle(('b', 'r', 'g', 'c', 'm', 'y', 'k'))
     plot = ScatterPlot(label[columns[0]], label[columns[1]], title, subtitle)
-    # add non veto triggers
-    if len(nvetoData[columns[0]])>=1:
-      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]], **kwargs)
-    # add veto triggers
-    if len(vetoData[columns[0]])>=1:
-      plot.add_content(vetoData[columns[0]], vetoData[columns[1]], marker='x',\
-                       color='r')
+    for j in xrange(len(tables)):
+      if len(nvetoData[j][columns[0]])>=1:
+        plot.add_content(nvetoData[j][columns[0]], nvetoData[j][columns[1]],\
+                         label=tablelabel[j], **kwargs)
+      # add veto triggers
+      if len(vetoData[j][columns[0]])>=1:
+        plot.add_content(vetoData[j][columns[0]], vetoData[j][columns[1]],\
+                         label=tablelabel[j], marker='x', color='r')
     # finalise
     plot.finalize(logx=logx, logy=logy)
+    reload(plotutils)
   # initialise scatter plot with colorbar
   elif len(columns)==3:
     # initialize color bar plot
@@ -1542,13 +1575,13 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
                                  label[columns[2]], title, subtitle)
 
     # add non veto triggers
-    if len(nvetoData[columns[0]])>=1:
-      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]],\
-                       nvetoData[columns[2]], **kwargs)
+    if len(nvetoData[0][columns[0]])>=1:
+      plot.add_content(nvetoData[0][columns[0]], nvetoData[0][columns[1]],\
+                       nvetoData[0][columns[2]], **kwargs)
     # add veto triggers
-    if len(vetoData[columns[0]])>=1:
-      plot.add_content(vetoData[columns[0]], vetoData[columns[1]],\
-                       vetoData[columns[2]], marker='x', edgecolor='r',\
+    if len(vetoData[0][columns[0]])>=1:
+      plot.add_content(vetoData[0][columns[0]], vetoData[0][columns[1]],\
+                       vetoData[0][columns[2]], marker='x', edgecolor='r',\
                        **kwargs)
     # finalise
     if detchar:
@@ -1565,16 +1598,8 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
 
   if limits[0]:
-    if logx and limits[0][0]==0:
-      limits[0][0] = min(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
-    if logx and limits[0][1]==0:
-      limits[0][1] = max(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
     plot.ax.set_xlim(limits[0])
   if limits[1]:
-    if logy and limits[1][0]==0:
-      limits[1][0] = min(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
-    if logy and limits[1][1]==0:
-      limits[1][1] = max(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
     plot.ax.set_ylim(limits[1])
 
   # reset ticks
