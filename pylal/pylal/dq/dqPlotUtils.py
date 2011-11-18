@@ -1289,6 +1289,8 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     All other given arguments will be passed to matplotlib.axes.Axes.scatter. 
   """
 
+  from pylal import plotutils
+
   # test multiple tables
   if not len(triggers)==0 and \
      (isinstance(triggers[0], tuple) or isinstance(triggers[0], list)):
@@ -1563,7 +1565,6 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
                          label=tablelabel[j], marker='x', color='r')
     # finalise
     plot.finalize(logx=logx, logy=logy)
-    reload(plotutils)
   # initialise scatter plot with colorbar
   elif len(columns)==3:
     # initialize color bar plot
