@@ -156,6 +156,13 @@ def _inj_m2(inj):
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2
 
+def _inj_q(inj):
+    """
+    Function mapping (mchirp,eta)->q; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass2/mass1
+
 def _inj_longitude(inj):
     """
     Map the value of the longitude found in inj to an interval [0,2*pi).
@@ -643,6 +650,7 @@ class Posterior(object):
                         'mass2':_inj_m2,
                         'm2':_inj_m2,
                         'eta':lambda inj:inj.eta,
+                        'q':_inj_q,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
@@ -1745,6 +1753,29 @@ def mc2ms(mc,eta):
 #
 #
 
+def q2ms(mc,q):
+    """
+    Utility function for converting mchirp,q to component masses. The
+    masses are defined so that m1>m2. The rvalue is a tuple (m1,m2).
+    """
+    factor = mc * np.power(1+q, 1.0/5.0);
+    m1 = factor * np.power(q, -3.0/5.0);
+    m2 = factor * np.power(q, 2.0/5.0);
+    return (m1,m2)
+#
+#
+
+def q2eta(mc,q):
+    """
+    Utility function for converting mchirp,q to eta. The
+    rvalue is eta.
+    """
+    m1,m2 = q2ms(mc,q)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    return eta
+#
+#
+
 def mc2q(mc,eta):
     """
     Utility function for converting mchirp,eta to new mass ratio q (m2/m1).
@@ -1937,7 +1968,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     rbins=None
 
-    if injpar:
+    if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
             plt.axvline(injpar, color='r', linestyle='-.')
 

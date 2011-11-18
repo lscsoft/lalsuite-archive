@@ -1350,8 +1350,8 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         nvetoData[zcolumn][iTrig] /= zMedian
 
   # filter zcolumn by  provided poles/zeros filter as a function of ycolumn
-  flatenedFlag = kwargs.pop('filter', False)
-  if zcolumn and flatenedFlag:
+  filterFlag = kwargs.pop('filter', False)
+  if zcolumn and filterFlag:
     # get filter params
     polesList = kwargs.pop('poles', None)
     zerosList = kwargs.pop('zeros', None)
@@ -1362,6 +1362,18 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     for filtZero in zerosList:
       nvetoData[zcolumn] *= abs(nvetoData[ycolumn] - filtZero)
     nvetoData[zcolumn].astype(float)
+
+  # flaten zcolumn by 1/sqrt of sum given rational fraction mononomes as a function of ycolumn
+  flatenedFlag = kwargs.pop('flaten', False)
+  if zcolumn and flatenedFlag:
+    # get filter params
+    expList = kwargs.pop('exponents', None)
+    constList = kwargs.pop('constants', None)
+    filter = numpy.zeros(len(nvetoData[zcolumn]))
+    for iTerm, exponent in enumerate(expList):
+      filter += pow(constList[iTerm]*numpy.power(nvetoData[ycolumn],expList[iTerm]),2)
+    filter = numpy.sqrt(filter)
+    nvetoData[zcolumn] /= filter
   
   # median/min/max of ycolumn binned by exact xcolumn values
   minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
@@ -2087,7 +2099,7 @@ def parse_plot_config(cp, section):
   else:
     columns['zcolumn'] = None
 
-  limits   = ['xlim', 'ylim', 'zlim', 'clim']
+  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
   filters  = ['poles', 'zeros']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator']

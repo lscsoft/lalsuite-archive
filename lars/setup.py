@@ -17,7 +17,7 @@ setup(
   provides = ['ligo.lars'],
   packages = [ 'ligo.lars', 'ligo.lars.cli'],
 
-  requires = ['ligo', 'glue', 'M2Crypto'],
+  requires = ['ligo', 'glue.segments', 'M2Crypto'],
 
   scripts = [
     os.path.join('bin','lars'),

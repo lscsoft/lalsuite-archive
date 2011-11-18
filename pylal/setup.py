@@ -86,17 +86,20 @@ def write_build_info():
 
 class pylal_build_py(build_py.build_py):
 	def run(self):
-		# create the git_version module
-		log.info("Generating pylal/git_version.py")
-		try:
-			write_build_info()
-		except gvcsi.GitInvocationError:
-			if os.path.exists("pylal/git_version.py"):
-				# We're probably being built from a release tarball; don't overwrite
-				log.info("Not in git checkout or cannot find git executable; using existing pylal/git_version.py")
-			else:
-				log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
-				sys.exit(1)
+		# Detect whether we are building from a tarball; we have decided
+		# that releases should not contain scripts nor env setup files.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if os.path.exists("PKG-INFO"):
+			self.distribution.scripts = []
+			self.distribution.data_files = []
+		else:
+			# create the git_version module
+			log.info("Generating pylal/git_version.py")
+			try:
+				write_build_info()
+			except gvcsi.GitInvocationError:
+					log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py.")
+					sys.exit(1)
 
 		# resume normal build procedure
 		build_py.build_py.run(self)
@@ -166,7 +169,7 @@ class pylal_install(install.install):
 class pylal_sdist(sdist.sdist):
 	def run(self):
 		# remove undesirable elements from tarball
-		self.distribution.data_files = []
+		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")]
 		self.distribution.scripts = []
 
 		# create the git_version module
@@ -655,8 +658,18 @@ setup(
 		os.path.join("bin", "ligo_channel_query"),
 		os.path.join("bin", "projectedDetectorTensor"),
 		os.path.join("bin", "pylal_exttrig_dataquery"),
-		os.path.join("bin", "pylal_exttrig_allquery")
-	],
+		os.path.join("bin", "pylal_exttrig_allquery"),
+		os.path.join("bin", "cbcBayesDIEvidence.py"),
+		os.path.join("bin", "cbcBayesInjProc.py"),
+		os.path.join("bin", "ligo_channel_query"),
+		os.path.join("bin", "pylal_exttrig_dataquery"),
+		os.path.join("bin", "pylal_exttrig_allquery"),
+		os.path.join("bin", "auxmvc_mvsc_results_plots.py"),
+		os.path.join("bin", "auxmvc_generate_spr_files.py"),
+		os.path.join("bin", "auxmvc_create_mvsc_dag"),
+		os.path.join("bin", "auxmvc_ROC_combiner.py"),
+                os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py") 
+		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
 		os.path.join("etc", "pylal-user-env.csh")
