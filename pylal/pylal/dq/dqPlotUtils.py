@@ -942,6 +942,9 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get legend loc
+  loc = kwargs.pop('loc', 'best')
+
   # generate plot object
   plot = DataPlot(xlabel, ylabel, title, subtitle)
 
@@ -966,7 +969,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
-  plot.finalize(logx=logx, logy=logy)
+  plot.finalize(logx=logx, logy=logy, loc=loc)
 
   # set axes
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
