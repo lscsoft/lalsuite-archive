@@ -1638,6 +1638,10 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   # customise plot appearance
   set_rcParams()
 
+  # get limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
+
   # get labels
   xlabel = kwargs.pop('xlabel', 'Length of segment (seconds)')
   ylabel = kwargs.pop('ylabel', 'Number of segments')
@@ -1665,11 +1669,20 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
 
   # add each segmentlist
   for flag,c in zip(flags, plotutils.default_colors()):
-    plot.add_content([abs(seg) for seg in segs[flag]], label=flag, color=c,\
-                     **kwargs)
+    plot.add_content([float(abs(seg)) for seg in segs[flag]],\
+                      label=flag, color=c, **kwargs)
 
   # finalize plot with histograms
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy)
+
+  # set limits
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  if ylim:
+    ylim = map(float, ylim)
+    plot.ax.set_ylim(ylim)
+  if xlim:
+    xlim = map(float, xlim)
+    plot.ax.set_xlim(xlim)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
