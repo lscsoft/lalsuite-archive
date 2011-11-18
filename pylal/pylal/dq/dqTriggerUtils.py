@@ -32,14 +32,14 @@ This module provides a bank of useful functions for manipulating triggers and tr
 """
 
 trigsep = re.compile('[\t\s,]+')
-cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
+cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\]')
 
 
 # =============================================================================
 # Define get_time choice
 # =============================================================================
 
-def def_get_time( tableName, ifo=None ):
+def def_get_time(tableName, ifo=None):
 
   """
     Define the get_time() function for given table
@@ -50,16 +50,16 @@ def def_get_time( tableName, ifo=None ):
   if ifo:  ifo = ifo[0]
 
   # if given an injection table:
-  if re.match( 'sim', tableName ):
+  if re.match('sim', tableName):
 
     if re.search('inspiral',tableName):
-      get_time = lambda row: row.get_end( site=ifo )  
+      get_time = lambda row: row.get_end(site=ifo)  
     else:
       get_time = lambda row: row.get_time_geocent()
 
 
   # if given a sngl trigger table
-  elif re.match( '(sngl|multi|coinc)', tableName ):
+  elif re.match('(sngl|multi|coinc)', tableName):
 
     if re.search('inspiral',tableName):
       get_time = lambda row: row.get_end()
@@ -82,7 +82,7 @@ def trigger(data,etg,ifo=None,channel=None):
 
     Arguments:
 
-      data : [ string | list]
+      data : [ string | list ]
         string or list object containing the data to be parsed.
 
       etg : [ "ihope" | "kw" | "omega" | "omegadq" ]
@@ -95,7 +95,8 @@ def trigger(data,etg,ifo=None,channel=None):
   """
 
   etgcategories = {lsctables.SnglInspiral(): ['ihope'],\
-                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr','omegaspectrum'],\
+                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr',\
+                                              'omegaspectrum'],\
                    lsctables.SnglRingdown(): []}
 
   # set up trig object
@@ -360,7 +361,7 @@ def trigger(data,etg,ifo=None,channel=None):
 # Write triggers to file in etg standard form
 # =============================================================================
 
-def totrigxml( file, table, program=None, params=[] ):
+def totrigxml(file, table, program=None, params=[]):
 
   """
     Write the given lsctables compatible table object to the file object file
@@ -393,19 +394,19 @@ def totrigxml( file, table, program=None, params=[] ):
   if not program:
     program='pylal.dq.dqDataUtils.totrigxml'
 
-  process = llwapp.append_process( xmldoc, program=program,\
-                                           version=__version__,\
-                                           cvs_repository = 'lscsoft',\
-                                           cvs_entry_time = __date__ )
+  process = llwapp.append_process(xmldoc, program=program,\
+                                  version=__version__,\
+                                  cvs_repository = 'lscsoft',\
+                                  cvs_entry_time = __date__)
 
-  ligolw_process.append_process_params( xmldoc, process, params )
+  ligolw_process.append_process_params(xmldoc, process, params)
 
   # append trig table to file
   xmldoc.childNodes[-1].appendChild(table)
 
   # write triggers to file object file
   llwapp.set_process_end_time(process)
-  utils.write_fileobj( xmldoc, file, gz=file.name.endswith('gz') )
+  utils.write_fileobj(xmldoc, file, gz=file.name.endswith('gz'))
 
 # =============================================================================
 # Write triggers to text file in etg standard form
@@ -740,11 +741,11 @@ def omega_online_cache(start,end,ifo):
   # add basedirs as list (GEO omega_online has been moved for some period so
   # we need more than one)
   if ifo == 'G1':
-    basedirs = [os.path.expanduser( '~omega/online/%s/segments' % ifo ),\
-                os.path.expanduser( '~omega/online/G1/archive/A6pre/segments' )]
+    basedirs = [os.path.expanduser('~omega/online/%s/segments' % ifo),\
+                os.path.expanduser('~omega/online/G1/archive/A6pre/segments')]
     basetimes = [LIGOTimeGPS(1004305400), LIGOTimeGPS(983669456)]
   else:
-    basedirs = [os.path.expanduser( '~omega/online/%s/archive/S6/segments'\
+    basedirs = [os.path.expanduser('~omega/online/%s/archive/S6/segments'\
                                   % (str(ifo)))]
     basetimes = [LIGOTimeGPS(931211808)]
 
@@ -765,11 +766,11 @@ def omega_online_cache(start,end,ifo):
       raise Exeption, "Cannot find base directory for %s omega online at %s"\
                       % (ifo, t)
 
-    dirstr = '%s/%s*' % ( basedir, tstr )
-    dirs = glob.glob( dirstr )
+    dirstr = '%s/%s*' % (basedir, tstr)
+    dirs = glob.glob(dirstr)
 
     for dir in dirs:
-      files = glob.glob( '%s/%s-OMEGA_TRIGGERS_CLUSTER*.txt' % ( dir, ifo ) )
+      files = glob.glob('%s/%s-OMEGA_TRIGGERS_CLUSTER*.txt' % (dir, ifo))
 
       for f in files:
         e = LALCacheEntry.from_T050017(f)
@@ -815,10 +816,10 @@ def omega_spectrum_online_cache(start,end,ifo):
   span = segments.segment(start,end)
   cache = LALCache()
   if ifo == 'G1':
-    basedir = os.path.expanduser( '~omega/online/%s/segments' % ifo )
+    basedir = os.path.expanduser('~omega/online/%s/segments' % ifo)
     basetime = LIGOTimeGPS(983669456)
   else:
-    basedir = os.path.expanduser( '~omega/online/%s/archive/S6/segments'\
+    basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
                                   % (str(ifo)))
     basetime = LIGOTimeGPS(931211808)
 
@@ -829,11 +830,11 @@ def omega_spectrum_online_cache(start,end,ifo):
 
     tstr = '%.6s' % ('%.10d' % t)
 
-    dirstr = '%s/%s*' % ( basedir, tstr )
-    dirs = glob.glob( dirstr )
+    dirstr = '%s/%s*' % (basedir, tstr)
+    dirs = glob.glob(dirstr)
 
     for dir in dirs:
-      files = glob.glob( '%s/%s-OMEGA_TRIGGERS_SPECTRUM*.txt' % ( dir, ifo ) )
+      files = glob.glob('%s/%s-OMEGA_TRIGGERS_SPECTRUM*.txt' % (dir, ifo))
 
       for f in files:
         e = LALCacheEntry.from_T050017(f)
@@ -1131,8 +1132,8 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 
   """
-    Compute autocorrelation of lsctable triggers in the each of the pairs (column,width),
-    using the rank column.
+    Compute autocorrelation of lsctable triggers in the each of the pairs
+    (column,width), using the rank column.
 
     Arguments:
 
@@ -1202,16 +1203,16 @@ def get_coincs(table1, table2, dt=1):
 # Calculate poisson significance of coincidences
 # ==============================================================================
 
-def coinc_significance( gwtriggers, auxtriggers, window=1, livetime=None,\
-                        coltype=LIGOTimeGPS, returnsegs=False ):
+def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
+                        coltype=LIGOTimeGPS, returnsegs=False):
 
   get_time = def_get_time(gwtriggers.tableName)
   aux_get_time = def_get_time(auxtriggers.tableName)
 
   # get livetime
   if not livetime:
-    start    = min([ get_time(t) for t in gwtriggers ])
-    end      = max([ get_time(t) for t in gwtriggers ])
+    start    = min([get_time(t) for t in gwtriggers])
+    end      = max([get_time(t) for t in gwtriggers])
     livetime = end-start
 
   # calculate probability of a GW trigger falling within the window
@@ -1223,7 +1224,7 @@ def coinc_significance( gwtriggers, auxtriggers, window=1, livetime=None,\
   # get coincidences
   coinctriggers = get_coincs(gwtriggers, auxtriggers, dt=window)
 
-  g = special.gammainc( len(coinctriggers), mu )
+  g = special.gammainc(len(coinctriggers), mu)
 
   # if no coincidences, set significance to zero
   if len(coinctriggers)<1:
@@ -1232,10 +1233,10 @@ def coinc_significance( gwtriggers, auxtriggers, window=1, livetime=None,\
   elif g == 0:
     significance = -len(coinctriggers) * math.log10(mu) + \
                    mu * math.log10(math.exp(1)) +\
-                   special.gammaln( len(coinctriggers) + 1 ) / math.log(10)
+                   special.gammaln(len(coinctriggers) + 1) / math.log(10)
   # otherwise use the standard formula
   else:
-    significance = -math.log( g, 10 )
+    significance = -math.log(g, 10)
 
   if returnsegs:
     return significance,coincsegs
