@@ -429,8 +429,6 @@ def replicate_threshold(e_thinca_parameter, instruments):
 def ligolw_thinca(
 	xmldoc,
 	process_id,
-	EventListType,
-	CoincTables,
 	coinc_definer_row,
 	event_comparefunc,
 	thresholds,
@@ -446,7 +444,7 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments, program = trigger_program)
+	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
@@ -456,7 +454,7 @@ def ligolw_thinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName)
+	eventlists = snglcoinc.make_eventlists(xmldoc, InspiralEventList, lsctables.SnglInspiralTable.tableName)
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)
