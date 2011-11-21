@@ -1,11 +1,11 @@
-AC_INIT([lalpulsar],[1.1.0.2],[lal-discuss@gravity.phys.uwm.edu])
-AM_CONFIG_HEADER([include/config.h src/LALPulsarConfig.h])
-AC_CONFIG_SRCDIR([src/ComputeFstat.c])
+AC_INIT([lalinference],[0.0.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AM_CONFIG_HEADER([include/config.h src/LALInferenceConfig.h])
+AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalpulsar.spec \
-  lalpulsar.pc \
+  lalinference.spec \
+  lalinference.pc \
   Makefile \
   gnuscripts/Makefile \
   debian/Makefile \
@@ -19,6 +19,7 @@ AM_INIT_AUTOMAKE([foreign])
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info
 # 1. start with version information of "0:0:0" for each libtool library
@@ -34,50 +35,51 @@ LALSUITE_ARG_VAR
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[1])
+AC_SUBST([LIBCURRENT],[0])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
 # default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalpulsar])
+AC_PREFIX_DEFAULT([/opt/lscsoft/lalinference])
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
-
-# enable LALXML support
-LALSUITE_ENABLE_LALXML
 
 # debug
 LALSUITE_ENABLE_DEBUG
 
 # put version/configure info in config header
-lalpulsar_version_major=`echo "$VERSION" | cut -d. -f1`
-lalpulsar_version_minor=`echo "$VERSION" | cut -d. -f2`
-lalpulsar_version_micro=`echo "$VERSION" | cut -d. -f3`
-lalpulsar_version_devel=`echo "$VERSION" | cut -d. -f4-`
-test -z "$lalpulsar_version_micro" && lalpulsar_version_micro=0
-test -z "$lalpulsar_version_devel" && lalpulsar_version_devel=0
-lalpulsar_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION],["$VERSION"],[LALPulsar Version])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_MAJOR],[$lalpulsar_version_major],
-                   [LALPulsar Version Major Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_MINOR],[$lalpulsar_version_minor],
-                   [LALPulsar Version Minor Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_MICRO],[$lalpulsar_version_micro],
-                   [LALPulsar Version Micro Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_DEVEL],[$lalpulsar_version_devel],
-                   [LALPulsar Version Devel Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_CONFIGURE_ARGS],["$ac_configure_args"],
-                   [LALPulsar Configure Arguments])
-AC_DEFINE_UNQUOTED([LALPULSAR_CONFIGURE_DATE],["$lalpulsar_configure_date"],
-                   [LALPulsar Configure Date])
-
-# boinc
-LALSUITE_ENABLE_BOINC
+lalinference_version_major=`echo "$VERSION" | cut -d. -f1`
+lalinference_version_minor=`echo "$VERSION" | cut -d. -f2`
+lalinference_version_micro=`echo "$VERSION" | cut -d. -f3`
+lalinference_version_devel=`echo "$VERSION" | cut -d. -f4-`
+test -z "$lalinference_version_micro" && lalinference_version_micro=0
+test -z "$lalinference_version_devel" && lalinference_version_devel=0
+lalinspiral_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
+AC_DEFINE_UNQUOTED([LALINFERENCE_VERSION],["$VERSION"],[LALInference Version])
+AC_DEFINE_UNQUOTED([LALINFERENCE_VERSION_MAJOR],[$lalinference_version_major],
+                   [LALInference Version Major Number])
+AC_DEFINE_UNQUOTED([LALINFERENCE_VERSION_MINOR],[$lalinference_version_minor],
+                   [LALInference Version Minor Number])
+AC_DEFINE_UNQUOTED([LALINFERENCE_VERSION_MICRO],[$lalinference_version_micro],
+                   [LALInference Version Micro Number])
+AC_DEFINE_UNQUOTED([LALINFERENCE_VERSION_DEVEL],[$lalinference_version_devel],
+                   [LALInference Version Devel Number])
+AC_DEFINE_UNQUOTED([LALINFERENCE_CONFIGURE_ARGS],["$ac_configure_args"],
+                   [LALInference Configure Arguments])
+AC_DEFINE_UNQUOTED([LALINFERENCE_CONFIGURE_DATE],["$lalinspiral_configure_date"],
+                   [LALInference Configure Date])
 
 # enable strict gcc flags
 LALSUITE_ENABLE_GCC_FLAGS
+
+# optional lal libraries
+LALSUITE_ENABLE_LALFRAME
+LALSUITE_ENABLE_LALMETAIO
+LALSUITE_ENABLE_LALINSPIRAL
+LALSUITE_ENABLE_LALPULSAR
+LALSUITE_ENABLE_LALXML
 
 # workaround broken libtool multilib support on sl6
 LALSUITE_MULTILIB_LIBTOOL_HACK
@@ -86,9 +88,6 @@ LALSUITE_MULTILIB_LIBTOOL_HACK
 m4_pattern_allow([AC_PROG_CC_C99])
 m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
 
-# boinc requires a c++ compiler
-AC_PROG_CXX
-
 # use silent build rules if available
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
 
@@ -96,6 +95,7 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
+AC_PROG_AWK
 LT_INIT
 AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
 
@@ -117,9 +117,19 @@ CPPFLAGS="$CPPFLAGS $GSL_CFLAGS"
 LIBS="$LIBS $GSL_LIBS"
 AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
 AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library])])
+LALSUITE_ENABLE_FAST_GSL
 
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
+
+# metaio
+PKG_CHECK_MODULES([METAIO],[libmetaio],[true],[false])
+CPPFLAGS="$CPPFLAGS $METAIO_CFLAGS"
+LIBS="$LIBS $METAIO_LIBS"
+AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio library])])
+
+# check for libmetaio headers
+AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
 
 if test "$lalxml" = "true"; then
   # check for libxml2
@@ -129,29 +139,17 @@ if test "$lalxml" = "true"; then
   AC_CHECK_LIB([xml2],[xmlInitParser],,[AC_MSG_WARN([cannot find the xml2 library])])
 fi
 
-# for boinc enabled build do checks for lal in c++ mode
-if test "${boinc}" = "true" ; then
-  AC_LANG_PUSH([C++])
-fi
-
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
-
-# check that lal has been buil with boinc support, for boinc build
-if test "${boinc}" = "true" ; then
-  LALSUITE_CHECK_BOINC
-fi
-
-# check for lalsupport, needed for test suite
+LALSUITE_CHECK_LIB([LAL],[6.5.0.2],[LALVersion],[lal/LALStdio.h])
 LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
-
-# back to c mode
-if test "${boinc}" = "true" ; then
-  AC_LANG_POP([C++])
-fi
+LALSUITE_CHECK_LIB([LALMetaIO],[1.0.1.2],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALFrame],[1.0.2.1],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LALSimulation],[0.0.0.1],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_LIB([LALInspiral],[1.1.0.2],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_LIB([LALPulsar],[1.1.0.2],[XLALComputeFaFb],[lal/ComputeFstat.h])
 
 # check for lalxml
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.0.0.2],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.0.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
@@ -171,7 +169,7 @@ AC_OUTPUT
 echo "
 ================================================================
 
-        LALPulsar has now been successfully configured:
+        LALInference has now been successfully configured:
 
                 LAL XML library support is $LALXML_ENABLE_VAL
 
@@ -179,7 +177,7 @@ echo "
 
           ${prefix}
 
-        Now run 'make' to build LALPulsar
-        and run 'make install' to install LALPulsar
+        Now run 'make' to build LALInference
+        and run 'make install' to install LALInference
 
 ================================================================="

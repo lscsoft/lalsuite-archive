@@ -1,17 +1,20 @@
-AC_INIT([lalpulsar],[1.1.0.2],[lal-discuss@gravity.phys.uwm.edu])
-AM_CONFIG_HEADER([include/config.h src/LALPulsarConfig.h])
-AC_CONFIG_SRCDIR([src/ComputeFstat.c])
+AC_INIT([lalsimulation],[0.0.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AM_CONFIG_HEADER([include/config.h src/LALSimulationConfig.h])
+AC_CONFIG_SRCDIR([src/LALSimulation.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
-  lalpulsar.spec \
-  lalpulsar.pc \
+  lalsimulation.spec \
+  lalsimulation.pc \
   Makefile \
   gnuscripts/Makefile \
   debian/Makefile \
   include/Makefile \
   include/lal/Makefile \
   src/Makefile \
+  swig/Makefile \
+  swig/octave/Makefile \
+  swig/python/Makefile \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([foreign])
@@ -19,6 +22,7 @@ AM_INIT_AUTOMAKE([foreign])
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info
 # 1. start with version information of "0:0:0" for each libtool library
@@ -34,47 +38,41 @@ LALSUITE_ARG_VAR
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[1])
+AC_SUBST([LIBCURRENT],[0])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
 # default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalpulsar])
+AC_PREFIX_DEFAULT([/opt/lscsoft/lalsimulation])
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
-
-# enable LALXML support
-LALSUITE_ENABLE_LALXML
 
 # debug
 LALSUITE_ENABLE_DEBUG
 
 # put version/configure info in config header
-lalpulsar_version_major=`echo "$VERSION" | cut -d. -f1`
-lalpulsar_version_minor=`echo "$VERSION" | cut -d. -f2`
-lalpulsar_version_micro=`echo "$VERSION" | cut -d. -f3`
-lalpulsar_version_devel=`echo "$VERSION" | cut -d. -f4-`
-test -z "$lalpulsar_version_micro" && lalpulsar_version_micro=0
-test -z "$lalpulsar_version_devel" && lalpulsar_version_devel=0
-lalpulsar_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION],["$VERSION"],[LALPulsar Version])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_MAJOR],[$lalpulsar_version_major],
-                   [LALPulsar Version Major Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_MINOR],[$lalpulsar_version_minor],
-                   [LALPulsar Version Minor Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_MICRO],[$lalpulsar_version_micro],
-                   [LALPulsar Version Micro Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_VERSION_DEVEL],[$lalpulsar_version_devel],
-                   [LALPulsar Version Devel Number])
-AC_DEFINE_UNQUOTED([LALPULSAR_CONFIGURE_ARGS],["$ac_configure_args"],
-                   [LALPulsar Configure Arguments])
-AC_DEFINE_UNQUOTED([LALPULSAR_CONFIGURE_DATE],["$lalpulsar_configure_date"],
-                   [LALPulsar Configure Date])
-
-# boinc
-LALSUITE_ENABLE_BOINC
+lalsimulation_version_major=`echo "$VERSION" | cut -d. -f1`
+lalsimulation_version_minor=`echo "$VERSION" | cut -d. -f2`
+lalsimulation_version_micro=`echo "$VERSION" | cut -d. -f3`
+lalsimulation_version_devel=`echo "$VERSION" | cut -d. -f4-`
+test -z "$lalsimulation_version_micro" && lalsimulation_version_micro=0
+test -z "$lalsimulation_version_devel" && lalsimulation_version_devel=0
+lalsimulation_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION],["$VERSION"],[LALSimulation Version])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MAJOR],[$lalsimulation_version_major],
+                   [LALSimulation Version Major Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MINOR],[$lalsimulation_version_minor],
+                   [LALSimulation Version Minor Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_MICRO],[$lalsimulation_version_micro],
+                   [LALSimulation Version Micro Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_VERSION_DEVEL],[$lalsimulation_version_devel],
+                   [LALSimulation Version Devel Number])
+AC_DEFINE_UNQUOTED([LALSIMULATION_CONFIGURE_ARGS],["$ac_configure_args"],
+                   [LALSimulation Configure Arguments])
+AC_DEFINE_UNQUOTED([LALSIMULATION_CONFIGURE_DATE],["$lalsimulation_configure_date"],
+                   [LALSimulation Configure Date])
 
 # enable strict gcc flags
 LALSUITE_ENABLE_GCC_FLAGS
@@ -86,18 +84,20 @@ LALSUITE_MULTILIB_LIBTOOL_HACK
 m4_pattern_allow([AC_PROG_CC_C99])
 m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
 
-# boinc requires a c++ compiler
-AC_PROG_CXX
-
 # use silent build rules if available
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
+
+# SWIG wrapping requires a c++ compiler
+AC_PROG_CXX
 
 # checks for programs
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
+AC_PROG_AWK
 LT_INIT
 AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
+AC_CHECK_PROGS([M4],[gm4 m4],[m4])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -107,6 +107,13 @@ LALSUITE_USE_LIBTOOL
 
 # check for header files
 AC_HEADER_STDC
+
+# check for gethostname in unistd.h
+AC_MSG_CHECKING([for gethostname prototype in unistd.h])
+AC_EGREP_HEADER([gethostname],[unistd.h],[AC_MSG_RESULT([yes])]
+AC_DEFINE([HAVE_GETHOSTNAME_PROTOTYPE],[1],
+          [Define if gethostname prototype is in unistd.h]),
+          [AC_MSG_RESULT]([no]))
 
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
@@ -121,37 +128,12 @@ AC_CHECK_LIB([gsl],[gsl_strerror],,[AC_MSG_ERROR([could not find the gsl library
 # check for gsl headers
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
 
-if test "$lalxml" = "true"; then
-  # check for libxml2
-  PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6],[true],[false])
-  CPPFLAGS="$CPPFLAGS $LIBXML2_CFLAGS"
-  LIBS="$LIBS $LIBXML2_LIBS"
-  AC_CHECK_LIB([xml2],[xmlInitParser],,[AC_MSG_WARN([cannot find the xml2 library])])
-fi
-
-# for boinc enabled build do checks for lal in c++ mode
-if test "${boinc}" = "true" ; then
-  AC_LANG_PUSH([C++])
-fi
-
 # check for lal libraries and headers
 LALSUITE_CHECK_LIB([LAL],[6.5.0],[LALVersion],[lal/LALStdio.h])
-
-# check that lal has been buil with boinc support, for boinc build
-if test "${boinc}" = "true" ; then
-  LALSUITE_CHECK_BOINC
-fi
-
-# check for lalsupport, needed for test suite
 LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
 
-# back to c mode
-if test "${boinc}" = "true" ; then
-  AC_LANG_POP([C++])
-fi
-
-# check for lalxml
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.0.0.2],[XLALXMLFilePrintElements],[lal/LALXML.h])
+# check for SWIG wrapping
+LALSUITE_ENABLE_SWIG
 
 # add gcc specific flags
 if test "$GCC" = yes; then
@@ -171,15 +153,16 @@ AC_OUTPUT
 echo "
 ================================================================
 
-        LALPulsar has now been successfully configured:
+        LALSimulation has now been successfully configured:
 
-                LAL XML library support is $LALXML_ENABLE_VAL
+                SWIG wrappings for Octave are $SWIG_OCTAVE_ENABLE_VAL
+                SWIG wrappings for Python are $SWIG_PYTHON_ENABLE_VAL
 
         and will be installed under the directory:
 
           ${prefix}
 
-        Now run 'make' to build LALPulsar
-        and run 'make install' to install LALPulsar
+        Now run 'make' to build LALSimulation
+        and run 'make install' to install LALSimulation
 
 ================================================================="
