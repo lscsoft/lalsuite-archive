@@ -184,6 +184,9 @@ class pylal_sdist(sdist.sdist):
 		# now run sdist
 		sdist.sdist.run(self)
 
+# FIXME:  all occurances of -DPY_SSIZE_T_CLEAN are a temporary hack to
+# induce PyArg_ParseTuple() to exhibit 3.x behaviour in 2.x.  Remove when
+# no longer needed
 
 setup(
 	name = "pylal",
@@ -319,7 +322,7 @@ setup(
 			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
 			"pylal.xlal.datatypes.siminspiraltable",
@@ -328,7 +331,7 @@ setup(
 			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
 			"pylal.xlal.datatypes.snglburst",
@@ -337,7 +340,7 @@ setup(
 			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
 			"pylal.xlal.datatypes.snglinspiraltable",
@@ -346,7 +349,7 @@ setup(
 			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
 			"pylal.xlal.datatypes.snglringdowntable",
