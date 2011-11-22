@@ -664,9 +664,7 @@ def inspiral_range(f, S, rho=8, mchirp=1.219, fmin=30, fmax=4096,\
     Calculate inspiral range for a given spectrum.
   """
 
-  # see T030276
-
-  Mpc = 3.08568025e22
+  Mpc = 10**6 * XLALConstants.LAL_PC_SI
 
   # calculate prefactor in m^2
   mchirp *= XLALConstants.LAL_MSUN_SI * XLALConstants.LAL_G_SI /\
@@ -700,8 +698,9 @@ def f_dependent_burst_range(f, S, rho=8, E=1e-2):
     Calculate GRB-like or supernov-like burst range for a given spectrum    and background trigger SNR at a given time as a function of freqeucy.
   """
 
-  # see T030276
-  Mpc = 10**3 * XLALConstants.LAL_PC_SI
+  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+
+  # generate frequency dependent range
   A = (((XLALConstants.LAL_G_SI * (E*XLALConstants.LAL_MSUN_SI) * 2/5)/(XLALConstants.LAL_PI**2 * XLALConstants.LAL_C_SI))**(1/2))/Mpc
   R = A/ (rho * S**(1/2) * f)
 
@@ -717,12 +716,12 @@ def burst_range(f, S, rho=8, E=1e-2, fmin=64, fmax=500):
     and background trigger SNR.
   """
 
-  # see T030276
-  Mpc = 10**3 * XLALConstants.LAL_PC_SI
+  # restrict spectrum to given frequency range
   condition = (f>=fmin) & (f<fmax)
   S2 = S[condition]
   f2 = f[condition]
 
+  # calculate integral
   FOM1 = scipy.integrate.trapz(f_dependent_burst_range(f2, S2, rho, E)**3, f2)
   FOM2 = FOM1/(fmax-fmin)
   R = scipy.power(FOM2,1/3)
