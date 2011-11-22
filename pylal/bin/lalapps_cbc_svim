@@ -729,10 +729,14 @@ for instruments in UL.instruments:
     #write out the results to the xml file
     xmldoc = ligolw.Document()
     child = xmldoc.appendChild(ligolw.LIGO_LW())
-    xml = ligolw.LIGO_LW({u"Name": u"mass_bins:%s" % (bin_type)})
-    edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
-    xml.appendChild(array.from_array(u"array", edges[0]))
-    child.appendChild(xml)
+
+    # write out mass bins
+    dim = len(UL.mass_bins)
+    for j in range(dim):
+      xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
+      edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins.lower(),UL.mass_bins.upper()) )
+      xml.appendChild(array.from_array(u"array", edges[j]))
+      child.appendChild(xml)
 
     output_arrays = {"SearchVolumeFirstMoment":vA.array,
                      "SearchVolumeSecondMoment":vA2.array,
