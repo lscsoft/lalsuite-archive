@@ -419,6 +419,9 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
     average method.
   """
 
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the momen')
+
   # cast data series to numpy array
   data = numpy.asarray(data)
 
@@ -476,7 +479,7 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
     # apply window
     wdata = WindowDataSeries(chunk, win)
     # FFT
-    S[i]  = PowerSpectrum(wdata) * scaling_factor
+    S[i]  = PowerSpectrum(wdata, sides) * scaling_factor
 
   if verbose: sys.stdout.write("Generated spectrum for each chunk.\n")
 
@@ -526,6 +529,9 @@ def AverageSpectrumMedian(data, fs, NFFT=256, overlap=128,\
     average method.  
   """
 
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the momen')
+
   # cast data series to numpy array
   data = numpy.asarray(data)
 
@@ -572,7 +578,7 @@ def AverageSpectrumMedian(data, fs, NFFT=256, overlap=128,\
     # apply window
     wdata = WindowDataSeries(chunk, win)
     # FFT
-    S[i]  = PowerSpectrum(wdata) * scaling_factor
+    S[i]  = PowerSpectrum(wdata, sides) * scaling_factor
 
   if verbose: sys.stdout.write("Generated spectrum for each chunk.\n")
 
@@ -622,6 +628,9 @@ def PowerSpectrum(series, sides='onesided'):
     Calculate power spectum of given series
   """
 
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the moment')
+
   # apply FFT
   tmp = numpy.fft.fft(series, n=len(series))
 
@@ -636,7 +645,7 @@ def PowerSpectrum(series, sides='onesided'):
 
   # others
   s = (len(series)+1)//2
-  spec[1:s] = 2 * numpy.power(tmp[1:s].real, 2) + numpy.power(tmp[1:s].real, 2)
+  spec[1:s] = 2 * ( numpy.power(tmp[1:s].real, 2) + numpy.power(tmp[1:s].imag , 2) )
 
   # Nyquist
   if len(series) % 2 == 0:
