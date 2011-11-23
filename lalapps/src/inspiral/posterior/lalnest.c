@@ -2427,7 +2427,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     //fprintf(stdout,"%f \n", template.fCutoff);
 	template.nStartPad = 0;
 	template.nEndPad =0;
-    template.startPhase = inj_table->phi0;
+    template.startPhase = inj_table->coa_phase;
 	template.startTime = 0.0;
 	template.ieta = 1;
 	template.next = NULL;
