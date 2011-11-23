@@ -323,10 +323,11 @@ class upper_limit(object):
 
 
   def set_m1m2_bins(self):
-    mass1Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
-    maxm2 = numpy.min(mass1Bin.upper()[mass1Bin.upper() > self.maxtotal/2]) # just to make plots prettier
+    bin1Edges = numpy.linspace(self.minmass,self.maxmass,self.opts.mass_bins)
     m2bins = int(self.opts.mass_bins/2) + numpy.mod(self.opts.mass_bins,2) # ensures equal bin width in m2 as in m1
-    mass2Bin = rate.LinearBins(self.minmass,maxm2,m2bins)
+    bin2Edges = bin1Edges[:m2bins+1]
+    mass1Bin = rate.IrregularBins(bin1Edges)
+    mass2Bin = rate.IrregularBins(bin2Edges)
     self.m1m2_bins = rate.NDBins( (mass1Bin,mass2Bin) )
 
     return self.m1m2_bins
@@ -414,8 +415,8 @@ class upper_limit(object):
 
     # two-d case first
     if bin_type == "Mass1_Mass2":
-      for j,m1 in enumerate(self.mass_bins.centres()[0]):
-        for k,m2 in enumerate(self.mass_bins.centres()[1]):
+      for j,m1 in enumerate(self.mass_bins[bin_type].centres()[0]):
+        for k,m2 in enumerate(self.mass_bins[bin_type].centres()[1]):
           vtmp = numpy.array([v[(m1,m2)] for v in vA])
           tag = "%s-%s-BINNED_BY_%s_bin%d_%d-%d-%d" % ("".join(sorted(list(instruments))), self.opts.output_name_tag,bin_type.upper(),j,k,self.start_time,self.end_time-self.start_time)
           volDeriv[(m1,m2)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
@@ -731,10 +732,10 @@ for instruments in UL.instruments:
     child = xmldoc.appendChild(ligolw.LIGO_LW())
 
     # write out mass bins
-    dim = len(UL.mass_bins)
+    dim = len(UL.mass_bins[bin_type])
     for j in range(dim):
       xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
-      edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins.lower(),UL.mass_bins.upper()) )
+      edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
       xml.appendChild(array.from_array(u"array", edges[j]))
       child.appendChild(xml)
 
