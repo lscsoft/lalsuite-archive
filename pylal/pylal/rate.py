@@ -212,17 +212,22 @@ class LinearPlusOverflowBins(Bins):
 	>>> X.upper()
 	array([  1.,   9.,  17.,  25.,  Inf])
 
+	>>> X[float("-inf")]
+	0
 	>>> X[0]
 	0
 	>>> X[1]
 	1
 	>>> X[10]
 	2
-	>>> X[25]
+	>>> X[24.99999999]
 	3
+	>>> X[25]
+	4
 	>>> X[100]
 	4
-
+	>>> X[float("inf")]
+	4
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
@@ -245,10 +250,7 @@ class LinearPlusOverflowBins(Bins):
 			return slice(start, stop)
 		if self.min <= x < self.max:
 			return int(math.floor((x - self.min) / self.delta)) + 1
-		if x == self.max:
-			# special "measure zero" corner case
-			return len(self) - 2
-		if x > self.max:
+		if x >= self.max:
 			# +infinity overflow bin
 			return len(self) - 1
 		if x < self.min:
@@ -334,8 +336,10 @@ class LogarithmicPlusOverflowBins(Bins):
 	1
 	>>> x[5]
 	2
-	>>> x[25]
+	>>> x[24.999]
 	3
+	>>> x[25]
+	4
 	>>> x[100]
 	4
 	>>> x.lower()
@@ -366,10 +370,7 @@ class LogarithmicPlusOverflowBins(Bins):
 			return slice(start, stop)
 		if self.min <= x < self.max:
 			return 1 + int(math.floor(math.log(x / self.min) / self.delta))
-		if x == self.max:
-			# special "measure zero" corner case
-			return len(self) - 2
-		if x > self.max:
+		if x >= self.max:
 			# infinity overflow bin
 			return len(self) - 1
 		if x < self.min:
