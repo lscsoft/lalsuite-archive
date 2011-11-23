@@ -249,7 +249,7 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbi
                 volArray[(mc1,mc2)] = meanvol
                 vol2Array[(mc1,mc2)] = volerr
 
-                return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
+        return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
 
 
     for j,mc in enumerate(mass_bins.centres()[0]):
