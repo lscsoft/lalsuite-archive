@@ -178,11 +178,22 @@ def mean_efficiency_volume(found, missed, dbins):
     return eff, err, vol, verr
 
 
-def filter_injections_by_mass(injs, mbins, bin_num , bin_type):
+def filter_injections_by_mass(injs, mbins, bin_num , bin_type, bin_num2=None):
     '''
     For a given set of injections (sim_inspiral rows), return the subset
     of injections that fall within the given mass range.
     '''
+
+    if bin_type == "Mass1_Mass2":
+        m1bins = numpy.concatenate((mbins.lower()[0],numpy.array([mbins.upper()[0][-1]])))
+        m1lo = m1bins[bin_num]
+        m1hi = m1bins[bin_num+1]
+        m2bins = numpy.concatenate((mbins.lower()[1],numpy.array([mbins.upper()[1][-1]])))
+        m2lo = m2bins[bin_num2]
+        m2hi = m2bins[bin_num2+1]
+        newinjs = [l for l in injs if ( (m1lo<= l.mass1 <m1hi and m2lo<= l.mass2 <m2hi) or (m1lo<= l.mass2 <m1hi and m2lo<= l.mass1 <m2hi))]
+        return newinjs
+
     mbins = numpy.concatenate((mbins.lower()[0],numpy.array([mbins.upper()[0][-1]])))
     mlow = mbins[bin_num]
     mhigh = mbins[bin_num+1]
@@ -221,6 +232,26 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbi
     #
     effvmass = []
     errvmass = []
+
+    if bin_type == "Mass1_Mass2": # two-d case first
+        for j,mc1 in enumerate(mass_bins.centres()[0]):
+            for k,mc2 in enumerate(mass_bins.centres()[1]):
+                newfound = filter_injections_by_mass( found, mass_bins, j, bin_type, k)
+                newmissed = filter_injections_by_mass( missed, mass_bins, j, bin_type, k)
+
+                foundArray[(mc1,mc2)] = len(newfound)
+                missedArray[(mc1,mc2)] = len(newmissed)
+
+                # compute the volume using this injection set
+                meaneff, efferr, meanvol, volerr = mean_efficiency_volume(newfound, newmissed, dbins)
+                effvmass.append(meaneff)
+                errvmass.append(efferr)
+                volArray[(mc1,mc2)] = meanvol
+                vol2Array[(mc1,mc2)] = volerr
+
+                return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
+
+
     for j,mc in enumerate(mass_bins.centres()[0]):
 
         # filter out injections not in this mass bin
