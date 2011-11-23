@@ -202,13 +202,13 @@ class LinearPlusOverflowBins(Bins):
 	Example:
 
 	>>> X = LinearPlusOverflowBins(1.0, 25.0, 5)
-	
+
 	>>> X.centres()
 	array([-Inf,   5.,  13.,  21.,  Inf])
-	
+
 	>>> X.lower()
 	array([-Inf,   1.,   9.,  17.,  25.])
-	
+
 	>>> X.upper()
 	array([  1.,   9.,  17.,  25.,  Inf])
 
@@ -328,7 +328,7 @@ class LogarithmicPlusOverflowBins(Bins):
 	Example:
 
 	>>> x = rate.LogarithmicPlusOverflowBins(1.0, 25.0, 5)
-	>>> x[0] 
+	>>> x[0]
 	0
 	>>> x[1]
 	1
