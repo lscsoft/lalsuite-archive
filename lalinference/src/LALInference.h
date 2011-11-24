@@ -275,7 +275,12 @@ typedef void (LALInferenceProposalFunction) (struct tagLALInferenceRunState *run
 typedef REAL8 (LALInferencePriorFunction) (struct tagLALInferenceRunState *runState,
 	LALInferenceVariables *params);
 
-typedef int (LALCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
+
+/** Type declaration for CubeToPrior function which converts parameters in unit hypercube
+  * to their corresponding physical values according to the prior.
+  * Can depend on \param runState ->priorArgs
+  */
+typedef int (LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
 	LALInferenceVariables *params, double *cube);
 
 //Likelihood calculator 
@@ -311,7 +316,7 @@ tagLALInferenceRunState
   LALInferenceAlgorithm              *algorithm; /** The algorithm function */
   LALInferenceEvolveOneStepFunction  *evolve; /** The algorithm's single iteration function */
   LALInferencePriorFunction          *prior; /** The prior for the parameters */
-  LALCubeToPriorFunction    	     *CubeToPrior; /** MultiNest prior for the parameters */
+  LALInferenceCubeToPriorFunction    *CubeToPrior; /** MultiNest prior for the parameters */
   LALInferenceLikelihoodFunction     *likelihood; /** The likelihood function */
   LALInferenceProposalFunction       *proposal; /** The proposal function */
   LALInferenceTemplateFunction       *template; /** The template generation function */

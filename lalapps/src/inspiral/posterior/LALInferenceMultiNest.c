@@ -78,12 +78,14 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew)
 	if( i == 0 )
 	{
 		*lnew = -DBL_MAX;
+		free(newParams);
 		return;
 	}
 	
 	// calculate the loglike
 	*lnew=runStateGlobal->likelihood(newParams, runStateGlobal->data, runStateGlobal->template);
 	*lnew -= (*(REAL8 *)LALInferenceGetVariable(runStateGlobal->algorithmParams, "logZnoise"));
+	free(newParams);
 }
 
 void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double *paramConstr, double *maxLogLike, double *logZ, double *logZerr)
