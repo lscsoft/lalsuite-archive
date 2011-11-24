@@ -49,6 +49,8 @@ void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int n
 	double *, double *, double *), int context);
 void getLogLike(double *Cube, int *ndim, int *npars, double *lnew);
 void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState);
+void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double *paramConstr,
+	double *maxLogLike, double *logZ, double *logZerr);
 
 LALInferenceRunState *runStateGlobal;
 
