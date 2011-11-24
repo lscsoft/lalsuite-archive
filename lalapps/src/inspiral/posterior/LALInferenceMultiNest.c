@@ -278,29 +278,6 @@ Initialisation arguments:\n\
 	else
 		fprintf(stdout, " initialize(): no data read.\n");
 	
-	/* set up GSL random number generator: */
-	gsl_rng_env_setup();
-	irs->GSLrandom = gsl_rng_alloc(gsl_rng_mt19937);
-	/* (try to) get random seed from command line: */
-	ppt = LALInferenceGetProcParamVal(commandLine, "--randomseed");
-	if (ppt != NULL)
-		randomseed = atoi(ppt->value);
-	else { /* otherwise generate "random" random seed: */
-		if ((devrandom = fopen("/dev/random","r")) == NULL) {
-			gettimeofday(&tv, 0);
-			randomseed = tv.tv_sec + tv.tv_usec;
-		} 
-		else {
-			if(1!=fread(&randomseed, sizeof(randomseed), 1, devrandom)){
-			  fprintf(stderr,"Error: Unable to read random seed from /dev/random\n");
-			  exit(1);
-			}
-			fclose(devrandom);
-		}
-	}
-	fprintf(stdout, " initialize(): random seed: %lu\n", randomseed);
-	gsl_rng_set(irs->GSLrandom, randomseed);
-	
 	return(irs);
 }
 
