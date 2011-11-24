@@ -711,7 +711,7 @@ REAL8 latitude = XLALMCMCGetParameter(parameter,"dec");
 /*REAL8 distance = XLALMCMCGetParameter(parameter,"distMpc");*/
 vec[0]=cos(longitude)*cos(latitude);
 vec[1]=sin(longitude)*cos(latitude);
-vec[1]=sin(latitude);
+vec[2]=sin(latitude);
 return;
 }
 
@@ -860,7 +860,7 @@ if(inputMCMC->numberDataStreams-DetCollision<3) return(-1); /* Not enough indepe
 /* Select IFOs to use */
 if(inputMCMC->randParams==NULL) LALCreateRandomParams(&status,&(inputMCMC->randParams),0);
 LALUniformDeviate(&status,&randnum,inputMCMC->randParams);
-IFO1 = (INT4)floor(inputMCMC->numberDataStreams*randnum);
+IFO1 = (INT4)floor(inputMCMC->numberDataStreams*randnum);	
 LALUniformDeviate(&status,&randnum,inputMCMC->randParams);
 IFO2 = (INT4)floor((inputMCMC->numberDataStreams-1)*randnum);
 while(IFO1==IFO2 || inputMCMC->detector[IFO1]==inputMCMC->detector[IFO2]) IFO2=(IFO2+1) % inputMCMC->numberDataStreams;
@@ -901,12 +901,12 @@ crossProduct(normal,w1,w2);
 normalise(normal);
 normalise(detvec);
 
-/* Calculate the distance between the point and the plane n.(point-IFO1) */
-for(dist=0.0,i=0;i<3;i++) dist+=pow(normal[i]*(pos[i]-detvec[i]),2.0);
-dist=sqrt(dist);
+/* Calculate the signed distance between the point and the plane n.(point-
+IFO1) */
+for(dist=0.0,i=0;i<3;i++) dist+=normal[i]*pos[i];
+
 /* Reflect the point pos across the plane */
 for(i=0;i<3;i++) pos[i]=pos[i]-2.0*dist*normal[i];
-
 
 CartesianToSkyPos(pos,parameter);
 XLALMCMCSetParameter(parameter,"ra",XLALMCMCGetParameter(parameter,"ra")-deltalong);
