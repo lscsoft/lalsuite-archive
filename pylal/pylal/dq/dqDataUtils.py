@@ -419,6 +419,9 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
     average method.
   """
 
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the momen')
+
   # cast data series to numpy array
   data = numpy.asarray(data)
 
@@ -476,7 +479,7 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
     # apply window
     wdata = WindowDataSeries(chunk, win)
     # FFT
-    S[i]  = PowerSpectrum(wdata) * scaling_factor
+    S[i]  = PowerSpectrum(wdata, sides) * scaling_factor
 
   if verbose: sys.stdout.write("Generated spectrum for each chunk.\n")
 
@@ -526,10 +529,11 @@ def AverageSpectrumMedian(data, fs, NFFT=256, overlap=128,\
     average method.  
   """
 
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the momen')
+
   # cast data series to numpy array
   data = numpy.asarray(data)
-
-  print data.mean()
 
   # number of segments (must be even)
   if overlap==0:
@@ -574,7 +578,7 @@ def AverageSpectrumMedian(data, fs, NFFT=256, overlap=128,\
     # apply window
     wdata = WindowDataSeries(chunk, win)
     # FFT
-    S[i]  = PowerSpectrum(wdata) * scaling_factor
+    S[i]  = PowerSpectrum(wdata, sides) * scaling_factor
 
   if verbose: sys.stdout.write("Generated spectrum for each chunk.\n")
 
@@ -624,8 +628,8 @@ def PowerSpectrum(series, sides='onesided'):
     Calculate power spectum of given series
   """
 
-  # cast series to numpy array
-  series = numpy.array(series)
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the moment')
 
   # apply FFT
   tmp = numpy.fft.fft(series, n=len(series))
@@ -641,7 +645,7 @@ def PowerSpectrum(series, sides='onesided'):
 
   # others
   s = (len(series)+1)//2
-  spec[1:s] = 2 * numpy.power(tmp[1:s].real, 2) + numpy.power(tmp[1:s].real, 2)
+  spec[1:s] = 2 * ( numpy.power(tmp[1:s].real, 2) + numpy.power(tmp[1:s].imag , 2) )
 
   # Nyquist
   if len(series) % 2 == 0:
@@ -649,3 +653,77 @@ def PowerSpectrum(series, sides='onesided'):
 
   return spec
 
+# =============================================================================
+# Inspiral range
+# =============================================================================
+
+def inspiral_range(f, S, rho=8, mchirp=1.219, fmin=30, fmax=4096,\
+                   horizon=False):
+
+  """
+    Calculate inspiral range for a given spectrum.
+  """
+
+  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+
+  # calculate prefactor in m^2
+  mchirp *= XLALConstants.LAL_MSUN_SI * XLALConstants.LAL_G_SI /\
+            XLALConstants.LAL_C_SI**2
+  pre = (5 * XLALConstants.LAL_C_SI**(1/3) * mchirp**(5/3) * 1.77**2) /\
+        (96 * numpy.pi ** (4/3) * rho**2)
+
+  # restrict to range
+  condition = (f >= fmin) & (f < fmax)
+  S         = S[condition]
+  f         = f[condition]
+
+  # calculate integrand
+  integrand = (f**(-7/3))/S
+
+  # integrate
+  result = scipy.integrate.trapz(integrand, f)
+
+  R = (pre*result) ** 0.5 / Mpc
+
+  if horizon: R *= 2.26
+
+  return R
+
+# =============================================================================
+# Frequency dependent Burst range
+# =============================================================================
+
+def f_dependent_burst_range(f, S, rho=8, E=1e-2):
+  """
+    Calculate GRB-like or supernov-like burst range for a given spectrum    and background trigger SNR at a given time as a function of freqeucy.
+  """
+
+  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+
+  # generate frequency dependent range
+  A = (((XLALConstants.LAL_G_SI * (E*XLALConstants.LAL_MSUN_SI) * 2/5)/(XLALConstants.LAL_PI**2 * XLALConstants.LAL_C_SI))**(1/2))/Mpc
+  R = A/ (rho * S**(1/2) * f)
+
+  return R
+
+# =============================================================================
+# Burst range
+# =============================================================================
+
+def burst_range(f, S, rho=8, E=1e-2, fmin=64, fmax=500):
+  """
+    Calculate GRB-like or supernova-like burst range for a given spectrum
+    and background trigger SNR.
+  """
+
+  # restrict spectrum to given frequency range
+  condition = (f>=fmin) & (f<fmax)
+  S2 = S[condition]
+  f2 = f[condition]
+
+  # calculate integral
+  FOM1 = scipy.integrate.trapz(f_dependent_burst_range(f2, S2, rho, E)**3, f2)
+  FOM2 = FOM1/(fmax-fmin)
+  R = scipy.power(FOM2,1/3)
+
+  return R

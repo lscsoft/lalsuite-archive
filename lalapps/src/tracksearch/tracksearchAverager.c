@@ -558,8 +558,8 @@ LALappsTSAMergeMap(LALStatus  *status,
    * or handle a straight joining if possible
    */
   outputPtr=*output;
-  if (((outputPtr)->imageRep->tCol==
-       (inputB->imageRep->tCol + inputA->imageRep->tCol)))
+  if ((outputPtr)->imageRep->tCol==
+      (inputB->imageRep->tCol + inputA->imageRep->tCol))
     linkMaps=1;
 
   if (linkMaps)
@@ -862,7 +862,7 @@ tsaTest(
       /*
        * Create blanked test map structure
        */
-      createParams.type=Unknown;
+      createParams.type=Undefined;
       /*
        * Number of F rows from -f -> f
        */

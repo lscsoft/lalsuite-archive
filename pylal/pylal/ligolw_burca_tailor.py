@@ -553,11 +553,11 @@ def coinc_params_distributions_to_xml(process, coinc_params_distributions, name)
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
 	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
 	for name, binnedarray in coinc_params_distributions.zero_lag_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, "zero_lag:%s" % name))
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))
 	for name, binnedarray in coinc_params_distributions.background_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, "background:%s" % name))
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
 	for name, binnedarray in coinc_params_distributions.injection_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, "injection:%s" % name))
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
 	return xml
 
 
@@ -567,9 +567,9 @@ def coinc_params_distributions_from_xml(xml, name):
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
 	c = CoincParamsDistributions()
 	for name in names:
-		c.zero_lag_rates[name] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
-		c.background_rates[name] = rate.binned_array_from_xml(xml, "background:%s" % name)
-		c.injection_rates[name] = rate.binned_array_from_xml(xml, "injection:%s" % name)
+		c.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
+		c.background_rates[str(name)] = rate.binned_array_from_xml(xml, "background:%s" % name)
+		c.injection_rates[str(name)] = rate.binned_array_from_xml(xml, "injection:%s" % name)
 	return c, process_id
 
 

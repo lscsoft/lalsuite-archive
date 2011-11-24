@@ -1,6 +1,6 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 26
+# serial 29
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],
 [## $0: Generate a libtool script for use in configure tests
@@ -21,6 +21,19 @@ AC_DEFUN([LALSUITE_ARG_VAR],[
   AC_ARG_VAR(LALSUITE_BUILD,[Set if part of lalsuite build])
   AC_ARG_VAR(LALSUITE_TOP_SRCDIR,[Set to top source directory of lalsuite])
 ])
+
+AC_DEFUN([LALSUITE_MULTILIB_LIBTOOL_HACK],
+[## $0: libtool incorrectly determine library path on SL6
+case "${host}" in
+  x86_64-*-linux-gnu*)
+    redhat_release=`cat /etc/redhat-release 2> /dev/null`
+    if test "${redhat_release}" = "Scientific Linux release 6.1 (Carbon)"; then
+      AC_MSG_NOTICE([hacking round broken libtool multilib support on SL6])
+      lt_cv_sys_lib_dlsearch_path_spec="/lib64 /usr/lib64"
+    fi
+    ;;
+esac
+]) # LALSUITE_MULTILIB_LIBTOOL_HACK
 
 # store configure flags for 'make distcheck'
 AC_DEFUN([LALSUITE_DISTCHECK_CONFIGURE_FLAGS],[
@@ -313,6 +326,23 @@ fi
 if test "$lalpulsar" = "false"; then
   lalinference=false
 fi
+])
+
+AC_DEFUN([LALSUITE_ENABLE_LALAPPS],[
+  AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
+  AC_ARG_ENABLE(
+    [lalapps],
+    AC_HELP_STRING([--enable-lalapps],[compile lalapps [default=yes]]),
+    [
+      case "${enableval}" in
+        yes) lalapps=true ;;
+        no) lalapps=false ;;
+        *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalapps) ;;
+      esac
+    ],[
+      lalapps=${all_lal:-true}
+    ]
+  )
 ])
 
 AC_DEFUN([LALSUITE_ENABLE_BOINC],

@@ -328,12 +328,13 @@ static int dump_FD(FILE *f, COMPLEX16FrequencySeries *htilde) {
     fprintf(f, "# f htilde.re htilde.im\n");
     dataPtr = htilde->data->data;
     for (i=0; i < htilde->data->length; i++)
-      fprintf(f, "%e %e %e\n", i * htilde->deltaF, dataPtr[i].re, dataPtr[i].im);
+      fprintf(f, "%e %e %e\n", htilde->f0 + i * htilde->deltaF, dataPtr[i].re, dataPtr[i].im);
     return 0;
 }
 
 static int dump_TD(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
     size_t i;
+    REAL8 t0 = XLALGPSGetREAL8(&(hplus->epoch));
     if (hplus->data->length != hcross->data->length) {
         XLALPrintError("Error: hplus and hcross are not the same length\n");
         return 1;
@@ -344,7 +345,7 @@ static int dump_TD(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
 
     fprintf(f, "# t hplus hcross\n");
     for (i=0; i < hplus->data->length; i++)
-      fprintf(f, "%e %e %e\n", i * hplus->deltaT, hplus->data->data[i], hcross->data->data[i]);
+      fprintf(f, "%e %e %e\n", t0 + i * hplus->deltaT, hplus->data->data[i], hcross->data->data[i]);
     return 0;
 }
 /*
@@ -382,10 +383,10 @@ int main (int argc , char **argv) {
                     XLALSimIMRPhenomBGenerateFD(&htilde, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->f_min, params->f_max, params->distance);
                     break;
                 case GSApproximant_TaylorF2RedSpin:
-                    XLALSimInspiralTaylorF2ReducedSpin(&htilde, &tRef, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->f_min, params->distance, params->phaseO);
+                    XLALSimInspiralTaylorF2ReducedSpin(&htilde, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->f_min, params->distance, params->phaseO, params->ampO);
                     break;
                 case GSApproximant_TaylorF2RedSpinTidal:
-                    XLALSimInspiralTaylorF2ReducedSpinTidal(&htilde, &tRef, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->lambda1, params->lambda2, params->f_min, params->distance, params->phaseO);
+                    XLALSimInspiralTaylorF2ReducedSpinTidal(&htilde, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->lambda1, params->lambda2, params->f_min, params->distance, params->phaseO, params->ampO);
                     break;
                 case GSApproximant_SpinTaylorT4:
                     XLALPrintError("Error: SpinTaylorT4 is not an FD waveform!\n");
@@ -397,10 +398,10 @@ int main (int argc , char **argv) {
         case GSDomain_TD:
             switch (params->approximant) {
                 case GSApproximant_IMRPhenomA:
-                    XLALSimIMRPhenomAGenerateTD(&hplus, &hcross, &tRef, params->phiRef, params->deltaT, params->m1, params->m2, params->f_min, params->f_max, params->distance, params->inclination);
+                    XLALSimIMRPhenomAGenerateTD(&hplus, &hcross, params->phiRef, params->deltaT, params->m1, params->m2, params->f_min, params->f_max, params->distance, params->inclination);
                     break;
                 case GSApproximant_IMRPhenomB:
-                    XLALSimIMRPhenomBGenerateTD(&hplus, &hcross, &tRef, params->phiRef, params->deltaT, params->m1, params->m2, params->chi, params->f_min, params->f_max, params->distance, params->inclination);
+                    XLALSimIMRPhenomBGenerateTD(&hplus, &hcross, params->phiRef, params->deltaT, params->m1, params->m2, params->chi, params->f_min, params->f_max, params->distance, params->inclination);
                     break;
                 case GSApproximant_TaylorF2RedSpin:
                 case GSApproximant_TaylorF2RedSpinTidal:

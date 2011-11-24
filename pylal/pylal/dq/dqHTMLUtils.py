@@ -56,12 +56,8 @@ def write_table(page, headers, data, cl=''):
     for i in range(len(headers)):
 
       page.tr()
-      page.th()
-      page.add(str(headers[i]))
-      page.th.close()
-      page.td()
-      page.add(str(data[i]))
-      page.td.close()
+      page.th(str(headers[i]))
+      page.td(str(data[i]))
       page.tr.close()
 
   # otherwise print 'standard' table with single header row and multiple data
@@ -69,14 +65,10 @@ def write_table(page, headers, data, cl=''):
   else:
     page.tr()
     if len(headers)==1:
-      page.th(colspan="100%")
-      page.add(str(headers[0]))
-      page.th.close()
+      page.th(str(headers[0]), colspan="100%")
     else:
       for n in headers:
-        page.th()
-        page.add(str(n))
-        page.th.close()
+        page.th(str(n))
     page.tr.close()
 
     if data and not re.search('list',str(type(data[0]))):
@@ -84,11 +76,8 @@ def write_table(page, headers, data, cl=''):
 
     for row in data:
       page.tr()
-      for item in row:
-        page.td()
-        page.add(str(item))
-        page.td.close()
-      page.tr.close()
+      for item in map(str, row):
+        page.td(item)
 
   page.table.close()
 
@@ -122,28 +111,27 @@ def write_head(title, css, js, base=None, refresh=None, jquery=True):
         import jquery AJAX script in header, default: True
   """
 
+  # generate object
   page = markup.page(mode="strict_html")
   page._escape = False
 
-  doctype="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">"""
-  doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">"""
-  page.add(doctype)
+  # open head
   page.head()
+  # add base
   if base:
     page.base(href=base)
+  # add html auto-refresh
   if refresh:
-    page.add('<meta http-equiv="refresh" content="%s">' % refresh)
+    page.meta(http_equiv="refresh", content="%s" % refresh)
+  # link stylesheet
   page.link(media="all", href=css, type="text/css", rel="stylesheet")
-  page.title()
-  page.add(title)
-  page.title.close()
+  # add title
+  page.title(title)
 
   if jquery:
-    page.script(src="http://ajax.googleapis.com/ajax/libs/jquery/1.2.6"\
+    page.script("", src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.0"\
                     "/jquery.min.js", type="text/javascript")
-    page.script.close()
-  page.script(src=js, type="text/javascript")
-  page.script.close()
+  page.script("", src=js, type="text/javascript")
   page.head.close()
 
   return page
@@ -152,7 +140,7 @@ def write_head(title, css, js, base=None, refresh=None, jquery=True):
 # Write <div id="header">
 # =============================================================================
 
-def write_banner(title, text='&nbsp;'):
+def write_banner(title, text=""):
 
   """
     Returns glue.markup.page object for <div id="header">
@@ -162,15 +150,8 @@ def write_banner(title, text='&nbsp;'):
   page._escape = False
 
   page.div(id="header")
-  page.h1()
-  page.add(title)
-  page.h1.close()
-  page.h3()
-  page.add(text)
-  page.h3.close()
-
-  page.hr(class_="short")
-  page.hr(class_="long")
+  page.h1(title)
+  page.h3(text)
 
   page.div.close()
 
@@ -201,16 +182,11 @@ def write_menu(sections, pages, current=None):
   page.div(id="menubar")
 
   for i,sec in enumerate(sections):
-    if sec==current:
-      cl = "menulink selected"
-    else:
-      cl = "menulink"
-    page.a(id="link_%s" % i, class_=cl, href="%s" % pages[sec])
-    page.add(sec)
-    page.a.close()
+    if sec==current: cl = "menulink selected"
+    else:            cl = "menulink"
+    page.a(sec, id="link_%d" % i, class_=cl, href=pages[sec])
 
-  page.script(type="text/javascript")
-  page.script.close()
+  page.script("",type="text/javascript")
 
   page.div.close()
 
@@ -231,7 +207,10 @@ def init_page(head, banner, menu):
   page._escape = False
 
   # initialise page
-  page.html(lang="en")
+  page.add("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" "+\
+           "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">")
+  page.html(xmlns="http://www.w3.org/1999/xhtml", lang="en",\
+            **{"xml:lang":"en"})
   page.add(head())
 
   # open body
@@ -269,7 +248,7 @@ def close_page(page, footer=False):
   page.div.close()
   # add footer
   if footer:
-    page.add(foot())
+    page.add(footer())
 
   # close page
   page.body.close()
@@ -320,7 +299,7 @@ def write_glossary(page, terms):
 # Write <hX>
 # =============================================================================
 
-def write_h(page, title, idx, cl=3):
+def write_h(page, title, id, cl=3, toggle=True):
 
   """
     Write hX header into glue.markup.page object page with toggling. Text
@@ -328,13 +307,16 @@ def write_h(page, title, idx, cl=3):
     using javascipt toggleVisible function
   """
 
-  if not isinstance(idx, list):
-    idx = [idx]
+  if not (isinstance(id, list) or isinstance(id, tuple)):
+    id = [id]
+  id = list(map(str, id))
 
-  idx = map(str, idx)
+  kwargs = {}
+  if toggle:
+    kwargs['onclick'] = "toggleVisible('%s');" % '.'.join(id)
 
-  page.input(id="input_%s" % '.'.join(idx), type="button", class_="h%s" % cl,\
-             value=title, onclick="toggleVisible('%s')" % '.'.join(idx))
+  page.input(id="input_%s" % '.'.join(id), type="button", class_="h%s" % cl,\
+             value=title, **kwargs)
 
   return page
 
@@ -365,9 +347,7 @@ def link_file(page, href, text):
     options.
   """
 
-  page.a(href="%s" % href, rel="external")
-  page.add(text)
-  page.a.close()
+  page.a(text, href=href, rel="external")
 
   return page
 

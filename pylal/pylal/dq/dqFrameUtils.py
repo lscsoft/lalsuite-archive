@@ -67,15 +67,16 @@ def fromframefile(filename, channel, start=None, end=None):
   """
 
   # try to extract data from frame
-  y, fstart, offset, dt, xunit, yunit = Fr.frgetvect1d(filename, str(channel))
+  y, fstart, offset, dt = Fr.frgetvect1d(filename, str(channel))[:4]
   x = fstart+dt*numpy.arange(len(y))+offset
 
   # apply constraint on x-axis
-  if not start: start=-numpy.infty
-  if not end:   end=numpy.infty
-  condition = (x>=start) & (x<end)
-  y = y[condition]
-  x = x[condition]
+  if start or end:
+    if not start: start=-numpy.infty
+    if not end:   end=numpy.infty
+    condition = (x>=start) & (x<end)
+    y = y[condition]
+    x = x[condition]
 
   return x,y
 
@@ -131,26 +132,34 @@ def fromLALCache(cache, channel, start=None, end=None, verbose=False):
   """
 
   # initialise data
-  time = numpy.array([])
-  data = numpy.array([])
+  time = numpy.ndarray((1,0))
+  data = numpy.ndarray((1,0))
 
   # set up counter
   if verbose:
     sys.stdout.write("Extracting data from %d frames...     " % len(cache))
     sys.stdout.flush()
-  delete = '\b\b\b'
-
+    delete = '\b\b\b'
+    num = len(cache)/100
 
   # loop over frames in cache
   for i,frame in enumerate(cache):
     # check for read access
     if os.access(frame.path(), os.R_OK):
+      # get data
       frtime, frdata = fromframefile(frame.path(), channel, start=start,\
                                      end=end)
-      time = numpy.append(time, frtime)
-      data = numpy.append(data, frdata)
+      # resize array and extend
+      op = len(time[0])
+      np = len(frtime)
+      time.resize((1,op+np))
+      time[0][op:] = frtime
+      data.resize((1,op+np))
+      data[0][op:] = frdata
+
+      # print verbose message
       if verbose and len(cache)>1:
-        progress = int((i+1)/len(cache)*100)
+        progress = int((i+1)/num)
         sys.stdout.write('%s%.2d%%' % (delete, progress))
         sys.stdout.flush()
 
@@ -159,7 +168,7 @@ def fromLALCache(cache, channel, start=None, end=None, verbose=False):
 
   if verbose: sys.stdout.write("\n")
 
-  return time, data
+  return time[0], data[0]
 
 def grab_data(start, end, channel, type, nds=False, dmt=False, verbose=False):
 

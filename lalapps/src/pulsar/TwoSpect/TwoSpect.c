@@ -358,14 +358,24 @@ int main(int argc, char *argv[])
    
    //Line detection
    INT4Vector *lines = NULL;
+   INT4 heavilyContaminatedBand = 0;
    if (args_info.lineDetection_given) {
       lines = detectLines_simple(tfdata, ffdata, inputParams);
       if (lines!=NULL) {
          fprintf(LOG, "WARNING: %d line(s) found.\n", lines->length);
          fprintf(stderr, "WARNING: %d line(s) found.\n", lines->length);
+         if ((REAL4)lines->length/(ffdata->numfbins + 2*inputParams->maxbinshift) >= 0.1) {
+            heavilyContaminatedBand = 1;
+            fprintf(LOG, "WARNING: Band is heavily contaminated by artifacts.\n");
+            fprintf(stderr, "WARNING: Band is heavily contaminated by artifacts.\n");
+         }
       }
    }
    
+   //If the band is heavily contaminated by lines, don't do any follow up.
+   if (heavilyContaminatedBand) {
+      args_info.IHSonly_given = 1;
+   }
    
    //Need to reduce the original TF data to remove the excess bins used for running median calculation. Normalize the TF as the same as the background was normalized
    REAL4Vector *usableTFdata = XLALCreateREAL4Vector(background->length);
@@ -1530,7 +1540,7 @@ INT4Vector * detectLines_simple(REAL4Vector *TFdata, ffdataStruct *ffdata, input
    LALStatus status;
    status.statusPtr = NULL;
    
-   INT4 blksize = 11, ii, jj;
+   INT4 blksize = 51, ii, jj;
    
    INT4 numlines = 0;
    INT4Vector *lines = NULL;
@@ -1585,18 +1595,25 @@ INT4Vector * detectLines_simple(REAL4Vector *TFdata, ffdataStruct *ffdata, input
 REAL4VectorSequence * trackLines(INT4Vector *lines, INT4Vector *binshifts, inputParamsStruct *params)
 {
    
-   REAL4VectorSequence *output = XLALCreateREAL4VectorSequence(lines->length, binshifts->length);
+   //REAL4VectorSequence *output = XLALCreateREAL4VectorSequence(lines->length, binshifts->length);
+   REAL4VectorSequence *output = XLALCreateREAL4VectorSequence(lines->length, 3);
    
    REAL4 df = 1.0/params->Tcoh;
    REAL4 minfbin = (REAL4)(round(params->fmin*params->Tcoh - 0.5*(params->blksize-1) - (REAL8)(params->maxbinshift))/params->Tcoh);
    
-   INT4 ii, jj;
-   for (ii=0; ii<(INT4)lines->length; ii++) {
-      for (jj=0; jj<(INT4)binshifts->length; jj++) {
-         output->data[ii*binshifts->length + jj] = (lines->data[ii] + binshifts->data[jj])*df + minfbin;
-      }
-   }
+   INT4 maxshiftindex = 0, minshiftindex = 0;
+   min_max_index_INT4Vector(binshifts, &minshiftindex, &maxshiftindex);
+   INT4 maxshift = binshifts->data[maxshiftindex], minshift = binshifts->data[minshiftindex];
    
+   INT4 ii;
+   for (ii=0; ii<(INT4)lines->length; ii++) {
+      output->data[ii*3] = lines->data[ii]*df + minfbin;
+      output->data[ii*3 + 1] = (lines->data[ii] + minshift)*df + minfbin;
+      output->data[ii*3 + 2] = (lines->data[ii] + maxshift)*df + minfbin;
+      //for (jj=0; jj<(INT4)binshifts->length; jj++) {
+      //   output->data[ii*binshifts->length + jj] = (lines->data[ii] + binshifts->data[jj])*df + minfbin;
+      //}
+   }
    
    return output;
    
@@ -1998,7 +2015,7 @@ void ffPlaneNoise(REAL4Vector *aveNoise, inputParamsStruct *input, REAL4Vector *
    srand(time(NULL));
    UINT8 randseed = rand();
    gsl_rng_set(rng, randseed);
-   gsl_rng_set(rng, 0); //TODO: comment this out
+   //gsl_rng_set(rng, 0); //comment this out
    
    //Set up for making the PSD
    //for (ii=0; ii<(INT4)aveNoise->length; ii++) aveNoise->data[ii] = 0.0;
@@ -2485,7 +2502,7 @@ REAL4Vector * sseSSVectorMultiply(REAL4Vector *output, REAL4Vector *input1, REAL
    //Allocate memory for aligning input vector 1 if necessary
    if ( input1->data==(void*)(((UINT8)input1->data+15) & ~15) ) {
       vec1aligned = 1;
-      arr1 = (__m128*)input1->data;
+      arr1 = (__m128*)(void*)input1->data;
    } else {
       allocinput1 = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
       if (allocinput1==NULL) {
@@ -2494,13 +2511,13 @@ REAL4Vector * sseSSVectorMultiply(REAL4Vector *output, REAL4Vector *input1, REAL
       }
       alignedinput1 = (void*)(((UINT8)allocinput1+15) & ~15);
       memcpy(alignedinput1, input1->data, sizeof(REAL4)*4*roundedvectorlength);
-      arr1 = (__m128*)alignedinput1;
+      arr1 = (__m128*)(void*)alignedinput1;
    }
    
    //Allocate memory for aligning input vector 2 if necessary
    if ( input2->data==(void*)(((UINT8)input2->data+15) & ~15) ) {
       vec2aligned = 1;
-      arr2 = (__m128*)input2->data;
+      arr2 = (__m128*)(void*)input2->data;
    } else {
       allocinput2 = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
       if (allocinput2==NULL) {
@@ -2509,13 +2526,13 @@ REAL4Vector * sseSSVectorMultiply(REAL4Vector *output, REAL4Vector *input1, REAL
       }
       alignedinput2 = (void*)(((UINT8)allocinput2+15) & ~15);
       memcpy(alignedinput2, input2->data, sizeof(REAL4)*4*roundedvectorlength);
-      arr2 = (__m128*)alignedinput2;
+      arr2 = (__m128*)(void*)alignedinput2;
    }
    
    //Allocate memory for aligning output vector if necessary
    if ( output->data==(void*)(((UINT8)output->data+15) & ~15) ) {
       outputaligned = 1;
-      result = (__m128*)output->data;
+      result = (__m128*)(void*)output->data;
    } else {
       allocoutput = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
       if (allocoutput==NULL) {
@@ -2523,7 +2540,7 @@ REAL4Vector * sseSSVectorMultiply(REAL4Vector *output, REAL4Vector *input1, REAL
          XLAL_ERROR_NULL(XLAL_ENOMEM);
       }
       alignedoutput = (void*)(((UINT8)allocoutput+15) & ~15);
-      result = (__m128*)alignedoutput;
+      result = (__m128*)(void*)alignedoutput;
    }
    
    //multiply the two vectors into the output
@@ -2568,7 +2585,7 @@ REAL4Vector * sseScaleREAL4Vector(REAL4Vector *output, REAL4Vector *input, REAL4
    //Allocate memory for aligning input vector 1 if necessary
    if ( input->data==(void*)(((UINT8)input->data+15) & ~15) ) {
       vecaligned = 1;
-      arr1 = (__m128*)input->data;
+      arr1 = (__m128*)(void*)input->data;
    } else {
       allocinput = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
       if (allocinput==NULL) {
@@ -2577,13 +2594,13 @@ REAL4Vector * sseScaleREAL4Vector(REAL4Vector *output, REAL4Vector *input, REAL4
       }
       alignedinput = (void*)(((UINT8)allocinput+15) & ~15);
       memcpy(alignedinput, input->data, sizeof(REAL4)*4*roundedvectorlength);
-      arr1 = (__m128*)alignedinput;
+      arr1 = (__m128*)(void*)alignedinput;
    }
    
    //Allocate memory for aligning output vector if necessary
    if ( output->data==(void*)(((UINT8)output->data+15) & ~15) ) {
       outputaligned = 1;
-      result = (__m128*)output->data;
+      result = (__m128*)(void*)output->data;
    } else {
       allocoutput = (REAL4*)XLALMalloc(4*roundedvectorlength*sizeof(REAL4) + 15);
       if (allocoutput==NULL) {
@@ -2591,7 +2608,7 @@ REAL4Vector * sseScaleREAL4Vector(REAL4Vector *output, REAL4Vector *input, REAL4
          XLAL_ERROR_NULL(XLAL_ENOMEM);
       }
       alignedoutput = (void*)(((UINT8)allocoutput+15) & ~15);
-      result = (__m128*)alignedoutput;
+      result = (__m128*)(void*)alignedoutput;
    }
    
    //multiply the vector into the output
@@ -2633,7 +2650,7 @@ REAL8Vector * sseScaleREAL8Vector(REAL8Vector *output, REAL8Vector *input, REAL8
    //Allocate memory for aligning input vector 1 if necessary
    if ( input->data==(void*)(((UINT8)input->data+15) & ~15) ) {
       vecaligned = 1;
-      arr1 = (__m128d*)input->data;
+      arr1 = (__m128d*)(void*)input->data;
    } else {
       allocinput = (REAL8*)XLALMalloc(2*roundedvectorlength*sizeof(REAL8) + 15);
       if (allocinput==NULL) {
@@ -2642,13 +2659,13 @@ REAL8Vector * sseScaleREAL8Vector(REAL8Vector *output, REAL8Vector *input, REAL8
       }
       alignedinput = (void*)(((UINT8)allocinput+15) & ~15);
       memcpy(alignedinput, input->data, sizeof(REAL8)*2*roundedvectorlength);
-      arr1 = (__m128d*)alignedinput;
+      arr1 = (__m128d*)(void*)alignedinput;
    }
    
    //Allocate memory for aligning output vector if necessary
    if ( output->data==(void*)(((UINT8)output->data+15) & ~15) ) {
       outputaligned = 1;
-      result = (__m128d*)output->data;
+      result = (__m128d*)(void*)output->data;
    } else {
       allocoutput = (REAL8*)XLALMalloc(2*roundedvectorlength*sizeof(REAL8) + 15);
       if (allocoutput==NULL) {
@@ -2656,7 +2673,7 @@ REAL8Vector * sseScaleREAL8Vector(REAL8Vector *output, REAL8Vector *input, REAL8
          XLAL_ERROR_NULL(XLAL_ENOMEM);
       }
       alignedoutput = (void*)(((UINT8)allocoutput+15) & ~15);
-      result = (__m128d*)alignedoutput;
+      result = (__m128d*)(void*)alignedoutput;
    }
    
    //multiply the vector into the output
