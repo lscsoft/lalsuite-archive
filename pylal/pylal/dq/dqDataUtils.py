@@ -411,7 +411,7 @@ def spectrum(data, sampling, NFFT=256, overlap=0.5,\
 # =============================================================================
 
 def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
-                              window='hanning', sides='onesided',\
+                              window=('kaiser',24), sides='onesided',\
                               verbose=False):
 
   """
