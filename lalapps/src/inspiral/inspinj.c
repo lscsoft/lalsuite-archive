@@ -2822,10 +2822,12 @@ int main( int argc, char *argv[] )
           "and >= 2 if --singlespin-squaregrid is specified \n" );
       exit( 1 );
     }
-    else if ( minSpin1 < 0.0 || maxSpin1 < 0.0 || minabsKappa1 > 0.0 || maxabsKappa1 < 1.0)
+    else if ( minSpin1 < 0.0 || maxSpin1 < 0.0 || minabsKappa1 > 0.0 
+              || maxabsKappa1 < 1.0)
     {
-      fprintf( stderr, "Option --min-spin1, --max-spin1, --min-kappa1 --max-kappa1 must be specified" 
-           "with --singlespin-squaregrid \n" "--min-abskappa1 and --max-abskappa1 are not allowed\n");
+      fprintf( stderr, "Options --min-spin1, --max-spin1, --min-kappa1, --max-kappa1 "
+              "must be specified with --singlespin-squaregrid ; \n" 
+              "--min-abskappa1 and --max-abskappa1 are not allowed\n");
       exit( 1 );
     }
     else

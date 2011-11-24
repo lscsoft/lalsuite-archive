@@ -615,10 +615,10 @@ SimInspiralTable* XLALSquareGridSingleSpinParams(
   if (inc!=0) 
   {
     inj->spin1x = (kappa1 * chi1 - inj->spin1z * cosinc) / sininc ;
-    /* randomize the direction of the spin vector in the y direction */
     if (kappa1==1.0 || kappa1==-1.0) inj->spin1y = 0.0;
     else
     {
+      /* randomize the direction of the spin vector in the y direction */
       sgn = XLALUniformDeviate( randParams ) - 0.5;
       sgn = (sgn > 0.0) ? 1.0 : -1.0;
       inj->spin1y = sgn * pow( ((chi1 * chi1) - (inj->spin1z * inj->spin1z) -
