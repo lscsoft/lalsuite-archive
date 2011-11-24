@@ -47,25 +47,25 @@ void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int n
 	int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, int initMPI, double logZero, 
 	void (*LogLike)(double *, int *, int *, double *), void (*dumper)(int *, int *, int *, double **, double **, double *, 
 	double *, double *, double *), int context);
-void LogLike(double *Cube, int *ndim, int *npars, double *lnew);
-void MultiNestAlgorithm(LALInferenceRunState *runState);
+void getLogLike(double *Cube, int *ndim, int *npars, double *lnew);
+void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState);
 
 LALInferenceRunState *runStateGlobal;
 
 
 void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes,
 int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, int initMPI, double logZero, 
-void (*LogLike)(double *, int *, int *, double *), void (*dumper)(int *, int *, int *, double **, double **, double *, 
+void (*getLogLike)(double *, int *, int *, double *), void (*dumper)(int *, int *, int *, double **, double **, double *, 
 double *, double *, double *), int context)
 {
 	int i;
 	for (i = strlen(root); i < 100; i++) root[i] = ' ';
 
-        __nested__nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
-        root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, LogLike, dumper, &context);
+        __nested_MOD_nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
+        root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, getLogLike, dumper, &context);
 }
 
-void LogLike(double *Cube, int *ndim, int *npars, double *lnew)
+void getLogLike(double *Cube, int *ndim, int *npars, double *lnew)
 {
 	// transform the parameter in the unit hypercube to their physical counterparts according to the prior
 	LALInferenceVariables *newParams=NULL;
@@ -132,9 +132,9 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	int ndims = ND;
 	int nPar = ndims + 2;
 	int nClsPar = 2;
-	int updInt = 100;
+	int updInt = 50;
 	double Ztol = -1.e90;
-	int maxModes = 100;
+	int maxModes = 1;
 	int pWrap[ndims];
 	item=runState->currentParams->head;
 	int k = -1;
@@ -161,7 +161,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 
 
 	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
-	resume, outfile, initMPI, logZero, LogLike, dumper, context);
+	resume, outfile, initMPI, logZero, getLogLike, dumper, context);
 	
 
 	/* Write out the evidence */
@@ -341,11 +341,7 @@ void initializeTemplate(LALInferenceRunState *runState)
 	return;
 }
 
-/***** Initialise MultiNest structures ****/
-/* Fill in samples from the prior distribution */
-/* runState->algorithmParams must contain a variable "logLikelihoods" */
-/* which contains a REAL8 array of likelihood values for the live */
-/* points. */
+/***** Initialise MultiNest structures *****/
 /************************************************/
 void initializeMN(LALInferenceRunState *runState)
 {
