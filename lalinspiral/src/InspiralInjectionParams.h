@@ -202,6 +202,18 @@ SimInspiralTable* XLALRandomInspiralSpins( SimInspiralTable *inj,
     REAL4  abskappa1Max,
     AlignmentType alignInj);
 
+SimInspiralTable* XLALSquareGridSingleSpinParams(
+    SimInspiralTable *inj,   /**< injection for which spin params will be set*/
+    RandomParams *randParams, /**< random parameter details*/
+    REAL4  chi1Min,         /**< minimum spin magnitude for spin1 */
+    REAL4  kappa1Min,         /**< minimum value of L_N.S_1 */
+    REAL4  chi1Delta,       /**< chi1 grid spacing */
+    REAL4  kappa1Delta,       /**< kappa1 grid spacing */
+    INT4   chi1Pnt,         /**< number of grid points along chi1 */
+    INT4   kappa1Pnt,         /**< number of grid points along kappa1 */
+    INT4   injNum           /**< injection number */  
+    );
+
 SimInspiralTable* XLALRandomNRInjectTotalMass(
     SimInspiralTable *inj,
     RandomParams *randParams,

@@ -509,8 +509,14 @@ SimInspiralTable* XLALRandomInspiralSpins(
   /* spin1x and spin1y */
   if (kappa > -2.0 && inc!=0) {
 	  inj->spin1x = (kappa * spin1Mag - inj->spin1z * cosinc) / sininc ;
-	  inj->spin1y = pow( ((spin1Mag * spin1Mag) - (inj->spin1z * inj->spin1z) -
-				  (inj->spin1x * inj->spin1x)) , 0.5);
+          if (kappa==1.0 || kappa==-1.0) inj->spin1y = 0.0;
+          else
+          {
+            sgn = XLALUniformDeviate( randParams ) - 0.5;
+            sgn = (sgn > 0.0) ? 1.0 : -1.0;
+            inj->spin1y = sgn * pow( ((spin1Mag * spin1Mag) - (inj->spin1z * inj->spin1z) -
+                  (inj->spin1x * inj->spin1x)) , 0.5);
+          }
   }
   else if (alignInj==inxzPlane)
   {
@@ -573,6 +579,63 @@ SimInspiralTable* XLALRandomInspiralSpins(
 	  inj->spin2y = r2 * sin(phi2);
   }
 
+  return ( inj );
+}
+
+/** Places spin parameters on a square grid for a single-spin injection. */
+SimInspiralTable* XLALSquareGridSingleSpinParams(
+    SimInspiralTable *inj,   /**< injection for which spin params will be set*/
+    RandomParams *randParams, /**< random parameter details*/
+    REAL4  chi1Min,         /**< minimum spin magnitude for spin1 */
+    REAL4  kappa1Min,         /**< minimum value of L_N.S_1 */
+    REAL4  chi1Delta,       /**< chi1 grid spacing */
+    REAL4  kappa1Delta,       /**< kappa1 grid spacing */
+    INT4   chi1Pnt,         /**< number of grid points along chi1 */
+    INT4   kappa1Pnt,         /**< number of grid points along kappa1 */
+    INT4   injNum           /**< injection number */  
+    )
+{
+  INT4  nCycles;
+  REAL4 chi1, kappa1, zmin, zmax, inc, cosinc, sininc, sintheta, r1, phi1, sgn;
+
+  nCycles = (int) ( ceil( ((float) injNum) / chi1Pnt ));
+  chi1 = chi1Min + chi1Delta * (injNum % chi1Pnt );
+  kappa1 = kappa1Min + kappa1Delta * (nCycles % kappa1Pnt );
+  sintheta = pow( (1 - kappa1 * kappa1), 0.5 );
+  inc      = inj->inclination;
+  cosinc   = cos( inc );
+  sininc   = sin( inc );
+
+  /* randomly choose a z component compatible with the given chi and kappa */
+  zmin = chi1 * ( cosinc * kappa1 - sininc * sintheta );
+  zmax = chi1 * ( cosinc * kappa1 + sininc * sintheta );
+  inj->spin1z = zmin + XLALUniformDeviate( randParams ) * (zmax - zmin);
+
+  /* calculate x,y components depending on the inclination angle */
+  if (inc!=0) 
+  {
+    inj->spin1x = (kappa1 * chi1 - inj->spin1z * cosinc) / sininc ;
+    /* randomize the direction of the spin vector in the y direction */
+    if (kappa1==1.0 || kappa1==-1.0) inj->spin1y = 0.0;
+    else
+    {
+      sgn = XLALUniformDeviate( randParams ) - 0.5;
+      sgn = (sgn > 0.0) ? 1.0 : -1.0;
+      inj->spin1y = sgn * pow( ((chi1 * chi1) - (inj->spin1z * inj->spin1z) -
+            (inj->spin1x * inj->spin1x)) , 0.5);
+    }
+  }
+  else
+  {
+    /* if inclination is zero spin vector is degenerate around z*/
+    /* define the radius of the projected circunference in the x-y plane  */
+    r1 = chi1 * sintheta;
+    phi1 = XLALUniformDeviate( randParams ) * LAL_TWOPI;
+    /* spin1x and spin1y */
+    inj->spin1x = r1 * cos(phi1);
+    inj->spin1y = r1 * sin(phi1);
+  }
+  
   return ( inj );
 }
 

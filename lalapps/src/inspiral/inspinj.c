@@ -180,6 +180,11 @@ INT4  pntMass1=1;
 INT4  pntMass2=1;
 REAL4 deltaMass1=-1;
 REAL4 deltaMass2=-1;
+INT4  pntChi1=1;
+INT4  pntKappa1=1;
+REAL4 deltaChi1=-1;
+REAL4 deltaKappa1=-1;
+INT4 spinSquareGrid = 0;
 INT4 bandPassInj = 0;
 INT4 writeSimRing = 0;
 InspiralApplyTaper taperInj = INSPIRAL_TAPER_NONE;
@@ -628,18 +633,21 @@ static void print_usage(char *program)
       "                           One of these is required.\n"\
       "  --aligned                enforces the spins to be along the direction\n"\
       "                           of orbital angular momentum.\n"\
-      "  [--min-spin1] spin1min   Set the minimum spin1 to spin1min (0.0)\n"\
-      "  [--max-spin1] spin1max   Set the maximum spin1 to spin1max (0.0)\n"\
-      "  [--min-spin2] spin2min   Set the minimum spin2 to spin2min (0.0)\n"\
-      "  [--max-spin2] spin2max   Set the maximum spin2 to spin2max (0.0)\n"\
-      "  [--min-kappa1] kappa1min Set the minimum cos(S1.L_N) to kappa1min (-1.0)\n"\
-      "  [--max-kappa1] kappa1max Set the maximum cos(S1.L_N) to kappa1max (1.0)\n"\
-      "  [--min-abskappa1] abskappa1min \n"\
+      " [--min-spin1] spin1min   Set the minimum spin1 to spin1min (0.0)\n"\
+      " [--max-spin1] spin1max   Set the maximum spin1 to spin1max (0.0)\n"\
+      " [--min-spin2] spin2min   Set the minimum spin2 to spin2min (0.0)\n"\
+      " [--max-spin2] spin2max   Set the maximum spin2 to spin2max (0.0)\n"\
+      " [--min-kappa1] kappa1min Set the minimum cos(S1.L_N) to kappa1min (-1.0)\n"\
+      " [--max-kappa1] kappa1max Set the maximum cos(S1.L_N) to kappa1max (1.0)\n"\
+      " [--min-abskappa1] abskappa1min \n"\
       "                           Set the minimum absolute value of cos(S1.L_N)\n"\
       "                           to abskappa1min (0.0)\n"\
-      "  [--max-abskappa1] abskappa1max \n"\
+      " [--max-abskappa1] abskappa1max \n"\
       "                           Set the maximum absolute value of cos(S1.L_N) \n"\
-      "                           to abskappa1max (1.0)\n\n");
+      "                           to abskappa1max (1.0)\n\n"\
+      " --singlespin-squaregrid     Place single-spin parameters chi-kappa on a square grid\n"\
+      " [--chi1-points] chi1pnt     set the number of grid points in the chi1 direction if '--singlespin-squaregrid'\n"\
+      " [--kappa1-points] kappa1pnt set the number of grid points in the kappa1 direction if '--singlespin-squaregrid'\n\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1451,6 +1459,9 @@ int main( int argc, char *argv[] )
     {"max-spin1",               required_argument, 0,                'G'},
     {"min-spin2",               required_argument, 0,                'u'},
     {"max-spin2",               required_argument, 0,                'U'},
+    {"singlespin-squaregrid",   no_argument,       0,                '4'},
+    {"chi1-points",             required_argument, 0,                '5'},
+    {"kappa1-points",           required_argument, 0,                '6'},    
     {"output",                  required_argument, 0,                'P'},
     {"version",                 no_argument,       0,                'V'},
     {"enable-spin",             no_argument,       0,                'T'},
@@ -2365,6 +2376,27 @@ int main( int argc, char *argv[] )
               "%s", optarg );
         break;
 
+      case '4':
+        /* distribute single-spin parameters on a square grid */
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "" );
+        spinSquareGrid = 1;
+        break;
+      
+      case '5':
+        pntChi1 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "int", "%d", pntChi1 );
+        break;
+      
+      case '6':
+        pntKappa1 = atof( optarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "int", "%d", pntKappa1 );
+        break;
 
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
@@ -2780,6 +2812,28 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
   }
+  
+  /* check if number of grid points is specified for spin parameters*/
+  if ( spinSquareGrid )
+  {
+    if ( pntChi1<2 || pntKappa1<2 )
+    {
+      fprintf( stderr, "--chi1-points and --kappa1-points must be specified "
+          "and >= 2 if --singlespin-squaregrid is specified \n" );
+      exit( 1 );
+    }
+    else if ( minSpin1 < 0.0 || maxSpin1 < 0.0 || minabsKappa1 > 0.0 || maxabsKappa1 < 1.0)
+    {
+      fprintf( stderr, "Option --min-spin1, --max-spin1, --min-kappa1 --max-kappa1 must be specified" 
+           "with --singlespin-squaregrid \n" "--min-abskappa1 and --max-abskappa1 are not allowed\n");
+      exit( 1 );
+    }
+    else
+    {
+      deltaChi1 = ( maxSpin1 - minSpin1 ) / (REAL4) ( pntChi1 -1 );
+      deltaKappa1 = ( maxKappa1 - minKappa1 ) / (REAL4) ( pntKappa1 -1 );
+    }
+  }
         
   if( dDistr==sfr && localRate > 0.)
   {
@@ -3048,26 +3102,34 @@ int main( int argc, char *argv[] )
     /* populate spins, if required */
     if (spinInjections)
     {
-      if (spinAligned==1)
+      if (spinSquareGrid==1)
       {
-        if (strncmp(waveform, "IMRPhenomB", 10)==0)
-          alignInj = alongzAxis;
-        else if (strncmp(waveform, "SpinTaylor", 10)==0)
-          alignInj = inxzPlane;
-        else
-        {
-          fprintf( stderr, "Unknown waveform type for aligned spin injections.\n" );
-          exit( 1 );
-        }
+        simTable = XLALSquareGridSingleSpinParams( simTable, randParams, minSpin1, minKappa1,
+              deltaChi1, deltaKappa1, pntChi1, pntKappa1, ninj);
       }
       else
-        alignInj = notAligned;
-      simTable = XLALRandomInspiralSpins( simTable, randParams,
-          minSpin1, maxSpin1,
-          minSpin2, maxSpin2,
-          minKappa1, maxKappa1,
-          minabsKappa1, maxabsKappa1,
-          alignInj );
+      {
+        if (spinAligned==1)
+        {
+          if (strncmp(waveform, "IMRPhenomB", 10)==0)
+            alignInj = alongzAxis;
+          else if (strncmp(waveform, "SpinTaylor", 10)==0)
+            alignInj = inxzPlane;
+          else
+          {
+            fprintf( stderr, "Unknown waveform type for aligned spin injections.\n" );
+            exit( 1 );
+          }
+        }
+        else
+          alignInj = notAligned;
+        simTable = XLALRandomInspiralSpins( simTable, randParams,
+            minSpin1, maxSpin1,
+            minSpin2, maxSpin2,
+            minKappa1, maxKappa1,
+            minabsKappa1, maxabsKappa1,
+            alignInj );
+      }
     }
 
     if ( ifos != NULL )
