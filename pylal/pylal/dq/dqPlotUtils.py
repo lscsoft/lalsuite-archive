@@ -1436,6 +1436,48 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         for iTrig in backTable[0][3:]:
           nvetoData[j][ycolumn][iTrig] = numpy.nan
 
+  # down-sample (xaxis) the triggers by plotting only median z-value over averaging window 
+  medianDuration = float(kwargs.pop('medianduration', 0))
+  stdDuration = float(kwargs.pop('stdduration', 0))
+  if medianDuration or stdDuration:
+    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
+    if medianDuration:
+      avDuration = medianDuration
+    elif stdDuration:
+      avDuration = stdDuration
+    tedges = numpy.arange(float(start), float(end), avDuration)
+    # array for repacking triggers into time-frequency bins
+    repackTrig = {}
+    for yVal in uniqYvalues:
+      repackTrig[yVal] = {}
+      for iBin in range(len(tedges)-1):
+        repackTrig[yVal][iBin] = []
+    # building new set of triggers
+    newTrigs = {}
+    newTrigs[xcolumn] = []
+    newTrigs[ycolumn] = []
+    newTrigs[zcolumn] = []
+    for iTrig in range(len(nvetoData[0][zcolumn])):
+      trigVal = nvetoData[0][ycolumn][iTrig]
+      trigBin = math.floor((nvetoData[0][xcolumn][iTrig]-float(start))/avDuration)
+      repackTrig[trigVal][trigBin].append(nvetoData[0][zcolumn][iTrig])
+    for yVal in uniqYvalues:
+      for iBin in range(len(tedges)-1):
+        # keep only if at least a few elements, std doesn't make sens otherwise
+        if medianDuration and len(repackTrig[yVal][iBin]) > 0:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.median(numpy.array(repackTrig[yVal][iBin])))
+        elif stdDuration and len(repackTrig[yVal][iBin]) > 5:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.std(numpy.array(repackTrig[yVal][iBin]))/ \
+                                     numpy.median(numpy.array(repackTrig[yVal][iBin])))
+          if newTrigs[zcolumn][-1] == 0:
+            newTrigs[zcolumn][-1] = numpy.nan
+    for i,col in enumerate(columns):
+      nvetoData[0][col] = numpy.array(newTrigs[col])
+
   # get limits
   for i,col in enumerate(columns):
     if not limits[i]:
