@@ -21,7 +21,7 @@ usage="""
 this is a module for use in mvsc_get_doubles
 """
 
-__author__ = "Kari Hodge <khodge@ligo.caltech.edu>"
+__author__ = "Kari Hodge <khodge@ligo.caltech.edu>, Paul T Baker <paul.baker@ligo.org>"
 
 class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
@@ -63,7 +63,9 @@ class CandidateEventQuery:
 			AND mapC.table_name == 'coinc_event'
 			AND mapD.table_name == 'sim_inspiral'
 			AND snglA.ifo == ?
-			AND snglB.ifo == ?"""
+			AND snglB.ifo == ?
+			AND snglA.start_time > ?
+			AND snglA.start_time < ?"""
 	add_join_fulldata="""
 		, experiment_summary.datatype
 		FROM
@@ -82,4 +84,6 @@ class CandidateEventQuery:
 			AND mapA.table_name == 'sngl_ringdown'
 			AND mapB.table_name == 'sngl_ringdown'
 			AND snglA.ifo == ?
-			AND snglB.ifo == ?"""
+			AND snglB.ifo == ?
+			AND snglA.start_time > ?
+			AND snglA.start_time < ?"""
