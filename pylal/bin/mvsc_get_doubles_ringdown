@@ -38,14 +38,13 @@ sqlite3.enable_callback_tracebacks(True)
 parser=OptionParser(usage=usage,version=git_version.verbose_msg)
 parser.add_option("", "--number", default=10, type="int", help="number for round robin")
 parser.add_option("", "--instruments", help="pair that you want to get like H1,L1")
-parser.add_option("", "--apply-weights", default=False, help="calculates weight for all found injections, saves in .pat file (all bkg events get weight=1), if this option is not supplied, all events get a weight of 1, so still use -a 4 in the Spr* executables")
-parser.add_option("", "--output-tag", default="", help="a string added to all filenames to help you keep track of things")
+parser.add_option("", "--output-tag", default="CBC", help="a string added to all filenames to help you keep track of things")
+parser.add_option("", "--apply-weights", action="store_true", default=False, help="calculates weight for all found injections, saves in .pat file (all bkg events get weight=1), if this option is not supplied, all events get a weight of 1, so still use -a 4 in the Spr* executables")
 (opts,databases)=parser.parse_args()
 ifos=opts.instruments.strip().split(',')
 ifos.sort()
 
 time1=time()
-
 
 class SnglRingdown(snglringdowntable.SnglRingdownTable):
 	"""
@@ -65,9 +64,9 @@ dbtables.lsctables.SnglRingdownTable.RowType = SnglRingdown
 parameters = mvsc_queries_ringdown.CandidateEventQuery.parameters
 print "your MVSC analysis will use the following dimensions: "+parameters
 
-injections = {}
-injections_info = {}
-normalization = {}
+injections = []
+injections_info = []
+normalization = []
 zerolag = []
 zerolag_info = []
 timeslides = []
@@ -133,24 +132,9 @@ for database in databases:
 		is_injections = False
 
 	if is_injections:
-# get the names of each injection run, so that we can normalize the weights given to the triggers
-		for injset in connection.cursor().execute("""
-			SELECT
-				value
-			FROM
-				process_params
-			WHERE
-				program = 'inspinj'
-				AND param == '--userTag'
-			"""):
-				injset = str(injset[0])
-				normalization[injset]=0
-				injections[injset]=[]
-				injections_info[injset]=[]
-				for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],injset,) ):
-						normalization[injset]=normalization[injset]+values[-1]
-						injections[injset].append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
-						injections_info[injset].append([values[0], database])
+		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],) ):
+			injections.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,) + (1,))
+			injections_info.append([values[0], database])
 
 	#FIXME: look up coinc_definer_id from definition in pylal
 # get the timeslide/full_data triggers
@@ -163,29 +147,21 @@ for database in databases:
 			zerolag_info.append([values[0], database])
 	dbtables.put_connection_filename(database, working_filename, verbose = True)
 
-# now we will normalize the weighting column by multiplying it by the number of found injections in the injection set, and dividing by the sum of the efficiency factors for all found injections in the injection set, then we can put all injections into the same list
-#FIXME: there are better ways to implement the weighting, please think about it before applying
-allinjections=[]
-allinjections_info=[]
-
-for key in injections.keys():
-	print "injection set", key
-	print "sum of all efficiency factors for injection set", normalization[key]
-	print "number of triggers in injection set", len(injections[key])
-	for row in range(len(injections[key])):
-		injtmp = list(injections[key][row])
-		if opts.apply_weights:
-			injtmp[-2] = injtmp[-2]*float(len(injections[key]))/normalization[key]
-		else:
-			injtmp[-2] = 1
-		allinjections.append(injtmp)
-		allinjections_info.append(list(injections_info[key][row]))
-
+# the weight given to each injection will be equal to 1/sqrt(snr_a^2+snr_b^2)
+#FIXME: maybe there are better ways to implement the weighting, please think about it before applying 
+newinjections=[]
+if opts.apply_weights:
+	print "applying weights for injections"
+	for row in injections:
+		injtmp = list(row)
+		injtmp[-2]=1.0/(injtmp[4]**2+injtmp[5]**2)**0.5
+		newinjections.append(tuple(injtmp))
+	injections=newinjections
 
 random.seed(1)
-random.shuffle(allinjections)
+random.shuffle(injections)
 random.seed(1)
-random.shuffle(allinjections_info)
+random.shuffle(injections_info)
 random.seed(2)
 random.shuffle(timeslides)
 random.seed(2)
@@ -197,7 +173,7 @@ random.shuffle(timeslides_info)
 # then we'd run the remaining 10% through the trained forest to get their MVSC rank
 # in this case, we'd do this 10 times, ensuring that every timeslide and injection gets ranked
 Nrounds = opts.number
-Ninj = len(allinjections)
+Ninj = len(injections)
 Nslide = len(timeslides)
 
 trstr = 'training'
@@ -205,11 +181,11 @@ evstr = 'evaluation'
 zlstr = 'zerolag'
 
 print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " and triple coincidences"
-print "there are ", len(allinjections), " injection doubles in ", ''.join(ifos), " and triple coincidences"
+print "there are ", len(injections), " injection doubles in ", ''.join(ifos), " and triple coincidences"
 print "there are ", len(zerolag), " zerolag doubles in ", ''.join(ifos), " and triple coincidences"
 
-if len(allinjections) != 0:
-	Nparams = len(allinjections[0]) - 2
+if len(injections) != 0:
+	Nparams = len(injections[0]) - 2
 
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(set_num) + '_' + str(filetype) +  '.pat', 'w')
@@ -221,8 +197,8 @@ if len(allinjections) != 0:
 		f_training = open_file_write_headers(trstr, i, ifos)
 		f_eval = open_file_write_headers(evstr, i, ifos)
 		f_eval_info=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_' + str(evstr) + '_info.pat', 'w')
-		set_inj = list(allinjections)
-		set_inj_info = list(allinjections_info)
+		set_inj = list(injections)
+		set_inj_info = list(injections_info)
 		set_slide = list(timeslides)
 		set_slide_info = list(timeslides_info)
 		# get 10% of the timeslides and injections, which you will run through the forest that you've trained on the other 90%
@@ -253,7 +229,7 @@ if len(allinjections) != 0:
 	f_zerolag_info=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(zlstr) + '_info.pat', 'w')
 	for row in zerolag_info:
 		f_zerolag_info.write("%s\n" % " ".join(map(str,row)))
-else: print "There were no injections found for the specified ifo combination %s" % ifos
+else: raise Exception, "There were no injections found for the specified ifo combination %s" % ifos
 
 time2=time()
 elapsed_time=time2-time1
