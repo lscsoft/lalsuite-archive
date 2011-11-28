@@ -30,17 +30,18 @@ parser.add_option("-l", "--leaf-size", default=4, type="int")
 parser.add_option("-s", "--sampled-parameters",default=6, type="int")
 parser.add_option("-i", "--ini-file")
 parser.add_option("-k", "--skip-file-generation", action = "store_true", help = "provide this option if you already have your .pat files and don't need to generate them again")
-parser.add_option("-p","--log-path", help = "set dagman log path")
+parser.add_option("-p","--log-path", default='logs/', help = "set dagman log path")
 parser.add_option("-a","--all-instruments", help = "the list of all instruments from which you want to study the double-coincident triggers. e.g. H1,H2,L1,V1")
+parser.add_option("-u","--user-tag", default='CBC', help= "help you keep track of multiple runs in a single directory, i.e. CAT_3 or CAT_4")
 (opts, databases) = parser.parse_args()
 
-run_tag = '_n'+str(opts.number_of_trees)+'_l'+str(opts.leaf_size)+'_s'+str(opts.sampled_parameters)+'_c'+str(opts.criterion_for_optimization)
+run_tag = opts.user_tag+'_n'+str(opts.number_of_trees)+'_l'+str(opts.leaf_size)+'_s'+str(opts.sampled_parameters)+'_c'+str(opts.criterion_for_optimization)
 
 
 class mvsc_dag_DAG(pipeline.CondorDAG):
   def __init__(self, config_file, log_path):
     self.config_file = str(config_file)
-    self.basename = self.config_file.replace('.ini','')+run_tag
+    self.basename = self.config_file.replace('.ini','')+'_mvsc_'+run_tag
     tempfile.tempdir = log_path
     tempfile.template = self.basename + '.dag.log.'
     logfile = tempfile.mktemp()
@@ -56,21 +57,21 @@ class mvsc_dag_DAG(pipeline.CondorDAG):
     
 class mvsc_get_doubles_job(pipeline.CondorDAGJob):
   """
-  A mvsc_get_doubles.py job: BLAH
+  A mvsc_get_doubles job: BLAH
   """
   def __init__(self, cp, tag_base='MVSC_GET_DOUBLES'):
     """
     """
-    self.__prog__ = 'mvsc_get_doubles.py'
-    self.__executable = string.strip(cp.get('condor','mvsc_get_doubles.py'))
+    self.__prog__ = 'mvsc_get_doubles'
+    self.__executable = string.strip(cp.get('condor','mvsc_get_doubles'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
-    self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
-    self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
+    self.set_stdout_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).out')
+    self.set_stderr_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).err')
 
 class mvsc_get_doubles_node(pipeline.CondorDAGNode):
   """
@@ -84,6 +85,7 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
     for database in databases:
       self.add_file_arg(database)
     self.add_var_opt("instruments",instruments)
+    self.add_var_opt("output-tag",opts.user_tag)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -95,15 +97,15 @@ class train_forest_job(pipeline.CondorDAGJob):
     """
     """
     self.__prog__ = 'SprBaggerDecisionTreeApp'
-    self.__executable = string.strip(cp.get('condor','SprBaggerDecisionTreeApp'))
+    self.__executable = string.strip(cp.get('condor','mvsc_train_forest'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
-    self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
-    self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
+    self.set_stdout_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).out')
+    self.set_stderr_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).err')
 
 class train_forest_node(pipeline.CondorDAGNode):
   """
@@ -114,7 +116,7 @@ class train_forest_node(pipeline.CondorDAGNode):
     self.add_macro("macroid", dag.id)
     self.add_input_file(trainingfile)
     self.trainingfile = self.get_input_files()[0]
-    self.trainedforest = self.trainingfile.replace('_training.pat',run_tag+'.spr')
+    self.trainedforest = self.trainingfile.replace('_training.pat','_'+run_tag+'.spr')
     self.add_file_arg("-a 4 -n %s -l %s -s %s -c %s -g 1 -i -d 1 -f %s %s" % (opts.number_of_trees, opts.leaf_size, opts.sampled_parameters, opts.criterion_for_optimization, self.trainedforest, self.trainingfile))
     self.add_output_file(self.trainedforest)
     for p in p_node:
@@ -128,15 +130,15 @@ class use_forest_job(pipeline.CondorDAGJob):
     """
     """
     self.__prog__ = 'SprOutputWriterApp'
-    self.__executable = string.strip(cp.get('condor','SprOutputWriterApp'))
+    self.__executable = string.strip(cp.get('condor','mvsc_use_forest'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
-    self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
-    self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
+    self.set_stdout_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).out')
+    self.set_stderr_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).err')
 
 class use_forest_node(pipeline.CondorDAGNode):
   """
@@ -158,21 +160,21 @@ class use_forest_node(pipeline.CondorDAGNode):
 
 class mvsc_update_sql_job(pipeline.CondorDAGJob):
   """
-  A mvsc_update_sql.py job: BLAH
+  A mvsc_update_sql job: BLAH
   """
   def __init__(self, cp, tag_base='MVSC_UPDATE_SQL'):
     """
     """
-    self.__prog__ = 'mvsc_update_sql.py'
-    self.__executable = string.strip(cp.get('condor','mvsc_update_sql.py'))
+    self.__prog__ = 'mvsc_update_sql'
+    self.__executable = string.strip(cp.get('condor','mvsc_update_sql'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
-    self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
-    self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
+    self.set_stdout_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).out')
+    self.set_stderr_file(opts.log_path+'/'+tag_base+'_'+run_tag+'-$(macroid)-$(process).err')
 
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
@@ -206,7 +208,7 @@ except: pass
 cp = ConfigParser.ConfigParser()
 ininame = opts.ini_file
 cp.read(ininame)
-dag = mvsc_dag_DAG(ininame, opts.log_path)
+dag = mvsc_dag_DAG(ininame, opts.log_path+'/')
 
 #mvsc_get_doubles
 get_job = mvsc_get_doubles_job(cp)
@@ -243,11 +245,11 @@ for comb in ifo_combinations:
   zerolag_files[comb] = []
   zerolag_info_files[comb] = []
   for i in range(int(cp.get("mvsc_get_doubles","number"))):
-    training_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_set'+str(i)+'_'+'training.pat')
-    evaluation_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_set'+str(i)+'_'+'evaluation.pat')
-    evaluation_info_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_set'+str(i)+'_'+'evaluation_info.pat')
-  zerolag_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_zerolag.pat')
-  zerolag_info_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_zerolag_info.pat')
+    training_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'training.pat')
+    evaluation_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation.pat')
+    evaluation_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation_info.pat')
+  zerolag_files[comb].append(combstr+'_'+opts.user_tag+'_zerolag.pat')
+  zerolag_info_files[comb].append(combstr+'_'+opts.user_tag+'_zerolag_info.pat')
   if opts.skip_file_generation:
     get_node[comb] = None
   else:
