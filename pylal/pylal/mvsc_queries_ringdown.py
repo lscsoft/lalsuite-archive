@@ -43,10 +43,6 @@ class CandidateEventQuery:
 #			coinc_ringdown.null_stat,
 #			coinc_ringdown.eff_coh_snr"""
 	add_join_injections="""
-		,	CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
-				WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
-				WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
-				ELSE 1.0 END
 		FROM
 			coinc_ringdown
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_ringdown.coinc_event_id)
@@ -59,7 +55,6 @@ class CandidateEventQuery:
 			JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
 			JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == mapA.coinc_event_id)
 			JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
-			JOIN process_params ON (process_params.process_id == sim_inspiral.process_id)
 		WHERE
 			( coinc_definer.search == 'ring' OR coinc_definer.search =='ringdown' )
 			AND coinc_definer.search_coinc_type == 2
@@ -68,8 +63,7 @@ class CandidateEventQuery:
 			AND mapC.table_name == 'coinc_event'
 			AND mapD.table_name == 'sim_inspiral'
 			AND snglA.ifo == ?
-			AND snglB.ifo == ?
-			AND process_params.program == 'inspinj' AND process_params.param == '--userTag' AND process_params.value == ?"""
+			AND snglB.ifo == ?"""
 	add_join_fulldata="""
 		, experiment_summary.datatype
 		FROM
