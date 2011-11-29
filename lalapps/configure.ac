@@ -11,7 +11,6 @@ AC_CONFIG_FILES([\
   man/Makefile \
   misc/Makefile \
   src/Makefile \
-  src/lalapps/defaults.py \
   src/lalapps/Makefile \
   src/calibration/Makefile \
   src/frametools/Makefile \
@@ -94,8 +93,6 @@ LALSUITE_ENABLE_LALPULSAR
 LALSUITE_ENABLE_LALINFERENCE
 LALSUITE_ENABLE_LALSTOCHASTIC
 
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalapps])
-
 # put version/configure info in config header
 lalapps_version_major=`echo "$VERSION" | cut -d. -f1`
 lalapps_version_minor=`echo "$VERSION" | cut -d. -f2`
@@ -126,6 +123,9 @@ else
   LDFLAGS=`echo $LDFLAGS | sed s/-all-static//g`
   allstatic="true"
 fi
+
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
 # check for c compiler
 m4_pattern_allow([AC_PROG_CC_C99])
@@ -301,6 +301,27 @@ if test "${metaio}" = "true"; then
                    [CPPFLAGS="$lal_pre_metaio_CPPFLAGS"])
 fi
 LALSUITE_ENABLE_MODULE([METAIO],[metaio])
+
+# check for libxml2
+if test "$lalxml" = "true"; then
+  PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6],[true],[false])
+  lal_pre_libxml2_LIBS="$LIBS"
+  LIBS="$LIBS $LIBXML2_LIBS"
+  AC_SEARCH_LIBS([xmlInitParser],[xml2],,
+                 [AC_MSG_WARN([cannot find the xml2 library])]
+                 [lalxml="false"]
+                 [LIBS="$lal_pre_libxml2_LIBS"])
+fi
+
+# check for libxml2 headers
+if test "$lalxml" = "true"; then
+  lal_pre_libxml2_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$CPPFLAGS $LIBXML2_CFLAGS"
+  AC_CHECK_HEADERS([libxml/tree.h],,
+                   [AC_MSG_WARN([could not the libxml/tree.h header])]
+                   [lalxml="false"]
+                   [CPPFLAGS="$lal_pre_libxml2_CPPFLAGS"])
+fi
 
 # check for libcfitsio
 if test "${cfitsio}" = "true"; then

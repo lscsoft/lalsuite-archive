@@ -21,7 +21,7 @@
 # =============================================================================
 
 from __future__ import division
-import re,numpy,math,subprocess
+import re,numpy,math,subprocess,scipy,sys
 
 from glue.ligolw import ligolw,table,lsctables,utils
 from glue.ligolw.utils import process as ligolw_process
@@ -29,7 +29,12 @@ from glue import segments
 
 from pylal import llwapp
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.xlal import constants as XLALConstants
 from pylal.dq import dqTriggerUtils
+
+from matplotlib import use
+use('Agg')
+from pylab import hanning
 
 # Hey, scipy, shut up about your nose already.
 import warnings
@@ -229,8 +234,8 @@ def frominjectionfile(file, type, ifo=None, start=None, end=None):
 # Calculate band-limited root-mean-square
 # =============================================================================
 
-def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
-          remove_mean=False):
+def blrms(data, sampling, average=1, band=None, filter='butter', order=4,\
+          remove_mean=False, verbose=False):
 
   """
     This function will calculate the band-limited root-mean-square of the given
@@ -238,97 +243,92 @@ def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
 
     Options are included to offset the data, and weight frequencies given a 
     dict object of (frequency:weight) pairs.
+
+    Arguments:
+
+      data : numpy.ndarray
+        array of data points
+      sampling : int
+        number of data points per second
+
+    Keyword arguments:
+
+
   """
 
-  # redefine None variables
-  if average==None:
-    average=len(data)/sampling
+  nyq = sampling/2
+
+  # verify band variables
   if band==None:
     band=[0,sampling/2]
-  # calculate mean
+  fmin = float(band[0])
+  fmax = float(band[1])
+
+  if verbose:
+    sys.stdout.write("Calculating BLRMS in band %s-%s Hz...\n" % (fmin, fmax))
+
+  #
+  # remove mean
+  #
+
   if remove_mean:
-    mean = sum(data)/len(data)
-    data = data-mean
-  # generate window
-  window = pylab.hanning(len(data))
-  data = numpy.multiply(data,window)
-  # Fourier transform
-  fft_data = numpy.fft.rfft(data)
-  # PSD (homemade)
-  psd_tmp = (8/3)/(pow(sampling,2)*average)*\
-                numpy.multiply(fft_data,numpy.conj(fft_data))
-  df = sampling/len(data)
-  frequencies = list(numpy.arange(0,sampling/2,df))
-  psd = {}
-  # set up psd as dictionary for ease
-  for freq in frequencies:
-    psd[freq] = psd_tmp[frequencies.index(freq)]
-  # define frequency band vector by removing psd frequencies outside of band
-  for freq in frequencies:
-    if freq < band[0]:
-      del psd[freq]
-    elif freq >= band[1]:
-      del psd[freq]
-  band_freq = sorted(psd.keys())
-  #band_freq = numpy.arange(band[0],band[1],1/average)
+    data = data-data.mean()
+    if verbose: sys.stdout.write("Data mean removed.\n")
 
-  # calculate banded weight function
-  banded_weight = {}
-  if w_data is not None:
-    # construct weight dictionary for ease
-    w_frequencies = list(w_data[:,0])
-    weight={}
-    for freq in w_frequencies:
-       weight[freq]=w_data[:,1][w_frequencies.index(freq)]
-    # calculate weight for each frequency in given band
-    for freq in band_freq:
-      w_index=-1
-      # if frequency is in the weighting function, use it
-      if freq in w_frequencies:
-        banded_weight[freq] = weight[freq]
-      # else, linearly extrapolate weight from weighting function 
-      else:
-        # find weight frequency on either side using frequency list
-        for w_freq in w_frequencies:
-          # find position of surrounding pair
-          if w_freq>freq:
-            w_index = w_frequencies.index(w_freq)-1
-            if w_index==-1:  w_index-=1
-            break
-        # if index not found, assign weight of one
-        if w_index == -1:
-          banded_weight[freq]=1
-       # unless not found because freq is below lowest weight freq, 
-       #   assign weight of lowest weight freq for consistency
-        elif w_index ==-2:
-          banded_weight[freq]=weight[w_frequencies[0]]
-        else:
-          wf_low,wf_high = w_frequencies[w_index],w_frequencies[w_index+1]
-          # calculate frequency weight linearly between weight on either side
-          w_interval = weight[wf_high]-weight[wf_low]
-          banded_weight[freq] = weight[wf_low] + \
-              w_interval * (freq-wf_low)/(wf_high-wf_low)
+  #
+  # construct filter
+  # 
 
-  else:
-    # construct unity weight function
-    for freq in band_freq:
-      banded_weight[freq]=1
+  # construct passband
+  passband = [fmin*2/sampling,fmax*2/sampling]
+  # construct filter
+  filter = filter.lower()
+  b,a = signal.iirfilter(order, passband, btype='bandpass', output='ba',\
+                         ftype=filter, rp=0.5, rs=50)
 
-  # restrict psd to band
-  banded_psd=[]
-  for freq in band_freq:
-    banded_psd.append(psd[freq])
+  #
+  # bandpass
+  #
 
-  #psd = psd[int(round(band[0]*average)):int(round(band[1]*average))]
-  # calculate blrms
-  #blrms = numpy.multiply(banded_weight.values(),psd)
-  blrms = math.sqrt(\
-              (sum(\
-                   numpy.multiply(banded_weight.values(),psd.values()))\
-               + offset)\
-              *df)
+  data = signal.lfilter(b,a,data)
+  data = data[::-1]
+  data = signal.lfilter(b,a,data)
+  data = data[::-1]
 
-  return blrms
+  if verbose: sys.stdout.write("Bandpass filter applied to data.\n")
+
+  #
+  # calculate rms
+  #
+
+  # construct output array
+  numsamp = average*sampling
+  numaverage = numpy.ceil(len(data)/sampling/average)
+  output  = numpy.empty(numaverage)
+
+  nanwarned=False
+
+  # loop over averages
+  for i in xrange(len(output)):
+
+    # get indices
+    idxmin = i*sampling*average
+    idxmax = idxmin + numsamp
+
+    # get data chunk
+    chunk = data[idxmin:idxmax]
+
+    # get rms
+    rms = numpy.sqrt(numpy.power(chunk,2).mean())
+    if not nanwarned and numpy.isnan(rms):
+      sys.stderr.write("WARNING, NaN found in BLRMS.\n")
+      nanwarned=True
+    output[i] = rms
+
+  if verbose: sys.stdout.write("RMS calculated for %d averages.\n"\
+                               % len(output))
+
+  return output
 
 # =============================================================================
 # Function to bandpass a time-series
@@ -354,6 +354,26 @@ def bandpass(data, f_low, f_high, sampling, order=4):
   return data
 
 # =============================================================================
+# Highpass
+# =============================================================================
+
+def highpass(x, f_low, sampling, order=8):
+
+  # construct passband
+  bpass = 2*f_low/sampling
+
+  # construct filter
+  (b, a) = signal.butter(order, bpass, btype='high', analog=0, output='ba')
+
+  # filter data forward then backward
+  y = signal.lfilter(b,a,x)
+  y = y[::-1]
+  y = signal.lfilter(b,a,y)
+  y = y[::-1]
+
+  return y
+
+# =============================================================================
 # Calculate spectrum
 # =============================================================================
 
@@ -371,17 +391,339 @@ def spectrum(data, sampling, NFFT=256, overlap=0.5,\
 
   # calculate PSD with given parameters
   spec,freq = mlab.psd(data, NFFT=NFFT, Fs=sampling, noverlap=numoverlap,\
-                        window=win, sides=sides, detrend=detrender)
+                       window=win, sides=sides, detrend=detrender)
 
   # rescale data to meet user's request
   scale = scale.lower()
   if scale == 'asd':
     spec = numpy.sqrt(spec) * numpy.sqrt(2 / (sampling*sum(win**2)))
   elif scale == 'psd':
-    spec = spec * 2 / (sampling*sum(win**2))
+    spec *= 2/(sampling*sum(win**2))
   elif scale == 'as':
     spec = nump.sqrt(spec) * numpy.sqrt(2) / sum(win)
   elif scale == 'ps':
     spec = spec * 2 / (sum(win)**2)
 
-  return freq,spec
+  return freq, spec.flatten()
+
+# =============================================================================
+# Median Mean Spectrum
+# =============================================================================
+
+def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
+                              window=('kaiser',24), sides='onesided',\
+                              verbose=False):
+
+  """
+    Computes power spectral density of a data series using the median-mean
+    average method.
+  """
+
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the momen')
+
+  # cast data series to numpy array
+  data = numpy.asarray(data)
+
+  # number of segments (must be even)
+  if overlap==0:
+    numseg = int(len(data)/NFFT)
+  else:
+    numseg = 1 + int((len(data)-NFFT)/overlap)
+  assert (numseg - 1)*overlap + NFFT == len(data),\
+         "Data is wrong length to be covered completely, please resize"
+
+  # construct window
+  win = scipy.signal.get_window(window, NFFT)
+
+  if verbose: sys.stdout.write("%s window constructed.\nConstructing "
+                               "median-mean average spectrum "
+                               "with %d segments...\n"\
+                               % (window.title(), numseg))
+
+  #
+  # construct PSD
+  #
+
+  # fft scaling factor for units of Hz^-1
+  scaling_factor = 1 / (fs * NFFT)
+
+  # construct frequency
+  f = numpy.arange(NFFT//2 + 1) * (fs / NFFT)
+
+  odd  = numpy.arange(0, numseg, 2)
+  even = numpy.arange(1, numseg, 2)
+
+  # if odd number of segments, ignore the first one (better suggestions welcome)
+  if numseg == 1:
+    odd = [0]
+    even = []
+  elif numseg % 2 == 1:
+    odd = odd[:-1]
+    numseg -= 1
+    sys.stderr.write("WARNING: odd number of FFT segments, skipping last.\n")
+
+  # get bias factor
+  biasfac = MedianBias(numseg//2)
+  # construct normalisation factor
+  normfac = 1/(2*biasfac)
+
+  # set data holder
+  S = numpy.empty((numseg, len(f)))
+
+  # loop over segments
+  for i in xrange(numseg):
+
+    # get data
+    chunk = data[i*overlap:i*overlap+NFFT]
+    # apply window
+    wdata = WindowDataSeries(chunk, win)
+    # FFT
+    S[i]  = PowerSpectrum(wdata, sides) * scaling_factor
+
+  if verbose: sys.stdout.write("Generated spectrum for each chunk.\n")
+
+  # compute median-mean average
+  if numseg > 1:
+    S_odd = scipy.median([S[i] for i in odd])
+    S_even = scipy.median([S[i] for i in even])
+    S = (S_even  + S_odd) * normfac
+  else:
+    S = S.flatten()
+  if verbose: sys.stdout.write("Calculated median-mean average.\n")
+
+  return f, S
+
+# =============================================================================
+# Median bias factor
+# =============================================================================
+
+def MedianBias(nn):
+
+  """
+    Returns the median bias factor.
+  """
+
+  nmax = 1000;
+  ans  = 1;
+  n    = (nn - 1)//2;
+  if nn >= nmax:
+   return numpy.log(2)
+
+  for i in xrange(1, n+1):
+    ans -= 1.0/(2*i);
+    ans += 1.0/(2*i + 1);
+
+  return ans;
+
+# =============================================================================
+# Median average spectrum
+# =============================================================================
+
+def AverageSpectrumMedian(data, fs, NFFT=256, overlap=128,\
+                          window='hanning', sides='onesided',\
+                          verbose=False):
+
+  """
+    Construct power spectral density for given data set using the median
+    average method.  
+  """
+
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the momen')
+
+  # cast data series to numpy array
+  data = numpy.asarray(data)
+
+  # number of segments (must be even)
+  if overlap==0:
+    numseg = int(len(data)/NFFT)
+  else:
+    numseg = 1 + int((len(data)-NFFT)/overlap)
+  assert (numseg - 1)*overlap + NFFT == len(data),\
+         "Data is wrong length to be covered completely, please resize"
+
+  # construct window
+  win = scipy.signal.get_window(window, NFFT)
+
+  if verbose: sys.stdout.write("%s window constructed.\nConstructing "
+                               "median average spectrum "
+                               "with %d segments...\n"\
+                               % (window.title(), numseg))
+
+  #
+  # construct PSD
+  #
+
+  # fft scaling factor for units of Hz^-1
+  scaling_factor = 1 / (fs * NFFT)
+
+  # construct frequency
+  f = numpy.arange(NFFT//2 + 1) * (fs / NFFT)
+
+  # get bias factor
+  biasfac = MedianBias(numseg)
+
+  # construct normalisation factor
+  normfac = 1/(biasfac)
+
+  # set data holder
+  S = numpy.empty((numseg, len(f)))
+
+  # loop over segments
+  for i in xrange(numseg):
+
+    # get data
+    chunk = data[i*overlap:i*overlap+NFFT]
+    # apply window
+    wdata = WindowDataSeries(chunk, win)
+    # FFT
+    S[i]  = PowerSpectrum(wdata, sides) * scaling_factor
+
+  if verbose: sys.stdout.write("Generated spectrum for each chunk.\n")
+
+  # compute median-mean average
+  if numseg > 1:
+    S = scipy.median([S[i] for i in odd])*normfac
+  else:
+    S = S.flatten()
+  if verbose: sys.stdout.write("Calculated median average.\n")
+
+  return f, S 
+
+# =============================================================================
+# Apply window
+# =============================================================================
+
+def WindowDataSeries(series, window=None):
+
+  """
+    Apply window function to data set, defaults to Hanning window.
+  """
+
+  # generate default window
+  if window == None:
+    window = scipy.signal.hanning(len(series))
+
+  # check dimensions
+  assert len(series)==len(window), 'Window and data must be same shape'
+
+  # get sum of squares
+  sumofsquares = numpy.power(window,2).sum()
+  assert sumofsquares > 0, 'Sum of squares of window non-positive.'
+
+  # generate norm
+  norm = numpy.sqrt(len(window)/numpy.power(window,2).sum())
+
+  # apply window
+  return series * window * norm
+
+# =============================================================================
+# Power spectrum
+# =============================================================================
+
+def PowerSpectrum(series, sides='onesided'):
+
+  """
+    Calculate power spectum of given series
+  """
+
+  if sides!='onesided':
+    raise NotImplementedError('Only one sided spectrum implemented for the moment')
+
+  # apply FFT
+  tmp = numpy.fft.fft(series, n=len(series))
+
+  # construct spectrum
+  if sides=='onesided':
+    spec = numpy.empty(len(tmp)//2+1)
+  elif sides=='twosided':
+    spec = numpy.empty(len(tmp))
+
+  # DC component
+  spec[0] = tmp[0]**2
+
+  # others
+  s = (len(series)+1)//2
+  spec[1:s] = 2 * ( numpy.power(tmp[1:s].real, 2) + numpy.power(tmp[1:s].imag , 2) )
+
+  # Nyquist
+  if len(series) % 2 == 0:
+    spec[len(series)/2] = tmp[len(series)/2]**2
+
+  return spec
+
+# =============================================================================
+# Inspiral range
+# =============================================================================
+
+def inspiral_range(f, S, rho=8, mchirp=1.219, fmin=30, fmax=4096,\
+                   horizon=False):
+
+  """
+    Calculate inspiral range for a given spectrum.
+  """
+
+  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+
+  # calculate prefactor in m^2
+  mchirp *= XLALConstants.LAL_MSUN_SI * XLALConstants.LAL_G_SI /\
+            XLALConstants.LAL_C_SI**2
+  pre = (5 * XLALConstants.LAL_C_SI**(1/3) * mchirp**(5/3) * 1.77**2) /\
+        (96 * numpy.pi ** (4/3) * rho**2)
+
+  # restrict to range
+  condition = (f >= fmin) & (f < fmax)
+  S         = S[condition]
+  f         = f[condition]
+
+  # calculate integrand
+  integrand = (f**(-7/3))/S
+
+  # integrate
+  result = scipy.integrate.trapz(integrand, f)
+
+  R = (pre*result) ** 0.5 / Mpc
+
+  if horizon: R *= 2.26
+
+  return R
+
+# =============================================================================
+# Frequency dependent Burst range
+# =============================================================================
+
+def f_dependent_burst_range(f, S, rho=8, E=1e-2):
+  """
+    Calculate GRB-like or supernov-like burst range for a given spectrum    and background trigger SNR at a given time as a function of freqeucy.
+  """
+
+  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+
+  # generate frequency dependent range
+  A = (((XLALConstants.LAL_G_SI * (E*XLALConstants.LAL_MSUN_SI) * 2/5)/(XLALConstants.LAL_PI**2 * XLALConstants.LAL_C_SI))**(1/2))/Mpc
+  R = A/ (rho * S**(1/2) * f)
+
+  return R
+
+# =============================================================================
+# Burst range
+# =============================================================================
+
+def burst_range(f, S, rho=8, E=1e-2, fmin=64, fmax=500):
+  """
+    Calculate GRB-like or supernova-like burst range for a given spectrum
+    and background trigger SNR.
+  """
+
+  # restrict spectrum to given frequency range
+  condition = (f>=fmin) & (f<fmax)
+  S2 = S[condition]
+  f2 = f[condition]
+
+  # calculate integral
+  FOM1 = scipy.integrate.trapz(f_dependent_burst_range(f2, S2, rho, E)**3, f2)
+  FOM2 = FOM1/(fmax-fmin)
+  R = scipy.power(FOM2,1/3)
+
+  return R

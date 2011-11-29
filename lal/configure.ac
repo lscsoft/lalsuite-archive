@@ -156,8 +156,6 @@ LAL_ENABLE_MACROS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY
 
-AC_PREFIX_DEFAULT([/opt/lscsoft/lal])
-
 # get version
 lal_version_major=`echo "$VERSION" | cut -d. -f1`
 lal_version_minor=`echo "$VERSION" | cut -d. -f2`
@@ -188,6 +186,9 @@ if test "$lal_pthread_lock" = "true" ; then
     AC_MSG_ERROR([do not know how to compile posix threads])
   fi
 fi
+
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
 # check for c compiler
 m4_pattern_allow([AC_PROG_CC_C99])

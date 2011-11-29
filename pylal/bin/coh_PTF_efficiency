@@ -144,12 +144,19 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
   parser.add_option( "-Z", "--h1-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
                           " use when calculating the h1 calibration amplitude error.")
+  parser.add_option( "", "--h2-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the h2 calibration amplitude error.")
   parser.add_option( "-y", "--l1-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
                           " use when calculating the l1 calibration amplitude error.")
   parser.add_option( "-Y", "--v1-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
                           " use when calculating the v1 calibration amplitde error.")
+  parser.add_option( "-S", "--old-code", action="store_true", default=False,\
+                     help="Use this flag if the old coh_PTF_inspiral, in" +\
+                          "which ra,dec was not time dependent was used" +\
+                          ", default: %default" )
   parser.add_option( "-v", "--verbose", action="store_true", default=False,\
                      help="verbose output, default: %default" )
 
@@ -179,7 +186,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
           chisq_nhigh=3.0, null_thresh = (4.25,6), glitchCheckFac = 1.0,\
           clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20,\
-          vetoFiles = [], wavErr = 0, calErrs = None ):
+          vetoFiles = [], wavErr = 0, calErrs = None, oldCode = False ):
 
   lsctables.SimInspiral.get_theta = sim_inspiral_get_theta
 
@@ -290,9 +297,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   timeBinVetoMaxBestNR = numpy.zeros([len(massBins)+1,numTrials],dtype = float)
   timeBinVetoMaxSNRUncut = numpy.zeros([len(massBins)+1,numTrials],dtype=float)
 
-  # store response function for each sky locations
-  fResp = {}
-  
   for trig in trigs:
 
     # Determine trial of trigger
@@ -339,17 +343,20 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     # get sky location and response
     trigPos = (trig.ra,trig.dec)
-    if trigPos not in fResp.keys():
-      ra            = trig.ra*fRadDeg
-      dec           = trig.dec*fRadDeg
+    ra            = trig.ra*fRadDeg
+    dec           = trig.dec*fRadDeg
+    if (oldCode):
+      fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1] - 1 )
+    else:
       fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
-      fResp[trigPos] = {}
-      for ifo in ifos:
-        fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+ 
+    fResp = {}
+    for ifo in ifos:
+      fResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
 
     # calculate signal based statistics
     bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                         null_thresh=null_thresh, fResp=fResp[trigPos])
+                         null_thresh=null_thresh, fResp=fResp)
 
     trigBestNR[trigBin[0]].append( bestNR )
     trigAllBestNR.append( bestNR )
@@ -384,6 +391,23 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       timeBinVetoMaxSNRUncut[:,jj] = timeBinMaxSNRUncut[:,ii]
       timeBinVetoMaxBestNR[:,jj] = timeBinMaxBestNR[:,ii]
       jj += 1
+
+  # =========================
+  # Calculate and print how many bins have "No event"
+  # ========================
+
+  quietestFap = []
+  for binNum in range(len(massBins)):
+    numEvents = 0
+    for trial in range(numTrials):
+      if timeBinVetoMaxBestNR[binNum,trial] > 0:
+        numEvents += 1
+    quietestFap.append(numEvents/numTrials)
+
+  quietestFile=open('quiet_fap_vals.txt','w')
+  for val in quietestFap:
+    print >> quietestFile, val
+  quietestFile.close()
 
   # ==========================
   # print details of loudest 10 offsouce triggers
@@ -584,16 +608,18 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
       # get sky location and response
       trigPos = (trig.ra,trig.dec)
-      if trigPos not in fResp.keys():
-        ra            = trig.ra*fRadDeg
-        dec           = trig.dec*fRadDeg
+      ra            = trig.ra*fRadDeg
+      dec           = trig.dec*fRadDeg
+      if (oldCode):
+        fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1] - 1 )
+      else:
         fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
-        fResp[trigPos] = {}
-        for ifo in ifos:
-          fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+      fResp = {}
+      for ifo in ifos:
+        fResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
  
       bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                  null_thresh=null_thresh, fResp=fResp[trigPos])
+                                  null_thresh=null_thresh, fResp=fResp)
 
       if loudOnSNRTrigs.has_key(trigBin[0]):
         if loudOnSNR[trigBin[0]] < trig.snr:
@@ -638,8 +664,18 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         loudOnFAP[bin[0]] = FAP
         trig = loudOnBestNRTrigs[bin[0]]
         trigPos = (trig.ra,trig.dec)
+        ra            = trig.ra*fRadDeg 
+        dec           = trig.dec*fRadDeg
+        if (oldCode):
+          fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1] - 1 )
+        else:
+          fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
+        fResp = {}
+        for ifo in ifos:
+          fResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+
         bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                             null_thresh=null_thresh, fResp=fResp[trigPos])
+                             null_thresh=null_thresh, fResp=fResp)
         if len(ifos)>2:
           nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                             for ifo in ifos ])\
@@ -842,16 +878,19 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       # get sky location and response
       trigPos = (trig.ra,trig.dec)
       injPos  = (inj.longitude,inj.latitude)
-      if trigPos not in fResp.keys():
-        ra            = trig.ra*fRadDeg
-        dec           = trig.dec*fRadDeg
+      ra            = trig.ra*fRadDeg
+      dec           = trig.dec*fRadDeg
+      if (oldCode):
+        fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1] - 1 ) 
+      else:
         fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
-        fResp[trigPos] = {}
-        for ifo in ifos:
-          fResp[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+
+      fResp = {}
+      for ifo in ifos:
+        fResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
  
       bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                  null_thresh=null_thresh, fResp=fResp[trigPos])
+                                  null_thresh=null_thresh, fResp=fResp)
 
       # get sky angle between injected and recovered positions
       centralAngle = numpy.arccos( numpy.cos(injPos[1]-trigPos[1]) -\
@@ -865,6 +904,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                                % site.lower()) )
+          gFoundEffSiteDist[site] = list(set(gFoundEffSiteDist[site]))
         gFoundDist.append( inj.distance )
         gFoundMchirp.append( inj.mchirp )
         gFoundMtot.append( inj.mass1 + inj.mass2 )
@@ -879,6 +919,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gIFAREffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                      % site.lower()) )
+          gIFAREffSiteDist[site] = list(set(gIFAREffSiteDist[site]))
         gIFARDist.append( inj.distance )
         gIFARTime.append( float(inj.get_time_geocent()) )
         numTrialsLouder = 0
@@ -895,6 +936,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gMissed2EffSitedist[site].append( getattr(inj,'eff_dist_%s'\
                                                         % site.lower()) )
+          gMissed2EffSitedist[site] = list(set(gMissed2EffSitedist[site]))
         gMissed2Trig.append( trig )
         gMissed2Inj.append( inj )
         gMissed2Mchirp.append( inj.mchirp )
@@ -952,7 +994,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       for site in sites:
         gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
                                                  % site.lower()) )
-
+        gMissedEffDist[site] = list(set(gMissedEffDist[site]))
     # Calculate the amplitude error
     # Begin by calculating the components from each detector
     
@@ -976,13 +1018,45 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
 
     # Now create the numbers for the efficiency plots, these include calibration
     # and waveform errors. These are incorporated by running over each injection
-    # 1000 times, where each time we draw a random value of distance
+    # 100 times, where each time we draw a random value of distance
     numMCInjs = 100
     for inj,trig in zip(foundInjs,foundTrigs):
       # Here we only veto injections *in* CAT2/3 time. Injections in vetoed
       # trials can be retained, if the injection time is not vetoed
       if inj.get_end() in vetoes:
         continue
+
+      trigPos = (trig.ra,trig.dec)
+      ra            = trig.ra*fRadDeg 
+      dec           = trig.dec*fRadDeg
+      if (oldCode):
+        fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1] - 1 ) 
+      else:
+        fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
+      fResp = {}
+      for ifo in ifos:
+        fResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+
+      bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                              null_thresh=null_thresh, fResp=fResp)
+
+      for i,bin in enumerate(massBins):
+        if bin[0] <= inj.mchirp < bin[1]:
+          injBinNum = i
+          injBin = bin
+        if bin[0] <= trig.mchirp < bin[1]:
+          trigBinNum = i
+          trigBin = bin
+        if trigBin and injBin:  break
+
+      if not injBin:
+        print "ERROR: No mass bins match found injection trigger with mchirp "+\
+              "%s" % inj.mchirp
+      if not trigBin:
+        print "ERROR: No mass bins match found injection trigger with mchirp "+\
+              "%s" % trig.mchirp
+
+
       for ii in range(numMCInjs+1):
         # Convert inj.distance to a physical distance by applying calibration
         # and waveform errors
@@ -994,22 +1068,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
             if (wavDistRed > 0):
               break
           distance = inj.distance / ((1 + calDistRed)*(1 + wavDistRed))
-
-        for i,bin in enumerate(massBins):
-          if bin[0] <= inj.mchirp < bin[1]:
-            injBinNum = i
-            injBin = bin
-          if bin[0] <= trig.mchirp < bin[1]:
-            trigBinNum = i
-            trigBin = bin
-          if trigBin and injBin:  break
-
-        if not injBin:
-          print "ERROR: No mass bins match found injection trigger with mchirp "+\
-                "%s" % inj.mchirp
-        if not trigBin:
-          print "ERROR: No mass bins match found injection trigger with mchirp "+\
-                "%s" % trig.mchirp
 
         injDistBin = None
         distNum = 0
@@ -1031,12 +1089,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
             numInjections[injBinNum,injDistNum] += 1
           numInjections[injBinNum,len(distBins)] += 1
 
-
-        bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                null_thresh=null_thresh, fResp=fResp[trigPos])
-
-        # Note that hero we are using BestNRmk8 as the detection stat
-        # if louder than all background:
         if bestNR > maxBestNR[trigBin[0]]:
           # Add 1 to the list of found injections
           if (ii == 0):
@@ -1064,38 +1116,56 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
             # go no further, it will be "found"
             if bestNR > maxBestNR[trigBin[0]]*glitchCheckFac:
               missedExcl = False
-            elif bestNR == 0:            # Next, if the bestNR is 0, the injection will be "missed"
+            elif bestNR == 0:            
+              # Next, if the bestNR is 0, the injection will be "missed"
               missedExcl = True
             else:
               missedExcl = False
-              # Now we have injections with non-zero FAR and not FAR != 1
+              # Now we have injections with non-zero FAP and not FAP = 1
               # Do these injections have louder FAP than all onsource events
               # INcluding those in other mass bins
+
+              # First we calculate the FAP of our trigger
               numTrialsLouder = 0
-              if val > bestNR:
-                numTrialsLouder += 1
+              for val in timeBinVetoMaxBestNR[trigBinNum]:
+                if val > bestNR:
+                  numTrialsLouder += 1
               FAP = numTrialsLouder/numTrials
+
+              # If the FAP larger (less significant) than any of the 3 onsource
+              # mass bins, the injection is "missed"
               for bin in massBins:
                 if FAP > loudOnBestNR[bin[0]]:
                   missedExcl = True
 
+              # Otherwise check against nearby triggers. We want to check that
+              # just there from noise. So we check +/- 0.1s around the trigger
+              # for louder events in the offsource. We demand that the events
+              # bestNR * glitchCheckFac is larger than all background in this
+              # time.
               if not missedExcl:
-                # Otherwise check against nearby triggers. We are looking for louder
-                # triggers within cluster_window
+                # Loop again over all offsource triggers
                 for trig2 in trigs:
+                  # We only want to look at triggers within 0.1s
                   if abs(inj.get_end() - trig2.get_end()) < clusterWindow:
+                    # Get bestNR of the second trigger
                     trigPos2 = (trig2.ra,trig2.dec)
-                    if trigPos2 not in fResp.keys():
-                      ra            = trig2.ra*fRadDeg
-                      dec           = trig2.dec*fRadDeg
-                      fPlus,fCross  = get_det_response( ra, dec, trig2.get_end() )
-                      fResp[trigPos2] = {}
-                      for ifo in ifos:
-                        fResp[trigPos2][ifo] = fPlus[ifo]*fPlus[ifo] \
-                                               + fCross[ifo]*fCross[ifo]
+                    ra            = trig2.ra*fRadDeg
+                    dec           = trig2.dec*fRadDeg
+                    if (oldCode):
+                      fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1] - 1 ) 
+                    else:
+                      fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
+                    fResp = {}
+                    for ifo in ifos:
+                      fResp[ifo] = fPlus[ifo]*fPlus[ifo] \
+                                           + fCross[ifo]*fCross[ifo]
                     bestNR2 = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                null_thresh=null_thresh, fResp=fResp[trigPos2])
+                                null_thresh=null_thresh, fResp=fResp)
  
+                    # Boost the bestNR by the factor (1.05) and check if it is
+                    # louder than the injection trigger. If louder, injection
+                    # is missed. 
                     if bestNR2*glitchCheckFac > bestNR:
                       missedExcl = True
                       break
@@ -1202,8 +1272,19 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       inj = gQuietFound[i][2]
       trig = gQuietFound[i][1]
       if trig:
+        trigPos = (trig.ra,trig.dec)
+        ra            = trig.ra*fRadDeg
+        dec           = trig.dec*fRadDeg
+        if (oldCode):
+          fPlus,fCross  = get_det_response( ra, dec, segs['on'][-1] - 1 ) 
+        else:
+          fPlus,fCross  = get_det_response( ra, dec, trig.get_end() )
+        fResp = {}
+        for ifo in ifos:
+          fResp[ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
+
         bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
-                                  null_thresh=null_thresh, fResp=fResp[trigPos])
+                                  null_thresh=null_thresh, fResp=fResp)
         if len(ifos)>2:
           nullsnr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
                             for ifo in ifos ])\
@@ -1218,6 +1299,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       d = [ i, inj.distance ]
       for site in sites:
         d.append( getattr(inj, 'eff_dist_%s' % site.lower() ) )
+      d = list(set(d))
       d.extend([ inj.mass1, inj.mass2, inj.mchirp])
       if trig:
         d.extend([trig.mass1, trig.mass2, trig.mchirp])
@@ -1440,6 +1522,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     ax.plot(distPlotVals, (finjsNoMC/totalinjsNoMC),'g-')
     ax.plot(distPlotVals, (finjs/totalinjs),'r-')
     ax.plot(distPlotVals,redEfficiency, 'm-' )
+
+    # Print efficiency curve to file
+    file = open( "%s/efficiency_curve.txt" % outdir, "w" )
+    for i in range(len(distPlotVals)):
+      print >>file, distPlotVals[i],redEfficiency[i]
+    file.close()
+
 
     ax.errorbar( distPlotVals, (finjsNoMC/totalinjsNoMC),\
                  yerr=[yerr_lowNoMC,yerr_highNoMC], c = 'g' )
@@ -1738,6 +1827,7 @@ if __name__=='__main__':
   calErrs['H1']= opts.h1_cal_error
   calErrs['L1']= opts.l1_cal_error
   calErrs['V1']= opts.v1_cal_error
+  oldCode      = opts.old_code
   
   nullt        = map( float, opts.null_snr_threshold.split(',') )
   glitchCheckFac = opts.glitch_check_factor
@@ -1753,5 +1843,6 @@ if __name__=='__main__':
         onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
         chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
         clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
-        numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs )
+        numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs,\
+        oldCode=oldCode )
 

@@ -125,7 +125,7 @@ REAL8 cdf_chisq_Qinv(REAL8 Q, REAL8 nu)
 {
    REAL8 val = cdf_gamma_Qinv(Q, 0.5*nu, 2.0);
    if (XLAL_IS_REAL8_FAIL_NAN(val)) {
-      fprintf(stderr, "%s: cdf_gamma_Pinv(%.6f, %.6f, 2.0) failed.\n", __func__, Q, 0.5*nu);
+      fprintf(stderr, "%s: cdf_gamma_Qinv(%.6f, %.6f, 2.0) failed.\n", __func__, Q, 0.5*nu);
       XLAL_ERROR_REAL8(XLAL_EFUNC);
    }
    return val;
@@ -916,7 +916,8 @@ REAL8 gamma_inc_D(REAL8 a, REAL8 x)
          ln_term = ln_u - u + 1.0;
       } else {
          REAL8 mu = (x-a)/a;
-         ln_term = gsl_sf_log_1plusx_mx(mu);  /* log(1+mu) - mu */
+         //ln_term = gsl_sf_log_1plusx_mx(mu);  /* log(1+mu) - mu */
+         ln_term = log1p(mu) - mu;  /* log(1+mu) - mu */
       }
       gstar = twospect_sf_gammastar(a);
       if (XLAL_IS_REAL8_FAIL_NAN(gstar)) {

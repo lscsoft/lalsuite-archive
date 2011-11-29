@@ -43,9 +43,6 @@ AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
-# default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalsimulation])
-
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
 
@@ -76,6 +73,9 @@ AC_DEFINE_UNQUOTED([LALSIMULATION_CONFIGURE_DATE],["$lalsimulation_configure_dat
 
 # enable strict gcc flags
 LALSUITE_ENABLE_GCC_FLAGS
+
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
 # check for c compiler
 m4_pattern_allow([AC_PROG_CC_C99])

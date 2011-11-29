@@ -43,6 +43,7 @@ REAL8 norminv(REAL8 p, REAL8 mu, REAL8 sigma);
 REAL8 ks_test_exp(REAL4Vector *vector);
 REAL8 twospect_cdf_chisq_P(REAL8 x, REAL8 nu);
 REAL8 matlab_cdf_chisq_P(REAL8 x, REAL8 nu);
+REAL8 unitGaussianSNR(REAL8 value, REAL8 dof);
 
 REAL4 ncx2cdf_float(REAL4 x, REAL4 dof, REAL4 delta);
 REAL4 ncx2cdf_float_withouttinyprob(REAL4 x, REAL4 dof, REAL4 delta);
@@ -59,6 +60,7 @@ void sort_double_descend(REAL8Vector *vector);
 void sort_double_ascend(REAL8Vector *vector);
 void sort_float_ascend(REAL4Vector *vector);
 void sumseries(REAL8 *computedprob, REAL8 P, REAL8 C, REAL8 E, INT8 counter, REAL8 x, REAL8 dof, REAL8 halfdelta, REAL8 err, INT4 countdown);
+void min_max_index_INT4Vector(INT4Vector *inputvector, INT4 *min_index_out, INT4 *max_index_out);
 
 INT4 max_index(REAL4Vector *vector);
 INT4 max_index_double(REAL8Vector *vector);

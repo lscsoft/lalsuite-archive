@@ -35,6 +35,8 @@ typedef enum tagGSApproximant {
     GSApproximant_IMRPhenomA,
     GSApproximant_IMRPhenomB,
     GSApproximant_SpinTaylorT4,
+    GSApproximant_TaylorF2RedSpin,
+    GSApproximant_TaylorF2RedSpinTidal,
     GSApproximant_NUM
 } GSApproximant;
 
@@ -57,6 +59,8 @@ typedef struct tagGSParams {
     REAL8 m1;                 /**< mass of companion 1 */
     REAL8 m2;                 /**< mass of companion 2 */
     REAL8 chi;                /**< dimensionless aligned-spin parameter */
+    REAL8 lambda1;            /**< dimensionless tidal deformability of companion 1 */
+    REAL8 lambda2;            /**< dimensionless tidal deformability of companion 2 */
     REAL8 f_min;              /**< start frequency */
     REAL8 f_max;              /**< end frequency */
     REAL8 distance;           /**< distance of source */
@@ -79,6 +83,7 @@ const char * usage =
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
 "                             SpinTaylorT4\n"
+"                             TaylorF2RedSpin\n"
 "--phase-order ORD          Twice PN order of phase (e.g. ORD=7 <==> 3.5PN)\n"
 "--amp-order ORD            Twice PN order of amplitude\n"
 "--domain DOM               'TD' for time domain or 'FD' for frequency\n"
@@ -92,6 +97,8 @@ const char * usage =
 "--m1 M1                    Mass of the first object in solar masses\n"
 "--m2 M2                    Mass of the second object in solar masses\n"
 "--chi CHI                  Dimensionless aligned-spin parameter\n"
+"--lambda1 L1               Dimensionless tidal deformability Lambda of body 1 \n"
+"--lambda2 L2               Dimensionless tidal deformability Lambda of body 2 \n"
 "--inclination IOTA         Angle in radians between line of sight (N) and \n"
 "                           orbital angular momentum (L) at the reference\n"
 "                           (default: face on)\n"
@@ -144,6 +151,10 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
                 params->approximant = GSApproximant_IMRPhenomB;
             else if (strcmp(argv[i], "SpinTaylorT4") == 0)
                 params->approximant = GSApproximant_SpinTaylorT4;
+            else if (strcmp(argv[i], "TaylorF2RedSpin") == 0)
+                params->approximant = GSApproximant_TaylorF2RedSpin;
+            else if (strcmp(argv[i], "TaylorF2RedSpinTidal") == 0)
+                params->approximant = GSApproximant_TaylorF2RedSpinTidal;
             else {
                 XLALPrintError("Error: Unknown approximant\n");
                 goto fail;
@@ -179,6 +190,10 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             params->m2 = atof(argv[++i]) * LAL_MSUN_SI;
         } else if (strcmp(argv[i], "--chi") == 0) {
             params->chi = atof(argv[++i]);
+        } else if (strcmp(argv[i], "--lambda1") == 0) {
+            params->lambda1 = atof(argv[++i]);
+        } else if (strcmp(argv[i], "--lambda2") == 0) {
+            params->lambda2 = atof(argv[++i]);
         } else if (strcmp(argv[i], "--spin1x") == 0) {
             params->s1x = atof(argv[++i]);
         } else if (strcmp(argv[i], "--spin1y") == 0) {
@@ -250,7 +265,30 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
      * tRef, masses, f_min, and distance have already been checked. */
     switch (params->approximant) {
         case GSApproximant_IMRPhenomA:
+            if (params->s1x || params->s1y || params->s1z ||
+                params->s2x || params->s2y || params->s2z ||
+                params->chi) {
+                XLALPrintError("Error: IMRPhenomA is a non-spinning approximant\n");
+                goto fail;
+            }
+            break;
         case GSApproximant_IMRPhenomB:
+            if (params->s1x || params->s1y ||
+                params->s2x || params->s2y ||
+                ((params->s1z != 0.) ^ (params->s2z != 0.)) ||
+                !((params->s1z != 0) ^ (params->chi != 0.))) {
+                XLALPrintError("Error: IMRPhenomB requires aligned spins (s1z and s2z or chi)\n");
+                goto fail;
+            }
+            break;
+        case GSApproximant_TaylorF2RedSpin:
+        case GSApproximant_TaylorF2RedSpinTidal:
+            if (params->s1x || params->s1y ||
+                params->s2x || params->s2y || params->chi) {
+                XLALPrintError("Error: TaylorF2RedSpin requires aligned component spins s1z and s2z only\n");
+                goto fail;
+            }
+            break;
         case GSApproximant_SpinTaylorT4:
             /* no additional checks required */
             break;
@@ -266,6 +304,14 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     if (params->fRef == 0) params->fRef = params->f_min;
     if (*params->outname == '\0')
         strncpy(params->outname, "simulation.dat", 256);
+    if ((params->s1z || params->s2z) && !params->chi) {
+        if (params->approximant == GSApproximant_IMRPhenomB)
+            params->chi = XLALSimIMRPhenomBComputeChi(
+                params->m1, params->m2, params->s1z, params->s2z);
+        else if (params->approximant == GSApproximant_TaylorF2RedSpin)
+            params->chi = XLALSimInspiralTaylorF2ReducedSpinComputeChi(
+                params->m1, params->m2, params->s1z, params->s2z);
+    }
 
     return params;
 
@@ -282,12 +328,13 @@ static int dump_FD(FILE *f, COMPLEX16FrequencySeries *htilde) {
     fprintf(f, "# f htilde.re htilde.im\n");
     dataPtr = htilde->data->data;
     for (i=0; i < htilde->data->length; i++)
-      fprintf(f, "%e %e %e\n", i * htilde->deltaF, dataPtr[i].re, dataPtr[i].im);
+      fprintf(f, "%e %e %e\n", htilde->f0 + i * htilde->deltaF, dataPtr[i].re, dataPtr[i].im);
     return 0;
 }
 
 static int dump_TD(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
     size_t i;
+    REAL8 t0 = XLALGPSGetREAL8(&(hplus->epoch));
     if (hplus->data->length != hcross->data->length) {
         XLALPrintError("Error: hplus and hcross are not the same length\n");
         return 1;
@@ -296,9 +343,9 @@ static int dump_TD(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
         return 1;
     }
 
-    fprintf(f, "# f hplus hcross\n");
+    fprintf(f, "# t hplus hcross\n");
     for (i=0; i < hplus->data->length; i++)
-      fprintf(f, "%e %e %e\n", i * hplus->deltaT, hplus->data->data[i], hcross->data->data[i]);
+      fprintf(f, "%e %e %e\n", t0 + i * hplus->deltaT, hplus->data->data[i], hcross->data->data[i]);
     return 0;
 }
 /*
@@ -308,7 +355,6 @@ int main (int argc , char **argv) {
     FILE *f;
     int status;
     int start_time;
-    LIGOTimeGPS tRef;
     REAL8 LNhatx = 0., LNhaty = 0., LNhatz = 0., E1x = 0., E1y = 0., E1z = 0.;
     COMPLEX16FrequencySeries *htilde = NULL;
     REAL8TimeSeries *hplus = NULL;
@@ -330,13 +376,20 @@ int main (int argc , char **argv) {
         case GSDomain_FD:
             switch (params->approximant) {
                 case GSApproximant_IMRPhenomA:
-                    XLALSimIMRPhenomAGenerateFD(&htilde, &tRef, params->phiRef, params->fRef, params->deltaF, params->m1, params->m2, params->f_min, params->f_max, params->distance);
+                    XLALSimIMRPhenomAGenerateFD(&htilde, params->phiRef, params->deltaF, params->m1, params->m2, params->f_min, params->f_max, params->distance);
                     break;
                 case GSApproximant_IMRPhenomB:
-                    XLALSimIMRPhenomBGenerateFD(&htilde, &tRef, params->phiRef, params->fRef, params->deltaF, params->m1, params->m2, params->chi, params->f_min, params->f_max, params->distance);
+                    XLALSimIMRPhenomBGenerateFD(&htilde, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->f_min, params->f_max, params->distance);
+                    break;
+                case GSApproximant_TaylorF2RedSpin:
+                    XLALSimInspiralTaylorF2ReducedSpin(&htilde, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->f_min, params->distance, params->phaseO, params->ampO);
+                    break;
+                case GSApproximant_TaylorF2RedSpinTidal:
+                    XLALSimInspiralTaylorF2ReducedSpinTidal(&htilde, params->phiRef, params->deltaF, params->m1, params->m2, params->chi, params->lambda1, params->lambda2, params->f_min, params->distance, params->phaseO, params->ampO);
                     break;
                 case GSApproximant_SpinTaylorT4:
                     XLALPrintError("Error: SpinTaylorT4 is not an FD waveform!\n");
+                    break;
                 default:
                     XLALPrintError("Error: some lazy programmer forgot to add their FD waveform generation function\n");
             }
@@ -344,10 +397,14 @@ int main (int argc , char **argv) {
         case GSDomain_TD:
             switch (params->approximant) {
                 case GSApproximant_IMRPhenomA:
-                    XLALSimIMRPhenomAGenerateTD(&hplus, &hcross, &tRef, params->phiRef, params->fRef, params->deltaT, params->m1, params->m2, params->f_min, params->f_max, params->distance, params->inclination);
+                    XLALSimIMRPhenomAGenerateTD(&hplus, &hcross, params->phiRef, params->deltaT, params->m1, params->m2, params->f_min, params->f_max, params->distance, params->inclination);
                     break;
                 case GSApproximant_IMRPhenomB:
-                    XLALSimIMRPhenomBGenerateTD(&hplus, &hcross, &tRef, params->phiRef, params->fRef, params->deltaT, params->m1, params->m2, params->chi, params->f_min, params->f_max, params->distance, params->inclination);
+                    XLALSimIMRPhenomBGenerateTD(&hplus, &hcross, params->phiRef, params->deltaT, params->m1, params->m2, params->chi, params->f_min, params->f_max, params->distance, params->inclination);
+                    break;
+                case GSApproximant_TaylorF2RedSpin:
+                case GSApproximant_TaylorF2RedSpinTidal:
+                    XLALPrintError("Error: TaylorF2RedSpin is not a TD waveform!\n");
                     break;
                 case GSApproximant_SpinTaylorT4:
                     LNhatx = sin(params->inclination);
@@ -356,7 +413,7 @@ int main (int argc , char **argv) {
                     E1x = cos(params->inclination);
                     E1y = 0.;
                     E1z = - sin(params->inclination);
-                    XLALSimInspiralSpinTaylorT4(&hplus, &hcross, &tRef, 
+                    XLALSimInspiralSpinTaylorT4(&hplus, &hcross,
                             params->phiRef, 0., params->deltaT, params->m1, 
                             params->m2, params->fRef, params->distance, 
                             params->s1x, params->s1y, params->s1z, params->s2x,

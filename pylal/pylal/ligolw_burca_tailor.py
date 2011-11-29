@@ -254,6 +254,12 @@ class CoincParamsDistributions(object):
 				self.injection_rates[param] = rate
 		return self
 
+	@classmethod
+	def copy(cls, other):
+		new = cls(**dict((param, other.zero_lag_rates[param].bins) for param in other.zero_lag_rates))
+		new += other
+		return new
+
 	def add_zero_lag(self, param_dict, weight = 1.0):
 		for param, value in (param_dict or {}).items():
 			rate = self.zero_lag_rates[param]
@@ -538,15 +544,20 @@ class DistributionsStats(object):
 #
 
 
+#
+# XML construction and parsing
+#
+
+
 def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
 	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
 	for name, binnedarray in coinc_params_distributions.zero_lag_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, "zero_lag:%s" % name))
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))
 	for name, binnedarray in coinc_params_distributions.background_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, "background:%s" % name))
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
 	for name, binnedarray in coinc_params_distributions.injection_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, "injection:%s" % name))
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
 	return xml
 
 
@@ -556,47 +567,28 @@ def coinc_params_distributions_from_xml(xml, name):
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
 	c = CoincParamsDistributions()
 	for name in names:
-		c.zero_lag_rates[name] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
-		c.background_rates[name] = rate.binned_array_from_xml(xml, "background:%s" % name)
-		c.injection_rates[name] = rate.binned_array_from_xml(xml, "injection:%s" % name)
+		c.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
+		c.background_rates[str(name)] = rate.binned_array_from_xml(xml, "background:%s" % name)
+		c.injection_rates[str(name)] = rate.binned_array_from_xml(xml, "injection:%s" % name)
 	return c, process_id
 
 
+def get_coincparamsdistributions(xmldoc, name):
+	coincparamsdistributions, process_id = coinc_params_distributions_from_xml(xmldoc, name)
+	seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
+	return coincparamsdistributions, seglists
+
+
 def coinc_params_distributions_from_filename(filename, name, verbose = False):
+	# FIXME:  what uses this?
 	xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
-	result, process_id = coinc_params_distributions_from_xml(xmldoc, name)
-	seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id]).coalesce()
+	result, seglists = get_coincparamsdistributions(xmldoc, name)
 	xmldoc.unlink()
 	return result, seglists
 
 
 #
-# =============================================================================
-#
-#                             Process Information
-#
-# =============================================================================
-#
-
-
-process_program_name = "ligolw_burca_tailor"
-
-
-def append_process(xmldoc, **kwargs):
-	return llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-
-#
-# =============================================================================
-#
-#                           Likelihood Control File
-#
-# =============================================================================
-#
-
-
-#
-# Construct LIGO Light Weight likelihood distributions document.
+# Construct LIGO Light Weight likelihood distributions document
 #
 
 
@@ -615,6 +607,48 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 	llwapp.set_process_end_time(process)
 
 	return xmldoc
+
+
+#
+# I/O
+#
+
+
+def load_likelihood_data(filenames, name, verbose = False):
+	coincparamsdistributions = None
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, verbose = verbose)
+		if coincparamsdistributions is None:
+			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, name)
+		else:
+			a, b = get_coincparamsdistributions(xmldoc, name)
+			coincparamsdistributions += a
+			seglists |= b
+			del a, b
+		xmldoc.unlink()
+	return coincparamsdistributions, seglists
+
+
+def write_likelihood_data(filename, coincparamsdistributions, seglists, name, verbose = False):
+	utils.write_filename(gen_likelihood_control(coincparamsdistributions, seglists, name = name), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
+
+
+#
+# =============================================================================
+#
+#                             Process Information
+#
+# =============================================================================
+#
+
+
+process_program_name = "ligolw_burca_tailor"
+
+
+def append_process(xmldoc, **kwargs):
+	return llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 
 #

@@ -67,15 +67,16 @@ def fromframefile(filename, channel, start=None, end=None):
   """
 
   # try to extract data from frame
-  y, fstart, offset, dt, xunit, yunit = Fr.frgetvect1d(filename, str(channel))
+  y, fstart, offset, dt = Fr.frgetvect1d(filename, str(channel))[:4]
   x = fstart+dt*numpy.arange(len(y))+offset
 
   # apply constraint on x-axis
-  if not start: start=-numpy.infty
-  if not end:   end=numpy.infty
-  condition = (x>=start) & (x<end)
-  y = y[condition]
-  x = x[condition]
+  if start or end:
+    if not start: start=-numpy.infty
+    if not end:   end=numpy.infty
+    condition = (x>=start) & (x<end)
+    y = y[condition]
+    x = x[condition]
 
   return x,y
 
@@ -109,7 +110,7 @@ def toframefile(filename, channel, data, start, dx, **frargs):
 
   Fr.frputvect(filename, [datadict], verbose=False)
 
-def fromLALCache(cache, channel, start=None, end=None):
+def fromLALCache(cache, channel, start=None, end=None, verbose=False):
 
   """
     Extract data for given channel from glue.lal.Cache object cache. Returns 
@@ -131,23 +132,45 @@ def fromLALCache(cache, channel, start=None, end=None):
   """
 
   # initialise data
-  time = numpy.array([])
-  data = numpy.array([])
+  time = numpy.ndarray((1,0))
+  data = numpy.ndarray((1,0))
+
+  # set up counter
+  if verbose:
+    sys.stdout.write("Extracting data from %d frames...     " % len(cache))
+    sys.stdout.flush()
+    delete = '\b\b\b'
+    num = len(cache)/100
 
   # loop over frames in cache
-  for frame in cache:
+  for i,frame in enumerate(cache):
     # check for read access
     if os.access(frame.path(), os.R_OK):
+      # get data
       frtime, frdata = fromframefile(frame.path(), channel, start=start,\
                                      end=end)
-      time = numpy.append(time, frtime)
-      data = numpy.append(data, frdata)
+      # resize array and extend
+      op = len(time[0])
+      np = len(frtime)
+      time.resize((1,op+np))
+      time[0][op:] = frtime
+      data.resize((1,op+np))
+      data[0][op:] = frdata
+
+      # print verbose message
+      if verbose and len(cache)>1:
+        progress = int((i+1)/num)
+        sys.stdout.write('%s%.2d%%' % (delete, progress))
+        sys.stdout.flush()
+
     else:
       raise RuntimeError("Cannot read frame\n%s" % frame.path())
 
-  return time, data
+  if verbose: sys.stdout.write("\n")
 
-def grab_data(start, end, channel, type, nds=False, dmt=False):
+  return time[0], data[0]
+
+def grab_data(start, end, channel, type, nds=False, dmt=False, verbose=False):
 
   """
     This function will return the frame data for the given channel of the given
@@ -189,11 +212,12 @@ def grab_data(start, end, channel, type, nds=False, dmt=False):
   # generate framecache
   ifo = channel[0]
   if not dmt:
-    cache = get_cache(start, end, ifo, type)
+    cache = get_cache(start, end, ifo, type, verbose=verbose)
   else:
     cache = dmt_cache(start, end, ifo, type)
 
-  time, data = fromLALCache(cache, channel, start=start, end=end)
+  time, data = fromLALCache(cache, channel, start=start, end=end,\
+                            verbose=verbose)
 
   return time,data
 
@@ -201,7 +225,8 @@ def grab_data(start, end, channel, type, nds=False, dmt=False):
 # Generate data cache
 # ==============================================================================
 
-def get_cache(start, end, ifo, ftype, framecache=False, server=None):
+def get_cache(start, end, ifo, ftype, framecache=False, server=None,\
+              verbose=False):
 
   """
     Queries the LSC datafind server and returns a glue.lal.Cache object
@@ -243,6 +268,9 @@ def get_cache(start, end, ifo, ftype, framecache=False, server=None):
   # try querying the ligo_data_find server
   if not server:
     server = _find_datafind_server()
+
+  if verbose: sys.stdout.write("Opening connection to %s...\n" % server)
+
   if re.search(':', server):
     port = int(server.split(':')[-1])
   else:
@@ -255,6 +283,8 @@ def get_cache(start, end, ifo, ftype, framecache=False, server=None):
     h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
   else:
     h = httplib.HTTPConnection(server)
+
+  if verbose: sys.stdout.write("Querying server for frames...\n")
 
   # loop over ifos and types
   for ifo in ifos:
@@ -274,6 +304,7 @@ def get_cache(start, end, ifo, ftype, framecache=False, server=None):
 
   # close the server connection
   h.close()
+  if verbose: sys.stdout.write("Connection to %s closed.\n" % server)
 
   # convert to FrameCache if needed
   if framecache:

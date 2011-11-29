@@ -109,7 +109,7 @@ void reset_UpperLimitStruct(UpperLimit *ul)
    ul->period = NULL;
    ul->moddepth = NULL;
    ul->ULval = NULL;
-   ul->iterations2reachUL = NULL;
+   ul->effSNRval = NULL;
    
 }
 void free_UpperLimitStruct(UpperLimit *ul)
@@ -131,17 +131,16 @@ void free_UpperLimitStruct(UpperLimit *ul)
       XLALDestroyREAL8Vector(ul->ULval);
       ul->ULval = NULL;
    }
-   if (ul->iterations2reachUL) {
-      XLALDestroyINT4Vector(ul->iterations2reachUL);
-      ul->iterations2reachUL = NULL;
+   if (ul->effSNRval) {
+      XLALDestroyREAL8Vector(ul->effSNRval);
+      ul->effSNRval = NULL;
    }
    
 }
 
 
 
-//void skypoint95UL(UpperLimit *ul, ihsfarStruct *ihsfarstruct, inputParamsStruct *params, ffdataStruct *ffdata, ihsMaximaStruct *ihsmaxima, REAL4Vector *aveNoise, REAL4Vector *fbinavgs)
-void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdata, ihsMaximaStruct *ihsmaxima, REAL4Vector *aveNoise, REAL4Vector *fbinavgs)
+void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdata, ihsMaximaStruct *ihsmaxima, ihsfarStruct *ihsfar, REAL4Vector *fbinavgs)
 {
    
    INT4 ii, jj, kk;
@@ -152,7 +151,7 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
    ul->period = XLALCreateREAL8Vector((ihsmaxima->rows-minrows)+1);
    ul->moddepth = XLALCreateREAL8Vector((ihsmaxima->rows-minrows)+1);
    ul->ULval = XLALCreateREAL8Vector((ihsmaxima->rows-minrows)+1);
-   ul->iterations2reachUL = XLALCreateINT4Vector((ihsmaxima->rows-minrows)+1);
+   ul->effSNRval = XLALCreateREAL8Vector((ihsmaxima->rows-minrows)+1);
    if (ul->fsig==NULL) {
       fprintf(stderr, "%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, (ihsmaxima->rows-minrows)+1);
       XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -165,18 +164,10 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
    } else if (ul->ULval==NULL) {
       fprintf(stderr, "%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, (ihsmaxima->rows-minrows)+1);
       XLAL_ERROR_VOID(XLAL_EFUNC);
-   } else if (ul->iterations2reachUL==NULL) {
-      fprintf(stderr, "%s: XLALCreateINT4Vector(%d) failed.\n", __func__, (ihsmaxima->rows-minrows)+1);
+   } else if (ul->effSNRval==NULL) {
+      fprintf(stderr, "%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, (ihsmaxima->rows-minrows)+1);
       XLAL_ERROR_VOID(XLAL_EFUNC);
    }
-   
-   REAL4Vector *twiceAveNoise = XLALCreateREAL4Vector(aveNoise->length);
-   if (twiceAveNoise==NULL) {
-      fprintf(stderr, "%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, aveNoise->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   }
-   memcpy(twiceAveNoise->data, aveNoise->data, sizeof(REAL4)*aveNoise->length);
-   for (ii=0; ii<(INT4)aveNoise->length; ii++) twiceAveNoise->data[ii] *= 2.0;
    
    //Initialize solver
    const gsl_root_fsolver_type *T = gsl_root_fsolver_brent;
@@ -184,28 +175,31 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
    gsl_function F;
    struct ncx2cdf_solver_params pars;
    
-   INT4 totaliterations = 0;
-   REAL8 dailyharmonic = params->Tobs/(24.0*3600.0);
-   REAL8 dailyharmonic2 = dailyharmonic*2.0, dailyharmonic3 = dailyharmonic*3.0, dailyharmonic4 = dailyharmonic*4.0;
+   //loop over modulation depths
    for (ii=minrows; ii<=ihsmaxima->rows; ii++) {
       REAL8 loudestoutlier = 0.0, loudestoutlierminusnoise = 0.0, loudestoutliernoise = 0.0;
-      INT4 jjbinofloudestoutlier = 0, locationofloudestoutlier = 0;
+      INT4 jjbinofloudestoutlier = 0, locationofloudestoutlier = -1;
+      REAL8 noise = 0.0, totalnoise = 0.0, ihsminusnoise = 0.0;
+      INT4 startpositioninmaximavector = (ii-2)*ffdata->numfbins - ((ii-1)*(ii-1)-(ii-1))/2;
+      //loop over frequency bins
       for (jj=0; jj<ffdata->numfbins-(ii-1); jj++) {
          
-         INT4 locationinmaximavector = (ii-2)*ffdata->numfbins - ((ii-1)*(ii-1)-(ii-1))/2 + jj;
+         INT4 locationinmaximavector = startpositioninmaximavector + jj;
          
          INT4 location = ihsmaxima->locations->data[locationinmaximavector];
          
-         REAL8 noise = 0.0;
-         for (kk=1; kk<=params->ihsfactor; kk++) if (!(fabs(dailyharmonic-kk*location)<=1.0 || fabs(dailyharmonic2-kk*location)<=1.0 || fabs(dailyharmonic3-kk*location)<=1.0 || fabs(dailyharmonic4-kk*location)<=1.0)) noise += aveNoise->data[location*kk];
-         REAL8 totalnoise = 0.0;
+         noise = ihsfar->expectedIHSVector->data[location-5];
+         totalnoise = 0.0;
          for (kk=0; kk<ii; kk++) totalnoise += noise*fbinavgs->data[jj+kk];
-         REAL8 ihsminusnoise = ihsmaxima->maxima->data[locationinmaximavector] - totalnoise;
+         ihsminusnoise = ihsmaxima->maxima->data[locationinmaximavector] - totalnoise;
          
          REAL8 fsig = params->fmin + (0.5*(ii-1.0) + jj)/params->Tcoh;
+         REAL8 moddepth = 0.5*(ii-1.0)/params->Tcoh;
          
-         //if (ihsminusnoise>loudestoutlierminusnoise) {
-         if (ihsminusnoise>loudestoutlierminusnoise && (fsig>=params->ULfmin && fsig<=params->ULfmin+params->ULfspan)) {
+         if (ihsminusnoise>loudestoutlierminusnoise && 
+             (fsig>=params->ULfmin && fsig<=params->ULfmin+params->ULfspan) && 
+             (moddepth>=params->ULmindf && moddepth<=params->ULmaxdf)) {
+            //fprintf(stderr, "Replaced %f with %f, %f with %f, %f with %f, %d with %d, %d with %d\n", loudestoutlier, ihsmaxima->maxima->data[locationinmaximavector], loudestoutliernoise, totalnoise, loudestoutlierminusnoise, ihsminusnoise, locationofloudestoutlier, ihsmaxima->locations->data[locationinmaximavector], jjbinofloudestoutlier, jj);
             loudestoutlier = ihsmaxima->maxima->data[locationinmaximavector];
             loudestoutliernoise = totalnoise;
             loudestoutlierminusnoise = ihsminusnoise;
@@ -214,8 +208,13 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
          }
       } /* for jj < ffdata->numfbins-(ii-1) */
       
+      if (locationofloudestoutlier==-1) {
+         fprintf(stderr, "%s: Failed to reach a louder outlier minus noise than 0\n", __func__);
+         XLAL_ERROR_VOID(XLAL_EFUNC);
+      }
+      
       //TODO: comment or remove this
-      fprintf(stderr, "%d %.6f %.6f %d %d\n", ii, loudestoutliernoise, loudestoutlierminusnoise, locationofloudestoutlier, jjbinofloudestoutlier);
+      //fprintf(stderr, "%f %f %.6f %.6f %d %d\n", params->fmin + (0.5*(ii-1.0) + jjbinofloudestoutlier)/params->Tcoh, 0.5*(ii-1.0)/params->Tcoh, loudestoutliernoise, loudestoutlierminusnoise, locationofloudestoutlier, jjbinofloudestoutlier);
       
       REAL8 initialguess = ncx2inv(0.95, 2.0*loudestoutliernoise, 2.0*loudestoutlierminusnoise);
       if (XLAL_IS_REAL8_FAIL_NAN(initialguess)) {
@@ -261,9 +260,6 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
          XLAL_ERROR_VOID(XLAL_FAILURE);
       }
       
-      totaliterations += jj;
-      
-      //REAL8 h0 = ihs2h0(root+pars.dof, params);
       REAL8 h0 = ihs2h0(root, params);
       if (XLAL_IS_REAL8_FAIL_NAN(h0)) {
          fprintf(stderr, "%s: ihs2h0() failed.\n", __func__);
@@ -273,17 +269,10 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
       ul->period->data[ii-minrows] = params->Tobs/locationofloudestoutlier;
       ul->moddepth->data[ii-minrows] = 0.5*(ii-1.0)/params->Tcoh;
       ul->ULval->data[ii-minrows] = h0;
-      ul->iterations2reachUL->data[ii-minrows] = jj;
+      ul->effSNRval->data[ii-minrows] = unitGaussianSNR(root+pars.dof, pars.dof);
    } /* for ii=minrows --> maximum rows */
    
-   /* ul->ULval = highesth0;
-   ul->fsig = fsig;
-   ul->period = period;
-   ul->moddepth = moddepth;
-   ul->iterations2reachUL = totaliterations; */
-   
    gsl_root_fsolver_free(s);
-   XLALDestroyREAL4Vector(twiceAveNoise);
    
 }
 REAL8 gsl_ncx2cdf_solver(REAL8 x, void *p)
@@ -337,26 +326,24 @@ REAL8 gsl_ncx2cdf_float_withouttinyprob_solver(REAL8 x, void *p)
 
 
 
-void outputUpperLimitToFile(FILE *outputfile, UpperLimit ul, REAL8 dfmin, REAL8 dfmax, INT4 printAllULvalues)
+void outputUpperLimitToFile(FILE *outputfile, UpperLimit ul, INT4 printAllULvalues)
 {
    
-   INT4 ii, numofiterations = 0;
-   REAL8 highesth0 = 0.0, fsig = 0.0, period = 0.0, moddepth = 0.0;
+   INT4 ii;
+   REAL8 highesth0 = 0.0, snr = 0.0, fsig = 0.0, period = 0.0, moddepth = 0.0;
    for (ii=0; ii<(INT4)ul.moddepth->length; ii++) {
-      if (ul.moddepth->data[ii]>=dfmin && ul.moddepth->data[ii]<=dfmax) {
-         if (printAllULvalues==1) {
-            fprintf(outputfile, "%.6f %.6f %.6g %.6f %.6f %.6f %.6g %d\n", ul.alpha, ul.delta, ul.ULval->data[ii], ul.fsig->data[ii], ul.period->data[ii], ul.moddepth->data[ii], ul.normalization, ul.iterations2reachUL->data[ii]);
-         } else if (ul.ULval->data[ii]>highesth0) {
-            highesth0 = ul.ULval->data[ii];
-            fsig = ul.fsig->data[ii];
-            period = ul.period->data[ii];
-            moddepth = ul.moddepth->data[ii];
-            numofiterations = ul.iterations2reachUL->data[ii];
-         }
+      if (printAllULvalues==1) {
+         fprintf(outputfile, "%.6f %.6f %.6g %.6f %.6f %.6f %.6f %.6g\n", ul.alpha, ul.delta, ul.ULval->data[ii], ul.effSNRval->data[ii], ul.fsig->data[ii], ul.period->data[ii], ul.moddepth->data[ii], ul.normalization);
+      } else if (ul.ULval->data[ii]>highesth0) {
+         highesth0 = ul.ULval->data[ii];
+         snr = ul.effSNRval->data[ii];
+         fsig = ul.fsig->data[ii];
+         period = ul.period->data[ii];
+         moddepth = ul.moddepth->data[ii];
       }
    }
    if (printAllULvalues==0) {
-      fprintf(outputfile, "%.6f %.6f %.6g %.6f %.6f %.6f %.6g %d\n", ul.alpha, ul.delta, highesth0, fsig, period, moddepth, ul.normalization, numofiterations);
+      fprintf(outputfile, "%.6f %.6f %.6g %.6f %.6f %.6f %.6f %.6g\n", ul.alpha, ul.delta, highesth0, snr, fsig, period, moddepth, ul.normalization);
    }
    
 }

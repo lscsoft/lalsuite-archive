@@ -156,6 +156,13 @@ def _inj_m2(inj):
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2
 
+def _inj_q(inj):
+    """
+    Function mapping (mchirp,eta)->q; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass2/mass1
+
 def _inj_longitude(inj):
     """
     Map the value of the longitude found in inj to an interval [0,2*pi).
@@ -428,7 +435,9 @@ class OneDPosterior(object):
         np_seterr(under='ignore')
         sp_seterr(under='ignore')
         try:
-            return_value=stats.kde.gaussian_kde(np.transpose(self.__posterior_samples))
+	    if len(np.unique(self.__posterior_samples)) > 1:
+            	return_value=stats.kde.gaussian_kde(np.transpose(self.__posterior_samples))
+	    else: return_value=None
         except:
             exfile=open('exception.out','w')
             np.savetxt(exfile,self.__posterior_samples)
@@ -470,7 +479,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,name=None,description=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,name=None,description=None,votfile=None):
         """
         Constructor.
 
@@ -482,7 +491,8 @@ class Posterior(object):
         self._posterior={}
         self._injection=SimInspiralTableEntry
         self._loglaliases=['logl','logL','likelihood','posterior']
-
+        self._votfile=votfile
+        
         common_output_table_header=[i.lower() for i in common_output_table_header]
         
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
@@ -640,6 +650,7 @@ class Posterior(object):
                         'mass2':_inj_m2,
                         'm2':_inj_m2,
                         'eta':lambda inj:inj.eta,
+                        'q':_inj_q,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
@@ -1039,6 +1050,16 @@ class Posterior(object):
         return_val=reparsed.toprettyxml(indent="  ")
 
         return return_val
+
+    def write_vot_info(self):
+      """
+      Writes the information stored in the VOTtree if there is one
+      """
+      target=VOT2HTML()
+      parser=XMLParser(target=target)
+      parser.feed(self._votfile)
+      return parser.close()
+
 
 class KDTree(object):
     """
@@ -1732,6 +1753,29 @@ def mc2ms(mc,eta):
 #
 #
 
+def q2ms(mc,q):
+    """
+    Utility function for converting mchirp,q to component masses. The
+    masses are defined so that m1>m2. The rvalue is a tuple (m1,m2).
+    """
+    factor = mc * np.power(1+q, 1.0/5.0);
+    m1 = factor * np.power(q, -3.0/5.0);
+    m2 = factor * np.power(q, 2.0/5.0);
+    return (m1,m2)
+#
+#
+
+def q2eta(mc,q):
+    """
+    Utility function for converting mchirp,q to eta. The
+    rvalue is eta.
+    """
+    m1,m2 = q2ms(mc,q)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    return eta
+#
+#
+
 def mc2q(mc,eta):
     """
     Utility function for converting mchirp,eta to new mass ratio q (m2/m1).
@@ -1884,7 +1928,8 @@ def plot_one_param_pdf_kde(fig,onedpos):
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
     gkde=onedpos.gaussian_kde
-
+    if gkde is None:
+      return
     ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
     kdepdf=gkde.evaluate(ind)
     plt.plot(ind,kdepdf)
@@ -1923,7 +1968,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     rbins=None
 
-    if injpar:
+    if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
             plt.axvline(injpar, color='r', linestyle='-.')
 
@@ -2777,30 +2822,38 @@ class PEOutputParser(object):
                     ET._namespace_map[uri]=prefix
         register_namespace('vot',xmlns)
         tree = ET.ElementTree()
+        
         tree.parse(infile)
         # Find the posterior table
         tables = tree.findall('.//{%s}TABLE'%(xmlns))
         for table in tables:
-            if table.get('name')=='Posterior Samples':
+            if table.get('utype')=='lalinference:results:posteriorsamples':
                 return(self._VOTTABLE2pos(table))
-        print 'Unable to find posterior table, attempting to auto-generate from nested samples'
-        for node in tree.findall('{%s}RESOURCE'%(xmlns)):
-            if node.get('name')=='Nested sampling run':
-                postable = vo_nest2pos(node)
-                return self._VOTTABLE2pos(postable)
+        for table in tables:
+	  if table.get('utype')=='lalinference:results:nestedsamples':
+	    nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
+	    return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
         raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
         
     def _VOTTABLE2pos(self,table):
         """
         Parser for a VOT TABLE element with FIELDs and TABLEDATA elements
         """
+        from xml.etree import ElementTree as ET
         xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        try:
+	  register_namespace=ET.register_namespace
+	except AttributeError:
+	  def register_namespace(prefix,uri):
+	    ET._namespace_map[uri]=prefix
+	register_namespace('vot',xmlns)
         header=[]
         for field in table.findall('./{%s}FIELD'%(xmlns)):
             header.append(field.attrib['name'])
         if(len(header)==0):
             raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
-        tabledata=table.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+        data=table.findall('./{%s}DATA'%(xmlns))
+	tabledata=data[0].find('./{%s}TABLEDATA'%(xmlns))
         llines=[]
         for row in tabledata:
             llines.append(np.array(map(lambda a:float(a.text),row)))
@@ -2843,7 +2896,7 @@ class PEOutputParser(object):
 
         llines=[]
         import re
-        dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
+        dec=re.compile(r'[^Ee+\d.-]+')
         line_count=0
         for line in infile:
             sline=line.split(delimiter)
@@ -2856,7 +2909,7 @@ class PEOutputParser(object):
 
             for st in sline:
                 s=st.replace('\n','')
-                if dec.search(s) is None:
+                if dec.search(s) is not None:
                     print 'Warning! Ignoring non-numeric data after the header: %s'%s
                     proceed=False
                 if s is '\n':
@@ -2980,15 +3033,22 @@ def vo_nest2pos(nsresource,Nlive=None):
     from xml.etree import ElementTree as ET
     import copy
     from math import log, exp
-    postable=ET.Element("vot:TABLE",attrib={'name':'Posterior Samples'})
-    i=0
     xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
-    nstable=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("name")=="Nested Samples"][0]
+    try:
+      register_namespace=ET.register_namespace
+    except AttributeError:
+	def register_namespace(prefix,uri):
+	  ET._namespace_map[uri]=prefix
+    register_namespace('vot',xmlns)
+    
+    postable=ET.Element("{%s}TABLE"%(xmlns),attrib={'name':'Posterior Samples','utype':'lalinference:results:posteriorsamples'})
+    i=0
+    nstables=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("utype")=="lalinference:results:nestedsamples"]
+
+    nstable=nstables[0]
     if Nlive is None:
-        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("name")=="Run State Configuration"][0]
-        print runstateResource
-        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("name")=="Algorithm Params"][0]
-        print algTable
+        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("utype")=="lalinference:state"][0]
+        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("utype")=="lalinference:state:algorithmparams"][0]
         Nlive = int ([param for param in algTable.findall("./{%s}PARAM"%(xmlns)) if param.get("name")=='Nlive'][0].get('value'))
         print 'Found Nlive %i'%(Nlive)
     if Nlive is None:
@@ -3003,8 +3063,8 @@ def vo_nest2pos(nsresource,Nlive=None):
         postable.append(copy.deepcopy(paramnode))
     if logLcol is None:
         RuntimeError("Unable to find logL column")
-    posdataNode=ET.Element("vot:DATA")
-    postabledataNode=ET.Element("vot:TABLEDATA")
+    posdataNode=ET.Element("{%s}DATA"%(xmlns))
+    postabledataNode=ET.Element("{%s}TABLEDATA"%(xmlns))
     postable.append(posdataNode)
     posdataNode.append(postabledataNode)
     nstabledata=nstable.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
@@ -3020,6 +3080,56 @@ def vo_nest2pos(nsresource,Nlive=None):
         if weight > log(random.random()):
             postabledataNode.append(copy.deepcopy(row))
     return postable
+
+xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+
+class VOT2HTML:
+  def __init__(self):
+    self.html=htmlSection("VOTable information")
+    self.skiptable=0
+  def start(self,tag,attrib):
+    if tag=='{%s}TABLE'%(xmlns):
+	if attrib['utype']=='lalinference:results:nestedsamples'\
+	or attrib['utype']=='lalinference:results:posteriorsamples':
+	  self.skiptable=1
+	else:
+	  self.skiptable=0
+	self.tableouter=htmlChunk('div')
+	self.tableouter.h2(attrib['name'])
+	try:
+	  self.tableouter.p(attrib['utype'])
+	except KeyError:
+	    pass
+	self.fixedparams=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+	self.table=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+	self.tabheader=htmlChunk('tr',parent=self.table)
+    if tag=='{%s}FIELD'%(xmlns):
+	self.field=htmlChunk('th',{'name':attrib['name']},parent=self.tabheader)
+    if tag=='{%s}TR'%(xmlns):
+	self.tabrow=htmlChunk('tr',parent=self.table)
+    if tag=='{%s}TD'%(xmlns):
+	self.td=htmlChunk('td',parent=self.tabrow)
+    if tag=='{%s}PARAM'%(xmlns):
+	pnode=htmlChunk('tr',parent=self.fixedparams)
+	namenode=htmlChunk('td',parent=pnode)
+	namenode.p(attrib['name'])
+	valnode=htmlChunk('td',parent=pnode)
+	valnode.p(attrib['value'])
+  def end(self,tag):
+    if tag=='{%s}TABLE'%(xmlns):
+      if not self.skiptable:
+	self.html.append(self.tableouter._html)
+    if tag=='{%s}FIELD'%(xmlns):
+      self.field.p(self.data)
+    if tag=='{%s}TD'%(xmlns):
+      self.td.p(self.data)
+
+  def data(self,data):
+    self.data=data
+  
+  def close(self):
+    return self.html.toprettyxml()
+
 
 
 #R convergenceTest script

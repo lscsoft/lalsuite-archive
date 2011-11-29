@@ -102,7 +102,8 @@ typedef enum {
   LALINFERENCE_gslMatrix_t,
   LALINFERENCE_REAL8Vector_t,
   LALINFERENCE_UINT4Vector_t,
-  LALINFERENCE_string_t
+  LALINFERENCE_string_t,
+  LALINFERENCE_void_ptr_t
 } LALInferenceVariableType;
 
 /** An enumerated type for denoting time or frequency domain
@@ -318,7 +319,12 @@ tagLALInferenceRunState
     *algorithmParams;                                /** Parameters which control the running of the algorithm*/
   LALInferenceVariables				**livePoints; /** Array of live points for Nested Sampling */
   LALInferenceVariables **differentialPoints;        /** Array of points for differential evolution */
-  size_t differentialPointsLength;                   /** This should be removed can be given as an algorithmParams entry */
+  size_t differentialPointsLength;                   /** Length of the current differential points stored in 
+                                                         differentialPoints.  This should be removed can be given 
+                                                         as an algorithmParams entry */
+  size_t differentialPointsSize;                     /** Size of the differentialPoints memory block 
+                                                         (must be >= length of differential points).  
+                                                         Can also be removed. */
   REAL8			currentLikelihood;  /** This should be removed, can be given as an algorithmParams or proposalParams entry */
   REAL8                 currentPrior;       /** This should be removed, can be given as an algorithmParams entry */
   gsl_rng               *GSLrandom;         /** A pointer to a GSL random number generator */
@@ -411,7 +417,23 @@ void LALInferencePrintSampleNonFixed(FILE *fp,LALInferenceVariables *sample);
    columns.  Returns 0 on success. */
 int LALInferenceProcessParamLine(FILE *inp, char **headers, LALInferenceVariables *vars);
 
+/** Sorts the variable structure by name */
 void LALInferenceSortVariablesByName(LALInferenceVariables *vars);
+
+/** Append the sample to a file. file pointer is stored in state->algorithmParams as a
+ * LALInferenceVariable called "outfile", as a void ptr.
+ * Caller is responsible for opening and closing file.
+ * Variables are alphabetically sorted before being written
+ */
+void LALInferenceLogSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);
+
+/** Append the sample to an array which can be later processed by the user.
+ * Array is stored as a C array in a LALInferenceVariable in state->algorithmParams
+ * called "outputarray". Number of items in the array is stored as "N_outputarray".
+ * Will create the array and store it in this way if it does not exist.
+ * DOES NOT FREE ARRAY, user must clean up after use.
+ * Also outputs sample to disk if possible using LALInferenceLogSampleToFile()*/
+void LALInferenceLogSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);
 
 
 #endif
