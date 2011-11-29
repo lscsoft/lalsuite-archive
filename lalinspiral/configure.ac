@@ -40,9 +40,6 @@ AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
-# default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalinspiral])
-
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
 
@@ -76,6 +73,9 @@ LALSUITE_ENABLE_GCC_FLAGS
 
 # optional lal libraries
 LALSUITE_ENABLE_LALFRAME
+
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
 # check for c compiler
 m4_pattern_allow([AC_PROG_CC_C99])

@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.36
+Version:	1.37
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.36-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.37-py2.6.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -57,9 +57,11 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{glue_python_sitearch}/glue/
 %{_glue_prefix}/bin/
-%{_glue_prefix}/etc/
-%{_glue_prefix}/var/
-%{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{_glue_prefix}/etc/
+%exclude %{_glue_prefix}/var/
+%exclude %{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{glue_python_sitearch}/glue/cbcwebpage.pyc
+%exclude %{glue_python_sitearch}/glue/cbcwebpage.py
 %exclude %{glue_python_sitearch}/glue/__init__.py
 %exclude %{glue_python_sitearch}/glue/__init__.pyc
 %exclude %{glue_python_sitearch}/glue/segments.py
@@ -68,6 +70,7 @@ rm -rf $RPM_BUILD_ROOT
 %exclude %{glue_python_sitearch}/glue/segments.pyc
 %exclude %{glue_python_sitearch}/glue/iterutils.pyc
 %exclude %{glue_python_sitearch}/glue/git_version.pyc
+%exclude %{glue_python_sitearch}/glue/__segments.so
 #%exclude %{_glue_prefix}/src/segments/
 #%exclude %{_glue_prefix}/test/segment_verify.py
 #%exclude %{_glue_prefix}/test/segmentsUtils_verify.py
@@ -76,6 +79,7 @@ rm -rf $RPM_BUILD_ROOT
 %files segments
 %{glue_python_sitearch}/glue/segments.py
 %{glue_python_sitearch}/glue/segments.pyc
+%{glue_python_sitearch}/glue/__segments.so
 #%{glue_python_sitearch}/src/segments/
 #%{glue_python_sitearch}/test/segment_verify.py
 #%{glue_python_sitearch}/test/segmentsUtils_verify.py
@@ -89,8 +93,10 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.py
 %{glue_python_sitearch}/glue/git_version.pyc
 
-
 %changelog
+* Wed Nov 16 2011 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue with glue-segments and glue-common split from glue, lvalerts, lars and gracedb removed.
+
 * Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue to fix build issues called 1.36. 
 

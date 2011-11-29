@@ -54,7 +54,12 @@ RCSID("$Id$");
 
 extern int newswitch; //temporay global variable to use the new LALSTPN
 static void destroyCoherentGW( CoherentGW *waveform );
+static void q2eta(double q, double *eta);
+static void q2masses(double mc, double q, double *m1, double *m2);
 
+//////////////////////////////////////////////////////////////////
+//DEPRECATED. Use LALInferenceTemplateLALGenerateInspiral() or LALInferenceTemplateXLALSimInspiralChooseWaveform() instead
+//////////////////////////////////////////////////////////////////
 void LALInferenceLALTemplateGeneratePPN(LALInferenceIFOData *IFOdata){
 
 	static LALStatus status;								/* status structure */	
@@ -72,7 +77,17 @@ void LALInferenceLALTemplateGeneratePPN(LALInferenceIFOData *IFOdata){
 	
 	//params.psi=*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"polarisation");
 
-	params.eta = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"massratio");
+  fprintf(stdout,"WARNING this routine LALInferenceLALTemplateGeneratePPN() is deprecated and will be removed. Use LALInferenceTemplateLALGenerateInspiral() or LALInferenceTemplateXLALSimInspiralChooseWaveform() instead");
+  
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+        REAL8 tempEta;
+        REAL8 q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+        q2eta(q, &tempEta);
+        params.eta = (REAL4)tempEta;
+    }
+    else
+        params.eta = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"massratio");
+    
 	params.mTot = (*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"chirpmass")) / pow(params.eta, 3.0/5.0);
 	//params.inc = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"inclination");
 	params.phi = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"phase");
@@ -247,20 +262,29 @@ void LALInferenceTemplateStatPhase(LALInferenceIFOData *IFOdata)
 /* Signal's amplitude corresponds to a luminosity distance   */
 /* of 1 Mpc; re-scaling will need to be taken care of e.g.   */
 /* in the calling likelihood function.                       */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **********/
-/* Required (`IFOdata->modelParams') parameters are:                  */
-/*   - "chirpmass"    (REAL8,units of solar masses)                   */
-/*   - "massratio"    (symmetric mass ratio:  0 < eta <= 0.25, REAL8) */
-/*   - "phase"        (coalescence phase; REAL8, radians)             */
-/*   - "time"         (coalescence time; REAL8, GPS seconds)          */
-/*   - "inclination"  (inclination angle, REAL8, radians)             */
-/**********************************************************************/
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *********************************/
+/* Required (`IFOdata->modelParams') parameters are:                                         */
+/*   - "chirpmass"      (REAL8,units of solar masses)                                        */
+/*   - "massratio"      (symmetric mass ratio:  0 < eta <= 0.25, REAL8) <or asym_massratio>  */
+/*   - "asym_massratio" (asymmetric mass ratio:  0 < q <= 1.0, REAL8)   <or massratio>       */
+/*   - "phase"          (coalescence phase; REAL8, radians)                                  */
+/*   - "time"           (coalescence time; REAL8, GPS seconds)                               */
+/*   - "inclination"    (inclination angle, REAL8, radians)                                  */
+/*********************************************************************************************/
 {
   double mc   = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
-  double eta  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
   double phi  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");
   double iota = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
   double tc   = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");
+  
+  double eta; 
+  if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+    double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+    q2eta(q, &eta);
+  }
+  else
+    eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+ 
   double PNOrder = 2.5;  /* (default) */
   double fraction = (0.5+sqrt(0.25-eta)) / (0.5-sqrt(0.25-eta));
   double mt = mc * ((pow(1.0+fraction,0.2) / pow(fraction,0.6))
@@ -273,7 +297,7 @@ void LALInferenceTemplateStatPhase(LALInferenceIFOData *IFOdata)
   double f, f01, f02, f04, f06, f07, f10, Psi, twopitc;
   double plusRe, plusIm, crossRe, crossIm;
   UINT4 i, lower, upper;
- 
+
   if (IFOdata->timeData==NULL){
     XLALPrintError(" ERROR in templateStatPhase(): encountered unallocated 'timeData'.\n");
     XLAL_ERROR_VOID(XLAL_EFAULT);
@@ -401,6 +425,25 @@ static void mc2masses(double mc, double eta, double *m1, double *m2)
   return;
 }
 
+static void q2eta(double q, double *eta)
+/* Compute symmetric mass ratio (eta) for a given  */
+/* asymmetric mass ratio (q).                       */
+/* (note: q = m2/m1, where m1 >= m2)               */
+{
+  *eta = q/pow(1+q,2.0);
+  return;
+}
+
+static void q2masses(double mc, double q, double *m1, double *m2)
+/*  Compute individual companion masses (m1, m2)   */
+/*  for given chirp mass (m_c) & asymmetric mass   */
+/*  ratio (q).  note: q = m2/m1, where m1 >= m2    */
+{
+  *m1 = mc * pow(q, -3.0/5.0) * pow(q+1, 1.0/5.0);
+  *m2 = (*m1) * q;
+  return;
+}
+
 /*
 static double mc2mt(double mc, double eta);
 */
@@ -493,11 +536,18 @@ void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata)
 	//double mc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
 	double logmc = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "logmc");
 	double mc = exp(logmc);
-	double eta      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
 	double phi      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");       /* here: startPhase !! */
 	double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
+
+    double eta;	
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+        double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+        q2eta(q, &eta);
+    }
+    else
+        eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
 	
-	REAL8 mtot=mc/pow(eta,3./5.);	
+    REAL8 mtot=mc/pow(eta,3./5.);	
 	
 	/* fill the template structure */
 	//double distance = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"logdistance");
@@ -580,7 +630,8 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Required (`IFOdata->modelParams') parameters are:                                             */
 /*   - "chirpmass"        (REAL8,units of solar masses)                                          */
-/*   - "massratio"        (symmetric mass ratio:  0 < eta <= 0.25, REAL8)                        */
+/*   - "massratio"        (symmetric mass ratio:  0 < eta <= 0.25, REAL8) <or asym_massratio>    */
+/*   - "asym_massratio"   (asymmetric mass ratio:  0 < q <= 1.0, REAL8)   <or massratio>         */
 /*   - "phase"            (here: 'startPhase', not coalescence phase; REAL8, radians)            */
 /*   - "time"             (coalescence time, or equivalent/analog/similar; REAL8, GPS sec.)      */
 /*   - "inclination"      (inclination angle, REAL8, radians)                                    */
@@ -610,10 +661,16 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   double pj, pmax, pleft, pright;
 	
   double mc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
-  double eta      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
   double phi      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");       /* here: startPhase !! */
   double tc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");
   double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
+  double eta;	
+  if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+    double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+    q2eta(q, &eta);
+  }
+  else
+    eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
   double spin1    = 0.0;
   if (LALInferenceCheckVariable(IFOdata->modelParams, "spin1")) 
     spin1 =  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin1");
@@ -981,19 +1038,26 @@ void LALInferenceTemplate3525TD(LALInferenceIFOData *IFOdata)
 /* Formula numbers (x.xx) refer to the 2001 Blanchet paper,      */
 /* numbers (xx) refer to the more recent 2002 paper.             */
 /* Numbers referring to Arun et al (2004) are explicitly marked. */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *****************************/
-/* Required (`IFOdata->modelParams') parameters are:                                         */
-/*   - "chirpmass"        (REAL8, chirp mass, in units of solar masses)                      */
-/*   - "massratio"        (REAL8, symmetric mass ratio:  0 < eta <= 0.25, dimensionless)     */
-/*   - "phase"            (REAL8, coalescence phase, radians)                                */
-/*   - "time"             (REAL8, coalescence time, GPS seconds)                             */
-/*   - "inclination"      (REAL8, inclination angle, radians)                                */
-/*********************************************************************************************/
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *********************************************/
+/* Required (`IFOdata->modelParams') parameters are:                                                         */
+/*   - "chirpmass"        (REAL8, chirp mass, in units of solar masses)                                      */
+/*   - "massratio"        (REAL8, symmetric mass ratio:  0 < eta <= 0.25, dimensionless) <or asym_massratio> */
+/*   - "asym_massratio"   (REAL8, asymmetric mass ratio:  0 < q <= 1.0, dimensionless)   <or massratio>      */
+/*   - "phase"            (REAL8, coalescence phase, radians)                                                */
+/*   - "time"             (REAL8, coalescence time, GPS seconds)                                             */
+/*   - "inclination"      (REAL8, inclination angle, radians)                                                */
+/*************************************************************************************************************/
 {
-  double mc    = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");  /* chirp mass m_c, solar masses  */
-  double eta   = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");  /* mass ratio eta, dimensionless */
-  double tc    = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");       /* coalescence time, GPS sec.    */
-  double phase = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");      /* coalescence phase, rad        */
+  double mc    = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");      /* chirp mass m_c, solar masses           */
+  double tc    = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");           /* coalescence time, GPS sec.             */
+  double phase = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");          /* coalescence phase, rad                 */
+  double eta;                                                                               /* mass ratio eta, dimensionless          */
+  if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+    double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");  /* asymmetric mass ratio q, dimensionless */
+    q2eta(q, &eta);
+  }
+  else
+    eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
   double m1, m2;
   mc2masses(mc, eta, &m1, &m2);                   /* (in units of Msun) */
   double mt         = m1 + m2;
@@ -1422,7 +1486,12 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
 //    snprintf(injParams.waveform,LIGOMETA_WAVEFORM_MAX*sizeof(CHAR),"SpinTaylorFramelessthreePointFivePN");
 //  }
 	mc  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
-	eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+        REAL8 q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+        q2eta(q, &eta);
+    }
+    else
+        eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
 	
 	mc2masses(mc, eta, &m1, &m2);
 	
@@ -1588,7 +1657,7 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
         }else if(waveform.h){
           if(waveform.h->data->length+2*windowshift<=IFOdata->timeData->data->length){ //check whether the IFOdata->timeData->data vector is long enough to store the waveform produced
             for (i=0; i<IFOdata->timeData->data->length; i++){
-              if(i>=((unsigned long int)(waveform.h->data->length) + windowshift -1 )  || i<windowshift){
+              if(i>=((unsigned long int)(waveform.h->data->length) + windowshift -1 )  || i<windowshift || isnan(waveform.h->data->data[2*(i-(INT8)windowshift)]) || isnan(waveform.h->data->data[2*(i-(INT8)windowshift)+1]) ){
                 IFOdata->timeModelhPlus->data->data[i] = 0;
                 IFOdata->timeModelhCross->data->data[i] = 0;		
               }else{
@@ -1603,7 +1672,7 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
               fprintf(stderr, "The waveform template used will be missing its first %d points. Consider increasing the segment length (--seglen). (in %s, line %d)\n",waveform.h->data->length - IFOdata->timeData->data->length + (int) windowshift , __FILE__, __LINE__);
             }
             for (i=0; i<IFOdata->timeData->data->length; i++){
-              if((INT8)i>=(INT8)IFOdata->timeData->data->length-(INT8)windowshift || (INT8)i+(INT8)waveform.h->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift < 0){
+              if((INT8)i>=(INT8)IFOdata->timeData->data->length-(INT8)windowshift || (INT8)i+(INT8)waveform.h->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift < 0 || isnan(waveform.h->data->data[2*((INT8)i+(INT8)waveform.h->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift)]) || isnan(waveform.h->data->data[2*((INT8)i+(INT8)waveform.h->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift)]+1) ){
                 IFOdata->timeModelhPlus->data->data[i] = 0.0;
                 IFOdata->timeModelhCross->data->data[i] = 0.0;
               }else{                
@@ -1693,9 +1762,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
   REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
   
-	REAL8 mc,eta;
+	REAL8 mc;
   REAL8 phi0, deltaT, m1, m2, S1[3], S2[3], f_min, distance, inclination;
-  LIGOTimeGPS t0;
 	
   REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
   UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
@@ -1718,10 +1786,14 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 	
 
 	mc  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
-	eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+        REAL8 q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+        q2masses(mc, q, &m1, &m2);
+    } else {
+        REAL8 eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+        mc2masses(mc, eta, &m1, &m2);
+    }
 	
-	mc2masses(mc, eta, &m1, &m2);
-
   
 	inclination	= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");	    /* inclination in radian */
 	phi0		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase"); /* START phase as per lalsimulation convention*/
@@ -1766,11 +1838,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 		exit(1);
 	}
 	
-  XLALGPSSetREAL8( &t0, start_time);
-  
 	INT4 errnum=0;
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "LALSimulationRestrictedWaveform")){
+    XLAL_TRY(ret=XLALSimInspiralChooseRestrictedWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, S1[0], S1[1], S1[2], S2[0], S2[1], S2[2], f_min, distance, inclination, order, approximant), errnum);
+  }else{
+    XLAL_TRY(ret=XLALSimInspiralChooseWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, S1[0], S1[1], S1[2], S2[0], S2[1], S2[2], f_min, distance, inclination, order, order, approximant), errnum);
+  }
   
-	XLAL_TRY(ret=XLALSimInspiralChooseWaveform(&hplus, &hcross, &t0, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, S1, S2, f_min, distance, inclination, order, approximant), errnum);
   
   if (ret == XLAL_FAILURE)
   {
@@ -1781,7 +1855,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 		}
 		return;
   }
-	
+
+	// FIXME: these waveform shifts need to be checked
+	XLALGPSAdd(&(hplus->epoch), start_time);
+	XLALGPSAdd(&(hcross->epoch), start_time);
+
 	instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds)+hplus->data->length*deltaT;
 	
     /* write template (time axis) location in "->modelParams" so that     */
@@ -1795,7 +1873,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     if(hplus->data && hcross->data){
       if(hplus->data->length+2*windowshift<=IFOdata->timeData->data->length){ //check whether the IFOdata->timeData->data vector is long enough to store the waveform produced
         for (i=0; i<IFOdata->timeData->data->length; i++){
-          if(i>=((unsigned long int)(hplus->data->length) + windowshift)  || i<windowshift){
+          if(i>=((unsigned long int)(hplus->data->length) + windowshift)  || i<windowshift || isnan(hplus->data->data[i-(INT8)windowshift]) || isnan(hcross->data->data[i-(INT8)windowshift])){
             IFOdata->timeModelhPlus->data->data[i] = 0;
             IFOdata->timeModelhCross->data->data[i] = 0;		
           }else{
@@ -1810,7 +1888,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
           fprintf(stderr, "The waveform template used will be missing its first %d points. Consider increasing the segment length (--seglen). (in %s, line %d)\n",hplus->data->length - IFOdata->timeData->data->length + (int) windowshift , __FILE__, __LINE__);
         }
         for (i=0; i<IFOdata->timeData->data->length; i++){
-          if((INT8)i>=(INT8)IFOdata->timeData->data->length-(INT8)windowshift || (INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift < 0){
+          if((INT8)i>=(INT8)IFOdata->timeData->data->length-(INT8)windowshift || (INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift < 0 || isnan(hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) || isnan(hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) ){
             IFOdata->timeModelhPlus->data->data[i] = 0.0;
             IFOdata->timeModelhCross->data->data[i] = 0.0;
           }else{                

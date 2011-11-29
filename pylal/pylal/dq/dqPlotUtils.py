@@ -37,7 +37,7 @@ from datetime import datetime
 from glue import segments,git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import date,plotutils
-from pylal.dq.dqTriggerUtils import def_get_time
+from pylal.dq.dqTriggerUtils import def_get_time,get_column
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
@@ -285,7 +285,7 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
     self.ax.axvline(b, **plot_args)
 
   @plotutils.method_callable_once
-  def finalize(self):
+  def finalize(self, labels_inset=False):
 
     for row,key in enumerate(self.keys):
       if self.color_code.has_key(key):
@@ -296,11 +296,19 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
         a,b = self._time_transform(seg)
         self.ax.fill([a, b, b, a, a],\
                      [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
+      if labels_inset:
+        self.ax.text(0.01,(row+1)/(len(self.keys)+1), re.sub('\\+_+','\_',key),\
+                     horizontalalignment='left', verticalalignment='center',\
+                     transform=self.ax.transAxes, backgroundcolor='white',\
+                     bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
 
     ticks = pylab.arange(len(self.keys))
     self.ax.set_yticks(ticks)
-    self.ax.set_yticklabels([k.replace('_','\_').replace('\\\_','\_')\
-                             for k in self.keys], size='small')
+    if labels_inset:
+      self.ax.set_yticklabels(ticks, color='white')
+    else:
+      self.ax.set_yticklabels([re.sub(r'\\+_+', '\_', k)\
+                               for k in self.keys], size='small')
     self.ax.set_ylim(-1, len(self.keys))
 
 # =============================================================================
@@ -712,8 +720,11 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     # determine bar width; gets silly for more than a few data sets
     if logx:
       width = [bins[i+1]-bins[i] for i in xrange(len(bins)-1)]
+      width.append(width[-1])
     else:
       width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
+
+    width = numpy.asarray(width)/2
 
     # set base of plot in log scale
     if logy:
@@ -765,7 +776,8 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     self.ax.set_ybound(lower=ymin)
 
     # add legend if there are any non-trivial labels
-    self.ax.legend(plot_list, legends)
+    if plot_list:
+      self.ax.legend(plot_list, legends)
 
 # =============================================================================
 # Class for time series plot
@@ -823,6 +835,11 @@ class DataPlot(plotutils.BasicPlot):
     for i,plot in enumerate(plots):
       l = plot[0] 
       l.set_markersize(markersizes[i])
+
+    # set transparent legend
+    if leg:
+      legfr = leg.get_frame()
+      legfr.set_alpha(0.5)
 
     # set axes
     if logx:  self.ax.set_xscale('log')
@@ -925,6 +942,9 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get legend loc
+  loc = kwargs.pop('loc', 'best')
+
   # generate plot object
   plot = DataPlot(xlabel, ylabel, title, subtitle)
 
@@ -949,7 +969,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
-  plot.finalize(logx=logx, logy=logy)
+  plot.finalize(logx=logx, logy=logy, loc=loc)
 
   # set axes
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -975,7 +995,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
   set_ticks(plot.ax)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of any column
@@ -1062,20 +1082,18 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
     livetime = end-start
   livetime = float(livetime)
 
-  # format seglist and work out vetoed triggers
+  # format seglist
   if seglist==None:
     seglist = segments.segmentlist()
   else:
     seglist = segments.segmentlist(seglist)
 
-  preData  = []
-  postData = []
-  for trig in triggers:
-    datum = float(getTrigAttribute(trig, column))
-    preData.append(datum)
-    if get_time(trig) not in seglist:
-      postData.append(datum)
+  # get data
+  tdata    = get_column(triggers, 'time')
+  preData  = get_column(triggers, column)
+  postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
 
+  # get veto livetime
   vetoLivetime = livetime-float(abs(seglist))
 
   # set some random plot parameters
@@ -1183,7 +1201,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   set_ticks(plot.ax)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot one column against another column coloured by any third column
@@ -1269,17 +1287,35 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     All other given arguments will be passed to matplotlib.axes.Axes.scatter. 
   """
 
+  from pylal import plotutils
+
+  # test multiple tables
+  if not len(triggers)==0 and \
+     (isinstance(triggers[0], tuple) or isinstance(triggers[0], list)):
+    assert not zcolumn,\
+           "Can only plot single table when using colorbar plot"
+    tables = [t[1] for t in triggers]
+    tablelabel = [t[0] for t in triggers]
+    for i,t in enumerate(tablelabel):
+      if t!='_':
+        tablelabel[i] = t.replace('_','\_')
+  else:
+    tables = [triggers]
+    tablelabel = '_'
+
   # get time column
-  get_time = def_get_time(triggers.tableName)
+  get_time = []
+  for t in tables:
+    get_time.append(def_get_time(t.tableName))
 
   # set start and end time if needed
   if not start or not end:
-    times = [ get_time(t) for t in triggers ]
-  if not start and len(triggers)>=1:
+    times = [get_time[i](t)  for i in xrange(len(tables)) for t in tables[i]]
+  if not start and len(times)>=1:
     start = int(math.floor(min(times)))
   elif not start:
-    start = 0 
-  if not end and len(triggers)>=1:
+    start = 0
+  if not end and len(times)>=1:
     end   = int(math.ceil(max(times)))
   elif not end:
     end   = 1
@@ -1303,50 +1339,59 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   zlim = kwargs.pop('zlim', None)
   clim = kwargs.pop('clim', zlim)
 
-  # set up columns and lists
-  columns = map(str.lower, [xcolumn, ycolumn])
+  # set up columns
+  columns = list(map(str.lower, [xcolumn, ycolumn]))
   if zcolumn: columns.append(zcolumn.lower())
-  vetoData  = {}
-  nvetoData = {}
-  label     = {}
+
+  # set up limits
   limits    = [xlim, ylim, zlim]
   for i,col in enumerate(columns):
     if re.search('time\Z', col) and not limits[i]:
       limits[i] = [start,end]
-    vetoData[col]  = []
-    nvetoData[col] = []
 
-  # separate triggers
-  for trig in triggers:
-    use=True
+  # get veto info
+  if seglist:
+    tdata = get_column(triggers, 'time')
+
+  # get all data
+  vetoData  = []
+  nvetoData = []
+  for j,tab in enumerate(tables):
+    vetoData.append({})
+    nvetoData.append({})
+    # get veto info
+    if seglist:
+      tdata = get_column(tab, 'time')
+    # get data
     for i,col in enumerate(columns):
-      val = float(getTrigAttribute(trig, col))
-      if limits[i] and not limits[i][0] <= val <= limits[i][1]:
-        use=False
-    if use:
-      for i,col in enumerate(set(columns)):
-        val = float(getTrigAttribute(trig, col))
-        if get_time(trig) in segs:
-          vetoData[col].append(val)
-        else:
-          nvetoData[col].append(val)
-
+      nvetoData[j][col]  = get_column(tab, col).astype(float)
+    # apply limits and vetoes
+    condition = True
+    for i,col in enumerate(columns):
+      if limits[i]:
+        condition = condition & (limits[i][0] <= nvetoData[j][col])\
+                              & (nvetoData[j][col] <= limits[i][1])
+    for col in nvetoData[j].keys():
+      nvetoData[j][col] = nvetoData[j][col][condition]
+      if seglist:
+        vetoData[j][col] = [d for i,d in enumerate(nvetoData[j][col]) if\
+                            tdata[i] in seglist]
+      else:
+        vetoData[j][col] = numpy.array([])
 
   data = {}
-  for i,col in enumerate(columns):
-    vetoData[col]  = numpy.array(vetoData[col])
-    nvetoData[col] = numpy.array(nvetoData[col])
     
   # normalize zcolumn by time-averaged value
   whitenedFlag = kwargs.pop('whitened', False)
   if zcolumn and whitenedFlag:
-    uniqYvalues = numpy.unique1d(nvetoData[ycolumn])
+    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
     # building look back table by hand, is included in unique1d for numpy >= v1.3
     for yVal in uniqYvalues:
-      backTable = numpy.where(yVal == nvetoData[ycolumn])
-      zMedian =  numpy.median(nvetoData[zcolumn][yVal == nvetoData[ycolumn]])
+      backTable = numpy.where(yVal == nvetoData[0][ycolumn])
+      zMedian =  numpy.median(nvetoData[0][zcolumn][yVal ==\
+                                                    nvetoData[0][ycolumn]])
       for  iTrig in backTable[0]:
-        nvetoData[zcolumn][iTrig] /= zMedian
+        nvetoData[0][zcolumn][iTrig] /= zMedian
 
   # filter zcolumn by  provided poles/zeros filter as a function of ycolumn
   flatenedFlag = kwargs.pop('filter', False)
@@ -1355,45 +1400,108 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     polesList = kwargs.pop('poles', None)
     zerosList = kwargs.pop('zeros', None)
     amplitude = kwargs.pop('amplitude', 1)
-    nvetoData[zcolumn] *= amplitude
+    nvetoData[0][zcolumn] *= amplitude
     for filtPole in polesList:
-      nvetoData[zcolumn] /= abs(nvetoData[ycolumn] - filtPole)
+      nvetoData[0][zcolumn] /= abs(nvetoData[0][ycolumn] - filtPole)
     for filtZero in zerosList:
-      nvetoData[zcolumn] *= abs(nvetoData[ycolumn] - filtZero)
-    nvetoData[zcolumn].astype(float)
+      nvetoData[0][zcolumn] *= abs(nvetoData[0][ycolumn] - filtZero)
+    nvetoData[0][zcolumn].astype(float)
+
+  # flaten zcolumn by 1/sqrt of sum given rational fraction mononomes as a 
+  # function of ycolumn
+  flatenedFlag = kwargs.pop('flaten', False)
+  if zcolumn and flatenedFlag:
+    # get filter params
+    expList = kwargs.pop('exponents', None)
+    constList = kwargs.pop('constants', None)
+    filter = numpy.zeros(len(nvetoData[0][zcolumn]))
+    for iTerm, exponent in enumerate(expList):
+      filter += pow(constList[iTerm]*numpy.power(nvetoData[0][ycolumn],expList[iTerm]),2)
+    filter = numpy.sqrt(filter)
+    nvetoData[0][zcolumn] /= filter
   
   # median/min/max of ycolumn binned by exact xcolumn values
   minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
   if minmaxmedianFlag:
-    uniqXvalues = numpy.unique1d(nvetoData[xcolumn])
+    uniqXvalues = numpy.unique1d(nvetoData[j][xcolumn])
     # building look back table by hand, is included in unique1d for numpy >= v1.3
     for xVal in uniqXvalues:
-      backTable = numpy.where(xVal == nvetoData[xcolumn])
+      backTable = numpy.where(xVal == nvetoData[j][xcolumn])
       if len(backTable[0]) > 3:
-        nvetoData[ycolumn][backTable[0][0]] = numpy.median(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
-        nvetoData[ycolumn][backTable[0][1]] = numpy.min(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
-        nvetoData[ycolumn][backTable[0][2]] = numpy.max(nvetoData[ycolumn][xVal == nvetoData[xcolumn]])
+        nvetoData[j][ycolumn][backTable[0][0]] =\
+            numpy.median(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
+        nvetoData[j][ycolumn][backTable[0][1]] =\
+            numpy.min(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
+        nvetoData[j][ycolumn][0][backTable[0][2]] =\
+            numpy.max(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
         for iTrig in backTable[0][3:]:
-          nvetoData[ycolumn][iTrig] = numpy.nan
+          nvetoData[j][ycolumn][iTrig] = numpy.nan
 
+  # down-sample (xaxis) the triggers by plotting only median z-value over averaging window 
+  medianDuration = float(kwargs.pop('medianduration', 0))
+  stdDuration = float(kwargs.pop('stdduration', 0))
+  if medianDuration or stdDuration:
+    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
+    if medianDuration:
+      avDuration = medianDuration
+    elif stdDuration:
+      avDuration = stdDuration
+    tedges = numpy.arange(float(start), float(end), avDuration)
+    # array for repacking triggers into time-frequency bins
+    repackTrig = {}
+    for yVal in uniqYvalues:
+      repackTrig[yVal] = {}
+      for iBin in range(len(tedges)-1):
+        repackTrig[yVal][iBin] = []
+    # building new set of triggers
+    newTrigs = {}
+    newTrigs[xcolumn] = []
+    newTrigs[ycolumn] = []
+    newTrigs[zcolumn] = []
+    for iTrig in range(len(nvetoData[0][zcolumn])):
+      trigVal = nvetoData[0][ycolumn][iTrig]
+      trigBin = math.floor((nvetoData[0][xcolumn][iTrig]-float(start))/avDuration)
+      repackTrig[trigVal][trigBin].append(nvetoData[0][zcolumn][iTrig])
+    for yVal in uniqYvalues:
+      for iBin in range(len(tedges)-1):
+        # keep only if at least a few elements, std doesn't make sens otherwise
+        if medianDuration and len(repackTrig[yVal][iBin]) > 0:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.median(numpy.array(repackTrig[yVal][iBin])))
+        elif stdDuration and len(repackTrig[yVal][iBin]) > 5:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.std(numpy.array(repackTrig[yVal][iBin]))/ \
+                                     numpy.median(numpy.array(repackTrig[yVal][iBin])))
+          if newTrigs[zcolumn][-1] == 0:
+            newTrigs[zcolumn][-1] = numpy.nan
+    for i,col in enumerate(columns):
+      nvetoData[0][col] = numpy.array(newTrigs[col])
+
+  # get limits
   for i,col in enumerate(columns):
-    data[col] = numpy.concatenate((nvetoData[col], vetoData[col]))
-    if not limits[i] and len(data[col])>=1:
+    if not limits[i]:
       limits[i] = [0,0]
-      limits[i][0] = data[col].min()*0.99
-      limits[i][1] = data[col].max()*1.01
+      for j in xrange(len(tables)):
+        data[col] = numpy.concatenate((nvetoData[j][col], vetoData[j][col]))
+        if len(data[col])>=1:
+          limits[i][0] = min(data[col].min()*0.99, limits[i][0])
+          limits[i][1] = max(data[col].max()*1.01, limits[i][1])
 
     # renormalise time and set time axis label unless given
     if re.search('time\Z', col):
       renormalise = True
       if kwargs.has_key('xlabel'):  renormalise = False
       if renormalise:
-        vetoData[col] = (vetoData[col]-float(zero))/unit
-        nvetoData[col] = (nvetoData[col]-float(zero))/unit
+        for j in xrange(len(tables)):
+          vetoData[j][col] = (vetoData[j][col]-float(zero))/unit
+          nvetoData[j][col] = (nvetoData[j][col]-float(zero))/unit
         limits[i] = [float(limits[i][0]-zero)/unit,\
                      float(limits[i][1]-zero)/unit]
 
   # set labels
+  label = {}
   for i,col in enumerate(['xcolumn', 'ycolumn', 'zcolumn']):
     if i >= len(columns):  continue
     if re.search('time\Z', columns[i]):
@@ -1408,26 +1516,26 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   # find loudest event
   loudest = {}
   if len(columns)==3 and\
-     len(nvetoData[columns[0]])+len(vetoData[columns[0]])>=1:
+     len(nvetoData[0][columns[0]])+len(vetoData[0][columns[0]])>=1:
     # find loudest vetoed event
     vetomax = 0
-    if len(vetoData[columns[2]])>=1:
-      vetomax = vetoData[columns[2]].max()
+    if len(vetoData[0][columns[2]])>=1:
+      vetomax = vetoData[0][columns[2]].max()
     nvetomax = 0
     # find loudest unvetoed event
-    if len(nvetoData[columns[2]])>=1:
-      nvetomax = nvetoData[columns[2]].max()
+    if len(nvetoData[0][columns[2]])>=1:
+      nvetomax = nvetoData[0][columns[2]].max()
     if vetomax == nvetomax == 0:
       pass
     # depending on which one is loudest, find loudest overall event
     elif vetomax > nvetomax:
-      index = vetoData[columns[2]].argmax()
+      index = vetoData[0][columns[2]].argmax()
       for col in columns:
-        loudest[col] = vetoData[col][index] 
+        loudest[col] = vetoData[0][col][index]
     else:
-      index = nvetoData[columns[2]].argmax()
+      index = nvetoData[0][columns[2]].argmax()
       for col in columns:
-        loudest[col] = nvetoData[col][index]
+        loudest[col] = nvetoData[0][col][index]
 
   # fix flag for use with latex
   if flag:
@@ -1437,11 +1545,11 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # get ETG
   if not etg:
-    if re.search('burst', triggers.tableName.lower()):
+    if re.search('burst', tables[0].tableName.lower()):
       etg = 'Burst'
-    elif re.search('inspiral', triggers.tableName.lower()):
+    elif re.search('inspiral', tables[0].tableName.lower()):
       etg = 'Inspiral'
-    elif re.search('ringdown', triggers.tableName.lower()):
+    elif re.search('ringdown', tables[0].tableName.lower()):
       etg = 'Ringdown'
     else:
       etg = 'Unknown'
@@ -1489,14 +1597,16 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # initialise standard scatter plot
   if len(columns)==2:
+    plotutils.default_colors = lambda: itertools.cycle(('b', 'r', 'g', 'c', 'm', 'y', 'k'))
     plot = ScatterPlot(label[columns[0]], label[columns[1]], title, subtitle)
-    # add non veto triggers
-    if len(nvetoData[columns[0]])>=1:
-      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]], **kwargs)
-    # add veto triggers
-    if len(vetoData[columns[0]])>=1:
-      plot.add_content(vetoData[columns[0]], vetoData[columns[1]], marker='x',\
-                       color='r')
+    for j in xrange(len(tables)):
+      if len(nvetoData[j][columns[0]])>=1:
+        plot.add_content(nvetoData[j][columns[0]], nvetoData[j][columns[1]],\
+                         label=tablelabel[j], **kwargs)
+      # add veto triggers
+      if len(vetoData[j][columns[0]])>=1:
+        plot.add_content(vetoData[j][columns[0]], vetoData[j][columns[1]],\
+                         label=tablelabel[j], marker='x', color='r')
     # finalise
     plot.finalize(logx=logx, logy=logy)
   # initialise scatter plot with colorbar
@@ -1510,13 +1620,13 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
                                  label[columns[2]], title, subtitle)
 
     # add non veto triggers
-    if len(nvetoData[columns[0]])>=1:
-      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]],\
-                       nvetoData[columns[2]], **kwargs)
+    if len(nvetoData[0][columns[0]])>=1:
+      plot.add_content(nvetoData[0][columns[0]], nvetoData[0][columns[1]],\
+                       nvetoData[0][columns[2]], **kwargs)
     # add veto triggers
-    if len(vetoData[columns[0]])>=1:
-      plot.add_content(vetoData[columns[0]], vetoData[columns[1]],\
-                       vetoData[columns[2]], marker='x', edgecolor='r',\
+    if len(vetoData[0][columns[0]])>=1:
+      plot.add_content(vetoData[0][columns[0]], vetoData[0][columns[1]],\
+                       vetoData[0][columns[2]], marker='x', edgecolor='r',\
                        **kwargs)
     # finalise
     if detchar:
@@ -1533,23 +1643,15 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
 
   if limits[0]:
-    if logx and limits[0][0]==0:
-      limits[0][0] = min(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
-    if logx and limits[0][1]==0:
-      limits[0][1] = max(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
     plot.ax.set_xlim(limits[0])
   if limits[1]:
-    if logy and limits[1][0]==0:
-      limits[1][0] = min(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
-    if logy and limits[1][1]==0:
-      limits[1][1] = max(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
     plot.ax.set_ylim(limits[1])
 
   # reset ticks
   set_ticks(plot.ax)
 
   # get both major and minor grid lines
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of segment duration
@@ -1581,6 +1683,10 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   # customise plot appearance
   set_rcParams()
 
+  # get limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
+
   # get labels
   xlabel = kwargs.pop('xlabel', 'Length of segment (seconds)')
   ylabel = kwargs.pop('ylabel', 'Number of segments')
@@ -1608,14 +1714,23 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
 
   # add each segmentlist
   for flag,c in zip(flags, plotutils.default_colors()):
-    plot.add_content([abs(seg) for seg in segs[flag]], label=flag, color=c,\
-                     **kwargs)
+    plot.add_content([float(abs(seg)) for seg in segs[flag]],\
+                      label=flag, color=c, **kwargs)
 
   # finalize plot with histograms
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy)
 
+  # set limits
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  if ylim:
+    ylim = map(float, ylim)
+    plot.ax.set_ylim(ylim)
+  if xlim:
+    xlim = map(float, xlim)
+    plot.ax.set_xlim(xlim)
+
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot rate versus time in bins
@@ -1777,7 +1892,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot RMS versus time in bins
@@ -1951,7 +2066,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot segments
@@ -1997,11 +2112,15 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
     tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
   xlabel   = kwargs.pop('xlabel',\
                         'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  ylabel   = kwargs.pop('ylabel', "")
   title    = kwargs.pop('title', '')
   subtitle = kwargs.pop('subtitle', '')
 
   # get axis limits
   xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+
+  # get label param
+  labels_inset = kwargs.pop('labels_inset', False)
 
   if keys:
     # escape underscore, but don't do it twice
@@ -2016,9 +2135,9 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   # set params
   set_rcParams()
 
-  plot = PlotSegmentsPlot(xlabel, "", title, subtitle, t0=zero, unit=unit)
+  plot = PlotSegmentsPlot(xlabel, ylabel, title, subtitle, t0=zero, unit=unit)
   plot.add_content(segdict, keys, **kwargs)
-  plot.finalize()
+  plot.finalize(labels_inset=labels_inset)
 
   # indicate last frame
   if highlight_segments:
@@ -2033,7 +2152,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
 
   set_ticks(plot.ax)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Helper functions
@@ -2086,7 +2205,7 @@ def parse_plot_config(cp, section):
   else:
     columns['zcolumn'] = None
 
-  limits   = ['xlim', 'ylim', 'zlim', 'clim']
+  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
   filters  = ['poles', 'zeros']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator']

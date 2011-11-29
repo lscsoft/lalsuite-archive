@@ -36,10 +36,13 @@ liblalsimulation_la_SOURCES = \
 	LALSimBurst.c \
 	LALSimIMREOBNRv2.c \
 	LALSimIMRPhenom.c \
+	LALSimIMRPSpinInspiralRD.c \
 	LALSimInspiral.c \
 	LALSimInspiralPNMode.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
+	LALSimInspiralTaylorF2ReducedSpinMetric.c \
+	LALSimInspiralTaylorF2ReducedSpinTidal.c \
 	LALSimInspiralTaylorT1.c \
 	LALSimInspiralTaylorT2.c \
 	LALSimInspiralTaylorT3.c \
@@ -48,7 +51,6 @@ liblalsimulation_la_SOURCES = \
 	LALSimulation.c \
 	LALSimInspiralSpinTaylorT4.c \
 	LALSimulationVCSInfo.c \
-	LALSimInspiralPSpinInspiralRD.c \
 	LALSimNoisePSD.c \
 	LALSimNoise.c \
 	LALSimSGWB.c \

@@ -283,7 +283,7 @@ if opts.cache_file and opts.trigbank_pattern:
   trigbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.trigbank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
   if not trigbankFiles:
     print >>sys.stderr, "Failed to read any files matching the pattern " + \
-        opts.bank_pattern + " from the cache"
+        opts.trigbank_pattern + " from the cache"
   if opts.verbose: print trigbankFiles 
   trigSumm= readFiles(trigbankFiles)
     
