@@ -526,6 +526,14 @@ LALGetApproximantFromString(
   {
     *approximant = NumRel;
   }
+  else if ( strstr(thisEvent, "IMRPhenomFBTest" ) )
+  {
+    *approximant = IMRPhenomFBTest;
+  }
+  else if ( strstr(thisEvent, "IMRPhenomFB" ) )
+  {
+    *approximant = IMRPhenomFB;
+  }
   else if ( strstr(thisEvent, "IMRPhenomA" ) )
   {
     *approximant = IMRPhenomA;

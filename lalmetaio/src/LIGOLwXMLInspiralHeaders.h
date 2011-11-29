@@ -375,6 +375,8 @@ fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi5l\" Type=\"real
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi6\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi6l\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi7\" Type=\"real_4\"/>\n", fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi8\" Type=\"real_4\"/>\n", fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi9\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:loglambdaG\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:ScalarCharge1\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:ScalarCharge2\" Type=\"real_4\"/>\n", fp ) == EOF || \
@@ -387,7 +389,7 @@ fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:simulation_id\" Type
 fputs( "      <Stream Name=\"sim_inspiralgroup:sim_inspiral:table\" Type=\"Local\" Delimiter=\",\">\n", fp ) == EOF )
 
 #define SIM_INSPIRAL_ROW \
-"         \"process:process_id:0\",\"%s\",%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%22.16e,\"%s\",%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%d,%d,\"%s\",%d,\"%s\",%d,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,\"sim_inspiral:simulation_id:%" LAL_INT8_FORMAT "\""
+"         \"process:process_id:0\",\"%s\",%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%22.16e,\"%s\",%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%d,%d,\"%s\",%d,\"%s\",%d,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,\"sim_inspiral:simulation_id:%" LAL_INT8_FORMAT "\""
 
 #if 0
 { /* so that editors will match succeeding brace */

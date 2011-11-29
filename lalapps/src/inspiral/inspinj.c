@@ -193,6 +193,8 @@ REAL8 dphi5l=0.0;
 REAL8 dphi6=0.0;
 REAL8 dphi6l=0.0;
 REAL8 dphi7=0.0;
+REAL8 dphi8=0.0;
+REAL8 dphi9=0.0;
 REAL8 loglambdaG=28.0;
 REAL8 ScalarCharge1 = 0.0;
 REAL8 ScalarCharge2 = 0.0;
@@ -653,7 +655,9 @@ static void print_usage(char *program)
       " --dphi5l value            value of the dphi5l parameter\n"\
       " --dphi6 value             value of the dphi6 parameter\n"\
       " --dphi6l value            value of the dphi6l parameter\n"\
-      " --dphi7 value             value of the dphi7 parameter\n");
+      " --dphi7 value             value of the dphi7 parameter\n"\
+      " --dphi8 value             value of the dphi8 parameter\n"\
+      " --dphi9 value             value of the dphi9 parameter\n");
   fprintf(stderr,
 	  "Massive Graviton Information:\n"\
 	  " --enable-mg				  enable Massive Graviton injections\n"\
@@ -1404,6 +1408,8 @@ int main( int argc, char *argv[] )
     {"dphi6",                   required_argument, 0,                 1017},
     {"dphi6l",                  required_argument, 0,                 1018},
     {"dphi7",                   required_argument, 0,                 1019},
+    {"dphi8",                   required_argument, 0,                 1031},
+    {"dphi9",                   required_argument, 0,                 1032},
     {"enable-mg",               no_argument,       0,                 1020},   
     {"loglambdaG",              required_argument, 0,                 1021},
     {"enable-bd",               no_argument,       0,                 1022},
@@ -2312,6 +2318,18 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi7 );
           break;
+      case 1031:
+            dphi8 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi8 );
+          break;
+      case 1032:
+            dphi9 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi9 );
+          break;
       case 1020:
               /* enable massive graviton injections */
         this_proc_param = this_proc_param->next = 
@@ -3058,6 +3076,8 @@ int main( int argc, char *argv[] )
     simTable->dphi6=dphi6;
     simTable->dphi6l=dphi6l;
     simTable->dphi7=dphi7;
+    simTable->dphi8=dphi8;
+    simTable->dphi9=dphi9;
     
     /* populate the massive graviton parameter */
     

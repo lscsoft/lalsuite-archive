@@ -482,6 +482,7 @@ typedef enum {
    IMRPhenomB,
    IMRPhenomFA,
    IMRPhenomFB,
+   IMRPhenomFBTest,
    TaylorEt,
    TaylorT4,
    TaylorN,
@@ -1378,19 +1379,32 @@ void LALBBHPhenWaveFreqDom ( LALStatus        *status,
 			     REAL4Vector      *signalvec,
 			     InspiralTemplate *params);
 
+void LALBBHPhenWaveFreqDomTest ( LALStatus        *status,
+			         REAL4Vector      *signalvec,
+			         InspiralTemplate *params,
+                                 REAL8 *dphis);
+
 void LALBBHPhenWaveFreqDomTemplates( LALStatus        *status,
 				     REAL4Vector      *signalvec1,
 				     REAL4Vector      *signalvec2,
 				     InspiralTemplate *params);
 
+void LALBBHPhenWaveFreqDomTemplatesTest( LALStatus        *status,
+				     REAL4Vector      *signalvec1,
+				     REAL4Vector      *signalvec2,
+				     InspiralTemplate *params,
+                                     REAL8            *dphis);
+
 void LALBBHPhenWaveTimeDom ( LALStatus        *status,
 			     REAL4Vector      *signalvec,
-			     InspiralTemplate *insp_template);
+			     InspiralTemplate *insp_template,
+ 			     REAL8            *dphis);
 
 void LALBBHPhenWaveTimeDomTemplates( LALStatus        *status,
 				     REAL4Vector      *signalvec1,
 				     REAL4Vector      *signalvec2,
-				     InspiralTemplate *params);
+				     InspiralTemplate *params,
+				     REAL8 *dphis);
 
 void LALBBHPhenTimeDomEngine( LALStatus        *status,
 			      REAL4Vector      *signalvec1,
@@ -1400,12 +1414,14 @@ void LALBBHPhenTimeDomEngine( LALStatus        *status,
 			      REAL4Vector      *f,
 			      REAL8Vector      *phiOut,
 				  UINT4            *countback,
-			      InspiralTemplate *params);
+			      InspiralTemplate *params,
+                              REAL8 *dphis);
 
 void LALBBHPhenWaveTimeDomForInjection (LALStatus        *status,
 					CoherentGW       *waveform,
 					InspiralTemplate *params,
-					PPNParamStruc    *ppnParams);
+					PPNParamStruc    *ppnParams,
+                                        REAL8            *dphis);
 
 
 /* --- OTHER PROTOTYPES --- */
