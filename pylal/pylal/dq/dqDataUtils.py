@@ -40,6 +40,7 @@ from pylab import hanning
 import warnings
 warnings.filterwarnings("ignore")
 from scipy import signal as signal
+from scipy import interpolate
 
 from matplotlib import mlab
 from glue import git_version
