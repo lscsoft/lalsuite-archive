@@ -306,7 +306,7 @@ LALInspiralBankGeneration(
     chi = malloc (input->nPointsChi * sizeof(REAL8));
     kappa = malloc (input->nPointsKappa * sizeof(REAL8));
     
-    if(input->squareGrid)
+    if(input->squareGridOpt)
     {
       dChi = ( input->chiMax - input->chiMin) / (REAL8) input->nPointsChi;
       dKappa = ( input->kappaMax - input->kappaMin ) / (REAL8) input->nPointsKappa;
@@ -322,6 +322,24 @@ LALInspiralBankGeneration(
         else kappa[i] = kappa[0] + i * dKappa ;
       }
 
+    }
+    else if(input->squareGrid)
+    {
+      dChi = ( input->chiMax - input->chiMin) / (((REAL8) input->nPointsChi)-1);
+      dKappa = ( input->kappaMax - input->kappaMin ) / (((REAL8) input->nPointsKappa)-1);
+
+      for (i=0; i < input->nPointsChi; i++)
+      {
+        chi[i] = input->chiMin + i * dChi ;
+      }
+      for (i=0; i < input->nPointsKappa; i++)
+      {
+        kappa[i] = input->kappaMin + i * dKappa;
+      }
+    }
+
+    if(input->squareGridOpt || input->squareGrid)
+    {  
       /* Use LALInspiralCreateCoarseBank(). */
       TRY( LALInspiralCreateCoarseBank( status->statusPtr, &coarseList, ntiles,
             *input ), status );
@@ -340,8 +358,10 @@ LALInspiralBankGeneration(
           for( cnt = 0; cnt < *ntiles; cnt++ )
           {
             /* restrict the bank boundaries to the region of validity of PTF */
-            if ( coarseList[cnt].params.mass1 < 6.0 ||
-                coarseList[cnt].params.mass2 > 3.0 ) continue;
+            if ( coarseList[cnt].params.mass1 < input->m1MinPTF ||
+                 coarseList[cnt].params.mass1 > input->m1MaxPTF ||
+                 coarseList[cnt].params.mass2 < input->m2MinPTF ||
+                 coarseList[cnt].params.mass2 > input->m2MaxPTF ) continue;
             bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
                   SnglInspiralTable ) );
             if (bank == NULL)
@@ -418,7 +438,10 @@ LALInspiralBankGeneration(
           for( cnt = 0; cnt < *ntiles; cnt++ )
           {
             /* restrict the bank boundaries to the region of validity of PTF */
-            if ( coarseList[cnt].params.mass1 < 6.0 ) continue;
+            if ( coarseList[cnt].params.mass1 < input->m1MinPTF ||
+                 coarseList[cnt].params.mass1 > input->m1MaxPTF ||
+                 coarseList[cnt].params.mass2 < input->m2MinPTF ||
+                 coarseList[cnt].params.mass2 > input->m2MaxPTF ) continue;
             bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
                   SnglInspiralTable ) );
             if (bank == NULL)
