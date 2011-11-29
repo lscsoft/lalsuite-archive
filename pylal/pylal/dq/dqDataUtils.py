@@ -412,7 +412,7 @@ def spectrum(data, sampling, NFFT=256, overlap=0.5,\
 
 def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
                               window=('kaiser',24), sides='onesided',\
-                              verbose=False):
+                              verbose=False, log=False):
 
   """
     Computes power spectral density of a data series using the median-mean
@@ -491,6 +491,13 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
   else:
     S = S.flatten()
   if verbose: sys.stdout.write("Calculated median-mean average.\n")
+
+  if log:
+    f_log = numpy.logspace(numpy.log10(f[1]), numpy.log10(f[-1]), num=len(f)/2,\
+                           endpoint=False)
+    I = interpolate.interp1d(f, S)
+    S = I(f_log)
+    return f_log, S
 
   return f, S
 
