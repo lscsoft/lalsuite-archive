@@ -2383,14 +2383,7 @@ defaulting to %s\n"%(self.serverURL))
     WHERE \
     segment_definer.segment_def_id = segment.segment_def_id AND \
     segment_definer.creator_db = segment.segment_def_cdb AND \
-    NOT (segment.start_time > %s OR %s > segment.end_time) AND \
-    segment_definer.version = \
-    (SELECT MAX(sd.version) \
-    FROM segment_definer AS sd, segment_summary as ss WHERE \
-    segment_definer.ifos = sd.ifos AND \
-    segment_definer.name = sd.name AND \
-    sd.segment_def_id = ss.segment_def_id AND \
-    NOT (ss.start_time > %s OR %s > ss.end_time)) \
+    NOT (segment.start_time > %s OR %s > segment.end_time) \
     ORDER BY segment_definer.ifos,segment_definer.name,segment.start_time \
     """
     tmpBlind=""
@@ -2620,9 +2613,9 @@ defaulting to %s\n"%(self.serverURL))
     gpsStart=int(triggerTime)-int(frontWindow)
     #If this is a blinded check use blinded query
     if self.__blinded__:
-      self.resultList=self.query(self.dqvQueryBlinded%(gpsEnd,gpsStart,gpsEnd,gpsStart))
+      self.resultList=self.query(self.dqvQueryBlinded%(gpsEnd,gpsStart))
     else:
-      self.resultList=self.query(self.dqvQuery%(gpsEnd,gpsStart,gpsEnd,gpsStart))
+      self.resultList=self.query(self.dqvQuery%(gpsEnd,gpsStart))
     if len(self.resultList) < 1:
       sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
     #Coalesce the segments for each DQ flag
@@ -2753,7 +2746,7 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
         if (start<=myPoint) and (myPoint<=end):
           if myIfo not in self.__backgroundTimesDict__.keys():
             self.__backgroundTimesDict__[myIfo]=list()
-          self.__backgroundTimesDict__[myIfo].append("%9.0f"%myPoint)
+          self.__backgroundTimesDict__[myIfo].append("%10.0f"%myPoint)
           mySampleCount=mySampleCount+1
     #Take each list of ifo times and look up the DQ flags
     self.__connectToSegmentDB__()

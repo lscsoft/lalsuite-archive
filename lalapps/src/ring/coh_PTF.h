@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
-#include <time.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <ctype.h>
@@ -44,6 +44,8 @@
 #include <lal/LALInspiral.h>
 #include <lal/FindChirpDatatypes.h>
 #include <lal/FindChirp.h>
+#include <lal/FindChirpSP.h>
+#include <lal/FindChirpTD.h>
 #include <lal/FindChirpPTF.h>
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
@@ -56,6 +58,8 @@
 #include <lal/FindChirpPTF.h>
 #include <lal/RingUtils.h>
 #include <LALAppsVCSInfo.h>
+#include <lal/SkyCoordinates.h>
+#include <lal/XLALError.h>
 
 #include "lalapps.h"
 #include "getdata.h"
@@ -72,9 +76,11 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_blas.h>
+#include <lal/GSLSupport.h>
 
 #define BUFFER_SIZE 256
 #define FILENAME_SIZE 256
+#define MAXIFO 4
 
 /* macro for testing validity of a condition that prints an error if invalid */
 #define sanity_check( condition ) \
@@ -106,7 +112,8 @@ struct coh_PTF_params {
   char        *cvsRevision;
   char        *cvsSource;
   char        *cvsDate;
-  char         ifoName[3];
+  char         ifoName[MAXIFO][LIGOMETA_IFO_MAX];
+  UINT4        numIFO;
   INT4         randomSeed;
   INT4         haveTrig[LAL_NUM_IFO];
   LIGOTimeGPS  startTime;
@@ -131,13 +138,20 @@ struct coh_PTF_params {
   REAL4        lowFilterFrequency;
   REAL4        highFilterFrequency;
   REAL4        highpassFrequency;
+  Approximant  approximant;
+  LALPNOrder   order;
   REAL4        invSpecLen;
   REAL4        threshold;
+  REAL4        snglSNRThreshold;
   REAL4        timeWindow;
   REAL4        spinSNR2threshold;
   REAL4        nonspinSNR2threshold;
   REAL4        rightAscension;
   REAL4        declination;
+  REAL4        skyError;
+  REAL4        timingAccuracy;
+  const char  *skyPositionsFile;
+  UINT4        skyLooping;
   const char  *bankFile;
   const char  *segmentsToDoList;
   const char  *templatesToDoList;
@@ -160,6 +174,9 @@ struct coh_PTF_params {
   const char  *noSpinBank;
   char         userTag[256];
   char         ifoTag[256];
+  UINT4        slideSegments[LAL_NUM_IFO+1];
+  UINT4        fftLevel;
+  UINT4        simDataType;
   /* flags */
   int          strainData;
   int          doubleData;
@@ -176,6 +193,8 @@ struct coh_PTF_params {
   int          doBankVeto;
   int          doAutoVeto;
   int          doChiSquare;
+  int          doSnglChiSquared;
+  int          singlePolFlag;
   /* write intermediate result flags */
   int          writeRawData;
   int          writeProcessedData;
@@ -211,6 +230,32 @@ typedef struct tagRingDataSegments
 }
 RingDataSegments;
 
+typedef struct tagCohPTFSkyPositions
+{
+  UINT4       numPoints;
+  SkyPosition *data;
+}
+CohPTFSkyPositions; 
+
+typedef struct tagTimeSlideVectorList
+{
+  REAL4       timeSlideVectors[LAL_NUM_IFO];
+  INT8        timeSlideID;
+}
+TimeSlideVectorList;
+
+/* ENUM for sky location looping */
+
+typedef enum
+{
+  SINGLE_SKY_POINT,
+  TWO_DET_SKY_PATCH,
+  SKY_PATCH,
+  ALL_SKY,
+  TWO_DET_ALL_SKY
+}
+Skyloopingtype;
+
 /* Function declarations for coh_PTF_inspiral */
 
 void coh_PTF_statistic(
@@ -219,19 +264,20 @@ void coh_PTF_statistic(
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
     struct coh_PTF_params   *params,
     UINT4                   spinTemplate,
-    UINT4                   singleDetector,
     REAL8                   *timeOffsets,
     REAL8                   *Fplus,
     REAL8                   *Fcross,
+    REAL8                   *Fplustrig,
+    REAL8                   *Fcrosstrig,
     INT4                    segmentNumber,
     REAL4TimeSeries         *pValues[10],
     REAL4TimeSeries         *gammaBeta[2],
     REAL4TimeSeries         *snrComps[LAL_NUM_IFO],
     REAL4TimeSeries         *nullSNR,
     REAL4TimeSeries         *traceSNR,
-    REAL4TimeSeries         *bankVeto,
-    REAL4TimeSeries         *autoVeto,
-    REAL4TimeSeries         *chiSquare,
+    REAL4TimeSeries         *bankVeto[LAL_NUM_IFO+1],
+    REAL4TimeSeries         *autoVeto[LAL_NUM_IFO+1],
+    REAL4TimeSeries         *chiSquare[LAL_NUM_IFO+1],
     UINT4                   subBankSize,
     struct bankComplexTemplateOverlaps *bankOverlaps,
     struct bankTemplateOverlaps *bankNormOverlaps,
@@ -240,8 +286,14 @@ void coh_PTF_statistic(
     FindChirpTemplate       *fcTmplt,
     REAL4FrequencySeries    *invspec[LAL_NUM_IFO+1],
     RingDataSegments        *segment[LAL_NUM_IFO+1],
-    COMPLEX8FFTPlan         *invPlan
+    COMPLEX8FFTPlan         *invPlan,
+    struct bankDataOverlaps **chisqOverlapsP,
+    struct bankDataOverlaps **chisqSnglOverlapsP,
+    REAL4 *frequencyRangesPlus[LAL_NUM_IFO+1],
+    REAL4 *frequencyRangesCross[LAL_NUM_IFO+1],
+    struct timeval          startTime
 );
+
 UINT8 coh_PTF_add_triggers(
     struct coh_PTF_params   *params,
     MultiInspiralTable      **eventList,
@@ -250,16 +302,19 @@ UINT8 coh_PTF_add_triggers(
     InspiralTemplate        PTFTemplate,
     UINT8                   eventId,
     UINT4                   spinTrigger,
-    UINT4                   singleDetector,
     REAL4TimeSeries         *pValues[10],
     REAL4TimeSeries         *gammaBeta[2],
     REAL4TimeSeries         *snrComps[LAL_NUM_IFO],
     REAL4TimeSeries         *nullSNR,
     REAL4TimeSeries         *traceSNR,
-    REAL4TimeSeries         *bankVeto,
-    REAL4TimeSeries         *autoVeto,
-    REAL4TimeSeries         *chiSquare,
-    REAL8Array              *PTFM[LAL_NUM_IFO+1]
+    REAL4TimeSeries         *bankVeto[LAL_NUM_IFO+1],
+    REAL4TimeSeries         *autoVeto[LAL_NUM_IFO+1],
+    REAL4TimeSeries         *chiSquare[LAL_NUM_IFO+1],
+    REAL8Array              *PTFM[LAL_NUM_IFO+1],
+    REAL4                   rightAscension,
+    REAL4                   declination,
+    INT8                    slideId,
+    REAL8                   *timeOffsets
 );
 void coh_PTF_cluster_triggers(
   MultiInspiralTable      **eventList,
@@ -311,7 +366,9 @@ RingDataSegments *coh_PTF_get_segments(
     REAL4TimeSeries         *channel,
     REAL4FrequencySeries    *invspec,
     REAL4FFTPlan            *fwdplan,
-    struct coh_PTF_params      *params
+    InterferometerNumber     NumberIFO,
+    REAL4                   *timeSlideVectors,
+    struct coh_PTF_params   *params
 );
 
 void coh_PTF_calculate_bmatrix(
@@ -360,7 +417,9 @@ void coh_PTF_cleanup(
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
     REAL8                   *timeOffsets,
     REAL8                   *Fplus,
-    REAL8                   *Fcross
+    REAL8                   *Fcross,
+    REAL8                   *Fplustrig,
+    REAL8                   *Fcrosstrig
 );
 
 REAL4FFTPlan *coh_PTF_get_fft_fwdplan( struct coh_PTF_params *params );
@@ -374,9 +433,19 @@ SnglInspiralTable *conv_insp_tmpl_to_sngl_table(
     UINT4                   eventNumber
 );
 
+long int timeval_subtract(struct timeval *t1);
+
+void timeval_print(struct timeval *tv);
+
 /* Function declarations for coh_PTF_template.c */
 
 void coh_PTF_template (
+    FindChirpTemplate          *fcTmplt,
+    InspiralTemplate           *InspTmplt,
+    FindChirpTmpltParams       *params
+);
+
+void coh_PTF_template_PTF (
     FindChirpTemplate          *fcTmplt,
     InspiralTemplate           *InspTmplt,
     FindChirpTmpltParams       *params
@@ -451,19 +520,6 @@ void coh_PTF_initialise_sub_bank(
     UINT4                    numPoints
 );
 
-REAL4 coh_PTF_calculate_bank_veto_max_phase(
-    UINT4           numPoints,
-    UINT4           position,
-    UINT4           subBankSize,
-    REAL8Array      *PTFM[LAL_NUM_IFO+1],
-    struct coh_PTF_params      *params,
-    struct bankComplexTemplateOverlaps *bankOverlaps,
-    struct bankTemplateOverlaps *bankNormOverlaps,
-    struct bankDataOverlaps *dataOverlaps,
-    COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
-    INT4            timeOffsetPoints[LAL_NUM_IFO]
-);
-    
 REAL4 coh_PTF_calculate_bank_veto(
     UINT4           numPoints,
     UINT4           position,
@@ -472,11 +528,17 @@ REAL4 coh_PTF_calculate_bank_veto(
     REAL4           b[LAL_NUM_IFO],
     struct coh_PTF_params      *params,
     struct bankCohTemplateOverlaps *cohBankOverlaps,
+    struct bankComplexTemplateOverlaps *bankOverlaps,
     struct bankDataOverlaps *dataOverlaps,
+    struct bankTemplateOverlaps *bankNormOverlaps,
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
+    REAL8Array      *PTFM[LAL_NUM_IFO+1],
     INT4            timeOffsetPoints[LAL_NUM_IFO],
     gsl_matrix *Bankeigenvecs[50],
-    gsl_vector *Bankeigenvals[50]
+    gsl_vector *Bankeigenvals[50],
+    UINT4       detectorNum,
+    UINT4       vecLength,
+    UINT4       vecLengthTwo
 );
 
 REAL4 coh_PTF_calculate_auto_veto(
@@ -486,10 +548,15 @@ REAL4 coh_PTF_calculate_auto_veto(
     REAL4           b[LAL_NUM_IFO],
     struct coh_PTF_params      *params,
     struct bankCohTemplateOverlaps *cohAutoOverlaps,
+    struct bankComplexTemplateOverlaps *autoTempOverlaps,
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
+    REAL8Array      *PTFM[LAL_NUM_IFO+1],
     INT4            timeOffsetPoints[LAL_NUM_IFO],
     gsl_matrix *Autoeigenvecs,
-    gsl_vector *Autoeigenvals
+    gsl_vector *Autoeigenvals,
+    UINT4       detectorNum,
+    UINT4       vecLength,
+    UINT4       vecLengthTwo
 );
 
 void coh_PTF_free_bank_veto_memory(
@@ -510,7 +577,9 @@ void coh_PTF_calculate_coherent_bank_overlaps(
     gsl_matrix *eigenvecs,
     gsl_vector *eigenvals,
     gsl_matrix *Bankeigenvecs,
-    gsl_vector *Bankeigenvals
+    gsl_vector *Bankeigenvals,
+    UINT4 vecLength,
+    UINT4 vecLengthTwo
 );
 
 void coh_PTF_calculate_standard_chisq_freq_ranges(
@@ -522,7 +591,9 @@ void coh_PTF_calculate_standard_chisq_freq_ranges(
     REAL4 b[LAL_NUM_IFO],
     REAL4 *frequencyRangesPlus,
     REAL4 *frequencyRangesCross,
-    gsl_matrix *eigenvecs
+    gsl_matrix *eigenvecs,
+    UINT4 detectorNum,
+    UINT4 singlePolFlag
 );
 
 void coh_PTF_calculate_standard_chisq_power_bins(
@@ -532,10 +603,13 @@ void coh_PTF_calculate_standard_chisq_power_bins(
     REAL8Array              *PTFM[LAL_NUM_IFO+1],
     REAL4 a[LAL_NUM_IFO],
     REAL4 b[LAL_NUM_IFO],
-    REAL4 *frequencyRanges,
+    REAL4 *frequencyRangesPlus,
+    REAL4 *frequencyRangesCross,
     REAL4 *powerBinsPlus,
     REAL4 *powerBinsCross,
-    gsl_matrix *eigenvecs
+    gsl_matrix *eigenvecs,
+    UINT4 detectorNum,
+    UINT4 singlePolFlag
 );
 
 REAL4 coh_PTF_calculate_chi_square(
@@ -544,13 +618,17 @@ REAL4 coh_PTF_calculate_chi_square(
     UINT4           position,
     struct bankDataOverlaps *chisqOverlaps,
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
+    REAL8Array      *PTFM[LAL_NUM_IFO+1],
     REAL4           a[LAL_NUM_IFO],
     REAL4           b[LAL_NUM_IFO],
     INT4            timeOffsetPoints[LAL_NUM_IFO],
     gsl_matrix *eigenvecs,
     gsl_vector *eigenvals,
     REAL4 *powerBinsPlus,
-    REAL4 *powerBinsCross
+    REAL4 *powerBinsCross,
+    UINT4 detectorNum,
+    UINT4 vecLength,
+    UINT4 vecLengthTwo
 );
 
 /* routines in coh_PTF_option */
@@ -584,6 +662,7 @@ int coh_PTF_output_events_xml(
     char               *outputFile,
     MultiInspiralTable *events,
     ProcessParamsTable *processParamsTable,
+    TimeSlide          *time_slide_head,
     struct coh_PTF_params *params
 );
 
@@ -616,3 +695,70 @@ int generate_file_name(
     int dt
 );
 
+/* generate array of sky points based on RA, Dec, error radius, and timing
+ * accuracy */
+
+CohPTFSkyPositions *coh_PTF_generate_sky_points(
+    struct coh_PTF_params *params
+);
+
+CohPTFSkyPositions *coh_PTF_generate_sky_grid(
+    struct coh_PTF_params *params
+);
+
+CohPTFSkyPositions *coh_PTF_circular_grid(
+    REAL4 angularResolution,
+    REAL4 skyError
+);
+
+CohPTFSkyPositions *coh_PTF_parse_time_delays(
+    CohPTFSkyPositions *skyPoints,
+    struct coh_PTF_params *params
+);
+
+CohPTFSkyPositions *coh_PTF_read_grid_from_file(
+    const char *fname,
+    UINT4      raColumn,
+    UINT4      decColumn
+);
+
+void coh_PTF_rotate_skyPoints(
+    CohPTFSkyPositions *skyPoints,
+    gsl_vector *axis,
+    REAL8 angle
+);
+
+void coh_PTF_rotate_SkyPosition(
+    SkyPosition *skyPoint,
+    gsl_matrix  *matrix
+);
+
+CohPTFSkyPositions *coh_PTF_two_det_sky_grid(
+    struct coh_PTF_params *params
+);
+
+CohPTFSkyPositions *coh_PTF_three_det_sky_grid(
+    struct coh_PTF_params *params
+);
+
+void normalise(
+    gsl_vector *vec
+);
+
+void cross_product(
+    gsl_vector *product,
+    const gsl_vector *u,
+    const gsl_vector *v
+);
+
+void rotation_matrix(
+    gsl_matrix *matrix,
+    gsl_vector *axis,
+    REAL8 angle
+);
+
+void REALToGSLVector(
+    const REAL8 *input,
+    gsl_vector  *output,
+    size_t      size
+);

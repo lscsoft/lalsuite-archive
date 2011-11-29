@@ -1,14 +1,17 @@
 ## Process this file with automake to produce Makefile.in
 # $Id$
 pkginclude_HEADERS = VectorOps.h Matrix.h VectorIndexRange.h
+CLEANFILES =
 MAINTAINERCLEANFILES = VectorIndexRange.h
-MOSTLYCLEANFILES = .dvi-dep
-DISTCLEANFILES = *.tex
+MOSTLYCLEANFILES =
+DISTCLEANFILES =
 all-local: include-link
-dvi-local: .dvi-dep
-EXTRA_DIST = VectorIndexRangeBaseH.m4 VectorIndexRangeH.m4
 
-VectorIndexRange.h: VectorIndexRangeBaseH.m4 VectorIndexRangeH.m4
+EXTRA_DIST = VectorIndexRangeBaseH.m4 VectorIndexRangeH.m4 VectorPairTypedefsBase.m4
+
+VectorIndexRange.h: VectorIndexRangeBaseH.m4 VectorIndexRangeH.m4 VectorPairTypedefsBase.m4
 	cd $(srcdir) && @M4@ VectorIndexRangeH.m4 > VectorIndexRange.h
 @INCLUDEMKFILE@
-@DVIMKFILE@
+
+swig_headers = $(pkginclude_HEADERS)
+include $(top_srcdir)/swig/swig-header.am

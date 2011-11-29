@@ -23,8 +23,6 @@
  *
  * Author: Bose, S., Seader, S. E.
  *
- * Revision: $Id$
- *
  *-----------------------------------------------------------------------
  */
 
@@ -3371,7 +3369,7 @@ XLALCoherentInspiralFilterSegment (
 		  thisEvent->null_statistic = thisEvent->null_stat_degen;
 		}
 		else {
-		  if ( (nullStatistic == 0.0)) {
+		  if ( nullStatistic == 0.0 ) {
 		    thisEvent->null_statistic = (REAL4) XLALComputeNullStatCase4a(fplus,fcross,sigmasq,thisEvent);
 		  }
 		  else {
@@ -3472,7 +3470,7 @@ XLALCoherentInspiralFilterSegment (
 		  thisEvent->null_statistic = thisEvent->null_stat_degen;
 		}
 		else {
-		  if ( (nullStatistic == 0.0)) {
+		  if ( nullStatistic == 0.0 ) {
 		    thisEvent->null_statistic = (REAL4) XLALComputeNullStatCase4a(fplus,fcross,sigmasq,thisEvent);
 		  }
 		  else {
@@ -3586,7 +3584,7 @@ XLALCoherentInspiralFilterSegment (
 		  thisEvent->null_statistic = thisEvent->null_stat_degen;
 		}
 		else {
-		  if ( (nullStatistic == 0.0)) {
+		  if ( nullStatistic == 0.0 ) {
 		    thisEvent->null_statistic = (REAL4) XLALComputeNullStatCase4a(fplus,fcross,sigmasq,thisEvent);
 		  }
 		  else {
@@ -4009,7 +4007,7 @@ double XLALComputeNonQuadNullStatCase3b(INT4 caseID[6], double fplus[4], double 
   v1quadre = cData[2]->data->data[timeP+slidePoints[2]].re;
   v1quadim = cData[2]->data->data[timeP+slidePoints[2]].im;
 
-  if ( (caseID[1] == 0) ) {
+  if ( caseID[1] == 0 ) {
       /* This is a H2 trigger */
       sigmasqH = sigmasq[2];
 
@@ -4075,7 +4073,7 @@ double XLALComputeIncohStatCase3b(INT4 caseID[6], double fplus[4], double fcross
   v1quadre = cData[2]->data->data[timeP+slidePoints[2]].re;
   v1quadim = cData[2]->data->data[timeP+slidePoints[2]].im;
 
-  if ( (caseID[1] == 0) ) {
+  if ( caseID[1] == 0 ) {
     /* This is a H2 trigger */
     sigmasqH = sigmasq[2];
     chisqH = chisq[0];/*Note: Correct for G1*/
@@ -4145,7 +4143,7 @@ double XLALComputeNullStatCase3b(INT4 caseID[6], double fplus[4], double fcross[
     double nullNumerIm8 = 0.0;
     double nullStatistic = 0.0;
 
-    if ( (caseID[1] == 0) ) {
+    if ( caseID[1] == 0 ) {
       /* This is a H2 trigger */
       sigmasqH = sigmasq[2];
 
@@ -4187,7 +4185,7 @@ double XLALComputeNullTimeSeriesCase3b(INT4 caseID[6], double fplus[4], double f
     double nullNumerIm8 = 0.0;
     double nullStatistic = 0.0;
 
-    if ( (caseID[1] == 0) ) {
+    if ( caseID[1] == 0 ) {
       /* This is a H2 trigger */
       sigmasqH = sigmasq[2];
 

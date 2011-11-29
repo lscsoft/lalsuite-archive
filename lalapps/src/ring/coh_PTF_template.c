@@ -17,64 +17,51 @@
 *  MA  02111-1307  USA
 */
 
-/*-----------------------------------------------------------------------
- *
- * File Name: FindChirpPTFTemplate.c
- *
- * Author: Brown, D. A., and Fazi, D.
- *
- * Revision: $Id$
- *
- *-----------------------------------------------------------------------
- */
-
-#if 0
-<lalVerbatim file="FindChirpPTFTemplateCV">
-Author: Brown, D. A., and Fazi, D.
-$Id$
-</lalVerbatim>
-
-<lalLaTeX>
-\subsection{Module \texttt{FindChirpPTFTemplate.c}}
-\label{ss:FindChirpPTFTemplate.c}
-
-Provides functions to create physical template family templates in a
-form that can be used by the \texttt{FindChirpPTFFilter()} function.
-
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{FindChirpPTFTemplateCP}
-\idx{LALFindChirpPTFTemplate()}
-
-The function \texttt{LALFindChirpPTFTemplate()} creates a physical template
-family template as described by the algorithm below.
-
-\subsubsection*{Algorithm}
-
-Blah.
-
-\subsubsection*{Uses}
-\begin{verbatim}
-LALCalloc()
-LALFree()
-LALCreateVector()
-LALDestroyVector()
-\end{verbatim}
-
-\subsubsection*{Notes}
-
-\vfill{\footnotesize\input{FindChirpPTFTemplateCV}}
-</lalLaTeX>
-#endif
 
 #include "coh_PTF.h"
 
 RCSID( "$Id$" );
 
-NRCSID(FINDCHIRPPTFTEMPLATEC, "$Id: FindChirpPTFTemplate.c,v 1.7 2008/06/26 19:05:07 dfazi Exp $");
+void coh_PTF_template (
+    FindChirpTemplate          *fcTmplt,
+    InspiralTemplate           *InspTmplt,
+    FindChirpTmpltParams       *params
+    )
+{
+  UINT4 i;
+  LALStatus status = blank_status;
+  switch ( params->approximant )
+  {
+    case TaylorT1:
+    case TaylorT2:
+    case TaylorT3:
+    case TaylorT4:
+    case GeneratePPN:
+    case PadeT1:
+    case EOB:
+    case EOBNR:
+    case IMRPhenomB:
+      LALFindChirpTDTemplate( &status,fcTmplt,InspTmplt,params );
+      break;
+    case FindChirpSP:
+      LALFindChirpSPTemplate( &status,fcTmplt,InspTmplt,params );
+      for (i=0 ; i < params->xfacVec->length ; i++ )
+      {
+        fcTmplt->data->data[i].re = fcTmplt->data->data[i].re * params->PTFphi->data[i];
+        fcTmplt->data->data[i].im = fcTmplt->data->data[i].im * params->PTFphi->data[i];
+      }
+      break;
+    case FindChirpPTF:
+      coh_PTF_template_PTF(fcTmplt,InspTmplt,params);
+      break;
+    default:
+      fprintf(stderr,"Waveform approximant not recognized at template generation\n");
+      exit(1);
+  }
+}
 
 void
-coh_PTF_template (
+coh_PTF_template_PTF (
     FindChirpTemplate          *fcTmplt,
     InspiralTemplate           *InspTmplt,
     FindChirpTmpltParams       *params
@@ -108,13 +95,12 @@ coh_PTF_template (
   sanity_check( fcTmplt->PTFQtilde );
   sanity_check( fcTmplt->PTFQtilde->length == 5 );
   sanity_check( fcTmplt->PTFQtilde->data );
+  sanity_check( fcTmplt->PTFQ );
+  sanity_check( fcTmplt->PTFQ->length == 5 );
+  sanity_check( fcTmplt->PTFQ->data );
 
   /* check that the parameter structure exists */
   sanity_check( params );
-  sanity_check( params->PTFQ );
-  sanity_check( params->PTFQ->length == 5 );
-  sanity_check( params->PTFQ->data );
-
   sanity_check( params->fwdPlan );
 
   /* check that the timestep is positive */
@@ -125,9 +111,9 @@ coh_PTF_template (
 
   N = params->PTFphi->length;
 
-  /* check that the parameter structure is set */
+  /* set the parameter structure */
   /* to the correct waveform approximant       */
-  sanity_check( InspTmplt->approximant == FindChirpPTF );
+  InspTmplt->approximant = FindChirpPTF;
   sanity_check( InspTmplt->fLower );
 
   /* copy the template parameters to the finchirp template structure */
@@ -138,7 +124,7 @@ coh_PTF_template (
   fcTmplt->tmplt.fLower = params->fLow = InspTmplt->fLower;
 
   /* Zero out the Q and Qtilde vectors */
-  memset( params->PTFQ->data, 0, 5 * N * sizeof(REAL4) );
+  memset( fcTmplt->PTFQ->data, 0, 5 * N * sizeof(REAL4) );
   memset( fcTmplt->PTFQtilde->data, 0, 5 * (N /2 + 1) * sizeof(COMPLEX8) );
 
  /* Point the dummy variables Q and Qtilde to the actual output structures */
@@ -146,7 +132,7 @@ coh_PTF_template (
   {
     Q[i].length      = N;
     Qtilde[i].length = N / 2 + 1;
-    Q[i].data        = params->PTFQ->data + (i * N);
+    Q[i].data        = fcTmplt->PTFQ->data + (i * N);
     Qtilde[i].data   = fcTmplt->PTFQtilde->data + (i * (N / 2 + 1)) ;
   }
 
@@ -276,8 +262,7 @@ void coh_PTF_normalize(
   sanity_check ( len == length ) ; 
   sanity_check ( fcTmplt->PTFQtilde->vectorLength == len);
 
-  /* check that the parameter structure is set to a time domain approximant */
-  sanity_check ( fcTmplt->tmplt.approximant == FindChirpPTF );
+//  sanity_check ( fcTmplt->tmplt.approximant == FindChirpPTF );
 
   /* Set parameters to determine spin/nonspin */
   /* For non-spin we only need one filter. For PTF all 5 are needed */

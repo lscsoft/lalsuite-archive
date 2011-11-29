@@ -132,20 +132,24 @@ class CoincDatabase(object):
 			self.scn_definer_id = None
 
 
-def summarize_coinc_database(contents):
+def summarize_coinc_database(contents, filename = None):
+	if filename is None:
+		filename = ""
+	else:
+		filename = "%s: " % filename
 	cursor = contents.connection.cursor()
-	print >>sys.stderr, "database stats:"
+	print >>sys.stderr, "%sdatabase stats:" % filename
 	for instrument, seglist in sorted(contents.seglists.items()):
-		print >>sys.stderr, "\t%s livetime: %g s (%g%% vetoed)" % (instrument, abs(seglist), 100.0 * float(abs(instrument in contents.vetoseglists and (seglist & contents.vetoseglists[instrument]) or 0.0)) / float(abs(seglist)))
+		print >>sys.stderr, "\t%s%s livetime: %g s (%g%% vetoed)" % (filename, instrument, abs(seglist), 100.0 * float(abs(instrument in contents.vetoseglists and (seglist & contents.vetoseglists[instrument]) or 0.0)) / float(abs(seglist)))
 	if contents.sngl_burst_table is not None:
-		print >>sys.stderr, "\tburst events: %d" % len(contents.sngl_burst_table)
+		print >>sys.stderr, "\t%sburst events: %d" % (filename, len(contents.sngl_burst_table))
 	if contents.sim_burst_table is not None:
-		print >>sys.stderr, "\tburst injections: %d" % len(contents.sim_burst_table)
+		print >>sys.stderr, "\t%sburst injections: %d" % (filename, len(contents.sim_burst_table))
 	if contents.time_slide_table is not None:
-		print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
+		print >>sys.stderr, "\t%stime slides: %d" % (filename, cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0])
 	if contents.coinc_def_table is not None:
 		for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id ORDER BY description"):
-			print >>sys.stderr, "\t%s: %d" % (description, n)
+			print >>sys.stderr, "\t%s%s: %d" % (filename, description, n)
 	cursor.close()
 
 

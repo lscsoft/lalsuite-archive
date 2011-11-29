@@ -35,11 +35,21 @@
 """
 This module defines the segment and segmentlist objects, as well as the
 infinity object used to define semi-infinite and infinite segments.
+
+See also:
+
+glue.segmentsUtils
 """
 
 
 from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
+try:
+	all, any
+except NameError:
+	# python < 2.5.  FIXME:  delete when we can rely on at least
+	# version 2.5
+	from glue.iterutils import all, any
 
 
 from glue import git_version
@@ -219,6 +229,17 @@ class segment(tuple):
 	objects.  The methods for this class exist mostly for purpose of
 	simplifying the implementation of the segmentlist class.
 
+	The segment class is a subclass of the tuple built-in class
+	provided by Python.  This means segments are immutable --- you
+	cannot modify a segment object after creating it, to change the
+	boundaries of a segment you must create a new segment object with
+	the desired boundaries.  Like tuples, segments can be used as
+	dictionary keys, and like tuples the comparison used to find a
+	segment in the dictionary is done by value not by ID.  And, like
+	tuples, a segment can be created from any sequence-like object by
+	passing it to the constructor (the sequence must have exactly two
+	elements in it).
+
 	Example:
 
 	>>> segment(0, 10) & segment(5, 15)
@@ -238,6 +259,16 @@ class segment(tuple):
 	>>> x = [0, 1]
 	>>> segment(x)
 	segment(0, 1)
+	>>> y = segment(0, 1)
+	>>> y == x
+	True
+	>>> y is x
+	False
+	>>> z = {x: ["/path/to/file1", "/path/to/file2"]}
+	>>> y in z
+	True
+	>>> z[y]
+	['/path/to/file1', '/path/to/file2']
 	"""
 
 	# basic class methods
@@ -272,7 +303,8 @@ class segment(tuple):
 
 	def __nonzero__(self):
 		"""
-		Test for segment having non-zero duration.
+		Return True if the segment's boudaries are not equal, False
+		if they are equal.
 		"""
 		return self[0] != self[1]
 
@@ -432,20 +464,23 @@ class segmentlist(list):
 	operations.
 
 	All standard Python sequence-like operations are supported, like
-	slicing, iteration and so on, but the arithmetic and other methods
-	in this class generally expect the segmentlist to be in what is
-	refered to as a "coalesced" state --- consisting solely of disjoint
-	segments listed in ascending order.  Using the standard Python
-	sequence-like operations, a segmentlist can be easily constructed
-	that is not in this state;  for example by simply appending a
-	segment to the end of the list that overlaps some other segment
-	already in the list.  The class provides a coalesce() method that
-	can be called to put it in the coalesced state.  Following
-	application of the coalesce method, all arithmetic operations will
-	function reliably.  All arithmetic methods themselves return
-	coalesced results, so there is never a need to call the coalesce
-	method when manipulating segmentlists exclusively via the
-	arithmetic operators.
+	slicing, iteration and so on, including arithmetic operations.
+	However, the arithmetic and other methods for this class generally
+	require the segmentlist to be in what is refered to as a
+	"coalesced" state --- consisting solely of disjoint segments listed
+	in ascending order.  Using the standard Python sequence-like
+	operations, a segmentlist can be easily constructed that is not in
+	this state;  for example by simply appending a segment to the end
+	of the list that overlaps some other segment already in the list.
+	The use of methods that require coalesced lists with lists that are
+	not coalesced has undefined results.  The class provides the
+	.coalesce() method that can be called to put a segmentlist in the
+	coalesced state.  All arithmetic methods return coalesced results,
+	so typically the .coalesce() method will be executed once after
+	importing a segmentlist from an untrusted source, then there is
+	never a need to call the .coalesce() method again as long as the
+	segmentlists are manipulated exclusively via the arithmetic
+	operators.
 
 	Example:
 
@@ -477,12 +512,7 @@ class segmentlist(list):
 		segments in the segmentlist.
 		"""
 		if isinstance(item, self.__class__):
-			# FIXME:  in Python >= 2.5, use all() builtin
-			# return all(seg in self for seg in item)
-			for seg in item:
-				if seg not in self:
-					return False
-			return True
+			return all(seg in self for seg in item)
 		i = bisect_left(self, item)
 		return ((i != 0) and (item in self[i-1])) or ((i != len(self)) and (item in self[i]))
 
@@ -931,26 +961,34 @@ class segmentlistdict(dict):
 		"""
 		Return a dictionary of the results of func applied to each
 		of the segmentlist objects in self.
+
+		Example:
+
+		>>> x = segmentlistdict()
+		>>> x["H1"] = segmentlist([segment(0, 10)])
+		>>> x["H2"] = segmentlist([segment(5, 15)])
+		>>> x.map(lambda l: 12 in l)
+		{'H2': True, 'H1': False}
 		"""
 		return dict((key, func(value)) for key, value in self.iteritems())
 
 	def __abs__(self):
 		"""
-		Return a dictionary of the results of running abs() on
+		Return a dictionary of the results of running .abs() on
 		each of the segmentlists.
 		"""
 		return self.map(abs)
 
 	def extent(self):
 		"""
-		Return a dictionary of the results of running extent() on
+		Return a dictionary of the results of running .extent() on
 		each of the segmentlists.
 		"""
 		return self.map(segmentlist.extent)
 
 	def extent_all(self):
 		"""
-		Return the result of running extent on the union of all
+		Return the result of running .extent() on the union of all
 		lists in the dictionary.
 		"""
 		segs = self.extent().values()
@@ -958,14 +996,34 @@ class segmentlistdict(dict):
 
 	def find(self, item):
 		"""
-		Return a dictionary of the results of running find() on
+		Return a dictionary of the results of running .find() on
 		each of the segmentlists.
+
+		Example:
+
+		>>> x = segmentlistdict()
+		>>> x["H1"] = segmentlist([segment(0, 10)])
+		>>> x["H2"] = segmentlist([segment(5, 15)])
+		>>> x.find(7)
+		{'H2': 0, 'H1': 0}
+
+		NOTE:  all segmentlists must contain the item or KeyError
+		is raised.
 		"""
 		return self.map(lambda x: x.find(item))
 
 	def keys_at(self, x):
 		"""
-		Return a list of the keys for the segment lists that contain x.
+		Return a list of the keys for the segment lists that
+		contain x.
+
+		Example:
+
+		>>> x = segmentlistdict()
+		>>> x["H1"] = segmentlist([segment(0, 10)])
+		>>> x["H2"] = segmentlist([segment(5, 15)])
+		>>> x.keys_at(12)
+		['H2']
 		"""
 		return [key for key, segs in self.items() if x in segs]
 
@@ -1035,51 +1093,43 @@ class segmentlistdict(dict):
 		Returns True if any segmentlist in self intersects the
 		segment, otherwise returns False.
 		"""
-		# FIXME:  replace with any() when minimum version bumped to
-		# 2.5
-		for value in self.itervalues():
-			if value.intersects_segment(seg):
-				return True
-		return False
+		return any(value.intersects_segment(seg) for value in self.itervalues())
 
 	def intersects(self, other):
 		"""
 		Returns True if there exists a segmentlist in self that
 		intersects the corresponding segmentlist in other;  returns
 		False otherwise.
+
+		See also:
+
+		.intersects_all(), .all_intersects(), .all_intersects_all()
 		"""
-		# FIXME:  replace with any() when minimum version bumped to
-		# 2.5
-		for key, value in other.iteritems():
-			if key in self and self[key].intersects(value):
-				return True
-		return False
+		return any(key in self and self[key].intersects(value) for key, value in other.iteritems())
 
 	def intersects_all(self, other):
 		"""
 		Returns True if each segmentlist in other intersects the
 		corresponding segmentlist in self;  returns False
 		if this is not the case, or if other is empty.
+
+		See also:
+
+		.intersects(), .all_intersects(), .all_intersects_all()
 		"""
-		# FIXME:  replace with all() when minimum version bumped to
-		# 2.5
-		for key, value in other.iteritems():
-			if key not in self or not self[key].intersects(value):
-				return False
-		return set(other.keys()) != set()
+		return all(key in self and self[key].intersects(value) for key, value in other.iteritems()) and bool(other)
 
 	def all_intersects(self, other):
 		"""
 		Returns True if each segmentlist in self intersects the
 		corresponding segmentlist in other;  returns False
 		if this is not the case or if self is empty.
+
+		See also:
+
+		.intersects, .intersects_all(), .all_intersects_all()
 		"""
-		# FIXME:  replace with all() when minimum version bumped to
-		# 2.5
-		for key, value in self.iteritems():
-			if key not in other or not other[key].intersects(value):
-				return False
-		return set(self.keys()) != set()
+		return all(key in other and other[key].intersects(value) for key, value in self.iteritems()) and bool(self)
 
 	def all_intersects_all(self, other):
 		"""
@@ -1087,15 +1137,12 @@ class segmentlistdict(dict):
 		segmentlist intersects the corresponding segmentlist in the
 		other;  returns False if this is not the case or if either
 		dictionary is empty.
+
+		See also:
+
+		.intersects(), .all_intersects(), .intersects_all()
 		"""
-		if set(self.keys()) != set(other.keys()):
-			return False
-		# FIXME:  replace with all() when minimum version bumped to
-		# 2.5
-		for key, value in self.iteritems():
-			if not other[key].intersects(value):
-				return False
-		return set(self.keys()) != set()
+		return set(self) == set(other) and all(other[key].intersects(value) for key, value in self.iteritems()) and bool(self)
 
 	def extend(self, other):
 		"""
@@ -1111,7 +1158,7 @@ class segmentlistdict(dict):
 
 	def coalesce(self):
 		"""
-		Run coalesce() on all segmentlists.
+		Run .coalesce() on all segmentlists.
 		"""
 		for value in self.itervalues():
 			value.coalesce()
@@ -1119,7 +1166,7 @@ class segmentlistdict(dict):
 
 	def contract(self, x):
 		"""
-		Run contract(x) on all segmentlists.
+		Run .contract(x) on all segmentlists.
 		"""
 		for value in self.itervalues():
 			value.contract(x)
@@ -1127,7 +1174,7 @@ class segmentlistdict(dict):
 
 	def protract(self, x):
 		"""
-		Run protract(x) on all segmentlists.
+		Run .protract(x) on all segmentlists.
 		"""
 		for value in self.itervalues():
 			value.protract(x)
@@ -1175,13 +1222,7 @@ class segmentlistdict(dict):
 		# make sure inner loop is smallest
 		if len(self) < len(other):
 			self, other = other, self
-		for a in self:
-			# FIXME:  replace with any() when min version
-			# bumped to 2.5
-			for b in other:
-				if a.intersects(b):
-					return True
-		return False
+		return any(a.intersects(b) for a in self for b in other)
 
 	def intersection(self, keys):
 		"""
@@ -1223,3 +1264,18 @@ try:
 	from __segments import *
 except ImportError:
 	pass
+
+
+#
+# =============================================================================
+#
+#                                Pickle Support
+#
+# =============================================================================
+#
+
+
+import copy_reg
+
+copy_reg.pickle(segment, lambda x: (segment, tuple(x)))
+copy_reg.pickle(segmentlist, lambda x: (segmentlist, (), None, iter(x)))

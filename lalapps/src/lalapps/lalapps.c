@@ -59,6 +59,11 @@
 #include <lal/LALPulsarVCSInfo.h>
 #endif
 
+#ifdef HAVE_LIBLALINFERENCE
+#include <lal/LALInferenceConfig.h>
+#include <lal/LALInferenceVCSInfo.h>
+#endif
+
 #ifdef HAVE_LIBLALSTOCHASTIC
 #include <lal/LALStochasticConfig.h>
 #include <lal/LALStochasticVCSInfo.h>
@@ -207,7 +212,7 @@ static int version_compare(
     XLALPrintError("%s: FATAL: version mismatch between compile-time (%s) and run-time (%s) %s library\n",
         function, compile_time->vcsId, run_time->vcsId, run_time->name);
     XLALPrintError("This indicates a potential compilation problem: ensure your setup is consistent and recompile.\n");
-    XLAL_ERROR(function, XLAL_EERR);
+    XLAL_ERROR(XLAL_EERR);
   }
   return 0;
 }
@@ -238,6 +243,9 @@ XLALGetVersionString( int level )
 #endif
 #ifdef HAVE_LIBLALPULSAR
   char lalpulsar_info[1024];
+#endif
+#ifdef HAVE_LIBLALINFERENCE
+  char lalinference_info[1024];
 #endif
 #ifdef HAVE_LIBLALSTOCHASTIC
   char lalstochastic_info[1024];
@@ -308,6 +316,15 @@ XLALGetVersionString( int level )
   }
 #endif
 
+#ifdef HAVE_LIBLALINFERENCE
+  if ((LALINFERENCE_VERSION_DEVEL != 0) || (LALAPPS_VERSION_DEVEL != 0))
+  {
+    /* check lalinference version consistency */
+    if (version_compare(__func__, &lalInferenceHeaderVCSInfo, &lalInferenceVCSInfo))
+      exit(1);
+  }
+#endif
+
 #ifdef HAVE_LIBLALSTOCHASTIC
   if ((LALSTOCHASTIC_VERSION_DEVEL != 0) || (LALAPPS_VERSION_DEVEL != 0))
   {
@@ -372,6 +389,14 @@ XLALGetVersionString( int level )
       snprintf(lalpulsar_info, sizeof(lalpulsar_info),
           "%%%% LALPulsar: %s (%s %s)\n", lalPulsarVCSInfo.version, \
           strsep(&tree_status, delim), lalPulsarVCSInfo.vcsId);
+#endif
+
+#ifdef HAVE_LIBLALINFERENCE
+      /* get lalinference info */
+      tree_status = strdup(lalInferenceVCSInfo.vcsStatus);
+      snprintf(lalinference_info, sizeof(lalinference_info),
+          "%%%% LALInference: %s (%s %s)\n", lalInferenceVCSInfo.version, \
+          strsep(&tree_status, delim), lalInferenceVCSInfo.vcsId);
 #endif
 
 #ifdef HAVE_LIBLALSTOCHASTIC
@@ -536,6 +561,27 @@ XLALGetVersionString( int level )
           LALPULSAR_CONFIGURE_ARGS );
 #endif
 
+#ifdef HAVE_LIBLALINFERENCE
+      /* get lalinference info */
+      snprintf( lalinference_info, sizeof(lalinference_info),
+          "%%%% LALInference-Version: %s\n"
+          "%%%% LALInference-Id: %s\n"
+          "%%%% LALInference-Date: %s\n"
+          "%%%% LALInference-Branch: %s\n"
+          "%%%% LALInference-Tag: %s\n"
+          "%%%% LALInference-Status: %s\n"
+          "%%%% LALInference-Configure Date: %s\n"
+          "%%%% LALInference-Configure Arguments: %s\n",
+          lalInferenceVCSInfo.version,
+          lalInferenceVCSInfo.vcsId,
+          lalInferenceVCSInfo.vcsDate,
+          lalInferenceVCSInfo.vcsBranch,
+          lalInferenceVCSInfo.vcsTag,
+          lalInferenceVCSInfo.vcsStatus,
+          LALINFERENCE_CONFIGURE_DATE ,
+          LALINFERENCE_CONFIGURE_ARGS );
+#endif
+
 #ifdef HAVE_LIBLALSTOCHASTIC
       /* get lalstochastic info */
       snprintf( lalstochastic_info, sizeof(lalstochastic_info),
@@ -598,12 +644,15 @@ XLALGetVersionString( int level )
 #ifdef HAVE_LIBLALPULSAR
   len += strlen(lalpulsar_info);
 #endif
+#ifdef HAVE_LIBLALINFERENCE
+  len += strlen(lalinference_info);
+#endif
 #ifdef HAVE_LIBLALSTOCHASTIC
   len += strlen(lalstochastic_info);
 #endif
   if ( (ret = XLALMalloc ( len )) == NULL ) {
     XLALPrintError ("%s: Failed to XLALMalloc(%d)\n", __func__, len );
-    XLAL_ERROR_NULL ( __func__, XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   strcpy ( ret, lal_info );
@@ -624,6 +673,9 @@ XLALGetVersionString( int level )
 #endif
 #ifdef HAVE_LIBLALPULSAR
   strcat ( ret, lalpulsar_info );
+#endif
+#ifdef HAVE_LIBLALINFERENCE
+  strcat ( ret, lalinference_info );
 #endif
 #ifdef HAVE_LIBLALSTOCHASTIC
   strcat ( ret, lalstochastic_info );
@@ -646,17 +698,17 @@ XLALOutputVersionString ( FILE *fp, int level )
 
   if (!fp ) {
     XLALPrintError ("%s: invalid NULL input 'fp'\n", __func__ );
-    XLAL_ERROR ( __func__, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
   if ( (VCSInfoString = XLALGetVersionString(level)) == NULL ) {
     XLALPrintError("%s: XLALGetVersionString() failed.\n", __func__);
-    XLAL_ERROR ( __func__, XLAL_EFUNC );
+    XLAL_ERROR ( XLAL_EFUNC );
   }
 
   if ( fprintf (fp, "%s", VCSInfoString ) < 0 ) {
     XLALPrintError("%s: fprintf failed for given file-pointer 'fp'\n", __func__);
     XLALFree ( VCSInfoString);
-    XLAL_ERROR ( __func__, XLAL_EIO );
+    XLAL_ERROR ( XLAL_EIO );
   }
 
   XLALFree ( VCSInfoString);

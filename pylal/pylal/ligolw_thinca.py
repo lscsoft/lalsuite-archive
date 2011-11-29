@@ -175,8 +175,17 @@ InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 
 
 
 class InspiralCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, vetoes = None, program = u"inspiral"):
+	def __init__(self, xmldoc, vetoes = None, program = u"inspiral", likelihood_func = None, likelihood_params_func = None):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
+
+		#
+		# configure the likelihood ratio evaluator
+		#
+
+		if likelihood_func is None and likelihood_params_func is not None or likelihood_func is not None and likelihood_params_func is None:
+			raise ValueError("must provide both a likelihood function and a parameter function or neither")
+		self.likelihood_func = likelihood_func
+		self.likelihood_params_func = likelihood_params_func
 
 		#
 		# create a string uniquifier
@@ -249,6 +258,14 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		instruments = set([event.ifo for event in events])
 		instruments |= set([instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs])
 		coinc.set_instruments(instruments)
+
+		#
+		# if a likelihood ratio calculator is available, assign a
+		# likelihood ratio to the coinc
+		#
+
+		if self.likelihood_func is not None:
+			coinc.likelihood = self.likelihood_func(self.likelihood_params_func(events, self.time_slide_index[time_slide_id]))
 
 		#
 		# save memory by re-using strings
@@ -380,10 +397,7 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test and their test masses are equal.
 	"""
-	if (a.mass1 != b.mass1) or (a.mass2 != b.mass2):
-		# different templates --> not coincident
-		return True
-	return inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
+	return (a.mass1 != b.mass1) or (a.mass2 != b.mass2) or inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
 
 
 #
@@ -432,8 +446,6 @@ def replicate_threshold(e_thinca_parameter, instruments):
 def ligolw_thinca(
 	xmldoc,
 	process_id,
-	EventListType,
-	CoincTables,
 	coinc_definer_row,
 	event_comparefunc,
 	thresholds,
@@ -441,7 +453,8 @@ def ligolw_thinca(
 	effective_snr_factor = 250.0,
 	veto_segments = None,
 	trigger_program = u"inspiral",
-	coinc_end_time_segment = None,
+	likelihood_func = None,
+	likelihood_params_func = None,
 	verbose = False
 ):
 	#
@@ -450,7 +463,7 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments, program = trigger_program)
+	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
@@ -460,7 +473,7 @@ def ligolw_thinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName)
+	eventlists = snglcoinc.make_eventlists(xmldoc, InspiralEventList, lsctables.SnglInspiralTable.tableName)
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)

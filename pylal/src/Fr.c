@@ -179,7 +179,14 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     if (vect == NULL) {
         /* Try to open it as StaticData */
         FrStatData *sd;
-        sd = FrStatDataReadT(iFile, channel, start);  /* no "span" used */
+        /* Here I'd like to do
+         *   sd = FrStatDataReadT(iFile, channel, start);
+         * but FrStatDataReadT does *not* return samples after
+         * "start". Doh. Instead, I have to do this:
+         */
+        double frstart = FrFileITStart(iFile);
+        sd = FrStatDataReadT(iFile, channel, frstart);
+        /* and more below */
         if (verbose > 0) FrStatDataDump(sd, stdout, verbose);
         if (sd == NULL) {
             sprintf(msg, "In file %s, vector not found: %s", filename, channel);
@@ -210,9 +217,27 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
             return NULL;
         }
 
+        /* Recompute limits and pointers, so "vect" contains only the
+         * subset of data we requested */
         if (vect->nData > span / vect->dx[0]) {
             vect->nx[0] = span / vect->dx[0];
             vect->nData = vect->nx[0];
+        }
+        if (frstart < start) {  /* thank you FrStatDataReadT() */
+            int shift = (start - frstart) / vect->dx[0];
+            if      (vect->type == FR_VECT_2S)   vect->dataS  += shift;
+            else if (vect->type == FR_VECT_4S)   vect->dataI  += shift;
+            else if (vect->type == FR_VECT_8S)   vect->dataL  += shift;
+            else if (vect->type == FR_VECT_1U)   vect->dataU  += shift;
+            else if (vect->type == FR_VECT_2U)   vect->dataUS += shift;
+            else if (vect->type == FR_VECT_4U)   vect->dataUI += shift;
+            else if (vect->type == FR_VECT_8U)   vect->dataUL += shift;
+            else if (vect->type == FR_VECT_4R)   vect->dataF  += shift;
+            else if (vect->type == FR_VECT_8R)   vect->dataD  += shift;
+            // Note the 2* shift for complex types
+            else if (vect->type == FR_VECT_8C)   vect->dataF  += 2 * shift;
+            else if (vect->type == FR_VECT_16C)  vect->dataD  += 2 * shift;
+            // If none of these types, it will fail later
         }
     }
 
@@ -723,6 +748,51 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
     Py_RETURN_NONE;
 };
 
+/*
+ * Utility function to extract an FrEvent's parameters into a Python dictionary
+ */
+static PyObject *extract_event_dict(FrEvent *event) {
+    PyObject *event_dict = NULL;
+    size_t j;
+
+    /* each FrEvent will be stored in a dict */
+    event_dict = PyDict_New();
+    if (!event_dict) return NULL;
+
+    /* guarantee these parameters exist */
+    PyDict_SetItemString(event_dict, "name",
+        PyString_FromString(event->name));
+    PyDict_SetItemString(event_dict, "comment",
+        PyString_FromString(event->comment));
+    PyDict_SetItemString(event_dict, "inputs",
+        PyString_FromString(event->inputs));
+    PyDict_SetItemString(event_dict, "GTimeS",
+        PyLong_FromUnsignedLong(event->GTimeS));
+    PyDict_SetItemString(event_dict, "GTimeN",
+        PyLong_FromUnsignedLong(event->GTimeN));
+    PyDict_SetItemString(event_dict, "timeBefore",
+        PyFloat_FromDouble(event->timeBefore));
+    PyDict_SetItemString(event_dict, "timeAfter",
+        PyFloat_FromDouble(event->timeAfter));
+    PyDict_SetItemString(event_dict, "eventStatus",
+        PyLong_FromUnsignedLong(event->eventStatus));
+    PyDict_SetItemString(event_dict, "amplitude",
+        PyFloat_FromDouble(event->amplitude));
+    PyDict_SetItemString(event_dict, "probability",
+        PyFloat_FromDouble(event->probability));
+    PyDict_SetItemString(event_dict, "statistics",
+        PyString_FromString(event->statistics));
+
+    /* additional parameters */
+    for (j = 0; j < event->nParam; j++) {
+        PyDict_SetItem(event_dict,
+            PyString_FromString(event->parameterNames[j]),
+            PyFloat_FromDouble(event->parameters[j]));
+    }
+
+    return event_dict;
+}
+
 const char frgeteventdocstring[] =
 "frgetevent(filename, verbose=False)\n"
 "\n"
@@ -736,8 +806,7 @@ static PyObject *frgetevent(PyObject *self, PyObject *args, PyObject *keywds) {
     FrameH *frame=NULL;
     FrEvent *event=NULL;
 
-    int verbose=0;
-    Py_ssize_t nevents=0, i=0, j=0;
+    int verbose=0, status;
     char *filename=NULL;
     char msg[200];
 
@@ -765,6 +834,7 @@ static PyObject *frgetevent(PyObject *self, PyObject *args, PyObject *keywds) {
         return NULL;
     }
 
+    /* require at least one frame in the file */
     frame = FrameRead(iFile);
     if (frame == NULL) {
         sprintf(msg, "%s", FrErrorGetHistory());
@@ -773,60 +843,24 @@ static PyObject *frgetevent(PyObject *self, PyObject *args, PyObject *keywds) {
         return NULL;
     }
 
-    /* count events */
-    for (event = frame->event; event; event = event->next) ++nevents;
-
     /*------ iterate, putting each event into output list ------*/
 
-    event_list = PyList_New(nevents);
+    event_list = PyList_New(0);
     if (!event_list) goto clean_C;
-
-    for (event = frame->event; event != NULL; event = event->next) {
-        /* each FrEvent will be stored in a dict */
-        event_dict = PyDict_New();
-        if (!event_dict) goto clean_C_and_Python;
-
-        /* guarantee these parameters exist */
-        PyDict_SetItemString(event_dict, "name",
-            PyString_FromString(event->name));
-        PyDict_SetItemString(event_dict, "comment",
-            PyString_FromString(event->comment));
-        PyDict_SetItemString(event_dict, "inputs",
-            PyString_FromString(event->inputs));
-        PyDict_SetItemString(event_dict, "GTimeS",
-            PyLong_FromUnsignedLong(event->GTimeS));
-        PyDict_SetItemString(event_dict, "GTimeN",
-            PyLong_FromUnsignedLong(event->GTimeN));
-        PyDict_SetItemString(event_dict, "timeBefore",
-            PyFloat_FromDouble(event->timeBefore));
-        PyDict_SetItemString(event_dict, "timeAfter",
-            PyFloat_FromDouble(event->timeAfter));
-        PyDict_SetItemString(event_dict, "eventStatus",
-            PyLong_FromUnsignedLong(event->eventStatus));
-        PyDict_SetItemString(event_dict, "amplitude",
-            PyFloat_FromDouble(event->amplitude));
-        PyDict_SetItemString(event_dict, "probability",
-            PyFloat_FromDouble(event->probability));
-        PyDict_SetItemString(event_dict, "statistics",
-            PyString_FromString(event->statistics));
-
-        /* additional parameters */
-        for (j = 0; j < event->nParam; j++) {
-            PyDict_SetItem(event_dict,
-                PyString_FromString(event->parameterNames[j]),
-                PyFloat_FromDouble(event->parameters[j]));
+    do {
+        for (event = frame->event; event != NULL; event = event->next) {
+            event_dict = extract_event_dict(event);
+            if (!event_dict) goto clean_C_and_Python;
+            status = PyList_Append(event_list, event_dict);
+            if (status == -1) {
+                Py_DECREF(event_dict);
+                goto clean_C_and_Python;
+            }
         }
-
-        if (PyErr_Occurred()) {
-            Py_XDECREF(event_dict);
-            goto clean_C_and_Python;
-        }
-
-        /* bind dictionary to list */
-        PyList_SET_ITEM(event_list, i++, event_dict);
-    }
+    } while ((frame = FrameRead(iFile)));
 
     /* error checking */
+    /* NB: FrameL doesn't distinguish between EOF and an error */
     if (PyErr_Occurred()) goto clean_C_and_Python;
 
     /* if we've gotten here, we're all done; set the output to return */

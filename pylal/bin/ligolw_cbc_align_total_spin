@@ -74,11 +74,11 @@ def set_spins(sim, s1, s2):
     Set the components of the spin in a sim_inspiral row from 3-vectors.
     """
     sim.spin1x = s1[0]
-    sim.spin1x = s1[1]
-    sim.spin1x = s1[2]
+    sim.spin1y = s1[1]
+    sim.spin1z = s1[2]
     sim.spin2x = s2[0]
-    sim.spin2x = s2[1]
-    sim.spin2x = s2[2]
+    sim.spin2y = s2[1]
+    sim.spin2z = s2[2]
 
 def alignTotalSpin(iota, s1, s2, m1, m2, f_lower):
     """

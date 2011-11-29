@@ -1253,8 +1253,16 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     figure(fig_num)
     num_found = array(num_found,'d')
     eff = num_found / (num_found + num_missed)
-    error = sqrt( num_found * num_missed / (num_found + num_missed)**3 )
-    error = array(error)
+    total_num = num_found + num_missed
+    yerr_common = total_num * (2 * num_found + 1)
+    yerr_denom = 2*total_num*(total_num + 1)
+    yerr_vary = 4 * total_num * num_found * (total_num - num_found) +\
+                total_num**2
+    yerr_vary = yerr_vary**0.5
+    yerr_low = (yerr_common - yerr_vary)/yerr_denom
+    yerr_high = (yerr_common + yerr_vary)/yerr_denom
+   
+    error = [(num_found/total_num) - yerr_low,yerr_high - (num_found/total_num)]
 
     if plot_type == 'log':
       plotbins = 10**plotbins
@@ -1265,13 +1273,13 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
         semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2)
       if errors:
-        errorbar(plotbins, eff, error,markersize=12, markerfacecolor='None',\
+        errorbar(plotbins, eff, yerr=error,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth = 2, label = plot_name, \
             fmt = plotsym)
               
     else:
       if errors:
-        errorbar(plotbins, eff, error, fmt = plotsym, markersize=12,\
+        errorbar(plotbins, eff, yerr=error, fmt = plotsym, markersize=12,\
             markerfacecolor='None',\
             markeredgewidth=1, linewidth=1, label = plot_name)
       else:

@@ -1,0 +1,168 @@
+#!/bin/env python
+
+import os
+import sys
+from optparse import OptionParser
+
+DEFAULT_DB = "cvs::pserver:gravity.phys.uwm.edu:2401/usr/local/cvs/larsdb?file=inspiral/advertising.cache"
+
+if os.environ.has_key('LARS_LIB'):
+    sys.path.insert(0, os.environ['LARS_LIB'])
+
+searchDbUrl = os.environ.get("LARS_DB")
+
+if os.environ.has_key("LARS_DIR"):
+    basedir = os.environ["LARS_DIR"]
+else:
+    homedir = os.environ["HOME"]
+    basedir = os.path.join(homedir, ".lars")
+
+
+
+usage = "%prog: [options] description search_directory"
+
+parser = OptionParser(usage=usage,
+                      version= "%prog CVS\n" +
+                      "$Id$\n" +
+                      "$Name$\n")
+
+parser.add_option("", "--lars-db",
+                  metavar="LARSDB",
+                  action="store",
+                  default=None,
+                  help="location of lars search database for new entry")
+
+parser.add_option("-I", "--search-ifos",
+                  action="store",
+                  type="string",
+                  default=None,
+                  help="ifos of new entry.  Determined from search caches if not present" )
+
+parser.add_option("", "--search-start",
+                  action="store",
+                  type="int",
+                  help="gps start time of new entry.  Determined from search caches if not present",
+                  default=None)
+
+parser.add_option("", "--search-end",
+                  action="store",
+                  type="int",
+                  help="gps end time of new entry.  Determined from search caches if not present",
+                  default=None)
+
+parser.add_option("-v", "--verbose",
+                  action="store_true",
+                  default=False)
+
+(options,args) = parser.parse_args()
+
+if len(args) != 2:
+    parser.error("Description and search directory (only) are required.")
+
+
+searchDbUrl = options.lars_db or searchDbUrl
+
+if not searchDbUrl:
+    searchDbPath = DEFAULT_DB
+
+description, searchDir = args
+searchIfos = options.search_ifos
+searchSegment = None
+verbose = options.verbose
+
+from glue.segments import segment, segmentlist
+from urlparse import urlsplit, urlunsplit
+from socket import gethostname
+
+
+if options.search_start or options.search_end:
+    if options.search_start and options.search_end:
+        searchSegment = segment(options.search_start, options.search_end)
+    else:
+        parser.error("Either both or neither start and end times must be specified")
+
+# make searchUrl
+(scheme, netloc, path, _, _) = urlsplit(searchDir)
+
+if not scheme:
+    scheme = "file"
+if not netloc:
+    netloc = gethostname()
+path = os.path.abspath(path)
+
+searchUrl = urlunsplit( (scheme, netloc, path, None, None) )
+
+
+if verbose:
+    print "SearchDb:", searchDbUrl
+    print "SearhUrl:", searchUrl
+    print "Description:", description
+
+
+def splitIfos(ifostr):
+    ifos = []
+    n = len(ifostr) - len(ifostr)%2
+    for i in range(0, n, 2):
+        ifos.append(ifostr[i:i+2])
+    return ifos
+
+def gatherIfos(ifolist):
+    ifos = {}
+    for ifostr in ifolist:
+        for ifo in splitIfos(ifostr):
+            ifos[ifo] = 1
+    rv = ifos.keys()
+    rv.sort()
+    return "".join(rv)
+
+def concat(xss):
+    rv = []
+    for xs in xss:
+        rv.extend(xs)
+    return rv
+
+
+from ligo.lars import Cache, CacheEntry
+
+if not searchIfos or not searchSegment:
+    searchCache = Cache.getSearch(searchUrl)
+    segmentdict = searchCache.to_segmentlistdict()
+
+    if not searchSegment:
+        if verbose:
+            sys.stdout.write("Computing search segment: ")
+            sys.stdout.flush()
+        segments = segmentlist()
+        for seg in segmentdict.values():
+            segments.extend(seg)
+        if not segments:
+            print "No GPS times found.  GPS times must be specified on the command line or in the LAL cache of the search directory."
+            sys.exit(1)
+        searchSegment = segments.extent()
+        if verbose:
+            sys.stdout.write(str(searchSegment))
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+    if not searchIfos:
+        if verbose:
+            sys.stdout.write("Computing search IFOs: ")
+            sys.stdout.flush()
+        searchIfos = gatherIfos(segmentdict.keys())
+        if verbose:
+            sys.stdout.write(str(searchIfos))
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+newEntry = CacheEntry(searchIfos, description, searchSegment, searchUrl)
+
+print "New Entry:", str(newEntry)
+
+cachedb = Cache.get(searchDbUrl)
+if newEntry not in cachedb:
+    if verbose:
+        print "Adding new entry to: ", searchDbUrl
+    cachedb.append(newEntry)
+    cachedb.writeToUrl(searchDbUrl)
+elif verbose:
+    print "This entry is already in the search database"

@@ -232,6 +232,7 @@ if(partial->power_im_pc!=NULL) {
 	for(i=0;i<pps_bins;i++) {
 		accum->power_im_pc[i]+=partial->power_im_pc[i+shift];
 		}
+	accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 	}
 
 if(partial->weight_arrays_non_zero) {
@@ -250,7 +251,6 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
-accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void accumulate_partial_power_sum_F2(PARTIAL_POWER_SUM *accum, PARTIAL_POWER_SUM_F *partial)
@@ -292,6 +292,7 @@ if(partial->power_im_pc!=NULL) {
 	for(i=0;i<pps_bins;i++) {
 		accum->power_im_pc[i]+=partial->power_im_pc[i+shift];
 		}
+	accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 	}
 
 if(partial->weight_arrays_non_zero) {
@@ -310,7 +311,6 @@ accum->c_weight_pppc+=partial->c_weight_pppc;
 accum->c_weight_ppcc+=partial->c_weight_ppcc;
 accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
-accum->c_weight_im_ppcc+=partial->c_weight_im_ppcc;
 }
 
 void get_uncached_single_bin_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)

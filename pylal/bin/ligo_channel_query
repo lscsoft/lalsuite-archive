@@ -1,4 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+
+# Copyright (C) 2011 Duncan Macleod
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+# =============================================================================
+# Preamble
+# =============================================================================
 
 import sys
 import os
@@ -14,27 +34,6 @@ __date__ = git_version.date
 """
 Script to query frames for channels
 """
-
-# =============================================================================
-# Execute shell cmd and get output
-# =============================================================================
-
-def make_external_call(cmd,shell=False):
-
-  """
-    Execute shell command and capture standard output and errors. Does not
-    support complex commands with pipes, e.g. `echo ${VAR} | grep insp` will
-    fail. Returns tuple "(stdout,stderr)".
-  """
-
-  args = shlex.split(str(cmd))
-  p = subprocess.Popen(args,shell=shell,\
-                       stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  p_out, p_err = p.communicate()
-  if p.returncode != 0:
-    raise ValueError, "Command %s failed. Stderr Output: \n%s" %( cmd, p_err)
-
-  return p_out, p_err
 
 # =============================================================================
 # Parse command line
@@ -53,7 +52,8 @@ This script will return all frame types associated with given channel. All or pa
 Accepted ifos:
 
 H,L,V,H0,H1,H2,L0,L1,G0,G1,V0,V1
-"""
+
+WARNING: Any channels not matching the LIGO channel format (IFO:NAME) will not be included in the output of this code."""
 
   parser = OptionParser(usage=usage)
 
@@ -106,14 +106,13 @@ H,L,V,H0,H1,H2,L0,L1,G0,G1,V0,V1
 
 def main():
 
-  
   # parse input options
   options,args = parse_command_line()
 
-  channels    = [ch for ch in options.channels.split(',') if ch]
-  ex_channels = [ch for ch in options.exclude_channels.split(',') if ch]
-  types       = [type for type in options.types.split(',') if type]
-  ifos        = [ifo for ifo in options.ifos.split(',') if ifo]
+  channels    = [c for c in options.channels.split(',') if c]
+  ex_channels = [c for c in options.exclude_channels.split(',') if c]
+  types       = [t for t in options.types.split(',') if t]
+  ifos        = [i for i in options.ifos.split(',') if i]
   full        = options.full
   short       = options.short
   match       = options.match
@@ -132,28 +131,48 @@ def main():
   elif options.full:  search='full'
   else:  search='standard'
 
-  # find types and ifos
-  types = dqFrameUtils.find_types(types,search=search)
+  # find ifos
   if not ifos:
-    ifos = sorted(['H0','H1','H2',\
-                   'L0','L1',\
-                   'G0','G1',\
-                   'V0','V1'])
+    if verbose:
+      sys.stdout.write("\nGenerating IFO list...\n")
+    ifos = dqFrameUtils.find_ifos()
+    if verbose:
+      sys.stdout.write("%d found:\n%s\n" % (len(ifos), ' '.join(ifos)))
+
+  # find types and ifos
+  if verbose:
+    if not types:
+      sys.stdout.write("\nGenerating frame type list...\n")
+    else:
+      sys.stdout.write("\nVerifying frame types...\n")
+  types = dqFrameUtils.find_types(ftype=types, ifo=ifos, search=search)
+
+  if len(types)==0:
+    raise RuntimeError("No frame types found, please review --types and "+\
+                       "--ifos and try again.")
+
+  if verbose:
+    sys.stdout.write("%d found:\n" % len(types))
+    for t in types:
+      sys.stdout.write("%s\n" % t)
+
   # find channels
-  found = dqFrameUtils.find_channels(channels,types,ifos,ignore=ignore_list,\
-                                     match=match,time=time,verbose=verbose)
+  if verbose:
+    sys.stdout.write("\nFinding channels...\n")
+  found = dqFrameUtils.find_channels(name=channels, ftype=types, ifo=ifos,\
+                                     not_name=ex_channels,\
+                                     not_ftype=ignore_list,\
+                                     exact_match=match, time=time)
+  found.sort(key=lambda ch: str(ch))
 
   # print summary
-  if verbose:
-    print >>sys.stdout, str(len(found))+" channels found:"
-
-  # sort channels by name and print
-  found = sorted(found, key=lambda ch: ch.name)
-  for ch in found:
-    print >>sys.stdout, ':'.join([ch.ifo,ch.name]),ch.type,ch.sampling
-
-  if verbose:
-    print >>sys.stdout
+  if len(found)>=1:
+    if verbose:
+      sys.stdout.write("%d found:\n" % len(found))
+    for ch in found:
+      sys.stdout.write("%s %s %s\n" % (str(ch), ch.type, ch.sampling))
+  else:
+    sys.stderr.write("WARNING: No channels found.\n")
 
 if __name__ == '__main__':
   main()

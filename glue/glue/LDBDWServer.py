@@ -56,9 +56,11 @@ configuration = {
 myConfigParser = ConfigParser.ConfigParser()
 
 try:
-    myConfigParser.read("/usr3/ldbd/etc/ldbdserver.ini")
+    ldbdserver_ini = os.environ.get('LDBD_CONFIG_DIR', '/usr3/ldbd/etc')
+    config_file = os.path.join(ldbdserver_ini, "ldbdserver.ini")
+    myConfigParser.read(config_file)
 except Exception, e:
-    print >> sys.stderr, "Error: unable to read configuration file : %s"
+    print >> sys.stderr, "Error: unable to read configuration file : %s" % config_file
     sys.exit(1)
 
 for k in configuration.keys():

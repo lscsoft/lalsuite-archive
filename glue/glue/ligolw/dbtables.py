@@ -39,6 +39,7 @@ import shutil
 import signal
 import sys
 import tempfile
+import threading
 from xml.sax.xmlreader import AttributesImpl
 import warnings
 
@@ -98,7 +99,105 @@ def DBTable_set_connection(connection):
 #
 
 
-temporary_files = dict()
+temporary_files = {}
+temporary_files_lock = threading.Lock()
+
+
+#
+# Module-level variable to hold the signal handlers that have been
+# overridden as part of the clean-up-scratch-files-on-signal feature.  NOT
+# MEANT FOR USE BY CODE OUTSIDE OF THIS MODULE!
+#
+
+
+origactions = {}
+
+
+def install_signal_trap(signums = (signal.SIGTERM, signal.SIGTSTP), retval = 1):
+	"""
+	Installs a signal handler to erase temporary scratch files when a
+	signal is received.  This can be used to help ensure scratch files
+	are erased when jobs are evicted by Condor.  signums is a squence
+	of the signals to trap, the default value is a list of the signals
+	used by Condor to kill and/or evict jobs.
+
+	The logic is as follows.  If the current signal handler is
+	signal.SIG_IGN, i.e. the signal is being ignored, then the signal
+	handler is not modified since the reception of that signal would
+	not normally cause a scratch file to be leaked.  Otherwise a signal
+	handler is installed that erases the scratch files.  If the
+	original signal handler was a Python callable, then after the
+	scratch files are erased the original signal handler will be
+	invoked.  If program control returns from that handler, i.e.  that
+	handler does not cause the interpreter to exit, then sys.exit() is
+	invoked and retval is returned to the shell as the exit code.
+
+	Note:  by invoking sys.exit(), the signal handler causes the Python
+	interpreter to do a normal shutdown.  That means it invokes
+	atexit() handlers, and does other garbage collection tasks that it
+	normally would not do when killed by a signal.
+
+	Note:  this function will not replace a signal handler more than
+	once, that is if it has already been used to set a handler
+	on a signal then it will be a no-op when called again for that
+	signal until uninstall_signal_trap() is used to remove the handler
+	from that signal.
+
+	Note:  this function is called by get_connection_filename()
+	whenever it creates a scratch file.
+	"""
+	temporary_files_lock.acquire()
+	try:
+		# ignore signums we've already replaced
+		signums = set(signums) - set(origactions)
+
+		def temporary_file_cleanup_on_signal(signum, frame):
+			temporary_files_lock.acquire()
+			temporary_files.clear()
+			temporary_files_lock.release()
+			if callable(origactions[signum]):
+				# original action is callable, chain to it
+				return origactions[signum](signum, frame)
+			# original action was not callable or the callable
+			# returned.  invoke sys.exit() with retval as exit code
+			sys.exit(retval)
+
+		for signum in signums:
+			origactions[signum] = signal.getsignal(signum)
+			if origactions[signum] != signal.SIG_IGN:
+				# signal is not being ignored, so install our
+				# handler
+				signal.signal(signum, temporary_file_cleanup_on_signal)
+	finally:
+		temporary_files_lock.release()
+
+
+def uninstall_signal_trap(signums = None):
+	"""
+	Undo the effects of install_signal_trap().  Restores the original
+	signal handlers.  If signums is a sequence of signal numbers the
+	only the signal handlers for thos signals will be restored.  If
+	signums is None (the default) then all signals that have been
+	modified by previous calls to install_cleanup_handler() are
+	restored.
+
+	Note:  this function is called by put_connection_filename() and
+	discard_connection_filename() whenever they remove a scratch file
+	and there are then no more scrach files in use.
+	"""
+	temporary_files_lock.acquire()
+	try:
+		if signums is None:
+			signums = origactions.keys()
+		for signum in signums:
+			signal.signal(signum, origactions.pop(signum))
+	finally:
+		temporary_files_lock.release()
+
+
+#
+# Functions to work with database files in scratch space
+#
 
 
 def get_connection_filename(filename, tmp_path = None, replace_file = False, verbose = False):
@@ -108,6 +207,10 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	load.
 	"""
 	def mktmp(path, verbose = False):
+		# make sure the clean-up signal traps are installed
+		install_signal_trap()
+		# create the remporary file and replace it's unlink()
+		# function
 		temporary_file = tempfile.NamedTemporaryFile(suffix = ".sqlite", dir = path)
 		def new_unlink(self, orig_unlink = temporary_file.unlink):
 			# also remove a -journal partner, ignore all errors
@@ -118,7 +221,11 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			orig_unlink(self)
 		temporary_file.unlink = new_unlink
 		filename = temporary_file.name
-		temporary_files[filename] = temporary_file
+		temporary_files_lock.acquire()
+		try:
+			temporary_files[filename] = temporary_file
+		finally:
+			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
 		# mkstemp() ignores umask, creates all files accessible
@@ -135,7 +242,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
-		except:
+		except Exception, e:
 			if verbose:
 				print >>sys.stderr, "cannot truncate '%s': %s" % (filename, str(e))
 			return
@@ -180,25 +287,31 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 					except IOError, e:
 						import errno
 						import time
-						if e.errno != errno.ENOSPC:
+						if e.errno not in (errno.EPERM, errno.ENOSPC):
 							# anything other
 							# than out-of-space
 							# is a real error
-							raise e
+							raise
 						if i < 5:
 							if verbose:
-								print >>sys.stderr, "warning: attempt %d: no space left on device, sleeping and trying again ..." % i
+								print >>sys.stderr, "warning: attempt %d: %s, sleeping and trying again ..." % (i, errno.errorcode[e.errno])
 							time.sleep(10)
 							i += 1
 							continue
 						if verbose:
-							print >>sys.stderr, "warning: attempt %d: no space left on device: working with original file '%s'" % (i, filename)
-						os.remove(target)
+							print >>sys.stderr, "warning: attempt %d: %s: working with original file '%s'" % (i, errno.errorcode[e.errno], filename)
+						temporary_files_lock.acquire()
+						del temporary_files[target]
+						temporary_files_lock.release()
 						target = filename
 					break
 	else:
-		if filename in temporary_files:
-			raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
+		temporary_files_lock.acquire()
+		try:
+			if filename in temporary_files:
+				raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
+		finally:
+			temporary_files_lock.release()
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
@@ -223,29 +336,29 @@ def set_temp_store_directory(connection, temp_store_directory, verbose = False):
 		print >>sys.stderr, "done"
 
 
-class IOTrappedSignal(Exception):
+#
+# FIXME:  this is only here temporarily while the file corruption issue on
+# the clusters is diagnosed.  remove when no longer needed
+#
+
+try:
+	# >= 2.5.0
+	from hashlib import md5 as __md5
+except ImportError:
+	# < 2.5.0
+	from md5 import new as __md5
+def __md5digest(filename):
 	"""
-	Raised by put_connection_filename() upon completion if it trapped a
-	signal during the operation.  Example:
-
-	>>> try:
-	...	put_connection_filename(filename, working_filename, verbose = True)
-	... except IOTrappedSignal, e:
-	...	os.kill(os.getpid(), e.signum)
-	...
-
-	This example re-transmits the most-recently received signal back to
-	itself following completion of the function call, if a signal was
-	trapped while the function ran.
+	For internal use only.
 	"""
-	def __init__(self, signum):
-		self.signum = signum
-
-	def __repr__(self):
-		return "IOTrappedSignal(%d)" % self.signum
-
-	def __str__(self):
-		return "trapped signal %d" % self.signum
+	m = __md5()
+	f = open(filename)
+	while True:
+		d = f.read(4096)
+		if not d:
+			break
+		m.update(d)
+	return m.hexdigest()
 
 
 def put_connection_filename(filename, working_filename, verbose = False):
@@ -256,18 +369,22 @@ def put_connection_filename(filename, working_filename, verbose = False):
 	always be called after calling get_connection_filename() when the
 	file is no longer in use.
 
-	This function traps the signals used by Condor to evict jobs, which
-	reduces the risk of corrupting a document by the job terminating
-	part-way through the restoration of the file to its original
-	location.
+	During the move operation, this function traps the signals used by
+	Condor to evict jobs.  This reduces the risk of corrupting a
+	document by the job terminating part-way through the restoration of
+	the file to its original location.  When the move operation is
+	concluded, the original signal handlers are restored and if any
+	signals were trapped they are resent to the current process in
+	order.  Typically this will result in the signal handlers installed
+	by the install_signal_trap() function being invoked, meaning any
+	other scratch files that might be in use get deleted and the
+	current process is terminated.
 	"""
 	if working_filename != filename:
 		# initialize SIGTERM and SIGTSTP trap
-		global __llwapp_write_filename_got_sig
-		__llwapp_write_filename_got_sig = []
+		deferred_signals = []
 		def newsigterm(signum, frame):
-			global __llwapp_write_filename_got_sig
-			__llwapp_write_filename_got_sig.append(signum)
+			deferred_signals.append(signum)
 		oldhandlers = {}
 		for sig in (signal.SIGTERM, signal.SIGTSTP):
 			oldhandlers[sig] = signal.getsignal(sig)
@@ -276,9 +393,14 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# replace document
 		if verbose:
 			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename),
+		digest_before = __md5digest(working_filename)
 		shutil.move(working_filename, filename)
+		digest_after = __md5digest(filename)
 		if verbose:
 			print >>sys.stderr, "done."
+		if digest_before != digest_after:
+			print >>sys.stderr, "md5 checksum failure!  checksum on scratch disk was %s, checksum in final location is %s" % (digest_before, digest_after)
+			sys.exit(1)
 
 		# remove reference to tempfile.TemporaryFile object.
 		# because we've just deleted the file above, this would
@@ -291,14 +413,26 @@ def put_connection_filename(filename, working_filename, verbose = False):
 			file(working_filename, "w").close()
 		except:
 			pass
-		del temporary_files[working_filename]
+		temporary_files_lock.acquire()
+		try:
+			del temporary_files[working_filename]
+		finally:
+			temporary_files_lock.release()
 
-		# restore original handlers, and report the most recently
-		# trapped signal if any were
+		# restore original handlers, and send outselves any trapped signals
+		# in order
 		for sig, oldhandler in oldhandlers.iteritems():
 			signal.signal(sig, oldhandler)
-		if __llwapp_write_filename_got_sig:
-			raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+		while deferred_signals:
+			os.kill(os.getpid(), deferred_signals.pop(0))
+
+		# if there are no more temporary files in place, remove the
+		# temporary-file signal traps
+		temporary_files_lock.acquire()
+		no_more_files = not temporary_files
+		temporary_files_lock.release()
+		if no_more_files:
+			uninstall_signal_trap()
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
@@ -318,9 +452,21 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename,
 		# remove reference to tempfile.TemporaryFile object
-		del temporary_files[working_filename]
+		temporary_files_lock.acquire()
+		try:
+			del temporary_files[working_filename]
+		finally:
+			temporary_files_lock.release()
 		if verbose:
 			print >>sys.stderr, "done."
+
+		# if there are no more temporary files in place, remove the
+		# temporary-file signal traps
+		temporary_files_lock.acquire()
+		no_more_files = not temporary_files
+		temporary_files_lock.release()
+		if no_more_files:
+			uninstall_signal_trap()
 
 
 #
@@ -581,7 +727,7 @@ class DBTable(table.Table):
 				# with this class, however there is no
 				# guarantee that all parent class methods
 				# will be appropriate for use with the
-				# DB-backed object.
+				# DB-backend object.
 				lsccls = lsctables.TableByName[name]
 				class CustomDBTable(cls, lsccls):
 					tableName = lsccls.tableName
@@ -678,6 +824,13 @@ class DBTable(table.Table):
 		cursor.execute("SELECT * FROM %s" % self.dbtablename)
 		for values in cursor:
 			yield self.row_from_cols(values)
+
+	# FIXME:  is adding this a good idea?
+	#def __delslice__(self, i, j):
+	#	# sqlite numbers rows starting from 1:  [0:10] becomes
+	#	# "rowid between 1 and 10" which means 1 <= rowid <= 10,
+	#	# which is the intended range
+	#	self.cursor.execute("DELETE FROM %s WHERE ROWID BETWEEN %d AND %d" % (self.dbtablename, i + 1, j))
 
 	def _append(self, row):
 		"""
