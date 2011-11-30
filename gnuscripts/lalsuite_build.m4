@@ -35,18 +35,6 @@ case "${host}" in
 esac
 ]) # LALSUITE_MULTILIB_LIBTOOL_HACK
 
-# store configure flags for 'make distcheck'
-AC_DEFUN([LALSUITE_DISTCHECK_CONFIGURE_FLAGS],[
-  DISTCHECK_CONFIGURE_FLAGS=
-  for arg in ${ac_configure_args}; do
-    case ${arg} in
-      (\'--enable-*\'|\'--disable-*\'|\'--with-*\'|\'--without-*\')
-        DISTCHECK_CONFIGURE_FLAGS="${DISTCHECK_CONFIGURE_FLAGS} ${arg}";;
-    esac
-  done
-  AC_SUBST(DISTCHECK_CONFIGURE_FLAGS)
-])
-
 AC_DEFUN([LALSUITE_ENABLE_MODULE],[
 AM_CONDITIONAL([$1],[test x$$2 = xtrue])
 eval $1_ENABLE_VAL="`eval test "$$2" = "true" && echo "ENABLED" || echo "DISABLED"`"
