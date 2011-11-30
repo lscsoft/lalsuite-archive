@@ -109,7 +109,7 @@ class test_ulutils(unittest.TestCase):
         xbins = numpy.linspace(0,1,50)
         centres = (xbins[:-1]+xbins[1:])/2
         mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
-        v = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
+        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=False)
         vexpect = 1 - numpy.exp(-1)
         self.assertTrue(abs(v -vexpect ) < 0.01)
 
@@ -121,7 +121,7 @@ class test_ulutils(unittest.TestCase):
         xbins = numpy.logspace(-2,0,50)
         centres = numpy.exp((numpy.log(xbins[1:])+numpy.log(xbins[:-1]))/2) # log midpoint
         mockeff = numpy.exp(-centres)/(4*numpy.pi*centres**2)
-        v = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=True)
+        v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=True)
         vexpect = 1 - numpy.exp(-1)
         self.assertTrue(abs(v -vexpect ) < 0.01)
 
@@ -142,7 +142,7 @@ class test_ulutils(unittest.TestCase):
 
         rbins = numpy.linspace(0,Rmax,20)
         centres = (rbins[1:]+rbins[:-1])/2
-        v = upper_limit_utils.integrate_efficiency(rbins, mockeff(centres))
+        v, verr = upper_limit_utils.integrate_efficiency(rbins, mockeff(centres))
         vexpect = (1./35)*(4*numpy.pi/3)*(Rmax**3)
         self.assertTrue(abs(1-v/vexpect) < 0.01)
 
@@ -172,7 +172,7 @@ class test_ulutils(unittest.TestCase):
             else:
                 missed.append( MiniInj(inj) )
 
-        eff, err, meanvol, volerr = upper_limit_utils.mean_efficiency_volume(found, missed, bins, bootnum=10)
+        eff, err, meanvol, volerr = upper_limit_utils.mean_efficiency_volume(found, missed, bins)
         # the computed mean efficiency should agree with the efficiency
         # model to at least ~5% (though this can fluctuate)
         self.assertTrue( (eff - eff_model(centres)).sum()/len(eff) < 0.05 )
