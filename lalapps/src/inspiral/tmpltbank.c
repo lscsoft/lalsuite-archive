@@ -144,6 +144,10 @@ REAL4  strainHighPassAtten = -1;        /* h(t) high pass attenuation   */
 /* template bank generation parameters */
 REAL4   minMass         = -1;           /* minimum component mass       */
 REAL4   maxMass         = -1;           /* maximum component mass       */
+REAL4   minMass1PTF     = 6.0;          /* minimum mass1 for PTf bank   */
+REAL4   maxMass1PTF     = 14.0;         /* maximum mass1 for PTf bank   */
+REAL4   minMass2PTF     = 1.0;          /* minimum mass2 for PTf bank   */
+REAL4   maxMass2PTF     = 3.0;          /* maximum mass2 for PTf bank   */
 REAL4   minTotalMass    = -1;           /* minimum total mass           */
 REAL4   maxTotalMass    = -1;           /* maximum total mass           */
 REAL4   chirpMassCutoff = -1;           /* maximum chirp mass to keep   */
@@ -163,8 +167,10 @@ REAL4   chiMin          = 0.0;          /* minimum value of chi for PTF */
 REAL4   chiMax          = 1.0;          /* maximum value of chi for PTF */
 REAL4   kappaMin        = -1.0;         /* minimum value of kappa for PTF */
 REAL4   kappaMax        = 1.0;          /* maximum value of kappa for PTF */
-INT4    nPointsChi      = 5;            /* PTF template bank density    */
-INT4    nPointsKappa    = 4;            /* PTF templated bank density   */
+INT4    nPointsChi      = 5;            /* PTF bank density along chi     */
+INT4    nPointsKappa    = 4;            /* PTF bank density along kappa   */
+INT4    squareGrid      = 0;            /* PTF spin space grid            */
+INT4    squareGridOpt   = 0;            /* PTF spin space grid optimized  */
 LALPNOrder order;                       /* post-Newtonian order         */
 Approximant approximant;                /* approximation method         */
 CoordinateSpace space;                  /* coordinate space used        */
@@ -983,6 +989,10 @@ int main ( int argc, char *argv[] )
   /* bank generation parameters */
   bankIn.mMin          = (REAL8) minMass;
   bankIn.mMax          = (REAL8) maxMass;
+  bankIn.m1MinPTF      = (REAL8) minMass1PTF;
+  bankIn.m1MaxPTF      = (REAL8) maxMass1PTF;
+  bankIn.m2MinPTF      = (REAL8) minMass2PTF;
+  bankIn.m2MaxPTF      = (REAL8) maxMass2PTF;
   if (maxTotalMass > 0)
   {
     bankIn.MMax        = (REAL8) maxTotalMass;
@@ -1016,6 +1026,8 @@ int main ( int argc, char *argv[] )
   bankIn.kappaMax         = (REAL8) kappaMax;
   bankIn.nPointsChi       = nPointsChi;
   bankIn.nPointsKappa     = nPointsKappa;
+  bankIn.squareGrid       = squareGrid;
+  bankIn.squareGridOpt    = squareGridOpt;
   bankIn.mmCoarse         = (REAL8) minMatch;
   bankIn.mmFine           = 0.99; /* doesn't matter since no fine bank yet */
   bankIn.fLower           = (REAL8) fLow;
@@ -1339,6 +1351,10 @@ fprintf(a, "  --minimum-mass MASS          set minimum component mass of bank to
 fprintf(a, "  --maximum-mass MASS          set maximum component mass of bank to MASS\n");\
 fprintf(a, "  --max-total-mass MASS        set maximum total mass of the bank to MASS\n");\
 fprintf(a, "  --min-total-mass MASS        set minimum total mass of the bank to MASS\n");\
+fprintf(a, "  --min-mass1-ptf MASS         set minimum mass1 of ptf bank to MASS\n");\
+fprintf(a, "  --max-mass1-ptf MASS         set maximum mass1 of ptf bank to MASS\n");\
+fprintf(a, "  --min-mass2-ptf MASS         set minimum mass2 of ptf bank to MASS\n");\
+fprintf(a, "  --max-mass2-ptf MASS         set maximum mass2 of ptf bank to MASS\n");\
 fprintf(a, "  --chirp-mass-cutoff MASS     set chirp mass cutoff to MASS\n");\
 fprintf(a, "  --max-eta ETA                set maximum symmetric mass ratio of the bank to ETA\n");\
 fprintf(a, "  --min-eta ETA                set minimum symmetric mass ratio of the bank to ETA\n");\
@@ -1359,6 +1375,7 @@ fprintf(a, "  --minimum-kappa1 KAPPA1_MIN  set minimum value of kappa for PTF to
 fprintf(a, "  --maximum-kappa1 KAPPA1_MAX  set maximum value of kappa for PTF to KAPPA1_MAX (1.0)\n");\
 fprintf(a, "  --npoints-chi N-CHI          set number of points in the Chi direction for PTF template bank to N-CHI (3)\n");\
 fprintf(a, "  --npoints-kappa N-KAPPA      set number of points in the Kappa direction for PTF template bank to N-KAPPA (5)\n");\
+fprintf(a, "  --ptf-square-grid            points in chi-kappa plane are placed on a uniform square grid\n");\
 fprintf(a, "\n");\
 fprintf(a, "  --minimal-match M            generate bank with minimal match M\n");\
 fprintf(a, "\n");\
@@ -1428,6 +1445,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     /* template bank generation parameters */
     {"minimum-mass",            required_argument, 0,                'A'},
     {"maximum-mass",            required_argument, 0,                'B'},
+    {"min-mass1-ptf",           required_argument, 0,                '.'},
+    {"max-mass1-ptf",           required_argument, 0,                ','},
+    {"min-mass2-ptf",           required_argument, 0,                ':'},
+    {"max-mass2-ptf",           required_argument, 0,                ';'},
     {"minimum-psi0",            required_argument, 0,                'P'},
     {"maximum-psi0",            required_argument, 0,                'Q'},
     {"minimum-psi3",            required_argument, 0,                'R'},
@@ -1442,6 +1463,8 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"maximum-kappa1",          required_argument, 0,                '7'},
     {"npoints-chi",             required_argument, 0,                '8'},
     {"npoints-kappa",           required_argument, 0,                '9'},
+    {"ptf-square-grid",         no_argument,       &squareGrid,       1 },
+    {"ptf-square-grid-opt",     no_argument,       &squareGridOpt,    1 },
     {"minimal-match",           required_argument, 0,                'C'},
     {"high-frequency-cutoff",   required_argument, 0,                'D'},
     {"order",                   required_argument, 0,                'E'},
@@ -1910,6 +1933,58 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           exit( 1 );
         }
         ADD_PROCESS_PARAM( "float", "%e", maxMass );
+        break;
+      
+      case '.':
+        minMass1PTF = (REAL4) atof( optarg );
+        if ( minMass1PTF <= 0 )
+        {
+          fprintf( stdout, "invalid argument to --%s:\n"
+              "minimum component mass must be > 0: "
+              "(%f solar masses specified)\n",
+              long_options[option_index].name, minMass1PTF );
+          exit( 1 );
+        }
+        ADD_PROCESS_PARAM( "float", "%e", minMass1PTF );
+        break;
+      
+      case ',':
+        maxMass1PTF = (REAL4) atof( optarg );
+        if ( maxMass1PTF <= 0 )
+        {
+          fprintf( stdout, "invalid argument to --%s:\n"
+              "minimum component mass must be > 0: "
+              "(%f solar masses specified)\n",
+              long_options[option_index].name, maxMass1PTF );
+          exit( 1 );
+        }
+        ADD_PROCESS_PARAM( "float", "%e", maxMass1PTF );
+        break;
+
+      case ':':
+        minMass2PTF = (REAL4) atof( optarg );
+        if ( minMass2PTF <= 0 )
+        {
+          fprintf( stdout, "invalid argument to --%s:\n"
+              "minimum component mass must be > 0: "
+              "(%f solar masses specified)\n",
+              long_options[option_index].name, minMass2PTF );
+          exit( 1 );
+        }
+        ADD_PROCESS_PARAM( "float", "%e", minMass2PTF );
+        break;
+      
+      case ';':
+        maxMass2PTF = (REAL4) atof( optarg );
+        if ( maxMass2PTF <= 0 )
+        {
+          fprintf( stdout, "invalid argument to --%s:\n"
+              "minimum component mass must be > 0: "
+              "(%f solar masses specified)\n",
+              long_options[option_index].name, maxMass2PTF );
+          exit( 1 );
+        }
+        ADD_PROCESS_PARAM( "float", "%e", maxMass2PTF );
         break;
 
       case 'P':
@@ -2595,6 +2670,29 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
     snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
   }
+  if (squareGrid==1)
+  {
+    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+      calloc( 1, sizeof(ProcessParamsTable) );
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX,
+        "%s", PROGRAM_NAME );
+    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX,
+        "--ptf-square-grid" );
+    snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+    snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
+  }
+  if (squareGridOpt==1)
+  {
+    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+      calloc( 1, sizeof(ProcessParamsTable) );
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX,
+        "%s", PROGRAM_NAME );
+    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX,
+        "--ptf-square-grid-opt" );
+    snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+    snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
+  }
+
   /*
    *
    * check validity of arguments
@@ -3020,6 +3118,26 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
 
   if ( approximant==FindChirpPTF )
   {
+    /* check that ranges for m1 and m2 are consistent and compatible with component masses
+     * ranges */
+
+    if (minMass1PTF < minMass || minMass2PTF < minMass || maxMass1PTF > maxMass ||
+        maxMass2PTF > maxMass )
+    {
+      fprintf( stderr,
+          "Error: argument to --min(max)Mass1(Mass2)PTF must be within the specified range for --minimum-mass and"
+          "--maximum-mass\n" );
+      exit( 1 );
+    }
+
+    if (minMass1PTF > maxMass1PTF || minMass2PTF > maxMass2PTF )
+    {
+      fprintf( stderr,
+          "Error: argument to --minMass1(Mass2)PTF must be smaller than --maxMass1(Mass2)PTF \n" );
+      exit( 1 );
+    }
+
+
     /* check max and mins are the correct way around */
     if (chiMin > chiMax )
     {
@@ -3037,12 +3155,26 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     }
 
     /* check nPointsKappa is not greater than nPointsChi */
-    if (nPointsKappa > nPointsChi )
+    if (!(squareGrid || squareGridOpt) && (nPointsKappa > nPointsChi) )
     {
       fprintf( stderr,
-          "Error: argument to --npoints-kappa must be less than --npoints-chi .\n" );
+          "Error: argument to --npoints-kappa must be less than --npoints-chi when --ptf-square-grid or --ptf-square-grid-opt are not specified.\n" );
       exit( 1 );
     }
+  }
+
+  if ( (squareGrid || squareGridOpt)  & approximant!=FindChirpPTF)
+  {
+    fprintf( stderr,
+                  "Error: Options --ptf-square-grid / --ptf-square-grid-opt available only when approximant FindChirpPTF is specified.\n" );
+          exit( 1 );
+  }
+  
+  if ( squareGrid && squareGridOpt )
+  {
+    fprintf( stderr,
+                  "Error: Either --ptf-square-grid or --ptf-square-grid-opt can be specified.\n" );
+          exit( 1 );
   }
 
   if( etaMaxCutoff > 0 || etaMinCutoff >= 0 )
