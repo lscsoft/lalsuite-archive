@@ -289,12 +289,17 @@ for ifo in ifos:
     print >>sys.stderr, "WARNING: No file in %s for ifo %s matches the trig_pattern '%s'" % (opts.cache_file, ifo, opts.trig_pattern)
     trigFiles[ifo] = None
   else:
+    print >>sys.stdout, "Reading "+str(len(trigFiles[ifo]))+" files for ifo "+ifo+" with the pattern "+opts.trig_pattern
     comments += InspiralUtils.message(opts, "Reading "+str(len(trigFiles[ifo]))+" files for ifo "+ifo+" with the pattern "+opts.trig_pattern)
     snglTrigs = sniuls.ReadSnglInspiralFromFiles(trigFiles[ifo], verbose=opts.verbose)
     if len(snglTrigs):
       snglTrigs.ifocut(ifo, inplace=True) # do this in case single-ifo triggers are being read in from COIREs
       comments += InspiralUtils.message(opts, "Read %d triggers from %s" % (len(snglTrigs), ifo) )
-      snglTrigsinTime = [trig for trig in snglTrigs if trig.end_time >= opts.gps_start_time and trig.end_time < opts.gps_end_time]
+      snglTrigsinTime = lsctables.New(lsctables.SnglInspiralTable)
+      for trig in snglTrigs:
+        if trig.end_time >= opts.gps_start_time and trig.end_time < opts.gps_end_time:
+          snglTrigsinTime.append(trig) 
+      #buggy when vetoing! snglTrigsinTime = [trig for trig in snglTrigs if trig.end_time >= opts.gps_start_time and trig.end_time < opts.gps_end_time]
       del snglTrigs
       comments += InspiralUtils.message(opts, "%d triggers lie within GPS %d to %d" % (len(snglTrigsinTime), \
         opts.gps_start_time, opts.gps_end_time) )
@@ -381,11 +386,10 @@ if not haveTrigs:
 
 if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
   if opts.coinc_pattern:
-#    coincTag = opts.coinc_pattern
+    print >>sys.stdout, "Reading "+str(len(coincFiles))+" files with the pattern "+opts.coinc_pattern
     comments += InspiralUtils.message(opts, "")
     comments += InspiralUtils.message(opts, "Reading "+str(len(coincFiles))+" files with the pattern "+opts.coinc_pattern)
   else:
-#    coincTag = opts.coinc_file.split("-")[0].split("/")[-1]
     comments += InspiralUtils.message(opts, "Reading coincs from "+opts.coinc_file)
   # we don't use the coinc statistic calculated by the coiuls module
   coincEvents = coiuls.readCoincInspiralFromFiles(coincFiles, coiuls.coincStatistic("snr"))
