@@ -37,7 +37,7 @@ from datetime import datetime
 from glue import segments,git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import date,plotutils
-from pylal.dq.dqTriggerUtils import def_get_time
+from pylal.dq.dqTriggerUtils import def_get_time,get_column
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
@@ -1082,20 +1082,18 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
     livetime = end-start
   livetime = float(livetime)
 
-  # format seglist and work out vetoed triggers
+  # format seglist
   if seglist==None:
     seglist = segments.segmentlist()
   else:
     seglist = segments.segmentlist(seglist)
 
-  preData  = []
-  postData = []
-  for trig in triggers:
-    datum = float(getTrigAttribute(trig, column))
-    preData.append(datum)
-    if get_time(trig) not in seglist:
-      postData.append(datum)
+  # get data
+  tdata    = get_column(triggers, 'time')
+  preData  = get_column(triggers, column)
+  postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
 
+  # get veto livetime
   vetoLivetime = livetime-float(abs(seglist))
 
   # set some random plot parameters
@@ -1341,43 +1339,46 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   zlim = kwargs.pop('zlim', None)
   clim = kwargs.pop('clim', zlim)
 
-  # set up columns and lists
-  columns = map(str.lower, [xcolumn, ycolumn])
+  # set up columns
+  columns = list(map(str.lower, [xcolumn, ycolumn]))
   if zcolumn: columns.append(zcolumn.lower())
-  vetoData  = []
-  nvetoData = []
-  label     = {}
+
+  # set up limits
   limits    = [xlim, ylim, zlim]
-  for j in xrange(len(tables)):
-    vetoData.append({})
-    nvetoData.append({})
   for i,col in enumerate(columns):
     if re.search('time\Z', col) and not limits[i]:
       limits[i] = [start,end]
-    for j in xrange(len(tables)):
-      vetoData[j][col]  = []
-      nvetoData[j][col] = []
 
-  # separate triggers
-  for x,tab in enumerate(tables):
-    for trig in tab:
-      use=True
-      for i,col in enumerate(columns):
-        val = float(getTrigAttribute(trig, col))
-        if limits[i] and not limits[i][0] <= val <= limits[i][1]:
-          use=False
-      if use:
-        for i,col in enumerate(set(columns)):
-          val = float(getTrigAttribute(trig, col))
-          if get_time[x](trig) in segs:
-            vetoData[x][col].append(val)
-          else:
-            nvetoData[x][col].append(val)
+  # get veto info
+  if seglist:
+    tdata = get_column(triggers, 'time')
 
-  for x in xrange(len(tables)):
+  # get all data
+  vetoData  = []
+  nvetoData = []
+  for j,tab in enumerate(tables):
+    vetoData.append({})
+    nvetoData.append({})
+    # get veto info
+    if seglist:
+      tdata = get_column(tab, 'time')
+    # get data
     for i,col in enumerate(columns):
-      vetoData[x][col]  = numpy.array(vetoData[x][col])
-      nvetoData[x][col] = numpy.array(nvetoData[x][col])
+      nvetoData[j][col]  = get_column(tab, col).astype(float)
+    # apply limits and vetoes
+    condition = True
+    for i,col in enumerate(columns):
+      if limits[i]:
+        condition = condition & (limits[i][0] <= nvetoData[j][col])\
+                              & (nvetoData[j][col] <= limits[i][1])
+    for col in nvetoData[j].keys():
+      nvetoData[j][col] = nvetoData[j][col][condition]
+      if seglist:
+        vetoData[j][col] = [d for i,d in enumerate(nvetoData[j][col]) if\
+                            tdata[i] in seglist]
+      else:
+        vetoData[j][col] = numpy.array([])
+
   data = {}
     
   # normalize zcolumn by time-averaged value
@@ -1436,6 +1437,48 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         for iTrig in backTable[0][3:]:
           nvetoData[j][ycolumn][iTrig] = numpy.nan
 
+  # down-sample (xaxis) the triggers by plotting only median z-value over averaging window 
+  medianDuration = float(kwargs.pop('medianduration', 0))
+  stdDuration = float(kwargs.pop('stdduration', 0))
+  if medianDuration or stdDuration:
+    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
+    if medianDuration:
+      avDuration = medianDuration
+    elif stdDuration:
+      avDuration = stdDuration
+    tedges = numpy.arange(float(start), float(end), avDuration)
+    # array for repacking triggers into time-frequency bins
+    repackTrig = {}
+    for yVal in uniqYvalues:
+      repackTrig[yVal] = {}
+      for iBin in range(len(tedges)-1):
+        repackTrig[yVal][iBin] = []
+    # building new set of triggers
+    newTrigs = {}
+    newTrigs[xcolumn] = []
+    newTrigs[ycolumn] = []
+    newTrigs[zcolumn] = []
+    for iTrig in range(len(nvetoData[0][zcolumn])):
+      trigVal = nvetoData[0][ycolumn][iTrig]
+      trigBin = math.floor((nvetoData[0][xcolumn][iTrig]-float(start))/avDuration)
+      repackTrig[trigVal][trigBin].append(nvetoData[0][zcolumn][iTrig])
+    for yVal in uniqYvalues:
+      for iBin in range(len(tedges)-1):
+        # keep only if at least a few elements, std doesn't make sens otherwise
+        if medianDuration and len(repackTrig[yVal][iBin]) > 0:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.median(numpy.array(repackTrig[yVal][iBin])))
+        elif stdDuration and len(repackTrig[yVal][iBin]) > 5:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.std(numpy.array(repackTrig[yVal][iBin]))/ \
+                                     numpy.median(numpy.array(repackTrig[yVal][iBin])))
+          if newTrigs[zcolumn][-1] == 0:
+            newTrigs[zcolumn][-1] = numpy.nan
+    for i,col in enumerate(columns):
+      nvetoData[0][col] = numpy.array(newTrigs[col])
+
   # get limits
   for i,col in enumerate(columns):
     if not limits[i]:
@@ -1458,6 +1501,7 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
                      float(limits[i][1]-zero)/unit]
 
   # set labels
+  label = {}
   for i,col in enumerate(['xcolumn', 'ycolumn', 'zcolumn']):
     if i >= len(columns):  continue
     if re.search('time\Z', columns[i]):

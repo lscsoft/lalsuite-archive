@@ -1242,3 +1242,37 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
   else:
     return significance
 
+# =============================================================================
+# Extract column from generic table
+# =============================================================================
+
+def get_column(lsctable, column):
+
+  """
+    Extract column from the given glue.ligolw.table lsctable as numpy array.
+    Tries to use a 'get_col() function if available, otherwise uses
+    getColumnByName(), treating 'time' as a special case for the known
+    Burst/Inspiral/Ringdown tables.
+  """
+ 
+  # format column
+  column = str(column).lower()
+
+  # if there's a 'get_' function, use it
+  if hasattr(lsctable, 'get_%s' % column):
+    return numpy.asarray(getattr(lsctable, 'get_%s' % column)())
+
+  # treat 'time' as a special case
+  if column == 'time'\
+  and re.search('(burst|inspiral|ringdown)', lsctable.tableName):
+    if re.search('burst', lsctable.tableName):
+      tcol = 'peak_time'
+    elif re.search('inspiral', lsctable.tableName):
+      tcol = 'end_time'
+    elif re.search('ringdown', lsctable.tableName):
+      tcol = 'start_time'
+    return numpy.asarray(lsctable.getColumnByName(tcol)) + \
+           numpy.asarray(lsctable.getColumnByName('%s_ns' % tcol))*10**-9
+
+  return numpy.asarray(lsctable.getColumnByName(column))
+
