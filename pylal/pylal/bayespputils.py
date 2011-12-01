@@ -639,6 +639,8 @@ class Posterior(object):
                         'dphi6':lambda inj:inj.dphi6,
                         'dphi6l':lambda inj:inj.dphi6l,
                         'dphi7':lambda inj:inj.dphi7,
+                        'dphi8':lambda inj:inj.dphi8,
+                        'dphi9':lambda inj:inj.dphi9,
                         'lambdag':lambda inj:inj.loglambdaG,
                         'lnlambdag':lambda inj:inj.loglambdaG,
                         'appe':lambda inj:inj.aPPE,
