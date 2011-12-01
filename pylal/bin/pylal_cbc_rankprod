@@ -180,7 +180,7 @@ def parse_command_line():
   parser.add_option("-s","--gps-start-time",action="store",type="int",
     help="When to start considering triggers")
   parser.add_option("-e","--gps-end-time",action="store",type="int",
-    help="And when to stop (currently these are used only for labelling plots!)")
+    help="And when to stop")
   parser.add_option("-V","--veto-files",action="store",type="string",
     help="Comma-separated list of veto files (segwizard format) to be applied to single-ifo triggers")
   parser.add_option("-D","--datatype",action="store",type="string",
@@ -243,11 +243,17 @@ allCache = lal.Cache.fromfile(open(opts.cache_file))
 
 coincFiles = []
 if opts.coinc_pattern:
-  coinc_cache = allCache.sieve(description=opts.coinc_pattern)
+  # Specify exact match because otherwise THINCA_SECOND_H1L1_FULL_DATA would pick up
+  # *FULL_DATA_CAT_*_VETO as well
+  coinc_cache = allCache.sieve(description=opts.coinc_pattern, exact_match=True)
   found, missed = coinc_cache.checkfilesexist()
   coincFiles = found.pfnlist()
   if not len(coincFiles):
     print >>sys.stderr, "WARNING: No file in %s matches the coinc_pattern '%s'." % (opts.cache_file, opts.coinc_pattern)
+  # filter coinc files such that the start time is before the selected gps end time
+  # and the end time is after the selected gps start time
+  coincFiles = [ file for file in coincFiles if int(file.split("-")[-2]) <= opts.gps_end_time and \
+    int(file.split("-")[-2])+int(file.split("-")[-1].split(".")[0]) >= opts.gps_start_time ]
 if opts.coinc_file:
   coincFiles = [opts.coinc_file]
 
@@ -273,6 +279,10 @@ for ifo in ifos:
   trig_cache = allCache.sieve(description=opts.trig_pattern, ifos=ifo)
   found, missed = trig_cache.checkfilesexist()
   trigFiles[ifo] = found.pfnlist()
+  # filter the files such that the start time is before the selected gps end time
+  # and the end time is after the selected gps start time
+  trigFiles[ifo] = [ file for file in trigFiles[ifo] if int(file.split("-")[-2]) <= opts.gps_end_time and \
+    int(file.split("-")[-2])+int(file.split("-")[-1].split(".")[0]) >= opts.gps_start_time ]
 
   # Read triggers
   if not len(trigFiles[ifo]):
@@ -284,20 +294,23 @@ for ifo in ifos:
     if len(snglTrigs):
       snglTrigs.ifocut(ifo, inplace=True) # do this in case single-ifo triggers are being read in from COIREs
       comments += InspiralUtils.message(opts, "Read %d triggers from %s" % (len(snglTrigs), ifo) )
-      if len(snglTrigs):
+      snglTrigsinTime = [trig for trig in snglTrigs if trig.end_time >= opts.gps_start_time and trig.end_time < opts.gps_end_time]
+      del snglTrigs
+      comments += InspiralUtils.message(opts, "%d triggers lie within GPS %d to %d" % (len(snglTrigsinTime), \
+        opts.gps_start_time, opts.gps_end_time) )
+      if len(snglTrigsinTime):
         haveTrigs = True
       # apply the vetoes
       if vetofiles[ifo]:
         for vfile in vetofiles[ifo]:
           comments += InspiralUtils.message(opts, "Applying vetos from "+vfile)
           seglist = segmentsUtils.fromsegwizard(open(vfile))
-          snglTrigs = snglTrigs.veto(seglist)
-          comments += InspiralUtils.message(opts, "%d remain in %s after vetoing" % (len(snglTrigs), ifo))
-
-      statistics[ifo],ranks[ifo] = get_statistics(snglTrigs, statistic=opts.statistic)
+          snglTrigsinTime = snglTrigsinTime.veto(seglist)
+          comments += InspiralUtils.message(opts, "%d remain in %s after vetoing" % (len(snglTrigsinTime), ifo))
+      statistics[ifo],ranks[ifo] = get_statistics(snglTrigsinTime, statistic=opts.statistic)
     else:
       comments += InspiralUtils.message(opts, "No triggers were found in the files for "+ifo+"!")
-    del snglTrigs
+    del snglTrigsinTime
 
   if len(statistics[ifo]):
 
@@ -374,33 +387,45 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
   else:
 #    coincTag = opts.coinc_file.split("-")[0].split("/")[-1]
     comments += InspiralUtils.message(opts, "Reading coincs from "+opts.coinc_file)
-#  print coincTag
   # we don't use the coinc statistic calculated by the coiuls module
   coincEvents = coiuls.readCoincInspiralFromFiles(coincFiles, coiuls.coincStatistic("snr"))
   if len(coincEvents) == 0: 
     numCoincs = 0
   coincEvents = coincEvents[0]
-  numCoincs = len(coincEvents)
-  comments += InspiralUtils.message(opts, "\t"+str(numCoincs)+" coincident events were found")
+  comments += InspiralUtils.message(opts, str(len(coincEvents))+" coincident events were found")
 
   # get the single-ifo ranks and calculate the joint FAPs and FANs
   if len(coincEvents):
     coincFAPs = []
     ranklengths = [len(ranks[ifo]) for ifo in ifos]
+    coincEventsinTime = []
     for coinc in coincEvents:
       ranklist = []
+      inTime = True
       for ifo in ifos:
-        gpsns = 10**9*getattr(coinc,ifo).end_time + getattr(coinc,ifo).end_time_ns
-        ranklist.append(statistics[ifo][gpsns][3])
-      coincFAPs.append(calculate_FAP(ranklist,ranklengths))
-    coincFANs = [FAP*numCoincs for FAP in coincFAPs]
+        endTime = getattr(coinc,ifo).end_time
+        if endTime >= opts.gps_start_time and endTime < opts.gps_end_time:
+          gpsns = 10**9*endTime + getattr(coinc,ifo).end_time_ns
+          ranklist.append(statistics[ifo][gpsns][3])
+        else:
+          inTime = False
+      if len(ranklist) and inTime:
+        coincFAPs.append(calculate_FAP(ranklist,ranklengths))
+        coincEventsinTime.append(coinc)
+    numCoincs = len(coincEventsinTime)
+    if numCoincs:
+      comments += InspiralUtils.message(opts, str(numCoincs)+" events lie within the specified GPS start and end times")
+      coincFANs = [FAP*numCoincs for FAP in coincFAPs]
+    else:
+      comments += InspiralUtils.message(opts, "No coincident events fell within the specified\
+        GPS start and end times!")
     #print coincFANs
 
     # order the coincs by FAN
     sortedCoincEvents = coiuls.coincInspiralTable()
-    fan_coinc_list = zip(coincFANs,[coinc for coinc in coincEvents.rows])
+    fan_coinc_list = zip(coincFANs,[coinc for coinc in coincEventsinTime])
     fan_coinc_list.sort()
-    sortedCoincEvents.rows = [coinc for (coincFAN,coinc) in fan_coinc_list]
+    sortedCoincEvents = [coinc for (coincFAN,coinc) in fan_coinc_list]
     sortedFANs = [coincFAN for (coincFAN,coinc) in fan_coinc_list]
 
     # make an IFAN graph
@@ -420,21 +445,22 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
     close(fig_num)
   
     for i,coinc in enumerate(sortedCoincEvents):
-      coincgps = []
-      ranklist = []
-      for ifo in ifos:
-        gpsns = 10**9*getattr(coinc,ifo).end_time + getattr(coinc,ifo).end_time_ns
-        coincgps.append(gpsns)
-        ranklist.append(statistics[ifo][gpsns][3])
-      gps = sum(coincgps)/coinc.numifos /10**9
-      mchirp = sum([getattr(coinc,ifo).mchirp for ifo in ifos])/coinc.numifos
-      snrs = [getattr(coinc,ifo).snr for ifo in ifos]
-      chisqs = [getattr(coinc,ifo).chisq for ifo in ifos]
-      comments += InspiralUtils.message(opts, "")
-      comments += InspiralUtils.message(opts, "Coinc with rank %d: FAN = %.3G, triggers ranked (%d,%d) in (%s,%s)" % \
-        (i+1, sortedFANs[i], ranklist[0], ranklist[1], ifos[0], ifos[1]) )
-      comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f), chisq (%.1f,%.1f) in (%s,%s)" % \
-        (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
+      if i < 20:
+        coincgps = []
+        ranklist = []
+        for ifo in ifos:
+          gpsns = 10**9*getattr(coinc,ifo).end_time + getattr(coinc,ifo).end_time_ns
+          coincgps.append(gpsns)
+          ranklist.append(statistics[ifo][gpsns][3])
+        gps = sum(coincgps)/coinc.numifos /10**9
+        mchirp = sum([getattr(coinc,ifo).mchirp for ifo in ifos])/coinc.numifos
+        snrs = [getattr(coinc,ifo).snr for ifo in ifos]
+        chisqs = [getattr(coinc,ifo).chisq for ifo in ifos]
+        comments += InspiralUtils.message(opts, "")
+        comments += InspiralUtils.message(opts, "Coinc with rank %d: FAN = %.3G, triggers\
+          ranked (%d,%d) in (%s,%s)" % (i+1, sortedFANs[i], ranklist[0], ranklist[1], ifos[0], ifos[1]) )
+        comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f),\
+          chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
 
 # finalize
 
