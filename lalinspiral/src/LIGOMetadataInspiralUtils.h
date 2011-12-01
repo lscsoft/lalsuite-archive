@@ -114,6 +114,7 @@ tagCoincInspiralStatParams
   REAL4    param_a[LAL_NUM_IFO];
   REAL4    param_b[LAL_NUM_IFO];
   REAL4    eff_snr_denom_fac;
+  REAL4    index;
 }
 CoincInspiralStatParams;
 
@@ -135,7 +136,7 @@ typedef enum
 SnglInspiralClusterChoice;
 
 
-/** The \c CoincInspiralStatistic provides two choices for clustering
+/** The \c CoincInspiralStatistic provides many choices for clustering
     a single inspiral table.  The\c snrsq clustering returns the trigger
     with the greatest summed snr\f$^{2}\f$ from all instruments.  The
     \c snr_chi_stat replaces selects the trigger
@@ -149,6 +150,7 @@ typedef enum
   no_stat,
   snrsq,
   effective_snrsq,
+  newsnrsq,
   s3_snr_chi_stat,
   bitten_l,
   bitten_lsq,

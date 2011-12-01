@@ -112,7 +112,7 @@ static void print_usage(char *program)
       "                                (used in clustering)\n"\
       " [--sort-triggers]              time sort the coincident triggers\n"\
       " [--coinc-stat]        stat     use coinc statistic for cluster/cut\n"\
-      "                     [ snrsq | effective_snrsq | s3_snr_chi_stat | bitten_l]\n"\
+      "                     [ snrsq | effective_snrsq | newsnrsq | s3_snr_chi_stat | bitten_l]\n"\
       " [--stat-threshold]    thresh   discard all triggers with stat less than thresh\n"\
       " [--rsq-threshold] rsq_thresh   discard all triggers whose rsqveto_duration\n"\
       "                                exceeds rsq_thresh\n"\
@@ -509,12 +509,16 @@ int main( int argc, char *argv[] )
           {
             coincstat = effective_snrsq;
           }
+          else if ( ! strcmp( "newsnrsq", optarg) )
+          {
+            coincstat = newsnrsq;
+          }
           else
           {
             fprintf( stderr, "invalid argument to  --%s:\n"
                 "unknown coinc statistic:\n "
                 "%s (must be one of:\n"
-                "snrsq, effective_snrsq, bitten_l, s3_snr_chi_stat)\n",
+                "snrsq, effective_snrsq, newsnrsq, bitten_l, s3_snr_chi_stat)\n",
                 long_options[option_index].name, optarg);
             exit( 1 );
           }

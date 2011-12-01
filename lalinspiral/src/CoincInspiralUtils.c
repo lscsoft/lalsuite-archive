@@ -1914,6 +1914,7 @@ XLALCoincInspiralStat(
   INT4  ifoCounter = 0;
   /* This replaces the 250 in the effective snr formula. */
   REAL4 eff_snr_denom_fac = bittenLParams->eff_snr_denom_fac;
+  /* Newsnr ought to have an 'index' parameter. For the moment assume its value is 6. */
 
   if( coincStat == no_stat )
   {
@@ -1950,6 +1951,16 @@ XLALCoincInspiralStat(
 
         statValue += tmp_snr * tmp_snr /
           sqrt ( tmp_chisq/(2*tmp_bins-2) * (1+tmp_snr*tmp_snr/eff_snr_denom_fac) ) ;
+      }
+      else if ( coincStat == newsnrsq )
+      {
+        REAL4 tmp_snr = snglInspiral->snr;
+        REAL4 tmp_rchisq = snglInspiral->chisq / (2*snglInspiral->chisq_dof-2)
+        if ( tmp_rchisq < 1 )
+        {
+          tmp_rchisq = 1
+        }
+        statValue += tmp_snr*tmp_snr / pow(0.5*(1 + tmp_rchisq*tmp_rchisq*tmp_rchisq),1./3)
       }
       else if ( coincStat == bitten_l || coincStat == bitten_lsq)
       {
