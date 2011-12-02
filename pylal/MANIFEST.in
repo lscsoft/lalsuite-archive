@@ -1,5 +1,4 @@
 include README MANIFEST.in
 recursive-include src *.c *.h
-include bin/followup_virgo_scripts/*
 include misc/*
 include test/*
