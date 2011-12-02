@@ -91,10 +91,11 @@ class pylal_build_py(build_py.build_py):
 		# PKG-INFO is inserted into the tarball by the sdist target.
 		if not os.path.exists("PKG-INFO"):
 			# create the git_version module
-			log.info("Generating pylal/git_version.py")
 			try:
 				write_build_info()
+				log.info("Generated pylal/git_version.py")
 			except gvcsi.GitInvocationError:
+				if not os.path.exists("pylal/git_version.py"):
 					log.error("Not in git checkout or cannot find git executable.")
 					sys.exit(1)
 
@@ -174,12 +175,13 @@ class pylal_sdist(sdist.sdist):
 		self.distribution.scripts = []
 
 		# create the git_version module
-		log.info("generating pylal/git_version.py")
 		try:
 			write_build_info()
+			log.info("generated pylal/git_version.py")
 		except gvcsi.GitInvocationError:
-			log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
-			sys.exit(1)
+			if not os.path.exists("pylal/git_version.py"):
+				log.error("Not in git checkout or cannot find git executable. Exiting.")
+				sys.exit(1)
 
 		# now run sdist
 		sdist.sdist.run(self)
