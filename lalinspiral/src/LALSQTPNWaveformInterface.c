@@ -60,7 +60,8 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 	wave->chirpMass = wave->totalMass * pow(wave->eta, 3.0 / 5.0);
 	wave->deltam_M = sqrt(1.0 - 4.0 * wave->eta);
 	wave->chiAmp[0] = wave->chiAmp[1] = 0.;
-	for (UINT2 i = 0; i < 3; i++) {
+	UINT2 i;
+	for (i = 0; i < 3; i++) {
 		wave->chi[0][i] = params->spin1[i];
 		wave->chi[1][i] = params->spin2[i];
 		wave->chiAmp[0] += SQT_SQR(wave->chi[0][i]);
@@ -68,7 +69,7 @@ static void XLALSQTPNFillParams(LALSQTPNWaveformParams *wave, InspiralTemplate *
 	}
 	wave->chiAmp[0] = sqrt(wave->chiAmp[0]);
 	wave->chiAmp[1] = sqrt(wave->chiAmp[1]);
-	for (UINT2 i = 0; i < 3; i++) {
+	for (i = 0; i < 3; i++) {
 		if (wave->chiAmp[0] != 0.) {
 			wave->chih[0][i] = wave->chi[0][i] / wave->chiAmp[0];
 		} else {
