@@ -1955,12 +1955,12 @@ XLALCoincInspiralStat(
       else if ( coincStat == newsnrsq )
       {
         REAL4 tmp_snr = snglInspiral->snr;
-        REAL4 tmp_rchisq = snglInspiral->chisq / (2*snglInspiral->chisq_dof-2)
+        REAL4 tmp_rchisq = snglInspiral->chisq / (2*snglInspiral->chisq_dof-2);
         if ( tmp_rchisq < 1 )
         {
-          tmp_rchisq = 1
+          tmp_rchisq = 1;
         }
-        statValue += tmp_snr*tmp_snr / pow(0.5*(1 + tmp_rchisq*tmp_rchisq*tmp_rchisq),1./3)
+        statValue += tmp_snr*tmp_snr / pow(0.5*(1 + tmp_rchisq*tmp_rchisq*tmp_rchisq),1./3);
       }
       else if ( coincStat == bitten_l || coincStat == bitten_lsq)
       {
