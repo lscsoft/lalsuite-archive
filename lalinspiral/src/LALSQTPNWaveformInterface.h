@@ -28,7 +28,7 @@ NRCSID (LALSQTPNWAVEFORMINTERFACEH, "$Id LALSQTPNWaveformInterface.h$");
 #define LALSQTPN_MSGZEROLENGTH "the given length is not positive"
 
 typedef enum tagLALSQTPNSwitchMode {
-	LALSQTPN_ADAPTIVE, LALSQTPN_PRECESSING,
+	LALSQTPN_FIXED, LALSQTPN_PRECESSING,
 } LALSQTPNSwitchMode;
 
 void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4Vector *signalvec2,

@@ -55,23 +55,23 @@ typedef enum {
 	LALSQTPN_NAN,
 } LALSQTPNConstants;
 
-/**		Enumeration to index the dynamic variables in the LALSQTPNGeneratorAdaptive function.
+/**		Enumeration to index the dynamic variables in the LALSQTPNGeneratorFixed function.
  */
 typedef enum {
-	LALSQTPN_ADAPT_PHASE, ///< index of the phase
-	LALSQTPN_ADAPT_OMEGA, ///< index of the \f$M\omega\f$
-	LALSQTPN_ADAPT_LNH_1, ///< index of the \f$\hat{L}_N\f$'s x component
-	LALSQTPN_ADAPT_LNH_2, ///< index of the \f$\hat{L}_N\f$'s y component
-	LALSQTPN_ADAPT_LNH_3, ///< index of the \f$\hat{L}_N\f$'s z component
-	LALSQTPN_ADAPT_CHIH1_1, ///< index of the \f$\hat{\chi}_1\f$'s x component
-	LALSQTPN_ADAPT_CHIH1_2, ///< index of the \f$\hat{\chi}_1\f$'s y component
-	LALSQTPN_ADAPT_CHIH1_3, ///< index of the \f$\hat{\chi}_1\f$'s z component
-	LALSQTPN_ADAPT_CHIH2_1, ///< index of the \f$\hat{\chi}_2\f$'s x component
-	LALSQTPN_ADAPT_CHIH2_2, ///< index of the \f$\hat{\chi}_2\f$'s y component
-	LALSQTPN_ADAPT_CHIH2_3, ///< index of the \f$\hat{\chi}_2\f$'s z component
-	LALSQTPN_ADAPT_NUM_OF_VAR
+	LALSQTPN_FIXED_PHASE, ///< index of the phase
+	LALSQTPN_FIXED_OMEGA, ///< index of the \f$M\omega\f$
+	LALSQTPN_FIXED_LNH_1, ///< index of the \f$\hat{L}_N\f$'s x component
+	LALSQTPN_FIXED_LNH_2, ///< index of the \f$\hat{L}_N\f$'s y component
+	LALSQTPN_FIXED_LNH_3, ///< index of the \f$\hat{L}_N\f$'s z component
+	LALSQTPN_FIXED_CHIH1_1, ///< index of the \f$\hat{\chi}_1\f$'s x component
+	LALSQTPN_FIXED_CHIH1_2, ///< index of the \f$\hat{\chi}_1\f$'s y component
+	LALSQTPN_FIXED_CHIH1_3, ///< index of the \f$\hat{\chi}_1\f$'s z component
+	LALSQTPN_FIXED_CHIH2_1, ///< index of the \f$\hat{\chi}_2\f$'s x component
+	LALSQTPN_FIXED_CHIH2_2, ///< index of the \f$\hat{\chi}_2\f$'s y component
+	LALSQTPN_FIXED_CHIH2_3, ///< index of the \f$\hat{\chi}_2\f$'s z component
+	LALSQTPN_FIXED_NUM_OF_VAR
 ///< number of the dynamic variables
-} LALSQTPNADAPTGeneratorVariables;
+} LALSQTPNFixedGeneratorVariables;
 
 /**		Enumeration to index the dynamic variables in the LALSQTPNGenerator function.
  */
@@ -206,7 +206,7 @@ typedef struct tagLALSQTPNWaveformParams {
  * @param[in]		params		: the input parameters
  */
 void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
-void LALSQTPNGeneratorAdaptive(LALStatus *status, LALSQTPNWave *waveform,
+void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
 	LALSQTPNWaveformParams *params);
 
 /**		The function calculates the derived values.
@@ -265,9 +265,9 @@ void LALSQTPNGeneratorAdaptive(LALStatus *status, LALSQTPNWave *waveform,
  * @param[in]	params	: the LALSQTPN_Generator's parameters
  */
 int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
-int LALSQTPNDerivatorAdaptive(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
+int LALSQTPNDerivatorFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 
-int XLALSQTPNTestAdaptive(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
+int XLALSQTPNTestFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
 int XLALSQTPNTest(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);
 
 #ifdef __cplusplus

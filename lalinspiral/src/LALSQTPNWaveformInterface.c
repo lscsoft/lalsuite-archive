@@ -133,8 +133,8 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 
 	/* Call the engine function */
 	switch (switchMode) {
-	case LALSQTPN_ADAPTIVE:
-		LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+	case LALSQTPN_FIXED:
+		LALSQTPNGeneratorFixed(status->statusPtr, &wave, &wave_Params);
 		break;
 	case LALSQTPN_PRECESSING:
 		LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
@@ -176,8 +176,8 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
 
 	/* Call the engine function */
 	switch (switchMode) {
-	case LALSQTPN_ADAPTIVE:
-		LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+	case LALSQTPN_FIXED:
+		LALSQTPNGeneratorFixed(status->statusPtr, &wave, &wave_Params);
 		break;
 	case LALSQTPN_PRECESSING:
 		LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
@@ -226,8 +226,8 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform, Inspi
 
 	// calling the engine function
 	switch (switchMode) {
-	case LALSQTPN_ADAPTIVE:
-		LALSQTPNGeneratorAdaptive(status->statusPtr, &wave, &wave_Params);
+	case LALSQTPN_FIXED:
+		LALSQTPNGeneratorFixed(status->statusPtr, &wave, &wave_Params);
 		break;
 	case LALSQTPN_PRECESSING:
 		LALSQTPNGenerator(status->statusPtr, &wave, &wave_Params);
