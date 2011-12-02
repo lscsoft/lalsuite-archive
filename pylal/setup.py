@@ -88,11 +88,10 @@ def write_build_info():
 class pylal_build_py(build_py.build_py):
 	def run(self):
 		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts nor env setup files.
+		# that releases should not contain scripts.
 		# PKG-INFO is inserted into the tarball by the sdist target.
 		if os.path.exists("PKG-INFO"):
 			self.distribution.scripts = []
-			self.distribution.data_files = []
 		else:
 			# create the git_version module
 			log.info("Generating pylal/git_version.py")
@@ -107,11 +106,16 @@ class pylal_build_py(build_py.build_py):
 
 class pylal_install(install.install):
 	def run(self):
+		pylal_prefix = remove_root(self.prefix, self.root)
+
 		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts nor env setup files.
+		# that releases should not contain scripts.
 		# PKG-INFO is inserted into the tarball by the sdist target.
 		if os.path.exists("PKG-INFO"):
 			self.distribution.scripts = []
+		# Hardcode a check for system-wide installation;
+		# in this case, don't make the user-env scripts.
+		if pylal_prefix == sys.prefix:
 			self.distribution.data_files = []
 			install.install.run(self)
 			return
@@ -122,7 +126,6 @@ class pylal_install(install.install):
 		else:
 			pylal_pythonpath = self.install_platlib + ":" + self.install_purelib
 
-		pylal_prefix = remove_root(self.prefix, self.root)
 		pylal_install_scripts = remove_root(self.install_scripts, self.root)
 		pylal_pythonpath = remove_root(pylal_pythonpath, self.root)
 		pylal_install_platlib = remove_root(self.install_platlib, self.root)
@@ -169,8 +172,8 @@ class pylal_install(install.install):
 
 class pylal_sdist(sdist.sdist):
 	def run(self):
-		# remove undesirable elements from tarball
-		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")]
+		# customize tarball contents
+		self.distribution.data_files += ["debian/%s" % f for f in os.listdir("debian")]
 		self.distribution.scripts = []
 
 		# create the git_version module
