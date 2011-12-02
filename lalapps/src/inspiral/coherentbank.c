@@ -271,15 +271,6 @@ int main( int argc, char *argv[] )
               long_options[option_index].name, gpstime );
           exit( 1 );
         }
-        if ( gpstime > 999999999 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "GPS start time is after "
-              "Sep 14, 2011  01:46:26 UTC:\n"
-              "(%ld specified)\n",
-              long_options[option_index].name, gpstime );
-          exit( 1 );
-        }
         startTime = (INT4) gpstime;
         startTimeGPS.gpsSeconds = startTime;
         ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, startTime );
@@ -293,15 +284,6 @@ int main( int argc, char *argv[] )
           fprintf( stderr, "invalid argument to --%s:\n"
               "GPS start time is prior to "
               "Jan 01, 1994  00:00:00 UTC:\n"
-              "(%ld specified)\n",
-              long_options[option_index].name, gpstime );
-          exit( 1 );
-        }
-        if ( gpstime > 999999999 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "GPS start time is after "
-              "Sep 14, 2011  01:46:26 UTC:\n"
               "(%ld specified)\n",
               long_options[option_index].name, gpstime );
           exit( 1 );
@@ -627,7 +609,7 @@ int main( int argc, char *argv[] )
 	  else
 	  {
 	    fprintf(stdout,"IFOs in input summary table is %s\n",inputSummary->ifos);
-	    if ( (ifoNumber == XLALIFONumber(inputSummary->ifos) ) ) {
+	    if (ifoNumber == XLALIFONumber(inputSummary->ifos)) {
 	      fprintf(stdout,"Reading triggers from IFO %s\n",inputSummary->ifos);
 	      numFileTriggers = XLALReadInspiralTriggerFile( &inspiralEventList,
 			&currentTrigger, &searchSummList, &inputFiles, argv[i] );

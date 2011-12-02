@@ -56,10 +56,11 @@ def chirp_mass(m1,m2):
 
 def plot_efficiency(eff,err,dbins,mass_bins,tag):
   for j,ml,mc,mh in zip(range(len(mass_bins.centres()[0])),mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
-    pyplot.errorbar(dbins[:-1], eff[j], yerr=err[j],label="%.1f-%.1f"%(ml,mh))
+    pyplot.errorbar((dbins[:-1]+dbins[1:])/2, eff[j], yerr=err[j],label="%.1f-%.1f"%(ml,mh))
 
   pyplot.legend(loc='upper right')
   pyplot.ylim([0,1])
+  pyplot.xlim([0,max(dbins)])
   pyplot.xlabel("Distance (Mpc)")
   pyplot.ylabel("Efficiency")
   pyplot.savefig(tag +".png")
@@ -247,17 +248,20 @@ class upper_limit(object):
   def get_distance_bins(self):
     '''Determine distance bins to use for the calculation.'''
     self.dbins = {}
-    for instr in self.instruments:
-      f,m = self.get_injections(instr,FAR=-1)
-      # only need missed distances (no found injections here ;)
-      missed_dist = numpy.array([l.distance for l in m])
-      dmin = numpy.min(missed_dist) #if the code breaks here, just give up
-      dmax = numpy.max(missed_dist)
-      #calibration errors can kick injections outside dmin,dmax
-      if self.opts.log_dist_bins:
-        self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
+    for instr in self.instruments[:]:
+      f,m = self.get_injections(instr)
+      found_dist = numpy.array([l.distance for l in f])
+      if len(f) == 0:
+        print >>sys.stderr,"No injections found in %s time... skipping."%(instr,)
+        self.instruments.remove(instr)
       else:
-        self.dbins[instr] = numpy.linspace(0.5*dmin, 1.5*dmax,self.opts.dist_bins)
+        dmin = numpy.min(found_dist)
+        dmax = numpy.max(found_dist)
+        #calibration errors can kick injections outside dmin,dmax
+        if self.opts.log_dist_bins:
+          self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
+        else:
+          self.dbins[instr] = numpy.linspace(0, dmax,self.opts.dist_bins)
 
     return self.dbins
 
@@ -311,11 +315,8 @@ class upper_limit(object):
 
 
   def set_bns_bbh_bins(self):
-    # BNS == 0
-    # NSBH == 1
-    # BBH == 2
-    # think of bin number as the number of black holes
-    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins([-0.5,0.5,1.5,2.5]),))
+    binEdges = [self.opts.min_nsmass,self.opts.max_nsmass,self.opts.min_bhmass,self.opts.max_bhmass]
+    self.bns_bbh_bins = rate.NDBins((rate.IrregularBins(binEdges),))
     return self.bns_bbh_bins
 
 
@@ -381,26 +382,27 @@ class upper_limit(object):
     Compute the derivative of the search volume at the FAR of the loudest event
     """
     # choose a range of fars at which to evaluate the volume
-    FARh = FAR*1000
-    FARl = FAR*0.0001
-    nbins = 5
-    fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
+    FARh = 2.0*FAR
+    FARl = FAR/4.0
+    nbins = 10
+    fars = numpy.linspace( FARl, FARh, nbins)
     if self.opts.verbose:
-      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f"%(FAR,)
+      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f BINNING BY %s"%(FAR,bin_type)
       print >>sys.stdout, "FARs =",fars
 
     # compute the volume in each mass bin for a few fars
     vA = []
     for far in fars:
-      found, missed = self.get_injections(instruments,far)
-      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
+      found, missed = self.get_injections(instruments,far,bin_type=bin_type)
+      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
 
     # compute the volume derivative in each mass bin
     volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
-    for m in self.mass_bins[bin_type].centres()[0]:
+    for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
       vtmp = numpy.array([v[(m,)] for v in vA])
-      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR) /self.livetime[instruments]
+      tag = "%s-%s-BINNED_BY_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))), self.opts.output_name_tag,bin_type.upper(),j,self.start_time,self.end_time-self.start_time)
+      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
       if self.opts.verbose:
         print >> sys.stdout, "mass bin = %f" %(m,)
         print >> sys.stdout, "vols = ", vtmp
@@ -430,7 +432,6 @@ class upper_limit(object):
       nss = numpy.sum([self.opts.min_nsmass < sim.mass1 < self.opts.max_nsmass,
                        self.opts.min_nsmass < sim.mass2 < self.opts.max_nsmass])
       if bhs + nss < 2: return True # components not in the right range, throw out injection
-      else: sim.mass1 = bhs # the injection will be identified by how many BHs it has
 
     return False
 
@@ -503,12 +504,9 @@ def parse_command_line():
   description = '''
    description:
 
-The program lalapps_cbc_svim computes the average volume to which a given CBC search was sensitive to its sources. For CBC searches whose characteristic range extends significantly beyond the local blue-light density fluctuations (about 20Mpc), the number of potential sources to which a search is exposed is proportional to (i) the volume of space from which the search could have detected a signal and (ii) the livetime of the search. In the case of a non-detection, the search volume can be used to consrtain the source event rate in the local universe.
+The program lalapps_cbc_svim computes the average volume to which a given CBC search was sensitive to its sources. For CBC searches whose characteristic range extends significantly beyond the local blue-light density fluctuations (about 20Mpc), the number of potential sources to which a search is exposed is proportional to (i) the volume of space from which the search could have detected a signal and (ii) the livetime of the search.
 
 The search volume calculation implemented in lalapps_cbc_svim uses the loudest event statistic method (Biswas, Creighton, Fairhurst, 2007). The efficiency of the search is estimated by analysis of data with fake signals injected. The cFAR of the loudest zero-lag event sets a threshold which divides injections into found and missed categories. The efficiency of detecting an event depends on the source parameters, such as its component masses, distance, spin, inclination, sky position, etc. However, lalapps_cbc_svim only considers the dependency of the efficiency on distance and mass, marginalizing over the other parameters. Injections are binned in distance and mass and the estimated efficiency is integrated over distance to convert the efficiency into a physical volume.
-
-The input to lalapps_cbc_svim is a pipedown sqlite results database after combined false alarm rates (cFAR) for all triggers have been computed. In the naming scheme used by pipedown at the time of this writing, these databases have names of the form, e.g, H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite. By default, lalapps_cbc_svim computes the search volume for each instrument set found in the database as a function of total mass. However, other mass binnings and command-line tweaks are available. See below.
-
 
 implementation and workflow:
 
@@ -558,8 +556,8 @@ In the IHOPE workflow, the typical svim usage is much more complicated. In case 
 lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 0.20 --exclude-sim-type SpinTaylorthreePointFivePN --bin-by-chirp-mass --output-name-tag SEARCH_VOLUME --bin-by-bns-bbh  --bootstrap  --component-mass1-bins \'1,3,8,13,18,23\' --dist-sys-err 0.1 --max-mtotal 25 --total-mass-bins \'2,5,8,11,14,17,20,25\' --output-cache H1L1V1-FULL_DATA_CAT_4_VETO_SEARCH_VOLUME_CBC_RESULTS-968803143-1209744.cache --seed 1 --iterations 10000 --tmp-space /usr1/sprivite H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
 '''
 
-  print description
-  parser = OptionParser(version = git_version.verbose_msg, usage = usage)
+
+  parser = OptionParser(version = git_version.verbose_msg, usage = usage + description)
 
   #
   # The code supports three mass binning modes.
@@ -595,10 +593,6 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
 
   # These options control the volume uncertainty estimation.
-  parser.add_option("--iterations", default = 1000, metavar = "integer", type = "int", help = "Number of trials to use for computing the mean and variance of the search volume. A good number is 10000.")
-  parser.add_option("--bootstrap", default = False, action = "store_true", help = "Turn on bootstrapping (injection population resampling). Override default nubmer of trials with --iterations.")
-  parser.add_option("--dist-err", default = 0.20, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
-  parser.add_option("--dist-sys-err", default = 0.0, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst).")
   parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
@@ -682,7 +676,7 @@ for instruments in UL.instruments:
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
-    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type, bootnum=opts.iterations,relerr=opts.dist_err,syserr=opts.dist_sys_err,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
 
     vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
     vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr

@@ -31,15 +31,20 @@ typedef enum tagLALSQTPNSwitchMode {
 	LALSQTPN_FIXED, LALSQTPN_PRECESSING,
 } LALSQTPNSwitchMode;
 
-void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4Vector *signalvec2,
-		InspiralTemplate *params);
+int XLALSQTPNWaveformTemplates(REAL4Vector *signalvec1, REAL4Vector *signalvec2, InspiralTemplate *params);
+
+// LAL wrapper to XLAL function
+void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4Vector *signalvec2, InspiralTemplate *params);
 
 /**		The function returns the generated waveform.
  * @param[in,out]	status	: LAL universal status structure
  * @param[out]	signalvec	: array containing the waveform \f$(h_+, h_\times)\f$
  * @param[in]	params		: structure containing the inspiral parameters
  */
-void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplate *params);
+int XLALSQTPNWaveform (REAL4Vector *signalvec, InspiralTemplate *params);
+
+// LAL wrapper to XLAL function
+void LALSQTPNWaveform (LALStatus *status, REAL4Vector *signalvec, InspiralTemplate *params);
 
 /**		The function returns the generated waveform for injection.
  * @param[in,out]	status	: LAL universal status structure
@@ -48,6 +53,9 @@ void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplat
  * @param[in]	params		: structure containing the inspiral parameters
  * @param[in]	ppnParams	: parameters for restricted post-Newtonian waveform
  */
+int XLALSQTPNWaveformForInjection(CoherentGW *wave_out, InspiralTemplate *params, PPNParamStruc *ppnParams);
+
+// LAL wrapper to XLAL function
 void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *wave_out,
 		InspiralTemplate *params, PPNParamStruc *ppnParams);
 

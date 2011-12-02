@@ -695,6 +695,7 @@ class SkyLocInjTable(tab.Table):
     "v1_eff_distance": "real_4",
     "mass1": "real_4",
     "mass2": "real_4",
+    "distance": "real_4",
     "grid": "lstring",
     "galaxy_grid": "lstring"
     }
@@ -790,6 +791,7 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area,\
   row.end_time = coinc.time
   row.set_ifos(coinc.ifo_list)
   row.rank = rank
+  row.distance = coinc.distance_inj
   rhosquared = 0.0
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]

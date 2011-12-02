@@ -1,435 +1,461 @@
 #!/usr/bin/python
 
+# =============================================================================
+# Preamble
+# =============================================================================
+
 from __future__ import division
 
-import os,sys
-import glob
-import matplotlib
-matplotlib.use('Agg')
-import pylab
+import os,sys,datetime,re,glob,shutil,ConfigParser
 from optparse import OptionParser
-from pylal import SimInspiralUtils
-from pylal import MultiInspiralUtils
-from glue.ligolw import ilwd
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import utils
-from pylal import grbsummary
-from pylal import date
-from pylal import rate
-from pylal import antenna
-from pylal import plotutils
-from pylal import pylal_exttrig_llutils as peu
-from pylal.coh_PTF_pyutils import *
+from glue import markup
+from pylal import grbsummary,date,rate,antenna
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+#from pylal.coh_PTF_pyutils import *
 
-html_part_1_template = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html lang="en">
-<head>
-</head>
-<body>
-<div style="text-align: center;">
-<span style="font-weight: bold;">
-</span>
-<span style="font-weight: bold;">
-Coherent PTF Inspiral search of GRB&nbsp;macrogrbname</span>
-<br>
-</div>
-<div style="text-align: center;">
-<span style="font-weight: bold;">
-</span>
+def make_external_call(\
+  command, show_stdout=False, \
+  show_command=False, show_error=True):
+  """
+  Run a command line argument and print informative messages on failure.
+  It returns two outputs: the stdout of the command, and its status.  
 
-</div>
-<span style="font-weight: bold;">
-</span>
-<br>
-<p>
-<b>Basic information</b>
-<table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700">
-<tbody>
-<tr>
-<td>GPS</td>
-<td>Date</td>
-<td>RA</td>
-<td>DEC</td>
-<td>IFOS</td>
-</tr>
-<tr>
-<td>macrogpstime</a></td>
-<td>macrogrbdate</td>
-<td>macrorightascension</td>
-<td>macrodeclination</td>
-<td>macroifostring</td>
-</tr>
-</tbody>
-</table>
-</p>
-<p>
-<b>Antenna factors</b>
-<table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400">
-<tbody>
-<tr>
-<td>Hanford</td>
-<td>Livingston</td>
-<td>Virgo</td>
-</tr>
-<tr>
-<td>macrohresponse</td>
-<td>macrolresponse</td>
-<td>macrovresponse</td>
-</tr>
-</tbody>
-</table>
-</p>
-<br>
-summary of this GRB <a href="http://grblog.org/grblog.php?view=burst&GRB=macrogrbname">here</a><br>
-google sky kml-file <a href="macrogrbname.kml">here</a><br>
-segments availability <a href="plot_segments_macrogrbname.png">here</a><br>
-ini-file used <a href="S6GRB_trigger_hipe.ini">here</a><br>
-conf-file used <a href="llmonitor.conf">here</a><br>
-'''
+    >>> make_external_call('cp * /tmp', False, False, True)
 
-html_part_2_template = '''<h2> Offsource triggers vs time </h2>
-<table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400">
-<tbody>
-<tr>
-<td> Coherent SNR </td>
-macroifolist
-</tr>
-<tr>
-<td> <a href="macrooutdir/OFFSOURCE/GRBmacrogrbname_triggers_vs_time_noinj.png" title="Triggers vs time"><img src="macrooutdir/OFFSOURCE/GRBmacrogrbname_triggers_vs_time_noinj.png" border="2" width="300"></a> </td>
-macroifoplots
-</tr>
-</tbody>
-</table>
-'''
-
-trig_plot_tmplt = '''<td> <a href="macrooutdir/OFFSOURCE/GRBmacrogrbname_macroifo_triggers_vs_time_noinj.png" title="macroifo SNR vs time"><img src="macrooutdir/OFFSOURCE/GRBmacrogrbname_macroifo_triggers_vs_time_noinj.png" border="2" width="300"></a> </td>'''
-
-html_part_3_template = '''<h2> Signal consistency </h2>
-<h3> Chi squared tests </h3>
-<table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400">
-<tbody>
-<tr>
-<td> </td>
-macroinjlist
-</tr>
-<tr>
-<td> Bank veto </td>
-macrobankveto
-</tr>
-<tr>
-<td> Auto veto </td>
-macroautoveto
-</tr>
-<tr>
-<td> Chi squared </td>
-macroschisquared
-</tr>
-</tbody>
-</table>
-
-<h3> Individual detector and null SNRs </h3>
-<table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400">
-<tbody>
-<tr>
-<td> Null SNR </td>
-macronull1
-</tr>
-macrosnrplots
-</tbody>
-</table>
-'''
-
-sbv_plot_tmplt = '''<td><a href="macrooutdir/plots_clustered/GRBmacrogrbname_macroplotname.png" title="GRBmacrogrbname_macroplotname"><img src="macrooutdir/plots_clustered/GRBmacrogrbname_macroplotname.png" border="2" width="300"></a> </td>'''
-
-ifo_snr_sec_tmplt = '''<tr>
-<td> macroifo SNR </td>
-macrosnrifoplots
-</tr>'''
-
-html_part_4_template = '''<h2> Found/missed injections </h2>
-<h3> A key for these plots </h3>
-<p> Black cross indicates no trigger was found coincident with the injection </p>
-<p> Red cross indicates a trigger was found coincident with the injection but it was vetoed </p>
-<p> Green cross indicates that a trigger was found coincident with the injection and it was louder than all events in the offsource </p>
-<p> Coloured circle indicates that a trigger was found coincident with the injection
- but it was not louder than all offsource events. The colour bar gives the FAP of the trigger. </p>
-
-<table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400">
-<tbody>
-<tr>
-<td> </td>
-macroinjlist
-</tr>
-<tr>
-<td> Eff dist h vs mchirp</td>
-macroinjplotone
-</tr>
-<tr>
-<td> Eff dist h vs time</td>
-macroinjplottwo
-</tr>
-<tr>
-<td> Eff dist l vs mchirp</td>
-macroinjplotthree
-</tr>
-<tr>
-<td> Eff dist l vs time</td>
-macroinjplotfour
-</tr>
-<tr>
-<td> Eff dist v vs mchirp</td>
-macroinjplotfive
-</tr>
-<tr>
-<td> Eff dist v vs time</td>
-macroinjplotsix
-</tr>
-<tr>
-<td> Close injections without FAP = 0 </td>
-macrocmi
-</tr>
-</tbody>
-</table>
-'''
-
-inj_plot_one_tmplt = '''<td><a href="macrooutdir/macroinjdir/efficiency/found_missed_injections_effdist_macroifo.png" title="found_missed_injections_effdist_macroifo.png"><img src="macrooutdir/macroinjdir/efficiency/found_missed_injections_effdist_macroifo.png" border="2" width="300"></a> </td>'''
-
-inj_plot_two_tmplt = '''<td><a href="macrooutdir/macroinjdir/efficiency/found_missed_injections_effdist_time_macroifo.png" title="found_missed_injections_effdist_time_macroifo.png"><img src="macrooutdir/macroinjdir/efficiency/found_missed_injections_effdist_time_macroifo.png" border="2" width="300"></a> </td>'''
-
-inj_plot_three_tmplt = '''<td><a href="macrooutdir/macroinjdir/efficiency/found_missed_injections_dist.png" title="found_missed_injections_dist.png"><img src="macrooutdir/macroinjdir/efficiency/found_missed_injections_dist.png" border="2" width="300"></a> </td>'''
-
-inj_plot_four_tmplt = '''<td><a href="macrooutdir/macroinjdir/efficiency/found_missed_injections_dist_time.png" title="found_missed_injections_dist_time.png"><img src="macrooutdir/macroinjdir/efficiency/found_missed_injections_dist_time.png" border="2" width="300"></a> </td>'''
-
-cmi_tmplt = '''<td> <a href="macrooutdir/macroinjdir/efficiency/quiet_found_triggers.txt"> here </a></td>'''
-
-html_part_5_template = '''<h2> Loudest offsource events </h2>
-
-<table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400">
-
-<tbody>
-<tr>
-<td> </td>
-<td> Mchirp 0 - 3.48 </td>
-<td> Mchirp 3.48 - 6.0 </td>
-<td> Mchirp 6.0 - 20.0 </td>
-</tr>
-<tr>
-<td> Using BestNR </td>
-<td><a href="macrooutdir/OFFTRIAL_1/bestnr_vs_fap_0_3.48.png" title="bestnr_vs_fap_0_3.48.png"><img src="macrooutdir/OFFTRIAL_1/bestnr_vs_fap_0_3.48.png" border="2" width="300"></a> </td>
-<td><a href="macrooutdir/OFFTRIAL_1/bestnr_vs_fap_3.48_6.0.png" title="bestnr_vs_fap_3.48_6.0.png"><img src="macrooutdir/OFFTRIAL_1/bestnr_vs_fap_3.48_6.0.png" border="2" width="300"></a> </td>
-<td><a href="macrooutdir/OFFTRIAL_1/bestnr_vs_fap_6.0_20.png" title="bestnr_vs_fap_6.0_20.png"><img src="macrooutdir/OFFTRIAL_1/bestnr_vs_fap_6.0_20.png" border="2" width="300"></a> </td>
-</tr>
-<tr>
-<td> Using SNR </td>
-<td><a href="macrooutdir/OFFTRIAL_1/snr_vs_fap_0_3.48.png" title="snr_vs_fap_0_3.48.png"><img src="macrooutdir/OFFTRIAL_1/snr_vs_fap_0_3.48.png" border="2" width="300"></a> </td>
-<td><a href="macrooutdir/OFFTRIAL_1/snr_vs_fap_3.48_6.0.png" title="snr_vs_fap_3.48_6.0.png"><img src="macrooutdir/OFFTRIAL_1/snr_vs_fap_3.48_6.0.png" border="2" width="300"></a> </td>
-<td><a href="macrooutdir/OFFTRIAL_1/snr_vs_fap_6.0_20.png" title="snr_vs_fap_6.0_20.png"><img src="macrooutdir/OFFTRIAL_1/snr_vs_fap_6.0_20.png" border="2" width="300"></a> </td>
-</tr>
-</tbody>
-</table>'''
-
-html_trial_template = '''<h2> Events in macrotrial </h2>
-<table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400">
-<tbody>
-<tr>
-<td> </td>
-<td> Mchirp 0 - 3.48 </td>
-<td> Mchirp 3.48 - 6.0 </td>
-<td> Mchirp 6.0 - 20.0 </td>
-</tr>
-<tr>
-<td> FAP </td>
-<td> macroevent1 </td>
-<td> macroevent2 </td>
-<td> macroevent3 </td>
-</tbody>
-</table>
-<p>
-For more details on loudest events see <a href="macrooutdir/loudest_events.txt"> here</a>
-</p>'''
+  @param command: the command to try
+  @type command: string
+  @param show_stdout: show the stdout 
+  @type show_stdout: boolean
+  @param show_command: show the command
+  @type show_command: boolean
+  @param show_error: show the error if any
+  @type show_error: boolean
+  @return: the stdout and a status  
 
 
-usage = ""
+  """
+  if show_command and opts.verbose is True:
+    print "--- Trying this command :" + command
 
-parser = OptionParser( usage )
+  stdin, out, err = os.popen3(command)
+  pid, status = os.wait()
+  this_output = out.read()
+  if show_error & status != 0:
+    print >>sys.stderr, "External call failed."
+    print >>sys.stderr, "  status: %d" % status
+    print >>sys.stderr, "  stdout: %s" % this_output
+    print >>sys.stderr, "  stderr: %s" % err.read()
+    print >>sys.stderr, "  command: %s" % command
+    sys.exit(status)
+  if show_stdout:
+    if this_output[0:1]=='\n':
+      print  this_output[1:]  #first character is \n
+    else:
+      print this_output
 
-parser.add_option("-r", "--run-directory",action="store",type="string",\
-    default=None,\
-    help="The location of the run directory")
-parser.add_option("-n", "--grb-name",action="store",type="string",\
-    default=None,\
-    help="Name of the GRB such as 090802")
-parser.add_option("-i","--ifo-tag",action="store",type="string",\
-    default=None,\
-    help="The ifo tag, H1L1 or H1L1V1 for instance")
-parser.add_option("-o", "--output-path",action="store",type="string",\
-    default='.',\
-    help="Output path for plots")
-parser.add_option("-O", "--open-box",action="store_true",default=False,
-    dest="open_box",help = "Use to show onsource results")
+  stdin.close()
+  out.close()
+  err.close()
+  return this_output, status
 
-injList = 'injectionsTaylorFaceOn','injectionsTaylorFull','injectionsPPNFull','injectionsSpin1Full'
 
-(opts,args) = parser.parse_args()
-opts.output_path = opts.output_path + '/'
-if not os.path.isdir(opts.output_path):
-  print "--output-path does not exist. How can I make a summary page when I cannot find the plots?"
-  sys.exit(1)
+def initialize_page( title, style, script, header=None ):
 
-if not opts.run_directory:
-  print "must provide run directory"
-  sys.exit(1)
+  """
+    A function that returns a markup.py page object with the required html
+    header.
+  """
 
-if not opts.grb_name:
-  print "must provide GRB name"
-  sys.exit(1)
+  page         = markup.page(mode="strict_html")
+  page._escape = False
+  page.init( title=title, css=style, script=script, header=header )
 
-if not opts.ifo_tag:
-  print "must provide ifo tag"
-  sys.exit(1)
+  return page
 
-ifo_tag = opts.ifo_tag
-ifos = []
+def write_banner( title, text='&nbsp;' ):
 
-while ifo_tag:
-  ifos.append(ifo_tag[0:2])
-  ifo_tag = ifo_tag[2:]
+  """
+    Write html <title> tag into markup.page object
+  """
 
-ext_trigs = grbsummary.load_external_triggers(opts.run_directory + '/triggerGRB'+opts.grb_name+'.xml')
+  page = markup.page( mode="strict_html" )
+  page._escape = False
 
-htmlPageConts = []
-curr_html = html_part_1_template
-curr_html=curr_html.replace('macrogrbname',opts.grb_name)
-curr_html=curr_html.replace('macrogpstime',str(ext_trigs[0].start_time))
-d = date.XLALGPSToUTC(date.XLALINT8NSToGPS(ext_trigs[0].start_time*1.0e+9))
-month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
-         'Sep','Oct','Nov','Dec']
-date_text = '%s %02d %d %02d:%02d:%02d' %\
-       (month[d[1]-1], d[2], d[0], d[3], d[4], d[5])
-curr_html=curr_html.replace('macrogrbdate',date_text)
-curr_html=curr_html.replace('macrorightascension','%.2f'%(ext_trigs[0].event_ra))
-curr_html=curr_html.replace('macrodeclination','%.2f'%(ext_trigs[0].event_dec))
-curr_html=curr_html.replace('macroifostring',opts.ifo_tag)
-ifos = 'H1','L1','V1'
-macros = 'macrohresponse','macrolresponse','macrovresponse'
-for ifo,macro in zip(ifos,macros):
-  f_plus, f_cross, f_ave, f_q = antenna.response( ext_trigs[0].start_time, 
-                              ext_trigs[0].event_ra, ext_trigs[0].event_dec,\
-                              0.0, 0.0, 'degree',ifo )
-  curr_html=curr_html.replace(macro,'%.2f'%f_q)
-htmlPageConts.append(curr_html)
+  page.div( id="header" )
+  page.h1()
+  page.add( title )
+  page.h1.close()
+  page.h3()
+  page.add( text )
+  page.h3.close()
 
-curr_html = html_part_2_template
-ifoTable = []
-ifoPlots = []
-for ifo in ifos:
-  ifoTab = '<td> %s SNR </td>' %(ifo)
-  ifoPlot = trig_plot_tmplt
-  ifoPlot=ifoPlot.replace('macroifo',ifo)
-  ifoTable.append(ifoTab)
-  ifoPlots.append(ifoPlot)
-curr_html=curr_html.replace('macroifolist','\n'.join(ifoTable))
-curr_html=curr_html.replace('macroifoplots','\n'.join(ifoPlots))
-curr_html=curr_html.replace('macrooutdir','./')
-curr_html=curr_html.replace('macrogrbname',opts.grb_name)
-htmlPageConts.append(curr_html)
+  page.hr( class_="short" )
+  page.hr( class_="long" )
 
-curr_html = html_part_3_template
-injTable = []
-plotmacros = ['macroschisquared','macrobankveto','macroautoveto','macronull1']
-plotnames = ['chi_square_vs_snr_zoom','bank_veto_vs_snr_zoom','auto_veto_vs_snr_zoom','null_stat_vs_snr_zoom']
-for inj in injList:
-  injTable.append('<td> %s </td>' %(inj))
-for macro,name in zip(plotmacros,plotnames):
-  plot_html =[]
+  page.div.close()
+
+  page.div( id="container" )
+
+  return page
+
+def write_table( page, headers, data, cl='' ):
+
+  """
+    Write table in html
+  """
+
+  page.table( class_=cl )
+
+  # list
+  if cl=='list':
+    for i in range( len( headers ) ):
+
+      page.tr()
+      page.th()
+      page.add( '%s' % headers[i] )
+      page.th.close()
+      page.td()
+      page.add( '%s' % data[i] )
+      page.td.close()
+      page.tr.close()
+
+  else:
+    page.tr()
+    for n in headers:
+      page.th()
+      page.add( '%s' % n )
+      page.th.close()
+    page.tr.close()
+
+    if data and not re.search( 'list',str( type( data[0] ) ) ):
+      data = [data]
+
+    for row in data:
+      page.tr()
+      for item in row:
+        page.td()
+        page.add( '%s' % item )
+        page.td.close()
+      page.tr.close()
+
+  page.table.close()
+
+  return page
+
+def write_summary( page, ExtTrigger, ifos, skyError=None ):
+
+  """
+    Write summary of information to markup.page object page
+  """
+
+  gps,ra,dec = ExtTrigger.start_time,ExtTrigger.event_ra,ExtTrigger.event_dec
+  grbdate = datetime.datetime( *date.XLALGPSToUTC( LIGOTimeGPS(gps) )[:6] )\
+                .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
+
+  page.h3()
+  page.add( 'Basic information' )
+  page.h3.close()
+
+  if skyError:
+    th = [ 'GPS', 'Date', 'RA', 'DEC', 'Sky Error', 'IFOs' ]
+    td = [ gps, grbdate, ra, dec, skyError, ifos ]
+  else:
+    th = [ 'GPS', 'Date', 'RA', 'DEC', 'IFOs' ]
+    td = [ gps, grbdate, ra, dec, ifos ]
+
+  page = write_table( page, th, td )
+
+  return page
+
+def write_antenna( page, ExtTrigger, ifos, grid=False ):
+
+  """
+    Write antenna factors to merkup.page object page and generate John's
+    detector response plot.
+  """
+
+  page.h3()
+  page.add( 'Antenna factors' )
+  if grid:
+    page.add(' and Sky Grid')
+  page.h3.close()
+
+  th = []
+  td = []
+
+  for ifo in ifos:
+    th.append( ifo )
+    _, _, _, f_q = antenna.response( ExtTrigger.start_time,
+                                     ExtTrigger.event_ra, ExtTrigger.event_dec,\
+                                     0.0, 0.0, 'degree',ifo )
+    td.append( round( f_q, 3 ) )
+
+  cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
+      % (ExtTrigger.start_time,ExtTrigger.event_ra, ExtTrigger.event_dec)
+  for ifo in ifos:
+    if ifo == 'H1':
+      cmmnd += ' --display-lho'
+    elif ifo == 'L1':
+      cmmnd += ' --display-llo'
+    elif ifo == 'V1':
+      cmmnd += ' --display-virgo'
+  output,status = make_external_call(cmmnd)
+  plot = markup.page()
+  p = "projtens.png"
+  plot.a( href=p, title="Detector response and polarization" )
+  plot.img( src=p )
+  plot.a.close()
+  th2 = ['Reponse Diagram']
+  td2 = [plot() ]
+  if grid:
+    plot = markup.page()
+    p = "ALL_TIMES/plots_clustered/GRB%s_sky_grid.png"\
+        % ExtTrigger.event_number_grb
+    plot.a(href=p, title="Sky Grid")
+    plot.img(src=p)
+    plot.a.close()
+    th2.append('Sky Grid')
+    td2.append(plot())
+
+  page = write_table( page, th, td )
+  page = write_table( page, th2, td2 )
+
+  return page
+
+def write_offsource( page, ifos, grbtag, onsource=False ):
+
+  """
+    Write offsource SNR versus time plots to markup.page object page
+  """
+
+  th = ['BestNR 8', 'Coherent SNR']
+
+  if onsource:
+    dir = 'ALL_TIMES'
+  else:
+    dir = 'OFFSOURCE'
+
+  plot = markup.page()
+  p = "%s/plots_clustered/GRB%s_bestnr_vs_time_noinj.png" % ( dir, grbtag )
+  plot.a( href=p, title="Coherent SNR versus time" )
+  plot.img( src=p )
+  plot.a.close()
+  td = [ plot() ]
+
+  plot = markup.page()
+  p = "%s/plots/GRB%s_triggers_vs_time_noinj.png" % ( dir, grbtag )
+  plot.a( href=p, title="Coherent SNR versus time" )
+  plot.img( src=p )
+  plot.a.close()
+  td.append( plot() )
+
+  for ifo in ifos:
+    th.append('%s SNR' % ifo )
+    plot = markup.page()
+    p = "%s/plots/GRB%s_%s_triggers_vs_time_noinj.png" % ( dir, grbtag, ifo )
+    plot.a( href=p, title="%s SNR versus time" % ifo )
+    plot.img( src=p )
+    plot.a.close()
+    td.append( plot() )
+
+  page = write_table( page, th, td )
+
+  return page
+
+def write_chisq( page, injList, grbtag ):
+
+  """
+    Write injection chisq plots to markup.page object page
+  """
+
+  if injList:
+    th = ['']+injList
+  else:
+    th= ['','OFFSOURCE']
+    injList = ['OFFSOURCE']
+  td = []
+
+  plots = ['bank_veto','auto_veto','chi_square']
+
+  for test in plots:
+    pTag = test.replace('_',' ').title()
+    d = [pTag]
+    for inj in injList:
+      plot = markup.page()
+      p = "%s/plots_clustered/GRB%s_%s_vs_snr_zoom.png" % ( inj, grbtag, test )
+      plot.a( href=p, title="%s %s versus SNR" % ( inj, pTag ) )
+      plot.img( src=p )
+      plot.a.close()
+      d.append( plot() )
+    td.append(d)
+
+  page = write_table( page, th, td )
+
+  return page
+
+def write_inj_snrs( page, ifos, injList, grbtag ):
+
+  """
+    Write injection chisq plots to markup.page object page
+  """
+
+  if injList:
+    th = ['']+injList
+  else:
+    th= ['','OFFSOURCE']
+    injList = ['OFFSOURCE']
+  td = []
+
+  plots = ['null_stat2']+['%s_snr' % ifo for ifo in ifos]
+
+  for row in plots:
+    pTag = row.replace('_',' ').title()
+    d = [pTag]
+    for inj in injList:
+      plot = markup.page()
+      p = "%s/plots_clustered/GRB%s_%s_vs_snr_zoom.png" % ( inj, grbtag, row )
+      plot.a( href=p, title="%s %s versus SNR" % ( inj, pTag ) )
+      plot.img( src=p )
+      plot.a.close()
+      d.append( plot() )
+    td.append(d)
+
+  page = write_table( page, th, td )
+
+  return page
+
+def write_found_missed( page, ifos, injList ):
+
+  """
+    Write injection found/missed plots to markup.page object page
+  """
+
+  th = ['']+injList
+  td = []
+
+  d = ['Number of injections']
   for inj in injList:
-    currPlot = sbv_plot_tmplt
-    currPlot=currPlot.replace('macrooutdir','./' + inj)
-    currPlot=currPlot.replace('macroplotname',name)
-    plot_html.append(currPlot)
-  curr_html = curr_html.replace(macro,'\n'.join(plot_html))
-snrs_html = []
-for ifo in ifos:
-  currIfoSNR = ifo_snr_sec_tmplt
-  currIfoSNR = currIfoSNR.replace('macroifo',ifo)
-  plot_html = []
-  name = ifo + '_snr_vs_snr_zoom'
-  for inj in injList:
-    currPlot = sbv_plot_tmplt
-    currPlot=currPlot.replace('macrooutdir','./' + inj)
-    currPlot=currPlot.replace('macroplotname',name)
-    plot_html.append(currPlot)
-  currIfoSNR = currIfoSNR.replace('macrosnrifoplots','\n'.join(plot_html))
-  snrs_html.append(currIfoSNR)
-curr_html = curr_html.replace('macrosnrplots','\n'.join(snrs_html))
-curr_html = curr_html.replace('macroinjlist','\n'.join(injTable))
-curr_html = curr_html.replace('macrogrbname',opts.grb_name)
-htmlPageConts.append(curr_html)
+    cmmnd = 'lwtprint ../*' + inj + '*MISSED*xml -t sim_inspiral | wc -l'
+    output,status = make_external_call(cmmnd)
+    numInjs = int(output)
+    cmmnd = 'lwtprint ../*' + inj + '*FOUND*xml -t sim_inspiral | wc -l'
+    output,status = make_external_call(cmmnd)
+    numInjs += int(output)
+    d.append(str(numInjs))
+  td.append(d)
 
-curr_html = html_part_4_template
-injTable = []
-injPlotsOne = []
-injPlotsTwo = []
-injPlotsThree = []
-injPlotsFour = []
-injPlotsFive = []
-injPlotsSix = []
-injCloseMissed = []
-for inj in injList:
-  injTable.append('<td> %s </td>' %(inj))
-  injPlotOne = inj_plot_one_tmplt
-  injPlotOne =injPlotOne.replace('macroinjdir',inj)
-  injPlotOne = injPlotOne.replace('macroifo','h')
-  injPlotTwo = inj_plot_two_tmplt
-  injPlotTwo =injPlotTwo.replace('macroinjdir',inj)
-  injPlotTwo = injPlotTwo.replace('macroifo','h')
-  injPlotThree = inj_plot_one_tmplt
-  injPlotThree =injPlotThree.replace('macroinjdir',inj)
-  injPlotThree = injPlotThree.replace('macroifo','l')
-  injPlotFour = inj_plot_two_tmplt
-  injPlotFour =injPlotFour.replace('macroinjdir',inj)
-  injPlotFour = injPlotFour.replace('macroifo','l')
-  injPlotFive = inj_plot_one_tmplt
-  injPlotFive =injPlotFive.replace('macroinjdir',inj)
-  injPlotFive = injPlotFive.replace('macroifo','v')
-  injPlotSix = inj_plot_two_tmplt
-  injPlotSix =injPlotSix.replace('macroinjdir',inj)
-  injPlotSix = injPlotSix.replace('macroifo','v')
-  injCM = cmi_tmplt
-  injCM = cmi_tmplt.replace('macroinjdir',inj)
-  injPlotsOne.append(injPlotOne)
-  injPlotsTwo.append(injPlotTwo)
-  injPlotsThree.append(injPlotThree)
-  injPlotsFour.append(injPlotFour)
-  injPlotsFive.append(injPlotFive)
-  injPlotsSix.append(injPlotSix)
-  injCloseMissed.append(injCM)
-curr_html = curr_html.replace('macroinjlist','\n'.join(injTable))
-curr_html = curr_html.replace('macroinjplotone','\n'.join(injPlotsOne))
-curr_html = curr_html.replace('macroinjplottwo','\n'.join(injPlotsTwo))
-curr_html = curr_html.replace('macroinjplotthree','\n'.join(injPlotsThree))
-curr_html = curr_html.replace('macroinjplotfour','\n'.join(injPlotsFour))
-curr_html = curr_html.replace('macroinjplotfive','\n'.join(injPlotsFive))
-curr_html = curr_html.replace('macroinjplotsix','\n'.join(injPlotsSix))
-curr_html = curr_html.replace('macrocmi','\n'.join(injCloseMissed))
-curr_html=curr_html.replace('macrooutdir','./')
-htmlPageConts.append(curr_html)
+  plots = []
+  text  = {}
+  for ifo in ifos:
+    plots.extend(['effdist_%s' % ifo[0].lower(),\
+                  'effdist_time_%s' % ifo[0].lower()])
+    text['effdist_%s' % ifo[0].lower()]      = 'Eff. dist. %s vs Mchirp' % ifo
+    text['effdist_time_%s' % ifo[0].lower()] = 'Eff. dist %s vs Time' % ifo
 
-curr_html = html_part_5_template
-curr_html =curr_html.replace('macrooutdir','./')
-htmlPageConts.append(curr_html)
+  for row in plots:
+    pTag = text[row]
+    d = [pTag]
+    for inj in injList:
+      plot = markup.page()
+      p = "%s/efficiency_OFFTRIAL_1/found_missed_injections_%s.png" % ( inj, row )
+      plot.a( href=p, title=pTag )
+      plot.img( src=p )
+      plot.a.close()
+      d.append( plot() )
+    td.append(d)
 
-trials = ['OFFTRIAL_1','OFFTRIAL_2','OFFTRIAL_3','OFFTRIAL_4','OFFTRIAL_5','OFFTRIAL_6']
-if opts.open_box:
-  trials.append('ONSOURCE')
+  td.append(['Close injections without FAP = 0']+\
+            ['<a href="%s/efficiency_OFFTRIAL_1/quiet_found_triggers.html">here</a>' % inj\
+            for inj in injList])
 
-for trial in trials:
-  curr_html = html_trial_template
-  curr_html = curr_html.replace('macrotrial',trial)
-  curr_html = curr_html.replace('macrooutdir','./'+trial)
-  file = open(opts.output_path + '/'+trial+'/loud_numbers.txt')
+  page = write_table( page, th, td )
+
+  return page
+
+def write_recovery( page, injList ):
+
+  """
+    Write injection recovery plots to markup.page object page
+  """
+
+  th = ['']+injList
+  td = []
+
+  plots = ['sky_error_time','sky_error_mchirp','sky_error_distance']
+  text = { 'sky_error_time':'Sky error vs time',\
+           'sky_error_mchirp':'Sky error vs mchirp',\
+           'sky_error_distance':'Sky error vs distance' }
+
+  for row in plots:
+    pTag = text[row]
+    d = [pTag]
+    for inj in injList:
+      plot = markup.page()
+      plot = markup.page()
+      p = "%s/efficiency_OFFTRIAL_1/found_%s.png" % ( inj, row )
+      plot.a( href=p, title=pTag )
+      plot.img( src=p )
+      plot.a.close()
+      d.append( plot() )
+    td.append(d)
+
+  page = write_table( page, th, td )
+
+  return page
+
+def write_loudest_events( page, bins, onsource=False ):
+
+  """
+    Write injection chisq plots to markup.page object page
+  """
+
+  th = ['']+['Mchirp %s - %s' % tuple(bin) for bin in bins]
+  td = []
+
+  plots = ['BestNR','SNR']
+
+  if onsource:
+    trial = 'ONSOURCE'
+  else:
+    trial = 'OFFTRIAL_1'
+
+  for pTag in plots:
+    row = pTag.lower()
+    d = [pTag]
+    for bin in bins:
+      b = '%s_%s' % tuple(bin)
+      plot = markup.page()
+      p = "%s/efficiency/%s_vs_fap_%s.png" % ( trial, row, b )
+      plot.a( href=p, title="FAP versus %s" % pTag )
+      plot.img( src=p )
+      plot.a.close()
+      d.append( plot() )
+    td.append(d)
+
+  row = 'snruncut'
+  d = ['SNR after cuts <br> have been applied']
+  for bin in bins:
+    b = '%s_%s' % tuple(bin)
+    plot = markup.page()
+    p = "%s/efficiency/%s_vs_fap_%s.png" % ( trial, row, b )
+    plot.a( href=p, title="FAP versus %s" % pTag )
+    plot.img( src=p )
+    plot.a.close()
+    d.append( plot() )
+  td.append(d)
+
+  page = write_table( page, th, td )
+
+  page.add( 'For more details on the loudest offsource events see')
+  page.a( href='%s/efficiency/loudest_offsource_trigs.html' % (trial))
+  page.add('here.')
+  page.a.close()
+
+
+  return page
+
+def write_exclusion_distances(page , trial, injList, massbins, reduced=False, onsource=False):
+  file = open( '%s/efficiency/loud_numbers.txt' % (trial), 'r' )
   FAPS = []
   for line in file:
     line = line.replace('\n','')
@@ -437,16 +463,414 @@ for trial in trials:
       FAPS.append('No event')
     else:
       FAPS.append(float(line))
-  curr_html = curr_html.replace('macroevent1',str(FAPS[0]))
-  curr_html = curr_html.replace('macroevent2',str(FAPS[1]))
-  curr_html = curr_html.replace('macroevent3',str(FAPS[2]))
-  htmlPageConts.append(curr_html)
-  file.close()
-   
- 
-html_out = '\n <hr> \n'.join(htmlPageConts)
-file = open(opts.output_path + '/summary.html','w')
-file.write(html_out)
-file.close()
 
+  file.close()
+
+  th = ['']+['Mchirp %s - %s' % tuple(bin) for bin in massbins]
+  td = ['FAP']+FAPS
+  page = write_table( page, th, td )
+  page.add( 'For more details on the loudest onsource events see')
+  page.a( href='%s/efficiency/loudest_events.html' % (trial) )
+  page.add('here.')
+  page.a.close()
+
+  if reduced or not injList:
+    return page  
+
+  page.h3()
+  page.add('Detection efficiency plots - injections louder than loudest background trigger')
+  page.h3.close()
+
+  th = injList
+  td = []
+  d = []
+  for inj in injList:
+    plot = markup.page()
+    p = "%s/efficiency_%s/BestNR_max_efficiency.png" % ( inj,trial )
+    plot.a( href=p, title="Detection efficiency" )
+    plot.img( src=p )
+    plot.a.close()
+    d.append( plot() )
+  td.append(d)
+
+  page = write_table( page, th, td )
+
+  page.h3()
+  page.add('Exclusion distance plots - injections louder than loudest foreground trigger')
+  page.h3.close()
+
+  th = injList
+  td = []
+  d = []
+  for inj in injList:
+    plot = markup.page()
+    p = "%s/efficiency_%s/BestNR_on_efficiency.png" % ( inj,trial )
+    plot.a( href=p, title="Exclusion efficiency" )
+    plot.img( src=p )
+    plot.a.close()
+    d.append( plot() )
+  td.append(d)
+
+  page = write_table( page, th, td )
+
+  page.h3()
+  page.add('90% confidence exclusion distances (Mpc)')
+  th = injList
+  td = []
+  d = []
+  for inj in injList:
+    file = open( '%s/efficiency_%s/exclusion_distance.txt' % (inj,trial), 'r' )
+    for line in file:
+      line = line.replace('\n','')
+      excl_dist = float(line)
+    d.append(excl_dist)
+    file.close()
+  td.append(d)
+
+  page = write_table( page, th, td )
+
+  page.h3.close()
+
+  return page
+  
+
+
+
+# =============================================================================
+# Parse command line
+# =============================================================================
+
+def parse_command_line():
+
+  usage = """usage: %prog [options] 
+  
+coh_PTF_injfinder will find and record found and missed injections for the given injection run
+
+--grb-name
+--ifo-tag
+--num-files
+--inj-name
+--time-window
+"""
+
+  parser = OptionParser( usage )
+
+  parser.add_option( "-g", "--grb-xml", action="store", type="string",\
+                     default=None, help="location of the GRB xml file" )
+
+  parser.add_option( "-f", "--config-file", action="store", type="string",\
+                     default=None, help="location of the run ini file" )
+
+  parser.add_option( "-i", "--ifo-tag", action="store", type="string",\
+                     default=None,\
+                     help="The ifo tag, H1L1 or H1L1V1 for instance" )
+
+  parser.add_option( "-o", "--output-path", action="store", type="string",\
+                     default=os.getcwd(), help="output directory, "+\
+                                               "default: %default" )
+  parser.add_option( "-D", "--exclusion-injections", action="store",\
+                     type="string", default=None,\
+                     help="A comma seperated list of the detection injection"+\
+                          "run names." )
+
+  parser.add_option( "-T", "--tuning-injections", action="store",\
+                     type="string",default=None,\
+                     help="A comma seperated list of the tuning injection"+\
+                          "run names.")
+
+  parser.add_option( "-O", "--open-box", action="store_true", default=False,
+                     dest="open_box", help ="Use to show onsource results" )
+
+  parser.add_option( "-G", "--sky-grid", action="store_true", default=False,\
+                     help="Include sky grid information, default: %default" )
+
+  (opts,args) = parser.parse_args()
+
+  if not opts.grb_xml:
+    parser.error( "must provide --grb-xml" )
+
+  if not opts.config_file:
+    parser.error( "must provide --config-file" )
+
+  if not opts.ifo_tag:
+    parser.error( "must provide --ifo-tag" )
+
+  (opts,args) = parser.parse_args()
+
+  return opts, args
+
+# =============================================================================
+# Main function
+# =============================================================================
+
+def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
+        tuningInjList=[], open_box=False, grid=False ):
+
+  # get entry information  
+  ifos     = [ ifoTag[i*2:(i*2)+2] for i in range(int(len(ifoTag)/2)) ]
+  extTrigs = grbsummary.load_external_triggers( grbxml )
+
+  if len( extTrigs )>1:
+    raise ValueError, 'Found more than one GRB in %s.' % grbfile
+
+  grb = extTrigs[0]
+  GRBnum = extTrigs[0].event_number_grb
+  os.chdir( outdir )
+
+  # get sections
+#  injList = glob.glob('injections*')
+  
+  trials  = sorted(glob.glob('OFFTRIAL_*'))
+
+  # initialise page
+  title   = 'Coherent PTF Inspiral search of GRB%s' % GRBnum
+  if open_box:
+    title += '- OPEN BOX PAGE'
+  else:
+    title += '- CLOSED BOX PAGE'
+  banner  = write_banner( title )
+  js = 'coh_PTF_html_summary.js'
+  script = {js:'javascript'}
+  css = 'coh_PTF_html_summary.css'
+  webpage = initialize_page( title, css, script, header=banner() )
+#  if open_box:
+#    webpage.add('<img src="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/public/segments/S5/OpenBox.jpg">')
+#  else:
+#    webpage.add('<img src="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/public/segments/S5/thomasLegacy.jpg">')
+  
+  # set divs
+  webpage.div( id="maintab" )
+  webpage.div( id="content" )
+
+  # write summary section
+  secname = 'Summary information'
+  i = 0
+  webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                 onclick="toggleVisible('%s');" % i, value=secname )
+  webpage.div( id="div_%s" % i, style="display: none;" )
+
+  # get sky error from config
+  if grid:
+    cp = ConfigParser.ConfigParser()
+    cp.read(inifile)
+    err = cp.get('coh_PTF_inspiral', 'sky-error') 
+  else:
+    err = None
+
+  webpage = write_summary( webpage, grb, ifoTag, err )
+  webpage = write_antenna( webpage, grb, ifos, grid )
+
+  # add links
+  grbsumlink = 'http://grblog.org/grblog.php?view=burst&GRB=%s' % GRBnum
+  seglink    = 'plot_segments_grb%s.png' % GRBnum
+  inilink    = os.path.basename(inifile)
+  linktext = { grbsumlink:'Summary of this GRB',\
+               seglink:   'Segments availability',\
+               inilink:   'ini-file used'}
+  for link in [ grbsumlink, seglink, inilink ]:
+    webpage.add( linktext[link] )
+    webpage.a( href=link )
+    webpage.add( 'here' )
+    webpage.a.close()
+    webpage.br()
+
+  webpage.div.close()
+
+  # copy over these files
+  ## plot segments is generated by dataquery
+  segplot = '%s/%s/%s'\
+            % ( os.path.split(grbxml)[0], os.path.pardir, seglink )
+  if os.path.isfile(segplot):
+    shutil.copy( segplot, outdir ) 
+  else:
+    print >>sys.stderr, 'WARNING: Cannot find segments availability plot.'
+  ## inifile is simply copied
+  if not os.path.isfile( '%s/%s' % (outdir, os.path.basename(inifile)) ) or\
+     not os.path.samefile( inifile, '%s/%s'\
+                                    % ( outdir, os.path.basename(inifile) ) ):
+    shutil.copy( inifile, outdir )
+  
+
+  # add off source trig plots
+  secname = 'Offsource triggers versus time'
+  i += 1
+  webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                 onclick="toggleVisible('%s');" % i, value=secname )
+  webpage.div( id="div_%s" % i, style="display: none;" )
+
+  webpage = write_offsource( webpage, ifos, GRBnum )
+
+  webpage.div.close()
+
+  # add signal consistency plots
+  secname = 'Signal consistency plots'
+  i += 1
+  webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                 onclick="toggleVisible('%s');" % i, value=secname )
+  webpage.div( id="div_%s" % i, style="display: none;" )
+
+  webpage.h3()
+  webpage.add('Chi squared tests')
+  webpage.h3.close()
+  webpage.h4()
+  webpage.add('Plot key')
+  webpage.h4.close()
+  webpage.add('Blue crosses: Background triggers')
+  webpage.br()
+  webpage.add('Red crosses: Injections triggers')
+  webpage.br()
+  webpage.add('Black line: Veto line, shaded region indicates vetoed area')
+  webpage.br()
+  webpage.add('Yellow lines: Contours of new SNR')
+  webpage = write_chisq( webpage, tuningInjList, GRBnum )
+  webpage.h3()
+  webpage.add('Individual detector and null SNRs')
+  webpage.h3.close()
+  webpage.h4()
+  webpage.add('Plot key')
+  webpage.h4.close()
+  webpage.add('Blue crosses: Background triggers')
+  webpage.br()
+  webpage.add('Red crosses: Injections triggers')
+  webpage.br()
+  webpage.add('Black line: Veto line, shaded region indicates vetoed area')
+  webpage.h5()
+  webpage.add('For the null stat plot')
+  webpage.h5.close()
+  webpage.add('Green line: Above this triggers have reduced detection statistic')
+  webpage.br()
+  webpage.add('Magenta line: On this line the statistic is reduced by a factor of two')
+  webpage.h5()
+  webpage.add('For the single detector plots')
+  webpage.h5.close()
+  webpage.add('The cut is only applied to the two most sensitive detectors, this can vary with mass and sky location, which is shown on the plots')
+  webpage.br()
+  webpage.add('Green line: This indicates the expected SNR for optimally oriented injections')
+  webpage.br()
+  webpage.add('Magenta and cyan lines: Show 1 and 2 sigma errors on the green line')
+  webpage = write_inj_snrs( webpage, ifos, tuningInjList, GRBnum )
+
+  webpage.div.close()
+
+  # add found/missed plots
+  if detectionInjList:
+    secname = 'Found/missed injections'
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%d');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
+
+    webpage.h3()
+    webpage.add('A key for these plots')
+    webpage.h3.close()
+    webpage.add('Black cross indicates no trigger was found coincident with '+\
+              'the injection')
+    webpage.br()
+    webpage.add('Red cross indicates a trigger was found coincident with the '+\
+              'injection but it was vetoed')
+    webpage.br()
+    webpage.add('Green cross indicates that a trigger was found coincident '+\
+              'with the injection and it was louder than all events in the '+\
+              'offsource')
+    webpage.br()
+    webpage.add('Coloured circle indicates that a '+\
+              'trigger was found coincident '+\
+              'with the injection but it was not louder than all offsource '+\
+              'events. The colour bar gives the FAP of the trigger.')
+
+    webpage = write_found_missed( webpage, ifos, detectionInjList )
+
+    webpage.div.close()
+
+  if tuningInjList and grid:
+    # add injection recovery plots
+    secname = 'Injection recovery'
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%d');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
+    webpage = write_recovery( webpage, detectionInjList )
+    webpage.div.close()
+
+  # add loudest off source events
+  secname = 'Loudest offsource events'
+  i += 1
+  webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                 onclick="toggleVisible('%s');" % i, value=secname )
+  webpage.div( id="div_%s" % i, style="display: none;" )
+
+  massbins = [('0','3.48'),('3.48','6.0'),('6.0','20')]
+  webpage = write_loudest_events( webpage, massbins )
+
+  webpage.div.close()
+
+  # write trial results
+  for ii,trial in zip(range(len(trials)),trials):
+    reduced = False
+    if ii > 1:
+      reduced = True
+    secname = 'Results for %s' % trial.replace('_',' ').title()
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%s');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
+    webpage = write_exclusion_distances(webpage,trial,detectionInjList,massbins,reduced=reduced,onsource=False)
+    webpage.div.close()
+
+  if open_box:
+
+    trial = 'ONSOURCE'
+
+    webpage.hr( class_="long", style="margin-top: 20px;" )
+
+    # add on source trig plots
+    secname = 'Full data triggers versus time'
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%s');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
+  
+    webpage = write_offsource( webpage, ifos, GRBnum, onsource=True )
+    webpage.div.close()
+  
+    # write on source events
+    trial = 'ONSOURCE'
+    secname = 'Results for %s' % trial.replace('_',' ').title()
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%s');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
+    webpage = write_exclusion_distances(webpage,trial,detectionInjList,\
+              massbins,reduced=False,onsource=False)
+    webpage.div.close()
+
+  webpage.div.close()
+  webpage.div.close()
+  webpage.div.close()
+  webpage.body.close()
+  webpage.html.close()
+
+  file = open( '%s/summary.html' % outdir, 'w' )
+  file.write( webpage() )
+  file.close()
+  
+if __name__=='__main__':
+
+  opts, args = parse_command_line()
+
+  grbxml     = os.path.abspath( opts.grb_xml )
+  inifile    = os.path.abspath( opts.config_file )
+  outdir     = os.path.abspath( opts.output_path )
+  ifoTag     = opts.ifo_tag
+  grid       = opts.sky_grid
+  detInjsList = []
+  tunInjsList = []
+  if opts.exclusion_injections:
+    detInjsList = opts.exclusion_injections.split(",")
+  if opts.tuning_injections:
+    tunInjsList = opts.tuning_injections.split(",")
+  
+  
+  main( grbxml, inifile, outdir, ifoTag, detectionInjList=detInjsList,\
+        tuningInjList=tunInjsList, open_box=opts.open_box, grid=grid )
 

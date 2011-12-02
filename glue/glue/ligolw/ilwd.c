@@ -35,6 +35,13 @@
 
 #define MODULE_NAME "glue.ligolw.__ilwd"
 
+/* Gain access to 64-bit addressing where possible
+ * http://www.python.org/dev/peps/pep-0353/#conversion-guidelines */
+#if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
+typedef int Py_ssize_t;
+#define PY_SSIZE_T_MAX INT_MAX
+#define PY_SSIZE_T_MIN INT_MIN
+#endif
 
 /*
  * ============================================================================
@@ -140,16 +147,16 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 	if(PyArg_ParseTuple(args, "s", &s)) {
 		/* we've been passed a string, see if we can parse
 		 * it */
-		int len = strlen(s);
-		int converted_len = -1;
+		Py_ssize_t len = strlen(s);
+		Py_ssize_t converted_len = -1;
 		char *table_name = NULL, *column_name = NULL;
 
 		/* can we parse it as an ilwd:char string? */
-		sscanf(s, "%a[^:]:%a[^:]:%ld%n", &table_name, &column_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
+		sscanf(s, "%a[^:]:%a[^:]:%zu%zu", &table_name, &column_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
 		if(converted_len < len) {
 			/* nope, how 'bout just an int? */
 			converted_len = -1;
-			sscanf(s, "%ld%n", &((ligolw_ilwdchar *) new)->i, &converted_len);
+			sscanf(s, "%zu%zu", &((ligolw_ilwdchar *) new)->i, &converted_len);
 			if(converted_len < len) {
 				/* nope */
 				PyErr_Format(PyExc_ValueError, "invalid literal for ilwdchar(): '%s'", s);

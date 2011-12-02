@@ -39,6 +39,7 @@ import numpy
 import os
 import cPickle as pickle
 import random
+import select
 from scipy import interpolate
 from scipy import optimize
 import Queue as queue
@@ -48,7 +49,7 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
-import threading
+import traceback
 
 
 from glue import iterutils
@@ -555,7 +556,7 @@ class Efficiency(object):
 		self.found += other.found
 		self.loudest_missed += other.loudest_missed
 		self.quietest_found += other.quietest_found
-		self.all.extend(other.all)
+		self.all += other.all
 		return self
 
 	def add_contents(self, contents, verbose = False):
@@ -823,17 +824,11 @@ def process_file(filename, products, live_time_program, tmp_path = None, veto_se
 	dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 
-def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False, exception_queue = None):
-	try:
-		for n, filename in enumerate(filenames):
-			if verbose:
-				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-			process_file(filename, products, live_time_program, tmp_path = tmp_path, veto_segments_name = veto_segments_name, verbose = verbose)
-	except Exception:
-		if exception_queue is not None:
-			exception_queue.put(sys.exc_info())
-		else:
-			raise
+def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		process_file(filename, products, live_time_program, tmp_path = tmp_path, veto_segments_name = veto_segments_name, verbose = verbose)
 
 
 def write_products(products, prefix, image_formats, verbose = False):
@@ -916,8 +911,7 @@ if options.detection_threshold is None:
 	if options.verbose:
 		print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 
-	exception_queue = queue.Queue()
-	threads = []
+	children = {}
 	rate_vs_thresholds = []
 	# group files into bins of about the same total number of bytes.
 	# don't try to create more groups than there are files
@@ -925,23 +919,44 @@ if options.detection_threshold is None:
 		# shuffle file names to avoid copying all the big files
 		# into the scratch space at the same time
 		random.shuffle(filenames)
-		# create a new book-keeping object
-		rate_vs_thresholds.append(RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates))
 		# launch thread
-		threads.append(threading.Thread(target = process_files, args = (filenames, rate_vs_thresholds[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
-		threads[-1].start()
-	# collect all threads, re-raise any exceptions that occured,
-	# combine results
-	for thread in threads:
-		thread.join()
-	while not exception_queue.empty():
-		exc_type, exc_value, exc_traceback = exception_queue.get()
-		raise exc_type, exc_value, exc_traceback
-	while rate_vs_thresholds:
-		if rate_vs_threshold is None:
-			rate_vs_threshold = rate_vs_thresholds.pop()
-		else:
-			rate_vs_threshold += rate_vs_thresholds.pop()
+		r, w = os.pipe()
+		r, w = os.fdopen(r, "r", 0), os.fdopen(w, "w", 0)
+		pid = os.fork()
+		if pid == 0:
+			# we're the child process
+			r.close()
+			try:
+				# create a new book-keeping object
+				rate_vs_threshold = RateVsThreshold(options.open_box, record_background = options.record_background, record_candidates = options.record_candidates)
+				process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+				pickle.dump(rate_vs_threshold, w)
+			except:
+				pickle.dump(traceback.format_exc(), w)
+				w.close()
+				sys.exit(1)
+			w.close()
+			sys.exit(0)
+		# we're not the child process
+		w.close()
+		children[r] = pid
+	# collect all children, report any exceptions that occured, combine
+	# results
+	while children:
+		for r in select.select(children.keys(), [], [])[0]:
+			process_output = pickle.load(r)
+			r.close()
+			pid, exit_status = os.waitpid(children.pop(r), 0)
+			if isinstance(process_output, RateVsThreshold):
+				if rate_vs_threshold is None:
+					rate_vs_threshold = process_output
+				else:
+					rate_vs_threshold += process_output
+			else:
+				print >>sys.stderr, process_output
+			del process_output
+			if exit_status:
+				sys.exit(exit_status)
 	if rate_vs_threshold is None:
 		raise ValueError, "no non-injection data available:  cannot determine detection threshold.  provide non-injection data or set an explicit detection treshold.  Consult --help for more information."
 
@@ -991,29 +1006,51 @@ else:
 
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
-exception_queue = queue.Queue()
-threads = []
-efficiencies = []
+children = {}
 # group files into bins of about the same total number of bytes.  don't try
 # to create more groups than there are files
 for filenames in pack_files(injection_filenames, min(options.threads, len(injection_filenames)), verbose = options.verbose):
-	# create new book-keeping object
-	efficiencies.append(Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size, options.open_box))
+	# shuffle file names to avoid copying all the big files
+	# into the scratch space at the same time
+	random.shuffle(filenames)
 	# launch thread
-	threads.append(threading.Thread(target = process_files, args = (filenames, efficiencies[-1:], options.live_time_program), kwargs = {"tmp_path": options.tmp_space, "veto_segments_name": options.vetoes_name, "verbose": options.verbose, "exception_queue": exception_queue}))
-	threads[-1].start()
-# collect all threads, reraise any exceptions that occured, combine results
-for thread in threads:
-	thread.join()
-while not exception_queue.empty():
-	exc_type, exc_value, exc_traceback = exception_queue.get()
-	raise exc_type, exc_value, exc_traceback
-while efficiencies:
-	if efficiency is None:
-		efficiency = efficiencies.pop()
-	else:
-		efficiency += efficiencies.pop()
-
+	r, w = os.pipe()
+	r, w = os.fdopen(r, "r", 0), os.fdopen(w, "w", 0)
+	pid = os.fork()
+	if pid == 0:
+		# we're the child process
+		r.close()
+		try:
+			# create a new book-keeping object
+			efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size, options.open_box)
+			process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+			pickle.dump(efficiency, w)
+		except:
+			pickle.dump(traceback.format_exc(), w)
+			w.close()
+			sys.exit(1)
+		w.close()
+		sys.exit(0)
+	# we're not the child process
+	w.close()
+	children[r] = pid
+# collect all children, report any exceptions that occured, combine
+# results
+while children:
+	for r in select.select(children.keys(), [], [])[0]:
+		process_output = pickle.load(r)
+		r.close()
+		pid, exit_status = os.waitpid(children.pop(r), 0)
+		if isinstance(process_output, Efficiency):
+			if efficiency is None:
+				efficiency = process_output
+			else:
+				efficiency += process_output
+		else:
+			print >>sys.stderr, process_output
+		del process_output
+		if exit_status:
+			sys.exit(exit_status)
 # write data products
 if efficiency is not None:
 	write_products([efficiency], "string_efficiency_", options.image_formats, verbose = options.verbose)

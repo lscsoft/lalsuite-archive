@@ -30,6 +30,8 @@ example$ ./lalapps_sw_inj_frames -p /Users/erinmacdonald/lsc/analyses/test_par_f
 /* 12/5/11 v.7: fix memory leak */
 /* 31/5/11 v.8: Matt Pitkin's fixes for the memory leak*/
 /* 23/6/11 v.9; Changed naming of log files to append time, sloppy but works */
+/* 29/6/11 v.10; XLAL functions memory leaks fixed */
+/* 11/7/11 v.11; Outputs surpressed and better log output*/
 
 #include <stdio.h>
 #include <unistd.h>
@@ -115,7 +117,7 @@ int main(int argc, char **argv)
     return 0;  
 
   char version[256];
-  sprintf(version, "v9"); /*manually change */
+  sprintf(version, "v11"); /*manually change */
 
   /*Get current time for log */
   time_t result;
@@ -126,8 +128,12 @@ int main(int argc, char **argv)
   FILE *logfile;
   char log_file[256];
 
-  sprintf(log_file, "%s/%s/injections%s.log", uvar->outputdir, uvar->logDir,asctime(btm)); /*How to name log files separately?*/
-  fprintf(stderr, "Your log file is here: %s\n", log_file);
+  char logfiledir[6];
+  strncpy(logfiledir, (strrchr(uvar->gwfdir,'/')+1), 5);
+  logfiledir[5] = '\0';
+
+  sprintf(log_file, "%s/%s/injections-%s.log", uvar->outputdir, uvar->logDir,logfiledir); 
+  /*fprintf(stderr, "Your log file is here: %s\n", log_file);*/
 
   /*Writing to .log file*/
   if (( logfile = fopen( log_file, "a" )) == NULL ) {
@@ -167,15 +173,6 @@ int main(int argc, char **argv)
 /*     XLALPrintError("Out of memory"); */
 /*     XLAL_ERROR ( fn, XLAL_EFUNC ); */
 /*   } */
-  
-  /*Error Checks*/
-  /*    if (uvar->in_chan == 0){*/
-  /*        XLALPrintError ("\nNeed an input channel!\n");*/
-  /*        return 1;*/
-  /*    }*/
-  
-  /*  UINT4 ndata; -- done in loop below from file name */
-  /* ndata = uvar->duration; */
 
   REAL8 srate; /*sample rate defaulted to 16384 */
   srate = uvar->srate;
@@ -203,23 +200,9 @@ int main(int argc, char **argv)
   }
   /* </log file> */
 
-
-  /*  extract .gwf file name from inputs*/
-  /*  pos = strchr(uvar->out_chan, '_');*/
-  /*  ipos = pos-(uvar->out_chan);*/
-  /*  strncpy(detname, uvar->out_chan, ipos);*/
-  /*  fprintf(stderr, "%s\n", detname);*/
-  
-  /*strcpy(channame, uvar->out_chan[ipos+1]);
-    
-    strncpy(injpos, uvar->out_chan, 14);*/
-  
   /* Major loop to run through gwf files */
   int m;
   UINT4 i;
-  
-  /*  REAL8TimeSeries *gwfseries=NULL;*/
-  /*REAL8TimeSeries *series=NULL;*/
   
   char out_file[256]; /*need a different way to do this */
   FILE *inject; /*for .par file from uvar->inputdir*/
@@ -245,16 +228,16 @@ int main(int argc, char **argv)
   UINT4 numParFiles = (UINT4)n;
   UINT4 h=0;
   
+  char parname[256];
+  BinaryPulsarParams pulparams[numParFiles];
   /*clear . and .. in directory */
   free(parnamelist[0]); 
   free(parnamelist[1]);
   
   for (h=2; h < numParFiles; h++) {
     if(strstr(parnamelist[h]->d_name, ".par") == NULL){
-      fprintf(stderr, "Not using file %s\n",parnamelist[h]->d_name);
-      
+
       free(parnamelist[h]);
-      /*should put numParFiles++ to make up for a deleted file? */
       
       continue;
     }
@@ -265,7 +248,6 @@ int main(int argc, char **argv)
 	return 0;
       }
       else {
-	char parname[256];
 	sprintf(parname, "%s/%s", uvar->inputdir, parnamelist[h]->d_name);
 	char t[ 100 ];
 	struct stat b;
@@ -276,6 +258,18 @@ int main(int argc, char **argv)
         }
       }
       /* </log file> */
+
+      /* Save the pulsar parameter files to memory to be called later*/
+      /*sprintf(pulin,"%s/%s", uvar->inputdir, parnamelist[h]->d_name);*/
+      if (( inject = fopen ( parname, "r" )) == NULL ){
+	fprintf(stderr,"Error opening file: %s\n", parname);
+	XLAL_ERROR ( fn, XLAL_EIO );
+      }
+      /*BinaryPulsarParams pulparams[numParFiles];*/
+      XLALReadTEMPOParFile( &pulparams[h], parname );
+      fclose( inject );
+      /*fprintf(stderr,"You have now read in %s, saved in index %i", parname, h);*/
+
     } /*checking if file ends in .par*/
     
     free(parnamelist[h]);
@@ -339,21 +333,17 @@ int main(int argc, char **argv)
 	REAL8TimeSeries *series=NULL;
 
 	/** extract epoch and duration from gwf file name **/
-	/*LIGOTimeGPS epoch;*/
-	/*char strepoch[10];*/
+
 	strncpy(strepoch, strchr(gwfnamelist[k]->d_name, '9'), 9 ); /*All epochs in S6 begin with 9... potential problem in future */
 	strepoch[sizeof(strepoch)-1] = '\0'; /*Null terminate the string*/
 	epoch.gpsSeconds = atoi(strepoch);  /* convert to integer from string */
 	epoch.gpsNanoSeconds = 0; /* no nanosecond precision */
 	/*	fprintf(stderr, "epoch = %i\n", epoch.gpsSeconds);*/
 	
-	/*UINT4 ndata;*/
-	/*size_t filength;*/
 	filength = strlen(gwfnamelist[k]->d_name); 
 	char strdur[4];
 	strncpy(strdur, (strrchr(gwfnamelist[k]->d_name, '-')+1), 3); /* duration is last number in frame file */
 	strdur[sizeof(strdur)-1] = '\0';
-	/*	fprintf(stderr, "Duration = %s\n", strdur);*/
 	/* assigns duration from .gwf frame */
 	ndata = atoi(strdur);
 
@@ -415,9 +405,6 @@ int main(int argc, char **argv)
 	
 	fclose(filetest);
 
-	/*if (( frfile = XLALFrOpen( uvar->outputdir, out_file )) == NULL){
-	  XLAL_ERROR ( fn, XLAL_EFUNC );
-	  }*/
 	/*create series to be the sum, general series to add to the noise */
 	REAL8TimeSeries *total_inject=NULL;
 	if (( total_inject = XLALCreateREAL8TimeSeries(inj_chan, &epoch, 0., 1./srate, &lalSecondUnit, (UINT4)(ndata*srate)) ) == NULL) {
@@ -437,87 +424,83 @@ int main(int argc, char **argv)
 	}
 	numParFiles=(UINT4)n;
 	h=0;
-	
-        /*free(parnamelist[0]);*/
-	/*free(parnamelist[1]);*/
         
         for (h=0; h < numParFiles; h++) {
 	  if(strstr(parnamelist[h]->d_name, ".par") == NULL){
-	    fprintf(stderr, "Not using file %s\n",parnamelist[h]->d_name);
+	    /*fprintf(stderr, "Not using file %s\n",parnamelist[h]->d_name);*/
             
             free(parnamelist[h]);
 
 	    continue;
 	  }
 	  else{
-	    sprintf(pulin, "%s/%s", uvar->inputdir, parnamelist[h]->d_name);
-	    fprintf(stderr, "This is your pulsar file:%s\n", pulin);
-	    if (( inject = fopen ( pulin, "r" )) == NULL ){
-	      fprintf(stderr, "Error opening file: %s\n", pulin);
-	      XLAL_ERROR ( fn, XLAL_EIO );
-	    }
+	    /*sprintf(pulin, "%s/%s", uvar->inputdir, parnamelist[h]->d_name);*/
+	    /*fprintf(stderr, "This is your pulsar file:%s\n", pulin);*/
+	    /*if (( inject = fopen ( pulin, "r" )) == NULL ){*/
+	    /*fprintf(stderr, "Error opening file: %s\n", pulin);*/
+	    /*XLAL_ERROR ( fn, XLAL_EIO );*/
+	    /*}*/
 	    PulsarSignalParams params = empty_PulsarSignalParams; /*pulsar parameter structure*/
-	    BinaryPulsarParams pulparams; /* read from the .par file */
+	    /*BinaryPulsarParams pulparams; read from the .par file */
 	    if ( (params.pulsar.spindown = XLALCreateREAL8Vector(1))== NULL ) {
 	      XLALPrintError("Out of memory");
 	      XLAL_ERROR ( fn, XLAL_EFUNC );
 	    }
 	    /*read in parameters from .par file */
-	    XLALReadTEMPOParFile( &pulparams, pulin);
-	    /*fprintf(stderr, "%s\n", pulin);*/
-	    /*fprintf(stderr, "h=%i\n", h);*/
+	    /*XLALReadTEMPOParFile( &pulparams, pulin);*/
+
+	    fprintf(stderr,"Your fo is %f\n",pulparams[h].f0);
 	    
 	    /*Convert location with proper motion */
-	    if ( pulparams.posepoch == 0.0 )
-	      pulparams.posepoch = pulparams.pepoch; /*set posepoch to pepoch if position epoch not present */
-	    INT4 dtpos = epoch.gpsSeconds - (INT4)pulparams.posepoch; /*calculate time since posepoch */
+	    if ( pulparams[h].posepoch == 0.0 )
+	      pulparams[h].posepoch = pulparams[h].pepoch; /*set posepoch to pepoch if position epoch not present */
+	    INT4 dtpos = epoch.gpsSeconds - (INT4)pulparams[h].posepoch; /*calculate time since posepoch */
 	    
-	    params.pulsar.position.latitude = pulparams.dec + dtpos * pulparams.pmdec;
-	    params.pulsar.position.longitude = pulparams.ra + dtpos * pulparams.ra / cos(params.pulsar.position.latitude);
-	    
+	    params.pulsar.position.latitude = pulparams[h].dec + dtpos * pulparams[h].pmdec;
+	    params.pulsar.position.longitude = pulparams[h].ra + dtpos * pulparams[h].pmra / cos(params.pulsar.position.latitude);
 	    params.pulsar.position.system = COORDINATESYSTEM_EQUATORIAL;
 	    
-	    params.pulsar.f0 = 2.*pulparams.f0;
-	    params.pulsar.spindown->data[0] = 2.*pulparams.f1; /*spindown is REAL8Vector ?? */
-	    if (( XLALGPSSetREAL8(&(params.pulsar.refTime),pulparams.pepoch) ) == NULL ){
+	    params.pulsar.f0 = 2.*pulparams[h].f0;
+	    params.pulsar.spindown->data[0] = 2.*pulparams[h].f1; /*spindown is REAL8Vector ?? */
+	    if (( XLALGPSSetREAL8(&(params.pulsar.refTime),pulparams[h].pepoch) ) == NULL ){
 	      XLAL_ERROR ( fn, XLAL_EFUNC );
 	    }
-	    params.pulsar.psi = pulparams.psi;
-	    params.pulsar.phi0 = pulparams.phi0;
+	    params.pulsar.psi = pulparams[h].psi;
+	    params.pulsar.phi0 = pulparams[h].phi0;
 	    /*Conversion from h0 and cosi to plus and cross */
-	    params.pulsar.aPlus = 0.5 * pulparams.h0 * (1. + pulparams.cosiota * pulparams.cosiota ); 
-	    params.pulsar.aCross = pulparams.h0 * pulparams.cosiota;
-	    
+	    params.pulsar.aPlus = 0.5 * pulparams[h].h0 * (1. + pulparams[h].cosiota * pulparams[h].cosiota ); 
+	    params.pulsar.aCross = pulparams[h].h0 * pulparams[h].cosiota;
+
 	    /*if binary */
-	    if (pulparams.model != NULL) {
-	      fprintf(stderr, "You have a binary! %s", pulin);
-	      params.orbit->asini = pulparams.x;
-	      params.orbit->period = pulparams.Pb*86400;
+	    if (pulparams[h].model != NULL) {
+	      /*fprintf(stderr, "You have a binary! %s", pulin);*/
+	      params.orbit->asini = pulparams[h].x;
+	      params.orbit->period = pulparams[h].Pb*86400;
 	      
 	      /*Taking into account ELL1 model option */
-	      if (strstr(pulparams.model,"ELL1") != NULL) {
+	      if (strstr(pulparams[h].model,"ELL1") != NULL) {
 		REAL8 w,e,eps1,eps2;
-		eps1 = pulparams.eps1;
-		eps2 = pulparams.eps2;
+		eps1 = pulparams[h].eps1;
+		eps2 = pulparams[h].eps2;
 		w = atan2(eps1,eps2);
 		e = sqrt(eps1*eps1+eps2*eps2);
 		params.orbit->argp = w;
 		params.orbit->ecc = e;
 	      }
 	      else {
-		params.orbit->argp = pulparams.w0;
-		params.orbit->ecc = pulparams.e;
+		params.orbit->argp = pulparams[h].w0;
+		params.orbit->ecc = pulparams[h].e;
 	      }
-	      if (strstr(pulparams.model,"ELL1") != NULL) {
+	      if (strstr(pulparams[h].model,"ELL1") != NULL) {
 		REAL8 fe, uasc, Dt;
 		fe = sqrt((1.0-params.orbit->ecc)/(1.0+params.orbit->ecc));
 		uasc = 2.0*atan(fe*tan(params.orbit->argp/2.0));
 		Dt = (params.orbit->period/LAL_TWOPI)*(uasc-params.orbit->ecc*sin(uasc));
-		pulparams.T0 = pulparams.Tasc + Dt;
+		pulparams[h].T0 = pulparams[h].Tasc + Dt;
 	      }
 	      
-	      params.orbit->tp.gpsSeconds = (UINT4)floor(pulparams.T0);
-	      params.orbit->tp.gpsNanoSeconds = (UINT4)floor((pulparams.T0 - params.orbit->tp.gpsSeconds)*1e9);
+	      params.orbit->tp.gpsSeconds = (UINT4)floor(pulparams[h].T0);
+	      params.orbit->tp.gpsNanoSeconds = (UINT4)floor((pulparams[h].T0 - params.orbit->tp.gpsSeconds)*1e9);
 	    } /* if pulparams.model is BINARY */
 	    else
 	      params.orbit = NULL; /*if pulparams.model = NULL -- isolated pulsar*/
@@ -526,10 +509,10 @@ int main(int argc, char **argv)
 	    params.startTimeGPS = epoch;
 	    params.duration = ndata; /*maybe want to take out conversion and keep this uvar->duration*/
 	    params.samplingRate = srate; /*same as above*/
-	    params.fHeterodyne = 0.; 
-	    
+	    params.fHeterodyne = 0.;
+
 	    REAL4TimeSeries *TSeries = NULL;
-	    fprintf(stderr, "status%i\n", status.statusCode);
+	    /*fprintf(stderr, "status%i\n", status.statusCode);*/
 	    LALGeneratePulsarSignal (&status, &TSeries, &params);
 	    if ( status.statusCode ) {
 	      if (( logfile = fopen( log_file, "a" )) == NULL ) {
@@ -549,9 +532,10 @@ int main(int argc, char **argv)
 	      total_inject->data->data[i] += TSeries->data->data[i];
 	    }
 	    /*	  if ((total_inject = XLALFrameAddREAL8TimeSeriesProcData(frfile, TSeries)) == NULL)*/
-	    fprintf(stderr, "your pulsar is %s\n", pulin);
+	    /*fprintf(stderr, "your pulsar is %s\n", pulin);*/
 	    XLALDestroyREAL4TimeSeries (TSeries);
-	    fclose( inject ); /*close .par file */
+	    XLALDestroyREAL8Vector(params.pulsar.spindown);
+	    /*fclose( inject ); close .par file */
 	  } /* for strstr .par  */
 	
           free(parnamelist[h]);
@@ -559,7 +543,6 @@ int main(int argc, char **argv)
         } /*for k<num par files */
 	
 	free(parnamelist);
-        
 	/*add to series*/
 	for (i=0; i < series->data->length; i++){
 	  series->data->data[i] = gwfseries->data->data[i] + total_inject->data->data[i];
@@ -585,7 +568,7 @@ int main(int argc, char **argv)
 	
 	/*free(fffile);*/
 
-	free(outFrame);
+	FrameFree(outFrame);
 
 	XLALDestroyREAL8TimeSeries( gwfseries);
 	XLALDestroyREAL8TimeSeries( total_inject );
@@ -614,7 +597,7 @@ int main(int argc, char **argv)
 	fclose(logfile);
       }
       /* </log file> */
-      fprintf(stderr, "you created %s\n", out_file);
+      /*fprintf(stderr, "you created %s\n", out_file);*/
       
       XLALFrClose( gwffile );
     
@@ -622,6 +605,9 @@ int main(int argc, char **argv)
   }
   
   free(gwfnamelist);
+  XLALDestroyEphemerisData(edat);
+
+  LALFree(site);
 
   fprintf(stderr, "done\n" );
   

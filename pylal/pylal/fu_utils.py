@@ -2746,7 +2746,7 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
         if (start<=myPoint) and (myPoint<=end):
           if myIfo not in self.__backgroundTimesDict__.keys():
             self.__backgroundTimesDict__[myIfo]=list()
-          self.__backgroundTimesDict__[myIfo].append("%9.0f"%myPoint)
+          self.__backgroundTimesDict__[myIfo].append("%10.0f"%myPoint)
           mySampleCount=mySampleCount+1
     #Take each list of ifo times and look up the DQ flags
     self.__connectToSegmentDB__()

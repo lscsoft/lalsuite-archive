@@ -120,6 +120,7 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 		params->coeff.domega[LAL_PNORDER_NEWTONIAN] = 1.0;
 		break;
 	default:
+		XLAL_ERROR(XLAL_EINVAL);
 		break;
 	}
 }
@@ -215,11 +216,22 @@ static void XLALCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], RE
 	}
 }
 
+// LAL wrapper to XLAL Generator function
 void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
+	XLALPrintDeprecationWarning("LALSQTPNGenerator", "XLALSQTPNGenerator");
 	INITSTATUS(status, "LALSQTPNGenerator", LALSQTPNWAVEFORMC);
 	ATTATCHSTATUSPTR(status);
-	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-	ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+
+	if(XLALSQTPNGenerator(waveform, params))
+		ABORTXLAL(status);
+
+	DETATCHSTATUSPTR(status);
+	RETURN(status);
+}
+
+int XLALSQTPNGenerator(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
+	if( !params || !waveform )
+		XLAL_ERROR(XLAL_EFAULT);
 	const REAL8 geometrized_m_total = params->totalMass * LAL_MTSUN_SI;
 	const REAL8 freq_Step = geometrized_m_total * LAL_PI;
 	const REAL8 lengths = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
@@ -437,7 +449,12 @@ static void XLALAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 v
 	}
 }
 
-int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
+int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], 
+		void * param) {
+	return LALSQTPNDerivator(t, values, dvalues, param);
+}
+
+int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
 	LALSQTPNWaveformParams *params = param;
 	UNUSED(t);
 	const REAL8 *chi_p[2] = { values + LALSQTPN_CHIH1_1, values + LALSQTPN_CHIH2_1 };
@@ -494,8 +511,10 @@ int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * par
 	case LAL_PNORDER_ONE:
 	case LAL_PNORDER_HALF:
 	case LAL_PNORDER_NEWTONIAN:
-	default:
 		break;
+	default:
+		XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+		return XLAL_FAILURE;
 	}
 	dvalues[LALSQTPN_OMEGA] *= params->coeff.domegaGlobal * params->coeff.variables.omegaPowi_3[7]
 		* params->coeff.variables.omegaPowi_3[4];

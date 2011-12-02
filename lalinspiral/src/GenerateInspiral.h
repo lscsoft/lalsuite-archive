@@ -105,7 +105,7 @@ LALGenerateInspiral(
     PPNParamStruc    *ppnParamsInputOutput
     );
 
-
+/* Legacy wrappers for parsing approximants and orders */
 /* three function to read the order and approximant from a string */
 void
 LALGetOrderFromString(
@@ -129,7 +129,7 @@ int XLALGetAmplitudeContributionFromString(LALPNOrder *ampOrder, CHAR *thisEvent
  *	@param[in]	thisEvent	: string containing the spin interaction
  *	@return error code
  */
-int XLALGetSpinInteractionFromString(LALSpinInteraction *inter, CHAR *thisEvent);
+int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent);
 
 int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent);
 
@@ -153,6 +153,32 @@ LALGenerateInspiralPopulateInspiral(
     PPNParamStruc       *ppnParams
     );
 
+/* XLAL functions for parsing approximants and orders */
+/* and also for populating structures */
+int
+XLALGetOrderFromString(
+    CHAR       * restrict message,
+    LALPNOrder * restrict result
+    );
+
+int
+XLALGetApproximantFromString(
+    CHAR        * restrict message,
+    Approximant * restrict result
+    );
+
+int
+XLALGenerateInspiralPopulatePPN(
+    PPNParamStruc    * restrict ppnParams,
+    SimInspiralTable * restrict thisEvent
+    );
+
+int
+XLALGenerateInspiralPopulateInspiral(
+    InspiralTemplate * restrict inspiralParams,
+    SimInspiralTable * restrict thisEvent,
+    PPNParamStruc    * restrict ppnParams
+    );
 
 #if 0
 { /* so that editors will match succeeding brace */

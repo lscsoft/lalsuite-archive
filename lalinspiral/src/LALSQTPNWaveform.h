@@ -178,7 +178,7 @@ typedef struct tagLALSQTPNWaveformParams {
 	REAL8 samplingTime; ///< sampling time in \f$s\f$
 	REAL8 coalescenceTime; ///< the time at the coalescence
 	LALPNOrder order; ///< the Post_Newtonian order of the GW generation
-	LALSpinInteraction spinInteraction; ///< which spin interaction will be included in the generation
+	LALSimInspiralInteraction interaction; ///< which spin interaction will be included in the generation
 	LALSQTPNConstants amplitudeContribution;
 	LALSQTPNCoefficients coeff; ///< coefficients for the deriving the parameters
 //@}
@@ -205,7 +205,11 @@ typedef struct tagLALSQTPNWaveformParams {
  * @param[out]		waveform	: the generated waveform
  * @param[in]		params		: the input parameters
  */
+int XLALSQTPNGenerator(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
+// LAL wrapper to the XLAL function above
 void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
+int XLALSQTPNGeneratorFixed(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params);
+// LAL wrapper to the XLAL function above
 void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
 	LALSQTPNWaveformParams *params);
 
@@ -264,7 +268,11 @@ void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
  * @param[out]	dvalues	: the derived values and the last element is the MECO
  * @param[in]	params	: the LALSQTPN_Generator's parameters
  */
+int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
+// LAL wrapper of above XLAL function
 int LALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
+int XLALSQTPNDerivatorFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
+// LAL wrapper of above XLAL function
 int LALSQTPNDerivatorFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * params);
 
 int XLALSQTPNTestFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *param);

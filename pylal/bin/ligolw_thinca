@@ -270,8 +270,6 @@ for n, filename in enumerate(filenames):
 	ligolw_thinca.ligolw_thinca(
 		xmldoc,
 		process_id = process.process_id,
-		EventListType = ligolw_thinca.InspiralEventList,
-		CoincTables = ligolw_thinca.InspiralCoincTables,
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = event_comparefunc,
 		thresholds = options.e_thinca_parameter,
@@ -279,7 +277,6 @@ for n, filename in enumerate(filenames):
 		effective_snr_factor = options.effective_snr_factor,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,
-		coinc_end_time_segment = options.coinc_end_time_segment,
 		verbose = options.verbose
 	)
 
