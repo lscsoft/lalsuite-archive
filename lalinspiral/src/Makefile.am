@@ -100,7 +100,6 @@ liblalinspiral_la_SOURCES = \
 	InspiralBankGeneration.c \
 	InspiralInjectionParams.c \
 	InspiralSpinBank.c \
-	LALAdaptiveRungeKutta4.c \
 	LALBCVWaveform.c \
 	LALDeterminant3.c \
 	LALDiscoverInspiralEvents.c \
@@ -193,7 +192,7 @@ liblalinspiral_la_SOURCES = \
 	LALSTPNWaveformFrameless.c \
 	LALSQTPNIntegrator.c \
 	LALSQTPNWaveform.c \
-	LALSQTPNWaveformAdaptive.c \
+	LALSQTPNWaveformFixed.c \
 	LALSQTPNWaveformInterface.c \
 	LALTaylorF2ReducedSpin.c\
 	LALTrigScanCluster.c \

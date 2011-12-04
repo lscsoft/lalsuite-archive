@@ -89,6 +89,48 @@ NRCSID( GENERATEINSPIRALC,
 "$Id$" );
 
 
+static int XLALGetSpinInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent) {
+	BOOLEAN succes = 0;
+	*inter = LAL_SIM_INSPIRAL_INTERACTION_NONE;
+	if (strstr(thisEvent, "ALL")) {
+		*inter = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+		succes = 1;
+	} else if (strstr(thisEvent, "ALL_SPIN")) {
+		*inter = LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
+		succes = 1;
+	}else if (strstr(thisEvent, "NO")) {
+		*inter = LAL_SIM_INSPIRAL_INTERACTION_NONE;
+		succes = 1;
+	} else {
+		if (strstr(thisEvent, "SO")) {
+			*inter |= LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN | LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN;
+			succes = 1;
+		}
+		if (strstr(thisEvent, "QM")) {
+			*inter |= LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN;
+			succes = 1;
+		}
+		if (strstr(thisEvent, "SELF")) {
+			*inter |= LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN;
+			succes = 1;
+		}
+		if (strstr(thisEvent, "SS")) {
+			*inter |= LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
+			succes = 1;
+		}
+		if (strstr(thisEvent, "TIDAL")) {
+			*inter = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN | LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
+			succes = 1;
+		}
+	}
+	if (!succes) {
+		XLALPrintError( "Cannot parse LALSimInspiralInteraction from string: %s\n", thisEvent );
+		XLAL_ERROR( XLAL_EINVAL );
+	} else {
+		return XLAL_SUCCESS;
+	}
+}
+
 void
 LALGenerateInspiral(
     LALStatus		*status,
@@ -219,7 +261,7 @@ LALGenerateInspiral(
     ABORT( status, LALINSPIRALH_ENOWAVEFORM, LALINSPIRALH_MSGENOWAVEFORM );
   }
   if ( waveform->h == NULL && ( approximant == AmpCorPPN || approximant == PhenSpinTaylorRD || approximant == SpinTaylorFrameless
-       || approximant == EOBNRv2 || approximant == EOBNRv2HM  approximant == SpinQuadTaylor ) )
+       || approximant == EOBNRv2 || approximant == EOBNRv2HM || approximant == SpinQuadTaylor ) )
   {
     snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),
              "No waveform generated (check lower frequency)\n");
@@ -356,34 +398,6 @@ XLALGetOrderFromString(
   }
 
   return XLAL_SUCCESS;
-}
-
-int XLALGetSpinInteractionFromString(LALSpinInteraction *inter, CHAR *thisEvent) {
-	static const char *func = "XLALGetSpinInteractionFromString";
-
-	if (strstr(thisEvent, "ALL")) {
-		*inter = LAL_AllInter;
-	} else if (strstr(thisEvent, "NO")) {
-		*inter = LAL_NOInter;
-	} else {
-		*inter = LAL_SOInter;
-		if (strstr(thisEvent, "SO")) {
-			*inter |= LAL_SOInter;
-		}
-		if (strstr(thisEvent, "QM")) {
-			*inter |= LAL_QMInter;
-		}
-		if (strstr(thisEvent, "SELF")) {
-			*inter |= LAL_SSselfInter;
-		}
-		if (strstr(thisEvent, "SS")) {
-			*inter |= LAL_SSInter;
-		}
-		if (*inter == LAL_NOInter) {
-			XLAL_ERROR(func, XLAL_EDOM);
-		}
-	}
-	return XLAL_SUCCESS;
 }
 
 int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent) {

@@ -31,13 +31,11 @@ NRCSID(LALSQTPNWAVEFORMC, "$Id LALSQTPN_Waveform.c$");
 
 /**		The function fills the #LALSQTPNCoefficients structure with the needed
  *	coefficients for calculating the derived dynamic variables with the LALSQTPNDerivator_Old() function.
- *
  *		The orders above 2PN are incomplete, so use them if you want to try their
  *	effects.
  * @param[in,out]	params	: the LALSQTPN_Generator's parameters
  */
-static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
-
+static int XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 	// variable declaration and initialization
 	REAL8 thetahat = 1039.0 / 4620.0;
 	REAL8 spin_MPow2[2];
@@ -76,7 +74,8 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 			+ 59472.0 * etaPow2) / 18144.0;
 		params->coeff.domegaSSselfConst = 0.0;
 		params->coeff.domegaQMConst = 0.0;
-		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) {
 			params->coeff.dchihSS[0] = spin_MPow2[1] / 2.0;
 			params->coeff.dchihSS[1] = spin_MPow2[0] / 2.0;
 			params->coeff.domegaSS[0] = 721.0 * params->eta * params->chiAmp[0] * params->chiAmp[1]
@@ -84,13 +83,15 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 			params->coeff.domegaSS[1] = -247.0 * params->coeff.domegaSS[0] / 721.0;
 			params->coeff.mecoSS = -spin_MPow2[0] * spin_MPow2[1];
 		}
-		if ((params->spinInteraction & LAL_SSselfInter) == LAL_SSselfInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) {
 			for (i = 0; i < 2; i++) {
 				params->coeff.domegaSSself[i] = -spin_MPow2[i] * params->chiAmp[i] / 96.0;
 				params->coeff.domegaSSselfConst -= 7.0 * params->coeff.domegaSSself[i];
 			}
 		}
-		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) {
 			for (i = 0; i < 2; i++) {
 				params->coeff.domegaQM[i] = spin_MPow2[i] * params->chiAmp[i]
 					* params->qmParameter[i] * 7.5;
@@ -104,7 +105,8 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 			* (-81.0 + 57.0 * params->eta - etaPow2);
 	case LAL_PNORDER_ONE_POINT_FIVE:
 		params->coeff.domega[LAL_PNORDER_ONE_POINT_FIVE] = 4.0 * LAL_PI;
-		if ((params->spinInteraction & LAL_SOInter) == LAL_SOInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN) {
 			for (i = 0; i < 2; i++) {
 				params->coeff.domegaSO[i] = -spin_MPow2[i] * (113.0 + 75.0 * m_m[i]) / 12.0;
 				params->coeff.mecoSO[i] = -spin_MPow2[i] * 5.0 * params->eta * (4.0 + 3.0 * m_m[i])
@@ -124,9 +126,12 @@ static void XLALFillCoefficients(LALSQTPNWaveformParams * const params) {
 		params->coeff.domega[LAL_PNORDER_HALF] = 0.0;
 	case LAL_PNORDER_NEWTONIAN:
 		params->coeff.domega[LAL_PNORDER_NEWTONIAN] = 1.0;
+		break;
 	default:
+		XLAL_ERROR(XLAL_EINVAL);
 		break;
 	}
+	return XLAL_SUCCESS;
 }
 
 static void XLALCalculateCoefficientsForOrder0_0(REAL8 values[], REAL8 twoAlpha, REAL8 cosine[],
@@ -176,6 +181,7 @@ static void XLALCalculateAmplitudeContributionForOrder0_0(REAL8 values[], REAL8 
 
 static void XLALCalculateAmplitudeContributionForOrder0_5(LALSQTPNWaveformParams *params,
 	REAL8 values[], REAL8 twoAlpha, REAL8 contribution[]) {
+	UINT2 i;
 	REAL8 K[2];
 	REAL8 cosine_Part[2];
 	REAL8 sine_Part[2];
@@ -262,20 +268,29 @@ static void XLALCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], RE
 	}
 }
 
-void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
-	LALSQTPNWaveformParams *params) {
-	INITSTATUS(status, "LALSQTPNGeneratorFixed", LALSQTPNWAVEFORMC);
+// LAL wrapper to XLAL Generator function
+void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
+	XLALPrintDeprecationWarning("LALSQTPNGenerator", "XLALSQTPNGenerator");
+	INITSTATUS(status, "LALSQTPNGenerator", LALSQTPNWAVEFORMC);
 	ATTATCHSTATUSPTR(status);
-	ASSERT(params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-	ASSERT(waveform, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+
+	if (XLALSQTPNGeneratorFixed(waveform, params))
+		ABORTXLAL(status);
+
+	DETATCHSTATUSPTR(status);
+	RETURN(status);
+}
+
+int XLALSQTPNGeneratorFixed(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
+	if (!params || !waveform)
+		XLAL_ERROR(XLAL_EFAULT);
 	const REAL8 geometrized_m_total = params->totalMass * LAL_MTSUN_SI;
 	const REAL8 freq_Step = geometrized_m_total * LAL_PI;
 	const REAL8 lengths = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 		* pow(params->chirpMass * LAL_MTSUN_SI * params->lowerFreq, -5.0 / 3.0) / params->lowerFreq;
 	xlalErrno = 0;
-	XLALFillCoefficients(params);
-	if (xlalErrno) {
-		ABORTXLAL(status);
+	if (XLALFillCoefficients(params)) {
+		XLAL_ERROR(XLAL_EFUNC);
 	}
 	REAL8 valuesInitial[LALSQTPN_FIXED_NUM_OF_VAR], valuesHelp[LALSQTPN_FIXED_NUM_OF_VAR];
 	valuesInitial[LALSQTPN_FIXED_PHASE] = params->phi;
@@ -293,10 +308,8 @@ void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
 	integrator = XLALAdaptiveRungeKutta4Init(LALSQTPN_FIXED_NUM_OF_VAR, LALSQTPNDerivatorFixed,
 		XLALSQTPNTestFixed, 1.0e-6, 1.0e-6);
 	if (!integrator) {
-		if (XLALClearErrno() == XLAL_ENOMEM)
-			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
-		else
-			ABORTXLAL(status);
+		XLALPrintError("LALSQTPNGeneratorFixed: Cannot allocate integrator.\n");
+		XLAL_ERROR(XLAL_EFUNC);
 	}
 	integrator->stopontestonly = 1;
 	REAL8Array *values;
@@ -305,12 +318,10 @@ void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
 	INT4 intreturn = integrator->returncode;
 	XLALAdaptiveRungeKutta4Free(integrator);
 	if (!size) {
-		if (XLALClearErrno() == XLAL_ENOMEM) {
-			ABORT(status, LALINSPIRALH_EMEM, LALINSPIRALH_MSGEMEM);
-		} else {
-			fprintf(stderr, "LALSQTPNWaveform: integration failed with errorcode %d.\n", intreturn);
-			ABORTXLAL(status);
-		}
+		XLALPrintError(
+			"LALSQTPNGenerator: integration failed with errorcode %d.\n",
+			intreturn);
+		XLAL_ERROR(XLAL_EFUNC);
 	}
 	if (intreturn && intreturn != LALSQTPN_ENERGY && intreturn != LALSQTPN_OMEGADOT) {
 		fprintf(stderr, "LALSQTPNWaveform WARNING: integration terminated with code %d.\n",
@@ -333,7 +344,7 @@ void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
 		} else {
 			fprintf(stderr, "LALSQTPNWaveform: no space to write anywhere!\n");
 		}
-		ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+		XLAL_ERROR(XLAL_EBADLEN);
 	} else {
 		REAL4 h[2];
 		if (waveform->waveform->h) {
@@ -376,10 +387,15 @@ void LALSQTPNGeneratorFixed(LALStatus *status, LALSQTPNWave *waveform,
 
 	if (values) {
 		XLALDestroyREAL8Array(values);
-	}DETATCHSTATUSPTR(status);
-	RETURN(status);
+	}
+	return XLAL_SUCCESS;
 }
 
+/**		Calculates the spin1-spin2 effect's contribution to the derivative values.
+ * @param[in]  params  : the parameters of the waveform
+ * @param[in]  values  : vector containing the evolving values
+ * @param[out] dvalues : vector containing the derivatives of the evolving values
+ */
 static void XLALAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
 	REAL8 dvalues[]) {
 	REAL8 chih1xchih2[2][3];
@@ -402,6 +418,10 @@ static void XLALAddSSContributions(LALSQTPNWaveformParams *params, const REAL8 v
 		* params->coeff.variables.omegaPowi_3[4];
 }
 
+/**		Calculates the self-spin effect's contribution to the derivative values.
+ * @param[in]  params  : parameters of the waveform
+ * @param[out] dvalues : vector containing the derivatives of the evolving values.
+ */
 static void XLALAddSelfContributions(LALSQTPNWaveformParams *params, REAL8 dvalues[]) {
 	REAL8 temp = params->coeff.domegaSSselfConst;
 	UINT2 i;
@@ -411,6 +431,11 @@ static void XLALAddSelfContributions(LALSQTPNWaveformParams *params, REAL8 dvalu
 	dvalues[LALSQTPN_FIXED_OMEGA] += temp * params->coeff.variables.omegaPowi_3[4];
 }
 
+/**		Calculates the quadrupole-monopole effect's contribution to the derivative values.
+ * @param[in]  params  : parameters of the waveform
+ * @param[in]  values  : vector containing the evolving values
+ * @param[out] dvalues : vector containing the derivatives of the evolving values.
+ */
 static void XLALAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
 	REAL8 dvalues[]) {
 	REAL8 temp = params->coeff.domegaQMConst;
@@ -426,6 +451,11 @@ static void XLALAddQMContributions(LALSQTPNWaveformParams *params, const REAL8 v
 	dvalues[LALSQTPN_FIXED_OMEGA] += temp * params->coeff.variables.omegaPowi_3[4];
 }
 
+/**		Calculates the spin-orbit effect's contribution to the derivative values.
+ * @param[in]  params  : parameters of the waveform
+ * @param[in]  values  : vector containing the evolving values
+ * @param[out] dvalues : vector containing the derivatives of the evolving values
+ */
 static void XLALAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 values[],
 	REAL8 dvalues[]) {
 	UINT2 i;
@@ -442,6 +472,10 @@ static void XLALAddSOContributions(LALSQTPNWaveformParams *params, const REAL8 v
 }
 
 int LALSQTPNDerivatorFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
+	return XLALSQTPNDerivatorFixed(t, values, dvalues, param);
+}
+
+int XLALSQTPNDerivatorFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * param) {
 	LALSQTPNWaveformParams *params = param;
 	UNUSED(t);
 	const REAL8 *chi_p[2] = { values + LALSQTPN_FIXED_CHIH1_1, values + LALSQTPN_FIXED_CHIH2_1 };
@@ -471,17 +505,21 @@ int LALSQTPNDerivatorFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void 
 			* params->coeff.variables.omegaPowi_3[LAL_PNORDER_THREE];
 	case LAL_PNORDER_TWO_POINT_FIVE:
 	case LAL_PNORDER_TWO:
-		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) {
 			XLALAddSSContributions(params, values, dvalues);
 		}
-		if ((params->spinInteraction & LAL_SSselfInter) == LAL_SSselfInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) {
 			XLALAddSelfContributions(params, dvalues);
 		}
-		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) {
 			XLALAddQMContributions(params, values, dvalues);
 		}
 	case LAL_PNORDER_ONE_POINT_FIVE:
-		if ((params->spinInteraction & LAL_SOInter) == LAL_SOInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN) {
 			XLALAddSOContributions(params, values, dvalues);
 		}
 		if (params->spinInteraction) {
@@ -495,8 +533,12 @@ int LALSQTPNDerivatorFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void 
 	case LAL_PNORDER_ONE:
 	case LAL_PNORDER_HALF:
 	case LAL_PNORDER_NEWTONIAN:
-	default:
 		break;
+	default:
+		XLALPrintError(
+			"XLAL Error - %s: The PN order requested is not implemented for this approximant\n",
+			__func__);
+		return XLAL_FAILURE;
 	}
 	dvalues[LALSQTPN_FIXED_OMEGA] *= params->coeff.domegaGlobal
 		* params->coeff.variables.omegaPowi_3[7] * params->coeff.variables.omegaPowi_3[4];
@@ -548,13 +590,15 @@ int XLALSQTPNTestFixed(REAL8 t, const REAL8 values[], REAL8 dvalues[], void *par
 	case LAL_PNORDER_THREE:
 	case LAL_PNORDER_TWO_POINT_FIVE:
 	case LAL_PNORDER_TWO:
-		if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) {
 			meco += params->coeff.mecoSS
 				* (params->coeff.variables.chih1chih2
 					- 3.0 * params->coeff.variables.LNhchih[0] * params->coeff.variables.LNhchih[1])
 				* values[LALSQTPN_FIXED_OMEGA];
 		}
-		if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) {
 			REAL8 temp = params->coeff.domegaQMConst;
 			for (i = 0; i < 2; i++) {
 				temp += params->coeff.domegaQM[i] * SQT_SQR(params->coeff.variables.LNhchih[i]);
