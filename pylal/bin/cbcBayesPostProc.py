@@ -542,8 +542,7 @@ def cbcBayesPostProc(
         #Generate 1D histogram/kde plots
         print "Generating 1D plot for %s."%par_name
         oneDPDFParams={par_name:50}
-        if len(unique(pos[par_name])) > 1:
-		rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
+        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
 
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)

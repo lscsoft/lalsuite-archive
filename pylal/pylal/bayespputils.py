@@ -435,9 +435,7 @@ class OneDPosterior(object):
         np_seterr(under='ignore')
         sp_seterr(under='ignore')
         try:
-	    if len(np.unique(self.__posterior_samples)) > 1:
-            	return_value=stats.kde.gaussian_kde(np.transpose(self.__posterior_samples))
-	    else: return_value=None
+            return_value=stats.kde.gaussian_kde(np.transpose(self.__posterior_samples))
         except:
             exfile=open('exception.out','w')
             np.savetxt(exfile,self.__posterior_samples)
@@ -1928,8 +1926,7 @@ def plot_one_param_pdf_kde(fig,onedpos):
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
     gkde=onedpos.gaussian_kde
-    if gkde is None:
-      return
+
     ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
     kdepdf=gkde.evaluate(ind)
     plt.plot(ind,kdepdf)
@@ -2401,7 +2398,7 @@ def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
         par_binNumber=floor((par_injvalue-parpos_min)/par_bin)
         injbin=par_binNumber
 
-    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin*par_bin),int(len(par_samps)),confidence_levels)
+    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin),int(len(par_samps)),confidence_levels)
     cl_intervals=[]
     confidence_levels.sort()
     for cl in confidence_levels:
@@ -2896,7 +2893,7 @@ class PEOutputParser(object):
 
         llines=[]
         import re
-        dec=re.compile(r'[^Ee+\d.-]+')
+        dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
         line_count=0
         for line in infile:
             sline=line.split(delimiter)
@@ -2909,7 +2906,7 @@ class PEOutputParser(object):
 
             for st in sline:
                 s=st.replace('\n','')
-                if dec.search(s) is not None:
+                if dec.search(s) is None:
                     print 'Warning! Ignoring non-numeric data after the header: %s'%s
                     proceed=False
                 if s is '\n':
