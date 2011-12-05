@@ -2537,7 +2537,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     REAL8 * SNRs=NULL;
     SNRs=calloc(nIFO+1 ,sizeof(REAL8));
     REAL8 singleIFO_SNRcut = 5.5;
-    REAL8 network_SNRcut=7.5;
+    REAL8 network_SNRcut=8.0;
     
     /* read in the injection approximant and determine whether is TaylorF2 or something else*/
     Approximant injapprox;

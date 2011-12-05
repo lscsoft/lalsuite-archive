@@ -1,5 +1,5 @@
 /**
-\author A. Dietz, J. Veitch, C. Roever
+\author A. Dietz, J. Veitch, C. Roever, S. Vitale
 \file
 \ingroup inspiral
 \brief The file \c LALInspiralMCMCUser contains user algorithms for the MCMC computation.
@@ -70,7 +70,7 @@ double mc2mass1(double mc, double eta)
 {
  double root = sqrt(0.25-eta);
  double fraction = (0.5+root) / (0.5-root);
- return mc * (pow(1+fraction,0.2) / pow(fraction,0.6));
+ return mc * (pow(1.0 +fraction,0.2) / pow(fraction,0.6));
 }
 
 
@@ -79,7 +79,7 @@ double mc2mass2(double mc, double eta)
 {
  double root = sqrt(0.25-eta);
  double inversefraction = (0.5-root) / (0.5+root);
- return mc * (pow(1+inversefraction,0.2) / pow(inversefraction,0.6));
+ return mc * (pow(1.0+inversefraction,0.2) / pow(inversefraction,0.6));
 }
 
 double mc2mt(double mc, double eta)
@@ -121,7 +121,7 @@ double logJacobianMcEta(double mc, double eta)
  term1 = 0.6*pow(msum,-0.2);
  term2 = 0.2*pow(msum,-1.2)*pow(mprod,0.6);
  term3 = pow(msum,-2.0);
- term4 = 2*mprod*pow(msum,-3.0);
+ term4 = 2.0*mprod*pow(msum,-3.0);
  a = pow(m1,-0.4)*pow(m2,0.6)*term1 - term2;
  b = m2*term3-term4;
  c = pow(m1,0.6)*pow(m2,-0.4)*term1 - term2;
