@@ -2536,6 +2536,9 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     TofVIn TofVparams;
     REAL8 * SNRs=NULL;
     SNRs=calloc(nIFO+1 ,sizeof(REAL8));
+    REAL8 singleIFO_SNRcut = 5.5;
+    REAL8 network_SNRcut=7.5;
+    
     /* read in the injection approximant and determine whether is TaylorF2 or something else*/
     Approximant injapprox;
     LALPNOrder phase_order;
@@ -2565,21 +2568,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	/* Create the wave */
 	LALInspiralParameterCalc(&status,&template);
 	LALInspiralRestrictedAmplitude(&status,&template);
-	    
-    memset(&ak,0,sizeof(expnCoeffs));
-	memset(&TofVparams,0,sizeof(TofVparams));
-
-    LALInspiralSetup(&status,&ak,&template);
-	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
-	TofVparams.coeffs=&ak;
-	TofVparams.dEnergy=expnFunction.dEnergy;
-	TofVparams.flux=expnFunction.flux;
-	TofVparams.v0= ak.v0;
-	TofVparams.t0= ak.t0;
-	TofVparams.vlso= ak.vlso;
-	TofVparams.totalmass=ak.totalmass;
-/*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
-	ChirpISCOLength=ak.tn;
+    
     printf("Injection Approx: %i\n",template.approximant);
     printf("IMRPhenomFBTest = %i\n",IMRPhenomFBTest);
     if (template.approximant==IMRPhenomFBTest) {
@@ -2650,6 +2639,21 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		fprintf(stderr,"GR injection");
         LALInspiralWave(&status,injWaveFD,&template);
     }
+    
+    memset(&ak,0,sizeof(expnCoeffs));
+	memset(&TofVparams,0,sizeof(TofVparams));
+
+    LALInspiralSetup(&status,&ak,&template);
+	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
+	TofVparams.coeffs=&ak;
+	TofVparams.dEnergy=expnFunction.dEnergy;
+	TofVparams.flux=expnFunction.flux;
+	TofVparams.v0= ak.v0;
+	TofVparams.t0= ak.t0;
+	TofVparams.vlso= ak.vlso;
+	TofVparams.totalmass=ak.totalmass;
+/*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
+	ChirpISCOLength=ak.tn;
    
     //FILE *outInjB=fopen("injection_preInj.dat","w");
     //for (UINT4 i=0; i<injWaveFD->length; i++) {
@@ -2685,9 +2689,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 	REAL8 time_sin,time_cos;
     //inputMCMC->numberDataStreams=nIFO;
-
-    
-    //REAL8 SNRcut = 5.5;
    
 	for (det_i=0;det_i<nIFO;det_i++){ //nIFO
         UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
@@ -2738,6 +2739,16 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
    	SNRinj=sqrt(SNRinj);
     PrintSNRsToFile(SNRs,inj_table,inputMCMC);
 	fprintf(stdout,"Injected signal, network SNR = %f\n",SNRinj);
+    
+    /* Check whether at least two IFOs are above singleIFO_SNRcut, and the networks SNR is above network_SNRcut */
+    UINT4 above=0;
+    for (det_i=0;det_i<=nIFO+1;det_i++){
+        if (SNRs[det_i]>=singleIFO_SNRcut) above++;
+    }
+    if (!(above>=2 && SNRinj>=network_SNRcut)) {
+        fprintf(stderr,"The network SNR is below the threshold (%.1lf) or less than two IFOs are above the single IFO threshold (%.1lf). Exiting... \n", network_SNRcut,singleIFO_SNRcut);
+        exit(-1);
+    }
 	return;
 }
 
