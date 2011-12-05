@@ -628,8 +628,7 @@ class sngl_inspiral_coincs(object):
 		# find the sngl_inspiral<-->sngl_inspiral coincs
 		#
 
-		# FIXME:  don't hard-code the search and coinc types
-		self.coinc_def, = (row for row in self.coinc_def_table if row.search == "inspiral" and row.search_coinc_type == 0)
+		self.coinc_def, = (row for row in self.coinc_def_table if row.search == InspiralCoincDef.search and row.search_coinc_type == InspiralCoincDef.search_coinc_type)
 		self.coinc_event_index = dict((row.coinc_event_id, row) for row in self.coinc_event_table if row.coinc_def_id == self.coinc_def.coinc_def_id)
 		self.coinc_inspiral_index = dict((row.coinc_event_id, row) for row in self.coinc_inspiral_table)
 		assert set(self.coinc_event_index) == set(self.coinc_inspiral_index)
