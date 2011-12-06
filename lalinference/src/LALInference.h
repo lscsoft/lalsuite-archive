@@ -370,6 +370,7 @@ tagLALInferenceIFOData
   EphemerisData             *ephem;             /** Ephemeris data */
   LIGOTimeGPS		    epoch;              /** The epoch of this observation (the time of the first sample) */
   REAL8                     SNR;                /** IF INJECTION ONLY, E(SNR) of the injection in the detector.*/
+  REAL8                     STDOF;              /** Degrees of freedom for IFO to be used in Student-T Likelihood. */
 
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
 } LALInferenceIFOData;
@@ -435,6 +436,11 @@ void LALInferenceLogSampleToFile(LALInferenceRunState *state, LALInferenceVariab
  * Also outputs sample to disk if possible using LALInferenceLogSampleToFile()*/
 void LALInferenceLogSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);
 
+/** Convert from Mc, eta space to m1, m2 space (note m1 > m2).*/
+void LALInferenceMcEta2Masses(double mc, double eta, double *m1, double *m2);
+
+/** Convert from Mc, q space to m1, m2 space (q = m2/m1, with m1 > m2). */
+void LALInferenceMcQ2Masses(double mc, double q, double *m1, double *m2);
 
 #endif
 

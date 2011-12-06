@@ -87,19 +87,16 @@ def write_build_info():
 
 class pylal_build_py(build_py.build_py):
 	def run(self):
-		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts nor env setup files.
+		# If we are building from tarball, do not update git version.
 		# PKG-INFO is inserted into the tarball by the sdist target.
-		if os.path.exists("PKG-INFO"):
-			self.distribution.scripts = []
-			self.distribution.data_files = []
-		else:
+		if not os.path.exists("PKG-INFO"):
 			# create the git_version module
-			log.info("Generating pylal/git_version.py")
 			try:
 				write_build_info()
+				log.info("Generated pylal/git_version.py")
 			except gvcsi.GitInvocationError:
-					log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py.")
+				if not os.path.exists("pylal/git_version.py"):
+					log.error("Not in git checkout or cannot find git executable.")
 					sys.exit(1)
 
 		# resume normal build procedure
@@ -107,11 +104,16 @@ class pylal_build_py(build_py.build_py):
 
 class pylal_install(install.install):
 	def run(self):
+		pylal_prefix = remove_root(self.prefix, self.root)
+
 		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts nor env setup files.
+		# that releases should not contain scripts.
 		# PKG-INFO is inserted into the tarball by the sdist target.
 		if os.path.exists("PKG-INFO"):
 			self.distribution.scripts = []
+		# Hardcode a check for system-wide installation;
+		# in this case, don't make the user-env scripts.
+		if pylal_prefix == sys.prefix:
 			self.distribution.data_files = []
 			install.install.run(self)
 			return
@@ -122,7 +124,6 @@ class pylal_install(install.install):
 		else:
 			pylal_pythonpath = self.install_platlib + ":" + self.install_purelib
 
-		pylal_prefix = remove_root(self.prefix, self.root)
 		pylal_install_scripts = remove_root(self.install_scripts, self.root)
 		pylal_pythonpath = remove_root(pylal_pythonpath, self.root)
 		pylal_install_platlib = remove_root(self.install_platlib, self.root)
@@ -169,17 +170,18 @@ class pylal_install(install.install):
 
 class pylal_sdist(sdist.sdist):
 	def run(self):
-		# remove undesirable elements from tarball
-		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")]
+		# customize tarball contents
+		self.distribution.data_files += ["debian/%s" % f for f in os.listdir("debian")]
 		self.distribution.scripts = []
 
 		# create the git_version module
-		log.info("generating pylal/git_version.py")
 		try:
 			write_build_info()
+			log.info("generated pylal/git_version.py")
 		except gvcsi.GitInvocationError:
-			log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
-			sys.exit(1)
+			if not os.path.exists("pylal/git_version.py"):
+				log.error("Not in git checkout or cannot find git executable. Exiting.")
+				sys.exit(1)
 
 		# now run sdist
 		sdist.sdist.run(self)
@@ -191,9 +193,9 @@ class pylal_sdist(sdist.sdist):
 setup(
 	name = "pylal",
 	version = "0.1",
-	author = "Patrick Brady",
-	author_email = "patrick@gravity.phys.uwm.edu",
-	description = "LSC Graphics Toolkit",
+	author = "Kipp Cannon and Nickolas Fotopoulos",
+	author_email = "lal-discuss@gravity.phys.uwm.edu",
+	description = "Python LIGO Algorithm Library",
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
 	packages = [
