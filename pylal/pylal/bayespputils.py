@@ -1537,8 +1537,6 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
     def h(a,b):
         pass
     
-    peparser=PEOutputParser('common')
-    
     samples,header=posterior.samples()
     header=header.split()
     coord_names=["ra","dec","dist"]
