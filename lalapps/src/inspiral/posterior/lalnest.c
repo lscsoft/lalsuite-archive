@@ -2655,11 +2655,11 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 /*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
 	ChirpISCOLength=ak.tn;
    
-    //FILE *outInjB=fopen("injection_preInj.dat","w");
-    //for (UINT4 i=0; i<injWaveFD->length; i++) {
-      //      fprintf(outInjB,"%lf %e %e\n",i*deltaF,injWaveFD->data[i],injWaveFD->data[injWaveFD->length-i]);
-    //}
-    //sfclose(outInjB);
+    FILE *outInjB=fopen("injection_preInj.dat","w");
+    for (UINT4 i=0; i<injWaveFD->length; i++) {
+            fprintf(outInjB,"%lf %e %e\n",i*deltaF,injWaveFD->data[i],injWaveFD->data[injWaveFD->length-i-1]);
+    }
+    fclose(outInjB);
     if(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB || template.approximant==IMRPhenomFBTest){
 		ChirpISCOLength = template.tC;
 	}
