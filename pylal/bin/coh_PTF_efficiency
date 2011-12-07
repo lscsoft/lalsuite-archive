@@ -1612,7 +1612,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                         redEfficiency):
       if eff < 0.9:
         if ii == 0:
-          sys.stderr, "Efficiency below 90% in first bin!\n")
+          sys.stderr.write("Efficiency below 90% in first bin!\n")
           excl_dist = 0
           break
         dist_low = distPlotVals[ii-1]
