@@ -1186,19 +1186,18 @@ class KDTree(object):
         optional boxing parameter determines how deep to descend into
         the tree before computing f.
         """
-        if len(self._objects) <= boxing:
-            return self.volume()*f(self._objects)
-        else:
-            return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
+        # if len(self._objects) <= boxing:
+        #     return self.volume()*f(self._objects)
+        # else:
+        #     return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
         
-        ## Alternative implementation using KDTree.operate
-        #def x(tree):
-            #return tree.volume()*f(tree._objects)
+        def x(tree):
+            return tree.volume()*f(tree._objects)
             
-        #def y(a,b):
-            #return a+b
+        def y(a,b):
+            return a+b
         
-        #self.operate(x,y,boxing=boxing)
+        return self.operate(x,y,boxing=boxing)
         
     def operate(self,f,g,boxing=64):
         """
