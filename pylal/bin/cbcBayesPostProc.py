@@ -512,9 +512,9 @@ def cbcBayesPostProc(
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
-    if snrfactor is not None:
-        html_snr=html.add_section('Signal to noise ratios')
-        html_snr.p('%s'%snrstring)
+    #if snrfactor is not None:
+    #    html_snr=html.add_section('Signal to noise ratios')
+    #    html_snr.p('%s'%snrstring)
     if dievidence:
         html_model=html.add_section('Direct Integration Evidence')
         ev=difactor*pos.di_evidence(boxing=boxing)
