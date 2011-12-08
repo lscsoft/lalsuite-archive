@@ -111,6 +111,14 @@ class DocContents(object):
 		self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
 
 		#
+		# get out segment lists for programs that generated
+		# triggers (currently only used for time_slide vector
+		# construction)
+		#
+
+		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set(self.snglinspiraltable.getColumnByName("process_id"))).coalesce()
+
+		#
 		# construct the zero-lag time slide needed to cover the
 		# instruments listed in all the triggers, then determine
 		# its ID (or create it if needed)
@@ -119,7 +127,7 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglinspiraltable.getColumnByName("ifo"), 0.0), create_new = process)
+		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
 
 		#
 		# get coinc_definer row for sim_inspiral <--> sngl_inspiral
