@@ -1090,7 +1090,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 
   # get data
   tdata    = get_column(triggers, 'time')
-  preData  = get_column(triggers, column)
+  preData  = map(float, get_column(triggers, column))
   postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
 
   # get veto livetime
