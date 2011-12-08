@@ -1390,7 +1390,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     refData = {}
     if reftriggers:
       for i,col in enumerate(columns):
-        refData[col]  = get_column(refTriggers, col).astype(float)
+        refData[col]  = get_column(reftriggers, col).astype(float)
     else:
       for i,col in enumerate(columns):
         refData[col]  = nvetoData[0][col]
