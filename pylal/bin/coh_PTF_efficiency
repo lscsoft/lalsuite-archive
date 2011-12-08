@@ -1109,7 +1109,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
               # If the FAP larger (less significant) than any of the 3 onsource
               # mass bins, the injection is "missed"
               for bin in massBins:
-                if FAP > loudOnBestNR[bin[0]]:
+                if FAP > loudOnFAP[bin[0]]:
                   missedExcl = True
 
               # Otherwise check against nearby triggers. We want to check that
