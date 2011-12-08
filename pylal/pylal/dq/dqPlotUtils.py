@@ -1206,7 +1206,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 # =============================================================================
 # Plot one column against another column coloured by any third column
 
-def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
+def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='snr',\
                   zcolumn=None, etg=None, start=None, end=None, zero=None,\
                   seglist=None, flag=None, **kwargs):
 
@@ -1380,16 +1380,26 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         vetoData[j][col] = numpy.array([])
 
   data = {}
+
+      
     
   # normalize zcolumn by time-averaged value
   whitenedFlag = kwargs.pop('whitened', False)
   if zcolumn and whitenedFlag:
-    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
+    # get ref data if provided
+    refData = {}
+    if reftriggers:
+      for i,col in enumerate(columns):
+        refData[col]  = get_column(refTriggers, col).astype(float)
+    else:
+      for i,col in enumerate(columns):
+        refData[col]  = nvetoData[0][col]
+      
+    uniqYvalues = numpy.unique1d(refData[ycolumn])
     # building look back table by hand, is included in unique1d for numpy >= v1.3
     for yVal in uniqYvalues:
       backTable = numpy.where(yVal == nvetoData[0][ycolumn])
-      zMedian =  numpy.median(nvetoData[0][zcolumn][yVal ==\
-                                                    nvetoData[0][ycolumn]])
+      zMedian =  numpy.median(refData[zcolumn][yVal == refData[ycolumn]])
       for  iTrig in backTable[0]:
         nvetoData[0][zcolumn][iTrig] /= zMedian
 
