@@ -31,7 +31,8 @@ rm -rf %{buildroot}
         --record=INSTALLED_FILES
 
 %clean
-rm -rf $RPM_BUILD_ROOT
+[ ${RPM_BUILD_ROOT} != "/" ] && rm -Rf ${RPM_BUILD_ROOT}
+rm -Rf ${RPM_BUILD_DIR}/%{name}-%{version}
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
