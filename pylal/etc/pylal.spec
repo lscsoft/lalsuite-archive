@@ -1,8 +1,4 @@
 %define _pylal_prefix /usr
-%define _sysconfdir %{_pylal_prefix}/etc
-%define _docdir %{_datadir}/doc
-%{!?pylal_python_sitearch: %define pylal_python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1,prefix='%{_pylal_prefix}')")}
-%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 
 Name: 		pylal
 Summary:	Python LIGO Algorithm Library
