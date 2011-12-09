@@ -1457,6 +1457,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     elif stdDuration:
       avDuration = stdDuration
     tedges = numpy.arange(float(start), float(end), avDuration)
+    tedges = numpy.append(tedges, float(end))
     # array for repacking triggers into time-frequency bins
     repackTrig = {}
     for yVal in uniqYvalues:
