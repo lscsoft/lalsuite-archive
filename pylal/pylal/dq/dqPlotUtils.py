@@ -71,6 +71,7 @@ def set_rcParams():
                          "legend.loc": "best",
                          "figure.figsize": [12,6],
                          "figure.dpi": 80,
+                         "image.origin": 'lower',
                          "axes.grid": True,
                          "axes.axisbelow": False })
 
@@ -846,6 +847,77 @@ class DataPlot(plotutils.BasicPlot):
     if logy:  self.ax.set_yscale('log')
 
 # =============================================================================
+# Class for color map plot
+
+class ColorMap(ColorbarScatterPlot):
+
+  def __init__(self, xlabel="", ylabel="", zlabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.color_label = zlabel
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets   = []
+    self.extent_sets = []
+    self.kwarg_sets  = []
+
+  def add_content(self, data, extent, **kwargs):
+    self.data_sets.append(numpy.asarray(data))
+    self.extent_sets.append(extent)
+    self.kwarg_sets.append(kwargs)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', logx=False, logy=False, logz=False, clim=None,\
+               origin=pylab.rcParams['image.origin'], base=10):
+
+    # set colorbar limits
+    if clim:
+      cmin,cmax = clim
+    else:
+      cmin = min([z_vals.min() for z_vals in self.data_sets])*0.99
+      cmax = max([z_vals.max() for z_vals in self.data_sets])*1.01
+
+    # reset logs
+    if logz:
+      cmin = numpy.math.log(cmin, base)
+      cmax = numpy.math.log(cmax, base)
+
+    p = []
+
+    for i, (data_set, extent, plot_kwargs) in \
+        enumerate(itertools.izip(self.data_sets, self.extent_sets,\
+                  self.kwarg_sets)):
+ 
+      plot_kwargs.setdefault("vmin", cmin)
+      plot_kwargs.setdefault("vmax", cmax)
+      plot_kwargs.setdefault("norm", None)
+      plot_kwargs.setdefault("interpolation", "kaiser")
+
+      if logz:
+        if base==10:
+          data_set = numpy.log10(data_set)
+        elif base==numpy.e:
+          data_set = numpy.log(data_set)
+        elif base==2:
+          data_set = numpy.log2(data_set)
+        else:
+          raise AttributeError("Can only use base = 2, e, or 10.")
+
+      p.append(self.ax.imshow(data_set, extent=extent, origin=origin,\
+                              **plot_kwargs))
+
+    if len(p)==0:
+      p.append(self.ax.imshow([[1]], vmin=cmin,\
+                               vmax=cmax, visible=False))
+
+    # write colorbar
+    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+
+    # set axes
+    if logx:  self.ax.set_xscale('log')
+    if logy:  self.ax.set_yscale('log')
+
+# =============================================================================
 # Wrappers to translate ligolw table into plot
 # =============================================================================
 
@@ -1090,7 +1162,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 
   # get data
   tdata    = get_column(triggers, 'time')
-  preData  = get_column(triggers, column)
+  preData  = map(float, get_column(triggers, column))
   postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
 
   # get veto livetime
@@ -1206,7 +1278,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 # =============================================================================
 # Plot one column against another column coloured by any third column
 
-def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
+def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='snr',\
                   zcolumn=None, etg=None, start=None, end=None, zero=None,\
                   seglist=None, flag=None, **kwargs):
 
@@ -1380,16 +1452,26 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         vetoData[j][col] = numpy.array([])
 
   data = {}
+
+      
     
   # normalize zcolumn by time-averaged value
   whitenedFlag = kwargs.pop('whitened', False)
   if zcolumn and whitenedFlag:
-    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
+    # get ref data if provided
+    refData = {}
+    if reftriggers:
+      for i,col in enumerate(columns):
+        refData[col]  = get_column(reftriggers, col).astype(float)
+    else:
+      for i,col in enumerate(columns):
+        refData[col]  = nvetoData[0][col]
+      
+    uniqYvalues = numpy.unique1d(refData[ycolumn])
     # building look back table by hand, is included in unique1d for numpy >= v1.3
     for yVal in uniqYvalues:
       backTable = numpy.where(yVal == nvetoData[0][ycolumn])
-      zMedian =  numpy.median(nvetoData[0][zcolumn][yVal ==\
-                                                    nvetoData[0][ycolumn]])
+      zMedian =  numpy.median(refData[zcolumn][yVal == refData[ycolumn]])
       for  iTrig in backTable[0]:
         nvetoData[0][zcolumn][iTrig] /= zMedian
 
@@ -1447,6 +1529,7 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     elif stdDuration:
       avDuration = stdDuration
     tedges = numpy.arange(float(start), float(end), avDuration)
+    tedges = numpy.append(tedges, float(end))
     # array for repacking triggers into time-frequency bins
     repackTrig = {}
     for yVal in uniqYvalues:
@@ -2227,3 +2310,141 @@ def parse_plot_config(cp, section):
 
   return columns, params
 
+# ==============================================================================
+# Plot color map
+
+def plot_color_map(data, outfile, data_limits=None, x_format='time',\
+                   y_format='frequency', z_format='amplitude', zero=None,\
+                   **kwargs):
+
+  """
+    Plots data in a 2d color map.
+  """
+ 
+  if not (isinstance(data, list) or isinstance(data, tuple)):
+    data_sets = [data]
+    data_limit_sets = [data_limits]
+  else:
+    data_sets = data
+    data_limit_sets = data_limits
+    if not len(data_sets) == len(data_limit_sets):
+      raise AttributeError("You have given %d data sets and %d limit sets! Eh?"\
+                           % (len(data_sets), len(data_limit_sets)))
+
+  # set data limits
+  for i,data_limits in enumerate(data_limit_sets):
+    if not data_limits:
+      numrows, numcols = numpy.shape(data_sets[i])
+      if kwargs.has_key('xlim'):
+        xlim = kwargs['xlim']
+      else:
+        xlim = [0, numrows]
+      if kwargs.has_key('ylim'):
+        ylim = kwargs['ylim']
+      elif pylab.rcParams['image.origin'] == 'upper':
+        ylim = [numrows, 0]
+      else:
+        ylim = [0, numrows]
+
+      data_limit_sets[i] = [xlim[0], xlim[1], ylim[0], ylim[1]]
+
+  # get limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
+  zlim = kwargs.pop('zlim', None)
+  clim = kwargs.pop('clim', None)
+
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+  logz = kwargs.pop('logz', False)
+
+  # restrict data to meet limits if using log
+  for i,(data, data_limits) in enumerate(zip(data_sets, data_limit_sets)):
+    if logx and xlim:
+      shape = numpy.shape(data)
+      xmin, xmax = data_limits[0], data_limits[1]
+      xspan = numpy.logspace(numpy.log10(xmin),numpy.log10(xmax), num.shape[-1])
+      condition = (xspan>xlim[0]) & (xspan<=xlim[1])
+      newx = numpy.where(condition)[0]
+      data2 = numpy.resize(data, (len(newx), shape[-2]))
+      for j in xrange(newx):
+        data2[:,j] = data[newx[j],:]
+      data = data2.transpose()
+      
+    if logy and ylim:
+      shape = numpy.shape(data)
+      ymin, ymax = data_limits[2], data_limits[3]
+      yspan = numpy.logspace(numpy.log10(ymin),numpy.log10(ymax), num=shape[-2])
+      condition = (yspan>ylim[0]) & (yspan<=ylim[1])
+      newy  = numpy.where((condition))[0]
+      data2 = numpy.resize(data, (len(newy), shape[-1]))
+      for j in xrange(shape[-1]):
+        data2[:,j] = data[:,j][condition]
+      data = data2
+      data_limits[2:] = ylim
+    data_sets[i] = data
+
+  # get columnar params
+  columns = list(map(str.lower, [x_format, y_format, z_format]))
+  limits  = [xlim, ylim, zlim]
+  for i,lim in enumerate(limits):
+    if lim:
+      limits[i] = list(map(float, lim))
+  labels = ["", "", "", "", ""]
+
+  # get zero time for normalisation
+  if 'time' in columns and not zero:
+    i = columns.index('time')
+    if limits[i]:
+      zero = limits[i][0]
+    else:
+      zero = min(data_limits[0] for data_limits in data_limit_sets)
+
+  # format labels
+  for i,(col,c) in enumerate(zip(columns, ['x', 'y', 'z'])):
+    if col.lower() == 'time' and limits[i]:
+      unit, timestr = time_unit(limits[i][1]-limits[i][0])
+      zero = LIGOTimeGPS('%.3f' % zero)
+      if zero.nanoseconds==0:
+        tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                     .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+      else:
+        tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                    .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+        tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+      labels[i] = kwargs.pop('%slabel' % c, 'Time (%s) since %s (%s)'\
+                                            % (timestr, tlabel, zero))
+      limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
+      for i,data_limits in enumerate(data_limit_sets):
+        data_limit_sets[i][0] = (data_limits[0]-float(zero))/unit
+        data_limit_sets[i][1] = (data_limits[1]-float(zero))/unit
+    else:
+      labels[i] = kwargs.pop('%slabel' % c, display_name(col))
+
+  labels[3] = kwargs.pop('title', "")
+  labels[4] = kwargs.pop('subtitle', "")
+
+  # customise plot appearance
+  set_rcParams()
+
+  # generate plot object
+  plot = ColorMap(*labels)
+
+  # add data
+  for i, (data, data_limits) in enumerate(zip(data_sets, data_limit_sets)):
+    plot.add_content(data, data_limits, aspect='auto')
+
+  # finalize
+  plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim, origin='lower')
+
+  if len(limits[0])==2:
+    plot.ax.set_xlim(limits[0])
+  if len(limits[1])==2:
+    plot.ax.set_ylim(limits[1])
+
+  # set global ticks
+  set_ticks(plot.ax)
+
+  # save figure
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
