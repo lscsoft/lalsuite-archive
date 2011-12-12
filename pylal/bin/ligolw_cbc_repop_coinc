@@ -99,6 +99,12 @@ def parse_command_line():
           "What powers of single ifo statistics to add together. " +
           "To add the logs choose snr-power=0. Default is 2."
         )
+    parser.add_option("", "--statistic-cut", action="store", type="float",
+        help =
+          "Effectively veto coincs if one or more triggers falls below the specified " +
+          "value of the chosen statistic by multiplying the combined stat value by " +
+          "0.2; at present only works for effsnr and newsnr."
+        )
     parser.add_option("", "--hanford-factor", action="store", type="float", default = 1.,
         help = "prefactor for power of H1 or H2 statistic in combined statistic; default is 1."
         )
@@ -158,7 +164,7 @@ class CombiningFunctions:
     when computing the results in the UPDATE SET command.
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
-      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., vsr = 2 ):
+      durthresh = None, statcut = None, power = 2., hfac = 1., lfac = 1., vfac = 1., vsr = 2 ):
         """
         Sets outside variables.
         """
@@ -167,6 +173,7 @@ class CombiningFunctions:
         self.nhigh = nhigh
         self.rhoc = rhoc
         self.durthresh = durthresh
+        self.statcut = statcut
         self.power = power
         self.hfac = hfac
         self.lfac = lfac
@@ -207,11 +214,14 @@ class CombiningFunctions:
         
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
+        cutfac = 1.
+        if self.statcut and min(sngl.get_effective_snr(fac=self.rhoc**2) for sngl in coinc_sngls) < self.statcut:
+            cutfac = 0.2
         if self.power == 0:
-            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_effective_snr(fac=self.rhoc**2) ) \
+            return cutfac*numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_effective_snr(fac=self.rhoc**2) ) \
                 for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.get_effective_snr(fac=self.rhoc**2) ) \
+            return cutfac*(sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.get_effective_snr(fac=self.rhoc**2) ) \
                 for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_effsnrlike( self, coinc_sngls ):
@@ -252,10 +262,13 @@ class CombiningFunctions:
         
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
+        cutfac = 1.
+        if self.statcut and min(sngl.get_new_snr(index=self.q) for sngl in coinc_sngls) < self.statcut:
+            cutfac = 0.2
         if self.power == 0:
-            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_new_snr(index=self.q) )  for sngl in coinc_sngls ))
+            return cutfac*numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_new_snr(index=self.q) )  for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.get_new_snr(index=self.q))**self.power for sngl in coinc_sngls ))**(1./self.power)
+            return cutfac*(sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.get_new_snr(index=self.q))**self.power for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_highstat( self, coinc_sngls ):
         """
@@ -320,7 +333,7 @@ create_column( connection, 'coinc_inspiral', output_column )
 
 # 1. initialize the combining function class
 function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
-    durthresh = opts.duration_threshold, power = opts.snr_power, 
+    durthresh = opts.duration_threshold, statcut = opts.statistic_cut, power = opts.snr_power, 
     hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, vsr = opts.virgo_run )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'snr':
