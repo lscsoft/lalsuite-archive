@@ -31,8 +31,47 @@ __date__    = git_version.date
 This module provides a bank of useful functions for manipulating triggers and trigger files for data quality investigations.
 """
 
+# global regular expressions
 trigsep = re.compile('[\t\s,]+')
 cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
+
+# =============================================================================
+# Define ETG options
+# =============================================================================
+
+_burst_regex = re.compile('(burst|omega|kleine|kw|cwb|hacr)', re.I)
+_cbc_regex   = re.compile('(ihope|inspiral|cbc)', re.I)
+_ring_regex  = re.compile('(ring)', re.I)
+
+def SnglTriggerTable(etg):
+
+  """
+    Handy function to return the correct type of ligolw table for the given ETG.
+  """
+
+  if _burst_regex.search(etg):
+    return lsctables.New(lsctables.SnglBurstTable)
+  elif _cbc_regex.search(etg):
+    return lsctables.New(lsctables.SnglInspiralTable)
+  elif _ring_regex.search(etg):
+    return lsctables.New(lsctables.SnglRingdownTable)
+  else:
+    raise AttributeError("etg=%s not recognised by SnglTriggerTable." % etg)
+
+def SnglTrigger(etg):
+  """
+    Handy function to return the correct type of ligolw table row object for
+    the given ETG
+  """
+
+  if _burst_regex.search(etg):
+    return lsctables.SnglBurst()
+  elif _cbc_regex.search(etg):
+    return lsctables.SnglInspiral()
+  elif _ring_regex.search(etg):
+    return lsctables.SnglRingdown()
+  else:
+    raise AttributeError("etg=%s not recognised by SnglTrigger." % etg)
 
 # =============================================================================
 # Define get_time choice
@@ -93,19 +132,12 @@ def trigger(data,etg,ifo=None,channel=None):
 
   """
 
-  etgcategories = {lsctables.SnglInspiral(): ['ihope'],\
-                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr',\
-                                              'omegaspectrum'],\
-                   lsctables.SnglRingdown(): []}
-
   # set up trig object
-  for obj,etgs in etgcategories.items():
-    if etg in etgs:
-      trig = obj
+  trig = SnglTrigger(etg)
 
   # if given string, split on space, tab or comma
   if isinstance(data,str):
-    data = trigsep.split(data)
+    data = trigsep.split(data.rstrip())
 
   # =====
   # ihope
@@ -222,12 +254,13 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.amplitude           = float(data[4])
 
     # cluster parameters
-    trig.param_one_name      = 'cluster_size'
-    trig.param_one_value     = float(data[5])
-    trig.param_two_name      = 'cluster_norm_energy'
-    trig.param_two_value     = float(data[6])
-    trig.param_three_name    = 'cluster_number'
-    trig.param_three_value   = float(data[7])
+    if len(data)>5:
+      trig.param_one_name      = 'cluster_size'
+      trig.param_one_value     = float(data[5])
+      trig.param_two_name      = 'cluster_norm_energy'
+      trig.param_two_value     = float(data[6])
+      trig.param_three_name    = 'cluster_number'
+      trig.param_three_value   = float(data[7])
 
     # SNR
     trig.snr                 = math.sqrt(2*trig.amplitude)
@@ -439,10 +472,15 @@ def totrigfile(file,table,etg,header=True,columns=None):
 
     elif re.match('omegaspectrum',etg):
       columns = ['peak_time','peak_frequency','amplitude']
+
     elif re.match('omega',etg) or re.match('wpipe',etg):
-      columns = ['peak_time','peak_frequency','duration',\
-                 'bandwidth','amplitude',\
-                 'param_one_value','param_two_value','param_three_value']
+      if len(table) and hasattr(table[0], 'param_one_value'):
+        columns = ['peak_time','peak_frequency','duration',\
+                   'bandwidth','amplitude',\
+                   'param_one_value','param_two_value','param_three_value']
+      else:
+        columns = ['peak_time','peak_frequency','duration',\
+                   'bandwidth','amplitude']
 
     elif re.match('kw',etg.lower()):
       columns = ['peak_time','start_time','stop_time','peak_frequency',\
@@ -636,6 +674,41 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
   return triggers
 
 # =============================================================================
+# Load triggers from a cache
+# =============================================================================
+
+def fromLALCache(cache, etg, start=None, end=None, verbose=False):
+
+  """
+    Extract triggers froa given ETG from all files in a glue.lal.Cache object.
+    Returns a glue.ligolw.Table relevant to the given trigger generator etg.
+  """
+
+  # set up counter
+  if verbose:
+    sys.stdout.write("Extracting %s triggers from %d files...     "\
+                     % (etg, len(cache)))
+    sys.stdout.flush()
+    delete = '\b\b\b'
+    num = len(cache)/100
+
+  trigs = SnglTriggerTable(etg)
+
+  # load files
+  for i,e in enumerate(cache):
+    trigs.extend(re.search('(xml|xml.gz)\z', e.path()) and\
+                 fromtrigxml(open(e.path), etg=etg, start=start, end=end) or\
+                 fromtrigfile(open(e.path()), etg=etg, start=start, end=end))
+    # print verbose message
+    if verbose and len(cache)>1:
+      progress = int((i+1)/num)
+      sys.stdout.write('%s%.2d%%' % (delete, progress))
+      sys.stdout.flush()
+
+    
+  return trigs
+
+# =============================================================================
 # Generate a daily ihope cache 
 # =============================================================================
 
@@ -729,7 +802,7 @@ def omega_online_cache(start,end,ifo):
   # verify host
   host = getfqdn()
   ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
-  if not re.search(ifo_host[ifo],host):
+  if not re.search(ifo_host[ifo.upper()],host):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
                         "IFO=%s on this host." % ifo
     return []
