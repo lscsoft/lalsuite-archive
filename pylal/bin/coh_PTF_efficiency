@@ -424,7 +424,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         numEvents += 1
     quietestFap.append(numEvents/numTrials)
 
-  quietestFile=open('quiet_fap_vals.txt','w')
+  quietestFile=open('%s/quiet_fap_vals.txt' % outdir,'w')
   for val in quietestFap:
     print >> quietestFile, val
   quietestFile.close()
