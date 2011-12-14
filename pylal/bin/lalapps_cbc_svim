@@ -170,6 +170,8 @@ class upper_limit(object):
       self.mass_bins["Chirp_Mass"] = self.set_chirp_mass_bins()
     if self.opts.bin_by_bns_bbh:
       self.mass_bins["BNS_BBH"] = self.set_bns_bbh_bins()
+    if self.opts.bin_by_mass1_mass2:
+      self.mass_bins["Mass1_Mass2"] = self.set_m1m2_bins()
 
     # get the rest of the goodies
     self.get_segments()                   #get single ifo segments with vetoes applied
@@ -320,6 +322,17 @@ class upper_limit(object):
     return self.bns_bbh_bins
 
 
+  def set_m1m2_bins(self):
+    bin1Edges = numpy.linspace(self.minmass,self.maxmass,self.opts.mass_bins)
+    m2bins = int(self.opts.mass_bins/2) + numpy.mod(self.opts.mass_bins,2) # ensures equal bin width in m2 as in m1
+    bin2Edges = bin1Edges[:m2bins+1]
+    mass1Bin = rate.IrregularBins(bin1Edges)
+    mass2Bin = rate.IrregularBins(bin2Edges)
+    self.m1m2_bins = rate.NDBins( (mass1Bin,mass2Bin) )
+
+    return self.m1m2_bins
+
+
   def get_far_thresholds(self):
     """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
     be the FAR of the most rare zero-lag coinc)."""
@@ -399,6 +412,21 @@ class upper_limit(object):
 
     # compute the volume derivative in each mass bin
     volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
+
+    # two-d case first
+    if bin_type == "Mass1_Mass2":
+      for j,m1 in enumerate(self.mass_bins[bin_type].centres()[0]):
+        for k,m2 in enumerate(self.mass_bins[bin_type].centres()[1]):
+          vtmp = numpy.array([v[(m1,m2)] for v in vA])
+          tag = "%s-%s-BINNED_BY_%s_bin%d_%d-%d-%d" % ("".join(sorted(list(instruments))), self.opts.output_name_tag,bin_type.upper(),j,k,self.start_time,self.end_time-self.start_time)
+          volDeriv[(m1,m2)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
+          if self.opts.verbose:
+            print >> sys.stdout, "mass bin = %f,%f" %(m1,m2)
+            print >> sys.stdout, "vols = ", vtmp
+            print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m1,m2)],)
+      return volDeriv
+
+    # one-d case next
     for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
       vtmp = numpy.array([v[(m,)] for v in vA])
       tag = "%s-%s-BINNED_BY_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))), self.opts.output_name_tag,bin_type.upper(),j,self.start_time,self.end_time-self.start_time)
@@ -560,8 +588,9 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   parser = OptionParser(version = git_version.verbose_msg, usage = usage + description)
 
   #
-  # The code supports three mass binning modes.
+  # The code supports five mass binning modes.
   #
+  parser.add_option("--bin-by-mass1-mass2", default = False, action = "store_true", help = "Bin injections by component mass in two dimensions when estimating the search efficiency.")
 
   # Bin injections by total mass
   parser.add_option("--bin-by-total-mass", default = False, action = "store_true", help = "Bin injections by total mass when estimating the search efficiency.")
@@ -630,7 +659,7 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   if opts.total_mass_bins:
     opts.bin_by_total_mass = True
 
-  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh):
+  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
     opts.bin_by_total_mass = True # choose a default binning method
 
   return opts, filenames[0]
@@ -682,7 +711,7 @@ for instruments in UL.instruments:
     vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
 
     # it is useful to look at the efficiencies
-    if opts.verbose:
+    if opts.verbose and bin_type != "Mass1_Mass2": #FIXME eventually want to support this for m1m2
       tag = "%s-SEARCH_EFFICIENCY-%s-BINNED_BY_%s-%d-%d" % ("".join(sorted(list(instruments))),opts.output_name_tag,bin_type.upper(),UL.start_time,UL.end_time-UL.start_time)
       plot_efficiency(eff,err,UL.dbins[instruments],UL.mass_bins[bin_type],tag)
 
@@ -701,10 +730,14 @@ for instruments in UL.instruments:
     #write out the results to the xml file
     xmldoc = ligolw.Document()
     child = xmldoc.appendChild(ligolw.LIGO_LW())
-    xml = ligolw.LIGO_LW({u"Name": u"mass_bins:%s" % (bin_type)})
-    edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
-    xml.appendChild(array.from_array(u"array", edges[0]))
-    child.appendChild(xml)
+
+    # write out mass bins
+    dim = len(UL.mass_bins[bin_type])
+    for j in range(dim):
+      xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
+      edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
+      xml.appendChild(array.from_array(u"array", edges[j]))
+      child.appendChild(xml)
 
     output_arrays = {"SearchVolumeFirstMoment":vA.array,
                      "SearchVolumeSecondMoment":vA2.array,
