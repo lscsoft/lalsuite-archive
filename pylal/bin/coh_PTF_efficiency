@@ -101,15 +101,30 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
   parser.add_option("-z", "--waveform-error", action="store",\
                     type="float",default=0,help="The standard deviation to"+\
                          " use when calculating the waveform error.")
-  parser.add_option("-Z", "--h1-cal-error", action="store",\
-                    type="float",default=0,help="The standard deviation to"+\
-                         " use when calculating the h1 calibration amplitude error.")
-  parser.add_option("-y", "--l1-cal-error", action="store",\
-                    type="float",default=0,help="The standard deviation to"+\
-                         " use when calculating the l1 calibration amplitude error.")
-  parser.add_option("-Y", "--v1-cal-error", action="store",\
-                    type="float",default=0,help="The standard deviation to"+\
-                         " use when calculating the v1 calibration amplitde error.")
+  parser.add_option( "-Z", "--h1-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the h1 calibration amplitude error.")
+  parser.add_option( "-q", "--h2-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the h2 calibration amplitude error.")
+  parser.add_option( "-y", "--l1-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the l1 calibration amplitude error.")
+  parser.add_option( "-Y", "--v1-cal-error", action="store",\
+                      type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the v1 calibration amplitde error.")
+  parser.add_option( "-p", "--h1-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
+                          " use when calculating the h1 calibration amplitude error.")
+  parser.add_option( "-P", "--h2-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
+                          " use when calculating the h2 calibration amplitude error.")
+  parser.add_option( "-r", "--l1-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
+                          " use when calculating the l1 calibration amplitude error.")
+  parser.add_option( "-R", "--v1-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
+                          " use when calculating the v1 calibration amplitde error.")
   parser.add_option("-S", "--old-code", action="store_true", default=False,\
                     help="Use this flag if the old coh_PTF_inspiral, in" +\
                          "which ra,dec was not time dependent was used" +\
@@ -139,11 +154,12 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
 # Main function
 # =============================================================================
 
-def main(segdir, outdir, trigFile, foundFile, missedFile,\
-         onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
-         chisq_nhigh=3.0, null_thresh = (4.25,6), glitchCheckFac = 1.0,\
-         clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20,\
-         vetoFiles = [], wavErr = 0, calErrs = None, oldCode = False):
+def main( segdir, outdir, trigFile, foundFile, missedFile,\
+          onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
+          chisq_nhigh=3.0, null_thresh = (4.25,6), glitchCheckFac = 1.0,\
+          clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20,\
+          vetoFiles = [], wavErr = 0, calErrs = None, calDCErrs = None,\
+          oldCode = False ):
 
   #
   # setup
@@ -688,6 +704,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   if doinj:
 
     sites = [ ifo[0] for ifo in ifos ]
+    sites = list(set(sites))
 
     foundInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])
     missedInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missedFile])
@@ -758,7 +775,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     gMissedDist = []
     gMissedTime = []
    
-    distBins = zip(numpy.arange(lowerDist,upperDist,(upperDist-lowerDist)/numBins),numpy.arange(lowerDist,upperDist,(upperDist-lowerDist)/numBins) + (upperDist-lowerDist)/numBins)
+    distBins = zip(numpy.arange(lowerDist,upperDist + (upperDist-lowerDist),(upperDist-lowerDist)/numBins),numpy.arange(lowerDist,upperDist + (upperDist-lowerDist),(upperDist-lowerDist)/numBins) + (upperDist-lowerDist)/numBins)
   
     numInjections = numpy.zeros([len(massBins),len(distBins)+1],dtype=float)
     foundmaxBestNR = numpy.zeros([len(massBins), len(distBins)+1 ],\
@@ -982,6 +999,11 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       calError += calErrs[ifo]**2 * injSigmaMean[ifo]**2
     calError = calError**0.5
 
+    maxDCCalError = 0
+    for ifo in ifos:
+      if calDCErrs[ifo] > maxDCCalError:
+        maxDCCalError = calDCErrs[ifo]
+
     # Calibration phase uncertainties is neglected
 
     if verbose: sys.stdout.write("Calibration amplitude uncertainty "+\
@@ -1035,6 +1057,13 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
         # Convert inj.distance to a physical distance by applying calibration
         # and waveform errors
         distance = inj.distance
+        # First apply the scaling error
+        if (ii != 0):
+          distance = distance / maxDCCalError
+        # Now apply the amplitude uncertainty and waveform errors, these are
+        # applied as Gaussian errors with given std. Waveform is a one-sided
+        # error, it can only make us lees sensitive to a real signal.
+        # We montecarlo over these errors.
         if (ii != 0):
           calDistRed = calError * stats.norm.rvs()
           while (1):
@@ -1207,6 +1236,55 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
     if verbose: sys.stdout.write("Missed injection efficiency calculations "+\
                                  "completed at %d.\n" % elapsed_time())
+
+    # Finally add in injections outside of the range in which they were placed
+    # these injections will always be missed
+    # These "new" injections are still uniform in distance
+    totalInjs = len(foundInjs) + len(missedInjs)
+    for i in range(totalInjs):
+      # Distance chosen uniformly between maximum distance and twice
+      # maximum distance, then proceed as before
+      distanceOrig = stats.uniform.rvs() * (upperDist-lowerDist) + upperDist
+      for ii in range(numMCInjs+1):
+        # Convert inj.distance to a physical distance by applying calibration
+        # and waveform errors
+        if (ii != 0):
+          calDistRed = calError * stats.norm.rvs()
+          while (1):
+            wavDistRed = wavErr * stats.norm.rvs()
+            if (wavDistRed > 0):
+              break
+          distance = distanceOrig / ((1 + calDistRed)*(1 + wavDistRed))
+
+        trigBin = None
+        binNum = 0
+        for i,bin in enumerate(massBins):
+          if bin[0]<= inj.mchirp < bin[1]:
+            trigBinNum = i
+            trigBin = bin
+            break
+          binNum += 1
+        if not trigBin:
+          print "ERROR: No mass bins match missed injection with mchirp "+\
+                "%s" % inj.mchirp
+        trigDistBin = None
+        distNum = 0
+        for i,bin in enumerate(distBins):
+          if bin[0] <= distance < bin[1]:
+            trigDistNum = i
+            trigDistBin = bin
+          distNum += 1
+
+        if (ii == 0):
+          if trigDistBin:
+            numInjectionsNoMC[trigBinNum,trigDistNum] += 1
+          numInjectionsNoMC[trigBinNum,len(distBins)] += 1
+        else:
+          if trigDistBin:
+            numInjections[trigBinNum,trigDistNum] += 1
+          numInjections[trigBinNum,len(distBins)] += 1
+
+
 
     grbTime = segs['on'][1] - 1
 
@@ -1804,8 +1882,14 @@ if __name__=='__main__':
   wavErr       = opts.waveform_error
   calErrs      = {}
   calErrs['H1']= opts.h1_cal_error
+  calErrs['H2']= opts.h2_cal_error
   calErrs['L1']= opts.l1_cal_error
   calErrs['V1']= opts.v1_cal_error
+  calDCErrs       = {}
+  calDCErrs['H1'] = opts.h1_dc_cal_error
+  calDCErrs['H2'] = opts.h2_dc_cal_error
+  calDCErrs['L1'] = opts.l1_dc_cal_error
+  calDCErrs['V1'] = opts.v1_dc_cal_error
   oldCode      = opts.old_code
   
   nullt        = map(float, opts.null_snr_threshold.split(','))
@@ -1818,10 +1902,10 @@ if __name__=='__main__':
   if opts.veto_directory:
     vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
  
-  main(segdir, outdir, trigFile, foundFile, missedFile,\
-       onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
-       chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
-       clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
-       numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs,\
-       oldCode=oldCode)
+  main( segdir, outdir, trigFile, foundFile, missedFile,\
+        onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
+        chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
+        clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
+        numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs,\
+        calDCErrs=calDCErrs,oldCode=oldCode )
 
