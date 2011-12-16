@@ -1,7 +1,7 @@
 %define _pylal_prefix /usr
 
 Name: 		pylal
-Summary:	Python LIGO Algorithm Library
+Summary:	Python LSC Algorithm Library
 Version:	0.1
 Release:	1.lscsoft
 License:	See file LICENSE
@@ -13,8 +13,7 @@ Requires:	python glue glue-common glue-segments lal lalmetaio lalframe lalsimula
 BuildRequires:  python-devel lal-devel lalmetaio-devel lalframe-devel lalsimulation-devel lalinspiral-devel lalburst-devel numpy
 Prefix:         %{_pylal_prefix}
 %description
-The PyLAL package is best described as the Python LIGO Algorithm Library. It was originally a Python wrapping of parts of the LAL library, and although it continues to provide that function it has acquired a large collection of independent code of its own so that it is no longer exclusively a Python interface to LAL.
-In this package you will find convenience code to assist with manipulating XML documents using the glue.ligolw I/O library, you will find a wrapping to libframe to enable GWF frame-file reading, you will find binning and smoothing code, and you will find (partial) wrappings of LAL's burstsearch, date, inject, tools, and window packages. Additionally, you will find most, if not all, of the inspiral pipeline's follow-up and summary tools, and several burst-related trigger post-production tools.
+The PyLAL package is best described as the Python LIGO Algorithm Library. It was originally a Python wrapping of parts of the LAL library, and although it continues to provide that function it has acquired a large collection of independent code of its own so that it is no longer exclusively a Python interface to LAL. In this package you will find convenience code to assist with manipulating XML documents using the glue.ligolw I/O library, you will find a wrapping to libframe to enable GWF frame-file reading, you will find binning and smoothing code, and you will find (partial) wrappings of LAL's burstsearch, date, inject, tools, and window packages. Additionally, you will find most, if not all, of the inspiral pipeline's follow-up and summary tools, and several burst-related trigger post-production tools.
 
 %prep
 %setup
