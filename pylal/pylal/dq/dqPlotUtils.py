@@ -1162,7 +1162,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 
   # get data
   tdata    = get_column(triggers, 'time')
-  preData  = map(float, get_column(triggers, column))
+  preData  = get_column(triggers, column).astype(float)
   postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
 
   # get veto livetime
@@ -2290,6 +2290,7 @@ def parse_plot_config(cp, section):
 
   limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
   filters  = ['poles', 'zeros']
+  bins     = ['bins']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator']
   values   = ['dcthresh','amplitude']
@@ -2297,10 +2298,13 @@ def parse_plot_config(cp, section):
   # extract plot params as a dict
   params = {}
   for key,val in cp.items(section):
+    val = val.rstrip('"').strip('"')
     if key in limits:
       params[key] = map(float, val.split(','))
     elif key in filters:
       params[key] = map(complex, val.split(','))
+    elif key in bins:
+       params[key] = map(lambda p: map(float, p.split(',')), val.split(';'))
     elif key in booleans:
       params[key] = cp.getboolean(section, key)
     elif key in values:
