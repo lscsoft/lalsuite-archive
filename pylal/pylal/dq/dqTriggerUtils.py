@@ -705,7 +705,7 @@ def fromLALCache(cache, etg, start=None, end=None, verbose=False):
       sys.stdout.write('%s%.2d%%' % (delete, progress))
       sys.stdout.flush()
 
-    
+  if verbose: sys.stdout.write("\n")  
   return trigs
 
 # =============================================================================
