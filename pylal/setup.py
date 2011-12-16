@@ -5,6 +5,7 @@ import os
 from misc import generate_vcs_info as gvcsi
 from distutils.core import setup, Extension
 from distutils.command import install
+from distutils.command import build
 from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
@@ -85,6 +86,16 @@ def write_build_info():
 	if sed_retcode:
 		raise gvcsi.GitInvocationError
 
+class pylal_build(build.build):
+	def run(self):
+		# If we are building from a release tarball, do not distribute scripts.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if os.path.exists("PKG-INFO"):
+			self.distribution.scripts = []
+
+		# resume normal build procedure
+		build.build.run(self)
+
 class pylal_build_py(build_py.build_py):
 	def run(self):
 		# If we are building from tarball, do not update git version.
@@ -135,18 +146,21 @@ class pylal_install(install.install):
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "PYLAL_PREFIX=" + pylal_prefix
 		print >> env_file, "export PYLAL_PREFIX"
-		print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+			print >> env_file, "export PATH"
 		print >> env_file, "PYTHONPATH=" + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "LD_LIBRARY_PATH=" + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
 		print >> env_file, "DYLD_LIBRARY_PATH=" + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
-		print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
+		print >> env_file, "export PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
 		env_file.close()
 
 		log.info("creating pylal-user-env.csh script")
 		env_file = open(os.path.join("etc", "pylal-user-env.csh"), "w")
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "setenv PYLAL_PREFIX " + pylal_prefix
-		print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
 		print >> env_file, "if ( $?PYTHONPATH ) then"
 		print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "else"
@@ -171,7 +185,7 @@ class pylal_install(install.install):
 class pylal_sdist(sdist.sdist):
 	def run(self):
 		# customize tarball contents
-		self.distribution.data_files += ["debian/%s" % f for f in os.listdir("debian")]
+		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")] + ["pylal.spec"]
 		self.distribution.scripts = []
 
 		# create the git_version module
@@ -205,6 +219,7 @@ setup(
                 "pylal.dq"
 	],
 	cmdclass = {
+		"build": pylal_build,
 		"build_py": pylal_build_py,
 		"install": pylal_install,
 		"sdist": pylal_sdist
@@ -674,10 +689,11 @@ setup(
 		os.path.join("bin", "auxmvc_generate_spr_files.py"),
 		os.path.join("bin", "auxmvc_create_mvsc_dag"),
 		os.path.join("bin", "auxmvc_ROC_combiner.py"),
-                os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py") 
+                os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py"),
+                os.path.join("bin", "auxmvc_comparison_plots.py") 
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
-		os.path.join("etc", "pylal-user-env.csh")
+		os.path.join("etc", "pylal-user-env.csh"),
 		] ) ]
 )

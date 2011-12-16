@@ -481,7 +481,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 			coincs = contents.coincs_near_endtime(sim.get_end())
 			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
 			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
-			assert exact_coinc_event_ids.issubset(near_coinc_event_ids)
+			assert set(exact_coinc_event_ids).issubset(set(near_coinc_event_ids))
 			if exact_coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, exact_coinc_event_ids, contents.sce_coinc_def_id)
 			if near_coinc_event_ids:
