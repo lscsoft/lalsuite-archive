@@ -1465,15 +1465,12 @@ class CondorDAG:
         if node.get_priority():
           workflow_job.addProfile(Pegasus.DAX3.Profile("condor","priority",str(node.get_priority())))
 
-        if self.is_dax():
-          # FIXME should put remote universe property here
-          pass
+        # write the universe that this job should run in to the dax
+        if node.get_dax_collapse():
+          # collapsed jobs must run in the vanilla universe
+          workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe","vanilla"))
         else:
-          if node.get_dax_collapse():
-            # collapsed jobs must run in the vanilla universe
-            workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe","vanilla"))
-          else:
-            workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
+          workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
 
         workflow.addJob(workflow_job)
         node_job_object_dict[node_name] = workflow_job
@@ -1565,6 +1562,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
       except:
         pass
       print >> sitefile, """\
+    <profile namespace="pegasus" key="style">condor</profile>
     <profile namespace="pegasus" key="gridstart">none</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
     <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile> 
