@@ -1249,7 +1249,7 @@ if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==T
 	}
 	inputMCMC.ampOrder=ampOrder;
 
-	if(phaseOrder>7 && inputMCMC.approximant!=EOBNR)
+	if(phaseOrder>7 && inputMCMC.approximant!=EOBNR && inputMCMC.approximant!=IMRPhenomFB && inputMCMC.approximant!=IMRPhenomFBTest)
 	{
 		fprintf(stderr,"Error: Cannot go above 3.5PN in phase using this template!\n");
 		exit(1);
