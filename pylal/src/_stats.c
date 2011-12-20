@@ -14,11 +14,11 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <Python.h>
 
 #include <math.h>
 #include <stdlib.h>
 
-#include <Python.h>
 #include <numpy/arrayobject.h>
 
 static int rankdata(
