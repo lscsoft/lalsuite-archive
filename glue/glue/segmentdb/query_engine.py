@@ -37,8 +37,8 @@ from glue import ldbd
 
 
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__    = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__date__    = "$Date$"
+__version__ = "$Revision$"
 
 
 class QueryEngine:

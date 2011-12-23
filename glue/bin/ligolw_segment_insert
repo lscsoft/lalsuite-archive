@@ -44,9 +44,9 @@ Check that glue is correctly installed and in your PYTHONPATH.
   sys.exit(1)
 ##################################################################
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date: 2009/03/30 04:17:22 $"[7:-2]
-__version__ ="$Revision: 1.3 $"[11:-2]
-__src__ = "$Source: /usr/local/cvs/lscsoft/glue/bin/ligolw_segment_insert,v $"
+__date__ = "$Date$"
+__version__ ="$Revision$"
+__src__ = "$Source$"
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
