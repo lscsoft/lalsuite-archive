@@ -5,6 +5,7 @@ Maintainer: Jameson Rollins <jameson.rollins@ligo.org>
 Build-Depends:
  pkg-config,
  python,
+ python-all-dev,
  python-numpy,
  libframe-dev,
  lal-dev,
