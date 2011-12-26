@@ -187,13 +187,27 @@ def gps2datenum(gpstime):
 
   """
     Convert GPS time into floating in standard python time format
-    (days since Jan 01 0000), don't how this works out for leap
-    seconds
+    (days since Jan 01 0000), don't seem to use properly leap seconds
   """
+
   # set time of 0 GPS in datenum units
   zeroGPS = 722820.0
+  ## correct for leap seconds assuming that all time stamps are within
+  # a range not including a leap
+  # select the first time stamp
+  if isinstance(gpstime,float) or isinstance(gpstime,int):
+    repTime = gpstime
+  else:
+    if len(gpstime)>0:
+      repTime = gpstime[0]
+    else:
+      return gpstime
+
+  zeroGPS = zeroGPS  + float(date.XLALLeapSeconds(LIGOTimeGPS(0)) -\
+                                 date.XLALLeapSeconds(LIGOTimeGPS(repTime)))/86400
   # convert to datenum (days)
   datenum = gpstime/86400 + zeroGPS
+
   return datenum
 
 def time_unit(duration):
@@ -297,8 +311,8 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
                  transform=self.ax.transAxes, verticalalignment='top')
     self.segdict = segments.segmentlistdict()
     self.keys = []
-    self._time_transform = lambda seg: segments.segment(float(seg[0]-t0)/unit,\
-                                             float(seg[1]-t0)/unit)
+    self._time_transform = lambda seg: segments.segment(gps2datenum(float(seg[0])),\
+                                             gps2datenum(float(seg[1])))
 
   def add_content(self, segdict, keys=None, t0=0, unit=1):
     if not keys:
@@ -1067,7 +1081,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   # add data
   for channel,x_data,y_data in data:
     if x_format=='time':
-      x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+      x_data = gps2datenum(numpy.array(map(float, x_data)))
     lab = str(channel)
     if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
@@ -1088,7 +1102,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim([ axis_lims[0], axis_lims[1] ])
 
     # set x axis
-    plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+    plot.ax.set_xlim([ gps2datenum(float(xlim[0])), gps2datenum(xlim[1]) ])
   else:
       # set global axis limits
     if xlim:
@@ -1097,7 +1111,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim(ylim)
 
 
-  set_ticks(columns, plot.ax)
+  set_ticks([x_format], plot.ax)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
@@ -1302,7 +1316,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
     ploy.ax.set_ylim(ylim)
 
   # set global ticks
-  set_ticks(columns, plot.ax)
+  set_ticks([column], plot.ax)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -1685,7 +1699,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     for col in columns:
       maxcol = loudest[col]
       if re.search('time\Z', col) and renormalise:
-        maxcol = maxcol*unit+zero
+        maxcol = maxcol
       loudstr = "%s=%.2f" % (display_name(col), maxcol)
       if not re.search(loudstr, subtitle):
         subtitle += ' %s' % loudstr
@@ -1916,7 +1930,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
       etg = 'Unknown'
 
   # get limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  xlim = kwargs.pop('xlim', [gps2datenum(float(start)), gps2datenum(float(end))])
   ylim = kwargs.pop('ylim', None)
 
   # get axis scales
@@ -1932,7 +1946,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   tbins   = {}
   rate = {}
   for bin in ybins:
-    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start),float(end), average)))
     rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
 
   for trig in triggers:
@@ -2004,7 +2018,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(columns, plot.ax)
+  set_ticks(["time"], plot.ax)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2232,7 +2246,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   subtitle = kwargs.pop('subtitle', '')
 
   # get axis limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  xlim = kwargs.pop('xlim', [gps2datenum(float(start)), gps2datenum(float(end))])
 
   # get label param
   labels_inset = kwargs.pop('labels_inset', False)
@@ -2265,7 +2279,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   plot.ax.grid(True,which='major')
   plot.ax.grid(True,which='majorminor')
 
-  set_ticks(columns, plot.ax)
+  set_ticks(["time"], plot.ax)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
