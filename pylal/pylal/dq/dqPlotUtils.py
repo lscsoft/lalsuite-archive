@@ -75,7 +75,7 @@ def set_rcParams():
                          "axes.grid": True,
                          "axes.axisbelow": False })
 
-def set_ticks(ax):
+def set_ticks(columns, ax):
 
   """
     Format the x- and y-axis ticks to ensure minor ticks appear when needed
@@ -109,26 +109,27 @@ def set_ticks(ax):
 
   # set xticks in time format, python2.5 is not new enough for
   # flexibility, recoding part of AutoDateFormatter to get it
-  dateLocator = pylab.matplotlib.dates.AutoDateLocator()
-  dateLocator.set_axis(ax.xaxis)
-  dateLocator.refresh()
-  scale = float( dateLocator._get_unit() )
-  if ( scale == 365.0 ):
-    dateFormatter = pylab.matplotlib.dates.DateFormatter("%Y")
-  elif ( scale == 30.0 ):
-    dateFormatter = pylab.matplotlib.dates.DateFormatter("%y/%b ")
-  elif ( (scale == 1.0) or (scale == 7.0) ):
-    dateFormatter = pylab.matplotlib.dates.DateFormatter("%b %d")
-  elif ( scale == (1.0/24.0) ):
-    dateFormatter = pylab.matplotlib.dates.DateFormatter("%d-%H")
-  elif ( scale == (1.0/(24*60)) ):
-    dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
-  elif ( scale == (1.0/(24*3600)) ):
-    dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
-
-  ax.xaxis.set_major_locator(pylab.matplotlib.dates.AutoDateLocator())
-  ax.xaxis.set_major_formatter(dateFormatter)
-
+  if re.search('time\Z', columns[0]):
+    dateLocator = pylab.matplotlib.dates.AutoDateLocator()
+    dateLocator.set_axis(ax.xaxis)
+    dateLocator.refresh()
+    scale = float( dateLocator._get_unit() )
+    if ( scale == 365.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%Y")
+    elif ( scale == 30.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%y/%b ")
+    elif ( (scale == 1.0) or (scale == 7.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%b %d")
+    elif ( scale == (1.0/24.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%d-%H")
+    elif ( scale == (1.0/(24*60)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+    elif ( scale == (1.0/(24*3600)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+  
+    ax.xaxis.set_major_locator(pylab.matplotlib.dates.AutoDateLocator())
+    ax.xaxis.set_major_formatter(dateFormatter)
+  
 
   # set tick linewidth
   for line in ax.get_xticklines() + ax.get_yticklines() :
@@ -1096,7 +1097,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim(ylim)
 
 
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
@@ -1301,7 +1302,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
     ploy.ax.set_ylim(ylim)
 
   # set global ticks
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -1762,7 +1763,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     plot.ax.set_ylim(limits[1])
 
   # reset ticks
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   # get both major and minor grid lines
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2003,7 +2004,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2177,7 +2178,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2264,7 +2265,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   plot.ax.grid(True,which='major')
   plot.ax.grid(True,which='majorminor')
 
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
@@ -2475,7 +2476,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
     plot.ax.set_ylim(limits[1])
 
   # set global ticks
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
