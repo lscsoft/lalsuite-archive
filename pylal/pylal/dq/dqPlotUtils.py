@@ -61,13 +61,13 @@ def set_rcParams():
   pylab.rcParams.update({"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 2,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
+                         "xtick.labelsize": 16,
+                         "ytick.labelsize": 16,
                          "axes.titlesize": 22,
-                         "axes.labelsize": 18,
+                         "axes.labelsize": 16,
                          "axes.linewidth": 1,
                          "grid.linewidth": 1,
-                         "legend.fontsize": 18,
+                         "legend.fontsize": 16,
                          "legend.loc": "best",
                          "figure.figsize": [12,6],
                          "figure.dpi": 80,
@@ -107,10 +107,28 @@ def set_ticks(ax):
   if len(ticks)<=1:
     ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
 
-  # set xticks for 2 hours rather than 5
-  xticks = ax.get_xticks()
-  if len(xticks)>1 and xticks[1]-xticks[0]==5:
-    ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=2))
+  # set xticks in time format, python2.5 is not new enough for
+  # flexibility, recoding part of AutoDateFormatter to get it
+  dateLocator = pylab.matplotlib.dates.AutoDateLocator()
+  dateLocator.set_axis(ax.xaxis)
+  dateLocator.refresh()
+  scale = float( dateLocator._get_unit() )
+  if ( scale == 365.0 ):
+    dateFormatter = pylab.matplotlib.dates.DateFormatter("%Y")
+  elif ( scale == 30.0 ):
+    dateFormatter = pylab.matplotlib.dates.DateFormatter("%y/%b ")
+  elif ( (scale == 1.0) or (scale == 7.0) ):
+    dateFormatter = pylab.matplotlib.dates.DateFormatter("%b %d")
+  elif ( scale == (1.0/24.0) ):
+    dateFormatter = pylab.matplotlib.dates.DateFormatter("%d-%H")
+  elif ( scale == (1.0/(24*60)) ):
+    dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+  elif ( scale == (1.0/(24*3600)) ):
+    dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+
+  ax.xaxis.set_major_locator(pylab.matplotlib.dates.AutoDateLocator())
+  ax.xaxis.set_major_formatter(dateFormatter)
+
 
   # set tick linewidth
   for line in ax.get_xticklines() + ax.get_yticklines() :
@@ -163,6 +181,19 @@ def display_name(columnName):
       words[i] = w.title()
 
   return ' '.join(words) 
+
+def gps2datenum(gpstime):
+
+  """
+    Convert GPS time into floating in standard python time format
+    (days since Jan 01 0000), don't how this works out for leap
+    seconds
+  """
+  # set time of 0 GPS in datenum units
+  zeroGPS = 722820.0
+  # convert to datenum (days)
+  datenum = gpstime/86400 + zeroGPS
+  return datenum
 
 def time_unit(duration):
 
@@ -1578,10 +1609,10 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
       if kwargs.has_key('xlabel'):  renormalise = False
       if renormalise:
         for j in xrange(len(tables)):
-          vetoData[j][col] = (vetoData[j][col]-float(zero))/unit
-          nvetoData[j][col] = (nvetoData[j][col]-float(zero))/unit
-        limits[i] = [float(limits[i][0]-zero)/unit,\
-                     float(limits[i][1]-zero)/unit]
+          vetoData[j][col] = gps2datenum(vetoData[j][col])
+          nvetoData[j][col] = gps2datenum(nvetoData[j][col])
+        limits[i] = [gps2datenum(float(limits[i][0])),\
+                     gps2datenum(float(limits[i][1]))]
 
   # set labels
   label = {}
