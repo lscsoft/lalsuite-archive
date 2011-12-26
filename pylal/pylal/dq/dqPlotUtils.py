@@ -2094,7 +2094,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
       etg = 'Unknown'
 
   # get limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  xlim = kwargs.pop('xlim', [gps2datenum(float(start)), gps2datenum(float(end))])
   ylim = kwargs.pop('ylim', None)
 
   # get axis scales
@@ -2111,7 +2111,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   rate = {}
   rms = {}
   for bin in ybins:
-    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start),float(end), average)))
     rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
     rms[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
 
@@ -2192,7 +2192,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(columns, plot.ax)
+  set_ticks(["time"], plot.ax)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2461,10 +2461,10 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
         tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
       labels[i] = kwargs.pop('%slabel' % c, 'Time (%s) since %s (%s)'\
                                             % (timestr, tlabel, zero))
-      limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
+      limits[i] = gps2datenum(numpy.asarray(limits[i]))
       for i,data_limits in enumerate(data_limit_sets):
-        data_limit_sets[i][0] = (data_limits[0]-float(zero))/unit
-        data_limit_sets[i][1] = (data_limits[1]-float(zero))/unit
+        data_limit_sets[i][0] = gps2datenum(data_limits[0])
+        data_limit_sets[i][1] = gps2datenum(data_limits[1])
     else:
       labels[i] = kwargs.pop('%slabel' % c, display_name(col))
 
@@ -2490,7 +2490,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
     plot.ax.set_ylim(limits[1])
 
   # set global ticks
-  set_ticks(columns, plot.ax)
+  set_ticks([x_format], plot.ax)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
