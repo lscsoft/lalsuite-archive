@@ -298,6 +298,204 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       except:
         print "couldn't add inspiral job for " + ifo + "@ "+ str(trig.gpsTime[ifo])
 
+class followUpRingJob(ringdown.RingdownJob,webTheJob):
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "ringdown_head":"lalapps_ring"
+      }
+    }
+  def __init__(self,cp,type='plot'):
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
+    ringdown.RingdownJob.__init__(self,cp)
+    if type == 'head':
+      self.set_executable(string.strip(cp.get('condor','ringdown_head')))
+    self.name = 'followUpRingJob' + type
+    self.setupJobWeb(self.name)
+
+class followUpRingNode(ringdown.RingdownNode,webTheNode):
+  
+  def __init__(self, ringJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
+    self.sample_rate = string.strip(cp.get('coh-inspiral','sample-rate'))
+    if 1:#try:
+      self.output_file_name = ""
+      #inspiral.InspiralNode.__init__(self, inspJob) 
+      # the use of this class would require some reorganisation in fu_Condor.py
+      # and webCondor.py in order to set up the jobs following the same scheme
+      # as the way it is done for the Inspiral pipeline...
+      pipeline.CondorDAGNode.__init__(self,ringJob)
+      injFile = self.checkInjections(cp)      
+      hipeCache = checkHipeCachePath(cp)
+
+      if type == "plot" or type == "notrig" or type == "coh" or type == "chia":
+        # Here we define the trig-start-time and the trig-end-time;
+        # The difference between these two times should be kept to 2s
+        # Otherwise change the clustering window also
+        hLengthAnalyzed = 1
+	if type == "coh" or type == "chia": hLengthAnalyzed = 1.0
+        self.set_trig_start( int(trig.gpsTime[ifo] - hLengthAnalyzed + 0.5) )
+        self.set_trig_end( int(trig.gpsTime[ifo] + hLengthAnalyzed + 0.5) )
+
+      if type == "plot" or type == "notrig" or type == "coh":
+        self.add_var_opt("write-snrsq","")
+        self.add_var_opt("write-chisq","")
+        self.add_var_opt("write-spectrum","")
+        self.add_var_opt("write-template","")
+      if type == "chia" or type == "notrig" or type == "coh":
+        self.add_var_opt("write-cdata","")
+
+      if injFile: 
+        self.set_injections( injFile )
+
+      skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+      if not hipeCache:
+        skipParams.append('frame-cache')
+        self.add_var_opt('frame-cache',datafindCache)        
+
+      # initialize the extension of the output file. If the option 
+      # write_compress is found in procParams the extension will be overwritten
+      # later as .xml.gz
+      extension = ".xml"
+      for row in procParams:
+        param = row.param.strip("-")
+        value = row.value
+	# override the options for coherent jobs (useful for skymaps so that
+	# we can bump up the sample rate)
+	if type == "coh" and cp.has_option("coh-inspiral",param):
+	  value = cp.get("coh-inspiral",param)
+        if type == "chia" and cp.has_option("coh-inspiral",param):
+          value = cp.get("coh-inspiral",param)
+        if param == 'bank-file':
+          bankFile = value
+        if type == "notrig" or type == "coh" or type == "chia":
+        # if forceTrigger is true, we loose the thresholds to
+        # make sure to get a trigger
+          if param == 'snr-threshold': value = "0.1"
+          # rsq veto must be disabled
+          if param == 'do-rsq-veto': continue
+          if param == 'enable-rsq-veto': continue
+          # chisq veto is disabled by loosing its threshold 
+          # we still want to generate the chisq time-series
+          if param == 'chisq-threshold': value = "1.0e+06"
+          # Using a window of 1s for clustering will allow us to always get
+          # at least one trigger
+          if param == 'cluster-method': value = 'window'
+          if param == 'cluster-window': continue
+          pass
+        if param in skipParams: continue
+        self.add_var_opt(param,value)
+        # The attributes _AnalysisNode__end, _AnalysisNode__start,
+        # _InspiralAnalysisNode__pad_data need to be defined before calling the
+        # method "writeAll" of "class webTheDAG". This method calls
+        # "write_sub_files()" in pipeline.py, which itself relies on the
+        # "finalize()" method of "class InspiralAnalysisNode" in inspiral.py .
+        # This is where all these attributes are being used. This hack is 
+        # required because "inspiral.InspiralNode.__init__(self, inspJob)"
+        # currently does not work within "class followUpInspNoDE"
+        if param == 'gps-end-time':
+          self.__end = value
+          self._AnalysisNode__end = int(value)
+        if param == 'gps-start-time':
+          self.__start = value
+          self._AnalysisNode__start = int(value)
+        if param == 'pad-data': 
+          self._InspiralAnalysisNode__pad_data = int(value)
+        if param == 'ifo-tag':
+          self.__ifotag = value
+        if param == 'channel-name': self.inputIfo = value[0:2]
+        if param == 'write-compress':
+          extension = '.xml.gz'
+
+      if type == "notrig" or type == "coh" or type == "chia":
+        self.add_var_opt('cluster-window',str(hLengthAnalyzed/2.))
+        self.add_var_opt('disable-rsq-veto',' ')
+
+      # add the arguments that have been specified in the section 
+      # [inspiral-extra] of the ini file (intended for 12-18 month analysis)
+      if cp.has_section("followup-inspiral-extra"):
+        for (name,value) in cp.items("followup-inspiral-extra"):
+          self.add_var_opt(name,value)
+
+      if type == "plot" or type == "coh":
+        bankFile = 'trigTemplateBank/' + self.inputIfo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz'
+      if type == "chia":
+        bankFile = 'trigTemplateBank/' + self.inputIfo + '-TRIGBANK_FOLLOWUP_coh' + str(trig.eventID) + '.xml.gz'
+      if type == "notrig":
+        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz'
+      self.set_bank(bankFile)
+
+      if not ifo == self.inputIfo and not type == "coh" and not type == "chia":
+        second_user_tag = "_" + ifo + "tmplt"
+      else:
+        second_user_tag = ""
+      self.set_user_tag("FOLLOWUP_" + str(trig.eventID) + second_user_tag)
+      self.__usertag = "FOLLOWUP_" + str(trig.eventID) + second_user_tag
+
+
+      # THIS IS A HACK FOR NOW, THERE IS PROBABLY A BETTER WAY TO DO THIS
+      if (type == 'head'): 
+        subBankSize = string.strip(cp.get('followup-inspiral-head','bank-veto-subbank-size'))
+        if opts.inspiral_head:
+          bankFileName = fu_utils.generateBankVetoBank(trig, ifo, str(trig.gpsTime[ifo]), sngl_table[ifo],int(subBankSize),'BankVetoBank')
+        else: bankFileName = 'none'      
+        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('followup-inspiral-head','bank-veto-subbank-size')))
+        self.add_var_opt("order", string.strip(cp.get('followup-inspiral-head','order')))
+        self.set_bank(bankFileName)
+
+
+      # the output_file_name is required by the child job (plotSNRCHISQNode)
+      if type == "plot" or type == "notrig" or type == "coh" or type == "chia":
+        self.output_file_name = inspJob.outputPath + self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
+
+      self.set_id(self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)))
+
+      self.outputCache = self.inputIfo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + self.inputIfo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+
+      self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
+      self.add_var_opt("output-path",inspJob.outputPath)
+
+      if not opts.disable_dag_categories:
+        self.set_category(inspJob.name.lower())
+
+      try:
+        if d_node.validNode and eval('opts.' + datafindCommand):
+          self.add_parent(d_node)
+      except: 
+        print >> sys.stderr, "Didn't find a datafind job, I'll assume I don't need it"
+
+      if type == "plot" or type == "notrig":
+        if opts.inspiral:
+          dag.addNode(self,'inspiral')
+          self.validate()
+        else: self.invalidate()
+
+      if type == 'head':
+        if opts.inspiral_head:
+          dag.addNode(self,'inspiral-head')
+          self.validate()
+        else: self.invalidate()
+
+      if type == 'coh':
+        if opts.coh_inspiral:
+          dag.addNode(self,'coh-inspiral')
+          self.validate()
+        else: self.invalidate()
+
+      if type == "chia":
+        if opts.plot_chia:
+          dag.addNode(self,'chia-inspiral')
+          self.validate()
+        else: self.invalidate()
+
+    else: #except:
+      try:
+        print "couldn't add inspiral job for " + self.inputIfo + "@ "+ str(trig.gpsTime[ifo])
+        # if self.inputIfo does not exist (happens when inspiral cache and xml files not available), then use ifo in the string.
+      except:
+        print "couldn't add inspiral job for " + ifo + "@ "+ str(trig.gpsTime[ifo])
+
   def checkInjections(self,cp):
     try:
       if len(string.strip(cp.get('followup-triggers','injection-file'))) > 0:
