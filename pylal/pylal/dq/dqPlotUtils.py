@@ -1102,7 +1102,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim([ axis_lims[0], axis_lims[1] ])
 
     # set x axis
-    plot.ax.set_xlim([ gps2datenum(float(xlim[0])), gps2datenum(xlim[1]) ])
+    plot.ax.set_xlim([ gps2datenum(float(xlim[0])), gps2datenum(float(xlim[1])) ])
   else:
       # set global axis limits
     if xlim:
