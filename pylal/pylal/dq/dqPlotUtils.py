@@ -23,6 +23,9 @@
 from __future__ import division
 import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 
+# formce matplotlib backend to Agg, the display detection below doesn't seem to work 
+matplotlib.use('Agg')
+
 # test matplotlib backend and reset if needed
 from os import getenv
 _display = getenv('DISPLAY','')
