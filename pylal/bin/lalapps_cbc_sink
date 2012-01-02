@@ -95,7 +95,9 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
 
-        validcolumns = {"mass_bin":"lstring",
+        validcolumns = {"mass1":"lstring",
+                        "mass2":"lstring",
+                        "mass_bin":"lstring",
                         "sensitivity_in_Mpc3_yr":"lstring",
                         "avg_reach_in_Mpc":"lstring",
                         "lambda_ratio":"lstring",
@@ -330,60 +332,56 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      pylab.gca().set_aspect(1)
      savefig_pylal('upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
      pylab.clf()
-     continue
-
 
    # for bar plots, treat bns/bbh special
-   if bin_type == "BNS_BBH":
-     tick_locs = [0.5,1.5,2.5] #center the labels
-     tick_strings = ["BNS","NSBH","BBH"]
-     left = numpy.array([0,1,2])
-     width = numpy.ones(len(left))
    else:
-     tick_locs = edges(bins)[0]
-     tick_strings = ["%.1f"% m for m in tick_locs]
-     left = bins.lower()[0]
-     width = bins.upper()[0]-bins.lower()[0]
+     if bin_type == "BNS_BBH":
+       tick_locs = [0.5,1.5,2.5] #center the labels
+       tick_strings = ["BNS","NSBH","BBH"]
+       left = numpy.array([0,1,2])
+       width = numpy.ones(len(left))
+     else:
+       tick_locs = edges(bins)[0]
+       tick_strings = ["%.1f"% m for m in tick_locs]
+       left = bins.lower()[0]
+       width = bins.upper()[0]-bins.lower()[0]
 
-   #
-   # combined upper limit plot
-   #
-   bottom = combined_upper_limit.array
-   top = numpy.ones(len(bottom))
-   pylab.bar(left, top, width, bottom = bottom, color='black', alpha=0.8, label=r'Posterior 90% upper limit')
-   bottom_prior = prior_upper_limit.array
-   pylab.bar(left, top, width, bottom = bottom_prior, color='gray', label=r'Prior 90% upper limit')
-   pylab.gca().semilogy()
-   pylab.gca().set_ylim([0.1*bottom.min(),10.0*bottom_prior.max()])
-   pylab.legend(loc='upper right')
-   #pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
-   pylab.xticks(tick_locs,tick_strings)
-   pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
-   if bin_type != "BNS_BBH":
-     pylab.xlabel(bin_type.replace('_',' ') + " $\mathrm{(M_{\odot})}$",size=axis_font_size)
+     #
+     # combined upper limit plot
+     #
+     bottom = combined_upper_limit.array
+     top = numpy.ones(len(bottom))
+     pylab.bar(left, top, width, bottom = bottom, color='black', alpha=0.8)
+     bottom_prior = prior_upper_limit.array
+     pylab.bar(left, top, width, bottom = bottom_prior, color='gray')
+     pylab.gca().semilogy()
+     pylab.gca().set_ylim([0.1*bottom.min(),10.0*bottom_prior.max()])
+     #pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     pylab.xticks(tick_locs,tick_strings)
+     pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
+     if bin_type != "BNS_BBH":
+       pylab.xlabel(bin_type.replace('_',' ') + " $\mathrm{(M_{\odot})}$",size=axis_font_size)
+       pylab.grid()
+     pylab.ylabel('Rate $\mathrm{(Mpc^{-3} yr^{-1})}$', size=axis_font_size)
+     savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
+
+     #
+     # distance plot in 1d
+     #
+     distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
+     derr = (distance /3) *( total_err.array / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
+     pylab.bar(left,distance,width,yerr=derr)
      pylab.grid()
-   pylab.ylabel('Rate $\mathrm{(Mpc^{-3} yr^{-1})}$', size=axis_font_size)
-   savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-   pylab.clf()
-
-   #
-   # distance plot in 1d
-   #
-   distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
-   derr = (distance /3) *( total_err.array / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
-   pylab.bar(left,distance,width,yerr=derr)
-   pylab.grid()
-   pylab.xticks(tick_locs,tick_strings)
-   pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
-   #pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
-   if bin_type != "BNS_BBH":
-     pylab.xlabel(bin_type.replace('_',' ') + " $\mathrm{(M_{\odot})}$",fontsize=axis_font_size)
-   # don't let the bars or their errors disappear off the top of the graph!
-   if max(distance+derr) < 100:
+     pylab.xticks(tick_locs,tick_strings)
+     pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
+     #pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     if bin_type != "BNS_BBH":
+       pylab.xlabel(bin_type.replace('_',' ') + " $\mathrm{M_{\odot}}$)",fontsize=axis_font_size)
      pylab.ylim([0,100])
-   pylab.ylabel('Range (Mpc)',fontsize=axis_font_size)
-   savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts, fnameList, tagList)
-   pylab.clf()
+     pylab.ylabel('Range (Mpc)',fontsize=axis_font_size)
+     savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
 
    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
 					       tagList, add_box_flag = False ) #FIXME
@@ -402,10 +400,16 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
 
       row = ul_table.RowType()
 
-      if bin_type == "BNS_BBH":
-        row.mass_bin = tick_strings[j]
+      if bin_type == "Mass1_Mass2":
+        columnList = ["mass1","mass2"]
+        row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+        row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
       else:
-        row.mass_bin = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+        columnList = ["mass_bin"]
+        if bin_type == "BNS_BBH":
+          row.mass_bin = tick_strings[j]
+        else:
+          row.mass_bin = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
       row.sensitivity_in_Mpc3_yr = "%.3g" % (total_vol[mbin],)
       row.livetime_in_days = "%f" % (total_lt[mbin]*constants.LAL_YRJUL_SI/(3600*24),)
       row.avg_reach_in_Mpc = "%.1f" % ((total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
@@ -419,8 +423,8 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
 
       ul_table.append(row)
 
-   columnList = ['mass_bin','sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','MC_error','calib_error','wave_error','injs_found','injs_missed']
-   print_tables.print_tables(summary_doc,summary_file,opts.output_format,print_table_names = False,
+   columnList += ['sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','MC_error','calib_error','wave_error','injs_found','injs_missed']
+   print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
    summary_file.close()
