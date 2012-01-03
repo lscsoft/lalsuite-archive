@@ -45,21 +45,22 @@ def edges(bins):
 
 def get_bins(file,bin_type):
 	xmldoc = utils.load_filename(file, gz = (file or "stdin").endswith(".gz")).childNodes[0]
+	mbins = xmldoc.getChildrenByAttributes({"Name":"mass_bins:%s" % bin_type})
 	m1bins = xmldoc.getChildrenByAttributes({"Name":"mass1_bins:%s" % bin_type})
 	m2bins = xmldoc.getChildrenByAttributes({"Name":"mass2_bins:%s" % bin_type})
-	if len(m1bins) == 1:
+	if len(mbins) == 1 and len(m1bins) == 0 and len(m2bins) == 0:
+		mbins = array.get_array(mbins[0],u"array").array
+		bins = rate.NDBins((rate.IrregularBins(mbins),))
+	elif len(mbins) == 0 and len(m1bins) == 1 and len(m2bins) == 0:
 		m1bins = array.get_array(m1bins[0],u"array").array
-	else:
-		print >>sys.stderr,"XML must contain exactly 1 mass1 bin. Found %d."%len(m1bins)
-		sys.exit(1)
-
-	if len(m2bins) == 1:
+		bins = rate.NDBins((rate.IrregularBins(m1bins),))
+	elif len(mbins) == 0 and len(m1bins) == 1 and len(m2bins) == 1:
+		m1bins = array.get_array(m1bins[0],u"array").array
 		m2bins = array.get_array(m2bins[0],u"array").array
 		bins = rate.NDBins((rate.IrregularBins(m1bins),rate.IrregularBins(m2bins)))
-	elif len(m2bins) == 0:
-		bins = rate.NDBins((rate.IrregularBins(m1bins),))
 	else:
-		print >>sys.stderr,"XML must contain less than 1 mass2 bin. Found %d."%len(m2bins)
+		print >>sys.stderr,"XML must contain either one mass_bins column, or one mass1_bins column, ",\
+  "or one each of mass1_bins and mass2_bins. Found %d mass_bins, %d mass1_bins, %d mass2_bins." % ( len(mbins), len(m1bins), len(m2bins) )
 		sys.exit(1)
 
 	return bins
@@ -140,10 +141,10 @@ def parse_command_line():
 	opts.gps_extent =  opts.input_cache.to_segmentlistdict().extent()
 	opts.enable_output = True
 
-	return opts
+	return opts, sys.argv[1:] 
 
 
-opts  = parse_command_line()
+opts, args  = parse_command_line()
 
 Mpc3_per_L10 = 50.0
 
@@ -349,11 +350,12 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    #
    bottom = combined_upper_limit.array
    top = numpy.ones(len(bottom))
-   pylab.bar(left, top, width, bottom = bottom, color='black', alpha=0.8)
+   pylab.bar(left, top, width, bottom = bottom, color='black', alpha=0.8, label=r'Posterior 90% upper limit')
    bottom_prior = prior_upper_limit.array
-   pylab.bar(left, top, width, bottom = bottom_prior, color='gray')
+   pylab.bar(left, top, width, bottom = bottom_prior, color='gray', label=r'Prior 90% upper limit')
    pylab.gca().semilogy()
    pylab.gca().set_ylim([0.1*bottom.min(),10.0*bottom_prior.max()])
+   pylab.legend(loc='upper right')
    #pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
    pylab.xticks(tick_locs,tick_strings)
    pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
@@ -380,10 +382,10 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    if max(distance+derr) < 100:
      pylab.ylim([0,100])
    pylab.ylabel('Range (Mpc)',fontsize=axis_font_size)
-   savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+   savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts, fnameList, tagList)
    pylab.clf()
 
-   plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [], fnameList,
+   plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
 					       tagList, add_box_flag = False ) #FIXME
    InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
 
@@ -418,7 +420,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
       ul_table.append(row)
 
    columnList = ['mass_bin','sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','MC_error','calib_error','wave_error','injs_found','injs_missed']
-   print_tables.print_tables(summary_doc,summary_file,opts.output_format,
+   print_tables.print_tables(summary_doc,summary_file,opts.output_format,print_table_names = False,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
    summary_file.close()

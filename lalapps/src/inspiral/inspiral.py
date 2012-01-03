@@ -3333,8 +3333,9 @@ def overlap_test(interval1, interval2, slide_sec=0):
 class SearchVolumeJob(pipeline.SqliteJob):
   """
   A search volume job. Computes the observed physical volume
-  above a specified FAR (if FAR is not specified, computes the
-  volume above the loudest event).
+  above a specified FAR; if FAR is not specified, computes the
+  volume above the loudest event (open box) or FAR=1/livetime 
+  (closed box).
   """
   def __init__(self, cp, dax = False):
     """
@@ -3360,13 +3361,13 @@ class SearchVolumeNode(pipeline.SqliteNode):
     self.add_var_opt("output-cache", file)
 
   def set_output_tag(self, tag):
-    self.add_var_opt("output-name-tag",tag)
+    self.add_var_opt("output-tag",tag)
 
   def set_veto_segments_name(self, name):
     self.add_var_opt("veto-segments-name", name)
 
-  def use_expected_loudest_event(self):
-    self.add_var_arg("--use-expected-loudest-event")
+  def set_open_box(self):
+    self.add_var_arg("--open-box")
 
 
 class SearchUpperLimitJob(pipeline.SqliteJob):
@@ -3404,3 +3405,4 @@ class SearchUpperLimitNode(pipeline.SqliteNode):
     if not self.open_box:
       self.open_box = True
       self.add_var_arg("--open-box")
+
