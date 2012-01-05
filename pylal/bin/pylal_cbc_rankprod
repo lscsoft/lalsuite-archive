@@ -151,9 +151,9 @@ def calculate_FAP(ranklist,lenlist):
 
 
 def plot_one_thing( xvals, yvals, plotcommand="plot", gridval=True, \
-  marker='+', size=12, plotcolor="b", edgecolor=None, \
-  legtext=None, plotxlab=None, plotylab=None, plottit=None, figname=None, figtag=None, \ 
-  expandxlim=None, expandylim=None ):
+  marker='+', size=12, plotcolor="b", edgecolor=None, expandxlim=None, expandylim=None, \
+  legtext=None, legloc="upper right", plotxlab=None, plotylab=None, plottit=None, \
+  figname=None, figtag=None, ):
 
 xvals = array(xvals)
 yvals = array(yvals)
@@ -177,7 +177,7 @@ xlabel(plotxlab, size="x-large")
 ylabel(plotylab, size="x-large")
 title(plottit, size="large")
 if legtext:
-  legend()
+  legend(loc=legloc)
 
 if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, figname)
