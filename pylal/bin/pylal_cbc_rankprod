@@ -166,15 +166,18 @@ elif command = "semilogy":
 elif command = "loglog":
   loglog()
 grid(gridval)
+
 if expandxlim:
   xlim(min(xvals)/expandxlim,max(xvals)*expandxlim)
 if expandylim:
   ylim(min(yvals)/expandylim,max(yvals)*expandylim)
+
 xlabel(plotxlab, size="x-large")
 ylabel(plotylab, size="x-large")
 title(plottit, size="large")
 if legtext:
   legend()
+
 if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, figname)
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -481,21 +484,12 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
 
   # make an IFAN graph
   if opts.display_coincs and numCoincs:
-    fig_num +=1
-    figure(fig_num)
-    loglog(array(sortedFANs)**-1,arange(1,len(sortedFANs)+1),'bv',markersize=10,markeredgecolor=None,label="Coincident events")
-    grid(True)
-    legend(loc="upper right")
-    ylim(0.9,1.5*numCoincs)
-    xlabel(r"1/FAN",size="x-large")
-    ylabel("Cumulative number",size="x-large")
-    title(opts.ifo_tag,size="large")
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "coinc_IFAN")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append("coinc_ifan")
-    close(fig_num)
+    xlab = r"Inverse False Alarm Number"
+    ylab = "Cumulative number"
+    legend = "Coincident events"
+    plot_one_thing(array(sortedFANs)**-1, arange(1,len(sortedFANs)+1), command="loglog", marker="bv", size=10, \
+      plotcolor="b", expandylim=1.4, legtext=legend, plotxlab=xlab, plotylab=ylab, plottit = opts.ifo_tag, \
+      figname="coinc_IFAN", figtag="coinc_ifan")
 
     # and make a FAN vs combined statistic-squared graph
       #   for coinc in sortedCoincEvents: 
@@ -504,21 +498,12 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
       #       statsq.append( sum([getattr(sngl,"get_"+opts.statistic)**2 for sngl in sngls]) )
       #     elif opts.statistic == "snr":
       #       statsq.append( sum([getattr(sngl,"snr")**2 for sngl in sngls]) )
-    fig_num +=1
-    figure(fig_num)
     sortedStats = [coinc.stat for coinc in sortedCoincEvents]
-    semilogy(array(sortedStats)**2,array(sortedFANs),'bo',markersize=8,markeredgecolor=None,label="Coincident events")
-    grid(True)
-    legend(loc="upper right")
-    xlabel("Combined "+opts.statistic+" squared",size="x-large")
-    ylabel("Estimated false alarm number (FAN)",size="x-large")
-    title(opts.ifo_tag,size="large")
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "coinc_statsq_vs_FAN")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append("statsq_vs_FAN")
-    close(fig_num)
+    xlab = r"Combined "+opts.statistic+" squared"
+    ylab = r"Estimated false alarm number (FAN)"
+    plot_one_thing(sortedStats, sortedFANs, command="semilogy", marker="bo", size=8, plotcolor="b", \
+      legtext=legend, plotxlab=xlab, plotylab=ylab, plottit = opts.ifo_tag, \
+      figname="coinc_statsq_vs_FAN", figtag="statsq_vs_FAN")
     
     # and write details of the loudest 20 events
     for i,coinc in enumerate(sortedCoincEvents):
