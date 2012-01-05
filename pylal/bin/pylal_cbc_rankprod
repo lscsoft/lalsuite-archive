@@ -150,7 +150,7 @@ def calculate_FAP(ranklist,lenlist):
   return jointfap
 
 
-def plot_one_thing( xvals, yvals, plotcommand="plot", gridval=True, \
+def plot_one_thing( fig_num, xvals, yvals, plotcommand="plot", gridval=True, \
   marker='+', size=12, plotcolor="b", edgecolor=None, expandxlim=None, expandylim=None, \
   legtext=None, legloc="upper right", plotxlab=None, plotylab=None, plottit=None, \
   figname=None, figtag=None, ):
@@ -160,11 +160,11 @@ def plot_one_thing( xvals, yvals, plotcommand="plot", gridval=True, \
   fig_num +=1
   figure(fig_num)
   plot(xvals, yvals, marker, markersize=size, color=plotcolor, markeredgecolor=edgecolor, label=legtext)
-  if command == "semilogx":
+  if plotcommand == "semilogx":
     semilogx()
-  elif command == "semilogy":
+  elif plotcommand == "semilogy":
     semilogy()
-  elif command == "loglog":
+  elif plotcommand == "loglog":
     loglog()
   grid(gridval)
   
@@ -357,8 +357,6 @@ for ifo in ifos:
       del snglTrigs
       comments += InspiralUtils.message(opts, "%d triggers lie within GPS %d to %d" % (len(snglTrigsinTime), \
         opts.gps_start_time, opts.gps_end_time) )
-      if len(snglTrigsinTime):
-        haveTrigs = True
       # apply the vetoes
       if vetofiles[ifo]:
         for vfile in vetofiles[ifo]:
@@ -386,14 +384,14 @@ for ifo in ifos:
     del snglTrigsinTime
 
   if len(statistics[ifo]):
-
+    haveTrigs = True
     gpsns = statistics[ifo].keys()
     statvalues = [statistics[ifo][time][0] for time in gpsns]
     times = [time/10**9-opts.gps_start_time for time in gpsns]
 
     # make a plot of statistic vs. time
     color = ifocolors[ifo]
-    title = ifo+r" "+opts.trig_pattern+r" triggers"
+    plottit = ifo+" "+opts.trig_pattern+" triggers"
     xlab = r"Time after start of experiment (s)"
     ylab = r"Statistic value "+opts.statistic
     name = ifo+"_"+opts.statistic+"_vs_time"
@@ -402,8 +400,8 @@ for ifo in ifos:
       command = "semilogy"
     else:
       command = "plot"
-    plot_one_thing(times, statvalues, plotcommand=command, marker='+', size=10, \
-      plotcolor=color, plotxlab=xlab, plotylab=ylab, plottit=title, figname=name, \
+    plot_one_thing(fig_num, times, statvalues, plotcommand=command, marker='+', size=10, \
+      plotcolor=color, plotxlab=xlab, plotylab=ylab, plottit=plottit, figname=name, \
       figtag = tag, expandylim=1.1)
 
     # and a plot of rank vs. statistic
@@ -412,9 +410,9 @@ for ifo in ifos:
     name = ifo+"_"+opts.statistic+"_rank"
     tag = ifo+"_statistic_rank"
     # color and title remain the same
-    plot_one_thing(statvalues, [ranks[ifo][stat] for stat in statvalues], \
-      plotcommand="semilogy", marker='.', plotcolor=color, plotxlab=xlab, \
-      plotylab=ylab, plottit=title, figname=name, figtag = tag, expandylim=2.)
+    plot_one_thing(fig_num, statvalues, [ranks[ifo][stat] for stat in statvalues], \
+      plotcommand="semilogy", marker=".", plotcolor=color, plotxlab=xlab, \
+      plotylab=ylab, plottit=plottit, figname=name, figtag = tag, expandylim=2.)
 
 
 if not haveTrigs:
@@ -489,10 +487,10 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
   if opts.display_coincs and numCoincs:
     xlab = r"Inverse False Alarm Number"
     ylab = "Cumulative number"
-    legend = "Coincident events"
-    plot_one_thing(array(sortedFANs)**-1, arange(1,len(sortedFANs)+1), command="loglog", marker="bv", size=10, \
-      plotcolor="b", expandylim=1.4, legtext=legend, plotxlab=xlab, plotylab=ylab, plottit = opts.ifo_tag, \
-      figname="coinc_IFAN", figtag="coinc_ifan")
+    points = "Coincident events"
+    plot_one_thing(fig_num, array(sortedFANs)**-1, arange(1,len(sortedFANs)+1), plotcommand="loglog", \
+      marker="bv", size=10, plotcolor="b", expandylim=1.4, legtext=points, plotxlab=xlab, plotylab=ylab, \
+      plottit=opts.ifo_tag, figname="coinc_IFAN", figtag="coinc_ifan")
 
     # and make a FAN vs combined statistic-squared graph
       #   for coinc in sortedCoincEvents: 
@@ -504,8 +502,8 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
     sortedStats = [coinc.stat for coinc in sortedCoincEvents]
     xlab = r"Combined "+opts.statistic+" squared"
     ylab = r"Estimated false alarm number (FAN)"
-    plot_one_thing(sortedStats, sortedFANs, command="semilogy", marker="bo", size=8, plotcolor="b", \
-      legtext=legend, plotxlab=xlab, plotylab=ylab, plottit = opts.ifo_tag, \
+    plot_one_thing(fig_num, sortedStats, sortedFANs, plotcommand="semilogy", marker="bo", size=8, \
+      plotcolor="b", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
       figname="coinc_statsq_vs_FAN", figtag="statsq_vs_FAN")
     
     # and write details of the loudest 20 events
