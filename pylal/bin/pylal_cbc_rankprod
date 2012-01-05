@@ -154,37 +154,37 @@ def plot_one_thing( xvals, yvals, plotcommand="plot", gridval=True, \
   marker='+', size=12, plotcolor="b", edgecolor=None, expandxlim=None, expandylim=None, \
   legtext=None, legloc="upper right", plotxlab=None, plotylab=None, plottit=None, \
   figname=None, figtag=None, ):
-
-xvals = array(xvals)
-yvals = array(yvals)
-fig_num +=1
-figure(fig_num)
-plot(xvals, yvals, marker, markersize=size, color=plotcolor, markeredgecolor=edgecolor, label=legtext)
-if command = "semilogx":
-  semilogx()
-elif command = "semilogy":
-  semilogy()
-elif command = "loglog":
-  loglog()
-grid(gridval)
-
-if expandxlim:
-  xlim(min(xvals)/expandxlim,max(xvals)*expandxlim)
-if expandylim:
-  ylim(min(yvals)/expandylim,max(yvals)*expandylim)
-
-xlabel(plotxlab, size="x-large")
-ylabel(plotylab, size="x-large")
-title(plottit, size="large")
-if legtext:
-  legend(loc=legloc)
-
-if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, figname)
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(figtag)
-close(fig_num)
+  
+  xvals = array(xvals)
+  yvals = array(yvals)
+  fig_num +=1
+  figure(fig_num)
+  plot(xvals, yvals, marker, markersize=size, color=plotcolor, markeredgecolor=edgecolor, label=legtext)
+  if command == "semilogx":
+    semilogx()
+  elif command == "semilogy":
+    semilogy()
+  elif command == "loglog":
+    loglog()
+  grid(gridval)
+  
+  if expandxlim:
+    xlim(min(xvals)/expandxlim,max(xvals)*expandxlim)
+  if expandylim:
+    ylim(min(yvals)/expandylim,max(yvals)*expandylim)
+  
+  xlabel(plotxlab, size="x-large")
+  ylabel(plotylab, size="x-large")
+  title(plottit, size="large")
+  if legtext:
+    legend(loc=legloc)
+  
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, figname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(figtag)
+  close(fig_num)
 
 
 #############################################################################
