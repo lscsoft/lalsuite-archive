@@ -377,12 +377,8 @@ for ifo in ifos:
 
       # each entry in the statistics dictionary is a dictionary keyed on the trigger gps time in ns
       # each entry in the ranks dictionary is a dictionary keyed on the statistic value
-<<<<<<< HEAD:pylal/bin/pylal_cbc_rankprod
-      statistics[ifo],ranks[ifo] = rank_statistics(snglTrigsinTime, statistic=opts.statistic)
-=======
       # statvals is just a list of the statistic values in descending order
       statistics[ifo],ranks[ifo],statlists[ifo] = rank_statistics(snglTrigsinTime, statistic=opts.statistic)
->>>>>>> fc28308... rankprod: development. Added background snr plot:pylal/bin/pylal_cbc_rankprod
     else:
       comments += InspiralUtils.message(opts, "No triggers were found in the files for "+ifo+"!")
       statistics[ifo] = {}
