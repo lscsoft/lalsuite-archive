@@ -231,8 +231,6 @@ def parse_command_line():
     help="Single-ifo ranking statistic: must be snr, snrchi, effective_snr or new_snr")
   parser.add_option("-x","--statistic-cut",action="store",type="float",
     help="Cut to be applied to single-ifo statistic values")
-<<<<<<< HEAD:pylal/bin/pylal_cbc_rankprod
-=======
 
   # options relating to the output and plots
   parser.add_option("-d","--display-coincs",action="store_true",default=False,
@@ -241,7 +239,6 @@ def parse_command_line():
   parser.add_option("-b","--fake-coincs",action="store_true",default=True,
     help="display FANs and statistic values for a standard sample of hypothetical \
     coinc events: use for closed-box")
->>>>>>> fc28308... rankprod: development. Added background snr plot:pylal/bin/pylal_cbc_rankprod
 
   parser.add_option("-Z","--user-tag",action="store",type="string",default=None,
     help="a user tag for the output filenames")
