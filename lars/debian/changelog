@@ -1,3 +1,10 @@
+ligo-lars (1.1.0-2) unstable; urgency=low
+
+  * Bad dependency list.  glue-segments should've been python-glue-segments
+  * XS-Python-Version changed to "all"
+
+ -- Brian Moe <brian.moe@ligo.org>  Tue, 19 Dec 2011 14:03:46 -0600
+
 ligo-lars (1.1.0) unstable; urgency=low
 
   * Fixed fix for bad dev version numbers.
