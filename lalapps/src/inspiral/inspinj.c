@@ -2786,7 +2786,7 @@ int main( int argc, char *argv[] )
         rand_seed, gpsStartTime.gpsSeconds, gpsDuration );
   }
   if ( outputFileName )
-  {
+  { 
     snprintf( fname, sizeof(fname), "%s",
         outputFileName);
   }
