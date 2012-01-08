@@ -32,7 +32,7 @@ coherent inspiral metric module.
 import pylab
 import scipy
 import numpy
-from pylal import coherent_inspiral_metric as metric
+import metric
 from scipy import pi,sin,cos
 #from pylal import inject
 #from pylal.xlal.tools import cached_detector
@@ -46,16 +46,18 @@ def f_PSD_from_file(filename, fLow, fNyq, deltaF):
 	for use with ffts.
 	"""
 	f_in,S_in = numpy.loadtxt(filename, unpack=True)
-	f = numpy.linspace(fLow,fNyq,(fNyq-fLow)/deltaF+1)
+	f = numpy.linspace(fLow,fNyq,scipy.ceil((fNyq-fLow)/deltaF)+1)
 	S = pylab.interp(f, f_in, S_in)
 	# packing is of the form:
 	# [0 deltaF 2*deltaF ... fNyquist-deltaF fNyquist -fNyquist+deltaF ... -2*deltaF -deltaF]
 	PSD = scipy.zeros(2*(fNyq/deltaF), dtype='float')+scipy.inf
 	PSD[fLow/deltaF:fNyq/deltaF+1] = S**2
-	PSD[fNyq/deltaF+1:-fLow/deltaF] = S[-2:0:-1]**2
+	if -scipy.floor(fLow/deltaF) == 0:
+		PSD[fNyq/deltaF+1:] = S[-2:0:-1]**2
+	else:
+		PSD[fNyq/deltaF+1:-scipy.floor(fLow/deltaF)] = S[-2:0:-1]**2
 	f = scipy.arange(2*(fNyq/deltaF))*deltaF
 	f[fNyq/deltaF+1:] = -f[fNyq/deltaF-1:0:-1]
-
 	return f,PSD
 
 def DegMinSec2Rad(sign,deg,minutes,seconds):
@@ -118,9 +120,9 @@ def lat_lon_ori_2_yarm(lat, lon, ori):
 # https://granite.phys.s.u-tokyo.ac.jp/trac/LCGT/browser/trunk/sensitivity/spectrum/BW2009_VRSEB.dat
 
 # detector geometries from LALDetectors.h
-def make_LHO(fLow=10.,fNyq=2048.):
+def make_LHO(fLow=10., fNyq=2048., deltaF=0.1):
 	filename = "PSDs/ZERO_DET_high_P.txt" # Adv. LIGO
-	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,0.1)
+	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,deltaF)
 	detector = metric.Detector(
 		'H',
 		(-0.22389266154,0.79983062746,0.55690487831),
@@ -131,9 +133,9 @@ def make_LHO(fLow=10.,fNyq=2048.):
 	detector.set_required_moments(f)
 	return detector
 
-def make_LLO(fLow=10.,fNyq=2048.):
+def make_LLO(fLow=10., fNyq=2048., deltaF=0.1):
 	filename = "PSDs/ZERO_DET_high_P.txt" # Adv. LIGO
-	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,0.1)
+	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,deltaF)
 	detector = metric.Detector(
 		'L',
 		(-0.95457412153,-0.14158077340,-0.26218911324),
@@ -144,9 +146,9 @@ def make_LLO(fLow=10.,fNyq=2048.):
 	detector.set_required_moments(f)
 	return detector
 
-def make_Virgo(fLow=10.,fNyq=2048.):
+def make_Virgo(fLow=10., fNyq=2048., deltaF=0.1):
 	filename = "PSDs/AdV_baseline_sensitivity_12May09.txt" # Adv. Virgo
-	f,PSD_Virgo = f_PSD_from_file(filename,fLow,fNyq,0.1)
+	f,PSD_Virgo = f_PSD_from_file(filename,fLow,fNyq,deltaF)
 	detector = metric.Detector(
 		'V',
 		(-0.70045821479,0.20848948619,0.68256166277),
@@ -157,9 +159,9 @@ def make_Virgo(fLow=10.,fNyq=2048.):
 	detector.set_required_moments(f)
 	return detector
 
-def make_GEO(fLow=10.,fNyq=2048.):
+def make_GEO(fLow=10., fNyq=2048., deltaF=0.1):
 	filename = "PSDs/ZERO_DET_high_P.txt" # Adv. LIGO but 10x less sensitive
-	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,0.1)
+	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,deltaF)
 	detector = metric.Detector(
 		'G',
 		(-0.44530676905, 0.86651354130, 0.22551311312),
@@ -171,9 +173,9 @@ def make_GEO(fLow=10.,fNyq=2048.):
 	return detector
 
 # detector geometries from arxiv:1102.5421v2
-def make_LCGT(fLow=10.,fNyq=2048.):
+def make_LCGT(fLow=10., fNyq=2048., deltaF=0.1):
 	filename = "PSDs/BW2009_VRSED.dat" # LCGT
-	f,PSD_LCGT = f_PSD_from_file(filename,fLow,fNyq,0.1)
+	f,PSD_LCGT = f_PSD_from_file(filename,fLow,fNyq,deltaF)
 	detector = metric.Detector(
 		'C',
 		lat_lon_ori_2_xarm(DegMinSec2Rad(1,36.,15.,0.),DegMinSec2Rad(1,137.,10.,48.),DegMinSec2Rad(1,20.,0.,0.)),
@@ -184,9 +186,9 @@ def make_LCGT(fLow=10.,fNyq=2048.):
 	detector.set_required_moments(f)
 	return detector
 
-def make_IndIGO(fLow=10.,fNyq=2048.):
+def make_IndIGO(fLow=10., fNyq=2048., deltaF=0.1):
 	filename = "PSDs/ZERO_DET_high_P.txt" # Adv. LIGO
-	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,0.1)
+	f,PSD_LIGO = f_PSD_from_file(filename,fLow,fNyq,deltaF)
 	detector = metric.Detector(
 		'I',
 		lat_lon_ori_2_xarm(DegMinSec2Rad(1,19.,5.,47.),DegMinSec2Rad(1,74.,2.,51.),DegMinSec2Rad(1,270.,0.,0.)),

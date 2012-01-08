@@ -36,6 +36,8 @@ The derivation of the contents of this module is very close to that for
 continuous wave signals. It follows the examples of Prix arXiv:gr-qc/0606088
 although uses some of the notation of Harry and Fairhurst arXiv:1012.4939 for
 coherent inspiral signals.
+
+Some of this code should be moved to c code in LAL in order to up calculations.
 """
 
 import sys
@@ -304,6 +306,7 @@ def eps_plus(RA, dec):
 	"""
 	The plus response tensor for an interferometric GW detector for a
 	given sky location.
+	FIXME: Get this from LAL.
 	"""
 	s1 = sin(RA)
 	c1 = cos(RA)
@@ -326,6 +329,7 @@ def eps_plus(RA, dec):
 def Fp(RA, dec, detector):
 	"""
 	Compute the plus-polarization antenna factor.
+	FIXME: Get this from LAL.
 	"""
 
 	d00 = detector.response[0,0]
@@ -349,6 +353,7 @@ def deps_plus_dRA(RA, dec):
 	"""
 	The derivative of the plus response tensor for an interferometric GW detector for a
 	given sky location with respect to the Right Ascension.
+	FIXME: Move this to LAL.
 	"""
 	s1 = sin(RA)
 	c1 = cos(RA)
@@ -372,6 +377,7 @@ def dFp_dRA(RA, dec, detector):
 	"""
 	Compute the partial derivate of the plus-polarization antenna factor
 	with respect to RA, the right ascension.
+	FIXME: Move this to LAL.
 	"""
 	d00 = detector.response[0,0]
 	d01 = detector.response[0,1]
@@ -394,6 +400,7 @@ def deps_plus_ddec(RA, dec):
 	"""
 	The derivative of the plus response tensor for an interferometric GW detector for a
 	given sky location with respect to the declination.
+	FIXME: Move this to LAL.
 	"""
 	s1 = sin(RA)
 	c1 = cos(RA)
@@ -417,6 +424,7 @@ def dFp_ddec(RA, dec, detector):
 	"""
 	Compute the partial derivate of the plus-polarization antenna factor
 	with respect to dec, the declination.
+	FIXME: Move this to LAL.
 	"""
 	d00 = detector.response[0,0]
 	d01 = detector.response[0,1]
@@ -439,6 +447,7 @@ def eps_cross(RA, dec):
 	"""
 	The cross response tensor for an interferometric GW detector for a
 	given sky location.
+	FIXME: Get this from LAL.
 	"""
 	s1 = sin(RA)
 	c1 = cos(RA)
@@ -461,6 +470,7 @@ def eps_cross(RA, dec):
 def Fx(RA, dec, detector):
 	"""
 	Compute the cross-polarization antenna factor.
+	FIXME: Get this from LAL.
 	"""
 
 	d00 = detector.response[0,0]
@@ -484,6 +494,7 @@ def deps_cross_dRA(RA, dec):
 	"""
 	The derivative of the cross response tensor for an interferometric GW detector for a
 	given sky location with respect to the Rigth Ascension.
+	FIXME: Move this to LAL.
 	"""
 	s1 = sin(RA)
 	c1 = cos(RA)
@@ -507,6 +518,7 @@ def dFx_dRA(RA, dec, detector):
 	"""
 	Compute the partial derivate of the cross-polarization antenna factor
 	with respect to RA, the right ascension.
+	FIXME: Move this to LAL.
 	"""
 	d00 = detector.response[0,0]
 	d01 = detector.response[0,1]
@@ -529,6 +541,7 @@ def deps_cross_ddec(RA, dec):
 	"""
 	The derivative of the cross response tensor for an interferometric GW detector for a
 	given sky location with respect to the declination.
+	FIXME: Move this to LAL.
 	"""
 	s1 = sin(RA)
 	c1 = cos(RA)
@@ -552,6 +565,7 @@ def dFx_ddec(RA, dec, detector):
 	"""
 	Compute the partial derivate of the cross-polarization antenna factor
 	with respect to dec, the declination.
+	FIXME: Move this to LAL.
 	"""
 	d00 = detector.response[0,0]
 	d01 = detector.response[0,1]
