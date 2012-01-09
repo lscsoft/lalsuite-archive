@@ -481,8 +481,8 @@ int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[], void * pa
 			* params->coeff.variables.omegaPowi_3[LAL_PNORDER_THREE];
 	case LAL_PNORDER_TWO_POINT_FIVE:
 	case LAL_PNORDER_TWO:
-		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)
-			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN) {
+		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)
+			== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) {
 			XLALAddSSContributions(params, values, dvalues);
 		}
 		if ((params->spinInteraction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN)
