@@ -396,8 +396,10 @@ if opts.verbose:
 	print "...finalising and saving figures..."
 
 # edges of box showing location of M81
-M81_low = opts.distance-opts.distance_error
-M81_upp = opts.distance+opts.distance_error
+#M81_low = opts.distance-opts.distance_error
+#M81_upp = opts.distance+opts.distance_error
+M81_low = 3.63-0.14
+M81_upp = 3.63+0.14
 
 if len(systems)<=4:
 
