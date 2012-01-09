@@ -118,6 +118,7 @@ def rank_statistics(sngls, statistic, fac=50., index=6.):
     # case the original (arbitrary) ordering of the sngls is preserved
     ranks[stat] = 1+i
   # assign the statistic ranks to their gps ns times
+  print "length of ranks:", len(ranks) 
   print >> sys.stdout, "Assigning ranks to gps times..."
   for gpsns in statistics.keys():
     statistics[gpsns][3] = ranks[statistics[gpsns][0]]
@@ -152,7 +153,7 @@ def calculate_FAP(ranklist,lenlist):
 def plot_one_thing( fig_num, xvals, yvals, plotcommand="plot", gridval=True, \
   marker='+', size=12, plotcolor="b", edgecolor=None, expandxlim=None, expandylim=None, \
   legtext=None, legloc="upper right", plotxlab=None, plotylab=None, plottit=None, \
-  figname=None, figtag=None, ):
+  figname=None, figtag=None ):
   
   xvals = array(xvals)
   yvals = array(yvals)
@@ -399,7 +400,7 @@ for ifo in ifos:
       command = "semilogy"
     else:
       command = "plot"
-    plot_one_thing(fig_num, times, statvalues, plotcommand=command, marker='+', size=10, \
+    plot_one_thing(fig_num, times, statvalues, plotcommand=command, marker="+", size=10, \
       plotcolor=color, plotxlab=xlab, plotylab=ylab, plottit=plottit, figname=name, \
       figtag = tag, expandylim=1.1)
 
@@ -488,7 +489,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
     ylab = "Cumulative number"
     points = "Coincident events"
     plot_one_thing(fig_num, array(sortedFANs)**-1, arange(1,len(sortedFANs)+1), plotcommand="loglog", \
-      marker="bv", size=10, plotcolor="b", expandylim=1.4, legtext=points, plotxlab=xlab, plotylab=ylab, \
+      marker="v", size=10, plotcolor="b", expandylim=1.4, legtext=points, plotxlab=xlab, plotylab=ylab, \
       plottit=opts.ifo_tag, figname="coinc_IFAN", figtag="coinc_ifan")
 
     # and make a FAN vs combined statistic-squared graph
@@ -501,9 +502,9 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
     sortedStats = [coinc.stat for coinc in sortedCoincEvents]
     xlab = r"Combined "+opts.statistic+" squared"
     ylab = r"Estimated false alarm number (FAN)"
-    plot_one_thing(fig_num, sortedStats, sortedFANs, plotcommand="semilogy", marker="bo", size=8, \
+    plot_one_thing(fig_num, sortedStats, sortedFANs, plotcommand="semilogy", marker="o", size=8, \
       plotcolor="b", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
-      figname="coinc_statsq_vs_FAN", figtag="statsq_vs_FAN")
+      figname="coinc_statsq_vs_FAN", figtag="statsq_vs_fan")
     
     # and write details of the loudest 20 events
     for i,coinc in enumerate(sortedCoincEvents):
@@ -525,7 +526,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
         comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f),\
           chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
 
-# generate background samples by pretending that n'th-ranked triggers are coincident. 
+# generate background samples by pretending that n'th-ranked triggers in each ifo are coincident. 
 # can do this even if there are no zerolag coincs (setting numCoincs=1)
 if opts.fake_coincs:
   fake_ranks = [1,2,4,8,16,32,64,128,256,512,1000,2000,4000,8000,16000,32000,64000,128000,256000,512000,1000000]
@@ -540,21 +541,16 @@ if opts.fake_coincs:
   #    print calculate_FAP([rank,rank],statlengths)
   #    print stat1**2+stat2**2
   if len(fakeFAPs):
-    fig_num +=1
-    figure(fig_num)
     fakeFANs = [FAP*max(1,numCoincs) for FAP in fakeFAPs]
-    semilogy(array(fakeStatsq),array(fakeFANs),'kx',markersize=8,label="Example trigger pairs")
-    grid(True)
-    legend(loc="upper right")
-    xlabel("Combined "+opts.statistic+" squared",size="x-large")
-    ylabel("Estimated false alarm number (FAN)",size="x-large")
-    title(opts.ifo_tag+" sample distribution",size="large")
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "fake_statsq_vs_FAN")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append("fake_statsq_vs_FAN")
-    close(fig_num)
+    plottit = opts.ifo_tag+" sample background coincs"
+    xlab = r"Combined "+opts.statistic+" squared"
+    ylab = r"Estimated false alarm number (FAN)"
+    plot_one_thing( fig_num, fakeStatsq, fakeFANs, plotcommand="semilogy", \
+      marker="x", size=8, plotcolor="k", edgecolor=None, \
+      legtext="Example trigger pairs", plotxlab=xlab, plotylab=None, plottit=plottit, \
+      figname="fake_statsq_vs_FAN", figtag="fake_statsq_vs_fan" )
+  else:
+    comments += InspiralUtils.message(opts, "No fake coincs could be generated: inspiral triggers are required in 2 or more ifos!")
 
 # finalize
 
