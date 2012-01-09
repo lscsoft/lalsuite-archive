@@ -197,7 +197,12 @@ static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS 
 (--fLow [freq1,freq2,...])      Specify lower frequency cutoff for overlap integral (40.0)\n\
 (--fHigh [freq1,freq2,...])     Specify higher frequency cutoff for overlap integral (2048.0)\n\
 (--channel [chan1,chan2,...])   Specify channel names when reading cache files\n\
-(--dataseed number)             Specify random seed to use when generating data\n"
+(--dataseed number)             Specify random seed to use when generating data\n\
+(--LALSimulationInjection)      Enables injections via the LALSimulation package\n\
+(--inj-lambda1)                 value of lambda1 to be injected, LALSimulation only (0)\n\
+(--inj-lambda2)                 value of lambda1 to be injected, LALSimulation only (0)\n\
+(--inj-interactionFlags)        value of the interaction flag to be injected, LALSimulation only (LAL_SIM_INSPIRAL_INTERACTION_ALL)\n"
+
 
 LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
@@ -210,7 +215,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	REAL8 SampleRate=4096.0,SegmentLength=0;
 	if(LALInferenceGetProcParamVal(commandLine,"--srate")) SampleRate=atof(LALInferenceGetProcParamVal(commandLine,"--srate")->value);
         const REAL8 defaultFLow = 40.0;
-        const REAL8 defaultFHigh = SampleRate/2.0;
 	int nSegs=0;
 	size_t seglen=0;
 	REAL8TimeSeries *PSDtimeSeries=NULL;
@@ -313,12 +317,9 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			XLALPrintError("Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
 			XLAL_ERROR_NULL(XLAL_EFUNC);
 		}
-	}
-	if(LALInferenceGetProcParamVal(commandLine,"--injXML")){
-	  if(LALInferenceGetProcParamVal(commandLine,"--event")){
-		event=atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
-		while(q<event) {q++; injTable = injTable->next;}
-	  }
+        procparam=LALInferenceGetProcParamVal(commandLine,"--event");
+        if(procparam) event=atoi(procparam->value);
+        while(q<event) {q++; injTable=injTable->next;}
 	}
 	
 	procparam=LALInferenceGetProcParamVal(commandLine,"--PSDstart");
@@ -330,7 +331,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 		LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
 	}
 	else{
-		if(injTable) GPStrig = injTable->geocent_end_time;
+		if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
 		else {
             XLALPrintError("Error: No trigger time specifed and no injection given \n");
             XLAL_ERROR_NULL(XLAL_EINVAL);
@@ -345,7 +346,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	
 	for(i=0;i<Nifo;i++) {
           IFOdata[i].fLow=fLows?atof(fLows[i]):defaultFLow; 
-          IFOdata[i].fHigh=fHighs?atof(fHighs[i]):defaultFHigh;
+          IFOdata[i].fHigh=fHighs?atof(fHighs[i]):(SampleRate/2.0-(1.0/SegmentLength));
           strncpy(IFOdata[i].name, IFOnames[i], DETNAMELEN);
           IFOdata[i].STDOF = 4.0 / M_PI * nSegs;
           fprintf(stderr, "Detector %s will run with %g DOF if Student's T likelihood used.\n",
@@ -988,12 +989,47 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       LALGetOrderFromString(&status, injEvent->waveform, &order);
       amporder = injEvent->amp_order;
       //if(amporder<0) amporder=0;
-        
+      /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
+       * They should be added to injEvent and set to appropriate values 
+       */
+      REAL8 lambda1 = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
+        lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
+        fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+      }
+      REAL8 lambda2 = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
+        lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
+        fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+      }      
+      LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+      ppt=LALInferenceGetProcParamVal(commandLine,"--inj-interactionFlags");
+      if(ppt){
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_NONE")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_NONE;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL;
+      }
+            
         XLALSimInspiralChooseWaveform(&hplus, &hcross, injEvent->coa_phase, thisData->timeData->deltaT,
                                                 injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
                                                 injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
                                                 injEvent->spin2z, injEvent->f_lower, injEvent->distance*LAL_PC_SI * 1.0e6,
-                                                injEvent->inclination, amporder, order, approximant);
+                                                injEvent->inclination, lambda1, lambda2, interactionFlags, 
+                                                amporder, order, approximant);
+      
+      if(!hplus || !hcross) {
+        fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
+        exit(-1);
+        //XLALPrintError("XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
+        //XLAL_ERROR_VOID(XLAL_EFUNC);
+      }
       
       XLALGPSAddGPS(&(hplus->epoch), &(injEvent->geocent_end_time));
       XLALGPSAddGPS(&(hcross->epoch), &(injEvent->geocent_end_time));

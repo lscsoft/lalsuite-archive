@@ -38,6 +38,7 @@ import os
 from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
+from operator import itemgetter
 
 #related third party imports
 import numpy as np
@@ -435,9 +436,7 @@ class OneDPosterior(object):
         np_seterr(under='ignore')
         sp_seterr(under='ignore')
         try:
-	    if len(np.unique(self.__posterior_samples)) > 1:
-            	return_value=stats.kde.gaussian_kde(np.transpose(self.__posterior_samples))
-	    else: return_value=None
+            return_value=stats.kde.gaussian_kde(np.transpose(self.__posterior_samples))
         except:
             exfile=open('exception.out','w')
             np.savetxt(exfile,self.__posterior_samples)
@@ -1181,17 +1180,37 @@ class KDTree(object):
             v = v*(h - l)
         return v
 
-    def integrate(self, f, boxing=64):
+    def integrate(self,f,boxing=64):
         """
         Returns the integral of f(objects) over the tree.  The
         optional boxing parameter determines how deep to descend into
         the tree before computing f.
         """
+        # if len(self._objects) <= boxing:
+        #     return self.volume()*f(self._objects)
+        # else:
+        #     return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
+        
+        def x(tree):
+            return tree.volume()*f(tree._objects)
+            
+        def y(a,b):
+            return a+b
+        
+        return self.operate(x,y,boxing=boxing)
+        
+    def operate(self,f,g,boxing=64):
+        """
+        Operates on tree nodes exceeding boxing parameter depth.
+        """
         if len(self._objects) <= boxing:
-            return self.volume()*f(self._objects)
+            return f(self)
         else:
-            return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
-
+            
+            return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
+            
+    
+    
 class ParameterSample(object):
     """
     A single parameter sample object, suitable for inclusion in a
@@ -1491,6 +1510,60 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 #===============================================================================
 # Public module functions
 #===============================================================================
+
+def kdtree_bin_sky_volume(posterior,confidence_levels):
+    
+    confidence_levels.sort()
+    
+    class Harvester(list):
+        
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+            
+        def __call__(self,tree):
+            number_density=float(len(tree.objects()))/float(tree.volume())
+            self.append([number_density,tree.volume(),tree.bounds()])
+            self.unrho+=number_density
+            
+        def close_ranks(self):
+            
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+            
+            return sorted(self,key=itemgetter(0))
+    
+    def h(a,b):
+        pass
+    
+    samples,header=posterior.samples()
+    header=header.split()
+    coord_names=["ra","dec","dist"]
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    tree=KDTree(coordinatized_samples)
+    
+    a=Harvester()
+    samples_per_bin=10
+    tree.operate(a,h,boxing=samples_per_bin)
+    
+    b=a.close_ranks()
+    b.reverse()
+    
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+    confidence_intervals={}
+    for rho,vol,bounds in b:
+        acc_rho+=rho
+        acc_vol+=vol
+    
+        if acc_rho>confidence_levels[cl_idx]:
+            confidence_intervals[acc_rho]=acc_vol
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+    
+    return confidence_intervals
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
@@ -1928,8 +2001,7 @@ def plot_one_param_pdf_kde(fig,onedpos):
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
     gkde=onedpos.gaussian_kde
-    if gkde is None:
-      return
+
     ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
     kdepdf=gkde.evaluate(ind)
     plt.plot(ind,kdepdf)
@@ -2401,7 +2473,7 @@ def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
         par_binNumber=floor((par_injvalue-parpos_min)/par_bin)
         injbin=par_binNumber
 
-    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin*par_bin),int(len(par_samps)),confidence_levels)
+    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin),int(len(par_samps)),confidence_levels)
     cl_intervals=[]
     confidence_levels.sort()
     for cl in confidence_levels:
@@ -2896,7 +2968,7 @@ class PEOutputParser(object):
 
         llines=[]
         import re
-        dec=re.compile(r'[^Ee+\d.-]+')
+        dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
         line_count=0
         for line in infile:
             sline=line.split(delimiter)
@@ -2909,7 +2981,7 @@ class PEOutputParser(object):
 
             for st in sline:
                 s=st.replace('\n','')
-                if dec.search(s) is not None:
+                if dec.search(s) is None:
                     print 'Warning! Ignoring non-numeric data after the header: %s'%s
                     proceed=False
                 if s is '\n':

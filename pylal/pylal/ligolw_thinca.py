@@ -30,6 +30,7 @@ import sys
 
 
 from glue import iterutils
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
@@ -522,3 +523,222 @@ def ligolw_thinca(
 	#
 
 	return xmldoc
+
+
+#
+# =============================================================================
+#
+#                              GraceDB Utilities
+#
+# =============================================================================
+#
+
+
+#
+# Device to extract sngl_inspiral coincs from a source XML document tree.
+#
+
+
+class sngl_inspiral_coincs(object):
+	"""
+	Dictionary-like device to extract XML document trees containing
+	individual sngl_inspiral coincs from a source XML document tree
+	containing several.
+
+	An instance of the class is initialized with an XML document tree.
+	The coinc event ID of a sngl_inspiral<-->sngl_inspiral coinc in
+	the document can then be used like a dictionary key to retrieve a
+	newly-constructed XML document containing that coinc by itself.
+	The output document trees are complete, self-describing, documents
+	with all metadata about the event from the source document
+	preserved.
+
+	Example:
+
+	>>> coincs = sngl_inspiral_coincs(xmldoc)
+	>>> print coincs.coinc_def_id
+	coinc_definer:coinc_def_id:0
+	>>> coincs.keys()
+	[<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x41a4328>]
+	>>> id = coincs.keys()[0]
+	>>> print id
+	coinc_event:coinc_event_id:83763
+	>>> coincs[id].write()
+	<?xml version='1.0' encoding='utf-8'?>
+	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
+	<LIGO_LW>
+		<Table Name="process:table">
+			<Column Type="lstring" Name="process:comment"/>
+			<Column Type="lstring" Name="process:node"/>
+	...
+
+	The XML documents returned from this class share references to the
+	row objects in the original document.  Modifications to the row
+	objects in the tables returned by this class will affect both the
+	original document and all other documents returned by this class.
+	However, each retrieval constructs a new document from scratch,
+	they are not cached nor re-used, therefore this operation can be
+	time consuming if it needs to be performed repeatedly but the table
+	objects and document trees can be edited without affecting each
+	other.
+
+	If the source document is modified after this class has been
+	instantiated, the behaviour is undefined.
+
+	To assist with memory clean-up, it is helpful to invoke the
+	.unlink() method on the XML trees returned by this class when they
+	are no longer needed.
+	"""
+	def __init__(self, xmldoc):
+		"""
+		Initialize an instance of the class.  xmldoc is the source
+		XML document tree from which the
+		sngl_inspiral<-->sngl_inspiral coincs will be extracted.
+		"""
+		#
+		# find all tables
+		#
+
+		self.process_table = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+		self.process_params_table = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+		self.search_summary_table = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+		self.sngl_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		self.coinc_def_table = lsctables.table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+		self.coinc_event_table = lsctables.table.get_table(xmldoc, lsctables.CoincTable.tableName)
+		self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+		self.coinc_event_map_table = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+		self.time_slide_table = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+
+		#
+		# index the process, process params, search_summary,
+		# sngl_inspiral and time_slide tables
+		#
+
+		self.process_index = dict((row.process_id, row) for row in self.process_table)
+		self.process_params_index = {}
+		for row in self.process_params_table:
+			self.process_params_index.setdefault(row.process_id, []).append(row)
+		self.search_summary_index = dict((row.process_id, row) for row in self.search_summary_table)
+		self.sngl_inspiral_index = dict((row.event_id, row) for row in self.sngl_inspiral_table)
+		self.time_slide_index = {}
+		for row in self.time_slide_table:
+			self.time_slide_index.setdefault(row.time_slide_id, []).append(row)
+
+		#
+		# find the sngl_inspiral<-->sngl_inspiral coincs
+		#
+
+		self.coinc_def, = (row for row in self.coinc_def_table if row.search == InspiralCoincDef.search and row.search_coinc_type == InspiralCoincDef.search_coinc_type)
+		self.coinc_event_index = dict((row.coinc_event_id, row) for row in self.coinc_event_table if row.coinc_def_id == self.coinc_def.coinc_def_id)
+		self.coinc_inspiral_index = dict((row.coinc_event_id, row) for row in self.coinc_inspiral_table)
+		assert set(self.coinc_event_index) == set(self.coinc_inspiral_index)
+		self.coinc_event_map_index = dict((coinc_event_id, []) for coinc_event_id in self.coinc_event_index)
+		for row in self.coinc_event_map_table:
+			try:
+				self.coinc_event_map_index[row.coinc_event_id].append(row)
+			except KeyError:
+				continue
+
+	@property
+	def coinc_def_id(self):
+		"""
+		The coinc_def_id of the sngl_inspiral<-->sngl_inspiral
+		coincs in the source XML document.
+		"""
+		return self.coinc_def.coinc_def_id
+
+	def __getitem__(self, coinc_event_id):
+		"""
+		Construct and return an XML document containing the
+		sngl_inspiral<-->sngl_inspiral coinc carrying the given
+		coinc_event_id.
+		"""
+		newxmldoc = ligolw.Document()
+		newxmldoc.appendChild(ligolw.LIGO_LW())
+
+		# when making these, we can't use table.new_from_template()
+		# because we need to ensure we have a Table subclass, not a
+		# DBTable subclass
+		new_process_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable, self.process_table.columnnames))
+		new_process_params_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable, self.process_params_table.columnnames))
+		new_search_summary_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SearchSummaryTable, self.search_summary_table.columnnames))
+		new_sngl_inspiral_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SnglInspiralTable, self.sngl_inspiral_table.columnnames))
+		new_coinc_def_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincDefTable, self.coinc_def_table.columnnames))
+		new_coinc_event_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincTable, self.coinc_event_table.columnnames))
+		new_coinc_inspiral_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincInspiralTable, self.coinc_inspiral_table.columnnames))
+		new_coinc_event_map_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.CoincMapTable, self.coinc_event_map_table.columnnames))
+		new_time_slide_table = newxmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.TimeSlideTable, self.time_slide_table.columnnames))
+
+		new_coinc_def_table.append(self.coinc_def)
+		coinc_event = self.coinc_event_index[coinc_event_id]
+		new_coinc_event_table.append(coinc_event)
+		new_coinc_inspiral_table.append(self.coinc_inspiral_index[coinc_event_id])
+		new_coinc_event_map_table.extend(self.coinc_event_map_index[coinc_event_id])
+		new_time_slide_table.extend(self.time_slide_index[coinc_event.time_slide_id])
+		for row in new_coinc_event_map_table:
+			new_sngl_inspiral_table.append(self.sngl_inspiral_index[row.event_id])
+
+		for process_id in set(new_sngl_inspiral_table.getColumnByName("process_id")) | set(new_coinc_event_table.getColumnByName("process_id")) | set(new_time_slide_table.getColumnByName("process_id")):
+			# process row is required
+			new_process_table.append(self.process_index[process_id])
+			try:
+				new_process_params_table.extend(self.process_params_index[process_id])
+			except KeyError:
+				# process_params rows are optional
+				pass
+			try:
+				new_search_summary_table.append(self.search_summary_index[process_id])
+			except KeyError:
+				# search_summary rows are optional
+				pass
+
+		return newxmldoc
+
+	def __iter__(self):
+		"""
+		Iterate over the coinc_event_id's in the source document.
+		"""
+		return iter(self.coinc_event_index)
+
+	def __nonzero__(self):
+		return bool(self.coinc_event_index)
+
+	def keys(self):
+		"""
+		A list of the coinc_event_id's of the
+		sngl_inspiral<-->sngl_inspiral coincs available in the
+		source XML document.
+		"""
+		return self.coinc_event_index.keys()
+
+	def items(self):
+		"""
+		Yield a sequence of (coinc_event_id, XML tree) tuples, one
+		for each sngl_inspiral<-->sngl_inspiral coinc in the source
+		document.
+
+		NOTE:  to allow this to work more easily with very large
+		documents, instead of returning the complete sequence as a
+		pre-constructed list this method is implemented as a
+		generator.
+		"""
+		for coinc_event_id in self:
+			yield (coinc_event_id, self[coinc_event_id])
+
+	def column_index(self, table_name, column_name):
+		"""
+		Return a dictionary mapping coinc_event_id to the values in
+		the given column in the given table.
+
+		Example:
+
+		>>> print coincs.column_index("coinc_event", "likelihood")
+
+		Only columns in the coinc_event and coinc_inspiral tables
+		can be retrieved this way.
+		"""
+		if not lsctables.table.CompareTableNames(table_name, lsctables.CoincTable.tableName):
+			return dict(zip(self.coinc_event_table.getColumnByName("coinc_event_id"), self.coinc_event_table.getColumnByName(column_name)))
+		elif not lsctables.table.CompareTableNames(table_name, lsctables.CoincInspiralTable.tableName):
+			return dict(zip(self.coinc_inspiral_table.getColumnByName("coinc_event_id"), self.coinc_inspiral_table.getColumnByName(column_name)))
+		raise ValueError(table_name)

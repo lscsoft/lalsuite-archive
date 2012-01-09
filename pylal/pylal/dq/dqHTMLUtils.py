@@ -150,8 +150,10 @@ def write_banner(title, text=""):
   page._escape = False
 
   page.div(id="header")
+  page.div()
   page.h1(title)
   page.h3(text)
+  page.div.close()
 
   page.div.close()
 
