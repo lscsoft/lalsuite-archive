@@ -17,6 +17,7 @@ import os
 inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 type_inj="dphi7"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
+number_of_injs=500 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
 
 if type_inj!='GR':
      type_name=type_inj+'_'+repr(shift)+'pc'
@@ -44,12 +45,15 @@ print "Creating the xml file\n"
 
 outname='injections_%s_%s.xml'%(type_name,inspinj_seed)
 
+time_step=1.0e+03
+gps_start=932170000
+gps_end=gps_start+time_step*(number_of_injs ) 
 
 inspinj_command="""lalapps_inspinj \
 --output %s \
 --f-lower 20.0 \
---gps-start-time 932170000 \
---gps-end-time 932765900 \
+--gps-start-time %s \
+--gps-end-time %s \
 --seed %s \
 --waveform IMRPhenomFBTestthreePointFivePN \
 --min-distance 3.00e+05 \
@@ -65,8 +69,8 @@ inspinj_command="""lalapps_inspinj \
 --min-mtotal 10.0 \
 --max-mtotal 30.0 \
 --disable-spin \
---time-step 1.0e+03 \
---amp-order 0"""%(outname,inspinj_seed)
+--time-step %s \
+--amp-order 0"""%(outname,gps_start,gps_end,inspinj_seed,time_step)
 
 if type_inj!='GR':
     inspinj_command+=""" \
@@ -204,7 +208,7 @@ nlive=1000
 nmcmc=100
 nparallel=1
 ifos=['H1','L1','V1']
-events=[0:199]
+events=all
 seed=1
 data_seed="""+str(inspnest_dataseed)+"""
 analysis-chunk-length=20.0
