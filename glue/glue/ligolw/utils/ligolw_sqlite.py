@@ -209,32 +209,43 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 	then build the indexes indicated by the metadata in lsctables.py.
 	"""
 	#
-	# enable/disable ID remapping
+	# save the original .append() method
 	#
 
 	orig_DBTable_append = dbtables.DBTable.append
-	if not preserve_ids:
-		dbtables.idmap_create(connection)
-		dbtables.DBTable.append = dbtables.DBTable._remapping_append
-	else:
-		dbtables.DBTable.append = dbtables.DBTable._append
 
-	#
-	# load documents
-	#
+	try:
+		#
+		# enable/disable ID remapping
+		#
 
-	for n, url in enumerate(urls):
-		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
-	connection.commit()
+		if not preserve_ids:
+			dbtables.idmap_create(connection)
+			dbtables.DBTable.append = dbtables.DBTable._remapping_append
+		else:
+			dbtables.DBTable.append = dbtables.DBTable._append
 
-	#
-	# done.  build indexes, restore original .append() method
-	#
+		#
+		# load documents
+		#
 
-	dbtables.build_indexes(connection, verbose)
-	dbtables.DBTable.append = orig_DBTable_append
+		for n, url in enumerate(urls):
+			if verbose:
+				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+			insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
+		connection.commit()
+
+		#
+		# done.  build indexes
+		#
+
+		dbtables.build_indexes(connection, verbose)
+	finally:
+		#
+		# restore original .append() method
+		#
+
+		dbtables.DBTable.append = orig_DBTable_append
 
 
 #
