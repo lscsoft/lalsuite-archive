@@ -23,6 +23,9 @@
 from __future__ import division
 import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 
+# formce matplotlib backend to Agg, the display detection below doesn't seem to work 
+matplotlib.use('Agg')
+
 # test matplotlib backend and reset if needed
 from os import getenv
 _display = getenv('DISPLAY','')
@@ -61,13 +64,13 @@ def set_rcParams():
   pylab.rcParams.update({"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 2,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
+                         "xtick.labelsize": 16,
+                         "ytick.labelsize": 16,
                          "axes.titlesize": 22,
-                         "axes.labelsize": 18,
+                         "axes.labelsize": 16,
                          "axes.linewidth": 1,
                          "grid.linewidth": 1,
-                         "legend.fontsize": 18,
+                         "legend.fontsize": 16,
                          "legend.loc": "best",
                          "figure.figsize": [12,6],
                          "figure.dpi": 80,
@@ -75,7 +78,7 @@ def set_rcParams():
                          "axes.grid": True,
                          "axes.axisbelow": False })
 
-def set_ticks(ax):
+def set_ticks(columns, ax):
 
   """
     Format the x- and y-axis ticks to ensure minor ticks appear when needed
@@ -107,10 +110,29 @@ def set_ticks(ax):
   if len(ticks)<=1:
     ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
 
-  # set xticks for 2 hours rather than 5
-  xticks = ax.get_xticks()
-  if len(xticks)>1 and xticks[1]-xticks[0]==5:
-    ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=2))
+  # set xticks in time format, python2.5 is not new enough for
+  # flexibility, recoding part of AutoDateFormatter to get it
+  if re.search('time\Z', columns[0]):
+    dateLocator = pylab.matplotlib.dates.AutoDateLocator()
+    dateLocator.set_axis(ax.xaxis)
+    dateLocator.refresh()
+    scale = float( dateLocator._get_unit() )
+    if ( scale == 365.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%Y")
+    elif ( scale == 30.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%y/%b ")
+    elif ( (scale == 1.0) or (scale == 7.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%b %d")
+    elif ( scale == (1.0/24.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%d-%H")
+    elif ( scale == (1.0/(24*60)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+    elif ( scale == (1.0/(24*3600)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+  
+    ax.xaxis.set_major_locator(pylab.matplotlib.dates.AutoDateLocator())
+    ax.xaxis.set_major_formatter(dateFormatter)
+  
 
   # set tick linewidth
   for line in ax.get_xticklines() + ax.get_yticklines() :
@@ -163,6 +185,33 @@ def display_name(columnName):
       words[i] = w.title()
 
   return ' '.join(words) 
+
+def gps2datenum(gpstime):
+
+  """
+    Convert GPS time into floating in standard python time format
+    (days since Jan 01 0000), don't seem to use properly leap seconds
+  """
+
+  # set time of 0 GPS in datenum units
+  zeroGPS = 722820.0
+  ## correct for leap seconds assuming that all time stamps are within
+  # a range not including a leap
+  # select the first time stamp
+  if isinstance(gpstime,float) or isinstance(gpstime,int):
+    repTime = gpstime
+  else:
+    if len(gpstime)>0:
+      repTime = gpstime[0]
+    else:
+      return gpstime
+
+  zeroGPS = zeroGPS  + float(date.XLALLeapSeconds(LIGOTimeGPS(0)) -\
+                                 date.XLALLeapSeconds(LIGOTimeGPS(repTime)))/86400
+  # convert to datenum (days)
+  datenum = gpstime/86400 + zeroGPS
+
+  return datenum
 
 def time_unit(duration):
 
@@ -265,8 +314,8 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
                  transform=self.ax.transAxes, verticalalignment='top')
     self.segdict = segments.segmentlistdict()
     self.keys = []
-    self._time_transform = lambda seg: segments.segment(float(seg[0]-t0)/unit,\
-                                             float(seg[1]-t0)/unit)
+    self._time_transform = lambda seg: segments.segment(gps2datenum(float(seg[0])),\
+                                             gps2datenum(float(seg[1])))
 
   def add_content(self, segdict, keys=None, t0=0, unit=1):
     if not keys:
@@ -1035,7 +1084,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   # add data
   for channel,x_data,y_data in data:
     if x_format=='time':
-      x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+      x_data = gps2datenum(numpy.array(map(float, x_data)))
     lab = str(channel)
     if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
@@ -1056,7 +1105,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim([ axis_lims[0], axis_lims[1] ])
 
     # set x axis
-    plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+    plot.ax.set_xlim([ gps2datenum(float(xlim[0])), gps2datenum(float(xlim[1])) ])
   else:
       # set global axis limits
     if xlim:
@@ -1065,7 +1114,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim(ylim)
 
 
-  set_ticks(plot.ax)
+  set_ticks([x_format], plot.ax)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
@@ -1270,7 +1319,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
     ploy.ax.set_ylim(ylim)
 
   # set global ticks
-  set_ticks(plot.ax)
+  set_ticks([column], plot.ax)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -1578,10 +1627,10 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
       if kwargs.has_key('xlabel'):  renormalise = False
       if renormalise:
         for j in xrange(len(tables)):
-          vetoData[j][col] = (vetoData[j][col]-float(zero))/unit
-          nvetoData[j][col] = (nvetoData[j][col]-float(zero))/unit
-        limits[i] = [float(limits[i][0]-zero)/unit,\
-                     float(limits[i][1]-zero)/unit]
+          vetoData[j][col] = gps2datenum(vetoData[j][col])
+          nvetoData[j][col] = gps2datenum(nvetoData[j][col])
+        limits[i] = [gps2datenum(float(limits[i][0])),\
+                     gps2datenum(float(limits[i][1]))]
 
   # set labels
   label = {}
@@ -1653,7 +1702,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     for col in columns:
       maxcol = loudest[col]
       if re.search('time\Z', col) and renormalise:
-        maxcol = maxcol*unit+zero
+        maxcol = maxcol
       loudstr = "%s=%.2f" % (display_name(col), maxcol)
       if not re.search(loudstr, subtitle):
         subtitle += ' %s' % loudstr
@@ -1731,7 +1780,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     plot.ax.set_ylim(limits[1])
 
   # reset ticks
-  set_ticks(plot.ax)
+  set_ticks(columns, plot.ax)
 
   # get both major and minor grid lines
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -1884,7 +1933,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
       etg = 'Unknown'
 
   # get limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  xlim = kwargs.pop('xlim', [gps2datenum(float(start)), gps2datenum(float(end))])
   ylim = kwargs.pop('ylim', None)
 
   # get axis scales
@@ -1900,7 +1949,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   tbins   = {}
   rate = {}
   for bin in ybins:
-    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start),float(end), average)))
     rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
 
   for trig in triggers:
@@ -1972,7 +2021,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(plot.ax)
+  set_ticks(["time"], plot.ax)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2048,7 +2097,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
       etg = 'Unknown'
 
   # get limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  xlim = kwargs.pop('xlim', [gps2datenum(float(start)), gps2datenum(float(end))])
   ylim = kwargs.pop('ylim', None)
 
   # get axis scales
@@ -2065,7 +2114,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   rate = {}
   rms = {}
   for bin in ybins:
-    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start),float(end), average)))
     rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
     rms[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
 
@@ -2146,7 +2195,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(plot.ax)
+  set_ticks(["time"], plot.ax)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2200,7 +2249,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   subtitle = kwargs.pop('subtitle', '')
 
   # get axis limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  xlim = kwargs.pop('xlim', [gps2datenum(float(start)), gps2datenum(float(end))])
 
   # get label param
   labels_inset = kwargs.pop('labels_inset', False)
@@ -2233,7 +2282,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   plot.ax.grid(True,which='major')
   plot.ax.grid(True,which='majorminor')
 
-  set_ticks(plot.ax)
+  set_ticks(["time"], plot.ax)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
@@ -2419,10 +2468,10 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
         tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
       labels[i] = kwargs.pop('%slabel' % c, 'Time (%s) since %s (%s)'\
                                             % (timestr, tlabel, zero))
-      limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
+      limits[i] = gps2datenum(numpy.asarray(limits[i]))
       for i,data_limits in enumerate(data_limit_sets):
-        data_limit_sets[i][0] = (data_limits[0]-float(zero))/unit
-        data_limit_sets[i][1] = (data_limits[1]-float(zero))/unit
+        data_limit_sets[i][0] = gps2datenum(data_limits[0])
+        data_limit_sets[i][1] = gps2datenum(data_limits[1])
     else:
       labels[i] = kwargs.pop('%slabel' % c, display_name(col))
 
@@ -2448,7 +2497,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
     plot.ax.set_ylim(limits[1])
 
   # set global ticks
-  set_ticks(plot.ax)
+  set_ticks([x_format], plot.ax)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)

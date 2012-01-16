@@ -146,18 +146,21 @@ class pylal_install(install.install):
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "PYLAL_PREFIX=" + pylal_prefix
 		print >> env_file, "export PYLAL_PREFIX"
-		print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+			print >> env_file, "export PATH"
 		print >> env_file, "PYTHONPATH=" + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "LD_LIBRARY_PATH=" + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
 		print >> env_file, "DYLD_LIBRARY_PATH=" + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
-		print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
+		print >> env_file, "export PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
 		env_file.close()
 
 		log.info("creating pylal-user-env.csh script")
 		env_file = open(os.path.join("etc", "pylal-user-env.csh"), "w")
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "setenv PYLAL_PREFIX " + pylal_prefix
-		print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
 		print >> env_file, "if ( $?PYTHONPATH ) then"
 		print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "else"
@@ -182,7 +185,7 @@ class pylal_install(install.install):
 class pylal_sdist(sdist.sdist):
 	def run(self):
 		# customize tarball contents
-		self.distribution.data_files += ["debian/%s" % f for f in os.listdir("debian")] + ["pylal.spec"]
+		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")] + ["pylal.spec"]
 		self.distribution.scripts = []
 
 		# create the git_version module
@@ -203,7 +206,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.1",
+	version = "0.1.3",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@gravity.phys.uwm.edu",
 	description = "Python LIGO Algorithm Library",
