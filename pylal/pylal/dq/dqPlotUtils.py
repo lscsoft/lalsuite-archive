@@ -626,16 +626,11 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.2f$"\
                                                         % numpy.power(base, x))
     elif log:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%f$"\
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
                                                         % numpy.power(base, x))
-    elif not log and cmax-cmin > 4:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                      x>=1 and "$%d$" % round(x) or\
-                      x>=0.01 and "$%.2f$" % x or\
-                      x==0.0 and "$0$" or\
-                      x and "$%f$")
     else:
-      formatter = None
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
+                                                        % x)
 
     if clim:
       colorticks = numpy.linspace(cmin, cmax, 4)
