@@ -2397,7 +2397,7 @@ def parse_plot_config(cp, section):
 
 def plot_color_map(data, outfile, data_limits=None, x_format='time',\
                    y_format='frequency', z_format='amplitude', zero=None,\
-                   **kwargs):
+                   x_range=None, y_range=None, **kwargs):
 
   """
     Plots data in a 2d color map.
@@ -2446,19 +2446,23 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
     if logx and xlim:
       shape = numpy.shape(data)
       xmin, xmax = data_limits[0], data_limits[1]
-      xspan = numpy.logspace(numpy.log10(xmin),numpy.log10(xmax), num.shape[-1])
-      condition = (xspan>xlim[0]) & (xspan<=xlim[1])
+      if x_range==None:
+        x_range = numpy.logspace(numpy.log10(xmin), numpy.log10(xmax),\
+                               num.shape[-1])
+      condition = (x_range>xlim[0]) & (x_range<=xlim[1])
       newx = numpy.where(condition)[0]
       data2 = numpy.resize(data, (len(newx), shape[-2]))
       for j in xrange(newx):
         data2[:,j] = data[newx[j],:]
       data = data2.transpose()
-      
+
     if logy and ylim:
       shape = numpy.shape(data)
       ymin, ymax = data_limits[2], data_limits[3]
-      yspan = numpy.logspace(numpy.log10(ymin),numpy.log10(ymax), num=shape[-2])
-      condition = (yspan>ylim[0]) & (yspan<=ylim[1])
+      if y_range==None:
+        y_range = numpy.logspace(numpy.log10(ymin), numpy.log10(ymax),\
+                               num=shape[-2])
+      condition = (y_range>ylim[0]) & (y_range<=ylim[1])
       newy  = numpy.where((condition))[0]
       data2 = numpy.resize(data, (len(newy), shape[-1]))
       for j in xrange(shape[-1]):
