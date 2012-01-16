@@ -1084,16 +1084,42 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     kwargs.setdefault('linewidth', 0)
     kwargs.pop('linestyle', ' ')
 
+  # get uniq data sets that aren't errors
+  allchannels = []
+  channels    = []
+  for i,(c,_,_) in enumerate(data):
+    allchannels.append(c)
+    if not re.search('(min|max)\Z', str(c)):
+      channels.append((i,c))
+
   # add data
-  for channel,x_data,y_data in data:
+  for i,c in channels:
+    x_data,y_data = data[i][1:]
     if x_format=='time':
-      x_data = gps2datenum(numpy.array(map(float, x_data)))
-    lab = str(channel)
+      x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+    lab = str(c)
     if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
   plot.finalize(logx=logx, logy=logy, loc=loc)
+
+  # plot errors
+  for (i,channel),c in itertools.izip(channels, plotutils.default_colors()):
+    try:
+      minidx = allchannels.index('%s_min' % str(channel))
+      maxidx = allchannels.index('%s_max' % str(channel))
+    except ValueError:
+      continue
+    y = []
+    for idx in [minidx,maxidx]:
+      x_data,y_data = data[idx][1:]
+      y.append(y_data)
+      if x_format=='time':
+        x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+      l = float(kwargs.pop('linewidth', 1))/2
+      plot.ax.plot(x_data, y_data, color=c, linewidth=l, **kwargs)
+    plot.ax.fill_between(x_data, y[1], y[0], color=c, alpha=0.25)
 
   # set axes
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
