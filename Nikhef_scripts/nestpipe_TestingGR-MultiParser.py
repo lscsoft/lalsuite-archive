@@ -15,9 +15,9 @@ import os
 ################################################################################
 
 inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
-type_inj="dphi7"   ## This has to be either GR or the name of the test param (e.g. dphi7)
+type_inj="dphi6"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
-number_of_injs=1 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
+number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
 
 if type_inj!='GR':
      type_name=type_inj+'_'+repr(shift)+'pc'
@@ -45,11 +45,13 @@ allPNparams = ["dphi0","dphi1", "dphi2", "dphi3", "dphi4", "dphi5", "dphi6", "dp
 
 print "Creating the xml file\n"
 
+if not os.path.isdir(basefolder):
+    os.makedirs(basefolder)
 outname=os.path.join(basefolder,'injections_%s_%s.xml'%(type_name,inspinj_seed))
 time_step=1000
 gps_start=932170000
 gps_end=gps_start+time_step*(number_of_injs )
-
+#gps_end=gps_start+time_step*(number_of_injs +20)
 
 inspinj_command="""lalapps_inspinj \
 --output %s \
@@ -203,7 +205,8 @@ nlive=1000
 nmcmc=100
 nparallel=1
 ifos=['H1','L1','V1']
-events=all
+#events=all
+events=[0:"""+str(number_of_injs-1)+"]"+"""
 seed=1
 data_seed="""+str(inspnest_dataseed)+"""
 analysis-chunk-length=20.0
@@ -268,15 +271,15 @@ v1-analyze = V1:ITF_SCIENCEMODE:6
         foldernames+=str(foldername)+" "
 	parser_paths+=str(os.path.join(basefolder,foldername,"parser_"+foldername+".ini"))+" "
 
-logd=""
-scrd=""
+logd="None"
+scrd="None"
         
 for i in os.uname():
     if i.find("uwm")!=-1:
         logd=logdir
         scrd=scratchdir
 
-os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd)
+os.system("lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd)
 
 
 # RETURN TO CURRENT WORKING DIRECTORY

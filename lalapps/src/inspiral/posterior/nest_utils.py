@@ -71,6 +71,7 @@ class InspNestNode(pipeline.CondorDAGNode):
         if(length > maxLength):
             while(self.__GPSstart+maxLength<trig_time and self.__GPSstart+maxLength<self.__GPSend):
                     self.__GPSstart+=maxLength/2.0
+                    
         self.add_var_opt('GPSstart',str(self.__GPSstart))
         length=self.__GPSend-self.__GPSstart
         if(length>maxLength):

@@ -575,7 +575,6 @@ def nest_pipe(opts=None,num=0):
     checkDir(combine_dir)
 
     if opts.disable_pages is False:
-        print "IM HERE ", opts.disable_pages
         # Set up web page producing nodes
         results_page_sub_file=os.path.join(opts.run_path,'results_page.sub')
         results_page_job=OddsPipeline.ResultsPageJob(cp,results_page_sub_file,opts.jobs_log_path)
@@ -736,13 +735,13 @@ print fnames_dic
 
 common_path=opts.run_path
 
-if opts.dag_log_path is not None:
+if (opts.dag_log_path!="None" and opts.dag_log_path is not None):
     common_dag_log_path=opts.dag_log_path
 else:
     common_dag_log_path=os.path.join(common_path,'logs')
 checkDir(common_dag_log_path)
 
-if opts.jobs_log_path is not None:
+if (opts.jobs_log_path is not None and opts.jobs_log_path!="None"):
     common_jobs_log_path=opts.jobs_log_path
 else:
     common_jobs_log_path=os.path.join(common_path,'logs')
