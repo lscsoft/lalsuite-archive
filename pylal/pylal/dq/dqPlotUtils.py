@@ -2355,24 +2355,23 @@ def parse_plot_config(cp, section):
         True / False to plot log scale on z-axis
   """
 
-  columns = {}
+  columns = {'xcolumn':None, 'ycolumn':None, 'zcolumn':None}
   params  = {}
 
   plot = re.split('[\s-]', section)[1:]
-  if len(plot)>=2:
+  if len(plot)>=1:
     columns['xcolumn'] = plot[0]
+  if len(plot)>=2:
     columns['ycolumn'] = plot[1]
   if len(plot)>2:
     columns['zcolumn'] = plot[2]
-  else:
-    columns['zcolumn'] = None
 
   limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
   filters  = ['poles', 'zeros']
   bins     = ['bins']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
-              'greyscale', 'zeroindicator']
-  values   = ['dcthresh','amplitude']
+              'greyscale', 'zeroindicator', 'normalized', 'include_downtime']
+  values   = ['dcthresh','amplitude','num_bins']
 
   # extract plot params as a dict
   params = {}
