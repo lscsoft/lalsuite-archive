@@ -108,19 +108,19 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 	database the at the given connection.
 	"""
 	#
-	# retrieve an XML-ish representation of the database.  see the note
-	# in update_ids() about the order in which this must be done
-	#
-
-	xmldoc = dbtables.get_xml(connection)
-
-	#
 	# load document.  this process inserts the document's contents into
-	# the database.  the document is unlinked to delete database cursor
-	# objects it retains
+	# the database.  the XML tree constructed by this process contains
+	# a table object for each table found in the newly-inserted
+	# document and those table objects' last_max_rowid values have been
+	# initialized prior to rows being inserted.  therefore, this is the
+	# XML tree that must be passed to update_ids in order to ensure (a)
+	# that all newly-inserted tables are processed and (b) all
+	# newly-inserted rows are processed.  NOTE:  it is assumed the
+	# content handler is creating DBTable instances in the XML tree,
+	# not regular Table instances
 	#
 
-	utils.load_url(url, verbose = verbose, contenthandler = contenthandler).unlink()
+	xmldoc = utils.load_url(url, verbose = verbose, contenthandler = contenthandler)
 
 	#
 	# update references to row IDs
@@ -142,11 +142,12 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	the given connection.
 	"""
 	#
-	# retrieve an XML-ish representation of the database.  see the note
-	# in update_ids() about the order in which this must be done
+	# create a place-holder XML representation of the target document
+	# so we can pass the correct tree to update_ids()
 	#
 
-	xmldoc = dbtables.get_xml(connection)
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild(ligolw.LIGO_LW())
 
 	#
 	# iterate over tables in the XML tree, reconstructing each inside
@@ -156,7 +157,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):
 		#
 		# instantiate the correct table class, connected to the
-		# target database
+		# target database, and save in XML tree
 		#
 
 		name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
@@ -164,7 +165,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 			cls = dbtables.TableByName[name]
 		except KeyError:
 			cls = dbtables.DBTable
-		dbtbl = cls(tbl.attributes, connection = connection)
+		dbtbl = xmldoc.childNodes[-1].appendChild(cls(tbl.attributes, connection = connection))
 
 		#
 		# copy table element child nodes from source XML tree
@@ -182,12 +183,6 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 		for row in tbl:
 			dbtbl.append(row)
 		dbtbl._end_of_rows()
-
-		#
-		# unlink to delete cursor objects
-		#
-
-		dbtbl.unlink()
 
 	#
 	# update references to row IDs
