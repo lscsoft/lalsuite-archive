@@ -1852,6 +1852,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   xlabel = kwargs.pop('xlabel', 'Length of segment (seconds)')
   ylabel = kwargs.pop('ylabel', 'Number of segments')
   title  = kwargs.pop('title',  'Segment Duration Histogram')
+  subtitle = kwargs.pop('subtitle', "")
 
   # get axis scale
   logx = kwargs.pop('logx', False)
