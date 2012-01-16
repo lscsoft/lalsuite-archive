@@ -749,6 +749,14 @@ class DetCharScatterPlot(ColorbarScatterPlot):
 
 class VerticalBarHistogram(plotutils.VerticalBarHistogram):
 
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets = []
+    self.kwarg_sets = []
+
   @plotutils.method_callable_once
   def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
                base=10):
@@ -1837,7 +1845,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   flags = sorted(segs.keys())
 
   # generate plot object
-  plot = VerticalBarHistogram(xlabel, ylabel, title)
+  plot = VerticalBarHistogram(xlabel, ylabel, title, subtitle)
 
   # add each segmentlist
   for flag,c in zip(flags, plotutils.default_colors()):
