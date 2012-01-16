@@ -1349,3 +1349,62 @@ def get_column(lsctable, column):
 
   return numpy.asarray(lsctable.getColumnByName(column))
 
+def get(self, parameter):
+
+  """
+    Extract parameter from given ligolw table row object. 
+  """
+
+  # format
+  parameter = parameter.lower()
+
+  obj_type = type(self)
+
+  # if there's a 'get_' function, use it
+  if hasattr(self, 'get_%s' % parameter):
+    return getattr(self, 'get_%s' % parameter)()
+
+  # treat 'time' as a special case
+  elif parameter == 'time'\
+  and re.search('(burst|inspiral|ringdown)', obj_type, re.I):
+    if re.search('burst', obj_type):
+      tcol = 'peak_time'
+    elif re.search('inspiral', obj_type):
+      tcol = 'end_time'
+    elif re.search('ringdown', obj_type):
+      tcol = 'start_time'
+    return LIGOTimeGPS(getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9)
+
+  else:
+   return getattr(self, parameter)
+
+# =============================================================================
+# Veto triggers from a ligolw table
+# =============================================================================
+
+def veto(self, seglist, inverse=False):
+
+  """
+    Returns a ligolw table of those triggers outwith the given seglist.
+    If inverse=True is given, the opposite is returned, i.e. those triggers
+    within the given seglist.
+  """
+
+  get_time = def_get_time(self.tableName)
+
+  keep = table.new_from_template(self)
+  if inverse:
+    keep.extend(t for t in self if float(get_time(t)) in seglist)
+  else:
+    keep.extend(t for t in self if float(get_time(t)) not in seglist)
+
+  return keep
+
+def vetoed(self, seglist):
+
+  """
+    Returns the opposite of veto, i.e. those triggers that lie within the given
+    seglist.
+  """
+
+  return veto(self, seglist, inverse=True)
