@@ -1251,7 +1251,7 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 # Get coincidences between two tables
 # =============================================================================
 
-def get_coincs(table1, table2, dt=1):
+def get_coincs(table1, table2, dt=1, returnsegs=False):
 
   """
     Returns the table of those entries in table1 whose time is within +-dt of
@@ -1269,7 +1269,10 @@ def get_coincs(table1, table2, dt=1):
   coinctrigs = table.new_from_template(table1)
   coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
 
-  return coinctrigs
+  if returnsegs:
+    return coinctrigs,coincsegs
+  else:
+    return coinctrigs
 
 # ==============================================================================
 # Calculate poisson significance of coincidences
@@ -1294,7 +1297,8 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers = get_coincs(gwtriggers, auxtriggers, dt=window)
+  coinctriggers, coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                             returnsegs=True)
 
   g = special.gammainc(len(coinctriggers), mu)
 
