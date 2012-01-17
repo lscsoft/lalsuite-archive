@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.37
+Version:	1.37.1
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -49,6 +49,7 @@ rm -rf %{buildroot}
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
 rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.37-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.37*.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -94,6 +95,9 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Wed Jan 17 2012 Ryan Fisher <rpfisher@syr.edu>
+- Bugfix release of glue 1.37 with Kipp's change: fix ID remapping when inserting a document into a database ... (cherry picked from commit 68bfb39c1b4e8f3d4509f19ee0bf95ff2de1640e)
+
 * Wed Nov 16 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with glue-segments and glue-common split from glue, lvalerts, lars and gracedb removed.
 
