@@ -69,9 +69,9 @@ def coalesce_seg(database, start_time, end_time):
 
   
     # prepare values for the new row to be inserted into the process table
-    program = sys.argv[0].replace('./','')
+    program = os.path.abspath(sys.argv[0])
     node = socket.gethostname()
-    username = pwd.getpwuid(os.getuid())[0]
+    username = pwd.getpwuid(os.getuid()).pw_name
     unix_procid = os.getpid()
     proc_start_time = gpstime.GpsSecondsFromPyUTC(time.time())
     end_time = None
@@ -109,7 +109,8 @@ def coalesce_seg(database, start_time, end_time):
     sql += "AND segment_summary.segment_def_cdb=segment_definer.creator_db "
     sql += "AND segment_summary.process_id=process.process_id "
     sql += "AND segment_summary.creator_db=process.creator_db "
-    sql += "AND ((segment_definer.name like 'DMT-%' and segment_definer.version=1) or (process.ifos='V1' and process.program='SegOnline')) "
+    # Removed next line so that all segments are coalesced: this will be slower up front but faster for queries and the long run
+    #sql += "AND ((segment_definer.name like 'DMT-%' and segment_definer.version=1) or (process.ifos='V1' and process.program='SegOnline')) "
     sql += "AND segment_summary.start_time <=%d " % et
     sql += "AND segment_summary.end_time >= %d " % st
     curs.execute(sql)

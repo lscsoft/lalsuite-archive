@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2011  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -38,6 +38,7 @@ import math
 from pylal import git_version
 from pylal.xlal.tools import *
 from pylal.xlal.inject import *
+from pylal.xlal.constants import LAL_C_SI
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -78,8 +79,21 @@ def light_travel_time(instrument1, instrument2):
 	XLALLightTravelTime() function, which takes two detector objects as
 	input, and returns the time truncated to integer nanoseconds.
 	"""
-	# c in free space = 299792458 m / s
-	# FIXME: from where can I import that constant?
 	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]].location
-	return math.sqrt((dx * dx).sum()) / 299792458
+	return math.sqrt((dx * dx).sum()) / LAL_C_SI
 
+
+def effective_distance_factor(inclination, fp, fc):
+	"""
+	Returns the ratio of effective distance to physical distance for
+	compact binary mergers.  Inclination is the orbital inclination of
+	the system in radians, fp and fc are the F+ and Fx antenna factors.
+	See XLALComputeDetAMResponse() for a function to compute antenna
+	factors.  The effective distance is given by
+
+	Deff = effective_distance_factor * D
+
+	See Equation (4.3) of arXiv:0705.1514.
+	"""
+	cos2i = math.cos(inclination)**2
+	return 1.0 / math.sqrt(fp**2 * (1+cos2i)**2 / 4 + fc**2 * cos2i)

@@ -131,7 +131,7 @@ class Metadata(object):
                     raise ValueError, \
                         "Not enough metadata supplied; missing %s" % slot
         else:
-            raise NotImplemented
+            raise NotImplementedError
     
     def __str__(self):
         return str(dict([(slot, getattr(self, slot)) for slot \
@@ -145,7 +145,7 @@ class Metadata(object):
         """
         Merge metadata; this must be subclassed.
         """
-        raise NotImplemented
+        raise NotImplementedError
     
     def __or__(self, other):
         return self.copy().__ior__(other)
@@ -195,9 +195,9 @@ class MetaArray(numpy.ndarray):
                 return new
             else:
                 # copy, update metadata, then return
-                new = data.astype(dtype)
-                new.metadata = metadata
-                new._baseclass = _baseclass
+                new = data.astype(dtype)  # always copies
+                new.metadata = data.metadata
+                new._baseclass = data._baseclass
                 return new
         
         # All other cases, create a new array and attach metadata
@@ -323,7 +323,7 @@ class MetaArray(numpy.ndarray):
           - a binary string for the mask.
         """
         (ver, shp, typ, isf, raw, meta) = state
-        if ver != 1: raise NotImplemented
+        if ver != 1: raise NotImplementedError
         numpy.ndarray.__setstate__(self, (shp, typ, isf, raw))
         self.metadata = self._metadata_type(meta)
     
@@ -502,8 +502,8 @@ class TimeSeriesList(MetaArrayList):
 
     def segments(self):
         """
-        Return the (uncoalesced) list of segments represented by the Spectra
-        in this SpectrumList.
+        Return the (uncoalesced) list of segments represented by the TimeSeries
+        in this TimeSeriesList.
         """
         segs = segments.segmentlist()
         for series in self:

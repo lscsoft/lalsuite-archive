@@ -68,7 +68,7 @@ set DET_FOUND {}
 foreach tag [array names DATA -regexp "_all_"] {
 	regexp {^(.*)_all_(.*)} $tag {} ROOT BIN
 	#puts "$ROOT $BIN"
-	set DET_ROOTS [lsearch -all -inline -regexp $SETS "^$ROOT"]
+	set DET_ROOTS [lsearch -all -inline -regexp $SETS "^${ROOT}_"]
 
 	foreach line $DATA($tag) {
 

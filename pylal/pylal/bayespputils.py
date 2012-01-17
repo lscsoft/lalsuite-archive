@@ -4,6 +4,7 @@
 #
 #       Copyright 2010
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,
+#       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #
@@ -37,11 +38,14 @@ import os
 from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
+from operator import itemgetter
 
 #related third party imports
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
+
+import random
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -53,9 +57,9 @@ except ImportError:
 import pylal
 from pylal import git_version
 #C extensions
-from _bayespputils import _skyhist_cart,_calculate_confidence_levels,_burnin
+from _bayespputils import _skyhist_cart,_burnin
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -66,8 +70,8 @@ __date__= git_version.date
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
-__default_color_lst=['r','b','y','g','k']
-#A default css string for use in html results pages. 
+__default_color_lst=['r','b','y','g','c','m']
+#A default css string for use in html results pages.
 __default_css_string="""
 p,h1,h2,h3,h4,h5
 {
@@ -153,6 +157,13 @@ def _inj_m2(inj):
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2
 
+def _inj_q(inj):
+    """
+    Function mapping (mchirp,eta)->q; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass2/mass1
+
 def _inj_longitude(inj):
     """
     Map the value of the longitude found in inj to an interval [0,2*pi).
@@ -193,7 +204,7 @@ def _inj_theta2(inj):
         return None
     else:
         return np.arccos( z / sqrt(x*x+y*y+z*z) )
-    
+
 def _inj_phi1(inj):
     x = inj.spin1x
     y = inj.spin1y
@@ -220,6 +231,79 @@ def _inj_phi2(inj):
         else:
             return phi_mpi_to_pi
 
+def _inj_tilt1(inj):
+    Sx  = inj.spin1x
+    Sy  = inj.spin1y
+    Sz  = inj.spin1z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
+def _inj_tilt2(inj):
+    Sx  = inj.spin2x
+    Sy  = inj.spin2y
+    Sz  = inj.spin2z
+    Lnx = np.arcsin(inj.inclination)
+    Lny = 0.0
+    Lnz = np.arccos(inj.inclination)
+    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+        return None
+    else:
+        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+
+def _inj_thetas(inj):
+    mtsun = 4.92549095e-06  #Msol in seconds
+    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+
+    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
+    Lx = Lmag * np.arcsin(inj.inclination)
+    Ly = 0.0
+    Lz = Lmag * np.arccos(inj.inclination)
+    
+    S1x  = inj.m1*inj.m1*inj.spin1x
+    S1y  = inj.m1*inj.m1*inj.spin1y
+    S1z  = inj.m1*inj.m1*inj.spin1z
+    
+    S2x  = inj.m2*inj.m2*inj.spin2x
+    S2y  = inj.m2*inj.m2*inj.spin2y
+    S2z  = inj.m2*inj.m2*inj.spin2z
+
+    Jx = Lx + S1x + S2x
+    Jy = Ly + S1y + S2y
+    Jz = Lz + S1z + S2z
+    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
+
+    return np.arccos(Jz/Jmag)
+    
+def _inj_beta(inj):
+    mtsun = 4.92549095e-06  #Msol in seconds
+    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+
+    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
+    Lx = Lmag * np.arcsin(inj.inclination)
+    Ly = 0.0
+    Lz = Lmag * np.arccos(inj.inclination)
+    
+    S1x  = inj.m1*inj.m1*inj.spin1x
+    S1y  = inj.m1*inj.m1*inj.spin1y
+    S1z  = inj.m1*inj.m1*inj.spin1z
+    
+    S2x  = inj.m2*inj.m2*inj.spin2x
+    S2y  = inj.m2*inj.m2*inj.spin2y
+    S2z  = inj.m2*inj.m2*inj.spin2z
+
+    Jx = Lx + S1x + S2x
+    Jy = Ly + S1y + S2y
+    Jz = Lz + S1z + S2z
+    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
+
+    return np.arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
+
+
 #===============================================================================
 # Class definitions
 #===============================================================================
@@ -231,7 +315,7 @@ class OneDPosterior(object):
     def __init__(self,name,posterior_samples,injected_value=None,prior=None):
         """
         Constructor.
-        
+
         @param name: A literal string name for the parameter.
         @param posterior_samples: A 1D array of the samples.
         @keyword injected_value: The injected or real value of the parameter.
@@ -245,6 +329,18 @@ class OneDPosterior(object):
 
         return
 
+    def __len__(self):
+        """
+        Container method. Defined as number of samples.
+        """
+        return len(self.__posterior_samples)
+
+    def __getitem__(self,idx):
+        """
+        Container method . Returns posterior containing sample idx (allows slicing).
+        """
+        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval)
+        
     @property
     def name(self):
         """
@@ -271,7 +367,14 @@ class OneDPosterior(object):
         """
         Return the standard deviation of the 1D samples.
         """
-        return sqrt(np.var(self.__posterior_samples))
+        try:
+            stdev = sqrt(np.var(self.__posterior_samples))
+            if not np.isfinite(stdev): 
+                raise OverflowError
+        except OverflowError:
+            mean = np.mean(self.__posterior_samples)
+            stdev = mean * sqrt(np.var(self.__posterior_samples/mean))
+        return stdev
 
     @property
     def stacc(self):
@@ -301,10 +404,10 @@ class OneDPosterior(object):
     def set_injval(self,new_injval):
         """
         Set the injected/real value of the parameter.
-        
+
         @param new_injval: The injected/real value to set.
         """
-        
+
         self.__injval=new_injval
 
     @property
@@ -317,7 +420,7 @@ class OneDPosterior(object):
     def delete_samples_by_idx(self,samples):
         """
         Remove samples from posterior, analagous to numpy.delete but opperates in place.
-        
+
         @param samples: A list of the indexes of the samples to remove.
         """
         self.__posterior_samples=np.delete(self.__posterior_samples,samples).reshape(-1,1)
@@ -345,7 +448,7 @@ class OneDPosterior(object):
     def prob_interval(self,intervals):
         """
         Evaluate probability intervals.
-        
+
         @param intervals: A list of the probability intervals [0-1]
         """
         list_of_ci=[]
@@ -375,74 +478,122 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,name=None,description=None,votfile=None):
         """
         Constructor.
-        
-        @param commonResultsFormatData: A 2D array containing the posterior 
+
+        @param commonResultsFormatData: A 2D array containing the posterior
             samples and related data. The samples chains form the columns.
-                
+
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
+        self._loglaliases=['logl','logL','likelihood','posterior']
+        self._votfile=votfile
+        
+        common_output_table_header=[i.lower() for i in common_output_table_header]
+        
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
-            param_name=param_name.lower()
+            
             self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
 
-        if 'logl' in common_output_table_header:
+        if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
+        and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
             try:
-                self._logL=self._posterior['logl'].samples
-
+                print 'Inferring m1 and m2 from mchirp and eta'
+                (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
+                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'))
+                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'))
             except KeyError:
-                print "No 'logl' column in input table!"
-                raise
-        elif 'likelihood' in common_output_table_header:
-            try:
-                self._logL=self._posterior['likelihood'].samples
+                print 'Unable to deduce m1 and m2 from input columns'
 
-            except KeyError:
-                print "No 'logl' column in input table!"
-                raise
+        
+        logLFound=False
+        
+        for loglalias in self._loglaliases:
+        
+            if loglalias in common_output_table_header:
+                try:
+                    self._logL=self._posterior[loglalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%loglalias
+                    continue
+                logLFound=True
+                
+        if not logLFound:
+            raise RuntimeError("No likelihood/posterior values found!")
 
-        elif 'post' in common_output_table_header:
-            try:
-                self._logL=self._posterior['post'].samples
-
-            except KeyError:
-                print "No 'post' column in input table!"
-                raise
-
-        elif 'posterior' in common_output_table_header:
-            try:
-                self._logL=self._posterior['posterior'].samples
-
-            except KeyError:
-                print "No 'posterior' column in input table!"
-                raise
-
-        else:
-            print "No likelihood/posterior values found!"
-            import sys
-            sys.exit(1)
+        if name is not None:
+            self.__name=name
+            
+        if description is not None:
+            self.__description=description
 
         return
+
+    def bootstrap(self):
+        """
+        Returns a new Posterior object that contains a bootstrap
+        sample of self.
+        """
+        names=[]
+        samples=[]
+        for name,oneDpos in self._posterior.items():
+            names.append(name)
+            samples.append(oneDpos.samples)
+
+        samplesBlock=np.hstack(samples)
+
+        bootstrapSamples=samplesBlock[:,:]
+        Nsamp=bootstrapSamples.shape[0]
+
+        rows=np.vsplit(samplesBlock,Nsamp)
+
+        for i in range(Nsamp):
+            bootstrapSamples[i,:]=random.choice(rows)
+
+        return Posterior((names,bootstrapSamples),self._injection)
 
     def delete_samples_by_idx(self,samples):
         """
         Remove samples from all OneDPosteriors.
-        
+
         @param samples: The indixes of the samples to remove.
         """
         for name,pos in self:
             pos.delete_samples_by_idx(samples)
+        return
+
+    def delete_NaN_entries(self,param_list):
+        """
+        Remove samples containing NaN in request params.
+
+        @param param_list: The parameters to be checked for NaNs.
+        """
+        nan_idxs = np.array(())
+        nan_dict = {}
+        for param in param_list:
+            nan_bool_array = np.isnan(self[param].samples).any(1)
+            idxs = np.where(nan_bool_array == True)[0]
+            if len(idxs) > 0:
+                nan_dict[param]=len(idxs)
+                nan_idxs = np.append(nan_idxs, idxs)
+        total_samps = len(self)
+        nan_samps   = len(nan_idxs)
+        if nan_samps is not 0:
+            print "WARNING: removing %i of %i total samples due to NaNs:"% (nan_samps,total_samps)
+            for param in nan_dict.keys():
+                print "\t%i NaNs in %s."%(nan_dict[param],param)
+            self.delete_samples_by_idx(nan_idxs)
+        return
 
     @property
     def injection(self):
         """
         Return the injected values .
         """
-        
+
         return self._injection
 
     def _total_incl_restarts(self, samples):
@@ -479,7 +630,7 @@ class Posterior(object):
     def set_injection(self,injection):
         """
         Set the injected values of the parameters.
-        
+
         @param injection: A SimInspiralTable row object.
         """
         if injection is not None:
@@ -498,10 +649,11 @@ class Posterior(object):
                         'mass2':_inj_m2,
                         'm2':_inj_m2,
                         'eta':lambda inj:inj.eta,
+                        'q':_inj_q,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
-        'phi_orb': lambda inj: inj.phi0,
+                        'phi_orb': lambda inj: inj.phi0,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
@@ -514,12 +666,18 @@ class Posterior(object):
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
-        'a1':_inj_a1,
-        'a2':_inj_a2,
-        'theta1':_inj_theta1,
-        'theta2':_inj_theta2,
-        'phi1':_inj_phi1,
-        'phi2':_inj_phi2
+                        'f_lower': lambda inj: inj.f_lower,
+                        'a1':_inj_a1,
+                        'a2':_inj_a2,
+                        'theta1':_inj_theta1,
+                        'theta2':_inj_theta2,
+                        'phi1':_inj_phi1,
+                        'phi2':_inj_phi2,
+                        'tilt1':_inj_tilt1,
+                        'tilt2':_inj_tilt2,
+                        'cos(iota)': lambda inj: np.cos(inj.inclination),
+                        'theta_s':_inj_thetas,
+                        'beta':_inj_beta
                        }
 
     def _getinjpar(self,paramname):
@@ -573,7 +731,7 @@ class Posterior(object):
         current_item=0
         pos_array,header=self.samples
         while current_item < len(self):
-            sample_array=(numpy.squeeze(pos_array[current_item,:]))
+            sample_array=(np.squeeze(pos_array[current_item,:]))
             yield ParameterSample(sample_array, header, header)
             current_item += 1
 
@@ -615,6 +773,30 @@ class Posterior(object):
             mediansdict[name]=pos.median
         return mediansdict
 
+    @property
+    def stdevs(self):
+        """
+        Return dict {paramName:paramStandardDeviation} .
+        """
+        stdsdict={}
+        for name,pos in self:
+            stdsdict[name]=pos.stdev
+        return stdsdict
+
+    @property
+    def name(self):
+        """
+        Return qualified string containing the 'name' of the Posterior instance.
+        """
+        return self.__name
+
+    @property
+    def description(self):
+        """
+        Return qualified string containing a 'description' of the Posterior instance.
+        """
+        return self.__description
+
     def append(self,one_d_posterior):
         """
         Container method. Add a new OneDParameter to the Posterior instance.
@@ -622,24 +804,85 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def append_mapping(self, new_param_names, func, post_names):
+        """
+        Append posteriors pos1,pos2,...=func(post_names)
+        """
+        #1D input
+        if isinstance(post_names, str):
+            old_post = self[post_names]
+            old_inj  = old_post.injval
+            if old_inj:
+                new_inj = func(old_inj)
+            else:
+                new_inj = None
+            samps = func(old_post.samples)
+            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj)
+            if new_post.samples.ndim is 0:
+                print "WARNING: No posterior calculated for %s ..." % post.name
+            else:
+                self.append(new_post)
+        #MultiD input
+        else:
+            old_posts = [self[post_name] for post_name in post_names]
+            old_injs = [post.injval for post in old_posts]
+            samps = func(*[post.samples for post in old_posts])
+            #1D output
+            if isinstance(new_param_names, str):
+                if None not in old_injs:
+                    inj = func(*old_injs)
+                else:
+                    inj = None
+                new_post = OneDPosterior(new_param_names, samps, injected_value=inj)
+                self.append(new_post)
+            #MultiD output
+            else:
+                if None not in old_injs:
+                    injs = func(*old_injs)
+                else:
+                    injs = [None for name in new_param_names]
+                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
+                for post in new_posts: 
+                    if post.samples.ndim is 0: 
+                        print "WARNING: No posterior calculated for %s ..." % post.name
+                    else:
+                        self.append(post)
+        return
+
     def _average_posterior(self, samples, post_name):
+        """
+        Returns the average value of the 'post_name' column of the
+        given samples.
+        """
         ap = 0.0
         for samp in samples:
             ap = ap + samp[post_name]
         return ap / len(samples)
 
-    def _average_posterior_like_prior(self, samples, logl_name, prior_name):
+    def _average_posterior_like_prior(self, samples, logl_name, prior_name, log_bias = 0):
+        """
+        Returns the average value of the posterior assuming that the
+        'logl_name' column contains log(L) and the 'prior_name' column
+        contains the prior (un-logged).
+        """
         ap = 0.0
         for samp in samples:
-            ap += np.exp(samp[logl_name])*samp[prior_name]
+            ap += np.exp(samp[logl_name]-log_bias)*samp[prior_name]
         return ap / len(samples)
+
+    def _bias_factor(self):
+        """
+        Returns a sensible bias factor for the evidence so that
+        integrals are representable as doubles.
+        """
+        return np.mean(self._logL)
 
     def di_evidence(self, boxing=64):
         """
-        Returns the direct-integration evidence for the posterior
-        samples.
+        Returns the log of the direct-integration evidence for the
+        posterior samples.
         """
-        allowed_coord_names=["a1", "phi1", "theta1", "a2", "phi2", "theta2",
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
                              "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
         samples,header=self.samples()
@@ -648,14 +891,16 @@ class Posterior(object):
         coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
         tree=KDTree(coordinatized_samples)
 
-        if "post" in header:
-            return tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing)
-        elif "posterior" in header:
-            return tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing)
-        elif "prior" in header and "logl" in header:
-            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior"), boxing)
+        if "prior" in header and "logl" in header:
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior", bf), boxing))
         elif "prior" in header and "likelihood" in header:
-            return tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior"), boxing)
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior", bf), boxing))
+        elif "post" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing))
+        elif "posterior" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing))
         else:
             raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
@@ -663,10 +908,11 @@ class Posterior(object):
 
     def harmonic_mean_evidence(self):
         """
-        Returns the harmonic mean evidence for the set of posterior
-        samples.
+        Returns the log of the harmonic mean evidence for the set of
+        posterior samples.
         """
-        return 1/np.mean(1/np.exp(self._logL))
+        bf = self._bias_factor()
+        return bf + np.log(1/np.mean(1/np.exp(self._logL-bf)))
 
     def _posMode(self):
         """
@@ -785,7 +1031,7 @@ class Posterior(object):
             maxL=oned_pos.samples[max_i][0]
             mean=str(oned_pos.mean)
             stdev=str(oned_pos.stdev)
-            median=str(oned_pos.median)
+            median=str(np.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
 
@@ -803,6 +1049,16 @@ class Posterior(object):
         return_val=reparsed.toprettyxml(indent="  ")
 
         return return_val
+
+    def write_vot_info(self):
+      """
+      Writes the information stored in the VOTtree if there is one
+      """
+      target=VOT2HTML()
+      parser=XMLParser(target=target)
+      parser.feed(self._votfile)
+      return parser.close()
+
 
 class KDTree(object):
     """
@@ -924,17 +1180,37 @@ class KDTree(object):
             v = v*(h - l)
         return v
 
-    def integrate(self, f, boxing=64):
+    def integrate(self,f,boxing=64):
         """
         Returns the integral of f(objects) over the tree.  The
         optional boxing parameter determines how deep to descend into
         the tree before computing f.
         """
+        # if len(self._objects) <= boxing:
+        #     return self.volume()*f(self._objects)
+        # else:
+        #     return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
+        
+        def x(tree):
+            return tree.volume()*f(tree._objects)
+            
+        def y(a,b):
+            return a+b
+        
+        return self.operate(x,y,boxing=boxing)
+        
+    def operate(self,f,g,boxing=64):
+        """
+        Operates on tree nodes exceeding boxing parameter depth.
+        """
         if len(self._objects) <= boxing:
-            return self.volume()*f(self._objects)
+            return f(self)
         else:
-            return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
-
+            
+            return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
+            
+    
+    
 class ParameterSample(object):
     """
     A single parameter sample object, suitable for inclusion in a
@@ -1065,7 +1341,7 @@ class htmlPage(htmlChunk):
     """
     A concrete class for generating an XHTML(1) document. Inherits from htmlChunk.
     """
-    def __init__(self,title=None,css=None):
+    def __init__(self,title=None,css=None,toc=False):
         htmlChunk.__init__(self,'html',attrib={'xmlns':"http://www.w3.org/1999/xhtml"})
         self.doctype_str='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
 
@@ -1158,67 +1434,43 @@ def _sky_hist(skypoints,samples):
     return (skypoints,bins)
 #
 
-def _calculate_sky_confidence_slow(
-                                shist,
-                                skypoints,
-                                injbin,
-                                skyres_,
-                                confidence_levels,
-                                lenpos):
+def _calculate_confidence_levels(hist, points, injBin, NSamples):
     """
-    @deprecated: This is a pure python version of the C extension function
-        pylal._bayespputils._calculate_confidence_levels.
+    Returns (injectionconf, toppoints), where injectionconf is the
+    confidence level of the injection, contained in the injBin and
+    toppoints is a list of (pointx, pointy, ptindex, frac), with
+    pointx and pointy the (x,y) coordinates of the corresponding
+    element of the points array, ptindex the index of the point in the
+    array, and frac the cumulative fraction of points with larger
+    posterior probability.
+
+    The hist argument should be a one-dimensional array that contains
+    counts of sample points in each bin.
+
+    The points argument should be a 2-D array storing the sky location
+    associated with each bin; the first index runs from 0 to NBins -
+    1, while the second index runs from 0 to 1.
+
+    The injBin argument gives the bin index in which the injection is
+    found.
+
+    The NSamples argument is used to normalize the histogram counts
+    into fractional probability.
     """
-    frac=0
-    Nbins=0
-    injectionconfidence=None
-    #print "lenpos : %i"%lenpos
-    #toppoints=[(None,None,None)]*lenpos
+
+    histIndices=np.argsort(hist)[::-1]  # In decreasing order
+
     toppoints=[]
+    frac=0.0
+    injConf=None
+    for i in histIndices:
+        frac+=float(hist[i])/float(NSamples)
+        toppoints.append((points[i,0], points[i,1], i, frac))
+        if i == injBin:
+            injConf=frac
+            print 'Injection found at confidence level %g'%injConf
 
-    skyreses=[]
-    lenbins=len(shist)
-    range_lenbins=range(0,lenbins)
-    for confidence_level in confidence_levels:
-        while(frac<confidence_level):
-            maxbin=0
-            for i in range_lenbins:
-                if shist[i]>maxbin:
-                    maxbin=shist[i]
-                    maxpos=i
-
-            shist[maxpos]=0
-            frac=frac+(float(maxbin)/(lenpos))
-
-            Nbins=Nbins+1
-            toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxpos,frac))
-            if injbin is not None:
-                if (injbin==maxpos):
-                    injectionconfidence=frac
-                    print 'Injection sky point found at confidence %f'%(frac)
-
-        print '%f confidence region: %f square degrees'%(frac,Nbins*float(skyres_)*float(skyres_))
-
-        skyreses.append((frac,Nbins*float(skyres_)*float(skyres_)))
-        toppoints=toppoints[:Nbins]
-    return injectionconfidence,toppoints,skyreses
-
-def _histN(mat,N):
-    """
-    @deprecated: UNUSED .
-    """
-    Nd=size(N)
-    histo=zeros(N)
-    scale=array(map(lambda a,b:a/b,map(lambda a,b:(1*a)-b,map(max,mat),map(min,mat)),N))
-    axes=array(map(lambda a,N:linspace(min(a),max(a),N),mat,N))
-    bins=floor(map(lambda a,b:a/b , map(lambda a,b:a-b, mat, map(min,mat) ),scale*1.01))
-
-    hbins=reshape(map(int,bins.flat),bins.shape)
-    for co in transpose(hbins):
-        t=tuple(co)
-        histo[t[::-1]]=histo[t[::-1]]+1
-    return (axes,histo)
-#
+    return (injConf, toppoints)
 
 def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,confidence_levels):
     """
@@ -1227,13 +1479,7 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     """
 
     #Now call confidence level C extension function to determine top-ranked pixels
-    (injectionconfidence,toppoints)=_calculate_confidence_levels(
-                                                                    greedyHist,
-                                                                    greedyPoints,
-                                                                    injection_bin_index,
-                                                                    bin_size,
-                                                                    Nsamples
-                                                                    )
+    (injectionconfidence,toppoints)=_calculate_confidence_levels(greedyHist, greedyPoints, injection_bin_index, Nsamples)
 
     #Determine interval/area contained within given confidence intervals
     nBins=0
@@ -1241,15 +1487,12 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
     reses={}
     toppoints=np.array(toppoints)
     for printcl in confidence_levels:
-        nBins=1
-        #Start at top of list of ranked pixels...
-        accl=toppoints[0,3]
+        nBins=np.searchsorted(toppoints[:,3], printcl) + 1
 
-        #Loop over next significant pixels and their confidence levels
+        if nBins >= len(toppoints):
+            nBins=len(toppoints)-1
 
-        while accl<printcl and nBins<=len(toppoints):
-            nBins=nBins+1
-            accl=toppoints[nBins-1,3]
+        accl=toppoints[nBins-1,3]
 
         reses[printcl]=nBins*bin_size
 
@@ -1267,6 +1510,60 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 #===============================================================================
 # Public module functions
 #===============================================================================
+
+def kdtree_bin_sky_volume(posterior,confidence_levels):
+    
+    confidence_levels.sort()
+    
+    class Harvester(list):
+        
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+            
+        def __call__(self,tree):
+            number_density=float(len(tree.objects()))/float(tree.volume())
+            self.append([number_density,tree.volume(),tree.bounds()])
+            self.unrho+=number_density
+            
+        def close_ranks(self):
+            
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+            
+            return sorted(self,key=itemgetter(0))
+    
+    def h(a,b):
+        pass
+    
+    samples,header=posterior.samples()
+    header=header.split()
+    coord_names=["ra","dec","dist"]
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    tree=KDTree(coordinatized_samples)
+    
+    a=Harvester()
+    samples_per_bin=10
+    tree.operate(a,h,boxing=samples_per_bin)
+    
+    b=a.close_ranks()
+    b.reverse()
+    
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+    confidence_intervals={}
+    for rho,vol,bounds in b:
+        acc_rho+=rho
+        acc_vol+=vol
+    
+        if acc_rho>confidence_levels[cl_idx]:
+            confidence_intervals[acc_rho]=acc_vol
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+    
+    return confidence_intervals
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
@@ -1346,15 +1643,14 @@ def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
         try:
             greedyHist[par1_binNumber+par2_binNumber*par1pos_Nbins]+=1
         except:
-            print par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin
-            exit(1)
+            raise RuntimeError("Problem binning samples: %i,%i,%i,%i,%i,%f,%f,%f,%f,%f,%f .")%(par1_binNumber,par2_binNumber,par1pos_Nbins,par2pos_Nbins,par1_binNumber+par2_binNumber*par1pos_Nbins,par1_samp,par1pos_min,par1_bin,par1_samp,par2pos_min,par2_bin)
     #Call greedy bins routine
     toppoints,injection_cl,reses,injection_area=\
                                 _greedy_bin(
                                                 greedyHist,
                                                 greedyPoints,
                                                 injbin,
-                                                float(sqrt(par1_bin*par2_bin)),
+                                                float(par1_bin*par2_bin),
                                                 int(len(par1pos)),
                                                 confidence_levels
                                             )
@@ -1373,6 +1669,26 @@ def pol2cart(long,lat):
     return np.array([x,y,z])
 #
 
+def sph2cart(r,theta,phi):
+    """
+    Utiltiy function to convert r,theta,phi to cartesian co-ordinates.
+    """
+    x = r*np.sin(theta)*np.cos(phi)
+    y = r*np.sin(theta)*np.sin(phi)
+    z = r*np.cos(theta)
+    return x,y,z
+
+
+def cart2sph(x,y,z):
+    """
+    Utility function to convert cartesian coords to r,theta,phi.
+    """
+    r = np.sqrt(x*x + y*y + z*z)
+    theta = np.arccos(z/r)
+    phi = np.fmod(2*pi_constant + np.arctan2(y,x), 2*pi_constant)
+    
+    return r,theta,phi
+
 
 def greedy_bin_sky(posterior,skyres,confidence_levels):
     """
@@ -1390,11 +1706,20 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
 
     np.seterr(under='ignore')
 
-    skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+    if 'ra' in posterior.names and 'dec' in posterior.names:
+        skypos=np.column_stack([posterior['ra'].samples,posterior['dec'].samples])
+        raname='ra'
+        decname='dec'
+    elif 'rightascension' in posterior.names and 'declination' in posterior.names:
+        skypos=np.column_stack([posterior['rightascension'].samples,posterior['declination'].samples])
+        raname='rightascension'
+        decname='declination'
+    else:
+        raise RuntimeError('could not find ra and dec or rightascention and declination in column names for sky position')
 
     injvalues=None
 
-    sky_injpoint=(posterior['ra'].injval,posterior['dec'].injval)
+    sky_injpoint=(posterior[raname].injval,posterior[decname].injval)
 
     skypoints=np.array(skylocutils.gridsky(float(skyres)))
     skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
@@ -1416,12 +1741,14 @@ def greedy_bin_sky(posterior,skyres,confidence_levels):
                                                                      skypoints[injbin,1]
                                                                      )
 
-    return _greedy_bin(shist,skypoints,injbin,float(skyres),len(skypos),confidence_levels)
+    return _greedy_bin(shist,skypoints,injbin,float(skyres)*float(skyres),len(skypos),confidence_levels)
 
 
-def plot_sky_map(top_ranked_pixels,outdir):
+def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     """
     Plots a sky map using the Mollweide projection in the Basemap package.
+
+    @inj_pos: injected position in the sky in the form [dec,ra]
 
     @param top_ranked_pixels: the top-ranked sky pixels as determined by greedy_bin_sky.
 
@@ -1434,8 +1761,15 @@ def plot_sky_map(top_ranked_pixels,outdir):
     myfig=plt.figure()
     plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
-    ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
     
+    # Plot an X on the injected position
+    if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
+        ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
+        inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
+        plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
+    
+    ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
+
     plx,ply=m(
               ra_reverse,
               np.asarray(top_ranked_pixels)[::-1,0]*57.296
@@ -1454,16 +1788,24 @@ def plot_sky_map(top_ranked_pixels,outdir):
     plt.clf()
 
     #Save skypoints
+    
+    fid = open( os.path.join(outdir,'ranked_sky_pixels.dat'), 'w' ) 
+    fid.write( 'dec(deg.)\tra(h.)\tprob.\tcumul.\n' ) 
     np.savetxt(
-               os.path.join(outdir,'ranked_sky_pixels.dat'),
+               fid,
+               #os.path.join(outdir,'ranked_sky_pixels.dat'),
                np.column_stack(
                                [
-                                np.asarray(top_ranked_pixels)[:,0:1],
-                                np.asarray(top_ranked_pixels)[:,1],
+                                np.asarray(top_ranked_pixels)[:,0]*57.296,
+                                np.asarray(top_ranked_pixels)[:,1]*3.820,
+                                np.append(np.asarray(top_ranked_pixels)[0,3],np.asarray(top_ranked_pixels)[1:,3]-np.asarray(top_ranked_pixels)[:-1,3]),
                                 np.asarray(top_ranked_pixels)[:,3]
                                 ]
-                               )
+                               ),
+               fmt='%.4f',
+               delimiter='\t'
                )
+    fid.close() 
 
     return myfig
 #
@@ -1483,6 +1825,40 @@ def mc2ms(mc,eta):
     return (m1,m2)
 #
 #
+
+def q2ms(mc,q):
+    """
+    Utility function for converting mchirp,q to component masses. The
+    masses are defined so that m1>m2. The rvalue is a tuple (m1,m2).
+    """
+    factor = mc * np.power(1+q, 1.0/5.0);
+    m1 = factor * np.power(q, -3.0/5.0);
+    m2 = factor * np.power(q, 2.0/5.0);
+    return (m1,m2)
+#
+#
+
+def q2eta(mc,q):
+    """
+    Utility function for converting mchirp,q to eta. The
+    rvalue is eta.
+    """
+    m1,m2 = q2ms(mc,q)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    return eta
+#
+#
+
+def mc2q(mc,eta):
+    """
+    Utility function for converting mchirp,eta to new mass ratio q (m2/m1).
+    """
+    m1,m2 = mc2ms(mc,eta)
+    q = m2/m1
+    return q
+#
+#
+
 def ang_dist(long1,lat1,long2,lat2):
     """
     Find the angular separation of (long1,lat1) and (long2,lat2), which are
@@ -1497,7 +1873,124 @@ def ang_dist(long1,lat1,long2,lat2):
     z2=np.sin(lat2)
     sep=math.acos(x1*x2+y1*y2+z1*z2)
     return(sep)
+#
+#
 
+def array_dot(vec1, vec2):
+    """
+    Calculate dot products between vectors in rows of numpy arrays.
+    """
+    if vec1.ndim==1:
+        product = (vec1*vec2).sum()
+    else:
+        product = (vec1*vec2).sum(axis=1).reshape(-1,1)
+    return product
+#
+#
+
+def array_ang_sep(vec1, vec2):
+    """
+    Find angles between vectors in rows of numpy arrays.
+    """
+    vec1_mag = np.sqrt(array_dot(vec1, vec1))
+    vec2_mag = np.sqrt(array_dot(vec2, vec2))
+    return np.arccos(array_dot(vec1, vec2)/(vec1_mag*vec2_mag))
+#
+#
+
+def array_polar_ang(vec):
+    """
+    Find polar angles of vectors in rows of a numpy array.
+    """
+    if vec.ndim==1:
+        z = vec[2]
+    else:
+        z = vec[:,2].reshape(-1,1)
+    norm = np.sqrt(array_dot(vec,vec))
+    return np.arccos(z/norm)
+#
+#
+
+def rotation_matrix(angle, direction):
+    """
+    Compute general rotation matrices for a given angles and direction vectors.
+    """
+    cosa = np.cos(angle)
+    sina = np.sin(angle)
+    direction /= np.sqrt(array_dot(direction,direction))
+    #Assume calculating array of rotation matrices.
+    try:
+        nSamps = len(angle)
+        R = np.array( [np.diag([i,i,i]) for i in cosa.flat] )
+        R += np.array( [np.outer(direction[i],direction[i])*(1.0-cosa[i]) for i in range(nSamps)] )
+        R += np.array( [np.array(   [[ 0.0,            -direction[i,2],    direction[i,1]],
+                                     [ direction[i,2],  0.0,              -direction[i,0]],
+                                     [-direction[i,1],  direction[i,0],    0.0          ]] ) * sina[i] for i in range(nSamps)] )
+    #Only computing one rotation matrix.
+    except TypeError:
+        R = np.diag([cosa,cosa,cosa])
+        R += np.outer(direction,direction) * (1.0 - cosa)
+        R += np.array(   [[ 0.0,            -direction[2],    direction[1]],
+                          [ direction[2],  0.0,              -direction[0]],
+                          [-direction[1],  direction[0],    0.0          ]] ) * sina
+    return R
+#
+#
+
+def rotate_vector(R, vec):
+    """
+    Rotate vectors using the given rotation matrices.
+    """
+    if vec.ndim == 1:
+        newVec = np.dot(R[i],vec[i])
+    else:
+        newVec = np.array( [np.dot(R[i],vec[i]) for i in range(len(vec))] )
+    return newVec
+#
+#
+
+def orbital_momentum(f_lower, mc, inclination):
+    """
+    Calculate orbital angular momentum vector.
+    """
+    mtsun = 4.92549095e-06          #Msol in seconds
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * mtsun * f_lower, 1.0/3.0)
+    Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
+    return np.hstack((Lx,Ly,Lz))
+#
+#
+
+def component_momentum(m, a, theta, phi):
+    """
+    Calculate BH angular momentum vector.
+    """
+    Sx, Sy, Sz = sph2cart(m**2 * a, theta, phi)
+    return np.hstack((Sx,Sy,Sz))
+#
+#
+
+def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
+    """
+    Calculate physical spin angles.
+    """
+    singleSpin = None in (a2,theta2,phi2)
+    m1, m2 = mc2ms(mc,eta)
+    L  = orbital_momentum(f_lower, mc, incl)
+    S1 = component_momentum(m1, a1, theta1, phi1)
+    if not singleSpin:
+        S2 = component_momentum(m2, a2, theta2, phi2)
+    else:
+        S2 = 0.0
+    J = L + S1 + S2
+    tilt1 = array_ang_sep(L,S1)
+    if not singleSpin:
+        tilt2 = array_ang_sep(L,S2)
+    else:
+        tilt2 = None
+    thetas = array_polar_ang(J)
+    beta  = array_ang_sep(J,L)
+    return tilt1, tilt2, thetas, beta
+#
 #
 
 def plot_one_param_pdf_kde(fig,onedpos):
@@ -1547,7 +2040,7 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     rbins=None
 
-    if injpar:
+    if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
             plt.axvline(injpar, color='r', linestyle='-.')
 
@@ -1617,9 +2110,6 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     from scipy import seterr as sp_seterr
 
     par1_name,par2_name=plot2DkdeParams.keys()
-    # Make RA always on the bottom
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        (par1_name, par2_name) = (par2_name, par1_name)
     Nx=plot2DkdeParams[par1_name]
     Ny=plot2DkdeParams[par2_name]
 
@@ -1677,19 +2167,25 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
         plt.ylim(ymax,ymin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
+        strticks=map(getRAString,locs)
         plt.yticks(locs,strticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.yticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
-
-
+        plt.yticks(locs,strticks)
 
     return myfig
 #
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles):
+def get_inj_by_time(injections,time):
+    """
+    Filter injections to find the injection with end time given by time +/- 0.1s
+    """
+    import itertools
+    injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
+    return injection
+
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75]):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -1704,15 +2200,14 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     """
 
-    fig=plt.figure(1,figsize=(30,20),dpi=150)
+    fig=plt.figure(1,figsize=figsize,dpi=dpi)
     plt.clf()
 
-    fig.add_axes([0.2,0.2,0.48,0.75])
+    fig.add_axes(figposition)
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
-        print "Error: Need as many or more line styles to choose from as confidence levels to plot!"
-        exit(0)
+        raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
 
     CSlst=[]
     name_list=[]
@@ -1721,7 +2216,6 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         name_list.append(name)
         #Extract parameter names
         par1_name,par2_name=greedy2Params.keys()
-
         #Extract bin sizes
         par1_bin=greedy2Params[par1_name]
         par2_bin=greedy2Params[par2_name]
@@ -1769,12 +2263,11 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
 
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par1_name)
-    plt.ylabel(par2_name)
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
 
     if len(name_list)!=len(CSlst):
-        print "Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name."
-        exit(0)
+        raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
     full_name_list=[]
     dummy_lines=[]
 
@@ -1787,7 +2280,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig_actor_lst = [cs.collections[0] for cs in CSlst]
 
     fig_actor_lst.extend(dummy_lines)
-    fig.savefig('test.png')
+
     twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
@@ -1796,29 +2289,32 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            if(ymin<0.0): ylim=0.0
+            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs)
+        plt.xticks(locs,strticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
-
+        plt.xticks(locs,strticks,rotation=45)
 
     return fig
 #
@@ -1842,7 +2338,6 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     #Extract parameter names
     par1_name,par2_name=greedy2Params.keys()
-
     #Extract bin sizes
     par1_bin=greedy2Params[par1_name]
     par2_bin=greedy2Params[par2_name]
@@ -1865,40 +2360,67 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par2_injvalue=posterior[par2_name.lower()].injval
 
     myfig=plt.figure(1,figsize=(10,8),dpi=300)
+    myfig.add_axes([0.2,0.2,0.8,0.8])
     plt.clf()
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
 
-    #bins=(par1pos_Nbins, par2pos_Nbins)
     bins=(100,100)
 
-    H, xedges, yedges = np.histogram2d(a,b, bins,normed=True)
+    H, xedges, yedges = np.histogram2d(a,b, bins,normed=False)
+
+    #Replace H with greedy bin confidence levels at each pixel...
+    temp=np.copy(H)
+    temp=temp.flatten()
+
+    Hsum=0
+    Hsum_actual=np.sum(H)
+
+    while Hsum<Hsum_actual:
+        ind = np.argsort(temp)
+        max_i=ind[-1:]
+        val = temp[max_i]
+        Hsum+=int(val)
+        temp[max_i]=0
+
+        #print Hsum,Hsum_actual
+        H.flat[max_i]=1-float(Hsum)/float(Hsum_actual)
+
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-    plt.imshow(H, aspect='equal', extent=None, interpolation='nearest')
+    plt.imshow(np.flipud(H), aspect='auto', extent=extent, interpolation='nearest')
+    plt.gca().autoscale_view()
     plt.colorbar()
+
+    if par1_injvalue is not None and par2_injvalue is not None:
+        plt.plot([par1_injvalue],[par2_injvalue],'go',scalex=False,scaley=False)
+
 
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            xmin,xmax=plt.xlim()
-            plt.xlim(xmax,xmin)
+            ymin,ymax=plt.ylim()
+            plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
+            locs, ticks = plt.yticks()
             strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            plt.yticks(locs,strticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
+        xmin,xmax=plt.xlim()
+        if(xmin)<0.0: xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+        plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs) 
-        plt.yticks(locs,strticks)
+        locs, ticks = plt.xticks()
+        strticks=map(getRAString,locs)
+        plt.xticks(locs,strticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
+        locs, ticks = plt.xticks()
         strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)                                           
+        plt.xticks(locs,strticks,rotation=45)
 
     return myfig
 
@@ -1951,7 +2473,7 @@ def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
         par_binNumber=floor((par_injvalue-parpos_min)/par_bin)
         injbin=par_binNumber
 
-    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(sqrt(par_bin*par_bin)),int(len(par_samps)),confidence_levels)
+    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin),int(len(par_samps)),confidence_levels)
     cl_intervals=[]
     confidence_levels.sort()
     for cl in confidence_levels:
@@ -2109,6 +2631,8 @@ class PEOutputParser(object):
             self._parser=self._followupmcmc_to_pos
         elif inputtype is "inf_mcmc":
             self._parser=self._infmcmc_to_pos
+        elif inputtype is "xml":
+            self._parser=self._xml_to_pos
 
     def parse(self,files,**kwargs):
         """
@@ -2116,62 +2640,79 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,deltaLogL=None,nDownsample=None,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
+        if not (fixedBurnin is None):
+            if not (deltaLogL is None):
+                print "Warning: using deltaLogL criteria in addition to fixed burnin"
+            print "Eliminating the first ",fixedBurnin,"samples as burnin."
+        else:
+            fixedBurnin = 0
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
         nskip=1
         if not (nDownsample is None):
-            nskip=self._find_ndownsample(files, logLThreshold, nDownsample)
+            nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
             print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        if outdir is None:
+            outdir=''
+        runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
         postName="posterior_samples.dat"
+        runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, outfile, logLThreshold, nskip)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
         finally:
+            runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, outfile, logLThreshold, nskip=1):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
-        log(L) > logLThreshold are concatenated.
+        log(L) > logLThreshold are concatenated after eliminating
+        fixedBurnin.
         """
-        allowedCols=["cycle", "logl", "logpost", "logprior",
-                     "a1", "theta1", "phi1",
-                     "a2", "theta2", "phi2",
-                     "mc", "eta", "time",
-                     "phi_orb", "iota", "psi",
-                     "ra", "dec",
-                     "dist"]
         nRead=0
         outputHeader=False
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
-                header=self._clear_infmcmc_header(infile)
-                # Remove unwanted columns, and accound for 1 <--> 2 reversal of convention in lalinference.
-                header=[self._swaplabel12(label) for label in header if label in allowedCols]
+                print "Writing header of %s to %s"%(infilename,runfile.name)
+                runInfo,header=self._clear_infmcmc_header(infile)
+                runfile.write('Chain '+str(i)+':\n')
+                runfile.writelines(runInfo)
+                print "Processing file %s to %s"%(infilename,outfile.name)
+                f_lower=self._find_infmcmc_f_lower(runInfo)
+                if oldMassConvention:
+                    # Swap #1 for #2 because our old mass convention
+                    # has m2 > m1, while the common convention has m1
+                    # > m2
+                    header=[self._swaplabel12(label) for label in header]
                 if not outputHeader:
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
+                    outfile.write("f_lower")
+                    outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
                     outputHeader=header
+                iterindex=header.index("cycle")
                 loglindex=header.index("logpost")
                 output=False
                 for line in infile:
                     line=line.lstrip()
                     lineParams=line.split()
+                    iter=int(lineParams[iterindex])
                     logL=float(lineParams[loglindex])
-                    if logL >= logLThreshold:
+                    if (iter > fixedBurnin) and (logL >= logLThreshold):
                         output=True
                     if output:
                         if nRead % nskip == 0:
@@ -2183,6 +2724,8 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write(" ")
+                            outfile.write(f_lower)
+                            outfile.write(" ")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
@@ -2205,7 +2748,7 @@ class PEOutputParser(object):
         for inpname in files:
             infile=open(inpname, 'r')
             try:
-                header=self._clear_infmcmc_header(infile)
+                runInfo,header=self._clear_infmcmc_header(infile)
                 loglindex=header.index("logpost")
                 for line in infile:
                     line=line.lstrip().split()
@@ -2217,26 +2760,31 @@ class PEOutputParser(object):
         print "Found max log(Post) = ", maxLogL
         return maxLogL
 
-    def _find_ndownsample(self, files, logLthreshold, nDownsample):
+    def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
         """
-        Given a list of files, and threshold value, and a desired
+        Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
         achieve the desired number of posterior samples.
         """
         ntot=0
         for inpname in files:
-            infile=open(inpname, 'r')
+            infile = open(inpname, 'r')
             try:
-                header=self._clear_infmcmc_header(infile)
-                loglindex=header.index("logpost")
-                burnedIn=False
+                runInfo,header = self._clear_infmcmc_header(infile)
+                loglindex = header.index("logpost")
+                iterindex = header.index("cycle")
+                deltaLburnedIn = False
+                fixedBurnedIn  = False
                 for line in infile:
-                    line=line.lstrip().split()
-                    logL=float(line[loglindex])
+                    line = line.lstrip().split()
+                    iter = int(line[iterindex])
+                    logL = float(line[loglindex])
+                    if iter > fixedBurnin:
+                        fixedBurnedIn = True
                     if logL > logLthreshold:
-                        burnedIn=True
-                    if burnedIn:
-                        ntot=ntot+1
+                        deltaLburnedIn = True
+                    if fixedBurnedIn and deltaLburnedIn:
+                        ntot = ntot+1
             finally:
                 infile.close()
         if ntot < nDownsample:
@@ -2244,21 +2792,40 @@ class PEOutputParser(object):
         else:
             return floor(ntot/nDownsample)
 
+    def _find_infmcmc_f_lower(self, runInfo):
+        """
+        Searches through header to determine starting frequency of waveforms.
+        Assumes same for all IFOs.
+        """
+        runInfo = iter(runInfo)
+        for line in runInfo:
+            headers=line.lstrip().lower().split()
+            try:
+                flowColNum = headers.index('f_low')
+                IFOinfo = runInfo.next().lstrip().lower().split()
+                f_lower = IFOinfo[flowColNum]
+                break
+            except ValueError:
+                continue
+        return f_lower
+
     def _clear_infmcmc_header(self, infile):
         """
-        Reads past the header information from the
-        lalinference_mcmcmpi file given, returning the common output
-        header information.
+        Reads lalinference_mcmcmpi file given, returning the run info and 
+        common output header information.
         """
+        runInfo = []
         for line in infile:
+            runInfo.append(line)
             headers=line.lstrip().lower().split()
-            if len(headers) is 0:
-                continue
-            if "cycle" in headers[0]:
+            try:
+                headers.index('cycle')
                 break
+            except ValueError:
+                continue
         else:
-            raise RuntimeError("couldn't find line beginning with 'cycle' in LALInferenceMCMC input")
-        return headers
+            raise RuntimeError("couldn't find line with 'cycle' in LALInferenceMCMC input")
+        return runInfo[:-1],headers
 
 
     def _mcmc_burnin_to_pos(self,files,spin=False,deltaLogL=None):
@@ -2278,11 +2845,11 @@ class PEOutputParser(object):
             from lalapps.combine_evidence import combine_evidence
         except ImportError:
             print "Need lalapps.combine_evidence to convert nested sampling output!"
-            exit(1)
+            raise
 
         if Nlive is None:
-            print "Need to specify number of live points in positional arguments of parse!"
-            exit(1)
+            raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
+            
 
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
@@ -2314,47 +2881,58 @@ class PEOutputParser(object):
         """
         return self._common_to_pos(open(files[0],'r'))
 
-    def _common_to_pos(self,infile,delimiter=None):
+    def _xml_to_pos(self,infile):
         """
-        Parse a file in the 'common format' and return an array of posterior
-        samples and list of parameter names. Will apply inverse functions to
-        columns with names containing sin,cos,log.
+        Parser for VOTable XML Using
         """
-
-        formatstr=infile.readline().lstrip()
-        formatstr=formatstr.replace('#','')
-        formatstr=formatstr.replace('"','')
-
-        header=formatstr.split(delimiter)
-        header[-1]=header[-1].rstrip('\n')
-
+        from xml.etree import ElementTree as ET
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        try:
+                register_namespace=ET.register_namespace
+        except AttributeError:
+                def register_namespace(prefix,uri):
+                    ET._namespace_map[uri]=prefix
+        register_namespace('vot',xmlns)
+        tree = ET.ElementTree()
+        
+        tree.parse(infile)
+        # Find the posterior table
+        tables = tree.findall('.//{%s}TABLE'%(xmlns))
+        for table in tables:
+            if table.get('utype')=='lalinference:results:posteriorsamples':
+                return(self._VOTTABLE2pos(table))
+        for table in tables:
+	  if table.get('utype')=='lalinference:results:nestedsamples':
+	    nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
+	    return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
+        raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
+        
+    def _VOTTABLE2pos(self,table):
+        """
+        Parser for a VOT TABLE element with FIELDs and TABLEDATA elements
+        """
+        from xml.etree import ElementTree as ET
+        xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        try:
+	  register_namespace=ET.register_namespace
+	except AttributeError:
+	  def register_namespace(prefix,uri):
+	    ET._namespace_map[uri]=prefix
+	register_namespace('vot',xmlns)
+        header=[]
+        for field in table.findall('./{%s}FIELD'%(xmlns)):
+            header.append(field.attrib['name'])
+        if(len(header)==0):
+            raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
+        data=table.findall('./{%s}DATA'%(xmlns))
+	tabledata=data[0].find('./{%s}TABLEDATA'%(xmlns))
         llines=[]
-        import re
-        dec=re.compile(r'[^Ee+\d.-]+')
-        line_count=0
-        for line in infile:
-            sline=line.split(delimiter)
-            if sline[-1] == '\n':
-                del(sline[-1])
-            proceed=True
-            if len(sline)<1:
-                print 'Ignoring empty line in input file: %s'%(sline)
-                proceed=False
-
-            for st in sline:
-                s=st.replace('\n','')
-                if dec.search(s) is not None:
-                    print 'Warning! Ignoring non-numeric data after the header: %s'%s
-                    proceed=False
-                if s is '\n':
-                    proceed=False
-
-            if proceed:
-                llines.append(np.array(map(float,sline)))
-
+        for row in tabledata:
+            llines.append(np.array(map(lambda a:float(a.text),row)))
         flines=np.array(llines)
         for i in range(0,len(header)):
-            if header[i].lower().find('log')!=-1 and header[i].lower()!='logl':
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
                 flines[:,i]=np.exp(flines[:,i])
@@ -2372,4 +2950,396 @@ class PEOutputParser(object):
             header[i]=header[i].replace(')','')
         print 'Read columns %s'%(str(header))
         return header,flines
+
+
+    def _common_to_pos(self,infile,delimiter=None):
+        """
+        Parse a file in the 'common format' and return an array of posterior
+        samples and list of parameter names. Will apply inverse functions to
+        columns with names containing sin,cos,log.
+        """
+
+        formatstr=infile.readline().lstrip()
+        formatstr=formatstr.replace('#','')
+        formatstr=formatstr.replace('"','')
+
+        header=formatstr.split(delimiter)
+        header[-1]=header[-1].rstrip('\n')
+
+        llines=[]
+        import re
+        dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
+        line_count=0
+        for line in infile:
+            sline=line.split(delimiter)
+            if sline[-1] == '\n':
+                del(sline[-1])
+            proceed=True
+            if len(sline)<1:
+                print 'Ignoring empty line in input file: %s'%(sline)
+                proceed=False
+
+            for st in sline:
+                s=st.replace('\n','')
+                if dec.search(s) is None:
+                    print 'Warning! Ignoring non-numeric data after the header: %s'%s
+                    proceed=False
+                if s is '\n':
+                    proceed=False
+
+            if proceed:
+                llines.append(np.array(map(float,sline)))
+
+        flines=np.array(llines)
+        for i in range(0,len(header)):
+            logParams=['logl','loglh1','loglh2','logll1','loglv1']
+            if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
+                print 'exponentiating %s'%(header[i])
+
+                flines[:,i]=np.exp(flines[:,i])
+
+                header[i]=header[i].replace('log','')
+            if header[i].lower().find('sin')!=-1:
+                print 'asining %s'%(header[i])
+                flines[:,i]=np.arcsin(flines[:,i])
+                header[i]=header[i].replace('sin','')
+            if header[i].lower().find('cos')!=-1:
+                print 'acosing %s'%(header[i])
+                flines[:,i]=np.arccos(flines[:,i])
+                header[i]=header[i].replace('cos','')
+            header[i]=header[i].replace('(','')
+            header[i]=header[i].replace(')','')
+        print 'Read columns %s'%(str(header))
+        return header,flines
+#
+
+def parse_converge_output_section(fo):
+        result={}
+        lines=fo.split('\n')
+        chain_line=False
+        for line in lines:
+            
+            if '[1]' in line:
+                key=line.replace('[1]','').strip(' ').strip('"')
+                result[key]={}
+                out=result[key]
+                continue
+            if result is not {}:
+                if 'chain' in line:
+                    chain_line=True
+                    continue
+                if chain_line:
+                    chain_line=False
+                    key=line.strip('"').split()[1]
+                    out[key]=[]
+                    out2=out[key]
+                else:
+                    try:
+                        newline=line.strip('"').split()
+                        if newline is not []:
+                            out2.append(line.strip('"').split())
+                    except:
+                        pass
+
+        return result
+
+def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_frac2=0.5,heidelberger=True,effectiveSize=True,warnings=False):
+    """
+    This function spawns a process to run an R script to use the coda package
+    to calculate the following convergence diagnostics for the chains contained in the input
+    Posterior instance:
+    
+    Gelman-Rubin
+    Geweke
+    Heidelberger & Welch
+    Effective sample sizes
+
+    These can be turned on and off using the flags.
+    
+    Python scrapes the output produced by the R script and returns a (nested) dictionary:
+    {'test':{'chainN':[['param':'test_value'],...],...},...}
+
+    You will need R with the coda and lattice libraries for this to work . 
+    """
+    from subprocess import Popen,PIPE
+
+    print "Calculating convergence diagnostics using R coda library..."
+
+    posterior.write_to_file('tmp.dat')
+
+    R_process=Popen(["R","-q","--vanilla","--slave"],stdin=PIPE,stdout=PIPE)
+    script=convergenceTests_R%(str(gelman).upper(),str(geweke).upper(),geweke_frac1,geweke_frac2,str(heidelberger).upper(),str(effectiveSize).upper(),str(warnings).upper())
+    #print script
+    rp_stdout,rp_stderr=R_process.communicate(input=script)
+
+    outdict=parse_converge_output_section(rp_stdout)
+    
+    #Check outdict
+    if outdict is {}:
+        print "No results found! Check for any errors above. You can turn on the R warning messages with warnings=True ."
+        return None
+    else:
+        test_pass=False
+        for test,test_result in outdict.items():
+            
+            if not test_result:
+                print "Convergence test failed : %s ! Check for any errors above. You can turn on the R warning messages with warnings=True ."%test
+            else:
+                test_pass=True
+
+        if test_pass:
+            return outdict
+
+        else:
+            return None
+    
+#
+
+def vo_nest2pos(nsresource,Nlive=None):
+    """
+    Parse a VO Table RESOURCE containing nested sampling output and
+    return a VOTable TABLE element with posterior samples in it.
+    This can be added to an existing tree by the user.
+    Nlive will be read from the nsresource, unless specified
+    """
+    from xml.etree import ElementTree as ET
+    import copy
+    from math import log, exp
+    xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+    try:
+      register_namespace=ET.register_namespace
+    except AttributeError:
+	def register_namespace(prefix,uri):
+	  ET._namespace_map[uri]=prefix
+    register_namespace('vot',xmlns)
+    
+    postable=ET.Element("{%s}TABLE"%(xmlns),attrib={'name':'Posterior Samples','utype':'lalinference:results:posteriorsamples'})
+    i=0
+    nstables=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("utype")=="lalinference:results:nestedsamples"]
+
+    nstable=nstables[0]
+    if Nlive is None:
+        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("utype")=="lalinference:state"][0]
+        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("utype")=="lalinference:state:algorithmparams"][0]
+        Nlive = int ([param for param in algTable.findall("./{%s}PARAM"%(xmlns)) if param.get("name")=='Nlive'][0].get('value'))
+        print 'Found Nlive %i'%(Nlive)
+    if Nlive is None:
+        raise RuntimeError("Cannot find number of live points in XML table, please specify")
+    logLcol = None
+    for fieldnode in nstable.findall('./{%s}FIELD'%xmlns):
+        if fieldnode.get('name') == 'logL':
+            logLcol=i
+        i=i+1
+        postable.append(copy.deepcopy(fieldnode))
+    for paramnode in nstable.findall('./{%s}PARAM'%(xmlns)):
+        postable.append(copy.deepcopy(paramnode))
+    if logLcol is None:
+        RuntimeError("Unable to find logL column")
+    posdataNode=ET.Element("{%s}DATA"%(xmlns))
+    postabledataNode=ET.Element("{%s}TABLEDATA"%(xmlns))
+    postable.append(posdataNode)
+    posdataNode.append(postabledataNode)
+    nstabledata=nstable.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+    logw=log(1.0 - exp(-1.0/float(Nlive)))
+    weights=[]
+    for row in nstabledata:
+        logL=float(row[logLcol].text)
+        weights.append(logL-logw)
+        logw=logw-1.0/float(Nlive)
+    mw=max(weights)
+    weights = [w - mw for w in weights]
+    for (row,weight) in zip(nstabledata,weights):
+        if weight > log(random.random()):
+            postabledataNode.append(copy.deepcopy(row))
+    return postable
+
+xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+
+class VOT2HTML:
+  def __init__(self):
+    self.html=htmlSection("VOTable information")
+    self.skiptable=0
+  def start(self,tag,attrib):
+    if tag=='{%s}TABLE'%(xmlns):
+	if attrib['utype']=='lalinference:results:nestedsamples'\
+	or attrib['utype']=='lalinference:results:posteriorsamples':
+	  self.skiptable=1
+	else:
+	  self.skiptable=0
+	self.tableouter=htmlChunk('div')
+	self.tableouter.h2(attrib['name'])
+	try:
+	  self.tableouter.p(attrib['utype'])
+	except KeyError:
+	    pass
+	self.fixedparams=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+	self.table=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+	self.tabheader=htmlChunk('tr',parent=self.table)
+    if tag=='{%s}FIELD'%(xmlns):
+	self.field=htmlChunk('th',{'name':attrib['name']},parent=self.tabheader)
+    if tag=='{%s}TR'%(xmlns):
+	self.tabrow=htmlChunk('tr',parent=self.table)
+    if tag=='{%s}TD'%(xmlns):
+	self.td=htmlChunk('td',parent=self.tabrow)
+    if tag=='{%s}PARAM'%(xmlns):
+	pnode=htmlChunk('tr',parent=self.fixedparams)
+	namenode=htmlChunk('td',parent=pnode)
+	namenode.p(attrib['name'])
+	valnode=htmlChunk('td',parent=pnode)
+	valnode.p(attrib['value'])
+  def end(self,tag):
+    if tag=='{%s}TABLE'%(xmlns):
+      if not self.skiptable:
+	self.html.append(self.tableouter._html)
+    if tag=='{%s}FIELD'%(xmlns):
+      self.field.p(self.data)
+    if tag=='{%s}TD'%(xmlns):
+      self.td.p(self.data)
+
+  def data(self,data):
+    self.data=data
+  
+  def close(self):
+    return self.html.toprettyxml()
+
+
+
+#R convergenceTest script
+convergenceTests_R="""
+convergenceTests <- function(data,
+                             gelman=TRUE,
+                             geweke=TRUE, geweke.frac1=0.1, geweke.frac2=0.5,
+                             heidelberger=TRUE,
+                             effectiveSize=TRUE)
+# The argument `data' is a matrix (or data frame)
+# of (supposedly post burn-in) posterior samples.
+# Rows correspond to samples, columns correspond to variables.
+# If `data' contains a variable named "chain",
+# this is assumed to indicate chains from independent runs.
+# By default, Gelman's, Geweke's and Heidelberger & Welch's convergence
+# diagnostics, and effectice sample sizes are computed.
+# Geweke's diagnostic is directly converted to p-values,
+# and the effective sample size is divided by the number of MCMC samples
+# to give /relative/ sample sizes.
+# In order to suppress computation of any of the 3 figures, supply
+# an additional (e.g.)  `geweke=FALSE'  or  `geweke=F'  argument.
+{
+  # check whether "coda" library is installed:
+  codaInstalled <- require("coda")
+  if (codaInstalled) {
+    # check whether a "chain" variable indicates presence of multiple chains:
+    if (is.element("chain",colnames(data))) {
+      chainIndicator <- data[,"chain"]
+      # which chains present?:
+      chainLabels <- sort(unique(data[,"chain"]))
+      # how many samples of each chain?:
+      chainFrequencies <- table(data[,"chain"])
+      # drop "chain" column from data:
+      data <- data[,colnames(data)!="chain"]
+    }
+    else { # (no "chain" indicator means a single chain)
+      chainIndicator <- rep(1, nrow(data))
+      chainLabels <- 1
+      chainFrequencies <- c("1"=nrow(data))
+    }
+
+    
+    # Gelman diagnostic - need at least 2 chains with at least 2 samples:
+    if (gelman && (length(chainFrequencies>=2) >= 2)) {
+      codaList <- mcmc.list()
+      for (i in 1:sum(chainFrequencies>=2)){
+        # filter out i-th chain:
+        finalSamples <- which(chainIndicator==chainLabels[chainFrequencies>=2][i])
+        # filter out final samples:
+        finalSamples <- finalSamples[length(finalSamples)+((-(min(chainFrequencies[chainFrequencies>=2])-1)):0)]
+        # add to list:
+        codaList[[i]] <- mcmc(data=data[finalSamples,])
+      }
+      GD <- try(gelman.diag(codaList), silent=TRUE)
+      rm("codaList")
+      if (class(GD) != "try-error") RHatP <- c("RHatP"=Re(GD$mpsrf))
+      else RHatP <- c("RHatP"=NA)
+    }
+    else RHatP <- c("RHatP"=NA)
+
+    
+    # Geweke diagnostic:
+    if (geweke) {
+      geweke.p <- geweke.z <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute diagnostic for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        GD <- try(geweke.diag(mcmc(data[chainIndicator==chainLabels[i],]),
+                              frac1=geweke.frac1, frac2=geweke.frac2))
+        if (class(GD) != "try-error") zScores <- GD$z
+        else zScores <- rep(NA, ncol(data))
+        geweke.z[,i] <- zScores
+      }
+      # compute corresponding matrix of p-values:
+      geweke.p <- (1.0 - pnorm(abs(geweke.z))) / 2.0
+    }
+    else geweke.p <- NA
+
+    
+    # Heidelberger & Welch diagnostic:
+    if (heidelberger) {
+      heidelberger.p  <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                                    dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute diagnostic for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        HWD <- try(heidel.diag(mcmc(data[chainIndicator==chainLabels[i],])))
+        if (class(HWD) != "try-error") pvalues <- HWD[,"pvalue"]
+        else pvalues <- rep(NA, ncol(data))
+        heidelberger.p[,i] <- pvalues
+      }
+    }
+    else heidelberger.p <- NA
+
+    
+    # effective sample size:
+    if (effectiveSize) {
+      Neff <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
+                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
+      # compute N_eff for each variable and chain:
+      for (i in 1:length(chainLabels)) {
+        ES <- try(effectiveSize(mcmc(data[chainIndicator==chainLabels[i],])))
+        if (class(ES) != "try-error") sizes <- ES
+        else sizes <- rep(NA, ncol(data))
+        Neff[,i] <- sizes
+      }
+      # normalize (to /relative/ sample sizes):
+      Reff <- Neff / matrix(chainFrequencies, nrow=ncol(data), ncol=length(chainLabels), byrow=TRUE)
+    }
+    else Reff <- NA
+
+    
+    # assemble eventual results:
+    result <- list("gelman"       = RHatP,          # "multivariate scale reduction factor", $\hat{R}^p$
+                   "geweke"       = geweke.p,       # matrix of p-values
+                   "heidelberger" = heidelberger.p, # matrix of p-values
+                   "effectiveSize"     = Reff)           # matrix of /relative/ effective sample sizes
+  }
+  else {
+    warning("coda library not installed.")
+    result <- list("gelman"       = NA,
+                   "geweke"       = NA,
+                   "heidelberger" = NA,
+                   "effectiveSize"     = NA)
+  }
+  return(result)
+} 
+
+A <- read.table("tmp.dat",header=TRUE)
+result <- convergenceTests(A,gelman=%s,geweke=%s,geweke.frac1=%f, geweke.frac2=%f,heidelberger=%s,effectiveSize=%s)
+for (name in names(result)) {
+    print(name)
+    print(result[[name]])
+    
+}
+warnings_flag <- %s
+if (warnings_flag){
+    warnings()
+}
+
+"""
 #

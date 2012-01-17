@@ -11,7 +11,12 @@
 
 PACKAGE = python-glue
 
-PREFIX = /opt/lscsoft/glue
+#PREFIX = /opt/lscsoft/glue
+PREFIX = /usr
+
+# list of pythonX.Y available for release used for building
+#PYVERS=$(shell pyversions -r)
+PYVERS=$(shell pyversions -s)
 
 CFLAGS = -Wall -g
 
@@ -21,6 +26,18 @@ else
 	CFLAGS += -O2
 endif
 
+# $() expands to list of clean-pythonX.Y
+clean: $(PYVERS:%=clean-%)
+	rm -f build-python* configure-stamp
+clean-%:
+	dh_testdir
+	#dh_testroot
+#	-$(MAKE) clean
+	$* setup.py clean --all
+	-rm -rf build
+	
+	dh_clean 
+
 configure: configure-stamp
 configure-stamp:
 	dh_testdir
@@ -28,69 +45,92 @@ configure-stamp:
 
 	touch configure-stamp
 
-
-build: build-stamp
-
-build-stamp: configure-stamp 
+# $() expands to list of build-pythonX.Y
+build: $(PYVERS:%=build-%)
+build-%:
 	dh_testdir
-
 #	$(MAKE)
 # moved to install
-
-	#python setup.py build
-
+#	$* setup.py build
 	touch $@
 
-clean:
-	dh_testdir
-	dh_testroot
-	rm -f build-stamp configure-stamp
-
-#	-$(MAKE) clean
-	-python2.4 setup.py clean --all
-	-rm -rf build
-	
-	dh_clean 
-
-install: build
-	dh_testdir
-	dh_testroot
-	dh_clean -k 
-	dh_installdirs
-
-	# Add here commands to install the package into debian/$(PACKAGE).
-#	$(MAKE) DESTDIR=$(CURDIR)/debian/$(PACKAGE) install
-	mkdir -p $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/glue
+# $() expands to list of install-pythonX.Y
+install: build $(PYVERS:%=install-%)
+#	dh_testdir
+#	dh_testroot
+#	dh_clean -k
+#	dh_installdirs
+	# for some nasty reasons, setup.py replaces shebang lines with pythonX.Y call
+	# revert that!
 	set -e; \
-	for v in 2.4 2.5; do                                             \
-	        CFLAGS="$(CFLAGS)"                                  \
-		python$$v setup.py build;                                \
-	        CFLAGS="$(CFLAGS)"                                  \
-		python$$v setup.py install                          \
-	    	    --root=$(CURDIR)/debian/$(PACKAGE)              \
-		    --prefix=$(PREFIX)                              \
-		    --record=$(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/glue/INSTALLED_FILES; \
-		ls -lR $(CURDIR)/debian/$(PACKAGE)/$(PREFIX);            \
-		python$$v setup.py clean --all;                          \
+	# fix executable name as setup.py inserts pythonX.Y
+	for i in `find debian/$(PACKAGE)/$(PREFIX)/bin -type f`; do      \
+		echo $$i;                                                \
+		if head -n1 $$i | grep -q '^#!.*python[0-9]\..' ; then         \
+			sed -i '1s/python[0-9]\../python/' $$i;             \
+		fi ;                                                     \
 	done
-#	python setup.py install \
-#	    --root=$(CURDIR)/debian/$(PACKAGE) \
-#	    --prefix=$(PREFIX) \
-#	    --record=$(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/glue/INSTALLED_FILES
+	# do we still need that? dh_fixperms might take care of those...
 	set -e; \
 	for i in `find debian -mindepth 2 -type f ! -perm 755`; do       \
 	        if head -n1 $$i | grep -q '^#!' ; then                   \
 	                chmod +x $$i;                                    \
 	        fi ;                                                     \
 	done
-	set -e; \
-	for i in `find debian/$(PACKAGE)/$(PREFIX)/bin -type f`; do      \
-		echo $$i;                                                \
-		if head -n1 $$i | grep -q '^#!.*python2\..' ; then         \
-			sed -i '1s/python2\../python/' $$i;             \
-		fi ;                                                     \
+	# overwrite env scripts
+	for env in $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/etc/glue-user-env.* ; do \
+		cp $$env $$env.ORIG ; \
 	done
 	cp -p debian/glue-user-env.* $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/etc/
+	# if building with prefix /usr, move config files to /etc
+	if [ "$(PREFIX)" = "/usr" ]; then \
+		mkdir -p $(CURDIR)/debian/$(PACKAGE)/etc/ ; \
+		mv -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/etc/* $(CURDIR)/debian/$(PACKAGE)/etc/ ; \
+		rmdir $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/etc ; \
+	fi
+	rm -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/python*/*/glue/__init__.py*
+	rm -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/python*/*/glue/segments.py*
+	rm -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/python*/*/glue/__segments.so*
+	rm -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/python*/*/glue/iterutils.py*
+	rm -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/python*/*/glue/git_version.py*
+	# exclude from main package:
+	rm -rf $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/etc
+	rm -rf $(CURDIR)/debian/$(PACKAGE)/etc
+	rm -rf $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/var
+	#rm -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/nmi/lalsuite-build*
+	rm -rf $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/nmi
+	rm -f $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/python*/glue/cbcwebpage.py*
+	#
+	# clean up .pyo files
+	find $(CURDIR)/debian/*/$(PREFIX)/lib/python* -name '*.pyo' | xargs -r rm -f
+	# do not remove .pyc files
+	#find $(CURDIR)/debian/*/$(PREFIX)/lib/python* -name '*.pyc' | xargs -r rm -f
+
+install-%:
+	# Add here commands to install the package into debian/$(PACKAGE).
+#	$(MAKE) DESTDIR=$(CURDIR)/debian/$(PACKAGE) install
+	mkdir -p $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/$(PACKAGE)
+	CFLAGS="$(CFLAGS)" \
+	    $* setup.py build
+	CFLAGS="$(CFLAGS)" \
+	    $* setup.py install -O1 \
+		--root=$(CURDIR)/debian/$(PACKAGE) \
+		--prefix=$(PREFIX)
+	#	--skip-build
+	#	--record=$(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/$(PACKAGE)/INSTALLED_FILES
+	# Split off some stuff to $(PACKAGE)-common and $(PACKAGE)-segments, remove from main tree
+	# *.install cannot handle this because of %exclude rules!
+	mkdir -p $(CURDIR)/debian/$(PACKAGE)-segments/$(PREFIX)/lib/
+	(cd $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/; find python* -wholename '*/glue/segments.py*'     | xargs tar cf -) | tar xf - -C $(CURDIR)/debian/$(PACKAGE)-segments/$(PREFIX)/lib/
+	(cd $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/; find python* -wholename '*/glue/__segments.so*'   | xargs tar cf -) | tar xf - -C $(CURDIR)/debian/$(PACKAGE)-segments/$(PREFIX)/lib/
+	#cd $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/; find python* -wholename '*/src/segments' -type d  | xargs tar cf -) | tar xf - -C $(CURDIR)/debian/$(PACKAGE)-segments/$(PREFIX)/lib/
+	#cd $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/; find python* -wholename '*/test' -type d          | xargs tar cf -) | tar xf - -C $(CURDIR)/debian/$(PACKAGE)-segments/$(PREFIX)/lib/
+	mkdir -p $(CURDIR)/debian/$(PACKAGE)-common/$(PREFIX)/lib
+	(cd $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/; find python* -wholename '*/glue/__init__.py*'     | xargs tar cf -) | tar xf - -C $(CURDIR)/debian/$(PACKAGE)-common/$(PREFIX)/lib/
+	(cd $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/; find python* -wholename '*/glue/iterutils.py*'    | xargs tar cf -) | tar xf - -C $(CURDIR)/debian/$(PACKAGE)-common/$(PREFIX)/lib/
+	(cd $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/lib/; find python* -wholename '*/glue/git_version.py*'  | xargs tar cf -) | tar xf - -C $(CURDIR)/debian/$(PACKAGE)-common/$(PREFIX)/lib/
+	#
+	$* setup.py clean --all
 
 binary: build install
 	dh_testdir
@@ -100,7 +140,7 @@ binary: build install
 	dh_installexamples
 #	dh_install
 #	dh_installmenu
-#	dh_installdebconf	
+#	dh_installdebconf
 #	dh_installlogrotate
 #	dh_installemacsen
 #	dh_installpam

@@ -233,7 +233,9 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		#
 
 		#tstart = coinc_ringdown.get_start()
-		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+		instruments = set([event.ifo for event in events])
+		instruments |= set([instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs])
+		coinc.set_instruments(instruments)
 
 		#
 		# save memory by re-using strings

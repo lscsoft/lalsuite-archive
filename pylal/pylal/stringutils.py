@@ -25,6 +25,7 @@
 
 
 import math
+import scipy.stats
 import sys
 
 
@@ -32,10 +33,12 @@ from glue import iterutils
 from glue import segmentsUtils
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
 from pylal import rate
+from pylal import snglcoinc
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -53,11 +56,66 @@ __date__ = git_version.date
 
 
 #
+# Make a look-up table of time-of-arrival triangulators
+#
+
+
+def triangulators(timing_uncertainties):
+	"""
+	Return a dictionary of snglcoinc.TOATriangulator objects
+	initialized for a variety of instrument combinations.
+	timing_uncertainties is a dictionary of instrument->\Delta t pairs.
+	The return value is a dictionary of (instrument
+	tuple)->TOATrangulator mappings.  The instrument names in each
+	tuple are sorted in alphabetical order, and the triangulators are
+	constructed with the instruments in that order (the the
+	documentation for snglcoinc.TOATriangulator for more information).
+
+	Example:
+
+	>>> x = triangulators({"H1": 0.005, "L1": 0.005, "V1": 0.005})
+
+	constructs a dictionary of triangulators for every combination of
+	two or more instruments that can be constructed from those three.
+
+	The program lalapps_string_plot_binj can be used to measure the
+	timing uncertainties for the instruments in a search.
+	"""
+	allinstruments = sorted(timing_uncertainties.keys())
+
+	triangulators = {}
+	for n in range(2, len(allinstruments) + 1):
+		for instruments in iterutils.choices(allinstruments, n):
+			triangulators[instruments] = snglcoinc.TOATriangulator([inject.cached_detector[inject.prefix_to_name[instrument]].location for instrument in instruments], [timing_uncertainties[instrument] for instrument in instruments])
+
+	return triangulators
+
+
+#
+# A look-up table used to convert instrument names to powers of 2.  Why?
+# To create a bidirectional mapping between combinations of instrument
+# names and integers so we can use a pylal.rate style binning for the
+# instrument combinations
+#
+
+
+instrument_to_factor = dict((instrument, int(2**n)) for n, instrument in enumerate(("G1", "H1", "H2", "H+", "H-", "L1", "V1")))
+
+
+def instruments_to_category(instruments):
+	return sum(instrument_to_factor[instrument] for instrument in instruments)
+
+
+def category_to_instruments(category):
+	return set(instrument for instrument, factor in instrument_to_factor.items() if category & factor)
+
+
+#
 # Coinc params function
 #
 
 
-def coinc_params_func(events, offsetvector):
+def coinc_params_func(events, offsetvector, triangulators):
 	#
 	# check for coincs that have been vetoed entirely
 	#
@@ -65,13 +123,33 @@ def coinc_params_func(events, offsetvector):
 	if len(events) < 2:
 		return None
 
+	#
+	# Initialize the parameter dictionary, sort the events by
+	# instrument name (the multi-instrument parameters are defined for
+	# the instruments in this order and the triangulators are
+	# constructed this way too), and retrieve the sorted instrument
+	# names
+	#
+
 	params = {}
+	events = tuple(sorted(events, key = lambda event: event.ifo))
+	instruments = tuple(event.ifo for event in events)
 
 	#
 	# zero-instrument parameters
 	#
 
-	params["nevents"] = (len(events),)
+	ignored, ignored, ignored, rss_timing_residual = triangulators[instruments](tuple(event.get_peak() + offsetvector[event.ifo] for event in events))
+	# FIXME:  rss_timing_residual is forced to 0 to disable this
+	# feature.  all the code to compute it properly is still here and
+	# given suitable initializations, the distribution data is still
+	# two-dimensional and has a suitable filter applied to it, but all
+	# events are forced into the RSS_{\Delta t} = 0 bin, in effect
+	# removing that dimension from the data.  We can look at this again
+	# sometime in the future if we're curious why it didn't help.  Just
+	# delete the next line and you're back in business.
+	rss_timing_residual = 0.0
+	params["instrumentgroup,rss_timing_residual"] = (instruments_to_category(instruments), rss_timing_residual)
 
 	#
 	# one-instrument parameters
@@ -83,10 +161,11 @@ def coinc_params_func(events, offsetvector):
 		params["%ssnr2_chi2" % prefix] = (event.snr**2.0, event.chisq / event.chisq_dof)
 
 	#
-	# two-instrument parameters
+	# two-instrument parameters.  note that events are sorted by
+	# instrument
 	#
 
-	for event1, event2 in iterutils.choices(sorted(events, key = lambda event: event.ifo), 2):
+	for event1, event2 in iterutils.choices(events, 2):
 		assert event1.ifo != event2.ifo
 
 		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
@@ -149,7 +228,12 @@ class DistributionsStats(object):
 		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
 		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
 		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.2, +0.2, 501),)),
-		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
+		# instrument group bin centres are at 1, 2, 3, ...;  only
+		# non-negative rss timing residual bins will be used but we
+		# want a binning that's linear at the origin so instead of
+		# inventing a new one we just use atan bins that are
+		# symmetric about 0
+		"instrumentgroup,rss_timing_residual": rate.NDBins((rate.LinearBins(0.5, sum(instrument_to_factor.values()) + 0.5, sum(instrument_to_factor.values())), rate.ATanBins(-0.02, +0.02, 1001)))
 	}
 
 	filters = {
@@ -175,27 +259,92 @@ class DistributionsStats(object):
 		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
 		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
-		"nevents": rate.tophat_window(1)	# no-op
+		# instrument group filter is a no-op, should produce a
+		# 1-bin top-hat window.
+		"instrumentgroup,rss_timing_residual": rate.gaussian_window2d(1e-100, 11, sigma = 20)
 	}
 
 	def __init__(self):
 		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
 
-	def add_noninjections(self, param_func, database, vetoseglists):
+	def add_noninjections(self, param_func, database, param_func_args = ()):
 		# iterate over burst<-->burst coincs
 		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(database):
-			events = [event for event in events if event.ifo not in vetoseglists or event.get_peak not in vetoseglists[event.ifo]]
+			events = [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]]
 			if is_background:
-				self.distributions.add_background(param_func(events, offsetvector))
+				self.distributions.add_background(param_func(events, offsetvector, *param_func_args))
 			else:
-				self.distributions.add_zero_lag(param_func(events, offsetvector))
+				self.distributions.add_zero_lag(param_func(events, offsetvector, *param_func_args))
 
-	def add_injections(self, param_func, database, vetoseglists, weight_func = lambda sim: 1.0):
+	def add_slidelessbackground(self, param_func, database, experiments, param_func_args = ()):
+		# FIXME:  this needs to be taught how to not slide H1 and
+		# H2 with respect to each other
+
+		# segment lists
+		seglists = database.seglists - database.vetoseglists
+
+		# construct the event list dictionary.  remove vetoed
+		# events from the lists and save event peak times so they
+		# can be restored later
+		eventlists = {}
+		orig_peak_times = {}
+		for event in database.sngl_burst_table:
+			if event.get_peak() in seglists[event.ifo]:
+				try:
+					eventlists[event.ifo].append(event)
+				except KeyError:
+					eventlists[event.ifo] = [event]
+				orig_peak_times[event] = event.get_peak()
+
+		# parse the --thresholds H1,L1=... command-line options from burca
+		delta_t = [float(threshold.split("=")[-1]) for threshold in ligolw_process.get_process_params(database.xmldoc, "ligolw_burca", "--thresholds")]
+		if not all(delta_t[0] == threshold for threshold in delta_t[1:]):
+			raise ValueError, "\Delta t is not unique in ligolw_burca arguments"
+		delta_t = delta_t.pop()
+
+		# construct the coinc generator.  note that H1+H2-only
+		# coincs are forbidden, which is affected here by removing
+		# that instrument combination from mu_conic
+		mu, tau = snglcoinc.slideless_coinc_generator_mu_tau(eventlists, segmentlists, delta_t)
+		zero_lag_offset_vector = dict((instrument, 0.0) for instrument in mu)
+		mu_coinc = snglcoinc.slideless_coinc_generator_rates(mu, tau)
+		if frozenset(("H1", "H2")) in mu_coinc:
+			del mu_coinc[frozenset(("H1", "H2"))]
+		coinc_generator = snglcoinc.slideless_coinc_generator(eventlists, mu_coinc, tau, lsctables.SnglBurst.get_peak)
+		toa_generator = dict((instruments, snglcoinc.slideless_coinc_generator_plausible_toas(instruments, tau)) for instruments in mu_coinc.keys())
+
+		# how many coincs?  the expected number is obtained by
+		# multiplying the total zero-lag time for which at least
+		# two instruments were on by the sum of the rates for all
+		# coincs to get the mean number of coincs per zero-lag
+		# observation time, and multiplying that by the number of
+		# experiments the background should simulate to get the
+		# mean number of background events to simulate.  the actual
+		# number simulated is a Poisson-distributed RV with that
+		# mean.
+		n_coincs, = scipy.stats.poisson.rvs(float(abs(segmentsUtils.vote(seglists.values(), 2))) * sum(mu_coinc.values()) * experiments)
+
+		# generate synthetic background coincs
+		for n, events in enumerate(coinc_generator):
+			# assign fake peak times
+			toas = toa_generator[frozenset(event.ifo for event in events)].next()
+			for event in events:
+				event.set_peak(toas[event.ifo])
+			# compute coincidence parameters
+			self.distributions.add_background(param_func(events, zero_lag_offset_vector, *param_func_args))
+			if n > n_coincs:
+				break
+
+		# restore original peak times
+		for event, peak_time in orig_peak_times.iteritems():
+			event.set_peak(peak_time)
+
+	def add_injections(self, param_func, database, weight_func = lambda sim: 1.0, param_func_args = ()):
 		# iterate over burst<-->burst coincs matching injections
 		# "exactly"
 		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(database):
-			events = [event for event in events if event.ifo not in vetoseglists or event.get_peak not in vetoseglists[event.ifo]]
-			self.distributions.add_injection(param_func(events, offsetvector), weight = weight_func(sim))
+			events = [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]]
+			self.distributions.add_injection(param_func(events, offsetvector, *param_func_args), weight = weight_func(sim))
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)
@@ -268,25 +417,12 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 #
 
 
-def get_coincparamsdistributions(xmldoc, seglists = None):
-	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
-	if seglists is not None:
-		seglists |= lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
-	return coincparamsdistributions
+def load_likelihood_data(filenames, verbose = False):
+	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
 
 
-def load_likelihood_data(filenames, seglists = None, verbose = False):
-	coincparamsdistributions = None
-	for n, filename in enumerate(filenames):
-		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = verbose)
-		if coincparamsdistributions is None:
-			coincparamsdistributions = get_coincparamsdistributions(xmldoc, seglists = seglists)
-		else:
-			coincparamsdistributions += get_coincparamsdistributions(xmldoc, seglists = seglists)
-		xmldoc.unlink()
-	return coincparamsdistributions
+def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
+	return ligolw_burca_tailor.write_likelihood_data(filename, coincparamsdistributions, seglists, name = u"string_cusp_likelihood", verbose = verbose)
 
 
 #
@@ -300,8 +436,9 @@ def load_likelihood_data(filenames, seglists = None, verbose = False):
 
 def create_recovered_likelihood_table(connection, bb_coinc_def_id):
 	"""
-	Create a temporary table containing two columns:  the simulation_id
-	of an injection, and the highest likelihood ratio at which that
+	Create a temporary table named "recovered_likelihood" containing
+	two columns:  "simulation_id", the simulation_id of an injection,
+	and "likelihood", the highest likelihood ratio at which that
 	injection was recovered by a coincidence of type bb_coinc_def_id.
 	"""
 	cursor = connection.cursor()

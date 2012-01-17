@@ -48,5 +48,8 @@ VARRAY *new_varray(int item_size);
 void free_varray(VARRAY *v);
 int varray_add(VARRAY *v, void *item);
 
+int is_round235(int n);
+int round235up_int(int n);
+int round235down_int(int n);
 
 #endif

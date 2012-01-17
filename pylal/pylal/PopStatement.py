@@ -22,11 +22,14 @@ import sys
 import random
 
 import numpy as np
+from scipy import optimize
+from scipy import special
 from scipy import stats
 
 from glue import iterutils
 from pylal import plotutils
 from pylal import rate
+from pylal.stats import rankdata
 
 ####################################################
 ## class GRBdata
@@ -369,7 +372,7 @@ class PopStatement(object):
         n1 = len(x)
         n2 = len(y)
 
-        ranked = stats.rankdata(np.concatenate((x,y)))
+        ranked = rankdata(np.concatenate((x,y)))
         rankx = ranked[0:n1]  # get the x-ranks
         u1 = n1 * n2 + (n1 * (n1 + 1)) / 2.0 - rankx.sum()  # calc U for x
         self.u =  n1 * n2 - u1  # return U for y
@@ -670,4 +673,132 @@ class PopStatement(object):
         
         return plot
 
+#####################################################################
+# A simpler, function-based approach to population statements
+
+from scipy import stats
+
+def mannwhitney_u(x, y):
+    """
+    Return the Mann-Whitney U statistic on the provided scores.  Copied from
+    scipy.stats.mannwhitneyu except that we only return the U such that
+    large U means that population x was systematically larger than population
+    y, rather than the smaller U between x and y.  The two possible U values
+    one can report are related by U' = n1*n2 - U.
+    """
+    x = np.asarray(x)
+    y = np.asarray(y)
+    if x.ndim != 1 or y.ndim != 1:
+        raise ValueError, "populations must be rank 1 collections"
+    n1 = len(x)
+    n2 = len(y)
+
+    ranked = rankdata(np.concatenate((x,y)))
+    rankx = ranked[0:n1]  # get the x-ranks
+    u1 = n1 * n2 + (n1 * (n1 + 1)) / 2.0 - rankx.sum()  # calc U for x
+    return n1 * n2 - u1  # return U for y
+
+def mannwhitney_p(U, n1, n2):
+    """
+    Return the right-tailed probability of the U value, assuming that
+    N is sufficiently high.
+    """
+    mean_U = n1 * n2 / 2.
+    stdev_U = np.sqrt(n1 * n2 * (n1 + n2 + 1) / 12.)
+    return stats.norm.sf((U - mean_U) / stdev_U)
+
+def grbbinomial_Pmin_raw(localProb, Ndraws):
+    localProb = np.asarray(localProb)
+    Ntail = len(localProb)
+
+    # Cumulative binomial probability of getting (1+,2+,...Ntail+) events this improbable.
+    # NB: stats.binom.sf maps to the lower level special.bdtrc
+    P = special.bdtrc(np.arange(Ntail), Ndraws, localProb)
+    index = P.argmin()
+    Pmin_raw = P[index]
+
+    return Pmin_raw, index + 1
+
+def grbbinomialtest(localProb, Ndraws, Nmc, discreteness=None):
+    """
+    Adapted from https://trac.ligo.caltech.edu/xpipeline/browser/trunk/utilities/grbbinomialtest.m
+
+    localProb is a *sorted* array of FAP values, one per GRB to be tested
+    Ndraws is a scalar saying how many GRBs were analyzed in total
+    Nmc is the number of Monte-Carlo simulations to perform in assessing
+        significance.
+    discreteness is optional, but allows you to draw FAP values uniformly
+        from multiples of 1 / discreteness
+
+    Pmin_raw     Lowest cumulative binomial probability of the input set
+                 localProb.  Note that this number does not account for the
+                 trials factor when length(localProb)>1.
+    Pmin         Probability that the tail of length(localProb) of a set of
+                 Ndraws uniformly distributed random numbers will give a
+                 cumulative binomial probability less than or equal to
+                 Pmin_raw.
+    Nmin         Number of tail values to include at which the binomial
+                 probability Pmin_raw occurs.
+    """
+    Ntail = len(localProb)
+    Pmin_raw, Nmin = grbbinomial_Pmin_raw(localProb, Ndraws)
+
+    # Do a Monte-Carlo to determine significance
+    if discreteness is None:
+        localProbMC = stats.uniform.rvs(size=(Nmc, Ndraws))
+    else:
+        localProbMC = stats.randint.rvs(0, discreteness + 1, size=(Nmc, Ndraws)) / discreteness
+
+    # keep the Ntail most significant values
+    localProbMC.sort(axis=1)
+    localProbMC = localProbMC[:, :Ntail]
+
+    PMC = special.bdtrc(np.arange(Ntail)[None, :], Ndraws, localProbMC)
+    PminMC = PMC.min(axis=1)
+    Pmin = (PminMC <= Pmin_raw).mean()
+
+    return Pmin_raw, Pmin, Nmin
+
+def grbbinomialtest_threshold(Ndraws, Ntail, percentile, Nmc, discreteness=None, blocksize=10000):
+    """
+    Adapted from https://trac.ligo.caltech.edu/xpipeline/browser/trunk/utilities/grbbinomialtest_threshold.m
+
+    Ndraws is a scalar saying how many GRBs were analyzed in total
+    Ntail is the number of loudest GRB events kept
+    percentile is the desired percentile of the binomial probability
+        distribution (This should be between 0 and 100!)
+    Nmc is the number of Monte-Carlo simulations to perform in assessing
+        significance
+    discreteness is optional, but allows you to draw FAP values uniformly
+        from multiples of 1 / discreteness
+
+    Return the threshold on Pmin for the given percentile and an array of the
+        FAPs corresponding to that threshold for each k=1..Ntail at which
+        we evaluate the binomial probability.
+    """
+    assert Ntail <= Ndraws
+    if discreteness is None:
+        draw = lambda n: stats.uniform.rvs(size=(n, Ndraws))
+    else:
+        draw = lambda n: stats.randint.rvs(0, discreteness + 1, size=(n, Ndraws)) / discreteness
+
+    PminMC = []
+    num_drawn = 0
+    while num_drawn < Nmc:  # draw random numbers in blocks to reduce memory
+        num_to_draw = min(Nmc - num_drawn, blocksize)
+        localProbMC = draw(num_to_draw)
+
+        # keep Ntail most significant values of this block
+        localProbMC.sort(axis=1)
+        localProbMC = localProbMC[:, :Ntail]
+
+        # NB: stats.binom.sf maps to the lower level special.bdtrc
+        PMC = special.bdtrc(np.arange(Ntail)[None, :], Ndraws, localProbMC)
+        PminMC.extend(PMC.min(axis=1))
+        num_drawn += num_to_draw
+
+    # determine threshold on Pmin
+    PminMC = np.asarray(PminMC)
+    Pmin_thresh = stats.scoreatpercentile(PminMC, percentile)
+    return Pmin_thresh
 

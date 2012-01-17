@@ -50,6 +50,8 @@ typedef struct {
 
 	INT64 gps_start;
 	INT64 gps_stop;
+	
+	INT64 max_gps;
 
 	INT64 *gps;
 

@@ -234,7 +234,7 @@ id, statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins, m2_D_by_inj, inj_loudest_b
     = pickle.load(open(opts.relic_injections))
 git_version.check_match(id, onmismatch=opts.onmismatch)
 if statistic not in ("effective_snr", "new_snr"):
-    raise NotImplemented
+    raise NotImplementedError
 
 # pretty-print name for the statistic (ppstat)
 if statistic == "effective_snr":

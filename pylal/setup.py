@@ -5,13 +5,23 @@ import os
 from misc import generate_vcs_info as gvcsi
 from distutils.core import setup, Extension
 from distutils.command import install
+from distutils.command import build
 from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
 import subprocess
-from sys import version_info
+import sys
 import time
 from numpy.lib.utils import get_include as numpy_get_include
+
+
+#
+# check python version
+#
+
+if sys.version_info[0] != 2 or sys.version_info[1] < 4:
+	log.error("Python version is %s.  pylal requires a Python version such that 2.4 <= version < 3" % sys.version)
+	sys.exit(1)
 
 
 class PkgConfig(object):
@@ -24,11 +34,13 @@ class PkgConfig(object):
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 lal_pkg_config = PkgConfig("lal")
+lalsupport_pkg_config = PkgConfig("lalsupport")
 lalburst_pkg_config = PkgConfig("lalburst")
 # FIXME:  works for GCC only!!!
 lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
 lalmetaio_pkg_config = PkgConfig("lalmetaio")
+lalsimulation_pkg_config = PkgConfig("lalsimulation")
 lalinspiral_pkg_config = PkgConfig("lalinspiral")
 
 def remove_root(path, root):
@@ -74,32 +86,55 @@ def write_build_info():
 	if sed_retcode:
 		raise gvcsi.GitInvocationError
 
+class pylal_build(build.build):
+	def run(self):
+		# If we are building from a release tarball, do not distribute scripts.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if os.path.exists("PKG-INFO"):
+			self.distribution.scripts = []
+
+		# resume normal build procedure
+		build.build.run(self)
+
 class pylal_build_py(build_py.build_py):
 	def run(self):
-		# create the git_version module
-		log.info("Generating pylal/git_version.py")
-		try:
-			write_build_info()
-		except gvcsi.GitInvocationError:
-			if os.path.exists("pylal/git_version.py"):
-				# We're probably being built from a release tarball; don't overwrite
-				log.info("Not in git checkout or cannot find git executable; using existing pylal/git_version.py")
-			else:
-				log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
-				sys.exit(1)
+		# If we are building from tarball, do not update git version.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if not os.path.exists("PKG-INFO"):
+			# create the git_version module
+			try:
+				write_build_info()
+				log.info("Generated pylal/git_version.py")
+			except gvcsi.GitInvocationError:
+				if not os.path.exists("pylal/git_version.py"):
+					log.error("Not in git checkout or cannot find git executable.")
+					sys.exit(1)
 
 		# resume normal build procedure
 		build_py.build_py.run(self)
 
 class pylal_install(install.install):
 	def run(self):
+		pylal_prefix = remove_root(self.prefix, self.root)
+
+		# Detect whether we are building from a tarball; we have decided
+		# that releases should not contain scripts.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if os.path.exists("PKG-INFO"):
+			self.distribution.scripts = []
+		# Hardcode a check for system-wide installation;
+		# in this case, don't make the user-env scripts.
+		if pylal_prefix == sys.prefix:
+			self.distribution.data_files = []
+			install.install.run(self)
+			return
+
 		# create the user env scripts
 		if self.install_purelib == self.install_platlib:
 			pylal_pythonpath = self.install_purelib
 		else:
 			pylal_pythonpath = self.install_platlib + ":" + self.install_purelib
 
-		pylal_prefix = remove_root(self.prefix, self.root)
 		pylal_install_scripts = remove_root(self.install_scripts, self.root)
 		pylal_pythonpath = remove_root(pylal_pythonpath, self.root)
 		pylal_install_platlib = remove_root(self.install_platlib, self.root)
@@ -111,18 +146,21 @@ class pylal_install(install.install):
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "PYLAL_PREFIX=" + pylal_prefix
 		print >> env_file, "export PYLAL_PREFIX"
-		print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+			print >> env_file, "export PATH"
 		print >> env_file, "PYTHONPATH=" + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "LD_LIBRARY_PATH=" + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
 		print >> env_file, "DYLD_LIBRARY_PATH=" + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
-		print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
+		print >> env_file, "export PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
 		env_file.close()
 
 		log.info("creating pylal-user-env.csh script")
 		env_file = open(os.path.join("etc", "pylal-user-env.csh"), "w")
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "setenv PYLAL_PREFIX " + pylal_prefix
-		print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
 		print >> env_file, "if ( $?PYTHONPATH ) then"
 		print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "else"
@@ -146,32 +184,32 @@ class pylal_install(install.install):
 
 class pylal_sdist(sdist.sdist):
 	def run(self):
-		# remove the automatically generated user env scripts
-		for script in ["pylal-user-env.sh", "pylal-user-env.csh"]:
-			log.info("removing " + script )
-			try:
-				os.unlink(os.path.join("etc", script))
-			except:
-				pass
+		# customize tarball contents
+		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")] + ["pylal.spec"]
+		self.distribution.scripts = []
 
 		# create the git_version module
-		log.info("generating pylal/git_version.py")
 		try:
 			write_build_info()
+			log.info("generated pylal/git_version.py")
 		except gvcsi.GitInvocationError:
-			log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
-			sys.exit(1)
+			if not os.path.exists("pylal/git_version.py"):
+				log.error("Not in git checkout or cannot find git executable. Exiting.")
+				sys.exit(1)
 
 		# now run sdist
 		sdist.sdist.run(self)
 
+# FIXME:  all occurances of -DPY_SSIZE_T_CLEAN are a temporary hack to
+# induce PyArg_ParseTuple() to exhibit 3.x behaviour in 2.x.  Remove when
+# no longer needed
 
 setup(
 	name = "pylal",
-	version = "0.1",
-	author = "Patrick Brady",
-	author_email = "patrick@gravity.phys.uwm.edu",
-	description = "LSC Graphics Toolkit",
+	version = "0.1.3",
+	author = "Kipp Cannon and Nickolas Fotopoulos",
+	author_email = "lal-discuss@gravity.phys.uwm.edu",
+	description = "Python LIGO Algorithm Library",
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
 	packages = [
@@ -181,6 +219,7 @@ setup(
                 "pylal.dq"
 	],
 	cmdclass = {
+		"build": pylal_build,
 		"build_py": pylal_build_py,
 		"install": pylal_install,
 		"sdist": pylal_sdist
@@ -189,19 +228,19 @@ setup(
 		Extension(
 			"pylal.Fr",
 			["src/Fr.c"],
-			include_dirs = lalframe_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lalframe_pkg_config.libs,
-			library_dirs = lalframe_pkg_config.libdirs,
-			runtime_library_dirs = lalframe_pkg_config.libdirs,
+			include_dirs = lalframe_pkg_config.incdirs + lalsupport_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lalframe_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lalframe_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lalframe_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			extra_compile_args = lalframe_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.tools",
 			["src/tools.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs,
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalinspiral_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + lalsupport_pkg_config.incdirs,
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalinspiral_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs + lalsupport_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.xlal.datatypes.complex16fftplan",
@@ -224,6 +263,15 @@ setup(
 		Extension(
 			"pylal.xlal.datatypes.complex16timeseries",
 			["src/xlal/datatypes/complex16timeseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.laldetector",
+			["src/xlal/datatypes/laldetector.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
@@ -287,37 +335,46 @@ setup(
 		Extension(
 			"pylal.xlal.datatypes.simburst",
 			["src/xlal/datatypes/simburst.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsupport_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
 			"pylal.xlal.datatypes.siminspiraltable",
 			["src/xlal/datatypes/siminspiraltable.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsupport_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
+		),
+		Extension(
+			"pylal.xlal.datatypes.snglburst",
+			["src/xlal/datatypes/snglburst.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsupport_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
 			"pylal.xlal.datatypes.snglinspiraltable",
 			["src/xlal/datatypes/snglinspiraltable.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsupport_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags + ["-DPY_SSIZE_T_CLEAN"]
 		),
 		Extension(
 			"pylal.xlal.datatypes.snglringdowntable",
 			["src/xlal/datatypes/snglringdowntable.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsupport_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -359,10 +416,10 @@ setup(
 		Extension(
 			"pylal.xlal.lalburst",
 			["src/xlal/lalburst.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalburst_pkg_config.incdirs + ["src/xlal"],
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalburst_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lalburst_pkg_config.incdirs + lalsupport_pkg_config.incdirs + [numpy_get_include(),"src/xlal"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalsimulation_pkg_config.libs + lalburst_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lalburst_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -377,10 +434,10 @@ setup(
 		Extension(
 			"pylal.xlal.tools",
 			["src/xlal/tools.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
-			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalinspiral_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + lalsupport_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalinspiral_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -393,21 +450,12 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.burstsearch",
-			["src/xlal/burstsearch.c"],
-			include_dirs = lal_pkg_config.incdirs + lalburst_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lal_pkg_config.libs + lalburst_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalburst_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalburst_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags + lalburst_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal._spawaveform",
 			["src/_spawaveform.c"],
-			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
+			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + lalsupport_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs + lalsupport_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs + lalsupport_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs + lalsupport_pkg_config.libdirs
 		),
 		Extension(
 			"pylal._bayespputils",
@@ -423,14 +471,18 @@ setup(
 			runtime_library_dirs = lalburst_pkg_config.libdirs,
 			extra_compile_args = lalburst_pkg_config.extra_cflags
 		),
+		Extension(
+			"pylal._stats",
+			["src/_stats.c"],
+			include_dirs = [numpy_get_include()],
+			extra_compile_args = ["-std=c99"]
+		),
 	],
 	scripts = [
 		os.path.join("bin", "analyseQscan.py"),
 		os.path.join("bin", "distrib_fu_qscan_results.py"),
 		os.path.join("bin", "submit_remote_scan.py"),
-		os.path.join("bin", "exttrig_likelihood_pipe"),
 		os.path.join("bin", "fup_triggers.py"),
-		os.path.join("bin", "grbSelect"),
 		os.path.join("bin", "galaxies_in_polygon"),
 		os.path.join("bin", "lal_query_cache"),
 		os.path.join("bin", "makeCheckList.py"),
@@ -442,7 +494,6 @@ setup(
 		os.path.join("bin", "followupGenerateDQBackground.py"),
 		os.path.join("bin", "followupCustomFOM.py"),
 		os.path.join("bin", "followupPDSurface.py"),		
-		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotcohsnr"),
@@ -473,12 +524,11 @@ setup(
 		os.path.join("bin", "pylal_mvsc_player.py"),
 		os.path.join("bin", "pylal_cbc_dq_page"),
 		os.path.join("bin", "mvsc_plots.py"),
-        os.path.join("bin", "mvsc_ROC_and_histograms.py"),
+		os.path.join("bin", "mvsc_ROC_and_histograms.py"),
 		os.path.join("bin", "mvsc_plot_cuts.py"),
 		os.path.join("bin", "mvsc_htmlwriter.py"),
 		os.path.join("bin", "pylal_combine_posteriors"),
 		os.path.join("bin", "pylal_followup_missed"),
-		os.path.join("bin", "followupRescueHtml"),
 		os.path.join("bin", "pylal_exttrig_summary"),
 		os.path.join("bin", "pylal_grblikelihood"),
 		os.path.join("bin", "pylal_grbUL"),
@@ -499,9 +549,6 @@ setup(
 		os.path.join("bin", "plotmcmc.py"),
 		os.path.join("bin", "plotspinmcmc.py"),
 		os.path.join("bin", "plotinsppop"),
-		os.path.join("bin", "query_dagman_log"),
-		os.path.join("bin", "antime"),
-		os.path.join("bin", "septime"),
 		os.path.join("bin", "lalapps_binj_pic"),
 		os.path.join("bin", "lalapps_burca_tailor"),
 		os.path.join("bin", "lalapps_cbc_plotroc"),
@@ -567,6 +614,8 @@ setup(
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
 		os.path.join("bin", "upper_limit_results"),
 		os.path.join("bin", "pylal_expose"),
+		os.path.join("bin", "ligolw_cbc_expected_snrs"),
+		os.path.join("bin", "ligolw_cbc_align_total_spin"),
 		os.path.join("bin", "ligolw_cbc_dbsimplify"),
 		os.path.join("bin", "ligolw_cbc_dbaddinj"),
 		os.path.join("bin", "ligolw_cbc_printlc"),
@@ -596,9 +645,12 @@ setup(
 		os.path.join("bin", "search_upper_limit_by_s1z_s2z"),
 		os.path.join("bin", "search_volume_by_s1z_s2z"),
 		os.path.join("bin", "search_upper_limit_by_m_chi"),
-		os.path.join("bin", "search_volume_by_m_chi"),		
+		os.path.join("bin", "search_volume_by_m_chi"),
+		os.path.join("bin", "search_upper_limit_by_M"),
 		os.path.join("bin", "imr_compare"),		
 		os.path.join("bin", "imr_roc"),				
+	        os.path.join("bin", "ligolw_omega_to_coinc"),
+	        os.path.join("bin", "ligolw_cwb_to_coinc"),
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),
@@ -618,17 +670,34 @@ setup(
 		os.path.join("bin", "coh_PTF_efficiency"),
 		os.path.join("bin", "coh_PTF_html_summary"),
 		os.path.join("bin", "coh_PTF_injfinder"),
+		os.path.join("bin", "coh_PTF_injcombiner"),
 		os.path.join("bin", "coh_PTF_sbv_plotter"),
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "ring_post"),
+		os.path.join("bin", "ligolw_rinca_to_coinc"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
+		os.path.join("bin", "cbcBayesDIEvidence.py"),
+		os.path.join("bin", "cbcBayesInjProc.py"),
 		os.path.join("bin", "ligo_channel_query"),
-		os.path.join("bin", "ligolw_rinca_to_coinc")
-	],
+		os.path.join("bin", "projectedDetectorTensor"),
+		os.path.join("bin", "pylal_exttrig_dataquery"),
+		os.path.join("bin", "pylal_exttrig_allquery"),
+		os.path.join("bin", "cbcBayesDIEvidence.py"),
+		os.path.join("bin", "cbcBayesInjProc.py"),
+		os.path.join("bin", "ligo_channel_query"),
+		os.path.join("bin", "pylal_exttrig_dataquery"),
+		os.path.join("bin", "pylal_exttrig_allquery"),
+		os.path.join("bin", "auxmvc_mvsc_results_plots.py"),
+		os.path.join("bin", "auxmvc_generate_spr_files.py"),
+		os.path.join("bin", "auxmvc_create_mvsc_dag"),
+		os.path.join("bin", "auxmvc_ROC_combiner.py"),
+                os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py"),
+                os.path.join("bin", "auxmvc_comparison_plots.py") 
+		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
-		os.path.join("etc", "pylal-user-env.csh")
+		os.path.join("etc", "pylal-user-env.csh"),
 		] ) ]
 )

@@ -67,6 +67,31 @@ __date__ = git_version.date
 #
 
 
+class TableRow(object):
+	# FIXME:  figure out what needs to be done to allow the C row
+	# classes that are floating around to be derived from this easily
+
+	# FIXME:  DON'T USE THIS!!!  I'm experimenting with solutions to
+	# the pickling problem.  --Kipp
+	"""
+	Base class for row classes.  Provides an __init__() method that
+	accepts keyword arguments that are used to initialize the objects
+	attributes.  Also provides .__getstate__() and .__setstate__()
+	methods to allow row objects to be pickled (otherwise, because they
+	all use __slots__ to reduce their memory footprint, they aren't
+	pickleable).
+	"""
+	__slots__ = ()
+	def __init__(self, **kwargs):
+		for key, value in kwargs.items():
+			setattr(self, key, value)
+	def __getstate__(self):
+		return dict((key, getattr(self, key)) for key in self.__slots__ if hasattr(self, key))
+	def __setstate__(self, state):
+		for key, value in state.items():
+			setattr(self, key, value)
+
+
 def New(Type, columns = None, **kwargs):
 	"""
 	Convenience function for constructing pre-defined LSC tables.  The
@@ -1629,6 +1654,23 @@ class MultiInspiralTable(table.Table):
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
+                "trace_snr": "real_4",
+                "snr_h1": "real_4",
+                "snr_h2": "real_4",
+                "snr_l": "real_4",
+                "snr_g": "real_4",
+                "snr_t": "real_4",
+                "snr_v": "real_4",
+                "amp_term_1": "real_4",
+                "amp_term_2": "real_4",
+                "amp_term_3": "real_4",
+                "amp_term_4": "real_4",
+                "amp_term_5": "real_4",
+                "amp_term_6": "real_4",
+                "amp_term_7": "real_4",
+                "amp_term_8": "real_4",
+                "amp_term_9": "real_4",
+                "amp_term_10": "real_4",
 		"sigmasq_h1": "real_8",
 		"sigmasq_h2": "real_8",
 		"sigmasq_l": "real_8",
@@ -1641,6 +1683,21 @@ class MultiInspiralTable(table.Table):
 		"chisq_g": "real_4",
 		"chisq_t": "real_4",
 		"chisq_v": "real_4",
+                "sngl_chisq_dof": "int_4s",
+                "bank_chisq_h1": "real_4",
+                "bank_chisq_h2": "real_4",
+                "bank_chisq_l": "real_4",
+                "bank_chisq_g": "real_4",
+                "bank_chisq_t": "real_4",
+                "bank_chisq_v": "real_4",
+                "sngl_bank_chisq_dof": "int_4s",
+                "cont_chisq_h1": "real_4",
+                "cont_chisq_h2": "real_4",
+                "cont_chisq_l": "real_4",
+                "cont_chisq_g": "real_4",
+                "cont_chisq_t": "real_4",
+                "cont_chisq_v": "real_4",
+                "sngl_cont_chisq_dof": "int_4s",
 		"ra": "real_4",
 		"dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1670,7 +1727,8 @@ class MultiInspiralTable(table.Table):
 		"autoCorrNullSq": "real_4",
 		"crossCorrNullSq": "real_4",
 		"ampMetricEigenVal1": "real_8",
-		"ampMetricEigenVal2": "real_8"
+		"ampMetricEigenVal2": "real_8",
+                "time_slide_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1930,6 +1988,7 @@ class SimBurstTable(table.Table):
 		"hrss": "real_8",
 		"egw_over_rsquared": "real_8",
 		"waveform_number": "int_8u",
+		"time_slide_id": "ilwd:char",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
@@ -1937,7 +1996,7 @@ class SimBurstTable(table.Table):
 	interncolumns = ("process_id", "waveform")
 
 
-class SimBurst(object):
+class SimBurst(TableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
 	def get_time_geocent(self):

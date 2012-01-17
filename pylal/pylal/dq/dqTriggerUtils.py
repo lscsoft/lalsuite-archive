@@ -6,6 +6,7 @@
 
 from __future__ import division
 import sys,os,re,math,datetime,glob,copy
+from socket import getfqdn
 
 from glue.ligolw import ligolw,table,lsctables,utils
 from glue.ligolw.utils import process as ligolw_process
@@ -19,6 +20,9 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from glue import git_version
 
+from scipy import special
+import numpy
+
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
 __date__    = git_version.date
@@ -27,22 +31,80 @@ __date__    = git_version.date
 This module provides a bank of useful functions for manipulating triggers and trigger files for data quality investigations.
 """
 
+# global regular expressions
+trigsep = re.compile('[\t\s,]+')
+cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
+
+# =============================================================================
+# Define ETG options
+# =============================================================================
+
+_burst_regex = re.compile('(burst|omega|kleine|kw|cwb|hacr)', re.I)
+_cbc_regex   = re.compile('(ihope|inspiral|cbc)', re.I)
+_ring_regex  = re.compile('(ring)', re.I)
+
+def SnglTriggerTable(etg):
+
+  """
+    Handy function to return the correct type of ligolw table for the given ETG.
+  """
+
+  if _burst_regex.search(etg):
+    return lsctables.New(lsctables.SnglBurstTable)
+  elif _cbc_regex.search(etg):
+    return lsctables.New(lsctables.SnglInspiralTable)
+  elif _ring_regex.search(etg):
+    return lsctables.New(lsctables.SnglRingdownTable)
+  else:
+    raise AttributeError("etg=%s not recognised by SnglTriggerTable." % etg)
+
+def SnglTrigger(etg):
+  """
+    Handy function to return the correct type of ligolw table row object for
+    the given ETG
+  """
+
+  if _burst_regex.search(etg):
+    return lsctables.SnglBurst()
+  elif _cbc_regex.search(etg):
+    return lsctables.SnglInspiral()
+  elif _ring_regex.search(etg):
+    return lsctables.SnglRingdown()
+  else:
+    raise AttributeError("etg=%s not recognised by SnglTrigger." % etg)
+
 # =============================================================================
 # Define get_time choice
 # =============================================================================
 
-def def_get_time(tableName):
+def def_get_time(tableName, ifo=None):
 
   """
     Define the get_time() function for given table
   """
 
-  if re.search('inspiral',tableName):
-    get_time = lambda row: row.get_end()
-  elif re.search('ringdown',tableName):
-    get_time = lambda row: row.get_start()
-  else:
-    get_time = lambda row: row.get_peak()
+  get_time = None
+
+  if ifo:  ifo = ifo[0]
+
+  # if given an injection table:
+  if re.match('sim', tableName):
+
+    if re.search('inspiral',tableName):
+      get_time = lambda row: row.get_end(site=ifo)  
+    else:
+      get_time = lambda row: row.get_time_geocent()
+
+
+  # if given a sngl trigger table
+  elif re.match('(sngl|multi|coinc)', tableName):
+
+    if re.search('inspiral',tableName):
+      get_time = lambda row: row.get_end()
+    elif re.search('ringdown',tableName):
+      get_time = lambda row: row.get_start()
+    else:
+      get_time = lambda row: row.get_peak()
 
   return get_time
 
@@ -58,7 +120,7 @@ def trigger(data,etg,ifo=None,channel=None):
 
     Arguments:
 
-      data : [ string | list]
+      data : [ string | list ]
         string or list object containing the data to be parsed.
 
       etg : [ "ihope" | "kw" | "omega" | "omegadq" ]
@@ -70,22 +132,12 @@ def trigger(data,etg,ifo=None,channel=None):
 
   """
 
-  # read etg
-  etg=etg.lower()
-
-  etgcategories = {lsctables.SnglInspiral(): ['ihope'],\
-                   lsctables.SnglBurst():    ['omega','omegadq','kw'],\
-                   lsctables.SnglRingdown(): []}
-
   # set up trig object
-  for obj,etgs in etgcategories.items():
-    if etg in etgs:
-      trig = obj
+  trig = SnglTrigger(etg)
 
   # if given string, split on space, tab or comma
   if isinstance(data,str):
-    sep = re.compile('[\t\s,]+')
-    data = sep.split(data)
+    data = trigsep.split(data.rstrip())
 
   # =====
   # ihope
@@ -130,32 +182,34 @@ def trigger(data,etg,ifo=None,channel=None):
     # central_freq,energy,amplitude,n_pix,significance,N
 
     # peak time
-    peak  = LIGOTimeGPS(data[0])
+    peak  = LIGOTimeGPS(data[2])
     trig.peak_time             = peak.seconds
     trig.peak_time_ns          = peak.nanoseconds
     # start time
-    start = LIGOTimeGPS(data[1])
+    start = LIGOTimeGPS(data[0])
+    ms_start = start
     trig.start_time            = start.seconds
     trig.start_time_ns         = start.nanoseconds
-    trig.ms_start_time         = start.seconds
-    trig.ms_start_time_ns      = start.nanoseconds
+    trig.ms_start_time         = ms_start.seconds
+    trig.ms_start_time_ns      = ms_start.nanoseconds
     # end time
-    end = LIGOTimeGPS(data[2])
-    trig.stop_time             = end.seconds
-    trig.stop_time_ns          = end.nanoseconds
-    trig.ms_stop_time          = end.seconds
-    trig.ms_stop_time_ns       = end.nanoseconds
+    stop = LIGOTimeGPS(data[1])
+    ms_stop = stop
+    trig.stop_time             = stop.seconds
+    trig.stop_time_ns          = stop.nanoseconds
+    trig.ms_stop_time          = ms_stop.seconds
+    trig.ms_stop_time_ns       = ms_stop.nanoseconds
     # duration
-    trig.duration              = trig.get_stop()-trig.get_start()
-    trig.ms_duration           = trig.get_ms_stop()-rig.get_ms_start()
+    trig.duration              = stop-start
+    trig.ms_duration           = ms_stop-ms_start
     # others
     trig.central_freq          = float(data[3])
     trig.peak_frequency        = float(data[3])
     energy                = float(data[4])
     trig.amplitude             = float(data[5])
     n_pix                 = float(data[6])
-    significance          = float(data[7])
-    N                     = float(data[8])
+    #significance          = float(data[7])
+    #N                     = float(data[8])
     trig.snr                   = math.sqrt(trig.amplitude-n_pix)
 
   # =====
@@ -175,20 +229,23 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.peak_frequency      = trig.central_freq
     # duration
     trig.duration            = LIGOTimeGPS(float(data[2]))
+    halfduration             = LIGOTimeGPS(float(data[2])/2)
     # start time
-    start = peak-trig.duration
+    start = peak-halfduration
+    ms_start = start
     trig.start_time          = start.seconds
     trig.start_time_ns       = start.nanoseconds
-    trig.ms_start_time       = start.seconds
-    trig.ms_start_time_ns    = start.nanoseconds
+    trig.ms_start_time       = ms_start.seconds
+    trig.ms_start_time_ns    = ms_start.nanoseconds
     # end time
-    stop = peak+trig.duration
+    stop = peak+halfduration
+    ms_stop = stop
     trig.stop_time           = stop.seconds
     trig.stop_time_ns        = stop.nanoseconds
-    trig.ms_stop_time        = stop.seconds
-    trig.ms_stop_time_ns     = stop.nanoseconds
+    trig.ms_stop_time        = ms_stop.seconds
+    trig.ms_stop_time_ns     = ms_stop.nanoseconds
 
-    trig.ms_duration         = trig.get_ms_stop()-trig.get_ms_start()
+    trig.ms_duration         = ms_stop-ms_start
     # bandwidth and flow,fhigh
     trig.bandwidth           = float(data[3])
     trig.flow                = trig.peak_frequency - 0.5*trig.bandwidth
@@ -197,12 +254,38 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.amplitude           = float(data[4])
 
     # cluster parameters
-    #trig.cluster_size        = float(data[5])
-    #trig.cluster_norm_energy = float(data[6])
-    #trig.cluster_number      = float(data[7])
+    if len(data)>5:
+      trig.param_one_name      = 'cluster_size'
+      trig.param_one_value     = float(data[5])
+      trig.param_two_name      = 'cluster_norm_energy'
+      trig.param_two_value     = float(data[6])
+      trig.param_three_name    = 'cluster_number'
+      trig.param_three_value   = float(data[7])
 
     # SNR
     trig.snr                 = math.sqrt(2*trig.amplitude)
+
+  # =====
+  # omega
+  # =====
+  if etg=='omegaspectrum':
+    # space separated values are:
+    # peak_time.peak_time_ns peak_frequency duration bandwidth amplitude
+    # cluster_size cluster_norm_energy cluster_number
+
+    # peak time
+    peak = LIGOTimeGPS(data[0])
+    trig.peak_time           = peak.seconds
+    trig.peak_time_ns        = peak.nanoseconds
+    # central frequency
+    trig.central_freq        = float(data[1])
+    trig.peak_frequency      = trig.central_freq
+
+    trig.amplitude           = float(data[2])
+
+
+    # SNR
+    trig.snr                 = math.sqrt(trig.amplitude)
 
   # ==============
   # omegadq
@@ -210,19 +293,19 @@ def trigger(data,etg,ifo=None,channel=None):
   # follow Cadonati's clustering output
   if etg=='omegadq':
     # start time
-    cstart = LIGOTimeGPS(data[0])
-    trig.start_time              = cstart.seconds
-    trig.start_time_ns           = cstart.nanoseconds
+    start = LIGOTimeGPS(data[0])
+    trig.start_time              = start.seconds
+    trig.start_time_ns           = start.nanoseconds
     # end time
-    cstop  = LIGOTimeGPS(data[1])
-    trig.stop_time               = cstop.seconds
-    trig.stop_time_ns            = cstop.nanoseconds
+    stop  = LIGOTimeGPS(data[1])
+    trig.stop_time               = stop.seconds
+    trig.stop_time_ns            = stop.nanoseconds
     # peak time
     peak  = LIGOTimeGPS(data[2])
     trig.peak_time               = peak.seconds
     trig.peak_time_ns            = peak.nanoseconds
     # duration
-    trig.duration                = trig.get_stop()-trig.get_start()
+    trig.duration                = stop-start
     # bandwidth, and flow,fhigh,central_freq
     trig.flow                    = float(data[3])
     trig.fhigh                   = float(data[4])
@@ -230,13 +313,13 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.central_freq            = trig.flow  + 0.5*trig.bandwidth
 
     # MS params
-    pstart = LIGOTimeGPS(data[6])
-    trig.ms_start_time           = pstart.seconds
-    trig.ms_start_time_ns        = pstart.nanoseconds
-    pstop  = LIGOTimeGPS(data[7])
-    trig.ms_stop_time             = pstop.seconds
-    trig.ms_stop_time_ns          = pstop.nanoseconds
-    trig.ms_duration             = trig.get_ms_stop()-trig.get_ms_start()
+    ms_start = LIGOTimeGPS(data[6])
+    trig.ms_start_time           = ms_start.seconds
+    trig.ms_start_time_ns        = ms_start.nanoseconds
+    ms_stop  = LIGOTimeGPS(data[7])
+    trig.ms_stop_time            = ms_stop.seconds
+    trig.ms_stop_time_ns         = ms_stop.nanoseconds
+    trig.ms_duration             = ms_stop-ms_start
     trig.ms_flow                 = float(data[8])
     trig.ms_fhigh                = float(data[9])
     trig.ms_bandwidth            = trig.ms_fhigh - trig.ms_flow
@@ -246,6 +329,57 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.amplitude               = float(data[11])
     trig.snr                     = math.sqrt(2*float(data[11]))
     trig.ms_snr                  = math.sqrt(2*float(data[12]))
+
+  # ====
+  # HACR
+  # ====
+
+  # based on output of hacr web interface
+  if etg=='hacr':
+    # peak time
+    trig.peak_time               = int(data[0])
+    trig.peak_time_ns            = int(float(data[1])*math.pow(10,9))
+    trig.param_one_name          = 'peak_time_offset'
+    trig.param_one_value         = float(data[1])
+    # duration
+    trig.duration                = float(data[4])
+    # start time
+    start = trig.get_peak()-trig.duration
+    trig.start_time              = start.seconds
+    trig.start_time_ns           = start.nanoseconds
+    # end time
+    stop = trig.get_peak()+trig.duration
+    trig.stop_time               = stop.seconds
+    trig.stop_time_ns            = stop.nanoseconds
+    # bandwidth, and flow,fhigh,central_freq
+    trig.central_freq            = float(data[2])
+    trig.peak_frequency          = trig.central_freq
+    trig.bandwidth               = float(data[3])
+    trig.flow                    = trig.central_freq - 0.5*trig.bandwidth
+    trig.fhigh                   = trig.central_freq + 0.5*trig.bandwidth
+    #snr
+    trig.snr                     = float(data[6])
+    trig.ms_snr                  = float(data[6])
+
+    # ms extras
+    ms_start = start
+    trig.ms_start_time           = ms_start.seconds
+    trig.ms_start_time_ns        = ms_start.nanoseconds
+    ms_stop = stop
+    trig.ms_stop_time            = ms_stop.seconds
+    trig.ms_stop_time_ns         = ms_stop.nanoseconds
+    trig.ms_duration             = ms_stop-ms_start
+    trig.ms_fhigh                = trig.fhigh
+    trig.ms_flow                 = trig.flow
+    trig.ms_bandwidth            = trig.ms_fhigh-trig.ms_flow
+
+    # others
+    trig.param_two_name = 'numPixels'
+    trig.param_two_value = int(data[5])
+    trig.param_three_name = 'totPower'
+    trig.param_three_value = float(data[7])
+
+    #trig.process_id              = int(float(data[10]))
 
   # sundries
   if ifo:
@@ -259,7 +393,7 @@ def trigger(data,etg,ifo=None,channel=None):
 # Write triggers to file in etg standard form
 # =============================================================================
 
-def totrigxml(file,table,program=None,params=[]):
+def totrigxml(file, table, program=None, params=[]):
 
   """
     Write the given lsctables compatible table object to the file object file
@@ -288,56 +422,73 @@ def totrigxml(file,table,program=None,params=[]):
   xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
   xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
 
-  #== append process to table
+  # append process to table
   if not program:
-    program='pylal.dq.dqDataUtils.toxml'
+    program='pylal.dq.dqDataUtils.totrigxml'
 
-  process = llwapp.append_process(xmldoc,program=program,\
-                                         version=__version__,\
-                                         cvs_repository = 'lscsoft',\
-                                         cvs_entry_time = __date__)
+  process = llwapp.append_process(xmldoc, program=program,\
+                                  version=__version__,\
+                                  cvs_repository = 'lscsoft',\
+                                  cvs_entry_time = __date__)
 
-  ligolw_process.append_process_params(xmldoc,process,params)
+  ligolw_process.append_process_params(xmldoc, process, params)
 
+  # append trig table to file
   xmldoc.childNodes[-1].appendChild(table)
 
+  # write triggers to file object file
   llwapp.set_process_end_time(process)
-  utils.write_fileobj(xmldoc,file)
+  utils.write_fileobj(xmldoc, file, gz=file.name.endswith('gz'))
 
 # =============================================================================
 # Write triggers to text file in etg standard form
 # =============================================================================
 
-def totrigfile(file,table,etg,header=True):
+def totrigfile(file,table,etg,header=True,columns=None):
 
   """
     Write the lsctables.table to the given file object file, in the standard
-    format for the given etg
+    format for the given etg.
+
+    If columns is given as a list, the standard format will be overwritten
+    and only the given columns will be processed.
   """
 
   etg = etg.lower()
 
   # set columns
-  if re.match('ihope',etg):
-    # comma separated values are:
-    columns = ['end_time','end_time_ns','ifo','snr','mass1','mass2','mtotal',\
-               'eta','event_duration','template_duration','eff_distance',\
-               'chisq','chisq_dof','bank_chisq','bank_chisq_dof','cont_chisq',\
-               'cont_chisq_dof']
+  if not columns:
+    if re.match('ihope',etg):
+      # comma separated values are:
+      columns = ['end_time','end_time_ns','ifo','snr','mass1','mass2','mtotal',\
+                 'eta','event_duration','template_duration','eff_distance',\
+                 'chisq','chisq_dof','bank_chisq','bank_chisq_dof',\
+                 'cont_chisq','cont_chisq_dof']
 
-  elif re.match('omegadq',etg) or re.match('omega_dq',etg):
-    columns = ['start_time','stop_time','peak_time','flow','fhigh',\
-               'cluster_length','ms_start_time','ms_stop_time','ms_flow',\
-               'ms_fhigh','cluster_size','cluster_norm_energy','snr']
+    elif re.match('omegadq',etg) or re.match('omega_dq',etg):
+      columns = ['start_time','stop_time','peak_time','flow','fhigh',\
+                 'cluster_length','ms_start_time','ms_stop_time','ms_flow',\
+                 'ms_fhigh','cluster_size','amplitude','amplitude']
 
-  elif re.match('omega',etg) or re.match('wpipe',etg):
-    columns = ['peak_time','peak_frequency','duration',\
-               'bandwidth','amplitude',\
-               'cluster_size','cluster_norm_energy','cluster_number']
+    elif re.match('omegaspectrum',etg):
+      columns = ['peak_time','peak_frequency','amplitude']
 
-  elif re.match('kw',etg.lower()):
-    columns = ['peak_time','start_time','stop_time','peak_frequency',\
-               'energy','amplitude','num_pixels','significance','N']
+    elif re.match('omega',etg) or re.match('wpipe',etg):
+      if len(table) and hasattr(table[0], 'param_one_value'):
+        columns = ['peak_time','peak_frequency','duration',\
+                   'bandwidth','amplitude',\
+                   'param_one_value','param_two_value','param_three_value']
+      else:
+        columns = ['peak_time','peak_frequency','duration',\
+                   'bandwidth','amplitude']
+
+    elif re.match('kw',etg.lower()):
+      columns = ['peak_time','start_time','stop_time','peak_frequency',\
+                 'energy','amplitude','num_pixels','significance','N']
+
+    elif re.match('hacr',etg.lower()):
+      columns = ['peak_time','param_one_value','central_freq','bandwidth',\
+                'duration','param_two_value','snr','param_three_value']
 
   # set delimiter
   if etg=='ihope':
@@ -347,19 +498,36 @@ def totrigfile(file,table,etg,header=True):
 
   # print header
   if header:
-    print >>file, d.join(['#']+columns)
+    cols = []
+    for c in columns:
+      if c.startswith('param') and c.endswith('value'):
+        try:
+          cols.append(table[0].__getattribute__(c.replace('value','name')))
+        except IndexError:
+          cols.append(c)
+      else:
+        cols.append(c)
+    print >>file, d.join(['#']+cols)
 
+  columnnames = table.columnnames
+  if not columnnames:
+    t = table[0]
+    columnnames = table[0].__slots__
   # print triggers
   for row in table:
     line = []
     for col in columns:
-       if col not in table.columnnames:
+       if col not in columnnames:
          line.append('-1')
          continue
        entry = ''
        # if ihope, print column
-       if re.match('ihope',etg.lower()):
-         entry = str(row.__getattribute__(col))
+       if re.match('(ihope|hacr)',etg.lower()):
+         # HACR default is to have peak_time_ns in seconds, not ns
+         if re.match('hacr',etg.lower()) and col=='peak_time_ns':
+           entry = str(row.__getattribute__(col)/math.pow(10,9))
+         else:
+           entry = str(row.__getattribute__(col))
        # if not ihope, check for time and print full GPS
        else:
          if col=='peak_time':
@@ -368,10 +536,10 @@ def totrigfile(file,table,etg,header=True):
            entry = str(row.get_start())
          elif col=='ms_start_time':
            entry = str(row.get_ms_start())
-         elif col=='end_time':
-           entry = str(row.get_end())
-         elif col=='ms_end_time':
-           entry = str(row.get_ms_end())
+         elif col=='stop_time':
+           entry = str(row.get_stop())
+         elif col=='ms_stop_time':
+           entry = str(row.get_ms_stop())
          else:
            entry = str(row.__getattribute__(col))
 
@@ -465,8 +633,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
         SnglInspiralTable or SnglBurstTable type depending on ETG
   """
 
-  # define control character search
-  cchar = re.compile('[#%<!()_\[\]{}:;\'\"]+')
+  etg = etg.lower()
 
   # set times
   if not start:
@@ -478,32 +645,68 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
 
   if not tabletype:
     etgs = {'inspiral': ['ihope'],\
-            'burst':    ['omega','omegadq','kw'],\
+            'burst':    ['omega','omegadq','kw','hacr','omegaspectrum'],\
             'ringdown': []}
     # set up triggers table
     for search,etglist in etgs.items():
-      if etg.lower() in etglist:
+      if etg in etglist:
         tabletype = lsctables.__dict__['Sngl%sTable' % (search.title())]
         break
 
   triggers = lsctables.New(tabletype)
+  append = triggers.append
 
   get_time = def_get_time(triggers.tableName)
 
   # read table and append triggers
   for line in file.readlines():
-    # if line starts with a control character:  continue
+    # if line starts with #:  continue
     if re.match(cchar,line):  continue
     # read line as trigger
-    trig = trigger(line,etg.lower(),ifo=ifo,channel=channel)
+    trig = trigger(line,etg,ifo=ifo,channel=channel)
     # append trig to table if within requested time
     if get_time(trig) in span:
-      triggers.append(trig)
+      append(trig)
 
   # sort triggers in time
   triggers.sort(key=lambda trig: get_time(trig))
 
   return triggers
+
+# =============================================================================
+# Load triggers from a cache
+# =============================================================================
+
+def fromLALCache(cache, etg, start=None, end=None, verbose=False):
+
+  """
+    Extract triggers froa given ETG from all files in a glue.lal.Cache object.
+    Returns a glue.ligolw.Table relevant to the given trigger generator etg.
+  """
+
+  # set up counter
+  if verbose:
+    sys.stdout.write("Extracting %s triggers from %d files...     "\
+                     % (etg, len(cache)))
+    sys.stdout.flush()
+    delete = '\b\b\b'
+    num = len(cache)/100
+
+  trigs = SnglTriggerTable(etg)
+
+  # load files
+  for i,e in enumerate(cache):
+    trigs.extend(re.search('(xml|xml.gz)\z', e.path()) and\
+                 fromtrigxml(open(e.path), etg=etg, start=start, end=end) or\
+                 fromtrigfile(open(e.path()), etg=etg, start=start, end=end))
+    # print verbose message
+    if verbose and len(cache)>1:
+      progress = int((i+1)/num)
+      sys.stdout.write('%s%.2d%%' % (delete, progress))
+      sys.stdout.flush()
+
+  if verbose: sys.stdout.write("\n")  
+  return trigs
 
 # =============================================================================
 # Generate a daily ihope cache 
@@ -561,23 +764,17 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
                                       ifo+'-INSPIRAL_'+cluster_tag+'*.xml.gz'))
 
       for filename in filenames:
-        try:
-          e = LALCacheEntry.from_T050017(filename)
-          if span.intersects(e.segment):  cache.append(e)
-        except:
-          print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
-                              % filename
+        e = LALCacheEntry.from_T050017(filename)
+        if span.intersects(e.segment):  cache.append(e)
 
     elif filetype=='csv':
       csvfile = os.path.join(day_path,ifo+'-'+str(cat)+'-INSPIRAL_'+\
                                       cluster_tag+'.csv')
       if os.path.isfile(csvfile):
-        try:
-          e = LALCacheEntry.from_T050017(csvfile)
-          if span.intersects(e.segment):  cache.append(e)
-        except:
-          print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
-                              % filename
+        e = LALCacheEntry.from_T050017(csvfile)
+        if span.intersects(e.segment):  cache.append(e)
+
+  cache.sort(key=lambda e: e.path())
 
   return cache
 
@@ -604,40 +801,122 @@ def omega_online_cache(start,end,ifo):
 
   # verify host
   host = getfqdn()
-  ifo_host = {'H1':'ligo-wa','H2':'ligo-wa','L1':'ligo-la'}
-  if not re.search(ifo_host[ifo],host):
+  ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
+  if not re.search(ifo_host[ifo.upper()],host):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
-                        "IFO="+ifo+" on this host."
+                        "IFO=%s on this host." % ifo
     return []
 
   span = segments.segment(start,end)
   cache = LALCache()
-  basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
-                               % (str(ifo)))
 
-  # triggers are numbered from a given start time, which for S6 is:
-  basetime = LIGOTimeGPS(931211808)
-  triglength = 64
+  # add basedirs as list (GEO omega_online has been moved for some period so
+  # we need more than one)
+  if ifo == 'G1':
+    basedirs = [os.path.expanduser('~omega/online/%s/segments' % ifo),\
+                os.path.expanduser('~omega/online/G1/archive/A6pre/segments')]
+    basetimes = [LIGOTimeGPS(1004305400), LIGOTimeGPS(983669456)]
+  else:
+    basedirs = [os.path.expanduser('~omega/online/%s/archive/S6/segments'\
+                                  % (str(ifo)))]
+    basetimes = [LIGOTimeGPS(931211808)]
 
-  start_time = int(start-math.fmod(start-basetime,triglength))
-  t = start_time
+  dt = 10000 
+  t = int(start)
 
-  # loop over time segments constructing files and appending to the list
-  while t < end:
-    dirstart = "%.10d" % t
-    dirend   = "%.10d" % (t+triglength)
-    dirpath  = os.path.join(basedir,dirstart+'-'+dirend)
-    trigfile = os.path.join(dirpath,'-'.join([ifo,\
-                                              'OMEGA_TRIGGERS_CLUSTER',\
-                                              dirstart,str(triglength)])+'.txt')
-    if os.path.isfile(trigfile):
-      try:
-        e = LALCacheEntry.from_T050017(trigfile)
-        if span.intersects(e.segment):  cache.append(e)
-      except:
-        print >>sys.stderr, 'Could not convert %s to glue.lal.CacheEntry'\
-                            % filename
-    t+=triglength
+  while t<=end:
+
+    tstr = '%.6s' % ('%.10d' % t)
+
+    # find basedir for this time
+    basedir = None
+    for i,d in enumerate(basedirs):
+      if t > basetimes[i]:
+        basedir = d
+        break
+    if not basedir:
+      raise Exeption, "Cannot find base directory for %s omega online at %s"\
+                      % (ifo, t)
+
+    dirstr = '%s/%s*' % (basedir, tstr)
+    dirs = glob.glob(dirstr)
+
+    for dir in dirs:
+      files = glob.glob('%s/%s-OMEGA_TRIGGERS_CLUSTER*.txt' % (dir, ifo))
+
+      for f in files:
+        e = LALCacheEntry.from_T050017(f)
+
+        if span.intersects(e.segment):
+          cache.append(e)
+
+    t+=dt
+
+  cache.sort(key=lambda e: e.path())
+
+  return cache
+
+# =============================================================================
+# Function to generate an omega spectrum online cache
+# =============================================================================
+
+def omega_spectrum_online_cache(start,end,ifo):
+
+  """
+    Returns a glue.lal.Cache contatining CacheEntires for all omega online
+    trigger files between the given start and end time for the given ifo.
+    For S6 triggers are only available for each IFO on it's own site cluster.
+
+    Arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of requested period
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of requested period
+      ifo : [ "H1" | "L1" | "V1" ]
+        IFO
+  """
+
+  # verify host
+  host = getfqdn()
+  ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
+  if not re.search(ifo_host[ifo],host):
+    print >>sys.stderr, "Error: Omega online files are not available for "+\
+                        "IFO=%s on this host." % ifo
+    return []
+
+  span = segments.segment(start,end)
+  cache = LALCache()
+  if ifo == 'G1':
+    basedir = os.path.expanduser('~omega/online/%s/segments' % ifo)
+    basetime = LIGOTimeGPS(983669456)
+  else:
+    basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
+                                  % (str(ifo)))
+    basetime = LIGOTimeGPS(931211808)
+
+  dt = 10000 
+  t = int(start)
+
+  while t<=end:
+
+    tstr = '%.6s' % ('%.10d' % t)
+
+    dirstr = '%s/%s*' % (basedir, tstr)
+    dirs = glob.glob(dirstr)
+
+    for dir in dirs:
+      files = glob.glob('%s/%s-OMEGA_TRIGGERS_SPECTRUM*.txt' % (dir, ifo))
+
+      for f in files:
+        e = LALCacheEntry.from_T050017(f)
+
+        if span.intersects(e.segment):
+          cache.append(e)
+
+    t+=dt
+
+  cache.sort(key=lambda e: e.path())
 
   return cache
 
@@ -682,13 +961,11 @@ def omega_dq_cache(start,end,ifo):
     trigfile = os.path.join(dirpath,'clusters.txt')
     if os.path.isfile(trigfile):
 
-      try:
-        e = LALCacheEntry(ifo,'OMEGADQ',segment(dirstart,dirend),\
-                          os.path.realpath(trigfile))
-        if span.intersects(e.segment):  cache.append(e)
-      except:
-        print >>sys.stderr, 'Could not convert %s' % filename,
-        print >>sys.stderr, 'to pylal.dq.dqFrameUtils.KWCacheEntry'\
+      e = LALCacheEntry(ifo,'OMEGADQ',segments.segment(dirstart,dirend),\
+                        os.path.realpath(trigfile))
+      if span.intersects(e.segment):  cache.append(e)
+
+  cache.sort(key=lambda e: e.path())
 
   return cache
 
@@ -783,14 +1060,12 @@ def kw_cache(start,end,ifo):
     trigfile = os.path.join(dirpath,ifo+'_LSC-DARM_ERR_32_2048.trg')
     if os.path.isfile(trigfile):
 
-      try:
-        e = KWCacheEntry.from_KWfilename(trigfile)
-        if span.intersects(e.segment):  cache.append(e)
-      except:
-        print >>sys.stderr, 'Could not convert %s' % filename,
-        print >>sys.stderr, 'to pylal.dq.dqFrameUtils.KWCacheEntry'\
+      e = KWCacheEntry.from_KWfilename(trigfile)
+      if span.intersects(e.segment):  cache.append(e)
 
     t+=triglength
+
+  cache.sort(key=lambda e: e.path()) 
 
   return cache
 
@@ -872,18 +1147,24 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 
         # get value of param
         if col=='time':
-          value = get_time(trig)
+          valueStop = trig.stop_time + trig.stop_time_ns*1e-9
+          valueStart = trig.start_time + trig.start_time_ns*1e-9
+        elif col=='peak_frequency':
+          valueStop = trig.fhigh
+          valueStart = trig.flow
         else:
-          value = trig.__getattribute__(col)
+          valueStop = trig.__getattribute__(col)
+          valueStart = valueStop
 
         # if subcluster is empty, simply add the first trigger
         if not subsubcluster:
           subsubcluster = [trig]
-          prev = value
+          prevStop = valueStop
+          prevStart = valueStart
           continue
 
         # if current trig is inside width, append to cluster
-        if math.fabs(value-prev)<width:
+        if (valueStart-prevStop)<width:
           subsubcluster.append(trig)
 
         # if not the subcluster is complete, append it to list and start again
@@ -891,7 +1172,8 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
           newclusters.append(subsubcluster)
           subsubcluster=[trig]
 
-        prev = value
+        prevStart = valueStart
+        prevStop = valueStop
 
       # append final subsubcluster
       newclusters.append(subsubcluster)
@@ -915,42 +1197,244 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 
   return outtrigs
 
+# =============================================================================
+# Compute trigger auto-correlation
+# =============================================================================
+
+def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
+
+  """
+    Compute autocorrelation of lsctable triggers in the each of the pairs
+    (column,width), using the rank column.
+
+    Arguments:
+
+      triggers: glue.ligowl.Table
+        Table containing trigger columns for clustering
+
+      column:
+        On which trigger column to auto-correlate, almost always time
+
+      timeStep:
+        Step (bin width) for the autocorrelation
+
+      timeRange:
+        Longest time to consider for autocorrelation
+        
+  """
+
+  # time sort triggers before proceeding
+  get_time = def_get_time(triggers.tableName)
+  triggers.sort(key=lambda trig: get_time(trig))
+
+
+  previousTimes = []
+  histEdges = numpy.arange(timeStep,timeRange,timeStep);
+  delayHist = numpy.zeros(int(math.ceil(timeRange/timeStep)))
+  for trig in triggers:
+    curTime = trig.peak_time + 1e-9*trig.peak_time_ns
+    # remove previous times which are beyond the considered timeRange
+    while len(previousTimes) > 0 and curTime - previousTimes[0] > timeRange:
+      previousTimes.pop()
+    for t in previousTimes:
+      pos = int(math.floor((curTime - t)/timeStep))
+      if pos < len(delayHist):
+        delayHist[pos] += 1
+    previousTimes.append(curTime)
+  
+  delayHistFFT = numpy.abs(numpy.fft.fft(delayHist))
+  freqBins = numpy.fft.fftfreq(len(delayHist), d=timeStep)
+
+  return delayHistFFT, freqBins, delayHist, histEdges
+
+# =============================================================================
+# Get coincidences between two tables
+# =============================================================================
+
+def get_coincs(table1, table2, dt=1, returnsegs=False):
+
+  """
+    Returns the table of those entries in table1 whose time is within +-dt of
+    and entry in table2.
+  """
+
+  get_time_1 = def_get_time(table1.tableName)
+  get_time_2 = def_get_time(table2.tableName)
+
+  trigseg = lambda t: segments.segment(get_time_2(t) - dt,\
+                                       get_time_2(t) + dt)
+
+  coincsegs = segments.segmentlist([trigseg(t) for t in table2])
+  coincsegs = coincsegs.coalesce()
+  coinctrigs = table.new_from_template(table1)
+  coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
+
+  if returnsegs:
+    return coinctrigs,coincsegs
+  else:
+    return coinctrigs
+
 # ==============================================================================
 # Calculate poisson significance of coincidences
 # ==============================================================================
 
-def coinc_significance(gwtriggers,auxtriggers,window=1,snrthresh=8,\
-                       livetime=None):
+def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
+                        coltype=LIGOTimeGPS, returnsegs=False):
 
   get_time = def_get_time(gwtriggers.tableName)
+  aux_get_time = def_get_time(auxtriggers.tableName)
 
   # get livetime
   if not livetime:
-    start = min([get_time(t) for t in gwtriggers])
-    end   = max([get_time(t) for t in gwtriggers])
+    start    = min([get_time(t) for t in gwtriggers])
+    end      = max([get_time(t) for t in gwtriggers])
+    livetime = end-start
 
   # calculate probability of a GW trigger falling within the window
-  gwprob = len(gwtriggers)*window/livetime
-
-  # grab auxiliary triggers above threshold
-  auxtriggers = lsctables.New(type(tableName))
-  auxtriggers.extend([t for t in auxtriggers if t.snr>snrthresh])
+  gwprob = len(gwtriggers) * float(window) / float(livetime)
 
   # calculate mean of Poisson distribution
   mu = gwprob * len(auxtriggers)
 
-  # generate segments around auxiliary triggers
-  coincsegs = segments.segmentlist([segment(get_time(t)-window/2,\
-                                            get_time(t)+window/2)\
-                                    for t in triggers])
+  # get coincidences
+  coinctriggers, coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                             returnsegs=True)
 
-  coinctriggers = lsctables.New(type(gwtriggers))
-  coinctriggers.extend([g for g in gwtriggers if get_time(g) in coincsegs])
+  g = special.gammainc(len(coinctriggers), mu)
 
+  # if no coincidences, set significance to zero
   if len(coinctriggers)<1:
     significance = 0
+  # if significance would blow up, use other formula (ref. hveto_significance.m)
+  elif g == 0:
+    significance = -len(coinctriggers) * math.log10(mu) + \
+                   mu * math.log10(math.exp(1)) +\
+                   special.gammaln(len(coinctriggers) + 1) / math.log(10)
+  # otherwise use the standard formula
   else:
-    significance = -math.log(gammainc(len(coinctriggers),mu),10)
+    significance = -math.log(g, 10)
 
-  return significance
+  if returnsegs:
+    return significance,coincsegs
+  else:
+    return significance
+
+# =============================================================================
+# Extract column from generic table
+# =============================================================================
+
+def get_column(lsctable, column):
+
+  """
+    Extract column from the given glue.ligolw.table lsctable as numpy array.
+    Tries to use a 'get_col() function if available, otherwise uses
+    getColumnByName(), treating 'time' as a special case for the known
+    Burst/Inspiral/Ringdown tables.
+  """
+ 
+  # format column
+  column = str(column).lower()
+
+  # if there's a 'get_' function, use it
+  if hasattr(lsctable, 'get_%s' % column):
+    return numpy.asarray(getattr(lsctable, 'get_%s' % column)())
+
+  # treat 'time' as a special case
+  if column == 'time'\
+  and re.search('(burst|inspiral|ringdown)', lsctable.tableName):
+    if re.search('burst', lsctable.tableName):
+      tcol = 'peak_time'
+    elif re.search('inspiral', lsctable.tableName):
+      tcol = 'end_time'
+    elif re.search('ringdown', lsctable.tableName):
+      tcol = 'start_time'
+    return numpy.asarray(lsctable.getColumnByName(tcol)) + \
+           numpy.asarray(lsctable.getColumnByName('%s_ns' % tcol))*10**-9
+
+  return numpy.asarray(lsctable.getColumnByName(column))
+
+def get(self, parameter):
+
+  """
+    Extract parameter from given ligolw table row object. 
+  """
+
+  # format
+  parameter = parameter.lower()
+
+  obj_type = type(self)
+
+  # if there's a 'get_' function, use it
+  if hasattr(self, 'get_%s' % parameter):
+    return getattr(self, 'get_%s' % parameter)()
+
+  # treat 'time' as a special case
+  elif parameter == 'time'\
+  and re.search('(burst|inspiral|ringdown)', obj_type, re.I):
+    if re.search('burst', obj_type):
+      tcol = 'peak_time'
+    elif re.search('inspiral', obj_type):
+      tcol = 'end_time'
+    elif re.search('ringdown', obj_type):
+      tcol = 'start_time'
+    return LIGOTimeGPS(getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9)
+
+  else:
+   return getattr(self, parameter)
+
+# =============================================================================
+# Veto triggers from a ligolw table
+# =============================================================================
+
+def veto(self, seglist, inverse=False):
+
+  """
+    Returns a ligolw table of those triggers outwith the given seglist.
+    If inverse=True is given, the opposite is returned, i.e. those triggers
+    within the given seglist.
+  """
+
+  get_time = def_get_time(self.tableName)
+
+  keep = table.new_from_template(self)
+  if inverse:
+    keep.extend(t for t in self if float(get_time(t)) in seglist)
+  else:
+    keep.extend(t for t in self if float(get_time(t)) not in seglist)
+
+  return keep
+
+def vetoed(self, seglist):
+
+  """
+    Returns the opposite of veto, i.e. those triggers that lie within the given
+    seglist.
+  """
+
+  return veto(self, seglist, inverse=True)
+
+# ==============================================================================
+# Time shift trigger table
+# ==============================================================================
+
+def time_shift(lsctable, dt=1):
+
+  """
+    Time shift lsctable by time dt.
+  """
+
+  out = table.new_from_template(lsctable)
+  get_time = def_get_time(lsctable.tableName)
+
+  for t in lsctable:
+    t2 = copy.deepcopy(t)
+    if re.search('inspiral', lsctable.tableName, re.I):
+      t2.set_end(t2.get_end()+dt)
+    elif re.search('burst', lsctable.tableName, re.I):
+      t2.set_peak(t2.get_peak()+dt)
+    elif re.search('ringdown', lsctable.tableName, re.I):
+      t2.set_start(t2.get_start()+dt)
+    out.append(t2)
+
+  return out
 

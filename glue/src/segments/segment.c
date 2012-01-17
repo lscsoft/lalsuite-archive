@@ -418,6 +418,17 @@ PyTypeObject segments_Segment_Type = {
 "objects.  The methods for this class exist mostly for purpose of\n" \
 "simplifying the implementation of the segmentlist class.\n" \
 "\n" \
+"The segment class is a subclass of the tuple built-in class\n" \
+"provided by Python.  This means segments are immutable --- you\n" \
+"cannot modify a segment object after creating it, to change the\n" \
+"boundaries of a segment you must create a new segment object with\n" \
+"the desired boundaries.  Like tuples, segments can be used as\n" \
+"dictionary keys, and like tuples the comparison used to find a\n" \
+"segment in the dictionary is done by value not by ID.  And, like\n" \
+"tuples, a segment can be created from any sequence-like object by\n" \
+"passing it to the constructor (the sequence must have exactly two\n" \
+"elements in it).\n" \
+"\n" \
 "Example:\n" \
 "\n" \
 ">>> segment(0, 10) & segment(5, 15)\n" \
@@ -436,7 +447,17 @@ PyTypeObject segments_Segment_Type = {
 "segment('Pool', 'York University')\n" \
 ">>> x = [0, 1]\n" \
 ">>> segment(x)\n" \
-"segment(0, 1)",
+"segment(0, 1)\n" \
+">>> y = segment(0, 1)\n" \
+">>> y == x\n" \
+"True\n" \
+">>> y is x\n" \
+"False\n" \
+">>> z = {x: [\"/path/to/file1\", \"/path/to/file2\"]}\n" \
+">>> y in z\n" \
+"True\n" \
+">>> z[y]\n" \
+"['/path/to/file1', '/path/to/file2']",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".segment",

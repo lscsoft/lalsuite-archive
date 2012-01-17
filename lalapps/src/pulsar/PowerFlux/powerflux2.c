@@ -47,6 +47,8 @@
 #include "statistics.h"
 #include "dataset.h"
 #include "candidates.h"
+#include "power_cache.h"
+#include "single_bin_loosely_coherent_sum.h"
 #include "power_sum_stats.h"
 #include "outer_loop.h"
 #include "util.h"
@@ -796,24 +798,6 @@ fprintf(stderr,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 fprintf(LOG,"band axis RA (degrees) : %f\n", band_axis_ra*180.0/M_PI);
 fprintf(LOG,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 
-/* now that we have new grid positions plot them */
-
-plot_grid_f(p, patch_grid, patch_grid->latitude,1);
-RGBPic_dump_png("patch_latitude.png", p);
-dump_floats("patch_latitude.dat", patch_grid->latitude, patch_grid->npoints, 1);
-
-plot_grid_f(p, patch_grid, patch_grid->longitude,1);
-RGBPic_dump_png("patch_longitude.png", p);
-dump_floats("patch_longitude.dat", patch_grid->longitude, patch_grid->npoints, 1);
-
-plot_grid_f(p, fine_grid, fine_grid->latitude,1);
-RGBPic_dump_png("fine_latitude.png", p);
-dump_floats("fine_latitude.dat", fine_grid->latitude, fine_grid->npoints, 1);
-
-plot_grid_f(p, fine_grid, fine_grid->longitude,1);
-RGBPic_dump_png("fine_longitude.png", p);
-dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
-
 /* COMP3 stage */
 
 if(args_info.no_decomposition_arg){
@@ -904,10 +888,29 @@ snprintf(s, 20000, "bands.dat");
 dump_ints(s, patch_grid->band, patch_grid->npoints, 1);
 fflush(LOG);
 
+/* now that we have new grid positions plot them */
+
+plot_grid_f(p, patch_grid, patch_grid->latitude,1);
+RGBPic_dump_png("patch_latitude.png", p);
+dump_floats("patch_latitude.dat", patch_grid->latitude, patch_grid->npoints, 1);
+
+plot_grid_f(p, patch_grid, patch_grid->longitude,1);
+RGBPic_dump_png("patch_longitude.png", p);
+dump_floats("patch_longitude.dat", patch_grid->longitude, patch_grid->npoints, 1);
+
+plot_grid_f(p, fine_grid, fine_grid->latitude,1);
+RGBPic_dump_png("fine_latitude.png", p);
+dump_floats("fine_latitude.dat", fine_grid->latitude, fine_grid->npoints, 1);
+
+plot_grid_f(p, fine_grid, fine_grid->longitude,1);
+RGBPic_dump_png("fine_longitude.png", p);
+dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
+
 free_plot(plot);
 free_RGBPic(p);
 
 power_cache_selftest();
+single_bin_loosely_coherent_selftest();
 power_sum_stats_selftest();
 
 /* Check that expected timebase was sufficient */
