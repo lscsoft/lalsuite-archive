@@ -1408,3 +1408,29 @@ def vetoed(self, seglist):
   """
 
   return veto(self, seglist, inverse=True)
+
+# ==============================================================================
+# Time shift trigger table
+# ==============================================================================
+
+def time_shift(lsctable, dt=1):
+
+  """
+    Time shift lsctable by time dt.
+  """
+
+  out = table.new_from_template(lsctable)
+  get_time = def_get_time(lsctable.tableName)
+
+  for t in lsctable:
+    t2 = copy.deepcopy(t)
+    if re.search('inspiral', lsctable.tableName, re.I):
+      t2.set_end(t2.get_end()+dt)
+    elif re.search('burst', lsctable.tableName, re.I):
+      t2.set_peak(t2.get_peak()+dt)
+    elif re.search('ringdown', lsctable.tableName, re.I):
+      t2.set_start(t2.get_start()+dt)
+    out.append(t2)
+
+  return out
+
