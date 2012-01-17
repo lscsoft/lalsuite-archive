@@ -547,7 +547,7 @@ if opts.fake_coincs:
     ylab = r"Estimated false alarm number (FAN)"
     plot_one_thing( fig_num, fakeStatsq, fakeFANs, plotcommand="semilogy", \
       marker="x", size=8, plotcolor="k", edgecolor=None, \
-      legtext="Example trigger pairs", plotxlab=xlab, plotylab=None, plottit=plottit, \
+      legtext="Example trigger pairs", plotxlab=xlab, plotylab=ylab, plottit=plottit, \
       figname="fake_statsq_vs_FAN", figtag="fake_statsq_vs_fan" )
   else:
     comments += InspiralUtils.message(opts, "No fake coincs could be generated: inspiral triggers are required in 2 or more ifos!")
