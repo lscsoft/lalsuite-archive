@@ -209,7 +209,10 @@ void LALInferenceNScalcCVM(gsl_matrix **cvm, LALInferenceVariables **Live, UINT4
 	}*/
 	
 	/* the other half */
-	for(i=0;i<ND;i++) for(j=0;j<i;j++) gsl_matrix_set(*cvm,j,i,gsl_matrix_get(*cvm,i,j));
+	for(i=0;i<ND;i++) 
+          for(j=0;j<i;j++)
+            gsl_matrix_set(*cvm,j,i,gsl_matrix_get(*cvm,i,j));
+       
 	return;
 }
 
@@ -293,8 +296,11 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     if(LALInferenceGetProcParamVal(runState->commandLine,"--progress"))
         displayprogress=1;
 
-#ifdef HAVE_LIBLALXML	
-	ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outXML");
+#ifdef HAVE_LIBLALXML
+	ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outxml");
+	if(!ppt){
+		ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outXML");
+	}
 	if(!ppt){
 		fprintf(stderr,"Can specify --outXML <filename.dat> for VOTable output\n");
 	}
@@ -862,19 +868,19 @@ void LALInferenceProposalMultiStudentT(LALInferenceRunState *runState, LALInfere
 	XLALMultiStudentDeviates( step, work, dim, 2, randParam);
 
         /* loop over all parameters */
-	for (paraHead=parameter->head,i=0; paraHead; paraHead=paraHead->next)
+        for (paraHead=parameter->head,i=0; paraHead; paraHead=paraHead->next)
 	{ 
 		/*  if (inputMCMC->verbose)
 		 printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n", 
 		 paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);*/
 		/* only increment the varying parameters, and only increment the data pointer if it's been done*/
 		if((paraHead->vary==LALINFERENCE_PARAM_LINEAR || paraHead->vary==LALINFERENCE_PARAM_CIRCULAR) && strcmp(paraHead->name,"rightascension") && strcmp(paraHead->name,"declination") && strcmp(paraHead->name,"time") ){
-			*(REAL8 *)paraHead->value += step->data[i];
+                  *(REAL8 *)paraHead->value += step->data[i];
 			i++;
 		}
 	}
 
-	LALInferenceRotateInitialPhase(parameter);
+	/* LALInferenceRotateInitialPhase(parameter); */
         LALInferenceCyclicReflectiveBound(parameter,runState->priorArgs);
         
         /* destroy the vectors */
@@ -919,7 +925,7 @@ void LALInferenceProposalDifferentialEvolution(LALInferenceRunState *runState,
 		}
 		if(same==1) goto drawtwo;
 		/* Bring the sample back into bounds */
-                LALInferenceRotateInitialPhase(parameter);
+                /* LALInferenceRotateInitialPhase(parameter); */
 		LALInferenceCyclicReflectiveBound(parameter,runState->priorArgs);
 		return;
 	}

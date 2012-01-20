@@ -31,8 +31,47 @@ __date__    = git_version.date
 This module provides a bank of useful functions for manipulating triggers and trigger files for data quality investigations.
 """
 
+# global regular expressions
 trigsep = re.compile('[\t\s,]+')
 cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
+
+# =============================================================================
+# Define ETG options
+# =============================================================================
+
+_burst_regex = re.compile('(burst|omega|kleine|kw|cwb|hacr)', re.I)
+_cbc_regex   = re.compile('(ihope|inspiral|cbc)', re.I)
+_ring_regex  = re.compile('(ring)', re.I)
+
+def SnglTriggerTable(etg):
+
+  """
+    Handy function to return the correct type of ligolw table for the given ETG.
+  """
+
+  if _burst_regex.search(etg):
+    return lsctables.New(lsctables.SnglBurstTable)
+  elif _cbc_regex.search(etg):
+    return lsctables.New(lsctables.SnglInspiralTable)
+  elif _ring_regex.search(etg):
+    return lsctables.New(lsctables.SnglRingdownTable)
+  else:
+    raise AttributeError("etg=%s not recognised by SnglTriggerTable." % etg)
+
+def SnglTrigger(etg):
+  """
+    Handy function to return the correct type of ligolw table row object for
+    the given ETG
+  """
+
+  if _burst_regex.search(etg):
+    return lsctables.SnglBurst()
+  elif _cbc_regex.search(etg):
+    return lsctables.SnglInspiral()
+  elif _ring_regex.search(etg):
+    return lsctables.SnglRingdown()
+  else:
+    raise AttributeError("etg=%s not recognised by SnglTrigger." % etg)
 
 # =============================================================================
 # Define get_time choice
@@ -93,19 +132,12 @@ def trigger(data,etg,ifo=None,channel=None):
 
   """
 
-  etgcategories = {lsctables.SnglInspiral(): ['ihope'],\
-                   lsctables.SnglBurst():    ['omega','omegadq','kw','hacr',\
-                                              'omegaspectrum'],\
-                   lsctables.SnglRingdown(): []}
-
   # set up trig object
-  for obj,etgs in etgcategories.items():
-    if etg in etgs:
-      trig = obj
+  trig = SnglTrigger(etg)
 
   # if given string, split on space, tab or comma
   if isinstance(data,str):
-    data = trigsep.split(data)
+    data = trigsep.split(data.rstrip())
 
   # =====
   # ihope
@@ -222,12 +254,13 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.amplitude           = float(data[4])
 
     # cluster parameters
-    trig.param_one_name      = 'cluster_size'
-    trig.param_one_value     = float(data[5])
-    trig.param_two_name      = 'cluster_norm_energy'
-    trig.param_two_value     = float(data[6])
-    trig.param_three_name    = 'cluster_number'
-    trig.param_three_value   = float(data[7])
+    if len(data)>5:
+      trig.param_one_name      = 'cluster_size'
+      trig.param_one_value     = float(data[5])
+      trig.param_two_name      = 'cluster_norm_energy'
+      trig.param_two_value     = float(data[6])
+      trig.param_three_name    = 'cluster_number'
+      trig.param_three_value   = float(data[7])
 
     # SNR
     trig.snr                 = math.sqrt(2*trig.amplitude)
@@ -439,10 +472,15 @@ def totrigfile(file,table,etg,header=True,columns=None):
 
     elif re.match('omegaspectrum',etg):
       columns = ['peak_time','peak_frequency','amplitude']
+
     elif re.match('omega',etg) or re.match('wpipe',etg):
-      columns = ['peak_time','peak_frequency','duration',\
-                 'bandwidth','amplitude',\
-                 'param_one_value','param_two_value','param_three_value']
+      if len(table) and hasattr(table[0], 'param_one_value'):
+        columns = ['peak_time','peak_frequency','duration',\
+                   'bandwidth','amplitude',\
+                   'param_one_value','param_two_value','param_three_value']
+      else:
+        columns = ['peak_time','peak_frequency','duration',\
+                   'bandwidth','amplitude']
 
     elif re.match('kw',etg.lower()):
       columns = ['peak_time','start_time','stop_time','peak_frequency',\
@@ -636,6 +674,41 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
   return triggers
 
 # =============================================================================
+# Load triggers from a cache
+# =============================================================================
+
+def fromLALCache(cache, etg, start=None, end=None, verbose=False):
+
+  """
+    Extract triggers froa given ETG from all files in a glue.lal.Cache object.
+    Returns a glue.ligolw.Table relevant to the given trigger generator etg.
+  """
+
+  # set up counter
+  if verbose:
+    sys.stdout.write("Extracting %s triggers from %d files...     "\
+                     % (etg, len(cache)))
+    sys.stdout.flush()
+    delete = '\b\b\b'
+    num = len(cache)/100
+
+  trigs = SnglTriggerTable(etg)
+
+  # load files
+  for i,e in enumerate(cache):
+    trigs.extend(re.search('(xml|xml.gz)\z', e.path()) and\
+                 fromtrigxml(open(e.path), etg=etg, start=start, end=end) or\
+                 fromtrigfile(open(e.path()), etg=etg, start=start, end=end))
+    # print verbose message
+    if verbose and len(cache)>1:
+      progress = int((i+1)/num)
+      sys.stdout.write('%s%.2d%%' % (delete, progress))
+      sys.stdout.flush()
+
+  if verbose: sys.stdout.write("\n")  
+  return trigs
+
+# =============================================================================
 # Generate a daily ihope cache 
 # =============================================================================
 
@@ -729,7 +802,7 @@ def omega_online_cache(start,end,ifo):
   # verify host
   host = getfqdn()
   ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
-  if not re.search(ifo_host[ifo],host):
+  if not re.search(ifo_host[ifo.upper()],host):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
                         "IFO=%s on this host." % ifo
     return []
@@ -1178,7 +1251,7 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 # Get coincidences between two tables
 # =============================================================================
 
-def get_coincs(table1, table2, dt=1):
+def get_coincs(table1, table2, dt=1, returnsegs=False):
 
   """
     Returns the table of those entries in table1 whose time is within +-dt of
@@ -1196,7 +1269,10 @@ def get_coincs(table1, table2, dt=1):
   coinctrigs = table.new_from_template(table1)
   coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
 
-  return coinctrigs
+  if returnsegs:
+    return coinctrigs,coincsegs
+  else:
+    return coinctrigs
 
 # ==============================================================================
 # Calculate poisson significance of coincidences
@@ -1221,7 +1297,8 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers = get_coincs(gwtriggers, auxtriggers, dt=window)
+  coinctriggers, coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                             returnsegs=True)
 
   g = special.gammainc(len(coinctriggers), mu)
 
@@ -1241,4 +1318,123 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
     return significance,coincsegs
   else:
     return significance
+
+# =============================================================================
+# Extract column from generic table
+# =============================================================================
+
+def get_column(lsctable, column):
+
+  """
+    Extract column from the given glue.ligolw.table lsctable as numpy array.
+    Tries to use a 'get_col() function if available, otherwise uses
+    getColumnByName(), treating 'time' as a special case for the known
+    Burst/Inspiral/Ringdown tables.
+  """
+ 
+  # format column
+  column = str(column).lower()
+
+  # if there's a 'get_' function, use it
+  if hasattr(lsctable, 'get_%s' % column):
+    return numpy.asarray(getattr(lsctable, 'get_%s' % column)())
+
+  # treat 'time' as a special case
+  if column == 'time'\
+  and re.search('(burst|inspiral|ringdown)', lsctable.tableName):
+    if re.search('burst', lsctable.tableName):
+      tcol = 'peak_time'
+    elif re.search('inspiral', lsctable.tableName):
+      tcol = 'end_time'
+    elif re.search('ringdown', lsctable.tableName):
+      tcol = 'start_time'
+    return numpy.asarray(lsctable.getColumnByName(tcol)) + \
+           numpy.asarray(lsctable.getColumnByName('%s_ns' % tcol))*10**-9
+
+  return numpy.asarray(lsctable.getColumnByName(column))
+
+def get(self, parameter):
+
+  """
+    Extract parameter from given ligolw table row object. 
+  """
+
+  # format
+  parameter = parameter.lower()
+
+  obj_type = type(self)
+
+  # if there's a 'get_' function, use it
+  if hasattr(self, 'get_%s' % parameter):
+    return getattr(self, 'get_%s' % parameter)()
+
+  # treat 'time' as a special case
+  elif parameter == 'time'\
+  and re.search('(burst|inspiral|ringdown)', obj_type, re.I):
+    if re.search('burst', obj_type):
+      tcol = 'peak_time'
+    elif re.search('inspiral', obj_type):
+      tcol = 'end_time'
+    elif re.search('ringdown', obj_type):
+      tcol = 'start_time'
+    return LIGOTimeGPS(getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9)
+
+  else:
+   return getattr(self, parameter)
+
+# =============================================================================
+# Veto triggers from a ligolw table
+# =============================================================================
+
+def veto(self, seglist, inverse=False):
+
+  """
+    Returns a ligolw table of those triggers outwith the given seglist.
+    If inverse=True is given, the opposite is returned, i.e. those triggers
+    within the given seglist.
+  """
+
+  get_time = def_get_time(self.tableName)
+
+  keep = table.new_from_template(self)
+  if inverse:
+    keep.extend(t for t in self if float(get_time(t)) in seglist)
+  else:
+    keep.extend(t for t in self if float(get_time(t)) not in seglist)
+
+  return keep
+
+def vetoed(self, seglist):
+
+  """
+    Returns the opposite of veto, i.e. those triggers that lie within the given
+    seglist.
+  """
+
+  return veto(self, seglist, inverse=True)
+
+# ==============================================================================
+# Time shift trigger table
+# ==============================================================================
+
+def time_shift(lsctable, dt=1):
+
+  """
+    Time shift lsctable by time dt.
+  """
+
+  out = table.new_from_template(lsctable)
+  get_time = def_get_time(lsctable.tableName)
+
+  for t in lsctable:
+    t2 = copy.deepcopy(t)
+    if re.search('inspiral', lsctable.tableName, re.I):
+      t2.set_end(t2.get_end()+dt)
+    elif re.search('burst', lsctable.tableName, re.I):
+      t2.set_peak(t2.get_peak()+dt)
+    elif re.search('ringdown', lsctable.tableName, re.I):
+      t2.set_start(t2.get_start()+dt)
+    out.append(t2)
+
+  return out
 

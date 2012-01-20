@@ -1,3 +1,5 @@
+#include <Python.h>
+
 /* standard includes */
 #include <stdio.h>
 #include <math.h>
@@ -20,8 +22,6 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 
-
-#include <Python.h>
 #include <numpy/arrayobject.h>
 
 

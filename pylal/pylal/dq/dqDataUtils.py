@@ -40,6 +40,7 @@ from pylab import hanning
 import warnings
 warnings.filterwarnings("ignore")
 from scipy import signal as signal
+from scipy import interpolate
 
 from matplotlib import mlab
 from glue import git_version
@@ -411,8 +412,8 @@ def spectrum(data, sampling, NFFT=256, overlap=0.5,\
 # =============================================================================
 
 def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
-                              window='hanning', sides='onesided',\
-                              verbose=False):
+                              window=('kaiser',24), sides='onesided',\
+                              verbose=False, log=False):
 
   """
     Computes power spectral density of a data series using the median-mean
@@ -491,6 +492,13 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
   else:
     S = S.flatten()
   if verbose: sys.stdout.write("Calculated median-mean average.\n")
+
+  if log:
+    f_log = numpy.logspace(numpy.log10(f[1]), numpy.log10(f[-1]), num=len(f)/2,\
+                           endpoint=False)
+    I = interpolate.interp1d(f, S)
+    S = I(f_log)
+    return f_log, S
 
   return f, S
 
@@ -657,7 +665,7 @@ def PowerSpectrum(series, sides='onesided'):
 # Inspiral range
 # =============================================================================
 
-def inspiral_range(f, S, rho=8, mchirp=1.219, fmin=30, fmax=4096,\
+def inspiral_range(f, S, rho=8, m1=1.4, m2=1.4, fmin=30, fmax=4096,\
                    horizon=False):
 
   """
@@ -666,14 +674,23 @@ def inspiral_range(f, S, rho=8, mchirp=1.219, fmin=30, fmax=4096,\
 
   Mpc = 10**6 * XLALConstants.LAL_PC_SI
 
+  # compute chirp mass and total mass (in units of solar masses)
+  mtot = m1 + m2;
+  reducedmass = m1*m2/mtot;
+  mchirp = reducedmass**(3/5)*mtot**(2/5);
+
   # calculate prefactor in m^2
   mchirp *= XLALConstants.LAL_MSUN_SI * XLALConstants.LAL_G_SI /\
             XLALConstants.LAL_C_SI**2
   pre = (5 * XLALConstants.LAL_C_SI**(1/3) * mchirp**(5/3) * 1.77**2) /\
         (96 * numpy.pi ** (4/3) * rho**2)
 
-  # restrict to range
-  condition = (f >= fmin) & (f < fmax)
+  # include fisco
+  fisco = XLALConstants.LAL_C_SI**3/XLALConstants.LAL_G_SI/XLALConstants.LAL_MSUN_SI/\
+      6**1.5/numpy.pi/mtot
+
+  # restrict to range, include fisco
+  condition = (f >= fmin) & (f < min(fmax,fisco))
   S         = S[condition]
   f         = f[condition]
 

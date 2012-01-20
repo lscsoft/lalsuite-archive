@@ -52,6 +52,7 @@ const char *gengetopt_args_info_full_help[] = {
   "      --outdirectory=directory  Output directory  (default=`output')",
   "      --outfilename=filename    Output file name  (default=`logfile.txt')",
   "      --ULfilename=filename     Upper limit file name  (default=`uls.dat')",
+  "      --normRMSoutput=filename  File for the output of the normalized RMS from \n                                  the non-slided data",
   "      --sftDir=directory        Directory containing SFTs  (default=`./')",
   "      --ephemDir=directory      Path to ephemeris files  \n                                  (default=`/opt/lscsoft/lalpulsar/share/lalpulsar')",
   "      --ephemYear=STRING        Year or year range (e.g. 08-11) of ephemeris \n                                  files  (default=`08-11')",
@@ -62,6 +63,7 @@ const char *gengetopt_args_info_full_help[] = {
   "      --dfmax=DOUBLE            Maximum modulation depth to search (Hz)",
   "      --skyRegion=STRING        Region of the sky to search (e.g. \n                                  (ra1,dec1),(ra2,dec2),(ra3,dec3)...) or \n                                  allsky",
   "      --skyRegionFile=filename  File with the grid points",
+  "      --linPolAngle=DOUBLE      Polarization angle to search using linear \n                                  polarization (when unspecified default is \n                                  circular polarization",
   "\nTwoSpect threshold settings:",
   "      --ihsfactor=INT           Number of harmonics to sum in IHS algorithm  \n                                  (default=`5')",
   "      --ihsfar=DOUBLE           IHS FAR threshold  (default=`0.01')",
@@ -94,6 +96,7 @@ const char *gengetopt_args_info_full_help[] = {
   "      --noiseWeightOff          Turn off noise weighting if this flag is used  \n                                  (default=off)",
   "      --gaussTemplatesOnly      Gaussian templates only throughout the pipeline \n                                  if this flag is used  (default=off)",
   "      --validateSSE             Validate the use of SSE functions  \n                                  (default=off)",
+  "      --ULoff                   Turn off upper limits computation  \n                                  (default=off)",
     0
 };
 
@@ -153,11 +156,13 @@ init_help_array(void)
   gengetopt_args_info_help[50] = gengetopt_args_info_full_help[50];
   gengetopt_args_info_help[51] = gengetopt_args_info_full_help[51];
   gengetopt_args_info_help[52] = gengetopt_args_info_full_help[52];
-  gengetopt_args_info_help[53] = 0; 
+  gengetopt_args_info_help[53] = gengetopt_args_info_full_help[53];
+  gengetopt_args_info_help[54] = gengetopt_args_info_full_help[54];
+  gengetopt_args_info_help[55] = 0; 
   
 }
 
-const char *gengetopt_args_info_help[54];
+const char *gengetopt_args_info_help[56];
 
 typedef enum {ARG_NO
   , ARG_FLAG
@@ -230,6 +235,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->outdirectory_given = 0 ;
   args_info->outfilename_given = 0 ;
   args_info->ULfilename_given = 0 ;
+  args_info->normRMSoutput_given = 0 ;
   args_info->sftDir_given = 0 ;
   args_info->ephemDir_given = 0 ;
   args_info->ephemYear_given = 0 ;
@@ -239,6 +245,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->dfmax_given = 0 ;
   args_info->skyRegion_given = 0 ;
   args_info->skyRegionFile_given = 0 ;
+  args_info->linPolAngle_given = 0 ;
   args_info->ihsfactor_given = 0 ;
   args_info->ihsfar_given = 0 ;
   args_info->ihsfom_given = 0 ;
@@ -266,6 +273,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->noiseWeightOff_given = 0 ;
   args_info->gaussTemplatesOnly_given = 0 ;
   args_info->validateSSE_given = 0 ;
+  args_info->ULoff_given = 0 ;
 }
 
 static
@@ -298,6 +306,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->outfilename_orig = NULL;
   args_info->ULfilename_arg = gengetopt_strdup ("uls.dat");
   args_info->ULfilename_orig = NULL;
+  args_info->normRMSoutput_arg = NULL;
+  args_info->normRMSoutput_orig = NULL;
   args_info->sftDir_arg = gengetopt_strdup ("./");
   args_info->sftDir_orig = NULL;
   args_info->ephemDir_arg = gengetopt_strdup ("/opt/lscsoft/lalpulsar/share/lalpulsar");
@@ -313,6 +323,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->skyRegion_orig = NULL;
   args_info->skyRegionFile_arg = NULL;
   args_info->skyRegionFile_orig = NULL;
+  args_info->linPolAngle_orig = NULL;
   args_info->ihsfactor_arg = 5;
   args_info->ihsfactor_orig = NULL;
   args_info->ihsfar_arg = 0.01;
@@ -349,6 +360,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->noiseWeightOff_flag = 0;
   args_info->gaussTemplatesOnly_flag = 0;
   args_info->validateSSE_flag = 0;
+  args_info->ULoff_flag = 0;
   
 }
 
@@ -377,42 +389,45 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->outdirectory_help = gengetopt_args_info_full_help[17] ;
   args_info->outfilename_help = gengetopt_args_info_full_help[18] ;
   args_info->ULfilename_help = gengetopt_args_info_full_help[19] ;
-  args_info->sftDir_help = gengetopt_args_info_full_help[20] ;
-  args_info->ephemDir_help = gengetopt_args_info_full_help[21] ;
-  args_info->ephemYear_help = gengetopt_args_info_full_help[22] ;
-  args_info->Pmin_help = gengetopt_args_info_full_help[24] ;
-  args_info->Pmax_help = gengetopt_args_info_full_help[25] ;
-  args_info->dfmin_help = gengetopt_args_info_full_help[26] ;
-  args_info->dfmax_help = gengetopt_args_info_full_help[27] ;
-  args_info->skyRegion_help = gengetopt_args_info_full_help[28] ;
-  args_info->skyRegionFile_help = gengetopt_args_info_full_help[29] ;
-  args_info->ihsfactor_help = gengetopt_args_info_full_help[31] ;
-  args_info->ihsfar_help = gengetopt_args_info_full_help[32] ;
-  args_info->ihsfom_help = gengetopt_args_info_full_help[33] ;
-  args_info->ihsfomfar_help = gengetopt_args_info_full_help[34] ;
-  args_info->tmplfar_help = gengetopt_args_info_full_help[35] ;
-  args_info->minTemplateLength_help = gengetopt_args_info_full_help[36] ;
-  args_info->maxTemplateLength_help = gengetopt_args_info_full_help[37] ;
-  args_info->ULfmin_help = gengetopt_args_info_full_help[39] ;
-  args_info->ULfspan_help = gengetopt_args_info_full_help[40] ;
-  args_info->ULminimumDeltaf_help = gengetopt_args_info_full_help[41] ;
-  args_info->ULmaximumDeltaf_help = gengetopt_args_info_full_help[42] ;
-  args_info->allULvalsPerSkyLoc_help = gengetopt_args_info_full_help[43] ;
-  args_info->markBadSFTs_help = gengetopt_args_info_full_help[45] ;
-  args_info->simpleBandRejection_help = gengetopt_args_info_full_help[46] ;
-  args_info->lineDetection_help = gengetopt_args_info_full_help[47] ;
-  args_info->FFTplanFlag_help = gengetopt_args_info_full_help[49] ;
-  args_info->fastchisqinv_help = gengetopt_args_info_full_help[50] ;
-  args_info->useSSE_help = gengetopt_args_info_full_help[51] ;
-  args_info->followUpOutsideULrange_help = gengetopt_args_info_full_help[52] ;
-  args_info->dopplerMultiplier_help = gengetopt_args_info_full_help[54] ;
-  args_info->IHSonly_help = gengetopt_args_info_full_help[55] ;
-  args_info->calcRthreshold_help = gengetopt_args_info_full_help[56] ;
-  args_info->BrentsMethod_help = gengetopt_args_info_full_help[57] ;
-  args_info->antennaOff_help = gengetopt_args_info_full_help[58] ;
-  args_info->noiseWeightOff_help = gengetopt_args_info_full_help[59] ;
-  args_info->gaussTemplatesOnly_help = gengetopt_args_info_full_help[60] ;
-  args_info->validateSSE_help = gengetopt_args_info_full_help[61] ;
+  args_info->normRMSoutput_help = gengetopt_args_info_full_help[20] ;
+  args_info->sftDir_help = gengetopt_args_info_full_help[21] ;
+  args_info->ephemDir_help = gengetopt_args_info_full_help[22] ;
+  args_info->ephemYear_help = gengetopt_args_info_full_help[23] ;
+  args_info->Pmin_help = gengetopt_args_info_full_help[25] ;
+  args_info->Pmax_help = gengetopt_args_info_full_help[26] ;
+  args_info->dfmin_help = gengetopt_args_info_full_help[27] ;
+  args_info->dfmax_help = gengetopt_args_info_full_help[28] ;
+  args_info->skyRegion_help = gengetopt_args_info_full_help[29] ;
+  args_info->skyRegionFile_help = gengetopt_args_info_full_help[30] ;
+  args_info->linPolAngle_help = gengetopt_args_info_full_help[31] ;
+  args_info->ihsfactor_help = gengetopt_args_info_full_help[33] ;
+  args_info->ihsfar_help = gengetopt_args_info_full_help[34] ;
+  args_info->ihsfom_help = gengetopt_args_info_full_help[35] ;
+  args_info->ihsfomfar_help = gengetopt_args_info_full_help[36] ;
+  args_info->tmplfar_help = gengetopt_args_info_full_help[37] ;
+  args_info->minTemplateLength_help = gengetopt_args_info_full_help[38] ;
+  args_info->maxTemplateLength_help = gengetopt_args_info_full_help[39] ;
+  args_info->ULfmin_help = gengetopt_args_info_full_help[41] ;
+  args_info->ULfspan_help = gengetopt_args_info_full_help[42] ;
+  args_info->ULminimumDeltaf_help = gengetopt_args_info_full_help[43] ;
+  args_info->ULmaximumDeltaf_help = gengetopt_args_info_full_help[44] ;
+  args_info->allULvalsPerSkyLoc_help = gengetopt_args_info_full_help[45] ;
+  args_info->markBadSFTs_help = gengetopt_args_info_full_help[47] ;
+  args_info->simpleBandRejection_help = gengetopt_args_info_full_help[48] ;
+  args_info->lineDetection_help = gengetopt_args_info_full_help[49] ;
+  args_info->FFTplanFlag_help = gengetopt_args_info_full_help[51] ;
+  args_info->fastchisqinv_help = gengetopt_args_info_full_help[52] ;
+  args_info->useSSE_help = gengetopt_args_info_full_help[53] ;
+  args_info->followUpOutsideULrange_help = gengetopt_args_info_full_help[54] ;
+  args_info->dopplerMultiplier_help = gengetopt_args_info_full_help[56] ;
+  args_info->IHSonly_help = gengetopt_args_info_full_help[57] ;
+  args_info->calcRthreshold_help = gengetopt_args_info_full_help[58] ;
+  args_info->BrentsMethod_help = gengetopt_args_info_full_help[59] ;
+  args_info->antennaOff_help = gengetopt_args_info_full_help[60] ;
+  args_info->noiseWeightOff_help = gengetopt_args_info_full_help[61] ;
+  args_info->gaussTemplatesOnly_help = gengetopt_args_info_full_help[62] ;
+  args_info->validateSSE_help = gengetopt_args_info_full_help[63] ;
+  args_info->ULoff_help = gengetopt_args_info_full_help[64] ;
   
 }
 
@@ -568,6 +583,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->outfilename_orig));
   free_string_field (&(args_info->ULfilename_arg));
   free_string_field (&(args_info->ULfilename_orig));
+  free_string_field (&(args_info->normRMSoutput_arg));
+  free_string_field (&(args_info->normRMSoutput_orig));
   free_string_field (&(args_info->sftDir_arg));
   free_string_field (&(args_info->sftDir_orig));
   free_string_field (&(args_info->ephemDir_arg));
@@ -582,6 +599,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->skyRegion_orig));
   free_string_field (&(args_info->skyRegionFile_arg));
   free_string_field (&(args_info->skyRegionFile_orig));
+  free_string_field (&(args_info->linPolAngle_orig));
   free_string_field (&(args_info->ihsfactor_orig));
   free_string_field (&(args_info->ihsfar_orig));
   free_string_field (&(args_info->ihsfom_orig));
@@ -711,6 +729,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "outfilename", args_info->outfilename_orig, 0);
   if (args_info->ULfilename_given)
     write_into_file(outfile, "ULfilename", args_info->ULfilename_orig, 0);
+  if (args_info->normRMSoutput_given)
+    write_into_file(outfile, "normRMSoutput", args_info->normRMSoutput_orig, 0);
   if (args_info->sftDir_given)
     write_into_file(outfile, "sftDir", args_info->sftDir_orig, 0);
   if (args_info->ephemDir_given)
@@ -729,6 +749,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "skyRegion", args_info->skyRegion_orig, 0);
   if (args_info->skyRegionFile_given)
     write_into_file(outfile, "skyRegionFile", args_info->skyRegionFile_orig, 0);
+  if (args_info->linPolAngle_given)
+    write_into_file(outfile, "linPolAngle", args_info->linPolAngle_orig, 0);
   if (args_info->ihsfactor_given)
     write_into_file(outfile, "ihsfactor", args_info->ihsfactor_orig, 0);
   if (args_info->ihsfar_given)
@@ -783,6 +805,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "gaussTemplatesOnly", 0, 0 );
   if (args_info->validateSSE_given)
     write_into_file(outfile, "validateSSE", 0, 0 );
+  if (args_info->ULoff_given)
+    write_into_file(outfile, "ULoff", 0, 0 );
   
 
   i = EXIT_SUCCESS;
@@ -1373,6 +1397,7 @@ cmdline_parser_internal (
         { "outdirectory",	1, NULL, 0 },
         { "outfilename",	1, NULL, 0 },
         { "ULfilename",	1, NULL, 0 },
+        { "normRMSoutput",	1, NULL, 0 },
         { "sftDir",	1, NULL, 0 },
         { "ephemDir",	1, NULL, 0 },
         { "ephemYear",	1, NULL, 0 },
@@ -1382,6 +1407,7 @@ cmdline_parser_internal (
         { "dfmax",	1, NULL, 0 },
         { "skyRegion",	1, NULL, 0 },
         { "skyRegionFile",	1, NULL, 0 },
+        { "linPolAngle",	1, NULL, 0 },
         { "ihsfactor",	1, NULL, 0 },
         { "ihsfar",	1, NULL, 0 },
         { "ihsfom",	1, NULL, 0 },
@@ -1409,6 +1435,7 @@ cmdline_parser_internal (
         { "noiseWeightOff",	0, NULL, 0 },
         { "gaussTemplatesOnly",	0, NULL, 0 },
         { "validateSSE",	0, NULL, 0 },
+        { "ULoff",	0, NULL, 0 },
         { 0,  0, 0, 0 }
       };
 
@@ -1641,6 +1668,20 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* File for the output of the normalized RMS from the non-slided data.  */
+          else if (strcmp (long_options[option_index].name, "normRMSoutput") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->normRMSoutput_arg), 
+                 &(args_info->normRMSoutput_orig), &(args_info->normRMSoutput_given),
+                &(local_args_info.normRMSoutput_given), optarg, 0, 0, ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "normRMSoutput", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* Directory containing SFTs.  */
           else if (strcmp (long_options[option_index].name, "sftDir") == 0)
           {
@@ -1763,6 +1804,20 @@ cmdline_parser_internal (
                 &(local_args_info.skyRegionFile_given), optarg, 0, 0, ARG_STRING,
                 check_ambiguity, override, 0, 0,
                 "skyRegionFile", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Polarization angle to search using linear polarization (when unspecified default is circular polarization.  */
+          else if (strcmp (long_options[option_index].name, "linPolAngle") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->linPolAngle_arg), 
+                 &(args_info->linPolAngle_orig), &(args_info->linPolAngle_given),
+                &(local_args_info.linPolAngle_given), optarg, 0, 0, ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "linPolAngle", '-',
                 additional_error))
               goto failure;
           
@@ -2117,6 +2172,18 @@ cmdline_parser_internal (
             if (update_arg((void *)&(args_info->validateSSE_flag), 0, &(args_info->validateSSE_given),
                 &(local_args_info.validateSSE_given), optarg, 0, 0, ARG_FLAG,
                 check_ambiguity, override, 1, 0, "validateSSE", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Turn off upper limits computation.  */
+          else if (strcmp (long_options[option_index].name, "ULoff") == 0)
+          {
+          
+          
+            if (update_arg((void *)&(args_info->ULoff_flag), 0, &(args_info->ULoff_given),
+                &(local_args_info.ULoff_given), optarg, 0, 0, ARG_FLAG,
+                check_ambiguity, override, 1, 0, "ULoff", '-',
                 additional_error))
               goto failure;
           

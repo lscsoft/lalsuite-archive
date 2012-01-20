@@ -149,9 +149,11 @@ def write_banner(title, text=""):
   page = markup.page(mode="strict_html")
   page._escape = False
 
-  page.div(id="header")
+  page.div(class_="content", id="header")
+  page.div()
   page.h1(title)
   page.h3(text)
+  page.div.close()
 
   page.div.close()
 
@@ -196,10 +198,11 @@ def write_menu(sections, pages, current=None):
 # Initialise page
 # =============================================================================
 
-def init_page(head, banner, menu):
+def init_page(head, banner, menu, **kwargs):
 
   """
     Initialise html into markup page, including <head> tag, banner and menu.
+    Pass further html elements to the body tag using the kwargs.
   """
 
   # write html
@@ -214,7 +217,7 @@ def init_page(head, banner, menu):
   page.add(head())
 
   # open body
-  page.body()
+  page.body(**kwargs)
 
   # open container for page (needed to position footer)
   page.div(id="container")
@@ -222,6 +225,7 @@ def init_page(head, banner, menu):
   page.add(banner())
   # open content (tab below banner and above footer)
   page.div(id="content")
+  page.div()
   # print menu
   page.add(menu())
   # initialise maintab
@@ -243,6 +247,7 @@ def close_page(page, footer=False):
   # close maintab
   page.div.close()
   # close content tab
+  page.div.close()
   page.div.close()
   # close container
   page.div.close()

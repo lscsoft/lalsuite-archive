@@ -18,7 +18,7 @@ DEFAULT_SERVER = "https://lars.ligo.org/lars/xmlrpc/"
 
 INI_NAME = 'lars.ini'
 
-GIT_TAG = 'lars-1.0-2'
+GIT_TAG = 'lars-1.1.0'
 
 commands = {}
 

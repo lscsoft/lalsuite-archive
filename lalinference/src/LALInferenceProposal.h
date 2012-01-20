@@ -85,6 +85,10 @@
     jump widths. */
 extern const char *LALInferenceSigmaJumpName;
 
+/** The name of the variable that will store the name of the current
+    proposal function. */
+extern const char *LALInferenceCurrentProposalName;
+
 /** Adds \a weight copies of the proposal \a prop to the end of the
     proposal cycle. 
 
@@ -92,7 +96,7 @@ extern const char *LALInferenceSigmaJumpName;
     LALInferenceRandomizeProposalCycle() to randomize the order of
     sub-proposal application. */
 void
-LALInferenceAddProposalToCycle(LALInferenceRunState *runState, LALInferenceProposalFunction *prop, UINT4 weight);
+LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propName, LALInferenceProposalFunction *prop, UINT4 weight);
 
 /** Randomizes the order of the proposals in the proposal cycle. */
 void 
@@ -113,6 +117,9 @@ void LALInferenceDefaultProposal(LALInferenceRunState *runState, LALInferenceVar
 /** Proposal for rapid sky localization.  Used when --rapidSkyLoc
     is specified. */
 void LALInferenceRapidSkyLocProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+/** Proposal for finding max temperature for PTMCMC. */
+void LALInferencePTTempTestProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 /** Non-adaptive, sigle-variable update proposal with reasonable
     widths in each dimension. */
@@ -166,6 +173,26 @@ void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables
 
 /** Rotate each spin by random angles about L. */
 void LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+/** Samples from the analytic likelihood distribution on u = 1/d with
+    all other variables fixed.  This behaves similarly to a Gibbs
+    sampler for distance (though a Gibbs sampler would sample from the
+    *posterior* in d, not the likelihood in u = 1/d). */
+void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+/** Samples from the analytic likelihood distribution in orbital phase
+    (log(L) ~ <d|d> + 2*Re(<d|h>)*cos(delta-phi) -
+    2*Im(<d|h>)*sin(delta-phi) + <h|h>, where delta-phi is the orbital
+    phase shift relative to the reference used for h.  This is
+    effectively a Gibbs sampler for the phase coordinate. */
+void LALInferenceOrbitalPhaseQuasiGibbsProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+/** Uses a kD tree containing the previously-output points to propose
+    the next sample.  The proposal chooses a stored point at random,
+    finds the kD cell that contains this point and about 64 others,
+    and then chooses the proposed point uniformly within the bounding
+    box of the points contained in this sell. */
+void LALInferenceKDNeighborhoodProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 #endif
 

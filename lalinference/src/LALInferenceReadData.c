@@ -187,17 +187,22 @@ static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS 
 	return out;
 }
 #define USAGE "\
- --IFO [IFO1,IFO2,...]          IFOs can be H1,L1,V1\n\
+ --ifo [IFO1,IFO2,...]          IFOs can be H1,L1,V1\n\
  --cache [cache1,cache2,...]    LAL cache files (LALLIGO, LALAdLIGO, LALVirgo to simulate these detectors)\n\
- --PSDstart GPStime             GPS start time of PSD estimation data\n\
- --PSDlength length             length of PSD estimation data in seconds\n\
+ --psdstart GPStime             GPS start time of PSD estimation data\n\
+ --psdlength length             length of PSD estimation data in seconds\n\
  --seglen length                length of segments for PSD estimation and analysis in seconds\n\
  --trigtime GPStime             GPS time of the trigger to analyse\n\
 (--srate rate)                  Downsample data to rate in Hz (4096.0,)\n\
-(--fLow [freq1,freq2,...])      Specify lower frequency cutoff for overlap integral (40.0)\n\
-(--fHigh [freq1,freq2,...])     Specify higher frequency cutoff for overlap integral (2048.0)\n\
+(--flow [freq1,freq2,...])      Specify lower frequency cutoff for overlap integral (40.0)\n\
+(--fhigh [freq1,freq2,...])     Specify higher frequency cutoff for overlap integral (2048.0)\n\
 (--channel [chan1,chan2,...])   Specify channel names when reading cache files\n\
-(--dataseed number)             Specify random seed to use when generating data\n"
+(--dataseed number)             Specify random seed to use when generating data\n\
+(--lalsimulationinjection)      Enables injections via the LALSimulation package\n\
+(--inj-lambda1)                 value of lambda1 to be injected, LALSimulation only (0)\n\
+(--inj-lambda2)                 value of lambda1 to be injected, LALSimulation only (0)\n\
+(--inj-interactionFlags)        value of the interaction flag to be injected, LALSimulation only (LAL_SIM_INSPIRAL_INTERACTION_ALL)\n"
+
 
 LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
@@ -205,12 +210,11 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	LALStatus status;
 	INT4 dataseed=0;
 	memset(&status,0,sizeof(status));
-	ProcessParamsTable *procparam=NULL;
+	ProcessParamsTable *procparam=NULL,*ppt=NULL;
 	LALInferenceIFOData *headIFO=NULL,*IFOdata=NULL;
 	REAL8 SampleRate=4096.0,SegmentLength=0;
 	if(LALInferenceGetProcParamVal(commandLine,"--srate")) SampleRate=atof(LALInferenceGetProcParamVal(commandLine,"--srate")->value);
         const REAL8 defaultFLow = 40.0;
-        const REAL8 defaultFHigh = SampleRate/2.0;
 	int nSegs=0;
 	size_t seglen=0;
 	REAL8TimeSeries *PSDtimeSeries=NULL;
@@ -234,15 +238,16 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	LIGOTimeGPS GPSstart,GPStrig,segStart;
 	REAL8 PSDdatalength=0;
   REAL8 AIGOang=0.0; //orientation angle for the proposed Australian detector.
-  if(LALInferenceGetProcParamVal(commandLine,"--AIGOang")) {
-    procparam=LALInferenceGetProcParamVal(commandLine,"--AIGOang");
-    AIGOang=atof(procparam->value)*LAL_PI/180.0;
-  }
+  procparam=LALInferenceGetProcParamVal(commandLine,"--aigoang");
+  if(!procparam) procparam=LALInferenceGetProcParamVal(commandLine,"--AIGOang");
+  if(procparam)
+      AIGOang=atof(procparam->value)*LAL_PI/180.0;
+  
   struct fvec *interp;
   int interpFlag=0;
-	if(!LALInferenceGetProcParamVal(commandLine,"--cache")||!LALInferenceGetProcParamVal(commandLine,"--IFO")||
-	   !LALInferenceGetProcParamVal(commandLine,"--PSDstart")||//!LALInferenceGetProcParamVal(commandLine,"--trigtime") ||
-	   !LALInferenceGetProcParamVal(commandLine,"--PSDlength")||!LALInferenceGetProcParamVal(commandLine,"--seglen"))
+	if(!LALInferenceGetProcParamVal(commandLine,"--cache")||!(LALInferenceGetProcParamVal(commandLine,"--IFO")||LALInferenceGetProcParamVal(commandLine,"--ifo"))  ||
+	   !(LALInferenceGetProcParamVal(commandLine,"--PSDstart")||LALInferenceGetProcParamVal(commandLine,"--psdstart")) ||
+	   !(LALInferenceGetProcParamVal(commandLine,"--PSDlength")||LALInferenceGetProcParamVal(commandLine,"--psdlength")) ||!LALInferenceGetProcParamVal(commandLine,"--seglen"))
 	{fprintf(stderr,USAGE); return(NULL);}
 	
   /* ET detectors */
@@ -288,12 +293,19 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 		LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--channel")->value,&channels,&Nchannel);
 	}
 	LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--cache")->value,&caches,&Ncache);
-	LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--IFO")->value,&IFOnames,&Nifo);
-	if(LALInferenceGetProcParamVal(commandLine,"--fLow")){
-		LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--fLow")->value,&fLows,&NfLow);
+	ppt=LALInferenceGetProcParamVal(commandLine,"--ifo");
+	if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--IFO");
+	LALInferenceParseCharacterOptionString(ppt->value,&IFOnames,&Nifo);
+	
+	ppt=LALInferenceGetProcParamVal(commandLine,"--flow");
+	if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--fLow");
+	if(ppt){
+		LALInferenceParseCharacterOptionString(ppt->value,&fLows,&NfLow);
 	}
-	if(LALInferenceGetProcParamVal(commandLine,"--fHigh")){
-		LALInferenceParseCharacterOptionString(LALInferenceGetProcParamVal(commandLine,"--fHigh")->value,&fHighs,&NfHigh);
+	ppt=LALInferenceGetProcParamVal(commandLine,"--fhigh");
+	if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--fHigh");
+	if(ppt){
+		LALInferenceParseCharacterOptionString(ppt->value,&fHighs,&NfHigh);
 	}
 	if(LALInferenceGetProcParamVal(commandLine,"--dataseed")){
 		procparam=LALInferenceGetProcParamVal(commandLine,"--dataseed");
@@ -306,22 +318,26 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	IFOdata=headIFO=calloc(sizeof(LALInferenceIFOData),Nifo);
 	if(!IFOdata) XLAL_ERROR_NULL(XLAL_ENOMEM);
 	
-	procparam=LALInferenceGetProcParamVal(commandLine,"--injXML");
+	if(LALInferenceGetProcParamVal(commandLine,"--injXML"))
+	{
+		XLALPrintError("ERROR: --injXML option is deprecated. Use --inj and update your scripts\n");
+		XLAL_ERROR_NULL(XLAL_EINVAL);
+        exit(1);
+	}
+	procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
 	if(procparam){
 		SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
 		if(!injTable){
 			XLALPrintError("Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
 			XLAL_ERROR_NULL(XLAL_EFUNC);
 		}
-	}
-	if(LALInferenceGetProcParamVal(commandLine,"--injXML")){
-	  if(LALInferenceGetProcParamVal(commandLine,"--event")){
-		event=atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
-		while(q<event) {q++; injTable = injTable->next;}
-	  }
+        procparam=LALInferenceGetProcParamVal(commandLine,"--event");
+        if(procparam) event=atoi(procparam->value);
+        while(q<event) {q++; injTable=injTable->next;}
 	}
 	
-	procparam=LALInferenceGetProcParamVal(commandLine,"--PSDstart");
+	procparam=LALInferenceGetProcParamVal(commandLine,"--psdstart");
+	if (!procparam) procparam=LALInferenceGetProcParamVal(commandLine,"--PSDstart");
 	LALStringToGPS(&status,&GPSstart,procparam->value,&chartmp);
 	if(status.statusCode) REPORTSTATUS(&status);
 	
@@ -330,23 +346,27 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 		LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
 	}
 	else{
-		if(injTable) GPStrig = injTable->geocent_end_time;
+		if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
 		else {
             XLALPrintError("Error: No trigger time specifed and no injection given \n");
             XLAL_ERROR_NULL(XLAL_EINVAL);
         }
 	}
 	if(status.statusCode) REPORTSTATUS(&status);
-
-	PSDdatalength=atof(LALInferenceGetProcParamVal(commandLine,"--PSDlength")->value);
+	ppt=LALInferenceGetProcParamVal(commandLine,"--psdlength");
+	if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--PSDlength");
+	PSDdatalength=atof(ppt->value);
 	SegmentLength=atof(LALInferenceGetProcParamVal(commandLine,"--seglen")->value);
 	seglen=(size_t)(SegmentLength*SampleRate);
 	nSegs=(int)floor(PSDdatalength/SegmentLength);
 	
 	for(i=0;i<Nifo;i++) {
           IFOdata[i].fLow=fLows?atof(fLows[i]):defaultFLow; 
-          IFOdata[i].fHigh=fHighs?atof(fHighs[i]):defaultFHigh;
+          IFOdata[i].fHigh=fHighs?atof(fHighs[i]):(SampleRate/2.0-(1.0/SegmentLength));
           strncpy(IFOdata[i].name, IFOnames[i], DETNAMELEN);
+          IFOdata[i].STDOF = 4.0 / M_PI * nSegs;
+          fprintf(stderr, "Detector %s will run with %g DOF if Student's T likelihood used.\n",
+                  IFOdata[i].name, IFOdata[i].STDOF);
         }
 
 	/* Only allocate this array if there weren't channels read in from the command line */
@@ -912,15 +932,15 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//InjParams.deltaT = MindeltaT;
 	//InjParams.fStartIn=(REAL4)minFlow;
 	
-	if(!LALInferenceGetProcParamVal(commandLine,"--injXML")) {fprintf(stdout,"No injection file specified, not injecting\n"); return;}
+	if(!LALInferenceGetProcParamVal(commandLine,"--inj")) {fprintf(stdout,"No injection file specified, not injecting\n"); return;}
 	if(LALInferenceGetProcParamVal(commandLine,"--event")){
     event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
     fprintf(stdout,"Injecting event %d\n",event);
 	}
-	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--injXML")->value,0,0);
+	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
 	REPORTSTATUS(&status);
 	printf("Ninj %d\n", Ninj);
-	if(Ninj<event) fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--injXML")->value);
+	if(Ninj<event) fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--inj")->value);
 	while(i<event) {i++; injTable = injTable->next;} /* Select event */
 	injEvent = injTable;
 	injEvent->next = NULL;
@@ -972,37 +992,63 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 
 		/*LALSimulateCoherentGW(&status,injWave,&InjectGW,&det);*/
     //LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
-    if(LALInferenceGetProcParamVal(commandLine,"--LALSimulationInjection") || LALInferenceGetProcParamVal(commandLine,"--LALSimulationRestrictedInjection")){
+    if(LALInferenceGetProcParamVal(commandLine,"--lalsimulationinjection")){
       
       REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       REAL8TimeSeries       *signalvecREAL8=NULL;
-      REAL8 S1[3], S2[3];
       LALPNOrder        order;              /* Order of the model             */
       Approximant       approximant;        /* And its approximant value      */
+      INT4              amporder=0;         /* Amplitude order of the model   */
 
-      
-      S1[0] = injEvent->spin1x;
-      S1[1] = injEvent->spin1y;
-      S1[2] = injEvent->spin1z;
-      
-      S2[0] = injEvent->spin2x;
-      S2[1] = injEvent->spin2y;
-      S2[2] = injEvent->spin2z;      
-      
       LALGetApproximantFromString(&status, injEvent->waveform, &approximant);
       LALGetOrderFromString(&status, injEvent->waveform, &order);
+      amporder = injEvent->amp_order;
+      //if(amporder<0) amporder=0;
+      /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
+       * They should be added to injEvent and set to appropriate values 
+       */
+      REAL8 lambda1 = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
+        lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
+        fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+      }
+      REAL8 lambda2 = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
+        lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
+        fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+      }      
+      LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+      ppt=LALInferenceGetProcParamVal(commandLine,"--inj-interactionFlags");
+      if(ppt){
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_NONE")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_NONE;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL;
+      }
+            
+        XLALSimInspiralChooseWaveform(&hplus, &hcross, injEvent->coa_phase, thisData->timeData->deltaT,
+                                                injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
+                                                injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
+                                                injEvent->spin2z, injEvent->f_lower, injEvent->distance*LAL_PC_SI * 1.0e6,
+                                                injEvent->inclination, lambda1, lambda2, interactionFlags, 
+                                                amporder, order, approximant);
       
-      if(LALInferenceGetProcParamVal(commandLine,"--LALSimulationRestrictedInjection")){
-        XLALSimInspiralChooseRestrictedWaveform(&hplus, &hcross, &(injEvent->geocent_end_time), injEvent->coa_phase, thisData->timeData->deltaT, 
-                                              injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, S1, S2, injEvent->f_lower, 
-                                              injEvent->distance*LAL_PC_SI * 1.0e6, injEvent->inclination, order, approximant);
-      }else{
-        XLALSimInspiralChooseWaveform(&hplus, &hcross, &(injEvent->geocent_end_time), injEvent->coa_phase, thisData->timeData->deltaT, 
-                                                injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, S1, S2, injEvent->f_lower, 
-                                                injEvent->distance*LAL_PC_SI * 1.0e6, injEvent->inclination, order, approximant);
+      if(!hplus || !hcross) {
+        fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
+        exit(-1);
+        //XLALPrintError("XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
+        //XLAL_ERROR_VOID(XLAL_EFUNC);
       }
       
+      XLALGPSAddGPS(&(hplus->epoch), &(injEvent->geocent_end_time));
+      XLALGPSAddGPS(&(hcross->epoch), &(injEvent->geocent_end_time));
       XLALGPSAdd(&(hplus->epoch), -(REAL8)hplus->data->length*hplus->deltaT);
       XLALGPSAdd(&(hcross->epoch), -(REAL8)hcross->data->length*hplus->deltaT);
       
@@ -1076,9 +1122,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 		/*for(j=0;j<injF->data->length;j++) printf("%lf\n",injF->data->data[j].re);*/
 		if(thisData->oneSidedNoisePowerSpectrum){
 			for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<injF->data->length;j++){
-				SNR+=2.0*pow(injF->data->data[j].re,2.0)/(4.0*thisData->oneSidedNoisePowerSpectrum->data->data[j]);
-				SNR+=2.0*pow(injF->data->data[j].im,2.0)/(4.0*thisData->oneSidedNoisePowerSpectrum->data->data[j]);
+				SNR+=pow(injF->data->data[j].re,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+				SNR+=pow(injF->data->data[j].im,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
 			}
+            SNR*=4.0*injF->deltaF;
 		}
         thisData->SNR=sqrt(SNR);
 		NetworkSNR+=SNR;
