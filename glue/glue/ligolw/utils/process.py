@@ -200,21 +200,26 @@ def process_params_from_dict(paramdict):
 	convenience for converting command-line options into process_params
 	rows.  The name values in the output have "--" prepended to them
 	and all "_" characters replaced with "-".  The type strings are
-	guessed from the Python types of the values.
+	guessed from the Python types of the values.  If a value is a
+	Python list (or instance of a subclass thereof), then one tuple is
+	produced for each of the items in the list.
 
 	Example:
 
-	>>> list(process_params_from_dict({"verbose": True, "window": 4.0}))
-	[('--window', u'real_8', 4.0), ('--verbose', None, None)]
+	>>> list(process_params_from_dict({"verbose": True, "window": 4.0, "include": ["/tmp", "/var/tmp"]}))
+	[('--window', u'real_8', 4.0), ('--verbose', None, None), ('--include', u'lstring', '/tmp'), '--include', u'lstring', '/var/tmp')]
 	"""
-	for name, value in paramdict.items():
+	for name, values in paramdict.items():
 		# change the name back to the form it had on the command line
 		name = "--%s" % name.replace("_", "-")
 
-		if value is True or value is False:
+		if values is True or values is False:
 			yield (name, None, None)
-		elif value is not None:
-			yield (name, ligolwtypes.FromPyType[type(value)], value)
+		elif values is not None:
+			if not isinstance(values, list):
+				values = [values]
+			for value in values:
+				yield (name, ligolwtypes.FromPyType[type(value)], value)
 
 
 def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):

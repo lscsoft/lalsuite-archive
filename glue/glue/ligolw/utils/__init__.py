@@ -73,18 +73,6 @@ __all__ = []
 #
 
 
-class IOTrappedSignal(Exception):
-	"""
-	Raised by I/O functions upon completion if they trapped a signal
-	during the operation
-	"""
-	def __init__(self, signum):
-		self.signum = signum
-
-	def __str__(self):
-		return "trapped signal %d" % self.signum
-
-
 # FIXME:  remove, use parameter passed to load_*() functions instead
 ContentHandler = ligolw.LIGOLWContentHandler
 __orig_ContentHandler = ContentHandler	# to detect when ContentHandler symbol has been modified
@@ -288,19 +276,8 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	Example:
 
 	>>> import StringIO
-	>>> f = StringIO.StringIO('<?xml version="1.0" encoding="utf-8" ?>' \
-	... '<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">' \
-	... '<LIGO_LW>' \
-	... '	<Table Name="demo:table">' \
-	... '		<Column Name="name" Type="lstring"/>' \
-	... '		<Column Name="value" Type="real8"/>' \
-	... '		<Stream Name="demo:table" Type="Local" Delimiter=",">' \
-	... '			"mass",0.5,' \
-	... '			"velocity",34' \
-	... '		</Stream>' \
-	... '	</Table>' \
-	... '</LIGO_LW>')
-	>>> xmldoc, digest = utils.load_fileobj(f)
+	>>> f = StringIO.StringIO('<?xml version="1.0" encoding="utf-8" ?><!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"><LIGO_LW><Table Name="demo:table"><Column Name="name" Type="lstring"/><Column Name="value" Type="real8"/><Stream Name="demo:table" Type="Local" Delimiter=",">"mass",0.5,"velocity",34</Stream></Table></LIGO_LW>')
+	>>> xmldoc, digest = load_fileobj(f)
 	>>> digest
 	'03d1f513120051f4dbf3e3bc58ddfaa6'
 
@@ -309,8 +286,9 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	was accomplished by replacing the ContentHandler symbol in this
 	module with the custom handler, and although that technique is
 	still supported a warning will be emitted if modification of that
-	symbol is detected.  See glue.ligolw.PartialLIGOLWContentHandler
-	and glue.ligolw.FilteringLIGOLWContentHandler for examples of
+	symbol is detected.  See
+	glue.ligolw.ligolw.PartialLIGOLWContentHandler and
+	glue.ligolw.ligolw.FilteringLIGOLWContentHandler for examples of
 	custom content handlers used to load subsets of documents into
 	memory.
 	"""
@@ -342,8 +320,7 @@ def load_filename(filename, verbose = False, gz = None, xmldoc = None, contentha
 
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> xmldoc = utils.load_filename(name, verbose = True)
+	>>> xmldoc = load_filename(name, verbose = True)
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename and ("'%s'" % filename) or "stdin")
@@ -366,8 +343,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> xmldoc = utils.load_url("file://localhost/tmp/data.xml")
+	>>> xmldoc = load_url("file://localhost/tmp/data.xml")
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
@@ -396,25 +372,21 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	This function traps SIGTERM and SIGTSTP during the write process,
 	and it does this by temporarily installing its own signal handlers
 	in place of the current handlers.  This is done to prevent Condor
-	eviction during the write process.  If a signal is trapped, then
-	when the write process has successfully concluded, the last thing
-	this function does is raise IOTrappedSignal, with the most-recently
-	trapped signal number as the argument.  This is the only condition
-	in which this function will raise that exception, so calling code
-	that wishes its own handler to be executed can arrange for that to
-	happen by trapping the IOTrappedSignal exception.
+	eviction during the write process.  When the file write is
+	concluded the original signal handlers are restored.  Then, if
+	signals were trapped during the write process, the signals are then
+	resent to the current process in the order in which they were
+	received.
 
 	Example:
 
 	>>> import sys
-	>>> utils.write_fileobj(xmldoc, sys.stdout)
+	>>> write_fileobj(xmldoc, sys.stdout)
 	"""
 	# initialize SIGTERM and SIGTSTP trap
-	global __llwapp_write_filename_got_sig
-	__llwapp_write_filename_got_sig = []
+	deferred_signals = []
 	def newsigterm(signum, frame):
-		global __llwapp_write_filename_got_sig
-		__llwapp_write_filename_got_sig.append(signum)
+		deferred_signals.append(signum)
 	oldhandlers = {}
 	for sig in (signal.SIGTERM, signal.SIGTSTP):
 		oldhandlers[sig] = signal.getsignal(sig)
@@ -430,12 +402,12 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	fileobj.flush()
 	del fileobj
 
-	# restore original handlers, and report the most recently trapped
-	# signal if any were
+	# restore original handlers, and send outselves any trapped signals
+	# in order
 	for sig, oldhandler in oldhandlers.iteritems():
 		signal.signal(sig, oldhandler)
-	if __llwapp_write_filename_got_sig:
-		raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+	while deferred_signals:
+		os.kill(os.getpid(), deferred_signals.pop(0))
 
 	# return the hex digest of the bytestream that was written
 	return md5obj.hexdigest()
@@ -447,22 +419,13 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 	file name filename.  Friendly verbosity messages are printed while
 	doing so if verbose is True.  The output data is gzip compressed on
 	the fly if gz is True.
-	
-	This function traps SIGTERM and SIGTSTP during the write process,
-	and it does this by temporarily installing its own signal handlers
-	in place of the current handlers.  This is done to prevent Condor
-	eviction during the write process.  If a signal is trapped, then
-	when the write process has successfully concluded, the last thing
-	this function does is raise IOTrappedSignal, with the most-recently
-	trapped signal number as the argument.  This is the only condition
-	in which this function will raise that exception, so calling code
-	that wishes its own handler to be executed can arrange for that to
-	happen by trapping the IOTrappedSignal exception.
+
+	See write_fileobj() for information about signal trapping during
+	the write process.
 
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> utils.write_filename(xmldoc, "data.xml")
+	>>> write_filename(xmldoc, "data.xml")
 	"""
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (filename and ("'%s'" % filename) or "stdout")
@@ -478,28 +441,27 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 
 
-def write_url(xmldoc, url, verbose = False, gz = False):
+def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	URL name url.  Friendly verbosity messages are printed while doing
 	so if verbose is True.  The output data is gzip compressed on the
 	fly if gz is True.
 
-	See write_filename() for more information about signal trapping.
+	See write_fileobj() for information about signal trapping during
+	the write process.
 
 	NOTE:  only URLs that point to local files can be written to at
 	this time.
 	
 	Example:
 
-	>>> from glue.ligolw import utils
-	>>> utils.write_url(xmldoc, "file:///data.xml")
+	>>> write_url(xmldoc, "file:///data.xml")
 	"""
 	if url is None:
 		scheme, host, path = "", "", None
 	else:
 		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
-	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
-		return write_filename(xmldoc, path, verbose = verbose, gz = gz)
-	else:
+	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
 		raise ValueError, "%s is not a local file" % repr(url)
+	return write_filename(xmldoc, path, verbose = verbose, gz = gz, xsl_file = xsl_file)

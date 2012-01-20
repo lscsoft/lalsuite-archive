@@ -56,6 +56,10 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
     first_four_end   = endtime   / 100000
 
     for filename in os.listdir(dirname):
+        if re.match('.*-[0-9]{5}$', filename):
+            dirtime = int(filename[-5:])
+            if dirtime >= first_four_start and dirtime <= first_four_end:
+                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
         if re.match('.*-[0-9]{4}$', filename):
             dirtime = int(filename[-4:])
             if dirtime >= first_four_start and dirtime <= first_four_end:

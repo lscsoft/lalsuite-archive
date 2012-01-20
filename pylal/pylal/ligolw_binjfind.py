@@ -152,6 +152,14 @@ OmegaSBCNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type =
 OmegaSICCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
 OmegaSICNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 
+CWBBBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+CWBSBBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+CWBSIBCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 4, description = u"sim_inspiral<-->sngl_burst coincidences")
+CWBSBCCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+CWBSBCNearCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+CWBSICCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
+CWBSICNearCoincDef = lsctables.CoincDef(search = u"waveburst", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
+
 
 class DocContents(object):
 	"""
@@ -213,7 +221,7 @@ class DocContents(object):
 		#
 
 		if self.siminspiraltable is not None:
-			time_slide_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.siminspiraltable.getColumnByName("ifo"), 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
+			time_slide_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.seglists, 0.0), create_new = process, superset_ok = True, nonunique_ok = False)
 			for sim in self.siminspiraltable:
 				sim.time_slide_id = time_slide_id
 
@@ -306,7 +314,7 @@ class DocContents(object):
 		# tuples and create a coinc_event_id to offset vector
 		# look-up table
 		self.coincs = self.coincs.items()
-		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable)
+		self.coincoffsets = dict((row.coinc_event_id, self.offsetvectors[row.time_slide_id]) for row in self.coinctable if row.coinc_def_id == b_b_coinc_def_id)
 
 		#
 		# represent the sngl_burst table as a dictionary indexed by
@@ -318,7 +326,7 @@ class DocContents(object):
 		#
 
 		self.snglbursttable = dict((instrument, sorted((event for event in self.snglbursttable if event.ifo == instrument), lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))) for instrument in set(self.snglbursttable.getColumnByName("ifo")))
-		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].peak_time, b[0].peak_time) or cmp(a[0].peak_time_ns, b[0].peak_time_ns))
+		self.coincs.sort(lambda (id_a, events_a), (id_b, events_b): cmp(events_a[0].peak_time, events_b[0].peak_time) or cmp(events_a[0].peak_time_ns, events_b[0].peak_time_ns))
 
 	def bursts_near_peaktime(self, t, window, offsetvector):
 		"""
@@ -412,11 +420,10 @@ def StringCuspSnglCompare(sim, burst, offsetvector):
 	window centred on the injection is continuous with the time
 	interval of the burst.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo]
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2
-	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
+	# uncomment last part of expression to impose an amplitude cut
+	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period()) #or abs(sim.amplitude / SimBurstUtils.string_amplitude_in_instrument(sim, burst.ifo, offsetvector)) > 3
 
 
 def ExcessPowerSnglCompare(sim, burst, offsetvector):
@@ -424,9 +431,7 @@ def ExcessPowerSnglCompare(sim, burst, offsetvector):
 	Return False (injection matches event) if the peak time and centre
 	frequency of sim lie within the time-frequency tile of burst.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
-	return (SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo] not in burst.get_period()) or (sim.frequency not in burst.get_band())
+	return (SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) not in burst.get_period()) or (sim.frequency not in burst.get_band())
 
 
 def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
@@ -435,9 +440,15 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo] - burst.get_peak())) > delta_t
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
+
+def CWBSnglCompare(sim, burst, delta_t = 10.0):
+	"""
+	Return False (injection matches event) if the time of the sim and
+	the peak time of the burst event differ by less than or equal to
+	delta_t seconds.
+	"""
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - burst.get_peak())) > delta_t
 
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
@@ -445,9 +456,7 @@ def StringCuspNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo]
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.stringcusp_autocorrelation_width / 2 + SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
 
@@ -457,9 +466,7 @@ def ExcessPowerNearCoincCompare(sim, burst, offsetvector):
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	# the offset vector is subtracted from the time of the injection
-	# instead of being added to the time of the burst
-	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo) - offsetvector[burst.ifo]
+	tinj = SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector)
 	window = SimBurstUtils.burst_is_near_injection_window
 	return segments.segment(tinj - window, tinj + window).disjoint(burst.get_period())
 
@@ -470,6 +477,13 @@ def OmegaNearCoincCompare(sim, burst, offsetvector):
 	is "near" the burst event.
 	"""
 	return OmegaSnglCompare(sim, burst, offsetvector, delta_t = 20.0 + burst.duration / 2)
+
+def CWBNearCoincCompare(sim, burst):
+	"""
+	Return False (injection matches coinc) if the peak time of the sim
+	is "near" the burst event.
+	"""
+	return OmegaSnglCompare(sim, burst, delta_t = 20.0 + burst.duration / 2)
 
 
 #
@@ -532,15 +546,16 @@ def add_sim_burst_coinc(contents, sim, events, coinc_def_id):
 
 def find_exact_coinc_matches(coincs, sim, comparefunc, seglists, offsetvector):
 	"""
-	Return a list of the coinc_event_ids of the burst<-->burst coincs
-	in which all burst events match sim and to which all instruments on
-	at the time of the sim contributed events.
+	Return a set of the coinc_event_ids of the burst<-->burst coincs in
+	which all burst events match sim and to which all instruments on at
+	the time of the sim contributed events.
 	"""
 	# note:  this doesn't check that the coinc and the sim share
 	# compatible offset vectors, it is assumed this condition was
 	# applied in the .coincs_near_peaktime() method that was used to
 	# assemble the list of candidate coincs
 
+	# comparefunc() returns False --> event matches sim
 	# any() --> at least one compare returns True == not all events match
 	# not any() --> all events match sim
 	on_instruments = SimBurstUtils.on_instruments(sim, seglists, offsetvector)
@@ -549,14 +564,15 @@ def find_exact_coinc_matches(coincs, sim, comparefunc, seglists, offsetvector):
 
 def find_near_coinc_matches(coincs, sim, comparefunc, offsetvector):
 	"""
-	Return a list of the coinc_event_ids of the burst<-->burst coincs
-	in which at least one burst event matches sim.
+	Return a set of the coinc_event_ids of the burst<-->burst coincs in
+	which at least one burst event matches sim.
 	"""
 	# note:  this doesn't check that the coinc and the sim share
 	# compatible offset vectors, it is assumed this condition was
 	# applied in the .coincs_near_peaktime() method that was used to
 	# assemble the list of candidate coincs
 
+	# comparefunc() returns False --> event matches sim
 	# all() --> all compares return True == no events match
 	# not all() --> at least one event matches sim
 	return set(coinc_event_id for coinc_event_id, events in coincs if not all(comparefunc(sim, event, offsetvector) for event in events))
@@ -608,43 +624,43 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	b_b_def = {
 		"StringCusp": ligolw_burca.StringCuspBBCoincDef,
 		"excesspower": ligolw_burca.ExcessPowerBBCoincDef,
-		"waveburst": OmegaBBCoincDef,
+		"waveburst": CWBBBCoincDef,
 		"omega": OmegaBBCoincDef
 	}[search]
 	sb_b_def = {
 		"StringCusp": StringCuspSBBCoincDef,
 		"excesspower": ExcessPowerSBBCoincDef,
-		"waveburst": OmegaSBBCoincDef,
+		"waveburst": CWBSBBCoincDef,
 		"omega": OmegaSBBCoincDef
 	}[search]
 	si_b_def = {
 		"StringCusp": StringCuspSIBCoincDef,
 		"excesspower": ExcessPowerSIBCoincDef,
-		"waveburst": OmegaSIBCoincDef,
+		"waveburst": CWBSIBCoincDef,
 		"omega": OmegaSIBCoincDef
 	}[search]
 	sb_c_e_def = {
 		"StringCusp": StringCuspSBCCoincDef,
 		"excesspower": ExcessPowerSBCCoincDef,
-		"waveburst": OmegaSBCCoincDef,
+		"waveburst": CWBSBCCoincDef,
 		"omega": OmegaSBCCoincDef
 	}[search]
 	sb_c_n_def = {
 		"StringCusp": StringCuspSBCNearCoincDef,
 		"excesspower": ExcessPowerSBCNearCoincDef,
-		"waveburst": OmegaSBCNearCoincDef,
+		"waveburst": CWBSBCNearCoincDef,
 		"omega": OmegaSBCNearCoincDef
 	}[search]
 	si_c_e_def = {
 		"StringCusp": StringCuspSICCoincDef,
 		"excesspower": ExcessPowerSICCoincDef,
-		"waveburst": OmegaSICCoincDef,
+		"waveburst": CWBSICCoincDef,
 		"omega": OmegaSICCoincDef
 	}[search]
 	si_c_n_def = {
 		"StringCusp": StringCuspSICNearCoincDef,
 		"excesspower": ExcessPowerSICNearCoincDef,
-		"waveburst": OmegaSICNearCoincDef,
+		"waveburst": CWBSICNearCoincDef,
 		"omega": OmegaSICNearCoincDef
 	}[search]
 

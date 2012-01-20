@@ -180,7 +180,6 @@ PyTypeObject pylal_siminspiraltable_type = {
 
 static PyObject *from_buffer(PyObject *self, PyObject *args)
 {
-	PyObject *buffer;
 	const SimInspiralTable *data;
 #if PY_VERSION_HEX < 0x02050000
 	int length;
@@ -190,10 +189,7 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
 	unsigned i;
 	PyObject *result;
 
-	if(!PyArg_ParseTuple(args, "O", &buffer))
-		return NULL;
-
-	if(PyObject_AsReadBuffer(buffer, (const void **) &data, &length))
+	if(!PyArg_ParseTuple(args, "s#", (const char **) &data, &length))
 		return NULL;
 
 	if(length % sizeof(SimInspiralTable)) {

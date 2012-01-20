@@ -39,13 +39,12 @@ import sys
 
 from glue import segments
 from glue import iterutils
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import table
-from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import git_version
 from pylal import rate
-from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import scipy
 import numpy
@@ -70,12 +69,22 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "%prog does blah blah blah."
+		description = "%prog approximates a likelihood ratio computation for inspiral searches taking into account 2D correlations."
 	)
-	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
-	parser.add_option("--output-dir", metavar = "path", help = "Path to directory to store output files")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	parser.add_option("-t", "--tmp-space", metavar="path", help="Path to a directory suitable for use as a work area while manipulating the database files.  The database files will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("--output-table", metavar="TABLE", default="coinc_event", help="Table to store likelihood in. Must be one of {coinc_event|coinc_inspiral}. Default is coinc_event.")
+	parser.add_option("--output-column", metavar="COLUMN", default="likelihood", help="Column to store likelihood in. Default is likelihood.")
+	parser.add_option("--output-dir", metavar="path", help="Path to directory to store output files.")
+	parser.add_option("--output-bins", metavar="file", help="Output the binned-arrays for use in the likelihood ratio computation to a file.")
+	parser.add_option("--input-bins", metavar="file", action="append", help="Input the binned-arrays to be used for likelihood ratio computation from a file.")
+	parser.add_option( "--max-distance", metavar = "Mpc", type="float", help = "The maximum injected distance to use for training likeliness.")
+	parser.add_option("--compute-likelihoods", action="store_true", help="Compute the likelihood ratios for coincident triggers and update the database files.")
+	parser.add_option("--smooth-bins", action="store_true", help="Smooth the binned-array objects before output or before use.")
+	parser.add_option("-v", "--verbose", action="store_true", help="Be verbose.")
 	options, filenames = parser.parse_args()
+
+	if options.output_table not in ["coinc_event", "coinc_inspiral"]:
+		raise ValueError, "--output-table must be either coinc_event or coinc_inspiral. %s given"%(options.output_table)
 
 	return options, (filenames or [None])
 
@@ -88,6 +97,10 @@ def parse_command_line():
 # =============================================================================
 #
 
+
+def binned_ratios_extractor(xmldoc):
+	for name in [elem.getAttribute(u"Name").replace(u":pylal_rate_binnedratios", u"") for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute("Name") and "pylal_rate_binnedratios" in elem.getAttribute("Name")]:
+		yield name, rate.binned_ratios_from_xml(xmldoc, name)
 
 class Summaries(object):
 	def __init__(self, Nbins):
@@ -104,14 +117,38 @@ class Summaries(object):
 		self.likelihoods = {}
 
 		#
-		# here we define the single detector 2D projections
-		# we will perform and how they should be binned
+		# setup bin types and min and max values for the parameters
+		#
+                
+		self.minmax = {}
+		bin_types = {}
+
+		bin_types['snr'] = 'atanlog'
+		self.minmax['snr'] = (1, 1e4)
+
+		bin_types['chisq'] = 'atanlog'
+		self.minmax['chisq'] = (1, 1e8)
+
+		bin_types['bank_chisq'] = 'atanlog'
+		self.minmax['bank_chisq'] = (1, 1e8)
+
+		bin_types['cont_chisq'] = 'atanlog'
+		self.minmax['cont_chisq'] = (1, 1e8)
+
+		bin_types['mtotal'] = 'atan'
+		self.minmax['mtotal'] = (0, 100)
+
+		#
+		# here we define the single detector 2D projections we will
+		# perform
 		#
 
-		self.sngl_slices = [('snr', 'chisq'), ('snr', 'mtotal'), ('chisq', 'mtotal')]
-		self.atanlog_atan_bins = [('snr', 'mtotal'), ('chisq', 'mtotal')]
-		self.atanlog_atanlog_bins = [('snr', 'chisq')]
-		self.atan_atan_bins = []
+		self.sngl_slices = [('snr', 'chisq'), ('snr', 'mtotal'), ('chisq', 'mtotal'), ('snr', 'bank_chisq'), ('bank_chisq', 'mtotal'), ('snr', 'cont_chisq'), ('cont_chisq', 'mtotal'), ('chisq', 'bank_chisq'), ('chisq', 'cont_chisq'), ('bank_chisq', 'cont_chisq')]
+
+		self.atanlog_atan_bins = [sngl_slice for sngl_slice in self.sngl_slices if bin_types[sngl_slice[0]] == 'atanlog' and bin_types[sngl_slice[1]] == 'atan']
+		self.atanlog_atanlog_bins = [sngl_slice for sngl_slice in self.sngl_slices if bin_types[sngl_slice[0]] == 'atanlog' and bin_types[sngl_slice[1]] == 'atanlog']
+		self.atan_atan_bins = [sngl_slice for sngl_slice in self.sngl_slices if bin_types[sngl_slice[0]] == 'atan' and bin_types[sngl_slice[1]] == 'atan']
+
 		self.sngl_bins = {}
 		self.sngl_1D_bins = {}
 		self.sngl_1D_count = {}
@@ -125,17 +162,8 @@ class Summaries(object):
 		#
 
 		self.idx_sngls = {}
-		for id,key in enumerate(list(sngls_set) + ['ifo', 'weight', 'coinc_event_id', 'filename']):
-			self.idx_sngls[key] = id
-
-		#
-		# setup min and max values for use in the bins
-		#
-
-		self.minmax = {}
-		self.minmax['snr'] = (1, 1e4)
-		self.minmax['chisq'] = (1, 1e8)
-		self.minmax['mtotal'] = (25, 1e2)
+		for n,key in enumerate(list(sngls_set) + ['ifo', 'weight', 'coinc_event_id', 'filename']):
+			self.idx_sngls[key] = n
 
 	def calc_delta_t_inj(self, trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
 		#
@@ -216,54 +244,96 @@ class Summaries(object):
 		self.dbls.add(frozenset(ifos))
 		self.inj_dbls.setdefault(frozenset(ifos), []).append(tuple([filename] + list(values)))
 
-	def filter_binned_ratios(self):
+	def filter_binned_ratios(self, window_length=30):
 		#
 		# smooth the binned array objects
 		#
-		for key1 in self.sngl_bins.keys():
-			for key2 in self.sngl_bins[key1].keys():
-				tablename = "".join(key1)+"_"
-				if len(key2[0]) > 1 or len(key2[1]) > 1:
-					tablename += "".join(key2[1]) + "_vs_" + "".join(key2[0])
-				else:
-					tablename += "_vs_".join(key2[::-1])
+		for ifo in self.ifos:
+			for key in self.sngl_slices:
+				tablename = "".join(ifo)+"-"
+				tablename += "-vs-".join(key[::-1])
 				if options.verbose:
 					print >>sys.stderr, "\tsmoothing %s ..." % tablename
-				rate.filter_binned_ratios(self.sngl_bins[key1][key2], rate.gaussian_window2d(self.sngl_bins[key1][key2].numerator.bins.shape[0]/30, self.sngl_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
-				self.sngl_bins[key1][key2].to_pdf()
+				rate.filter_binned_ratios(self.sngl_bins[ifo][key], rate.gaussian_window2d(self.sngl_bins[ifo][key].numerator.bins.shape[0]/window_length, self.sngl_bins[ifo][key].numerator.bins.shape[1]/window_length, sigma=2*window_length))
 
-	def output_bins(self):
+	def pdfify_binned_ratios(self):
+		#
+		# normalize binned arrays to form pdfs
+		#
+		for ifo in self.ifos:
+			for key in self.sngl_slices:
+				self.sngl_bins[ifo][key].to_pdf()
+
+	def output_bins(self, filename):
 		#
 		# save the binned array objects to xml
 		#
 		xmldoc = lsctables.ligolw.Document()
 		xmldoc.appendChild(lsctables.ligolw.LIGO_LW())
-		# FIXME should be key2[1] vs key2[0]
 		for key1 in self.sngl_bins.keys():
 			for key2 in self.sngl_bins[key1].keys():
-				tablename = "".join(key1)+"_"
-				if len(key2[0]) > 1 or len(key2[1]) > 1:
-					tablename += "".join(key2[1]) + "_vs_" + "".join(key2[0])
-				else:
-					tablename += "_vs_".join(key2[::-1])
+				tablename = "".join(key1)+"-"
+				tablename += "-vs-".join(key2[::-1])
 				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_bins[key1][key2], tablename))
 		for key1 in self.sngl_1D_bins.keys():
 			for key2 in self.sngl_1D_bins[key1].keys():
-				tablename = "".join(key1)+"_"+"".join(key2)
+				tablename = "".join(key1)+"-"+"".join(key2)
 				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_1D_bins[key1][key2], tablename))
-		if options.output_dir:
-			utils.write_filename(xmldoc, options.output_dir + "/likelihood_snr_chisq.xml.gz", gz = True, verbose = True)
-		else:
-			utils.write_filename(xmldoc, "likelihood_snr_chisq.xml.gz", gz = True, verbose = True)
+		
+		utils.write_filename(xmldoc, filename, gz=filename.endswith(".gz"), verbose=options.verbose)
+
+	def input_bins(self, filenames):
+		#
+		# read the binned array objects from xml
+		#
+		missing = 0
+		for filename in filenames:
+			xmldoc = utils.load_filename(filename, verbose=options.verbose)
+			for name, ratios in binned_ratios_extractor(xmldoc):
+				if '-vs-' in name:
+					ifo,key1,junk,key2 = name.split('-')
+					self.sngl_bins.setdefault(ifo, {})
+					if (key2,key1) in self.sngl_bins[ifo].keys():
+						self.sngl_bins[ifo][(key2,key1)] += ratios
+					else:
+						self.sngl_bins[ifo][(key2,key1)] = ratios
+				else:
+					print >>sys.stderr, "Binned array file %s unknown table. Skipping table %s"%(filename,name)
+
+
+	def check_input_bins(self):
+		#
+		# check we have everything we need from the binned array objects from xml
+		#
+		missing = 0
+		for filename in filenames:
+			check_bins = {}
+			for ifo in self.ifos:
+				check_bins[ifo] = {}
+				for key in self.sngl_slices:
+					check_bins[ifo][key] = (ifo in self.sngl_bins.keys()) and (key in self.sngl_bins[ifo].keys())
+
+			#
+			# check for missing binned array objects
+			#
+
+			for ifo in self.ifos:
+				for sngl_slice in self.sngl_slices:
+					if not check_bins[ifo][sngl_slice]:
+						print >>sys.stderr, "Binned array files do not contain %s-%s-vs-%s 2D slice."%(ifo,sngl_slice[1],sngl_slice[0])
+						missing += 1
+		if missing:
+			sys.exit(1)
+
 
 	def create_1D_slices(self):
 		#
 		# create the appropriate 1D slices from the 2D projections
 		#
-		for ifo in self.sngl_bins.keys():
+		for ifo in self.ifos:
 			self.sngl_1D_bins[ifo] = {}
 			self.sngl_1D_count[ifo] = {}
-			for key in self.sngl_bins[ifo].keys():
+			for key in self.sngl_slices:
 				for dim,subkey in enumerate(key):
 					if subkey not in self.sngl_1D_bins[ifo].keys():
 						self.sngl_1D_bins[ifo][subkey] = rate.marginalize_ratios(self.sngl_bins[ifo][key], (dim+1)%2)
@@ -275,13 +345,13 @@ class Summaries(object):
 		#
 		# compute the likelihood for the single detector triggers
 		#
-		likelihood_2D = 1.
-		likelihood_1D = 1.
+		log_likelihood_2D = 0.
+		log_likelihood_1D = 0.
 		for key in self.sngl_slices:
-			likelihood_2D *= self.sngl_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])]
+			log_likelihood_2D += scipy.log(self.sngl_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])])
 		for key in self.sngl_1D_bins[values[self.idx_sngls['ifo']]].keys():
-			likelihood_1D *= (self.sngl_1D_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key]],)])**self.sngl_1D_count[values[self.idx_sngls['ifo']]][key]
-		self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= likelihood_2D / likelihood_1D
+			log_likelihood_1D += self.sngl_1D_count[values[self.idx_sngls['ifo']]][key] * scipy.log(self.sngl_1D_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key]],)])
+		self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= scipy.exp(log_likelihood_2D - log_likelihood_1D)
 
 	def likelihood_map(self, filename, coinc_event_id):
 		#
@@ -340,7 +410,11 @@ WHERE
 	AND coinc_definer.search_coinc_type == 2
 	AND mapA.table_name == 'sngl_inspiral'
 	AND mapB.table_name == 'coinc_event'
-	AND mapC.table_name == 'sim_inspiral'
+	AND mapC.table_name == 'sim_inspiral'"""
+	if options.max_distance:
+		query += """
+	AND sim_inspiral.distance < %f"""%(options.max_distance)
+	query += """
 	-- require coinc to not be background (= at least one of its time slide offsets is non-zero)
 	-- FIXME this has to call a function to get coinc_def id
 	AND NOT EXISTS (
@@ -508,6 +582,44 @@ WHERE
 	AND snglB.ifo == ?
 """
 
+
+def single_all(values):
+	#
+	# the SQL query for all single detector triggers
+	#
+	query = """
+SELECT"""
+	keys = values.items()
+	keys.sort(cmp=lambda x,y: cmp(x[1],y[1]))
+	for value in keys:
+		if value[0] in ['coinc_event_id', 'filename']:
+			continue
+		if not value == keys[0]:
+			query += ""","""
+		if value[0] == 'weight':
+			query += """
+	1.0"""
+			continue
+
+		query += """
+	snglA.""" + value[0]
+
+	query += """,
+	coinc_inspiral.coinc_event_id
+FROM
+	coinc_inspiral
+	JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
+	JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
+	JOIN coinc_event ON (mapA.coinc_event_id == coinc_event.coinc_event_id)
+	JOIN coinc_definer ON (coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
+WHERE
+	coinc_definer.search == 'inspiral'
+	AND coinc_definer.search_coinc_type == 0
+	AND mapA.table_name == 'sngl_inspiral'
+"""
+
+	return query
+
 #
 # =============================================================================
 #
@@ -525,12 +637,47 @@ WHERE
 options, filenames = parse_command_line()
 
 
+if options.input_bins and not options.compute_likelihoods:
+	print >>sys.stderr, "If --input-bins is specified, --compute-likelihoods bust also be given."
+	sys.exit(1)
+
+
 #
 # initialize book-keeping
 #
 
 
 likelihood_bins = Summaries(200)
+
+
+#
+# read binned array objects from file
+#
+
+
+if options.input_bins:
+	if options.verbose:
+		print >>sys.stderr, "importing binned ratio objects ..."
+	likelihood_bins.input_bins(options.input_bins)
+
+
+#
+# import db tools at last second as they override some xml reading in ligolw
+#
+
+
+from glue.ligolw import dbtables
+from pylal import db_thinca_rings
+from pylal import ligolw_sqlutils as sqlutils
+
+
+#
+# validating output_table and output_column
+#
+
+
+output_table = sqlutils.validate_option(options.output_table)
+output_column = sqlutils.validate_option(options.output_column)
 
 
 #
@@ -557,15 +704,14 @@ for n, filename in enumerate(filenames):
 	likelihood_bins.ifos |= set(ifo for ifo, in connection.cursor().execute("""SELECT DISTINCT ifo FROM sngl_inspiral"""))
 
 	if options.verbose:
-		print >>sys.stderr, "\textracting likelihood from all coinc_events ..."
-	for coinc_event_id, likelihood in connection.cursor().execute("""
+		print >>sys.stderr, "\textracting coinc_event_id from everything in %s ..."%(output_table)
+	for coinc_event_id in connection.cursor().execute("""
 SELECT
-	coinc_event.coinc_event_id,
-	coinc_event.likelihood
+	%s.coinc_event_id
 FROM
-	coinc_event
-	"""):
-		likelihood_bins.likelihoods.setdefault((filename, coinc_event_id), likelihood)
+	%s
+	"""%(output_table, output_table)):
+		likelihood_bins.likelihoods.setdefault((filename, coinc_event_id[0]), 0.)
 
 	#
 	# done extracting info so close database
@@ -579,56 +725,63 @@ FROM
 #
 
 if options.verbose:
-	print >>sys.stderr, "initializing likelihoods to 1.0  ..."
+	print >>sys.stderr, "initializing every %s to 1.0  ..."%(output_column)
 for key in likelihood_bins.likelihoods.keys():
 	likelihood_bins.likelihoods[key] = 1.0
 
-if options.verbose:
-	print >>sys.stderr, "setting up binned ratio objects ..."
-likelihood_bins.setup_binned_ratios()
-
-if options.verbose:
-	print >>sys.stderr, "extracting background and injection statistics ..."
-for n, filename in enumerate(filenames):
-	#
-	# open the database
-	#
+if options.input_bins:
+	if options.verbose:
+		print >>sys.stderr, "checking validity of binned ratio objects ..."
+	likelihood_bins.check_input_bins()
+else:
+	if options.verbose:
+		print >>sys.stderr, "setting up binned ratio objects ..."
+	likelihood_bins.setup_binned_ratios()
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
-	connection = sqlite3.connect(working_filename)
-
-	#
-	# extract triggers using appropriate sqlite queries determined
-	# by the existence of a sim_inspiral table in the database
-	#
-
-	if "sim_inspiral" in dbtables.get_table_names(connection):
+		print >>sys.stderr, "extracting background and injection statistics ..."
+	for n, filename in enumerate(filenames):
 		#
-		# loop over all single ifos and add sngls to appropriate list
+		# open the database
 		#
 
 		if options.verbose:
-			print >>sys.stderr, "\textracting all sngls to populate binned ratio numerator ..."
-		for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls)):
-			likelihood_bins.add_inj_sngl(values)
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+		connection = sqlite3.connect(working_filename)
 
 		#
-		# loop over all double combinations of ifos and add dbls to appropriate list
+		# extract triggers using appropriate sqlite queries determined
+		# by the existence of a sim_inspiral table in the database
 		#
 
-#		if options.verbose:
-#			print >>sys.stderr, "\textracting all dbls ..."
-#		connection.create_function("calc_delta_t_inj", 4, likelihood_bins.calc_delta_t_inj)
-#		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
+		if "sim_inspiral" in dbtables.get_table_names(connection):
+			#
+			# loop over all single ifos and add sngls to
+			# appropriate list
+			#
+
+			if options.verbose:
+				print >>sys.stderr, "\textracting all sngls to populate binned ratio numerator ..."
+			for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls)):
+				likelihood_bins.add_inj_sngl(values)
+
+			#
+			# loop over all double combinations of ifos and add
+			# dbls to appropriate list
+			#
+
 #			if options.verbose:
-#				print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
-#			for values in connection.cursor().execute(double_inj, ifos):
-#				likelihood_bins.add_inj_dbl(filename, ifos, values)
-	else:
+#				print >>sys.stderr, "\textracting all dbls ..."
+#			connection.create_function("calc_delta_t_inj", 4, likelihood_bins.calc_delta_t_inj)
+#			for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
+#				if options.verbose:
+#					print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
+#				for values in connection.cursor().execute(double_inj, ifos):
+#					likelihood_bins.add_inj_dbl(filename, ifos, values)
 		#
-		# loop over all single ifos and add sngls to appropriate list
+		# loop over all single ifos and add sngls to
+		# appropriate list
 		#
 
 		if options.verbose:
@@ -638,7 +791,8 @@ for n, filename in enumerate(filenames):
 				likelihood_bins.add_bkg_sngl(values)
 
 		#
-		# loop over all double combinations of ifos and add dbls to appropriate list
+		# loop over all double combinations of ifos and add
+		# dbls to appropriate list
 		#
 
 #		if options.verbose:
@@ -655,28 +809,40 @@ for n, filename in enumerate(filenames):
 #				else:
 #					background.add_zero_lag_dbl(filename, ifos, values[0:-1])
 
+		#
+		# done extracting info so close database
+		#
+
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+
 	#
-	# done extracting info so close database
+	# end loop over input database files
 	#
 
-	connection.close()
-	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+	if options.smooth_bins:
+		if options.verbose:
+			print >>sys.stderr, "smoothing binned ratios ..."
+		likelihood_bins.filter_binned_ratios()
 
-#
-# end loop over input database files
-#
+	if options.output_bins:
+		if options.verbose:
+			print >>sys.stderr, "writing binned ratios objects to file ..."
+		likelihood_bins.output_bins(options.output_bins)
 
+if not options.compute_likelihoods:
+	sys.exit(0)
+
+if options.smooth_bins:
+	if options.verbose:
+		print >>sys.stderr, "smoothing binned ratios ..."
+	likelihood_bins.filter_binned_ratios()
 if options.verbose:
-	print >>sys.stderr, "smoothing binned ratios ..."
-likelihood_bins.filter_binned_ratios()
+	print >>sys.stderr, "normalizing binned ratios ..."
+likelihood_bins.pdfify_binned_ratios()
 if options.verbose:
 	print >>sys.stderr, "creating 1D binned ratios ..."
 likelihood_bins.create_1D_slices()
-if options.verbose:
-	print >>sys.stderr, "writing out binned ratios ..."
-likelihood_bins.output_bins()
-
-sys.exit(0)
 
 if options.verbose:
 	print >>sys.stderr, "computing likelihoods ..."
@@ -695,55 +861,33 @@ for n, filename in enumerate(filenames):
 	# by the existence of a sim_inspiral table in the database
 	#
 
-	if "sim_inspiral" in dbtables.get_table_names(connection):
-		#
-		# loop over all sngls and add to appropriate list
-		#
+	# 
+	# loop over all sngls and compute likelihoods
+	#
 
-		if options.verbose:
-			print >>sys.stderr, "\textracting all sngls for likelihood computation..."
-		for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls)):
-			likelihood_bins.compute_sngl_likelihood(tuple(list(values) + [filename]))
+	if options.verbose:
+		print >>sys.stderr, "\textracting all sngls for likelihood computation ..."
+	for values in connection.cursor().execute(single_all(likelihood_bins.idx_sngls)):
+		likelihood_bins.compute_sngl_likelihood(tuple(list(values) + [filename]))
 
-		#
-		# loop over all double combinations of ifos and add dbls to appropriate list
-		#
+	# 
+	# loop over all double combinations of ifos and add dbls to
+	# appropriate list 
+	#
 
+#	if options.verbose:
+#		print >>sys.stderr, "\textracting all dbls ..."
+#	likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
+#	likelihood_bins.offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
+#	connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
+#	for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
 #		if options.verbose:
-#			print >>sys.stderr, "\textracting all dbls ..."
-#		connection.create_function("calc_delta_t_inj", 4, likelihood_bins.calc_delta_t_inj)
-#		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
-#			if options.verbose:
-#				print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
-#			for values in connection.cursor().execute(double_inj, ifos):
-#				likelihood_bins.add_inj_dbl(filename, ifos, values)
-	else:
-		# 
-		# loop over all sngls and add to appropriate list 
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "\textracting all sngls for likelihood computation ..."
-		for values in connection.cursor().execute(single_bkg(likelihood_bins.idx_sngls)):
-			likelihood_bins.compute_sngl_likelihood(tuple(list(values[0:-1]) + [filename]))
- 
-		# 
-		# loop over all double combinations of ifos and add dbls to appropriate list 
-		#
-
-#		if options.verbose:
-#			print >>sys.stderr, "\textracting all dbls ..."
-#		likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-#		likelihood_bins.offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
-#		connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
-#		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
-#			if options.verbose:
-#				print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
-#			for values in connection.cursor().execute(double_bkg, ifos):
-#				if values[-1]:
-#					background.add_bkg_dbl(filename, ifos, values[0:-1])
-#				else:
-#					background.add_zero_lag_dbl(filename, ifos, values[0:-1])
+#			print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
+#		for values in connection.cursor().execute(double_bkg, ifos):
+#			if values[-1]:
+#				background.add_bkg_dbl(filename, ifos, values[0:-1])
+#			else:
+#				background.add_zero_lag_dbl(filename, ifos, values[0:-1])
 
 	#
 	# done extracting info so close database
@@ -772,6 +916,12 @@ for n, filename in enumerate(filenames):
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 
+	#    
+	# Create the output column if it doesn't exist
+	#
+
+	sqlutils.create_column(connection, output_table, output_column)
+
 	#
 	# prepare the database
 	#
@@ -781,13 +931,13 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "\trecording likelihood ..."
 	connection.cursor().execute("""
 UPDATE
-	coinc_event
+	%s
 SET
-	likelihood = likelihood_map(
+	%s = likelihood_map(
 			?,
-			coinc_event.coinc_event_id
+			%s.coinc_event_id
 	)
-	""", (filename,))
+	"""%(output_table, output_column, output_table), (filename,))
 	connection.commit()
 
 	#

@@ -1,0 +1,395 @@
+#!/usr/bin/env python
+
+
+import os
+import sys
+#import glob
+from optparse import OptionParser
+
+usage = """%prog [options]
+
+  The basic idea behind lars_search is:
+ 
+     (1) Specify selection criteria
+         (a) Specify IFOS, description, gps time of desired search(es)
+         (b) [optionally] Specify description of files within a search
+             NOTE: This sub-query is ONLY performed if the first query
+                   matches a single result.
+
+     (2) Perform action(s) on selected items
+         Available actions are:
+                Display
+                Mount search locally
+                Copy search to local directory
+"""
+
+parser = OptionParser(\
+            usage=usage, \
+            version= "%prog CVS\n" +
+                "$Id$\n" +
+                "$Name$\n" \
+         )
+
+# Selection Options
+
+parser.add_option("-D", "--search-description",
+                  action="store",
+                  type="string",
+                  default="",
+                  help="Search description pattern of interest" )
+
+parser.add_option("-I", "--search-ifos",
+                  action="store",
+                  type="string",
+                  default="",
+                  help="IFOs of interest" )
+
+parser.add_option("-T", "--search-time",
+                  action="store",
+                  type="int",
+                  default=0)
+
+parser.add_option("-d", "--file-description",
+                  action="store",
+                  type="string",
+                  default="",
+                  help="File description pattern of interest" )
+
+#parser.add_option("-f","--file-type",action="store",type="string",\
+#    default=None,help="file type" )
+
+
+# Action options
+
+parser.add_option("-m", "--mount",
+                  metavar="DIR",
+                  action="store",
+                  type="string",
+                  default=None,
+                  help="Mount found items in DIR")
+
+# Into lars_admin...
+#parser.add_option("-c", "--clear-mounts",
+#                  action="store_true",
+#                  default=False,
+#                  help="remove mounts of remote directories")
+
+parser.add_option("-C","--copy",
+                  metavar="DIR",
+                  action="store",
+		  help="Copy the data to directory DIR" )
+
+parser.add_option("-s", "--show",
+                  action="store_true",
+                  default=False,
+                  help="List found items")
+
+# Misc Options
+
+parser.add_option("", "--lars-db",
+                  metavar="LARSDB",
+                  action="store",
+                  default=None,
+                  help="Location of the lars search database")
+
+parser.add_option("-v", "--verbose",
+                  action="store_true",
+                  default=False,
+                  help="Be chatty about what's going on")
+
+parser.add_option("-q", "--quiet",
+                  action="store_true",
+                  default=False,
+                  help="Print only critical messages")
+
+(options,args) = parser.parse_args()
+
+
+# We've parsed the options.
+# AND we've passed the point where the lars package is optional.
+
+import logging
+from ligo import lars
+from ligo.lars import Cache, copyFile, copyDir, util
+from ligo.lars.util import mountSearch
+
+
+# We must first initialize logging
+# (so we know the appropriate level of detail for messaging)
+
+if options.verbose:
+    lars.initializeLogging(logging.DEBUG)
+elif options.quiet:
+    lars.initializeLogging(logging.CRITICAL)
+else:
+    lars.initializeLogging()
+
+log = logging.getLogger("lars.cli.search")
+
+if options.quiet and options.verbose:
+    log.warning("Both verbose and quiet options set.  Using verbose.")
+
+
+# Set up our environment
+#
+config = lars.initializeCli()
+
+basedir   = config['basedir']
+mountdir  = config['mountdir']
+tmpdir    = config['tmpdir']
+larsDbUrl = options.lars_db or config['larsDbUrl']
+
+log.debug("Using Lars DB URL: %s" % larsDbUrl)
+
+
+# Let's try to make sense of our options -- make sure they are in order.
+
+# make sure we have these things:
+#   lars temp area
+#   search database
+#   mount db
+#   mount point
+
+# maybe check for fuse, fuse permissions, sshfs, ssh, scp, cvs (more?)
+
+# Check that *some* action is requested.
+
+if not (options.show or options.mount or options.copy):
+    log.warn("No action selected.  Defaulting to 'show'")
+    options.show = True
+
+
+# XXX TODO (the rest of what's described above)
+
+
+# STEP 1a: Perform the (initial) query
+
+larsDb = Cache.get(larsDbUrl)
+
+log.debug("Search IFOs:        %s" % options.search_ifos)
+log.debug("Search description: %s" % options.search_description)
+log.debug("Search gps-time:    %s" % options.search_time)
+
+results = larsDb.sieve(ifos=options.search_ifos,
+                       #segment=options.search_time,
+                       description=options.search_description)
+
+
+# STEP 1b: Perform (possible) sub-search
+
+subResults = None
+if options.file_description:
+    # A sub-search was requested.
+    if len(results) > 1:
+        log.info("Too many results.  No sub-search will be done.")
+    elif len(results) == 1:
+        # Do the sub-search.
+        filecache = Cache.getSearch(results[0].url)
+        subResults = filecache.sieve(description=options.file_description)
+        if not len(subResults):
+            log.info("No matching files")
+
+# At this point:
+#
+#   results:    contains a list of matched search items. (type [Cache])
+#
+#   subResults: iff a sub-search was requested (--file-description)
+#                   AND only one search item matched (len(results)==1)
+#               contains a list of matching files within the search result
+#               (type Cache)
+
+# STEP 2: Perform Actions
+
+if options.show:
+    # Display the results
+    if not results:
+        log.info("No match.")
+    for result in results:
+        print
+        print result.description
+        print "   ", result.url
+        if subResults:
+            print
+            for item in subResults:
+                print item.description
+                print "   ", item.url
+
+if options.mount:
+    # Mount selected item
+    if not results or len(results) != 1:
+        log.error("Number of results is not equal to one.")
+        sys.exit(1)
+    mountSearch(results[0].url, options.mount)
+#   (scheme, netloc, path, query, frag) = urlsplit(results[0].url)
+#   # netloc is just host -- we didn't put user/port in there right?
+#   fs = "%s:%s" % (netloc, path)
+#   try:    os.mkdir(targetDir)
+#   except: pass
+#   log.info("Mounting '%s' on '%s'" % (fs, targetDir))
+#   p = Popen(["sshfs", fs, os.path.abspath(targetDir)], cwd=basedir)
+#   p.wait()
+#   del p
+
+if options.copy:
+    # Copy selected items
+    if not results:
+        log.info("No results found.  No copy performed.")
+    elif len(results) != 1:
+        log.info("Too many results found.  No copy performed.")
+    else:
+        result = results[0]
+        if subResults:
+            # Copy only desired files.
+            for item in subResults:
+                copyFile(item.url, options.copy)
+        else:
+            # Copy entire directory.
+            copyDir(result.url, options.copy)
+
+
+## FIXME: move these imports to the top of the file
+#from tempfile import TemporaryFile, mkdtemp
+#from urlparse import urlsplit, urlunsplit
+#from subprocess import Popen, PIPE
+#
+#from ligo.lars import Cache, copyFile
+#
+#
+#def mountSearch(searchUrl, targetDir):
+#    global verbose
+#    (scheme, netloc, path, query, frag) = urlsplit(searchUrl)
+#    # netloc is just host -- we didn't put user/port in there right?
+#    fs = "%s:%s" % (netloc, path)
+#    try:    os.mkdir(targetDir)
+#    except: pass
+#    if verbose:
+#        print "Mounting '%s' on '%s'" % (fs, targetDir)
+#    p = Popen(["sshfs", fs, os.path.abspath(targetDir)], cwd=basedir)
+#    p.wait()
+#    del p
+#
+#def mkUrl(loc):
+#    (scheme, netloc, path, query, frag) = urlsplit(loc)
+#    if not scheme:
+#        scheme = "file"
+#    if not netloc:
+#        netloc = "localhost"
+#    if path:
+#        path = os.path.abspath(path)
+#    return urlunsplit( (scheme, netloc, path, query, frag) )
+#
+#def clearMounts():
+#  dirs = glob.glob(mountdir+"/tmp*")
+#  for dir in dirs:
+#    try:
+#      os.popen("fusermount -u " + dir)
+#    except:
+#      print "Could not unmount " + dir
+#      print "Resource is probably in use, please fix and try again"
+#      sys.exit(1)
+#    os.rmdir(dir)
+#
+##
+##
+#
+##if options.clear_mounts:
+##  clearMounts()
+##  sys.exit(0)
+#
+#if options.lars_db:
+#    larsDbUrl = mkUrl(options.lars_db)
+#
+#larsDb = Cache.get(larsDbUrl)
+#
+#if verbose:
+#    print "Searching on: "
+#    print "        IFOs: ", options.search_ifos
+#    print " description: ", options.search_description
+#
+#result = larsDb.sieve(ifos=options.search_ifos,
+#                        #segment=options.search_time,
+#                        description=options.search_description)
+#
+#cloneDir = options.clone
+#
+#if cloneDir:
+#    try:
+#        os.mkdir(cloneDir)
+#    except OSError, e:
+#        from errno import EEXIST
+#	if e.errno != EEXIST:
+#	    raise
+#
+#mountPoint = None
+#if options.mount:
+#    #if options.file_description: # we only want selected files -> mount in a scratchy place
+#    if options.mount_directory:
+#        mountPoint = os.path.abspath(options.mount_directory)
+#    else:
+#        mountPoint = mkdtemp(dir=mountdir)
+#
+#    # the users working directory for later use in linking
+#    userDir = os.path.abspath(os.getcwd())
+#
+#    # make mount point if it does not exist
+#    if verbose: print "Creating mount dir: ", mountPoint
+#    try:    os.mkdir(mountPoint)
+#    except: 
+#      print mountPoint, " already exists, continuing ..."
+#      pass
+#
+#if len(result) == 1:
+#    result=result[0]
+#    print "Found search:", result.description, "at", result.url
+#
+#    if mountPoint:
+#        if verbose: print "Mounting search:", result.description, "at", mountPoint
+#        mountSearch(result.url, mountPoint)
+#
+#    if options.file_description: # link selected files to target dir
+#
+#        filecache = Cache.getSearch(result.url)
+#        interestingFileCache = filecache.sieve(description=options.file_description)
+#
+#        if len(interestingFileCache) == 0:
+#            print "No interesting files:"
+#        (_, remotehost, remotepath, _, _) = urlsplit(result.url)
+#
+#        # remove any trailing '/' in url from search db.
+#        if remotepath[-1] == "/":
+#            remotepath = remotepath[:-1]
+#
+#        if verbose:
+#            print "Found %d files of interest." % len(interestingFileCache)
+#        for entry in interestingFileCache:
+#            if mountPoint:
+#                (_, _, remoteFile, _, _) = urlsplit(entry.url)
+#                remoteFile = remoteFile.split(remotepath)[-1]
+#                if remoteFile[0] == "/":
+#                  remoteFile = remoteFile[1:]
+#                mountedFile = os.path.join(mountPoint,remoteFile)
+#                baseFile = os.path.basename(mountedFile)
+#                linkedFile = os.path.join(userDir, baseFile)
+#                if os.access(mountedFile, os.F_OK):
+#                    #print "linking:",  mountedFile, linkedFile
+#                    os.symlink(mountedFile, linkedFile)
+#                else:
+#                    print "Warning:", mountedFile, "does not exist"
+#	    elif cloneDir:
+#                (scheme, host, remoteFile, _, _) = urlsplit(entry.url)
+#		if host == "localhost":
+#		    host = remotehost
+#                localFile = os.path.basename(remoteFile)
+#		localFile = os.path.join(cloneDir, localFile)
+#                url = urlunsplit( (scheme, host, remoteFile, "", "") )
+#	        print "Retrieving %s => %s" % (url, localFile)
+#		copyFile(url, localFile)
+#            else:
+#                # no mounting, so print results
+#                print entry.description, entry.url
+#elif len(result) > 1:
+#    print "More than one search found:"
+#    for r in result:
+#        print "   ", str(r)
+#else:
+#    print "No search found"

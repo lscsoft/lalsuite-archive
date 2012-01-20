@@ -1,3 +1,40 @@
+python-glue (1.37) unstable; urgency=low
+
+  * Initial release of 1.37
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Wed, 16 Nov 2011 13:43:00 -0500
+
+python-glue (1.36-2.2+squeeze3) unstable; urgency=low
+
+  * 1.36 multi-package build for Squeeze
+  * more clean-ups
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Tue, 15 Nov 2011 16:45:00 +0100
+
+python-glue (1.36-1.1+squeeze2) unstable; urgency=low
+
+  * 1.36 build for Squeeze
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 27 Oct 2011 09:30:00 +0200
+
+python-glue (1.36) unstable; urgency=low
+
+  * Initial release of 1.36
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Mon, 10 Oct 2011 14:03:00 -0500
+
+python-glue (1.35) unstable; urgency=low
+
+  * Initial release of 1.35
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 7 Oct 2011 15:31:00 -0500
+
+python-glue (1.34) unstable; urgency=low
+
+  * Initial release of 1.34
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Wed, 29 Sep 2011 16:31:00 -0500
+
 python-glue (1.33) unstable; urgency=low
 
   * Initial release of 1.33

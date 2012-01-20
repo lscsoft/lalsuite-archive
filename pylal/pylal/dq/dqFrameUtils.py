@@ -1,11 +1,28 @@
 #!/usr/bin/env python
 
+# Copyright (C) 2011 Duncan Macleod
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 # =============================================================================
 # Preamble
 # =============================================================================
 
 from __future__ import division
-import re,os,sys,numpy,subprocess,datetime,shlex,urlparse,glob
+import re,os,sys,numpy,subprocess,datetime,shlex,urlparse,glob,fnmatch,\
+       httplib,cjson,copy
 from socket import getfqdn
 
 from glue import segments,git_version
@@ -14,6 +31,7 @@ from glue.lal import CacheEntry as LALCacheEntry
 
 from pylal import Fr,date
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.dq.dqDataUtils import make_external_call
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -23,171 +41,330 @@ __date__ = git_version.date
 This module provides frame manipulation routines for use in data quality investigations, and cache manipulation routines.
 """
 
-# =============================================================================
-# Execute shell command and get output
-# =============================================================================
-
-def make_external_call(cmd,shell=False):
-
-  """
-    Execute shell command and capture standard output and errors. 
-    Returns tuple "(stdout,stderr)".
-  """
-
-  if shell:
-    args=str(cmd)
-  else: 
-    args = shlex.split(str(cmd))
-
-  p = subprocess.Popen(args,shell=shell,\
-                       stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  p_out, p_err = p.communicate()
-
-  return p_out, p_err
-
 # ==============================================================================
 # Grab data from frames
 # ==============================================================================
 
-def grab_data(start,end,ifo,channel,type,\
-              nds=False,verbose=False,dmt=False):
+def fromframefile(filename, channel, start=None, end=None):
+
+  """
+    Extract 1D data for given channel from the GWF format frame filename.
+    Returns (x, data) pair of numpy arrays (x is array of times or frequencies.
+
+    Arguments:
+
+      filename : string
+        path to GWF frame file
+      channel : string
+        channel name to extract
+
+    Keyword arguments:
+
+      start : float
+        GPS start time (s) or minimum frequency (Hz) to return
+      end : float
+        GPS end time (s) or maximum frequency (Hz) to return
+  """
+
+  # try to extract data from frame
+  y, fstart, offset, dt = Fr.frgetvect1d(filename, str(channel))[:4]
+  x = fstart+dt*numpy.arange(len(y))+offset
+
+  # apply constraint on x-axis
+  if start or end:
+    if not start: start=-numpy.infty
+    if not end:   end=numpy.infty
+    condition = (x>=start) & (x<end)
+    y = y[condition]
+    x = x[condition]
+
+  return x,y
+
+def toframefile(filename, channel, data, start, dx, **frargs):
+
+  """
+    Write numpy array data to GWF frame file using the given arguments.
+
+    Arguments:
+
+      filename : string
+        name of file to write
+      channel : string
+        name of channel to write
+      data : numpy.array
+        array of data to write
+      start : float
+        GPS start time (s) or minimum frequency (Hz)
+      dx : float
+        GPS time step (s) or frequency step (Hz)
+
+    Unnamed arguments are held in frargs. For usage, see documentation for
+    pylal.Fr.frputvect.
+  """
+
+  datadict = frargs
+  datadict['name']  = channel
+  datadict['data']  = data
+  datadict['start'] = start
+  datadict['dx']    = dx
+
+  Fr.frputvect(filename, [datadict], verbose=False)
+
+def fromLALCache(cache, channel, start=None, end=None, verbose=False):
+
+  """
+    Extract data for given channel from glue.lal.Cache object cache. Returns 
+    (time, data) pair of numpy arrays.
+
+    Arguments:
+
+      cache : glue.lal.Cache
+        Cache list of frame files to read
+      channel : string
+        channel name to extract
+
+    Keyword arguments:
+
+      start : float
+        GPS start time (s) or minimum frequency (Hz) to return
+      end : float
+        GPS end time (s) or maximum frequency (Hz) to return
+  """
+
+  # initialise data
+  time = numpy.ndarray((1,0))
+  data = numpy.ndarray((1,0))
+
+  # set up counter
+  if verbose:
+    sys.stdout.write("Extracting data from %d frames...     " % len(cache))
+    sys.stdout.flush()
+    delete = '\b\b\b'
+    num = len(cache)/100
+
+  # loop over frames in cache
+  for i,frame in enumerate(cache):
+    # check for read access
+    if os.access(frame.path(), os.R_OK):
+      # get data
+      frtime, frdata = fromframefile(frame.path(), channel, start=start,\
+                                     end=end)
+      # resize array and extend
+      op = len(time[0])
+      np = len(frtime)
+      time.resize((1,op+np))
+      time[0][op:] = frtime
+      data.resize((1,op+np))
+      data[0][op:] = frdata
+
+      # print verbose message
+      if verbose and len(cache)>1:
+        progress = int((i+1)/num)
+        sys.stdout.write('%s%.2d%%' % (delete, progress))
+        sys.stdout.flush()
+
+    else:
+      raise RuntimeError("Cannot read frame\n%s" % frame.path())
+
+  if verbose: sys.stdout.write("\n")
+
+  return time[0], data[0]
+
+def grab_data(start, end, channel, type, nds=False, dmt=False, verbose=False):
 
   """
     This function will return the frame data for the given channel of the given
     type in the given [start,end] time range and will construct a gps time
-    vector to go with it. The nds option is not yet supported,
-    and the dmt option will return data for dmt channels in frames not found by 
-    ligo_data_find.
+    vector to go with it. The nds option is not yet supported, and the dmt
+    option will return data for dmt channels in frames not available on the
+    datafind server.
 
-    >>>grab_data(960000000,960000001,'H1','IFO-SV_STATE_VECTOR','H1_RDS_R_L3')
-    ([960000000.0,960000001.0,960000002.0,960000003.0,960000004.0,960000005.0],
-     [15.0, 14.125, 13.0, 13.0, 13.0, 13.0])
+    >>> grab_data(997315215, 997315225, 'G1:DER_DATA_QUALITY', 'G1_RDS_C01_L3')
+    (array([  9.97315215e+08,   9.97315216e+08,   9.97315217e+08,
+             9.97315218e+08,   9.97315219e+08,   9.97315220e+08,
+             9.97315221e+08,   9.97315222e+08,   9.97315223e+08,
+             9.97315224e+08]),
+     array([ 256.,  256.,  256.,  256.,  256.,  256.,  256.,  256.,  256.,
+             256.]))
+
+    Arguments:
+
+      start : float
+        GPS start time (s).
+      end : float
+        GPS end time (s).
+      channel : string
+        channel name to extract, e.g. 'G1:DER_DATA_H'.
+      type : string
+        frame data type to use, e.g. 'G1_RDS_C01_L3'.
+
+    Keyword arguments:
+
+      nds : [ True | False ]
+        use NDS connection to data server (UNSUPPORTED).
+      dmt : [ True | False ]
+        frame type is DMT product (DMT data not found by datafind server).
   """
 
   time = []
   data = []
 
-  # find FrCheck
-  frcheck,err = make_external_call('which FrCheck')
-  if err or not frcheck:
-    raise ValueError, "FrCheck not found."
-  frcheck = frcheck.replace('\n','')
-
   # generate framecache
-  if verbose:
-    print >>sys.stdout
-    print >>sys.stdout, "Generating framecache..."
-    sys.stdout.flush()
-
+  ifo = channel[0]
   if not dmt:
-    cache = generate_cache(start,end,ifo[0:1],type)
+    cache = get_cache(start, end, ifo, type, verbose=verbose)
   else:
-    cache = dmt_cache(start,end,ifo[0:1],type)
+    cache = dmt_cache(start, end, ifo, type)
 
-  # loop over frames in cache
-  for frame in cache:
-
-    # check for Segmentation fault
-    segtest = subprocess.Popen([frcheck, "-i", frame.path()],\
-                                 stdout=subprocess.PIPE )
-    if os.waitpid(segtest.pid,0)[1]==11:  
-      print >>sys.stderr, "Warning. Segmentation fault detected with command:"
-      print >>sys.stderr, "FrCheck -i "+frame.path()
-      continue
-    segtest.stdout.close()
-
-    # try to extract data from frame
-    frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d( frame.path(),\
-                                                     ':'.join([ ifo, channel ]))
-    if frame_data==[]:
-      print >>sys.stderr, "No data for %s:%s in %s" % (ifo,channel,frame)
-      continue
-
-    # construct time array
-    frame_time = data_start+dt*numpy.arange(len(frame_data))
-
-    # discard frame data outside of time span
-    for i in range(len(frame_data)):
-      if frame_time[i] <= start:  continue
-      if frame_time[i] >= end:  continue
-      time.append(frame_time[i])
-      data.append(frame_data[i])
+  time, data = fromLALCache(cache, channel, start=start, end=end,\
+                            verbose=verbose)
 
   return time,data
 
 # ==============================================================================
-# Generate framecache in memory given lists of ifos and types
+# Generate data cache
 # ==============================================================================
 
-def generate_cache(start,end,ifos,types,framecache=False):
+def get_cache(start, end, ifo, ftype, framecache=False, server=None,\
+              verbose=False):
 
   """
-    If framecache==False, this function will return a glue.lal.Cache as
-    found by ligo_data_find, otherwise if will return a
-    pylal.dq.dqFrameUtils.FrameCache, given start and end time, and lists of
-    ifos and types.
+    Queries the LSC datafind server and returns a glue.lal.Cache object
+    containing the frame file paths in the given GPS (start, end) interval
+    for the given ifo and type (can be lists).
+
+    framecache=True returns a pylal.dq.dqFrameUTils.FrameCache object in stead.
+
+    Arguments:
+
+      start : float
+        GPS start time (s).
+      end : float
+        GPS end time (s).
+      ifo : [ string | list ]
+        ifo (or list of) to find, e.g. 'G1'.
+      ftype : [ string | list ]
+        frame data type (or list of) to find, e.g. 'G1_RDS_C01_L3'.
+
   """
+
+  # set lists
+  if isinstance(ftype, str):
+    types = [ftype]
+  else:
+    types = ftype
+  if isinstance(ifo, str):
+    ifos = [ifo]
+  else:
+    ifos = ifo
 
   # construct span
-  span    = segments.segment(start,end)
+  span = segments.segment(start,end)
 
   # set options
-  if framecache:
-    cache = FrameCache()
-    entry_class = FrameCacheEntry
-    ldfopt = '--frame-cache'
+  cache = LALCache()
+  entry_class = LALCacheEntry
+
+  # try querying the ligo_data_find server
+  if not server:
+    server = _find_datafind_server()
+
+  if verbose: sys.stdout.write("Opening connection to %s...\n" % server)
+
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
   else:
-    cache = LALCache()
-    entry_class = LALCacheEntry
-    ldfopt = '--lal-cache'
+    port = None
 
-  # find ldf
-  exe,err = make_external_call('which ligo_data_find')
-  if err:
-    print >>sys.stderr, err
-  exe = os.path.abspath(exe.replace('\n',''))
+  cert, key = _get_grid_proxy()
 
-  # if given strings, make single-element lists
-  if isinstance(ifos,str):
-    ifos=[ifos]
-  if isinstance(types,str):
-    types=[types]
+  # if we have a credential then use it when setting up the connection
+  if cert and key and port!=80:
+    h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
+  else:
+    h = httplib.HTTPConnection(server)
 
-  # loop over each ifo
+  if verbose: sys.stdout.write("Querying server for frames...\n")
+
+  # loop over ifos and types
   for ifo in ifos:
-    # loop over each frame type
-    for type in types:
-      data_find_cmd = ' '.join([exe,'--gps-start-time',str(start),\
-                                    '--gps-end-time',str(end),\
-                                    '--observatory',ifo[0:1],\
-                                    '--type',type,\
-                                    '--url-type file',\
-                                    '--gaps',\
-                                    ldfopt])
+    for t in types:
+      # construct the URL for a simple data find query
+      url = "/LDR/services/data/v1/gwf/%s/%s/%s,%s/file.json" % (ifo[0], t,\
+                                                                 str(start),\
+                                                                 str(end))
+      # query the server
+      h.request("GET", url)
+      response = h.getresponse()
+      _verify_response(response)
+      # unravel the response
+      urlList = cjson.decode(response.read())
+      for url in urlList:
+        cache.append(entry_class.from_T050017(url))
 
-      # run ligo_data_find and append each frame to the cache
-      out,err = make_external_call(data_find_cmd,shell=True)
-      if err:
-        print >>sys.stderr, '\n'.join(err.splitlines())
+  # close the server connection
+  h.close()
+  if verbose: sys.stdout.write("Connection to %s closed.\n" % server)
 
-      for line in out.splitlines():
-        try:
-          e = entry_class(line)
-          if span.intersects(e.segment):
-            cache.append(e)
-        except ValueError:
-          print >>sys.stderr, 'Could not convert %s to %s'\
-                              % (filename,'.'.join([entry_class.__module__,\
-                                                    entry_class.__name__]))
+  # convert to FrameCache if needed
+  if framecache:
+    cache = LALCachetoFrameCache(cache)
 
-  cache.sort(key=lambda e: e.url)
   return cache
+
+# =============================================================================
+# Return latest frame for given type
+# =============================================================================
+
+def get_latest_frame(ifo, ftype):
+
+  """
+    Returns the latest frame available in the LSC datafind server for the given
+    ifo and frame type.
+
+    Arguments:
+
+      ifo : string
+        observatory to find
+      ftype : string
+        frame data type to find
+  """
+
+  url = '/LDR/services/data/v1/gwf/%s/%s/latest/file.json' % (ifo[0], ftype)
+  frame = query_datafind_server(url)
+
+  if isinstance(frame, list) and len(frame)==1:
+    return frame[0]
+  else:
+    return None
+
+# =============================================================================
+# Find ifos
+# =============================================================================
+
+def find_ifos():
+
+  """
+    Query the LSC datafind server and return a list of sites for which data
+    is available. Does not differentiate between H1 and H2.
+
+    Example:
+   
+    >>> find_ifos()
+    ['G', 'H', 'L', 'V']
+  """
+  query_url = "/LDR/services/data/v1/gwf.json"
+  reply = query_datafind_server(query_url)
+  if reply:
+    return [i for i in reply if len(i)==1]
+  else:
+    return []
 
 # =============================================================================
 # Find types
 # =============================================================================
 
-def find_types(types,search='standard'):
+def find_types(ifo=[], ftype=[], search='standard'):
 
   """
     This function will return a valid list of LIGO frame types given the list of
@@ -201,7 +378,7 @@ def find_types(types,search='standard'):
 
     Example:
 
-    >>>find_types('H1_RDS')
+    >>>find_types(ftype='H1_RDS')
     ['H1_RDS_C01_LX',
      'H1_RDS_C02_LX',
      'H1_RDS_C03_L1',
@@ -214,373 +391,247 @@ def find_types(types,search='standard'):
      'H1_RDS_R_L3',
      'H1_RDS_R_L4']
 
-    >>>find_types(['H1_RDS','R'],search='short')
+    >>>find_types(ftype=['H1_RDS','R'],search='short')
     ['H1_RDS_R_L1', 'H1_RDS_R_L3', 'H1_RDS_R_L4', 'R']
+
+    Keyword arguments:
+
+      ifo : [ string | list ]
+        ifo (or list of) to find, e.g. 'G1'.
+      ftype : [ string | list ]
+        frame data type (or list of) to find, e.g. 'G1_RDS_C01_L3'.
+      search : string
+        descriptor of how deep to search for frame type.
   """
 
   # make sure types is a list
-  if types is None:  types = []
-  if isinstance(types,str):  types = [types]
+  if isinstance(ftype, str):
+    types = [ftype]
+  else:
+    types = ftype
+  if isinstance(ifo, str):
+    ifos = [ifo]
+  else:
+    ifos = ifo
 
-  # find ldf
-  exe,err = make_external_call('which ligo_data_find')
-  if err:
-    print >>sys.stderr, err
-    return []
-  exe = os.path.abspath(exe.replace('\n',''))
-
-  # set up search command
-  find_cmd = ' '.join([exe,'-y'])
+  if not types:
+    types = None
 
   # treat 'R','M' and 'T' as special cases,
   special_types = ['M','R','T']
   foundtypes = []
 
-  # set list of ignored strings in `ligo_data_find -y`
   # there are thousands of GRBXXXXXX frame types, so ignore them
+  ignore = []
   if search!='full': 
-    iglist = ['GRB']
+    ignore.extend(['GRB'])
   if search=='short':
     # all of these strings are part of frame types that can be ignored for a
     # short search
-    short_iglist = ['CAL','BRST','Mon','SG','IMR','DuoTone','Concat',\
+    short_ignore = ['CAL','BRST','Mon','SG','IMR','DuoTone','Concat',\
                     'BH','WNB','Lock','_M','_S5','Multi','Noise','_C0']
-    iglist.extend(short_iglist)
+    ignore.extend(short_ignore)
+  ignore = '(%s)' % '|'.join(ignore)
 
-  types_out = subprocess.Popen([exe,'-y'],stdout=subprocess.PIPE)
-  for t in types_out.stdout.readlines():
-    t = t.replace('\n','')
-    ignore=False
-    for ig in iglist:
-      if re.search(ig,t):
-        ignore=True
-        break
-    if ignore:  continue
-    intypes=False
-    if not types:
-      # if no types have been specified, we find all types
-      foundtypes.append(t)
-    else:
-      # else look for special types
-      if t in types and t in special_types:
-        foundtypes.append(t)
-        continue
-      # look for everything else
-      for type in [tp for tp in types if tp not in special_types]:
-        if re.search(type,t):
-          foundtypes.append(t)
+  # set up server connection
+  server    = _find_datafind_server()
+  cert, key = _get_grid_proxy()
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
 
-  types_out.stdout.close()
+  if cert and key and port!=80:
+    h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
+  else:
+    h = httplib.HTTPConnection(server)
 
-  return foundtypes
+  # query for individual sites in datafind server
+  if not ifos:
+    query_url = "/LDR/services/data/v1/gwf.json"
+    h.request("GET", query_url)
+    response = h.getresponse()
+    _verify_response(response)
+    ifos = [i for i in cjson.decode(response.read()) if len(i)==1]
 
-# =============================================================================
-# Function to check ifos
-# =============================================================================
-
-#def find_ifos(channels,types,ifos):
-
-#  """
-#    Constructs an acceptable list of IFOs, parsing channel and frame data type
-#    names, and any given ifos.
-#
-#    Example:
-#
-#    >>>find_ifos([H1:LSC-DARM_ERR,H0:PEM-ISCT1_ACCZ],
-#                 [L1_RDS_R_L1],
-#                 [V1])
-#    [H0,H1,L1,V1]
-#  """
-
-#  accepted_ifos=['H','L','G','V','T',\
-#                 'H0','H1','H2',\
-#                 'L0','L1',\
-#                 'G0','G1',\
-#                 'V0','V1']
-#
-#  if isinstance(channels,str):
-#    channels = [channels]
-#  if isinstance(types,str):
-#    types = [types]
-#  if isinstance(ifos,str):
-#    ifos = [ifos]
-#
-#  # if given no ifos, try to generate a list from the channels given  
-#  if not ifos:
-#    ifos=[]
-#    if channels:
-#      for channel in channels:
-#        if channel.find(':')!=-1:
-#          ifo = channel.split(':')[0]
-#          if ifo in accepted_ifos and ifo not in ifos:
-#            ifos.append(ifo)
-#
-#    if types:
-#      for type in types:
-#        ifo = type[0:2]
-#        if ifo in accepted_ifos and ifo not in ifos:
-#          ifos.append(ifo)
-#
-#  return ifos
-
-# =============================================================================
-# Function to find channels
-# =============================================================================
-
-def find_channels(channels=None,\
-                  types=None,\
-                  ifos=None,\
-                  ex_channels=[],\
-                  ignore=[],\
-                  match=False,\
-                  time=None,\
-                  unique=False,\
-                  verbose=False):
-
-  """
-    This function will use FrChannels to return all LIGO data channels matching
-    the given list of 'channels' strings, whilst exluding the 'ex_channels'
-    strings. Using and find_types() in the same module (if required),
-    the search is performed over the given ifos for each given type.
-
-    Use match=True to restrict the search to find channels that
-    exactly match the given 'channels' list (i.e. not a partial match).
-      Use time=True to search for channels in frame types defined at the given
-    epoch.
-      Use unique=True to return a unique list of channels, parsed using the
-    parse_unique_channels() function, otherwise can return multiple instance of
-    the same name string in different types.
-
-    Returns a list of dqFrameUtils.Channel instances.
-
-    Examples:
-
-    >>>channels = find_channels(channels='DARM',types='H1_RDS_R_L1') 
-    >>>for channel in channels:
-         print channel.name,channel.type,channel.sampling
-    LSC-DARM_CTRL H1_RDS_R_L1 16384.0
-    LSC-DARM_ERR H1_RDS_R_L1 16384.0
-    LSC-DARM_CTRL_EXC_DAQ H1_RDS_R_L1 16384.0
-    LSC-DARM_GAIN H1_RDS_R_L1 16.0
-
-    >>>channels = find_channels(channels='DARM_ERR',types=['H1_RDS_R_L1','H1_RDS_R_L3'])
-    >>>for channel in channels:  print channel.name,channel.type,channel.sampling
-    LSC-DARM_ERR H1_RDS_R_L1 16384.0
-    LSC-DARM_ERR H1_RDS_R_L3 16384.0
+  # query for types for each ifo in turn
+  datafind_types = []
+  for ifo in ifos:
+    # find types from datafind server
+    query_url = "/LDR/services/data/v1/gwf/%s.json" % ifo[0]
+    h.request("GET", query_url)
+    response = h.getresponse()
+    _verify_response(response)
+    datafind_types.extend(cjson.decode(response.read()))
   
-    >>>channels = find_channels(channels='DARM_ERR',types=['H1_RDS_R_L1','H1_RDS_R_L3'],unique=True)
-    >>>for channel in channels:  print channel.name,channel.type,channel.sampling
-    LSC-DARM_ERR H1_RDS_R_L1 16384.0
-  """
- 
-  # find ldf
-  exe,err = make_external_call('which ligo_data_find')
-  if err:
-    print >>sys.stderr, err
-    return []
-  exe = os.path.abspath(exe.replace('\n',''))
+  # close connection
+  h.close()
 
-  # find FrCheck
-  frcheck,err = make_external_call('which FrCheck')
-  if err or not frcheck:
-    raise ValueError, "FrCheck not found."
-  frcheck = frcheck.replace('\n','')
+  # find special types first, otherwise they'll corrupt the general output
+  r = 0
+  for i,t in enumerate(datafind_types):
+    if (types==None and t in special_types) or\
+       (types!=None and t in types and t in special_types):
+      foundtypes.append(t)
+      datafind_types.pop(i-r)
+      if types is not None:
+        types.pop(types.index(t))
+      r+=1;
+      continue
+
+  # find everything else
+  for t in datafind_types:
+    if re.search(ignore, t):
+      continue
+    # if no types have been specified, return all
+    if types==None:
+      foundtypes.append(t)
+    # else check for a match
+    else:
+      if len(types)>=1 and re.search('(%s)' % '|'.join(types), t):
+        foundtypes.append(t)
+
+  foundtypes.sort()
+  types = []
+  for t in foundtypes:
+    if t not in types:  types.append(t)
+
+  return types
+
+# =============================================================================
+# Functions to find channels
+# =============================================================================
+
+def get_channels(framefile):
+
+  """
+    Extract the channels held in a frame file.
+  """
+
+  # get type
+  type = os.path.basename(framefile).split('-')[1]
+
+  # get channels contained in frame, grepping for input channel string
+  frchannels,err = make_external_call('FrChannels %s' % framefile)
+
+  channels = ChannelList()
+  for line in frchannels.splitlines():
+    name, samp = line.split()
+    channels.append(Channel(name, sampling=samp, type=type))
+
+  return channels
+
+def find_channels(name=[], ftype=[], ifo=[], not_name=[], not_ftype=[],\
+                  exact_match=False, time=None, unique=False):
+
+  """
+    Returns a ChannelList containing Channels for all data channels matching
+    the given attributes from frames matching the given GPS time (defaults to
+    now).
+
+    Keyword arguments:
+
+      name : [ string | list ]
+        channel name (or list of) to match in search. Can be part of name,
+        e.g. ['STRAIN', 'DARM_ERR']
+      ftype : [ string | list ]
+        frame data type (or list of) to find, e.g. 'G1_RDS_C01_L3'.
+      ifo : [ string | list ]
+        ifo (or list of) to find, e.g. 'G1'.
+      not_name : [ string | list ]
+        channel name (or list of) to negatively match in search. Can be part of
+        name, e.g. 'ETMY_EXC_DAQ'
+      not_ftype : [ string | list ]
+        frame data type (or list of) to remove from search.
+      exact_match : [ True | False]
+        require complete match with given name list, not just partial match.
+      time : float
+        GPS time to which to restrict search. Data transfer latency means that
+        the very latest data is not always available, best to give a 'recent'
+        time.
+      unique : [ True | False ]
+        return unique list of channels from different types (since the same
+        channel can exist in multiple types).
+  """
+
+  # check list status
+  if isinstance(name, str):      names = [name]
+  else:                          names = name
+  if isinstance(ftype, str):     types = [ftype]
+  else:                          types = ftype
+  if isinstance(ifo, str):      ifos  = [ifo]
+  else:                          ifos  = ifo
+  if isinstance(not_ftype, str): not_types = [not_ftype]
+  else:                          not_types = not_ftype
+  if isinstance(not_name, str): not_names = [not_name]
+  else:                          not_names = not_name
+
+  # find ifos
+  if not ifos:
+    ifos = find_ifos()
 
   # find types
   if not types:
-    types = find_types(types)
+    types = find_types(ifo=ifos, ftype=types)
 
-  # check list status
-  if isinstance(channels,str):
-    channels = [channels]
-  if isinstance(types,str):
-    types = [types]
-  if isinstance(ifos,str):
-    ifos = [ifos]
-  found_channels=[]
+  # remove types we don't want
+  if not_types:
+    if exact_match:
+      notmatch = re.compile("\A(%s)\Z" % '|'.join(not_types))
+    else:
+      notmatch = re.compile("(%s)" % '|'.join(not_types))
+    types = [t for t in types if not re.search(notmatch, t)]
+
+  channels = ChannelList()
 
   # loop over each ifo
   for ifo in ifos:
-    # set ligo_data_find frame search time
-    if time is None:
-      time = date.XLALUTCToGPS(datetime.datetime.now().timetuple())-(2*86400)
-    if verbose:
-      print_statement = \
-          "Searching %s frame types for " % len(types)
-      if channels:
-        print_statement += ', '.join(channels)
-      else:
-        print_statement += "all channels"
-      print_statement += ", in ifo %s" % ifo
-      print >>sys.stdout, print_statement
-
     for type in types:
-      count=0
-      # skip empty frame types or those set for ignorance
-      if type in ignore:  continue
-      if type == '':  continue
-
-      if verbose:
-        print >>sys.stdout, "  Searching "+str(type)+"...",
-      sys.stdout.flush()
+      frchannels  = ChannelList()
 
       # find first frame file for type
-      frame_cmd = ' '.join([exe,'--observatory',ifo[0:1],\
-                                '--type',type,\
-                                '--gps-start-time',str(time),\
-                                '--gps-end-time',str(time),\
-                                '--url-type','file',\
-                                '--gaps'])
-      out,err = make_external_call(frame_cmd,shell=True)
+      if time:
+        frame = get_cache(time, time, ifo, type)
+        if len(frame):
+          frame = frame[-1].path()
+      else:
+        frame = get_latest_frame(ifo, type)
 
-      if verbose and err: 
-        print >>sys.stderr, '%s...' % ('\n'.join(err.splitlines())),
-
-      frame=''
-      for line in out.splitlines():
-        if line.startswith('file://'):
-          frame = line
-          break
-
-      # if frame is found:
+      # if frames not found, move on
       if frame:
-        info = frame.split(' ')
-        frame = urlparse.urlparse(info[-1])[2]
+        frame = urlparse.urlparse(frame)[2]
+      else:
+        continue
 
-        # test frame for seg fault
-        segtest = subprocess.Popen([frcheck,"-i",frame],stdout=subprocess.PIPE)
-        if os.waitpid(segtest.pid,0)[1]==11:
-          if verbose:
-            print >>sys.stderr, "  Warning. Segmentation fault detected with "+\
-                                "command:"
-            print >>sys.stderr, "    FrCheck -i %s" % frame
-          continue
-        segtest.stdout.close()
+      # access frame
+      if os.access(frame, os.R_OK):
+        # get channels contained in frame, sieveing when necessary
+        allchannels = get_channels(frame)
+        # test ifo
+        allchannels = allchannels.sieve(ifo=ifo) 
 
-        # get channels contained in frame, grepping for input channel string
-        frchannels,err = make_external_call('FrChannels %s' % frame)
-        if err:
-          print >>sys.stderr, "  Failed to find channels for type %s," % (type),
-          print >>sys.stderr, "using the following frame\n%s" % (frame)
-          continue
+        # test names
+        if names:
+          for ch in names:
+            if re.match('%s\d:' % ifo[0], ch):
+              ch = ch.split(':',1)[1]
+            frchannels.extend(allchannels.sieve(name=ch,\
+                                                exact_match=exact_match))
+        else:
+          frchannels = allchannels
 
-        for line in frchannels.splitlines():
-          # check match with ifo
-          if not re.match(ifo,line):
-            continue
+        # test excluded names
+        for ch in not_names:
+          frchannels = frchannels.sieve(not_name=ch)
 
-          # split FrChannels output
-          name,sampling = line.split(' ')
-
-          # if channel matches any exlusion strings, skip it
-          if ['match' for exchan in ex_channels if re.search(exchan,name)]:
-            continue
-
-          # if asked for exact match, check:
-          if match and (name in channels):
-            pass
-          elif channels and\
-              not ['match' for ch in channels if re.match('%s\Z' % ch,name)]:
-            continue
-
-          # generate structure and append to list  
-          found_channel = Channel(name,type=type,sampling=sampling)
-          found_channels.append(found_channel)
-          count+=1
-          sys.stdout.flush()
-
-      # print channel count for data type
-      if verbose:  print >>sys.stdout, count,"channels found"
-    if verbose:  print >>sys.stdout
+      channels.extend(frchannels)
 
   if unique:
-    found_channels = parse_unique_channels(found_channels)
+    channels = channels.unique()
 
-  return found_channels
+  channels.sort(key=lambda c: str(c))
 
-# ==============================================================================
-# parse channels for uniqueness
-# ==============================================================================
-
-def parse_unique_channels(channels,type_order=None):
-
-  """
-    This function will parse a list of dqFrameUtils.Channel instances into a 
-    unique list based on the given type_order, or the internal default (based on
-    the S6 frame type convention), e.g for H1: 
-
-    type_order=[H1_RDS_R_L1,H1_RDS_R_L3,R]
-  
-    Multiple instances of the same channel name will be tried for each type in 
-    the order, if not matched the first instance will be chosen. This is an
-    attempt to maximise performance by picking frame types that contain the
-    least data.
-
-    Example:
-  
-    If the list 'channels' includes H1:LSC-DARM_ERR from both the 'R' and 
-    'H1_RDS_R_L3' frame types, the latter instance will be chosen.
-  """
-
-  # if given empty, return empty and hope user notices
-  if channels==[]:
-    return []
-
-  # set up type preference order
-  if type_order == None:
-    type_order = ['H1_RDS_R_L1','L1_RDS_R_L1','H2_RDS_R_L1','R','RDS_R_L1']
-  # sort channels by name
-  channels.sort(key=lambda ch: ch.name)
-  # set up loop variables
-  uniq_channels = []
-  channel_cluster = []
-  previous_channel = Channel('tmp',type='tmp',sampling=0)
-  # loop over channels
-  for channel in channels:
-    # if channel does not match previous channel, process previous cluster
-    if channel.name != previous_channel.name:
-      if channel_cluster!=[]:
-        chosen = False
-        # loop over types and channels to pick channel highest in type order
-        for type in type_order:
-          for element in channel_cluster:
-            if element.type==type:
-              chosen_channel = element
-              chosen = True
-              break
-          if chosen == True:  break
-        # if no channel found, take first in cluster
-        if chosen == False:
-          chosen_channel = channel_cluster[0]
-          chosen = True
-        # append chosen_channel to uniq channel list
-        uniq_channels.append(chosen_channel)
-      # reset the cluster to be the current working channel
-      channel_cluster = [channel]
-
-    # if channel name matches previous one, append to cluster
-    else:
-      channel_cluster.append(channel)
-    # update previous_channel indicator
-    previous_channel = channel
-
-  # when loop is complete, analyse the final remaining cluster
-  chosen = False
-  for type in type_order:
-    for element in channel_cluster:
-      if element.type==type:
-        chosen_channel = element
-        chosen = True
-        break
-    if chosen == True:  break
-  # if no channel found, take first in cluster
-  if chosen == False:
-    chosen_channel = channel_cluster[0]
-    chosen = True
-  # append final channel to uniq channel list
-  uniq_channels.append(chosen_channel)
-
-  return uniq_channels
+  return channels
 
 # ==============================================================================
 # Class to generate channel structure
@@ -588,34 +639,19 @@ def parse_unique_channels(channels,type_order=None):
 
 class Channel:
   """
-  The Channel class defines objects to represent LIGO data channels. Each Channel
-  has a 'name' attribute and can be assigned 'type' and 'sampling' attributes if
-  relevant.
+    The Channel class defines objects to represent LIGO data channels. Each
+    Channel has a 'name' attribute and can be assigned 'type' and 'sampling'
+    attributes if relevant.
 
-  Example:
+    Example:
 
-  >>>GWChannel = Channel('H1:LSC-DARM_ERR,'H1_RDS_R_L3',4096)
-  >>>GWChannel.name, GWChannel.type, GWChannel.sampling
-  ('H1:LSC-DARM_ERR', 'H1_RDS_R_L3', 4096)
+    >>>GWChannel = Channel('H1:LSC-DARM_ERR, 'H1_RDS_R_L3', 4096)
+    >>>GWChannel.name, GWChannel.type, GWChannel.sampling
+    ('H1:LSC-DARM_ERR', 'H1_RDS_R_L3', 4096)
   """
 
   def __init__(self,name,type=None,sampling=None):
-    """Initialise the dqFrameUtils.Channel object assuming the give name follows the standard convention:
-
-IFO:SYSTEM-SUBSYSTEM_SIGNAL
-
-For example:
-
-c = dqDataUtils.Channel('H1:LSC-DARM_ERR')
-
-will return
-
-c.ifo = 'H1'
-c.name = 'LSC-DARM_ERR'
-c.site = 'H'
-c.system = 'LSC'
-c.subsystem = 'DARM'
-c.signal = 'ERR'
+    """Initialise the Channel object.
     """
 
     attributes = ['ifo','site','name',\
@@ -631,6 +667,8 @@ c.signal = 'ERR'
       self.site                  = self.ifo[0]
     else:
       self.name = name
+      self.ifo  = ""
+      self.site = ""
 
     tags = re.split('[-_]',self.name,maxsplit=3)
 
@@ -638,23 +676,147 @@ c.signal = 'ERR'
 
     if len(tags)>1:
       self.subsystem = tags[1]
+    else:
+      self.subsystem = ""
 
     if len(tags)>2:
-      self.signal    = tags[2]
+      self.signal = tags[2]
+    else:
+      self.signal = ""
 
     if type:
       self.type = str(type)
+    else:
+      self.type = ""
 
     if sampling:
       self.sampling = float(sampling)
+    else:
+      self.sampling = 0
 
   def __getattribute__(self,name):
 
     return self.__dict__[name]
 
-  def __str__( self ):
+  def __str__(self):
 
-    return '%s:%s' % ( self.ifo, self.name )
+    return '%s:%s' % (self.ifo, self.name)
+
+class ChannelList(list):
+
+  """
+    Wrapper for a list of Channel objects, with helper functions.
+  """
+
+  def find(self, item):
+    """
+    Return the smallest i such that i is the index of an element that wholly
+    contains item.  Raises ValueError if no such element exists.
+    """
+    for i, seg in enumerate(self):
+      if item in seg:
+        return i
+    raise ValueError(item)
+
+  def sieve(self, ifo=None, name=None, type=None, sampling=None,\
+            sampling_range=None, not_name=None, exact_match=False):
+
+    """
+    Return a ChannelList object with those Channels that match the given
+    attributes If exact_match is True, then non-None ifo, name, and type
+    patterns must match exactly.
+
+    If sampling is given, it will always test an exact match.
+
+    If sampling_range is given, it will test for Channels with sampling in
+    [min,max) of range.
+
+    Bash-style wildcards (*?) are allowed for ifo, name and type.
+    """
+
+    if not exact_match:
+      if ifo is not None:      ifo      = "*%s*" % ifo
+      if name is not None:     name     = "*%s*" % name
+      if not_name is not None: not_name = "*%s*" % not_name
+
+    c = self
+    if ifo is not None:
+      ifo_regexp = re.compile(fnmatch.translate(ifo))
+      c = [entry for entry in c if ifo_regexp.match(entry.ifo) is not None]
+
+    if name is not None:
+      name_regexp = re.compile(fnmatch.translate(name))
+      c = [entry for entry in c if name_regexp.match(entry.name) is not None]
+
+    if not_name is not None:
+      name_regexp = re.compile(fnmatch.translate(not_name))
+      c = [entry for entry in c if name_regexp.match(entry.name) is None]
+
+
+    if sampling is not None:
+      c = [entry for entry in c if entry.sampling==sampling]
+
+    if sampling_range is not None:
+      c = [entry for entry in c if\
+           sampling_range[0] <= entry.sampling < sampling_range[1]]
+
+    return self.__class__(c)
+
+  def __isub__(self, other):
+    """
+    Remove elements from self that are in other.
+    """
+    end = len(self) - 1
+    for i, elem in enumerate(self[::-1]):
+      if elem in other:
+        del self[end - i]
+    return self
+
+  def __sub__(self, other):
+    """
+    Return a ChannelList containing the entries of self that are not in other.
+    """
+    return self.__class__([elem for elem in self if elem not in other])
+
+  def __ior__(self, other):
+    """
+    Append entries from other onto self without introducing (new) duplicates.
+    """
+    self.extend(other - self)
+    return self
+
+  def __or__(self, other):
+    """
+    Return a ChannelList containing all entries of self and other.
+    """
+    return self.__class__(self[:]).__ior__(other)
+
+  def __iand__(self, other):
+    """
+    Remove elements in self that are not in other.
+    """
+    end = len(self) - 1
+    for i, elem in enumerate(self[::-1]):
+      if elem not in other:
+        del self[end - i]
+    return self
+
+  def __and__(self, other):
+    """
+    Return a ChannelList containing the entries of self that are also in other.
+    """
+    return self.__class__([elem for elem in self if elem in other])
+
+  def unique(self):
+    """
+    Return a ChannelList which has every element of self, but without
+    duplication of channel name. Preserve order. Does not hash, so a bit slow.
+    """
+    new = self.__class__([])
+    for elem in self:
+      if str(elem) not in [str(e) for e in new]:
+        new.append(elem)
+    return new
 
 # ==============================================================================
 # Function to generate a framecache of /dmt types
@@ -715,9 +877,9 @@ def dmt_cache(start,end,ifo,type,framecache=False):
         e = entry_class.from_T050017(filename)
         if span.intersects(e.segment):  cache.append(e)
       except ValueError:
-        print >>sys.stderr, 'Could not convert %s to %s'\
-                            % (filename,'.'.join([entry_class.__module__,\
-                                                    entry_class.__name__]))
+        sys.stderr.write("Could not convert %s to %s\n"\
+                         % (filename,'.'.join([entry_class.__module__,\
+                                               entry_class.__name__])))
 
   return cache
 
@@ -780,8 +942,8 @@ class FrameCacheEntry(LALCacheEntry):
       try:
         match = match.groupdict()
       except AttributeError:
-        raise ValueError, "could not convert %s to FrameCacheEntry"\
-                          % repr(args[0])
+        raise ValueError("could not convert %s to FrameCacheEntry"\
+                         % repr(args[0]))
       self.observatory = match["obs"]
       self.description = match["dsc"]
       start            = match["strt"]
@@ -796,16 +958,17 @@ class FrameCacheEntry(LALCacheEntry):
       self.url = match["url"]
 
       if kwargs:
-        raise TypeError, "unrecognized keyword arguments: %s" % ", ".join(kwargs)
+        raise TypeError("unrecognized keyword arguments: %s"\
+                        % ", ".join(kwargs))
     elif len(args) == 5:
       # parse arguments as observatory, description,
       # segment, duration, url
       if kwargs:
-        raise TypeError, "invalid arguments: %s" % ", ".join(kwargs)
+        raise TypeError("invalid arguments: %s" % ", ".join(kwargs))
       self.observatory, self.description, self.segment, self.duration, self.url\
           = args
     else:
-      raise TypeError, "invalid arguments: %s" % args
+      raise TypeError("invalid arguments: %s" % args)
 
     # "-" indicates an empty column
     if self.observatory == "-":
@@ -834,18 +997,21 @@ class FrameCacheEntry(LALCacheEntry):
     description, then segment, then duration, then URL.
     """
     if type(other) != FrameCacheEntry:
-      raise TypeError, "can only compare FrameCacheEntry to FrameCacheEntry"
-    return cmp((self.observatory, self.description, self.segment, self.duration, self.url), (other.observatory, other.description, other.segment, other.duration, other.url))
+      raise TypeError("can only compare FrameCacheEntry to FrameCacheEntry)")
+    return cmp((self.observatory, self.description, self.segment,\
+                self.duration, self.url), \
+               (other.observatory, other.description, other.segment,\
+                other.duration, other.url))
 
   def get_files(self):
     """
     Return Find all files described by this FrameCacheEntry.
     """
 
-    filenames = glob.glob( os.path.join( self.path(),\
-                                         '%s-%s*-%s.*' % ( self.observatory,\
+    filenames = glob.glob(os.path.join(self.path(),\
+                                         '%s-%s*-%s.*' % (self.observatory,\
                                                            self.description,\
-                                                           self.duration ) ) )
+                                                           self.duration)))
     cache = [e.path() for e in\
                  LALCache([LALCacheEntry.from_T050017(f) for f in filenames])\
              if e.observatory==self.observatory and\
@@ -866,7 +1032,7 @@ class FrameCacheEntry(LALCacheEntry):
     """      
     match = cls._url_regex.search(url)      
     if not match:      
-            raise ValueError, "could not convert %s to CacheEntry" % repr(url)      
+            raise ValueError("could not convert %s to CacheEntry" % repr(url))      
     observatory = match.group("obs")      
     description = match.group("dsc")      
     start = match.group("strt")      
@@ -936,7 +1102,7 @@ class FrameCache(LALCache):
       c.extend(e.get_files())
     return c
 
-def FrameCachetoLALCache( fcache ):
+def FrameCachetoLALCache(fcache):
 
   lcache = LALCache()
 
@@ -947,50 +1113,133 @@ def FrameCachetoLALCache( fcache ):
   
   return lcache
 
-def LALCachetoFrameCache( lcache ):
+def LALCachetoFrameCache(lcache):
 
-  lcache.sort( key=lambda e: (e.path(),e.segment[0]) )
-
+  lcache.sort(key=lambda e: (e.path(),e.segment[0]))
   fcache = FrameCache()
 
   for e in lcache:
-
     matched = False
-
     dir = os.path.split(e.path())[0]
 
     # if path found in FrameCache try to coalesce with other entries
     dirs = [d.path() for d in fcache]
-
     if dir in dirs:
-
       pathentries = [fe for fe in fcache if fe.path()==dir]
-
       # test current entry against other entries for the same path in the
       # new cache
-      for i,pe in enumerate( pathentries ):
-
+      for i,pe in enumerate(pathentries):
         notdisjoint = e.segment[0] <= pe.segment[1]
-
         # if entries match in directory, duration, and are contiguous, append
         if pe.path()==os.path.split(e.path())[0]\
              and e.segment.__abs__() == pe.duration\
              and notdisjoint:
-          seg = segments.segment( min(pe.segment[0], e.segment[0]),\
-                                  max(pe.segment[1], e.segment[1]) )
-          fcache[i].segment = seg
-
+          seg = segments.segment(min(pe.segment[0], e.segment[0]),\
+                                  max(pe.segment[1], e.segment[1]))
+          fcache[fcache.index(pe)].segment = seg
           matched = True
           break
 
       # if we haven't matched the entry to anything already in the cache add now
       if not matched:
-        fe = FrameCacheEntry.from_T050017( e.path() )
+        fe = FrameCacheEntry.from_T050017(e.path())
         fcache.append(fe)
 
     # if from a new directory add
     else:
-      fe = FrameCacheEntry.from_T050017( e.path() )
+      fe = FrameCacheEntry.from_T050017(e.path())
       fcache.append(fe)
 
   return fcache
+
+# =============================================================================
+# Query the LSC Datafind Server
+# =============================================================================
+
+def query_datafind_server(url, server=None):
+
+  # try querying the ligo_data_find server
+  if not server:
+    server = _find_datafind_server()
+  if re.search(':', server):
+    port = int(server.split(':')[-1])
+  else:
+    port = None
+
+  cert, key = _get_grid_proxy()
+  # if we have a credential then use it when setting up the connection
+  if cert and key and port!=80:
+    h = httplib.HTTPSConnection(server, key_file=key, cert_file=cert)
+  else:
+    h = httplib.HTTPConnection(server)
+
+  # query the server
+  h.request("GET", url)
+  response = h.getresponse()
+  _verify_response(response)
+
+  # since status is 200 OK read the types
+  body = response.read()
+  h.close()
+  if body == "":
+    return None
+  if url.endswith('json'):
+    return cjson.decode(body)
+  else:
+    return body.splitlines()
+
+def _get_grid_proxy():
+
+  """
+    Returns paths for X509 certificate and proxy if available.
+  """
+
+  # try and get a proxy or certificate
+  # FIXME this doesn't check that it is valid, though
+  cert = None
+  key = None
+  try:
+    proxy = os.environ['X509_USER_PROXY']
+    cert = proxy
+    key = proxy
+  except:
+    try:
+      cert = os.environ['X509_USER_CERT']
+      key = os.environ['X509_USER_KEY']
+    except:
+      uid = os.getuid()
+      proxy_path = "/tmp/x509up_u%d" % uid
+      if os.access(path, os.R_OK):
+        cert = proxy_path
+        key = proxy_path
+
+  return cert, key
+
+def _verify_response(HTTPresponse):
+
+  """
+    Test response of the server to the query and raise the relevant exception
+    if necessary.
+  """
+
+  if HTTPresponse.status != 200:
+    msg = "Server returned code %d: %s" % (HTTPresponse.status,\
+                                           HTTPresponse.reason)
+    body = HTTPresponse.read()
+    msg += body
+    raise RuntimeError(msg)
+
+def _find_datafind_server():
+
+  """
+    Find the LSC datafind server from the LIGO_DATAFIND_SERVER environment
+    variable and raise exception if not found
+  """
+
+  var = 'LIGO_DATAFIND_SERVER'
+  try:
+    server = os.environ[var]
+  except KeyError:
+    raise RuntimeError("Environment variable %s is not set" % var)
+
+  return server

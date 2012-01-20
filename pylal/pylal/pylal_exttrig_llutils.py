@@ -42,7 +42,7 @@ template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --overwrite-dir"
 
 # list of used IFOs
-basic_ifolist = ['H1','L1','V1']
+basic_ifolist = ['H1','H2','L1','V1']
 
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
@@ -1880,7 +1880,7 @@ class GRB(object):
     for ifo in basic_ifolist:
 
       # create common cache-file names
-      output_location = '%s/%s-DATA-%9d-%9d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
+      output_location = '%s/%s-DATA-%10d-%10d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
 
       # decide: should I use online data (deleted after a month or so)
       # or do I require offline data? That changes everything...
