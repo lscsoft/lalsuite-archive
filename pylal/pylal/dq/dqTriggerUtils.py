@@ -1251,7 +1251,7 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 # Get coincidences between two tables
 # =============================================================================
 
-def get_coincs(table1, table2, dt=1):
+def get_coincs(table1, table2, dt=1, returnsegs=False):
 
   """
     Returns the table of those entries in table1 whose time is within +-dt of
@@ -1269,7 +1269,10 @@ def get_coincs(table1, table2, dt=1):
   coinctrigs = table.new_from_template(table1)
   coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
 
-  return coinctrigs
+  if returnsegs:
+    return coinctrigs,coincsegs
+  else:
+    return coinctrigs
 
 # ==============================================================================
 # Calculate poisson significance of coincidences
@@ -1294,7 +1297,8 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers = get_coincs(gwtriggers, auxtriggers, dt=window)
+  coinctriggers, coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                             returnsegs=True)
 
   g = special.gammainc(len(coinctriggers), mu)
 
@@ -1408,3 +1412,29 @@ def vetoed(self, seglist):
   """
 
   return veto(self, seglist, inverse=True)
+
+# ==============================================================================
+# Time shift trigger table
+# ==============================================================================
+
+def time_shift(lsctable, dt=1):
+
+  """
+    Time shift lsctable by time dt.
+  """
+
+  out = table.new_from_template(lsctable)
+  get_time = def_get_time(lsctable.tableName)
+
+  for t in lsctable:
+    t2 = copy.deepcopy(t)
+    if re.search('inspiral', lsctable.tableName, re.I):
+      t2.set_end(t2.get_end()+dt)
+    elif re.search('burst', lsctable.tableName, re.I):
+      t2.set_peak(t2.get_peak()+dt)
+    elif re.search('ringdown', lsctable.tableName, re.I):
+      t2.set_start(t2.get_start()+dt)
+    out.append(t2)
+
+  return out
+
