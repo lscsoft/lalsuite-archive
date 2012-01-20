@@ -569,7 +569,7 @@ int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInf
 	double m1 = flatPrior(Cube[i], min, max);
 	double m2 = flatPrior(Cube[i+1], min, max);
 	if(m1<m2) {
-		temp = m2;
+		double temp = m2;
 		m2 = m1;
 		m1 = temp;
 	}
