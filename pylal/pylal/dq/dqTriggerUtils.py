@@ -705,7 +705,7 @@ def fromLALCache(cache, etg, start=None, end=None, verbose=False):
       sys.stdout.write('%s%.2d%%' % (delete, progress))
       sys.stdout.flush()
 
-    
+  if verbose: sys.stdout.write("\n")  
   return trigs
 
 # =============================================================================
@@ -1251,7 +1251,7 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 # Get coincidences between two tables
 # =============================================================================
 
-def get_coincs(table1, table2, dt=1):
+def get_coincs(table1, table2, dt=1, returnsegs=False):
 
   """
     Returns the table of those entries in table1 whose time is within +-dt of
@@ -1269,7 +1269,10 @@ def get_coincs(table1, table2, dt=1):
   coinctrigs = table.new_from_template(table1)
   coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
 
-  return coinctrigs
+  if returnsegs:
+    return coinctrigs,coincsegs
+  else:
+    return coinctrigs
 
 # ==============================================================================
 # Calculate poisson significance of coincidences
@@ -1294,7 +1297,8 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers = get_coincs(gwtriggers, auxtriggers, dt=window)
+  coinctriggers, coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                             returnsegs=True)
 
   g = special.gammainc(len(coinctriggers), mu)
 
@@ -1348,4 +1352,89 @@ def get_column(lsctable, column):
            numpy.asarray(lsctable.getColumnByName('%s_ns' % tcol))*10**-9
 
   return numpy.asarray(lsctable.getColumnByName(column))
+
+def get(self, parameter):
+
+  """
+    Extract parameter from given ligolw table row object. 
+  """
+
+  # format
+  parameter = parameter.lower()
+
+  obj_type = type(self)
+
+  # if there's a 'get_' function, use it
+  if hasattr(self, 'get_%s' % parameter):
+    return getattr(self, 'get_%s' % parameter)()
+
+  # treat 'time' as a special case
+  elif parameter == 'time'\
+  and re.search('(burst|inspiral|ringdown)', obj_type, re.I):
+    if re.search('burst', obj_type):
+      tcol = 'peak_time'
+    elif re.search('inspiral', obj_type):
+      tcol = 'end_time'
+    elif re.search('ringdown', obj_type):
+      tcol = 'start_time'
+    return LIGOTimeGPS(getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9)
+
+  else:
+   return getattr(self, parameter)
+
+# =============================================================================
+# Veto triggers from a ligolw table
+# =============================================================================
+
+def veto(self, seglist, inverse=False):
+
+  """
+    Returns a ligolw table of those triggers outwith the given seglist.
+    If inverse=True is given, the opposite is returned, i.e. those triggers
+    within the given seglist.
+  """
+
+  get_time = def_get_time(self.tableName)
+
+  keep = table.new_from_template(self)
+  if inverse:
+    keep.extend(t for t in self if float(get_time(t)) in seglist)
+  else:
+    keep.extend(t for t in self if float(get_time(t)) not in seglist)
+
+  return keep
+
+def vetoed(self, seglist):
+
+  """
+    Returns the opposite of veto, i.e. those triggers that lie within the given
+    seglist.
+  """
+
+  return veto(self, seglist, inverse=True)
+
+# ==============================================================================
+# Time shift trigger table
+# ==============================================================================
+
+def time_shift(lsctable, dt=1):
+
+  """
+    Time shift lsctable by time dt.
+  """
+
+  out = table.new_from_template(lsctable)
+  get_time = def_get_time(lsctable.tableName)
+
+  for t in lsctable:
+    t2 = copy.deepcopy(t)
+    if re.search('inspiral', lsctable.tableName, re.I):
+      t2.set_end(t2.get_end()+dt)
+    elif re.search('burst', lsctable.tableName, re.I):
+      t2.set_peak(t2.get_peak()+dt)
+    elif re.search('ringdown', lsctable.tableName, re.I):
+      t2.set_start(t2.get_start()+dt)
+    out.append(t2)
+
+  return out
 

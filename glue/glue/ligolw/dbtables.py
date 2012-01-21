@@ -557,6 +557,7 @@ def idmap_get_max_id(connection, id_class):
 	cursor = connection.cursor()
 	cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name))
 	maxid = cursor.fetchone()[0]
+	cursor.close()
 	if maxid is None:
 		return None
 	return id_class(maxid)

@@ -626,16 +626,11 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.2f$"\
                                                         % numpy.power(base, x))
     elif log:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%f$"\
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
                                                         % numpy.power(base, x))
-    elif not log and cmax-cmin > 4:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                      x>=1 and "$%d$" % round(x) or\
-                      x>=0.01 and "$%.2f$" % x or\
-                      x==0.0 and "$0$" or\
-                      x and "$%f$")
     else:
-      formatter = None
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
+                                                        % x)
 
     if clim:
       colorticks = numpy.linspace(cmin, cmax, 4)
@@ -753,6 +748,14 @@ class DetCharScatterPlot(ColorbarScatterPlot):
 # Extension of VerticalBarHistogram to include log axes
 
 class VerticalBarHistogram(plotutils.VerticalBarHistogram):
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets = []
+    self.kwarg_sets = []
 
   @plotutils.method_callable_once
   def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
@@ -1081,16 +1084,42 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     kwargs.setdefault('linewidth', 0)
     kwargs.pop('linestyle', ' ')
 
+  # get uniq data sets that aren't errors
+  allchannels = []
+  channels    = []
+  for i,(c,_,_) in enumerate(data):
+    allchannels.append(c)
+    if not re.search('(min|max)\Z', str(c)):
+      channels.append((i,c))
+
   # add data
-  for channel,x_data,y_data in data:
+  for i,c in channels:
+    x_data,y_data = data[i][1:]
     if x_format=='time':
-      x_data = gps2datenum(numpy.array(map(float, x_data)))
-    lab = str(channel)
+      x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+    lab = str(c)
     if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
   plot.finalize(logx=logx, logy=logy, loc=loc)
+
+  # plot errors
+  for (i,channel),c in itertools.izip(channels, plotutils.default_colors()):
+    try:
+      minidx = allchannels.index('%s_min' % str(channel))
+      maxidx = allchannels.index('%s_max' % str(channel))
+    except ValueError:
+      continue
+    y = []
+    for idx in [minidx,maxidx]:
+      x_data,y_data = data[idx][1:]
+      y.append(y_data)
+      if x_format=='time':
+        x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+      l = float(kwargs.pop('linewidth', 1))/2
+      plot.ax.plot(x_data, y_data, color=c, linewidth=l, **kwargs)
+    plot.ax.fill_between(x_data, y[1], y[0], color=c, alpha=0.25)
 
   # set axes
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -1211,7 +1240,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 
   # get data
   tdata    = get_column(triggers, 'time')
-  preData  = map(float, get_column(triggers, column))
+  preData  = get_column(triggers, column).astype(float)
   postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
 
   # get veto livetime
@@ -1823,6 +1852,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   xlabel = kwargs.pop('xlabel', 'Length of segment (seconds)')
   ylabel = kwargs.pop('ylabel', 'Number of segments')
   title  = kwargs.pop('title',  'Segment Duration Histogram')
+  subtitle = kwargs.pop('subtitle', "")
 
   # get axis scale
   logx = kwargs.pop('logx', False)
@@ -1842,7 +1872,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   flags = sorted(segs.keys())
 
   # generate plot object
-  plot = VerticalBarHistogram(xlabel, ylabel, title)
+  plot = VerticalBarHistogram(xlabel, ylabel, title, subtitle)
 
   # add each segmentlist
   for flag,c in zip(flags, plotutils.default_colors()):
@@ -2325,31 +2355,34 @@ def parse_plot_config(cp, section):
         True / False to plot log scale on z-axis
   """
 
-  columns = {}
+  columns = {'xcolumn':None, 'ycolumn':None, 'zcolumn':None}
   params  = {}
 
   plot = re.split('[\s-]', section)[1:]
-  if len(plot)>=2:
+  if len(plot)>=1:
     columns['xcolumn'] = plot[0]
+  if len(plot)>=2:
     columns['ycolumn'] = plot[1]
   if len(plot)>2:
     columns['zcolumn'] = plot[2]
-  else:
-    columns['zcolumn'] = None
 
   limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
   filters  = ['poles', 'zeros']
+  bins     = ['bins']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
-              'greyscale', 'zeroindicator']
-  values   = ['dcthresh','amplitude']
+              'greyscale', 'zeroindicator', 'normalized', 'include_downtime']
+  values   = ['dcthresh','amplitude','num_bins']
 
   # extract plot params as a dict
   params = {}
   for key,val in cp.items(section):
+    val = val.rstrip('"').strip('"')
     if key in limits:
       params[key] = map(float, val.split(','))
     elif key in filters:
       params[key] = map(complex, val.split(','))
+    elif key in bins:
+       params[key] = map(lambda p: map(float, p.split(',')), val.split(';'))
     elif key in booleans:
       params[key] = cp.getboolean(section, key)
     elif key in values:
@@ -2364,7 +2397,7 @@ def parse_plot_config(cp, section):
 
 def plot_color_map(data, outfile, data_limits=None, x_format='time',\
                    y_format='frequency', z_format='amplitude', zero=None,\
-                   **kwargs):
+                   x_range=None, y_range=None, **kwargs):
 
   """
     Plots data in a 2d color map.
@@ -2413,19 +2446,23 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
     if logx and xlim:
       shape = numpy.shape(data)
       xmin, xmax = data_limits[0], data_limits[1]
-      xspan = numpy.logspace(numpy.log10(xmin),numpy.log10(xmax), num.shape[-1])
-      condition = (xspan>xlim[0]) & (xspan<=xlim[1])
+      if x_range==None:
+        x_range = numpy.logspace(numpy.log10(xmin), numpy.log10(xmax),\
+                               num.shape[-1])
+      condition = (x_range>xlim[0]) & (x_range<=xlim[1])
       newx = numpy.where(condition)[0]
       data2 = numpy.resize(data, (len(newx), shape[-2]))
       for j in xrange(newx):
         data2[:,j] = data[newx[j],:]
       data = data2.transpose()
-      
+
     if logy and ylim:
       shape = numpy.shape(data)
       ymin, ymax = data_limits[2], data_limits[3]
-      yspan = numpy.logspace(numpy.log10(ymin),numpy.log10(ymax), num=shape[-2])
-      condition = (yspan>ylim[0]) & (yspan<=ylim[1])
+      if y_range==None:
+        y_range = numpy.logspace(numpy.log10(ymin), numpy.log10(ymax),\
+                               num=shape[-2])
+      condition = (y_range>ylim[0]) & (y_range<=ylim[1])
       newy  = numpy.where((condition))[0]
       data2 = numpy.resize(data, (len(newy), shape[-1]))
       for j in xrange(shape[-1]):
