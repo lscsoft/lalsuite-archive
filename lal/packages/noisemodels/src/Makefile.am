@@ -14,9 +14,5 @@ LALAdvLIGOPsd.c\
 LALAdvVIRGOPsd.c\
 LALETBPsd.c
 INCLUDES = -I$(top_builddir)/include
-MOSTLYCLEANFILES = .dvi-dep
-DISTCLEANFILES = *.tex
-dvi-local: .dvi-dep
-
-
-@DVIMKFILE@
+MOSTLYCLEANFILES =
+DISTCLEANFILES =

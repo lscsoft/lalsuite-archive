@@ -17,64 +17,22 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-/**** <lalVerbatim file="FrameSeriesCV">
- * Author: Jolien D. E. Creighton
- * $Id$
- **** </lalVerbatim> */
-
-/**** <lalLaTeX>
+/**
+ * \author Jolien D. E. Creighton
+ * \file
  *
- * \subsection{Module \texttt{FrameSeries.c}}
+ * \heading{Module \ref FrameSeries.c}
  *
  * These routines are used to read/write time series data from/to frame files.
  *
- * \subsubsection*{Prototypes}
- * \input{FrameSeriesCP}
- * \idx{LALFrGetINT2TimeSeries}
- * \idx{LALFrGetINT2TimeSeriesMetadata}
- * \idx{LALFrGetINT4TimeSeries}
- * \idx{LALFrGetINT4TimeSeriesMetadata}
- * \idx{LALFrGetINT8TimeSeries}
- * \idx{LALFrGetINT8TimeSeriesMetadata}
- * \idx{LALFrGetREAL4TimeSeries}
- * \idx{LALFrGetREAL4TimeSeriesMetadata}
- * \idx{LALFrGetREAL8TimeSeries}
- * \idx{LALFrGetREAL8TimeSeriesMetadata}
- * \idx{LALFrGetCOMPLEX8TimeSeries}
- * \idx{LALFrGetCOMPLEX8TimeSeriesMetadata}
- * \idx{LALFrGetCOMPLEX16TimeSeries}
- * \idx{LALFrGetCOMPLEX16TimeSeriesMetadata}
- * \idx{LALFrGetINT2FrequencySeries}
- * \idx{LALFrGetINT2FrequencySeriesMetadata}
- * \idx{LALFrGetINT4FrequencySeries}
- * \idx{LALFrGetINT4FrequencySeriesMetadata}
- * \idx{LALFrGetINT8FrequencySeries}
- * \idx{LALFrGetINT8FrequencySeriesMetadata}
- * \idx{LALFrGetREAL4FrequencySeries}
- * \idx{LALFrGetREAL4FrequencySeriesMetadata}
- * \idx{LALFrGetREAL8FrequencySeries}
- * \idx{LALFrGetREAL8FrequencySeriesMetadata}
- * \idx{LALFrGetCOMPLEX8FrequencySeries}
- * \idx{LALFrGetCOMPLEX8FrequencySeriesMetadata}
- * \idx{LALFrGetCOMPLEX16FrequencySeries}
- * \idx{LALFrGetCOMPLEX16FrequencySeriesMetadata}
- * \idx{LALFrWriteINT2TimeSeries}
- * \idx{LALFrWriteINT4TimeSeries}
- * \idx{LALFrWriteINT8TimeSeries}
- * \idx{LALFrWriteREAL4TimeSeries}
- * \idx{LALFrWriteREAL8TimeSeries}
- * \idx{LALFrWriteCOMPLEX8TimeSeries}
- * \idx{LALFrWriteCOMPLEX16TimeSeries}
- * \idx{LALFrGetTimeSeriesType}
- *
- * \subsubsection*{Description}
+ * \heading{Description}
  *
  * The routines
- * \texttt{LALFrGet}$\langle\mbox{datatype}\rangle$\texttt{TimeSeries()}
+ * \c LALFrGet\f$\langle\mbox{datatype}\rangle\f$<tt>TimeSeries()</tt>
  * search the frame for a specified channel.  If the time series supplied has
  * data storage allocated, then the specified amount of data is filled from
  * the frame stream.  If no space has been allocated (so that the data field
- * is \texttt{NULL}), then only the channel information is returned in the
+ * is \c NULL), then only the channel information is returned in the
  * time series (e.g., the start time of the next data and the time step size).
  *
  * Because it is good coding practice to not tinker directly with the innards
@@ -82,31 +40,28 @@
  * whereby the time series reading functions do useful things when part of the
  * time series structures passed into them is not initialized.  To address
  * this, the routines
- * \texttt{LALFrGet}$\langle\mbox{datatype}\rangle$\texttt{TimeSeriesMetadata()}
+ * \c LALFrGet\f$\langle\mbox{datatype}\rangle\f$<tt>TimeSeriesMetadata()</tt>
  * are provided.  These routines accept a fully initialized time series
  * structure, and poplulate only the metadata from the frame stream.  New code
- * should be written to use \emph{these} functions when only the time series
+ * should be written to use \e these functions when only the time series
  * meta data is desired.
  *
- * The routine \texttt{LALFrGetTimeSeriesType} returns the type of the time
+ * The routine \c LALFrGetTimeSeriesType returns the type of the time
  * series corresponding to the specified channel.  This is needed if it is not
  * known in advance what type of data is stored in the channel.
  *
  * The routines
- * \texttt{LALFrWrite}$\langle\mbox{datatype}\rangle$\texttt{TimeSeries()}
+ * \c LALFrWrite\f$\langle\mbox{datatype}\rangle\f$<tt>TimeSeries()</tt>
  * outputs a given time series as a new frame file with the filename
- * $\langle\mbox{source}\rangle$\verb+-+$\langle\mbox{description}\rangle$%
- * \verb+-+$\langle\mbox{GPS-seconds}\rangle$\verb+-+%
- * $\langle\mbox{duration}\rangle$\verb+.gwf+
+ * \f$\langle\mbox{source}\rangle\f$<tt>-</tt>\f$\langle\mbox{description}\rangle\f$%
+ * <tt>-</tt>\f$\langle\mbox{GPS-seconds}\rangle\f$<tt>-</tt>%
+ * \f$\langle\mbox{duration}\rangle\f$<tt>.gwf</tt>
  * where source and description are the specified frame source and description
  * identifiers, GPS-seconds is the start time of the data in
  * seconds since 0h UTC 6 Jan 1980 (GPS time origin), or the nearest second
  * before the start of the data, and duration is the number of seconds between
  * value of GPS-seconds and the GPS end time of the data, rounded up.
- *
- * \vfill{\footnotesize\input{FrameSeriesCV}}
- *
- **** </lalLaTeX> */
+ */
 
 
 int rename( const char *from, const char *to );
@@ -412,7 +367,6 @@ static FrVect * FrVectReadInfo( FrFile *iFile, FRULONG *pos )
 
 LALTYPECODE XLALFrGetTimeSeriesType( const char *channel, FrStream *stream )
 {
-  static const char func[] = "XLALFrGetTimeSeriesType";
   FrChanType chantype;
   FrTOCts    *ts   = NULL;
   FrProcData *proc = NULL;
@@ -421,20 +375,20 @@ LALTYPECODE XLALFrGetTimeSeriesType( const char *channel, FrStream *stream )
   int type = -1;
 
   if ( ! channel || ! stream )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( stream->state & LAL_FR_ERR )
-    XLAL_ERROR( func, XLAL_EIO );
+    XLAL_ERROR( XLAL_EIO );
   if ( stream->state & LAL_FR_END )
-    XLAL_ERROR( func, XLAL_EIO );
+    XLAL_ERROR( XLAL_EIO );
 
   if ( ! stream->file->toc )
   {
     if ( FrTOCReadFull( stream->file ) == NULL )
     {
       XLALPrintError( "XLAL Error - %s: could not open frame TOC %s\n",
-          func, stream->file );
+          __func__, stream->file );
       stream->state |= LAL_FR_ERR | LAL_FR_TOC;
-      XLAL_ERROR( func, XLAL_EIO );
+      XLAL_ERROR( XLAL_EIO );
     }
   }
 
@@ -523,10 +477,10 @@ LALTYPECODE XLALFrGetTimeSeriesType( const char *channel, FrStream *stream )
     case FR_VECT_C16:
       return LAL_Z_TYPE_CODE;
     default:
-      XLAL_ERROR( func, XLAL_ETYPE );
+      XLAL_ERROR( XLAL_ETYPE );
   }
 
-  XLAL_ERROR( func, XLAL_ETYPE );
+  XLAL_ERROR( XLAL_ETYPE );
 }
 
 
@@ -534,18 +488,17 @@ LALTYPECODE XLALFrGetTimeSeriesType( const char *channel, FrStream *stream )
 /* little helper function for getting number of points in a channel */
 int XLALFrGetVectorLength ( CHAR *name, FrStream *stream )
 {
-  static const char func[] = "XLALFrGetVectorLength";
   struct FrVect	*vect;
   int ret = -1;
 
   if ( stream->state & LAL_FR_ERR )
-    XLAL_ERROR( func, XLAL_EIO );
+    XLAL_ERROR( XLAL_EIO );
   if ( stream->state & LAL_FR_END )
-    XLAL_ERROR( func, XLAL_EIO );
+    XLAL_ERROR( XLAL_EIO );
 
   vect = loadFrVect( stream, name );
   if ( ! vect || ! vect->data )
-    XLAL_ERROR( func, XLAL_ENAME ); /* couldn't find channel */
+    XLAL_ERROR( XLAL_ENAME ); /* couldn't find channel */
 
   ret = vect->nData;
 
@@ -556,7 +509,7 @@ int XLALFrGetVectorLength ( CHAR *name, FrStream *stream )
 }
 
 
-/* <lalVerbatim file="FrameSeriesCP"> */
+
 void
 LALFrGetTimeSeriesType(
     LALStatus   *status,
@@ -564,7 +517,7 @@ LALFrGetTimeSeriesType(
     FrChanIn    *chanin,
     FrStream    *stream
     )
-{ /* </lalVerbatim> */
+{ 
   int type;
   INITSTATUS( status, "LALFrGetTimeSeriesType", FRAMESERIESC );
 
@@ -657,7 +610,6 @@ static int copy_FrVect_to_REAL8( REAL8 *data, struct FrVect *vect, size_t ncpy, 
 
 REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *channel, const LIGOTimeGPS *start, REAL8 duration, size_t lengthlimit )
 {
-	static const char func[] = "XLALFrInputREAL8TimeSeries";
 	const REAL8 fuzz = 0.1 / 16384.0; /* smallest discernable unit of time */
 	struct FrVect *vect;
 	REAL8TimeSeries *series;
@@ -673,17 +625,17 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 	int    code;
 
 	if ( stream->state & LAL_FR_ERR )
-		XLAL_ERROR_NULL( func, XLAL_EIO );
+		XLAL_ERROR_NULL( XLAL_EIO );
 	if ( stream->state & LAL_FR_END )
-		XLAL_ERROR_NULL( func, XLAL_EIO );
+		XLAL_ERROR_NULL( XLAL_EIO );
 
 	/* seek to the correct place */
 	if ( XLALFrSeek( stream, start ) )
-		XLAL_ERROR_NULL( func, XLAL_EIO );
+		XLAL_ERROR_NULL( XLAL_EIO );
 
 	vect = loadFrVect( stream, channel );
 	if ( ! vect || ! vect->data )
-		XLAL_ERROR_NULL( func, XLAL_ENAME ); /* couldn't find channel */
+		XLAL_ERROR_NULL( XLAL_ENAME ); /* couldn't find channel */
 
 	tnow = EPOCH_TO_I8TIME( stream->epoch );
 #	if defined FR_VERS && FR_VERS >= 5000
@@ -693,7 +645,7 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 #	endif
 	if ( tnow + 1000 < tbeg ) { /* added 1000 ns to account for double precision */
 		FrVectFree(vect);
-		XLAL_ERROR_NULL( func, XLAL_ETIME ); /* invalid time offset */
+		XLAL_ERROR_NULL( XLAL_ETIME ); /* invalid time offset */
 	}
 
 	/* compute number of points offset very carefully:
@@ -703,7 +655,7 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 	noff = ceil( ( 1e-9 * ( tnow - tbeg ) - fuzz ) * rate );
 	if ( noff > vect->nData ) {
 		FrVectFree(vect);
-		XLAL_ERROR_NULL( func, XLAL_ETIME ); /* invalid time offset */
+		XLAL_ERROR_NULL( XLAL_ETIME ); /* invalid time offset */
 	}
 	need = duration * rate;
 	if ( lengthlimit && (lengthlimit < need) )
@@ -716,7 +668,7 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 
 	series = XLALCreateREAL8TimeSeries( channel, &epoch, 0.0, vect->dx[0], &lalADCCountUnit, need );
 	if ( ! series )
-		XLAL_ERROR_NULL( func, XLAL_EFUNC );
+		XLAL_ERROR_NULL( XLAL_EFUNC );
 	dest = series->data->data;
 
 	/* number of points to copy */
@@ -725,7 +677,7 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 	if ( code < 0 ) { /* fails if vect has complex data type */
 		if(vect) FrVectFree(vect);
 		XLALDestroyREAL8TimeSeries( series );
-		XLAL_ERROR_NULL( func, XLAL_ETYPE ); /* data has wrong type */
+		XLAL_ERROR_NULL( XLAL_ETYPE ); /* data has wrong type */
 	}
 
 	FrVectFree(vect);
@@ -739,25 +691,25 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 		if ( XLALFrNext( stream ) < 0 ) {
 			if(vect) FrVectFree(vect);
 			XLALDestroyREAL8TimeSeries( series );
-			XLAL_ERROR_NULL( func, XLAL_EFUNC );
+			XLAL_ERROR_NULL( XLAL_EFUNC );
 		}
 		if ( stream->state & LAL_FR_END ) {
 			if(vect) FrVectFree(vect);
 			XLALDestroyREAL8TimeSeries( series );
-			XLAL_ERROR_NULL( func, XLAL_EIO );
+			XLAL_ERROR_NULL( XLAL_EIO );
 		}
 
 		/* load more data */
 		vect = loadFrVect( stream, series->name );
 		if ( ! vect || ! vect->data ) { /* channel missing */
 			XLALDestroyREAL8TimeSeries( series );
-			XLAL_ERROR_NULL( func, XLAL_ENAME );
+			XLAL_ERROR_NULL( XLAL_ENAME );
 		}
 
 		if ( stream->state & LAL_FR_GAP ) { /* failure: gap in data */
 			if(vect) FrVectFree(vect);
 			XLALDestroyREAL8TimeSeries( series );
-			XLAL_ERROR_NULL( func, XLAL_ETIME );
+			XLAL_ERROR_NULL( XLAL_ETIME );
 		}
 
 		/* copy data */
@@ -766,7 +718,7 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 		if ( code < 0 ) { /* fails if vect has complex data type */
 			if(vect) FrVectFree(vect);
 			XLALDestroyREAL8TimeSeries( series );
-			XLAL_ERROR_NULL( func, XLAL_ETYPE );
+			XLAL_ERROR_NULL( XLAL_ETYPE );
 		}
 
 		FrVectFree(vect);
@@ -798,7 +750,7 @@ REAL8TimeSeries * XLALFrInputREAL8TimeSeries( FrStream *stream, const char *chan
 
 	if ( stream->state & LAL_FR_ERR ) {
 		XLALDestroyREAL8TimeSeries( series );
-		XLAL_ERROR_NULL( func, XLAL_EIO );
+		XLAL_ERROR_NULL( XLAL_EIO );
 	}
 
 	return series;

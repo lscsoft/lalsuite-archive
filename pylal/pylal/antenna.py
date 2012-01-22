@@ -57,10 +57,6 @@ def response( gpsTime, rightAscension, declination, inclination,
   """
   
   # check the input arguments
-  if gpsTime<600000000 or gpsTime>1000000000:
-    raise ValueError, "ERROR. gps time %d not within reasonable range."\
-          % (gpsTime)
-
   if unit =='radians':
     ra_rad = rightAscension
     de_rad = declination
@@ -132,10 +128,6 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   """
 
   # check the input arguments
-  if gpsTime<600000000 or gpsTime>2000000000:
-    raise ValueError, "ERROR. gps time %d not within reasonable range."\
-          % (gpsTime)
-
   if unit =='radians':
     ra_rad = rightAscension
     de_rad = declination

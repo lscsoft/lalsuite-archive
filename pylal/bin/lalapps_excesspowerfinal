@@ -811,6 +811,7 @@ class EfficiencyData(SimBurstUtils.Efficiency_hrss_vs_freq):
 
 		# iterate over all sims
 
+		offsetvectors = contents.time_slide_table.as_dict()
 		create_sim_coinc_map_view(contents.connection)
 		for values in contents.connection.cursor().execute("""
 SELECT
@@ -830,14 +831,7 @@ FROM
 			sim = contents.sim_burst_table.row_from_cols(values)
 			detection_statistic = values[-1]
 			amplitude = self.amplitude_func(sim, None)
-			# FIXME:  this assumes all injections are done at
-			# zero lag (which is correct for now, but watch out
-			# for this).  in general, a time_slide_id needs to
-			# be retrieved from the sim_coinc_event, the
-			# corresponding offsets retrieved from the
-			# time_slide_table and applied to the segment
-			# lists.
-			if SimBurstUtils.injection_was_made(sim, contents.seglists, self.instruments):
+			if SimBurstUtils.on_instruments(sim, contents.seglists, offsetvectors[sim.time_slide_id])) == self.instruments:
 				# injection was made
 				self.injected_x.append(sim.frequency)
 				self.injected_y.append(amplitude)

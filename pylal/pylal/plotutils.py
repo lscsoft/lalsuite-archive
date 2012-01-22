@@ -34,6 +34,22 @@ from pylal import viz
 pylab.rc("lines", markersize=12)
 pylab.rc("text", usetex=True)
 
+# Utility function
+def float_to_latex(x, format="%.2g"):
+    """
+    Convert a floating point number to a latex representation.  In particular,
+    scientific notation is handled gracefully: e -> 10^
+    """
+    base_str = format % x
+    if "e" not in base_str:
+        return base_str
+    mantissa, exponent = base_str.split("e")
+    exponent = exponent.lstrip("0+")
+    if mantissa == "1":
+        return r"10^{%s}" % exponent
+    else:
+        return r"%s\times 10^{%s}" % (mantissa, exponent)
+
 ##############################################################################
 # abstract classes
 

@@ -17,17 +17,28 @@
 *  MA  02111-1307  USA
 */
 
-/**** <lalVerbatim file="TSDatgenHV"> *********
-      Author: Torres. C
-      $ID: tracksearch.h,v 1.0 2004/04/14 02:00:00 cristina Exp $
-***** </lalVerbatim> **********************************/
+/**
+      \author Torres. C
+      \file
+*/
 
 #ifndef TRACKSEARCH_H
 #define TRACKSEARCH_H
 
-#include <config.h>
+#include "config.h"
+
+#include <math.h>
+#include <regex.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
+
 #include <lal/AVFactories.h>
 #include <lal/Date.h>
 #include <lal/FrameCalibration.h>
@@ -50,23 +61,16 @@
 #include <lal/Units.h>
 #include <lal/Window.h>
 #include <lal/CLR.h>
-#include <lalapps.h>
-#include <math.h>
-#include <processtable.h>
-#include <regex.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
-#include <tracksearchToolbox.h>
-#include <FrameDataConvert.h>
-#include <tracksearchAverager.h>
 #include <lal/ResampleTimeSeries.h>
 #include <lal/LALRunningMedian.h>
 #include <lal/RngMedBias.h>
+
+#include <lalapps.h>
+#include <processtable.h>
+
+#include "tracksearchToolbox.h"
+#include "FrameDataConvert.h"
+#include "tracksearchAverager.h"
 
 #define maxFilenameLength 2048
 
@@ -105,16 +109,16 @@ int
 LALappsSmoothWithRunningMedian(REAL4Vector*,
 			       UINT4);
 
-void 
+void
 LALappsTrackSearchCalibrate( REAL4TimeSeries*,
 			     TSSearchParams);
 
-void 
+void
 LALappsTrackSearchBandPassing(
 			       REAL4TimeSeries*,
 			       TSSearchParams);
 
-void 
+void
 LALappsTracksearchRemoveHarmonics(
 				   REAL4TimeSeries*,
 				   TSSearchParams);
@@ -123,7 +127,7 @@ void LALappsTracksearchRemoveHarmonicsFromSegments(
 						   REAL4TimeSeries*,
 						   TSSegmentVector*,
 						   TSSearchParams);
-void 
+void
 LALappsTrackSearchPerformInjection(
 				    REAL4TimeSeries*,
 				    REAL4TimeSeries*,
@@ -134,7 +138,7 @@ LALappsTrackSearchWhitenSegments( REAL4TimeSeries*,
 				  TSSegmentVector*,
 				  TSSearchParams);
 
-void 
+void
 LALappsTrackSearchInitialize(
 			     int argc,
 			     char* argv[],
@@ -226,4 +230,4 @@ void QuickDump_Data(TSSearchParams,TrackSearchOut,CHAR*);
 void fakeDataGeneration(REAL4TimeSeries*,INT4,INT4);
 
 #endif
- 
+

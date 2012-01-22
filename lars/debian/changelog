@@ -1,0 +1,30 @@
+ligo-lars (1.1.0-2) unstable; urgency=low
+
+  * Bad dependency list.  glue-segments should've been python-glue-segments
+  * XS-Python-Version changed to "all"
+
+ -- Brian Moe <brian.moe@ligo.org>  Tue, 19 Dec 2011 14:03:46 -0600
+
+ligo-lars (1.1.0) unstable; urgency=low
+
+  * Fixed fix for bad dev version numbers.
+
+ -- Brian Moe <brian.moe@ligo.org>  Tue, 19 Dec 2011 14:03:46 -0600
+
+ligo-lars (1.0-3) unstable; urgency=low
+
+  * Fixed bad deb and version numbers.
+
+ -- Brian Moe <bmoe@oz.phys.uwm.edu>  Tue, 13 Dec 2011 12:11:46 -0600
+
+ligo-lars (1.0-1) lucid; urgency=low
+
+  * Changed service URL to point to lars.ligo.org instead of archie.phys.uwm.edu
+
+ -- Brian Moe <bmoe@oz.phys.uwm.edu>  Thu, 17 Nov 2011 14:30:51 -0600
+
+ligo-lars (1.0-1) unstable; urgency=low
+
+  * Initial release
+
+ -- Brian Moe <brian.moe@ligo.org>  Tue, 01 Nov 2011 15:59:47 -0500

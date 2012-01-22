@@ -1,6 +1,7 @@
 import random
 import unittest
 import verifyutils
+import doctest
 
 
 #
@@ -104,7 +105,6 @@ class test_infinity(unittest.TestCase):
 
 
 class test_segment(unittest.TestCase):
-
 	def test__new__(self):
 		self.assertEqual((-2, 2), tuple(segments.segment(-2, 2)))
 		self.assertEqual((-2, 2), tuple(segments.segment(2, -2)))
@@ -326,13 +326,34 @@ class test_segmentlist(unittest.TestCase):
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
 
+class test_segmentlistdict(unittest.TestCase):
+	def testintersects(self):
+		a = segments.segmentlistdict({"H1": segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])})
+		b = segments.segmentlistdict({"H1": segments.segmentlist([segments.segment(5, 15)]), "L1": segments.segmentlist([segments.segment(25, 35)])})
+		c = segments.segmentlistdict({"V1": segments.segmentlist([segments.segment(7, 13), segments.segment(27, 40)])})
+
+		self.assertEqual(a.intersects(b), True)
+		self.assertEqual(b.intersects(a), True)
+		self.assertEqual(a.intersects(a), True)
+		self.assertEqual(a.intersects(c), False)
+		self.assertEqual(b.intersects(segments.segmentlistdict({})), False)
+		self.assertEqual(segments.segmentlistdict({}).intersects(segments.segmentlistdict({})), False)
+
+		self.assertEqual(a.intersects_all(b), False)
+		self.assertEqual(b.intersects_all(a), True)
+
+		self.assertEqual(a.all_intersects(b), True)
+		self.assertEqual(b.all_intersects(a), False)
+
+		self.assertEqual(a.all_intersects_all(b), False)
+
+
 #
 # Construct and run the test suite.
 #
 
 
 if __name__ == "__main__":
-
 	# first with the pure Python segments implementation
 
 	from glue import segments
@@ -342,8 +363,11 @@ if __name__ == "__main__":
 	suite.addTest(unittest.makeSuite(test_infinity))
 	suite.addTest(unittest.makeSuite(test_segment))
 	suite.addTest(unittest.makeSuite(test_segmentlist))
+	suite.addTest(unittest.makeSuite(test_segmentlistdict))
 
 	unittest.TextTestRunner(verbosity=2).run(suite)
+
+	doctest.testmod(segments)
 
 	# then with C extension implementation
 
@@ -358,5 +382,8 @@ if __name__ == "__main__":
 	suite.addTest(unittest.makeSuite(test_infinity))
 	suite.addTest(unittest.makeSuite(test_segment))
 	suite.addTest(unittest.makeSuite(test_segmentlist))
+	suite.addTest(unittest.makeSuite(test_segmentlistdict))
 
 	unittest.TextTestRunner(verbosity=2).run(suite)
+
+	doctest.testmod(segments)

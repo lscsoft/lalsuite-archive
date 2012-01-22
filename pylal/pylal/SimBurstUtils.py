@@ -29,13 +29,11 @@ import numpy
 import sys
 
 
-from glue import segments
 from pylal import date
 from pylal import git_version
 from pylal import inject
 from pylal import rate
 from pylal import SnglBurstUtils
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -52,34 +50,37 @@ __date__ = git_version.date
 #
 
 
-def time_at_instrument(sim, instrument):
+def time_at_instrument(sim, instrument, offsetvector):
 	"""
 	Return the "time" of the injection, delay corrected for the
 	displacement from the geocentre to the given instrument.
 	"""
-	t_geocent = sim.get_time_geocent()
+	# the offset is subtracted from the time of the injection.
+	# injections are done this way so that when the triggers that
+	# result from an injection have the offset vector added to their
+	# times the triggers will form a coinc
+	t_geocent = sim.get_time_geocent() - offsetvector[instrument]
 	ra, dec = sim.get_ra_dec()
+	# NOTE:  this does not account for the rotation of the Earth that
+	# occurs during the transit of the plane wave from the detector to
+	# the geocentre.  that is it is assumed the Earth is in the same
+	# orientation with respect to the celestial sphere when the wave
+	# passes through the detector as when it passes through the
+	# geocentre.  the Earth rotates by about 1.5 urad during the 21 ms
+	# it takes light to travel the radius of the Earth, which
+	# corresponds to 10 m of displacement at the equator, or 33 ns in
+	# units of light travel time.  therefore, the failure to do a
+	# proper retarded time calculation here results in errors no larger
+	# than 33 ns, which should be insignificant.
 	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
 
 
-def on_instruments(sim, seglists):
+def on_instruments(sim, seglists, offsetvector):
 	"""
 	Return a set of the names of the instruments that were on at the
 	time of the injection.
 	"""
-	return set(instrument for instrument, seglist in seglists.items() if time_at_instrument(sim, instrument) in seglist)
-
-
-def injection_was_made(sim, seglists, instruments):
-	"""
-	Return True if the "time" of the injection at each of the named
-	instruments lies within the corresponding segment list, otherwise
-	return False.
-	"""
-	for instrument in instruments:
-		if time_at_instrument(sim, instrument) not in seglists[instrument]:
-			return False
-	return True
+	return set(instrument for instrument, seglist in seglists.items() if time_at_instrument(sim, instrument, offsetvector) in seglist)
 
 
 def create_sim_burst_best_string_sngl_map(connection, coinc_def_id):
@@ -170,7 +171,7 @@ AS
 #
 
 
-def hrss_in_instrument(sim, instrument):
+def hrss_in_instrument(sim, instrument, offsetvector):
 	"""
 	Given an injection and an instrument, compute and return the h_rss
 	of the injection as should be observed in the instrument.  That is,
@@ -212,7 +213,7 @@ def hrss_in_instrument(sim, instrument):
 		sim.ra,
 		sim.dec,
 		sim.psi,
-		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument))
+		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument, offsetvector))
 	)
 
 	# hrss in detector
@@ -220,7 +221,7 @@ def hrss_in_instrument(sim, instrument):
 	return math.sqrt((fplus * hplusrss)**2 + (fcross * hcrossrss)**2)
 
 
-def string_amplitude_in_instrument(sim, instrument):
+def string_amplitude_in_instrument(sim, instrument, offsetvector):
 	"""
 	Given a string cusp injection and an instrument, compute and return
 	the amplitude of the injection as should be observed in the
@@ -235,7 +236,7 @@ def string_amplitude_in_instrument(sim, instrument):
 		sim.ra,
 		sim.dec,
 		sim.psi,
-		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument))
+		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument, offsetvector))
 	)
 
 	# amplitude in detector
@@ -271,31 +272,6 @@ stringcusp_autocorrelation_width = .016	# seconds
 
 
 burst_is_near_injection_window = 2.0	# seconds
-
-
-def burst_is_near_injection(sim, start, start_ns, duration, instrument):
-	"""
-	In the low background rate limit, there are two distinct tests used
-	to compare burst events to injections.  A strict test is used to
-	find bursts that represent properly-recovered injections, to assess
-	parameter reconstruction accuracy.  This function is the looser
-	test, used after the final coincidence test, to check if an
-	injection has survived the pipeline.  In this test it is only
-	necessary to see if a multi-event coincidence survived somewhere
-	near the injection, without requiring a good match, since in the
-	low-background limit the only coincidences to survive the pipeline
-	at all are injections.
-
-	This function compares one burst to an injection.  This function
-	defines a burst to be "near" an injection if the injection's peak
-	time occurs within 2 s of the time interval spanned by the burst
-	event.
-	"""
-	# this function's inconvenient argument list is inherited from a
-	# time when it was meant to be called from within SQL code.
-	start = LIGOTimeGPS(start, start_ns)
-	seg = segments.segment(start, start + duration).protract(burst_is_near_injection_window)
-	return time_at_instrument(sim, instrument) in seg
 
 
 #

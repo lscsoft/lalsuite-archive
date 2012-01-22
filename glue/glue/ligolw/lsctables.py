@@ -1662,6 +1662,21 @@ class MultiInspiralTable(table.Table):
 		"chisq_g": "real_4",
 		"chisq_t": "real_4",
 		"chisq_v": "real_4",
+                "sngl_chisq_dof": "int_4s",
+                "bank_chisq_h1": "real_4",
+                "bank_chisq_h2": "real_4",
+                "bank_chisq_l": "real_4",
+                "bank_chisq_g": "real_4",
+                "bank_chisq_t": "real_4",
+                "bank_chisq_v": "real_4",
+                "sngl_bank_chisq_dof": "int_4s",
+                "cont_chisq_h1": "real_4",
+                "cont_chisq_h2": "real_4",
+                "cont_chisq_l": "real_4",
+                "cont_chisq_g": "real_4",
+                "cont_chisq_t": "real_4",
+                "cont_chisq_v": "real_4",
+                "sngl_cont_chisq_dof": "int_4s",
 		"ra": "real_4",
 		"dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1691,7 +1706,8 @@ class MultiInspiralTable(table.Table):
 		"autoCorrNullSq": "real_4",
 		"crossCorrNullSq": "real_4",
 		"ampMetricEigenVal1": "real_8",
-		"ampMetricEigenVal2": "real_8"
+		"ampMetricEigenVal2": "real_8",
+                "time_slide_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1951,6 +1967,7 @@ class SimBurstTable(table.Table):
 		"hrss": "real_8",
 		"egw_over_rsquared": "real_8",
 		"waveform_number": "int_8u",
+		"time_slide_id": "ilwd:char",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"

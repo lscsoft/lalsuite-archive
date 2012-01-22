@@ -15,9 +15,13 @@ pkginclude_HEADERS = \
 	StreamOutput.h \
 	UserInput.h ConfigFile.h
 
+CLEANFILES =
 MOSTLYCLEANFILES = .dvi-dep
 DISTCLEANFILES = *.tex
 all-local: include-link
 dvi-local: .dvi-dep
 @INCLUDEMKFILE@
 @DVIMKFILE@
+
+swig_headers = $(pkginclude_HEADERS)
+include $(top_srcdir)/swig/swig-header.am

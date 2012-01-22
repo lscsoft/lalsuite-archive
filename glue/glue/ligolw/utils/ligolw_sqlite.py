@@ -1,4 +1,5 @@
-# Copyright (C) 2006  Kipp Cannon
+#
+# Copyright (C) 2006-2011  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -13,6 +14,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
 
 
 #
@@ -76,17 +78,23 @@ def setup(target, check_same_thread=True):
 #
 
 
-def update_ids(connection, xmldoc=None, verbose = False):
+def update_ids(connection, xmldoc, verbose = False):
 	"""
 	For internal use only.
 	"""
-	if xmldoc: table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
-	else: table_elems = dbtables.get_xml(connection).getElementsByTagName(ligolw.Table.tagName)
+	# NOTE:  it's critical that the xmldoc object be retrieved *before*
+	# the rows whose IDs need to be updated are inserted.  The xml
+	# retrieval resets the "last max row ID" values inside the table
+	# objects, so if retrieval of the xmldoc is deferred until after
+	# the rows are inserted, nothing will get updated.  therefore, the
+	# connection and xmldoc need to be passed separately to this
+	# function, even though it seems this function could reconstruct
+	# the xmldoc itself from the connection.
+	table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
 	for i, tbl in enumerate(table_elems):
 		if verbose:
 			print >>sys.stderr, "updating IDs: %d%%\r" % (100.0 * i / len(table_elems)),
 		tbl.applyKeyMapping()
-		tbl.unlink()
 	if verbose:
 		print >>sys.stderr, "updating IDs: 100%"
 
@@ -94,79 +102,100 @@ def update_ids(connection, xmldoc=None, verbose = False):
 	dbtables.idmap_reset(connection)
 
 
-def insert_from_url(connection, url, preserve_ids = False, verbose = False):
+def insert_from_url(connection, url, preserve_ids = False, verbose = False, contenthandler = None):
 	"""
 	Parse and insert the LIGO Light Weight document at the URL into the
 	database the at the given connection.
 	"""
 	#
 	# load document.  this process inserts the document's contents into
-	# the database.  the document is unlinked to delete database cursor
-	# objects it retains
+	# the database.  the XML tree constructed by this process contains
+	# a table object for each table found in the newly-inserted
+	# document and those table objects' last_max_rowid values have been
+	# initialized prior to rows being inserted.  therefore, this is the
+	# XML tree that must be passed to update_ids in order to ensure (a)
+	# that all newly-inserted tables are processed and (b) all
+	# newly-inserted rows are processed.  NOTE:  it is assumed the
+	# content handler is creating DBTable instances in the XML tree,
+	# not regular Table instances
 	#
 
-	xmldoc = utils.load_url(url, verbose = verbose)
+	xmldoc = utils.load_url(url, verbose = verbose, contenthandler = contenthandler)
 
 	#
 	# update references to row IDs
 	#
 
 	if not preserve_ids:
-		update_ids(connection, xmldoc, verbose)
+		update_ids(connection, xmldoc, verbose = verbose)
+
+	#
+	# unlink the document to delete database cursor objects it retains
+	#
 
 	xmldoc.unlink()
 
 
-def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False):
+def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose = False):
 	"""
 	Insert the tables from an in-ram XML document into the database at
 	the given connection.
 	"""
 	#
+	# create a place-holder XML representation of the target document
+	# so we can pass the correct tree to update_ids()
+	#
+
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild(ligolw.LIGO_LW())
+
+	#
 	# iterate over tables in the XML tree, reconstructing each inside
 	# the database
 	#
 
-	for tbl in xmldoc.getElementsByTagName(ligolw.Table.tagName):
+	for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):
 		#
-		# instantiate the correct table class
+		# instantiate the correct table class, connected to the
+		# target database, and save in XML tree
 		#
 
 		name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
-		if name in dbtables.TableByName:
-			dbtab = dbtables.TableByName[name](tbl.attributes, connection = connection)
-		else:
-			dbtab = dbtables.DBTable(tbl.attributes, connection = connection)
+		try:
+			cls = dbtables.TableByName[name]
+		except KeyError:
+			cls = dbtables.DBTable
+		dbtbl = xmldoc.childNodes[-1].appendChild(cls(tbl.attributes, connection = connection))
 
 		#
 		# copy table element child nodes from source XML tree
 		#
 
 		for elem in tbl.childNodes:
-			if elem.tagName == dbtables.table.TableStream.tagName:
-				dbtab._end_of_columns()
-			dbtab.appendChild(type(elem)(elem.attributes))
+			if elem.tagName == ligolw.Stream.tagName:
+				dbtbl._end_of_columns()
+			dbtbl.appendChild(type(elem)(elem.attributes))
 
 		#
 		# copy table rows from source XML tree
 		#
 
 		for row in tbl:
-			dbtab.append(row)
-		dbtab._end_of_rows()
-
-		#
-		# unlink to delete cursor objects
-		#
-
-		dbtab.unlink()
+			dbtbl.append(row)
+		dbtbl._end_of_rows()
 
 	#
 	# update references to row IDs
 	#
-	connection.commit()
+
 	if not preserve_ids:
-		update_ids(connection, None, verbose)
+		update_ids(connection, xmldoc, verbose = verbose)
+
+	#
+	# unlink the document to delete database cursor objects it retains
+	#
+
+	xmldoc.unlink()
 
 
 def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
@@ -175,32 +204,43 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 	then build the indexes indicated by the metadata in lsctables.py.
 	"""
 	#
-	# enable/disable ID remapping
+	# save the original .append() method
 	#
 
 	orig_DBTable_append = dbtables.DBTable.append
-	if not preserve_ids:
-		dbtables.idmap_create(connection)
-		dbtables.DBTable.append = dbtables.DBTable._remapping_append
-	else:
-		dbtables.DBTable.append = dbtables.DBTable._append
 
-	#
-	# load documents
-	#
+	try:
+		#
+		# enable/disable ID remapping
+		#
 
-	for n, url in enumerate(urls):
-		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
-	connection.commit()
+		if not preserve_ids:
+			dbtables.idmap_create(connection)
+			dbtables.DBTable.append = dbtables.DBTable._remapping_append
+		else:
+			dbtables.DBTable.append = dbtables.DBTable._append
 
-	#
-	# done.  build indexes, restore original .append() method
-	#
+		#
+		# load documents
+		#
 
-	dbtables.build_indexes(connection, verbose)
-	dbtables.DBTable.append = orig_DBTable_append
+		for n, url in enumerate(urls):
+			if verbose:
+				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+			insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
+		connection.commit()
+
+		#
+		# done.  build indexes
+		#
+
+		dbtables.build_indexes(connection, verbose)
+	finally:
+		#
+		# restore original .append() method
+		#
+
+		dbtables.DBTable.append = orig_DBTable_append
 
 
 #

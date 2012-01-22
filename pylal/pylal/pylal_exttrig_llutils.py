@@ -42,7 +42,7 @@ template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --overwrite-dir"
 
 # list of used IFOs
-basic_ifolist = ['H1','L1','V1']
+basic_ifolist = ['H1','H2','L1','V1']
 
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
@@ -448,6 +448,7 @@ def update_segment_lists(segdict, timerange, tag = None, outputdir = '.'):
         cmd = "ligolw_segment_query --database --query-segments --include-segments '%s'"\
             " --gps-start-time %d --gps-end-time %d > %s" %\
             (seg, timerange[0], timerange[1], segxmlfile)
+
         pas = AnalysisSingleton()
         pas.system(cmd, item = tag[4:], divert_output_to_log = False)
 
@@ -560,7 +561,8 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
             # check for overlaps, and give detailed list of veto details
             list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
             for name, segstart, segend in list_overlaps:
-              pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%(ifo, segstart, segend, cat, name), tag[4:])
+              pas.info("   - IFO %s vetoed from %d to %d by CAT%d: %s"%\
+                       (ifo, segstart, segend, cat, name), tag[4:])
             if vetolist.intersects_segment(segments.segment(timerange)):
                 vetoed_ifos.add(ifo)
                 vetoed_cats.add(cat)
@@ -569,13 +571,14 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
         if len(vetoed_ifos)==0:
               clear_ifos.append(ifo)
         else:
-            pas.info("IFO(s) %s vetoed by CAT(s): %s" % (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
+            pas.info("IFO(s) %s vetoed by CAT(s): %s" %\
+                     (list(vetoed_ifos), list(vetoed_cats)), tag[4:])
                 
 
     return clear_ifos
  
 # -----------------------------------------------------
-def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.', tag = None, segs1 = None):
+def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.', tag = None, segs1 = False):
     """
     Function to get the segment info for a timerange
     @param timerange: The range of time the SCIENCE segments should be checked
@@ -585,6 +588,7 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
     @param tag: Tag for the files [optional]
     @param segscat1: CAT1 veto times to be considered when finding the best segment [optional]
     """
+    pas = AnalysisSingleton()
 
     # add an underscore in front of the tag
     if tag is not None:
@@ -603,14 +607,25 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
         segdict[ifo] = segments.segmentlist([s for s in tmplist \
                                              if abs(s) > minsciseg])
 
-        # check if there are CAT1 segments to take into account
-        # i.e. take them out before checking available data
+        # in case a CAT1 veto needs to be applied beforehand
+        # (i.e. before the data availability check), do it here
         if segs1:
-          segdict[ifo] -= segs1[ifo]
-          if abs(segs1[ifo])>0:
-            print "Extra info from 'get_segment_info' in peu: CAT1 veto for %s: %s"%\
-                   (ifo, segs1[ifo])
+            
+            # create the filename
+            xmlsegfile = "%s/%s-VETOTIME_CAT1%s.xml" % \
+                         (path, ifo, tag)
+            vetoes1 = read_xmlsegfile(xmlsegfile)
+            vetoes1.coalesce()
 
+            # check for overlaps, and give detailed list of veto details
+            list_overlaps =  get_veto_overlaps(timerange, xmlsegfile)
+            for name, segstart, segend in list_overlaps:
+              pas.info("   - CAT1 preveto for IFO %s,  vetoed from %d to %d: %s"%\
+                       (ifo, segstart, segend, name), tag[4:])
+
+            # 'subtract' the CAT1 vetoes from the SCIENCE segments
+            segdict[ifo] -= vetoes1
+      
     ifolist = segdict.keys()
     ifolist.sort()
 
@@ -690,6 +705,17 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   # get the Pylal Analysis Singleton
   pas = AnalysisSingleton()
 
+  # make a cross check
+  trial_length =  int(pas.cp.get('exttrig','onsource_left')) + int(pas.cp.get('exttrig','onsource_right')) 
+  padding_time = int(pas.cp.get('exttrig','padding_time'))
+  num_trials = int(pas.cp.get('exttrig','num_trials'))
+  check_scilength = (num_trials+1)*trial_length + 2*padding_time
+
+  if minscilength != check_scilength:
+    raise AssertionError, "Inconsistent science length requirement! "\
+        "Actual requirement is %d seconds, while num_trials=%d suggest %d seconds."%\
+        (minscilength, num_trials, check_scilength)
+
   # get the science segment specifier from the config file
   seg_names = {}
   for ifo in basic_ifolist:
@@ -735,11 +761,12 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
     for ifo in basic_ifolist:
       xmlsegfile = "%s/%s-VETOTIME_CAT1_%s.xml" % (path, ifo,tag)
       segsdict[ifo] = read_xmlsegfile(xmlsegfile)
+      segsdict[ifo].coalesce()
 
     # do the segment check again, including the CAT1 segs
     outname = 'plot_segments_%s.png' % tag
     offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, plot_segments_file=outname, \
-         segs1 = segsdict, tag = tag, path = path)
+         segs1 = True, tag = tag, path = path)
     trend_ifos.append(ifolist)
 
     # check any CAT2/3 interference with the onsource
@@ -763,17 +790,21 @@ def read_adjusted_onsource(filename):
   """
 
   grbs = {}
+  refdict = {}
   # loop over the lines of the file
   for linex in file(filename):
+
+    # take out the \n and split up the line
+    line = linex.replace('\n','')
+    w = line.split()
+
     # reject any inline comments or empty lines
     if len(linex)<3 or linex[0]=='#':
-      continue
 
-    # take out the \n signal
-    line = linex.replace('\n','')
-    
-    # split up the line
-    w = line.split()
+      # fill the reference dict if this happens to be a reference entry
+      if 'REF' in linex:
+        refdict[int(w[2])] = w[3]
+      continue
 
     # read the information
     name = w[0]
@@ -792,7 +823,8 @@ def read_adjusted_onsource(filename):
     else:
         grbs[name] = {'onsource':None, 'used':used, 'comment':comment}
 
-  return grbs
+  # return the list of checks and the reference dict
+  return grbs, refdict
 
 
 
@@ -1848,7 +1880,7 @@ class GRB(object):
     for ifo in basic_ifolist:
 
       # create common cache-file names
-      output_location = '%s/%s-DATA-%9d-%9d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
+      output_location = '%s/%s-DATA-%10d-%10d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
 
       # decide: should I use online data (deleted after a month or so)
       # or do I require offline data? That changes everything...

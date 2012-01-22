@@ -214,7 +214,7 @@ if options.normalize:
 
 
 table.reset_next_ids([lsctables.TimeSlideTable])
-while time_slides:
+while filenames:
 	#
 	# Create an empty document, populate the process information.
 	#

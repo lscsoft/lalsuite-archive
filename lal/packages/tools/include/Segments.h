@@ -43,13 +43,11 @@ and setting \c xlalErrno to a nonzero value.
 
 \heading{Error conditions}
 
-<table><tr><td>
-\c xlalErrno</td><td>description</td></tr>
-<tr><td>  \tt XLAL_EFAULT</td><td>Null pointer passed for some argument</td></tr>
-<tr><td>  \tt XLAL_EINVAL</td><td>Attempted to use an uninitialized segment list structure</td></tr>
-<tr><td>  \tt XLAL_EDOM</td><td>Pair of GPS times does not represent a valid segment</td></tr>
-<tr><td>
-</td></tr></table>
+<table><tr><th>xlalErrno</th><th>description</th></tr>
+<tr><td>   XLAL_EFAULT</td><td>Null pointer passed for some argument</td></tr>
+<tr><td>   XLAL_EINVAL</td><td>Attempted to use an uninitialized segment list structure</td></tr>
+<tr><td>   XLAL_EDOM</td><td>Pair of GPS times does not represent a valid segment</td></tr>
+</table>
 
 \heading{Notes}
 
@@ -68,7 +66,7 @@ iterator, as in the following example code:
   LALSegList mylist;
   LALSeg *segp;
   ...
-  /-* (Append segments to the segment list 'mylist' here) *-/
+  /\* (Append segments to the segment list 'mylist' here) *\/
   ...
   for ( segp=mylist.segs; segp<mylist.segs+mylist.length; segp++ ) {
 
@@ -85,15 +83,15 @@ iterator, as in the following example code:
   INT4 iseg;
   LIGOTimeGPS startgps;
   ...
-  /-* (Append segments to the segment list 'mylist' here) *-/
+  /\* (Append segments to the segment list 'mylist' here) *\/
   ...
   for ( iseg=0; iseg<mylist.length; iseg++ ) {
 
-    /-* One way to access the segment... *-/
+    /\* One way to access the segment... *\/
     startgps = mylist.segs[iseg].start;
     printf( "The start time of the segment is GPS %d.%09d\n", startgps.gpsSeconds, startgps.gpsNanoSeconds );
 
-    /-* Another way to access the segment... *-/
+    /\* Another way to access the segment... *\/
     segp = mylist.segs + iseg;
     printf( "The end time of the segment is GPS %d.%09d\n", segp->end.gpsSeconds, segp->end.gpsNanoSeconds );
 
@@ -123,6 +121,11 @@ Also all segments in a segment list can be time-shifted using \c XLALSegListShif
 
 #ifndef _SEGMENTS_H
 #define _SEGMENTS_H
+
+/* remove SWIG interface directives */
+#if !defined(SWIG) && !defined(SWIGLAL_STRUCT)
+#define SWIGLAL_STRUCT(...)
+#endif
 
 #include <lal/LALDatatypes.h>
 #include <lal/XLALError.h>
@@ -159,6 +162,7 @@ NRCSID( SEGMENTSH, "$Id$" );
 typedef struct
 tagLALSeg
 {
+  SWIGLAL_STRUCT(LALSeg);
   LIGOTimeGPS start; /**< Beginning time of the segment */
   LIGOTimeGPS end;   /**< Ending time of the segment */
   INT4 id;           /**< Identifier (segment ID, array index, etc.) for user */
@@ -171,6 +175,7 @@ LALSeg;
 typedef struct
 tagLALSegList
 {
+  SWIGLAL_STRUCT(LALSegList);
   LALSeg *segs;      /**< Pointer to array of segments (LALSeg structures) */
   size_t arraySize;  /**< Size of array for which memory is allocated */
   UINT4 length;      /**< Number of segments in this segment list */

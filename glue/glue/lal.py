@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006-2011  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -409,7 +409,8 @@ class CacheEntry(object):
 
 	The first column, "observatory", generally stores the name of an
 	observatory site or one or more instruments (preferably delimited
-	by ",", but often there is no delimiter between instrument names).
+	by ",", but often there is no delimiter between instrument names in
+	which case they should be 2 characters each).
 
 	The second column, "description", stores a short string tag that is
 	usually all capitals with "_" separating components, in the style
@@ -417,15 +418,42 @@ class CacheEntry(object):
 
 	The third and fourth columns store the start time and duration in
 	GPS seconds of the interval spanned by the file identified by the
-	cache line.
+	cache line.  When the file does not start on an integer second or
+	its duration is not an integer number of seconds, the conventions
+	of the LIGO-Virgo frame filename format apply.
 
 	The fifth (last) column stores the file's URL.
 
 	The values for these columns are stored in the .observatory,
-	.description, .segment and .url attributes, respectively.  The
-	.segment attribute stores a glue.segments.segment object describing
-	the interval spanned by the file.  Any of these attributes except
-	the URL is allowed to be None.
+	.description, .segment and .url attributes of instances of this
+	class, respectively.  The .segment attribute stores a
+	glue.segments.segment object describing the interval spanned by the
+	file.  Any of these attributes except the URL is allowed to be
+	None.
+
+	This module also provides a Cache class, which some codes use to
+	represent an entire LAL cache file.  However, for most use cases a
+	simple Python list or set of CacheEntry objects is sufficient for
+	representing a LAL cache file.  The Cache class has been developed
+	specifically to support CBC codes.
+
+	Example (one-liners to read and write a cache file):
+
+	>>> cache = [CacheEntry(line) for line in open(filename)]
+	>>> f = open(filename, "w")
+	>>> for cacheentry in cache: print >>f, str(cacheentry)
+
+	Example (extract segmentlist dictionary from LAL cache):
+
+	>>> from glue import segments
+	>>> seglists = segments.segmentlistdict()
+	>>> for cacheentry in cache:
+	...	seglists |= cachenetry.to_segmentlistdict()
+	...
+
+	See also:
+
+	glue.segmentsUtils.fromlalcache()
 	"""
 	# How to parse a line in a LAL cache file.  Five white-space
 	# delimited columns.
@@ -573,7 +601,11 @@ class CacheEntry(object):
 		{'H1': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
 		"""
 		# FIXME:  the instrument_set_from_ifos() function in
-		# lsctables.py should be used
+		# lsctables.py should be used.  I think
+		# instruments = lsctables.instrument_set_from_ifos(self.observatory) or [None]
+		# is equivalent in the ways that matter.  is there an
+		# example of a cache file for which this would produce
+		# incorrect results?
 		if self.observatory and "," in self.observatory:
 			instruments = self.observatory.split(",")
 		elif self.observatory and "+" in self.observatory:

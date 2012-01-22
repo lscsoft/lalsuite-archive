@@ -25,7 +25,7 @@
  * \file
  * \brief Header-file for computing antenna-pattern components for amplitude demodulation.
  *
- * <tt>#include <lal/LALComputeAM.h></tt>
+ * <tt>\#include <lal/LALComputeAM.h></tt>
  *
  * In order to compute the optimal statistic for pulsar searches, one must take account of the
  * various modulations that change the emitted, (fairly) simple sinusoid into a non-trivial function
@@ -35,6 +35,11 @@
 
 #ifndef _LALCOMPUTEAM_H
 #define _LALCOMPUTEAM_H
+
+/* remove SWIG interface directives */
+#if !defined(SWIG) && !defined(SWIGLAL_STRUCT)
+#define SWIGLAL_STRUCT(...)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,8 +86,9 @@ NRCSID (LALCOMPUTEAMH, "$Id: LALComputeAM.h");
 /** This structure contains the output of the routine: a(t), b(t),
  * and the scalar products therein.  That is:
  */
-typedef struct AMCoeffsTag
+typedef struct tagAMCoeffs
 {
+  SWIGLAL_STRUCT(AMCoeffs);
   REAL4Vector     *a;          /**< the function a(t)         */
   REAL4Vector     *b;          /**< the function b(t)         */
   REAL4           A;           /**< the scalar product (a||a) */
@@ -93,8 +99,9 @@ typedef struct AMCoeffsTag
 
 /** This structure contains the parameters for the routine.  They include:
  */
-typedef struct AMCoeffsParamsTag
+typedef struct tagAMCoeffsParams
 {
+  SWIGLAL_STRUCT(AMCoeffsParams);
   BarycenterInput      *baryinput;  /**< data from Barycentring routine */
   EarthState           *earth;      /**< from LALBarycenter()           */
   EphemerisData        *edat;       /**< the ephemerides                */
@@ -124,7 +131,8 @@ typedef struct AMCoeffsParamsTag
  * is that the former are of order unity, while \a Sinv_Tsft is very large, and it has numerical advantages for parameter-estimation
  * to use that fact.
  */
-typedef struct {
+typedef struct tagAntennaPatternMatrix {
+  SWIGLAL_STRUCT(AntennaPatternMatrix);
   REAL8 Ad; 		/**<  \f$A_d \equiv \sum_{X,\alpha} \widehat{a}^X_\alpha \widehat{a}^X_\alpha\f$ */
   REAL8 Bd; 		/**<  \f$B_d \equiv \sum_{X,\alpha} \widehat{b}^X_\alpha \widehat{b}^X_\alpha\f$ */
   REAL8 Cd; 		/**<  \f$C_d \equiv \sum_{X,\alpha} \widehat{a}^X_\alpha \widehat{b}^X_\alpha\f$ */
@@ -133,7 +141,8 @@ typedef struct {
 } AntennaPatternMatrix;
 
 /** Multi-IFO container for antenna-pattern coefficients a^X(t), b^X(t) and atenna-pattern matrix M_mu_nu */
-typedef struct {
+typedef struct tagMultiAMCoeffs {
+  SWIGLAL_STRUCT(MultiAMCoeffs);
   UINT4 length;		/**< number of IFOs */
   AMCoeffs **data;	/**< noise-weighted am-coeffs \f$\widehat{a}_{X\alpha}\f$, and \f$\widehat{b}_{X\alpha}\f$ */
   AntennaPatternMatrix Mmunu;	/**< antenna-pattern matrix \f$\mathcal{M}_{\mu\nu}\f$ */
