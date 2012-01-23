@@ -1063,6 +1063,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
                               null_thresh=null_thresh, fResp=fResp)
 
+      trigBin = None
+      injBin = None
       for i,bin in enumerate(massBins):
         if bin[0] <= inj.mchirp < bin[1]:
           injBinNum = i
