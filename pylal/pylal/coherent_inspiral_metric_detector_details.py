@@ -32,7 +32,7 @@ coherent inspiral metric module.
 import pylab
 import scipy
 import numpy
-import metric
+from pylal import coherent_inspiral_metric as metric
 from scipy import pi,sin,cos
 #from pylal import inject
 #from pylal.xlal.tools import cached_detector
