@@ -3108,30 +3108,29 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
             raise RuntimeError, \
               "Environment variable LIGO_DATAFIND_SERVER is not set"
 
-          # try and get a proxy or certificate
-          # FIXME this doesn't check that it is valid, though
-          cert = None
-          key = None
           try:
-            proxy = os.environ['X509_USER_PROXY']
-            cert = proxy
-            key = proxy
-          except:
-            try:
-              cert = os.environ['X509_USER_CERT']
-              key = os.environ['X509_USER_KEY']
-            except:
-              uid = os.getuid()
-              proxy_path = "/tmp/x509up_u%d" % uid
-              if os.access(path, os.R_OK):
-                cert = proxy_path
-                key = proxy_path
-
-          # if we have a credential then use it when setting up the connection
-          if cert and key:
-            h = httplib.HTTPSConnection(server, key_file = key, cert_file = cert)
-          else:
             h = httplib.HTTPConnection(server)
+          except:
+            # try and get a proxy or certificate
+            # FIXME this doesn't check that it is valid, though
+            cert = None
+            key = None
+            try:
+              proxy = os.environ['X509_USER_PROXY']
+              cert = proxy
+              key = proxy
+            except:
+              try:
+                cert = os.environ['X509_USER_CERT']
+                key = os.environ['X509_USER_KEY']
+              except:
+                uid = os.getuid()
+                proxy_path = "/tmp/x509up_u%d" % uid
+                if os.access(path, os.R_OK):
+                  cert = proxy_path
+                  key = proxy_path
+
+            h = httplib.HTTPSConnection(server, key_file = key, cert_file = cert)
 
           # construct the URL for a simple data find query
           url = "/LDR/services/data/v1/gwf/%s/%s/%s,%s.json" % (
