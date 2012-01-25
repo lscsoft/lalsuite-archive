@@ -714,7 +714,8 @@ parser.add_option("--enable-pages-alltimes",action="store_true",default=False,he
 parser.add_option("--condor-submit",action="store_true",default=False,help="Automatically submit the condor dag")
 parser.add_option("--ignore-science-mode",action="store_true",default=False,help="Skip the segment database step and try and find data for all specified times.")
 parser.add_option("--notify",action="store",default=None,help="Optional e-mail address to notify upon completion",metavar="you@yourdomain.edu")
-parser.add_option("-R","--remote-file",default=None,action="store",type="string",help="The path to the file where the database is stored",metavar="svitale@login.nikhef.nl:/project/gravwav/my_file.txt")
+parser.add_option("-R","--remote-script",default=None,action="store",type="string",help="The path to the script which safely append to the remote database",metavar="svitale@login.nikhef.nl:/project/gravwav/safe_append.sh")
+parser.add_option("-D","--remote-database",default=None,action="store",type="string",help="The name of the remote database is stored",metavar="database.txt")
 parser.add_option("-S","--testParam-ShiftPc",default=None,action="store",type="string",help="The shifted parameter underscore the percent value of the shift, or GR", metavar="dphi6_1pc")
 parser.add_option("-Q","--inspinj-seed",default=None,action="store",type="string",help="The unique value of the inspinj seed", metavar="700000")
 
@@ -781,15 +782,16 @@ for init in inits:
 
 want_database=0
 
-if opts.remote_file is not None:
+if opts.remote_script is not None:
+    want_database+=1
+if opts.remote_database is not None:
     want_database+=1
 if opts.testParam_ShiftPc is not None:
     want_database+=1
 if opts.inspinj_seed is not None:
     want_database+=1
 
-
-if want_database==3:
+if want_database==4:
 
     database_subfile=os.path.join(common_path,'database.sub')
     database_job=OddsPipeline.DataBaseJob(cp,database_subfile,opts.jobs_log_path)
@@ -800,17 +802,22 @@ if want_database==3:
         database_node.set_time(time)
         database_node.add_var_opt("path ",common_path)
         database_node.add_var_opt("subhyp", hyp_str)
-        database_node.add_var_opt("remote-filename",opts.remote_file)
+        database_node.add_var_opt("remote-script",opts.remote_script)
+        database_node.add_var_opt("remote-database",opts.remote_database)
+
         database_node.add_var_opt("testParam-ShiftPc",opts.testParam_ShiftPc)
         database_node.add_var_opt("inspinj-seed",opts.inspinj_seed)
         
         dag.add_node(database_node)
     print "Switching on database synchronization."
+elif want_database==3:
+    print "WARNING: You seem to be giving only three among the options -R, -D, -S and -Q. If you want to sincronize your results with the remote database you need to provide all these three options"
+    print "Switching off database synchronization"
 elif want_database==2:
-    print "WARNING: You seem to be giving only two of the options -R, -S and -Q. If you want to sincronize your results with the remote database you need to provide all these three options"
+    print "WARNING: You seem to be giving only two among the options -R, -D, -S and -Q. If you want to sincronize your results with the remote database you need to provide all these three options"
     print "Switching off database synchronization"
 elif want_database==1:
-    print "WARNING: You seem to be giving only one of the options -R, -S and -Q. If you want to sincronize your results with the remote database you need to provide all these three options"
+    print "WARNING: You seem to be giving only one among the options -R, -D, -S and -Q. If you want to sincronize your results with the remote database you need to provide all these three options"
     print "Switching off database synchronization"
 else:
     print "Switching off database synchronization"
