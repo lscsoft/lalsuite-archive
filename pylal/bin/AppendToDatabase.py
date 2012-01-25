@@ -34,8 +34,8 @@ import getpass
 import numpy as np
 
 #local application/library specific imports
-from pylal import SimInspiralUtils
-from pylal import bayespputils as bppu
+#from pylal import SimInspiralUtils
+#from pylal import bayespputils as bppu
 from pylal import git_version
 
 __author__="Salvatore  Vitale <salvatore.vitale@ligo.org>"
@@ -95,17 +95,24 @@ def AppendToDatabase(   path,
     string_to_write+=str(local_pc)+" "
     header+=str("cluster  time" )+ " "
     string_to_write+=str(time)+" "
+    found=0
     for hyp in subhyp:
         path_to_snr=os.path.join(path,hyp,'SNR',"snr_H1L1V1_"+str(time)+".0.dat")
         path_to_Bfile=os.path.join(path,hyp,'nest',"outfile_"+str(time)+".000000_H1L1V1.dat_B.txt")
-        bfile=np.loadtxt(path_to_Bfile)
+        if os.path_isfile(path_to_Bile):
+            bfile=np.loadtxt(path_to_Bfile)
+            logB=bfile[0]
+            string_to_write+=repr(logB)+" "
+            header+=str(hyp)+" "
+            found+=1
+    if os.path_isfile(path_to_snr):
         snrfile=np.loadtxt(path_to_snr,skiprows=3,usecols=(1,1))
-        logB=bfile[0]
         snr=snrfile[0]
-        string_to_write+=str(logB)+" "
-        header+=str(hyp)+" "
-    string_to_write+=str(snr)+" "
-    header+=str("NetSNR ")
+        string_to_write+=str(snr)+" "
+        header+=str("NetSNR ")
+    if found < len(subhyp):
+        print "ERROR, some of the B files were not found. This is probably due to an inspnest run failed"
+        sys.exit(1)
     string_to_write+=str(testP)+" "
     header+=str("testParameter_ShiftPc ")
     remote_server=remote_script[0:remote_script.index(":")]
