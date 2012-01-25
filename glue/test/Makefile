@@ -35,6 +35,13 @@ test02 :
 	bash ligo_lw_test_02.sh
 	@echo "<=== end test02 ==="
 
+ligo_lw_test_03 :
+	# test reading compressed and non-compressed files from stdin
+	@echo "=== start ligo_lw_test_03 ===>"
+	cat inspiral_event_id_test_in1.xml.gz | ligolw_print >/dev/null && echo "Pass" || { echo "Fail"; false; }
+	cat inspiral_event_id_test_in2.xml | ligolw_print >/dev/null && echo "Pass" || { echo "Fail"; false; }
+	@echo "<=== end ligo_lw_test_03 ==="
+
 ligolw_sqlite_test:
 	@echo "=== start ligolw_sqlite_test ===>"
 	bash ligolw_sqlite_test.sh

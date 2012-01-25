@@ -41,6 +41,8 @@ pkgpython_DATA = nest_utils.py combine_evidence.py
 endif
 
 EXTRA_DIST = \
+	LALInferenceMCMCSampler.c \
+	LALInferenceMCMCSampler.h \
 	combine_evidence.in \
 	coherence_test.in \
 	merge_nested_sampling_runs.in \
@@ -49,7 +51,7 @@ EXTRA_DIST = \
 	nest_iter_pipe.in \
 	nest_compare.in\
 	combine_evidence.py
-    lalapps_vo_nest2pos.in
+	lalapps_vo_nest2pos.in
 
 python_config.sed: Makefile
 	-rm -f python_config.sed
