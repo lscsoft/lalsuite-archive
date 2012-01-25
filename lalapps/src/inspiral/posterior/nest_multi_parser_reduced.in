@@ -25,12 +25,6 @@ fakeTypes=["LALVirgo","LALLIGO","LALAdLIGO","LALAdVirgo"]
 usage=""" %prog [options]
 Setup a Condor DAG file to run the nested sampling pipeline over multiple ini files.
 
-One of the ini file serves as a control run (no calibration errors are added here) while the others contain calibration errors (a [calibration] section must exist in those ini files).
-The code does the following:
-1) Set up a single dag containing the nodes for the whole analysis of each ini file, as is done in the single ini-file scenario
-2) Add a call to the new cbcCompareRunsPostProc.py that builds pages showing the effect of calibration errors (in the folder given with the option -o, and subfolders there)
-2b) If more than two ini files are given (one control, N with calibration errors), N-1 pages showing the effect of calibration errors are produced, comparing the results of the i-th run with the control run.
-
 """
 
 ## This function is used to put the ifos.keys() in the same order than in the ifos section in the parser, while passing them to the inspnest nodes
@@ -92,6 +86,8 @@ def nest_pipe(opts=None,num=0):
     global glob_snrs_folders_by_num
     global glob_times
     global glob_IFOs
+    global fnames_dic
+    test_hyp=num # This is the hypotheses being tested with this subdag
     
     cp=ConfigParser.ConfigParser()
     cp.optionxform = str
@@ -330,7 +326,10 @@ def nest_pipe(opts=None,num=0):
     filtered_time=filter(lambda t: reduce(lambda a,b:a or b, map(lambda ifo: t in segs[ifo],ifos)), times)
     times=filtered_time
     print 'Found segments for %i times\n'%(len(times))
-
+    if num==fnames_dic[0]:
+        for time in times:
+            glob_parents_by_time_by_hyp[str(time)]={}
+            
     df_nodes_by_time={}
     ifos_by_time={}
     segments_by_time={}
@@ -443,12 +442,13 @@ def nest_pipe(opts=None,num=0):
             else:
                     thisevent=None
             inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent)
-            if num==0:
-		inspnest_node.set_priority(20)
+            #if num==0:
+            #    inspnest_node.set_priority(20)
             inspnest_nodes_by_time[time]=inspnest_node
             dag.add_node(inspnest_node)
             combine_each_time_nodes[time].add_parent(inspnest_node)
             nest_files[time]=inspnest_node.get_output_files()[0]
+            glob_parents_by_time_by_hyp[str(time)][str(test_hyp)]=inspnest_node
     else:
         merge_sub_file=os.path.join(opts.run_path,'merge.sub')
         merge_job=OddsPipeline.MergeJob(cp,merge_sub_file,opts.jobs_log_path)
@@ -714,9 +714,9 @@ parser.add_option("--enable-pages-alltimes",action="store_true",default=False,he
 parser.add_option("--condor-submit",action="store_true",default=False,help="Automatically submit the condor dag")
 parser.add_option("--ignore-science-mode",action="store_true",default=False,help="Skip the segment database step and try and find data for all specified times.")
 parser.add_option("--notify",action="store",default=None,help="Optional e-mail address to notify upon completion",metavar="you@yourdomain.edu")
-#parser.add_option("--ctrl-posteriors",action="store",type="string",default=None,help="Path to the combine folder of the ctrl run if not ctrl parser was given",metavar="Path/To/Ctrl/combine")
-#parser.add_option("--ctrl-timebins",action="store",type="string",default=None,help="Path to the timebins folder of the ctrl run if not ctrl parser was given",metavar="Path/To/Ctrl/timebins")
-#parser.add_option("--ctrl-snrs",action="store",type="string",default=None,help="Path to the SNR folder of the ctrl run if not ctrl parser was given",metavar="Path/To/Ctrl/SNR")
+parser.add_option("-R","--remote-file",default=None,action="store",type="string",help="The path to the file where the database is stored",metavar="svitale@login.nikhef.nl:/project/gravwav/my_file.txt")
+parser.add_option("-S","--testParam-ShiftPc",default=None,action="store",type="string",help="The shifted parameter underscore the percent value of the shift, or GR", metavar="dphi6_1pc")
+parser.add_option("-Q","--inspinj-seed",default=None,action="store",type="string",help="The unique value of the inspinj seed", metavar="700000")
 
 (opts,args)=parser.parse_args()
 opts.disable_pages=True
@@ -724,6 +724,9 @@ inits=opts.ini_file
 num_of_inits=len(opts.ini_file)
 fnames=opts.fnames
 num_of_fnames=len(opts.fnames)
+
+
+
 if not num_of_inits==num_of_fnames:
     print "You seem to be using %d parser files and %d foldernames. These two numbers must be the same. Exiting...\n"
     sys.exit(1)
@@ -731,7 +734,12 @@ if not num_of_inits==num_of_fnames:
 fnames_dic={}
 for fname in fnames:
     fnames_dic[fnames.index(fname)]=str(fname)
-print fnames_dic
+
+glob_hyp=opts.fnames
+hyp_str=" "
+
+for hy in glob_hyp:
+    hyp_str+=hy+" "
 
 common_path=opts.run_path
 
@@ -753,20 +761,13 @@ glob_combine_folders_by_num={}
 glob_timebins_folder_by_num={}
 glob_caler_folders_by_num={}
 has_key_section={}
+glob_parents_by_time_by_hyp={}
 
 daglogfile=os.path.join(common_dag_log_path,'common_dag.log')
 dagfile=os.path.join(common_path,"common_dag")
 dag = pipeline.CondorDAG(daglogfile)
 dag.set_dag_file(dagfile)
 
-'''
-if opts.Compare is not None:
-    keyword=opts.Compare
-else:
-    print "You have to give the -c/--compare-runs option with a valid keyword to distinguish the runs. Exiting..."
-    sys.exit(1)
-'''
-### Check if one of the ini files is the ctrl
 for init in inits:
     if init is not None:
         cp=ConfigParser.ConfigParser()
@@ -778,8 +779,42 @@ for init in inits:
         checkDir(opts.jobs_log_path)
         nest_pipe(opts,str(fnames_dic[inits.index(init)]))
 
+want_database=0
+
+if opts.remote_file is not None:
+    want_database+=1
+if opts.testParam_ShiftPc is not None:
+    want_database+=1
+if opts.inspinj_seed is not None:
+    want_database+=1
 
 
+if want_database==3:
+
+    database_subfile=os.path.join(common_path,'database.sub')
+    database_job=OddsPipeline.DataBaseJob(cp,database_subfile,opts.jobs_log_path)
+
+    for time in glob_parents_by_time_by_hyp.keys():
+        database_node=OddsPipeline.DataBaseNode(database_job)
+        map(database_node.add_parent,glob_parents_by_time_by_hyp[time].values())
+        database_node.set_time(time)
+        database_node.add_var_opt("path ",common_path)
+        database_node.add_var_opt("subhyp", hyp_str)
+        database_node.add_var_opt("remote-filename",opts.remote_file)
+        database_node.add_var_opt("testParam-ShiftPc",opts.testParam_ShiftPc)
+        database_node.add_var_opt("inspinj-seed",opts.inspinj_seed)
+        
+        dag.add_node(database_node)
+    print "Switching on database synchronization."
+elif want_database==2:
+    print "WARNING: You seem to be giving only two of the options -R, -S and -Q. If you want to sincronize your results with the remote database you need to provide all these three options"
+    print "Switching off database synchronization"
+elif want_database==1:
+    print "WARNING: You seem to be giving only one of the options -R, -S and -Q. If you want to sincronize your results with the remote database you need to provide all these three options"
+    print "Switching off database synchronization"
+else:
+    print "Switching off database synchronization"
+    
 # Write the DAG file
 dag.write_sub_files()
 dag.write_dag()
