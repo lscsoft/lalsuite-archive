@@ -8,6 +8,7 @@ if LALFRAME
 if LALMETAIO
 metaio_progs = lalapps_inspnest
 lalapps_inspnest_SOURCES = lalnest.c LALInspiralMCMC.c LALInspiralMCMCUser.c nest_calc.c nest_calc.h LALInspiralMCMC.h LALInspiralMCMCUser.h LALCalibrationErrors.h LALCalibrationErrors.c
+
 endif
 
 if LALPULSAR
@@ -16,6 +17,7 @@ pulsar_progs = lalinference_nest ChiSquare_test #lalinference_mcmcmpi
 ChiSquare_test_SOURCES = ChiSquare_test.c
 lalinference_nest_SOURCES = LALInferenceNest.c
 endif
+
 endif
 
 frame_progs = \
@@ -46,7 +48,7 @@ EXTRA_DIST = \
 	nest_utils.py \
 	nest_iter_pipe.in \
 	nest_compare.in\
-	combine_evidence.py \
+	combine_evidence.py
     lalapps_vo_nest2pos.in
 
 python_config.sed: Makefile
@@ -81,6 +83,7 @@ lalapps_nest_compare: $(srcdir)/nest_compare.in python_config.sed
 lalapps_vo_nest2pos: $(srcdir)/lalapps_vo_nest2pos.in python_config.sed
 	sed -f python_config.sed $(srcdir)/lalapps_vo_nest2pos.in >lalapps_vo_nest2pos
 	chmod a+x lalapps_vo_nest2pos
+
 
 CLEANFILES = \
 	$(bin_SCRIPTS) \

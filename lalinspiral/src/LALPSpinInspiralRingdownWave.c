@@ -314,8 +314,8 @@ INT4 XLALGenerateWaveDerivative (
   {
     if ( acc )    gsl_interp_accel_free(acc);
     if ( spline ) gsl_spline_free(spline);
-    if (x) LALFree( x );
-    if (y) LALFree( y );
+    LALFree( x );
+    LALFree( y );
     XLAL_ERROR( XLAL_ENOMEM );
   }
 
@@ -325,8 +325,8 @@ INT4 XLALGenerateWaveDerivative (
   {
     gsl_spline_free(spline);
     gsl_interp_accel_free(acc);
-    if(x) LALFree( x );
-    if(y) LALFree( y );
+    LALFree( x );
+    LALFree( y );
     XLAL_ERROR( XLAL_EFUNC );
   }
 
@@ -338,8 +338,8 @@ INT4 XLALGenerateWaveDerivative (
     {
       gsl_spline_free(spline);
       gsl_interp_accel_free(acc);
-      if(x) LALFree( x );
-      if(y) LALFree( y );
+      LALFree( x );
+      LALFree( y );
       XLAL_ERROR( XLAL_EFUNC );
     }
     dwave->data[j]  = (REAL8)(dy / dt);
@@ -350,8 +350,9 @@ INT4 XLALGenerateWaveDerivative (
   /* Free gsl variables */
   gsl_spline_free(spline);
   gsl_interp_accel_free(acc);
-  if (x) LALFree(x);
-  if (y) LALFree(y);
+  LALFree(x);
+  LALFree(y);
+
   return errcode;
 }
 

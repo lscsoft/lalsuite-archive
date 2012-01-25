@@ -1903,7 +1903,6 @@ static int XLALSpinInspiralAdaptiveEngine(
       jend++;
       kend--;
     }
-    printf("jend %d intlen %d\n",jend,intlen);
     //We keep until the point where omega > omegaMatch for better derivative
     // computation, but do the matching at the last point at which 
     // omega < omegaMatch

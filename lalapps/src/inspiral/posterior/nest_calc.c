@@ -151,7 +151,6 @@ void CheckInjectionInRange(LALMCMCParameter *injected, LALMCMCInput *MCMCinput){
 		}
 		
 	if(XLALMCMCCheckParameter(injected,"logM")) mc=exp(XLALMCMCGetParameter(injected,"logM"));
-    else if (XLALMCMCCheckParameter(injected,"logmc") ) mc=exp(XLALMCMCGetParameter(injected,"logmc"));
 	else mc=XLALMCMCGetParameter(injected,"mchirp");
 	double logmc=log(mc);
 	eta=XLALMCMCGetParameter(injected,"eta");
@@ -270,12 +269,9 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 			if(!PriorIsSane(Live[i]))
 				{fprintf(stderr,"ERROR: Prior is not sane, check ranges specified\n"); exit(1);}
 			if(Live[i]->logPrior==-DBL_MAX) XLALMCMCFreePara(Live[i]);
-            printf("Im in nest_calc 273\n");
 		} while(Live[i]->logPrior==-DBL_MAX);
-                    printf("Im in nest_calc 275\n");
 		MCMCinput->funcLikelihood(MCMCinput,Live[i]);
 	}
-                printf("Im in nest_calc 278\n");
 	/* Set up covariance matrix */
 	cov_mat = gsl_matrix_alloc(MCMCinput->dim,MCMCinput->dim);
 	calcCVM(cov_mat,Live,Nlive);

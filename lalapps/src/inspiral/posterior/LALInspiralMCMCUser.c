@@ -917,8 +917,6 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 	REAL8 logL=0.0;
 	REAL8 chisq=0.0;
 	REAL8 real,imag;
-    parameter->SNR=0.0;
-    REAL8 rec_snr=0.0;
 	REAL8 resp_r,resp_i;
 
 	REAL4Vector *hPlus;
@@ -932,7 +930,6 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 	UINT4 idx=0;
 	UINT4 NtimeDomain=2*(inputMCMC->stilde[det_i]->data->length-1);
 	//UINT4 NFD=inputMCMC->stilde[det_i]->data->length;
-//printf("NTD1 %d \n",NtimeDomain);
 
 	REAL8 eta,mchirp;
 	REAL8 mtot=0.;
@@ -987,7 +984,6 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 
 	//template.totalMass=mtot;
 	//template.eta=eta;
-//printf("NTD2 %d \n",NtimeDomain);
 
 
 	double a1=0.;
@@ -1022,35 +1018,23 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 
 	template.next = NULL;
 	template.fine = NULL;
-  //  printf("Im in MCMCUser 1023\n");
-//printf("NTD3 %d \n",NtimeDomain);
 
 	LALInspiralParameterCalc(&status,&template);
-//printf("NTD4 %d \n",NtimeDomain);
 
 
 	UINT4 dummy_length;
 
-    //printf("Im in MCMCUser 1030\n");
 
         LALInspiralWaveLength(&status, &dummy_length, template);
-	    dummy_length*=2;
-      //  printf("Im in MCMCUser 1034\n");
-    //printf("NTD %d DL %d \n",NtimeDomain,dummy_length);
-
+	dummy_length*=2;
 	if(NtimeDomain>=dummy_length){
-        //    printf("Im in MCMCUser 1037\n");
+
 
 	hPlus=XLALCreateREAL4Vector(NtimeDomain); /* Allocate storage for the waveform */
 	hCross=XLALCreateREAL4Vector(NtimeDomain);/* Allocate storage for the waveform */
-        //printf("Im in MCMCUser 1039\n");
 	XLALREAL4VectorFFT(inputMCMC->Fwfp,hPlus,inputMCMC->likelihoodPlan);
         XLALREAL4VectorFFT(inputMCMC->Fwfc,hCross,inputMCMC->likelihoodPlan);
-          //  printf("Im in MCMCUser 1042\n");
-
 	LALPSpinInspiralRDTemplates(&status,hPlus,hCross,&template);
-   // printf("Im in MCMCUser 1045\n");
-
         if(status.statusCode)
           {
             REPORTSTATUS(&status);
@@ -1252,7 +1236,6 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i;
 
 			chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
-			rec_snr+=2.0*((resp_r/deltaF)*(resp_r/deltaF)+(resp_i/deltaF)*(resp_i/deltaF))*inputMCMC->invspec[det_i]->data->data[idx];
 
                         #if DEBUGMODEL !=0
 			  fprintf(modelout,"%lf  %18.10e  %18.10e  %18.10e\n",idx*deltaF,resp_r,resp_i,sqrt(resp_r*resp_r+resp_i*resp_i));
@@ -1268,12 +1251,8 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 		else if(highBin<=lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
 		chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
 		/* add the normalisation constant */
-         rec_snr*=2.0*deltaF;
-		parameter->SNR+=rec_snr;
 
 		logL-=chisq;
-        parameter->SNR=sqrt(parameter->SNR);
-
 	}
 
 	/* Add log likelihoods to find global likelihood */
