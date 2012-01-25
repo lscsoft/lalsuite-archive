@@ -208,6 +208,28 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         if event is not None:
             self.__event=int(event)
             self.add_var_arg('--eventnum '+str(event))
+            
+class DataBaseJob(pipeline.CondorDAGJob):
+    def __init__(self,cp,submitFile,logdir):
+        exe=cp.get('condor','database')
+        pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+        self.set_stdout_file(os.path.join(logdir,'database.out'))
+        self.set_stderr_file(os.path.join(logdir,'database.err'))
+        self.add_condor_cmd('getenv','True')
+        self.set_sub_file(submitFile)
+
+class DataBaseNode(pipeline.CondorDAGNode):
+    def __init__(self,db_page_job):
+        pipeline.CondorDAGNode.__init__(self,db_page_job)  
+    def set_time(self,time):
+        """
+        Set the event time
+        """
+        if time is not None:
+            self.__event=int(time)
+            self.add_var_opt('event-time ',str(time))
+
+            
 # Function definitions for setting up groups of nodes
 
 def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None,factor=None):
