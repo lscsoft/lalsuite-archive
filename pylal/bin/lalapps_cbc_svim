@@ -698,18 +698,18 @@ for instruments in UL.instruments:
     vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
 
     # it is useful to look at the efficiencies
-    if opts.verbose and bin_type != "Mass1_Mass2": #FIXME eventually want to support this for m1m2
+    if opts.verbose:
       tag = "%s-SEARCH_EFFICIENCY_BINNED_BY_%s_%s-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),opts.output_tag,UL.start_time,UL.end_time-UL.start_time)
       plot_efficiency(eff,err,UL.dbins[instruments],UL.mass_bins[bin_type],tag)
 
       wikisum = tag + ".wiki"
       fd = open(wikisum,'w')
-      masstags = ''.join([" ||<-3>'''%.1f-%.1f Msun''' VT (Mpc3*yr) / Lambda / error ||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
-      fd.write("|| '''Analysis time''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
-      masstags = ''.join([" ||  %.0f || %.2f || %.2f ||"%(v,dv,er) for v,dv,er in zip(vA.array,dvA.array,vA2.array/vA.array)])
-      fd.write("|| %d-%d || %d (%f) || %.2f || %s\n" %(UL.start_time,UL.end_time,UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
-      fd.close()
-
+      if len(UL.mass_bins[bin_type]) == 1:
+        masstags = ''.join([" ||<-3>'''%.1f-%.1f Msun''' VT (Mpc3*yr) / Lambda / error ||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
+        fd.write("|| '''Analysis time''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
+        masstags = ''.join([" ||  %.0f || %.2f || %.2f ||"%(v,dv,er) for v,dv,er in zip(vA.array,dvA.array,vA2.array/vA.array)])
+        fd.write("|| %d-%d || %d (%f) || %.2f || %s\n" %(UL.start_time,UL.end_time,UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
+        fd.close()
 
     # make a live time table
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
