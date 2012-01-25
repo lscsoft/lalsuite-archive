@@ -793,18 +793,26 @@ if opts.inspinj_seed is not None:
 
 if want_database==4:
 
+    clusters={"pcdev1.phys.uwm.edu":"Nemo","marlin.phys.uwm.edu":"Marlin","hydra.phys.uwm.edu":"Hydra","atlas1.atlas.aei.uni-hannover.de":"Atlas1","atlas2.atlas.aei.uni-hannover.de":"Atlas2","atlas3.atlas.aei.uni-hannover.de":"Atlas3","atlas4.atlas.aei.uni-hannover.de":"Atlas4","titan1.atlas.aei.uni-hannover.de":"Titan1","titan2.atlas.aei.uni-hannover.de":"Titan2","titan3.atlas.aei.uni-hannover.de":"Titan3","ldas-grid.ligo.caltech.edu":"Cit","sugar.phy.sys.edu":"Sugar","ldas-grid.ligo-la.caltech.edu":"LLO","ldas-grid.ligo-wa.caltech.edu":"LHO1","ldas-pcdev1.ligo-wa.caltech.edu":"LHO2"}
+    for un in os.uname():
+        if un in clusters.keys():
+            local_pc=clusters[un]
+            break
+        else:
+            local_pc=os.uname()[1]
+
     database_subfile=os.path.join(common_path,'database.sub')
-    database_job=OddsPipeline.DataBaseJob(cp,database_subfile,opts.jobs_log_path)
+    database_job=OddsPipeline.DataBaseJob(cp,database_subfile,common_jobs_log_path)
 
     for time in glob_parents_by_time_by_hyp.keys():
         database_node=OddsPipeline.DataBaseNode(database_job)
         map(database_node.add_parent,glob_parents_by_time_by_hyp[time].values())
         database_node.set_time(time)
-        database_node.add_var_opt("path ",common_path)
+        database_node.add_var_opt("path",common_path)
         database_node.add_var_opt("subhyp", hyp_str)
         database_node.add_var_opt("remote-script",opts.remote_script)
         database_node.add_var_opt("remote-database",opts.remote_database)
-
+        database_node.add_var_opt("cluster",local_pc)
         database_node.add_var_opt("testParam-ShiftPc",opts.testParam_ShiftPc)
         database_node.add_var_opt("inspinj-seed",opts.inspinj_seed)
         

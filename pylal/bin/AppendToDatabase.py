@@ -70,7 +70,8 @@ def AppendToDatabase(   path,
                         remote_database,
                         time,
                         testP,
-                        seed
+                        seed,
+                        local_pc
                         #misc. optional
                         #injfile=None,eventnum=None,skyres=None,
                        
@@ -78,13 +79,13 @@ def AppendToDatabase(   path,
     
     """
     """
-    clusters={"pcdev1.phys.uwm.edu":"Nemo","marlin.phys.uwm.edu":"Marlin","hydra.phys.uwm.edu":"Hydra","atlas1.atlas.aei.uni-hannover.de":"Atlas1","atlas2.atlas.aei.uni-hannover.de":"Atlas2","atlas3.atlas.aei.uni-hannover.de":"Atlas3","atlas4.atlas.aei.uni-hannover.de":"Atlas4","titan1.atlas.aei.uni-hannover.de":"Titan1","titan2.atlas.aei.uni-hannover.de":"Titan2","titan3.atlas.aei.uni-hannover.de":"Titan3","ldas-grid.ligo.caltech.edu":"Cit","sugar.phy.sys.edu":"Sugar","ldas-grid.ligo-la.caltech.edu":"LLO","ldas-grid.ligo-wa.caltech.edu":"LHO1","ldas-pcdev1.ligo-wa.caltech.edu":"LHO2"}
-    for un in os.uname():
-        if un in clusters.keys():
-            local_pc=clusters[un]
-            break
-        else:
-            local_pc=os.uname()[1]
+    #clusters={"pcdev1.phys.uwm.edu":"Nemo","marlin.phys.uwm.edu":"Marlin","hydra.phys.uwm.edu":"Hydra","atlas1.atlas.aei.uni-hannover.de":"Atlas1","atlas2.atlas.aei.uni-hannover.de":"Atlas2","atlas3.atlas.aei.uni-hannover.de":"Atlas3","atlas4.atlas.aei.uni-hannover.de":"Atlas4","titan1.atlas.aei.uni-hannover.de":"Titan1","titan2.atlas.aei.uni-hannover.de":"Titan2","titan3.atlas.aei.uni-hannover.de":"Titan3","ldas-grid.ligo.caltech.edu":"Cit","sugar.phy.sys.edu":"Sugar","ldas-grid.ligo-la.caltech.edu":"LLO","ldas-grid.ligo-wa.caltech.edu":"LHO1","ldas-pcdev1.ligo-wa.caltech.edu":"LHO2"}
+    #for un in os.uname():
+    #    if un in clusters.keys():
+    #        local_pc=clusters[un]
+    #        break
+    #    else:
+    #        local_pc=os.uname()[1]
             
     header=" "
     string_to_write=""
@@ -102,7 +103,7 @@ def AppendToDatabase(   path,
         if os.path.isfile(path_to_Bfile):
             bfile=np.loadtxt(path_to_Bfile)
             logB=bfile[0]
-            string_to_write+=repr(logB)+" "
+            string_to_write+="%.3f"%logB+" "
             header+=str(hyp)+" "
             found+=1
         else:
@@ -114,7 +115,7 @@ def AppendToDatabase(   path,
     if os.path.isfile(path_to_snr):
         snrfile=np.loadtxt(path_to_snr,skiprows=3,usecols=(1,1))
         snr=snrfile[0]
-        string_to_write+=str(snr)+" "
+        string_to_write+="%.2f"%snr+" "
         header+=str("NetSNR ")
     string_to_write+=str(testP)+" "
     header+=str("testParameter_ShiftPc ")
@@ -134,6 +135,8 @@ if __name__=='__main__':
     parser.add_option("-T","--testParam-ShiftPc",type="string",action="store",help="The shifted parameter underscore the percent value of the shift, or GR", metavar="dphi6_1pc")
     parser.add_option("-Q","--inspinj-seed",default=None,action="store",type="string",help="The unique value of the inspinj seed", metavar="700000")
     parser.add_option("-t","--event-time",type="string",action="store",help="The time of injection", metavar="939936910")
+    parser.add_option("-c","--cluster",type="string",action="store",help="The cluster from which the pipeline is being run", metavar="Atlas1")
+
     (opts,args)=parser.parse_args()
 
 
@@ -144,6 +147,7 @@ if __name__=='__main__':
                         opts.remote_database,
                         opts.event_time,
                         opts.testParam_ShiftPc,
-                        opts.inspinj_seed
+                        opts.inspinj_seed,
+                        opts.cluster
                     )
 #
