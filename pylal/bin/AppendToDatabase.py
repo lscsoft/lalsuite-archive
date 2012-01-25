@@ -93,7 +93,7 @@ def AppendToDatabase(   path,
     header+="User "
     string_to_write+=str(getpass.getuser())+" "
     string_to_write+=str(local_pc)+" "
-    header+=str("Cluster \t time" )+ " "
+    header+=str("cluster  time" )+ " "
     string_to_write+=str(time)+" "
     for hyp in subhyp:
         path_to_snr=os.path.join(path,hyp,'SNR',"snr_H1L1V1_"+str(time)+".0.dat")
@@ -118,7 +118,7 @@ if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()
     parser.add_option("-p","--path", dest="path",type="string",help="This dir contain all the sub-hypotheses dirs", metavar="DIR")
-    parser.add_option("-s","--subhyp",dest="subhyp",action="callback",callback=vararg_callback,help="A space-separed list of the subhypothesis (comprised the GR)",metavar="GR dphi1 dphi2 dphi1dphi2 ")
+    parser.add_option("-s","--subhyp",dest="subhyp",action="callback",callback=vararg_callback,help="A space-separed list of the subhypothesis (comprised the GR)",metavar="GR dphi1 dphi2 dphi1dphi2")
     parser.add_option("-R","--remote-filename",type="string",action="store",help="The path to the remote script which writes on the datafile", metavar="svitale@login.nikhef.nl:/project/gravwav/my_file.sh")
     parser.add_option("-r","--remote-datafile",type="string",action="store",help="The remote database on which to append", metavar="datafile.txt")
     parser.add_option("-T","--testParam-ShiftPc",type="string",action="store",help="The shifted parameter underscore the percent value of the shift, or GR", metavar="dphi6_1pc")
