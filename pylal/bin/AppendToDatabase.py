@@ -66,8 +66,8 @@ def vararg_callback(option, opt_str, value, parser):
 
 def AppendToDatabase(   path,
                         subhyp,
-                        remote_filename,
-                        remote_datafile,
+                        remote_script,
+                        remote_database,
                         time,
                         testP,
                         seed
@@ -108,10 +108,10 @@ def AppendToDatabase(   path,
     header+=str("NetSNR ")
     string_to_write+=str(testP)+" "
     header+=str("testParameter_ShiftPc ")
-    remote_server=remote_filename[0:remote_filename.index(":")]
-    remote_script=remote_filename[remote_filename.index(":")+1:]
-    print "ssh "+remote_server + ' "'+ remote_script + " '" +string_to_write +"' "+ remote_datafile+'"'
-    a=os.system("ssh "+remote_server + ' "'+ remote_script + " '" +string_to_write +"' "+ remote_datafile+" '" +header +"' "+'"')    
+    remote_server=remote_script[0:remote_script.index(":")]
+    path_remote_script=remote_script[remote_script.index(":")+1:]
+    print "ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+'"'
+    a=os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+" '" +header +"' "+'"')    
     
 if __name__=='__main__':
 
@@ -119,8 +119,8 @@ if __name__=='__main__':
     parser=OptionParser()
     parser.add_option("-p","--path", dest="path",type="string",help="This dir contain all the sub-hypotheses dirs", metavar="DIR")
     parser.add_option("-s","--subhyp",dest="subhyp",action="callback",callback=vararg_callback,help="A space-separed list of the subhypothesis (comprised the GR)",metavar="GR dphi1 dphi2 dphi1dphi2")
-    parser.add_option("-R","--remote-filename",type="string",action="store",help="The path to the remote script which writes on the datafile", metavar="svitale@login.nikhef.nl:/project/gravwav/my_file.sh")
-    parser.add_option("-r","--remote-datafile",type="string",action="store",help="The remote database on which to append", metavar="datafile.txt")
+    parser.add_option("-R","--remote-script",type="string",action="store",help="The path to the remote script which writes on the datafile", metavar="svitale@login.nikhef.nl:/project/gravwav/safe_append.sh")
+    parser.add_option("-r","--remote-database",type="string",action="store",help="The remote database on which to append", metavar="datafile.txt")
     parser.add_option("-T","--testParam-ShiftPc",type="string",action="store",help="The shifted parameter underscore the percent value of the shift, or GR", metavar="dphi6_1pc")
     parser.add_option("-Q","--inspinj-seed",default=None,action="store",type="string",help="The unique value of the inspinj seed", metavar="700000")
     parser.add_option("-t","--event-time",type="string",action="store",help="The time of injection", metavar="939936910")
@@ -130,8 +130,8 @@ if __name__=='__main__':
     AppendToDatabase( 
                         opts.path,
                         opts.subhyp,
-                        opts.remote_filename,
-                        opts.remote_datafile,
+                        opts.remote_script,
+                        opts.remote_database,
                         opts.event_time,
                         opts.testParam_ShiftPc,
                         opts.inspinj_seed
