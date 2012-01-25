@@ -213,8 +213,8 @@ class DataBaseJob(pipeline.CondorDAGJob):
     def __init__(self,cp,submitFile,logdir):
         exe=cp.get('condor','database')
         pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
-        self.set_stdout_file(os.path.join(logdir,'database.out'))
-        self.set_stderr_file(os.path.join(logdir,'database.err'))
+        self.set_stdout_file(os.path.join(logdir,'database-$(cluster)-$(process).out'))
+        self.set_stderr_file(os.path.join(logdir,'database-$(cluster)-$(process).err'))
         self.add_condor_cmd('getenv','True')
         self.set_sub_file(submitFile)
 
@@ -227,7 +227,7 @@ class DataBaseNode(pipeline.CondorDAGNode):
         """
         if time is not None:
             self.__event=int(time)
-            self.add_var_opt('event-time ',str(time))
+            self.add_var_opt('event-time',str(time))
 
             
 # Function definitions for setting up groups of nodes
