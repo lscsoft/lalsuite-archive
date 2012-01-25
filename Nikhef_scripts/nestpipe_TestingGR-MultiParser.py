@@ -18,14 +18,14 @@ inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created f
 type_inj="dphi6"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
+remote_file='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
 
 if type_inj!='GR':
      type_name=type_inj+'_'+repr(shift)+'pc'
 else:
      type_name=type_inj
 
-PATH_TO_OPT="/home/salvatore.vitale/lalsuite_branches/nikhef/opt"  ## Path to the opt folder of your installation
-parsername = "parser.ini"
+PATH_TO_OPT="/home/salvatore.vitale/lalsuites/nikhef/opt"  ## Path to the opt folder of your installation
 
 basefolder = "/home/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)                       ##
 postprocfolder = "/home/salvatore.vitale/public_html/IMR_runs/%s/%s"%(type_name,inspinj_seed)       ##
@@ -220,6 +220,7 @@ resultspage=PATH_TO_OPT/pylal/bin/cbcBayesPostProc.py
 segfind=PATH_TO_OPT/glue/bin/ligolw_segment_query
 ligolw_print=PATH_TO_OPT/glue/bin/ligolw_print
 coherencetest=PATH_TO_OPT/lalapps/bin/lalapps_coherence_test
+database=PATH_TO_OPT/pylal/bin/AppendToDatabase.py
 
 [datafind]
 url-type=file
@@ -278,9 +279,9 @@ for i in os.uname():
     if i.find("uwm")!=-1:
         logd=logdir
         scrd=scratchdir
-
-os.system("lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd)
-
+#print "lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
+#os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_file+" -S "+type_name+" -Q "+str(inspinj_seed))
+os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
 
 # RETURN TO CURRENT WORKING DIRECTORY
 os.chdir(curdir)
