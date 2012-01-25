@@ -1417,19 +1417,21 @@ class CondorDAG:
 
         # loop through all filenames looking for them in the command
         # line so that they can be replaced appropriately by xml tags
-        node_file_dict = {}
+        input_node_file_dict = {}
         for f in node.get_input_files():
-          node_file_dict[f] = 1
+          input_node_file_dict[f] = 1
         
-        for f in node_file_dict.keys():
+        for f in input_node_file_dict.keys():
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.INPUT,register=False,transfer=True)
 
-        node_file_dict = {}
+        output_node_file_dict = {}
         for f in node.get_output_files():
-          node_file_dict[f] = 1
+          output_node_file_dict[f] = 1
 
-        for f in node_file_dict.keys():
+        for f in output_node_file_dict.keys():
           workflow_job.uses(Pegasus.DAX3.File(os.path.basename(f)),link=Pegasus.DAX3.Link.OUTPUT,register=False,transfer=True)
+
+        node_file_dict = dict( input_node_file_dict.items() + output_node_file_dict.items() )
 
         for job_arg in cmd_line:
           if node_file_dict.has_key(job_arg[0]):
