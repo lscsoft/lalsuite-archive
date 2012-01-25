@@ -1997,7 +1997,7 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
   attr_map = dict()
 
-  peak = peak_time+peak_time_offset*10**-9
+  peak = peak_time+peak_time_offset
   if 'start_time' in columns or 'start_time_ns' in columns:
     start = map(LIGOTimeGPS, peak-duration/2)
     attr_map['start_time'], attr_map['start_time_ns'] =\
