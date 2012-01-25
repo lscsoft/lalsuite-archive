@@ -446,6 +446,13 @@ class upper_limit(object):
     if sim.waveform in self.opts.exclude_sim_type:
       return True
 
+    if self.opts.disable_spin:
+      # throw out if any spin component is nonzero
+      if not max(abs(numpy.array([sim.spin1x, sim.spin1y, sim.spin1z, sim.spin2x, sim.spin2y, sim.spin2z]))) == 0: return True
+    elif self.opts.spin_only:
+      # throw out injections having all zero spin components
+      if max(abs(numpy.array([sim.spin1x, sim.spin1y, sim.spin1z, sim.spin2x, sim.spin2y, sim.spin2z]))) == 0: return True
+
     if not self.opts.min_mtotal < sim.mass1 + sim.mass2 < self.opts.max_mtotal:
       return True
 
@@ -607,6 +614,8 @@ will compute the search volume using all injections with at least one component 
 
   # Control the injection population used to measure the efficiency
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
+  parser.add_option("--disable-spin", default = False, action = "store_true", help = "When computing the search volume, exclude injections with any nonzero spin components.")
+  parser.add_option("--spin-only", default = False, action = "store_true", help = "When computing the search volume, exclude injections with all spin components equal to zero. --disable-spin takes precedence.")
 
   # These options control the volume uncertainty estimation.
   parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
