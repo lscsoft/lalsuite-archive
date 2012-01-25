@@ -99,20 +99,23 @@ def AppendToDatabase(   path,
     for hyp in subhyp:
         path_to_snr=os.path.join(path,hyp,'SNR',"snr_H1L1V1_"+str(time)+".0.dat")
         path_to_Bfile=os.path.join(path,hyp,'nest',"outfile_"+str(time)+".000000_H1L1V1.dat_B.txt")
-        if os.path_isfile(path_to_Bile):
+        if os.path.isfile(path_to_Bfile):
             bfile=np.loadtxt(path_to_Bfile)
             logB=bfile[0]
             string_to_write+=repr(logB)+" "
             header+=str(hyp)+" "
             found+=1
-    if os.path_isfile(path_to_snr):
+        else:
+            print "WARNING: The Bfile %s was not found"%str(path_to_Bfile)
+    
+    if found < len(subhyp):
+        print "ERROR, some of the B files were not found. This is probably due to some failed inspnest run(s)"
+        sys.exit(1)
+    if os.path.isfile(path_to_snr):
         snrfile=np.loadtxt(path_to_snr,skiprows=3,usecols=(1,1))
         snr=snrfile[0]
         string_to_write+=str(snr)+" "
         header+=str("NetSNR ")
-    if found < len(subhyp):
-        print "ERROR, some of the B files were not found. This is probably due to an inspnest run failed"
-        sys.exit(1)
     string_to_write+=str(testP)+" "
     header+=str("testParameter_ShiftPc ")
     remote_server=remote_script[0:remote_script.index(":")]
