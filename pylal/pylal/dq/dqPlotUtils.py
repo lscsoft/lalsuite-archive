@@ -2613,3 +2613,70 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+
+# =============================================================================
+# Significance drop plot (HVeto style)
+
+def plot_significance_drop(startsig, endsig, outfile, **params):
+
+  """
+    Plot significance drop for each channel relative to the application of
+    HVeto round veto segments.
+  """
+
+  # get channels
+  channels = startsig.keys()
+  for c in channels:
+    if c not in endsig.keys():
+      raise AttributeError("Significance lists do not match.")
+  channels.sort()
+
+  # find winner
+  wch,wsig = max(startsig.items(), key=lambda x: x[1])
+
+  # extract parameters
+  params.pop('xlim', None)
+  params.pop('ylim', None)
+  xlabel   = params.pop('xlabel',   "")
+  ylabel   = params.pop('ylabel',   "Significance")
+  title    = params.pop('title',    "Coincidence significance drop plot")
+  subtitle = params.pop('subtitle',\
+                        "Winner: %s, significance: %s" % (wch, wsig))
+
+  params.setdefault('linestyle', '-')
+  params.setdefault('marker', 'o')
+  color    = params.pop('color', None)
+
+  # customise plot appearance
+  set_rcParams()
+  pylab.rcParams.update({"figure.figsize":[24,6], "xtick.labelsize": 8})
+
+
+  # generate plot object
+  plot = DataPlot(xlabel, ylabel, title, subtitle)
+
+  # plot each channel's drop
+  for i,c in enumerate(channels):
+    s   = startsig[c]
+    e   = endsig[c]
+    col = color and color or s>e and 'b' or 'r'
+    plot.add_content([i,i], [s,e], color=col, **params)
+
+  # finalise plot object
+  plot.finalize(logx=False, logy=False)
+
+  # set xticks to channel names and rotate
+  plot.ax.set_xlim(-1, len(channels))
+  plot.ax.set_xticks(numpy.arange(0,len(channels)))
+  plot.ax.set_xticklabels([c.replace('_','\_') for c in channels])
+  for i,t in enumerate(plot.ax.get_xticklabels()):
+    t.set_rotation(270)
+
+  # set ylim
+  plot.ax.set_ylim(0, wsig+1)
+
+  # turn off x grid
+  plot.ax.xaxis.grid(False)
+
+  # save figure
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
