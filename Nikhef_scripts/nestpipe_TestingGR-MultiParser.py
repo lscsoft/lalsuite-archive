@@ -18,7 +18,8 @@ inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created f
 type_inj="dphi6"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
-remote_file='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
+remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
+remote_database='ciao.txt'
 
 if type_inj!='GR':
      type_name=type_inj+'_'+repr(shift)+'pc'
@@ -280,7 +281,7 @@ for i in os.uname():
         logd=logdir
         scrd=scratchdir
 #print "lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
-#os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_file+" -S "+type_name+" -Q "+str(inspinj_seed))
+#os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
 os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
 
 # RETURN TO CURRENT WORKING DIRECTORY
