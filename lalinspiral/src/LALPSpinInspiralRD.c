@@ -1897,7 +1897,7 @@ static int XLALSpinInspiralAdaptiveEngine(
       XLALPrintError("*** LALPSpinInspiralRD ERROR ***: Impossible to attach phenom. part\n");
       XLAL_ERROR(XLAL_EFAILED);
     }
-
+    
     kend=Npoints-1;
     if (omega[jend+1]>omega[jend]) {
       jend++;
@@ -1906,7 +1906,7 @@ static int XLALSpinInspiralAdaptiveEngine(
     //We keep until the point where omega > omegaMatch for better derivative
     // computation, but do the matching at the last point at which 
     // omega < omegaMatch
-
+    printf("jend %d \n",jend);
     if (Npoints > jend) Npoints = jend+1;
 
     REAL8Vector *omega_s   = XLALCreateREAL8Vector(Npoints);

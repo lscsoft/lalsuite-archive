@@ -77,13 +77,9 @@ Optional OPTIONS:\n \
 [--timeslide\t:\tTimeslide data]\n \
 [--studentt\t:\tuse student-t likelihood function]\n \
 [--ra FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use (DEGREES)]\n \
-//<<<<<<< HEAD
 [--grb\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n \
 [--decohere offset\t:\tOffset injection in each IFO]\n \
-//[--deta FLOAT\t:\twidth of eta window]\n \
-=======
-//[--grb\t:\tuse GRB prior ]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
-//>>>>>>> master
+[--deta FLOAT\t:\twidth of eta window]\n \
 [--dt FLOAT (0.01)\t:\ttime window (0.01s)]\n \
 [--injSNR FLOAT\t:\tScale injection to have network SNR of FLOAT]\n \
 [--SNRfac FLOAT\t:\tScale injection SNR by a factor FLOAT]\n \
@@ -484,10 +480,7 @@ void initialise(int argc, char *argv[]){
 			pinned_params=calloc(strlen(optarg)+1 ,sizeof(char));
 			memcpy(pinned_params,optarg,strlen(optarg)+1);
 			break;
-		case 123:
-			SNRpath = calloc(strlen(optarg)+1,sizeof(char));
-			memcpy(SNRpath,optarg,strlen(optarg)+1);
-			break;
+		
 		case 'V':
 			fprintf(stdout,"LIGO/LSC Bayesian parameter estimation and evidence calculation code\nfor CBC signals, using nested sampling algorithm.\nJohn Veitch <john.veitch@ligo.org>\n");
 			XLALOutputVersionString(stderr,0);
@@ -1243,7 +1236,7 @@ int main( int argc, char *argv[])
 
         } /* End if(NULL!=injXMLFile && fakeinj==0) { */
         calib_seed=calib_seed+3;  // Vary the calib_seed for the next IFO. If we add injection in the frequency domain we need to update that.
-        } /* End loop over IFOs */
+        //} /* End loop over IFOs */
 
 	XLALDestroyRandomParams(datarandparam);
 	} /* End loop over IFOs */
@@ -1544,10 +1537,34 @@ doneinit:
 
 void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
 {
-  (void)iT;
+  //(void)iT;
 
   double dmin=d_min;
   double dmax=d_max;
+ 
+    REAL8 trg_time;
+	SimInspiralTable *injTable = (SimInspiralTable *)iT;
+	REAL4 UNUSED mtot, UNUSED eta, UNUSED mwindow, localetawin;
+	REAL8 UNUSED mc, mcmin, mcmax, lmmin, lmmax;
+	parameter->param = NULL;
+	parameter->dimension = 0;
+	trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
+	//mtot = injTable->mass1 + injTable->mass2;
+	//eta = injTable->eta;
+	//mwindow = 0.2;
+	/*etamin = etamin<0.01?0.01:etamin;*/
+	etamin=0.01;
+	double etamax = 0.25;
+	mc=m2mc(injTable->mass1,injTable->mass2);
+	mcmin=manual_mass_low*pow(etamin,3./5.);
+	REAL8 m_comp_min=1., m_comp_max=15.;
+	mcmax=manual_mass_high*pow(etamax,3./5.);
+
+	lmmin=log(mcmin);
+	lmmax=log(mcmax);
+	localetawin=etamax-etamin;
+	
+ 
  
 
 /*  if ( (manual_mass_high > manual_mass_low) && (manual_mass_low>2.*singleMassMin) ) {
@@ -1562,12 +1579,12 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
   }
   */
 
-  double eta=etamin+gsl_rng_uniform(RNG)*(0.25-etamin);
+//double eta=etamin+gsl_rng_uniform(RNG)*(0.25-etamin);
 
-  double logMc;
-//  double mcmax=0.435275*totalMassMax;
- // double mcmin = m2mc(m1min,m2min);
- // double mcmax = m2mc(m1maxhalf,m2maxhalf);
+  //double logMc;
+// // double mcmax=0.435275*totalMassMax;
+ // //double mcmin = m2mc(m1min,m2min);
+ // //double mcmax = m2mc(m1maxhalf,m2maxhalf);
 
   double lMcmin=log(manual_mass_low);
   double lMcmax=log(manual_mass_high);
@@ -1576,8 +1593,67 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
   parameter->param=NULL;
   parameter->dimension = 0;
   
-  logMc=log((gsl_rng_uniform(RNG)*(33.)+2.)*pow(eta,3./5.));
+  //logMc=log((gsl_rng_uniform(RNG)*(33.)+2.)*pow(eta,3./5.));
 
+LALMCMCParam *head;
+	
+	/*if(m1m2Flag){
+		if(checkParamInList(pinned_params,"m1")||checkParamInList(pinned_params,"m2"))
+		{XLALMCMCAddParam(parameter,"m1",injTable->mass1,m_comp_min,m_comp_max,0);
+		XLALMCMCAddParam(parameter,"m2",injTable->mass2,m_comp_min,m_comp_max,0);
+		}
+		else {
+			XLALMCMCAddParam(parameter,"m1",m_comp_min+(m_comp_max-m_comp_min)*gsl_rng_uniform(RNG),m_comp_min,m_comp_max,0);
+			XLALMCMCAddParam(parameter,"m2",m_comp_min+(m_comp_max-m_comp_min)*gsl_rng_uniform(RNG),m_comp_min,m_comp_max,0);
+		}
+	}*/
+	//else{
+		if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+			XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lmmin,lmmax,-1);
+		else
+			XLALMCMCAddParam(parameter,"logmc",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+		if(checkParamInList(pinned_params,"eta"))
+			XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
+		else
+			XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*localetawin+etamin , etamin, etamax, 0);
+		
+	//}
+	if(checkParamInList(pinned_params,"time"))
+		XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
+	else
+		XLALMCMCAddParam(parameter, "time",		(gsl_rng_uniform(RNG)-0.5)*timewindow + trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,0);
+	
+	if(checkParamInList(pinned_params,"phi"))
+		XLALMCMCAddParam(parameter,"phi",injTable->coa_phase,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter, "phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
+	
+	if(checkParamInList(pinned_params,"dist") || checkParamInList(pinned_params,"logdist") || checkParamInList(pinned_params,"distance") || checkParamInList(pinned_params,"logdistance"))
+		XLALMCMCAddParam(parameter,"logdist",log(injTable->distance),log(manual_dist_min),log(manual_dist_max),-1);
+	else
+		XLALMCMCAddParam(parameter,"logdist",(log(manual_dist_max)-log(manual_dist_min))*gsl_rng_uniform(RNG)+log(manual_dist_min) ,log(manual_dist_min),log(manual_dist_max),0);
+
+	if(checkParamInList(pinned_params,"ra")||checkParamInList(pinned_params,"longitude")||checkParamInList(pinned_params,"RA"))
+		XLALMCMCAddParam(parameter,"ra",injTable->longitude,0,LAL_TWOPI,-1);
+	else
+		XLALMCMCAddParam(parameter,"ra",gsl_rng_uniform(RNG)*LAL_TWOPI,0,LAL_TWOPI,1);
+	if(checkParamInList(pinned_params,"dec") || checkParamInList(pinned_params,"latitude") || checkParamInList(pinned_params,"dec"))
+		XLALMCMCAddParam(parameter,"dec",injTable->latitude,-LAL_PI/2.0,LAL_PI/2.0,-1);
+	else
+		XLALMCMCAddParam(parameter,"dec", acos(2.0*gsl_rng_uniform(RNG)-1.0)-LAL_PI/2.0,-LAL_PI/2.0,LAL_PI/2.0,0);
+
+	if(checkParamInList(pinned_params,"psi")||checkParamInList(pinned_params,"polarization"))
+		XLALMCMCAddParam(parameter,"psi",injTable->polarization,0,LAL_PI,-1);
+	else
+		XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI,0,LAL_PI,1);
+	
+	if(checkParamInList(pinned_params,"iota") || checkParamInList(pinned_params,"inclination"))
+		XLALMCMCAddParam(parameter,"iota", injTable->inclination, 0, LAL_PI, -1);
+	else
+	XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
+
+
+/*
     XLALMCMCAddParam(parameter,"logmc",logMc,lMcmin,lMcmax,0);
 
     XLALMCMCAddParam(parameter,"eta",eta,etamin,0.25,0);
@@ -1594,7 +1670,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
     XLALMCMCAddParam(parameter,"dec", lat_min+gsl_rng_uniform(RNG)*(lat_max-lat_min),lat_min,lat_max,0);
     XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI,0,LAL_PI,1);
     XLALMCMCAddParam(parameter,"iota", gsl_rng_uniform(RNG)*(iota_max-iota_min)+iota_min ,iota_min,iota_max,0);
- 
+ */
     if(onespin_flag==0 && nospin_flag==0){
     
     double spin1min=s1_mag_min;
@@ -1648,6 +1724,11 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
     XLALMCMCAddParam(parameter,"phi2",  (spinphimax-spinphimin)*gsl_rng_uniform(RNG)+spinphimin,  spinphimin, spinphimax, 0);
 		
 		}
+	}
+    for (head=parameter->param;head;head=head->next)
+	{
+		if(head->core->wrapping==-1)
+			fprintf(stdout,"Fixed parameter %s to %lf\n",head->core->name,head->value);
 	}
     return;
 }
