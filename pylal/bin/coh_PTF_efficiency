@@ -1543,6 +1543,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         sens_dist = (const - 0.5)/gradient
+        if ((eff[ii:] > 0.5).any()):
+          print "WARNING: EFFICIENCY GOES BACK ABOVE 0.5!"
         break
       if ii == len(distPlotVals) - 1:
         print "Efficiency does not drop below 50%!"
@@ -1638,6 +1640,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         excl_dist = (const - 0.9)/gradient
+        if ((eff[ii:] > 0.9).any()):
+          print "WARNING: EFFICIENCY GOES BACK ABOVE 0.9!"
         break
 
 
