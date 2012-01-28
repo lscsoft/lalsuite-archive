@@ -62,6 +62,22 @@ def vararg_callback(option, opt_str, value, parser):
         value.append(arg)
     del parser.rargs[:len(value)]
     setattr(parser.values, option.dest, value)        
+
+def my_sort(a,b):
+    if a=='GR':
+        return -1
+    elif b=='GR':
+        return 1
+    elif len(a)<len(b):
+        return -1
+    elif len(a)>len(b):
+        return 1
+    elif str(a)<str(b):
+        return -1
+    elif str(a)>str(b):
+        return 1
+    else:
+        print "Could not order %s and %s"%(a,b)
     
 
 def AppendToDatabase(   path,
@@ -97,7 +113,9 @@ def AppendToDatabase(   path,
     header+=str("cluster  time" )+ " "
     string_to_write+=str(time)+" "
     found=0
-    for hyp in subhyp:
+    failed={}
+
+    for hyp in sorted(subhyp,my_sort):
         path_to_snr=os.path.join(path,hyp,'SNR',"snr_H1L1V1_"+str(time)+".0.dat")
         path_to_Bfile=os.path.join(path,hyp,'nest',"outfile_"+str(time)+".000000_H1L1V1.dat_B.txt")
         if os.path.isfile(path_to_Bfile):
@@ -108,22 +126,28 @@ def AppendToDatabase(   path,
             found+=1
         else:
             print "WARNING: The Bfile %s was not found"%str(path_to_Bfile)
-    
+            failed[hyp]=str(path_to_Bfile)
+            string_to_write+=str(path_to_Bfile)+" "
+               
     if found < len(subhyp):
         print "ERROR, some of the B files were not found. This is probably due to some failed inspnest run(s)"
-        sys.exit(1)
+        remote_database=remote_database+"_failed"
+ 
     if os.path.isfile(path_to_snr):
         snrfile=np.loadtxt(path_to_snr,skiprows=3,usecols=(1,1))
         snr=snrfile[0]
         string_to_write+="%.2f"%snr+" "
         header+=str("NetSNR ")
+
     string_to_write+=str(testP)+" "
     header+=str("testParameter_ShiftPc ")
     remote_server=remote_script[0:remote_script.index(":")]
     path_remote_script=remote_script[remote_script.index(":")+1:]
-    print "ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+'"'
-    a=os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+" '" +header +"' "+'"')    
-    
+
+    #print "ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+'"'
+    #os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+" '" +header +"' "+'"')    
+    os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+'"')  
+
 if __name__=='__main__':
 
     from optparse import OptionParser

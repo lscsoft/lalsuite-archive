@@ -18,8 +18,9 @@ inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created f
 type_inj="dphi6"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
+
 remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
-remote_database='ciao.txt'
+remote_database='ciao.txt'   ## Succesful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed
 
 if type_inj!='GR':
      type_name=type_inj+'_'+repr(shift)+'pc'
