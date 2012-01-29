@@ -826,7 +826,7 @@ def omega_online_cache(start,end,ifo):
   dt = 10000 
   t = int(start)
 
-  while t<=end:
+  while t-dt<=end:
 
     tstr = '%.6s' % ('%.10d' % t)
 
@@ -900,7 +900,7 @@ def omega_spectrum_online_cache(start,end,ifo):
   dt = 10000 
   t = int(start)
 
-  while t<=end:
+  while t-dt<=end:
 
     tstr = '%.6s' % ('%.10d' % t)
 
