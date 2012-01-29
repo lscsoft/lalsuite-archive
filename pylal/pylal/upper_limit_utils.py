@@ -271,19 +271,20 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbi
     return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
 
 
-def log_volume_derivative_fit(x, vols, xhat,mkplot=True,tag=""):
+def log_volume_derivative_fit(x, vols, xhat, mkplot=True, tag=""):
     '''
-    Relies on scipy spline fits for each mass bin to find the (logarithmic)
-    derivitave of the search volume vs x at the given xhat.
+    Performs a linear least squares fit for each mass bin to find the 
+    (logarithmic) derivative of the search volume vs x at the given xhat.
     '''
     if numpy.min(vols) == 0:
-        print >> sys.stderr, "Warning: cannot fit to log-volume."
+        print >> sys.stderr, "Warning: cannot fit log volume derivative as all volumes are zero!"
         return 0
 
-    coeffs, resids, rank, svs, rcond = numpy.polyfit(x,numpy.log(vols),1,full=True)
+    coeffs, resids, rank, svs, rcond = numpy.polyfit(x, numpy.log(vols), 1, full=True)
     if coeffs[0] < 0:
-        val = 0 #prevents negative derivitives arising from bad fits
-        print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
+        val = 0  #negative derivatives may arise from rounding error
+        print >> sys.stderr, "Warning: Derivative fit resulted in Lambda =", coeffs[0]
+        print >> sys.stderr, "The value Lambda = 0 was substituted"
     else:
         val = coeffs[0]
 
