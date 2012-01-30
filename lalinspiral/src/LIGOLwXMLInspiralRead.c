@@ -1379,6 +1379,8 @@ SimInspiralTableFromLIGOLw (
     {"dphi6",               -1, 63},
     {"dphi6l",              -1, 64},
     {"dphi7",               -1, 65},
+    {"dphi8",               -1, 74},
+    {"dphi9",               -1, 75},
     {"loglambdaG",          -1, 66},
     {"ScalarCharge1",       -1, 67},
     {"ScalarCharge2",       -1, 68},
@@ -1724,6 +1726,14 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 65 )
         {
             thisSim->dphi7 = r4colData;
+        }
+        else if ( tableDir[j].idx == 74 )
+        {
+            thisSim->dphi8 = r4colData;
+        }
+        else if ( tableDir[j].idx == 75 )
+        {
+            thisSim->dphi9 = r4colData;
         }
         else if ( tableDir[j].idx == 66 )
         {

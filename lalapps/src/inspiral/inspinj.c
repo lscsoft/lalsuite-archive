@@ -193,6 +193,20 @@ REAL8 dphi5l=0.0;
 REAL8 dphi6=0.0;
 REAL8 dphi6l=0.0;
 REAL8 dphi7=0.0;
+REAL8 dphi8=0.0;
+REAL8 dphi9=0.0;
+REAL8 sdphi0=0.0;
+REAL8 sdphi1=0.0;
+REAL8 sdphi2=0.0;
+REAL8 sdphi3=0.0;
+REAL8 sdphi4=0.0;
+REAL8 sdphi5=0.0;
+REAL8 sdphi5l=0.0;
+REAL8 sdphi6=0.0;
+REAL8 sdphi6l=0.0;
+REAL8 sdphi7=0.0;
+REAL8 sdphi8=0.0;
+REAL8 sdphi9=0.0;
 REAL8 loglambdaG=28.0;
 REAL8 ScalarCharge1 = 0.0;
 REAL8 ScalarCharge2 = 0.0;
@@ -645,15 +659,29 @@ static void print_usage(char *program)
       "Test parameter information:\n"\
       " --enable-dphi             enable phiTest injections\n"\
       " --dphi0 value             value of the dphi0 parameter\n"\
+      " --sdphi0 value            value of the dphi0 standard deviation\n"\
       " --dphi1 value             value of the dphi1 parameter\n"\
+      " --sdphi1 value            value of the dphi1 standard deviation\n"\
       " --dphi2 value             value of the dphi2 parameter\n"\
+      " --sdphi2 value            value of the dphi2 standard deviation\n"\
       " --dphi3 value             value of the dphi3 parameter\n"\
+      " --sdphi3 value            value of the dphi3 standard deviation\n"\
       " --dphi4 value             value of the dphi4 parameter\n"\
+      " --sdphi4 value            value of the dphi4 standard deviation\n"\
       " --dphi5 value             value of the dphi5 parameter\n"\
+      " --sdphi5 value            value of the dphi5 standard deviation\n"\
       " --dphi5l value            value of the dphi5l parameter\n"\
+      " --sdphi5l value           value of the dphi5l standard deviation\n"\
       " --dphi6 value             value of the dphi6 parameter\n"\
+      " --sdphi6 value            value of the dphi6 standard deviation\n"\
       " --dphi6l value            value of the dphi6l parameter\n"\
-      " --dphi7 value             value of the dphi7 parameter\n");
+      " --sdphi6l value           value of the dphi6l standard deviation\n"\
+      " --dphi7 value             value of the dphi7 parameter\n"\
+      " --sdphi7 value            value of the dphi7 standard deviation\n"\
+      " --dphi8 value             value of the dphi8 parameter\n"\
+      " --sdphi8 value            value of the dphi8 standard deviation\n"\
+      " --dphi9 value             value of the dphi9 parameter\n"\
+      " --sdphi9 value            value of the dphi9 standard deviation\n");
   fprintf(stderr,
 	  "Massive Graviton Information:\n"\
 	  " --enable-mg				  enable Massive Graviton injections\n"\
@@ -1404,6 +1432,20 @@ int main( int argc, char *argv[] )
     {"dphi6",                   required_argument, 0,                 1017},
     {"dphi6l",                  required_argument, 0,                 1018},
     {"dphi7",                   required_argument, 0,                 1019},
+    {"dphi8",                   required_argument, 0,                 1031},
+    {"dphi9",                   required_argument, 0,                 1032},
+    {"sdphi0",                  required_argument, 0,                 1033},
+    {"sdphi1",                  required_argument, 0,                 1034},
+    {"sdphi2",                  required_argument, 0,                 1035},
+    {"sdphi3",                  required_argument, 0,                 1036},
+    {"sdphi4",                  required_argument, 0,                 1037},
+    {"sdphi5",                  required_argument, 0,                 1038},
+    {"sdphi5l",                 required_argument, 0,                 1039},
+    {"sdphi6",                  required_argument, 0,                 1040},
+    {"sdphi6l",                 required_argument, 0,                 1041},
+    {"sdphi7",                  required_argument, 0,                 1042},
+    {"sdphi8",                  required_argument, 0,                 1043},
+    {"sdphi9",                  required_argument, 0,                 1044},
     {"enable-mg",               no_argument,       0,                 1020},   
     {"loglambdaG",              required_argument, 0,                 1021},
     {"enable-bd",               no_argument,       0,                 1022},
@@ -2312,6 +2354,90 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", dphi7 );
           break;
+      case 1031:
+            dphi8 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi8 );
+          break;
+      case 1032:
+            dphi9 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", dphi9 );
+          break;
+      case 1033:
+            sdphi0 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi0 );
+          break;
+      case 1034:
+            sdphi1 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi1 );
+          break;
+      case 1035:
+            sdphi2 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi2 );
+          break;
+      case 1036:
+            sdphi3 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi3 );
+          break;
+      case 1037:
+            sdphi4 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi4 );
+          break;
+      case 1038:
+            sdphi5 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi5 );
+          break;
+      case 1039:
+            sdphi5l = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi5l );
+          break;
+      case 1040:
+            sdphi6 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi6 );
+          break;
+      case 1041:
+            sdphi6l = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi6l );
+          break;
+      case 1042:
+            sdphi7 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi7 );
+          break;
+      case 1043:
+            sdphi8 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi8 );
+          break;
+      case 1044:
+            sdphi9 = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", sdphi9 );
+          break;
       case 1020:
               /* enable massive graviton injections */
         this_proc_param = this_proc_param->next = 
@@ -3048,16 +3174,18 @@ int main( int argc, char *argv[] )
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
     /* populate the test parameters */
-    simTable->dphi0=dphi0;
-    simTable->dphi1=dphi1;
-    simTable->dphi2=dphi2;
-    simTable->dphi3=dphi3;
-    simTable->dphi4=dphi4;
-    simTable->dphi5=dphi5;
-    simTable->dphi5l=dphi5l;
-    simTable->dphi6=dphi6;
-    simTable->dphi6l=dphi6l;
-    simTable->dphi7=dphi7;
+    simTable->dphi0 = dphi0 + sdphi0*XLALNormalDeviate(randParams);
+    simTable->dphi1 = dphi1 + sdphi1*XLALNormalDeviate(randParams);
+    simTable->dphi2 = dphi2 + sdphi2*XLALNormalDeviate(randParams);
+    simTable->dphi3 = dphi3 + sdphi3*XLALNormalDeviate(randParams);
+    simTable->dphi4 = dphi4 + sdphi4*XLALNormalDeviate(randParams);
+    simTable->dphi5 = dphi5 + sdphi5*XLALNormalDeviate(randParams);
+    simTable->dphi5l = dphi5l + sdphi5l*XLALNormalDeviate(randParams);
+    simTable->dphi6 = dphi6 + sdphi6*XLALNormalDeviate(randParams);
+    simTable->dphi6l = dphi6l + sdphi6l*XLALNormalDeviate(randParams);
+    simTable->dphi7 = dphi7 + sdphi7*XLALNormalDeviate(randParams);
+    simTable->dphi8 = dphi8 + sdphi8*XLALNormalDeviate(randParams);
+    simTable->dphi9 = dphi9 + sdphi9*XLALNormalDeviate(randParams);
     
     /* populate the massive graviton parameter */
     

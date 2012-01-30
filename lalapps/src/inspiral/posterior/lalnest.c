@@ -1,6 +1,6 @@
 /* Nested Sampler Using LAL bayesian framework
 / (C) John Veitch 2009
-Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li
+Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li, C. Van Den Broeck
  */
 
 #include <stdlib.h>
@@ -186,6 +186,7 @@ extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
 INT4 phaseOrder=4;
 char *pinned_params=NULL;
+char *excluded_params=NULL;
 
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
@@ -199,6 +200,7 @@ void NestInitMassiveGraviton(LALMCMCParameter *parameter, void *iT);
 /* limits for the MassiveGraviton waveform */
 double loglambdaG_min = 14.0;
 double loglambdaG_max = 18.0;
+
 
 void NestInitPPE(LALMCMCParameter *parameter, void *iT);
 /* limits for the PPE waveform */
@@ -255,6 +257,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT);
 void NestInitManual(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRB(LALMCMCParameter *parameter, void *iT);
 void NestInitManualIMRBChi(LALMCMCParameter *parameter, void *iT);
+void NestInitManualIMRBTest(LALMCMCParameter *parameter, void *iT);
 void NestInitNINJAManual(LALMCMCParameter *parameter, void *iT);
 void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT);
 void NestInitGRB(LALMCMCParameter *parameter, void *iT);
@@ -341,6 +344,7 @@ void initialise(int argc, char *argv[]){
 		{"version",no_argument,0,'V'},
 		{"help",no_argument,0,'h'},
 		{"pinparams",required_argument,0,21},
+        {"excludeparams",required_argument,0,1707},
 		{"datadump",required_argument,0,22},
 		{"flow",required_argument,0,23},
 		{"nospin",required_argument,0,25},
@@ -485,6 +489,10 @@ void initialise(int argc, char *argv[]){
 		case 21:
 			pinned_params=calloc(strlen(optarg)+1 ,sizeof(char));
 			memcpy(pinned_params,optarg,strlen(optarg)+1);
+			break;
+        case 1707:
+			excluded_params=calloc(strlen(optarg)+1 ,sizeof(char));
+			memcpy(excluded_params,optarg,strlen(optarg)+1);
 			break;
 		case 123:
 			SNRpath = calloc(strlen(optarg)+1,sizeof(char));
@@ -905,7 +913,7 @@ int main( int argc, char *argv[])
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
 			inputMCMC.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);				  
-                        inputMCMC_N.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+            inputMCMC_N.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&realstart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
 			/* Create fake data power spectral DENSITY */
 			for(j=0;j<inputMCMC.invspec[i]->data->length;j++){ PSD(&status,&(inputMCMC.invspec[i]->data->data[j]),j*inputMCMC.deltaF);}
 			/* Allocate buffer for fake freq domain data */
@@ -1042,7 +1050,7 @@ int main( int argc, char *argv[])
 		
 		/* Perform injection */
 
-        if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==BransDicke || check_approx==PPE)) {
+        if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==BransDicke || check_approx==PPE || check_approx==IMRPhenomFB || check_approx==IMRPhenomFBTest)) {
             /* if the injection approximant is TaylorF2 or TaylorF2Test inject in the frequency domain */
             DetectorResponse det;
 			REAL8 SNR=0.0;
@@ -1163,14 +1171,14 @@ int main( int argc, char *argv[])
 	XLALDestroyRandomParams(datarandparam);
 	} /* End loop over IFOs */
 
-if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton)&&  SNRpath!=NULL) {
+if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==IMRPhenomFB || check_approx==IMRPhenomFBTest)&&  SNRpath!=NULL) {
     /* Print the SNRs in a file */
     PrintSNRsToFile(SNRs,injTable,&inputMCMC);
 }
 
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 
-    if (check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==BransDicke || check_approx==PPE) 
+    if (check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==BransDicke || check_approx==PPE || check_approx==IMRPhenomFB || check_approx==IMRPhenomFBTest) 
     {
                 fprintf(stdout,"Injecting in the frequency domain\n");
                 SimInspiralTable this_injection;
@@ -1212,7 +1220,7 @@ if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==T
 
 
 	/* Set up the approximant to use in the likelihood function */
-	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR TF2T[]="TaylorF2Test"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest"; CHAR PSTRD[]="PhenSpinTaylorRD";
+	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR TF2T[]="TaylorF2Test"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB"; CHAR BBHSpinTest[]="IMRPhenomFBTest"; CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor"; CHAR AMPCORTEST[]="AmpCorPPNTest"; CHAR PSTRD[]="PhenSpinTaylorRD";
     CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low"; CHAR MG[]="MassiveGraviton"; CHAR InspPPE[]="PPE"; CHAR BD[]="BransDicke";
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
@@ -1225,6 +1233,7 @@ if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==T
     else if(!strcmp(approx,BBHSpin1)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,BBHSpin2)) inputMCMC.approximant=IMRPhenomFB;
     else if(!strcmp(approx,BBHSpin3)) inputMCMC.approximant=IMRPhenomFB;
+    else if(!strcmp(approx,BBHSpinTest)) inputMCMC.approximant=IMRPhenomFBTest;
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
 	else if(!strcmp(approx,AMPCORTEST)) inputMCMC.approximant=AmpCorPPNTest;
@@ -1240,7 +1249,7 @@ if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==T
 	}
 	inputMCMC.ampOrder=ampOrder;
 
-	if(phaseOrder>7 && inputMCMC.approximant!=EOBNR)
+	if(phaseOrder>7 && inputMCMC.approximant!=EOBNR && inputMCMC.approximant!=IMRPhenomFB && inputMCMC.approximant!=IMRPhenomFBTest)
 	{
 		fprintf(stderr,"Error: Cannot go above 3.5PN in phase using this template!\n");
 		exit(1);
@@ -1362,6 +1371,11 @@ doneinit:
         inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
         inputMCMC.funcInit = NestInitManualIMRBChi;
     }
+    if(!strcmp(approx,BBHSpinTest)) {
+		inputMCMC.funcPrior = NestPriorConsistencyTest;
+		inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
+		inputMCMC.funcInit = NestInitManualIMRBTest;
+	}
     if((!strcmp(approx,LowMassIMRB)) || (!strcmp(approx,LowMassIMRFB)) ){
 	inputMCMC.funcPrior = NestPrior;
 	inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
@@ -1775,6 +1789,119 @@ void NestInitManualIMRB(LALMCMCParameter *parameter, void UNUSED *iT)
 
     XLALMCMCAddParam(parameter,"spin1z",(spin1zmax-spin1zmin)*gsl_rng_uniform(RNG)+spin1zmin,spin1zmin,spin1zmax,0);
     XLALMCMCAddParam(parameter,"spin2z",(spin2zmax-spin2zmin)*gsl_rng_uniform(RNG)+spin2zmin,spin2zmin,spin2zmax,0);
+	return;
+}
+
+void NestInitManualIMRBTest(LALMCMCParameter *parameter, void *iT)
+{
+	double etamin=0.03,etamax=0.25,localetawin=0.0;
+    SimInspiralTable *injTable = (SimInspiralTable *)iT;
+    REAL8 trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
+	double mcmin,mcmax;
+	parameter->param=NULL;
+	parameter->dimension = 0;
+	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
+	mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
+    localetawin=etamax-etamin;
+    double lmmin=log(mcmin);
+	double lmmax=log(mcmax);
+
+    double spin1zmin=-1.;
+    double spin1zmax=1.;
+
+    double spin2zmin=-1.;
+    double spin2zmax=1.;
+    
+    /* Prior range of psi shifts for IMRPhenom waveforms 
+     * Caution: in IMRPhenom psi_0 = psi_1 = psi_5 = 0 (table I,0909.2867)
+     * so the shifts in these coefficients need to be treated carefully*/
+    
+    double phiMin=-0.25;
+    double phiMax=0.25;
+
+    LALMCMCParam *head;
+    
+    if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+            XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lmmin,lmmax,-1);
+        else
+            XLALMCMCAddParam(parameter,"logmc",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
+    
+        if(checkParamInList(pinned_params,"eta"))
+            XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
+        else
+            XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*localetawin+etamin , etamin, etamax, 0);
+    
+        if(checkParamInList(pinned_params,"time"))
+          XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
+        else
+            XLALMCMCAddParam(parameter, "time",		(gsl_rng_uniform(RNG)-0.5)*timewindow + trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,0);
+        if(checkParamInList(pinned_params,"phi"))
+            XLALMCMCAddParam(parameter,"phi",injTable->coa_phase,0,LAL_TWOPI,-1);
+        else
+            XLALMCMCAddParam(parameter, "phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
+    
+        if(checkParamInList(pinned_params,"dist") || checkParamInList(pinned_params,"logdist") || checkParamInList(pinned_params,"distance") || checkParamInList(pinned_params,"logdistance"))
+            XLALMCMCAddParam(parameter,"logdist",log(injTable->distance),log(manual_dist_min),log(manual_dist_max),-1);
+        else
+            XLALMCMCAddParam(parameter,"logdist",(log(manual_dist_max)-log(manual_dist_min))*gsl_rng_uniform(RNG)+log(manual_dist_min) ,log(manual_dist_min),log(manual_dist_max),0);
+    
+        if(checkParamInList(pinned_params,"ra")||checkParamInList(pinned_params,"longitude")||checkParamInList(pinned_params,"RA"))
+            XLALMCMCAddParam(parameter,"ra",injTable->longitude,0,LAL_TWOPI,-1);
+        else
+            XLALMCMCAddParam(parameter,"ra",gsl_rng_uniform(RNG)*LAL_TWOPI,0,LAL_TWOPI,1);
+    
+
+        if(checkParamInList(pinned_params,"dec") || checkParamInList(pinned_params,"latitude") || checkParamInList(pinned_params,"dec"))
+            XLALMCMCAddParam(parameter,"dec",injTable->latitude,-LAL_PI/2.0,LAL_PI/2.0,-1);
+        else
+            XLALMCMCAddParam(parameter,"dec", acos(2.0*gsl_rng_uniform(RNG)-1.0)-LAL_PI/2.0,-LAL_PI/2.0,LAL_PI/2.0,0);
+    
+	if(checkParamInList(pinned_params,"psi")||checkParamInList(pinned_params,"polarization"))
+		XLALMCMCAddParam(parameter,"psi",injTable->polarization,0,LAL_PI,-1);
+	else
+		XLALMCMCAddParam(parameter,"psi",gsl_rng_uniform(RNG)*LAL_PI,0,LAL_PI,1);
+    
+	if(checkParamInList(pinned_params,"iota") || checkParamInList(pinned_params,"inclination"))
+		XLALMCMCAddParam(parameter,"iota", injTable->inclination, 0, LAL_PI, -1);
+	else
+		XLALMCMCAddParam(parameter,"iota", acos(2.0*gsl_rng_uniform(RNG)-1.0) ,0,LAL_PI,0);
+    
+ 		
+    if(!checkParamInList(pinned_params,"spin1z"))
+        XLALMCMCAddParam(parameter,"spin1z",(spin1zmax-spin1zmin)*gsl_rng_uniform(RNG)+spin1zmin,spin1zmin,spin1zmax,0);
+    if(!checkParamInList(pinned_params,"spin2z"))
+        XLALMCMCAddParam(parameter,"spin2z",(spin2zmax-spin2zmin)*gsl_rng_uniform(RNG)+spin2zmin,spin2zmin,spin2zmax,0);
+        
+     /* add the Psitest parameter for IMR waveforms*/
+    if(!checkParamInList(pinned_params,"dphi0"))
+        XLALMCMCAddParam(parameter,"dphi0",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi1"))
+        XLALMCMCAddParam(parameter,"dphi1",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi2"))
+        XLALMCMCAddParam(parameter,"dphi2",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi3"))
+        XLALMCMCAddParam(parameter,"dphi3",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi4"))
+        XLALMCMCAddParam(parameter,"dphi4",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi5"))
+        XLALMCMCAddParam(parameter,"dphi5",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi6"))
+        XLALMCMCAddParam(parameter,"dphi6",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi7"))
+        XLALMCMCAddParam(parameter,"dphi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+    if(!checkParamInList(pinned_params,"dphi8"))
+        XLALMCMCAddParam(parameter,"dphi8",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+           
+    /*  Coefficient psi_9 is not available (yet) so dphi9 will always be "pinned"; no parameter is created
+    * 
+    if(!checkParamInList(pinned_params,"dphi9"))
+        XLALMCMCAddParam(parameter,"dphi9",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);*/
+        
+	for (head=parameter->param;head;head=head->next)
+	{
+		if(head->core->wrapping==-1)
+			fprintf(stdout,"Fixed parameter %s to %lf\n",head->core->name,head->value);
+	}
 	return;
 }
 
@@ -2368,7 +2495,7 @@ void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *
 {  
     char *pinned_params_temp=NULL;
     int pin_was_null=1;
-    char full_list[]="logM,mchirp,logmchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,lnlambdaG,aPPE,alphaPPE,bPPE,betaPPE,ScalarCharge1,ScalarCharge2,lnOmegaBD";
+    char full_list[]="logM,mchirp,logmchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,dphi8,dphi9,lnlambdaG,aPPE,alphaPPE,bPPE,betaPPE,ScalarCharge1,ScalarCharge2,lnOmegaBD";
     if (pinned_params!=NULL){
         pin_was_null=0;
         pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
@@ -2410,6 +2537,9 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     TofVIn TofVparams;
     REAL8 * SNRs=NULL;
     SNRs=calloc(nIFO+1 ,sizeof(REAL8));
+    REAL8 singleIFO_SNRcut = 5.5;
+    REAL8 network_SNRcut=8.0;
+    
     /* read in the injection approximant and determine whether is TaylorF2 or something else*/
     Approximant injapprox;
     LALPNOrder phase_order;
@@ -2432,7 +2562,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	template.ieta = 1;
 	template.next = NULL;
 	template.fine = NULL;
-
 	Nmodel = (inputMCMC->stilde[0]->data->length-1)*2; /* *2 for real/imag packing format */
 
 	if(injWaveFD==NULL)	LALCreateVector(&status,&injWaveFD,Nmodel); /* Allocate storage for the waveform */
@@ -2440,23 +2569,31 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	/* Create the wave */
 	LALInspiralParameterCalc(&status,&template);
 	LALInspiralRestrictedAmplitude(&status,&template);
-	    
-    memset(&ak,0,sizeof(expnCoeffs));
-	memset(&TofVparams,0,sizeof(TofVparams));
-
-    LALInspiralSetup(&status,&ak,&template);
-	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
-	TofVparams.coeffs=&ak;
-	TofVparams.dEnergy=expnFunction.dEnergy;
-	TofVparams.flux=expnFunction.flux;
-	TofVparams.v0= ak.v0;
-	TofVparams.t0= ak.t0;
-	TofVparams.vlso= ak.vlso;
-	TofVparams.totalmass=ak.totalmass;
-/*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
-	ChirpISCOLength=ak.tn;
+    
     printf("Injection Approx: %i\n",template.approximant);
-    if (template.approximant==TaylorF2Test){
+    printf("IMRPhenomFBTest = %i\n",IMRPhenomFBTest);
+    if (template.approximant==IMRPhenomFBTest) {
+        dphis[0]=inj_table->dphi0;
+        dphis[1]=inj_table->dphi1;
+        dphis[2]=inj_table->dphi2;
+        dphis[3]=inj_table->dphi3;
+        dphis[4]=inj_table->dphi4;
+        dphis[5]=inj_table->dphi5;
+        dphis[6]=inj_table->dphi6;
+        dphis[7]=inj_table->dphi7;
+        dphis[8]=inj_table->dphi8;
+        dphis[9]=inj_table->dphi9;
+        printf("Using approximant IMRPhenomFBTest\n");
+        for (int k=0;k<10;k++) {
+			fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+		}
+		if (dphis[9]!=0.) {
+			fprintf(stderr,"Coefficient psi_9 is not available in IMRPhenomB. Value is set to 0.");
+			dphis[9]=0.;
+		}
+        LALBBHPhenWaveFreqDomTest(&status, injWaveFD, &template, dphis);
+    }
+    else if (template.approximant==TaylorF2Test){
         dphis[0]=inj_table->dphi0;
         dphis[1]=inj_table->dphi1;
         dphis[2]=inj_table->dphi2;
@@ -2495,21 +2632,47 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         template.omegaBD=inj_table->omegaBD;
 		LALInspiralBransDicke(&status, injWaveFD, &template);    
     }
+ /*   else if (template.approximant==IMRPhenomFB) {
+		fprintf(stderr,"GR injection");
+        LALBBHPhenWaveFreqDom(&status, injWaveFD, &template);
+    } */
     else {
 		fprintf(stderr,"GR injection");
         LALInspiralWave(&status,injWaveFD,&template);
     }
     
-	FILE *outInjB=fopen("injection_preInj.dat","w");
+    memset(&ak,0,sizeof(expnCoeffs));
+	memset(&TofVparams,0,sizeof(TofVparams));
+
+    LALInspiralSetup(&status,&ak,&template);
+	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
+	TofVparams.coeffs=&ak;
+	TofVparams.dEnergy=expnFunction.dEnergy;
+	TofVparams.flux=expnFunction.flux;
+	TofVparams.v0= ak.v0;
+	TofVparams.t0= ak.t0;
+	TofVparams.vlso= ak.vlso;
+	TofVparams.totalmass=ak.totalmass;
+/*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
+	ChirpISCOLength=ak.tn;
+   
+    FILE *outInjB=fopen("injection_preInj.dat","w");
     for (UINT4 i=0; i<injWaveFD->length; i++) {
-            fprintf(outInjB,"%lf %e %e\n",i*deltaF,injWaveFD->data[i],injWaveFD->data[injWaveFD->length-i]);
+            fprintf(outInjB,"%lf %e %e\n",i*deltaF,injWaveFD->data[i],injWaveFD->data[injWaveFD->length-i-1]);
     }
     fclose(outInjB);
+    if(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB || template.approximant==IMRPhenomFBTest){
+		ChirpISCOLength = template.tC;
+	}
 
     end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
     end_time-=(REAL8) inputMCMC->epoch.gpsSeconds + 1.0e-9*inputMCMC->epoch.gpsNanoSeconds;
-    end_time-=ChirpISCOLength;
-
+    
+    if(!(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB || template.approximant==IMRPhenomFBTest)){
+       /* IMR FD is created with the end of the waveform at the time of epoch. So we don't need to shift by the length of the WF. */
+        end_time-=ChirpISCOLength;
+	}
+    
 	/* Calculate response of the detectors */
 	LALSource source;
 	memset(&source,0,sizeof(LALSource));
@@ -2527,14 +2690,14 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 	REAL8 time_sin,time_cos;
     //inputMCMC->numberDataStreams=nIFO;
-
-    
-    //REAL8 SNRcut = 5.5;
    
 	for (det_i=0;det_i<nIFO;det_i++){ //nIFO
         UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
         UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
-        if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
+       
+		if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
+		
+        if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==IMRPhenomFBTest || template.approximant==EOBNR) highBin=inputMCMC->stilde[det_i]->data->length-1;
 		char InjFileName[50];
 		sprintf(InjFileName,"injection_%i.dat",det_i);
 		FILE *outInj=fopen(InjFileName,"w");
@@ -2546,8 +2709,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         TimeFromGC = XLALTimeDelayFromEarthCenter(inputMCMC->detector[det_i]->location, source.equatorialCoords.longitude, source.equatorialCoords.latitude, &(inputMCMC->epoch));
 		det_resp.plus*=0.5*(1.0+ci*ci);
 		det_resp.cross*=-ci;
-		REAL8 chisq=0;
-		for(idx=lowBin;idx<=highBin;idx++){
+		REAL8 chisq=0.0;
+        for(idx=lowBin;idx<=highBin;idx++){
 			time_sin = sin(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
 			time_cos = cos(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
 			REAL8 hc = (REAL8)injWaveFD->data[idx]*time_cos + (REAL8)injWaveFD->data[Nmodel-idx]*time_sin;
@@ -2561,8 +2724,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 //			fprintf(outInj,"%lf %e\n",idx*deltaF ,atan2(injWaveFD->data[Nmodel-idx],injWaveFD->data[idx]));
 			fprintf(outInj,"%lf %e %e %e %e %e\n",idx*deltaF ,inputMCMC->stilde[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im,resp_r,resp_i,inputMCMC->invspec[det_i]->data->data[idx]);
 			chisq+=inputMCMC->invspec[det_i]->data->data[idx]*(resp_r*resp_r+resp_i*resp_i)*deltaF;
-            
-//            printf("chisq = %e \t\n",chisq);
 
 		}
 		chisq*=4.0;
@@ -2579,6 +2740,16 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
    	SNRinj=sqrt(SNRinj);
     PrintSNRsToFile(SNRs,inj_table,inputMCMC);
 	fprintf(stdout,"Injected signal, network SNR = %f\n",SNRinj);
+    
+    /* Check whether at least two IFOs are above singleIFO_SNRcut, and the networks SNR is above network_SNRcut */
+    UINT4 above=0;
+    for (det_i=0;det_i<=nIFO+1;det_i++){
+        if (SNRs[det_i]>=singleIFO_SNRcut) above++;
+    }
+    if (!(above>=2 && SNRinj>=network_SNRcut)) {
+        fprintf(stderr,"The network SNR is below the threshold (%.1lf) or less than two IFOs are above the single IFO threshold (%.1lf). Exiting... \n", network_SNRcut,singleIFO_SNRcut);
+        exit(-1);
+    }
 	return;
 }
 

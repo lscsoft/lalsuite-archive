@@ -567,6 +567,8 @@ tagSimInspiralTable
   REAL4 	     dphi6;
   REAL4 	     dphi6l;
   REAL4 	     dphi7;
+  REAL4 	     dphi8;
+  REAL4 	     dphi9;
   REAL4 		 loglambdaG;
 
 /* Parameters for the Brans-Dicke waveform */

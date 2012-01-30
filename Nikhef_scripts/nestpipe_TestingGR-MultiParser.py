@@ -15,23 +15,26 @@ import os
 ################################################################################
 
 inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
-type_inj="dphi7"   ## This has to be either GR or the name of the test param (e.g. dphi7)
+type_inj="dphi6"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
+number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
 
-number_of_injs=500 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
+remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
+remote_database='ciao.txt'   ## Succesful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed
 
 if type_inj!='GR':
      type_name=type_inj+'_'+repr(shift)+'pc'
 else:
      type_name=type_inj
 
-PATH_TO_OPT="/home/salvatore.vitale/lalsuite_branches/nikhef/opt"  ## Path to the opt folder of your installation
-parsername = "parser.ini"
+PATH_TO_OPT="/home/salvatore.vitale/lalsuites/nikhef/opt"  ## Path to the opt folder of your installation
 
 basefolder = "/home/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)                       ##
 postprocfolder = "/home/salvatore.vitale/public_html/IMR_runs/%s/%s"%(type_name,inspinj_seed)       ##
-scratchdir = "/scratch/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)                    ##
-logdir = "/people/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)                         ## You only need to change the path leaving the last two levels are they are (i.e. /%s/%s). The code will add the seed and the type of run (GR or tested param +value of the shift)
+scratchdir = "/scratch/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)            ##
+logdir = "/people/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
+
+ ## NOTE: You only need to change the path leaving the last two levels are they are (i.e. /%s/%s). The code w#ill add the seed and the type of run (GR or tested param +value of the shift)
 
 hypotheses =["dphi1","dphi2","dphi3","dphi4"]
 allPNparams = ["dphi0","dphi1", "dphi2", "dphi3", "dphi4", "dphi5", "dphi6", "dphi7", "dphi8", "dphi9", "spin1z", "spin2z"]
@@ -44,11 +47,13 @@ allPNparams = ["dphi0","dphi1", "dphi2", "dphi3", "dphi4", "dphi5", "dphi6", "dp
 
 print "Creating the xml file\n"
 
-outname='injections_%s_%s.xml'%(type_name,inspinj_seed)
-
-time_step=1.0e+03
+if not os.path.isdir(basefolder):
+    os.makedirs(basefolder)
+outname=os.path.join(basefolder,'injections_%s_%s.xml'%(type_name,inspinj_seed))
+time_step=1000
 gps_start=932170000
-gps_end=gps_start+time_step*(number_of_injs ) 
+gps_end=gps_start+time_step*(number_of_injs )
+#gps_end=gps_start+time_step*(number_of_injs +20)
 
 inspinj_command="""lalapps_inspinj \
 --output %s \
@@ -70,14 +75,14 @@ inspinj_command="""lalapps_inspinj \
 --min-mtotal 10.0 \
 --max-mtotal 30.0 \
 --disable-spin \
---time-step %s \
---amp-order 0"""%(outname,gps_start,gps_end,inspinj_seed,time_step)
+--amp-order 0 \
+--time-step %s"""%(outname,gps_start,gps_end,inspinj_seed,time_step)
 
 if type_inj!='GR':
     inspinj_command+=""" \
     --enable-dphi \
     --%s %s"""%(type_inj,repr(shift/100.0)) 
-
+print inspinj_command
 os.system(inspinj_command)
 os.system('seed_line=`cat '+outname+' | grep seed`;temp=`echo ${seed_line%\\"*}`;temp2=`echo ${temp##*\\"}`;echo "The file was created with seed $temp2"')
 print "\n"
@@ -116,13 +121,6 @@ if basefolder[-1] != "/":
 if postprocfolder[-1] != "/":
 	postprocfolder += "/"
 
-if logdir[-1] != "/":
-        logdir += "/"
-
-if scratchdir[-1] != "/":
-        scratchdir += "/"
-
-## To do, this can be avoided using os.path.join to join strings forming a path.
 
 ################################################################################
 #
@@ -177,6 +175,8 @@ def ensure_dir(f):
 ################################################################################
 
 curdir = os.getcwd()
+foldernames=""
+parser_paths=""
 
 allcombinations = createCombinationsFromList(hypotheses)
 
@@ -190,12 +190,10 @@ for run in allcombinations:
 				pinparams += item
 			else:
 				pinparams += ","+item
-
 	# DETERMINE FOLDER NAME
 	foldername = ""
 	for item in run:
 		foldername += item
-
 	ensure_dir(basefolder+foldername)
 	os.chdir(basefolder+foldername)
 
@@ -209,7 +207,8 @@ nlive=1000
 nmcmc=100
 nparallel=1
 ifos=['H1','L1','V1']
-events=all
+#events=all
+events=[0:"""+str(number_of_injs-1)+"]"+"""
 seed=1
 data_seed="""+str(inspnest_dataseed)+"""
 analysis-chunk-length=20.0
@@ -223,6 +222,7 @@ resultspage=PATH_TO_OPT/pylal/bin/cbcBayesPostProc.py
 segfind=PATH_TO_OPT/glue/bin/ligolw_segment_query
 ligolw_print=PATH_TO_OPT/glue/bin/ligolw_print
 coherencetest=PATH_TO_OPT/lalapps/bin/lalapps_coherence_test
+database=PATH_TO_OPT/pylal/bin/AppendToDatabase.py
 
 [datafind]
 url-type=file
@@ -267,17 +267,23 @@ v1-analyze = V1:ITF_SCIENCEMODE:6
 
 """
 
-	parser_fileobject = open("parser.ini","w")
+	parser_fileobject = open("parser_"+foldername+".ini","w")
         parser_text=parser_text.replace('PATH_TO_OPT',PATH_TO_OPT)
         parser_fileobject.write(parser_text)
 	parser_fileobject.close()
+        foldernames+=str(foldername)+" "
+	parser_paths+=str(os.path.join(basefolder,foldername,"parser_"+foldername+".ini"))+" "
 
-	os.system("cp "+curdir+"/"+xmlname+" "+basefolder+foldername)
-        os.system("lalapps_nest_pipe_reduced -p " + logdir+foldername + " -l " + scratchdir+foldername + " -i "+ basefolder+foldername+"/"+parsername+ " -I "+basefolder+foldername+"/"+xmlname+ " -r " +
-basefolder+foldername + " --condor-submit")
-	#print "lalapps_nest_pipe -i "+ basefolder+foldername+"/"+parsername+ " -I "+basefolder+foldername+"/"+xmlname+ " -r " + basefolder+foldername + " --condor-submit"
-
-
+logd="None"
+scrd="None"
+        
+for i in os.uname():
+    if i.find("uwm")!=-1:
+        logd=logdir
+        scrd=scratchdir
+#print "lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
+#os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
+os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
 
 # RETURN TO CURRENT WORKING DIRECTORY
 os.chdir(curdir)

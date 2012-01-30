@@ -71,6 +71,7 @@ class InspNestNode(pipeline.CondorDAGNode):
         if(length > maxLength):
             while(self.__GPSstart+maxLength<trig_time and self.__GPSstart+maxLength<self.__GPSend):
                     self.__GPSstart+=maxLength/2.0
+                    
         self.add_var_opt('GPSstart',str(self.__GPSstart))
         length=self.__GPSend-self.__GPSstart
         if(length>maxLength):
@@ -207,6 +208,28 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         if event is not None:
             self.__event=int(event)
             self.add_var_arg('--eventnum '+str(event))
+            
+class DataBaseJob(pipeline.CondorDAGJob):
+    def __init__(self,cp,submitFile,logdir):
+        exe=cp.get('condor','database')
+        pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+        self.set_stdout_file(os.path.join(logdir,'database-$(cluster)-$(process).out'))
+        self.set_stderr_file(os.path.join(logdir,'database-$(cluster)-$(process).err'))
+        self.add_condor_cmd('getenv','True')
+        self.set_sub_file(submitFile)
+
+class DataBaseNode(pipeline.CondorDAGNode):
+    def __init__(self,db_page_job):
+        pipeline.CondorDAGNode.__init__(self,db_page_job)  
+    def set_time(self,time):
+        """
+        Set the event time
+        """
+        if time is not None:
+            self.__event=int(time)
+            self.add_var_opt('event-time',str(time))
+
+            
 # Function definitions for setting up groups of nodes
 
 def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None,factor=None):
@@ -222,6 +245,7 @@ def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None,factor
     nest_node.set_trig_time(end_time)
     nest_node.set_event_number(event)
     nest_node.add_ifo_data(data,ifos)
+    
     if cp.has_option('analysis','data_seed'):
         data_seed=np.int(cp.get('analysis','data_seed'))
     else:
@@ -230,9 +254,12 @@ def setup_single_nest(cp,nest_job,end_time,data,path,ifos=None,event=None,factor
         seed_initial=int(cp.get('analysis','seed'))
     else:
         seed_initial=100
-    if factor==None:
-        factor=0
-    nest_node.add_var_opt('dataseed',str(data_seed +factor))
+    if event==None:
+        data_seed_shift=0
+    else:
+        data_seed_shift=event
+
+    nest_node.add_var_opt('dataseed',str(data_seed +data_seed_shift))
     if cp.get('analysis','nparallel')=="1":
         nest_node.add_var_opt('seed',str(seed_initial))
     outfile_name=os.path.join(path,'outfile_%f_%s.dat'%(end_time,nest_node.get_ifos()))
@@ -261,8 +288,11 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
         data_seed=np.int(cp.get('analysis','data_seed'))
     else:
         data_seed=1234
-    if factor==None:
-        factor=0
+    if event==None:
+        data_seed_shift=0
+    else:
+        data_seed_shift=event
+        
     merge_node.add_var_opt('Nlive',cp.get('analysis','nlive'))
     nest_nodes=[]
     for i in range(nparallel):
@@ -273,7 +303,7 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
         nest_node.set_event_number(event)
         p_outfile_name=os.path.join(path,'outfile_%f_%i_%s.dat'%(end_time,i,nest_node.get_ifos()))
         nest_node.add_var_opt('seed',str(i+seed_initial))
-        nest_node.add_var_opt('dataseed',str(data_seed +factor))
+        nest_node.add_var_opt('dataseed',str(data_seed + data_seed_shift))
         merge_node.add_parent(nest_node)
         merge_node.add_file_arg(p_outfile_name)
         nest_node.set_output(p_outfile_name)

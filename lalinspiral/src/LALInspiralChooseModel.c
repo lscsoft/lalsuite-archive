@@ -520,6 +520,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
             ak->vn = ak->vlso = vlso = ak->vlsoT0;
             f->dEnergy = dEt0;
             f->flux = Ft0;
@@ -570,6 +571,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
 
             ak->vn = ak->vlso = vlso = ak->vlsoT2;
             f->dEnergy = dEt2;
@@ -618,6 +620,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
             ak->vn = ak->vlso = vlso = ak->vlsoT2;
             f->dEnergy = dEt2;
             f->flux = Ft3;
@@ -684,6 +687,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -739,6 +743,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -795,6 +800,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -847,6 +853,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -873,6 +880,7 @@ LALInspiralChooseModel(
          case IMRPhenomB:
          case IMRPhenomFA:
          case IMRPhenomFB:
+         case IMRPhenomFBTest:
             ak->vn = ak->vlso = vlso = ak->vlsoP6;
             f->dEnergy = dEp6;
             f->flux = Fp7;
@@ -974,6 +982,7 @@ LALInspiralChooseModel(
  case IMRPhenomB:
  case IMRPhenomFA:
  case IMRPhenomFB:
+ case IMRPhenomFBTest:
    ak->tn = 5.*ak->totalmass/(256.*ak->eta*pow(ak->v0,8.)) + 1000.*ak->totalmass;
    break;
  case Eccentricity:

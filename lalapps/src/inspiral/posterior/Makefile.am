@@ -92,7 +92,9 @@ bin_SCRIPTS = \
 	lalapps_coherence_test \
 	lalapps_merge_nested_sampling_runs \
 	lalapps_nest_pipe \
-	lalapps_nest_pipe_reduced
+	lalapps_nest_pipe_reduced \
+	lalapps_nest_multi_parser \
+	lalapps_nest_multi_parser_reduced
 pkgpython_DATA = \
 	nest_utils.py \
 	combine_evidence.py
@@ -104,6 +106,8 @@ EXTRA_DIST = \
 	merge_nested_sampling_runs.in \
 	nest_pipe.in \
 	nest_pipe_reduced.in \
+	nest_multi_parser.in \
+	nest_multi_parser_reduced.in \
 	nest_utils.py \
 	combine_evidence.py
 
@@ -132,7 +136,13 @@ lalapps_nest_pipe_reduced: $(srcdir)/nest_pipe_reduced.in python_config.sed
 	sed -f python_config.sed $(srcdir)/nest_pipe_reduced.in >lalapps_nest_pipe_reduced
 	chmod a+x lalapps_nest_pipe_reduced
 
-
+lalapps_nest_multi_parser: $(srcdir)/nest_multi_parser.in python_config.sed
+	sed -f python_config.sed $(srcdir)/nest_multi_parser.in >lalapps_nest_multi_parser
+	chmod a+x lalapps_nest_multi_parser
+	
+lalapps_nest_multi_parser_reduced: $(srcdir)/nest_multi_parser_reduced.in python_config.sed
+	sed -f python_config.sed $(srcdir)/nest_multi_parser_reduced.in >lalapps_nest_multi_parser_reduced
+	chmod a+x lalapps_nest_multi_parser_reduced
 CLEANFILES = \
 	$(bin_SCRIPTS) \
 	python_config.sed

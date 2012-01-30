@@ -1,5 +1,5 @@
 /**
-\author A. Dietz, J. Veitch, C. Roever
+\author A. Dietz, J. Veitch, C. Roever, S. Vitale
 \file
 \ingroup inspiral
 \brief The file \c LALInspiralMCMCUser contains user algorithms for the MCMC computation.
@@ -70,7 +70,7 @@ double mc2mass1(double mc, double eta)
 {
  double root = sqrt(0.25-eta);
  double fraction = (0.5+root) / (0.5-root);
- return mc * (pow(1+fraction,0.2) / pow(fraction,0.6));
+ return mc * (pow(1.0 +fraction,0.2) / pow(fraction,0.6));
 }
 
 
@@ -79,7 +79,7 @@ double mc2mass2(double mc, double eta)
 {
  double root = sqrt(0.25-eta);
  double inversefraction = (0.5-root) / (0.5+root);
- return mc * (pow(1+inversefraction,0.2) / pow(inversefraction,0.6));
+ return mc * (pow(1.0+inversefraction,0.2) / pow(inversefraction,0.6));
 }
 
 double mc2mt(double mc, double eta)
@@ -121,7 +121,7 @@ double logJacobianMcEta(double mc, double eta)
  term1 = 0.6*pow(msum,-0.2);
  term2 = 0.2*pow(msum,-1.2)*pow(mprod,0.6);
  term3 = pow(msum,-2.0);
- term4 = 2*mprod*pow(msum,-3.0);
+ term4 = 2.0*mprod*pow(msum,-3.0);
  a = pow(m1,-0.4)*pow(m2,0.6)*term1 - term2;
  b = m2*term3-term4;
  c = pow(m1,0.6)*pow(m2,-0.4)*term1 - term2;
@@ -1185,6 +1185,7 @@ in the frequency domain */
 	{
 		case IMRPhenomFA : IMRPhenomFA_template(&status,&template,parameter,inputMCMC); break;
 		case IMRPhenomFB : IMRPhenomFB_template(&status,&template,parameter,inputMCMC); break;
+		case IMRPhenomFBTest : IMRPhenomFB_template(&status,&template,parameter,inputMCMC); break;
 		case EOBNR : EOBNR_template(&status,&template,parameter,inputMCMC); break;
 		case TaylorF2 : TaylorF2_template(&status,&template,parameter,inputMCMC); break;
         /* ADD EXTRA CASE FOR TAYLORF2TEST, BUT SINCE LALINSPIRAL ACCOMODATES FOR TAYLORF2TEST, THIS ALSO CALLS THE TAYLORF2_TEMPLATE */
@@ -1216,19 +1217,20 @@ in the frequency domain */
 	ChirpISCOLength=ak.tn;
 
 	/* IMRPhenomB calcaultes the chirp length differently */
-	if(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB){
+	if(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB || template.approximant==IMRPhenomFBTest){
 		ChirpISCOLength = template.tC;
 	}
 
 	/* This is the time of the start of the wave in the GeoCentre */
 	REAL8 TimeShiftToGC=XLALMCMCGetParameter(parameter,"time");
-
 	TimeShiftToGC-=inputMCMC->epoch.gpsSeconds + 1.e-9*inputMCMC->epoch.gpsNanoSeconds;
-/*	fprintf(stderr,"time from epoch to end of wave %lf\n",TimeShiftToGC);*/
-/*	TimeShiftToGC-=template.tC;*/
-	TimeShiftToGC-=ChirpISCOLength;
+    
+    if(!(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB || template.approximant==IMRPhenomFBTest)){
+		   /* IMR FD is created with the end of the waveform at the time of epoch. So we don't need to shift by the length of the WF. */
+            TimeShiftToGC-=ChirpISCOLength;
+	}
+
 /*	template.nStartPad = (INT4)(TimeShiftToGC/inputMCMC->deltaT);*/
-/*	fprintf(stderr,"ChirpLengthISCO = %lf\n",ChirpISCOLength);*/
 
 	/* Initialise structures for detector response calcs */
 	LALSource source; /* The position and polarisation of the binary */
@@ -1263,7 +1265,7 @@ in the frequency domain */
 		UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
 		UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
 		if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
-		if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==EOBNR) highBin=inputMCMC->stilde[det_i]->data->length-1;
+		if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==IMRPhenomFBTest || template.approximant==EOBNR) highBin=inputMCMC->stilde[det_i]->data->length-1;
 		for(idx=lowBin;idx<=highBin;idx++){
 			time_sin = sin(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
 			time_cos = cos(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
@@ -1287,8 +1289,8 @@ in the frequency domain */
 
 			real=inputMCMC->stilde[det_i]->data->data[idx].re - resp_r/deltaF;
 			imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i/deltaF;
-			chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
-
+	
+    		chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
 		} /* End loop over frequency */
 
 		/* Dump the template and data if required */
@@ -1296,7 +1298,7 @@ in the frequency domain */
 			sprintf(dumpfile,"%s.%s",inputMCMC->dumpfile,inputMCMC->ifoID[det_i]);
 			FILE *modelout = fopen(dumpfile,"w");
 			for(idx=lowBin;idx<inputMCMC->stilde[det_i]->data->length;idx++)
-			{
+			{   
 				time_sin = sin(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
 				time_cos = cos(LAL_TWOPI*(TimeFromGC+TimeShiftToGC)*((double) idx)*deltaF);
 				REAL8 model_re_prime = (REAL8)model->data[idx]*time_cos + (REAL8)model->data[Nmodel-idx]*time_sin; /* Plus sign from -i*sin(phi)*i */
@@ -1316,6 +1318,7 @@ in the frequency domain */
 		if(highBin<inputMCMC->stilde[det_i]->data->length-2 && highBin>lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
 		else if(highBin<=lowBin) chisq+=topdown_sum[det_i]->data[highBin+1];
 		chisq*=2.0*deltaF; /* for 2 sigma^2 on denominator, also in student-t version */
+        
 		/* add the normalisation constant */
 
 		/*		chisq+=normalisations[det_i]; */ /*Gaussian version*/
@@ -1865,6 +1868,7 @@ that LAL uses. Please check this whenever any change is made */
 
 void IMRPhenomFA_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
     (void)parameter;
+    (void)inputMCMC;
 	/*All components of spin must be set to zero.*/
 	template->spin1[0]=0.;
 	template->spin1[1]=0.;
@@ -1881,29 +1885,33 @@ void IMRPhenomFA_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
 	double distanceMPC = template->distance;
 
 	double distanceSI= LAL_PC_SI*1e6*distanceMPC;
-	template->distance = distanceSI/inputMCMC->deltaF;//IMR doesnt multiply by df
-	/*Generate IMR waveform in frequency domain*/
+	template->distance = distanceSI;
+	/* 14/11/2011 Comment by Michalis: IMR does now normalize amplitude by df */
+
+	/* Generate IMR waveform in frequency domain*/
 	LALBBHPhenWaveFreqDom(status,model,template);
 
+	/* Reset distance to Mpc */
 	template->distance = distanceMPC;
 
 }
 
 
-
 void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
 	UINT4 NtimeModel=model->length;
-	UINT4 NfreqModel = model->length;
+    (void)inputMCMC;
+	//UINT4 NfreqModel = model->length;
+    //printf("%i INT ", model->length);
 	if(Tmodel ==NULL) LALCreateVector(status, &Tmodel, NtimeModel);
 
 	/*'x' and 'y' components of spins must be set to zero.*/
 	template->spin1[0]=0.;
 	template->spin1[1]=0.;
-    	template->spin1[2]=0.;
+    template->spin1[2]=0.;
 
 	template->spin2[0]=0.;
 	template->spin2[1]=0.;
-    	template->spin2[2]=0.;
+    template->spin2[2]=0.;
 
 	/*Get aligned spins configuration/magnitude if these are set*/
 	if(XLALMCMCCheckParameter(parameter,"spin1z")) {
@@ -1927,44 +1935,34 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
         template->spin2[2] = (chiSpin*2.0 - (1+delta)*spin1z)/ (1-delta);
     }
 
-    /* IMRPhenomFB takes distance in metres */
-    double distanceMPC = template->distance;
-    double distanceSI= LAL_PC_SI*1e6*distanceMPC;
-    template->distance = distanceSI/inputMCMC->deltaF;
-	//IMR doesnt normalise by multiplying by df, plus TF2 has a deltaF assumed which is divided out later
-
-    LALBBHPhenWaveFreqDom(status,model,template);
-
-
-	/* Begin the rigmarole of aligning this template properly */
-	/* Inverse FFT it back into the time domain */
-	if(!inputMCMC->likelihoodRevPlan) inputMCMC->likelihoodRevPlan = XLALCreateReverseREAL4FFTPlan(NtimeModel,0);
-	XLALREAL4VectorFFT(Tmodel,model,inputMCMC->likelihoodRevPlan);
-
-	/* Find the position of the maximum within the buffer */
-	UINT4 i, max_i=0;
-	REAL4 max=-10;
-	for(i=0;i<NtimeModel;i++) {
-		if(fabs(Tmodel->data[i])>max){
-			max=fabs(Tmodel->data[i]);
-			max_i=i;
+    /* Original Comment: IMRPhenomFB takes distance in metres 
+     * IMR doesnt normalise by multiplying by df, plus TF2 has a deltaF assumed which is divided out later
+     * 
+     * 14/11/2011 Comment by Michalis: IMRPhenomFBTest takes distance in Mpc and normalises amp with df */
+    REAL8 dpsis[10]={0.0};
+        if (template->approximant == IMRPhenomFBTest) {
+    /* Fill array of PN coefficients */
+		UINT4 i;
+		const CHAR *paramName[10]={
+        "dphi0","dphi1","dphi2","dphi3","dphi4","dphi5","dphi6","dphi7","dphi8","dphi9"};
+		for(i=0;i<10;i++)
+		{
+			if (XLALMCMCCheckParameter(parameter,paramName[i])) {
+				dpsis[i]=XLALMCMCGetParameter(parameter,paramName[i]);
+			}
+			else dpsis[i]=0.0;
+            
 		}
+		dpsis[9]=0.0;
+		LALBBHPhenWaveFreqDomTest(status,model,template,dpsis);
+		
 	}
-
-	/* Want to shift so that max_time - tc is at start of buffer */
-	REAL4 shift = (max_i*inputMCMC->deltaT -template->tC) - 0 ;
-
-	/* Shift the template in the frequency domain to compensate */
-	for(i=0;i<model->length/2;i++){
-		REAL4 time_sin=sin(LAL_TWOPI*i*inputMCMC->deltaF*shift);
-		REAL4 time_cos=cos(LAL_TWOPI*i*inputMCMC->deltaF*shift);
-		REAL4 real=model->data[i];
-		REAL4 imag=model->data[NfreqModel-i];
-		model->data[i]	=			real*time_cos + imag*time_sin;
-		model->data[NfreqModel-i]= -real*time_sin + imag*time_cos;
+	else if (template->approximant == IMRPhenomFB) {
+		LALBBHPhenWaveFreqDom(status,model,template);
 	}
-	/* Finally restore the proper value of distance */
-    template->distance = distanceMPC;
+    else {
+        LALInspiralWave(status,model,template);
+    }
 }
 
 void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter *parameter,LALMCMCInput *inputMCMC) {
@@ -2130,12 +2128,12 @@ void IMRPhenomB_template(LALStatus *status, InspiralTemplate *template, LALMCMCP
 	if(Tmodel ==NULL) LALCreateVector(status, &Tmodel, NtimeModel);
 
         /*'x' and 'y' components of spins must be set to zero.*/
-        template->spin1[0]=0.;
-        template->spin1[1]=0.;
+    template->spin1[0]=0.;
+    template->spin1[1]=0.;
 	template->spin1[2]=0.;
 
-        template->spin2[0]=0.;
-        template->spin2[1]=0.;
+    template->spin2[0]=0.;
+    template->spin2[1]=0.;
 	template->spin2[2]=0.;
 
         /*Get aligned spins configuration/magnitude if these are set*/

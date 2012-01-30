@@ -1862,6 +1862,8 @@ class SimInspiralTable(table.Table):
 		"dphi6": "real_4",
 		"dphi6l": "real_4",
 		"dphi7": "real_4",
+		"dphi8": "real_4",
+		"dphi9": "real_4",
         "loglambdaG": "real_4",
         "ScalarCharge1":"real_4",
         "ScalarCharge2":"real_4",

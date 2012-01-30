@@ -182,7 +182,7 @@ LALInspiralWave(
 	   break;
       case IMRPhenomA:
       case IMRPhenomB:
-           LALBBHPhenWaveTimeDom(status->statusPtr, signalvec, params);
+           LALBBHPhenWaveTimeDom(status->statusPtr, signalvec, params, phaseParams);
            CHECKSTATUSPTR(status);
        break;
       case IMRPhenomFA:
@@ -300,6 +300,8 @@ LALInspiralWaveTemplates(
    ASSERT((UINT4)params->order < (UINT4)LAL_PNORDER_NUM_ORDER,
                status, LALINSPIRALH_EORDER, LALINSPIRALH_MSGEORDER);
 
+   REAL8 phaseParams[10] = {0.0};
+
    switch (params->approximant)
    {
       case TaylorT1:
@@ -322,12 +324,17 @@ LALInspiralWaveTemplates(
            break;
       case IMRPhenomA:
       case IMRPhenomB:
-           LALBBHPhenWaveTimeDomTemplates(status->statusPtr, signalvec1, signalvec2, params);
+           LALBBHPhenWaveTimeDomTemplates(status->statusPtr, signalvec1, signalvec2, params, phaseParams);
            CHECKSTATUSPTR(status);
            break;
       case IMRPhenomFA:
       case IMRPhenomFB:
            LALBBHPhenWaveFreqDomTemplates(status->statusPtr, signalvec1, signalvec2, params);
+           CHECKSTATUSPTR(status);
+           break;
+      // NOT ACTUALLY USED. 
+      case IMRPhenomFBTest:
+           LALBBHPhenWaveFreqDomTemplatesTest(status->statusPtr, signalvec1, signalvec2, params, phaseParams);
            CHECKSTATUSPTR(status);
            break;
       case TaylorF1:
@@ -383,6 +390,7 @@ LALInspiralWaveForInjection(
    ASSERT (inspiralParams,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
    ASSERT (ppnParams,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 
+   REAL8 phaseParams[10] = {0.0};
 
    switch (inspiralParams->approximant)
      {
@@ -406,7 +414,9 @@ LALInspiralWaveForInjection(
 	   break;
      case IMRPhenomA:
      case IMRPhenomB:
-       LALBBHPhenWaveTimeDomForInjection (status->statusPtr, waveform, inspiralParams, ppnParams);
+     case IMRPhenomFB:
+     case IMRPhenomFBTest:
+       LALBBHPhenWaveTimeDomForInjection (status->statusPtr, waveform, inspiralParams, ppnParams, phaseParams);
        CHECKSTATUSPTR(status);
        break;
       case BCV:
