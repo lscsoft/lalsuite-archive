@@ -1229,10 +1229,10 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
   get_time = def_get_time(triggers.tableName)
   triggers.sort(key=lambda trig: get_time(trig))
 
-
   previousTimes = []
   histEdges = numpy.arange(timeStep,timeRange,timeStep);
   delayHist = numpy.zeros(int(math.ceil(timeRange/timeStep)))
+
   for trig in triggers:
     curTime = trig.peak_time + 1e-9*trig.peak_time_ns
     # remove previous times which are beyond the considered timeRange
@@ -1506,13 +1506,13 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
     attr_map['peak_time'], attr_map['peak_time_ns'] =\
         zip(*[(s.seconds, s.nanoseconds) for s in peak])
 
-  if 'ms_start_time' in columns or 'peak_time_ns' in columns:
+  if 'ms_start_time' in columns or 'ms_start_time_ns' in columns:
     ms_start = map(LIGOTimeGPS, peak-duration/2)
-    attr_map['ms_start_time'], attr_map['peak_time_ns'] =\
+    attr_map['ms_start_time'], attr_map['ms_start_time_ns'] =\
         zip(*[(s.seconds, s.nanoseconds) for s in ms_start])
-  if 'ms_stop_time' in columns or 'peak_time_ns' in columns:
+  if 'ms_stop_time' in columns or 'ms_stop_time_ns' in columns:
     ms_stop = map(LIGOTimeGPS, peak+duration/2)
-    attr_map['ms_stop_time'], attr_map['peak_time_ns'] =\
+    attr_map['ms_stop_time'], attr_map['ms_stop_time_ns'] =\
         zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
 
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
@@ -1549,7 +1549,7 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
   for i in range(numtrigs):
     t = lsctables.SnglBurst()
     for c in cols: setattr(t, c, attr_map[c][i])
-    if not check_time or (check_time and t.get_peak() in span):
+    if not check_time or (check_time and float(t.get_peak()) in span):
       append(t)
   
   return out
@@ -1643,13 +1643,13 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
     attr_map['peak_time'], attr_map['peak_time_ns'] =\
         zip(*[(s.seconds, s.nanoseconds) for s in peak])
 
-  if 'ms_start_time' in columns or 'peak_time_ns' in columns:
+  if 'ms_start_time' in columns or 'ms_start_time_ns' in columns:
     ms_start = map(LIGOTimeGPS, st)
-    attr_map['ms_start_time'], attr_map['peak_time_ns'] =\
+    attr_map['ms_start_time'], attr_map['ms_start_time_ns'] =\
         zip(*[(s.seconds, s.nanoseconds) for s in ms_start])
-  if 'ms_stop_time' in columns or 'peak_time_ns' in columns:
+  if 'ms_stop_time' in columns or 'ms_stop_time_ns' in columns:
     ms_stop = map(LIGOTimeGPS, stop)
-    attr_map['ms_stop_time'], attr_map['peak_time_ns'] =\
+    attr_map['ms_stop_time'], attr_map['ms_stop_time_ns'] =\
         zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
 
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
