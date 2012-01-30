@@ -36,6 +36,8 @@ The derivation of the contents of this module is very close to that for
 continuous wave signals. It follows the examples of Prix arXiv:gr-qc/0606088
 although uses some of the notation of Harry and Fairhurst arXiv:1012.4939 for
 coherent inspiral signals.
+
+Some of this code should be moved to c code in LAL in order to speed up calculations
 """
 
 import sys
