@@ -188,7 +188,11 @@ def display_name(columnName):
       elif w.endswith('sq'):
         words[i] = '$\%s^2$' % w.rstrip('sq')
     else:
-      words[i] = w.title()
+      if w.isupper():
+        words[i] = w
+      else:
+        words[i] = w.title()
+      
 
   return ' '.join(words) 
 
