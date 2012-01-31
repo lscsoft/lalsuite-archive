@@ -179,6 +179,7 @@ REAL8 redshift;
 /* PhiTest parameters */
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
+INT4 dphiUniform=0;
 INT4 MGInjections = 0;
 INT4 BDinjections = 0;
 INT4 PPEinjections = 0;
@@ -658,6 +659,7 @@ static void print_usage(char *program)
   fprintf(stderr,
       "Test parameter information:\n"\
       " --enable-dphi             enable phiTest injections\n"\
+      " --uniform-dphi            distribute shifts uniformly\n"\
       " --dphi0 value             value of the dphi0 parameter\n"\
       " --sdphi0 value            value of the dphi0 standard deviation\n"\
       " --dphi1 value             value of the dphi1 parameter\n"\
@@ -1422,6 +1424,7 @@ int main( int argc, char *argv[] )
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
     {"enable-dphi",             no_argument,       0,                 '@'},
+    {"uniform-dphi",            no_argument,       0,                 1045},
     {"dphi0",                   required_argument, 0,                 1010},
     {"dphi1",                   required_argument, 0,                 1011},
     {"dphi2",                   required_argument, 0,                 1012},
@@ -2293,6 +2296,13 @@ int main( int argc, char *argv[] )
         next_process_param( long_options[option_index].name, "string", 
               "" );
         phiTestInjections = 1;
+        break;
+      case 1045:
+              /* uniformly distribute dphis from -dphiX to +dphiX */
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name, "string", 
+              "" );
+        dphiUniform = 1;
         break;
       case 1010:
             dphi0 = atof( optarg );
@@ -3173,20 +3183,40 @@ int main( int argc, char *argv[] )
 
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
-    /* populate the test parameters */
-    simTable->dphi0 = dphi0 + sdphi0*XLALNormalDeviate(randParams);
-    simTable->dphi1 = dphi1 + sdphi1*XLALNormalDeviate(randParams);
-    simTable->dphi2 = dphi2 + sdphi2*XLALNormalDeviate(randParams);
-    simTable->dphi3 = dphi3 + sdphi3*XLALNormalDeviate(randParams);
-    simTable->dphi4 = dphi4 + sdphi4*XLALNormalDeviate(randParams);
-    simTable->dphi5 = dphi5 + sdphi5*XLALNormalDeviate(randParams);
-    simTable->dphi5l = dphi5l + sdphi5l*XLALNormalDeviate(randParams);
-    simTable->dphi6 = dphi6 + sdphi6*XLALNormalDeviate(randParams);
-    simTable->dphi6l = dphi6l + sdphi6l*XLALNormalDeviate(randParams);
-    simTable->dphi7 = dphi7 + sdphi7*XLALNormalDeviate(randParams);
-    simTable->dphi8 = dphi8 + sdphi8*XLALNormalDeviate(randParams);
-    simTable->dphi9 = dphi9 + sdphi9*XLALNormalDeviate(randParams);
     
+    /* populate the test parameters */
+    if (dphiUniform==0) {
+		// Normal distribution around dphiX with sigma=sdphiX
+      simTable->dphi0 = dphi0 + sdphi0*XLALNormalDeviate(randParams);
+      simTable->dphi1 = dphi1 + sdphi1*XLALNormalDeviate(randParams);
+      simTable->dphi2 = dphi2 + sdphi2*XLALNormalDeviate(randParams);
+      simTable->dphi3 = dphi3 + sdphi3*XLALNormalDeviate(randParams);
+      simTable->dphi4 = dphi4 + sdphi4*XLALNormalDeviate(randParams);
+      simTable->dphi5 = dphi5 + sdphi5*XLALNormalDeviate(randParams);
+      simTable->dphi5l = dphi5l + sdphi5l*XLALNormalDeviate(randParams);
+      simTable->dphi6 = dphi6 + sdphi6*XLALNormalDeviate(randParams);
+      simTable->dphi6l = dphi6l + sdphi6l*XLALNormalDeviate(randParams);
+      simTable->dphi7 = dphi7 + sdphi7*XLALNormalDeviate(randParams);
+      simTable->dphi8 = dphi8 + sdphi8*XLALNormalDeviate(randParams);
+      simTable->dphi9 = dphi9 + sdphi9*XLALNormalDeviate(randParams);
+    }
+    else {
+		// Uniform distribution in [-dphiX,dphiX]
+      simTable->dphi0 = dphi0*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi1 = dphi1*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi2 = dphi2*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi3 = dphi3*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi4 = dphi4*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi5 = dphi5*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi5l = dphi5l*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi6 = dphi6*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi6l = dphi6l*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi7 = dphi7*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi8 = dphi8*(2.*XLALUniformDeviate(randParams)-1.);
+      simTable->dphi9 = dphi9*(2.*XLALUniformDeviate(randParams)-1.);	
+	}
+	
+	
     /* populate the massive graviton parameter */
     
     simTable->loglambdaG=loglambdaG;
