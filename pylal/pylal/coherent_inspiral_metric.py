@@ -243,7 +243,7 @@ def moments(f, PSD, n, l=0):
 	"""
 	df = f[1]-f[0]
 	psd_moment = scipy.log(f)**l * f**(float(n)/3.) / PSD * df
-	return psd_moment.sum()
+	return psd_moment.cumsum()
 
 def moments_required():
 	"""
@@ -270,14 +270,17 @@ class Detector:
 		self.psd = psd
 		self.one_sided_f = None
 		self.one_sided_psd = None
+		self.I_n_vec = {}
 		self.I_n = {}
 		self.name = name
 
-	def add_moment(self, n):
+	def add_moment(self, n, A=1):
 		if self.psd is None:
 			print >> sys.stderr, "No psd for this detector!"
 			sys.exit()
-		self.I_n[n] = moments(self.one_sided_f, self.one_sided_psd, int(str(n).strip('l')), str(n).count('l'))
+		self.I_n_vec[n] = moments(self.one_sided_f, self.one_sided_psd, int(str(n).strip('l')), str(n).count('l'))
+		self.I_n_vec[n] *= A		
+		self.I_n[n] = self.I_n_vec[n][-1]
 
 	def set_psd(self, f, psd):
 		self.f = f
@@ -296,8 +299,12 @@ class Detector:
 			if self.psd is None:
 				print >> sys.stderr, "No psd for this detector!"
 				sys.exit()
-			self.add_moment(n)
-			self.I_n[n] *= A
+			self.add_moment(n, A)
+
+	def update_I_n(self, mchirp, eta):
+		f_isco = 1. / (6.**1.5 * pi * mchirp * eta**(-3./5.))
+		for key in self.I_n.keys():
+			self.I_n[key] = self.I_n_vec[key][self.one_sided_f < f_isco][-1]
 
 def dx_n2(y,dx):
 	"""
@@ -4812,6 +4819,9 @@ def full_metric(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 	     7 mchirp |   -    -   -   -   -    -   -    H    AS  |
 	     8  eta    \  -    -   -   -   -    -   -    -    I  /
 	"""
+	for detector in detectors:
+		detector.update_I_n(mchirp, eta)
+
 	g = scipy.zeros((9,9))
 	# the amplitude-amplitude block
 	g[0,0] =		g_A1_A1(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
@@ -4881,6 +4891,9 @@ def average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 	     3 mchirp |   -    -  -    D    I  |
 	     4  eta    \  -    -  -    -    E /
 	"""
+	for detector in detectors:
+		detector.update_I_n(mchirp, eta)
+
 	g = scipy.zeros((5,5))
 	g[0,0] =		gbar_RA_RA		(RA, dec, detectors, mchirp, eta, Fderivs)
 	g[0,1] = g[1,0] =	gbar_RA_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
@@ -4912,6 +4925,9 @@ def other_average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 	     3 mchirp |   -    -  -    D    I  |
 	     4  eta    \  -    -  -    -    E /
 	"""
+	for detector in detectors:
+		detector.update_I_n(mchirp, eta)
+
 	g = scipy.zeros((5,5))
 	g[0,0] =		ogbar_RA_RA		(RA, dec, detectors, mchirp, eta, Fderivs)
 	g[0,1] = g[1,0] =	ogbar_RA_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
@@ -5032,6 +5048,8 @@ def single_g_eta_eta(detector, mchirp, eta):
 	return g / detector.I_n['-7']
 
 def single_detector_metric(detector, mchirp=2.*.25**.6*M_sun, eta=0.25):
+	detector.update_I_n(mchirp, eta)
+
 	g = scipy.zeros((4,4))
 	g[0,0] = single_g_phi_phi	(detector, mchirp, eta)
 	g[1,0] = single_g_phi_t		(detector, mchirp, eta)
