@@ -608,11 +608,36 @@ def dlnA_dmchirp_dict(mchirp, eta):
 
 	return dlnA_dmchirp
 
+def Phase_dict(mchirp, eta):
+	"""
+	Computes an inspiral signal's phase. Returns as a dictionary for use in the metric
+	calculation.
+	"""
+	Phase = {}
+	# 0.0PN
+	Phase['-5'] = 3./(128.*pi**(5./3.)*mchirp**(5./3.))
+	# 1.0PN
+	Phase['-3'] = 5./(384.*pi*mchirp*eta**(2./5.))*(743./84. + 11.*eta)
+	# 1.5PN
+	Phase['-2'] = -3.*pi**(1./3.)/(8.*mchirp**(2./3.)*eta**(3./5.))
+	# 2.0PN
+	Phase['-1'] = 5./(3072.*pi**(1./3.)*mchirp**(1./3.)*eta**(4./5.))*(3058673./7056. + 5429./7.*eta + 617.*eta**2)
+	# 2.5PN
+	Phase['0']  = 5.*pi/(384.*eta)*(7729./84. - 13.*eta)*(1. + log(6.**1.5*pi*mchirp*eta**(-3./5.)))
+	Phase['0l']  = 5.*pi/(384.*eta)*(7729./84. - 13.*eta)
+	# 3.0PN
+	Phase['1']  = pi**(1./3.)*mchirp**(1./3.)/(128.*eta**(6./5.))*(11583231236531./1564738560. - 640.*pi**2 - 6848./7.*(gamma + log(4.*(pi*mchirp)**(1./3.)*eta**(-1./5.))) + 5./4.*(-3147553127./254016. + 451.*pi**2)*eta + 76055./576.*eta**2 - 127825./432.*eta**3)
+	Phase['1l'] = -107.*pi**(1./3.)*mchirp**(1./3.)/(42.*eta**(6./5.))
+	# 3.5PN
+	Phase['2']  = 5.*pi**(5./3.)*mchirp**(2./3.)/(32256.*eta**(7./5.))*(15419335./336. + 75703./2.*eta - 14809.*eta**2)
+
+	return Phase
+
 def dPhase_dmchirp_dict(mchirp, eta):
 	"""
 	Computes the derivative of an inspiral signal's phase with respect to
 	the chirp mass. Returns as a dictionary for use in the metric
-	calculation. Check metric terms past 2.5PN.
+	calculation.
 	"""
 	dPhase_dmchirp = {}
 	# 0.0PN
@@ -626,10 +651,10 @@ def dPhase_dmchirp_dict(mchirp, eta):
 	# 2.5PN
 	dPhase_dmchirp['0']  = 5.*pi/(384.*eta*mchirp)*(7729./84. - 13.*eta)
 	# 3.0PN
-#	dPhase_dmchirp['1']  = pi**(1./3.)/(384.*eta**(6./5.)*mchirp**(2./3.))*(10052469856691./1564738560. - 640.*pi**2 - 6848./7.*(gamma + log(4.*(pi*mchirp)**(1./3.)*eta**(-1./5.))) + 5./4.*(-3147553127./254016. + 451.*pi**2)*eta + 76055./576.*eta**2 - 127825./432.*eta**3)
-#	dPhase_dmchirp['1l'] = -107.*pi**(1./3.)/(126.*eta**(6./5.)*mchirp**(2./3.))
+	dPhase_dmchirp['1']  = pi**(1./3.)/(384.*eta**(6./5.)*mchirp**(2./3.))*(10052469856691./1564738560. - 640.*pi**2 - 6848./7.*(gamma + log(4.*(pi*mchirp)**(1./3.)*eta**(-1./5.))) + 5./4.*(-3147553127./254016. + 451.*pi**2)*eta + 76055./576.*eta**2 - 127825./432.*eta**3)
+	dPhase_dmchirp['1l'] = -107.*pi**(1./3.)/(126.*eta**(6./5.)*mchirp**(2./3.))
 	# 3.5PN
-#	dPhase_dmchirp['2']  = 5.*pi**(5./3.)/(48384.*mchirp**(1./3.)*eta**(7./5.))*(15419335./336. + 75703./2.*eta - 14809.*eta**2)
+	dPhase_dmchirp['2']  = 5.*pi**(5./3.)/(48384.*mchirp**(1./3.)*eta**(7./5.))*(15419335./336. + 75703./2.*eta - 14809.*eta**2)
 
 	return dPhase_dmchirp
 
@@ -637,7 +662,7 @@ def dPhase_deta_dict(mchirp, eta):
 	"""
 	Computes the derivative of an inspiral signal's phase with respect to
 	the symmetric mass ratio. Returns as a dictionary for use in the
-	metric calculation. Check metric terms past 2.5PN.
+	metric calculation.
 	"""
 	dPhase_deta = {}
 	# 1.0PN
@@ -650,10 +675,10 @@ def dPhase_deta_dict(mchirp, eta):
 	dPhase_deta['0']  = -pi/(384.*eta**2.)*(7729./84.*(8. + 5.*log(6**(3./2.)*pi*mchirp*eta**(-3./5.))) - 39.*eta)
 	dPhase_deta['0l'] = -38645.*pi/(32256.*eta**2.)
 	# 3.0PN
-#	dPhase_deta['1']  = (pi*mchirp)**(1./3.)/(640.*eta**(11./5.))*(11328104339891./260789760. + 3840.*pi**2 - 41088./7.*(gamma + log(4*(pi*mchirp)**(1./3.)*eta**(-1./5.))) - 5./4.*(-3147553127./254016. + 451*pi**2)*eta + 76055./144.*eta**2. - 127825./48.*eta**3.)
-#	dPhase_deta['1l'] = 107.*(pi*mchirp)**(1./3.)/(35.*eta**(11./5.))
+	dPhase_deta['1']  = (pi*mchirp)**(1./3.)/(640.*eta**(11./5.))*(-11328104339891./260789760. + 3840.*pi**2 + 41088./7.*(gamma + log(4*(pi*mchirp)**(1./3.)*eta**(-1./5.))) - 5./4.*(-3147553127./254016. + 451*pi**2)*eta + 76055./144.*eta**2. - 127825./48.*eta**3.)
+	dPhase_deta['1l'] = 107.*(pi*mchirp)**(1./3.)/(35.*eta**(11./5.))
 	# 3.5PN
-#	dPhase_deta['2']  = -pi**(5./3.)*mchirp**(2./3.)/(32256.*eta**(-12./5.))*(15419335./48. + 75703.*eta + 44427.*eta**2.)
+	dPhase_deta['2']  = -pi**(5./3.)*mchirp**(2./3.)/(32256.*eta**(12./5.))*(15419335./48. + 75703.*eta + 44427.*eta**2.)
 
 	return dPhase_deta
 
