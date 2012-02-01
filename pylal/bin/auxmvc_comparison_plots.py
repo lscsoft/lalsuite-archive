@@ -108,29 +108,25 @@ def generateTotalRankedTriggers(classifiers):
 
 	return total_data
 	
-'''
-this is meant to return the CVeto data corresponding to a given central time (tcent) for a GW glitch. the CVeto data returned is a list of the form:
-  [cveto_eff, cveto_fap, cveto_rank, cveto_chan]
-the output arguments correspond to internal CVeto data as follows:
-  cveto_eff  : c_eff
-  cveto_fap  : c_fct
-  cveto_rank : 2-(rank/len(stats)) ... where rank is the row index in stats
-  cveto_chan : vchan
 
-'''
-
-def giveMeCVeto(gwtcent, deltat = 0)
-  # essentially want to loop through CVeto tracking data and extract those entries within (gwtcent - deltat) < tcent < (gwtcent + deltat)
-  # we return these in a list
+def giveMeCVeto(CVetoOutput, gwtcent, deltat = 0)
+  '''
+  this is meant to return the CVeto data corresponding to a given central time (tcent) for a GW glitch. the CVeto data returned is a list of the form:
+    [cveto_eff, cveto_fap, cveto_rank, cveto_chan]
+  the output arguments correspond to internal CVeto data as follows:
+    cveto_eff  : c_eff
+    cveto_fap  : c_fct
+    cveto_rank : 2-(rank/len(stats)) ... where rank is the row index in stats
+    cveto_chan : vchan
+  '''
   ###
-  # the current incarnation will find all of the CVeto glitches that satisfy this criterion, but will only return one of them. This function needs to be extended to decide between the multiple returns, perhaps using other informaion about the glitch.
-###
-  '''
-  whatever the name for the output of auxmvc_utils.loadHV is called, assign it to CVetoOutput!
-  '''
+  # the current incarnation will find all of the CVeto glitches that satisfy |tcent - gwtcent| < deltat, but will only return one of them. This function needs to be extended to decide between the multiple returns, perhaps using other informaion about the glitch.
+  ###
+  # define references for internal structure of CVetoOuptut
   Dic = {'tcent':0, 'vconfig':1, 'vstats':2}
   vconfigDic = {'vchan':0, 'vthr':1, 'vwin':2}
   vstatsDic = {'livetime':0, '#gwtrg':1, 'dsec':2, 'csec':3, 'vact':4, 'vsig':5, 'c_livetime':6, 'c_ngwtrg':7, 'c_dsec':8, 'c_csec':9, 'c_vact':10, 'rank':11}
+  # define search variables
   begint = gwtcent - deltat
   endt = gwtcent + deltat
   cveto_dat = []
@@ -145,14 +141,16 @@ def giveMeCVeto(gwtcent, deltat = 0)
     elseif CVetoOutput[index][Dic['tcent']] > endt:
       pass
     else:
+      # extract desired data from CVetoOutput
       h = CVetoOutput[index]
       cveto_eff = float(h[Dic['vstats']][vstatsDic['c_vact']]) / float(h[Dic['vstats']][vstatsDic['c_ngwtrg']])
       cveto_fap = float(h[Dic['vstats']][vstatsDic['c_csec']]) / float(h[Dic['vstats']][vstatsDic['c_livetime']])
       not_quite_rank = float(h[Dic['vstats']][vstatsDic['rank']])
       cveto_chan = h[Dic['vconfig']][vconfigDic['vchan']]
       cveto_dat += [ [ cveto_eff, cveto_fap, not_quite_rank, cveto_chan ] ]
-  print(cveto_dat)
+#  print(cveto_dat)
   for index in range(len(cveto_dat)):
+    # convert not_quite_rank to cveto_rank as defined above
     not_quite_rank = cveto_dat[index][3]
     cveto_dat[index][3] = 2 - float(rank)/max_rank
   # we now return the first entry in the list, BUT THIS SHOULD BE EXTENDED SO THAT WE PICK THE CORRECT ENTRY BASED ON OTHER INFORMATION ABOUT THE GLITCH
