@@ -265,6 +265,7 @@ tagLALMCMCInput
   REAL8Window *window; /* Window for FFTing the data */
   LIGOTimeGPS epoch;
   REAL4   fLow;
+  REAL4   cutoff; /* High frequency cutoff (only used with IMRPhenomFBTest for now) */
   REAL8   deltaT;
   REAL8   deltaF;
   UINT4   numseg;

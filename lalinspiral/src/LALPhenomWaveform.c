@@ -77,7 +77,8 @@ static void XLALBBHPhenWaveFD2 ( BBHPhenomParams  *params,
 static void XLALBBHPhenWaveFD2Test ( BBHPhenomParams  *params,
 			 InspiralTemplate *insp_template,
 			 REAL4Vector *signalvec,
-       			 REAL8 *dphis);
+			 REAL8 *dphis,
+			 REAL4 cutoff);
 
 static void XLALComputeInstantFreq( REAL4Vector *Freq,
 			     REAL4Vector *hp,
@@ -152,7 +153,8 @@ void LALBBHPhenWaveFreqDom ( LALStatus        *status,
 void LALBBHPhenWaveFreqDomTest( LALStatus        *status,
 			     REAL4Vector      *signalvec,
 			     InspiralTemplate *params,
- 			     REAL8 *dphis)
+ 			     REAL8 *dphis,
+ 			     REAL4 cutoff)
 {
 
   BBHPhenomParams phenParams;
@@ -191,7 +193,7 @@ void LALBBHPhenWaveFreqDomTest( LALStatus        *status,
           /* compute the phenomenological parameters */
           XLALComputePhenomParams2(&phenParams, params);
           /* generate the phenomenological waveform in frequency domain */
-          XLALBBHPhenWaveFD2Test (&phenParams, params, signalvec, dphis);
+          XLALBBHPhenWaveFD2Test (&phenParams, params, signalvec, dphis, cutoff);
           break;
 
       default:
@@ -614,9 +616,9 @@ static void XLALBBHPhenWaveFD2 ( BBHPhenomParams  *params,
 /*********************************************************************/
 static void XLALBBHPhenWaveFD2Test ( BBHPhenomParams  *params,
 				InspiralTemplate *insp_template,
-				REAL4Vector *signalvec, REAL8 *dphis) 
+				REAL4Vector *signalvec, REAL8 *dphis, REAL4 cutoff) 
 {
-    REAL8 df, shft, phi, amp0, ampEff=0, psiEff, fMerg, fNorm;
+    REAL8 df, shft, phi, amp0, ampEff=0, psiEff=0, fMerg, fNorm;
     REAL8 f, fRing, sigma, totalMass, eta;
     INT4 i, j, n, nby2;
     REAL8 v, alpha2, alpha3, w1, vMerg, v2, v3, v4, v5, v6, v7, v8;
@@ -710,34 +712,42 @@ static void XLALBBHPhenWaveFD2Test ( BBHPhenomParams  *params,
 
         /* fourier frequency corresponding to this bin */
       	f = i * df;
-        fNorm = f/fMerg;
-
-        /* PN expansion parameter */
-        v = pow(LAL_PI*totalMass*LAL_MTSUN_SI*f, 1./3.);
-        v2 = v*v; v3 = v2*v; v4 = v2*v2; v5 = v4*v; v6 = v3*v3; v7 = v6*v, v8 = v7*v;
-
-    	/* compute the amplitude */
-        if ((f < insp_template->fLower) || (f > params->fCut)) {
+      	
+    	/* compute the amplitude 
+    	 * Michalis: New variable cutoff sets artificial cutoff beyond which 
+    	 * the waveform amplitude is set to zero and the phase does not evolve.
+    	 * If cutoff is passed to be less than fLow, no cutoff is set.
+    	 */    	
+        if ((f < insp_template->fLower) || (f > params->fCut) || ( (cutoff > insp_template->fLower) && (f > cutoff) )){
             ampEff = 0.;
         }
-        else if (f <= fMerg) {
-               ampEff = pow(fNorm, -7./6.)*(1. + alpha2*v2 + alpha3*v3);
-        }
-        else if ((f > fMerg) & (f <= fRing)) {
-            ampEff = w1*pow(fNorm, mergPower)*(1. + epsilon_1*v + epsilon_2*v2);
-        }
-        else if (f > fRing) {
-            ampEff = w2*XLALLorentzianFn ( f, fRing, sigma);
-        }
+        else {
+			
+          fNorm = f/fMerg;
 
-        /* now compute the phase */
-        psiEff =  shft*f + phi
+          /* PN expansion parameter */
+          v = pow(LAL_PI*totalMass*LAL_MTSUN_SI*f, 1./3.);
+          v2 = v*v; v3 = v2*v; v4 = v2*v2; v5 = v4*v; v6 = v3*v3; v7 = v6*v, v8 = v7*v;
+        
+          if (f <= fMerg) {
+                 ampEff = pow(fNorm, -7./6.)*(1. + alpha2*v2 + alpha3*v3);
+          }
+          else if ((f > fMerg) & (f <= fRing)) {
+              ampEff = w1*pow(fNorm, mergPower)*(1. + epsilon_1*v + epsilon_2*v2);
+          }
+          else if (f > fRing) {
+              ampEff = w2*XLALLorentzianFn ( f, fRing, sigma);
+          }
+          
+          /* now compute the phase */
+          psiEff =  shft*f + phi
                     + 3./(128.*eta*v5)*(1 
                     + params->psi1*v + params->psi2*v2
                     + params->psi3*v3 + params->psi4*v4
                     + params->psi5*v5 + params->psi6*v6
                     + params->psi7*v7 + params->psi8*v8);
-
+		}
+		
        	/* generate the waveform */
        	*(signalvec->data+i) = (REAL4) (amp0 * ampEff * cos(psiEff));     /* real */
         *(signalvec->data+j) = (REAL4) (-amp0 * ampEff * sin(psiEff));    /* imag */
@@ -795,7 +805,7 @@ void LALBBHPhenWaveFreqDomTemplatesTest( LALStatus        *status,
 				     REAL4Vector      *signalvec1,
 				     REAL4Vector      *signalvec2,
 				     InspiralTemplate *params,
-                                     REAL8 *dphis)
+                     REAL8 *dphis)
 {
 
   INITSTATUS(status, "LALBBHPhenWaveFreqDomTemplatesTest", LALPHENOMWAVEFORMC);
@@ -811,12 +821,12 @@ void LALBBHPhenWaveFreqDomTemplatesTest( LALStatus        *status,
   memset(signalvec2->data, 0, signalvec2->length * sizeof(REAL4));
 
   /* generate one waveform with startPhase specified by the user */
-  LALBBHPhenWaveFreqDomTest(status->statusPtr, signalvec1, params, dphis);
+  LALBBHPhenWaveFreqDomTest(status->statusPtr, signalvec1, params, dphis, 0.0);
   CHECKSTATUSPTR(status);
 
   /* generate another waveform orthogonal to it */
   params->startPhase += LAL_PI_2;
-  LALBBHPhenWaveFreqDomTest(status->statusPtr, signalvec2, params, dphis);
+  LALBBHPhenWaveFreqDomTest(status->statusPtr, signalvec2, params, dphis, 0.0);
   CHECKSTATUSPTR(status);
 
   DETATCHSTATUSPTR(status);
@@ -1002,9 +1012,9 @@ void LALBBHPhenTimeDomEngine( LALStatus        *status,
             XLALBBHPhenWaveFD2 (&phenParams, params, signalFD2);
             break;
         case IMRPhenomFBTest:
-            XLALBBHPhenWaveFD2Test (&phenParams, params, signalFD1, dphis);
+            XLALBBHPhenWaveFD2Test (&phenParams, params, signalFD1, dphis, 0.0); // produces full waveform with no cutoff
             params->startPhase += LAL_PI_2; 
-            XLALBBHPhenWaveFD2Test (&phenParams, params, signalFD2, dphis);
+            XLALBBHPhenWaveFD2Test (&phenParams, params, signalFD2, dphis, 0.0); // produces full waveform with no cutoff
             break;
         default:
             ABORT( status, LALINSPIRALH_ESWITCH, LALINSPIRALH_MSGESWITCH );

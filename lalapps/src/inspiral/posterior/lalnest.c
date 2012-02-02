@@ -93,6 +93,7 @@ Optional OPTIONS:\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
 [--help\t:\tPrint this message]\n \
 [--flow NUM\t:\t:Set low frequency cutoff (default 40Hz)]\n\
+[--cutoff NUM\t:\t:Set artificial high frequency cutoff ]\n\
 [--chimin NUM\t:\tMin value of chi spin parameter]\n\
 [--chimax NUM\t:\tMax value of chi spin parameter]\n\
 [--snrpath PATH\t:\tOutput SNRs to a file in PATH]\n\
@@ -150,6 +151,7 @@ INT4 nSegs=0;
 INT4 Nruns=1;
 INT4 dataseed=0;
 REAL4 fLow=40.0; /* Low-frequency cutoff */
+REAL4 cutoff=0.0; /* High-frequency cutoff (recovery only) */
 UINT4 Nlive=1000;
 CHAR *inputXMLFile;
 CHAR *injXMLFile=NULL;
@@ -347,6 +349,7 @@ void initialise(int argc, char *argv[]){
         {"excludeparams",required_argument,0,1707},
 		{"datadump",required_argument,0,22},
 		{"flow",required_argument,0,23},
+		{"cutoff",required_argument,0,24},
 		{"nospin",required_argument,0,25},
 		{"onespin",required_argument,0,26},
 		{"M_min",required_argument,0,40},
@@ -571,10 +574,13 @@ void initialise(int argc, char *argv[]){
 		case 'l':
 			studentt=1;
 			break;
-                case 23:
-                        fLow=atof(optarg);
-                        fLowFlag=1;
-                        break;
+        case 23:
+            fLow=atof(optarg);
+            fLowFlag=1;
+            break;
+        case 24:
+            cutoff=atof(optarg);
+            break;
 		case 'v':
 			verbose=1;
 			break;
@@ -802,6 +808,7 @@ int main( int argc, char *argv[])
 
 	inputMCMC.fLow = fLow;
 	inputMCMC_N.fLow = inputMCMC.fLow;
+	inputMCMC.cutoff = cutoff;
 
 
 	/* Prepare for injections */
@@ -1437,6 +1444,7 @@ doneinit:
 	}
 	fprintf(stdout,"reduced chi squared = %e\n",ReducedChiSq);
 	fprintf(stdout,"Number of points in F-domain above fLow = %i\n",(int)inputMCMC.stilde[0]->data->length-(int)(fLow/(double)inputMCMC.stilde[0]->deltaF));
+	if ((inputMCMC.cutoff > 0.0) && (inputMCMC.approximant==IMRPhenomFBTest)) {fprintf(stdout,"Upper frequency cutoff = %e\n", inputMCMC.cutoff);}
 
 	/* Output data if requested */
 	if(datadump)
@@ -2591,7 +2599,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 			fprintf(stderr,"Coefficient psi_9 is not available in IMRPhenomB. Value is set to 0.");
 			dphis[9]=0.;
 		}
-        LALBBHPhenWaveFreqDomTest(&status, injWaveFD, &template, dphis);
+        LALBBHPhenWaveFreqDomTest(&status, injWaveFD, &template, dphis, 0.0);
     }
     else if (template.approximant==TaylorF2Test){
         dphis[0]=inj_table->dphi0;

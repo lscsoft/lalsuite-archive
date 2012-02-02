@@ -1954,7 +1954,7 @@ void IMRPhenomFB_template(LALStatus *status,InspiralTemplate *template, LALMCMCP
             
 		}
 		dpsis[9]=0.0;
-		LALBBHPhenWaveFreqDomTest(status,model,template,dpsis);
+		LALBBHPhenWaveFreqDomTest(status,model,template,dpsis,inputMCMC->cutoff);
 		
 	}
 	else if (template->approximant == IMRPhenomFB) {
