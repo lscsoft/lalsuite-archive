@@ -970,13 +970,16 @@ if __name__=='__main__':
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
     polParams=['psi']
-    skyParams=['ra','rightascension','declination','dec']
+    #skyParams=['ra','rightascension','declination','dec']
+    skyParams=['ra','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
-    phaseParams=['phase']
+    #phaseParams=['phase','phi_orb']
+    phaseParams=['phi_orb']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams
+    #oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + phaseParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     for ifo1 in ifos_menu:
@@ -986,39 +989,43 @@ if __name__=='__main__':
     #oneDMenu=[]
     twoDGreedyMenu=[]
     if not opts.no2D:
-        for mp1 in massParams:
-            for mp2 in massParams:
-                if not (mp1 == mp2):
-                    twoDGreedyMenu.append([mp1, mp2])
-        for mp in massParams:
-            for d in distParams:
-                twoDGreedyMenu.append([mp,d])
-        for mp in massParams:
-            for sp in spinParams:
-                twoDGreedyMenu.append([mp,sp])
-        for dp in distParams:
-            for ip in incParams:
-                twoDGreedyMenu.append([dp,ip])
-        for dp in distParams:
-            for sp in skyParams:
-                twoDGreedyMenu.append([dp,sp])
-        for dp in distParams:
-            for sp in spinParams:
-                twoDGreedyMenu.append([dp,sp])
-        for ip in incParams:
-            for sp in skyParams:
-                twoDGreedyMenu.append([ip,sp])
-        for ip in incParams:
-            for sp in spinParams:
-                twoDGreedyMenu.append([ip,sp])
-        for sp1 in skyParams:
-            for sp2 in skyParams:
-                if not (sp1 == sp2):
-                    twoDGreedyMenu.append([sp1, sp2])
-        for sp1 in spinParams:
-            for sp2 in spinParams:
-                if not (sp1 == sp2):
-                    twoDGreedyMenu.append([sp1, sp2])
+        for p1 in range(len(oneDMenu)):
+            for p2 in range(p1+1,len(oneDMenu)):
+                  twoDGreedyMenu.append([oneDMenu[p1],oneDMenu[p2]])
+
+        #for mp1 in massParams:
+        #    for mp2 in massParams:
+        #        if not (mp1 == mp2):
+        #            twoDGreedyMenu.append([mp1, mp2])
+        #for mp in massParams:
+        #    for d in distParams:
+        #        twoDGreedyMenu.append([mp,d])
+        #for mp in massParams:
+        #    for sp in spinParams:
+        #        twoDGreedyMenu.append([mp,sp])
+        #for dp in distParams:
+        #    for ip in incParams:
+        #        twoDGreedyMenu.append([dp,ip])
+        #for dp in distParams:
+        #    for sp in skyParams:
+        #        twoDGreedyMenu.append([dp,sp])
+        #for dp in distParams:
+        #    for sp in spinParams:
+        #        twoDGreedyMenu.append([dp,sp])
+        #for ip in incParams:
+        #    for sp in skyParams:
+        #        twoDGreedyMenu.append([ip,sp])
+        #for ip in incParams:
+        #    for sp in spinParams:
+        #        twoDGreedyMenu.append([ip,sp])
+        #for sp1 in skyParams:
+        #    for sp2 in skyParams:
+        #        if not (sp1 == sp2):
+        #            twoDGreedyMenu.append([sp1, sp2])
+        #for sp1 in spinParams:
+        #    for sp2 in spinParams:
+        #        if not (sp1 == sp2):
+        #            twoDGreedyMenu.append([sp1, sp2])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
