@@ -154,6 +154,8 @@ def giveMeCVeto(CVetoOutput, gwtcent, deltat = 0)
     not_quite_rank = cveto_dat[index][3]
     cveto_dat[index][3] = 2 - float(rank)/max_rank
   # we now return the first entry in the list, BUT THIS SHOULD BE EXTENDED SO THAT WE PICK THE CORRECT ENTRY BASED ON OTHER INFORMATION ABOUT THE GLITCH
+  if len(cveto_dat) > 1:
+    print('found multiple glitches at:' + repr(gwtcent))
   return cveto_dat[0]
 
 
