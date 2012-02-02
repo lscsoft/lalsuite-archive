@@ -106,6 +106,21 @@ def generateTotalRankedTriggers(classifiers):
 				#for i, gps in enumerate(ranks_data['GPS']):
 				#	numpy.put(total_data[cls[0]+'_rank'],[numpy.searchsorted(total_data['GPS'],gps)],[ranks_data[cls[0]+'_rank'][i]])
 
+	# this next bit of code was added by R. Essick. He doesn't really know what he's doing, so please check this
+	if classifiers[-1][0] == 'cveto':
+		# we first need to retrieve the CVeto data
+		cveto_raw = auxmvc_utils.loadCV(classifiers[-1][1]) 
+		# we want to iterate through all the glitches stored in total_data
+		for n in range(len(total_data['GPS'][:])):
+			# we look for matching GW glitches in the CVeto data using the GPS time
+			cveto_stuff = giveMeCVeto(cveto_raw, total_data['GPS'][n])
+			if len(cveto_stuff) > 0:
+				total_data['cveto_eff'][n] = cveto_stuff[0]
+				total_data['cveto_fap'][n] = cveto_stuff[1]
+				total_data['cveto_rank'][n] = cveto_stuf[2]
+				total_data['cveto_chan'][n] = cveto_stuff[3]
+			else:
+				pass
 	return total_data
 	
 

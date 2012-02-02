@@ -271,10 +271,10 @@ def ReadMVSCTriggers(files):
   return MVSCTriggers  
 
 
-def loadHVefbydt(filename):
+def loadCV(filename):
 
   """
-  Reads in the pickled output of HV data (eg: kwl1-35.track.9.pickle) and inverts the data storage. Returns a list of gwtrg's removed by the Hveto method.
+  Reads in the pickled output of CV data (eg: kwl1-35.track.9.pickle) and inverts the data storage. Returns a list of gwtrg's removed by the Cveto method.
   returned gwtrg's are labeled by tcent (and only tcent) and are associated with a given vconfig (vchan, vthr, vwin) and vstats (dsec, c_dsec, etc)
   input arg:
     filename: the file that is to be loaded. This must be a string
