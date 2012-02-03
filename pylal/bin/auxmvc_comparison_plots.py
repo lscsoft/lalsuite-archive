@@ -79,14 +79,12 @@ def generateTotalRankedTriggers(classifiers):
 	data = auxmvc_utils.ReadMVSCTriggers(classifiers[0][1])
 	n_triggers = len(data)
 	variables = ['GPS','glitch'] + list(data.dtype.names[5:-1])
-	for var in classifiers:
-		variables += [var[0]+j for j in ['_rank','_fap','_eff']]
-
-	if classifiers[-1][0] == 'cveto':
-		variables += [classifiers[-1][0]+'_chan']
+	for var in ['mvsc','ann','svm','cveto']:
+		variables += [var+j for j in ['_rank','_fap','_eff']]
+	variables += ['cveto_chan']
 
 	formats = ['g8','i']+['g8' for a in range(len(variables)-2)]
-	total_data = numpy.empty(n_triggers, dtype={'names':variables, 'formats':formats})
+	total_data = numpy.zeros(n_triggers, dtype={'names':variables, 'formats':formats})
 	total_data['glitch']=data['i']
 	total_data[classifiers[0][0]+'_rank']=data[data.dtype.names[-1]]
 
