@@ -76,6 +76,7 @@ def BinToDec(binary):
 
 
 def generateTotalRankedTriggers(classifiers):
+	## This function is to read MVCs(MVSC,ANN,SVM)' ranked data and CVeto data and combine them into total_data array.
 	data = auxmvc_utils.ReadMVSCTriggers(classifiers[0][1])
 	n_triggers = len(data)
 	variables = ['GPS','glitch'] + list(data.dtype.names[5:-1])
