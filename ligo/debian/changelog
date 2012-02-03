@@ -1,3 +1,9 @@
+ligo-common (1.0.1) unstable; urgency=low
+
+  * Fix version numbers.
+
+ -- Brian Moe <brian.moe@ligo.org>  Mon, 19 Dec 2011 14:26:05 -0600
+
 ligo-common (1.0-1) unstable; urgency=low
 
   * Initial release

@@ -5,6 +5,7 @@ import os
 from misc import generate_vcs_info as gvcsi
 from distutils.core import setup, Extension
 from distutils.command import install
+from distutils.command import build
 from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
@@ -85,21 +86,28 @@ def write_build_info():
 	if sed_retcode:
 		raise gvcsi.GitInvocationError
 
-class pylal_build_py(build_py.build_py):
+class pylal_build(build.build):
 	def run(self):
-		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts nor env setup files.
+		# If we are building from a release tarball, do not distribute scripts.
 		# PKG-INFO is inserted into the tarball by the sdist target.
 		if os.path.exists("PKG-INFO"):
 			self.distribution.scripts = []
-			self.distribution.data_files = []
-		else:
+
+		# resume normal build procedure
+		build.build.run(self)
+
+class pylal_build_py(build_py.build_py):
+	def run(self):
+		# If we are building from tarball, do not update git version.
+		# PKG-INFO is inserted into the tarball by the sdist target.
+		if not os.path.exists("PKG-INFO"):
 			# create the git_version module
-			log.info("Generating pylal/git_version.py")
 			try:
 				write_build_info()
+				log.info("Generated pylal/git_version.py")
 			except gvcsi.GitInvocationError:
-					log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py.")
+				if not os.path.exists("pylal/git_version.py"):
+					log.error("Not in git checkout or cannot find git executable.")
 					sys.exit(1)
 
 		# resume normal build procedure
@@ -107,11 +115,16 @@ class pylal_build_py(build_py.build_py):
 
 class pylal_install(install.install):
 	def run(self):
+		pylal_prefix = remove_root(self.prefix, self.root)
+
 		# Detect whether we are building from a tarball; we have decided
-		# that releases should not contain scripts nor env setup files.
+		# that releases should not contain scripts.
 		# PKG-INFO is inserted into the tarball by the sdist target.
 		if os.path.exists("PKG-INFO"):
 			self.distribution.scripts = []
+		# Hardcode a check for system-wide installation;
+		# in this case, don't make the user-env scripts.
+		if pylal_prefix == sys.prefix:
 			self.distribution.data_files = []
 			install.install.run(self)
 			return
@@ -122,7 +135,6 @@ class pylal_install(install.install):
 		else:
 			pylal_pythonpath = self.install_platlib + ":" + self.install_purelib
 
-		pylal_prefix = remove_root(self.prefix, self.root)
 		pylal_install_scripts = remove_root(self.install_scripts, self.root)
 		pylal_pythonpath = remove_root(pylal_pythonpath, self.root)
 		pylal_install_platlib = remove_root(self.install_platlib, self.root)
@@ -134,18 +146,21 @@ class pylal_install(install.install):
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "PYLAL_PREFIX=" + pylal_prefix
 		print >> env_file, "export PYLAL_PREFIX"
-		print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+			print >> env_file, "export PATH"
 		print >> env_file, "PYTHONPATH=" + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "LD_LIBRARY_PATH=" + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
 		print >> env_file, "DYLD_LIBRARY_PATH=" + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
-		print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
+		print >> env_file, "export PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
 		env_file.close()
 
 		log.info("creating pylal-user-env.csh script")
 		env_file = open(os.path.join("etc", "pylal-user-env.csh"), "w")
 		print >> env_file, "# Source this file to access PYLAL"
 		print >> env_file, "setenv PYLAL_PREFIX " + pylal_prefix
-		print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
+		if self.distribution.scripts:
+			print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
 		print >> env_file, "if ( $?PYTHONPATH ) then"
 		print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath + ":${PYTHONPATH}"
 		print >> env_file, "else"
@@ -169,17 +184,18 @@ class pylal_install(install.install):
 
 class pylal_sdist(sdist.sdist):
 	def run(self):
-		# remove undesirable elements from tarball
-		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")]
+		# customize tarball contents
+		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")] + ["pylal.spec"]
 		self.distribution.scripts = []
 
 		# create the git_version module
-		log.info("generating pylal/git_version.py")
 		try:
 			write_build_info()
+			log.info("generated pylal/git_version.py")
 		except gvcsi.GitInvocationError:
-			log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
-			sys.exit(1)
+			if not os.path.exists("pylal/git_version.py"):
+				log.error("Not in git checkout or cannot find git executable. Exiting.")
+				sys.exit(1)
 
 		# now run sdist
 		sdist.sdist.run(self)
@@ -190,10 +206,10 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.1",
-	author = "Patrick Brady",
-	author_email = "patrick@gravity.phys.uwm.edu",
-	description = "LSC Graphics Toolkit",
+	version = "0.1.3",
+	author = "Kipp Cannon and Nickolas Fotopoulos",
+	author_email = "lal-discuss@gravity.phys.uwm.edu",
+	description = "Python LIGO Algorithm Library",
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
 	packages = [
@@ -203,6 +219,7 @@ setup(
                 "pylal.dq"
 	],
 	cmdclass = {
+		"build": pylal_build,
 		"build_py": pylal_build_py,
 		"install": pylal_install,
 		"sdist": pylal_sdist
@@ -672,10 +689,11 @@ setup(
 		os.path.join("bin", "auxmvc_generate_spr_files.py"),
 		os.path.join("bin", "auxmvc_create_mvsc_dag"),
 		os.path.join("bin", "auxmvc_ROC_combiner.py"),
-                os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py") 
+                os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py"),
+                os.path.join("bin", "auxmvc_comparison_plots.py") 
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
-		os.path.join("etc", "pylal-user-env.csh")
+		os.path.join("etc", "pylal-user-env.csh"),
 		] ) ]
 )

@@ -6,6 +6,8 @@ from urlparse import urlsplit
 import sys
 sys.path.append(os.path.dirname(__file__))
 
+GIT_TAG = 'lars-1.1.0'
+
 def checkProxy(fname):
     """Check to see if this is a pre-RFC proxy.
        Not sure if this is valid in all cases, but it works at

@@ -2,6 +2,7 @@ import os
 import sys
 import numpy
 import copy
+import pickle
 
 def ROC(clean_ranks, glitch_ranks):
   """
@@ -268,4 +269,64 @@ def ReadMVSCTriggers(files):
       MVSCTriggers  = numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})
         
   return MVSCTriggers  
+
+
+def loadCV(filename):
+
+  """
+  Reads in the pickled output of CV data (eg: kwl1-35.track.9.pickle) and inverts the data storage. Returns a list of gwtrg's removed by the Cveto method.
+  returned gwtrg's are labeled by tcent (and only tcent) and are associated with a given vconfig (vchan, vthr, vwin) and vstats (dsec, c_dsec, etc)
+  input arg:
+    filename: the file that is to be loaded. This must be a string
+  output arg:
+    gwtrg_vtd_tcent: a list of gwtrgs (labeled by tcent) with associated vconfig and vstats. the storage structure is: under each column: [tcent, [vconfig], [vstats]]
+      check below for exact formats of vconfig and vstats. 
+  """  
+
+  # define column names for KW trig's
+  col_kw   = {'tstart':0, 'tstop':1, 'tcent':2, 'fcent':3, 'uenergy':4, 'nenergy':5, 'npix':6, 'signif':7}
+
+  # load and unpickle the .track.run.pickle file to be loaded
+  file = open(filename, 'r')
+  tfp = pickle.load(file)
+
+  # define a dictionary that labels the indexes in tfp
+  h = dict([[tfp[0][i], i] for i in range(len(tfp[0]))])
+
+  # load global parameters used for c_stats
+  c_livetime = tfp[1][h['livetime']]
+  c_ngwtrg = tfp[1][h['#gwtrg']]
+  ngwtrg_vtd = tfp[1][h['#gwtrg']] - tfp[len(tfp) - 1][h['#gwtrg']] + tfp[len(tfp) -1][h['vact']]
+
+  # instantiate counters for c_stats
+  c_dsec = 0.0
+  c_csec = 0.0
+  c_vact = 0.0
+
+  # instantiate the storage device and the index counter
+  gwtrg_vtd_tcent = [0]*ngwtrg_vtd
+  tcentidx = 0
+
+  # iterate over tfp and fill in gwtrg_vtd_tcent
+  for lineidx in range(len(tfp)):
+    line = tfp[lineidx]
+    if line[0] == 'livetime':
+      pass
+    else:
+      # compute cumulative quantities and lists to be stored under gwtcent
+      c_dsec += line[h['dsec']]
+      c_csec += line[h['csec']]
+      c_vact += line[h['vact']]
+      vconfig = [line[h['vchan']], line[h['vthr']], line[h['vwin']]]
+      vstats = [line[h['livetime']], line[h['#gwtrg']], line[h['dsec']], line[h['csec']], line[h['vact']], line[h['vsig']], c_livetime, c_ngwtrg, c_dsec, c_csec, c_vact, lineidx]
+      gwtrg_vtd = line[h['gwtrg_vetoed']]
+      # iterate through trg's and fill in gwtrg_vtd_tcent
+      for trg in gwtrg_vtd:
+        gwtrg_vtd_tcent[tcentidx] = [trg[col_kw['tcent']], vconfig, vstats]
+        tcentidx += 1
+
+  # sort gwtrg_vtd_tcent by tcent for ease of use by the caller
+  return sorted(gwtrg_vtd_tcent, key=lambda gwtrg: gwtrg[0])
+
+
   

@@ -144,7 +144,7 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
   parser.add_option( "-Z", "--h1-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
                           " use when calculating the h1 calibration amplitude error.")
-  parser.add_option( "", "--h2-cal-error", action="store",\
+  parser.add_option( "-q", "--h2-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
                           " use when calculating the h2 calibration amplitude error.")
   parser.add_option( "-y", "--l1-cal-error", action="store",\
@@ -152,6 +152,18 @@ coh_PTF_efficiency will calculate search efficiency and FAP for loudest triggers
                           " use when calculating the l1 calibration amplitude error.")
   parser.add_option( "-Y", "--v1-cal-error", action="store",\
                       type="float",default=0,help="The standard deviation to"+\
+                          " use when calculating the v1 calibration amplitde error.")
+  parser.add_option( "-p", "--h1-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
+                          " use when calculating the h1 calibration amplitude error.")
+  parser.add_option( "-P", "--h2-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
+                          " use when calculating the h2 calibration amplitude error.")
+  parser.add_option( "-r", "--l1-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
+                          " use when calculating the l1 calibration amplitude error.")
+  parser.add_option( "-R", "--v1-dc-cal-error", action="store",\
+                      type="float",default=0,help="The scaling factor to"+\
                           " use when calculating the v1 calibration amplitde error.")
   parser.add_option( "-S", "--old-code", action="store_true", default=False,\
                      help="Use this flag if the old coh_PTF_inspiral, in" +\
@@ -186,7 +198,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
           chisq_nhigh=3.0, null_thresh = (4.25,6), glitchCheckFac = 1.0,\
           clusterWindow = 0.1, upperDist = 100, lowerDist = 0, numBins = 20,\
-          vetoFiles = [], wavErr = 0, calErrs = None, oldCode = False ):
+          vetoFiles = [], wavErr = 0, calErrs = None, calDCErrs = None,\
+          oldCode = False ):
 
   lsctables.SimInspiral.get_theta = sim_inspiral_get_theta
 
@@ -404,7 +417,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         numEvents += 1
     quietestFap.append(numEvents/numTrials)
 
-  quietestFile=open('quiet_fap_vals.txt','w')
+  quietestFile=open('%s/quiet_fap_vals.txt' % outdir,'w')
   for val in quietestFap:
     print >> quietestFile, val
   quietestFile.close()
@@ -722,6 +735,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       print >>sys.stdout, 'Loading injections...'
 
     sites = [ ifo[0] for ifo in ifos ]
+    sites = list(set(sites))
 
     foundInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])
     missedInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missedFile])
@@ -789,7 +803,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     gMissedDist = []
     gMissedTime = []
    
-    distBins = zip(numpy.arange(lowerDist,upperDist,(upperDist-lowerDist)/numBins),numpy.arange(lowerDist,upperDist,(upperDist-lowerDist)/numBins) + (upperDist-lowerDist)/numBins)
+    distBins = zip(numpy.arange(lowerDist,upperDist + (upperDist-lowerDist),(upperDist-lowerDist)/numBins),numpy.arange(lowerDist,upperDist + (upperDist-lowerDist),(upperDist-lowerDist)/numBins) + (upperDist-lowerDist)/numBins)
   
     numInjections = numpy.zeros([len(massBins),len(distBins)+1],dtype=float)
     foundmaxBestNR = numpy.zeros( [len(massBins), len(distBins)+1 ],\
@@ -904,7 +918,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gFoundEffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                                % site.lower()) )
-          gFoundEffSiteDist[site] = list(set(gFoundEffSiteDist[site]))
         gFoundDist.append( inj.distance )
         gFoundMchirp.append( inj.mchirp )
         gFoundMtot.append( inj.mass1 + inj.mass2 )
@@ -919,7 +932,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gIFAREffSiteDist[site].append( getattr(inj,'eff_dist_%s'\
                                                      % site.lower()) )
-          gIFAREffSiteDist[site] = list(set(gIFAREffSiteDist[site]))
         gIFARDist.append( inj.distance )
         gIFARTime.append( float(inj.get_time_geocent()) )
         numTrialsLouder = 0
@@ -936,7 +948,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         for site in sites:
           gMissed2EffSitedist[site].append( getattr(inj,'eff_dist_%s'\
                                                         % site.lower()) )
-          gMissed2EffSitedist[site] = list(set(gMissed2EffSitedist[site]))
         gMissed2Trig.append( trig )
         gMissed2Inj.append( inj )
         gMissed2Mchirp.append( inj.mchirp )
@@ -994,7 +1005,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       for site in sites:
         gMissedEffDist[site].append( getattr(inj,'eff_dist_%s'\
                                                  % site.lower()) )
-        gMissedEffDist[site] = list(set(gMissedEffDist[site]))
+
     # Calculate the amplitude error
     # Begin by calculating the components from each detector
     
@@ -1010,6 +1021,11 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
     for ifo in ifos:
       calError += calErrs[ifo]**2 * injSigmaMean[ifo]**2
     calError = calError**0.5
+
+    maxDCCalError = 0
+    for ifo in ifos:
+      if calDCErrs[ifo] > maxDCCalError:
+        maxDCCalError = calDCErrs[ifo]
 
     # Calibration phase uncertainties is neglected
 
@@ -1040,6 +1056,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
                               null_thresh=null_thresh, fResp=fResp)
 
+      trigBin = None
+      injBin = None
       for i,bin in enumerate(massBins):
         if bin[0] <= inj.mchirp < bin[1]:
           injBinNum = i
@@ -1061,6 +1079,13 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         # Convert inj.distance to a physical distance by applying calibration
         # and waveform errors
         distance = inj.distance
+        # First apply the scaling error
+        if (ii != 0):
+          distance = distance / maxDCCalError
+        # Now apply the amplitude uncertainty and waveform errors, these are
+        # applied as Gaussian errors with given std. Waveform is a one-sided
+        # error, it can only make us lees sensitive to a real signal.
+        # We montecarlo over these errors.
         if (ii != 0):
           calDistRed = calError * stats.norm.rvs()
           while (1):
@@ -1135,7 +1160,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
               # If the FAP larger (less significant) than any of the 3 onsource
               # mass bins, the injection is "missed"
               for bin in massBins:
-                if FAP > loudOnBestNR[bin[0]]:
+                if FAP > loudOnFAP[bin[0]]:
                   missedExcl = True
 
               # Otherwise check against nearby triggers. We want to check that
@@ -1230,6 +1255,55 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
           numInjections[trigBinNum,len(distBins)] += 1
 
 
+    # Finally add in injections outside of the range in which they were placed
+    # these injections will always be missed
+    # These "new" injections are still uniform in distance
+    totalInjs = len(foundInjs) + len(missedInjs)
+    for i in range(totalInjs):
+      # Distance chosen uniformly between maximum distance and twice
+      # maximum distance, then proceed as before
+      distanceOrig = stats.uniform.rvs() * (upperDist-lowerDist) + upperDist
+      for ii in range(numMCInjs+1):
+        # Convert inj.distance to a physical distance by applying calibration
+        # and waveform errors
+        if (ii != 0):
+          calDistRed = calError * stats.norm.rvs()
+          while (1):
+            wavDistRed = wavErr * stats.norm.rvs()
+            if (wavDistRed > 0):
+              break
+          distance = distanceOrig / ((1 + calDistRed)*(1 + wavDistRed))
+
+        trigBin = None
+        binNum = 0
+        for i,bin in enumerate(massBins):
+          if bin[0]<= inj.mchirp < bin[1]:
+            trigBinNum = i
+            trigBin = bin
+            break
+          binNum += 1
+        if not trigBin:
+          print "ERROR: No mass bins match missed injection with mchirp "+\
+                "%s" % inj.mchirp
+        trigDistBin = None
+        distNum = 0
+        for i,bin in enumerate(distBins):
+          if bin[0] <= distance < bin[1]:
+            trigDistNum = i
+            trigDistBin = bin
+          distNum += 1
+
+        if (ii == 0):
+          if trigDistBin:
+            numInjectionsNoMC[trigBinNum,trigDistNum] += 1
+          numInjectionsNoMC[trigBinNum,len(distBins)] += 1
+        else:
+          if trigDistBin:
+            numInjections[trigBinNum,trigDistNum] += 1
+          numInjections[trigBinNum,len(distBins)] += 1
+
+
+
     grbTime = segs['on'][1] - 1
 
     start = int(min([minimum(gMissedTime),minimum(gFoundTime),\
@@ -1299,7 +1373,6 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       d = [ i, inj.distance ]
       for site in sites:
         d.append( getattr(inj, 'eff_dist_%s' % site.lower() ) )
-      d = list(set(d))
       d.extend([ inj.mass1, inj.mass2, inj.mchirp])
       if trig:
         d.extend([trig.mass1, trig.mass2, trig.mchirp])
@@ -1470,6 +1543,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         sens_dist = (const - 0.5)/gradient
+        if (((finjsNoMC/totalinjsNoMC)[ii:] > 0.5).any()):
+          print "WARNING: EFFICIENCY GOES BACK ABOVE 0.5!"
         break
       if ii == len(distPlotVals) - 1:
         print "Efficiency does not drop below 50%!"
@@ -1565,6 +1640,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         excl_dist = (const - 0.9)/gradient
+        if ((redEfficiency[ii:] > 0.9).any()):
+          print "WARNING: EFFICIENCY GOES BACK ABOVE 0.9!"
         break
 
 
@@ -1825,8 +1902,14 @@ if __name__=='__main__':
   wavErr       = opts.waveform_error
   calErrs      = {}
   calErrs['H1']= opts.h1_cal_error
+  calErrs['H2']= opts.h2_cal_error
   calErrs['L1']= opts.l1_cal_error
   calErrs['V1']= opts.v1_cal_error
+  calDCErrs       = {}
+  calDCErrs['H1'] = opts.h1_dc_cal_error
+  calDCErrs['H2'] = opts.h2_dc_cal_error
+  calDCErrs['L1'] = opts.l1_dc_cal_error
+  calDCErrs['V1'] = opts.v1_dc_cal_error
   oldCode      = opts.old_code
   
   nullt        = map( float, opts.null_snr_threshold.split(',') )
@@ -1844,5 +1927,5 @@ if __name__=='__main__':
         chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
         clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
         numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs,\
-        oldCode=oldCode )
+        calDCErrs=calDCErrs,oldCode=oldCode )
 
