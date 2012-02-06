@@ -17,15 +17,22 @@ import os
 inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 type_inj="dphi6"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
+distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
+sigma=0.0          ## Sigma for the normal distribution. This is in percent.
 number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
 
 remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
 remote_database='ciao.txt'   ## Succesful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed
 
 if type_inj!='GR':
-     type_name=type_inj+'_'+repr(shift)+'pc'
+    type_name=type_inj+'_'+repr(shift)
+    if distr='u':
+		type_name+='u'
+	else if distr='n':
+		type_name+='pm'+repr(sigma)
+	type_name+='pc'
 else:
-     type_name=type_inj
+    type_name=type_inj
 
 PATH_TO_OPT="/home/salvatore.vitale/lalsuites/nikhef/opt"  ## Path to the opt folder of your installation
 
@@ -55,7 +62,7 @@ gps_start=932170000
 gps_end=gps_start+time_step*(number_of_injs )
 #gps_end=gps_start+time_step*(number_of_injs +20)
 
-inspinj_command="""lalapps_inspinj \
+inspinj_command="""%s/lalapps/bin/lalapps_inspinj \
 --output %s \
 --f-lower 20.0 \
 --gps-start-time %s \
@@ -76,12 +83,19 @@ inspinj_command="""lalapps_inspinj \
 --max-mtotal 30.0 \
 --disable-spin \
 --amp-order 0 \
---time-step %s"""%(outname,gps_start,gps_end,inspinj_seed,time_step)
+--time-step %s"""%(PATH_TO_OPT,outname,gps_start,gps_end,inspinj_seed,time_step)
 
 if type_inj!='GR':
     inspinj_command+=""" \
-    --enable-dphi \
-    --%s %s"""%(type_inj,repr(shift/100.0)) 
+--enable-dphi \
+--%s %s"""%(type_inj,repr(shift/100.0)) 
+    if distr=='u':
+        inspinj_command+=""" \
+--uniform-dphi"""
+    else if distr=='n':
+		inspinj_command+=""" \
+--s%s %s"""%(type_inj,repr(sigma/100.0))    
+    
 print inspinj_command
 os.system(inspinj_command)
 os.system('seed_line=`cat '+outname+' | grep seed`;temp=`echo ${seed_line%\\"*}`;temp2=`echo ${temp##*\\"}`;echo "The file was created with seed $temp2"')
@@ -281,9 +295,9 @@ for i in os.uname():
     if i.find("uwm")!=-1:
         logd=logdir
         scrd=scratchdir
-#print "lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
-#os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
-os.system("lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
+#print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
+#os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
+os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
 
 # RETURN TO CURRENT WORKING DIRECTORY
 os.chdir(curdir)
