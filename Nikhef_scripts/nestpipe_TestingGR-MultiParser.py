@@ -26,11 +26,11 @@ remote_database='ciao.txt'   ## Succesful runs are appended to remote_database. 
 
 if type_inj!='GR':
     type_name=type_inj+'_'+repr(shift)
-    if distr='u':
-		type_name+='u'
-	else if distr='n':
-		type_name+='pm'+repr(sigma)
-	type_name+='pc'
+    if distr=='u':
+        type_name+='u'
+    elif distr=='n':
+        type_name+='pm'+repr(sigma)
+    type_name+='pc'
 else:
     type_name=type_inj
 
@@ -92,8 +92,8 @@ if type_inj!='GR':
     if distr=='u':
         inspinj_command+=""" \
 --uniform-dphi"""
-    else if distr=='n':
-		inspinj_command+=""" \
+    elif distr=='n':
+        inspinj_command+=""" \
 --s%s %s"""%(type_inj,repr(sigma/100.0))    
     
 print inspinj_command
