@@ -974,8 +974,9 @@ XLALHighSRStoppingCondition(double UNUSED t,
                            void UNUSED *funcParams
                           )
 {
+  EOBParams *params = (EOBParams *)funcParams;
 
-  if ( values[0] <= 1.0 || isnan( dvalues[3] ) || isnan (dvalues[2]) )
+  if ( values[0] <= 2.5 - 6.0 * params->eta || isnan(dvalues[3]) || isnan(dvalues[2]) || isnan(dvalues[1]) || isnan(dvalues[0]) )
   {
     return 1;
   }
@@ -1670,6 +1671,7 @@ LALEOBPPWaveformEngine (
               rootIn2.xmax, xacc, funcParams);
    if ( XLAL_IS_REAL8_FAIL_NAN( r ) )
    {
+     XLALPrintError( "Failed solving the initial radius. The desired initial orbital frequency is %e\n", omega );
      ABORTXLAL( status );
    }
 
