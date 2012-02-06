@@ -772,7 +772,7 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
       }
    } */ /* for ii < scale->length */
    //for (ii=0; ii<numfbins; ii++) scale->data[ii] = 0.0;
-   memset(scale->data, numfbins*sizeof(*scale->data), 0);
+   memset(scale->data, 0, numfbins*sizeof(*scale->data));
    for (ii=m0-mextent; ii<=m0+mextent; ii++) scale->data[ii] = 1.0;
    scale->data[m0-mextent-2] = scale->data[m0+mextent+2] = sqsincxoverxsqminusone(overage-1.0);
    scale->data[m0-mextent-1] = scale->data[m0+mextent+1] = sqsincxoverxsqminusone(overage);
