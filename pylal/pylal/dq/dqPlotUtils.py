@@ -1385,7 +1385,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   if xlim:
     plot.ax.set_xlim(xlim)
   if ylim:
-    ploy.ax.set_ylim(ylim)
+    plot.ax.set_ylim(ylim)
 
   # set global ticks
   set_ticks(plot.ax)
