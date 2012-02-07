@@ -76,17 +76,16 @@ def BinToDec(binary):
 
 
 def generateTotalRankedTriggers(classifiers):
+	## This function is to read MVCs(MVSC,ANN,SVM)' ranked data and CVeto data and combine them into total_data array.
 	data = auxmvc_utils.ReadMVSCTriggers(classifiers[0][1])
 	n_triggers = len(data)
 	variables = ['GPS','glitch'] + list(data.dtype.names[5:-1])
-	for var in classifiers:
-		variables += [var[0]+j for j in ['_rank','_fap','_eff']]
-
-	if classifiers[-1][0] == 'cveto':
-		variables += [classifiers[-1][0]+'_chan']
+	for var in ['mvsc','ann','svm','cveto']:
+		variables += [var+j for j in ['_rank','_fap','_eff']]
+	variables += ['cveto_chan']
 
 	formats = ['g8','i']+['g8' for a in range(len(variables)-2)]
-	total_data = numpy.empty(n_triggers, dtype={'names':variables, 'formats':formats})
+	total_data = numpy.zeros(n_triggers, dtype={'names':variables, 'formats':formats})
 	total_data['glitch']=data['i']
 	total_data[classifiers[0][0]+'_rank']=data[data.dtype.names[-1]]
 
@@ -106,6 +105,21 @@ def generateTotalRankedTriggers(classifiers):
 				#for i, gps in enumerate(ranks_data['GPS']):
 				#	numpy.put(total_data[cls[0]+'_rank'],[numpy.searchsorted(total_data['GPS'],gps)],[ranks_data[cls[0]+'_rank'][i]])
 
+	# this next bit of code was added by R. Essick. He doesn't really know what he's doing, so please check this
+	if classifiers[-1][0] == 'cveto':
+		# we first need to retrieve the CVeto data
+		cveto_raw = auxmvc_utils.loadCV(classifiers[-1][1]) 
+		# we want to iterate through all the glitches stored in total_data
+		for n in range(len(total_data['GPS'][:])):
+			# we look for matching GW glitches in the CVeto data using the GPS time
+			cveto_stuff = giveMeCVeto(cveto_raw, total_data['GPS'][n])
+			if len(cveto_stuff) > 0:
+				total_data['cveto_eff'][n] = cveto_stuff[0]
+				total_data['cveto_fap'][n] = cveto_stuff[1]
+				total_data['cveto_rank'][n] = cveto_stuf[2]
+				total_data['cveto_chan'][n] = cveto_stuff[3]
+			else:
+				pass
 	return total_data
 	
 
@@ -154,6 +168,8 @@ def giveMeCVeto(CVetoOutput, gwtcent, deltat = 0)
     not_quite_rank = cveto_dat[index][3]
     cveto_dat[index][3] = 2 - float(rank)/max_rank
   # we now return the first entry in the list, BUT THIS SHOULD BE EXTENDED SO THAT WE PICK THE CORRECT ENTRY BASED ON OTHER INFORMATION ABOUT THE GLITCH
+  if len(cveto_dat) > 1:
+    print('found multiple glitches at:' + repr(gwtcent))
   return cveto_dat[0]
 
 
