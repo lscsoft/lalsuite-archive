@@ -378,7 +378,6 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      #pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
      if bin_type != "BNS_BBH":
        pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=axis_font_size)
-     pylab.ylim([0,100])
      pylab.ylabel('Range (Mpc)',fontsize=axis_font_size)
      savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
      pylab.clf()
