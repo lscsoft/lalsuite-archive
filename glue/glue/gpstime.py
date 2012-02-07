@@ -42,7 +42,6 @@ as compared to some algorigthms found in the literature and on the web.
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
 __date__ = '$Date$'
 __version__ = '$Revision$'
-# $Source$
 
 import time, math
 

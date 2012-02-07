@@ -4,7 +4,6 @@
 Client for querying a LDRDataFindServer to find 
 files used for gravitational wave data analysis.
 
-$Id$
 
 This program is part of the Grid LSC User Environment (GLUE)
 

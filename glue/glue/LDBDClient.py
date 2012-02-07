@@ -4,7 +4,6 @@ a LDBDServer.
 
 This module requires U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>}.
 
-$Id$
 
 This file is part of the Grid LSC User Environment (GLUE)
 

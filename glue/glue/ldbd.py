@@ -30,7 +30,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.
 __author__ = 'Duncan Brown <dbrown@ligo.caltech.edu>'
 __date__ = '$Date$'
 __version__ = '$Revision$'
-# $Source$
 
 import os
 import sys

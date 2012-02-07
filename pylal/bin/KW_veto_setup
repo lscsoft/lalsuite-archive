@@ -6,7 +6,6 @@ Tomoki Isogai (isogait@carleton.edu)
 
 This program parses param file, sets up a segment file, and creates dag file.
 
-$Id$
 """
 # =============================================================================
 #
