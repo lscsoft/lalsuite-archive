@@ -29,8 +29,8 @@ data = auxmvc_utils.ReadMVSCTriggers(files)
 clean_data = data[numpy.nonzero(data['i']==0)[0],:]
 glitch_data = data[numpy.nonzero(data['i']==1)[0],:]
 
-
-rank_name = 'Bagger'
+# The rank name is 'Bagger' for MVSC, 'glitch-rank' for ANN, and 'SVMRank' for SVM. The last column in *.dat files is ranking values, so the end component of first line in *.dat file is the rank name.
+rank_name = data.dtype.names[-1]
 
 
 all_ranks = numpy.concatenate((clean_data[rank_name],glitch_data[rank_name]))

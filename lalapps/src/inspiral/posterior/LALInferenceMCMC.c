@@ -164,7 +164,7 @@ void initializeMCMC(LALInferenceRunState *runState)
 
   INT4 verbose=0,tmpi=0;
   unsigned int randomseed=0;
-  REAL8 tempMax = 10.0;
+  REAL8 tempMax = 50.0;
   ProcessParamsTable *commandLine=runState->commandLine;
   ProcessParamsTable *ppt=NULL;
   FILE *devrandom;
@@ -182,7 +182,8 @@ void initializeMCMC(LALInferenceRunState *runState)
   runState->algorithmParams=XLALCalloc(1,sizeof(LALInferenceVariables));
   runState->priorArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
   runState->proposalArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
-  runState->proposalStats=XLALCalloc(1,sizeof(LALInferenceVariables));
+  if(LALInferenceGetProcParamVal(commandLine,"--propVerbose"))
+    runState->proposalStats=XLALCalloc(1,sizeof(LALInferenceVariables));
 
   /* Set up the appropriate functions for the MCMC algorithm */
   runState->algorithm=&PTMCMCAlgorithm;
@@ -403,6 +404,7 @@ void initVariables(LALInferenceRunState *state)
                (--covarianceMatrix file)       Find the Cholesky decomposition of the covariance matrix for jumps in file\n\
                (--noDifferentialEvolution)     Do not use differential evolution to propose jumps (it is used by default)\n\
                (--kDTree)                      Use a kDTree proposal\n\
+               (--kDNCell N)                   Number of points per kD cell in proposal.\n\
                (--appendOutput fname)          Basename of the file to append outputs to\n\
                (--tidal)                       Enables tidal corrections, only with LALSimulation\n\
                (--lambda1)                     Trigger lambda1\n\
@@ -634,7 +636,7 @@ void initVariables(LALInferenceRunState *state)
       {
         PhaseOrder = LAL_PNORDER_TWO;
       }
-    else if ( ! strcmp( "twoPointFive", ppt->value ) )
+    else if ( ! strcmp( "twoPointFivePN", ppt->value ) )
       {
         PhaseOrder = LAL_PNORDER_TWO_POINT_FIVE;
       }
@@ -685,7 +687,7 @@ void initVariables(LALInferenceRunState *state)
       {
         AmpOrder = LAL_PNORDER_TWO;
       }
-    else if ( ! strcmp( "twoPointFive", ppt->value ) )
+    else if ( ! strcmp( "twoPointFivePN", ppt->value ) )
       {
         AmpOrder = LAL_PNORDER_TWO_POINT_FIVE;
       }
@@ -710,7 +712,7 @@ void initVariables(LALInferenceRunState *state)
                  "threePointFivePN\n");
         exit( 1 );
       }
-    fprintf(stdout,"Templates will be generated at %.1f PN order in amplitude\n",((float)(PhaseOrder))/2.0);
+    fprintf(stdout,"Templates will be generated at %.1f PN order in amplitude\n",((float)(AmpOrder))/2.0);
   }
   
   /* This flag was added to account for the broken Big Dog
@@ -1425,6 +1427,13 @@ void initVariables(LALInferenceRunState *state)
     state->differentialPoints = NULL;
     state->differentialPointsLength = 0;
     state->differentialPointsSize = 0;
+  }
+
+  /* kD Tree NCell parameter. */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--kDNCell");
+  if (ppt) {
+    INT4 NCell = atoi(ppt->value);
+    LALInferenceAddVariable(state->proposalArgs, "KDNCell", &NCell, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   }
 
   /* KD Tree propsal. */

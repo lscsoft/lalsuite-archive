@@ -907,9 +907,9 @@ int main( int argc, char *argv[])
 					TSoffset=L1GPSshift;
 				else if(!strcmp(IFOnames[i],"V1"))
 					TSoffset=V1GPSshift;
-				datastart = realstart;
+				/* datastart = realstart;
 				XLALGPSAdd(&datastart, TSoffset);
-				fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);
+				fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);*/
 			}
 		}
 		
@@ -1163,7 +1163,30 @@ int main( int argc, char *argv[])
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
-	else if(!strcmp(approx,PSTRD)) inputMCMC.approximant=PhenSpinTaylorRD;
+	else if(!strcmp(approx,PSTRD)) {
+	    inputMCMC.approximant=PhenSpinTaylorRD;
+	    if (strstr(approx,"inspiralOnly")) {
+	      inputMCMC.inspiralOnly=1;
+	    }
+	    else {
+	      inputMCMC.inspiralOnly=0;
+	    }
+	    if (strstr(approx,"fixedStep")) {
+	      inputMCMC.fixedStep=1;
+	    }
+	    else {
+	      inputMCMC.fixedStep=0;
+	    }
+	    if (strstr(approx,"TotalJ")) {
+	      inputMCMC.axisChoice=TotalJ;
+	    }
+	    else if (strstr(approx,"OrbitalL")) {
+	      inputMCMC.axisChoice=OrbitalL;
+	    }
+	    else {
+	      inputMCMC.axisChoice=View;
+	    }
+	}
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
 	if(inputMCMC.approximant!=AmpCorPPN && ampOrder!=0){

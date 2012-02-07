@@ -22,6 +22,7 @@ to minimize formulaic copying and pasting.
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
 import itertools
+from mpl_toolkits.mplot3d import Axes3D
 
 import numpy
 import pylab
@@ -923,6 +924,214 @@ class SimpleMapPlot(BasicPlot):
         # larger html page
         return page
 
+
+
+plot3D_head = """
+  <style type="text/css">
+    .rotationViewer {
+      position:relative;
+      width:640px;
+      height:378px;
+      border-style:solid;
+      border-width:1px;
+      margin:auto;
+      margin-bottom:10px;
+      cursor:pointer;
+    }
+    .rotationViewer img {
+      position:absolute;
+      visibility:hidden;
+      left:0;
+      top:0;
+      width:100%;
+      height:100%;
+    }
+  </style>
+"""
+
+plot3D_body = """
+<script type="text/javascript" src="PATHTOUIZE/Uize.js"></script>
+
+<div class="main">
+  <div id="page_rotationViewer" class="rotationViewer insetBorderColor"></div>
+</div>
+
+<!-- JavaScript code to make the static bar HTML "come alive" -->
+<!-- Based on http://www.uize.com/examples/3d-rotation-viewer.html -->
+<script type="text/javascript">
+
+Uize.module ({
+  required:[
+    'UizeDotCom.Page.Example.library',
+    'UizeDotCom.Page.Example',
+    'Uize.Widget.Drag',
+    'Uize.Fade.xFactory',
+    'Uize.Curve.Rubber',
+    'Uize.Curve.Mod'
+  ],
+  builder:function () {
+    /*** create the example page widget ***/
+      var page = window.page = Uize.Widget.Page  ({evaluator:function (code) {eval (code)}}); 
+
+    /*** configuration variables ***/
+      var
+        totalFrames = TOTALFRAMES,
+        frameUrlTemplate = 'URLTEMPLATE'
+      ;
+
+    /*** state variables ***/
+      var
+        rotation = 0,
+        lastFrameNo = -1,
+        dragStartRotation
+      ;
+
+    /*** create the Uize.Widget.Drag instance ***/
+      var rotationViewer = page.addChild (
+        'rotationViewer',
+        Uize.Widget.Drag,
+        {
+          cancelFade:{duration:5000,curve:Uize.Curve.Rubber.easeOutBounce ()},
+          releaseTravel:function (speed) {
+            var
+              deceleration = 5000, // measured in pixels/s/s
+              duration = speed / deceleration
+            ;
+            return {
+              duration:duration,
+              distance:Math.round (speed * duration / 2),
+              curve:function (_value) {return 1 - (_value = 1 - _value) * _value}
+            };
+          },
+          html:function (input) {
+            var
+              htmlChunks = [],
+              frameNodeIdPrefix = input.idPrefix + '-frame'
+            ;
+            for (var frameNo = 0; ++frameNo <= totalFrames;) {
+              htmlChunks.push (
+                '<img' +
+                  ' id="' + frameNodeIdPrefix + frameNo + '"' +
+                  ' src="' + Uize.substituteInto (frameUrlTemplate,{frame:(frameNo < 10 ? '0' : '') + frameNo}) +'"' +
+                '/>'
+              );
+            }
+            return htmlChunks.join ('');
+          },
+          built:false
+        }
+      );
+
+    /*** wire up the drag widget with events for updating rotation degree ***/
+      function updateRotation (newRotation) {
+        rotation = ((newRotation % 360) + 360) % 360;
+        var frameNo = 1 + Math.round (rotation / 360 * (totalFrames - 1));
+        if (frameNo != lastFrameNo) {
+          rotationViewer.showNode ('frame'+ lastFrameNo,false);
+          rotationViewer.showNode ('frame'+ (lastFrameNo = frameNo));
+        }
+      }
+      rotationViewer.wire ({
+        'Drag Start':function () {dragStartRotation = rotation},
+        'Drag Update':function (e) {updateRotation (dragStartRotation - e.source.eventDeltaPos [0] / 2.5)}
+      });
+
+    /*** function for animating spin ***/
+      function spin (degrees,duration,curve) {
+        Uize.Fade.fade (updateRotation,rotation,rotation + degrees,duration,{quantization:1,curve:curve});
+      }
+
+    /*** initialization ***/
+      Uize.Node.wire (window,'load',function () {spin (360,2700,Uize.Curve.easeInOutPow (4))});
+
+    /*** wire up the page widget ***/
+      page.wireUi ();
+  }
+});
+
+</script>
+"""
+
+
+class Plot3D(BasicPlot):
+    """
+    Exactly what you get by calling pylab.plot(), but with the handy extras
+    of the BasicPlot class.
+    """
+    def __init__(self, *args, **kwargs):
+
+      
+        BasicPlot.__init__(self)
+        self.x_data_sets = []
+        self.y_data_sets = []
+        self.z_data_sets = []        
+        self.kwarg_sets = []
+
+        # need the 3D axes
+        self.ax =  Axes3D(self.fig)
+
+        # set the labels on the new 3D axis
+        self.ax.set_xlabel(args[0])
+        self.ax.set_ylabel(args[1])
+        self.ax.set_zlabel(args[2])
+        self.ax.set_title(args[3])
+
+        self.ax.grid(True)
+        
+    def add_content(self, x_data, y_data, z_data, **kwargs):
+        self.x_data_sets.append(x_data)
+        self.y_data_sets.append(y_data)
+        self.z_data_sets.append(z_data)        
+        self.kwarg_sets.append(kwargs)
+
+
+    @method_callable_once
+    def finalize(self, plot_basename, n=50, dpi=50, loc=0, plot_dir = '.',\
+                     js_dir = 'https://ldas-jobs.phys.uwm.edu/~dietz/js'):
+
+        # check input argument
+        if n>100:
+            raise ValueError("The 3D code cannot handle more than 100 frames currently.")
+
+        fig = pylab.figure()
+        ax = Axes3D(fig)
+        
+        # create plot
+        for x_vals, y_vals, z_vals, plot_kwargs in \
+            itertools.izip(self.x_data_sets, self.y_data_sets, \
+                           self.z_data_sets, self.kwarg_sets):
+            self.ax.scatter(x_vals, y_vals, z_vals, **plot_kwargs)
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist(loc=loc)
+
+        # loop over a full circle with n steps
+        dphi = 360.0/float(n)
+        for i, angle in enumerate(numpy.arange(0.0, 360.0, dphi)):
+            
+            # make the rotation of the image
+            self.ax.view_init(30.0, angle)
+
+            # create the rotated image in the ploting directory
+            picname = '%s/%s-%02d'%(plot_dir, plot_basename, i)
+            self.savefig(picname+'.png',dpi=dpi)
+
+            
+        # decrement reference counts
+        del self.x_data_sets
+        del self.y_data_sets
+        del self.z_data_sets        
+        del self.kwarg_sets
+
+
+        # produce the html output code
+        plot_template = '%s/%s-[#frame].png'%(plot_dir, plot_basename)
+        body = plot3D_body.replace('TOTALFRAMES',str(n))
+        body = body.replace('URLTEMPLATE', plot_template)
+        body = body.replace('PATHTOUIZE', js_dir)
+
+        # return the html snippets
+        return plot3D_head, body
 
     
 ###################################################
