@@ -1185,7 +1185,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                     for ifo in ifos:
                       fResp[ifo] = fPlus[ifo]*fPlus[ifo] \
                                            + fCross[ifo]*fCross[ifo]
-                    bestNR2 = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                    bestNR2 = get_bestnr( trig2, q=chisq_index, n=chisq_nhigh,\
                                 null_thresh=null_thresh, fResp=fResp)
  
                     # Boost the bestNR by the factor (1.05) and check if it is
