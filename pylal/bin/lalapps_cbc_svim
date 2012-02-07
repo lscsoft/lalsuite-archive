@@ -397,9 +397,27 @@ class upper_limit(object):
     """
     Compute the derivative of the search volume at the FAR of the loudest event
     """
-    # choose a range of fars at which to evaluate the volume
-    FARh = 2.0*FAR
+    # check for infinite FAR. if no found injections there, return
+    f,m =  self.get_injections(instruments,float('inf'),bin_type=bin_type)
+    if len(f) == 0: return rate.BinnedArray(self.mass_bins[bin_type])
+
+    # guess an initial range of fars at which to evaluate the volume
+    FARh = FAR*2.0
     FARl = FAR/4.0
+
+    # get the volume at the extreme FARs
+    flo,mlo = self.get_injections(instruments,FARl,bin_type=bin_type)
+    fhi,mhi = self.get_injections(instruments,FARh,bin_type=bin_type)
+
+    # expand the FAR range as needed
+    while len(flo) == len(fhi):
+      FARh *= 2
+      FARl /= 2
+      # get the volume at the extreme FARs
+      flo,mlo = self.get_injections(instruments,FARl,bin_type=bin_type)
+      fhi,mhi = self.get_injections(instruments,FARh,bin_type=bin_type)
+
+    # compute volume for the chosen FAR values
     nbins = 10
     fars = numpy.linspace( FARl, FARh, nbins)
     if self.opts.verbose:
@@ -408,6 +426,7 @@ class upper_limit(object):
 
     # compute the volume in each mass bin for a few fars
     vA = []
+
     for far in fars:
       found, missed = self.get_injections(instruments,far,bin_type=bin_type)
       vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
