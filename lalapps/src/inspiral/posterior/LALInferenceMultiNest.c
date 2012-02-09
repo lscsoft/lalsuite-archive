@@ -386,6 +386,7 @@ MultiNest arguments:\n\
 
 void initVariables(LALInferenceRunState *state)
 {
+
   char help[]="\
                (--inj injections.xml)       Injection XML file to use\n\
                (--tempSkip )                   Number of iterations between proposed temperature swaps (100)\n\
@@ -1019,7 +1020,7 @@ void initVariables(LALInferenceRunState *state)
   }else{
     LALInferenceAddVariable(currentParams, "chirpmass",    &start_mc,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
   }
-  LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass", &mcMin,	&mcMax,		LALINFERENCE_REAL8_t);
+  LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass",	&mcMin,	&mcMax,		LALINFERENCE_REAL8_t);
 
   /* Check if running with symmetric (eta) or asymmetric (q) mass ratio.*/
   ppt=LALInferenceGetProcParamVal(commandLine,"--symMassRatio");
@@ -1373,6 +1374,187 @@ void initVariables(LALInferenceRunState *state)
     if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
     if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL;
     LALInferenceAddVariable(currentParams, "interactionFlags", &interactionFlags,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED); 
+ }
+ 
+  
+
+  /* Initialize variable that will store the name of the last proposal function used */
+  const char *initPropName = "INITNAME";
+  LALInferenceAddVariable(state->proposalArgs, LALInferenceCurrentProposalName, &initPropName, LALINFERENCE_string_t, LALINFERENCE_PARAM_LINEAR);
+
+  /* If the currentParams are not in the prior, overwrite and pick paramaters from the priors. OVERWRITE EVEN USER CHOICES.
+     (necessary for complicated prior shapes where LALInferenceCyclicReflectiveBound() is not enought */
+  while(state->prior(state, currentParams)<=-DBL_MAX){
+    fprintf(stderr, "Warning initial parameter randlomy drawn from prior. (in %s, line %d)\n",__FILE__, __LINE__);
+    LALInferenceVariables *temp; //
+    temp=XLALCalloc(1,sizeof(LALInferenceVariables));
+    memset(temp,0,sizeof(LALInferenceVariables));
+    LALInferenceDrawApproxPrior(state, temp);
+    LALInferenceCopyVariables(temp, currentParams);
+  }
+  /* Make sure that our initial value is within the
+     prior-supported volume. */
+  LALInferenceCyclicReflectiveBound(currentParams, priorArgs);
+
+  /* Init covariance matrix, if specified.  The given file
+     should contain the desired covariance matrix for the jump
+     proposal, in row-major (i.e. C) order. */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--covarianceMatrix");
+  if (ppt) {
+    FILE *inp = fopen(ppt->value, "r");
+    UINT4 N = LALInferenceGetVariableDimensionNonFixed(currentParams);
+    gsl_matrix *covM = gsl_matrix_alloc(N,N);
+    gsl_matrix *covCopy = gsl_matrix_alloc(N,N);
+    REAL8Vector *sigmaVec = XLALCreateREAL8Vector(N);
+
+
+    if (readSquareMatrix(covM, N, inp)) {
+      fprintf(stderr, "Error reading covariance matrix (in %s, line %d)\n",
+              __FILE__, __LINE__);
+      exit(1);
+    }
+
+    gsl_matrix_memcpy(covCopy, covM);
+
+    for (i = 0; i < N; i++) {
+      sigmaVec->data[i] = sqrt(gsl_matrix_get(covM, i, i)); /* Single-parameter sigma. */
+    }
+
+    LALInferenceAddVariable(state->proposalArgs, LALInferenceSigmaJumpName, &sigmaVec, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+
+    /* Set up eigenvectors and eigenvalues. */
+    gsl_matrix *eVectors = gsl_matrix_alloc(N,N);
+    gsl_vector *eValues = gsl_vector_alloc(N);
+    REAL8Vector *eigenValues = XLALCreateREAL8Vector(N);
+    gsl_eigen_symmv_workspace *ws = gsl_eigen_symmv_alloc(N);
+    int gsl_status;
+
+    if ((gsl_status = gsl_eigen_symmv(covCopy, eValues, eVectors, ws)) != GSL_SUCCESS) {
+      fprintf(stderr, "Error in gsl_eigen_symmv (in %s, line %d): %d: %s\n",
+              __FILE__, __LINE__, gsl_status, gsl_strerror(gsl_status));
+      exit(1);
+    }
+
+    for (i = 0; i < N; i++) {
+      eigenValues->data[i] = gsl_vector_get(eValues,i);
+    }
+
+    LALInferenceAddVariable(state->proposalArgs, "covarianceEigenvectors", &eVectors, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(state->proposalArgs, "covarianceEigenvalues", &eigenValues, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+
+    fprintf(stdout, "Jumping with correlated jumps in %d dimensions from file %s.\n",
+            N, ppt->value);
+
+    fclose(inp);
+    gsl_eigen_symmv_free(ws);
+    gsl_matrix_free(covCopy);
+    gsl_vector_free(eValues);
+  }
+
+  /* Differential Evolution? */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--noDifferentialEvolution");
+  if (!ppt) {
+    fprintf(stderr, "Using differential evolution.\nEvery Nskip parameters will be stored for use in the d.e. jump proposal.\n");
+
+    state->differentialPoints = XLALCalloc(1, sizeof(LALInferenceVariables *));
+    state->differentialPointsLength = 0;
+    state->differentialPointsSize = 1;
+  } else {
+    fprintf(stderr, "Differential evolution disabled (--noDifferentialEvolution).\n");
+    state->differentialPoints = NULL;
+    state->differentialPointsLength = 0;
+    state->differentialPointsSize = 0;
+  }
+
+  /* kD Tree NCell parameter. */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--kDNCell");
+  if (ppt) {
+    INT4 NCell = atoi(ppt->value);
+    LALInferenceAddVariable(state->proposalArgs, "KDNCell", &NCell, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  /* KD Tree propsal. */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--kDTree");
+  if (ppt) {
+    LALInferenceKDTree *tree;
+    REAL8 *low, *high;
+    currentParams = state->currentParams;
+    LALInferenceVariables *template = XLALCalloc(1,sizeof(LALInferenceVariables));
+    size_t ndim = LALInferenceGetVariableDimensionNonFixed(currentParams);
+    LALInferenceVariableItem *currentItem;
+
+    low = XLALMalloc(ndim*sizeof(REAL8));
+    high = XLALMalloc(ndim*sizeof(REAL8));
+    
+    currentItem = currentParams->head;
+    i = 0;
+    while (currentItem != NULL) {
+      if (currentItem->vary != LALINFERENCE_PARAM_FIXED) {
+        LALInferenceGetMinMaxPrior(state->priorArgs, currentItem->name, &(low[i]), &(high[i]));
+        i++;
+      }
+      currentItem = currentItem->next;
+    }
+
+    tree = LALInferenceKDEmpty(low, high, ndim);
+    LALInferenceCopyVariables(currentParams, template);
+
+    LALInferenceAddVariable(state->proposalArgs, "kDTree", &tree, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(state->proposalArgs, "kDTreeVariableTemplate", &template, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  UINT4 N = LALInferenceGetVariableDimensionNonFixed(currentParams);
+
+  ppt=LALInferenceGetProcParamVal(commandLine, "--adapt");
+  if (ppt) {
+    fprintf(stdout, "Adapting single-param step sizes.\n");
+    if (!LALInferenceCheckVariable(state->proposalArgs, SIGMAVECTORNAME)) {
+      /* We need a sigma vector for adaptable jumps. */
+      REAL8Vector *sigmas = XLALCreateREAL8Vector(N);
+      for (i = 0; i < N; i++) {
+        sigmas->data[i] = 1e-4;
+      }
+
+
+      LALInferenceAddVariable(state->proposalArgs, SIGMAVECTORNAME, &sigmas, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+
+    }
+  }
+  ppt=LALInferenceGetProcParamVal(commandLine, "--acceptanceRatio");
+  if (ppt) {
+
+    REAL8Vector *PacceptCount = XLALCreateREAL8Vector(N);
+    REAL8Vector *PproposeCount = XLALCreateREAL8Vector(N);
+
+    for (i = 0; i < N; i++) {
+      PacceptCount->data[i] = 0.0;
+      PproposeCount->data[i] = 0.0;
+    }
+
+    LALInferenceAddVariable(state->proposalArgs, "PacceptCount", &PacceptCount, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(state->proposalArgs, "PproposeCount", &PproposeCount, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  INT4 adaptableStep = 0;
+  LALInferenceAddVariable(state->proposalArgs, "adaptableStep", &adaptableStep, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_OUTPUT);
+
+  INT4 varNumber = 0;
+  LALInferenceAddVariable(state->proposalArgs, "proposedVariableNumber", &varNumber, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_OUTPUT);
+
+  INT4 sigmasNumber = 0;
+  LALInferenceAddVariable(state->proposalArgs, "proposedArrayNumber", &sigmasNumber, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_OUTPUT);
+
+  INT4 tau = 6;
+  LALInferenceAddVariable(state->proposalArgs, "adaptTau", &tau, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_OUTPUT);
+
+  ppt = LALInferenceGetProcParamVal(commandLine, "--adaptTau");
+  if (ppt) {
+    tau = atof(ppt->value);
+    fprintf(stdout, "Setting adapt tau = %i.\n", tau);
+    LALInferenceSetVariable(state->proposalArgs, "adaptTau", &tau);
+  }
+
+  return;
 }
 
 /** Initialise student-t extra variables, set likelihood */
