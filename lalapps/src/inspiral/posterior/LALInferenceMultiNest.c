@@ -439,11 +439,6 @@ void initVariables(LALInferenceRunState *state)
                (--comp-min min)                Minimum component mass (1.0)\n\
                (--comp-max max)                Maximum component mass (30.0)\n\
                (--MTotMax max)                 Maximum total mass (35.0)\n\
-               (--covarianceMatrix file)       Find the Cholesky decomposition of the covariance matrix for jumps in file\n\
-               (--noDifferentialEvolution)     Do not use differential evolution to propose jumps (it is used by default)\n\
-               (--kDTree)                      Use a kDTree proposal\n\
-               (--kDNCell N)                   Number of points per kD cell in proposal.\n\
-               (--appendOutput fname)          Basename of the file to append outputs to\n\
                (--tidal)                       Enables tidal corrections, only with LALSimulation\n\
                (--lambda1)                     Trigger lambda1\n\
                (--fixLambda1)                  Do not allow lambda1 to vary\n\
@@ -503,25 +498,24 @@ void initVariables(LALInferenceRunState *state)
   REAL8 lambda2Min=0.0;
   REAL8 lambda2Max=80.0;  
   REAL8 tmpMin,tmpMax;//,tmpVal;
-  gsl_rng * GSLrandom=state->GSLrandom;
   REAL8 endtime=0.0, timeParam=0.0;
-  REAL8 start_mc			=4.82+gsl_ran_gaussian(GSLrandom,0.025);
-  REAL8 start_eta			=etaMin+gsl_rng_uniform(GSLrandom)*(etaMax-etaMin);
-  REAL8 start_q           =qMin+gsl_rng_uniform(GSLrandom)*(qMax-qMin);
-  REAL8 start_phase		=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_dist		=8.07955+gsl_ran_gaussian(GSLrandom,1.1);
-  REAL8 start_ra			=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_dec			=-LAL_PI/2.0+gsl_rng_uniform(GSLrandom)*(LAL_PI_2-(-LAL_PI_2));
-  REAL8 start_psi			=0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_iota		=0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_a_spin1		=0.0+gsl_rng_uniform(GSLrandom)*(1.0-0.0);
-  REAL8 start_theta_spin1 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_phi_spin1	=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_a_spin2		=0.0+gsl_rng_uniform(GSLrandom)*(1.0-0.0);
-  REAL8 start_theta_spin2 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_phi_spin2	=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_lambda1 =lambda1Min+gsl_rng_uniform(GSLrandom)*(lambda1Max-lambda1Min);
-  REAL8 start_lambda2 =lambda2Min+gsl_rng_uniform(GSLrandom)*(lambda2Max-lambda2Min);
+  REAL8 start_mc			=4.82;
+  REAL8 start_eta			=etaMin;
+  REAL8 start_q           =qMin;
+  REAL8 start_phase		=0.0;
+  REAL8 start_dist		=8.07955;
+  REAL8 start_ra			=0.0;
+  REAL8 start_dec			=-LAL_PI/2.0;
+  REAL8 start_psi			=0.0;
+  REAL8 start_iota		=0.0;
+  REAL8 start_a_spin1		=0.0;
+  REAL8 start_theta_spin1 =0.0;
+  REAL8 start_phi_spin1	=0.0;
+  REAL8 start_a_spin2		=0.0;
+  REAL8 start_theta_spin2 =0.0;
+  REAL8 start_phi_spin2	=0.0;
+  REAL8 start_lambda1 =lambda1Min;
+  REAL8 start_lambda2 =lambda2Min;
   
   memset(currentParams,0,sizeof(LALInferenceVariables));
 
@@ -778,97 +772,6 @@ void initVariables(LALInferenceRunState *state)
   if(ppt){
     endtime=atof(ppt->value);
   }
-
-  /* Over-ride chirp mass if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--mc");
-  if(ppt){
-    start_mc=atof(ppt->value);
-  }
-
-  /* Over-ride eta if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--eta");
-  if(ppt){
-    start_eta=atof(ppt->value);
-  }
-
-  /* Over-ride q if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--q");
-  if(ppt){
-    start_q=atof(ppt->value);
-  }
-
-  /* Over-ride phase if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--phi");
-  if(ppt){
-    start_phase=atof(ppt->value);
-  }
-
-  /* Over-ride inclination if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--iota");
-  if(ppt){
-    start_iota=atof(ppt->value);
-  }
-
-  /* Over-ride distance if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--dist");
-  if (ppt) {
-    start_dist = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--ra");
-  if (ppt) {
-    start_ra = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--dec");
-  if (ppt) {
-    start_dec = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--psi");
-  if (ppt) {
-    start_psi = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--a1");
-  if (ppt) {
-    start_a_spin1 = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--theta1");
-  if (ppt) {
-    start_theta_spin1 = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--phi1");
-  if (ppt) {
-    start_phi_spin1 = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--a2");
-  if (ppt) {
-    start_a_spin2 = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--theta2");
-  if (ppt) {
-    start_theta_spin2 = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--phi2");
-  if (ppt) {
-    start_phi_spin2 = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda1");
-  if (ppt) {
-    start_lambda1 = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda2");
-  if (ppt) {
-    start_lambda2 = atof(ppt->value);
-  }
   
   /* Over-ride time prior if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
@@ -1052,7 +955,7 @@ void initVariables(LALInferenceRunState *state)
     /* User has specified start time. */
     timeParam = atof(ppt->value);
   } else {
-    timeParam = endtime+gsl_ran_gaussian(GSLrandom,0.01);
+    timeParam = endtime;
   }
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixTime");
@@ -1247,7 +1150,7 @@ void initVariables(LALInferenceRunState *state)
 
     tmpMin = -1000;
     tmpMax = 1000;
-    start_alpha = tmpMin+gsl_rng_uniform(GSLrandom)*(tmpMax-tmpMin);
+    start_alpha = tmpMin;
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppealpha");
     if (ppt) {
       start_alpha = atof(ppt->value);
@@ -1261,7 +1164,7 @@ void initVariables(LALInferenceRunState *state)
     }
     LALInferenceAddMinMaxPrior(priorArgs, "ppealpha",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
-    start_beta = tmpMin+gsl_rng_uniform(GSLrandom)*(tmpMax-tmpMin);
+    start_beta = tmpMin;
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppebeta");
     if (ppt) {
       start_beta = atof(ppt->value);
@@ -1277,7 +1180,7 @@ void initVariables(LALInferenceRunState *state)
 
     tmpMin = -3;
     tmpMax = 3;
-    start_A = tmpMin+gsl_rng_uniform(GSLrandom)*(tmpMax-tmpMin);
+    start_A = tmpMin;
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppeuppera");
     if (ppt) {
       start_A = atof(ppt->value);
@@ -1291,7 +1194,7 @@ void initVariables(LALInferenceRunState *state)
     }
     LALInferenceAddMinMaxPrior(priorArgs, "ppeuppera",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
-    start_B = tmpMin+gsl_rng_uniform(GSLrandom)*(tmpMax-tmpMin);
+    start_B = tmpMin;
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppeupperb");
     if (ppt) {
       start_B = atof(ppt->value);
@@ -1307,7 +1210,7 @@ void initVariables(LALInferenceRunState *state)
 
     tmpMin = -3.0;
     tmpMax = 2.0/3.0;
-    start_a = tmpMin+gsl_rng_uniform(GSLrandom)*(tmpMax-tmpMin);
+    start_a = tmpMin;
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppelowera");
     if (ppt) {
       start_a = atof(ppt->value);
@@ -1323,7 +1226,7 @@ void initVariables(LALInferenceRunState *state)
 
     tmpMin = -4.5;
     tmpMax = 1.0;
-    start_b = tmpMin+gsl_rng_uniform(GSLrandom)*(tmpMax-tmpMin);
+    start_b = tmpMin;
     ppt=LALInferenceGetProcParamVal(commandLine,"--ppelowerb");
     if (ppt) {
       start_b = atof(ppt->value);
