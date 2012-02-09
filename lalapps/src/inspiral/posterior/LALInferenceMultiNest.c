@@ -39,8 +39,8 @@
 
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeMN(LALInferenceRunState *runState);
-void initVariables(LALInferenceRunState *state);
 void initStudentt(LALInferenceRunState *state);
+void initVariables(LALInferenceRunState *state);
 void initializeTemplate(LALInferenceRunState *runState);
 static void mc2masses(double mc, double eta, double *m1, double *m2);
 void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes,
@@ -195,15 +195,8 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 /* calls the "ReadData()" function to gather data & PSD from files, */
 /* and initializes other variables accordingly.                     */
 {
-	char help[]="\
-Initialisation arguments:\n\
-(--randomseed seed           Random seed for Nested Sampling)\n\n";
 	LALInferenceRunState *irs=NULL;
 	LALInferenceIFOData *ifoPtr, *ifoListStart;
-	ProcessParamsTable *ppt=NULL;
-	unsigned long int randomseed;
-	struct timeval tv;
-	FILE *devrandom;
 	
 	irs = calloc(1, sizeof(LALInferenceRunState));
 	/* read data from files: */
@@ -211,12 +204,6 @@ Initialisation arguments:\n\
 	irs->commandLine=commandLine;
 	irs->data = LALInferenceReadData(commandLine);
 	/* (this will already initialise each LALIFOData's following elements:  */
-        ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-        if(ppt)
-        {
-                fprintf(stdout,"%s",help);
-                return(irs);
-        }
 
 	/*     fLow, fHigh, detector, timeToFreqFFTPlan, freqToTimeFFTPlan,     */
 	/*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
@@ -554,7 +541,6 @@ void initVariables(LALInferenceRunState *state)
     SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
     if(!injTable){
       fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
-      MPI_Finalize();
       exit(1);
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--event");
@@ -1443,8 +1429,7 @@ Student T Likelihood Arguments:\n\
 
 
 int main(int argc, char *argv[]){
-        char help[]="\
-LALInferenceNest:\n\
+        char help[]="LALInferenceNest:\n\
 Bayesian analysis tool using MultiNest algorithm\n\
 for CBC analysis. Uses LALInference library for back-end.\n\n\
 Arguments for each section follow:\n\n";
@@ -1484,5 +1469,5 @@ Arguments for each section follow:\n\n";
 	state->algorithm(state);
 
 	/* end */
-	return(0);
+	return 0;
 }
