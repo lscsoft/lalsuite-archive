@@ -772,6 +772,97 @@ void initVariables(LALInferenceRunState *state)
   if(ppt){
     endtime=atof(ppt->value);
   }
+
+  /* Over-ride chirp mass if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--mc");
+  if(ppt){
+    start_mc=atof(ppt->value);
+  }
+
+  /* Over-ride eta if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--eta");
+  if(ppt){
+    start_eta=atof(ppt->value);
+  }
+
+  /* Over-ride q if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--q");
+  if(ppt){
+    start_q=atof(ppt->value);
+  }
+
+  /* Over-ride phase if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--phi");
+  if(ppt){
+    start_phase=atof(ppt->value);
+  }
+
+  /* Over-ride inclination if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--iota");
+  if(ppt){
+    start_iota=atof(ppt->value);
+  }
+
+  /* Over-ride distance if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dist");
+  if (ppt) {
+    start_dist = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--ra");
+  if (ppt) {
+    start_ra = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dec");
+  if (ppt) {
+    start_dec = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--psi");
+  if (ppt) {
+    start_psi = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--a1");
+  if (ppt) {
+    start_a_spin1 = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--theta1");
+  if (ppt) {
+    start_theta_spin1 = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--phi1");
+  if (ppt) {
+    start_phi_spin1 = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--a2");
+  if (ppt) {
+    start_a_spin2 = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--theta2");
+  if (ppt) {
+    start_theta_spin2 = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--phi2");
+  if (ppt) {
+    start_phi_spin2 = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda1");
+  if (ppt) {
+    start_lambda1 = atof(ppt->value);
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--lambda2");
+  if (ppt) {
+    start_lambda2 = atof(ppt->value);
+  }
   
   /* Over-ride time prior if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
