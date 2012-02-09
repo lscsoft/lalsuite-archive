@@ -310,6 +310,8 @@ void initializeTemplate(LALInferenceRunState *runState)
 			}
 		}
 	}
+	
+	return;
 }
 
 /***** Initialise MultiNest structures *****/
