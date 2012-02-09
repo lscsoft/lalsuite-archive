@@ -519,6 +519,9 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
 /* Convert the hypercube parameter to physical parameters, for the non-spinning inspiral signal case */
 int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube)
 {
+	LALInferenceVariableItem *item=params->head;
+	LALInferenceVariables *priorParams=runState->priorArgs;
+	
 	REAL8 min, max;
 	int i = 0;
 	
@@ -564,8 +567,8 @@ int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInf
 	i++;
 	
 	//m1 & m2
-	min = *(REAL8 *)LALInferenceGetVariable(params,"component_min");
-	max = *(REAL8 *)LALInferenceGetVariable(params,"component_max");
+	min = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_min");
+	max = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max");
 	double m1 = flatPrior(Cube[i], min, max);
 	double m2 = flatPrior(Cube[i+1], min, max);
 	if(m1<m2) {
@@ -688,8 +691,6 @@ int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInf
 	Cube[i] = m2; i++;
 	
 	/* Check boundaries */
-	LALInferenceVariableItem *item=params->head;
-	LALInferenceVariables *priorParams=runState->priorArgs;
 	for(;item;item=item->next)
 	{
 		// if(item->vary!=PARAM_LINEAR || item->vary!=PARAM_CIRCULAR)
@@ -1004,6 +1005,9 @@ REAL8 LALInferenceInspiralPriorNormalised(LALInferenceRunState *runState, LALInf
 /* Convert the hypercube parameter to physical parameters, for the non-spinning inspiral signal case */
 int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube)
 {
+	LALInferenceVariableItem *item=params->head;
+	LALInferenceVariables *priorParams=runState->priorArgs;
+	
 	REAL8 min, max;
 	int i = 0;
 	
@@ -1049,8 +1053,8 @@ int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runStat
 	i++;
 	
 	//m1 & m2
-	min = *(REAL8 *)LALInferenceGetVariable(params,"component_min");
-	max = *(REAL8 *)LALInferenceGetVariable(params,"component_max");
+	min = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_min");
+	max = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max");
 	double m1 = flatPrior(Cube[i], min, max);
 	double m2 = flatPrior(Cube[i+1], min, max);
 	if(m1<m2) {
@@ -1173,8 +1177,6 @@ int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runStat
 	Cube[i] = m2; i++;
 	
 	/* Check boundaries */
-	LALInferenceVariableItem *item=params->head;
-	LALInferenceVariables *priorParams=runState->priorArgs;
 	for(;item;item=item->next)
 	{
 		// if(item->vary!=PARAM_LINEAR || item->vary!=PARAM_CIRCULAR)
