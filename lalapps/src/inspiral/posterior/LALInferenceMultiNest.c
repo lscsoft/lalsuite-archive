@@ -1031,7 +1031,7 @@ void initVariables(LALInferenceRunState *state)
   }else{
     LALInferenceAddVariable(currentParams, "chirpmass",    &start_mc,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
   }
-  LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass",	&mcMin,	&mcMax,		LALINFERENCE_REAL8_t);
+  LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass", &mcMin,	&mcMax,		LALINFERENCE_REAL8_t);
 
   /* Check if running with symmetric (eta) or asymmetric (q) mass ratio.*/
   ppt=LALInferenceGetProcParamVal(commandLine,"--symMassRatio");
