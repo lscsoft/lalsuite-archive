@@ -90,6 +90,13 @@ int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInf
  */
 REAL8 LALInferenceInspiralPriorNormalised(LALInferenceRunState *runState, LALInferenceVariables *params);
 
+/** Convert the hypercube parameter to physical parameters, for the prior density of the variables as 
+ *  specified for the S6 parameter estimation paper
+ *  (see: https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/BayesS6PEpaper#Priors ), 
+ *  for the non-spinning/spinning inspiral signal case.
+ */
+int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+
 /** Function to add the minimum and maximum values for the uniform prior onto the \c priorArgs. 
  */
 void LALInferenceAddMinMaxPrior(LALInferenceVariables *priorArgs, const char *name, REAL8 *min, REAL8 *max, LALInferenceVariableType type);
