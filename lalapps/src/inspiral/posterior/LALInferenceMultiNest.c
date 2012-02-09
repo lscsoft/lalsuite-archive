@@ -289,13 +289,6 @@ void initializeTemplate(LALInferenceRunState *runState)
 {
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
-	/* Print command line arguments if help requested */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-	if(ppt)
-	{
-		fprintf(stdout,"%s",help);
-		return;
-	}
 	
 	/* Choose the template generator for inspiral signals */
 	runState->template=&LALInferenceTemplateLAL;
@@ -1034,7 +1027,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixMc");
   if(ppt){
     LALInferenceAddVariable(currentParams, "chirpmass",    &start_mc,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"chirpmass fixed and set to %f\n",start_mc);
+    fprintf(stdout,"chirpmass fixed and set to %f\n",start_mc);
   }else{
     LALInferenceAddVariable(currentParams, "chirpmass",    &start_mc,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
   }
@@ -1046,7 +1039,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixEta");
     if(ppt){
       LALInferenceAddVariable(currentParams, "massratio",       &start_eta,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"eta fixed and set to %f\n",start_eta);
+      fprintf(stdout,"eta fixed and set to %f\n",start_eta);
     }else{
       LALInferenceAddVariable(currentParams, "massratio",       &start_eta,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1055,7 +1048,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixQ");
     if(ppt){
       LALInferenceAddVariable(currentParams, "asym_massratio",       &start_q,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"q fixed and set to %f\n",start_q);
+      fprintf(stdout,"q fixed and set to %f\n",start_q);
     }else{
       LALInferenceAddVariable(currentParams, "asym_massratio",       &start_q,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1076,7 +1069,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixTime");
   if(ppt){
     LALInferenceAddVariable(currentParams, "time",            &timeParam   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"time fixed and set to %f\n",timeParam);
+    fprintf(stdout,"time fixed and set to %f\n",timeParam);
   }else{
     LALInferenceAddVariable(currentParams, "time",            &timeParam   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
   }
@@ -1086,7 +1079,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi");
   if(ppt){
     LALInferenceAddVariable(currentParams, "phase",           &start_phase,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"phase fixed and set to %f\n",start_phase);
+    fprintf(stdout,"phase fixed and set to %f\n",start_phase);
   }else{
     LALInferenceAddVariable(currentParams, "phase",           &start_phase,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
   }
@@ -1095,7 +1088,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixDist");
   if(ppt){
     LALInferenceAddVariable(currentParams,"distance", &start_dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"distance fixed and set to %f\n",start_dist);
+    fprintf(stdout,"distance fixed and set to %f\n",start_dist);
   }else{
     LALInferenceAddVariable(currentParams,"distance", &start_dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
   }
@@ -1106,7 +1099,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixRa");
   if(ppt){
     LALInferenceAddVariable(currentParams, "rightascension",  &start_ra,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"R.A. fixed and set to %f\n",start_ra);
+    fprintf(stdout,"R.A. fixed and set to %f\n",start_ra);
   }else{
     LALInferenceAddVariable(currentParams, "rightascension",  &start_ra,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
   }
@@ -1116,7 +1109,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixDec");
   if(ppt){
     LALInferenceAddVariable(currentParams, "declination",     &start_dec,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"declination fixed and set to %f\n",start_dec);
+    fprintf(stdout,"declination fixed and set to %f\n",start_dec);
   }else{
     LALInferenceAddVariable(currentParams, "declination",     &start_dec,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
   }
@@ -1126,7 +1119,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixPsi");
   if(ppt){
     LALInferenceAddVariable(currentParams, "polarisation",    &start_psi,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"polarisation fixed and set to %f\n",start_psi);
+    fprintf(stdout,"polarisation fixed and set to %f\n",start_psi);
   }else{
     LALInferenceAddVariable(currentParams, "polarisation",    &start_psi,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
   }
@@ -1142,7 +1135,7 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixIota");
   if(ppt){
     LALInferenceAddVariable(currentParams, "inclination",     &start_iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(MPIrank==0) fprintf(stdout,"iota fixed and set to %f\n",start_iota);
+    fprintf(stdout,"iota fixed and set to %f\n",start_iota);
   }else{
     LALInferenceAddVariable(currentParams, "inclination",     &start_iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
   }
@@ -1159,7 +1152,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixA1");
     if(ppt){
       LALInferenceAddVariable(currentParams, "a_spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"spin 1 fixed and set to %f\n",start_a_spin1);
+      fprintf(stdout,"spin 1 fixed and set to %f\n",start_a_spin1);
     }else{
       LALInferenceAddVariable(currentParams, "a_spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1172,7 +1165,7 @@ void initVariables(LALInferenceRunState *state)
       ppt=LALInferenceGetProcParamVal(commandLine,"--fixTheta1");
       if(ppt){
         LALInferenceAddVariable(currentParams, "theta_spin1",     &start_theta_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        if(MPIrank==0) fprintf(stdout,"theta 1 fixed and set to %f\n",start_theta_spin1);
+        fprintf(stdout,"theta 1 fixed and set to %f\n",start_theta_spin1);
       }else{
         LALInferenceAddVariable(currentParams, "theta_spin1",     &start_theta_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
       }
@@ -1182,7 +1175,7 @@ void initVariables(LALInferenceRunState *state)
       ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi1");
       if(ppt){
         LALInferenceAddVariable(currentParams, "phi_spin1",     &start_phi_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        if(MPIrank==0) fprintf(stdout,"phi 1 fixed and set to %f\n",start_phi_spin1);
+        fprintf(stdout,"phi 1 fixed and set to %f\n",start_phi_spin1);
       }else{
         LALInferenceAddVariable(currentParams, "phi_spin1",     &start_phi_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
       }
@@ -1198,7 +1191,7 @@ void initVariables(LALInferenceRunState *state)
       ppt=LALInferenceGetProcParamVal(commandLine,"--fixA2");
       if(ppt){
         LALInferenceAddVariable(currentParams, "a_spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        if(MPIrank==0) fprintf(stdout,"spin 2 fixed and set to %f\n",start_a_spin2);
+        fprintf(stdout,"spin 2 fixed and set to %f\n",start_a_spin2);
       }else{
         LALInferenceAddVariable(currentParams, "a_spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
       }
@@ -1211,7 +1204,7 @@ void initVariables(LALInferenceRunState *state)
         ppt=LALInferenceGetProcParamVal(commandLine,"--fixTheta2");
         if(ppt){
           LALInferenceAddVariable(currentParams, "theta_spin2",     &start_theta_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-          if(MPIrank==0) fprintf(stdout,"theta spin 2 fixed and set to %f\n",start_theta_spin2);
+          fprintf(stdout,"theta spin 2 fixed and set to %f\n",start_theta_spin2);
         }else{
           LALInferenceAddVariable(currentParams, "theta_spin2",     &start_theta_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         }
@@ -1221,7 +1214,7 @@ void initVariables(LALInferenceRunState *state)
         ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi2");
         if(ppt){
           LALInferenceAddVariable(currentParams, "phi_spin2",     &start_phi_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-          if(MPIrank==0) fprintf(stdout,"phi 2 fixed and set to %f\n",start_phi_spin2);
+          fprintf(stdout,"phi 2 fixed and set to %f\n",start_phi_spin2);
         }else{
           LALInferenceAddVariable(currentParams, "phi_spin2",     &start_phi_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
         }
@@ -1236,7 +1229,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixA1");
     if(ppt){
       LALInferenceAddVariable(currentParams, "spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"spin 1 fixed and set to %f\n",start_a_spin1);
+      fprintf(stdout,"spin 1 fixed and set to %f\n",start_a_spin1);
     }else{
       LALInferenceAddVariable(currentParams, "spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1246,7 +1239,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixA2");
     if(ppt){
       LALInferenceAddVariable(currentParams, "spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"spin 2 fixed and set to %f\n",start_a_spin2);
+      fprintf(stdout,"spin 2 fixed and set to %f\n",start_a_spin2);
     }else{
       LALInferenceAddVariable(currentParams, "spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1273,7 +1266,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixppealpha");
     if(ppt){
       LALInferenceAddVariable(currentParams, "ppealpha",     &start_alpha,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"ppE alpha fixed and set to %f\n",start_alpha);
+      fprintf(stdout,"ppE alpha fixed and set to %f\n",start_alpha);
     }else{
       LALInferenceAddVariable(currentParams, "ppealpha",     &start_alpha,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1287,7 +1280,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixppebeta");
     if(ppt){
       LALInferenceAddVariable(currentParams, "ppebeta",     &start_beta,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"ppE beta fixed and set to %f\n",start_beta);
+      fprintf(stdout,"ppE beta fixed and set to %f\n",start_beta);
     }else{
       LALInferenceAddVariable(currentParams, "ppebeta",     &start_beta,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1303,7 +1296,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixppeuppera");
     if(ppt){
       LALInferenceAddVariable(currentParams, "ppeuppera",     &start_A,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"ppE A fixed and set to %f\n",start_A);
+      fprintf(stdout,"ppE A fixed and set to %f\n",start_A);
     }else{
       LALInferenceAddVariable(currentParams, "ppeuppera",     &start_A,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1317,7 +1310,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixppeupperb");
     if(ppt){
       LALInferenceAddVariable(currentParams, "ppeupperb",     &start_B,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"ppE B fixed and set to %f\n",start_B);
+      fprintf(stdout,"ppE B fixed and set to %f\n",start_B);
     }else{
       LALInferenceAddVariable(currentParams, "ppeupperb",     &start_B,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1333,7 +1326,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixppelowera");
     if(ppt){
       LALInferenceAddVariable(currentParams, "ppelowera",     &start_a,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"ppE a fixed and set to %f\n",start_a);
+      fprintf(stdout,"ppE a fixed and set to %f\n",start_a);
     }else{
       LALInferenceAddVariable(currentParams, "ppelowera",     &start_a,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1349,7 +1342,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixppelowerb");
     if(ppt){
       LALInferenceAddVariable(currentParams, "ppelowerb",     &start_b,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"ppE b fixed and set to %f\n",start_b);
+      fprintf(stdout,"ppE b fixed and set to %f\n",start_b);
     }else{
       LALInferenceAddVariable(currentParams, "ppelowerb",     &start_b,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1362,7 +1355,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixLambda1");
     if(ppt){
       LALInferenceAddVariable(currentParams, "lambda1",           &start_lambda1,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"phase fixed and set to %f\n",start_lambda1);
+      fprintf(stdout,"phase fixed and set to %f\n",start_lambda1);
     }else{
       LALInferenceAddVariable(currentParams, "lambda1",           &start_lambda1,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
@@ -1371,7 +1364,7 @@ void initVariables(LALInferenceRunState *state)
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixLambda2");
     if(ppt){
     LALInferenceAddVariable(currentParams, "lambda2",           &start_lambda2,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"phase fixed and set to %f\n",start_lambda2);
+      fprintf(stdout,"phase fixed and set to %f\n",start_lambda2);
     }else{
       LALInferenceAddVariable(currentParams, "lambda2",           &start_lambda2,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
