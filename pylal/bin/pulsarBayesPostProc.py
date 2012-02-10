@@ -56,10 +56,10 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 
-def pulsarBayesPostProc( outdir, data, oneDMenu, twoDGreedyMenu, GreedyRes,
-                         confidence_levels, twoDplots,
+def pulsarBayesPostProc( outdir, data,
+                         upperlimit,
                          #nested sampling options
-                         ns_Nlive=None,
+                         ns_Nlive=None, priorfile,
                          #Turn on 2D kdes
                          twodkdeplots=False,
                          #Turn on R convergence tests
@@ -100,13 +100,21 @@ def pulsarBayesPostProc( outdir, data, oneDMenu, twoDGreedyMenu, GreedyRes,
   # read in par file if given
   if parfile is not None:
     par = pppu.psr_par(parfile)
-    
-    # get par file info as a string as well (might need!)
-    parstr = str(par)
   
   # convert phi0' and psi' to phi0 and psi
-
+  if phi0prime in pos.names and psiprime in pos.names:
+    phi0samps, psisamps = pppu.phipsiconvert( pos['phi0prime'].samples, \
+                                              pos['psiprime'].samples )
+    # append phi0 and psi to posterior
+    phi0_pos = bppu.OneDPosterior('phi0', phi0samps)
+    pos.append(phi0_pos)
     
+    psi_pos = bppu.OneDPosterior('psi', phi0samps)
+    pos.append(psi_pos)
+   
+  # get parameters to plot from prior file and those with "Errors" in the par
+  # file
+  
     
 # main function
 if __name__=='__main__':
@@ -117,9 +125,6 @@ if __name__=='__main__':
                     "plots in DIR", metavar="DIR")
   parser.add_option("-d","--data",dest="data",action="append",help="A list " \
                     "of nested sampling data files")
-  
-  parser.add_option("--no2D", action="store_true", default=False, help="Skip " \
-                    "2-D plotting.")
 
   # number of live points
   parser.add_option("--Nlive", action="store", default=None, help="Number of " \
@@ -142,6 +147,10 @@ if __name__=='__main__':
   parser.add_option("-c", "--corfile", dest="corfile", help="The pulsar " \
                     "correlation coefficient file.", default=None)
   
+  # get nested sampling analysis prior file
+  parser.add_option("-P", "--priorfile", dest="priorfile", help="The prior " \
+                    "file used in the analysis")
+  
   # get heterodyned data files used for analysis
   parser.add_option("-B", "--Bkfiles", dest="Bkfiles", action="append", 
                     help="A heterodyned data file.", default=None)
@@ -152,13 +161,13 @@ if __name__=='__main__':
   # parse input options
   (opts,args)=parser.parse_args()
   
-  # Confidence levels wanted for output
-  confidenceLevels=[0.67,0.9,0.95,0.99]
+  # upper limits wanted for output
+  upperlimit=[0.95]
   
   # call pulsarBayesPostProc function
-  cbcBayesPostProc( opts.outpath, opts.data, oneDMenu, twoDGreedyMenu,
-                    greedyBinSizes, confidenceLevels, twoDplots,
-                    ns_Nlive=opts.Nlive,
+  cbcBayesPostProc( opts.outpath, opts.data,
+                    upperlimit,
+                    ns_Nlive=opts.Nlive, opts.priorfile,
                     twodkdeplots=opts.twodkdeplots,
                     RconvergenceTests=opts.RconvergenceTests,
                     opts.Bkfiles, opts.ifos,
