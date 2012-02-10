@@ -96,8 +96,6 @@ def pulsarBayesPostProc( outdir, data, oneDMenu, twoDGreedyMenu, GreedyRes,
   # from the file.
   pos = bppu.Posterior( commonResultsObj, SimInspiralTableEntry=None, \
                         votfile=votfile )
-
-  # convert phi0' and psi' to phi0 and psi
   
   # read in par file if given
   if parfile is not None:
