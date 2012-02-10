@@ -1456,8 +1456,6 @@ int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runStat
 	return 1;
 }
 
-/*
-
 typedef struct {
   double M1;
   double McMin;
