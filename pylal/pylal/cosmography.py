@@ -22,8 +22,7 @@ from numpy import pi, sinh, arcsinh
 from scipy.integrate import quad
 from scipy.optimize import newton
 
-LAL_PC_SI = 3.0856775807e+16  # 1 parsec in meters
-LAL_C_SI = 299792458  # speed of light in meters per second
+from pylal.xlal.constants import LAL_PC_SI, LAL_C_SI
 
 h0 = 70.3  # km / s / Mpc
 H0_SI = h0 * 1000 / (1000000 * LAL_PC_SI)  # Hubble constant in inverse seconds
