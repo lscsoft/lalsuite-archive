@@ -2997,13 +2997,28 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-            
-
+                       
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
         posfilename='posterior_samples.dat'
         posfile=open(posfilename,'w')
-        posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
+        #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
+        #psi \t iota \t likelihood \n')
+        # get parameter list
+        it = iter(files)
+        parsfilename = it.next()+'_params.txt'
+        
+        print 'Looking for '+parsfilename
+        if os.access(parsfilename,os.R_OK):
+            parsfile = open(parsfilename,'r')
+            outpars = parsfile.readline()
+            parsfile.close()
+        else:
+            print "Need files of parameters "+parsfilename
+            raise
+        
+        posfile.write(outpars)
+        
         for row in pos:
             for i in row:
                 posfile.write('%.12e\t' %(i))
