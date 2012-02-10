@@ -40,6 +40,11 @@ from scipy import pi,sin,cos
 __author__ = "Drew Keppel <drew.keppel@ligo.org>"
 
 
+def f_for_fft(fLow, fNyq, deltaF):
+	f = scipy.arange(2*(fNyq/deltaF))*deltaF
+	f[fNyq/deltaF+1:] = -f[fNyq/deltaF-1:0:-1]
+	return f
+
 def f_PSD_from_file(filename, fLow, fNyq, deltaF):
 	"""
 	Read a detector ascii ASD file and return the PSD and frequency vector
@@ -56,8 +61,7 @@ def f_PSD_from_file(filename, fLow, fNyq, deltaF):
 		PSD[fNyq/deltaF+1:] = S[-2:0:-1]**2
 	else:
 		PSD[fNyq/deltaF+1:-scipy.floor(fLow/deltaF)] = S[-2:0:-1]**2
-	f = scipy.arange(2*(fNyq/deltaF))*deltaF
-	f[fNyq/deltaF+1:] = -f[fNyq/deltaF-1:0:-1]
+	f = f_for_fft(fLow, fNyq, deltaF)
 	return f,PSD
 
 def DegMinSec2Rad(sign,deg,minutes,seconds):
@@ -110,7 +114,7 @@ def lat_lon_ori_2_yarm(lat, lon, ori):
 
 # Adv. Virgo:
 # https://wwwcascina.virgo.infn.it/advirgo/
-# https://wwwcascina.virgo.infn.it/advirgo/docs/AdV_baseline_sensitivity_12May09.txt
+# https://wwwcascina.virgo.infn.it/advirgo/docs/AdV_refsens_100512.txt
 
 # LCGT (detuned):
 # http://gwcenter.icrr.u-tokyo.ac.jp/en/researcher/parameter
@@ -149,7 +153,7 @@ def make_LLO(fLow=10., fNyq=2048., deltaF=0.1):
 	return detector
 
 def make_Virgo(fLow=10., fNyq=2048., deltaF=0.1):
-	filename = "PSDs/AdV_baseline_sensitivity_12May09.txt" # Adv. Virgo
+	filename = "PSDs/AdV_refsens_100512.txt" # Adv. Virgo
 	f,PSD_Virgo = f_PSD_from_file(filename,fLow,fNyq,deltaF)
 	detector = metric.Detector(
 		'V',

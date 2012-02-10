@@ -444,7 +444,7 @@ void LALInferencePrintProposalStats(FILE *fp,LALInferenceVariables *propStats);
 /** Reads one line from the given file and stores the values there into
    the variable structure, using the given header array to name the
    columns.  Returns 0 on success. */
-int LALInferenceProcessParamLine(FILE *inp, char **headers, LALInferenceVariables *vars);
+void LALInferenceProcessParamLine(FILE *inp, char **headers, LALInferenceVariables *vars);
 
 /** Sorts the variable structure by name */
 void LALInferenceSortVariablesByName(LALInferenceVariables *vars);
@@ -469,6 +469,9 @@ void LALInferenceMcEta2Masses(double mc, double eta, double *m1, double *m2);
 
 /** Convert from Mc, q space to m1, m2 space (q = m2/m1, with m1 > m2). */
 void LALInferenceMcQ2Masses(double mc, double q, double *m1, double *m2);
+
+/** Convert from q to eta (q = m2/m1, with m1 > m2). */
+void LALInferenceQ2Eta(double q, double *eta);
 
 /** A kD tree cell contains some points (npts), a bounding box
     enclosing the cell (lowerLeft to upperRight), a bounding box
