@@ -191,91 +191,125 @@ static void mc2masses(double mc, double eta, double *m1, double *m2)
   return;
 }
 
+
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 /* calls the "ReadData()" function to gather data & PSD from files, */
 /* and initializes other variables accordingly.                     */
 {
-	LALInferenceRunState *irs=NULL;
-	LALInferenceIFOData *ifoPtr, *ifoListStart;
-	
-	irs = calloc(1, sizeof(LALInferenceRunState));
-	/* read data from files: */
-	fprintf(stdout, " readData(): started.\n");
-	irs->commandLine=commandLine;
-	irs->data = LALInferenceReadData(commandLine);
-	/* (this will already initialise each LALIFOData's following elements:  */
+  LALInferenceRunState *irs=NULL;
+  LALInferenceIFOData *ifoPtr, *ifoListStart;
 
-	/*     fLow, fHigh, detector, timeToFreqFFTPlan, freqToTimeFFTPlan,     */
-	/*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
-	fprintf(stdout, " LALInferenceReadData(): finished.\n");
-	if (irs->data != NULL) {
-		fprintf(stdout, " initialize(): successfully read data.\n");
-		
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
-		LALInferenceInjectInspiralSignal(irs->data,commandLine);
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
-		
-		ifoPtr = irs->data;
-		ifoListStart = irs->data;
-		while (ifoPtr != NULL) {
-			/*If two IFOs have the same sampling rate, they should have the same timeModelh*,
-			 freqModelh*, and modelParams variables to avoid excess computation 
-			 in model waveform generation in the future*/
-			LALInferenceIFOData * ifoPtrCompare=ifoListStart;
-			int foundIFOwithSameSampleRate=0;
-			while(ifoPtrCompare != NULL && ifoPtrCompare!=ifoPtr) {
-				if(ifoPtrCompare->timeData->deltaT == ifoPtr->timeData->deltaT){
-					ifoPtr->timeModelhPlus=ifoPtrCompare->timeModelhPlus;
-					ifoPtr->freqModelhPlus=ifoPtrCompare->freqModelhPlus;
-					ifoPtr->timeModelhCross=ifoPtrCompare->timeModelhCross;				
-					ifoPtr->freqModelhCross=ifoPtrCompare->freqModelhCross;				
-					ifoPtr->modelParams=ifoPtrCompare->modelParams;	
-					foundIFOwithSameSampleRate=1;	
-					break;
-				}
-			}
-			if(!foundIFOwithSameSampleRate){
-				ifoPtr->timeModelhPlus  = XLALCreateREAL8TimeSeries("timeModelhPlus",
-																	&(ifoPtr->timeData->epoch),
-																	0.0,
-																	ifoPtr->timeData->deltaT,
-																	&lalDimensionlessUnit,
-																	ifoPtr->timeData->data->length);
-				ifoPtr->timeModelhCross = XLALCreateREAL8TimeSeries("timeModelhCross",
-																	&(ifoPtr->timeData->epoch),
-																	0.0,
-																	ifoPtr->timeData->deltaT,
-																	&lalDimensionlessUnit,
-																	ifoPtr->timeData->data->length);
-				ifoPtr->freqModelhPlus = XLALCreateCOMPLEX16FrequencySeries("freqModelhPlus",
-																			&(ifoPtr->freqData->epoch),
-																			0.0,
-																			ifoPtr->freqData->deltaF,
-																			&lalDimensionlessUnit,
-																			ifoPtr->freqData->data->length);
-				ifoPtr->freqModelhCross = XLALCreateCOMPLEX16FrequencySeries("freqModelhCross",
-																			 &(ifoPtr->freqData->epoch),
-																			 0.0,
-																			 ifoPtr->freqData->deltaF,
-																			 &lalDimensionlessUnit,
-																			 ifoPtr->freqData->data->length);
-				ifoPtr->modelParams = calloc(1, sizeof(LALInferenceVariables));
-			}
-			ifoPtr = ifoPtr->next;
-		}
-		irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
-		printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
-	}
-	else
-		fprintf(stdout, " initialize(): no data read.\n");
-	
-	return(irs);
+  irs = calloc(1, sizeof(LALInferenceRunState));
+  /* read data from files: */
+  fprintf(stdout, " ==== LALInferenceReadData(): started. ====\n");
+  irs->commandLine=commandLine;
+  irs->data = LALInferenceReadData(commandLine);
+  /* (this will already initialise each LALInferenceIFOData's following elements:  */
+  /*     fLow, fHigh, detector, timeToFreqFFTPlan, freqToTimeFFTPlan,     */
+  /*     window, oneSidedNoisePowerSpectrum, timeDate, freqData         ) */
+  fprintf(stdout, " ==== LALInferenceReadData(): finished. ====\n");
+  if (irs->data != NULL) {
+    fprintf(stdout, " ==== initialize(): successfully read data. ====\n");
+
+    fprintf(stdout, " ==== LALInferenceInjectInspiralSignal(): started. ====\n");
+    LALInferenceInjectInspiralSignal(irs->data,commandLine);
+    fprintf(stdout, " ==== LALInferenceInjectInspiralSignal(): finished. ====\n");
+
+    ifoPtr = irs->data;
+    ifoListStart = irs->data;
+    while (ifoPtr != NULL) {
+      /*If two IFOs have the same sampling rate, they should have the same timeModelh*,
+        freqModelh*, and modelParams variables to avoid excess computation
+        in model waveform generation in the future*/
+      LALInferenceIFOData * ifoPtrCompare=ifoListStart;
+      int foundIFOwithSameSampleRate=0;
+      while (ifoPtrCompare != NULL && ifoPtrCompare!=ifoPtr) {
+        if(ifoPtrCompare->timeData->deltaT == ifoPtr->timeData->deltaT){
+          ifoPtr->timeModelhPlus=ifoPtrCompare->timeModelhPlus;
+          ifoPtr->freqModelhPlus=ifoPtrCompare->freqModelhPlus;
+          ifoPtr->timeModelhCross=ifoPtrCompare->timeModelhCross;
+          ifoPtr->freqModelhCross=ifoPtrCompare->freqModelhCross;
+          ifoPtr->modelParams=ifoPtrCompare->modelParams;
+          foundIFOwithSameSampleRate=1;
+          break;
+        }
+        ifoPtrCompare = ifoPtrCompare->next;
+      }
+      if(!foundIFOwithSameSampleRate){
+        ifoPtr->timeModelhPlus  = XLALCreateREAL8TimeSeries("timeModelhPlus",
+                                                            &(ifoPtr->timeData->epoch),
+                                                            0.0,
+                                                            ifoPtr->timeData->deltaT,
+                                                            &lalDimensionlessUnit,
+                                                            ifoPtr->timeData->data->length);
+        ifoPtr->timeModelhCross = XLALCreateREAL8TimeSeries("timeModelhCross",
+                                                            &(ifoPtr->timeData->epoch),
+                                                            0.0,
+                                                            ifoPtr->timeData->deltaT,
+                                                            &lalDimensionlessUnit,
+                                                            ifoPtr->timeData->data->length);
+        ifoPtr->freqModelhPlus = XLALCreateCOMPLEX16FrequencySeries("freqModelhPlus",
+                                                                    &(ifoPtr->freqData->epoch),
+                                                                    0.0,
+                                                                    ifoPtr->freqData->deltaF,
+                                                                    &lalDimensionlessUnit,
+                                                                    ifoPtr->freqData->data->length);
+        ifoPtr->freqModelhCross = XLALCreateCOMPLEX16FrequencySeries("freqModelhCross",
+                                                                     &(ifoPtr->freqData->epoch),
+                                                                     0.0,
+                                                                     ifoPtr->freqData->deltaF,
+                                                                     &lalDimensionlessUnit,
+                                                                     ifoPtr->freqData->data->length);
+        ifoPtr->modelParams = calloc(1, sizeof(LALInferenceVariables));
+      }
+      ifoPtr = ifoPtr->next;
+    }
+    irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
+    printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
+  }
+  else{
+    fprintf(stdout, " initialize(): no data read.\n");
+    irs = NULL;
+    return(irs);
+  }
+
+  return(irs);
 }
 
-void initializeTemplate(LALInferenceRunState *runState)
+/***** Initialise MultiNest structures *****/
+/************************************************/
+void initializeMN(LALInferenceRunState *runState)
 {
+	char help[]="\
+MultiNest arguments:\n\
+ --Nlive N\tNumber of live points to use\n\
+ --eff e\ttarget efficiency\n\
+(--verbose)\tProduce progress information\n";
+
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
+	
+	
+	/* Print command line arguments if help requested */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
+	if(ppt)
+	{
+		fprintf(stdout,"%s",help);
+		return;
+	}
+
+	INT4 verbose=0,tmpi=0;
+	REAL8 tmpd=0;
+	
+	
+	/* Initialise parameters structure */
+	runState->algorithmParams=XLALCalloc(1,sizeof(LALInferenceVariables));
+	runState->priorArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
+	
+	
+	/* Set up the appropriate functions for MultiNest */
+	runState->algorithm=&LALInferenceMultiNestAlgorithm;
+	
 	
 	/* Choose the template generator for inspiral signals */
 	runState->template=&LALInferenceTemplateLAL;
@@ -298,45 +332,25 @@ void initializeTemplate(LALInferenceRunState *runState)
 		}
 	}
 	
-	return;
-}
-
-/***** Initialise MultiNest structures *****/
-/************************************************/
-void initializeMN(LALInferenceRunState *runState)
-{
-	char help[]="\
-MultiNest arguments:\n\
- --Nlive N\tNumber of live points to use\n\
- --eff e\ttarget efficiency\n\
-(--verbose)\tProduce progress information\n";
-
-	ProcessParamsTable *ppt=NULL;
-	ProcessParamsTable *commandLine=runState->commandLine;
-	/* Print command line arguments if help requested */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-	if(ppt)
-	{
-		fprintf(stdout,"%s",help);
-		return;
-	}
-
-	INT4 verbose=0,tmpi=0;
-	REAL8 tmpd=0;
 	
-	/* Initialise parameters structure */
-	runState->algorithmParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-	runState->priorArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
-	
-	/* Set up the appropriate functions for MultiNest */
-	runState->algorithm=&LALInferenceMultiNestAlgorithm;
-
-	if(LALInferenceGetProcParamVal(commandLine,"--zeroLogLike")){
+	/* Set up the loglike function */
+	if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
+		fprintf(stderr, "Computing likelihood in the time domain.\n");
+		runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
+	} else if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
+		/* Use zero log(L) */
 		runState->likelihood=&LALInferenceZeroLogLikelihood;
+	} else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
+		runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
+	} else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
+		fprintf(stderr, "Using Student's T Likelihood.\n");
+		initStudentt(runState);
 	} else {
 		runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 	}
 	
+	
+	/* Set up the prior function */
 	if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
 		runState->prior=&LALInferenceInspiralSkyLocPrior;
 		runState->CubeToPrior = &LALInferenceInspiralSkyLocCubeToPrior;
@@ -348,6 +362,7 @@ MultiNest arguments:\n\
 		runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
 	}
 	
+	
 	ppt=LALInferenceGetProcParamVal(commandLine,"--verbose");
 	if(ppt) {
 		verbose=1;
@@ -356,9 +371,10 @@ MultiNest arguments:\n\
 	}
 	if(verbose) set_debug_level("ERROR|INFO");
 	else set_debug_level("NDEBUG");
-		
-	printf("set number of live points.\n");
+	
+	
 	/* Number of live points */
+	printf("set number of live points.\n");
 	ppt=LALInferenceGetProcParamVal(commandLine,"--Nlive");
 	if(ppt)
 		tmpi=atoi(ppt->value);
@@ -367,6 +383,7 @@ MultiNest arguments:\n\
 		exit(1);
 	}
 	LALInferenceAddVariable(runState->algorithmParams,"Nlive",&tmpi, LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+	
 	
 	/* Target efficiency */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--eff");
@@ -1375,12 +1392,8 @@ void initVariables(LALInferenceRunState *state)
 
 /** Initialise student-t extra variables, set likelihood */
 void initStudentt(LALInferenceRunState *state)
-{
-        char help[]="\
-Student T Likelihood Arguments:\n\
-(--studentt)\tUse student-t likelihood function\n";
-
-        ProcessParamsTable *ppt=NULL;
+{	
+	ProcessParamsTable *ppt=NULL;
 	LALInferenceIFOData *ifo=state->data;
 
 	/* Print command line arguments if help requested */
@@ -1394,7 +1407,7 @@ Student T Likelihood Arguments:\n\
 		return;
         }
 	/* Don't do anything unless asked */
-	if(!LALInferenceGetProcParamVal(state->commandLine,"--studentt")) return;
+	if(!LALInferenceGetProcParamVal(state->commandLine,"--studentTLikelihood")) return;
 
 	/* initialise degrees of freedom parameters for each IFO */
 	while(ifo){
@@ -1444,17 +1457,11 @@ Arguments for each section follow:\n\n";
 	/* And allocating memory */
 	state = initialize(procParams);
 	
-	/* Set template function */
-	initializeTemplate(state);
-	
 	/* Set up structures for MultiNest */
 	initializeMN(state);
 	
 	/* Set up currentParams with variables to be used */
 	initVariables(state);
-	
-	/* Check for student-t and apply */
-	initStudentt(state);
 
        /* Print command line arguments if help requested */
         if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
