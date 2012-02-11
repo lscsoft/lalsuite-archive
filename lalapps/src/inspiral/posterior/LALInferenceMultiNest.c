@@ -1393,6 +1393,10 @@ void initVariables(LALInferenceRunState *state)
 /** Initialise student-t extra variables, set likelihood */
 void initStudentt(LALInferenceRunState *state)
 {	
+        char help[]="\
+Student T Likelihood Arguments:\n\
+(--studentTLikelihood)\tUse student-t likelihood function\n";
+	
 	ProcessParamsTable *ppt=NULL;
 	LALInferenceIFOData *ifo=state->data;
 
