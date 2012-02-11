@@ -342,9 +342,9 @@ MultiNest arguments:\n\
 		runState->likelihood=&LALInferenceZeroLogLikelihood;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
 		runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
-	} else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
+	/*} else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
 		fprintf(stderr, "Using Student's T Likelihood.\n");
-		initStudentt(runState);
+		initStudentt(runState);*/
 	} else {
 		runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 	}
@@ -1466,6 +1466,9 @@ Arguments for each section follow:\n\n";
 	
 	/* Set up currentParams with variables to be used */
 	initVariables(state);
+	
+	/* Check for student-t and apply */
+	initStudentt(state);
 
        /* Print command line arguments if help requested */
         if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
