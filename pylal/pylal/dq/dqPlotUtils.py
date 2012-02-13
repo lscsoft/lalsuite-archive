@@ -33,6 +33,10 @@ if not _display and matplotlib.get_backend().lower() is not 'agg':
   matplotlib.use('Agg', warn=False)
 import pylab
 
+try:
+  from mpl_toolkits.basemap import Basemap
+except ImportError,e:
+  warnings.warn(e)
 from datetime import datetime
 from glue import segments,git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
