@@ -1383,8 +1383,6 @@ def get(self, parameter):
   parameter = parameter.lower()
   obj_type = str(type(self))
 
-  obj_type = type(self)
-
   # if there's a 'get_' function, use it
   if hasattr(self, 'get_%s' % parameter):
     return getattr(self, 'get_%s' % parameter)()
