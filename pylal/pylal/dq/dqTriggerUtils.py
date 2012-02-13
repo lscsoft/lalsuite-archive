@@ -1290,7 +1290,7 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
 # ==============================================================================
 
 def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
-                        coltype=LIGOTimeGPS, returnsegs=False):
+                       returnsegs=False):
 
   get_time = def_get_time(gwtriggers.tableName)
   aux_get_time = def_get_time(auxtriggers.tableName)
