@@ -1838,7 +1838,7 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
   if numpy.shape(dat) == (0,):
     return out
 
-  if len(dat)==3:
+  if len(dat)==13:
     st, stop, peak, flow, fhigh, nev, ms_start, ms_stop, ms_flow, ms_fhigh,\
     cls, cle, ms_cle = dat
   else:
@@ -2184,7 +2184,7 @@ def loadtxt(fh, usecols=None):
   """
 
   _comment = re.compile('[#%]')
-  _delim   = re.compile('[\t\,\s]')
+  _delim   = re.compile('[\t\,\s]+')
   output = []
   for i,line in enumerate(fh):
     if _comment.match(line): continue
