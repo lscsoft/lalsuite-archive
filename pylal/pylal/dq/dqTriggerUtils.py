@@ -50,13 +50,24 @@ def SnglTriggerTable(etg, columns=None):
   """
 
   if _burst_regex.search(etg):
-    return lsctables.New(lsctables.SnglBurstTable, columns=columns)
+    t = lsctables.New(lsctables.SnglBurstTable, columns=columns)
   elif _cbc_regex.search(etg):
-    return lsctables.New(lsctables.SnglInspiralTable, columns=columns)
+    t = lsctables.New(lsctables.SnglInspiralTable, columns=columns)
   elif _ring_regex.search(etg):
-    return lsctables.New(lsctables.SnglRingdownTable, columns=columns)
+    t = lsctables.New(lsctables.SnglRingdownTable, columns=columns)
   else:
     raise AttributeError("etg=%s not recognised by SnglTriggerTable." % etg)
+
+  # set columns
+  if columns:
+    columns = map(str.lower, columns)
+    for c in t.columnnames:
+      if c.lower() not in columns:
+        idx = t.columnnames.index(c)
+        t.columnnames.pop(idx)
+        t.columntypes.pop(idx)
+
+  return t
 
 def SnglTrigger(etg):
   """
@@ -491,7 +502,7 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'energy','amplitude','num_pixels','significance','N']
 
     elif re.match('hacr',etg.lower()):
-      columns = ['peak_time','param_one_value','central_freq','bandwidth',\
+      columns = ['peak_time','param_one_value','peak_frequency','bandwidth',\
                 'duration','param_two_value','snr','param_three_value']
 
   # set delimiter
@@ -504,19 +515,18 @@ def totrigfile(file,table,etg,header=True,columns=None):
   if header:
     cols = []
     for c in columns:
-      if c.startswith('param') and c.endswith('value'):
-        try:
-          cols.append(table[0].__getattribute__(c.replace('value','name')))
-        except IndexError:
-          cols.append(c)
+      if re.search('param_[a-z]+_value', c) and len(table)>0\
+      and hasattr(table[0], c.replace('value','name')):
+          cols.append(getattr(table[0], c.replace('value','name')))
       else:
         cols.append(c)
-    print >>file, d.join(['#']+cols)
+    file.write('%s\n' % d.join(['#']+cols))
 
-  columnnames = table.columnnames
-  if not columnnames:
+  # work out columns
+  if len(table)>0:
     t = table[0]
-    columnnames = table[0].__slots__
+    columnnames = [t for t in table[0].__slots__ if hasattr(table[0], t)]
+
   # print triggers
   for row in table:
     line = []
@@ -529,9 +539,9 @@ def totrigfile(file,table,etg,header=True,columns=None):
        if re.match('(ihope|hacr)',etg.lower()):
          # HACR default is to have peak_time_ns in seconds, not ns
          if re.match('hacr',etg.lower()) and col=='peak_time_ns':
-           entry = str(row.__getattribute__(col)/math.pow(10,9))
+           entry = str(getattr(row, col))
          else:
-           entry = str(row.__getattribute__(col))
+           entry = str(getattr(row, col))
        # if not ihope, check for time and print full GPS
        else:
          if col=='peak_time':
@@ -545,11 +555,11 @@ def totrigfile(file,table,etg,header=True,columns=None):
          elif col=='ms_stop_time':
            entry = str(row.get_ms_stop())
          else:
-           entry = str(row.__getattribute__(col))
+           entry = str(getattr(row, col))
 
        line.append(entry)
 
-    print >>file, d.join(line)
+    file.write('%s\n' % d.join(line))
 
 # =============================================================================
 # Function to load triggers from xml
@@ -1464,7 +1474,7 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('omega', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1599,7 +1609,7 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('kw', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1724,7 +1734,7 @@ def fromomegaspectrumfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('omegaspectrum', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1820,7 +1830,7 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('omegadq', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1952,7 +1962,7 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('hacr', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -2129,7 +2139,8 @@ def fromihopefile(fname, start=None, end=None, ifo=None, channel=None,\
   else:
     numtrigs = 0
 
-  out = lsctables.New(lsctables.SnglInspiralTable, columns=columns)
+  # generate table
+  out = SnglTriggerTable('ihope', columns=columns)
 
   cols   = numpy.arange(len(dat))
   append = out.append
