@@ -39,6 +39,7 @@ cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
 # Define ETG options
 # =============================================================================
 
+_trig_regex  = re.compile('(burst|inspiral|ring)', re.I)
 _burst_regex = re.compile('(burst|omega|kleine|kw|cwb|hacr)', re.I)
 _cbc_regex   = re.compile('(ihope|inspiral|cbc)', re.I)
 _ring_regex  = re.compile('(ring)', re.I)
@@ -1346,19 +1347,19 @@ def get_column(lsctable, column):
  
   # format column
   column = str(column).lower()
+  obj_type = str(type(lsctable))
 
   # if there's a 'get_' function, use it
   if hasattr(lsctable, 'get_%s' % column):
     return numpy.asarray(getattr(lsctable, 'get_%s' % column)())
 
   # treat 'time' as a special case
-  if column == 'time'\
-  and re.search('(burst|inspiral|ringdown)', lsctable.tableName):
-    if re.search('burst', lsctable.tableName):
+  elif column == 'time' and _trig_regex.search(obj_type):
+    if _burst_regex.search(obj_type):
       tcol = 'peak_time'
-    elif re.search('inspiral', lsctable.tableName):
+    if _cbc_regex.search(obj_type):
       tcol = 'end_time'
-    elif re.search('ringdown', lsctable.tableName):
+    if _ring_regex.search(obj_type):
       tcol = 'start_time'
     return numpy.asarray(lsctable.getColumnByName(tcol)) + \
            numpy.asarray(lsctable.getColumnByName('%s_ns' % tcol))*10**-9
@@ -1373,6 +1374,7 @@ def get(self, parameter):
 
   # format
   parameter = parameter.lower()
+  obj_type = str(type(self))
 
   obj_type = type(self)
 
@@ -1381,15 +1383,14 @@ def get(self, parameter):
     return getattr(self, 'get_%s' % parameter)()
 
   # treat 'time' as a special case
-  elif parameter == 'time'\
-  and re.search('(burst|inspiral|ringdown)', obj_type, re.I):
-    if re.search('burst', obj_type):
+  elif parameter == 'time' and _trig_regex.search(obj_type):
+    if _burst_regex.search(obj_type):
       tcol = 'peak_time'
-    elif re.search('inspiral', obj_type):
+    elif _cbc_regex.search(obj_type):
       tcol = 'end_time'
-    elif re.search('ringdown', obj_type):
+    elif _ring_regex.search(obj_type):
       tcol = 'start_time'
-    return LIGOTimeGPS(getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9)
+    return getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9
 
   else:
    return getattr(self, parameter)
