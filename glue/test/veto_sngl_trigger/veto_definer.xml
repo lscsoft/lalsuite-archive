@@ -16,7 +16,7 @@
       <Column Name="process:ifos" Type="lstring"/>
       <Column Name="process:comment" Type="lstring"/>
       <Stream Name="process:table" Type="Local" Delimiter=",">
-      "process:process_id:0","ligolw_veto_file","1.1","/usr/local/cvs/lscsoft/glue/bin/ligolw_veto_file,v",928501213,"ldas-grid.ligo.caltech.edu","cavaglia",16830,928501213,928501213,"H1L1V1","$Id: H1L1V1-E14_CBC_LOWMASS_ONLINE-928271454-0.xml,v 1.18 2009/06/13 23:06:57 sfairhur Exp $"
+      "process:process_id:0","ligolw_veto_file","1.1","/usr/local/cvs/lscsoft/glue/bin/ligolw_veto_file,v",928501213,"ldas-grid.ligo.caltech.edu","cavaglia",16830,928501213,928501213,"H1L1V1","$Id$"
       </Stream>
    </Table>
    <Table Name="veto_definer:table">
