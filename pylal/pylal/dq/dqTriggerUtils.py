@@ -2004,7 +2004,6 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   else:
     check_time = False
 
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
   attr_map = dict()
 
   peak = peak_time+peak_time_offset
@@ -2045,7 +2044,8 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'snr' in columns:            attr_map['snr']            = snr
   if 'ms_snr' in columns:         attr_map['ms_snr']         = snr
 
-  if 'peak_time_offset' in columns or 'param_one_value' in columns:
+  if 'peak_time_offset' in columns or 'param_one_value' in columns\
+  or 'peak_time_ns' in columns:
     attr_map['param_one_name'] = ['peak_time_offset'] * numtrigs
     attr_map['param_one_value'] = peak_time_offset
   if 'numPixels' in columns or 'param_two_value' in columns:
