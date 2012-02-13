@@ -1126,64 +1126,77 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 
       rank: string
         Column by which to rank clusters
+      test
   """
 
-  outtrigs = lsctables.New(type(triggers))
+  outtrigs = table.new_from_template(triggers)
 
-  i = 0
+  j = 0
 
-  clusters = [triggers]
+  cols = [p[0] for p in params]
+  coldata = dict((p, get_column(triggers, p)) for p in cols+[rank])
+  if 'time' in cols:
+    if _burst_regex.search(triggers.tableName):
+      coldata['stop_time'] = get_column(triggers, 'stop_time') +\
+                             get_column(triggers, 'stop_time_ns')*1e-9
+      coldata['start_time'] = get_column(triggers, 'start_time') +\
+                              get_column(triggers, 'start_time_ns')**1e-9
+    else:
+      coldata['stop_time'] = coldata['time']
+      coldata['start_time'] = coldata['time']
+  if 'peak_frequency' in cols:
+    coldata['flow'] = get_column(triggers, 'flow')
+    coldata['fhigh'] = get_column(triggers, 'fhigh')
 
-  get_time = def_get_time(triggers.tableName)
+  for key in coldata.keys():
+    coldata[key] = coldata[key].astype(float)
 
   # for each parameter break the clusters generated using the previous
   # parameter into smaller clusters by sorting triggers and clustering
   # when all parameters have been used, pick the loudest in each cluster
 
-  while i < len(params):
+  clusters = [range(len(triggers))]
 
-    col,width = params[i]
+  while j < len(params):
+
+    col,width = params[j]
 
     newclusters = []
 
-    for subcluster in clusters:
+    for k,subcluster in enumerate(clusters):
 
       # sort triggers incluster parameter
-      if col=='time':
-        subcluster.sort(key=lambda trigger: get_time(trigger))
-      else:
-        subcluster.sort(key=lambda trigger: trigger.__getattribute__(col))
-
+      subcluster.sort(key=lambda i: coldata[col][i])
       subsubcluster = []
 
-      for trig in subcluster:
+      for i in subcluster:
 
         # get value of param
         if col=='time':
-          valueStop = trig.stop_time + trig.stop_time_ns*1e-9
-          valueStart = trig.start_time + trig.start_time_ns*1e-9
+	  valueStop = coldata['stop_time'][i]
+          valueStart = coldata['start_time'][i]
         elif col=='peak_frequency':
-          valueStop = trig.fhigh
-          valueStart = trig.flow
+          valueStop = coldata['fhigh'][i]
+          valueStart = coldata['flow'][i]
         else:
-          valueStop = trig.__getattribute__(col)
+          valueStop = coldata[col][i]
           valueStart = valueStop
 
         # if subcluster is empty, simply add the first trigger
         if not subsubcluster:
-          subsubcluster = [trig]
+          subsubcluster = [i]
           prevStop = valueStop
           prevStart = valueStart
           continue
 
         # if current trig is inside width, append to cluster
         if (valueStart-prevStop)<width:
-          subsubcluster.append(trig)
+          subsubcluster.append(i)
 
         # if not the subcluster is complete, append it to list and start again
         else:
           newclusters.append(subsubcluster)
-          subsubcluster=[trig]
+          subsubcluster=[i]
 
         prevStart = valueStart
         prevStop = valueStop
@@ -1192,21 +1205,17 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
       newclusters.append(subsubcluster)
 
     clusters = copy.deepcopy(newclusters)
-    i += 1
+    j += 1
 
   # process clusters
   for cluster in clusters:
 
-    cluster.sort(key=lambda trig: trig.__getattribute__(rank), reverse=True)
+    cluster.sort(key=lambda i: coldata[rank][i], reverse=True)
     if len(cluster)>=1:
-      outtrigs.append(cluster[0])
+      outtrigs.append(triggers[cluster[0]])
 
   # resort trigs in first parameter
-  if params[0][0]=='time':
-    outtrigs.sort(key=lambda trig: get_time(trig))
-  else:
-    outtrigs.sort(key=lambda trigger: trigger.__getattribute__(params[0][0]))
-
+  outtrigs.sort(key=lambda t: get(t, cols[0]))
 
   return outtrigs
 
