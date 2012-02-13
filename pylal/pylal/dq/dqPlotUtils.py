@@ -419,7 +419,7 @@ class ScatterPlot(plotutils.BasicPlot):
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
 
-    leg = self.ax.legend()
+    leg = self.ax.get_legend()
     # set transparent legend
     if leg:
       legfr = leg.get_frame()
@@ -519,7 +519,7 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
     self.add_legend_if_labels_exist(loc=loc)
 
     # set transparent legend
-    leg = self.ax.legend()
+    leg = self.ax.get_legend()
     if leg:
       legfr = leg.get_frame()
       legfr.set_alpha(0.5)
@@ -728,8 +728,12 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
         ctype, cmap = colorbar
       assert re.match('(lin|log)', ctype, re.I),\
              "colorbar must have type 'linear', or 'log'"
-      colors = pylab.matplotlib.colors.makeMappingArray(100000,\
-                                                        cmap)
+      try:
+        colors = pylab.matplotlib.colors.makeMappingArray(100000,\
+                                                          cmap)
+      except IndexError:
+        xind = numpy.linspace(0, 1, 100000)
+        colors = numpy.clip(numpy.array(cmap(xind), dtype=numpy.float), 0, 1)
       
       if clim:
         cmin,cmax = clim
@@ -822,7 +826,7 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
     self.add_legend_if_labels_exist(loc=loc)
 
     # fix legend
-    leg = self.ax.legend()
+    leg = self.ax.get_legend()
     if leg:
       for l in leg.get_lines():
         l.set_linewidth(4)
@@ -958,14 +962,15 @@ class DataPlot(plotutils.BasicPlot):
 
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
-    leg = self.ax.legend(loc=loc)
+    leg = self.ax.get_legend()
     # magnify the lines on the legend 
-    try:
-      for l in leg.get_lines():
-        if l.get_linewidth():
-          l.set_linewidth(4)
-    except AttributeError:
-      pass
+    if leg:
+      try:
+        for l in leg.get_lines():
+          if l.get_linewidth():
+            l.set_linewidth(4)
+      except AttributeError:
+        pass
 
     # reset markersizes on plot
     for i,plot in enumerate(plots):
