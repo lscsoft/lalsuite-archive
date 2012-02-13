@@ -615,7 +615,7 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None,\
   xmldoc,digest = utils.load_fileobj(file,gz=file.name.endswith('gz'))
   alltriggers = table.get_table(xmldoc,tablename)
 
-  triggers = lsctables.New(type(alltriggers), columns=columns)
+  triggers = table.new_from_template(alltriggers)
   append = triggers.append
 
   get_time = def_get_time(triggers.tableName)
