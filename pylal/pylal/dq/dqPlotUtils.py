@@ -382,123 +382,6 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
     self.ax.set_ylim(-1, len(self.keys))
 
 # =============================================================================
-# Class for line histogram
-
-class LineHistogram(plotutils.BasicPlot):
-
-  """
-    A simple line histogram plot. The values of each histogram bin are plotted
-    using pylab.plot(), with points centred on the x values and height equal
-    to the y values.
-
-    Cumulative, and rate options can be passeed to the finalize() method to
-    format each trace individually.
-
-  """
-
-  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
-    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
-    self.ax.set_title(title, x=0.5, y=1.025)
-    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
-                 transform=self.ax.transAxes, verticalalignment='top')
-    self.data_sets = []
-    self.livetimes = []
-    self.kwarg_sets = []
-
-  def add_content(self, data, livetime=1, **kwargs):
-    self.data_sets.append(data)
-    self.livetimes.append(livetime)
-    self.kwarg_sets.append(kwargs)
-
-  @plotutils.method_callable_once
-  def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
-               logx=False, logy=False, fill=False, base=10):
-
-    # determine binning
-    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
-    if min_stat!=max_stat:
-      if logx:
-        bins = numpy.logspace(numpy.math.log(min_stat, base),\
-                              numpy.math.log(max_stat, base),\
-                              num_bins+1, endpoint=True)
-      else:
-        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
-    else:
-      bins = []
-
-    if logy:
-      ymin = 5/base
-    else:
-      ymin = 0
-
-    legends = []
-    plot_list = []
-
-    for i, (data_set, livetime, plot_kwargs) in\
-        enumerate(itertools.izip(self.data_sets, self.livetimes,\
-                  self.kwarg_sets)):
-
-      #
-      # make histogram
-      #
-
-      # get version
-      v = [int(i) for i in numpy.version.version.split('.')]
-      if v[1] < 1:
-        y, x = numpy.histogram(data_set, bins=bins)
-      elif v[1] < 3:
-        y, x = numpy.histogram(data_set, bins=bins, new=True)
-        x = x[:-1]
-      else:
-        y, x = numpy.histogram(data_set, bins=bins, new=True)
-        x = x[:-1]
-
-      # get cumulative sum
-      if cumulative:
-        y = y[::-1].cumsum()[::-1]
-
-      # convert to rate
-      if rate:
-        y = y/livetime
-        ymin /= livetime
-
-      # reset zeros on logscale, tried with numpy, unreliable
-      if logy:
-        y = list(y)
-        for j in xrange(0,len(y)):
-          if y[j]==0:
-            y[j] = ymin
-        y = numpy.array(y)
-
-      # plot
-      if fill:
-        plot_kwargs.setdefault('linewidth', 1)
-        plot_kwargs.setdefault('alpha', 0.8)
-        self.ax.plot(x, y, **plot_kwargs)
-        self.ax.fill_between(x, ymin, y, **plot_kwargs)
-      else:
-        self.ax.plot(x, y, **plot_kwargs)
-
-    # set axes
-    if logx:
-      self.ax.set_xscale('log')
-    if logy:
-      self.ax.set_yscale('log')
-
-    # set logy minimum
-    self.ax.set_ybound(lower=ymin/livetime)
-
-    # add legend if there are any non-trivial labels
-    self.add_legend_if_labels_exist(loc=loc)
-
-    # fix legend
-    leg = self.ax.legend()
-    if leg:
-      for l in leg.get_lines():
-        l.set_linewidth(4)
-
-
-# =============================================================================
 # Class for standard scatter plot
 
 class ScatterPlot(plotutils.BasicPlot):
@@ -776,6 +659,173 @@ class DetCharScatterPlot(ColorbarScatterPlot):
       self.ax.set_yscale('log')
 
     self.add_legend_if_labels_exist(loc=loc)
+
+# =============================================================================
+# Class for line histogram
+
+class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
+
+  """
+    A simple line histogram plot. The values of each histogram bin are plotted
+    using pylab.plot(), with points centred on the x values and height equal
+    to the y values.
+
+    Cumulative, and rate options can be passeed to the finalize() method to
+    format each trace individually.
+
+  """
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle="",\
+               colorlabel=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets = []
+    self.livetimes = []
+    self.kwarg_sets = []
+    self.color_label = colorlabel
+    self.color_values = []
+
+  def add_content(self, data, livetime=1, cval=None, **kwargs):
+    self.data_sets.append(data)
+    self.livetimes.append(livetime)
+    self.kwarg_sets.append(kwargs)
+    self.color_values.append(cval)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
+               logx=False, logy=False, fill=False, base=10,\
+               colorbar=None, clim=None):
+
+    # determine binning
+    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    if min_stat!=max_stat:
+      if logx:
+        bins = numpy.logspace(numpy.math.log(min_stat, base),\
+                              numpy.math.log(max_stat, base),\
+                              num_bins+1, endpoint=True)
+      else:
+        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
+    else:
+      bins = []
+
+    if logy:
+      ymin = 5/base
+    else:
+      ymin = 0
+
+    legends = []
+    plot_list = []
+
+    # get colors
+    if colorbar:
+      if isinstance(colorbar, str):
+        ctype = colorbar
+        cmap = pylab.matplotlib.colors.LinearSegmentedColormap('clrs',\
+                                           pylab.matplotlib.cm.hot._segmentdata)
+      else:
+        ctype, cmap = colorbar
+      assert re.match('(lin|log)', ctype, re.I),\
+             "colorbar must have type 'linear', or 'log'"
+      colors = pylab.matplotlib.colors.makeMappingArray(100000,\
+                                                        cmap)
+      
+      if clim:
+        cmin,cmax = clim
+      else:
+        try:
+          cmin = min(self.color_values)
+          cmax = max(self.color_values)
+        except ValueError:
+          cmin = 1
+          cmax = 10
+
+      if re.search('log', ctype, re.I):
+        cmin = numpy.math.log(cmin, base)
+        cmax = numpy.math.log(cmax, base)
+        self.color_values = [numpy.math.log(x, base) for x in self.color_values]
+      color_idx = lambda x: int((x-cmin)/(cmax-cmin)*(len(colors)-1))
+      self.color_values = [colors[color_idx(x)] for x in self.color_values]
+
+    for i, (data_set, livetime, plot_kwargs, col) in\
+        enumerate(itertools.izip(self.data_sets, self.livetimes,\
+                  self.kwarg_sets, self.color_values)):
+
+      #
+      # make histogram
+      #
+
+      # get version
+      v = [int(i) for i in numpy.version.version.split('.')]
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins)
+        x = x[:-1]
+
+      # get cumulative sum
+      if cumulative:
+        y = y[::-1].cumsum()[::-1]
+
+      # convert to rate
+      if rate:
+        y = y/livetime
+        ymin /= livetime
+
+      # reset zeros on logscale, tried with numpy, unreliable
+      if logy:
+        y = list(y)
+        for j in xrange(0,len(y)):
+          if y[j]==0:
+            y[j] = ymin
+        y = numpy.array(y)
+
+      # set color
+      if colorbar:
+        plot_kwargs['color'] = col
+
+      # plot
+      if fill:
+        plot_kwargs.setdefault('linewidth', 1)
+        plot_kwargs.setdefault('alpha', 0.8)
+        self.ax.plot(x, y, **plot_kwargs)
+        self.ax.fill_between(x, ymin, y, **plot_kwargs)
+      else:
+        self.ax.plot(x, y, **plot_kwargs)
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+    # set colorbar
+    if colorbar:
+      if len(self.ax.lines):
+        self.set_colorbar(self.ax.scatter(x[0], y[0], c=cmin, cmap=cmap,\
+                                          vmin=cmin, vmax=cmax, visible=False),\
+                          clim=[cmin, cmax], log=re.search('log', ctype, re.I))
+      else:
+        self.set_colorbar(self.ax.scatter([0], [0], c=1, cmap=cmap,\
+                                          vmin=cmin, vmax=cmax, visible=False),\
+                          clim=[cmin, cmax])
+
+    # set logy minimum
+    if len(self.ax.lines):
+      self.ax.set_ybound(lower=ymin/livetime)
+
+    # add legend if there are any non-trivial labels
+    self.add_legend_if_labels_exist(loc=loc)
+
+    # fix legend
+    leg = self.ax.legend()
+    if leg:
+      for l in leg.get_lines():
+        l.set_linewidth(4)
 
 # =============================================================================
 # Extension of VerticalBarHistogram to include log axes
@@ -1473,6 +1523,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 # Plot a histogram of any column
 
 def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
+                      color_column=None, color_bins=10,\
                       seglist=None, flag='unknown', start=None, end=None,\
                       livetime=None, etg=None, **kwargs):
 
@@ -1560,10 +1611,39 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   else:
     seglist = segments.segmentlist(seglist)
 
+  # format colours
+  logz = kwargs.pop('logz', False)
+  clim = kwargs.pop('clim', None)
+ 
+  if color_column:
+    colData = get_column(triggers, color_column)
+    if not clim:
+      clim = [colData.min(), colData.max()]
+    if isinstance(color_bins, int):
+      num_color_bins = color_bins
+      if logz:
+        color_bins = numpy.logspace(numpy.math.log10(clim[0]),\
+                                    numpy.math.log10(clim[1]),\
+                                    num=num_color_bins)
+      else:
+        color_bins = numpy.linspace(0, clim[1],\
+                                    num=num_color_bins)
+    else:
+      num_color_bins = len(color_bins)
+  else:
+    num_color_bins = 1
+
   # get data
   tdata    = get_column(triggers, 'time')
-  preData  = get_column(triggers, column).astype(float)
-  postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
+  preData = []
+  postData = []
+  for i in range(num_color_bins):
+    if color_column:
+      preData.append(get_column(triggers, column)[colData>=color_bins[i]])
+    else:
+      preData.append(get_column(triggers, column))
+    postData.append([p for j,p in enumerate(preData[i])\
+                     if tdata[j] not in seglist])
 
   # get veto livetime
   vetoLivetime = livetime-float(abs(seglist))
@@ -1637,21 +1717,34 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   else:
     subtitle = ""
   subtitle = kwargs.pop('subtitle', subtitle)
+  zlabel  = kwargs.pop('zlabel',\
+                       color_column and display_name(color_column) or "")
 
   # generate plot object
-  plot = LineHistogram(xlabel, ylabel, title, subtitle)
+  plot = LineHistogram(xlabel, ylabel, title, subtitle, zlabel)
 
   # add each data set
-  plot.add_content(preData, livetime=livetime, color=color[0],\
-                   linestyle=linestyle[0], label=label[0], **kwargs)
-  if seglist:
-    plot.add_content(postData, livetime=vetoLivetime, color=color[1],\
-                     linestyle=linestyle[1], label=label[1], **kwargs)
+  if color_column: 
+    for i in range(len(preData)):
+      plot.add_content(preData[i], livetime=livetime, cval=color_bins[i],\
+                       linestyle=linestyle[0], label=label[0], **kwargs)
+  else:
+    plot.add_content(preData[0], livetime=livetime, color=color[0],\
+                     linestyle=linestyle[0], label=label[0], **kwargs)
+    if seglist:
+      plot.add_content(postData[0], livetime=vetoLivetime, color=color[1],\
+                       linestyle=linestyle[1], label=label[1], **kwargs)
+
+  
 
   # finalize plot with histograms
   if not num_bins: num_bins=100
+  if color_column:
+    colorbar = logz and 'log' or 'linear'
+  else:
+    colorbar = None
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy, cumulative=cumulative,\
-                rate=rate, fill=fill)
+                rate=rate, fill=fill, colorbar=colorbar)
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
 
   # set lower y axis limit
@@ -1667,7 +1760,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   if xlim:
     plot.ax.set_xlim(xlim)
   if ylim:
-    plot.ax.set_ylim(ylim)
+    ploy.ax.set_ylim(ylim)
 
   # set global ticks
   set_ticks(plot.ax)
