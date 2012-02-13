@@ -144,6 +144,7 @@ for filename in filenames:
 	xmldoc, changed = ligolw_bucluster.ligolw_bucluster(
 		xmldoc,
 		program = options.program,
+		process = process,
 		prefunc = prefunc,
 		postfunc = postfunc,
 		testfunc = testfunc,
