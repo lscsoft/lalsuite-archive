@@ -1271,16 +1271,14 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
     and entry in table2.
   """
 
-  get_time_1 = def_get_time(table1.tableName)
-  get_time_2 = def_get_time(table2.tableName)
+  t1 = get_column(table1, 'time')
+  t2 = get_column(table2, 'time')
 
-  trigseg = lambda t: segments.segment(get_time_2(t) - dt,\
-                                       get_time_2(t) + dt)
-
-  coincsegs = segments.segmentlist([trigseg(t) for t in table2])
-  coincsegs = coincsegs.coalesce()
+  coincsegs  = segments.segmentlist(segments.segment(t-dt, t+dt) for t in t2)\
+                   .coalesce()
+  coincsegs.sort()
   coinctrigs = table.new_from_template(table1)
-  coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
+  coinctrigs.extend(t for i,t in enumerate(table1) if t1[i] in coincsegs)
 
   if returnsegs:
     return coinctrigs,coincsegs
