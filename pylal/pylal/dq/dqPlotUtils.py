@@ -2820,12 +2820,13 @@ def parse_plot_config(cp, section):
   if len(plot)>2:
     columns['zcolumn'] = plot[2]
 
-  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
+  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants',\
+              'color_bins']
   filters  = ['poles', 'zeros']
   bins     = ['bins']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator', 'normalized', 'include_downtime',\
-              'calendar_time']
+              'calendar_time', 'fill']
   values   = ['dcthresh','amplitude','num_bins']
 
   # extract plot params as a dict
