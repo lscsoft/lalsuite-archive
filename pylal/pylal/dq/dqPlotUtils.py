@@ -23,15 +23,12 @@
 from __future__ import division
 import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 
-# formce matplotlib backend to Agg, the display detection below doesn't seem to work 
-matplotlib.use('Agg')
-
 # test matplotlib backend and reset if needed
 from os import getenv
 _display = getenv('DISPLAY','')
 _backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
 """
-if not _display and matplotlib.get_backend() is not 'Agg':
+if not _display and matplotlib.get_backend().lower() is not 'agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
 import pylab
