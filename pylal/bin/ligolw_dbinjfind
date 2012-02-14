@@ -29,13 +29,11 @@ sqlite3.enable_callback_tracebacks(True)
 import sys
 import os
 import shutil
-import re
 
 from glue import git_version
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process
-from glue.iterutils import any
 
 from pylal import ligolw_dbinjfind
 from pylal import ligolw_sqlutils as sqlutils
@@ -76,7 +74,7 @@ def parse_command_line():
         help =
             "Required. Name of table to look in for injections. This table must have a simulation_id column."
         )
-    parser.add_option( "-r", "--recovery-table", action = "store", type = "string", default = None,
+    parser.add_option( "-r", "--recovery-table", action = "store", type = "string", default = [],
         help =
             "Required. Name of (sngl) table to look in for events. This table must have an event_id and an ifo column."
         )
@@ -90,7 +88,7 @@ def parse_command_line():
         help =
             "Use a rough cut before applying the match criteria. This cuts down on the number  of times the match-criteria must be executed between injections and sim-inspiral events. Must be a single column in each table; example: 'geocent_end_time:end_time:10'. It is STRONGLY recommended that you use this, as it will cut down the execution time substantialy."
         )
-    parser.add_option( "-R", "--check-all-data", action = "append", type = "string", default = [],
+    parser.add_option( "-R", "--check-all-data", action = "append", type = "string", default = None,
         metavar = "CRITERIA:WINDOW_SIZE",
         help =
             "Check all_data (i.e., zero-lag data with no injections) for an event with values of the given column within the given window size. If an event is found, then the corresponding event in simulation data cannot be mapped to any injection. (The reasoning is if the same event event exists in simulation data and all_data, it cannot be from an injection.) The specified column can be any math operation on any of the columns in the recovery table. For example, if 'end_time+end_time_ns*1e-9:0' is specified, the end time will be used; a window size of 0 means that the events must have the exact same time to be considered the same. This option can be specified multiple times. If it is, all specified criteria must match in order for an event not to be considered for injection mapping."
@@ -189,11 +187,6 @@ xmldoc = dbtables.get_xml(connection)
 this_process = process.register_to_xmldoc(xmldoc, __prog__, opts.__dict__, version = git_version.id)
 
 # parse opts
-
-# we'll need the columns in each table for error checking
-snglcols = sqlutils.get_column_names_from_table(connection, opts.recovery_table)
-simcols = sqlutils.get_column_names_from_table(connection, opts.simulation_table) 
-
 match_criteria = []
 for test in opts.match_criteria:
     if len(test.split(':')) == 3:
@@ -203,25 +196,6 @@ for test in opts.match_criteria:
         snglCriteria = None
     else:
         raise ValueError, "--match-criteria not formatted correctly; see --help"
-    # check for startTime/endtime consistency
-    if snglCriteria == 'startTime' and ('start_time' not in snglcols
-    or 'start_time_ns' not in snglcols):
-        raise ValueError, "Recovery-table match criteria set to startTime, but start_time and start_time_ns columns not found in the %s table." %( opts.recovery_table )
-    if snglCriteria == 'endTime' and ('end_time' not in snglcols
-    or 'end_time_ns' not in snglcols):
-        raise ValueError, "Recovery-table match criteria set to endTime, but end_time and end_time_ns columns not found in the %s table." %( opts.recovery_table )
-    if simCriteria == 'startTime':
-        simTest = [(re.match('[a-z]_start_time', col) is not None
-            and re.match('[a-z]_start_time_ns', col) is None) or
-            (re.match('[a-z]_start_time_ns', col) is not None) for col in simcols]
-        if not any(simTest):
-            raise ValueError, "Simulation table match criteria set to startTime, but [a-z]_start_time and [a-z]_start_time_ns columns not found in the %s table." % opts.simulation_table
-    if simCriteria == 'endTime':
-        simTest = [(re.match('[a-z]_end_time', col) is not None
-            and re.match('[a-z]_end_time_ns', col) is None) or
-            (re.match('[a-z]_end_time_ns', col) is not None) for col in simcols]
-        if not any(simTest):
-            raise ValueError, "Simulation table match criteria set to endTime, but [a-z]_end_time and [a-z]_end_time_ns columns not found in the %s table." % opts.simulation_table
     window = float(window)
     match_criteria.append( (simCriteria, snglCriteria, window) )
 
@@ -232,6 +206,8 @@ if opts.rough_match is not None:
         rough_match = (simCriteria, snglCriteria, window)
     else:
         raise ValueError, "--rough-match not formatted corrrectly; see --help"
+    snglcols = sqlutils.get_column_names_from_table(connection, opts.recovery_table)
+    simcols = sqlutils.get_column_names_from_table(connection, opts.simulation_table) 
     if snglCriteria not in snglcols:
         raise ValueError, "Recovery table criteria for rough match must be a single column that is in the recovery table (no math). Options are: %s." % ', '.join(sorted(snglcols))
     if simCriteria not in simcols:
@@ -255,6 +231,7 @@ if opts.rough_all_data_check is not None:
         rough_rejection = (criteria, window)
     else:
         raise ValueError, "--rough-all-data-check not formatted correctly; see --help"
+    snglcols = sqlutils.get_column_names_from_table(connection, opts.recovery_table)
     if criteria not in snglcols:
         raise ValueError, "Criteria for rough-all-data-check must be a single column that is in the recovery table (no math). Options are: %s." % ', '.join(sorted(snglcols))
 else:
