@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006,2012  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -131,11 +131,15 @@ for filename in filenames:
 	xmldoc = utils.load_filename(filename, verbose = options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
+	# FIXME:  don't do this:  fix lalapps_power's output
+	if options.cluster_algorithm in ("excesspower",):
+		ligolw_bucluster.add_ms_columns(xmldoc)
+
 	#
 	# Add process information
 	#
 
-	process = append_process(xmldoc, cluster_algorithm = options.cluster_algorithm, comment = options.comment)
+	process = ligolw_bucluster.append_process(xmldoc, cluster_algorithm = options.cluster_algorithm, comment = options.comment)
 
 	#
 	# Call clustering library
@@ -144,6 +148,7 @@ for filename in filenames:
 	xmldoc, changed = ligolw_bucluster.ligolw_bucluster(
 		xmldoc,
 		program = options.program,
+		process = process,
 		prefunc = prefunc,
 		postfunc = postfunc,
 		testfunc = testfunc,

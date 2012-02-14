@@ -236,13 +236,13 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     current_time = str(gpstime.GpsSecondsFromPyUTC(time.time()))
 
     # make sure gps time is 9 digits
-    if (len(sum_line[0])!=9 or len(sum_line[1])!=9):
-       print "\nERROR: gps time must be 9 digits"
-       print "Invalid interval in your --summary-file row number: %d " % line_no
-       print "Invalid interval is %s" % str(sum_line)
-       sys.exit(1)
-    # make sure interval start time is less than and not equal to end time
-    elif (int(sum_line[0]) >= int(sum_line[1])):
+    #if (len(sum_line[0])!=9 or len(sum_line[1])!=9):
+    #   print "\nERROR: gps time must be 9 digits"
+    #   print "Invalid interval in your --summary-file row number: %d " % line_no
+    #   print "Invalid interval is %s" % str(sum_line)
+    #   sys.exit(1)
+    ## make sure interval start time is less than and not equal to end time
+    if (int(sum_line[0]) >= int(sum_line[1])):
        print "\nERROR: start_time MUST be less than the end_time"
        print "Invalid interval in your --summary-file row number: %d " % line_no
        print "Invalid interval is %s" % str(sum_line)
@@ -278,11 +278,11 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
        print "Invalid segment is %s" % str(seg_line)
        sys.exit(1)
     # make sure gps time is 9 digits
-    if (len(seg_line[0]) != 9 or len(seg_line[1])!=9): 
-       print "\nERROR: gps time must be 9 digits"
-       print "Invalid segment in your --segment-file row number: %d" % line_no
-       print "Invalid segment is %s" % str(seg_line)
-       sys.exit(1)
+    #if (len(seg_line[0]) != 9 or len(seg_line[1])!=9): 
+    #   print "\nERROR: gps time must be 9 digits"
+    #   print "Invalid segment in your --segment-file row number: %d" % line_no
+    #   print "Invalid segment is %s" % str(seg_line)
+    #   sys.exit(1)
     # make sure segment start_time is less than end_time:
     if int(seg_line[0])>=int(seg_line[1]):
       print "\nERROR: segment start_time MUST be less than the end_time"
