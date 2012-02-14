@@ -19,6 +19,7 @@ import bisect
 
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
+from glue.ligolw import ilwd
 from glue.iterutils import any
 from glue import git_version
 
@@ -566,12 +567,18 @@ def get_next_id(connection, table, id_column):
     Gets the next available id in the specified id_column in the specified table.
     """
     sqlquery = ' '.join(['SELECT', id_column, 'FROM', table ])
-    ids = [id[0] for id in connection.cursor().execute(sqlquery)]
-    idnums = [int(id.split(':')[2]) for id in ids]
-    new_idnum = max(idnums) + 1
-    new_id = ':'.join([ids[0].split(':')[0], ids[1].split(':')[1], str(new_idnum)])
+    ids = dict([ [int(ilwd.get_ilwdchar(this_id)), ilwd.get_ilwdchar(this_id)] for (this_id,) in connection.cursor().execute(sqlquery)])
+    new_id = ids[ max(ids.keys()) ] + 1
 
     return new_id
+
+def increment_id( last_id, nsteps = 1 ):
+    """
+    Increments the given id by nsteps.
+    """
+    next_id = last_id.split(':')
+    next_id[-1] = str( int(next_id[-1]) + nsteps )
+    return ':'.join(next_id)
     
 def end_time_in_ns( end_time, end_time_ns ):
     return end_time*1e9 + end_time_ns
@@ -1027,6 +1034,27 @@ def join_experiment_tables_to_coinc_table(table):
         AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
         AND experiment_map.coinc_event_id == %s.coinc_event_id )""" % table
 
+def join_experiment_tables_to_sngl_table(table):
+    """
+    Writes JOIN string to join the experiment, experiment_summary,
+    and experiment_map tables to the specified table. This allows
+    querying across any of these tables.
+
+    @table: any lsctable that has an event_id column
+
+    NOTE: Should only use when querying the specified table; i.e.,
+    when the specified table is the only one listed in the FROM statement.
+    """
+
+    return ''.join(['''
+    JOIN
+        experiment, experiment_summary, experiment_map, coinc_event_map 
+    ON ( 
+        experiment.experiment_id == experiment_summary.experiment_id
+        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+        AND experiment_map.coinc_event_id == coinc_event_map.coinc_event_id
+        AND coinc_event_map.event_id == ''', table, '''.event_id
+        AND coinc_event_map.table_name == "''', table, '" )' ])
 
 def clean_experiment_tables(connection, verbose = False):
     """
@@ -1287,6 +1315,221 @@ def apply_inclusion_rules_to_coinc_table( connection, coinc_table, exclude_coinc
             clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
             clean_coinc_event_map = True, clean_mapped_tables = True )
 
+
+# =============================================================================
+#
+#                       CoincDefiner Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the coinc_definer table
+def write_newstyle_coinc_def_entry( connection, description, search = None, search_coinc_type = None ):
+    """
+    Adds a new entry to the coinc_definer_table. The only thing used to discriminate
+    different coinc_definer entries is the description column. Search and search_coinc_type
+    can also be optionally specified.
+    """
+    sqlquery = "SELECT coinc_def_id FROM coinc_definer WHERE description == ?"
+    results = connection.cursor().execute( sqlquery, (description,) ).fetchall()
+    if results == []:
+        # none found, write new entry
+        this_id = get_next_id( connection, 'coinc_definer', 'coinc_def_id' )
+        sqlquery = 'INSERT INTO coinc_definer (coinc_def_id, description, search, search_coinc_type) VALUES (?, ?, ?, ?)'
+        connection.cursor().execute( sqlquery, (str(this_id), description, search, search_coinc_type) )
+        connection.commit()
+    else:
+        this_id = ilwd.get_ilwdchar(results.pop()[0])
+
+    return this_id
+
+def get_map_labels( connection ):
+    """
+    Retrieves values in the description column of the coinc_definer table.
+    """
+    sqlquery = """
+        SELECT DISTINCT
+            description
+        FROM
+            coinc_definer
+        """
+    return [lbl for (lbl,) in connection.cursor().execute(sqlquery).fetchall()]
+
+def get_coinc_types( connection ):
+    """
+    Retrieves all of the distinct map-label and coinc-type pairs in the database.
+    A dictionary is returned in which they keys are the map-labels and the values
+    are lists of tuples. Each tuple gives all of the tables mapped to a
+    coinc_event_id.
+    """
+    # create a function to get the mapped tables
+    create_mapped_tables_func( connection )
+    sqlquery = """
+        SELECT DISTINCT
+            coinc_definer.description,
+            get_mapped_tables(a.table_name),
+            get_mapped_tables(b.table_name)
+        FROM
+            coinc_event_map AS a
+        JOIN
+            coinc_definer, coinc_event
+        ON (
+            coinc_definer.coinc_def_id == coinc_event.coinc_def_id AND
+            coinc_event.coinc_event_id == a.coinc_event_id )
+        LEFT OUTER JOIN
+            coinc_event_map AS b
+        ON (
+            a.event_id == b.coinc_event_id )
+        GROUP BY
+            coinc_event.coinc_event_id
+        """
+    coinc_types = {}
+    for (map_type, tblsA, tblsB) in connection.cursor().execute(sqlquery).fetchall():
+        coinc_types.setdefault( map_type, [] )
+        if tblsB == '':
+            coinc_types[ map_type ].append(set(tblsA.split(',')))
+        else:
+            coinc_types[ map_type ].append(set(tblsA.split(',') + tblsB.split(',')))
+
+    return coinc_types
+
+def delete_map( connection, map_label ):
+    """
+    Deletes all mappings that have the given map_label in the description column of the coinc_definer table.
+    """
+    # FIXME: Currently, this only will delete coinc_event_ids from the coinc_event
+    # coinc_event_map table; consider extending to data tables (e.g., coinc_inspiral)
+    # in the future
+    sqlquery = """
+        DELETE FROM
+            coinc_definer
+        WHERE
+            description == ?"""
+    connection.cursor().execute( sqlquery, (map_label,) )
+    connection.commit()
+    sqlquery = """
+        DELETE FROM
+            coinc_event
+        WHERE
+            coinc_def_id NOT IN (
+            SELECT
+                coinc_def_id
+            FROM
+                coinc_definer );
+        DELETE FROM
+            coinc_event_map
+        WHERE
+            coinc_event_id NOT IN (
+            SELECT
+                coinc_event_id
+            FROM
+                coinc_event );
+        """
+    connection.cursor().executescript(sqlquery)
+
+def delete_coinc_type( connection, map_label, coincTables ):
+    """
+    Deletes all mappings that have the given coinc type.
+    
+    @map_label: the type of mapping between the tables to delete
+     (this is stored in the description column of the coinc_definer
+     table)
+    @coinctables: list of the table names involved in the
+     coincidences to delete. These define the coinc type.
+    """
+    # FIXME: Currently, this only will delete coinc_event_ids from the coinc_event
+    # coinc_event_map table; consider extending to data tables (e.g., coinc_inspiral)
+    # in the future
+    create_mapped_tables_func(connection, 2)
+    # create a table of coinc_event_ids to delete
+    sqlquery = """
+        CREATE TEMP TABLE delete_coinc_types AS
+                SELECT
+                    a.coinc_event_id AS ceid
+                FROM
+                    coinc_event_map AS a
+                LEFT OUTER JOIN
+                    coinc_event_map AS b
+                ON (
+                    a.event_id == b.coinc_event_id )
+                GROUP BY
+                    a.coinc_event_id
+                HAVING
+                    get_mapped_tables(a.table_name, b.table_name) == ? 
+                """
+    connection.cursor().execute(sqlquery, (','.join(sorted(coincTables)),)) 
+    sqlquery = """
+        DELETE FROM
+            coinc_event
+        WHERE
+            coinc_event_id IN (
+            SELECT
+                ceid
+            FROM
+                delete_coinc_types );
+        DELETE FROM
+            coinc_event_map
+        WHERE
+            coinc_event_id IN (
+            SELECT
+                ceid
+            FROM
+                delete_coinc_types );
+        DELETE FROM
+            coinc_definer
+        WHERE
+            coinc_def_id NOT IN (
+            SELECT DISTINCT
+                coinc_def_id
+            FROM
+                coinc_event );
+        DROP TABLE delete_coinc_types;
+        """
+    connection.cursor().executescript(sqlquery)
+    connection.commit()
+
+
+# =============================================================================
+#
+#                       CoincEvent Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the coinc_event table
+def add_coinc_event_entries( connection, process_id, coinc_def_id, time_slide_id, num_new_entries = 1 ):
+    """
+    Writes N new entries in the coinc_event table, where N is given by num_new_entries.
+    """
+    # get the next id
+    start_id = get_next_id( connection, 'coinc_event', 'coinc_event_id' )
+    # create list of new entries to add
+    new_entries = [(str(process_id), str(coinc_def_id), str(time_slide_id), str(start_id+ii)) for ii in range(num_new_entries)]
+    # add the entries to the coinc_event tabe
+    sqlquery = 'INSERT INTO coinc_event (process_id, coinc_def_id, time_slide_id, coinc_event_id) VALUES (?, ?, ?, ?)'
+    connection.cursor().executemany( sqlquery, new_entries )
+    # return the coinc_event_ids of the new entries
+    return [ilwd.get_ilwdchar(new_id[-1]) for new_id in new_entries]
+
+
+def update_coinctab_nevents( connection ):
+    """
+    Updates the nevents column based on what's in the coinc_event_map table.
+    """
+    sqlquery = """
+        UPDATE
+            coinc_event
+        SET
+            nevents = (
+                SELECT
+                    COUNT(*)
+                FROM
+                    coinc_event_map
+                WHERE
+                    coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+            )"""
+    connection.cursor().execute(sqlquery)
+    connection.commit()
+
+
 # =============================================================================
 #
 #                             CoincEventMap Utilities
@@ -1325,7 +1568,42 @@ def get_matching_tables( connection, coinc_event_ids ):
 
     return matching_tables
 
+class get_mapped_tables:
+    """
+    Convenience class to retrieve all the tables mapped to a coinc_event_id.
+    If added as an aggregate function to a connection, this can be called
+    in a query. Example:
 
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_aggregate('get_mapped_tables', 1, sqlutils.get_mapped_tables)
+    sqlquery = '''
+        SELECT
+            coinc_event_id,
+            get_mapped_tables(table_name)
+        FROM
+            coinc_event_map
+        GROUP BY
+            coinc_event_id
+            '''
+    connection.cursor().execute(sqlquery)
+
+    This would return all the tables mapped to each coinc_event_id
+    in the coinc_event_map table.
+    """
+    def __init__(self):
+        self.result = []
+    def step(self, *table_names):
+        self.result.extend(map(str, table_names))
+    def finalize(self):
+        return ','.join(sorted(set(self.result)-set(['None'])))
+
+def create_mapped_tables_func(connection, nargs = 1):
+    """
+    Creates a function in the database called get_mapped_tables that allows one
+    to quickly get all the mapped tables to a coinc_event_id.
+    """
+    connection.create_aggregate( 'get_mapped_tables', nargs, get_mapped_tables)
+    
 def clean_mapped_event_tables( connection, tableList, raise_err_on_missing_evid = False, verbose = False ):
     """
     Cleans tables given in tableList of events whose event_ids aren't in
