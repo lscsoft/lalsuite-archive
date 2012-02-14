@@ -97,8 +97,8 @@ def createDataRowClass( classTableName, baseClass = None, columns = [] ):
     # determine the base class
     if baseClass is not None:
         base = baseClass
-    elif classTableName in lsctables.TableByName:
-        base = lsctables.TableByName[ classTableName ].RowType
+    elif classTableName in TableByName:
+        base = TableByName[ classTableName ].RowType
     else:
         base = object
 
@@ -371,7 +371,7 @@ class CompareDataRows:
          the order that classBcolumnOrder is in.
         """
         dataA = [args[i] for i in range(len(self.classAcolumnOrder))]
-        dataB = [args[i] for i in range(len(self.classAcolumnOrder), len(args))]
+        dataB = [args[i] for i in range(len(self.classBcolumnOrder), len(args))]
         dataA = zip( self.classAcolumnOrder, dataA )
         dataB = zip( self.classBcolumnOrder, dataB )
 
@@ -472,7 +472,7 @@ class CompareDataRows:
         if self.matchCriteriaA == 'startTime':
             site = snglRow.ifo.lower()[0]
             a = getattr( simRow, '%s_start_time' % site ) + 1e-9*getattr( simRow, '%s_start_time_ns' % site )
-        elif self.matchCriteriaA == 'endTime':
+        elif self.matchCriteriaB == 'endTime':
             site = snglRow.ifo.lower()[0]
             a = getattr( simRow, '%s_end_time' % site ) + 1e-9*getattr( simRow, '%s_end_time_ns' % site )
         else:
