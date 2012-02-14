@@ -97,8 +97,8 @@ def createDataRowClass( classTableName, baseClass = None, columns = [] ):
     # determine the base class
     if baseClass is not None:
         base = baseClass
-    elif classTableName in TableByName:
-        base = TableByName[ classTableName ].RowType
+    elif classTableName in lsctables.TableByName:
+        base = lsctables.TableByName[ classTableName ].RowType
     else:
         base = object
 
