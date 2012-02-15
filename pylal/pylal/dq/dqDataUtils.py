@@ -440,7 +440,7 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
   if verbose: sys.stdout.write("%s window constructed.\nConstructing "
                                "median-mean average spectrum "
                                "with %d segments...\n"\
-                               % (window.title(), numseg))
+                               % (window, numseg))
 
   #
   # construct PSD
@@ -617,11 +617,11 @@ def WindowDataSeries(series, window=None):
   assert len(series)==len(window), 'Window and data must be same shape'
 
   # get sum of squares
-  sumofsquares = numpy.power(window,2).sum()
+  sumofsquares = (window**2).sum()
   assert sumofsquares > 0, 'Sum of squares of window non-positive.'
 
   # generate norm
-  norm = numpy.sqrt(len(window)/numpy.power(window,2).sum())
+  norm = (len(window)/sumofsquares)**(1/2)
 
   # apply window
   return series * window * norm
@@ -653,7 +653,7 @@ def PowerSpectrum(series, sides='onesided'):
 
   # others
   s = (len(series)+1)//2
-  spec[1:s] = 2 * ( numpy.power(tmp[1:s].real, 2) + numpy.power(tmp[1:s].imag , 2) )
+  spec[1:s] = 2 * (tmp[1:s].real**2 + tmp[1:s].imag**2)
 
   # Nyquist
   if len(series) % 2 == 0:
@@ -741,6 +741,5 @@ def burst_range(f, S, rho=8, E=1e-2, fmin=64, fmax=500):
   # calculate integral
   FOM1 = scipy.integrate.trapz(f_dependent_burst_range(f2, S2, rho, E)**3, f2)
   FOM2 = FOM1/(fmax-fmin)
-  R = scipy.power(FOM2,1/3)
 
-  return R
+  return FOM2**(1/3)

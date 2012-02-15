@@ -28,8 +28,6 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
-NRCSID(LALSIMIMRH, "$Id$");
-
 /**
  * The number of e-folds of ringdown which should be attached for 
  * EOBNR models
@@ -47,8 +45,8 @@ NRCSID(LALSIMIMRH, "$Id$");
  * PSpinInspiralRD waveforms.
  */
 typedef enum {
-  TotalJ,
   View,
+  TotalJ,
   OrbitalL,
 } InputAxis;
 

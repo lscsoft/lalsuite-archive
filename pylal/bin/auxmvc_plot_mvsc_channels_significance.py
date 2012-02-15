@@ -1,7 +1,7 @@
 #!/usr/bin/python
 __author__ = "Hugo Marrochio <hcmarroc@mit.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"
+__date__ = "$Date$"
 
 __prog__="auxmvc_plot_mvsc_channels_significance.py"
 __Id__ = "$Id$"
