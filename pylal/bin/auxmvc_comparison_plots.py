@@ -19,15 +19,18 @@ import pickle
 from scipy.interpolate import interp1d
 
 
-def FAPToRank(ranks_data,FAP):
-	ranks_data_sorted=numpy.sort(ranks_data)
-	FAPs=[]
-	for i,rank in enumerate(ranks_data_sorted):
-		number_of_false_alarms = len(clean_ranks_sorted) - numpy.searchsorted(clean_ranks_sorted,rank)
-		FAPs.append(number_of_false_alarms/float(len(clean_ranks_sorted)))
-	ranks_func = interp1d(FAPs,ranks_data_sorted)
 
-	return ranks_func(FAP)
+def PrateToRank(ranks,Prate):
+	### convert a certain positive rate(Prate) to a corresponding rank in rank data
+	ranks_sorted=numpy.sort(ranks)
+	PositiveRates=[]
+	for i,rank in enumerate(ranks_sorted):
+		number_of_positive = len(ranks_sorted) - numpy.searchsorted(ranks_sorted,rank)
+		PositiveRates.append(number_of_positive/float(len(ranks_sorted)))
+	#ranks_func = interp1d(PositiveRates,ranks_sorted)
+	RankThr = ranks[numpy.searchsorted(PositiveRates,Prate)]
+
+	return RankThr
 
 
 def vetoGlitchesUnderFAP(glitch_data, rank_name, Rankthr, FAPthr):
@@ -123,7 +126,7 @@ def generateTotalRankedTriggers(classifiers):
 	return total_data
 	
 
-def giveMeCVeto(CVetoOutput, gwtcent, deltat = 0)
+def giveMeCVeto(CVetoOutput, gwtcent, deltat = 0):
   '''
   this is meant to return the CVeto data corresponding to a given central time (tcent) for a GW glitch. the CVeto data returned is a list of the form:
     [cveto_eff, cveto_fap, cveto_rank, cveto_chan]
@@ -152,7 +155,7 @@ def giveMeCVeto(CVetoOutput, gwtcent, deltat = 0)
     #check to see if the CVeto data matches gwtcent
     if CVetoOutput[index][Dic['tcent']] < begint:
       pass
-    elseif CVetoOutput[index][Dic['tcent']] > endt:
+    elif CVetoOutput[index][Dic['tcent']] > endt:
       pass
     else:
       # extract desired data from CVetoOutput
@@ -209,15 +212,30 @@ if not classifiers:
 
 total_ranked_data = generateTotalRankedTriggers(classifiers)
 
-if classifiers[-1][0] == 'cveto':
-	total_ranked_data['cveto_rank'] = 'please change this part for cveto_rank' 
-	total_ranked_data['cveto_fap'] = 'plese change this part for cveto_fap'
-	total_ranked_data['cveto_eff'] = 'please change this part for cfeto_eff'
-	total_ranked_data['cveto_chan'] = 'please change this part for cveto_chan'
+
+glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
+cleans = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
 
 
-# create a cumulative histogram of snr 
-#n, bins, patches = pylab.hist(snr,bins, normed=1, histtype='step', cumulative=True)
-#y=pylab.normpdf(bins,mu,sigma).comsum()
-#y /= y[-1]
-#plot(bins,y,'k--',linewidth=1.5)
+## Create Cumulative histograms of GW SNR for glitch triggers above RankThr and FAPThr
+vetoed_triggers=[]
+pylab.figure(1)
+FAPThr = 0.1
+pylab.hist(glitches['SNR'],10,histtype='step',cumulative=-1,label='before vetoing')
+pylab.title("Cumulative histogram for SNR of glitches after vetoing at FAP "+str(FAPThr))
+pylab.xlabel('SNR')
+pylab.ylabel('Number of Glitches')
+pylab.xscale('log')
+pylab.yscale('log')
+eff_file=open('efficiency_at_fap'+str(FAPThr)+'.txt','w')
+eff_file.write('Vetoed Results at FAP='+str(FAPThr)+'\n')
+for cls in classifiers:
+	rank_name = cls[0]+'_rank'
+	RankThr = PrateToRank(cleans[rank_name],FAPThr)
+	glitches_vetoed, efficiency = vetoGlitchesUnderFAP(glitches,rank_name,RankThr,FAPThr)
+	pylab.hist(glitches_vetoed['SNR'],10,histtype='step',cumulative=-1,label=cls[0])
+	eff_file.write(cls[0]+' Efficiency : '+str(efficiency)+', threshold rank :'+str(RankThr)+'\n')
+pylab.legend()
+pylab.savefig('cumulative_snr_fap'+str(FAPThr)+'.png')
+pylab.close()
+
