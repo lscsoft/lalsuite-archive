@@ -39,6 +39,7 @@ cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
 # Define ETG options
 # =============================================================================
 
+_trig_regex  = re.compile('(burst|inspiral|ring)', re.I)
 _burst_regex = re.compile('(burst|omega|kleine|kw|cwb|hacr)', re.I)
 _cbc_regex   = re.compile('(ihope|inspiral|cbc)', re.I)
 _ring_regex  = re.compile('(ring)', re.I)
@@ -50,13 +51,24 @@ def SnglTriggerTable(etg, columns=None):
   """
 
   if _burst_regex.search(etg):
-    return lsctables.New(lsctables.SnglBurstTable, columns=columns)
+    t = lsctables.New(lsctables.SnglBurstTable, columns=columns)
   elif _cbc_regex.search(etg):
-    return lsctables.New(lsctables.SnglInspiralTable, columns=columns)
+    t = lsctables.New(lsctables.SnglInspiralTable, columns=columns)
   elif _ring_regex.search(etg):
-    return lsctables.New(lsctables.SnglRingdownTable, columns=columns)
+    t = lsctables.New(lsctables.SnglRingdownTable, columns=columns)
   else:
     raise AttributeError("etg=%s not recognised by SnglTriggerTable." % etg)
+
+  # set columns
+  if columns:
+    columns = map(str.lower, columns)
+    for c in t.columnnames:
+      if c.lower() not in columns:
+        idx = t.columnnames.index(c)
+        t.columnnames.pop(idx)
+        t.columntypes.pop(idx)
+
+  return t
 
 def SnglTrigger(etg):
   """
@@ -491,7 +503,7 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'energy','amplitude','num_pixels','significance','N']
 
     elif re.match('hacr',etg.lower()):
-      columns = ['peak_time','param_one_value','central_freq','bandwidth',\
+      columns = ['peak_time','param_one_value','peak_frequency','bandwidth',\
                 'duration','param_two_value','snr','param_three_value']
 
   # set delimiter
@@ -504,19 +516,18 @@ def totrigfile(file,table,etg,header=True,columns=None):
   if header:
     cols = []
     for c in columns:
-      if c.startswith('param') and c.endswith('value'):
-        try:
-          cols.append(table[0].__getattribute__(c.replace('value','name')))
-        except IndexError:
-          cols.append(c)
+      if re.search('param_[a-z]+_value', c) and len(table)>0\
+      and hasattr(table[0], c.replace('value','name')):
+          cols.append(getattr(table[0], c.replace('value','name')))
       else:
         cols.append(c)
-    print >>file, d.join(['#']+cols)
+    file.write('%s\n' % d.join(['#']+cols))
 
-  columnnames = table.columnnames
-  if not columnnames:
+  # work out columns
+  if len(table)>0:
     t = table[0]
-    columnnames = table[0].__slots__
+    columnnames = [t for t in table[0].__slots__ if hasattr(table[0], t)]
+
   # print triggers
   for row in table:
     line = []
@@ -529,9 +540,9 @@ def totrigfile(file,table,etg,header=True,columns=None):
        if re.match('(ihope|hacr)',etg.lower()):
          # HACR default is to have peak_time_ns in seconds, not ns
          if re.match('hacr',etg.lower()) and col=='peak_time_ns':
-           entry = str(row.__getattribute__(col)/math.pow(10,9))
+           entry = str(getattr(row, col))
          else:
-           entry = str(row.__getattribute__(col))
+           entry = str(getattr(row, col))
        # if not ihope, check for time and print full GPS
        else:
          if col=='peak_time':
@@ -545,11 +556,11 @@ def totrigfile(file,table,etg,header=True,columns=None):
          elif col=='ms_stop_time':
            entry = str(row.get_ms_stop())
          else:
-           entry = str(row.__getattribute__(col))
+           entry = str(getattr(row, col))
 
        line.append(entry)
 
-    print >>file, d.join(line)
+    file.write('%s\n' % d.join(line))
 
 # =============================================================================
 # Function to load triggers from xml
@@ -604,7 +615,7 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None,\
   xmldoc,digest = utils.load_fileobj(file,gz=file.name.endswith('gz'))
   alltriggers = table.get_table(xmldoc,tablename)
 
-  triggers = lsctables.New(type(alltriggers), columns=columns)
+  triggers = table.new_from_template(alltriggers)
   append = triggers.append
 
   get_time = def_get_time(triggers.tableName)
@@ -1115,64 +1126,77 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 
       rank: string
         Column by which to rank clusters
+      test
   """
 
-  outtrigs = lsctables.New(type(triggers))
+  outtrigs = table.new_from_template(triggers)
 
-  i = 0
+  j = 0
 
-  clusters = [triggers]
+  cols = [p[0] for p in params]
+  coldata = dict((p, get_column(triggers, p)) for p in cols+[rank])
+  if 'time' in cols:
+    if _burst_regex.search(triggers.tableName):
+      coldata['stop_time'] = get_column(triggers, 'stop_time') +\
+                             get_column(triggers, 'stop_time_ns')*1e-9
+      coldata['start_time'] = get_column(triggers, 'start_time') +\
+                              get_column(triggers, 'start_time_ns')**1e-9
+    else:
+      coldata['stop_time'] = coldata['time']
+      coldata['start_time'] = coldata['time']
+  if 'peak_frequency' in cols:
+    coldata['flow'] = get_column(triggers, 'flow')
+    coldata['fhigh'] = get_column(triggers, 'fhigh')
 
-  get_time = def_get_time(triggers.tableName)
+  for key in coldata.keys():
+    coldata[key] = coldata[key].astype(float)
 
   # for each parameter break the clusters generated using the previous
   # parameter into smaller clusters by sorting triggers and clustering
   # when all parameters have been used, pick the loudest in each cluster
 
-  while i < len(params):
+  clusters = [range(len(triggers))]
 
-    col,width = params[i]
+  while j < len(params):
+
+    col,width = params[j]
 
     newclusters = []
 
-    for subcluster in clusters:
+    for k,subcluster in enumerate(clusters):
 
       # sort triggers incluster parameter
-      if col=='time':
-        subcluster.sort(key=lambda trigger: get_time(trigger))
-      else:
-        subcluster.sort(key=lambda trigger: trigger.__getattribute__(col))
-
+      subcluster.sort(key=lambda i: coldata[col][i])
       subsubcluster = []
 
-      for trig in subcluster:
+      for i in subcluster:
 
         # get value of param
         if col=='time':
-          valueStop = trig.stop_time + trig.stop_time_ns*1e-9
-          valueStart = trig.start_time + trig.start_time_ns*1e-9
+	  valueStop = coldata['stop_time'][i]
+          valueStart = coldata['start_time'][i]
         elif col=='peak_frequency':
-          valueStop = trig.fhigh
-          valueStart = trig.flow
+          valueStop = coldata['fhigh'][i]
+          valueStart = coldata['flow'][i]
         else:
-          valueStop = trig.__getattribute__(col)
+          valueStop = coldata[col][i]
           valueStart = valueStop
 
         # if subcluster is empty, simply add the first trigger
         if not subsubcluster:
-          subsubcluster = [trig]
+          subsubcluster = [i]
           prevStop = valueStop
           prevStart = valueStart
           continue
 
         # if current trig is inside width, append to cluster
         if (valueStart-prevStop)<width:
-          subsubcluster.append(trig)
+          subsubcluster.append(i)
 
         # if not the subcluster is complete, append it to list and start again
         else:
           newclusters.append(subsubcluster)
-          subsubcluster=[trig]
+          subsubcluster=[i]
 
         prevStart = valueStart
         prevStop = valueStop
@@ -1181,21 +1205,17 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
       newclusters.append(subsubcluster)
 
     clusters = copy.deepcopy(newclusters)
-    i += 1
+    j += 1
 
   # process clusters
   for cluster in clusters:
 
-    cluster.sort(key=lambda trig: trig.__getattribute__(rank), reverse=True)
+    cluster.sort(key=lambda i: coldata[rank][i], reverse=True)
     if len(cluster)>=1:
-      outtrigs.append(cluster[0])
+      outtrigs.append(triggers[cluster[0]])
 
   # resort trigs in first parameter
-  if params[0][0]=='time':
-    outtrigs.sort(key=lambda trig: get_time(trig))
-  else:
-    outtrigs.sort(key=lambda trigger: trigger.__getattribute__(params[0][0]))
-
+  outtrigs.sort(key=lambda t: get(t, cols[0]))
 
   return outtrigs
 
@@ -1260,16 +1280,14 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
     and entry in table2.
   """
 
-  get_time_1 = def_get_time(table1.tableName)
-  get_time_2 = def_get_time(table2.tableName)
+  t1 = get_column(table1, 'time')
+  t2 = get_column(table2, 'time')
 
-  trigseg = lambda t: segments.segment(get_time_2(t) - dt,\
-                                       get_time_2(t) + dt)
-
-  coincsegs = segments.segmentlist([trigseg(t) for t in table2])
-  coincsegs = coincsegs.coalesce()
+  coincsegs  = segments.segmentlist(segments.segment(t-dt, t+dt) for t in t2)\
+                   .coalesce()
+  coincsegs.sort()
   coinctrigs = table.new_from_template(table1)
-  coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
+  coinctrigs.extend(t for i,t in enumerate(table1) if t1[i] in coincsegs)
 
   if returnsegs:
     return coinctrigs,coincsegs
@@ -1281,7 +1299,7 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
 # ==============================================================================
 
 def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
-                        coltype=LIGOTimeGPS, returnsegs=False):
+                       returnsegs=False):
 
   get_time = def_get_time(gwtriggers.tableName)
   aux_get_time = def_get_time(auxtriggers.tableName)
@@ -1336,19 +1354,19 @@ def get_column(lsctable, column):
  
   # format column
   column = str(column).lower()
+  obj_type = str(type(lsctable))
 
   # if there's a 'get_' function, use it
   if hasattr(lsctable, 'get_%s' % column):
     return numpy.asarray(getattr(lsctable, 'get_%s' % column)())
 
   # treat 'time' as a special case
-  if column == 'time'\
-  and re.search('(burst|inspiral|ringdown)', lsctable.tableName):
-    if re.search('burst', lsctable.tableName):
+  elif column == 'time' and _trig_regex.search(obj_type):
+    if _burst_regex.search(obj_type):
       tcol = 'peak_time'
-    elif re.search('inspiral', lsctable.tableName):
+    if _cbc_regex.search(obj_type):
       tcol = 'end_time'
-    elif re.search('ringdown', lsctable.tableName):
+    if _ring_regex.search(obj_type):
       tcol = 'start_time'
     return numpy.asarray(lsctable.getColumnByName(tcol)) + \
            numpy.asarray(lsctable.getColumnByName('%s_ns' % tcol))*10**-9
@@ -1363,23 +1381,21 @@ def get(self, parameter):
 
   # format
   parameter = parameter.lower()
-
-  obj_type = type(self)
+  obj_type = str(type(self))
 
   # if there's a 'get_' function, use it
   if hasattr(self, 'get_%s' % parameter):
     return getattr(self, 'get_%s' % parameter)()
 
   # treat 'time' as a special case
-  elif parameter == 'time'\
-  and re.search('(burst|inspiral|ringdown)', obj_type, re.I):
-    if re.search('burst', obj_type):
+  elif parameter == 'time' and _trig_regex.search(obj_type):
+    if _burst_regex.search(obj_type):
       tcol = 'peak_time'
-    elif re.search('inspiral', obj_type):
+    elif _cbc_regex.search(obj_type):
       tcol = 'end_time'
-    elif re.search('ringdown', obj_type):
+    elif _ring_regex.search(obj_type):
       tcol = 'start_time'
-    return LIGOTimeGPS(getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9)
+    return getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9
 
   else:
    return getattr(self, parameter)
@@ -1464,7 +1480,7 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('omega', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1599,7 +1615,7 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('kw', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1724,7 +1740,7 @@ def fromomegaspectrumfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('omegaspectrum', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1820,7 +1836,7 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('omegadq', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1838,7 +1854,7 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
   if numpy.shape(dat) == (0,):
     return out
 
-  if len(dat)==3:
+  if len(dat)==13:
     st, stop, peak, flow, fhigh, nev, ms_start, ms_stop, ms_flow, ms_fhigh,\
     cls, cle, ms_cle = dat
   else:
@@ -1952,7 +1968,7 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
     check_time = False
 
   # generate table
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+  out = SnglTriggerTable('hacr', columns=columns)
 
   # force filename not file object
   if hasattr(fname, 'readline'):
@@ -1994,7 +2010,6 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   else:
     check_time = False
 
-  out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
   attr_map = dict()
 
   peak = peak_time+peak_time_offset
@@ -2035,7 +2050,8 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'snr' in columns:            attr_map['snr']            = snr
   if 'ms_snr' in columns:         attr_map['ms_snr']         = snr
 
-  if 'peak_time_offset' in columns or 'param_one_value' in columns:
+  if 'peak_time_offset' in columns or 'param_one_value' in columns\
+  or 'peak_time_ns' in columns:
     attr_map['param_one_name'] = ['peak_time_offset'] * numtrigs
     attr_map['param_one_value'] = peak_time_offset
   if 'numPixels' in columns or 'param_two_value' in columns:
@@ -2129,7 +2145,8 @@ def fromihopefile(fname, start=None, end=None, ifo=None, channel=None,\
   else:
     numtrigs = 0
 
-  out = lsctables.New(lsctables.SnglInspiralTable, columns=columns)
+  # generate table
+  out = SnglTriggerTable('ihope', columns=columns)
 
   cols   = numpy.arange(len(dat))
   append = out.append
@@ -2184,7 +2201,7 @@ def loadtxt(fh, usecols=None):
   """
 
   _comment = re.compile('[#%]')
-  _delim   = re.compile('[\t\,\s]')
+  _delim   = re.compile('[\t\,\s]+')
   output = []
   for i,line in enumerate(fh):
     if _comment.match(line): continue
