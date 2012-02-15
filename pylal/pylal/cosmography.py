@@ -24,12 +24,12 @@ from scipy.optimize import newton
 
 from pylal.xlal.constants import LAL_PC_SI, LAL_C_SI
 
-h0 = 70.3  # km / s / Mpc
-H0_SI = h0 * 1000 / (1000000 * LAL_PC_SI)  # Hubble constant in inverse seconds
+h0 = 0.703  # H0 = h0 * 100 km / s / Mpc
+H0_SI = h0 * 100000 / (1000000 * LAL_PC_SI)  # Hubble constant in inverse seconds
 DH_SI = LAL_C_SI / H0_SI  # Hubble distance in meters
-OmegaM = 0.1338 / (h0 * h0)  # fraction of crit. density in matter
-OmegaL = 0.729  # fraction of crit. density in dark energy
-OmegaR = 1 - OmegaM - OmegaL  # remainder
+OmegaL = 0.729
+OmegaM = 0.271 # sum of baryonic and cold dark matter Omega
+OmegaR = 0 # the remainder is consistent with zero given the error bars
 
 def Einv(z):
     """
