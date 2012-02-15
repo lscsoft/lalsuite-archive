@@ -49,7 +49,7 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
-import pulsarpputils as pppu
+from lalapps import pulsarpputils as pppu
 
 __author__="Matthew Pitkin <matthew.pitkin@ligo.org>"
 __version__= "git id %s"%git_version.id
@@ -57,7 +57,7 @@ __date__= git_version.date
 
 
 def pulsarBayesPostProc( outdir, data,
-                         upperlimit,
+                         upperlimit, histbins,
                          #nested sampling options
                          ns_Nlive=None, priorfile,
                          #Turn on 2D kdes
@@ -81,21 +81,32 @@ def pulsarBayesPostProc( outdir, data,
   if not os.path.isdir(outdir):
     os.makedirs(outdir)
   
-  # if input format is xml
-  votfile = None
-  if '.xml' in data[0]:
-    peparser = bppu.PEOutputParser('xml')
-    commonResultsObj = peparser.parse(data[0])
-    thefile = open(data[0],'r')
-    votfile = thefile.read()
-  else: # input as standard nested sampling input
-    peparser = bppu.PEOutputParser('ns')
-    commonResultsObj = peparser.parse(data, Nlive=ns_Nlive, xflag=False)
+  # list of posteriors for each ifo
+  poslist = []
+  
+  # loop over ifos and generate posteriors
+  for idx, ifo in enumerate(ifos):
+    # nested sampling data files for IFO idx
+    idat = data[idx]
+    
+    # if input format is xml
+    votfile = None
+    if '.xml' in data[0]:
+      peparser = bppu.PEOutputParser('xml')
+      commonResultsObj = peparser.parse(idat[0])
+      thefile = open(idat[0],'r')
+      votfile = thefile.read()
+    else: # input as standard nested sampling input
+      peparser = bppu.PEOutputParser('ns')
+      commonResultsObj = peparser.parse(idat, Nlive=ns_Nlive, xflag=False)
 
-  # Create an instance of the posterior class using the posterior values loaded
-  # from the file.
-  pos = bppu.Posterior( commonResultsObj, SimInspiralTableEntry=None, \
-                        votfile=votfile )
+    # Create an instance of the posterior class using the posterior values
+    # loaded from the file.
+    pos = bppu.Posterior( commonResultsObj, SimInspiralTableEntry=None, \
+                          votfile=votfile )
+    
+    # append to list
+    poslist = poslist.append(pos)
   
   # read in par file if given
   if parfile is not None:
@@ -114,17 +125,47 @@ def pulsarBayesPostProc( outdir, data,
    
   # get parameters to plot from prior file and those with "Errors" in the par
   # file
+  plotpars = []
+  pri = pppu.psr_prior(priorfile)
+  for pars in float_keys:
+    # prior file values have preference over par file values with errors in the
+    # nested sampling code
+    pars_err = pars+'_ERR'
+    
+    if pri[pars] is not None:
+      plotpars.append(pars)
+    elif par[pars_err] is not None:
+      plotpars.append(pars)
+      
+  # if h0 exists plot the pdf
+  if 'H0' in plotpars:
+    rbins, plotFig = pppu.plot_posterior_hist(poslist, 'H0'.lower(), histbins,
+                                              ifos, upperlimit)
   
+    figname= 'H0'.lower()+'.png'
+    oneDplotPath = os.path.join(outdir, figname)
+    plotFig.savefig(oneDplotPath)
+      
     
 # main function
 if __name__=='__main__':
   from optparse import OptionParser
   
-  parser=OptionParser()
+  parser = OptionParser()
   parser.add_option("-o", "--outpath", dest="outpath", help="Make page and " \
                     "plots in DIR", metavar="DIR")
+  
+  """
+   data will be read in in the following format:
+     multiple nested sampling files from each IFO would be entered as follows:
+     --ifos H1 --data nest1_H1.txt,nest2_H1.txt,nest3_H1.txt
+     --ifos L1 --data nest1_L1.txt,nest2_L1.txt,nest3_L1.txt
+     --ifos H1L1 --data nest1_H1L1.txt,nest2_H1L1.txt,nest3_H1L1.txt
+  """
   parser.add_option("-d","--data",dest="data",action="append",help="A list " \
-                    "of nested sampling data files")
+                    "of nested sampling data files for a particular IFO " \
+                    "separated by commas (each IFO should use a separate " \
+                    "instance of --data)")
 
   # number of live points
   parser.add_option("--Nlive", action="store", default=None, help="Number of " \
@@ -156,17 +197,26 @@ if __name__=='__main__':
                     help="A heterodyned data file.", default=None)
   
   # get list of the detectors used (same order as Bk files)
-  parser.add_option("-i", "--ifos", dest="ifos", action="append", default=None)
+  parser.add_option("-i", "--ifo", dest="ifos", action="append", default=None)
+  
+  # get number of bins for histogramming (default = 50)
+  parser.add_option("-b", "--histbins", dest="histbins", help="The number of " \
+                    "bins for histrogram plots.", default=50)
   
   # parse input options
-  (opts,args)=parser.parse_args()
+  (opts, args) = parser.parse_args()
   
   # upper limits wanted for output
-  upperlimit=[0.95]
+  upperlimit=0.95
+  
+  # sort out data into lists for each IFO
+  data = []
+  for i, ifo in enumerate(ifos):
+    data.append(opts.data[i].split(','))
   
   # call pulsarBayesPostProc function
-  cbcBayesPostProc( opts.outpath, opts.data,
-                    upperlimit,
+  cbcBayesPostProc( opts.outpath, data,
+                    upperlimit, opts.histbins,
                     ns_Nlive=opts.Nlive, opts.priorfile,
                     twodkdeplots=opts.twodkdeplots,
                     RconvergenceTests=opts.RconvergenceTests,
