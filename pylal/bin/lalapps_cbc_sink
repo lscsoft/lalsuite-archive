@@ -105,6 +105,7 @@ class UpperLimitTable(table.Table):
                         "calib_error":"lstring",
                         "wave_error":"lstring",
                         "upper_limit_in_mergers_per_Mpc3_per_yr":"lstring",
+                        "prior_upper_limit":"lstring",
                         "effective_numerator":"lstring",
                         "livetime_in_days":"lstring",
                         "injs_found":"int_4s",
@@ -407,6 +408,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
       row.livetime_in_days = "%f" % (total_lt[mbin]*constants.LAL_YRJUL_SI/(3600*24),)
       row.avg_reach_in_Mpc = "%.1f" % ((total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
       row.upper_limit_in_mergers_per_Mpc3_per_yr = "%.3g" % (combined_upper_limit[mbin],)
+      row.prior_upper_limit = "%.3g" % (prior_upper_limit[mbin],)
       row.effective_numerator = "%.2f" % (combined_upper_limit[mbin]*total_vol[mbin],)
       row.MC_error = "%.3f" % (total_err[mbin] / total_vol[mbin],)
       row.calib_error = "%.2f" % (opts.cal_err,)
@@ -416,7 +418,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
 
       ul_table.append(row)
 
-   columnList += ['sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','MC_error','calib_error','wave_error','injs_found','injs_missed']
+   columnList += ['sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','prior_upper_limit','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','MC_error','calib_error','wave_error','injs_found','injs_missed']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)
