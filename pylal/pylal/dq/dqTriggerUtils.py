@@ -1567,6 +1567,7 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
 
   if 'duration' in columns:       attr_map['duration']       = duration
   if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
+  if 'amplitude' in columns:      attr_map['amplitude']      = amplitude
   if 'snr' in columns:            attr_map['snr']      = numpy.sqrt(2*amplitude)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
@@ -1699,6 +1700,7 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
 
+  if 'amplitude' in columns:      attr_map['amplitude']      = amplitude
   if 'snr' in columns:            attr_map['snr']  = numpy.sqrt(amplitude-n_pix)
 
   if 'n_pix' in columns or 'param_one_value' in columns:
@@ -1927,8 +1929,9 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = (flow+fhigh)/2
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = (flow+fhigh)/2
 
-  if 'snr' in columns:            attr_map['snr']            = numpy.sqrt(cle)
-  if 'ms_snr' in columns:         attr_map['ms_snr']        = numpy.sqrt(ms_cle)
+  if 'amplitude' in columns:      attr_map['amplitude']      = cle
+  if 'snr' in columns:            attr_map['snr']            = numpy.sqrt(2*cle)
+  if 'ms_snr' in columns:         attr_map['ms_snr']      = numpy.sqrt(2*ms_cle)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['cluster_size'] * numtrigs
