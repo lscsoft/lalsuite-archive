@@ -393,7 +393,7 @@ class upper_limit(object):
     return self.instruments
 
 
-  def get_volume_derivative(self,instruments,bin_type,FAR):
+  def get_volume_derivative(self,instruments,bin_type,FAR,fnameList=None, tagList=None,InspiralUtilsOpts=None):
     """
     Compute the derivative of the search volume at the FAR of the loudest event
     """
@@ -434,29 +434,55 @@ class upper_limit(object):
 
     # compute the volume derivative in each mass bin
     volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
+    fars *= self.livetime[instruments]
+    FAR *= self.livetime[instruments]
 
     # two-d case first
     if bin_type == "Mass1_Mass2":
       for j,m1 in enumerate(self.mass_bins[bin_type].centres()[0]):
         for k,m2 in enumerate(self.mass_bins[bin_type].centres()[1]):
-          vtmp = numpy.array([v[(m1,m2)] for v in vA])
-          tag = "%s-BINNED_BY_%s_%s_bin%d_%d-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),self.opts.user_tag,j,k,self.start_time,self.end_time-self.start_time)
-          volDeriv[(m1,m2)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
+          vtmp = self.livetime[instruments]*numpy.array([v[(m1,m2)] for v in vA])
+          tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
+          coeffs = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR)
+          volDeriv[(m1,m2)] = coeffs[0]
           if self.opts.verbose:
-            print >> sys.stdout, "mass bin = %f,%f" %(m1,m2)
+            print >> sys.stdout, "mass bin = %.1f,%.1f" %(m1,m2)
             print >> sys.stdout, "vols = ", vtmp
             print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m1,m2)],)
-      return volDeriv
 
+          if vtmp.max() == 0: continue
+          numpy.linspace(fars[0],fars[-1],100)
+          pyplot.plot(fars,numpy.log(vtmp),'rx')
+          farsi = numpy.linspace(fars[0],fars[-1],100)
+          pyplot.plot(farsi,coeffs[0]*farsi+coeffs[1],label="%.1f-%.1f"%(m1,m2))
     # one-d case next
-    for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
-      vtmp = numpy.array([v[(m,)] for v in vA])
-      tag = "%s-BINNED_BY_%s_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),self.opts.user_tag,j,self.start_time,self.end_time-self.start_time)
-      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
-      if self.opts.verbose:
-        print >> sys.stdout, "mass bin = %f" %(m,)
-        print >> sys.stdout, "vols = ", vtmp
-        print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m,)],)
+    else: #FIXME right now m1m2 is only twod binning
+      for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
+        vtmp = self.livetime[instruments]*numpy.array([v[(m,)] for v in vA])
+        tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
+        coeffs = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR)
+        volDeriv[(m,)] = coeffs[0]
+        if self.opts.verbose:
+          print >> sys.stdout, "mass bin = %.f" %(m,)
+          print >> sys.stdout, "vols = ", vtmp
+          print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m,)],)
+
+        if vtmp.max() == 0: continue
+        numpy.linspace(fars[0],fars[-1],100)
+        pyplot.plot(fars,numpy.log(vtmp),'rx')
+        farsi = numpy.linspace(fars[0],fars[-1],100)
+        pyplot.plot(farsi,coeffs[0]*farsi+coeffs[1],label="%.1f"%m)
+
+    pyplot.legend(loc="lower right")
+    pyplot.xlabel("False Alarm Number (per expt)")
+    pyplot.ylabel("log VT")
+    pyplot.title("Volume derivative fits for %s bins"%bin_type.lower().replace('_',' '))
+    name = InspiralUtils.set_figure_tag(tag , open_box = opts.open_box)
+    fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    fnameList.append(fname)
+    tagList.append(name)
+    pyplot.close()
 
     return volDeriv
 
@@ -731,7 +757,7 @@ for bin_type in UL.mass_bins:
   for instruments in UL.instruments:
 
     #compute volume derivative at loudest event
-    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments])
+    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments],fnameList,tagList,InspiralUtilsOpts) #Grrr FIXME
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
@@ -749,6 +775,7 @@ for bin_type in UL.mass_bins:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(name)
+      pyplot.close()
 
 
     # make a live time table
