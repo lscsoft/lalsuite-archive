@@ -62,11 +62,16 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     return likely
 
 
-def compute_upper_limit(mu, post, alpha = 0.9):
+def compute_upper_limit(mu_in, post, alpha = 0.9):
     """
     Returns the upper limit mu_high of confidence level alpha for a
     posterior distribution post on the given parameter mu.
     """
+    # interpolate to a linearly spaced array for accuracy in mu
+    post_rep = interpolate.splrep(mu_in, post)
+    mu = numpy.linspace(mu_in.min(),mu_in.max(),len(mu_in))
+    post = interpolate.splev(mu, post_rep)
+
     if 0 < alpha < 1:
         high_idx = bisect.bisect_left( post.cumsum()/post.sum(), alpha )
         # if alpha is in (0,1] and post is non-negative, bisect_left

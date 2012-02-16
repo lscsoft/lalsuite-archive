@@ -212,7 +212,9 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      priors = lal.Cache([])
 
    # compute the combined posterior with errors included
-   mu = numpy.linspace(0.02/total_vol.array.sum().max(),25/total_vol.array[total_vol.array>0].min(),1e5)
+   if total_vol.array.sum().max() == 0: continue
+
+   mu = numpy.logspace(numpy.log10(0.02/total_vol.array.sum().max()),numpy.log10(25/total_vol.array[total_vol.array>0].min()),1e5)
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
      vs = numpy.array([v[mbin] for v in vols])
      pk = priors.sieve(description="%s:%d:"%(bin_type,j+1))
@@ -220,7 +222,6 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      if len(pk) == 1: # use given prior
        if opts.verbose:
          print >>sys.stdout,"\tbin %s... using input prior"%str(mbin)
-       mu = numpy.linspace(0.01/total_vol.array.sum().max(),10/total_vol.array[total_vol.array>0].min(),3e4) #FIXME just a good rule of thumb
        mu_in = numpy.loadtxt(pk[0].path())[:,0] / Mpc3_per_L10
        prior = numpy.loadtxt(pk[0].path())[:,1]
        prior_new = interpolate.splrep(mu_in,prior,k=1,s=0)
