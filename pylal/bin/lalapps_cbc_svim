@@ -34,16 +34,18 @@ from glue import iterutils
 from pylal import db_thinca_rings
 from pylal import llwapp
 from pylal import rate
-from pylal import SimInspiralUtils
+from pylal import InspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.xlal import constants
 from pylal import upper_limit_utils
+from pylal import InspiralUtils
 
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
+
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -63,8 +65,6 @@ def plot_efficiency(eff,err,dbins,mass_bins,tag):
   pyplot.xlim([0,max(dbins)])
   pyplot.xlabel("Distance (Mpc)")
   pyplot.ylabel("Efficiency")
-  pyplot.savefig(tag +".png")
-  pyplot.close()
 
 
 #
@@ -440,7 +440,7 @@ class upper_limit(object):
       for j,m1 in enumerate(self.mass_bins[bin_type].centres()[0]):
         for k,m2 in enumerate(self.mass_bins[bin_type].centres()[1]):
           vtmp = numpy.array([v[(m1,m2)] for v in vA])
-          tag = "%s-BINNED_BY_%s_%s_bin%d_%d-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),self.opts.output_tag,j,k,self.start_time,self.end_time-self.start_time)
+          tag = "%s-BINNED_BY_%s_%s_bin%d_%d-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),self.opts.user_tag,j,k,self.start_time,self.end_time-self.start_time)
           volDeriv[(m1,m2)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
           if self.opts.verbose:
             print >> sys.stdout, "mass bin = %f,%f" %(m1,m2)
@@ -451,7 +451,7 @@ class upper_limit(object):
     # one-d case next
     for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
       vtmp = numpy.array([v[(m,)] for v in vA])
-      tag = "%s-BINNED_BY_%s_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),self.opts.output_tag,j,self.start_time,self.end_time-self.start_time)
+      tag = "%s-BINNED_BY_%s_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),self.opts.user_tag,j,self.start_time,self.end_time-self.start_time)
       volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
       if self.opts.verbose:
         print >> sys.stdout, "mass bin = %f" %(m,)
@@ -653,10 +653,15 @@ will compute the search volume using all injections with at least one component 
   # Techincal options which the general user won't care about
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
-  parser.add_option("--output-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
+  parser.add_option("--user-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
   parser.add_option("--output-cache", default = None, help = "Name of output cache file. If not specified, then no cache file will be written.")
+
+  # options for level of output
+  parser.add_option("--output-path", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
+  parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
+  parser.add_option("--plot-derivative-fit", action = "store_true", help = "Plot the volume derivative fit for each mass bin.")
 
   opts, filenames = parser.parse_args()
 
@@ -666,6 +671,8 @@ will compute the search volume using all injections with at least one component 
   if len(filenames) != 1:
     print >>sys.stderr, "Error: must specify exactly one database file"
     sys.exit(1)
+
+  opts.enable_output = True
 
   if opts.chirp_mass_bins:
     opts.bin_by_chirp_mass = True
@@ -706,14 +713,22 @@ def write_cache(cache_list, fileout):
 opts, database = parse_command_line()
 
 # read in data from input database, store in upper limit object
-UL = upper_limit(database, opts)
-#
+UL = upper_limit(database, opts)#
+
+# Set up opts structure for use with InspiralUtils
+opts.gps_start_time = UL.start_time
+opts.gps_end_time = UL.end_time
+
 # loop over the requested instruments and mass bin types,
 # compute the search volume and volume derivative at the specified
 # FAR for the given mass bin
 #
-for instruments in UL.instruments:
-  for bin_type in UL.mass_bins:
+for bin_type in UL.mass_bins:
+  __prog__ = "lalapps_cbc_svim_by_" + bin_type.lower()
+  InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
+  fnameList = []; tagList = []
+
+  for instruments in UL.instruments:
 
     #compute volume derivative at loudest event
     dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments])
@@ -725,19 +740,16 @@ for instruments in UL.instruments:
     vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
     vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
 
-    # it is useful to look at the efficiencies
-    if opts.verbose:
-      tag = "%s-SEARCH_EFFICIENCY_BINNED_BY_%s_%s-%d-%d" % ("".join(sorted(list(instruments))),bin_type.upper(),opts.output_tag,UL.start_time,UL.end_time-UL.start_time)
-      plot_efficiency(eff,err,UL.dbins[instruments],UL.mass_bins[bin_type],tag)
 
-      wikisum = tag + ".wiki"
-      fd = open(wikisum,'w')
-      if len(UL.mass_bins[bin_type]) == 1:
-        masstags = ''.join([" ||<-3>'''%.1f-%.1f Msun''' VT (Mpc3*yr) / Lambda / error ||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
-        fd.write("|| '''Analysis time''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
-        masstags = ''.join([" ||  %.0f || %.2f || %.2f ||"%(v,dv,er) for v,dv,er in zip(vA.array,dvA.array,vA2.array/vA.array)])
-        fd.write("|| %d-%d || %d (%f) || %.2f || %s\n" %(UL.start_time,UL.end_time,UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
-        fd.close()
+    if opts.plot_efficiency:
+      tag = "%s-SEARCH_EFFICIENCY_BINNED_BY_%s" % ("".join(sorted(list(instruments))),bin_type.upper())
+      plot_efficiency(eff,err,UL.dbins[instruments],UL.mass_bins[bin_type],tag)
+      name = InspiralUtils.set_figure_tag(tag , open_box = opts.open_box)
+      fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+      fnameList.append(fname)
+      tagList.append(name)
+
 
     # make a live time table
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
@@ -765,7 +777,7 @@ for instruments in UL.instruments:
       xml.appendChild(array.from_array(u"array",output_arrays[arr]))
       child.appendChild(xml)
 
-    output_filename = "%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % ("".join(sorted(list(instruments))),bin_type.upper(),opts.output_tag,UL.start_time,UL.end_time-UL.start_time)
+    output_filename = "%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % ("".join(sorted(list(instruments))),bin_type.upper(),opts.user_tag,UL.start_time,UL.end_time-UL.start_time)
     utils.write_filename(xmldoc, output_filename)
     cache_entry =  lal.CacheEntry( "".join(sorted(list(instruments))),
                                    bin_type,
@@ -773,6 +785,13 @@ for instruments in UL.instruments:
                                    "file://localhost%s/%s" % (os.getcwd(),output_filename) )
 
     cache_list.append(cache_entry)
+
+
+  plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [database], fnameList,
+                                              tagList, add_box_flag = False )
+  InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
+
+
 
 # write a cache file describing the files generated during by this program
 if opts.output_cache:
