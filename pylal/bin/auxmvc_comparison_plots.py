@@ -203,8 +203,8 @@ if opts.ann_ranked_files:
 	#classifiers.append(['ann',glob.glob(opts.ann_ranked_files)])
 	classifiers.append(['ann',opts.ann_ranked_files.split(',')])
 if opts.svm_ranked_files:
-	#classifiers.append(['svm',glob.glob(opts.ann_ranked_files)])
-	classifiers.append(['svm',opts.ann_ranked_files.split(',')])
+	#classifiers.append(['svm',glob.glob(opts.svm_ranked_files)])
+	classifiers.append(['svm',opts.svm_ranked_files.split(',')])
 if opts.cveto_ranked_files:
 	#classifiers.append(['cveto',glob.glob(opts.cveto_ranked_files)])
 	classifiers.append(['cveto',opts.cveto_ranked_files.split(',')])
