@@ -371,7 +371,7 @@ class CompareDataRows:
          the order that classBcolumnOrder is in.
         """
         dataA = [args[i] for i in range(len(self.classAcolumnOrder))]
-        dataB = [args[i] for i in range(len(self.classBcolumnOrder), len(args))]
+        dataB = [args[i] for i in range(len(self.classAcolumnOrder), len(args))]
         dataA = zip( self.classAcolumnOrder, dataA )
         dataB = zip( self.classBcolumnOrder, dataB )
 
