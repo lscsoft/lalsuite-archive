@@ -130,6 +130,8 @@ def parse_command_line():
 			  help="Choose directory to save output files.")
 	parser.add_option("--open-box", default = False, action = "store_true",
 			  help="Turn flag on to indicate that input data describes zero-lag coincident events.")
+	parser.add_option("--verbose", default = False, action = "store_true",
+			  help="Talk to me baby, I'm listening.")
         parser.add_option("--user-tag",default = '',help = "Add a descriptive string to the output file names.")
         parser.add_option("--prior-cache",default = None, help = "Specify a cache file containing rate priors. The first column of the files in the cache will be interpreseted as the rate. The second column will be interpreted as the posterior density. The description field of the cache file should indicate the number of the mass bin to which the prior corresponds, counting up from 1, the lowest bin .")
         ##########################
@@ -196,6 +198,8 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    opts.gps_end_time = numpy.max([entry.segment[1] for entry in files])
    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
    fnameList = []; tagList = []
+   if opts.verbose:
+     print >>sys.stdout,"Computing posteriors binning by %s"%bin_type.lower().replace('_'," ")
 
    prior_upper_limit = rate.BinnedArray(bins)
    combined_upper_limit = rate.BinnedArray(bins)
@@ -213,6 +217,8 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      pk = priors.sieve(description="%s:%d:"%(bin_type,j+1))
      length = 10000
      if len(pk) == 1: # use given prior
+       if opts.verbose:
+         print >>sys.stdout,"\tbin %s... using input prior"%str(mbin)
        mu = numpy.linspace(0.01/total_vol.array.sum().max(),10/total_vol.array[total_vol.array>0].min(),3e4) #FIXME just a good rule of thumb
        mu_in = numpy.loadtxt(pk[0].path())[:,0] / Mpc3_per_L10
        prior = numpy.loadtxt(pk[0].path())[:,1]
@@ -225,6 +231,8 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
        print >>sys.stderr, "Too many priors given in input cache."
        sys.exit(1)
      else: # use flat prior
+       if opts.verbose:
+         print >>sys.stdout,"\tbin %s... using uniform in rate prior"%str(mbin)
        mu_in = mu[:]
        prior = numpy.ones(mu.shape)
        prior /= prior.sum()
@@ -240,7 +248,10 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      combined_post /= combined_post.sum()
      combined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, combined_post, 0.90)
      prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu_in, prior, 0.90)
-
+     if opts.verbose:
+       print >>sys.stdout,"\t\tUL (prior): %g"%prior_upper_limit[mbin]
+       print >>sys.stdout,"\t\tUL (post):  %g"%combined_upper_limit[mbin]
+       print >>sys.stdout,"\t\tfold-improvement:  %g"%(prior_upper_limit[mbin]/combined_upper_limit[mbin])
      if combined_upper_limit[mbin] == 0: continue
      if bin_type == "BNS_BBH": label = ["BNS","NSBH","BBH"][bins[mbin][0]]
      else: label = ','.join(["%d"%m for m in mbin])+"M$_\odot$"
