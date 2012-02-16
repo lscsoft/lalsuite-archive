@@ -42,7 +42,6 @@ import numpy
 
 import matplotlib
 matplotlib.use("Agg")
-from matplotlib import pyplot as plt
 
 #local application/library specific imports
 from pylal import SimInspiralUtils
@@ -59,15 +58,15 @@ __date__= git_version.date
 def pulsarBayesPostProc( outdir, data,
                          upperlimit, histbins,
                          #nested sampling options
-                         ns_Nlive=None, priorfile,
+                         priorfile, parfile, ns_Nlive,
+                         # analysis data
+                         Bkdata=None, ifos=None,
+                         # pulsar information
+                         corfile=None,
                          #Turn on 2D kdes
                          twodkdeplots=False,
                          #Turn on R convergence tests
-                         RconvergenceTests=False,
-                         # analysis data
-                         Bkdata=None, ifos=None
-                         # pulsar information
-                         parfile=None, corfile=None
+                         RconvergenceTests=False
                        ):
   # check data is input
   if data is None:
@@ -104,16 +103,16 @@ def pulsarBayesPostProc( outdir, data,
     # loaded from the file.
     pos = bppu.Posterior( commonResultsObj, SimInspiralTableEntry=None, \
                           votfile=votfile )
-    
+   
     # append to list
-    poslist = poslist.append(pos)
+    poslist.append(pos)
   
   # read in par file if given
   if parfile is not None:
     par = pppu.psr_par(parfile)
   
   # convert phi0' and psi' to phi0 and psi
-  if phi0prime in pos.names and psiprime in pos.names:
+  if 'phi0prime' in pos.names and 'psiprime' in pos.names:
     phi0samps, psisamps = pppu.phipsiconvert( pos['phi0prime'].samples, \
                                               pos['psiprime'].samples )
     # append phi0 and psi to posterior
@@ -127,7 +126,7 @@ def pulsarBayesPostProc( outdir, data,
   # file
   plotpars = []
   pri = pppu.psr_prior(priorfile)
-  for pars in float_keys:
+  for pars in pppu.float_keys:
     # prior file values have preference over par file values with errors in the
     # nested sampling code
     pars_err = pars+'_ERR'
@@ -136,20 +135,25 @@ def pulsarBayesPostProc( outdir, data,
       plotpars.append(pars)
     elif par[pars_err] is not None:
       plotpars.append(pars)
-      
+  
   # if h0 exists plot the pdf
   if 'H0' in plotpars:
-    rbins, plotFig = pppu.plot_posterior_hist(poslist, 'H0'.lower(), histbins,
-                                              ifos, upperlimit)
-  
-    figname= 'H0'.lower()+'.png'
-    oneDplotPath = os.path.join(outdir, figname)
-    plotFig.savefig(oneDplotPath)
+    plotFig, ulvals = pppu.plot_posterior_hist( poslist, 'H0'.lower(), ifos, \
+                                                histbins, \
+                                                upperlimit )
+    
+    # output plots for each IFO
+    for i, ifo in enumerate(ifos):
+      figname = 'H0'.lower()+'_'+ifo+'.png'
+      oneDplotPath = os.path.join(outdir, figname)
+      plotFig[i].savefig(oneDplotPath)
       
     
 # main function
 if __name__=='__main__':
   from optparse import OptionParser
+  
+  print sys.version
   
   parser = OptionParser()
   parser.add_option("-o", "--outpath", dest="outpath", help="Make page and " \
@@ -158,9 +162,9 @@ if __name__=='__main__':
   """
    data will be read in in the following format:
      multiple nested sampling files from each IFO would be entered as follows:
-     --ifos H1 --data nest1_H1.txt,nest2_H1.txt,nest3_H1.txt
-     --ifos L1 --data nest1_L1.txt,nest2_L1.txt,nest3_L1.txt
-     --ifos H1L1 --data nest1_H1L1.txt,nest2_H1L1.txt,nest3_H1L1.txt
+     --ifo H1 --data nest1_H1.txt,nest2_H1.txt,nest3_H1.txt
+     --ifo L1 --data nest1_L1.txt,nest2_L1.txt,nest3_L1.txt
+     --ifo H1L1 --data nest1_H1L1.txt,nest2_H1L1.txt,nest3_H1L1.txt
   """
   parser.add_option("-d","--data",dest="data",action="append",help="A list " \
                     "of nested sampling data files for a particular IFO " \
@@ -211,15 +215,14 @@ if __name__=='__main__':
   
   # sort out data into lists for each IFO
   data = []
-  for i, ifo in enumerate(ifos):
+  for i, ifo in enumerate(opts.ifos):
     data.append(opts.data[i].split(','))
   
   # call pulsarBayesPostProc function
-  cbcBayesPostProc( opts.outpath, data,
-                    upperlimit, opts.histbins,
-                    ns_Nlive=opts.Nlive, opts.priorfile,
-                    twodkdeplots=opts.twodkdeplots,
-                    RconvergenceTests=opts.RconvergenceTests,
-                    opts.Bkfiles, opts.ifos,
-                    opts.parfile, opts.corfile )
+  pulsarBayesPostProc( opts.outpath, data, \
+                       upperlimit, opts.histbins, opts.priorfile, \
+                       opts.parfile, opts.Nlive, opts.Bkfiles, opts.ifos, \
+                       opts.corfile, \
+                       twodkdeplots=opts.twodkdeplots, \
+                       RconvergenceTests=opts.RconvergenceTests )
   
