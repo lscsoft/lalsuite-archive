@@ -542,7 +542,6 @@ void Get_External_Data(LALStatus*          status,
 {
   FILE                 *fp=NULL;
   INT4                  i;
-  INT4                  errCode;
   INITSTATUS (status, "readascii", TRACKSEARCHC);
   ATTATCHSTATUSPTR (status);
   /* File opening via an absolute path */
@@ -554,12 +553,7 @@ void Get_External_Data(LALStatus*          status,
     };
   for(i=0;i<params.numSamplePoints;i++)
     {
-      errCode=fscanf(fp,"%f\n",&(dataY->data[i]));
-      if ((i<params.numSamplePoints) && (errCode == EOF))
-	{
-	  fprintf(stderr,TSDATAGENC_MSGEREAD);
-	  exit(TSDATAGENC_EREAD);
-	}
+      fscanf(fp,"%f\n",&(dataY->data[i]));
       dataX->data[i]=i;
     }
   fclose(fp);

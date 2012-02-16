@@ -1603,7 +1603,6 @@ void LALappsGetAsciiData(
 			 )
 {
   FILE                 *fp=NULL;
-  INT4                  errCode;
   INT4                  i;
 
   /* File opening via an absolute path */
@@ -1612,15 +1611,10 @@ void LALappsGetAsciiData(
     {
       fprintf(stderr,TRACKSEARCHC_MSGEREAD);
       exit(TRACKSEARCHC_EREAD);
-    }
+    };
   for(i=0;i<(INT4)params->TimeLengthPoints;i++)
     {
-      errCode=fscanf(fp,"%f\n",&(DataIn->data->data[i]));
-      if ((errCode == EOF) && ( i < (INT4)params->TimeLengthPoints ))
-			    {
-			      fprintf(stderr,TRACKSEARCHC_MSGEREAD);
-			      exit(TRACKSEARCHC_EREAD);
-			    }
+      fscanf(fp,"%f\n",&(DataIn->data->data[i]));
     }
   fclose(fp);
   if (DataIn->data->length != params->TimeLengthPoints)
