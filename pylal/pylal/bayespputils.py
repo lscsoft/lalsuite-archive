@@ -2931,7 +2931,7 @@ class PEOutputParser(object):
         posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
         for row in pos:
             for i in row:
-                posfile.write('%f\t' %(i))
+                posfile.write('%.12e\t' %(i))
             posfile.write('\n')
         posfile.close()
 
