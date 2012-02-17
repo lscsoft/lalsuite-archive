@@ -33,7 +33,8 @@ NRCSID( LALINSPIRALSTATIONARYPHASEAPPROX2TESTH, "$Id$" );
                                            LALStatus        *status,
                                            REAL4Vector      *signalvec,
                                            InspiralTemplate *params,
-                                           REAL8 *dphis);
+                                           REAL8 *dphis,
+                                           REAL4 cutoff);
 
     void LALInspiralTaylorF2PhasingTest(
                           InspiralTemplate *params,

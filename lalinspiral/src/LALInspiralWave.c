@@ -209,7 +209,7 @@ LALInspiralWave(
 	   break;
       case TaylorF2Test:
            /* UNUSED! HARDCODE WITHOUT CHANGES, USE LALInspiralStationaryPhaseApprox2Test INSTEAD! */
-           LALInspiralStationaryPhaseApprox2Test(status->statusPtr, signalvec, params, phaseParams);
+           LALInspiralStationaryPhaseApprox2Test(status->statusPtr, signalvec, params, phaseParams, 0);
            CHECKSTATUSPTR(status);
 	   break;
 	  case MassiveGraviton:

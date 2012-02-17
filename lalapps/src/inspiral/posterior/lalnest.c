@@ -1444,7 +1444,7 @@ doneinit:
 	}
 	fprintf(stdout,"reduced chi squared = %e\n",ReducedChiSq);
 	fprintf(stdout,"Number of points in F-domain above fLow = %i\n",(int)inputMCMC.stilde[0]->data->length-(int)(fLow/(double)inputMCMC.stilde[0]->deltaF));
-	if ((inputMCMC.cutoff > 0.0) && (inputMCMC.approximant==IMRPhenomFBTest)) {fprintf(stdout,"Upper frequency cutoff = %e\n", inputMCMC.cutoff);}
+	if ((inputMCMC.cutoff > 0.0) && (inputMCMC.approximant==IMRPhenomFBTest || inputMCMC.approximant==TaylorF2Test)) {fprintf(stdout,"Upper frequency cutoff = %e\n", inputMCMC.cutoff);}
 
 	/* Output data if requested */
 	if(datadump)
@@ -2613,7 +2613,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         dphis[8]=inj_table->dphi6l;
         dphis[9]=inj_table->dphi7;
         for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
-        LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis);
+        LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis, 0.0);
     }
     else if (template.approximant==MassiveGraviton) {
 		fprintf(stderr,"Injecting logLambdaG = %e\n",inj_table->loglambdaG);

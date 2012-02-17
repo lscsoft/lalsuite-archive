@@ -113,7 +113,8 @@ LALInspiralStationaryPhaseApprox2Test (
                                        LALStatus        *status,
                                        REAL4Vector      *signalvec,
                                        InspiralTemplate *params,
-                                       REAL8 *dphis)
+                                       REAL8 *dphis,
+                                       REAL4 cutoff)
 { /* </lalVerbatim>  */
    REAL8 Oneby3, UNUSED h1, UNUSED h2, pimmc, f, v, df, shft, phi, amp0, amp, psif, psi;
    INT4 n, nby2, i, f0, fn;
@@ -173,10 +174,10 @@ LALInspiralStationaryPhaseApprox2Test (
 
    for (i=1; i<nby2; i++) {
       f = i * df;
-      if (f < f0 || f > fn)
+      if (f < f0 || f > fn || ( cutoff > f0 && f > cutoff ))
       {
 	      /*
-	       * All frequency components below f0 and above fn are set to zero
+	       * All frequency components below f0 and above min{fn,cutoff} are set to zero
 	       */
 	      signalvec->data[i] = 0.;
 	      signalvec->data[n-i] = 0.;

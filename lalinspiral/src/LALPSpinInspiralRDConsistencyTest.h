@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2007 Tjonnie G.F. Li, Walter Del Pozzo
+*  Copyright (C) 2011 Michalis Agathos
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -18,33 +18,54 @@
 */
 
 /* <lalVerbatim> */
-#ifndef _LALINSPIRALSTATIONARYPHASEAPPROX2TEST_H  /* Double-include protection. */
-#define _LALINSPIRALSTATIONARYPHASEAPPROX2TEST_H
+#ifndef _LALPSPININSPIRALRDTEST_H  /* Double-include protection. */
+#define _LALPSPININSPIRALRDTEST_H
 
 #ifdef  __cplusplus   /* C++ protection. */
 extern "C" {
 #endif
 
 
-NRCSID( LALINSPIRALSTATIONARYPHASEAPPROX2TESTH, "$Id$" );
+NRCSID( LALPSPININSPIRALRDTESTH, "$Id$" );
 
-    void
-    LALInspiralStationaryPhaseApprox2Test (
+    void LALPSpinInspiralRDConsistencyTest (
                                            LALStatus        *status,
                                            REAL4Vector      *signalvec,
                                            InspiralTemplate *params,
-                                           REAL8 *dphis);
+                                           REAL8 dphi[10]);
 
-    void LALInspiralTaylorF2PhasingTest(
-                          InspiralTemplate *params,
-                          REAL8 f,
-                          REAL8 *phaseParams,
-                          REAL8 *psif);
-                          
-    void TaylorF2fillPhaseParams(
-                                         InspiralTemplate *params,
-                                         REAL8 *phaseParams,
-                                         REAL8 *dphis);
+    void LALPSpinInspiralRDEngineCT (
+                                    LALStatus	*status,
+                                    REAL4Vector	*signalvec1,
+                                    REAL4Vector * signalvec2,
+                                    REAL4Vector * hh,
+                                    REAL4Vector * ff,
+                                    REAL8Vector * phi,
+                                    REAL4Vector * shift,
+                                    UINT4 * countback,
+                                    InspiralTemplate * params,
+                                    InspiralInit * paramsInit, 
+                                    REAL8 dphi[10]);
+
+    void LALPSpinInspiralRDForInjectionCT(LALStatus * status,
+				    CoherentGW * waveform,
+				    InspiralTemplate * params,
+				    PPNParamStruc * ppnParams,
+				    REAL8 dphi[10]);
+
+    void LALPSpinInspiralRDFreqDomCT(LALStatus * status,
+			       REAL4Vector * signalvec,
+			       InspiralTemplate * params,
+			       REAL8 dphi[10]);
+
+    void LALPSpinInspiralRDTemplatesCT(LALStatus * status,
+				 REAL4Vector * signalvec1,
+				 REAL4Vector * signalvec2,
+				 InspiralTemplate * params,
+				 REAL8 dphi[10]);
+
+    void LALPSpinInspiralRDderivativesCT(REAL8Vector * values,
+				   REAL8Vector * dvalues, void *mparams);
 
 
 #ifdef  __cplusplus

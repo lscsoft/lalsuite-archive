@@ -2010,7 +2010,7 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
             
 		}
 		
-		LALInspiralStationaryPhaseApprox2Test(status, model, template, phaseParams );
+		LALInspiralStationaryPhaseApprox2Test(status, model, template, phaseParams, inputMCMC->cutoff);
     }
     else {
         LALInspiralWave(status,model,template);
