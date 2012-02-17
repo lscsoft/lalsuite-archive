@@ -46,6 +46,8 @@ __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perim
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
+pyplot.rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
+matplotlib.rcParams.update({"text.usetex": True})
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -55,17 +57,6 @@ def chirp_mass(m1,m2):
   mu = (m1*m2)/(m1+m2)
   mtotal = m1+m2
   return mu**(3./5) *mtotal**(2./5)
-
-def plot_efficiency(eff,err,dbins,mass_bins,tag):
-  for j,ml,mc,mh in zip(range(len(mass_bins.centres()[0])),mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
-    pyplot.errorbar((dbins[:-1]+dbins[1:])/2, eff[j], yerr=err[j],label="%.1f-%.1f"%(ml,mh))
-
-  pyplot.legend(loc='upper right')
-  pyplot.ylim([0,1])
-  pyplot.xlim([0,max(dbins)])
-  pyplot.xlabel("Distance (Mpc)")
-  pyplot.ylabel("Efficiency")
-
 
 #
 # Functions for reading from results DB
@@ -437,52 +428,36 @@ class upper_limit(object):
     fars *= self.livetime[instruments]
     FAR *= self.livetime[instruments]
 
-    # two-d case first
-    if bin_type == "Mass1_Mass2":
-      for j,m1 in enumerate(self.mass_bins[bin_type].centres()[0]):
-        for k,m2 in enumerate(self.mass_bins[bin_type].centres()[1]):
-          vtmp = self.livetime[instruments]*numpy.array([v[(m1,m2)] for v in vA])
-          tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
-          coeffs = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR)
-          volDeriv[(m1,m2)] = coeffs[0]
-          if self.opts.verbose:
-            print >> sys.stdout, "mass bin = %.1f,%.1f" %(m1,m2)
-            print >> sys.stdout, "vols = ", vtmp
-            print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m1,m2)],)
+    # plot volume fits
+    for j,mbin in enumerate(iterutils.MultiIter(*UL.mass_bins[bin_type].centres())):
+      if bin_type == "BNS_BBH": label = ["NS-NS","NS-BH","BH-BH"][j]
+      else: label = '-'.join(["%.2f"%ma for ma in mbin])+"M$_\odot$"
+      vtmp = self.livetime[instruments]*numpy.array([v[mbin] for v in vA])
 
-          if vtmp.max() == 0: continue
-          numpy.linspace(fars[0],fars[-1],100)
-          pyplot.plot(fars,numpy.log(vtmp),'rx')
-          farsi = numpy.linspace(fars[0],fars[-1],100)
-          pyplot.plot(farsi,coeffs[0]*farsi+coeffs[1],label="%.1f-%.1f"%(m1,m2))
-    # one-d case next
-    else: #FIXME right now m1m2 is only twod binning
-      for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
-        vtmp = self.livetime[instruments]*numpy.array([v[(m,)] for v in vA])
-        tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
-        coeffs = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR)
-        volDeriv[(m,)] = coeffs[0]
-        if self.opts.verbose:
-          print >> sys.stdout, "mass bin = %.f" %(m,)
-          print >> sys.stdout, "vols = ", vtmp
-          print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m,)],)
+      tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
+      coeffs = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR)
+      volDeriv[mbin] = coeffs[0]
+      if self.opts.verbose:
+        print >> sys.stdout, "mass bin %s" %str(mbin)
+        print >> sys.stdout, "vols = ", vtmp
+        print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[mbin],)
 
-        if vtmp.max() == 0: continue
-        numpy.linspace(fars[0],fars[-1],100)
-        pyplot.plot(fars,numpy.log(vtmp),'rx')
-        farsi = numpy.linspace(fars[0],fars[-1],100)
-        pyplot.plot(farsi,coeffs[0]*farsi+coeffs[1],label="%.1f"%m)
+      if vtmp.max() == 0: continue
+      numpy.linspace(fars[0],fars[-1],100)
+      pyplot.plot(fars,numpy.log(vtmp),'rx')
+      farsi = numpy.linspace(fars[0],fars[-1],100)
+      pyplot.plot(farsi,coeffs[0]*farsi+coeffs[1],label=label)
 
-    pyplot.legend(loc="lower right")
-    pyplot.xlabel("False Alarm Number (per expt)")
-    pyplot.ylabel("log VT")
-    pyplot.title("Volume derivative fits for %s bins"%bin_type.lower().replace('_',' '))
-    name = InspiralUtils.set_figure_tag(tag , open_box = opts.open_box)
-    fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
-    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-    fnameList.append(fname)
-    tagList.append(name)
-    pyplot.close()
+      pyplot.legend(loc="lower right")
+      pyplot.xlabel("False Alarm Number (per expt)")
+      pyplot.ylabel("log VT")
+      pyplot.title("Volume Derivative at the Loudest Event")
+      name = InspiralUtils.set_figure_tag(tag +"_BIN_"+str(j+1), open_box = opts.open_box)
+      fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+      fnameList.append(fname)
+      tagList.append(name)
+      pyplot.close()
 
     return volDeriv
 
@@ -750,36 +725,44 @@ opts.gps_end_time = UL.end_time
 # FAR for the given mass bin
 #
 for bin_type in UL.mass_bins:
-  __prog__ = "lalapps_cbc_svim_by_" + bin_type.lower()
-  InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
-  fnameList = []; tagList = []
-
   for instruments in UL.instruments:
-
-    #compute volume derivative at loudest event
-    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments],fnameList,tagList,InspiralUtilsOpts) #Grrr FIXME
+    # initialize plotting util helper
+    __prog__ = "lalapps_cbc_svim_by_" + bin_type.lower()
+    opts.ifo_times = "".join(sorted(list(instruments)))
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
+    fnameList = []; tagList = []
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
     vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
 
-    vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
-    vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
-
-
+    # plot efficiencies
     if opts.plot_efficiency:
       tag = "%s-SEARCH_EFFICIENCY_BINNED_BY_%s" % ("".join(sorted(list(instruments))),bin_type.upper())
-      plot_efficiency(eff,err,UL.dbins[instruments],UL.mass_bins[bin_type],tag)
-      name = InspiralUtils.set_figure_tag(tag , open_box = opts.open_box)
-      fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
-      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-      fnameList.append(fname)
-      tagList.append(name)
-      pyplot.close()
+      for j,mbin in enumerate(iterutils.MultiIter(*UL.mass_bins[bin_type].centres())):
+        if bin_type == "BNS_BBH": label = ["NS-NS","NS-BH","BH-BH"][j]
+        else: label = '-'.join(["%.2f"%ma for ma in mbin])+"M$_\odot$"
+        pyplot.errorbar((UL.dbins[instruments][:-1]+UL.dbins[instruments][1:])/2, eff[j], yerr=err[j],label=label)
+        pyplot.legend(loc='upper right')
+        pyplot.ylim([0,1])
+        pyplot.xlim([0,max(UL.dbins[instruments])])
+        pyplot.xlabel("Distance (Mpc)")
+        pyplot.ylabel("Efficiency")
+        name = InspiralUtils.set_figure_tag(tag + "_BIN_"+str(j+1), open_box = opts.open_box)
+        fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+        fnameList.append(fname)
+        tagList.append(name)
+        pyplot.close()
 
+    #compute volume derivative at loudest event
+    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments],fnameList,tagList,InspiralUtilsOpts) #Grrr FIXME
 
     # make a live time table
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
+
+    vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
+    vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
 
     #write out the results to the xml file
     xmldoc = ligolw.Document()
@@ -813,10 +796,9 @@ for bin_type in UL.mass_bins:
 
     cache_list.append(cache_entry)
 
-
-  plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [database], fnameList,
-                                              tagList, add_box_flag = False )
-  InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
+    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [database], fnameList,
+                                                tagList, add_box_flag = False )
+    InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
 
 
 
