@@ -643,6 +643,7 @@ class Posterior(object):
 
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
+                        'chirpmass':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
                         'mass1':_inj_m1,
                         'm1':_inj_m1,
@@ -885,7 +886,7 @@ class Posterior(object):
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
-                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "eta"]
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
