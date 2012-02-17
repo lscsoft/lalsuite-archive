@@ -36,41 +36,32 @@ of the Bayesian parameter estimation codes.
 #standard library imports
 import os
 from math import ceil,floor,sqrt,pi as pi_constant
-import random
 import xml
 from xml.dom import minidom
 from operator import itemgetter
 
-#ElementTree
+#related third party imports
+import numpy as np
+from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
+from scipy import stats
+
+import random
+
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 except ImportError:
     #Python < 2.5
     from cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
 
-#related third party imports
-import numpy as np
-from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines,rc
-from scipy import stats
-
 #local application/library specific imports
 import pylal
 from pylal import git_version
-
 #C extensions
 from _bayespputils import _skyhist_cart,_burnin
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
-
-
-#===============================================================================
-# LaTeX settings
-#===============================================================================
-
-rc('text', usetex=True)
-rc('font', family='serif')
 
 #===============================================================================
 # Constants
@@ -2091,7 +2082,7 @@ def getRAString(radians):
     mins = floor(rem*((12*60)/pi_constant))
     rem = rem - mins*(pi_constant/(12*60))
     secs = rem*(12*3600/pi_constant)
-    return r'$%i\mathrm{h}%i^{\'}%2.0f^{\'\'}$'%(hours,mins,secs)
+    return '$%i\mathrm{h}%i^{\'}%2.0f^{\'\'}$'%(hours,mins,secs)
 
 def getDecString(radians):
     if(radians<0):
@@ -2105,7 +2096,7 @@ def getDecString(radians):
     mins = round(rem*((180.0*60.0)/pi_constant))
     rem = rem - mins*(pi_constant/(180.0*60.0))
     secs = rem * (180.0*60.0*60.0)/pi_constant
-    return r'$%i^\circ%i^{\'}%2.0f^{\'\'}$'%(deg,sign*mins,sign*secs)
+    return '$%i^\circ%i^{\'}%2.0f^{\'\'}$'%(deg,sign*mins,sign*secs)
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
