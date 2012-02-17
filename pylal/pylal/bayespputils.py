@@ -650,6 +650,7 @@ class Posterior(object):
                         'm2':_inj_m2,
                         'eta':lambda inj:inj.eta,
                         'q':_inj_q,
+                        'asym_massratio':_inj_q,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
