@@ -472,7 +472,7 @@ class CompareDataRows:
         if self.matchCriteriaA == 'startTime':
             site = snglRow.ifo.lower()[0]
             a = getattr( simRow, '%s_start_time' % site ) + 1e-9*getattr( simRow, '%s_start_time_ns' % site )
-        elif self.matchCriteriaB == 'endTime':
+        elif self.matchCriteriaA == 'endTime':
             site = snglRow.ifo.lower()[0]
             a = getattr( simRow, '%s_end_time' % site ) + 1e-9*getattr( simRow, '%s_end_time_ns' % site )
         else:
