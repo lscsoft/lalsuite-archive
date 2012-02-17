@@ -229,6 +229,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
        prior = interpolate.splev(mu,prior_new,der=0)
        prior[prior<0] = 0
        mu_in = mu[:]
+       prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu_in, prior, 0.90)
      elif len(pk) > 1:
        print [p.path() for p in pk]
        print >>sys.stderr, "Too many priors given in input cache."
@@ -240,17 +241,15 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
        prior = numpy.ones(mu.shape)
        prior /= prior.sum()
        # compute the combined posterior with errors included
+       prior_upper_limit[mbin] = float('inf')
        if total_vol[mbin] == 0:
          combined_upper_limit[mbin] = float('inf')
-         prior_upper_limit[mbin] = float('inf')
          continue
 
-     if bin_type == 'Mass1_Mass1' and mbin[1]>mbin[0]:
+     if bin_type == 'Mass1_Mass2' and mbin[1]>mbin[0]:
          combined_upper_limit[mbin] = float('inf')
          prior_upper_limit[mbin] = float('inf')
          continue
-
-
 
      # compute posterior/upper limits marginalizing over uncertainties
      if opts.disable_mc_marg:
@@ -262,7 +261,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
                                                       mu = mu, calerr = opts.cal_err,mcerrs=numpy.array([v[mbin] for v in volErrs]))
      combined_post /= combined_post.sum()
      combined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, combined_post, 0.90)
-     prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu_in, prior, 0.90)
+
      if opts.verbose:
        print >>sys.stdout,"\t\tUL (prior): %g"%prior_upper_limit[mbin]
        print >>sys.stdout,"\t\tUL (post):  %g"%combined_upper_limit[mbin]
@@ -408,7 +407,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
 
       row = ul_table.RowType()
       if combined_upper_limit[mbin] == float('inf'): continue
-      if bin_type == 'Mass1_Mass1' and mbin[1]>mbin[0]: continue
+      if bin_type == 'Mass1_Mass2' and mbin[1]>mbin[0]: continue
 
       if bin_type == "Mass1_Mass2":
         columnList = ["mass1","mass2"]
