@@ -39,9 +39,9 @@ def Einv(z):
 
 def DM(z):
     """
-    Comoving distance (transverse) at z. OmegaR > 0.
+    Comoving distance (transverse) at z. Hard-coded for OmegaR = 0.
     """
-    return DH_SI * OmegaR**-0.5 * sinh(OmegaR**0.5 * quad(Einv, 0, z)[0])
+    return DH_SI * quad(Einv, 0, z)[0]
 
 def DL(z):
     """
@@ -58,27 +58,23 @@ def compute_redshift(DL0):
 
 def dVdz(z):
     """
-    Different volume element per unit redshift.
+    Different volume element per unit redshift. Hard-coded for OmegaR = 0.
     """
     return DH_SI * DM(z)**2 * Einv(z) * 4 * pi
 
 def V(z):
     """
-    Analytical integration of dVdz given in Carroll's astro-ph/0004075.
+    Analytical integration of dVdz. Hard-coded for OmegaR = 0.
     Double precision craps out below about 100 kpc (z=2.3e-6).
     """
-    DM_DH = OmegaR**-0.5 * sinh(OmegaR**0.5 * quad(Einv, 0, z)[0]) # DM / DH
-    return 2 * pi * DH_SI * DH_SI * DH_SI / OmegaR * \
-        (DM_DH * (1 + OmegaR * DM_DH * DM_DH)**0.5 \
-                  - OmegaR**-0.5 * arcsinh(OmegaR**0.5 * DM_DH))
+    tmpDM = DM(z)
+    return 4 * pi / 3 * tmpDM * tmpDM * tmpDM
 
 def V_from_DL_z(D, z=None):
     """
-    Analytical integration of dVdz given in Carroll's astro-ph/0004075,
-    sped up for the case that you have D rather than (or in addition to) z.
+    Analytical integration of dVdz. Hard-coded for OmegaR = 0.
+    Sped up for the case that you have D rather than (or in addition to) z.
     Double precision craps out below about 100 kpc (z=2.3e-6).
     """
-    DM_DH = D / (1 + (z or compute_redshift(D))) / DH_SI
-    return 2 * pi * DH_SI * DH_SI * DH_SI / OmegaR * \
-        (DM_DH * (1 + OmegaR * DM_DH * DM_DH)**0.5 \
-                  - OmegaR**-0.5 * arcsinh(OmegaR**0.5 * DM_DH))
+    tmpDM = D / (1 + (z or compute_redshift(D)))
+    return 4 * pi / 3 * tmpDM * tmpDM * tmpDM
