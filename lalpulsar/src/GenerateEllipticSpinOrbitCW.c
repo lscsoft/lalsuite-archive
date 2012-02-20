@@ -66,8 +66,8 @@ period of the orbit.  For simplicity we write this as:
 t_r = T_p + \frac{1}{n}\left( E + A\sin E + B[\cos E - 1] \right) \;,
 \f}
 
-\wrapfig{r,0.28\textwidth,fig_binary-orbit_ell}
-\image html  inject_eanomaly.png "Fig. [fig_binary-orbit_ell]: Function to be inverted to find eccentric anomaly"
+\wrapfig{r,0.28\textwidth,fig_binary_orbit_ell}
+\image html  inject_eanomaly.png "Fig. [fig_binary_orbit_ell]: Function to be inverted to find eccentric anomaly"
 \image latex inject_eanomaly.pdf "Function to be inverted to find eccentric anomaly" width=0.23\textwidth
 
 where \f$T_p\f$ is the \e observed time of periapsis passage and
@@ -167,9 +167,6 @@ snprintf()                 LALWarning()
 #include <lal/SimulateCoherentGW.h>
 #include <lal/GenerateSpinOrbitCW.h>
 
-NRCSID( GENERATEELLIPTICSPINORBITCWC, "$Id$" );
-
-
 void
 LALGenerateEllipticSpinOrbitCW( LALStatus             *stat,
 				CoherentGW            *output,
@@ -199,8 +196,7 @@ LALGenerateEllipticSpinOrbitCW( LALStatus             *stat,
   REAL4 *fData;                  /* pointer to frequency data */
   REAL8 *phiData;                /* pointer to phase data */
 
-  INITSTATUS( stat, "LALGenerateEllipticSpinOrbitCW",
-	      GENERATEELLIPTICSPINORBITCWC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Make sure parameter and output structures exist. */

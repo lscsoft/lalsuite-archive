@@ -90,7 +90,7 @@ J0534-2200, given heterodyned time domain data from the H1 detector in the file
 \code
 lalapps_pulsar_parameter_estimation_nested --detectors H1 --par-file
 J0534-2200.par --input-files finehet_J0534-2200_H1 --outfile ns_J0534-2200
---prop-file prop_J0534-2200.txt --ephem-earth
+--prior-file prior_J0534-2200.txt --ephem-earth
 lscsoft/share/lalpulsar/earth05-09.dat --ephem-sun
 lscsoft/share/lalpulsar/sun05-09.dat --model-type triaxial --Nlive 1000 --Nmcmc
 100 --Nruns 1 --tolerance 0.25
@@ -109,7 +109,7 @@ F0  123.7896438753
 F1  4.592e-15
 PEPOCH 54324.8753
 \endcode
-The \c prop-file is a text file containing a list of the parameters to be
+The \c prior-file is a text file containing a list of the parameters to be
 searched over and their given upper and lower prior ranges e.g.
 \code
 h0 0 1e-21
@@ -118,7 +118,7 @@ cosiota -1 1
 psi -0.785398163397448 0.785398163397448
 \endcode
 Note that if searching over frequency parameters the ranges specified in the 
-\c prop-file should be given in terms of the pulsars rotation frequency and not
+\c prior-file should be given in terms of the pulsars rotation frequency and not
 necessarily the gravitational wave frequency e.g. for a triaxial star emitting
 gravitational waves at 100 Hz (which will be at twice the rotation frequency)
 if you wanted to search over 99.999 to 100.001 Hz then you should used
@@ -131,7 +131,7 @@ using the Advanced LIGO design noise curves and with a signal injected into the
 data is:
 \code
 lalapps_pulsar_parameter_estimation_nested --fake-data AH1 --inject-file
-fake.par --par-file fake.par --outfile ns_fake --prop-file prop_fake.txt
+fake.par --par-file fake.par --outfile ns_fake --prior-file prior_fake.txt
 --ephem-earth lscsoft/share/lalpulsar/earth05-09.dat --ephem-sun
 lscsoft/share/lalpulsar/sun05-09.dat --model-type triaxial --Nlive 1000 --Nmcmc
 100 --Nruns 1 --tolerance 0.25
@@ -152,8 +152,6 @@ set, will be output.
 
 /** The maximum number of different detectors allowable. */
 #define MAXDETS 6
-
-RCSID("$Id$");
 
 /* global variables */
 /** An array to contain the log of factorials up to a certain number. */
@@ -188,8 +186,8 @@ LALStringVector *corlist = NULL;
                      the likelihood e.g. 30 mins\n"\
 " --psi-bins          (INT4) no. of psi bins in the time-psi lookup table\n"\
 " --time-bins         (INT4) no. of time bins in the time-psi lookup table\n"\
-" --prop-file         file containing the parameters to search over and their\n\
-                     upper and lower ranges\n"\
+" --prior-file        file containing the parameters to search over and\n\
+                     their upper and lower ranges\n"\
 " --ephem-earth       Earth ephemeris file\n"\
 " --ephem-sun         Sun ephemeris file\n"\
 " --model-type        (CHAR) the signal model that you want to use. Currently\n\
@@ -203,11 +201,24 @@ LALStringVector *corlist = NULL;
 " --tolerance         (REAL8) tolerance of nested sampling integrator\n"\
 " --randomseed        seed for random number generator\n"\
 "\n"\
+" MCMC proposal parameters:\n"\
+" --covariance        (REAL8) relative weigth of using covariance matrix\n\
+                     of the live points as the proposal (DEFAULT = 14,\n\
+                     e.g. 70%%)\n"\
+" --temperature       (REAL8) temperature for covariance proposal\n\
+                     distribution (DEFAULT = 0.1)\n"\
+" --kDTree            (REAL8) relative weigth of using a k-D tree of the live\n\
+                     points to use as a proposal (DEFAULT = 3, e.g. 15%%)\n"\
+" --kDNCell           (INT4) maximum number of samples in a k-D tree cell\n"\
+" --diffev            (REAL8) relative weight of using differential evolution\n\
+                     of the live points as the proposal (DEFAULT = 3, e.g.\n\
+                     15%%)\n"\
+"\n"\
 " Signal injection parameters:\n"\
 " --inject-file       a pulsar parameter (par) file containing the parameters\n\
                      of a signal to be injected. If this is given a signal\n\
                      will be injected\n"\
-" --inject-output     a filename to with the injected signal will be\n\
+" --inject-output     a filename to which the injected signal will be\n\
                      output if specified\n"\
 " --fake-data         a list of IFO's for which fake data will be generated\n\
                      e.g. H1,L1 (delimited by commas). Unless the --fake-psd\n\
@@ -235,6 +246,11 @@ LALStringVector *corlist = NULL;
                      60s.\n"\
 " --scale-snr         give a (multi-detector) SNR value to which you want to\n\
                      scale the injection. This is 1 by default.\n"\
+"\n"\
+" Legacy code flags:\n"\
+" --oldChunks         set if using fixed chunk sizes for dividing the data as\n\
+                     in the old code, rather than the calculating chunks\n\
+                     using the change point method.\n"\
 "\n"
 
 
@@ -279,17 +295,16 @@ INT4 main( INT4 argc, CHAR *argv[] ){
   
   /* add injections if requested */
   injectSignal( &runState );
+  /*fprintf(stderr,"Done the injection\n");
+  sleep(4);*/
   
   /* create sum square of the data to speed up the likelihood calculation */
   sumData( &runState );
   
   /* Initialise the prior distribution given the command line arguments */
-  /* Initialise the proposal distribution given the command line arguments */
-  initialiseProposal( &runState );
+  initialisePrior( &runState );
   
   gridOutput( &runState );
-  
-  runState.proposal = LALInferenceProposalPulsarNS;
   
   /* get noise likelihood and add as variable to runState */
   logZnoise = noise_only_model( runState.data );
@@ -299,9 +314,11 @@ INT4 main( INT4 argc, CHAR *argv[] ){
   /* Create live points array and fill initial parameters */
   LALInferenceSetupLivePointsArray( &runState );
   
+  /* Initialise the MCMC proposal distribution */
+  initialiseProposal( &runState );
+  
   /* Call the nested sampling algorithm */
   runState.algorithm( &runState );
-  printf("Done nested sampling algorithm\n");
 
   /* get SNR of highest likelihood point */
   get_loudest_snr( &runState );
@@ -315,7 +332,7 @@ INT4 main( INT4 argc, CHAR *argv[] ){
 /******************************************************************************/
 /*                      INITIALISATION FUNCTIONS                              */
 /******************************************************************************/
-
+ 
 /** \brief Initialises the nested sampling algorithm control
  * 
  * Memory is allocated for the parameters, priors and proposals. The nested
@@ -366,18 +383,32 @@ void initialiseAlgorithm( LALInferenceRunState *runState )
                            LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
 
   /* Number of live points */
-  tmpi = atoi( LALInferenceGetProcParamVal(commandLine, "--Nlive")->value );
-  LALInferenceAddVariable( runState->algorithmParams,"Nlive", &tmpi, LALINFERENCE_INT4_t, 
-                           LALINFERENCE_PARAM_FIXED );
+  ppt = LALInferenceGetProcParamVal( commandLine, "--Nlive" );
+  if( ppt ){
+    tmpi = atoi( LALInferenceGetProcParamVal(commandLine, "--Nlive")->value );
+    LALInferenceAddVariable( runState->algorithmParams,"Nlive", &tmpi,
+                             LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
+  }
+  else{
+   XLALPrintError("Error... Number of live point must be specified.\n");
+   XLAL_ERROR_VOID(XLAL_EIO);
+  }
         
   /* Number of points in MCMC chain */
-  tmpi = atoi( LALInferenceGetProcParamVal(commandLine, "--Nmcmc")->value );
-  LALInferenceAddVariable( runState->algorithmParams, "Nmcmc", &tmpi, LALINFERENCE_INT4_t, 
-                           LALINFERENCE_PARAM_FIXED );
+  ppt = LALInferenceGetProcParamVal( commandLine, "--Nmcmc" );
+  if( ppt ){
+    tmpi = atoi( LALInferenceGetProcParamVal(commandLine, "--Nmcmc")->value );
+    LALInferenceAddVariable( runState->algorithmParams, "Nmcmc", &tmpi,
+                             LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
+  }
+  else{
+    XLALPrintError("Error... Number of MCMC iterations must be specified.\n");
+    XLAL_ERROR_VOID(XLAL_EIO);
+  }
 
   /* Optionally specify number of parallel runs */
   ppt = LALInferenceGetProcParamVal( commandLine, "--Nruns" );
-  if(ppt) {
+  if( ppt ) {
     tmpi = atoi( ppt->value );
     LALInferenceAddVariable( runState->algorithmParams, "Nruns", &tmpi, LALINFERENCE_INT4_t,
                              LALINFERENCE_PARAM_FIXED );
@@ -1084,8 +1115,8 @@ defined!\n");
  * deviation error on that parameter. For parameters where an error is present
  * the code will attempt to search over that parameter using a Gaussian prior
  * defined by the 1\f$\sigma\f$ error value. Other parameters will be set as
- * fixed by default. These can be overridden by the proposal file values
- * described in \c initialiseProposal().
+ * fixed by default. These can be overridden by the prior file values
+ * described in \c initialisePrior().
  * 
  * Based on the defined sky position defined in the par file a lookup table of
  * the detector antenna response over time and polarisation will be set by \c 
@@ -1212,12 +1243,15 @@ void setupFromParFile( LALInferenceRunState *runState )
  * used. The data times as a fraction of a sidereal day from the start time
  * will also be calculated.
  * 
- * The function will also calls \c chop_n_merge() for each data set, which will 
- * split the data into chunks during which it can be considered Gaussian and
- * stationary. The command line arguments \c chunk-min and \c chunk-max can be
- * used to specify hardwire minimum and maximum lengths of chunks that are
- * allowable. By default the maximum chunk length is 0, which corresponds to no
- * maximum value being set.
+ * The function will be default also call \c chop_n_merge() for each data set,
+ * which will split the data into chunks during which it can be considered
+ * Gaussian and stationary. The command line arguments \c chunk-min and \c
+ * chunk-max can be used to specify hardwire minimum and maximum lengths of
+ * chunks that are allowable. By default the maximum chunk length is 0, which
+ * corresponds to no maximum value being set. If the \c --oldChunks flag is set
+ * then data will be split as in the older version of the parameter estimation
+ * code, in which the chunk length is fixed, except for the possibility of
+ * shorter segments at the end of science segments.
  * 
  * \param runState [in] A pointer to the LALInferenceRunState
  * \param source [in] A pointer to a LALSource variable containing the source
@@ -1305,11 +1339,19 @@ void setupLookupTables( LALInferenceRunState *runState, LALSource *source ){
                              LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
     LALInferenceAddVariable( data->dataParams, "chunkMax", &chunkMax, 
                              LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED );
-    
-    /* get chunk lengths of data */
-    /* chunkLength = get_chunk_lengths( data, chunkMax ); */
-    
-    chunkLength = chop_n_merge( data, chunkMin, chunkMax );
+   
+    ppt = LALInferenceGetProcParamVal( commandLine, "--oldChunks" );
+    if ( ppt ){ /* use old style quasi-fixed data chunk lengths */
+      /* is a chunk max wasn't set use 30 mins by default */
+      if ( !LALInferenceGetProcParamVal( commandLine, "--chunk-max" ) ){
+        chunkMax = 30;
+        LALInferenceSetVariable( data->dataParams, "chunkMax", &chunkMax );
+      }
+        
+      chunkLength = get_chunk_lengths( data, chunkMax );
+    }
+    else /* use new change points analysis to get chunks */
+      chunkLength = chop_n_merge( data, chunkMin, chunkMax );
     
     LALInferenceAddVariable( data->dataParams, "chunkLength", &chunkLength, 
                              LALINFERENCE_UINT4Vector_t, LALINFERENCE_PARAM_FIXED );
@@ -1360,8 +1402,12 @@ void add_initial_variables( LALInferenceVariables *ini,
   add_variable_scale_prior( ini, scaleFac, priorArgs, "psi", pars.psi,  
                             pars.psiErr );
   /* amplitude model parameters for pinned superfluid model*/
-  add_variable_scale_prior( ini, scaleFac, priorArgs, "h1", pars.h1,  
-                            pars.h1Err );
+  add_variable_scale_prior( ini, scaleFac, priorArgs, "I21", pars.I21,  
+                            pars.I21Err );
+  add_variable_scale_prior( ini, scaleFac, priorArgs, "I31", pars.I31,  
+                            pars.I31Err );
+  add_variable_scale_prior( ini, scaleFac, priorArgs, "r", pars.r,  
+                            pars.rErr );
   add_variable_scale_prior( ini, scaleFac, priorArgs, "lambda", pars.lambda,  
                             pars.lambdaErr );
   add_variable_scale_prior( ini, scaleFac, priorArgs, "theta", pars.theta,  
@@ -1488,7 +1534,7 @@ void add_initial_variables( LALInferenceVariables *ini,
  * 
  * For all parameters a scale factor and scale minimum range will be set. These 
  * are just initialised to 1 and 0 respectively and will be set in \c
- * initialiseProposal for any parameters that require them.
+ * initialisePrior for any parameters that require them.
  * 
  * \param var [in] Pointer to \c LALInferenceVariables type to contain
  * parameter information
@@ -1566,8 +1612,8 @@ void add_variable_scale_prior( LALInferenceVariables *var,
  * 
  * This function sets up any parameters that you require the code searches over
  * (it will overwrite anything set via the .par file if required) and specifies
- * the prior range for each. This information is contained in a proposal file 
- * specified by the command line argument \c prop-file. This file should
+ * the prior range for each. This information is contained in a prior file 
+ * specified by the command line argument \c prior-file. This file should
  * contain three columns: the first has the name of a parameter to be searched
  * over; the second has the lower limit of that parameters prior range; and the
  * third has the upper limit of the prior range. E.g.
@@ -1605,7 +1651,7 @@ void add_variable_scale_prior( LALInferenceVariables *var,
  * 
  * \param runState [in] A pointer to the LALInferenceRunState
  */
-void initialiseProposal( LALInferenceRunState *runState )
+void initialisePrior( LALInferenceRunState *runState )
 {
   CHAR *propfile = NULL;
   ProcessParamsTable *ppt;
@@ -1623,20 +1669,20 @@ void initialiseProposal( LALInferenceRunState *runState )
   
   INT4 phidef = 0, psidef = 0; /* check if phi0 and psi are in propfile */
   
-  ppt = LALInferenceGetProcParamVal( commandLine, "--prop-file" );
+  ppt = LALInferenceGetProcParamVal( commandLine, "--prior-file" );
   if( ppt ){
-  propfile =
-    XLALStringDuplicate( LALInferenceGetProcParamVal(commandLine,"--prop-file")->value );
+    propfile = XLALStringDuplicate(
+      LALInferenceGetProcParamVal(commandLine,"--prior-file")->value );
   }
   else{
-    fprintf(stderr, "Error... --prop-file is required.\n");
+    fprintf(stderr, "Error... --prior-file is required.\n");
     fprintf(stderr, USAGE, commandLine->program);
     exit(0);
   }
   
   /* open file */
   if( (fp = fopen(propfile, "r")) == NULL ){
-    fprintf(stderr, "Error... Could not open proposal file %s.\n", propfile);
+    fprintf(stderr, "Error... Could not open prior file %s.\n", propfile);
     exit(3);
   }
   
@@ -1682,9 +1728,9 @@ set.\n", propfile, tempPar);
     
     /* don't rescale phi0, so that it varies over 0-2*pi - required by the 
        LALInferenceAngularVariance function when calculating the covariance 
-       (unless the prop-file a phi0 range that is not 2*pi) */
+       (unless the prior-file contains a phi0 range that is not 2*pi) */
     if( !strcmp(tempPar, "phi0") ){
-      if ( scale/LAL_TWOPI > 0.99 && scale/LAL_TWOPI < 1.01 ){ 
+      if ( scale/LAL_TWOPI > 0.99 && scale/LAL_TWOPI < 1.01 ){
         scale = 1.;
         scaleMin = 0.;
         high = 2.*LAL_PI; /* make sure range spans exactly 2pi */
@@ -1700,6 +1746,24 @@ set.\n", propfile, tempPar);
         scaleMin = -LAL_PI/4.;
         high = LAL_PI/4.; /* make sure range spans exactly pi/2 */
         psidef = 1;
+      }
+    }
+    
+    /* if theta is covering the range 0 to pi scale it, so that it covers
+    the 0 to 2pi range of a circular parameter */
+    if( !strcmp(tempPar, "theta") ){
+      if ( scale/LAL_PI > 0.99 && scale/LAL_PI < 1.01 ){
+        scale = 0.5;
+        scaleMin = 0;
+      }
+    }
+    
+    /* if lambda is covering the range 0 to pi scale it, so that it covers
+    the 0 to 2pi range of a circular parameter */
+    if( !strcmp(tempPar, "lambda") ){
+      if ( scale/LAL_PI > 0.99 && scale/LAL_PI < 1.01 ){
+        scale = 0.5;
+        scaleMin = 0;
       }
     }
     
@@ -1727,7 +1791,11 @@ set.\n", propfile, tempPar);
     /* re-add variable */    
     if( !strcmp(tempPar, "phi0") && scale == 1. ) 
       varyType = LALINFERENCE_PARAM_CIRCULAR;
-    else if ( !strcmp(tempPar, "phi0") && scale == 0.25 ) 
+    else if ( !strcmp(tempPar, "psi") && scale == 0.25 ) 
+      varyType = LALINFERENCE_PARAM_CIRCULAR;
+    else if ( !strcmp(tempPar, "theta") && scale == 0.5 ) 
+      varyType = LALINFERENCE_PARAM_CIRCULAR;
+    else if ( !strcmp(tempPar, "lambda") && scale == 0.5 )
       varyType = LALINFERENCE_PARAM_CIRCULAR;
     else varyType = LALINFERENCE_PARAM_LINEAR;
     
@@ -1861,7 +1929,7 @@ set.\n", propfile, tempPar);
       
       /* get the mean and standard deviation of the Gaussian prior */
       LALInferenceGetGaussianPrior( runState->priorArgs, checkPrior->name, 
-                                    &mu, (void *)&sigma );
+                                    &mu, &sigma );
       
       /* set the scale factor to be the sigma value */
       scale = sigma;
@@ -1872,8 +1940,11 @@ set.\n", propfile, tempPar);
       memcpy( checkPrior->value, &tempVar, 
               LALInferenceTypeSize[checkPrior->type] );
       
-      mu -= scaleMin;
-      sigma /= scale;
+      /* mu -= scaleMin;
+      sigma /= scale; */
+      /* scaled Gaussian will have zero mean and unit sigma */
+      mu = 0.;
+      sigma = 1.;
       
       /* remove the Gaussian prior values and reset as scaled values */
       LALInferenceRemoveGaussianPrior( runState->priorArgs, checkPrior->name );
@@ -1926,6 +1997,107 @@ set.\n", propfile, tempPar);
   }
   
   return;
+}
+
+
+/** \brief Initialise the MCMC proposal distribution for sampling new points
+ * 
+ * There are various proposal distributions that can be used to sample new live
+ * points via an MCMC. A combination of different ones can be used to help
+ * efficiency for awkward posterior distributions. Here the proposals that can
+ * be used are:
+ *   \c covariance Drawing from a multi-variate Gaussian described by the
+ * covariance matrix of the current live points, with the spread of the
+ * distribution controlled by the \c temperature. One parameter is evolved
+ * during a single draw.
+ *   \c diffev Drawing a new point by differential evolution of two randomly
+ * chosen live points. All parameters are evolved during a single draw.
+ *   \c kDTree Drawing points from a distributions created from a k-D tree of
+ * the current live points, with probabilities of each leaf being inversely
+ * their volume. All parameters are evolved during a single draw.
+ * 
+ * This function sets up the relative weights with which each of above
+ * distributions is used.
+ * 
+ * \param runState [in] A pointer to the run state
+*/
+void initialiseProposal( LALInferenceRunState *runState ){
+  ProcessParamsTable *ppt = NULL;
+  UINT4 covfrac = 0, defrac = 0, kdfrac = 0;
+  REAL8 temperature = 0.;
+  const CHAR defaultPropName[] = "none";
+  
+  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--covariance" );
+  if( ppt ) covfrac = *(UINT4 *)ppt->value;
+  else covfrac = 14; /* default value */
+    
+  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--diffev" );
+  if( ppt ) defrac = *(UINT4 *)ppt->value;
+  else defrac = 3; /* default value */
+  
+  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--kDTree" );
+  if( ppt ) kdfrac = *(UINT4 *)ppt->value;
+  else kdfrac = 3; /* default value */
+ 
+  if( !covfrac && !defrac && !kdfrac ){
+    XLALPrintError("All proposal weights are zero!\n");
+    XLAL_ERROR_VOID(XLAL_EFAILED);
+  }
+  
+  runState->proposalStats = NULL;
+  
+  /* add proposals */
+  if( covfrac ){
+    LALInferenceAddProposalToCycle( runState, covarianceEigenvectorJumpName,
+                                    &LALInferenceCovarianceEigenvectorJump,
+                                    covfrac );
+  }
+  
+  if( defrac ){
+    LALInferenceAddProposalToCycle( runState, differentialEvolutionFullName,
+                                    &LALInferenceDifferentialEvolutionFull,
+                                    defrac );
+  }
+  
+  if( kdfrac ){
+    INT4 kdncells = 0;
+    
+    /* set the maximum number of points in a kd-tree cell if given */
+    ppt = LALInferenceGetProcParamVal( runState->commandLine, 
+                                       "--kDNCell" );
+    if( ppt ){
+      kdncells = *(INT4 *)ppt->value;
+
+      LALInferenceAddVariable( runState->proposalArgs, "KDNCell", 
+                               &kdncells, LALINFERENCE_INT4_t,
+                               LALINFERENCE_PARAM_FIXED );
+    } 
+
+    LALInferenceAddProposalToCycle( runState, KDNeighborhoodProposalName,
+                                    &LALInferenceKDNeighborhoodProposal,
+                                    kdfrac );
+    
+
+    LALInferenceSetupkDTreeNSLivePoints( runState );
+  }
+
+  LALInferenceRandomizeProposalCycle( runState );
+  /* set temperature */
+  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--temperature" );
+  if( ppt ) temperature = *(REAL8 *)ppt->value;
+  else temperature = 0.1;
+ 
+  LALInferenceAddVariable( runState->proposalArgs, "temperature", &temperature, 
+                           LALINFERENCE_REAL8Vector_t,
+                           LALINFERENCE_PARAM_FIXED );
+  
+  /* add default proposal name */
+  LALInferenceAddVariable( runState->proposalArgs,
+    LALInferenceCurrentProposalName, &defaultPropName, LALINFERENCE_string_t,
+    LALINFERENCE_PARAM_OUTPUT );
+  
+  /* set proposal */
+  runState->proposal = LALInferenceDefaultProposal;
 }
 
 
@@ -2116,7 +2288,7 @@ parameter file %s is wrong.\n", injectfile);
     /* count the number of SNRs (comma seperated values) */
     numSNRs = count_csv( snrscales );
     
-    if( numSNRs != 1 || numSNRs != (INT4)freqFactors->length ){
+    if( (numSNRs != 1) && (numSNRs != (INT4)freqFactors->length) ){
       fprintf(stderr, "Error... number of SNR values must either be 1, or equal\
  to the number of data streams required for your model!\n");
       exit(0);
@@ -2176,11 +2348,12 @@ parameter file %s is wrong.\n", injectfile);
    
       snrmulti[k] += SQUARE(snrval);
       
-      if ( snrscale[k] == 0 ) fprintf(fpsnr, "%le\t", snrval);
+      /*if ( snrscale[k] == 0 ) */
+      fprintf(fpsnr, "freq_factor: %f, non-scaled snr: %le\t",
+              freqFactors->data[ndets], snrval);
                              
       data = data->next;
     }
-    
     ndets++;
   }
   
@@ -2196,15 +2369,26 @@ parameter file %s is wrong.\n", injectfile);
     /* rescale the signal and calculate the SNRs */
     data = runState->data;
    
-    for ( k = 0; k < numSNRs; k++ ) snrscale[k] /= snrmulti[k];
+    for ( k = 0; k < numSNRs; k++ ){
+      snrscale[k] /= snrmulti[k];
+    }
     
-    /* rescale the h0 (and other amplitude factors for other models) */
-    if ( !strcmp(modeltype, "triaxial") || !strcmp(modeltype, "pinsf") ){
+    /* rescale the h0 for triaxial mode only) */
+    if ( !strcmp(modeltype, "triaxial")  ){
       for ( k = 0; k < numSNRs; k++ ){
         if ( freqFactors->data[k] == 2. ) injpars.h0 *= snrscale[k];
-        if ( freqFactors->data[k] == 1. ) injpars.h1 *= snrscale[k];
       }
     }
+    
+    /* rescale the r parameter for pinsf mode only. note, strcmp returns 0 for a match.*/
+    if (!strcmp(modeltype, "pinsf") ){
+      fprintf(stderr,"inj par r: %le\n",injpars.r);
+      fprintf(stderr,"snrscale: %le\n",snrscale[0]);
+      injpars.r /= snrscale[0];
+      /*if ( freqFactors->data[k] == 1. ) injpars.I21 *= snrscale[k];*/
+      fprintf(stderr,"inj par r: %le\n",injpars.r);
+    }
+    
     
     /* recreate the signal with scale amplitude */
     while( data ){
@@ -2235,7 +2419,7 @@ parameter file %s is wrong.\n", injectfile);
       
         snrmulti[k] += SQUARE(snrval);
       
-        fprintf(fpsnr, "%le\t", snrval);
+        fprintf(fpsnr, "scaled snr: %le\t", snrval);
       
         data = data->next;
       }
@@ -2243,10 +2427,11 @@ parameter file %s is wrong.\n", injectfile);
     
     for ( k = 0; k < numSNRs; k++ ) snrmulti[k] = sqrt( snrmulti[k] );
     
-    if( ndets > 1 ){ 
-      for ( k = 0; k < numSNRs; k++ ) fprintf(fpsnr, "%le\t", snrmulti[k]);
-      fprintf(fpsnr, "\n");
-      /*fprintf(stderr,"snr multi: %f\n",snrmulti); */
+    if( ndets > 1 ){
+      for ( k = 0; k < numSNRs; k++ ){
+        fprintf(fpsnr, "%le\t", snrmulti[k]);
+      }
+      fprintf(fpsnr, "\n"); 
     }
     else fprintf(fpsnr, "\n");
 
@@ -2270,9 +2455,11 @@ parameter file %s is wrong.\n", injectfile);
       CHAR *outfile = NULL;
       CHAR *signalonly = NULL; /* file containing only signal and no noise */
       
-      outfile = XLALStringDuplicate( data->detector->frDetector.prefix );
+      outfile = XLALStringDuplicate( ppt2->value );
       
-      outfile = XLALStringAppend( outfile, ppt2->value );
+      /* append detector name to file */
+      outfile = XLALStringAppend( outfile, "_" );
+      outfile = XLALStringAppend( outfile, data->detector->frDetector.prefix );
       
       if ( ( !strcmp( modeltype, "pinsf" ) ) && (fmod(j,2)==0) ){
         outfile = XLALStringAppend( outfile, "_2f");
@@ -3378,7 +3565,6 @@ INT4 recognised_parameter( CHAR *parname ){
  */
 REAL8 calculate_time_domain_snr( LALInferenceIFOData *data ){
   REAL8 snrval = 0., chunkLength;
-  COMPLEX16 snrc = {0., 0.}, vari = {0., 0.};
                                                    
   INT4 i = 0, j = 0, length = 0, cl = 0;
   
@@ -3386,18 +3572,20 @@ REAL8 calculate_time_domain_snr( LALInferenceIFOData *data ){
   INT4 chunkMin = 0, count = 0;
   
   /* subtract a running median value from the data to remove any underlying
-     trends (e.g. caused by a string signal) */
+     trends (e.g. caused by a strong signal) */
   meddata = subtract_running_median( data->compTimeData->data );
   
   UINT4Vector *chunkLengths = NULL;
   chunkLengths = *(UINT4Vector **)LALInferenceGetVariable( data->dataParams,
-                                                             "chunkLength" );
+                                                           "chunkLength" );
   chunkMin = *(INT4*)LALInferenceGetVariable( data->dataParams, "chunkMin" );
   
   length = data->compTimeData->data->length;
   
   /* add the signal to the data */
   for ( i = 0; i < length; i+=chunkLength ){
+    COMPLEX16 snrc = {0., 0.}, vari = {0., 0.};
+    
     chunkLength = (REAL8)chunkLengths->data[count];
     
     /* skip section of data if its length is less than the minimum allowed

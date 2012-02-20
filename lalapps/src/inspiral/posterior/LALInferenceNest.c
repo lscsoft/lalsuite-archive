@@ -82,7 +82,7 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 {
 	char help[]="\
 Initialisation arguments:\n\
-(--randomseed seed           Random seed for Nested Sampling)\n\n";
+(--seed seed           Random seed for Nested Sampling)\n\n";
 	LALInferenceRunState *irs=NULL;
 	LALInferenceIFOData *ifoPtr, *ifoListStart;
 	ProcessParamsTable *ppt=NULL;
@@ -196,7 +196,7 @@ Initialisation arguments:\n\
 void initializeTemplate(LALInferenceRunState *runState)
 {
 	char help[]="\
-(--template [LAL,PhenSpin,LALGenerateInspiral]\tSpecify template (default LAL)\n";
+(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
 	/* Print command line arguments if help requested */
@@ -222,12 +222,13 @@ void initializeTemplate(LALInferenceRunState *runState)
 			runState->template=&LALInferenceTemplateLALGenerateInspiral;
 		else if(!strcmp("LAL",ppt->value))
 			runState->template=&LALInferenceTemplateLAL;
+        else if(!strcmp("LALSim",ppt->value))
+            runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
 		else {
 			XLALPrintError("Error: unknown template %s\n",ppt->value);
 			XLALPrintError(help);
 			XLAL_ERROR_VOID(XLAL_EINVAL);
 		}
-
 	}
 	return;
 }
@@ -288,7 +289,7 @@ Nested sampling arguments:\n\
 	  runState->proposal=&LALInferenceProposalNS;
 
 	runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
-	runState->prior = &LALInferenceInspiralPrior;
+	runState->prior = &LALInferenceInspiralPriorNormalised;
 	
 	#ifdef HAVE_LIBLALXML
 	runState->logsample=LogNSSampleAsMCMCSampleToArray;
@@ -397,6 +398,8 @@ void initVariables(LALInferenceRunState *state)
 	REAL8 m1_max=0.;
 	REAL8 m2_min=0.;
 	REAL8 m2_max=0.;
+    REAL8 mtot_min=0.0;
+    REAL8 mtot_max=0.0;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
 	INT4 event=0;	
@@ -405,7 +408,7 @@ void initVariables(LALInferenceRunState *state)
 	INT4 aligned_spin=0;
 	char help[]="\
 Parameter arguments:\n\
-(--injXML injections.xml)\tInjection XML file to use\n\
+(--inj injections.xml)\tInjection XML file to use\n\
 (--Mmin mchirp)\tMinimum chirp mass\n\
 (--Mmax mchirp)\tMaximum chirp mass\n\
 (--etamin eta)\tMinimum eta\n\
@@ -417,11 +420,14 @@ Parameter arguments:\n\
 (--approx ApproximantorderPN)\tSpecify a waveform to use, (default TaylorF2threePointFivePN)\n\
 (--compmin min)\tMinimum component mass (1.0)\n\
 (--compmax max)\tMaximum component mass (30.0)\n\
+(--mtotalmin)\tMinimum total mass (2*compmin)\n\
+(--mtotalmax)\tMaximum total mass (2*compmax)\n\
 (--enable-spin)\tEnable spin parameters\n\
 (--aligned-spin)\tUse only aligned spin parameters (uses spins between -1 and 1)\n\
 (--approx ApproximantphaseOrderPN)\tSet approximant (PhenSpin implicitly enables spin)\n\
 (--s1max SPIN)\tMax magnitude of spin (on both bodies!)\n\
-(--s1min SPIN)\tMin magnitude of spin (on both bodies!)\n";
+(--s1min SPIN)\tMin magnitude of spin (on both bodies!)\n\
+(--mcq)\tUse chirp mass and asymmetric mass ratio (m1/m2) as variables\n";
 
 	/* Print command line arguments if help requested */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
@@ -433,7 +439,7 @@ Parameter arguments:\n\
 
 	
 	/* Read injection XML file for parameters if specified */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--injXML");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
 	if(ppt){
 		SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
 		if(!injTable){
@@ -449,8 +455,8 @@ Parameter arguments:\n\
 		endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
         fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
 		AmpOrder=injTable->amp_order;
-		LALGetOrderFromString(&status,injTable->waveform,&PhaseOrder);
-		LALGetApproximantFromString(&status,injTable->waveform,&approx);
+		XLALGetOrderFromString(injTable->waveform,&PhaseOrder);
+		XLALGetApproximantFromString(injTable->waveform,&approx);
 	}
 
 	/* Over-ride approximant if user specifies */
@@ -458,8 +464,8 @@ Parameter arguments:\n\
 	if(ppt){
 		if(strstr(ppt->value,"TaylorF2")) approx=TaylorF2;
 		else
-		    LALGetApproximantFromString(&status,ppt->value,&approx);
-        LALGetOrderFromString(&status,ppt->value,&PhaseOrder);
+		    XLALGetApproximantFromString(ppt->value,&approx);
+        XLALGetOrderFromString(ppt->value,&PhaseOrder);
 	}
 	fprintf(stdout,"Templates will run using Approximant %i, phase order %i\n",approx,PhaseOrder);
 
@@ -527,24 +533,51 @@ Parameter arguments:\n\
 	if(ppt)	mMax=atof(ppt->value);
 	LALInferenceAddVariable(priorArgs,"component_max",&mMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	
+    /* Set the minimum and maximum total mass, using user values if specified */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--mtotalmin");
+    if(ppt) mtot_min=atof(ppt->value);
+    else mtot_min=2.*mMin;
+    LALInferenceAddVariable(priorArgs,"MTotMin",&mtot_min,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+
+    ppt=LALInferenceGetProcParamVal(commandLine,"--mtotalmax");
+    if(ppt) mtot_max=atof(ppt->value);
+    else mtot_max=2.*(mMax-mMin);
+    LALInferenceAddVariable(priorArgs,"MTotMax",&mtot_max,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+
 	
 	printf("Read end time %f\n",endtime);
 	
 	LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     	LALInferenceAddVariable(currentParams, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
 	
-	/* Set up the variable parameters */
-	tmpVal=log(mcMin+(mcMax-mcMin)/2.0);
-	/*LALInferenceAddVariable(currentParams, "chirpmass",    &tmpVal,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass",	&mcMin,	&mcMax,		LALINFERENCE_REAL8_t); */
-	LALInferenceAddVariable(currentParams,"logmc",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-	logmcMin=log(mcMin); logmcMax=log(mcMax);
-	LALInferenceAddMinMaxPrior(priorArgs,	"logmc",	&logmcMin,	&logmcMax,		LALINFERENCE_REAL8_t);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--mcq");
+    if(ppt) /* Use MC and Q as sampling variables */
+    {
+        /* Set up the variable parameters */
+        tmpVal=mcMin+(mcMax-mcMin)/2.0;
+        LALInferenceAddMinMaxPrior(priorArgs,   "chirpmass",    &mcMin, &mcMax,     LALINFERENCE_REAL8_t);
+        LALInferenceAddVariable(currentParams,"chirpmass",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        tmpVal=1.5;
+        REAL8 qMin=1.0;
+        REAL8 qMax=mMax/mMin;
+        LALInferenceAddVariable(currentParams, "asym_massratio",       &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddMinMaxPrior(priorArgs,   "asym_massratio",    &qMin,    &qMax,    LALINFERENCE_REAL8_t);
 
-	tmpVal=0.24;
-	LALInferenceAddVariable(currentParams, "massratio",       &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    }
+    else /* Use log chirp mass and eta (default) */
+    {
+    	/* Set up the variable parameters */
+    	tmpVal=log(mcMin+(mcMax-mcMin)/2.0);
+    	/*LALInferenceAddVariable(currentParams, "chirpmass",    &tmpVal,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass",	&mcMin,	&mcMax,		LALINFERENCE_REAL8_t); */
+    	LALInferenceAddVariable(currentParams,"logmc",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    	logmcMin=log(mcMin); logmcMax=log(mcMax);
+    	LALInferenceAddMinMaxPrior(priorArgs,	"logmc",	&logmcMin,	&logmcMax,		LALINFERENCE_REAL8_t);
+    	tmpVal=0.24;
+	    LALInferenceAddVariable(currentParams, "massratio",       &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     	LALInferenceAddMinMaxPrior(priorArgs,	"massratio",	&etaMin,	&etaMax,	LALINFERENCE_REAL8_t);
-	
+	}
+
     	LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
 	tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
 	LALInferenceAddMinMaxPrior(priorArgs, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	

@@ -164,7 +164,7 @@ void initializeMCMC(LALInferenceRunState *runState)
 
   INT4 verbose=0,tmpi=0;
   unsigned int randomseed=0;
-  REAL8 tempMax = 10.0;
+  REAL8 tempMax = 50.0;
   ProcessParamsTable *commandLine=runState->commandLine;
   ProcessParamsTable *ppt=NULL;
   FILE *devrandom;
@@ -182,6 +182,8 @@ void initializeMCMC(LALInferenceRunState *runState)
   runState->algorithmParams=XLALCalloc(1,sizeof(LALInferenceVariables));
   runState->priorArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
   runState->proposalArgs=XLALCalloc(1,sizeof(LALInferenceVariables));
+  if(LALInferenceGetProcParamVal(commandLine,"--propVerbose"))
+    runState->proposalStats=XLALCalloc(1,sizeof(LALInferenceVariables));
 
   /* Set up the appropriate functions for the MCMC algorithm */
   runState->algorithm=&PTMCMCAlgorithm;
@@ -348,7 +350,7 @@ void initVariables(LALInferenceRunState *state)
 {
 
   char help[]="\
-               (--injXML injections.xml)       Injection XML file to use\n\
+               (--inj injections.xml)       Injection XML file to use\n\
                (--tempSkip )                   Number of iterations between proposed temperature swaps (100)\n\
                (--symMassRatio)                Run with symmetric mass ratio eta, instead of q=m2/m1\n\
                (--mc-min mchirp)               Minimum chirp mass\n\
@@ -401,6 +403,8 @@ void initVariables(LALInferenceRunState *state)
                (--MTotMax max)                 Maximum total mass (35.0)\n\
                (--covarianceMatrix file)       Find the Cholesky decomposition of the covariance matrix for jumps in file\n\
                (--noDifferentialEvolution)     Do not use differential evolution to propose jumps (it is used by default)\n\
+               (--kDTree)                      Use a kDTree proposal\n\
+               (--kDNCell N)                   Number of points per kD cell in proposal.\n\
                (--appendOutput fname)          Basename of the file to append outputs to\n\
                (--tidal)                       Enables tidal corrections, only with LALSimulation\n\
                (--lambda1)                     Trigger lambda1\n\
@@ -443,6 +447,8 @@ void initVariables(LALInferenceRunState *state)
   LALInferenceApplyTaper bookends = LALINFERENCE_TAPER_NONE;
   UINT4 event=0;
   UINT4 i=0;
+  REAL8 m1=0;
+  REAL8 m2=0;
   REAL8 logDmin=log(1.0);
   REAL8 logDmax=log(100.0);
   REAL8 Dmin=1.0;
@@ -495,7 +501,7 @@ void initVariables(LALInferenceRunState *state)
   }
 
   /* Read injection XML file for parameters if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--injXML");
+  ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
   if(ppt){
     SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
     if(!injTable){
@@ -512,8 +518,8 @@ void initVariables(LALInferenceRunState *state)
 
       endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
       AmpOrder=injTable->amp_order;
-      LALGetOrderFromString(&status,injTable->waveform,&PhaseOrder);
-      LALGetApproximantFromString(&status,injTable->waveform,&approx);
+      XLALGetOrderFromString(injTable->waveform,&PhaseOrder);
+      XLALGetApproximantFromString(injTable->waveform,&approx);
     }
   }
 
@@ -632,7 +638,7 @@ void initVariables(LALInferenceRunState *state)
       {
         PhaseOrder = LAL_PNORDER_TWO;
       }
-    else if ( ! strcmp( "twoPointFive", ppt->value ) )
+    else if ( ! strcmp( "twoPointFivePN", ppt->value ) )
       {
         PhaseOrder = LAL_PNORDER_TWO_POINT_FIVE;
       }
@@ -683,7 +689,7 @@ void initVariables(LALInferenceRunState *state)
       {
         AmpOrder = LAL_PNORDER_TWO;
       }
-    else if ( ! strcmp( "twoPointFive", ppt->value ) )
+    else if ( ! strcmp( "twoPointFivePN", ppt->value ) )
       {
         AmpOrder = LAL_PNORDER_TWO_POINT_FIVE;
       }
@@ -708,7 +714,7 @@ void initVariables(LALInferenceRunState *state)
                  "threePointFivePN\n");
         exit( 1 );
       }
-    fprintf(stdout,"Templates will be generated at %.1f PN order in amplitude\n",((float)(PhaseOrder))/2.0);
+    fprintf(stdout,"Templates will be generated at %.1f PN order in amplitude\n",((float)(AmpOrder))/2.0);
   }
   
   /* This flag was added to account for the broken Big Dog
@@ -748,12 +754,15 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--eta");
   if(ppt){
     start_eta=atof(ppt->value);
+    LALInferenceMcEta2Masses(start_mc, start_eta, &m1, &m2);
+    start_q=m2/m1;
   }
 
   /* Over-ride q if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--q");
   if(ppt){
     start_q=atof(ppt->value);
+    LALInferenceQ2Eta(start_q, &start_eta);
   }
 
   /* Over-ride phase if specified */
@@ -982,25 +991,27 @@ void initVariables(LALInferenceRunState *state)
   LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass",	&mcMin,	&mcMax,		LALINFERENCE_REAL8_t);
 
   /* Check if running with symmetric (eta) or asymmetric (q) mass ratio.*/
-  ppt=LALInferenceGetProcParamVal(commandLine,"--symMassRatio");
+  ppt=LALInferenceGetProcParamVal(commandLine,"--fixQ");
   if(ppt){
+    LALInferenceAddVariable(currentParams, "asym_massratio", &start_q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddMinMaxPrior(priorArgs,	"asym_massratio",	&qMin,	&qMax,	LALINFERENCE_REAL8_t);
+    if(MPIrank==0) fprintf(stdout,"q fixed and set to %f\n",start_q);
+  }else{
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixEta");
     if(ppt){
-      LALInferenceAddVariable(currentParams, "massratio",       &start_eta,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(currentParams, "massratio", &start_eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddMinMaxPrior(priorArgs,	"massratio", &etaMin, &etaMax, LALINFERENCE_REAL8_t);
       if(MPIrank==0) fprintf(stdout,"eta fixed and set to %f\n",start_eta);
     }else{
-      LALInferenceAddVariable(currentParams, "massratio",       &start_eta,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      ppt=LALInferenceGetProcParamVal(commandLine,"--symMassRatio");
+      if(ppt){
+        LALInferenceAddVariable(currentParams, "massratio", &start_eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddMinMaxPrior(priorArgs,	"massratio", &etaMin, &etaMax, LALINFERENCE_REAL8_t);
+      }else{
+        LALInferenceAddVariable(currentParams, "asym_massratio", &start_q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddMinMaxPrior(priorArgs,	"asym_massratio",	&qMin,	&qMax,	LALINFERENCE_REAL8_t);
+      }
     }
-    LALInferenceAddMinMaxPrior(priorArgs,	"massratio",	&etaMin,	&etaMax,	LALINFERENCE_REAL8_t);
-  }else{
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fixQ");
-    if(ppt){
-      LALInferenceAddVariable(currentParams, "asym_massratio",       &start_q,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(MPIrank==0) fprintf(stdout,"q fixed and set to %f\n",start_q);
-    }else{
-      LALInferenceAddVariable(currentParams, "asym_massratio",       &start_q,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-    }
-    LALInferenceAddMinMaxPrior(priorArgs,	"asym_massratio",	&qMin,	&qMax,	LALINFERENCE_REAL8_t);
   }
 
   tmpMin=endtime-dt; tmpMax=endtime+dt;
@@ -1336,6 +1347,11 @@ void initVariables(LALInferenceRunState *state)
  }
  
   
+
+  /* Initialize variable that will store the name of the last proposal function used */
+  const char *initPropName = "INITNAME";
+  LALInferenceAddVariable(state->proposalArgs, LALInferenceCurrentProposalName, &initPropName, LALINFERENCE_string_t, LALINFERENCE_PARAM_LINEAR);
+
   /* If the currentParams are not in the prior, overwrite and pick paramaters from the priors. OVERWRITE EVEN USER CHOICES.
      (necessary for complicated prior shapes where LALInferenceCyclicReflectiveBound() is not enought */
   while(state->prior(state, currentParams)<=-DBL_MAX){
@@ -1418,6 +1434,43 @@ void initVariables(LALInferenceRunState *state)
     state->differentialPoints = NULL;
     state->differentialPointsLength = 0;
     state->differentialPointsSize = 0;
+  }
+
+  /* kD Tree NCell parameter. */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--kDNCell");
+  if (ppt) {
+    INT4 NCell = atoi(ppt->value);
+    LALInferenceAddVariable(state->proposalArgs, "KDNCell", &NCell, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+  }
+
+  /* KD Tree propsal. */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--kDTree");
+  if (ppt) {
+    LALInferenceKDTree *tree;
+    REAL8 *low, *high;
+    currentParams = state->currentParams;
+    LALInferenceVariables *template = XLALCalloc(1,sizeof(LALInferenceVariables));
+    size_t ndim = LALInferenceGetVariableDimensionNonFixed(currentParams);
+    LALInferenceVariableItem *currentItem;
+
+    low = XLALMalloc(ndim*sizeof(REAL8));
+    high = XLALMalloc(ndim*sizeof(REAL8));
+    
+    currentItem = currentParams->head;
+    i = 0;
+    while (currentItem != NULL) {
+      if (currentItem->vary != LALINFERENCE_PARAM_FIXED) {
+        LALInferenceGetMinMaxPrior(state->priorArgs, currentItem->name, &(low[i]), &(high[i]));
+        i++;
+      }
+      currentItem = currentItem->next;
+    }
+
+    tree = LALInferenceKDEmpty(low, high, ndim);
+    LALInferenceCopyVariables(currentParams, template);
+
+    LALInferenceAddVariable(state->proposalArgs, "kDTree", &tree, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(state->proposalArgs, "kDTreeVariableTemplate", &template, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
   }
 
   UINT4 N = LALInferenceGetVariableDimensionNonFixed(currentParams);

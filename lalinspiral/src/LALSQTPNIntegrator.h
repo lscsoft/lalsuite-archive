@@ -25,8 +25,6 @@
 extern "C" {
 #endif
 
-NRCSID (LALSQTPNINTEGRATORH, "$Id LALSQTPNIntegrator.h$");
-
 /**		The structure contains the integration method and its settings.
  */
 typedef struct tagLALSQTPNIntegratorSystem {

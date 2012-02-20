@@ -13,6 +13,7 @@ lalsuite.spec
 libtool
 TAGS
 auto/
+/_inst/
 
 # own
 .cproject

@@ -10,8 +10,6 @@
 #include <lal/LALSQTPNWaveformInterface.h>
 #include <lal/LALSQTPNWaveform.h>
 
-NRCSID(LALSQTPNWAVEFORMINTERFACEC, "$Id LALSQTPNWaveformInterface.c$");
-
 extern int switchMode;
 
 /**		The function calculates the parameters from the InspiralTemplate
@@ -163,7 +161,7 @@ int XLALSQTPNWaveformTemplates(REAL4Vector *signalvec1, REAL4Vector *signalvec2,
 void LALSQTPNWaveform(LALStatus *status, REAL4Vector *signalvec, InspiralTemplate *params) {
 
 	XLALPrintDeprecationWarning("LALSQTPNWaveform", "XLALSQTPNWaveform");
-	INITSTATUS(status, "LALSQTPNWaveform", LALSQTPNWAVEFORMINTERFACEC);
+	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
 
 	if (XLALSQTPNWaveform(signalvec, params))

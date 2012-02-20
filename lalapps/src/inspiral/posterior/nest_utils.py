@@ -50,12 +50,16 @@ class LALInferenceNode(pipeline.CondorDAGNode):
     """
     def __init__(self,li_job):
         pipeline.CondorDAGNode.__init__(self,li_job)
-    def add_ifo_data(self,data_tuples,ifos=None):
+    def set_seed(self,seed):
+        self.add_var_opt('randomseed',seed)
+    def add_ifo_data(self,data_tuples,ifos=None,shift_time_dict=None):
         """
         Add list of IFOs and data to analyse.
         data_tuples is a dictionary of available (cache,channel) tuples
         ifos is an optional list of IFOs to include. If not specified analyse all available
         """
+        if shift_time_dict is not None:
+            raise Exception('ERROR: Time slides not supported by lalinference yet')
         cp = self.job().get_cp()
         allifos=data_tuples.keys()
         if ifos is None:
@@ -103,7 +107,15 @@ class LALInferenceNode(pipeline.CondorDAGNode):
         if(length > maxLength):
             while(self.__GPSstart+maxLength<trig_time and self.__GPSstart+maxLength<self.__GPSend):
                     self.__GPSstart+=maxLength/2.0
-        self.add_var_opt('PSDstart',str(self.__GPSstart))
+        # Override calculated start time if requested by user in ini file
+        if self.job().get_cp().has_option('lalinference','psdstart'):
+		self.__GPSstart=self.job().get_cp().getfloat('lalinference','psdstart')
+		print 'Over-riding start time to user-specified value %f'%(self.__GPSstart)
+		if self.__GPSstart<starttime or self.__GPSstart>endtime:
+			print 'ERROR: Over-ridden time lies outside of science segment!'
+			raise Exception('Bad psdstart specified')
+	else: 
+		self.add_var_opt('psdstart',str(self.__GPSstart))
         length=self.__GPSend-self.__GPSstart
         if(length>maxLength):
             length=maxLength
@@ -127,7 +139,7 @@ class LALInferenceNode(pipeline.CondorDAGNode):
         Set the end time of the signal for the centre of the prior in time
         """
         self.__trigtime=float(time)
-        self.add_var_opt('--trigtime',str(time))
+        self.add_var_opt('trigtime',str(time))
 
     def set_event_number(self,event):
 
@@ -148,6 +160,8 @@ class InspNestNode(pipeline.CondorDAGNode):
     """
     def __init__(self,inspnest_job):
         pipeline.CondorDAGNode.__init__(self,inspnest_job)
+    def set_seed(self,seed):
+        self.add_var_opt('seed',seed)
     def add_ifo_data(self,data_tuples,ifos=None,shift_time_dict=None):
         """
         Add list of IFOs and data to analyse.
@@ -381,10 +395,11 @@ def setup_parallel_nest(cp,nest_job,merge_job,end_time,data,path,ifos=None,event
         nest_node.add_ifo_data(data,ifos,shift_time_dict=timeslides)
         nest_node.set_event_number(event)
         p_outfile_name=os.path.join(path,'outfile_%f_%i_%s.dat'%(end_time,i,nest_node.get_ifos()))
-        nest_node.add_var_opt('seed',str(i+100))
+        nest_node.set_seed(str(i+100))
         merge_node.add_parent(nest_node)
         merge_node.add_file_arg(p_outfile_name)
         nest_node.set_output(p_outfile_name)
     outfile_name=os.path.join(path,'outfile_%f_%s.dat'%(end_time,nest_node.get_ifos()))
     merge_node.add_file_opt('out',outfile_name,file_is_output_file=True)
+    merge_node.add_file_opt('headers',p_outfile_name+'_params.txt',file_is_output_file=False)
     return (merge_node,nest_nodes)

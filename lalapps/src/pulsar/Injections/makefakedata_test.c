@@ -123,9 +123,6 @@ LALCheckMemoryLeaks()
 
 #include <lal/LALStdlib.h>
 
-NRCSID (MAKEFAKEDATAC, "$Id$");
-
-
 /* Error codes and messages */
 
 
@@ -210,7 +207,7 @@ do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
     XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
-              __LINE__, MAKEFAKEDATAC, statement ? statement :  \
+              __LINE__, "$Id$", statement ? statement :  \
                    "", (msg) );                                      \
 } while (0)
 
@@ -219,7 +216,7 @@ do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
     XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
-              MAKEFAKEDATAC, (statement) );                     \
+              "$Id$", (statement) );                     \
 } while (0)
 
 #define SUB( func, statusptr )                                       \
@@ -1468,7 +1465,6 @@ int parseR4(FILE *fp, const CHAR* vname, REAL4 *data){
   CHAR junk[1024], junk2[1024];
   CHAR command[1024];
   int r;
-  int rc;
 
   memset(junk, 0, 1024);
   memset(junk2,0, 1024);
@@ -1481,7 +1477,7 @@ int parseR4(FILE *fp, const CHAR* vname, REAL4 *data){
 	  "with white space in between. TEXT is NOT optional!\n",
 	  vname, inDataFilename);
     sprintf(command, "cat %s 1>&2\n", inDataFilename);
-    rc = system(command);
+    system(command);
     return 1;
   }
   return 0;
@@ -1491,7 +1487,6 @@ int parseR8(FILE *fp, const CHAR* vname, REAL8 *data){
   CHAR junk[1024], junk2[1024];
   CHAR command[1024];
   int r;
-  int rc;
 
   memset(junk, 0, 1024);
   memset(junk2,0, 1024);
@@ -1504,7 +1499,7 @@ int parseR8(FILE *fp, const CHAR* vname, REAL8 *data){
 	  "with white space in between. TEXT is NOT optional!\n",
 	  vname, inDataFilename);
     sprintf(command, "cat %s 1>&2\n", inDataFilename);
-    rc = system(command);
+    system(command);
     return 1;
   }
       return 0;
@@ -1513,7 +1508,6 @@ int parseI4(FILE *fp, const CHAR* vname, INT4 *data){
   CHAR junk[1024], junk2[1024];
   CHAR command[1024];
   int r;
-  int rc;
 
   memset(junk, 0, 1024);
   memset(junk2,0, 1024);
@@ -1526,7 +1520,7 @@ int parseI4(FILE *fp, const CHAR* vname, INT4 *data){
 	  "with white space in between. TEXT is NOT optional!\n",
 	  vname, inDataFilename);
     sprintf(command, "cat %s 1>&2\n", inDataFilename);
-    rc = system(command);
+    system(command);
     return 1;
   }
       return 0;

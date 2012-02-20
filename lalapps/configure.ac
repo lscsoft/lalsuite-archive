@@ -1,4 +1,4 @@
-AC_INIT([lalapps],[6.6.1.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalapps],[6.6.4.1],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([misc])
@@ -68,6 +68,9 @@ LALAPPS_WITH_EXTRA_LDFLAGS
 LALAPPS_WITH_EXTRA_LIBS
 
 LALSUITE_ENABLE_DEBUG
+
+LALSUITE_WITH_CUDA
+
 LALSUITE_ENABLE_GCC_FLAGS
 LALSUITE_ENABLE_NIGHTLY
 LALAPPS_ENABLE_CONDOR
@@ -395,7 +398,7 @@ LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.0.2],[XLALCreateMetaTableDir],[lal/LIGOLwX
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.1],[XLALXMLFilePrintElements],[lal/LALXML.h])
 LALSUITE_CHECK_OPT_LIB([LALSimulation],[0.1.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_OPT_LIB([LALBurst],[1.1.0],[XLALEPSearch],[lal/EPSearch.h])
-LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.2.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.2.3],[LALInspiralParameterCalc],[lal/LALInspiral.h])
 LALSUITE_CHECK_OPT_LIB([LALInference],[0.1.0],[LALInferenceAddVariable],[lal/LALInference.h])
 LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.2.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
 LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.2],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
@@ -422,12 +425,22 @@ AC_DEFINE_UNQUOTED([PREFIX],["$prefix"],[Install prefix])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS $lal_gcc_flags"
+  # don't use gcc flags when cuda is enabled
+  if test "${cuda}" != "true"; then
+    CFLAGS="$CFLAGS $lal_gcc_flags"
+  else
+    AC_MSG_NOTICE([CUDA support is enabled, disabling GCC flags])
+  fi
 
   # add mac os x specific flags
   if test "x$MACOSX_VERSION" != "x"; then
     CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
   fi
+fi
+
+# define if CUDA is enabled
+if test "${cuda}" = "true"; then
+  AC_DEFINE([LALAPPS_CUDA_ENABLED],[1],[Define if using cuda library])
 fi
 
 # enable condor compile
@@ -476,6 +489,7 @@ echo "
                 BOINC support is $BOINC_ENABLE_VAL
                 MPI support is $MPI_ENABLE_VAL
                 GDS support is $GDS_ENABLE_VAL
+                CUDA support is $CUDA_ENABLE_VAL
 
         Now run 'make' to build LALApps
         and run 'make install' to install LALApps

@@ -1056,6 +1056,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       bestNR = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
                               null_thresh=null_thresh, fResp=fResp)
 
+      trigBin = None
+      injBin = None
       for i,bin in enumerate(massBins):
         if bin[0] <= inj.mchirp < bin[1]:
           injBinNum = i
@@ -1183,7 +1185,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
                     for ifo in ifos:
                       fResp[ifo] = fPlus[ifo]*fPlus[ifo] \
                                            + fCross[ifo]*fCross[ifo]
-                    bestNR2 = get_bestnr( trig, q=chisq_index, n=chisq_nhigh,\
+                    bestNR2 = get_bestnr( trig2, q=chisq_index, n=chisq_nhigh,\
                                 null_thresh=null_thresh, fResp=fResp)
  
                     # Boost the bestNR by the factor (1.05) and check if it is
@@ -1541,6 +1543,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         sens_dist = (const - 0.5)/gradient
+        if (((finjsNoMC/totalinjsNoMC)[ii:] > 0.5).any()):
+          print "WARNING: EFFICIENCY GOES BACK ABOVE 0.5!"
         break
       if ii == len(distPlotVals) - 1:
         print "Efficiency does not drop below 50%!"
@@ -1636,6 +1640,8 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         gradient = delta_eff/delta_dist
         const =  eff + gradient * dist
         excl_dist = (const - 0.9)/gradient
+        if ((redEfficiency[ii:] > 0.9).any()):
+          print "WARNING: EFFICIENCY GOES BACK ABOVE 0.9!"
         break
 
 

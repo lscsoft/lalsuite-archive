@@ -53,9 +53,6 @@
 #include "ReadSourceFile_v1.h"
 #include "clusters.h"
 
-
-RCSID( "$Id$");
-
 /* BOINC should be set to 1 to be run under BOINC */
 #ifndef USE_BOINC
 #define USE_BOINC 0
@@ -585,7 +582,7 @@ int main(int argc,char *argv[])
 void
 initUserVars (LALStatus *Stat)
 {
-  INITSTATUS( Stat, "initUserVars", rcsid );
+  INITSTATUS(Stat);
   ATTATCHSTATUSPTR (Stat);
 
   /* set a few defaults */
@@ -1056,7 +1053,7 @@ void CreateDemodParams (LALStatus *status)
   BarycenterInput baryinput;         /* Stores detector location and other barycentering data */
   INT4 k;
 
-  INITSTATUS (status, "CreateDemodParams", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   
   /* Detector location: MAKE INTO INPUT!!!!! */
@@ -1160,7 +1157,7 @@ void CreateBinaryDemodParams (LALStatus *status)
   BarycenterInput baryinput;         /* Stores detector location and other barycentering data */
   INT4 k;
 
-  INITSTATUS (status, "CreateBinaryDemodParams", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   
  
@@ -1262,7 +1259,7 @@ void AllocateMem(LALStatus *status)
 {
   INT4 k;
 
-  INITSTATUS (status, "AllocateMem", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* Allocate space for AMCoeffs */
@@ -1531,9 +1528,8 @@ SetGlobalVariables(LALStatus *status, ConfigVariables *cfg)
 #ifndef NOGLOB
   glob_t globbuf;
 #endif
-  LIGOTimeGPS starttime;
 
-  INITSTATUS (status, "SetGlobalVariables", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* do some sanity checks on the user-input before we proceed */
@@ -1628,8 +1624,6 @@ SetGlobalVariables(LALStatus *status, ConfigVariables *cfg)
       /* if this is the first SFT, save initial time */
       if (filenum==0) {
 	cfg->Ti=header.gps_sec;
-	starttime.gpsSeconds = header.gps_sec;
-	starttime.gpsNanoSeconds = header.gps_nsec;
       }
       /* increment file no and pointer to the start of the next header */
       filenum++;
@@ -1726,8 +1720,6 @@ SetGlobalVariables(LALStatus *status, ConfigVariables *cfg)
     fclose(fp);
     
     /* INITIAL TIME */
-    starttime.gpsSeconds = header.gps_sec;
-    starttime.gpsNanoSeconds = header.gps_nsec;
     cfg->Ti = header.gps_sec; 
     
     /* open LAST file and get info from it*/
@@ -1932,7 +1924,7 @@ CreateNautilusDetector (LALStatus *status, LALDetector *Detector)
   LALDetectorType bar;
   LALDetector Detector1;
 
-  INITSTATUS (status, "CreateNautilusDetector", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 /*   detector_params=(LALFrDetector )LALMalloc(sizeof(LALFrDetector)); */
@@ -1961,7 +1953,7 @@ void Freemem(LALStatus *status)
 
   INT4 k;
 
-  INITSTATUS (status, "Freemem", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* Free SFTData */
@@ -2875,7 +2867,6 @@ int ReadBinaryTemplateBank(void)
   char filename[256];
   UINT4 i;
   REAL8 temp1,temp2;
-  int rc;
 
   
   strcpy(filename,uvar_binarytemplatefile);
@@ -3003,7 +2994,7 @@ int ReadBinaryTemplateBank(void)
   /* Now read in all templates into memory */
   i=0;
   while (i<BinaryBank->BMFheader.Nfilters) {
-    rc = fscanf(BTBfp,"%le%le%d%d%le%le\n",
+    fscanf(BTBfp,"%le%le%d%d%le%le\n",
 		 &(BinaryBank->BTB[i]).ProjSMaxis,
 		 &(BinaryBank->BTB[i]).Period,
 		 &(BinaryBank->BTB[i]).TperiSSB.gpsSeconds,

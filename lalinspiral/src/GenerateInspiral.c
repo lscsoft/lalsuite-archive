@@ -85,10 +85,6 @@ None.
 #include <lal/SeqFactories.h>
 #include <lal/Units.h>
 
-NRCSID( GENERATEINSPIRALC,
-"$Id$" );
-
-
 static int XLALGetSpinInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent) {
 	BOOLEAN succes = 0;
 	*inter = LAL_SIM_INSPIRAL_INTERACTION_NONE;
@@ -144,20 +140,23 @@ LALGenerateInspiral(
   Approximant       approximant;        /* And its approximant value      */
   InspiralTemplate  inspiralParams;     /* structure for inspiral package */
   CHAR              warnMsg[1024];
+  int               oldxlalErrno;       /* store old xlal error number    */
 
-  INITSTATUS(status, "LALGenerateInspiral",GENERATEINSPIRALC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(thisEvent, status,
       GENERATEINSPIRALH_ENULL, GENERATEINSPIRALH_MSGENULL);
 
   /* read the event waveform approximant and order */
-  LALGetApproximantFromString(status->statusPtr, thisEvent->waveform,
-      &approximant);
-  CHECKSTATUSPTR(status);
+  oldxlalErrno = xlalErrno;
+  xlalErrno = 0;
+  if (XLALGetApproximantFromString(thisEvent->waveform, &approximant) == XLAL_FAILURE)
+    ABORTXLAL(status);
 
-  LALGetOrderFromString(status->statusPtr, thisEvent->waveform, &order);
-  CHECKSTATUSPTR(status);
+  if (XLALGetOrderFromString(thisEvent->waveform, &order) == XLAL_FAILURE)
+    ABORTXLAL(status);
+  xlalErrno = oldxlalErrno;
 
   /* when entering here, approximant is in principle well defined.  */
   /* We dont need any else if or ABORT in the if statement.         */
@@ -165,8 +164,11 @@ LALGenerateInspiral(
   if ( approximant == GeneratePPN )
   {
     /* fill structure with input parameters */
-    LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulatePPN(ppnParams, thisEvent) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* generate PPN waveform */
     LALGeneratePPNInspiral(status->statusPtr, waveform, ppnParams);
@@ -177,8 +179,11 @@ LALGenerateInspiral(
     int i;
 
     /* fill structure with input parameters */
-    LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulatePPN(ppnParams, thisEvent) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* PPN parameter. */
     ppnParams->ppn = NULL;
@@ -231,13 +236,18 @@ LALGenerateInspiral(
 	}
 
     /* We fill ppnParams */
-    LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulatePPN(ppnParams, thisEvent) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* we fill inspiralParams structure as well.*/
-    LALGenerateInspiralPopulateInspiral(status->statusPtr, &inspiralParams,
-        thisEvent, ppnParams);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulateInspiral(&inspiralParams, thisEvent, ppnParams) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* the waveform generation itself */
     LALInspiralWaveForInjection(status->statusPtr, waveform, &inspiralParams,
@@ -330,7 +340,7 @@ LALGetOrderFromString(
 
 {
 
-  INITSTATUS( status, "LALGetOrderFromString", GENERATEINSPIRALC );
+  INITSTATUS(status);
 
   XLALPrintDeprecationWarning( "LALGetOrderFromString", "XLALGetOrderFromString" );
 
@@ -462,8 +472,7 @@ LALGetApproximantFromString(
 
 {
 
-  INITSTATUS( status, "LALGenerateInspiralGetApproxFromString",
-      GENERATEINSPIRALC );
+  INITSTATUS(status);
 
   XLALPrintDeprecationWarning("LALGetApproximantFromString", "XLALGetApproximantFromString");
 
@@ -590,7 +599,7 @@ LALGenerateInspiralPopulatePPN(
 
 {
 
-  INITSTATUS( status, "LALGenerateInspiralPopulatePPN", GENERATEINSPIRALC );
+  INITSTATUS(status);
 
   XLALPrintDeprecationWarning( "LALGenerateInspiralPopulatePPN", 
       "XLALGenerateInspiralPopulatePPN" );
@@ -658,8 +667,7 @@ LALGenerateInspiralPopulateInspiral(
 
 
 {
-  INITSTATUS( status, "LALGenerateInspiralPopulateInspiral",
-      GENERATEINSPIRALC );
+  INITSTATUS(status);
 
   XLALPrintDeprecationWarning( "LALGenerateInspiralPopulateInspiral",
      "XLALGenerateInspiralPopulateInspiral" );
@@ -689,6 +697,7 @@ XLALGenerateInspiralPopulateInspiral(
   inspiralParams->mass1	  =  thisEvent->mass1;  	/* masses 1 */
   inspiralParams->mass2	  =  thisEvent->mass2;  	/* masses 2 */
   inspiralParams->fLower  =  ppnParams->fStartIn; /* lower cutoff frequency */
+  inspiralParams->fFinal  =  thisEvent->f_final;
   inspiralParams->fCutoff = 1./ (ppnParams->deltaT)/2.-1;
 
   /* -1 to be  in agreement with the inspiral assert. */

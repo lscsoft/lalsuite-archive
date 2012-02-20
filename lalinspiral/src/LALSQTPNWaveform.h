@@ -30,8 +30,6 @@
 extern "C" {
 #endif
 
-NRCSID(LALSQTPNWAVEFORMH, "$Id$ LALSQTPNWaveform.h");
-
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
 /**		The macro function returns the square of the argument.

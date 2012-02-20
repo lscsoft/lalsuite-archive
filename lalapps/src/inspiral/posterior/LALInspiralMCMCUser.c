@@ -58,8 +58,6 @@ REAL8Sequence **topdown_sum;
 REAL8 *normalisations;
 const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
 
-/*NRCSID (LALINSPIRALMCMCUSERC, "$Id: LALInspiralPhase.c,v 1.9 2003/04/14 00:27:22 sathya Exp $"); */
-
 double mc2mass1(double mc, double eta)
 /* mass 1 (the smaller one) for given mass ratio & chirp mass */
 {
@@ -975,9 +973,12 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 	template.ieta = 1;
 	template.inclination=XLALMCMCGetParameter(parameter,"iota");
 
+	template.fixedStep=inputMCMC->fixedStep;
+	template.inspiralOnly=inputMCMC->inspiralOnly;
+	template.axisChoice=inputMCMC->axisChoice;
+
 	//template.totalMass=mtot;
 	//template.eta=eta;
-
 
 	double a1=0.;
 	double theta1=0.;

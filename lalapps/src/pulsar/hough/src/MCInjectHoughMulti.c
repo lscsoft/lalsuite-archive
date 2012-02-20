@@ -105,12 +105,6 @@ void PrintLogFile2(LALStatus       *status,
 /******************************************/
 
 
-/******************************************************
- *  Assignment of Id string using NRCSID()
- */
-
-RCSID ("$Id$");
-
 /* vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv------------------------------------ */
 int main(int argc, char *argv[]){
 
@@ -1101,7 +1095,7 @@ void GenerateInjectParams(LALStatus   *status,
   UINT4    msp;
   
   /* --------------------------------------------- */
-  INITSTATUS (status, "GenerateInjectParams", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   
   /*   Make sure the arguments are not NULL: */
@@ -1122,7 +1116,7 @@ void GenerateInjectParams(LALStatus   *status,
   ASSERT (fpRandom, status, DRIVEHOUGHCOLOR_EFILE,  DRIVEHOUGHCOLOR_MSGEFILE); 
   
   count = fread(&seed, sizeof(INT4),1, fpRandom);
-  ASSERT (count, status, DRIVEHOUGHCOLOR_EARG,  DRIVEHOUGHCOLOR_MSGEARG); 
+  if ( count != 0 ) ABORT( status, DRIVEHOUGHCOLOR_EARG,  DRIVEHOUGHCOLOR_MSGEARG);
   
   fclose(fpRandom);
   
@@ -1326,7 +1320,7 @@ void GenerateInjectParamsNoVeto(LALStatus   *status,
   UINT4    msp;
   
   /* --------------------------------------------- */
-  INITSTATUS (status, "GenerateInjectParams", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   
   /*   Make sure the arguments are not NULL: */
@@ -1346,7 +1340,7 @@ void GenerateInjectParamsNoVeto(LALStatus   *status,
   ASSERT (fpRandom, status, DRIVEHOUGHCOLOR_EFILE,  DRIVEHOUGHCOLOR_MSGEFILE); 
   
   count = fread(&seed, sizeof(INT4),1, fpRandom);
-  ASSERT (count, status, DRIVEHOUGHCOLOR_EARG,  DRIVEHOUGHCOLOR_MSGEARG); 
+  if (count != 0) ABORT ( status, DRIVEHOUGHCOLOR_EARG,  DRIVEHOUGHCOLOR_MSGEARG);
   
   fclose(fpRandom);
   
@@ -1531,7 +1525,7 @@ void ComputeFoft_NM(LALStatus   *status,
   REAL8Cart3Coor  sourceLocation;
   
   /* --------------------------------------------- */
-  INITSTATUS (status, "ComputeFoft", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   
   /*   Make sure the arguments are not NULL: */
@@ -1597,9 +1591,7 @@ void PrintLogFile2 (LALStatus       *status,
   CHAR *logstr=NULL; 
   UINT4 k;
 
-  int rc;
-
-  INITSTATUS (status, "PrintLogFile2", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   
   /* open log file for writing */
@@ -1651,7 +1643,7 @@ void PrintLogFile2 (LALStatus       *status,
 	fprintf (fpLog, "# -----------------------------------------\n");
 	fclose (fpLog);
 	sprintf(command, "cat %s >> %s", linefiles->data[k], fnameLog);      
-	rc = system (command);	 
+	system (command);
       } 
     } 
   }
@@ -1665,7 +1657,7 @@ void PrintLogFile2 (LALStatus       *status,
       fclose (fpLog);
       
       sprintf (command, "ident %s | sort -u >> %s", executable, fnameLog);
-      rc = system (command);	/* we don't check this. If it fails, we assume that */
+      system (command);	/* we don't check this. If it fails, we assume that */
     			/* one of the system-commands was not available, and */
     			/* therefore the CVS-versions will not be logged */ 
     }

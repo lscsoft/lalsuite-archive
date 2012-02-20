@@ -46,6 +46,14 @@ def get_timeslides_pipedown(database_connection):
 	returns a dict of dicts { trigtime: {'H1':0,'L1':5,'V1':10}) , ... }
 	of times and timeslide offsets
 	"""
+	db_segments=[]
+	sql_seg_query="SELECT search_summary.out_start_time, search_summary.out_end_time from search_summary join process on process.process_id==search_summary.process_id where process.program=='thinca'"
+	db_out = database_connection.cursor().execute(sql_seg_query)
+	for d in db_out:
+		if d not in db_segments:
+			db_segments.append(d)
+	seglist=segments.segmentlist([segments.segment(d[0],d[1]) for d in db_segments])
+	print seglist
 	db_out_saved=[]
 	sql_query="SELECT time_slide.time_slide_id,sngl_inspiral.end_time + sngl_inspiral.end_time_ns*1e-9,sngl_inspiral.ifo,time_slide.offset\
 		from sngl_inspiral join coinc_event_map on (coinc_event_map.table_name == 'sngl_inspiral' and coinc_event_map.event_id \
@@ -61,10 +69,22 @@ def get_timeslides_pipedown(database_connection):
 		events=[tup for tup in db_out_saved if tup[0]==ts]
 		d={}
 		for e in events:
-			d[e[2]]=e[3]
-		print events
+			segfilt=filter(lambda seg:e[1] in seg, seglist)
+			if len(segfilt)!=1:
+				print ' ERROR: time %f must appear in only one segment'%(e[3])
+			else:
+				seg=segfilt[0]
+			deltat=e[3]
+			while (e[1]+deltat) not in seg:
+				print ' adjusting timeslide for '+str(e[1])+' + '+str(deltat)
+				if deltat<0:
+					deltat=deltat+(seg[1]-seg[0])
+				else:
+					deltat=deltat-(seg[1]-seg[0])
+			d[e[2]]=deltat
 		t=events[0][1]+events[0][3]
 		output[t]=d
+	print output
 	return output
 
 # Read command line options
@@ -325,6 +345,12 @@ length=float(endtime)-float(starttime)+2*padding
 datastart=starttime-padding
 dataend=endtime+padding
 
+# Check for manual over-ride of PSD start time
+if cp.has_option('lalinference','psdstart'):
+	manual_datastart=cp.getfloat('lalinference','psdstart')-padding
+	if manual_datastart<datastart:
+		datastart=manual_datastart
+
 cp.add_section('input')
 cp.set('input','gps-start-time',str(int(datastart)))
 cp.set('input','gps-end-time',str(int(dataend)))
@@ -475,8 +501,9 @@ if nparallel==1:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-	if time in timeslides.keys():
-		ts=timeslides[time]
+	if timeslides:
+		if time in timeslides.keys():
+			ts=timeslides[time]
 	else:
 		ts=None
         inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent,nodeclass=nestclass,timeslides=ts)
@@ -492,8 +519,9 @@ else:
                 thisevent=time_event[time]
         else:
                 thisevent=None
-	if time in timeslides.keys():
-		ts=timeslides[time]
+	if timeslides:
+		if time in timeslides.keys():
+			ts=timeslides[time]
 	else:
 		ts=None
         (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent,nodeclass=nestclass,timeslides=ts)
@@ -524,8 +552,9 @@ if opts.coherence_test:
     checkDir(coherence_test_dir)
     # Loop over all the times
     for time in times:
-	if time in timeslides.keys():
-		ts=timeslides[time]
+	if timeslides:
+		if time in timeslides.keys():
+			ts=timeslides[time]
 	else:
 		ts=None
         ifos=segments_by_time[time].keys()

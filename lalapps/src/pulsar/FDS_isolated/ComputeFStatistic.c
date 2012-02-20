@@ -74,8 +74,6 @@
    protect this with a HAVE_FINITE */
 int finite(double);
 
-RCSID( "$Id$");
-
 /*----------------------------------------------------------------------*/
 /* conditional compilation-switches */
 /*
@@ -824,7 +822,9 @@ int main(int argc,char *argv[])
   
   while (1)
     {
+#if USE_BOINC
       BOOLEAN need2checkpoint = FALSE;
+#endif
       /* If our Fstat-file reaches a MaxFileSizeKB-threshold, we 'compatify'
        * the Fstat-file back to the contents of toplist with NumCandidatesToKeep
        * 
@@ -857,8 +857,9 @@ int main(int argc,char *argv[])
 	    }
 	  if ( fstatbuff )
 	    setvbuf(fpFstat, fstatbuff, _IOFBF, uvar_OutputBufferKB * 1024);
-
+#if USE_BOINC
 	  need2checkpoint = TRUE;
+#endif
 	  LogPrintfVerbatim ( LOG_NORMAL, " done.\n");
 
 	} /* if maxFileSizeKB atteined => re-compactify output file by toplist */
@@ -1001,7 +1002,7 @@ int main(int argc,char *argv[])
           if (uvar_outputFstat || uvar_outputLoudest) 
             {
               INT4 i;
-	      FstatOutputEntry outputLine;
+	      FstatOutputEntry outputLine = empty_FstatOutputEntry;
 
               for(i=0;i < GV.FreqImax ;i++)
                 {
@@ -1177,7 +1178,7 @@ int main(int argc,char *argv[])
 void
 initUserVars (LALStatus *status)
 {
-  INITSTATUS( status, "initUserVars", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* set a few defaults */
@@ -1700,7 +1701,7 @@ void CreateDemodParams (LALStatus *status, PulsarDopplerParams searchpos)
   BarycenterInput baryinput;         /* Stores detector location and other barycentering data */
   INT4 k;
 
-  INITSTATUS (status, "CreateDemodParams", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   
   /* Detector location: MAKE INTO INPUT!!!!! */
@@ -2218,7 +2219,7 @@ InitFStat (LALStatus *status, ConfigVariables *cfg)
   REAL8 thisSFTtime;
   INT4 blockno=0;
 
-  INITSTATUS (status, "InitFStat", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* set the current working directory */
@@ -2755,7 +2756,7 @@ void
 checkUserInputConsistency (LALStatus *lstat)
 {
 
-  INITSTATUS (lstat, "checkUserInputConsistency", rcsid);  
+  INITSTATUS(lstat);  
 
   if (!uvar_mergedSFTFile && (uvar_startTime>-1.0e308 || uvar_endTime<1.0e308)) {
     LogPrintf (LOG_CRITICAL,  "The --startTime and --endTIme options may ONLY be used\n"
@@ -2885,9 +2886,8 @@ WriteFStatLog (LALStatus *stat, char *argv[])
     UINT4 len;
     CHAR *fname = NULL;
     FILE *fplog;
-    int rc;
 
-    INITSTATUS (stat, "WriteFStatLog", rcsid);
+    INITSTATUS(stat);
     ATTATCHSTATUSPTR (stat);
 
     /* prepare log-file for writing */
@@ -2925,7 +2925,7 @@ WriteFStatLog (LALStatus *stat, char *argv[])
     fclose (fplog);
     
     sprintf (command, "ident %s 2> /dev/null | sort -u >> %s", argv[0], fname);
-    rc = system (command);   /* we currently don't check this. If it fails, we assume that */
+    system (command);   /* we currently don't check this. If it fails, we assume that */
                         /* one of the system-commands was not available, and */
                         /* therefore the CVS-versions will simply not be logged */
 
@@ -2947,7 +2947,7 @@ CreateNautilusDetector (LALStatus *status, LALDetector *Detector)
   LALDetectorType bar;
   LALDetector Detector1;
 
-  INITSTATUS (status, "CreateNautilusDetector", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 /*   detector_params=(LALFrDetector )LALMalloc(sizeof(LALFrDetector)); */
@@ -2976,7 +2976,7 @@ void Freemem(LALStatus *status)
 
   INT4 k;
 
-  INITSTATUS (status, "Freemem", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* Free SFTData and filenames */
@@ -3301,7 +3301,7 @@ EstimateFLines(LALStatus *stat)
   INT2 smallBlock=1;
   INT4 wings;
 
-  INITSTATUS( stat, "EstimateFLines", rcsid );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR (stat);
 
   nbins=(UINT4)nbins;
@@ -3496,7 +3496,7 @@ NormaliseSFTDataRngMdn(LALStatus *stat, INT4 windowSize)
   REAL8 deltaT,norm,*N, *Sp1;
   REAL4 xre,xim,xreNorm,ximNorm;
 
-  INITSTATUS( stat, "NormaliseSFTDataRngMdn", rcsid );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR (stat);
 
 
@@ -4052,7 +4052,7 @@ getCheckpointCounters(LALStatus *stat,		/**< pointer to LALStatus structure */
   lalDebugLevel=1;
 #endif
  
-  INITSTATUS( stat, "getCheckpointCounters", rcsid );
+  INITSTATUS(stat);
   ASSERT ( fstat_fname, stat, COMPUTEFSTAT_ENULL, COMPUTEFSTAT_MSGENULL);
   ASSERT ( ckpfn, stat, COMPUTEFSTAT_ENULL, COMPUTEFSTAT_MSGENULL);
   ASSERT ( loopcounter, stat, COMPUTEFSTAT_ENULL, COMPUTEFSTAT_MSGENULL);
@@ -4207,7 +4207,7 @@ InitSearchGrid ( LALStatus *status,
 {
   DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit; /* init-structure for DopperScanner */
 
-  INITSTATUS( status, "InitSearchGrid", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* Prepare input-structure for initialization of DopplerSkyScan

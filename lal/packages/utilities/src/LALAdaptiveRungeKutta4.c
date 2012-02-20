@@ -47,9 +47,6 @@ None so far...
 
 #include <lal/LALAdaptiveRungeKutta4.h>
 
-NRCSID(LALADAPTIVERUNGEKUTTA4C, "$Id$");
-
-
 ark4GSLIntegrator *XLALAdaptiveRungeKutta4Init( int dim,
                              int (* dydt) (double t, const double y[], double dydt[], void * params),  /* These are XLAL functions! */
                              int (* stop) (double t, const double y[], double dydt[], void * params),
@@ -259,7 +256,7 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   /* if we have completed at least one step, allocate the GSL interpolation object and the output array */
   if (cnt == 0) goto bail_out;
 
-  XLAL_CALLGSL( interp = gsl_spline_alloc(gsl_interp_cspline,cnt) );
+  XLAL_CALLGSL( interp = gsl_spline_alloc(gsl_interp_cspline,cnt+1) );
   XLAL_CALLGSL( accel  = gsl_interp_accel_alloc() );
 
   outputlen = (int)(t / deltat) + 1;
@@ -279,7 +276,7 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   /* interpolate! */
 	XLAL_BEGINGSL;
   for(unsigned int i=1;i<=dim;i++) {
-    gsl_spline_init(interp,&buffers->data[0],&buffers->data[bufferlength*i],cnt);
+    gsl_spline_init(interp,&buffers->data[0],&buffers->data[bufferlength*i],cnt+1);
 
     vector = output->data + outputlen*i;
     for(int j=0;j<outputlen;j++) {

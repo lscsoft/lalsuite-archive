@@ -9,7 +9,6 @@
 
 /*
   Author:
-  $Id$
 */
 
 /**
@@ -50,7 +49,6 @@
 #include <lal/MatrixUtils.h>
 #include <lal/LALConstants.h>
 #include <lal/XLALError.h>
-#include <lal/LALRCSID.h>
 #include <lal/ComputeFstat.h>
 #include <lal/TimeSeries.h>
 #include <lal/LALNoiseModels.h>
@@ -64,6 +62,7 @@
 #include <lal/LALInference.h>
 #include <lal/LALInferenceNestedSampler.h>
 #include <lal/LALInferencePrior.h>
+#include <lal/LALInferenceProposal.h>
 
 #ifdef HAVE_LIBLALXML
 #include <lal/LALInferenceXML.h>
@@ -192,6 +191,8 @@ void add_variable_scale_prior( LALInferenceVariables *var,
                                LALInferenceVariables *scale, 
                                LALInferenceVariables *prior, const char *name, 
                                REAL8 value, REAL8 sigma );
+
+void initialisePrior( LALInferenceRunState *runState );
 
 void initialiseProposal( LALInferenceRunState *runState );
 

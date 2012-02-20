@@ -25,7 +25,6 @@
  *
  * Based on inspiral.c, originally by Brown, D. A.
  *
- * Revision: $Id$
  *
  *-----------------------------------------------------------------------
  */
@@ -85,8 +84,6 @@
 #include <LALAppsVCSInfo.h>
 
 #include "inspiral.h"
-
-RCSID("$Id$");
 
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
@@ -482,19 +479,19 @@ int main(int argc, char *argv[])
     snprintf(filtertable.filterTable->program, LIGOMETA_PROGRAM_MAX, "%s",
              PROGRAM_NAME);
     filtertable.filterTable->start_time = gpsStartTime.gpsSeconds;
-    snprintf(filtertable.filterTable->filter_name, LIGOMETA_COMMENT_MAX,
+    snprintf(filtertable.filterTable->filter_name, LIGOMETA_FILTER_NAME_MAX,
              "%s%s", approximantName, orderName);
 
     /* fill the comment, if a user has specified on, or leave it blank */
     if (!*comment) {
         snprintf(proctable.processTable->comment, LIGOMETA_COMMENT_MAX,
                  " ");
-        snprintf(filtertable.filterTable->comment, LIGOMETA_COMMENT_MAX,
+        snprintf(filtertable.filterTable->comment, LIGOMETA_SUMMVALUE_COMM_MAX,
                  " ");
     } else {
         snprintf(proctable.processTable->comment, LIGOMETA_COMMENT_MAX,
                  "%s", comment);
-        snprintf(filtertable.filterTable->comment, LIGOMETA_COMMENT_MAX,
+        snprintf(filtertable.filterTable->comment, LIGOMETA_SUMMVALUE_COMM_MAX,
                  "%s", comment);
     }
 

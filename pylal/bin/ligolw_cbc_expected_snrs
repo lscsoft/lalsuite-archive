@@ -91,9 +91,8 @@ for row in siminspiral:
 
 	# Generate waveform in time domain
 	hplus, hcross = lalsimulation.XLALSimInspiralSpinTaylorT4(
-		t0,                         # initial time (s)
-		row.coa_phase * 0.5,        # initial GW phase (rad)
-		0,                          # tail gauge term (default = 0)
+		row.coa_phase,              # GW phase at coalescence (rad)
+		1,                          # tail gauge term (default = 1)
 		1./opts.sample_rate,        # sampling interval (s)
 		row.mass1 * lal.LAL_MSUN_SI,# mass of companion 1 (kg)
 		row.mass2 * lal.LAL_MSUN_SI,# mass of companion 2 (kg)
@@ -111,10 +110,15 @@ for row in siminspiral:
 		np.cos(row.inclination),    # initial value of E1x
 		0,                          # initial value of E1y
 		-np.sin(row.inclination),   # initial value of E1z
-		lalsimulation.LAL_AllInter, # flags to control spin effects
+		0,                          # tidal deformability of mass 1
+		0,                          # tidal deformability of mass 2
+		lalsimulation.LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN, # flags to control spin effects
 		7,                          # twice PN phase order
-		3                           # twice PN amplitude order
+		3
 	)
+
+	hplus.epoch = t0 - len(hplus.data.data) * hplus.deltaT
+	hcross.epoch = t0 - len(hplus.data.data) * hplus.deltaT
 
 	# Project hplus and hcross onto detector's antenna pattern
 	h = lalsimulation.XLALSimDetectorStrainREAL8TimeSeries(hplus, hcross,
