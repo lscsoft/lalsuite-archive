@@ -124,14 +124,18 @@ def write_head(title, css, js, base=None, refresh=None, jquery=True):
   if refresh:
     page.meta(http_equiv="refresh", content="%s" % refresh)
   # link stylesheet
-  page.link(media="all", href=css, type="text/css", rel="stylesheet")
+  if isinstance(css, str): css = [css]
+  for c in css:
+    page.link(media="all", href=c, type="text/css", rel="stylesheet")
   # add title
   page.title(title)
 
   if jquery:
     page.script("", src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.0"\
                     "/jquery.min.js", type="text/javascript")
-  page.script("", src=js, type="text/javascript")
+  if isinstance(js, str): js = [js]
+  for j in js:
+    page.script("", src=j, type="text/javascript")
   page.head.close()
 
   return page
@@ -329,14 +333,14 @@ def write_h(page, title, id, cl=3, toggle=True):
 # Link image
 # =============================================================================
 
-def link_image(page, href, src, alt, title, class_=None):
+def link_image(page, href, src, alt, title, **kwargs):
 
   """
     Link image into glue.markup.page object page with standard options
   """
 
-  page.a(href=href, title=title, rel="external")
-  page.img(class_=class_, src=src, alt=alt)
+  page.a(href=href, title=title, **kwargs)
+  page.img(src=src, alt=alt, **kwargs)
   page.a.close()
 
   return page
