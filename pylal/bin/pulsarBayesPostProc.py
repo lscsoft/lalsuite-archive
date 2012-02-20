@@ -62,11 +62,11 @@ def pulsarBayesPostProc( outdir, data,
                          # analysis data
                          Bkdata=None, ifos=None,
                          # pulsar information
-                         corfile=None,
+                         corfile=None #,
                          #Turn on 2D kdes
-                         twodkdeplots=False,
+                         #twodkdeplots=False,
                          #Turn on R convergence tests
-                         RconvergenceTests=False
+                         #RconvergenceTests=False
                        ):
   # check data is input
   if data is None:
@@ -153,11 +153,31 @@ def pulsarBayesPostProc( outdir, data,
 if __name__=='__main__':
   from optparse import OptionParser
   
-  print sys.version
+  description = \
+"""This script is for creating a results output page and plots for the known
+   pulsar analysis. It uses inputs from the nested sampling code
+   lalapps_pulsar_parameter_estimation_nested."""
+
+  epilog = " An example of usage for a case when three nested sampling runs \
+have been performed for two interferometers (H1 and L1): \
+"+os.path.basename(sys.argv[0])+" --ifo H1 --data \
+nest1_H1.txt,nest2_H1.txt,nest3_H1.txt --ifo L1 --data \
+nest1_L1.txt,nest2_L1.txt,nest3_L1.txt --parfile J0534-2200.par --Nlive 1000 \
+--priorfile priors.txt --histbins 50 --outpath \
+/home/me/public_html/J0534-2200"
+  usage = "Usage: %prog [options]"
   
-  parser = OptionParser()
-  parser.add_option("-o", "--outpath", dest="outpath", help="Make page and " \
-                    "plots in DIR", metavar="DIR")
+  parser = OptionParser( usage = usage, description = description,
+                         version = __version__, epilog = epilog )
+  
+  parser.add_option("-o", "--outpath", dest="outpath", help="The path for "
+                    "the analysis output", metavar="DIR")
+                    
+  # check that output path has been given
+  if not opts.__dict__['outpath']:
+    print "Must specify an output path"
+    parser.print_help()
+    exit(-1)
   
   """
    data will be read in in the following format:
@@ -166,52 +186,96 @@ if __name__=='__main__':
      --ifo L1 --data nest1_L1.txt,nest2_L1.txt,nest3_L1.txt
      --ifo H1L1 --data nest1_H1L1.txt,nest2_H1L1.txt,nest3_H1L1.txt
   """
-  parser.add_option("-d","--data",dest="data",action="append",help="A list " \
-                    "of nested sampling data files for a particular IFO " \
-                    "separated by commas (each IFO should use a separate " \
+  parser.add_option("-d","--data",dest="data",action="append",help="A list " 
+                    "of nested sampling data files for a particular IFO " 
+                    "separated by commas (each IFO should use a separate " 
                     "instance of --data)")
+                    
+  # check that some data has been given
+  if not opts.__dict__['data']:
+    print "Must specify nested sampling data files"
+    parser.print_help()
+    exit(-1)
 
   # number of live points
-  parser.add_option("--Nlive", action="store", default=None, help="Number of " \
-                    "live points used in each parallel nested sampling run.", \
-                    type="int")
+  parser.add_option("-N", "--Nlive", action="store", default=None, help="Number"
+                    " of live points used in each parallel nested sampling "
+                    "run. [required]", type="int", metavar="nlive",
+                    dest="nlive")
+  
+  # check that number of live points has been set
+  if not opts.__dict__['nlive']:
+    print "Must specify number of live points used in analysis"
+    parser.print_help()
+    exit(-1)
   
   # Turn on 2D kdes
-  parser.add_option("--twodkdeplots", action="store_true", default=False,
-                    dest="twodkdeplots")
+  #parser.add_option("--twodkdeplots", action="store_true", default=False,
+  #                  dest="twodkdeplots")
   
   # Turn on R convergence tests
-  parser.add_option("--RconvergenceTests", action="store_true", default=False,
-                    dest="RconvergenceTests")
+  #parser.add_option("--RconvergenceTests", action="store_true", default=False,
+  #                  dest="RconvergenceTests")
   
   # get pulsar .par file
-  parser.add_option("-p", "--parfile", dest="parfile", help="The pulsar " \
-                    "parameter file.", default=None)
+  parser.add_option("-p", "--parfile", dest="parfile", help="The TEMPO-style "
+                    "pulsar parameter file used in the analysis. [required]", 
+                    metavar="PNAME.par", default=None)
+  
+  # check that parfile has been given
+  if not opts.__dict__['parfile']:
+    print "Must specify a pulsar TEMPO .par file"
+    parser.print_help()
+    exit(-1)
   
   # get pulsar correlation coefficient file
-  parser.add_option("-c", "--corfile", dest="corfile", help="The pulsar " \
-                    "correlation coefficient file.", default=None)
+  parser.add_option("-c", "--corfile", dest="corfile", help="The TEMPO pulsar "
+                    "correlation coefficient - if used in the analysis."
+                    "[optional]", metavar="PNAME.mat", default=None)
   
   # get nested sampling analysis prior file
-  parser.add_option("-P", "--priorfile", dest="priorfile", help="The prior " \
-                    "file used in the analysis")
+  parser.add_option("-P", "--priorfile", dest="priorfile", help="The prior "
+                    "file used in the analysis. [required]",
+                    metavar="prior.txt")
+  
+  # check that a prior file has been given
+  if not opts.__dict__['priorfile']:
+    print "Must specify a prior file used during nested sampling"
+    parser.print_help()
+    exit(-1)
   
   # get heterodyned data files used for analysis
   parser.add_option("-B", "--Bkfiles", dest="Bkfiles", action="append", 
-                    help="A heterodyned data file.", default=None)
+                    help="A heterodyned data file. [optional]", default=None)
   
   # get list of the detectors used (same order as Bk files)
-  parser.add_option("-i", "--ifo", dest="ifos", action="append", default=None)
+  parser.add_option("-i", "--ifo", dest="ifos", help="The individual "
+                    "interferometers from which analysis output, and data "
+                    "files have been supplied. [required]", action="append",
+                    default=None)
+                    
+  if not opts.__dict__['ifos']:
+    print "Must specify the interferometers analysed"
+    parser.print_help()
+    exit(-1)
   
   # get number of bins for histogramming (default = 50)
   parser.add_option("-b", "--histbins", dest="histbins", help="The number of " \
-                    "bins for histrogram plots.", default=50)
+                    "bins for histrogram plots. [default = 50]", default=50)
   
   # parse input options
   (opts, args) = parser.parse_args()
   
   # upper limits wanted for output
   upperlimit=0.95
+  
+  # check that number of ifos is the same as the number of data lists
+  nifos = len(opts.ifos)
+  ndata = len(opts.data)
+  
+  if nifos != ndata:
+    print "Number of IFOs and data lists are not equal"
+    exit(-1)
   
   # sort out data into lists for each IFO
   data = []
@@ -221,8 +285,8 @@ if __name__=='__main__':
   # call pulsarBayesPostProc function
   pulsarBayesPostProc( opts.outpath, data, \
                        upperlimit, opts.histbins, opts.priorfile, \
-                       opts.parfile, opts.Nlive, opts.Bkfiles, opts.ifos, \
-                       opts.corfile, \
-                       twodkdeplots=opts.twodkdeplots, \
-                       RconvergenceTests=opts.RconvergenceTests )
+                       opts.parfile, opts.nlive, opts.Bkfiles, opts.ifos, \
+                       opts.corfile ) #, \
+                       #twodkdeplots=opts.twodkdeplots, \
+                       #RconvergenceTests=opts.RconvergenceTests )
   
