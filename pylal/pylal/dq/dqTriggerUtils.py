@@ -707,11 +707,12 @@ def fromLALCache(cache, etg, start=None, end=None, columns=None,\
 
   # load files
   for i,e in enumerate(cache):
-    trigs.extend(re.search('(xml|xml.gz)\z', e.path()) and\
-                 fromtrigxml(open(e.path), etg=etg, start=start, end=end,\
-                             columns=columns) or\
-                 fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
-                              columns=columns))
+    if re.search('(xml|xml.gz)\Z', e.path()):
+      trigs.extend(fromtrigxml(open(e.path()), tablename=trigs.tableName,\
+                               start=start, end=end, columns=columns))
+    else:
+      trigs.extend(fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
+                                columns=columns))
     # print verbose message
     if verbose and len(cache)>1:
       progress = int((i+1)/num)
@@ -1562,13 +1563,16 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
   if 'bandwidth' in columns:      attr_map['bandwidth']      = bandwidth
+  if 'ms_bandwidth' in columns:   attr_map['ms_bandwidth']   = bandwidth
   if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
   if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
+  if 'ms_flow' in columns:        attr_map['ms_flow']        = freq-bandwidth/2
+  if 'ms_fhigh' in columns:       attr_map['ms_fhigh']       = freq+bandwidth/2
 
   if 'duration' in columns:       attr_map['duration']       = duration
   if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
-  if 'amplitude' in columns:      attr_map['amplitude']      = amplitude
   if 'snr' in columns:            attr_map['snr']      = numpy.sqrt(2*amplitude)
+  if 'ms_snr' in columns:         attr_map['ms_snr']   = numpy.sqrt(2*amplitude)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['cluster_size'] * numtrigs
@@ -1700,7 +1704,6 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
 
-  if 'amplitude' in columns:      attr_map['amplitude']      = amplitude
   if 'snr' in columns:            attr_map['snr']  = numpy.sqrt(amplitude-n_pix)
 
   if 'n_pix' in columns or 'param_one_value' in columns:
@@ -1929,9 +1932,8 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = (flow+fhigh)/2
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = (flow+fhigh)/2
 
-  if 'amplitude' in columns:      attr_map['amplitude']      = cle
-  if 'snr' in columns:            attr_map['snr']            = numpy.sqrt(2*cle)
-  if 'ms_snr' in columns:         attr_map['ms_snr']      = numpy.sqrt(2*ms_cle)
+  if 'snr' in columns:            attr_map['snr']            = numpy.sqrt(cle)
+  if 'ms_snr' in columns:         attr_map['ms_snr']        = numpy.sqrt(ms_cle)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['cluster_size'] * numtrigs
