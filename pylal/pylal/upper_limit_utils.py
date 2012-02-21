@@ -53,7 +53,7 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     std = calerr
     mean = 0 # median volume = 1
 
-    fracerrs = numpy.linspace(0.33,3,5e2) # assume we got the volume to a factor of three or better
+    fracerrs = numpy.linspace(0.33,3,1e2) # assume we got the volume to a factor of three or better
     errdist = numpy.exp(-(numpy.log(fracerrs)-mean)**2/(2*std**2))/(fracerrs*std) # log-normal pdf
     errdist /= errdist.sum() #normalize
 
