@@ -18,6 +18,7 @@ auto/
 # own
 .cproject
 .project
+.settings
 configDir
 build_*
 lal/doc/doxygen

@@ -51,6 +51,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorT4.c \
 	LALSimInspiralTaylorLength.c \
 	LALSimulation.c \
+	LALSimInspiralSpinQuadTaylor.c\
 	LALSimInspiralSpinTaylorT4.c \
 	LALSimulationVCSInfo.c \
 	LALSimNoisePSD.c \
