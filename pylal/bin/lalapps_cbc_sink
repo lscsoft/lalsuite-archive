@@ -252,6 +252,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
          continue
 
      if bin_type == 'Mass1_Mass2' and mbin[1]>mbin[0]:
+         total_vol[mbin] = 0
          combined_upper_limit[mbin] = float('inf')
          uncombined_upper_limit[mbin] = float('inf')
          prior_upper_limit[mbin] = float('inf')
@@ -320,7 +321,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
 
      m1range = [numpy.min(bins.lower()[0]), numpy.max(bins.upper()[0])]
      m2range = [numpy.min(bins.lower()[1]), numpy.max(bins.upper()[1])]
-     livetime = total_lt.array[0,0]/(24.0*3600)
+     livetime = total_lt.array[0,0]*constants.LAL_YRJUL_SI/(24.0*3600)
 
      #
      # log distance plot
