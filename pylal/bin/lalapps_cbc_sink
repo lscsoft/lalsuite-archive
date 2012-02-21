@@ -359,6 +359,25 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      savefig_pylal('upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
      pylab.clf()
 
+
+     #
+     # upper limit comparison plot
+     #
+     pylab.pcolor(xtick_locs,ytick_locs, prior_upper_limit.array.T/combined_upper_limit.array.T,vmin=1)
+     pylab.colorbar().set_label("prior/combined upper limit")
+     pylab.xlim(m1range)
+     pylab.ylim(m2range)
+     pylab.xticks(xtick_locs,xtick_strings)
+     pylab.yticks(ytick_locs,ytick_strings)
+     pylab.grid()
+     pylab.title("%s 90%s Upper Limit (%.1f days livetime)"%(entry.observatory,'%',livetime),fontsize=18)
+     pylab.xlabel("Mass 1",fontsize=18)
+     pylab.ylabel("Mass 2",fontsize=18)
+     pylab.gca().set_aspect(1)
+     savefig_pylal('upper_limit_compare_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
+
+
    # for bar plots, treat bns/bbh special
    else:
      if bin_type == "BNS_BBH":
