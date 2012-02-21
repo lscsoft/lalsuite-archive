@@ -22,14 +22,22 @@ lalsimulationinclude_HEADERS = \
 	LALSimulationVCSInfo.h
 
 noinst_HEADERS = \
-	LALSimIMREOBFactorizedFlux.c \
 	LALSimIMREOBFactorizedWaveform.c \
 	LALSimIMREOBHybridRingdown.c \
 	LALSimIMREOBNQCCorrection.c \
 	LALSimIMREOBNRv2.h \
 	LALSimIMREOBNewtonianMultipole.c \
 	LALSimInspiralPNCoefficients.c \
-	LALSimInspiraldEnergyFlux.c
+	LALSimInspiraldEnergyFlux.c \
+	LALSimIMRSpinEOBHamiltonian.c \
+	LALSimIMRSpinEOBHcapNumericalDerivative.c \
+	LALSimIMRSpinAlignedEOBHcapDerivative.c \
+	LALSimIMRSpinEOB.h \
+	LALSimIMRSpinEOBInitialConditions.c \
+	LALSimIMRSpinEOBAuxFuncs.c \
+	LALSimIMRSpinEOBFactorizedWaveform.c \
+	LALSimIMRSpinEOBFactorizedFlux.c \
+	LALSimIMREOBFactorizedFlux.c
 
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
@@ -37,6 +45,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimBurst.c \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \
+	LALSimIMRSpinAlignedEOB.c \
 	LALSimIMRPhenom.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimInspiral.c \

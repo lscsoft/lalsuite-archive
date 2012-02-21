@@ -19,6 +19,26 @@ import pickle
 from pylal import InspiralUtils
 
 
+def calculateFAPEFF(total_data,classifiers):
+	## calculate fap, eff for each MVCi, put those into total_data and return it
+	glitches = total_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
+	cleans = total_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
+	for cls in classifiers:
+		glitches = numpy.sort(glitches, order=[cls[0]+'_rank'])
+		cleans = numpy.sort(cleans, order=[cls[0]+'_rank'])
+		for i,rank in enumerate(cleans[cls[0]+'_rank']):
+			num_of_false_alarms = len(cleans) - numpy.searchsorted(cleans[cls[0]+'_rank'],rank)
+			j = numpy.searchsorted(glitches[cls[0]+'_rank'],rank)
+			num_of_true_alarms = len(glitches) - j
+			fap = num_of_false_alarms/float(len(cleans))
+			eff = num_of_true_alarms/float(len(glitches))
+			numpy.put(cleans[cls[0]+'_fap'],[i],[fap])
+			numpy.put(cleans[cls[0]+'_eff'],[i],[eff])
+			numpy.put(glitches[cls[0]+'_fap'],[j],[fap])
+			numpy.put(glitches[cls[0]+'_eff'],[j],[eff])
+	return numpy.concatenate((numpy.sort(glitches,order=['GPS']),numpy.sort(cleans,order=['GPS'])))
+
+
 def PrateToRank(ranks,Prate):
 	### convert a certain positive rate(Prate) to a corresponding rank in rank data
 	ranks_sorted=numpy.sort(ranks)
@@ -31,10 +51,11 @@ def PrateToRank(ranks,Prate):
 			break
 	RankThr = ranks_sorted[i]
 
-	return RankThr, PositiveRates, ranks_sorted
+	return RankThr
 
 
 def vetoGlitchesUnderFAP(glitch_data, rank_name, Rankthr, FAPthr):
+	## veto triggers at Rankthr corresponding to FAPthr and return remained triggers
 	glitch_data_sorted = numpy.sort(glitch_data,order=[rank_name])
 	total_number_of_glitches = len(glitch_data_sorted[rank_name])
 	number_of_vetoed_glitches = numpy.searchsorted(glitch_data_sorted[rank_name],Rankthr)
@@ -54,7 +75,7 @@ def ReadMVSCRanks(list_of_files, classifier):
 		ranker = 'glitch-rank'
 		rank_name = 'ann_rank'
 	else:
-		rank = 'SVMRank'
+		ranker = 'SVMRank'
 		rank_name = 'svm_rank'
 
 	variables=['GPS','i',rank_name]
@@ -203,8 +224,8 @@ if opts.ann_ranked_files:
 	#classifiers.append(['ann',glob.glob(opts.ann_ranked_files)])
 	classifiers.append(['ann',opts.ann_ranked_files.split(',')])
 if opts.svm_ranked_files:
-	#classifiers.append(['svm',glob.glob(opts.ann_ranked_files)])
-	classifiers.append(['svm',opts.ann_ranked_files.split(',')])
+	#classifiers.append(['svm',glob.glob(opts.svm_ranked_files)])
+	classifiers.append(['svm',opts.svm_ranked_files.split(',')])
 if opts.cveto_ranked_files:
 	#classifiers.append(['cveto',glob.glob(opts.cveto_ranked_files)])
 	classifiers.append(['cveto',opts.cveto_ranked_files.split(',')])
@@ -218,12 +239,13 @@ if not classifiers:
 # Construction of total triggers with all ranks for all classifers(MVSC,ANN,SVM,CVeto).
 
 total_ranked_data = generateTotalRankedTriggers(classifiers)
+total_ranked_data = calculateFAPEFF(total_ranked_data,classifiers)
 glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
 cleans = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
 
 
 # write all data into test_file
-test_file=open(opts.tag+'_data.txt','w')
+test_file=open(opts.tag+'_data.dat','w')
 test_file.write(' '.join(total_ranked_data.dtype.names)+'\n')
 
 for da in total_ranked_data:
@@ -231,6 +253,7 @@ for da in total_ranked_data:
 
 ## Create scattered plots of mvc ranks vs. SNR and mvc ranks vs. Siginificance of GWTriggers
 for cls in classifiers:
+	## mvc ranks vs. SNR
 	pylab.figure(1)
 	pylab.plot(glitches[cls[0]+'_rank'],glitches['SNR'],'r*',label='glitches')
 	pylab.plot(cleans[cls[0]+'_rank'],cleans['SNR'],'bo',label='clean samples')
@@ -240,9 +263,8 @@ for cls in classifiers:
 	pylab.legend()
 	pylab.savefig(opts.tag+'_SNR_'+cls[0]+'rank.png')
 	pylab.close()
-
-for cls in classifiers:
-	pylab.figure(1)
+	## mvc ranks vs. Significance
+	pylab.figure(2)
 	pylab.plot(glitches[cls[0]+'_rank'],glitches['signif'],'r*',label='glitches')
 	pylab.plot(cleans[cls[0]+'_rank'],cleans['signif'],'bo',label='clean samples')
 	pylab.xlabel(cls[0]+' rank')
@@ -253,50 +275,45 @@ for cls in classifiers:
 	pylab.close()
 
 ## Create Cumulative histograms of GW SNR for glitch triggers after vetoing at RankThr and FAPThr
-vetoed_triggers=[]
-pylab.figure(1)
 FAPThr = opts.fap_threshold
+eff_file=open(opts.tag+'_efficiency_at_fap'+str(FAPThr)+'.txt','w')
+eff_file.write('Vetoed Results at FAP='+str(FAPThr)+'\n')
+# histograms for SNR
+pylab.figure(1)
 pylab.hist(glitches['SNR'],400,histtype='step',cumulative=-1,label='before vetoing')
 pylab.title("Cumulative histogram for SNR of glitches after vetoing at FAP "+str(FAPThr))
 pylab.xlabel('SNR')
 pylab.ylabel('Number of Glitches')
 pylab.xscale('log')
 pylab.yscale('log')
-eff_file=open(opts.tag+'_efficiency_at_fap'+str(FAPThr)+'.txt','w')
-prates_file=open(opts.tag+'prates_fap'+str(FAPThr)+'.txt','w')
-ranks_file=open(opts.tag+'ranks_fap'+str(FAPThr)+'.txt','w')
-eff_file.write('Vetoed Results at FAP='+str(FAPThr)+'\n')
-for cls in classifiers:
-	rank_name = cls[0]+'_rank'
-	RankThr, Prates_list, rank_list = PrateToRank(cleans[rank_name],FAPThr)
-	glitches_vetoed, efficiency = vetoGlitchesUnderFAP(glitches,rank_name,RankThr,FAPThr)
-	eff_file.write(cls[0]+' Efficiency : '+str(efficiency)+', threshold rank :'+str(RankThr)+'\n')
-	prates_file.write(cls[0])
-	for fap in Prates_list:
-		prates_file.write(str(fap)+'\n')
-	ranks_file.write(cls[0])
-	for ra in rank_list:
-		ranks_file.write(str(ra)+'\n')
-	pylab.hist(glitches_vetoed['SNR'],400,histtype='step',cumulative=-1,label=cls[0])
-pylab.legend()
-pylab.savefig(opts.tag+'_cumulative_snr_fap'+str(FAPThr)+'.png')
-pylab.close()
-
-
-## Create Cumulative histograms of GW Significance for glitch triggers after vetoing at RankThr and FAPThr
-vetoed_triggers=[]
-pylab.figure(1)
+# histograms for Significance
+pylab.figure(2)
 pylab.hist(glitches['signif'],400,histtype='step',cumulative=-1,label='before vetoing')
 pylab.title("Cumulative histogram for Significance of glitches after vetoing at FAP "+str(FAPThr))
 pylab.xlabel('Significance')
 pylab.ylabel('Number of Glitches')
 pylab.xscale('log')
 pylab.yscale('log')
+glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
 for cls in classifiers:
 	rank_name = cls[0]+'_rank'
-	RankThr, Prates_list, rank_list = PrateToRank(cleans[rank_name],FAPThr)
-	glitches_vetoed, efficiency = vetoGlitchesUnderFAP(glitches,rank_name,RankThr,FAPThr)
+	#RankThr = PrateToRank(cleans[rank_name],FAPThr)
+	#glitches_vetoed, efficiency = vetoGlitchesUnderFAP(glitches,rank_name,RankThr,FAPThr)
+	glitches_vetoed = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] > FAPThr)[0],:]
+	efficiency = min(glitches_vetoed[cls[0]+'_eff'])
+	RankThr = max(glitches_vetoed[cls[0]+'_rank'])
+	eff_file.write(cls[0]+' Efficiency : '+str(efficiency)+', threshold rank :'+str(RankThr)+'\n')
+	# histograms for SNR
+	pylab.figure(1)
+	pylab.hist(glitches_vetoed['SNR'],400,histtype='step',cumulative=-1,label=cls[0])
+	# histograms for Significance
+	pylab.figure(2)
 	pylab.hist(glitches_vetoed['signif'],400,histtype='step',cumulative=-1,label=cls[0])
+pylab.figure(1)
 pylab.legend()
-pylab.savefig(opts.tag+'_cumulative_signif_fap'+str(FAPThr)+'.png')
+pylab.savefig(opts.tag+'_cumul_hist_snr_fap'+str(FAPThr)+'.png')
+pylab.close()
+pylab.figure(2)
+pylab.legend()
+pylab.savefig(opts.tag+'_cumul_hist_signif_fap'+str(FAPThr)+'.png')
 pylab.close()

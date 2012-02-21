@@ -5,23 +5,35 @@ if LALSUPPORT
 if LALINSPIRAL
 if LALXML
 
-XMLPRG = LALInferenceXMLTest
+XMLPRG = \
+	LALInferenceXMLTest
+
 endif
+
+LALInferenceTest_SOURCES = \
+	LALInferenceTest.c \
+	LALInferenceTest.h
 
 check_PROGRAMS = \
-	LALInferenceTest $(XMLPRG) #LALInferenceProposalTest # LALInferenceKDTest
+	LALInferenceTest \
+	$(XMLPRG)
 
+#	LALInferenceProposalTest \
+#	LALInferenceKDTest
 
-TESTS = $(check_PROGRAMS) $(XML_PROGRAMS)
+TESTS = \
+	$(check_PROGRAMS) \
+	$(XML_PROGRAMS)
+
 endif
 endif
 
-EXTRA_DIST = LALInferenceTest.h
+EXTRA_DIST =
 
 CLEANFILES = \
 	test_vot.xml \
 	*.out \
 	*.dat \
-    *.xml
+	*.xml
 
 TESTS_ENVIRONMENT = 1>/dev/null 2>/dev/null

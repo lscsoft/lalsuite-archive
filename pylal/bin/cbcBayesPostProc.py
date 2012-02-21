@@ -208,8 +208,15 @@ def cbcBayesPostProc(
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
     if 'mc' in pos.names:
         mchirp_name = 'mc'
+    elif 'chirpmass' in pos.names:
+        mchirp_name = 'chirpmass'
     else:
         mchirp_name = 'mchirp'
+
+    if 'asym_massratio' in pos.names:
+        q_name = 'asym_massratio'
+    else:
+        q_name = 'q'
 
     if (mchirp_name in pos.names and 'eta' in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -217,12 +224,12 @@ def cbcBayesPostProc(
 
         pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
 
-    if (mchirp_name in pos.names and 'q' in pos.names) and \
+    if (mchirp_name in pos.names and q_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,'q'))
-        pos.append_mapping('eta',bppu.q2eta,(mchirp_name,'q'))
+        pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,q_name))
+        pos.append_mapping('eta',bppu.q2eta,(mchirp_name,q_name))
 
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
@@ -924,7 +931,7 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio']
+    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
     polParams=['psi']
@@ -980,7 +987,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
