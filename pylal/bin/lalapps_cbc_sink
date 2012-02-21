@@ -205,6 +205,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
    fnameList = []; tagList = []
    postnameList = [];posttagList = []
+   cpnameList = [];cptagList = []
    if opts.verbose:
      print >>sys.stdout,"Computing posteriors binning by %s"%bin_type.lower().replace('_'," ")
 
@@ -312,7 +313,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      pylab.ylim([1e-2, 1])
      pylab.grid()
      pylab.xlim([mu.min(), mu.max()])
-     savefig_pylal('combined_posterior_cumulative_'+str(j), opts.open_box, InspiralUtilsOpts,postnameList,posttagList)
+     savefig_pylal('combined_posterior_cumulative_'+str(j), opts.open_box, InspiralUtilsOpts,cpnameList,cptagList)
      pylab.clf()
 
 
@@ -404,7 +405,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      bottom_prior = prior_upper_limit.array
      pylab.bar(left, top, width, bottom = bottom_prior, color='gray')
      pylab.gca().semilogy()
-     pylab.gca().set_ylim([0.1*bottom.min(),10.0*bottom_prior.max()])
+     pylab.gca().set_ylim([opts.rate_min,opts.rate_max])
      #pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
      pylab.xticks(tick_locs,tick_strings)
      pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
@@ -431,8 +432,10 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
      pylab.clf()
 
-   fnameList.extend(postnameList)
+   fnameList.extend(postnameList) # these plots are nice, but too many!
+   fnameList.extend(cpnameList)
    tagList.extend(posttagList)
+   tagList.extend(cptagList)
    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
 					       tagList, add_box_flag = False ) #FIXME
    InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
