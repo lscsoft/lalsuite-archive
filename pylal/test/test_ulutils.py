@@ -34,6 +34,16 @@ class test_ulutils(unittest.TestCase):
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = a)
             self.assertTrue( a*mumax - 0.0001 < muhi < a*mumax + 0.0001) # get upper limit to 4 sig figs
 
+    def test_logspacing_rate_upper_limit(self):
+        '''
+        Give the upper_limit function some known distributions with known 95% upper limits.
+        '''
+        # Exponential
+        mu = numpy.logspace(-4,2,5e6)
+        post = numpy.exp(-mu)
+        muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.95)
+        self.assertTrue( 2.9957 < muhi < 2.9959 ) # get upper limit to ~4 sig figs
+
     def test_volume_lambda(self):
         '''
         Check the dependence of upper limits on volume and lambda.

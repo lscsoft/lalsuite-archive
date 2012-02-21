@@ -68,7 +68,7 @@ def compute_upper_limit(mu_in, post, alpha = 0.9):
     posterior distribution post on the given parameter mu.
     """
     # interpolate to a linearly spaced array for accuracy in mu
-    post_rep = interpolate.splrep(mu_in, post)
+    post_rep = interpolate.splrep(mu_in, post,k=1)
     mu = numpy.linspace(mu_in.min(),mu_in.max(),len(mu_in))
     post = interpolate.splev(mu, post_rep)
 
