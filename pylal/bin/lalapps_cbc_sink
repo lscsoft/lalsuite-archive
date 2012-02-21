@@ -204,6 +204,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    opts.gps_end_time = numpy.max([entry.segment[1] for entry in files])
    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
    fnameList = []; tagList = []
+   postnameList = [];posttagList = []
    if opts.verbose:
      print >>sys.stdout,"Computing posteriors binning by %s"%bin_type.lower().replace('_'," ")
 
@@ -289,7 +290,8 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      if bin_type == "BNS_BBH": label = ["BNS","NSBH","BBH"][bins[mbin][0]]
      else: label = ','.join(["%d"%m for m in mbin])+"M$_\odot$"
      pylab.semilogx(mu_in,prior/prior.sum(),label=label + " prior")
-     pylab.semilogx(mu,combined_post/combined_post.sum(),label=label + " posterior")
+     pylab.semilogx(mu_in,uncombined_post/uncombined_post.sum(),label=label + " uncombined")
+     pylab.semilogx(mu,combined_post/combined_post.sum(),label=label + " combined")
      axis_font_size = 16
      #pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=18)
      pylab.legend(loc='upper right')
@@ -297,19 +299,20 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      pylab.xlabel('Merger Rate (Mpc$^{-3}$ yr$^{-1}$)',fontsize=axis_font_size)
      pylab.grid()
      pylab.xlim([mu.min(), mu.max()])
-     savefig_pylal('combined_posterior_density_'+str(j), opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     savefig_pylal('combined_posterior_density_'+str(j), opts.open_box, InspiralUtilsOpts,postnameList,posttagList)
      pylab.clf()
 
-     pylab.semilogx(mu_in,prior.cumsum()/prior.sum(),label=label + " prior")
-     pylab.semilogx(mu,combined_post.cumsum(),label=label+ " posterior")
+     pylab.loglog(mu_in,prior.cumsum()/prior.sum(),label=label + " prior")
+     pylab.semilogx(mu_in,uncombined_post.cumsum()/uncombined_post.sum(),label=label + " uncombined")
+     pylab.loglog(mu,combined_post.cumsum()/combined_post.sum(),label=label+ " combined")
      #pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=18)
-     pylab.legend(loc='upper left')
+     pylab.legend(loc='lower right')
      pylab.ylabel('Cumulative Probability',fontsize=axis_font_size)
      pylab.xlabel('Merger Rate (Mpc$^{-3}$ yr$^{-1}$)',fontsize=axis_font_size)
      pylab.ylim([1e-2, 1])
      pylab.grid()
      pylab.xlim([mu.min(), mu.max()])
-     savefig_pylal('combined_posterior_cumulative_'+str(j), opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     savefig_pylal('combined_posterior_cumulative_'+str(j), opts.open_box, InspiralUtilsOpts,postnameList,posttagList)
      pylab.clf()
 
 
@@ -364,7 +367,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      #
      # upper limit comparison plot
      #
-     pylab.pcolor(xtick_locs,ytick_locs, prior_upper_limit.array.T/combined_upper_limit.array.T,vmin=1)
+     pylab.pcolor(xtick_locs,ytick_locs, prior_upper_limit.array.T/combined_upper_limit.array.T,vmin=1,vmax=10)
      pylab.colorbar().set_label("prior/combined upper limit")
      pylab.xlim(m1range)
      pylab.ylim(m2range)
@@ -428,6 +431,8 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
      pylab.clf()
 
+   fnameList.extend(postnameList)
+   tagList.extend(posttagList)
    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
 					       tagList, add_box_flag = False ) #FIXME
    InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
