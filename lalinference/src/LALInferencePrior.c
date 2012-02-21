@@ -705,52 +705,87 @@ int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInf
 		i++;
 	}
 	
-	//m1 & m2
-	double mc, eta, q, m1, m2;
-	min = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_min");
-	max = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max");
-	if( min == max )
+	// check if mchirp is fixed
+	double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0;;
+	if( LALInferenceCheckVariable(params,"logmc") )
 	{
-		m1 = m2 = min;
-		m2mc(m1, m2, &mc);
-		m2eta(m1, m2, &eta);
-		q = m2/m1; // asymmetric mass ratio, m1 >= m2
+		item = LALInferenceGetItem(params, "logmc");
+		if(item->vary == LALINFERENCE_PARAM_FIXED) mc = exp(*(REAL8 *)LALInferenceGetVariable(params, "logmc"));
 	}
-	else
+	else if( LALInferenceCheckVariable(params,"chirpmass") )
 	{
-		m1 = flatPrior(Cube[i], min, max);
-		m2 = flatPrior(Cube[i+1], min, max);
-		if(m1<m2)
-		{
-			double temp = m2;
-			m2 = m1;
-			m1 = temp;
-		}
-
-		m2mc(m1, m2, &mc);
-		m2eta(m1, m2, &eta);
-		q = m2/m1; // asymmetric mass ratio, m1 >= m2
-		Cube[i] = mc; i++;
-		Cube[i] = eta; i++;
+		item = LALInferenceGetItem(params, "chirpmass");
+		if(item->vary == LALINFERENCE_PARAM_FIXED) mc = *(REAL8 *)LALInferenceGetVariable(params, "chirpmass");
 	}
 	
-	// chirp mass and eta/q
-	if(LALInferenceCheckVariable(params,"massratio")||LALInferenceCheckVariable(params,"asym_massratio"))
+	// check if eta is fixed
+	if( LALInferenceCheckVariable(params,"massratio") )
 	{
-		if(LALInferenceCheckVariable(params,"logmc"))
+		item = LALInferenceGetItem(params, "massratio");
+		if(item->vary == LALINFERENCE_PARAM_FIXED)
 		{
-			double logmc = log(mc);
-			LALInferenceSetVariable(params, "logmc", &logmc);
+			eta = *(REAL8 *)LALInferenceGetVariable(params, "massratio");
+			if( mc != 0.0 ) LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
 		}
-		else if(LALInferenceCheckVariable(params,"chirpmass"))
+	}
+	else if( LALInferenceCheckVariable(params,"asym_massratio") )
+	{
+		item = LALInferenceGetItem(params, "asym_massratio");
+		if(item->vary == LALINFERENCE_PARAM_FIXED)
 		{
-			LALInferenceSetVariable(params, "chirpmass", &mc);
+			q = *(REAL8 *)LALInferenceGetVariable(params, "asym_massratio");
+			if( mc != 0.0 ) LALInferenceMcQ2Masses(mc,q,&m1,&m2);
 		}
-			
-      		if(LALInferenceCheckVariable(params,"asym_massratio"))
-			LALInferenceSetVariable(params, "asym_massratio", &q);
-		else if(LALInferenceCheckVariable(params,"massratio"))
-        		LALInferenceSetVariable(params, "massratio", &eta);
+	}
+	
+	//m1 & m2
+	if( m1 == 0.0 && m2 == 0.0 )
+	{
+		min = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_min");
+		max = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max");
+		if( min == max )
+		{
+			m1 = m2 = min;
+			m2mc(m1, m2, &mc);
+			m2eta(m1, m2, &eta);
+			q = m2/m1; // asymmetric mass ratio, m1 >= m2
+		}
+		else
+		{
+			m1 = flatPrior(Cube[i], min, max);
+			m2 = flatPrior(Cube[i+1], min, max);
+			if(m1<m2)
+			{
+				double temp = m2;
+				m2 = m1;
+				m1 = temp;
+			}
+	
+			m2mc(m1, m2, &mc);
+			m2eta(m1, m2, &eta);
+			q = m2/m1; // asymmetric mass ratio, m1 >= m2
+			Cube[i] = mc; i++;
+			Cube[i] = eta; i++;
+		}
+		
+		// chirp mass and eta/q
+		if(LALInferenceCheckVariable(params,"massratio")||LALInferenceCheckVariable(params,"asym_massratio"))
+		{
+			if(LALInferenceCheckVariable(params,"logmc"))
+			{
+				double logmc = log(mc);
+				LALInferenceSetVariable(params, "logmc", &logmc);
+			}
+			else if(LALInferenceCheckVariable(params,"chirpmass"))
+			{
+				LALInferenceSetVariable(params, "chirpmass", &mc);
+			}
+				
+	      		if(LALInferenceCheckVariable(params,"asym_massratio"))
+				LALInferenceSetVariable(params, "asym_massratio", &q);
+			else if(LALInferenceCheckVariable(params,"massratio"))
+	        		LALInferenceSetVariable(params, "massratio", &eta);
+		}
 	}
 	
 	// distance
@@ -1282,52 +1317,87 @@ int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runStat
 		i++;
 	}
 	
-	//m1 & m2
-	double mc, eta, q, m1, m2;
-	min = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_min");
-	max = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max");
-	if( min == max )
+	// check if mchirp is fixed
+	double mc = 0.0, eta = 0.0, q = 0.0, m1 = 0.0, m2 = 0.0;;
+	if( LALInferenceCheckVariable(params,"logmc") )
 	{
-		m1 = m2 = min;
-		m2mc(m1, m2, &mc);
-		m2eta(m1, m2, &eta);
-		q = m2/m1; // asymmetric mass ratio, m1 >= m2
+		item = LALInferenceGetItem(params, "logmc");
+		if(item->vary == LALINFERENCE_PARAM_FIXED) mc = exp(*(REAL8 *)LALInferenceGetVariable(params, "logmc"));
 	}
-	else
+	else if( LALInferenceCheckVariable(params,"chirpmass") )
 	{
-		m1 = flatPrior(Cube[i], min, max);
-		m2 = flatPrior(Cube[i+1], min, max);
-		if(m1<m2)
-		{
-			double temp = m2;
-			m2 = m1;
-			m1 = temp;
-		}
-
-		m2mc(m1, m2, &mc);
-		m2eta(m1, m2, &eta);
-		q = m2/m1; // asymmetric mass ratio, m1 >= m2
-		Cube[i] = mc; i++;
-		Cube[i] = eta; i++;
+		item = LALInferenceGetItem(params, "chirpmass");
+		if(item->vary == LALINFERENCE_PARAM_FIXED) mc = *(REAL8 *)LALInferenceGetVariable(params, "chirpmass");
 	}
 	
-	// chirp mass and eta/q
-	if(LALInferenceCheckVariable(params,"massratio")||LALInferenceCheckVariable(params,"asym_massratio"))
+	// check if eta is fixed
+	if( LALInferenceCheckVariable(params,"massratio") )
 	{
-		if(LALInferenceCheckVariable(params,"logmc"))
+		item = LALInferenceGetItem(params, "massratio");
+		if(item->vary == LALINFERENCE_PARAM_FIXED)
 		{
-			double logmc = log(mc);
-			LALInferenceSetVariable(params, "logmc", &logmc);
+			eta = *(REAL8 *)LALInferenceGetVariable(params, "massratio");
+			if( mc != 0.0 ) LALInferenceMcEta2Masses(mc,eta,&m1,&m2);
 		}
-		else if(LALInferenceCheckVariable(params,"chirpmass"))
+	}
+	else if( LALInferenceCheckVariable(params,"asym_massratio") )
+	{
+		item = LALInferenceGetItem(params, "asym_massratio");
+		if(item->vary == LALINFERENCE_PARAM_FIXED)
 		{
-			LALInferenceSetVariable(params, "chirpmass", &mc);
+			q = *(REAL8 *)LALInferenceGetVariable(params, "asym_massratio");
+			if( mc != 0.0 ) LALInferenceMcQ2Masses(mc,q,&m1,&m2);
 		}
-			
-      		if(LALInferenceCheckVariable(params,"asym_massratio"))
-			LALInferenceSetVariable(params, "asym_massratio", &q);
-		else if(LALInferenceCheckVariable(params,"massratio"))
-        		LALInferenceSetVariable(params, "massratio", &eta);
+	}
+	
+	//m1 & m2
+	if( m1 == 0.0 && m2 == 0.0 )
+	{
+		min = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_min");
+		max = *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max");
+		if( min == max )
+		{
+			m1 = m2 = min;
+			m2mc(m1, m2, &mc);
+			m2eta(m1, m2, &eta);
+			q = m2/m1; // asymmetric mass ratio, m1 >= m2
+		}
+		else
+		{
+			m1 = flatPrior(Cube[i], min, max);
+			m2 = flatPrior(Cube[i+1], min, max);
+			if(m1<m2)
+			{
+				double temp = m2;
+				m2 = m1;
+				m1 = temp;
+			}
+	
+			m2mc(m1, m2, &mc);
+			m2eta(m1, m2, &eta);
+			q = m2/m1; // asymmetric mass ratio, m1 >= m2
+			Cube[i] = mc; i++;
+			Cube[i] = eta; i++;
+		}
+		
+		// chirp mass and eta/q
+		if(LALInferenceCheckVariable(params,"massratio")||LALInferenceCheckVariable(params,"asym_massratio"))
+		{
+			if(LALInferenceCheckVariable(params,"logmc"))
+			{
+				double logmc = log(mc);
+				LALInferenceSetVariable(params, "logmc", &logmc);
+			}
+			else if(LALInferenceCheckVariable(params,"chirpmass"))
+			{
+				LALInferenceSetVariable(params, "chirpmass", &mc);
+			}
+				
+	      		if(LALInferenceCheckVariable(params,"asym_massratio"))
+				LALInferenceSetVariable(params, "asym_massratio", &q);
+			else if(LALInferenceCheckVariable(params,"massratio"))
+	        		LALInferenceSetVariable(params, "massratio", &eta);
+		}
 	}
 	
 	// distance
