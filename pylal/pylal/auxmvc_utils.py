@@ -13,21 +13,32 @@ def ROC(clean_ranks, glitch_ranks):
   number_of_false_alarms=[]
   number_of_true_alarms=[]
   FAP = []
-  DP = []
+  Eff = []
   for i,rank in enumerate(clean_ranks_sorted):
-    # get the number of clean triggers with rank greater than or equal to a given rank
-    number_of_false_alarms = len(clean_ranks_sorted) -	numpy.searchsorted(clean_ranks_sorted,rank)
-    # get the number of glitches with rank greater than or equal to a given rank
-    number_of_true_alarms = len(glitch_ranks_sorted) -	numpy.searchsorted(glitch_ranks_sorted,rank)
-    # calculate the total deadime if this given rank is used as the threshold
-    FAP.append( number_of_false_alarms / float(len(clean_ranks_sorted)))
-    # calculate the fraction of correctly flagged glitches
-    DP.append(number_of_true_alarms / float(len(glitch_ranks_sorted)))
+    FAP.append(compute_FAP(clean_ranks, glitch_ranks, rank))
+    Eff.append(compute_Eff(clean_ranks, glitch_ranks, rank))
 
-  return numpy.asarray(FAP), numpy.asarray(DP)
+  return numpy.asarray(FAP), numpy.asarray(Eff)
 
 
-
+def compute_FAP(clean_ranks, glitch_ranks, rank):
+  """
+  Compute false alarm probability for a given rank using array of ranks for clean and glitch samples.
+  Input arrays clean_ranks and glitch_ranks mst be sorted in ascending order.
+  """
+  number_of_false_alarms = len(clean_ranks) - numpy.searchsorted(clean_ranks,rank)  
+  FAP = number_of_false_alarms / float(len(clean_ranks))
+  return FAP
+  
+def compute_Eff(clean_ranks, glitch_ranks, rank):
+  """
+  Compute detection probability for a given rank using array of ranks for clean and glitch samples.
+  Input arrays clean_ranks and glitch_ranks mst be sorted in ascending order.
+  """  
+  number_of_true_alarms = len(glitch_ranks) - numpy.searchsorted(glitch_ranks,rank)
+  Eff = number_of_true_alarms / float(len(glitch_ranks))
+  return Eff
+  
 
 def split_array(array, Nparts = 2):
   """ 
