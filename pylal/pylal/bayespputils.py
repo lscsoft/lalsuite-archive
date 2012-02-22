@@ -288,13 +288,13 @@ def _inj_beta(inj):
     Ly = 0.0
     Lz = Lmag * np.arccos(inj.inclination)
     
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
+    S1x  = inj.mass1*inj.mass1*inj.spin1x
+    S1y  = inj.mass1*inj.mass1*inj.spin1y
+    S1z  = inj.mass1*inj.mass1*inj.spin1z
     
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
+    S2x  = inj.mass2*inj.mass2*inj.spin2x
+    S2y  = inj.mass2*inj.mass2*inj.spin2y
+    S2z  = inj.mass2*inj.mass2*inj.spin2z
 
     Jx = Lx + S1x + S2x
     Jy = Ly + S1y + S2y
