@@ -231,6 +231,13 @@ def cbcBayesPostProc(
         pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,q_name))
         pos.append_mapping('eta',bppu.q2eta,(mchirp_name,q_name))
 
+    if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
+    if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
+    if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
+    if('phi_spin2' in pos.names): pos.append_mapping('phi2',lambda a:a,'phi_spin2')
+    if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
+    if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
+
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
     and ('declination' in pos.names or 'dec' in pos.names) \
