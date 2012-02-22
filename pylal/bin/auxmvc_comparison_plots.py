@@ -19,26 +19,54 @@ import pickle
 from pylal import InspiralUtils
 
 
-def calculateFAPEFF(total_data,classifiers):
-	## calculate fap, eff for each MVCi, put those into total_data and return it
-	glitches = total_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
-	cleans = total_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
-	for cls in classifiers:
-		glitches = numpy.sort(glitches, order=[cls[0]+'_rank'])
-		cleans = numpy.sort(cleans, order=[cls[0]+'_rank'])
-		for i,rank in enumerate(cleans[cls[0]+'_rank']):
-			num_of_false_alarms = len(cleans) - numpy.searchsorted(cleans[cls[0]+'_rank'],rank)
-			j = numpy.searchsorted(glitches[cls[0]+'_rank'],rank)
-			num_of_true_alarms = len(glitches) - j
-			fap = num_of_false_alarms/float(len(cleans))
-			eff = num_of_true_alarms/float(len(glitches))
-			numpy.put(cleans[cls[0]+'_fap'],[i],[fap])
-			numpy.put(cleans[cls[0]+'_eff'],[i],[eff])
-			numpy.put(glitches[cls[0]+'_fap'],[j],[fap])
-			numpy.put(glitches[cls[0]+'_eff'],[j],[eff])
-	return numpy.concatenate((numpy.sort(glitches,order=['GPS']),numpy.sort(cleans,order=['GPS'])))
+def CalculateFAPandEFF(total_data,classifier):
+	"""
+	Calculates fap, eff for the classifier and saves them into the corresponding columns of total_data.
+	"""	
+	if not classifier == 'cveto':
+		glitch_ranks = total_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:][classifier+'_rank']
+		clean_ranks = total_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:][classifier+'_rank']
+		
+		glitch_ranks.sort()
+		clean_ranks.sort()
+	else:
+		print "Can not compute FAP and Efficiency for CVeto. Not an MVC classifier."
+		sys.exit(1)
+	  			  
+	for trigger in total_data:
+		trigger[classifier +'_fap'] = auxmvc_utils.compute_FAP(clean_ranks, glitch_ranks, trigger[classifier+'_rank'])
+		trigger[classifier +'_eff'] = auxmvc_utils.compute_Eff(clean_ranks, glitch_ranks, trigger[classifier+'_rank'])
+		
+	return total_data
 
 
+def compute_combined_rank(total_data):
+	"""
+	Computes combined rank defined as logarithm of highest EFF/FAP from the classifiers.
+	"""
+
+	for trigger in total_data:
+		# We need to add here CVeto
+		combined_mvc_rank = max(eff_over_fap(trigger,'mvsc'), eff_over_fap(trigger,'ann'), eff_over_fap(trigger,'svm'))
+		# set highest combined rank to 1000.0
+		if combined_mvc_rank == numpy.inf: 
+			trigger['combined_rank'] = 1000.0
+		else:
+			trigger['combined_rank'] = combined_mvc_rank
+	
+	return total_data
+	
+def eff_over_fap(trigger, classifier):
+  """
+  Calculate ratio of eff over fap which approximates likelihood ratio.
+  """	
+  
+  if trigger[classifier+'_fap'] == 0.0:
+    return numpy.inf
+  else:
+    return numpy.log10(trigger[classifier+'_eff'] / trigger[classifier+'_fap'])
+	
+  
 def PrateToRank(ranks,Prate):
 	### convert a certain positive rate(Prate) to a corresponding rank in rank data
 	ranks_sorted=numpy.sort(ranks)
@@ -66,7 +94,10 @@ def vetoGlitchesUnderFAP(glitch_data, rank_name, Rankthr, FAPthr):
 	return glitch_data_vetoed, efficiency
 
 
-def ReadMVSCRanks(list_of_files, classifier):
+def ReadMVCRanks(list_of_files, classifier):
+	"""
+	Reads ranks from the classifier ouput files. Can read MVSC, ANN or SVM *.dat files.   
+	"""
 	data = auxmvc_utils.ReadMVSCTriggers(list_of_files)
 	if classifier == 'mvsc':
 		ranker = 'Bagger'
@@ -78,15 +109,12 @@ def ReadMVSCRanks(list_of_files, classifier):
 		ranker = 'SVMRank'
 		rank_name = 'svm_rank'
 
-	variables=['GPS','i',rank_name]
+	variables=['GPS','glitch',rank_name]
 	formats=['g8','i','g8']
 	gps_ranks = numpy.empty(len(data),dtype={'names':variables,'formats':formats})
-	gps_ranks['i']=data['i']
+	gps_ranks['glitch']=data['i']
 	gps_ranks[rank_name]=data[ranker]
-	for i in range(len(data)):
-		#numpy.put(gps_ranks['GPS_s'],[i],[data['GPS_s'][i]])
-		#numpy.put(gps_ranks['GPS_ms'],[i],[data['GPS_ms'][i]])
-		numpy.put(gps_ranks['GPS'],[i],[str(int(data['GPS_s'][i]))+'.'+str(int(data['GPS_ms'][i]))])
+	gps_ranks['GPS'] = data['GPS_s'] + data['GPS_ms']*10**(-3)
 
 	return gps_ranks
 
@@ -100,57 +128,74 @@ def BinToDec(binary):
 	return decimal
 
 
-def generateTotalRankedTriggers(classifiers):
-	## This function is to read MVCs(MVSC,ANN,SVM)' ranked data and CVeto data and combine them into total_data array.
+def ReadDataFromClassifiers(classifiers):
+	"""
+	This function reads MVCs(MVSC,ANN,SVM) ranked data and CVeto data and combines them into total_data array.
+	When combining, it is assumed that input files contain same triggers. 
+	In particular that sorting triggers in time is enough for cross-identification. 
+	"""
+	#reading all data from the first classifier
 	data = auxmvc_utils.ReadMVSCTriggers(classifiers[0][1])
 	n_triggers = len(data)
+
+	# defining variables and formats for total_data array
 	variables = ['GPS','glitch'] + list(data.dtype.names[5:-1])
 	for var in ['mvsc','ann','svm','cveto']:
 		variables += [var+j for j in ['_rank','_fap','_eff']]
-	variables += ['cveto_chan','Urank']
-
+	variables += ['cveto_chan','combined_rank', 'combined_eff', 'combined_fap']
 	formats = ['g8','i']+['g8' for a in range(len(variables)-2)]
+
+	# creating total_data array
 	total_data = numpy.zeros(n_triggers, dtype={'names':variables, 'formats':formats})
+
+	# populating columns using data from the first classifier
 	total_data['glitch']=data['i']
 	total_data[classifiers[0][0]+'_rank']=data[data.dtype.names[-1]]
 
 	for name in data.dtype.names[5:-1]:
 		total_data[name] = data[name]
 
-	for n in range(n_triggers):
-		numpy.put(total_data['GPS'],[n],[str(int(data['GPS_s'][n]))+'.'+str(int(data['GPS_ms'][n]))])
+	
+	total_data['GPS'] = data['GPS_s'] + data['GPS_ms']*10**(-3)
 
+	# sort total data first by glitch and then by GPS time.
+	# numpy.lexsort() does inderct sort and return array's indices
+	total_data=total_data[numpy.lexsort((total_data['GPS'], total_data['glitch']))]
+	
+	# looping over remaning classifiers
 	if classifiers[1:]:
 		for cls in classifiers[1:]:
 			ranks_data=[]
 			if not cls[0] == 'cveto':
-				ranks_data=ReadMVSCRanks(cls[1],cls[0])
+				ranks_data=ReadMVCRanks(cls[1],cls[0])
+				#sort trigers first in glitch then in GPS time to ensure correct merging
+				ranks_data=ranks_data[numpy.lexsort((ranks_data['GPS'], ranks_data['glitch']))]
+			
+				# populating this classifier rank column in total_data array
 				total_data[cls[0]+'_rank']=ranks_data[cls[0]+'_rank']
-				#below 2 lines, GPS times are used to assign mvc ranks into right places. It needs to check !.
-				#for i, gps in enumerate(ranks_data['GPS']):
-				#	numpy.put(total_data[cls[0]+'_rank'],[numpy.searchsorted(total_data['GPS'],gps)],[ranks_data[cls[0]+'_rank'][i]])
-
-	# this next bit of code was added by R. Essick. He doesn't really know what he's doing, so please check this
+			
+	
+	# Reading in information from CVeto and populating corresponding columns in total_data
 	if classifiers[-1][0] == 'cveto':
 		# we first need to retrieve the CVeto data
 		cveto_raw = auxmvc_utils.loadCV(classifiers[-1][1]) 
 		# we want to iterate through all the glitches stored in total_data
-		for n in range(len(total_data['GPS'][:])):
+		for glitch_index  in numpy.nonzero(total_data['glitch'] == 1.0)[0]:
 			# we look for matching GW glitches in the CVeto data using the GPS time
-			cveto_stuff = giveMeCVeto(cveto_raw, total_data['GPS'][n])
-			if len(cveto_stuff) > 0:
-				total_data['cveto_eff'][n] = cveto_stuff[0]
-				total_data['cveto_fap'][n] = cveto_stuff[1]
-				total_data['cveto_rank'][n] = cveto_stuf[2]
-				total_data['cveto_chan'][n] = cveto_stuff[3]
+			cveto_rank = GetCVetoRank(cveto_raw, total_data[glitch_index]['GPS'])
+			if len(cveto_rank) > 0:
+				total_data[glitch_index]['cveto_eff'] = cveto_rank[0]
+				total_data[glitch_index]['cveto_fap'] = cveto_rank[1]
+				total_data[glitch_index]['cveto_rank'] = cveto_rank[2]
+				total_data[glitch_index]['cveto_chan'] = cveto_rank[3]
 			else:
 				pass
 	return total_data
 
 
-def giveMeCVeto(CVetoOutput, gwtcent, deltat = 0):
+def GetCVetoRank(CVetoOutput, gwtcent, deltat = 0):
   '''
-  this is meant to return the CVeto data corresponding to a given central time (tcent) for a GW glitch. the CVeto data returned is a list of the form:
+  This is meant to return the CVeto rank-data corresponding to a given central time (tcent) for a GW glitch. the CVeto data returned is a list of the form:
     [cveto_eff, cveto_fap, cveto_rank, cveto_chan]
   the output arguments correspond to internal CVeto data as follows:
     cveto_eff  : c_eff
@@ -217,12 +262,12 @@ except: pass
 ranked_data={}
 
 classifiers=[]
-if opts.mvsc_ranked_files:
-	#classifiers.append(['mvsc',glob.glob(opts.mvsc_ranked_files)])
-	classifiers.append(['mvsc',opts.mvsc_ranked_files.split(',')])
 if opts.ann_ranked_files:
 	#classifiers.append(['ann',glob.glob(opts.ann_ranked_files)])
 	classifiers.append(['ann',opts.ann_ranked_files.split(',')])
+if opts.mvsc_ranked_files:
+	#classifiers.append(['mvsc',glob.glob(opts.mvsc_ranked_files)])
+	classifiers.append(['mvsc',opts.mvsc_ranked_files.split(',')])
 if opts.svm_ranked_files:
 	#classifiers.append(['svm',glob.glob(opts.svm_ranked_files)])
 	classifiers.append(['svm',opts.svm_ranked_files.split(',')])
@@ -236,10 +281,22 @@ if not classifiers:
 	print "Errors!! No Input Files(*.dat with MVCs' ranks and/or *.pickle with HVeto's ranks)"
 	sys.exit()
 
-# Construction of total triggers with all ranks for all classifers(MVSC,ANN,SVM,CVeto).
+# Reading and combining data from all classifers(MVSC,ANN,SVM,CVeto).
+total_ranked_data = ReadDataFromClassifiers(classifiers)
 
-total_ranked_data = generateTotalRankedTriggers(classifiers)
-total_ranked_data = calculateFAPEFF(total_ranked_data,classifiers)
+# Computing FAP and Efficiency for MVCs
+for cls in classifiers:
+  if not cls[0] == 'cveto':
+    total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
+	
+# Computing combined rank		
+total_ranked_data = compute_combined_rank(total_ranked_data)
+
+# Computing FAP and Efficiency for combned rank
+total_ranked_data = CalculateFAPandEFF(total_ranked_data,'combined')
+
+
+#splitting data into glitch and clean samples
 glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
 cleans = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
 
@@ -251,7 +308,7 @@ test_file.write(' '.join(total_ranked_data.dtype.names)+'\n')
 for da in total_ranked_data:
 	test_file.write(' '.join(map(str,da))+'\n')
 
-## Create scattered plots of mvc ranks vs. SNR and mvc ranks vs. Siginificance of GWTriggers
+## Create scattered plots of mvc ranks vs. SNR and mvc ranks vs. Significance of GWTriggers
 for cls in classifiers:
 	## mvc ranks vs. SNR
 	pylab.figure(1)
