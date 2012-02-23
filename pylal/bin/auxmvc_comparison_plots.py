@@ -186,7 +186,7 @@ def ReadDataFromClassifiers(classifiers):
 	# Reading in information from CVeto and populating corresponding columns in total_data
 	if classifiers[-1][0] == 'cveto':
 		# we first need to retrieve the CVeto data
-		cveto_raw = auxmvc_utils.loadCV(classifiers[-1][1]) 
+		cveto_raw = auxmvc_utils.LoadCV(classifiers[-1][1][0]) 
 		# we want to iterate through all the glitches stored in total_data
 		for glitch_index  in numpy.nonzero(total_data['glitch'] == 1.0)[0]:
 			# we look for matching GW glitches in the CVeto data using the GPS time
