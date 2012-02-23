@@ -288,13 +288,13 @@ def _inj_beta(inj):
     Ly = 0.0
     Lz = Lmag * np.arccos(inj.inclination)
     
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
+    S1x  = inj.mass1*inj.mass1*inj.spin1x
+    S1y  = inj.mass1*inj.mass1*inj.spin1y
+    S1z  = inj.mass1*inj.mass1*inj.spin1z
     
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
+    S2x  = inj.mass2*inj.mass2*inj.spin2x
+    S2y  = inj.mass2*inj.mass2*inj.spin2y
+    S2z  = inj.mass2*inj.mass2*inj.spin2z
 
     Jx = Lx + S1x + S2x
     Jy = Ly + S1y + S2y
@@ -2084,7 +2084,8 @@ def getRAString(radians):
     mins = floor(rem*((12*60)/pi_constant))
     rem = rem - mins*(pi_constant/(12*60))
     secs = rem*(12*3600/pi_constant)
-    return '$%i\mathrm{h}%i^{\'}%2.0f^{\'\'}$'%(hours,mins,secs)
+    return ur'%ih%i\u0027%2.0f\u2033'%(hours,mins,secs)
+    return '%r'%(outstr)
 
 def getDecString(radians):
     if(radians<0):
@@ -2098,7 +2099,7 @@ def getDecString(radians):
     mins = round(rem*((180.0*60.0)/pi_constant))
     rem = rem - mins*(pi_constant/(180.0*60.0))
     secs = rem * (180.0*60.0*60.0)/pi_constant
-    return '$%i^\circ%i^{\'}%2.0f^{\'\'}$'%(deg,sign*mins,sign*secs)
+    return ur'%i\u00B0%i\u0027%2.0f\u2033'%(deg,sign*mins,sign*secs)
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
