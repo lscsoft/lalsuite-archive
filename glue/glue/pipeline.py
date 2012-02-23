@@ -488,7 +488,7 @@ class CondorDAGJob(CondorJob):
     self.__have_var_args = 0
     self.__bad_macro_chars = re.compile(r'[_-]')
 
-  def add_var_opt(self, opt):
+  def add_var_opt(self, opt, short=False):
     """
     Add a variable (or macro) option to the condor job. The option is added
     to the submit file and a different argument to the option can be set for
@@ -498,7 +498,10 @@ class CondorDAGJob(CondorJob):
     if opt not in self.__var_opts:
       self.__var_opts.append(opt)
       macro = self.__bad_macro_chars.sub( r'', opt )
-      self.add_opt(opt,'$(macro' + macro + ')')
+      if short:
+        self.add_short_opt(opt,'$(macro' + macro + ')')
+      else:
+        self.add_opt(opt,'$(macro' + macro + ')')
 
   def add_var_arg(self):
     """
@@ -671,12 +674,27 @@ class CondorDAGNode:
     """
     self.__post_script = script
 
+  def get_post_script(self):
+    """
+    returns the name of the post script that is executed before the DAG node is
+    run.
+    @param script: path to script
+    """
+    return self.__post_script
+
   def add_post_script_arg(self,arg):
     """
     Adds an argument to the post script that is executed before the DAG node is
     run.
     """
     self.__post_script_args.append(arg)
+
+  def get_post_script_arg(self):
+    """
+    Returns and array of arguments to the post script that is executed before
+    the DAG node is run.
+    """
+    return self.__post_script_args
 
   def set_name(self,name):
     """
@@ -832,7 +850,7 @@ class CondorDAGNode:
     """
     return self.__opts
 
-  def add_var_opt(self,opt,value):
+  def add_var_opt(self,opt,value,short=False):
     """
     Add a variable (macro) option for this node. If the option
     specified does not exist in the CondorJob, it is added so the submit
@@ -842,7 +860,7 @@ class CondorDAGNode:
     """
     macro = self.__bad_macro_chars.sub( r'', opt )
     self.__opts['macro' + macro] = value
-    self.__job.add_var_opt(opt)
+    self.__job.add_var_opt(opt,short)
 
   def add_file_opt(self,opt,filename,file_is_output_file=False):
     """
@@ -1458,6 +1476,17 @@ class CondorDAG:
         # write number of times the node should be retried
         if node.get_retry():
           workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","retry",str(node.get_retry())))
+
+        # write the post script for this node
+        if node.get_post_script():
+          post_script_base = os.path.basename(node.get_post_script())
+          post_script_path = os.path.join(os.getcwd(),node.get_post_script())
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post",post_script_base))
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post.path." + post_script_base,post_script_path))
+
+        # write the post script for this node
+        if node.get_post_script_arg():
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post_args",' '.join(node.get_post_script_arg())))
 
         # write the dag node category if this node has one
         if node.get_category():
