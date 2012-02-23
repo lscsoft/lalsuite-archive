@@ -418,7 +418,7 @@ LALFindChirpPTFFilterSegment (
   
 #if 0
   LALFindChirpClusterEvents( status->statusPtr, eventList,
-      input, params, &clusterInput, 0 , 0);
+      input, params, &clusterInput, 0 , 0, NULL);
   CHECKSTATUSPTR( status );
 
   params->qVec = NULL;

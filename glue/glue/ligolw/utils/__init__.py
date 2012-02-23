@@ -227,6 +227,7 @@ class MD5File(object):
 			self.md5obj = md5()
 		else:
 			self.md5obj = md5obj
+		self.pos = 0
 
 	def __iter__(self):
 		return self
@@ -234,19 +235,28 @@ class MD5File(object):
 	def next(self):
 		buf = self.fileobj.next()
 		self.md5obj.update(buf)
+		self.pos += len(buf)
 		return buf
 
 	def read(self, size = None):
 		buf = self.fileobj.read(size)
 		self.md5obj.update(buf)
+		self.pos += len(buf)
 		return buf
 
 	def write(self, buf):
+		self.pos += len(buf)
 		self.md5obj.update(buf)
 		return self.fileobj.write(buf)
 
 	def tell(self):
-		return self.fileobj.tell()
+		try:
+			return self.fileobj.tell()
+		except IOError:
+			# some streams that don't support seeking, like
+			# stdin, report IOError.  fake it without our own
+			# count of bytes
+			return self.pos
 
 	def flush(self):
 		return self.fileobj.flush()

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# $Id: eah_build2.sh,v 1.76 2010/07/19 17:12:34 bema Exp $
-
 # simple failure
 fail() {
     echo
@@ -43,7 +41,7 @@ eah_build2_loc="`echo $PWD/$0 | sed 's%/[^/]*$%%'`"
 
 test ".$appname" = "." && appname=einstein_S6Bucket
 test ".$appversion" = "." && appversion=0.00
-boinc_rev=-r23037
+boinc_rev=current_gw_apps
 #previous:-r22844 -r22825 -r22804 -r22794 -r22784 -r22561 -r22503 -r22363 -r21777 -r'{2008-12-01}'
 
 for i; do
@@ -80,8 +78,10 @@ for i; do
 	    rebuild_boinc=""
 	    rebuild_lal=""
 	    rebuild="" ;;
+	--gc-opt)
+	    CPPFLAGS="-DGC_SSE2_OPT $CPPFLAGS" ;;
 	--64)
-	    CPPFLAGS="-DGC_SSE2_OPT -m64 $CPPFLAGS"
+	    CPPFLAGS="-m64 $CPPFLAGS"
 	    CXXFLAGS="-m64 $CXXFLAGS"
 	    CFLAGS="-m64 $CFLAGS"
 	    LDFLAGS="-m64 $LDFLAGS" ;;
@@ -97,7 +97,7 @@ for i; do
 	    planclass=__SSE
 	    acc="_sse";;
 	--sse2)
-	    CPPFLAGS="-DGC_SSE2_OPT -DENABLE_SSE_EXCEPTIONS $CPPFLAGS"
+	    CPPFLAGS="-DENABLE_SSE_EXCEPTIONS $CPPFLAGS"
 	    CFLAGS="-msse -msse2 -mfpmath=sse -march=pentium-m $CFLAGS"
             fftw_copts_single=--enable-sse
             fftw_copts_double=--enable-sse2
@@ -146,8 +146,10 @@ for i; do
 	    check=true
 	    check_only=true
 	    check_app=`echo $PWD/$i | sed 's/--check-app=//;s%.*//%/%'`;;
-	--boinc-rev=*)
-	    boinc_rev="`echo $i | sed s/^--boinc-rev=//`";;
+	--boinc-tag=*)
+	    boinc_rev="`echo $i | sed 's/^.*=//'`";;
+	--boinc-commit=*)
+	    boinc_rev="`echo $i | sed 's/^.*=//'`";;
 	--help)
 	    echo "$0 builds Einstein@home Applications of LALApps HierarchicalSearch codes"
 	    echo "  --win32           cros-compile a Win32 App (requires MinGW, target i586-mingw32msvc-gcc)"
@@ -163,7 +165,8 @@ for i; do
 	    echo "  --sse             build an App that uses SSE"
 	    echo "  --sse2            build an App that uses SSE2"
 	    echo "  --altivec         build an App that uses AltiVec"
-	    echo "  --boinc-rev=<rev> specify a BOINC SVN trunk revision to use"
+	    echo "  --gc-opt          build an App that uses SSE2 GC optimization (doesn't work with current LineVeto code)"
+	    echo "  --boinc-tag=<tag>|--boinc-commit=<sha1> specify a BOINC commit to use (defaults to 'current_gw_apps'"
 	    echo "  --with-ssl=<path> gets paased to BOINC configure"
 	    echo "  --check           test the newly built HierarchSearchGC App"
 	    echo "  --check-only      only test the already built HierarchSearchGC App"
@@ -226,7 +229,6 @@ else
                 platform=powerpc-apple-darwin
 	    else
 		platform=i686-apple-darwin
-		CPPFLAGS="-DGC_SSE2_OPT $CPPFLAGS"
 	    fi
 	    LDFLAGS="-framework Carbon -framework AppKit -framework IOKit -framework CoreFoundation $LDFLAGS" ;;
 	Linux)
@@ -267,7 +269,7 @@ if echo "$LDFLAGS" | grep -e -m64 >/dev/null; then
     LDFLAGS="-L$INSTALL/lib64 $LDFLAGS"
 fi
 
-export CPPFLAGS="-DUSEXLALLOADSFTS -DBOINC_APIV6 -D__NO_CTYPE -DUSE_BOINC -DEAH_BOINC -I$INSTALL/include $CPPFLAGS"
+export CPPFLAGS="-DGCTTOP_MAX_IFOS=2 -DUSEXLALLOADSFTS -DBOINC_APIV6 -D__NO_CTYPE -DUSE_BOINC -DEAH_BOINC -I$INSTALL/include $CPPFLAGS"
 export LDFLAGS
 export LD_LIBRARY_PATH="$INSTALL/lib:$LD_LIBRARY_PATH"
 export DYLD_LIBRARY_PATH="$INSTALL/lib:$DYLD_LIBRARY_PATH"
@@ -347,7 +349,27 @@ if test -z "$rebuild_boinc" -a -d "$SOURCE/boinc" ; then
     log_and_show "using existing boinc source"
 else
     log_and_show "retrieving boinc"
-    log_and_do svn co "$boinc_rev" http://boinc.berkeley.edu/svn/trunk/boinc
+    if test -d "$SOURCE/boinc" ; then
+        if test -d "$SOURCE/boinc/.git" ; then
+            log_and_do cd "$SOURCE/boinc"
+            # if "$boinc_rev" is a tag that already exists locally,
+            # delete it locally first in order to get updated from remote. Praise git !!
+            if git tag | fgrep -x "$boinc_rev" >/dev/null ; then
+              log_and_dont_fail git tag -d "$boinc_rev"
+            fi
+            log_and_do git fetch --tags
+        else
+            log_and_do cd "$SOURCE"
+            log_and_do rm -rf boinc
+            log_and_do git clone git://git.aei.uni-hannover.de/shared/einsteinathome/boinc.git
+            log_and_do cd boinc
+        fi
+    else
+        log_and_do cd "$SOURCE"
+        log_and_do git clone git://git.aei.uni-hannover.de/shared/einsteinathome/boinc.git
+        log_and_do cd boinc
+    fi
+    log_and_do git checkout "$boinc_rev"
 fi
 
 if test \! -d lalsuite/.git ; then
@@ -565,8 +587,8 @@ if [ ! .$MACOSX_DEPLOYMENT_TARGET = .10.3 ] ; then
     log_and_do make eah_Makefakedata_v4$ext
     log_and_do cp eah_Makefakedata_v4$ext "$EAH"
     log_and_do cd "$BUILD/lalapps/src/pulsar/FDS_isolated"
-    log_and_do make eah_PredictFStat$ext
-    log_and_do cp eah_PredictFStat$ext "$EAH"
+    log_and_do make eah_PredictFStat$ext eah_ComputeFStatistic_v2$ext
+    log_and_do cp eah_PredictFStat$ext eah_ComputeFStatistic_v2$ext "$EAH"
 fi
 
 log_and_show "==========================================="
@@ -585,8 +607,9 @@ if [ .$check = .true ]; then
     log_and_do rm -rf test
     log_and_do mkdir test
     log_and_do cd test
-    log_and_do cp ../eah_Makefakedata_v4$ext lalapps_Makefakedata_v4$ext
-    log_and_do cp ../eah_PredictFStat$ext lalapps_PredictFStat$ext
+    log_and_do cp ../eah_Makefakedata_v4$ext lalapps_Makefakedata_v4
+    log_and_do cp ../eah_PredictFStat$ext lalapps_PredictFStat
+    log_and_do cp ../eah_ComputeFStatistic_v2$ext lalapps_ComputeFStatistic_v2
     log_and_do cp "$INSTALL"/share/lalpulsar/*05-09.dat .
     NOCLEANUP=1 PATH=".:$PATH" LAL_DATA_PATH="$PWD" \
 	log_and_do ../source/lalsuite/lalapps/src/pulsar/GCT/testHS.sh $wine "$check_app" --Dterms=8

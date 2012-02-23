@@ -240,7 +240,7 @@ int XLALSimAddMode(
 COMPLEX16TimeSeries *XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(
 		REAL8TimeSeries *v,   /**< post-Newtonian parameter */
 	       	REAL8TimeSeries *phi, /**< orbital phase */
-	       	REAL8 v0,             /**< tail-term gauge choice (if you don't know, just set it to one) */
+	       	REAL8 v0,             /**< tail-term gauge choice (default = 1) */
 	       	REAL8 m1,             /**< mass of companion 1 */
 	       	REAL8 m2,             /**< mass of companion 2 */
 	       	REAL8 r,              /**< distance of source */
@@ -267,7 +267,7 @@ int XLALSimInspiralPNPolarizationWaveformsFromModes(
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
 	       	REAL8TimeSeries *v,       /**< post-Newtonian parameter */
 	       	REAL8TimeSeries *phi,     /**< orbital phase */
-	       	REAL8 v0,                 /**< tail-term gauge choice (if you don't know, just set it to one) */
+	       	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
 	       	REAL8 m1,                 /**< mass of companion 1 */
 	       	REAL8 m2,                 /**< mass of companion 2 */
 	       	REAL8 r,                  /**< distance of source */
@@ -295,7 +295,7 @@ int XLALSimInspiralPNPolarizationWaveforms(
         REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
         REAL8TimeSeries *V,       /**< post-Newtonian (PN) parameter */
         REAL8TimeSeries *Phi,     /**< orbital phase */
-        REAL8 x0,                 /**< tail-term gauge choice (default = 1) */
+        REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
         REAL8 m1,                 /**< mass of companion 1 (kg) */
         REAL8 m2,                 /**< mass of companion 2 (kg) */
         REAL8 r,                  /**< distance of source (m) */
@@ -342,7 +342,7 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
 	REAL8 m1,                 /**< mass of companion 1 (kg) */
 	REAL8 m2,                 /**< mass of companion 2 (kg) */
 	REAL8 r,                  /**< distance of source (m) */
-	REAL8 v0,                 /**< tail-term gauge choice (default = 0) */
+	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
 	INT4 ampO	 	  /**< twice amp. post-Newtonian order */
 	);
 
@@ -382,6 +382,9 @@ int XLALSimInspiralChooseWaveform(
     REAL8 f_min,                /**< start frequency */
     REAL8 r,                    /**< distance of source */
     REAL8 i,                    /**< inclination of source (rad) */
+    REAL8 lambda1,              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
+    REAL8 lambda2,              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
     int amplitudeO,             /**< twice post-Newtonian amplitude order */
     int phaseO,                 /**< twice post-Newtonian phase order */
     Approximant approximant     /**< post-Newtonian approximant to use for waveform production */
@@ -408,6 +411,9 @@ int XLALSimInspiralChooseRestrictedWaveform(
     REAL8 f_min,                /**< start frequency */
     REAL8 r,                    /**< distance of source */
     REAL8 i,                    /**< inclination of source (rad) */
+    REAL8 lambda1,              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
+    REAL8 lambda2,              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
     int O,                      /**< twice post-Newtonian order */
     Approximant approximant     /**< post-Newtonian approximant to use for waveform production */
     );
@@ -445,7 +451,7 @@ int XLALSimInspiralTaylorT4PNGenerator(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform */
 	       	REAL8 phic,               /**< coalescence phase */
-	       	REAL8 x0,                 /**< tail-term gauge choice thing (if you don't know, just set it to zero) */
+	       	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
 	       	REAL8 deltaT,             /**< sampling interval */
 	       	REAL8 m1,                 /**< mass of companion 1 */
 	       	REAL8 m2,                 /**< mass of companion 2 */
@@ -463,7 +469,7 @@ int XLALSimInspiralTaylorT4PNGenerator(
  * (unless the order is -1 in which case the highest available
  * order is used for both of these -- which might not be the same).
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT4PN(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -484,7 +490,7 @@ int XLALSimInspiralTaylorT4PN(
  * This routine computes the phasing to the specified order, but
  * only computes the amplitudes to the Newtonian (quadrupole) order.
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT4PNRestricted(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -526,7 +532,7 @@ int XLALSimInspiralTaylorT3PNGenerator(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform */
 	       	REAL8 phic,               /**< coalescence phase */
-	       	REAL8 x0,                 /**< tail-term gauge choice thing (if you don't know, just set it to zero) */
+	       	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
 	       	REAL8 deltaT,             /**< sampling interval */
 	       	REAL8 m1,                 /**< mass of companion 1 */
 	       	REAL8 m2,                 /**< mass of companion 2 */
@@ -544,7 +550,7 @@ int XLALSimInspiralTaylorT3PNGenerator(
  * (unless the order is -1 in which case the highest available
  * order is used for both of these -- which might not be the same).
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT3PN(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -565,7 +571,7 @@ int XLALSimInspiralTaylorT3PN(
  * This routine computes the phasing to the specified order, but
  * only computes the amplitudes to the Newtonian (quadrupole) order.
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT3PNRestricted(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -607,7 +613,7 @@ int XLALSimInspiralTaylorT2PNGenerator(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform */
 	       	REAL8 phic,               /**< coalescence phase */
-	       	REAL8 x0,                 /**< tail-term gauge choice thing (if you don't know, just set it to zero) */
+	       	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
 	       	REAL8 deltaT,             /**< sampling interval */
 	       	REAL8 m1,                 /**< mass of companion 1 */
 	       	REAL8 m2,                 /**< mass of companion 2 */
@@ -625,7 +631,7 @@ int XLALSimInspiralTaylorT2PNGenerator(
  * (unless the order is -1 in which case the highest available
  * order is used for both of these -- which might not be the same).
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT2PN(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -646,7 +652,7 @@ int XLALSimInspiralTaylorT2PN(
  * This routine computes the phasing to the specified order, but
  * only computes the amplitudes to the Newtonian (quadrupole) order.
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT2PNRestricted(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -687,7 +693,7 @@ int XLALSimInspiralTaylorT1PNGenerator(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform */
 	       	REAL8 phic,               /**< coalescence phase */
-	       	REAL8 x0,                 /**< tail-term gauge choice thing (if you don't know, just set it to zero) */
+	       	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
 	       	REAL8 deltaT,             /**< sampling interval */
 	       	REAL8 m1,                 /**< mass of companion 1 */
 	       	REAL8 m2,                 /**< mass of companion 2 */
@@ -705,7 +711,7 @@ int XLALSimInspiralTaylorT1PNGenerator(
  * (unless the order is -1 in which case the highest available
  * order is used for both of these -- which might not be the same).
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT1PN(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -726,7 +732,7 @@ int XLALSimInspiralTaylorT1PN(
  * This routine computes the phasing to the specified order, but
  * only computes the amplitudes to the Newtonian (quadrupole) order.
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT1PNRestricted(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
@@ -1023,7 +1029,34 @@ int XLALSimInspiralTransformPrecessingInitialConditions(
 /**
  * Driver routine to compute a non-precessing post-Newtonian inspiral waveform
  * in the frequency domain, described in http://arxiv.org/abs/1107.1267.
- * The chi parameter should be determined from XLALSimInspiralTaylorF2ReducedSpinComputeChi.
+ *
+ * The chi parameter should be determined from
+ * XLALSimInspiralTaylorF2ReducedSpinComputeChi.
+ *
+ * A note from Evan Ochsner on differences with respect to TaylorF2:
+ *
+ * The amplitude-corrected SPA/F2 waveforms are derived and explicitly given in
+ * <http://arxiv.org/abs/gr-qc/0607092> Sec. II and Appendix A (non-spinning)
+ * and <http://arxiv.org/abs/0810.5336> Sec. VI and Appendix D (spin-aligned).
+ *
+ * The difference between F2 and F2ReducedSpin is that F2ReducedSpin always
+ * keeps only the leading-order TD amplitude multiplying the 2nd harmonic (
+ * A_(2,0)(t) in Eq. 2.3 of the first paper OR alpha/beta_2^(0)(t) in Eq. 6.7
+ * of the second paper) but expands out the 1/\sqrt{\dot{F}} ( Eq. 5.3 OR Eq.
+ * 6.10-6.11 resp.) to whichever order is given as 'ampO' in the code.
+ *
+ * On the other hand, the F2 model in the papers above will PN expand BOTH the
+ * TD amplitude and the factor 1/\sqrt{\dot{F}}, take their product, and keep
+ * all terms up to the desired amplitude order, as in Eq. 6.13-6.14 of the
+ * second paper.
+ *
+ * In particular, the F2ReducedSpin will always have only the 2nd harmonic, but
+ * F2 will have multiple harmonics starting at ampO = 0.5PN. Even if you were
+ * to compare just the 2nd harmonic, you would have a difference starting at
+ * 1PN ampO, because the F2 has a 1PN TD amp. correction to the 2nd harmonic
+ * (alpha/beta_2^(2)(t)) which will not be accounted for by the F2ReducedSpin.
+ * So, the two should agree when ampO=0, but will be different in any other
+ * case.
  */
 int XLALSimInspiralTaylorF2ReducedSpin(
 		COMPLEX16FrequencySeries **htilde, /**< FD waveform */

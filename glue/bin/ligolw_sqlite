@@ -149,9 +149,9 @@ if __name__ == '__main__':
 			dbtables.idmap_sync(connection)
 			if url.endswith(".sqlite"):
 				source_filename = dbtables.get_connection_filename(url, tmp_path = options.tmp_space, verbose = options.verbose)
-				xmldoc = dbtables.get_xml(sqlite3.connect(source_filename))
 				if options.verbose:
 					print >>sys.stderr, "reading '%s' ..." % source_filename
+				xmldoc = dbtables.get_xml(sqlite3.connect(source_filename))
 				ligolw_sqlite.insert_from_xmldoc(connection, xmldoc, preserve_ids = options.preserve_ids, verbose = options.verbose)
 				xmldoc.unlink()
 				dbtables.discard_connection_filename(url, source_filename, verbose = options.verbose)

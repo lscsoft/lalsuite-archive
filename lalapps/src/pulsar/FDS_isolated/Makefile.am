@@ -18,7 +18,7 @@ bin_PROGRAMS = lalapps_ComputeFStatistic lalapps_FstatShapeTest lalapps_SemiAnal
 
 check_PROGRAMS = testFstat_v3
 
-EXTRA_PROGRAMS = lalapps_CFSv3 eah_PredictFStat \
+EXTRA_PROGRAMS = lalapps_CFSv3 eah_PredictFStat eah_ComputeFStatistic_v2 \
 		 lalapps_ComputeFStatistic_v2_sse lalapps_ComputeFStatistic_v2_sse2 lalapps_ComputeFStatistic_v2_cuda
 
 
@@ -83,6 +83,7 @@ lalapps_ComputeFStatistic_v2_cuda_LDADD = $(LDADD) -lcudart
 lalapps_PredictFStat_SOURCES = PredictFStat.c
 # force linking in C++ mode for E@H
 eah_PredictFStat_SOURCES = $(lalapps_PredictFStat_SOURCES) ../hough/src2/EinsteinAtHome/win_lib.cpp
+eah_ComputeFStatistic_v2_SOURCES = $(ComputeFStatisticV2Sources) ../hough/src2/EinsteinAtHome/win_lib.cpp
 
 lalapps_ComputeFStatAnalyticMonteCarloUpperLimit_SOURCES = ComputeFStatAnalyticMonteCarloUpperLimit.c
 
@@ -109,7 +110,7 @@ endif
 
 TESTS_ENVIRONMENT = \
 LALSUITE_TOP_SRCDIR=$(LALSUITE_TOP_SRCDIR) \
-LAL_DATA_PATH=.:$${LALPULSAR_PREFIX:+"$${LALPULSAR_PREFIX}/share/lalpulsar"}:$${LALSUITE_TOP_SRCDIR:+"$${LALSUITE_TOP_SRCDIR}/lalpulsar/test/"}
+LAL_DATA_PATH=$(LAL_DATA_PATH):.:$${LALPULSAR_PREFIX:+"$${LALPULSAR_PREFIX}/share/lalpulsar"}:$${LALSUITE_TOP_SRCDIR:+"$${LALSUITE_TOP_SRCDIR}/lalpulsar/test/"}
 
 CLEANFILES = testFstat_v3-LFT.sft testFstat_v3-timeseries.dat
 

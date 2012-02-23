@@ -635,15 +635,6 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    REAL8 periodf = 1.0/input.period;
    
    //Determine separation in time of peaks for each frequency
-   /* REAL8Vector *phi_actual = XLALCreateREAL8Vector(numfbins);
-   if (phi_actual==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, numfbins);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   }
-   for (ii=0; ii<(INT4)phi_actual->length; ii++) {
-      if ( fabs(params->fmin*params->Tcoh + ii - input.fsig*params->Tcoh)/(input.moddepth*params->Tcoh)-1.0e-14 <= 1.0 ) phi_actual->data[ii] = 0.5*input.period - asin(fabs(params->fmin*params->Tcoh + ii - input.fsig*params->Tcoh)/(input.moddepth*params->Tcoh)-1.0e-14)*LAL_1_PI*input.period;
-      else phi_actual->data[ii] = 0.0;
-   } */ /* for ii < phi_actual->length */
    REAL4Vector *phi_actual = XLALCreateREAL4Vector(numfbins);
    if (phi_actual==NULL) {
       fprintf(stderr,"%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, numfbins);
@@ -652,15 +643,9 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    for (ii=0; ii<(INT4)phi_actual->length; ii++) {
       if ( fabs(params->fmin*params->Tcoh + ii - input.fsig*params->Tcoh)/(input.moddepth*params->Tcoh)-1.0e-14 <= 1.0 ) phi_actual->data[ii] = 0.5*input.period - asin(fabs(params->fmin*params->Tcoh + ii - input.fsig*params->Tcoh)/(input.moddepth*params->Tcoh)-1.0e-14)*LAL_1_PI*input.period;
       else phi_actual->data[ii] = 0.0;
-   }
+   } /* for ii < phi_actual->length */
    
    //Create second FFT frequencies and other useful values
-   /* REAL8Vector *fpr = XLALCreateREAL8Vector((UINT4)floor(numffts*0.5)+1);
-   if (fpr==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, (INT4)floor(numffts*0.5)+1);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   }
-   for (ii=0; ii<(INT4)fpr->length; ii++) fpr->data[ii] = (REAL8)ii*(1.0/params->Tobs); */
    REAL4Vector *fpr = XLALCreateREAL4Vector(numfprbins);
    if (fpr==NULL) {
       fprintf(stderr,"%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, numfprbins);
@@ -668,32 +653,12 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    }
    for (ii=0; ii<(INT4)fpr->length; ii++) fpr->data[ii] = (REAL4)ii*(1.0/params->Tobs);
    
-   /* REAL8Vector *omegapr = XLALCreateREAL8Vector(fpr->length);
-   REAL8Vector *omegapr_squared = XLALCreateREAL8Vector(fpr->length);
-   REAL8Vector *cos_omegapr_times_period = XLALCreateREAL8Vector(fpr->length);
-   REAL8Vector *one_over_cos_omegapr_times_period_minus_one = XLALCreateREAL8Vector(fpr->length);
-   REAL8Vector *cos_N_times_omegapr_times_period = XLALCreateREAL8Vector(fpr->length);
-   if (omegapr==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, fpr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } else if (omegapr_squared==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, fpr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } else if (cos_omegapr_times_period==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, fpr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } else if (one_over_cos_omegapr_times_period_minus_one==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, fpr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } else if (cos_N_times_omegapr_times_period==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, fpr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } */
    REAL4Vector *omegapr = XLALCreateREAL4Vector(fpr->length);
    REAL4Vector *omegapr_squared = XLALCreateREAL4Vector(fpr->length);
    REAL4Vector *cos_omegapr_times_period = XLALCreateREAL4Vector(fpr->length);
    REAL4Vector *one_over_cos_omegapr_times_period_minus_one = XLALCreateREAL4Vector(fpr->length);
    REAL4Vector *cos_N_times_omegapr_times_period = XLALCreateREAL4Vector(fpr->length);
+   INT4Vector *whichIfStatementToUse = XLALCreateINT4Vector(fpr->length);
    if (omegapr==NULL) {
       fprintf(stderr,"%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, fpr->length);
       XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -709,74 +674,45 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    } else if (cos_N_times_omegapr_times_period==NULL) {
       fprintf(stderr,"%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, fpr->length);
       XLAL_ERROR_VOID(XLAL_EFUNC);
+   } else if (whichIfStatementToUse==NULL) {
+      fprintf(stderr,"%s: XLALCreateINT4Vector(%d) failed.\n", __func__, fpr->length);
+      XLAL_ERROR_VOID(XLAL_EFUNC);
    }
+   memset(whichIfStatementToUse->data, 0, sizeof(INT4)*whichIfStatementToUse->length);
    
    if (params->useSSE) {
-      /* sseScaleREAL8Vector(omegapr, fpr, LAL_TWOPI);
-      if (xlalErrno!=0) {
-         fprintf(stderr, "%s: sseScaleREAL8Vector() failed.\n", __func__);
-         XLAL_ERROR_VOID(XLAL_EFUNC);
-      } */
       sseScaleREAL4Vector(omegapr, fpr, (REAL4)LAL_TWOPI);
       if (xlalErrno!=0) {
          fprintf(stderr, "%s: sseScaleREAL4Vector() failed.\n", __func__);
          XLAL_ERROR_VOID(XLAL_EFUNC);
       }
       
-      /* XLALDDVectorMultiply(omegapr_squared, omegapr, omegapr);
-      if (xlalErrno!=0) {
-         fprintf(stderr,"%s: XLALDDVectorMultiply() failed.\n", __func__);
-         XLAL_ERROR_VOID(XLAL_EFUNC);
-      } */
       sseSSVectorMultiply(omegapr_squared, omegapr, omegapr);
       if (xlalErrno!=0) {
          fprintf(stderr,"%s: sseSSVectorMultiply() failed.\n", __func__);
          XLAL_ERROR_VOID(XLAL_EFUNC);
       }
       
-      /* for (ii=0; ii<(INT4)fpr->length; ii++) {
-         cos_omegapr_times_period->data[ii] = cos(input.period*omegapr->data[ii]);
-         one_over_cos_omegapr_times_period_minus_one->data[ii] = 1.0/(cos_omegapr_times_period->data[ii] - 1.0);
-         cos_N_times_omegapr_times_period->data[ii] = cos(N*input.period*omegapr->data[ii]);
-      } */
       for (ii=0; ii<(INT4)fpr->length; ii++) {
          cos_omegapr_times_period->data[ii] = cosf((REAL4)(input.period*omegapr->data[ii]));
          one_over_cos_omegapr_times_period_minus_one->data[ii] = 1.0/(cos_omegapr_times_period->data[ii] - 1.0);
          cos_N_times_omegapr_times_period->data[ii] = cosf((REAL4)(N*input.period*omegapr->data[ii]));
+         if (cos_N_times_omegapr_times_period->data[ii]<=0.999999 && cos_omegapr_times_period->data[ii]<=0.999999) whichIfStatementToUse->data[ii] = 1;
+         else if (cos_N_times_omegapr_times_period->data[ii]>0.999999) whichIfStatementToUse->data[ii] = 2;
       }
    } else {
-      /* for (ii=0; ii<(INT4)fpr->length; ii++) {
-         omegapr->data[ii] = LAL_TWOPI*fpr->data[ii];
-         omegapr_squared->data[ii] = omegapr->data[ii]*omegapr->data[ii];
-         cos_omegapr_times_period->data[ii] = cos((REAL8)(input.period*omegapr->data[ii]));
-         one_over_cos_omegapr_times_period_minus_one->data[ii] = 1.0/(cos_omegapr_times_period->data[ii] - 1.0);
-         cos_N_times_omegapr_times_period->data[ii] = cos((REAL8)(N*input.period*omegapr->data[ii]));
-      } */
       for (ii=0; ii<(INT4)fpr->length; ii++) {
          omegapr->data[ii] = (REAL4)LAL_TWOPI*fpr->data[ii];
          omegapr_squared->data[ii] = omegapr->data[ii]*omegapr->data[ii];
          cos_omegapr_times_period->data[ii] = cosf((REAL4)(input.period*omegapr->data[ii]));
          one_over_cos_omegapr_times_period_minus_one->data[ii] = 1.0/(cos_omegapr_times_period->data[ii] - 1.0);
          cos_N_times_omegapr_times_period->data[ii] = cosf((REAL4)(N*input.period*omegapr->data[ii]));
+         if (cos_N_times_omegapr_times_period->data[ii]<=0.999999 && cos_omegapr_times_period->data[ii]<=0.999999) whichIfStatementToUse->data[ii] = 1;
+         else if (cos_N_times_omegapr_times_period->data[ii]>0.999999) whichIfStatementToUse->data[ii] = 2;
       }
    }
    
    //Scale used for "spillover" into bins outside of phi_actual
-   /* REAL8 k = input.moddepth*params->Tcoh;    //amplitude of modulation in units of bins
-   REAL8Vector *scale = XLALCreateREAL8Vector(numfbins);      //the scaling factor
-   if (scale==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, numfbins);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   }
-   INT4 m0 = (INT4)round(input.fsig*params->Tcoh) - (INT4)round(params->fmin*params->Tcoh);   //central frequency bin
-   INT4 mextent = (INT4)floor(input.moddepth*params->Tcoh);   //Bins filled by modulation
-   REAL8 overage = (k-(REAL8)mextent)-1.0;
-   INT4 fnumstart = m0-mextent-2;
-   INT4 fnumend = m0+mextent+2;
-   memset(scale->data, numfbins*sizeof(*scale->data), 0);
-   for (ii=m0-mextent; ii<=m0+mextent; ii++) scale->data[ii] = 1.0;
-   scale->data[m0-mextent-2] = scale->data[m0+mextent+2] = sqsincxoverxsqminusone(overage-1.0);
-   scale->data[m0-mextent-1] = scale->data[m0+mextent+1] = sqsincxoverxsqminusone(overage); */
    REAL4 k = input.moddepth*params->Tcoh;    //amplitude of modulation in units of bins
    REAL4Vector *scale = XLALCreateREAL4Vector(numfbins);      //the scaling factor
    if (scale==NULL) {
@@ -788,26 +724,13 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    INT4 mextent = (INT4)floor(input.moddepth*params->Tcoh); //Bins filled by modulation
    REAL4 overage = (k-(REAL4)mextent)-1.0;                  //spillage
    INT4 fnumstart = m0-mextent-2, fnumend = m0+mextent+2;   //start and end bins
-   memset(scale->data, numfbins*sizeof(*scale->data), 0);
+   memset(scale->data, 0, numfbins*sizeof(*scale->data));
    for (ii=m0-mextent; ii<=m0+mextent; ii++) scale->data[ii] = 1.0;
    scale->data[m0-mextent-2] = scale->data[m0+mextent+2] = sqsincxoverxsqminusone(overage-1.0);
    scale->data[m0-mextent-1] = scale->data[m0+mextent+1] = sqsincxoverxsqminusone(overage);
    
    
    //Make sigmas for each frequency
-   /* REAL8Vector *sigmas = XLALCreateREAL8Vector((UINT4)(fnumend-fnumstart+1));
-   REAL8Vector *wvals = XLALCreateREAL8Vector((UINT4)floor(2.0*input.period/params->Tcoh));
-   REAL8Vector *allsigmas = XLALCreateREAL8Vector(wvals->length * sigmas->length);
-   if (sigmas==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, (UINT4)(fnumend-fnumstart+1));
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } else if (wvals==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, (UINT4)floor(2.0*input.period/params->Tcoh));
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } else if (allsigmas==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, wvals->length * sigmas->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } */
    REAL4Vector *sigmas = XLALCreateREAL4Vector((UINT4)(fnumend-fnumstart+1));
    REAL4Vector *wvals = XLALCreateREAL4Vector((UINT4)floor(2.0*input.period/params->Tcoh));
    if (sigmas==NULL) {
@@ -827,36 +750,26 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
       REAL8 sigbinvelocity = fabs(-input.moddepth*sin(LAL_TWOPI*periodf*((ii+1)*params->Tcoh*0.5))*params->Tcoh*0.5*params->Tcoh*LAL_TWOPI*periodf);
       REAL8 sigma = 0.5 * params->Tcoh * ((383.85*LAL_1_PI)*(0.5*6.1e-3) / ((sigbinvelocity+0.1769)*(sigbinvelocity+0.1769)+(0.5*6.1e-3)*(0.5*6.1e-3)) + 0.3736);   //Derived fit from simulation
       for (jj=0; jj<(INT4)sigmas->length; jj++) {
-         allsigmas->data[ii*sigmas->length + jj] = sqsincxoverxsqminusone(sigbin-(bin0+jj+fnumstart))*sigma;
+         allsigmas->data[ii*sigmas->length + jj] = (REAL4)(sqsincxoverxsqminusone(sigbin-(bin0+jj+fnumstart))*sigma);
       }
    } /* for ii < wvals->length */
    for (ii=0; ii<(INT4)sigmas->length; ii++) {
-      for (jj=0; jj<(INT4)wvals->length; jj++) wvals->data[jj] = allsigmas->data[ii + jj*sigmas->length]*allsigmas->data[ii + jj*sigmas->length];
+      //for (jj=0; jj<(INT4)wvals->length; jj++) wvals->data[jj] = allsigmas->data[ii + jj*sigmas->length]*allsigmas->data[ii + jj*sigmas->length];
+      for (jj=0; jj<(INT4)wvals->length; jj++) wvals->data[jj] = allsigmas->data[ii + jj*sigmas->length];
+      if (params->useSSE) {
+         sseSSVectorMultiply(wvals, wvals, wvals);
+         if (xlalErrno!=0) {
+            fprintf(stderr, "%s: sseSSVectorMultiply() failed.\n", __func__);
+            XLAL_ERROR_VOID(XLAL_EFUNC);
+         }
+      } else {
+         for (jj=0; jj<(INT4)wvals->length; jj++) wvals->data[jj] *= wvals->data[jj];
+      }
       //sigmas->data[ii] = sqrt(calcMeanD(wvals));
-      sigmas->data[ii] = sqrt(calcMean(wvals));
+      sigmas->data[ii] = sqrtf(calcMean(wvals));
    }
    
    //Allocate more useful data vectors
-   /* REAL8Vector *exp_neg_sigma_sq_times_omega_pr_sq = XLALCreateREAL8Vector(omegapr_squared->length);
-   if (exp_neg_sigma_sq_times_omega_pr_sq==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, omegapr_squared->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   }
-   REAL8Vector *sin_phi_times_omega_pr = XLALCreateREAL8Vector(omegapr->length);
-   if (sin_phi_times_omega_pr==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, omegapr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   }
-   REAL8Vector *cos_phi_times_omega_pr = XLALCreateREAL8Vector(omegapr->length);
-   if (cos_phi_times_omega_pr==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, omegapr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   }
-   REAL8Vector *phi_times_fpr = XLALCreateREAL8Vector(fpr->length);
-   if (phi_times_fpr==NULL) {
-      fprintf(stderr,"%s: XLALCreateREAL8Vector(%d) failed.\n", __func__, fpr->length);
-      XLAL_ERROR_VOID(XLAL_EFUNC);
-   } */
    REAL4Vector *exp_neg_sigma_sq_times_omega_pr_sq = XLALCreateREAL4Vector(omegapr_squared->length);
    if (exp_neg_sigma_sq_times_omega_pr_sq==NULL) {
       fprintf(stderr,"%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, omegapr_squared->length);
@@ -877,8 +790,6 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
       fprintf(stderr,"%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, fpr->length);
       XLAL_ERROR_VOID(XLAL_EFUNC);
    }
-   
-   
    REAL4Vector *datavector = XLALCreateREAL4Vector(fpr->length);
    if (datavector==NULL) {
       fprintf(stderr,"%s: XLALCreateREAL4Vector(%d) failed.\n", __func__, fpr->length);
@@ -890,29 +801,19 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    REAL4 dataval = 0.0;
    REAL8 sin2pix = 0.0, cos2pix = 0.0;
    for (ii=0; ii<(INT4)sigmas->length; ii++) {
-      REAL8 s = sigmas->data[ii];      //sigma
+      REAL4 s = sigmas->data[ii];      //sigma
       
       //Scaling factor
-      REAL8 scale1 = 1.0/(1.0+exp(-phi_actual->data[ii+fnumstart]*phi_actual->data[ii+fnumstart]*0.5/(s*s)));
+      REAL4 scale1 = 1.0/(1.0+expf((REAL4)(-phi_actual->data[ii+fnumstart]*phi_actual->data[ii+fnumstart]*0.5/(s*s))));
       
       //pre-factor
       //REAL8 prefact0 = scale1 * 2.0 * LAL_TWOPI * s * s;
-      REAL8 prefact0 = scale1 * s * s; //don't need the 4*pi, as it will be normalized away anyway
+      REAL4 prefact0 = scale1 * s * s; //don't need the 4*pi, as it will be normalized away anyway
       
       INT4 needtocomputecos = 0;    //Do we need to compute the cosine not from a look up table?
       
       if (params->useSSE) {
          //Compute exp(-s*s*omegapr_squared)
-         /* sseScaleREAL8Vector(exp_neg_sigma_sq_times_omega_pr_sq, omegapr_squared, -s*s);
-         if (xlalErrno!=0) {
-            fprintf(stderr, "%s: sseScaleREAL8Vector() failed.\n", __func__);
-            XLAL_ERROR_VOID(XLAL_EFUNC);
-         }
-         sse_exp_REAL8Vector(exp_neg_sigma_sq_times_omega_pr_sq, exp_neg_sigma_sq_times_omega_pr_sq);
-         if (xlalErrno!=0) {
-            fprintf(stderr, "%s: sse_exp_REAL8Vector() failed.\n", __func__);
-            XLAL_ERROR_VOID(XLAL_EFUNC);
-         } */
          sseScaleREAL4Vector(exp_neg_sigma_sq_times_omega_pr_sq, omegapr_squared, -s*s);
          if (xlalErrno!=0) {
             fprintf(stderr, "%s: sseScaleREAL4Vector() failed.\n", __func__);
@@ -925,44 +826,37 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
          }
          
          //Compute phi_actual*fpr
-         /* sseScaleREAL8Vector(phi_times_fpr, fpr, phi_actual->data[ii+fnumstart]);
-         if (xlalErrno!=0) {
-            fprintf(stderr, "%s: sseScaleREAL8Vector() failed.\n", __func__);
-            XLAL_ERROR_VOID(XLAL_EFUNC);
-         } */
          sseScaleREAL4Vector(phi_times_fpr, fpr, phi_actual->data[ii+fnumstart]);
          if (xlalErrno!=0) {
             fprintf(stderr, "%s: sseScaleREAL4Vector() failed.\n", __func__);
             XLAL_ERROR_VOID(XLAL_EFUNC);
          }
          
-         //Compute cos(phi_actual*fpr) using LUT and SSE
-         //INT4 maxindex = max_index_double(phi_times_fpr);
+         //Start computing the datavector values
          INT4 maxindex = max_index(phi_times_fpr);
-         if (phi_times_fpr->data[maxindex]>2.147483648e9) {
+         if (phi_times_fpr->data[maxindex]>2.147483647e9) {
             needtocomputecos = 1;
          } else {
-            /* sse_sin_cos_2PI_LUT_REAL8Vector(sin_phi_times_omega_pr, cos_phi_times_omega_pr, phi_times_fpr);
-            if (xlalErrno!=0) {
-               fprintf(stderr, "%s: sse_sin_cos_2PI_LUT_REAL8Vector() failed.\n", __func__);
-               XLAL_ERROR_VOID(XLAL_EFUNC);
-            } */
+            //Compute cos(2*pi*phi_actual*fpr) using LUT and SSE
             sse_sin_cos_2PI_LUT_REAL4Vector(sin_phi_times_omega_pr, cos_phi_times_omega_pr, phi_times_fpr);
             if (xlalErrno!=0) {
                fprintf(stderr, "%s: sse_sin_cos_2PI_LUT_REAL4Vector() failed.\n", __func__);
                XLAL_ERROR_VOID(XLAL_EFUNC);
             }
             
+            //datavector = cos(phi_actual*omega_pr) + 1.0
             sseAddScalarToREAL4Vector(datavector, cos_phi_times_omega_pr, 1.0);
             if (xlalErrno!=0) {
                fprintf(stderr, "%s: sseAddScalarToREAL4Vector() failed.\n", __func__);
                XLAL_ERROR_VOID(XLAL_EFUNC);
             }
+            //datavector = exp(-s*s*omega_pr*omega_pr) * [cos(phi_actual*omega_pr) + 1.0]
             sseSSVectorMultiply(datavector, datavector, exp_neg_sigma_sq_times_omega_pr_sq);
             if (xlalErrno!=0) {
                fprintf(stderr, "%s: sseSSVectorMultiply() failed.\n", __func__);
                XLAL_ERROR_VOID(XLAL_EFUNC);
             }
+            //datavector = scale * prefact0 * exp(-s*s*omega_pr*omega_pr) * [cos(phi_actual*omega_pr) + 1.0]
             sseScaleREAL4Vector(datavector, datavector, scale->data[ii+fnumstart]*prefact0);
             if (xlalErrno!=0) {
                fprintf(stderr, "%s: sseScaleREAL4Vector() failed.\n", __func__);
@@ -977,10 +871,6 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
       if (!params->useSSE || (params->useSSE && params->validateSSE) || (params->useSSE && needtocomputecos==1)) {
          if (!params->useSSE) {
             for (jj=0; jj<(INT4)omegapr_squared->length; jj++) {
-               /* if (-s*s*omegapr_squared->data[jj]>-700.0) exp_neg_sigma_sq_times_omega_pr_sq->data[jj] = exp(-s*s*omegapr_squared->data[jj]);
-               else exp_neg_sigma_sq_times_omega_pr_sq->data[jj] = 0.0;
-               twospect_sin_cos_2PI_LUT(&sin2pix, &cos2pix, phi_actual->data[ii+fnumstart]*fpr->data[jj]);
-               cos_phi_times_omega_pr->data[jj] = cos2pix; */
                if (-s*s*omegapr_squared->data[jj]>-88.0) exp_neg_sigma_sq_times_omega_pr_sq->data[jj] = expf((REAL4)(-s*s*omegapr_squared->data[jj]));
                else exp_neg_sigma_sq_times_omega_pr_sq->data[jj] = 0.0;
                
@@ -991,27 +881,14 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
             }
          } else if (params->useSSE && params->validateSSE) {
             for (jj=0; jj<(INT4)omegapr_squared->length; jj++) {
-               /* REAL8 val = 0.0;
-               if (-s*s*omegapr_squared->data[jj]>-700.0) val = exp(-s*s*omegapr_squared->data[jj]);
-               if (fabs(exp_neg_sigma_sq_times_omega_pr_sq->data[jj]-val)>1.0e-14) {
-                  fprintf(stderr, "%s: Validation of sseScaleREAL8Vector() and sse_exp_REAL8Vector() failed.\n", __func__);
-                  XLAL_ERROR_VOID(XLAL_EFUNC);
-               } */
                REAL4 val = 0.0;
                if (-s*s*omegapr_squared->data[jj]>-88.0) val = expf((REAL4)(-s*s*omegapr_squared->data[jj]));
-               if (fabsf(exp_neg_sigma_sq_times_omega_pr_sq->data[jj]-val)>1.0e-6) {
+               if (fabsf(exp_neg_sigma_sq_times_omega_pr_sq->data[jj]-val)>2.0*epsval_float(val)+1.0) {
                   fprintf(stderr, "%s: Validation of sseScaleREAL4Vector() and sse_exp_REAL4Vector() failed.\n", __func__);
                   XLAL_ERROR_VOID(XLAL_EFUNC);
                }
                
                twospect_sin_cos_2PI_LUT(&sin2pix, &cos2pix, phi_actual->data[ii+fnumstart]*fpr->data[jj]);
-               /* if (needtocomputecos==1) cos_phi_times_omega_pr->data[jj] = cos2pix;
-               else {
-                  if (fabs(cos_phi_times_omega_pr->data[jj]-cos2pix)>1.0e-14) {
-                     fprintf(stderr, "%s: Validation of sseScaleREAL8Vector() and sse_sin_cos_2PI_LUT_REAL8Vector() failed.\n", __func__);
-                     XLAL_ERROR_VOID(XLAL_EFUNC);
-                  }
-               } */
                if (needtocomputecos==1) cos_phi_times_omega_pr->data[jj] = (REAL4)cos2pix;
                else {
                   if (fabsf(cos_phi_times_omega_pr->data[jj]-(REAL4)cos2pix)>1.0e-6) {
@@ -1021,18 +898,31 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
                }
                
                val = scale->data[ii+fnumstart]*prefact0*exp_neg_sigma_sq_times_omega_pr_sq->data[jj]*(cos_phi_times_omega_pr->data[jj]+1.0);
-               if (fabsf(datavector->data[jj]-val)>1.0e-6) {
-                  fprintf(stderr, "%s: Validation of sseAddScalarToREAL4Vector(), sseSSVectorMultiply(), and sseScaleREAL4Vector() failed.\n", __func__);
+               if (fabsf(datavector->data[jj]-val)>2.0*epsval_float(val)+1.0) {
+                  fprintf(stderr, "%s: Validation of sseAddScalarToREAL4Vector(), sseSSVectorMultiply(), and sseScaleREAL4Vector() failed. %f != %f\n", __func__, datavector->data[jj], val);
                   XLAL_ERROR_VOID(XLAL_EFUNC);
                }
             }
          } else {
             for (jj=0; jj<(INT4)omegapr_squared->length; jj++) {
                twospect_sin_cos_2PI_LUT(&sin2pix, &cos2pix, phi_times_fpr->data[jj]);
-               //cos_phi_times_omega_pr->data[jj] = cos2pix;
                cos_phi_times_omega_pr->data[jj] = (REAL4)cos2pix;
                
-               datavector->data[jj] = scale->data[ii+fnumstart]*prefact0*exp_neg_sigma_sq_times_omega_pr_sq->data[jj]*(cos_phi_times_omega_pr->data[jj]+1.0);
+               sseAddScalarToREAL4Vector(datavector, cos_phi_times_omega_pr, 1.0);
+               if (xlalErrno!=0) {
+                  fprintf(stderr, "%s: sseAddScalarToREAL4Vector() failed.\n", __func__);
+                  XLAL_ERROR_VOID(XLAL_EFUNC);
+               }
+               sseSSVectorMultiply(datavector, datavector, exp_neg_sigma_sq_times_omega_pr_sq);
+               if (xlalErrno!=0) {
+                  fprintf(stderr, "%s: sseSSVectorMultiply() failed.\n", __func__);
+                  XLAL_ERROR_VOID(XLAL_EFUNC);
+               }
+               sseScaleREAL4Vector(datavector, datavector, scale->data[ii+fnumstart]*prefact0);
+               if (xlalErrno!=0) {
+                  fprintf(stderr, "%s: sseScaleREAL4Vector() failed.\n", __func__);
+                  XLAL_ERROR_VOID(XLAL_EFUNC);
+               }
             }
          }
       } /* If no sse, if sse and validate sse, or if cosine needs to be computed */
@@ -1045,10 +935,12 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
          //3) denominator approaches zero, then the numerator is also approaching zero, so this fraction approaches 1.0 (second if)
          //4) both numerator and denominator approach zero, so, again, the fraction approaches 1.0 (second if)
          dataval = 0.0;
-         if (cos_N_times_omegapr_times_period->data[jj]<=0.999999 && cos_omegapr_times_period->data[jj]<=0.999999) {
+         //if (cos_N_times_omegapr_times_period->data[jj]<=0.999999 && cos_omegapr_times_period->data[jj]<=0.999999) {
+         if (whichIfStatementToUse->data[jj]==1) {
             //dataval = scale->data[ii+fnumstart] * prefact0 * exp_neg_sigma_sq_times_omega_pr_sq->data[jj] * (cos_phi_times_omega_pr->data[jj] + 1.0) * (cos_N_times_omegapr_times_period->data[jj] - 1.0) * one_over_cos_omegapr_times_period_minus_one->data[jj];
             dataval = datavector->data[jj]*(cos_N_times_omegapr_times_period->data[jj]-1.0)*one_over_cos_omegapr_times_period_minus_one->data[jj];
-         } else if (cos_N_times_omegapr_times_period->data[jj]>0.999999) {
+         //} else if (cos_N_times_omegapr_times_period->data[jj]>0.999999) {
+         } else if (whichIfStatementToUse->data[jj]==2) {
             //dataval = scale->data[ii+fnumstart] * prefact0 * exp_neg_sigma_sq_times_omega_pr_sq->data[jj] * (cos_phi_times_omega_pr->data[jj] + 1.0);
             dataval = datavector->data[jj];
          }
@@ -1067,7 +959,6 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    
    //Normalize
    REAL4 invsum = (REAL4)(1.0/sum);
-   //fprintf(stderr, "sum = %g, invsum = %g\n", sum, invsum);
    if (!params->useSSE) {
       for (ii=0; ii<(INT4)output->templatedata->length; ii++) if (output->templatedata->data[ii]!=0.0) output->templatedata->data[ii] *= invsum;
    } else {
@@ -1083,8 +974,8 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    for (ii=0; ii<params->mintemplatelength; ii++) sum += (REAL8)output->templatedata->data[ii];
    ii = params->mintemplatelength;
    while (ii<(INT4)output->templatedata->length && output->templatedata->data[ii]>=epsval_float((REAL4)sum)) {
-      ii++;
       sum += (REAL8)output->templatedata->data[ii];
+      ii++;
    }
    for (/* last ii val */; ii<(INT4)output->templatedata->length; ii++) output->templatedata->data[ii] = 0.0;
    
@@ -1094,16 +985,6 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    XLALDestroyREAL4Vector(sigmas);
    XLALDestroyREAL4Vector(allsigmas);
    XLALDestroyREAL4Vector(wvals);
-   /* XLALDestroyREAL8Vector(fpr);
-   XLALDestroyREAL8Vector(omegapr);
-   XLALDestroyREAL8Vector(omegapr_squared);
-   XLALDestroyREAL8Vector(cos_omegapr_times_period);
-   XLALDestroyREAL8Vector(one_over_cos_omegapr_times_period_minus_one);
-   XLALDestroyREAL8Vector(cos_N_times_omegapr_times_period);
-   XLALDestroyREAL8Vector(exp_neg_sigma_sq_times_omega_pr_sq);
-   XLALDestroyREAL8Vector(phi_times_fpr);
-   XLALDestroyREAL8Vector(sin_phi_times_omega_pr);
-   XLALDestroyREAL8Vector(cos_phi_times_omega_pr); */
    XLALDestroyREAL4Vector(fpr);
    XLALDestroyREAL4Vector(omegapr);
    XLALDestroyREAL4Vector(omegapr_squared);
@@ -1115,6 +996,7 @@ void makeTemplateGaussians(templateStruct *output, candidate input, inputParamsS
    XLALDestroyREAL4Vector(sin_phi_times_omega_pr);
    XLALDestroyREAL4Vector(cos_phi_times_omega_pr);
    XLALDestroyREAL4Vector(datavector);
+   XLALDestroyINT4Vector(whichIfStatementToUse);
 
 } /* mateTemplateGaussians() */
 
@@ -1274,8 +1156,8 @@ void makeTemplate(templateStruct *output, candidate input, inputParamsStruct *pa
    for (ii=0; ii<params->mintemplatelength; ii++) sum += (REAL8)output->templatedata->data[ii];
    ii = params->mintemplatelength;
    while (ii<(INT4)output->templatedata->length && output->templatedata->data[ii]>=epsval_float((REAL4)sum)) {
-      ii++;
       sum += (REAL8)output->templatedata->data[ii];
+      ii++;
    }
    for (/* last ii val */; ii<(INT4)output->templatedata->length; ii++) output->templatedata->data[ii] = 0.0;
    
@@ -1642,16 +1524,26 @@ void efficientTemplateSearch(candidate *output, candidate input, REAL8 fminimum,
 void insertionSort_template(templateStruct *output, REAL4 weight, INT4 pixelloc, INT4 firstfftfreq, INT4 secfftfreq)
 {
    
-   INT4 ii;
+   //INT4 ii;
    
    INT4 insertionpoint = (INT4)output->templatedata->length-1;
-   while (insertionpoint > 0 && weight > output->templatedata->data[insertionpoint-1]) insertionpoint--;
+   INT4 numbertomove = 0;
+   while (insertionpoint > 0 && weight > output->templatedata->data[insertionpoint-1]) {
+      insertionpoint--;
+      numbertomove++;
+   }
    
-   for (ii=output->templatedata->length-1; ii>insertionpoint; ii--) {
+   /* for (ii=output->templatedata->length-1; ii>insertionpoint; ii--) {
       output->templatedata->data[ii] = output->templatedata->data[ii-1];
       output->pixellocations->data[ii] = output->pixellocations->data[ii-1];
       output->firstfftfrequenciesofpixels->data[ii] = output->firstfftfrequenciesofpixels->data[ii-1];
       output->secondfftfrequencies->data[ii] = output->secondfftfrequencies->data[ii-1];
+   } */
+   if (insertionpoint<(INT4)output->templatedata->length-1) {
+      memmove(&(output->templatedata->data[insertionpoint+1]), &(output->templatedata->data[insertionpoint]), sizeof(REAL4)*numbertomove);
+      memmove(&(output->pixellocations->data[insertionpoint+1]), &(output->pixellocations->data[insertionpoint]), sizeof(INT4)*numbertomove);
+      memmove(&(output->firstfftfrequenciesofpixels->data[insertionpoint+1]), &(output->firstfftfrequenciesofpixels->data[insertionpoint]), sizeof(INT4)*numbertomove);
+      memmove(&(output->secondfftfrequencies->data[insertionpoint+1]), &(output->secondfftfrequencies->data[insertionpoint]), sizeof(INT4)*numbertomove);
    }
    
    output->templatedata->data[insertionpoint] = weight;
@@ -1727,7 +1619,7 @@ int twospect_sin_cos_2PI_LUT(REAL8 *sin2pix, REAL8 *cos2pix, REAL8 x)
    * will be somewhat slower...
    */
    //xt = modf(x, &dummy);/* xt in (-1, 1) */
-   if (x<9.223372036854775808e18 && x>-9.223372036854775808e18) xt = x - (INT8)x;  // if x < LAL_INT8_MAX
+   if (x<2.147483647e9 && x>-2.147483647e9) xt = x - (INT4)x;  // if x < LAL_INT4_MAX
    else xt = modf(x, &dummy);
    
    if ( xt < 0.0 ) xt += 1.0;                  /* xt in [0, 1 ) */

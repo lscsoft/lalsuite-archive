@@ -23,6 +23,9 @@
 from __future__ import division
 import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 
+# formce matplotlib backend to Agg, the display detection below doesn't seem to work 
+matplotlib.use('Agg')
+
 # test matplotlib backend and reset if needed
 from os import getenv
 _display = getenv('DISPLAY','')
@@ -61,13 +64,13 @@ def set_rcParams():
   pylab.rcParams.update({"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 2,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
+                         "xtick.labelsize": 16,
+                         "ytick.labelsize": 16,
                          "axes.titlesize": 22,
-                         "axes.labelsize": 18,
+                         "axes.labelsize": 16,
                          "axes.linewidth": 1,
                          "grid.linewidth": 1,
-                         "legend.fontsize": 18,
+                         "legend.fontsize": 16,
                          "legend.loc": "best",
                          "figure.figsize": [12,6],
                          "figure.dpi": 80,
@@ -75,7 +78,7 @@ def set_rcParams():
                          "axes.grid": True,
                          "axes.axisbelow": False })
 
-def set_ticks(ax):
+def set_ticks(ax, calendar_time=False):
 
   """
     Format the x- and y-axis ticks to ensure minor ticks appear when needed
@@ -107,13 +110,38 @@ def set_ticks(ax):
   if len(ticks)<=1:
     ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
 
-  # set xticks for 2 hours rather than 5
-  xticks = ax.get_xticks()
-  if len(xticks)>1 and xticks[1]-xticks[0]==5:
-    ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=2))
+  # set xticks in time format, python2.5 is not new enough for
+  # flexibility, recoding part of AutoDateFormatter to get it
+  if calendar_time:
+    dateLocator = pylab.matplotlib.dates.AutoDateLocator()
+    dateLocator.set_axis(ax.xaxis)
+    dateLocator.refresh()
+    scale = float( dateLocator._get_unit() )
+    if ( scale == 365.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%Y")
+    elif ( scale == 30.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%y/%b ")
+    elif ( (scale == 1.0) or (scale == 7.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%b %d")
+    elif ( scale == (1.0/24.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%d-%H")
+    elif ( scale == (1.0/(24*60)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+    elif ( scale == (1.0/(24*3600)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+  
+    ax.xaxis.set_major_locator(pylab.matplotlib.dates.AutoDateLocator())
+    ax.xaxis.set_major_formatter(dateFormatter)
+  else:
+    # set xticks for 4 hours rather than 5
+    xticks = ax.get_xticks()
+    if len(xticks)>1 and xticks[1]-xticks[0]==5:
+      ax.xaxis.set_major_locator(\
+          pylab.matplotlib.ticker.MultipleLocator(base=2))
 
+  
   # set tick linewidth
-  for line in ax.get_xticklines() + ax.get_yticklines() :
+  for line in ax.get_xticklines() + ax.get_yticklines():
     line.set_markersize(10)
     line.set_markeredgewidth(1)
 
@@ -160,9 +188,40 @@ def display_name(columnName):
       elif w.endswith('sq'):
         words[i] = '$\%s^2$' % w.rstrip('sq')
     else:
-      words[i] = w.title()
+      if w.isupper():
+        words[i] = w
+      else:
+        words[i] = w.title()
+      
 
   return ' '.join(words) 
+
+def gps2datenum(gpstime):
+
+  """
+    Convert GPS time into floating in standard python time format
+    (days since Jan 01 0000), don't seem to use properly leap seconds
+  """
+
+  # set time of 0 GPS in datenum units
+  zeroGPS = 722820.0
+  ## correct for leap seconds assuming that all time stamps are within
+  # a range not including a leap
+  # select the first time stamp
+  if isinstance(gpstime,float) or isinstance(gpstime,int):
+    repTime = gpstime
+  else:
+    if len(gpstime)>0:
+      repTime = gpstime[0]
+    else:
+      return gpstime
+
+  zeroGPS = zeroGPS  + float(date.XLALLeapSeconds(LIGOTimeGPS(0)) -\
+                                 date.XLALLeapSeconds(LIGOTimeGPS(repTime)))/86400
+  # convert to datenum (days)
+  datenum = gpstime/86400 + zeroGPS
+
+  return datenum
 
 def time_unit(duration):
 
@@ -254,7 +313,8 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
 
   color_code = {'H1':'r', 'H2':'b', 'L1':'g', 'V1':'m', 'G1':'k'}
 
-  def __init__(self, xlabel="", ylabel="", title="", subtitle="", t0=0, unit=1):
+  def __init__(self, xlabel="", ylabel="", title="", subtitle="", t0=0, unit=1,\
+               calendar_time=False):
     """
     Create a fresh plot.  Provide t0 to provide a reference time to use as
     zero.
@@ -265,8 +325,16 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
                  transform=self.ax.transAxes, verticalalignment='top')
     self.segdict = segments.segmentlistdict()
     self.keys = []
-    self._time_transform = lambda seg: segments.segment(float(seg[0]-t0)/unit,\
-                                             float(seg[1]-t0)/unit)
+    if calendar_time:
+      self._time_transform =\
+          lambda seg: segments.segment(gps2datenum(float(seg[0])),\
+                                       gps2datenum(float(seg[1])))
+    else:
+      self._time_transform =\
+          lambda seg: segments.segment(float(seg[0]-t0)/unit,\
+                                       float(seg[1]-t0)/unit)
+
+
 
   def add_content(self, segdict, keys=None, t0=0, unit=1):
     if not keys:
@@ -467,6 +535,12 @@ class ScatterPlot(plotutils.BasicPlot):
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
 
+    leg = self.ax.legend()
+    # set transparent legend
+    if leg:
+      legfr = leg.get_frame()
+      legfr.set_alpha(0.5)
+
     # set axes
     if logx:
       self.ax.set_xscale('log')
@@ -560,6 +634,12 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
 
     self.add_legend_if_labels_exist(loc=loc)
 
+    # set transparent legend
+    leg = self.ax.legend()
+    if leg:
+      legfr = leg.get_frame()
+      legfr.set_alpha(0.5)
+
   def set_colorbar(self, mappable, clim=None, log=True, base=10): 
 
     cmin, cmax = clim
@@ -577,16 +657,11 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.2f$"\
                                                         % numpy.power(base, x))
     elif log:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%f$"\
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
                                                         % numpy.power(base, x))
-    elif not log and cmax-cmin > 4:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                      x>=1 and "$%d$" % round(x) or\
-                      x>=0.01 and "$%.2f$" % x or\
-                      x==0.0 and "$0$" or\
-                      x and "$%f$")
     else:
-      formatter = None
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
+                                                        % x)
 
     if clim:
       colorticks = numpy.linspace(cmin, cmax, 4)
@@ -675,7 +750,8 @@ class DetCharScatterPlot(ColorbarScatterPlot):
         if bin == bins[0]:
           args = copy.deepcopy(plot_kwargs)
           args['s']/=4
-          args['edgecolor'] = 'none'
+          if not (args.has_key('marker') and args['marker']=='x'):
+            args['edgecolor'] = 'none'
           if len(x_bins[bin])>=1:
             p.append(self.ax.scatter(x_bins[bin], y_bins[bin], c=z_bins[bin],\
                                      **args))
@@ -704,6 +780,14 @@ class DetCharScatterPlot(ColorbarScatterPlot):
 # Extension of VerticalBarHistogram to include log axes
 
 class VerticalBarHistogram(plotutils.VerticalBarHistogram):
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets = []
+    self.kwarg_sets = []
 
   @plotutils.method_callable_once
   def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
@@ -1009,6 +1093,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   # get limits
   xlim = kwargs.pop('xlim', None)
   ylim = kwargs.pop('ylim', None)
+  calendar_time = kwargs.pop('calendar_time', False)
 
   # get axis scales
   logx = kwargs.pop('logx', False)
@@ -1032,16 +1117,45 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     kwargs.setdefault('linewidth', 0)
     kwargs.pop('linestyle', ' ')
 
+  # get uniq data sets that aren't errors
+  allchannels = []
+  channels    = []
+  for i,(c,_,_) in enumerate(data):
+    allchannels.append(c)
+    if not re.search('(min|max)\Z', str(c)):
+      channels.append((i,c))
+
   # add data
-  for channel,x_data,y_data in data:
+  for i,c in channels:
+    x_data,y_data = data[i][1:]
     if x_format=='time':
-      x_data = (numpy.array(map(float, x_data))-float(zero))/unit
-    lab = str(channel)
+      if calendar_time:
+        x_data = gps2datenum(numpy.array(map(float, x_data)))
+      else:
+        x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+    lab = str(c)
     if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
   plot.finalize(logx=logx, logy=logy, loc=loc)
+
+  # plot errors
+  for (i,channel),c in itertools.izip(channels, plotutils.default_colors()):
+    try:
+      minidx = allchannels.index('%s_min' % str(channel))
+      maxidx = allchannels.index('%s_max' % str(channel))
+    except ValueError:
+      continue
+    y = []
+    for idx in [minidx,maxidx]:
+      x_data,y_data = data[idx][1:]
+      y.append(y_data)
+      if x_format=='time':
+        x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+      l = float(kwargs.pop('linewidth', 1))/2
+      plot.ax.plot(x_data, y_data, color=c, linewidth=l, **kwargs)
+    plot.ax.fill_between(x_data, y[1], y[0], color=c, alpha=0.25)
 
   # set axes
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -1056,7 +1170,11 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim([ axis_lims[0], axis_lims[1] ])
 
     # set x axis
-    plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+    if xlim and calendar_time:
+      plot.ax.set_xlim([gps2datenum(float(xlim[0])),\
+                        gps2datenum(float(xlim[1]))])
+    elif xlim:
+      plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
   else:
       # set global axis limits
     if xlim:
@@ -1065,7 +1183,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim(ylim)
 
 
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time=calendar_time)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
@@ -1162,7 +1280,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 
   # get data
   tdata    = get_column(triggers, 'time')
-  preData  = map(float, get_column(triggers, column))
+  preData  = get_column(triggers, column).astype(float)
   postData = [p for i,p in enumerate(preData) if tdata[i] not in seglist]
 
   # get veto livetime
@@ -1267,7 +1385,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   if xlim:
     plot.ax.set_xlim(xlim)
   if ylim:
-    ploy.ax.set_ylim(ylim)
+    plot.ax.set_ylim(ylim)
 
   # set global ticks
   set_ticks(plot.ax)
@@ -1410,6 +1528,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
   ylim = kwargs.pop('ylim', None)
   zlim = kwargs.pop('zlim', None)
   clim = kwargs.pop('clim', zlim)
+  calendar_time = kwargs.pop('calendar_time', None)
 
   # set up columns
   columns = list(map(str.lower, [xcolumn, ycolumn]))
@@ -1446,8 +1565,9 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     for col in nvetoData[j].keys():
       nvetoData[j][col] = nvetoData[j][col][condition]
       if seglist:
-        vetoData[j][col] = [d for i,d in enumerate(nvetoData[j][col]) if\
-                            tdata[i] in seglist]
+        vetoData[j][col] = numpy.asarray([d for i,d in\
+                                          enumerate(nvetoData[j][col]) if\
+                                          tdata[i] in seglist])
       else:
         vetoData[j][col] = numpy.array([])
 
@@ -1578,10 +1698,18 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
       if kwargs.has_key('xlabel'):  renormalise = False
       if renormalise:
         for j in xrange(len(tables)):
-          vetoData[j][col] = (vetoData[j][col]-float(zero))/unit
-          nvetoData[j][col] = (nvetoData[j][col]-float(zero))/unit
-        limits[i] = [float(limits[i][0]-zero)/unit,\
-                     float(limits[i][1]-zero)/unit]
+          if calendar_time:
+            vetoData[j][col] = gps2datenum(vetoData[j][col])
+            nvetoData[j][col] = gps2datenum(nvetoData[j][col])
+          else:
+            vetoData[j][col] = (vetoData[j][col]-float(zero))/unit
+            nvetoData[j][col] = (nvetoData[j][col]-float(zero))/unit
+        if calendar_time:        
+          limits[i] = [gps2datenum(float(limits[i][0])),\
+                       gps2datenum(float(limits[i][1]))]
+        else:
+          limits[i] = [float(limits[i][0]-zero)/unit,\
+                       float(limits[i][1]-zero)/unit]
 
   # set labels
   label = {}
@@ -1731,7 +1859,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
     plot.ax.set_ylim(limits[1])
 
   # reset ticks
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time=calendar_time)
 
   # get both major and minor grid lines
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -1774,6 +1902,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   xlabel = kwargs.pop('xlabel', 'Length of segment (seconds)')
   ylabel = kwargs.pop('ylabel', 'Number of segments')
   title  = kwargs.pop('title',  'Segment Duration Histogram')
+  subtitle = kwargs.pop('subtitle', "")
 
   # get axis scale
   logx = kwargs.pop('logx', False)
@@ -1793,7 +1922,7 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   flags = sorted(segs.keys())
 
   # generate plot object
-  plot = VerticalBarHistogram(xlabel, ylabel, title)
+  plot = VerticalBarHistogram(xlabel, ylabel, title, subtitle)
 
   # add each segmentlist
   for flag,c in zip(flags, plotutils.default_colors()):
@@ -1884,7 +2013,12 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
       etg = 'Unknown'
 
   # get limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  calendar_time = kwargs.pop('calendar_time', False)
+  if calendar_time:
+    xlim = kwargs.pop('xlim', [gps2datenum(float(start)),\
+                               gps2datenum(float(end))])
+  else:
+    xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
   ylim = kwargs.pop('ylim', None)
 
   # get axis scales
@@ -1900,7 +2034,11 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   tbins   = {}
   rate = {}
   for bin in ybins:
-    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    if calendar_time:
+      tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start), float(end),\
+                                                    average)))
+    else:
+      tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
     rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
 
   for trig in triggers:
@@ -1972,7 +2110,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2048,7 +2186,12 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
       etg = 'Unknown'
 
   # get limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  calendar_time = kwargs.pop('calendar_time', False)
+  if calendar_time:
+    xlim = kwargs.pop('xlim', [gps2datenum(float(start)),\
+                               gps2datenum(float(end))])
+  else:
+    xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
   ylim = kwargs.pop('ylim', None)
 
   # get axis scales
@@ -2065,7 +2208,11 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   rate = {}
   rms = {}
   for bin in ybins:
-    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    if calendar_time:
+      tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start), float(end),\
+                                                    average)))
+    else:
+      tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
     rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
     rms[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
 
@@ -2146,7 +2293,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time=calendar_time)
 
   # save
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
@@ -2200,7 +2347,12 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   subtitle = kwargs.pop('subtitle', '')
 
   # get axis limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  calendar_time = kwargs.pop('calendar_time', False)
+  if calendar_time:
+    xlim = kwargs.pop('xlim', [gps2datenum(float(start)),\
+                               gps2datenum(float(end))])
+  else:
+    xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
 
   # get label param
   labels_inset = kwargs.pop('labels_inset', False)
@@ -2218,7 +2370,8 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   # set params
   set_rcParams()
 
-  plot = PlotSegmentsPlot(xlabel, ylabel, title, subtitle, t0=zero, unit=unit)
+  plot = PlotSegmentsPlot(xlabel, ylabel, title, subtitle, t0=zero, unit=unit,\
+                          calendar_time=calendar_time)
   plot.add_content(segdict, keys, **kwargs)
   plot.finalize(labels_inset=labels_inset)
 
@@ -2233,7 +2386,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   plot.ax.grid(True,which='major')
   plot.ax.grid(True,which='majorminor')
 
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time)
 
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
 
@@ -2276,31 +2429,35 @@ def parse_plot_config(cp, section):
         True / False to plot log scale on z-axis
   """
 
-  columns = {}
+  columns = {'xcolumn':None, 'ycolumn':None, 'zcolumn':None}
   params  = {}
 
   plot = re.split('[\s-]', section)[1:]
-  if len(plot)>=2:
+  if len(plot)>=1:
     columns['xcolumn'] = plot[0]
+  if len(plot)>=2:
     columns['ycolumn'] = plot[1]
   if len(plot)>2:
     columns['zcolumn'] = plot[2]
-  else:
-    columns['zcolumn'] = None
 
   limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
   filters  = ['poles', 'zeros']
+  bins     = ['bins']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
-              'greyscale', 'zeroindicator']
-  values   = ['dcthresh','amplitude']
+              'greyscale', 'zeroindicator', 'normalized', 'include_downtime',\
+              'calendar_time']
+  values   = ['dcthresh','amplitude','num_bins']
 
   # extract plot params as a dict
   params = {}
   for key,val in cp.items(section):
+    val = val.rstrip('"').strip('"')
     if key in limits:
       params[key] = map(float, val.split(','))
     elif key in filters:
       params[key] = map(complex, val.split(','))
+    elif key in bins:
+       params[key] = map(lambda p: map(float, p.split(',')), val.split(';'))
     elif key in booleans:
       params[key] = cp.getboolean(section, key)
     elif key in values:
@@ -2315,7 +2472,7 @@ def parse_plot_config(cp, section):
 
 def plot_color_map(data, outfile, data_limits=None, x_format='time',\
                    y_format='frequency', z_format='amplitude', zero=None,\
-                   **kwargs):
+                   x_range=None, y_range=None, **kwargs):
 
   """
     Plots data in a 2d color map.
@@ -2353,6 +2510,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   ylim = kwargs.pop('ylim', None)
   zlim = kwargs.pop('zlim', None)
   clim = kwargs.pop('clim', None)
+  calendar_time = kwargs.pop('calendar_time', False)
 
   # get axis scales
   logx = kwargs.pop('logx', False)
@@ -2364,19 +2522,23 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
     if logx and xlim:
       shape = numpy.shape(data)
       xmin, xmax = data_limits[0], data_limits[1]
-      xspan = numpy.logspace(numpy.log10(xmin),numpy.log10(xmax), num.shape[-1])
-      condition = (xspan>xlim[0]) & (xspan<=xlim[1])
+      if x_range==None:
+        x_range = numpy.logspace(numpy.log10(xmin), numpy.log10(xmax),\
+                               num.shape[-1])
+      condition = (x_range>xlim[0]) & (x_range<=xlim[1])
       newx = numpy.where(condition)[0]
       data2 = numpy.resize(data, (len(newx), shape[-2]))
       for j in xrange(newx):
         data2[:,j] = data[newx[j],:]
       data = data2.transpose()
-      
+
     if logy and ylim:
       shape = numpy.shape(data)
       ymin, ymax = data_limits[2], data_limits[3]
-      yspan = numpy.logspace(numpy.log10(ymin),numpy.log10(ymax), num=shape[-2])
-      condition = (yspan>ylim[0]) & (yspan<=ylim[1])
+      if y_range==None:
+        y_range = numpy.logspace(numpy.log10(ymin), numpy.log10(ymax),\
+                               num=shape[-2])
+      condition = (y_range>ylim[0]) & (y_range<=ylim[1])
       newy  = numpy.where((condition))[0]
       data2 = numpy.resize(data, (len(newy), shape[-1]))
       for j in xrange(shape[-1]):
@@ -2415,10 +2577,17 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
         tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
       labels[i] = kwargs.pop('%slabel' % c, 'Time (%s) since %s (%s)'\
                                             % (timestr, tlabel, zero))
-      limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
+      if calendar_time:
+        limits[i] = gps2datenum(numpy.asarray(limits[i]))
+      else:
+        limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
       for i,data_limits in enumerate(data_limit_sets):
-        data_limit_sets[i][0] = (data_limits[0]-float(zero))/unit
-        data_limit_sets[i][1] = (data_limits[1]-float(zero))/unit
+        if calendar_time:
+          data_limit_sets[i][0] = gps2datenum(data_limits[0])
+          data_limit_sets[i][1] = gps2datenum(data_limits[1])
+        else:
+          data_limit_sets[i][0] = (data_limits[0]-float(zero))/unit
+          data_limit_sets[i][1] = (data_limits[1]-float(zero))/unit
     else:
       labels[i] = kwargs.pop('%slabel' % c, display_name(col))
 
@@ -2444,7 +2613,74 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
     plot.ax.set_ylim(limits[1])
 
   # set global ticks
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time=calendar_time)
+
+  # save figure
+  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+
+# =============================================================================
+# Significance drop plot (HVeto style)
+
+def plot_significance_drop(startsig, endsig, outfile, **params):
+
+  """
+    Plot significance drop for each channel relative to the application of
+    HVeto round veto segments.
+  """
+
+  # get channels
+  channels = startsig.keys()
+  for c in channels:
+    if c not in endsig.keys():
+      raise AttributeError("Significance lists do not match.")
+  channels.sort()
+
+  # find winner
+  wch,wsig = max(startsig.items(), key=lambda x: x[1])
+
+  # extract parameters
+  params.pop('xlim', None)
+  params.pop('ylim', None)
+  xlabel   = params.pop('xlabel',   "")
+  ylabel   = params.pop('ylabel',   "Significance")
+  title    = params.pop('title',    "Coincidence significance drop plot")
+  subtitle = params.pop('subtitle',\
+                        "Winner: %s, significance: %s" % (wch, wsig))
+
+  params.setdefault('linestyle', '-')
+  params.setdefault('marker', 'o')
+  color    = params.pop('color', None)
+
+  # customise plot appearance
+  set_rcParams()
+  pylab.rcParams.update({"figure.figsize":[24,6], "xtick.labelsize": 8})
+
+
+  # generate plot object
+  plot = DataPlot(xlabel, ylabel, title, subtitle)
+
+  # plot each channel's drop
+  for i,c in enumerate(channels):
+    s   = startsig[c]
+    e   = endsig[c]
+    col = color and color or s>e and 'b' or 'r'
+    plot.add_content([i,i], [s,e], color=col, **params)
+
+  # finalise plot object
+  plot.finalize(logx=False, logy=False)
+
+  # set xticks to channel names and rotate
+  plot.ax.set_xlim(-1, len(channels))
+  plot.ax.set_xticks(numpy.arange(0,len(channels)))
+  plot.ax.set_xticklabels([c.replace('_','\_') for c in channels])
+  for i,t in enumerate(plot.ax.get_xticklabels()):
+    t.set_rotation(270)
+
+  # set ylim
+  plot.ax.set_ylim(0, wsig+1)
+
+  # turn off x grid
+  plot.ax.xaxis.grid(False)
 
   # save figure
   plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)

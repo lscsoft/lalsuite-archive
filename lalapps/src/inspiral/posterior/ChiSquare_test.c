@@ -206,7 +206,7 @@ void initVariables(LALInferenceRunState *state)
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	
 	char help[]="\
-	[--injXML injections.xml]\tInjection XML file to use\
+	[--inj injections.xml]\tInjection XML file to use\
 	[--Mmin mchirp]\tMinimum chirp mass\
 	[--Mmax mchirp]\tMaximum chirp mass\
 	[--dt time]\tWidth of time prior, centred around trigger (0.1s)\
@@ -244,7 +244,7 @@ void initVariables(LALInferenceRunState *state)
 	}
 	
 	/* Read injection XML file for parameters if specified */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--injXML");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
 	if(ppt){
 		SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
 		if(!injTable){
@@ -253,15 +253,15 @@ void initVariables(LALInferenceRunState *state)
 		}
 		endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
 		AmpOrder=injTable->amp_order;
-		LALGetOrderFromString(&status,injTable->waveform,&PhaseOrder);
-		LALGetApproximantFromString(&status,injTable->waveform,&approx);
+		XLALGetOrderFromString(injTable->waveform,&PhaseOrder);
+		XLALGetApproximantFromString(injTable->waveform,&approx);
 	}	
 	
 	/* Over-ride approximant if user specifies */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
 	if(ppt){
-		LALGetOrderFromString(&status,ppt->value,&PhaseOrder);
-		LALGetApproximantFromString(&status,ppt->value,&approx);
+		XLALGetOrderFromString(ppt->value,&PhaseOrder);
+		XLALGetApproximantFromString(ppt->value,&approx);
 		//printf("%d\n",approx);
 		if(strstr(ppt->value,"TaylorF2")) {approx=TaylorF2;}//numberI4 = TaylorF2;}		LALGetApproximantFromString DOES NOT HAVE TaylorF2 !!!!!!
 		//if(strstr(ppt->value,"TaylorT3")) {approx=TaylorT3;}//numberI4 = TaylorT3;}
