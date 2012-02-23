@@ -1,3 +1,9 @@
+glue (1.37.1) unstable; urgency=low
+
+  * Bugfix release of 1.37 labelled 1.37.1
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Wed, 17 Jan 2012 11:02:00 -0500
+
 python-glue (1.37) unstable; urgency=low
 
   * Initial release of 1.37

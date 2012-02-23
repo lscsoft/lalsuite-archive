@@ -56,8 +56,6 @@
 #define UNUSED
 #endif
 
-NRCSID (NRWAVEINJECTC, "$Id$");
-
 int compare_abs_float(const void *a, const void *b);
 int compare_abs_double(const void *a, const void *b);
 
@@ -644,9 +642,9 @@ void LALInjectStrainGW( LALStatus                 *status,
   REAL4TimeSeries *htData = NULL;
   UINT4  k;
   REAL8 offset;
-  InspiralApplyTaper taper = INSPIRAL_TAPER_NONE;
+  LALSimInspiralApplyTaper taper = LAL_SIM_INSPIRAL_TAPER_NONE;
 
-  INITSTATUS (status, "LALNRInject",  NRWAVEINJECTC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* sampleRate = 1.0/strain->deltaT;   */
@@ -677,15 +675,15 @@ void LALInjectStrainGW( LALStatus                 *status,
 
     if ( ! strcmp( "TAPER_START", thisInj->taper ) )
     {
-      taper = INSPIRAL_TAPER_START;
+      taper = LAL_SIM_INSPIRAL_TAPER_START;
     }
     else if (  ! strcmp( "TAPER_END", thisInj->taper ) )
     {
-      taper = INSPIRAL_TAPER_END;
+      taper = LAL_SIM_INSPIRAL_TAPER_END;
     }
     else if (  ! strcmp( "TAPER_STARTEND", thisInj->taper ) )
     {
-      taper = INSPIRAL_TAPER_STARTEND;
+      taper = LAL_SIM_INSPIRAL_TAPER_STARTEND;
     }
     else
     {
@@ -694,7 +692,7 @@ void LALInjectStrainGW( LALStatus                 *status,
       LALFree(htData);
       ABORT( status, NRWAVEINJECT_EVAL, NRWAVEINJECT_MSGEVAL );
     }
-    if ( XLALInspiralWaveTaper( htData->data, taper ) == XLAL_FAILURE )
+    if ( XLALSimInspiralREAL4WaveTaper( htData->data, taper ) == XLAL_FAILURE )
     {
       XLALClearErrno();
       XLALDestroyREAL4Vector ( htData->data);
@@ -752,7 +750,7 @@ void LALInjectStrainGWREAL8( LALStatus                 *status,
   InterferometerNumber  ifoNumber = LAL_UNKNOWN_IFO;
   LALDetector det;
 
-  INITSTATUS (status, "LALNRInject",  NRWAVEINJECTC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* get the detector information */

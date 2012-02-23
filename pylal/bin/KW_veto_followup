@@ -56,8 +56,8 @@ from pylal import KW_veto_utils
 #import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
-__date__ = "$Date: 2009/6/21$"
-__version__ = "$Revision: 1.0 $"[11:-2]
+__date__ = "$Date$"
+__version__ = "$Revision$"
 
 def parse_commandline():
     """

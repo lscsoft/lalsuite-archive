@@ -241,7 +241,16 @@ void LALInferenceRemoveVariable(LALInferenceVariables *vars,const char *name)
   return;
 }
 
+int LALInferenceCheckVariableNonFixed(LALInferenceVariables *vars, const char *name)
+/* Checks for a writeable variable */
+{
+  LALInferenceParamVaryType type;
+  if(!LALInferenceCheckVariable(vars,name)) return 0;
+  type=LALInferenceGetVariableVaryType(vars,name);
+  if(type==LALINFERENCE_PARAM_CIRCULAR||type==LALINFERENCE_PARAM_LINEAR) return 1;
+  else return 0;
 
+}
 
 int LALInferenceCheckVariable(LALInferenceVariables *vars,const char *name)
 /* Check for existance of name */
@@ -868,7 +877,7 @@ void LALInferenceExecuteFT(LALInferenceIFOData *IFOdata)
 		XLALPrintError("Could not create COMPLEX16FrequencySeries in LALInferenceExecuteFT");
 		XLAL_ERROR_VOID(errnum);
 		}
-			    
+  }
 	if (!IFOdata->window || !IFOdata->window->data){
 		XLALPrintError("IFOdata->window is NULL at LALInferenceExecuteFT: Exiting!");
 		XLAL_ERROR_VOID(XLAL_EFAULT);
@@ -893,7 +902,6 @@ void LALInferenceExecuteFT(LALInferenceIFOData *IFOdata)
 			XLAL_ERROR_VOID(errnum);
 			}
     			    
-	}
  
     /* hx */
   if(!IFOdata->freqModelhCross){ 
@@ -904,7 +912,7 @@ void LALInferenceExecuteFT(LALInferenceIFOData *IFOdata)
 			XLALPrintError("Could not create COMPLEX16FrequencySeries in LALInferenceExecuteFT");
 		 	XLAL_ERROR_VOID(errnum);		
 			}
-
+  }
 	XLAL_TRY(XLALDDVectorMultiply(IFOdata->timeModelhCross->data,IFOdata->timeModelhCross->data,IFOdata->window->data),errnum);
 
 		if (errnum){
@@ -919,7 +927,6 @@ void LALInferenceExecuteFT(LALInferenceIFOData *IFOdata)
 			XLAL_ERROR_VOID(errnum);
 			}   
 
-	} 
 
     norm=sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
     

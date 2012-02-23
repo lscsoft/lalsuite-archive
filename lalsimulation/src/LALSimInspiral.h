@@ -34,8 +34,6 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
-NRCSID(LALSIMINSPIRALH, "$Id$");
-
 #define LAL_PN_MODE_L_MAX 3
 
 /** Enum that specifies the PN approximant to be used in computing the waveform.
@@ -81,6 +79,7 @@ typedef enum {
    EOBNR,		/**< UNDOCUMENTED */
    EOBNRv2,
    EOBNRv2HM,
+   SEOBNRv1,        /**< Spin-aligned EOBNR model */
    IMRPhenomA,		/**< Time domain (non-spinning) inspiral-merger-ringdown waveforms generated from the inverse FFT of IMRPhenomFA  */
    IMRPhenomB,		/**< Time domain (non-precessing spins) inspiral-merger-ringdown waveforms generated from the inverse FFT of IMRPhenomFB */
    IMRPhenomFA,		/**< Frequency domain (non-spinning) inspiral-merger-ringdown templates of Ajith et al [\ref Ajith:2007kx] with phenomenological coefficients defined in the Table I of [\ref Ajith:2007xh]*/
@@ -102,12 +101,41 @@ typedef enum {
 	LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN = 1 << 2,     /**<  Spin-spin-self interaction */
 	LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN = 1 << 3,     /**< Quadrupole-monopole interaction */
 	LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN = 1 << 4,     /**<  Next-to-leading-order spin-orbit interaction */
-	LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN = 1 << 5, /**< Leading-order tidal interaction */
-	LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN = 1 << 6, /**< Next-to-leading-order tidal interaction */
-
-	LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN = (1 << 5) - 1, /**< all spin interactions, no tidal interactions */
-	LAL_SIM_INSPIRAL_INTERACTION_ALL = (1 << 7) - 1 /**< all spin and tidal interactions */
+	LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN = 1 << 5,  /**< Spin-spin interaction */
+	LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN = 1 << 6, /**< Leading-order tidal interaction */
+	LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN = 1 << 7, /**< Next-to-leading-order tidal interaction */
+	LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN = (1 << 6) - 1, /**< all spin interactions, no tidal interactions */
+	LAL_SIM_INSPIRAL_INTERACTION_ALL = (1 << 8) - 1 /**< all spin and tidal interactions */
 } LALSimInspiralInteraction;
+
+
+/** Enumeration to specify the tapering method to apply to the waveform */
+typedef enum
+{
+  LAL_SIM_INSPIRAL_TAPER_NONE,		/**< No tapering */
+  LAL_SIM_INSPIRAL_TAPER_START,		/**< Taper the start of the waveform */
+  LAL_SIM_INSPIRAL_TAPER_END,		/**< Taper the end of the waveform */
+  LAL_SIM_INSPIRAL_TAPER_STARTEND,	/**< Taper the start and the end of the waveform */
+  LAL_SIM_INSPIRAL_TAPER_NUM_OPTS	/**< UNDOCUMENTED */
+}  LALSimInspiralApplyTaper;
+
+
+/**
+ * Tapers a REAL4 inspiral waveform in the time domain.
+ */
+int XLALSimInspiralREAL4WaveTaper(
+		REAL4Vector              *signalvec,	/**< pointer to waveform vector */
+		LALSimInspiralApplyTaper  bookends	/**< taper type enumerator */
+		);
+
+/**
+ * Tapers a REAL8 inspiral waveform in the time domain.
+ */
+int XLALSimInspiralREAL8WaveTaper(
+		REAL8Vector              *signalvec,	/**< pointer to waveform vector */
+		LALSimInspiralApplyTaper  bookends	/**< taper type enumerator */
+		);
+
 
 /**
  * Computes h(2,2) mode of spherical harmonic decomposition of

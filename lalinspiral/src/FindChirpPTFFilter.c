@@ -48,10 +48,6 @@
 #include <lal/FindChirpPTF.h>
 #include <lal/MatrixUtils.h>
 
-NRCSID (FINDCHIRPPTFFILTERC, "$Id$");
-
-
-
 void
 LALFindChirpPTFFilterSegment (
     LALStatus                  *status,
@@ -84,7 +80,7 @@ LALFindChirpPTFFilterSegment (
   COMPLEX8Vector        qVec;
   /* FindChirpBankVetoData clusterInput; */
   
-  INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
+  INITSTATUS( status );
   ATTATCHSTATUSPTR( status );
 
 

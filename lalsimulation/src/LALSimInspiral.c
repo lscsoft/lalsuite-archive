@@ -41,8 +41,6 @@
 #define UNUSED
 #endif
 
-NRCSID(LALSIMINSPIRALC, "$Id$");
-
 #define MAX_NONPRECESSING_AMP_PN_ORDER 5
 #define MAX_PRECESSING_AMP_PN_ORDER 3
 
@@ -1053,6 +1051,9 @@ int XLALSimInspiralChooseWaveform(
         case PhenSpinTaylorRD:
             // FIXME: need to create a function to take in different modes or produce an error if all modes not given
             ret = XLALSimIMRPSpinInspiralRDGenerator(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z, phaseO, TotalJ);
+            break;
+        case SEOBNRv1:
+            ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1z, S2z);
             break;
 
         default:

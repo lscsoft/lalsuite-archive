@@ -77,9 +77,6 @@ LALCOMPLEX8VectorFFT()
 #include <lal/FindChirp.h>
 #include <lal/FindChirpChisq.h>
 
-NRCSID (FINDCHIRPCHISQINITC, "$Id$");
-
-
 void
 LALFindChirpChisqVetoInit (
     LALStatus                  *status,
@@ -91,7 +88,7 @@ LALFindChirpChisqVetoInit (
 {
   UINT4                         i, l, m;
 
-  INITSTATUS( status, "FindChirpChisqVetoInit", FINDCHIRPCHISQINITC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( params, status,
@@ -337,7 +334,7 @@ LALFindChirpChisqVetoFinalize (
 {
   UINT4                         i, l;
 
-  INITSTATUS( status, "FindChirpChisqVetoInit", FINDCHIRPCHISQINITC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check that we are using a known approximant */

@@ -9,7 +9,7 @@
 
 #include "ppe_models.h"
 
-RCSID("$Id$");
+static BinaryPulsarParams empty_BinaryPulsarParams;
 
 /******************************************************************************/
 /*                            MODEL FUNCTIONS                                 */
@@ -30,7 +30,7 @@ RCSID("$Id$");
  * \sa pulsar_model
  */
 void get_pulsar_model( LALInferenceIFOData *data ){
-  BinaryPulsarParams pars;
+  BinaryPulsarParams pars = empty_BinaryPulsarParams; /* initialise as empty */
   
   /* set model parameters (including rescaling) */
   pars.h0 = rescale_parameter( data, "h0" );
@@ -72,12 +72,12 @@ void get_pulsar_model( LALInferenceIFOData *data ){
   pars.f3 = rescale_parameter( data, "f3" );
   pars.f4 = rescale_parameter( data, "f4" );
   pars.f5 = rescale_parameter( data, "f5" );
-  
-  /* binary system model - NOT pulsar model */
-  pars.model = *(CHAR**)LALInferenceGetVariable( data->modelParams, "model" );
 
-  /* binary parameters */
-  if( pars.model != NULL ){
+  /* check if there are binary parameters */
+  if( LALInferenceCheckVariable(data->modelParams, "model") ){
+    /* binary system model - NOT pulsar model */
+    pars.model = *(CHAR**)LALInferenceGetVariable( data->modelParams, "model" );
+
     pars.e = rescale_parameter( data, "e" );
     pars.w0 = rescale_parameter( data, "w0" );
     pars.Pb = rescale_parameter( data, "Pb" );
@@ -233,7 +233,7 @@ through the loop.*/
           REAL4 sp, cp;
     
           dphit = -fmod(dphi->data[i] - data->timeData->data->data[i], 1.);
-    
+          
           sin_cos_2PI_LUT( &sp, &cp, dphit );
     
           M.re = data->compModelData->data->data[i].re;
@@ -242,6 +242,7 @@ through the loop.*/
           /* heterodyne */
           data->compModelData->data->data[i].re = M.re*cp - M.im*sp;
           data->compModelData->data->data[i].im = M.im*cp + M.re*sp;
+					if(i<1)fprintf(stderr,"dphi not equal to zero, cp: %f, sp: %f\n",cp-1,sp);
         }
       }
     }
@@ -296,17 +297,18 @@ REAL8Vector *get_phase_model( BinaryPulsarParams params,
   REAL8 interptime = 1800.; /* calulate every 30 mins (1800 secs) */
   
   REAL8Vector *phis = NULL, *dts = NULL, *bdts = NULL;
- 
+
   /* if edat is NULL then return a NULL pointer */
   if( data->ephem == NULL )
     return NULL;
-
+	
   length = data->dataTimes->length;
   
   /* allocate memory for phases */
   phis = XLALCreateREAL8Vector( length );
   
   /* get time delays */ 
+	/*Why ==NULL, surely it will equal null if not set to get ssb delays?*/
   if( (dts = *(REAL8Vector **)LALInferenceGetVariable( data->dataParams,
       "ssb_delays" )) == NULL || varyskypos == 1 ){
     /* get time delays with an interpolation of interptime (30 mins) */
@@ -321,11 +323,11 @@ REAL8Vector *get_phase_model( BinaryPulsarParams params,
   }
   
   for( i=0; i<length; i++){
-    REAL8 realT = XLALGPSGetREAL8( &data->dataTimes->data[i] );
+    REAL8 realT = XLALGPSGetREAL8( &data->dataTimes->data[i] );/*time of data*/
     
-    T0 = params.pepoch;
+    T0 = params.pepoch;/*time of ephem info*/
 
-    DT = realT - T0;
+    DT = realT - T0;/*time diff between data and ephem info*/
 
     if ( params.model != NULL )
       deltat = DT + dts->data[i] + bdts->data[i];
@@ -340,6 +342,7 @@ REAL8Vector *get_phase_model( BinaryPulsarParams params,
       inv_fact[4]*params.f3*deltat*deltat2 +
       inv_fact[5]*params.f4*deltat2*deltat2 +
       inv_fact[6]*params.f5*deltat2*deltat2*deltat);
+
   }
   
   /* free memory */
@@ -506,11 +509,13 @@ REAL8Vector *get_bsb_delay( BinaryPulsarParams pars,
   bdts = XLALCreateREAL8Vector( length );
   
   for ( i = 0; i < length; i++ ){
-    binput.tb = XLALGPSGetREAL8( &datatimes->data[i] ) + dts->data[i];
-  
-    XLALBinaryPulsarDeltaT( &boutput, &binput, &pars );
-    
-    bdts->data[i] = boutput.deltaT;
+    /* check whether there's a binary model */
+    if ( pars.model ){
+      binput.tb = XLALGPSGetREAL8( &datatimes->data[i] ) + dts->data[i];
+      XLALBinaryPulsarDeltaT( &boutput, &binput, &pars );    
+      bdts->data[i] = boutput.deltaT;
+    }
+    else bdts->data[i] = 0.;
   }
   
   return bdts;
@@ -688,10 +693,10 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData
 	(as defined in Jones 2009):
 
    ****************************************************************************/
-  Xplusf = 0.5*(pars.f0*pars.f0/pars.r)*sin(acos(pars.cosiota))*pars.cosiota;
-  Xcrossf = 0.5*(pars.f0*pars.f0/pars.r)*sin(acos(pars.cosiota));
-  Xplus2f = 0.5*((2*pars.f0)*(2*pars.f0)/pars.r)*(1.+(pars.cosiota*pars.cosiota));
-  Xcross2f = pars.cosiota*((2*pars.f0)*(2*pars.f0)/pars.r);
+  Xplusf = ((pars.f0*pars.f0)/(2*pars.r)) * sin(acos(pars.cosiota))*pars.cosiota;
+  Xcrossf =((pars.f0*pars.f0)/(2*pars.r)) * sin(acos(pars.cosiota));
+  Xplus2f = ((pars.f0*pars.f0)/pars.r) * (1.+(pars.cosiota*pars.cosiota));
+  Xcross2f = ((2*pars.f0*pars.f0)/pars.r) * pars.cosiota;
   
   A1=(pars.I21*(cos(pars.lambda)*cos(pars.lambda)) - pars.I31 )* sin( (2*pars.theta));
   A2=pars.I21*sin(2*pars.lambda)*sin(pars.theta);
@@ -805,6 +810,7 @@ void get_pinsf_amplitude_model( BinaryPulsarParams pars, LALInferenceIFOData
     data->next->compModelData->data->data[i].im =
       (plus*Xplus2f*((B2*cos2phi)+(B1*sin2phi)) )-
       ( cross*Xcross2f*((B1*cos2phi)+(B2*sin2phi)) );
+		
   }
   /*--------------------------------------------------------------------------*/
 }

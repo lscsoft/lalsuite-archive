@@ -46,8 +46,8 @@ Typical usage:
 This module works with Python 2.3 or higher."""
 
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
-__date__ = '$Date$'.split()[1].replace('/', '-')
-__version__ = '$Revision$'.split()[1]
+__date__ = '$Date$'
+__version__ = '$Revision$'
 
 RESERVED_NCS, RFC_4122, RESERVED_MICROSOFT, RESERVED_FUTURE = [
     'reserved for NCS compatibility', 'specified in RFC 4122',

@@ -74,8 +74,6 @@ int finite(double);
 
 #include "OptimizedCFS/ComputeFstatREAL4.h"
 
-RCSID( "$Id$");
-
 /*---------- DEFINES ----------*/
 
 #define MAXFILENAMELENGTH 256   /* Maximum # of characters of a SFT filename */
@@ -340,6 +338,17 @@ REAL8 XLALGetUserCPUTime ( void );
 #define GETTIME XLALGetTimeOfDay
 #endif
 
+/* ----- which LALDemod hotloop to use ----- */
+#ifdef CFS_SSE_OPT
+void
+LocalComputeFStat ( LALStatus*, Fcomponents*, const PulsarDopplerParams*,
+		    const MultiSFTVector*, const MultiNoiseWeights*,
+		    const MultiDetectorStateSeries*, const ComputeFParams*,
+		    ComputeFBuffer*);
+#define COMPUTEFSTAT LocalComputeFStat
+#else
+#define COMPUTEFSTAT ComputeFStat
+#endif
 
 /*----------------------------------------------------------------------*/
 /* Function definitions start here */
@@ -530,7 +539,7 @@ int main(int argc,char *argv[])
       /* main function call: compute F-statistic for this template */
       if ( ! uvar.GPUready )
         {
-          LAL_CALL( ComputeFStat(&status, &Fstat, &internalDopplerpos, GV.multiSFTs, GV.multiNoiseWeights,
+          LAL_CALL( COMPUTEFSTAT (&status, &Fstat, &internalDopplerpos, GV.multiSFTs, GV.multiNoiseWeights,
                                  GV.multiDetStates, &GV.CFparams, &cfBuffer ), &status );
         }
       else
@@ -958,12 +967,11 @@ int main(int argc,char *argv[])
 void
 initUserVars (LALStatus *status, UserInput_t *uvar)
 {
-  INITSTATUS( status, "initUserVars", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* set a few defaults */
   uvar->upsampleSFTs = 1;
-  uvar->Dterms 	= 16;
   uvar->FreqBand = 0.0;
   uvar->Alpha 	= 0.0;
   uvar->Delta 	= 0.0;
@@ -972,6 +980,12 @@ initUserVars (LALStatus *status, UserInput_t *uvar)
   uvar->AlphaBand = 0;
   uvar->DeltaBand = 0;
   uvar->skyRegion = NULL;
+  // Dterms-default used to be 16, but has to be 8 for SSE version
+#ifdef CFS_SSE_OPT
+  uvar->Dterms 	= 8;
+#else
+  uvar->Dterms 	= 16;
+#endif
 
   uvar->ephemYear = LALCalloc (1, strlen(EPHEM_YEARS)+1);
   strcpy (uvar->ephemYear, EPHEM_YEARS);
@@ -1177,7 +1191,7 @@ InitEphemeris (LALStatus * status,	/**< pointer to LALStatus structure */
   CHAR EphemEarth[FNAME_LENGTH];	/* filename of earth-ephemeris data */
   CHAR EphemSun[FNAME_LENGTH];	/* filename of sun-ephemeris data */
 
-  INITSTATUS( status, "InitEphemeris", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( edat, status, COMPUTEFSTATISTIC_ENULL, COMPUTEFSTATISTIC_MSGENULL );
@@ -1235,7 +1249,7 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
   LIGOTimeGPS startTime, endTime;
   size_t toplist_length = uvar->NumCandidatesToKeep;
 
-  INITSTATUS (status, __func__, rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* set the current working directory */
@@ -1613,6 +1627,14 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
   if ( uvar->outputSingleFstats )
     cfg->CFparams.returnSingleF = TRUE;
 
+  // ----- if user compiled special SSE-tuned code, check that SSE is actually available, otherwise fail!
+  // in order to avoid 'unexpected' behaviour, ie the 'SSE-code' falling back on the non-SSE hotloop functions
+#if defined(CFS_SSE_OPT) && !defined(__SSE__)
+  XLALPrintError ( "\n\nThis code was compiled for use of SSE-optimized LALDemod-hotloop, but no SSE extension present!\n\n");
+  ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT);
+#endif
+
+
   DETATCHSTATUSPTR (status);
   RETURN (status);
 
@@ -1632,7 +1654,7 @@ getLogString ( LALStatus *status, CHAR **logstr, const ConfigVariables *cfg )
   UINT4 i, numDet, numSpins = PULSAR_MAX_SPINS;
   CHAR *ret = NULL;
 
-  INITSTATUS( status, "getLogString", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* get full commandline describing search*/
@@ -1701,7 +1723,7 @@ WriteFStatLog ( LALStatus *status, const CHAR *log_fname, const CHAR *log_string
 {
   FILE *fplog;
 
-  INITSTATUS (status, "WriteFStatLog", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   if ( !log_fname || !log_string ) {	/* no logfile given */
@@ -1729,7 +1751,7 @@ WriteFStatLog ( LALStatus *status, const CHAR *log_fname, const CHAR *log_string
 void
 Freemem(LALStatus *status,  ConfigVariables *cfg)
 {
-  INITSTATUS (status, "Freemem", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -1777,7 +1799,7 @@ Freemem(LALStatus *status,  ConfigVariables *cfg)
 void
 checkUserInputConsistency (LALStatus *status, const UserInput_t *uvar)
 {
-  INITSTATUS (status, __func__, rcsid);
+  INITSTATUS(status);
 
   if (uvar->ephemYear == NULL)
     {

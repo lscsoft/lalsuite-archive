@@ -25,9 +25,6 @@
 #include<lal/LALInspiralBank.h>
 #include<lal/LIGOMetadataTables.h>
 
-
-NRCSID(INSPIRALBANKGENERATIONC, "$Id$");
-
 void
 LALInspiralBankGeneration(
      LALStatus *status,
@@ -49,7 +46,7 @@ LALInspiralBankGeneration(
   INT4  i, kappa_max;
   REAL8 *chi, *kappa, dKappa, chi_sum, dChi;
 
-  INITSTATUS(status, "LALInspiralBankGeneration", INSPIRALBANKGENERATIONC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT( input != NULL, status, LALINSPIRALBANKH_ENULL,
