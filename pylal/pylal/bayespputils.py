@@ -3002,22 +3002,29 @@ class PEOutputParser(object):
 
         posfilename='posterior_samples.dat'
         posfile=open(posfilename,'w')
+       
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list
         it = iter(files)
+        
+        # check if there's a file containing the parameter names
         parsfilename = it.next()+'_params.txt'
         
-        print 'Looking for '+parsfilename
-        if os.access(parsfilename,os.R_OK):
-            parsfile = open(parsfilename,'r')
-            outpars = parsfile.readline()
-            parsfile.close()
-        else:
-            print "Need files of parameters "+parsfilename
-            raise
+        if os.path.isfile(parsfilename):
+            print 'Looking for '+parsfilename
+            if os.access(parsfilename,os.R_OK):
+                parsfile = open(parsfilename,'r')
+                outpars = parsfile.readline()
+                parsfile.close()
+            else:
+              print "Need files of parameters "+parsfilename
+              raise
         
-        posfile.write(outpars)
+            posfile.write(outpars)
+        else: # use hardcoded CBC parameter names 
+            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+dec \t psi \t iota \t likelihood \n')     
         
         for row in pos:
             for i in row:
