@@ -282,7 +282,7 @@ def ReadMVSCTriggers(files):
   return MVSCTriggers  
 
 
-def loadCV(filename):
+def LoadCV(filename):
 
   """
   Reads in the pickled output of CV data (eg: kwl1-35.track.9.pickle) and inverts the data storage. Returns a list of gwtrg's removed by the Cveto method.
