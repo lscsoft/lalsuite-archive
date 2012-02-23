@@ -17,12 +17,12 @@
  * @param[out] hc				: \f$h_\cross\f$ polarized waveform
  * @param[in]  mass1			: mass of companion 1 (kg)
  * @param[in]  mass2			: mass of companion 2 (kg)
- * @param[in]  chi1x			: initial value of x comp. of the spin first parameter
- * @param[in]  chi1y			: initial value of y comp. of the spin first parameter
- * @param[in]  chi1z			: initial value of z comp. of the spin first parameter
- * @param[in]  chi2x			: initial value of x comp. of the spin second parameter
- * @param[in]  chi2y			: initial value of y comp. of the spin second parameter
- * @param[in]  chi2z			: initial value of z comp. of the spin second parameter
+ * @param[in]  chi1x			: initial value of x comp. of the first spin parameter
+ * @param[in]  chi1y			: initial value of y comp. of the first spin parameter
+ * @param[in]  chi1z			: initial value of z comp. of the first spin parameter
+ * @param[in]  chi2x			: initial value of x comp. of the second spin parameter
+ * @param[in]  chi2y			: initial value of y comp. of the second spin parameter
+ * @param[in]  chi2z			: initial value of z comp. of the second spin parameter
  * @param[in]  lnhatx			: initial value of x comp. of unit orbital angular momentum
  * @param[in]  lnhaty			: initial value of y comp. of unit orbital angular momentum
  * @param[in]  lnhatz			: initial value of z comp. of unit orbital angular momentum
@@ -61,12 +61,12 @@ int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeS
  * @param[out] E1z				: orbital plane basis vector z component
  * @param[in]  mass1			: mass of companion 1 (kg)
  * @param[in]  mass2			: mass of companion 2 (kg)
- * @param[in]  chi1x			: initial value of x comp. of the spin first parameter
- * @param[in]  chi1y			: initial value of y comp. of the spin first parameter
- * @param[in]  chi1z			: initial value of z comp. of the spin first parameter
- * @param[in]  chi2x			: initial value of x comp. of the spin second parameter
- * @param[in]  chi2y			: initial value of y comp. of the spin second parameter
- * @param[in]  chi2z			: initial value of z comp. of the spin second parameter
+ * @param[in]  chi1x			: initial value of x comp. of the first spin parameter
+ * @param[in]  chi1y			: initial value of y comp. of the first spin parameter
+ * @param[in]  chi1z			: initial value of z comp. of the first spin parameter
+ * @param[in]  chi2x			: initial value of x comp. of the second spin parameter
+ * @param[in]  chi2y			: initial value of y comp. of the second spin parameter
+ * @param[in]  chi2z			: initial value of z comp. of the second spin parameter
  * @param[in]  lnhatx			: initial value of x comp. of unit orbital angular momentum
  * @param[in]  lnhaty			: initial value of y comp. of unit orbital angular momentum
  * @param[in]  lnhatz			: initial value of z comp. of unit orbital angular momentum
@@ -77,7 +77,6 @@ int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeS
  * @param[in]  initialFrequency	: initial frequency (1/s)
  * @param[in]  samplingTime		: sampling interval (s)
  * @param[in]  orderOfPhase		: twice phase post-Newtonian order
- * @param[in]  orderOfAmplitude	: twice amplitude post-Newtonian order
  * @param[in]  interactionFlags : flag to control spin effects
  * @return
  */
@@ -88,7 +87,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveOrbit(REAL8TimeSeries **V, REAL8TimeSerie
 		REAL8TimeSeries **E1y, REAL8TimeSeries **E1z, REAL8 mass1, REAL8 mass2, REAL8 qm1,
 		REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
 		REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z, REAL8 endPhase,
-		REAL8 initialFrequency, REAL8 samplingTime, INT4 orderOfPhase, INT4 orderOfAmplitude,
+		REAL8 initialFrequency, REAL8 samplingTime, INT4 orderOfPhase,
 		LALSimInspiralInteraction interactionFlags);
 
 /** Computes the \f$h_+\f$ and \f$h_\cross\f$ polarized waveforms with the orbital equations.
@@ -112,12 +111,12 @@ int XLALSimInspiralSpinQuadTaylorEvolveOrbit(REAL8TimeSeries **V, REAL8TimeSerie
  * @param[out] E1z				: orbital plane basis vector z component
  * @param[in]  mass1			: mass of companion 1 (kg)
  * @param[in]  mass2			: mass of companion 2 (kg)
- * @param[in]  chi1x			: initial value of x comp. of the spin first parameter
- * @param[in]  chi1y			: initial value of y comp. of the spin first parameter
- * @param[in]  chi1z			: initial value of z comp. of the spin first parameter
- * @param[in]  chi2x			: initial value of x comp. of the spin second parameter
- * @param[in]  chi2y			: initial value of y comp. of the spin second parameter
- * @param[in]  chi2z			: initial value of z comp. of the spin second parameter
+ * @param[in]  chi1x			: initial value of x comp. of the first spin parameter
+ * @param[in]  chi1y			: initial value of y comp. of the first spin parameter
+ * @param[in]  chi1z			: initial value of z comp. of the first spin parameter
+ * @param[in]  chi2x			: initial value of x comp. of the second spin parameter
+ * @param[in]  chi2y			: initial value of y comp. of the second spin parameter
+ * @param[in]  chi2z			: initial value of z comp. of the second spin parameter
  * @param[in]  lnhatx			: initial value of x comp. of unit orbital angular momentum
  * @param[in]  lnhaty			: initial value of y comp. of unit orbital angular momentum
  * @param[in]  lnhatz			: initial value of z comp. of unit orbital angular momentum
