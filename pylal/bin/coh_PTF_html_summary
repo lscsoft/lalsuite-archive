@@ -161,19 +161,37 @@ def write_summary( page, ExtTrigger, ifos, skyError=None, ipn=False, ipnError=Fa
     dec = []
     td1 = []
     td2 = []
+    td3 = []
+    timedelay = {}
+    deltat = []
     search_file = '../../../S5IPN_GRB%s_search_180deg.txt' % ExtTrigger.event_number_grb
     for line in open(search_file):
       ra.append(line.split()[0])
       dec.append(line.split()[1])
-    th1 = [ 'GPS', 'Date', 'Error Box', 'IFOs' ]
+    th1 = [ 'GPS', 'Date', 'Error Box (sq.deg.)', 'IFOs' ]
     td1 = [ gps, grbdate, ipnError, ifos ]
     th2 = [ 'RA', 'DEC' ]
+    th3 = ['Timedelays (ms)', '', '' ]
     for ra_i,dec_i in zip(ra,dec):
       td_i = [ ra_i, dec_i ]
       td2.append(td_i)
-
+    ifo_list = [ ifos[i*2:(i*2)+2] for i in range(int(len(ifos)/2)) ]
+    for j in td2:
+      for p in range(0, len(ifo_list)):
+        for q in range(0, len(ifo_list)):
+          pairs = [ifo_list[p], ifo_list[q]]
+          ifo_pairs = "".join(pairs)
+          timedelay[ifo_pairs]   = antenna.timeDelay(int(gps),float(j[0]),float(j[1]), 'degree',ifo_list[p],ifo_list[q])
+          timedelay[ifo_pairs]="%.4f" % timedelay[ifo_pairs]
+      if ifos == 'H1H2L1':
+        td3.append(['H1L1: %f' % float(timedelay['H1L1'])])
+      if ifos == 'H1H2L1V1':
+        td3.append(['H1L1: %f' % float(timedelay['H1L1']), 'H1V1: %f' % float(timedelay['H1V1']), 'L1V1: %f' % float(timedelay['L1V1'])])
+      if ifos == 'L1V1':
+        td3.append(['L1V1: %f' % float(timedelay['L1V1'])])
     page = write_table( page, th1, td1 )
     page = write_table( page, th2, td2 )
+    page = write_table( page, th3, td3 )
 
   else:
     ra,dec = ExtTrigger.event_ra, ExtTrigger.event_dec
@@ -387,7 +405,7 @@ def write_chisq( page, injList, grbtag ):
     injList = ['OFFSOURCE']
   td = []
 
-  plots = ['bank_veto','auto_veto','chi_square']
+  plots = ['bank_veto','auto_veto','chi_square', 'mchirp']
 
   for test in plots:
     pTag = test.replace('_',' ').title()
@@ -399,6 +417,7 @@ def write_chisq( page, injList, grbtag ):
       plot.img( src=p )
       plot.a.close()
       d.append( plot() )
+ 
     td.append(d)
 
   page = write_table( page, th, td )
