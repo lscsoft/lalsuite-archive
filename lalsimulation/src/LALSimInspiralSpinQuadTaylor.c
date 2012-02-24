@@ -297,29 +297,75 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 	return XLAL_SUCCESS;
 }
 
+static REAL8 sq(REAL8 value) {
+	return (value * value);
+}
+
 static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8 mass2, REAL8 qm1,
 		REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
 		REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z,
 		INT4 orderOfPhase, LALSimInspiralInteraction interactionFlags) {
-	UNUSED(param);
-	UNUSED(mass1);
-	UNUSED(mass2);
-	UNUSED(qm1);
-	UNUSED(qm2);
-	UNUSED(chi1x);
-	UNUSED(chi1y);
-	UNUSED(chi1z);
-	UNUSED(chi2x);
-	UNUSED(chi2y);
-	UNUSED(chi2z);
-	UNUSED(lnhatx);
-	UNUSED(lnhaty);
-	UNUSED(lnhatz);
-	UNUSED(e1x);
-	UNUSED(e1y);
-	UNUSED(e1z);
-	UNUSED(orderOfPhase);
-	UNUSED(interactionFlags);
+	memset(param, 0, sizeof(Parameters));
+	param->mass[0] = mass1;
+	param->mass[1] = mass2;
+	param->totalMass = param->mass[0] + param->mass[1];
+	param->eta = param->mass[0] * param->mass[1] / sq(param->totalMass);
+	param->chirpMass = param->totalMass * pow(param->eta, 3.0 / 5.0);
+	param->qm[0] = qm1;
+	param->qm[1] = qm2;
+	REAL8 chi[2][DIMENSIONS] = { { chi1x, chi1y, chi1z }, { chi2x, chi2y, chi2z } };
+	for (UINT2 current = 0; current < 2; current++) {
+		for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+			param->chiAmp[current] += sq(chi[current][dim]);
+		}
+		if (param->chiAmp[current]) {
+			param->chiAmp[current] = sqrt(param->chiAmp[current]);
+			for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+				param->chih[current][dim] = chi[current][dim] / param->chiAmp[current];
+			}
+		}
+	}
+	param->lnhat[X] = lnhatx;
+	param->lnhat[Y] = lnhaty;
+	param->lnhat[Z] = lnhatz;
+	param->e1[X] = e1x;
+	param->e1[Y] = e1y;
+	param->e1[Z] = e1z;
+	param->orderOfPhase = orderOfPhase;
+	param->interactionFlags = interactionFlags;
+	REAL8 piPow2 = sq(LAL_PI);
+	REAL8 etaPow2 = sq(param->eta);
+	REAL8 etaPow3 = param->eta * etaPow2;
+	param->coeff.omegaGlobal = param->eta * 96.0 / 5.0;
+	switch (param->orderOfPhase) {
+	case PNALL:
+	case PN4_0:
+	case PN3_5:
+		param->coeff.omega[PN3_5] = (-13245.0 + 717350.0 * param->eta + 731960.0 * etaPow2) * LAL_PI
+				/ 12096.0;
+	case PN3_0:
+		param->coeff.omega[PN3_0] = 16447322263.0 / 139708800.0 - LAL_GAMMA * 1712.0 / 105.0
+				+ piPow2 * 16.0 / 3.0 - log(16.0) * 856.0 / 105.0
+				+ (-56198689.0 / 217728.0 + piPow2 * 451.0 / 48.0) * param->eta
+				+ etaPow2 * 541.0 / 896.0 - etaPow3 * 5605.0 / 2592.0;
+	case PN2_5:
+		param->coeff.omega[PN2_5] = -LAL_PI * (4159.0 + 15876.0 * param->eta) / 672.0;
+	case PN2_0:
+		param->coeff.omega[PN2_0] = (34103.0 + 122949.0 * param->eta + 59472.0 * etaPow2) / 18144.0;
+	case PN1_5:
+		param->coeff.omega[PN1_5] = 4.0 * LAL_PI;
+	case PN1_0:
+		param->coeff.omega[PN1_0] = -(743.0 + 924.0 * param->eta) / 336.0;
+	case PN0_5:
+	case PN0_0:
+		param->coeff.omega[PN0_0] = 1.0;
+		break;
+	default:
+		XLALPrintError("XLAL Error - %s: Invalid phase. PN order %s\n", __func__,
+				param->orderOfPhase);
+		XLAL_ERROR(XLAL_EINVAL);
+		break;
+	}
 	return XLAL_SUCCESS;
 }
 
