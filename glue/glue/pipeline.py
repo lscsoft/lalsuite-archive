@@ -1486,7 +1486,7 @@ class CondorDAG:
 
         # write the post script for this node
         if node.get_post_script_arg():
-          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post_args",' '.join(node.get_post_script_arg())))
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post.arguments",' '.join(node.get_post_script_arg())))
 
         # write the dag node category if this node has one
         if node.get_category():
