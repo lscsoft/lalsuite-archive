@@ -46,13 +46,13 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 	"""
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
-		found_query = 'SELECT sim_inspiral.*, coinc_inspiral.combined_far FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_inspiral ON coinc_inspiral.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
+		found_query = 'SELECT sim_inspiral.*, coinc_inspiral.combined_far FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_inspiral ON coinc_inspiral.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
 
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-		found_query = 'SELECT sim_inspiral.*, coinc_ringdown.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_ringdown ON coinc_ringdown.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_ringdown.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
+		found_query = 'SELECT sim_inspiral.*, coinc_ringdown.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_ringdown ON coinc_ringdown.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_ringdown.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
 	
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
-		found_query = 'SELECT sim_inspiral.*, multi_burst.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN multi_burst ON multi_burst.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == multi_burst.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
+		found_query = 'SELECT sim_inspiral.*, multi_burst.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN multi_burst ON multi_burst.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == multi_burst.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
 	
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
@@ -61,7 +61,7 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 		return time_within_segments(end_time, end_time_ns, segments)
 
 	# restrict the found injections to only be within certain segments
-	connection.create_function("injection_was_made", 2, injection_was_made)
+	connection.create_function("injection_in_segments", 2, injection_was_made)
 
 	# get the mapping of a record returned by the database to a sim
 	# inspiral row. Note that this is DB dependent potentially, so always
@@ -79,7 +79,7 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 		if far < this_inj[0]:
 			found_injections[sim.simulation_id] = (far, sim)
 
-	total_query = 'SELECT * FROM sim_inspiral WHERE injection_was_made(geocent_end_time, geocent_end_time_ns)'
+	total_query = 'SELECT * FROM sim_inspiral WHERE injection_in_segments(geocent_end_time, geocent_end_time_ns)'
 
 	total_injections = []
 	for values in connection.cursor().execute(total_query):
@@ -314,7 +314,8 @@ class DataBaseSummary(object):
 				# We need to know the segments in this file to determine which injections are found
 				self.this_injection_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name)
 				self.this_injection_instruments = []
-				for instruments, in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""'):
+				distinct_instruments = connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""').fetchall()
+				for instruments, in distinct_instruments:
 					instruments_set = frozenset(lsctables.instrument_set_from_ifos(instruments))
 					self.this_injection_instruments.append(instruments_set)
 					segments_to_consider_for_these_injections = self.this_injection_segments.intersection(instruments_set) - self.this_injection_segments.union(set(self.this_injection_segments.keys()) - instruments_set)
