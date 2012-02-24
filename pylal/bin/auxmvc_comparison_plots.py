@@ -228,11 +228,7 @@ def GetCVetoRank(CVetoOutput, gwtcent, deltat = 0):
     if max_rank < CVetoOutput[index][Dic['vstats']][vstatsDic['rank']]:
       max_rank = CVetoOutput[index][Dic['vstats']][vstatsDic['rank']]
     #check to see if the CVeto data matches gwtcent
-    if CVetoOutput[index][Dic['tcent']] < begint:
-      pass
-    elif CVetoOutput[index][Dic['tcent']] > endt:
-      pass
-    else:
+    if CVetoOutput[index][Dic['tcent']] > begint and CVetoOutput[index][Dic['tcent']] < endt:
       # extract desired data from CVetoOutput
       h = CVetoOutput[index]
       cveto_eff = float(h[Dic['vstats']][vstatsDic['c_vact']]) / float(h[Dic['vstats']][vstatsDic['c_ngwtrg']])
@@ -240,7 +236,8 @@ def GetCVetoRank(CVetoOutput, gwtcent, deltat = 0):
       not_quite_rank = float(h[Dic['vstats']][vstatsDic['rank']])
       cveto_chan = h[Dic['vconfig']][vconfigDic['vchan']]
       cveto_dat += [ [ cveto_eff, cveto_fap, not_quite_rank, cveto_chan ] ]
-#  print(cveto_dat)
+    else:
+      pass
   for index in range(len(cveto_dat)):
     # convert not_quite_rank to cveto_rank as defined above
     not_quite_rank = cveto_dat[index][3]
@@ -248,7 +245,10 @@ def GetCVetoRank(CVetoOutput, gwtcent, deltat = 0):
   # we now return the first entry in the list, BUT THIS SHOULD BE EXTENDED SO THAT WE PICK THE CORRECT ENTRY BASED ON OTHER INFORMATION ABOUT THE GLITCH
   if len(cveto_dat) > 1:
     print('found multiple glitches at:' + repr(gwtcent))
-  return cveto_dat[0]
+    return cveto_dat[0]
+  else:
+    return cveto_dat
+    
 
 usage= """Written to load and manipulate output from different classifiers."""
 
