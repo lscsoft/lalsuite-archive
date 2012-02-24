@@ -36,7 +36,7 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 
-import imr_utils
+from pylal import imr_utils
 
 
 def parse_command_line():
