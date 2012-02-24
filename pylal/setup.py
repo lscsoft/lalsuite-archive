@@ -690,7 +690,9 @@ setup(
 		os.path.join("bin", "auxmvc_create_mvsc_dag"),
 		os.path.join("bin", "auxmvc_ROC_combiner.py"),
                 os.path.join("bin", "auxmvc_plot_mvsc_channels_significance.py"),
-                os.path.join("bin", "auxmvc_comparison_plots.py") 
+                os.path.join("bin", "auxmvc_comparison_plots.py"),
+		os.path.join("bin", "pylal_imr_search_volume"),
+		os.path.join("bin", "pylal_imr_plot_search_volume")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

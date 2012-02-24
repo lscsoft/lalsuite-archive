@@ -1577,7 +1577,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       if calendar_time:
         x_data = gps2datenum(numpy.array(map(float, x_data)))
       else:
-        x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+        x_data = (x_data.astype(float)-float(zero))/unit
     lab = str(c)
     if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
@@ -1586,6 +1586,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   plot.finalize(logx=logx, logy=logy, loc=loc, hidden_colorbar=hidden_colorbar)
 
   # plot errors
+  l = None
   for (i,channel),c in itertools.izip(channels, plotutils.default_colors()):
     try:
       minidx = allchannels.index('%s_min' % str(channel))
@@ -1598,7 +1599,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       y.append(y_data)
       if x_format=='time':
         x_data = (numpy.array(map(float, x_data))-float(zero))/unit
-      l = float(kwargs.pop('linewidth', 1))/2
+      l = l!=None and l or float(kwargs.pop('linewidth', 1))/4
       plot.ax.plot(x_data, y_data, color=c, linewidth=l, **kwargs)
     plot.ax.fill_between(x_data, y[1], y[0], color=c, alpha=0.25)
 
@@ -3181,7 +3182,7 @@ def plot_significance_drop(startsig, endsig, outfile, **kwargs):
 
   # extract parameters
   kwargs.pop('xlim', None)
-  kwargs.pop('ylim', None)
+  ylim     = kwargs.pop('ylim', (0, wsig+1))
   xlabel   = kwargs.pop('xlabel',   "")
   ylabel   = kwargs.pop('ylabel',   "Significance")
   title    = kwargs.pop('title',    "Coincidence significance drop plot")
@@ -3192,16 +3193,20 @@ def plot_significance_drop(startsig, endsig, outfile, **kwargs):
   kwargs.setdefault('marker', 'o')
   color    = kwargs.pop('color', None)
 
-  # get savefig option
-  bbox_inches = kwargs.pop('bbox_inches', 'tight')
-
   # customise plot appearance
   set_rcParams()
   pylab.rcParams.update({"figure.figsize":[24,6], "xtick.labelsize": 8})
 
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # generate plot object
   plot = DataPlot(xlabel, ylabel, title, subtitle)
+
+  kwargs.setdefault('markersize', 10)
 
   # plot each channel's drop
   for i,c in enumerate(channels):
@@ -3211,20 +3216,26 @@ def plot_significance_drop(startsig, endsig, outfile, **kwargs):
     plot.add_content([i,i], [s,e], color=col, **kwargs)
 
   # finalise plot object
-  plot.finalize(logx=False, logy=False)
+  plot.finalize(logx=False, logy=False, hidden_colorbar=hidden_colorbar)
 
   # set xticks to channel names and rotate
   plot.ax.set_xlim(-1, len(channels))
   plot.ax.set_xticks(numpy.arange(0,len(channels)))
   plot.ax.set_xticklabels([c.replace('_','\_') for c in channels])
   for i,t in enumerate(plot.ax.get_xticklabels()):
-    t.set_rotation(270)
+    t.set_rotation(315)
+    #t.set_position(((i+1)/(len(channels)+1), 0.1))
+    t.set_verticalalignment('top')
+    t.set_horizontalalignment('left')
+    #t.set_bbox(dict(facecolor='white', alpha=0.5, edgecolor='none'))
 
   # set ylim
-  plot.ax.set_ylim(0, wsig+1)
+  plot.ax.set_ylim(ylim)
 
   # turn off x grid
   plot.ax.xaxis.grid(False)
+
+  plot.fig.subplots_adjust(bottom=0.3)
 
   # save figure
   plot.savefig(outfile, bbox_inches=bbox_inches,\
