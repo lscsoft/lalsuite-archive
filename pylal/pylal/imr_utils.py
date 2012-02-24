@@ -7,6 +7,8 @@ from glue.ligolw import table
 from pylal import db_thinca_rings
 from pylal import rate
 import numpy
+import copy
+
 try:
 	import sqlite3
 except ImportError:
@@ -254,6 +256,19 @@ def sim_to_distance_spin1z_spin2z_bins_function(sim):
 
 	return (sim.distance, sim.spin1z, sim.spin2z)
 
+
+def symmetrize_sims(sims, col1, col2):
+	"""
+	duplicate the sims to symmetrize by two columns that should be symmetric.  For example mass1 and mass2
+	"""
+	out = []
+	for sim in sims:
+		out.append(sim)
+		newsim = copy.deepcopy(sim)
+		setattr(newsim, col1, getattr(sim, col2))
+		setattr(newsim, col2, getattr(sim, col1))
+		out.append(newsim)
+	return out
 
 class DataBaseSummary(object):
 	"""

@@ -64,15 +64,16 @@ IMR = imr_utils.DataBaseSummary(filenames, tmp_path = options.tmp_space, veto_se
 
 for instruments, total_injections in IMR.total_injections_by_instrument_set.items():
 	found_below_far = imr_utils.found_injections_below_far(IMR.found_injections_by_instrument_set[instruments], far_thresh = options.far)
-
 	if options.verbose:
 		print >> sys.stderr, "Found %d injections in %s below FAR %e" % (len(found_below_far), "".join(instruments), options.far)
 
 	xmldoc = ligolw.Document()
 
 	# First do masses
-	dist_m1_m2_bins = imr_utils.guess_distance_mass1_mass2_bins_from_sims(total_injections)
-	mass_volume = imr_utils.compute_search_volume_in_bins(found_below_far, total_injections, dist_m1_m2_bins, imr_utils.sim_to_distance_mass1_mass2_bins_function)
+	m1m2_found_below_far = imr_utils.symmetrize_sims(found_below_far, "mass1", "mass2")
+	m1m2_total_injections = imr_utils.symmetrize_sims(total_injections, "mass1", "mass2")
+	dist_m1_m2_bins = imr_utils.guess_distance_mass1_mass2_bins_from_sims(m1m2_total_injections)
+	mass_volume = imr_utils.compute_search_volume_in_bins(m1m2_found_below_far, m1m2_total_injections, dist_m1_m2_bins, imr_utils.sim_to_distance_mass1_mass2_bins_function)
 	# write the volume to disk
 	lw = xmldoc.appendChild(ligolw.LIGO_LW())
 	lw.appendChild(rate.binned_array_to_xml(mass_volume, "mass1_mass2_volume"))
