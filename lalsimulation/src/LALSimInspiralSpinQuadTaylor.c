@@ -337,6 +337,9 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 	REAL8 etaPow2 = sq(param->eta);
 	REAL8 etaPow3 = param->eta * etaPow2;
 	param->coeff.omegaGlobal = param->eta * 96.0 / 5.0;
+	for (UINT2 order = PN0_0; order <= param->orderOfPhase; order += 2) {
+		param->coeff.MECO[order] = -param->eta * (REAL8) (order + 2) / 6.0;
+	}
 	switch (param->orderOfPhase) {
 	case PNALL:
 	case PN4_0:
@@ -348,14 +351,18 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 				+ piPow2 * 16.0 / 3.0 - log(16.0) * 856.0 / 105.0
 				+ (-56198689.0 / 217728.0 + piPow2 * 451.0 / 48.0) * param->eta
 				+ etaPow2 * 541.0 / 896.0 - etaPow3 * 5605.0 / 2592.0;
+		param->coeff.MECO[PN3_0] *= (34445.0 / 576.0 - piPow2 * 205.0 / 96.0) * param->eta
+				- etaPow3 * 35.0 / 5184.0 - etaPow2 * 155.0 / 96.0 - 675.0 / 64.0;
 	case PN2_5:
 		param->coeff.omega[PN2_5] = -LAL_PI * (4159.0 + 15876.0 * param->eta) / 672.0;
 	case PN2_0:
 		param->coeff.omega[PN2_0] = (34103.0 + 122949.0 * param->eta + 59472.0 * etaPow2) / 18144.0;
+		param->coeff.MECO[PN2_0] *= (-81.0 + 57.0 * param->eta - etaPow2) / 24.0;
 	case PN1_5:
 		param->coeff.omega[PN1_5] = 4.0 * LAL_PI;
 	case PN1_0:
 		param->coeff.omega[PN1_0] = -(743.0 + 924.0 * param->eta) / 336.0;
+		param->coeff.MECO[PN1_0] *= -(9.0 + param->eta) / 12.0;
 	case PN0_5:
 	case PN0_0:
 		param->coeff.omega[PN0_0] = 1.0;
