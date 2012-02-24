@@ -61,7 +61,8 @@ def SnglTriggerTable(etg, columns=None):
 
   # set columns
   if columns:
-    columns = map(str.lower, columns)
+    if isinstance(columns[0], str): columns = map(str.lower, columns)
+    if isinstance(columns[0], unicode): columns = map(unicode.lower, columns)
     for c in t.columnnames:
       if c.lower() not in columns:
         idx = t.columnnames.index(c)
