@@ -74,7 +74,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                      help="The location of the CAT2/3 veto files" )
 
   parser.add_option( "-M", "--max-chirp-mass", action="store", type="float",\
-                     default=7.0,\
+                     default=8.0,\
                      help="maximum allowed chirp mass, default %default" )
 
   (opts,args) = parser.parse_args()
@@ -95,7 +95,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 # =============================================================================
 
 def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
-          chisq_nhigh=3.0, null_thresh=[4.25,6], max_mchirp=7.0, \
+          chisq_nhigh=3.0, null_thresh=[4.25,6], max_mchirp=8.0, \
           verbose=False,vetoFiles=[] ):
   
   # set output directory
