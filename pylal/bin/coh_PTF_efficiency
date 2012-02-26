@@ -297,7 +297,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
   ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' }
 
   # Parameters for auto and bank veto  
-  massBins = [[0,7.0]]
+  massBins = [[0,8.0]]
 
 
   trigTime = {}
