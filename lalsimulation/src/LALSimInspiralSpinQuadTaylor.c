@@ -22,7 +22,7 @@
 /**	Error codes for the integrator.
  */
 enum {
-	TEST_ENERGY = 1025, TEST_OMEGADOT,
+	TEST_ENERGY = 1025, TEST_OMEGADOT, TEST_COORDINATE, TEST_OMEGANAN, TEST_NYQUIST,
 };
 
 /**	Enumeration of the evolving quantities.
@@ -62,19 +62,20 @@ enum {
  */
 typedef struct {
 	REAL8 omega[PNORDER]; ///< for orbital frequency
-	REAL8 omegaSO[2];
-	REAL8 omegaSS[2];
-	REAL8 omegaQM[2];
-	REAL8 omegaSELF[2];
+	REAL8 omegaSO[2]; ///< orbital frequency spin-orbit contribution
+	REAL8 omegaSS[2]; ///< orbital frequency spin-spin contribution
+	REAL8 omegaQM[2]; ///< orbital frequency quad-mono contribution
+	REAL8 omegaSELF[2]; ///< orbital frequency spin-self contribution
 	REAL8 omegaGlobal; ///< global coefficient for orbital frequency
-	REAL8 chihSO[2];
-	REAL8 chihSS[2];
-	REAL8 chihQM[2];
-	REAL8 lnhat[2];
+	REAL8 chihSO[2]; ///< spin parameter spin-orbit contribution
+	REAL8 chihSS[2]; ///< spin parameter spin-spin contribution
+	REAL8 chihQM[2]; ///< spin parameter quad-mono contribution
+	REAL8 lnhat[2]; ///< unit orbital angular momentum
 	REAL8 MECO[PNORDER]; ///< for MECO
-	REAL8 MECO_SO[2];
-	REAL8 MECO_SS;
-	REAL8 MECO_QM;
+	REAL8 MECO_SO[2]; ///< MECO spin-orbit contribution
+	REAL8 MECO_SS; ///< MECO spin-spin contribution
+	REAL8 MECO_QM; ///< MECO quad-mono contribution
+	REAL8 omegaPowi_3[PNORDER]; ///< current powers of the PN-parameter \f$v^{(i/3)}\f$
 } Coefficient;
 
 /**	@brief Structure containing initial and calculated parameters.
@@ -90,6 +91,7 @@ typedef struct {
 	REAL8 chiAmp[2]; ///< spin parameter magnitude
 	REAL8 lnhat[3]; ///< unit orbital angular momentum
 	REAL8 e1[3]; ///< orbital plane basis vector
+	REAL8 samplingTime; ///< sampling time
 	INT4 orderOfPhase; ///< twice phase post-Newtonian order
 	LALSimInspiralInteraction interactionFlags; ///< flag to control spin effects
 	Coefficient coeff; ///< calculated coefficients used in evolution equations
@@ -124,8 +126,6 @@ typedef struct {
  * @param[in]  e1x				: initial value of x comp. of orbital plane basis vector
  * @param[in]  e1y				: initial value of y comp. of orbital plane basis vector
  * @param[in]  e1z				: initial value of z comp. of orbital plane basis vector
- * @param[in]  endPhase			: orbital phase at last sample
- * @param[in]  initialFrequency	: initial frequency (1/s)
  * @param[in]  samplingTime		: sampling interval (s)
  * @param[in]  orderOfPhase		: twice phase post-Newtonian order
  * @param[in]  interactionFlags : flag to control spin effects
@@ -134,7 +134,7 @@ typedef struct {
 static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8 mass2, REAL8 qm1,
 		REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
 		REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z,
-		INT4 orderOfPhase, LALSimInspiralInteraction interactionFlags);
+		REAL8 samplingTime, INT4 orderOfPhase, LALSimInspiralInteraction interactionFlags);
 
 /**	Evolves the parameters of the orbit.
  *
@@ -142,11 +142,10 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
  * @param[in,out] length			: length of the evolution
  * @param[in]     param				: initial values
  * @param[in]     initialFrequency	: initial frequency
- * @param[in]     samplingTime		: sampling time
  * @return
  */
 static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *param,
-		REAL8 initialFrequency, REAL8 samplingTime);
+		REAL8 initialFrequency);
 
 /**	Allocates memoory for output structures of orbital parameters.
  *
@@ -181,6 +180,14 @@ static int XLALCreateWaveformOutput(Output *param, UINT4 length, REAL8 samplingT
 static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], REAL8 phase, REAL8 V,
 		Parameters *params, INT4 orderOfAmplitude);
 
+/**	Computes the derivatives of the dynamical variables at a given time.
+ *
+ * @param[in]  t		: time at which the derivatives are calculated
+ * @param[in]  values	:
+ * @param[out] dvalues	: computed derivatives
+ * @param[in]  mparams	: used parameters
+ * @return
+ */
 static int XLALDerivator(double t, const double values[], double dvalues[], void *mparams);
 
 static int XLALStop(double t, const double values[], double dvalues[], void *mparams);
@@ -193,11 +200,12 @@ int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeS
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
 	XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z, chi2x,
-			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, orderOfPhase, interactionFlags);
+			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
+			interactionFlags);
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, initialFrequency, samplingTime);
+	XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
@@ -236,11 +244,12 @@ int XLALSimInspiralSpinQuadTaylorEvolveOrbit(REAL8TimeSeries **V, REAL8TimeSerie
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
 	XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z, chi2x,
-			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, orderOfPhase, interactionFlags);
+			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
+			interactionFlags);
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, initialFrequency, samplingTime);
+	XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
@@ -296,11 +305,12 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
 	XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z, chi2x,
-			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, orderOfPhase, interactionFlags);
+			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
+			interactionFlags);
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, initialFrequency, samplingTime);
+	XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
@@ -355,7 +365,7 @@ static REAL8 sq(REAL8 value) {
 static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8 mass2, REAL8 qm1,
 		REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
 		REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z,
-		INT4 orderOfPhase, LALSimInspiralInteraction interactionFlags) {
+		REAL8 samplingTime, INT4 orderOfPhase, LALSimInspiralInteraction interactionFlags) {
 	memset(param, 0, sizeof(Parameters));
 	param->mass[0] = mass1;
 	param->mass[1] = mass2;
@@ -382,6 +392,7 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 	param->e1[X] = e1x;
 	param->e1[Y] = e1y;
 	param->e1[Z] = e1z;
+	param->samplingTime = samplingTime;
 	param->orderOfPhase = orderOfPhase;
 	param->interactionFlags = interactionFlags;
 	REAL8 piPow2 = sq(LAL_PI);
@@ -470,7 +481,7 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 }
 
 static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *param,
-		REAL8 initialFrequency, REAL8 samplingTime) {
+		REAL8 initialFrequency) {
 	REAL8 input[EVOLVING_VARIABLES];
 	input[PHASE] = 0.0;
 	input[OMEGA] = LAL_PI * param->totalMass * initialFrequency;
@@ -489,7 +500,7 @@ static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *par
 	integrator->stopontestonly = 1;
 	// run the integration; note: time is measured in \hat{t} = t / M
 	*length = XLALAdaptiveRungeKutta4(integrator, (void *) param, input, 0.0,
-			*length / param->totalMass, samplingTime / param->totalMass, out);
+			*length / param->totalMass, param->samplingTime / param->totalMass, out);
 	INT4 intreturn = integrator->returncode;
 	XLALAdaptiveRungeKutta4Free(integrator);
 	if (!*length) {
@@ -537,17 +548,46 @@ static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], R
 }
 
 static int XLALDerivator(double t, const double values[], double dvalues[], void *mparams) {
+	Parameters*params = mparams;
 	UNUSED(t);
-	UNUSED(values);
-	UNUSED(dvalues);
-	UNUSED(mparams);
+	memset(dvalues, 0, EVOLVING_VARIABLES * sizeof(REAL8));
+	params->coeff.omegaPowi_3[0] = 1.;
+	params->coeff.omegaPowi_3[1] = cbrt(values[OMEGA]);
+	for (UINT2 i = 2; i < PNORDER; i++) {
+		params->coeff.omegaPowi_3[i] = params->coeff.omegaPowi_3[i - 1]
+				* params->coeff.omegaPowi_3[1];
+	}
+	for (UINT2 i = PN0_0; i <= params->orderOfPhase; i++) {
+		dvalues[OMEGA] += params->coeff.omega[i] * params->coeff.omegaPowi_3[i];
+	}
+	if (params->orderOfPhase >= PN3_0) {
+		dvalues[OMEGA] -= 856.0 / 105.0 * log(params->coeff.omegaPowi_3[2]);
+	}
+	dvalues[OMEGA] *= params->coeff.omegaGlobal * params->coeff.omegaPowi_3[7]
+			* params->coeff.omegaPowi_3[4];
+	dvalues[PHASE] = values[OMEGA];
 	return GSL_SUCCESS;
 }
 
 static int XLALStop(double t, const double values[], double dvalues[], void *mparams) {
 	UNUSED(t);
-	UNUSED(values);
-	UNUSED(dvalues);
-	UNUSED(mparams);
+	Parameters *params = mparams;
+	REAL8 meco = params->coeff.MECO[0] / params->coeff.omegaPowi_3[1];
+	UINT2 i;
+	for (i = PN0_0 + 2; i <= params->orderOfPhase; i += 2) {
+		meco += params->coeff.MECO[i] * params->coeff.omegaPowi_3[i - 1];
+	}
+	if (meco > 0.0) {
+		return TEST_ENERGY;
+	}
+	if (dvalues[OMEGA] < 0.0) {
+		return TEST_OMEGADOT;
+	}
+	if (values[OMEGA] / (params->totalMass * LAL_PI) > 0.5 / params->samplingTime) {
+		return TEST_NYQUIST;
+	}
+	if (isnan(values[OMEGA])) {
+		return TEST_OMEGANAN;
+	}
 	return GSL_SUCCESS;
 }
