@@ -202,6 +202,10 @@ def ReadDataFromClassifiers(classifiers):
 #				print 'cveto_fap: ' + repr(total_data[glitch_index]['cveto_fap'])
 #				print 'cveto_rank: ' + repr(total_data[glitch_index]['cveto_rank'])
 #				print 'cveto_chan: ' + repr(total_data[glitch_index]['cveto_chan'])
+			else:
+                                total_data[glitch_index]['cveto_eff'] = 1.0
+                                total_data[glitch_index]['cveto_fap'] = 1.0
+                                total_data[glitch_index]['cveto_chan'] = -1 
 
 	print 'ngwtrg_vtd from total_data: ' + repr(len(total_data[numpy.nonzero(total_data['cveto_rank'] > 0)[0]]))
 	return total_data
@@ -316,7 +320,6 @@ if opts.verbose:
 # Reading and combining data from all classifers(MVSC,ANN,SVM,CVeto).
 total_ranked_data = ReadDataFromClassifiers(classifiers)
 
-'''
 ### TESTING CVETO LOADING FUNCTIONALITY
 cveto_raw = auxmvc_utils.LoadCV(classifiers[-1][1][0])
 # we pull 10 random GPS times from cveto_raw[] and the corresponding data from total_ranked_data[]
@@ -333,7 +336,7 @@ for ind in range(0,10):
   print 'cveto_eff = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_eff'])
   print 'cveto_fap = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_fap'])
   print 'cveto_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_chan'])
-'''
+
 
 # Computing FAP and Efficiency for MVCs
 for cls in classifiers:
