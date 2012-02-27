@@ -25,7 +25,7 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>, Paul T Baker <paul.baker@lig
 
 class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
-	parameters = "ds_sq delta_t df dQ a_snr b_snr coinc_snr snr_ratio"  #null_stat eff_coh_snr
+	parameters = "ds_sq delta_t df dQ gQQ gff gtt gQf gtf gtQ a_snr b_snr coinc_snr snr_ratio"  #null_stat eff_coh_snr
 	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm)
 	select_dimensions="""
 		SELECT
@@ -36,6 +36,12 @@ class CandidateEventQuery:
 			calc_delta_t(snglA.ifo, snglA.start_time, snglA.start_time_ns, snglB.ifo, snglB.start_time, snglB.start_time_ns, insp_coinc_event.time_slide_id),
 			abs(snglA.frequency - snglB.frequency),
 			abs(snglA.Quality - snglB.Quality),
+			gQQ(snglA.Quality, snglB.Quality),
+			gff(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
+			gtt(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
+			gQf(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
+			gtf(snglA.Quality, snglB.Quality),
+			gtQ(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
 			snglA.snr,
 			snglB.snr,
 			coinc_ringdown.snr,
@@ -70,7 +76,7 @@ class CandidateEventQuery:
 			AND snglA.ifo == ?
 			AND snglB.ifo == ?
 			AND snglA.start_time > ?
-			AND snglA.start_time < ?"""
+			AND snglA.start_time < ?
 			AND process_params.program == 'inspinj' AND process_params.param == '--userTag' AND process_params.value == ?"""
 	add_join_fulldata="""
 		, experiment_summary.datatype
