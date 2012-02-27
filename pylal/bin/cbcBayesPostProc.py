@@ -93,7 +93,7 @@ def cbcBayesPostProc(
                         #Turn on R convergence tests
                         RconvergenceTests=False,
                         # Save PDF figures?
-                        savepdfs=False
+                        savepdfs=True
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -603,6 +603,7 @@ def cbcBayesPostProc(
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+        if(savepdfs) myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
 
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
@@ -628,6 +629,7 @@ def cbcBayesPostProc(
                         pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+            if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
 
         if not noacf:
             html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
@@ -754,10 +756,12 @@ def cbcBayesPostProc(
         greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
+        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png',',pdf'))
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
         greedy2HistFig.savefig(greedy2histpath)
+        if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -811,6 +815,7 @@ def cbcBayesPostProc(
                     row_count=0
 
                 myfig.savefig(twoDKdePath)
+                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf')
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
