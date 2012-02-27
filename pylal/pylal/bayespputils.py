@@ -2071,7 +2071,6 @@ def plot_one_param_pdf(posterior,plot1DParams):
         locs, ticks = plt.xticks()
         newlocs, newticks = formatRATicks(locs)
         plt.xticks(newlocs,newticks,rotation=45)
-        print 'formatted ra, old '+str(ticks)+' new: '+str(newticks)
     if(param.lower()=='dec' or param.lower()=='declination'):
         locs, ticks = plt.xticks()
         newlocs, newticks = formatDecTicks(locs)
@@ -2128,7 +2127,6 @@ def roundRadAngle(rads,accuracy='all'):
     if accuracy=='arcmin': mult=360*60
     if accuracy=='arcsec': mult=360*60*60
     mult=mult/(2.0*pi_constant)
-    print 'Rounding %lf -> %lf'%(rads,round(rads*mult)/mult)
     return round(rads*mult)/mult
 
 def getRAString(radians,accuracy='auto'):

@@ -188,7 +188,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
         plt.legend()
         plt.xlabel(param)
         plt.ylabel('Probability Density')
-
+        #plt.tight_layout()
         if injvals:
             print "Injection parameter is %f"%(float(injvals[0]))
             injpar=injvals[0]
@@ -196,7 +196,6 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
                 plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
 
     #
-
     return myfig#,rkde
 #
 def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
@@ -272,7 +271,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     plt.xlabel(param)
     plt.ylabel('Probability density')
     plt.draw()
-
+    #plt.tight_layout()
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
@@ -280,7 +279,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
 
     #
-
+    
     return myfig,top_cl_intervals_list#,rkde
 
 #
@@ -352,7 +351,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     plt.xlabel(param)
     plt.ylabel('Probability density')
     plt.draw()
-
+    #plt.tight_layout()
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]

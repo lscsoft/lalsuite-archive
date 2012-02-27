@@ -91,7 +91,9 @@ def cbcBayesPostProc(
                         #Turn on 2D kdes
                         twodkdeplots=False,
                         #Turn on R convergence tests
-                        RconvergenceTests=False
+                        RconvergenceTests=False,
+                        # Save PDF figures?
+                        savepdfs=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -561,6 +563,7 @@ def cbcBayesPostProc(
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)
         plotFig.savefig(oneDplotPath)
+        if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
 
         if rbins:
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
@@ -935,6 +938,7 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
+    parser.add_option("--savepdfs",action="store_true",default=False,dest="savepdfs")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
@@ -1026,6 +1030,8 @@ if __name__=='__main__':
                         #Turn on 2D kdes
                         twodkdeplots=opts.twodkdeplots,
                         #Turn on R convergence tests
-                        RconvergenceTests=opts.RconvergenceTests
+                        RconvergenceTests=opts.RconvergenceTests,
+                        # Also save PDFs?
+                        savepdfs=opts.savepdfs
                     )
 #
