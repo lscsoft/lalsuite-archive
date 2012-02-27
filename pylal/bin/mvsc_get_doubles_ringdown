@@ -87,6 +87,42 @@ for database in databases:
 	offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
 	sngl_ringdown_row_from_cols = table.get_table(xmldoc, dbtables.lsctables.SnglRingdownTable.tableName).row_from_cols
 
+	def gQQ(Qa,Qb):
+		Q = (Qa+Qb)/2.
+		Q2 = Q*Q
+		return ( 1. + 28.*Q2*Q2 + 128.*Q2*Q2*Q2 + 64.*Q2*Q2*Q2*Q2) / ( 4. * Q2 * ( 1. + 6.*Q2 + 8.*Q2*Q2 )*( 1. + 6.*Q2 + 8.*Q2*Q2 ) )
+
+	def gff(fa,fb,Qa,Qb):
+		f = (fa+fb)/2
+		Q = (Qa+Qb)/2
+		Q2 = Q*Q
+		return ( 1. + 6.*Q2 + 16.*Q2*Q2) / ( 4. * f*f * ( 1. + 2.*Q2 ) )
+
+	def gtt(fa,fb,Qa,Qb):
+		f = (fa+fb)/2
+		Q = (Qa+Qb)/2
+		Q2 = Q*Q
+		PI = 3.1415926535897932
+		return ( PI*PI * f*f ) * ( 1. + 4.*Q2 ) / ( Q2 )
+	def gQf(fa,fb,Qa,Qb):
+		f = (fa+fb)/2
+		Q = (Qa+Qb)/2
+		Q2 = Q*Q
+		return - ( 1. + 2.*Q2 + 8.*Q2*Q2 ) / ( 4.*Q*f * ( 1. + 6.*Q2 + 8.*Q2*Q2 ) )
+
+	def gtf(Qa,Qb):
+		Q = (Qa+Qb)/2.
+		Q2 = Q*Q
+		PI = 3.1415926535897932
+		return - ( PI * Q ) * ( 1. + 4.*Q2) / ( 1. + 2.*Q2 )
+
+	def gtQ(fa,fb,Qa,Qb):
+		f = (fa+fb)/2
+		Q = (Qa+Qb)/2
+		Q2 = Q*Q
+		PI = 3.1415926535897932
+		return ( PI * f ) * ( 1. - 2.*Q2 ) / ( ( 1. + 2.*Q2 )*( 1. + 2.*Q2 ) )
+
 	def calc_ds_sq(rowA,rowB,time_slide_id,rings=rings,offset_vectors=offset_vectors):
 		flatrings = segments.segmentlist()
 		for value in rings.values():
@@ -126,6 +162,12 @@ for database in databases:
 			return out
 	connection.create_function("calc_delta_t", 7, calc_delta_t)
 	connection.create_function("calc_ds_dq", 5, calc_ds_sq)
+        connection.create_function("gQQ", 2, gQQ)
+        connection.create_function("gff", 4, gff)
+        connection.create_function("gtt", 4, gtt)
+        connection.create_function("gQf", 4, gQf)
+        connection.create_function("gtf", 2, gtf)
+        connection.create_function("gtQ", 4, gtQ)
 # in S6, the timeslides, zerolag, and injections are all stored in the same sqlite database, thus this database must include a sim inspiral table
 # if you provide a database that does not include injections, the code will still run as long as one of the databases you provide includes injections
 	try:
@@ -149,7 +191,7 @@ for database in databases:
 				normalization[injset]=0
 				injections[injset]=[]
 				injections_info[injset]=[]
-				for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],injset,) ):
+				for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],opts.start_time,opts.end_time,injset,) ):
 						normalization[injset]=normalization[injset]+values[-1]
 						injections[injset].append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
 						injections_info[injset].append([values[0], database])
