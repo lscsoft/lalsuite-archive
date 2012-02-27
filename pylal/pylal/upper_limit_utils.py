@@ -53,7 +53,7 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     std = calerr
     mean = 0 # median volume = 1
 
-    fracerrs = numpy.linspace(0.33,3,5e2) # assume we got the volume to a factor of three or better
+    fracerrs = numpy.linspace(0.33,3,1e2) # assume we got the volume to a factor of three or better
     errdist = numpy.exp(-(numpy.log(fracerrs)-mean)**2/(2*std**2))/(fracerrs*std) # log-normal pdf
     errdist /= errdist.sum() #normalize
 
@@ -68,7 +68,7 @@ def compute_upper_limit(mu_in, post, alpha = 0.9):
     posterior distribution post on the given parameter mu.
     """
     # interpolate to a linearly spaced array for accuracy in mu
-    post_rep = interpolate.splrep(mu_in, post)
+    post_rep = interpolate.splrep(mu_in, post,k=1)
     mu = numpy.linspace(mu_in.min(),mu_in.max(),len(mu_in))
     post = interpolate.splev(mu, post_rep)
 

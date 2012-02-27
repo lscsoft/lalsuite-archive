@@ -188,7 +188,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
         plt.legend()
         plt.xlabel(param)
         plt.ylabel('Probability Density')
-
+        #plt.tight_layout()
         if injvals:
             print "Injection parameter is %f"%(float(injvals[0]))
             injpar=injvals[0]
@@ -196,7 +196,6 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
                 plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
 
     #
-
     return myfig#,rkde
 #
 def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
@@ -272,7 +271,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     plt.xlabel(param)
     plt.ylabel('Probability density')
     plt.draw()
-
+    #plt.tight_layout()
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
@@ -280,7 +279,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
 
     #
-
+    
     return myfig,top_cl_intervals_list#,rkde
 
 #
@@ -352,7 +351,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     plt.xlabel(param)
     plt.ylabel('Probability density')
     plt.draw()
-
+    #plt.tight_layout()
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
@@ -549,6 +548,10 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    pdfdir=os.path.join(outdir,'pdfs')
+    if not os.path.exists(pdfdir):
+        os.makedirs(pdfdir)
+
     greedy2savepaths=[]
 
     if common_params is not [] and common_params is not None: #If there are common parameters....
@@ -594,6 +597,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
+                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])))
 
 
             plt.clf()
@@ -615,10 +619,14 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 save_path=''
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
+                    save_path_pdf=os.path.join(pdfdir,'%s_%i.pdf'%(param,int(100*confidence_level)))
                     hist_fig.savefig(save_path)
+                    hist_fig.savefig(save_path_pdf)
                     save_paths.append(save_path)
                     save_path=os.path.join(outdir,'%s_%i_cum.png'%(param,int(100*confidence_level)))
+                    save_path_pdf=os.path.join(pdfdir,'%s_%i_cum.pdf'%(param,int(100*confidence_level)))
                     hist_fig2.savefig(save_path)
+                    hist_fig2.savefig(save_path_pdf)
                     save_paths.append(save_path)
                 min_low,max_high=cl_intervals.values()[0]
                 for name,interval in cl_intervals.items():
