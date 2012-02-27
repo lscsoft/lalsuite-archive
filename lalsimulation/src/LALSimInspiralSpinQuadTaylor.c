@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include <lal/AVFactories.h>
+#include <lal/LALAdaptiveRungeKutta4.h>
 #include <lal/LALConstants.h>
 #include <lal/XLALError.h>
 
@@ -15,10 +16,44 @@
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
+#define ABSOLUTE_TOLERANCE 1.e-12
+#define RELATIVE_TOLERANCE 1.e-12
+
+/**	Error codes for the integrator.
+ */
+enum {
+	TEST_ENERGY = 1025, TEST_OMEGADOT,
+};
+
+/**	Enumeration of the evolving quantities.
+ */
+enum {
+	PHASE, ///< PHASE
+	OMEGA, ///< OMEGA
+	LNHATX, ///< LNHATX
+	LNHATY, ///< LNHATY
+	LNHATZ, ///< LNHATZ
+	CHI1X, ///< CHI1X
+	CHI1Y, ///< CHI1Y
+	CHI1Z, ///< CHI1Z
+	CHI2X, ///< CHI2X
+	CHI2Y, ///< CHI2Y
+	CHI2Z, ///< CHI2Z
+	E1X, ///< E1X
+	E1Y, ///< E1Y
+	E1Z, ///< E1Z
+	EVOLVING_VARIABLES,
+///< EVOLVING_VARIABLES
+};
+
+/**	Various constants.
+ */
 enum {
 	HP = 0, HC, WAVEFORM, X = 0, Y, Z, DIMENSIONS,
 };
 
+/**	Enumeration of the post-newtonian orders.
+ */
 enum {
 	PNALL = -1, PN0_0, PN0_5, PN1_0, PN1_5, PN2_0, PN2_5, PN3_0, PN3_5, PN4_0, PNORDER,
 };
@@ -103,14 +138,15 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 
 /**	Evolves the parameters of the orbit.
  *
- * @param[out]    out			: evolved value
- * @param[in,out] length		: length of the evolution
- * @param[in]     initial		: initial values
- * @param[in]     samplingTime	: sampling time
+ * @param[out]    out				: evolved value
+ * @param[in,out] length			: length of the evolution
+ * @param[in]     param				: initial values
+ * @param[in]     initialFrequency	: initial frequency
+ * @param[in]     samplingTime		: sampling time
  * @return
  */
-static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *initial,
-		REAL8 samplingTime);
+static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *param,
+		REAL8 initialFrequency, REAL8 samplingTime);
 
 /**	Allocates memoory for output structures of orbital parameters.
  *
@@ -145,6 +181,10 @@ static int XLALCreateWaveformOutput(Output *param, UINT4 length, REAL8 samplingT
 static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], REAL8 phase, REAL8 V,
 		Parameters *params, INT4 orderOfAmplitude);
 
+static int XLALDerivator(double t, const double values[], double dvalues[], void *mparams);
+
+static int XLALStop(double t, const double values[], double dvalues[], void *mparams);
+
 int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeSeries **hc,
 		REAL8 mass1, REAL8 mass2, REAL8 qm1, REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
 		REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x,
@@ -157,7 +197,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeS
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, samplingTime);
+	XLALEvolveParameters(&out, &length, &parameter, initialFrequency, samplingTime);
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
@@ -200,7 +240,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveOrbit(REAL8TimeSeries **V, REAL8TimeSerie
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, samplingTime);
+	XLALEvolveParameters(&out, &length, &parameter, initialFrequency, samplingTime);
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
@@ -260,7 +300,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, samplingTime);
+	XLALEvolveParameters(&out, &length, &parameter, initialFrequency, samplingTime);
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
@@ -429,15 +469,43 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 	return XLAL_SUCCESS;
 }
 
-static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *initial,
-		REAL8 samplingTime) {
-	UNUSED(out);
-	UNUSED(initial);
-	UNUSED(length);
-	UNUSED(samplingTime);
-	// initialize integrator
-	// run integrator
-	// clean integrator
+static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *param,
+		REAL8 initialFrequency, REAL8 samplingTime) {
+	REAL8 input[EVOLVING_VARIABLES];
+	input[PHASE] = 0.0;
+	input[OMEGA] = LAL_PI * param->totalMass * initialFrequency;
+	for (UINT2 dimension = X; dimension < DIMENSIONS; dimension++) {
+		input[LNHATX + dimension] = param->lnhat[dimension];
+		input[CHI1X + dimension] = param->chih[0][dimension];
+		input[CHI2X + dimension] = param->chih[1][dimension];
+		input[E1X + dimension] = param->e1[dimension];
+	}
+	ark4GSLIntegrator *integrator = XLALAdaptiveRungeKutta4Init(EVOLVING_VARIABLES, XLALDerivator,
+			XLALStop, ABSOLUTE_TOLERANCE, RELATIVE_TOLERANCE);
+	if (!integrator) {
+		XLALPrintError("XLAL Error - %s: Cannot allocate integrator\n", __func__);
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	integrator->stopontestonly = 1;
+	// run the integration; note: time is measured in \hat{t} = t / M
+	*length = XLALAdaptiveRungeKutta4(integrator, (void *) param, input, 0.0,
+			*length / param->totalMass, samplingTime / param->totalMass, out);
+	INT4 intreturn = integrator->returncode;
+	XLALAdaptiveRungeKutta4Free(integrator);
+	if (!*length) {
+		XLALPrintError("XLAL Error - %s: integration failed with errorcode %d.\n", __func__,
+				intreturn);
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	if (intreturn != 0 && intreturn != TEST_ENERGY && intreturn != TEST_OMEGADOT) {
+		XLALPrintWarning(
+				"XLAL Warning - %s: integration terminated with code %d.\n Waveform parameters were m1 = %e, m2 = %e, s1 = (%e,%e,%e), s2 = (%e,%e,%e), inc = %e.\n",
+				__func__, intreturn, param->mass[0], param->mass[1],
+				param->chih[0][X] * param->chiAmp[0], param->chih[0][Y] * param->chiAmp[0],
+				param->chih[0][Z] * param->chiAmp[0], param->chih[1][X] * param->chiAmp[1],
+				param->chih[1][Y] * param->chiAmp[1], param->chih[1][Z] * param->chiAmp[1],
+				acos(param->lnhat[Z]));
+	}
 	return XLAL_SUCCESS;
 }
 
@@ -466,4 +534,20 @@ static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], R
 	UNUSED(params);
 	UNUSED(orderOfAmplitude);
 	return XLAL_SUCCESS;
+}
+
+static int XLALDerivator(double t, const double values[], double dvalues[], void *mparams) {
+	UNUSED(t);
+	UNUSED(values);
+	UNUSED(dvalues);
+	UNUSED(mparams);
+	return GSL_SUCCESS;
+}
+
+static int XLALStop(double t, const double values[], double dvalues[], void *mparams) {
+	UNUSED(t);
+	UNUSED(values);
+	UNUSED(dvalues);
+	UNUSED(mparams);
+	return GSL_SUCCESS;
 }
