@@ -74,6 +74,10 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                      help="The location of the CAT2/3 veto files" )
 
 
+  parser.add_option( "-M", "--max-chirp-mass", action="store", type="float",\
+                     default=8.0,\
+                     help="maximum allowed chirp mass, default %default" )
+
   (opts,args) = parser.parse_args()
 
   if not opts.trig_file:
@@ -91,8 +95,9 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 # Main function
 # =============================================================================
 
-def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
-          chisq_nhigh=3.0, null_thresh=[4.25,6],verbose=False,vetoFiles=[] ):
+def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
+         chisq_nhigh=3.0, null_thresh=[4.25,6], max_mchirp=8.0,\
+         vetoFiles=[], verbose=False):
   
   # set output directory
   if not os.path.isdir(outdir):
@@ -143,6 +148,7 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # initiate trigger lists
   trigTime      = []
   trigSNR       = []
+  trigMchirp    = []
   trigBestNR    = []
   trigNullstat  = []
   trigTraceSNR  = []
@@ -158,6 +164,7 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # initiate injection lists
   injTime       = []
   injSNR        = []
+  injMchirp     = []
   injBestNR     = []
   injNullstat   = []
   injTraceSNR   = []
@@ -221,10 +228,11 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       fResp[ifo].append( aPat[trigPos][ifo] )
 
     # extract basic parameters
-    trigTime.append(     trig.get_end() )
-    trigSNR.append(      trig.snr )
-    trigNullstat.append( trig.null_statistic )
-    trigTraceSNR.append( trig.null_stat_degen )
+    trigTime.append(    trig.get_end())
+    trigSNR.append(     trig.snr)
+    trigMchirp.append(   trig.mchirp)
+    trigNullstat.append(trig.null_statistic)
+    trigTraceSNR.append(trig.null_stat_degen)
 
     # extract single IFO SNRs and trig sigma
     sigmaTot = 0
@@ -284,10 +292,11 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
           aPat[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
 
       # extract basic parameters
-      injTime.append(     trig.get_end() )
-      injSNR.append(      trig.snr )
-      injNullstat.append( trig.null_statistic )
-      injTraceSNR.append( trig.null_stat_degen )
+      injTime.append(    trig.get_end())
+      injSNR.append(     trig.snr)
+      injMchirp.append(   trig.mchirp)
+      injNullstat.append(trig.null_statistic)
+      injTraceSNR.append(trig.null_stat_degen)
 
       # extract single IFO SNRs
       compsList = []
@@ -322,13 +331,14 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       injBestNR.append( bestNR )
 
   # set arrays
-  trigSNR       = pylab.asarray( trigSNR )
-  trigBestNR = pylab.asarray( trigBestNR )
-  trigChiSquare = pylab.asarray( trigChiSquare )
-  trigNullstat  = pylab.asarray( trigNullstat )
-  trigTraceSNR  = pylab.asarray( trigTraceSNR )
-  trigCoincSNR  = pylab.asarray( trigCoincSNR )
-  trigNullSNR = ( trigCoincSNR**2 - trigSNR**2)**0.5
+  trigSNR       = pylab.asarray(trigSNR)
+  trigBestNR = pylab.asarray(trigBestNR)
+  trigMChirp    = pylab.asarray( trigMchirp)
+  trigChiSquare = pylab.asarray(trigChiSquare)
+  trigNullstat  = pylab.asarray(trigNullstat)
+  trigTraceSNR  = pylab.asarray(trigTraceSNR)
+  trigCoincSNR  = pylab.asarray(trigCoincSNR)
+  trigNullSNR = (trigCoincSNR**2 - trigSNR**2)**0.5
   for amp in amplitudes:
     trigAmp[amp]   = pylab.asarray( trigAmp[amp] )
   trigRelAmp1    = pylab.sqrt( ( trigAmp[1]**2 + trigAmp[2]**2)/\
@@ -355,13 +365,14 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     trigSigma[ifo] /= trigSigmaTot
 
   if injFile:
-    injSNR         = pylab.asarray( injSNR )
-    injBestNR      = pylab.asarray( injBestNR )
-    injChiSquare   = pylab.asarray( injChiSquare )
-    injNullstat    = pylab.asarray( injNullstat )
-    injTraceSNR    = pylab.asarray( injTraceSNR )
-    injCoincSNR    = pylab.asarray( injCoincSNR )
-    injNullSNR   = ( injCoincSNR**2 - injSNR**2)**0.5
+    injSNR         = pylab.asarray(injSNR)
+    injBestNR      = pylab.asarray(injBestNR)
+    injMChirp      = pylab.asarray( injMchirp)
+    injChiSquare   = pylab.asarray(injChiSquare)
+    injNullstat    = pylab.asarray(injNullstat)
+    injTraceSNR    = pylab.asarray(injTraceSNR)
+    injCoincSNR    = pylab.asarray(injCoincSNR)
+    injNullSNR   = (injCoincSNR**2 - injSNR**2)**0.5
     for amp in amplitudes:
       injAmp[amp]  = pylab.asarray( injAmp[amp] )
     injRelAmp1     = pylab.sqrt( ( injAmp[1]**2 + injAmp[2]**2)/\
@@ -473,6 +484,33 @@ def main( trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       ax.set_xlim([ start, end ])
       fig.savefig( '%s/%s_%s_triggers_vs_time.png'\
                    % ( outdir, tag, ifo ) )
+  
+  # plot coherent SNR versus mchirp
+  mass_vals = numpy.asarray([max_mchirp]*len(snr_vals))
+  fig = pylab.figure()
+  ax  = fig.gca()
+  ax.plot( trigSNR, trigMchirp, 'bx' )
+  ax.grid()
+  if injFile:
+    ax.plot( injSNR, injMchirp, 'rx' )
+  ax.set_xlabel( "Coherent SNR" )
+  ax.set_ylabel( "Chirp mass ($M_{\odot}$)" )
+  ax.plot( snr_vals, mass_vals, 'k-' )
+  # Shade vetoed area
+  limy = list(ax.get_ylim())
+  limx = list(ax.get_xlim())
+  limy[1] = max(limy[1], 12)
+  polyx = limx
+  polyy = [max_mchirp]*2
+  polyx.extend([limx[1],0])
+  polyy.extend([limy[1], limy[1]])
+  ax.fill(polyx, polyy, color = '#dddddd')
+  fig.savefig( "%s/%s_mchirp_vs_snr.png" % ( outdir, tag ),\
+               bbox_inches='tight' )
+  ax.set_xlim( [6,50] )
+  ax.set_ylim( [0,12] )
+  fig.savefig( "%s/%s_mchirp_vs_snr_zoom.png" % ( outdir, tag ),\
+               bbox_inches='tight' )
   
   # plot coherent SNR versus null stat
   fig = pylab.figure()
@@ -899,6 +937,7 @@ if __name__=='__main__':
   GRBnum    = 'GRB%s' % opts.grb_name
   q         = opts.chisq_index
   n         = opts.chisq_nhigh
+  max_mchirp = opts.max_chirp_mass
   segdir    = opts.segment_dir
   nullt     = map( float, opts.null_snr_threshold.split(',') )
   vetoFiles = []
@@ -906,6 +945,7 @@ if __name__=='__main__':
     vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
 
 
-  main( trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
-        chisq_nhigh=n,null_thresh = nullt, verbose=verbose,vetoFiles=vetoFiles )
- 
+  main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
+       chisq_nhigh=n, null_thresh = nullt, max_mchirp=max_mchirp,\
+       vetoFiles=vetoFiles, verbose=verbose)
+  if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))
