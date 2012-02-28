@@ -77,6 +77,7 @@ typedef struct {
 	REAL8 MECO_QM; ///< MECO quad-mono contribution
 	REAL8 omegaPowi_3[PNORDER]; ///< current powers of the PN-parameter \f$v^{(i/3)}\f$
 	REAL8 lnhatProdChih[2];
+	REAL8 chih1chih2;
 } Coefficient;
 
 /**	@brief Structure containing initial and calculated parameters.
@@ -582,23 +583,59 @@ static int XLALDerivator(double t, const double values[], double dvalues[], void
 	if (params->orderOfPhase >= PN3_0) {
 		dvalues[OMEGA] -= 856.0 / 105.0 * log(params->coeff.omegaPowi_3[2]);
 	}
-	if (params->chiAmp[0] || params->chiAmp[1]) {
+	if ((params->chiAmp[0] || params->chiAmp[1]) && params->interactionFlags) {
+		REAL8 lnhatCrossChih[2][DIMENSIONS];
+		const REAL8 *chi_p[2] = { values + CHI1X, values + CHI2X };
+		params->coeff.chih1chih2 = innerProduct(chi_p[0], chi_p[1]);
+		for (UINT2 current = 0; current < 2; current++) {
+			params->coeff.lnhatProdChih[current] = innerProduct(values + LNHATX, chi_p[current]);
+			crossProduct(lnhatCrossChih[current], values + LNHATX, chi_p[current]);
+		}
 		switch (params->orderOfPhase) {
 		case PNALL:
 		case PN4_0:
 		case PN3_5:
 		case PN3_0:
 		case PN2_5:
-		case PN2_0:
+		case PN2_0: {
+			REAL8 temp = 0.0;
+			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN)) {
+				for (UINT2 current = 0; current < 2; current++) {
+					temp += params->coeff.omegaQM[current]
+							* (3.0 * sq(params->coeff.lnhatProdChih[current]) - 1.0);
+					for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+						dvalues[CHI1X + DIMENSIONS * current + dim] += params->coeff.chihQM[current]
+								* params->coeff.lnhatProdChih[current]
+								* lnhatCrossChih[current][dim] * sq(values[OMEGA]);
+					}
+				}
+			}
+			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)) {
+				temp += (params->coeff.omegaSS[0] * params->coeff.lnhatProdChih[0]
+						* params->coeff.lnhatProdChih[1]
+						+ params->coeff.omegaSS[1] * params->coeff.chih1chih2);
+				REAL8 chihjCrossChihi[DIMENSIONS];
+				for (UINT2 current = 0; current < 2; current++) {
+					crossProduct(chihjCrossChihi, chi_p[!current], chi_p[current]);
+					for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+						dvalues[CHI1X + DIMENSIONS * current + dim] += params->coeff.chihSS[current]
+								* (chihjCrossChihi[dim]
+										- 3.0 * params->coeff.lnhatProdChih[!current]
+												* lnhatCrossChih[current][dim]) * sq(values[OMEGA]);
+					}
+				}
+
+			}
+			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN)) {
+				for (UINT2 current = 0; current < 2; current++) {
+					temp += params->coeff.omegaSELF[current]
+							* (7 - sq(params->coeff.lnhatProdChih[current]));
+				}
+			}
+			dvalues[OMEGA] += temp * params->coeff.omegaPowi_3[4];
+		}
 		case PN1_5:
 			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)) {
-				REAL8 lnhatCrossChih[2][DIMENSIONS];
-				const REAL8 *chi_p[2] = { values + CHI1X, values + CHI2X };
-				for (UINT2 current = 0; current < 2; current++) {
-					params->coeff.lnhatProdChih[current] = innerProduct(values + LNHATX,
-							chi_p[current]);
-					crossProduct(lnhatCrossChih[current], values + LNHATX, chi_p[current]);
-				}
 				for (UINT2 current = 0; current < 2; current++) {
 					dvalues[OMEGA] += params->coeff.omegaSO[current]
 							* params->coeff.lnhatProdChih[current] * values[OMEGA];
@@ -610,20 +647,18 @@ static int XLALDerivator(double t, const double values[], double dvalues[], void
 							* params->coeff.omegaPowi_3[5];
 				}
 			}
-			if (params->interactionFlags) {
-				for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
-					dvalues[LNHATX + dim] += (params->coeff.lnhat[0] * dvalues[CHI1X + dim]
-							+ params->coeff.lnhat[1] * dvalues[CHI2X + dim])
-							* params->coeff.omegaPowi_3[1];
-				}
-				REAL8 omegaLNhat[DIMENSIONS], omegaE[DIMENSIONS], omegaLNhatLNhat;
-				crossProduct(omegaLNhat, values + LNHATX, dvalues + LNHATX);
-				omegaLNhatLNhat = innerProduct(omegaLNhat, values + LNHATX);
-				for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
-					omegaE[dim] = omegaLNhat[dim] - omegaLNhatLNhat * values[LNHATX];
-				}
-				crossProduct(dvalues + E1X, omegaE, values + E1X);
+			for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+				dvalues[LNHATX + dim] += (params->coeff.lnhat[0] * dvalues[CHI1X + dim]
+						+ params->coeff.lnhat[1] * dvalues[CHI2X + dim])
+						* params->coeff.omegaPowi_3[1];
 			}
+			REAL8 omegaLNhat[DIMENSIONS], omegaE[DIMENSIONS], omegaLNhatLNhat;
+			crossProduct(omegaLNhat, values + LNHATX, dvalues + LNHATX);
+			omegaLNhatLNhat = innerProduct(omegaLNhat, values + LNHATX);
+			for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+				omegaE[dim] = omegaLNhat[dim] - omegaLNhatLNhat * values[LNHATX];
+			}
+			crossProduct(dvalues + E1X, omegaE, values + E1X);
 		case PN1_0:
 		case PN0_5:
 		case PN0_0:
@@ -646,14 +681,29 @@ static int XLALStop(double t, const double values[], double dvalues[], void *mpa
 	for (i = PN0_0 + 2; i <= params->orderOfPhase; i += 2) {
 		meco += params->coeff.MECO[i] * params->coeff.omegaPowi_3[i - 1];
 	}
-	if (params->chiAmp[0] || params->chiAmp[1]) {
+	if ((params->chiAmp[0] || params->chiAmp[1]) && params->interactionFlags) {
 		switch (params->orderOfPhase) {
 		case PNALL:
 		case PN4_0:
 		case PN3_5:
 		case PN3_0:
 		case PN2_5:
-		case PN2_0:
+		case PN2_0: {
+			REAL8 temp = 0.0;
+			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN)) {
+				for (UINT2 current = 0; current < 2; current++) {
+					temp += params->coeff.omegaQM[current]
+							* (3.0 * sq(params->coeff.lnhatProdChih[current]) - 1.0);
+				}
+				meco += params->coeff.MECO_QM * temp * values[OMEGA];
+			}
+			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)) {
+				meco += params->coeff.MECO_SS
+						* (params->coeff.chih1chih2
+								- 3.0 * params->coeff.lnhatProdChih[0]
+										* params->coeff.lnhatProdChih[1]) * values[OMEGA];
+			}
+		}
 		case PN1_5:
 			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)) {
 				for (UINT2 current = 0; current < 2; current++) {
