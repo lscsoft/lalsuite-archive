@@ -527,16 +527,51 @@ static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *par
 }
 
 static int XLALCreateOrbitOutput(Output *param, UINT4 length, REAL8 samplingTime) {
-	UNUSED(param);
-	UNUSED(length);
-	UNUSED(samplingTime);
+	LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
+	XLALGPSAdd(&tStart, -1.0 * (length - 1) * samplingTime);
+	param->pnParameter = XLALCreateREAL8TimeSeries("PN_EXPANSION_PARAMETER", &tStart, 0.0,
+			samplingTime, &lalDimensionlessUnit, length);
+	param->phase = XLALCreateREAL8TimeSeries("ORBITAL_PHASE", &tStart, 0.0, samplingTime,
+			&lalDimensionlessUnit, length);
+	if (!param->pnParameter || !param->phase) {
+		XLAL_ERROR(XLAL_EFUNC);
+	} else {
+		const char *chi1[] = { "CHI1_X_COMPONENT", "CHI1_Y_COMPONENT", "CHI1_Z_COMPONENT" };
+		const char *chi2[] = { "CHI2_X_COMPONENT", "CHI2_Y_COMPONENT", "CHI2_Z_COMPONENT" };
+		const char *lnhat[] = { "E1_BASIS_X_COMPONENT", "E1_BASIS_Y_COMPONENT",
+				"E1_BASIS_Z_COMPONENT" };
+		const char *e1[] = { "CHI1_X_COMPONENT", "CHI1_Y_COMPONENT", "CHI1_Z_COMPONENT" };
+		for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+			param->chi1[dim] = XLALCreateREAL8TimeSeries(chi1[dim], &tStart, 0.0, samplingTime,
+					&lalDimensionlessUnit, length);
+			param->chi2[dim] = XLALCreateREAL8TimeSeries(chi2[dim], &tStart, 0.0, samplingTime,
+					&lalDimensionlessUnit, length);
+			param->e3[dim] = XLALCreateREAL8TimeSeries(lnhat[dim], &tStart, 0.0, samplingTime,
+					&lalDimensionlessUnit, length);
+			param->e1[dim] = XLALCreateREAL8TimeSeries(e1[dim], &tStart, 0.0, samplingTime,
+					&lalDimensionlessUnit, length);
+			if (!param->chi1[dim] || !param->chi2[dim] || !param->e3[dim] || !param->e1[dim]) {
+				XLAL_ERROR(XLAL_EFUNC);
+			}
+		}
+	}
 	return XLAL_SUCCESS;
 }
 
 static int XLALCreateWaveformOutput(Output *param, UINT4 length, REAL8 samplingTime) {
-	UNUSED(param);
-	UNUSED(length);
-	UNUSED(samplingTime);
+	LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
+	XLALGPSAdd(&tStart, -1.0 * (length - 1) * samplingTime);
+	param->waveform[HP] = XLALCreateREAL8TimeSeries("H_PLUS", &tStart, 0.0, samplingTime,
+			&lalDimensionlessUnit, length);
+	param->waveform[HC] = XLALCreateREAL8TimeSeries("H_CROSS", &tStart, 0.0, samplingTime,
+			&lalDimensionlessUnit, length);
+	if (!param->waveform[HP] || !param->waveform[HC]) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	memset(param->waveform[HP]->data->data, 0,
+			param->waveform[HP]->data->length * sizeof(*param->waveform[HP]->data->data));
+	memset(param->waveform[HC]->data->data, 0,
+			param->waveform[HC]->data->length * sizeof(*param->waveform[HC]->data->data));
 	return XLAL_SUCCESS;
 }
 
