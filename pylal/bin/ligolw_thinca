@@ -37,6 +37,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
+from glue.ligolw.utils import table_utils
 from glue import segmentsUtils
 # Don't use sngl_inspiral event_id derived from the long built-in.  this
 # must be done before importing pylal.xlal.tools or bad things happen.
@@ -97,6 +98,7 @@ def parse_command_line():
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
+	parser.add_option("--depop-sngl-inspiral", action = "store_true", help = "Removes all the rows in the sngl_inspiral table that are not associated with a coincident event.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -224,6 +226,7 @@ for n, filename in enumerate(filenames):
 		trigger_program = options.trigger_program,
 		effective_snr = options.effective_snr,
 		coinc_end_time_segment = options.coinc_end_time_segment,
+		depop_sngl_inspiral = options.depop_sngl_inspiral,
 		verbose = options.verbose
 	)
 
@@ -279,6 +282,13 @@ for n, filename in enumerate(filenames):
 		trigger_program = options.trigger_program,
 		verbose = options.verbose
 	)
+
+	# 
+	# Clean out rows in sngl_inspiral table not associated with coinc table
+	# 
+
+	if options.depop_sngl_inspiral:
+		table_utils.depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
 	#
 	# Close out the process table.

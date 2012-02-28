@@ -123,8 +123,27 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, exact_mass = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+def append_process(
+	xmldoc,
+	comment = None,
+	force = None,
+	e_thinca_parameter = None,
+	exact_mass = None,
+	effective_snr_factor = None,
+	vetoes_name = None,
+	trigger_program = None,
+	effective_snr = None,
+	coinc_end_time_segment = None,
+	verbose = None
+):
+	process = llwapp.append_process(
+		xmldoc,
+		program = process_program_name,
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = comment
+	)
 
 	params = [
 		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
@@ -145,6 +164,8 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
 	if exact_mass is not None:
 		params += [(u"--exact-mass", None, None)]
+	if depop_sngl_inspiral is not None:
+		params += [(u"--depop-sngl-inspiral", None, None)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -464,8 +485,20 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = InspiralCoincTables(xmldoc, vetoes = veto_segments, program = trigger_program, likelihood_func = likelihood_func, likelihood_params_func = likelihood_params_func)
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	coinc_tables = InspiralCoincTables(
+		xmldoc,
+		vetoes = veto_segments,
+		program = trigger_program,
+		likelihood_func = likelihood_func,
+		likelihood_params_func = likelihood_params_func
+	)
+	coinc_def_id = llwapp.get_coinc_def_id(
+		xmldoc,
+		coinc_definer_row.search,
+		coinc_definer_row.search_coinc_type,
+		create_new = True,
+		description = coinc_definer_row.description
+	)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
 	#
