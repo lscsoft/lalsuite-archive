@@ -358,7 +358,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 	return XLAL_SUCCESS;
 }
 
-static REAL8 sq(REAL8 value) {
+inline static REAL8 sq(REAL8 value) {
 	return (value * value);
 }
 
@@ -549,6 +549,20 @@ static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], R
 	UNUSED(params);
 	UNUSED(orderOfAmplitude);
 	return XLAL_SUCCESS;
+}
+
+inline static REAL8 innerProduct(const REAL8 left[], const REAL8 right[]) {
+	REAL8 product = 0.0;
+	for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+		product += left[dim] * right[dim];
+	}
+	return (product);
+}
+
+inline static void crossProduct(REAL8 out[], const REAL8 left[], const REAL8 right[]) {
+	out[0] = left[1] * right[2] - left[2] * right[1];
+	out[1] = left[2] * right[0] - left[0] * right[2];
+	out[2] = left[0] * right[1] - left[1] * right[0];
 }
 
 static int XLALDerivator(double t, const double values[], double dvalues[], void *mparams) {
