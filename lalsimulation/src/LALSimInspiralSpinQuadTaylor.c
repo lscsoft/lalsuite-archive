@@ -362,6 +362,14 @@ static REAL8 sq(REAL8 value) {
 	return (value * value);
 }
 
+inline static int isSet(LALSimInspiralInteraction flag, LALSimInspiralInteraction bit) {
+	int set = 0;
+	if ((flag & bit) == bit) {
+		set = 1;
+	}
+	return (set);
+}
+
 static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8 mass2, REAL8 qm1,
 		REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
 		REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z,
@@ -425,8 +433,7 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 	case PN2_0:
 		param->coeff.omega[PN2_0] = (34103.0 + 122949.0 * param->eta + 59472.0 * etaPow2) / 18144.0;
 		param->coeff.MECO[PN2_0] *= (-81.0 + 57.0 * param->eta - etaPow2) / 24.0;
-		if ((param->interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)
-				== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) {
+		if (isSet(param->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN)) {
 			param->coeff.chihSS[0] = spin_MPow2[1] / 2.0;
 			param->coeff.chihSS[1] = spin_MPow2[0] / 2.0;
 			param->coeff.omegaSS[0] = 721.0 * param->eta * param->chiAmp[0] * param->chiAmp[1]
@@ -434,24 +441,21 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 			param->coeff.omegaSS[1] = -247.0 * param->coeff.omegaSS[0] / 721.0;
 			param->coeff.MECO_SS = -spin_MPow2[0] * spin_MPow2[1];
 		}
-		if ((param->interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN)
-				== LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) {
+		if (isSet(param->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN)) {
 			for (UINT2 i = 0; i < 2; i++) {
 				param->coeff.omegaQM[i] = spin_MPow2[i] * param->chiAmp[i] * param->qm[i] * 2.5;
 				param->coeff.chihQM[i] = -param->qm[i] * param->eta * param->chiAmp[i] * 1.5;
 			}
 			param->coeff.MECO_QM = param->eta / 5.0;
 		}
-		if ((param->interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN)
-				== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) {
+		if (isSet(param->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN)) {
 			for (UINT2 i = 0; i < 2; i++) {
 				param->coeff.omegaSELF[i] = -spin_MPow2[i] * param->chiAmp[i] / 96.0;
 			}
 		}
 	case PN1_5:
 		param->coeff.omega[PN1_5] = 4.0 * LAL_PI;
-		if ((param->interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)
-				== LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN) {
+		if (isSet(param->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)) {
 			for (UINT2 i = 0; i < 2; i++) {
 				param->coeff.omegaSO[i] = -spin_MPow2[i] * (113.0 + 75.0 * mj_mi[i]) / 12.0;
 				param->coeff.MECO_SO[i] = -spin_MPow2[i] * 5.0 * param->eta * (4.0 + 3.0 * mj_mi[i])
