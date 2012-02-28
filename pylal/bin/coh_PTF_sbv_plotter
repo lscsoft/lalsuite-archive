@@ -948,4 +948,3 @@ if __name__=='__main__':
   main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
        chisq_nhigh=n, null_thresh = nullt, max_mchirp=max_mchirp,\
        vetoFiles=vetoFiles, verbose=verbose)
-  if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))

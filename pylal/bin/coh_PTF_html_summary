@@ -949,7 +949,7 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
                  onclick="toggleVisible('%s');" % i, value=secname )
   webpage.div( id="div_%s" % i, style="display: none;" )
 
-  massbins = [('0','7.0')]
+  massbins = [('0','8.0')]
   webpage = write_loudest_events( webpage, massbins )
 
   webpage.div.close()
