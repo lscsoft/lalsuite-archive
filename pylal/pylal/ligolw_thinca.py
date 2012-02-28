@@ -131,6 +131,7 @@ def append_process(
 	exact_mass = None,
 	effective_snr_factor = None,
 	vetoes_name = None,
+	search_group = None,
 	trigger_program = None,
 	effective_snr = None,
 	coinc_end_time_segment = None,
@@ -156,6 +157,8 @@ def append_process(
 		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
 	if vetoes_name is not None:
 		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
+	if search_group is not None:
+		params += [(u"--search-group", u"lstring", search_group)]
 	if trigger_program is not None:
 		params += [(u"--trigger-program", u"lstring", trigger_program)]
 	if effective_snr is not None:

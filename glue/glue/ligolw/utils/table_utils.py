@@ -27,10 +27,26 @@
 
 """
 
-
+import itertools
+import math
+from optparse import OptionParser
+import re
 import sys
-from glue import git_version
+import os
+try:
+	any
+	all
+except NameError:
+	# Python < 2.5
+	from glue.iterutils import any, all
+
+from glue import iterutils
+from glue import lal
+from glue.ligolw import ligolw
+from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import utils
+from glue import git_version
 
 __author__ = "Matt West <matthew.west@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -73,4 +89,398 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 			print >> sys.stderr, "\n\tremoved %i single-ifo triggers that were not associated with a coincident found in the coinc_event_map table." %( len(non_coincs) )
 
 	return xmldoc
+
+
+def depopulate_experiment_tables(xmldoc, verbose = False):
+	"""
+	Removes entries from the experiment tables that do not have events
+	or durations in them. In other words, if none of the rows in the
+	experiment_summary table that are assoicated with a single experiment_id
+	have neither an event in them nor any duration then all of the rows in the
+	experiment_summary table associated with that experiment_id are deleted,
+	as well as the corresponding row in the experiment table. If, however, just
+	one of the rows in the experiment_summary table associated with an experiment_id
+	have at least a 1 in their nevents column or at least 1 second in the
+	durations column then nothing associated with that experiment_id are deleted.
+	(In other words, if just one time slide in an experiment has just 1 event or
+	is just 1 second long, then none of the time slides in that experiment are deleted,
+	even if all of the other time slides in that experiment have nothing in them.)
+	"""
+
+	if verbose:
+		print >>sys.stderr, "Depopulating the experiment tables...",
+
+	#
+	# find the experiment and experiment summary table
+	#
+
+	try:
+		experiment_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+	except ValueError:
+		# no table --> no-op
+		if verbose:
+			print >>sys.stderr, "Cannot find the experiment table"
+		return
+
+	try:
+		experiment_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+	except ValueError:
+		# no table --> no-op
+		if verbose:
+			print >>sys.stderr, "Cannot find the experiment_summary table"
+		return
+
+	del_eid_indices = []
+	del_esid_indices = []
+
+	for mm, erow in enumerate(experiment_table):
+		this_eid = erow.experiment_id
+		es_index_list = []
+		for nn, esrow in enumerate(experiment_summ_table):
+			if esrow.experiment_id == this_eid and (esrow.duration or esrow.nevents):
+				# something in this experiment, go on to next experiment_id
+				break
+			if esrow.experiment_id == this_eid:
+				es_index_list.append(nn)
+			if nn == len(experiment_summ_table) - 1:
+				# if get to here, nothing in that experiment, mark id and indices
+				# for removal
+				del_eid_indices.append(mm)
+				del_esid_indices += es_index_list
+
+	# delte all experiments who's eids fall in del_eid_indices
+	del_eid_indices.sort(reverse = True)
+	for eid_index in del_eid_indices:
+		del experiment_table[eid_index]
+	# delete all experiment_summaries whose esids fall in del_esid_indices
+	del_esid_indices.sort(reverse = True)
+	for esid_index in del_esid_indices:
+		del experiment_summ_table[esid_index]
+
+	if verbose:
+		print >> sys.stderr, "\n\tremoved %i empty experiment(s) from the experiment table and %i associated time slides from the experiment_summary table." %( len(del_eid_indices), len(del_esid_indices) )
+
+
+#
+# =============================================================================
+#
+#	 Initialize experiment and experiment_summ tables 
+#
+# =============================================================================
+#
+
+def populate_experiment_table(
+	xmldoc,
+	search_group,
+	search,
+	lars_id,
+	instruments,
+	comments = None,
+	add_inst_subsets = False,
+	verbose = False
+):
+	"""
+	Populate the experiment table using the given entries. If
+	add_inst_subsets is set to True, will write additional
+	entries for every possible sub-combination of the given instrument
+	set. Returns a dictionary of experiment_ids keyed by the instrument
+	set.
+
+	@xmldoc: xmldoc to get/write table to
+	@lars_id: lars_id of the experiment
+	@search_group: lsc group that performed the experiment (e.g., cbc)
+	@search: type of search performed (e.g., inspiral, grb, etc.)
+	@comments: any desired comments
+	@add_inst_subsets: will write an entry for every possible subset
+		of @instruments
+	@verbose: be verbose
+	"""
+
+	if verbose:
+		print >> sys.stderr, "populating the Experiment table..."
+
+	# find the experiment table or create one if needed
+	try:
+		expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+	except ValueError:
+		expr_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
+
+	# Find the process and process_params tables
+	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	process_params_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+	
+	# Get the experiment start-time & end-time
+	segment_proc_ids = []
+	for row in process_tbl:
+		if row.program == ".executables/ligolw_segments_from_cats": 
+			segment_proc_ids.append(row.process_id)
+	for row in process_params_tbl:
+		if row.process_id == segment_proc_ids[0]:
+			if row.param == "--gps-start-time":
+				expr_start_time = int(row.value)
+			elif row.param == "--gps-end-time":
+				expr_end_time = int(row.value)
+
+	# write entry to the experiment table for the given instruments if it doesn't already exist
+	experiment_ids = {}
+
+	experiment_ids[frozenset(instruments)] =  expr_table.write_new_expr_id(
+		search_group,
+		search,
+		lars_id,
+		instruments,
+		expr_start_time,
+		expr_end_time,
+		comments = comments
+	)
+
+	#  add every possible sub-combination of the instrument set if
+	# they're not already in the table
+	if add_inst_subsets:
+		for nn in range(2, len(instruments) ):
+			for sub_combo in iterutils.choices( list(instruments), nn ):
+				if frozenset(sub_combo) not in experiment_ids:
+					experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(
+						search_group,
+						search,
+						lars_id,
+						sub_combo,
+						expr_start_time,
+						expr_end_time,
+						comments = comments
+					)
+	return experiment_ids
+
+
+def populate_experiment_summ_table(
+	xmldoc,
+	experiment_id,
+	time_slide_dict,
+	veto_def_name,
+	return_dict = False,
+	verbose = False
+):
+	"""
+	Populate the experiment_summ_table using an experiment_id, a
+	veto_def_name, and a list of time_slide ids.
+
+	@xmldoc: xmldoc to get/write table to
+	@experiment_id: experiment_id to be added to the table.
+	@veto_def_name: veto_def_name to be added to the table.
+	@time_slide_dict: time_slide table as dictionary; used to set time_slide_id
+		column and figure out whether or not is zero-lag. Can either be the result
+		of lsctables.time_slide_table.as_dict or any dictionary having same format.
+	@return_dict: will return the experiment_summary table as an id_dict
+	"""
+
+	if verbose:
+		print >> sys.stderr, "populating the Experiment Summary table..."
+
+	# find the experiment_summary table or create one if needed
+	try:
+		expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+	except ValueError:
+		expr_summ_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
+
+	# is the experiment an analysis with simulated signals?
+	try:
+		sim_tbl = lsctables.table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+		is_simulation = True
+	except ValueError:
+		is_simulation = False
+
+	# populate the experiment_summary table
+	if is_simulation:
+		# get process_id for lalapps_inspinj from process table
+		sim_proc_id = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("inspinj")
+
+		for slide_id in time_slide_dict:
+			if not any(time_slide_dict[slide_id].values()):
+				expr_summ_table.write_experiment_summ(
+					experiment_id,
+					slide_id,
+					veto_def_name,
+					'simulation',
+					sim_proc_id = sim_proc_id
+				)
+				break
+	else:
+		# write zero-lag entries for all_data, playground, and exclude_play
+		expr_summ_table.write_non_injection_summary(
+			experiment_id,
+			time_slide_dict,
+			veto_def_name,
+			write_all_data = True,
+			write_playground = True,
+			write_exclude_play = True,
+			return_dict = return_dict
+		)
+
+
+def generate_experiment_tables(
+	xmldoc,
+	search_group,
+	search,
+	lars_id,
+	veto_def_name,
+	comments = None,
+	verbose = False
+):
+	"""
+	Create or adds entries to the experiment table and experiment_summ
+	table using instruments pulled from the search summary table and
+	offsets pulled from the time_slide table.
+	"""
+
+	if verbose:
+		print >> sys.stderr, "Populating the experiment and experiment_summary tables using search_summary and time_slide tables..."
+
+	# Get the instruments that were on
+	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	instruments = set([])
+	for row in process_tbl:
+		if row.program == "inspiral":
+			instruments.add(row.ifos)
+
+	# Populate the experiment table
+	experiment_ids = populate_experiment_table(
+		xmldoc,
+		search_group,
+		search,
+		lars_id,
+		instruments,
+		comments = comments,
+		add_inst_subsets = True,
+		verbose = verbose
+	)
+
+	# Get the time_slide table as dict
+	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+
+	# Populate the experiment_summary table
+	for instruments in experiment_ids:
+		populate_experiment_summ_table(
+			xmldoc,
+			experiment_ids[instruments],
+			time_slide_dict,
+			veto_def_name,
+			return_dict = False,
+			verbose = False
+		)
+
+
+def populate_experiment_map(
+	xmldoc,
+	search_group,
+	search,
+	lars_id,
+	veto_def_name,
+	expr_start_time,
+	expr_end_time,
+	verbose = False
+):
+	from glue.pipeline import s2play as is_in_playground
+
+	#
+	# find the experiment_map table or create one if needed
+	#
+	if verbose:
+		print >> sys.stderr, "Mapping coinc events to experiment_summary table..."
+
+	try:
+		expr_map_table = table.get_table(xmldoc, lsctables.ExperimentMapTable.tableName)
+	except ValueError:
+		expr_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentMapTable))
+
+	#
+	# find the coinc_event table
+	#
+
+	coinc_event_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+
+	#
+	# Index the coinc_inspiral table as a dictionary
+	#
+
+	coinc_index = dict((row.coinc_event_id, row) for row in table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName))
+
+	#
+	# Get the time_slide_table as dict
+	#
+
+	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+
+	#
+	# find the experiment table
+	#
+
+	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+
+	#
+	# find the experiment_summary table
+	#
+
+	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+
+	#
+	# cycle through the coincs in the coinc_inspiral table
+	#
+	for coinc in coinc_event_table:
+
+		#
+		# get the experiment and experiment_summ_id for this coinc
+		#
+
+		for expr in expr_table:
+			if expr.instruments == coinc.instruments:
+				expr_id =  expr.experiment_id
+
+		# is the experiment an analysis with simulated signals?
+		try:
+			sim_tbl = lsctables.table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			is_simulation = True
+		except ValueError:
+			is_simulation = False
+
+		if is_simulation:
+			datatype = ['simulation']
+
+		# if not 'simulation', check if the coinc is time-slide or zero-lag
+		elif not any( time_slide_dict[coinc.time_slide_id].values() ):
+			datatype = ['all_data']
+
+			#
+			# determine if the coinc is in playground or not; depending on the result, also map it
+			# to either the playground or exclude_play entry for this experiment
+			#
+
+			if is_in_playground( coinc_index[coinc.coinc_event_id].end_time ) == 1:
+				datatype += ['playground']
+			else:
+				datatype += ['exclude_play']
+
+		# otherwise, if not zero_lag (and not 'simulation'), just map to the appropiate slide entry
+		else:
+			datatype = ['slide']
+
+		for type in datatype:
+			# map the coinc to an experiment
+			expr_map = lsctables.ExperimentMap()
+			expr_map.coinc_event_id = coinc.coinc_event_id
+
+			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id(
+				expr_id,
+				coinc.time_slide_id,
+				veto_def_name,
+				type,
+				sim_proc_id = None
+			)
+			if not expr_map.experiment_summ_id:
+				raise ValueError, "%s experiment_summ_id could not be found with %s" \
+				%( type, ','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ]))
+
+			# map the experiment
+			expr_map_table.append(expr_map)
+			# Increment number of events in nevents column by 1
+			expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
 
