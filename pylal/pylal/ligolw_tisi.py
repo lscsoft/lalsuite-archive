@@ -175,9 +175,23 @@ def load_time_slides(filename, verbose = False, gz = None):
 
 
 def append_process(doc, **kwargs):
-	process = llwapp.append_process(doc, program = u"ligolw_tisi", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+	process = llwapp.append_process(
+		doc,
+		program = u"ligolw_tisi",
+		version = __version__,
+		cvs_repository = u"lscsoft",
+		cvs_entry_time = __date__,
+		comment = kwargs["comment"]
+	)
 
-	ligolw_process.append_process_params(doc, process, [(u"--instrument", u"lstring", instrument) for instrument in kwargs["instrument"]])
+	params = [(u"--instrument", u"lstring", instrument) for instrument in kwargs["instrument"]]
+
+	if kwargs["inspiral_num_slides"] is not None:
+		params += [(u"--inspiral-num-slides", u"lstring", kwargs["inspiral_num_slides"])]
+	if kwargs["remove_zero_lag"] is not None:
+		params += [(u"--remove-zero-lag", None, None)]
+
+	ligolw_process.append_process_params(doc, process, params)
 
 	return process
 
