@@ -201,17 +201,27 @@ int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeS
 		INT4 orderOfPhase, INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags) {
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
-	XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z, chi2x,
-			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
+	int error;
+	error = XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z,
+			chi2x, chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
 			interactionFlags);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
+	error = XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
-	XLALCreateWaveformOutput(&evolved, size, samplingTime);
+	error = XLALCreateWaveformOutput(&evolved, size, samplingTime);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	*hp = evolved.waveform[HP];
 	*hc = evolved.waveform[HC];
 	REAL8 phase, v;
@@ -227,8 +237,11 @@ int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeS
 		e1[X] = out->data[12 * size + i];
 		e1[Y] = out->data[13 * size + i];
 		e1[Z] = out->data[14 * size + i];
-		XLALCalculateWaveform(&((*hp)->data->data[i]), &((*hc)->data->data[i]), e1, e3, phase, v,
-				&parameter, orderOfAmplitude);
+		error = XLALCalculateWaveform(&((*hp)->data->data[i]), &((*hc)->data->data[i]), e1, e3,
+				phase, v, &parameter, orderOfAmplitude);
+		if (error == XLAL_FAILURE) {
+			XLAL_ERROR(XLAL_EFUNC);
+		}
 	}
 	XLALDestroyREAL8Array(out);
 	return XLAL_SUCCESS;
@@ -245,18 +258,27 @@ int XLALSimInspiralSpinQuadTaylorEvolveOrbit(REAL8TimeSeries **V, REAL8TimeSerie
 		LALSimInspiralInteraction interactionFlags) {
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
-	XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z, chi2x,
-			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
+	int error;
+	error = XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z,
+			chi2x, chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
 			interactionFlags);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
+	error = XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
-	XLALCreateWaveformOutput(&evolved, size, samplingTime);
-	XLALCreateOrbitOutput(&evolved, size, samplingTime);
+	error = XLALCreateOrbitOutput(&evolved, size, samplingTime);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	*V = evolved.pnParameter;
 	*Phi = evolved.phase;
 	*S1x = evolved.chi1[X];
@@ -306,18 +328,31 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 		INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags) {
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
-	XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z, chi2x,
-			chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
+	int error;
+	error = XLALCalculateConstantParameters(&parameter, mass1, mass2, qm1, qm2, chi1x, chi1y, chi1z,
+			chi2x, chi2y, chi2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, samplingTime, orderOfPhase,
 			interactionFlags);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	REAL8 length = (5.0 / 256.0) * pow(LAL_PI, -8.0 / 3.0)
 			* pow(parameter.chirpMass * initialFrequency, -5.0 / 3.0) / initialFrequency;
 	REAL8Array *out = NULL;
-	XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
+	error = XLALEvolveParameters(&out, &length, &parameter, initialFrequency);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	Output evolved;
 	memset(&evolved, 0, sizeof(Output));
 	UINT4 size = length;
-	XLALCreateWaveformOutput(&evolved, size, samplingTime);
-	XLALCreateOrbitOutput(&evolved, size, samplingTime);
+	error = XLALCreateWaveformOutput(&evolved, size, samplingTime);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	error = XLALCreateOrbitOutput(&evolved, size, samplingTime);
+	if (error == XLAL_FAILURE) {
+		XLAL_ERROR(XLAL_EFUNC);
+	}
 	*hp = evolved.waveform[HP];
 	*hc = evolved.waveform[HC];
 	*V = evolved.pnParameter;
@@ -353,8 +388,11 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 		(*E1x)->data->data[i] = e1[X] = out->data[12 * size + i];
 		(*E1y)->data->data[i] = e1[Y] = out->data[13 * size + i];
 		(*E1z)->data->data[i] = e1[Z] = out->data[14 * size + i];
-		XLALCalculateWaveform(&((*hp)->data->data[i]), &((*hc)->data->data[i]), e1, e3, phase, v,
-				&parameter, orderOfAmplitude);
+		error = XLALCalculateWaveform(&((*hp)->data->data[i]), &((*hc)->data->data[i]), e1, e3,
+				phase, v, &parameter, orderOfAmplitude);
+		if (error == XLAL_FAILURE) {
+			XLAL_ERROR(XLAL_EFUNC);
+		}
 	}
 	XLALDestroyREAL8Array(out);
 	return XLAL_SUCCESS;
