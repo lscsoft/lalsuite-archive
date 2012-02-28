@@ -5,14 +5,14 @@
  */
 
 #include <math.h>
-#include <string.h>
 
-#include <lal/AVFactories.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 #include <lal/LALConstants.h>
-#include <lal/XLALError.h>
+#include <lal/LALSimInspiral.h>
+#include <lal/TimeSeries.h>
+#include <lal/Units.h>
 
-#include "LALSimInspiralSpinQuadTaylor.h"
+#include "check_series_macros.h"
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
