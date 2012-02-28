@@ -510,7 +510,7 @@ if opts.complete_cache:
     if opts.run_search:
       print "Running inspiral hipe for playground run"
       hipePlayNode = inspiralutils.hipe_setup(playDir, cp, ifos, \
-           opts.log_path, playOnly = True, dax=opts.dax, \
+           opts.log_path, playOnly = True, dax=opts.dax, vetoFiles = dqVetoes, \
            tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
       for cacheFile in hipePlayNode.get_output_files():
         cachelist.append(playDir + "/" + cacheFile)
@@ -537,7 +537,7 @@ if opts.complete_cache:
     if opts.run_search:
       print "Running inspiral hipe for analysis run"
       hipeAnalysisNode = inspiralutils.hipe_setup(fullDir, cp, ifos, \
-          opts.log_path,dax=opts.dax, \
+          opts.log_path,dax=opts.dax, vetoFiles = dqVetoes, \
           tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
       for cacheFile in hipeAnalysisNode.get_output_files():
         cachelist.append(fullDir + "/" + cacheFile)
@@ -565,7 +565,7 @@ if opts.complete_cache:
     for (injDir, injSeed) in cp.items("injections"):
       if opts.run_search:
         hipeInjNode[injDir] = inspiralutils.hipe_setup(injDir, cp, ifos, \
-             opts.log_path, injSeed, dax=opts.dax, \
+             opts.log_path, injSeed, dax=opts.dax, vetoFiles = dqVetoes, \
              tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
         for cacheFile in hipeInjNode[injDir].get_output_files():
           cachelist.append(injDir + "/" + cacheFile)
@@ -596,7 +596,7 @@ if opts.reverse_analysis:
     cp.set ("inspiral","reverse-chirp-bank","")
     print "Running inspiral hipe for reverse playground run"
     hipePlayNode = inspiralutils.hipe_setup("playground_reverse", cp, ifos, \
-         opts.log_path, playOnly = True, dax = opts.dax, \
+         opts.log_path, playOnly = True, dax = opts.dax, vetoFiles = dqVetoes, \
          tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
     for cacheFile in hipePlayNode.get_output_files():
       cachelist.append("playground_reverse/" + cacheFile)
@@ -608,7 +608,7 @@ if opts.reverse_analysis:
     cp.set ("inspiral","reverse-chirp-bank","")
     print "Running inspiral hipe for reverse analysis run"
     hipeAnalysisNode = inspiralutils.hipe_setup("full_data_reverse", cp, ifos, \
-        opts.log_path, dax=opts.dax, \
+        opts.log_path, dax=opts.dax, vetoFiles = dqVetoes, \
         tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
     for cacheFile in hipeAnalysisNode.get_output_files():
       cachelist.append("full_data_reverse/" + cacheFile)
@@ -622,7 +622,7 @@ if opts.reverse_analysis:
     print "Running inspiral hipe for reverse injection runs"
     for (injDir, injSeed) in cp.items("injections_reverse"):
       hipeInjNode[injDir] = inspiralutils.hipe_setup(injDir, cp, ifos, \
-           opts.log_path, injSeed, dax=opts.dax, \
+           opts.log_path, injSeed, dax=opts.dax, vetoFiles = dqVetoes, \
            tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
       for cacheFile in hipeInjNode[injDir].get_output_files():
         cachelist.append(injDir + "/" + cacheFile)
