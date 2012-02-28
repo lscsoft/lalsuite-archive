@@ -76,6 +76,7 @@ typedef struct {
 	REAL8 MECO_SS; ///< MECO spin-spin contribution
 	REAL8 MECO_QM; ///< MECO quad-mono contribution
 	REAL8 omegaPowi_3[PNORDER]; ///< current powers of the PN-parameter \f$v^{(i/3)}\f$
+	REAL8 lnhatProdChih[2];
 } Coefficient;
 
 /**	@brief Structure containing initial and calculated parameters.
@@ -581,6 +582,56 @@ static int XLALDerivator(double t, const double values[], double dvalues[], void
 	if (params->orderOfPhase >= PN3_0) {
 		dvalues[OMEGA] -= 856.0 / 105.0 * log(params->coeff.omegaPowi_3[2]);
 	}
+	if (params->chiAmp[0] || params->chiAmp[1]) {
+		switch (params->orderOfPhase) {
+		case PNALL:
+		case PN4_0:
+		case PN3_5:
+		case PN3_0:
+		case PN2_5:
+		case PN2_0:
+		case PN1_5:
+			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)) {
+				REAL8 lnhatCrossChih[2][DIMENSIONS];
+				const REAL8 *chi_p[2] = { values + CHI1X, values + CHI2X };
+				for (UINT2 current = 0; current < 2; current++) {
+					params->coeff.lnhatProdChih[current] = innerProduct(values + LNHATX,
+							chi_p[current]);
+					crossProduct(lnhatCrossChih[current], values + LNHATX, chi_p[current]);
+				}
+				for (UINT2 current = 0; current < 2; current++) {
+					dvalues[OMEGA] += params->coeff.omegaSO[current]
+							* params->coeff.lnhatProdChih[current] * values[OMEGA];
+				}
+				for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+					dvalues[CHI1X + dim] += params->coeff.chihSO[0] * lnhatCrossChih[0][dim]
+							* params->coeff.omegaPowi_3[5];
+					dvalues[CHI2X + dim] += params->coeff.chihSO[1] * lnhatCrossChih[1][dim]
+							* params->coeff.omegaPowi_3[5];
+				}
+			}
+			if (params->interactionFlags) {
+				for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+					dvalues[LNHATX + dim] += (params->coeff.lnhat[0] * dvalues[CHI1X + dim]
+							+ params->coeff.lnhat[1] * dvalues[CHI2X + dim])
+							* params->coeff.omegaPowi_3[1];
+				}
+				REAL8 omegaLNhat[DIMENSIONS], omegaE[DIMENSIONS], omegaLNhatLNhat;
+				crossProduct(omegaLNhat, values + LNHATX, dvalues + LNHATX);
+				omegaLNhatLNhat = innerProduct(omegaLNhat, values + LNHATX);
+				for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+					omegaE[dim] = omegaLNhat[dim] - omegaLNhatLNhat * values[LNHATX];
+				}
+				crossProduct(dvalues + E1X, omegaE, values + E1X);
+			}
+		case PN1_0:
+		case PN0_5:
+		case PN0_0:
+			break;
+		default:
+			break;
+		}
+	}
 	dvalues[OMEGA] *= params->coeff.omegaGlobal * params->coeff.omegaPowi_3[7]
 			* params->coeff.omegaPowi_3[4];
 	dvalues[PHASE] = values[OMEGA];
@@ -594,6 +645,29 @@ static int XLALStop(double t, const double values[], double dvalues[], void *mpa
 	UINT2 i;
 	for (i = PN0_0 + 2; i <= params->orderOfPhase; i += 2) {
 		meco += params->coeff.MECO[i] * params->coeff.omegaPowi_3[i - 1];
+	}
+	if (params->chiAmp[0] || params->chiAmp[1]) {
+		switch (params->orderOfPhase) {
+		case PNALL:
+		case PN4_0:
+		case PN3_5:
+		case PN3_0:
+		case PN2_5:
+		case PN2_0:
+		case PN1_5:
+			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN)) {
+				for (UINT2 current = 0; current < 2; current++) {
+					meco += params->coeff.MECO_SO[current] * params->coeff.lnhatProdChih[current]
+							* params->coeff.omegaPowi_3[2];
+				}
+			}
+		case PN1_0:
+		case PN0_5:
+		case PN0_0:
+			break;
+		default:
+			break;
+		}
 	}
 	if (meco > 0.0) {
 		return TEST_ENERGY;
