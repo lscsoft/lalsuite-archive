@@ -620,7 +620,7 @@ def cbcBayesPostProc(
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
-        if(savepdfs) myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
+        if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
 
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
@@ -832,7 +832,7 @@ def cbcBayesPostProc(
                     row_count=0
 
                 myfig.savefig(twoDKdePath)
-                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf')
+                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
