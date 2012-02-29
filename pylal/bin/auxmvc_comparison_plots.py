@@ -321,6 +321,7 @@ if opts.verbose:
 total_ranked_data = ReadDataFromClassifiers(classifiers)
 
 ### TESTING CVETO LOADING FUNCTIONALITY
+'''
 cveto_raw = auxmvc_utils.LoadCV(classifiers[-1][1][0])
 # we pull 10 random GPS times from cveto_raw[] and the corresponding data from total_ranked_data[]
 # this is printed so we can check by eye whether they match
@@ -336,7 +337,7 @@ for ind in range(0,10):
   print 'cveto_eff = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_eff'])
   print 'cveto_fap = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_fap'])
   print 'cveto_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_chan'])
-
+'''
 
 # Computing FAP and Efficiency for MVCs
 for cls in classifiers:
@@ -394,6 +395,9 @@ tagList = []
 fig_num = 0
 comments = ""
 ###########################################################################################3
+if opts.verbose:
+  print 'Generating Plots...'
+
 
 ## Create scattered plots of Significance vs  SNR for GW Triggers
 fig_num += 1
@@ -496,6 +500,58 @@ pylab.close()
 
 eff_file.close()
 
+# histograms over Classifier's rank
+for cls in classifiers:
+  fig_num += 1
+  pylab.figure(fig_num)
+  pylab.hold(True)
+  # histogram using all the glitches
+  pylab.hist(glitches[cls[0] + '_rank'], 100, histtype='step', label = 'all glitches')
+  # histogram using only a subset of glitches with sufficiently large 'signif'
+  for sigthr in [10, 15, 25, 50]:
+    glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+    pylab.hist(glitches_removed[cls[0] + '_rank'], 100, histtype = 'step', label = 'signif >= ' + repr(sigthr))
+  pylab.title('Histogram for Glitches Removed Based on ' + cls[0] + '_rank')
+  pylab.xlabel(cls[0] + '_rank')
+  pylab.ylabel('Number of Glitches')
+  pylab.legend(loc = 'upper center')
+  #adding to the html page
+  name = '_hist_' + cls[0] + '_rank'
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+  pylab.close()
+
+# scatter plots of FAR from one classifier vs. FAR from another
+# we iterate through all pairs of classifiers.
+# This will generate 'duplicate' plots with axes switched, but whatever
+for cls in classifiers:
+  for cls2 in classifiers:
+    if cls[0] == cls2[0]:
+      pass
+    else:
+      fig_num += 1
+      pylab.figure(fig_num)
+      pylab.hold(True)
+      # plot all glitches
+      pylab.loglog(glitches[cls[0] + '_fap'], glitches[cls2[0] + '_fap'], marker = 'x', linestyle = 'none', label = 'all glitches')
+      # plot subsets of glitches based on 'signif'
+      for sigthr in [10, 15, 25, 50]:
+        g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+        pylab.loglog(g_rem[cls[0]+'_fap'], g_rem[cls2[0]+'_fap'], marker = 'x', linestyle = 'none', label = 'signif >= ' + repr(sigthr))
+      pylab.xlabel(cls[0] + '_fap')
+      pylab.ylabel(cls2[0] + '_fap')
+      pylab.title('Scatter Plot of ' + cls[0] + '_fap vs ' + cls2[0] + '_fap')
+      pylab.legend(loc = 'best')
+      #adding to html page
+      name = '_scatter_' + cls[0] + '_fap_vs_' + cls2[0] + '_fap'
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(name)
+      pylab.close()
+
 
 ##############################################################################################################
 
@@ -507,5 +563,6 @@ if opts.html_for_cbcweb:
   html_filename_publish = InspiralUtils.wrifacte_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 ##############################################################################################################
-
+if opts.verbose:
+  print 'Done.'
 
