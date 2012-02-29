@@ -984,6 +984,7 @@ int XLALSimInspiralRestrictedSpinTaylorT4(
  * @param[in]  e1x				: initial value of x comp. of orbital plane basis vector
  * @param[in]  e1y				: initial value of y comp. of orbital plane basis vector
  * @param[in]  e1z				: initial value of z comp. of orbital plane basis vector
+ * @param[in]  distance			: distance of source (m)
  * @param[in]  endPhase			: orbital phase at last sample
  * @param[in]  initialFrequency	: initial frequency (1/s)
  * @param[in]  samplingTime		: sampling interval (s)
@@ -995,8 +996,9 @@ int XLALSimInspiralRestrictedSpinTaylorT4(
 int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeSeries **hc,
 		REAL8 mass1, REAL8 mass2, REAL8 qm1, REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
 		REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x,
-		REAL8 e1y, REAL8 e1z, REAL8 endPhase, REAL8 initialFrequency, REAL8 samplingTime,
-		INT4 orderOfPhase, INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags);
+		REAL8 e1y, REAL8 e1z, REAL8 distace, REAL8 endPhase, REAL8 initialFrequency,
+		REAL8 samplingTime, INT4 orderOfPhase, INT4 orderOfAmplitude,
+		LALSimInspiralInteraction interactionFlags);
 
 /**	Computes the orbital equations. The spin parameter is \f$\chi_i=S_i/m_i^2\f$.
  *
@@ -1041,8 +1043,8 @@ int XLALSimInspiralSpinQuadTaylorEvolveOrbit(REAL8TimeSeries **V, REAL8TimeSerie
 		REAL8TimeSeries **LNhaty, REAL8TimeSeries **LNhatz, REAL8TimeSeries **E1x,
 		REAL8TimeSeries **E1y, REAL8TimeSeries **E1z, REAL8 mass1, REAL8 mass2, REAL8 qm1,
 		REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
-		REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z, REAL8 endPhase,
-		REAL8 initialFrequency, REAL8 samplingTime, INT4 orderOfPhase,
+		REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y, REAL8 e1z,
+		REAL8 endPhase, REAL8 initialFrequency, REAL8 samplingTime, INT4 orderOfPhase,
 		LALSimInspiralInteraction interactionFlags);
 
 /** Computes the \f$h_+\f$ and \f$h_\cross\f$ polarized waveforms with the orbital equations.
@@ -1078,6 +1080,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveOrbit(REAL8TimeSeries **V, REAL8TimeSerie
  * @param[in]  e1x				: initial value of x comp. of orbital plane basis vector
  * @param[in]  e1y				: initial value of y comp. of orbital plane basis vector
  * @param[in]  e1z				: initial value of z comp. of orbital plane basis vector
+ * @param[in]  distance			: distance of source (m)
  * @param[in]  endPhase			: orbital phase at last sample
  * @param[in]  initialFrequency	: initial frequency (1/s)
  * @param[in]  samplingTime		: sampling interval (s)
@@ -1093,8 +1096,9 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 		REAL8TimeSeries **E1x, REAL8TimeSeries **E1y, REAL8TimeSeries **E1z, REAL8 mass1,
 		REAL8 mass2, REAL8 qm1, REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x,
 		REAL8 chi2y, REAL8 chi2z, REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y,
-		REAL8 e1z, REAL8 endPhase, REAL8 initialFrequency, REAL8 samplingTime, INT4 orderOfPhase,
-		INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags);
+		REAL8 e1z, REAL8 distance, REAL8 endPhase, REAL8 initialFrequency, REAL8 samplingTime,
+		INT4 orderOfPhase, INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags);
+
 /**
  * Function to specify the desired orientation of a precessing binary in terms
  * of several angles and then compute the vector components in the so-called

@@ -128,6 +128,7 @@ typedef struct {
  * @param[in]  e1x				: initial value of x comp. of orbital plane basis vector
  * @param[in]  e1y				: initial value of y comp. of orbital plane basis vector
  * @param[in]  e1z				: initial value of z comp. of orbital plane basis vector
+ * @param[in]  distance			: distance of source (m)
  * @param[in]  samplingTime		: sampling interval (s)
  * @param[in]  orderOfPhase		: twice phase post-Newtonian order
  * @param[in]  interactionFlags : flag to control spin effects
@@ -180,7 +181,7 @@ static int XLALCreateWaveformOutput(Output *param, UINT4 length, REAL8 samplingT
  * @return
  */
 static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], REAL8 phase, REAL8 V,
-		Parameters *params, INT4 orderOfAmplitude);
+		Parameters *params, REAL8 distance, INT4 orderOfAmplitude);
 
 /**	Computes the derivatives of the dynamical variables at a given time.
  *
@@ -197,8 +198,9 @@ static int XLALStop(double t, const double values[], double dvalues[], void *mpa
 int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeSeries **hc,
 		REAL8 mass1, REAL8 mass2, REAL8 qm1, REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
 		REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x,
-		REAL8 e1y, REAL8 e1z, REAL8 endPhase, REAL8 initialFrequency, REAL8 samplingTime,
-		INT4 orderOfPhase, INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags) {
+		REAL8 e1y, REAL8 e1z, REAL8 distance, REAL8 endPhase, REAL8 initialFrequency,
+		REAL8 samplingTime, INT4 orderOfPhase, INT4 orderOfAmplitude,
+		LALSimInspiralInteraction interactionFlags) {
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
 	int error;
@@ -238,7 +240,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveWaveform(REAL8TimeSeries **hp, REAL8TimeS
 		e1[Y] = out->data[13 * size + i];
 		e1[Z] = out->data[14 * size + i];
 		error = XLALCalculateWaveform(&((*hp)->data->data[i]), &((*hc)->data->data[i]), e1, e3,
-				phase, v, &parameter, orderOfAmplitude);
+				phase, v, &parameter, distance, orderOfAmplitude);
 		if (error == XLAL_FAILURE) {
 			XLAL_ERROR(XLAL_EFUNC);
 		}
@@ -324,8 +326,8 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 		REAL8TimeSeries **E1x, REAL8TimeSeries **E1y, REAL8TimeSeries **E1z, REAL8 mass1,
 		REAL8 mass2, REAL8 qm1, REAL8 qm2, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x,
 		REAL8 chi2y, REAL8 chi2z, REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz, REAL8 e1x, REAL8 e1y,
-		REAL8 e1z, REAL8 endPhase, REAL8 initialFrequency, REAL8 samplingTime, INT4 orderOfPhase,
-		INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags) {
+		REAL8 e1z, REAL8 distance, REAL8 endPhase, REAL8 initialFrequency, REAL8 samplingTime,
+		INT4 orderOfPhase, INT4 orderOfAmplitude, LALSimInspiralInteraction interactionFlags) {
 	Parameters parameter;
 	memset(&parameter, 0, sizeof(Parameters));
 	int error;
@@ -389,7 +391,7 @@ int XLALSimInspiralSpinQuadTaylorEvolveAll(REAL8TimeSeries **hp, REAL8TimeSeries
 		(*E1y)->data->data[i] = e1[Y] = out->data[13 * size + i];
 		(*E1z)->data->data[i] = e1[Z] = out->data[14 * size + i];
 		error = XLALCalculateWaveform(&((*hp)->data->data[i]), &((*hc)->data->data[i]), e1, e3,
-				phase, v, &parameter, orderOfAmplitude);
+				phase, v, &parameter, distance, orderOfAmplitude);
 		if (error == XLAL_FAILURE) {
 			XLAL_ERROR(XLAL_EFUNC);
 		}
@@ -598,11 +600,11 @@ static int XLALCreateOrbitOutput(Output *param, UINT4 length, REAL8 samplingTime
 
 static int XLALCreateWaveformOutput(Output *param, UINT4 length, REAL8 samplingTime) {
 	LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
-	XLALGPSAdd(&tStart, -1.0 * (length - 1) * samplingTime);
+	XLALGPSAdd(&tStart, -1.0 * (length - 1) * samplingTime);;
 	param->waveform[HP] = XLALCreateREAL8TimeSeries("H_PLUS", &tStart, 0.0, samplingTime,
-			&lalDimensionlessUnit, length);
+			&lalDimensionlessUnit, length);;
 	param->waveform[HC] = XLALCreateREAL8TimeSeries("H_CROSS", &tStart, 0.0, samplingTime,
-			&lalDimensionlessUnit, length);
+			&lalDimensionlessUnit, length);;
 	if (!param->waveform[HP] || !param->waveform[HC]) {
 		XLAL_ERROR(XLAL_EFUNC);
 	}
@@ -613,16 +615,63 @@ static int XLALCreateWaveformOutput(Output *param, UINT4 length, REAL8 samplingT
 	return XLAL_SUCCESS;
 }
 
+inline static void crossProduct(REAL8 out[], const REAL8 left[], const REAL8 right[]) {
+	out[0] = left[1] * right[2] - left[2] * right[1];
+	out[1] = left[2] * right[0] - left[0] * right[2];
+	out[2] = left[0] * right[1] - left[1] * right[0];
+}
+
 static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], REAL8 phase, REAL8 V,
-		Parameters *params, INT4 orderOfAmplitude) {
-	UNUSED(hp);
-	UNUSED(hc);
-	UNUSED(e1);
-	UNUSED(e3);
-	UNUSED(phase);
-	UNUSED(V);
-	UNUSED(params);
-	UNUSED(orderOfAmplitude);
+		Parameters *params, REAL8 distance, INT4 orderOfAmplitude) {
+	REAL8 h[2];
+	hp = &h[HP];
+	hc = &h[HC];
+	enum {
+		TEMP = 4,
+	};
+	REAL8 vPowi_3[TEMP] = { 1.0, V, sq(V), vPowi_3[2] * V };
+	REAL8 siniPhi[TEMP];
+	REAL8 cosiPhi[TEMP];
+	for (INT2 order = 1; order < orderOfAmplitude + 1; order++) {
+		siniPhi[order] = sin((REAL8) order * phase);
+		cosiPhi[order] = cos((REAL8) order * phase);
+	}
+	REAL8 e2[DIMENSIONS];
+	crossProduct(e2, e3, e1);
+	REAL8 sine[PNORDER][WAVEFORM], cosine[PNORDER][WAVEFORM];
+	switch (orderOfAmplitude) {
+	case PNALL:
+	case PN0_0:
+		cosine[PN0_0][HP] = 0.5 * (sq(e1[X]) - sq(e1[Y]) - sq(e2[X]) + sq(e2[Y]));
+		cosine[PN0_0][HC] = e1[X] * e1[Y] - e2[X] * e2[Y];
+		sine[PN0_0][HP] = e1[X] * e2[X] - e1[Y] * e2[Y];
+		sine[PN0_0][HC] = e1[Y] * e2[X] + e1[X] * e2[Y];
+		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
+			h[wave] += vPowi_3[2] * 4.0
+					* (sine[PN0_0][wave] * siniPhi[2] + cosine[PN0_0][wave] * cosiPhi[2]);
+
+		}
+	case PN0_5: {
+		REAL8 deltamPerM = sqrt(1.0 - 4.0 * params->eta);
+		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
+			REAL8 coefSine3Phi = -9.0 * (sine[PN0_0][wave] * e2[Z] - cosine[PN0_0][wave] * e1[Z]);
+			REAL8 coefCosine3Phi = -9.0 * (cosine[PN0_0][wave] * e2[Z] + sine[PN0_0][wave] * e1[Z]);
+			h[wave] -= vPowi_3[3] * deltamPerM
+					* (cosine[PN0_5][wave] * cosiPhi[1] - sine[PN0_5][wave] * siniPhi[1]
+							+ coefSine3Phi * siniPhi[3] + coefCosine3Phi * cosiPhi[3]) / 2.0;
+		}
+	}
+	case PN1_5:
+		break;
+	default:
+		XLALPrintError("XLAL Error - %s: Amp. corrections not known "
+				"to PN order %d, highest is %d\n", __func__, orderOfAmplitude, PN1_5);
+		XLAL_ERROR(XLAL_EINVAL);
+		break;
+	}
+	REAL8 amp = -params->totalMass * params->eta * LAL_MRSUN_SI / distance;
+	*hp *= amp;
+	*hc *= amp;
 	return XLAL_SUCCESS;
 }
 
@@ -632,12 +681,6 @@ inline static REAL8 innerProduct(const REAL8 left[], const REAL8 right[]) {
 		product += left[dim] * right[dim];
 	}
 	return (product);
-}
-
-inline static void crossProduct(REAL8 out[], const REAL8 left[], const REAL8 right[]) {
-	out[0] = left[1] * right[2] - left[2] * right[1];
-	out[1] = left[2] * right[0] - left[0] * right[2];
-	out[2] = left[0] * right[1] - left[1] * right[0];
 }
 
 static int XLALDerivator(double t, const double values[], double dvalues[], void *mparams) {
