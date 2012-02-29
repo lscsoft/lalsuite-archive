@@ -81,7 +81,7 @@ def parse_command_line():
         default=None, metavar="STATTYPE",
         help =
             "type of single-ifo statistic to be computed: " +
-            "allowed values are mean, snr_mean, snr, choppedl, " +
+            "allowed values are mean, snr_mean, snr, choppedl, choppedlforall, " +
             "snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, " +
             "highstat, eff_dist_ratio"
         )
@@ -133,13 +133,43 @@ def parse_command_line():
         default=None,
         help =
           "Tunable parameter used in the chopped-L test." +
-          "Required if choppedl is specified as statistic-type."
+          "Required if choppedl or choppedlforall is specified as statistic-type."
+          "Used for the ranking of double coincidences."
         )
     parser.add_option("", "--choplb", action="store", type="float",
         default=None,
         help =
           "Tunable parameter used in the chopped-L test." +
-          "Required if choppedl is specified as statistic-type."
+          "Required if choppedl or choppedlforall is specified as statistic-type."
+          "Used for the ranking of double coincidences."
+        )
+    parser.add_option("", "--choplc", action="store", type="float",
+        default=None,
+        help =
+          "Tunable parameter used in the chopped-L test." +
+          "Required if choppedlforall is specified as statistic-type."
+          "Used for the ranking of triple coincidences."
+        )
+    parser.add_option("", "--chopld", action="store", type="float",
+        default=None,
+        help =
+          "Tunable parameter used in the chopped-L test." +
+          "Required if choppedlforall is specified as statistic-type."
+          "Used for the ranking of triple coincidences."
+        )
+    parser.add_option("", "--ifo1", action="store", type="string",
+        default=None,
+        help =
+          "IFO used in the choppedlforall statistic in the IFO1-IFO2 SNR plane" +
+          "Required if choppedlforall is specified as statistic-type."
+          "Can be H1, H2, L1, or V1."
+        )
+    parser.add_option("", "--ifo2", action="store", type="string",
+        default=None,
+        help =
+          "IFO used in the choppedlforall statistic in the IFO1-IFO2 SNR plane" +
+          "Required if choppedlforall is specified as statistic-type."
+          "Can be H1, H2, L1, or V1."
         )
     (options, args) = parser.parse_args()
 
@@ -193,7 +223,7 @@ class CombiningFunctions:
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
       durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., vsr = 2, param = None, \
-      chopla = None, choplb = None ):
+      chopla = None, choplb = None, choplc = None, chopld = None, ifo1 = None, ifo2 = None ):
         """
         Sets outside variables.
         """
@@ -210,6 +240,10 @@ class CombiningFunctions:
         self.param = param
         self.chopla = chopla
         self.choplb = choplb
+        self.choplc = choplc
+        self.chopld = chopld
+        self.ifo1 = ifo1
+        self.ifo2 = ifo2
 
     def compute_mean( self, coinc_sngls ):
         """
@@ -250,6 +284,34 @@ class CombiningFunctions:
             return min( sum( sngl.snr for sngl in coinc_sngls ), min(self.chopla * sngl.snr + self.choplb for sngl in coinc_sngls) )
         else:
             raise ValueError, "The compute_chopped_l_snr statistic can only be computed for doubles, triples, and quadruples."
+
+    def compute_chopped_l_snr_for_all( self, coinc_sngls ):
+        """
+        Computes two separate chopped-L tests to compute snr for double and triple coincs. For triples, chopped-l is
+        performed in the ifo1-ifo2 SNR plane.
+        
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
+        """
+        if len( coinc_sngls ) == 3:
+            ifo1_snr = None
+            ifo2_snr = None
+            ifo3_snr = None
+            ifo_snr = None
+            min_snr = None
+            for sngl in coinc_sngls:
+                if sngl.ifo == self.ifo1:
+                    ifo1_snr = sngl.snr
+                elif sngl.ifo == self.ifo2:
+                    ifo2_snr = sngl.snr
+                else:
+                    ifo3_snr = sngl.snr
+            ifo_snr = [ifo1_snr, ifo2_snr]
+            min_snr = min( sum( snr for snr in ifo_snr ), min(self.choplc * snr + self.chopld for snr in ifo_snr) )
+            return min_snr**2 + ifo3_snr**2
+        elif len( coinc_sngls ) == 2:
+            return self.compute_chopped_l_snr( coinc_sngls )
+        else:
+            raise ValueError, "The compute_chopped_l_snr_for_all statistic can only be computed for doubles and triples."
 
     def compute_combined_snrchi( self, coinc_sngls ):
         """
@@ -408,7 +470,9 @@ create_column( connection, coinc_table, output_column )
 function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
     durthresh = opts.duration_threshold, power = opts.snr_power, 
     hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, vsr = opts.virgo_run,
-    param = opts.param, chopla = opts.chopla, choplb = opts.choplb )
+    param = opts.param, chopla = opts.chopla, choplb = opts.choplb,
+    choplc = opts.choplc, chopld = opts.chopld,
+    ifo1 = opts.ifo1, ifo2 = opts.ifo2 )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'mean':
     function = 'compute_mean'
@@ -418,6 +482,8 @@ elif opts.statistic_type == 'snr':
     function = 'compute_combined_snr'
 elif opts.statistic_type == 'choppedl':
     function = 'compute_chopped_l_snr'
+elif opts.statistic_type == 'choppedlforall':
+    function = 'compute_chopped_l_snr_for_all'
 elif opts.statistic_type == 'snrchi':
     function = 'compute_combined_snrchi'
 elif opts.statistic_type == 'effective_snr':
