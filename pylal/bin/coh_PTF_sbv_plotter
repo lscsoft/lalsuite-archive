@@ -512,7 +512,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
                bbox_inches='tight')
   p+=1
   if injFile:
-    ax.plot(injTime, injSNR, 'rx')
+    ax.plot(injTime, injSNR, 'r+')
     ax.set_xlim([start, end])
     fig.savefig('%s/%s_triggers_vs_time.png' % (outdir, tag),\
                bbox_inches='tight')
@@ -531,7 +531,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
                bbox_inches='tight')
   p+=1
   if injFile:
-    ax.plot(injTime, injBestNR, 'rx')
+    ax.plot(injTime, injBestNR, 'r+')
     ax.set_xlim([start, end])
     fig.savefig('%s/%s_bestnr_vs_time.png' % (outdir, tag),\
                  bbox_inches='tight')
@@ -552,7 +552,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
                  % (outdir, tag, ifo))
     p+=1
     if injFile:
-      ax.plot(injTime, injIfoSNR[ifo], 'rx')
+      ax.plot(injTime, injIfoSNR[ifo], 'r+')
       ax.set_xlim([start, end])
       fig.savefig('%s/%s_%s_triggers_vs_time.png'\
                    % (outdir, tag, ifo))
@@ -565,7 +565,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot( trigSNR, trigMchirp, 'bx' )
   ax.grid()
   if injFile:
-    ax.plot( injSNR, injMchirp, 'rx' )
+    ax.plot( injSNR, injMchirp, 'r+' )
   ax.set_xlabel( "Coherent SNR" )
   ax.set_ylabel( "Chirp mass ($M_{\odot}$)" )
   ax.plot( snr_vals, mass_vals, 'k-' )
@@ -591,7 +591,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot(trigSNR, trigNullstat, 'bx')
   ax.grid()
   if injFile:
-    ax.plot(injSNR, injNullstat, 'rx')
+    ax.plot(injSNR, injNullstat, 'r+')
   ax.set_xlabel("Coherent SNR")
   ax.set_ylabel("Null statistic")
   ax.plot(snr_vals,null_cont, 'k-')
@@ -614,7 +614,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot(trigSNR, trigNullSNR, 'bx')
   ax.grid()
   if injFile:
-    ax.plot(injSNR, injNullSNR, 'rx')
+    ax.plot(injSNR, injNullSNR, 'r+')
   ax.set_xlabel("Coherent SNR")
   ax.set_ylabel("Overwhitened null statistic")
   ax.plot(snr_vals,null_cont, 'k-')
@@ -645,7 +645,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot(trigSNR, trigCoincSNR, 'bx')
   ax.grid()
   if injFile:
-    ax.plot(injSNR, injCoincSNR, 'rx')
+    ax.plot(injSNR, injCoincSNR, 'r+')
   ax.plot([4,30], [4,30], 'g-')
   ax.set_xlabel("Coherent SNR")
   ax.set_ylabel("Coincidence SNR")
@@ -673,7 +673,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot(trigSNR, trigTraceSNR, 'bx')
   ax.grid()
   if injFile:
-    ax.plot(injSNR, injTraceSNR, 'rx')
+    ax.plot(injSNR, injTraceSNR, 'r+')
   ax.plot(aT, bT, 'g-')
   ax.set_xlabel("Coherent SNR")
   ax.set_ylabel("Trace SNR")
@@ -692,7 +692,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot(trigCoincSNR, trigTraceSNR, 'bx')
   ax.grid()
   if injFile:
-    ax.plot(injCoincSNR, injTraceSNR, 'rx')
+    ax.plot(injCoincSNR, injTraceSNR, 'r+')
   ax.set_xlabel("Coincidence SNR")
   ax.set_ylabel("Trace SNR")
   fig.savefig("%s/%s_trace_snr_vs_coinc_snr.png" % (outdir, tag),\
@@ -710,7 +710,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.loglog(trigSNR, trigBankVeto, 'bx')
   ax.grid()
   if injFile:
-    ax.loglog(injSNR, injBankVeto, 'rx')
+    ax.loglog(injSNR, injBankVeto, 'r+')
   plot_contours(ax, snr_vals,bank_conts, colors)
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
@@ -739,7 +739,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.grid()
   if injFile:
     ax.loglog(injSNR[injBestNR != 0], injChiSquare[injBestNR != 0],\
-               'rx')
+               'r+')
   plot_contours(ax, snr_vals,chi_conts, colors)
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
@@ -765,7 +765,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot(trigSNR, trigFirstSNR, 'bx')
   ax.grid()
   if injFile:
-    ax.plot(injSNR, injFirstSNR, 'rx')
+    ax.plot(injSNR, injFirstSNR, 'r+')
   ax.plot([0,50], [4,4], 'g-')
   ax.set_xlabel("Coherent SNR")
   ax.set_ylabel("First loudest sngl SNR")
@@ -785,7 +785,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.plot(trigSNR, trigSecondSNR, 'bx')
     ax.grid()
     if injFile:
-      ax.plot(injSNR, injSecondSNR, 'rx')
+      ax.plot(injSNR, injSecondSNR, 'r+')
     ax.plot([6,10,50], [2.5,3.5,13.5], 'g-')
     ax.set_xlabel("Coherent SNR")
     ax.set_ylabel("Second loudest sngl SNR")
@@ -805,7 +805,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.plot(trigSNR, trigThirdSNR, 'bx')
     ax.grid()
     if injFile:
-      ax.plot(injSNR, injThirdSNR, 'rx')
+      ax.plot(injSNR, injThirdSNR, 'r+')
     ax.plot([0,50], [4,4], 'g-')
     ax.set_xlabel("Coherent SNR")
     ax.set_ylabel("Third loudest sngl SNR")
@@ -845,7 +845,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.plot(trigSNR, trigIfoSNR[ifo], 'bx')
     ax.grid()
     if injFile:
-      ax.plot(injSNR, injIfoSNR[ifo], 'rx')
+      ax.plot(injSNR, injIfoSNR[ifo], 'r+')
     ax.plot(zoomSNR, ((fResp[ifo]*trigSigmaMean[ifo])**0.5) * zoomSNR, 'g-')
     ax.plot(zoomSNR, ((fResp[ifo]*trigSigmaMin[ifo])**0.5) * zoomSNR, 'g-')
     ax.plot(zoomSNR, ((fResp[ifo]*trigSigmaMax[ifo])**0.5) * zoomSNR, 'g-')
@@ -890,7 +890,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       ax.loglog(trigSNR,trigIfobankCS[ifo], 'bx')
       ax.grid()
       if injFile:
-        ax.loglog(injSNR,injIfobankCS[ifo], 'rx')
+        ax.loglog(injSNR,injIfobankCS[ifo], 'r+')
       ax.set_xlabel("Coherent SNR")
       ax.set_ylabel("%s sngl bank veto" % ifo)
       ax.set_xlim([4,1000])
@@ -908,7 +908,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       ax.loglog(trigIfoSNR[ifo],trigIfobankCS[ifo], 'bx')
       ax.grid()
       if injFile:
-        ax.loglog(injIfoSNR[ifo],injIfobankCS[ifo], 'rx')
+        ax.loglog(injIfoSNR[ifo],injIfobankCS[ifo], 'r+')
       ax.set_xlabel("%s sngl SNR" % ifo)
       ax.set_ylabel("%s sngl bank veto" % ifo)
       ax.set_xlim([4,1000])
@@ -927,7 +927,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       ax.loglog(trigSNR,trigIfoautoCS[ifo], 'bx')
       ax.grid()
       if injFile:
-        ax.loglog(injSNR,injIfoautoCS[ifo], 'rx')
+        ax.loglog(injSNR,injIfoautoCS[ifo], 'r+')
       ax.set_xlabel("Coherent SNR")
       ax.set_ylabel("%s sngl auto veto" % ifo)
       ax.set_xlim([4,1000])
@@ -945,7 +945,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       ax.loglog(trigIfoSNR[ifo],trigIfoautoCS[ifo], 'bx')
       ax.grid()
       if injFile:
-        ax.loglog(injIfoSNR[ifo],injIfoautoCS[ifo], 'rx')
+        ax.loglog(injIfoSNR[ifo],injIfoautoCS[ifo], 'r+')
       ax.set_xlabel("%s sngl SNR" % ifo)
       ax.set_ylabel("%s sngl auto veto" % ifo)
       ax.set_xlim([4,1000])
@@ -965,7 +965,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
         ax.loglog(trigSNR,trigIfostanCS[ifo], 'bx')
         ax.grid()
         if injFile:
-          ax.loglog(injSNR,injIfostanCS[ifo], 'rx')
+          ax.loglog(injSNR,injIfostanCS[ifo], 'r+')
         ax.set_xlabel("Coherent SNR")
         ax.set_ylabel("%s sngl chi squared" % ifo)
         ax.set_xlim([4,1000])
@@ -987,7 +987,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
         ax.loglog(trigIfoSNR[ifo],trigIfostanCS[ifo], 'bx')
         ax.grid()
         if injFile:
-          ax.loglog(injIfoSNR[ifo],injIfostanCS[ifo], 'rx')
+          ax.loglog(injIfoSNR[ifo],injIfostanCS[ifo], 'r+')
         ax.set_xlabel("%s sngl SNR" % ifo)
         ax.set_ylabel("%s sngl chi squared" % ifo)
         ax.set_xlim([4,1000])
@@ -1009,7 +1009,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.loglog(trigSNR, trigAutoVeto, 'bx')
   ax.grid()
   if injFile:
-    ax.loglog(injSNR, injAutoVeto, 'rx')
+    ax.loglog(injSNR, injAutoVeto, 'r+')
   plot_contours(ax, snr_vals, auto_conts, colors)
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
@@ -1040,7 +1040,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   p+=1
 
   if injFile:
-    ax.plot(injSNR, injSNR - injTraceSNR, 'rx')
+    ax.plot(injSNR, injSNR - injTraceSNR, 'r+')
     fig.savefig("%s/%s_trace_diff_vs_snr.png" % (outdir, tag),\
                bbox_inches='tight')
     ax.set_xlim([6,20])
@@ -1055,7 +1055,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.plot(trigTime, trigNullstat, 'bx')
   ax.grid()
   if injFile:
-    ax.plot(injTime, injNullstat, 'rx')
+    ax.plot(injTime, injNullstat, 'r+')
   ax.set_xlabel("Time since %s" % grbTime)
   ax.set_xlim([start, end])
   ax.set_ylabel("Null SNR")
@@ -1069,7 +1069,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.loglog(trigSNR, trigRelAmp1, 'bx')
   ax.grid()
   if injFile:
-    ax.loglog(injSNR, injRelAmp1, 'rx')
+    ax.loglog(injSNR, injRelAmp1, 'r+')
   ax.set_xlabel("Coherent SNR")
   ax.set_ylabel("Relative amplitude")
   fig.savefig("%s/%s_rel_amp_vs_snr.png" % (outdir, tag),\
@@ -1086,7 +1086,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.loglog(trigSNR, trigRelAmp2, 'bx')
     ax.grid()
     if injFile:
-      ax.loglog(injSNR, injRelAmp2, 'rx')
+      ax.loglog(injSNR, injRelAmp2, 'r+')
     ax.set_xlabel("Coherent SNR")
     ax.set_ylabel("Relative amplitude")
     fig.savefig("%s/%s_rel_amp2_vs_snr.png" % (outdir, tag),\
@@ -1106,7 +1106,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.loglog(trigSNR, trigNorm3, 'bx')
     ax.grid()
     if injFile:
-      ax.loglog(injSNR, injNorm3, 'rx')
+      ax.loglog(injSNR, injNorm3, 'r+')
     ax.set_xlabel("Coherent SNR")
     ax.set_ylabel("Amplitude factor")
     fig.savefig("%s/%s_norm3_vs_snr.png" % (outdir, tag),\
@@ -1126,7 +1126,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     ax.loglog(trigSNR, trigInclination, 'bx')
     ax.grid()
     if injFile:
-      ax.loglog(injSNR, injInclination, 'rx')
+      ax.loglog(injSNR, injInclination, 'r+')
     ax.set_xlabel("Coherent SNR")
     ax.set_ylabel("|cos inclination|")
     fig.savefig("%s/%s_inclination_vs_snr.png" % (outdir, tag),\
