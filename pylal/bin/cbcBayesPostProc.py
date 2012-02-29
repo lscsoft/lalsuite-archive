@@ -94,7 +94,7 @@ def cbcBayesPostProc(
                         #Turn on R convergence tests
                         RconvergenceTests=False,
                         # Save PDF figures?
-                        savepdfs=True
+                        savepdfs=True,
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=None,
                         #List of meanVector csv files used, one csv file for each covariance matrix
@@ -1056,7 +1056,7 @@ if __name__=='__main__':
                         #Turn on R convergence tests
                         RconvergenceTests=opts.RconvergenceTests,
                         # Also save PDFs?
-                        savepdfs=opts.savepdfs
+                        savepdfs=opts.savepdfs,
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=opts.covarianceMatrices,
                         #List of meanVector csv files used, one csv file for each covariance matrix
