@@ -1,6 +1,6 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 13
+# serial 14
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],
 [## $0: Generate a libtool script for use in configure tests
@@ -16,6 +16,19 @@ AC_PROVIDE_IFELSE([AC_PROG_CXX],
 ])])[]dnl
 AC_LANG(_AC_LANG)[]dnl
 ]) # LALSUITE_USE_LIBTOOL
+
+AC_DEFUN([LALSUITE_MULTILIB_LIBTOOL_HACK],
+[## $0: libtool incorrectly determine library path on SL6
+case "${host}" in
+  x86_64-*-linux-gnu*)
+    redhat_release=`cat /etc/redhat-release 2> /dev/null`
+    if test "${redhat_release}" = "Scientific Linux release 6.1 (Carbon)"; then
+      AC_MSG_NOTICE([hacking round broken libtool multilib support on SL6])
+      lt_cv_sys_lib_dlsearch_path_spec="/lib64 /usr/lib64"
+    fi
+    ;;
+esac
+]) # LALSUITE_MULTILIB_LIBTOOL_HACK
 
 AC_DEFUN([LALSUITE_ENABLE_MODULE],[
 AM_CONDITIONAL([$1],[test x$$2 = xtrue])
