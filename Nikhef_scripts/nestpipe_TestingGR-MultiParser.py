@@ -22,7 +22,7 @@ sigma=0.0          ## Sigma for the normal distribution. This is in percent.
 number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
 
 remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
-remote_database='ciao.txt'   ## Succesful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed
+remote_database='IRM_BayesFactorsDatabase.txt'   ## Successful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed. Median and stdev of the parameters are appended to 'remote_database'_parameters
 
 if type_inj!='GR':
     type_name=type_inj+'_'+repr(shift)
