@@ -67,16 +67,17 @@ typedef struct tagXLALSimInspiralSpinTaylorT4Coeffs
 	REAL8 Ecoeff[LAL_MAX_PN_ORDER]; // coeffs. of PN corrections to energy
 	REAL8 wdotSO15s1, wdotSO15s2; 	// non-dynamical 1.5PN SO corrections
 	REAL8 wdotSS2; 			// non-dynamical 2PN SS correction
-	REAL8 wdotSelfSS2; 	// non-dynamical 2PN self-spin correction
-	REAL8 wdotQM2; 	// non-dynamical 2PN quadrupole-monopole correction
+	REAL8 wdotSelfSS2s1, wdotSelfSS2s2; 	// non-dynamical 2PN self-spin correction
+	REAL8 magPow2s1, magPow2s2;		// magnitude of the spins
+	REAL8 wdotQM2s1, wdotQM2s2; 	// non-dynamical 2PN quadrupole-monopole correction
 	REAL8 wdotSO25s1, wdotSO25s2; 	// non-dynamical 2.5PN SO corrections
 	REAL8 ESO15s1, ESO15s2; 	// non-dynamical 1.5PN SO corrections
 	REAL8 ESS2; 			// non-dynamical 2PN SS correction
-	REAL8 ESelfSS2; 	// non-dynamical 2PN self-spin correction
-	REAL8 EQM2; 	// non-dynamical 2PN quadrupole-monopole correction
+	REAL8 EQM2s1, EQM2s2; 	// non-dynamical 2PN quadrupole-monopole correction
 	REAL8 ESO25s1, ESO25s2; 	// non-dynamical 2.5PN SO corrections 
 	REAL8 LNhatSO15s1, LNhatSO15s2; // non-dynamical 1.5PN SO corrections
 	REAL8 LNhatSS2; 		// non-dynamical 2PN SS correction 
+	REAL8 LNhatQM2s1, LNhatQM2s2; 	// non-dynamical 2PN quadrupole-monopole correction
 	REAL8 wdottidal5pn;		// leading order tidal correction 
 	REAL8 wdottidal6pn;		// next to leading order tidal correction
 	REAL8 Etidal5pn;		// leading order tidal correction to energy
@@ -178,6 +179,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     Mchirp = M * pow(eta, 3./5.);
     params.wdotnewt = (96.0/5.0) * eta;
     params.eta = eta;
+    REAL8 w1 = 1.;	// TODO for blackholes, for neutron stars should be parameter  [Laszlo Vereb]
+    REAL8 w2 = 1.;	// TODO for blackholes, for neutron stars should be parameter  [Laszlo Vereb]
 	
     /** 
      * Set coefficients up to PN order phaseO. 
@@ -262,14 +265,20 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     params.LNhatSS2 	= 0.;
     params.wdotSS2 	= 0.;
     params.ESS2 	= 0.;
-    params.wdotSelfSS2 	= 0.;
-    params.ESelfSS2 	= 0.;
-    params.wdotQM2 	= 0.;
-    params.EQM2 	= 0.;
+    params.wdotSelfSS2s1 	= 0.;
+    params.wdotSelfSS2s2 	= 0.;
+    params.LNhatQM2s1	= 0.;
+    params.LNhatQM2s1	= 0.;
+    params.wdotQM2s1 	= 0.;
+    params.wdotQM2s2 	= 0.;
+    params.EQM2s1 	= 0.;
+    params.EQM2s2 	= 0.;
     params.wdotSO25s1 	= 0.;
     params.wdotSO25s2 	= 0.;
     params.ESO25s1 	= 0.;
     params.ESO25s2 	= 0.;
+    params.magPow2s1 = m1 * m1 * m1 * m1 / (M * M * M * M) * (s1x * s1x + s1y * s1y + s1z * s1z);
+    params.magPow2s2 = m2 * m2 * m2 * m2 / (M * M * M * M) * (s2x * s2x + s2y * s2y + s2z * s2z);
     if( (interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN) == LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN )
     {
         params.LNhatSO15s1 	= 2. + 3./2. * m2m1;
@@ -287,13 +296,17 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     }
     if( (interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) == LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN ) /* ADD ME!! */
     {
-        params.wdotSelfSS2 	= 0.;
-        params.ESelfSS2 	= 0.;
+        params.wdotSelfSS2s1 	= 1. / 96. / eta * m2m1;
+        params.wdotSelfSS2s2 	= 1. / 96. / eta * m1m2;
     }
     if( (interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) == LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN ) /* ADD ME!! */
     {
-        params.wdotQM2 		= 0.;
-        params.EQM2 		= 0.;
+        params.wdotQM2s1 	= 2.5 / eta * m2m1 * w1;
+        params.wdotQM2s2 	= 2.5 / eta * m1m2 * w2;
+        params.LNhatQM2s1	= 1.5 * m2m1 * w1;
+        params.LNhatQM2s1	= 1.5 * m1m2 * w2;
+        params.EQM2s1 		= 0.5 / eta * m2m1 * w1;
+        params.EQM2s2 		= 0.5 / eta * m1m2 * w2;
     }
     if( (interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN) == LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN ) /* ADD ME!! */
     {
@@ -510,9 +523,10 @@ static int XLALSimInspiralSpinTaylorT4StoppingTest(
             Espin2 += params->ESS2  * (S1dotS2 - 3. * LNdotS1 * LNdotS2);
         }
 
-        if( params->ESelfSS2 != 0. )
-        {   /* Compute 2PN self-spin correction to energy */
-            Espin2 += 0.; /* ADD ME!! */
+        if( params->EQM2s1 != 0. || params->EQM2s2 != 0. )
+        {   /* Compute 2PN quadrupole-monopole correction to energy */
+            Espin2 += params->EQM2s1 * (3. * LNdotS1 * LNdotS1 - params->magPow2s1) +
+            		params->EQM2s2 * (3. * LNdotS2 * LNdotS2 - params->magPow2s2);
         }
 
         if( params->ESO25s1 != 0. || params->wdotSO25s2 != 0. )
@@ -625,9 +639,15 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
     {	/* Compute 2PN SS correction to omega derivative */
         wspin2 = params->wdotSS2 * (247. * S1dotS2 - 721. * LNdotS1 * LNdotS2);
     }
-    if( params->wdotSelfSS2 != 0. )
+    if( params->wdotSelfSS2s1 != 0. || params->wdotSelfSS2s2 != 0. )
     {	/* Compute 2PN self-spin correction to omega derivative */
-        wspin2 += 0.; /* ADDME!! */	
+        wspin2 += params->wdotSelfSS2s1 * (7. * params->magPow2s1 - LNdotS1 * LNdotS1) +
+        		params->wdotSelfSS2s2 * (7. * params->magPow2s2 - LNdotS2 * LNdotS2);
+    }
+    if( params->wdotQM2s1 != 0. || params->wdotQM2s2 != 0. )
+    {	/* Compute 2PN quadrupole-monopole correction to omega derivative */
+        wspin2 += params->wdotQM2s1 * (3. * LNdotS1 * LNdotS1 - params->magPow2s1) +
+        		params->wdotQM2s2 * (3. * LNdotS2 * LNdotS2 - params->magPow2s2);
     }
     if( params->wdotSO25s1 != 0. || params->wdotSO25s2 != 0. )
     {	/* Compute 2.5PN SO correction to omega derivative */
@@ -654,11 +674,14 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
     omega2 = omega * omega;
     /* \Omega_L vector */
     OmegaLx = omega2 * (params->LNhatSO15s1 * S1x + params->LNhatSO15s2 * S2x)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x);
+            + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x)
+            + (params->LNhatQM2s1 * LNdotS1 * S1x + params->LNhatQM2s2 * LNdotS2 * S2x) / params->eta;
     OmegaLy = omega2 * (params->LNhatSO15s1 * S1y + params->LNhatSO15s2 * S2y)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y);
+            + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y)
+            + (params->LNhatQM2s1 * LNdotS1 * S1y + params->LNhatQM2s2 * LNdotS2 * S2y) / params->eta;
     OmegaLz = omega2 * (params->LNhatSO15s1 * S1z + params->LNhatSO15s2 * S2z)
-            + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z);
+            + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z)
+            + (params->LNhatQM2s1 * LNdotS1 * S1z + params->LNhatQM2s2 * LNdotS2 * S2z) / params->eta;
 
     /* Take cross product of \Omega_L with \hat{L_N} */
     dLNhx = (-OmegaLz*LNhy + OmegaLy*LNhz);
@@ -691,11 +714,14 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
      */
     /* \Omega_{S1} vector */
     OmegaSx = v5 * params->eta * params->LNhatSO15s1 * LNhx
-            + omega2 * 0.5 * (S2x - 3. * LNdotS2 * LNhx);
+            + omega2 * 0.5 * (S2x - 3. * LNdotS2 * LNhx)
+            + omega2 * params->LNhatQM2s1 * LNdotS1 * LNhx;
     OmegaSy = v5 * params->eta * params->LNhatSO15s1 * LNhy
-            + omega2 * 0.5 * (S2y - 3. * LNdotS2 * LNhy);
+            + omega2 * 0.5 * (S2y - 3. * LNdotS2 * LNhy)
+            + omega2 * params->LNhatQM2s1 * LNdotS1 * LNhy;
     OmegaSz = v5 * params->eta * params->LNhatSO15s1 * LNhz
-            + omega2 * 0.5 * (S2z - 3. * LNdotS2 * LNhz);
+            + omega2 * 0.5 * (S2z - 3. * LNdotS2 * LNhz)
+            + omega2 * params->LNhatQM2s1 * LNdotS1 * LNhz;
 
     /* Take cross product of \Omega_{S1} with S_1 */
     dS1x = (-OmegaSz*S1y + OmegaSy*S1z);
@@ -711,11 +737,14 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
      */
     /* \Omega_{S2} vector */
     OmegaSx = v5 * params->eta * params->LNhatSO15s2 * LNhx
-            + omega2 * 0.5 * (S1x - 3. * LNdotS1 * LNhx);
+            + omega2 * 0.5 * (S1x - 3. * LNdotS1 * LNhx)
+            + omega2 * params->LNhatQM2s2 * LNdotS2 * LNhx;
     OmegaSy = v5 * params->eta * params->LNhatSO15s2 * LNhy
-            + omega2 * 0.5 * (S1y - 3. * LNdotS1 * LNhy);
+            + omega2 * 0.5 * (S1y - 3. * LNdotS1 * LNhy)
+            + omega2 * params->LNhatQM2s2 * LNdotS2 * LNhy;
     OmegaSz = v5 * params->eta * params->LNhatSO15s2 * LNhz
-            + omega2 * 0.5 * (S1z - 3. * LNdotS1 * LNhz);
+            + omega2 * 0.5 * (S1z - 3. * LNdotS1 * LNhz)
+            + omega2 * params->LNhatQM2s2 * LNdotS2 * LNhz;
 
     /* Take cross product of \Omega_{S2} with S_2 */
     dS2x = (-OmegaSz*S2y + OmegaSy*S2z);
