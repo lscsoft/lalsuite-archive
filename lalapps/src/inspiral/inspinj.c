@@ -219,6 +219,7 @@ REAL8 betaPPE = 0.0;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
+static RandomParams* randPhaseShifts=NULL;
 INT4 numExtTriggers = 0;
 ExtTriggerTable   *exttrigHead = NULL;
 
@@ -2932,6 +2933,7 @@ int main( int argc, char *argv[] )
 
   /* set up the LAL random number generator */
   LALCreateRandomParams( &status, &randParams, rand_seed );
+  LALCreateRandomParams( &status, &randPhaseShifts, rand_seed );
 
   this_proc_param = procparams.processParamsTable;
   procparams.processParamsTable = procparams.processParamsTable->next;
@@ -3187,33 +3189,33 @@ int main( int argc, char *argv[] )
     /* populate the test parameters */
     if (dphiUniform==0) {
 		// Normal distribution around dphiX with sigma=sdphiX
-      simTable->dphi0 = dphi0 + sdphi0*XLALNormalDeviate(randParams);
-      simTable->dphi1 = dphi1 + sdphi1*XLALNormalDeviate(randParams);
-      simTable->dphi2 = dphi2 + sdphi2*XLALNormalDeviate(randParams);
-      simTable->dphi3 = dphi3 + sdphi3*XLALNormalDeviate(randParams);
-      simTable->dphi4 = dphi4 + sdphi4*XLALNormalDeviate(randParams);
-      simTable->dphi5 = dphi5 + sdphi5*XLALNormalDeviate(randParams);
-      simTable->dphi5l = dphi5l + sdphi5l*XLALNormalDeviate(randParams);
-      simTable->dphi6 = dphi6 + sdphi6*XLALNormalDeviate(randParams);
-      simTable->dphi6l = dphi6l + sdphi6l*XLALNormalDeviate(randParams);
-      simTable->dphi7 = dphi7 + sdphi7*XLALNormalDeviate(randParams);
-      simTable->dphi8 = dphi8 + sdphi8*XLALNormalDeviate(randParams);
-      simTable->dphi9 = dphi9 + sdphi9*XLALNormalDeviate(randParams);
+      simTable->dphi0 = dphi0 + sdphi0*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi1 = dphi1 + sdphi1*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi2 = dphi2 + sdphi2*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi3 = dphi3 + sdphi3*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi4 = dphi4 + sdphi4*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi5 = dphi5 + sdphi5*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi5l = dphi5l + sdphi5l*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi6 = dphi6 + sdphi6*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi6l = dphi6l + sdphi6l*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi7 = dphi7 + sdphi7*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi8 = dphi8 + sdphi8*XLALNormalDeviate(randPhaseShifts);
+      simTable->dphi9 = dphi9 + sdphi9*XLALNormalDeviate(randPhaseShifts);
     }
     else {
 		// Uniform distribution in [-dphiX,dphiX]
-      simTable->dphi0 = dphi0*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi1 = dphi1*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi2 = dphi2*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi3 = dphi3*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi4 = dphi4*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi5 = dphi5*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi5l = dphi5l*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi6 = dphi6*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi6l = dphi6l*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi7 = dphi7*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi8 = dphi8*(2.*XLALUniformDeviate(randParams)-1.);
-      simTable->dphi9 = dphi9*(2.*XLALUniformDeviate(randParams)-1.);	
+      simTable->dphi0 = dphi0*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi1 = dphi1*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi2 = dphi2*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi3 = dphi3*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi4 = dphi4*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi5 = dphi5*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi5l = dphi5l*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi6 = dphi6*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi6l = dphi6l*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi7 = dphi7*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi8 = dphi8*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
+      simTable->dphi9 = dphi9*(2.*XLALUniformDeviate(randPhaseShifts)-1.);	
 	}
 	
 	
@@ -3297,6 +3299,7 @@ if ( writeSimRing )
 
   /* destroy the structure containing the random params */
   LAL_CALL(  LALDestroyRandomParams( &status, &randParams ), &status);
+  LAL_CALL(  LALDestroyRandomParams( &status, &randPhaseShifts ), &status);
 
   /* If we read from an external trigger file, free our external trigger.
      exttrigHead is guaranteed to have no children to free. */
