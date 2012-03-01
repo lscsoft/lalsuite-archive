@@ -375,8 +375,6 @@ def populate_experiment_map(
 	search,
 	lars_id,
 	veto_def_name,
-	expr_start_time,
-	expr_end_time,
 	verbose = False
 ):
 	from glue.pipeline import s2play as is_in_playground

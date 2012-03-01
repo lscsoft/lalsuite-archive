@@ -94,8 +94,8 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
 	parser.add_option("--exact-mass", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact mass coincidence.")
-	parser.add_option("-a", "--effective-snr", metavar = "{inspiral|gstlal}", help = "Select effective SNR algorithm (required).  \"inspiral\" reproduces the algorithm used by lalapps_thinca, \"gstlal\" is an algorithm appropriate for use with gstlal_inspiral.")
-	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor used with the \"inspiral\" effective SNR (default = 250.0).")
+	parser.add_option("-s", "--weighted-snr", metavar = "{rawsnr|gstlal|effsnr|newsnr}", help = "Select the desired coincident ChiSq weighted SNR (required). \"rawsnr\" is just the matched filter SNR and lacks any weighting by a ChiSq statistic. \"gstlal\" is the statistic snr-over-chi. \"effsnr\" uses the Effective SNR algorithm to calculate a ChiSq weighted detection SNR.  \"newsnr\" uses the New SNR algorithm to calculate a ChiSq weighted SNR.")
+	parser.add_option("-w", "--weight-factor", metavar = "float", type = "float", help = "Set the numerical factor for the ChiSq weighted SNR (effsnr & newsnr).  For raw-snr and gstlal-snr, just set this value to None.  The standard weight factors used for Effective-SNR in S5 & NewSNR in S6 are 250.0 and 6.0 respectively.")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
 	parser.add_option("--search-group", metavar = "name", default = "cbc", help = "Set the name of the LSC search group that performed the analysis (default = \"cbc\").")
@@ -108,12 +108,12 @@ def parse_command_line():
 	# check arguments
 	#
 
-	required_options = ["e_thinca_parameter", "effective_snr"]
+	required_options = ["e_thinca_parameter", "weighted_snr", "weight_factor"]
 	missing_options = [option for option in required_options if getattr(options, option) is None]
 	if missing_options:
 		raise ValueError, "missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options)
-	if options.effective_snr not in ("inspiral", "gstlal"):
-		raise ValueError, "unrecognized --effective-snr %s" % options.effective_snr
+	if options.weighted_snr not in ("rawsnr", "gstlal","effsnr","newsnr"):
+		raise ValueError, "unrecognized --weighted-snr %s" % options.weighted_snr
 
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
@@ -147,12 +147,18 @@ options, filenames = parse_command_line()
 
 
 #
-# Select effective SNR form
+# Select a chisq weighted SNR form
 #
+# FIXME:  The formulas for the ChiSq weighted SNRs below can all be found as methods
+# in the glue.ligolw.lsctables.SnglInspiralTable class. These should be used rather
+# than redefining each statistic every time they are called for.
 
-
-if options.effective_snr == "gstlal":
-	ligolw_thinca.SnglInspiral.get_effective_snr = lambda self, fac: self.snr / math.sqrt(self.chisq)
+if options.weighted_snr == "newsnr":
+	ligolw_thinca.SnglInspiral.get_weighted_snr = lambda self, fac: self.snr/(0.5*(1+(self.chisq/(2*self.chisq_dof-2))**(fac/2.0)))**(1.0/fac)
+elif options.weighted_snr == "effsnr":
+	ligolw_thinca.SnglInspiral.get_weighted_snr = lambda self, fac: self.snr/(1+self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof-2))**(0.25)
+elif options.weighted_snr == "gstlal":
+	ligolw_thinca.SnglInspiral.get_weighted_snr = lambda self: self.snr / math.sqrt(self.chisq)
 
 
 #
@@ -223,11 +229,11 @@ for n, filename in enumerate(filenames):
 		force = options.force,
 		e_thinca_parameter = options.e_thinca_parameter,
 		exact_mass = options.exact_mass,
-		effective_snr_factor = options.effective_snr_factor,
+		weighted_snr = options.weighted_snr,
+		weight_factor = options.weight_factor,
 		vetoes_name = options.vetoes_name,
 		search_group = options.search_group,
 		trigger_program = options.trigger_program,
-		effective_snr = options.effective_snr,
 		coinc_end_time_segment = options.coinc_end_time_segment,
 		depop_sngl_inspiral = options.depop_sngl_inspiral,
 		verbose = options.verbose
@@ -280,7 +286,7 @@ for n, filename in enumerate(filenames):
 		event_comparefunc = event_comparefunc,
 		thresholds = options.e_thinca_parameter,
 		ntuple_comparefunc = ntuple_comparefunc,
-		effective_snr_factor = options.effective_snr_factor,
+		weight_factor = options.weight_factor,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,
 		verbose = options.verbose

@@ -74,7 +74,7 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 #
 
 
-class SnglInspiral(snglinspiraltable.SnglInspiralTable):
+class SnglInspiral( snglinspiraltable.SnglInspiralTable):
 	__slots__ = ()
 
 	def get_end(self):
@@ -83,8 +83,8 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_effective_snr(self, fac):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25)
+	def get_weighted_snr(self, fac):
+		return self.snr
 
 	def __eq__(self, other):
 		return not (
@@ -129,12 +129,13 @@ def append_process(
 	force = None,
 	e_thinca_parameter = None,
 	exact_mass = None,
-	effective_snr_factor = None,
+	weighted_snr = None,
+	weight_factor = None,
 	vetoes_name = None,
 	search_group = None,
 	trigger_program = None,
-	effective_snr = None,
 	coinc_end_time_segment = None,
+	depop_sngl_inspiral = None,
 	verbose = None
 ):
 	process = llwapp.append_process(
@@ -153,16 +154,16 @@ def append_process(
 		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
 		params += [(u"--force", None, None)]
-	if effective_snr_factor is not None:
-		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
+	if weighted_snr is not None:
+		params += [(u"--weighted-snr", u"lstring", weighted_snr)]
+	if weight_factor is not None:
+		params += [(u"--weight-factor", u"real_8", weight_factor)]
 	if vetoes_name is not None:
 		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
 	if search_group is not None:
 		params += [(u"--search-group", u"lstring", search_group)]
 	if trigger_program is not None:
 		params += [(u"--trigger-program", u"lstring", trigger_program)]
-	if effective_snr is not None:
-		params += [(u"--effective-snr", u"lstring", effective_snr)]
 	if coinc_end_time_segment is not None:
 		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
 	if exact_mass is not None:
@@ -236,7 +237,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, effective_snr_factor):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, weight_factor):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
@@ -262,7 +263,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		if all(event.chisq for event in events):
-			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
+			coinc_inspiral.snr = math.sqrt(sum(event.get_weighted_snr(fac = weight_factor)**2 for event in events))
 		else:
 			# would get divide-by-zero without a \chi^{2} value
 			coinc_inspiral.snr = None
@@ -475,7 +476,7 @@ def ligolw_thinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = default_ntuple_comparefunc,
-	effective_snr_factor = 250.0,
+	weight_factor = None,
 	veto_segments = None,
 	trigger_program = u"inspiral",
 	likelihood_func = None,
@@ -546,7 +547,13 @@ def ligolw_thinca(
 	for node, coinc in time_slide_graph.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose):
 		ntuple = tuple(sngl_index[id] for id in coinc)
 		if not ntuple_comparefunc(ntuple, node.offset_vector):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+			coinc_tables.append_coinc(
+				process_id,
+				node.time_slide_id,
+				coinc_def_id,
+				ntuple,
+				weight_factor
+			)
 
 	#
 	# remove time offsets from events
