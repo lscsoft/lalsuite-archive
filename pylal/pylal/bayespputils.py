@@ -2068,12 +2068,14 @@ def plot_one_param_pdf_kde(fig,onedpos):
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
-    gkde=onedpos.gaussian_kde
-
-    ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
-    kdepdf=gkde.evaluate(ind)
-    plt.plot(ind,kdepdf,color='green')
-
+    try:
+        gkde=onedpos.gaussian_kde
+    except np.linalg.linalg.LinAlgError:
+        print 'Singular matrix in KDE. Skipping'
+    else:
+        ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
+        kdepdf=gkde.evaluate(ind)
+        plt.plot(ind,kdepdf,color='green')
     return
 
 def plot_one_param_pdf_line_hist(fig,pos_samps):
