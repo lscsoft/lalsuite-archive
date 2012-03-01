@@ -138,7 +138,11 @@ def pulsarBayesPostProc( outdir, data,
   
   # if h0 exists plot the pdf
   if 'H0' in plotpars:
-    plotFig, ulvals = pppu.plot_posterior_hist( poslist, 'H0'.lower(), ifos, \
+    # set bounds of h0
+    bounds = [0, float("inf")]
+    
+    plotFig, ulvals = pppu.plot_posterior_hist( poslist, 'H0'.lower(), bounds \ 
+                                                ifos, \
                                                 histbins, \
                                                 upperlimit )
     
