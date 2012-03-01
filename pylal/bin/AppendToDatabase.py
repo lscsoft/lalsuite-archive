@@ -32,16 +32,120 @@ import os
 import getpass
 
 import numpy as np
+from numpy import log,loadtxt,vstack,array,exp,size,argsort
+from numpy.random import rand
 
 #local application/library specific imports
-#from pylal import SimInspiralUtils
-#from pylal import bayespputils as bppu
+from pylal import SimInspiralUtils
+from pylal import bayespputils as bppu
 from pylal import git_version
+from optparse import OptionParser
+#from combine_evidence import combine_evidence
 
 __author__="Salvatore  Vitale <salvatore.vitale@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
+
+### Functions borrowed from combine_evidence.py, as I did not find how to import them from here ###
+def loaddata(datalist):
+    out = list(map(np.loadtxt,datalist))
+    Bfiles = list(map(getBfile,datalist))
+    return out,Bfiles
+def getBfile(datname):
+    Bfile=datname+'_B.txt'
+    print 'Looking for '+Bfile
+    if os.access(Bfile,os.R_OK):
+        outstat = np.loadtxt(Bfile)
+        return outstat
+    else:
+        return None
+def weightsamp(d,Nlive):
+    #creates an array of vectors containing weights for every sample in every segment
+    total_weight=[]
+    for outfile in d:
+        N=len(outfile[:,0])
+        N_weighted = N - Nlive
+        segment_weight=[]
+        for i in range(1,N_weighted + 1):
+            logw = -(i)/Nlive
+            segment_weight.append(logw)
+        for i in range(N_weighted + 1,N + 1):
+            logw = -N_weighted / Nlive
+            segment_weight.append(logw)
+        total_weight += segment_weight
+    return total_weight
+
+def nest2pos(samps,weights):
+    randoms=rand(size(samps,0))
+    wt=weights+samps[:,-1]
+    maxwt=max(wt)
+    #posidx=find(wt>maxwt+log(randoms))
+    posidx=[i for i in range(0,size(weights)) if wt[i]>maxwt+log(randoms[i]) ]
+    pos=samps[posidx,:]
+    return pos
+    
+def prodnoise(B):
+    """
+    Calculates sum (logZnoise[i] for i!=j) for each j to get logZ to add to each of the input files
+    """
+    N=len(B)
+    totalnoise=[]
+    for i in range(0,N):
+        tn=0
+    for j in range(0,N):
+        if i!=j:
+            tn+=B[j,2]
+        totalnoise.append(tn)
+    return totalnoise
+    
+def combine_evidence(data,xflag,Nlive):
+
+    nfiles=len(data)
+
+    #load in seperate data files#
+    #datalist = makelist(path)
+    (d,Bfiles) = loaddata(data)
+    Barray = reduce(lambda x,y: vstack([x,y]), Bfiles)
+
+    #Calculate total Bayes factor#
+    if len(data)>1:
+        ZnoiseTotal=sum(Barray[:,2])-log(len(data))
+        totalBayes= reduce(logadd,Barray[:,0])
+        totalBayes= float(totalBayes) - log(len(data)) #divide by 60 because we used 60 priors
+    else:
+        totalBayes=Barray[0]
+        ZnoiseTotal=Barray[2]
+    print "Total Bayes Factor= %f" %totalBayes
+
+    #Scale likelihoods for entire sample#
+    #Make list of sum(noise evidence), excepting current noise evidence)
+    if len(data)>1:
+        totalnoise = prodnoise(Barray)
+    else: totalnoise=array([0])
+    # Add logZnoise for other files to likelihoods for each sample
+    if not None in Bfiles:
+        for (outfile,noise) in zip(d,totalnoise):
+            outfile[:,-1]+=noise
+
+    #Remapping Parameters#
+    #for outfile in d:
+        #outfile[:,0]=exp(outfile[:,0])
+        #outfile[:,4]=exp(outfile[:,4])
+        #if xflag:
+            #outfile[:,8]=x2iota(outfile[:,8])
+
+    #Posterior Samples
+    weights=weightsamp(d,Nlive)
+    d_all = reduce(lambda x,y: vstack([x,y]), d)
+    pos=nest2pos(d_all,weights)
+
+    d_idx=argsort(d_all[:,-1])
+    d_all=d_all[d_idx,:]
+
+    return pos,d_all,totalBayes,ZnoiseTotal
+
+###                                         ###
 
 def vararg_callback(option, opt_str, value, parser):
     assert value is None
@@ -87,37 +191,42 @@ def AppendToDatabase(   path,
                         time,
                         testP,
                         seed,
-                        local_pc
+                        local_pc,
+                        Nlive=1000,
+                        injection=0 #injnum
                         #misc. optional
                         #injfile=None,eventnum=None,skyres=None,
                        
                     ):
     
-    """
-    """
-    #clusters={"pcdev1.phys.uwm.edu":"Nemo","marlin.phys.uwm.edu":"Marlin","hydra.phys.uwm.edu":"Hydra","atlas1.atlas.aei.uni-hannover.de":"Atlas1","atlas2.atlas.aei.uni-hannover.de":"Atlas2","atlas3.atlas.aei.uni-hannover.de":"Atlas3","atlas4.atlas.aei.uni-hannover.de":"Atlas4","titan1.atlas.aei.uni-hannover.de":"Titan1","titan2.atlas.aei.uni-hannover.de":"Titan2","titan3.atlas.aei.uni-hannover.de":"Titan3","ldas-grid.ligo.caltech.edu":"Cit","sugar.phy.sys.edu":"Sugar","ldas-grid.ligo-la.caltech.edu":"LLO","ldas-grid.ligo-wa.caltech.edu":"LHO1","ldas-pcdev1.ligo-wa.caltech.edu":"LHO2"}
-    #for un in os.uname():
-    #    if un in clusters.keys():
-    #        local_pc=clusters[un]
-    #        break
-    #    else:
-    #        local_pc=os.uname()[1]
-            
+    ###### To do: I can actually make the safe_append.sh  to call a python to append. That will me able to check e.g. whether the line to be appended is already present 
+    
+    unwanted_pars=['psi','phi','logl']
+    
     header=" "
     string_to_write=""
+    posteriors_string=""
     string_to_write+=str(seed)+" "
+    posteriors_string+=str(seed)+" "
     header+="InspinjSeed "
     header+="User "
+    
     string_to_write+=str(getpass.getuser())+" "
     string_to_write+=str(local_pc)+" "
+    posteriors_string+=str(getpass.getuser())+" "
+    posteriors_string+=str(local_pc)+" "
     header+=str("cluster  time" )+ " "
     string_to_write+=str(time)+" "
+    posteriors_string+=str(time)+" "
     found=0
+    found_posteriors=0
     failed={}
 
     for hyp in sorted(subhyp,my_sort):
         path_to_snr=os.path.join(path,hyp,'SNR',"snr_H1L1V1_"+str(time)+".0.dat")
         path_to_Bfile=os.path.join(path,hyp,'nest',"outfile_"+str(time)+".000000_H1L1V1.dat_B.txt")
+        path_to_outfile=os.path.join(path,hyp,'nest',"outfile_"+str(time)+".000000_H1L1V1.dat")
+        path_to_headerfile=os.path.join(path,hyp,'nest',"outfile_"+str(time)+".000000_H1L1V1.dat_params.txt")
         if os.path.isfile(path_to_Bfile):
             bfile=np.loadtxt(path_to_Bfile)
             logB=bfile[0]
@@ -128,6 +237,39 @@ def AppendToDatabase(   path,
             print "WARNING: The Bfile %s was not found"%str(path_to_Bfile)
             failed[hyp]=str(path_to_Bfile)
             string_to_write+=str(path_to_Bfile)+" "
+        if (os.path.isfile(path_to_outfile) and os.path.isfile(path_to_headerfile) and os.path.isfile(path_to_Bfile)):
+            found_posteriors+=1
+            data=path_to_outfile
+            pos,d_all,totalBayes,ZnoiseTotal=combine_evidence([data],0,Nlive)
+            headerfile=open(path_to_headerfile,'r')
+            headerstr=headerfile.readline()
+            headerfile.close()
+            
+            if  os.access(os.getenv("HOME"), os.W_OK):
+                posfile_path=os.path.join(os.getenv("HOME"),'tmp.txt')
+            else:
+                print "Cannot write temporary files into %s!\n"%posfile_path
+                ### I still need to catch a possible error here
+
+            posfile=open(posfile_path,'w')
+            posfile.write(headerstr+'\n')
+            for row in pos:
+                for i in row:
+                    posfile.write('%f\t' %(i))
+                posfile.write('\n')
+            
+            posfile.close()
+
+            peparser=bppu.PEOutputParser('common')
+            commonResultsObj=peparser.parse(open(posfile_path,'r'))
+            injection=None
+            pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection)
+            for name in pos.names:
+                if not (name in unwanted_pars):
+                    print "mean %s was %f std %f\n"%(name,pos[str(name)].mean,pos[str(name)].stdev)
+                    posteriors_string+="%f %f "%(pos[str(name)].median,pos[str(name)].stdev)
+            os.remove(posfile_path)
+
                
     if found < len(subhyp):
         print "ERROR, some of the B files were not found. This is probably due to some failed inspnest run(s)"
@@ -137,16 +279,26 @@ def AppendToDatabase(   path,
         snrfile=np.loadtxt(path_to_snr,skiprows=3,usecols=(1,1))
         snr=snrfile[0]
         string_to_write+="%.2f"%snr+" "
-        header+=str("NetSNR ")
+    else:
+        string_to_write+="SNRnotFound"
+        ### If the SNR file it not present it just writes that in the string
+    header+=str("NetSNR ")
+
 
     string_to_write+=str(testP)+" "
     header+=str("testParameter_ShiftPc ")
     remote_server=remote_script[0:remote_script.index(":")]
     path_remote_script=remote_script[remote_script.index(":")+1:]
+    ### Writes inspinj seed, user cluster time  bayes and SNRs
+    ### If any of the subhypotheses failed, it writes in a different file
+    os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+'"') 
+     
+    if (not found < len(subhyp)) and (not found_posteriors< len(subhyp)) :
+        ### If all the subhypotheses are ok (B files exist) AND the posterior files are present, write the parameters
+        remote_database=remote_database+"_parameters"
+        os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +posteriors_string +"' "+ remote_database+'"')  
 
-    #print "ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+'"'
-    #os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+" '" +header +"' "+'"')    
-    os.system("ssh "+remote_server + ' "'+ path_remote_script + " '" +string_to_write +"' "+ remote_database+'"')  
+
 
 if __name__=='__main__':
 
@@ -160,7 +312,9 @@ if __name__=='__main__':
     parser.add_option("-Q","--inspinj-seed",default=None,action="store",type="string",help="The unique value of the inspinj seed", metavar="700000")
     parser.add_option("-t","--event-time",type="string",action="store",help="The time of injection", metavar="939936910")
     parser.add_option("-c","--cluster",type="string",action="store",help="The cluster from which the pipeline is being run", metavar="Atlas1")
-
+    parser.add_option("-N","--Nlive",default=1000,action="store",type="int",help="The number of live points used in the inspnest rum", metavar="1000")
+    parser.add_option("-E","--eventnum",default=0,action="store",type="int",help="The eventnum in the injfile", metavar="0")
+    parser.add_option("-I","--injfile",default=None,action="store",type="string",help="The injection file", metavar="My_injections.xml")
     (opts,args)=parser.parse_args()
 
 
@@ -172,6 +326,8 @@ if __name__=='__main__':
                         opts.event_time,
                         opts.testParam_ShiftPc,
                         opts.inspinj_seed,
-                        opts.cluster
+                        opts.cluster,
+                        Nlive=opts.Nlive,
+                        injection=  opts.eventnum
                     )
 #
