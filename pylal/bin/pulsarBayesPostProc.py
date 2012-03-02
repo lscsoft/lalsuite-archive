@@ -141,10 +141,8 @@ def pulsarBayesPostProc( outdir, data,
     # set bounds of h0
     bounds = [0, float("inf")]
     
-    plotFig, ulvals = pppu.plot_posterior_hist( poslist, 'H0'.lower(), bounds \ 
-                                                ifos, \
-                                                histbins, \
-                                                upperlimit )
+    plotFig, ulvals = pppu.plot_posterior_hist( poslist, 'H0'.lower(), ifos, 
+                                                bounds, histbins, upperlimit )
     
     # output plots for each IFO
     for i, ifo in enumerate(ifos):
@@ -176,12 +174,6 @@ nest1_L1.txt,nest2_L1.txt,nest3_L1.txt --parfile J0534-2200.par --Nlive 1000 \
   
   parser.add_option("-o", "--outpath", dest="outpath", help="The path for "
                     "the analysis output", metavar="DIR")
-                    
-  # check that output path has been given
-  if not opts.__dict__['outpath']:
-    print "Must specify an output path"
-    parser.print_help()
-    exit(-1)
   
   """
    data will be read in in the following format:
@@ -194,24 +186,12 @@ nest1_L1.txt,nest2_L1.txt,nest3_L1.txt --parfile J0534-2200.par --Nlive 1000 \
                     "of nested sampling data files for a particular IFO " 
                     "separated by commas (each IFO should use a separate " 
                     "instance of --data)")
-                    
-  # check that some data has been given
-  if not opts.__dict__['data']:
-    print "Must specify nested sampling data files"
-    parser.print_help()
-    exit(-1)
 
   # number of live points
   parser.add_option("-N", "--Nlive", action="store", default=None, help="Number"
                     " of live points used in each parallel nested sampling "
                     "run. [required]", type="int", metavar="nlive",
                     dest="nlive")
-  
-  # check that number of live points has been set
-  if not opts.__dict__['nlive']:
-    print "Must specify number of live points used in analysis"
-    parser.print_help()
-    exit(-1)
   
   # Turn on 2D kdes
   #parser.add_option("--twodkdeplots", action="store_true", default=False,
@@ -226,12 +206,6 @@ nest1_L1.txt,nest2_L1.txt,nest3_L1.txt --parfile J0534-2200.par --Nlive 1000 \
                     "pulsar parameter file used in the analysis. [required]", 
                     metavar="PNAME.par", default=None)
   
-  # check that parfile has been given
-  if not opts.__dict__['parfile']:
-    print "Must specify a pulsar TEMPO .par file"
-    parser.print_help()
-    exit(-1)
-  
   # get pulsar correlation coefficient file
   parser.add_option("-c", "--corfile", dest="corfile", help="The TEMPO pulsar "
                     "correlation coefficient - if used in the analysis."
@@ -242,12 +216,6 @@ nest1_L1.txt,nest2_L1.txt,nest3_L1.txt --parfile J0534-2200.par --Nlive 1000 \
                     "file used in the analysis. [required]",
                     metavar="prior.txt")
   
-  # check that a prior file has been given
-  if not opts.__dict__['priorfile']:
-    print "Must specify a prior file used during nested sampling"
-    parser.print_help()
-    exit(-1)
-  
   # get heterodyned data files used for analysis
   parser.add_option("-B", "--Bkfiles", dest="Bkfiles", action="append", 
                     help="A heterodyned data file. [optional]", default=None)
@@ -257,11 +225,6 @@ nest1_L1.txt,nest2_L1.txt,nest3_L1.txt --parfile J0534-2200.par --Nlive 1000 \
                     "interferometers from which analysis output, and data "
                     "files have been supplied. [required]", action="append",
                     default=None)
-                    
-  if not opts.__dict__['ifos']:
-    print "Must specify the interferometers analysed"
-    parser.print_help()
-    exit(-1)
   
   # get number of bins for histogramming (default = 50)
   parser.add_option("-b", "--histbins", dest="histbins", help="The number of " \
@@ -269,6 +232,41 @@ nest1_L1.txt,nest2_L1.txt,nest3_L1.txt --parfile J0534-2200.par --Nlive 1000 \
   
   # parse input options
   (opts, args) = parser.parse_args()
+  
+  # check that output path has been given
+  if not opts.__dict__['outpath']:
+    print "Must specify an output path"
+    parser.print_help()
+    exit(-1)
+  
+  # check that some data has been given
+  if not opts.__dict__['data']:
+    print "Must specify nested sampling data files"
+    parser.print_help()
+    exit(-1)
+    
+  # check that number of live points has been set
+  if not opts.__dict__['nlive']:
+    print "Must specify number of live points used in analysis"
+    parser.print_help()
+    exit(-1)
+    
+  # check that parfile has been given
+  if not opts.__dict__['parfile']:
+    print "Must specify a pulsar TEMPO .par file"
+    parser.print_help()
+    exit(-1)
+    
+  # check that a prior file has been given
+  if not opts.__dict__['priorfile']:
+    print "Must specify a prior file used during nested sampling"
+    parser.print_help()
+    exit(-1)
+    
+  if not opts.__dict__['ifos']:
+    print "Must specify the interferometers analysed"
+    parser.print_help()
+    exit(-1)
   
   # upper limits wanted for output
   upperlimit=0.95
