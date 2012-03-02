@@ -500,6 +500,31 @@ pylab.close()
 
 eff_file.close()
 
+# histograms for SNR with pre-set FAPthr
+for fapthr in [0.05, 0.1, 0.2, 0.4]:
+  fig_num += 1
+  pylab.figure(fig_num)
+  pylab.hist(glitches['signif'],400,histtype='step',cumulative=-1,label='before vetoing')
+  for cls in classifiers:
+    rank_name = cls[0]+'_rank'
+    glitches_vetoed = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] > fapthr)[0],:]
+    pylab.hist(glitches_vetoed['signif'],400,histtype='step',cumulative=-1,label=cls[0])  
+  pylab.title("Cumulative histogram for Significance  of glitches after vetoing at FAP "+str(fapthr))
+  pylab.xlabel('Significance')
+  pylab.ylabel('Number of Glitches')
+  pylab.xscale('log')
+  pylab.yscale('log')
+  pylab.xlim(xmin=min(glitches['signif']), xmax=max(glitches['signif']))
+  pylab.legend()
+  # adding to html page
+  name = '_cumul_hist_signif_fap'+str(fapthr)
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+  pylab.close()
+
+
 # histograms over Classifier's rank
 for cls in classifiers:
   fig_num += 1
@@ -525,32 +550,42 @@ for cls in classifiers:
 
 # scatter plots of FAR from one classifier vs. FAR from another
 # we iterate through all pairs of classifiers.
-# This will generate 'duplicate' plots with axes switched, but whatever
+start = 0
 for cls in classifiers:
-  for cls2 in classifiers:
-    if cls[0] == cls2[0]:
-      pass
-    else:
-      fig_num += 1
-      pylab.figure(fig_num)
+  start +=1
+  for ind in range(start, len(classifiers)):
+    cls2 = classifiers[ind]
+    fig_num += 1
+    pylab.figure(fig_num)
+    sigthr = [10, 15, 25, 50]
+    for index in [0,1,2,3]:
+      pylab.subplot(2,2,index+1)
       pylab.hold(True)
       # plot all glitches
-      pylab.loglog(glitches[cls[0] + '_fap'], glitches[cls2[0] + '_fap'], marker = 'x', linestyle = 'none', label = 'all glitches')
-      # plot subsets of glitches based on 'signif'
-      for sigthr in [10, 15, 25, 50]:
-        g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
-        pylab.loglog(g_rem[cls[0]+'_fap'], g_rem[cls2[0]+'_fap'], marker = 'x', linestyle = 'none', label = 'signif >= ' + repr(sigthr))
-      pylab.xlabel(cls[0] + '_fap')
-      pylab.ylabel(cls2[0] + '_fap')
-      pylab.title('Scatter Plot of ' + cls[0] + '_fap vs ' + cls2[0] + '_fap')
-      pylab.legend(loc = 'best')
-      #adding to html page
-      name = '_scatter_' + cls[0] + '_fap_vs_' + cls2[0] + '_fap'
-      fname = InspiralUtils.set_figure_name(opts, name)
-      fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(name)
-      pylab.close()
+      pylab.plot(glitches[cls[0] + '_fap'], glitches[cls2[0] + '_fap'], color = 'blue', marker = 'x', linestyle = 'none', label = 'all glitches')
+      # plot glitches based on 'signif'
+      g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr[index])[0],:]
+      pylab.plot(g_rem[cls[0]+'_fap'], g_rem[cls2[0]+'_fap'], markeredgecolor = 'red', marker = 'o', markerfacecolor = 'none' ,linestyle = 'none', label = 'signif >= ' + repr(sigthr[index]))
+      if index+1 == 1:
+        pylab.ylabel(cls2[0]+'_fap')
+      if index+1 == 3:
+        pylab.ylabel(cls2[0] + '_fap')
+        pylab.xlabel(cls[0] + '_fap')
+      if index+1 == 4:
+        pylab.xlabel(cls[0]+'_fap')
+      pylab.title('signif >= ' + repr(sigthr[index]))
+#      pylab.legend(loc = 'best')
+      pylab.xscale('log')
+      pylab.yscale('log')
+    pylab.subplot(2,2,1)
+#    pylab.title('Scatter Plot of ' + cls[0] + '_fap vs ' + cls2[0] + '_fap')
+    #adding to html page
+    name = '_scatter_' + cls[0] + '_fap_vs_' + cls2[0] + '_fap'
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+    pylab.close()
 
 
 ##############################################################################################################
