@@ -120,20 +120,21 @@ def set_ticks(ax, calendar_time=False):
     dateLocator.refresh()
     scale = float( dateLocator._get_unit() )
     if ( scale == 365.0 ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%Y")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%Y$")
     elif ( scale == 30.0 ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%y/%b ")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%y$/$%m$")
     elif ( (scale == 1.0) or (scale == 7.0) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%b %d")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%m$/$%d$")
     elif ( scale == (1.0/24.0) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%d-%H")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%d$-$%H$")
     elif ( scale == (1.0/(24*60)) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%H$:$%M$")
     elif ( scale == (1.0/(24*3600)) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%H$:$%M$")
   
-    ax.xaxis.set_major_locator(pylab.matplotlib.dates.AutoDateLocator())
+    ax.xaxis.set_major_locator(dateLocator)
     ax.xaxis.set_major_formatter(dateFormatter)
+
   else:
     # set xticks for 4 hours rather than 5
     xticks = ax.get_xticks()
@@ -204,7 +205,7 @@ def gps2datenum(gpstime):
     Convert GPS time into floating in standard python time format
     (days since Jan 01 0000), don't seem to use properly leap seconds
   """
-
+  
   # set time of 0 GPS in datenum units
   zeroGPS = 722820.0
   ## correct for leap seconds assuming that all time stamps are within
@@ -225,6 +226,21 @@ def gps2datenum(gpstime):
 
   return datenum
 
+def calendar_time_unit(duration):
+
+  if duration > 63072000:
+    return "year"
+  elif duration > 5184000:
+    return "year/month"
+  elif duration > 604800:
+    return "month/day"
+  elif duration > 7200:
+    return "day-hour"
+  elif duration > 600:
+    return "hour:minute"
+  else: 
+    return "hour:minute:second"
+  
 def time_unit(duration):
 
   """
