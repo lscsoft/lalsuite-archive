@@ -670,8 +670,8 @@ class Posterior(object):
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
                         'f_lower': lambda inj: inj.f_lower,
-                        'a1':_inj_a1,
-                        'a2':_inj_a2,
+                        'a1': lambda inj: np.sqrt(inj.spin1x**2+inj.spin1y**2+inj.spin1z**2) ,
+                        'a2': lambda inj: np.sqrt(inj.spin2x**2+inj.spin2y**2+inj.spin2z**2) ,
                         'theta1':_inj_theta1,
                         'theta2':_inj_theta2,
                         'phi1':_inj_phi1,
@@ -2406,7 +2406,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
-
+        if(par1_injvalue is not None and par2_injvalue is not None):
+            plt.plot([par1_injvalue],[par2_invalue],'go',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2997,13 +2998,35 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-            
-
+                       
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
         posfilename='posterior_samples.dat'
         posfile=open(posfilename,'w')
-        posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
+       
+        #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
+        #psi \t iota \t likelihood \n')
+        # get parameter list
+        it = iter(files)
+        
+        # check if there's a file containing the parameter names
+        parsfilename = it.next()+'_params.txt'
+        
+        if os.path.isfile(parsfilename):
+            print 'Looking for '+parsfilename
+            if os.access(parsfilename,os.R_OK):
+                parsfile = open(parsfilename,'r')
+                outpars = parsfile.readline()
+                parsfile.close()
+            else:
+              print "Need files of parameters "+parsfilename
+              raise
+        
+            posfile.write(outpars)
+        else: # use hardcoded CBC parameter names 
+            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+dec \t psi \t iota \t likelihood \n')     
+        
         for row in pos:
             for i in row:
                 posfile.write('%.12e\t' %(i))
