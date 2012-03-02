@@ -670,8 +670,8 @@ class Posterior(object):
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
                         'f_lower': lambda inj: inj.f_lower,
-                        'a1':_inj_a1,
-                        'a2':_inj_a2,
+                        'a1': lambda inj: np.sqrt(inj.spin1x**2+inj.spin1y**2+inj.spin1z**2) ,
+                        'a2': lambda inj: np.sqrt(inj.spin2x**2+inj.spin2y**2+inj.spin2z**2) ,
                         'theta1':_inj_theta1,
                         'theta2':_inj_theta2,
                         'phi1':_inj_phi1,
@@ -1251,6 +1251,71 @@ class ParameterSample(object):
         Return the coordinates for the parameter sample.
         """
         return self._samples[self._coord_indexes]
+
+
+class AnalyticLikelihood(object):
+    """
+    Return analytic likelihood values.
+    """
+
+    def __init__(self, covariance_matrix_files, mean_vector_files):
+        """
+        Prepare analytic likelihood for the given parameters.
+        """
+        covarianceMatrices = [np.loadtxt(csvFile, delimiter=',') for csvFile in covariance_matrix_files]
+        num_matrices = len(covarianceMatrices)
+
+        if num_matrices != len(mean_vector_files):
+            raise RuntimeError('Must give a mean vector list for every covariance matrix')
+
+        param_line = open(mean_vector_files[0]).readline()
+        self._params = [param.strip() for param in param_line.split(',')]
+
+        converter=lambda x: eval(x.replace('pi','%.32f'%pi_constant))  # converts fractions w/ pi (e.g. 3.0*pi/2.0)
+        self._modes = []
+        for i in range(num_matrices):
+            CM = covarianceMatrices[i]
+            vecFile = mean_vector_files[i]
+
+            param_line = open(vecFile).readline()
+            params = [param.strip() for param in param_line.split(',')]
+            if set(params)!=set(self._params):
+                raise RuntimeError('Parameters do not agree between mean vector files.')
+
+            sigmas = dict(zip(params,np.sqrt(CM.diagonal())))
+            colNums = range(len(params))
+            converters = dict(zip(colNums,[converter for i in colNums]))
+            meanVectors = np.loadtxt(vecFile, delimiter=',', skiprows=1, converters=converters)
+            try:
+                for vec in meanVectors:
+                    means = dict(zip(params,vec))
+                    mode = [(param, stats.norm(loc=means[param],scale=sigmas[param])) for param in params]
+                    self._modes.append(dict(mode))
+            except TypeError:
+                means = dict(zip(params,meanVectors))
+                mode = [(param, stats.norm(loc=means[param],scale=sigmas[param])) for param in params]
+                self._modes.append(dict(mode))
+        self._num_modes = len(self._modes)
+
+    def pdf(self, param):
+        """
+        Return PDF function for parameter.
+        """
+        pdf = None
+        if param in self._params:
+            pdf = lambda x: (1.0/self._num_modes) * sum([mode[param].pdf(x) for mode in self._modes])
+        return pdf
+
+    def cdf(self, param):
+        """
+        Return PDF function for parameter.
+        """
+        cdf = None
+        if param in self._params:
+            cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
+        return cdf
+
+
 
 #===============================================================================
 # Web page creation classes (wrap ElementTrees)
@@ -2003,19 +2068,21 @@ def plot_one_param_pdf_kde(fig,onedpos):
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
-    gkde=onedpos.gaussian_kde
-
-    ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
-    kdepdf=gkde.evaluate(ind)
-    plt.plot(ind,kdepdf)
-
+    try:
+        gkde=onedpos.gaussian_kde
+    except np.linalg.linalg.LinAlgError:
+        print 'Singular matrix in KDE. Skipping'
+    else:
+        ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
+        kdepdf=gkde.evaluate(ind)
+        plt.plot(ind,kdepdf,color='green')
     return
 
 def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -2023,6 +2090,10 @@ def plot_one_param_pdf(posterior,plot1DParams):
     @param posterior: an instance of the Posterior class.
 
     @param plot1DParams: a dict; {paramName:Nbins}
+
+    @param analyticPDF: an analytic probability distribution function describing the distribution.
+
+    @param analyticCDF: an analytic cumulative distribution function describing the distribution.
 
     """
 
@@ -2037,9 +2108,15 @@ def plot_one_param_pdf(posterior,plot1DParams):
     myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
-    histbinSize=bins[1]-bins[0]
-
     plot_one_param_pdf_kde(myfig,posterior[param])
+    histbinSize=bins[1]-bins[0]
+    if analyticPDF:
+        (xmin,xmax)=plt.xlim()
+        x = np.linspace(xmin,xmax,2*len(bins))
+        plt.plot(x, analyticPDF(x), color='red', linewidth=2, linestyle='dashed')
+        if analyticCDF:
+            D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
+            plt.title("%s: ks p-value %.3f"%(param,p))
 
     rbins=None
 
@@ -2071,7 +2148,6 @@ def plot_one_param_pdf(posterior,plot1DParams):
         locs, ticks = plt.xticks()
         newlocs, newticks = formatRATicks(locs)
         plt.xticks(newlocs,newticks,rotation=45)
-        print 'formatted ra, old '+str(ticks)+' new: '+str(newticks)
     if(param.lower()=='dec' or param.lower()=='declination'):
         locs, ticks = plt.xticks()
         newlocs, newticks = formatDecTicks(locs)
@@ -2128,7 +2204,6 @@ def roundRadAngle(rads,accuracy='all'):
     if accuracy=='arcmin': mult=360*60
     if accuracy=='arcsec': mult=360*60*60
     mult=mult/(2.0*pi_constant)
-    print 'Rounding %lf -> %lf'%(rads,round(rads*mult)/mult)
     return round(rads*mult)/mult
 
 def getRAString(radians,accuracy='auto'):
@@ -2331,7 +2406,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
-
+        if(par1_injvalue is not None and par2_injvalue is not None):
+            plt.plot([par1_injvalue],[par2_invalue],'go',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2922,13 +2998,35 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-            
-
+                       
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
         posfilename='posterior_samples.dat'
         posfile=open(posfilename,'w')
-        posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
+       
+        #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
+        #psi \t iota \t likelihood \n')
+        # get parameter list
+        it = iter(files)
+        
+        # check if there's a file containing the parameter names
+        parsfilename = it.next()+'_params.txt'
+        
+        if os.path.isfile(parsfilename):
+            print 'Looking for '+parsfilename
+            if os.access(parsfilename,os.R_OK):
+                parsfile = open(parsfilename,'r')
+                outpars = parsfile.readline()
+                parsfile.close()
+            else:
+              print "Need files of parameters "+parsfilename
+              raise
+        
+            posfile.write(outpars)
+        else: # use hardcoded CBC parameter names 
+            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+dec \t psi \t iota \t likelihood \n')     
+        
         for row in pos:
             for i in row:
                 posfile.write('%.12e\t' %(i))
