@@ -25,7 +25,7 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>, Paul T Baker <paul.baker@lig
 
 class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
-	parameters = "ds_sq delta_t df dQ gQQ gff gtt gQf gtf gtQ a_snr b_snr coinc_snr snr_ratio"  #null_stat eff_coh_snr
+	parameters = "ds_sq delta_t df dQ gQQ gff gtt gQf gtf gtQ a_snr b_snr coinc_snr snr_ratio a_eff_D b_eff_D eff_D_ratio delta_eff_D"  #null_stat eff_coh_snr
 	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm)
 	select_dimensions="""
 		SELECT
@@ -45,7 +45,11 @@ class CandidateEventQuery:
 			snglA.snr,
 			snglB.snr,
 			coinc_ringdown.snr,
-			max(snglA.snr/snglB.snr,snglB.snr/snglA.snr)"""
+			max(snglA.snr/snglB.snr,snglB.snr/snglA.snr),
+			snglA.eff_dist,
+			snglB.eff_dist,
+			max(snglA.eff_dist/snglB.eff_dist,snglB.eff_dist/snglA.eff_dist),
+			abs(snglA.eff_dist - snglB.eff_dist)"""
 #			coinc_ringdown.null_stat,
 #			coinc_ringdown.eff_coh_snr"""
 	add_join_injections="""
