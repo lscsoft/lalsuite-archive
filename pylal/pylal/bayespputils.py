@@ -2407,7 +2407,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
-            plt.plot([par1_injvalue],[par2_invalue],'go',scalex=False,scaley=False)
+            plt.plot([par1_injvalue],[par2_injvalue],'go',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
