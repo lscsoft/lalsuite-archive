@@ -485,5 +485,4 @@ gateway:
             new = Cache.from_urls(urls, coltype=int)
             new.sort(key=operator.attrgetter("segment"))
             self.add_cache(new)
-            return True
-        return False
+        return segment(start, end) in self._remotecoverage
