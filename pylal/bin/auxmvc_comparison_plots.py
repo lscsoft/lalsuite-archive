@@ -18,6 +18,7 @@ import sys
 import os
 import matplotlib
 matplotlib.use('Agg')
+from mpl_toolkits.axes_grid import ImageGrid
 import pylab
 import pdb
 import numpy
@@ -398,6 +399,27 @@ comments = ""
 if opts.verbose:
   print 'Generating Plots...'
 
+# ROC curves from total_ranked_data[0]
+fig_num += 1
+fig = pylab.figure(fig_num)
+for cls in classifiers:
+  total_data=total_ranked_data[numpy.lexsort((total_ranked_data[cls[0]+'_fap'], total_ranked_data[cls[0]+'_eff']))]
+  pylab.plot(total_data[cls[0]+'_fap'],total_data[cls[0]+'_eff'],label=cls[0])
+pylab.legend(loc = 'lower right')
+pylab.xlabel('False Alarm Probability (fap)')
+pylab.ylabel('Efficiency')
+pylab.xscale('log')
+pylab.yscale('log')
+pylab.xlim(10**-5, 10**0)
+pylab.ylim(10**-4, 10**0)
+pylab.title('Fig. '+str(fig_num)+': ROC Curves from total_ranked_data[]')
+name = '_ROC_'
+fname = InspiralUtils.set_figure_name(opts, name)
+fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+fnameList.append(fname)
+tagList.append(name)
+pylab.close()
+
 
 ## Create scattered plots of Significance vs  SNR for GW Triggers
 fig_num += 1
@@ -416,7 +438,6 @@ fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thum
 fnameList.append(fname)
 tagList.append(name)
 pylab.close()
-
 
 
 ## Create scattered plots of mvc ranks vs. SNR and mvc ranks vs. Significance of GWTriggers
@@ -483,7 +504,7 @@ for cls in classifiers:
 	RankThr = max(glitches_vetoed[cls[0]+'_rank'])
 	eff_file.write(cls[0]+' Efficiency : '+str(efficiency)+', threshold rank :'+str(RankThr)+'\n')
 
-pylab.title("Cumulative histogram for Significance  of glitches after vetoing at FAP "+str(FAPThr))
+pylab.title("Fig. "+str(fig_num)+": Cumulative histogram for Significance  of glitches after vetoing at FAP "+str(FAPThr))
 pylab.xlabel('Significance')
 pylab.ylabel('Number of Glitches')
 pylab.xscale('log')
@@ -509,7 +530,7 @@ for fapthr in [0.05, 0.1, 0.2, 0.4]:
     rank_name = cls[0]+'_rank'
     glitches_vetoed = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] > fapthr)[0],:]
     pylab.hist(glitches_vetoed['signif'],400,histtype='step',cumulative=-1,label=cls[0])  
-  pylab.title("Cumulative histogram for Significance  of glitches after vetoing at FAP "+str(fapthr))
+  pylab.title('Fig. '+str(fig_num)+': Cumulative histogram for Significance  of glitches after vetoing at FAP '+str(fapthr))
   pylab.xlabel('Significance')
   pylab.ylabel('Number of Glitches')
   pylab.xscale('log')
@@ -525,7 +546,7 @@ for fapthr in [0.05, 0.1, 0.2, 0.4]:
   pylab.close()
 
 
-# histograms over Classifier's rank
+# histograms of glitches over Classifier's rank
 for cls in classifiers:
   fig_num += 1
   pylab.figure(fig_num)
@@ -535,18 +556,42 @@ for cls in classifiers:
   # histogram using only a subset of glitches with sufficiently large 'signif'
   for sigthr in [10, 15, 25, 50]:
     glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
-    pylab.hist(glitches_removed[cls[0] + '_rank'], 100, histtype = 'step', label = 'signif >= ' + repr(sigthr))
-  pylab.title('Histogram for Glitches Removed Based on ' + cls[0] + '_rank')
+    if cls[0] == 'cveto':
+      pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', label = 'signif >= ' + repr(sigthr), log=True)
+    else:
+      pylab.hist(glitches_removed[cls[0] + '_rank'], 100, histtype = 'step', label = 'signif >= ' + repr(sigthr))
+  pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + cls[0] + '_rank')
   pylab.xlabel(cls[0] + '_rank')
   pylab.ylabel('Number of Glitches')
   pylab.legend(loc = 'upper center')
   #adding to the html page
-  name = '_hist_' + cls[0] + '_rank'
+  name = '_hist_glitches_' + cls[0] + '_rank'
   fname = InspiralUtils.set_figure_name(opts, name)
   fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
   tagList.append(name)
   pylab.close()
+
+# histograms of clean samples over Classifier's rank
+for cls in classifiers:
+  if cls[0] == 'cveto':
+    pass
+  else:
+    fig_num +=1
+    pylab.figure(fig_num)
+    pylab.hold(True)
+    #histogram using all clean samples
+    pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step',label = 'all')
+    pylab.title('Fig. '+str(fig_num)+': Histogram for Clean Samples Based on '+cls[0]+'_rank')
+    pylab.xlabel(cls[0]+'_rank')
+    pylab.ylabel('Number of Samples')
+    #adding to html page
+    name = '_hist_cleans'+cls[0]+'_rank'
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+    pylab.close()
 
 # scatter plots of FAR from one classifier vs. FAR from another
 # we iterate through all pairs of classifiers.
@@ -555,37 +600,164 @@ for cls in classifiers:
   start +=1
   for ind in range(start, len(classifiers)):
     cls2 = classifiers[ind]
-    fig_num += 1
-    pylab.figure(fig_num)
-    sigthr = [10, 15, 25, 50]
-    for index in [0,1,2,3]:
-      pylab.subplot(2,2,index+1)
-      pylab.hold(True)
-      # plot all glitches
-      pylab.plot(glitches[cls[0] + '_fap'], glitches[cls2[0] + '_fap'], color = 'blue', marker = 'x', linestyle = 'none', label = 'all glitches')
-      # plot glitches based on 'signif'
-      g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr[index])[0],:]
-      pylab.plot(g_rem[cls[0]+'_fap'], g_rem[cls2[0]+'_fap'], markeredgecolor = 'red', marker = 'o', markerfacecolor = 'none' ,linestyle = 'none', label = 'signif >= ' + repr(sigthr[index]))
-      if index+1 == 1:
-        pylab.ylabel(cls2[0]+'_fap')
-      if index+1 == 3:
-        pylab.ylabel(cls2[0] + '_fap')
-        pylab.xlabel(cls[0] + '_fap')
-      if index+1 == 4:
-        pylab.xlabel(cls[0]+'_fap')
-      pylab.title('signif >= ' + repr(sigthr[index]))
-#      pylab.legend(loc = 'best')
-      pylab.xscale('log')
-      pylab.yscale('log')
-    pylab.subplot(2,2,1)
-#    pylab.title('Scatter Plot of ' + cls[0] + '_fap vs ' + cls2[0] + '_fap')
-    #adding to html page
-    name = '_scatter_' + cls[0] + '_fap_vs_' + cls2[0] + '_fap'
-    fname = InspiralUtils.set_figure_name(opts, name)
-    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(name)
-    pylab.close()
+    for sigthr in [10, 15, 25, 50]:
+      g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+      fig_num += 1
+      fig = matplotlib.pyplot.figure(fig_num)
+      fig.hold(True)
+      grid = ImageGrid(fig, 111, nrows_ncols = (2,2), axes_pad = 0.25, add_all = True)
+
+      # histogram over cls_fap
+      grid[0].hist(glitches[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(glitches[cls[0]+'_fap']))/len(glitches[cls[0]+'_fap']), log=True)
+      grid[0].hist(g_rem[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls[0]+'_fap']))/len(glitches[cls[0]+'_fap']),color='red',log=True)
+
+      grid[0].set_xscale('log')
+      grid[0].set_yscale('log')
+      grid[0].set_ylim(10**-4, 10**-0.5)
+      grid[0].set_ylabel('Fraction of Glitches')
+
+      # histogram over cls2_fap
+      grid[3].hist(glitches[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(glitches[cls2[0]+'_fap']))/len(glitches[cls2[0]+'_fap']), orientation='horizontal', log=True)
+      grid[3].hist(g_rem[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls2[0]+'_fap']))/len(glitches[cls2[0]+'_fap']), orientation='horizontal',color = 'red',log=True)
+      grid[3].set_xscale('log')
+      grid[3].set_yscale('log')
+      grid[3].set_xlim(10**-4, 10**-0.5)
+      grid[3].set_xlabel('Fraction of Glitches')
+
+      # scatter of cls_fap vs cls2_fap
+      grid[2].plot(glitches[cls[0]+'_fap'], glitches[cls2[0]+'_fap'], linestyle = 'none', marker = '.')
+      grid[2].plot(g_rem[cls[0]+'_fap'], g_rem[cls2[0]+'_fap'], linestyle = 'none', marker = 'o', markerfacecolor = 'none', markeredgecolor = 'red')
+      grid[2].plot([10**-5, 10**0], [10**-5, 10**0], '-k', label = '_nolegend')
+      grid[2].set_xlabel(cls[0]+'_fap')
+      grid[2].set_ylabel(cls2[0]+'_fap')
+      grid[2].set_xscale('log')
+      grid[2].set_yscale('log')
+      
+      matplotlib.pyplot.figtext(0.5, 0.98, 'Fig. '+str(fig_num)+': Scatter of '+cls[0]+'_fap vs. '+cls2[0]+'_fap for Glitches with signif >= '+str(sigthr), ha = 'center', va = 'top')
+      matplotlib.pyplot.setp(grid[1], visible=False)
+
+      #adding to html page
+      name = '_scatter_' + cls[0] + '_fap_vs_' + cls2[0] + '_fap_sigthr_'+str(sigthr)
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(name)
+      pylab.close()
+
+
+# scatter plots of Eff/FAR from one classifier vs. EFF/FAR from another
+# we iterate through all pairs of classifiers.
+start = 0
+for cls in classifiers:
+  start +=1
+  for ind in range(start, len(classifiers)):
+    cls2 = classifiers[ind]
+    for sigthr in [10, 15, 25, 50]:
+      g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+      g_ebf = [g[cls[0]+'_eff']/g[cls[0]+'_fap'] for g in g_rem]
+      g_ebf2 = [g[cls2[0]+'_eff']/g[cls2[0]+'_fap'] for g in g_rem]
+      g_ebfALL = [glitch[cls[0]+'_eff']/glitch[cls[0]+'_fap'] for glitch in glitches]
+      g_ebfALL2 = [glitch[cls2[0]+'_eff']/glitch[cls2[0]+'_fap'] for glitch in glitches]
+
+      fig_num += 1
+      fig = matplotlib.pyplot.figure(fig_num)
+      fig.hold(True)
+      grid = ImageGrid(fig, 111, nrows_ncols = (2,2), axes_pad = 0.25, add_all = True)
+
+      # histogram over cls_eff/fap
+      grid[0].hist(g_ebfALL,bins=numpy.logspace(0,4,num=100,endpoint=True),histtype='step', log=True)
+      grid[0].hist(g_ebf,bins=numpy.logspace(0,4,num=100,endpoint=True),histtype='step',color='red',log=True)
+      grid[0].set_xscale('log')
+      grid[0].set_yscale('log')
+      grid[0].set_ylim(ymin=10**0, ymax = 10**2.5)
+      grid[0].set_ylabel('Number of Glitches')
+
+      # histogram over cls2_eff/fap
+      grid[3].hist(g_ebfALL2,bins=numpy.logspace(0,4,num=100,endpoint=True),histtype='step', orientation='horizontal', log=True)
+      grid[3].hist(g_ebf2,bins=numpy.logspace(0,4,num=100,endpoint=True),histtype='step', orientation='horizontal',color = 'red',log=True)
+      grid[3].set_xscale('log')
+      grid[3].set_yscale('log')
+      grid[3].set_xlim(xmin=10**0, xmax=10**2.5)
+      grid[3].set_xlabel('Number of Glitches')
+
+      # scatter of cls_eff/fap vs cls2_eff/fap
+      grid[2].plot(g_ebfALL, g_ebfALL2, linestyle = 'none', marker = '.')
+      grid[2].plot(g_ebf, g_ebf2, linestyle = 'none', marker = 'o', markerfacecolor = 'none', markeredgecolor = 'red')
+      grid[2].plot([10**-5, 10**5], [10**-5, 10**5], '-k', label = '_nolegend')
+      grid[2].set_xlabel(cls[0]+'_eff/fap')
+      grid[2].set_ylabel(cls2[0]+'_eff/fap')
+      grid[2].set_xscale('log')
+      grid[2].set_yscale('log')
+      grid[2].set_xlim(10**0, 10**3)
+      grid[2].set_ylim(10**0, 10**3)
+
+      matplotlib.pyplot.figtext(0.5, 0.98, 'Fig. '+str(fig_num)+': Scatter of '+cls[0]+'_eff/fap vs. '+cls2[0]+'_eff/fap for Glitches with signif >= '+str(sigthr), ha = 'center', va = 'top')
+      matplotlib.pyplot.setp(grid[1], visible=False)
+
+      #adding to html page
+      name = '_scatter_' + cls[0] + '_effbyfap_vs_' + cls2[0] + '_effbyfap_sigthr_'+str(sigthr)
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(name)
+      pylab.close()
+
+
+# Scatter of eff/fap for two classifiers using cleans
+# we iterate over all pairs of classifiers
+start = 0
+for cls in classifiers:
+  start +=1
+  if cls[0] == 'cveto':
+    pass
+  else:
+    for ind in range(start, len(classifiers)):
+      cls2 = classifiers[ind]
+      if cls2[0] == 'cveto':
+        pass
+      else:
+        c_ebfALL = [g[cls[0]+'_eff']/g[cls[0]+'_fap'] for g in cleans]
+        c_ebfALL2 = [g[cls2[0]+'_eff']/g[cls2[0]+'_fap'] for g in cleans]
+
+        fig_num += 1
+        fig = matplotlib.pyplot.figure(fig_num)
+        fig.hold(True)
+        grid = ImageGrid(fig, 111, nrows_ncols = (2,2), axes_pad = 0.25, add_all = True)
+
+        # histogram over cls_eff/fap
+        grid[0].hist(c_ebfALL,bins=numpy.logspace(0,4,num=100,endpoint=True),histtype='step', log=True)
+        grid[0].set_xscale('log')
+        grid[0].set_yscale('log')
+        grid[0].set_ylim(ymin=10**0, ymax = 10**3.5)
+        grid[0].set_ylabel('Number of Glitches')
+
+        # histogram over cls2_eff/fap
+        grid[3].hist(c_ebfALL2,bins=numpy.logspace(0,4,num=100,endpoint=True),histtype='step', orientation='horizontal', log=True)
+        grid[3].set_xscale('log')
+        grid[3].set_yscale('log')
+        grid[3].set_xlim(xmin=10**0, xmax=10**3.5)
+        grid[3].set_xlabel('Number of Glitches')
+
+        # scatter of cls_eff/fap vs cls2_eff/fap
+        grid[2].plot(c_ebfALL, c_ebfALL2, linestyle = 'none', marker = 'o')
+        grid[2].plot([10**-5, 10**5], [10**-5, 10**5], '-k', label = '_nolegend')
+        grid[2].set_xlabel(cls[0]+'_eff/fap')
+        grid[2].set_ylabel(cls2[0]+'_eff/fap')
+        grid[2].set_xscale('log')
+        grid[2].set_yscale('log')
+        grid[2].set_xlim(10**0, 10**3)
+        grid[2].set_ylim(10**0, 10**3)
+
+        matplotlib.pyplot.figtext(0.5, 0.98, 'Fig. '+str(fig_num)+': Scatter of '+cls[0]+'_eff/fap vs. '+cls2[0]+'_eff/fap for Clean Samples', ha = 'center', va = 'top')
+        matplotlib.pyplot.setp(grid[1], visible=False)
+
+        #adding to html page
+        name = '_scatter_' + cls[0] + '_effbyfap_vs_' + cls2[0] + '_effbyfap_cleans'
+        fname = InspiralUtils.set_figure_name(opts, name)
+        fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+        fnameList.append(fname)
+        tagList.append(name)
+        pylab.close()
 
 
 ##############################################################################################################
