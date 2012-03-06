@@ -121,7 +121,7 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
         seg = segment(start, end)
 
         if not self._query(channel, start, end):
-            raise ValueError, "%s not found in cache" % repr(seg)
+            raise ValueError("%s not found in cache" % repr(seg - self._remotecoverage))
 
         # Need to cache files locally
         # Note: seg *will* be in self._cachecoverage if self.scratchdir is None.
