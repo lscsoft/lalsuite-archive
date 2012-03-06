@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#       cbcBayesPostProc.py
+#       pulsarBayesPostProc.py
 #
 #       Copyright 2012
 #       Matthew Pitkin <matthew.pitkin@ligo.org>,
