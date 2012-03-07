@@ -399,7 +399,7 @@ def write_chisq( page, injList, grbtag ):
   """
 
   if injList:
-    th = ['']+injList
+    th = ['']+injList + ['OFFSOURCE']
   else:
     th= ['','OFFSOURCE']
     injList = ['OFFSOURCE']
@@ -410,7 +410,7 @@ def write_chisq( page, injList, grbtag ):
   for test in plots:
     pTag = test.replace('_',' ').title()
     d = [pTag]
-    for inj in injList:
+    for inj in injList + ['OFFSOURCE']:
       plot = markup.page()
       p = "%s/plots_clustered/GRB%s_%s_vs_snr_zoom.png" % ( inj, grbtag, test )
       plot.a( href=p, title="%s %s versus SNR" % ( inj, pTag ) )
@@ -431,7 +431,7 @@ def write_inj_snrs( page, ifos, injList, grbtag ):
   """
 
   if injList:
-    th = ['']+injList
+    th = ['']+injList + ['OFFSOURCE']
   else:
     th= ['','OFFSOURCE']
     injList = ['OFFSOURCE']
@@ -442,7 +442,7 @@ def write_inj_snrs( page, ifos, injList, grbtag ):
   for row in plots:
     pTag = row.replace('_',' ').title()
     d = [pTag]
-    for inj in injList:
+    for inj in injList + ['OFFSOURCE']:
       plot = markup.page()
       p = "%s/plots_clustered/GRB%s_%s_vs_snr_zoom.png" % ( inj, grbtag, row )
       plot.a( href=p, title="%s %s versus SNR" % ( inj, pTag ) )
