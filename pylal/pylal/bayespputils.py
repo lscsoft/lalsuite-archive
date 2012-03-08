@@ -807,6 +807,12 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def pop(self,param_name):
+        """
+        Container method.  Remove OneDPosterior from the Posterior instance.
+        """
+        return self._posterior.pop(param_name)
+
     def append_mapping(self, new_param_names, func, post_names):
         """
         Append posteriors pos1,pos2,...=func(post_names)
@@ -1262,6 +1268,12 @@ class AnalyticLikelihood(object):
         """
         Prepare analytic likelihood for the given parameters.
         """
+        # Make sure files names are in a list
+        if isinstance(covariance_matrix_files, str):
+            covariance_matrix_files = [covariance_matrix_files]
+        if isinstance(mean_vector_files, str):
+            mean_vector_files = [mean_vector_files]
+
         covarianceMatrices = [np.loadtxt(csvFile, delimiter=',') for csvFile in covariance_matrix_files]
         num_matrices = len(covarianceMatrices)
 
@@ -1314,6 +1326,13 @@ class AnalyticLikelihood(object):
         if param in self._params:
             cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
         return cdf
+
+    @property
+    def names(self):
+        """
+        Return list of parameter names described by analytic likelihood function.
+        """
+        return self._params
 
 
 
