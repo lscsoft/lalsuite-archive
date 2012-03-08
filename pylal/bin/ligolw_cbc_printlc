@@ -426,8 +426,6 @@ lcdoc.appendChild(ligolw.LIGO_LW())
 lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__, version = git_version.id)
 # add the table
 lctable = lsctables.New(LoudestEventsTable)
-# connect the table to the document
-lcdoc.childNodes[0].appendChild(lctable)
 
 
 #
@@ -488,6 +486,9 @@ for values in connection.cursor().execute( sqlquery ):
 #
 if opts.get_sngl_info:
     lctable = printutils.get_sngl_info(connection, lctable, opts.sngl_table, opts.daily_ihope_pages_location, verbose = opts.verbose)
+
+# Connect the table to the document
+lcdoc.childNodes[0].appendChild(lctable)
 
 #
 #   Print the summary data
