@@ -2629,7 +2629,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         template.alphaPPE=inj_table->alphaPPE;
         template.bPPE=inj_table->bPPE;
         template.betaPPE=inj_table->betaPPE;
-		LALInspiralPPE(&status, injWaveFD, &template);    
+		LALInspiralPPE(&status, injWaveFD, &template, 0.0);    
     }
     else if (template.approximant==BransDicke) {
 		fprintf(stderr,"Injecting Scalar Charge 1 = %e\n",inj_table->ScalarCharge1);
