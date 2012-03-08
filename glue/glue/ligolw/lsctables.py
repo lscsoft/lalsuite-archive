@@ -1572,7 +1572,6 @@ class CoincRingdownTable(table.Table):
 		"null_stat": "real_8",
 		"kappa": "real_8",
 		"false_alarm_rate": "real_8",
-		"combined_far": "real_8",
 		"combined_far": "real_8"
 	}
 	# constraints = "PRIMARY KEY (coinc_event_id)"
