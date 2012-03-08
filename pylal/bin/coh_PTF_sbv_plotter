@@ -1173,7 +1173,7 @@ if __name__=='__main__':
   nullt     = map(float, opts.null_snr_threshold.split(','))
   vetoFiles = []
   if opts.veto_directory:
-    vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
+    vetoFiles = glob.glob(opts.veto_directory +'/*CAT2*.xml')
 
 
   main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\

@@ -1920,7 +1920,7 @@ if __name__=='__main__':
   numBins = opts.num_bins
   vetoFiles = []
   if opts.veto_directory:
-    vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
+    vetoFiles = glob.glob(opts.veto_directory +'/*CAT2*.xml')
  
   main( segdir, outdir, trigFile, foundFile, missedFile,\
         onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
