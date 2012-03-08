@@ -1315,6 +1315,12 @@ class AnalyticLikelihood(object):
             cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
         return cdf
 
+    def names(self):
+        """
+        Return list of parameter names described by analytic likelihood function.
+        """
+        return self._params
+
 
 
 #===============================================================================
