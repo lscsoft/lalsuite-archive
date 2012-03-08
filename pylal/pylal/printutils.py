@@ -60,7 +60,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
 
     if tableName == "loudest_events:table" and not with_sngl:
         durname = [col.getAttribute("Name").split(":")[-1]
-            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")
+            for col in summTable.getElementsByTagName(u'Column') if "_duration__Px_" in col.getAttribute("Name")
             and not col.getAttribute("Name").split(":")[-1].startswith('sngl_')][0]
         columnList = [
             rankname,
@@ -69,7 +69,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'fap_1yr',
             'snr',
             'end_time',
-            'end_time_utc__Px_click_for_daily_ihope_xP_',
+            'gps_time_utc__Px_click_for_daily_ihope_xP_',
             'ifos__Px_click_for_elog_xP_',
             'instruments_on',
             'mass',
@@ -80,7 +80,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
         row_span_columns = rspan_break_columns = [durname]
     elif tableName == "loudest_events:table" and with_sngl:
         durname = [col.getAttribute("Name").split(":")[-1]
-            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")
+            for col in summTable.getElementsByTagName(u'Column') if "_duration__Px_" in col.getAttribute("Name")
             and not col.getAttribute("Name").split(":")[-1].startswith(u'sngl_')][0]
         columnList = [
             rankname,
@@ -93,7 +93,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'instruments_on',
             'sngl_ifo__Px_click_for_elog_xP_',
             'sngl_end_time',
-            'sngl_end_time_utc__Px_click_for_daily_ihope_xP_',
+            'sngl_event_time_utc__Px_click_for_daily_ihope_xP_',
             'mini_followup',
             'omega_scan',
             durname]
@@ -101,7 +101,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             [col for col in summTable.columnnames if not col.startswith('sngl_')]
     elif tableName == "selected_found_injections:table":
         durname = [col.getAttribute("Name").split(":")[-1]
-            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")][0]
+            for col in summTable.getElementsByTagName(u'Column') if "_duration__Px_" in col.getAttribute("Name")][0]
         columnList = [
             rankname,
             'injected_gps_time',
