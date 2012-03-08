@@ -32,7 +32,8 @@ void
 LALInspiralPPE (
                 LALStatus        *status,
                 REAL4Vector      *signalvec,
-                InspiralTemplate *params);
+                InspiralTemplate *params,
+		REAL4 cutoff);
 
 void LALInspiralPPEPhasing(
                           InspiralTemplate *params,

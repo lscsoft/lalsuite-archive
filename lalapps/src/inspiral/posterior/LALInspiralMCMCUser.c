@@ -2310,7 +2310,7 @@ void PPE_template(LALStatus *status,InspiralTemplate *template, LALMCMCParameter
     template->alphaPPE=XLALMCMCGetParameter(parameter,"alphaPPE");
     template->bPPE=XLALMCMCGetParameter(parameter,"bPPE");
     template->betaPPE=XLALMCMCGetParameter(parameter,"betaPPE");
-    LALInspiralPPE(status, model, template);
+    LALInspiralPPE(status, model, template, inputMCMC.cutoff);
 
 /*	
 	FILE* model_output;

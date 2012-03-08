@@ -32,7 +32,8 @@ void
 LALInspiralPPE (
                                        LALStatus        *status,
                                        REAL4Vector      *signalvec,
-                                       InspiralTemplate *params)
+                                       InspiralTemplate *params,
+				       REAL4 cutoff)
 { /* </lalVerbatim>  */
    REAL8 Oneby3, UNUSED h1, UNUSED h2, pimmc, f, v, df, shft, phi, amp0, amp, psif, psi;
    INT4 n, nby2, i, f0, fn;
@@ -90,7 +91,7 @@ LALInspiralPPE (
 
    for (i=1; i<nby2; i++) {
       f = i * df;
-      if (f < f0 || f > fn)
+      if (f < f0 || f > fn || ( cutoff > f0 && f > cutoff ))
       {
 	      /*
 	       * All frequency components below f0 and above fn are set to zero
