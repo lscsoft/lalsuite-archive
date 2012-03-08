@@ -262,6 +262,47 @@ def GetCVetoRank(CVetoOutput, gwtcent, deltat = 0):
     return [cveto_dat[0]]
   else:
     return cveto_dat
+
+
+def cluster(data, rank='signif', cluster_window=1.0):
+	"""
+	Clustering performed with the sliding window cluster_window keeping trigger with the highest rank;
+	data is array of glitches, it is assumed to be sorted by GPS time in ascending order.
+	Clustering algorithm is borrowed from pylal.CoincInspiralUtils cluster method.
+	"""
+
+	# initialize some indices (could work with just one)
+	# but with two it is easier to read
+	this_index = 0
+	next_index = 1
+	glitches = data[numpy.nonzero(data['glitch'] == 1.0)[0],:]
+	while next_index < len(glitches):
+
+		# get the time for both indices
+		thisTime = glitches[this_index]['GPS']
+		nextTime = glitches[next_index]['GPS']
+
+		# are the two coincs within the time-window?
+		if nextTime-thisTime < cluster_window:
+
+			# get the ranks
+			this_rank = glitches[this_index][rank]
+			next_rank = glitches[next_index][rank]
+
+			# and remove the trigger which has the lower rank
+			if (next_rank > this_rank):
+				glitches = numpy.delete(glitches, this_index, 0)
+			else:
+				glitches = numpy.delete(glitches, next_index, 0)
+
+		else:
+			# the two triggers are NOT in the time-window
+			# so must increase index
+			this_index+=1
+			next_index+=1
+			
+	data = numpy.concatenate((glitches, data[numpy.nonzero(data['glitch'] == 0.0)[0],:]))
+	return data
     
 
 usage= """Written to load and manipulate output from different classifiers."""
@@ -274,6 +315,9 @@ parser.add_option("","--mvsc-ranked-files", default=False, type="string", help="
 parser.add_option("","--ann-ranked-files", default=False, type="string", help="Provide the path for ANN *.dat files and globbing pattern")
 parser.add_option("","--svm-ranked-files", default=False, type="string", help="Provide the path for SVM *.dat files and globbing pattern")
 parser.add_option("","--fap-threshold", default=0.1,type="float", help="False Alarm Probability which is adapted to veto")
+parser.add_option("","--cluster",action="store_true", default="True", help="cluster glitch samples")
+parser.add_option("","--cluster-window", default=1.0, type="float", help="clustering window in seconds, default is 1 second.")
+parser.add_option("","--cluster-rank", default='signif', type="string", help="rank used in clustering, default rank is significance of trigger in DARM.")
 parser.add_option("-P","--output-path",action="store",type="string",default="",  metavar="PATH", help="path where the figures would be stored")	  
 parser.add_option("-O","--enable-output",action="store_true", default="True",  metavar="OUTPUT", help="enable the generation of the html and cache documents")	 	  
 parser.add_option("-u","--user-tag",action="store",type="string", default=None,metavar=" USERTAG", help="a user tag for the output filenames" )
@@ -339,6 +383,18 @@ for ind in range(0,10):
   print 'cveto_fap = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_fap'])
   print 'cveto_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_chan'])
 '''
+# cluster glitch samples if --cluster option is given
+if opts.cluster:
+	if opts.verbose:
+		print "Number of glitch samples before clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
+		
+	total_ranked_data = cluster(total_ranked_data, rank=opts.cluster_rank, cluster_window=opts.cluster_window)
+	
+	if opts.verbose:
+		print "Number of glitch samples after clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
+
+
+
 
 # Computing FAP and Efficiency for MVCs
 for cls in classifiers:
