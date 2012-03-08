@@ -924,9 +924,9 @@ def check_g_RA_RA(detectors):
 			dfp_dRA1 = metric.dFp_dRA(RA, dec, detector1)
 			dfx_dRA1 = metric.dFx_dRA(RA, dec, detector1)
 		drn_dRA1 = metric.drn_dRA(RA, dec, detector1)
-		z0.append((B*fp1*fp1+A*fx1*fx1-2*C*fp1*fx1)*(-2*pi*drn_dRA1)**2*I_n1[-1./3.]/D)
+		z0.append((B*fp1*fp1+A*fx1*fx1-2*C*fp1*fx1)*(-2*pi*drn_dRA1)**2*I_n1['-1']/D)
 		if Fderivs:
-			z1.append((B*dfp_dRA1*dfp_dRA1+A*dfx_dRA1*dfx_dRA1-C*dfp_dRA1*dfx_dRA1-C*dfx_dRA1*dfp_dRA1)*I_n1[-7./3.]/D)
+			z1.append((B*dfp_dRA1*dfp_dRA1+A*dfx_dRA1*dfx_dRA1-C*dfp_dRA1*dfx_dRA1-C*dfx_dRA1*dfp_dRA1)*I_n1['-7']/D)
 		z2.append([])
 		z3.append([])
 		for detector2 in detectors:
@@ -939,10 +939,10 @@ def check_g_RA_RA(detectors):
 			drn_dRA2 = metric.drn_dRA(RA, dec, detector2)
 			pre = B*fp1*fp2+A*fx1*fx2-C*fp1*fx2-C*fx1*fp2
 			z2[-1].append(pre*(B*fp1*fp2+A*fx1*fx2-C*fp1*fx2-C*fx1*fp2)/D**2 \
-				*I_n1[-4./3.]*I_n2[-4./3.]*(-2*pi*drn_dRA1)*(-2*pi*drn_dRA2))
+				*I_n1['-4']*I_n2['-4']*(-2*pi*drn_dRA1)*(-2*pi*drn_dRA2))
 			if Fderivs:
 				z3[-1].append(pre*(B*dfp_dRA1*dfp_dRA2+A*dfx_dRA1*dfx_dRA2-C*dfp_dRA1*dfx_dRA2-C*dfx_dRA1*dfp_dRA2)/D**2 \
-					*I_n1[-7./3.]*I_n2[-7./3.])
+					*I_n1['-7']*I_n2['-7'])
 
 	plot_metric_component_pieces(RA, dec, z0, z1, z2, z3)
 
@@ -973,10 +973,10 @@ def check_g_RA_dec(detectors):
 			dfx_ddec1 = metric.dFx_ddec(RA, dec, detector1)
 		drn_dRA1 = metric.drn_dRA(RA, dec, detector1)
 		drn_ddec1 = metric.drn_ddec(RA, dec, detector1)
-		z0.append((B*fp1*fp1+A*fx1*fx1-2*C*fp1*fx1)/D*I_n1[-1./3.]*(-2*pi*drn_dRA1)*(-2*pi*drn_ddec1))
+		z0.append((B*fp1*fp1+A*fx1*fx1-2*C*fp1*fx1)/D*I_n1['-1']*(-2*pi*drn_dRA1)*(-2*pi*drn_ddec1))
 		if Fderivs:
 			z1.append((B*dfp_dRA1*dfp_ddec1+A*dfx_dRA1*dfx_ddec1-C*dfp_dRA1*dfx_ddec1-C*dfx_dRA1*dfp_ddec1)/D \
-				*I_n1[-7./3.])
+				*I_n1['-7'])
 		z2.append([])
 		z3.append([])
 		for detector2 in detectors:
@@ -989,10 +989,10 @@ def check_g_RA_dec(detectors):
 			drn_ddec2 = metric.drn_ddec(RA, dec, detector2)
 			pre = B*fp1*fp2+A*fx1*fx2-C*fp1*fx2-C*fx1*fp2
 			z2[-1].append(pre*(B*fp1*fp2+A*fx1*fx2-C*fp1*fx2-C*fx1*fp2)/D**2 \
-				*I_n1[-4./3.]*I_n2[-4./3.]*(-2*pi*drn_dRA1)*(-2*pi*drn_ddec2))
+				*I_n1['-4']*I_n2['-4']*(-2*pi*drn_dRA1)*(-2*pi*drn_ddec2))
 			if Fderivs:
 				z3[-1].append(pre*(B*dfp_dRA1*dfp_ddec2+A*dfx_dRA1*dfx_ddec2-C*dfp_dRA1*dfx_ddec2-C*dfx_dRA1*dfp_ddec2)/D**2 \
-					*I_n1[-7./3.]*I_n2[-7./3.])
+					*I_n1['-7']*I_n2['-7'])
 
 	plot_metric_component_pieces(RA, dec, z0, z1, z2, z3)
 
@@ -1020,10 +1020,10 @@ def check_g_dec_dec(detectors):
 			dfp_ddec1 = metric.dFp_ddec(RA, dec, detector1)
 			dfx_ddec1 = metric.dFx_ddec(RA, dec, detector1)
 		drn_ddec1 = metric.drn_ddec(RA, dec, detector1)
-		z0.append((B*fp1*fp1+A*fx1*fx1-2*C*fp1*fx1)/D*I_n1[-1./3.]*(-2*pi*drn_ddec1)**2)
+		z0.append((B*fp1*fp1+A*fx1*fx1-2*C*fp1*fx1)/D*I_n1['-1']*(-2*pi*drn_ddec1)**2)
 		if Fderivs:
 			z1.append((B*dfp_ddec1*dfp_ddec1+A*dfx_ddec1*dfx_ddec1-C*dfp_ddec1*dfx_ddec1-C*dfx_ddec1*dfp_ddec1)/D \
-				*I_n1[-7./3.])
+				*I_n1['-7'])
 		z2.append([])
 		z3.append([])
 		for detector2 in detectors:
@@ -1036,10 +1036,10 @@ def check_g_dec_dec(detectors):
 			drn_ddec2 = metric.drn_ddec(RA, dec, detector2)
 			pre = B*fp1*fp2+A*fx1*fx2-C*fp1*fx2-C*fx1*fp2
 			z2[-1].append(pre*(B*fp1*fp2+A*fx1*fx2-C*fp1*fx2-C*fx1*fp2)/D**2 \
-				*I_n1[-4./3.]*I_n2[-4./3.]*(-2*pi*drn_ddec1)*(-2*pi*drn_ddec2))
+				*I_n1['-4']*I_n2['-4']*(-2*pi*drn_ddec1)*(-2*pi*drn_ddec2))
 			if Fderivs:
 				z3[-1].append(pre*(B*dfp_ddec1*dfp_ddec2+A*dfx_ddec1*dfx_ddec2-C*dfp_ddec1*dfx_ddec2-C*dfx_ddec1*dfp_ddec2)/D**2 \
-					*I_n1[-7./3.]*I_n2[-7./3.])
+					*I_n1['-7']*I_n2['-7'])
 
 	plot_metric_component_pieces(RA, dec, z0, z1, z2, z3)
 

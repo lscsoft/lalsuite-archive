@@ -39,24 +39,37 @@ cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
 # Define ETG options
 # =============================================================================
 
+_trig_regex  = re.compile('(burst|inspiral|ring)', re.I)
 _burst_regex = re.compile('(burst|omega|kleine|kw|cwb|hacr)', re.I)
 _cbc_regex   = re.compile('(ihope|inspiral|cbc)', re.I)
 _ring_regex  = re.compile('(ring)', re.I)
 
-def SnglTriggerTable(etg):
+def SnglTriggerTable(etg, columns=None):
 
   """
     Handy function to return the correct type of ligolw table for the given ETG.
   """
 
   if _burst_regex.search(etg):
-    return lsctables.New(lsctables.SnglBurstTable)
+    t = lsctables.New(lsctables.SnglBurstTable, columns=columns)
   elif _cbc_regex.search(etg):
-    return lsctables.New(lsctables.SnglInspiralTable)
+    t = lsctables.New(lsctables.SnglInspiralTable, columns=columns)
   elif _ring_regex.search(etg):
-    return lsctables.New(lsctables.SnglRingdownTable)
+    t = lsctables.New(lsctables.SnglRingdownTable, columns=columns)
   else:
     raise AttributeError("etg=%s not recognised by SnglTriggerTable." % etg)
+
+  # set columns
+  if columns:
+    if isinstance(columns[0], str): columns = map(str.lower, columns)
+    if isinstance(columns[0], unicode): columns = map(unicode.lower, columns)
+    for c in t.columnnames:
+      if c.lower() not in columns:
+        idx = t.columnnames.index(c)
+        t.columnnames.pop(idx)
+        t.columntypes.pop(idx)
+
+  return t
 
 def SnglTrigger(etg):
   """
@@ -112,7 +125,7 @@ def def_get_time(tableName, ifo=None):
 # Convert list from text file into Sngl{Burst,Inspiral} object
 # =============================================================================
 
-def trigger(data,etg,ifo=None,channel=None):
+def trigger(data, etg, ifo=None, channel=None, loadcolumns=None):
 
   """
     Reads the list object data and returns a Sngl{Burst,Inspiral} object
@@ -134,6 +147,10 @@ def trigger(data,etg,ifo=None,channel=None):
 
   # set up trig object
   trig = SnglTrigger(etg)
+
+  # set up load columns
+  if loadcolumns==None:
+    loadcolumns = trig.__slots__
 
   # if given string, split on space, tab or comma
   if isinstance(data,str):
@@ -487,7 +504,7 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'energy','amplitude','num_pixels','significance','N']
 
     elif re.match('hacr',etg.lower()):
-      columns = ['peak_time','param_one_value','central_freq','bandwidth',\
+      columns = ['peak_time','param_one_value','peak_frequency','bandwidth',\
                 'duration','param_two_value','snr','param_three_value']
 
   # set delimiter
@@ -500,19 +517,18 @@ def totrigfile(file,table,etg,header=True,columns=None):
   if header:
     cols = []
     for c in columns:
-      if c.startswith('param') and c.endswith('value'):
-        try:
-          cols.append(table[0].__getattribute__(c.replace('value','name')))
-        except IndexError:
-          cols.append(c)
+      if re.search('param_[a-z]+_value', c) and len(table)>0\
+      and hasattr(table[0], c.replace('value','name')):
+          cols.append(getattr(table[0], c.replace('value','name')))
       else:
         cols.append(c)
-    print >>file, d.join(['#']+cols)
+    file.write('%s\n' % d.join(['#']+cols))
 
-  columnnames = table.columnnames
-  if not columnnames:
+  # work out columns
+  if len(table)>0:
     t = table[0]
-    columnnames = table[0].__slots__
+    columnnames = [t for t in table[0].__slots__ if hasattr(table[0], t)]
+
   # print triggers
   for row in table:
     line = []
@@ -525,9 +541,9 @@ def totrigfile(file,table,etg,header=True,columns=None):
        if re.match('(ihope|hacr)',etg.lower()):
          # HACR default is to have peak_time_ns in seconds, not ns
          if re.match('hacr',etg.lower()) and col=='peak_time_ns':
-           entry = str(row.__getattribute__(col)/math.pow(10,9))
+           entry = str(getattr(row, col))
          else:
-           entry = str(row.__getattribute__(col))
+           entry = str(getattr(row, col))
        # if not ihope, check for time and print full GPS
        else:
          if col=='peak_time':
@@ -541,17 +557,18 @@ def totrigfile(file,table,etg,header=True,columns=None):
          elif col=='ms_stop_time':
            entry = str(row.get_ms_stop())
          else:
-           entry = str(row.__getattribute__(col))
+           entry = str(getattr(row, col))
 
        line.append(entry)
 
-    print >>file, d.join(line)
+    file.write('%s\n' % d.join(line))
 
 # =============================================================================
 # Function to load triggers from xml
 # =============================================================================
 
-def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
+def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None,\
+                columns=None):
 
   """
     Reads a trigger table from the given table from the xml
@@ -580,6 +597,17 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
 
   span = segments.segment(start,end)
 
+  # set columns
+  if columns!=None:
+    if re.search('sngl_burst', tablename):
+      lsctables.SnglBurstTable.loadcolumns = columns
+    elif re.search('sngl_inspiral', tablename):
+      lsctables.SnglInspiralTable.loadcolumns = columns
+    if re.search('multi_burst', tablename):
+      lsctables.MultiBurstTable.loadcolumns = columns
+    elif re.search('multi_inspiral', tablename):
+      lsctables.MultiInspiralTable.loadcolumns = columns
+
   # set tablename
   if not tablename.endswith(':table'):
     tablename = ':'.join([tablename,'table'])
@@ -588,17 +616,21 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
   xmldoc,digest = utils.load_fileobj(file,gz=file.name.endswith('gz'))
   alltriggers = table.get_table(xmldoc,tablename)
 
-  triggers = lsctables.New(type(alltriggers))
+  triggers = table.new_from_template(alltriggers)
+  append = triggers.append
 
   get_time = def_get_time(triggers.tableName)
-
   # parse triggers in time
   for row in alltriggers:
-    if get_time(row) in span:
-      triggers.append(row)
+    if float(get_time(row)) in span:
+      append(row)
 
   # sort table in time
-  triggers.sort(key=lambda trig: get_time(trig))
+  triggers.sort(key=lambda trig: float(get_time(trig)))
+
+  # reset columns
+  if columns:
+    type(triggers).loadcolumns = None
 
   return triggers
 
@@ -607,7 +639,7 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None):
 # =============================================================================
 
 def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
-                 tabletype=None):
+                 tabletype=None, columns=None):
 
   """
     Reads the file object file containing standard columns for the given etg and
@@ -633,51 +665,31 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
         SnglInspiralTable or SnglBurstTable type depending on ETG
   """
 
-  etg = etg.lower()
-
-  # set times
-  if not start:
-    start=0
-  if not end:
-    end=9999999999
-
-  span = segments.segment(start,end)
-
-  if not tabletype:
-    etgs = {'inspiral': ['ihope'],\
-            'burst':    ['omega','omegadq','kw','hacr','omegaspectrum'],\
-            'ringdown': []}
-    # set up triggers table
-    for search,etglist in etgs.items():
-      if etg in etglist:
-        tabletype = lsctables.__dict__['Sngl%sTable' % (search.title())]
-        break
-
-  triggers = lsctables.New(tabletype)
-  append = triggers.append
-
-  get_time = def_get_time(triggers.tableName)
-
-  # read table and append triggers
-  for line in file.readlines():
-    # if line starts with #:  continue
-    if re.match(cchar,line):  continue
-    # read line as trigger
-    trig = trigger(line,etg,ifo=ifo,channel=channel)
-    # append trig to table if within requested time
-    if get_time(trig) in span:
-      append(trig)
-
-  # sort triggers in time
-  triggers.sort(key=lambda trig: get_time(trig))
-
-  return triggers
+  if re.search('omegaspectrum', etg, re.I):
+    return fromomegaspectrumfile(file, start=start, end=end, ifo=ifo,\
+                           channel=channel, columns=columns)
+  elif re.search('omegadq', etg, re.I):
+    return fromomegadqfile(file, start=start, end=end, ifo=ifo,\
+                           channel=channel,columns=columns)
+  elif re.search('omega', etg, re.I):
+    return fromomegafile(file, start=start, end=end, ifo=ifo, channel=channel,\
+                         columns=columns)
+  elif re.search('kw', etg, re.I):
+    return fromkwfile(file, start=start, end=end, ifo=ifo, channel=channel,\
+                      columns=columns)
+  elif re.search('hacr', etg, re.I):
+    return fromhacrfile(file, start=start, end=end, ifo=ifo, channel=channel,\
+                        columns=columns)
+  elif re.search('ihope', etg, re.I):
+    return fromihopefile(file, start=start, end=end, ifo=ifo, channel=channel,\
+                         columns=columns)
 
 # =============================================================================
 # Load triggers from a cache
 # =============================================================================
 
-def fromLALCache(cache, etg, start=None, end=None, verbose=False):
+def fromLALCache(cache, etg, start=None, end=None, columns=None,\
+                 verbose=False):
 
   """
     Extract triggers froa given ETG from all files in a glue.lal.Cache object.
@@ -692,13 +704,16 @@ def fromLALCache(cache, etg, start=None, end=None, verbose=False):
     delete = '\b\b\b'
     num = len(cache)/100
 
-  trigs = SnglTriggerTable(etg)
+  trigs = SnglTriggerTable(etg, columns=columns)
 
   # load files
   for i,e in enumerate(cache):
-    trigs.extend(re.search('(xml|xml.gz)\z', e.path()) and\
-                 fromtrigxml(open(e.path), etg=etg, start=start, end=end) or\
-                 fromtrigfile(open(e.path()), etg=etg, start=start, end=end))
+    if re.search('(xml|xml.gz)\Z', e.path()):
+      trigs.extend(fromtrigxml(open(e.path()), tablename=trigs.tableName,\
+                               start=start, end=end, columns=columns))
+    else:
+      trigs.extend(fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
+                                columns=columns))
     # print verbose message
     if verbose and len(cache)>1:
       progress = int((i+1)/num)
@@ -824,7 +839,7 @@ def omega_online_cache(start,end,ifo):
   dt = 10000 
   t = int(start)
 
-  while t<=end:
+  while t-dt<=end:
 
     tstr = '%.6s' % ('%.10d' % t)
 
@@ -898,7 +913,7 @@ def omega_spectrum_online_cache(start,end,ifo):
   dt = 10000 
   t = int(start)
 
-  while t<=end:
+  while t-dt<=end:
 
     tstr = '%.6s' % ('%.10d' % t)
 
@@ -1113,64 +1128,77 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
 
       rank: string
         Column by which to rank clusters
+      test
   """
 
-  outtrigs = lsctables.New(type(triggers))
+  outtrigs = table.new_from_template(triggers)
 
-  i = 0
+  j = 0
 
-  clusters = [triggers]
+  cols = [p[0] for p in params]
+  coldata = dict((p, get_column(triggers, p)) for p in cols+[rank])
+  # need bandwidth and duration for all burst triggers
+  if _burst_regex.search(triggers.tableName):
+    coldata['stop_time'] = get_column(triggers, 'stop_time') +\
+                           get_column(triggers, 'stop_time_ns')*1e-9
+    coldata['start_time'] = get_column(triggers, 'start_time') +\
+                            get_column(triggers, 'start_time_ns')*1e-9
+    coldata['flow'] = get_column(triggers, 'flow')
+    coldata['fhigh'] = get_column(triggers, 'fhigh')
+  # need time for time clustering
+  elif 'time' in cols:
+    coldata['stop_time'] = coldata['time']
+    coldata['start_time'] = coldata['time']
 
-  get_time = def_get_time(triggers.tableName)
+  for key in coldata.keys():
+    coldata[key] = coldata[key].astype(float)
 
   # for each parameter break the clusters generated using the previous
   # parameter into smaller clusters by sorting triggers and clustering
   # when all parameters have been used, pick the loudest in each cluster
 
-  while i < len(params):
+  clusters = [range(len(triggers))]
 
-    col,width = params[i]
+  while j < len(params):
+
+    col,width = params[j]
 
     newclusters = []
 
-    for subcluster in clusters:
+    for k,subcluster in enumerate(clusters):
 
       # sort triggers incluster parameter
-      if col=='time':
-        subcluster.sort(key=lambda trigger: get_time(trigger))
-      else:
-        subcluster.sort(key=lambda trigger: trigger.__getattribute__(col))
-
+      subcluster.sort(key=lambda i: coldata[col][i])
       subsubcluster = []
 
-      for trig in subcluster:
+      for i in subcluster:
 
         # get value of param
         if col=='time':
-          valueStop = trig.stop_time + trig.stop_time_ns*1e-9
-          valueStart = trig.start_time + trig.start_time_ns*1e-9
+	  valueStop = coldata['stop_time'][i]
+          valueStart = coldata['start_time'][i]
         elif col=='peak_frequency':
-          valueStop = trig.fhigh
-          valueStart = trig.flow
+          valueStop = coldata['fhigh'][i]
+          valueStart = coldata['flow'][i]
         else:
-          valueStop = trig.__getattribute__(col)
+          valueStop = coldata[col][i]
           valueStart = valueStop
 
         # if subcluster is empty, simply add the first trigger
         if not subsubcluster:
-          subsubcluster = [trig]
+          subsubcluster = [i]
           prevStop = valueStop
           prevStart = valueStart
           continue
 
         # if current trig is inside width, append to cluster
         if (valueStart-prevStop)<width:
-          subsubcluster.append(trig)
+          subsubcluster.append(i)
 
         # if not the subcluster is complete, append it to list and start again
         else:
           newclusters.append(subsubcluster)
-          subsubcluster=[trig]
+          subsubcluster=[i]
 
         prevStart = valueStart
         prevStop = valueStop
@@ -1179,21 +1207,45 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
       newclusters.append(subsubcluster)
 
     clusters = copy.deepcopy(newclusters)
-    i += 1
+    j += 1
 
   # process clusters
   for cluster in clusters:
-
-    cluster.sort(key=lambda trig: trig.__getattribute__(rank), reverse=True)
-    if len(cluster)>=1:
-      outtrigs.append(cluster[0])
+    if len(cluster)==1:
+      outtrigs.append(copy.deepcopy(triggers[cluster[0]]))
+    elif len(cluster) > 1:
+      carray = numpy.asarray(cluster)
+      cluster.sort(key=lambda i: coldata[rank][i], reverse=True)
+      t = copy.deepcopy(triggers[cluster[0]])    
+      # reset burst params for a clustered event
+      if _burst_regex.search(triggers.tableName):
+        # record most significant trigger
+        t.ms_start_time = t.start_time
+        t.ms_start_time_ns = t.start_time_ns
+        t.ms_stop_time = t.stop_time
+        t.ms_stop_time_ns = t.stop_time_ns
+        t.ms_duration = t.duration
+        t.ms_bandwidth = t.bandwidth
+        t.ms_flow = t.flow
+        t.ms_fhigh = t.fhigh
+        t.ms_snr = t.snr
+        # record cluster
+        start = LIGOTimeGPS(min(coldata['start_time'][carray]))
+        t.start_time = start.seconds
+        t.start_time_ns = start.nanoseconds
+        stop = LIGOTimeGPS(max(coldata['stop_time'][carray]))
+        t.stop_time = stop.seconds
+        t.stop_time_ns = stop.nanoseconds
+        t.duration = float(t.get_stop()-t.get_start())
+        t.flow = min(coldata['flow'][carray])
+        t.fhigh = max(coldata['fhigh'][carray])
+        t.bandwidth = t.fhigh-t.flow
+        t.central_freq = t.flow + t.bandwidth/2
+        t.tfvolume = t.bandwidth * t.duration
+      outtrigs.append(t)
 
   # resort trigs in first parameter
-  if params[0][0]=='time':
-    outtrigs.sort(key=lambda trig: get_time(trig))
-  else:
-    outtrigs.sort(key=lambda trigger: trigger.__getattribute__(params[0][0]))
-
+  outtrigs.sort(key=lambda t: get(t, cols[0]))
 
   return outtrigs
 
@@ -1227,10 +1279,10 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
   get_time = def_get_time(triggers.tableName)
   triggers.sort(key=lambda trig: get_time(trig))
 
-
   previousTimes = []
   histEdges = numpy.arange(timeStep,timeRange,timeStep);
   delayHist = numpy.zeros(int(math.ceil(timeRange/timeStep)))
+
   for trig in triggers:
     curTime = trig.peak_time + 1e-9*trig.peak_time_ns
     # remove previous times which are beyond the considered timeRange
@@ -1258,16 +1310,14 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
     and entry in table2.
   """
 
-  get_time_1 = def_get_time(table1.tableName)
-  get_time_2 = def_get_time(table2.tableName)
+  t1 = get_column(table1, 'time')
+  t2 = get_column(table2, 'time')
 
-  trigseg = lambda t: segments.segment(get_time_2(t) - dt,\
-                                       get_time_2(t) + dt)
-
-  coincsegs = segments.segmentlist([trigseg(t) for t in table2])
-  coincsegs = coincsegs.coalesce()
+  coincsegs  = segments.segmentlist(segments.segment(t-dt, t+dt) for t in t2)\
+                   .coalesce()
+  coincsegs.sort()
   coinctrigs = table.new_from_template(table1)
-  coinctrigs.extend([t for t in table1 if get_time_1(t) in coincsegs])
+  coinctrigs.extend(t for i,t in enumerate(table1) if t1[i] in coincsegs)
 
   if returnsegs:
     return coinctrigs,coincsegs
@@ -1279,7 +1329,7 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
 # ==============================================================================
 
 def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
-                        coltype=LIGOTimeGPS, returnsegs=False):
+                       returnsegs=False):
 
   get_time = def_get_time(gwtriggers.tableName)
   aux_get_time = def_get_time(auxtriggers.tableName)
@@ -1297,8 +1347,8 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers, coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
-                             returnsegs=True)
+  coinctriggers,coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                                       returnsegs=True)
 
   g = special.gammainc(len(coinctriggers), mu)
 
@@ -1334,19 +1384,19 @@ def get_column(lsctable, column):
  
   # format column
   column = str(column).lower()
+  obj_type = str(type(lsctable))
 
   # if there's a 'get_' function, use it
   if hasattr(lsctable, 'get_%s' % column):
     return numpy.asarray(getattr(lsctable, 'get_%s' % column)())
 
   # treat 'time' as a special case
-  if column == 'time'\
-  and re.search('(burst|inspiral|ringdown)', lsctable.tableName):
-    if re.search('burst', lsctable.tableName):
+  elif column == 'time' and _trig_regex.search(obj_type):
+    if _burst_regex.search(obj_type):
       tcol = 'peak_time'
-    elif re.search('inspiral', lsctable.tableName):
+    if _cbc_regex.search(obj_type):
       tcol = 'end_time'
-    elif re.search('ringdown', lsctable.tableName):
+    if _ring_regex.search(obj_type):
       tcol = 'start_time'
     return numpy.asarray(lsctable.getColumnByName(tcol)) + \
            numpy.asarray(lsctable.getColumnByName('%s_ns' % tcol))*10**-9
@@ -1361,23 +1411,21 @@ def get(self, parameter):
 
   # format
   parameter = parameter.lower()
-
-  obj_type = type(self)
+  obj_type = str(type(self))
 
   # if there's a 'get_' function, use it
   if hasattr(self, 'get_%s' % parameter):
     return getattr(self, 'get_%s' % parameter)()
 
   # treat 'time' as a special case
-  elif parameter == 'time'\
-  and re.search('(burst|inspiral|ringdown)', obj_type, re.I):
-    if re.search('burst', obj_type):
+  elif parameter == 'time' and _trig_regex.search(obj_type):
+    if _burst_regex.search(obj_type):
       tcol = 'peak_time'
-    elif re.search('inspiral', obj_type):
+    elif _cbc_regex.search(obj_type):
       tcol = 'end_time'
-    elif re.search('ringdown', obj_type):
+    elif _ring_regex.search(obj_type):
       tcol = 'start_time'
-    return LIGOTimeGPS(getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9)
+    return getattr(self, tcol)+getattr(self, '%s_ns' % tcol)*10**-9
 
   else:
    return getattr(self, parameter)
@@ -1413,6 +1461,744 @@ def vetoed(self, seglist):
 
   return veto(self, seglist, inverse=True)
 
+# =============================================================================
+# read triggers from file
+# =============================================================================
+
+def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
+                  columns=None):
+
+  """
+    Load triggers from an Omega format text file into a SnglBurstTable object.
+    Use start and end to restrict the returned triggers, and give ifo and
+    channel to fill those columns in the table.
+
+    If columns is given as a list, only those columns in the table will be
+    filled. This is advisable to speed up future operations on this table.
+
+    Arguments :
+
+      fname : file or str
+        file object or filename path to read with numpy.loadtext
+
+    Keyword arguments :
+
+      start : float
+        minimum peak time for returned triggers
+      end : float
+        maximum peak time for returned triggers
+      ifo : str
+        name of IFO to fill in table
+      channel : str
+        name of channel to fill in table
+      columns : iterable
+        list of columnnames to populate in table
+  """
+
+  # set columns
+  if columns==None: columns = lsctables.SnglBurst.__slots__
+  if start or end:
+    if not start:
+      start = 0
+    if not end:
+      end   = numpy.inf
+    span = segments.segment(start, end)
+    if 'peak_time' not in columns: columns.append('peak_time')
+    if 'peak_time_ns' not in columns: columns.append('peak_time_ns')
+    check_time = True
+  else:
+    check_time = False
+
+  # generate table
+  out = SnglTriggerTable('omega', columns=columns)
+
+  # force filename not file object
+  if hasattr(fname, 'readline'):
+    fh = fname
+  else:
+    fh = open(fname, 'r')
+
+  dat = loadtxt(fh)
+
+  if not hasattr(fname, 'readline'):
+    fh.close()
+
+  if numpy.shape(dat) == (0,):
+    return out
+
+  if len(dat)==8:
+    peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
+    omega_clusters = True
+  elif len(dat)==5:
+    peak, freq, duration, bandwidth, amplitude = dat
+    omega_clusters = False
+  else:
+    raise ValueError("Wrong number of columns in omega format file. "\
+                     "Cannot read.")
+
+  numtrigs = len(peak)
+  attr_map = dict()
+
+  if 'start_time' in columns or 'start_time_ns' in columns:
+    start = map(LIGOTimeGPS, peak - duration/2)
+    attr_map['start_time'], attr_map['start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in start])
+  if 'stop_time' in columns or 'stop_time_ns' in columns:
+    stop = map(LIGOTimeGPS, peak + duration/2)
+    attr_map['stop_time'], attr_map['stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in stop])
+  if 'peak_time' in columns or 'peak_time_ns' in columns:
+    peak = map(LIGOTimeGPS, peak)
+    attr_map['peak_time'], attr_map['peak_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in peak])
+
+  if 'ms_start_time' in columns or 'ms_start_time_ns' in columns:
+    ms_start = map(LIGOTimeGPS, peak-duration/2)
+    attr_map['ms_start_time'], attr_map['ms_start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_start])
+  if 'ms_stop_time' in columns or 'ms_stop_time_ns' in columns:
+    ms_stop = map(LIGOTimeGPS, peak+duration/2)
+    attr_map['ms_stop_time'], attr_map['ms_stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
+
+  if 'central_freq' in columns:   attr_map['central_freq']   = freq
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+  if 'bandwidth' in columns:      attr_map['bandwidth']      = bandwidth
+  if 'ms_bandwidth' in columns:   attr_map['ms_bandwidth']   = bandwidth
+  if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
+  if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
+  if 'ms_flow' in columns:        attr_map['ms_flow']        = freq-bandwidth/2
+  if 'ms_fhigh' in columns:       attr_map['ms_fhigh']       = freq+bandwidth/2
+
+  if 'duration' in columns:       attr_map['duration']       = duration
+  if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
+  if 'snr' in columns:            attr_map['snr']      = numpy.sqrt(2*amplitude)
+  if 'ms_snr' in columns:         attr_map['ms_snr']   = numpy.sqrt(2*amplitude)
+
+  if 'cluster_size' in columns or 'param_one_value' in columns:
+    attr_map['param_one_name'] = ['cluster_size'] * numtrigs
+    if omega_clusters:
+      attr_map['param_one_value'] = cls
+    else:
+      attr_map['param_one_value'] = [numpy.NaN] * numtrigs
+  if 'cluster_norm_energy' in columns or 'param_two_value' in columns:
+    attr_map['param_two_name'] = ['cluster_norm_energy'] * numtrigs
+    if omega_clusters:
+      attr_map['param_two_value'] = cls
+    else:
+      attr_map['param_two_value'] = [numpy.NaN] * numtrigs
+  if 'cluster_size' in columns or 'param_three_value' in columns:
+    attr_map['param_three_name'] = ['cluster_number'] * numtrigs
+    if omega_clusters:
+      attr_map['param_three_value'] = cls
+    else:
+      attr_map['param_three_value'] = [numpy.NaN] * numtrigs
+
+  cols   = attr_map.keys()
+  append = out.append
+  for i in range(numtrigs):
+    t = lsctables.SnglBurst()
+    for c in cols: setattr(t, c, attr_map[c][i])
+    if not check_time or (check_time and float(t.get_peak()) in span):
+      append(t)
+  
+  return out
+
+def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
+               columns=None):
+
+  """
+    Load triggers from a KW format text file into a SnglBurstTable object.
+    Use start and end to restrict the returned triggers, and give ifo and
+    channel to fill those columns in the table.
+
+    If columns is given as a list, only those columns in the table will be
+    filled. This is advisable to speed up future operations on this table.
+
+    Arguments :
+
+      fname : file or str
+        file object or filename path to read with numpy.loadtext
+
+    Keyword arguments :
+
+      start : float
+        minimum peak time for returned triggers
+      end : float
+        maximum peak time for returned triggers
+      ifo : str
+        name of IFO to fill in table
+      channel : str
+        name of channel to fill in table
+      columns : iterable
+        list of columnnames to populate in table
+  """
+
+  # set columns
+  if columns==None: columns = lsctables.SnglBurst.__slots__
+  if start or end:
+    if not start:
+      start = 0
+    if not end:
+      end   = numpy.inf
+    span = segments.segment(start, end)
+    if 'peak_time' not in columns: columns.append('peak_time')
+    if 'peak_time_ns' not in columns: columns.append('peak_time_ns')
+    check_time = True
+  else:
+    check_time = False
+
+  # generate table
+  out = SnglTriggerTable('kw', columns=columns)
+
+  # force filename not file object
+  if hasattr(fname, 'readline'):
+    fh = fname
+  else:
+    fh = open(fname, 'r')
+
+  # load data from file
+  dat = loadtxt(fh)
+
+  # close file if we opened it
+  if not hasattr(fname, 'readline'):
+    fh.close()
+
+  if numpy.shape(dat) == (0,):
+    return out
+
+  if len(dat)==8:
+    st, stop, peak, freq, energy, amplitude, n_pix, sig = dat
+  else:
+    raise ValueError("Wrong number of columns in KW format file. "\
+                     "Cannot read.")
+
+  numtrigs = len(peak)
+
+  attr_map = dict()
+
+  if 'duration' in columns:       attr_map['duration']       = stop-st
+  if 'ms_duration' in columns:    attr_map['ms_duration']    = stop-st
+
+  if 'start_time' in columns or 'start_time_ns' in columns:
+    start = map(LIGOTimeGPS, st)
+    attr_map['start_time'], attr_map['start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in start])
+  if 'stop_time' in columns or 'stop_time_ns' in columns:
+    stop = map(LIGOTimeGPS, stop)
+    attr_map['stop_time'], attr_map['stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in stop])
+  if 'peak_time' in columns or 'peak_time_ns' in columns:
+    peak = map(LIGOTimeGPS, peak)
+    attr_map['peak_time'], attr_map['peak_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in peak])
+
+  if 'ms_start_time' in columns or 'ms_start_time_ns' in columns:
+    ms_start = map(LIGOTimeGPS, st)
+    attr_map['ms_start_time'], attr_map['ms_start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_start])
+  if 'ms_stop_time' in columns or 'ms_stop_time_ns' in columns:
+    ms_stop = map(LIGOTimeGPS, stop)
+    attr_map['ms_stop_time'], attr_map['ms_stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
+
+  if 'central_freq' in columns:   attr_map['central_freq']   = freq
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+
+  if 'snr' in columns:            attr_map['snr']  = numpy.sqrt(amplitude-n_pix)
+
+  if 'n_pix' in columns or 'param_one_value' in columns:
+    attr_map['param_one_name'] = ['n_pix'] * numtrigs
+    attr_map['param_one_value'] = n_pix
+  if 'signifiance' in columns or 'param_two_value' in columns:
+    attr_map['param_two_name'] = ['signifiance'] * numtrigs
+    attr_map['param_two_value'] = sig
+
+  cols   = attr_map.keys()
+  append = out.append
+  for i in range(numtrigs):
+    t = lsctables.SnglBurst()
+    for c in cols: setattr(t, c, attr_map[c][i])
+    if ifo!=None:
+      t.ifo = ifo
+    if channel!=None:
+      t.channel = channel
+    if not check_time or (check_time and t.get_peak() in span):
+      append(t)
+  
+  return out
+
+def fromomegaspectrumfile(fname, start=None, end=None, ifo=None, channel=None,\
+                          columns=None):
+
+  """
+    Load triggers from an OmegaSpectrum format text file into a SnglBurstTable
+    object.
+    Use start and end to restrict the returned triggers, and give ifo and
+    channel to fill those columns in the table.
+
+    If columns is given as a list, only those columns in the table will be
+    filled. This is advisable to speed up future operations on this table.
+
+    Arguments :
+
+      fname : file or str
+        file object or filename path to read with numpy.loadtext
+
+    Keyword arguments :
+
+      start : float
+        minimum peak time for returned triggers
+      end : float
+        maximum peak time for returned triggers
+      ifo : str
+        name of IFO to fill in table
+      channel : str
+        name of channel to fill in table
+      columns : iterable
+        list of columnnames to populate in table
+  """
+
+  # set columns
+  if columns==None: columns = lsctables.SnglBurst.__slots__
+  if start or end:
+    if not start:
+      start = 0
+    if not end:
+      end   = numpy.inf
+    span = segments.segment(start, end)
+    if 'peak_time' not in columns: columns.append('peak_time')
+    if 'peak_time_ns' not in columns: columns.append('peak_time_ns')
+    check_time = True
+  else:
+    check_time = False
+
+  # generate table
+  out = SnglTriggerTable('omegaspectrum', columns=columns)
+
+  # force filename not file object
+  if hasattr(fname, 'readline'):
+    fh = fname
+  else:
+    fh = open(fname, 'r')
+
+  # load data from file
+  dat = loadtxt(fh)
+
+  # close file if we opened it
+  if not hasattr(fname, 'readline'):
+    fh.close()
+
+  if numpy.shape(dat) == (0,):
+    return out
+
+  if len(dat)==3:
+    peak, freq, amplitude = dat
+  else:
+    raise ValueError("Wrong number of columns in omega spectrum format file. "\
+                     "Cannot read.")
+  numtrigs = len(peak)
+
+  attr_map = dict()
+
+  if 'peak_time' in columns or 'peak_time_ns' in columns:
+    peak = map(LIGOTimeGPS, peak)
+    attr_map['peak_time'], attr_map['peak_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in peak])
+
+  if 'central_freq' in columns:   attr_map['central_freq']   = freq
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+  if 'amplitude' in columns:      attr_map['amplitude'] = amplitude
+  if 'snr' in columns:            attr_map['snr'] = numpy.sqrt(amplitude)
+
+  cols   = attr_map.keys()
+  append = out.append
+  for i in range(numtrigs):
+    t = lsctables.SnglBurst()
+    for c in cols: setattr(t, c, attr_map[c][i])
+    if ifo!=None:
+      t.ifo = ifo
+    if channel!=None:
+      t.channel = channel
+    if not check_time or (check_time and t.get_peak() in span):
+      append(t)
+  
+  return out
+
+def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
+                    columns=None):
+
+  """
+    Load triggers from an OmegaDQ format text file into a SnglBurstTable object.
+    Use start and end to restrict the returned triggers, and give ifo and
+    channel to fill those columns in the table.
+
+    If columns is given as a list, only those columns in the table will be
+    filled. This is advisable to speed up future operations on this table.
+
+    Arguments :
+
+      fname : file or str
+        file object or filename path to read with numpy.loadtext
+
+    Keyword arguments :
+
+      start : float
+        minimum peak time for returned triggers
+      end : float
+        maximum peak time for returned triggers
+      ifo : str
+        name of IFO to fill in table
+      channel : str
+        name of channel to fill in table
+      columns : iterable
+        list of columnnames to populate in table
+  """
+
+  # set columns
+  if columns==None: columns = lsctables.SnglBurst.__slots__
+  if start or end:
+    if not start:
+      start = 0
+    if not end:
+      end   = numpy.inf
+    span = segments.segment(start, end)
+    if 'peak_time' not in columns: columns.append('peak_time')
+    if 'peak_time_ns' not in columns: columns.append('peak_time_ns')
+    check_time = True
+  else:
+    check_time = False
+
+  # generate table
+  out = SnglTriggerTable('omegadq', columns=columns)
+
+  # force filename not file object
+  if hasattr(fname, 'readline'):
+    fh = fname
+  else:
+    fh = open(fname, 'r')
+
+  # load data from file
+  dat = loadtxt(fh)
+
+  # close file if we opened it
+  if not hasattr(fname, 'readline'):
+    fh.close()
+
+  if numpy.shape(dat) == (0,):
+    return out
+
+  if len(dat)==13:
+    st, stop, peak, flow, fhigh, nev, ms_start, ms_stop, ms_flow, ms_fhigh,\
+    cls, cle, ms_cle = dat
+  else:
+    raise ValueError("Wrong number of columns in OmegaDQ format file. "\
+                     "Cannot read.")
+  numtrigs = len(peak)
+
+  attr_map = dict()
+
+  if 'duration' in columns:       attr_map['duration']       = stop-st
+  if 'ms_duration' in columns:    attr_map['ms_duration']    = ms_stop-ms_start
+
+  if 'start_time' in columns or 'start_time_ns' in columns:
+    start = map(LIGOTimeGPS, st)
+    attr_map['start_time'], attr_map['start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in start])
+  if 'stop_time' in columns or 'stop_time_ns' in columns:
+    stop = map(LIGOTimeGPS, stop)
+    attr_map['stop_time'], attr_map['stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in stop])
+  if 'peak_time' in columns or 'peak_time_ns' in columns:
+    peak = map(LIGOTimeGPS, peak)
+    attr_map['peak_time'], attr_map['peak_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in peak])
+
+  if 'ms_start_time' in columns or 'ms_start_time_ns' in columns:
+    ms_start = map(LIGOTimeGPS, ms_start)
+    attr_map['ms_start_time'], attr_map['ms_start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_start])
+  if 'ms_stop_time' in columns or 'ms_stop_time_ns' in columns:
+    ms_stop = map(LIGOTimeGPS, ms_stop)
+    attr_map['ms_stop_time'], attr_map['ms_stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
+
+  if 'flow' in columns:           attr_map['flow']           = flow
+  if 'fhigh' in columns:          attr_map['fhigh']          = fhigh
+  if 'bandwidth' in columns:      attr_map['bandwidth']      = fhigh-flow
+  if 'ms_flow' in columns:        attr_map['ms_flow']        = flow
+  if 'ms_fhigh' in columns:       attr_map['ms_fhigh']       = fhigh
+  if 'ms_bandwidth' in columns:   attr_map['ms_bandwidth']   = ms_fhigh-ms_flow
+
+  if 'central_freq' in columns:   attr_map['central_freq']   = (flow+fhigh)/2
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = (flow+fhigh)/2
+
+  if 'snr' in columns:            attr_map['snr']            = numpy.sqrt(cle)
+  if 'ms_snr' in columns:         attr_map['ms_snr']        = numpy.sqrt(ms_cle)
+
+  if 'cluster_size' in columns or 'param_one_value' in columns:
+    attr_map['param_one_name'] = ['cluster_size'] * numtrigs
+    attr_map['param_one_value'] = cls
+  if 'cluster_number' in columns or 'param_two_value' in columns:
+    attr_map['param_two_name'] = ['cluster_number'] * numtrigs
+    attr_map['param_two_value'] = nev
+
+  cols   = attr_map.keys()
+  append = out.append
+  for i in range(numtrigs):
+    t = lsctables.SnglBurst()
+    for c in cols: setattr(t, c, attr_map[c][i])
+    if ifo!=None:
+      t.ifo = ifo
+    if channel!=None:
+      t.channel = channel
+    if not check_time or (check_time and t.get_peak() in span):
+      append(t)
+  
+  return out
+
+def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
+                 columns=None):
+
+  """
+    Load triggers from a HACR format text file into a SnglBurstTable object.
+    Use start and end to restrict the returned triggers, and give ifo and
+    channel to fill those columns in the table.
+
+    If columns is given as a list, only those columns in the table will be
+    filled. This is advisable to speed up future operations on this table.
+
+    Arguments :
+
+      fname : file or str
+        file object or filename path to read with numpy.loadtext
+
+    Keyword arguments :
+
+      start : float
+        minimum peak time for returned triggers
+      end : float
+        maximum peak time for returned triggers
+      ifo : str
+        name of IFO to fill in table
+      channel : str
+        name of channel to fill in table
+      columns : iterable
+        list of columnnames to populate in table
+  """
+
+  # set columns
+  if columns==None: columns = lsctables.SnglBurst.__slots__
+  if start or end:
+    if not start:
+      start = 0
+    if not end:
+      end   = numpy.inf
+    span = segments.segment(start, end)
+    if 'peak_time' not in columns: columns.append('peak_time')
+    if 'peak_time_ns' not in columns: columns.append('peak_time_ns')
+    check_time = True
+  else:
+    check_time = False
+
+  # generate table
+  out = SnglTriggerTable('hacr', columns=columns)
+
+  # force filename not file object
+  if hasattr(fname, 'readline'):
+    fh = fname
+  else:
+    fh = open(fname, 'r')
+      
+  # load data from file
+  dat = loadtxt(fh)
+
+  # close file if we opened it
+  if not hasattr(fname, 'readline'):
+    fh.close()
+
+  if numpy.shape(dat) == (0,):
+    return out
+  elif numpy.shape(dat) == (8,):
+    peak_time, peak_time_offset, freq, bandwidth, duration, n_pix, snr,\
+    totPower = map(lambda n: numpy.asarray([n]), dat)
+  elif len(dat)==8:
+    peak_time, peak_time_offset, freq, bandwidth, duration, n_pix, snr,\
+    totPower = dat
+  else:
+    raise ValueError("Wrong number of columns in HACR format file. "\
+                     "Cannot read.")
+
+  numtrigs = len(peak_time)
+
+  if columns==None: columns = lsctables.SnglBurst.__slots__   
+  if start or end:
+    if not start:
+      start = 0
+    if not end:
+      end   = numpy.inf
+    span = segments.segment(start, end)
+    if 'peak_time' not in columns: columns.append('peak_time')
+    if 'peak_time_ns' not in columns: columns.append('peak_time_ns')
+    check_time = True
+  else:
+    check_time = False
+
+  attr_map = dict()
+
+  peak = peak_time+peak_time_offset
+  if 'start_time' in columns or 'start_time_ns' in columns:
+    start = map(LIGOTimeGPS, peak-duration/2)
+    attr_map['start_time'], attr_map['start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in start])
+  if 'stop_time' in columns or 'stop_time_ns' in columns:
+    stop = map(LIGOTimeGPS, peak+duration/2)
+    attr_map['stop_time'], attr_map['stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in stop])
+  if 'peak_time' in columns or 'peak_time_ns' in columns:
+    peak = map(LIGOTimeGPS, peak)
+    attr_map['peak_time'], attr_map['peak_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in peak])
+
+  if 'ms_start_time' in columns or 'ms_start_time_ns' in columns:
+    ms_start = map(LIGOTimeGPS, peak-duration/2)
+    attr_map['ms_start_time'], attr_map['ms_start_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_start])
+  if 'ms_stop_time' in columns or 'ms_stop_time_ns' in columns:
+    ms_stop = map(LIGOTimeGPS, peak+duration/2)
+    attr_map['ms_stop_time'], attr_map['ms_stop_time_ns'] =\
+        zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
+
+  if 'duration' in columns:       attr_map['duration']       = duration
+  if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
+  if 'central_freq' in columns:   attr_map['central_freq']   = freq
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+
+  if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
+  if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
+  if 'bandwidth' in columns:      attr_map['bandwidth']      = bandwidth
+  if 'ms_flow' in columns:        attr_map['ms_flow']        = freq-bandwidth/2
+  if 'ms_fhigh' in columns:       attr_map['ms_fhigh']       = freq+bandwidth/2
+  if 'ms_bandwidth' in columns:   attr_map['ms_bandwidth']   = bandwidth
+
+  if 'snr' in columns:            attr_map['snr']            = snr
+  if 'ms_snr' in columns:         attr_map['ms_snr']         = snr
+
+  if 'peak_time_offset' in columns or 'param_one_value' in columns\
+  or 'peak_time_ns' in columns:
+    attr_map['param_one_name'] = ['peak_time_offset'] * numtrigs
+    attr_map['param_one_value'] = peak_time_offset
+  if 'numPixels' in columns or 'param_two_value' in columns:
+    attr_map['param_two_name'] = ['numPixels'] * numtrigs
+    attr_map['param_two_value'] = n_pix
+  if 'totPower' in columns or 'param_three_value' in columns:
+    attr_map['param_three_name'] = ['totPower'] * numtrigs
+    attr_map['param_three_value'] = totPower
+
+  cols   = attr_map.keys()
+  append = out.append
+  for i in range(numtrigs):
+    t = lsctables.SnglBurst()
+    for c in cols: setattr(t, c, attr_map[c][i])
+    if ifo!=None:
+      t.ifo = ifo
+    if channel!=None:
+      t.channel = channel
+    if not check_time or (check_time and t.get_peak() in span):
+      append(t)
+  
+  return out
+
+def fromihopefile(fname, start=None, end=None, ifo=None, channel=None,\
+                  columns=None):
+
+  """
+    Load triggers from an iHope format CSV file into a SnglInspiralTable object.
+    Use start and end to restrict the returned triggers, and give ifo and
+    channel to fill those columns in the table.
+
+    If columns is given as a list, only those columns in the table will be
+    filled. This is advisable to speed up future operations on this table.
+
+    Arguments :
+
+      fname : file or str
+        file object or filename path to read with numpy.loadtext
+
+    Keyword arguments :
+
+      start : float
+        minimum peak time for returned triggers
+      end : float
+        maximum peak time for returned triggers
+      ifo : str
+        name of IFO to fill in table
+      channel : str
+        name of channel to fill in table
+      columns : iterable
+        list of columnnames to populate in table
+  """
+
+  # get columns
+  def_cols = dict(enumerate(['end_time','end_time_ns','ifo','snr','mass1',\
+                             'mass2', 'mtotal','eta','event_duration',\
+                             'template_duration','eff_distance','chisq',\
+                             'chisq_dof','bank_chisq','bank_chisq_dof',\
+                             'cont_chisq','cont_chisq_dof']))
+
+  if columns==None: columns = lsctables.SnglInspiral.__slots__   
+  if start or end:
+    if not start:
+      start = 0
+    if not end:
+      end   = numpy.inf
+    span = segments.segment(start, end)
+    if 'end_time' not in columns: columns.append('end_time')
+    if 'end_time_ns' not in columns: columns.append('end_time_ns')
+    check_time = True
+  else:
+    check_time = False
+
+  usecols = [t for t in def_cols if def_cols[t] in columns]
+  
+  # force filename not file object
+  if hasattr(fname, 'readline'):
+    fh = fname
+  else:
+    fh = open(fname, 'r')
+
+  # load data from file
+  dat = loadtxt(fh, usecols)
+
+  # close file if we opened it
+  if not hasattr(fname, 'readlin'):
+    fh.close()
+
+  if usecols:
+    numtrigs = len(dat[0])
+  else:
+    numtrigs = 0
+
+  # generate table
+  out = SnglTriggerTable('ihope', columns=columns)
+
+  cols   = numpy.arange(len(dat))
+  append = out.append
+  for i in range(numtrigs):
+    t = lsctables.SnglInspiral()
+    for c in cols:
+      setattr(t, def_cols[usecols[c]],\
+              int(data[c][i]) if re.search('time', def_cols[usecols[c]])\
+              else data[c][i])
+    if ifo!=None:
+      t.ifo = ifo
+    if channel!=None:
+      t.channel = channel
+    if not check_time or (check_time and t.get_peak() in span):
+      append(t)
+  
+  return out
+
 # ==============================================================================
 # Time shift trigger table
 # ==============================================================================
@@ -1437,4 +2223,26 @@ def time_shift(lsctable, dt=1):
     out.append(t2)
 
   return out
+
+# =============================================================================
+# Read file
+# =============================================================================
+
+def loadtxt(fh, usecols=None):
+
+  """
+    Stripped down version of numpy.loadtxt to work with empty files.
+  """
+
+  _comment = re.compile('[#%]')
+  _delim   = re.compile('[\t\,\s]+')
+  output = []
+  for i,line in enumerate(fh):
+    if _comment.match(line): continue
+    vals = _delim.split(line.rstrip())
+    if usecols is not None:
+      output.append(tuple(map(float, [vals[j] for j in usecols])))
+    else:
+      output.append(tuple(map(float, vals)))
+  return numpy.squeeze(numpy.array(output, float)).T
 

@@ -1,5 +1,4 @@
 #!/bin/sh
-# $Id$
 # pack up output for return to metronome
 
 # wrap this whole script in a block combining stdout & stderr

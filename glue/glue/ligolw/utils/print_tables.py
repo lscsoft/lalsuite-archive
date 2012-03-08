@@ -19,8 +19,8 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 
 __author__ = "Collin Capano <cdcapano@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"
+__date__ = "$Date$"
 
 
 #

@@ -44,6 +44,7 @@ from operator import itemgetter
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
+from numpy import linspace
 
 import random
 
@@ -288,13 +289,13 @@ def _inj_beta(inj):
     Ly = 0.0
     Lz = Lmag * np.arccos(inj.inclination)
     
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
+    S1x  = inj.mass1*inj.mass1*inj.spin1x
+    S1y  = inj.mass1*inj.mass1*inj.spin1y
+    S1z  = inj.mass1*inj.mass1*inj.spin1z
     
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
+    S2x  = inj.mass2*inj.mass2*inj.spin2x
+    S2y  = inj.mass2*inj.mass2*inj.spin2y
+    S2z  = inj.mass2*inj.mass2*inj.spin2z
 
     Jx = Lx + S1x + S2x
     Jy = Ly + S1y + S2y
@@ -643,6 +644,7 @@ class Posterior(object):
 
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
+                        'chirpmass':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
                         'mass1':_inj_m1,
                         'm1':_inj_m1,
@@ -650,6 +652,7 @@ class Posterior(object):
                         'm2':_inj_m2,
                         'eta':lambda inj:inj.eta,
                         'q':_inj_q,
+                        'asym_massratio':_inj_q,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
@@ -667,8 +670,8 @@ class Posterior(object):
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
                         'f_lower': lambda inj: inj.f_lower,
-                        'a1':_inj_a1,
-                        'a2':_inj_a2,
+                        'a1': lambda inj: np.sqrt(inj.spin1x**2+inj.spin1y**2+inj.spin1z**2) ,
+                        'a2': lambda inj: np.sqrt(inj.spin2x**2+inj.spin2y**2+inj.spin2z**2) ,
                         'theta1':_inj_theta1,
                         'theta2':_inj_theta2,
                         'phi1':_inj_phi1,
@@ -804,6 +807,12 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def pop(self,param_name):
+        """
+        Container method.  Remove OneDPosterior from the Posterior instance.
+        """
+        return self._posterior.pop(param_name)
+
     def append_mapping(self, new_param_names, func, post_names):
         """
         Append posteriors pos1,pos2,...=func(post_names)
@@ -884,7 +893,7 @@ class Posterior(object):
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
-                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "eta"]
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
@@ -1248,6 +1257,84 @@ class ParameterSample(object):
         Return the coordinates for the parameter sample.
         """
         return self._samples[self._coord_indexes]
+
+
+class AnalyticLikelihood(object):
+    """
+    Return analytic likelihood values.
+    """
+
+    def __init__(self, covariance_matrix_files, mean_vector_files):
+        """
+        Prepare analytic likelihood for the given parameters.
+        """
+        # Make sure files names are in a list
+        if isinstance(covariance_matrix_files, str):
+            covariance_matrix_files = [covariance_matrix_files]
+        if isinstance(mean_vector_files, str):
+            mean_vector_files = [mean_vector_files]
+
+        covarianceMatrices = [np.loadtxt(csvFile, delimiter=',') for csvFile in covariance_matrix_files]
+        num_matrices = len(covarianceMatrices)
+
+        if num_matrices != len(mean_vector_files):
+            raise RuntimeError('Must give a mean vector list for every covariance matrix')
+
+        param_line = open(mean_vector_files[0]).readline()
+        self._params = [param.strip() for param in param_line.split(',')]
+
+        converter=lambda x: eval(x.replace('pi','%.32f'%pi_constant))  # converts fractions w/ pi (e.g. 3.0*pi/2.0)
+        self._modes = []
+        for i in range(num_matrices):
+            CM = covarianceMatrices[i]
+            vecFile = mean_vector_files[i]
+
+            param_line = open(vecFile).readline()
+            params = [param.strip() for param in param_line.split(',')]
+            if set(params)!=set(self._params):
+                raise RuntimeError('Parameters do not agree between mean vector files.')
+
+            sigmas = dict(zip(params,np.sqrt(CM.diagonal())))
+            colNums = range(len(params))
+            converters = dict(zip(colNums,[converter for i in colNums]))
+            meanVectors = np.loadtxt(vecFile, delimiter=',', skiprows=1, converters=converters)
+            try:
+                for vec in meanVectors:
+                    means = dict(zip(params,vec))
+                    mode = [(param, stats.norm(loc=means[param],scale=sigmas[param])) for param in params]
+                    self._modes.append(dict(mode))
+            except TypeError:
+                means = dict(zip(params,meanVectors))
+                mode = [(param, stats.norm(loc=means[param],scale=sigmas[param])) for param in params]
+                self._modes.append(dict(mode))
+        self._num_modes = len(self._modes)
+
+    def pdf(self, param):
+        """
+        Return PDF function for parameter.
+        """
+        pdf = None
+        if param in self._params:
+            pdf = lambda x: (1.0/self._num_modes) * sum([mode[param].pdf(x) for mode in self._modes])
+        return pdf
+
+    def cdf(self, param):
+        """
+        Return PDF function for parameter.
+        """
+        cdf = None
+        if param in self._params:
+            cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
+        return cdf
+
+    @property
+    def names(self):
+        """
+        Return list of parameter names described by analytic likelihood function.
+        """
+        return self._params
+
+
 
 #===============================================================================
 # Web page creation classes (wrap ElementTrees)
@@ -2000,19 +2087,21 @@ def plot_one_param_pdf_kde(fig,onedpos):
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
-    gkde=onedpos.gaussian_kde
-
-    ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
-    kdepdf=gkde.evaluate(ind)
-    plt.plot(ind,kdepdf)
-
+    try:
+        gkde=onedpos.gaussian_kde
+    except np.linalg.linalg.LinAlgError:
+        print 'Singular matrix in KDE. Skipping'
+    else:
+        ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
+        kdepdf=gkde.evaluate(ind)
+        plt.plot(ind,kdepdf,color='green')
     return
 
 def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -2020,6 +2109,10 @@ def plot_one_param_pdf(posterior,plot1DParams):
     @param posterior: an instance of the Posterior class.
 
     @param plot1DParams: a dict; {paramName:Nbins}
+
+    @param analyticPDF: an analytic probability distribution function describing the distribution.
+
+    @param analyticCDF: an analytic cumulative distribution function describing the distribution.
 
     """
 
@@ -2034,9 +2127,15 @@ def plot_one_param_pdf(posterior,plot1DParams):
     myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
-    histbinSize=bins[1]-bins[0]
-
     plot_one_param_pdf_kde(myfig,posterior[param])
+    histbinSize=bins[1]-bins[0]
+    if analyticPDF:
+        (xmin,xmax)=plt.xlim()
+        x = np.linspace(xmin,xmax,2*len(bins))
+        plt.plot(x, analyticPDF(x), color='red', linewidth=2, linestyle='dashed')
+        if analyticCDF:
+            D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
+            plt.title("%s: ks p-value %.3f"%(param,p))
 
     rbins=None
 
@@ -2066,37 +2165,105 @@ def plot_one_param_pdf(posterior,plot1DParams):
         plt.xlim(xmax,xmin)
     if(param.lower()=='ra' or param.lower()=='rightascension'):
         locs, ticks = plt.xticks()
-        strticks=map(getRAString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
     if(param.lower()=='dec' or param.lower()=='declination'):
         locs, ticks = plt.xticks()
-        strticks=map(getDecString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
 
     return rbins,myfig#,rkde
 #
 
-def getRAString(radians):
-    hours = floor(radians*(12.0/pi_constant))
-    rem = radians-hours*(pi_constant/12.0)
-    mins = floor(rem*((12*60)/pi_constant))
-    rem = rem - mins*(pi_constant/(12*60))
-    secs = rem*(12*3600/pi_constant)
-    return '$%i\mathrm{h}%i^{\'}%2.0f^{\'\'}$'%(hours,mins,secs)
+def formatRATicks(locs, accuracy='min'):
+    """
+    Format locs, ticks to RA angle with given accuracy
+    accuracy can be 'hour', 'min', 'sec', 'all'
+    returns (locs, ticks)
+    'all' does no rounding, just formats the tick strings
+    """
+    newmax=max(locs)
+    newmin=min(locs)
+    if max(locs)>2*pi_constant: newmax=2.0*pi_constant
+    if min(locs)<0.0: newmin=0.0
+    locs=linspace(newmin,newmax,len(locs))
+    
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=accuracy), locs)
+    
+    newlocs=filter(lambda a:a>=0 and a<=2.0*pi_constant, roundlocs)
+    return (list(newlocs), map(getRAString, list(newlocs) ) )
 
-def getDecString(radians):
-    if(radians<0):
-        round = ceil
-        sign=-1
+def formatDecTicks(locs, accuracy='deg'):
+    """
+    Format locs to Dec angle with given accuracy
+    accuracy can be 'deg', 'arcmin', 'arcsec', 'all'
+    'all' does no rounding, just formats the tick strings
+    """
+    newmax=max(locs)
+    newmin=min(locs)
+    if newmax>0.5*pi_constant: newmax=0.5*pi_constant
+    if newmin<-0.5*pi_constant: newmin=-0.5*pi_constant
+    locs=linspace(newmin,newmax,len(locs))
+    
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=accuracy), locs)
+    newlocs=filter(lambda a:a>=-pi_constant/2.0 and a<=pi_constant/2.0, roundlocs)
+    return (list(newlocs), map(getDecString, list(newlocs) ) )
+
+def roundRadAngle(rads,accuracy='all'):
+    """
+    round given angle in radians to integer hours, degrees, mins or secs
+    accuracy can be 'hour'. 'deg', 'min', 'sec', 'all', all does nothing
+    'arcmin', 'arcsec'
+    """
+    if accuracy=='all': return locs
+    if accuracy=='hour': mult=24
+    if accuracy=='deg': mult=360
+    if accuracy=='min': mult=24*60
+    if accuracy=='sec': mult=24*60*60
+    if accuracy=='arcmin': mult=360*60
+    if accuracy=='arcsec': mult=360*60*60
+    mult=mult/(2.0*pi_constant)
+    return round(rads*mult)/mult
+
+def getRAString(radians,accuracy='auto'):
+    hours, rem = divmod(radians, pi_constant/12.0)
+    mins,rem = divmod(rem, pi_constant/(12.0*60.0))
+    secs = rem*12.0*3600.0/pi_constant
+    if secs>=59.5:
+        secs=secs-60
+        mins=mins+1
+    if mins>=59.5:
+        mins=mins-60
+        hours=hours+1
+    if accuracy=='hour': return ur'%ih'%(hours)
+    if accuracy=='min': return ur'%ih%im'%(hours,mins)
+    if accuracy=='sec': return ur'%ih%im%2.0fs'%(hours,mins,secs)
     else:
-        round = floor
-        sign=+1
-    deg = round(radians*(180.0/pi_constant))
-    rem = radians - deg*(pi_constant/180.0)
-    mins = round(rem*((180.0*60.0)/pi_constant))
-    rem = rem - mins*(pi_constant/(180.0*60.0))
-    secs = rem * (180.0*60.0*60.0)/pi_constant
-    return '$%i^\circ%i^{\'}%2.0f^{\'\'}$'%(deg,sign*mins,sign*secs)
+        if secs>=0.5: return(getRAString(radians,accuracy='sec'))
+        if mins>=0.5: return(getRAString(radians,accuracy='min'))
+        else: return(getRAString(radians,accuracy='hour'))
+        
+def getDecString(radians,accuracy='auto'):
+    if(radians<0):
+        radians=-radians
+        sign=-1
+    else: sign=+1
+    deg,rem=divmod(radians,pi_constant/180.0)
+    mins, rem = divmod(rem, pi_constant/(180.0*60.0))
+    secs = rem * (180.0*3600.0)/pi_constant
+    if secs>=59.5:
+        secs=secs-60.0
+        mins=mins+1
+    if mins>=59.5:
+        mins=mins-60.0
+        deg=deg+1
+    if accuracy=='deg': return ur'%i\u00B0'%(sign*deg)
+    if accuracy=='arcmin': return ur'%i\u00B0%i\u0027'%(sign*deg,mins)
+    if accuracy=='arcsec': return ur'%i\u00B0%i\u0027%2.0f\u2033'%(sign*deg,mins,secs)
+    else:
+        if secs>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
+        if mins>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+        else: return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -2155,24 +2322,24 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
             plt.xlim(xmax,xmin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.xticks()
-            strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            (newlocs, newticks)=formatRATicks(locs, ticks)
+            plt.xticks(newlocs,newticks,rotation=45)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
             locs, ticks = plt.xticks()
-            strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            newlocs, newticks = formatDecTicks(locs)
+            plt.xticks(newlocs,newticks,rotation=45)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         ymin,ymax=plt.ylim()
         plt.ylim(ymax,ymin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        newlocs,newticks=formatRATicks(locs)
+        plt.yticks(newlocs,newticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.yticks()
-        strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
+        newlocs,newticks=formatDecTicks(locs)
+        plt.yticks(newlocs,newticks)
 
     return myfig
 #
@@ -2258,7 +2425,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
-
+        if(par1_injvalue is not None and par2_injvalue is not None):
+            plt.plot([par1_injvalue],[par2_injvalue],'go',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2295,12 +2463,12 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
             plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.yticks()
-            strticks=map(getRAString,locs)
-            plt.yticks(locs,strticks)
+            newlocs, newticks = formatRATicks(locs)
+            plt.yticks(newlocs,newticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
             locs, ticks = plt.yticks()
-            strticks=map(getDecString,locs)
-            plt.yticks(locs,strticks)
+            newlocs,newticks=formatDecTicks(locs)
+            plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
@@ -2309,12 +2477,12 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
-        strticks=map(getRAString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.xticks()
-        strticks=map(getDecString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
 
     return fig
 #
@@ -2401,12 +2569,12 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
             plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.yticks()
-            strticks=map(getRAString,locs)
-            plt.yticks(locs,strticks)
+            newlocs, newticks = formatRATicks(locs)
+            plt.yticks(newlocs,newticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
             locs, ticks = plt.yticks()
-            strticks=map(getDecString,locs)
-            plt.yticks(locs,strticks)
+            newlocs, newticks = formatDecTicks(locs)
+            plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
@@ -2415,12 +2583,12 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
-        strticks=map(getRAString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.xticks()
-        strticks=map(getDecString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
 
     return myfig
 
@@ -2849,16 +3017,38 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-            
-
+                       
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
         posfilename='posterior_samples.dat'
         posfile=open(posfilename,'w')
-        posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
+       
+        #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
+        #psi \t iota \t likelihood \n')
+        # get parameter list
+        it = iter(files)
+        
+        # check if there's a file containing the parameter names
+        parsfilename = it.next()+'_params.txt'
+        
+        if os.path.isfile(parsfilename):
+            print 'Looking for '+parsfilename
+            if os.access(parsfilename,os.R_OK):
+                parsfile = open(parsfilename,'r')
+                outpars = parsfile.readline()
+                parsfile.close()
+            else:
+              print "Need files of parameters "+parsfilename
+              raise
+        
+            posfile.write(outpars)
+        else: # use hardcoded CBC parameter names 
+            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+dec \t psi \t iota \t likelihood \n')     
+        
         for row in pos:
             for i in row:
-                posfile.write('%f\t' %(i))
+                posfile.write('%.12e\t' %(i))
             posfile.write('\n')
         posfile.close()
 

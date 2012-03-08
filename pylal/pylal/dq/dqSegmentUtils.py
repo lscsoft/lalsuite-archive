@@ -42,8 +42,7 @@ copy_reg.pickle(type(segments.segmentlist([])),
 
 from glue import git_version
 
-__author__  = "Andrew P Lundgren <andrew.lundgren@ligo.org>, "+\
-              "Duncan Macleod <duncan.macleod@ligo.org>"
+__author__  = "Andrew P Lundgren <andrew.lundgren@ligo.org>, Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__    = git_version.date
 

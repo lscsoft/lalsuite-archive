@@ -37,7 +37,7 @@ continuous wave signals. It follows the examples of Prix arXiv:gr-qc/0606088
 although uses some of the notation of Harry and Fairhurst arXiv:1012.4939 for
 coherent inspiral signals.
 
-Some of this code should be moved to c code in LAL in order to up calculations.
+Some of this code should be moved to c code in LAL in order to speed up calculations
 """
 
 import sys
@@ -55,6 +55,7 @@ M_sun = 4.92549095e-6 # mass of sun in seconds
 c_speed = 2.99792458e8 # speed of light in meters per second
 pc2m = 3.0856775807e16 # par secs in meters
 pc2s = pc2m / c_speed # par secs in seconds
+gamma = .577215664901532860606512090082
 
 def A_plus(cosi, distance):
 	"""
@@ -147,18 +148,21 @@ def maximum_likelihood_matrix(RA, dec, detector_list):
 		fp = Fp(RA,dec,detector)
 		fx = Fx(RA,dec,detector)
 
-		A += fp*fp*detector.I_n[-7./3.]
-		B += fx*fx*detector.I_n[-7./3.]
-		C += fp*fx*detector.I_n[-7./3.]
+		A += fp*fp*detector.I_n['-7']
+		B += fx*fx*detector.I_n['-7']
+		C += fp*fx*detector.I_n['-7']
 	D = A*B - C**2
 
 	return A,B,C,D
 
-def average_snr(RA, dec, detector_list):
+def average_snr(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25):
 	"""
 	Computes the average SNR^2 for a signal at a given sky location
 	given a list of detectors.
 	"""
+	for detector in detector_list:
+		detector.update_I_n(mchirp, eta)
+
 	A,B,C,D = maximum_likelihood_matrix(RA, dec, detector_list)
 	return 2./5. * (A + B)
 
@@ -236,22 +240,74 @@ def coherent_filter(s, RA, dec, detector_list, hcos, hsin, f):
 	rhocoh /= D
 	return rhocoh
 
-def moments(f, PSD, n):
+def moments(f, PSD, n, l=0):
 	"""
-	Compute the integral f**n/PSD.
+	Compute the integral log(f)**l * f**(n/3.) / PSD.
 	"""
 	df = f[1]-f[0]
-	if f[0] == 0.:
-		return sum(df*abs(f[1:])**n/PSD[1:])
-	else:
-		return sum(df*abs(f)**n/PSD)
+	psd_moment = scipy.log(f)**l * f**(float(n)/3.) / PSD * df
+	return psd_moment.cumsum()
 
 def moments_required():
 	"""
-	These moments are required in the metric calculation.
+	These moments over 3 are required in the metric calculation.
+	The number of l's in the string denotes to power of log(f) to include.
 	"""
-	return [-1./3., -4./3., -5./3., -6./3., -7./3., -8./3., -9./3.,
-		-10./3., -11./3., -12./3., -13./3., -14./3., -15./3., -17./3.]
+	return ['-1', '-2', '-3', '-4', '-5', '-6', '-7', '-8', '-9',
+		'-10', '-11', '-12', '-13', '-14', '-15', '-17',
+		'-3l', '-4l', '-5l', '-6l', '-7l',
+		'-8l', '-9l', '-10l', '-11l', '-12l',
+		'-5ll', '-6ll', '-7ll']
+
+class Detector:
+	"""
+	A class to store the necessary information associated with a given
+	detector for the coherent inspiral metric calculation.
+	"""
+	def __init__(self, name, xarm, yarm, vertex, f=None, psd=None):
+		self.xarm = xarm
+		self.yarm = yarm
+		self.vertex = vertex
+		self.response = 0.5*(scipy.outer(xarm,xarm) - scipy.outer(yarm,yarm))
+		self.f = f
+		self.psd = psd
+		self.one_sided_f = None
+		self.one_sided_psd = None
+		self.I_n_vec = {}
+		self.I_n = {}
+		self.name = name
+
+	def add_moment(self, n, A=1):
+		if self.psd is None:
+			print >> sys.stderr, "No psd for this detector!"
+			sys.exit()
+		self.I_n_vec[n] = moments(self.one_sided_f, self.one_sided_psd, int(str(n).strip('l')), str(n).count('l'))
+		self.I_n_vec[n] *= A		
+		self.I_n[n] = self.I_n_vec[n][-1]
+
+	def set_psd(self, f, psd):
+		self.f = f
+		self.psd = psd
+
+	def set_required_moments(self, A=1):
+		if None not in [self.f, self.psd]:
+			if sum(self.f < 0):
+				self.one_sided_f = self.f[1:len(self.f)/2+1]
+				self.one_sided_psd = self.psd[1:len(self.psd)/2+1]/2.
+			else:
+				self.one_sided_f = self.f
+				self.one_sided_psd = self.psd
+
+		for n in moments_required():
+			if self.psd is None:
+				print >> sys.stderr, "No psd for this detector!"
+				sys.exit()
+			self.add_moment(n, A)
+
+	def update_I_n(self, mchirp, eta):
+		f_isco = 1. / (6.**1.5 * pi * mchirp * eta**(-3./5.))
+		for key in self.I_n.keys():
+			self.I_n[key] = self.I_n_vec[key][self.one_sided_f < f_isco][-1]
 
 def dx_n2(y,dx):
 	"""
@@ -270,37 +326,6 @@ def dx_n2(y,dx):
 			out[idx] /= 2.*dx
 
 	return out
-
-class Detector:
-	"""
-	A class to store the necessary information associated with a given
-	detector for the coherent inspiral metric calculation.
-	"""
-	def __init__(self, name, xarm, yarm, vertex, psd=None):
-		self.xarm = xarm
-		self.yarm = yarm
-		self.vertex = vertex
-		self.response = 0.5*(scipy.outer(xarm,xarm) - scipy.outer(yarm,yarm))
-		self.psd = psd
-		self.I_n = {}
-		self.name = name
-
-	def add_moment(self, f, n):
-		if self.psd is None:
-			print >> sys.stderr, "No psd for this detector!"
-			sys.exit()
-		self.I_n[n] = moments(f, self.psd, n)
-
-	def set_psd(self, psd):
-		self.psd = psd
-
-	def set_required_moments(self, f, A=1):
-		for n in moments_required():
-			if self.psd is None:
-				print >> sys.stderr, "No psd for this detector!"
-				sys.exit()
-			self.add_moment(f, n)
-			self.I_n[n] *= A
 
 def eps_plus(RA, dec):
 	"""
@@ -331,7 +356,6 @@ def Fp(RA, dec, detector):
 	Compute the plus-polarization antenna factor.
 	FIXME: Get this from LAL.
 	"""
-
 	d00 = detector.response[0,0]
 	d01 = detector.response[0,1]
 	d02 = detector.response[0,2]
@@ -472,7 +496,6 @@ def Fx(RA, dec, detector):
 	Compute the cross-polarization antenna factor.
 	FIXME: Get this from LAL.
 	"""
-
 	d00 = detector.response[0,0]
 	d01 = detector.response[0,1]
 	d02 = detector.response[0,2]
@@ -591,9 +614,34 @@ def dlnA_dmchirp_dict(mchirp, eta):
 	metric calculation.
 	"""
 	dlnA_dmchirp = {}
-	dlnA_dmchirp[0] = 5./(6.*mchirp)
+	dlnA_dmchirp['0'] = 5./(6.*mchirp)
 
 	return dlnA_dmchirp
+
+def Phase_dict(mchirp, eta):
+	"""
+	Computes an inspiral signal's phase. Returns as a dictionary for use in the metric
+	calculation.
+	"""
+	Phase = {}
+	# 0.0PN
+	Phase['-5'] = 3./(128.*pi**(5./3.)*mchirp**(5./3.))
+	# 1.0PN
+	Phase['-3'] = 5./(384.*pi*mchirp*eta**(2./5.))*(743./84. + 11.*eta)
+	# 1.5PN
+	Phase['-2'] = -3.*pi**(1./3.)/(8.*mchirp**(2./3.)*eta**(3./5.))
+	# 2.0PN
+	Phase['-1'] = 5./(3072.*pi**(1./3.)*mchirp**(1./3.)*eta**(4./5.))*(3058673./7056. + 5429./7.*eta + 617.*eta**2)
+	# 2.5PN
+	Phase['0']  = 5.*pi/(384.*eta)*(7729./84. - 13.*eta)*(1. + log(6.**1.5*pi*mchirp*eta**(-3./5.)))
+	Phase['0l']  = 5.*pi/(384.*eta)*(7729./84. - 13.*eta)
+	# 3.0PN
+	Phase['1']  = pi**(1./3.)*mchirp**(1./3.)/(128.*eta**(6./5.))*(11583231236531./1564738560. - 640.*pi**2 - 6848./7.*(gamma + log(4.*(pi*mchirp)**(1./3.)*eta**(-1./5.))) + 5./4.*(-3147553127./254016. + 451.*pi**2)*eta + 76055./576.*eta**2 - 127825./432.*eta**3)
+	Phase['1l'] = -107.*pi**(1./3.)*mchirp**(1./3.)/(42.*eta**(6./5.))
+	# 3.5PN
+	Phase['2']  = 5.*pi**(5./3.)*mchirp**(2./3.)/(32256.*eta**(7./5.))*(15419335./336. + 75703./2.*eta - 14809.*eta**2)
+
+	return Phase
 
 def dPhase_dmchirp_dict(mchirp, eta):
 	"""
@@ -602,10 +650,21 @@ def dPhase_dmchirp_dict(mchirp, eta):
 	calculation.
 	"""
 	dPhase_dmchirp = {}
-	dPhase_dmchirp[-5] = 5./(128.*pi**(5./3.)*mchirp**(8./3.))
-	dPhase_dmchirp[-3] = 3./(128.*pi*mchirp**2.)*(3715./756.+55./9.*eta)*eta**(-2./5.)
-	dPhase_dmchirp[-2] = 2./(128.*pi**(2./3.)*mchirp**(5./3.))*(-16.*pi)*eta**(-3./5.)
-	dPhase_dmchirp[-1] = 1./(128.*pi**(1./3.)*mchirp**(4./3.))*(15293365./508032.+27145./504.*eta+3085./72.*eta**2)*eta**(-4./5.)
+	# 0.0PN
+	dPhase_dmchirp['-5'] = -5./(128.*pi**(5./3.)*mchirp**(8./3.))
+	# 1.0PN
+	dPhase_dmchirp['-3'] = -5./(384.*pi*mchirp**2.*eta**(2./5.))*(743./84. + 11.*eta)
+	# 1.5PN
+	dPhase_dmchirp['-2'] = pi**(1./3.)/(4.*mchirp**(5./3.)*eta**(3./5.))
+	# 2.0PN
+	dPhase_dmchirp['-1'] = -5./(9216.*pi**(1./3.)*mchirp**(4./3.)*eta**(4./5.))*(3058673./7056. + 5429./7.*eta + 617.*eta**2)
+	# 2.5PN
+	dPhase_dmchirp['0']  = 5.*pi/(384.*eta*mchirp)*(7729./84. - 13.*eta)
+	# 3.0PN
+	dPhase_dmchirp['1']  = pi**(1./3.)/(384.*eta**(6./5.)*mchirp**(2./3.))*(10052469856691./1564738560. - 640.*pi**2 - 6848./7.*(gamma + log(4.*(pi*mchirp)**(1./3.)*eta**(-1./5.))) + 5./4.*(-3147553127./254016. + 451.*pi**2)*eta + 76055./576.*eta**2 - 127825./432.*eta**3)
+	dPhase_dmchirp['1l'] = -107.*pi**(1./3.)/(126.*eta**(6./5.)*mchirp**(2./3.))
+	# 3.5PN
+	dPhase_dmchirp['2']  = 5.*pi**(5./3.)/(48384.*mchirp**(1./3.)*eta**(7./5.))*(15419335./336. + 75703./2.*eta - 14809.*eta**2)
 
 	return dPhase_dmchirp
 
@@ -616,9 +675,20 @@ def dPhase_deta_dict(mchirp, eta):
 	metric calculation.
 	"""
 	dPhase_deta = {}
-	dPhase_deta[-3] = (-3./128.)*(3715./756.*(-2./5.)*eta**(-7./5.) + 55./9.*(3./5.)*eta**(-2./5.))*(pi*mchirp)**-1
-	dPhase_deta[-2] = (-3./128.)*(-16.*pi*(-3./5.)*eta**(-8./5.))*(pi*mchirp)**(-2./3.)
-	dPhase_deta[-1] = (-3./128.)*(15293365./508032.*(-4./5.)*eta**(-9./5.) + 27145./504.*(1./5.)*eta**(-4./5.) + 3085./72.*(6./5.)*eta**(1./5.))*(pi*mchirp)**(-1./3.)
+	# 1.0PN
+	dPhase_deta['-3'] = -1./(384.*pi*mchirp*eta**(7./5.))*(743./42. - 33.*eta)
+	# 1.5PN
+	dPhase_deta['-2'] = 9.*pi**(1./3.)/(40.*mchirp**(2./3.)*eta**(8./5.))
+	# 2.0PN
+	dPhase_deta['-1'] = -3./(3072.*(pi*mchirp)**(1./3.)*eta**(9./5.))*(3058673./5292. - 5429./21.*eta - 1234.*eta**2.)
+	# 2.5PN
+	dPhase_deta['0']  = -pi/(384.*eta**2.)*(7729./84.*(8. + 5.*log(6**(3./2.)*pi*mchirp*eta**(-3./5.))) - 39.*eta)
+	dPhase_deta['0l'] = -38645.*pi/(32256.*eta**2.)
+	# 3.0PN
+	dPhase_deta['1']  = (pi*mchirp)**(1./3.)/(640.*eta**(11./5.))*(-11328104339891./260789760. + 3840.*pi**2 + 41088./7.*(gamma + log(4*(pi*mchirp)**(1./3.)*eta**(-1./5.))) - 5./4.*(-3147553127./254016. + 451*pi**2)*eta + 76055./144.*eta**2. - 127825./48.*eta**3.)
+	dPhase_deta['1l'] = 107.*(pi*mchirp)**(1./3.)/(35.*eta**(11./5.))
+	# 3.5PN
+	dPhase_deta['2']  = -pi**(5./3.)*mchirp**(2./3.)/(32256.*eta**(12./5.))*(15419335./48. + 75703.*eta + 44427.*eta**2.)
 
 	return dPhase_deta
 
@@ -629,9 +699,20 @@ def dPhase_dt_dict():
 	calculation.
 	"""
 	dPhase_dt = {}
-	dPhase_dt[3] = 2*pi
+	dPhase_dt['3'] = 2*pi
 
 	return 	dPhase_dt
+
+def dPhase_dphi_dict():
+	"""
+	Computes the derivative of an inspiral signal's phase with respect to
+	the end phase. Returns as a dictionary for use in the metric
+	calculation. Used in the single detector metric.
+	"""
+	dPhase_dphi = {}
+	dPhase_dphi['0'] = -1.
+
+	return 	dPhase_dphi
 
 # FIXME: should be rotating with time
 def rn(RA, dec, detector):
@@ -660,7 +741,7 @@ def drn_ddec(RA, dec, detector):
 	tmp = -dx*cos(RA)*sin(dec) - dy*sin(RA)*sin(dec) + dz*cos(dec)
 	return tmp / c_speed
 
-def mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=False):
+def mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=True):
 	"""
 	Computes the first mismatch component associated with the derivatives
 	with respect to parameters lambda_i and lambda_j. Take as input the
@@ -687,22 +768,30 @@ def mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 		I_dLnAmp_dLnAmp = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpi[detector.name].keys():
 			for key2 in dLnAmpj[detector.name].keys():
-				n = -7 + key1 + key2
-				I_dLnAmp_dLnAmp += dLnAmpi[detector.name][key1]*dLnAmpj[detector.name][key2]*I_n[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				I_dLnAmp_dLnAmp += dLnAmpi[detector.name][key1]*dLnAmpj[detector.name][key2]*I_n[psd_key]
 		I_dPhase_dPhase = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasei[detector.name].keys():
 			for key2 in dPhasej[detector.name].keys():
-				n = -7 + key1 + key2
-				I_dPhase_dPhase += dPhasei[detector.name][key1]*dPhasej[detector.name][key2]*I_n[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				I_dPhase_dPhase += dPhasei[detector.name][key1]*dPhasej[detector.name][key2]*I_n[psd_key]
 		h11ij += fp[detector.name]*fp[detector.name] * (I_dLnAmp_dLnAmp + I_dPhase_dPhase)
 		I_dLnAmpi = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpi[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[psd_key]
 		I_dLnAmpj = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpj[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[psd_key]
 		R11i += fp[detector.name]*fp[detector.name] * I_dLnAmpi
 		R11j += fp[detector.name]*fp[detector.name] * I_dLnAmpj
 		R21i += fx[detector.name]*fp[detector.name] * I_dLnAmpi
@@ -712,22 +801,27 @@ def mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 			h11ij += fp[detector.name]*dfpj[detector.name] * I_dLnAmpi
 		I_dPhasei = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasei[detector.name].keys():
-			n = -7 + key1
-			I_dPhasei += dPhasei[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasei += dPhasei[detector.name][key1]*I_n[psd_key]
 		I_dPhasej = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasej[detector.name].keys():
-			n = -7 + key1
-			I_dPhasej += dPhasej[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasej += dPhasej[detector.name][key1]*I_n[psd_key]
 		R31i += fp[detector.name]*fp[detector.name] * I_dPhasei
 		R31j += fp[detector.name]*fp[detector.name] * I_dPhasej
 		R41i += fx[detector.name]*fp[detector.name] * I_dPhasei
 		R41j += fx[detector.name]*fp[detector.name] * I_dPhasej
 		if Fderivs:
-			h11ij += dfpi[detector.name]*dfpj[detector.name] * I_n[-7./3.]
-			R11i += fp[detector.name]*dfpi[detector.name] * I_n[-7./3.]
-			R11j += fp[detector.name]*dfpj[detector.name] * I_n[-7./3.]
-			R21i += fx[detector.name]*dfpi[detector.name] * I_n[-7./3.]
-			R21j += fx[detector.name]*dfpj[detector.name] * I_n[-7./3.]
+			psd_key = '-7'
+			h11ij += dfpi[detector.name]*dfpj[detector.name] * I_n[psd_key]
+			R11i += fp[detector.name]*dfpi[detector.name] * I_n[psd_key]
+			R11j += fp[detector.name]*dfpj[detector.name] * I_n[psd_key]
+			R21i += fx[detector.name]*dfpi[detector.name] * I_n[psd_key]
+			R21j += fx[detector.name]*dfpj[detector.name] * I_n[psd_key]
 
 	p = h11ij
 	q = B*(R11i*R11j + R31i*R31j) + A*(R21i*R21j + R41i*R41j)\
@@ -736,7 +830,7 @@ def mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 
 	return m1
 
-def mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=False):
+def mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=True):
 	"""
 	Computes the second mismatch component associated with the derivatives
 	with respect to parameters lambda_i and lambda_j. Take as input the
@@ -763,22 +857,30 @@ def mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 		I_dLnAmp_dLnAmp = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpi[detector.name].keys():
 			for key2 in dLnAmpj[detector.name].keys():
-				n = -7 + key1 + key2
-				I_dLnAmp_dLnAmp += dLnAmpi[detector.name][key1]*dLnAmpj[detector.name][key2]*I_n[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				I_dLnAmp_dLnAmp += dLnAmpi[detector.name][key1]*dLnAmpj[detector.name][key2]*I_n[psd_key]
 		I_dPhase_dPhase = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasei[detector.name].keys():
 			for key2 in dPhasej[detector.name].keys():
-				n = -7 + key1 + key2
-				I_dPhase_dPhase += dPhasei[detector.name][key1]*dPhasej[detector.name][key2]*I_n[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				I_dPhase_dPhase += dPhasei[detector.name][key1]*dPhasej[detector.name][key2]*I_n[psd_key]
 		h22ij += fx[detector.name]*fx[detector.name] * (I_dLnAmp_dLnAmp + I_dPhase_dPhase)
 		I_dLnAmpi = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpi[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[psd_key]
 		I_dLnAmpj = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpj[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[psd_key]
 		R12i += fp[detector.name]*fx[detector.name] * I_dLnAmpi
 		R12j += fp[detector.name]*fx[detector.name] * I_dLnAmpj
 		R22i += fx[detector.name]*fx[detector.name] * I_dLnAmpi
@@ -788,22 +890,27 @@ def mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 			h22ij += fx[detector.name]*dfxj[detector.name] * I_dLnAmpi
 		I_dPhasei = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasei[detector.name].keys():
-			n = -7 + key1
-			I_dPhasei += dPhasei[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasei += dPhasei[detector.name][key1]*I_n[psd_key]
 		I_dPhasej = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasej[detector.name].keys():
-			n = -7 + key1
-			I_dPhasej += dPhasej[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasej += dPhasej[detector.name][key1]*I_n[psd_key]
 		R32i += fp[detector.name]*fx[detector.name] * I_dPhasei
 		R32j += fp[detector.name]*fx[detector.name] * I_dPhasej
 		R42i += fx[detector.name]*fx[detector.name] * I_dPhasei
 		R42j += fx[detector.name]*fx[detector.name] * I_dPhasej
 		if Fderivs:
-			h22ij += dfxi[detector.name]*dfxj[detector.name] * I_n[-7./3.]
-			R12i += fp[detector.name]*dfxi[detector.name] * I_n[-7./3.]
-			R12j += fp[detector.name]*dfxj[detector.name] * I_n[-7./3.]
-			R22i += fx[detector.name]*dfxi[detector.name] * I_n[-7./3.]
-			R22j += fx[detector.name]*dfxj[detector.name] * I_n[-7./3.]
+			psd_key = '-7'
+			h22ij += dfxi[detector.name]*dfxj[detector.name] * I_n[psd_key]
+			R12i += fp[detector.name]*dfxi[detector.name] * I_n[psd_key]
+			R12j += fp[detector.name]*dfxj[detector.name] * I_n[psd_key]
+			R22i += fx[detector.name]*dfxi[detector.name] * I_n[psd_key]
+			R22j += fx[detector.name]*dfxj[detector.name] * I_n[psd_key]
 
 	p = h22ij
 	q = B*(R12i*R12j + R32i*R32j) + A*(R22i*R22j + R42i*R42j)\
@@ -812,7 +919,7 @@ def mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 
 	return m2
 
-def mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=False):
+def mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=True):
 	"""
 	Computes the third mismatch component associated with the derivatives
 	with respect to parameters lambda_i and lambda_j. Take as input the
@@ -848,23 +955,31 @@ def mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 		I_dLnAmp_dLnAmp = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpi[detector.name].keys():
 			for key2 in dLnAmpj[detector.name].keys():
-				n = -7 + key1 + key2
-				I_dLnAmp_dLnAmp += dLnAmpi[detector.name][key1]*dLnAmpj[detector.name][key2]*I_n[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				I_dLnAmp_dLnAmp += dLnAmpi[detector.name][key1]*dLnAmpj[detector.name][key2]*I_n[psd_key]
 		I_dPhase_dPhase = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasei[detector.name].keys():
 			for key2 in dPhasej[detector.name].keys():
-				n = -7 + key1 + key2
-				I_dPhase_dPhase += dPhasei[detector.name][key1]*dPhasej[detector.name][key2]*I_n[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				I_dPhase_dPhase += dPhasei[detector.name][key1]*dPhasej[detector.name][key2]*I_n[psd_key]
 		h12ij += fp[detector.name]*fx[detector.name] * (I_dLnAmp_dLnAmp + I_dPhase_dPhase)
 		h21ij += fx[detector.name]*fp[detector.name] * (I_dLnAmp_dLnAmp + I_dPhase_dPhase)
 		I_dLnAmpi = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpi[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[psd_key]
 		I_dLnAmpj = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpj[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[psd_key]
 		R11i += fp[detector.name]*fp[detector.name] * I_dLnAmpi
 		R11j += fp[detector.name]*fp[detector.name] * I_dLnAmpj
 		R12i += fp[detector.name]*fx[detector.name] * I_dLnAmpi
@@ -880,12 +995,16 @@ def mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 			h21ij += fx[detector.name]*dfpj[detector.name] * I_dLnAmpi
 		I_dPhasei = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasei[detector.name].keys():
-			n = -7 + key1
-			I_dPhasei += dPhasei[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasei += dPhasei[detector.name][key1]*I_n[psd_key]
 		I_dPhasej = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasej[detector.name].keys():
-			n = -7 + key1
-			I_dPhasej += dPhasej[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasej += dPhasej[detector.name][key1]*I_n[psd_key]
 		R31i += fp[detector.name]*fp[detector.name] * I_dPhasei
 		R31j += fp[detector.name]*fp[detector.name] * I_dPhasej
 		R32i += fp[detector.name]*fx[detector.name] * I_dPhasei
@@ -895,16 +1014,17 @@ def mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 		R42i += fx[detector.name]*fx[detector.name] * I_dPhasei
 		R42j += fx[detector.name]*fx[detector.name] * I_dPhasej
 		if Fderivs:
-			h12ij += dfpi[detector.name]*dfxj[detector.name] * I_n[-7./3.]
-			h21ij += dfxi[detector.name]*dfpj[detector.name] * I_n[-7./3.]
-			R11i += fp[detector.name]*dfpi[detector.name] * I_n[-7./3.]
-			R11j += fp[detector.name]*dfpj[detector.name] * I_n[-7./3.]
-			R12i += fp[detector.name]*dfxi[detector.name] * I_n[-7./3.]
-			R12j += fp[detector.name]*dfxj[detector.name] * I_n[-7./3.]
-			R21i += fx[detector.name]*dfpi[detector.name] * I_n[-7./3.]
-			R21j += fx[detector.name]*dfpj[detector.name] * I_n[-7./3.]
-			R22i += fx[detector.name]*dfxi[detector.name] * I_n[-7./3.]
-			R22j += fx[detector.name]*dfxj[detector.name] * I_n[-7./3.]
+			psd_key = '-7'
+			h12ij += dfpi[detector.name]*dfxj[detector.name] * I_n[psd_key]
+			h21ij += dfxi[detector.name]*dfpj[detector.name] * I_n[psd_key]
+			R11i += fp[detector.name]*dfpi[detector.name] * I_n[psd_key]
+			R11j += fp[detector.name]*dfpj[detector.name] * I_n[psd_key]
+			R12i += fp[detector.name]*dfxi[detector.name] * I_n[psd_key]
+			R12j += fp[detector.name]*dfxj[detector.name] * I_n[psd_key]
+			R21i += fx[detector.name]*dfpi[detector.name] * I_n[psd_key]
+			R21j += fx[detector.name]*dfpj[detector.name] * I_n[psd_key]
+			R22i += fx[detector.name]*dfxi[detector.name] * I_n[psd_key]
+			R22j += fx[detector.name]*dfxj[detector.name] * I_n[psd_key]
 
 	p = h12ij + h21ij
 	q  = B*(R11i*R12j + R31i*R32j) + A*(R21i*R22j + R41i*R42j)\
@@ -916,7 +1036,7 @@ def mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 
 	return m3
 
-def mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=False):
+def mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs=True):
 	"""
 	Computes the fourth mismatch component associated with the derivatives
 	with respect to parameters lambda_i and lambda_j. Take as input the
@@ -951,12 +1071,16 @@ def mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 		I_n = detector.I_n
 		I_dLnAmpi = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpi[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpi += dLnAmpi[detector.name][key1]*I_n[psd_key]
 		I_dLnAmpj = scipy.zeros(scipy.shape(A))
 		for key1 in dLnAmpj[detector.name].keys():
-			n = -7 + key1
-			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmpj += dLnAmpj[detector.name][key1]*I_n[psd_key]
 		R11i += fp[detector.name]*fp[detector.name] * I_dLnAmpi
 		R11j += fp[detector.name]*fp[detector.name] * I_dLnAmpj
 		R21i += fx[detector.name]*fp[detector.name] * I_dLnAmpi
@@ -967,12 +1091,16 @@ def mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 		R44j += fx[detector.name]*fx[detector.name] * I_dLnAmpj
 		I_dPhasei = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasei[detector.name].keys():
-			n = -7 + key1
-			I_dPhasei += dPhasei[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasei += dPhasei[detector.name][key1]*I_n[psd_key]
 		I_dPhasej = scipy.zeros(scipy.shape(A))
 		for key1 in dPhasej[detector.name].keys():
-			n = -7 + key1
-			I_dPhasej += dPhasej[detector.name][key1]*I_n[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhasej += dPhasej[detector.name][key1]*I_n[psd_key]
 		R14i -= fp[detector.name]*fx[detector.name] * I_dPhasei
 		R14j -= fp[detector.name]*fx[detector.name] * I_dPhasej
 		R24i -= fx[detector.name]*fx[detector.name] * I_dPhasei
@@ -984,14 +1112,15 @@ def mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 		if Fderivs:
 			h14ij += (fp[detector.name]*dfxi[detector.name] - dfpi[detector.name]*fx[detector.name]) * I_dPhasej
 			h41ij += (dfxj[detector.name]*fp[detector.name] - fx[detector.name]*dfpj[detector.name]) * I_dPhasei
-			R11i += fp[detector.name]*dfpi[detector.name] * I_n[-7./3.]
-			R11j += fp[detector.name]*dfpj[detector.name] * I_n[-7./3.]
-			R21i += fx[detector.name]*dfpi[detector.name] * I_n[-7./3.]
-			R21j += fx[detector.name]*dfpj[detector.name] * I_n[-7./3.]
-			R34i += fp[detector.name]*dfxi[detector.name] * I_n[-7./3.]
-			R34j += fp[detector.name]*dfxj[detector.name] * I_n[-7./3.]
-			R44i += fx[detector.name]*dfxi[detector.name] * I_n[-7./3.]
-			R44j += fx[detector.name]*dfxj[detector.name] * I_n[-7./3.]
+			psd_key = '-7'
+			R11i += fp[detector.name]*dfpi[detector.name] * I_n[psd_key]
+			R11j += fp[detector.name]*dfpj[detector.name] * I_n[psd_key]
+			R21i += fx[detector.name]*dfpi[detector.name] * I_n[psd_key]
+			R21j += fx[detector.name]*dfpj[detector.name] * I_n[psd_key]
+			R34i += fp[detector.name]*dfxi[detector.name] * I_n[psd_key]
+			R34j += fp[detector.name]*dfxj[detector.name] * I_n[psd_key]
+			R44i += fx[detector.name]*dfxi[detector.name] * I_n[psd_key]
+			R44j += fx[detector.name]*dfxj[detector.name] * I_n[psd_key]
 
 	p = h14ij + h41ij
 	q  = B*(R11i*R14j + R31i*R34j) + A*(R21i*R24j + R41i*R44j)\
@@ -1003,7 +1132,7 @@ def mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei
 
 	return m4
 
-def g_A1_A1(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_A1(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st amplitude parameter.
 	"""
@@ -1011,7 +1140,7 @@ def g_A1_A1(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = A*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A1_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st and 2nd amplitude
 	parameters.
@@ -1020,7 +1149,7 @@ def g_A1_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = C*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A1_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st and 3rd amplitude
 	parameters.
@@ -1028,7 +1157,7 @@ def g_A1_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = 0.*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A1_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st and 4th amplitude
 	parameters.
@@ -1036,7 +1165,7 @@ def g_A1_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = 0.*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A2_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd amplitude parameters.
 	"""
@@ -1044,7 +1173,7 @@ def g_A2_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = B*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A2_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd and 3rd amplitude
 	parameters.
@@ -1052,7 +1181,7 @@ def g_A2_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = 0.*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A2_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd and 4th amplitude
 	parameters.
@@ -1060,7 +1189,7 @@ def g_A2_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = 0.*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A3_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A3_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 3rd amplitude parameter.
 	"""
@@ -1068,7 +1197,7 @@ def g_A3_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = A*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A3_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A3_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 3rd and 4th amplitude
 	parameters.
@@ -1077,7 +1206,7 @@ def g_A3_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = C*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A4_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A4_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 4th amplitude parameter.
 	"""
@@ -1085,7 +1214,7 @@ def g_A4_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 	z = B*scipy.ones(scipy.shape(RA))
 	return z
 
-def g_A1_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st amplitude parameter
 	and the Right Ascension.
@@ -1102,19 +1231,21 @@ def g_A1_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dRA1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dRA1[key1]*I_n1[psd_key]
 		z += (-A3*fp1*fp1 - A4*fp1*fx1) * z_deriv
 		if Fderivs:
 			dfp_dRA1 = dFp_dRA(RA, dec, detector1)
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
-			z += (A1*fp1*dfp_dRA1 + A2*fp1*dfx_dRA1) * I_n1[-7./3.]
+			z += (A1*fp1*dfp_dRA1 + A2*fp1*dfx_dRA1) * I_n1['-7']
 	return z
 
-def g_A2_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd amplitude parameter
 	and the Right Ascension.
@@ -1131,19 +1262,21 @@ def g_A2_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dRA1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dRA1[key1]*I_n1[psd_key]
 		z += (-A3*fx1*fp1 - A4*fx1*fx1) * z_deriv
 		if Fderivs:
 			dfp_dRA1 = dFp_dRA(RA, dec, detector1)
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
-			z += (A1*fx1*dfp_dRA1 + A2*fx1*dfx_dRA1) * I_n1[-7./3.]
+			z += (A1*fx1*dfp_dRA1 + A2*fx1*dfx_dRA1) * I_n1['-7']
 	return z
 
-def g_A3_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A3_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 3rd amplitude parameter
 	and the Right Ascension.
@@ -1160,19 +1293,21 @@ def g_A3_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dRA1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dRA1[key1]*I_n1[psd_key]
 		z += (A1*fp1*fp1 + A2*fp1*fx1) * z_deriv
 		if Fderivs:
 			dfp_dRA1 = dFp_dRA(RA, dec, detector1)
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
-			z += (A3*fp1*dfp_dRA1 + A4*fp1*dfx_dRA1) * I_n1[-7./3.]
+			z += (A3*fp1*dfp_dRA1 + A4*fp1*dfx_dRA1) * I_n1['-7']
 	return z
 
-def g_A4_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A4_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 4th amplitude parameter
 	and the Right Ascension.
@@ -1189,19 +1324,21 @@ def g_A4_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dRA1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dRA1[key1]*I_n1[psd_key]
 		z += (A1*fx1*fp1 + A2*fx1*fx1) * z_deriv
 		if Fderivs:
 			dfp_dRA1 = dFp_dRA(RA, dec, detector1)
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
-			z += (A3*fx1*dfp_dRA1 + A4*fx1*dfx_dRA1) * I_n1[-7./3.]
+			z += (A3*fx1*dfp_dRA1 + A4*fx1*dfx_dRA1) * I_n1['-7']
 	return z
 
-def g_A1_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st amplitude parameter
 	and the declination.
@@ -1218,19 +1355,21 @@ def g_A1_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_ddec1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_ddec1[key1]*I_n1[psd_key]
 		z += (-A3*fp1*fp1 - A4*fp1*fx1) * z_deriv
 		if Fderivs:
 			dfp_ddec1 = dFp_ddec(RA, dec, detector1)
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
-			z += (A1*fp1*dfp_ddec1 + A2*fp1*dfx_ddec1) * I_n1[-7./3.]
+			z += (A1*fp1*dfp_ddec1 + A2*fp1*dfx_ddec1) * I_n1['-7']
 	return z
 
-def g_A2_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd amplitude parameter
 	and the declination.
@@ -1247,19 +1386,21 @@ def g_A2_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_ddec1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_ddec1[key1]*I_n1[psd_key]
 		z += (-A3*fx1*fp1 - A4*fx1*fx1) * z_deriv
 		if Fderivs:
 			dfp_ddec1 = dFp_ddec(RA, dec, detector1)
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
-			z += (A1*fx1*dfp_ddec1 + A2*fx1*dfx_ddec1) * I_n1[-7./3.]
+			z += (A1*fx1*dfp_ddec1 + A2*fx1*dfx_ddec1) * I_n1['-7']
 	return z
 
-def g_A3_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A3_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 3rd amplitude parameter
 	and the declination.
@@ -1276,19 +1417,21 @@ def g_A3_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_ddec1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_ddec1[key1]*I_n1[psd_key]
 		z += (A1*fp1*fp1 + A2*fp1*fx1) * z_deriv
 		if Fderivs:
 			dfp_ddec1 = dFp_ddec(RA, dec, detector1)
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
-			z += (A3*fp1*dfp_ddec1 + A4*fp1*dfx_ddec1) * I_n1[-7./3.]
+			z += (A3*fp1*dfp_ddec1 + A4*fp1*dfx_ddec1) * I_n1['-7']
 	return z
 
-def g_A4_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A4_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 4th amplitude parameter
 	and the declination.
@@ -1305,19 +1448,21 @@ def g_A4_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
-			n = -7 + key1
-			z_deriv += dPhase_ddec1[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_ddec1[key1]*I_n1[psd_key]
 		z += (A1*fx1*fp1 + A2*fx1*fx1) * z_deriv
 		if Fderivs:
 			dfp_ddec1 = dFp_ddec(RA, dec, detector1)
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
-			z += (A3*fx1*dfp_ddec1 + A4*fx1*dfx_ddec1) * I_n1[-7./3.]
+			z += (A3*fx1*dfp_ddec1 + A4*fx1*dfx_ddec1) * I_n1['-7']
 	return z
 
-def g_A1_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st amplitude parameter
 	and the end time.
@@ -1334,12 +1479,14 @@ def g_A1_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dt.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dt[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dt[key1]*I_n1[psd_key]
 		z += (-A3*fp1*fp1 - A4*fp1*fx1) * z_deriv
 	return z
 
-def g_A2_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd amplitude parameter
 	and the end time.
@@ -1356,12 +1503,14 @@ def g_A2_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dt.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dt[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dt[key1]*I_n1[psd_key]
 		z += (-A3*fx1*fp1 - A4*fx1*fx1) * z_deriv
 	return z
 
-def g_A3_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A3_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 3rd amplitude parameter
 	and the end time.
@@ -1378,12 +1527,14 @@ def g_A3_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dt.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dt[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dt[key1]*I_n1[psd_key]
 		z += (A1*fp1*fp1 + A2*fp1*fx1) * z_deriv
 	return z
 
-def g_A4_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A4_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 4th amplitude parameter
 	and the end time.
@@ -1400,12 +1551,14 @@ def g_A4_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dt.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dt[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dt[key1]*I_n1[psd_key]
 		z += (A1*fx1*fp1 + A2*fx1*fx1) * z_deriv
 	return z
 
-def g_A1_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st amplitude parameter
 	and the chirp mass.
@@ -1425,17 +1578,21 @@ def g_A1_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dlnA_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dlnA_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dlnA_dmchirp[key1]*I_n1[psd_key]
 		z += (A1*fp1*fp1 + A2*fp1*fx1) * z_deriv
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dmchirp[key1]*I_n1[psd_key]
 		z += (-A3*fp1*fp1 - A4*fp1*fx1) * z_deriv
 	return z
 
-def g_A2_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd amplitude parameter
 	and the chirp mass.
@@ -1455,17 +1612,21 @@ def g_A2_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dlnA_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dlnA_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dlnA_dmchirp[key1]*I_n1[psd_key]
 		z += (A1*fx1*fp1 + A2*fx1*fx1) * z_deriv
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dmchirp[key1]*I_n1[psd_key]
 		z += (-A3*fx1*fp1 - A4*fx1*fx1) * z_deriv
 	return z
 
-def g_A3_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A3_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 3rd amplitude parameter
 	and the chirp mass.
@@ -1485,17 +1646,21 @@ def g_A3_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dlnA_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dlnA_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dlnA_dmchirp[key1]*I_n1[psd_key]
 		z += (A3*fp1*fp1 + A4*fp1*fx1) * z_deriv
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dmchirp[key1]*I_n1[psd_key]
 		z += (A1*fp1*fp1 + A2*fp1*fx1) * z_deriv
 	return z
 
-def g_A4_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A4_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 4th amplitude parameter
 	and the chirp mass.
@@ -1515,17 +1680,21 @@ def g_A4_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dlnA_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dlnA_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dlnA_dmchirp[key1]*I_n1[psd_key]
 		z += (A3*fx1*fp1 + A4*fx1*fx1) * z_deriv
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dmchirp.keys():
-			n = -7 + key1
-			z_deriv += dPhase_dmchirp[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_dmchirp[key1]*I_n1[psd_key]
 		z += (A1*fx1*fp1 + A2*fx1*fx1) * z_deriv
 	return z
 
-def g_A1_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A1_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 1st amplitude parameter
 	and the symmetric mass ratio.
@@ -1542,12 +1711,14 @@ def g_A1_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_deta.keys():
-			n = -7 + key1
-			z_deriv += dPhase_deta[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_deta[key1]*I_n1[psd_key]
 		z += (-A3*fp1*fp1 - A4*fp1*fx1) * z_deriv
 	return z
 
-def g_A2_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A2_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 2nd amplitude parameter
 	and the symmetric mass ratio.
@@ -1564,12 +1735,14 @@ def g_A2_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_deta.keys():
-			n = -7 + key1
-			z_deriv += dPhase_deta[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_deta[key1]*I_n1[psd_key]
 		z += (-A3*fx1*fp1 - A4*fx1*fx1) * z_deriv
 	return z
 
-def g_A3_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A3_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 3rd amplitude parameter
 	and the symmetric mass ratio.
@@ -1586,12 +1759,14 @@ def g_A3_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_deta.keys():
-			n = -7 + key1
-			z_deriv += dPhase_deta[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_deta[key1]*I_n1[psd_key]
 		z += (A1*fp1*fp1 + A2*fp1*fx1) * z_deriv
 	return z
 
-def g_A4_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_A4_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the 4th amplitude parameter
 	and the symmetric mass ratio.
@@ -1608,12 +1783,14 @@ def g_A4_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_deta.keys():
-			n = -7 + key1
-			z_deriv += dPhase_deta[key1]*I_n1[n/3.]
+			ls = key1.count('l')
+			n = -7 + int(key1.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			z_deriv += dPhase_deta[key1]*I_n1[psd_key]
 		z += (A1*fx1*fp1 + A2*fx1*fx1) * z_deriv
 	return z
 
-def g_RA_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_RA_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the Right Ascension.
 	"""
@@ -1629,12 +1806,14 @@ def g_RA_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
 			for key2 in dPhase_dRA1.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dRA1[key1]*dPhase_dRA1[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dRA1[key1]*dPhase_dRA1[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -1642,15 +1821,17 @@ def g_RA_RA(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_dRA1.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_dRA1[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dRA1[key1]*I_n1[psd_key]
 			z += 2*(A1*A4*(fp1*dfx_dRA1 - fx1*dfp_dRA1) + A2*A3*(fx1*dfp_dRA1 - fp1*dfx_dRA1)) * z_deriv
 			z += ((A1*A1 + A3*A3)*dfp_dRA1*dfp_dRA1 + (A2*A2 + A4*A4)*dfx_dRA1*dfx_dRA1 \
 				+ (A1*A2 + A3*A4)*(dfp_dRA1*dfx_dRA1 + dfx_dRA1*dfp_dRA1)) \
-				*I_n1[-7./3.]
+				*I_n1['-7']
 	return z
 
-def m1_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the Right Ascension.
@@ -1679,12 +1860,12 @@ def m1_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the Right Ascension.
@@ -1713,12 +1894,12 @@ def m2_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the Right Ascension.
@@ -1747,12 +1928,12 @@ def m3_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the Right Ascension.
@@ -1781,12 +1962,12 @@ def m4_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the Right Ascension.
@@ -1802,7 +1983,7 @@ def gbar_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return gbar
 
-def ogbar_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the Right Ascension.
@@ -1817,7 +1998,7 @@ def ogbar_RA_RA(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return gbar
 
-def g_RA_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_RA_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the Right Ascension and
 	declination.
@@ -1835,14 +2016,16 @@ def g_RA_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
 			for key2 in dPhase_ddec1.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dRA1[key1]*dPhase_ddec1[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dRA1[key1]*dPhase_ddec1[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -1852,20 +2035,24 @@ def g_RA_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_dRA1.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_dRA1[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dRA1[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_ddec1 - fx1*dfp_ddec1) + A2*A3*(fx1*dfp_ddec1 - fp1*dfx_ddec1)) * z_deriv
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_ddec1.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_ddec1[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_ddec1[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_dRA1 - fx1*dfp_dRA1) + A2*A3*(fx1*dfp_dRA1 - fp1*dfx_dRA1)) * z_deriv
 			z += ((A1*A1 + A3*A3)*dfp_dRA1*dfp_ddec1 + (A2*A2 + A4*A4)*dfx_dRA1*dfx_ddec1 \
 				+ (A1*A2 + A3*A4)*(dfp_dRA1*dfx_ddec1 + dfx_dRA1*dfp_ddec1)) \
-				*I_n1[-7./3.]
+				*I_n1['-7']
 	return z
 
-def m1_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the Right Ascension and declination.
@@ -1894,12 +2081,12 @@ def m1_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the Right Ascension and declination.
@@ -1928,12 +2115,12 @@ def m2_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the Right Ascension and declination.
@@ -1962,12 +2149,12 @@ def m3_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the Right Ascension and declination.
@@ -1996,12 +2183,12 @@ def m4_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the Right Ascension and declination.
@@ -2017,7 +2204,7 @@ def gbar_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return gbar
 
-def ogbar_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the Right Ascension and declination.
@@ -2032,7 +2219,7 @@ def ogbar_RA_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 
 	return gbar
 
-def g_dec_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_dec_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the declination.
 	"""
@@ -2048,12 +2235,14 @@ def g_dec_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
 			for key2 in dPhase_ddec1.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_ddec1[key1]*dPhase_ddec1[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_ddec1[key1]*dPhase_ddec1[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -2061,15 +2250,17 @@ def g_dec_dec(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_ddec1.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_ddec1[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_ddec1[key1]*I_n1[psd_key]
 			z += 2*(A1*A4*(fp1*dfx_ddec1 - fx1*dfp_ddec1) + A2*A3*(fx1*dfp_ddec1 - fp1*dfx_ddec1)) * z_deriv
 			z += ((A1*A1 + A3*A3)*dfp_ddec1*dfp_ddec1 + (A2*A2 + A4*A4)*dfx_ddec1*dfx_ddec1 \
 				+ (A1*A2 + A3*A4)*(dfp_ddec1*dfx_ddec1 + dfx_ddec1*dfp_ddec1)) \
-				*I_n1[-7./3.]
+				*I_n1['-7']
 	return z
 
-def m1_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the declination.
@@ -2098,12 +2289,12 @@ def m1_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the declination.
@@ -2132,12 +2323,12 @@ def m2_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the declination.
@@ -2166,12 +2357,12 @@ def m3_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the declination.
@@ -2200,12 +2391,12 @@ def m4_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
 		drnj = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
-		dPhasej[detector.name][3] = -2*pi*drnj
+		dPhasei[detector.name]['3'] = -2*pi*drni
+		dPhasej[detector.name]['3'] = -2*pi*drnj
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the declination.
@@ -2221,7 +2412,7 @@ def gbar_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 
 	return gbar
 
-def ogbar_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the declination.
@@ -2236,7 +2427,7 @@ def ogbar_dec_dec(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return gbar
 
-def g_RA_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_RA_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the Right Ascension and the
 	end time.
@@ -2255,12 +2446,14 @@ def g_RA_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
 			for key2 in dPhase_dt.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dRA1[key1]*dPhase_dt[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dRA1[key1]*dPhase_dt[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -2268,12 +2461,14 @@ def g_RA_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_dt.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_dt[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dt[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_dRA1 - fx1*dfp_dRA1) + A2*A3*(fx1*dfp_dRA1 - fp1*dfx_dRA1)) * z_deriv
 	return z
 
-def m1_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the Right Ascension and the end time.
@@ -2302,11 +2497,11 @@ def m1_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=F
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the Right Ascension and the end time.
@@ -2335,11 +2530,11 @@ def m2_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=F
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the Right Ascension and the end time.
@@ -2368,11 +2563,11 @@ def m3_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=F
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the Right Ascension and the end time.
@@ -2401,11 +2596,11 @@ def m4_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=F
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the Right Ascension and the end time.
@@ -2421,7 +2616,7 @@ def gbar_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 
 	return gbar
 
-def ogbar_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the Right Ascension and the end time.
@@ -2436,7 +2631,7 @@ def ogbar_RA_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return gbar
 
-def g_dec_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_dec_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the declination and the
 	end time.
@@ -2455,12 +2650,14 @@ def g_dec_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
 			for key2 in dPhase_dt.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_ddec1[key1]*dPhase_dt[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_ddec1[key1]*dPhase_dt[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -2468,12 +2665,14 @@ def g_dec_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_dt.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_dt[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dt[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_ddec1 - fx1*dfp_ddec1) + A2*A3*(fx1*dfp_ddec1 - fp1*dfx_ddec1)) * z_deriv
 	return z
 
-def m1_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the declination and the end time.
@@ -2502,11 +2701,11 @@ def m1_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the declination and the end time.
@@ -2535,11 +2734,11 @@ def m2_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the declination and the end time.
@@ -2568,11 +2767,11 @@ def m3_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the declination and the end time.
@@ -2601,11 +2800,11 @@ def m4_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the declination and the end time.
@@ -2621,7 +2820,7 @@ def gbar_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return gbar
 
-def ogbar_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the declination and the end time.
@@ -2636,7 +2835,7 @@ def ogbar_dec_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return gbar
 
-def g_RA_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_RA_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the Right Ascension and the
 	chirp mass.
@@ -2656,12 +2855,14 @@ def g_RA_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
 			for key2 in dPhase_dmchirp.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dRA1[key1]*dPhase_dmchirp[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dRA1[key1]*dPhase_dmchirp[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -2669,18 +2870,22 @@ def g_RA_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dlnA_dmchirp.keys():
-				n = -7 + key1 
-				z_deriv += dlnA_dmchirp[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dlnA_dmchirp[key1]*I_n1[psd_key]
 			z += ((A1*A1 + A3*A3)*fp1*dfp_dRA1 + (A2*A2 + A4*A4)*fx1*dfx_dRA1 \
 				+ (A1*A2 + A3*A4)*(fp1*dfx_dRA1 + fx1*dfp_dRA1)) * z_deriv
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_dmchirp.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_dmchirp[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dmchirp[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_dRA1 - fx1*dfp_dRA1) + A2*A3*(fx1*dfp_dRA1 - fp1*dfx_dRA1)) * z_deriv
 	return z
 
-def m1_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the Right Ascension and the chirp mass.
@@ -2710,11 +2915,11 @@ def m1_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the Right Ascension and the chirp mass.
@@ -2744,11 +2949,11 @@ def m2_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the Right Ascension and the chirp mass.
@@ -2778,11 +2983,11 @@ def m3_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the Right Ascension and the chirp mass.
@@ -2812,11 +3017,11 @@ def m4_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the Right Ascension and the chirp mass.
@@ -2832,7 +3037,7 @@ def gbar_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fd
 
 	return gbar
 
-def ogbar_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the Right Ascension and the chirp mass.
@@ -2847,7 +3052,7 @@ def ogbar_RA_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, F
 
 	return gbar
 
-def g_dec_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_dec_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the declination and the
 	chirp mass.
@@ -2867,12 +3072,14 @@ def g_dec_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.2
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
 			for key2 in dPhase_dmchirp.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_ddec1[key1]*dPhase_dmchirp[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_ddec1[key1]*dPhase_dmchirp[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -2880,18 +3087,22 @@ def g_dec_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.2
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dlnA_dmchirp.keys():
-				n = -7 + key1 
-				z_deriv += dlnA_dmchirp[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dlnA_dmchirp[key1]*I_n1[psd_key]
 			z += ((A1*A1 + A3*A3)*fp1*dfp_ddec1 + (A2*A2 + A4*A4)*fx1*dfx_ddec1 \
 				+ (A1*A2 + A3*A4)*(fp1*dfx_ddec1 + fx1*dfp_ddec1)) * z_deriv
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_dmchirp.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_dmchirp[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dmchirp[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_ddec1 - fx1*dfp_ddec1) + A2*A3*(fx1*dfp_ddec1 - fp1*dfx_ddec1)) * z_deriv
 	return z
 
-def m1_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the declination and the chirp mass.
@@ -2921,11 +3132,11 @@ def m1_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the declination and the chirp mass.
@@ -2955,11 +3166,11 @@ def m2_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the declination and the chirp mass.
@@ -2989,11 +3200,11 @@ def m3_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the declination and the chirp mass.
@@ -3023,11 +3234,11 @@ def m4_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = dlnA_dmchirp
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the declination and the chirp mass.
@@ -3043,7 +3254,7 @@ def gbar_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, F
 
 	return gbar
 
-def ogbar_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the declination and the chirp mass.
@@ -3058,7 +3269,7 @@ def ogbar_dec_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 
 	return gbar
 
-def g_RA_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_RA_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the Right Ascension and the
 	symmetric mass ratio.
@@ -3077,12 +3288,14 @@ def g_RA_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 		fx1 = Fx(RA, dec, detector1)
 		drn_dRA1 = drn_dRA(RA, dec, detector1)
 		dPhase_dRA1 = {}
-		dPhase_dRA1[3] = -2*pi*drn_dRA1
+		dPhase_dRA1['3'] = -2*pi*drn_dRA1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dRA1.keys():
 			for key2 in dPhase_deta.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dRA1[key1]*dPhase_deta[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dRA1[key1]*dPhase_deta[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -3090,12 +3303,14 @@ def g_RA_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.
 			dfx_dRA1 = dFx_dRA(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_deta.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_deta[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_deta[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_dRA1 - fx1*dfp_dRA1) + A2*A3*(fx1*dfp_dRA1 - fp1*dfx_dRA1)) * z_deriv
 	return z
 
-def m1_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the Right Ascension and the symmetric mass ratio.
@@ -3124,11 +3339,11 @@ def m1_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the Right Ascension and the symmetric mass ratio.
@@ -3157,11 +3372,11 @@ def m2_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the Right Ascension and the symmetric mass ratio.
@@ -3190,11 +3405,11 @@ def m3_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the Right Ascension and the symmetric mass ratio.
@@ -3223,11 +3438,11 @@ def m4_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_dRA(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the Right Ascension and the symmetric mass ratio.
@@ -3243,7 +3458,7 @@ def gbar_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return gbar
 
-def ogbar_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the Right Ascension and the symmetric mass ratio.
@@ -3258,7 +3473,7 @@ def ogbar_RA_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 
 	return gbar
 
-def g_dec_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_dec_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the declination and the
 	symmetric mass ratio.
@@ -3277,12 +3492,14 @@ def g_dec_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**
 		fx1 = Fx(RA, dec, detector1)
 		drn_ddec1 = drn_ddec(RA, dec, detector1)
 		dPhase_ddec1 = {}
-		dPhase_ddec1[3] = -2*pi*drn_ddec1
+		dPhase_ddec1['3'] = -2*pi*drn_ddec1
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_ddec1.keys():
 			for key2 in dPhase_deta.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_ddec1[key1]*dPhase_deta[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_ddec1[key1]*dPhase_deta[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 		if Fderivs:
@@ -3290,12 +3507,14 @@ def g_dec_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**
 			dfx_ddec1 = dFx_ddec(RA, dec, detector1)
 			z_deriv = scipy.zeros(scipy.shape(RA))
 			for key1 in dPhase_deta.keys():
-				n = -7 + key1 
-				z_deriv += dPhase_deta[key1]*I_n1[n/3.]
+				ls = key1.count('l')
+				n = -7 + int(key1.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_deta[key1]*I_n1[psd_key]
 			z += (A1*A4*(fp1*dfx_ddec1 - fx1*dfp_ddec1) + A2*A3*(fx1*dfp_ddec1 - fp1*dfx_ddec1)) * z_deriv
 	return z
 
-def m1_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the declination and the symmetric mass ratio.
@@ -3324,11 +3543,11 @@ def m1_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the declination and the symmetric mass ratio.
@@ -3357,11 +3576,11 @@ def m2_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the declination and the symmetric mass ratio.
@@ -3390,11 +3609,11 @@ def m3_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the declination and the symmetric mass ratio.
@@ -3423,11 +3642,11 @@ def m4_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 		dLnAmpi[detector.name] = {}
 		dLnAmpj[detector.name] = {}
 		drni = drn_ddec(RA, dec, detector)
-		dPhasei[detector.name][3] = -2*pi*drni
+		dPhasei[detector.name]['3'] = -2*pi*drni
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the declination and the symmetric mass ratio.
@@ -3443,7 +3662,7 @@ def gbar_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 
 	return gbar
 
-def ogbar_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the declination and the symmetric mass ratio.
@@ -3458,7 +3677,7 @@ def ogbar_dec_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return gbar
 
-def g_t_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_t_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the end time.
 	"""
@@ -3477,13 +3696,15 @@ def g_t_t(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dt.keys():
 			for key2 in dPhase_dt.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dt[key1]*dPhase_dt[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dt[key1]*dPhase_dt[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 	return z
 
-def m1_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the end time.
@@ -3514,7 +3735,7 @@ def m1_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=Fa
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the end time.
@@ -3545,7 +3766,7 @@ def m2_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=Fa
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the end time.
@@ -3576,7 +3797,7 @@ def m3_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=Fa
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the end time.
@@ -3607,7 +3828,7 @@ def m4_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=Fa
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the end time.
@@ -3623,7 +3844,7 @@ def gbar_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 
 	return gbar
 
-def ogbar_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the end time.
@@ -3638,7 +3859,7 @@ def ogbar_t_t(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs
 
 	return gbar
 
-def g_t_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_t_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the end time and the
 	chirp mass.
@@ -3659,13 +3880,15 @@ def g_t_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25*
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dt.keys():
 			for key2 in dPhase_dmchirp.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dt[key1]*dPhase_dmchirp[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dt[key1]*dPhase_dmchirp[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 	return z
 
-def m1_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the end time and the chirp mass.
@@ -3698,7 +3921,7 @@ def m1_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the end time and the chirp mass.
@@ -3731,7 +3954,7 @@ def m2_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the end time and the chirp mass.
@@ -3764,7 +3987,7 @@ def m3_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the end time and the chirp mass.
@@ -3797,7 +4020,7 @@ def m4_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the end time and the chirp mass.
@@ -3813,7 +4036,7 @@ def gbar_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return gbar
 
-def ogbar_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the end time and the chirp mass.
@@ -3828,7 +4051,7 @@ def ogbar_t_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fd
 
 	return gbar
 
-def g_t_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_t_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the end time and the
 	symmetric mass ratio.
@@ -3849,13 +4072,15 @@ def g_t_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dt.keys():
 			for key2 in dPhase_deta.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dt[key1]*dPhase_deta[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dt[key1]*dPhase_deta[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 	return z
 
-def m1_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the end time and the symmetric mass ratio.
@@ -3887,7 +4112,7 @@ def m1_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the end time and the symmetric mass ratio.
@@ -3919,7 +4144,7 @@ def m2_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the end time and the symmetric mass ratio.
@@ -3951,7 +4176,7 @@ def m3_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the end time and the symmetric mass ratio.
@@ -3983,7 +4208,7 @@ def m4_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the end time and the symmetric mass ratio.
@@ -3999,7 +4224,7 @@ def gbar_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return gbar
 
-def ogbar_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the end time and the symmetric mass ratio.
@@ -4014,7 +4239,7 @@ def ogbar_t_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderi
 
 	return gbar
 
-def g_mchirp_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_mchirp_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the chirp mass.
 	"""
@@ -4034,17 +4259,21 @@ def g_mchirp_mchirp(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dlnA_dmchirp.keys():
 			for key2 in dlnA_dmchirp.keys():
-				n = -7 + key1 + key2
-				z_deriv += dlnA_dmchirp[key1]*dlnA_dmchirp[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dlnA_dmchirp[key1]*dlnA_dmchirp[key2]*I_n1[psd_key]
 		for key1 in dPhase_dmchirp.keys():
 			for key2 in dPhase_dmchirp.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dmchirp[key1]*dPhase_dmchirp[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dmchirp[key1]*dPhase_dmchirp[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 	return z
 
-def m1_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the chirp mass.
@@ -4076,7 +4305,7 @@ def m1_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the chirp mass.
@@ -4108,7 +4337,7 @@ def m2_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the chirp mass.
@@ -4140,7 +4369,7 @@ def m3_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the chirp mass.
@@ -4172,7 +4401,7 @@ def m4_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the chirp mass.
@@ -4188,7 +4417,7 @@ def gbar_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25
 
 	return gbar
 
-def ogbar_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the chirp mass.
@@ -4203,7 +4432,7 @@ def ogbar_mchirp_mchirp(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.2
 
 	return gbar
 
-def g_mchirp_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_mchirp_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the chirp mass and the
 	symmetric mass ratio.
@@ -4224,13 +4453,15 @@ def g_mchirp_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.2
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_dmchirp.keys():
 			for key2 in dPhase_deta.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_dmchirp[key1]*dPhase_deta[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_dmchirp[key1]*dPhase_deta[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 	return z
 
-def m1_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the chirp mass and the symmetric mass ratio.
@@ -4263,7 +4494,7 @@ def m1_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the chirp mass and the symmetric mass ratio.
@@ -4296,7 +4527,7 @@ def m2_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the chirp mass and the symmetric mass ratio.
@@ -4329,7 +4560,7 @@ def m3_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the chirp mass and the symmetric mass ratio.
@@ -4362,7 +4593,7 @@ def m4_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the chirp mass and the symmetric mass ratio.
@@ -4378,7 +4609,7 @@ def gbar_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, F
 
 	return gbar
 
-def ogbar_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the chirp mass and the symmetric mass ratio.
@@ -4393,7 +4624,7 @@ def ogbar_mchirp_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 
 	return gbar
 
-def g_eta_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def g_eta_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full metric component associated with the symmetric mass ratio.
 	"""
@@ -4412,13 +4643,15 @@ def g_eta_eta(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**
 		z_deriv = scipy.zeros(scipy.shape(RA))
 		for key1 in dPhase_deta.keys():
 			for key2 in dPhase_deta.keys():
-				n = -7 + key1 + key2
-				z_deriv += dPhase_deta[key1]*dPhase_deta[key2]*I_n1[n/3.]
+				ls = key1.count('l') + key2.count('l')
+				n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+				psd_key = str(n) + 'l'*ls
+				z_deriv += dPhase_deta[key1]*dPhase_deta[key2]*I_n1[psd_key]
 		z += ((A1*A1 + A3*A3)*fp1*fp1 + (A2*A2 + A4*A4)*fx1*fx1 \
 			+ 2*(A1*A2 + A3*A4)*fp1*fx1) * z_deriv
 	return z
 
-def m1_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m1_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 1st mismatch component associated
 	with the symmetric mass ratio.
@@ -4449,7 +4682,7 @@ def m1_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return mismatch1(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m2_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m2_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 2nd mismatch component associated
 	with the symmetric mass ratio.
@@ -4480,7 +4713,7 @@ def m2_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return mismatch2(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m3_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m3_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 3rd mismatch component associated
 	with the symmetric mass ratio.
@@ -4511,7 +4744,7 @@ def m3_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return mismatch3(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def m4_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def m4_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized metric's 4th mismatch component associated
 	with the symmetric mass ratio.
@@ -4542,7 +4775,7 @@ def m4_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 
 	return mismatch4(detector_list, A, B, C, D, fp, fx, dfpi, dfpj, dfxi, dfxj, dPhasei, dPhasej, dLnAmpi, dLnAmpj, Fderivs)
 
-def gbar_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def gbar_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged metric component
 	associated with the symmetric mass ratio.
@@ -4551,13 +4784,14 @@ def gbar_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fder
 
 	m1 = m1_eta_eta(RA, dec, detector_list, mchirp, eta, Fderivs)
 	m2 = m2_eta_eta(RA, dec, detector_list, mchirp, eta, Fderivs)
+	m3 = m3_eta_eta(RA, dec, detector_list, mchirp, eta, Fderivs)
 
 	gbar = B*m1 + A*m2 - 2.*C*m3
 	gbar /= 2.*D
 
 	return gbar
 
-def ogbar_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def snr2_gbar_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged metric component associated
 	with the symmetric mass ratio.
@@ -4572,7 +4806,7 @@ def ogbar_eta_eta(RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fde
 
 	return gbar
 
-def full_metric(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def full_metric(cosi, distance, phi0, psi, RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The full amplitude-sky-mass-time metric is symmetric and is defined
 	with the following signature:
@@ -4588,64 +4822,67 @@ def full_metric(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp=2.*.25
 	     7 mchirp |   -    -   -   -   -    -   -    H    AS  |
 	     8  eta    \  -    -   -   -   -    -   -    -    I  /
 	"""
+	for detector in detectors:
+		detector.update_I_n(mchirp, eta)
+
 	g = scipy.zeros((9,9))
 	# the amplitude-amplitude block
-	g[0,0] =		g_A1_A1(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[0,1] = g[1,0] =	g_A1_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[0,2] = g[2,0] =	g_A1_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[0,3] = g[3,0] =	g_A1_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,1] =		g_A2_A2(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,2] = g[2,1] =	g_A2_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,3] = g[3,1] =	g_A2_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[2,2] =		g_A3_A3(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[2,3] = g[3,2] =	g_A3_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[3,3] =		g_A4_A4(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
+	g[0,0] =		g_A1_A1(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,1] = g[1,0] =	g_A1_A2(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,2] = g[2,0] =	g_A1_A3(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,3] = g[3,0] =	g_A1_A4(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,1] =		g_A2_A2(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,2] = g[2,1] =	g_A2_A3(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,3] = g[3,1] =	g_A2_A4(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,2] =		g_A3_A3(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,3] = g[3,2] =	g_A3_A4(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,3] =		g_A4_A4(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
 
 	# the amplitude-phase block
-	g[0,4] = g[4,0] =	g_A1_RA		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[0,5] = g[5,0] =	g_A1_dec	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[0,6] = g[6,0] =	g_A1_t		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[0,7] = g[7,0] =	g_A1_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[0,8] = g[8,0] =	g_A1_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,4] = g[4,1] =	g_A2_RA		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,5] = g[5,1] =	g_A2_dec	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,6] = g[6,1] =	g_A2_t		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,7] = g[7,1] =	g_A2_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[1,8] = g[8,1] =	g_A2_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[2,4] = g[4,2] =	g_A3_RA		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[2,5] = g[5,2] =	g_A3_dec	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[2,6] = g[6,2] =	g_A3_t		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[2,7] = g[7,2] =	g_A3_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[2,8] = g[8,2] =	g_A3_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[3,4] = g[4,3] =	g_A4_RA		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[3,5] = g[5,3] =	g_A4_dec	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[3,6] = g[6,3] =	g_A4_t		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[3,7] = g[7,3] =	g_A4_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[3,8] = g[8,3] =	g_A4_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
+	g[0,4] = g[4,0] =	g_A1_RA		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,5] = g[5,0] =	g_A1_dec	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,6] = g[6,0] =	g_A1_t		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,7] = g[7,0] =	g_A1_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,8] = g[8,0] =	g_A1_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,4] = g[4,1] =	g_A2_RA		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,5] = g[5,1] =	g_A2_dec	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,6] = g[6,1] =	g_A2_t		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,7] = g[7,1] =	g_A2_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,8] = g[8,1] =	g_A2_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,4] = g[4,2] =	g_A3_RA		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,5] = g[5,2] =	g_A3_dec	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,6] = g[6,2] =	g_A3_t		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,7] = g[7,2] =	g_A3_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,8] = g[8,2] =	g_A3_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,4] = g[4,3] =	g_A4_RA		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,5] = g[5,3] =	g_A4_dec	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,6] = g[6,3] =	g_A4_t		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,7] = g[7,3] =	g_A4_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,8] = g[8,3] =	g_A4_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
 
 
 	# the phase-phase block
-	g[4,4] =		g_RA_RA		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[4,5] = g[5,4] =	g_RA_dec	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[4,6] = g[6,4] =	g_RA_t		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[4,7] = g[7,4] =	g_RA_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[4,8] = g[8,4] =	g_RA_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[5,5] =		g_dec_dec	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[5,6] = g[6,5] =	g_dec_t		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[5,7] = g[7,5] =	g_dec_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[5,8] = g[8,5] =	g_dec_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[6,6] =		g_t_t		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[6,7] = g[7,6] =	g_t_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[6,8] = g[8,6] =	g_t_eta		(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[7,7] =		g_mchirp_mchirp	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[7,8] = g[8,7] =	g_mchirp_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
-	g[8,8] =		g_eta_eta	(cosi, distance, phi0, psi, RA, dec, detector_list, mchirp, eta, Fderivs)
+	g[4,4] =		g_RA_RA		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[4,5] = g[5,4] =	g_RA_dec	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[4,6] = g[6,4] =	g_RA_t		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[4,7] = g[7,4] =	g_RA_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[4,8] = g[8,4] =	g_RA_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[5,5] =		g_dec_dec	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[5,6] = g[6,5] =	g_dec_t		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[5,7] = g[7,5] =	g_dec_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[5,8] = g[8,5] =	g_dec_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[6,6] =		g_t_t		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[6,7] = g[7,6] =	g_t_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[6,8] = g[8,6] =	g_t_eta		(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[7,7] =		g_mchirp_mchirp	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[7,8] = g[8,7] =	g_mchirp_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
+	g[8,8] =		g_eta_eta	(cosi, distance, phi0, psi, RA, dec, detectors, mchirp, eta, Fderivs)
 
-	rho2 = expected_coherent_snr(cosi,distance,phi0,psi,RA,dec,detector_list)
+	rho2 = expected_coherent_snr(cosi,distance,phi0,psi,RA,dec,detectors)
 
 	return g/rho2
 
-def average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized amplitude-parameter-averaged sky-mass-time
 	metric is symmetric and is defined with the following signature:
@@ -4657,26 +4894,60 @@ def average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderiv
 	     3 mchirp |   -    -  -    D    I  |
 	     4  eta    \  -    -  -    -    E /
 	"""
+	for detector in detectors:
+		detector.update_I_n(mchirp, eta)
+
 	g = scipy.zeros((5,5))
-	g[0,0] =		gbar_RA_RA		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,1] = g[1,0] =	gbar_RA_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,2] = g[2,0] =	gbar_RA_t		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,3] = g[3,0] =	gbar_RA_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,4] = g[4,0] =	gbar_RA_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,1] = 		gbar_dec_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,2] = g[2,1] =	gbar_dec_t		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,3] = g[3,1] =	gbar_dec_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,4] = g[4,1] =	gbar_dec_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[2,2] =		gbar_t_t		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[2,3] = g[3,2] =	gbar_t_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[2,4] = g[4,2] =	gbar_t_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[3,3] =		gbar_mchirp_mchirp	(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[3,4] = g[4,3] =	gbar_mchirp_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[4,4] =		gbar_eta_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,0] = gbar_RA_RA		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,1] = gbar_RA_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,2] = gbar_RA_t		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,3] = gbar_RA_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,4] = gbar_RA_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,1] = gbar_dec_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,2] = gbar_dec_t		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,3] = gbar_dec_mchirp	(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,4] = gbar_dec_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,2] = gbar_t_t		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,3] = gbar_t_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,4] = gbar_t_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,3] = gbar_mchirp_mchirp	(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,4] = gbar_mchirp_eta	(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[4,4] = gbar_eta_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+
+	g[1,0] = g[0,1]
+	g[2,0] = g[0,2]
+	g[3,0] = g[0,3]
+	g[4,0] = g[0,4]
+	g[2,1] = g[1,2]
+	g[3,1] = g[1,3]
+	g[4,1] = g[1,4]
+	g[3,2] = g[2,3]
+	g[4,2] = g[2,4]
+	g[4,3] = g[3,4]
 
 	return g
 
-def other_average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=False):
+def average_sky_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
+	g = average_metric(RA, dec, detectors, mchirp, eta, Fderivs)
+	g,rootdiag = extract_diagonal(g)
+	g,rootdiag = project_out_dimension(g,rootdiag,4)
+	g,rootdiag = project_out_dimension(g,rootdiag,3)
+	g,rootdiag = project_out_dimension(g,rootdiag,2)
+	g = restore_diagonal(g,rootdiag)
+
+	return g
+
+def average_mass_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
+	g = average_metric(RA, dec, detectors, mchirp, eta, Fderivs)
+	g,rootdiag = extract_diagonal(g)
+	g,rootdiag = project_out_dimension(g,rootdiag,2)
+	g,rootdiag = project_out_dimension(g,rootdiag,1)
+	g,rootdiag = project_out_dimension(g,rootdiag,0)
+	g = restore_diagonal(g,rootdiag)
+
+	return g
+
+def snr2average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
 	"""
 	The amplitude maximized SNR^2-averaged sky-mass-time metric is
 	symmetric and is defined with the following signature:
@@ -4688,22 +4959,198 @@ def other_average_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, 
 	     3 mchirp |   -    -  -    D    I  |
 	     4  eta    \  -    -  -    -    E /
 	"""
+	for detector in detectors:
+		detector.update_I_n(mchirp, eta)
+
 	g = scipy.zeros((5,5))
-	g[0,0] =		ogbar_RA_RA		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,1] = g[1,0] =	ogbar_RA_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,2] = g[2,0] =	ogbar_RA_t		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,3] = g[3,0] =	ogbar_RA_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[0,4] = g[4,0] =	ogbar_RA_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,1] = 		ogbar_dec_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,2] = g[2,1] =	ogbar_dec_t		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,3] = g[3,1] =	ogbar_dec_mchirp	(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[1,4] = g[4,1] =	ogbar_dec_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[2,2] =		ogbar_t_t		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[2,3] = g[3,2] =	ogbar_t_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[2,4] = g[4,2] =	ogbar_t_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[3,3] =		ogbar_mchirp_mchirp	(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[3,4] = g[4,3] =	ogbar_mchirp_eta	(RA, dec, detectors, mchirp, eta, Fderivs)
-	g[4,4] =		ogbar_eta_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,0] = snr2_gbar_RA_RA		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,1] = snr2_gbar_RA_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,2] = snr2_gbar_RA_t			(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,3] = snr2_gbar_RA_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[0,4] = snr2_gbar_RA_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,1] = snr2_gbar_dec_dec		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,2] = snr2_gbar_dec_t		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,3] = snr2_gbar_dec_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[1,4] = snr2_gbar_dec_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,2] = snr2_gbar_t_t			(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,3] = snr2_gbar_t_mchirp		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[2,4] = snr2_gbar_t_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,3] = snr2_gbar_mchirp_mchirp	(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[3,4] = snr2_gbar_mchirp_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+	g[4,4] = snr2_gbar_eta_eta		(RA, dec, detectors, mchirp, eta, Fderivs)
+
+	g[1,0] = g[0,1]
+	g[2,0] = g[0,2]
+	g[3,0] = g[0,3]
+	g[4,0] = g[0,4]
+	g[2,1] = g[1,2]
+	g[3,1] = g[1,3]
+	g[4,1] = g[1,4]
+	g[3,2] = g[2,3]
+	g[4,2] = g[2,4]
+	g[4,3] = g[3,4]
+
+	return g
+
+def snr2average_sky_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
+	g = snr2average_metric(RA, dec, detectors, mchirp, eta, Fderivs)
+	g,rootdiag = extract_diagonal(g)
+	g,rootdiag = project_out_dimension(g,rootdiag,4)
+	g,rootdiag = project_out_dimension(g,rootdiag,3)
+	g,rootdiag = project_out_dimension(g,rootdiag,2)
+	g = restore_diagonal(g,rootdiag)
+
+	return g
+
+def snr2average_mass_metric(RA, dec, detectors, mchirp=2.*.25**.6*M_sun, eta=0.25, Fderivs=True):
+	g = snr2average_metric(RA, dec, detectors, mchirp, eta, Fderivs)
+	g,rootdiag = extract_diagonal(g)
+	g,rootdiag = project_out_dimension(g,rootdiag,2)
+	g,rootdiag = project_out_dimension(g,rootdiag,1)
+	g,rootdiag = project_out_dimension(g,rootdiag,0)
+	g = restore_diagonal(g,rootdiag)
+
+	return g
+
+def single_g_ij(detector, dPhasei, dPhasej, dLnAmpi, dLnAmpj):
+	I_n = detector.I_n
+	I_dLnAmp_dLnAmp = 0.
+	for key1 in dLnAmpi.keys():
+		for key2 in dLnAmpj.keys():
+			ls = key1.count('l') + key2.count('l')
+			n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dLnAmp_dLnAmp += dLnAmpi[key1]*dLnAmpj[key2]*I_n[psd_key]
+	I_dPhase_dPhase = 0.
+	for key1 in dPhasei.keys():
+		for key2 in dPhasej.keys():
+			ls = key1.count('l') + key2.count('l')
+			n = -7 + int(key1.strip('l')) + int(key2.strip('l'))
+			psd_key = str(n) + 'l'*ls
+			I_dPhase_dPhase += dPhasei[key1]*dPhasej[key2]*I_n[psd_key]
+	return I_dLnAmp_dLnAmp + I_dPhase_dPhase
+
+def single_g_phi_phi(detector, mchirp, eta):
+	dPhase_dphi = dPhase_dphi_dict()
+	dLnAmp_dphi = {}
+
+	g = single_g_ij(detector, dPhase_dphi, dPhase_dphi, dLnAmp_dphi, dLnAmp_dphi)
+	return g / detector.I_n['-7']
+
+def single_g_phi_t(detector, mchirp, eta):
+	dPhase_dphi = dPhase_dphi_dict()
+	dLnAmp_dphi = {}
+	dPhase_dt = dPhase_dt_dict()
+	dLnAmp_dt = {}
+
+	g = single_g_ij(detector, dPhase_dphi, dPhase_dt, dLnAmp_dphi, dLnAmp_dt)
+	return g / detector.I_n['-7']
+
+def single_g_phi_mchirp(detector, mchirp, eta):
+	dPhase_dphi = dPhase_dphi_dict()
+	dLnAmp_dphi = {}
+	dPhase_dmchirp = dPhase_dmchirp_dict(mchirp, eta)
+	dLnAmp_dmchirp = dlnA_dmchirp_dict(mchirp, eta)
+
+	g = single_g_ij(detector, dPhase_dphi, dPhase_dmchirp, dLnAmp_dphi, dLnAmp_dmchirp)
+	return g / detector.I_n['-7']
+
+def single_g_phi_eta(detector, mchirp, eta):
+	dPhase_dphi = dPhase_dphi_dict()
+	dLnAmp_dphi = {}
+	dPhase_deta = dPhase_deta_dict(mchirp, eta)
+	dLnAmp_deta = {}
+
+	g = single_g_ij(detector, dPhase_dphi, dPhase_deta, dLnAmp_dphi, dLnAmp_deta)
+	return g / detector.I_n['-7']
+
+def single_g_t_t(detector, mchirp, eta):
+	dPhase_dt = dPhase_dt_dict()
+	dLnAmp_dt = {}
+
+	g = single_g_ij(detector, dPhase_dt, dPhase_dt, dLnAmp_dt, dLnAmp_dt)
+	return g / detector.I_n['-7']
+
+def single_g_t_mchirp(detector, mchirp, eta):
+	dPhase_dt = dPhase_dt_dict()
+	dLnAmp_dt = {}
+	dPhase_dmchirp = dPhase_dmchirp_dict(mchirp, eta)
+	dLnAmp_dmchirp = dlnA_dmchirp_dict(mchirp, eta)
+
+	g = single_g_ij(detector, dPhase_dt, dPhase_dmchirp, dLnAmp_dt, dLnAmp_dmchirp)
+	return g / detector.I_n['-7']
+
+def single_g_t_eta(detector, mchirp, eta):
+	dPhase_dt = dPhase_dt_dict()
+	dLnAmp_dt = {}
+	dPhase_deta = dPhase_deta_dict(mchirp, eta)
+	dLnAmp_deta = {}
+
+	g = single_g_ij(detector, dPhase_dt, dPhase_deta, dLnAmp_dt, dLnAmp_deta)
+	return g / detector.I_n['-7']
+
+def single_g_mchirp_mchirp(detector, mchirp, eta):
+	dPhase_dmchirp = dPhase_dmchirp_dict(mchirp, eta)
+	dLnAmp_dmchirp = dlnA_dmchirp_dict(mchirp, eta)
+
+	g = single_g_ij(detector, dPhase_dmchirp, dPhase_dmchirp, dLnAmp_dmchirp, dLnAmp_dmchirp)
+	return g / detector.I_n['-7']
+
+def single_g_mchirp_eta(detector, mchirp, eta):
+	dPhase_dmchirp = dPhase_dmchirp_dict(mchirp, eta)
+	dLnAmp_dmchirp = dlnA_dmchirp_dict(mchirp, eta)
+	dPhase_deta = dPhase_deta_dict(mchirp, eta)
+	dLnAmp_deta = {}
+
+	g = single_g_ij(detector, dPhase_dmchirp, dPhase_deta, dLnAmp_dmchirp, dLnAmp_deta)
+	return g / detector.I_n['-7']
+
+def single_g_eta_eta(detector, mchirp, eta):
+	dPhase_deta = dPhase_deta_dict(mchirp, eta)
+	dLnAmp_deta = {}
+
+	g = single_g_ij(detector, dPhase_deta, dPhase_deta, dLnAmp_deta, dLnAmp_deta)
+	return g / detector.I_n['-7']
+
+def single_detector_metric(detector, mchirp=2.*.25**.6*M_sun, eta=0.25):
+	"""
+	The single detector metric is symmetric and is defined with the
+	following signature:
+	                  0  1    2    3
+	                 phi t mchirp eta
+	     1  phi    /  A  E    H    J \
+	 g = 2   t    |   -  B    F    I  |
+	     3 mchirp |   -  -    C    G  |
+	     4  eta    \  -  -    -    D /
+	"""
+	detector.update_I_n(mchirp, eta)
+
+	g = scipy.zeros((4,4))
+	g[0,0] = single_g_phi_phi	(detector, mchirp, eta)
+	g[1,0] = single_g_phi_t		(detector, mchirp, eta)
+	g[2,0] = single_g_phi_mchirp	(detector, mchirp, eta)
+	g[3,0] = single_g_phi_eta	(detector, mchirp, eta)
+	g[1,1] = single_g_t_t		(detector, mchirp, eta)
+	g[2,1] = single_g_t_mchirp	(detector, mchirp, eta)
+	g[3,1] = single_g_t_eta		(detector, mchirp, eta)
+	g[2,2] = single_g_mchirp_mchirp	(detector, mchirp, eta)
+	g[3,2] = single_g_mchirp_eta	(detector, mchirp, eta)
+	g[3,3] = single_g_eta_eta	(detector, mchirp, eta)
+	g[0,1] = g[1,0]
+	g[0,2] = g[2,0]
+	g[0,3] = g[3,0]
+	g[1,2] = g[2,1]
+	g[1,3] = g[3,1]
+	g[2,3] = g[3,2]
+
+	return g
+
+def single_detector_mass_metric(detector, mchirp=2.*.25**.6*M_sun, eta=0.25):
+	g = single_detector_metric(detector, mchirp, eta)
+	g,rootdiag = extract_diagonal(g)
+	g,rootdiag = project_out_dimension(g,rootdiag,1)
+	g,rootdiag = project_out_dimension(g,rootdiag,0)
+	g = restore_diagonal(g,rootdiag)
 
 	return g
 
@@ -4726,21 +5173,24 @@ def extract_diagonal(g):
 	rootdiag = []
 	for idx in range(len(g)):
 		rootdiag.append(g[idx,idx]**.5)
-	for idx in range(len(g)):
-		for jdx in range(len(g)):
-			if rootdiag[idx]*rootdiag[jdx]:
-				g[idx,jdx] /= rootdiag[idx]*rootdiag[jdx]
-	return g,rootdiag
+	scale = scipy.diag(1./scipy.array(rootdiag))
+
+	g_scaled = scipy.dot(g, scale)
+	g_scaled = scipy.dot(scale.T, g_scaled)
+
+	return g_scaled,rootdiag
 
 def restore_diagonal(g, rootdiag):
 	"""
 	Takes the modified metric and the square root of the diagonal and
 	undoes the scaling operation of extract_diagonal(g).
 	"""
-	for idx in range(len(g)):
-		for jdx in range(len(g)):
-			g[idx,jdx] *= rootdiag[idx]*rootdiag[jdx]
-	return g
+	scale = scipy.diag(rootdiag)
+
+	g_scaled = scipy.dot(g, scale)
+	g_scaled = scipy.dot(scale.T, g_scaled)
+
+	return g_scaled
 
 def project_out_dimension(g, rootdiag, dim):
 	"""
@@ -4799,3 +5249,65 @@ def metric_distance(test_point, point, metric_at_point):
 		+ 2.*metric_at_point[0,1]*dx*dy
 
 	return dist
+
+def mchirpeta2m1m2(mchirp, eta):
+	M = mchirp * eta**(-3./5.)
+	q = (1. - 2.*eta + (1. - 4.*eta)**.5) / (2.*eta)
+
+	m2 = M/(1.+q)
+	m1 = M - m2
+
+	return m1,m2
+
+def m1m22taus(m1, m2, f0=10.):
+	"""
+	Solve for tau_0 and tau_3 from m1 and m2.
+	"""
+	M = m1 + m2
+	eta = m1 * m2 / M**2
+	mchirp = M * eta**(3./5.)
+	return mchirpeta2taus(mchirp, eta, f0)
+
+def mchirpeta2taus(mchirp, eta, f0=10.):
+	"""
+	Solve for tau_0 and tau_3 from mchirp and eta.
+	"""
+	tau0 = 5./256. * (pi*f0)**(-8./3.) * mchirp**(-5./3.)
+	tau3 = pi/8. * (pi*f0)**(-5./3.) * eta**(-3./5.) * mchirp**(-2./3.)
+	return tau0, tau3
+
+def taus2mchirpeta(tau0, tau3, f0=10.):
+	"""
+	Solve for mchirp and eta from tau_0 and tau_3.
+	"""
+	mchirp = (256./5.*(pi*f0)**(8./3.) * tau0)**(-3./5.)
+	eta = (pi/8./(pi*f0)**(5./3.) / tau3 / mchirp**(2./3.))**(5./3.)
+	return mchirp,eta
+
+def taus2m1m2(tau0, tau3, f0=10.):
+	mchirp,eta = taus2mchirpeta(tau0, tau3, f0)
+	return mchirpeta2m1m2(mchirp, eta)
+
+def dmchirp_dtau0(mchirp, eta, f0=10.):
+	return -(768./25.) * (pi * f0 * mchirp)**(8./3.)
+
+def dmchirp_dtau3(mchirp, eta, f0=10.):
+	return 0.
+
+def deta_dtau0(mchirp, eta, f0=10.):
+	return (512./15.) * (pi * f0)**(8./3.) * eta * mchirp**(5./3.)
+
+def deta_dtau3(mchirp, eta, f0=10.):
+	return -(40./(3.*pi)) * (pi * f0)**(5./3.) * eta**(8./5.) * mchirp**(2./3.)
+
+def massmetric2taumetric(g, mchirp, eta, f0=10.):
+	dtau = scipy.eye(len(g))
+	dtau[-2,-2] = dmchirp_dtau0(mchirp, eta, f0)
+	dtau[-1,-2] = dmchirp_dtau3(mchirp, eta, f0)
+	dtau[-2,-1] = deta_dtau0(mchirp, eta, f0)
+	dtau[-1,-1] = deta_dtau3(mchirp, eta, f0)
+
+	g_taus = scipy.dot(g, dtau)
+	g_taus = scipy.dot(dtau.T, g_taus)
+
+	return g_taus

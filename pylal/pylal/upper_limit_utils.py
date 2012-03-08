@@ -53,7 +53,7 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     std = calerr
     mean = 0 # median volume = 1
 
-    fracerrs = numpy.linspace(0.33,3,5e2) # assume we got the volume to a factor of three or better
+    fracerrs = numpy.linspace(0.33,3,1e2) # assume we got the volume to a factor of three or better
     errdist = numpy.exp(-(numpy.log(fracerrs)-mean)**2/(2*std**2))/(fracerrs*std) # log-normal pdf
     errdist /= errdist.sum() #normalize
 
@@ -62,11 +62,16 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     return likely
 
 
-def compute_upper_limit(mu, post, alpha = 0.9):
+def compute_upper_limit(mu_in, post, alpha = 0.9):
     """
     Returns the upper limit mu_high of confidence level alpha for a
     posterior distribution post on the given parameter mu.
     """
+    # interpolate to a linearly spaced array for accuracy in mu
+    post_rep = interpolate.splrep(mu_in, post,k=1)
+    mu = numpy.linspace(mu_in.min(),mu_in.max(),len(mu_in))
+    post = interpolate.splev(mu, post_rep)
+
     if 0 < alpha < 1:
         high_idx = bisect.bisect_left( post.cumsum()/post.sum(), alpha )
         # if alpha is in (0,1] and post is non-negative, bisect_left
@@ -271,34 +276,22 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbi
     return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
 
 
-def log_volume_derivative_fit(x, vols, xhat,mkplot=True,tag=""):
+def log_volume_derivative_fit(x, vols, xhat):
     '''
-    Relies on scipy spline fits for each mass bin to find the (logarithmic)
-    derivitave of the search volume vs x at the given xhat.
+    Performs a linear least squares fit for each mass bin to find the 
+    (logarithmic) derivative of the search volume vs x at the given xhat.
     '''
     if numpy.min(vols) == 0:
-        print >> sys.stderr, "Warning: cannot fit to log-volume."
-        return 0
+        print >> sys.stderr, "Warning: cannot fit log volume derivative as all volumes are zero!"
+        return (0,0)
 
-    coeffs, resids, rank, svs, rcond = numpy.polyfit(x,numpy.log(vols),1,full=True)
+    coeffs, resids, rank, svs, rcond = numpy.polyfit(x, numpy.log(vols), 1, full=True)
     if coeffs[0] < 0:
-        val = 0 #prevents negative derivitives arising from bad fits
-        print >> sys.stderr, "Warning: Derivative fit resulted in Lambda < 0."
-    else:
-        val = coeffs[0]
+        coeffs[0] = 0  #negative derivatives may arise from rounding error
+        print >> sys.stderr, "Warning: Derivative fit resulted in Lambda =", coeffs[0]
+        print >> sys.stderr, "The value Lambda = 0 was substituted"
 
-    if mkplot:
-        fars = numpy.linspace(min(x),max(x),100)
-        pyplot.plot(x,numpy.log(vols),'rx',label="data")
-        pyplot.plot(fars,coeffs[0]*fars+coeffs[1],label="fit")
-        pyplot.legend(loc="lower right")
-        pyplot.xlabel("FAN (per expt)")
-        pyplot.ylabel("log volume")
-        pyplot.title("lambda = %.2g at fan = %.2f"%(val,xhat))
-        pyplot.savefig(tag+"volume_derivative_fit")
-        pyplot.close()
-
-    return val
+    return coeffs
 
 
 def get_background_livetime(connection, verbose=False):

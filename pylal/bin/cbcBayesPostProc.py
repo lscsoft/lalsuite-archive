@@ -40,6 +40,7 @@ from time import strftime
 
 #related third party imports
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze
+from scipy import stats
 
 import matplotlib
 matplotlib.use("Agg")
@@ -91,7 +92,13 @@ def cbcBayesPostProc(
                         #Turn on 2D kdes
                         twodkdeplots=False,
                         #Turn on R convergence tests
-                        RconvergenceTests=False
+                        RconvergenceTests=False,
+                        # Save PDF figures?
+                        savepdfs=True,
+                        #List of covariance matrix csv files used as analytic likelihood
+                        covarianceMatrices=None,
+                        #List of meanVector csv files used, one csv file for each covariance matrix
+                        meanVectors=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -183,11 +190,24 @@ def cbcBayesPostProc(
                     continue
                 snrstring=snrstring +" "+str(snr[0:-1])+" ,"
             snrstring=snrstring[0:-1]
-        
+
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,votfile=votfile)
   
+    #Create analytic likelihood functions if covariance matrices and mean vectors were given
+    analyticLikelihood = None
+    if covarianceMatrices and meanVectors:
+        analyticLikelihood = bppu.AnalyticLikelihood(covarianceMatrices, meanVectors)
+
+        #Plot only analytic parameters
+        oneDMenu = analyticLikelihood.names
+        twoDGreedyMenu = []
+        for i in range(len(oneDMenu)):
+            for j in range(i+1,len(oneDMenu)):
+                twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+        twoDplots = twoDGreedyMenu
+
     if eventnum is None and injfile is not None:
         import itertools
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
@@ -208,8 +228,15 @@ def cbcBayesPostProc(
     #Stupid bit to generate component mass posterior samples (if they didnt exist already)
     if 'mc' in pos.names:
         mchirp_name = 'mc'
+    elif 'chirpmass' in pos.names:
+        mchirp_name = 'chirpmass'
     else:
         mchirp_name = 'mchirp'
+
+    if 'asym_massratio' in pos.names:
+        q_name = 'asym_massratio'
+    else:
+        q_name = 'q'
 
     if (mchirp_name in pos.names and 'eta' in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -217,12 +244,19 @@ def cbcBayesPostProc(
 
         pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
 
-    if (mchirp_name in pos.names and 'q' in pos.names) and \
+    if (mchirp_name in pos.names and q_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,'q'))
-        pos.append_mapping('eta',bppu.q2eta,(mchirp_name,'q'))
+        pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,q_name))
+        pos.append_mapping('eta',bppu.q2eta,(mchirp_name,q_name))
+
+    if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
+    if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
+    if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')
+    if('phi_spin2' in pos.names): pos.append_mapping('phi2',lambda a:a,'phi_spin2')
+    if('theta_spin1' in pos.names): pos.append_mapping('theta1',lambda a:a,'theta_spin1')
+    if('theta_spin2' in pos.names): pos.append_mapping('theta2',lambda a:a,'theta_spin2')
 
     # Compute time delays from sky position
     if ('ra' in pos.names or 'rightascension' in pos.names) \
@@ -309,6 +343,9 @@ def cbcBayesPostProc(
     requested_params = set(pos.names).intersection(set(oneDMenu))
     pos.delete_NaN_entries(requested_params)
 
+    #Remove non-analytic parameters if analytic likelihood is given:
+    if analyticLikelihood:
+        [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names]
 
     ##Print some summary stats for the user...##
     #Number of samples
@@ -541,12 +578,20 @@ def cbcBayesPostProc(
 
         #Generate 1D histogram/kde plots
         print "Generating 1D plot for %s."%par_name
+
+        #Get analytic description if given
+        pdf=cdf=None
+        if analyticLikelihood:
+            pdf = analyticLikelihood.pdf(par_name)
+            cdf = analyticLikelihood.cdf(par_name)
+
         oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
+        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf)
 
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)
         plotFig.savefig(oneDplotPath)
+        if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
 
         if rbins:
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
@@ -586,6 +631,7 @@ def cbcBayesPostProc(
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+        if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
 
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
@@ -611,6 +657,7 @@ def cbcBayesPostProc(
                         pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+            if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
 
         if not noacf:
             html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
@@ -737,10 +784,12 @@ def cbcBayesPostProc(
         greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
+        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png',',pdf'))
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
         greedy2HistFig.savefig(greedy2histpath)
+        if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -794,6 +843,7 @@ def cbcBayesPostProc(
                     row_count=0
 
                 myfig.savefig(twoDKdePath)
+                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
@@ -921,10 +971,13 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
+    parser.add_option("--savepdfs",action="store_true",default=False,dest="savepdfs")
+    parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
+    parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio']
+    massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
     polParams=['psi']
@@ -980,7 +1033,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
@@ -1012,6 +1065,12 @@ if __name__=='__main__':
                         #Turn on 2D kdes
                         twodkdeplots=opts.twodkdeplots,
                         #Turn on R convergence tests
-                        RconvergenceTests=opts.RconvergenceTests
+                        RconvergenceTests=opts.RconvergenceTests,
+                        # Also save PDFs?
+                        savepdfs=opts.savepdfs,
+                        #List of covariance matrix csv files used as analytic likelihood
+                        covarianceMatrices=opts.covarianceMatrices,
+                        #List of meanVector csv files used, one csv file for each covariance matrix
+                        meanVectors=opts.meanVectors
                     )
 #
