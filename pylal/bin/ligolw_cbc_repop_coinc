@@ -11,7 +11,7 @@
 
 usage = \
 '''
-Computes detection statistic and stores to the specified column in the coinc_inspiral table.
+Computes detection statistic and stores to the specified column in the coinc table.
 '''
 
 from optparse import OptionParser
@@ -66,12 +66,24 @@ def parse_command_line():
     parser.add_option( "", "--output-column", action = "store", type = "string", default = None,
         help = "Required. Column in the coinc_inspiral table to store output to."
         )
+    parser.add_option("", "--sngl-table", action="store", type="string",
+        default=None,
+        help =
+          "Should be set to sngl_inspiral or sngl_ringdown.(REQUIRED)"
+        )
+    parser.add_option("", "--coinc-table", action="store", type="string",
+        default=None,
+        help =
+          "Required. Can be any table with a coinc_event_id and a time column. Ex. coinc_inspiral."
+        )
     # following are specific to this program
     parser.add_option("", "--statistic-type", action = "store", type="string",
         default=None, metavar="STATTYPE",
         help =
             "type of single-ifo statistic to be computed: " +
-            "allowed values are snr, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, highstat"
+            "allowed values are mean, snr_mean, snr, choppedl, " +
+            "snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, " +
+            "highstat, eff_dist_ratio"
         )
     parser.add_option("", "--nlow", action = "store", type = "float", default = 4.,
         help =
@@ -111,6 +123,24 @@ def parse_command_line():
     parser.add_option("", "--virgo-run", action="store", type="int", default = 2,
         help = "which Virgo science run to tune highstat for; default is 2"
         )
+    parser.add_option("", "--param", action="store", type="string",
+        default=None,
+        help =
+          "Parameter that will be averaged for coinc table entry. Ex: ringdown frequency, quality." +
+          "Required if mean or snr_mean is specified as statistic-type."
+        )
+    parser.add_option("", "--chopla", action="store", type="float",
+        default=None,
+        help =
+          "Tunable parameter used in the chopped-L test." +
+          "Required if choppedl is specified as statistic-type."
+        )
+    parser.add_option("", "--choplb", action="store", type="float",
+        default=None,
+        help =
+          "Tunable parameter used in the chopped-L test." +
+          "Required if choppedl is specified as statistic-type."
+        )
     (options, args) = parser.parse_args()
 
     # check for required options and for self-consistency
@@ -122,6 +152,10 @@ def parse_command_line():
         raise ValueError, "--tmp-space is a required argument."
     if not options.output_column:
         raise ValueError, "--output-column is a required argument."
+    if not options.sngl_table:
+        raise ValueError, "--sngl-table is a required argument."
+    if not options.coinc_table:
+        raise ValueError, "--coinc-table is a required argument."
     if options.statistic_type == 'highstat' and not options.virgo_run:
         raise ValueError, "please specify --virgo-run to get correct highstat tuning, \
         if not analyzing Virgo triggers set to your favourite integer"
@@ -158,7 +192,8 @@ class CombiningFunctions:
     when computing the results in the UPDATE SET command.
     """
     def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
-      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., vsr = 2 ):
+      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1., vsr = 2, param = None, \
+      chopla = None, choplb = None ):
         """
         Sets outside variables.
         """
@@ -172,12 +207,27 @@ class CombiningFunctions:
         self.lfac = lfac
         self.vfac = vfac
         self.vsr = vsr
-    
+        self.param = param
+        self.chopla = chopla
+        self.choplb = choplb
+
+    def compute_mean( self, coinc_sngls ):
+        """
+        Computes the mean param.
+        """
+        return sum([getattr(sngl, self.param) for sngl in coinc_sngls])/float(len(coinc_sngls))
+
+    def compute_snr_weighted_mean( self, coinc_sngls ):
+        """
+        Computes the snr-weighted mean param.
+        """
+        return sum([getattr(sngl, self.param) * sngl.snr for sngl in coinc_sngls])/sum(sngl.snr for sngl in coinc_sngls)
+
     def compute_combined_snr( self, coinc_sngls ):
         """
         Computes a combined snr using the given coinc and whatever the powers and prefactors are set to.
         
-        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
 #        for sngl in coinc_sngls: # diagnostic
 #            print sngl.ifo[0].lower()
@@ -186,11 +236,26 @@ class CombiningFunctions:
         else:
             return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * sngl.snr**self.power for sngl in coinc_sngls ))**(1./self.power)
 
+    def compute_chopped_l_snr( self, coinc_sngls ):
+        """
+        Computes a combined snr for triple/quadruple coincs and uses chopped-L test to compute snr for double coincs.
+        
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
+        """
+        if len( coinc_sngls ) == 4:
+            return self.compute_combined_snr( coinc_sngls )
+        elif len( coinc_sngls ) == 3:
+            return self.compute_combined_snr( coinc_sngls )
+        elif len( coinc_sngls ) == 2:
+            return min( sum( sngl.snr for sngl in coinc_sngls ), min(self.chopla * sngl.snr + self.choplb for sngl in coinc_sngls) )
+        else:
+            raise ValueError, "The compute_chopped_l_snr statistic can only be computed for doubles, triples, and quadruples."
+
     def compute_combined_snrchi( self, coinc_sngls ):
         """
         Computes a combined snrchi using the given coinc and whatever the prefactors are set to.
 
-        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
         if self.power == 0:
             return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log(sngl.snr/numpy.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))
@@ -205,7 +270,7 @@ class CombiningFunctions:
         Computes a combined effective snr (magic number = rhoc^2) using the given coinc and 
         whatever the powers and prefactors are set to.
         
-        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
         if self.power == 0:
             return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_effective_snr(fac=self.rhoc**2) ) \
@@ -219,7 +284,7 @@ class CombiningFunctions:
         Computes a combined effsnr-like statistic (crossover at rho=rhoc) using the given coinc and 
         whatever the powers and prefactors are set to.
         
-        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
         if self.power == 0:
             return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.snr/((sngl.chisq/\
@@ -235,7 +300,7 @@ class CombiningFunctions:
         Computes a combined newsnr-like statistic (crossover at rchisq=1) using the given coinc and 
         whatever the powers and prefactors are set to.
         
-        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
         if self.power == 0:
             return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.snr/(0.5*( \
@@ -250,7 +315,7 @@ class CombiningFunctions:
         """
         Computes a combined newsnr using the given coinc and whatever the powers and prefactors are set to.
         
-        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
         if self.power == 0:
             return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_new_snr(index=self.q) )  for sngl in coinc_sngls ))
@@ -262,7 +327,7 @@ class CombiningFunctions:
         Computes 'highstat' combining newsnrs if minimum template duration is above durthresh, else combining
         newsnr in V1 with effsnr in H1,H2,L1
 
-        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
         """
         min_duration = min(sngl.template_duration for sngl in coinc_sngls)
         n = len(coinc_sngls)
@@ -280,6 +345,24 @@ class CombiningFunctions:
             return numpy.exp(sum ( snglfac[i] * numpy.log( snglstat[i] ) for i in numpy.arange(n) ))
         else:
             return (sum ( snglfac[i] * snglstat[i]**self.power for i in numpy.arange(n) ))**(1./self.power)
+
+    def compute_eff_dist_ratio( self, coinc_sngls ):
+        """
+        Computes effective distance ratio (H1/H2) for coincidences that contain both a H1 trigger and
+        a H2 trigger.
+        Otherwise, set the value to 2.0.
+        """
+        h1_eff_dist = None
+        h2_eff_dist = None
+        for sngl in coinc_sngls:
+            if sngl.ifo == 'H1':
+                h1_eff_dist = sngl.eff_dist
+            if sngl.ifo == 'H2':
+                h2_eff_dist = sngl.eff_dist
+        if h1_eff_dist and h2_eff_dist:
+            return (h1_eff_dist / h2_eff_dist)
+        else:
+            return 2.0
 
 # =============================================================================
 #
@@ -308,11 +391,14 @@ if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
+sngl_table = sqlutils.validate_option( opts.sngl_table )
+coinc_table = sqlutils.validate_option( opts.coinc_table )
+
 #    
 # Create the output column if it doesn't exist
 #
 output_column = sqlutils.validate_option( opts.output_column )
-create_column( connection, 'coinc_inspiral', output_column )
+create_column( connection, coinc_table, output_column )
 
 #
 #   Initialize needed functions
@@ -321,10 +407,17 @@ create_column( connection, 'coinc_inspiral', output_column )
 # 1. initialize the combining function class
 function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
     durthresh = opts.duration_threshold, power = opts.snr_power, 
-    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, vsr = opts.virgo_run )
+    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, vsr = opts.virgo_run,
+    param = opts.param, chopla = opts.chopla, choplb = opts.choplb )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
-if opts.statistic_type == 'snr':
+if opts.statistic_type == 'mean':
+    function = 'compute_mean'
+elif opts.statistic_type == 'snr_mean':
+    function = 'compute_snr_weighted_mean'
+elif opts.statistic_type == 'snr':
     function = 'compute_combined_snr'
+elif opts.statistic_type == 'choppedl':
+    function = 'compute_chopped_l_snr'
 elif opts.statistic_type == 'snrchi':
     function = 'compute_combined_snrchi'
 elif opts.statistic_type == 'effective_snr':
@@ -337,11 +430,13 @@ elif opts.statistic_type == 'newsnr':
     function = 'compute_combined_newsnr'
 elif opts.statistic_type == 'highstat':
     function = 'compute_highstat'
+elif opts.statistic_type == 'eff_dist_ratio':
+    function = 'compute_eff_dist_ratio'
 
 # 2. initialize the apply_function class in sqlite
 
-# get the columns in the sngl_inspiral table as they're stored in the database
-sngl_columns = sqlutils.get_column_names_from_table( connection, 'sngl_inspiral' ) 
+# get the columns in the sngl table as they're stored in the database
+sngl_columns = sqlutils.get_column_names_from_table( connection, sngl_table ) 
 
 class ApplyCombiningFunction:
     """
@@ -369,7 +464,7 @@ class ApplyCombiningFunction:
         """
         Populates self.this_coinc
         """
-        this_sngl = lsctables.SnglInspiral()
+        this_sngl = lsctables.TableByName[ sngl_table ].RowType()
         [ setattr( this_sngl, column, data) for column, data in zip(sngl_columns, args) if column in this_sngl.__slots__ ]
         self.this_coinc.append( this_sngl )
 
@@ -382,34 +477,34 @@ class ApplyCombiningFunction:
 
 # now create a sqlite aggregate function from the ApplyCombiningFunction class so that it can be applied
 # on the fly; this requires knowing how many input arguments go into the step method, which is just the number
-# of columns in the sngl_inspiral table
+# of columns in the sngl table
 nargs = len( sngl_columns )
 connection.create_aggregate( 'apply_function', nargs, ApplyCombiningFunction )
 
 
 #
-#   Compute the desired statistic and update the coinc_inspiral table with it
+#   Compute the desired statistic and update the coinc table with it
 #
 
 # for some reason sqlite doesn't like "table_name.*" in an aggregate function's arguments,
 # so I'm sticking in all the columns by name into the query.
-sngl_cols = str(','.join(['sngl_inspiral.'+col for col in sngl_columns]))
+sngl_cols = str(','.join([sngl_table+"."+col for col in sngl_columns]))
 
 sqlite3.enable_callback_tracebacks(True)
 sqlquery = ''.join([ """
     UPDATE
-        coinc_inspiral
+        """, coinc_table, """
     SET
         """, output_column, """ = (
         SELECT
             apply_function(""", sngl_cols, """)
         FROM
-            sngl_inspiral
+            """, sngl_table, """
         JOIN
             coinc_event_map ON (
-                sngl_inspiral.event_id == coinc_event_map.event_id )
+                """, sngl_table, """.event_id == coinc_event_map.event_id )
         WHERE
-            coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
+            coinc_event_map.coinc_event_id == """, coinc_table, """.coinc_event_id
         GROUP BY
             coinc_event_map.coinc_event_id
         )""" ])

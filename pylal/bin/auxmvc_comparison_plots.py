@@ -262,6 +262,47 @@ def GetCVetoRank(CVetoOutput, gwtcent, deltat = 0):
     return [cveto_dat[0]]
   else:
     return cveto_dat
+
+
+def cluster(data, rank='signif', cluster_window=1.0):
+	"""
+	Clustering performed with the sliding window cluster_window keeping trigger with the highest rank;
+	data is array of glitches, it is assumed to be sorted by GPS time in ascending order.
+	Clustering algorithm is borrowed from pylal.CoincInspiralUtils cluster method.
+	"""
+
+	# initialize some indices (could work with just one)
+	# but with two it is easier to read
+	this_index = 0
+	next_index = 1
+	glitches = data[numpy.nonzero(data['glitch'] == 1.0)[0],:]
+	while next_index < len(glitches):
+
+		# get the time for both indices
+		thisTime = glitches[this_index]['GPS']
+		nextTime = glitches[next_index]['GPS']
+
+		# are the two coincs within the time-window?
+		if nextTime-thisTime < cluster_window:
+
+			# get the ranks
+			this_rank = glitches[this_index][rank]
+			next_rank = glitches[next_index][rank]
+
+			# and remove the trigger which has the lower rank
+			if (next_rank > this_rank):
+				glitches = numpy.delete(glitches, this_index, 0)
+			else:
+				glitches = numpy.delete(glitches, next_index, 0)
+
+		else:
+			# the two triggers are NOT in the time-window
+			# so must increase index
+			this_index+=1
+			next_index+=1
+			
+	data = numpy.concatenate((glitches, data[numpy.nonzero(data['glitch'] == 0.0)[0],:]))
+	return data
     
 
 usage= """Written to load and manipulate output from different classifiers."""
@@ -274,6 +315,9 @@ parser.add_option("","--mvsc-ranked-files", default=False, type="string", help="
 parser.add_option("","--ann-ranked-files", default=False, type="string", help="Provide the path for ANN *.dat files and globbing pattern")
 parser.add_option("","--svm-ranked-files", default=False, type="string", help="Provide the path for SVM *.dat files and globbing pattern")
 parser.add_option("","--fap-threshold", default=0.1,type="float", help="False Alarm Probability which is adapted to veto")
+parser.add_option("","--cluster",action="store_true", default="True", help="cluster glitch samples")
+parser.add_option("","--cluster-window", default=1.0, type="float", help="clustering window in seconds, default is 1 second.")
+parser.add_option("","--cluster-rank", default='signif', type="string", help="rank used in clustering, default rank is significance of trigger in DARM.")
 parser.add_option("-P","--output-path",action="store",type="string",default="",  metavar="PATH", help="path where the figures would be stored")	  
 parser.add_option("-O","--enable-output",action="store_true", default="True",  metavar="OUTPUT", help="enable the generation of the html and cache documents")	 	  
 parser.add_option("-u","--user-tag",action="store",type="string", default=None,metavar=" USERTAG", help="a user tag for the output filenames" )
@@ -339,6 +383,18 @@ for ind in range(0,10):
   print 'cveto_fap = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_fap'])
   print 'cveto_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_chan'])
 '''
+# cluster glitch samples if --cluster option is given
+if opts.cluster:
+	if opts.verbose:
+		print "Number of glitch samples before clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
+		
+	total_ranked_data = cluster(total_ranked_data, rank=opts.cluster_rank, cluster_window=opts.cluster_window)
+	
+	if opts.verbose:
+		print "Number of glitch samples after clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
+
+
+
 
 # Computing FAP and Efficiency for MVCs
 for cls in classifiers:
@@ -429,82 +485,90 @@ pylab.close()
 FAPthr = 0.01
 sigthr = 25
 
-#all glitches
-fbw = []
-for g in glitches:
-  s = ""
-  for cls in classifiers:
-    if g[cls[0]+'_fap'] <= FAPthr:
-      s += "1"
-    else:
-      s += "0"
-  fbw += [BinToDec(s)]
+classify = [[['ann'], ['mvsc'], ['svm'], ['cveto'], ['combined']], [['ann'], ['mvsc'], ['svm'], ['cveto']], [['ann'], ['mvsc'], ['svm'], ['combined']], [['cveto'], ['combined']]]
 
-#glitches with signif <= sigthr
-g_rem = glitches[numpy.nonzero(glitches['signif'] <= sigthr)[0],:]
-fbwBelow = []
-for g in g_rem:
-  s = ''
-  for cls in classifiers:
-    if g[cls[0]+'_fap'] <= FAPthr:
-      s += '1'
-    else:
-      s += '0'
-  fbwBelow += [BinToDec(s)]
+for clas in classify:
+  #all glitches
+  fbw = []
+  for g in glitches:
+    s = ""
+    for cls in clas:
+      if g[cls[0]+'_fap'] <= FAPthr:
+        s += "1"
+      else:
+        s += "0"
+    fbw += [BinToDec(s)]
 
-#glitches with signif >= sigthr
-g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
-fbwAbove = []
-for g in g_rem:
-  s = ''
-  for cls in classifiers:
-    if g[cls[0]+'_fap'] <= FAPthr:
-      s += '1'
-    else:
-      s += '0'
-  fbwAbove += [BinToDec(s)]
+  #glitches with signif <= sigthr
+  g_rem = glitches[numpy.nonzero(glitches['signif'] <= sigthr)[0],:]
+  fbwBelow = []
+  for g in g_rem:
+    s = ''
+    for cls in clas:
+      if g[cls[0]+'_fap'] <= FAPthr:
+        s += '1'
+      else:
+        s += '0'
+    fbwBelow += [BinToDec(s)]
 
-fig_num += 1
-fig = matplotlib.pyplot.figure()
-pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(classifiers)-0.5, num = 2**len(classifiers) +1, endpoint=True), histtype='step', log = True, label = 'all glitches')
-pylab.hist(fbwBelow, bins = numpy.linspace(-0.5, 2**len(classifiers)-0.5, num = 2**len(classifiers) +1, endpoint = True), histtype = 'step', log = True, label = 'signif <=' + str(sigthr))
-pylab.hist(fbwAbove, bins = numpy.linspace(-0.5, 2**len(classifiers)-0.5, num = 2**len(classifiers) +1, endpoint = True), histtype = 'step', log = True, label = 'signif >=' + str(sigthr))
-pylab.ylabel('Number of Glitches')
-pylab.xlim(-0.5, 31.5)
-pylab.ylim(ymin=10**-0.1)
-pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy at FAP = '+str(FAPthr))
-pylab.legend(loc = 'upper center')
+  #glitches with signif >= sigthr
+  g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+  fbwAbove = []
+  for g in g_rem:
+    s = ''
+    for cls in clas:
+      if g[cls[0]+'_fap'] <= FAPthr:
+        s += '1'
+      else:
+        s += '0'
+    fbwAbove += [BinToDec(s)]
 
-#convert decimals back to binaries and label the ticks accordingly
-tick_locs = numpy.linspace(0,31,num=32)
-tick_labels = []
-for loc in tick_locs:
-  s = ''
-  l = range(len(classifiers) - 1)
-  for ind in l[::-1]:
-    s += str(int(loc)/2**(ind+1))
-    if int(loc)/2**(ind+1) > 0:
-      loc = int(loc)-2**(ind+1)
-  s += str(int(loc))
-  tick_labels += [s]
+  fig_num += 1
+  fig = matplotlib.pyplot.figure()
+  pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint=True), weights = numpy.ones(len(fbw))/len(fbw), histtype='step', log = True, label = 'all glitches')
+  pylab.hist(fbwBelow, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwBelow))/len(fbwBelow), histtype = 'step', log = True, label = 'signif <=' + str(sigthr))
+  pylab.hist(fbwAbove, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwAbove))/len(fbwAbove), histtype = 'step', log = True, label = 'signif >=' + str(sigthr))
+  pylab.ylabel('Fraction of Glitches')
+  pylab.xlim(-0.5, 2**len(clas)-0.5)
+  pylab.ylim(ymax = 1.0)
+  pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy at FAP = '+str(FAPthr))
+  pylab.legend(loc = 'upper center')
+  pylab.grid(True, which = 'major')
+  pylab.grid(True, which = 'minor')
 
-pylab.xticks(tick_locs, tick_labels)
+  #convert decimals back to binaries and label the ticks accordingly
+  tick_locs = numpy.linspace(0,2**len(clas)-1,num=2**len(clas))
+  tick_labels = []
+  for loc in tick_locs:
+    s = ''
+    l = range(len(clas) - 1)
+    for ind in l[::-1]:
+      s += str(int(loc)/2**(ind+1))
+      if int(loc)/2**(ind+1) > 0:
+        loc = int(loc)-2**(ind+1)
+    s += str(int(loc))
+    tick_labels += [s]
+ 
+  pylab.xticks(tick_locs, tick_labels)
 
-for label in fig.axes[0].xaxis.get_ticklabels():
-  label.set_rotation(90)
+  for label in fig.axes[0].xaxis.get_ticklabels():
+    label.set_rotation(90)
 
-leg = "5 bit word is ordered in the following way:  "
-for cls in classifiers:
-  leg += cls[0]+' '
-pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
+  leg = "5 bit word is ordered in the following way:  "
+  for cls in clas:
+    leg += cls[0]+' '
+  pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
 
-#adding to html page
-name = '_scatter_5bit-words'
-fname = InspiralUtils.set_figure_name(opts, name)
-fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-fnameList.append(fname)
-tagList.append(name)
-pylab.close()
+  #adding to html page
+  strclas = ''
+  for cls in clas:
+    strclas += cls[0] + '_'
+  name = '_scatter_5bit-words_'+strclas
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+  pylab.close()
 
 ## Create scattered plots of Significance vs  SNR for GW Triggers
 fig_num += 1
@@ -755,7 +819,7 @@ for cls in classifiers:
 
       # histogram over cls_fap
       grid[0].hist(glitches[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(glitches[cls[0]+'_fap']))/len(glitches[cls[0]+'_fap']), log=True)
-      grid[0].hist(g_rem[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls[0]+'_fap']))/len(glitches[cls[0]+'_fap']),color='red',log=True)
+      grid[0].hist(g_rem[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls[0]+'_fap']))/len(g_rem[cls[0]+'_fap']),color='red',log=True)
 
       grid[0].set_xscale('log')
       grid[0].set_yscale('log')
@@ -764,7 +828,7 @@ for cls in classifiers:
 
       # histogram over cls2_fap
       grid[3].hist(glitches[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(glitches[cls2[0]+'_fap']))/len(glitches[cls2[0]+'_fap']), orientation='horizontal', log=True)
-      grid[3].hist(g_rem[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls2[0]+'_fap']))/len(glitches[cls2[0]+'_fap']), orientation='horizontal',color = 'red',log=True)
+      grid[3].hist(g_rem[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls2[0]+'_fap']))/len(g_rem[cls2[0]+'_fap']), orientation='horizontal',color = 'red',log=True)
       grid[3].set_xscale('log')
       grid[3].set_yscale('log')
       grid[3].set_xlim(10**-4, 10**-0.5)
