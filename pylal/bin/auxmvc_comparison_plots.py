@@ -485,82 +485,90 @@ pylab.close()
 FAPthr = 0.01
 sigthr = 25
 
-#all glitches
-fbw = []
-for g in glitches:
-  s = ""
-  for cls in classifiers:
-    if g[cls[0]+'_fap'] <= FAPthr:
-      s += "1"
-    else:
-      s += "0"
-  fbw += [BinToDec(s)]
+classify = [[['ann'], ['mvsc'], ['svm'], ['cveto'], ['combined']], [['ann'], ['mvsc'], ['svm'], ['cveto']], [['ann'], ['mvsc'], ['svm'], ['combined']], [['cveto'], ['combined']]]
 
-#glitches with signif <= sigthr
-g_rem = glitches[numpy.nonzero(glitches['signif'] <= sigthr)[0],:]
-fbwBelow = []
-for g in g_rem:
-  s = ''
-  for cls in classifiers:
-    if g[cls[0]+'_fap'] <= FAPthr:
-      s += '1'
-    else:
-      s += '0'
-  fbwBelow += [BinToDec(s)]
+for clas in classify:
+  #all glitches
+  fbw = []
+  for g in glitches:
+    s = ""
+    for cls in clas:
+      if g[cls[0]+'_fap'] <= FAPthr:
+        s += "1"
+      else:
+        s += "0"
+    fbw += [BinToDec(s)]
 
-#glitches with signif >= sigthr
-g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
-fbwAbove = []
-for g in g_rem:
-  s = ''
-  for cls in classifiers:
-    if g[cls[0]+'_fap'] <= FAPthr:
-      s += '1'
-    else:
-      s += '0'
-  fbwAbove += [BinToDec(s)]
+  #glitches with signif <= sigthr
+  g_rem = glitches[numpy.nonzero(glitches['signif'] <= sigthr)[0],:]
+  fbwBelow = []
+  for g in g_rem:
+    s = ''
+    for cls in clas:
+      if g[cls[0]+'_fap'] <= FAPthr:
+        s += '1'
+      else:
+        s += '0'
+    fbwBelow += [BinToDec(s)]
 
-fig_num += 1
-fig = matplotlib.pyplot.figure()
-pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(classifiers)-0.5, num = 2**len(classifiers) +1, endpoint=True), histtype='step', log = True, label = 'all glitches')
-pylab.hist(fbwBelow, bins = numpy.linspace(-0.5, 2**len(classifiers)-0.5, num = 2**len(classifiers) +1, endpoint = True), histtype = 'step', log = True, label = 'signif <=' + str(sigthr))
-pylab.hist(fbwAbove, bins = numpy.linspace(-0.5, 2**len(classifiers)-0.5, num = 2**len(classifiers) +1, endpoint = True), histtype = 'step', log = True, label = 'signif >=' + str(sigthr))
-pylab.ylabel('Number of Glitches')
-pylab.xlim(-0.5, 31.5)
-pylab.ylim(ymin=10**-0.1)
-pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy at FAP = '+str(FAPthr))
-pylab.legend(loc = 'upper center')
+  #glitches with signif >= sigthr
+  g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+  fbwAbove = []
+  for g in g_rem:
+    s = ''
+    for cls in clas:
+      if g[cls[0]+'_fap'] <= FAPthr:
+        s += '1'
+      else:
+        s += '0'
+    fbwAbove += [BinToDec(s)]
 
-#convert decimals back to binaries and label the ticks accordingly
-tick_locs = numpy.linspace(0,31,num=32)
-tick_labels = []
-for loc in tick_locs:
-  s = ''
-  l = range(len(classifiers) - 1)
-  for ind in l[::-1]:
-    s += str(int(loc)/2**(ind+1))
-    if int(loc)/2**(ind+1) > 0:
-      loc = int(loc)-2**(ind+1)
-  s += str(int(loc))
-  tick_labels += [s]
+  fig_num += 1
+  fig = matplotlib.pyplot.figure()
+  pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint=True), weights = numpy.ones(len(fbw))/len(fbw), histtype='step', log = True, label = 'all glitches')
+  pylab.hist(fbwBelow, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwBelow))/len(fbwBelow), histtype = 'step', log = True, label = 'signif <=' + str(sigthr))
+  pylab.hist(fbwAbove, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwAbove))/len(fbwAbove), histtype = 'step', log = True, label = 'signif >=' + str(sigthr))
+  pylab.ylabel('Fraction of Glitches')
+  pylab.xlim(-0.5, 2**len(clas)-0.5)
+  pylab.ylim(ymax = 1.0)
+  pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy at FAP = '+str(FAPthr))
+  pylab.legend(loc = 'upper center')
+  pylab.grid(True, which = 'major')
+  pylab.grid(True, which = 'minor')
 
-pylab.xticks(tick_locs, tick_labels)
+  #convert decimals back to binaries and label the ticks accordingly
+  tick_locs = numpy.linspace(0,2**len(clas)-1,num=2**len(clas))
+  tick_labels = []
+  for loc in tick_locs:
+    s = ''
+    l = range(len(clas) - 1)
+    for ind in l[::-1]:
+      s += str(int(loc)/2**(ind+1))
+      if int(loc)/2**(ind+1) > 0:
+        loc = int(loc)-2**(ind+1)
+    s += str(int(loc))
+    tick_labels += [s]
+ 
+  pylab.xticks(tick_locs, tick_labels)
 
-for label in fig.axes[0].xaxis.get_ticklabels():
-  label.set_rotation(90)
+  for label in fig.axes[0].xaxis.get_ticklabels():
+    label.set_rotation(90)
 
-leg = "5 bit word is ordered in the following way:  "
-for cls in classifiers:
-  leg += cls[0]+' '
-pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
+  leg = "5 bit word is ordered in the following way:  "
+  for cls in clas:
+    leg += cls[0]+' '
+  pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
 
-#adding to html page
-name = '_scatter_5bit-words'
-fname = InspiralUtils.set_figure_name(opts, name)
-fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-fnameList.append(fname)
-tagList.append(name)
-pylab.close()
+  #adding to html page
+  strclas = ''
+  for cls in clas:
+    strclas += cls[0] + '_'
+  name = '_scatter_5bit-words_'+strclas
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+  pylab.close()
 
 ## Create scattered plots of Significance vs  SNR for GW Triggers
 fig_num += 1
@@ -811,7 +819,7 @@ for cls in classifiers:
 
       # histogram over cls_fap
       grid[0].hist(glitches[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(glitches[cls[0]+'_fap']))/len(glitches[cls[0]+'_fap']), log=True)
-      grid[0].hist(g_rem[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls[0]+'_fap']))/len(glitches[cls[0]+'_fap']),color='red',log=True)
+      grid[0].hist(g_rem[cls[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls[0]+'_fap']))/len(g_rem[cls[0]+'_fap']),color='red',log=True)
 
       grid[0].set_xscale('log')
       grid[0].set_yscale('log')
@@ -820,7 +828,7 @@ for cls in classifiers:
 
       # histogram over cls2_fap
       grid[3].hist(glitches[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(glitches[cls2[0]+'_fap']))/len(glitches[cls2[0]+'_fap']), orientation='horizontal', log=True)
-      grid[3].hist(g_rem[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls2[0]+'_fap']))/len(glitches[cls2[0]+'_fap']), orientation='horizontal',color = 'red',log=True)
+      grid[3].hist(g_rem[cls2[0]+'_fap'],bins=numpy.logspace(-5,0,num=100,endpoint=True),histtype='step',weights = numpy.ones(len(g_rem[cls2[0]+'_fap']))/len(g_rem[cls2[0]+'_fap']), orientation='horizontal',color = 'red',log=True)
       grid[3].set_xscale('log')
       grid[3].set_yscale('log')
       grid[3].set_xlim(10**-4, 10**-0.5)
