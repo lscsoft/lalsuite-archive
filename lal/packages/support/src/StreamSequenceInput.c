@@ -101,7 +101,7 @@ LALCCreateVector()              LALZCreateVector()
 
 /* Define linked-list of buffers for storing an arbitrary number of
    arbitrary datatypes. */
-#define BUFFSIZE 1024
+#define BUFFSIZE 1048576
 typedef union tagBuffer {
   CHAR CH[BUFFSIZE];
   INT2 I2[BUFFSIZE/2];
