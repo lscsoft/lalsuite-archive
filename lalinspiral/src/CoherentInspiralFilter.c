@@ -1846,27 +1846,40 @@ XLALCoherentInspiralFilterSegment (
   case 2:
     /* Network: H1 and H2*/
     if(caseID[1] && caseID[2]) {
+      INT4 mmin = 0;
+      INT4 mmax = numPoints;
       case2a = 1;
       m = 0;
       for (k=0;k<(INT4)numPoints;k++) {
 	cohSNR = 0.0;
 
-	for (m=k-buffer; m<k+buffer; m++) {
+        if ( k-buffer < 0 ) {
+          mmin = 0; 
+        }
+        else mmin = k-buffer;
+
+        if ( k+buffer > numPoints ) {
+          mmax = numPoints; 
+        }
+        else mmax = k+buffer;
+
+	for (m=mmin; m<mmax; m++) {
 	  if(m >=0 && m < (INT4) numPoints) {
 	    REAL4          snrsq1 = 0.0;
 	    REAL4          snrsq2 = 0.0;
 	    REAL4          chisqFac1 = 1.0;
 	    REAL4          chisqFac2 = 1.0;
 
+            // CHECK: Ringdown//
 	    snrsq1 = pow(cData[0]->data->data[k].re,2) +
 	      pow(cData[0]->data->data[k].im,2);
-	    chisqFac1 = pow( (1 + snrsq1/eff_snr_denom_fac)*chisq[0]/
-			     (2*chisq_dof[0] -2), 0.25);
+	    chisqFac1 = 1.0; //pow( (1 + snrsq1/eff_snr_denom_fac)*chisq[0]/
+            //	     (2*chisq_dof[0] -2), 0.25);
 
 	    snrsq2 = pow(cData[1]->data->data[m].re,2) +
 	      pow(cData[1]->data->data[m].im,2);
-	    chisqFac2 = pow( (1 + snrsq2/eff_snr_denom_fac)*chisq[1]/
-			     (2*chisq_dof[1] -2), 0.25);
+	    chisqFac2 = 1.0; //pow( (1 + snrsq2/eff_snr_denom_fac)*chisq[1]/
+	    //	     (2*chisq_dof[1] -2), 0.25);
 
 	    cohSNRLocalRe = sqrt(sigmasq[1])*cData[0]->data->data[k].re/chisqFac1
 	      + sqrt(sigmasq[2])*cData[1]->data->data[m].re/chisqFac2;
