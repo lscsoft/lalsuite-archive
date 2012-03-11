@@ -21,8 +21,17 @@
 #include <lal/LIGOMetadataTables.h>
 #include <lal/RealFFT.h>
 #include <lal/RingUtils.h>
+#include <lal/LALFrameL.h>
 
 enum { write_frame, write_ascii };
+
+typedef struct
+tagFrameHNode
+{
+  FrameH *frHeader;
+  struct tagFrameHNode *next;
+}
+FrameHNode;
 
 struct ring_params {
   char        *programName;
@@ -65,6 +74,7 @@ struct ring_params {
   REAL4        bankTemplatePhase;
   REAL4        threshold;
   REAL4        maximizeEventDuration;
+  REAL4        CDataLength;
   const char  *segmentsToDoList;
   const char  *templatesToDoList;
   UINT4        numEvents;
@@ -90,6 +100,7 @@ struct ring_params {
   int          writeTemplateFFT;
   int          writeFilterOutput;
   int          outCompress;
+  int          writeCData;
 };
 
 
@@ -118,6 +129,7 @@ int ring_output_events_xml(
 int write_REAL4TimeSeries( REAL4TimeSeries *series );
 int write_REAL4FrequencySeries( REAL4FrequencySeries *series );
 int write_COMPLEX8FrequencySeries( COMPLEX8FrequencySeries *series );
+int write_COMPLEX8TimeSeries( COMPLEX8TimeSeries *series );
 int write_bank( RingTemplateBank *bank );
 
 /* routines in ring_filter */
@@ -127,5 +139,15 @@ SnglRingdownTable * ring_filter(
     REAL4FrequencySeries     *invSpectrum,
     REAL4FFTPlan             *fwdPlan,
     REAL4FFTPlan             *revPlan,
+    struct ring_params       *params
+    );
+
+SnglRingdownTable * ring_filter_cdata(
+    RingDataSegments         *segments,
+    SnglRingdownTable        *bankHead,
+    REAL4FrequencySeries     *invSpectrum,
+    REAL4FFTPlan             *fwdPlan,
+    REAL4FFTPlan             *revPlan,
+    FrameHNode              **coherentFrames,
     struct ring_params       *params
     );
