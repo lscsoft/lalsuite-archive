@@ -988,6 +988,15 @@ XLALMultiSimInspiralTest (
     );
 
 int
+XLALMultiSimRingdownTest (
+    SimRingdownTable   **simHead,
+    MultiInspiralTable **eventHead,
+    SimRingdownTable   **missedSimHead,
+    MultiInspiralTable **missedMultiHead,
+    INT8                injectWindowNS
+    );
+
+int
 XLALMultiInspiralIfos (
     MultiInspiralTable  *multiInspiral,
     char                *ifos
