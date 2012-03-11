@@ -302,6 +302,31 @@ XLALSortSnglRingdown (
 }
 
 
+/* <lalVerbatim file="SnglRingdownUtilsCP"> */
+int
+LALCompareSnglRingdownByID (
+    const void *a,
+    const void *b
+    )
+/* </lalVerbatim> */
+{
+  const SnglRingdownTable *aPtr = *((const SnglRingdownTable * const *)a);
+  const SnglRingdownTable *bPtr = *((const SnglRingdownTable * const *)b);
+
+  if ( aPtr->event_id->id > bPtr->event_id->id )
+  {
+    return 1;
+  }
+  else if ( aPtr->event_id->id < bPtr->event_id->id )
+  {
+    return -1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
 
 /* <lalVerbatim file="SnglRingdownUtilsCP"> */
 int
