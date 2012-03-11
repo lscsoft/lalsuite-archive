@@ -201,6 +201,8 @@ REAL8 XLALRingdownTimeError( const SnglRingdownTable *table,  REAL8 lal_ring_ds_
 
 int XLALComputeRingTemplate(
     REAL4TimeSeries *output, SnglRingdownTable *input );
+int XLALComputeRingTemplateSine(
+    REAL4TimeSeries *output, SnglRingdownTable *input );
 int XLALComputeBlackHoleRing(
     REAL4TimeSeries *output, SnglRingdownTable *input, REAL4 dynRange );
 RingTemplateBank *XLALCreateRingTemplateBank( RingTemplateBankInput *input );
