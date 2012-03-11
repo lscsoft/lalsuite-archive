@@ -104,6 +104,7 @@ static void print_usage(char *program)
       "                                (m1_and_m2|psi0_and_psi3|no_test)\n"\
       "  --data-type DATA_TYPE         specify the data type, must be one of\n"\
       "                                (playground_only|exclude_play|all_data)\n"\
+      "  --coherent-run   coherentRun  run in coherent stage\n"\
       "\n"\
       "[LIGOLW XML input files] list of the input trigger files.\n"\
       "\n", program);
@@ -121,6 +122,12 @@ int main( int argc, char *argv[] )
   LIGOTimeGPS startTimeGPS = {0,0};
   INT4  endTime = -1;
   LIGOTimeGPS endTimeGPS = {0,0};
+  INT4  startChunkTime = -1;
+  LIGOTimeGPS startChunkTimeGPS = {0,0};
+  INT4  endChunkTime = -1;
+  LIGOTimeGPS endChunkTimeGPS = {0,0};
+  INT4 buffer = 64;
+  int   coherentRun = 0;
   CHAR  inputIFO[LIGOMETA_IFO_MAX];
   CHAR  outputIFO[LIGOMETA_IFO_MAX];
   CHAR  comment[LIGOMETA_COMMENT_MAX];
@@ -164,6 +171,7 @@ int main( int argc, char *argv[] )
     {"gps-start-time",         required_argument,     0,                 'q'},
     {"gps-end-time",           required_argument,     0,                 'r'},
     {"comment",                required_argument,     0,                 's'},
+    {"coherent-run",           no_argument,           &coherentRun,       1 },
     {"user-tag",               required_argument,     0,                 'Z'},
     {"userTag",                required_argument,     0,                 'Z'},
     {"ifo-tag",                required_argument,     0,                 'I'},
@@ -550,8 +558,18 @@ int main( int argc, char *argv[] )
   /* keep only triggers within the requested interval */
   if ( vrbflg ) fprintf( stdout, 
       "Discarding triggers outside requested interval\n" );
-  LAL_CALL( LALTimeCutSingleInspiral( &status, &inspiralEventList,
-        &startTimeGPS, &endTimeGPS), &status );
+  if ( coherentRun ) {
+    startChunkTime = startTimeGPS.gpsSeconds + buffer;
+    startChunkTimeGPS.gpsSeconds = startChunkTime;
+    endChunkTime = endTimeGPS.gpsSeconds - buffer;
+    endChunkTimeGPS.gpsSeconds = endChunkTime;
+    LAL_CALL( LALTimeCutSingleInspiral( &status, &inspiralEventList,
+         &startChunkTimeGPS, &endChunkTimeGPS), &status );
+  }
+  else {
+    LAL_CALL( LALTimeCutSingleInspiral( &status, &inspiralEventList,
+          &startTimeGPS, &endTimeGPS), &status );
+  }
 
   /* keep play/non-play/all triggers */
   if ( dataType == playground_only && vrbflg ) fprintf( stdout, 
