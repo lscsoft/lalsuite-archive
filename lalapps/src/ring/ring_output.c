@@ -264,6 +264,18 @@ int write_REAL4TimeSeries( REAL4TimeSeries *series )
   return 0;
 }
 
+/* routine to write a time series */
+int write_COMPLEX8TimeSeries( COMPLEX8TimeSeries *series )
+{
+  char fname[FILENAME_SIZE];
+  int t, dt;
+  t  = series->epoch.gpsSeconds;
+  dt = ceil(1e-9*series->epoch.gpsNanoSeconds + series->data->length*series->deltaT);
+  generate_file_name( fname, sizeof( fname ), series->name, t, dt );
+  verbose( "writing series %s to file %s\n", series->name, fname );
+  LALCPrintTimeSeries( series, fname );
+  return 0;
+}
 
 /* routine to write a real frequency series */
 int write_REAL4FrequencySeries( REAL4FrequencySeries *series )
