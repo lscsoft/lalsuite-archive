@@ -25,6 +25,7 @@
 #include <lal/LALStdlib.h>
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
+#include <lal/LIGOLwXMLRingdownRead.h>
 #include <lal/AVFactories.h>
 #include <lal/Date.h>
 #include <lal/RealFFT.h>
@@ -95,11 +96,21 @@ int main( int argc, char **argv )
   REAL4FrequencySeries    *invspec   = NULL;
   RingTemplateBank        *bank      = NULL;
   RingDataSegments        *segments  = NULL;
+  SnglRingdownTable       *trigbank  = NULL;
   SnglRingdownTable       *events    = NULL;
   SnglRingdownTable *tmpEventHead = NULL;
   SnglRingdownTable *checkEvents = NULL;
   SnglRingdownTable *lastEvent = NULL;
   UINT4 numEvents = 0;
+  char outputFrameFile[256];
+
+  /* frame output data */
+  struct FrFile *frOutFile  = NULL;
+  struct FrameH *outFrame   = NULL;
+  CHAR  fname[FILENAME_MAX];
+  FrameHNode *coherentFrames = NULL;
+  FrameHNode *thisCoherentFrame = NULL;
+  int  errnum;
 
   /* set error handlers to abort on error */
   set_abrt_on_error();
@@ -125,15 +136,31 @@ int main( int argc, char **argv )
   invspec = ring_get_invspec( channel, response, fwdplan, revplan, params );
 
   /* create the template bank */
-  bank = ring_get_bank( params );
-  if ( params->bankFile[0] ) /* write out the bank */
-    ring_output_events_xml( params->bankFile, bank->tmplt, procpar, params );
+  if ( params->writeCData ) {
+    /* read the events from the trigger file */
+    XLAL_TRY( trigbank = XLALSnglRingdownTableFromLIGOLw( params->bankFile ), errnum);
+    if ( ! trigbank )
+    //     if( writeCData )
+    {
+      goto cleanexit;
+    }
+    /* create the segments to do */
+    segments = ring_get_segments( channel, response, invspec, fwdplan, params );
 
-  /* create the segments to do */
-  segments = ring_get_segments( channel, response, invspec, fwdplan, params );
+    /* filter the data against the bank of trigger parameters */
+    events = ring_filter_cdata( segments, trigbank, invspec, fwdplan, revplan, &coherentFrames, params );
+  }
+  else {
+    bank = ring_get_bank( params );
+    if ( params->bankFile[0] ) /* write out the bank */
+      ring_output_events_xml( params->bankFile, bank->tmplt, procpar, params );
 
-  /* filter the data against the bank of templates */
-  events = ring_filter( segments, bank, invspec, fwdplan, revplan, params );
+    /* create the segments to do */
+    segments = ring_get_segments( channel, response, invspec, fwdplan, params );
+
+    /* filter the data against the bank of templates */
+    events = ring_filter( segments, bank, invspec, fwdplan, revplan, params );
+  }
 
   /* time sort the triggers */
   if ( vrbflg ) fprintf( stdout, "Sorting triggers\n" );
@@ -181,6 +208,49 @@ int main( int argc, char **argv )
 
   if ( vrbflg ) fprintf( stdout, "%u triggers remaining\n", numEvents );
   events = tmpEventHead;
+
+  cleanexit:
+
+  /* write the output frame */
+  if ( params->writeCData ) {
+    if ( strlen( params->ifoTag ) && !strlen( params->userTag) ) {
+      snprintf( outputFrameFile, sizeof( outputFrameFile ),
+        "%s-INSPIRAL_%s-%d-%d.gwf", params->ifoName,
+        params->ifoTag, params->startTime.gpsSeconds,
+        (int)ceil( params->duration ) );
+    }
+    else if ( strlen( params->userTag ) && !strlen( params->ifoTag ) ) {
+      snprintf( outputFrameFile, sizeof( outputFrameFile ),
+        "%s-INSPIRAL_%s-%d-%d.gwf", params->ifoName,
+        params->userTag, params->startTime.gpsSeconds,
+        (int)ceil( params->duration ) );
+    }
+    else {
+      if ( strlen( params->userTag ) && strlen( params->ifoTag ) ) {
+        snprintf( outputFrameFile, sizeof( outputFrameFile ),
+          "%s-INSPIRAL_%s_%s-%d-%d.gwf", params->ifoName,
+          params->ifoTag, params->userTag, params->startTime.gpsSeconds,
+          (int)ceil( params->duration ) );
+      }
+    }
+
+    snprintf( fname, FILENAME_MAX, "%s", outputFrameFile );
+
+    verbose( "writing frame data to %s... ", fname );
+    frOutFile = FrFileONew( fname, 0 );
+    FrameWrite( outFrame, frOutFile );
+  }
+
+  while( coherentFrames )
+  {
+    thisCoherentFrame = coherentFrames;
+    FrameWrite( coherentFrames->frHeader, frOutFile );
+    coherentFrames = coherentFrames->next;
+    LALFree( thisCoherentFrame );
+    thisCoherentFrame = NULL;
+  }
+  FrFileOEnd( frOutFile );
+  verbose( "done\n" );
 
   /* output the results */
   ring_output_events_xml( params->outputFile, events, procpar, params );
