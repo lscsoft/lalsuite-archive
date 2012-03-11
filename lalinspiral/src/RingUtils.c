@@ -444,6 +444,56 @@ int XLALComputeRingTemplate( REAL4TimeSeries *output, SnglRingdownTable *input )
 
 
 /* <lalVerbatim file="RingUtilsCP"> */
+int XLALComputeRingTemplateSine( REAL4TimeSeries *output, SnglRingdownTable *input )
+/* </lalVerbatim> */
+{
+  static const char *func = "XLALComputeRingTemplateSine";
+  const REAL8 efolds = 10;
+  REAL8 amp = 1.0;
+  REAL8 fac;
+  REAL8 a;
+  REAL8 y;
+  REAL8 yy;
+  UINT4 i;
+  UINT4 n;
+
+  if ( ! output || ! output->data || ! input )
+    XLAL_ERROR( func, XLAL_EFAULT );
+
+  if ( ! output->data->length )
+    XLAL_ERROR( func, XLAL_EBADLEN );
+
+  if ( output->deltaT <= 0 || input->quality <= 0 || input->frequency <= 0 )
+    XLAL_ERROR( func, XLAL_EINVAL );
+
+  /* exponential decay variables */
+  fac = exp( - LAL_PI * input->frequency * output->deltaT / input->quality );
+  n = ceil( - efolds / log( fac ) );
+
+  /* oscillator variables */
+  a = 2 * cos( 2 * LAL_PI * input->frequency * output->deltaT );
+  y = sin( -2 * LAL_PI * input->frequency * output->deltaT + input->phase );
+  yy = sin( -4 * LAL_PI * input->frequency * output->deltaT + input->phase );
+
+  if ( n < output->data->length )
+    memset( output->data->data + n, 0,
+        ( output->data->length - n ) * sizeof( *output->data->data ) );
+  else
+    n = output->data->length;
+
+  for ( i = 0; i < n; ++i )
+  {
+    REAL4 tmp = a * y - yy;
+    yy = y;
+    output->data->data[i] = amp * ( y = tmp );
+    amp *= fac;
+  }
+
+  return 0;
+}
+
+
+/* <lalVerbatim file="RingUtilsCP"> */
 int XLALComputeBlackHoleRing(
     REAL4TimeSeries     *output,
     SnglRingdownTable   *input,
@@ -458,6 +508,9 @@ int XLALComputeBlackHoleRing(
   UINT4 i;
 
   if ( XLALComputeRingTemplate( output, input ) < 0 )
+    XLAL_ERROR( func, XLAL_EFUNC );
+
+  if ( XLALComputeRingTemplateSine( output, input ) < 0 )
     XLAL_ERROR( func, XLAL_EFUNC );
 
   for ( i = 0; i < output->data->length; ++i )
