@@ -9,6 +9,9 @@ RINGPROG = \
 	lalapps_rinca \
 	lalapps_coincringread \
 	lalapps_collatesim \
+        lalapps_trigbank_ringdown \
+        lalapps_coherent_ringdown \
+        lalapps_cohire_ringdown \
         lalapps_coh_PTF_inspiral \
         lalapps_coh_PTF_testing \
         lalapps_coh_PTF_spin_checker
@@ -81,6 +84,9 @@ lalapps_ringread_SOURCES = ringread.c
 lalapps_rinca_SOURCES = rinca.c
 lalapps_coincringread_SOURCES = coincringread.c
 lalapps_collatesim_SOURCES = collatesim.c
+lalapps_trigbank_ringdown_SOURCES = trigbank_ringdown.c
+lalapps_coherent_ringdown_SOURCES = coherent_ringdown.c
+lalapps_cohire_ringdown_SOURCES = cohire_ringdown.c
 endif
 endif
 endif
