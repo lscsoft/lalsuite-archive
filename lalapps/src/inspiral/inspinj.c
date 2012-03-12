@@ -524,8 +524,9 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 {
   /* Vars for calculating SNRs */
   REAL8 this_snr;
-  REAL8 UNUSED low_snr, UNUSED high_snr;
+  REAL8 low_snr, high_snr;
   REAL8 low_dist,high_dist;
+  REAL8 slope, intercept;
 
   this_snr = network_snr_with_psds_real8(num_ifos, ifo_list, psds, start_freqs, inj);
 
@@ -556,7 +557,9 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 
   while ( abs(target_snr - this_snr) > 1.0 )
   {
-    inj->distance = (high_dist + low_dist) / 2.0;
+    slope         = (high_snr - low_snr) / (high_dist - low_dist);
+    intercept     = this_snr - slope * inj->distance;
+    inj->distance = (target_snr - intercept) / slope;
     this_snr      = network_snr_with_psds_real8(num_ifos, ifo_list, psds, start_freqs, inj);
 
     if (this_snr > target_snr)
