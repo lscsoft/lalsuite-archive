@@ -756,12 +756,10 @@ static int XLALDerivator(double t, const double values[], double dvalues[], void
 				for (UINT2 current = 0; current < 2; current++) {
 					dvalues[OMEGA] += params->coeff.omegaSO[current]
 							* params->coeff.lnhchih[current] * values[OMEGA];
-				}
-				for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
-					dvalues[CHI1X + dim] += params->coeff.chihSO[0] * lnhatCrossChih[0][dim]
-							* params->coeff.omegaPowi_3[5];
-					dvalues[CHI2X + dim] += params->coeff.chihSO[1] * lnhatCrossChih[1][dim]
-							* params->coeff.omegaPowi_3[5];
+					for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
+						dvalues[CHI1X + DIMENSIONS * current + dim] += params->coeff.chihSO[current]
+								* lnhatCrossChih[current][dim] * params->coeff.omegaPowi_3[5];
+					}
 				}
 			}
 			for (UINT2 dim = X; dim < DIMENSIONS; dim++) {
