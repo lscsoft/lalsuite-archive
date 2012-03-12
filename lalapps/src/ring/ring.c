@@ -166,19 +166,19 @@ int main( int argc, char **argv )
   if ( vrbflg ) fprintf( stdout, "Sorting triggers\n" );
   LAL_CALL( LALSortSnglRingdown( &status, &(events),
         LALCompareSnglRingdownByTime ), &status );
-  
+
   /* discard any triggers outside the trig start/end time window */
-  
-  if ( vrbflg ) fprintf( stdout, 
+
+  if ( vrbflg ) fprintf( stdout,
       "  discarding triggers outside trig start/end time... \n" );
 
   checkEvents = events;
- 
+
   while ( checkEvents )
   {
     INT8 trigTimeNS;
     trigTimeNS = XLALGPSToINT8NS( &(checkEvents->start_time) );
-    if ( trigTimeNS &&  ((params->trigStartTimeNS && 
+    if ( trigTimeNS &&  ((params->trigStartTimeNS &&
             (trigTimeNS < params->trigStartTimeNS)) ||
           (params->trigEndTimeNS && (trigTimeNS >= params->trigEndTimeNS))) )
     {
@@ -352,25 +352,25 @@ static REAL4TimeSeries *ring_get_data( struct ring_params *params )
     }
     if ( params->writeRawData ) /* write raw data */
       write_REAL4TimeSeries( channel );
-    
+
     /* inject ring signals */
-    if ( params->injectFile ) 
+    if ( params->injectFile )
     {
       ring_inject_signal( channel, params->injectType, params->injectFile,
-          params->calibCache, 1.0, params->channel ); 
+          params->calibCache, 1.0, params->channel );
       if ( params->writeRawData )
         write_REAL4TimeSeries( channel );
-    }  
+    }
 
     if ( params->dataType == LALRINGDOWN_DATATYPE_HT_REAL4 ||
          params->dataType == LALRINGDOWN_DATATYPE_HT_REAL8)
-    {  
+    {
       for (j=0; j<channel->data->length; j++)
       {
         channel->data->data[j] *= params->dynRangeFac;
       }
     }
-    
+
     /* condition the data: resample and highpass */
     resample_REAL4TimeSeries( channel, params->sampleRate );
     if ( params->writeProcessedData ) /* write processed data */
@@ -384,10 +384,10 @@ static REAL4TimeSeries *ring_get_data( struct ring_params *params )
     {
       trimpad_REAL4TimeSeries( channel, params->padData );
       if ( params->writeProcessedData ) /* write data with padding removed */
-        write_REAL4TimeSeries( channel );  
+        write_REAL4TimeSeries( channel );
     }
   }
-  
+
   return channel;
 }
 
@@ -401,7 +401,7 @@ static COMPLEX8FrequencySeries *ring_get_response( struct ring_params *params )
   {
   response = get_response( params->calibCache, params->ifoName,
         &params->startTime, params->segmentDuration, params->sampleRate,
-        params->dynRangeFac, params->dataType, params->channel ) ; 
+        params->dynRangeFac, params->dataType, params->channel );
     if ( params->writeResponse ) /* write response */
       write_COMPLEX8FrequencySeries( response );
   }
@@ -465,7 +465,7 @@ static RingTemplateBank *ring_get_bank( struct ring_params *params )
       for ( tmplt = 0; tmplt < bank->numTmplt; ++tmplt )
         if ( is_in_list( tmplt, params->templatesToDoList ) )
           bank->tmplt[count++] = bank->tmplt[tmplt];
-      
+
       /* reallocate memory to the (possibly) smaller size */
       if ( count )
       {
@@ -520,7 +520,7 @@ static RingDataSegments *ring_get_segments(
   else  /* only do the segments in the todo list */
   {
     UINT4 count;
-    
+
     /* first count the number of segments to do */
     count = 0;
     for ( sgmnt = 0; sgmnt < params->numOverlapSegments; ++sgmnt )
@@ -534,7 +534,7 @@ static RingDataSegments *ring_get_segments(
 
     segments->numSgmnt = count;
     segments->sgmnt = LALCalloc( segments->numSgmnt, sizeof(*segments->sgmnt) );
-  
+
     count = 0;
     for ( sgmnt = 0; sgmnt < params->numOverlapSegments; ++sgmnt )
       if ( is_in_list( sgmnt, params->segmentsToDoList ) )
@@ -544,7 +544,7 @@ static RingDataSegments *ring_get_segments(
 
     if ( params->writeSegment) /* write data segment */
             write_REAL4TimeSeries( channel );
-    
+
   }
 
   return segments;
@@ -635,21 +635,21 @@ static int is_in_list( int i, const char *list )
 
     /* now see if this token is a range */
     if ( ( tok2 = strchr( tok, '-' ) ) )
-      *tok2++ = 0; /* nul terminate first part of token; tok2 is second part */ 	 
-    if ( tok2 ) /* range */ 	 
-    { 	 
-      int n1, n2; 	 
-      if ( strcmp( tok, "^" ) == 0 ) 	 
-        n1 = INT_MIN; 	 
-      else 	 
-        n1 = atoi( tok ); 	 
-      if ( strcmp( tok2, "$" ) == 0 ) 	 
-        n2 = INT_MAX; 	 
-      else 	 
-        n2 = atoi( tok2 ); 	 
-      if ( i >= n1 && i <= n2 ) /* see if i is in the range */ 	 
-        ans = 1; 	 
-    } 	 
+      *tok2++ = 0; /* nul terminate first part of token; tok2 is second part */
+    if ( tok2 ) /* range */
+    {
+      int n1, n2;
+      if ( strcmp( tok, "^" ) == 0 )
+        n1 = INT_MIN;
+      else
+        n1 = atoi( tok );
+      if ( strcmp( tok2, "$" ) == 0 )
+        n2 = INT_MAX;
+      else
+        n2 = atoi( tok2 );
+      if ( i >= n1 && i <= n2 ) /* see if i is in the range */
+        ans = 1;
+    }
     else if ( i == atoi( tok ) )
       ans = 1;
 
