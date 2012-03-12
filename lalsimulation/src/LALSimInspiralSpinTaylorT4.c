@@ -303,10 +303,10 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     {
         params.wdotQM2s1 	= 2.5 / eta * m2m1 * w1;
         params.wdotQM2s2 	= 2.5 / eta * m1m2 * w2;
-        params.LNhatQM2s1	= 1.5 * m2m1 * w1;
-        params.LNhatQM2s1	= 1.5 * m1m2 * w2;
-        params.EQM2s1 		= 0.5 / eta * m2m1 * w1;
-        params.EQM2s2 		= 0.5 / eta * m1m2 * w2;
+        params.LNhatQM2s1	= -1.5 * m2m1 * w1;
+        params.LNhatQM2s2	= -1.5 * m1m2 * w2;
+        params.EQM2s1 		= -0.5 / eta * m2m1 * w1;
+        params.EQM2s2 		= -0.5 / eta * m1m2 * w2;
     }
     if( (interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN) == LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN ) /* ADD ME!! */
     {
@@ -675,13 +675,13 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
     /* \Omega_L vector */
     OmegaLx = omega2 * (params->LNhatSO15s1 * S1x + params->LNhatSO15s2 * S2x)
             + v7 * params->LNhatSS2 * (LNdotS2 * S1x + LNdotS1 * S2x)
-            + (params->LNhatQM2s1 * LNdotS1 * S1x + params->LNhatQM2s2 * LNdotS2 * S2x) / params->eta;
+            + v7 * (params->LNhatQM2s1 * LNdotS1 * S1x + params->LNhatQM2s2 * LNdotS2 * S2x) / params->eta;
     OmegaLy = omega2 * (params->LNhatSO15s1 * S1y + params->LNhatSO15s2 * S2y)
             + v7 * params->LNhatSS2 * (LNdotS2 * S1y + LNdotS1 * S2y)
-            + (params->LNhatQM2s1 * LNdotS1 * S1y + params->LNhatQM2s2 * LNdotS2 * S2y) / params->eta;
+            + v7 * (params->LNhatQM2s1 * LNdotS1 * S1y + params->LNhatQM2s2 * LNdotS2 * S2y) / params->eta;
     OmegaLz = omega2 * (params->LNhatSO15s1 * S1z + params->LNhatSO15s2 * S2z)
             + v7 * params->LNhatSS2 * (LNdotS2 * S1z + LNdotS1 * S2z)
-            + (params->LNhatQM2s1 * LNdotS1 * S1z + params->LNhatQM2s2 * LNdotS2 * S2z) / params->eta;
+            + v7 * (params->LNhatQM2s1 * LNdotS1 * S1z + params->LNhatQM2s2 * LNdotS2 * S2z) / params->eta;
 
     /* Take cross product of \Omega_L with \hat{L_N} */
     dLNhx = (-OmegaLz*LNhy + OmegaLy*LNhz);
