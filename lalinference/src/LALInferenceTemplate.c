@@ -20,6 +20,7 @@
  *  MA  02111-1307  USA
  */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdio.h>
 #include <stdlib.h>
 #include <lal/LALInspiral.h>
@@ -762,8 +763,6 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   /* actual inspiral parameters: */
   params.mass1       = m1;
   params.mass2       = m2;
-  params.spin1[2]    = spin1;
-  params.spin2[2]    = spin2;
   params.startPhase  = phi;
   if ((params.approximant == EOB) 
       || (params.approximant == EOBNR)

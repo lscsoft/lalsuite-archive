@@ -29,11 +29,16 @@ LALInferenceProposalTest_SOURCES = \
 check_PROGRAMS = \
 	LALInferenceTest \
 	LALInferencePriorTest \
-	LALInferenceProposalTest \
+	LALInferenceLikelihoodTest \
 	$(XMLPRG)
+
+#	LALInferenceKDTest
+
+noinst_PROGRAMS = \
+	LALInferenceProposalTest
+
 TESTS = \
-	$(check_PROGRAMS) \
-	$(XML_PROGRAMS)
+	$(check_PROGRAMS)
 
 endif
 endif

@@ -40,6 +40,7 @@ from time import strftime
 
 #related third party imports
 from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze
+from scipy import stats
 
 import matplotlib
 matplotlib.use("Agg")
@@ -91,7 +92,13 @@ def cbcBayesPostProc(
                         #Turn on 2D kdes
                         twodkdeplots=False,
                         #Turn on R convergence tests
-                        RconvergenceTests=False
+                        RconvergenceTests=False,
+                        # Save PDF figures?
+                        savepdfs=True,
+                        #List of covariance matrix csv files used as analytic likelihood
+                        covarianceMatrices=None,
+                        #List of meanVector csv files used, one csv file for each covariance matrix
+                        meanVectors=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -183,11 +190,16 @@ def cbcBayesPostProc(
                     continue
                 snrstring=snrstring +" "+str(snr[0:-1])+" ,"
             snrstring=snrstring[0:-1]
-        
+
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,votfile=votfile)
   
+    #Create analytic likelihood functions if covariance matrices and mean vectors were given
+    analyticLikelihood = None
+    if covarianceMatrices and meanVectors:
+        analyticLikelihood = bppu.AnalyticLikelihood(covarianceMatrices, meanVectors)
+
     if eventnum is None and injfile is not None:
         import itertools
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
@@ -555,12 +567,20 @@ def cbcBayesPostProc(
 
         #Generate 1D histogram/kde plots
         print "Generating 1D plot for %s."%par_name
+
+        #Get analytic description if given
+        pdf=cdf=None
+        if analyticLikelihood:
+            pdf = analyticLikelihood.pdf(par_name)
+            cdf = analyticLikelihood.cdf(par_name)
+
         oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
+        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf)
 
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)
         plotFig.savefig(oneDplotPath)
+        if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
 
         if rbins:
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
@@ -600,6 +620,7 @@ def cbcBayesPostProc(
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+        if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
 
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
@@ -625,6 +646,7 @@ def cbcBayesPostProc(
                         pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+            if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
 
         if not noacf:
             html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
@@ -751,10 +773,12 @@ def cbcBayesPostProc(
         greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
+        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png',',pdf'))
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
         greedy2HistFig.savefig(greedy2histpath)
+        if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -808,6 +832,7 @@ def cbcBayesPostProc(
                     row_count=0
 
                 myfig.savefig(twoDKdePath)
+                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
@@ -935,6 +960,9 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
+    parser.add_option("--savepdfs",action="store_true",default=False,dest="savepdfs")
+    parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
+    parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
@@ -1026,6 +1054,12 @@ if __name__=='__main__':
                         #Turn on 2D kdes
                         twodkdeplots=opts.twodkdeplots,
                         #Turn on R convergence tests
-                        RconvergenceTests=opts.RconvergenceTests
+                        RconvergenceTests=opts.RconvergenceTests,
+                        # Also save PDFs?
+                        savepdfs=opts.savepdfs,
+                        #List of covariance matrix csv files used as analytic likelihood
+                        covarianceMatrices=opts.covarianceMatrices,
+                        #List of meanVector csv files used, one csv file for each covariance matrix
+                        meanVectors=opts.meanVectors
                     )
 #
