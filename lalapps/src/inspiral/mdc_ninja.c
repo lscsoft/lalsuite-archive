@@ -849,6 +849,14 @@ INT4 main( INT4 argc, CHAR *argv[] )
     free(fnameOutXML);
   }
 
+  if (ligoPsd) {
+    XLALDestroyREAL8FrequencySeries( ligoPsd );
+  }
+
+  if (virgoPsd) {
+    XLALDestroyREAL8FrequencySeries( virgoPsd );
+  }
+
   LALCheckMemoryLeaks();
 
   exit( 0 );
