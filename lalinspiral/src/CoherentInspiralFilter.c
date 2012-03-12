@@ -1751,7 +1751,7 @@ XLALCoherentInspiralFilterSegment (
   chirpMass = pow(input->tmplt->eta,3.0/5.0)*input->tmplt->totalMass;
 
   /* Prefactor (in Mpc) for distance estimation */
-  amplitudeConst = 4 * pow(LAL_PI * params->fLow,2/3) * pow(LAL_MTSUN_SI*chirpMass,5/12) 
+  amplitudeConst = 4 * pow(LAL_PI * params->fLow,2/3) * pow(LAL_MTSUN_SI*chirpMass,5/12)
     * pow(params->fLow,2/3) * pow(chirpTime/5,0.25);
 
   /* if the full coherent snr / null vector is required, set it to zero */
@@ -1854,12 +1854,12 @@ XLALCoherentInspiralFilterSegment (
 	cohSNR = 0.0;
 
         if ( k-buffer < 0 ) {
-          mmin = 0; 
+          mmin = 0;
         }
         else mmin = k-buffer;
 
         if ( k+buffer > numPoints ) {
-          mmax = numPoints; 
+          mmax = numPoints;
         }
         else mmax = k+buffer;
 
@@ -2293,8 +2293,8 @@ XLALCoherentInspiralFilterSegment (
 		      {
 			if(q >= 0 && q < (INT4) numPoints)
 			  {
-			    /*FIXME: This will NOT work if G1 is present! 
-                              because it assumes that the "0" det is H1 and 
+			    /*FIXME: This will NOT work if G1 is present!
+                              because it assumes that the "0" det is H1 and
                               "1" det is H2! Rectify in next rev. */
 			    REAL4          snrsq1 = 0.0;
 			    REAL4          snrsq2 = 0.0;
@@ -2634,7 +2634,7 @@ XLALCoherentInspiralFilterSegment (
 	      CCn[detId] = ( fcross[detId]) * ( fcross[detId]);
 
 
-	      /* Compute the elements of the helicity-plane projection matrix */ 
+	      /* Compute the elements of the helicity-plane projection matrix */
 	      AAn[detId] *= sigmasq[j];
 	      BBn[detId] *= sigmasq[j];
 	      CCn[detId] *= sigmasq[j];
@@ -2668,14 +2668,12 @@ XLALCoherentInspiralFilterSegment (
 
 	  O22 = ( -AA + CC + discrimSqrt);
 	  O22 /= (BB * sqrt( 4 + pow( AA - CC - discrimSqrt, 2)/( BB*BB ) ) );
-	  
 	  O21 = 1 / sqrt( 1 + pow(-AA+CC+discrimSqrt, 2)/ ( 4*BB*BB ) );
 
 	  O12 = ( -AA + CC - discrimSqrt);
 	  O12 /= ( BB * sqrt( 4 + pow(-AA+CC-discrimSqrt, 2) / ( BB*BB ) ) );
 
 	  O11 = 1 / sqrt( 1 + pow(-AA+CC-discrimSqrt, 2)/ ( 4*BB*BB ) );
-	  
 	  detId = 0;
 	  for( j=0; j<LAL_NUM_IFO; j++ ) {
 	    if ( !(params->detIDVec->data[j] == 0 )) {
@@ -2683,14 +2681,11 @@ XLALCoherentInspiralFilterSegment (
 		+ O12 * ( fcross[detId]);
 	      VVMinus[detId] = O21 * ( fplus[detId])
 		+ O22 * ( fcross[detId]);
-	      
 	      VVPlus[detId] *= sqrt((REAL4) sigmasq[j]);
 	      VVMinus[detId] *= sqrt((REAL4) sigmasq[j]);
-	      
 	      detId++;
 	    }
 	  }
-	  
 	  MM1 = 2*(AA*CC - BB*BB)/(AA+CC+discrimSqrt);
 	  MM2 = 2*(AA*CC - BB*BB)/(AA+CC-discrimSqrt);
 
@@ -3177,7 +3172,7 @@ XLALCoherentInspiralFilterSegment (
 	    BBn[detId] = ( fplus[detId]) * ( fcross[detId]);
 	    CCn[detId] = ( fcross[detId]) * ( fcross[detId]);
 
-            /* Compute the elements of the helicity-plane projection matrix */ 
+            /* Compute the elements of the helicity-plane projection matrix */
             AAn[detId] *= sigmasq[j];
             BBn[detId] *= sigmasq[j];
             CCn[detId] *= sigmasq[j];
