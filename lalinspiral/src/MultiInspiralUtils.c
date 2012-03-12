@@ -978,7 +978,7 @@ XLALMultiSimRingdownTest (
       {
         /* compute the time in nanosec for thisEvent */
         ringdownTime = XLALGPSToINT8NS( &(thisEvent->end_time) );
-      
+
         if( ringdownTime < (simGeocentTime - earthRadiusNS - injectWindowNS ) )
         {
           /* discard this event and move on to the next one */
