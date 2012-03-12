@@ -513,6 +513,12 @@ void InjectNumRelWaveformsUsingPSDREAL8(LALStatus *status,         /**< pointer 
            snprintf( chan->name, LALNameLength * sizeof( CHAR ),
                     "%s:STRAIN", ifo );
 
+          printf("Injection at %d.%d in ifo %s has SNR %f\n",
+                   thisInj->geocent_end_time.gpsSeconds,
+                   thisInj->geocent_end_time.gpsNanoSeconds,
+                   ifo,
+                   thisSNR);
+
           if ((thisSNR < snrHigh) && (thisSNR > snrLow))
             {
               /* simTableOut will be null only the first time */
