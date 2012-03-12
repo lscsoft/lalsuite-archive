@@ -382,6 +382,8 @@ int XLALSimInspiralChooseWaveform(
     REAL8 i,                    /**< inclination of source (rad) */
     REAL8 lambda1,              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    REAL8 qm1,
+    REAL8 qm2,
     LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
     int amplitudeO,             /**< twice post-Newtonian amplitude order */
     int phaseO,                 /**< twice post-Newtonian phase order */
@@ -411,6 +413,8 @@ int XLALSimInspiralChooseRestrictedWaveform(
     REAL8 i,                    /**< inclination of source (rad) */
     REAL8 lambda1,              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    REAL8 qm1,
+    REAL8 qm2,
     LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
     int O,                      /**< twice post-Newtonian order */
     Approximant approximant     /**< post-Newtonian approximant to use for waveform production */
