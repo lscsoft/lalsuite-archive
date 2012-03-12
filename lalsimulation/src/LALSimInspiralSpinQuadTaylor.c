@@ -640,29 +640,44 @@ static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], R
 	REAL8 e2[DIMENSIONS];
 	crossProduct(e2, e3, e1);
 	REAL8 sine[PNORDER][WAVEFORM], cosine[PNORDER][WAVEFORM];
+	REAL8 coefSine3Phi[WAVEFORM];
+	REAL8 coefCosine3Phi[WAVEFORM];
+	REAL8 deltamPerM;
+	cosine[PN0_0][HP] = 0.5 * (sq(e1[X]) - sq(e1[Y]) - sq(e2[X]) + sq(e2[Y]));
+	cosine[PN0_0][HC] = e1[X] * e1[Y] - e2[X] * e2[Y];
+	sine[PN0_0][HP] = e1[X] * e2[X] - e1[Y] * e2[Y];
+	sine[PN0_0][HC] = e1[Y] * e2[X] + e1[X] * e2[Y];
+	if (orderOfAmplitude > PN0_0) {
+		deltamPerM = sqrt(1.0 - 4.0 * params->eta);
+		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
+			coefSine3Phi[wave] = -9.0 * (sine[PN0_0][wave] * e2[Z] - cosine[PN0_0][wave] * e1[Z]);
+			coefCosine3Phi[wave] = -9.0 * (cosine[PN0_0][wave] * e2[Z] + sine[PN0_0][wave] * e1[Z]);
+		}
+		cosine[PN0_5][HP] = 3.0 * sine[PN0_0][HP] * e1[Z]
+				- (cosine[PN0_0][HP] - 2.0 * (sq(e1[Y]) - sq(e1[X]))) * e2[Z];
+		cosine[PN0_5][HC] = 3.0 * sine[PN0_0][HC] * e1[Z]
+				- (cosine[PN0_0][HC] + 4.0 * e1[X] * e1[Y]) * e2[Z];
+		sine[PN0_5][HP] = 3.0 * sine[PN0_0][HP] * e2[Z]
+				+ (5.0 * cosine[PN0_0][HP] + 2.0 * (sq(e1[Y]) - sq(e1[X]))) * e1[Z];
+		sine[PN0_5][HC] = 3.0 * sine[PN0_0][HC] * e2[Z]
+				+ (5.0 * cosine[PN0_0][HC] - 4.0 * e1[X] * e1[Y]) * e1[Z];
+	}
 	switch (orderOfAmplitude) {
 	case PNALL:
-	case PN0_0:
-		cosine[PN0_0][HP] = 0.5 * (sq(e1[X]) - sq(e1[Y]) - sq(e2[X]) + sq(e2[Y]));
-		cosine[PN0_0][HC] = e1[X] * e1[Y] - e2[X] * e2[Y];
-		sine[PN0_0][HP] = e1[X] * e2[X] - e1[Y] * e2[Y];
-		sine[PN0_0][HC] = e1[Y] * e2[X] + e1[X] * e2[Y];
-		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
-			h[wave] += vPowi_3[2] * 4.0
-					* (sine[PN0_0][wave] * siniPhi[2] + cosine[PN0_0][wave] * cosiPhi[2]);
-
-		}
+	case PN1_5:
+	case PN1_0:
 	case PN0_5: {
-		REAL8 deltamPerM = sqrt(1.0 - 4.0 * params->eta);
 		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
-			REAL8 coefSine3Phi = -9.0 * (sine[PN0_0][wave] * e2[Z] - cosine[PN0_0][wave] * e1[Z]);
-			REAL8 coefCosine3Phi = -9.0 * (cosine[PN0_0][wave] * e2[Z] + sine[PN0_0][wave] * e1[Z]);
-			h[wave] -= vPowi_3[3] * deltamPerM
+			h[wave] -= 0.5 * vPowi_3[3] * deltamPerM
 					* (cosine[PN0_5][wave] * cosiPhi[1] - sine[PN0_5][wave] * siniPhi[1]
-							+ coefSine3Phi * siniPhi[3] + coefCosine3Phi * cosiPhi[3]) / 2.0;
+							+ coefSine3Phi[wave] * siniPhi[3] + coefCosine3Phi[wave] * cosiPhi[3]);
 		}
 	}
-	case PN1_5:
+	case PN0_0:
+		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
+			h[wave] += 4.0 * vPowi_3[2]
+					* (sine[PN0_0][wave] * siniPhi[2] + cosine[PN0_0][wave] * cosiPhi[2]);
+		}
 		break;
 	default:
 		XLALPrintError("XLAL Error - %s: Amp. corrections not known "
