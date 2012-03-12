@@ -149,6 +149,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
 	REAL8 e1z,                    /**< initial value of E1z */
 	REAL8 lambda1,                /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    REAL8 qm1,
+    REAL8 qm2,
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 	INT4 phaseO                   /**< twice post-Newtonian order */
 	)
@@ -179,8 +181,6 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     Mchirp = M * pow(eta, 3./5.);
     params.wdotnewt = (96.0/5.0) * eta;
     params.eta = eta;
-    REAL8 w1 = 1.;	// TODO for blackholes, for neutron stars should be parameter  [Laszlo Vereb]
-    REAL8 w2 = 1.;	// TODO for blackholes, for neutron stars should be parameter  [Laszlo Vereb]
 	
     /** 
      * Set coefficients up to PN order phaseO. 
@@ -301,12 +301,12 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     }
     if( (interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) == LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN ) /* ADD ME!! */
     {
-        params.wdotQM2s1 	= 2.5 / eta * m2m1 * w1;
-        params.wdotQM2s2 	= 2.5 / eta * m1m2 * w2;
-        params.LNhatQM2s1	= -1.5 * m2m1 * w1;
-        params.LNhatQM2s2	= -1.5 * m1m2 * w2;
-        params.EQM2s1 		= -0.5 / eta * m2m1 * w1;
-        params.EQM2s2 		= -0.5 / eta * m1m2 * w2;
+        params.wdotQM2s1 	= 2.5 / eta * m2m1 * qm1;
+        params.wdotQM2s2 	= 2.5 / eta * m1m2 * qm2;
+        params.LNhatQM2s1	= -1.5 * m2m1 * qm1;
+        params.LNhatQM2s2	= -1.5 * m1m2 * qm2;
+        params.EQM2s1 		= -0.5 / eta * m2m1 * qm1;
+        params.EQM2s2 		= -0.5 / eta * m1m2 * qm2;
     }
     if( (interactionFlags & LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN) == LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN ) /* ADD ME!! */
     {
@@ -794,6 +794,8 @@ int XLALSimInspiralSpinTaylorT4(
 	REAL8 e1z,                      /**< initial value of E1z */
 	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	REAL8 qm1,
+	REAL8 qm2,
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 	int phaseO,                     /**< twice PN phase order */
 	int amplitudeO                  /**< twice PN amplitude order */
@@ -809,7 +811,7 @@ int XLALSimInspiralSpinTaylorT4(
     n = XLALSimInspiralPNEvolveOrbitSpinTaylorT4(&V, &Phi, &S1x, &S1y, &S1z, 
             &S2x, &S2y, &S2z, &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
             phi_end/2., deltaT, m1, m2, fStart, s1x, s1y, s1z, s2x, s2y,
-            s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, interactionFlags, phaseO);
+            s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, qm1, qm2, interactionFlags, phaseO);
     if( n < 0 )
         XLAL_ERROR(XLAL_EFUNC);
 
@@ -870,6 +872,8 @@ int XLALSimInspiralRestrictedSpinTaylorT4(
 	REAL8 e1z,                      /**< initial value of E1z */
 	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	REAL8 qm1,
+	REAL8 qm2,
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */					  
 	int phaseO                      /**< twice PN phase order */
 	)
@@ -884,7 +888,7 @@ int XLALSimInspiralRestrictedSpinTaylorT4(
     n = XLALSimInspiralPNEvolveOrbitSpinTaylorT4(&V, &Phi, &S1x, &S1y, &S1z, 
             &S2x, &S2y, &S2z, &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
             phi_end/2., deltaT, m1, m2, fStart, s1x, s1y, s1z, s2x, s2y,
-            s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, interactionFlags, phaseO);
+            s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, qm1, qm2, interactionFlags, phaseO);
     if( n < 0 )
         XLAL_ERROR(XLAL_EFUNC);
 

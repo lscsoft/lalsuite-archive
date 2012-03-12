@@ -893,6 +893,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
 	REAL8 e1z,                /**< initial value of E1z */
 	REAL8 lambda1,                /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+    REAL8 qm1,
+    REAL8 qm2,
 	LALSimInspiralInteraction interactionFlags,    /**< flag to control spin and tidal effects */
 	INT4 phaseO               /**< twice post-Newtonian order */
 	);
@@ -928,6 +930,8 @@ int XLALSimInspiralSpinTaylorT4(
 		REAL8 e1z,                /**< initial value of E1z */
 		REAL8 lambda1,            /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 		REAL8 lambda2,            /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+		REAL8 qm1,
+		REAL8 qm2,
 		LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 		int phaseO,               /**< twice PN phase order */
 		int amplitudeO            /**< twice PN amplitude order */
@@ -966,6 +970,8 @@ int XLALSimInspiralRestrictedSpinTaylorT4(
 		REAL8 e1z,                /**< initial value of E1z */
 		REAL8 lambda1,            /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 		REAL8 lambda2,            /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+		REAL8 qm1,
+		REAL8 qm2,
 	    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 		int phaseO                /**< twice PN phase order */
 		);
