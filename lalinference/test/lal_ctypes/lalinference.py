@@ -192,8 +192,6 @@ LALInferenceVariables_table=[
     [liblalinference,"LALInferencePrintVariables","printVariables",None,[POINTER(LALInferenceVariables)]]
 ]
 
-
-        
 make_class(LALInferenceVariables,LALInferenceVariables_table)
     
 class BarycenterInput(Structure): pass
