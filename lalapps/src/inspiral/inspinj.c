@@ -2672,6 +2672,9 @@ int main( int argc, char *argv[] )
       fprintf(stderr, "Unable to load PSD file %s.\n", ligoPsdFileName);
       exit( 1 );
     }
+
+    /* We're done with the filename */
+    free(ligoPsdFileName);
   }
 
   if (virgoPsdFileName || virgoStartFreq > 0) {
@@ -2687,6 +2690,9 @@ int main( int argc, char *argv[] )
       fprintf(stderr, "Unable to load PSD file %s.\n", virgoPsdFileName);
       exit( 1 );
     }
+
+    /* We're done with the filename */
+    free(virgoPsdFileName);
   }
 
 
@@ -3458,6 +3464,12 @@ int main( int argc, char *argv[] )
   if (skyPoints)
     LALFree(skyPoints);
 
+  if ( ligoPsd )
+      XLALDestroyREAL8FrequencySeries( ligoPsd );
+
+  if ( virgoPsd )
+      XLALDestroyREAL8FrequencySeries( virgoPsd );
+     
   LALCheckMemoryLeaks();
   return 0;
 }
