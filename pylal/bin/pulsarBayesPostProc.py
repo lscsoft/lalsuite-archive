@@ -150,6 +150,11 @@ def pulsarBayesPostProc( outdir, data,
       oneDplotPath = os.path.join(outdir, figname)
       plotFig[i].savefig(oneDplotPath)
       
+  # if the heterodyned data files have been included create time series plots
+  # of |B_k| and a spectrogram of the data
+  if Bkdata is not None:
+    Bkfigs, PSDfigs = pppu.plot_Bks_PSDs( Bkdata, ifos )
+  
     
 # main function
 if __name__=='__main__':

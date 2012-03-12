@@ -14,7 +14,7 @@ parser.add_option("","--zerolag", default="H1L1*zerolag*.dat")
 parser.add_option("","--tag", default="histogram", help="label with ifo combo, run tag")
 parser.add_option("","--title", default="preliminary", help="this will go on the top of all the plots")
 parser.add_option("","--histograms",action="store_true", default=False, help="use if you want to turn on histogram production")
-parser.add_option("","--comparison",help="name of variable (look at choices in top row of .dat files) to compare MVSC to in ROC. optional.") 
+parser.add_option("","--comparison",help="name of variable (look at choices in top row of .dat files) to compare MVSC to in ROC. optional.")
 (opts,args)=parser.parse_args()
 
 files = glob.glob(opts.files)
@@ -68,11 +68,11 @@ if opts.histograms:
 		n,bin,patches = pylab.hist(numpy.log10(zl_data[var]),bins=100,range=(min_x,max_x),normed=True,log=True,label="zerolag")
 		pylab.setp(patches,'facecolor','b','alpha',.5)
 		pylab.xlabel("log10 "+var,fontsize=18)
-		pylab.title(opts.title,fontsize=18) 
+		pylab.title(opts.title,fontsize=18)
 		pylab.ylabel("density",fontsize=18)
 		pylab.legend(loc ="upper right")
 		pylab.savefig("hist_"+var+"_"+tag+"_logx")
-	
+
 	# make histograms
 	for i,var in enumerate(variables):
 		pylab.figure(i+100)
@@ -91,7 +91,7 @@ if opts.histograms:
 		n,bin,patches = pylab.hist(zl_data[var],bins=100,range=(min_x,max_x),normed=True,log=True,label="zerolag")
 		pylab.setp(patches,'facecolor','b','alpha',.5)
 		pylab.xlabel(var,fontsize=18)
-		pylab.title(opts.title,fontsize=18) 
+		pylab.title(opts.title,fontsize=18)
 		pylab.ylabel("density",fontsize=18)
 		pylab.legend(loc ="upper right")
 		pylab.savefig("hist_"+var+"_"+tag)
@@ -156,6 +156,6 @@ if opts.comparison:
 		TAP.append(number_of_true_alarms / float(len(signal_ranks_sorted)))
 	pylab.semilogx(FAP,TAP, linewidth = 2.0,label=opts.comparison)
 pylab.legend(loc='lower right')
-pylab.title(opts.title,fontsize=18) 
+pylab.title(opts.title,fontsize=18)
 pylab.savefig('ROC_'+opts.tag+'.png')
 pylab.close()

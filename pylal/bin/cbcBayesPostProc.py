@@ -200,6 +200,14 @@ def cbcBayesPostProc(
     if covarianceMatrices and meanVectors:
         analyticLikelihood = bppu.AnalyticLikelihood(covarianceMatrices, meanVectors)
 
+        #Plot only analytic parameters
+        oneDMenu = analyticLikelihood.names
+        twoDGreedyMenu = []
+        for i in range(len(oneDMenu)):
+            for j in range(i+1,len(oneDMenu)):
+                twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+        twoDplots = twoDGreedyMenu
+
     if eventnum is None and injfile is not None:
         import itertools
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
@@ -335,6 +343,9 @@ def cbcBayesPostProc(
     requested_params = set(pos.names).intersection(set(oneDMenu))
     pos.delete_NaN_entries(requested_params)
 
+    #Remove non-analytic parameters if analytic likelihood is given:
+    if analyticLikelihood:
+        [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names]
 
     ##Print some summary stats for the user...##
     #Number of samples
