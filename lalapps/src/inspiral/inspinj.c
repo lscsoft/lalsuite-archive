@@ -136,6 +136,7 @@ char *IPNSkyPositionsFile = NULL;
 
 INT4 outCompress = 0;
 INT4 ninjaMass   = 0;
+INT4 real8Ninja2 = 0;
 
 INT4 logSNR      = 0;
 REAL4 minSNR     = -1;
@@ -703,6 +704,7 @@ static void print_usage(char *program)
       "                           m1m2SquareGrid: component masses on a square grid\n"\
       "                           fixMasses: fix m1 and m2 to specific values\n"\
       " [--ninja2-mass]           use the NINJA 2 mass-selection algorithm\n"\
+      " [--real8-ninja2]          when distributing by SNR for NINJA2, assume frames are REAL8\n"\
       " [--mass-file] mFile       read population mass parameters from mFile\n"\
       " [--nr-file] nrFile        read mass/spin parameters from xml nrFile\n"\
       " [--min-mass1] m1min       set the minimum component mass to m1min\n"\
@@ -1522,6 +1524,7 @@ int main( int argc, char *argv[] )
     {"mean-mass1",              required_argument, 0,                'n'},
     {"mean-mass2",              required_argument, 0,                'N'},
     {"ninja2-mass",             no_argument,       &ninjaMass,         1},
+    {"real8-ninja2",            no_argument,       &real8Ninja2,       1},
     {"mass1-points",            required_argument, 0,                ':'},
     {"mass2-points",            required_argument, 0,                ';'},    
     {"stdev-mass1",             required_argument, 0,                'o'},
@@ -3247,11 +3250,10 @@ int main( int argc, char *argv[] )
         if ( logSNR )
           targetSNR = exp(targetSNR);
 
-        if (0)
+        if (! real8Ninja2)
         {
             adjust_snr(simTable, targetSNR, ifos);
         } else {
-            /* TODO: for NINJA2, decide whether to call the above or this */
             REAL8 *start_freqs;
             const char  **ifo_list;
             REAL8FrequencySeries **psds;
