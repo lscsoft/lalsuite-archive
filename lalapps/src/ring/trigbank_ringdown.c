@@ -17,14 +17,14 @@
 *  MA  02111-1307  USA
 */
 
-/*----------------------------------------------------------------------- 
- * 
- * File Name: trigbank.c
+/*-----------------------------------------------------------------------
+ *
+ * File Name: trigbank_ringdown.c
  *
  * Author: Brady, P. R., Brown, D. A. and Fairhurst, S.
- * 
+ *
  * Revision: $Id$
- * 
+ *
  *-----------------------------------------------------------------------
  */
 
@@ -175,7 +175,7 @@ int main( int argc, char *argv[] )
     {"user-tag",               required_argument,     0,                 'Z'},
     {"userTag",                required_argument,     0,                 'Z'},
     {"ifo-tag",                required_argument,     0,                 'I'},
-    {"help",                   no_argument,           0,                 'h'}, 
+    {"help",                   no_argument,           0,                 'h'},
     {"debug-level",            required_argument,     0,                 'z'},
     {"version",                no_argument,           0,                 'V'},
     {0, 0, 0, 0}
@@ -183,7 +183,7 @@ int main( int argc, char *argv[] )
   int c;
 
   /*
-   * 
+   *
    * initialize things
    *
    */
@@ -197,7 +197,7 @@ int main( int argc, char *argv[] )
   XLALGPSTimeNow(&(proctable.processTable->start_time));
   XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
       LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
-  this_proc_param = processParamsTable.processParamsTable = 
+  this_proc_param = processParamsTable.processParamsTable =
     (ProcessParamsTable *) calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
 
@@ -214,8 +214,8 @@ int main( int argc, char *argv[] )
     long int gpstime;
     size_t optarg_len;
 
-    c = getopt_long_only( argc, argv, 
-        "a:b:hq:r:s:z:A:I:VZ:", long_options, 
+    c = getopt_long_only( argc, argv,
+        "a:b:hq:r:s:z:A:I:VZ:", long_options,
         &option_index );
 
     /* detect the end of the options */
@@ -317,7 +317,7 @@ int main( int argc, char *argv[] )
         if ( gpstime < 441417609 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
-              "GPS start time is prior to " 
+              "GPS start time is prior to "
               "Jan 01, 1994  00:00:00 UTC:\n"
               "(%ld specified)\n",
               long_options[option_index].name, gpstime );
@@ -326,9 +326,9 @@ int main( int argc, char *argv[] )
         if ( gpstime > 999999999 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
-              "GPS start time is after " 
+              "GPS start time is after "
               "Sep 14, 2011  01:46:26 UTC:\n"
-              "(%ld specified)\n", 
+              "(%ld specified)\n",
               long_options[option_index].name, gpstime );
           exit( 1 );
         }
@@ -343,7 +343,7 @@ int main( int argc, char *argv[] )
         if ( gpstime < 441417609 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
-              "GPS start time is prior to " 
+              "GPS start time is prior to "
               "Jan 01, 1994  00:00:00 UTC:\n"
               "(%ld specified)\n",
               long_options[option_index].name, gpstime );
@@ -352,9 +352,9 @@ int main( int argc, char *argv[] )
         if ( gpstime > 999999999 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
-              "GPS start time is after " 
+              "GPS start time is after "
               "Sep 14, 2011  01:46:26 UTC:\n"
-              "(%ld specified)\n", 
+              "(%ld specified)\n",
               long_options[option_index].name, gpstime );
           exit( 1 );
         }
@@ -396,7 +396,7 @@ int main( int argc, char *argv[] )
 
         this_proc_param = this_proc_param->next = (ProcessParamsTable *)
           calloc( 1, sizeof(ProcessParamsTable) );
-        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s", 
+        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
             PROGRAM_NAME );
         snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "-userTag" );
         snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
@@ -414,7 +414,7 @@ int main( int argc, char *argv[] )
 
       case 'V':
         /* print version information and exit */
-        fprintf( stdout, "Ringdown Triggered Bank Generator\n" 
+        fprintf( stdout, "Ringdown Triggered Bank Generator\n"
             "Patrick Brady, Duncan Brown and Steve Fairhurst\n");
         XLALOutputVersionString(stderr, 0);
         exit( 0 );
@@ -450,7 +450,7 @@ int main( int argc, char *argv[] )
     fprintf( stderr, "Error: --data-type must be specified\n");
     exit(1);
   }
-  
+
   if ( test == unspecified_test )
   {
       fprintf( stderr, "Error: --parameter-test must be specified\n");
@@ -461,10 +461,10 @@ int main( int argc, char *argv[] )
   if ( ! *comment )
   {
     snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
-    snprintf( searchsumm.searchSummaryTable->comment, LIGOMETA_COMMENT_MAX, 
+    snprintf( searchsumm.searchSummaryTable->comment, LIGOMETA_COMMENT_MAX,
         " " );
-  } 
-  else 
+  }
+  else
   {
     snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX,
         "%s", comment );
@@ -477,7 +477,7 @@ int main( int argc, char *argv[] )
   {
     this_proc_param = this_proc_param->next = (ProcessParamsTable *)
       calloc( 1, sizeof(ProcessParamsTable) );
-    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX,
         "%s", PROGRAM_NAME );
     snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "--check-times");
     snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
@@ -486,7 +486,7 @@ int main( int argc, char *argv[] )
 
   /* delete the first, empty process_params entry */
   this_proc_param = processParamsTable.processParamsTable;
-  processParamsTable.processParamsTable = 
+  processParamsTable.processParamsTable =
     processParamsTable.processParamsTable->next;
   free( this_proc_param );
 
@@ -511,7 +511,7 @@ int main( int argc, char *argv[] )
             argv[i]);
         exit( 1 );
       }
-      
+
       numTriggers += numFileTriggers;
     }
   }
@@ -527,10 +527,10 @@ int main( int argc, char *argv[] )
   /* check that we have read in data for all the requested time */
   if ( checkTimes )
   {
-    if ( vrbflg ) fprintf( stdout, 
+    if ( vrbflg ) fprintf( stdout,
         "Checking that we have data for all times from %s\n",
         inputIFO);
-    LAL_CALL( LALCheckOutTimeFromSearchSummary ( &status, searchSummList, 
+    LAL_CALL( LALCheckOutTimeFromSearchSummary ( &status, searchSummList,
           inputIFO, &startTimeGPS, &endTimeGPS ), &status);
   }
 
@@ -547,7 +547,7 @@ int main( int argc, char *argv[] )
 
 
   /* keep only triggers from input ifo */
-  LAL_CALL( LALIfoCutSingleRingdown( &status, &ringdownEventList, inputIFO ), 
+  LAL_CALL( LALIfoCutSingleRingdown( &status, &ringdownEventList, inputIFO ),
       &status );
 
   /* time sort the triggers */
@@ -556,7 +556,7 @@ int main( int argc, char *argv[] )
         LALCompareSnglRingdownByTime ), &status );
 
   /* keep only triggers within the requested interval */
-  if ( vrbflg ) fprintf( stdout, 
+  if ( vrbflg ) fprintf( stdout,
       "Discarding triggers outside requested interval\n" );
   if ( coherentRun ) {
     startChunkTime = startTimeGPS.gpsSeconds + buffer;
@@ -572,18 +572,18 @@ int main( int argc, char *argv[] )
   }
 
   /* keep play/non-play/all triggers */
-  if ( dataType == playground_only && vrbflg ) fprintf( stdout, 
+  if ( dataType == playground_only && vrbflg ) fprintf( stdout,
       "Keeping only playground triggers\n" );
-  else if ( dataType == exclude_play && vrbflg ) fprintf( stdout, 
+  else if ( dataType == exclude_play && vrbflg ) fprintf( stdout,
       "Keeping only non-playground triggers\n" );
-  else if ( dataType == all_data && vrbflg ) fprintf( stdout, 
+  else if ( dataType == all_data && vrbflg ) fprintf( stdout,
       "Keeping all triggers\n" );
   LAL_CALL( LALPlayTestSingleRingdown( &status, &ringdownEventList,
         &dataType ), &status );
 
   if( !ringdownEventList )
   {
-    if ( vrbflg ) fprintf( stdout, 
+    if ( vrbflg ) fprintf( stdout,
         "No triggers remain after time and playground cuts.\n" );
 
     /* set numTriggers after cuts were applied */
@@ -591,15 +591,15 @@ int main( int argc, char *argv[] )
     goto cleanexit;
   }
 
-  /* Generate the triggered bank */
+  /* CHECK: Only no_test works for now; Generate the triggered bank
   if( test != no_test )
   {
-    LAL_CALL( LALCreateTrigBank( &status, &ringdownEventList, &test ), 
+    LAL_CALL( LALCreateTrigBank( &status, &ringdownEventList, &test ),
         &status );
-  }
+  }*/
 
   /* count the number of triggers  */
-  for( currentTrigger = ringdownEventList, numTriggers = 0; currentTrigger; 
+  for( currentTrigger = ringdownEventList, numTriggers = 0; currentTrigger;
       currentTrigger = currentTrigger->next, ++numTriggers);
 
   if ( vrbflg ) fprintf( stdout, "%d triggers to be written to trigbank.\n",
@@ -626,17 +626,17 @@ cleanexit:
   /* set the file name correctly */
   if ( userTag && ifoTag && !outCompress )
   {
-    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK_%s_%s-%d-%d.xml", 
+    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK_%s_%s-%d-%d.xml",
         outputIFO, ifoTag, userTag, startTime, endTime - startTime );
   }
   else if ( userTag && !ifoTag && !outCompress )
   {
-    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK_%s-%d-%d.xml", 
+    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK_%s-%d-%d.xml",
         outputIFO, userTag, startTime, endTime - startTime );
   }
   else if ( !userTag && ifoTag && !outCompress )
   {
-    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK_%s-%d-%d.xml", 
+    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK_%s-%d-%d.xml",
         outputIFO, ifoTag, startTime, endTime - startTime );
   }
   else if ( userTag && ifoTag && outCompress )
@@ -659,43 +659,43 @@ cleanexit:
     snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK-%d-%d.xml.gz",
         outputIFO, startTime, endTime - startTime );
   }
-  else 
+  else
   {
-    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK-%d-%d.xml", 
+    snprintf( fileName, FILENAME_MAX, "%s-TRIGBANK-%d-%d.xml",
         outputIFO, startTime, endTime - startTime );
   }
 
 
   memset( &xmlStream, 0, sizeof(LIGOLwXMLStream) );
-  LAL_CALL( LALOpenLIGOLwXMLFile( &status , &xmlStream, fileName ), 
+  LAL_CALL( LALOpenLIGOLwXMLFile( &status , &xmlStream, fileName ),
       &status );
 
   /* write process table */
-  snprintf( proctable.processTable->ifos, LIGOMETA_IFOS_MAX, "%s", 
+  snprintf( proctable.processTable->ifos, LIGOMETA_IFOS_MAX, "%s",
       inputIFO );
   XLALGPSTimeNow(&(proctable.processTable->end_time));
-  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream, process_table ), 
+  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream, process_table ),
       &status );
-  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, proctable, 
+  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, proctable,
         process_table ), &status );
   LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlStream ), &status );
 
   /* write process_params table */
-  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream, 
+  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream,
         process_params_table ), &status );
-  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, processParamsTable, 
+  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, processParamsTable,
         process_params_table ), &status );
   LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlStream ), &status );
 
   /* write search_summary table */
-  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream, 
+  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream,
         search_summary_table ), &status );
-  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, searchsumm, 
+  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, searchsumm,
         search_summary_table ), &status );
   LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlStream ), &status );
 
   /* write the search_summvars tabls */
-  LAL_CALL( LALBeginLIGOLwXMLTable( &status ,&xmlStream, 
+  LAL_CALL( LALBeginLIGOLwXMLTable( &status ,&xmlStream,
         search_summvars_table), &status );
   searchSummvarsTable.searchSummvarsTable = inputFiles;
   LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, searchSummvarsTable,
@@ -705,7 +705,7 @@ cleanexit:
   /* write the sngl_ringdown table */
   if ( ringdownEventList )
   {
-    LAL_CALL( LALBeginLIGOLwXMLTable( &status ,&xmlStream, 
+    LAL_CALL( LALBeginLIGOLwXMLTable( &status ,&xmlStream,
           sngl_ringdown_table), &status );
     ringdownTable.snglRingdownTable = ringdownEventList;
     LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, ringdownTable,
@@ -721,7 +721,7 @@ cleanexit:
 
   /*
    *
-   * clean up the memory that has been allocated 
+   * clean up the memory that has been allocated
    *
    */
 
