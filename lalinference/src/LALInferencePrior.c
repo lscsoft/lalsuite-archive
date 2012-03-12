@@ -397,6 +397,7 @@ int LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInference
 	
 	Cube[i] = m1; i++;
 	Cube[i] = m2; i++;
+	Cube[i] = LALInferenceInspiralPrior(runState,params); i++;
 	
 	/* Check boundaries */
 	item=params->head;
@@ -905,6 +906,7 @@ int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInf
 	
 	Cube[i] = m1; i++;
 	Cube[i] = m2; i++;
+	Cube[i] = LALInferenceInspiralSkyLocPrior(runState,params); i++;
 	
 	/* Check boundaries */
 	item=params->head;
@@ -1517,6 +1519,7 @@ int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runStat
 	
 	Cube[i] = m1; i++;
 	Cube[i] = m2; i++;
+	Cube[i] = LALInferenceInspiralPriorNormalised(runState,params); i++;
 	
 	/* Check boundaries */
 	item=params->head;

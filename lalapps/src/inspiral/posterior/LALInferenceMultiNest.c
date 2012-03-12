@@ -129,6 +129,16 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 		if(item->vary==LALINFERENCE_PARAM_LINEAR || item->vary==LALINFERENCE_PARAM_CIRCULAR) ND++;
 	}
 	
+	if( ND==0 )
+	{
+		double like = runState->likelihood(runState->currentParams,runState->data,runState->template);
+		like -= (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
+		fprintf(stdout,"LOG-LIKELIHOOD VALUE RETURNED = %g\n",like);
+		double prior = LALInferenceInspiralSkyLocPrior(runState,runState->currentParams);
+		fprintf(stdout,"LOG-PRIOR VALUE RETURNED = %g\n",prior);
+		fprintf(stdout,"LOG-POSTERIOR VALUE RETURNED = %g\n",like+prior);
+		exit(0);
+	}
 	
 	int mmodal = 0;
 	int ceff = 0;
@@ -136,7 +146,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	double efr = eff;
 	double tol = 0.5;
 	int ndims = ND;
-	int nPar = ndims + 2;
+	int nPar = ndims + 3;
 	int nClsPar = 2;
 	int updInt = 50;
 	double Ztol = -1.e90;

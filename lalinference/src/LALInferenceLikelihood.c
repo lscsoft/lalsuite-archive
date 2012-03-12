@@ -424,7 +424,7 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
     different = LALInferenceCompareVariables(dataPtr->modelParams, &intrinsicParams);
     /* "different" now may also mean that "dataPtr->modelParams" */
     /* wasn't allocated yet (as in the very 1st iteration).      */
-
+    
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
