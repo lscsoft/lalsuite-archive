@@ -92,7 +92,6 @@ int XLALAddCData( CDataNode **cdataStrCat, CHAR *id )
       CDataNode *prevCData = NULL;
       CDataNode *nextCData = NULL;
       CDataNode *thisCData = NULL;
-      
 
       thisCData = *cdataStrCat;
       nextCData = (*cdataStrCat)->next;
@@ -114,18 +113,11 @@ int XLALAddCData( CDataNode **cdataStrCat, CHAR *id )
 	thisCData = thisCData->next;
 	if ( thisCData )
 	  nextCData = thisCData->next;
-	
       }
-
-      //fprintf(stdout, "notPresent is %d\n", notPresent);
-
 
       if ( notPresent ) {
 	(*cdataStrCat)->next = (CDataNode *) LALCalloc( 1, sizeof(CDataNode) );
 	strcpy( (*cdataStrCat)->next->cdataStrNode , id );
-	
-	//fprintf(stdout, "cdataStrCat11 is %s\n", &((*cdataStrCat)->next->cdataStrNode) );
-
 	addedCData = 1;
       }
 
@@ -279,7 +271,7 @@ SnglRingdownTable * ring_filter(
 
   verbose( "found %u event%s\n", params->numEvents,
       params->numEvents == 1 ? "" : "s" );
-    
+
   /* cleanup */
   XLALDestroyREAL4Vector( result.data );
   XLALDestroyREAL4Vector( resultSine.data );
@@ -366,7 +358,7 @@ SnglRingdownTable * ring_filter_cdata(
   {
     UINT4 numEvents = 0;
     REAL8 sigma;
-    
+
     /* make template and fft it */
     XLALComputeRingTemplate( &signalvec, bank );
     XLALREAL4TimeFreqFFT( &stilde, &signalvec, fwdPlan );
@@ -426,7 +418,7 @@ SnglRingdownTable * ring_filter_cdata(
             (bank->start_time.gpsNanoSeconds - (bank->start_time.gpsNanoSeconds % 1000000))/1000000,
             temp_frequency, temp_quality );
 
-          verbose( "cdataStr IS %s\n", cdataStr ); 
+          verbose( "cdataStr IS %s\n", cdataStr );
 
           /* guess we better normalize it so it is SNR-like... */
           REAL4 snrFactor = 2 * params->dynRangeFac / sigma;
@@ -459,18 +451,17 @@ SnglRingdownTable * ring_filter_cdata(
                           bank, params->CDataLength/2,
 			  (INT4) rint(0.5*params->CDataLength*params->sampleRate) );
 	    }
-	    
 	  }
-	  
+
 	  if ( CDataAdded && coherentInputData )
 	    {
               verbose( "coherentInputData Name string is %s\n",
 				    coherentInputData->name);
-	      
+
 	      snprintf( coherentInputData->name,
 			LALNameLength*sizeof(CHAR),
-			"%s:CBC-CData", params->ifoName ); 
-	      
+			"%s:CBC-CData", params->ifoName );
+
 	      if ( ! *coherentFrames )
 		{
 		  thisCoherentFrame = *coherentFrames = (FrameHNode *)
@@ -481,10 +472,10 @@ SnglRingdownTable * ring_filter_cdata(
 		  thisCoherentFrame = thisCoherentFrame->next =
 		    (FrameHNode *) LALCalloc( 1, sizeof(FrameHNode) );
 		}
-	      
+
 	      thisCoherentFrame->frHeader = fr_add_proc_COMPLEX8TimeSeries(
 		  outFrame, coherentInputData, "none", cdataStr );
-	      
+
               verbose( "GPS end time in s and ns are: %d and %d\n",
                             coherentInputData->epoch.gpsSeconds, coherentInputData->epoch.gpsNanoSeconds);
               verbose( "Event ID used for C Data is %" LAL_UINT8_FORMAT "\n",
@@ -493,8 +484,8 @@ SnglRingdownTable * ring_filter_cdata(
 			    cdataStr);
               verbose( "coherentInputData Name string is %s\n",
 			    coherentInputData->name);
-		      
-	      XLALDestroyCOMPLEX8Vector( coherentInputData->data ); 
+
+	      XLALDestroyCOMPLEX8Vector( coherentInputData->data );
 	      LALFree( coherentInputData );
 	      coherentInputData = NULL;
 	    }
@@ -523,7 +514,7 @@ SnglRingdownTable * ring_filter_cdata(
             resultSine.data->data[k] *= snrFactor;
             cdataSeries.data->data[k].re = result.data->data[k];
             cdataSeries.data->data[k].im = resultSine.data->data[k];
-          } 
+          }
         }
       }
     }
@@ -681,7 +672,7 @@ static SnglRingdownTable * find_events(
   /* compute filter duration: sum of rindown duration and spec trunc duration */
   filterDuration  = efolds * tmpltQuality / (LAL_PI * tmpltFrequency);
   filterDuration += params->truncateDuration;
-  
+
   /* gap time: filter duration unless explicitly specified */
   if ( params->maximizeEventDuration < 0 ) /* maximize based on duration*/
     gapTimeNS = sec_to_ns( filterDuration );
@@ -700,18 +691,17 @@ static SnglRingdownTable * find_events(
   /* compute modified threshold on filter output rather than snr */
   snrFactor = 2 * params->dynRangeFac / tmpltSigma;
   threshold = params->threshold / snrFactor;
- /*fprintf( stdout, "threshold = %e\n",threshold ); */
-  
+
   /* compute start and stop index for scanning time series */
   segmentStride = floor( params->strideDuration / result->deltaT + 0.5 );
   jmin = segmentStride/2;
   jmax = jmin + segmentStride;
 
-  for ( j = jmin; j < jmax; ++j ) { 
+  for ( j = jmin; j < jmax; ++j ) {
     REAL4 phase;
 
     if ( params->writeCData ) {
-      thresholdStat = sqrt( pow(result->data->data[j],2) 
+      thresholdStat = sqrt( pow(result->data->data[j],2)
                               + pow(resultSine->data->data[j],2) );
       phase = atan2( resultSine->data->data[j], result->data->data[j]);
     }
@@ -719,7 +709,7 @@ static SnglRingdownTable * find_events(
       thresholdStat = fabs( result->data->data[j] );
       phase = 0.0;
     }
- 
+
     if ( thresholdStat > threshold ) /* threshold crossing */
     {
       REAL4 snr;
@@ -739,22 +729,21 @@ static SnglRingdownTable * find_events(
         events = thisEvent;
         t0 = timeNS;
         tpeak = timeNS;
-        
+
         /* copy general information about the filter */
         strncpy( thisEvent->ifo, params->ifoName, sizeof( thisEvent->ifo ) );
-        strncpy( thisEvent->channel, strchr( params->channel, ':') + 1, 
+        strncpy( thisEvent->channel, strchr( params->channel, ':') + 1,
             sizeof( thisEvent->channel ) );
-/*       LAL_CALL( LALGPStoGMST1( &status, &(thisEvent->start_time_gmst), 
-                        &(thisEvent->start_time), &gmstUnits ), &status); */ 
+/*       LAL_CALL( LALGPStoGMST1( &status, &(thisEvent->start_time_gmst),
+                        &(thisEvent->start_time), &gmstUnits ), &status); */
         /*this isnt working properly, will just leave awhile, as it is not
          * needed */
 
-        
         thisEvent->frequency = tmpltFrequency;
         thisEvent->quality = tmpltQuality;
         thisEvent->mass = XLALBlackHoleRingMass( thisEvent->frequency, thisEvent->quality);
         thisEvent->spin = XLALBlackHoleRingSpin( thisEvent->quality);
-        
+
         /* specific information about this threshold crossing */
         ns_to_epoch( &thisEvent->start_time, timeNS );
         thisEvent->snr = snr;
@@ -763,11 +752,10 @@ static SnglRingdownTable * find_events(
         sigma=tmpltSigma * amp;
         thisEvent->sigma_sq = pow(sigma, 2.0);
         thisEvent->eff_dist = sigma / thisEvent->snr;
-        thisEvent->amplitude=amp;       
+        thisEvent->amplitude=amp;
         thisEvent->epsilon = 0.0;  /* borrowing these this column */
         thisEvent->phase = phase;    /* and this one */
         ++eventCount;
-        
       }
       else if ( snr > thisEvent->snr ) /* maximize within a set of crossings */
       {
@@ -778,18 +766,18 @@ static SnglRingdownTable * find_events(
 
         amp = XLALBlackHoleRingAmplitude( thisEvent->frequency, thisEvent->quality, 0.5, 0.01 );
         sigma=tmpltSigma * amp;
-        thisEvent->eff_dist = sigma / thisEvent->snr;        
+        thisEvent->eff_dist = sigma / thisEvent->snr;
         thisEvent->amplitude = amp;
         /* time clustered before the peak snr*/
         tmp = timeNS - t0;
         thisEvent->epsilon =(REAL4)tmp /1000000000;
       }
-      
+
       /* update last threshold crossing time */
       lastTimeNS = timeNS;
-      /* time clustered after the peak snr*/ 
+      /* time clustered after the peak snr*/
       tmp = timeNS - tpeak;
-      thisEvent->phase = phase; 
+      thisEvent->phase = phase;
     }
 
   } /* Closes loop over j */
