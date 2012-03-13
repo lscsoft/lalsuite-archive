@@ -807,6 +807,12 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def pop(self,param_name):
+        """
+        Container method.  Remove OneDPosterior from the Posterior instance.
+        """
+        return self._posterior.pop(param_name)
+
     def append_mapping(self, new_param_names, func, post_names):
         """
         Append posteriors pos1,pos2,...=func(post_names)
@@ -1262,6 +1268,12 @@ class AnalyticLikelihood(object):
         """
         Prepare analytic likelihood for the given parameters.
         """
+        # Make sure files names are in a list
+        if isinstance(covariance_matrix_files, str):
+            covariance_matrix_files = [covariance_matrix_files]
+        if isinstance(mean_vector_files, str):
+            mean_vector_files = [mean_vector_files]
+
         covarianceMatrices = [np.loadtxt(csvFile, delimiter=',') for csvFile in covariance_matrix_files]
         num_matrices = len(covarianceMatrices)
 
@@ -1314,6 +1326,13 @@ class AnalyticLikelihood(object):
         if param in self._params:
             cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
         return cdf
+
+    @property
+    def names(self):
+        """
+        Return list of parameter names described by analytic likelihood function.
+        """
+        return self._params
 
 
 
@@ -2082,7 +2101,7 @@ def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,plotkde=False):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -2108,7 +2127,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None)
     myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
-    plot_one_param_pdf_kde(myfig,posterior[param])
+    if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
@@ -2156,7 +2175,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None)
     return rbins,myfig#,rkde
 #
 
-def formatRATicks(locs, accuracy='min'):
+def formatRATicks(locs, accuracy='hour'):
     """
     Format locs, ticks to RA angle with given accuracy
     accuracy can be 'hour', 'min', 'sec', 'all'
@@ -2333,7 +2352,7 @@ def get_inj_by_time(injections,time):
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75]):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -2345,6 +2364,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     @param confidence_levels: a list of the required confidence levels to plot on the contour map.
 
     @param colors_by_name: A dict of colors cross-referenced to the above Posterior ids.
+
+    @param legend: Argument for legend placement or None for no legend ('right', 'upper left', 'center' etc)
 
     """
 
@@ -2407,7 +2428,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
-            plt.plot([par1_injvalue],[par2_invalue],'go',scalex=False,scaley=False)
+            plt.plot([par2_injvalue],[par1_injvalue],'g*',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2430,7 +2451,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     fig_actor_lst.extend(dummy_lines)
 
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')

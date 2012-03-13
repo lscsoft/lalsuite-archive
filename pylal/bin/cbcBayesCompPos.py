@@ -148,13 +148,16 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(10,8),dpi=150)
+    myfig=plt.figure(figsize=(6,4),dpi=150)
 
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
-    min_pos=np.min(list_of_pos[0][param].samples)
-    max_pos=np.max(list_of_pos[0][param].samples)
+    allmins=map(lambda a: np.min(a[param].samples), list_of_pos)
+    allmaxes=map(lambda a: np.max(a[param].samples), list_of_pos)
+    min_pos=np.min(allmins)
+    max_pos=np.max(allmaxes)
+    print 'Found global min: %f, max: %f'%(min_pos,max_pos)
 
     gkdes={}
     injvals=[]
@@ -187,6 +190,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
         plt.grid()
         plt.legend()
         plt.xlabel(param)
+        plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
         #plt.tight_layout()
         if injvals:
@@ -214,10 +218,15 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(18,12),dpi=300)
+    myfig=plt.figure(figsize=(6,4),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
+
+    allmins=map(lambda a: np.min(a[param].samples), list_of_pos)
+    allmaxes=map(lambda a: np.max(a[param].samples), list_of_pos)
+    min_pos=np.min(allmins)
+    max_pos=np.max(allmaxes)
 
     injvals=[]
 
@@ -241,8 +250,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
         patch_list.append(patches[0])
 
-
-
+    plt.xlim(min_pos,max_pos)
     top_cl_intervals_list={}
     pos_names=list_of_pos_by_name.keys()
 
@@ -264,7 +272,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         patch_list.append(mpl.lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),linestyle='--',color='black'))
 
     plt.grid()
-
+    plt.xlim(min_pos,max_pos)
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
@@ -298,13 +306,17 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(18,12),dpi=300)
+    myfig=plt.figure(figsize=(6,4),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
     injvals=[]
-
+    allmins=map(lambda a: np.min(a[param].samples), list_of_pos)
+    allmaxes=map(lambda a: np.max(a[param].samples), list_of_pos)
+    min_pos=np.min(allmins)
+    max_pos=np.max(allmaxes)
+ 
     patch_list=[]
     max_y=1.
 
@@ -344,7 +356,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
         patch_list.append(mpl.lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),linestyle='--',color='black'))
 
     plt.grid()
-
+    plt.xlim(min_pos,max_pos)
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
@@ -361,7 +373,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(7,6),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(6,4),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
     injection=None
 
