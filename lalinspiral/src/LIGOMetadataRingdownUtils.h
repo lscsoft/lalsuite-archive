@@ -129,6 +129,12 @@ LALCompareSnglRingdownByTime (
     const void *b
     );
 
+int
+LALCompareSnglRingdownByID (
+    const void *a,
+    const void *b
+    );
+
 void
 LALCompareRingdowns (
     LALStatus                *status,

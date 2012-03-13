@@ -58,6 +58,7 @@ int ring_parse_options( struct ring_params *params, int argc, char **argv )
     { "write-template-fft",      no_argument, &localparams.writeTemplateFFT, 1 },
     { "write-filter-output",     no_argument, &localparams.writeFilterOutput, 1 },
     { "write-compress",          no_argument, &localparams.outCompress, 1 },
+    { "write-cdata",             no_argument, &localparams.writeCData, 1 },
     { "help",                    no_argument,       0, 'h' },
     { "version",                 no_argument,       0, 'V' },
     { "gps-start-time",          required_argument, 0, 'a' },
@@ -98,9 +99,10 @@ int ring_parse_options( struct ring_params *params, int argc, char **argv )
     { "trig-end-time",           required_argument, 0, 'U' },
     { "block-duration",          required_argument, 0, 'w' },
     { "pad-data",                required_argument, 0, 'W' },
+    { "cdata-length",            required_argument, 0, 'x' },
     { 0, 0, 0, 0 }
   };
-  char args[] = "a:A:b:B:c:C:d:D:e:E:f:F:G:hi:I:J:L:m:o:O:p:q:Q:r:R:s:S:t:T:u:U:V:w:W";
+  char args[] = "a:A:b:B:c:C:d:D:e:E:f:F:G:hi:I:J:L:m:o:O:p:q:Q:r:R:s:S:t:T:u:U:V:w:W:x";
   char *program = argv[0];
 
   /* set default values for parameters before parsing arguments */
@@ -306,6 +308,17 @@ int ring_parse_options( struct ring_params *params, int argc, char **argv )
       case 'W': /* pad-data */
         localparams.padData = atof( optarg );
         break;
+      case 'x': /* length of complex-SNR time-series */
+        localparams.CDataLength = atof( optarg );
+        if ( localparams.CDataLength < 0.0 )
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+             "Length of c-data snippet must be positive: "
+             "(%f specified)\n",
+             long_options[option_index].name, localparams.CDataLength );
+          exit( 1 );
+        }
+        break; 
       case 'V': /* version */
         XLALOutputVersionString(stderr, 0);
         exit( 0 );
@@ -345,7 +358,7 @@ static int ring_default_params( struct ring_params *params )
   /* negative value means use the "default" values */
   params->highpassFrequency     = -1.0; /* use low-frequency cutoff */
   params->maximizeEventDuration = -1.0; /* use filter duration */
-
+  params->CDataLength           =  0.125; /* length of complex-SNR time-series */
   /* segments and templates to do: all of them */
   params->segmentsToDoList  = "^-$";
   params->templatesToDoList = "^-$";
@@ -378,6 +391,9 @@ int ring_params_sanity_check( struct ring_params *params )
   INT8 startTime;
   INT8 endTime;
   int validChannelIFO;
+  char outFileStr[10];
+  char outFileStrINSPIRAL[] = "INSPIRAL";
+  char outFileStrRING[] = "RING";
 
   if ( params->dataType == LALRINGDOWN_DATATYPE_HT_REAL4 || params->dataType == LALRINGDOWN_DATATYPE_HT_REAL8)
       params->getResponse = 0;
@@ -482,54 +498,61 @@ int ring_params_sanity_check( struct ring_params *params )
     sanity_check( params->threshold > 0.0 );
 
     /* output file name */
+    if ( params->writeCData ) {
+      strcpy (outFileStr, outFileStrINSPIRAL );
+    }
+    else {
+      strcpy (outFileStr, outFileStrRING );
+    }
+
     if ( ! strlen( params->outputFile ) )
     {
       if ( strlen( params->userTag ) && strlen( params->ifoTag ) && params->outCompress )
       {
         snprintf( params->outputFile, sizeof( params->outputFile ),
-          "%s-RING_%s_%s-%d-%d.xml.gz", params->ifoName, 
+          "%s-%s_%s_%s-%d-%d.xml.gz", params->ifoName, outFileStr, 
           params->ifoTag, params->userTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else if ( strlen( params->userTag ) && strlen( params->ifoTag )  && !params->outCompress )
       {
         snprintf( params->outputFile, sizeof( params->outputFile ),
-          "%s-RING_%s_%s-%d-%d.xml", params->ifoName,
+          "%s-%s_%s_%s-%d-%d.xml", params->ifoName, outFileStr,
           params->ifoTag, params->userTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else if ( strlen( params->userTag ) && !strlen( params->ifoTag ) && params->outCompress )
       {
         snprintf( params->outputFile, sizeof( params->outputFile ),
-          "%s-RING_%s-%d-%d.xml.gz", params->ifoName, 
+          "%s-%s_%s-%d-%d.xml.gz", params->ifoName, outFileStr,
           params->userTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else if ( strlen( params->userTag ) && !strlen( params->ifoTag ) && !params->outCompress  )
       {
         snprintf( params->outputFile, sizeof( params->outputFile ),
-          "%s-RING_%s-%d-%d.xml", params->ifoName,
+          "%s-%s_%s-%d-%d.xml", params->ifoName, outFileStr,
           params->userTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else if ( !strlen( params->userTag ) && strlen( params->ifoTag ) && params->outCompress )
       {
         snprintf( params->outputFile, sizeof( params->outputFile ),
-          "%s-RING_%s-%d-%d.xml.gz", params->ifoName, 
+          "%s-%s_%s-%d-%d.xml.gz", params->ifoName, outFileStr,
           params->ifoTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else if ( !strlen( params->userTag ) && strlen( params->ifoTag ) && !params->outCompress )
       {
         snprintf( params->outputFile, sizeof( params->outputFile ),
-          "%s-RING_%s-%d-%d.xml", params->ifoName,
+          "%s-%s_%s-%d-%d.xml", params->ifoName, outFileStr,
           params->ifoTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else 
       {
         snprintf( params->outputFile, sizeof( params->outputFile ),
-          "%s-RING-%d-%d.xml", params->ifoName, 
+          "%s-%s-%d-%d.xml", params->ifoName, outFileStr,
           params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
@@ -634,5 +657,7 @@ static int ring_usage( const char *program )
   fprintf( stderr, "--write-template-fft       write template fft\n");
   fprintf( stderr, "--write-filter-output      write filtered data segments\n" );
   fprintf( stderr, "--write-compress           write a compressed xml file\n");
+  fprintf( stderr, "--write-compress           write a complex SNR frame file\n");
+  fprintf( stderr, "--cdata-length             Length of c-data snippet (in seconds) \n");
   return 0;
 }

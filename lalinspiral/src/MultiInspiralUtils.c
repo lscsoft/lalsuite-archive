@@ -23,6 +23,7 @@ $Id$
 #include <lal/LALStdio.h>
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataInspiralUtils.h>
+#include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/Date.h>
 #include <lal/SkyCoordinates.h>
 #include <lal/GeneratePPNInspiral.h>
@@ -920,4 +921,236 @@ XLALMultiInspiralSlideCut(
     }
   }
   return( slideHead );
+}
+
+/* <lalVerbatim file="MultiRingdownUtilsCP"> */
+int
+XLALMultiSimRingdownTest (
+    SimRingdownTable  **simHead,
+    MultiInspiralTable **eventHead,
+    SimRingdownTable  **missedSimHead,
+    MultiInspiralTable **missedMultiHead,
+    INT8                injectWindowNS
+    )
+/* </lalVerbatim> */
+{
+
+  /* Note: we are assuming that both the ringdown and */
+  /* injection events are time sorted                 */
+  SimRingdownTable *thisSimEvent = *simHead;
+  SimRingdownTable *thisMissedSim= NULL;
+  SimRingdownTable *prevSimEvent = NULL;
+  MultiInspiralTable *thisEvent   = *eventHead;
+  MultiInspiralTable *prevEvent   = NULL;
+  MultiInspiralTable *thisMissed  = NULL;
+  EventIDColumn     *thisId      = NULL;
+  CHAR              ifo[3];
+
+  int numSimFound  = 0;
+  int coincidence = 0;
+
+  INT8 simGeocentTime, simSiteTime, ringdownTime;
+  INT8 earthRadiusNS = (INT8) ( 1e9 * 2 * LAL_REARTH_SI / LAL_C_SI );
+
+  *simHead     = NULL;
+  *eventHead   = NULL;
+
+
+  if ( ! thisEvent )
+  {
+    XLALPrintInfo( "No triggers in input data, all injections missed\n" );
+
+    *missedSimHead = thisSimEvent;
+    return(0);
+  }
+  else
+  {
+
+    /* begin loop over the sim_ringdown events */
+    while ( thisSimEvent )
+    {
+      coincidence = 0;
+      /* find the end time of the SimEvent */
+      //CHECK: simGeocentTime = geocent_end_time( thisSimEvent );
+      simGeocentTime = XLALGPSToINT8NS( &(thisSimEvent->geocent_start_time ) );
+      /* find the first ringdown event after the current sim event */
+      while ( thisEvent )
+      {
+        /* compute the time in nanosec for thisEvent */
+        ringdownTime = XLALGPSToINT8NS( &(thisEvent->end_time) );
+
+        if( ringdownTime < (simGeocentTime - earthRadiusNS - injectWindowNS ) )
+        {
+          /* discard this event and move on to the next one */
+          if ( ! *missedMultiHead )
+          {
+            *missedMultiHead = thisMissed = thisEvent;
+          }
+          else
+          {
+            thisMissed = thisMissed->next = thisEvent;
+          }
+          if ( prevEvent ) prevEvent->next = thisEvent->next;
+          thisEvent = thisEvent->next;
+          thisMissed->next = NULL;
+          XLALPrintInfo( "-" );
+        }
+        else
+        {
+          /* we have reached the negative coincincidence window */
+          break;
+        }
+      }
+
+      while ( thisEvent )
+      {
+        /* compute the time in nanosec for thisEvent */
+        ringdownTime = XLALGPSToINT8NS( &(thisEvent->end_time) );
+
+        if( ringdownTime < (simGeocentTime + earthRadiusNS + injectWindowNS ) )
+        {
+	  /*NOTE: The following assumes that the first ifo
+	    in the ifos string is the reference ifo for checking time consistency.
+	    This is consistent with coherent_inspiral_ringdown.c */
+	  /* read in the first (single) ifo in the multiInspiral network (ifos) */
+	  snprintf( ifo, LIGOMETA_IFO_MAX * sizeof(CHAR),
+		       "%s", thisEvent->ifos );
+
+	  simSiteTime = XLALReturnSimRingdownStartTime( thisSimEvent, ifo );
+
+	  if ( (ringdownTime > (simSiteTime - injectWindowNS)) &&
+	       (ringdownTime < (simSiteTime + injectWindowNS)) ) {
+
+	    /* this event is within the coincidence window  */
+
+	    /* store the sim ringdown in the event_id's for this sngl */
+	    thisId = thisEvent->event_id;
+	    while ( thisId )
+	      {
+		thisId->simRingdownTable = thisSimEvent;
+		thisId = thisId->next;
+	      }
+
+	    /* store this event and move on to the next one */
+	    if ( ! *eventHead ) *eventHead = thisEvent;
+	    prevEvent = thisEvent;
+	    thisEvent = thisEvent->next;
+	    coincidence = 1;
+	    XLALPrintInfo( "+" );
+	  }
+	  else
+	    {
+	      /* discard this event and move on to the next one */
+	      if ( ! *missedMultiHead )
+		{
+		  *missedMultiHead = thisMissed = thisEvent;
+		}
+	      else
+		{
+		  thisMissed = thisMissed->next = thisEvent;
+		}
+
+	      if ( prevEvent ) prevEvent->next = thisEvent->next;
+	      thisEvent = thisEvent->next;
+	      thisMissed->next = NULL;
+	      XLALPrintInfo( "-" );
+	    }
+	}
+	else
+	  {
+	    /* we have reached the end of the positive coincincidence window */
+	    break;
+	  }
+      }
+
+      if ( coincidence )
+	{
+	  /* keep this sim event in the list and move to the next sim event */
+	  if ( ! *simHead ) *simHead = thisSimEvent;
+	  prevSimEvent = thisSimEvent;
+	  ++numSimFound;
+	  thisSimEvent = thisSimEvent->next;
+	  XLALPrintInfo( "F" );
+	}
+      else {
+        /* save this sim event in the list of missed events... */
+        if ( ! *missedSimHead )
+        {
+          *missedSimHead = thisMissedSim = thisSimEvent;
+        }
+        else
+        {
+          thisMissedSim = thisMissedSim->next = thisSimEvent;
+        }
+
+        /* ...and remove it from the list of found events */
+        if ( prevSimEvent ) prevSimEvent->next = thisSimEvent->next;
+        XLALPrintInfo( "M" );
+
+        /* move to the next sim in the list */
+        thisSimEvent = thisSimEvent->next;
+
+        /* make sure the missed sim list is terminated */
+        thisMissedSim->next = NULL;
+      }
+
+      if ( ! thisEvent )
+      {
+        /* these are no more events to process so all the rest of the */
+        /* injections must be put in the missed injections list       */
+        if ( ! *missedSimHead )
+        {
+          /* this and any subsequent events are in the missed sim list */
+          if ( thisSimEvent ) thisMissedSim = *missedSimHead = thisSimEvent;
+        }
+        else
+        {
+          if ( thisSimEvent )
+          {
+            /* append the rest of the list to the list of missed injections */
+            thisMissedSim = thisMissedSim->next = thisSimEvent;
+          }
+          else
+          {
+            /* there are no injections after this one */
+            thisMissedSim = thisMissedSim->next = NULL;
+          }
+        }
+
+        /* terminate the list of found injections correctly */
+        if ( prevSimEvent ) prevSimEvent->next = NULL;
+
+        while ( thisMissedSim )
+        {
+          /* count the number of injections just stuck in the missed list */
+          XLALPrintInfo( "M" );
+          thisMissedSim = thisMissedSim->next;
+        }
+        thisSimEvent = NULL;
+        break;
+      }
+    }
+
+    if ( thisEvent )
+    {
+      while( thisEvent )
+      {
+        /* discard this event and move on to the next one */
+        if ( ! *missedMultiHead )
+        {
+          *missedMultiHead = thisMissed = thisEvent;
+        }
+        else
+        {
+          thisMissed = thisMissed->next = thisEvent;
+        }
+        if ( prevEvent ) prevEvent->next = thisEvent->next;
+        thisEvent = thisEvent->next;
+        thisMissed->next = NULL;
+        XLALPrintInfo( "-" );
+      }
+    }
+  }
+  XLALPrintInfo( "\n" );
+  return( numSimFound );
 }

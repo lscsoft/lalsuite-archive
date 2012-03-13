@@ -1738,6 +1738,13 @@ class CohBankNode(InspiralAnalysisNode):
   def get_ifos(self):
     return self.__ifos
 
+  def set_num_slides(self, num_slides):
+    """
+    Set number of time slides to undertake
+    """
+    self.add_var_opt('num-slides',num_slides)
+    self.__num_slides = num_slides
+
   def get_output(self):
     """
     Returns the file name of output from the coherent bank. 
@@ -1788,6 +1795,13 @@ class CohInspBankNode(InspiralAnalysisNode):
 
   def get_ifos(self):
     return self.__ifos
+
+  def set_num_slides(self, num_slides):
+    """
+    Set number of time slides to undertake
+    """
+    self.add_var_opt('num-slides',num_slides)
+    self.__num_slides = num_slides
 
   def get_output(self):
     """
