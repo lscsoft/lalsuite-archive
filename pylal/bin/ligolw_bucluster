@@ -34,6 +34,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_bucluster
+from pylal import llwapp
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

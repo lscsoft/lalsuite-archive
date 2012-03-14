@@ -39,7 +39,8 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze,sort
+from scipy import stats
 
 import matplotlib
 matplotlib.use("Agg")
@@ -91,7 +92,13 @@ def cbcBayesPostProc(
                         #Turn on 2D kdes
                         twodkdeplots=False,
                         #Turn on R convergence tests
-                        RconvergenceTests=False
+                        RconvergenceTests=False,
+                        # Save PDF figures?
+                        savepdfs=True,
+                        #List of covariance matrix csv files used as analytic likelihood
+                        covarianceMatrices=None,
+                        #List of meanVector csv files used, one csv file for each covariance matrix
+                        meanVectors=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -183,11 +190,24 @@ def cbcBayesPostProc(
                     continue
                 snrstring=snrstring +" "+str(snr[0:-1])+" ,"
             snrstring=snrstring[0:-1]
-        
+
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
     pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,votfile=votfile)
   
+    #Create analytic likelihood functions if covariance matrices and mean vectors were given
+    analyticLikelihood = None
+    if covarianceMatrices and meanVectors:
+        analyticLikelihood = bppu.AnalyticLikelihood(covarianceMatrices, meanVectors)
+
+        #Plot only analytic parameters
+        oneDMenu = analyticLikelihood.names
+        twoDGreedyMenu = []
+        for i in range(len(oneDMenu)):
+            for j in range(i+1,len(oneDMenu)):
+                twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+        twoDplots = twoDGreedyMenu
+
     if eventnum is None and injfile is not None:
         import itertools
         injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
@@ -323,6 +343,10 @@ def cbcBayesPostProc(
     requested_params = set(pos.names).intersection(set(oneDMenu))
     pos.delete_NaN_entries(requested_params)
 
+    #Remove non-analytic parameters if analytic likelihood is given:
+    if analyticLikelihood:
+        dievidence_names = ['post','posterior','logl','prior','likelihood']
+        [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names and param not in dievidence_names]
 
     ##Print some summary stats for the user...##
     #Number of samples
@@ -510,6 +534,19 @@ def cbcBayesPostProc(
     if not os.path.isdir(sampsdir):
         os.makedirs(sampsdir)
 
+    if 'chain' in pos.names:
+        data,header=pos.samples()
+        par_index=pos.names.index('cycle')
+        chain_index=pos.names.index("chain")
+        chains=unique(pos["chain"].samples)
+        chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
+        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
+        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+    elif 'cycle' in pos.names:
+        cycles = sort(pos['cycle'].samples)
+        Ncycles = cycles[-1]-cycles[0]
+        Nskip = cycles[1]-cycles[0]
+
     for par_name in oneDMenu:
         par_name=par_name.lower()
         print "Binning %s to determine confidence levels ..."%par_name
@@ -555,12 +592,20 @@ def cbcBayesPostProc(
 
         #Generate 1D histogram/kde plots
         print "Generating 1D plot for %s."%par_name
+
+        #Get analytic description if given
+        pdf=cdf=None
+        if analyticLikelihood:
+            pdf = analyticLikelihood.pdf(par_name)
+            cdf = analyticLikelihood.cdf(par_name)
+
         oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams)
+        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
 
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)
         plotFig.savefig(oneDplotPath)
+        if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
 
         if rbins:
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
@@ -600,31 +645,48 @@ def cbcBayesPostProc(
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
+        if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
 
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
                 mu=mean(data)
-                corr=correlate((data-mu),(data-mu),mode='full')
                 N=len(data)
+                corr=correlate((data-mu),(data-mu),mode='full')
+                acf = corr[N-1:]/corr[N-1]
                 try:
-                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    if 'cycle' in pos.names:
+                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                        plt.title('ACL = %g   Nsamps = %g'%(acl,Ncycles/acl))
                 except FloatingPointError:
                     # Ignore
                     pass
             else:
-                for rng, data in zip(chainDataRanges, chainData):
-                    mu=mean(data)
-                    corr=correlate(data-mu,data-mu,mode='full')
-                    N=len(data)
-                    try:
-                        plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-                    except FloatingPointError:
-                        # Ignore
-                        pass
+                try:
+                    acls = []
+                    Nsamps = 0.0;
+                    for rng, data, Nskip, Ncycles in zip(chainDataRanges, chainData, chainNskips, chainNcycles):
+                        mu=mean(data)
+                        N=len(data)
+                        corr=correlate(data-mu,data-mu,mode='full')
+                        acf = corr[N-1:]/corr[N-1]
+                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                        acls.append(acl)
+                        Nsamps += Ncycles/acl
+                        lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                    plt.title('ACL = %g  Nsamps = %g'%(max(acls),Nsamps))
+                except FloatingPointError:
+                    # Ignore
+                    pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
+            if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
 
         if not noacf:
             html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
@@ -751,10 +813,12 @@ def cbcBayesPostProc(
         greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
+        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png',',pdf'))
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
         greedy2HistFig.savefig(greedy2histpath)
+        if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -808,6 +872,7 @@ def cbcBayesPostProc(
                     row_count=0
 
                 myfig.savefig(twoDKdePath)
+                if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
@@ -935,6 +1000,9 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
+    parser.add_option("--savepdfs",action="store_false",default=True,dest="savepdfs")
+    parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
+    parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
@@ -998,6 +1066,8 @@ if __name__=='__main__':
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
+    for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
+        greedyBinSizes[loglname]=0.1
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
     #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
@@ -1026,6 +1096,12 @@ if __name__=='__main__':
                         #Turn on 2D kdes
                         twodkdeplots=opts.twodkdeplots,
                         #Turn on R convergence tests
-                        RconvergenceTests=opts.RconvergenceTests
+                        RconvergenceTests=opts.RconvergenceTests,
+                        # Also save PDFs?
+                        savepdfs=opts.savepdfs,
+                        #List of covariance matrix csv files used as analytic likelihood
+                        covarianceMatrices=opts.covarianceMatrices,
+                        #List of meanVector csv files used, one csv file for each covariance matrix
+                        meanVectors=opts.meanVectors
                     )
 #
