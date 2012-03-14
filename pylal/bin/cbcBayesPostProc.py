@@ -39,7 +39,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze,sort
 from scipy import stats
 
 import matplotlib
@@ -534,6 +534,19 @@ def cbcBayesPostProc(
     if not os.path.isdir(sampsdir):
         os.makedirs(sampsdir)
 
+    if 'chain' in pos.names:
+        data,header=pos.samples()
+        par_index=pos.names.index('cycle')
+        chain_index=pos.names.index("chain")
+        chains=unique(pos["chain"].samples)
+        chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
+        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
+        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+    elif 'cycle' in pos.names:
+        cycles = sort(pos['cycle'].samples)
+        Ncycles = cycles[-1]-cycles[0]
+        Nskip = cycles[1]-cycles[0]
+
     for par_name in oneDMenu:
         par_name=par_name.lower()
         print "Binning %s to determine confidence levels ..."%par_name
@@ -639,23 +652,38 @@ def cbcBayesPostProc(
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
                 mu=mean(data)
-                corr=correlate((data-mu),(data-mu),mode='full')
                 N=len(data)
+                corr=correlate((data-mu),(data-mu),mode='full')
+                acf = corr[N-1:]/corr[N-1]
                 try:
-                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    if 'cycle' in pos.names:
+                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                        plt.title('ACL = %g   Nsamps = %g'%(acl,Ncycles/acl))
                 except FloatingPointError:
                     # Ignore
                     pass
             else:
-                for rng, data in zip(chainDataRanges, chainData):
-                    mu=mean(data)
-                    corr=correlate(data-mu,data-mu,mode='full')
-                    N=len(data)
-                    try:
-                        plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-                    except FloatingPointError:
-                        # Ignore
-                        pass
+                try:
+                    acls = []
+                    Nsamps = 0.0;
+                    for rng, data, Nskip, Ncycles in zip(chainDataRanges, chainData, chainNskips, chainNcycles):
+                        mu=mean(data)
+                        N=len(data)
+                        corr=correlate(data-mu,data-mu,mode='full')
+                        acf = corr[N-1:]/corr[N-1]
+                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                        acls.append(acl)
+                        Nsamps += Ncycles/acl
+                        lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                    plt.title('ACL = %g  Nsamps = %g'%(max(acls),Nsamps))
+                except FloatingPointError:
+                    # Ignore
+                    pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
