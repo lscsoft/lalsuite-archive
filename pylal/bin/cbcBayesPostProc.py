@@ -345,7 +345,8 @@ def cbcBayesPostProc(
 
     #Remove non-analytic parameters if analytic likelihood is given:
     if analyticLikelihood:
-        [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names]
+        dievidence_names = ['post','posterior','logl','prior','likelihood']
+        [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names and param not in dievidence_names]
 
     ##Print some summary stats for the user...##
     #Number of samples
@@ -586,7 +587,7 @@ def cbcBayesPostProc(
             cdf = analyticLikelihood.cdf(par_name)
 
         oneDPDFParams={par_name:50}
-        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf)
+        rbins,plotFig=bppu.plot_one_param_pdf(pos,oneDPDFParams,pdf,cdf,plotkde=False)
 
         figname=par_name+'.png'
         oneDplotPath=os.path.join(onepdfdir,figname)
@@ -971,7 +972,7 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
-    parser.add_option("--savepdfs",action="store_true",default=False,dest="savepdfs")
+    parser.add_option("--savepdfs",action="store_false",default=True,dest="savepdfs")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
@@ -1037,6 +1038,8 @@ if __name__=='__main__':
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     #Confidence levels
+    for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
+        greedyBinSizes[loglname]=0.1
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
     #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
