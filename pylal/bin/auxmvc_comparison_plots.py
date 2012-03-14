@@ -315,7 +315,7 @@ parser.add_option("","--mvsc-ranked-files", default=False, type="string", help="
 parser.add_option("","--ann-ranked-files", default=False, type="string", help="Provide the path for ANN *.dat files and globbing pattern")
 parser.add_option("","--svm-ranked-files", default=False, type="string", help="Provide the path for SVM *.dat files and globbing pattern")
 parser.add_option("","--fap-threshold", default=0.1,type="float", help="False Alarm Probability which is adapted to veto")
-parser.add_option("","--cluster",action="store_true", default="True", help="cluster glitch samples")
+parser.add_option("","--cluster",action="store_true", default=False, help="cluster glitch samples")
 parser.add_option("","--cluster-window", default=1.0, type="float", help="clustering window in seconds, default is 1 second.")
 parser.add_option("","--cluster-rank", default='signif', type="string", help="rank used in clustering, default rank is significance of trigger in DARM.")
 parser.add_option("-P","--output-path",action="store",type="string",default="",  metavar="PATH", help="path where the figures would be stored")	  
@@ -451,6 +451,7 @@ fnameList = []
 tagList = []
 fig_num = 0
 comments = ""
+
 ###########################################################################################3
 if opts.verbose:
   print 'Generating Plots...'
@@ -485,7 +486,7 @@ pylab.close()
 FAPthr = 0.01
 sigthr = 25
 
-classify = [[['ann'], ['mvsc'], ['svm'], ['cveto'], ['combined']], [['ann'], ['mvsc'], ['svm'], ['cveto']], [['ann'], ['mvsc'], ['svm'], ['combined']], [['cveto'], ['combined']]]
+classify = [[['ann'], ['mvsc'], ['svm'], ['cveto'], ['combined']], [['ann'], ['mvsc'], ['svm'], ['cveto']], [['ann'], ['mvsc'], ['svm'], ['combined']], [['ann'], ['mvsc'], ['svm']], [['cveto'], ['combined']]]
 
 for clas in classify:
   #all glitches
@@ -522,7 +523,8 @@ for clas in classify:
       else:
         s += '0'
     fbwAbove += [BinToDec(s)]
-
+  
+  ### Add regular histograms 
   fig_num += 1
   fig = matplotlib.pyplot.figure()
   pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint=True), weights = numpy.ones(len(fbw))/len(fbw), histtype='step', log = True, label = 'all glitches')
@@ -543,14 +545,85 @@ for clas in classify:
     s = ''
     l = range(len(clas) - 1)
     for ind in l[::-1]:
-      s += str(int(loc)/2**(ind+1))
-      if int(loc)/2**(ind+1) > 0:
+      if int(loc)/2**(ind+1) == 0:
+        s += '0'
+      else:
+        s += '1'
         loc = int(loc)-2**(ind+1)
-    s += str(int(loc))
+    if int(loc) == 0:
+      s += '0'
+    else:
+      s += '1'
     tick_labels += [s]
- 
   pylab.xticks(tick_locs, tick_labels)
+  for label in fig.axes[0].xaxis.get_ticklabels():
+    label.set_rotation(90)
 
+  leg = "5 bit word is ordered in the following way:  "
+  for cls in clas:
+    leg += cls[0]+' '
+  pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
+
+  leg2 = ''
+  for cls in clas:
+    leg2 += cls[0]+'\n'
+#  pylab.figtext(0.1,0.1, leg2, ha = 'center', va = 'top')
+
+  #adding to html page
+  strclas = ''
+  for cls in clas:
+    strclas += cls[0] + '_'
+  name = '_scatter_5bit-words_'+strclas
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+  pylab.close()
+
+  ### add histograms over only those glitches that were removed
+  fig_num += 1
+  fig = matplotlib.pyplot.figure()
+  fbwFound = []
+  for fbwi in fbw:
+    if fbwi > 0:
+      fbwFound += [fbwi]
+  fbwAboveFound = []
+  for fbwA in fbwAbove:
+    if fbwA > 0:
+      fbwAboveFound += [fbwA]
+  fbwBelowFound = []
+  for fbwB in fbwBelow:
+    if fbwB > 0:
+      fbwBelowFound += [fbwB]
+  pylab.hist(fbwFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint=True), weights = numpy.ones(len(fbwFound))/len(fbwFound), histtype='step', log = True, label = 'all glitches')
+  pylab.hist(fbwBelowFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwBelowFound))/len(fbwBelowFound), histtype = 'step', log = True, label = 'signif <=' + str(sigthr))
+  pylab.hist(fbwAboveFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwAboveFound))/len(fbwAboveFound), histtype = 'step', log = True, label = 'signif >=' + str(sigthr))
+  pylab.ylabel('Fraction of Glitches Found')
+  pylab.xlim(0.5, 2**len(clas)-0.5)
+  pylab.ylim(ymax = 1.0)
+  pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy at FAP = '+str(FAPthr))
+  pylab.legend(loc = 'upper center')
+  pylab.grid(True, which = 'major')
+  pylab.grid(True, which = 'minor')
+
+  #convert decimals back to binaries and label the ticks accordingly
+  tick_locs = numpy.linspace(1,2**len(clas)-1,num=2**len(clas)-1)
+  tick_labels = []
+  for loc in tick_locs:
+    s = ''
+    l = range(len(clas) - 1)
+    for ind in l[::-1]:
+      if int(loc)/2**(ind+1) == 0:
+        s += '0'
+      else:
+        s += '1'
+        loc = int(loc)-2**(ind+1)
+    if int(loc) == 0:
+      s += '0'
+    else:
+      s += '1'
+    tick_labels += [s]
+  pylab.xticks(tick_locs, tick_labels)
   for label in fig.axes[0].xaxis.get_ticklabels():
     label.set_rotation(90)
 
@@ -563,12 +636,15 @@ for clas in classify:
   strclas = ''
   for cls in clas:
     strclas += cls[0] + '_'
-  name = '_scatter_5bit-words_'+strclas
+  name = '_scatter_5bit-words_FOUND_'+strclas
   fname = InspiralUtils.set_figure_name(opts, name)
   fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
   tagList.append(name)
   pylab.close()
+
+
+
 
 ## Create scattered plots of Significance vs  SNR for GW Triggers
 fig_num += 1
@@ -968,6 +1044,8 @@ for cls in classifiers:
         fnameList.append(fname)
         tagList.append(name)
         pylab.close()
+
+
 
 ##############################################################################################################
 
