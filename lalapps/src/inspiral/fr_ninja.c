@@ -546,6 +546,11 @@ INT4 main(INT4 argc, CHAR **argv)
             hplusREAL8[l][m]->data->data[i] = waveformsREAL8[l][m]->data->data[i];
             hcrossREAL8[l][m]->data->data[i] = waveformsREAL8[l][m]->data->data[wf_length + i];
           }
+
+          /* Done with waveformsREAL8, clean up here to limit memory usage */
+          LALFree(waveformsREAL8[l][m]->data->data);
+          LALFree(waveformsREAL8[l][m]->data);
+          LALFree(waveformsREAL8[l][m]);
         }
       }
       else /* REAL4 */
@@ -659,13 +664,6 @@ INT4 main(INT4 argc, CHAR **argv)
 
         if (wf_name[l][m])
           LALFree(wf_name[l][m]);
-
-        /* raw waveforms */
-        if (waveformsREAL8[l][m]) {
-          LALFree(waveformsREAL8[l][m]->data->data);
-          LALFree(waveformsREAL8[l][m]->data);
-          LALFree(waveformsREAL8[l][m]);
-        }
 
         /* hplus */
         if (hplusREAL8[l][m])
