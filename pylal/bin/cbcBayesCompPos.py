@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#       cbcBayesCompPos.py
-#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>
+#       cbcBayesCompPos.py Copyright 2010--2012 Benjamin Aylott
+#       <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -53,6 +53,18 @@ oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dis
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota']]
 #Bin size/resolution for binning. Need to match (converted) column names.
+
+#Convert parameter names to LaTeX; if not mentioned here, just use parameter name.
+paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchirp' : r'\mathcal{M}',
+                     'mc': r'\mathcal{M}', 'distance' : 'd', 'distMPC' : 'd', 'dist': 'd',
+                     'iota': r'\iota', 'psi': '\psi', 'eta': '\eta', 'asym_massratio': 'q', 'a1': 'a_1',
+                     'a2': 'a_2', 'phi1': r'\phi_1', 'phi2': r'\phi_2', 'theta1': r'\theta_1', 'theta2': r'\theta_2',
+                     'cos(tilt1)': r'\cos t_1', 'cos(tilt2)': r'\cos t_2', 'cos(thetas)': r'\cos \theta_s',
+                     'cosbeta': r'\cos \beta', 'phi_orb': r'\phi_{\rm orb}', 'cos(beta)': r'\cos \beta',
+                     'cos(iota)': r'\cos \iota', 'tilt1': r't_1', 'tilt2': r't_2', 'ra': r'\alpha', 'dec': r'\delta'}
+
+# Only these parameters, in this order appear in confidence level table.
+clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'a1', 'a2', 'costilt1', 'costilt2']
 
 greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'chirpmass':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2}
 
@@ -614,6 +626,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             plt.clf()
         oned_data={}
+        confidence_levels={}
         for param in common_params:
             print "Plotting comparison for '%s'"%param
 
@@ -627,6 +640,13 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
                 hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
                 hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
+
+                # Save confidence levels
+                confidence_levels[param]=[]
+                for name,pos in pos_list.items():
+                    median=pos[param].median
+                    low,high=cl_intervals[name]
+                    confidence_levels[param].append((name,low,median,high))
 
                 save_path=''
                 if hist_fig is not None:
@@ -663,8 +683,46 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
 
 
-    return greedy2savepaths,oned_data
+    return greedy2savepaths,oned_data,confidence_levels
 
+def output_confidence_levels_tex(clevels,outpath):
+    """Outputs a LaTeX table of parameter and run medians and confidence levels."""
+    params=clevels.keys()
+
+    clevels_by_name={}
+    for param in clTableParams:
+        if param in params:
+            for name,low,med,high in clevels[param]:
+                if name in clevels_by_name:
+                    clevels_by_name[name].append((param,low,med,high))
+                else:
+                    clevels_by_name[name] = [(param,low,med,high)]
+
+    outfile=open(os.path.join(outpath,'confidence_table.tex'), 'w')
+    try:
+        outfile.write(r'\begin{tabular}{|l||')
+        for param in clTableParams:
+            if param in params:
+                outfile.write('c|')
+        outfile.write('}\n')
+
+        outfile.write(r'\hline ')
+        for param in clTableParams:
+            if param in params:
+                tparam=paramNameLatexMap.get(param,param)
+                outfile.write(r'& $%s$ '%tparam)
+        outfile.write('\\\\ \n \\hline \\hline ')
+
+        for name,levels in clevels_by_name.items():
+            outfile.write(name)
+            for param,low,med,high in levels:
+                outfile.write(r' & $%.3g^{%.3g}_{%.3g}$ '%(med,high,low))
+            outfile.write('\\\\ \n')
+
+        outfile.write('\\hline \n \\end{tabular}')
+    finally:
+        outfile.close()
+            
 if __name__ == '__main__':
     from optparse import OptionParser
     parser=OptionParser()
@@ -706,8 +764,11 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_levels=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
 
+    ####Print Confidence Levels######
+    output_confidence_levels_tex(confidence_levels,outpath)    
+    
     ####Print HTML!#######
 
     compare_page=bppu.htmlPage('Compare PDFs (single event)',css=bppu.__default_css_string)
@@ -720,6 +781,7 @@ if __name__ == '__main__':
     param_section_write+='</ul></div>'
 
     param_section.write(param_section_write)
+    param_section.write('<div><p><a href="confidence_table.tex">LaTeX table</a> of medians and confidence levels.</p></div>')
     if oned_data:
 
         param_section=compare_page.add_section('1D marginal posteriors')
