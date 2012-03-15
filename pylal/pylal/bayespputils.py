@@ -2851,6 +2851,7 @@ class PEOutputParser(object):
         """
         nRead=0
         outputHeader=False
+        acceptedChains=0
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
@@ -2899,8 +2900,10 @@ class PEOutputParser(object):
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
+                if output: acceptedChains += 1
             finally:
                 infile.close()
+        print "%i of %i chains accepted."%(acceptedChains,len(files))
 
     def _swaplabel12(self, label):
         if label[-1] == '1':

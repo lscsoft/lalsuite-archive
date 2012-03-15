@@ -68,6 +68,19 @@ def oneD_dict_to_file(dict,fname):
     for key,value in dict.items():
         filed.write("%s %s\n"%(str(key),str(value)) )
 
+def multipleFileCB(opt, opt_str, value, parser):
+    args=[]
+    for arg in parser.rargs:
+        if arg[0] != "-":
+            args.append(arg)
+        else:
+            del parser.rargs[:len(args)]
+            break
+    #Append new files to list if some already specified
+    if getattr(parser.values, opt.dest):
+        args.extend(getattr(parser.values, opt.dest))
+    setattr(parser.values, opt.dest, args)
+
 def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
@@ -371,6 +384,13 @@ def cbcBayesPostProc(
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
+    if 'chain' in pos.names:
+        acceptedChains = unique(pos['chain'].samples)
+        acceptedChainText = '%i of %i chains accepted: %i'%(len(acceptedChains),len(data),acceptedChains[0])
+        if len(acceptedChains) > 1:
+            for chain in acceptedChains[1:]:
+                acceptedChainText += ', %i'%(chain)
+        html_meta.p(acceptedChainText)
     if 'cycle' in pos.names:
         html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
@@ -661,7 +681,7 @@ def cbcBayesPostProc(
                         acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
                         last_color = lines[-1].get_color()
                         plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                        plt.title('ACL = %g   Nsamps = %g'%(acl,Ncycles/acl))
+                        plt.title('ACL = %i   N = %i'%(acl,Ncycles/acl))
                 except FloatingPointError:
                     # Ignore
                     pass
@@ -680,7 +700,7 @@ def cbcBayesPostProc(
                         lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
                         last_color = lines[-1].get_color()
                         plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                    plt.title('ACL = %g  Nsamps = %g'%(max(acls),Nsamps))
+                    plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
                 except FloatingPointError:
                     # Ignore
                     pass
@@ -967,7 +987,7 @@ if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
-    parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+    parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
