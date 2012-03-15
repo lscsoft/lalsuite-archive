@@ -68,6 +68,19 @@ def oneD_dict_to_file(dict,fname):
     for key,value in dict.items():
         filed.write("%s %s\n"%(str(key),str(value)) )
 
+def multipleFileCB(opt, opt_str, value, parser):
+    args=[]
+    for arg in parser.rargs:
+        if arg[0] != "-":
+            args.append(arg)
+        else:
+            del parser.rargs[:len(args)]
+            break
+    #Append new files to list if some already specified
+    if getattr(parser.values, opt.dest):
+        args.extend(getattr(parser.values, opt.dest))
+    setattr(parser.values, opt.dest, args)
+
 def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
@@ -967,7 +980,7 @@ if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
-    parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+    parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
