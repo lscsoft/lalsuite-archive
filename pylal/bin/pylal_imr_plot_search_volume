@@ -1,0 +1,20 @@
+#!/usr/bin/python
+import sys
+from glue.ligolw import ligolw, utils
+from pylal import rate
+import matplotlib
+matplotlib.use('Agg')
+import pylab
+
+f = sys.argv[1]
+
+xmldoc = utils.load_filename(f, verbose = True)
+xmldoc = xmldoc.childNodes[0]
+
+for table in ("mass1_mass2_volume", "mass1_mass2_range"):
+	A  = rate.binned_array_from_xml(xmldoc, table)
+	pylab.pcolor(A.array)
+	pylab.savefig(table + ".png")	
+
+
+

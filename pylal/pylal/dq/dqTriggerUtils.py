@@ -33,7 +33,7 @@ This module provides a bank of useful functions for manipulating triggers and tr
 
 # global regular expressions
 trigsep = re.compile('[\t\s,]+')
-cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
+_cchar_regex = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
 
 # =============================================================================
 # Define ETG options
@@ -61,7 +61,8 @@ def SnglTriggerTable(etg, columns=None):
 
   # set columns
   if columns:
-    columns = map(str.lower, columns)
+    if isinstance(columns[0], str): columns = map(str.lower, columns)
+    if isinstance(columns[0], unicode): columns = map(unicode.lower, columns)
     for c in t.columnnames:
       if c.lower() not in columns:
         idx = t.columnnames.index(c)
@@ -1005,7 +1006,7 @@ class KWCacheEntry(LALCacheEntry):
       head,tail = os.path.split(url)
       observatory,description = re.split('_',os.path.splitext(tail)[0],\
                                          maxsplit=1)
-      observatory = observatory[0]
+      observatory = observatory
       start,end = [coltype(t) for t in os.path.basename(head).split('_')]
       duration = end-start
 
@@ -1031,7 +1032,7 @@ class KWCacheEntry(LALCacheEntry):
 # Function to generate a KW DARM_ERR cache
 # =============================================================================
 
-def kw_cache(start,end,ifo):
+def kw_cache(start, end, channel='H1:LSC-DARM_ERR', frequency=None):
 
   """
     Returns a list of KW trigger files between the given start and end
@@ -1048,6 +1049,13 @@ def kw_cache(start,end,ifo):
         IFO
   """
 
+  # format channel
+  if re.match('\w\d:', channel):
+    ifo, channel = channel.split(':', 1)
+    #_cchar_regex.sub('_', channel)
+  else:
+    raise ValueError("Please give channel in the form \"IFO:CHANNEL-NAME\"")
+  
   # verify host
   host = getfqdn()
   ifo_host = {'H1':'ligo-wa','H2':'ligo-wa','L1':'ligo-la'}
@@ -1060,9 +1068,25 @@ def kw_cache(start,end,ifo):
   basedir = os.path.expanduser('~lindy/public_html/triggers/s6')
 
   # times are numbere from a given start, which for S6 is:
-  basetime = LIGOTimeGPS(938736000)
+  base = LIGOTimeGPS(938736000)
   triglength = 86400
 
+  # construct span
+  span = segments.segment(start, end)
+
+  # get fbin
+  if not frequency:
+    f = '*_*'
+  elif frequency.lower() == 'low':
+    f = '32_2048'
+  elif frequency.lower() == 'high':
+    f = '1024_4096'
+  elif not isinstance(frequency ,str) and len(frequency)==2:
+    f = '%d_%d' % tuple(frequency)
+  else:
+    f = '*_*'
+
+  # get times
   start_time = int(start-math.fmod(start-base,triglength))
   t = start_time
 
@@ -1071,11 +1095,17 @@ def kw_cache(start,end,ifo):
     dirstart = str(t)
     dirend   = str(t+triglength)
     dirpath  = os.path.join(basedir,dirstart+'_'+dirend)
-    trigfile = os.path.join(dirpath,ifo+'_LSC-DARM_ERR_32_2048.trg')
-    if os.path.isfile(trigfile):
-
-      e = KWCacheEntry.from_KWfilename(trigfile)
-      if span.intersects(e.segment):  cache.append(e)
+    print dirpath
+    trigfile = '%s/%s_%s_%s.trg' % (dirpath, ifo, channel, f)
+    if '*' in trigfile:
+      trigfiles = glob.glob(trigfile)
+    else:
+      trigfiles = [trigfile]
+    for trigfile in trigfiles:
+      if os.path.isfile(trigfile):
+        e = KWCacheEntry.from_KWfilename(trigfile)
+        if span.intersects(e.segment):
+          cache.append(e)
 
     t+=triglength
 
@@ -1508,6 +1538,9 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
   else:
     check_time = False
 
+  if 'snr' in columns and not 'amplitude' in columns:
+    columns.append('amplitude')
+
   # generate table
   out = SnglTriggerTable('omega', columns=columns)
 
@@ -1571,8 +1604,8 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
 
   if 'duration' in columns:       attr_map['duration']       = duration
   if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
-  if 'snr' in columns:            attr_map['snr']      = numpy.sqrt(2*amplitude)
-  if 'ms_snr' in columns:         attr_map['ms_snr']   = numpy.sqrt(2*amplitude)
+  if 'snr' in columns:            attr_map['snr']         = (2*amplitude)**(1/2)
+  if 'ms_snr' in columns:         attr_map['ms_snr']      = (2*amplitude)**(1/2)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['cluster_size'] * numtrigs
@@ -1703,8 +1736,17 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
 
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+  if 'bandwidth' in columns:      attr_map['bandwidth'] = numpy.zeros(len(freq))
+  if 'ms_bandwidth' in columns: attr_map['ms_bandwidth'] = attr_map['bandwidth']
+  if 'flow' in columns:           attr_map['flow']           = freq
+  if 'fhigh' in columns:          attr_map['fhigh']          = freq
+  if 'ms_flow' in columns:        attr_map['ms_flow']        = freq
+  if 'ms_fhigh' in columns:       attr_map['ms_fhigh']       = freq
 
-  if 'snr' in columns:            attr_map['snr']  = numpy.sqrt(amplitude-n_pix)
+  if 'duration' in columns:       attr_map['duration']       = stop-st
+  if 'ms_duration' in columns:    attr_map['ms_duration']    = stop-st
+  if 'snr' in columns:         attr_map['snr']     = (amplitude-n_pix)**(1/2)
+  if 'ms_snr' in columns:      attr_map['ms_snr']  = (amplitude-n_pix)**(1/2)
 
   if 'n_pix' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['n_pix'] * numtrigs
@@ -1808,7 +1850,7 @@ def fromomegaspectrumfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
   if 'amplitude' in columns:      attr_map['amplitude'] = amplitude
-  if 'snr' in columns:            attr_map['snr'] = numpy.sqrt(amplitude)
+  if 'snr' in columns:            attr_map['snr'] = amplitude**(1/2)
 
   cols   = attr_map.keys()
   append = out.append
@@ -1932,8 +1974,8 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = (flow+fhigh)/2
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = (flow+fhigh)/2
 
-  if 'snr' in columns:            attr_map['snr']            = numpy.sqrt(cle)
-  if 'ms_snr' in columns:         attr_map['ms_snr']        = numpy.sqrt(ms_cle)
+  if 'snr' in columns:            attr_map['snr']            = cle**(1/2)
+  if 'ms_snr' in columns:         attr_map['ms_snr']         = ms_cle**(1/2)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['cluster_size'] * numtrigs

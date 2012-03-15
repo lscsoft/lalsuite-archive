@@ -31,6 +31,7 @@
 
 #include <math.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALComplex.h>
 
 #include <gsl/gsl_vector.h>
@@ -874,6 +875,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict c
   gsl_spline_init( spline, alistq1, a5slistq1, 19 );
   gsl_interp_accel_reset( acc );
   a5sq1 = gsl_spline_eval( spline, a/(1.0-2.0*eta), acc );
+  gsl_spline_free(spline);
+  gsl_interp_accel_free(acc);
 
   spline = gsl_spline_alloc( gsl_interp_cspline, 19 );
   acc    = gsl_interp_accel_alloc();
@@ -886,6 +889,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict c
   gsl_spline_init( spline, alistq10, a5slistq10, 19 );
   gsl_interp_accel_reset( acc );
   a5sq10 = gsl_spline_eval( spline, a/(1.0-2.0*eta), acc );
+  gsl_spline_free(spline);
+  gsl_interp_accel_free(acc);
 
   spline = gsl_spline_alloc( gsl_interp_cspline, 19 );
   acc    = gsl_interp_accel_alloc();
@@ -898,6 +903,8 @@ UNUSED static int XLALSimIMRGetEOBCalibratedSpinNQC( EOBNonQCCoeffs * restrict c
   gsl_spline_init( spline, alistq20, a5slistq20, 19 );
   gsl_interp_accel_reset( acc );
   a5sq20 = gsl_spline_eval( spline, a/(1.0-2.0*eta), acc );
+  gsl_spline_free(spline);
+  gsl_interp_accel_free(acc);
  
   coeffs->a1 = -12.67955358602124 + 75.41927959573084 * eta - 106.15933052937714 * eta2;
   coeffs->a2 = 101.45522216901628 - 757.3158549733314 * eta + 1473.314771676588 * eta2;
@@ -1233,7 +1240,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   nromega = GetNRSpinPeakOmega( l, m, eta, a );
   nromegaDot = GetNRSpinPeakOmegaDot( l, m, eta, a );
 
-  printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
+  //printf("NR inputs: %.16e, %.16e, %.16e, %.16e\n",nra,nraDDot,nromega,nromegaDot);
 
   if ( XLAL_IS_REAL8_FAIL_NAN( nromega ) || XLAL_IS_REAL8_FAIL_NAN( nromegaDot ) )
   {
@@ -1255,7 +1262,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   gsl_vector_set( omegaVec, 0, nromega - omega + pNSLMDot );
   gsl_vector_set( omegaVec, 1, nromegaDot - omegaDot + pNSLMDDot );
 
-  printf( "P MATRIX\n" );
+  /*printf( "P MATRIX\n" );
   for (unsigned int i = 0; i < 2; i++ )
   {
     for (unsigned int j = 0; j < 2; j++ )
@@ -1263,7 +1270,7 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
       printf( "%.12e\t", gsl_matrix_get( pMatrix, i, j ));
     }
     printf( "= %.12e\n", gsl_vector_get( omegaVec, i ) );
-  }
+  }*/
 
   /* And now solve for the b coefficients */
   gsl_linalg_LU_decomp( pMatrix, perm2, &signum );
@@ -1276,12 +1283,12 @@ UNUSED static int XLALSimIMRSpinEOBCalculateNQCCoefficients(
   coeffs->b3  = gsl_vector_get( bCoeff, 0 );
   coeffs->b4  = gsl_vector_get( bCoeff, 1 );
 
-  printf( "NQC coefficients:\n" );
+  /*printf( "NQC coefficients:\n" );
   printf( "a1 = %.16e, a2 = %.16e, a3 = %.16e, a3s = %.16e, a4 = %.16e, a5 = %.16e\n",
     coeffs->a1, coeffs->a2, coeffs->a3, coeffs->a3S, coeffs->a4, coeffs->a5 );
 
   printf( "b1 = %.16e, b2 = %.16e, b3 = %.16e, b4 = %.16e\n",
-    coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );
+    coeffs->b1, coeffs->b2, coeffs->b3, coeffs->b4 );*/
 
   /* Free memory and exit */
   gsl_matrix_free( qMatrix );

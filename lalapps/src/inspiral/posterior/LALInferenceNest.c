@@ -165,8 +165,10 @@ Initialisation arguments:\n\
 		printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
 	}
 	else
+	{
 		fprintf(stdout, " initialize(): no data read.\n");
-	
+		exit(1);
+	}
 	/* set up GSL random number generator: */
 	gsl_rng_env_setup();
 	irs->GSLrandom = gsl_rng_alloc(gsl_rng_mt19937);
@@ -386,8 +388,8 @@ void initVariables(LALInferenceRunState *state)
 	REAL8 logmcMax,logmcMin,mMin=1.0,mMax=30.0;
 	REAL8 a_spin2_max=1.0, a_spin1_max=1.0;
 	REAL8 a_spin2_min=0.0, a_spin1_min=0.0;
-	REAL8 phi_spin1_min=-LAL_PI;
-	REAL8 phi_spin1_max=LAL_PI;
+	REAL8 phi_spin1_min=0.0;
+	REAL8 phi_spin1_max=2.0*LAL_PI;
 	REAL8 theta_spin1_min=0.0;
 	REAL8 theta_spin1_max=LAL_PI;
 	REAL8 etaMin=0.01;
@@ -545,7 +547,7 @@ Parameter arguments:\n\
     else mtot_max=2.*(mMax-mMin);
     LALInferenceAddVariable(priorArgs,"MTotMax",&mtot_max,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 
-    UINT4 tempint=1;
+    INT4 tempint=1;
 	if(LALInferenceGetProcParamVal(commandLine,"--crazyinjectionhlsign") || LALInferenceGetProcParamVal(commandLine,"--crazyInjectionHLSign"))
     {
         printf("Using signal sign flip in Hanford and Livingston");
@@ -564,8 +566,8 @@ Parameter arguments:\n\
         LALInferenceAddMinMaxPrior(priorArgs,   "chirpmass",    &mcMin, &mcMax,     LALINFERENCE_REAL8_t);
         LALInferenceAddVariable(currentParams,"chirpmass",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         tmpVal=1.5;
-        REAL8 qMin=1.0;
-        REAL8 qMax=mMax/mMin;
+        REAL8 qMax=1.0;
+        REAL8 qMin=mMin/mMax;
         LALInferenceAddVariable(currentParams, "asym_massratio",       &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         LALInferenceAddMinMaxPrior(priorArgs,   "asym_massratio",    &qMin,    &qMax,    LALINFERENCE_REAL8_t);
 

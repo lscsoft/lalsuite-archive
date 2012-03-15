@@ -100,6 +100,7 @@
  *
  */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALPSpinInspiralRD.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 
@@ -994,7 +995,7 @@ int XLALPSpinInspiralRDFreqDom(
     REAL4Vector *tsigR4=XLALCreateREAL4Vector(nbins);
     for (idx=0;idx<nbins;idx++) tsigR4->data[idx]=(REAL4) tsignalvec->data[idx];
     XLALDestroyREAL8Vector(tsignalvec);
-    XLALInspiralWaveTaper(tsigR4, 3);
+    XLALSimInspiralREAL4WaveTaper(tsigR4, 3);
 
     forwPlan = XLALCreateForwardREAL4FFTPlan(nbins, 0);
     if (forwPlan == NULL) {

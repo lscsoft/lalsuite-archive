@@ -50,6 +50,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimInspiral.c \
 	LALSimInspiralPNMode.c \
+	LALSimInspiralSpinTaylorT4.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
 	LALSimInspiralTaylorF2ReducedSpinMetric.c \
@@ -59,8 +60,8 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTaylorT3.c \
 	LALSimInspiralTaylorT4.c \
 	LALSimInspiralTaylorLength.c \
+	LALSimInspiralWaveformTaper.c \
 	LALSimulation.c \
-	LALSimInspiralSpinTaylorT4.c \
 	LALSimulationVCSInfo.c \
 	LALSimNoisePSD.c \
 	LALSimNoise.c \
@@ -106,7 +107,7 @@ lalsimulation-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 
 lalsimulation-user-env.csh lalsimulation-user-env.sh: lalsimulation-user-env.shell $(srcdir)/generate_user_env.awk
 	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	@$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	generate_user_env.awk \
