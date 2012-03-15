@@ -384,6 +384,13 @@ def cbcBayesPostProc(
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
+    if 'chain' in pos.names:
+        acceptedChains = unique(pos['chain'].samples)
+        acceptedChainText = '%i of %i chains accepted: %i'%(len(acceptedChains),len(data),acceptedChains[0])
+        if len(acceptedChains) > 1:
+            for chain in acceptedChains[1:]:
+                acceptedChainText += ', %i'%(chain)
+        html_meta.p(acceptedChainText)
     if 'cycle' in pos.names:
         html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
