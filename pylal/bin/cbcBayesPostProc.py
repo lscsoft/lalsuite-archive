@@ -661,7 +661,7 @@ def cbcBayesPostProc(
                         acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
                         last_color = lines[-1].get_color()
                         plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                        plt.title('ACL = %g   Nsamps = %g'%(acl,Ncycles/acl))
+                        plt.title('ACL = %i   N = %i'%(acl,Ncycles/acl))
                 except FloatingPointError:
                     # Ignore
                     pass
@@ -680,7 +680,7 @@ def cbcBayesPostProc(
                         lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
                         last_color = lines[-1].get_color()
                         plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                    plt.title('ACL = %g  Nsamps = %g'%(max(acls),Nsamps))
+                    plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
                 except FloatingPointError:
                     # Ignore
                     pass
