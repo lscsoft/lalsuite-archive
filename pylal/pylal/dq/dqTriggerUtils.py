@@ -639,7 +639,7 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None,\
 # =============================================================================
 
 def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
-                 tabletype=None, columns=None):
+                 tabletype=None, columns=None, virgo=False):
 
   """
     Reads the file object file containing standard columns for the given etg and
@@ -673,7 +673,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
                            channel=channel,columns=columns)
   elif re.search('omega', etg, re.I):
     return fromomegafile(file, start=start, end=end, ifo=ifo, channel=channel,\
-                         columns=columns)
+                         columns=columns, virgo=virgo)
   elif re.search('kw', etg, re.I):
     return fromkwfile(file, start=start, end=end, ifo=ifo, channel=channel,\
                       columns=columns)
@@ -689,7 +689,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
 # =============================================================================
 
 def fromLALCache(cache, etg, start=None, end=None, columns=None,\
-                 verbose=False):
+                 virgo=False, verbose=False):
 
   """
     Extract triggers froa given ETG from all files in a glue.lal.Cache object.
@@ -713,7 +713,7 @@ def fromLALCache(cache, etg, start=None, end=None, columns=None,\
                                start=start, end=end, columns=columns))
     else:
       trigs.extend(fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
-                                columns=columns))
+                                columns=columns, virgo=virgo))
     # print verbose message
     if verbose and len(cache)>1:
       progress = int((i+1)/num)
@@ -820,7 +820,7 @@ def omega_online_cache(start,end,ifo):
   if not re.search(ifo_host[ifo.upper()],host):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
                         "IFO=%s on this host." % ifo
-    return []
+    return LALCache()
 
   span = segments.segment(start,end)
   cache = LALCache()
@@ -898,7 +898,7 @@ def omega_spectrum_online_cache(start,end,ifo):
   if not re.search(ifo_host[ifo],host):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
                         "IFO=%s on this host." % ifo
-    return []
+    return LALCache()
 
   span = segments.segment(start,end)
   cache = LALCache()
@@ -958,7 +958,7 @@ def omega_dq_cache(start,end,ifo):
   if not re.search(ifo_host[ifo],host):
     print >>sys.stderr, "Error: OmegaClustered files are not available for "+\
                         "IFO="+ifo+" on this host."
-    return []
+    return LALCache()
 
   cache = LALCache()
   basedir = os.path.expanduser('~detchar/public_html/S6/glitch/Wdata')
@@ -1058,17 +1058,27 @@ def kw_cache(start, end, channel='H1:LSC-DARM_ERR', frequency=None):
   
   # verify host
   host = getfqdn()
-  ifo_host = {'H1':'ligo-wa','H2':'ligo-wa','L1':'ligo-la'}
+  ifo_host = {'H0':'(ligo-wa|ligo\.)', 'H1':'(ligo-wa|ligo\.)',\
+              'H2':'ligo-wa', 'L0':'(ligo-la|ligo\.)', 'L1':'(ligo-la|ligo\.)',\
+              'V1':'ligo\.'}
   if not re.search(ifo_host[ifo],host):
-    print >>sys.stderr, "Error: KW files are not available for "+\
+    print >>sys.stderr, "Warning: KW files are not available for "+\
                         "IFO="+ifo+" on this host."
-    return []
+    return LALCache()
 
   cache = LALCache()
-  basedir = os.path.expanduser('~lindy/public_html/triggers/s6')
+  if ifo == 'V1':
+    basedir = os.path.expanduser('~mabizoua/public_html/KW')
+  elif re.search('ligo\.', host):
+    basedir = os.path.expanduser('~lindy/public_html/triggers/s6-merged')
+  else:
+    basedir = os.path.expanduser('~lindy/public_html/triggers/s6')
 
   # times are numbere from a given start, which for S6 is:
-  base = LIGOTimeGPS(938736000)
+  if ifo=='V1':
+    base = LIGOTimeGPS(938736015)
+  else:
+    base = LIGOTimeGPS(938736000)
   triglength = 86400
 
   # construct span
@@ -1095,7 +1105,6 @@ def kw_cache(start, end, channel='H1:LSC-DARM_ERR', frequency=None):
     dirstart = str(t)
     dirend   = str(t+triglength)
     dirpath  = os.path.join(basedir,dirstart+'_'+dirend)
-    print dirpath
     trigfile = '%s/%s_%s_%s.trg' % (dirpath, ifo, channel, f)
     if '*' in trigfile:
       trigfiles = glob.glob(trigfile)
@@ -1495,7 +1504,7 @@ def vetoed(self, seglist):
 # =============================================================================
 
 def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
-                  columns=None):
+                  columns=None, virgo=False):
 
   """
     Load triggers from an Omega format text file into a SnglBurstTable object.
@@ -1558,7 +1567,12 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
   if numpy.shape(dat) == (0,):
     return out
 
-  if len(dat)==8:
+  if virgo:
+    start, stop, peak, freq, bandwidth, cln, cle, snr = dat
+    duration = stop-start
+    amplitude = snr**2/2
+    omega_clusters = False
+  elif len(dat)==8:
     peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
     omega_clusters = True
   elif len(dat)==5:
@@ -1690,7 +1704,7 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
     fh = open(fname, 'r')
 
   # load data from file
-  dat = loadtxt(fh)
+  dat = loadtxt(fh, usecols=[0,1,2,3,4,5,6,7])
 
   # close file if we opened it
   if not hasattr(fname, 'readline'):
