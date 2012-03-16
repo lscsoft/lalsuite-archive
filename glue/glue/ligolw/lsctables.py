@@ -1707,6 +1707,7 @@ class CoincRingdownTable(table.Table):
 		"eff_coh_snr": "real_8",
 		"null_stat": "real_8",
 		"kappa": "real_8",
+		"snr_ratio": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8"
 	}
