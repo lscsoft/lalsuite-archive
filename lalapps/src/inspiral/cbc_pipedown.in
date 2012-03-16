@@ -164,7 +164,8 @@ coinc_slide_tag = cp.get('pipeline', 'coinc-slide-file-tag')
 search_file_tag = cp.get('pipeline', 'search-file-tag')
 ihope_cache = [line for line in file(options.ihope_cache) \
   if coinc_zero_lag_tag in line or coinc_slide_tag in line \
-  or " INJECTIONS" in line or search_file_tag in line]
+  or " INJECTIONS" in line or search_file_tag in line \
+  or "CHIA_COHERENT" in line or "CHIA_SLIDE_COHERENT"]
 
 zero_lag_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if coinc_zero_lag_tag in entry])
@@ -174,6 +175,10 @@ inj_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache if \
   " INJECTIONS" in entry])
 all_inspirals_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if search_file_tag in entry]) 
+coh_zero_lag_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
+  if "CHIA_COHERENT" in entry])
+coh_slide_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
+  if "CHIA_SLIDE_COHERENT" in entry])
 
 del ihope_cache
 
@@ -382,12 +387,16 @@ for tag in user_tags:
   # sieve zero_lag_cache for THINCA_SECOND files with this tag
   file_sieve = '*' + tag
   thinca_cache = zero_lag_cache.sieve( description = file_sieve, exact_match = True )
+  cohire_cache = coh_zero_lag_cache.sieve( description = file_sieve, exact_match = True )
   # if not an injection run, check that there are an equal number of
   # slide files
   if not simulation and \
     len(slide_cache.sieve( description = file_sieve, exact_match = True )) != \
     len(thinca_cache):
     raise ValueError, "Number of %s slide files doesn't equal number of zero-lag files." % tag
+  if not simulation and \
+    len(coh_slide_cache.sieve( description = file_sieve, exact_match = True )) != len(cohire_cache):
+    raise ValueError, "Number of %s coherent slide files doesn't equal number of zero-lag files." % tag
 
   # also sieve all_inspirals_cache
   file_sieve = tag.split('_CAT_')[0]
@@ -421,7 +430,9 @@ for tag in user_tags:
   this_cache = lal.Cache()
   for on_instruments in distinct_instrument_sets:
     instrument_cache = thinca_cache.sieve( ifos = on_instruments, exact_match = True )
+    coh_instrument_cache = cohire_cache.sieve( ifos = on_instruments, exact_match = True )
     instrument_cache.sort()
+    coh_instrument_cache.sort()
     cache_start_time = int(experiment_start)
     for entry_num, entry in enumerate(instrument_cache):
       if not this_cache:
@@ -431,10 +442,18 @@ for tag in user_tags:
         this_cache.extend(inspiral_cache)
       # Add the zero-lag thinca entry to this_cache 
       this_cache.append(entry)
+      for coh_entry_num, coh_entry in enumerate(coh_instrument_cache):
+        if (entry_num == coh_entry_num):
+          this_cache.append(coh_entry)
+          break
+
       # if this isn't a simulation add the slide file
       if not simulation:
         slide_entry = lal.CacheEntry(re.sub(coinc_zero_lag_tag, coinc_slide_tag, str(entry)))
         this_cache.append(slide_entry)
+        cohire_slide_entry = lal.CacheEntry(re.sub('CHIA', 'CHIA_SLIDE', str(coh_entry)))
+        this_cache.append(cohire_slide_entry)
+
       # if n*20th entry or last remainder, write to cache
       if (entry_num + 1) % 20 == 0 or (entry_num + 1) == len(instrument_cache):
         # set duration to be end of this entry - start of first entry in cache
