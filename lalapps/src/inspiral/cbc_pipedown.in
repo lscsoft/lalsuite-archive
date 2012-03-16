@@ -165,7 +165,7 @@ search_file_tag = cp.get('pipeline', 'search-file-tag')
 ihope_cache = [line for line in file(options.ihope_cache) \
   if coinc_zero_lag_tag in line or coinc_slide_tag in line \
   or " INJECTIONS" in line or search_file_tag in line \
-  or "CHIA_COHERENT" in line or "CHIA_SLIDE_COHERENT"]
+  or "CHIA_COHERENT" in line or "CHIA_SLIDE_COHERENT" in line]
 
 zero_lag_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if coinc_zero_lag_tag in entry])
