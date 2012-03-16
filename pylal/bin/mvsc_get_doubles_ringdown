@@ -177,7 +177,7 @@ for database in databases:
 		is_injections = False
 
 	if is_injections:
-		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],) ):
+		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],opts.start_time,opts.end_time,injset,) ):
 			injections.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,) + (1,))
 			injections_info.append([values[0], database])
 
