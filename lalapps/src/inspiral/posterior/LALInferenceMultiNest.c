@@ -105,7 +105,11 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	REAL8 logZnoise;
 	UINT4 verbose=0;
 	
-	logZnoise=LALInferenceNullLogLikelihood(runState->data);
+	if (LALInferenceGetProcParamVal(runState->commandLine, "--correlatedGaussianLikelihood")) {
+		logZnoise=0.0;
+	} else {
+		logZnoise=LALInferenceNullLogLikelihood(runState->data);
+	}
 	LALInferenceAddVariable(runState->algorithmParams,"logZnoise",&logZnoise,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	//logLikelihoods=(REAL8 *)(*(REAL8Vector **)LALInferenceGetVariable(runState->algorithmParams,"logLikelihoods"))->data;
 
@@ -367,6 +371,9 @@ MultiNest arguments:\n\
 	} else if (LALInferenceGetProcParamVal(commandLine, "--S6Prior")) {
 		runState->prior=&LALInferenceInspiralPriorNormalised;
 		runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
+	} else if (LALInferenceGetProcParamVal(commandLine, "--AnalyticGaussPrior")) {
+		runState->prior = &LALInferenceNullPrior;
+		runState->CubeToPrior = &LALInferenceAnalyticGaussianCubeToPrior;
 	} else {
 		runState->prior = &LALInferenceInspiralPrior;
 		runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;

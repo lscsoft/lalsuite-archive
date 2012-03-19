@@ -178,4 +178,7 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
                     const double McMin, const double McMax,
                     const double massRatioMin, const double massRatioMax, const char *massRatioName);
 
+/** Uniform prior for correlated analytic Gaussian likelihood */
+REAL8 LALInferenceAnalyticGaussianCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+
 #endif
