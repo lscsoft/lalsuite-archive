@@ -19,6 +19,9 @@
 #define ABSOLUTE_TOLERANCE 1.e-12
 #define RELATIVE_TOLERANCE 1.e-12
 
+static REAL8 MASS_IN_METER = LAL_G_SI / ((REAL8) LAL_C_SI * (REAL8) LAL_C_SI);
+static REAL8 MASS_IN_SEC = LAL_G_SI / ((REAL8) LAL_C_SI * (REAL8) LAL_C_SI * (REAL8) LAL_C_SI);
+
 /**	Error codes for the integrator.
  */
 enum {
@@ -421,7 +424,7 @@ static int XLALCalculateConstantParameters(Parameters *param, REAL8 mass1, REAL8
 	param->mass[1] = mass2;
 	param->totalMass = param->mass[0] + param->mass[1];
 	param->eta = param->mass[0] * param->mass[1] / sq(param->totalMass);
-	param->chirpMass = param->totalMass * pow(param->eta, 3.0 / 5.0);
+	param->chirpMass = param->totalMass * MASS_IN_SEC * pow(param->eta, 3.0 / 5.0);
 	param->qm[0] = qm1;
 	param->qm[1] = qm2;
 	REAL8 chi[2][DIMENSIONS] = { { chi1x, chi1y, chi1z }, { chi2x, chi2y, chi2z } };
@@ -528,7 +531,7 @@ static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *par
 		REAL8 initialFrequency) {
 	REAL8 input[EVOLVING_VARIABLES];
 	input[PHASE] = 0.0;
-	input[OMEGA] = LAL_PI * param->totalMass * initialFrequency;
+	input[OMEGA] = LAL_PI * param->totalMass * MASS_IN_SEC * initialFrequency;
 	for (UINT2 dimension = X; dimension < DIMENSIONS; dimension++) {
 		input[LNHATX + dimension] = param->lnhat[dimension];
 		input[CHI1X + dimension] = param->chih[0][dimension];
@@ -543,8 +546,10 @@ static int XLALEvolveParameters(REAL8Array **out, REAL8 *length, Parameters *par
 	}
 	integrator->stopontestonly = 1;
 	// run the integration; note: time is measured in \hat{t} = t / M
-	*length = XLALAdaptiveRungeKutta4(integrator, (void *) param, input, 0.0,
-			*length / param->totalMass, param->samplingTime / param->totalMass, out);
+	REAL8 totalMass = param->totalMass * MASS_IN_SEC;
+	REAL8 size = *length;
+	*length = XLALAdaptiveRungeKutta4(integrator, (void *) param, input, 0.0, size / totalMass,
+			param->samplingTime / totalMass, out);
 	INT4 intreturn = integrator->returncode;
 	XLALAdaptiveRungeKutta4Free(integrator);
 	if (!*length) {
@@ -599,13 +604,10 @@ static int XLALCreateOrbitOutput(Output *param, UINT4 length, REAL8 samplingTime
 static int XLALCreateWaveformOutput(Output *param, UINT4 length, REAL8 samplingTime) {
 	LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
 	XLALGPSAdd(&tStart, -1.0 * (length - 1) * samplingTime);
-	;
 	param->waveform[HP] = XLALCreateREAL8TimeSeries("H_PLUS", &tStart, 0.0, samplingTime,
 			&lalDimensionlessUnit, length);
-	;
 	param->waveform[HC] = XLALCreateREAL8TimeSeries("H_CROSS", &tStart, 0.0, samplingTime,
 			&lalDimensionlessUnit, length);
-	;
 	if (!param->waveform[HP] || !param->waveform[HC]) {
 		XLAL_ERROR(XLAL_EFUNC);
 	}
@@ -624,16 +626,18 @@ inline static void crossProduct(REAL8 out[], const REAL8 left[], const REAL8 rig
 
 static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], REAL8 phase, REAL8 V,
 		Parameters *params, REAL8 distance, INT4 orderOfAmplitude) {
-	REAL8 h[2];
-	hp = &h[HP];
-	hc = &h[HC];
+	REAL8 *h[2] = { NULL, NULL };
+	h[HP] = hp;
+	h[HC] = hc;
 	enum {
 		TEMP = 4,
 	};
 	REAL8 vPowi_3[TEMP] = { 1.0, V, sq(V), vPowi_3[2] * V };
 	REAL8 siniPhi[TEMP];
 	REAL8 cosiPhi[TEMP];
-	for (INT2 order = 1; order < orderOfAmplitude + 1; order++) {
+	siniPhi[0] = 0.0;
+	cosiPhi[0] = 0.0;
+	for (INT2 order = 1; order < TEMP; order++) {
 		siniPhi[order] = sin((REAL8) order * phase);
 		cosiPhi[order] = cos((REAL8) order * phase);
 	}
@@ -642,13 +646,11 @@ static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], R
 	REAL8 sine[PNORDER][WAVEFORM], cosine[PNORDER][WAVEFORM];
 	REAL8 coefSine3Phi[WAVEFORM];
 	REAL8 coefCosine3Phi[WAVEFORM];
-	REAL8 deltamPerM;
 	cosine[PN0_0][HP] = 0.5 * (sq(e1[X]) - sq(e1[Y]) - sq(e2[X]) + sq(e2[Y]));
 	cosine[PN0_0][HC] = e1[X] * e1[Y] - e2[X] * e2[Y];
 	sine[PN0_0][HP] = e1[X] * e2[X] - e1[Y] * e2[Y];
 	sine[PN0_0][HC] = e1[Y] * e2[X] + e1[X] * e2[Y];
 	if (orderOfAmplitude > PN0_0) {
-		deltamPerM = sqrt(1.0 - 4.0 * params->eta);
 		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
 			coefSine3Phi[wave] = -9.0 * (sine[PN0_0][wave] * e2[Z] - cosine[PN0_0][wave] * e1[Z]);
 			coefCosine3Phi[wave] = -9.0 * (cosine[PN0_0][wave] * e2[Z] + sine[PN0_0][wave] * e1[Z]);
@@ -667,15 +669,16 @@ static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], R
 	case PN1_5:
 	case PN1_0:
 	case PN0_5: {
+		REAL8 deltamPerM = sqrt(1.0 - 4.0 * params->eta);
 		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
-			h[wave] -= 0.5 * vPowi_3[3] * deltamPerM
+			*h[wave] -= 0.5 * vPowi_3[3] * deltamPerM
 					* (cosine[PN0_5][wave] * cosiPhi[1] - sine[PN0_5][wave] * siniPhi[1]
 							+ coefSine3Phi[wave] * siniPhi[3] + coefCosine3Phi[wave] * cosiPhi[3]);
 		}
 	}
 	case PN0_0:
 		for (UINT2 wave = HP; wave < WAVEFORM; wave++) {
-			h[wave] += 4.0 * vPowi_3[2]
+			*h[wave] += 4.0 * vPowi_3[2]
 					* (sine[PN0_0][wave] * siniPhi[2] + cosine[PN0_0][wave] * cosiPhi[2]);
 		}
 		break;
@@ -685,7 +688,7 @@ static int XLALCalculateWaveform(REAL8 *hp, REAL8 *hc, REAL8 e1[], REAL8 e3[], R
 		XLAL_ERROR(XLAL_EINVAL);
 		break;
 	}
-	REAL8 amp = -params->totalMass * params->eta * LAL_MRSUN_SI / distance;
+	REAL8 amp = -params->totalMass * MASS_IN_METER * params->eta / distance;
 	*hp *= amp;
 	*hc *= amp;
 	return XLAL_SUCCESS;
@@ -756,7 +759,6 @@ static int XLALDerivator(double t, const double values[], double dvalues[], void
 												* lnhatCrossChih[current][dim]) * sq(values[OMEGA]);
 					}
 				}
-
 			}
 			if (isSet(params->interactionFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN)) {
 				for (UINT2 current = 0; current < 2; current++) {
