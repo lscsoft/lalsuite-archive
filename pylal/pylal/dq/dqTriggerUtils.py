@@ -797,7 +797,8 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 # Function to generate an omega online cache
 # =============================================================================
 
-def omega_online_cache(start,end,ifo):
+def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
+                       check_files_exist=False, **kwargs):
 
   """
     Returns a glue.lal.Cache contatining CacheEntires for all omega online
@@ -814,58 +815,51 @@ def omega_online_cache(start,end,ifo):
         IFO
   """
 
+  cache = LALCache()
+
   # verify host
   host = getfqdn()
   ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
-  if not re.search(ifo_host[ifo.upper()],host):
+  if (not kwargs.has_key('directory') and not re.search(ifo_host[ifo],host)):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
                         "IFO=%s on this host." % ifo
-    return LALCache()
+    return cache
 
   span = segments.segment(start,end)
-  cache = LALCache()
-
-  # add basedirs as list (GEO omega_online has been moved for some period so
-  # we need more than one)
   if ifo == 'G1':
-    basedirs = [os.path.expanduser('~omega/online/%s/segments' % ifo),\
-                os.path.expanduser('~omega/online/G1/archive/A6pre/segments')]
-    basetimes = [LIGOTimeGPS(1004305400), LIGOTimeGPS(983669456)]
+    kwargs.setdefault('directory', '/home/omega/online/G1/segments')
+    kwargs.setdefault('epoch', 983669456)
   else:
-    basedirs = [os.path.expanduser('~omega/online/%s/archive/S6/segments'\
-                                  % (str(ifo)))]
-    basetimes = [LIGOTimeGPS(931211808)]
+    kwargs.setdefault('directory',\
+                      '/home/omega/online/%s/archive/S6/segments' % ifo)
+    kwargs.setdefault('epoch', 931211808)
+  kwargs.setdefault('duration', 64)
+  kwargs.setdefault('overlap', 8)
 
-  dt = 10000 
-  t = int(start)
+  # optimise
+  append       = cache.append
+  splitext     = os.path.splitext
+  isfile   = os.path.isfile
+  intersects   = span.intersects
+  segment      = segments.segment
+  from_T050017 = LALCacheEntry.from_T050017
+  basedir      = kwargs['directory']
+  basetime     = kwargs['epoch']
+  triglength   = kwargs['duration']
+  overlap      = kwargs['overlap']
 
-  while t-dt<=end:
+  # get times
+  start_time = int(start-math.fmod(start-basetime,triglength-overlap))
+  t = start_time
 
-    tstr = '%.6s' % ('%.10d' % t)
-
-    # find basedir for this time
-    basedir = None
-    for i,d in enumerate(basedirs):
-      if t > basetimes[i]:
-        basedir = d
-        break
-    if not basedir:
-      raise Exeption, "Cannot find base directory for %s omega online at %s"\
-                      % (ifo, t)
-
-    dirstr = '%s/%s*' % (basedir, tstr)
-    dirs = glob.glob(dirstr)
-
-    for dir in dirs:
-      files = glob.glob('%s/%s-OMEGA_TRIGGERS_CLUSTER*.txt' % (dir, ifo))
-
-      for f in files:
-        e = LALCacheEntry.from_T050017(f)
-
-        if span.intersects(e.segment):
-          cache.append(e)
-
-    t+=dt
+  # loop over time segments constructing file paths and appending to the cache
+  while t<end:
+    trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+               % (basedir, t, t+triglength, ifo, mask, t, triglength)
+    if intersects(segment(t, t+triglength))\
+    and (not check_files_exist or isfile(trigfile)):
+      append(from_T050017(trigfile))
+    t+=triglength-overlap
 
   cache.sort(key=lambda e: e.path())
 
@@ -875,7 +869,7 @@ def omega_online_cache(start,end,ifo):
 # Function to generate an omega spectrum online cache
 # =============================================================================
 
-def omega_spectrum_online_cache(start,end,ifo):
+def omega_spectrum_online_cache(start, end, ifo, **kwargs):
 
   """
     Returns a glue.lal.Cache contatining CacheEntires for all omega online
@@ -892,48 +886,7 @@ def omega_spectrum_online_cache(start,end,ifo):
         IFO
   """
 
-  # verify host
-  host = getfqdn()
-  ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
-  if not re.search(ifo_host[ifo],host):
-    print >>sys.stderr, "Error: Omega online files are not available for "+\
-                        "IFO=%s on this host." % ifo
-    return LALCache()
-
-  span = segments.segment(start,end)
-  cache = LALCache()
-  if ifo == 'G1':
-    basedir = os.path.expanduser('~omega/online/%s/segments' % ifo)
-    basetime = LIGOTimeGPS(983669456)
-  else:
-    basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
-                                  % (str(ifo)))
-    basetime = LIGOTimeGPS(931211808)
-
-  dt = 10000 
-  t = int(start)
-
-  while t-dt<=end:
-
-    tstr = '%.6s' % ('%.10d' % t)
-
-    dirstr = '%s/%s*' % (basedir, tstr)
-    dirs = glob.glob(dirstr)
-
-    for dir in dirs:
-      files = glob.glob('%s/%s-OMEGA_TRIGGERS_SPECTRUM*.txt' % (dir, ifo))
-
-      for f in files:
-        e = LALCacheEntry.from_T050017(f)
-
-        if span.intersects(e.segment):
-          cache.append(e)
-
-    t+=dt
-
-  cache.sort(key=lambda e: e.path())
-
-  return cache
+  return omega_online_cache(start, end, ifo, mask='SPECTRUM', **kwargs)
 
 # =============================================================================
 # DetChar 'omegadq' cache
