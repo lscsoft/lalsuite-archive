@@ -77,7 +77,7 @@ class CandidateEventQuery:
 			AND snglA.ifo == ?
 			AND snglB.ifo == ?
 			AND snglA.start_time > ?
-			AND snglA.start_time < ?
+			AND snglA.start_time < ?"""
 	add_where_all="""
 			AND coinc_definer.description LIKE '%near%'
 		ORDER BY coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001"""
