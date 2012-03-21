@@ -358,7 +358,7 @@ def cbcBayesPostProc(
 
     #Remove non-analytic parameters if analytic likelihood is given:
     if analyticLikelihood:
-        dievidence_names = ['post','posterior','logl','prior','likelihood']
+        dievidence_names = ['post','posterior','logl','prior','likelihood','cycle','chain']
         [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names and param not in dievidence_names]
 
     ##Print some summary stats for the user...##
