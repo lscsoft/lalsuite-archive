@@ -965,6 +965,10 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
 
     width = numpy.asarray(width)/2
 
+    # get version
+    v = map(int, numpy.version.version.split('.'))
+    if v[1] >= 1: width = width[:-1]
+
     # set base of plot in log scale
     if logy:
       ymin = (base**-1)*5
@@ -986,7 +990,14 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
         plot_kwargs.setdefault("bottom", ymin)
 
       # make histogram
-      y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True, normed=normed)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+        x = x[:-1]
 
       if logy:
         y = y-ymin
@@ -1747,7 +1758,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   clim = kwargs.pop('clim', None)
  
   if color_column:
-    colData = get_column(triggers, color_column)
+    colData = get_column(triggers, color_column).astype(float)
     if not clim:
       if len(colData)>0:
         clim = [colData.min(), colData.max()]
@@ -1773,9 +1784,10 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   postData = []
   for i in range(num_color_bins):
     if color_column:
-      preData.append(get_column(triggers, column)[colData>=color_bins[i]])
+      preData.append(get_column(triggers, column).astype(float)\
+                                                 [colData>=color_bins[i]])
     else:
-      preData.append(get_column(triggers, column))
+      preData.append(get_column(triggers, column).astype(float))
     postData.append([p for j,p in enumerate(preData[i])\
                      if tdata[j] not in seglist])
 

@@ -39,7 +39,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze
+from numpy import array,exp,cos,sin,arcsin,arccos,sqrt,size,mean,column_stack,cov,unique,hsplit,correlate,log,dot,power,squeeze,sort
 from scipy import stats
 
 import matplotlib
@@ -67,6 +67,19 @@ def oneD_dict_to_file(dict,fname):
     filed=open(fname,'w')
     for key,value in dict.items():
         filed.write("%s %s\n"%(str(key),str(value)) )
+
+def multipleFileCB(opt, opt_str, value, parser):
+    args=[]
+    for arg in parser.rargs:
+        if arg[0] != "-":
+            args.append(arg)
+        else:
+            del parser.rargs[:len(args)]
+            break
+    #Append new files to list if some already specified
+    if getattr(parser.values, opt.dest):
+        args.extend(getattr(parser.values, opt.dest))
+    setattr(parser.values, opt.dest, args)
 
 def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
@@ -345,7 +358,7 @@ def cbcBayesPostProc(
 
     #Remove non-analytic parameters if analytic likelihood is given:
     if analyticLikelihood:
-        dievidence_names = ['post','posterior','logl','prior','likelihood']
+        dievidence_names = ['post','posterior','logl','prior','likelihood','cycle','chain']
         [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names and param not in dievidence_names]
 
     ##Print some summary stats for the user...##
@@ -371,6 +384,13 @@ def cbcBayesPostProc(
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
+    if 'chain' in pos.names:
+        acceptedChains = unique(pos['chain'].samples)
+        acceptedChainText = '%i of %i chains accepted: %i'%(len(acceptedChains),len(data),acceptedChains[0])
+        if len(acceptedChains) > 1:
+            for chain in acceptedChains[1:]:
+                acceptedChainText += ', %i'%(chain)
+        html_meta.p(acceptedChainText)
     if 'cycle' in pos.names:
         html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
@@ -534,6 +554,19 @@ def cbcBayesPostProc(
     if not os.path.isdir(sampsdir):
         os.makedirs(sampsdir)
 
+    if 'chain' in pos.names:
+        data,header=pos.samples()
+        par_index=pos.names.index('cycle')
+        chain_index=pos.names.index("chain")
+        chains=unique(pos["chain"].samples)
+        chainCycles = [sort(data[ data[:,chain_index] == chain, par_index ]) for chain in chains]
+        chainNcycles = [cycles[-1]-cycles[0] for cycles in chainCycles]
+        chainNskips = [cycles[1] - cycles[0] for cycles in chainCycles]
+    elif 'cycle' in pos.names:
+        cycles = sort(pos['cycle'].samples)
+        Ncycles = cycles[-1]-cycles[0]
+        Nskip = cycles[1]-cycles[0]
+
     for par_name in oneDMenu:
         par_name=par_name.lower()
         print "Binning %s to determine confidence levels ..."%par_name
@@ -639,23 +672,38 @@ def cbcBayesPostProc(
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
                 mu=mean(data)
-                corr=correlate((data-mu),(data-mu),mode='full')
                 N=len(data)
+                corr=correlate((data-mu),(data-mu),mode='full')
+                acf = corr[N-1:]/corr[N-1]
                 try:
-                    plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                    if 'cycle' in pos.names:
+                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                        plt.title('ACL = %i   N = %i'%(acl,Ncycles/acl))
                 except FloatingPointError:
                     # Ignore
                     pass
             else:
-                for rng, data in zip(chainDataRanges, chainData):
-                    mu=mean(data)
-                    corr=correlate(data-mu,data-mu,mode='full')
-                    N=len(data)
-                    try:
-                        plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-                    except FloatingPointError:
-                        # Ignore
-                        pass
+                try:
+                    acls = []
+                    Nsamps = 0.0;
+                    for rng, data, Nskip, Ncycles in zip(chainDataRanges, chainData, chainNskips, chainNcycles):
+                        mu=mean(data)
+                        N=len(data)
+                        corr=correlate(data-mu,data-mu,mode='full')
+                        acf = corr[N-1:]/corr[N-1]
+                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                        acls.append(acl)
+                        Nsamps += Ncycles/acl
+                        lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
+                        last_color = lines[-1].get_color()
+                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                    plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
+                except FloatingPointError:
+                    # Ignore
+                    pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
@@ -939,7 +987,7 @@ if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
-    parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+    parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
