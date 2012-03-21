@@ -665,7 +665,7 @@ class Posterior(object):
                         'dec':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: inj.polarization,
+                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
