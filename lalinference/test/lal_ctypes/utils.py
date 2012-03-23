@@ -91,7 +91,7 @@ def __load_lib(libname, mode = None):
         
         if pkg_config.libdirs:
             for f in os.listdir(lib_path):
-                if fnmatch.fnmatch(f,'lib'+libname+'.so.*'):
+                if fnmatch.fnmatch(f,'lib'+libname+'.so.*') or fnmatch.fnmatch(f,'lib'+libname+'.dylib*'):
                     targets.append(f)
         
         if not targets:

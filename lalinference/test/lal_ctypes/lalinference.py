@@ -151,7 +151,7 @@ class LALInferenceVariables(Structure):
         return self._printVariables(self.ptr)
         
     def printSample(self):
-        
+        pass        
     
 #LALInferenceIFOData
 class LALInferenceIFOData(Structure): pass
