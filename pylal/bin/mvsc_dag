@@ -249,8 +249,8 @@ for comb in ifo_combinations:
     training_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'training.pat')
     evaluation_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation.pat')
     evaluation_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation_info.pat')
-  zerolag_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag.pat')
-  zerolag_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag_info.pat')
+    zerolag_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag.pat')
+    zerolag_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag_info.pat')
   if opts.skip_file_generation:
     get_node[comb] = None
   else:
