@@ -20,6 +20,7 @@ shift=1            ## This is in percent. If type_inj is GR this will be ignored
 distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
 sigma=0.0          ## Sigma for the normal distribution. This is in percent.
 number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
+append_to_database=1 ## If 1 Bayes factors and mediand and stdevs will be appended to the remote database (see below)
 
 remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
 remote_database='IRM_BayesFactorsDatabase.txt'   ## Successful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed. Median and stdev of the parameters are appended to 'remote_database'_parameters
@@ -296,8 +297,11 @@ for i in os.uname():
         logd=logdir
         scrd=scratchdir
 #print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
-#os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
-os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
+
+if append_to_database==1:
+    os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
+elif append_to_database==0:
+    os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
 
 # RETURN TO CURRENT WORKING DIRECTORY
 os.chdir(curdir)
