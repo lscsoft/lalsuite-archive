@@ -28,15 +28,16 @@ from os import getenv
 _display = getenv('DISPLAY','')
 _backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
 """
-if not _display and matplotlib.get_backend().lower() is not 'agg':
+if not _display and not matplotlib.get_backend().lower() == 'agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
 import pylab
 
-try:
-  from mpl_toolkits.basemap import Basemap
-except ImportError,e:
-  warnings.warn(e)
+try: from mpl_toolkits.basemap import Basemap
+except ImportError,e: warnings.warn(e)
+try: from mpl_toolkits import axes_grid
+except ImportError,e: warning.warn(e)
+
 from datetime import datetime
 from glue import segments,git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -119,20 +120,21 @@ def set_ticks(ax, calendar_time=False):
     dateLocator.refresh()
     scale = float( dateLocator._get_unit() )
     if ( scale == 365.0 ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%Y")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%Y$")
     elif ( scale == 30.0 ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%y/%b ")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%y$/$%m$")
     elif ( (scale == 1.0) or (scale == 7.0) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%b %d")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%m$/$%d$")
     elif ( scale == (1.0/24.0) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%d-%H")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%d$-$%H$")
     elif ( scale == (1.0/(24*60)) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%H$:$%M$")
     elif ( scale == (1.0/(24*3600)) ):
-      dateFormatter = pylab.matplotlib.dates.DateFormatter("%H:%M")
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%H$:$%M$")
   
-    ax.xaxis.set_major_locator(pylab.matplotlib.dates.AutoDateLocator())
+    ax.xaxis.set_major_locator(dateLocator)
     ax.xaxis.set_major_formatter(dateFormatter)
+
   else:
     # set xticks for 4 hours rather than 5
     xticks = ax.get_xticks()
@@ -173,7 +175,11 @@ def display_name(columnName):
   unit  = ['ns']
   sub   = ['flow', 'fhigh', 'hrss', 'mtotal', 'mchirp']
 
-  words = columnName.split('_')
+  s = re.split('([_\s])', columnName)
+  words = s[::2]
+  delims = s[1::2]
+
+  # parse words
   for i,w in enumerate(words):
     if w in acro:
       words[i] = w.upper()
@@ -193,9 +199,13 @@ def display_name(columnName):
         words[i] = w
       else:
         words[i] = w.title()
-      
+  s[::2] = words
 
-  return ' '.join(words) 
+  # parse delimiters
+  for i,w in enumerate(delims):
+    delims[i] = re.sub('\\\\\\\_', '\_', re.sub('_', '\_', w))
+  s[1::2] = delims
+  return ''.join(s) 
 
 def gps2datenum(gpstime):
 
@@ -203,7 +213,7 @@ def gps2datenum(gpstime):
     Convert GPS time into floating in standard python time format
     (days since Jan 01 0000), don't seem to use properly leap seconds
   """
-
+  
   # set time of 0 GPS in datenum units
   zeroGPS = 722820.0
   ## correct for leap seconds assuming that all time stamps are within
@@ -224,6 +234,21 @@ def gps2datenum(gpstime):
 
   return datenum
 
+def calendar_time_unit(duration):
+
+  if duration > 63072000:
+    return "year"
+  elif duration > 5184000:
+    return "year/month"
+  elif duration > 604800:
+    return "month/day"
+  elif duration > 7200:
+    return "day-hour"
+  elif duration > 600:
+    return "hour:minute"
+  else: 
+    return "hour:minute:second"
+  
 def time_unit(duration):
 
   """
@@ -297,6 +322,69 @@ def getTrigAttribute(trig, col):
   except:
     raise KeyError, "Column '%s' not found in %s." % (col, type(trig))
 
+def add_colorbar(self, mappable, cax=None, clim=None, log=False, base=10,\
+                 label=None, **kwargs):
+
+  # set axes for colorbar
+  #if not cax:
+  #  div = axes_grid.make_axes_locatable(self.ax)
+  #  cax = div.new_horizontal(size="2%", pad=0.05, visible=True)
+    #cax = div.append_axes("right", size="2%", pad=0.05)
+
+  cmin, cmax = clim
+
+  # construct colorbar tick formatter, using logic not supported before python
+  # 2.5
+  colorticksize = None
+  if log and numpy.power(base,cmax)-numpy.power(base,cmin) > 4:
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                    numpy.power(base,x)>=1 and\
+                        "$%d$" % round(numpy.power(base, x)) or\
+                    numpy.power(base,x)>=0.01 and\
+                        "$%.2f$" % numpy.power(base, x) or\
+                    numpy.power(base,x)<0.01 and "$%f$")
+  elif log and numpy.power(base,cmax)-numpy.power(base,cmin) > 0.4:
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.2f$"\
+                                                      % numpy.power(base, x))
+  elif log:
+    colorticksize = 'small'
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: '$%.2e$'\
+                                                      % numpy.power(base, x))
+  elif not log and cmax-cmin > 4:
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                    x>=1 and "$%d$" % round(x) or\
+                    x>=0.01 and "$%.2f$" % x or\
+                    x==0.0 and "$0$" or\
+                    x and "$%f$")
+  else:
+    formatter = None
+
+  if clim:
+    colorticks = numpy.linspace(cmin, cmax, 4)
+  else:
+    colorticks = None
+
+  self.colorbar = self.ax.figure.colorbar(mappable, cax=cax, format=formatter,\
+                                          ticks=colorticks, pad=0.005,\
+                                          fraction=0.02, aspect=40, **kwargs)
+  if colorticksize is not None:
+    for l in self.colorbar.ax.yaxis.get_ticklabels():
+      l.set_size(colorticksize)
+#  colorbar = pylab.colorbar(mappable, cax=cax, format=formatter,\
+                            #ticks=colorticks, **kwargs)
+  self.colorbar.set_label(label)
+  self.colorbar.draw_all()
+
+  #try:
+  #  self.colorbar = colorbar
+  #except:
+  #  return colorbar
+
+def add_hidden_colorbar(self):
+
+  # set axes for colorbar
+  div = axes_grid.make_axes_locatable(self.ax)
+  cax = div.new_horizontal(size="2%", pad=0.05, visible=False)
 
 # =============================================================================
 # Abstract classes for plots
@@ -355,7 +443,7 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
     self.ax.axvline(b, **plot_args)
 
   @plotutils.method_callable_once
-  def finalize(self, labels_inset=False):
+  def finalize(self, labels_inset=False, hidden_colorbar=False):
 
     for row,key in enumerate(self.keys):
       if self.color_code.has_key(key):
@@ -381,6 +469,12 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
                                for k in self.keys], size='small')
     self.ax.set_ylim(-1, len(self.keys))
 
+    # add hidden colorbar
+    if hidden_colorbar:
+      self.add_hidden_colorbar()
+
+PlotSegmentsPlot.add_hidden_colorbar = add_hidden_colorbar
+
 # =============================================================================
 # Class for standard scatter plot
 
@@ -405,7 +499,7 @@ class ScatterPlot(plotutils.BasicPlot):
     self.kwarg_sets.append(kwargs)
 
   @plotutils.method_callable_once
-  def finalize(self, loc='best', logx=False, logy=False):
+  def finalize(self, loc='best', logx=False, logy=False, hidden_colorbar=False):
     # make plot
     for x_vals, y_vals, plot_kwargs, c in \
         itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
@@ -415,6 +509,10 @@ class ScatterPlot(plotutils.BasicPlot):
       plot_kwargs.setdefault("linewidth", 1)
 
       self.ax.scatter(x_vals, y_vals, c=c, **plot_kwargs)
+
+    # add hidden colorbar to make plots the right aspect
+    if hidden_colorbar:
+      self.add_hidden_colorbar()
 
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
@@ -430,6 +528,8 @@ class ScatterPlot(plotutils.BasicPlot):
       self.ax.set_xscale('log')
     if logy:
       self.ax.set_yscale('log')
+
+ScatterPlot.add_hidden_colorbar = add_hidden_colorbar
 
 # =============================================================================
 # Class for scatter plot with colorbar
@@ -508,7 +608,9 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
 
 
     # write colorbar
-    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+    #self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+    self.add_colorbar(p[-1], clim=[cmin, cmax], log=logz,\
+                      label=self.color_label, base=10)
 
     # set axes
     if logx:
@@ -556,6 +658,8 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
 
     self.colorbar.set_label(self.color_label)
     self.colorbar.draw_all()
+
+ColorbarScatterPlot.add_colorbar = add_colorbar
 
 # =============================================================================
 # Extension of ColorbarScatterPlot to plot DetChar-style scatter plot
@@ -650,7 +754,9 @@ class DetCharScatterPlot(ColorbarScatterPlot):
                                vmax=cmax, visible=False))
 
     # write colorbar
-    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+    self.add_colorbar(p[-1], clim=[cmin, cmax], log=logz,\
+                      label=self.color_label, base=10)
+    #self.set_colorbar(p[-1], [cmin, cmax], logz, base)
 
     # set axes
     if logx:
@@ -696,11 +802,12 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
   @plotutils.method_callable_once
   def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
                logx=False, logy=False, fill=False, base=10,\
-               colorbar=None, clim=None):
+               colorbar=None, clim=None, hidden_colorbar=False):
 
     # determine binning
     min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
     if min_stat!=max_stat:
+      max_stat *= 1.001
       if logx:
         bins = numpy.logspace(numpy.math.log(min_stat, base),\
                               numpy.math.log(max_stat, base),\
@@ -708,22 +815,19 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
       else:
         bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
     else:
-      bins = []
+      bins = [min_stat]
 
     if logy:
-      ymin = 5/base
+      ymin = 1E-100
     else:
       ymin = 0
-
-    legends = []
-    plot_list = []
 
     # get colors
     if colorbar:
       if isinstance(colorbar, str):
         ctype = colorbar
         cmap = pylab.matplotlib.colors.LinearSegmentedColormap('clrs',\
-                                           pylab.matplotlib.cm.hot._segmentdata)
+                                           pylab.matplotlib.cm.jet._segmentdata)
       else:
         ctype, cmap = colorbar
       assert re.match('(lin|log)', ctype, re.I),\
@@ -752,6 +856,11 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
       color_idx = lambda x: int((x-cmin)/(cmax-cmin)*(len(colors)-1))
       self.color_values = [colors[color_idx(x)] for x in self.color_values]
 
+    # add hidden colorbar to make plots the right aspect
+    elif hidden_colorbar:
+      self.add_hidden_colorbar()
+ 
+    p = []
     for i, (data_set, livetime, plot_kwargs, col) in\
         enumerate(itertools.izip(self.data_sets, self.livetimes,\
                   self.kwarg_sets, self.color_values)):
@@ -782,11 +891,8 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
       # reset zeros on logscale, tried with numpy, unreliable
       if logy:
-        y = list(y)
-        for j in xrange(0,len(y)):
-          if y[j]==0:
-            y[j] = ymin
-        y = numpy.array(y)
+        y = y.astype(float)
+        numpy.putmask(y, y==0, ymin)
 
       # set color
       if colorbar:
@@ -796,10 +902,10 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
       if fill:
         plot_kwargs.setdefault('linewidth', 1)
         plot_kwargs.setdefault('alpha', 0.8)
-        self.ax.plot(x, y, **plot_kwargs)
-        self.ax.fill_between(x, ymin, y, **plot_kwargs)
+        p.append(self.ax.plot(x, y, **plot_kwargs))
+        self.ax.fill_between(x, 1E-100, y, **plot_kwargs)
       else:
-        self.ax.plot(x, y, **plot_kwargs)
+        p.append(self.ax.plot(x, y, **plot_kwargs))
 
     # set axes
     if logx:
@@ -809,18 +915,17 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
     # set colorbar
     if colorbar:
-      if len(self.ax.lines):
-        self.set_colorbar(self.ax.scatter(x[0], y[0], c=cmin, cmap=cmap,\
+      if len(self.ax.lines) and len(x):
+        self.add_colorbar(self.ax.scatter(x[0], y[0], c=cmin, cmap=cmap,\
                                           vmin=cmin, vmax=cmax, visible=False),\
-                          clim=[cmin, cmax], log=re.search('log', ctype, re.I))
+                          clim=[cmin, cmax], log=re.search('log', ctype, re.I),\
+                          label=self.color_label)
       else:
-        self.set_colorbar(self.ax.scatter([0], [0], c=1, cmap=cmap,\
+        self.add_colorbar(self.ax.scatter([1], [1], c=1, cmap=cmap,\
                                           vmin=cmin, vmax=cmax, visible=False),\
-                          clim=[cmin, cmax])
-
-    # set logy minimum
-    if len(self.ax.lines):
-      self.ax.set_ybound(lower=ymin/livetime)
+                          clim=[cmin, cmax], label=self.color_label)
+    elif hidden_colorbar:
+      self.add_hidden_colorbar()
 
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
@@ -830,6 +935,8 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
     if leg:
       for l in leg.get_lines():
         l.set_linewidth(4)
+
+LineHistogram.add_hidden_colorbar = add_hidden_colorbar
 
 # =============================================================================
 # Extension of VerticalBarHistogram to include log axes
@@ -846,7 +953,7 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
 
   @plotutils.method_callable_once
   def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
-               base=10):
+               base=10, hidden_colorbar=False, loc='best'):
 
     # determine binning
     min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
@@ -865,6 +972,10 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
       width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
 
     width = numpy.asarray(width)/2
+
+    # get version
+    v = map(int, numpy.version.version.split('.'))
+    if v[1] >= 1: width = width[:-1]
 
     # set base of plot in log scale
     if logy:
@@ -887,7 +998,14 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
         plot_kwargs.setdefault("bottom", ymin)
 
       # make histogram
-      y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True, normed=normed)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+        x = x[:-1]
 
       if logy:
         y = y-ymin
@@ -896,15 +1014,7 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
       #x += 0.1 * i * max_stat / num_bins
 
       # plot
-      plot_item = self.ax.bar(x, y, **plot_kwargs)
-
-      # add legend and the right plot instance
-      # for creating the correct labels!
-      if "label" in plot_kwargs and \
-           not plot_kwargs["label"].startswith("_"):
-
-        legends.append(plot_kwargs["label"])
-        plot_list.append(plot_item[0])
+      self.ax.bar(x, y, **plot_kwargs)
 
     # set axes
     if logx:
@@ -916,8 +1026,17 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     self.ax.set_ybound(lower=ymin)
 
     # add legend if there are any non-trivial labels
-    if plot_list:
-      self.ax.legend(plot_list, legends)
+    self.add_legend_if_labels_exist(loc=loc)
+    # set transparent legend
+    leg = self.ax.get_legend()
+    if leg: leg.get_frame().set_alpha(0.5)
+
+
+    # add hidden colorbar
+    if hidden_colorbar:
+      self.add_hidden_colorbar()
+
+VerticalBarHistogram.add_hidden_colorbar = add_hidden_colorbar
 
 # =============================================================================
 # Class for time series plot
@@ -938,12 +1057,12 @@ class DataPlot(plotutils.BasicPlot):
     self.kwarg_sets = []
 
   def add_content(self, x_data, y_data, **kwargs):
-    self.x_data_sets.append(x_data)
-    self.y_data_sets.append(y_data)
+    self.x_data_sets.append(numpy.asarray(x_data))
+    self.y_data_sets.append(numpy.asarray(y_data))
     self.kwarg_sets.append(kwargs)
 
   @plotutils.method_callable_once
-  def finalize(self, loc='best', logx=False, logy=False):
+  def finalize(self, loc='best', logx=False, logy=False, hidden_colorbar=False):
     # make plot
     plots = []
     markersizes = []
@@ -958,6 +1077,13 @@ class DataPlot(plotutils.BasicPlot):
       markersizes.append(plot_kwargs['markersize'])
       plot_kwargs['markersize'] = min(20, plot_kwargs['markersize']*markerscale)
       # plot
+      if logx:
+        x_vals = x_vals.astype(float)
+        numpy.putmask(x_vals, x_vals==0, 1E-100)
+      if logy:
+        y_vals = y_vals.astype(float)
+        numpy.putmask(y_vals, y_vals==0, 1E-100)
+
       plots.append(self.ax.plot(x_vals, y_vals, **plot_kwargs))
 
     # add legend if there are any non-trivial labels
@@ -982,9 +1108,14 @@ class DataPlot(plotutils.BasicPlot):
       legfr = leg.get_frame()
       legfr.set_alpha(0.5)
 
+    # add hidden colorbar
+    if hidden_colorbar: self.add_hidden_colorbar()
+
     # set axes
     if logx:  self.ax.set_xscale('log')
     if logy:  self.ax.set_yscale('log')
+
+DataPlot.add_hidden_colorbar = add_hidden_colorbar
 
 # =============================================================================
 # Class for color map plot
@@ -1051,7 +1182,8 @@ class ColorMap(ColorbarScatterPlot):
                                vmax=cmax, visible=False))
 
     # write colorbar
-    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+    self.add_colorbar(p[-1], clim=[cmin, cmax], log=logz,\
+                      label=self.color_label, base=10)
 
     # set axes
     if logx:  self.ax.set_xscale('log')
@@ -1439,6 +1571,12 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   # get legend loc
   loc = kwargs.pop('loc', 'best')
 
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
   # generate plot object
   plot = DataPlot(xlabel, ylabel, title, subtitle)
 
@@ -1469,15 +1607,16 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       if calendar_time:
         x_data = gps2datenum(numpy.array(map(float, x_data)))
       else:
-        x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+        x_data = (x_data.astype(float)-float(zero))/unit
     lab = str(c)
     if lab != '_': lab = lab.replace('_', '\_')
     plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
-  plot.finalize(logx=logx, logy=logy, loc=loc)
+  plot.finalize(logx=logx, logy=logy, loc=loc, hidden_colorbar=hidden_colorbar)
 
   # plot errors
+  l = None
   for (i,channel),c in itertools.izip(channels, plotutils.default_colors()):
     try:
       minidx = allchannels.index('%s_min' % str(channel))
@@ -1490,7 +1629,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       y.append(y_data)
       if x_format=='time':
         x_data = (numpy.array(map(float, x_data))-float(zero))/unit
-      l = float(kwargs.pop('linewidth', 1))/2
+      l = l!=None and l or float(kwargs.pop('linewidth', 1))/4
       plot.ax.plot(x_data, y_data, color=c, linewidth=l, **kwargs)
     plot.ax.fill_between(x_data, y[1], y[0], color=c, alpha=0.25)
 
@@ -1522,7 +1661,8 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
   set_ticks(plot.ax, calendar_time=calendar_time)
 
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of any column
@@ -1621,9 +1761,12 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   clim = kwargs.pop('clim', None)
  
   if color_column:
-    colData = get_column(triggers, color_column)
+    colData = get_column(triggers, color_column).astype(float)
     if not clim:
-      clim = [colData.min(), colData.max()]
+      if len(colData)>0:
+        clim = [colData.min(), colData.max()]
+      else:
+        clim = [1,10]
     if isinstance(color_bins, int):
       num_color_bins = color_bins
       if logz:
@@ -1644,9 +1787,10 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   postData = []
   for i in range(num_color_bins):
     if color_column:
-      preData.append(get_column(triggers, column)[colData>=color_bins[i]])
+      preData.append(get_column(triggers, column).astype(float)\
+                                                 [colData>=color_bins[i]])
     else:
-      preData.append(get_column(triggers, column))
+      preData.append(get_column(triggers, column).astype(float))
     postData.append([p for j,p in enumerate(preData[i])\
                      if tdata[j] not in seglist])
 
@@ -1683,6 +1827,12 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   # get axis scales
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
+
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # get fill
   fill = kwargs.pop('fill', False)
@@ -1749,7 +1899,8 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   else:
     colorbar = None
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy, cumulative=cumulative,\
-                rate=rate, fill=fill, colorbar=colorbar)
+                rate=rate, fill=fill, colorbar=colorbar,\
+                hidden_colorbar=hidden_colorbar)
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
 
   # set lower y axis limit
@@ -1765,20 +1916,21 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   if xlim:
     plot.ax.set_xlim(xlim)
   if ylim:
-    ploy.ax.set_ylim(ylim)
+    plot.ax.set_ylim(ylim)
 
   # set global ticks
   set_ticks(plot.ax)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot one column against another column coloured by any third column
 
-def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='snr',\
-                  zcolumn=None, etg=None, start=None, end=None, zero=None,\
-                  seglist=None, flag=None, **kwargs):
+def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
+                  ycolumn='snr', zcolumn=None, etg=None, start=None, end=None,\
+                  zero=None, seglist=None, flag=None, **kwargs):
 
   """
     Plots ycolumn against xcolumn for columns in given
@@ -2176,6 +2328,12 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
   logy = kwargs.pop('logy', False)
   logz = kwargs.pop('logz', False)
 
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
   # get detchar plot params
   detchar = kwargs.pop('detchar', False)
   dcthresh = float(kwargs.pop('dcthreshold', 10))
@@ -2199,7 +2357,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
         plot.add_content(vetoData[j][columns[0]], vetoData[j][columns[1]],\
                          label=tablelabel[j], marker='x', color='r')
     # finalise
-    plot.finalize(logx=logx, logy=logy)
+    plot.finalize(logx=logx, logy=logy, hidden_colorbar=hidden_colorbar)
   # initialise scatter plot with colorbar
   elif len(columns)==3:
     # initialize color bar plot
@@ -2242,12 +2400,14 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time', ycolumn='
   set_ticks(plot.ax, calendar_time=calendar_time)
 
   # get both major and minor grid lines
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot a histogram of segment duration
 
-def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
+def plot_segment_hist(segs, outfile, keys=None, num_bins=100, coltype=int,\
+                      **kwargs):
 
   """
     segments.
@@ -2288,29 +2448,48 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
+  # get colorbar option
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
   # format mutltiple segments
   if isinstance(segs,list):
-    segs = segments.segmentlistdict({'_':segs})
+    if keys and isinstance(keys, 'str'):
+      segs = segments.segmentlistdict({keys:segs})
+      keys = [keys]
+    elif keys:
+      segs = segments.segmentlistdict({keys[0]:segs})
+    else:
+      segs = segments.segmentlistdict({'_':segs})
+      keys = ['_']
   else:
-    flags = segs.keys()
-    for flag in flags:
-      flag2 = flag.replace('_','\_')
-      if flag2!=flag:
-        segs[flag.replace('_','\_')] = segs[flag]
+    if not keys:
+      keys = segs.keys()
+    for i,flag in enumerate(keys):
+      keys[i] = display_name(flag)
+      if keys[i]!=flag:
+        segs[keys[i]] = segs[flag]
         del segs[flag]
 
-  flags = sorted(segs.keys())
+  if kwargs.has_key('color'):
+    colors = kwargs.pop('color').split(',')
+  else:
+    colors = zip(*zip(range(len(keys)), plotutils.default_colors()))[-1]
 
   # generate plot object
   plot = VerticalBarHistogram(xlabel, ylabel, title, subtitle)
 
   # add each segmentlist
-  for flag,c in zip(flags, plotutils.default_colors()):
+  for flag,c in zip(keys, colors):
+    print flag
     plot.add_content([float(abs(seg)) for seg in segs[flag]],\
                       label=flag, color=c, **kwargs)
 
   # finalize plot with histograms
-  plot.finalize(num_bins=num_bins, logx=logx, logy=logy)
+  plot.finalize(num_bins=num_bins, logx=logx, logy=logy,\
+                hidden_colorbar=hidden_colorbar)
 
   # set limits
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -2322,7 +2501,8 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
     plot.ax.set_xlim(xlim)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot rate versus time in bins
@@ -2405,6 +2585,12 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
   # format ybins
   if not bins:
     bins  = [[0,float('inf')]]
@@ -2481,7 +2667,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
                        **kwargs)
 
   # finalise plot
-  plot.finalize(logx=logx, logy=logy)
+  plot.finalize(logx=logx, logy=logy, hidden_colorbar=hidden_colorbar)
 
   # set limits
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -2493,14 +2679,15 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax, calendar_time)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot RMS versus time in bins
 
 def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
-                      zero=None, rmscolumn='snr', bincolumn='peak_frequency', bins=[],\
-                      etg='Unknown', **kwargs):
+                     zero=None, rmscolumn='snr', bincolumn='peak_frequency',\
+                     bins=[], etg='Unknown', **kwargs):
 
   """
     Plot RMS versus time for the given ligolw table triggers, binned by the
@@ -2577,6 +2764,12 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   # get axis scales
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
+
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # format ybins
   if not bins:
@@ -2664,7 +2857,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
                        **kwargs)
 
   # finalise plot
-  plot.finalize(logx=logx, logy=logy)
+  plot.finalize(logx=logx, logy=logy, hidden_colorbar=hidden_colorbar)
 
   # set limits
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -2676,7 +2869,8 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   set_ticks(plot.ax, calendar_time=calendar_time)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot segments
@@ -2737,15 +2931,21 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   # get label param
   labels_inset = kwargs.pop('labels_inset', False)
 
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
+  # get colorbar option
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
   if keys:
     # escape underscore, but don't do it twice
     keys = [key.replace('_','\_').replace('\\_','\_') for key in keys]
   segkeys = segdict.keys()
+  newdict = segments.segmentlistdict()
   for key in segkeys:
     newkey = key.replace('_','\_').replace('\\\_','\_')
-    if key!=newkey:
-      segdict[newkey] = segdict[key]
-      del segdict[key]
+    newdict[newkey] = segdict[key]
+  segdict = newdict
 
   # set params
   set_rcParams()
@@ -2753,7 +2953,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   plot = PlotSegmentsPlot(xlabel, ylabel, title, subtitle, t0=zero, unit=unit,\
                           calendar_time=calendar_time)
   plot.add_content(segdict, keys, **kwargs)
-  plot.finalize(labels_inset=labels_inset)
+  plot.finalize(labels_inset=labels_inset, hidden_colorbar=hidden_colorbar)
 
   # indicate last frame
   if highlight_segments:
@@ -2768,7 +2968,8 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
 
   set_ticks(plot.ax, calendar_time)
 
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Helper functions
@@ -2820,12 +3021,13 @@ def parse_plot_config(cp, section):
   if len(plot)>2:
     columns['zcolumn'] = plot[2]
 
-  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants']
+  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants',\
+              'color_bins']
   filters  = ['poles', 'zeros']
   bins     = ['bins']
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator', 'normalized', 'include_downtime',\
-              'calendar_time']
+              'calendar_time', 'fill', 'hidden_colorbar']
   values   = ['dcthresh','amplitude','num_bins']
 
   # extract plot params as a dict
@@ -2896,6 +3098,9 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
   logz = kwargs.pop('logz', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # restrict data to meet limits if using log
   for i,(data, data_limits) in enumerate(zip(data_sets, data_limit_sets)):
@@ -2996,12 +3201,13 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   set_ticks(plot.ax, calendar_time=calendar_time)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Significance drop plot (HVeto style)
 
-def plot_significance_drop(startsig, endsig, outfile, **params):
+def plot_significance_drop(startsig, endsig, outfile, **kwargs):
 
   """
     Plot significance drop for each channel relative to the application of
@@ -3019,51 +3225,65 @@ def plot_significance_drop(startsig, endsig, outfile, **params):
   wch,wsig = max(startsig.items(), key=lambda x: x[1])
 
   # extract parameters
-  params.pop('xlim', None)
-  params.pop('ylim', None)
-  xlabel   = params.pop('xlabel',   "")
-  ylabel   = params.pop('ylabel',   "Significance")
-  title    = params.pop('title',    "Coincidence significance drop plot")
-  subtitle = params.pop('subtitle',\
+  kwargs.pop('xlim', None)
+  ylim     = kwargs.pop('ylim', (0, wsig+1))
+  xlabel   = kwargs.pop('xlabel',   "")
+  ylabel   = kwargs.pop('ylabel',   "Significance")
+  title    = kwargs.pop('title',    "Coincidence significance drop plot")
+  subtitle = kwargs.pop('subtitle',\
                         "Winner: %s, significance: %s" % (wch, wsig))
 
-  params.setdefault('linestyle', '-')
-  params.setdefault('marker', 'o')
-  color    = params.pop('color', None)
+  kwargs.setdefault('linestyle', '-')
+  kwargs.setdefault('marker', 'o')
+  color    = kwargs.pop('color', None)
 
   # customise plot appearance
   set_rcParams()
   pylab.rcParams.update({"figure.figsize":[24,6], "xtick.labelsize": 8})
 
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # generate plot object
   plot = DataPlot(xlabel, ylabel, title, subtitle)
+
+  kwargs.setdefault('markersize', 10)
 
   # plot each channel's drop
   for i,c in enumerate(channels):
     s   = startsig[c]
     e   = endsig[c]
     col = color and color or s>e and 'b' or 'r'
-    plot.add_content([i,i], [s,e], color=col, **params)
+    plot.add_content([i,i], [s,e], color=col, **kwargs)
 
   # finalise plot object
-  plot.finalize(logx=False, logy=False)
+  plot.finalize(logx=False, logy=False, hidden_colorbar=hidden_colorbar)
 
   # set xticks to channel names and rotate
   plot.ax.set_xlim(-1, len(channels))
   plot.ax.set_xticks(numpy.arange(0,len(channels)))
   plot.ax.set_xticklabels([c.replace('_','\_') for c in channels])
   for i,t in enumerate(plot.ax.get_xticklabels()):
-    t.set_rotation(270)
+    t.set_rotation(315)
+    #t.set_position(((i+1)/(len(channels)+1), 0.1))
+    t.set_verticalalignment('top')
+    t.set_horizontalalignment('left')
+    #t.set_bbox(dict(facecolor='white', alpha=0.5, edgecolor='none'))
 
   # set ylim
-  plot.ax.set_ylim(0, wsig+1)
+  plot.ax.set_ylim(ylim)
 
   # turn off x grid
   plot.ax.xaxis.grid(False)
 
+  plot.fig.subplots_adjust(bottom=0.3)
+
   # save figure
-  plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot sky positions
@@ -3182,6 +3402,9 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
   logz = kwargs.pop('logz', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # get IFO data
   detData = []
@@ -3318,7 +3541,5 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
     plot.ax.set_ylim(ylim)
 
   # save
-  try:
-    plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
-  except AssertionError:
-    plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)

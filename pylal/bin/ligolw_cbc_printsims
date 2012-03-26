@@ -153,15 +153,31 @@ def parse_command_line():
             "Opposite of --exclude-coincs: only rank the specified coinc types. "
             )
     # following are options specific to this program
+    parser.add_option( "", "--time-column", action = "store", type = "string", default = None,
+        help =
+            "Required. What column to use for the gps-time of triggers. Should be set to end_time for inspiral searches" +
+            "or start_time for ringdown searches. It is assumed that the column specified has a corresponding _ns column."
+            )
     parser.add_option( "-s", "--simulation-table", action = "store", type = "string", default = None,
         help =
             "Required. Table to look in for injection parameters. " +
             "Can be any lsctable with a simulation_id."
             )
+    parser.add_option( "", "--sngl-table", action = "store", type = "string", default = None,
+        help =
+            "Required. Set to table containing single event information." +
+            "Ex. sngl_inspiral, sngl_ringdown."
+            )
     parser.add_option( "-r", "--recovery-table", action = "store", type = "string", default = None,
         help =
             "Required. Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id."
+            )
+    parser.add_option( "", "--time-table", action = "store", type = "string", default = None,
+        help =
+            "What table to look in for the time column (see --time-column). Can be any table with a coinc_event_id and the specified time column." +
+            "Default is to use whatever recovery-table is set to. If, however, the specified recovery-table does not have the" +
+            "time column (e.g., the coinc_event table), then this must be specified."
             )
     parser.add_option("-c", "--columns", action = "store", type = "string", default = None,
         help =
@@ -219,6 +235,11 @@ def parse_command_line():
             "Web address of the daily ihope pages. " +
             "Default is https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"
             )
+    parser.add_option("", "--get-sngl-info", action = "store_true", default = False,
+        help =
+            "Retrieve single event information along with coincident info. All sngl columns " +
+            "will be prefixed with 'sngl_'. A single gps_time_utc column will also be included. "
+            )
 
     (options, args) = parser.parse_args()
 
@@ -229,6 +250,8 @@ def parse_command_line():
         raise ValueError, "No simulation table specified."
     if not options.recovery_table:
         raise ValueError, "No recovery table specified."
+    if not options.time_column:
+        raise ValueError, "No time column specified."
     if options.extract_to_xml and not options.tmp_space:
         raise ValueError, "extract-to-xml requires tmp-space"
     if not options.ranking_stat:
@@ -273,6 +296,13 @@ if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
+sngl_table = sqlutils.validate_option( opts.sngl_table )
+if opts.time_table is None:
+    time_table = sqlutils.validate_option( opts.recovery_table )
+else:
+    time_table = sqlutils.validate_option( opts.time_table )
+time_column = sqlutils.validate_option( opts.time_column )
+
 #
 #   Run printsims to get the data into a selected_found table
 #
@@ -281,6 +311,9 @@ sftable = printutils.printsims(connection, opts.simulation_table, opts.recovery_
     exclude_coincs = opts.exclude_coincs, include_only_coincs = opts.include_only_coincs,
     sim_tag = opts.sim_tag, rank_range = opts.rank_range, convert_durations = opts.convert_durations,
     daily_ihope_pages_location = opts.daily_ihope_pages_location, verbose = opts.verbose)
+
+if opts.get_sngl_info:
+    sftable = printutils.get_sngl_info(connection, sftable, opts.sngl_table, opts.daily_ihope_pages_location, verbose = opts.verbose)
 
 #
 # create a document
@@ -304,7 +337,7 @@ if opts.verbose and not opts.output:
 if opts.output_format != "xml":
     # set table list
     tableList = ['selected_found_injections']
-    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0])
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0], with_sngl = opts.get_sngl_info)
     if opts.columns is not None:
         # if rank or duration desired, get the right name before overwriting columnList
         if 'rank' in opts.columns or 'duration' in opts.columns:
@@ -423,7 +456,7 @@ if opts.extract_to_xml or opts.extract_to_database:
 
     # clean the metadata
     key_table = recovery_table
-    key_column = "end_time"
+    key_column = time_column
     sqlutils.clean_metadata_using_end_time(connection, key_table, key_column, verbose = opts.verbose)
 
     # extract to the xml file

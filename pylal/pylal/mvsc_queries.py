@@ -3,7 +3,7 @@ try:
 except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
-from glue.ligolw import dbtables 
+from glue.ligolw import dbtables
 from glue.ligolw import table
 from glue.ligolw import ilwd
 from glue import segments
@@ -13,7 +13,7 @@ from pylal import git_version
 from time import clock,time
 from optparse import *
 import glob
-import sys 
+import sys
 import random
 import math
 
@@ -26,7 +26,7 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>"
 class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
 	parameters = "ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr"
-	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm) 
+	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm)
 	select_dimensions="""
 		SELECT
 			coinc_inspiral.coinc_event_id,
@@ -57,7 +57,7 @@ class CandidateEventQuery:
 				WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
 				ELSE 1.0 END
 		FROM
-			coinc_inspiral 
+			coinc_inspiral
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
 			JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == coinc_inspiral.coinc_event_id)
 			JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
@@ -82,7 +82,7 @@ class CandidateEventQuery:
 	add_join_fulldata="""
 		, experiment_summary.datatype
 		FROM
-			coinc_inspiral 
+			coinc_inspiral
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
 			JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == coinc_inspiral.coinc_event_id)
 			JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
