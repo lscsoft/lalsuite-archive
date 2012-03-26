@@ -391,7 +391,7 @@ class OneDPosterior(object):
         if self.__injval is None:
             return None
         else:
-            return sqrt(np.var(self.__posterior_samples)+pow((np.mean(self.__posterior_samples)-self.__injval),2) )
+            return np.sqrt(np.mean((self.__posterior_samples - self.__injval)**2.0))
 
     @property
     def injval(self):
@@ -656,7 +656,7 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
-                        'phi_orb': lambda inj: inj.phi0,
+                        'phi_orb': lambda inj: inj.coa_phase,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
@@ -665,13 +665,13 @@ class Posterior(object):
                         'dec':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: inj.polarization,
+                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
                         'f_lower': lambda inj: inj.f_lower,
-                        'a1':_inj_a1,
-                        'a2':_inj_a2,
+                        'a1': lambda inj: np.sqrt(inj.spin1x**2+inj.spin1y**2+inj.spin1z**2) ,
+                        'a2': lambda inj: np.sqrt(inj.spin2x**2+inj.spin2y**2+inj.spin2z**2) ,
                         'theta1':_inj_theta1,
                         'theta2':_inj_theta2,
                         'phi1':_inj_phi1,
@@ -806,6 +806,12 @@ class Posterior(object):
         """
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
+
+    def pop(self,param_name):
+        """
+        Container method.  Remove OneDPosterior from the Posterior instance.
+        """
+        return self._posterior.pop(param_name)
 
     def append_mapping(self, new_param_names, func, post_names):
         """
@@ -1262,6 +1268,12 @@ class AnalyticLikelihood(object):
         """
         Prepare analytic likelihood for the given parameters.
         """
+        # Make sure files names are in a list
+        if isinstance(covariance_matrix_files, str):
+            covariance_matrix_files = [covariance_matrix_files]
+        if isinstance(mean_vector_files, str):
+            mean_vector_files = [mean_vector_files]
+
         covarianceMatrices = [np.loadtxt(csvFile, delimiter=',') for csvFile in covariance_matrix_files]
         num_matrices = len(covarianceMatrices)
 
@@ -1314,6 +1326,13 @@ class AnalyticLikelihood(object):
         if param in self._params:
             cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
         return cdf
+
+    @property
+    def names(self):
+        """
+        Return list of parameter names described by analytic likelihood function.
+        """
+        return self._params
 
 
 
@@ -2068,19 +2087,21 @@ def plot_one_param_pdf_kde(fig,onedpos):
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
-    gkde=onedpos.gaussian_kde
-
-    ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
-    kdepdf=gkde.evaluate(ind)
-    plt.plot(ind,kdepdf,color='green')
-
+    try:
+        gkde=onedpos.gaussian_kde
+    except np.linalg.linalg.LinAlgError:
+        print 'Singular matrix in KDE. Skipping'
+    else:
+        ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
+        kdepdf=gkde.evaluate(ind)
+        plt.plot(ind,kdepdf,color='green')
     return
 
 def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,plotkde=False):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -2106,7 +2127,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None)
     myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
-    plot_one_param_pdf_kde(myfig,posterior[param])
+    if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
@@ -2154,7 +2175,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None)
     return rbins,myfig#,rkde
 #
 
-def formatRATicks(locs, accuracy='min'):
+def formatRATicks(locs, accuracy='hour'):
     """
     Format locs, ticks to RA angle with given accuracy
     accuracy can be 'hour', 'min', 'sec', 'all'
@@ -2331,7 +2352,7 @@ def get_inj_by_time(injections,time):
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75]):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -2343,6 +2364,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     @param confidence_levels: a list of the required confidence levels to plot on the contour map.
 
     @param colors_by_name: A dict of colors cross-referenced to the above Posterior ids.
+
+    @param legend: Argument for legend placement or None for no legend ('right', 'upper left', 'center' etc)
 
     """
 
@@ -2404,7 +2427,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
-
+        if(par1_injvalue is not None and par2_injvalue is not None):
+            plt.plot([par2_injvalue],[par1_injvalue],'g*',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2427,7 +2451,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     fig_actor_lst.extend(dummy_lines)
 
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
@@ -2827,6 +2851,7 @@ class PEOutputParser(object):
         """
         nRead=0
         outputHeader=False
+        acceptedChains=0
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
@@ -2875,8 +2900,10 @@ class PEOutputParser(object):
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
+                if output: acceptedChains += 1
             finally:
                 infile.close()
+        print "%i of %i chains accepted."%(acceptedChains,len(files))
 
     def _swaplabel12(self, label):
         if label[-1] == '1':
@@ -2995,13 +3022,35 @@ class PEOutputParser(object):
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-            
-
+                       
         pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
 
         posfilename='posterior_samples.dat'
         posfile=open(posfilename,'w')
-        posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
+       
+        #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
+        #psi \t iota \t likelihood \n')
+        # get parameter list
+        it = iter(files)
+        
+        # check if there's a file containing the parameter names
+        parsfilename = it.next()+'_params.txt'
+        
+        if os.path.isfile(parsfilename):
+            print 'Looking for '+parsfilename
+            if os.access(parsfilename,os.R_OK):
+                parsfile = open(parsfilename,'r')
+                outpars = parsfile.readline()
+                parsfile.close()
+            else:
+              print "Need files of parameters "+parsfilename
+              raise
+        
+            posfile.write(outpars)
+        else: # use hardcoded CBC parameter names 
+            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+dec \t psi \t iota \t likelihood \n')     
+        
         for row in pos:
             for i in row:
                 posfile.write('%.12e\t' %(i))

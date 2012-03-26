@@ -165,8 +165,10 @@ Initialisation arguments:\n\
 		printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
 	}
 	else
+	{
 		fprintf(stdout, " initialize(): no data read.\n");
-	
+		exit(1);
+	}
 	/* set up GSL random number generator: */
 	gsl_rng_env_setup();
 	irs->GSLrandom = gsl_rng_alloc(gsl_rng_mt19937);
@@ -386,8 +388,8 @@ void initVariables(LALInferenceRunState *state)
 	REAL8 logmcMax,logmcMin,mMin=1.0,mMax=30.0;
 	REAL8 a_spin2_max=1.0, a_spin1_max=1.0;
 	REAL8 a_spin2_min=0.0, a_spin1_min=0.0;
-	REAL8 phi_spin1_min=-LAL_PI;
-	REAL8 phi_spin1_max=LAL_PI;
+	REAL8 phi_spin1_min=0.0;
+	REAL8 phi_spin1_max=2.0*LAL_PI;
 	REAL8 theta_spin1_min=0.0;
 	REAL8 theta_spin1_max=LAL_PI;
 	REAL8 etaMin=0.01;
@@ -545,6 +547,16 @@ Parameter arguments:\n\
     else mtot_max=2.*(mMax-mMin);
     LALInferenceAddVariable(priorArgs,"MTotMax",&mtot_max,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 
+    /* Set the minimum and maximum chirp mass, using user values if specified */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--Mmin");
+    if(ppt)
+        mcMin=atof(ppt->value);
+    else mcMin=pow(mMin*mMin,0.6)/pow(2.0*mMin,0.2);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--Mmax");
+    if(ppt)
+        mcMax=atof(ppt->value);
+    else mcMax=pow(mMax*mMax,0.6)/pow(2.0*mMax,0.2);
+
     INT4 tempint=1;
 	if(LALInferenceGetProcParamVal(commandLine,"--crazyinjectionhlsign") || LALInferenceGetProcParamVal(commandLine,"--crazyInjectionHLSign"))
     {
@@ -561,6 +573,7 @@ Parameter arguments:\n\
     {
         /* Set up the variable parameters */
         tmpVal=mcMin+(mcMax-mcMin)/2.0;
+        
         LALInferenceAddMinMaxPrior(priorArgs,   "chirpmass",    &mcMin, &mcMax,     LALINFERENCE_REAL8_t);
         LALInferenceAddVariable(currentParams,"chirpmass",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         tmpVal=1.5;

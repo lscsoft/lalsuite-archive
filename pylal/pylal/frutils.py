@@ -18,6 +18,7 @@ from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nickolas.fotopoulos@ligo.org>"
 
+from bisect import bisect_right
 import httplib
 import os
 import os.path
@@ -120,7 +121,7 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
         seg = segment(start, end)
 
         if not self._query(channel, start, end):
-            raise ValueError, "%s not found in cache" % repr(seg)
+            raise ValueError("%s not found in cache" % repr(seg - self._remotecoverage))
 
         # Need to cache files locally
         # Note: seg *will* be in self._cachecoverage if self.scratchdir is None.
@@ -131,8 +132,9 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
                     if self._verbose:
                         print "Copying %s -->\n          %s." % (f, dest)
                     shutil.copy(f, dest)
-                    self._cachedfiles.append(dest)
-                    self._cachedsegs.append(s)
+                    ind = bisect_right(s, self._cached_segs)
+                    self._cachedfiles.insert(ind, dest)
+                    self._cachedsegs.insert(ind, s)
                     self._cachecoverage |= segmentlist([s])
             assert seg in self._cachecoverage
 
@@ -483,5 +485,4 @@ gateway:
             new = Cache.from_urls(urls, coltype=int)
             new.sort(key=operator.attrgetter("segment"))
             self.add_cache(new)
-            return True
-        return False
+        return segment(start, end) in self._remotecoverage

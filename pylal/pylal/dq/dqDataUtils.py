@@ -235,12 +235,13 @@ def frominjectionfile(file, type, ifo=None, start=None, end=None):
 # Calculate band-limited root-mean-square
 # =============================================================================
 
-def blrms(data, sampling, average=1, band=None, filter='butter', order=4,\
-          remove_mean=False, verbose=False):
+def blrms(data, sampling, average=1, band=None, ripple_db=50, width=2.0,\
+          remove_mean=False, return_filter=False, verbose=False):
 
   """
     This function will calculate the band-limited root-mean-square of the given
-    data, using averages of the given length in the given [f_low,f_high) band.
+    data, using averages of the given length in the given [fmin,fmax] band
+    with a kaiser window.
 
     Options are included to offset the data, and weight frequencies given a 
     dict object of (frequency:weight) pairs.
@@ -254,7 +255,16 @@ def blrms(data, sampling, average=1, band=None, filter='butter', order=4,\
 
     Keyword arguments:
 
-
+      average : float
+        length of rms in seconds
+      band : tuple
+        [fmin, fmax] for bandpass
+      ripple_db : int
+        Attenuation in the stop band, in dB
+      width : float
+        Desired width of the transition from pass to stop, in Hz
+      remove_mean : boolean
+      verbose : boolean
   """
 
   nyq = sampling/2
@@ -277,37 +287,24 @@ def blrms(data, sampling, average=1, band=None, filter='butter', order=4,\
     if verbose: sys.stdout.write("Data mean removed.\n")
 
   #
-  # construct filter
-  # 
-
-  # construct passband
-  passband = [fmin*2/sampling,fmax*2/sampling]
-  # construct filter
-  filter = filter.lower()
-  b,a = signal.iirfilter(order, passband, btype='bandpass', output='ba',\
-                         ftype=filter, rp=0.5, rs=50)
-
+  # Bandpass data
   #
-  # bandpass
-  #
+  if return_filter:
+    data, filter = bandpass(data, sampling, fmin, fmax, ripple_db=ripple_db,\
+                            width=width, return_filter=True, verbose=verbose)
+  else:
+    data = bandpass(data, sampling, fmin, fmax, ripple_db=ripple_db,\
+                    width=width, return_filter=False, verbose=verbose)
 
-  data = signal.lfilter(b,a,data)
-  data = data[::-1]
-  data = signal.lfilter(b,a,data)
-  data = data[::-1]
-
-  if verbose: sys.stdout.write("Bandpass filter applied to data.\n")
 
   #
   # calculate rms
   #
 
   # construct output array
-  numsamp = average*sampling
+  numsamp = int(average*sampling)
   numaverage = numpy.ceil(len(data)/sampling/average)
   output  = numpy.empty(numaverage)
-
-  nanwarned=False
 
   # loop over averages
   for i in xrange(len(output)):
@@ -320,59 +317,169 @@ def blrms(data, sampling, average=1, band=None, filter='butter', order=4,\
     chunk = data[idxmin:idxmax]
 
     # get rms
-    rms = numpy.sqrt(numpy.power(chunk,2).mean())
-    if not nanwarned and numpy.isnan(rms):
-      sys.stderr.write("WARNING, NaN found in BLRMS.\n")
-      nanwarned=True
-    output[i] = rms
+    output[i] = (chunk**2).mean()**(1/2)
 
   if verbose: sys.stdout.write("RMS calculated for %d averages.\n"\
                                % len(output))
 
-  return output
+  if return_filter:
+    return output, filter
+  else:
+    return output
 
 # =============================================================================
-# Function to bandpass a time-series
+# Bandpass
 # =============================================================================
 
-def bandpass(data, f_low, f_high, sampling, order=4):
+def bandpass(data, sampling, fmin, fmax, ripple_db=50, width=2.0,\
+             return_filter=False, verbose=False):
 
   """
-    This function will bandpass filter data in the given [f_low,f_high) band
-    using the given order Butterworth filter.
+    This function will bandpass filter data in the given [fmin,fmax] band
+    using a kaiser window.
+
+    Arguments:
+
+      data : numpy.ndarray
+        array of data points
+      sampling : int
+        number of data points per second
+      fmin : float
+        frequency of lowpass
+      fmax : float
+        frequency of highpass
+
+    Keyword arguments:
+
+      ripple_db : int
+        Attenuation in the stop band, in dB
+      width : float
+        Desired width of the transition from pass to stop, in Hz
+      return_filter: boolean
+        Return filter
+      verbose : boolean
   """
 
-  # construct passband
-  passband = [f_low*2/sampling,f_high*2/sampling]
   # construct filter
-  b,a = signal.butter(order,passband,btype='bandpass')
+  order, beta = signal.kaiserord(ripple_db, width*2/sampling)
+
+  lowpass = signal.firwin(order, fmin*2/sampling, window=('kaiser', beta))
+  highpass = - signal.firwin(order, fmax*2/sampling, window=('kaiser', beta))
+  highpass[order//2] = highpass[order//2] + 1
+
+  bandpass = -(lowpass + highpass); bandpass[order//2] = bandpass[order//2] + 1
+
   # filter data forward then backward
-  data = signal.lfilter(b,a,data)
+  data = signal.lfilter(bandpass,1.0,data)
   data = data[::-1]
-  data = signal.lfilter(b,a,data)
+  data = signal.lfilter(bandpass,1.0,data)
   data = data[::-1]
 
-  return data
+  if verbose: sys.stdout.write("Bandpass filter applied to data.\n")
+
+  if return_filter:
+    return data, bandpass
+  else:
+    return data
+
+# =============================================================================
+# Lowpass
+# =============================================================================
+
+def lowpass(data, sampling, fmin, ripple_db=50, width=2.0,\
+            return_filter=False, verbose=False):
+
+  """
+    This function will lowpass filter data in the given fmin band
+    using a kaiser window.
+
+    Arguments:
+
+      data : numpy.ndarray
+        array of data points
+      sampling : int
+        number of data points per second
+      fmin : float
+        frequency of lowpass
+
+    Keyword arguments:
+
+      ripple_db : int
+        Attenuation in the stop band, in dB
+      width : float
+        Desired width of the transition from pass to stop, in Hz
+      return_filter: boolean
+        Return filter
+      verbose : boolean
+  """
+
+  # construct filter
+  order, beta = signal.kaiserord(ripple_db, width*2/sampling)
+
+  lowpass = signal.firwin(order, fmin*2/sampling, window=('kaiser', beta))
+
+  # filter data forward then backward
+  data = signal.lfilter(lowpass,1.0,data)
+  data = data[::-1]
+  data = signal.lfilter(lowpass,1.0,data)
+  data = data[::-1]
+
+  if verbose: sys.stdout.write("Lowpass filter applied to data.\n")
+
+  if return_filter:
+    return data, lowpass
+  else:
+    return data
 
 # =============================================================================
 # Highpass
 # =============================================================================
 
-def highpass(x, f_low, sampling, order=8):
+def highpass(data, sampling, fmax, ripple_db=50, width=2.0,\
+             return_filter=False, verbose=False):
 
-  # construct passband
-  bpass = 2*f_low/sampling
+  """
+    This function will highpass filter data in the given fmax band
+    using a kaiser window.
+
+    Arguments:
+
+      data : numpy.ndarray
+        array of data points
+      sampling : int
+        number of data points per second
+      fmax : float
+        frequency of highpass
+
+    Keyword arguments:
+
+      ripple_db : int
+        Attenuation in the stop band, in dB
+      width : float
+        Desired width of the transition from pass to stop, in Hz
+      return_filter: boolean
+        Return filter
+      verbose : boolean
+  """
 
   # construct filter
-  (b, a) = signal.butter(order, bpass, btype='high', analog=0, output='ba')
+  order, beta = signal.kaiserord(ripple_db, width*2/sampling)
+
+  highpass = - signal.firwin(order, fmax*2/sampling, window=('kaiser', beta))
+  highpass[order//2] = highpass[order//2] + 1
 
   # filter data forward then backward
-  y = signal.lfilter(b,a,x)
-  y = y[::-1]
-  y = signal.lfilter(b,a,y)
-  y = y[::-1]
+  data = signal.lfilter(highpass,1.0,data)
+  data = data[::-1]
+  data = signal.lfilter(highpass,1.0,data)
+  data = data[::-1]
 
-  return y
+  if verbose: sys.stdout.write("Highpass filter applied to data.\n")
+
+  if return_filter:
+    return data, highpass
+  else:
+    return data
 
 # =============================================================================
 # Calculate spectrum
@@ -413,7 +520,7 @@ def spectrum(data, sampling, NFFT=256, overlap=0.5,\
 
 def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
                               window=('kaiser',24), sides='onesided',\
-                              verbose=False, log=False):
+                              verbose=False, log=False, warn=True):
 
   """
     Computes power spectral density of a data series using the median-mean
@@ -462,7 +569,8 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
   elif numseg % 2 == 1:
     odd = odd[:-1]
     numseg -= 1
-    sys.stderr.write("WARNING: odd number of FFT segments, skipping last.\n")
+    if warn:
+      sys.stderr.write("WARNING: odd number of FFT segments, skipping last.\n")
 
   # get bias factor
   biasfac = MedianBias(numseg//2)
@@ -486,8 +594,8 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
 
   # compute median-mean average
   if numseg > 1:
-    S_odd = scipy.median([S[i] for i in odd])
-    S_even = scipy.median([S[i] for i in even])
+    S_odd = numpy.median([S[i] for i in odd],0)
+    S_even = numpy.median([S[i] for i in even],0)
     S = (S_even  + S_odd) * normfac
   else:
     S = S.flatten()

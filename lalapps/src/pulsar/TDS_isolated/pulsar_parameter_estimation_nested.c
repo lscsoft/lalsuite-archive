@@ -306,7 +306,7 @@ INT4 main( INT4 argc, CHAR *argv[] ){
   gridOutput( &runState );
   
   /* get noise likelihood and add as variable to runState */
-  logZnoise = noise_only_model( runState.data );
+  logZnoise = noise_only_model( &runState );
   LALInferenceAddVariable( runState.algorithmParams, "logZnoise", &logZnoise, 
                            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED );
                
@@ -1749,23 +1749,34 @@ set.\n", propfile, tempPar);
       }
     }
     
+    /* if psi is covering the range -pi/2 to pi/2 scale it, so that it covers
+       the 0 to 2pi range of a circular parameter */
+    if( !strcmp(tempPar, "psi") ){
+      if ( scale/LAL_PI > 0.99 && scale/LAL_PI < 1.01 ){
+        scale = 0.5;
+        scaleMin = -LAL_PI/2.;
+        high = LAL_PI/2.;
+        psidef = 1;
+      }
+    }
+    
     /* if theta is covering the range 0 to pi scale it, so that it covers
     the 0 to 2pi range of a circular parameter */
     if( !strcmp(tempPar, "theta") ){
-      if ( scale/LAL_PI > 0.99 && scale/LAL_PI < 1.01 ){
-        scale = 0.5;
-        scaleMin = 0;
-				high = LAL_PI;/* make sure range spans exactly pi*/
+      if ( scale/LAL_TWOPI > 0.99 && scale/LAL_TWOPI < 1.01 ){
+        scale = 1.;
+        scaleMin = 0.;
+				high = 2.*LAL_PI;
       }
     }
     
     /* if lambda is covering the range 0 to pi scale it, so that it covers
-    the 0 to 2pi range of a circular parameter */
+    the 0 to pi range of a circular parameter */
     if( !strcmp(tempPar, "lambda") ){
       if ( scale/LAL_PI > 0.99 && scale/LAL_PI < 1.01 ){
         scale = 0.5;
         scaleMin = 0;
-				high = LAL_PI; /* make sure range spans exactly pi*/
+				high = LAL_PI;
       }
     }
     
@@ -1795,7 +1806,9 @@ set.\n", propfile, tempPar);
       varyType = LALINFERENCE_PARAM_CIRCULAR;
     else if ( !strcmp(tempPar, "psi") && scale == 0.25 ) 
       varyType = LALINFERENCE_PARAM_CIRCULAR;
-    else if ( !strcmp(tempPar, "theta") && scale == 0.5 ) 
+		else if ( !strcmp(tempPar, "psi") && scale == 0.5 ) 
+      varyType = LALINFERENCE_PARAM_CIRCULAR;
+    else if ( !strcmp(tempPar, "theta") && scale == 1.0 ) 
       varyType = LALINFERENCE_PARAM_CIRCULAR;
     else if ( !strcmp(tempPar, "lambda") && scale == 0.5 )
       varyType = LALINFERENCE_PARAM_CIRCULAR;
@@ -1837,7 +1850,8 @@ set.\n", propfile, tempPar);
   
   /* if phi0 and psi have been given in the prop-file and defined at the limits
      of their range the remove them and add the phi0' and psi' coordinates */
-  if( phidef && psidef ){
+  if( phidef && psidef && !LALInferenceCheckVariable(runState->currentParams,"lambda") && !LALInferenceCheckVariable(runState->currentParams,"theta")){
+		fprintf(stderr,"Do phi and psi transform\n");
     LALInferenceIFOData *datatemp = data;
     
     REAL8 phi0 = *(REAL8*)LALInferenceGetVariable( runState->currentParams, 
@@ -2240,7 +2254,7 @@ void injectSignal( LALInferenceRunState *runState ){
   BinaryPulsarParams injpars;
  
   FILE *fpsnr = NULL; /* output file for SNRs */
-  INT4 ndets = 0, j = 1, k = 0, numSNRs = 1;
+  INT4 ndets = 0, j = 1, k = 0, numSNRs = 1, ml=1;
   
   REAL8Vector *freqFactors = NULL;
   REAL8 *snrmulti = NULL, *snrscale = NULL;
@@ -2270,7 +2284,6 @@ parameter file %s is wrong.\n", injectfile);
  
   freqFactors = *(REAL8Vector **)LALInferenceGetVariable( data->dataParams, 
                                                           "freqfactors" );
- 
   snrscale = XLALCalloc(sizeof(REAL8), numSNRs);
   
   ppt = LALInferenceGetProcParamVal( commandLine, "--scale-snr" );
@@ -2278,7 +2291,7 @@ parameter file %s is wrong.\n", injectfile);
     /* if there are more than one data streams (i.e. a stream at twice the 
        pulsar frequency and one at the pulsar frequency) the SNRs for the 
        individual (multi-detector) streams can be set, rather than having a 
-       combined SNR. The SNR vales are set as comma separated values to 
+       combined SNR. The SNR values are set as comma separated values to 
        --scale-snr. If only one value is given, but the data has multiple 
        streams then the combined multi-stream SNR will still be used. */
     CHAR *snrscales = NULL, *tmpsnrs = NULL, *tmpsnr = NULL, snrval[256];
@@ -2289,24 +2302,29 @@ parameter file %s is wrong.\n", injectfile);
       
     /* count the number of SNRs (comma seperated values) */
     numSNRs = count_csv( snrscales );
+		fprintf(stderr,"Number of snrs: %d\n",numSNRs);
+		
+		ml=(INT4)freqFactors->length;
     
-    if( (numSNRs != 1) && (numSNRs != (INT4)freqFactors->length) ){
-      fprintf(stderr, "Error... number of SNR values must either be 1, or equal\
- to the number of data streams required for your model!\n");
+    if(numSNRs != ml){
+      fprintf(stderr, "Error... number of SNR values must equal\
+			the number of data streams required for your model!\n");
       exit(0);
     }
     
     snrscale = XLALRealloc(snrscale, sizeof(REAL8)*numSNRs);
-    
+		
+    /*goes through the input scale snr string and adds the values to the snrscale vector.*/
     for( k = 0; k < numSNRs; k++ ){
       tmpsnr = strsep( &tmpsnrs, "," );
       XLALStringCopy( snrval, tmpsnr, strlen(tmpsnr)+1 );
       snrscale[k] = atof(snrval);
     }
   }
- 
-  snrmulti = XLALCalloc(sizeof(REAL8), numSNRs);
- 
+
+
+  snrmulti = XLALCalloc(sizeof(REAL8), 1);
+
   ppt = LALInferenceGetProcParamVal( commandLine, "--outfile" );
   if( !ppt ){
     fprintf(stderr, "Error... no output file specified!\n");
@@ -2338,9 +2356,9 @@ parameter file %s is wrong.\n", injectfile);
     /* If modeltype uses more than one data stream need to advance data on to
        next, so this loop only runs once if there is only 1 det*/
     for ( k = 1; k < (INT4)freqFactors->length; k++ ){
-			data = data->next;
-			fprintf(stderr,"data has been advanced for 2nd datastream\n");
-		}
+      data = data->next;
+      fprintf(stderr,"data has been advanced for 2nd datastream\n");
+    }
   }
   
   /* reset data to head */
@@ -2350,20 +2368,21 @@ parameter file %s is wrong.\n", injectfile);
   while ( data ){
     for ( k = 0; k < numSNRs; k++ ){
       REAL8 snrval = calculate_time_domain_snr( data );
-   
-      snrmulti[k] += SQUARE(snrval);
-      
-      /*if ( snrscale[k] == 0 ) */
-      fprintf(fpsnr, "freq_factor: %f, non-scaled snr: %le\t",
-              freqFactors->data[ndets], snrval);
-                             
+
+      snrmulti[0] += SQUARE(snrval);
+			
+      fprintf(fpsnr, "freq_factor: %lf, non-scaled snr: %le\t",
+              freqFactors->data[k], snrval);
+			fprintf(stderr, "freq_factor: %lf, non-scaled snr: %le\t",freqFactors->data[k], snrval);
+			fprintf(stderr, "SNR multi %le\n",snrmulti[0]);
+
       data = data->next;
     }
     ndets++;
   }
   
   /* get overall multi-detector SNR */
-  for ( k = 0; k < numSNRs; k++ ) snrmulti[k] = sqrt( snrmulti[k] );
+  snrmulti[0] = sqrt(snrmulti[0]);
   
   /* only need to print out multi-detector snr if the were multiple detectors */
   if( numSNRs == 1 && snrscale[0] == 0 ){
@@ -2373,15 +2392,12 @@ parameter file %s is wrong.\n", injectfile);
   else{
     /* rescale the signal and calculate the SNRs */
     data = runState->data;
-   
-    for ( k = 0; k < numSNRs; k++ ){
-      snrscale[k] /= snrmulti[k];
-    }
-    
+    snrscale[0] /= snrmulti[0];
+
     /* rescale the h0 for triaxial mode only) */
     if ( !strcmp(modeltype, "triaxial")  ){
       for ( k = 0; k < numSNRs; k++ ){
-        if ( freqFactors->data[k] == 2. ) injpars.h0 *= snrscale[k];
+        if ( freqFactors->data[k] == 2. ) injpars.h0 *= snrscale[0];
       }
     }
     
@@ -2413,7 +2429,7 @@ parameter file %s is wrong.\n", injectfile);
     data = runState->data;
     
     /* get new snrs */
-    for ( k = 0; k < numSNRs; k++ ) snrmulti[k] = 0;
+    snrmulti[0] = 0;
     
     while( data ){
       for ( k = 0; k < numSNRs; k++ ){
@@ -2422,7 +2438,7 @@ parameter file %s is wrong.\n", injectfile);
         /* recalculate the SNR */
         snrval = calculate_time_domain_snr( data );
       
-        snrmulti[k] += SQUARE(snrval);
+        snrmulti[0] += SQUARE(snrval);
       
         fprintf(fpsnr, "scaled snr: %le\t", snrval);
       
@@ -2430,11 +2446,12 @@ parameter file %s is wrong.\n", injectfile);
       }
     }
     
-    for ( k = 0; k < numSNRs; k++ ) snrmulti[k] = sqrt( snrmulti[k] );
+    snrmulti[0] = sqrt( snrmulti[0] );
+		fprintf(stderr, "scaled multi data snr: %le\n", snrmulti[0]);
     
     if( ndets > 1 ){
       for ( k = 0; k < numSNRs; k++ ){
-        fprintf(fpsnr, "%le\t", snrmulti[k]);
+        fprintf(fpsnr, "%le\t", snrmulti[0]);
       }
       fprintf(fpsnr, "\n"); 
     }
