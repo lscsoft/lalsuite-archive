@@ -16,31 +16,44 @@ import os
 
 inspinj_seed=7000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 type_inj="dphi6"   ## This has to be either GR or the name of the test param (e.g. dphi7)
-shift=1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
+shift= 1            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
 sigma=0.0          ## Sigma for the normal distribution. This is in percent.
 number_of_injs=200 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
 append_to_database=1 ## If 1 Bayes factors and mediand and stdevs will be appended to the remote database (see below)
 
-remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
-remote_database='IRM_BayesFactorsDatabase.txt'   ## Successful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed. Median and stdev of the parameters are appended to 'remote_database'_parameters
+approx_for_inj='IMRPhenomFBTestthreePointFivePN' ## This is the WF to use for the inj file. Use the usual lalapps_inspinj sintax here.
 
-if type_inj!='GR':
+remote_script='svitale@login.nikhef.nl:/project/gravwav/Database_files/safe_append.sh' ## This is the remote file which appends to the database. IT SHOULD NOT BE CHANGED! 
+remote_database='/project/gravwav/Database_files/%s_BayesFactorsDatabase.txt'%(approx_for_inj)   ## Successful runs are appended to remote_database (will be created in the same folder where safe_append.sh is). Failed runs are appended to 'remote_database'_failed. Median and stdev of the parameters are appended to 'remote_database'_parameters. The first part of the name contains the approximant. Once agreed upon, that should not be changed
+
+if type_inj!='GR' and shift>0 and distr=='c':
     type_name=type_inj+'_'+repr(shift)
+elif type_inj!='GR' and shift<0 and distr=='c':
+    type_name=type_inj+'_m'+repr(-shift)
+elif type_inj!='GR' and not(distr=='c'):
     if distr=='u':
         type_name+='u'
     elif distr=='n':
-        type_name+='pm'+repr(sigma)
-    type_name+='pc'
-else:
+        if repr(sigma)>0:
+            type_name+='pm'+repr(sigma)
+        else:
+            print "You are using a normal distribution for the shifts, but the stddev sigma seems to be zero or negative! Exiting..."
+            exit(1)
+    else:
+        print "You are using distr=%s. Allowed values are 'c','u' and 'n'. Exiting..."%distr
+        exit(1)
+
+type_name+='pc'
+if type_inj=='GR':
     type_name=type_inj
 
-PATH_TO_OPT="/home/salvatore.vitale/lalsuites/nikhef/opt"  ## Path to the opt folder of your installation
+PATH_TO_OPT="/home/salvatore.vitale/lalsuite_branches/nikhef/opt"  ## Path to the opt folder of your installation
 
-basefolder = "/home/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)                       ##
-postprocfolder = "/home/salvatore.vitale/public_html/IMR_runs/%s/%s"%(type_name,inspinj_seed)       ##
-scratchdir = "/scratch/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)            ##
-logdir = "/people/salvatore.vitale/IMR_runs/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
+basefolder = "/home/salvatore.vitale/test_Database/%s/%s"%(type_name,inspinj_seed)                       ##
+postprocfolder = "/home/salvatore.vitale/public_html/test_Database/%s/%s"%(type_name,inspinj_seed)       ##
+scratchdir = "/scratch/salvatore.vitale/test_Database/%s/%s"%(type_name,inspinj_seed)            ##
+logdir = "/people/salvatore.vitale/test_Database/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
 
  ## NOTE: You only need to change the path leaving the last two levels are they are (i.e. /%s/%s). The code w#ill add the seed and the type of run (GR or tested param +value of the shift)
 
@@ -69,7 +82,7 @@ inspinj_command="""%s/lalapps/bin/lalapps_inspinj \
 --gps-start-time %s \
 --gps-end-time %s \
 --seed %s \
---waveform IMRPhenomFBTestthreePointFivePN \
+--waveform %s \
 --min-distance 3.00e+05 \
 --max-distance 1.25e+06 \
 --d-distr volume \
@@ -84,7 +97,7 @@ inspinj_command="""%s/lalapps/bin/lalapps_inspinj \
 --max-mtotal 30.0 \
 --disable-spin \
 --amp-order 0 \
---time-step %s"""%(PATH_TO_OPT,outname,gps_start,gps_end,inspinj_seed,time_step)
+--time-step %s"""%(PATH_TO_OPT,outname,gps_start,gps_end,inspinj_seed,approx_for_inj,time_step)
 
 if type_inj!='GR':
     inspinj_command+=""" \
@@ -296,12 +309,15 @@ for i in os.uname():
     if i.find("uwm")!=-1:
         logd=logdir
         scrd=scratchdir
-#print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
-
+#print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database
+#exit(1)
+#
 if append_to_database==1:
     os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
 elif append_to_database==0:
     os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
-
+else:
+    print "You did not specify a value for the variable append_to_database (allowed: 0 -> turn off, 1-> turn on). Exiting..."
+    exit(1)
 # RETURN TO CURRENT WORKING DIRECTORY
 os.chdir(curdir)
