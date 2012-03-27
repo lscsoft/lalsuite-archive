@@ -42,7 +42,7 @@ extern "C" {
 /** Various constants and error codes.
  */
 typedef enum {
-	LALSQTPN_0_0 = 1,
+	LALSQTPN_0_0 = 0,
 	LALSQTPN_0_5 = 2,
 	LALSQTPN_1_0 = 4,
 	LALSQTPN_PLUS = 0,

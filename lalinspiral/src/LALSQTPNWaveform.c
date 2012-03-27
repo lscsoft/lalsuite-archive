@@ -189,7 +189,7 @@ static void XLALCalculateHPHC(LALSQTPNWaveformParams *params, REAL8 values[], RE
 	omegaPowi_3[3] = values[LALSQTPN_OMEGA];
 	omegaPowi_3[2] = cbrt(values[LALSQTPN_OMEGA]);
 	omegaPowi_3[2] = SQT_SQR(omegaPowi_3[2]);
-	if ((params->amplitudeContribution & LALSQTPN_0_0) == LALSQTPN_0_0) {
+	if (params->amplitudeContribution  == LALSQTPN_0_0) {
 		for (i = LALSQTPN_PLUS; i <= LALSQTPN_CROSS; i++) {
 			h[i] += omegaPowi_3[2] * 4.0
 				* (sine[LAL_PNORDER_NEWTONIAN][i] * sinPhi[2]

@@ -100,7 +100,7 @@ void LALSQTPNWaveformTemplates(LALStatus *status, REAL4Vector *signalvec1, REAL4
 	InspiralTemplate *params) {
 
 	XLALPrintDeprecationWarning("LALSQTPNWaveformTemplates", "XLALSQTPNWaveformTemplates");
-	INITSTATUS(status, "LALSTPNWaveform", LALSQTPNWAVEFORMINTERFACEC);
+	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
 
 	if (XLALSQTPNWaveformTemplates(signalvec1, signalvec2, params))
@@ -226,7 +226,7 @@ void LALSQTPNWaveformForInjection(LALStatus *status, CoherentGW *waveform, Inspi
 	PPNParamStruc *ppnParams) {
 
 	XLALPrintDeprecationWarning("LALSQTPNWaveformForInjection", "XLALSQTPNWaveformForInjection");
-	INITSTATUS(status, "LALSQTPNWaveformForInjection", LALSQTPNWAVEFORMINTERFACEC);
+	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
 
 	if (XLALSQTPNWaveformForInjection(waveform, params, ppnParams))
