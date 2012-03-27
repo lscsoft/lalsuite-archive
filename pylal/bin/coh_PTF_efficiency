@@ -1114,7 +1114,7 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
             wavDistRed = wavErr * stats.norm.rvs()
             if (wavDistRed > 0):
               break
-          distance = inj.distance / ((1 + calDistRed)*(1 + wavDistRed))
+          distance = distance / ((1 + calDistRed)*(1 + wavDistRed))
 
         injDistBin = None
         distNum = 0
@@ -1241,13 +1241,20 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
         # Convert inj.distance to a physical distance by applying calibration
         # and waveform errors
         distance = inj.distance
+        # First apply the scaling error
+        if (ii != 0):
+          distance = distance / maxDCCalError
+        # Now apply the amplitude uncertainty and waveform errors, these are
+        # applied as Gaussian errors with given std. Waveform is a one-sided
+        # error, it can only make us lees sensitive to a real signal.
+        # We montecarlo over these errors.
         if (ii != 0):
           calDistRed = calError * stats.norm.rvs()
           while (1):
             wavDistRed = wavErr * stats.norm.rvs()
             if (wavDistRed > 0):
               break
-          distance = inj.distance / ((1 + calDistRed)*(1 + wavDistRed))
+          distance = distance / ((1 + calDistRed)*(1 + wavDistRed))
 
         trigBin = None
         binNum = 0
@@ -1290,13 +1297,21 @@ def main( segdir, outdir, trigFile, foundFile, missedFile,\
       for ii in range(numMCInjs+1):
         # Convert inj.distance to a physical distance by applying calibration
         # and waveform errors
+        distance = distanceOrig
+        # First apply the scaling error
+        if (ii != 0):
+          distance = distance / maxDCCalError
+        # Now apply the amplitude uncertainty and waveform errors, these are
+        # applied as Gaussian errors with given std. Waveform is a one-sided
+        # error, it can only make us lees sensitive to a real signal.
+        # We montecarlo over these errors.
         if (ii != 0):
           calDistRed = calError * stats.norm.rvs()
           while (1):
             wavDistRed = wavErr * stats.norm.rvs()
             if (wavDistRed > 0):
               break
-          distance = distanceOrig / ((1 + calDistRed)*(1 + wavDistRed))
+          distance = distance / ((1 + calDistRed)*(1 + wavDistRed))
 
         trigBin = None
         binNum = 0
