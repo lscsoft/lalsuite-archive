@@ -98,6 +98,11 @@ parser.add_option( "", "--gps-end-time", action = "store", type = "string",
   help =
     "GPS end time of the ihope run."
   )
+parser.add_option( "", "--coherent-tiggers", action = "store_true",
+  default = False,
+  help =
+    "Run pipedown with coherent stage output files."
+  )
 parser.add_option( "", "--generate-all-data-plots", action = "store_true",
   default = False,
   help =
@@ -441,8 +446,9 @@ for tag in user_tags:
       if not simulation:
         slide_entry = lal.CacheEntry(re.sub(coinc_zero_lag_tag, coinc_slide_tag, str(entry)))
         this_cache.append(slide_entry)
-        cohire_slide_entry = lal.CacheEntry(re.sub('CHIA', 'CHIA_SLIDE', str(coh_entry)))
-        this_cache.append(cohire_slide_entry)
+	if options.coherent_tiggers:
+          cohire_slide_entry = lal.CacheEntry(re.sub('CHIA', 'CHIA_SLIDE', str(coh_entry)))
+          this_cache.append(cohire_slide_entry)
 
       # if n*20th entry or last remainder, write to cache
       if (entry_num + 1) % 20 == 0 or (entry_num + 1) == len(instrument_cache):
