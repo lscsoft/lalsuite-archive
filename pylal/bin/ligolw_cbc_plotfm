@@ -193,6 +193,10 @@ def parse_command_line():
             "Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id. Default is coinc_inspiral."
         )
+    parser.add_option( "-M", "--map-label", action = "store", type = "string", default = None,
+        help = 
+            "Required. Name of the type of mapping that was used for finding injections."
+        )
     parser.add_option( "-L", "--livetime-program", action = "store", type = "string", default = "thinca",
         help =
             "Name of program used to get the analysis segments. This is needed to figure out what instruments (if any) were on for missed injections. "
@@ -411,7 +415,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             
         found_table += [ row for row in 
             printutils.printsims(connection, opts.simulation_table, opts.recovery_table,
-            cbstat.replace('recovered_', ''), opts.rank_by,
+            opts.map_label, cbstat.replace('recovered_', ''), opts.rank_by,
             "slide", param_name = None, param_ranges = None,
             include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, verbose = False)]
@@ -421,7 +425,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
         if opts.verbose:
             print >> sys.stderr, "\tgetting missed triggers from %s..." % filename
         missed_table += [ row for row in 
-            printutils.printmissed( connection, opts.simulation_table, opts.recovery_table, opts.livetime_program,
+            printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,  opts.map_label, opts.livetime_program,
             param_name = None, param_ranges = None,
             include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, limit = None, 

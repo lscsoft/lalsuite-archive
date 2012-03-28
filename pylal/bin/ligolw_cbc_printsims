@@ -172,6 +172,10 @@ def parse_command_line():
             "Required. Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id."
             )
+    parser.add_option( "-M", "--map-label", action = "store", type = "string", default = None,
+        help = 
+            "Required. Name of the type of mapping that was used for finding injections."
+        )
     parser.add_option( "", "--time-table", action = "store", type = "string", default = None,
         help =
             "What table to look in for the time column (see --time-column). Can be any table with a coinc_event_id and the specified time column." +

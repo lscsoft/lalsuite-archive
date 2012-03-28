@@ -333,7 +333,7 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
 #
 # =============================================================================
 
-def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_by, comparison_datatype,
+def printsims(connection, simulation_table, recovery_table, map_label, ranking_stat, rank_by, comparison_datatype,
     sort_by = 'rank', param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
     daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
@@ -362,7 +362,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     #   Set up sim_rec_map table
     #
     if 'sim_rec_map' not in sqlutils.get_tables_in_database( connection ):
-        sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, ranking_stat)
+        sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, map_label, ranking_stat)
     
     #
     #   Initialize ranking. Statistics for ranking are collected from non-injections
@@ -718,7 +718,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
 
 
 
-def printmissed(connection, simulation_table, recovery_table, livetime_program,
+def printmissed(connection, simulation_table, recovery_table, map_label, livetime_program,
     param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ',
     limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
@@ -777,8 +777,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     cmtable = lsctables.New(CloseMissedTable)
 
     # set up sim_rec_map table
-    if 'sim_rec_map' not in sqlutils.get_tables_in_database( connection ):
-        sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, None)
+    sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, map_label, None)
     
     #
     #   Set table filters

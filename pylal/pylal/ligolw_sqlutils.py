@@ -1688,7 +1688,7 @@ def clean_inspiral_tables( connection, verbose = False ):
 
 # Following utilities are specific to any simulation table
 
-def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranking_stat):
+def create_sim_rec_map_table(connection, simulation_table, recovery_table, map_label, ranking_stat = None):
     """
     Creates a temporary table in the sqlite database called sim_rec_map.
     This table creates a direct mapping between simulation_ids in the simulation table
@@ -1698,64 +1698,75 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
         * rec_id: coinc_event_ids of matching events from the recovery table
         * sim_id: the simulation_id from the sim_inspiral table
         * ranking_stat: any stat from the recovery table by which to rank
-        * intermediate_id: the coinc_event_id of the sim_id (not really important for these
-          uses)
     In addition, indices on the sim and rec ids are put on the table.
 
-    Note that because this is a temporary table, as soon as the connection is closed, it
-    will be deleted.
+    Note that because this is a temporary table, as soon as the connection is
+    closed, it will be deleted.
 
     @connection: connection to a sqlite database
+    @simulation_table: any lsctable with a simulation_id column; e.g., sim_inspiral
     @recovery_table: any lsctable with a coinc_event_id column; e.g., coinc_inspiral
-    @ranking_stat: the name of the ranking stat in the recovery table to use. If set to None,
-     ranking_stat column won't be populated.
+    @map_label: the label applied to the mapping between the injections and recovered
+    @ranking_stat: the name of the ranking stat in the recovery table to use.
+     If set to None, ranking_stat column won't be populated.
     """
-    # if it isn't already, append the recovery_table name to the ranking_stat to ensure uniqueness
-    if ranking_stat is not None and not ranking_stat.strip().startswith(recovery_table):
-        ranking_stat = '.'.join([recovery_table.strip(), ranking_stat.strip()])
+    # remove the table if it is already in the database
+    if 'sim_rec_map' in get_tables_in_database(connection):
+        sqlquery = 'DROP TABLE sim_rec_map'
+        connection.cursor().execute(sqlquery)
     # create the sim_rec_map table; initially, this contains all mapped triggers in the database
-    sqlscript = ''.join(['''
+    sqlquery = ''.join(['''
         CREATE TEMP TABLE
             sim_rec_map
         AS 
             SELECT
-                coinc_event_id AS intermediate_id,
-                event_id AS rec_id,
-                NULL AS sim_id,
+                sim.simulation_id AS sim_id,
+                rec_coinc.coinc_event_id AS rec_id,
                 NULL AS ranking_stat
             FROM
-                coinc_event_map
+                ''', recovery_table, ''' AS rec_coinc
+            JOIN
+                coinc_event_map AS a
+            ON (
+                a.event_id == rec_coinc.coinc_event_id AND
+                a.table_name == "coinc_event" )
+            JOIN
+                coinc_event_map AS b
+            ON (
+                b.coinc_event_id == a.coinc_event_id AND
+                b.table_name == a.table_name )
+            JOIN
+                ''', simulation_table, ''' AS sim
+            ON (
+                b.event_id == sim.simulation_id )
+                b.event_id == a.coinc_coinc_evnet_id )
+            JOIN
+                ''', simulation_table, ''' AS sim
+            ON (
+                sim.event_id == b.event_d )
+            JOIN
+                coinc_event, coinc_definer
+            ON (
+                coinc_event.coinc_event_id == b.coinc_event_id AND
+                coinc_definer.coinc_def_id == coinc_event.coinc_def_id
+                )
             WHERE
-                table_name == "coinc_event" AND
-                event_id IN (
-                    SELECT
-                        ''', recovery_table, '''.coinc_event_id
-                    FROM
-                        ''', recovery_table, '''
-                    ''', join_experiment_tables_to_coinc_table(recovery_table), '''
-                    WHERE
-                        experiment_summary.datatype == "simulation");
+                coinc_definer.description == ? 
+        '''])
+        connection.cursor().execute(sqlquery, (map_label,))
 
-        -- populate the sim_id using the intermediate_id 
-        UPDATE
-            sim_rec_map
-        SET sim_id = (
-            SELECT
-                coinc_event_map.event_id
-            FROM
-                coinc_event_map 
-            WHERE
-                table_name == "''', simulation_table, '''" AND
-                coinc_event_map.coinc_event_id == sim_rec_map.intermediate_id);        
-
-        -- create the indices
+        # create indices
+        sqlquery == '''
         CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
         CREATE INDEX srm_rid_index ON sim_rec_map (rec_id);
         ''' ])
 
     if ranking_stat is not None:
-        sqlscript = ''.join([ sqlscript, '''
-        -- populate ranking_stat
+        # if it isn't already, append the recovery_table name to the ranking_stat to ensure uniqueness
+        if not ranking_stat.strip().startswith(recovery_table):
+            ranking_stat = '.'.join([recovery_table.strip(), ranking_stat.strip()])
+
+        sqlquery = ''.join([ '''
         UPDATE
             sim_rec_map
         SET ranking_stat = (
@@ -1767,7 +1778,7 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
                 ''', recovery_table, '''.coinc_event_id == sim_rec_map.rec_id );
             ''' ]) 
 
-    connection.cursor().executescript(sqlscript)
+        connection.cursor().execute(sqlquery)
 
 
 # =============================================================================
