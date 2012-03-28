@@ -132,6 +132,7 @@ def parse_command_line():
 	parser.add_option("--experiment-start-time", type="int", help = "Start time, in gps seconds, of the experiment being performed. This is NOT the start time of the rinca-files being used. Required.")
 	parser.add_option("--experiment-end-time", type="int", help = "End time, in gps seconds, of the experiment being performed. This is NOT the end time of the rinca-files being used. Required.")
 	parser.add_option("--simulation", action = "store_true", default = False, help = "Turn on if thinca file contains injections. Doing so will causes only zero-lag entries to be written to the experiment_summary table whose datatype is 'simulation'.")
+        parser.add_option( "", "--add-coherent", action = "store_true", default = False, help = "Run pipedown with coherent stage output files.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
 
@@ -1023,8 +1024,9 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
         trig_slide_cache = chia_cache.sieve( description = slide_file_sieve)
         CohTrigs.extend(trig_slide_cache.checkfilesexist()[0].pfnlist())
 
-        CoherentTriggers = []
-        CoherentTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(CohTrigs)
+	if options.add_coherent:
+        	CoherentTriggers = []
+        	CoherentTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(CohTrigs)
 
 	# Finished reading CHIA files and storing to CoherentTriggers
 
@@ -1116,15 +1118,16 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		# coherent statistics
 
                 coincident_event_id = str(event_id).split(":")
-                for row in CoherentTriggers:
-                        coh_event_id = int(row.event_id)
-                        if (int(coincident_event_id[2]) == coh_event_id):
-                                coinc_ringdown.eff_coh_snr = math.sqrt(float(row.snr))
-                                coinc_ringdown.null_stat = float(row.null_statistic)
-                                break
-                        else:
-                                coinc_ringdown.eff_coh_snr = 0.0
-                                coinc_ringdown.null_stat = 0.0
+		if options.add_coherent:
+                	for row in CoherentTriggers:
+                        	coh_event_id = int(row.event_id)
+                        	if (int(coincident_event_id[2]) == coh_event_id):
+                                	coinc_ringdown.eff_coh_snr = math.sqrt(float(row.snr))
+                                	coinc_ringdown.null_stat = float(row.null_statistic)
+                                	break
+                        	else:
+                                	coinc_ringdown.eff_coh_snr = 0.0
+                                	coinc_ringdown.null_stat = 0.0
 
 		#
 		# the time of the coinc = the end time of the first trigger
