@@ -227,11 +227,29 @@ def crop_segmentlist(seglist, end_chop=30):
 # =============================================================================
 
 def grab_segments(start, end, flag,\
-                  segment_url='https://segdb.ligo.caltech.edu'):
+                  segment_url='https://segdb.ligo.caltech.edu',\
+                  segment_summary=False):
 
   """
     Returns a segmentlist containing the segments during which the given flag
     was active in the given period.
+
+    Arguments:
+
+      start : int
+        GPS start time
+      end : int
+        GPS end time
+      flag : string
+        'IFO:NAME:VERSION' format string
+
+    Keyword arguments:
+
+      segment_url : string
+        url of segment database to query, default https://segdb.ligo.caltech.edu
+      segment_summary : [ True | False ]
+        also return the glue.segments.segmentlist defining the valid span of the
+        returned segments
   """
 
   # set times
@@ -262,10 +280,13 @@ def grab_segments(start, end, flag,\
   segdefs = segmentdb_utils.expand_version_number(engine, (ifo, name, version, \
                                                           start, end, 0, 0))
 
-  # query segs
+  # query database and return
   segs = segmentdb_utils.query_segments(engine, 'segment', segdefs)
   segs = reduce(operator.or_, segs).coalesce()
-
+  if segment_summary:
+    segsums = segmentdb_utils.query_segments(engine, 'segment_summary', segdefs)
+    segsums = reduce(operator.or_, segsums).coalesce()
+    return segs,segsums
   return segs
 
 # ==============================================================================
