@@ -25,6 +25,7 @@
 #include <lal/LALStdlib.h>
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
+#include <lal/LIGOLwXMLRingdownRead.h>
 #include <lal/AVFactories.h>
 #include <lal/Date.h>
 #include <lal/RealFFT.h>
@@ -95,11 +96,21 @@ int main( int argc, char **argv )
   REAL4FrequencySeries    *invspec   = NULL;
   RingTemplateBank        *bank      = NULL;
   RingDataSegments        *segments  = NULL;
+  SnglRingdownTable       *trigbank  = NULL;
   SnglRingdownTable       *events    = NULL;
   SnglRingdownTable *tmpEventHead = NULL;
   SnglRingdownTable *checkEvents = NULL;
   SnglRingdownTable *lastEvent = NULL;
   UINT4 numEvents = 0;
+  char outputFrameFile[256];
+
+  /* frame output data */
+  struct FrFile *frOutFile  = NULL;
+  struct FrameH *outFrame   = NULL;
+  CHAR  fname[FILENAME_MAX];
+  FrameHNode *coherentFrames = NULL;
+  FrameHNode *thisCoherentFrame = NULL;
+  int  errnum;
 
   /* set error handlers to abort on error */
   set_abrt_on_error();
@@ -125,33 +136,49 @@ int main( int argc, char **argv )
   invspec = ring_get_invspec( channel, response, fwdplan, revplan, params );
 
   /* create the template bank */
-  bank = ring_get_bank( params );
-  if ( params->bankFile[0] ) /* write out the bank */
-    ring_output_events_xml( params->bankFile, bank->tmplt, procpar, params );
+  if ( params->writeCData ) {
+    /* read the events from the trigger file */
+    XLAL_TRY( trigbank = XLALSnglRingdownTableFromLIGOLw( params->bankFile ), errnum);
+    if ( ! trigbank )
+    //     if( writeCData )
+    {
+      goto cleanexit;
+    }
+    /* create the segments to do */
+    segments = ring_get_segments( channel, response, invspec, fwdplan, params );
 
-  /* create the segments to do */
-  segments = ring_get_segments( channel, response, invspec, fwdplan, params );
+    /* filter the data against the bank of trigger parameters */
+    events = ring_filter_cdata( segments, trigbank, invspec, fwdplan, revplan, &coherentFrames, params );
+  }
+  else {
+    bank = ring_get_bank( params );
+    if ( params->bankFile[0] ) /* write out the bank */
+      ring_output_events_xml( params->bankFile, bank->tmplt, procpar, params );
 
-  /* filter the data against the bank of templates */
-  events = ring_filter( segments, bank, invspec, fwdplan, revplan, params );
+    /* create the segments to do */
+    segments = ring_get_segments( channel, response, invspec, fwdplan, params );
+
+    /* filter the data against the bank of templates */
+    events = ring_filter( segments, bank, invspec, fwdplan, revplan, params );
+  }
 
   /* time sort the triggers */
   if ( vrbflg ) fprintf( stdout, "Sorting triggers\n" );
   LAL_CALL( LALSortSnglRingdown( &status, &(events),
         LALCompareSnglRingdownByTime ), &status );
-  
+
   /* discard any triggers outside the trig start/end time window */
-  
-  if ( vrbflg ) fprintf( stdout, 
+
+  if ( vrbflg ) fprintf( stdout,
       "  discarding triggers outside trig start/end time... \n" );
 
   checkEvents = events;
- 
+
   while ( checkEvents )
   {
     INT8 trigTimeNS;
     trigTimeNS = XLALGPSToINT8NS( &(checkEvents->start_time) );
-    if ( trigTimeNS &&  ((params->trigStartTimeNS && 
+    if ( trigTimeNS &&  ((params->trigStartTimeNS &&
             (trigTimeNS < params->trigStartTimeNS)) ||
           (params->trigEndTimeNS && (trigTimeNS >= params->trigEndTimeNS))) )
     {
@@ -181,6 +208,49 @@ int main( int argc, char **argv )
 
   if ( vrbflg ) fprintf( stdout, "%u triggers remaining\n", numEvents );
   events = tmpEventHead;
+
+  cleanexit:
+
+  /* write the output frame */
+  if ( params->writeCData ) {
+    if ( strlen( params->ifoTag ) && !strlen( params->userTag) ) {
+      snprintf( outputFrameFile, sizeof( outputFrameFile ),
+        "%s-INSPIRAL_%s-%d-%d.gwf", params->ifoName,
+        params->ifoTag, params->startTime.gpsSeconds,
+        (int)ceil( params->duration ) );
+    }
+    else if ( strlen( params->userTag ) && !strlen( params->ifoTag ) ) {
+      snprintf( outputFrameFile, sizeof( outputFrameFile ),
+        "%s-INSPIRAL_%s-%d-%d.gwf", params->ifoName,
+        params->userTag, params->startTime.gpsSeconds,
+        (int)ceil( params->duration ) );
+    }
+    else {
+      if ( strlen( params->userTag ) && strlen( params->ifoTag ) ) {
+        snprintf( outputFrameFile, sizeof( outputFrameFile ),
+          "%s-INSPIRAL_%s_%s-%d-%d.gwf", params->ifoName,
+          params->ifoTag, params->userTag, params->startTime.gpsSeconds,
+          (int)ceil( params->duration ) );
+      }
+    }
+
+    snprintf( fname, FILENAME_MAX, "%s", outputFrameFile );
+
+    verbose( "writing frame data to %s... ", fname );
+    frOutFile = FrFileONew( fname, 0 );
+    FrameWrite( outFrame, frOutFile );
+  }
+
+  while( coherentFrames )
+  {
+    thisCoherentFrame = coherentFrames;
+    FrameWrite( coherentFrames->frHeader, frOutFile );
+    coherentFrames = coherentFrames->next;
+    LALFree( thisCoherentFrame );
+    thisCoherentFrame = NULL;
+  }
+  FrFileOEnd( frOutFile );
+  verbose( "done\n" );
 
   /* output the results */
   ring_output_events_xml( params->outputFile, events, procpar, params );
@@ -282,25 +352,25 @@ static REAL4TimeSeries *ring_get_data( struct ring_params *params )
     }
     if ( params->writeRawData ) /* write raw data */
       write_REAL4TimeSeries( channel );
-    
+
     /* inject ring signals */
-    if ( params->injectFile ) 
+    if ( params->injectFile )
     {
       ring_inject_signal( channel, params->injectType, params->injectFile,
-          params->calibCache, 1.0, params->channel ); 
+          params->calibCache, 1.0, params->channel );
       if ( params->writeRawData )
         write_REAL4TimeSeries( channel );
-    }  
+    }
 
     if ( params->dataType == LALRINGDOWN_DATATYPE_HT_REAL4 ||
          params->dataType == LALRINGDOWN_DATATYPE_HT_REAL8)
-    {  
+    {
       for (j=0; j<channel->data->length; j++)
       {
         channel->data->data[j] *= params->dynRangeFac;
       }
     }
-    
+
     /* condition the data: resample and highpass */
     resample_REAL4TimeSeries( channel, params->sampleRate );
     if ( params->writeProcessedData ) /* write processed data */
@@ -314,10 +384,10 @@ static REAL4TimeSeries *ring_get_data( struct ring_params *params )
     {
       trimpad_REAL4TimeSeries( channel, params->padData );
       if ( params->writeProcessedData ) /* write data with padding removed */
-        write_REAL4TimeSeries( channel );  
+        write_REAL4TimeSeries( channel );
     }
   }
-  
+
   return channel;
 }
 
@@ -331,7 +401,7 @@ static COMPLEX8FrequencySeries *ring_get_response( struct ring_params *params )
   {
   response = get_response( params->calibCache, params->ifoName,
         &params->startTime, params->segmentDuration, params->sampleRate,
-        params->dynRangeFac, params->dataType, params->channel ) ; 
+        params->dynRangeFac, params->dataType, params->channel );
     if ( params->writeResponse ) /* write response */
       write_COMPLEX8FrequencySeries( response );
   }
@@ -395,7 +465,7 @@ static RingTemplateBank *ring_get_bank( struct ring_params *params )
       for ( tmplt = 0; tmplt < bank->numTmplt; ++tmplt )
         if ( is_in_list( tmplt, params->templatesToDoList ) )
           bank->tmplt[count++] = bank->tmplt[tmplt];
-      
+
       /* reallocate memory to the (possibly) smaller size */
       if ( count )
       {
@@ -450,7 +520,7 @@ static RingDataSegments *ring_get_segments(
   else  /* only do the segments in the todo list */
   {
     UINT4 count;
-    
+
     /* first count the number of segments to do */
     count = 0;
     for ( sgmnt = 0; sgmnt < params->numOverlapSegments; ++sgmnt )
@@ -464,7 +534,7 @@ static RingDataSegments *ring_get_segments(
 
     segments->numSgmnt = count;
     segments->sgmnt = LALCalloc( segments->numSgmnt, sizeof(*segments->sgmnt) );
-  
+
     count = 0;
     for ( sgmnt = 0; sgmnt < params->numOverlapSegments; ++sgmnt )
       if ( is_in_list( sgmnt, params->segmentsToDoList ) )
@@ -474,7 +544,7 @@ static RingDataSegments *ring_get_segments(
 
     if ( params->writeSegment) /* write data segment */
             write_REAL4TimeSeries( channel );
-    
+
   }
 
   return segments;
@@ -565,21 +635,21 @@ static int is_in_list( int i, const char *list )
 
     /* now see if this token is a range */
     if ( ( tok2 = strchr( tok, '-' ) ) )
-      *tok2++ = 0; /* nul terminate first part of token; tok2 is second part */ 	 
-    if ( tok2 ) /* range */ 	 
-    { 	 
-      int n1, n2; 	 
-      if ( strcmp( tok, "^" ) == 0 ) 	 
-        n1 = INT_MIN; 	 
-      else 	 
-        n1 = atoi( tok ); 	 
-      if ( strcmp( tok2, "$" ) == 0 ) 	 
-        n2 = INT_MAX; 	 
-      else 	 
-        n2 = atoi( tok2 ); 	 
-      if ( i >= n1 && i <= n2 ) /* see if i is in the range */ 	 
-        ans = 1; 	 
-    } 	 
+      *tok2++ = 0; /* nul terminate first part of token; tok2 is second part */
+    if ( tok2 ) /* range */
+    {
+      int n1, n2;
+      if ( strcmp( tok, "^" ) == 0 )
+        n1 = INT_MIN;
+      else
+        n1 = atoi( tok );
+      if ( strcmp( tok2, "$" ) == 0 )
+        n2 = INT_MAX;
+      else
+        n2 = atoi( tok2 );
+      if ( i >= n1 && i <= n2 ) /* see if i is in the range */
+        ans = 1;
+    }
     else if ( i == atoi( tok ) )
       ans = 1;
 

@@ -25,7 +25,7 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>, Paul T Baker <paul.baker@lig
 
 class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
-	parameters = "ds_sq delta_t df dQ a_snr b_snr coinc_snr snr_ratio"  #null_stat eff_coh_snr
+	parameters = "ds_sq delta_t df dQ gQQ gff gtt gQf gtf gtQ a_snr b_snr coinc_snr snr_ratio a_eff_D b_eff_D eff_D_ratio delta_eff_D null_stat eff_coh_snr"
 	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm)
 	select_dimensions="""
 		SELECT
@@ -36,17 +36,26 @@ class CandidateEventQuery:
 			calc_delta_t(snglA.ifo, snglA.start_time, snglA.start_time_ns, snglB.ifo, snglB.start_time, snglB.start_time_ns, insp_coinc_event.time_slide_id),
 			abs(snglA.frequency - snglB.frequency),
 			abs(snglA.Quality - snglB.Quality),
+			gQQ(snglA.Quality, snglB.Quality),
+			gff(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
+			gtt(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
+			gQf(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
+			gtf(snglA.Quality, snglB.Quality),
+			gtQ(snglA.frequency, snglB.frequency, snglA.Quality, snglB.Quality),
 			snglA.snr,
 			snglB.snr,
 			coinc_ringdown.snr,
-			max(snglA.snr/snglB.snr,snglB.snr/snglA.snr)"""
-#			coinc_ringdown.null_stat,
-#			coinc_ringdown.eff_coh_snr"""
+			max(snglA.snr/snglB.snr,snglB.snr/snglA.snr),
+			snglA.eff_dist,
+			snglB.eff_dist,
+			max(snglA.eff_dist/snglB.eff_dist,snglB.eff_dist/snglA.eff_dist),
+			abs(snglA.eff_dist - snglB.eff_dist),
+			coinc_ringdown.null_stat,
+			coinc_ringdown.eff_coh_snr"""
 	add_join_injections="""
-		,	CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
-				WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
-				WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
-				ELSE 1.0 END
+		, coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001,
+		process_params.value,
+		sim_ringdown.distance
 		FROM
 			coinc_ringdown
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_ringdown.coinc_event_id)
@@ -55,23 +64,26 @@ class CandidateEventQuery:
 			JOIN sngl_ringdown AS snglB ON (snglB.event_id == mapB.event_id)
 			JOIN coinc_event_map AS mapC ON (mapC.event_id == coinc_ringdown.coinc_event_id)
 			JOIN coinc_event_map AS mapD ON (mapD.coinc_event_id == mapC.coinc_event_id)
-			JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapD.event_id)
+			JOIN sim_ringdown ON (sim_ringdown.simulation_id == mapD.event_id)
 			JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
 			JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == mapA.coinc_event_id)
 			JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
-			JOIN process_params ON (process_params.process_id == sim_inspiral.process_id)
+			JOIN process_params ON (process_params.process_id == sim_ringdown.process_id)
 		WHERE
-			( coinc_definer.search == 'ring' OR coinc_definer.search =='ringdown' )
-			AND coinc_definer.search_coinc_type == 2
-			AND mapA.table_name == 'sngl_ringdown'
+			mapA.table_name == 'sngl_ringdown'
 			AND mapB.table_name == 'sngl_ringdown'
 			AND mapC.table_name == 'coinc_event'
-			AND mapD.table_name == 'sim_inspiral'
+			AND mapD.table_name == 'sim_ringdown'
 			AND snglA.ifo == ?
 			AND snglB.ifo == ?
 			AND snglA.start_time > ?
 			AND snglA.start_time < ?"""
-			AND process_params.program == 'inspinj' AND process_params.param == '--userTag' AND process_params.value == ?"""
+	add_where_all="""
+			AND coinc_definer.description LIKE '%near%'
+		ORDER BY coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001"""
+	add_where_exact="""
+			AND coinc_definer.description LIKE '%exact%'
+		ORDER BY coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001"""
 	add_join_fulldata="""
 		, experiment_summary.datatype
 		FROM
