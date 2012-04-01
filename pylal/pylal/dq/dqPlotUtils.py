@@ -28,7 +28,7 @@ from os import getenv
 _display = getenv('DISPLAY','')
 _backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
 """
-if not _display and matplotlib.get_backend().lower() is not 'agg':
+if not _display and not matplotlib.get_backend().lower() == 'agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
 import pylab
@@ -175,7 +175,11 @@ def display_name(columnName):
   unit  = ['ns']
   sub   = ['flow', 'fhigh', 'hrss', 'mtotal', 'mchirp']
 
-  words = columnName.split('_')
+  s = re.split('([_\s])', columnName)
+  words = s[::2]
+  delims = s[1::2]
+
+  # parse words
   for i,w in enumerate(words):
     if w in acro:
       words[i] = w.upper()
@@ -195,9 +199,13 @@ def display_name(columnName):
         words[i] = w
       else:
         words[i] = w.title()
-      
+  s[::2] = words
 
-  return ' '.join(words) 
+  # parse delimiters
+  for i,w in enumerate(delims):
+    delims[i] = re.sub('\\\\\\\_', '\_', re.sub('_', '\_', w))
+  s[1::2] = delims
+  return ''.join(s) 
 
 def gps2datenum(gpstime):
 
@@ -945,7 +953,7 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
 
   @plotutils.method_callable_once
   def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
-               base=10, hidden_colorbar=False):
+               base=10, hidden_colorbar=False, loc='best'):
 
     # determine binning
     min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
@@ -1006,15 +1014,7 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
       #x += 0.1 * i * max_stat / num_bins
 
       # plot
-      plot_item = self.ax.bar(x, y, **plot_kwargs)
-
-      # add legend and the right plot instance
-      # for creating the correct labels!
-      if "label" in plot_kwargs and \
-           not plot_kwargs["label"].startswith("_"):
-
-        legends.append(plot_kwargs["label"])
-        plot_list.append(plot_item[0])
+      self.ax.bar(x, y, **plot_kwargs)
 
     # set axes
     if logx:
@@ -1026,8 +1026,11 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     self.ax.set_ybound(lower=ymin)
 
     # add legend if there are any non-trivial labels
-    if plot_list:
-      self.ax.legend(plot_list, legends)
+    self.add_legend_if_labels_exist(loc=loc)
+    # set transparent legend
+    leg = self.ax.get_legend()
+    if leg: leg.get_frame().set_alpha(0.5)
+
 
     # add hidden colorbar
     if hidden_colorbar:
@@ -2403,7 +2406,8 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
 # =============================================================================
 # Plot a histogram of segment duration
 
-def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
+def plot_segment_hist(segs, outfile, keys=None, num_bins=100, coltype=int,\
+                      **kwargs):
 
   """
     segments.
@@ -2452,22 +2456,34 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
 
   # format mutltiple segments
   if isinstance(segs,list):
-    segs = segments.segmentlistdict({'_':segs})
+    if keys and isinstance(keys, 'str'):
+      segs = segments.segmentlistdict({keys:segs})
+      keys = [keys]
+    elif keys:
+      segs = segments.segmentlistdict({keys[0]:segs})
+    else:
+      segs = segments.segmentlistdict({'_':segs})
+      keys = ['_']
   else:
-    flags = segs.keys()
-    for flag in flags:
-      flag2 = flag.replace('_','\_')
-      if flag2!=flag:
-        segs[flag.replace('_','\_')] = segs[flag]
+    if not keys:
+      keys = segs.keys()
+    for i,flag in enumerate(keys):
+      keys[i] = display_name(flag)
+      if keys[i]!=flag:
+        segs[keys[i]] = segs[flag]
         del segs[flag]
 
-  flags = sorted(segs.keys())
+  if kwargs.has_key('color'):
+    colors = kwargs.pop('color').split(',')
+  else:
+    colors = zip(*zip(range(len(keys)), plotutils.default_colors()))[-1]
 
   # generate plot object
   plot = VerticalBarHistogram(xlabel, ylabel, title, subtitle)
 
   # add each segmentlist
-  for flag,c in zip(flags, plotutils.default_colors()):
+  for flag,c in zip(keys, colors):
+    print flag
     plot.add_content([float(abs(seg)) for seg in segs[flag]],\
                       label=flag, color=c, **kwargs)
 
@@ -2925,11 +2941,11 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
     # escape underscore, but don't do it twice
     keys = [key.replace('_','\_').replace('\\_','\_') for key in keys]
   segkeys = segdict.keys()
+  newdict = segments.segmentlistdict()
   for key in segkeys:
     newkey = key.replace('_','\_').replace('\\\_','\_')
-    if key!=newkey:
-      segdict[newkey] = segdict[key]
-      del segdict[key]
+    newdict[newkey] = segdict[key]
+  segdict = newdict
 
   # set params
   set_rcParams()
