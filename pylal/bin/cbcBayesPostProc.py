@@ -674,8 +674,8 @@ def cbcBayesPostProc(
                 mu=mean(data)
                 N=len(data)
                 corr=correlate((data-mu),(data-mu),mode='full')
-                acf = corr[N-1:]/corr[N-1]
                 try:
+                    acf = corr[N-1:]/corr[N-1]
                     lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
                     if 'cycle' in pos.names:
                         acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
