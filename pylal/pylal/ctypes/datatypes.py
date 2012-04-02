@@ -28,23 +28,33 @@ from ctypes import *
 
 #INT2
 class INT2(c_int16): pass
+
 #UINT2    
 class UINT2(c_uint16): pass
+
 #INT4
 class INT4(c_int32): pass
+
 #UINT4
 class UINT4(c_uint32): pass
+
 #INT8
 class INT8(c_int64): pass
+
 #UINT8
 class UINT8(c_uint64): pass
+
 #REAL4
 class REAL4(c_float): pass
+
 #REAL8
 class REAL8(c_double): pass
+
 #CHAR
 class CHAR(c_char): pass
+
 #UCHAR
 class UCHAR(c_ubyte): pass
+
 #BOOLEAN
 class BOOLEAN(c_ubyte): pass
