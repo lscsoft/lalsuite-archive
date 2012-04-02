@@ -225,7 +225,6 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
      vs = numpy.array([v[mbin] for v in vols])
      pk = priors.sieve(description="%s:%d:"%(bin_type,j+1))
-     length = 10000
      if len(pk) == 1: # use given prior
        if opts.verbose:
          print >>sys.stdout,"\tbin %d, %s... using input prior %s"%(j+1,str(mbin),pk[0].path())
