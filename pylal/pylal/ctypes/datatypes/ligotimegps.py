@@ -76,7 +76,7 @@ class LIGOTimeGPS(Structure):
         return int(self.gpsSeconds)
         
     def __mod__(self):
-        pass
+        raise NotImplemented
         
     def __mul__(self,other):
         
@@ -98,7 +98,7 @@ class LIGOTimeGPS(Structure):
         return int(XLALGPSToINT8NS(pointer(new_gps)))
         
     def __pos__(self):
-        pass
+        raise NotImplemented
         
     def __reduce__(self):
         return (LIGOTimeGPS,(self.gpsSeconds,self.gpsNanoSeconds))
@@ -110,7 +110,7 @@ class LIGOTimeGPS(Structure):
         pass
         
     def __hash__(self):
-        pass
+        raise NotImplemented
         
     def sub(self,other):
         return XLALINT8NSToGPS(XLALGPSToINT8NS(pointer(self))-XLALGPSToINT8NS(pointer(other))

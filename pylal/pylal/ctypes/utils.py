@@ -35,7 +35,7 @@ def makeglobal(vdict):
 
 class enum_typedef(c_uint): pass
 
-def make_li_enum_typedef(enum_typedef_name,enum_names):
+def make_enum_typedef(enum_typedef_name,enum_names):
     vdict={}
     new_enum_typedef=type(enum_typedef_name,(enum_typedef,),{})
     vdict[enum_typedef_name]=new_enum_typedef
@@ -45,6 +45,14 @@ def make_li_enum_typedef(enum_typedef_name,enum_names):
         i+=1
     return vdict
 
+def make_enum_anon(enum_names):
+    vdict={}
+    i=0
+    for enum_name in enum_names:
+        vdict[enum_name]=enum_typedef(i)
+        i+=1
+    return vdict
+        
 class PkgConfig(object):
     def __init__(self, names):
         def stripfirsttwo(string):

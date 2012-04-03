@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 #
-#  detector.py
+#  laldetector.py
 #  
 #  Part of the ctypes wrapper library for LAL.
 #
@@ -30,12 +30,25 @@ from datatypes import REAL4,REAL8
 
 class LALDetectorType(Structure): pass
 
-class LALFrDetector(Structure): pass
-
+class LALFrDetector(Structure):
+    _fields_= [
+        ("name",CHAR*LALNameLength),
+        ("prefix",CHAR*3),
+        ("vertexLongitudeRadians",REAL8),
+        ("vertexLatitudeRadians",REAL8),
+        ("vertexElevation",REAL4),
+        ("xArmAltitudeRadians",REAL4),
+        ("xArmAzimuthRadians",REAL4),
+        ("yArmAltitudeRadians",REAL4),
+        ("yArmAzimuthRadians",REAL4),
+        ("xArmMidpoint",REAL4),
+        ("yArmMidpoint",REAL4)
+    ]
+    
 class LALDetector(Structure):
     _fields_= [
-        ("location",POINTER(REAL8)),
-        ("response",POINTER(POINTER(REAL4))),
+        ("location",REAL8*3),
+        ("response",(REAL4*3)*3),
         ("type",LALDetectorType),
         ("frDetector",LALFrDetector)   
     ]
