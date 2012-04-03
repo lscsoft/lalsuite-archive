@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 #
-#  lalunit.py
+#  complex16fftplan.py
 #  
 #  Part of the ctypes wrapper library for LAL.
 #
@@ -24,27 +24,12 @@
 #  
 #  
 
-from ctypes import Structure,POINTER
+from ctypes import Structure
 
-from datatypes import INT2,UINT2
-from utils import make_li_enum_typedef     
+class fftw_plan(Structure): pass
 
-make_li_enum_typedef("LALUnit",
-    [
-        "LALUnitIndexMeter",
-        "LALUnitIndexKiloGram",
-        "LALUnitIndexSecond"
-        "LALUnitIndexAmpere",
-        "LALUnitIndexKelvin",
-        "LALUnitIndexStrain",
-        "LALUnitIndexADCCount",
-        "LALNumUnits"
-    ]
-)
+class COMPLEX16FFTPlan(Structure): 
+    _fields_ = [("sign",INT4),("size",INT4),("fftw_plan",fftw_plan)]
 
-class LALUnit(Structure):
-    _fields_=[
-        ("powerOfTen",INT2),
-        ("unitNumerator",POINTER(INT2)),
-        ("unitDenominatorMinusOne",POINTER(UINT2))
-    ]
+XLALCreateCOMPLEX16FFTPlan=_set_types(pylal.ctypes.liblal,"XLALCreateCOMPLEX16FFTPlan",POINTER(COMPLEX16FFTPlan),[UINT4,INT4,c_int])
+

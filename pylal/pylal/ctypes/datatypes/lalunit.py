@@ -24,23 +24,11 @@
 #  
 #  
 
-from ctypes import Structure,POINTER
+from ctypes import *
 
-from datatypes import INT2,UINT2
-from utils import make_li_enum_typedef     
-
-make_li_enum_typedef("LALUnit",
-    [
-        "LALUnitIndexMeter",
-        "LALUnitIndexKiloGram",
-        "LALUnitIndexSecond"
-        "LALUnitIndexAmpere",
-        "LALUnitIndexKelvin",
-        "LALUnitIndexStrain",
-        "LALUnitIndexADCCount",
-        "LALNumUnits"
-    ]
-)
+import pylal.ctypes
+from pylal.ctypes.datatypes.primitives import *
+from pylal.ctypes.utils import __set_types
 
 class LALUnit(Structure):
     _fields_=[
@@ -48,3 +36,5 @@ class LALUnit(Structure):
         ("unitNumerator",POINTER(INT2)),
         ("unitDenominatorMinusOne",POINTER(UINT2))
     ]
+
+lalDimensionlessUnit=pylal.ctypes.liblal.lalDimensionlessUnit
