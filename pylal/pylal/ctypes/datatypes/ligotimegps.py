@@ -24,9 +24,17 @@
 #  
 #  
 
-from datatypes import *
-
 from ctypes import *
+
+import pylal.ctypes
+from pylal.ctypes.datatypes.primitives import *
+from pylal.ctypes.utils import __set_types
+
+XLALINT8NSToGPS=_set_types(pylal.ctypes.liblal,"XLALINT8NSToGPS",POINTER(LIGOTimeGPS),[POINTER(LIGOTimeGPS),c_longlong])
+XLALGPSToINT8NS=_set_types(pylal.ctypes.liblal,"XLALGPSToINT8NS",INT8,[POINTER(LIGOTimeGPS)])
+XLALGPSAddGPS=_set_types(pylal.ctypes.liblal,"XLALGPSAddGPS",POINTER(LIGOTimeGPS),[POINTER(LIGOTimeGPS),POINTER(LIGOTimeGPS)])
+XLALGPSDivide=_set_types(pylal.ctypes.liblal,"XLALGPSDivide",POINTER(LIGOTimeGPS),[POINTER(LIGOTimeGPS),REAL8])
+XLALGPSGetREAL8=_set_types(pylal.ctypes.liblal,"XLALGPSGetREAL8",REAL8,[POINTER(LIGOTimeGPS)])
 
 class LIGOTimeGPS(Structure):
     _fields_ = [("gpsSeconds",INT4),("gpsNanoSeconds",INT4)]
@@ -36,6 +44,30 @@ class LIGOTimeGPS(Structure):
         
         self.gpsSeconds=INT4(gpsSeconds)
         self.gpsNanoSeconds=INT4(gpsNanoSeconds)
-        
+    
+    def __copy__(self):
+        new_gps=LIGOTimeGPS(self.gpsSeconds,self.gpsNanoSeconds)
+    
     def __str__(self):
         print "LIGOTimeGPS(%s,%s)"%(self.gpsSeconds,self.gpsNanoSeconds)
+        
+    def __abs__(self):
+        
+        new_gps=copy(self)
+        XLALINT8NSToGPS(pointer(new_gps),abs(XLALGPSToINT8NS(pointer(self))))
+        
+        return new_gps
+        
+    def __add__(self,other):
+        
+        return XLALGPSAddGPS(self,other)
+        
+    def __div__(self,other):
+        
+        new_gps=copy(self)
+        return XLALGPSDivide(pointer(new_gps),other)
+        
+    def __float__(self)
+    
+        new_gps=copy(self)
+        return XLALGPSGetREAL8(pointer(new_gps))

@@ -1,4 +1,4 @@
-from utils import __load_lib
+from pylal.ctypes.utils import __load_lib
 
 libc = __load_lib("c")
 liblal = __load_lib("lal")
