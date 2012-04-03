@@ -442,8 +442,7 @@ def nest_pipe(opts=None,num=0):
             else:
                     thisevent=None
             inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent)
-            #if num==0:
-            #    inspnest_node.set_priority(20)
+            inspnest_node.set_priority(int(-round(40*(float(times.index(time))/float(len(times))-0.5))))
             inspnest_nodes_by_time[time]=inspnest_node
             dag.add_node(inspnest_node)
             combine_each_time_nodes[time].add_parent(inspnest_node)
@@ -459,8 +458,7 @@ def nest_pipe(opts=None,num=0):
                     thisevent=None
             (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent)
             dag.add_node(merge_node)
-            if num==0:
-                map(lambda a:a.set_priority(20) ,inspnest_nodes)
+            map(lambda a:a.set_priority(int(-round(40*(float(times.index(time))/float(len(times))-0.5)))) ,inspnest_nodes)
             map(dag.add_node,inspnest_nodes)
             nest_files[time]=merge_node.get_output_files()[0]
             combine_each_time_nodes[time].add_parent(merge_node)
