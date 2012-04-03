@@ -15,7 +15,9 @@ lalapps_inspnest_SOURCES = \
 	nest_calc.c \
 	nest_calc.h \
 	LALInspiralMCMC.h \
-	LALInspiralMCMCUser.h
+	LALInspiralMCMCUser.h \
+	LALCalibrationErrors.h \
+	LALCalibrationErrors.c
 endif
 
 if LALPULSAR
