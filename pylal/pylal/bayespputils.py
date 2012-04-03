@@ -391,7 +391,7 @@ class OneDPosterior(object):
         if self.__injval is None:
             return None
         else:
-            return sqrt(np.var(self.__posterior_samples)+pow((np.mean(self.__posterior_samples)-self.__injval),2) )
+            return np.sqrt(np.mean((self.__posterior_samples - self.__injval)**2.0))
 
     @property
     def injval(self):
@@ -656,7 +656,7 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
-                        'phi_orb': lambda inj: inj.phi0,
+                        'phi_orb': lambda inj: inj.coa_phase,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
@@ -665,7 +665,7 @@ class Posterior(object):
                         'dec':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: inj.polarization,
+                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
@@ -2101,7 +2101,7 @@ def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,plotkde=False):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -2127,7 +2127,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None)
     myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
-    plot_one_param_pdf_kde(myfig,posterior[param])
+    if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
@@ -2851,6 +2851,7 @@ class PEOutputParser(object):
         """
         nRead=0
         outputHeader=False
+        acceptedChains=0
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
@@ -2899,8 +2900,10 @@ class PEOutputParser(object):
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
+                if output: acceptedChains += 1
             finally:
                 infile.close()
+        print "%i of %i chains accepted."%(acceptedChains,len(files))
 
     def _swaplabel12(self, label):
         if label[-1] == '1':

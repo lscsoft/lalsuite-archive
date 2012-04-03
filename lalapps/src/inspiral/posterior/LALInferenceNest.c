@@ -254,7 +254,9 @@ Nested sampling arguments:\n\
 (--mcmcprop)\tUse PTMCMC proposal engine\n\
 \t(--iotaDistance FRAC)\tPTMCMC: Use iota-distance jump FRAC of the time\n\
 \t(--covarianceMatrix)\tPTMCMC: Propose jumps from covariance matrix of current live points\n\
-\t(--differential-evolution)\tPTMCMC:Use differential evolution jumps\n";
+\t(--differential-evolution)\tPTMCMC:Use differential evolution jumps\n\
+\t(--correlatedgaussianlikelihood)\tUse analytic, correlated Gaussian for Likelihood.\n\
+\t(--bimodalgaussianlikelihood)\tUse analytic, bimodal correlated Gaussian for Likelihood.\n";
 
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
@@ -292,7 +294,13 @@ Nested sampling arguments:\n\
 
 	runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 	runState->prior = &LALInferenceInspiralPriorNormalised;
-	
+
+	if(LALInferenceGetProcParamVal(commandLine,"--correlatedgaussianlikelihood"))
+        runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
+    if(LALInferenceGetProcParamVal(commandLine,"--bimodalgaussianlikelihood"))
+        runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
+    
+    
 	#ifdef HAVE_LIBLALXML
 	runState->logsample=LogNSSampleAsMCMCSampleToArray;
 	#else
@@ -547,6 +555,16 @@ Parameter arguments:\n\
     else mtot_max=2.*(mMax-mMin);
     LALInferenceAddVariable(priorArgs,"MTotMax",&mtot_max,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 
+    /* Set the minimum and maximum chirp mass, using user values if specified */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--Mmin");
+    if(ppt)
+        mcMin=atof(ppt->value);
+    else mcMin=pow(mMin*mMin,0.6)/pow(2.0*mMin,0.2);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--Mmax");
+    if(ppt)
+        mcMax=atof(ppt->value);
+    else mcMax=pow(mMax*mMax,0.6)/pow(2.0*mMax,0.2);
+
     INT4 tempint=1;
 	if(LALInferenceGetProcParamVal(commandLine,"--crazyinjectionhlsign") || LALInferenceGetProcParamVal(commandLine,"--crazyInjectionHLSign"))
     {
@@ -563,6 +581,7 @@ Parameter arguments:\n\
     {
         /* Set up the variable parameters */
         tmpVal=mcMin+(mcMax-mcMin)/2.0;
+        
         LALInferenceAddMinMaxPrior(priorArgs,   "chirpmass",    &mcMin, &mcMax,     LALINFERENCE_REAL8_t);
         LALInferenceAddVariable(currentParams,"chirpmass",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         tmpVal=1.5;
@@ -750,7 +769,7 @@ Arguments for each section follow:\n\n";
 	
 	/* Check for student-t and apply */
 	initStudentt(state);
-
+    
        /* Print command line arguments if help requested */
         if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
         {

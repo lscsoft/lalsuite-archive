@@ -151,9 +151,19 @@ def pulsarBayesPostProc( outdir, data,
       plotFig[i].savefig(oneDplotPath)
       
   # if the heterodyned data files have been included create time series plots
-  # of |B_k| and a spectrogram of the data
+  # of |B_k| and a amplitude spectral density spectrogram of the data
   if Bkdata is not None:
-    Bkfigs, PSDfigs = pppu.plot_Bks_PSDs( Bkdata, ifos )
+    Bkfigs, ASDfigs = pppu.plot_Bks_ASDs( Bkdata, ifos )
+    
+    # output plots
+    for i, ifo in enumerate(ifos):
+      figname = 'Bk'+'_'+ifo+'.png'
+      Bkplotpath = os.path.join(outdir, figname)
+      Bkfigs[i].savefig(Bkplotpath)
+      
+      figname = 'ASD'+'_'+ifo+'.png'
+      ASDplotpath = os.path.join(outdir, figname)
+      ASDfigs[i].savefig(ASDplotpath)
   
     
 # main function
