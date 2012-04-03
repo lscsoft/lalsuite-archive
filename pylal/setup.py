@@ -216,7 +216,9 @@ setup(
 		"pylal",
 		"pylal.xlal",
 		"pylal.xlal.datatypes",
-                "pylal.dq"
+        "pylal.dq",
+        "pylal.ctypes",
+        "pylal.ctypes.datatypes"
 	],
 	cmdclass = {
 		"build": pylal_build,

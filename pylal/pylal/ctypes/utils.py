@@ -87,9 +87,9 @@ def __load_lib(libname, mode = None):
     if lib_path is None:
         pkg_config=PkgConfig(libname)
         targets=[]
-        lib_path=pkg_config.libdirs[0]
         
         if pkg_config.libdirs:
+            lib_path=pkg_config.libdirs[0]
             for f in os.listdir(lib_path):
                 if fnmatch.fnmatch(f,'lib'+libname+'.so.*') or fnmatch.fnmatch(f,'lib'+libname+'.dylib*'):
                     targets.append(f)

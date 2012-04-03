@@ -27,6 +27,7 @@
 from ctypes import *
 
 import pylal.ctypes
+
 from pylal.ctypes.datatypes.primitives import *
 from pylal.ctypes.utils import __set_types
 
