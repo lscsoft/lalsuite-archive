@@ -15,8 +15,8 @@ def ROC(clean_ranks, glitch_ranks):
   FAP = []
   Eff = []
   for i,rank in enumerate(clean_ranks_sorted):
-    FAP.append(compute_FAP(clean_ranks, glitch_ranks, rank))
-    Eff.append(compute_Eff(clean_ranks, glitch_ranks, rank))
+    FAP.append(compute_FAP(clean_ranks_sorted, glitch_ranks_sorted, rank))
+    Eff.append(compute_Eff(clean_ranks_sorted, glitch_ranks_sorted, rank))
 
   return numpy.asarray(FAP), numpy.asarray(Eff)
 
