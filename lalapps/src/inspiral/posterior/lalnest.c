@@ -37,6 +37,7 @@ Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li, C. Van Den Broeck
 #include <lal/LALInspiralBransDicke.h>
 #include <lal/LALInspiralPPE.h>
 #include <fftw3.h>
+#include "LALCalibrationErrors.h"
 
 
 #include "nest_calc.h"
@@ -97,6 +98,9 @@ Optional OPTIONS:\n \
 [--chimin NUM\t:\tMin value of chi spin parameter]\n\
 [--chimax NUM\t:\tMax value of chi spin parameter]\n\
 [--snrpath PATH\t:\tOutput SNRs to a file in PATH]\n\
+[--enable-calfreq\t:\tEnable frequency dependent calibration error simulations. Both phase and Amplitude can be affected.]\n \
+[--calib-seed FLOAT\t:\tSeed for the calibration errors random sampling (integer)]\n \
+[--calib-errors-path PATH\t:\tOutput calibration errors data to a file in PATH]\n\
 \n\n \
 Optional PhenSpinTaylorRD_template OPTIONS:\n \
 [--onespin_flag INT\t:\tSet S2=(0,0,0) in PhenSpinTaylorRD template waveform]\n \
@@ -224,6 +228,12 @@ double ScCh_max = 1.0;
 
 UINT4 fLowFlag=0;
 
+/* variables related to calibration errors handling */
+
+int calib_seed=1;
+int enable_calfreq=0;
+CHAR *CalErrPath = NULL;
+
 /* variables for NestInitManualPhenSpinRD_manual */
 double compmassmin=1.;
 double m_tot_min=2.;
@@ -267,7 +277,7 @@ void NestInitSkyLoc(LALMCMCParameter *parameter, void *iT);
 void NestInitInj(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
-
+void PrintCalibrationErrorsToFile(COMPLEX16FrequencySeries *injFwithError,COMPLEX16FrequencySeries *injFnoError,UINT4 det_i,SimInspiralTable *inj_table,LALMCMCInput * inputMCMC);
 // prototype for the FD injection code
 
 void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table);
@@ -379,6 +389,9 @@ void initialise(int argc, char *argv[]){
 		{"m_c_min",required_argument,0,99},
 		{"mc_flag",no_argument,0,100},
 		{"snrpath",required_argument,0,123},
+        {"enable-calfreq",no_argument,0,300},
+        {"calib-seed",required_argument,0,124},
+        {"calib-errors-path",required_argument,0,125},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -670,6 +683,16 @@ void initialise(int argc, char *argv[]){
 		case 'L':
 			timeslides=1;
 			break;
+        case 300:
+            enable_calfreq=1;
+			break;
+        case 124:
+            calib_seed=atoi(optarg);
+            break;
+        case 125:
+			CalErrPath = calloc(strlen(optarg)+1,sizeof(char));
+			memcpy(CalErrPath,optarg,strlen(optarg)+1);
+            break;
         default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
@@ -688,6 +711,7 @@ void initialise(int argc, char *argv[]){
 	if(nSegs==0){fprintf(stderr,"Error: --Nsegs must be greater than 0\n"); exit(-1);}
 	if(Nlive<=1){fprintf(stderr,"Error: Nlive must be >1"); exit(-1);}
 	if(studentt) estimatenoise=0;
+    if (CalErrPath && !enable_calfreq){fprintf(stderr,"Error: you are giving the calib-errors-path option but do not seem to be switching on calibration errors with the option --enable-calerr. Exiting...");exit(-1);}
 	return;
 }
 
@@ -891,9 +915,10 @@ int main( int argc, char *argv[])
     
     Approximant check_approx;
     LALGetApproximantFromString(&status,injTable->waveform,&check_approx);
-        
+    INT4 calib_seed_for_TD=calib_seed; // this is used in the time domain part (noise, PSD, eventual time domain WF)    
 	/* Read in the data for each IFO */
 	for(i=0,j=0;i<nIFO;i++){
+       
 		INT4 TrigSegStart,TrigSample;
 		inputMCMC.ifoID[i] = IFOnames[i];
 		inputMCMC.deltaF = (REAL8)SampleRate/seglen;
@@ -936,6 +961,13 @@ int main( int argc, char *argv[])
 				inputMCMC.stilde[i]->data->data[j].re=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 				inputMCMC.stilde[i]->data->data[j].im=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 			}
+            
+            if(enable_calfreq){
+                fprintf(stderr,"Applying calibration errors to simulated %s noise and PSD with seed %i \n", IFOnames[i],calib_seed_for_TD);
+                COMPLEX16FrequencySeries *CalibNoise=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibNoiseFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+                ApplyCalibrationErrorsToData(inputMCMC,CalibNoise, IFOnames[i],i,calib_seed_for_TD);
+                XLALDestroyCOMPLEX16FrequencySeries(CalibNoise);
+            }
 		}
 		else FakeFlag=0;
 
@@ -1053,6 +1085,16 @@ int main( int argc, char *argv[])
 				inputMCMC.stilde[i]->data->data[j].re/=sqrt(windowplan->sumofsquares / windowplan->data->length);
 				inputMCMC.stilde[i]->data->data[j].im/=sqrt(windowplan->sumofsquares / windowplan->data->length);
 			}
+            
+            /* Apply calibration errors to the real noise PSD and datastream */
+            if((enable_calfreq) && !FakeFlag){ //The second condition is superfluos, but let's be paranoid.
+                fprintf(stderr,"Applying calibration errors to %s real noise with seed %i\n", IFOnames[i],calib_seed_for_TD);
+                COMPLEX16FrequencySeries *CalibNoise=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibNoiseFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+                ApplyCalibrationErrorsToData(inputMCMC,CalibNoise, IFOnames[i],i,calib_seed_for_TD);
+                XLALDestroyCOMPLEX16FrequencySeries(CalibNoise);           
+            }
+            
+            
 		} /* End if(!FakeFlag) */
 		
 		/* Perform injection */
@@ -1136,6 +1178,24 @@ int main( int argc, char *argv[])
 			XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
 			
 			REPORTSTATUS(&status);
+            
+            /* Add calibration errors to the time-domain generated WF. This is done before the SNR is calculated */
+            if(enable_calfreq){
+                fprintf(stderr,"Applying calibration errors to %s time domain waveform with seed %i\n", IFOnames[i],calib_seed_for_TD);
+                COMPLEX16FrequencySeries *injFnoError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+                COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &segmentStart,0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
+
+                for(j=0;j<injF->data->length;j++){
+                    injFnoError->data->data[j].re=injF->data->data[j].re;
+                    injFnoError->data->data[j].im=injF->data->data[j].im;                        
+                    
+                }
+                ApplyCalibrationErrorsToWaveform(injF,CalibInj, IFOnames[i],calib_seed_for_TD );
+                PrintCalibrationErrorsToFile(injF,injFnoError,i,injTable,&inputMCMC);
+                XLALDestroyCOMPLEX16FrequencySeries(injFnoError);
+                XLALDestroyCOMPLEX16FrequencySeries(CalibInj);
+            }
+            
 			if(estimatenoise){
 				for(j=(UINT4) (inputMCMC.fLow/inputMCMC.invspec[i]->deltaF),SNR=0.0;j<inputMCMC.invspec[i]->data->length;j++){
 					SNR+=((REAL8)injF->data->data[j].re)*((REAL8)injF->data->data[j].re)*inputMCMC.invspec[i]->data->data[j];
@@ -1174,7 +1234,7 @@ int main( int argc, char *argv[])
 			if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
 			else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
 		}
-
+    calib_seed_for_TD=calib_seed_for_TD+3;  /* Does not affect the time domain injection. The increment must be separately done there */
 	XLALDestroyRandomParams(datarandparam);
 	} /* End loop over IFOs */
 
@@ -2572,6 +2632,10 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	template.fine = NULL;
 	Nmodel = (inputMCMC->stilde[0]->data->length-1)*2; /* *2 for real/imag packing format */
 
+    COMPLEX16FrequencySeries *injFnoError=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFnoErr", &inputMCMC->epoch,0.0,deltaF,&lalDimensionlessUnit,Nmodel);
+    COMPLEX16FrequencySeries *injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjF",  &inputMCMC->epoch,0.0,deltaF,&lalDimensionlessUnit,Nmodel);
+    COMPLEX16FrequencySeries *CalibInj=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("CalibInjFD", &inputMCMC->epoch,0.0,deltaF,&lalDimensionlessUnit,Nmodel);
+
 	if(injWaveFD==NULL)	LALCreateVector(&status,&injWaveFD,Nmodel); /* Allocate storage for the waveform */
         
 	/* Create the wave */
@@ -2645,7 +2709,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         LALBBHPhenWaveFreqDom(&status, injWaveFD, &template);
     } */
     else {
-		fprintf(stderr,"GR injection");
+		fprintf(stderr,"GR injection\n");
         LALInspiralWave(&status,injWaveFD,&template);
     }
     
@@ -2702,8 +2766,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	for (det_i=0;det_i<nIFO;det_i++){ //nIFO
         UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
         UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
-       
-		if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
+        
+        if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
 		
         if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==IMRPhenomFBTest || template.approximant==EOBNR) highBin=inputMCMC->stilde[det_i]->data->length-1;
 		char InjFileName[50];
@@ -2718,7 +2782,10 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 		det_resp.plus*=0.5*(1.0+ci*ci);
 		det_resp.cross*=-ci;
 		REAL8 chisq=0.0;
+        
         for(idx=lowBin;idx<=highBin;idx++){
+        /* Calculate the WF to be injected for each frequency bin and fill injF and injFnoError with it. 
+         * Nothing is yet added to the data */
 			time_sin = sin(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
 			time_cos = cos(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
 			REAL8 hc = (REAL8)injWaveFD->data[idx]*time_cos + (REAL8)injWaveFD->data[Nmodel-idx]*time_sin;
@@ -2726,14 +2793,57 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 			resp_r = det_resp.plus * hc - det_resp.cross * hs;
 			resp_i = det_resp.cross * hc + det_resp.plus * hs;
 			resp_r/=deltaF; resp_i/=deltaF;
-			inputMCMC->stilde[det_i]->data->data[idx].re+=resp_r;
-			inputMCMC->stilde[det_i]->data->data[idx].im+=resp_i;
+            injF->data->data[idx].re=resp_r;
+            injF->data->data[idx].im=resp_i;
+            injFnoError->data->data[idx].re=resp_r;
+            injFnoError->data->data[idx].im=resp_i;
+        }
+        
+        for (idx=0;idx<injF->data->length;idx++){
+            /* Here we fill the WF with non-zero elements so that the function that prints calibration errors on a file can do its work.
+             * We will put the zeros back later (below lowBin and above highBin) */
+            if (idx<lowBin || idx>highBin){ 
+            injFnoError->data->data[idx].re=1.e-27;
+            injFnoError->data->data[idx].im=1.e-27;
+            injF->data->data[idx].re=1.e-27;
+            injF->data->data[idx].im=1.e-27;
+            CalibInj->data->data[idx].re=0.;
+            CalibInj->data->data[idx].im=0.;
+            }
+        }
+        
+        if(enable_calfreq){
+            /* If calibration errors must be added to the data do it here.
+             * injF gets the errors. injFnoError is the original WF (used in PrintCalibrationErrorsToFile */
+                fprintf(stderr,"Adding calibration errors to frequency domain injection in IFO %s with seed %i.\n",inputMCMC->ifoID[det_i],calib_seed);
+                ApplyCalibrationErrorsToWaveform(injF,CalibInj, inputMCMC->ifoID[det_i],calib_seed );
+                PrintCalibrationErrorsToFile(injF,injFnoError,det_i,inj_table,inputMCMC);
+                
+                for (idx=0;idx<injF->data->length;idx++){
+                /* We fill the WF back with zeros in the range f<flow & f>f_high */
+                     if (idx<lowBin || idx>highBin){
+                        injFnoError->data->data[idx].re=0.;
+                        injFnoError->data->data[idx].im=0.;
+                        injF->data->data[idx].re=0.;
+                        injF->data->data[idx].im=0.;
+                    }
+                }
+                
+         }
+         else { fprintf(stderr,"No calibration errors added ...\n");}
+        
+                
+        for(idx=lowBin;idx<=highBin;idx++){
+		 /* The WF, either with or without calibration errors is actually added to the noise stream. SNR is calculated here. */  
+            inputMCMC->stilde[det_i]->data->data[idx].re+=injF->data->data[idx].re;
+            inputMCMC->stilde[det_i]->data->data[idx].im+=injF->data->data[idx].im;
 
-//			fprintf(outInj,"%lf %e\n",idx*deltaF ,atan2(injWaveFD->data[Nmodel-idx],injWaveFD->data[idx]));
-			fprintf(outInj,"%lf %e %e %e %e %e\n",idx*deltaF ,inputMCMC->stilde[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im,resp_r,resp_i,inputMCMC->invspec[det_i]->data->data[idx]);
-			chisq+=inputMCMC->invspec[det_i]->data->data[idx]*(resp_r*resp_r+resp_i*resp_i)*deltaF;
+			//fprintf(outInj,"%lf %e\n",idx*deltaF ,atan2(injWaveFD->data[Nmodel-idx],injWaveFD->data[idx]));
+			fprintf(outInj,"%lf %e %e %e %e %e\n",idx*deltaF ,inputMCMC->stilde[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im,injF->data->data[idx].re,injF->data->data[idx].im,inputMCMC->invspec[det_i]->data->data[idx]);
+			chisq+=inputMCMC->invspec[det_i]->data->data[idx]*(injF->data->data[idx].re*injF->data->data[idx].re+injF->data->data[idx].im*injF->data->data[idx].im)*deltaF;
 
 		}
+        
 		chisq*=4.0;
  
         /*if (sqrt(chisq)<SNRcut) {
@@ -2744,6 +2854,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         SNRs[det_i]=sqrt(chisq);
 		SNRinj+=chisq;
 		fclose(outInj);
+        calib_seed=calib_seed+3;
 	}
    	SNRinj=sqrt(SNRinj);
     PrintSNRsToFile(SNRs,inj_table,inputMCMC);
@@ -2786,5 +2897,19 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
     if (nIFO>1){  fprintf(snrout,"Network:\t");
     fprintf(snrout,"%4.2f\n",sqrt(NetSNR));}
     fclose(snrout);
+
+}
+
+void PrintCalibrationErrorsToFile(COMPLEX16FrequencySeries *injFwithError,COMPLEX16FrequencySeries *injFnoError,UINT4 det_i,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
+    char FileName[300];
+            sprintf(FileName,"%s/calerr_%s_%10.1f.dat",CalErrPath,inputMCMC->ifoID[det_i],(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+
+    FILE *errout=fopen(FileName,"w");
+    for(UINT4 j=1;j<injFwithError->data->length;j++) {
+        //if (!injFnoError->data->data[j].re==0. || !injFnoError->data->data[j].im==0.){
+    fprintf(errout,"%6.5e \t %14.8e \t %14.8e \n", j*inputMCMC->deltaF, sqrt(pow(injFwithError->data->data[j].re,2.0)+pow(injFwithError->data->data[j].im,2.0))/sqrt(pow(injFnoError->data->data[j].re,2.0)+pow(injFnoError->data->data[j].im,2.0)),atan2(injFwithError->data->data[j].im,injFwithError->data->data[j].re)-atan2(injFnoError->data->data[j].im,injFnoError->data->data[j].re));
+//}
+}
+    fclose(errout);
 
 }
