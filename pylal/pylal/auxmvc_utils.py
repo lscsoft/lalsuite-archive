@@ -198,7 +198,7 @@ def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables
     KWvariables.remove('GPS')
   
   MVSCvariables = ['index', 'i', 'w', 'GPS_s', 'GPS_ms']+ KWvariables + ['glitch-rank']
-  formats = ['i','i'] + ['g8' for a in range(len(MVSCvariables) - 2)]
+  formats = ['i','i','g8','i', 'i'] + ['g8' for a in range(len(MVSCvariables) - 5)]
   n_triggers = len(KWAuxGlitchTriggers) + len(KWAuxCleanTriggers)
   
   i_row = numpy.concatenate((numpy.ones(len(KWAuxGlitchTriggers)), numpy.zeros(len(KWAuxCleanTriggers))))
@@ -234,7 +234,14 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
     for var in ['index', 'i', 'w', 'glitch-rank']:
       Unclassified_variables.remove(var)
     Unclassified_variables.append('i')
-    formats = ['g8' for a in range(len(Unclassified_variables) - 1)] + ['i']
+    formats = []
+    for var in Unclassified_variables:
+      if var in ['GPS_s', 'GPS_ms', 'i']:
+        formats.append('i')
+      else:
+        formats.append('g8')
+      
+    #formats = ['g8' for a in range(len(Unclassified_variables) - 1)] + ['i']
     Triggers = numpy.empty((n_triggers,), dtype={'names': Unclassified_variables,'formats':formats})
     
     for variable in Unclassified_variables:
@@ -273,7 +280,13 @@ def ReadMVSCTriggers(files):
   for (i,f) in enumerate(files):
     flines = open(f).readlines()
     variables = flines[0].split()
-    formats = ['i','i']+['g8' for a in range(len(variables)-2)]
+    formats = []
+    for var in variables:
+      if var in ['GPS_s', 'GPS_ms', 'i', 'index']:
+        formats.append('i')
+      else:
+        formats.append('g8')
+    #formats = ['i','i']+['g8' for a in range(len(variables)-2)]
     if i > 0:
       MVSCTriggers  = numpy.concatenate((MVSCTriggers ,numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})),axis=0)
     else:
