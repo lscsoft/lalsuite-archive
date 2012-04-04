@@ -473,7 +473,7 @@ setup(
 		os.path.join("bin", "pylal_mvsc_player.py"),
 		os.path.join("bin", "pylal_cbc_dq_page"),
 		os.path.join("bin", "mvsc_plots.py"),
-        os.path.join("bin", "mvsc_ROC_and_histograms.py"),
+		os.path.join("bin", "mvsc_ROC_and_histograms.py"),
 		os.path.join("bin", "mvsc_plot_cuts.py"),
 		os.path.join("bin", "mvsc_htmlwriter.py"),
 		os.path.join("bin", "pylal_combine_posteriors"),
@@ -577,7 +577,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotsngl"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
 		os.path.join("bin", "ligolw_cbc_plotfm"),
-        os.path.join("bin", "lalapps_cbc_plotrates"),
+		os.path.join("bin", "lalapps_cbc_plotrates"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "ligolw_segments_compat"),
@@ -625,7 +625,8 @@ setup(
 		os.path.join("bin", "cbcBayesPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
 		os.path.join("bin", "ligo_channel_query"),
-		os.path.join("bin", "ligolw_rinca_to_coinc")
+		os.path.join("bin", "ligolw_rinca_to_coinc"),
+		os.path.join("bin", "ligolw_dbinjfind")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
