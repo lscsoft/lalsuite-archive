@@ -267,7 +267,7 @@ for comb in ifo_combinations:
     rank_node[comb][i] = use_forest_node(rank_job, dag, train_node[comb][i].trainedforest, str(evaluation_files[comb][i]), p_node=[train_node[comb][i]])
     update_files.append(rank_node[comb][i].ranked_file)
     update_files.append(zerolag_info_files[comb][i])
-    zl_rank_node[comb][i] = use_forest_node(zl_rank_job, dag, train_node[comb][0].trainedforest, str(zerolag_files[comb][i]), p_node=[train_node[comb][i]])
+    zl_rank_node[comb][i] = use_forest_node(zl_rank_job, dag, train_node[comb][i].trainedforest, str(zerolag_files[comb][i]), p_node=[train_node[comb][i]])
     update_files.append(zl_rank_node[comb][i].ranked_file)
 finished_rank_nodes=[]
 for key in rank_node:
