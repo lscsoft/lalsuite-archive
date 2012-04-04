@@ -1238,7 +1238,7 @@ int main( int argc, char *argv[])
 			if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
 			else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
 		}
-    calib_seed_for_TD=calib_seed_for_TD+3;  /* Does not affect the time domain injection. The increment must be separately done there */
+    calib_seed_for_TD=calib_seed_for_TD+3;  /* Does not affect the frequency domain injection. The increment must be separately done there */
 	XLALDestroyRandomParams(datarandparam);
 	} /* End loop over IFOs */
 
@@ -2848,7 +2848,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         SNRs[det_i]=sqrt(chisq);
 		SNRinj+=chisq;
 		fclose(outInj);
-        calib_seed=calib_seed+3;
+        
+        calib_seed=calib_seed+3; // Increase calib_seed for the next IFO
 	}
    	SNRinj=sqrt(SNRinj);
     PrintSNRsToFile(SNRs,inj_table,inputMCMC);
