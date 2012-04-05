@@ -24,13 +24,14 @@
 #  
 #  
 
-from ctypes import *
+from ctypes import Structure,byref,POINTER
 
 import pylal.ctypes
 
-from pylal.ctypes.datatypes.primitives import *
+from pylal.ctypes.datatypes.primitives import UINT2,INT2,INT4,REAL4,REAL8
 from pylal.ctypes.utils import make_enum_anon,_set_types
 
+#This is a hack until better ways of wrapping enums are found...
 globals().update(
     make_enum_anon(
         [
@@ -47,6 +48,10 @@ globals().update(
 )
 
 class LALUnit(Structure):
+    """
+    ctypes wrapper for LALUnit structure.
+    """
+    
     _fields_=[
         ("powerOfTen",INT2),
         ("unitNumerator",INT2*int(LALNumUnits.value)),
@@ -68,23 +73,23 @@ class LALUnit(Structure):
     
     def __repr__(self):
         rep_str=create_string_buffer(50)
-        XLALUnitAsString(rep_str,sizeof(rep_str),pointer(self))
+        XLALUnitAsString(rep_str,sizeof(rep_str),byref(self))
         return str(rep_str)
         
     def __str__(self):
         return self.__repr__()
         
     def __cmp__(self,other):
-        return bool(XLALUnitCompare(pointer(self),pointer(other)).value)
+        return bool(XLALUnitCompare(byref(self),byref(other)).value)
         
     def __hash__(self): 
         raise NotImplemented
     
     def __mul__(self,other):
-        return XLALUnitMultiply(pointer(self),pointer(other)).contents
+        return XLALUnitMultiply(byref(self),byref(other)).contents
         
     def __div__(self,other):
-        return XLALUnitDivide(pointer(self),pointer(other)).contents
+        return XLALUnitDivide(byref(self),byref(other)).contents
         
     def __pow__(self):
         raise NotImplemented
@@ -97,8 +102,9 @@ class LALUnit(Structure):
         
     def __invert__(self):
         new=LALUnit()
-        return XLALUnitInvert(pointer(new),pointer(self)).contents
+        return XLALUnitInvert(byref(new),byref(self)).contents
 
+#LALUnit functions
 XLALUnitAsString=_set_types(pylal.ctypes.liblal,"XLALUnitAsString",char_p,[char_p,UINT4,POINTER(LALUnit)])
 XLALUnitCompare=_set_types(pylal.ctypes.liblal,"XLALUnitCompare",c_int,[POINTER(LALUnit),POINTER(LALUnit)])
 XLALUnitMultiply=_set_types(pylal.ctypes.liblal,"XLALUnitMultiply",POINTER(LALUnit),[POINTER(LALUnit),POINTER(LALUnit)])
@@ -106,6 +112,7 @@ XLALUnitDivide=_set_types(pylal.ctypes.liblal,"XLALUnitDivide",POINTER(LALUnit),
 XLALUnitIsDimensionless=_set_types(pylal.ctypes.liblal,"XLALUnitIsDimensionless",c_int,[POINTER(LALUnit)])
 XLALUnitInvert=_set_types(pylal.ctypes.liblal,"XLALUnitInvert",POINTER(LALUnit),[POINTER(LALUnit),POINTER(LALUnit)])
 
+#Access instances of LALUnits in liblal
 lalDimensionlessUnit=cast(pylal.ctypes.liblal.lalDimensionlessUnit,POINTER(LALUnit))
 lalMeterUnit=cast(pylal.ctypes.liblal.lalMeterUnit,POINTER(LALUnit))
 lalKiloGramUnit=cast(pylal.ctypes.liblal.lalKiloGramUnit,POINTER(LALUnit))

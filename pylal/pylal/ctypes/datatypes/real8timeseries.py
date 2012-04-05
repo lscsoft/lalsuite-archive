@@ -25,21 +25,12 @@
 #  
 
 from vector import *
-from laltime import LIGOTimeGPS
 from ctypes import Structure
-from unit import LALUnit
+
+from pylal.ctypes.ligotimegps import LIGOTimeGPS
+from pylal.ctypes.lalunit import LALUnit
 
 class REAL8TimeSeries(Structure):
-    
-    _fields_ = [
-        ("name",CHAR),
-        ("epoch",LIGOTimeGPS),
-        ("deltaT",REAL8),
-        ("sampleUnits",LALUnit),
-        ("data",POINTER(REAL8Sequence))
-    ]
-
-class COMPLEX16TimeSeries(Structure):
     
     _fields_ = [
         ("name",CHAR),

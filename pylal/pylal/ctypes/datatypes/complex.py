@@ -24,9 +24,8 @@
 #  
 #  
 
-from datatypes import *
-
-from ctypes import *
+from ctypes import Structure
+from pylal.ctypes.primitives import REAL8,REAL4
 
 #COMPLEX16 	XLALCOMPLEX16Rect (REAL8 x, REAL8 y)
 #COMPLEX16 	XLALCOMPLEX16Polar (REAL8 x, REAL8 y)

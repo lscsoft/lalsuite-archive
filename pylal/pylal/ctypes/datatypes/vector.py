@@ -24,10 +24,10 @@
 #  
 #  
 
-from datatypes import *
-from complex import *
+from pylal.ctypes.primitives import *
+from pylal.ctypes.complex import *
 from ctypes import *
-from laltime import *
+from pylal.ctypes.ligotimegps import LIGOTimeGPS
 
 class REAL8Vector(Structure):
     
@@ -40,13 +40,11 @@ class REAL8Vector(Structure):
 class COMPLEX16Vector(Structure):
     _fields_ = [("length",UINT4),("data",POINTER(COMPLEX16))]
     
-    def __init__(self,np_vector):
+    def __init__(self):
         Structure.__init__(self)
-        self.data=np_vector.ctypes.data_as(COMPLEX16)
-    
-class LIGOTimeGPSVector(Structure):
-    _fields_ = [("length",UINT4),("data",POINTER(LIGOTimeGPS)),("deltaT",REAL8)]
 
-    
 REAL8Sequence=REAL8Vector
 COMPLEX16Sequence=COMPLEX16Vector
+
+class LIGOTimeGPSVector(Structure):
+    _fields_ = [("length",UINT4),("data",POINTER(LIGOTimeGPS)),("deltaT",REAL8)]
