@@ -18,7 +18,7 @@
 #
 # =============================================================================
 #
-#                                   Preamble
+#				   Preamble
 #
 # =============================================================================
 #
@@ -33,6 +33,7 @@ from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
@@ -54,7 +55,7 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                                 Speed Hacks
+#				 Speed Hacks
 #
 # =============================================================================
 #
@@ -114,7 +115,7 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 # =============================================================================
 #
-#                           Add Process Information
+#			   Add Process Information
 #
 # =============================================================================
 #
@@ -181,7 +182,7 @@ def append_process(
 #
 # =============================================================================
 #
-#                          CoincTables Customizations
+#			  CoincTables Customizations
 #
 # =============================================================================
 #
@@ -325,7 +326,7 @@ def coinc_inspiral_end_time(events, offset_vector):
 #
 # =============================================================================
 #
-#                            Event List Management
+#			    Event List Management
 #
 # =============================================================================
 #
@@ -376,7 +377,7 @@ class InspiralEventList(snglcoinc.EventList):
 #
 # =============================================================================
 #
-#                              Coincidence Tests
+#			      Coincidence Tests
 #
 # =============================================================================
 #
@@ -429,7 +430,7 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
 #
 # =============================================================================
 #
-#                              Compare Functions
+#			      Compare Functions
 #
 # =============================================================================
 #
@@ -445,7 +446,7 @@ def default_ntuple_comparefunc(events, offset_vector):
 #
 # =============================================================================
 #
-#                                 Library API
+#				 Library API
 #
 # =============================================================================
 #
@@ -468,6 +469,18 @@ def replicate_threshold(e_thinca_parameter, instruments):
 	thresholds.update(dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2)))
 	return thresholds
 
+def get_vetoes(xmldoc, vetoes_name, verbose = False):
+	if not ligolw_segments.has_segment_tables(xmldoc):
+		if verbose:
+			print >>sys.stderr, "warning: no segment definitions found, vetoes will not be applied"
+		vetoes = None
+	elif not ligolw_segments.has_segment_tables(xmldoc, name = vetoes_name):
+		if verbose:
+			print >>sys.stderr, "warning: document contains segment definitions but none named \"%s\", vetoes will not be applied" % options.vetoes_name
+		vetoes = None
+	else:
+		vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, vetoes_name).coalesce()
+	return vetoes
 
 def ligolw_thinca(
 	xmldoc,
@@ -571,7 +584,7 @@ def ligolw_thinca(
 #
 # =============================================================================
 #
-#                              GraceDB Utilities
+#			      GraceDB Utilities
 #
 # =============================================================================
 #
