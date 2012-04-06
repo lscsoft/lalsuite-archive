@@ -102,7 +102,7 @@ def parse_command_line():
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
 	parser.add_option("--depop-sngl-inspiral", action = "store_true", help = "Removes all the rows in the sngl_inspiral table that are not associated with a coincident event.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
-	options, filenames = parser.parse_args()
+	options, filename = parser.parse_args()
 
 	#
 	# check arguments
@@ -126,7 +126,7 @@ def parse_command_line():
 	# done
 	#
 
-	return options, (filenames or [None])
+	return options, (filename or [None])
 
 
 #
@@ -143,7 +143,7 @@ def parse_command_line():
 #
 
 
-options, filenames = parse_command_line()
+options, filename = parse_command_line()
 
 
 #
@@ -190,153 +190,131 @@ else:
 	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
 
 
+# 
+# Load input xmldoc
 #
-# Iterate over files.
+
+xmldoc = utils.load_filename(filename[0], options.verbose)
+
+lsctables.table.InterningRowBuilder.strings.clear()
+
+#
+# Add an entry to the process table.
 #
 
+process = ligolw_thinca.append_process(
+	xmldoc,
+	comment = options.comment,
+	force = options.force,
+	e_thinca_parameter = options.e_thinca_parameter,
+	exact_mass = options.exact_mass,
+	weighted_snr = options.weighted_snr,
+	weight_factor = options.weight_factor,
+	vetoes_name = options.vetoes_name,
+	search_group = options.search_group,
+	trigger_program = options.trigger_program,
+	coinc_end_time_segment = options.coinc_end_time_segment,
+	depop_sngl_inspiral = options.depop_sngl_inspiral,
+	verbose = options.verbose
+)
 
-for n, filename in enumerate(filenames):
-	#
-	# Load the file.
-	#
+#
+# Hack the IDs.  LAL writes all triggers with event_id = 0.  This
+# value is used by other LAL programs to check if coincidence has
+# been performed yet so that behaviour cannot be changed but we
+# need the IDs to be unique before starting the coincidence engine.
+#
+# FIXME:  remove this when LAL writes trigger files with unique
+# IDs (unique within the output of lalapps_inspiral).
+#
 
+tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+tbl.set_next_id(lsctables.SnglInspiralID(0))
+for row in tbl:
+	row.event_id = tbl.get_next_id()
+
+#
+# Extract veto segments if present.
+#
+# FIXME:  using the tools in the glue.ligolw.utils.segments module
+# it's not hard to modify the veto segments in the .xml to be just
+# those that intersect the search summary segments.  That way, if
+# multiple documents are inserted into the same database, or merged
+# with ligolw_add, the veto lists will not get duplicated.
+#
+
+if not ligolw_segments.has_segment_tables(xmldoc):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose)
-	lsctables.table.InterningRowBuilder.strings.clear()
+		print >>sys.stderr, "warning: no segment definitions found, vetoes will not be applied"
+	vetoes = None
+elif not ligolw_segments.has_segment_tables(xmldoc, name = options.vetoes_name):
+	if options.verbose:
+		print >>sys.stderr, "warning: document contains segment definitions but none named \"%s\", vetoes will not be applied" % options.vetoes_name
+	vetoes = None
+else:
+	vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()
 
-	#
-	# Have we already processed it?
-	#
+#
+# Run coincidence algorithm.
+#
 
-	if ligolw_process.doc_includes_process(xmldoc, ligolw_thinca.process_program_name):
-		if options.verbose:
-			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-		if not options.force:
-			if options.verbose:
-				print >>sys.stderr, "skipping"
-			continue
-		if options.verbose:
-			print >>sys.stderr, "continuing by --force"
+ligolw_thinca.ligolw_thinca(
+	xmldoc,
+	process_id = process.process_id,
+	coinc_definer_row = ligolw_thinca.InspiralCoincDef,
+	event_comparefunc = event_comparefunc,
+	thresholds = options.e_thinca_parameter,
+	ntuple_comparefunc = ntuple_comparefunc,
+	weight_factor = options.weight_factor,
+	veto_segments = vetoes,
+	trigger_program = options.trigger_program,
+	verbose = options.verbose
+)
 
-	#
-	# Add an entry to the process table.
-	#
+# 
+# Clean out rows in sngl_inspiral table not associated with coinc table
+# 
 
-	process = ligolw_thinca.append_process(
-		xmldoc,
-		comment = options.comment,
-		force = options.force,
-		e_thinca_parameter = options.e_thinca_parameter,
-		exact_mass = options.exact_mass,
-		weighted_snr = options.weighted_snr,
-		weight_factor = options.weight_factor,
-		vetoes_name = options.vetoes_name,
-		search_group = options.search_group,
-		trigger_program = options.trigger_program,
-		coinc_end_time_segment = options.coinc_end_time_segment,
-		depop_sngl_inspiral = options.depop_sngl_inspiral,
-		verbose = options.verbose
-	)
+if options.depop_sngl_inspiral:
+	table_utils.depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
-	#
-	# Hack the IDs.  LAL writes all triggers with event_id = 0.  This
-	# value is used by other LAL programs to check if coincidence has
-	# been performed yet so that behaviour cannot be changed but we
-	# need the IDs to be unique before starting the coincidence engine.
-	#
-	# FIXME:  remove this when LAL writes trigger files with unique
-	# IDs (unique within the output of lalapps_inspiral).
-	#
+#
+# write the experiment_tables and populate them  
+# remove any rows in the tables which lack either events or coinc-time
+#
 
-	tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-	tbl.set_next_id(lsctables.SnglInspiralID(0))
-	for row in tbl:
-		row.event_id = tbl.get_next_id()
+table_utils.generate_experiment_tables(
+	xmldoc,
+	options.search_group,
+	options.trigger_program,
+	options.lars_id,
+	options.vetoes_name,
+	comments = options.comment,
+	verbose = options.verbose
+)
 
-	#
-	# Extract veto segments if present.
-	#
-	# FIXME:  using the tools in the glue.ligolw.utils.segments module
-	# it's not hard to modify the veto segments in the .xml to be just
-	# those that intersect the search summary segments.  That way, if
-	# multiple documents are inserted into the same database, or merged
-	# with ligolw_add, the veto lists will not get duplicated.
-	#
+table_utils.populate_experiment_map(
+	xmldoc,
+	options.search_group,
+	options.trigger_program,
+	options.lars_id,
+	options.vetoes_name,
+	verbose = options.verbose
+)
 
-	if not ligolw_segments.has_segment_tables(xmldoc):
-		if options.verbose:
-			print >>sys.stderr, "warning: no segment definitions found, vetoes will not be applied"
-		vetoes = None
-	elif not ligolw_segments.has_segment_tables(xmldoc, name = options.vetoes_name):
-		if options.verbose:
-			print >>sys.stderr, "warning: document contains segment definitions but none named \"%s\", vetoes will not be applied" % options.vetoes_name
-		vetoes = None
-	else:
-		vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()
-
-	#
-	# Run coincidence algorithm.
-	#
-
-	ligolw_thinca.ligolw_thinca(
-		xmldoc,
-		process_id = process.process_id,
-		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
-		event_comparefunc = event_comparefunc,
-		thresholds = options.e_thinca_parameter,
-		ntuple_comparefunc = ntuple_comparefunc,
-		weight_factor = options.weight_factor,
-		veto_segments = vetoes,
-		trigger_program = options.trigger_program,
-		verbose = options.verbose
-	)
-
-	# 
-	# Clean out rows in sngl_inspiral table not associated with coinc table
-	# 
-
-	if options.depop_sngl_inspiral:
-		table_utils.depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
+table_utils.depopulate_experiment_tables(xmldoc, verbose = options.verbose)
 
 
-	#
-	# write the experiment_tables and populate them  
-	# remove any rows in the tables which lack either events or coinc-time
-	#
+#
+# Close out the process table.
+#
 
-	table_utils.generate_experiment_tables(
-		xmldoc,
-		options.search_group,
-		options.trigger_program,
-		options.lars_id,
-		options.vetoes_name,
-		comments = options.comment,
-		verbose = options.verbose
-	)
+llwapp.set_process_end_time(process)
 
-	table_utils.populate_experiment_map(
-		xmldoc,
-		options.search_group,
-		options.trigger_program,
-		options.lars_id,
-		options.vetoes_name,
-		verbose = options.verbose
-	)
+#
+# Write back to disk, and clean up.
+#
 
-	table_utils.depopulate_experiment_tables(xmldoc, verbose = options.verbose)
+utils.write_filename(xmldoc, filename[0], options.verbose, gz = (filename[0] or "stdout").endswith(".gz"))
+xmldoc.unlink()
 
-
-	#
-	# Close out the process table.
-	#
-
-	llwapp.set_process_end_time(process)
-
-	#
-	# Write back to disk, and clean up.
-	#
-
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
-	xmldoc.unlink()
-	lsctables.table.reset_next_ids(lsctables.TableByName.values())
