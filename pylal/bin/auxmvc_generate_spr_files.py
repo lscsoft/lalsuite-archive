@@ -81,6 +81,26 @@ def GenerateKWAuxCleanTriggers(files):
    return KWAuxCleanTriggers
 
 
+def ApplyTimeWindow(AuxTriggers, time_window=0.1):
+  """
+  Apply time window keeping for each trigger only those auxiliary channel samples that statisfy dt <= time_window.
+  """
+  
+  variables = list(AuxTriggers.dtype.names)
+  channels = [var.split("_dt")[0] for var in variables if "_dt" in var]
+  
+  for row in AuxTriggers:
+    for channel in channels:
+      if abs(row[channel+"_dt"]) > 0.1:
+        row[channel+"_signif"] = 0.0
+        row[channel+"_dt"] = 0.0
+        row[channel+"_dur"] = 0.0
+        row[channel+"_freq"] = 0.0
+        row[channel+"_npts"] = 0.0
+        
+  return AuxTriggers
+        
+
 ##########
 
 def parse_command_line():
@@ -91,11 +111,13 @@ def parse_command_line():
   parser = OptionParser(version=git_version.verbose_msg) 
   parser.add_option("-c","--clean-paramsfile", help="file with events of class zero")
   parser.add_option("-g","--glitch-paramsfile", help="file with events of class one")
-  parser.add_option("","--channels", help="file with the list of channels to be used in the analysis. If to specified all channels in the input data are used.")
+  parser.add_option( "", "--apply-time-window", action = "store_true", default = False, help ="Apply time window (typically narrower than used in creating samples)")
+  parser.add_option("","--time-window",default=0.1,type="float",help="Time window to applied on samples (in seconds).") 
+  parser.add_option("","--channels", help="file with the list of channels to be used in the analysis. If not given, all channels in the input data are used.")
   parser.add_option("","--unsafe-channels", help="file with the list of unsafe channels.")
   parser.add_option("-n","--roundrobin-number",default=10,type="int",help="number of round-robin training/testing sets to make")
   parser.add_option("","--dq-cats",action="store", type="string",default="ALL", help="Generate DQ veto categories" )
-  parser.add_option("","--exclude-variables",action="store", type="string", default=None, help="Comma separated lits of variables that should be excluded from MVSC parameter list" )
+  parser.add_option("","--exclude-variables",action="store", type="string", default=None, help="Comma separated list of variables that should be excluded from MVSC parameter list" )
   parser.add_option("","--max-clean-samples",default=None,type="int",help="Maximum number of clean samples that wil be used in training")
   parser.add_option("","--output-tag",action="store",type="string", default=None, metavar=" OUTPUTTAG",\
       help="The output files will be named according to OUTPUTTAG" )
@@ -133,6 +155,10 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
 
   KWAuxCleanTriggers=GenerateKWAuxCleanTriggers(clean_paramsFile)
   print "Read in clean samples"
+  
+  # apply time window if required
+  if opts.apply_time_window:
+    KWAuxCleanTriggers = ApplyTimeWindow(KWAuxCleanTriggers, time_window=opts.time_window)
  
   if opts.channels:
     #construct list of channels to be excluded
@@ -165,10 +191,18 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
   KWAuxCleanTriggers = auxmvc_utils.ShuffleKWAuxTriggers(KWAuxCleanTriggers)
   print "Clean triggers has been shuffled"
 
+
+
+  # read in glitch samples
   KWAuxGlitchTriggers = GenerateKWAuxGlitchTriggers(glitch_paramsFile)
+  
+  # apply time window if required
+  if opts.apply_time_window:
+    KWAuxGlitchTriggers = ApplyTimeWindow(KWAuxGlitchTriggers, time_window=opts.time_window)  
 
   KWAuxGlitchTriggers = auxmvc_utils.FilterKWAuxTriggers(KWAuxGlitchTriggers, opts.exclude_variables, exclude_channels) 
   print "Read in glitch samples"
+  
   KWAuxGlitchTriggers = auxmvc_utils.ShuffleKWAuxTriggers(KWAuxGlitchTriggers)
   print "Glitch triggers has been shuffled"
 

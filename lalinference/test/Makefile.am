@@ -30,15 +30,14 @@ check_PROGRAMS = \
 	LALInferenceTest \
 	LALInferencePriorTest \
 	LALInferenceLikelihoodTest \
+	LALInferenceProposalTest \
 	$(XMLPRG)
 
-#	LALInferenceKDTest
-
-noinst_PROGRAMS = \
-	LALInferenceProposalTest
-
 TESTS = \
-	$(check_PROGRAMS)
+	LALInferenceTest \
+	LALInferencePriorTest \
+	LALInferenceLikelihoodTest \
+	$(XMLPRG)
 
 endif
 endif
