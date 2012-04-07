@@ -24,11 +24,11 @@
 #  
 #  
 
-from ctypes import Structure,byref,POINTER
+from ctypes import Structure,byref,POINTER,c_char_p,c_int,cast
 
 import pylal.ctypes
 
-from pylal.ctypes.datatypes.primitives import UINT2,INT2,INT4,REAL4,REAL8
+from pylal.ctypes.datatypes.primitives import UINT2,UINT4,INT2,INT4,REAL4,REAL8
 from pylal.ctypes.utils import make_enum_anon,_set_types
 
 #This is a hack until better ways of wrapping enums are found...
@@ -105,7 +105,7 @@ class LALUnit(Structure):
         return XLALUnitInvert(byref(new),byref(self)).contents
 
 #LALUnit functions
-XLALUnitAsString=_set_types(pylal.ctypes.liblal,"XLALUnitAsString",char_p,[char_p,UINT4,POINTER(LALUnit)])
+XLALUnitAsString=_set_types(pylal.ctypes.liblal,"XLALUnitAsString",c_char_p,[c_char_p,UINT4,POINTER(LALUnit)])
 XLALUnitCompare=_set_types(pylal.ctypes.liblal,"XLALUnitCompare",c_int,[POINTER(LALUnit),POINTER(LALUnit)])
 XLALUnitMultiply=_set_types(pylal.ctypes.liblal,"XLALUnitMultiply",POINTER(LALUnit),[POINTER(LALUnit),POINTER(LALUnit)])
 XLALUnitDivide=_set_types(pylal.ctypes.liblal,"XLALUnitDivide",POINTER(LALUnit),[POINTER(LALUnit),POINTER(LALUnit)])
@@ -113,12 +113,12 @@ XLALUnitIsDimensionless=_set_types(pylal.ctypes.liblal,"XLALUnitIsDimensionless"
 XLALUnitInvert=_set_types(pylal.ctypes.liblal,"XLALUnitInvert",POINTER(LALUnit),[POINTER(LALUnit),POINTER(LALUnit)])
 
 #Access instances of LALUnits in liblal
-lalDimensionlessUnit=cast(pylal.ctypes.liblal.lalDimensionlessUnit,POINTER(LALUnit))
-lalMeterUnit=cast(pylal.ctypes.liblal.lalMeterUnit,POINTER(LALUnit))
-lalKiloGramUnit=cast(pylal.ctypes.liblal.lalKiloGramUnit,POINTER(LALUnit))
-lalSecondUnit=cast(pylal.ctypes.liblal.lalSecondUnit,POINTER(LALUnit))
-lalAmpereUnit=cast(pylal.ctypes.liblal.lalAmpereUnit,POINTER(LALUnit))
-lalKelvinUnit=cast(pylal.ctypes.liblal.lalKelvinUnit,POINTER(LALUnit))
-lalStrainUnit=cast(pylal.ctypes.liblal.lalStrainUnit,POINTER(LALUnit))
-lalADCCountUnit=cast(pylal.ctypes.liblal.lalADCCountUnit,POINTER(LALUnit))
-lalYottaUnit=cast(pylal.ctypes.liblal.lalYottaUnit,POINTER(LALUnit))
+lalDimensionlessUnit=cast(pylal.ctypes.liblal.lalDimensionlessUnit,POINTER(LALUnit)).contents
+lalMeterUnit=cast(pylal.ctypes.liblal.lalMeterUnit,POINTER(LALUnit)).contents
+lalKiloGramUnit=cast(pylal.ctypes.liblal.lalKiloGramUnit,POINTER(LALUnit)).contents
+lalSecondUnit=cast(pylal.ctypes.liblal.lalSecondUnit,POINTER(LALUnit)).contents
+lalAmpereUnit=cast(pylal.ctypes.liblal.lalAmpereUnit,POINTER(LALUnit)).contents
+lalKelvinUnit=cast(pylal.ctypes.liblal.lalKelvinUnit,POINTER(LALUnit)).contents
+lalStrainUnit=cast(pylal.ctypes.liblal.lalStrainUnit,POINTER(LALUnit)).contents
+lalADCCountUnit=cast(pylal.ctypes.liblal.lalADCCountUnit,POINTER(LALUnit)).contents
+lalYottaUnit=cast(pylal.ctypes.liblal.lalYottaUnit,POINTER(LALUnit)).contents
