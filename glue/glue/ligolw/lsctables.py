@@ -18,7 +18,7 @@
 #
 # =============================================================================
 #
-#                                   Preamble
+#				   Preamble
 #
 # =============================================================================
 #
@@ -61,7 +61,7 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                            Convenience Functions
+#			    Convenience Functions
 #
 # =============================================================================
 #
@@ -234,7 +234,7 @@ def ifos_from_instrument_set(instruments):
 #
 # =============================================================================
 #
-#                                process:table
+#				process:table
 #
 # =============================================================================
 #
@@ -297,7 +297,7 @@ ProcessTable.RowType = Process
 #
 # =============================================================================
 #
-#                                lfn:table
+#				lfn:table
 #
 # =============================================================================
 #
@@ -330,7 +330,7 @@ LfnTable.RowType = Lfn
 #
 # =============================================================================
 #
-#                             process_params:table
+#			     process_params:table
 #
 # =============================================================================
 #
@@ -374,7 +374,7 @@ ProcessParamsTable.RowType = ProcessParams
 #
 # =============================================================================
 #
-#                             search_summary:table
+#			     search_summary:table
 #
 # =============================================================================
 #
@@ -515,7 +515,7 @@ SearchSummaryTable.RowType = SearchSummary
 #
 # =============================================================================
 #
-#                            search_summvars:table
+#			    search_summvars:table
 #
 # =============================================================================
 #
@@ -547,7 +547,7 @@ SearchSummVarsTable.RowType = SearchSummVars
 #
 # =============================================================================
 #
-#                            experiment:table
+#			    experiment:table
 #
 # =============================================================================
 #
@@ -666,7 +666,7 @@ ExperimentTable.RowType = Experiment
 #
 # =============================================================================
 #
-#                            experiment_summary:table
+#			    experiment_summary:table
 #
 # =============================================================================
 #
@@ -830,7 +830,7 @@ ExperimentSummaryTable.RowType = ExperimentSummary
 #
 # =============================================================================
 #
-#                            experiment_map:table
+#			    experiment_map:table
 #
 # =============================================================================
 #
@@ -870,7 +870,7 @@ ExperimentMapTable.RowType = ExperimentMap
 #
 # =============================================================================
 #
-#                               sngl_burst:table
+#			       sngl_burst:table
 #
 # =============================================================================
 #
@@ -1015,7 +1015,7 @@ SnglBurstTable.RowType = SnglBurst
 #
 # =============================================================================
 #
-#                              multi_burst:table
+#			      multi_burst:table
 #
 # =============================================================================
 #
@@ -1091,7 +1091,7 @@ MultiBurstTable.RowType = MultiBurst
 #
 # =============================================================================
 #
-#                             sngl_inspiral:table
+#			     sngl_inspiral:table
 #
 # =============================================================================
 #
@@ -1230,7 +1230,7 @@ class SnglInspiralTable(table.Table):
 
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
-            
+	    
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
@@ -1428,7 +1428,7 @@ SnglInspiralTable.RowType = SnglInspiral
 #
 # =============================================================================
 #
-#                             coinc_inspiral:table
+#			     coinc_inspiral:table
 #
 # =============================================================================
 #
@@ -1481,7 +1481,7 @@ CoincInspiralTable.RowType = CoincInspiral
 #
 # =============================================================================
 #
-#                             sngl_ringdown:table
+#			     sngl_ringdown:table
 #
 # =============================================================================
 #
@@ -1550,7 +1550,7 @@ SnglRingdownTable.RowType = SnglRingdown
 #
 # =============================================================================
 #
-#                             coinc_ringdown:table
+#			     coinc_ringdown:table
 #
 # =============================================================================
 #
@@ -1603,7 +1603,7 @@ CoincRingdownTable.RowType = CoincRingdown
 #
 # =============================================================================
 #
-#                             multi_inspiral:table
+#			     multi_inspiral:table
 #
 # =============================================================================
 #
@@ -1646,30 +1646,30 @@ class MultiInspiralTable(table.Table):
 		"tau5": "real_4",
 		"ttotal": "real_4",
 		"snr": "real_4",
-                "snr_dof": "int_4s",
+		"snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
-                "trace_snr": "real_4",
-                "snr_h1": "real_4",
-                "snr_h2": "real_4",
-                "snr_l": "real_4",
-                "snr_g": "real_4",
-                "snr_t": "real_4",
-                "snr_v": "real_4",
-                "amp_term_1": "real_4",
-                "amp_term_2": "real_4",
-                "amp_term_3": "real_4",
-                "amp_term_4": "real_4",
-                "amp_term_5": "real_4",
-                "amp_term_6": "real_4",
-                "amp_term_7": "real_4",
-                "amp_term_8": "real_4",
-                "amp_term_9": "real_4",
-                "amp_term_10": "real_4",
+		"trace_snr": "real_4",
+		"snr_h1": "real_4",
+		"snr_h2": "real_4",
+		"snr_l": "real_4",
+		"snr_g": "real_4",
+		"snr_t": "real_4",
+		"snr_v": "real_4",
+		"amp_term_1": "real_4",
+		"amp_term_2": "real_4",
+		"amp_term_3": "real_4",
+		"amp_term_4": "real_4",
+		"amp_term_5": "real_4",
+		"amp_term_6": "real_4",
+		"amp_term_7": "real_4",
+		"amp_term_8": "real_4",
+		"amp_term_9": "real_4",
+		"amp_term_10": "real_4",
 		"sigmasq_h1": "real_8",
 		"sigmasq_h2": "real_8",
 		"sigmasq_l": "real_8",
@@ -1682,21 +1682,21 @@ class MultiInspiralTable(table.Table):
 		"chisq_g": "real_4",
 		"chisq_t": "real_4",
 		"chisq_v": "real_4",
-                "sngl_chisq_dof": "int_4s",
-                "bank_chisq_h1": "real_4",
-                "bank_chisq_h2": "real_4",
-                "bank_chisq_l": "real_4",
-                "bank_chisq_g": "real_4",
-                "bank_chisq_t": "real_4",
-                "bank_chisq_v": "real_4",
-                "sngl_bank_chisq_dof": "int_4s",
-                "cont_chisq_h1": "real_4",
-                "cont_chisq_h2": "real_4",
-                "cont_chisq_l": "real_4",
-                "cont_chisq_g": "real_4",
-                "cont_chisq_t": "real_4",
-                "cont_chisq_v": "real_4",
-                "sngl_cont_chisq_dof": "int_4s",
+		"sngl_chisq_dof": "int_4s",
+		"bank_chisq_h1": "real_4",
+		"bank_chisq_h2": "real_4",
+		"bank_chisq_l": "real_4",
+		"bank_chisq_g": "real_4",
+		"bank_chisq_t": "real_4",
+		"bank_chisq_v": "real_4",
+		"sngl_bank_chisq_dof": "int_4s",
+		"cont_chisq_h1": "real_4",
+		"cont_chisq_h2": "real_4",
+		"cont_chisq_l": "real_4",
+		"cont_chisq_g": "real_4",
+		"cont_chisq_t": "real_4",
+		"cont_chisq_v": "real_4",
+		"sngl_cont_chisq_dof": "int_4s",
 		"ra": "real_4",
 		"dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1719,7 +1719,7 @@ class MultiInspiralTable(table.Table):
 		"t1quad_im": "real_4",
 		"v1quad_re": "real_4",
 		"v1quad_im": "real_4",
-                "coh_snr_h1h2": "real_4",
+		"coh_snr_h1h2": "real_4",
 		"cohSnrSqLocal": "real_4",
 		"autoCorrCohSq": "real_4",
 		"crossCorrCohSq": "real_4",
@@ -1727,7 +1727,7 @@ class MultiInspiralTable(table.Table):
 		"crossCorrNullSq": "real_4",
 		"ampMetricEigenVal1": "real_8",
 		"ampMetricEigenVal2": "real_8",
-                "time_slide_id": "ilwd:char"
+		"time_slide_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1777,8 +1777,8 @@ class MultiInspiralTable(table.Table):
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
-        def get_end(self):
-                return LIGOTimeGPS(self.end_time, self.end_time_ns)
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
@@ -1819,7 +1819,7 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 # =============================================================================
 #
-#                              sim_inspiral:table
+#			      sim_inspiral:table
 #
 # =============================================================================
 #
@@ -1957,7 +1957,7 @@ SimInspiralTable.RowType = SimInspiral
 #
 # =============================================================================
 #
-#                               sim_burst:table
+#			       sim_burst:table
 #
 # =============================================================================
 #
@@ -2014,7 +2014,7 @@ SimBurstTable.RowType = SimBurst
 #
 # =============================================================================
 #
-#                              sim_ringdown:table
+#			      sim_ringdown:table
 #
 # =============================================================================
 #
@@ -2081,7 +2081,7 @@ SimRingdownTable.RowType = SimRingdown
 #
 # =============================================================================
 #
-#                               summ_value:table
+#			       summ_value:table
 #
 # =============================================================================
 #
@@ -2123,7 +2123,7 @@ SummValueTable.RowType = SummValue
 #
 # =============================================================================
 #
-#                            sim_inst_params:table
+#			    sim_inst_params:table
 #
 # =============================================================================
 #
@@ -2153,7 +2153,7 @@ SimInstParamsTable.RowType = SimInstParams
 #
 # =============================================================================
 #
-#                               stochastic:table
+#			       stochastic:table
 #
 # =============================================================================
 #
@@ -2188,7 +2188,7 @@ StochasticTable.RowType = Stochastic
 #
 # =============================================================================
 #
-#                               stochsumm:table
+#			       stochsumm:table
 #
 # =============================================================================
 #
@@ -2223,7 +2223,7 @@ StochSummTable.RowType = StochSumm
 #
 # =============================================================================
 #
-#                            external_trigger:table
+#			    external_trigger:table
 #
 # =============================================================================
 #
@@ -2289,7 +2289,7 @@ ExtTriggersTable.RowType = ExtTriggers
 #
 # =============================================================================
 #
-#                                 filter:table
+#				 filter:table
 #
 # =============================================================================
 #
@@ -2323,7 +2323,7 @@ FilterTable.RowType = Filter
 #
 # =============================================================================
 #
-#                                segment:table
+#				segment:table
 #
 # =============================================================================
 #
@@ -2376,7 +2376,7 @@ SegmentTable.RowType = Segment
 #
 # =============================================================================
 #
-#                            segment_definer:table
+#			    segment_definer:table
 #
 # =============================================================================
 #
@@ -2426,7 +2426,7 @@ SegmentDefTable.RowType = SegmentDef
 #
 # =============================================================================
 #
-#                            segment_summary:table
+#			    segment_summary:table
 #
 # =============================================================================
 #
@@ -2491,7 +2491,7 @@ SegmentSumTable.RowType = SegmentSum
 #
 # =============================================================================
 #
-#                               time_slide:table
+#			       time_slide:table
 #
 # =============================================================================
 #
@@ -2606,7 +2606,7 @@ TimeSlideTable.RowType = TimeSlide
 #
 # =============================================================================
 #
-#                             coinc_definer:table
+#			     coinc_definer:table
 #
 # =============================================================================
 #
@@ -2676,7 +2676,7 @@ CoincDefTable.RowType = CoincDef
 #
 # =============================================================================
 #
-#                              coinc_event:table
+#			      coinc_event:table
 #
 # =============================================================================
 #
@@ -2729,7 +2729,7 @@ CoincTable.RowType = Coinc
 #
 # =============================================================================
 #
-#                            coinc_event_map:table
+#			    coinc_event_map:table
 #
 # =============================================================================
 #
@@ -2759,7 +2759,7 @@ CoincMapTable.RowType = CoincMap
 #
 # =============================================================================
 #
-#                                dq_list Table
+#				dq_list Table
 #
 # =============================================================================
 #
@@ -2801,7 +2801,7 @@ DQSpecListTable.RowType = DQSpec
 #
 # =============================================================================
 #
-#                               ligolw_mon:table
+#			       ligolw_mon:table
 #
 # =============================================================================
 #
@@ -2843,7 +2843,7 @@ LIGOLWMonTable.RowType = LIGOLWMon
 #
 # =============================================================================
 #
-#                            veto_definer:table
+#			    veto_definer:table
 #
 # =============================================================================
 #
@@ -2875,7 +2875,7 @@ VetoDefTable.RowType = VetoDef
 #
 # =============================================================================
 #
-#                               summ_mime:table
+#			       summ_mime:table
 #
 # =============================================================================
 #
@@ -2931,7 +2931,7 @@ SummMimeTable.RowType = SummMime
 #
 # =============================================================================
 #
-#                                Table Metadata
+#				Table Metadata
 #
 # =============================================================================
 #
@@ -2984,7 +2984,7 @@ TableByName = {
 #
 # =============================================================================
 #
-#                               Content Handler
+#			       Content Handler
 #
 # =============================================================================
 #

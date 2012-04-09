@@ -164,10 +164,35 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
 #
 # =============================================================================
 #
-#	 Initialize experiment and experiment_summ tables 
+#		experiment and experiment_summ tables 
 #
 # =============================================================================
 #
+
+def get_experiment_times(xmldoc):
+	"""
+	Use the start & end-times stored in the process params table to define 
+	the experiment times.  This presumes that the vetoes file has been added
+	to the file being analyzed and that the program used to make said vetoes file
+	is ligolw_segments_from_cats.
+	"""
+	# Find the process and process_params tables
+	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	process_params_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+	
+	# Get the experiment start-time & end-time
+	segment_proc_ids = []
+	for row in process_tbl:
+		if row.program == ".executables/ligolw_segments_from_cats": 
+			segment_proc_ids.append(row.process_id)
+	for row in process_params_tbl:
+		if row.process_id == segment_proc_ids[0]:
+			if row.param == "--gps-start-time":
+				expr_start_time = int(row.value)
+			elif row.param == "--gps-end-time":
+				expr_end_time = int(row.value)
+
+	return expr_start_time, expr_end_time
 
 def populate_experiment_table(
 	xmldoc,
@@ -205,21 +230,8 @@ def populate_experiment_table(
 	except ValueError:
 		expr_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
 
-	# Find the process and process_params tables
-	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	process_params_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
-	
-	# Get the experiment start-time & end-time
-	segment_proc_ids = []
-	for row in process_tbl:
-		if row.program == ".executables/ligolw_segments_from_cats": 
-			segment_proc_ids.append(row.process_id)
-	for row in process_params_tbl:
-		if row.process_id == segment_proc_ids[0]:
-			if row.param == "--gps-start-time":
-				expr_start_time = int(row.value)
-			elif row.param == "--gps-end-time":
-				expr_end_time = int(row.value)
+	# determine experiment start and end times
+	expr_start_time, expr_end_time = get_experiment_times(xmldoc)
 
 	# write entry to the experiment table for the given instruments if it doesn't already exist
 	experiment_ids = {}
@@ -250,6 +262,37 @@ def populate_experiment_table(
 						comments = comments
 					)
 	return experiment_ids
+
+def get_experiment_type(xmldoc, time_slide_dict):
+	"""
+	Determine the which experiment type(s) the coincident triggers in this
+	file belong to.  It uses information from the inspiral files stored in
+	the process params table to decide if the triggers come from playground
+	time or are from an injection run.  If the time_slide_dict has more than
+	one entry, then the triggers are from a slide run.
+	"""
+	# get the param column of the process_params table
+	process_params_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+	pp_param = set(process_params_tbl.getColumnByName("param"))
+	pp_value = set(process_params_tbl.getColumnByName("value"))
+
+	# determine experiment type(s)
+	if len(time_slide_dict) == 1:
+		if '--injection-file' in pp_param:
+			datatypes = ['simulation']
+		else:
+			datatypes = ['all_data']
+			if 'PLAYGROUND' in pp_value:
+				datatypes += ['playground']
+			else:
+				datatypes += ['exclude_play']
+	elif len(time_slide_dict) > 1:
+		if 'PLAYGROUND' in pp_value:
+			datatypes = ['play_slide']
+		else:
+			datatypes = ['slide']
+
+	return datatypes
 
 
 def populate_experiment_summ_table(
@@ -282,39 +325,18 @@ def populate_experiment_summ_table(
 	except ValueError:
 		expr_summ_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
 
-	# is the experiment an analysis with simulated signals?
-	try:
-		sim_tbl = lsctables.table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
-		is_simulation = True
-	except ValueError:
-		is_simulation = False
-
 	# populate the experiment_summary table
-	if is_simulation:
-		# get process_id for lalapps_inspinj from process table
-		sim_proc_id = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("inspinj")
+	datatypes = get_experiment_type(xmldoc, time_slide_dict)
 
+	for type in datatypes:
 		for slide_id in time_slide_dict:
-			if not any(time_slide_dict[slide_id].values()):
-				expr_summ_table.write_experiment_summ(
-					experiment_id,
-					slide_id,
-					veto_def_name,
-					'simulation',
-					sim_proc_id = sim_proc_id
-				)
-				break
-	else:
-		# write zero-lag entries for all_data, playground, and exclude_play
-		expr_summ_table.write_non_injection_summary(
-			experiment_id,
-			time_slide_dict,
-			veto_def_name,
-			write_all_data = True,
-			write_playground = True,
-			write_exclude_play = True,
-			return_dict = return_dict
-		)
+			expr_summ_table.write_experiment_summ(
+				experiment_id,
+				slide_id,
+				veto_def_name,
+				type,
+				sim_proc_id = None
+			)
 
 
 def generate_experiment_tables(
@@ -409,16 +431,17 @@ def populate_experiment_map(
 	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
 
 	#
-	# find the experiment table
+	# find the experiment & experiment summary tables
 	#
 
 	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-
-	#
-	# find the experiment_summary table
-	#
-
 	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+
+	#
+	# determine what experiment datatype this file belongs to
+	#
+
+	datatypes = get_experiment_type(xmldoc, time_slide_dict)
 
 	#
 	# cycle through the coincs in the coinc_inspiral table
@@ -433,35 +456,7 @@ def populate_experiment_map(
 			if expr.instruments == coinc.instruments:
 				expr_id =  expr.experiment_id
 
-		# is the experiment an analysis with simulated signals?
-		try:
-			sim_tbl = lsctables.table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
-			is_simulation = True
-		except ValueError:
-			is_simulation = False
-
-		if is_simulation:
-			datatype = ['simulation']
-
-		# if not 'simulation', check if the coinc is time-slide or zero-lag
-		elif not any( time_slide_dict[coinc.time_slide_id].values() ):
-			datatype = ['all_data']
-
-			#
-			# determine if the coinc is in playground or not; depending on the result, also map it
-			# to either the playground or exclude_play entry for this experiment
-			#
-
-			if is_in_playground( coinc_index[coinc.coinc_event_id].end_time ) == 1:
-				datatype += ['playground']
-			else:
-				datatype += ['exclude_play']
-
-		# otherwise, if not zero_lag (and not 'simulation'), just map to the appropiate slide entry
-		else:
-			datatype = ['slide']
-
-		for type in datatype:
+		for type in datatypes:
 			# map the coinc to an experiment
 			expr_map = lsctables.ExperimentMap()
 			expr_map.coinc_event_id = coinc.coinc_event_id
