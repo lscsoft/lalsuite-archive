@@ -168,7 +168,7 @@ for arg in args:
 		command += ' --psdstart ' + str(math.floor(end_time-template_duration*1.2*(psdsegments+1)))
 		command += ' --ifo ' + "[%s]" % ",".join([e.ifo for e in sngl_insp])
 		command += ' --cache ' + "[%s]" % ",".join(cachefilenames)
-		command += ' --channel ' + "[%s]" % ",".join([e.channel for event in sngl_insp])
+		command += ' --channel ' + "[%s]" % ",".join([e.ifo + ":" + e.channel for event in sngl_insp])
 		# FIXME: Unhardcode... make option?
 		flow = [ "10" for i in range(len(sngl_insp)) ]
 		command += ' --flow ' + "[%s]" % ",".join(flow)

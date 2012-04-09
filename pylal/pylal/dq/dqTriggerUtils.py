@@ -1294,17 +1294,17 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 # Get coincidences between two tables
 # =============================================================================
 
-def get_coincs(table1, table2, dt=1, returnsegs=False):
+def get_coincs(table1, table2, dt=1, returnsegs=False, timeshift=0):
 
   """
     Returns the table of those entries in table1 whose time is within +-dt of
-    and entry in table2.
+    an entry in table2.
   """
 
   t1 = get_column(table1, 'time')
   t2 = get_column(table2, 'time')
 
-  coincsegs  = segments.segmentlist(segments.segment(t-dt, t+dt) for t in t2)\
+  coincsegs  = segments.segmentlist(segments.segment(t-dt+timeshift, t+dt+timeshift) for t in t2)\
                    .coalesce()
   coincsegs.sort()
   coinctrigs = table.new_from_template(table1)
@@ -1314,6 +1314,46 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
     return coinctrigs,coincsegs
   else:
     return coinctrigs
+
+# =============================================================================
+# Get number of coincidences between two tables
+# =============================================================================
+
+def get_number_coincs(table1, table2, dt=1, timeshift=0):
+
+  """
+    Returns the numbers of entries in table1 whose time is within +-dt of
+    an entry in table2.
+  """
+
+  # t1 = get_column(table1, 'time')
+  # t2 = get_column(table2, 'time')
+
+  # coincsegs  = segments.segmentlist(segments.segment(t-dt+timeshift, t+dt+timeshift) for t in t2)\
+  #                  .coalesce()
+  # coincsegs.sort()
+  # coinctrigs = table.new_from_template(table1)
+  # coinctrigs.extend(t for i,t in enumerate(table1) if t1[i] in coincsegs)
+
+  # return len(coinctrigs)
+
+  time1 = get_column(table1, 'time')
+  time2 = get_column(table2, 'time')
+
+  time1.sort()
+  time2.sort()
+
+  i2 = 0
+  ncoinc = 0
+  for i1,t1 in enumerate(time1):
+    while  i2 < len(time2) and t1 > time2[i2]+timeshift+dt:
+      i2 = i2 + 1
+    if i2 >= len(time2):
+      break
+    if t1 >= time2[i2]+timeshift-dt:
+      ncoinc = ncoinc + 1
+
+  return ncoinc
 
 # ==============================================================================
 # Calculate poisson significance of coincidences
@@ -1332,25 +1372,29 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
     livetime = end-start
 
   # calculate probability of a GW trigger falling within the window
-  gwprob = len(gwtriggers) * float(window) / float(livetime)
+  gwprob = len(gwtriggers) * 2.0 * float(window) / float(livetime)
 
   # calculate mean of Poisson distribution
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers,coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
-                                       returnsegs=True)
+  if returnsegs:
+    coinctriggers,coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                                           returnsegs=True)
+    ncoinc = len(coinctriggers)
+  else:
+    ncoinc = get_number_coincs(gwtriggers, auxtriggers, dt=window)
 
-  g = special.gammainc(len(coinctriggers), mu)
+  g = special.gammainc(ncoinc, mu)
 
   # if no coincidences, set significance to zero
-  if len(coinctriggers)<1:
+  if ncoinc<1:
     significance = 0
   # if significance would blow up, use other formula (ref. hveto_significance.m)
   elif g == 0:
-    significance = -len(coinctriggers) * math.log10(mu) + \
+    significance = -ncoinc * math.log10(mu) + \
                    mu * math.log10(math.exp(1)) +\
-                   special.gammaln(len(coinctriggers) + 1) / math.log(10)
+                   special.gammaln(ncoinc + 1) / math.log(10)
   # otherwise use the standard formula
   else:
     significance = -math.log(g, 10)

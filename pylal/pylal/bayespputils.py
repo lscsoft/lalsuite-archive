@@ -44,6 +44,7 @@ from operator import itemgetter
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
+from scipy import special
 from numpy import linspace
 
 import random
@@ -490,7 +491,7 @@ class Posterior(object):
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
-        self._loglaliases=['logl','logL','likelihood','posterior']
+        self._loglaliases=['posterior', 'logl','logL','likelihood']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -895,7 +896,7 @@ class Posterior(object):
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
-                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "eta"]
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
@@ -915,7 +916,71 @@ class Posterior(object):
         else:
             raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
+    def elliptical_subregion_evidence(self):
+        """Returns an approximation to the log(evidence) obtained by
+        fitting an ellipse around the highest-posterior samples and
+        performing the harmonic mean approximation within the ellipse.
+        Because the ellipse should be well-sampled, this provides a
+        better approximation to the evidence than the full-domain HM."""
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
+        samples,header=self.samples()
+        header=header.split()
 
+        n=int(0.05*samples.shape[0])
+
+        coord_names=[name for name in allowed_coord_names if name in header]
+        indexes=np.argsort(self._logL[:,0])
+
+        my_samples=samples[indexes[-n:], :] # The highest posterior samples.
+        my_samples=np.array([ParameterSample(sample,header,coord_names).coord() for sample in my_samples])
+
+        mu=np.mean(my_samples, axis=0)
+        cov=np.cov(my_samples, rowvar=0)
+
+        d0=None
+        for mysample in my_samples:
+            d=np.dot(mysample-mu, np.linalg.solve(cov, mysample-mu))
+            if d0 is None:
+                d0 = d
+            else:
+                d0=max(d0,d)
+
+        ellipse_logl=[]
+        ellipse_samples=[]
+        for sample,logl in zip(samples, self._logL):
+            coord=ParameterSample(sample, header, coord_names).coord()
+            d=np.dot(coord-mu, np.linalg.solve(cov, coord-mu))
+
+            if d <= d0:
+                ellipse_logl.append(logl)
+                ellipse_samples.append(sample)
+        
+        if len(ellipse_samples) > 5*n:
+            print 'WARNING: ellpise evidence region encloses significantly more samples than %d'%n
+
+        ellipse_samples=np.array(ellipse_samples)
+        ellipse_logl=np.array(ellipse_logl)
+
+        ndim = len(coord_names)
+        ellipse_volume=np.pi**(ndim/2.0)*d0**(ndim/2.0)/special.gamma(ndim/2.0+1)*np.sqrt(np.linalg.det(cov))
+
+        try:
+            prior_index=header.index('prior')
+            pmu=np.mean(ellipse_samples[:,prior_index])
+            pstd=np.std(ellipse_samples[:,prior_index])
+            if pstd/pmu > 1.0:
+                print 'WARNING: prior variation greater than 100\% over elliptical volume.'
+            approx_prior_integral=ellipse_volume*pmu
+        except KeyError:
+            # Maybe prior = 1?
+            approx_prior_integral=ellipse_volume
+
+        ll_bias=np.mean(ellipse_logl)
+        ellipse_logl = ellipse_logl - ll_bias
+
+        return np.log(approx_prior_integral) - np.log(np.mean(1.0/np.exp(ellipse_logl))) + ll_bias
 
     def harmonic_mean_evidence(self):
         """

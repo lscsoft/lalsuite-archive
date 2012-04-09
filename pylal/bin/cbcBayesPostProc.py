@@ -88,6 +88,8 @@ def cbcBayesPostProc(
                         injfile=None,eventnum=None,skyres=None,
                         #direct integration evidence
                         dievidence=False,boxing=64,difactor=1.0,
+                        #elliptical evidence
+                        ellevidence=False,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
                         #manual input for SNR in the IFOs, optional.
@@ -421,6 +423,22 @@ def cbcBayesPostProc(
         if 'logl' in pos.names:
             log_ev=pos.harmonic_mean_evidence()
             html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(exp(log_ev),log_ev))
+
+    if ellevidence:
+        html_model=html.add_section('Elliptical Evidence')
+        log_ev = pos.elliptical_subregion_evidence()
+        ev = exp(log_ev)
+        evfilename=os.path.join(outdir, 'ellevidence.dat')
+        evout=open(evfilename, 'w')
+        evout.write(str(ev) + ' ' + str(log_ev))
+        evout.close()
+        print 'Computing elliptical region evidence = %g (log(ev) = %g)'%(ev, log_ev)
+        html_model.p('Elliptical region evidence is %g, or log(Evidence) = %g.'%(ev, log_ev))
+
+        if 'logl' in pos.names:
+            log_ev=pos.harmonic_mean_evidence()
+            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence = %g))'%(exp(log_ev), log_ev))
+
     #Create a section for SNR, if a file is provided
     if snrfactor is not None:
         html_snr=html.add_section('Signal to noise ratio(s)')
@@ -674,8 +692,8 @@ def cbcBayesPostProc(
                 mu=mean(data)
                 N=len(data)
                 corr=correlate((data-mu),(data-mu),mode='full')
-                acf = corr[N-1:]/corr[N-1]
                 try:
+                    acf = corr[N-1:]/corr[N-1]
                     lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
                     if 'cycle' in pos.names:
                         acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
@@ -998,6 +1016,9 @@ if __name__=='__main__':
     parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
     parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
     parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
+    
+    parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
+
     parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
@@ -1099,6 +1120,8 @@ if __name__=='__main__':
                         injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
                         # direct integration evidence
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
+                        # Ellipitical evidence
+                        ellevidence=opts.ellevidence,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
                         #manual input for SNR in the IFOs, optional.
