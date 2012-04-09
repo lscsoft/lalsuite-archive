@@ -115,12 +115,12 @@ for nmc in range(opts.n_montecarlo):
 
   print " "
   print "FARs /yr^-1:", [str(FAR)[0:5] for FAR in FARs] 
-  print "Volumes /Mpc^3:", [str(int(Vol)) for Vol in Volumes]
+  print "Volumes /Mpc^3:", [int(Vol) for Vol in Volumes]
   print "Exact Lambda values:", [str(Lam)[0:5] for Lam in Lambdas]
   print  r"90% UL from", opts.ntimes, "separate analyses: %.2e" % upperLim
-  print "\t Effective denominator value is %.3g" % (upperLim*sum(Volumes)*Ti)
-  print  r"90% UL from one single analysis would be ", "%.2e" % upperLim_single
-  print "\t Effective denominator value %.3g" % (upperLim_single*min(Volumes)*Ttot)
+  print "\t Effective numerator value is %.3g" % (upperLim*sum(Volumes)*Ti)
+  print  r"90% UL from one single analysis would be", "%.2e" % upperLim_single
+  print "\t Effective numerator value %.3g" % (upperLim_single*min(Volumes)*Ttot)
 
 
 exit()
