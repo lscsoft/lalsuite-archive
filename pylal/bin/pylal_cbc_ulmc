@@ -43,6 +43,12 @@ def parse_command_line():
   parser.add_option( "-b", "--lambda-bias", action="store", type="float", default=1,\
       help="Simulated multiplicative bias on Lambda estimation" )
 
+  parser.add_option( "-v", "--verbose", action="store_true", default=False,\
+      help="Print FAR, Lambda, volume and effective numerator values to screen" )
+
+  parser.add_option( "-p", "--make-plots", action="store_true", default=False,\
+      help="Scatter plots of something..." )
+
   (options,args) = parser.parse_args()
 
   return options, sys.argv[1:]
@@ -76,20 +82,21 @@ Ttot = 1./2  # half a year
 Ti = Ttot/opts.ntimes
 Rsense = 20  # sensemon range in Mpc
 
-print "Sensemon range is", Rsense, "Mpc"
-print "Splitting", Ttot, "years science run into", opts.ntimes, "analysis times"
-print "Expected loudest event FAR from noise in each time is", 1./Ti, "/yr"
-print " "
-print "Expected volume / upper limit from single loudest event FAP=0.5 is"
-pF = 0.5
-lambdaF = FAN_from_FAP(pF)/Ttot
-rhoC = rhoC_from_FAR(lambdaF)
-vol = volume_above_rhoC(rhoC, sensemon=Rsense)
-Lambda = (3./numpy.log(100))/(rhoC*Ttot*lambdaF)
-mu = numpy.logspace(-numpy.log10(vol*Ttot)-2, -numpy.log10(vol*Ttot)+2, 10**5)
-likely = ululs.margLikelihood([vol*Ttot], [Lambda], mu, calerr=0, mcerrs=None)
-upperLim = ululs.compute_upper_limit(mu, likely, alpha=0.9)
-print "\t %.0d, %.3e" % (vol, upperLim)
+if opts.verbose: 
+  print "Sensemon range is", Rsense, "Mpc"
+  print "Splitting", Ttot, "years science run into", opts.ntimes, "analysis times"
+  print "Expected loudest event FAR from noise in each time is", 1./Ti, "/yr"
+  print " "
+  print "Expected volume / upper limit from single loudest event FAP=0.5 is"
+  pF = 0.5
+  lambdaF = FAN_from_FAP(pF)/Ttot
+  rhoC = rhoC_from_FAR(lambdaF)
+  vol = volume_above_rhoC(rhoC, sensemon=Rsense)
+  Lambda = (3./numpy.log(100))/(rhoC*Ttot*lambdaF)
+  mu = numpy.logspace(-numpy.log10(vol*Ttot)-2, -numpy.log10(vol*Ttot)+2, 10**5)
+  likely = ululs.margLikelihood([vol*Ttot], [Lambda], mu, calerr=0, mcerrs=None)
+  upperLim = ululs.compute_upper_limit(mu, likely, alpha=0.9)
+  print "\t %.0d, %.3e" % (vol, upperLim)
 
 # set up outputs
 UL90s = []
@@ -132,17 +139,17 @@ for nmc in range(opts.n_montecarlo):
   upperLim_single = ululs.compute_upper_limit(mu, likely_single, alpha=0.9)
 
   print " "
-  print "FARs /yr^-1:", [str(FAR)[0:5] for FAR in FARs] 
-  print "Volumes /Mpc^3:", [int(Vol) for Vol in Volumes]
-  print "Exact Lambda values:", [str(Lam)[0:5] for Lam in Lambdas]
-  print "Lambda values with errors:", [str(eLam)[0:5] for eLam in estLambdas]
-  print  r"90% UL from", opts.ntimes, "separate analyses: %.2e" % upperLim
-  print "\t Effective numerator: %.3g" % (upperLim*sum(Volumes)*Ti)
-  print  r"90% UL from", opts.ntimes, "separate analyses with Lambda errors: %.2e" % estupperLim
-  print "\t Effective numerator: %.3g" % (estupperLim*sum(Volumes)*Ti)
-  print "Lambda value from one single analysis: %.3f" % exactLambda_single
-  print  r"90% UL from one single analysis would be", "%.2e" % upperLim_single
-  print "\t Effective numerator: %.3g" % (upperLim_single*min(Volumes)*Ttot)
+  if opts.verbose: print "FARs /yr^-1:", [str(FAR)[0:5] for FAR in FARs] 
+  if opts.verbose: print "Volumes /Mpc^3:", [int(Vol) for Vol in Volumes]
+  if opts.verbose: print "Exact Lambda values:", [str(Lam)[0:5] for Lam in Lambdas]
+  if opts.verbose and (opts.lambda_error or opts.lambda_bias): print "Lambda values with errors:", [str(eLam)[0:5] for eLam in estLambdas]
+  print  r"90%UL from", opts.ntimes, "separate analyses: %.2e" % upperLim
+  if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim*sum(Volumes)*Ti)
+  if (opts.lambda_error or opts.lambda_bias): print r"Factor change in 90%UL due to Lambda errors:", "%.3g" % (estupperLim/upperLim)
+  if opts.verbose: print "\t Effective numerator: %.3g" % (estupperLim*sum(Volumes)*Ti)
+  if opts.verbose: print "Lambda value from one single analysis: %.3f" % exactLambda_single
+  print  r"90%UL from one single analysis would be", "%.2e" % upperLim_single
+  if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim_single*min(Volumes)*Ttot)
 
 
 exit()
