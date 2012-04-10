@@ -26,7 +26,7 @@ import os
 import fnmatch
 from functools import partial 
 from types import MethodType
-from ctypes import CDLL,c_uint
+from ctypes import CDLL,c_uint,cast,c_void_p
 from ctypes.util import find_library
 
 def makeglobal(vdict):
@@ -122,3 +122,33 @@ def __load_lib(libname, mode = None):
 
 def _int_to_bool(i):
     return bool(i)
+    
+    from ctypes import *
+
+#ptr_add
+#From: http://permalink.gmane.org/gmane.comp.python.ctypes/4343
+def ptr_add(ptr, other):
+    
+    try:
+        ofs = other.__index__()
+    except AttributeError:
+        raise TypeError("Can only add integer to pointer")
+    p = cast(ptr, c_void_p)
+    
+    p.value += ofs
+    
+    return cast(p, type(ptr))
+
+#ptr_sub
+#From: http://permalink.gmane.org/gmane.comp.python.ctypes/4343
+def ptr_sub(ptr, other):
+    
+    if type(ptr) == type(other):
+        return cast(ptr, c_void_p).value - cast(other, c_void_p).value
+    try:
+        ofs = other.__index__()
+    except AttributeError:
+        raise TypeError("Can only substract pointer or integer from pointer")
+    p = cast(ptr, c_void_p)
+    p.value -= ofs
+    return cast(p, type(ptr))
