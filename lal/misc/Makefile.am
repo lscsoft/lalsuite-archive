@@ -10,7 +10,6 @@ EXTRA_DIST = \
 	install-sh \
 	lal.m4 \
 	lalsuite_build.m4 \
-	lalsuite_c99.m4 \
 	lalsuite_gccflags.m4 \
 	libtool.m4 \
 	ltmain.sh \
@@ -50,6 +49,6 @@ lal-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 
 lal-user-env.csh lal-user-env.sh: lal-user-env.shell $(srcdir)/generate_user_env.awk
 	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	@$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 @INCLUDEMKFILE@

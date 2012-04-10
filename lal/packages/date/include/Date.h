@@ -1,4 +1,5 @@
 /*
+*  Copyright (C) 2012 Karl Wette
 *  Copyright (C) 2007 Duncan Brown, David Chin, Jolien Creighton, Kipp Cannon, Reinhard Prix, Stephen Fairhurst
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -120,7 +121,7 @@ INT8 XLALGPSToINT8NS( const LIGOTimeGPS *epoch );
 LIGOTimeGPS * XLALINT8NSToGPS( LIGOTimeGPS *epoch, INT8 ns );
 
 /* Sets GPS time given GPS integer seconds and residual nanoseconds. */
-LIGOTimeGPS * XLALGPSSet( LIGOTimeGPS *epoch, INT4 gpssec, INT4 gpsnan );
+LIGOTimeGPS * XLALGPSSet( LIGOTimeGPS *epoch, INT4 gpssec, INT8 gpsnan );
 
 /* Sets GPS time given GPS seconds as a REAL8. */
 LIGOTimeGPS * XLALGPSSetREAL8( LIGOTimeGPS *epoch, REAL8 t );
@@ -172,6 +173,9 @@ REAL8 XLALJulianDay( const struct tm *utc /**< [In] UTC time in a broken down ti
 /* Returns the Modified Julian Day (MJD) corresponding to the date given in a broken down time structure.*/
 INT4 XLALModifiedJulianDay( const struct tm *utc /**< [In] UTC time in a broken down time structure. */ );
 
+/** Fill in missing fields of a C 'tm' broken-down time struct. */
+int XLALFillBrokenDownTime(struct tm *tm);
+
 /* Returns the Greenwich mean or aparent sideral time in radians. */
 REAL8 XLALGreenwichSiderealTime(
 	const LIGOTimeGPS *gpstime,
@@ -195,16 +199,6 @@ LIGOTimeGPS *XLALGreenwichSiderealTimeToGPS(
 	REAL8 equation_of_equinoxes,
 	LIGOTimeGPS *gps
 );
-
-
-/** \ingroup Date_h
- * This structure is just the standard Unix \c tm structure, described
- * in the man page for <tt>ctime(3)</tt>.  We shall
- * {\em always} ignore the daylight savings time field, \c tm_isdst.
- */
-typedef struct
-tm
-LALUnixDate;
 
 
 /** \ingroup Date_h

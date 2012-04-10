@@ -1,3 +1,4 @@
+AC_PREREQ([2.63])
 AC_INIT([lalapps],[6.6.4.1],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
@@ -47,7 +48,7 @@ AC_CONFIG_FILES([\
   src/online/Makefile \
   src/hwinjection/Makefile \
 ])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
 AH_TOP([
 #ifndef CONFIG_H
 #define CONFIG_H])
@@ -131,8 +132,7 @@ fi
 LALSUITE_MULTILIB_LIBTOOL_HACK
 
 # check for c compiler
-m4_pattern_allow([AC_PROG_CC_C99])
-m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
+AC_PROG_CC_C99
 
 # check for c++ compiler
 AC_PROG_CXX
@@ -143,14 +143,15 @@ if test "x$mpi" = "xtrue"; then
 fi
 LALSUITE_ENABLE_MODULE([MPI],[mpi])
 
-# use silent build rules if appropriate
-m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
+# use silent build rules
+AM_SILENT_RULES([yes])
 
 # checks for programs
 AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
+AC_PROG_SED
 
 # check for condor_compile
 AC_ENABLE_SHARED
@@ -178,7 +179,7 @@ AC_CHECK_PROGS([LATEX],[pdflatex latex],[echo])
 AC_CHECK_PROGS([MKIND],[makeindex],[echo])
 AC_CHECK_PROGS([DVIPS],[dvips],[echo])
 AC_CHECK_PROGS([BIBTEX],[bibtex],[echo])
-AM_PATH_PYTHON([2.4],,[:])
+AM_PATH_PYTHON([2.6],,[:])
 AM_CONDITIONAL([HAVE_PYTHON],[test "$PYTHON" != :])
 
 # check for supported mac os x version
@@ -470,34 +471,35 @@ fi
 AC_OUTPUT
 
 echo "
-================================================================
+=================================================================
 
         LALApps has now been successfully configured:
 
-                FFTW library support is $FFTW_ENABLE_VAL
-                Frame library support is $FRAME_ENABLE_VAL
-                MetaIO library support is $METAIO_ENABLE_VAL
-                LAL Frame library support is $LALFRAME_ENABLE_VAL
-                LAL MetaIO library support is $LALMETAIO_ENABLE_VAL
-                LAL XML library support is $LALXML_ENABLE_VAL
-                LAL Simulation library support is $LALSIMULATION_ENABLE_VAL
-                LAL Burst library support is $LALBURST_ENABLE_VAL
-                LAL Inspiral library support is $LALINSPIRAL_ENABLE_VAL
-                LAL Stochastic library support is $LALSTOCHASTIC_ENABLE_VAL
-                LAL Pulsar library support is $LALPULSAR_ENABLE_VAL
-                LAL Inference library support is $LALINFERENCE_ENABLE_VAL
-                FITS library support is $CFITSIO_ENABLE_VAL
-                PSS library support is $PSS_ENABLE_VAL
-                Condor support is $CONDOR_ENABLE_VAL
-                BOINC support is $BOINC_ENABLE_VAL
-                MPI support is $MPI_ENABLE_VAL
-                GDS support is $GDS_ENABLE_VAL
-                CUDA support is $CUDA_ENABLE_VAL
+            FFTW library support is $FFTW_ENABLE_VAL
+            Frame library support is $FRAME_ENABLE_VAL
+            MetaIO library support is $METAIO_ENABLE_VAL
+            LALFrame library support is $LALFRAME_ENABLE_VAL
+            LALMetaIO library support is $LALMETAIO_ENABLE_VAL
+            LALXML library support is $LALXML_ENABLE_VAL
+            LALSimulation library support is $LALSIMULATION_ENABLE_VAL
+            LALBurst library support is $LALBURST_ENABLE_VAL
+            LALInspiral library support is $LALINSPIRAL_ENABLE_VAL
+            LALStochastic library support is $LALSTOCHASTIC_ENABLE_VAL
+            LALPulsar library support is $LALPULSAR_ENABLE_VAL
+            LALInference library support is $LALINFERENCE_ENABLE_VAL
+            FITS library support is $CFITSIO_ENABLE_VAL
+            PSS library support is $PSS_ENABLE_VAL
+            Condor support is $CONDOR_ENABLE_VAL
+            BOINC support is $BOINC_ENABLE_VAL
+            MPI support is $MPI_ENABLE_VAL
+            GDS support is $GDS_ENABLE_VAL
+            CUDA support is $CUDA_ENABLE_VAL
+
+        and will be installed under the directory:
+
+            ${prefix}
 
         Now run 'make' to build LALApps
         and run 'make install' to install LALApps
-        LALApps will be installed under the directory:
-
-                $prefix
 
 ================================================================="

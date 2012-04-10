@@ -33,7 +33,7 @@ This module provides a bank of useful functions for manipulating triggers and tr
 
 # global regular expressions
 trigsep = re.compile('[\t\s,]+')
-cchar = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
+_cchar_regex = re.compile('[-#%<!()_\[\]-{}:;\'\"\ ]')
 
 # =============================================================================
 # Define ETG options
@@ -639,7 +639,7 @@ def fromtrigxml(file,tablename='sngl_inspiral:table',start=None,end=None,\
 # =============================================================================
 
 def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
-                 tabletype=None, columns=None):
+                 tabletype=None, columns=None, virgo=False):
 
   """
     Reads the file object file containing standard columns for the given etg and
@@ -673,7 +673,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
                            channel=channel,columns=columns)
   elif re.search('omega', etg, re.I):
     return fromomegafile(file, start=start, end=end, ifo=ifo, channel=channel,\
-                         columns=columns)
+                         columns=columns, virgo=virgo)
   elif re.search('kw', etg, re.I):
     return fromkwfile(file, start=start, end=end, ifo=ifo, channel=channel,\
                       columns=columns)
@@ -689,7 +689,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
 # =============================================================================
 
 def fromLALCache(cache, etg, start=None, end=None, columns=None,\
-                 verbose=False):
+                 virgo=False, verbose=False):
 
   """
     Extract triggers froa given ETG from all files in a glue.lal.Cache object.
@@ -713,7 +713,7 @@ def fromLALCache(cache, etg, start=None, end=None, columns=None,\
                                start=start, end=end, columns=columns))
     else:
       trigs.extend(fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
-                                columns=columns))
+                                columns=columns, virgo=virgo))
     # print verbose message
     if verbose and len(cache)>1:
       progress = int((i+1)/num)
@@ -797,7 +797,8 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 # Function to generate an omega online cache
 # =============================================================================
 
-def omega_online_cache(start,end,ifo):
+def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
+                       check_files_exist=False, **kwargs):
 
   """
     Returns a glue.lal.Cache contatining CacheEntires for all omega online
@@ -814,58 +815,51 @@ def omega_online_cache(start,end,ifo):
         IFO
   """
 
+  cache = LALCache()
+
   # verify host
   host = getfqdn()
   ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
-  if not re.search(ifo_host[ifo.upper()],host):
+  if (not kwargs.has_key('directory') and not re.search(ifo_host[ifo],host)):
     print >>sys.stderr, "Error: Omega online files are not available for "+\
                         "IFO=%s on this host." % ifo
-    return []
+    return cache
 
   span = segments.segment(start,end)
-  cache = LALCache()
-
-  # add basedirs as list (GEO omega_online has been moved for some period so
-  # we need more than one)
   if ifo == 'G1':
-    basedirs = [os.path.expanduser('~omega/online/%s/segments' % ifo),\
-                os.path.expanduser('~omega/online/G1/archive/A6pre/segments')]
-    basetimes = [LIGOTimeGPS(1004305400), LIGOTimeGPS(983669456)]
+    kwargs.setdefault('directory', '/home/omega/online/G1/segments')
+    kwargs.setdefault('epoch', 983669456)
   else:
-    basedirs = [os.path.expanduser('~omega/online/%s/archive/S6/segments'\
-                                  % (str(ifo)))]
-    basetimes = [LIGOTimeGPS(931211808)]
+    kwargs.setdefault('directory',\
+                      '/home/omega/online/%s/archive/S6/segments' % ifo)
+    kwargs.setdefault('epoch', 931211808)
+  kwargs.setdefault('duration', 64)
+  kwargs.setdefault('overlap', 8)
 
-  dt = 10000 
-  t = int(start)
+  # optimise
+  append       = cache.append
+  splitext     = os.path.splitext
+  isfile   = os.path.isfile
+  intersects   = span.intersects
+  segment      = segments.segment
+  from_T050017 = LALCacheEntry.from_T050017
+  basedir      = kwargs['directory']
+  basetime     = kwargs['epoch']
+  triglength   = kwargs['duration']
+  overlap      = kwargs['overlap']
 
-  while t-dt<=end:
+  # get times
+  start_time = int(start-math.fmod(start-basetime,triglength-overlap))
+  t = start_time
 
-    tstr = '%.6s' % ('%.10d' % t)
-
-    # find basedir for this time
-    basedir = None
-    for i,d in enumerate(basedirs):
-      if t > basetimes[i]:
-        basedir = d
-        break
-    if not basedir:
-      raise Exeption, "Cannot find base directory for %s omega online at %s"\
-                      % (ifo, t)
-
-    dirstr = '%s/%s*' % (basedir, tstr)
-    dirs = glob.glob(dirstr)
-
-    for dir in dirs:
-      files = glob.glob('%s/%s-OMEGA_TRIGGERS_CLUSTER*.txt' % (dir, ifo))
-
-      for f in files:
-        e = LALCacheEntry.from_T050017(f)
-
-        if span.intersects(e.segment):
-          cache.append(e)
-
-    t+=dt
+  # loop over time segments constructing file paths and appending to the cache
+  while t<end:
+    trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+               % (basedir, t, t+triglength, ifo, mask, t, triglength)
+    if intersects(segment(t, t+triglength))\
+    and (not check_files_exist or isfile(trigfile)):
+      append(from_T050017(trigfile))
+    t+=triglength-overlap
 
   cache.sort(key=lambda e: e.path())
 
@@ -875,7 +869,7 @@ def omega_online_cache(start,end,ifo):
 # Function to generate an omega spectrum online cache
 # =============================================================================
 
-def omega_spectrum_online_cache(start,end,ifo):
+def omega_spectrum_online_cache(start, end, ifo, **kwargs):
 
   """
     Returns a glue.lal.Cache contatining CacheEntires for all omega online
@@ -892,48 +886,7 @@ def omega_spectrum_online_cache(start,end,ifo):
         IFO
   """
 
-  # verify host
-  host = getfqdn()
-  ifo_host = { 'G1':'atlas', 'H1':'ligo-wa', 'H2':'ligo-wa', 'L1':'ligo-la'}
-  if not re.search(ifo_host[ifo],host):
-    print >>sys.stderr, "Error: Omega online files are not available for "+\
-                        "IFO=%s on this host." % ifo
-    return []
-
-  span = segments.segment(start,end)
-  cache = LALCache()
-  if ifo == 'G1':
-    basedir = os.path.expanduser('~omega/online/%s/segments' % ifo)
-    basetime = LIGOTimeGPS(983669456)
-  else:
-    basedir = os.path.expanduser('~omega/online/%s/archive/S6/segments'\
-                                  % (str(ifo)))
-    basetime = LIGOTimeGPS(931211808)
-
-  dt = 10000 
-  t = int(start)
-
-  while t-dt<=end:
-
-    tstr = '%.6s' % ('%.10d' % t)
-
-    dirstr = '%s/%s*' % (basedir, tstr)
-    dirs = glob.glob(dirstr)
-
-    for dir in dirs:
-      files = glob.glob('%s/%s-OMEGA_TRIGGERS_SPECTRUM*.txt' % (dir, ifo))
-
-      for f in files:
-        e = LALCacheEntry.from_T050017(f)
-
-        if span.intersects(e.segment):
-          cache.append(e)
-
-    t+=dt
-
-  cache.sort(key=lambda e: e.path())
-
-  return cache
+  return omega_online_cache(start, end, ifo, mask='SPECTRUM', **kwargs)
 
 # =============================================================================
 # DetChar 'omegadq' cache
@@ -958,7 +911,7 @@ def omega_dq_cache(start,end,ifo):
   if not re.search(ifo_host[ifo],host):
     print >>sys.stderr, "Error: OmegaClustered files are not available for "+\
                         "IFO="+ifo+" on this host."
-    return []
+    return LALCache()
 
   cache = LALCache()
   basedir = os.path.expanduser('~detchar/public_html/S6/glitch/Wdata')
@@ -1006,7 +959,7 @@ class KWCacheEntry(LALCacheEntry):
       head,tail = os.path.split(url)
       observatory,description = re.split('_',os.path.splitext(tail)[0],\
                                          maxsplit=1)
-      observatory = observatory[0]
+      observatory = observatory
       start,end = [coltype(t) for t in os.path.basename(head).split('_')]
       duration = end-start
 
@@ -1032,7 +985,7 @@ class KWCacheEntry(LALCacheEntry):
 # Function to generate a KW DARM_ERR cache
 # =============================================================================
 
-def kw_cache(start,end,ifo):
+def kw_cache(start, end, channel='H1:LSC-DARM_ERR', frequency=None):
 
   """
     Returns a list of KW trigger files between the given start and end
@@ -1049,21 +1002,54 @@ def kw_cache(start,end,ifo):
         IFO
   """
 
+  # format channel
+  if re.match('\w\d:', channel):
+    ifo, channel = channel.split(':', 1)
+    #_cchar_regex.sub('_', channel)
+  else:
+    raise ValueError("Please give channel in the form \"IFO:CHANNEL-NAME\"")
+  
   # verify host
   host = getfqdn()
-  ifo_host = {'H1':'ligo-wa','H2':'ligo-wa','L1':'ligo-la'}
+  ifo_host = {'H0':'(ligo-wa|ligo\.)', 'H1':'(ligo-wa|ligo\.)',\
+              'H2':'ligo-wa', 'L0':'(ligo-la|ligo\.)', 'L1':'(ligo-la|ligo\.)',\
+              'V1':'ligo\.'}
   if not re.search(ifo_host[ifo],host):
-    print >>sys.stderr, "Error: KW files are not available for "+\
+    print >>sys.stderr, "Warning: KW files are not available for "+\
                         "IFO="+ifo+" on this host."
-    return []
+    return LALCache()
 
   cache = LALCache()
-  basedir = os.path.expanduser('~lindy/public_html/triggers/s6')
+  if ifo == 'V1':
+    basedir = os.path.expanduser('~mabizoua/public_html/KW')
+  elif re.search('ligo\.', host):
+    basedir = os.path.expanduser('~lindy/public_html/triggers/s6-merged')
+  else:
+    basedir = os.path.expanduser('~lindy/public_html/triggers/s6')
 
   # times are numbere from a given start, which for S6 is:
-  basetime = LIGOTimeGPS(938736000)
+  if ifo=='V1':
+    base = LIGOTimeGPS(938736015)
+  else:
+    base = LIGOTimeGPS(938736000)
   triglength = 86400
 
+  # construct span
+  span = segments.segment(start, end)
+
+  # get fbin
+  if not frequency:
+    f = '*_*'
+  elif frequency.lower() == 'low':
+    f = '32_2048'
+  elif frequency.lower() == 'high':
+    f = '1024_4096'
+  elif not isinstance(frequency ,str) and len(frequency)==2:
+    f = '%d_%d' % tuple(frequency)
+  else:
+    f = '*_*'
+
+  # get times
   start_time = int(start-math.fmod(start-base,triglength))
   t = start_time
 
@@ -1072,11 +1058,16 @@ def kw_cache(start,end,ifo):
     dirstart = str(t)
     dirend   = str(t+triglength)
     dirpath  = os.path.join(basedir,dirstart+'_'+dirend)
-    trigfile = os.path.join(dirpath,ifo+'_LSC-DARM_ERR_32_2048.trg')
-    if os.path.isfile(trigfile):
-
-      e = KWCacheEntry.from_KWfilename(trigfile)
-      if span.intersects(e.segment):  cache.append(e)
+    trigfile = '%s/%s_%s_%s.trg' % (dirpath, ifo, channel, f)
+    if '*' in trigfile:
+      trigfiles = glob.glob(trigfile)
+    else:
+      trigfiles = [trigfile]
+    for trigfile in trigfiles:
+      if os.path.isfile(trigfile):
+        e = KWCacheEntry.from_KWfilename(trigfile)
+        if span.intersects(e.segment):
+          cache.append(e)
 
     t+=triglength
 
@@ -1303,17 +1294,17 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 # Get coincidences between two tables
 # =============================================================================
 
-def get_coincs(table1, table2, dt=1, returnsegs=False):
+def get_coincs(table1, table2, dt=1, returnsegs=False, timeshift=0):
 
   """
     Returns the table of those entries in table1 whose time is within +-dt of
-    and entry in table2.
+    an entry in table2.
   """
 
   t1 = get_column(table1, 'time')
   t2 = get_column(table2, 'time')
 
-  coincsegs  = segments.segmentlist(segments.segment(t-dt, t+dt) for t in t2)\
+  coincsegs  = segments.segmentlist(segments.segment(t-dt+timeshift, t+dt+timeshift) for t in t2)\
                    .coalesce()
   coincsegs.sort()
   coinctrigs = table.new_from_template(table1)
@@ -1323,6 +1314,46 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
     return coinctrigs,coincsegs
   else:
     return coinctrigs
+
+# =============================================================================
+# Get number of coincidences between two tables
+# =============================================================================
+
+def get_number_coincs(table1, table2, dt=1, timeshift=0):
+
+  """
+    Returns the numbers of entries in table1 whose time is within +-dt of
+    an entry in table2.
+  """
+
+  # t1 = get_column(table1, 'time')
+  # t2 = get_column(table2, 'time')
+
+  # coincsegs  = segments.segmentlist(segments.segment(t-dt+timeshift, t+dt+timeshift) for t in t2)\
+  #                  .coalesce()
+  # coincsegs.sort()
+  # coinctrigs = table.new_from_template(table1)
+  # coinctrigs.extend(t for i,t in enumerate(table1) if t1[i] in coincsegs)
+
+  # return len(coinctrigs)
+
+  time1 = get_column(table1, 'time')
+  time2 = get_column(table2, 'time')
+
+  time1.sort()
+  time2.sort()
+
+  i2 = 0
+  ncoinc = 0
+  for i1,t1 in enumerate(time1):
+    while  i2 < len(time2) and t1 > time2[i2]+timeshift+dt:
+      i2 = i2 + 1
+    if i2 >= len(time2):
+      break
+    if t1 >= time2[i2]+timeshift-dt:
+      ncoinc = ncoinc + 1
+
+  return ncoinc
 
 # ==============================================================================
 # Calculate poisson significance of coincidences
@@ -1341,25 +1372,29 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
     livetime = end-start
 
   # calculate probability of a GW trigger falling within the window
-  gwprob = len(gwtriggers) * float(window) / float(livetime)
+  gwprob = len(gwtriggers) * 2.0 * float(window) / float(livetime)
 
   # calculate mean of Poisson distribution
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers,coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
-                                       returnsegs=True)
+  if returnsegs:
+    coinctriggers,coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                                           returnsegs=True)
+    ncoinc = len(coinctriggers)
+  else:
+    ncoinc = get_number_coincs(gwtriggers, auxtriggers, dt=window)
 
-  g = special.gammainc(len(coinctriggers), mu)
+  g = special.gammainc(ncoinc, mu)
 
   # if no coincidences, set significance to zero
-  if len(coinctriggers)<1:
+  if ncoinc<1:
     significance = 0
   # if significance would blow up, use other formula (ref. hveto_significance.m)
   elif g == 0:
-    significance = -len(coinctriggers) * math.log10(mu) + \
+    significance = -ncoinc * math.log10(mu) + \
                    mu * math.log10(math.exp(1)) +\
-                   special.gammaln(len(coinctriggers) + 1) / math.log(10)
+                   special.gammaln(ncoinc + 1) / math.log(10)
   # otherwise use the standard formula
   else:
     significance = -math.log(g, 10)
@@ -1466,7 +1501,7 @@ def vetoed(self, seglist):
 # =============================================================================
 
 def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
-                  columns=None):
+                  columns=None, virgo=False):
 
   """
     Load triggers from an Omega format text file into a SnglBurstTable object.
@@ -1509,6 +1544,9 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
   else:
     check_time = False
 
+  if 'snr' in columns and not 'amplitude' in columns:
+    columns.append('amplitude')
+
   # generate table
   out = SnglTriggerTable('omega', columns=columns)
 
@@ -1526,7 +1564,12 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
   if numpy.shape(dat) == (0,):
     return out
 
-  if len(dat)==8:
+  if virgo:
+    start, stop, peak, freq, bandwidth, cln, cle, snr = dat
+    duration = stop-start
+    amplitude = snr**2/2
+    omega_clusters = False
+  elif len(dat)==8:
     peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
     omega_clusters = True
   elif len(dat)==5:
@@ -1572,8 +1615,8 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
 
   if 'duration' in columns:       attr_map['duration']       = duration
   if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
-  if 'snr' in columns:            attr_map['snr']      = numpy.sqrt(2*amplitude)
-  if 'ms_snr' in columns:         attr_map['ms_snr']   = numpy.sqrt(2*amplitude)
+  if 'snr' in columns:            attr_map['snr']         = (2*amplitude)**(1/2)
+  if 'ms_snr' in columns:         attr_map['ms_snr']      = (2*amplitude)**(1/2)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['cluster_size'] * numtrigs
@@ -1658,7 +1701,7 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
     fh = open(fname, 'r')
 
   # load data from file
-  dat = loadtxt(fh)
+  dat = loadtxt(fh, usecols=[0,1,2,3,4,5,6,7])
 
   # close file if we opened it
   if not hasattr(fname, 'readline'):
@@ -1704,8 +1747,17 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
 
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+  if 'bandwidth' in columns:      attr_map['bandwidth'] = numpy.zeros(len(freq))
+  if 'ms_bandwidth' in columns: attr_map['ms_bandwidth'] = attr_map['bandwidth']
+  if 'flow' in columns:           attr_map['flow']           = freq
+  if 'fhigh' in columns:          attr_map['fhigh']          = freq
+  if 'ms_flow' in columns:        attr_map['ms_flow']        = freq
+  if 'ms_fhigh' in columns:       attr_map['ms_fhigh']       = freq
 
-  if 'snr' in columns:            attr_map['snr']  = numpy.sqrt(amplitude-n_pix)
+  if 'duration' in columns:       attr_map['duration']       = stop-st
+  if 'ms_duration' in columns:    attr_map['ms_duration']    = stop-st
+  if 'snr' in columns:         attr_map['snr']     = (amplitude-n_pix)**(1/2)
+  if 'ms_snr' in columns:      attr_map['ms_snr']  = (amplitude-n_pix)**(1/2)
 
   if 'n_pix' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['n_pix'] * numtrigs
@@ -1809,7 +1861,7 @@ def fromomegaspectrumfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
   if 'amplitude' in columns:      attr_map['amplitude'] = amplitude
-  if 'snr' in columns:            attr_map['snr'] = numpy.sqrt(amplitude)
+  if 'snr' in columns:            attr_map['snr'] = amplitude**(1/2)
 
   cols   = attr_map.keys()
   append = out.append
@@ -1933,8 +1985,8 @@ def fromomegadqfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'central_freq' in columns:   attr_map['central_freq']   = (flow+fhigh)/2
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = (flow+fhigh)/2
 
-  if 'snr' in columns:            attr_map['snr']            = numpy.sqrt(cle)
-  if 'ms_snr' in columns:         attr_map['ms_snr']        = numpy.sqrt(ms_cle)
+  if 'snr' in columns:            attr_map['snr']            = cle**(1/2)
+  if 'ms_snr' in columns:         attr_map['ms_snr']         = ms_cle**(1/2)
 
   if 'cluster_size' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['cluster_size'] * numtrigs

@@ -39,6 +39,7 @@ REAL8 ncx2pdf(REAL8 x, REAL8 dof, REAL8 delta);
 REAL8 binodeviance(REAL8 x, REAL8 np);
 REAL8 epsval(REAL8 val);
 REAL8 ncx2inv(REAL8 p, REAL8 dof, REAL8 delta);
+REAL4 ncx2inv_float(REAL8 p, REAL8 dof, REAL8 delta);
 REAL8 norminv(REAL8 p, REAL8 mu, REAL8 sigma);
 REAL8 ks_test_exp(REAL4Vector *vector);
 REAL8 kuipers_test_exp(REAL4Vector *vector);
@@ -61,6 +62,7 @@ void sort_double_descend(REAL8Vector *vector);
 void sort_double_ascend(REAL8Vector *vector);
 void sort_float_ascend(REAL4Vector *vector);
 void sumseries(REAL8 *computedprob, REAL8 P, REAL8 C, REAL8 E, INT8 counter, REAL8 x, REAL8 dof, REAL8 halfdelta, REAL8 err, INT4 countdown);
+void sumseries_eg(REAL8 *computedprob, REAL8 P, REAL8 C, REAL8 E, INT8 counter, REAL8 x, REAL8 dof, REAL8 halfdelta, REAL8 err, INT4 countdown);
 void min_max_index_INT4Vector(INT4Vector *inputvector, INT4 *min_index_out, INT4 *max_index_out);
 
 INT4 max_index(REAL4Vector *vector);

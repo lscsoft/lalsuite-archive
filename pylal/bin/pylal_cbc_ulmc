@@ -1,0 +1,126 @@
+#!/usr/bin/python
+from __future__ import division
+
+__author__ = "Thomas Dent <thomas.dent@ligo.org>"
+__prog__ = "pylal_cbc_ulmc"
+__title__ = "Loudest Event UL Monte Carlo simulator"
+
+import sys
+import warnings
+
+import math
+import numpy
+with warnings.catch_warnings():
+  warnings.simplefilter("ignore")
+  import matplotlib as mpl
+  mpl.use("Agg")
+  #from matplotlib import pyplot as plt
+import random
+
+from optparse import *
+
+from pylal import git_version
+from pylal import upper_limit_utils
+
+usage = """
+Program to investigate the behaviour of the Loudest Event upper limit procedure
+when splitting up the total analysis time into many smaller times and when Lambda
+estimation in each has a statistical and/or systematic error.
+"""
+
+def parse_command_line():
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
+
+  parser.add_option( "-m", "--n-montecarlo", action="store", type="int", default=10,\
+      help="Number of MC trials to do" )
+
+  parser.add_option( "-n", "--ntimes", action="store", type="int", default=20,\
+      help="Number of times to split total analysis into: must be >1" )
+
+  parser.add_option( "-l", "--lambda-error", action="store", type="float", default=0,\
+      help="Simulated fractional error on Lambda estimation (log-normal distribution)" )
+
+  parser.add_option( "-b", "--lambda-bias", action="store", type="float", default=1,\
+      help="Simulated multiplicative bias on Lambda estimation" )
+
+  (options,args) = parser.parse_args()
+
+  return options, sys.argv[1:]
+
+##################################
+# convenience functions
+
+def rhoC_from_FAR(lambdaF):
+  # lambdaF is the FAR in 1/yr
+  # formula is a fit to the S6 BIC lowmass background estimation
+  rhoC = 8 + 0.5*numpy.log10(2000/lambdaF)
+  return rhoC
+
+def FAN_from_FAP(pF):
+  # pF is the FAP
+  return -1*numpy.log(1-pF)
+
+def volume_above_rhoC(rhoC, sensemon=20):
+  radius = sensemon*(8*numpy.sqrt(2)/rhoC)
+  vol = 4*math.pi*radius**3/3
+  return vol
+
+
+###################################
+############ MAIN #################
+###################################
+
+opts, args = parse_command_line()
+
+Ttot = 1./2  # half a year
+Ti = Ttot/opts.ntimes
+Rsense = 20  # sensemon range in Mpc
+
+print "Sensemon range is", Rsense, "Mpc"
+print "Splitting", Ttot, "years science run into", opts.ntimes, "analysis times"
+print "Expected loudest event FAR from noise in each time is", 1./Ti, "/yr"
+
+# set up outputs
+UL90s = []
+eff_numerators = []
+
+for nmc in range(opts.n_montecarlo):
+  
+  Lambdas = []
+  Volumes = []
+  FARs = []
+  for i in range(opts.ntimes):
+    # FAP of loudest event in time i
+    pF = random.random()
+    lambdaF = FAN_from_FAP(pF)/Ti
+    FARs.append(lambdaF)
+    # convert FAR to a background combined SNR
+    rhoC = rhoC_from_FAR(lambdaF)
+    vol = volume_above_rhoC(rhoC, sensemon=Rsense)    
+    Volumes.append(vol)
+    # use analytic Lambda formula
+    # given that background drops off with exp(-100*rhoC)
+    exactLambda = (3./numpy.log(100))/(rhoC*Ti*lambdaF)
+    Lambdas.append(exactLambda)
+
+  mu = numpy.logspace(-numpy.log10(max(Volumes))-2, -numpy.log10(min(Volumes))+2, 10**5)
+  likely = upper_limit_utils.margLikelihood([Vol*Ti for Vol in Volumes], Lambdas, mu, calerr=0, mcerrs=None)
+  upperLim = upper_limit_utils.compute_upper_limit(mu, likely, alpha=0.9)
+
+  # now do the calculation for the single loudest event with the smallest FAR value
+  exactLambda_single = (3./numpy.log(100))/(rhoC*Ttot*min(FARs))
+  # appropriate sensitive volume is the minimum among the individual times
+  likely_single = upper_limit_utils.margLikelihood([min(Volumes)*Ttot], [exactLambda_single], mu, calerr=0, mcerrs=None)
+  upperLim_single = upper_limit_utils.compute_upper_limit(mu, likely_single, alpha=0.9)
+
+  print " "
+  print "FARs /yr^-1:", [str(FAR)[0:5] for FAR in FARs] 
+  print "Volumes /Mpc^3:", [int(Vol) for Vol in Volumes]
+  print "Exact Lambda values:", [str(Lam)[0:5] for Lam in Lambdas]
+  print  r"90% UL from", opts.ntimes, "separate analyses: %.2e" % upperLim
+  print "\t Effective numerator value is %.3g" % (upperLim*sum(Volumes)*Ti)
+  print  r"90% UL from one single analysis would be", "%.2e" % upperLim_single
+  print "\t Effective numerator value %.3g" % (upperLim_single*min(Volumes)*Ttot)
+
+
+exit()

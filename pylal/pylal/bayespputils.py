@@ -7,7 +7,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
-#
+#       Salvatore Vitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@ from operator import itemgetter
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
+from scipy import special
 from numpy import linspace
 
 import random
@@ -391,7 +392,7 @@ class OneDPosterior(object):
         if self.__injval is None:
             return None
         else:
-            return sqrt(np.var(self.__posterior_samples)+pow((np.mean(self.__posterior_samples)-self.__injval),2) )
+            return np.sqrt(np.mean((self.__posterior_samples - self.__injval)**2.0))
 
     @property
     def injval(self):
@@ -490,7 +491,7 @@ class Posterior(object):
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
-        self._loglaliases=['logl','logL','likelihood','posterior']
+        self._loglaliases=['posterior', 'logl','logL','likelihood']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -656,16 +657,18 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
-                        'phi_orb': lambda inj: inj.phi0,
+                        'phi_orb': lambda inj: inj.coa_phase,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
+                        'rightascension':_inj_longitude,
                         'long':_inj_longitude,
                         'longitude':_inj_longitude,
                         'dec':lambda inj:inj.latitude,
+                        'declination':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: inj.polarization,
+                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
@@ -807,6 +810,12 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def pop(self,param_name):
+        """
+        Container method.  Remove OneDPosterior from the Posterior instance.
+        """
+        return self._posterior.pop(param_name)
+
     def append_mapping(self, new_param_names, func, post_names):
         """
         Append posteriors pos1,pos2,...=func(post_names)
@@ -887,7 +896,7 @@ class Posterior(object):
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
-                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "eta"]
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
@@ -907,7 +916,71 @@ class Posterior(object):
         else:
             raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
+    def elliptical_subregion_evidence(self):
+        """Returns an approximation to the log(evidence) obtained by
+        fitting an ellipse around the highest-posterior samples and
+        performing the harmonic mean approximation within the ellipse.
+        Because the ellipse should be well-sampled, this provides a
+        better approximation to the evidence than the full-domain HM."""
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
+        samples,header=self.samples()
+        header=header.split()
 
+        n=int(0.05*samples.shape[0])
+
+        coord_names=[name for name in allowed_coord_names if name in header]
+        indexes=np.argsort(self._logL[:,0])
+
+        my_samples=samples[indexes[-n:], :] # The highest posterior samples.
+        my_samples=np.array([ParameterSample(sample,header,coord_names).coord() for sample in my_samples])
+
+        mu=np.mean(my_samples, axis=0)
+        cov=np.cov(my_samples, rowvar=0)
+
+        d0=None
+        for mysample in my_samples:
+            d=np.dot(mysample-mu, np.linalg.solve(cov, mysample-mu))
+            if d0 is None:
+                d0 = d
+            else:
+                d0=max(d0,d)
+
+        ellipse_logl=[]
+        ellipse_samples=[]
+        for sample,logl in zip(samples, self._logL):
+            coord=ParameterSample(sample, header, coord_names).coord()
+            d=np.dot(coord-mu, np.linalg.solve(cov, coord-mu))
+
+            if d <= d0:
+                ellipse_logl.append(logl)
+                ellipse_samples.append(sample)
+        
+        if len(ellipse_samples) > 5*n:
+            print 'WARNING: ellpise evidence region encloses significantly more samples than %d'%n
+
+        ellipse_samples=np.array(ellipse_samples)
+        ellipse_logl=np.array(ellipse_logl)
+
+        ndim = len(coord_names)
+        ellipse_volume=np.pi**(ndim/2.0)*d0**(ndim/2.0)/special.gamma(ndim/2.0+1)*np.sqrt(np.linalg.det(cov))
+
+        try:
+            prior_index=header.index('prior')
+            pmu=np.mean(ellipse_samples[:,prior_index])
+            pstd=np.std(ellipse_samples[:,prior_index])
+            if pstd/pmu > 1.0:
+                print 'WARNING: prior variation greater than 100\% over elliptical volume.'
+            approx_prior_integral=ellipse_volume*pmu
+        except KeyError:
+            # Maybe prior = 1?
+            approx_prior_integral=ellipse_volume
+
+        ll_bias=np.mean(ellipse_logl)
+        ellipse_logl = ellipse_logl - ll_bias
+
+        return np.log(approx_prior_integral) - np.log(np.mean(1.0/np.exp(ellipse_logl))) + ll_bias
 
     def harmonic_mean_evidence(self):
         """
@@ -1262,6 +1335,12 @@ class AnalyticLikelihood(object):
         """
         Prepare analytic likelihood for the given parameters.
         """
+        # Make sure files names are in a list
+        if isinstance(covariance_matrix_files, str):
+            covariance_matrix_files = [covariance_matrix_files]
+        if isinstance(mean_vector_files, str):
+            mean_vector_files = [mean_vector_files]
+
         covarianceMatrices = [np.loadtxt(csvFile, delimiter=',') for csvFile in covariance_matrix_files]
         num_matrices = len(covarianceMatrices)
 
@@ -1314,6 +1393,13 @@ class AnalyticLikelihood(object):
         if param in self._params:
             cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
         return cdf
+
+    @property
+    def names(self):
+        """
+        Return list of parameter names described by analytic likelihood function.
+        """
+        return self._params
 
 
 
@@ -1834,7 +1920,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
         ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
         inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
-        plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
+        plt.plot(inj_plx,inj_ply,'wx',linewidth=12, markersize=22,mew=2,alpha=0.6)
     
     ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
 
@@ -2082,7 +2168,7 @@ def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,plotkde=False):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -2108,7 +2194,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None)
     myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
-    plot_one_param_pdf_kde(myfig,posterior[param])
+    if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
@@ -2156,7 +2242,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None)
     return rbins,myfig#,rkde
 #
 
-def formatRATicks(locs, accuracy='min'):
+def formatRATicks(locs, accuracy='hour'):
     """
     Format locs, ticks to RA angle with given accuracy
     accuracy can be 'hour', 'min', 'sec', 'all'
@@ -2333,7 +2419,7 @@ def get_inj_by_time(injections,time):
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75]):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -2345,6 +2431,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     @param confidence_levels: a list of the required confidence levels to plot on the contour map.
 
     @param colors_by_name: A dict of colors cross-referenced to the above Posterior ids.
+
+    @param legend: Argument for legend placement or None for no legend ('right', 'upper left', 'center' etc)
 
     """
 
@@ -2407,7 +2495,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
-            plt.plot([par1_injvalue],[par2_invalue],'go',scalex=False,scaley=False)
+            plt.plot([par2_injvalue],[par1_injvalue],'g*',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2430,7 +2518,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     fig_actor_lst.extend(dummy_lines)
 
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
@@ -2830,6 +2918,7 @@ class PEOutputParser(object):
         """
         nRead=0
         outputHeader=False
+        acceptedChains=0
         for infilename,i in zip(files,range(1,len(files)+1)):
             infile=open(infilename,'r')
             try:
@@ -2878,8 +2967,10 @@ class PEOutputParser(object):
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
+                if output: acceptedChains += 1
             finally:
                 infile.close()
+        print "%i of %i chains accepted."%(acceptedChains,len(files))
 
     def _swaplabel12(self, label):
         if label[-1] == '1':
