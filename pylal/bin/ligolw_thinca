@@ -30,7 +30,7 @@ import glob
 import math
 from optparse import OptionParser
 import sys
-
+import re
 
 from glue.lal import CacheEntry
 from glue.ligolw import lsctables
@@ -305,7 +305,7 @@ llwapp.set_process_end_time(process)
 #
 # Write back to disk, and clean up.
 #
-
-utils.write_filename(xmldoc, filename[0], options.verbose, gz = (filename[0] or "stdout").endswith(".gz"))
+output_filename = re.sub('LLWADD','THINCA',filename[0])
+utils.write_filename(xmldoc, output_filename, options.verbose, gz = (output_filename or "stdout").endswith(".gz"))
 xmldoc.unlink()
 

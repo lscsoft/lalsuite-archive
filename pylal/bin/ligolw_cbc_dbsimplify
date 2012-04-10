@@ -8,13 +8,10 @@
 
 
 from optparse import OptionParser
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 import os
+import time
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -198,7 +195,6 @@ DROP TABLE segments_tbl;
 """
 
 if opts.debug:
-    import time
     print >> sys.stderr, sqlscript
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -311,7 +307,6 @@ DROP TABLE _tsidmap_;
 """
 
 if opts.debug:
-    import time
     print >> sys.stderr, sqlscript
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -364,7 +359,6 @@ DROP TABLE _cdidmap_;
 """
 
 if opts.debug:
-    import time
     print >> sys.stderr, sqlscript
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -373,119 +367,6 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-
-if opts.verbose:
-    print >> sys.stdout, "Cleaning the simulation table..."
-
-sqlscript = """
-CREATE TEMP TABLE inj_params AS
-    SELECT
-        process_id,
-        group_concat(value) AS params
-    FROM process_params
-    WHERE program == "inspinj"
-    GROUP BY process_id
-
-CREATE TEMP TABLE _pidmap_ AS
-    SELECT
-        old_pp_table.process_id AS old_pid, 
-        MIN(new_pp_table.process_id) AS new_pid
-    FROM
-        inj_params AS old_pp_table 
-        JOIN inj_params AS new_pp_table ON (
-            new_pp_table.params == old_pp_table.params)       
-    GROUP BY old_pid;
-
-CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
-
--- 
-UPDATE experiment_summary 
-    SET sim_proc_id = (
-        SELECT new_pid 
-        FROM _pidmap_ 
-        WHERE old_pid == sim_proc_id);
-UPDATE sim_inspiral 
-    SET process_id = (
-        SELECT new_pid
-        FROM _pidmap_ 
-        WHERE old_pid == process_id);
-
-DROP INDEX pidmap_index;
-
---
-DELETE FROM process 
-    WHERE process_id IN (
-        SELECT old_pid
-        FROM _pidmap_ 
-        WHERE old_pid != new_pid);
-DELETE FROM process_params 
-    WHERE process_id IN (
-        SELECT old_pid 
-        FROM _pidmap_ 
-        WHERE old_pid != new_pid);
-
-DROP TABLE _pidmap_;
-
--- Create a map between redundant rows in the sim_inspiral table and a unique set 
--- simulation_ids.
--- FIXME: This check was written for a CBC inspiral search, but there are other
---        types of simulations ala ringdown that have their own simulation tables.
---        What is needed is a general check for any type of simulation.
-CREATE TEMP TABLE _simidmap_ AS
-    SELECT
-        old_sim_table.simulation_id AS old_simid,
-        MIN(new_sim_table.simulation_id) AS new_simid
-    FROM
-        sim_inspiral AS old_sim_table
-        JOIN sim_inspiral AS new_sim_table ON (
-            new_sim_table.geocent_end_time_ns == old_sim_table.geocent_end_time_ns
-            AND new_sim_table.geocent_end_time == old_sim_table.geocent_end_time
-            AND new_sim_table.mchirp = old_sim_table.mchirp
-            AND new_sim_table.eta == old_sim_table.eta
-            AND new_sim_table.distance == old_sim_table.distance
-            AND new_sim_table.latitude == old_sim_table.latitude
-            AND new_sim_table.longitude == old_sim_table.longitude
-            AND new_sim_table.inclination == old_sim_table.inclination
-            AND new_sim_table.polarization == old_sim_table.polarization
-            AND new_sim_table.spin1x == old_sim_table.spin1x
-            AND new_sim_table.spin1y == old_sim_table.spin1y
-            AND new_sim_table.spin1z == old_sim_table.spin1z
-            AND new_sim_table.spin2x == old_sim_table.spin2x
-            AND new_sim_table.spin2y == old_sim_table.spin2y
-            AND new_sim_table.spin2z == old_sim_table.spin2z)
-    GROUP BY old_simid;
-
-CREATE INDEX simidmap_index ON _simidmap_ (old_simid);
-
--- Update the simulation_ids in the coinc_event_map table.  The coinc_event_map is
--- used to store information after running injection finding.
-UPDATE coinc_event_map 
-    SET event_id = (
-        SELECT new_simid 
-        FROM _simidmap_ 
-        WHERE old_simid == event_id);
-
-DROP INDEX simidmap_index
-
--- Delete redundant entries in the sim_inspiral table
-DELETE FROM sim_inspiral 
-    WHERE simulation_id IN (
-        SELECT old_simid 
-        FROM _simidmap_ 
-        WHERE old_simid != new_simid);
-
-DROP TABLE _simidmap_
-"""
-
-if opts.debug:
-    import time
-    print >> sys.stderr, sqlscript
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-connection.cursor().executescript( sqlscript )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 if opts.verbose:
     print >> sys.stdout, "Cleaning experiment tables..."
