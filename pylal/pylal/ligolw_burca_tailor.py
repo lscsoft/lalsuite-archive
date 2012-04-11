@@ -631,10 +631,6 @@ def load_likelihood_data(filenames, name, verbose = False):
 	return coincparamsdistributions, seglists
 
 
-def write_likelihood_data(filename, coincparamsdistributions, seglists, name, verbose = False):
-	utils.write_filename(gen_likelihood_control(coincparamsdistributions, seglists, name = name), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
-
-
 #
 # =============================================================================
 #
