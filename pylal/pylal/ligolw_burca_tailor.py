@@ -579,14 +579,6 @@ def get_coincparamsdistributions(xmldoc, name):
 	return coincparamsdistributions, seglists
 
 
-def coinc_params_distributions_from_filename(filename, name, verbose = False):
-	# FIXME:  what uses this?
-	xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
-	result, seglists = get_coincparamsdistributions(xmldoc, name)
-	xmldoc.unlink()
-	return result, seglists
-
-
 #
 # Construct LIGO Light Weight likelihood distributions document
 #
