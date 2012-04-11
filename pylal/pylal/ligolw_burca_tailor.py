@@ -583,14 +583,14 @@ def get_coincparamsdistributions(xmldoc, name):
 #
 
 
-def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor"):
+def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor", comment = u""):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
 	node.appendChild(lsctables.New(lsctables.ProcessTable))
 	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
 	node.appendChild(lsctables.New(lsctables.SearchSummaryTable))
-	process = append_process(xmldoc, comment = u"")
+	process = append_process(xmldoc, comment = comment)
 	llwapp.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
 	node.appendChild(coinc_params_distributions.to_xml(process, name))
