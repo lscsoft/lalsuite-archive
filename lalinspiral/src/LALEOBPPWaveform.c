@@ -1380,7 +1380,7 @@ XLALEOBPPWaveformForInjection (
   }
 #endif
 
-  params->ampOrder = 0;
+  params->ampOrder = (LALPNOrder) 0;
   XLALPrintWarning( "WARNING: Amp Order has been reset to %d\n", params->ampOrder);
 
   /* Compute some parameters*/
