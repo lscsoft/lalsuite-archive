@@ -26,13 +26,17 @@
 
 from ctypes import *
 
-from pylal.datatypes import *
+import pylal.ctypes
+from pylal.ctypes.datatypes.primitives import *
+from pylal.ctypes.datatypes.complex import COMPLEX8,COMPLEX16
+
+from pylal.ctypes.utils import make_enum_typedef,_set_types
 
 VARNAME_MAX=1024
    
 #LALInferenceParamVaryType
 
-globals().update(make_li_enum_typedef(
+globals().update(make_enum_typedef(
     "LALInferenceParamVaryType",
     [
         "LALINFERENCE_PARAM_LINEAR",
@@ -42,29 +46,49 @@ globals().update(make_li_enum_typedef(
     ]
 ))
 
+class gslMatrix(Structure):
+    pass
+    
+class string():
+    pass
+    
 #LALInferenceVariableType
 
-globals().update(make_li_enum_typedef(
-    "LALInferenceVariableType",
-    [
-        "LALINFERENCE_INT4_t",
-        "LALINFERENCE_INT8_t",
-        "LALINFERENCE_UINT4_t",
-        "LALINFERENCE_REAL4_t", 
-        "LALINFERENCE_REAL8_t", 
-        "LALINFERENCE_COMPLEX8_t", 
-        "LALINFERENCE_COMPLEX16_t", 
-        "LALINFERENCE_gslMatrix_t",
-        "LALINFERENCE_REAL8Vector_t",
-        "LALINFERENCE_UINT4Vector_t",
-        "LALINFERENCE_string_t",
-        "LALINFERENCE_void_ptr_t"
-    ]
-))
+LALInferenceVariableType_list=[
+    "INT4",
+    "INT8",
+    "UINT4",
+    "REAL4", 
+    "REAL8", 
+    "COMPLEX8", 
+    "COMPLEX16", 
+    "gslMatrix",
+    "REAL8Vector",
+    "UINT4Vector",
+    "string",
+    "void_ptr"
+]
+
+class mapped_enum_typedef(c_uint):
+    def __init__(self,enum_value,litype):
+        c_uint.__init__(self,enum_value)
+        self.litype=litype
+
+def __make_enum_litype_mapped_typedef(enum_names):
+    vdict={}
+    new_enum_typedef=type("LALInferenceVariableType",(mapped_enum_typedef,),{})
+    vdict["LALInferenceVariableType"]=new_enum_typedef
+    i=0
+    for enum_name in enum_names:
+        vdict["LALINFERENCE_"+enum_name+"_t"]=new_enum_typedef(i,eval(enum_name))
+        i+=1
+    globals().update(vdict)
+    
+__make_enum_litype_mapped_typedef(LALInferenceVariableType_list)
 
 #LALInferenceVariableType
 
-globals().update(make_li_enum_typedef(
+globals().update(make_enum_typedef(
     "LALInferenceDomain",
     [
         "LALINFERENCE_DOMAIN_TIME", 
@@ -74,7 +98,7 @@ globals().update(make_li_enum_typedef(
 
 #LALInferenceDomain
 
-globals().update(make_li_enum_typedef(
+globals().update(make_enum_typedef(
     "LALInferenceDomain",
     [
         "LALINFERENCE_DOMAIN_TIME", 
@@ -84,7 +108,7 @@ globals().update(make_li_enum_typedef(
 
 #LALInferenceApplyTaper
 
-globals().update(make_li_enum_typedef(
+globals().update(make_enum_typedef(
     "LALInferenceApplyTaper",
     [
         "LALINFERENCE_TAPER_NONE",
@@ -123,7 +147,11 @@ class LALInferenceVariables(Structure):
         LALInferenceRemoveVariable(self.ptr,c_char_p(name))
     
     def getVariable(self,name):
-        print LALInferenceGetVariable(self.ptr,c_char_p(name))
+        get=LALInferenceGetVariable(self.ptr,c_char_p(name))
+        
+        if get:
+            vtype=self.getVariableType(self.ptr,c_char_p(name))
+            
         
     def getVariableDimension(self):
         return LALInferenceGetVariableDimension(self.ptr)
@@ -135,7 +163,15 @@ class LALInferenceVariables(Structure):
     
     def printVariables(self):
         return LALInferencePrintVariables(self.ptr)
+    
+    def checkVariable(self,name):
+        return bool(LALInferenceCheckVariable(pointer(self),c_char_p(name)))
         
+    def copyVariables(self):
+        new=LALInferenceVariables()
+        LALInferenceCopyVariables(self.ptr,pointer(new))
+        return new
+    
     def printSample(self):
         pass        
     
@@ -149,7 +185,7 @@ LALInferenceVariableItem._fields_ = [
 ]
 
 #LALInferenceVariables
-LALInferenceVariables_table=[
+LALInferenceVariables_func_table=[
     ["LALInferenceAddVariable",None,[POINTER(LALInferenceVariables),c_char_p,c_void_p,LALInferenceVariableType,LALInferenceParamVaryType]],
     ["LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceGetVariableDimension",INT4,[POINTER(LALInferenceVariables)]],
@@ -167,8 +203,10 @@ LALInferenceVariables_table=[
 
 def __create_lalinference_functions(tables):
     for table in tables:
-        for funcname,restype,argtypes:
-            globals[funcname]=_set_types(pylal.ctypes.liblalinference,funcname,restype,argtypes) 
+        for funcname,restype,argtypes in table:
+            globals()[funcname]=_set_types(pylal.ctypes.liblalinference,funcname,restype,argtypes) 
+
+__create_lalinference_functions([LALInferenceVariables_func_table])
 
 ##LALInferenceIFOData
 #class LALInferenceIFOData(Structure): pass
