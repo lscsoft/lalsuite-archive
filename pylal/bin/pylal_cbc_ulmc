@@ -19,6 +19,7 @@ import random
 
 from optparse import *
 
+from pylal import rate
 from pylal import git_version
 from pylal import upper_limit_utils as ululs
 
@@ -43,11 +44,17 @@ def parse_command_line():
   parser.add_option( "-b", "--lambda-bias", action="store", type="float", default=1,\
       help="Simulated multiplicative bias on Lambda estimation" )
 
+  parser.add_option( "-r", "--print-trials", action="store_true", default=False,\
+      help="Print summary UL values to screen for each trial" )
+
   parser.add_option( "-v", "--verbose", action="store_true", default=False,\
       help="Print FAR, Lambda, volume and effective numerator values to screen" )
 
   parser.add_option( "-p", "--make-plots", action="store_true", default=False,\
       help="Scatter plots of something..." )
+
+  parser.add_option( "-o", "--output-dir", action="store", type="string", default=False,\
+      help="Where to output plots to (path ending in a backslash)" )
 
   (options,args) = parser.parse_args()
 
@@ -56,15 +63,19 @@ def parse_command_line():
 ##################################
 # convenience functions
 
-def rhoC_from_FAR(lambdaF):
+def rhoC_from_FAR(lambdaF, index):
   # lambdaF is the FAR in 1/yr
   # formula is a fit to the S6 BIC lowmass background estimation
-  rhoC = 8 + numpy.log(2000/lambdaF)/numpy.log(100)
+  # if index is set to approx log(100)
+  rhoC = 8 + numpy.log(2000/lambdaF)/index
   return rhoC
 
 def FAN_from_FAP(pF):
   # pF is the FAP
   return -1*numpy.log(1-pF)
+
+def FAP_from_FAN(nF):
+  return 1 - numpy.exp(-nF)
 
 def volume_above_rhoC(rhoC, sensemon=20):
   radius = sensemon*(8*numpy.sqrt(2)/rhoC)
@@ -81,8 +92,9 @@ opts, args = parse_command_line()
 Ttot = 1./2  # half a year
 Ti = Ttot/opts.ntimes
 Rsense = 20  # sensemon range in Mpc
+index = numpy.log(100) # index in exponential model of FAR vs. rhoC
 
-if opts.verbose: 
+if opts.verbose:
   print "Sensemon range is", Rsense, "Mpc"
   print "Splitting", Ttot, "years science run into", opts.ntimes, "analysis times"
   print "Expected loudest event FAR from noise in each time is", 1./Ti, "/yr"
@@ -90,20 +102,23 @@ if opts.verbose:
   print "Expected volume / upper limit from single loudest event FAP=0.5 is"
   pF = 0.5
   lambdaF = FAN_from_FAP(pF)/Ttot
-  rhoC = rhoC_from_FAR(lambdaF)
+  rhoC = rhoC_from_FAR(lambdaF, index)
   vol = volume_above_rhoC(rhoC, sensemon=Rsense)
-  Lambda = (3./numpy.log(100))/(rhoC*Ttot*lambdaF)
+  Lambda = (3./index)/(rhoC*Ttot*lambdaF)
   mu = numpy.logspace(-numpy.log10(vol*Ttot)-2, -numpy.log10(vol*Ttot)+2, 10**5)
   likely = ululs.margLikelihood([vol*Ttot], [Lambda], mu, calerr=0, mcerrs=None)
   upperLim = ululs.compute_upper_limit(mu, likely, alpha=0.9)
   print "\t %.0d, %.3e" % (vol, upperLim)
 
 # set up outputs
-UL90s = []
-eff_numerators = []
+singleFAP = []
+singleVT = []
+UL90_exactLambda = []
+UL90_Lambdaerrs = []
+UL90_single = []
 
 for nmc in range(opts.n_montecarlo):
-  
+
   Lambdas = []
   estLambdas = []
   Volumes = []
@@ -114,12 +129,12 @@ for nmc in range(opts.n_montecarlo):
     lambdaF = FAN_from_FAP(pF)/Ti
     FARs.append(lambdaF)
     # convert FAR to a background combined SNR
-    rhoC = rhoC_from_FAR(lambdaF)
-    vol = volume_above_rhoC(rhoC, sensemon=Rsense)    
+    rhoC = rhoC_from_FAR(lambdaF, index)
+    vol = volume_above_rhoC(rhoC, sensemon=Rsense)
     Volumes.append(vol)
     # use analytic Lambda formula
     # given that background drops off with exp(-100*rhoC)
-    exactLambda = (3./numpy.log(100))/(rhoC*Ti*lambdaF)
+    exactLambda = (3./index)/(rhoC*Ti*lambdaF)
     Lambdas.append(exactLambda)
     # scatter and bias the estimated Lambdas
     estLambda = exactLambda*opts.lambda_bias*random.lognormvariate(0, opts.lambda_error)
@@ -138,18 +153,89 @@ for nmc in range(opts.n_montecarlo):
   likely_single = ululs.margLikelihood([min(Volumes)*Ttot], [exactLambda_single], mu, calerr=0, mcerrs=None)
   upperLim_single = ululs.compute_upper_limit(mu, likely_single, alpha=0.9)
 
-  print " "
-  if opts.verbose: print "FARs /yr^-1:", [str(FAR)[0:5] for FAR in FARs] 
-  if opts.verbose: print "Volumes /Mpc^3:", [int(Vol) for Vol in Volumes]
-  if opts.verbose: print "Exact Lambda values:", [str(Lam)[0:5] for Lam in Lambdas]
-  if opts.verbose and (opts.lambda_error or opts.lambda_bias): print "Lambda values with errors:", [str(eLam)[0:5] for eLam in estLambdas]
-  print  r"90%UL from", opts.ntimes, "separate analyses: %.2e" % upperLim
-  if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim*sum(Volumes)*Ti)
-  if (opts.lambda_error or opts.lambda_bias): print r"Factor change in 90%UL due to Lambda errors:", "%.3g" % (estupperLim/upperLim)
-  if opts.verbose: print "\t Effective numerator: %.3g" % (estupperLim*sum(Volumes)*Ti)
-  if opts.verbose: print "Lambda value from one single analysis: %.3f" % exactLambda_single
-  print  r"90%UL from one single analysis would be", "%.2e" % upperLim_single
-  if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim_single*min(Volumes)*Ttot)
+  # update trial summary info
+  singleFAP.append(FAP_from_FAN(min(FARs)*Ttot)) 
+  singleVT.append(min(Volumes)*Ttot)
+  UL90_single.append(upperLim_single)
+  UL90_exactLambda.append(upperLim)
+  UL90_Lambdaerrs.append(estupperLim)
+
+  print "MC trial", nmc+1
+
+  if opts.print_trials:
+    print " "
+    if opts.verbose: print "FARs /yr^-1:", [str(FAR)[0:5] for FAR in FARs] 
+    if opts.verbose: print "Volumes /Mpc^3:", [int(Vol) for Vol in Volumes]
+    if opts.verbose: print "Exact Lambda values:", [str(Lam)[0:5] for Lam in Lambdas]
+    if opts.verbose and (opts.lambda_error or opts.lambda_bias): print "Lambda values with errors:", [str(eLam)[0:5] for eLam in estLambdas]
+    print  r"90%UL from", opts.ntimes, "separate analyses: %.2e" % upperLim
+    if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim*sum(Volumes)*Ti)
+    if (opts.lambda_error or opts.lambda_bias): print r"Factor change in 90%UL due to Lambda errors:", "%.3g" % (estupperLim/upperLim)
+    if opts.verbose: print "\t Effective numerator: %.3g" % (estupperLim*sum(Volumes)*Ti)
+    if opts.verbose: print "Lambda value from one single analysis: %.3f" % exactLambda_single
+    print  r"90%UL from one single analysis would be", "%.2e" % upperLim_single
+    if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim_single*min(Volumes)*Ttot)
+
+if opts.make_plots:
+  
+  output_prefix = opts.output_dir+"ulmc"+"_ntimes_"+str(opts.ntimes)
+
+  # UL values vs. FAP of loudest event in single analysis
+  FAPbins = rate.LinearBins(0.0, 1.0, 25)
+  FAPindices = numpy.array([FAPbins[pF] for pF in singleFAP])
+  ULmeans = numpy.arange(len(FAPbins))
+  fapplot = []
+  meansplot = []
+  stdevplot = []
+  effnumplot = []
+  effnumstdplot = []
+  for i in range(len(FAPbins)):
+    ULs_inBin = numpy.array(UL90_exactLambda)[FAPindices == i]
+    FAPbin = FAPbins.centres()[i]
+    VTsingle_inBin = Ttot*volume_above_rhoC(rhoC_from_FAR(FAN_from_FAP(FAPbin)/Ttot,index))
+    if len(ULs_inBin):
+      fapplot.append(FAPbin)
+      meansplot.append(numpy.mean(ULs_inBin))
+      stdevplot.append(numpy.std(ULs_inBin))
+      effnumplot.append(numpy.mean(ULs_inBin)*VTsingle_inBin)
+      effnumstdplot.append(numpy.std(ULs_inBin)*VTsingle_inBin)
+  mpl.pyplot.plot(singleFAP, UL90_single, "b+", label="Single analysis")
+  mpl.pyplot.errorbar(fapplot, meansplot, yerr=stdevplot, marker="o", linestyle="None", color="g", label="Split analysis times (MC mean/std)")
+  mpl.pyplot.xlabel("Loudest event FAP in single analysis", size="large")
+  mpl.pyplot.ylabel(r"90% upper limit", size="large")
+  mpl.pyplot.legend()
+  mpl.pyplot.title(str(opts.ntimes)+" analysis times")
+  mpl.pyplot.savefig(output_prefix+"_ul_vs_FAP.png")
+  mpl.pyplot.close()
+
+  # UL*(VT for single analysis) vs. FAP of loudest single event
+  # this is "effective numerator" for the single analysis
+  # and allows us to factor out the dependence of volume on loudest event SNR
+  mpl.pyplot.plot(singleFAP, numpy.array(UL90_single)*numpy.array(singleVT), "b+", label="Single analysis")
+  mpl.pyplot.errorbar(fapplot, effnumplot, effnumstdplot, marker="o", linestyle="None", color="g", label="Split analysis times (MC mean/std)")
+  mpl.pyplot.xlabel("Loudest event FAP", size="large")
+  mpl.pyplot.ylabel(r"90%UL * VT(single analysis)", size="large") 
+  mpl.pyplot.legend()
+  mpl.pyplot.title(str(opts.ntimes)+" analysis times")
+  mpl.pyplot.savefig(output_prefix+"_effnum_vs_FAP.png")
+  mpl.pyplot.close()
+
+  # rhoC vs. FAP of loudest single event for comparison to UL vs. FAP
+  mpl.pyplot.plot(singleFAP, [rhoC_from_FAR(FAN_from_FAP(pF)/Ttot,index) for pF in singleFAP], "b+")
+  mpl.pyplot.xlabel("Loudest event FAP", size="large")
+  mpl.pyplot.ylabel("Loudest event combined SNR", size="large")
+  mpl.pyplot.savefig(opts.output_dir+"ulmc_rhoC_vs_FAP.png")
+  mpl.pyplot.close()
+
+  # UL values vs. SNR of loudest event in single analysis
+  mpl.pyplot.plot([rhoC_from_FAR(FAN_from_FAP(pF)/Ttot,index) for pF in singleFAP], UL90_single, "b+", label="Single analysis")
+  mpl.pyplot.errorbar([rhoC_from_FAR(FAN_from_FAP(pF)/Ttot,index) for pF in fapplot], meansplot, yerr=stdevplot, marker="o", linestyle="None", color="g", label="Split analysis times (MC mean/stdev)")
+  mpl.pyplot.xlabel("Loudest event combined SNR", size="large")
+  mpl.pyplot.ylabel(r"90% upper limit", size="large")
+  mpl.pyplot.legend(loc="upper left")
+  mpl.pyplot.title(str(opts.ntimes)+" analysis times")
+  mpl.pyplot.savefig(output_prefix+"_ul_vs_rhoC.png")
+  mpl.pyplot.close()
 
 
 exit()
