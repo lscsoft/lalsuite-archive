@@ -423,6 +423,7 @@ void adjust_snr(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_list)
 {
   /* Vars for calculating SNRs */
   REAL8 this_snr;
+<<<<<<< HEAD
   REAL8 UNUSED low_snr, UNUSED high_snr;
   REAL8 low_dist,high_dist;
 
@@ -467,6 +468,12 @@ void adjust_snr(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_list)
       low_dist = inj->distance;
     }
   }
+=======
+
+  this_snr = network_snr_with_psds_real8(num_ifos, ifo_list, psds, start_freqs, inj);
+  inj->distance = inj->distance * (this_snr/target_snr);
+
+>>>>>>> 8cd7bba... Simplify the scale-by-SNR function in inspinj
 }
 
 
