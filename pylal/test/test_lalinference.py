@@ -25,7 +25,7 @@
 import unittest
 from pylal.ctypes.datatypes.primitives import REAL8,INT4,REAL4
 from pylal.ctypes.lalinference import LALInferenceVariables
-from pylal.ctypes.lalinference import LALINFERENCE_PARAM_FIXED,LALINFERENCE_REAL8_t,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED
+from pylal.ctypes.lalinference import LALINFERENCE_PARAM_FIXED,LALINFERENCE_REAL8_t,LALINFERENCE_REAL4_t,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_LINEAR
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>"
 #__version__= "git id %s"%git_version.id
@@ -39,78 +39,74 @@ class test_LALInferenceVariables(unittest.TestCase):
         self.livars=LALInferenceVariables()
 
     def test_add(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar2",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar3",REAL8(9.0),LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar2",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.assertRaises(TypeError,self.livars.addVariable,("myvar3",9.0,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED))
 
     def test_rm(self):
 
         self.livars=LALInferenceVariables()
 
-        self.livars.addVariable("myvar4",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar4",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
         self.livars.removeVariable("myvar1")
         
     def test_print(self):
-        self.livars.addVariable("myvar4",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar5",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar6",INT4(2),LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar4",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar5",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar6",2,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED)
 
         self.livars.printVariables()
-        #self.assertTrue(len(self.livars.printSample().split())==3)
+        self.assertTrue(len(self.livars.printSample().split())==3)
 
 
     def test_print_nf(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar2",INT4(9.0),LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar3",REAL4(9.0),LALINFERENCE_REAL4_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar4",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_NON_FIXED)
-        self.livars.addVariable("myvar5",INT4(9.0),LALINFERENCE_INT4_t,LALINFERENCE_PARAM_NON_FIXED)
-        self.livars.addVariable("myvar6",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar2",9,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar3",9.0,LALINFERENCE_REAL4_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar4",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR)
+        self.livars.addVariable("myvar5",9,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_LINEAR)
+        self.livars.addVariable("myvar6",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
 
         self.assertFalse(self.livars.printSample()==self.livars.printSampleFixed())
 
     def test_get(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
         self.livars.getVariable("myvar1")
         self.assertRaises(KeyError,self.livars.getVariable,"myvar2")
 
     def test_get_dim(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
         self.assertTrue(self.livars.getVariableDimension()==1)
-        self.livars.addVariable("myvar2",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar3",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_NON_FIXED)
+        self.livars.addVariable("myvar2",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar3",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR)
         self.assertTrue(self.livars.getVariableDimension()==3)
 
     def test_get_dim_nf(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
         self.assertTrue(self.livars.getVariableDimensionNonFixed()==0)
-        self.livars.addVariable("myvar2",REAL8(2.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_NON_FIXED)
-        self.livars.addVariable("myvar3",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar2",2.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR)
+        self.livars.addVariable("myvar3",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
         self.assertTrue(self.livars.getVariableDimensionNonFixed()==1)
 
     def test_get_type(self):
-        self.livars.addVariable("myvar1",REAL4(9.0),LALINFERENCE_REAL4_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.assertFalse(self.livars.getVariableType("myvar1")==self.livars.getVariableType("myvar2"))
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL4_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar2",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        #self.assertFalse(self.livars.getVariableType("myvar1")==self.livars.getVariableType("myvar2"))
 
     def test_get_type_by_index(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar2",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.assertTrue(self.livars.getVariableTypeByIndex(1)=="REAL8")
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar2",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.assertTrue(self.livars.getVariableTypeByIndex(1)==LALINFERENCE_REAL8_t)
 
     def test_set(self):
-        self.livars.addVariable("myvar1",REAL4(9.0),LALINFERENCE_REAL4_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.setVariable("myvar1",REAL4(5.0))
-        self.assertTrue(self.livars.getVariable("myvar1")==5.0)
-
-    def test_check(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL4_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.setVariable("myvar1",9.0)
         self.assertTrue(self.livars.checkVariable("myvar1"))
         self.assertFalse(self.livars.checkVariable("myvar2"))
 
     def test_copy(self):
-        self.livars.addVariable("myvar1",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
-        self.livars.addVariable("myvar2",REAL8(9.0),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
+        self.livars.addVariable("myvar2",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
 
         copy=self.livars.copyVariables()
         self.assertTrue(copy.checkVariable("myvar1"))

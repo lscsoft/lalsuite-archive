@@ -29,6 +29,15 @@ from ctypes import *
 import pylal.ctypes
 from pylal.ctypes.datatypes.primitives import *
 from pylal.ctypes.datatypes.complex import COMPLEX8,COMPLEX16
+from pylal.ctypes.datatypes.vector import REAL8Vector,UINT4Vector,LIGOTimeGPSVector
+from pylal.ctypes.datatypes.real8timeseries import REAL8TimeSeries
+from pylal.ctypes.datatypes.real8frequencyseries import REAL8FrequencySeries
+from pylal.ctypes.datatypes.complex16frequencyseries import COMPLEX16FrequencySeries
+from pylal.ctypes.datatypes.complex16timeseries import COMPLEX16TimeSeries
+from pylal.ctypes.datatypes.window import REAL8Window
+from pylal.ctypes.datatypes.fftplan import REAL8FFTPlan
+from pylal.ctypes.datatypes.laldetector import LALDetector
+from pylal.ctypes.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.ctypes.utils import make_enum_typedef,_set_types
 
@@ -46,13 +55,18 @@ globals().update(make_enum_typedef(
     ]
 ))
 
+#LALInferenceVariableType
+
 class gslMatrix(Structure):
     pass
     
-class string():
-    pass
+gsl_matrix=gslMatrix
     
-#LALInferenceVariableType
+class string(c_char_p):
+    pass
+
+class void_ptr(c_void_p):
+    pass
 
 LALInferenceVariableType_list=[
     "INT4",
@@ -139,6 +153,7 @@ class LALInferenceVariables(Structure):
         self.ptr=pointer(self)
         
     def addVariable(self,name,value,li_variable_type,li_param_vary_type):
+        value=li_variable_type.litype(value)
         valuep=pointer(value)
         value_voidp=cast(valuep,c_void_p)
         LALInferenceAddVariable(byref(self),c_char_p(name),value_voidp,li_variable_type,li_param_vary_type)
@@ -150,12 +165,28 @@ class LALInferenceVariables(Structure):
         get=LALInferenceGetVariable(self.ptr,c_char_p(name))
         
         if get:
-            vtype=self.getVariableType(self.ptr,c_char_p(name))
+            vtype=self.getVariableType(name)
+            return cast(get,POINTER(vtype.litype)).contents.value
             
+        else:
+            raise KeyError
+            
+    def getVariableType(self,name):
+        typei=LALInferenceGetVariableType(self.ptr,c_char_p(name))
+        enum_name=LALInferenceVariableType_list[typei.value]
+        return eval("LALINFERENCE_"+enum_name+"_t")
+    
+    def getVariableTypeByIndex(self,index):
+        typei=LALInferenceGetVariableTypeByIndex(self.ptr,c_int(index))
+        enum_name=LALInferenceVariableType_list[typei.value]
+        return eval("LALINFERENCE_"+enum_name+"_t")
         
     def getVariableDimension(self):
-        return LALInferenceGetVariableDimension(self.ptr)
-        
+        return int(LALInferenceGetVariableDimension(self.ptr).value)
+    
+    def getVariableDimensionNonFixed(self):
+        return int(LALInferenceGetVariableDimensionNonFixed(self.ptr).value)
+    
     def setVariable(self,name,value):
         valuep=pointer(value)
         value_voidp=cast(valuep,c_void_p)
@@ -166,15 +197,34 @@ class LALInferenceVariables(Structure):
     
     def checkVariable(self,name):
         return bool(LALInferenceCheckVariable(pointer(self),c_char_p(name)))
+    
+    def checkVariableNonFixed(self,name):
+        return bool(LALInferenceCheckVariableNonFixed(pointer(self),c_char_p(name)))
+    
+    def __copy__(self):
+        return self.__deepcopy__()
         
+    def __deepcopy__(self):
+        return self.copyVariables()
+    
     def copyVariables(self):
         new=LALInferenceVariables()
-        LALInferenceCopyVariables(self.ptr,pointer(new))
+        LALInferenceCopyVariables(self.ptr,byref(new))
         return new
     
-    def printSample(self):
-        pass        
-    
+    def setVariable(self,name,value):
+        typeo=self.getVariableType(name)
+        a=cast(pointer(typeo.litype(value)),c_void_p)
+        LALInferenceSetVariable(self.ptr,c_char_p(name),a)
+        
+    def removeVariable(self,name):
+        LALInferenceRemoveVariable(self.ptr,c_char_p(name))
+        
+    def __eq__(self,other):
+        return bool(LALInferenceCompareVariables(self.ptr,byref(other)))
+        
+    def __neq__(self,other):
+        return not self.__eq__(other)
 
 LALInferenceVariableItem._fields_ = [
     ("name",c_char_p),
@@ -197,8 +247,110 @@ LALInferenceVariables_func_table=[
     ["LALInferenceSetVariable",None,[POINTER(LALInferenceVariables),c_char_p,c_void_p]],
     ["LALInferenceRemoveVariable",None,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceCheckVariable",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceCheckVariableNonFixed",c_int,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceCopyVariables",None,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]],
-    ["LALInferencePrintVariables",None,[POINTER(LALInferenceVariables)]]
+    ["LALInferencePrintVariables",None,[POINTER(LALInferenceVariables)]],
+    ["LALInferenceCompareVariables",c_int,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]]
+]
+
+#LALInferencePrior
+class LALInferencePrior(object):
+    def __init__(self):
+        self._as_parameter_=LALInferenceVariables()
+    
+    #def addMinMaxPrior(self):
+        
+LALInferencePrior_func_table=[
+    ["LALInferenceAddMinMaxPrior",None,POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8),LALInferenceVariableType],
+    ["LALInferenceRemoveMinMaxPrior",None,POINTER(LALInferenceVariables),c_char_p],
+    ["LALInferenceAddGaussianPrior",None,POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8),LALInferenceVariableType],
+    ["LALInferenceRemoveMinMaxPrior",None,POINTER(LALInferenceVariables),c_char_p],
+    ["LALInferenceAddCorrelatedPrior",None,POINTER(LALInferenceVariables),c_char_p,POINTER(POINTER(gsl_matrix)),UINT4],
+    
+]
+
+#LALInferenceIFOData
+class LALInferenceIFOData(Structure): pass
+
+#Function types
+LALInferenceAlgorithm=CFUNCTYPE(None,POINTER(LALInferenceRunState))
+LALInferenceEvolveOneStepFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState))
+LALInferencePriorFunction=CFUNCTYPE(REAL8,POINTER(LALInferenceRunState),POINTER(LALInferenceVariables))
+LALInferenceTemplateFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState))
+LALInferenceLikelihoodFunction=CFUNCTYPE(REAL8,POINTER(LALInferenceVariables),POINTER(LALInferenceIFOData),POINTER(LALInferenceTemplateFunction))
+LALInferenceProposalFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState),POINTER(LALInferenceVariables))
+LALInferenceLogFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState),POINTER(LALInferenceVariables))
+
+class BarycenterInput(Structure): pass
+class EphemerisData(Structure): pass
+
+#LALInferenceIFOData
+LALInferenceIFOData._fields_ = [
+    ('name',c_char_p),
+    ('timeData',POINTER(REAL8TimeSeries)),
+    ('timeModelhPlus',POINTER(REAL8TimeSeries)),
+    ('timeModelhCross',POINTER(REAL8TimeSeries)),
+    ('whiteTimeData',POINTER(REAL8TimeSeries)), 
+    ('windowedTimeData',POINTER(REAL8TimeSeries)),
+    ('nullloglikelihood',REAL8),
+    ('loglikelihood',REAL8),
+    ('acceptedloglikelihood',REAL8),
+    ('fPlus',REAL8),
+    ('fCross',REAL8),
+    ('timeshift',REAL8),
+    ('freqData',POINTER(COMPLEX16FrequencySeries)),
+    ('freqModelhCross',POINTER(COMPLEX16FrequencySeries)),
+    ('freqModelhPlus',POINTER(COMPLEX16FrequencySeries)),
+    ('whiteFreqData',POINTER(COMPLEX16FrequencySeries)),
+    ('compTimeData',POINTER(COMPLEX16TimeSeries)),
+    ('compModelData',POINTER(COMPLEX16TimeSeries)),
+    ('dataTimes',POINTER(LIGOTimeGPSVector)),
+    ('modelParams',POINTER(LALInferenceVariables)),
+    ('dataParams',POINTER(LALInferenceVariables)),
+    ('modelDomain',LALInferenceDomain),
+    ('oneSidedNoisePowerSpectrum',POINTER(REAL8FrequencySeries)),
+    ('timeDomainNoiseWeights',POINTER(REAL8TimeSeries)),
+    ('window',POINTER(REAL8Window)),
+    ('timeToFreqFFTPlan',POINTER(REAL8FFTPlan)),
+    ('fLow',REAL8),
+    ('fHigh',REAL8),
+    ('detector',POINTER(LALDetector)),
+    ('bary',POINTER(BarycenterInput)),
+    ('ephem',POINTER(EphemerisData)),
+    ('epoch',LIGOTimeGPS),
+    ('SNR',REAL8),
+    ('STDOF',REAL8),
+    ('next',POINTER(LALInferenceIFOData))
+]
+
+#ProcessParamsTable
+class ProcessParamsTable(Structure): pass
+
+#gsl_rng
+class gsl_rng(Structure): pass
+
+#LALInferenceRunState
+LALInferenceRunState._fields_ = [
+  ('commandLine',POINTER(ProcessParamsTable)),
+  ('algorithm',POINTER(LALInferenceAlgorithm)),
+  ('evolve',POINTER(LALInferenceEvolveOneStepFunction)),
+  ('prior',POINTER(LALInferencePriorFunction)),
+  ('likelihood',POINTER(LALInferenceLikelihoodFunction)),
+  ('proposal',POINTER(LALInferenceProposalFunction)),
+  ('template',POINTER(LALInferenceTemplateFunction)),
+  ('logsample',POINTER(LALInferenceLogFunction)),
+  ('data',POINTER(LALInferenceIFOData)),
+  ('currentParams',POINTER(LALInferenceVariables)),
+  ('priorArgs',POINTER(LALInferenceVariables)),
+  ('proposalArgs',POINTER(LALInferenceVariables)),
+  ('algorithmParams',POINTER(LALInferenceVariables)),
+  ('livePoints',POINTER(POINTER(LALInferenceVariables))),
+  ('differentialPoints',POINTER(POINTER(LALInferenceVariables))),
+  ('differentialPointsLength',c_size_t),
+  ('differentialPointsSize',c_size_t),
+  ('currentLikelihood',REAL8),
+  ('currentPrior',REAL8),
+  ('GSLrandom',gsl_rng)
 ]
 
 def __create_lalinference_functions(tables):
@@ -207,85 +359,3 @@ def __create_lalinference_functions(tables):
             globals()[funcname]=_set_types(pylal.ctypes.liblalinference,funcname,restype,argtypes) 
 
 __create_lalinference_functions([LALInferenceVariables_func_table])
-
-##LALInferenceIFOData
-#class LALInferenceIFOData(Structure): pass
-
-##Function types
-#LALInferenceAlgorithm=CFUNCTYPE(None,POINTER(LALInferenceRunState))
-#LALInferenceEvolveOneStepFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState))
-#LALInferencePriorFunction=CFUNCTYPE(REAL8,POINTER(LALInferenceRunState),POINTER(LALInferenceVariables))
-#LALInferenceTemplateFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState))
-#LALInferenceLikelihoodFunction=CFUNCTYPE(REAL8,POINTER(LALInferenceVariables),POINTER(LALInferenceIFOData),POINTER(LALInferenceTemplateFunction))
-#LALInferenceProposalFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState),POINTER(LALInferenceVariables))
-#LALInferenceLogFunction=CFUNCTYPE(None,POINTER(LALInferenceRunState),POINTER(LALInferenceVariables))
-
-#class BarycenterInput(Structure): pass
-#class EphemerisData(Structure): pass
-
-##LALInferenceIFOData
-#LALInferenceIFOData._fields_ = [
-    #('name',c_char_p),
-    #('timeData',POINTER(REAL8TimeSeries)),
-    #('timeModelhPlus',POINTER(REAL8TimeSeries)),
-    #('timeModelhCross',POINTER(REAL8TimeSeries)),
-    #('whiteTimeData',POINTER(REAL8TimeSeries)), 
-    #('windowedTimeData',POINTER(REAL8TimeSeries)),
-    #('nullloglikelihood',REAL8),
-    #('loglikelihood',REAL8),
-    #('acceptedloglikelihood',REAL8),
-    #('fPlus',REAL8),
-    #('fCross',REAL8),
-    #('timeshift',REAL8),
-    #('freqData',POINTER(COMPLEX16FrequencySeries)),
-    #('freqModelhCross',POINTER(COMPLEX16FrequencySeries)),
-    #('freqModelhPlus',POINTER(COMPLEX16FrequencySeries)),
-    #('whiteFreqData',POINTER(COMPLEX16FrequencySeries)),
-    #('compTimeData',POINTER(COMPLEX16TimeSeries)),
-    #('compModelData',POINTER(COMPLEX16TimeSeries)),
-    #('dataTimes',POINTER(LIGOTimeGPSVector)),
-    #('modelParams',POINTER(LALInferenceVariables)),
-    #('dataParams',POINTER(LALInferenceVariables)),
-    #('modelDomain',LALInferenceDomain),
-    #('oneSidedNoisePowerSpectrum',POINTER(REAL8FrequencySeries)),
-    #('timeDomainNoiseWeights',POINTER(REAL8TimeSeries)),
-    #('window',POINTER(REAL8Window)),
-    #('timeToFreqFFTPlan',POINTER(REAL8FFTPlan)),
-    #('fLow',REAL8),
-    #('fHigh',REAL8),
-    #('detector',POINTER(LALDetector)),
-    #('bary',POINTER(BarycenterInput)),
-    #('ephem',POINTER(EphemerisData)),
-    #('epoch',LIGOTimeGPS),
-    #('SNR',REAL8),
-    #('STDOF',REAL8),
-    #('next',POINTER(LALInferenceIFOData))
-#]
-
-##ProcessParamsTable
-#class ProcessParamsTable(Structure): pass
-
-
-##LALInferenceRunState
-#LALInferenceRunState._fields_ = [
-  #('commandLine',POINTER(ProcessParamsTable)),
-  #('algorithm',POINTER(LALInferenceAlgorithm)),
-  #('evolve',POINTER(LALInferenceEvolveOneStepFunction)),
-  #('prior',POINTER(LALInferencePriorFunction)),
-  #('likelihood',POINTER(LALInferenceLikelihoodFunction)),
-  #('proposal',POINTER(LALInferenceProposalFunction)),
-  #('template',POINTER(LALInferenceTemplateFunction)),
-  #('logsample',POINTER(LALInferenceLogFunction)),
-  #('data',POINTER(LALInferenceIFOData)),
-  #('currentParams',POINTER(LALInferenceVariables)),
-  #('priorArgs',POINTER(LALInferenceVariables)),
-  #('proposalArgs',POINTER(LALInferenceVariables)),
-  #('algorithmParams',POINTER(LALInferenceVariables)),
-  #('livePoints',POINTER(POINTER(LALInferenceVariables))),
-  #('differentialPoints',POINTER(POINTER(LALInferenceVariables))),
-  #('differentialPointsLength',c_size_t),
-  #('differentialPointsSize',c_size_t),
-  #('currentLikelihood',REAL8),
-  #('currentPrior',REAL8),
-  #('GSLrandom',gsl_rng)
-#]

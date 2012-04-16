@@ -27,8 +27,8 @@
 from vector import *
 from ctypes import Structure
 
-from pylal.ctypes.ligotimegps import LIGOTimeGPS
-from pylal.ctypes.lalunit import LALUnit
+from pylal.ctypes.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.ctypes.datatypes.lalunit import LALUnit
 
 class COMPLEX16TimeSeries(Structure):
     

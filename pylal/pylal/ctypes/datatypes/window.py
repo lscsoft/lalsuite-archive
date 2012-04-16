@@ -26,8 +26,8 @@
 
 from ctypes import Structure,POINTER
 
-from datatypes import REAL8
-from vector import REAL8Sequence
+from pylal.ctypes.datatypes.primitives import REAL8
+from pylal.ctypes.datatypes.vector import REAL8Sequence
 
 class REAL8Window(Structure):
     

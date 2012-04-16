@@ -26,7 +26,10 @@
 
 from ctypes import Structure,POINTER
 
-from datatypes import REAL4,REAL8
+from pylal.ctypes.datatypes.primitives import REAL4,REAL8,CHAR
+
+#Cut and paste
+LALNameLength = 64
 
 class LALDetectorType(Structure): pass
 
