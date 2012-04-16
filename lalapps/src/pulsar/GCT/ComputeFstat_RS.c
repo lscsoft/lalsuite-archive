@@ -115,13 +115,14 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
 {
   UINT4 numDetectors;
   ComputeFBuffer_RS *cfBuffer = NULL;
+  MultiSFTVector *multiSFTscopy = NULL; //Copy of multiSFTs fed to XLALSFTVectorToCOMPLEX8TimeSeries to preserve original MultiSFTVector
   MultiDetectorStateSeries *multiDetStates = NULL;
   MultiSSBtimes *multiSSB = NULL;
   MultiAMCoeffs *multiAMcoef = NULL;
   MultiCOMPLEX8TimeSeries *multiTimeseries = NULL;
   REAL8 Ad, Bd, Cd, Dd_inv;
   SkyPosition skypos;
-  UINT4 i,j,k;
+  UINT4 i,j,k,l,m,n;
   MultiCOMPLEX8TimeSeries *multiFa_resampled = NULL;
   MultiCOMPLEX8TimeSeries *multiFb_resampled = NULL;
   COMPLEX8Vector *Faf_resampled = NULL;
@@ -133,6 +134,7 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
   ComplexFFTPlan *pfwd = NULL;  /* this will store the FFT plan */
   COMPLEX8Vector *outa = NULL;  /* this will contain the FFT output of Fa for this detector */
   COMPLEX8Vector *outb = NULL;  /* this will contain the FFT output of Fb for this detector */
+  COMPLEX8Sequence *sftval = NULL; /* this will become the COMPLEX8Sequence of multiSFTscopy */
 
   INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
@@ -189,8 +191,63 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
     /* because for the multi-detector Fstat we need frequency bins to be coincident */
     /* The memory allocated here is freed when the buffer is cleared in the calling program */
 
+    /*MultiSFTVector Deep Copy Loop*/
+    if ( multiSFTscopy == NULL ) {
+      if ( (multiSFTscopy = (MultiSFTVector*)XLALCalloc(1,sizeof(MultiSFTVector))) == NULL ) {
+        XLALPrintError("\nXLALMalloc() failed with error = %d\n\n", xlalErrno );
+        ABORT ( status, COMPUTEFSTATRSC_EXLAL, COMPUTEFSTATRSC_MSGEXLAL );
+      }
+    }
+    /*Make copy of multiSFTs->data*/
+    multiSFTscopy->length = multiSFTs->length;
+    if (multiSFTscopy->data == NULL ) {
+      if ( (multiSFTscopy->data = (SFTVector**)XLALCalloc(multiSFTscopy->length,sizeof(SFTVector*))) == NULL ) {
+        XLALPrintError("\nXLALMalloc() failed with error = %d\n\n", xlalErrno );
+        ABORT ( status, COMPUTEFSTATRSC_EXLAL, COMPUTEFSTATRSC_MSGEXLAL );
+      }
+    }
+    /*copy multiSFTs->data[l]*/
+    for (l=0;l<multiSFTscopy->length;l++) {
+      if ( (multiSFTscopy->data[l] = (SFTVector*)XLALCalloc(1,sizeof(SFTVector))) == NULL ) {
+        XLALPrintError("\nXLALMalloc() failed with error = %d\n\n", xlalErrno );
+        ABORT ( status, COMPUTEFSTATRSC_EXLAL, COMPUTEFSTATRSC_MSGEXLAL );
+      }
+      /*copy multiSFTs->data->data*/
+      multiSFTscopy->data[l]->length = multiSFTs->data[l]->length;
+      if (multiSFTscopy->data[l]->data == NULL ) {
+        if ( (multiSFTscopy->data[l]->data = (COMPLEX8FrequencySeries*)XLALCalloc(multiSFTscopy->data[l]->length,sizeof(COMPLEX8FrequencySeries))) == NULL ) {
+          XLALPrintError("\nXLALMalloc() failed with error = %d\n\n", xlalErrno );
+          ABORT ( status, COMPUTEFSTATRSC_EXLAL, COMPUTEFSTATRSC_MSGEXLAL );
+        }
+      }
+      /*copy multiSFTs->data->data->data*/
+      for (m=0;m<multiSFTscopy->data[l]->length;m++) {
+        strncpy(multiSFTscopy->data[l]->data[m].name, multiSFTs->data[l]->data[m].name, 3);
+        multiSFTscopy->data[l]->data[m].epoch = multiSFTs->data[l]->data[m].epoch;
+        multiSFTscopy->data[l]->data[m].f0 = multiSFTs->data[l]->data[m].f0;
+        multiSFTscopy->data[l]->data[m].deltaF = multiSFTs->data[l]->data[m].deltaF;
+        multiSFTscopy->data[l]->data[m].sampleUnits = multiSFTs->data[l]->data[m].sampleUnits;
+        /*allocate multiSFTscopy->data->data->data*/
+        sftval = XLALCreateCOMPLEX8Sequence(multiSFTs->data[l]->data[m].data->length);
+        multiSFTscopy->data[l]->data[m].data = sftval;
+        /*copy multiSFTs->data->data->data->data*/
+        multiSFTscopy->data[l]->data[m].data->length = multiSFTs->data[l]->data[m].data->length;
+        for (n=0;n<multiSFTscopy->data[l]->data[m].data->length;n++) {
+          if (multiSFTscopy->data[l]->data[m].data->data == NULL ) {
+            if ( (multiSFTscopy->data[l]->data[m].data->data = (COMPLEX8*)XLALCalloc(1,sizeof(COMPLEX8))) == NULL ) {
+              XLALPrintError("\nXLALMalloc() failed with error = %d\n\n", xlalErrno );
+             ABORT ( status, COMPUTEFSTATRSC_EXLAL, COMPUTEFSTATRSC_MSGEXLAL );
+            }
+          }
+          multiSFTscopy->data[l]->data[m].data->data[n].re = multiSFTs->data[l]->data[m].data->data[n].re;
+          multiSFTscopy->data[l]->data[m].data->data[n].im = multiSFTs->data[l]->data[m].data->data[n].im;
+        }//end of n loop
+      }//end of m loop
+    }//end of l loop
+    /*End MultiSFTVector Deep Copy Loop*/
+
     /* generate a new timeseries from the input SFTs */
-    if ( ( multiTimeseries = XLALMultiSFTVectorToCOMPLEX8TimeSeries(multiSFTs)) == NULL ) {
+    if ( ( multiTimeseries = XLALMultiSFTVectorToCOMPLEX8TimeSeries(multiSFTscopy)) == NULL ) {
       XLALPrintError("\nXLALMultiSFTVectorToCOMPLEX8TimeSeries() failed with error = %d\n\n", xlalErrno );
       ABORT ( status, COMPUTEFSTATRSC_EXLAL, COMPUTEFSTATRSC_MSGEXLAL );
     }
@@ -437,6 +494,7 @@ void ComputeFStatFreqBand_RS ( LALStatus *status,				/**< pointer to LALStatus s
   XLALDestroyCOMPLEX8Vector( outa );
   XLALDestroyCOMPLEX8Vector( outb );
   XLALDestroyCOMPLEX8FFTPlan ( pfwd );
+  TRY (LALDestroyMultiSFTVector( status->statusPtr, &multiSFTscopy), status); //Free copy of multiSFTs that has been modified by conversion to time series
 
   /* IMPORTANT - point the input buffer pointer to the buffered data */
   params->buffer = cfBuffer;
