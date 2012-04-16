@@ -5,7 +5,3 @@ dist
 etc/pylal-user-env.*sh
 pylal/git_version.py
 test/test_random_in_polygon.png
-pylal/ctypes/lalatomicdatatypes.py
-pylal/ctypes/laldatatypes.py
-pylal/ctypes/laldetectors.py
-pylal/ctypes/constants.py
