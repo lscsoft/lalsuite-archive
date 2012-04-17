@@ -195,6 +195,12 @@ class CondorJob:
     """
     self.__condor_cmds[cmd] = value
 
+  def get_condor_cmds(self):
+    """
+    Return the dictionary of condor keywords to add to the job
+    """
+    return self.__condor_cmds
+
   def add_input_file(self, filename):
     """
     Add filename as a necessary input file for this DAG node.
@@ -634,6 +640,7 @@ class CondorDAGNode:
     self.__input_files = []
     self.__dax_collapse = None
     self.__vds_group = None
+    self.__pegasus_profile = []
 
     # generate the md5 node name
     t = str( long( time.time() * 1000 ) )
@@ -650,6 +657,23 @@ class CondorDAGNode:
     Return the CondorJob that this node is associated with.
     """
     return self.__job
+
+  def add_pegasus_profile(self, namespace, key, value):
+    """
+    Add a Pegasus profile to this job which will be written to the dax as
+    <profile namespace="NAMESPACE" key="KEY">VALUE</profile>
+    This can be used to add classads to particular jobs in the DAX
+    @param namespace: A valid Pegasus namespace, e.g. condor.
+    @param key: The name of the attribute.
+    @param value: The value of the attribute.
+    """
+    self.__pegasus_profile.append((str(namespace),str(key),str(value)))
+
+  def get_pegasus_profile(self):
+    """
+    Return the pegasus profile dictionary for this node.
+    """
+    return self.__pegasus_profile
 
   def set_pre_script(self,script):
     """
@@ -1503,6 +1527,11 @@ class CondorDAG:
         else:
           workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
 
+        # add any other user specified condor commands or classads
+        for p in node.get_pegasus_profile():
+            workflow_job.addProfile(Pegasus.DAX3.Profile(p[0],p[1],p[2]))
+
+        # finally add this job to the workflow
         workflow.addJob(workflow_job)
         node_job_object_dict[node_name] = workflow_job
 
