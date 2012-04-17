@@ -459,13 +459,12 @@ else
 fi
 
 if [ -z "$NORESAMP" ]; then
-    echo -n "==>  GCT-Resamp: 	$resGCT_RS 	$resGCT_RS_H1 	$resGCT_RS_L1  	 @ $freqGCT_RS 	($reldev_RS, NA, NA, $freqreldev_RS)"
+    echo -n "==>  GCT-Resamp: 	$resGCT_RS 	$resGCT_RS_H1 	$resGCT_RS_L1  	 @ $freqGCT_RS 	($reldev_RS, $reldev_RS_H1, $reldev_RS_L1, $freqreldev_RS)"
     fail1=$(echo $freqreldev_RS $Tolerance | awk "$awk_isgtr")
-    fail2=$(echo $reldev_RS $Tolerance | awk "$awk_isgtr")
-    ## these are currently defunct => not testing them
-    fail3=$(echo $reldev_RS_H1 $Tolerance | awk "$awk_isgtr")
-    fail4=$(echo $reldev_RS_L1 $Tolerance | awk "$awk_isgtr")
-    if [ "$fail1" -o "$fail2" ]; then
+    fail2=$(echo $reldev_RS $Tolerance     | awk "$awk_isgtr")
+    fail3=$(echo $reldev_RS_H1 $Tolerance  | awk "$awk_isgtr")
+    fail4=$(echo $reldev_RS_L1 $Tolerance  | awk "$awk_isgtr")
+    if [ "$fail1" -o "$fail2" -o "$fail3" -o "$fail4" ]; then
         echo " ==> FAILED"
         retstatus=1
     else
