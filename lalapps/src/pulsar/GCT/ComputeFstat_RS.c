@@ -50,6 +50,7 @@
 #include "../FDS_isolated/Fstat_v3.h"
 #include <lal/ComplexAM.h>
 #include <lal/TimeSeries.h>
+#include <lal/Sequence.h>
 
 /*---------- local DEFINES ----------*/
 #define TRUE (1==1)
