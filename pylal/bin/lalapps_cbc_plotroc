@@ -91,6 +91,7 @@ def parse_command_line():
 	parser.add_option("-O", "--output-path", action = "store", default = ".", help = "Redirect output to specified directory. Default is to save output " +
 			"to current directory."	)
 	parser.add_option("-c", "--add-cache", metavar = "file.cache[:label]", action = "append", default = [], help = "Cache file containing injection sqlite files for plotting ROC curves. All files in each cache file will be grouped together into a single curve. To specify a label for this curve, add a colon and the label name after cache. For example, file_name1.cache:week1. If no label given, the file will be labeled cacheN where N is the order that the file was specified on the command line.")
+	parser.add_option("-l", "--map-label", default = None, help = "Required. Name of the mapping that was used for finding injections.")
 	parser.add_option("", "--far-column", action = "append", default = [], help = "Column to get false alarm rates from. Can be any column in the coinc_inspiral taable. If specified multiple times, will create a separate curve for each column. Default is to plot combined_far only.")
 	parser.add_option( "", "--param-name", metavar = "PARAMETER", action = "store", default = None,	help = "Can be any parameter in the sim_inspiral table. Specifying this and param-ranges will only select triggers that fall within the given parameter ranges. You can also combine parameters using simple math. For example, to select triggers bassed on total mass, type 'sim_inspiral.mass1+sim_inspiral.mass2', then give total mass ranges in the param-ranges argument. Note that when combining columns you must type the table name dot each column name. Allowed math operations are +,-,*,/.")
 	parser.add_option( "", "--param-ranges", action = "store", default = None, metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.", help = "Requires --param-name. Specify the parameter ranges to select triggers in. A '(' or ')' implies an open boundary, a '[' or ']' a closed boundary. To specify multiple ranges, separate each range by a ';'. To specify a single value, just type that value with no parentheses or brackets. To specify not equal to a single value, put a '!' before the value. If multiple ranges are specified, a separate curve will be created for each range.")
@@ -103,6 +104,8 @@ def parse_command_line():
 
 	options, filenames = parser.parse_args()
 
+	if options.map_label is None:
+		raise ValueError, "map-label is a required argument"
 	if options.far_column == []:
 		options.far_column = ['combined_far']
 
@@ -222,7 +225,7 @@ class ROCPlots(object):
 	def __init__(self):
 		self.stats = {}
 
-	def add_contents(self, label, contents, far_column = 'combined_far', filter = '', debug = False):
+	def add_contents(self, label, contents, map_label, far_column = 'combined_far', filter = '', debug = False):
 		if contents.sim_inspiral_table:
 			all_coincs = {}
 			sqlquery = ''.join([ """
@@ -239,15 +242,17 @@ FROM
 	JOIN coinc_event_map AS mapA ON (mapA.event_id == coinc_inspiral.coinc_event_id AND mapA.table_name == "coinc_event")
 	JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == mapA.coinc_event_id AND mapB.table_name == "sim_inspiral")
 	JOIN sim_inspiral ON (mapB.event_id == sim_inspiral.simulation_id)
+    JOIN coinc_event, coinc_definer ON (coinc_event.coinc_event_id == mapB.coinc_event_id AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
 WHERE
-	experiment_summary.datatype != "slide"
+	experiment_summary.datatype != "slide" AND
+	coinc_definer.description == '""", map_label, """'
 	""", filter is not '' and 'AND ' + filter or '', """
 GROUP BY
 	mapB.event_id """])
 			if debug:
 				print >> sys.stderr, "SQLite query used to retrieve triggers:"
 				print >> sys.stderr, sqlquery
-			for far, distance in contents.connection.cursor().execute( sqlquery ):
+			for far, distance in contents.connection.cursor().execute( sqlquery):#, (map_label,) ):
 				self.stats.setdefault(label,[]).append((far, distance))
 
 	def finish(self, title):
@@ -348,7 +353,7 @@ for m, filename in enumerate(labels.keys()):
 					len(options.far_column) > 1 and far_stat or '')
 				# add escape characers to underscores in label as they can cause LaTeX problems
 				label = re.sub(r'_', r'\_', label)
-				plot.add_contents(label, contents, far_column = sqlutils.validate_option(far_stat), filter = filter, debug = options.debug)
+				plot.add_contents(label, contents, options.map_label, far_column = sqlutils.validate_option(far_stat), filter = filter, debug = options.debug)
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
