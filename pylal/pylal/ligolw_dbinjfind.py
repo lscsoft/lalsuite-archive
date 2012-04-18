@@ -139,6 +139,8 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
     connection.cursor().execute(sqlquery)
     connection.commit()
 
+def strlst_is_subset(stringA, stringB):
+    return set(stringA.split(',')).issubset(set(stringB.split(',')))
 
 def write_coincidences(connection, map_label, process_id, verbose = False):
     """
@@ -148,6 +150,8 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
     if verbose:
         print >> sys.stdout, "Getting mapped sngls belonging to a coincident event..."
     connection.create_aggregate("ag_cat", 1, sqlutils.aggregate_concatenate)
+    connection.create_function("issubset", 2, strlst_is_subset)
+
     sqlquery = '''
     CREATE INDEX finj_simid_idx ON found_inj (sim_id);
     CREATE INDEX finj_eid_idx ON found_inj (event_id);
@@ -162,18 +166,20 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
             coinc_event_map
         ON (
             coinc_event_map.event_id == found_inj.event_id )
-        WHERE (
-                SELECT ag_cat(b.event_id)
-                FROM found_inj AS b
-                WHERE b.sim_id == found_inj.sim_id
-                GROUP BY b.sim_id
-                ORDER BY b.event_id ASC
-            ) == (
+        WHERE issubset(
+                (
                 SELECT ag_cat(c.event_id)
                 FROM coinc_event_map AS c
                 WHERE c.coinc_event_id == coinc_event_map.coinc_event_id
                 GROUP BY c.coinc_event_id
-                ORDER BY c.event_id ASC );
+                ORDER BY c.event_id ASC),
+                (
+                SELECT ag_cat(b.event_id)
+                FROM found_inj AS b
+                WHERE b.sim_id == found_inj.sim_id
+                GROUP BY b.sim_id
+                ORDER BY b.event_id ASC)
+                );
     CREATE INDEX cij_eid_idx ON coinc_inj (event_id);
     '''
     connection.cursor().executescript(sqlquery)
