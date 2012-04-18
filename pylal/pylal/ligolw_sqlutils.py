@@ -1451,12 +1451,19 @@ def delete_coinc_type( connection, map_label, coincTables ):
                     coinc_event_map AS b
                 ON (
                     a.event_id == b.coinc_event_id )
+                JOIN
+                    coinc_event, coinc_definer
+                ON (
+                    a.coinc_event_id == coinc_event.coinc_event_id AND
+                    coinc_event.coinc_def_id == coinc_definer.coinc_def_id )
+                WHERE
+                    coinc_definer.description == ?
                 GROUP BY
                     a.coinc_event_id
                 HAVING
                     get_mapped_tables(a.table_name, b.table_name) == ? 
                 """
-    connection.cursor().execute(sqlquery, (','.join(sorted(coincTables)),)) 
+    connection.cursor().execute(sqlquery, (map_label, ','.join(sorted(coincTables)),)) 
     sqlquery = """
         DELETE FROM
             coinc_event
@@ -1733,17 +1740,11 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, map_l
             JOIN
                 coinc_event_map AS b
             ON (
-                b.coinc_event_id == a.coinc_event_id AND
-                b.table_name == a.table_name )
+                b.coinc_event_id == a.coinc_event_id)
             JOIN
                 ''', simulation_table, ''' AS sim
             ON (
-                b.event_id == sim.simulation_id )
-                b.event_id == a.coinc_coinc_evnet_id )
-            JOIN
-                ''', simulation_table, ''' AS sim
-            ON (
-                sim.event_id == b.event_d )
+                b.event_id == sim.simulation_id)
             JOIN
                 coinc_event, coinc_definer
             ON (
@@ -1753,13 +1754,14 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, map_l
             WHERE
                 coinc_definer.description == ? 
         '''])
-        connection.cursor().execute(sqlquery, (map_label,))
+    connection.cursor().execute(sqlquery, (map_label,))
 
-        # create indices
-        sqlquery == '''
-        CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
-        CREATE INDEX srm_rid_index ON sim_rec_map (rec_id);
-        ''' ])
+    # create indices
+    sqlquery = '''
+    CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
+    CREATE INDEX srm_rid_index ON sim_rec_map (rec_id);
+    '''
+    connection.cursor().executescript(sqlquery)
 
     if ranking_stat is not None:
         # if it isn't already, append the recovery_table name to the ranking_stat to ensure uniqueness
