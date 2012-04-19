@@ -27,6 +27,8 @@
 from ctypes import *
 
 import pylal.ctypes
+import pylal.ctypes.error
+
 from pylal.ctypes.datatypes.primitives import *
 from pylal.ctypes.datatypes.complex import COMPLEX8,COMPLEX16
 from pylal.ctypes.datatypes.vector import REAL8Vector,UINT4Vector,LIGOTimeGPSVector
@@ -162,8 +164,9 @@ class LALInferenceVariables(Structure):
         LALInferenceRemoveVariable(self.ptr,c_char_p(name))
     
     def getVariable(self,name):
-        get=LALInferenceGetVariable(self.ptr,c_char_p(name))
         
+        get=LALInferenceGetVariable(self.ptr,c_char_p(name))
+         
         if get:
             vtype=self.getVariableType(name)
             return cast(get,POINTER(vtype.litype)).contents.value

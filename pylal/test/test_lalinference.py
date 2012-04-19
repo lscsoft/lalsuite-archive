@@ -72,6 +72,7 @@ class test_LALInferenceVariables(unittest.TestCase):
     def test_get(self):
         self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
         self.livars.getVariable("myvar1")
+        self.livars.getVariable("myvar2")
         self.assertRaises(KeyError,self.livars.getVariable,"myvar2")
 
     def test_get_dim(self):

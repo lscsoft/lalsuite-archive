@@ -29,6 +29,26 @@ from types import MethodType
 from ctypes import CDLL,c_uint,cast,c_void_p
 from ctypes.util import find_library
 
+def __parse_xlal_error_codes(path_to_xlalerror_h):
+    import re
+    
+    xlal_error_h=open(path_to_xlalerror_h,'r')
+    xlal_error_h_str=''.join(xlal_error_h.readlines()).replace('\n','')
+    
+    re_match_enum=re.compile('enum*\sXLALErrorValue.*?{.*?}')
+    re_match_key_value_pairs=re.compile('XLAL_(.+?),')
+    
+    enum_str=re_match_enum.search(xlal_error_h_str)
+    key_value_str=re_match_key_value_pairs.findall(enum_str.group())
+    
+    xlal_error_codes_dict={}
+    for key_value in key_value_str:
+        pair=key_value.replace(' ','').split('=')
+        xlal_error_codes_dict[int(pair[1])]='XLAL_'+pair[0]
+    
+    return xlal_error_codes_dict
+            
+
 def makeglobal(vdict):
     
     globals().update(vdict)
