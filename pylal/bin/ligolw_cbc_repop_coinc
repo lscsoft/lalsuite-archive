@@ -81,7 +81,7 @@ def parse_command_line():
         default=None, metavar="STATTYPE",
         help =
             "type of single-ifo statistic to be computed: " +
-            "allowed values are mean, snr_mean, snr, choppedl, choppedlforall, " +
+            "allowed values are mean, snr_mean, snr, snr_sq, choppedl, choppedlforall, " +
             "snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, " +
             "highstat, ratio"
         )
@@ -281,6 +281,14 @@ class CombiningFunctions:
             return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log(sngl.snr) for sngl in coinc_sngls ))
         else:
             return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * sngl.snr**self.power for sngl in coinc_sngls ))**(1./self.power)
+
+    def compute_snr_sq( self, coinc_sngls ):
+        """
+        Computes the sum of the squares of the snrs.
+        
+        @coinc_sngls: a list of sngl rows associated with *one* coincident event
+        """
+        return (sum( sngl.snr**2 for sngl in coinc_sngls ))
 
     def compute_chopped_l_snr( self, coinc_sngls ):
         """
@@ -505,6 +513,8 @@ elif opts.statistic_type == 'snr_mean':
     function = 'compute_snr_weighted_mean'
 elif opts.statistic_type == 'snr':
     function = 'compute_combined_snr'
+elif opts.statistic_type == 'snr_sq':
+    function = 'compute_snr_sq'
 elif opts.statistic_type == 'choppedl':
     function = 'compute_chopped_l_snr'
 elif opts.statistic_type == 'choppedlforall':
