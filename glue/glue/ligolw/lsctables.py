@@ -1704,6 +1704,7 @@ class CoincRingdownTable(table.Table):
 		"spin": "real_8",
 		"snr": "real_8",
 		"choppedl_snr": "real_8",
+		"snr_sq": "real_8",
 		"eff_coh_snr": "real_8",
 		"null_stat": "real_8",
 		"kappa": "real_8",
