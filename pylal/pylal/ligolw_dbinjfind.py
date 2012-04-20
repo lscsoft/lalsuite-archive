@@ -157,38 +157,38 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
     CREATE INDEX finj_eid_idx ON found_inj (event_id);
     CREATE TEMP TABLE coinc_inj AS
         SELECT
-            found_inj.sim_id,
-            found_inj.event_id,
-            coinc_event_map.coinc_event_id
+            found_inj.sim_id AS sid,
+            found_inj.event_id AS evid,
+            coinc_event_map.coinc_event_id AS ceid
         FROM
             found_inj
         JOIN
             coinc_event_map
         ON (
-            coinc_event_map.event_id == found_inj.event_id )
+            coinc_event_map.event_id == evid )
         WHERE issubset(
                 (
                 SELECT ag_cat(c.event_id)
                 FROM coinc_event_map AS c
-                WHERE c.coinc_event_id == coinc_event_map.coinc_event_id
+                WHERE c.coinc_event_id == ceid
                 GROUP BY c.coinc_event_id
                 ORDER BY c.event_id ASC),
                 (
                 SELECT ag_cat(b.event_id)
                 FROM found_inj AS b
-                WHERE b.sim_id == found_inj.sim_id
+                WHERE b.sim_id == sid
                 GROUP BY b.sim_id
                 ORDER BY b.event_id ASC)
                 );
-    CREATE INDEX cij_eid_idx ON coinc_inj (event_id);
+    CREATE INDEX cij_eid_idx ON coinc_inj (evid);
     '''
     connection.cursor().executescript(sqlquery)
     # get the sim_coincs
-    sqlquery = "SELECT DISTINCT sim_id, coinc_event_id FROM coinc_inj"
+    sqlquery = "SELECT DISTINCT sid, ceid FROM coinc_inj"
     sim_coincs = [(ilwd.get_ilwdchar(sim_id), ilwd.get_ilwdchar(ceid)) for ceid, sim_id in connection.cursor().execute( sqlquery ).fetchall()]
 
     # get the sim_sngls
-    sqlquery = "SELECT sim_id, event_id FROM found_inj WHERE event_id NOT IN (SELECT DISTINCT event_id FROM coinc_inj)"
+    sqlquery = "SELECT sim_id, event_id FROM found_inj WHERE event_id NOT IN (SELECT DISTINCT evid FROM coinc_inj)"
     sim_sngls = [(ilwd.get_ilwdchar(sim_id), ilwd.get_ilwdchar(eid)) for sim_id, eid in connection.cursor().execute( sqlquery ).fetchall()]
 
     # create a new coinc_def id for this map label, if it already doesn't exist
