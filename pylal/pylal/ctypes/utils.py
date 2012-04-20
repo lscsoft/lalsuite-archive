@@ -28,8 +28,11 @@ from functools import partial
 from types import MethodType
 from ctypes import CDLL,c_uint,cast,c_void_p
 from ctypes.util import find_library
+from ctypes import *
+import pylal.ctypes
+from pylal.ctypes.datatypes.primitives import *
 
-def __parse_xlal_error_codes(path_to_xlalerror_h):
+def _parse_xlal_error_codes(path_to_xlalerror_h):
     import re
     
     xlal_error_h=open(path_to_xlalerror_h,'r')
@@ -82,13 +85,71 @@ class PkgConfig(object):
         self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
         self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
+def _xlal_check_status(xlal_call):
+    restype=xlal_call.restype
+    
+    if restype is c_int or restype is INT4:
+        def error_code_test_int(code):
+            if code!=0:
+                return True
+            else:  
+                return False
+        error_code_test=error_code_test_int
+    
+    elif restype is c_void_p:
+        def error_code_test_void_p(code):
+            
+            if code is None:
+                return True
+            else:  
+                return False
+        error_code_test=error_code_test_void_p
+                
+    elif restype is REAL4:
+        def error_code_test_real4(code):
+            error_code=XLALIsREAL4FailNaN(code)
+            return bool(error_code.value)
+        error_code_test=error_code_test_real4
+        
+    elif restype is REAL8:
+        def error_code_test_real8(code):
+            error_code=XLALIsREAL8FailNaN(code)
+            return bool(error_code.value)
+        error_code_test=error_code_test_real8
+    
+    elif restype is None:
+        def error_code_test_none(code):
+            return False
+        error_code_test=error_code_test_none
+        
+    else:
+        def error_code_test_none(code):
+            return False
+        error_code_test=error_code_test_none
+        print "WARNING: XLAL return type not recognised "+str(restype)
+    
+    def wrapper(*args, **kwargs):
+        status_code=xlal_call(*args, **kwargs)
+        if error_code_test(status_code):
+            return xlal_status_handler(status_code)
+        else:
+            return status_code
+        
+    return wrapper
 
+def _set_xlal_types(lib,fname, restype, argtypes):
+    return _xlal_check_status(_set_types(lib,fname, restype, argtypes))
+    
 def _set_types(lib,fname, restype, argtypes):
     f = lib.__getattr__(fname)
     f.restype = restype
     f.argtypes = argtypes
     return f
-    
+
+XLALIsREAL4FailNaN=None#_set_types(pylal.ctypes.liblal,"XLALIsREAL4FailNaN",c_int,[REAL8])
+XLALIsREAL8FailNaN=None#_set_types(pylal.ctypes.liblal,"XLALIsREAL8FailNaN",c_int,[REAL8])
+
+
 def _add_function(fname, restype, argtypes, globs = globals()):
     new_m = _set_types(fname, restype, argtypes)
     globs[fname] = new_m
@@ -107,38 +168,6 @@ def make_class(my_class,class_table):
 
     for lib,c_lib_fname,py_cls_fname,restype,argtypes in class_table:
         _add_method(lib,c_lib_fname,my_class,py_cls_fname,restype,argtypes)
-    
-
-# load the libraries
-def __load_lib(libname, mode = None):
-    lib_path = find_library(libname)
-    if lib_path is None:
-        pkg_config=PkgConfig(libname)
-        targets=[]
-        
-        if pkg_config.libdirs:
-            lib_path=pkg_config.libdirs[0]
-            for f in os.listdir(lib_path):
-                if fnmatch.fnmatch(f,'lib'+libname+'.so.*') or fnmatch.fnmatch(f,'lib'+libname+'.dylib*'):
-                    targets.append(f)
-        
-        if not targets:
-            lib_path=None
-        else:
-            targets.sort()
-            lib_path+='/'+targets[0]
-            
-        #print pkg_config.libs
-        if lib_path is None:
-            raise RuntimeError("Could not find the " + libname + " library")
-    
-    if mode is None:
-        
-        
-        lib = CDLL(lib_path)
-    else:
-        lib = CDLL(lib_path, mode)
-    return lib
 
 def _int_to_bool(i):
     return bool(i)
@@ -172,3 +201,121 @@ def ptr_sub(ptr, other):
     p = cast(ptr, c_void_p)
     p.value -= ofs
     return cast(p, type(ptr))
+    
+
+
+### RETURN CODES
+# XLAL error codes go here?
+
+#   globals().update(__parse_xlal_error_codes('./XLALError.h'))
+
+
+### ERROR HANDLING
+
+#_add_function("strerror", c_char_p, [c_int])
+
+class XLAL_Error(RuntimeError):
+    def __init__(self, xlal_err_code, fl = None, line = None, reason = None, result = None):
+        msg = "xlal: "
+        if fl is not None:
+            msg += fl+":"
+        if line is not None:
+            msg += str(line)+":"
+        if msg[-1] != " ":
+            msg += " "
+        msg += "ERROR: "
+        if reason is not None:
+            msg += reason
+        else:
+            pass#msg += strerror(gsl_err_code)
+        RuntimeError.__init__(self, msg)
+        self.xlal_err_code = xlal_err_code
+        self.fl = fl # file in which error occurred
+        self.line = line
+        self.reason = reason
+        self.result = result # result to be returned by the function
+
+# helper function to test allocation
+#def _xlal_check_null_pointer(p):
+    #"""Raises an exception if a allocation failed in a XLAL function."""
+    #p = cast(p, c_void_p)
+    #if p == 0:
+        #raise XLAL_Error(XLAL_ENOMEM)
+    #return p
+
+### XLAL error handling
+# handling of XLAL status returned by functions
+def _xlal_status_exception(status_code):
+    raise XLAL_Error(status_code)
+def _xlal_status_warning(status_code, result):
+    print "WARNING: " + str(XLAL_Error(status_code, result = result))
+    return status_code
+def _xlal_status_off(status_code, result):
+    return status_code
+
+# current status handler function
+xlal_status_handler = _xlal_status_exception
+
+#def _xlal_check_status_void_p(xlal_call):
+    #def wrapper(*args, **kwargs):
+        #rvalue=xlal_call(*args, **kwargs)
+        #if rvalue!=0:
+            #xlal_status_handler(status_code, result)
+        #return rvalue
+    #return wrapper
+    
+#def _xlal_check_status_int(xlal_call):
+    #def wrapper(*args, **kwargs):
+        #rvalue=xlal_call(*args, **kwargs)
+        #if rvalue!=0:
+            #return xlal_status_handler(status_code, result)
+        #else:
+            #return rvalue
+    #return wrapper
+    
+
+    
+def set_status_handler(h):
+    global xlal_status_handler
+    old_handler = xlal_status_handler
+    xlal_status_handler = h
+    return old_handler
+    
+def set_status_handler_off():    
+    return set_status_handler(_xlal_status_off)
+    
+def set_status_handler_warning():
+    return set_status_handler(_xlal_status_warning)
+    
+def set_status_handler_exception():
+    return set_status_handler(_xlal_status_exception)
+
+#### internal gsl error handling
+XLAL_ERROR_HANDLER_T=CFUNCTYPE(None,c_char_p,c_char_p,c_int,c_int);
+XLALSetErrorHandler=_set_types(pylal.ctypes.liblal,"XLALSetErrorHandler", XLAL_ERROR_HANDLER_T, [XLAL_ERROR_HANDLER_T])
+XLALSetDefaultErrorHandler=_set_types(pylal.ctypes.liblal,"XLALSetDefaultErrorHandler", XLAL_ERROR_HANDLER_T, [])
+
+# Python function callback definitions which convert XLAL errors into exceptions
+def __xlal_error_handler_warning(reason, fl, line, xlal_errno):
+    print "WARNING: " + str(XLAL_Error(xlal_errno, fl, line, reason))
+    # !!! currently, due to limitations in ctypes, this exception is
+    # !!! not thrown to the program, just printed
+    # raise XLAL_Error(gsl_errno, fl, line, reason)
+def __xlal_error_handler_exception(reason, fl, line, xlal_errno):
+    # !!! currently, due to limitations in ctypes, this exception is
+    # !!! not thrown to the program, just printed
+    raise XLAL_Error(xlal_errno, fl, line, reason)
+
+# Convert above Python callback functions into ctypes callback functions
+_xlal_error_handler_warning   = XLAL_ERROR_HANDLER_T(__xlal_error_handler_warning)
+_xlal_error_handler_exception = XLAL_ERROR_HANDLER_T(__xlal_error_handler_exception)
+
+
+def set_error_handler_warning():
+    return XLALSetErrorHandler(_xlal_error_handler_warning)
+def set_error_handler_exception():
+    return XLALSetErrorHandler(_xlal_error_handler_exception)
+
+# Set the default handler
+xlal_default_error_handler = set_error_handler_warning()
+

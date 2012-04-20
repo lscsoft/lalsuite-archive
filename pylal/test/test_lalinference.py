@@ -24,6 +24,7 @@
 
 import unittest
 from pylal.ctypes.datatypes.primitives import REAL8,INT4,REAL4
+from pylal.ctypes.utils import XLAL_Error
 from pylal.ctypes.lalinference import LALInferenceVariables
 from pylal.ctypes.lalinference import LALINFERENCE_PARAM_FIXED,LALINFERENCE_REAL8_t,LALINFERENCE_REAL4_t,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_LINEAR
 
@@ -72,8 +73,7 @@ class test_LALInferenceVariables(unittest.TestCase):
     def test_get(self):
         self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)
         self.livars.getVariable("myvar1")
-        self.livars.getVariable("myvar2")
-        self.assertRaises(KeyError,self.livars.getVariable,"myvar2")
+        self.assertRaises(XLAL_Error,self.livars.getVariable,"myvar2")
 
     def test_get_dim(self):
         self.livars.addVariable("myvar1",9.0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED)

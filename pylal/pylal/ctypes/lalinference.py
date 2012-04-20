@@ -27,7 +27,6 @@
 from ctypes import *
 
 import pylal.ctypes
-import pylal.ctypes.error
 
 from pylal.ctypes.datatypes.primitives import *
 from pylal.ctypes.datatypes.complex import COMPLEX8,COMPLEX16
@@ -41,7 +40,7 @@ from pylal.ctypes.datatypes.fftplan import REAL8FFTPlan
 from pylal.ctypes.datatypes.laldetector import LALDetector
 from pylal.ctypes.datatypes.ligotimegps import LIGOTimeGPS
 
-from pylal.ctypes.utils import make_enum_typedef,_set_types
+from pylal.ctypes.utils import make_enum_typedef,_set_types,_set_xlal_types
 
 VARNAME_MAX=1024
    
@@ -240,7 +239,7 @@ LALInferenceVariableItem._fields_ = [
 #LALInferenceVariables
 LALInferenceVariables_func_table=[
     ["LALInferenceAddVariable",None,[POINTER(LALInferenceVariables),c_char_p,c_void_p,LALInferenceVariableType,LALInferenceParamVaryType]],
-    ["LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p]],
+    #["LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceGetVariableDimension",INT4,[POINTER(LALInferenceVariables)]],
     ["LALInferenceGetVariableDimensionNonFixed",INT4,[POINTER(LALInferenceVariables)]],
     ["LALInferenceGetVariableTypeByIndex",LALInferenceVariableType,[POINTER(LALInferenceVariables),c_int]],
@@ -255,6 +254,8 @@ LALInferenceVariables_func_table=[
     ["LALInferencePrintVariables",None,[POINTER(LALInferenceVariables)]],
     ["LALInferenceCompareVariables",c_int,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]]
 ]
+
+LALInferenceGetVariable=_set_xlal_types(pylal.ctypes.liblalinference,"LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p])
 
 #LALInferencePrior
 class LALInferencePrior(object):
