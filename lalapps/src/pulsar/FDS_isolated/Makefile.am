@@ -60,7 +60,12 @@ lalapps_FindSh_SOURCES=FindSh.c FindSh.h clusters.c clusters.h
 
 lalapps_compareFstats_SOURCES = compareFstats.c
 
-ComputeFStatisticV2Sources = ComputeFStatistic_v2.c  HeapToplist.c HeapToplist.h OptimizedCFS/ComputeFstatREAL4.c OptimizedCFS/ComputeFstatREAL4.h $(LVsrc)/LineVeto.c $(LVsrc)/LineVeto.h
+ComputeFStatisticV2Sources = ComputeFStatistic_v2.c  HeapToplist.c HeapToplist.h \
+                             OptimizedCFS/ComputeFstatREAL4.c OptimizedCFS/ComputeFstatREAL4.h \
+                             $(LVsrc)/LineVeto.c $(LVsrc)/LineVeto.h \
+                             ../GCT/ComputeFstat_RS.c ../GCT/ComputeFstat_RS.h \
+                             ../GCT/HierarchSearchGCT.h \
+                             Fstat_v3.c
 
 lalapps_ComputeFStatistic_v2_SOURCES = $(ComputeFStatisticV2Sources)
 
