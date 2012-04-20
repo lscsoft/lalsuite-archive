@@ -88,7 +88,7 @@ class PkgConfig(object):
 def _xlal_check_status(xlal_call):
     restype=xlal_call.restype
     
-    if restype is c_int or restype is INT4:
+    if restype is c_int:
         def error_code_test_int(code):
             if code!=0:
                 return True
@@ -117,16 +117,11 @@ def _xlal_check_status(xlal_call):
             return bool(error_code.value)
         error_code_test=error_code_test_real8
     
-    elif restype is None:
-        def error_code_test_none(code):
-            return False
-        error_code_test=error_code_test_none
-        
     else:
         def error_code_test_none(code):
             return False
         error_code_test=error_code_test_none
-        print "WARNING: XLAL return type not recognised "+str(restype)
+        print "WARNING: XLAL return type not recognised, XLAL errors will not be propagated as exceptions."+str(restype)
     
     def wrapper(*args, **kwargs):
         status_code=xlal_call(*args, **kwargs)
@@ -227,7 +222,9 @@ class XLAL_Error(RuntimeError):
         if reason is not None:
             msg += reason
         else:
-            pass#msg += strerror(gsl_err_code)
+            #TODO: convert error codes to messages!
+            msg+=str(xlal_err_code)
+            
         RuntimeError.__init__(self, msg)
         self.xlal_err_code = xlal_err_code
         self.fl = fl # file in which error occurred

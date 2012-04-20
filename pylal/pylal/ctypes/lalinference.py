@@ -227,6 +227,10 @@ class LALInferenceVariables(Structure):
         
     def __neq__(self,other):
         return not self.__eq__(other)
+        
+    def __str__(self):
+        return str(self.printVariables())
+        
 
 LALInferenceVariableItem._fields_ = [
     ("name",c_char_p),
@@ -238,8 +242,13 @@ LALInferenceVariableItem._fields_ = [
 
 #LALInferenceVariables
 LALInferenceVariables_func_table=[
+    ["LALInferenceCheckVariable",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceCheckVariableNonFixed",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+]
+
+LALInferenceVariables_xlal_func_table=[
     ["LALInferenceAddVariable",None,[POINTER(LALInferenceVariables),c_char_p,c_void_p,LALInferenceVariableType,LALInferenceParamVaryType]],
-    #["LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceGetVariableDimension",INT4,[POINTER(LALInferenceVariables)]],
     ["LALInferenceGetVariableDimensionNonFixed",INT4,[POINTER(LALInferenceVariables)]],
     ["LALInferenceGetVariableTypeByIndex",LALInferenceVariableType,[POINTER(LALInferenceVariables),c_int]],
@@ -248,14 +257,14 @@ LALInferenceVariables_func_table=[
     ["LALInferenceGetVariableName",c_char_p,[POINTER(LALInferenceVariables),c_int]],
     ["LALInferenceSetVariable",None,[POINTER(LALInferenceVariables),c_char_p,c_void_p]],
     ["LALInferenceRemoveVariable",None,[POINTER(LALInferenceVariables),c_char_p]],
-    ["LALInferenceCheckVariable",c_int,[POINTER(LALInferenceVariables),c_char_p]],
-    ["LALInferenceCheckVariableNonFixed",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    #["LALInferenceCheckVariable",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    #["LALInferenceCheckVariableNonFixed",c_int,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceCopyVariables",None,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]],
     ["LALInferencePrintVariables",None,[POINTER(LALInferenceVariables)]],
     ["LALInferenceCompareVariables",c_int,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]]
 ]
 
-LALInferenceGetVariable=_set_xlal_types(pylal.ctypes.liblalinference,"LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p])
+#LALInferenceGetVariable=_set_xlal_types(pylal.ctypes.liblalinference,"LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p])
 
 #LALInferencePrior
 class LALInferencePrior(object):
@@ -362,4 +371,11 @@ def __create_lalinference_functions(tables):
         for funcname,restype,argtypes in table:
             globals()[funcname]=_set_types(pylal.ctypes.liblalinference,funcname,restype,argtypes) 
 
+
+def __create_lalinference_xlal_functions(tables):
+    for table in tables:
+        for funcname,restype,argtypes in table:
+            globals()[funcname]=_set_xlal_types(pylal.ctypes.liblalinference,funcname,restype,argtypes) 
+
 __create_lalinference_functions([LALInferenceVariables_func_table])
+__create_lalinference_xlal_functions([LALInferenceVariables_xlal_func_table])
