@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.37
+Version:	1.38
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -94,6 +94,9 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Thu Apr 12 2012 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue with updates to ligolw library, including some bug fixes for ligowl_sqlite and ligolw_print.  
+
 * Wed Nov 16 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with glue-segments and glue-common split from glue, lvalerts, lars and gracedb removed.
 

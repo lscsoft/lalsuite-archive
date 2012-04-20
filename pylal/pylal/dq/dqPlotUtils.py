@@ -175,37 +175,41 @@ def display_name(columnName):
   unit  = ['ns']
   sub   = ['flow', 'fhigh', 'hrss', 'mtotal', 'mchirp']
 
-  s = re.split('([_\s])', columnName)
-  words = s[::2]
-  delims = s[1::2]
+  words = []
+  for w in re.split('\s', columnName):
+    if w.isupper(): words.append(w)
+    else:           words.extend(re.split('_', w))
 
   # parse words
   for i,w in enumerate(words):
+    # get acronym in lower case
     if w in acro:
       words[i] = w.upper()
+    # get numerical unit
     elif w in unit:
       words[i] = '$(%s)$' % w
+    # get character with subscript text
     elif w in sub:
       words[i] = '%s$_{\mbox{\\small %s}}$' % (w[0], w[1:])
+    # get greek word
     elif w in greek:
       words[i] = '$\%s$' % w
+    # get starting with greek word
     elif re.match('(%s)' % '|'.join(greek), w):
       if w[-1].isdigit():
         words[i] = '$\%s_{%s}$''' % tuple(re.findall(r"[a-zA-Z]+|\d+",w))
       elif w.endswith('sq'):
         words[i] = '$\%s^2$' % w.rstrip('sq')
+    # get everything else
     else:
       if w.isupper():
         words[i] = w
       else:
         words[i] = w.title()
-  s[::2] = words
+      # escape underscore
+      words[i] = re.sub('(?<!\\\\)_', '\_', words[i])
 
-  # parse delimiters
-  for i,w in enumerate(delims):
-    delims[i] = re.sub('\\\\\\\_', '\_', re.sub('_', '\_', w))
-  s[1::2] = delims
-  return ''.join(s) 
+  return ' '.join(words) 
 
 def gps2datenum(gpstime):
 
@@ -801,11 +805,15 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
   @plotutils.method_callable_once
   def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
-               logx=False, logy=False, fill=False, base=10,\
+               logx=False, logy=False, fill=False, base=10, xlim=None,\
                colorbar=None, clim=None, hidden_colorbar=False):
 
     # determine binning
-    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    if xlim:
+      min_stat, max_stat = xlim
+    else:
+      min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    
     if min_stat!=max_stat:
       max_stat *= 1.001
       if logx:
@@ -957,7 +965,7 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
 
     # determine binning
     min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
-    if logx:
+    if logx and min_stat!=0 and max_stat!=0:
       bins = numpy.logspace(numpy.math.log(min_stat, base),\
                             numpy.math.log(max_stat, base),\
                             num_bins+1, endpoint=True)
@@ -1057,8 +1065,8 @@ class DataPlot(plotutils.BasicPlot):
     self.kwarg_sets = []
 
   def add_content(self, x_data, y_data, **kwargs):
-    self.x_data_sets.append(numpy.asarray(x_data))
-    self.y_data_sets.append(numpy.asarray(y_data))
+    self.x_data_sets.append(numpy.ma.asarray(x_data))
+    self.y_data_sets.append(numpy.ma.asarray(y_data))
     self.kwarg_sets.append(kwargs)
 
   @plotutils.method_callable_once
@@ -2483,7 +2491,6 @@ def plot_segment_hist(segs, outfile, keys=None, num_bins=100, coltype=int,\
 
   # add each segmentlist
   for flag,c in zip(keys, colors):
-    print flag
     plot.add_content([float(abs(seg)) for seg in segs[flag]],\
                       label=flag, color=c, **kwargs)
 
@@ -3151,7 +3158,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   # format labels
   for i,(col,c) in enumerate(zip(columns, ['x', 'y', 'z'])):
     if col.lower() == 'time' and limits[i]:
-      unit, timestr = time_unit(limits[i][1]-limits[i][0])
+      unit, timestr = time_unit(float(limits[i][1]-limits[i][0]))
       zero = LIGOTimeGPS('%.3f' % zero)
       if zero.nanoseconds==0:
         tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
@@ -3171,8 +3178,8 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
           data_limit_sets[i][0] = gps2datenum(data_limits[0])
           data_limit_sets[i][1] = gps2datenum(data_limits[1])
         else:
-          data_limit_sets[i][0] = (data_limits[0]-float(zero))/unit
-          data_limit_sets[i][1] = (data_limits[1]-float(zero))/unit
+          data_limit_sets[i][0] = float(data_limits[0]-zero)/unit
+          data_limit_sets[i][1] = float(data_limits[1]-zero)/unit
     else:
       labels[i] = kwargs.pop('%slabel' % c, display_name(col))
 
@@ -3192,9 +3199,9 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   # finalize
   plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim, origin='lower')
 
-  if len(limits[0])==2:
+  if limits[0] is not None and len(limits[0])==2:
     plot.ax.set_xlim(limits[0])
-  if len(limits[1])==2:
+  if limits[1] is not None and len(limits[1])==2:
     plot.ax.set_ylim(limits[1])
 
   # set global ticks
