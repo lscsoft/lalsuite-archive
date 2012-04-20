@@ -304,6 +304,29 @@ class CoincParamsDistributions(object):
 			thread.join()
 		return self
 
+	@classmethod
+	def from_xml(cls, xml, name):
+		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
+		process_id = param.get_pyvalue(xml, u"process_id")
+		names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
+		self = cls()
+		for name in names:
+			self.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
+			self.background_rates[str(name)] = rate.binned_array_from_xml(xml, "background:%s" % name)
+			self.injection_rates[str(name)] = rate.binned_array_from_xml(xml, "injection:%s" % name)
+		return self, process_id
+
+	def to_xml(self, process, name):
+		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
+		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
+		for name, binnedarray in self.zero_lag_rates.items():
+			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))
+		for name, binnedarray in self.background_rates.items():
+			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
+		for name, binnedarray in self.injection_rates.items():
+			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
+		return xml
+
 
 #
 # =============================================================================
@@ -549,42 +572,10 @@ class DistributionsStats(object):
 #
 
 
-def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
-	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
-	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
-	for name, binnedarray in coinc_params_distributions.zero_lag_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))
-	for name, binnedarray in coinc_params_distributions.background_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"background:%s" % name))
-	for name, binnedarray in coinc_params_distributions.injection_rates.items():
-		xml.appendChild(rate.binned_array_to_xml(binnedarray, u"injection:%s" % name))
-	return xml
-
-
-def coinc_params_distributions_from_xml(xml, name):
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
-	process_id = param.get_pyvalue(xml, u"process_id")
-	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
-	c = CoincParamsDistributions()
-	for name in names:
-		c.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
-		c.background_rates[str(name)] = rate.binned_array_from_xml(xml, "background:%s" % name)
-		c.injection_rates[str(name)] = rate.binned_array_from_xml(xml, "injection:%s" % name)
-	return c, process_id
-
-
 def get_coincparamsdistributions(xmldoc, name):
-	coincparamsdistributions, process_id = coinc_params_distributions_from_xml(xmldoc, name)
+	coincparamsdistributions, process_id = CoincParamsDistributions.from_xml(xmldoc, name)
 	seglists = lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set([process_id])).coalesce()
 	return coincparamsdistributions, seglists
-
-
-def coinc_params_distributions_from_filename(filename, name, verbose = False):
-	# FIXME:  what uses this?
-	xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
-	result, seglists = get_coincparamsdistributions(xmldoc, name)
-	xmldoc.unlink()
-	return result, seglists
 
 
 #
@@ -592,17 +583,17 @@ def coinc_params_distributions_from_filename(filename, name, verbose = False):
 #
 
 
-def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor"):
+def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor", comment = u""):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
 	node.appendChild(lsctables.New(lsctables.ProcessTable))
 	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
 	node.appendChild(lsctables.New(lsctables.SearchSummaryTable))
-	process = append_process(xmldoc, comment = u"")
+	process = append_process(xmldoc, comment = comment)
 	llwapp.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
-	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, name))
+	node.appendChild(coinc_params_distributions.to_xml(process, name))
 
 	llwapp.set_process_end_time(process)
 
@@ -629,10 +620,6 @@ def load_likelihood_data(filenames, name, verbose = False):
 			del a, b
 		xmldoc.unlink()
 	return coincparamsdistributions, seglists
-
-
-def write_likelihood_data(filename, coincparamsdistributions, seglists, name, verbose = False):
-	utils.write_filename(gen_likelihood_control(coincparamsdistributions, seglists, name = name), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #

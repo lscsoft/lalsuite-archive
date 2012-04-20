@@ -7,7 +7,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
-#
+#       Salvatore Vitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -661,9 +661,11 @@ class Posterior(object):
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
+                        'rightascension':_inj_longitude,
                         'long':_inj_longitude,
                         'longitude':_inj_longitude,
                         'dec':lambda inj:inj.latitude,
+                        'declination':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
                         'psi': lambda inj: np.mod(inj.polarization, np.pi),
@@ -1918,7 +1920,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
         ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
         inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
-        plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
+        plt.plot(inj_plx,inj_ply,'wx',linewidth=12, markersize=22,mew=2,alpha=0.6)
     
     ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
 
