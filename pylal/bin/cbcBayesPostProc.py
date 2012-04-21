@@ -68,6 +68,19 @@ def oneD_dict_to_file(dict,fname):
     for key,value in dict.items():
         filed.write("%s %s\n"%(str(key),str(value)) )
 
+def multipleFileCB(opt, opt_str, value, parser):
+    args=[]
+    for arg in parser.rargs:
+        if arg[0] != "-":
+            args.append(arg)
+        else:
+            del parser.rargs[:len(args)]
+            break
+    #Append new files to list if some already specified
+    if getattr(parser.values, opt.dest):
+        args.extend(getattr(parser.values, opt.dest))
+    setattr(parser.values, opt.dest, args)
+
 def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
@@ -75,6 +88,8 @@ def cbcBayesPostProc(
                         injfile=None,eventnum=None,skyres=None,
                         #direct integration evidence
                         dievidence=False,boxing=64,difactor=1.0,
+                        #elliptical evidence
+                        ellevidence=False,
                         #manual input of bayes factors optional.
                         bayesfactornoise=None,bayesfactorcoherent=None,
                         #manual input for SNR in the IFOs, optional.
@@ -345,7 +360,7 @@ def cbcBayesPostProc(
 
     #Remove non-analytic parameters if analytic likelihood is given:
     if analyticLikelihood:
-        dievidence_names = ['post','posterior','logl','prior','likelihood']
+        dievidence_names = ['post','posterior','logl','prior','likelihood','cycle','chain']
         [pos.pop(param) for param in pos.names if param not in analyticLikelihood.names and param not in dievidence_names]
 
     ##Print some summary stats for the user...##
@@ -371,6 +386,13 @@ def cbcBayesPostProc(
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
     html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
+    if 'chain' in pos.names:
+        acceptedChains = unique(pos['chain'].samples)
+        acceptedChainText = '%i of %i chains accepted: %i'%(len(acceptedChains),len(data),acceptedChains[0])
+        if len(acceptedChains) > 1:
+            for chain in acceptedChains[1:]:
+                acceptedChainText += ', %i'%(chain)
+        html_meta.p(acceptedChainText)
     if 'cycle' in pos.names:
         html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
@@ -401,6 +423,22 @@ def cbcBayesPostProc(
         if 'logl' in pos.names:
             log_ev=pos.harmonic_mean_evidence()
             html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(exp(log_ev),log_ev))
+
+    if ellevidence:
+        html_model=html.add_section('Elliptical Evidence')
+        log_ev = pos.elliptical_subregion_evidence()
+        ev = exp(log_ev)
+        evfilename=os.path.join(outdir, 'ellevidence.dat')
+        evout=open(evfilename, 'w')
+        evout.write(str(ev) + ' ' + str(log_ev))
+        evout.close()
+        print 'Computing elliptical region evidence = %g (log(ev) = %g)'%(ev, log_ev)
+        html_model.p('Elliptical region evidence is %g, or log(Evidence) = %g.'%(ev, log_ev))
+
+        if 'logl' in pos.names:
+            log_ev=pos.harmonic_mean_evidence()
+            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence = %g))'%(exp(log_ev), log_ev))
+
     #Create a section for SNR, if a file is provided
     if snrfactor is not None:
         html_snr=html.add_section('Signal to noise ratio(s)')
@@ -630,7 +668,7 @@ def cbcBayesPostProc(
             chainDataRanges=[range(len(cd)) for cd in chainData]
             maxLen=max([len(cd) for cd in chainData])
             for rng, data in zip(chainDataRanges, chainData):
-                plt.plot(rng, data, marker=',',linewidth=0.0,figure=myfig)
+                plt.plot(rng, data, marker=',',linewidth=0.0, markeredgewidth=0,figure=myfig)
             plt.title("Gelman-Rubin R = %g"%(pos.gelman_rubin(par_name)))
 
             #dataPairs=[ [rng, data] for (rng,data) in zip(chainDataRanges, chainData)]
@@ -654,14 +692,14 @@ def cbcBayesPostProc(
                 mu=mean(data)
                 N=len(data)
                 corr=correlate((data-mu),(data-mu),mode='full')
-                acf = corr[N-1:]/corr[N-1]
                 try:
+                    acf = corr[N-1:]/corr[N-1]
                     lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
                     if 'cycle' in pos.names:
                         acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
                         last_color = lines[-1].get_color()
                         plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                        plt.title('ACL = %g   Nsamps = %g'%(acl,Ncycles/acl))
+                        plt.title('ACL = %i   N = %i'%(acl,Ncycles/acl))
                 except FloatingPointError:
                     # Ignore
                     pass
@@ -680,7 +718,7 @@ def cbcBayesPostProc(
                         lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
                         last_color = lines[-1].get_color()
                         plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                    plt.title('ACL = %g  Nsamps = %g'%(max(acls),Nsamps))
+                    plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
                 except FloatingPointError:
                     # Ignore
                     pass
@@ -967,7 +1005,7 @@ if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
-    parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+    parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
@@ -978,6 +1016,9 @@ if __name__=='__main__':
     parser.add_option("--dievidence",action="store_true",default=False,help="Calculate the direct integration evidence for the posterior samples")
     parser.add_option("--boxing",action="store",default=64,help="Boxing parameter for the direct integration evidence calculation",type="int",dest="boxing")
     parser.add_option("--evidenceFactor",action="store",default=1.0,help="Overall factor (normalization) to apply to evidence",type="float",dest="difactor",metavar="FACTOR")
+    
+    parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
+
     parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
@@ -1079,6 +1120,8 @@ if __name__=='__main__':
                         injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
                         # direct integration evidence
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
+                        # Ellipitical evidence
+                        ellevidence=opts.ellevidence,
                         #manual bayes factor entry
                         bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci,
                         #manual input for SNR in the IFOs, optional.

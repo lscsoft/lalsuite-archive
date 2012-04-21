@@ -28,7 +28,7 @@ from os import getenv
 _display = getenv('DISPLAY','')
 _backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
 """
-if not _display and matplotlib.get_backend().lower() is not 'agg':
+if not _display and not matplotlib.get_backend().lower() == 'agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
 import pylab
@@ -175,27 +175,39 @@ def display_name(columnName):
   unit  = ['ns']
   sub   = ['flow', 'fhigh', 'hrss', 'mtotal', 'mchirp']
 
-  words = columnName.split('_')
+  words = []
+  for w in re.split('\s', columnName):
+    if w.isupper(): words.append(w)
+    else:           words.extend(re.split('_', w))
+
+  # parse words
   for i,w in enumerate(words):
+    # get acronym in lower case
     if w in acro:
       words[i] = w.upper()
+    # get numerical unit
     elif w in unit:
       words[i] = '$(%s)$' % w
+    # get character with subscript text
     elif w in sub:
       words[i] = '%s$_{\mbox{\\small %s}}$' % (w[0], w[1:])
+    # get greek word
     elif w in greek:
       words[i] = '$\%s$' % w
+    # get starting with greek word
     elif re.match('(%s)' % '|'.join(greek), w):
       if w[-1].isdigit():
         words[i] = '$\%s_{%s}$''' % tuple(re.findall(r"[a-zA-Z]+|\d+",w))
       elif w.endswith('sq'):
         words[i] = '$\%s^2$' % w.rstrip('sq')
+    # get everything else
     else:
       if w.isupper():
         words[i] = w
       else:
         words[i] = w.title()
-      
+      # escape underscore
+      words[i] = re.sub('(?<!\\\\)_', '\_', words[i])
 
   return ' '.join(words) 
 
@@ -793,11 +805,15 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
   @plotutils.method_callable_once
   def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
-               logx=False, logy=False, fill=False, base=10,\
+               logx=False, logy=False, fill=False, base=10, xlim=None,\
                colorbar=None, clim=None, hidden_colorbar=False):
 
     # determine binning
-    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    if xlim:
+      min_stat, max_stat = xlim
+    else:
+      min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    
     if min_stat!=max_stat:
       max_stat *= 1.001
       if logx:
@@ -945,11 +961,11 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
 
   @plotutils.method_callable_once
   def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
-               base=10, hidden_colorbar=False):
+               base=10, hidden_colorbar=False, loc='best'):
 
     # determine binning
     min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
-    if logx:
+    if logx and min_stat!=0 and max_stat!=0:
       bins = numpy.logspace(numpy.math.log(min_stat, base),\
                             numpy.math.log(max_stat, base),\
                             num_bins+1, endpoint=True)
@@ -964,6 +980,10 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
       width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
 
     width = numpy.asarray(width)/2
+
+    # get version
+    v = map(int, numpy.version.version.split('.'))
+    if v[1] >= 1: width = width[:-1]
 
     # set base of plot in log scale
     if logy:
@@ -986,7 +1006,14 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
         plot_kwargs.setdefault("bottom", ymin)
 
       # make histogram
-      y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True, normed=normed)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+        x = x[:-1]
 
       if logy:
         y = y-ymin
@@ -995,15 +1022,7 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
       #x += 0.1 * i * max_stat / num_bins
 
       # plot
-      plot_item = self.ax.bar(x, y, **plot_kwargs)
-
-      # add legend and the right plot instance
-      # for creating the correct labels!
-      if "label" in plot_kwargs and \
-           not plot_kwargs["label"].startswith("_"):
-
-        legends.append(plot_kwargs["label"])
-        plot_list.append(plot_item[0])
+      self.ax.bar(x, y, **plot_kwargs)
 
     # set axes
     if logx:
@@ -1015,8 +1034,11 @@ class VerticalBarHistogram(plotutils.VerticalBarHistogram):
     self.ax.set_ybound(lower=ymin)
 
     # add legend if there are any non-trivial labels
-    if plot_list:
-      self.ax.legend(plot_list, legends)
+    self.add_legend_if_labels_exist(loc=loc)
+    # set transparent legend
+    leg = self.ax.get_legend()
+    if leg: leg.get_frame().set_alpha(0.5)
+
 
     # add hidden colorbar
     if hidden_colorbar:
@@ -1043,8 +1065,8 @@ class DataPlot(plotutils.BasicPlot):
     self.kwarg_sets = []
 
   def add_content(self, x_data, y_data, **kwargs):
-    self.x_data_sets.append(numpy.asarray(x_data))
-    self.y_data_sets.append(numpy.asarray(y_data))
+    self.x_data_sets.append(numpy.ma.asarray(x_data))
+    self.y_data_sets.append(numpy.ma.asarray(y_data))
     self.kwarg_sets.append(kwargs)
 
   @plotutils.method_callable_once
@@ -1747,7 +1769,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   clim = kwargs.pop('clim', None)
  
   if color_column:
-    colData = get_column(triggers, color_column)
+    colData = get_column(triggers, color_column).astype(float)
     if not clim:
       if len(colData)>0:
         clim = [colData.min(), colData.max()]
@@ -1773,9 +1795,10 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   postData = []
   for i in range(num_color_bins):
     if color_column:
-      preData.append(get_column(triggers, column)[colData>=color_bins[i]])
+      preData.append(get_column(triggers, column).astype(float)\
+                                                 [colData>=color_bins[i]])
     else:
-      preData.append(get_column(triggers, column))
+      preData.append(get_column(triggers, column).astype(float))
     postData.append([p for j,p in enumerate(preData[i])\
                      if tdata[j] not in seglist])
 
@@ -2391,7 +2414,8 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
 # =============================================================================
 # Plot a histogram of segment duration
 
-def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
+def plot_segment_hist(segs, outfile, keys=None, num_bins=100, coltype=int,\
+                      **kwargs):
 
   """
     segments.
@@ -2440,22 +2464,33 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
 
   # format mutltiple segments
   if isinstance(segs,list):
-    segs = segments.segmentlistdict({'_':segs})
+    if keys and isinstance(keys, 'str'):
+      segs = segments.segmentlistdict({keys:segs})
+      keys = [keys]
+    elif keys:
+      segs = segments.segmentlistdict({keys[0]:segs})
+    else:
+      segs = segments.segmentlistdict({'_':segs})
+      keys = ['_']
   else:
-    flags = segs.keys()
-    for flag in flags:
-      flag2 = flag.replace('_','\_')
-      if flag2!=flag:
-        segs[flag.replace('_','\_')] = segs[flag]
+    if not keys:
+      keys = segs.keys()
+    for i,flag in enumerate(keys):
+      keys[i] = display_name(flag)
+      if keys[i]!=flag:
+        segs[keys[i]] = segs[flag]
         del segs[flag]
 
-  flags = sorted(segs.keys())
+  if kwargs.has_key('color'):
+    colors = kwargs.pop('color').split(',')
+  else:
+    colors = zip(*zip(range(len(keys)), plotutils.default_colors()))[-1]
 
   # generate plot object
   plot = VerticalBarHistogram(xlabel, ylabel, title, subtitle)
 
   # add each segmentlist
-  for flag,c in zip(flags, plotutils.default_colors()):
+  for flag,c in zip(keys, colors):
     plot.add_content([float(abs(seg)) for seg in segs[flag]],\
                       label=flag, color=c, **kwargs)
 
@@ -2913,11 +2948,11 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
     # escape underscore, but don't do it twice
     keys = [key.replace('_','\_').replace('\\_','\_') for key in keys]
   segkeys = segdict.keys()
+  newdict = segments.segmentlistdict()
   for key in segkeys:
     newkey = key.replace('_','\_').replace('\\\_','\_')
-    if key!=newkey:
-      segdict[newkey] = segdict[key]
-      del segdict[key]
+    newdict[newkey] = segdict[key]
+  segdict = newdict
 
   # set params
   set_rcParams()
@@ -3123,7 +3158,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   # format labels
   for i,(col,c) in enumerate(zip(columns, ['x', 'y', 'z'])):
     if col.lower() == 'time' and limits[i]:
-      unit, timestr = time_unit(limits[i][1]-limits[i][0])
+      unit, timestr = time_unit(float(limits[i][1]-limits[i][0]))
       zero = LIGOTimeGPS('%.3f' % zero)
       if zero.nanoseconds==0:
         tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
@@ -3143,8 +3178,8 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
           data_limit_sets[i][0] = gps2datenum(data_limits[0])
           data_limit_sets[i][1] = gps2datenum(data_limits[1])
         else:
-          data_limit_sets[i][0] = (data_limits[0]-float(zero))/unit
-          data_limit_sets[i][1] = (data_limits[1]-float(zero))/unit
+          data_limit_sets[i][0] = float(data_limits[0]-zero)/unit
+          data_limit_sets[i][1] = float(data_limits[1]-zero)/unit
     else:
       labels[i] = kwargs.pop('%slabel' % c, display_name(col))
 
@@ -3164,9 +3199,9 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   # finalize
   plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim, origin='lower')
 
-  if len(limits[0])==2:
+  if limits[0] is not None and len(limits[0])==2:
     plot.ax.set_xlim(limits[0])
-  if len(limits[1])==2:
+  if limits[1] is not None and len(limits[1])==2:
     plot.ax.set_ylim(limits[1])
 
   # set global ticks

@@ -520,7 +520,7 @@ def spectrum(data, sampling, NFFT=256, overlap=0.5,\
 
 def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
                               window=('kaiser',24), sides='onesided',\
-                              verbose=False, log=False):
+                              verbose=False, log=False, warn=True):
 
   """
     Computes power spectral density of a data series using the median-mean
@@ -569,7 +569,8 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
   elif numseg % 2 == 1:
     odd = odd[:-1]
     numseg -= 1
-    sys.stderr.write("WARNING: odd number of FFT segments, skipping last.\n")
+    if warn:
+      sys.stderr.write("WARNING: odd number of FFT segments, skipping last.\n")
 
   # get bias factor
   biasfac = MedianBias(numseg//2)
@@ -593,8 +594,8 @@ def AverageSpectrumMedianMean(data, fs, NFFT=256, overlap=128,\
 
   # compute median-mean average
   if numseg > 1:
-    S_odd = scipy.median([S[i] for i in odd])
-    S_even = scipy.median([S[i] for i in even])
+    S_odd = numpy.median([S[i] for i in odd],0)
+    S_even = numpy.median([S[i] for i in even],0)
     S = (S_even  + S_odd) * normfac
   else:
     S = S.flatten()

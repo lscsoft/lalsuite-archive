@@ -1,3 +1,9 @@
+glue (1.38) unstable; urgency=low
+
+  * Initial release of 1.38
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Thu, 12 Apr 2012 15:22:00 -0500
+
 glue (1.37.1) unstable; urgency=low
 
   * Bugfix release of 1.37 labelled 1.37.1

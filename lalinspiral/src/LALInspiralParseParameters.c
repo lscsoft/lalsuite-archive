@@ -175,6 +175,8 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	    params->approximant = SpinTaylorFrameless;}
 	  else if (strcmp(argv[i],"SpinTaylorT3")==0){
 	    params->approximant = SpinTaylorT3; }
+	  else if (strcmp(argv[i],"SpinTaylorT4")==0){
+	    params->approximant = SpinTaylorT4; }
 	  else if (strcmp(argv[i],"SpinQuadTaylor")==0){
 	    params->approximant = SpinQuadTaylor;}
 	  else if (strcmp(argv[i],"PhenSpinTaylorRDF")==0){
@@ -206,9 +208,9 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	  else {fprintf(stderr,"Approximant not found in ParseParameter function\n");}
 	  }
       else if (strcmp(argv[i],"--order")==0){
-	params->order = atoi(argv[++i]);}
+	params->order = (LALPNOrder) atoi(argv[++i]);}
       else if (strcmp(argv[i],"--amp-order")==0){
-	params->ampOrder = atoi(argv[++i]);}
+	params->ampOrder = (LALPNOrder) atoi(argv[++i]);}
       else if (strcmp(argv[i],"--mass1")==0){
 	params->mass1 = atof(argv[++i]);}
       else if (strcmp(argv[i],"--mass2")==0){

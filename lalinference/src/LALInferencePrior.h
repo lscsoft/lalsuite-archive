@@ -170,15 +170,29 @@ void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,
                                     char *name, LALInferenceVariableType type, 
                                     gsl_rng *rdm );
 
+/** Prior that is 1 everywhere in component mass space. */
+REAL8 LALInferenceAnalyticNullPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
+
 /** Prior that is 1 everywhere. */
 REAL8 LALInferenceNullPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
-/** LALInferenceComputePriorMassNorm - Doc string. */
+/** Computes the numerical normalization of the mass prior \f$p(\mathcal{M}) \sim
+    \mathcal{M}^{-11/6}\f$ applying all cuts in the mass plane implied by the
+    various component, total, and chirp mass limits, and the mass
+    ratio limits.  Returns the integral of \f$\mathcal{M}^{-11/6}\f$ over the allowed
+    ranges in mass. */
 REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, const double MTotMax, 
                     const double McMin, const double McMax,
                     const double massRatioMin, const double massRatioMax, const char *massRatioName);
 
 /** Uniform prior for correlated analytic Gaussian likelihood */
 REAL8 LALInferenceAnalyticGaussianCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+
+/** Prior that checks for minimum and maximum prior range specified in runState->priorArgs
+    and returns 0.0 if sample lies inside the boundaries, -DBL_MAX otherwise.
+    Can be used with MinMaxPrior functions.
+    Ignores variables which are not REAL8 or do not have min and max values set.
+*/
+REAL8 LALInferenceFlatBoundedPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 #endif

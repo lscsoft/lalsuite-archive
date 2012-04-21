@@ -17,67 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-/**
-
-\author Thomas Cokelaer
-\file
-\ingroup GenerateInspiral_h
-
-
-<dl>
-<dt><tt>LALGenerateInspiral()</tt></dt><dd> create an inspiral binary
-waveform generated either by the \c inspiral package (EOB,
-EOBNR, PadeT1, TaylorT1, TaylorT2, TaylorT3, SpinTaylor, PhenSpinTaylorRD, SpinQuadTaylor)
-or the \c inject package (GeneratePPN).  It is used in the module
-\c FindChirpSimulation in \c findchirp package.
-
-There are three  parsed arguments
-<ul>
-<li> a \c CoherentGW  structure which stores amplitude,
-frequency and phase of the  waveform (output)</li>
-<li> a \c thisEvent  structure which provides some
-waveform parameters (input)</li>
-<li> a \c PPNParamStruc which gives some input
-parameters needed by the GeneratePPN waveform  generation. That
-arguments is also used as an output by all the different
-approximant  (output/input).</li>
-</ul>
-
-The input must be composed of a valid thisEvent structure as well as
-the  variable deltaT of the PPNparamsStruct. All others variables
-of the PPNParamStruc are populated within that function.</dd>
-
-<dt><tt>LALGetOrderFromString()</tt></dt><dd> convert a string
-provided by the \c CoherentGW structure in order to retrieve the
-order of the waveform to generate.</dd>
-
-<dt><tt>LALGetApproximantFromString()</tt></dt><dd> convert a string
-provided by the \c CoherentGW structure in order to retrieve the
-approximant of the waveform to generate.</dd>
-
-<dt><tt>LALGenerateInspiralPopulatePPN()</tt></dt><dd> Populate the
-PPNParamsStruc with the input argument \c thisEvent. That
-structure is used by both inspiral waveforms inject waveforms.</dd>
-
-<dt><tt>LALGenerateInspiralPopulateInspiral()</tt></dt><dd>  Populate the
-InspiralTemplate structure if the model chosen belongs to the
-inspiral package.
-</dd>
-</dl>
-
-\heading{Algorithm}
-None.
-
-\heading{Notes}
-Inject only time-domain waveforms for the time being such as GeneratePPN,
-  TaylorT1, TaylorT2, TaylorT3, PadeT1 and EOB , SpinTaylor, PhenSpinTaylorRD.
-\heading{Uses}
-\code
-None.
-\endcode
-
-*/
-
 #include <lal/LALInspiral.h>
 #include <lal/LALStdlib.h>
 #include <lal/GenerateInspiral.h>
@@ -85,12 +24,13 @@ None.
 #include <lal/SeqFactories.h>
 #include <lal/Units.h>
 
+/** \see See \ref GenerateInspiral_h for documentation */
 void
 LALGenerateInspiral(
-    LALStatus		*status,
-    CoherentGW		*waveform,
-    SimInspiralTable	*thisEvent,
-    PPNParamStruc	*ppnParams
+    LALStatus		*status,	/**< UNDOCUMENTED */
+    CoherentGW		*waveform,	/**< UNDOCUMENTED */
+    SimInspiralTable	*thisEvent,	/**< UNDOCUMENTED */
+    PPNParamStruc	*ppnParams	/**< UNDOCUMENTED */
     )
 
 {
@@ -277,26 +217,7 @@ LALGenerateInspiral(
 }
 
 
-
-void
-LALGetOrderFromString(
-    LALStatus  *status,
-    CHAR       *thisEvent,
-    LALPNOrder *order
-    )
-
-{
-
-  INITSTATUS(status);
-
-  XLALPrintDeprecationWarning( "LALGetOrderFromString", "XLALGetOrderFromString" );
-
-  if ( XLALGetOrderFromString( thisEvent, order ) == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
-}
-
+/** \see See \ref GenerateInspiral_h for documentation */
 int
 XLALGetOrderFromString(
     CHAR       * restrict thisEvent,
@@ -357,6 +278,13 @@ XLALGetOrderFromString(
   return XLAL_SUCCESS;
 }
 
+
+/**	Convert a string provided by the #CoherentGW structure in order to retrieve
+ *	the approximant of the waveform to generate.
+ *	@param[out]	inter	: the level of the spin interaction
+ *	@param[in]	thisEvent	: string containing the spin interaction
+ *	@return error code
+ */
 int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent) {
   if (strstr(thisEvent, "NO")) {
     *inter = LAL_SIM_INSPIRAL_INTERACTION_NONE;
@@ -388,6 +316,7 @@ int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEve
   return XLAL_SUCCESS;
 }
 
+/** \see See \ref GenerateInspiral_h for documentation */
 int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent) {
   if (strstr(thisEvent, "TotalJ")) {
     *axisChoice = TotalJ;
@@ -399,6 +328,7 @@ int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent) {
   return XLAL_SUCCESS;
 }
 
+/** \see See \ref GenerateInspiral_h for documentation */
 int XLALGetAdaptiveIntFromString(UINT4 *fixedStep, CHAR *thisEvent) {
   if (strstr(thisEvent, "fixedStep")) {
     *fixedStep = 1;
@@ -407,6 +337,7 @@ int XLALGetAdaptiveIntFromString(UINT4 *fixedStep, CHAR *thisEvent) {
   return XLAL_SUCCESS;
 }
 
+/** \see See \ref GenerateInspiral_h for documentation */
 int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent) {
   if (strstr(thisEvent, "inspiralOnly")) {
     *inspiralOnly = 1;
@@ -416,25 +347,7 @@ int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent) {
   return XLAL_SUCCESS;
 }
 
-void
-LALGetApproximantFromString(
-    LALStatus   *status,
-    CHAR        *thisEvent,
-    Approximant *approximant
-    )
-
-{
-
-  INITSTATUS(status);
-
-  XLALPrintDeprecationWarning("LALGetApproximantFromString", "XLALGetApproximantFromString");
-
-  if ( XLALGetApproximantFromString( thisEvent, approximant) == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
-}
-
+/** \see See \ref GenerateInspiral_h for documentation */
 int
 XLALGetApproximantFromString(
     CHAR        * restrict thisEvent,
@@ -460,6 +373,10 @@ XLALGetApproximantFromString(
   {
     *approximant = TaylorT2;
   }
+  else if ( strstr(thisEvent, "TaylorF2" ) )
+  {
+    *approximant = TaylorF2;
+  }
   else if ( strstr(thisEvent, "TaylorT3" ) )
   {
     *approximant = TaylorT3;
@@ -483,6 +400,10 @@ XLALGetApproximantFromString(
   else if ( strstr(thisEvent, "PhenSpinTaylorRD" ) )
   {
     *approximant = PhenSpinTaylorRD;
+  }
+  else if ( strstr(thisEvent, "SpinTaylorT4" ) )
+  {
+    *approximant = SpinTaylorT4;
   }
   else if ( strstr(thisEvent, "SpinTaylorFrameless" ) )
   {
@@ -541,29 +462,36 @@ XLALGetApproximantFromString(
   return XLAL_SUCCESS;
 }
 
-
-
-void
-LALGenerateInspiralPopulatePPN(
-    LALStatus             *status,
-    PPNParamStruc         *ppnParams,
-    SimInspiralTable      *thisEvent
+/** \see See \ref GenerateInspiral_h for documentation */
+int
+XLALGetTaperFromString(
+    LALSimInspiralApplyTaper * restrict taper,
+    CHAR                     * restrict thisEvent
     )
-
 {
 
-  INITSTATUS(status);
+  if ( ! strcmp( "TAPER_START", thisEvent ) )
+  {
+    *taper = LAL_SIM_INSPIRAL_TAPER_START;
+  }
+  else if ( ! strcmp( "TAPER_END", thisEvent ) )
+  {
+    *taper = LAL_SIM_INSPIRAL_TAPER_END;
+  }
+  else if ( ! strcmp( "TAPER_STARTEND", thisEvent ) )
+  {
+    *taper = LAL_SIM_INSPIRAL_TAPER_STARTEND;
+  }
+  else
+  {
+    XLALPrintError( "Invalid injection tapering option specified: %s\n", thisEvent );
+    XLAL_ERROR( XLAL_EINVAL );
+  }
 
-  XLALPrintDeprecationWarning( "LALGenerateInspiralPopulatePPN", 
-      "XLALGenerateInspiralPopulatePPN" );
-
-  if ( XLALGenerateInspiralPopulatePPN( ppnParams, thisEvent )
-       == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
+  return XLAL_SUCCESS;
 }
 
+/** \see See \ref GenerateInspiral_h for documentation */
 int
 XLALGenerateInspiralPopulatePPN(
     PPNParamStruc    * restrict ppnParams,
@@ -609,30 +537,7 @@ XLALGenerateInspiralPopulatePPN(
 }
 
 
-
-void
-LALGenerateInspiralPopulateInspiral(
-    LALStatus           *status,
-    InspiralTemplate    *inspiralParams,
-    SimInspiralTable    *thisEvent,
-    PPNParamStruc       *ppnParams
-    )
-
-
-{
-  INITSTATUS(status);
-
-  XLALPrintDeprecationWarning( "LALGenerateInspiralPopulateInspiral",
-     "XLALGenerateInspiralPopulateInspiral" );
-
-  if ( XLALGenerateInspiralPopulateInspiral( inspiralParams, thisEvent, ppnParams )
-         == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
-}
-
-
+/** \see See \ref GenerateInspiral_h for documentation */
 int
 XLALGenerateInspiralPopulateInspiral(
     InspiralTemplate * restrict inspiralParams,
