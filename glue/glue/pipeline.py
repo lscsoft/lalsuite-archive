@@ -1621,11 +1621,18 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
       except:
         pass
+
       print >> sitefile, """\
     <profile namespace="pegasus" key="style">condor</profile>
-    <profile namespace="pegasus" key="gridstart">none</profile>
+    <profile namespace="condor" key="getenv">True</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
-    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile> 
+    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>"""
+
+      if not self.is_dax():
+        print >> sitefile, """\
+    <profile namespace="pegasus" key="gridstart">none</profile>"""
+
+      print >> sitefile, """\
   </site>
 </sitecatalog>""" 
       sitefile.close()
