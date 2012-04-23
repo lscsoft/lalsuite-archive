@@ -197,28 +197,6 @@ typedef struct {
   REAL4Vector *LVloglX;                     /**< vector of line-prior ratios per detector {l1, l2, ... } */
 } ConfigVariables;
 
-typedef struct {
-  CHAR  *sftbasename;    /**< filename pattern for sfts */
-  UINT4 nStacks;         /**< number of stacks */
-  LIGOTimeGPS tStartGPS; /**< start and end time of stack */
-  REAL8 tObs;            /**< tEndGPS - tStartGPS */
-  REAL8 refTime;         /**< reference time for pulsar params */
-  PulsarSpinRange spinRange_startTime; /**< freq and fdot range at start-time of observation */
-  PulsarSpinRange spinRange_endTime;   /**< freq and fdot range at end-time of observation */
-  PulsarSpinRange spinRange_refTime;   /**< freq and fdot range at the reference time */
-  PulsarSpinRange spinRange_midTime;   /**< freq and fdot range at mid-time of observation */
-  EphemerisData *edat;             /**< ephemeris data for LALBarycenter */
-  LIGOTimeGPSVector *midTstack;    /**< timestamps vector for mid time of each stack */
-  LIGOTimeGPSVector *startTstack;  /**< timestamps vector for start time of each stack */
-  LIGOTimeGPSVector *endTstack;    /**< timestamps vector for end time of each stack */
-  LIGOTimeGPS minStartTimeGPS;     /**< all sft data must be after this time */
-  LIGOTimeGPS maxEndTimeGPS;       /**< all sft data must be before this time */
-  UINT4 blocksRngMed;              /**< blocksize for running median noise floor estimation */
-  UINT4 Dterms;                    /**< size of Dirichlet kernel for Fstat calculation */
-  BOOLEAN SignalOnly;              /**< FALSE: estimate noise-floor from data, TRUE: assume Sh=1 */
-  REAL8 dopplerMax;                /**< extra sft wings for doppler motion */
-} UsefulStageVariables;
-
 /* ----- User-variables: can be set from config-file or command-line */
 typedef struct {
   INT4 Dterms;			/**< number of terms in LALDemod Dirichlet kernel is Dterms+1 */
@@ -353,13 +331,7 @@ static timingInfo_t empty_timingInfo;
 int main(int argc,char *argv[]);
 void initUserVars (LALStatus *, UserInput_t *uvar);
 void InitFStat ( LALStatus *, ConfigVariables *cfg, const UserInput_t *uvar );
-void SetUpSFTs( LALStatus *status, MultiSFTVectorSequence *stackMultiSFT,
-               MultiNoiseWeightsSequence *stackMultiNoiseWeights,
-               MultiDetectorStateSeriesSequence *stackMultiDetStates, UsefulStageVariables *in ); //Initialization for COMPUTEFSTATFREQBAND_RS
 void Freemem(LALStatus *,  ConfigVariables *cfg);
-void GetSegsPosVelAccEarthOrb( LALStatus *status, REAL8VectorSequence **posSeg,
-                              REAL8VectorSequence **velSeg, REAL8VectorSequence **accSeg,
-                              UsefulStageVariables *usefulparams );
 
 void checkUserInputConsistency (LALStatus *, const UserInput_t *uvar);
 int outputBeamTS( const CHAR *fname, const AMCoeffs *amcoe, const DetectorStateSeries *detStates );
@@ -445,23 +417,10 @@ int main(int argc,char *argv[])
   LIGOTimeGPS refTimeGPS = empty_LIGOTimeGPS;
   LIGOTimeGPS tStartGPS = empty_LIGOTimeGPS;
   LIGOTimeGPS tMidGPS = empty_LIGOTimeGPS;
-  LIGOTimeGPS midTstackGPS = empty_LIGOTimeGPS;
   REAL8 timeDiffSeg; /* Difference to tMidGPS (midpoint) of Tobs */
-
-  /* GPS timestamp vectors */
-  LIGOTimeGPSVector *midTstack = NULL;
-  LIGOTimeGPSVector *startTstack = NULL;
-  LIGOTimeGPSVector *endTstack = NULL;
-
-  /* pos, vel, acc at midpoint of segments */
-  REAL8VectorSequence *posStack = NULL;
-  REAL8VectorSequence *velStack = NULL;
-  REAL8VectorSequence *accStack = NULL;
 
   REAL8 dFreqStack; /* frequency resolution of Fstat calculation */
   REAL8 df1dot;  /* coarse grid resolution in spindown */
-  //UINT4 ifdot;  /* counter for coarse-grid spindown values */
-  UINT4 nf1dot;  /* number of coarse-grid spindown values */
   REAL8 gammaRefine, sigmasq;
 
   /* number of segments */
@@ -479,9 +438,6 @@ int main(int argc,char *argv[])
   ComputeFBufferVector_RS resampbuffers;  /* used to store the buffered quantities used in repeated calls to ComputeFstatFreqBand_RS */
 
   PulsarDopplerParams dopplerpos = empty_PulsarDopplerParams;		/* current search-parameters */
-  static MultiSFTVectorSequence stackMultiSFT;
-  static MultiDetectorStateSeriesSequence stackMultiDetStates;
-  static MultiNoiseWeightsSequence stackMultiNoiseWeights;
   static ComputeFParams CFparams;
   INT4 uvar_sftUpsampling = 1;
   FstatCandidate loudestFCand = empty_FstatCandidate, thisFCand = empty_FstatCandidate;
@@ -491,7 +447,6 @@ int main(int argc,char *argv[])
 
   UserInput_t uvar = empty_UserInput;
   ConfigVariables GV = empty_ConfigVariables;		/**< global container for various derived configuration settings */
-  UsefulStageVariables usefulParams;
 
   lalDebugLevel = LALERROR;	/* only output error-messages by default */
   vrbflg = 1;	/* verbose error-messages */
@@ -538,50 +493,16 @@ int main(int argc,char *argv[])
   LAL_CALL ( InitFStat(&status, &GV, &uvar), &status);
 
   if ( uvar.useResamp ) {
-    /*Initialize usefulParams and call SetUpSFTs*/
-    /* some useful first stage params */
-    usefulParams.sftbasename = uvar.DataFiles;
-    usefulParams.nStacks = 1; //all data in one "stack" since CFS doesn't use stacks
 
-    INIT_MEM ( usefulParams.spinRange_startTime );
-    INIT_MEM ( usefulParams.spinRange_endTime );
-    INIT_MEM ( usefulParams.spinRange_refTime );
-    INIT_MEM ( usefulParams.spinRange_midTime );
-
-    /* copy user specified spin variables at reftime  */
-    /* the reference time value in spinRange_refTime will be set in SetUpSFTs() */
-    usefulParams.spinRange_refTime.fkdot[0] = uvar.Freq; /* frequency */
-    usefulParams.spinRange_refTime.fkdot[1] = uvar.f1dot;  /* 1st spindown */
-    usefulParams.spinRange_refTime.fkdotBand[0] = uvar.FreqBand; /* frequency range */
-    usefulParams.spinRange_refTime.fkdotBand[1] = uvar.f1dotBand; /* spindown range */
-
-    usefulParams.edat = GV.ephemeris;
-    XLALGPSSetREAL8(&usefulParams.minStartTimeGPS, uvar.minStartTime);
-    XLALGPSSetREAL8(&usefulParams.maxEndTimeGPS, uvar.maxEndTime);
-    usefulParams.blocksRngMed = uvar.RngMedWindow;
-    usefulParams.Dterms = uvar.Dterms;
-    usefulParams.SignalOnly = uvar.SignalOnly;
-    usefulParams.dopplerMax = uvar.dopplermax;
-
-    /* set reference time for pulsar parameters */
-    if ( LALUserVarWasSet(&uvar.refTime))
-      usefulParams.refTime = uvar.refTime;
-    else {
-      LogPrintf(LOG_DETAIL, "Reference time will be set to mid-time of observation time\n");
-      usefulParams.refTime = -1;
-    }
-
-    LAL_CALL( SetUpSFTs( &status, &stackMultiSFT, &stackMultiNoiseWeights, &stackMultiDetStates, &usefulParams), &status);
-
-    /* some useful params computed by SetUpSFTs */
-    tObs = usefulParams.tObs;
-    nStacks = usefulParams.nStacks;
-    tStartGPS = usefulParams.tStartGPS;
-    midTstack = usefulParams.midTstack;
-    startTstack = usefulParams.startTstack;
-    endTstack = usefulParams.endTstack;
-    tMidGPS = usefulParams.spinRange_midTime.refTime;
-    refTimeGPS = usefulParams.spinRange_refTime.refTime;
+    /* some useful timestamp params
+     FIXME: Do we actually need all these? */
+    tObs = GV.multiDetStates->Tspan;
+    nStacks = 1;
+    tStartGPS = GV.multiDetStates->startTime;
+    REAL8 tStart8 = XLALGPSGetREAL8( &tStartGPS );
+    REAL8 tMid8 = tStart8 + 0.5 * tObs;
+    XLALGPSSetREAL8( &tMidGPS, tMid8 );
+    refTimeGPS = tStartGPS;
 
     /* set Fstat calculation frequency resolution (coarse grid) */
     dFreqStack = 1.0/(2*tObs);	//To allow ComputeFstat_RS to handle freq. range
@@ -597,14 +518,10 @@ int main(int argc,char *argv[])
       df1dot = 1.0/(2*tObs*tObs);
     }
 
-    /* number of coarse grid spindown values */
-    nf1dot = (UINT4)( usefulParams.spinRange_midTime.fkdotBand[1] / df1dot + 1e-6) + 1;
-
     /* set number of fine-grid spindowns */
       sigmasq = 0.0; /* second moment of segments' midpoints */
       for (j = 0; j < nStacks; j++) {
-        midTstackGPS = midTstack->data[j];
-        timeDiffSeg = XLALGPSDiff( &midTstackGPS, &tMidGPS );
+        timeDiffSeg = 0.0;
         sigmasq = sigmasq + (timeDiffSeg * timeDiffSeg);
       }
       sigmasq = sigmasq / (nStacks * tObs * tObs);
@@ -737,14 +654,6 @@ int main(int argc,char *argv[])
         CFparams.upsampling = uvar_sftUpsampling;
         CFparams.edat = GV.ephemeris;
 
-        /* allocate memory for pos vel acc vectors */
-        posStack = XLALCreateREAL8VectorSequence( nStacks, 3 );
-        velStack = XLALCreateREAL8VectorSequence( nStacks, 3 );
-        accStack = XLALCreateREAL8VectorSequence( nStacks, 3 );
-
-        /* calculate Earth orbital positions, velocities and accelerations */
-        LAL_CALL( GetSegsPosVelAccEarthOrb( &status, &posStack, &velStack, &accStack, &usefulParams), &status);
-
         /* allocate some fstat memory */
         fstatVector.length = nStacks; /* for EACH segment generate a fstat-vector */
         fstatVector.data = NULL;
@@ -767,7 +676,7 @@ int main(int argc,char *argv[])
           for (k = 0; k < nStacks; k++) {
 
             /* watch out: the epoch here is not the reference time for f0! */
-            fstatVector.data[k].epoch = startTstack->data[k];
+            fstatVector.data[k].epoch = tStartGPS;
             fstatVector.data[k].deltaF = dFreqStack;
             fstatVector.data[k].f0 = uvar.Freq;
 
@@ -843,7 +752,7 @@ int main(int argc,char *argv[])
           /* point the params buffer to the current segment buffer */
 	  CFparams.buffer = resampbuffers.data[k];
 
-          LAL_CALL( COMPUTEFSTATFREQBAND_RS ( &status, &fstatVector.data[k], &dopplerpos, stackMultiSFT.data[k], stackMultiNoiseWeights.data[k], &CFparams), &status);
+          LAL_CALL( COMPUTEFSTATFREQBAND_RS ( &status, &fstatVector.data[k], &dopplerpos, GV.multiSFTs, GV.multiNoiseWeights, &CFparams), &status);
 
           /* repoint the buffer vector element to the potentially modified buffer */
 	  resampbuffers.data[k] = CFparams.buffer;
@@ -1208,11 +1117,6 @@ int main(int argc,char *argv[])
       if ( uvar.useResamp ) {
         LALFree(fstatVector.data);
 
-        /* free Vel/Pos/Acc vectors and ephemeris */
-        XLALDestroyREAL8VectorSequence( posStack );
-        XLALDestroyREAL8VectorSequence( velStack );
-        XLALDestroyREAL8VectorSequence( accStack );
-
         /* free buffer */
         for (l=0;l<resampbuffers.length;l++) {
           XLALEmptyComputeFBuffer_RS( resampbuffers.data[l] );
@@ -1354,25 +1258,6 @@ int main(int argc,char *argv[])
 
   XLALEmptyComputeFBuffer ( &cfBuffer );
   XLALEmptyComputeFBufferREAL4 ( &cfBuffer4 );
-
-  if (uvar.useResamp) {
-    /* free first stage memory--resampling */
-    for (k=0; k<nStacks; k++) {
-    LAL_CALL( LALDestroyMultiSFTVector ( &status, stackMultiSFT.data + k), &status);
-    LAL_CALL( LALDestroyMultiNoiseWeights ( &status, stackMultiNoiseWeights.data + k), &status);
-    XLALDestroyMultiDetectorStateSeries ( stackMultiDetStates.data[k] );
-      }
-    if (stackMultiSFT.data)
-      LALFree(stackMultiSFT.data);
-    if (stackMultiNoiseWeights.data)
-      LALFree(stackMultiNoiseWeights.data);
-    if (stackMultiDetStates.data)
-      LALFree(stackMultiDetStates.data);
-
-    XLALDestroyTimestampVector(startTstack);
-    XLALDestroyTimestampVector(midTstack);
-    XLALDestroyTimestampVector(endTstack);
-  }
 
   /* free memory allocated for binary parameters */
   if (orbitalParams) LALFree(orbitalParams);
@@ -1680,351 +1565,6 @@ InitEphemeris (LALStatus * status,	/**< pointer to LALStatus structure */
 
 } /* InitEphemeris() */
 
-
-
-//Initialization Code for COMPUTEFSTATFREQBAND_RS
-/** Set up stacks, read SFTs, calculate SFT noise weights and calculate detector-state */
-void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
-		MultiSFTVectorSequence *stackMultiSFT, /**< output multi sft vector for each stack */
-		MultiNoiseWeightsSequence *stackMultiNoiseWeights, /**< output multi noise weights for each stack */
-		MultiDetectorStateSeriesSequence *stackMultiDetStates, /**< output multi detector states for each stack */
-		UsefulStageVariables *in /**< input params */)
-{
-
-  SFTCatalog *catalog = NULL;
-  static SFTConstraints constraints;
-  REAL8 timebase, tObs, deltaFsft;
-  UINT4 k,numSFT;
-  LIGOTimeGPS tStartGPS, tEndGPS, refTimeGPS, tMidGPS, midTstackGPS, startTstackGPS, endTstackGPS;
-  SFTCatalogSequence catalogSeq;
-  REAL8 midTseg,startTseg,endTseg;
-
-  REAL8 doppWings, freqmin, freqmax;
-  REAL8 startTime_freqLo, startTime_freqHi;
-  REAL8 endTime_freqLo, endTime_freqHi;
-  REAL8 freqLo, freqHi;
-  INT4 extraBins;
-
-  INT4 sft_check_result = 0;
-
-  INITSTATUS( status);
-  ATTATCHSTATUSPTR (status);
-
-  /* get sft catalog */
-  constraints.startTime = &(in->minStartTimeGPS);
-  constraints.endTime = &(in->maxEndTimeGPS);
-  TRY( LALSFTdataFind( status->statusPtr, &catalog, in->sftbasename, &constraints), status);
-
-  /* check CRC sums of SFTs */
-  TRY ( LALCheckSFTCatalog ( status->statusPtr, &sft_check_result, catalog ), status );
-  if (sft_check_result) {
-    LogPrintf(LOG_CRITICAL,"SFT validity check failed (%d)\n", sft_check_result);
-    ABORT ( status, HIERARCHICALSEARCH_ESFT, HIERARCHICALSEARCH_MSGESFT );
-  }
-
-  /* set some sft parameters */
-  deltaFsft = catalog->data[0].header.deltaF;
-  timebase = 1.0/deltaFsft;
-
-  /* calculate start and end times and tobs from catalog*/
-  tStartGPS = catalog->data[0].header.epoch;
-  in->tStartGPS = tStartGPS;
-  tEndGPS = catalog->data[catalog->length - 1].header.epoch;
-  XLALGPSAdd(&tEndGPS, timebase);
-  tObs = XLALGPSDiff(&tEndGPS, &tStartGPS);
-  in->tObs = tObs;
-
-  /* get sft catalogs for each stack */
-  TRY( SetUpStacks( status->statusPtr, &catalogSeq, in->tObs, catalog, in->nStacks), status);
-
-  /* reset number of stacks */
-  in->nStacks = catalogSeq.length;
-
-  /* get timestamps of start, mid and end times of each stack */
-  /* set up vector containing mid times of stacks */
-  in->midTstack =  XLALCreateTimestampVector ( in->nStacks );
-
-  /* set up vector containing start times of stacks */
-  in->startTstack =  XLALCreateTimestampVector ( in->nStacks );
-
-  /* set up vector containing end times of stacks */
-  in->endTstack =  XLALCreateTimestampVector ( in->nStacks );
-
-  /* now loop over stacks and get time stamps */
-  for (k = 0; k < in->nStacks; k++) {
-
-    if ( catalogSeq.data[k].length == 0 ) {
-      /* something is wrong */
-      ABORT ( status, HIERARCHICALSEARCH_EVAL, HIERARCHICALSEARCH_MSGEVAL );
-    }
-
-    /* start time of stack = time of first sft in stack */
-    in->startTstack->data[k] = catalogSeq.data[k].data[0].header.epoch;
-
-    /* end time of stack = time of last sft in stack */
-    numSFT = catalogSeq.data[k].length;
-    in->endTstack->data[k] = catalogSeq.data[k].data[numSFT - 1].header.epoch;
-
-    /* reference time for Fstat has to be midpoint of segment */
-    startTstackGPS = in->startTstack->data[k];
-    endTstackGPS = in->endTstack->data[k];
-
-    startTseg = XLALGPSGetREAL8( &startTstackGPS );
-    endTseg = XLALGPSGetREAL8( &endTstackGPS );
-    /*
-    TRY ( LALGPStoFloat( status->statusPtr, &startTseg, &startTstackGPS ), status);
-    TRY ( LALGPStoFloat( status->statusPtr, &endTseg, &endTstackGPS ), status);
-    */
-    midTseg = startTseg + ((endTseg - startTseg + timebase)*0.5);
-
-    XLALGPSSetREAL8( &midTstackGPS, midTseg );
-    /*
-    TRY ( LALFloatToGPS( status->statusPtr, &midTstackGPS, &midTseg), status);
-    */
-    in->midTstack->data[k] = midTstackGPS;
-
-  } /* loop over k */
-
-
-  /* set reference time for pulsar parameters */
-  /* first calculate the mid time of observation time span*/
-  {
-    REAL8 tStart8, tEnd8, tMid8;
-
-    tStart8 = XLALGPSGetREAL8( &tStartGPS );
-    tEnd8   = XLALGPSGetREAL8( &tEndGPS );
-    tMid8 = 0.5 * (tStart8 + tEnd8);
-    XLALGPSSetREAL8( &tMidGPS, tMid8 );
-  }
-
-  if ( in->refTime > 0 )  {
-    REAL8 refTime = in->refTime;
-    XLALGPSSetREAL8(&refTimeGPS, refTime);
-  }
-  else {  /* set refTime to exact midtime of the total observation-time spanned */
-    refTimeGPS = tMidGPS;
-  }
-
-  /* get frequency and fdot bands at start time of sfts by extrapolating from reftime */
-  in->spinRange_refTime.refTime = refTimeGPS;
-  TRY( LALExtrapolatePulsarSpinRange( status->statusPtr, &in->spinRange_startTime, tStartGPS, &in->spinRange_refTime), status);
-  TRY( LALExtrapolatePulsarSpinRange( status->statusPtr, &in->spinRange_endTime, tEndGPS, &in->spinRange_refTime), status);
-  TRY( LALExtrapolatePulsarSpinRange( status->statusPtr, &in->spinRange_midTime, tMidGPS, &in->spinRange_refTime), status);
-
-
-  /* set wings of sfts to be read */
-  /* the wings must be enough for the Doppler shift and extra bins
-     for the running median block size and Dterms for Fstat calculation.
-     In addition, it must also include wings for the spindown correcting
-     for the reference time  */
-  /* calculate Doppler wings at the highest frequency */
-  startTime_freqLo = in->spinRange_startTime.fkdot[0]; /* lowest search freq at start time */
-  startTime_freqHi = startTime_freqLo + in->spinRange_startTime.fkdotBand[0]; /* highest search freq. at start time*/
-  endTime_freqLo = in->spinRange_endTime.fkdot[0];
-  endTime_freqHi = endTime_freqLo + in->spinRange_endTime.fkdotBand[0];
-
-  freqLo = MYMIN ( startTime_freqLo, endTime_freqLo );
-  freqHi = MYMAX ( startTime_freqHi, endTime_freqHi );
-  doppWings = freqHi * in->dopplerMax;    /* maximum Doppler wing -- probably larger than it has to be */
-  extraBins = MYMAX ( in->blocksRngMed/2 + 1, in->Dterms );
-
-  freqmin = freqLo - doppWings - extraBins * deltaFsft;
-  freqmax = freqHi + doppWings + extraBins * deltaFsft;
-
-  /* ----- finally memory for segments of multi sfts ----- */
-  stackMultiSFT->length = in->nStacks;
-  stackMultiSFT->data = (MultiSFTVector **)LALCalloc(1, in->nStacks * sizeof(MultiSFTVector *));
-  if ( stackMultiSFT->data == NULL ) {
-    ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  }
-
-  stackMultiDetStates->length = in->nStacks;
-  stackMultiDetStates->data = (MultiDetectorStateSeries **)LALCalloc(1, in->nStacks * sizeof(MultiDetectorStateSeries *));
-  if ( stackMultiDetStates->data == NULL ) {
-    ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  }
-
-  stackMultiNoiseWeights->length = in->nStacks;
-  if ( in->SignalOnly )  {
-    stackMultiNoiseWeights->data = (MultiNoiseWeights **)LALMalloc(in->nStacks * sizeof(MultiNoiseWeights *));
-    if ( stackMultiNoiseWeights->data == NULL ) {
-      ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-    }
-  }
-  else {
-    stackMultiNoiseWeights->data = (MultiNoiseWeights **)LALCalloc(1, in->nStacks * sizeof(MultiNoiseWeights *));
-    if ( stackMultiNoiseWeights->data == NULL ) {
-      ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-    }
-  }
-
-
-  /* loop over segments and read sfts */
-  for (k = 0; k < in->nStacks; k++) {
-
-    /* ----- load the multi-IFO SFT-vectors ----- */
-    TRY( LALLoadMultiSFTs ( status->statusPtr, stackMultiSFT->data + k,  catalogSeq.data + k,
-                          freqmin, freqmax ), status);
-
-    /* ----- obtain the (multi-IFO) 'detector-state series' for all SFTs ----- */
-    TRY ( LALGetMultiDetectorStates ( status->statusPtr, stackMultiDetStates->data + k,
-                                    stackMultiSFT->data[k], in->edat ), status );
-
-    /* ----- normalize sfts and compute noise weights ----- */
-    if ( in->SignalOnly )  {
-      stackMultiNoiseWeights->data[k] = NULL;
-    }
-    else {
-      MultiPSDVector *psd = NULL;
-      TRY( LALNormalizeMultiSFTVect ( status->statusPtr, &psd, stackMultiSFT->data[k],
-                                    in->blocksRngMed ), status );
-      TRY( LALComputeMultiNoiseWeights  ( status->statusPtr, stackMultiNoiseWeights->data + k,
-                                        psd, in->blocksRngMed, 0 ), status );
-      TRY ( LALDestroyMultiPSDVector ( status->statusPtr, &psd ), status );
-    } /* if ( in->SignalOnly )  */
-
-
-  } /* loop over k */
-
-
-
-  /* realloc if nStacks != in->nStacks */
-  /*   if ( in->nStacks > nStacks ) { */
-
-  /*     in->midTstack->length = nStacks; */
-  /*     in->midTstack->data = (LIGOTimeGPS *)LALRealloc( in->midTstack->data, nStacks * sizeof(LIGOTimeGPS)); */
-
-  /*     in->startTstack->length = nStacks; */
-  /*     in->startTstack->data = (LIGOTimeGPS *)LALRealloc( in->startTstack->data, nStacks * sizeof(LIGOTimeGPS)); */
-
-  /*     stackMultiSFT->length = nStacks; */
-  /*     stackMultiSFT->data = (MultiSFTVector **)LALRealloc( stackMultiSFT->data, nStacks * sizeof(MultiSFTVector *)); */
-
-  /*   }  */
-
-  /* we don't need the original catalog anymore*/
-  TRY( LALDestroySFTCatalog( status->statusPtr, &catalog ), status);
-
-  /* free catalog sequence */
-  for (k = 0; k < in->nStacks; k++)
-    {
-      if ( catalogSeq.data[k].length > 0 ) {
-        LALFree(catalogSeq.data[k].data);
-      } /* end if */
-    } /* loop over stacks */
-  LALFree( catalogSeq.data);
-
-
-#ifdef OUTPUT_TIMING
-  /* need to count the total number of SFTs */
-  nSFTs = 0;
-  for ( k = 0; k < in->nStacks; k ++ )
-    {
-      UINT4 X;
-      for ( X=0; X < stackMultiSFT->data[k]->length; X ++ )
-        nSFTs += stackMultiSFT->data[k]->data[X]->length;
-    } /* for k < stacks */
-#endif
-
-  DETATCHSTATUSPTR (status);
-  RETURN(status);
-
-} /* SetUpSFTs */
-
-void SetUpStacks(LALStatus *status,	   /**< pointer to LALStatus structure */
-		 SFTCatalogSequence  *out, /**< Output catalog of sfts -- one for each stack */
-		 REAL8 tObs,               /**< Output duration of observation */
-		 SFTCatalog  *in,          /**< Input sft catalog to be broken up into stacks (ordered in increasing time)*/
-		 UINT4 nStacksMax )        /**< User specified number of stacks */
-{
-  UINT4 j, stackCounter, length;
-  REAL8 tStart, thisTime;
-  REAL8 Tsft;
-
-  INITSTATUS( status);
-  ATTATCHSTATUSPTR (status);
-
-  /* check input parameters */
-  ASSERT ( in != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  ASSERT ( in->length > 0, status, HIERARCHICALSEARCH_EVAL, HIERARCHICALSEARCH_MSGEVAL );
-  ASSERT ( nStacksMax > 0, status, HIERARCHICALSEARCH_EVAL, HIERARCHICALSEARCH_MSGEVAL );
-  ASSERT ( in != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  ASSERT ( tObs > 0, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  ASSERT ( out != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-
-  /* set memory of output catalog sequence to maximum possible length */
-  out->length = nStacksMax;
-  out->data = (SFTCatalog *)LALCalloc( 1, nStacksMax * sizeof(SFTCatalog));
-  if ( out->data == NULL ) {
-    ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  }
-
-
-  Tsft = 1.0 / in->data[0].header.deltaF;
-
-  /* get first sft timestamp */
-  /* tStart will be start time of a given stack.
-     This initializes tStart to the first sft time stamp as this will
-     be the start time of the first stack */
-  tStart = XLALGPSGetREAL8(&(in->data[0].header.epoch));
-
-  /* loop over the sfts */
-  stackCounter = 0;
-  for( j = 0; j < in->length; j++)
-    {
-      /* thisTime is current sft timestamp */
-      thisTime = XLALGPSGetREAL8(&(in->data[j].header.epoch));
-
-      /* if sft lies in stack duration then add
-         this sft to the stack. Otherwise move
-         on to the next stack */
-      if ( (thisTime - tStart + Tsft <= tObs) )
-         {
-          out->data[stackCounter].length += 1;
-
-          length = out->data[stackCounter].length;
-
-         /* realloc to increase length of catalog */
-          out->data[stackCounter].data = (SFTDescriptor *)LALRealloc( out->data[stackCounter].data, length * sizeof(SFTDescriptor));
-          if ( out->data[stackCounter].data == NULL ) {
-            ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-          }
-
-          out->data[stackCounter].data[length - 1] = in->data[j];
-        }
-      else /* move onto the next stack */
-        {
-          if ( stackCounter + 1 == nStacksMax )
-            break;
-
-          stackCounter++;
-
-          /* reset start time of stack */
-          tStart = XLALGPSGetREAL8(&(in->data[j].header.epoch));
-
-          /* realloc to increase length of catalog and copy data */
-          out->data[stackCounter].length = 1;    /* first entry in new stack */
-          out->data[stackCounter].data = (SFTDescriptor *)LALRealloc( out->data[stackCounter].data, sizeof(SFTDescriptor));
-          if ( out->data[stackCounter].data == NULL ) {
-            ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-          }
-
-          out->data[stackCounter].data[0] = in->data[j];
-        } /* if new stack */
-
-    } /* loop over sfts */
-
-  /* realloc catalog sequence length to actual number of stacks */
-  out->length = stackCounter + 1;
-  out->data = (SFTCatalog *)LALRealloc( out->data, (stackCounter+1) * sizeof(SFTCatalog) );
-  if ( out->data == NULL ) {
-    ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  }
-
-  DETATCHSTATUSPTR (status);
-  RETURN(status);
-
-} /* SetUpStacks() */
 
 /** Initialized Fstat-code: handle user-input and set everything up.
  * NOTE: the logical *order* of things in here is very important, so be careful
@@ -2861,76 +2401,6 @@ checkUserInputConsistency (LALStatus *status, const UserInput_t *uvar)
   RETURN (status);
 } /* checkUserInputConsistency() */
 
-/** Calculate Earth orbital position, velocity and acceleration
- *     at midpoint of each segment */
-void GetSegsPosVelAccEarthOrb( LALStatus *status,
-		       REAL8VectorSequence **posSeg,
-		       REAL8VectorSequence **velSeg,
-		       REAL8VectorSequence **accSeg,
-		       UsefulStageVariables *usefulparams)
-{
-
-  UINT4 k, nStacks;
-  LIGOTimeGPSVector *tsMid;
-  vect3Dlist_t *pvaUR = NULL;
-
-  INITSTATUS( status);
-  ATTATCHSTATUSPTR (status);
-
-  ASSERT ( usefulparams != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  ASSERT ( usefulparams->nStacks > 0, status, HIERARCHICALSEARCH_EVAL, HIERARCHICALSEARCH_MSGEVAL );
-  ASSERT ( usefulparams->midTstack != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  ASSERT ( posSeg != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  ASSERT ( velSeg != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-  ASSERT ( accSeg != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
-
-  /* local copies */
-  nStacks = usefulparams->nStacks;
-  tsMid =  usefulparams->midTstack;
-
-  /* get pos,vel,acc at midpoint of each segment*/
-  for (k = 0; k < nStacks; k++)
-    {
-      /* initialize velocities and positions */
-      posSeg[0]->data[3*k]   = 0.0;
-      posSeg[0]->data[3*k+1] = 0.0;
-      posSeg[0]->data[3*k+2] = 0.0;
-
-      velSeg[0]->data[3*k]   = 0.0;
-      velSeg[0]->data[3*k+1] = 0.0;
-      velSeg[0]->data[3*k+2] = 0.0;
-
-      accSeg[0]->data[3*k]   = 0.0;
-      accSeg[0]->data[3*k+1] = 0.0;
-      accSeg[0]->data[3*k+2] = 0.0;
-
-      /* get Earth's orbital pos vel acc  */
-      if ( (pvaUR = XLALComputeOrbitalDerivatives(3, &tsMid->data[k], usefulparams->edat) ) == NULL ) {
-        LogPrintf(LOG_CRITICAL,"GetSegsPosVelAccEarthOrb(): XLALComputeOrbitalDerivatives() failed.\n");
-        ABORT ( status, HIERARCHICALSEARCH_ESFT, HIERARCHICALSEARCH_MSGESFT );
-      }
-
-      posSeg[0]->data[3*k]   = pvaUR->data[0][0];
-      posSeg[0]->data[3*k+1] = pvaUR->data[0][1];
-      posSeg[0]->data[3*k+2] = pvaUR->data[0][2];
-
-      velSeg[0]->data[3*k]   = pvaUR->data[1][0];
-      velSeg[0]->data[3*k+1] = pvaUR->data[1][1];
-      velSeg[0]->data[3*k+2] = pvaUR->data[1][2];
-
-      accSeg[0]->data[3*k]   = pvaUR->data[2][0];
-      accSeg[0]->data[3*k+1] = pvaUR->data[2][1];
-      accSeg[0]->data[3*k+2] = pvaUR->data[2][2];
-
-      XLALDestroyVect3Dlist ( pvaUR );
-
-    } /* loop over segment -- end pos vel acc of Earth's orbital motion */
-
-
-  DETATCHSTATUSPTR (status);
-  RETURN(status);
-
-} /* GetSegsPosVelAccEarthOrb() */
 
 /* debug-output a(t) and b(t) into given file.
  * return 0 = OK, -1 on error
