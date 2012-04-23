@@ -47,6 +47,9 @@ parser.add_option("", "--apply-weights", action="store_true", default=False, hel
 parser.add_option("", "--start-time", default=0, type="int", help="the gps start time for window of desired coincs")
 parser.add_option("", "--end-time", default=999999999, type="int", help="the gps end time for window of desired coincs")
 parser.add_option("", "--check-weights", action="store_true", default=False,help="turn on if you want a plot of cumulative weights v. distance")
+parser.add_option("", "--exact-tag", default="ring_exact", help="this is the dbinjfind tag stored in the sqlite database for the exactly found injections - the ones you want to use for training")
+parser.add_option("", "--nearby-tag", default="ring_nearby", help="this is the dbinjfind tag stored in the sqlite for the nearby injections - we will still rank all of these")
+
 (opts,databases)=parser.parse_args()
 ifos=opts.instruments.strip().split(',')
 ifos.sort()
@@ -185,11 +188,11 @@ for database in databases:
 		is_injections = False
 # please note that the third to last entry in exact_injections and all_injections is the gps time of the coinc_inspiral. We will only be using this for bookkeeping, it will not stay in the array
 	if is_injections:
-		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) ):
+		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) ):
 			all_injections.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:-1] + (1,))
 			all_injections_info.append([values[0], database])
 			all_injections_distance.append([values[-1], database])
-		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) ):
+		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.exact_tag,) ):
 			exact_injections.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:-1] + (1,))
 			exact_injections_info.append([values[0], database])
 			exact_injections_distance.append([values[-1], database])
