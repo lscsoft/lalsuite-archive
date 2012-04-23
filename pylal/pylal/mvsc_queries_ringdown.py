@@ -79,7 +79,11 @@ class CandidateEventQuery:
 			AND snglA.ifo == ?
 			AND snglB.ifo == ?
 			AND snglA.start_time > ?
-			AND snglA.start_time < ?"""
+			AND snglA.start_time < ?
+			AND ( 
+				(process_params.program == 'rinj' AND process_params.param == '--waveform' )
+				OR (process_params.program == 'inspinj'AND process_params.param == '--d-distr') 
+			)"""
 	add_where_all="""
 			AND coinc_definer.description == ?
 		ORDER BY coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001"""
