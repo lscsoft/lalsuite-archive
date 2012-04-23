@@ -80,6 +80,7 @@ class LigolwSegmentList(object):
 		"""
 		self.valid.coalesce()
 		self.active.coalesce()
+		return self
 
 
 #
@@ -164,6 +165,7 @@ class LigolwSegments(object):
 		"""
 		for ligolw_segment_list in self.segment_lists:
 			ligolw_segment_list.coalesce()
+		return self
 
 
 	def sort(self, *args):
